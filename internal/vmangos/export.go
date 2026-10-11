@@ -200,7 +200,7 @@ func objectIn(tileX, tileY int, o ObjectSpec) (adt.Object, error) {
 	}
 	out.Position = [3]float32{float32(tileX)*adt.TileSize + o.X, o.Y, float32(tileY)*adt.TileSize + o.Z}
 	yaw := float64(o.RotY) * 180 / math.Pi
-	out.Rotation = [3]float32{0, float32(yaw + 90), 90}
+	out.Rotation = [3]float32{0, float32(yaw + 90), 0}
 	out.Scale = o.Scale
 	if out.Scale == 0 {
 		out.Scale = 1

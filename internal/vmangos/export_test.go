@@ -131,3 +131,14 @@ func TestExportMapWritesTilesAndTable(t *testing.T) {
 		t.Fatal("a map ID the client already uses was accepted")
 	}
 }
+
+// Upright models carry only their yaw, in the middle rotation value (as the client's own placements do).
+func TestObjectRotationIsYawOnly(t *testing.T) {
+	o, err := objectIn(0, 0, ObjectSpec{Type: `m2:World\Test\Tree.m2`, X: 1, Y: 2, Z: 3, RotY: 0, Scale: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.Rotation[0] != 0 || o.Rotation[2] != 0 {
+		t.Fatalf("an upright model is tilted: %v", o.Rotation)
+	}
+}
