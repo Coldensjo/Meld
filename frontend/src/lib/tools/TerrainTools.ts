@@ -4,6 +4,7 @@ import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
 import type { Terrain } from '../terrain/Terrain'
+import type { SculptLimit } from '../state/editor.svelte'
 
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
 const CHUNK_FULL = 'That chunk already has four textures (the 1.12 limit). Paint with one of them, or erase another.'
@@ -81,6 +82,11 @@ function averageHeight(t: Terrain, x: number, z: number, radius: number, falloff
   return weight > 0 ? sum / weight : t.heightAt(x, z)
 }
 
+/** Whether ground at height `v` may change under the sculpt limit, given the cursor's height. */
+function keeps(v: number, limit: SculptLimit, cursorY: number): boolean {
+  return limit === 'none' || (limit === 'above' ? v > cursorY : v < cursorY)
+}
+
 export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
   protected records = { heights: true }
@@ -102,13 +108,18 @@ export class SculptTool extends BrushTool {
     const { radius, strength, falloff } = editor.brush
     const rate = strength * dt
     const mode = editor.sculptMode
+    // The edit limit compares each vertex with the height under the cursor.
+    const limit = editor.sculptLimit
+    const cursorY = hit.y
     let rect: Rect | null = null
 
     switch (mode) {
       case 'raise':
       case 'lower': {
         const s = (mode === 'raise' ? 1 : -1) * RAISE_RATE * rate
-        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => (h[i] += s * w))
+        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
+          if (keeps(h[i], limit, cursorY)) h[i] += s * w
+        })
         break
       }
       case 'flatten': {
@@ -119,7 +130,7 @@ export class SculptTool extends BrushTool {
           const d = target - h[i]
           // Raise-only and lower-only leave ground on the far side of the target alone.
           if ((dir === 'raise' && d <= 0) || (dir === 'lower' && d >= 0)) return
-          h[i] += d * w * k
+          if (keeps(h[i], limit, cursorY)) h[i] += d * w * k
         })
         break
       }
@@ -131,6 +142,7 @@ export class SculptTool extends BrushTool {
         const src = this.scratch
         const k = Math.min(1, rate * 10)
         rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w, x, z) => {
+          if (!keeps(h[i], limit, cursorY)) return
           let sum = 0, n = 0
           for (let dz = -1; dz <= 1; dz++) {
             const zz = z + dz
@@ -150,7 +162,7 @@ export class SculptTool extends BrushTool {
         const s = RAISE_RATE * rate * 0.6
         const cs = t.cellSize
         rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w, x, z) => {
-          h[i] += (fbm(x * cs * 0.08, z * cs * 0.08, 4, 5) - 0.5) * 2 * s * w
+          if (keeps(h[i], limit, cursorY)) h[i] += (fbm(x * cs * 0.08, z * cs * 0.08, 4, 5) - 0.5) * 2 * s * w
         })
         break
       }
@@ -158,6 +170,7 @@ export class SculptTool extends BrushTool {
         const s = RAISE_RATE * rate * 1.6
         const cs = t.cellSize
         rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w, x, z) => {
+          if (!keeps(h[i], limit, cursorY)) return
           const r = ridged(x * cs * 0.025, z * cs * 0.025, 5, 13)
           h[i] += r * r * s * w * w
         })

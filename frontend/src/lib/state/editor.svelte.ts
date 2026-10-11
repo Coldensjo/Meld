@@ -13,6 +13,8 @@ export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'm
 export type FlattenTarget = 'origin' | 'average'
 /** Flatten direction: move ground both ways, or only up or only down toward the target. */
 export type FlattenDir = 'both' | 'raise' | 'lower'
+/** Sculpt edit limit: change ground everywhere, or only the ground above or below the cursor's height. */
+export type SculptLimit = 'none' | 'above' | 'below'
 export type WaterMode = 'dig' | 'shore'
 
 export interface SelectedInfo {
@@ -41,6 +43,7 @@ export const editor = $state({
   sculptMode: 'raise' as SculptMode,
   flattenTarget: 'origin' as FlattenTarget,
   flattenDir: 'both' as FlattenDir,
+  sculptLimit: 'none' as SculptLimit,
   paintLayer: 0,
   /** Paint tool: paint textures, or paint the mask that texture fills apply to. */
   paintMode: 'texture' as 'texture' | 'mask',

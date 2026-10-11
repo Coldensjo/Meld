@@ -53,6 +53,11 @@
         <option value="lower">Lower only</option>
       </select>
     {/if}
+    <select class="curve" bind:value={editor.sculptLimit} title="Only change ground above or below the height under the cursor" aria-label="Edit limit">
+      <option value="none">Any height</option>
+      <option value="above">Only above cursor</option>
+      <option value="below">Only below cursor</option>
+    </select>
     <div class="divider"></div>
   {:else if editor.tool === 'paint' || editor.tool === 'road'}
     <button class="chip" onclick={() => (ui.palette = 'textures')} title="Active texture layer (pick textures in the Assets panel)">
