@@ -3,13 +3,15 @@ import { Terrain, type GenerateKind } from '../terrain/Terrain'
 import { Water } from '../water/Water'
 import { ObjectLayer } from '../world/ObjectLayer'
 import { History } from '../state/history'
-import { editor, stats, type ToolId } from '../state/editor.svelte'
+import { editor, setStatus, stats, type ToolId } from '../state/editor.svelte'
 import { CameraController } from './CameraController'
 import { HORIZON, createSky } from './Sky'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
 import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
 import type { WorldObject } from '../world/ObjectLayer'
+import { getLayerTextures } from '../terrain/textures'
+import { loadTexture, setMaxAnisotropy } from '../wow/api'
 
 export interface MapSnapshot {
   name: string
@@ -19,6 +21,8 @@ export interface MapSnapshot {
   waterLevel: number
   waterEnabled: boolean
   objects: Array<Omit<WorldObject, 'id'>>
+  layerTextures: string[]
+  texScale: number
   heights: Uint8Array
   splatA: Uint8Array
   splatB: Uint8Array
@@ -56,6 +60,8 @@ export class Engine {
   private frames = 0
   private statTime = 0
   private resizeObs: ResizeObserver
+  /** Layer texture paths currently bound to the terrain shader. */
+  private boundLayers: string[] = []
   private abort = new AbortController()
 
   constructor(
@@ -80,6 +86,7 @@ export class Engine {
     this.scene.add(hemi, sun)
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
+    setMaxAnisotropy(aniso)
     this.terrain = new Terrain(256, aniso)
     this.water = new Water(this.terrain.worldSize)
     this.objects = new ObjectLayer(this.terrain)
@@ -232,7 +239,9 @@ export class Engine {
     if (this.leftDown) tool.tick?.(this.ctx, dt, this.hit)
     tool.frame?.(this.ctx, this.hit)
 
+    this.syncLayerTextures()
     const u = this.terrain.material.uniforms
+    u.texScale.value = editor.texScale
     u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
     if (this.hit) u.brushPos.value.set(this.hit.x, this.hit.z)
     u.brushRadius.value = editor.tool === 'road' ? Math.max(1.5, editor.brush.radius * 0.5) : editor.brush.radius
@@ -260,6 +269,32 @@ export class Engine {
     }
   }
 
+  /** Bind each paint layer to its procedural or WoW tileset texture. */
+  private syncLayerTextures() {
+    const want = editor.layerTextures
+    for (let i = 0; i < want.length; i++) {
+      const path = want[i] ?? ''
+      if (this.boundLayers[i] === path) continue
+      this.boundLayers[i] = path
+      const uniform = this.terrain.material.uniforms['tex' + i]
+      const procedural = getLayerTextures(this.renderer.capabilities.getMaxAnisotropy())[i]
+      if (!path) {
+        uniform.value = procedural
+        continue
+      }
+      const material = this.terrain.material
+      loadTexture(path)
+        .then((t) => {
+          // Ignore if the layer changed again or the terrain was replaced.
+          if (this.boundLayers[i] === path && this.terrain.material === material) uniform.value = t
+        })
+        .catch((e) => {
+          setStatus(`Texture failed: ${e}`, 6000)
+          if (this.boundLayers[i] === path) uniform.value = procedural
+        })
+    }
+  }
+
   // ---------------------------------------------------------------- map ops
 
   private replaceTerrain(size: number) {
@@ -276,6 +311,7 @@ export class Engine {
     this.scene.fog = new THREE.Fog(HORIZON, this.terrain.worldSize * 0.5, this.terrain.worldSize * 2.2)
     this.history.clear()
     editor.selected = null
+    this.boundLayers = []
   }
 
   newMap(size: number, kind: GenerateKind, seed: number) {
@@ -299,6 +335,8 @@ export class Engine {
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
       objects: this.objects.list().map(({ id: _id, ...o }) => o),
+      layerTextures: [...editor.layerTextures],
+      texScale: editor.texScale,
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       splatA: t.splatA,
       splatB: t.splatB,
@@ -319,6 +357,8 @@ export class Engine {
     editor.mapName = m.name || 'Untitled'
     editor.waterLevel = m.waterLevel
     editor.waterEnabled = m.waterEnabled
+    editor.layerTextures = Array.from({ length: 8 }, (_, i) => m.layerTextures[i] ?? '')
+    editor.texScale = m.texScale || 8
     const c = t.worldSize / 2
     this.controller.focus(c, c, t.worldSize * 0.35)
     editor.dirty = false

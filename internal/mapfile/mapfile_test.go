@@ -24,7 +24,9 @@ func sample(size, splat int) *MapData {
 		Header: Header{
 			Name: "test", Size: size, CellSize: 2, SplatRes: splat,
 			WaterLevel: 1.5, WaterEnabled: true,
-			Objects: []PlacedObject{{Type: "oak", X: 1, Z: 2, RotY: 0.5, Scale: 1.2}},
+			Objects:       []PlacedObject{{Type: "oak", X: 1, Z: 2, RotY: 0.5, Scale: 1.2}},
+			LayerTextures: []string{"", `Tileset\Elwynn\ElwynnGrassBase.blp`},
+			TexScale:      4,
 		},
 		Heights: base64.StdEncoding.EncodeToString(h),
 		SplatA:  base64.StdEncoding.EncodeToString(a),
@@ -47,6 +49,9 @@ func TestRoundTrip(t *testing.T) {
 	}
 	if got.Name != "test" || got.WaterLevel != 1.5 || !got.WaterEnabled {
 		t.Fatalf("header mismatch: %+v", got.Header)
+	}
+	if len(got.LayerTextures) != 2 || got.LayerTextures[1] != m.LayerTextures[1] || got.TexScale != 4 {
+		t.Fatalf("layer textures mismatch: %+v", got.LayerTextures)
 	}
 	if len(got.Objects) != 1 || got.Objects[0].Type != "oak" || got.Objects[0].Scale != 1.2 {
 		t.Fatalf("objects mismatch: %+v", got.Objects)

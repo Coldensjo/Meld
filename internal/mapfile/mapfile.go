@@ -44,12 +44,16 @@ type PlacedObject struct {
 // Header is the JSON metadata section of a map file.
 type Header struct {
 	Name         string         `json:"name"`
-	Size         int            `json:"size"`      // terrain cells per side
-	CellSize     float64        `json:"cellSize"`  // world units per cell
-	SplatRes     int            `json:"splatRes"`  // splat texture resolution per side
+	Size         int            `json:"size"`     // terrain cells per side
+	CellSize     float64        `json:"cellSize"` // world units per cell
+	SplatRes     int            `json:"splatRes"` // splat texture resolution per side
 	WaterLevel   float64        `json:"waterLevel"`
 	WaterEnabled bool           `json:"waterEnabled"`
 	Objects      []PlacedObject `json:"objects"`
+	// LayerTextures optionally overrides each paint layer with a WoW tileset
+	// path ("" = built-in procedural texture). Added after v1; optional.
+	LayerTextures []string `json:"layerTextures,omitempty"`
+	TexScale      float64  `json:"texScale,omitempty"`
 }
 
 // MapData is the bridge representation exchanged with the frontend.

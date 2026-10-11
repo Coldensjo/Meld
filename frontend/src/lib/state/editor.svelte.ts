@@ -32,6 +32,9 @@ export const editor = $state({
   selected: null as SelectedInfo | null,
   grid: false,
   autoCliff: true,
+  /** Per paint layer: WoW tileset path, or '' for the built-in texture. */
+  layerTextures: ['', '', '', '', '', '', '', ''] as string[],
+  texScale: 8,
   mapName: 'Untitled',
   filePath: '',
   dirty: false,
@@ -45,11 +48,24 @@ export const stats = $state({
   cursor: null as { x: number; y: number; z: number } | null,
 })
 
+/** Local WoW client used as an asset source (read live from its MPQs). */
+export const wow = $state({
+  path: '',
+  loaded: false,
+  loading: false,
+  error: '',
+  files: 0,
+  /** Bumped whenever the client changes so lists refetch. */
+  revision: 0,
+})
+
 export const ui = $state({
   status: 'Ready',
   canUndo: false,
   canRedo: false,
   showNewDialog: false,
+  /** Paint layer whose texture picker is open, or null. */
+  texturePickerLayer: null as number | null,
   busy: false,
 })
 

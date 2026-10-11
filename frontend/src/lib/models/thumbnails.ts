@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { PREFABS } from './prefabs'
-import { objectMaterial, prefabGeometry } from '../world/ObjectLayer'
+import { getAsset, prefabMaterial } from './assets'
 
 let cache: Record<string, string> | null = null
 
@@ -17,12 +17,12 @@ export function prefabThumbnails(size = 96): Record<string, string> {
   sun.position.set(3, 5, 4)
   scene.add(sun)
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 500)
-  const mesh = new THREE.Mesh(undefined, objectMaterial)
+  const mesh = new THREE.Mesh(undefined, prefabMaterial)
   scene.add(mesh)
 
   const out: Record<string, string> = {}
   for (const p of PREFABS) {
-    const g = prefabGeometry(p.id)
+    const g = getAsset(p.id).geometry
     mesh.geometry = g
     const s = g.boundingSphere!
     const d = s.radius / Math.sin(THREE.MathUtils.degToRad(15)) * 1.05

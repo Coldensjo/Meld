@@ -4,3 +4,8 @@ frontend/dist
 *.wmap.tmp
 .DS_Store
 frontend/package.json.md5
+*.blp
+*.m2
+*.wmo
+*.mpq
+*.MPQ

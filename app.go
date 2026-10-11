@@ -5,7 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"WorldEditor/internal/config"
 	"WorldEditor/internal/mapfile"
+	"WorldEditor/internal/wow"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -14,14 +16,49 @@ import (
 // system; rendering and editing live entirely in the frontend.
 type App struct {
 	ctx context.Context
+	wow *wow.Client
+	cfg config.Config
 }
 
 func NewApp() *App {
-	return &App{}
+	return &App{wow: wow.NewClient(), cfg: config.Load()}
 }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	if a.cfg.WowPath != "" {
+		go func() {
+			a.wow.Open(a.cfg.WowPath)
+			runtime.EventsEmit(a.ctx, "wow:status", a.wow.Status())
+		}()
+	}
+}
+
+// WowStatus reports whether a WoW client is configured and loaded.
+func (a *App) WowStatus() wow.Status {
+	return a.wow.Status()
+}
+
+// BrowseWowFolder lets the user pick a WoW 1.x client folder. Returns "" if cancelled.
+func (a *App) BrowseWowFolder() (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            "Select World of Warcraft 1.x client folder",
+		DefaultDirectory: a.cfg.WowPath,
+	})
+}
+
+// SetWowPath loads the client at path (or unloads with "") and remembers it.
+func (a *App) SetWowPath(path string) (wow.Status, error) {
+	err := a.wow.Open(path)
+	st := a.wow.Status()
+	if err != nil {
+		return st, err
+	}
+	a.cfg.WowPath = path
+	if err := config.Save(a.cfg); err != nil {
+		return st, err
+	}
+	return st, nil
 }
 
 var mapFilters = []runtime.FileFilter{{DisplayName: "WorldEditor Map (*.wmap)", Pattern: "*.wmap"}}

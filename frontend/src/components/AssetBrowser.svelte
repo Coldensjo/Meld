@@ -2,15 +2,20 @@
   import { onMount } from 'svelte'
   import { PREFABS, type PrefabCategory } from '../lib/models/prefabs'
   import { prefabThumbnails } from '../lib/models/thumbnails'
-  import { editor } from '../lib/state/editor.svelte'
+  import { editor, wow } from '../lib/state/editor.svelte'
+  import WowAssetList from './WowAssetList.svelte'
 
+  type Tab = PrefabCategory | 'wow-m2' | 'wow-wmo'
   const CATEGORIES: Array<{ id: PrefabCategory; name: string }> = [
     { id: 'building', name: 'Buildings' },
     { id: 'nature', name: 'Nature' },
     { id: 'doodad', name: 'Doodads' },
   ]
 
-  let category = $state<PrefabCategory>('nature')
+  let category = $state<Tab>('nature')
+  $effect(() => {
+    if (!wow.loaded && (category === 'wow-m2' || category === 'wow-wmo')) category = 'nature'
+  })
   let thumbs = $state<Record<string, string>>({})
   const visible = $derived(PREFABS.filter((p) => p.category === category))
 
@@ -26,7 +31,18 @@
     <button class:active={category === c.id} onclick={() => (category = c.id)}>{c.name}</button>
   {/each}
 </div>
+{#if wow.loaded}
+  <div class="tabs">
+    <button class:active={category === 'wow-m2'} onclick={() => (category = 'wow-m2')}>WoW Doodads</button>
+    <button class:active={category === 'wow-wmo'} onclick={() => (category = 'wow-wmo')}>WoW Buildings</button>
+  </div>
+{/if}
 
+{#if category === 'wow-m2'}
+  <WowAssetList kind="m2" />
+{:else if category === 'wow-wmo'}
+  <WowAssetList kind="wmo" />
+{:else}
 <div class="grid">
   {#each visible as p (p.id)}
     <button class="asset" class:active={editor.prefab === p.id} title={p.name} onclick={() => (editor.prefab = p.id)}>
@@ -39,6 +55,7 @@
     </button>
   {/each}
 </div>
+{/if}
 
 <style>
   .tabs {

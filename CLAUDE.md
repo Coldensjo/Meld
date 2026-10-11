@@ -62,6 +62,29 @@ cd frontend && pnpm build   # frontend only
   - To add one, write a builder function and add an entry to `PREFABS`. The id is saved in map
     files, so never rename existing ids.
 
+## WoW client assets
+
+- Optional asset source: a user's **local** WoW 1.12 client. `internal/mpq` reads the archives
+  (our own reader; `Gophercraft/mpq` is GPL, so don't add it). `internal/wow` decodes BLP, M2 and
+  WMO files.
+- `wow.Client.Handler()` serves `/wow/{status,list,texture,model}`. The handler is mounted via
+  Wails `AssetServer.Middleware` in `main.go`, so it works in dev and prod. Responses are binary:
+  - Textures: `"RGBA" w h pixels`.
+  - Meshes: `Mesh.Encode()` = JSON header + pos/normal/uv/[color]/u32 index.
+- **Never copy, bundle or commit Blizzard assets.** No extracted files in the repo, the binary or
+  test fixtures. Map files store only paths (`m2:<path>` / `wmo:<path>` object types and
+  `layerTextures`).
+- The client path is persisted by `internal/config` (`os.UserConfigDir()/WorldEditor/config.json`).
+- Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so
+  triangle winding is unchanged. 1 world unit ≈ 1 yard.
+- Frontend: `lib/models/assets.ts` is the registry for all placeable types.
+  - `getAsset(type)` returns the asset immediately, or a placeholder while a WoW model loads.
+  - `onAssetLoaded` lets `ObjectLayer` and the place-tool ghost swap the placeholder for the real
+    mesh.
+  - WoW meshes are one geometry with groups plus a material array, which keeps it at one
+    `InstancedMesh` per type.
+- Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
+
 ## Conventions
 
 - TypeScript strict, no `any` in committed code. Prettier-ish style: 2 spaces, single quotes, no
@@ -71,7 +94,8 @@ cd frontend && pnpm build   # frontend only
 - UI styling: plain CSS with the tokens in `frontend/src/app.css` (dark editor theme). No UI
   framework dependency.
 - Avoid per-frame allocations in hot paths (brush loops, `frame()`). Reuse vectors and buffers.
-- Keep the app asset-free and procedural unless there is a strong reason not to.
+- The app ships asset-free (procedural textures and prefabs). WoW content is only ever read at
+  runtime from the user's own install.
 
 ## Platform notes
 

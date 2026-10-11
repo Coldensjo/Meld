@@ -1,0 +1,162 @@
+package wow
+
+import (
+	"bytes"
+	"encoding/binary"
+	"encoding/json"
+	"math"
+)
+
+// Blend modes (same numbering as M2 materials).
+const (
+	BlendOpaque   = 0
+	BlendAlphaKey = 1
+	BlendAlpha    = 2
+	BlendAdd      = 3 // no-alpha add
+	BlendAddAlpha = 4
+	BlendMod      = 5
+	BlendMod2x    = 6
+)
+
+// Group is a run of triangles sharing one material.
+type Group struct {
+	Start    int    `json:"start"`
+	Count    int    `json:"count"`
+	Texture  string `json:"texture"`
+	Blend    int    `json:"blend"`
+	TwoSided bool   `json:"twoSided"`
+	Unlit    bool   `json:"unlit"`
+}
+
+// Mesh is a static, renderer-ready mesh in editor space (Y up, yards).
+type Mesh struct {
+	Pos    []float32 // xyz
+	Normal []float32 // xyz
+	UV     []float32 // uv
+	Color  []byte    // rgba, optional (len 0 or 4*verts)
+	Index  []uint32
+	Groups []Group
+}
+
+func (m *Mesh) vertCount() int { return len(m.Pos) / 3 }
+
+// toEditor converts WoW model space (Z up) to editor space (Y up):
+// (x, y, z) → (x, z, -y), a proper rotation so winding is preserved.
+func toEditor(x, y, z float32) (float32, float32, float32) { return x, z, -y }
+
+// Append merges o into m, offsetting indices.
+func (m *Mesh) Append(o *Mesh) {
+	base := uint32(m.vertCount())
+	if len(o.Color) > 0 && len(m.Color) == 0 && base > 0 {
+		m.Color = whiteColors(int(base))
+	}
+	m.Pos = append(m.Pos, o.Pos...)
+	m.Normal = append(m.Normal, o.Normal...)
+	m.UV = append(m.UV, o.UV...)
+	if len(o.Color) > 0 {
+		m.Color = append(m.Color, o.Color...)
+	} else if len(m.Color) > 0 {
+		m.Color = append(m.Color, whiteColors(o.vertCount())...)
+	}
+	start := len(m.Index)
+	for _, i := range o.Index {
+		m.Index = append(m.Index, i+base)
+	}
+	for _, g := range o.Groups {
+		g.Start += start
+		m.Groups = append(m.Groups, g)
+	}
+}
+
+func whiteColors(n int) []byte {
+	c := make([]byte, n*4)
+	for i := range c {
+		c[i] = 255
+	}
+	return c
+}
+
+// Consolidate reorders indices so groups with identical materials become one
+// contiguous group — fewer draw calls for the renderer.
+func (m *Mesh) Consolidate() {
+	type key struct {
+		tex             string
+		blend           int
+		twoSided, unlit bool
+	}
+	order := []key{}
+	buckets := map[key][]uint32{}
+	for _, g := range m.Groups {
+		k := key{g.Texture, g.Blend, g.TwoSided, g.Unlit}
+		if _, ok := buckets[k]; !ok {
+			order = append(order, k)
+		}
+		buckets[k] = append(buckets[k], m.Index[g.Start:g.Start+g.Count]...)
+	}
+	idx := make([]uint32, 0, len(m.Index))
+	groups := make([]Group, 0, len(order))
+	// Opaque first, then alpha-keyed, then blended: helps the renderer.
+	for pass := 0; pass < 3; pass++ {
+		for _, k := range order {
+			p := 2
+			if k.blend == BlendOpaque {
+				p = 0
+			} else if k.blend == BlendAlphaKey {
+				p = 1
+			}
+			if p != pass {
+				continue
+			}
+			b := buckets[k]
+			groups = append(groups, Group{Start: len(idx), Count: len(b), Texture: k.tex, Blend: k.blend, TwoSided: k.twoSided, Unlit: k.unlit})
+			idx = append(idx, b...)
+		}
+	}
+	m.Index = idx
+	m.Groups = groups
+}
+
+type meshHeader struct {
+	Verts   int       `json:"verts"`
+	Indices int       `json:"indices"`
+	Colors  bool      `json:"colors"`
+	Groups  []Group   `json:"groups"`
+	BBox    []float32 `json:"bbox"`
+}
+
+// Encode serialises the mesh for the frontend:
+// u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32)
+func (m *Mesh) Encode() []byte {
+	n := m.vertCount()
+	mn := [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
+	mx := [3]float32{-math.MaxFloat32, -math.MaxFloat32, -math.MaxFloat32}
+	for i := 0; i < n; i++ {
+		for k := 0; k < 3; k++ {
+			v := m.Pos[i*3+k]
+			mn[k] = min(mn[k], v)
+			mx[k] = max(mx[k], v)
+		}
+	}
+	if n == 0 {
+		mn, mx = [3]float32{}, [3]float32{}
+	}
+	hdr, _ := json.Marshal(meshHeader{
+		Verts: n, Indices: len(m.Index), Colors: len(m.Color) == n*4 && n > 0, Groups: m.Groups,
+		BBox: []float32{mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]},
+	})
+	for len(hdr)%4 != 0 {
+		hdr = append(hdr, ' ')
+	}
+	var buf bytes.Buffer
+	buf.Grow(4 + len(hdr) + n*32 + len(m.Index)*4)
+	binary.Write(&buf, binary.LittleEndian, uint32(len(hdr)))
+	buf.Write(hdr)
+	binary.Write(&buf, binary.LittleEndian, m.Pos)
+	binary.Write(&buf, binary.LittleEndian, m.Normal)
+	binary.Write(&buf, binary.LittleEndian, m.UV)
+	if len(m.Color) == n*4 && n > 0 {
+		buf.Write(m.Color)
+	}
+	binary.Write(&buf, binary.LittleEndian, m.Index)
+	return buf.Bytes()
+}

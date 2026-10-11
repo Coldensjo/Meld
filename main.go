@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"net/http"
+	"strings"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -24,6 +26,17 @@ func main() {
 		MinHeight: 640,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
+			// /wow/* is served from the user's local WoW client (see internal/wow).
+			Middleware: func(next http.Handler) http.Handler {
+				wowHandler := app.wow.Handler()
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if strings.HasPrefix(r.URL.Path, "/wow/") {
+						wowHandler.ServeHTTP(w, r)
+						return
+					}
+					next.ServeHTTP(w, r)
+				})
+			},
 		},
 		BackgroundColour: &options.RGBA{R: 17, G: 19, B: 24, A: 1},
 		OnStartup:        app.startup,

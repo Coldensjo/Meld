@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { editor } from '../state/editor.svelte'
-import { PREFAB_BY_ID } from '../models/prefabs'
-import { prefabGeometry, type ObjectLayer, type WorldObject } from '../world/ObjectLayer'
+import { getAsset, prefabMaterial, type ModelAsset } from '../models/assets'
+import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
 
@@ -43,14 +43,16 @@ export class PlaceTool implements Tool {
 
   private ghost: THREE.Mesh
   private ghostType = ''
+  private ghostAsset: ModelAsset | null = null
+  private ghostPrefabMat: THREE.Material
   private rot = 0
   private scale = 1
   private scattering: WorldObject[] | null = null
   private scatterAcc = 0
 
   constructor() {
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false })
-    this.ghost = new THREE.Mesh(new THREE.BufferGeometry(), mat)
+    this.ghostPrefabMat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false })
+    this.ghost = new THREE.Mesh(new THREE.BufferGeometry(), this.ghostPrefabMat)
     this.ghost.renderOrder = 20
   }
 
@@ -70,8 +72,14 @@ export class PlaceTool implements Tool {
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
     if (this.ghostType !== editor.prefab) {
       this.ghostType = editor.prefab
-      this.ghost.geometry = prefabGeometry(editor.prefab)
       this.reroll()
+    }
+    const asset = getAsset(editor.prefab)
+    if (asset !== this.ghostAsset) {
+      // Async models swap from placeholder to the real mesh when loaded.
+      this.ghostAsset = asset
+      this.ghost.geometry = asset.geometry
+      this.ghost.material = asset.material === prefabMaterial ? this.ghostPrefabMat : asset.material
     }
     this.ghost.visible = !!hit && !editor.placeScatter
     if (hit) {
@@ -96,8 +104,8 @@ export class PlaceTool implements Tool {
   tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
     if (!this.scattering || !hit) return
     const { radius, strength } = editor.brush
-    const p = PREFAB_BY_ID.get(editor.prefab)
-    const spacing = (p?.radius ?? 1) * 1.6
+    const size = getAsset(editor.prefab).bbox.getSize(new THREE.Vector3())
+    const spacing = Math.max(0.8, Math.max(size.x, size.z) * 0.8)
     this.scatterAcc += dt * (2 + strength * 20)
     while (this.scatterAcc >= 1) {
       this.scatterAcc -= 1
@@ -205,8 +213,7 @@ export class SelectTool implements Tool {
     const o = this.selected(ctx)
     this.helper.visible = !!o
     if (!o) return
-    const g = prefabGeometry(o.type)
-    this.tmpBox.copy(g.boundingBox!).applyMatrix4(ctx.objects.matrixOf(o, this.tmpM))
+    this.tmpBox.copy(getAsset(o.type).bbox).applyMatrix4(ctx.objects.matrixOf(o, this.tmpM))
     this.helper.box.copy(this.tmpBox)
   }
 }

@@ -1,10 +1,12 @@
 <script lang="ts">
   import Slider from './Slider.svelte'
   import AssetBrowser from './AssetBrowser.svelte'
+  import WowClientSection from './WowClientSection.svelte'
+  import { tilesetPreview } from './TexturePicker.svelte'
   import { TOOLS } from './Toolbar.svelte'
-  import { editor, type SculptMode } from '../lib/state/editor.svelte'
+  import { editor, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
   import { LAYERS, LAYER_COBBLE, LAYER_PATH } from '../lib/terrain/layers'
-  import { PREFAB_BY_ID } from '../lib/models/prefabs'
+  import { displayName } from '../lib/models/assets'
   import { engineRef } from '../lib/state/engineRef'
   import type { WorldObject } from '../lib/world/ObjectLayer'
 
@@ -37,6 +39,15 @@
     engineRef.current?.editSelected(patch, true, before)
     before = undefined
   }
+  // Previews of WoW tilesets assigned to paint layers.
+  let layerThumbs = $state<Record<string, string>>({})
+  $effect(() => {
+    for (const p of editor.layerTextures) {
+      if (p && !layerThumbs[p]) tilesetPreview(p).then((u) => (layerThumbs[p] = u)).catch(() => {})
+    }
+  })
+  const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+
   const deg = (r: number) => (r * 180) / Math.PI
   const rad = (d: number) => (d * Math.PI) / 180
 </script>
@@ -55,12 +66,26 @@
     {:else if editor.tool === 'paint'}
       <div class="layers">
         {#each LAYERS as l (l.id)}
-          <button class="layer" class:active={editor.paintLayer === l.id} onclick={() => (editor.paintLayer = l.id)}>
-            <span class="swatch" style:background={l.swatch}></span>
-            {l.name}
-          </button>
+          {@const custom = editor.layerTextures[l.id]}
+          <div class="layer-row">
+            <button class="layer" class:active={editor.paintLayer === l.id} onclick={() => (editor.paintLayer = l.id)} title={custom || l.name}>
+              {#if custom && layerThumbs[custom]}
+                <img class="swatch" src={layerThumbs[custom]} alt="" />
+              {:else}
+                <span class="swatch" style:background={l.swatch}></span>
+              {/if}
+              <span class="lname">{custom ? texName(custom) : l.name}</span>
+            </button>
+            {#if wow.loaded}
+              <button class="pick" title="Choose WoW texture" onclick={() => (ui.texturePickerLayer = l.id)}>⋯</button>
+            {/if}
+          </div>
         {/each}
       </div>
+      <Slider label="Texture scale" bind:value={editor.texScale} min={2} max={24} step={0.5} digits={1} />
+      {#if wow.loaded}
+        <p class="hint">Click <b>⋯</b> to use a tileset texture from your WoW client.</p>
+      {/if}
     {:else if editor.tool === 'road'}
       <div class="modes two">
         <button class:active={editor.roadLayer === LAYER_COBBLE} onclick={() => (editor.roadLayer = LAYER_COBBLE)}>Cobblestone</button>
@@ -85,7 +110,7 @@
     {:else if editor.tool === 'select'}
       {#if editor.selected}
         {@const s = editor.selected}
-        <div class="sel-title">{PREFAB_BY_ID.get(s.type)?.name ?? s.type} <span>#{s.id}</span></div>
+        <div class="sel-title">{displayName(s.type)} <span>#{s.id}</span></div>
         <Slider label="X" value={s.x} min={0} max={engineRef.current?.terrain.worldSize ?? 512} step={0.1} digits={1}
           onstart={startEdit} oninput={(v) => live({ x: v })} onchange={(v) => commit({ x: v })} />
         <Slider label="Z" value={s.z} min={0} max={engineRef.current?.terrain.worldSize ?? 512} step={0.1} digits={1}
@@ -127,6 +152,8 @@
     <label class="check"><input type="checkbox" bind:checked={editor.grid} /> Show grid <kbd>G</kbd></label>
     <button class="full" onclick={() => engineRef.current?.regenerateAutoPaint()}>Auto-paint terrain</button>
   </section>
+
+  <WowClientSection />
 </aside>
 
 <style>
@@ -155,6 +182,24 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px;
+    margin-bottom: 10px;
+  }
+  .layer-row {
+    display: flex;
+    min-width: 0;
+  }
+  .layer-row .layer {
+    flex: 1;
+    min-width: 0;
+  }
+  .lname {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pick {
+    padding: 0 5px;
+    margin-left: 2px;
   }
   .layer {
     display: flex;
@@ -166,6 +211,7 @@
   .swatch {
     width: 16px;
     height: 16px;
+    object-fit: cover;
     border-radius: 3px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     flex: none;

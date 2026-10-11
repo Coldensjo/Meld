@@ -30,6 +30,8 @@ export namespace mapfile {
 	    waterLevel: number;
 	    waterEnabled: boolean;
 	    objects: PlacedObject[];
+	    layerTextures?: string[];
+	    texScale?: number;
 	    heights: string;
 	    splatA: string;
 	    splatB: string;
@@ -47,6 +49,8 @@ export namespace mapfile {
 	        this.waterLevel = source["waterLevel"];
 	        this.waterEnabled = source["waterEnabled"];
 	        this.objects = this.convertValues(source["objects"], PlacedObject);
+	        this.layerTextures = source["layerTextures"];
+	        this.texScale = source["texScale"];
 	        this.heights = source["heights"];
 	        this.splatA = source["splatA"];
 	        this.splatB = source["splatB"];
@@ -69,6 +73,31 @@ export namespace mapfile {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace wow {
+	
+	export class Status {
+	    path: string;
+	    loaded: boolean;
+	    error: string;
+	    files: number;
+	    archives: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Status(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.loaded = source["loaded"];
+	        this.error = source["error"];
+	        this.files = source["files"];
+	        this.archives = source["archives"];
+	    }
 	}
 
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { PREFAB_BY_ID } from '../models/prefabs'
+import { getAsset, onAssetLoaded } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
 
 export interface WorldObject {
@@ -12,21 +12,6 @@ export interface WorldObject {
   rotY: number
   scale: number
 }
-
-const geometryCache = new Map<string, THREE.BufferGeometry>()
-
-export function prefabGeometry(type: string): THREE.BufferGeometry {
-  let g = geometryCache.get(type)
-  if (!g) {
-    const p = PREFAB_BY_ID.get(type)
-    if (!p) throw new Error(`unknown prefab ${type}`)
-    g = p.build()
-    geometryCache.set(type, g)
-  }
-  return g
-}
-
-export const objectMaterial = new THREE.MeshLambertMaterial({ vertexColors: true })
 
 interface Batch {
   mesh: THREE.InstancedMesh
@@ -50,8 +35,20 @@ export class ObjectLayer {
   private tmpP = new THREE.Vector3()
   private up = new THREE.Vector3(0, 1, 0)
 
+  private unsubscribe: () => void
+
   constructor(private terrain: Terrain) {
     this.group.name = 'objects'
+    // Swap placeholder meshes once an async (WoW) model finishes loading.
+    this.unsubscribe = onAssetLoaded((type) => {
+      const b = this.batches.get(type)
+      if (!b) return
+      this.group.remove(b.mesh)
+      b.mesh.dispose()
+      b.mesh = this.makeMesh(type, b.mesh.instanceMatrix.count)
+      this.group.add(b.mesh)
+      b.dirty = true
+    })
   }
 
   setTerrain(t: Terrain) {
@@ -118,7 +115,8 @@ export class ObjectLayer {
   }
 
   private makeMesh(type: string, capacity: number) {
-    const m = new THREE.InstancedMesh(prefabGeometry(type), objectMaterial, capacity)
+    const a = getAsset(type)
+    const m = new THREE.InstancedMesh(a.geometry, a.material, capacity)
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     m.count = 0
     m.userData.type = type
@@ -169,6 +167,7 @@ export class ObjectLayer {
   }
 
   dispose() {
+    this.unsubscribe()
     for (const b of this.batches.values()) b.mesh.dispose()
     this.batches.clear()
     this.group.clear()

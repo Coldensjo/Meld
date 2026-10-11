@@ -5,15 +5,22 @@
   import StatusBar from './components/StatusBar.svelte'
   import Viewport from './components/Viewport.svelte'
   import NewMapDialog from './components/NewMapDialog.svelte'
+  import TexturePicker from './components/TexturePicker.svelte'
+  import { onMount } from 'svelte'
+  import { initWow } from './lib/wow/api'
   import { editor, setStatus, ui } from './lib/state/editor.svelte'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveMap } from './lib/io/mapio'
+
+  onMount(() => {
+    initWow().catch((e) => console.warn('WoW client init failed', e))
+  })
 
   function onKeyDown(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
     const engine = engineRef.current
-    if (!engine || ui.showNewDialog) return
+    if (!engine || ui.showNewDialog || ui.texturePickerLayer !== null) return
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
 
@@ -66,6 +73,9 @@
 
 {#if ui.showNewDialog}
   <NewMapDialog />
+{/if}
+{#if ui.texturePickerLayer !== null}
+  <TexturePicker layer={ui.texturePickerLayer} />
 {/if}
 
 <style>
