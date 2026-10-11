@@ -59,11 +59,20 @@ function getPlaceholder(): ModelAsset {
  * Returns the asset if loaded, otherwise a placeholder (and starts loading).
  * Listen with `onAssetLoaded` to swap the placeholder out.
  */
+/** How long a model that failed to load waits before the loader tries it again. */
+const RETRY_MS = 30000
+const failedAt = new Map<string, number>()
+
 export function getAsset(type: string): ModelAsset {
   const a = assets.get(type)
   if (a) return a
-  if (isWowType(type)) void loadAsset(type)
+  if (isWowType(type) && !pending.has(type) && retryDue(type)) void loadAsset(type)
   return getPlaceholder()
+}
+
+function retryDue(type: string): boolean {
+  const t = failedAt.get(type)
+  return t === undefined || performance.now() - t >= RETRY_MS
 }
 
 export function loadAsset(type: string): Promise<ModelAsset> {
@@ -75,11 +84,13 @@ export function loadAsset(type: string): Promise<ModelAsset> {
     p = fetchMesh(wowPath(type))
       .then((m) => buildWowAsset(m, true))
       .catch((err) => {
+        // Not cached: the next request after RETRY_MS tries the model again.
         console.warn('model load failed', type, err)
+        failedAt.set(type, performance.now())
         return getPlaceholder()
       })
       .then((asset) => {
-        assets.set(type, asset)
+        if (asset.ready) assets.set(type, asset)
         pending.delete(type)
         listeners.forEach((fn) => fn(type))
         return asset
