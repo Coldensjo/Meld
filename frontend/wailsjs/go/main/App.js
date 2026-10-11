@@ -14,10 +14,6 @@ export function ClearThumbnailCache() {
   return window['go']['main']['App']['ClearThumbnailCache']();
 }
 
-export function ExportTileHeights(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['ExportTileHeights'](arg1, arg2, arg3, arg4);
-}
-
 export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
@@ -30,8 +26,8 @@ export function LoadPrefs() {
   return window['go']['main']['App']['LoadPrefs']();
 }
 
-export function LoadTile(arg1, arg2, arg3) {
-  return window['go']['main']['App']['LoadTile'](arg1, arg2, arg3);
+export function LoadRegion(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['LoadRegion'](arg1, arg2, arg3, arg4);
 }
 
 export function OpenHeightmapDialog() {
@@ -68,6 +64,10 @@ export function SaveMapDialog(arg1) {
 
 export function SavePrefs(arg1) {
   return window['go']['main']['App']['SavePrefs'](arg1);
+}
+
+export function SaveRegion(arg1) {
+  return window['go']['main']['App']['SaveRegion'](arg1);
 }
 
 export function SaveThumbnail(arg1, arg2) {

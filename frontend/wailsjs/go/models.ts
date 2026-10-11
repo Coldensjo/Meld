@@ -1,34 +1,3 @@
-export namespace adt {
-	
-	export class Placement {
-	    Kind: number;
-	    Name: string;
-	    UID: number;
-	    Position: number[];
-	    Rotation: number[];
-	    Scale: number;
-	    DoodadSet: number;
-	    NameSet: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new Placement(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Kind = source["Kind"];
-	        this.Name = source["Name"];
-	        this.UID = source["UID"];
-	        this.Position = source["Position"];
-	        this.Rotation = source["Rotation"];
-	        this.Scale = source["Scale"];
-	        this.DoodadSet = source["DoodadSet"];
-	        this.NameSet = source["NameSet"];
-	    }
-	}
-
-}
-
 export namespace main {
 	
 	export class HeightmapData {
@@ -309,18 +278,41 @@ export namespace vmangos {
 		}
 	}
 	
+	export class ObjectView {
+	    uid: number;
+	    type: string;
+	    x: number;
+	    y: number;
+	    z: number;
+	    rotY: number;
+	    scale: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new ObjectView(source);
+	    }
 	
-	export class TileView {
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.uid = source["uid"];
+	        this.type = source["type"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.rotY = source["rotY"];
+	        this.scale = source["scale"];
+	    }
+	}
+	
+	export class RegionEdit {
 	    mapName: string;
 	    x: number;
 	    y: number;
+	    size: number;
 	    heights: number[];
-	    chunks: ChunkView[];
-	    placements: adt.Placement[];
+	    objects: ObjectView[];
 	
 	    static createFrom(source: any = {}) {
-	        return new TileView(source);
+	        return new RegionEdit(source);
 	    }
 	
 	    constructor(source: any = {}) {
@@ -328,9 +320,51 @@ export namespace vmangos {
 	        this.mapName = source["mapName"];
 	        this.x = source["x"];
 	        this.y = source["y"];
+	        this.size = source["size"];
+	        this.heights = source["heights"];
+	        this.objects = this.convertValues(source["objects"], ObjectView);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class RegionView {
+	    mapName: string;
+	    x: number;
+	    y: number;
+	    size: number;
+	    heights: number[];
+	    chunks: ChunkView[];
+	    objects: ObjectView[];
+	
+	    static createFrom(source: any = {}) {
+	        return new RegionView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mapName = source["mapName"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.size = source["size"];
 	        this.heights = source["heights"];
 	        this.chunks = this.convertValues(source["chunks"], ChunkView);
-	        this.placements = this.convertValues(source["placements"], adt.Placement);
+	        this.objects = this.convertValues(source["objects"], ObjectView);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -2,22 +2,34 @@
   import Modal from './Modal.svelte'
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { openWowTile, saveAndPublish } from '../lib/io/mapio'
+  import { openWowRegion, saveAndPublish } from '../lib/io/mapio'
   import { Quit } from '../../wailsjs/go/main/App'
   import { APP_VERSION } from '../lib/version'
 
   const close = () => (ui.dialog = null)
 
-  // The open-tile dialog's fields. A 1.12 map is 64x64 tiles, so X and Y run 0 to 63.
+  // The open-region dialog's fields. A 1.12 map is 64x64 tiles; a region is a square block of up to 16.
   let tileMap = $state('Azeroth')
   let tileX = $state(32)
   let tileY = $state(48)
+  let tileSize = $state(4)
 
   // The texture dialog's choices: palette indices.
   let texFrom = $state(0)
   let texTo = $state(1)
   const textureName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
-  const tileValid = $derived(tileMap.trim() !== '' && Number.isInteger(tileX) && Number.isInteger(tileY) && tileX >= 0 && tileX < 64 && tileY >= 0 && tileY < 64)
+  const tileValid = $derived(
+    tileMap.trim() !== '' &&
+      Number.isInteger(tileX) &&
+      Number.isInteger(tileY) &&
+      Number.isInteger(tileSize) &&
+      tileSize >= 1 &&
+      tileSize <= 16 &&
+      tileX >= 0 &&
+      tileY >= 0 &&
+      tileX + tileSize <= 64 &&
+      tileY + tileSize <= 64,
+  )
 
   const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
     [
@@ -121,15 +133,20 @@
     {/snippet}
   </Modal>
 {:else if ui.dialog === 'openTile'}
-  <Modal title="Open a WoW tile" width={360} onclose={close}>
-    <p class="dim">Read from your WoW 1.12 client. A tile's ground, paint and objects open as one map of 128 × 128 cells.</p>
+  <Modal title="Open a WoW region" width={360} onclose={close}>
+    <p class="dim">
+      Read from your WoW 1.12 client. A square block of tiles opens as one map: its ground, paint and models. A block of N tiles a side is
+      N × 128 cells a side, up to 16 tiles.
+    </p>
     <div class="fields">
       <label for="tile-map">Map</label>
       <input id="tile-map" type="text" bind:value={tileMap} />
-      <label for="tile-x">X</label>
+      <label for="tile-x">From X</label>
       <input id="tile-x" type="number" min="0" max="63" bind:value={tileX} />
-      <label for="tile-y">Y</label>
+      <label for="tile-y">From Y</label>
       <input id="tile-y" type="number" min="0" max="63" bind:value={tileY} />
+      <label for="tile-size">Tiles</label>
+      <input id="tile-size" type="number" min="1" max="16" bind:value={tileSize} />
     </div>
     {#snippet actions()}
       <button onclick={close}>Cancel</button>
@@ -139,7 +156,7 @@
         onclick={() => {
           const e = engineRef.current
           close()
-          if (e) openWowTile(e, tileMap.trim(), tileX, tileY)
+          if (e) openWowRegion(e, tileMap.trim(), tileX, tileY, tileSize)
         }}>Open</button
       >
     {/snippet}

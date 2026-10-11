@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"WorldEditor/internal/adt"
 	"WorldEditor/internal/config"
 	"WorldEditor/internal/heightmap"
 	"WorldEditor/internal/mapfile"
@@ -224,34 +223,25 @@ func (a *App) clientDataDir() (string, error) {
 	return wow.ResolveDataDir(wowPath)
 }
 
-// LoadTile reads a 1.12 map tile from the client: its outer heights, texture layers and
-// placements, as the editor shows them.
-func (a *App) LoadTile(mapName string, x, y int) (*vmangos.TileView, error) {
+// LoadRegion reads a square block of 1.12 map tiles from the client: its heights, texture layers
+// and models, stitched into one block the editor shows.
+func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, error) {
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return nil, err
 	}
-	view, _, err := vmangos.ReadTile(dataDir, mapName, x, y)
-	return view, err
+	return vmangos.ReadRegion(dataDir, mapName, x, y, size)
 }
 
-// ExportTileHeights writes the edited outer heights of a tile into the client's patch, where the
-// server's map data is built from. Returns the patch's path.
-func (a *App) ExportTileHeights(mapName string, x, y int, outer []float32) (string, error) {
+// SaveRegion writes an edited block back into the client's patch, into the tiles it came from, and
+// returns the patch's path. The server's map data is built from the patch.
+func (a *App) SaveRegion(edit vmangos.RegionEdit) (string, error) {
 	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return "", err
 	}
-	_, root, err := vmangos.ReadTile(dataDir, mapName, x, y)
-	if err != nil {
-		return "", err
-	}
-	patched, err := vmangos.PatchTileHeights(root, outer)
-	if err != nil {
-		return "", err
-	}
-	return vmangos.InstallPatch(dataDir, []mpq.File{{Name: adt.TilePath(mapName, x, y, ""), Data: patched}})
+	return vmangos.SaveRegion(dataDir, edit)
 }
 
 // PublishVmangosMap makes a map made in the editor playable: it's written into the client's patch, added to

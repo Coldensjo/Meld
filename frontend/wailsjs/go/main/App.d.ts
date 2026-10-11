@@ -11,15 +11,13 @@ export function BrowseWowFolder():Promise<string>;
 
 export function ClearThumbnailCache():Promise<void>;
 
-export function ExportTileHeights(arg1:string,arg2:number,arg3:number,arg4:Array<number>):Promise<string>;
-
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
 export function LoadMap(arg1:string):Promise<mapfile.MapData>;
 
 export function LoadPrefs():Promise<string>;
 
-export function LoadTile(arg1:string,arg2:number,arg3:number):Promise<vmangos.TileView>;
+export function LoadRegion(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionView>;
 
 export function OpenHeightmapDialog():Promise<string>;
 
@@ -38,6 +36,8 @@ export function SaveMap(arg1:string,arg2:mapfile.MapData):Promise<void>;
 export function SaveMapDialog(arg1:string):Promise<string>;
 
 export function SavePrefs(arg1:string):Promise<void>;
+
+export function SaveRegion(arg1:vmangos.RegionEdit):Promise<string>;
 
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 

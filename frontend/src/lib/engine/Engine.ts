@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { GenerateKind } from '../terrain/Terrain'
 import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
-import { MapDocument, type Bookmark, type TileRef, type VmangosRef } from './MapDocument'
+import { MapDocument, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
@@ -22,15 +22,28 @@ import { PropEffects } from '../world/PropEffects'
 import { SelectionOutline } from './SelectionOutline'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 
-/** A tile of the client, ready to open: its outer heights and its paint in the editor's form. */
-export interface TileOpen {
+/** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
+export interface RegionOpen {
   mapName: string
   x: number
   y: number
+  size: number
   heights: Float32Array
   weights: Uint8Array
   chunkSlots: Uint8Array
   palette: string[]
+  objects: RegionObject[]
+}
+
+/** A model of a region: its file ID (0 when it's new), type, and world placement. */
+export interface RegionObject {
+  uid: number
+  type: string
+  x: number
+  y: number
+  z: number
+  rotY: number
+  scale: number
 }
 
 /** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
@@ -495,7 +508,7 @@ export class Engine {
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
       paintLayer: editor.paintLayer,
-      tile: d.meta.tile,
+      region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
     }
@@ -597,26 +610,39 @@ export class Engine {
 
   /** Switch to the tab already showing `path`, if any. */
   /**
-   * Open a tile of the client in its own tab, or switch to it if it's open already. The tile's
-   * outer heights, palette and paint come from tileImport.ts. Returns false when it was already open.
+   * Open a block of the client's tiles in its own tab, or switch to it if it's open already. The
+   * heights, palette and paint come from tileImport.ts. Each model becomes an object at its place
+   * on the ground, remembering its file ID. Returns false when the block was already open.
    */
-  openTile(t: TileOpen): boolean {
+  openRegion(r: RegionOpen): boolean {
     const same = this.documents.find((d) => {
-      const r = d.meta.tile
-      return !!r && r.mapName === t.mapName && r.x === t.x && r.y === t.y
+      const o = d.meta.region
+      return !!o && o.mapName === r.mapName && o.x === r.x && o.y === r.y && o.size === r.size
     })
     if (same) {
       this.activate(same)
       return false
     }
-    const d = new MapDocument(TILE_CELLS, `${t.mapName} ${t.x}_${t.y}`)
-    d.terrain.heights.set(t.heights)
-    d.terrain.weights.set(t.weights)
-    d.terrain.chunkSlots.set(t.chunkSlots)
+    const d = new MapDocument(r.size * TILE_CELLS, `${r.mapName} ${r.x}_${r.y} ${r.size}x${r.size}`)
+    d.terrain.heights.set(r.heights)
+    d.terrain.weights.set(r.weights)
+    d.terrain.chunkSlots.set(r.chunkSlots)
     d.terrain.markAllDirty()
-    d.meta.palette = [...t.palette]
-    d.meta.tile = { mapName: t.mapName, x: t.x, y: t.y }
-    // The client's water isn't read yet, so a tile starts with the water off rather than at sea level.
+    d.meta.palette = [...r.palette]
+    const region: RegionRef = { mapName: r.mapName, x: r.x, y: r.y, size: r.size, uids: new Map() }
+    d.meta.region = region
+    for (const o of r.objects) {
+      const placed = d.objects.add({
+        type: o.type,
+        x: o.x,
+        z: o.z,
+        yOff: o.y - d.terrain.heightAt(o.x, o.z),
+        rotY: o.rotY,
+        scale: o.scale,
+      })
+      if (o.uid) region.uids.set(placed.id, o.uid)
+    }
+    // The client's water isn't read yet, so a block starts with the water off rather than at sea level.
     d.meta.waterEnabled = false
     this.addDocument(d)
     return true
@@ -657,9 +683,22 @@ export class Engine {
     }
   }
 
-  /** The client tile the active map came from, or null. */
-  activeTile(): TileRef | null {
-    return this.doc.meta.tile
+  /** The client region the active map came from, or null. */
+  activeRegion(): RegionRef | null {
+    return this.doc.meta.region
+  }
+
+  /** The active region's models in world coordinates, with the file ID each came from (0 if new). */
+  regionObjects(): RegionObject[] {
+    const d = this.doc
+    const region = d.meta.region
+    if (!region) return []
+    const out: RegionObject[] = []
+    for (const o of d.objects.objects.values()) {
+      const w = d.objects.worldPlacement(o)
+      out.push({ uid: region.uids.get(o.id) ?? 0, type: o.type, x: w.pos.x, y: w.pos.y, z: w.pos.z, rotY: w.rot, scale: w.scale })
+    }
+    return out
   }
 
   /** The active tile's outer height grid, in the layout the tile writer takes. */
@@ -820,7 +859,7 @@ export class Engine {
       filePath,
       dirty: false,
       palette,
-      tile: null,
+      region: null,
       vmangos: null,
       bookmarks: [],
       texScale: m.texScale || 8,

@@ -12,8 +12,8 @@ export interface DocMeta {
   dirty: boolean
   /** The texture palette: a WoW tileset path or a '#rrggbb' colour per entry. */
   palette: string[]
-  /** The client tile this map was opened from, which exports go back to. */
-  tile: TileRef | null
+  /** The block of client tiles this map was opened from, which saves go back to. */
+  region: RegionRef | null
   /** For a map made for the client: its folder and map ID, which the export writes under. */
   vmangos: VmangosRef | null
   /** Named camera views of this map, kept with it. */
@@ -41,11 +41,17 @@ export interface VmangosRef {
   mapId: number
 }
 
-/** A tile of a 1.12 map in the client. */
-export interface TileRef {
+/**
+ * A square block of 1.12 map tiles in the client: the tile it starts at, and how many tiles a side.
+ * `uids` ties each model's editor object to its unique ID in the client's files, so a save writes
+ * the model back as it was. A model added in the editor has no entry.
+ */
+export interface RegionRef {
   mapName: string
   x: number
   y: number
+  size: number
+  uids: Map<number, number>
 }
 
 export interface DocCamera {
@@ -81,7 +87,7 @@ export class MapDocument {
       filePath: '',
       dirty: false,
       palette: LAYERS.map((l) => l.swatch),
-      tile: null,
+      region: null,
       vmangos: null,
       bookmarks: [],
       texScale: 8,
