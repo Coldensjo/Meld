@@ -28,6 +28,14 @@
   )
 </script>
 
+{#snippet editLimit()}
+  <select class="curve" bind:value={editor.sculptLimit} title="Only change ground above or below the height under the cursor" aria-label="Edit limit">
+    <option value="none">Any height</option>
+    <option value="above">Only above cursor</option>
+    <option value="below">Only below cursor</option>
+  </select>
+{/snippet}
+
 <div class="options">
   <div class="tool" title={tool.name}>
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
@@ -53,11 +61,7 @@
         <option value="lower">Lower only</option>
       </select>
     {/if}
-    <select class="curve" bind:value={editor.sculptLimit} title="Only change ground above or below the height under the cursor" aria-label="Edit limit">
-      <option value="none">Any height</option>
-      <option value="above">Only above cursor</option>
-      <option value="below">Only below cursor</option>
-    </select>
+    {@render editLimit()}
     <div class="divider"></div>
   {:else if editor.tool === 'paint' || editor.tool === 'road'}
     <button class="chip" onclick={() => (ui.palette = 'textures')} title="Active texture layer (pick textures in the Assets panel)">
@@ -66,6 +70,7 @@
     </button>
     {#if editor.tool === 'road'}
       <label class="check"><input type="checkbox" bind:checked={editor.roadFlatten} /> Level terrain</label>
+      {@render editLimit()}
     {/if}
     <div class="divider"></div>
   {:else if editor.tool === 'water'}
@@ -74,6 +79,7 @@
       <button class:active={editor.waterMode === 'shore'} onclick={() => (editor.waterMode = 'shore')}>Raise shore</button>
     </div>
     <OptSlider label="Water level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} width={80} />
+    {@render editLimit()}
     <div class="divider"></div>
   {:else if editor.tool === 'place'}
     <span class="chip" title={editor.prefab}>

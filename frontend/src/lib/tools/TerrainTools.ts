@@ -248,7 +248,11 @@ export class RoadTool extends BrushTool {
       const target = t.heightAt(hit.x, hit.z)
       const k = Math.min(1, strength * dt * 6)
       const h = t.heights
-      const hr = forEachVertex(t, hit.x, hit.z, width * 1.4, 0.5, (i, w) => (h[i] += (target - h[i]) * w * k))
+      const limit = editor.sculptLimit
+      const cursorY = hit.y
+      const hr = forEachVertex(t, hit.x, hit.z, width * 1.4, 0.5, (i, w) => {
+        if (keeps(h[i], limit, cursorY)) h[i] += (target - h[i]) * w * k
+      })
       this.heightsChanged(ctx, hr)
     }
   }
@@ -265,16 +269,18 @@ export class WaterTool extends BrushTool {
     const { radius, strength, falloff } = editor.brush
     const k = Math.min(1, strength * dt * 4)
     const lvl = editor.waterLevel
+    const limit = editor.sculptLimit
+    const cursorY = hit.y
     let rect: Rect | null
     if (editor.waterMode === 'dig') {
       const floor = lvl - 4
       rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
-        if (h[i] > floor) h[i] += (floor - h[i]) * w * k
+        if (h[i] > floor && keeps(h[i], limit, cursorY)) h[i] += (floor - h[i]) * w * k
       })
     } else {
       const shore = lvl + 0.6
       rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
-        if (h[i] < shore) h[i] += (shore - h[i]) * w * k
+        if (h[i] < shore && keeps(h[i], limit, cursorY)) h[i] += (shore - h[i]) * w * k
       })
     }
     this.heightsChanged(ctx, rect)
