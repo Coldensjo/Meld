@@ -1,6 +1,7 @@
 import {
   BrowseVmangosFolder,
   ExportTileHeights,
+  ExportVmangosMap,
   LoadMap,
   LoadTile,
   OpenMapDialog,
@@ -14,6 +15,8 @@ import type { Engine, MapSnapshot } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
+import { mapToTiles } from './vmangosExport'
+import { vmangos } from '../../../wailsjs/go/models'
 
 /** True when running inside the Wails webview (Go bindings available). */
 export const hasBackend = () => typeof (window as unknown as { go?: unknown }).go !== 'undefined'
@@ -182,4 +185,30 @@ export async function chooseVmangosFolder() {
   } catch (e) {
     setStatus(`Not a VMaNGOS server folder: ${e}`, 8000)
   }
+}
+
+/**
+ * Writes a map made for the client: its tiles with their ground, paint and models, the map's WDT and
+ * its row in the client's map table. The server's copy of the table follows when its folder is set.
+ */
+export function exportVmangosMap(engine: Engine) {
+  return guarded('Export map', async () => {
+    const ref = engine.activeVmangos()
+    if (!ref) {
+      setStatus('Only a map made for the client exports this way. Make one with File › New Map…, ticking “For the WoW 1.12 client”.')
+      return
+    }
+    const out = mapToTiles(engine.exportInput())
+    const res = await ExportVmangosMap(
+      vmangos.MapSpec.createFrom({ Dir: ref.dir, MapID: ref.mapId, Tiles: out.tiles }),
+    )
+    const notes: string[] = []
+    if (out.colorChunks) notes.push(`${out.colorChunks} chunks painted with a colour were left out; paint them with a texture`)
+    if (out.outside) notes.push(`${out.outside} models outside the map were left out`)
+    const server = res.Server
+      ? " The server's map table is updated. Run update-maps.bat in your VMaNGOS folder, then start the server."
+      : ' Set the VMaNGOS folder to update the server, then run update-maps.bat.'
+    const extra = notes.length ? ' ' + notes.join('. ') + '.' : ''
+    setStatus(`Wrote ${res.Tiles} tiles of ${ref.dir} (map ${ref.mapId}) to the client's patch.${server}${extra}`, 14000)
+  })
 }

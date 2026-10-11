@@ -18,9 +18,23 @@
     { id: 'island', name: 'Island' },
   ]
 
+  // A map for the 1.12 client: its tiles, folder and map ID, which the client and server find it by.
+  let forClient = $state(false)
+  let tiles = $state(1)
+  let folder = $state('MyMap')
+  let mapId = $state(1900)
+  const folderOk = $derived(/^[A-Za-z0-9_-]+$/.test(folder.trim()))
+  const mapIdOk = $derived(Number.isInteger(mapId) && mapId > 0 && mapId <= 99999)
+  const canCreate = $derived(!forClient || (folderOk && mapIdOk))
+
   async function create() {
+    if (!canCreate) return
     const palette = wow.loaded ? await defaultLayerTextures() : LAYERS.map((l) => l.swatch)
-    engineRef.current?.newDocument(size, kind, seed, name.trim() || 'Untitled')
+    if (forClient) {
+      engineRef.current?.newVmangosDocument(tiles, kind, seed, { dir: folder.trim(), mapId })
+    } else {
+      engineRef.current?.newDocument(size, kind, seed, name.trim() || 'Untitled')
+    }
     editor.palette = palette
     editor.dirty = false
     engineRef.current?.refreshTabs()
@@ -31,15 +45,32 @@
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && (ui.showNewDialog = false)}>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="nm-title">
     <h2 id="nm-title">New Map</h2>
-    <label>Name <input type="text" bind:value={name} /></label>
-    <label>
-      Size
-      <select bind:value={size}>
-        <option value={128}>Small — 1×1 tile (128²)</option>
-        <option value={256}>Medium — 2×2 tiles (256²)</option>
-        <option value={512}>Large — 4×4 tiles (512²)</option>
-      </select>
-    </label>
+    <label class="check"><input type="checkbox" bind:checked={forClient} /> For the WoW 1.12 client (VMaNGOS)</label>
+    {#if forClient}
+      <label>Folder <input type="text" bind:value={folder} /></label>
+      {#if !folderOk}<p class="warn">Use letters, digits, - and _ for the folder name.</p>{/if}
+      <label>Map ID <input type="number" min="1" max="99999" bind:value={mapId} /></label>
+      {#if !mapIdOk}<p class="warn">A map ID is a whole number from 1 to 99999.</p>{/if}
+      <label>
+        Tiles
+        <select bind:value={tiles}>
+          <option value={1}>1 × 1 tile (128²)</option>
+          <option value={2}>2 × 2 tiles (256²)</option>
+          <option value={3}>3 × 3 tiles (384²)</option>
+          <option value={4}>4 × 4 tiles (512²)</option>
+        </select>
+      </label>
+    {:else}
+      <label>Name <input type="text" bind:value={name} /></label>
+      <label>
+        Size
+        <select bind:value={size}>
+          <option value={128}>Small — 1×1 tile (128²)</option>
+          <option value={256}>Medium — 2×2 tiles (256²)</option>
+          <option value={512}>Large — 4×4 tiles (512²)</option>
+        </select>
+      </label>
+    {/if}
     <div class="kinds">
       {#each KINDS as k (k.id)}
         <button class:active={kind === k.id} onclick={() => (kind = k.id)}>{k.name}</button>
@@ -55,7 +86,7 @@
     <p class="warn">Unsaved changes to the current map will be lost.</p>
     <div class="actions">
       <button onclick={() => (ui.showNewDialog = false)}>Cancel</button>
-      <button class="active" onclick={create}>Create</button>
+      <button class="active" disabled={!canCreate} onclick={create}>Create</button>
     </div>
   </div>
 </div>

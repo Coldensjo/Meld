@@ -18,6 +18,10 @@ export function ExportTileHeights(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTileHeights'](arg1, arg2, arg3, arg4);
 }
 
+export function ExportVmangosMap(arg1) {
+  return window['go']['main']['App']['ExportVmangosMap'](arg1);
+}
+
 export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }

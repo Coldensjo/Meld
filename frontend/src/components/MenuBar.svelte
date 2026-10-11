@@ -1,7 +1,7 @@
 <script lang="ts">
   import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseVmangosFolder, exportWowTile, hasBackend, openMap, saveMap } from '../lib/io/mapio'
+  import { chooseVmangosFolder, exportVmangosMap, exportWowTile, hasBackend, openMap, saveMap } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
   import { ClearThumbnailCache, Quit } from '../../wailsjs/go/main/App'
   import { requestClose } from './DocTabs.svelte'
@@ -45,6 +45,7 @@
         { kind: 'sep' },
         { kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveMap(e)) },
         { kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },
+        { kind: 'action', label: 'Export Map to Client…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportVmangosMap(e)) },
         { kind: 'action', label: 'Export Tile Heights to Client…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportWowTile(e)) },
         { kind: 'action', label: 'Close Map', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
         { kind: 'sep' },

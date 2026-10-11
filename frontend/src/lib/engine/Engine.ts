@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import type { GenerateKind } from '../terrain/Terrain'
 import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
-import { MapDocument, type TileRef } from './MapDocument'
+import { MapDocument, type TileRef, type VmangosRef } from './MapDocument'
+import type { ExportInput } from '../io/vmangosExport'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
@@ -484,6 +485,7 @@ export class Engine {
       waterEnabled: editor.waterEnabled,
       paintLayer: editor.paintLayer,
       tile: d.meta.tile,
+      vmangos: d.meta.vmangos,
     }
     const c = this.controller
     d.camera = { target: c.target.clone(), yaw: c.yaw, pitch: c.pitch, distance: c.distance }
@@ -606,6 +608,39 @@ export class Engine {
     return true
   }
 
+  /**
+   * A new map to export for the 1.12 client, of tiles x tiles 128-cell tiles. It's made the same as
+   * any new map, then marked with its folder and map ID.
+   */
+  newVmangosDocument(tiles: number, kind: GenerateKind, seed: number, ref: VmangosRef): MapDocument {
+    const d = this.newDocument(tiles * TILE_CELLS, kind, seed, ref.dir)
+    d.meta.vmangos = { ...ref }
+    return d
+  }
+
+  /** The active map's client folder and map ID, when it was made for the client. */
+  activeVmangos(): VmangosRef | null {
+    return this.doc.meta.vmangos
+  }
+
+  /** The active map as the client export takes it. */
+  exportInput(): ExportInput {
+    const t = this.terrain
+    const objects = this.objects.list().map((o) => {
+      const w = this.objects.worldPlacement(o)
+      return { type: o.type, x: w.pos.x, y: w.pos.y, z: w.pos.z, rotY: w.rot, scale: w.scale }
+    })
+    return {
+      size: t.size,
+      cellSize: t.cellSize,
+      heights: t.heights,
+      weights: t.weights,
+      chunkSlots: t.chunkSlots,
+      palette: editor.palette,
+      objects,
+    }
+  }
+
   /** The client tile the active map came from, or null. */
   activeTile(): TileRef | null {
     return this.doc.meta.tile
@@ -715,6 +750,7 @@ export class Engine {
       dirty: false,
       palette,
       tile: null,
+      vmangos: null,
       texScale: m.texScale || 8,
       waterLevel: m.waterLevel,
       waterEnabled: m.waterEnabled,

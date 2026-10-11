@@ -249,3 +249,17 @@ func (a *App) ExportTileHeights(mapName string, x, y int, outer []float32) (stri
 	}
 	return vmangos.InstallPatch(dataDir, []mpq.File{{Name: adt.TilePath(mapName, x, y, ""), Data: patched}})
 }
+
+// ExportVmangosMap writes a map made in the editor for the 1.12 client: its tiles, WDT and map table
+// row go into the client's patch, and the server's copy of the table is updated when a VMaNGOS
+// folder is set.
+func (a *App) ExportVmangosMap(m vmangos.MapSpec) (vmangos.ExportResult, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.ExportResult{}, err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	return vmangos.ExportMap(dataDir, dataDir, server, m)
+}

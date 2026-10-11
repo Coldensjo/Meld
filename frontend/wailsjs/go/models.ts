@@ -174,6 +174,135 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class ExportResult {
+	    Patch: string;
+	    Server: string;
+	    Tiles: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Patch = source["Patch"];
+	        this.Server = source["Server"];
+	        this.Tiles = source["Tiles"];
+	    }
+	}
+	
+	export class ObjectSpec {
+	    Type: string;
+	    X: number;
+	    Y: number;
+	    Z: number;
+	    RotY: number;
+	    Scale: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ObjectSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Type = source["Type"];
+	        this.X = source["X"];
+	        this.Y = source["Y"];
+	        this.Z = source["Z"];
+	        this.RotY = source["RotY"];
+	        this.Scale = source["Scale"];
+	    }
+	}
+	export class PaintSpec {
+	    Chunk: number;
+	    Textures: string[];
+	    Weights: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PaintSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Chunk = source["Chunk"];
+	        this.Textures = source["Textures"];
+	        this.Weights = source["Weights"];
+	    }
+	}
+	export class TileSpec {
+	    X: number;
+	    Y: number;
+	    Outer: number[];
+	    Paint: PaintSpec[];
+	    Objects: ObjectSpec[];
+	
+	    static createFrom(source: any = {}) {
+	        return new TileSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.X = source["X"];
+	        this.Y = source["Y"];
+	        this.Outer = source["Outer"];
+	        this.Paint = this.convertValues(source["Paint"], PaintSpec);
+	        this.Objects = this.convertValues(source["Objects"], ObjectSpec);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class MapSpec {
+	    Dir: string;
+	    MapID: number;
+	    Tiles: TileSpec[];
+	
+	    static createFrom(source: any = {}) {
+	        return new MapSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Dir = source["Dir"];
+	        this.MapID = source["MapID"];
+	        this.Tiles = this.convertValues(source["Tiles"], TileSpec);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
 	
 	export class TileView {
 	    mapName: string;

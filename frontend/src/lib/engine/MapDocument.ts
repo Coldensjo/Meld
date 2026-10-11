@@ -14,10 +14,18 @@ export interface DocMeta {
   palette: string[]
   /** The client tile this map was opened from, which exports go back to. */
   tile: TileRef | null
+  /** For a map made for the client: its folder and map ID, which the export writes under. */
+  vmangos: VmangosRef | null
   texScale: number
   waterLevel: number
   waterEnabled: boolean
   paintLayer: number
+}
+
+/** A map made for the 1.12 client: its folder under World\Maps, and its map ID. */
+export interface VmangosRef {
+  dir: string
+  mapId: number
 }
 
 /** A tile of a 1.12 map in the client. */
@@ -61,6 +69,7 @@ export class MapDocument {
       dirty: false,
       palette: LAYERS.map((l) => l.swatch),
       tile: null,
+      vmangos: null,
       texScale: 8,
       waterLevel: 0,
       waterEnabled: true,
