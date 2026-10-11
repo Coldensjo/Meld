@@ -60,6 +60,8 @@ export const editor = $state({
   mapName: 'Untitled',
   /** Terrain cells per side of the open map. */
   mapSize: 256,
+  /** The client tiles the open map is a block of, described for the status bar; '' when it isn't one. */
+  region: '',
   filePath: '',
   dirty: false,
 })

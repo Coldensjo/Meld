@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { GenerateKind } from '../terrain/Terrain'
 import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
-import { MapDocument, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
+import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
@@ -547,6 +547,8 @@ export class Engine {
     editor.waterEnabled = m.waterEnabled
     editor.paintLayer = m.paintLayer
     editor.mapSize = d.terrain.size
+    editor.region = m.region ? regionLabel(m.region) : ''
+    d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
     editor.selected = null
     editor.selection = null
     ui.pasting = false

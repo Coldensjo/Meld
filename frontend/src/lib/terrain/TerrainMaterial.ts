@@ -50,6 +50,8 @@ uniform float brushSquare;
 uniform float brushVisible;
 uniform vec3 brushColor;
 uniform float gridVisible;
+// The width of a tile in world units when the map is a client region; 0 hides the tile borders.
+uniform float tileWorld;
 uniform sampler2D maskTex;
 uniform float maskVisible;
 uniform vec4 selRect;
@@ -131,6 +133,14 @@ void main() {
     lit = mix(lit, vec3(0.0), line * 0.25);
   }
 
+  if (tileWorld > 0.0) {
+    // One line at each tile's edge, drawn about a pixel wide in amber so it reads on any ground.
+    vec2 t = vWorldPos.xz / tileWorld;
+    vec2 g = abs(fract(t - 0.5) - 0.5) / fwidth(t);
+    float edge = 1.0 - min(min(g.x, g.y), 1.0);
+    lit = mix(lit, vec3(1.0, 0.72, 0.2), edge * 0.85);
+  }
+
   if (maskVisible > 0.0) {
     // Quick-mask style red overlay; maskVisible is its opacity.
     float m = texture2D(maskTex, suv).r;
@@ -203,6 +213,7 @@ export function createTerrainMaterial(
     brushVisible: { value: 0 },
     brushColor: { value: new THREE.Color(0.92, 0.95, 1.0) },
     gridVisible: { value: 0 },
+    tileWorld: { value: 0 },
     maskTex: { value: null },
     maskVisible: { value: 0 },
     selRect: { value: new THREE.Vector4() },

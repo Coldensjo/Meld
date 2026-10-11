@@ -103,6 +103,11 @@ export class Terrain {
     return t
   }
 
+  /** Draws a line at every tile edge, for a map of client tiles: `cells` is a tile's width in cells, 0 to hide them. */
+  setTileBorders(cells: number) {
+    this.material.uniforms.tileWorld.value = cells * this.cellSize
+  }
+
   /** Sets the map's texture palette (see PaletteArray). */
   setPalette(paths: string[]) {
     this.palette.set(paths)

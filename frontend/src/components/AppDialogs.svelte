@@ -31,6 +31,9 @@
       tileY + tileSize <= 64,
   )
 
+  // The 64 x 64 tile map's grid lines, as one path, for the open dialog's preview.
+  const TILE_GRID = Array.from({ length: 65 }, (_, i) => `M0 ${i}H64M${i} 0V64`).join('')
+
   const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
     [
       'File',
@@ -148,6 +151,19 @@
       <label for="tile-size">Tiles</label>
       <input id="tile-size" type="number" min="1" max="16" bind:value={tileSize} />
     </div>
+    <div class="map-preview">
+      <svg viewBox="0 0 64 64" role="img" aria-label="The 64 by 64 tile map, with the chosen block highlighted">
+        <path d={TILE_GRID} class="lines" />
+        {#if tileValid}
+          <rect x={tileX} y={tileY} width={tileSize} height={tileSize} class="pick" />
+        {/if}
+      </svg>
+      <p class="dim">
+        {tileValid
+          ? `Tiles ${tileX}–${tileX + tileSize - 1} × ${tileY}–${tileY + tileSize - 1} of the 64 × 64 map`
+          : 'The block must fit inside the 64 × 64 map.'}
+      </p>
+    </div>
     {#snippet actions()}
       <button onclick={close}>Cancel</button>
       <button
@@ -229,6 +245,34 @@
   }
   .fields input {
     width: 100%;
+  }
+  .map-preview {
+    margin-top: 14px;
+  }
+  .map-preview svg {
+    display: block;
+    width: 100%;
+    max-width: 288px;
+    aspect-ratio: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+  }
+  .map-preview .lines {
+    fill: none;
+    stroke: var(--text-dim);
+    stroke-opacity: 0.35;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  .map-preview .pick {
+    fill: var(--accent);
+    fill-opacity: 0.35;
+    stroke: var(--accent);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+  .map-preview p {
+    margin: 6px 0 0;
   }
   .about {
     display: flex;

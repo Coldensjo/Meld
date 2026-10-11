@@ -54,6 +54,13 @@ export interface RegionRef {
   uids: Map<number, number>
 }
 
+/** The region's tile range, for example "Azeroth tiles 32–35 × 48–51 (4×4)". */
+export function regionLabel(r: RegionRef): string {
+  const x1 = r.x + r.size - 1
+  const y1 = r.y + r.size - 1
+  return `${r.mapName} tiles ${r.x}–${x1} × ${r.y}–${y1} (${r.size}×${r.size})`
+}
+
 export interface DocCamera {
   target: THREE.Vector3
   yaw: number

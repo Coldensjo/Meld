@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { stats, ui } from '../lib/state/editor.svelte'
+  import { editor, stats, ui } from '../lib/state/editor.svelte'
 
   const fmt = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))
 </script>
@@ -13,6 +13,7 @@
       —
     {/if}
   </span>
+  {#if editor.region}<span class="cell region">{editor.region}</span>{/if}
   <span class="cell">{stats.objects} objects</span>
   <span class="cell">{stats.drawCalls} draws · {fmt(stats.triangles)} tris</span>
   <span class="cell fps" class:low={stats.fps < 30}>{stats.fps} FPS</span>
