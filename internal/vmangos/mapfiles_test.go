@@ -62,11 +62,18 @@ func TestRealMapTables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := AddMapRow(dbc, 1900, "WorldEditorTest")
+	// A free ID: the client may already list the maps the editor has exported.
+	free := uint32(0)
+	for _, id := range MapRowIDs(dbc) {
+		if id >= free {
+			free = id + 1
+		}
+	}
+	out, err := AddMapRow(dbc, free, "WorldEditorTest")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if MapRowDir(out, 1900) != "WorldEditorTest" || len(MapRowIDs(out)) != len(MapRowIDs(dbc))+1 {
+	if MapRowDir(out, free) != "WorldEditorTest" || len(MapRowIDs(out)) != len(MapRowIDs(dbc))+1 {
 		t.Fatal("the new row did not read back")
 	}
 	wdt, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)

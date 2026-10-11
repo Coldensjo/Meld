@@ -83,8 +83,8 @@ func TestIronforgePatchIsBackedUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if owner == "" {
-		t.Skip("the client's patch-3 is not an Ironforge or WorldEditor patch")
+	if owner != IronforgeMarker {
+		t.Skip("the client's patch-3 is not Ironforge's, so there is no Ironforge backup to check")
 	}
 	tmp := t.TempDir()
 	orig, err := os.ReadFile(src)
