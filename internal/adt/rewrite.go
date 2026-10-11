@@ -56,6 +56,14 @@ type Changes struct {
 	Remove map[uint32]bool
 	// Add places new models.
 	Add []Object
+	// Water, when set, writes the water at its level into every chunk the ground lies below. Nil
+	// keeps the tile's own liquids.
+	Water *Water
+}
+
+// Water is a map's water: a flat surface at Level yards, over the ground below it.
+type Water struct {
+	Level float32
 }
 
 const (
@@ -535,16 +543,32 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 		refs = binary.LittleEndian.AppendUint32(refs, r)
 	}
 
+	// Water: the liquid at the map's level, in the cells the ground lies below. A chunk the level
+	// doesn't reach has none, and replaces the tile's own liquid when the level is set.
+	var liquid []byte
+	if ch.Water != nil {
+		liquid = waterRecord(m, raw["MCVT"], ch.Water.Level)
+		flags &^= mcnkLiquidMask
+		if liquid != nil {
+			flags |= liquidWater
+		}
+	}
+
 	// Liquid and sound emitters, kept as they are; their size fields are the game's own.
 	header := append([]byte(nil), m[:mcnkHeaderLen]...)
 	binary.LittleEndian.PutUint32(header[0:], flags)
 	binary.LittleEndian.PutUint32(header[mcnkLayers:], nLayers)
 	binary.LittleEndian.PutUint32(header[mcnkDoodadRefs:], uint32(len(m2Refs)))
 	binary.LittleEndian.PutUint32(header[mcnkMapObjRefs:], uint32(len(wmoRefs)))
+	if ch.Water != nil {
+		binary.LittleEndian.PutUint32(header[mcnkLiquidOfs:], 0)
+		binary.LittleEndian.PutUint32(header[mcnkLiquidSize:], 0)
+	}
 
 	type piece struct {
-		id   string
-		data []byte // whole chunk: header and payload
+		id    string
+		data  []byte // whole chunk: header and payload
+		fresh bool   // built here, so its size field in the header is set here too
 	}
 	pieces := []piece{}
 	add := func(id string, data []byte, raw bool) {
@@ -555,7 +579,7 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 		var head [8]byte
 		head[0], head[1], head[2], head[3] = id[3], id[2], id[1], id[0]
 		binary.LittleEndian.PutUint32(head[4:], uint32(len(data)))
-		pieces = append(pieces, piece{id: id, data: append(head[:], data...)})
+		pieces = append(pieces, piece{id: id, data: append(head[:], data...), fresh: true})
 	}
 	add("MCVT", raw["MCVT"], true)
 	add("MCNR", raw["MCNR"], true)
@@ -575,9 +599,15 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 		}
 	}
 	for _, id := range []string{"MCSH", "MCSE", "MCLQ"} {
+		if id == "MCLQ" && ch.Water != nil {
+			continue // replaced by the water above
+		}
 		if r, ok := raw[id]; ok {
 			add(id, r, true)
 		}
+	}
+	if liquid != nil {
+		add("MCLQ", liquid, false)
 	}
 
 	// Lay the pieces out after the header, and point the header at each one's payload.
@@ -606,6 +636,10 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 			binary.LittleEndian.PutUint32(header[mcnkSoundOfs:], ofs)
 		case "MCLQ":
 			binary.LittleEndian.PutUint32(header[mcnkLiquidOfs:], ofs)
+			if p.fresh {
+				// The header holds the liquid's size with its own header, as the game's files do.
+				binary.LittleEndian.PutUint32(header[mcnkLiquidSize:], uint32(len(p.data)))
+			}
 		}
 		body = append(body, p.data...)
 		at += len(p.data)

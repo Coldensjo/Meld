@@ -271,6 +271,8 @@ export namespace vmangos {
 	    Dir: string;
 	    MapID: number;
 	    Tiles: TileSpec[];
+	    Water: boolean;
+	    WaterLevel: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new MapSpec(source);
@@ -281,6 +283,8 @@ export namespace vmangos {
 	        this.Dir = source["Dir"];
 	        this.MapID = source["MapID"];
 	        this.Tiles = this.convertValues(source["Tiles"], TileSpec);
+	        this.Water = source["Water"];
+	        this.WaterLevel = source["WaterLevel"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

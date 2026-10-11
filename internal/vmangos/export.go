@@ -51,6 +51,9 @@ type MapSpec struct {
 	Dir   string
 	MapID uint32
 	Tiles []TileSpec
+	// Water, when set, puts water at WaterLevel yards into every chunk the ground lies below.
+	Water      bool
+	WaterLevel float32
 }
 
 // ExportResult says what was written.
@@ -106,7 +109,11 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 			return res, fmt.Errorf("tile %d,%d is listed twice", t.X, t.Y)
 		}
 		present[[2]int{t.X, t.Y}] = true
-		data, err := buildTile(t)
+		var water *adt.Water
+		if m.Water {
+			water = &adt.Water{Level: m.WaterLevel}
+		}
+		data, err := buildTile(t, water)
 		if err != nil {
 			return res, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
 		}
@@ -141,8 +148,8 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 }
 
 // buildTile writes one tile: its ground, paint and models.
-func buildTile(t TileSpec) ([]byte, error) {
-	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}}
+func buildTile(t TileSpec, water *adt.Water) ([]byte, error) {
+	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water}
 	for _, p := range t.Paint {
 		if p.Chunk < 0 || p.Chunk >= adt.ChunkCount {
 			return nil, fmt.Errorf("chunk %d is outside the tile", p.Chunk)

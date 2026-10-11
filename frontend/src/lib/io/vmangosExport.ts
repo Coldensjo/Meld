@@ -39,6 +39,9 @@ export interface ExportInput {
   /** The palette: a WoW tileset path or a colour per index. */
   palette: readonly string[]
   objects: readonly ExportObject[]
+  /** Whether the map has water, and the level it's at in yards. */
+  waterEnabled: boolean
+  waterLevel: number
 }
 
 export interface PaintOut {

@@ -638,6 +638,8 @@ export class Engine {
       chunkSlots: t.chunkSlots,
       palette: editor.palette,
       objects,
+      waterEnabled: editor.waterEnabled,
+      waterLevel: editor.waterLevel,
     }
   }
 

@@ -198,9 +198,16 @@ export function exportVmangosMap(engine: Engine) {
       setStatus('Only a map made for the client exports this way. Make one with File › New Map…, ticking “For the WoW 1.12 client”.')
       return
     }
-    const out = mapToTiles(engine.exportInput())
+    const input = engine.exportInput()
+    const out = mapToTiles(input)
     const res = await ExportVmangosMap(
-      vmangos.MapSpec.createFrom({ Dir: ref.dir, MapID: ref.mapId, Tiles: out.tiles }),
+      vmangos.MapSpec.createFrom({
+        Dir: ref.dir,
+        MapID: ref.mapId,
+        Tiles: out.tiles,
+        Water: input.waterEnabled,
+        WaterLevel: input.waterLevel,
+      }),
     )
     const notes: string[] = []
     if (out.colorChunks) notes.push(`${out.colorChunks} chunks painted with a colour were left out; paint them with a texture`)

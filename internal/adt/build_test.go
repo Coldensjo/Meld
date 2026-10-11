@@ -1,6 +1,7 @@
 package adt
 
 import (
+	"encoding/binary"
 	"math"
 	"testing"
 )
@@ -70,5 +71,52 @@ func TestBuildTileReadsBack(t *testing.T) {
 	}
 	if len(placed) != 1 || placed[0].Name != `World\Test\Tree.m2` || placed[0].UID != 7 {
 		t.Fatalf("placements = %+v", placed)
+	}
+}
+
+// TestBuildTileWater checks water: chunks the level covers get a liquid, others don't.
+func TestBuildTileWater(t *testing.T) {
+	const lattice = ChunksPerTile*CellsPerChunk + 1
+	outer := make([]float32, lattice*lattice)
+	for r := 0; r < lattice; r++ {
+		for c := 0; c < lattice; c++ {
+			// West of the middle is 10 yards under the level, east of it 10 above.
+			if c < lattice/2 {
+				outer[r*lattice+c] = -10
+			} else {
+				outer[r*lattice+c] = 10
+			}
+		}
+	}
+	root, err := BuildTile(outer, Changes{TileX: 1, TileY: 1, Water: &Water{Level: 0}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	starts, err := mcnkStarts(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunkAt := func(cx, cy int) []byte {
+		for i := range starts {
+			if int(binary.LittleEndian.Uint32(root[starts[i]+4:])) == cx && int(binary.LittleEndian.Uint32(root[starts[i]+8:])) == cy {
+				return root[starts[i] : starts[i]+mcnkHeaderLen]
+			}
+		}
+		t.Fatalf("no chunk %d,%d", cx, cy)
+		return nil
+	}
+	// The chunk at (0, 0) is under the level: it gets the water kind and an MCLQ.
+	west := chunkAt(0, 0)
+	if binary.LittleEndian.Uint32(west[0:])&liquidWater == 0 {
+		t.Fatal("a chunk under the water has no water flag")
+	}
+	ofs := int(binary.LittleEndian.Uint32(west[mcnkLiquidOfs:]))
+	if ofs == 0 {
+		t.Fatal("a chunk under the water has no liquid")
+	}
+	// The chunk at (15, 0) is above the level: no water.
+	east := chunkAt(15, 0)
+	if binary.LittleEndian.Uint32(east[0:])&mcnkLiquidMask != 0 || binary.LittleEndian.Uint32(east[mcnkLiquidOfs:]) != 0 {
+		t.Fatal("a chunk above the water has liquid")
 	}
 }

@@ -25,6 +25,8 @@ function input(size: number, over: Partial<ExportInput> = {}): ExportInput {
     chunkSlots,
     palette: ['Tileset\\Elwynn\\Grass.blp', 'Tileset\\Elwynn\\Dirt.blp', 'Tileset\\Elwynn\\Rock.blp'],
     objects: [],
+    waterEnabled: false,
+    waterLevel: 0,
     ...over,
   }
 }
