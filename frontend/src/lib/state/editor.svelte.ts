@@ -1,0 +1,61 @@
+// Reactive editor state (Svelte 5 runes). The engine reads these values each
+// frame; it never stores per-frame data here (that would trigger re-renders).
+
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place'
+export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain'
+export type WaterMode = 'dig' | 'shore'
+
+export interface SelectedInfo {
+  id: number
+  type: string
+  x: number
+  z: number
+  yOff: number
+  rotY: number
+  scale: number
+}
+
+export const editor = $state({
+  tool: 'sculpt' as ToolId,
+  brush: { radius: 10, strength: 0.5, falloff: 0.6 },
+  sculptMode: 'raise' as SculptMode,
+  paintLayer: 0,
+  roadLayer: 6,
+  roadFlatten: true,
+  waterMode: 'dig' as WaterMode,
+  waterLevel: 0,
+  waterEnabled: true,
+  prefab: 'oak',
+  placeRandomRot: true,
+  placeRandomScale: true,
+  placeScatter: false,
+  selected: null as SelectedInfo | null,
+  grid: false,
+  autoCliff: true,
+  mapName: 'Untitled',
+  filePath: '',
+  dirty: false,
+})
+
+export const stats = $state({
+  fps: 0,
+  drawCalls: 0,
+  triangles: 0,
+  objects: 0,
+  cursor: null as { x: number; y: number; z: number } | null,
+})
+
+export const ui = $state({
+  status: 'Ready',
+  canUndo: false,
+  canRedo: false,
+  showNewDialog: false,
+  busy: false,
+})
+
+let statusTimer: ReturnType<typeof setTimeout> | undefined
+export function setStatus(msg: string, timeout = 4000) {
+  ui.status = msg
+  clearTimeout(statusTimer)
+  if (timeout > 0) statusTimer = setTimeout(() => (ui.status = 'Ready'), timeout)
+}

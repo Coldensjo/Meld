@@ -1,0 +1,142 @@
+import * as THREE from 'three'
+
+/**
+ * WoW-style third-person orbit camera around a ground-following target.
+ *
+ *  RMB drag      orbit (yaw/pitch)
+ *  MMB drag      pan along the ground
+ *  Wheel         zoom
+ *  WASD / arrows move target, Q/E rotate, Shift = fast
+ */
+export class CameraController {
+  readonly target = new THREE.Vector3()
+  yaw = Math.PI * 0.25
+  pitch = 0.75
+  distance = 90
+  minDistance = 4
+  maxDistance = 900
+  bounds = 512
+
+  private keys = new Set<string>()
+  private drag: 'orbit' | 'pan' | null = null
+  private last = new THREE.Vector2()
+  private smoothTargetY = 0
+  private abort = new AbortController()
+
+  constructor(
+    private camera: THREE.PerspectiveCamera,
+    private dom: HTMLElement,
+    private ground: (x: number, z: number) => number,
+  ) {
+    const sig = { signal: this.abort.signal }
+    dom.addEventListener('pointerdown', this.onDown, sig)
+    window.addEventListener('pointermove', this.onMove, sig)
+    window.addEventListener('pointerup', this.onUp, sig)
+    dom.addEventListener('wheel', this.onWheel, { passive: false, signal: this.abort.signal })
+    dom.addEventListener('contextmenu', (e) => e.preventDefault(), sig)
+    window.addEventListener('keydown', this.onKeyDown, sig)
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code), sig)
+    window.addEventListener('blur', () => this.keys.clear(), sig)
+  }
+
+  get isDragging() {
+    return this.drag !== null
+  }
+
+  focus(x: number, z: number, distance?: number) {
+    this.target.set(x, this.ground(x, z), z)
+    this.smoothTargetY = this.target.y
+    if (distance) this.distance = distance
+  }
+
+  private onDown = (e: PointerEvent) => {
+    if (e.button === 2) this.drag = 'orbit'
+    else if (e.button === 1) this.drag = 'pan'
+    else return
+    e.preventDefault()
+    this.last.set(e.clientX, e.clientY)
+    this.dom.setPointerCapture?.(e.pointerId)
+  }
+
+  private onMove = (e: PointerEvent) => {
+    if (!this.drag) return
+    const dx = e.clientX - this.last.x
+    const dy = e.clientY - this.last.y
+    this.last.set(e.clientX, e.clientY)
+    if (this.drag === 'orbit') {
+      this.yaw -= dx * 0.005
+      this.pitch = THREE.MathUtils.clamp(this.pitch + dy * 0.005, 0.08, 1.52)
+    } else {
+      const s = this.distance * 0.0016
+      // Grab-the-ground: forward = camera→target, right = forward × up.
+      const fx = -Math.sin(this.yaw)
+      const fz = -Math.cos(this.yaw)
+      this.target.x += (fz * dx + fx * dy) * s
+      this.target.z += (-fx * dx + fz * dy) * s
+      this.clampTarget()
+    }
+  }
+
+  private onUp = (e: PointerEvent) => {
+    if ((e.button === 2 && this.drag === 'orbit') || (e.button === 1 && this.drag === 'pan')) this.drag = null
+  }
+
+  private onWheel = (e: WheelEvent) => {
+    e.preventDefault()
+    const f = Math.exp(Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 200) * 0.0012)
+    this.distance = THREE.MathUtils.clamp(this.distance * f, this.minDistance, this.maxDistance)
+  }
+
+  private onKeyDown = (e: KeyboardEvent) => {
+    const el = e.target as HTMLElement | null
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
+    if (e.ctrlKey || e.metaKey || e.altKey) return
+    this.keys.add(e.code)
+  }
+
+  private clampTarget() {
+    this.target.x = THREE.MathUtils.clamp(this.target.x, -this.bounds * 0.1, this.bounds * 1.1)
+    this.target.z = THREE.MathUtils.clamp(this.target.z, -this.bounds * 0.1, this.bounds * 1.1)
+  }
+
+  update(dt: number) {
+    const k = this.keys
+    const fast = k.has('ShiftLeft') || k.has('ShiftRight') ? 3 : 1
+    let fwd = 0, right = 0
+    if (k.has('KeyW') || k.has('ArrowUp')) fwd += 1
+    if (k.has('KeyS') || k.has('ArrowDown')) fwd -= 1
+    if (k.has('KeyD') || k.has('ArrowRight')) right += 1
+    if (k.has('KeyA') || k.has('ArrowLeft')) right -= 1
+    if (k.has('KeyQ')) this.yaw += dt * 1.6
+    if (k.has('KeyE')) this.yaw -= dt * 1.6
+
+    if (fwd || right) {
+      const speed = (20 + this.distance * 0.9) * fast * dt
+      const fx = -Math.sin(this.yaw)
+      const fz = -Math.cos(this.yaw)
+      this.target.x += (fx * fwd - fz * right) * speed
+      this.target.z += (fz * fwd + fx * right) * speed
+      this.clampTarget()
+    }
+
+    // Glide the target height along the terrain.
+    const gy = this.ground(this.target.x, this.target.z)
+    this.smoothTargetY += (gy - this.smoothTargetY) * Math.min(1, dt * 8)
+    this.target.y = this.smoothTargetY
+
+    const cp = Math.cos(this.pitch)
+    const pos = this.camera.position
+    pos.set(
+      this.target.x + Math.sin(this.yaw) * cp * this.distance,
+      this.target.y + Math.sin(this.pitch) * this.distance,
+      this.target.z + Math.cos(this.yaw) * cp * this.distance,
+    )
+    const floor = this.ground(pos.x, pos.z) + 1.5
+    if (pos.y < floor) pos.y = floor
+    this.camera.lookAt(this.target)
+  }
+
+  dispose() {
+    this.abort.abort()
+  }
+}
