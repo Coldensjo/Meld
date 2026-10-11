@@ -3,6 +3,22 @@
 WorldEditor: a 3D world/map editor (WoW/WC3-editor style). Desktop app built with Wails v2 (Go) and a
 Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **Windows and Linux**.
 
+## Git workflow
+
+- Commit as soon as a feature is finished. Do not wait to be asked.
+- Commit as soon as a bug fix or other fix is applied. Do not wait to be asked.
+- Give each feature or fix its own commit, so unrelated changes are not bundled together.
+- Before committing, make sure the project still builds and the relevant checks pass:
+  - `make check` (go vet + svelte-check/tsc)
+  - `make test`
+  - `make build-linux` (and `make build-windows` for changes that could affect Windows)
+
+  If they fail, fix the problem first, or tell the user rather than committing broken code.
+- Match the style of existing commit messages: one sentence in the imperative mood that says what
+  changed and why, e.g. "Save palette thumbnails through a Go binding instead of a POST, since
+  WebKitGTK crashes on request bodies".
+- Commit to the current branch. Do not push unless the user asks.
+
 ## Commands
 
 ```bash
