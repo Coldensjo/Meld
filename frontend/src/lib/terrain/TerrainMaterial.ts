@@ -25,10 +25,14 @@ const fragment = /* glsl */ `
 #include <lights_pars_begin>
 #include <shadowmap_pars_fragment>
 #include <shadowmask_pars_fragment>
-uniform sampler2D splatA;
-uniform sampler2D splatB;
-uniform sampler2D tex0; uniform sampler2D tex1; uniform sampler2D tex2; uniform sampler2D tex3;
-uniform sampler2D tex4; uniform sampler2D tex5; uniform sampler2D tex6; uniform sampler2D tex7;
+// The palette: one texture per layer. Each chunk names its four textures in slotTex, and each
+// texel's weights for those four are in weightTex. Both are sampled nearest, so chunks keep hard edges.
+uniform sampler2DArray palette;
+uniform sampler2D slotTex;
+uniform sampler2D weightTex;
+uniform float chunksSide;
+uniform float chunkWorld;
+uniform float rockLayer;
 uniform float worldSize;
 uniform float texScale;
 uniform float cellSize;
@@ -55,38 +59,40 @@ varying vec3 vWorldPos;
 varying vec3 vNormal;
 
 // Two scales mixed together hide texture tiling at a distance.
-vec3 tap(sampler2D t, vec2 uv) {
-  return mix(texture2D(t, uv).rgb, texture2D(t, uv * 0.23 + 0.37).rgb, 0.35);
+vec3 tap(float layer, vec2 uv) {
+  return mix(texture(palette, vec3(uv, layer)).rgb, texture(palette, vec3(uv * 0.23 + 0.37, layer)).rgb, 0.35);
+}
+
+// Blends the chunk's four textures by this texel's weights. Slot ids are 0-255 with 255 empty.
+vec3 blend(vec4 ids, vec4 w, vec2 tuv) {
+  vec3 c = vec3(0.0);
+  if (w.r > 0.004 && ids.r < 254.5) c += tap(ids.r, tuv) * w.r;
+  if (w.g > 0.004 && ids.g < 254.5) c += tap(ids.g, tuv) * w.g;
+  if (w.b > 0.004 && ids.b < 254.5) c += tap(ids.b, tuv) * w.b;
+  if (w.a > 0.004 && ids.a < 254.5) c += tap(ids.a, tuv) * w.a;
+  return c;
 }
 
 void main() {
   vec3 n = normalize(vNormal);
   vec2 suv = vWorldPos.xz / worldSize;
   vec2 tuv = vWorldPos.xz / texScale;
-  vec4 a = texture2D(splatA, suv);
-  vec4 b = texture2D(splatB, suv);
-  float total = max(dot(a, vec4(1.0)) + dot(b, vec4(1.0)), 0.0001);
+  vec2 cell = floor(vWorldPos.xz / chunkWorld);
+  vec4 ids = floor(texture2D(slotTex, (cell + 0.5) / chunksSide) * 255.0 + 0.5);
+  vec4 w = texture2D(weightTex, suv);
+  float total = max(dot(w, vec4(1.0)), 0.0001);
 
-  vec3 col = vec3(0.0);
-  if (a.r > 0.004) col += tap(tex0, tuv) * a.r;
-  if (a.g > 0.004) col += tap(tex1, tuv) * a.g;
-  if (a.b > 0.004) col += tap(tex2, tuv) * a.b;
-  if (a.a > 0.004) col += tap(tex3, tuv) * a.a;
-  if (b.r > 0.004) col += tap(tex4, tuv) * b.r;
-  if (b.g > 0.004) col += tap(tex5, tuv) * b.g;
-  if (b.b > 0.004) col += tap(tex6, tuv) * b.b;
-  if (b.a > 0.004) col += tap(tex7, tuv) * b.a;
-  col /= total;
+  vec3 col = blend(ids, w, tuv) / total;
 
   // Automatic rock on steep slopes, triplanar so cliffs don't stretch.
   float slope = 1.0 - n.y;
   float rockW = smoothstep(0.32, 0.55, slope) * cliffAuto;
   if (rockW > 0.001) {
-    vec3 w = abs(n); w /= (w.x + w.y + w.z);
-    vec3 rx = texture2D(tex3, vWorldPos.zy / texScale).rgb;
-    vec3 ry = texture2D(tex3, tuv).rgb;
-    vec3 rz = texture2D(tex3, vWorldPos.xy / texScale).rgb;
-    col = mix(col, rx * w.x + ry * w.y + rz * w.z, rockW);
+    vec3 w3 = abs(n); w3 /= (w3.x + w3.y + w3.z);
+    vec3 rx = texture(palette, vec3(vWorldPos.zy / texScale, rockLayer)).rgb;
+    vec3 ry = texture(palette, vec3(tuv, rockLayer)).rgb;
+    vec3 rz = texture(palette, vec3(vWorldPos.xy / texScale, rockLayer)).rgb;
+    col = mix(col, rx * w3.x + ry * w3.y + rz * w3.z, rockW);
   }
 
   // Simple stylised lighting: hemisphere ambient + wrapped sun.
@@ -163,17 +169,23 @@ void main() {
 `
 
 export function createTerrainMaterial(
-  splatA: THREE.Texture,
-  splatB: THREE.Texture,
-  layers: THREE.Texture[],
+  palette: THREE.DataArrayTexture,
+  slots: THREE.Texture,
+  weights: THREE.Texture,
   worldSize: number,
   cellSize: number,
+  chunkWorld: number,
+  chunksSide: number,
 ): THREE.ShaderMaterial {
   const uniforms: Record<string, THREE.IUniform> = {
     ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
     ...THREE.UniformsUtils.clone(THREE.UniformsLib.lights),
-    splatA: { value: splatA },
-    splatB: { value: splatB },
+    palette: { value: palette },
+    slotTex: { value: slots },
+    weightTex: { value: weights },
+    chunksSide: { value: chunksSide },
+    chunkWorld: { value: chunkWorld },
+    rockLayer: { value: 3 },
     worldSize: { value: worldSize },
     cellSize: { value: cellSize },
     texScale: { value: 8 },
@@ -197,7 +209,6 @@ export function createTerrainMaterial(
     selMode: { value: 0 },
     selTime: { value: 0 },
   }
-  layers.forEach((t, i) => (uniforms['tex' + i] = { value: t }))
   return new THREE.ShaderMaterial({
     uniforms,
     vertexShader: vertex,

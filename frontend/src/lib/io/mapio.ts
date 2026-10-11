@@ -16,16 +16,16 @@ function toMapData(s: MapSnapshot): mapfile.MapData {
     waterLevel: s.waterLevel,
     waterEnabled: s.waterEnabled,
     objects: s.objects,
-    layerTextures: s.layerTextures,
+    palette: s.palette,
     texScale: s.texScale,
     heights: bytesToBase64(s.heights),
-    splatA: bytesToBase64(s.splatA),
-    splatB: bytesToBase64(s.splatB),
+    weights: bytesToBase64(s.weights),
+    chunkSlots: bytesToBase64(s.chunkSlots),
   })
 }
 
 function fromMapData(m: mapfile.MapData): MapSnapshot {
-  return {
+  const common = {
     name: m.name,
     size: m.size,
     cellSize: m.cellSize,
@@ -33,11 +33,24 @@ function fromMapData(m: mapfile.MapData): MapSnapshot {
     waterLevel: m.waterLevel,
     waterEnabled: m.waterEnabled,
     objects: (m.objects ?? []).map((o, i) => ({ ...o, id: o.id || 100000 + i, parent: o.parent || undefined })),
-    layerTextures: m.layerTextures ?? [],
     texScale: m.texScale ?? 0,
     heights: base64ToBytes(m.heights),
-    splatA: base64ToBytes(m.splatA),
-    splatB: base64ToBytes(m.splatB),
+  }
+  if (m.version === 1) {
+    // Format 1: eight global layers, converted when the map opens.
+    return {
+      ...common,
+      palette: [],
+      weights: new Uint8Array(0),
+      chunkSlots: new Uint8Array(0),
+      legacy: { layerTextures: m.layerTextures ?? [], splatA: base64ToBytes(m.splatA ?? ''), splatB: base64ToBytes(m.splatB ?? '') },
+    }
+  }
+  return {
+    ...common,
+    palette: m.palette ?? [],
+    weights: base64ToBytes(m.weights ?? ''),
+    chunkSlots: base64ToBytes(m.chunkSlots ?? ''),
   }
 }
 

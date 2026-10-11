@@ -1,8 +1,11 @@
 import * as THREE from 'three'
-import { editor } from '../state/editor.svelte'
+import { editor, setStatus } from '../state/editor.svelte'
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
+
+/** Shown when a stroke reaches a paint chunk that already has four textures. */
+const CHUNK_FULL = 'That chunk already has four textures (the 1.12 limit). Paint with one of them, or erase another.'
 
 /** Shared stroke lifecycle for brush tools that modify the terrain. */
 abstract class BrushTool implements Tool {
@@ -172,11 +175,13 @@ export class PaintTool extends BrushTool {
       return
     }
     const { radius, strength, falloff } = editor.brush
-    const layer = editor.paintLayer
+    const tex = editor.paintLayer
     const amt = Math.min(1, strength * dt * 5)
-    const rect = forEachTexel(ctx.terrain, hit.x, hit.z, radius, falloff, (p, w) =>
-      paintPixel(ctx.terrain, p, layer, amt * w),
-    )
+    let refused = 0
+    const rect = forEachTexel(ctx.terrain, hit.x, hit.z, radius, falloff, (p, w) => {
+      if (!paintPixel(ctx.terrain, p, tex, amt * w)) refused++
+    })
+    if (refused) setStatus(CHUNK_FULL, 3000)
     this.splatChanged(ctx, rect)
   }
 }
@@ -195,7 +200,11 @@ export class RoadTool extends BrushTool {
     const { radius, strength } = editor.brush
     const width = this.radius()
     const amt = Math.min(1, strength * dt * 8)
-    const sr = forEachTexel(t, hit.x, hit.z, width, 0.25, (p, w) => paintPixel(t, p, editor.paintLayer, amt * w))
+    let refused = 0
+    const sr = forEachTexel(t, hit.x, hit.z, width, 0.25, (p, w) => {
+      if (!paintPixel(t, p, editor.paintLayer, amt * w)) refused++
+    })
+    if (refused) setStatus(CHUNK_FULL, 3000)
     this.splatChanged(ctx, sr)
 
     if (editor.roadFlatten) {

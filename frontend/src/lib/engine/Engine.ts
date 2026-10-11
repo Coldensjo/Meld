@@ -12,8 +12,10 @@ import { PlaceTool, SelectTool, transformCommand } from '../tools/ObjectTools'
 import { MarqueeTool } from '../tools/MarqueeTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
-import { getFallbackTextures } from '../terrain/textures'
-import { loadTexture, setMaxAnisotropy } from '../wow/api'
+import { LAYERS } from '../terrain/layers'
+import { MAX_PALETTE, convertGlobalLayers, paletteCoverage, paletteIndex } from '../terrain/chunkPaint'
+import { isColor } from '../terrain/paletteArray'
+import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, getAsset } from '../models/assets'
 import { PropEffects } from '../world/PropEffects'
 import { SelectionOutline } from './SelectionOutline'
@@ -28,11 +30,16 @@ export interface MapSnapshot {
   waterEnabled: boolean
   /** Includes ids so attachments (`parent`) survive save/load. */
   objects: WorldObject[]
-  layerTextures: string[]
+  /** The texture palette (format 2). */
+  palette: string[]
   texScale: number
   heights: Uint8Array
-  splatA: Uint8Array
-  splatB: Uint8Array
+  /** Four weights per splat texel (format 2). */
+  weights: Uint8Array
+  /** Four palette indices per paint chunk (format 2). */
+  chunkSlots: Uint8Array
+  /** Format 1 maps only, converted on open: the eight global layers and their splats. */
+  legacy?: { layerTextures: string[]; splatA: Uint8Array; splatB: Uint8Array }
 }
 
 
@@ -330,7 +337,7 @@ export class Engine {
     if (this.leftDown) tool.tick?.(this.ctx, dt, this.hit)
     tool.frame?.(this.ctx, this.hit)
 
-    this.syncLayerTextures()
+    this.syncPalette()
     const u = this.terrain.material.uniforms
     u.texScale.value = editor.texScale
     u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
@@ -439,31 +446,12 @@ export class Engine {
     this.controller.invertY = p.invertY
   }
 
-  /** Bind each paint layer to its procedural or WoW tileset texture. */
-  private syncLayerTextures() {
-    const want = editor.layerTextures
-    for (let i = 0; i < want.length; i++) {
-      const path = want[i] ?? ''
-      const bound = this.doc.boundLayers
-      if (bound[i] === path) continue
-      bound[i] = path
-      const uniform = this.terrain.material.uniforms['tex' + i]
-      const procedural = getFallbackTextures()[i]
-      if (!path) {
-        uniform.value = procedural
-        continue
-      }
-      const material = this.terrain.material
-      loadTexture(path)
-        .then((t) => {
-          // Ignore if the layer changed again or the terrain was replaced.
-          if (bound[i] === path && material.uniforms['tex' + i] === uniform) uniform.value = t
-        })
-        .catch((e) => {
-          setStatus(`Texture failed: ${e}`, 6000)
-          if (bound[i] === path) uniform.value = procedural
-        })
-    }
+  /** Give the active terrain the palette whenever the editor's palette changes. */
+  private syncPalette() {
+    const key = editor.palette.join('\n')
+    if (this.doc.paletteKey === key) return
+    this.doc.paletteKey = key
+    this.terrain.setPalette(editor.palette)
   }
 
   // ---------------------------------------------------------------- documents
@@ -476,7 +464,7 @@ export class Engine {
       mapName: editor.mapName,
       filePath: editor.filePath,
       dirty: editor.dirty,
-      layerTextures: [...editor.layerTextures],
+      palette: [...editor.palette],
       texScale: editor.texScale,
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
@@ -510,7 +498,7 @@ export class Engine {
     const m = d.meta
     editor.mapName = m.mapName
     editor.filePath = m.filePath
-    editor.layerTextures = [...m.layerTextures]
+    editor.palette = [...m.palette]
     editor.texScale = m.texScale
     editor.waterLevel = m.waterLevel
     editor.waterEnabled = m.waterEnabled
@@ -636,11 +624,11 @@ export class Engine {
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
       objects: this.objects.list().map((o) => ({ ...o })),
-      layerTextures: [...editor.layerTextures],
+      palette: [...editor.palette],
       texScale: editor.texScale,
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
-      splatA: t.splatA,
-      splatB: t.splatB,
+      weights: t.weights,
+      chunkSlots: t.chunkSlots,
     }
   }
 
@@ -650,20 +638,31 @@ export class Engine {
     if (m.heights.byteLength !== verts * 4) throw new Error('height data size mismatch')
     const d = new MapDocument(m.size, m.name || 'Untitled', m.cellSize)
     const t = d.terrain
-    if (m.splatRes !== t.splatRes) {
-      d.dispose()
-      throw new Error('splat resolution mismatch')
+    let palette: string[]
+    if (m.legacy) {
+      // Format 1: eight global layers. Each becomes palette entry i, and the chunks keep their four strongest.
+      const packed = convertGlobalLayers(t.paintChunksPerSide, t.splatRes, m.splatRes, m.legacy.splatA, m.legacy.splatB)
+      t.weights.set(packed.weights)
+      t.chunkSlots.set(packed.chunkSlots)
+      palette = Array.from({ length: LAYERS.length }, (_, i) => m.legacy!.layerTextures[i] || LAYERS[i].swatch)
+    } else {
+      if (m.weights.length !== t.weights.length || m.chunkSlots.length !== t.chunkSlots.length) {
+        d.dispose()
+        throw new Error('paint data size mismatch')
+      }
+      t.weights.set(m.weights)
+      t.chunkSlots.set(m.chunkSlots)
+      palette = m.palette.length ? [...m.palette] : LAYERS.map((l) => l.swatch)
     }
+    while (palette.length < LAYERS.length) palette.push(LAYERS[palette.length].swatch)
     t.heights.set(new Float32Array(m.heights.slice().buffer))
-    t.splatA.set(m.splatA)
-    t.splatB.set(m.splatB)
     t.markAllDirty()
     for (const o of m.objects) d.objects.add(o)
     d.meta = {
       mapName: m.name || 'Untitled',
       filePath,
       dirty: false,
-      layerTextures: Array.from({ length: 8 }, (_, i) => m.layerTextures[i] ?? ''),
+      palette,
       texScale: m.texScale || 8,
       waterLevel: m.waterLevel,
       waterEnabled: m.waterEnabled,
@@ -758,18 +757,20 @@ export class Engine {
       return
     }
     const stroke = new TerrainStroke(t, 'Fill mask', { splat: true })
+    let refused = 0
     for (let z = z0; z <= z1; z++) {
       for (let x = x0; x <= x1; x++) {
         const p = z * R + x
-        if (m[p]) paintPixel(t, p, layer, m[p] / 255)
+        if (m[p] && !paintPixel(t, p, layer, m[p] / 255)) refused++
       }
     }
     stroke.touchSplat({ x0, z0, x1, z1 })
     t.markSplatDirty()
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
-    const tex = editor.layerTextures[layer]
-    setStatus(`Filled the mask with ${tex ? tex.slice(tex.lastIndexOf('\\') + 1).replace(/\.blp$/i, '') : 'layer ' + (layer + 1)}.`)
+    const tex = editor.palette[layer] ?? ''
+    const name = isColor(tex) ? tex : tex.slice(tex.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+    setStatus(refused ? `Filled the mask with ${name}, except where a chunk already has four textures.` : `Filled the mask with ${name}.`)
   }
 
   // ---------------------------------------------------------------- marquee / clipboard
@@ -808,7 +809,7 @@ export class Engine {
       setStatus('Nothing selected. Use the Marquee tool (M) to select part of the map first.')
       return false
     }
-    this.clip = copyRegion(this.terrain, this.objects, s, editor.layerTextures)
+    this.clip = copyRegion(this.terrain, this.objects, s, editor.palette)
     ui.hasClip = true
     setStatus(`Copied ${this.clip.w}×${this.clip.h} cells and ${this.clip.objects.length} objects. Paste with Ctrl+V (works in other map tabs too).`)
     return true
@@ -838,8 +839,8 @@ export class Engine {
     const cmd = pasteRegion(
       this.terrain,
       this.objects,
-      editor.layerTextures,
-      (t) => (editor.layerTextures = t),
+      editor.palette,
+      (t) => (editor.palette = t),
       this.clip,
       at.x,
       at.z,
@@ -1143,82 +1144,46 @@ export class Engine {
     if (editor.selected) this.controller.focus(editor.selected.x, editor.selected.z, 30)
   }
 
-  /** Fraction of the map covered by each paint slot (sampled, 0..1). */
+  /** Share of the painted map each palette entry takes (sampled, 0..1). */
   layerCoverage(): number[] {
-    const u = this.slotUsage()
-    const total = u.reduce((a, b) => a + b, 0) || 1
-    return u.map((v) => v / total)
-  }
-
-  /** Unassign a slot's texture (undoable). */
-  clearLayerTexture(i: number) {
-    const before = editor.layerTextures[i]
-    if (!before) return
-    editor.layerTextures[i] = ''
-    this.history.push({
-      label: 'Clear layer texture',
-      undo: () => (editor.layerTextures[i] = before),
-      redo: () => (editor.layerTextures[i] = ''),
-    })
-  }
-
-  /** Total splat weight per paint slot (sampled), used to find unused slots. */
-  private slotUsage(): number[] {
     const t = this.terrain
-    const usage = new Array(8).fill(0)
-    const step = 4 * 7 // sample every 7th texel; plenty to detect usage
-    for (let p = 0; p < t.splatA.length; p += step) {
-      for (let k = 0; k < 4; k++) {
-        usage[k] += t.splatA[p + k]
-        usage[k + 4] += t.splatB[p + k]
-      }
-    }
-    return usage
+    return paletteCoverage(t.weights, t.chunkSlots, t.splatRes, t.paintChunksPerSide, editor.palette.length)
   }
 
   /**
-   * Make `path` paintable: reuse its slot if bound, otherwise bind it to an
-   * unused slot, or (if all 8 are in use) replace the active slot. Undoable.
-   * Returns the slot index.
+   * Make `path` paintable: its palette index if the map has it, otherwise a new entry at the end while
+   * the palette has room. Undoable. Returns the index, or -1 when the palette is full.
    */
   useTexture(path: string): number {
-    const textures = editor.layerTextures
-    let slot = textures.findIndex((p) => p.toLowerCase() === path.toLowerCase())
-    if (slot >= 0) {
-      editor.paintLayer = slot
-      return slot
+    const palette = editor.palette
+    let index = paletteIndex(palette, path)
+    if (index < 0) {
+      if (palette.length >= MAX_PALETTE) {
+        setStatus(`This map's texture palette is full (${MAX_PALETTE} textures).`, 6000)
+        return -1
+      }
+      const before = [...palette]
+      editor.palette = [...palette, path]
+      const after = [...editor.palette]
+      index = after.length - 1
+      this.history.push({
+        label: 'Add texture',
+        undo: () => (editor.palette = [...before]),
+        redo: () => (editor.palette = [...after]),
+      })
     }
-    const usage = this.slotUsage()
-    const total = usage.reduce((a, b) => a + b, 0) || 1
-    const unused = (i: number) => usage[i] / total < 0.0005
-    slot = textures.findIndex((p, i) => !p && unused(i))
-    if (slot < 0) slot = textures.findIndex((_, i) => unused(i))
-    let replaced = false
-    if (slot < 0) {
-      slot = editor.paintLayer
-      replaced = true
-    }
-    const before = textures[slot]
-    const i = slot
-    textures[i] = path
-    this.history.push({
-      label: 'Assign texture',
-      undo: () => (editor.layerTextures[i] = before),
-      redo: () => (editor.layerTextures[i] = path),
-    })
-    editor.paintLayer = slot
-    if (replaced) setStatus(`All 8 texture slots are in use; replaced slot ${slot + 1}. Undo with Ctrl+Z.`, 6000)
-    return slot
+    editor.paintLayer = index
+    return index
   }
 
   regenerateAutoPaint() {
-    const before = { a: this.terrain.splatA.slice(), b: this.terrain.splatB.slice() }
-    this.terrain.autoPaint(editor.waterLevel, editor.waterEnabled)
-    const after = { a: this.terrain.splatA.slice(), b: this.terrain.splatB.slice() }
     const t = this.terrain
+    const before = { w: t.weights.slice(), s: t.chunkSlots.slice() }
+    t.autoPaint(editor.waterLevel, editor.waterEnabled)
+    const after = { w: t.weights.slice(), s: t.chunkSlots.slice() }
     const apply = (s: typeof before) => {
-      t.splatA.set(s.a)
-      t.splatB.set(s.b)
+      t.weights.set(s.w)
+      t.chunkSlots.set(s.s)
       t.markSplatDirty()
     }
     this.history.push({ label: 'Auto paint', undo: () => apply(before), redo: () => apply(after) })

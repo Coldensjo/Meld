@@ -2,6 +2,7 @@
   import type { GenerateKind } from '../lib/terrain/Terrain'
   import { editor, ui, wow } from '../lib/state/editor.svelte'
   import { defaultLayerTextures } from '../lib/wow/defaults'
+  import { LAYERS } from '../lib/terrain/layers'
   import { engineRef } from '../lib/state/engineRef'
 
   let name = $state('Untitled')
@@ -18,9 +19,9 @@
   ]
 
   async function create() {
-    const textures = wow.loaded ? await defaultLayerTextures() : ['', '', '', '', '', '', '', '']
+    const palette = wow.loaded ? await defaultLayerTextures() : LAYERS.map((l) => l.swatch)
     engineRef.current?.newDocument(size, kind, seed, name.trim() || 'Untitled')
-    editor.layerTextures = textures
+    editor.palette = palette
     editor.dirty = false
     engineRef.current?.refreshTabs()
     ui.showNewDialog = false

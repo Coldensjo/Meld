@@ -3,13 +3,15 @@ import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
 import { ObjectLayer } from '../world/ObjectLayer'
 import { History } from '../state/history'
+import { LAYERS } from '../terrain/layers'
 
 /** Per-map editor settings that are swapped in/out of `editor` on tab switch. */
 export interface DocMeta {
   mapName: string
   filePath: string
   dirty: boolean
-  layerTextures: string[]
+  /** The texture palette: a WoW tileset path or a '#rrggbb' colour per entry. */
+  palette: string[]
   texScale: number
   waterLevel: number
   waterEnabled: boolean
@@ -35,8 +37,8 @@ export class MapDocument {
   readonly water: Water
   readonly objects: ObjectLayer
   readonly history = new History()
-  /** Layer texture paths currently bound to this terrain's shader. */
-  boundLayers: string[] = []
+  /** The palette the terrain's shader was last given, as one string, to tell when it changes. */
+  paletteKey = ''
   meta: DocMeta
   camera: DocCamera | null = null
 
@@ -48,7 +50,7 @@ export class MapDocument {
       mapName: name,
       filePath: '',
       dirty: false,
-      layerTextures: ['', '', '', '', '', '', '', ''],
+      palette: LAYERS.map((l) => l.swatch),
       texScale: 8,
       waterLevel: 0,
       waterEnabled: true,

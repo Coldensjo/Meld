@@ -5,6 +5,7 @@
   import { chooseWowFolder, listAssets } from '../lib/wow/api'
   import { buildCatalog, categoryOrder, type CatalogItem } from '../lib/wow/catalog'
   import { hasBackend } from '../lib/io/mapio'
+  import { paletteIndex } from '../lib/terrain/chunkPaint'
 
   type Kind = 'm2' | 'wmo' | 'tex'
 
@@ -85,12 +86,13 @@
     const engine = engineRef.current
     if (!engine) return
     const slot = engine.useTexture(it.path)
+    if (slot < 0) return
     if (editor.tool !== 'paint' && editor.tool !== 'road') editor.tool = 'paint'
     // With a mask painted, picking a texture fills the whole mask with it.
     if (ui.maskActive && editor.tool === 'paint') engine.fillMask(slot)
   }
 
-  const slotOf = (path: string) => editor.layerTextures.findIndex((p) => p.toLowerCase() === path.toLowerCase())
+  const slotOf = (path: string) => paletteIndex(editor.palette, path)
 </script>
 
 <div class="palette">

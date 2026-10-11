@@ -3,6 +3,17 @@ import type { Terrain } from '../terrain/Terrain'
 import type { ObjectLayer, WorldObject } from './ObjectLayer'
 import type { Command } from '../state/history'
 import { TerrainStroke, type Rect } from '../tools/brush'
+import {
+  CHUNK_CELLS,
+  MAX_PALETTE,
+  NO_TEXTURE,
+  SLOTS,
+  SPLAT_PER_CELL,
+  acquireSlot,
+  chunkOf,
+  normalizeTexel,
+  paletteIndex,
+} from '../terrain/chunkPaint'
 
 /** A rectangular piece of a map, copied for pasting into any open map. */
 export interface MapClip {
@@ -11,11 +22,12 @@ export interface MapClip {
   h: number
   /** (w+1)*(h+1) vertex heights. */
   heights: Float32Array
-  /** Splat texels (2 per cell): (2w)*(2h)*4 per texture. */
-  splatA: Uint8Array
-  splatB: Uint8Array
-  /** Texture path of each source slot, used to remap into the target map. */
-  layerTextures: string[]
+  /** Splat texels (SPLAT_PER_CELL per cell): SLOTS weights per texel. */
+  weights: Uint8Array
+  /** SLOTS indices into `palette` per texel (NO_TEXTURE where the slot is empty). */
+  slots: Uint8Array
+  /** The textures the clip uses, indexed as in `slots`. Copied with the clip, so paste works across maps. */
+  palette: string[]
   /**
    * Objects: roots have positions relative to the clip's corner; attached
    * objects keep their local transform and reference their parent by `cid`.
@@ -32,10 +44,14 @@ export interface PasteOptions {
   heightOffset: number
 }
 
-const TPC = 2 // splat texels per cell
+/** A stand-in colour for a clip texture that isn't in the palette it came from. */
+const MISSING = '#808080'
+
+/** Splat texels per paint chunk along one side. */
+const TEXELS_PER_CHUNK = CHUNK_CELLS * SPLAT_PER_CELL
 
 /** Copy the cell rect (inclusive vertex corners x0..x1, z0..z1). */
-export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, layerTextures: string[]): MapClip {
+export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, palette: readonly string[]): MapClip {
   const w = r.x1 - r.x0
   const h = r.z1 - r.z0
   const V = terrain.verts
@@ -43,16 +59,41 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, laye
   for (let z = 0; z <= h; z++) {
     for (let x = 0; x <= w; x++) heights[z * (w + 1) + x] = terrain.heights[(r.z0 + z) * V + r.x0 + x]
   }
+
+  // Texels keep their own slots, which index a palette local to the clip, so the clip doesn't
+  // depend on the map it came from.
+  const T = SPLAT_PER_CELL
   const R = terrain.splatRes
-  const tw = w * TPC
-  const th = h * TPC
-  const splatA = new Uint8Array(tw * th * 4)
-  const splatB = new Uint8Array(tw * th * 4)
+  const side = terrain.paintChunksPerSide
+  const tw = w * T
+  const th = h * T
+  const weights = new Uint8Array(tw * th * SLOTS)
+  const slots = new Uint8Array(tw * th * SLOTS).fill(NO_TEXTURE)
+  const clipPalette: string[] = []
+  const localOf = new Map<number, number>()
   for (let z = 0; z < th; z++) {
-    const src = ((r.z0 * TPC + z) * R + r.x0 * TPC) * 4
-    splatA.set(terrain.splatA.subarray(src, src + tw * 4), z * tw * 4)
-    splatB.set(terrain.splatB.subarray(src, src + tw * 4), z * tw * 4)
+    const gz = r.z0 * T + z
+    for (let x = 0; x < tw; x++) {
+      const gx = r.x0 * T + x
+      const texel = gz * R + gx
+      const chunk = chunkOf(Math.floor(gx / TEXELS_PER_CHUNK), Math.floor(gz / TEXELS_PER_CHUNK), side)
+      for (let k = 0; k < SLOTS; k++) {
+        const global = terrain.chunkSlots[chunk * SLOTS + k]
+        const wt = terrain.weights[texel * SLOTS + k]
+        if (global === NO_TEXTURE || wt === 0) continue
+        let local = localOf.get(global)
+        if (local === undefined) {
+          local = clipPalette.length
+          localOf.set(global, local)
+          clipPalette.push(palette[global] ?? MISSING)
+        }
+        const i = (z * tw + x) * SLOTS + k
+        slots[i] = local
+        weights[i] = wt
+      }
+    }
   }
+
   const cs = terrain.cellSize
   const ox = r.x0 * cs
   const oz = r.z0 * cs
@@ -80,7 +121,7 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, laye
       scale: w.scale,
     }
   })
-  return { w, h, heights, splatA, splatB, layerTextures: [...layerTextures], objects: inside }
+  return { w, h, heights, weights, slots, palette: clipPalette, objects: inside }
 }
 
 /** Edge fade factor for a point `d` cells from the nearest pasted edge. */
@@ -88,14 +129,18 @@ const fade = (d: number, blend: number) => (blend <= 0 ? 1 : Math.min(1, Math.ma
 
 /**
  * Paste `clip` with its corner at cell (px, pz), clipped to the map. Mutates
- * the terrain/objects/layer textures and returns one undoable command.
+ * the terrain, objects and palette, and returns one undoable command.
+ *
+ * Textures merge into the target: a clip texture the map lacks is added to the palette (while there
+ * is room), and each texel blends into the chunk's four slots. A texel whose texture can't fit in its
+ * chunk keeps the chunk's own textures for that part.
  */
 export function pasteRegion(
   terrain: Terrain,
   objects: ObjectLayer,
-  currentTextures: readonly string[],
-  /** Writes the map's slot textures (looked up at call time, so undo stays correct across tab switches). */
-  setTextures: (t: string[]) => void,
+  currentPalette: readonly string[],
+  /** Writes the map's palette (looked up at call time, so undo stays correct across tab switches). */
+  setPalette: (t: string[]) => void,
   clip: MapClip,
   px: number,
   pz: number,
@@ -130,40 +175,30 @@ export function pasteRegion(
     }
   }
 
-  // Remap source texture slots onto the target map's slots.
-  const texturesBefore = [...currentTextures]
-  const layerTextures = [...currentTextures]
-  if (opts.textures) {
-    const used = new Array(8).fill(false)
-    for (let p = 0; p < clip.splatA.length; p += 4) {
-      for (let k = 0; k < 4; k++) {
-        if (clip.splatA[p + k]) used[k] = true
-        if (clip.splatB[p + k]) used[k + 4] = true
-      }
-    }
-    const usage = slotUsage(terrain)
-    const total = usage.reduce((a, b) => a + b, 0) || 1
-    const slotMap = new Array(8).fill(-1)
-    for (let s = 0; s < 8; s++) {
-      if (!used[s]) continue
-      const path = clip.layerTextures[s] ?? ''
-      let t = path ? layerTextures.findIndex((p) => p.toLowerCase() === path.toLowerCase()) : -1
-      if (t < 0 && path) {
-        // Prefer an empty, unused slot; then any unused slot.
-        t = layerTextures.findIndex((p, i) => !p && usage[i] / total < 0.0005 && !slotMap.includes(i))
-        if (t < 0) t = layerTextures.findIndex((_, i) => usage[i] / total < 0.0005 && !slotMap.includes(i))
-        if (t >= 0) layerTextures[t] = path
-      }
-      slotMap[s] = t >= 0 ? t : s // no room: fall back to the same slot index
-    }
+  const paletteBefore = [...currentPalette]
+  const palette = [...currentPalette]
+  // The palette index a clip texture paints with in this map, adding it if there's room.
+  const indexOf = (path: string): number => {
+    const i = paletteIndex(palette, path)
+    if (i >= 0) return i
+    if (palette.length >= MAX_PALETTE) return -1
+    palette.push(path)
+    return palette.length - 1
+  }
+  const clipIndex = new Map<number, number>()
 
+  if (opts.textures) {
+    const T = SPLAT_PER_CELL
     const R = terrain.splatRes
-    const tw = clip.w * TPC
-    const th = clip.h * TPC
-    const tx0 = px * TPC
-    const tz0 = pz * TPC
-    const w = new Float32Array(8)
-    const cur = new Float32Array(8)
+    const side = terrain.paintChunksPerSide
+    const tw = clip.w * T
+    const th = clip.h * T
+    const tx0 = px * T
+    const tz0 = pz * T
+    const cur: Array<[number, number]> = []
+    const src: Array<[number, number]> = []
+    const mix = new Map<number, number>()
+    const w4 = new Float32Array(SLOTS)
     let rect: Rect | null = null
     for (let z = 0; z < th; z++) {
       const gz = tz0 + z
@@ -171,29 +206,51 @@ export function pasteRegion(
       for (let x = 0; x < tw; x++) {
         const gx = tx0 + x
         if (gx < 0 || gx >= R) continue
-        const sp = (z * tw + x) * 4
-        w.fill(0)
-        for (let k = 0; k < 4; k++) {
-          w[slotMap[k] < 0 ? k : slotMap[k]] += clip.splatA[sp + k]
-          w[slotMap[k + 4] < 0 ? k + 4 : slotMap[k + 4]] += clip.splatB[sp + k]
-        }
-        const d = Math.min(x + 0.5, z + 0.5, tw - x - 0.5, th - z - 0.5) / TPC
+        const d = Math.min(x + 0.5, z + 0.5, tw - x - 0.5, th - z - 0.5) / T
         const f = fade(d, opts.blend)
-        const dp = (gz * R + gx) * 4
-        for (let k = 0; k < 4; k++) {
-          cur[k] = terrain.splatA[dp + k]
-          cur[k + 4] = terrain.splatB[dp + k]
+        const texel = gz * R + gx
+        const chunk = chunkOf(Math.floor(gx / TEXELS_PER_CHUNK), Math.floor(gz / TEXELS_PER_CHUNK), side)
+
+        // The texel's current mix, and the clip's mix, as palette index and weight pairs.
+        cur.length = 0
+        src.length = 0
+        for (let k = 0; k < SLOTS; k++) {
+          const g = terrain.chunkSlots[chunk * SLOTS + k]
+          if (g !== NO_TEXTURE) cur.push([g, terrain.weights[texel * SLOTS + k]])
         }
+        const sp = (z * tw + x) * SLOTS
+        for (let k = 0; k < SLOTS; k++) {
+          const local = clip.slots[sp + k]
+          const wt = clip.weights[sp + k]
+          if (local === NO_TEXTURE || wt === 0) continue
+          let g = clipIndex.get(local)
+          if (g === undefined) {
+            g = indexOf(clip.palette[local])
+            clipIndex.set(local, g)
+          }
+          if (g >= 0) src.push([g, wt])
+        }
+        if (src.length === 0) continue
+
+        mix.clear()
+        for (const [g, wt] of cur) mix.set(g, (mix.get(g) ?? 0) + wt * (1 - f))
+        for (const [g, wt] of src) mix.set(g, (mix.get(g) ?? 0) + wt * f)
+
+        // Fit the mix into the chunk's slots. A texture the chunk can't take is dropped.
+        w4.fill(0)
         let sum = 0
-        for (let k = 0; k < 8; k++) {
-          cur[k] += (w[k] - cur[k]) * f
-          sum += cur[k]
+        for (const [g, wt] of mix) {
+          if (wt <= 0) continue
+          const k = acquireSlot(terrain.chunkSlots, chunk, g)
+          if (k < 0) continue
+          w4[k] += wt
+          sum += wt
         }
-        const scale = sum > 0 ? 255 / sum : 0
-        for (let k = 0; k < 4; k++) {
-          terrain.splatA[dp + k] = Math.round(cur[k] * scale)
-          terrain.splatB[dp + k] = Math.round(cur[k + 4] * scale)
-        }
+        if (sum <= 0) continue
+        const dp = texel * SLOTS
+        for (let k = 0; k < SLOTS; k++) terrain.weights[dp + k] = Math.round((w4[k] * 255) / sum)
+        normalizeTexel(terrain.weights, dp)
+
         if (!rect) rect = { x0: gx, z0: gz, x1: gx, z1: gz }
         else {
           rect.x0 = Math.min(rect.x0, gx)
@@ -208,9 +265,8 @@ export function pasteRegion(
       stroke.touchSplat(rect)
     }
   }
-  const texturesAfter = [...layerTextures]
-  const texturesChanged = texturesBefore.some((p, i) => p !== texturesAfter[i])
-  if (texturesChanged) setTextures(texturesAfter)
+  const paletteChanged = paletteBefore.length !== palette.length || paletteBefore.some((p, i) => p !== palette[i])
+  if (paletteChanged) setPalette(palette)
 
   const added: WorldObject[] = []
   if (opts.objects) {
@@ -243,30 +299,19 @@ export function pasteRegion(
   }
 
   const terrainCmd = stroke.finish()
-  if (!terrainCmd && !added.length && !texturesChanged) return null
+  if (!terrainCmd && !added.length && !paletteChanged) return null
   const saved = added.map((o) => ({ ...o }))
   return {
     label: 'Paste',
     undo: () => {
       terrainCmd?.undo()
       for (const o of saved) objects.remove(o.id)
-      if (texturesChanged) setTextures(texturesBefore)
+      if (paletteChanged) setPalette(paletteBefore)
     },
     redo: () => {
       terrainCmd?.redo()
       for (const o of saved) objects.add({ ...o })
-      if (texturesChanged) setTextures(texturesAfter)
+      if (paletteChanged) setPalette(palette)
     },
   }
-}
-
-function slotUsage(t: Terrain): number[] {
-  const usage = new Array(8).fill(0)
-  for (let p = 0; p < t.splatA.length; p += 28) {
-    for (let k = 0; k < 4; k++) {
-      usage[k] += t.splatA[p + k]
-      usage[k + 4] += t.splatB[p + k]
-    }
-  }
-  return usage
 }

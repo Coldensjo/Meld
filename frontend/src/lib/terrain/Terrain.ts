@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 import { fbm, ridged } from '../engine/noise'
 import { createTerrainMaterial } from './TerrainMaterial'
-import { getFallbackTextures } from './textures'
 import { LAYER_COUNT } from './layers'
+import { PaletteArray } from './paletteArray'
+import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRoles } from './chunkPaint'
 
 /** A 1.12 tile is 1600/3 yards across: 128 cells of this size, the grid the server's maps use. */
 export const TILE_YARDS = 1600 / 3
@@ -10,7 +11,7 @@ export const TILE_YARDS = 1600 / 3
 export const CELL_SIZE = TILE_YARDS / 128
 /** Seabed height of an empty ("ocean") map; water sits at 0. */
 export const OCEAN_FLOOR = -12
-const CHUNK = 32 // cells per chunk side
+const CHUNK = 32 // render chunk side, in cells (independent of the 1.12 paint chunks)
 
 export type GenerateKind = 'ocean' | 'flat' | 'hills' | 'mountains' | 'island'
 
@@ -18,6 +19,10 @@ export type GenerateKind = 'ocean' | 'flat' | 'hills' | 'mountains' | 'island'
  * Heightmap terrain split into chunks. Heights live in a flat Float32Array of
  * (size+1)^2 vertices; edits mark a dirty rect and only touched chunks are
  * re-uploaded on the next `update()`.
+ *
+ * Paint follows the 1.12 chunk rules (see chunkPaint.ts): each paint chunk of CHUNK_CELLS cells
+ * names up to SLOTS palette textures in `chunkSlots`, and each texel's weights for those are in
+ * `weights`.
  */
 export class Terrain {
   readonly size: number
@@ -25,11 +30,17 @@ export class Terrain {
   readonly cellSize: number
   readonly worldSize: number
   readonly splatRes: number
+  /** Paint chunks along one side of the map. */
+  readonly paintChunksPerSide: number
   readonly heights: Float32Array
-  readonly splatA: Uint8Array
-  readonly splatB: Uint8Array
-  readonly texA: THREE.DataTexture
-  readonly texB: THREE.DataTexture
+  /** SLOTS weights per splat texel, for the chunk's slots; each texel sums to 255. */
+  readonly weights: Uint8Array
+  /** SLOTS palette indices per paint chunk (NO_TEXTURE for an empty slot). */
+  readonly chunkSlots: Uint8Array
+  readonly weightTex: THREE.DataTexture
+  readonly slotTex: THREE.DataTexture
+  /** The map's texture palette, bound to the shader. */
+  readonly palette: PaletteArray
   /** Paint mask (0-255 per splat texel); texture fills apply to it. Not saved. */
   readonly mask: Uint8Array
   readonly maskTex: THREE.DataTexture
@@ -45,28 +56,35 @@ export class Terrain {
   private splatDirty = false
 
   constructor(size: number, cellSize = CELL_SIZE) {
+    if (size % CHUNK_CELLS !== 0) throw new Error(`map size ${size} is not a multiple of ${CHUNK_CELLS}`)
     this.size = size
-    this.cellSize = cellSize
     this.verts = size + 1
+    this.cellSize = cellSize
     this.worldSize = size * cellSize
-    this.splatRes = size * 2
+    this.splatRes = size * SPLAT_PER_CELL
+    this.paintChunksPerSide = chunksPerSide(size)
     this.heights = new Float32Array(this.verts * this.verts)
-    this.splatA = new Uint8Array(this.splatRes * this.splatRes * 4)
-    this.splatB = new Uint8Array(this.splatRes * this.splatRes * 4)
-    for (let i = 0; i < this.splatA.length; i += 4) this.splatA[i] = 255 // all grass
+    this.weights = new Uint8Array(this.splatRes * this.splatRes * SLOTS)
+    this.chunkSlots = new Uint8Array(this.paintChunksPerSide * this.paintChunksPerSide * SLOTS).fill(NO_TEXTURE)
+    // Every texel starts as palette entry 0, the first ground texture.
+    for (let i = 0; i < this.weights.length; i += SLOTS) this.weights[i] = 255
+    for (let c = 0; c < this.paintChunksPerSide * this.paintChunksPerSide; c++) this.chunkSlots[c * SLOTS] = 0
 
-    this.texA = this.makeSplatTexture(this.splatA)
-    this.texB = this.makeSplatTexture(this.splatB)
+    this.weightTex = this.makeDataTexture(this.weights, this.splatRes, this.splatRes)
+    this.slotTex = this.makeDataTexture(this.chunkSlots, this.paintChunksPerSide, this.paintChunksPerSide)
+    this.palette = new PaletteArray((t) => (this.material.uniforms.palette.value = t))
     this.mask = new Uint8Array(this.splatRes * this.splatRes)
     this.maskTex = new THREE.DataTexture(this.mask, this.splatRes, this.splatRes, THREE.RedFormat, THREE.UnsignedByteType)
     this.maskTex.magFilter = this.maskTex.minFilter = THREE.LinearFilter
     this.maskTex.needsUpdate = true
     this.material = createTerrainMaterial(
-      this.texA,
-      this.texB,
-      getFallbackTextures(),
+      this.palette.texture,
+      this.slotTex,
+      this.weightTex,
       this.worldSize,
-      cellSize,
+      this.cellSize,
+      CHUNK_CELLS * this.cellSize,
+      this.paintChunksPerSide,
     )
     this.material.uniforms.maskTex.value = this.maskTex
     this.chunksPerSide = Math.ceil(size / CHUNK)
@@ -74,13 +92,20 @@ export class Terrain {
     this.group.name = 'terrain'
   }
 
-  private makeSplatTexture(data: Uint8Array) {
-    const t = new THREE.DataTexture(data, this.splatRes, this.splatRes, THREE.RGBAFormat)
-    t.magFilter = THREE.LinearFilter
-    t.minFilter = THREE.LinearFilter
+  /** Nearest-sampled RGBA texture over a byte array of four values per texel. */
+  private makeDataTexture(data: Uint8Array, w: number, h: number) {
+    const t = new THREE.DataTexture(data, w, h, THREE.RGBAFormat)
+    t.magFilter = THREE.NearestFilter
+    t.minFilter = THREE.NearestFilter
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping
+    t.generateMipmaps = false
     t.needsUpdate = true
     return t
+  }
+
+  /** Sets the map's texture palette (see PaletteArray). */
+  setPalette(paths: string[]) {
+    this.palette.set(paths)
   }
 
   private buildChunks() {
@@ -207,8 +232,8 @@ export class Terrain {
       this.maskDirty = false
     }
     if (this.splatDirty) {
-      this.texA.needsUpdate = true
-      this.texB.needsUpdate = true
+      this.weightTex.needsUpdate = true
+      this.slotTex.needsUpdate = true
       this.splatDirty = false
     }
   }
@@ -325,42 +350,41 @@ export class Terrain {
     this.markAllDirty()
   }
 
-  /** Paint sand/grass/rock/snow based on height and slope. */
-  autoPaint(waterLevel: number, waterEnabled: boolean) {
+  /**
+   * Paint sand/grass/rock/snow based on height and slope. Role r of the procedural layers is
+   * palette entry roleTex[r]. Each paint chunk keeps the four roles that fit it best.
+   */
+  autoPaint(waterLevel: number, waterEnabled: boolean, roleTex: number[] = [0, 1, 2, 3, 4, 5, 6, 7]) {
     const R = this.splatRes
-    const A = this.splatA
-    const B = this.splatB
-    const w = new Float32Array(LAYER_COUNT)
+    const roles = LAYER_COUNT
+    const w = new Float32Array(roles)
     let maxH = -Infinity
     for (let i = 0; i < this.heights.length; i++) maxH = Math.max(maxH, this.heights[i])
     const snowLine = Math.max(waterLevel + 30, maxH * 0.72)
-    for (let j = 0; j < R; j++) {
-      for (let i = 0; i < R; i++) {
-        const x = ((i + 0.5) / R) * this.worldSize
-        const z = ((j + 0.5) / R) * this.worldSize
-        const y = this.heightAt(x, z)
-        const e = 0.6
-        const slope =
-          Math.hypot(this.heightAt(x + e, z) - this.heightAt(x - e, z), this.heightAt(x, z + e) - this.heightAt(x, z - e)) /
-          (2 * e)
-        w.fill(0)
-        const n = fbm(x * 0.03, z * 0.03, 3, 99)
-        w[n > 0.55 ? 1 : 0] = 1
-        if (n > 0.62) w[2] = 0.4
-        if (waterEnabled && y < waterLevel + 1.2) {
-          const t = THREE.MathUtils.clamp((waterLevel + 1.2 - y) / 1.2, 0, 1)
-          w[4] += t * 3
-        }
-        if (y > snowLine) w[5] += THREE.MathUtils.clamp((y - snowLine) / 6, 0, 1) * 4
-        if (slope > 0.7) w[3] += THREE.MathUtils.clamp((slope - 0.7) * 3, 0, 4)
-        let sum = 0
-        for (let k = 0; k < LAYER_COUNT; k++) sum += w[k]
-        const p = (j * R + i) * 4
-        for (let k = 0; k < 4; k++) {
-          A[p + k] = Math.round((w[k] / sum) * 255)
-          B[p + k] = Math.round((w[k + 4] / sum) * 255)
-        }
+    const packed = packRoles(this.paintChunksPerSide, R, roles, (i, j, out) => {
+      const x = ((i + 0.5) / R) * this.worldSize
+      const z = ((j + 0.5) / R) * this.worldSize
+      const y = this.heightAt(x, z)
+      const e = 0.6
+      const slope =
+        Math.hypot(this.heightAt(x + e, z) - this.heightAt(x - e, z), this.heightAt(x, z + e) - this.heightAt(x, z - e)) /
+        (2 * e)
+      w.fill(0)
+      const n = fbm(x * 0.03, z * 0.03, 3, 99)
+      w[n > 0.55 ? 1 : 0] = 1
+      if (n > 0.62) w[2] = 0.4
+      if (waterEnabled && y < waterLevel + 1.2) {
+        const t = THREE.MathUtils.clamp((waterLevel + 1.2 - y) / 1.2, 0, 1)
+        w[4] += t * 3
       }
+      if (y > snowLine) w[5] += THREE.MathUtils.clamp((y - snowLine) / 6, 0, 1) * 4
+      if (slope > 0.7) w[3] += THREE.MathUtils.clamp((slope - 0.7) * 3, 0, 4)
+      for (let k = 0; k < roles; k++) out[k] = w[k] * 255
+    })
+    this.weights.set(packed.weights)
+    for (let k = 0; k < packed.chunkSlots.length; k++) {
+      const role = packed.chunkSlots[k]
+      this.chunkSlots[k] = role === NO_TEXTURE ? NO_TEXTURE : roleTex[role] ?? 0
     }
     this.splatDirty = true
   }
@@ -368,8 +392,9 @@ export class Terrain {
   dispose() {
     for (const c of this.chunks) c.geometry.dispose()
     this.material.dispose()
-    this.texA.dispose()
-    this.texB.dispose()
+    this.weightTex.dispose()
+    this.slotTex.dispose()
+    this.palette.dispose()
     this.maskTex.dispose()
   }
 }

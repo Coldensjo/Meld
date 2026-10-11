@@ -1,3 +1,5 @@
+import { LAYERS } from '../terrain/layers'
+
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
@@ -41,8 +43,8 @@ export const editor = $state({
   paste: { terrain: true, textures: true, objects: true, blend: 2, heightOffset: 0 },
   grid: false,
   autoCliff: true,
-  /** Per paint layer: WoW tileset path, or '' for the built-in texture. */
-  layerTextures: ['', '', '', '', '', '', '', ''] as string[],
+  /** The map's texture palette: a WoW tileset path, or a '#rrggbb' colour, per index. */
+  palette: LAYERS.map((l) => l.swatch) as string[],
   texScale: 8,
   mapName: 'Untitled',
   /** Terrain cells per side of the open map. */

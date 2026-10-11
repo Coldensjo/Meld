@@ -6,10 +6,9 @@ export interface LayerDef {
 }
 
 /**
- * The 8 paint slots. Layers 0-3 live in splatA (RGBA), 4-7 in splatB, and
- * weights across all 8 channels are kept normalised to sum to 255. Each slot
- * is bound to a WoW tileset texture (editor.layerTextures); the names/colours
- * here describe the slot's default role (auto-paint uses 0-5) and fallback.
+ * The default palette: eight ground textures, in the roles auto-paint uses (0 grass, 1 lush grass,
+ * 2 dirt, 3 rock, 4 sand, 5 snow, 6 cobblestone, 7 dirt path). A map's palette starts as these
+ * colours and becomes WoW tilesets once a client is loaded (see wow/defaults.ts).
  */
 export const LAYERS: LayerDef[] = [
   { id: 0, name: 'Grass', swatch: '#5d8a2f' },

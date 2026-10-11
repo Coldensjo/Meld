@@ -1,6 +1,7 @@
 import { listAssets } from './api'
+import { LAYERS } from '../terrain/layers'
 
-// Default tileset per paint slot, matching each slot's role (auto-paint relies
+// Default tileset per palette entry, matching each entry's role (auto-paint relies
 // on 0 grass, 1 lush, 2 dirt, 3 rock, 4 sand, 5 snow). First match wins.
 const SLOT_PATTERNS: RegExp[][] = [
   [/elwynn\\elwynngrassbase\.blp$/i, /grass/i],
@@ -13,13 +14,14 @@ const SLOT_PATTERNS: RegExp[][] = [
   [/elwynn\\elwynndirtmud\.blp$/i, /mud/i],
 ]
 
+/** The default palette: a tileset per entry where the client has one, else the entry's colour. */
 export async function defaultLayerTextures(): Promise<string[]> {
   const list = await listAssets('tileset')
-  return SLOT_PATTERNS.map((patterns) => {
+  return SLOT_PATTERNS.map((patterns, i) => {
     for (const re of patterns) {
       const hit = list.find((p) => re.test(p))
       if (hit) return hit
     }
-    return ''
+    return LAYERS[i].swatch
   })
 }

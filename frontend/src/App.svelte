@@ -11,6 +11,7 @@
   import { onMount } from 'svelte'
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
+  import { LAYERS } from './lib/terrain/layers'
   import { editor, prefs, setStatus, ui, wow } from './lib/state/editor.svelte'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveMap } from './lib/io/mapio'
@@ -31,14 +32,15 @@
     if (prefsLoaded) savePrefs()
   })
 
-  // A map without any textures assigned gets the default WoW tileset set as
+  // A map still on the built-in colour palette gets the default WoW tileset set as
   // soon as a client is available.
+  const isDefaultPalette = (palette: string[]) => palette.every((p) => LAYERS.some((l) => l.swatch === p))
   $effect(() => {
-    if (!wow.loaded || editor.layerTextures.some(Boolean)) return
+    if (!wow.loaded || !isDefaultPalette(editor.palette)) return
     const wasDirty = editor.dirty
     defaultLayerTextures().then((t) => {
-      if (editor.layerTextures.some(Boolean)) return
-      editor.layerTextures = t
+      if (!isDefaultPalette(editor.palette)) return
+      editor.palette = t
       editor.dirty = wasDirty
     })
   })

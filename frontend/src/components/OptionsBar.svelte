@@ -15,7 +15,7 @@
   ]
 
   const tool = $derived(TOOLS.find((t) => t.id === editor.tool)!)
-  const slotTex = $derived(editor.layerTextures[editor.paintLayer])
+  const slotTex = $derived(editor.palette[editor.paintLayer])
   const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
   const usesBrush = $derived(
     editor.tool === 'sculpt' || editor.tool === 'paint' || editor.tool === 'road' || editor.tool === 'water' || (editor.tool === 'place' && editor.placeScatter),

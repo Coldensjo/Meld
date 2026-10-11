@@ -1,5 +1,5 @@
 import type { Terrain } from '../terrain/Terrain'
-import { LAYER_COUNT } from '../terrain/layers'
+import { CHUNK_CELLS, SLOTS, SPLAT_PER_CELL, acquireSlot, addWeight, chunkOf } from '../terrain/chunkPaint'
 import type { Command } from '../state/history'
 
 export interface Rect {
@@ -91,28 +91,22 @@ export function forEachTexel(
   return { x0, z0, x1, z1 }
 }
 
-const weights = new Float32Array(LAYER_COUNT)
+/** Splat texels along one side of a paint chunk. */
+const TEXELS_PER_CHUNK = CHUNK_CELLS * SPLAT_PER_CELL
 
-/** Add `amount` (0..1) of `layer` to a splat pixel, keeping the sum at 255. */
-export function paintPixel(terrain: Terrain, pixel: number, layer: number, amount: number) {
-  const A = terrain.splatA
-  const B = terrain.splatB
-  const p = pixel * 4
-  for (let k = 0; k < 4; k++) {
-    weights[k] = A[p + k]
-    weights[k + 4] = B[p + k]
-  }
-  const cur = weights[layer]
-  const next = Math.min(255, cur + amount * 255)
-  let others = 0
-  for (let k = 0; k < LAYER_COUNT; k++) if (k !== layer) others += weights[k]
-  const scale = others > 0 ? (255 - next) / others : 0
-  for (let k = 0; k < LAYER_COUNT; k++) weights[k] = k === layer ? next : weights[k] * scale
-  if (others === 0) weights[layer] = 255
-  for (let k = 0; k < 4; k++) {
-    A[p + k] = Math.round(weights[k])
-    B[p + k] = Math.round(weights[k + 4])
-  }
+/**
+ * Adds `amount` (0 to 1) of palette texture `tex` to a splat texel, in the paint chunk that holds
+ * it. Returns false when that chunk already has SLOTS other textures, which 1.12 doesn't allow.
+ */
+export function paintPixel(terrain: Terrain, pixel: number, tex: number, amount: number): boolean {
+  const R = terrain.splatRes
+  const x = pixel % R
+  const z = Math.floor(pixel / R)
+  const c = chunkOf(Math.floor(x / TEXELS_PER_CHUNK), Math.floor(z / TEXELS_PER_CHUNK), terrain.paintChunksPerSide)
+  const k = acquireSlot(terrain.chunkSlots, c, tex)
+  if (k < 0) return false
+  addWeight(terrain.weights, pixel * SLOTS, k, amount)
+  return true
 }
 
 function grow(r: Rect | null, add: Rect | null): Rect | null {
@@ -151,8 +145,8 @@ function inject(dst: Float32Array | Uint8Array, width: number, ch: number, r: Re
  */
 export class TerrainStroke {
   private hBefore: Float32Array | null = null
-  private aBefore: Uint8Array | null = null
-  private bBefore: Uint8Array | null = null
+  private wBefore: Uint8Array | null = null
+  private slotsBefore: Uint8Array | null = null
   private mBefore: Uint8Array | null = null
   private hRect: Rect | null = null
   private sRect: Rect | null = null
@@ -166,8 +160,8 @@ export class TerrainStroke {
   ) {
     if (opts.heights) this.hBefore = terrain.heights.slice()
     if (opts.splat) {
-      this.aBefore = terrain.splatA.slice()
-      this.bBefore = terrain.splatB.slice()
+      this.wBefore = terrain.weights.slice()
+      this.slotsBefore = terrain.chunkSlots.slice()
     }
     if (opts.mask) this.mBefore = terrain.mask.slice()
   }
@@ -200,20 +194,23 @@ export class TerrainStroke {
         },
       })
     }
-    if (this.aBefore && this.bBefore && this.sRect) {
+    if (this.wBefore && this.slotsBefore) {
+      const slotsAfter = t.chunkSlots.slice()
+      const slotsChanged = slotsAfter.some((v, i) => v !== this.slotsBefore![i])
       const r = this.sRect
       const R = t.splatRes
-      const aB = extract(this.aBefore, R, 4, r)
-      const aA = extract(t.splatA, R, 4, r)
-      const bB = extract(this.bBefore, R, 4, r)
-      const bA = extract(t.splatB, R, 4, r)
-      parts.push({
-        apply: (b) => {
-          inject(t.splatA, R, 4, r, b ? aB : aA)
-          inject(t.splatB, R, 4, r, b ? bB : bA)
-          t.markSplatDirty()
-        },
-      })
+      const wB = r ? extract(this.wBefore, R, SLOTS, r) : null
+      const wA = r ? extract(t.weights, R, SLOTS, r) : null
+      if (r || slotsChanged) {
+        const slotsBefore = this.slotsBefore
+        parts.push({
+          apply: (b) => {
+            if (r) inject(t.weights, R, SLOTS, r, b ? wB! : wA!)
+            t.chunkSlots.set(b ? slotsBefore : slotsAfter)
+            t.markSplatDirty()
+          },
+        })
+      }
     }
     if (this.mBefore && this.mRect) {
       const r = this.mRect
@@ -227,7 +224,7 @@ export class TerrainStroke {
         },
       })
     }
-    this.hBefore = this.aBefore = this.bBefore = this.mBefore = null
+    this.hBefore = this.wBefore = this.slotsBefore = this.mBefore = null
     if (!parts.length) return null
     return {
       label: this.label,

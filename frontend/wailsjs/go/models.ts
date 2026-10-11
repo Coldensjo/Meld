@@ -1,3 +1,34 @@
+export namespace adt {
+	
+	export class Placement {
+	    Kind: number;
+	    Name: string;
+	    UID: number;
+	    Position: number[];
+	    Rotation: number[];
+	    Scale: number;
+	    DoodadSet: number;
+	    NameSet: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Placement(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Kind = source["Kind"];
+	        this.Name = source["Name"];
+	        this.UID = source["UID"];
+	        this.Position = source["Position"];
+	        this.Rotation = source["Rotation"];
+	        this.Scale = source["Scale"];
+	        this.DoodadSet = source["DoodadSet"];
+	        this.NameSet = source["NameSet"];
+	    }
+	}
+
+}
+
 export namespace mapfile {
 	
 	export class PlacedObject {
@@ -34,11 +65,15 @@ export namespace mapfile {
 	    waterLevel: number;
 	    waterEnabled: boolean;
 	    objects: PlacedObject[];
+	    palette?: string[];
 	    layerTextures?: string[];
 	    texScale?: number;
+	    version?: number;
 	    heights: string;
-	    splatA: string;
-	    splatB: string;
+	    weights?: string;
+	    chunkSlots?: string;
+	    splatA?: string;
+	    splatB?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new MapData(source);
@@ -53,11 +88,113 @@ export namespace mapfile {
 	        this.waterLevel = source["waterLevel"];
 	        this.waterEnabled = source["waterEnabled"];
 	        this.objects = this.convertValues(source["objects"], PlacedObject);
+	        this.palette = source["palette"];
 	        this.layerTextures = source["layerTextures"];
 	        this.texScale = source["texScale"];
+	        this.version = source["version"];
 	        this.heights = source["heights"];
+	        this.weights = source["weights"];
+	        this.chunkSlots = source["chunkSlots"];
 	        this.splatA = source["splatA"];
 	        this.splatB = source["splatB"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace vmangos {
+	
+	export class LayerView {
+	    texture: string;
+	    effect: number;
+	    alpha?: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LayerView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.texture = source["texture"];
+	        this.effect = source["effect"];
+	        this.alpha = source["alpha"];
+	    }
+	}
+	export class ChunkView {
+	    indexX: number;
+	    indexY: number;
+	    areaId: number;
+	    layers: LayerView[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ChunkView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.indexX = source["indexX"];
+	        this.indexY = source["indexY"];
+	        this.areaId = source["areaId"];
+	        this.layers = this.convertValues(source["layers"], LayerView);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class TileView {
+	    mapName: string;
+	    x: number;
+	    y: number;
+	    heights: number[];
+	    chunks: ChunkView[];
+	    placements: adt.Placement[];
+	
+	    static createFrom(source: any = {}) {
+	        return new TileView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mapName = source["mapName"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.heights = source["heights"];
+	        this.chunks = this.convertValues(source["chunks"], ChunkView);
+	        this.placements = this.convertValues(source["placements"], adt.Placement);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

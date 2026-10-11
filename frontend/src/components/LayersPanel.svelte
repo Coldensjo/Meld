@@ -4,8 +4,9 @@
   import { editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { LAYERS } from '../lib/terrain/layers'
+  import { isColor } from '../lib/terrain/paletteArray'
 
-  // Photoshop-like layer list for the map's 8 texture slots.
+  // The map's texture palette: every texture paint can use, with the share of the map each covers.
   let coverage = $state<number[]>([])
   onMount(() => {
     const update = () => (coverage = engineRef.current?.layerCoverage() ?? [])
@@ -15,6 +16,8 @@
   })
 
   const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+  const colorName = (p: string) => LAYERS.find((l) => l.swatch.toLowerCase() === p.toLowerCase())?.name ?? p
+  const label = (p: string) => (isColor(p) ? colorName(p) : texName(p))
   const pct = (v: number | undefined) => (v === undefined ? '' : v < 0.001 ? '—' : v < 0.01 ? '<1%' : `${Math.round(v * 100)}%`)
 
   function select(i: number) {
@@ -23,28 +26,24 @@
   }
 </script>
 
-<div class="layers">
-  {#each LAYERS as l (l.id)}
-    {@const p = editor.layerTextures[l.id]}
-    <div class="row" class:active={editor.paintLayer === l.id} role="button" tabindex="0" onclick={() => select(l.id)} onkeydown={(e) => e.key === 'Enter' && select(l.id)}>
+<div class="layers" title="Each 8×8-cell chunk can use four of these textures at once, as in 1.12">
+  {#each editor.palette as p, i (i)}
+    <div class="row" class:active={editor.paintLayer === i} role="button" tabindex="0" onclick={() => select(i)} onkeydown={(e) => e.key === 'Enter' && select(i)}>
       <div class="thumb">
-        {#if p}
-          <PaletteTile thumbKey={'tex:' + p} label="" title="" onclick={() => {}} />
+        {#if isColor(p)}
+          <span class="swatch" style:background={p}></span>
         {:else}
-          <span class="swatch" style:background={l.swatch}></span>
+          <PaletteTile thumbKey={'tex:' + p} label="" title="" onclick={() => {}} />
         {/if}
       </div>
-      <span class="num">{l.id + 1}</span>
-      <span class="name" title={p}>{p ? texName(p) : 'Empty layer'}</span>
-      <span class="sub">{pct(coverage[l.id])}</span>
-      {#if p}
-        <button class="clear" title="Remove texture from this layer" onclick={(e) => { e.stopPropagation(); engineRef.current?.clearLayerTexture(l.id) }}>✕</button>
-      {/if}
+      <span class="num">{i + 1}</span>
+      <span class="name" title={p}>{label(p)}</span>
+      <span class="sub">{pct(coverage[i])}</span>
     </div>
   {/each}
   <div class="foot">
     {#if ui.maskActive}
-      <button onclick={() => engineRef.current?.fillMask(editor.paintLayer)} title="Fill the paint mask with the active layer">Fill mask</button>
+      <button onclick={() => engineRef.current?.fillMask(editor.paintLayer)} title="Fill the paint mask with the active texture">Fill mask</button>
     {/if}
     <button onclick={() => (ui.palette = 'textures')}>Browse textures…</button>
     <button onclick={() => engineRef.current?.regenerateAutoPaint()} title="Repaint by height and slope">Auto-paint</button>
@@ -94,7 +93,6 @@
     display: block;
     width: 100%;
     height: 100%;
-    opacity: 0.4;
   }
   .num {
     width: 12px;
@@ -112,16 +110,6 @@
   .sub {
     font-size: 10px;
     color: var(--text-dim);
-  }
-  .clear {
-    border: none;
-    background: transparent;
-    color: var(--text-dim);
-    padding: 0 4px;
-    visibility: hidden;
-  }
-  .row:hover .clear {
-    visibility: visible;
   }
   .foot {
     display: flex;
