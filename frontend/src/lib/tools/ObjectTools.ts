@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { editor } from '../state/editor.svelte'
-import { getAsset, prefabMaterial, type ModelAsset } from '../models/assets'
+import { editor, setStatus } from '../state/editor.svelte'
+import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
@@ -44,15 +44,13 @@ export class PlaceTool implements Tool {
   private ghost: THREE.Mesh
   private ghostType = ''
   private ghostAsset: ModelAsset | null = null
-  private ghostPrefabMat: THREE.Material
   private rot = 0
   private scale = 1
   private scattering: WorldObject[] | null = null
   private scatterAcc = 0
 
   constructor() {
-    this.ghostPrefabMat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false })
-    this.ghost = new THREE.Mesh(new THREE.BufferGeometry(), this.ghostPrefabMat)
+    this.ghost = new THREE.Mesh(new THREE.BufferGeometry())
     this.ghost.renderOrder = 20
   }
 
@@ -79,9 +77,9 @@ export class PlaceTool implements Tool {
       // Async models swap from placeholder to the real mesh when loaded.
       this.ghostAsset = asset
       this.ghost.geometry = asset.geometry
-      this.ghost.material = asset.material === prefabMaterial ? this.ghostPrefabMat : asset.material
+      this.ghost.material = asset.material
     }
-    this.ghost.visible = !!hit && !editor.placeScatter
+    this.ghost.visible = !!hit && !editor.placeScatter && !!editor.prefab
     if (hit) {
       this.ghost.position.set(hit.x, ctx.terrain.heightAt(hit.x, hit.z), hit.z)
       this.ghost.rotation.y = this.rot
@@ -91,6 +89,10 @@ export class PlaceTool implements Tool {
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
     if (!hit) return
+    if (!editor.prefab) {
+      setStatus('Pick a model in the palette first.')
+      return
+    }
     if (editor.placeScatter || e.shiftKey) {
       this.scattering = []
       this.scatterAcc = 1

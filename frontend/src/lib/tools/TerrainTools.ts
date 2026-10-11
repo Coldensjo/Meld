@@ -147,7 +147,7 @@ export class PaintTool extends BrushTool {
   }
 }
 
-/** Paints a road layer with a hard edge and levels the ground across it. */
+/** Paints the selected texture with a hard edge and levels the ground across it. */
 export class RoadTool extends BrushTool {
   protected label = 'Road'
   protected records = { heights: true, splat: true }
@@ -157,7 +157,7 @@ export class RoadTool extends BrushTool {
     const { radius, strength } = editor.brush
     const width = Math.max(1.5, radius * 0.5)
     const amt = Math.min(1, strength * dt * 8)
-    const sr = forEachTexel(t, hit.x, hit.z, width, 0.25, (p, w) => paintPixel(t, p, editor.roadLayer, amt * w))
+    const sr = forEachTexel(t, hit.x, hit.z, width, 0.25, (p, w) => paintPixel(t, p, editor.paintLayer, amt * w))
     this.splatChanged(ctx, sr)
 
     if (editor.roadFlatten) {

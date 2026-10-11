@@ -6,8 +6,10 @@ export interface LayerDef {
 }
 
 /**
- * Ground texture layers. Layers 0-3 live in splatA (RGBA), 4-7 in splatB.
- * Weights across all 8 channels are kept normalised to sum to 255.
+ * The 8 paint slots. Layers 0-3 live in splatA (RGBA), 4-7 in splatB, and
+ * weights across all 8 channels are kept normalised to sum to 255. Each slot
+ * is bound to a WoW tileset texture (editor.layerTextures); the names/colours
+ * here describe the slot's default role (auto-paint uses 0-5) and fallback.
  */
 export const LAYERS: LayerDef[] = [
   { id: 0, name: 'Grass', swatch: '#5d8a2f' },
@@ -20,6 +22,4 @@ export const LAYERS: LayerDef[] = [
   { id: 7, name: 'Dirt Path', swatch: '#a07a50' },
 ]
 
-export const LAYER_COBBLE = 6
-export const LAYER_PATH = 7
 export const LAYER_COUNT = LAYERS.length

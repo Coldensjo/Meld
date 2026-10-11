@@ -5,10 +5,11 @@
   import StatusBar from './components/StatusBar.svelte'
   import Viewport from './components/Viewport.svelte'
   import NewMapDialog from './components/NewMapDialog.svelte'
-  import TexturePicker from './components/TexturePicker.svelte'
+  import Palette from './components/Palette.svelte'
   import { onMount } from 'svelte'
   import { initWow } from './lib/wow/api'
-  import { editor, setStatus, ui } from './lib/state/editor.svelte'
+  import { defaultLayerTextures } from './lib/wow/defaults'
+  import { editor, setStatus, ui, wow } from './lib/state/editor.svelte'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveMap } from './lib/io/mapio'
 
@@ -16,11 +17,30 @@
     initWow().catch((e) => console.warn('WoW client init failed', e))
   })
 
+  // A map without any textures assigned gets the default WoW tileset set as
+  // soon as a client is available.
+  $effect(() => {
+    if (!wow.loaded || editor.layerTextures.some(Boolean)) return
+    const wasDirty = editor.dirty
+    defaultLayerTextures().then((t) => {
+      if (editor.layerTextures.some(Boolean)) return
+      editor.layerTextures = t
+      editor.dirty = wasDirty
+    })
+  })
+
+  // The palette follows the tool: textures for painting, models otherwise.
+  $effect(() => {
+    const t = editor.tool
+    if (t === 'paint' || t === 'road') ui.palette = 'textures'
+    else if (t === 'place') ui.palette = 'models'
+  })
+
   function onKeyDown(e: KeyboardEvent) {
     const el = e.target as HTMLElement | null
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
     const engine = engineRef.current
-    if (!engine || ui.showNewDialog || ui.texturePickerLayer !== null) return
+    if (!engine || ui.showNewDialog) return
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
 
@@ -65,6 +85,7 @@
   <MenuBar />
   <div class="main">
     <Toolbar />
+    <Palette />
     <Viewport />
     <ToolPanel />
   </div>
@@ -73,9 +94,6 @@
 
 {#if ui.showNewDialog}
   <NewMapDialog />
-{/if}
-{#if ui.texturePickerLayer !== null}
-  <TexturePicker layer={ui.texturePickerLayer} />
 {/if}
 
 <style>
@@ -86,7 +104,7 @@
   }
   .main {
     display: grid;
-    grid-template-columns: auto 1fr 300px;
+    grid-template-columns: auto 316px 1fr 280px;
     min-height: 0;
   }
 </style>

@@ -20,12 +20,12 @@ export const editor = $state({
   brush: { radius: 10, strength: 0.5, falloff: 0.6 },
   sculptMode: 'raise' as SculptMode,
   paintLayer: 0,
-  roadLayer: 6,
   roadFlatten: true,
   waterMode: 'dig' as WaterMode,
   waterLevel: 0,
   waterEnabled: true,
-  prefab: 'oak',
+  /** Selected model type to place ("m2:<path>" / "wmo:<path>"), or ''. */
+  prefab: '',
   placeRandomRot: true,
   placeRandomScale: true,
   placeScatter: false,
@@ -64,8 +64,8 @@ export const ui = $state({
   canUndo: false,
   canRedo: false,
   showNewDialog: false,
-  /** Paint layer whose texture picker is open, or null. */
-  texturePickerLayer: null as number | null,
+  /** Which palette the left panel shows. */
+  palette: 'models' as 'models' | 'textures',
   busy: false,
 })
 

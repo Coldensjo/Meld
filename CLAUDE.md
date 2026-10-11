@@ -56,15 +56,22 @@ cd frontend && pnpm build   # frontend only
     instances.
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
     sculpting.
-- **Prefabs** (`lib/models/prefabs.ts`):
-  - Built in code with `ModelBuilder`: merged primitives, vertex colors, flat shading, optional
-    vertex jitter. This is the chunky hand-made WoW look.
-  - To add one, write a builder function and add an entry to `PREFABS`. The id is saved in map
-    files, so never rename existing ids.
+- **Palette** (`components/Palette.svelte`, left of the viewport):
+  - Shows WoW models (doodads/buildings) or tileset textures as a thumbnail grid.
+  - Categories and zones come from path keywords in `lib/wow/catalog.ts`; tune the regex rules
+    there.
+  - Thumbnails (`lib/wow/thumbs.ts`) render lazily into a render target on the **main**
+    renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
+  - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading
+    them. Use bindings for uploads.
+- **Texture slots**: `editor.layerTextures[8]` holds the tileset path per splat slot.
+  `Engine.useTexture(path)` assigns a texture to an unused slot (or replaces the active one),
+  undoably. Defaults: `lib/wow/defaults.ts`. Slots without a texture render a flat fallback
+  colour (`terrain/textures.ts`).
 
 ## WoW client assets
 
-- Optional asset source: a user's **local** WoW 1.12 client. `internal/mpq` reads the archives
+- The asset source is the user's **local** WoW 1.12 client. `internal/mpq` reads the archives
   (our own reader; `Gophercraft/mpq` is GPL, so don't add it). `internal/wow` decodes BLP, M2 and
   WMO files.
 - `wow.Client.Handler()` serves `/wow/{status,list,texture,model}`. The handler is mounted via
@@ -94,8 +101,8 @@ cd frontend && pnpm build   # frontend only
 - UI styling: plain CSS with the tokens in `frontend/src/app.css` (dark editor theme). No UI
   framework dependency.
 - Avoid per-frame allocations in hot paths (brush loops, `frame()`). Reuse vectors and buffers.
-- The app ships asset-free (procedural textures and prefabs). WoW content is only ever read at
-  runtime from the user's own install.
+- The app ships asset-free. All models and textures come from the user's own WoW install at
+  runtime; there are no built-in prefabs.
 
 ## Platform notes
 

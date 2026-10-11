@@ -10,7 +10,7 @@ import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
 import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
 import type { WorldObject } from '../world/ObjectLayer'
-import { getLayerTextures } from '../terrain/textures'
+import { getFallbackTextures } from '../terrain/textures'
 import { loadTexture, setMaxAnisotropy } from '../wow/api'
 
 export interface MapSnapshot {
@@ -87,7 +87,7 @@ export class Engine {
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
     setMaxAnisotropy(aniso)
-    this.terrain = new Terrain(256, aniso)
+    this.terrain = new Terrain(256)
     this.water = new Water(this.terrain.worldSize)
     this.objects = new ObjectLayer(this.terrain)
     this.scene.add(this.terrain.group, this.water.mesh, this.objects.group)
@@ -277,7 +277,7 @@ export class Engine {
       if (this.boundLayers[i] === path) continue
       this.boundLayers[i] = path
       const uniform = this.terrain.material.uniforms['tex' + i]
-      const procedural = getLayerTextures(this.renderer.capabilities.getMaxAnisotropy())[i]
+      const procedural = getFallbackTextures()[i]
       if (!path) {
         uniform.value = procedural
         continue
@@ -301,7 +301,7 @@ export class Engine {
     this.scene.remove(this.terrain.group, this.water.mesh)
     this.terrain.dispose()
     this.water.dispose()
-    this.terrain = new Terrain(size, this.renderer.capabilities.getMaxAnisotropy())
+    this.terrain = new Terrain(size)
     this.water = new Water(this.terrain.worldSize)
     this.scene.add(this.terrain.group, this.water.mesh)
     this.objects.setTerrain(this.terrain)
@@ -404,6 +404,55 @@ export class Engine {
 
   focusSelected() {
     if (editor.selected) this.controller.focus(editor.selected.x, editor.selected.z, 30)
+  }
+
+  /** Total splat weight per paint slot (sampled), used to find unused slots. */
+  private slotUsage(): number[] {
+    const t = this.terrain
+    const usage = new Array(8).fill(0)
+    const step = 4 * 7 // sample every 7th texel; plenty to detect usage
+    for (let p = 0; p < t.splatA.length; p += step) {
+      for (let k = 0; k < 4; k++) {
+        usage[k] += t.splatA[p + k]
+        usage[k + 4] += t.splatB[p + k]
+      }
+    }
+    return usage
+  }
+
+  /**
+   * Make `path` paintable: reuse its slot if bound, otherwise bind it to an
+   * unused slot, or (if all 8 are in use) replace the active slot. Undoable.
+   * Returns the slot index.
+   */
+  useTexture(path: string): number {
+    const textures = editor.layerTextures
+    let slot = textures.findIndex((p) => p.toLowerCase() === path.toLowerCase())
+    if (slot >= 0) {
+      editor.paintLayer = slot
+      return slot
+    }
+    const usage = this.slotUsage()
+    const total = usage.reduce((a, b) => a + b, 0) || 1
+    const unused = (i: number) => usage[i] / total < 0.0005
+    slot = textures.findIndex((p, i) => !p && unused(i))
+    if (slot < 0) slot = textures.findIndex((_, i) => unused(i))
+    let replaced = false
+    if (slot < 0) {
+      slot = editor.paintLayer
+      replaced = true
+    }
+    const before = textures[slot]
+    const i = slot
+    textures[i] = path
+    this.history.push({
+      label: 'Assign texture',
+      undo: () => (editor.layerTextures[i] = before),
+      redo: () => (editor.layerTextures[i] = path),
+    })
+    editor.paintLayer = slot
+    if (replaced) setStatus(`All 8 texture slots are in use; replaced slot ${slot + 1}. Undo with Ctrl+Z.`, 6000)
+    return slot
   }
 
   regenerateAutoPaint() {

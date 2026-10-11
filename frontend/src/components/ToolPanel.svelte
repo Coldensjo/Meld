@@ -1,11 +1,8 @@
 <script lang="ts">
   import Slider from './Slider.svelte'
-  import AssetBrowser from './AssetBrowser.svelte'
   import WowClientSection from './WowClientSection.svelte'
-  import { tilesetPreview } from './TexturePicker.svelte'
   import { TOOLS } from './Toolbar.svelte'
-  import { editor, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
-  import { LAYERS, LAYER_COBBLE, LAYER_PATH } from '../lib/terrain/layers'
+  import { editor, ui, type SculptMode } from '../lib/state/editor.svelte'
   import { displayName } from '../lib/models/assets'
   import { engineRef } from '../lib/state/engineRef'
   import type { WorldObject } from '../lib/world/ObjectLayer'
@@ -39,13 +36,6 @@
     engineRef.current?.editSelected(patch, true, before)
     before = undefined
   }
-  // Previews of WoW tilesets assigned to paint layers.
-  let layerThumbs = $state<Record<string, string>>({})
-  $effect(() => {
-    for (const p of editor.layerTextures) {
-      if (p && !layerThumbs[p]) tilesetPreview(p).then((u) => (layerThumbs[p] = u)).catch(() => {})
-    }
-  })
   const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
 
   const deg = (r: number) => (r * 180) / Math.PI
@@ -63,36 +53,20 @@
         {/each}
       </div>
       <p class="hint">Hold <kbd>LMB</kbd> to apply. <b>Flatten</b> levels to the height where the stroke started.</p>
-    {:else if editor.tool === 'paint'}
-      <div class="layers">
-        {#each LAYERS as l (l.id)}
-          {@const custom = editor.layerTextures[l.id]}
-          <div class="layer-row">
-            <button class="layer" class:active={editor.paintLayer === l.id} onclick={() => (editor.paintLayer = l.id)} title={custom || l.name}>
-              {#if custom && layerThumbs[custom]}
-                <img class="swatch" src={layerThumbs[custom]} alt="" />
-              {:else}
-                <span class="swatch" style:background={l.swatch}></span>
-              {/if}
-              <span class="lname">{custom ? texName(custom) : l.name}</span>
-            </button>
-            {#if wow.loaded}
-              <button class="pick" title="Choose WoW texture" onclick={() => (ui.texturePickerLayer = l.id)}>⋯</button>
-            {/if}
-          </div>
-        {/each}
+    {:else if editor.tool === 'paint' || editor.tool === 'road'}
+      {@const p = editor.layerTextures[editor.paintLayer]}
+      <div class="current">
+        <span>Slot {editor.paintLayer + 1}</span>
+        <b>{p ? texName(p) : 'empty'}</b>
       </div>
-      <Slider label="Texture scale" bind:value={editor.texScale} min={2} max={24} step={0.5} digits={1} />
-      {#if wow.loaded}
-        <p class="hint">Click <b>⋯</b> to use a tileset texture from your WoW client.</p>
+      {#if editor.tool === 'road'}
+        <label class="check"><input type="checkbox" bind:checked={editor.roadFlatten} /> Level terrain under road</label>
+        <p class="hint">Draws the selected texture with a hard edge. Width is half the brush radius.</p>
+      {:else}
+        <p class="hint">Pick a texture in the palette (left). It's added to one of the map's 8 texture slots automatically.</p>
       {/if}
-    {:else if editor.tool === 'road'}
-      <div class="modes two">
-        <button class:active={editor.roadLayer === LAYER_COBBLE} onclick={() => (editor.roadLayer = LAYER_COBBLE)}>Cobblestone</button>
-        <button class:active={editor.roadLayer === LAYER_PATH} onclick={() => (editor.roadLayer = LAYER_PATH)}>Dirt Path</button>
-      </div>
-      <label class="check"><input type="checkbox" bind:checked={editor.roadFlatten} /> Level terrain under road</label>
-      <p class="hint">Drag to draw. Road width is half the brush radius.</p>
+      <button class="link" onclick={() => (ui.palette = 'textures')}>Show texture palette</button>
+      <Slider label="Texture scale" bind:value={editor.texScale} min={2} max={24} step={0.5} digits={1} />
     {:else if editor.tool === 'water'}
       <div class="modes two">
         <button class:active={editor.waterMode === 'dig'} onclick={() => (editor.waterMode = 'dig')}>Dig Lake</button>
@@ -100,7 +74,10 @@
       </div>
       <p class="hint">Shapes the ground relative to the water level set below in <b>World</b>.</p>
     {:else if editor.tool === 'place'}
-      <AssetBrowser />
+      <div class="current">
+        <span>Model</span>
+        <b title={editor.prefab}>{editor.prefab ? displayName(editor.prefab) : 'none, pick one in the palette'}</b>
+      </div>
       <div class="opts">
         <label class="check"><input type="checkbox" bind:checked={editor.placeRandomRot} /> Random rotation</label>
         <label class="check"><input type="checkbox" bind:checked={editor.placeRandomScale} /> Random scale</label>
@@ -178,43 +155,27 @@
   .modes button {
     padding: 5px 4px;
   }
-  .layers {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    margin-bottom: 10px;
-  }
-  .layer-row {
+  .current {
     display: flex;
-    min-width: 0;
+    flex-direction: column;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
   }
-  .layer-row .layer {
-    flex: 1;
-    min-width: 0;
+  .current span {
+    font-size: 11px;
+    color: var(--text-dim);
   }
-  .lname {
+  .current b {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .pick {
-    padding: 0 5px;
-    margin-left: 2px;
-  }
-  .layer {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    text-align: left;
-    padding: 4px 6px;
-  }
-  .swatch {
-    width: 16px;
-    height: 16px;
-    object-fit: cover;
-    border-radius: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    flex: none;
+  .link {
+    width: 100%;
+    margin: 8px 0;
   }
   .check {
     display: flex;

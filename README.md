@@ -1,12 +1,12 @@
 # WorldEditor
 
 A fast, cross-platform 3D world editor in the spirit of the classic Warcraft / World of Warcraft
-editors. You can sculpt terrain, paint ground textures, dig lakes, lay roads, and place low-poly
-buildings, nature and doodads. The camera works like a third-person game camera.
+editors. You can sculpt terrain, paint ground textures, dig lakes, lay roads, and place WoW
+doodads and buildings. The camera works like a third-person game camera. Models and textures
+come from your own WoW 1.12 client, read live from its MPQ archives.
 
 Built with **[Wails v2](https://wails.io)** (Go) + **Svelte 5** + **Three.js**. It runs on
-**Windows** and **Linux**, and the binary is about 10–12 MB with no bundled assets. Every texture
-and model is generated procedurally at startup.
+**Windows** and **Linux**, and the binary is about 10–12 MB with no bundled game assets.
 
 ## Features
 
@@ -14,28 +14,29 @@ and model is generated procedurally at startup.
 |---|---|---|
 | Select / Move | `1` | Click to select, drag to move along the ground, `R` rotate, `Del` delete, `F` focus. Properties panel for precise edits. |
 | Sculpt | `2` | Raise, Lower, Smooth, Flatten, Noise, Mountain (ridged noise) brushes. |
-| Paint | `3` | 8 ground layers: Grass, Lush Grass, Dirt, Rock, Sand, Snow, Cobblestone, Dirt Path. |
-| Roads | `4` | Paints cobblestone or dirt-path roads and levels the ground across them. |
+| Paint | `3` | Pick any WoW tileset texture in the palette and paint. Each map has 8 texture slots, assigned automatically. |
+| Roads | `4` | Paints the selected texture with a hard edge and levels the ground across it. |
 | Water | `5` | Global water level. Dig lakes or raise shores relative to it. Animated water with shore foam and depth tint. |
-| Place | `6` | 17 WoW-style prefabs (houses, orc hut, tower, walls, trees, rocks, mushrooms, barrels, fences, campfire, well…). Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
+| Place | `6` | Place the model selected in the palette. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
 
-### WoW client assets (optional)
+### Asset palette (left panel)
 
-If you own a WoW 1.12 client, open the **WoW Client Assets** section in the right panel and click
-**Select WoW folder…**. You can pick either the client folder or its `Data` folder. The editor then
-reads the client's MPQ archives **live**, and gains:
+On first start, click **Select WoW folder…** in the palette and pick your WoW 1.12 client (the
+client folder or its `Data` folder). The palette then shows:
 
-- **WoW Doodads**: every `World\…\*.m2` (trees, bushes, rocks, fences, lamps…), searchable,
-  with a 3D preview. Placed like any other prefab.
-- **WoW Buildings**: every `.wmo` (farms, houses, towers, inns…), including the furniture from
-  their default doodad set.
-- **Tileset textures**: in the Paint tool, click **⋯** on a layer to replace it with any
-  `Tileset\…\*.blp`, e.g. Elwynn grass or cobblestone. Adjust **Texture scale** to taste.
+- **Models › Doodads**: every `World\…\*.m2`, in categories such as Trees, Bushes & Plants,
+  Rocks, Fences & Walls, Lights & Fire, Containers, Furniture & Decor and Ground Clutter.
+- **Models › Buildings**: every `.wmo`, in categories (Human, Orc & Horde, Night Elf, Dungeons &
+  Caves…). Buildings include the furniture from their default doodad set.
+- **Textures**: every `Tileset\…\*.blp`, plus the map's 8 texture slots.
 
-Nothing is extracted or copied. Assets are decoded on demand by the Go backend from your local
-install, and never end up in the repository, the build or map files. Maps store only asset
-*paths*, so a map that uses WoW assets needs the same client to render them. Without the client,
-placeholders are shown.
+Each palette has a zone filter and a search box. Thumbnails render as tiles scroll into view and
+are cached in your user cache folder, so they load instantly next time. Clicking a model selects
+the Place tool. Clicking a texture assigns it to a free slot and selects the Paint tool.
+
+Nothing is extracted into the project. Assets are decoded on demand by the Go backend from your
+local install, and never end up in the repository, the build or map files. Maps store only asset
+*paths*, so a map needs the same client to render. Without the client, placeholders are shown.
 
 Supported formats: MPQ v1/v2, BLP2 (palettized, DXT1/3/5, raw), M2 v256–263 (vanilla/TBC, static
 bind pose), WMO v17 (groups + default doodad set). Not yet supported: animations, particles,
@@ -44,7 +45,8 @@ replaceable creature skins, WMO liquids.
 Also included:
 
 - New-map generator: Flat, Rolling Hills, Mountains or Island, with sizes 128², 256² and 512², seeded.
-- **Auto-paint** textures by height and slope, plus automatic rock on cliffs.
+- **Auto-paint** textures by height and slope, plus automatic rock on cliffs. New maps start with
+  Elwynn tilesets.
 - Undo/redo for every edit (`Ctrl+Z`, `Ctrl+Y`).
 - Save and load `.wmap` files: a compact gzip binary written by the Go backend.
 

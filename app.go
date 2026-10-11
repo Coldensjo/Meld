@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"path/filepath"
 	"strings"
 
@@ -59,6 +60,15 @@ func (a *App) SetWowPath(path string) (wow.Status, error) {
 		return st, err
 	}
 	return st, nil
+}
+
+// SaveThumbnail caches a rendered palette thumbnail (base64 PNG) for key.
+func (a *App) SaveThumbnail(key string, pngBase64 string) error {
+	png, err := base64.StdEncoding.DecodeString(pngBase64)
+	if err != nil {
+		return err
+	}
+	return a.wow.SaveThumb(key, png)
 }
 
 var mapFilters = []runtime.FileFilter{{DisplayName: "WorldEditor Map (*.wmap)", Pattern: "*.wmap"}}

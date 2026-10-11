@@ -22,6 +22,10 @@ export function SaveMapDialog(arg1) {
   return window['go']['main']['App']['SaveMapDialog'](arg1);
 }
 
+export function SaveThumbnail(arg1, arg2) {
+  return window['go']['main']['App']['SaveThumbnail'](arg1, arg2);
+}
+
 export function SetWowPath(arg1) {
   return window['go']['main']['App']['SetWowPath'](arg1);
 }

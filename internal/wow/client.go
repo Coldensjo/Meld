@@ -1,7 +1,9 @@
 package wow
 
 import (
+	"crypto/sha1"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -261,6 +263,41 @@ func (c *Client) Model(path string) ([]byte, error) {
 	})
 }
 
+// SaveThumb stores a PNG thumbnail for key in the cache dir.
+func (c *Client) SaveThumb(key string, png []byte) error {
+	if len(png) < 8 || string(png[1:4]) != "PNG" || len(png) > 4<<20 {
+		return errors.New("invalid thumbnail")
+	}
+	p, err := c.thumbPath(key)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(p, png, 0o644)
+}
+
+func hashHex(s string) string {
+	h := sha1.Sum([]byte(strings.ToLower(s)))
+	return hex.EncodeToString(h[:])
+}
+
+// thumbPath maps a thumbnail key to a file in the per-client cache folder.
+func (c *Client) thumbPath(key string) (string, error) {
+	c.mu.RLock()
+	dir, loaded := c.dir, c.set != nil
+	c.mu.RUnlock()
+	if !loaded || key == "" {
+		return "", errors.New("no client or key")
+	}
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, "WorldEditor", "thumbs", hashHex(dir)[:12], hashHex(key)+".png"), nil
+}
+
 // Handler serves /wow/* endpoints for the frontend.
 func (c *Client) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -286,6 +323,23 @@ func (c *Client) Handler() http.Handler {
 	mux.HandleFunc("/wow/texture", func(w http.ResponseWriter, r *http.Request) {
 		b, err := c.Texture(r.URL.Query().Get("path"))
 		blob(w, b, err)
+	})
+	// Thumbnail cache: rendered previews stored in the user's cache dir
+	// (never in the project). 404 when not cached; stored via SaveThumb
+	// (request bodies crash WebKitGTK's custom scheme handler, so no POST).
+	mux.HandleFunc("/wow/thumb", func(w http.ResponseWriter, r *http.Request) {
+		p, err := c.thumbPath(r.URL.Query().Get("key"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(b)
 	})
 	mux.HandleFunc("/wow/model", func(w http.ResponseWriter, r *http.Request) {
 		b, err := c.Model(r.URL.Query().Get("path"))

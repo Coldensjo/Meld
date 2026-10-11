@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { fbm, ridged } from '../engine/noise'
 import { createTerrainMaterial } from './TerrainMaterial'
-import { getLayerTextures } from './textures'
+import { getFallbackTextures } from './textures'
 import { LAYER_COUNT } from './layers'
 
 export const CELL_SIZE = 2
@@ -33,7 +33,7 @@ export class Terrain {
   private dirty = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
   private splatDirty = false
 
-  constructor(size: number, maxAnisotropy: number) {
+  constructor(size: number) {
     this.size = size
     this.verts = size + 1
     this.worldSize = size * CELL_SIZE
@@ -48,7 +48,7 @@ export class Terrain {
     this.material = createTerrainMaterial(
       this.texA,
       this.texB,
-      getLayerTextures(maxAnisotropy),
+      getFallbackTextures(),
       this.worldSize,
       CELL_SIZE,
     )

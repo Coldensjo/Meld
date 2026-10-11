@@ -1,11 +1,10 @@
 import * as THREE from 'three'
-import { PREFAB_BY_ID } from './prefabs'
 import { fetchMesh, loadTexture, type MeshGroup, type WowMesh } from '../wow/api'
 
 /**
  * A placeable model: one geometry (with groups) and one material per group.
- * Object types are prefab ids ("oak"), or WoW client paths prefixed with
- * "m2:" / "wmo:" which are loaded asynchronously from the Go backend.
+ * Object types are WoW client paths prefixed with "m2:" or "wmo:", loaded
+ * asynchronously from the Go backend.
  */
 export interface ModelAsset {
   geometry: THREE.BufferGeometry
@@ -15,17 +14,14 @@ export interface ModelAsset {
   ready: boolean
 }
 
-export const prefabMaterial = new THREE.MeshLambertMaterial({ vertexColors: true })
+export type ModelKind = 'm2' | 'wmo'
 
 export const isWowType = (type: string) => type.startsWith('m2:') || type.startsWith('wmo:')
 export const wowPath = (type: string) => type.slice(type.indexOf(':') + 1)
 
 export function displayName(type: string): string {
-  if (isWowType(type)) {
-    const p = wowPath(type)
-    return p.slice(p.lastIndexOf('\\') + 1).replace(/\.(m2|wmo)$/i, '')
-  }
-  return PREFAB_BY_ID.get(type)?.name ?? type
+  const p = isWowType(type) ? wowPath(type) : type
+  return p.slice(p.lastIndexOf('\\') + 1).replace(/\.(m2|wmo)$/i, '')
 }
 
 const assets = new Map<string, ModelAsset>()
@@ -54,28 +50,20 @@ function getPlaceholder(): ModelAsset {
 }
 
 /**
- * Returns the asset if available, otherwise a placeholder (and starts loading).
+ * Returns the asset if loaded, otherwise a placeholder (and starts loading).
  * Listen with `onAssetLoaded` to swap the placeholder out.
  */
 export function getAsset(type: string): ModelAsset {
   const a = assets.get(type)
   if (a) return a
-  if (!isWowType(type)) {
-    const p = PREFAB_BY_ID.get(type)
-    if (!p) return getPlaceholder()
-    const geometry = p.build()
-    const asset = { geometry, material: prefabMaterial, bbox: geometry.boundingBox!.clone(), ready: true }
-    assets.set(type, asset)
-    return asset
-  }
-  void loadAsset(type)
+  if (isWowType(type)) void loadAsset(type)
   return getPlaceholder()
 }
 
 export function loadAsset(type: string): Promise<ModelAsset> {
   const have = assets.get(type)
   if (have) return Promise.resolve(have)
-  if (!isWowType(type)) return Promise.resolve(getAsset(type))
+  if (!isWowType(type)) return Promise.resolve(getPlaceholder())
   let p = pending.get(type)
   if (!p) {
     p = fetchMesh(wowPath(type))
@@ -130,19 +118,27 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
   }
   m = g.unlit ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params)
   const mat = m as THREE.MeshLambertMaterial
-  if (g.texture) {
-    loadTexture(g.texture)
-      .then((t) => {
-        mat.map = t
-        mat.needsUpdate = true
-      })
-      .catch(() => mat.color.set(0x9a9a9a))
-  }
+  // userData.ready resolves once the texture is bound (or failed).
+  mat.userData.ready = g.texture
+    ? loadTexture(g.texture)
+        .then((t) => {
+          mat.map = t
+          mat.needsUpdate = true
+        })
+        .catch(() => mat.color.set(0x9a9a9a))
+    : Promise.resolve()
   materialCache.set(key, m)
   return m
 }
 
-function buildWowAsset(m: WowMesh): ModelAsset {
+/** Resolves when every texture used by the given material(s) has loaded. */
+export function texturesReady(material: THREE.Material | THREE.Material[]): Promise<unknown> {
+  const list = Array.isArray(material) ? material : [material]
+  return Promise.allSettled(list.map((m) => m.userData.ready as Promise<void> | undefined))
+}
+
+/** Builds geometry + materials. Callers that don't keep it should dispose the geometry. */
+export function buildWowAsset(m: WowMesh): ModelAsset {
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(m.positions, 3))
   geo.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3))

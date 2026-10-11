@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { GenerateKind } from '../lib/terrain/Terrain'
   import { CELL_SIZE } from '../lib/terrain/Terrain'
-  import { editor, ui } from '../lib/state/editor.svelte'
+  import { editor, ui, wow } from '../lib/state/editor.svelte'
+  import { defaultLayerTextures } from '../lib/wow/defaults'
   import { engineRef } from '../lib/state/engineRef'
 
   let name = $state('Untitled')
@@ -16,8 +17,10 @@
     { id: 'island', name: 'Island' },
   ]
 
-  function create() {
+  async function create() {
+    const textures = wow.loaded ? await defaultLayerTextures() : ['', '', '', '', '', '', '', '']
     engineRef.current?.newMap(size, kind, seed)
+    editor.layerTextures = textures
     editor.mapName = name.trim() || 'Untitled'
     editor.filePath = ''
     ui.showNewDialog = false
