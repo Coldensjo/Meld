@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { GenerateKind } from '../terrain/Terrain'
 import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
-import { MapDocument, type TileRef, type VmangosRef } from './MapDocument'
+import { MapDocument, type Bookmark, type TileRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
@@ -486,6 +486,7 @@ export class Engine {
       paintLayer: editor.paintLayer,
       tile: d.meta.tile,
       vmangos: d.meta.vmangos,
+      bookmarks: [...editor.bookmarks],
     }
     const c = this.controller
     d.camera = { target: c.target.clone(), yaw: c.yaw, pitch: c.pitch, distance: c.distance }
@@ -516,6 +517,7 @@ export class Engine {
     editor.mapName = m.mapName
     editor.filePath = m.filePath
     editor.palette = [...m.palette]
+    editor.bookmarks = [...m.bookmarks]
     editor.texScale = m.texScale
     editor.waterLevel = m.waterLevel
     editor.waterEnabled = m.waterEnabled
@@ -653,6 +655,43 @@ export class Engine {
     return this.terrain.heights
   }
 
+  /** Saves the camera's view of the open map as a bookmark. */
+  addBookmark(): Bookmark {
+    const c = this.controller
+    const b: Bookmark = {
+      name: `View ${editor.bookmarks.length + 1}`,
+      x: c.target.x,
+      y: c.target.y,
+      z: c.target.z,
+      yaw: c.yaw,
+      pitch: c.pitch,
+      distance: c.distance,
+    }
+    editor.bookmarks = [...editor.bookmarks, b]
+    setStatus(`Bookmarked ${b.name}. Pick it in the Bookmarks menu to return.`)
+    return b
+  }
+
+  /** Moves the camera to bookmark `i`. */
+  gotoBookmark(i: number) {
+    const b = editor.bookmarks[i]
+    if (!b) return
+    const c = this.controller
+    c.target.set(b.x, b.y, b.z)
+    c.yaw = b.yaw
+    c.pitch = b.pitch
+    c.distance = b.distance
+  }
+
+  clearBookmarks() {
+    editor.bookmarks = []
+  }
+
+  /** Turns the camera round to look the other way. */
+  turnCameraAround() {
+    this.controller.yaw += Math.PI
+  }
+
   focusPath(path: string): boolean {
     const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
     const d = this.documents.find((x) => norm(x === this.doc ? editor.filePath : x.meta.filePath) === norm(path))
@@ -753,6 +792,7 @@ export class Engine {
       palette,
       tile: null,
       vmangos: null,
+      bookmarks: [],
       texScale: m.texScale || 8,
       waterLevel: m.waterLevel,
       waterEnabled: m.waterEnabled,

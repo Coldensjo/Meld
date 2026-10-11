@@ -1,5 +1,6 @@
 import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
+import type { Bookmark } from '../engine/MapDocument'
 
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
@@ -53,6 +54,8 @@ export const editor = $state({
   autoCliff: true,
   /** The map's texture palette: a WoW tileset path, or a '#rrggbb' colour, per index. */
   palette: LAYERS.map((l) => l.swatch) as string[],
+  /** The open map's camera bookmarks. */
+  bookmarks: [] as Bookmark[],
   texScale: 8,
   mapName: 'Untitled',
   /** Terrain cells per side of the open map. */
@@ -87,6 +90,12 @@ export const wow = $state({
 })
 
 /** User preferences, persisted in the app config (see lib/state/prefs.ts). */
+/** Camera speed steps: the preference is kept between a quarter and four times its normal speed. */
+export function stepCameraSpeed(faster: boolean) {
+  const next = prefs.cameraSpeed * (faster ? 1.25 : 0.8)
+  prefs.cameraSpeed = Math.min(4, Math.max(0.25, next))
+}
+
 export const prefs = $state({
   renderScale: 1,
   viewDistance: 1,

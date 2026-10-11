@@ -12,7 +12,7 @@
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
   import { LAYERS } from './lib/terrain/layers'
-  import { editor, prefs, setStatus, ui, wow } from './lib/state/editor.svelte'
+  import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from './lib/state/editor.svelte'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveOrPublish } from './lib/io/mapio'
   import { requestClose } from './components/DocTabs.svelte'
@@ -82,6 +82,7 @@
       else if (e.key === 'Tab') engine.cycleDocument(e.shiftKey ? -1 : 1)
       else if (key === 'o') openMap(engine)
       else if (key === 'n') ui.showNewDialog = true
+      else if (key === 'b') engine.addBookmark()
       else return
       e.preventDefault()
       return
@@ -97,6 +98,8 @@
     else if (e.key === '[') editor.brush.radius = Math.max(1, editor.brush.radius / 1.15)
     else if (e.key === ']') editor.brush.radius = Math.min(80, editor.brush.radius * 1.15)
     else if (key === 'g') editor.grid = !editor.grid
+    else if (key === 'p') stepCameraSpeed(true)
+    else if (key === 'o') stepCameraSpeed(false)
     else if (key === 'f') engine.focusSelected()
     else return
     e.preventDefault()

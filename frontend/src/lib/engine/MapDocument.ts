@@ -16,10 +16,23 @@ export interface DocMeta {
   tile: TileRef | null
   /** For a map made for the client: its folder and map ID, which the export writes under. */
   vmangos: VmangosRef | null
+  /** Named camera views of this map, kept with it. */
+  bookmarks: Bookmark[]
   texScale: number
   waterLevel: number
   waterEnabled: boolean
   paintLayer: number
+}
+
+/** A saved camera view: where it looks at, and from what angle and distance. */
+export interface Bookmark {
+  name: string
+  x: number
+  y: number
+  z: number
+  yaw: number
+  pitch: number
+  distance: number
 }
 
 /** A map made for the 1.12 client: its folder under World\Maps, and its map ID. */
@@ -70,6 +83,7 @@ export class MapDocument {
       palette: LAYERS.map((l) => l.swatch),
       tile: null,
       vmangos: null,
+      bookmarks: [],
       texScale: 8,
       waterLevel: 0,
       waterEnabled: true,

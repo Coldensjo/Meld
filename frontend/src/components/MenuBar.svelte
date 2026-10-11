@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
+  import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
+  import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
   import { chooseVmangosFolder, exportWowTile, hasBackend, openMap, saveMap, saveOrPublish } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
@@ -62,6 +63,24 @@
         { kind: 'sep' },
         { kind: 'action', label: 'Select All', shortcut: 'Ctrl+A', run: withEngine((e) => { e.selectAll(); editor.tool = 'marquee' }) },
         { kind: 'action', label: 'Deselect', shortcut: 'Ctrl+D', disabled: !editor.selection, run: withEngine((e) => e.deselect()) },
+      ],
+    },
+    {
+      name: 'Camera',
+      items: [
+        { kind: 'action', label: 'Turn Around (180°)', run: withEngine((e) => e.turnCameraAround()) },
+        { kind: 'sep' },
+        { kind: 'action', label: 'Faster', shortcut: 'P', run: () => stepCameraSpeed(true) },
+        { kind: 'action', label: 'Slower', shortcut: 'O', run: () => stepCameraSpeed(false) },
+      ],
+    },
+    {
+      name: 'Bookmarks',
+      items: [
+        { kind: 'action', label: 'Add Bookmark', shortcut: 'Ctrl+B', run: withEngine((e) => e.addBookmark()) },
+        ...(editor.bookmarks.length ? [{ kind: 'sep' as const }] : []),
+        ...editor.bookmarks.map((b, i) => ({ kind: 'action' as const, label: b.name, run: withEngine((e: Engine) => e.gotoBookmark(i)) })),
+        ...(editor.bookmarks.length ? [{ kind: 'sep' as const }, { kind: 'action' as const, label: 'Clear Bookmarks', run: withEngine((e: Engine) => e.clearBookmarks()) }] : []),
       ],
     },
     {

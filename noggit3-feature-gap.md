@@ -84,15 +84,14 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 
 ## 6. Navigation and bookmarks
 
-- **Bookmarks**: save named camera positions per map, shown in a menu.
+- ~~**Bookmarks**: save named camera positions per map, shown in a menu.~~ *Done: Bookmarks menu, Ctrl+B adds a view of the map; each map keeps its own.*
 - **Minimap window**: click to jump to a location, with ADT boundaries and light-zone overlays.
 - **Map entry list** (Continents, Dungeons, Raids, Battlegrounds, Arenas, from the DBC map database). WorldEditor only has New / Open.
-- **Turn camera 180°** (Shift+R).
+- ~~**Turn camera 180°** (Shift+R).~~ *Done: Camera › Turn Around (180°). Not on Shift+R, which rotates a selected prop.*
 - **Reset camera roll** (End).
 - **FPS camera mode**, and a **debug camera** you can return to.
 - **Locked cursor mode**, which keeps the cursor fixed while the camera moves.
-- **Camera speed step keys** (O / P). WorldEditor has speed preferences, not hotkeys **(unverified)**.
-- **Invert mouse** as a menu toggle. WorldEditor has "Invert camera Y" in Preferences.
+- ~~**Camera speed step keys** (O / P).~~ *Done: O and P slow and speed up the camera, and the Camera menu does the same.*
 - **Top-down 2D tile mode** (U).
 - **Time-speed controls**: increase, decrease and pause time. WorldEditor has a day cycle but no explicit pause or speed keys **(unverified)**.
 
@@ -137,7 +136,6 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 - **Settings panel** covering game path, import path, project path, WMV log path, and MCLQ export path. WorldEditor only has the WoW folder and cache.
 - **Undockable tool properties** panel. WorldEditor's dock is fixed.
 - **Floating tool windows**: noggit's tools open as separate windows.
-- **Key Bindings window** (Ctrl+F1). WorldEditor has a Shortcuts dialog, so this is largely covered.
 - **Help window** and manual links.
 - **Log window** and "additional file loading log" setting.
 - **Asset browser** with a dedicated search **(unverified: WorldEditor's palette is similar; may be covered)**.
