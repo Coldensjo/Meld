@@ -18,7 +18,7 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 - **Blur** as a separate tool from Smooth (noggit combines it with Flatten in one tool).
 - **Tablet pressure**: radius or speed mapped to pen pressure, with an on/off setting.
 - **Chunk Mover**: drag a whole terrain chunk, with its heights and objects, to a new location.
-- **Clearing tool**: brush-based erase by category (height, textures, models, liquids, holes, shadows, vertex colours, impassable flags), with a radius and a texture-alpha threshold.
+- **Clearing tool**: brush-based erase by category (height, textures, models, liquids, holes, shadows, vertex colours, impassable flags), with a radius and a texture-alpha threshold. *Partly done: the Clear tool (8) erases models and resets textures to the base texture, with the brush size. Height, liquids, holes, shadows, vertex colours and impassable flags are not done yet.*
 - **Seam fix**: "Fix terrain gaps between chunks" (Assist menu).
 - **Sphere and terrain-projected cursor shapes** (noggit's cursor switcher offers disk, sphere and terrain modes) **(unverified for WorldEditor's current brush outline)**.
 
@@ -47,20 +47,20 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 
 ## 4. Object (prop) editing
 
-- **Numeric Pos/Rotation editor** with fields for position, rotation, tilt and scale.
-- **Tilt** (pitch) per object. WorldEditor only spins props around Y.
-- **Random rotation, tilt and scale** on placement. WorldEditor has random rotation and scale but no tilt.
+- ~~**Numeric Pos/Rotation editor** with fields for position, rotation, tilt and scale.~~ *Done: the Properties panel has typed fields for X, Z, height, rotation, tilt, roll and scale.*
+- ~~**Tilt** (pitch) per object. WorldEditor only spins props around Y.~~ *Done: Tilt and Roll (forward-back and side-to-side) in the Properties panel, saved in the map and written to the client placements. The sign of the tilt in the client is not yet checked in game.*
+- ~~**Random rotation, tilt and scale** on placement. WorldEditor has random rotation and scale but no tilt.~~ *Done: Random tilt (up to 8 degrees each way) is an option next to Random rotation and scale.*
 - **Follow-ground rotation**: props tilt to match the terrain normal, with a smooth-follow option.
 - **Rotate around a pivot point**, for single and multi-selection.
 - **Rotate-following-cursor** mode.
 - **Multi-selection movement** mode, with a local/world coordinate toggle for the gizmo.
 - **Selective paste options**: paste only rotation, tilt or scale.
 - **Hide models**: hide individual objects, toggle hidden-model visibility, and clear the hidden list.
-- **Import / export object lists** as text files.
+- ~~**Import / export object lists** as text files.~~ *Done: File › Import Object List and Export Object List, tab-separated, one model per line. Tilt is not in the text format yet.*
 - **Helper models window**: reference models placed as visual aids.
 - **WMV log import** ("Last M2 / Last WMO from WMV") (niche; depends on the WoW Model Viewer log).
-- **Duplicate-model detection**, and "Clear duplicate models".
-- **Clear all models** in an area.
+- ~~**Duplicate-model detection**, and "Clear duplicate models".~~ *Done: Edit › Remove Duplicate Models, one undo step.*
+- ~~**Clear all models** in an area.~~ *Done: the Clear tool in Models mode.*
 - **Reset rotation** (Ctrl+R) as a menu item **(unverified: WorldEditor may have no explicit reset)**.
 - **Mouse-move snap**: "follow cursor on the ground" vs "snap models to the ground" as separate modes.
 - **Bounding box display**: draw models with boxes, and a single-box-per-model option.
