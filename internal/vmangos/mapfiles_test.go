@@ -3,6 +3,7 @@ package vmangos
 import (
 	"encoding/binary"
 	"os"
+	"strings"
 	"testing"
 
 	"WorldEditor/internal/mpq"
@@ -78,5 +79,32 @@ func TestRealMapTables(t *testing.T) {
 	}
 	if len(built) == 0 {
 		t.Fatal("empty WDT")
+	}
+}
+
+// TestBuildWDTLayout checks the chunk order the map extractor reads: MVER, MPHD, MAIN, MWMO.
+func TestBuildWDTLayout(t *testing.T) {
+	template := []byte{}
+	template = append(template, "REVM"...)
+	template = binary.LittleEndian.AppendUint32(template, 4)
+	template = binary.LittleEndian.AppendUint32(template, 18)
+	template = append(template, "DHPM"...)
+	template = binary.LittleEndian.AppendUint32(template, 32)
+	template = append(template, make([]byte, 32)...)
+	out, err := BuildWDT(template, func(x, y int) bool { return x == 1 && y == 2 })
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for o := 0; o+8 <= len(out); {
+		ids = append(ids, string([]byte{out[o+3], out[o+2], out[o+1], out[o]}))
+		o += 8 + int(binary.LittleEndian.Uint32(out[o+4:]))
+	}
+	if strings.Join(ids, ",") != "MVER,MPHD,MAIN,MWMO" {
+		t.Fatalf("chunks = %v", ids)
+	}
+	main := out[len(out)-8-64*64*8 : len(out)-8]
+	if binary.LittleEndian.Uint32(main[(2*64+1)*8:]) != 1 || binary.LittleEndian.Uint32(main[0:]) != 0 {
+		t.Fatal("the tile table does not mark tile 1,2 alone")
 	}
 }

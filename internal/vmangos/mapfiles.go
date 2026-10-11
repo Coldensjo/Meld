@@ -12,7 +12,7 @@ const MapTiles = 64
 
 // BuildWDT returns a map's WDT: the template's header, and the tile table with present tiles marked.
 // present(x, y) says whether the tile at (x, y) has a file. The template is a 1.12 WDT, whose
-// chunks are MVER, MPHD and MAIN, with MWMO and MODF for a global building, which a new map doesn't have.
+// chunks are MVER, MPHD, MAIN and an empty MWMO (a global building would add its name and placement, which a new map doesn't have).
 func BuildWDT(template []byte, present func(x, y int) bool) ([]byte, error) {
 	var mphd []byte
 	for o := 0; o+8 <= len(template); {
@@ -48,6 +48,8 @@ func BuildWDT(template []byte, present func(x, y int) bool) ([]byte, error) {
 		}
 	}
 	add("MAIN", main)
+	// The map extractor wants MWMO after MAIN, empty when the map has no global building.
+	add("MWMO", nil)
 	return out, nil
 }
 
