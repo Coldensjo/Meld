@@ -103,3 +103,27 @@ func TestIronforgePatchIsBackedUp(t *testing.T) {
 		t.Fatal("backup differs from the original")
 	}
 }
+
+func TestInstallPatchKeepsOtherTiles(t *testing.T) {
+	dir := t.TempDir()
+	a := []mpq.File{{Name: `World\Maps\Azeroth\Azeroth_1_1.adt`, Data: []byte("one")}}
+	b := []mpq.File{{Name: `World\Maps\Azeroth\Azeroth_2_2.adt`, Data: []byte("two")}}
+	if _, err := InstallPatch(dir, a); err != nil {
+		t.Fatal(err)
+	}
+	path, err := InstallPatch(dir, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arch, err := mpq.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer arch.Close()
+	for name, want := range map[string]string{`World\Maps\Azeroth\Azeroth_1_1.adt`: "one", `World\Maps\Azeroth\Azeroth_2_2.adt`: "two"} {
+		got, err := arch.ReadFile(name)
+		if err != nil || string(got) != want {
+			t.Errorf("%s = %q, %v", name, got, err)
+		}
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"WorldEditor/internal/mpq"
 )
@@ -38,6 +39,7 @@ func CheckServer(dir string) error {
 // left alone, since it may be the game's. Returns the archive's path.
 func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 	target := filepath.Join(dataDir, PatchName)
+	var keep []mpq.File
 	if _, err := os.Stat(target); err == nil {
 		owner, err := archiveOwner(target)
 		if err != nil {
@@ -51,7 +53,12 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 				return "", err
 			}
 		}
+		// Tiles edited earlier stay in the patch; the ones given here replace theirs.
+		if keep, err = carryOver(target, files); err != nil {
+			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
+		}
 	}
+	files = append(files, keep...)
 
 	// Written beside the target and renamed over it, so a failed write leaves the old patch.
 	tmp := target + ".tmp"
@@ -63,6 +70,36 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 		return "", err
 	}
 	return target, nil
+}
+
+// carryOver reads the files of an existing patch that aren't in files, so replacing the patch
+// keeps the tiles exported before. The archive's own marker and listfile are left out.
+func carryOver(path string, files []mpq.File) ([]mpq.File, error) {
+	a, err := mpq.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer a.Close()
+	names, err := a.ListFile()
+	if err != nil {
+		return nil, err
+	}
+	replaced := make(map[string]bool, len(files))
+	for _, f := range files {
+		replaced[strings.ToUpper(strings.ReplaceAll(f.Name, "/", `\`))] = true
+	}
+	var out []mpq.File
+	for _, name := range names {
+		if name == "" || name[0] == '(' || replaced[strings.ToUpper(strings.ReplaceAll(name, "/", `\`))] {
+			continue
+		}
+		data, err := a.ReadFile(name)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, mpq.File{Name: name, Data: data})
+	}
+	return out, nil
 }
 
 // archiveOwner returns the marker of an archive WorldEditor or Ironforge wrote, or "" for any other.
