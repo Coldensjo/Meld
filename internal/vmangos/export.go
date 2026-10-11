@@ -218,6 +218,9 @@ func installServerMapTable(serverDir string, dbc []byte) (string, error) {
 		return "", err
 	}
 	target := filepath.Join(dir, "Map.dbc")
+	if err := checkFree(target); err != nil {
+		return "", err
+	}
 	if _, err := os.Stat(target); err == nil {
 		if err := backup(target, target+BackupSuffix); err != nil {
 			return "", err
@@ -227,8 +230,7 @@ func installServerMapTable(serverDir string, dbc []byte) (string, error) {
 	if err := os.WriteFile(tmp, dbc, 0o644); err != nil {
 		return "", err
 	}
-	if err := os.Rename(tmp, target); err != nil {
-		os.Remove(tmp)
+	if err := replaceFile(tmp, target); err != nil {
 		return "", err
 	}
 	return target, nil

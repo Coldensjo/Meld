@@ -39,6 +39,10 @@ func CheckServer(dir string) error {
 // left alone, since it may be the game's. Returns the archive's path.
 func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 	target := filepath.Join(dataDir, PatchName)
+	// A patch the game has open can't be replaced: say so before anything is backed up or written.
+	if err := checkFree(target); err != nil {
+		return "", err
+	}
 	var keep []mpq.File
 	if _, err := os.Stat(target); err == nil {
 		owner, err := archiveOwner(target)
@@ -65,8 +69,7 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 	if err := os.WriteFile(tmp, mpq.Write(files), 0o644); err != nil {
 		return "", err
 	}
-	if err := os.Rename(tmp, target); err != nil {
-		os.Remove(tmp)
+	if err := replaceFile(tmp, target); err != nil {
 		return "", err
 	}
 	return target, nil
