@@ -25,11 +25,15 @@ export function OpenHeightmapDialog():Promise<string>;
 
 export function OpenMapDialog():Promise<string>;
 
+export function OpenTextDialog():Promise<string>;
+
 export function PublishVmangosMap(arg1:vmangos.MapSpec):Promise<void>;
 
 export function Quit():Promise<void>;
 
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
+
+export function ReadTextFile(arg1:string):Promise<string>;
 
 export function SaveHeightmapDialog(arg1:string):Promise<string>;
 
@@ -40,6 +44,8 @@ export function SaveMapDialog(arg1:string):Promise<string>;
 export function SavePrefs(arg1:string):Promise<void>;
 
 export function SaveRegion(arg1:vmangos.RegionEdit):Promise<string>;
+
+export function SaveTextDialog(arg1:string):Promise<string>;
 
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 
@@ -52,3 +58,5 @@ export function VmangosPath():Promise<string>;
 export function WowStatus():Promise<wow.Status>;
 
 export function WriteHeightmap(arg1:string,arg2:number,arg3:Array<number>):Promise<void>;
+
+export function WriteTextFile(arg1:string,arg2:string):Promise<void>;

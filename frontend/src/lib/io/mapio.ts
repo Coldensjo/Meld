@@ -3,6 +3,10 @@ import {
   LoadMap,
   LoadRegion,
   LoadSpawns,
+  OpenTextDialog,
+  ReadTextFile,
+  SaveTextDialog,
+  WriteTextFile,
   OpenHeightmapDialog,
   OpenMapDialog,
   PublishVmangosMap,
@@ -22,6 +26,7 @@ import { editor, setStatus, ui } from '../state/editor.svelte'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
 import { mapToTiles } from './vmangosExport'
+import { formatObjectList, parseObjectList } from '../world/objectList'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 
@@ -232,6 +237,33 @@ export function importHeightmap(engine: Engine) {
     }
     engine.setHeights(Float32Array.from(img.heights), 'Import heightmap')
     setStatus(`Imported the heightmap from ${path}. Undo reverts it.`)
+  })
+}
+
+/** Saves the active map's models as a text list (see objectList.ts). */
+export function exportObjectList(engine: Engine) {
+  return guarded('Export object list', async () => {
+    const path = await SaveTextDialog(editor.mapName)
+    if (!path) return
+    const count = engine.objects.objects.size
+    await WriteTextFile(path, formatObjectList(engine.objects.objects.values()))
+    setStatus(`Exported ${count} models to ${path}.`)
+  })
+}
+
+/** Places the models of a text list into the active map, as one undoable step. */
+export function importObjectList(engine: Engine) {
+  return guarded('Import object list', async () => {
+    const path = await OpenTextDialog()
+    if (!path) return
+    const { objects, errors } = parseObjectList(await ReadTextFile(path))
+    if (objects.length === 0) {
+      setStatus(`${path} has no models${errors.length ? `; ${errors[0]}` : ''}.`, 8000)
+      return
+    }
+    engine.addObjects(objects)
+    const skipped = errors.length ? `, skipped ${errors.length} unreadable ${errors.length === 1 ? 'line' : 'lines'}` : ''
+    setStatus(`Imported ${objects.length} models${skipped}. Undo removes them.`, 8000)
   })
 }
 

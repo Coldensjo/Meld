@@ -364,3 +364,36 @@ func (a *App) ReadHeightmap(path string) (HeightmapData, error) {
 	}
 	return HeightmapData{Side: side, Heights: heights}, nil
 }
+
+var textFilters = []runtime.FileFilter{{DisplayName: "Text file (*.txt)", Pattern: "*.txt"}}
+
+// SaveTextDialog asks where to save a text file. Returns "" if cancelled.
+func (a *App) SaveTextDialog(suggested string) (string, error) {
+	if suggested == "" {
+		suggested = "list"
+	}
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export Object List",
+		DefaultFilename: suggested + ".txt",
+		Filters:         textFilters,
+	})
+}
+
+// OpenTextDialog asks for a text file to import. Returns "" if cancelled.
+func (a *App) OpenTextDialog() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "Import Object List",
+		Filters: textFilters,
+	})
+}
+
+// WriteTextFile saves text at path.
+func (a *App) WriteTextFile(path, text string) error {
+	return os.WriteFile(path, []byte(text), 0o644)
+}
+
+// ReadTextFile returns the text of the file at path.
+func (a *App) ReadTextFile(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	return string(b), err
+}

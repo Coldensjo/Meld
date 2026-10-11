@@ -42,6 +42,10 @@ export function OpenMapDialog() {
   return window['go']['main']['App']['OpenMapDialog']();
 }
 
+export function OpenTextDialog() {
+  return window['go']['main']['App']['OpenTextDialog']();
+}
+
 export function PublishVmangosMap(arg1) {
   return window['go']['main']['App']['PublishVmangosMap'](arg1);
 }
@@ -52,6 +56,10 @@ export function Quit() {
 
 export function ReadHeightmap(arg1) {
   return window['go']['main']['App']['ReadHeightmap'](arg1);
+}
+
+export function ReadTextFile(arg1) {
+  return window['go']['main']['App']['ReadTextFile'](arg1);
 }
 
 export function SaveHeightmapDialog(arg1) {
@@ -72,6 +80,10 @@ export function SavePrefs(arg1) {
 
 export function SaveRegion(arg1) {
   return window['go']['main']['App']['SaveRegion'](arg1);
+}
+
+export function SaveTextDialog(arg1) {
+  return window['go']['main']['App']['SaveTextDialog'](arg1);
 }
 
 export function SaveThumbnail(arg1, arg2) {
@@ -96,4 +108,8 @@ export function WowStatus() {
 
 export function WriteHeightmap(arg1, arg2, arg3) {
   return window['go']['main']['App']['WriteHeightmap'](arg1, arg2, arg3);
+}
+
+export function WriteTextFile(arg1, arg2) {
+  return window['go']['main']['App']['WriteTextFile'](arg1, arg2);
 }

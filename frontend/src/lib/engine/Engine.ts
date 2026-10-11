@@ -1324,7 +1324,18 @@ export class Engine {
     if (commit && before) this.history.push(transformCommand(this.objects, before, o))
   }
 
-  /** Delete the selected object; things attached to it stay where they are (re-homed). */
+  /** Places a list of models (from an object list file) as one undoable step. */
+  addObjects(list: Array<Omit<WorldObject, 'id'>>) {
+    const added = list.map((o) => this.objects.add({ ...o }))
+    const saved = added.map((o) => ({ ...o }))
+    const cmd: Command = {
+      label: 'Import object list',
+      undo: () => saved.forEach((o) => this.objects.remove(o.id)),
+      redo: () => saved.forEach((o) => this.objects.add({ ...o })),
+    }
+    this.history.push(cmd)
+  }
+
   /**
    * Removes models that stand exactly where another model of the same type stands, keeping the
    * first of each. One undo step. Positions and turns are compared to a hundredth.
@@ -1348,6 +1359,7 @@ export class Engine {
     setStatus(`Removed ${dupes.length} duplicate ${dupes.length === 1 ? 'model' : 'models'}. Undo restores them.`)
   }
 
+  /** Delete the selected object; things attached to it stay where they are (re-homed). */
   deleteSelected() {
     if (!editor.selected) return
     const target = this.objects.objects.get(editor.selected.id)
