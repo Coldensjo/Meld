@@ -2,17 +2,19 @@ import type { WorldObject } from './ObjectLayer'
 
 /**
  * The text form of a list of models, one per line, tab-separated: type, x, z, height above the
- * ground, turn in radians, scale. Tabs (not spaces) separate the fields, because model paths can
- * contain spaces. Lines starting with '#' are comments.
+ * ground, turn in radians, scale, then tilt forward-back and roll in radians. Tabs (not spaces)
+ * separate the fields, because model paths can contain spaces. Lines starting with '#' are
+ * comments. Lists written before tilt have six fields, and still read; their models are not tilted.
  */
-export const OBJECT_LIST_HEADER = '# WorldEditor object list: type, x, z, height above ground, turn (radians), scale'
+export const OBJECT_LIST_HEADER =
+  '# WorldEditor object list: type, x, z, height above ground, turn (radians), scale, tilt forward-back (radians), roll (radians)'
 
 /** The models that stand on their own (attached models are placed relative to their parent, so they're left out). */
 export function formatObjectList(objects: Iterable<WorldObject>): string {
   const lines = [OBJECT_LIST_HEADER]
   for (const o of objects) {
     if (o.parent !== undefined) continue
-    lines.push([o.type, o.x, o.z, o.yOff, o.rotY, o.scale].join('\t'))
+    lines.push([o.type, o.x, o.z, o.yOff, o.rotY, o.scale, o.tiltX ?? 0, o.tiltZ ?? 0].join('\t'))
   }
   return lines.join('\n') + '\n'
 }
@@ -30,11 +32,11 @@ export function parseObjectList(text: string): ParsedObjectList {
     const line = raw.trim()
     if (line === '' || line.startsWith('#')) return
     const f = raw.split('\t')
-    if (f.length !== 6) {
-      errors.push(`line ${i + 1}: expected 6 tab-separated fields, found ${f.length}`)
+    if (f.length !== 6 && f.length !== 8) {
+      errors.push(`line ${i + 1}: expected 6 or 8 tab-separated fields, found ${f.length}`)
       return
     }
-    const [type, x, z, yOff, rotY, scale] = f.map((s) => s.trim())
+    const [type, x, z, yOff, rotY, scale, tiltX, tiltZ] = f.map((s) => s.trim())
     if (!type.startsWith('m2:') && !type.startsWith('wmo:')) {
       errors.push(`line ${i + 1}: "${type}" is not a model`)
       return
@@ -44,8 +46,15 @@ export function parseObjectList(text: string): ParsedObjectList {
       errors.push(`line ${i + 1}: a number is missing or not valid`)
       return
     }
+    const tilts = f.length === 8 ? [tiltX, tiltZ].map(Number) : []
+    if (tilts.some((n) => !Number.isFinite(n))) {
+      errors.push(`line ${i + 1}: a tilt is missing or not valid`)
+      return
+    }
     const [px, pz, py, prot, pscale] = nums
-    objects.push({ type, x: px, z: pz, yOff: py, rotY: prot, scale: pscale })
+    const o: Omit<WorldObject, 'id'> = { type, x: px, z: pz, yOff: py, rotY: prot, scale: pscale }
+    if (tilts.length) [o.tiltX, o.tiltZ] = tilts
+    objects.push(o)
   })
   return { objects, errors }
 }
