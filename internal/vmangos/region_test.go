@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"encoding/base64"
 	"math"
 	"os"
 	"testing"
@@ -257,5 +258,44 @@ func TestRegionReadsWater(t *testing.T) {
 	}
 	if ocean < 100 {
 		t.Fatalf("expected the ocean's chunks, got %d of %d liquid chunks", ocean, len(view.Liquids))
+	}
+}
+
+// TestRegionPaintWritten paints the first chunk of a real tile with one texture and checks the
+// written tile names it. It needs WOW_DIR set to the client.
+func TestRegionPaintWritten(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := ReadRegion(dataDir, "Azeroth", 32, 48, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const texture = `Tileset\Elwynn\ElwynnGrass01.blp`
+	weights := make([]byte, 32*32*4)
+	for i := 0; i < len(weights); i += 4 {
+		weights[i] = 255
+	}
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects,
+		Paint: []RegionPaint{{Chunk: 0, Textures: []string{texture}, Weights: base64.StdEncoding.EncodeToString(weights)}}}
+	files, err := BuildRegion(dataDir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := adt.ParseTerrain(files[0].Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tex, err := adt.ParseTextures(files[0].Data, adt.ReadBigAlpha(nil), terrain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := tex.Chunks[0].Layers[0].Texture; got != texture {
+		t.Fatalf("chunk 0 base texture %q, want %q", got, texture)
 	}
 }

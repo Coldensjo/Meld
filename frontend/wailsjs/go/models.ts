@@ -368,6 +368,22 @@ export namespace vmangos {
 	    }
 	}
 	
+	export class RegionPaint {
+	    chunk: number;
+	    textures: string[];
+	    weights: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RegionPaint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.chunk = source["chunk"];
+	        this.textures = source["textures"];
+	        this.weights = source["weights"];
+	    }
+	}
 	export class RegionEdit {
 	    mapName: string;
 	    x: number;
@@ -375,6 +391,7 @@ export namespace vmangos {
 	    size: number;
 	    heights: number[];
 	    objects: ObjectView[];
+	    paint: RegionPaint[];
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionEdit(source);
@@ -388,6 +405,7 @@ export namespace vmangos {
 	        this.size = source["size"];
 	        this.heights = source["heights"];
 	        this.objects = this.convertValues(source["objects"], ObjectView);
+	        this.paint = this.convertValues(source["paint"], RegionPaint);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -408,6 +426,7 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	
 	export class RegionView {
 	    mapName: string;
 	    x: number;

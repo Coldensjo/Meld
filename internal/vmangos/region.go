@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"encoding/base64"
 	"fmt"
 	"math"
 	"strings"
@@ -53,7 +54,21 @@ type RegionEdit struct {
 	Size    int          `json:"size"`
 	Heights []float32    `json:"heights"`
 	Objects []ObjectView `json:"objects"`
+	// Paint is the painted chunks of the block, by block chunk index: the block's chunks in rows of
+	// 16*Size, row-major. Chunks not listed keep the paint the client has.
+	Paint []RegionPaint `json:"paint"`
 }
+
+// RegionPaint is a painted chunk of a region: its index in the block (rows of 16*Size chunks), its
+// textures in slot order, and its weights as PaintSpec has them.
+type RegionPaint struct {
+	Chunk    int      `json:"chunk"`
+	Textures []string `json:"textures"`
+	Weights  string   `json:"weights"`
+}
+
+// ChunksPerTileSide is the chunks a side of a tile.
+const ChunksPerTileSide = adt.ChunksPerTile
 
 // checkRegion rejects a block that isn't on the 64x64 map or is too big to edit.
 func checkRegion(x, y, size int) error {
@@ -226,7 +241,8 @@ func clampTile(i, size int) int {
 // BuildRegion writes the edited block into copies of its tiles' files and returns them. Heights
 // go into every tile. Models that are unchanged keep their placements exactly; changed ones are
 // rewritten in the tile they came from; new ones go into the tile they fall in; and placements
-// that were removed in the editor are dropped. Paint isn't written, so it stays as the client has it.
+// that were removed in the editor are dropped. Painted chunks are rewritten from their weights; the rest
+// keep the paint the client has.
 func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	if err := checkRegion(e.X, e.Y, e.Size); err != nil {
 		return nil, err
@@ -263,7 +279,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 				return nil, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
 			}
 			t := tileEdit{name: name, root: root, orig: map[uint32]adt.Placement{}}
-			t.change = adt.Changes{TileX: tx, TileY: ty, Remove: map[uint32]bool{}}
+			t.change = adt.Changes{TileX: tx, TileY: ty, Remove: map[uint32]bool{}, Paint: map[int]adt.ChunkPaint{}}
 			for _, p := range placements {
 				if p.Kind != adt.M2 && p.Kind != adt.WMO {
 					continue
@@ -303,6 +319,29 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		if !seen[uid] {
 			tiles[k].change.Remove[uid] = true
 		}
+	}
+
+	// Painted chunks: each block chunk belongs to one tile, at its index within that tile.
+	perRow := ChunksPerTileSide * e.Size
+	for _, p := range e.Paint {
+		if p.Chunk < 0 || p.Chunk >= perRow*perRow {
+			return nil, fmt.Errorf("paint chunk %d is outside the block", p.Chunk)
+		}
+		if len(p.Textures) == 0 || len(p.Textures) > 4 {
+			return nil, fmt.Errorf("chunk %d has %d textures; a chunk takes one to four", p.Chunk, len(p.Textures))
+		}
+		weights, err := base64.StdEncoding.DecodeString(p.Weights)
+		if err != nil {
+			return nil, fmt.Errorf("chunk %d weights: %w", p.Chunk, err)
+		}
+		perSide := adt.AlphaSize / 2
+		if len(weights) != perSide*perSide*4 {
+			return nil, fmt.Errorf("chunk %d has %d weights, want %d", p.Chunk, len(weights), perSide*perSide*4)
+		}
+		gx, gy := p.Chunk%perRow, p.Chunk/perRow
+		k := (gy/ChunksPerTileSide)*e.Size + gx/ChunksPerTileSide
+		local := (gy%ChunksPerTileSide)*ChunksPerTileSide + gx%ChunksPerTileSide
+		tiles[k].change.Paint[local] = adt.ChunkPaint{Layers: adt.LayersFromWeights(p.Textures, weights, perSide)}
 	}
 
 	files := make([]mpq.File, 0, len(tiles))

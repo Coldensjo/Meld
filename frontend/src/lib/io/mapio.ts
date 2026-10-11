@@ -189,6 +189,21 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
 }
 
 /**
+ * The painted chunks of the active region, by block chunk index (rows of 16 * size chunks), in the
+ * encoding the map export uses. Each tile's own chunks are mapped into the block.
+ */
+function regionPaint(engine: Engine, size: number) {
+  const perRow = 16 * size
+  return mapToTiles(engine.exportInput()).tiles.flatMap((t) =>
+    t.Paint.map((p) => {
+      const cx = p.Chunk % 16
+      const cy = Math.floor(p.Chunk / 16)
+      return { chunk: (t.Y * 16 + cy) * perRow + t.X * 16 + cx, textures: p.Textures, weights: p.Weights }
+    }),
+  )
+}
+
+/**
  * Writes the active region back into the client's patch, into the tiles it was opened from, for the
  * server to build from. Heights and models are written; paint stays as the client has it.
  */
@@ -207,6 +222,7 @@ export function exportRegion(engine: Engine) {
         size: region.size,
         heights: Array.from(engine.outerHeights()),
         objects: engine.regionObjects(),
+        paint: regionPaint(engine, region.size),
       }),
     )
     const server = await VmangosPath()
