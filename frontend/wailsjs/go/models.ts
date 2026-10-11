@@ -1,3 +1,28 @@
+export namespace adt {
+	
+	export class Liquid {
+	    indexX: number;
+	    indexY: number;
+	    kind: number;
+	    heights: number[];
+	    cells: boolean[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Liquid(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.indexX = source["indexX"];
+	        this.indexY = source["indexY"];
+	        this.kind = source["kind"];
+	        this.heights = source["heights"];
+	        this.cells = source["cells"];
+	    }
+	}
+
+}
+
 export namespace main {
 	
 	export class HeightmapData {
@@ -351,6 +376,7 @@ export namespace vmangos {
 	    heights: number[];
 	    chunks: ChunkView[];
 	    objects: ObjectView[];
+	    liquids: adt.Liquid[];
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionView(source);
@@ -365,6 +391,7 @@ export namespace vmangos {
 	        this.heights = source["heights"];
 	        this.chunks = this.convertValues(source["chunks"], ChunkView);
 	        this.objects = this.convertValues(source["objects"], ObjectView);
+	        this.liquids = this.convertValues(source["liquids"], adt.Liquid);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

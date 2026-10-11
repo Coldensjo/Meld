@@ -37,6 +37,8 @@ type TileView struct {
 	Heights    []float32       `json:"heights"`
 	Chunks     []ChunkView     `json:"chunks"`
 	Placements []adt.Placement `json:"placements"`
+	// Liquids are the chunks with water, in the tile's chunk indexes.
+	Liquids []adt.Liquid `json:"liquids"`
 }
 
 // ReadTile opens a client's data folder and reads the tile at (x, y) of the named map.
@@ -76,7 +78,11 @@ func viewOf(root []byte, bigAlpha bool) (*TileView, error) {
 	if err != nil {
 		return nil, err
 	}
-	view := &TileView{Heights: make([]float32, LatticeSize*LatticeSize), Placements: placements}
+	liquids, err := adt.ParseLiquids(root)
+	if err != nil {
+		return nil, err
+	}
+	view := &TileView{Heights: make([]float32, LatticeSize*LatticeSize), Placements: placements, Liquids: liquids}
 	for i, c := range terrain.Chunks {
 		for r := 0; r <= adt.CellsPerChunk; r++ {
 			for col := 0; col <= adt.CellsPerChunk; col++ {

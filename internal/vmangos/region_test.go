@@ -230,3 +230,32 @@ func TestRegionMoveRoundTrip(t *testing.T) {
 	}
 	t.Fatalf("model %d is missing after the move", moved.UID)
 }
+
+// TestRegionReadsWater reads a client tile with ocean (tile 29_44 of Azeroth) and checks its water
+// comes through in the block's chunk indexes. It needs WOW_DIR set to the client.
+func TestRegionReadsWater(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := ReadRegion(dataDir, "Azeroth", 29, 44, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ocean := 0
+	for _, l := range view.Liquids {
+		if l.IndexX < 0 || l.IndexX >= 16 || l.IndexY < 0 || l.IndexY >= 16 {
+			t.Fatalf("liquid chunk %d,%d is outside the block", l.IndexX, l.IndexY)
+		}
+		if l.Kind == 0x08 {
+			ocean++
+		}
+	}
+	if ocean < 100 {
+		t.Fatalf("expected the ocean's chunks, got %d of %d liquid chunks", ocean, len(view.Liquids))
+	}
+}

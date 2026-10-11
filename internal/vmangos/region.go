@@ -29,6 +29,8 @@ type RegionView struct {
 	// Chunks index across the whole block: 16*Size chunks a side.
 	Chunks  []ChunkView  `json:"chunks"`
 	Objects []ObjectView `json:"objects"`
+	// Liquids index across the whole block, like Chunks.
+	Liquids []adt.Liquid `json:"liquids"`
 }
 
 // ObjectView is a placed model in the block's coordinates. UID is the file's unique ID, or 0 for
@@ -102,6 +104,11 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 				c.IndexX += i * adt.ChunksPerTile
 				c.IndexY += j * adt.ChunksPerTile
 				view.Chunks = append(view.Chunks, c)
+			}
+			for _, l := range tile.Liquids {
+				l.IndexX += i * adt.ChunksPerTile
+				l.IndexY += j * adt.ChunksPerTile
+				view.Liquids = append(view.Liquids, l)
 			}
 			for _, p := range tile.Placements {
 				if o, ok := objectView(p, x, y); ok {

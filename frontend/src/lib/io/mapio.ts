@@ -164,6 +164,7 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       chunkSlots: paint.chunkSlots,
       palette: paint.palette,
       objects: view.objects,
+      liquids: view.liquids,
     })
     if (!d) {
       setStatus(`${mapName} ${x}_${y} ${size}×${size} is already open.`)

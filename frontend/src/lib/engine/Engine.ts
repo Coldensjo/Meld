@@ -4,7 +4,8 @@ import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
-import type { vmangos } from '../../../wailsjs/go/models'
+import type { adt, vmangos } from '../../../wailsjs/go/models'
+import { liquidMesh } from '../world/LiquidLayer'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
@@ -34,6 +35,8 @@ export interface RegionOpen {
   chunkSlots: Uint8Array
   palette: string[]
   objects: RegionObject[]
+  /** The client's water, as the region's chunks hold it. */
+  liquids: adt.Liquid[]
 }
 
 /** A model of a region: its file ID (0 when it's new), type, and world placement. */
@@ -482,7 +485,9 @@ export class Engine {
     if (!d) return
     d.terrain.group.visible = p.showTerrain
     d.terrain.material.wireframe = p.wireframe
-    d.water.mesh.visible = p.showWater
+    // A region's water is the client's, drawn per chunk; the flat sea-level plane is for maps made here.
+    d.water.mesh.visible = p.showWater && !d.meta.region
+    d.liquids.visible = p.showWater
     d.objects.group.visible = p.showObjects
     d.spawnLayer.setKinds({ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects })
   }
@@ -535,10 +540,10 @@ export class Engine {
     }
     if (stash && this.doc && this.doc !== d) {
       this.stashActive()
-      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.objects.group, this.doc.spawnLayer.group)
+      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.objects.group, this.doc.spawnLayer.group, this.doc.liquids)
     }
     this.doc = d
-    this.scene.add(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group)
+    this.scene.add(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group, d.liquids)
     const m = d.meta
     editor.mapName = m.mapName
     editor.filePath = m.filePath
@@ -636,6 +641,8 @@ export class Engine {
     d.terrain.chunkSlots.set(r.chunkSlots)
     d.terrain.markAllDirty()
     d.meta.palette = [...r.palette]
+    const water = liquidMesh(r.liquids, d.terrain.cellSize)
+    if (water) d.liquids.add(water)
     const region: RegionRef = { mapName: r.mapName, x: r.x, y: r.y, size: r.size, uids: new Map() }
     d.meta.region = region
     for (const o of r.objects) {
@@ -806,7 +813,7 @@ export class Engine {
     const d = this.documents[i]
     this.documents.splice(i, 1)
     if (d === this.doc) {
-      this.scene.remove(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group)
+      this.scene.remove(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group, d.liquids)
       const next = this.documents[Math.min(i, this.documents.length - 1)]
       // Keep at least one map open. The closed doc isn't stashed.
       if (next) {

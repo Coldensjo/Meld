@@ -81,6 +81,8 @@ export class MapDocument {
   readonly water: Water
   readonly objects: ObjectLayer
   readonly spawnLayer = new SpawnLayer()
+  /** The client's water, for a region: a mesh per block, in the same group. */
+  readonly liquids = new THREE.Group()
   readonly history = new History()
   /** The palette the terrain's shader was last given, as one string, to tell when it changes. */
   paletteKey = ''
@@ -116,5 +118,7 @@ export class MapDocument {
     this.water.dispose()
     this.objects.dispose()
     this.spawnLayer.dispose()
+    for (const m of this.liquids.children) (m as THREE.Mesh).geometry.dispose()
+    this.liquids.clear()
   }
 }
