@@ -59,6 +59,11 @@ export class History {
     this.sync()
   }
 
+  /** Re-publish undo/redo availability (after switching documents). */
+  refresh() {
+    this.sync()
+  }
+
   private sync() {
     ui.canUndo = this.index > 0
     ui.canRedo = this.index < this.stack.length

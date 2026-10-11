@@ -46,6 +46,15 @@ cd frontend && pnpm build   # frontend only
   `Version` and update the tests.
 - **Engine** (`frontend/src/lib/engine/Engine.ts`) owns the renderer, scene, camera and rAF loop.
   Svelte talks to it through `engineRef.current` methods.
+- **Documents** (`lib/engine/MapDocument.ts`):
+  - Each open map (tab) owns its terrain, water, objects, `History`, per-map settings (`meta`)
+    and camera.
+  - `engine.terrain`, `engine.objects` and `engine.history` are getters for the active
+    document.
+  - On tab switch, `Engine.activate` stashes the live `editor` per-map fields into the old
+    document's `meta` and loads the new one's. Add any new per-map editor field to `DocMeta`,
+    `stashActive` and `activate`.
+  - The tab list for the UI is `docs` in `editor.svelte.ts`.
 - **State**: `lib/state/editor.svelte.ts` holds Svelte 5 runes (`editor`, `stats`, `ui`). The engine
   *reads* `editor.*` each frame. **Never write per-frame data into reactive state.** `stats` is
   throttled to 2 Hz for this reason.

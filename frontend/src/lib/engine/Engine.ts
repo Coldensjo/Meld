@@ -1,9 +1,8 @@
 import * as THREE from 'three'
-import { Terrain, type GenerateKind } from '../terrain/Terrain'
-import { Water } from '../water/Water'
-import { ObjectLayer } from '../world/ObjectLayer'
-import { History, type Command } from '../state/history'
-import { editor, setStatus, stats, type Prefs, type ToolId } from '../state/editor.svelte'
+import type { GenerateKind } from '../terrain/Terrain'
+import type { Command } from '../state/history'
+import { docs, editor, setStatus, stats, type Prefs, type ToolId } from '../state/editor.svelte'
+import { MapDocument } from './MapDocument'
 import { CameraController } from './CameraController'
 import { HORIZON, createSky } from './Sky'
 import type { Tool, ToolContext } from '../tools/Tool'
@@ -41,11 +40,23 @@ export class Engine {
   readonly scene = new THREE.Scene()
   readonly camera: THREE.PerspectiveCamera
   readonly controller: CameraController
-  readonly history = new History()
   readonly raycaster = new THREE.Raycaster()
-  terrain: Terrain
-  water: Water
-  readonly objects: ObjectLayer
+  /** All open maps (document tabs); `doc` is the one being edited. */
+  readonly documents: MapDocument[] = []
+  private doc!: MapDocument
+
+  get terrain() {
+    return this.doc.terrain
+  }
+  get water() {
+    return this.doc.water
+  }
+  get objects() {
+    return this.doc.objects
+  }
+  get history() {
+    return this.doc.history
+  }
 
   private sky: THREE.Mesh
   private tools: Record<ToolId, Tool>
@@ -62,8 +73,6 @@ export class Engine {
   private frames = 0
   private statTime = 0
   private resizeObs: ResizeObserver
-  /** Layer texture paths currently bound to the terrain shader. */
-  private boundLayers: string[] = []
   private selectionHelper = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color(1, 0.85, 0.2))
   private tmpBox = new THREE.Box3()
   private tmpM = new THREE.Matrix4()
@@ -96,11 +105,6 @@ export class Engine {
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
     setMaxAnisotropy(aniso)
-    this.terrain = new Terrain(256)
-    this.water = new Water(this.terrain.worldSize)
-    this.objects = new ObjectLayer(this.terrain)
-    this.scene.add(this.terrain.group, this.water.mesh, this.objects.group)
-
     // The camera rides on the water surface where the ground is submerged.
     this.controller = new CameraController(this.camera, canvas, (x, z) => {
       const h = this.terrain.heightAt(x, z)
@@ -134,7 +138,7 @@ export class Engine {
     this.resizeObs = new ResizeObserver(() => this.resize())
     this.resizeObs.observe(container)
     this.resize()
-    this.newMap(256, 'ocean', 0)
+    this.newDocument(256, 'ocean', 0)
   }
 
   // ---------------------------------------------------------------- lifecycle
@@ -153,9 +157,7 @@ export class Engine {
     this.abort.abort()
     this.resizeObs.disconnect()
     this.controller.dispose()
-    this.terrain.dispose()
-    this.water.dispose()
-    this.objects.dispose()
+    for (const d of this.documents) d.dispose()
     this.renderer.dispose()
   }
 
@@ -324,8 +326,9 @@ export class Engine {
     const want = editor.layerTextures
     for (let i = 0; i < want.length; i++) {
       const path = want[i] ?? ''
-      if (this.boundLayers[i] === path) continue
-      this.boundLayers[i] = path
+      const bound = this.doc.boundLayers
+      if (bound[i] === path) continue
+      bound[i] = path
       const uniform = this.terrain.material.uniforms['tex' + i]
       const procedural = getFallbackTextures()[i]
       if (!path) {
@@ -336,44 +339,170 @@ export class Engine {
       loadTexture(path)
         .then((t) => {
           // Ignore if the layer changed again or the terrain was replaced.
-          if (this.boundLayers[i] === path && this.terrain.material === material) uniform.value = t
+          if (bound[i] === path && material.uniforms['tex' + i] === uniform) uniform.value = t
         })
         .catch((e) => {
           setStatus(`Texture failed: ${e}`, 6000)
-          if (this.boundLayers[i] === path) uniform.value = procedural
+          if (bound[i] === path) uniform.value = procedural
         })
     }
   }
 
-  // ---------------------------------------------------------------- map ops
+  // ---------------------------------------------------------------- documents
 
-  private replaceTerrain(size: number) {
-    this.scene.remove(this.terrain.group, this.water.mesh)
-    this.terrain.dispose()
-    this.water.dispose()
-    this.terrain = new Terrain(size)
-    this.water = new Water(this.terrain.worldSize)
-    this.scene.add(this.terrain.group, this.water.mesh)
-    this.objects.setTerrain(this.terrain)
-    this.objects.clear()
-    this.controller.bounds = this.terrain.worldSize
-    this.controller.maxDistance = this.terrain.worldSize * 1.6
-    this.applyViewDistance()
-    this.history.clear()
-    editor.selected = null
-    this.boundLayers = []
-    editor.mapSize = size
+  /** Copy the live editor state into the active document. */
+  private stashActive() {
+    const d = this.doc
+    if (!d) return
+    d.meta = {
+      mapName: editor.mapName,
+      filePath: editor.filePath,
+      dirty: editor.dirty,
+      layerTextures: [...editor.layerTextures],
+      texScale: editor.texScale,
+      waterLevel: editor.waterLevel,
+      waterEnabled: editor.waterEnabled,
+      paintLayer: editor.paintLayer,
+    }
+    const c = this.controller
+    d.camera = { target: c.target.clone(), yaw: c.yaw, pitch: c.pitch, distance: c.distance }
   }
 
-  newMap(size: number, kind: GenerateKind, seed: number) {
-    this.replaceTerrain(size)
-    this.terrain.generate(kind, seed)
-    editor.waterLevel = kind === 'ocean' || kind === 'island' ? 0 : kind === 'flat' ? -2 : -1
-    editor.waterEnabled = kind !== 'flat'
-    this.terrain.autoPaint(editor.waterLevel, editor.waterEnabled)
-    const c = this.terrain.worldSize / 2
-    this.controller.focus(c, c, this.terrain.worldSize * 0.35)
-    editor.dirty = false
+  private syncTabs() {
+    docs.tabs = this.documents.map((d) =>
+      d === this.doc
+        ? { id: d.id, name: editor.mapName, dirty: editor.dirty, size: d.terrain.size }
+        : { id: d.id, name: d.meta.mapName, dirty: d.meta.dirty, size: d.terrain.size },
+    )
+    docs.active = this.doc.id
+  }
+
+  /** Make `d` the edited/rendered document. `stash` saves the current one first. */
+  private activate(d: MapDocument, stash = true) {
+    if (this.leftDown) {
+      this.activeTool?.onUp?.(this.ctx, this.hit, new PointerEvent('pointerup'))
+      this.leftDown = false
+    }
+    if (stash && this.doc && this.doc !== d) {
+      this.stashActive()
+      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.objects.group)
+    }
+    this.doc = d
+    this.scene.add(d.terrain.group, d.water.mesh, d.objects.group)
+    const m = d.meta
+    editor.mapName = m.mapName
+    editor.filePath = m.filePath
+    editor.layerTextures = [...m.layerTextures]
+    editor.texScale = m.texScale
+    editor.waterLevel = m.waterLevel
+    editor.waterEnabled = m.waterEnabled
+    editor.paintLayer = m.paintLayer
+    editor.mapSize = d.terrain.size
+    editor.selected = null
+    this.nudgeSession = null
+    this.controller.bounds = d.terrain.worldSize
+    this.controller.maxDistance = d.terrain.worldSize * 1.6
+    if (d.camera) {
+      this.controller.target.copy(d.camera.target)
+      this.controller.yaw = d.camera.yaw
+      this.controller.pitch = d.camera.pitch
+      this.controller.distance = d.camera.distance
+    } else {
+      const c = d.terrain.worldSize / 2
+      this.controller.focus(c, c, d.terrain.worldSize * 0.35)
+    }
+    this.applyViewDistance()
+    d.history.refresh()
+    editor.dirty = m.dirty
+    this.syncTabs()
+  }
+
+  private addDocument(d: MapDocument) {
+    // Opening a file into an untouched empty tab replaces it, like most editors.
+    const replace = this.doc?.pristine ? this.doc : null
+    this.documents.push(d)
+    this.activate(d)
+    if (replace) this.closeDocument(replace.id)
+  }
+
+  /** Create a new map in its own tab. */
+  newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled') {
+    const d = new MapDocument(size, this.uniqueName(name))
+    d.terrain.generate(kind, seed)
+    d.meta.waterLevel = kind === 'ocean' || kind === 'island' ? 0 : kind === 'flat' ? -2 : -1
+    d.meta.waterEnabled = kind !== 'flat'
+    d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled)
+    this.documents.push(d)
+    this.activate(d)
+    return d
+  }
+
+  private uniqueName(base: string) {
+    const names = new Set(this.documents.map((d) => (d === this.doc ? editor.mapName : d.meta.mapName)))
+    if (!names.has(base)) return base
+    for (let i = 2; ; i++) if (!names.has(`${base} ${i}`)) return `${base} ${i}`
+  }
+
+  switchDocument(id: number) {
+    const d = this.documents.find((x) => x.id === id)
+    if (d && d !== this.doc) this.activate(d)
+  }
+
+  /** Cycle tabs (Ctrl+Tab / Ctrl+Shift+Tab). */
+  cycleDocument(dir: 1 | -1) {
+    const i = this.documents.indexOf(this.doc)
+    const n = this.documents.length
+    this.activate(this.documents[(i + dir + n) % n])
+  }
+
+  /** Switch to the tab already showing `path`, if any. */
+  focusPath(path: string): boolean {
+    const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
+    const d = this.documents.find((x) => norm(x === this.doc ? editor.filePath : x.meta.filePath) === norm(path))
+    if (d) this.activate(d)
+    return !!d
+  }
+
+  isDirty(id: number) {
+    const d = this.documents.find((x) => x.id === id)
+    return !!d && (d === this.doc ? editor.dirty : d.meta.dirty)
+  }
+
+  anyDirty() {
+    return this.documents.some((d) => this.isDirty(d.id))
+  }
+
+  /** Close a tab without asking (the UI confirms unsaved changes first). */
+  closeDocument(id: number) {
+    const i = this.documents.findIndex((x) => x.id === id)
+    if (i < 0) return
+    const d = this.documents[i]
+    this.documents.splice(i, 1)
+    if (d === this.doc) {
+      this.scene.remove(d.terrain.group, d.water.mesh, d.objects.group)
+      const next = this.documents[Math.min(i, this.documents.length - 1)]
+      // Keep at least one map open. The closed doc isn't stashed.
+      if (next) {
+        this.activate(next, false)
+      } else {
+        const fresh = new MapDocument(256, 'Untitled')
+        fresh.terrain.generate('ocean', 0)
+        fresh.terrain.autoPaint(0, true)
+        this.documents.push(fresh)
+        this.activate(fresh, false)
+      }
+    }
+    d.dispose()
+    this.syncTabs()
+  }
+
+  /** Keep the active tab's title/dirty marker current (called from the UI). */
+  refreshTabs() {
+    if (this.doc) this.syncTabs()
+  }
+
+  activeDocumentId() {
+    return this.doc.id
   }
 
   snapshot(): MapSnapshot {
@@ -394,25 +523,32 @@ export class Engine {
     }
   }
 
-  load(m: MapSnapshot) {
+  /** Open a loaded map in a new tab (replacing an untouched empty tab). */
+  openDocument(m: MapSnapshot, filePath: string) {
     const verts = (m.size + 1) * (m.size + 1)
     if (m.heights.byteLength !== verts * 4) throw new Error('height data size mismatch')
-    this.replaceTerrain(m.size)
-    const t = this.terrain
-    if (m.splatRes !== t.splatRes) throw new Error('splat resolution mismatch')
+    const d = new MapDocument(m.size, m.name || 'Untitled')
+    const t = d.terrain
+    if (m.splatRes !== t.splatRes) {
+      d.dispose()
+      throw new Error('splat resolution mismatch')
+    }
     t.heights.set(new Float32Array(m.heights.slice().buffer))
     t.splatA.set(m.splatA)
     t.splatB.set(m.splatB)
     t.markAllDirty()
-    for (const o of m.objects) this.objects.add(o)
-    editor.mapName = m.name || 'Untitled'
-    editor.waterLevel = m.waterLevel
-    editor.waterEnabled = m.waterEnabled
-    editor.layerTextures = Array.from({ length: 8 }, (_, i) => m.layerTextures[i] ?? '')
-    editor.texScale = m.texScale || 8
-    const c = t.worldSize / 2
-    this.controller.focus(c, c, t.worldSize * 0.35)
-    editor.dirty = false
+    for (const o of m.objects) d.objects.add(o)
+    d.meta = {
+      mapName: m.name || 'Untitled',
+      filePath,
+      dirty: false,
+      layerTextures: Array.from({ length: 8 }, (_, i) => m.layerTextures[i] ?? ''),
+      texScale: m.texScale || 8,
+      waterLevel: m.waterLevel,
+      waterEnabled: m.waterEnabled,
+      paintLayer: 0,
+    }
+    this.addDocument(d)
   }
 
   // ---------------------------------------------------------------- editing API

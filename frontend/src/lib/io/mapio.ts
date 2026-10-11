@@ -69,6 +69,7 @@ export function saveMap(engine: Engine, saveAs = false) {
     await SaveMap(path, toMapData(engine.snapshot()))
     editor.filePath = path
     editor.dirty = false
+    engine.refreshTabs()
     setStatus(`Saved ${path} (${Math.round(performance.now() - t0)} ms)`)
   })
 }
@@ -77,10 +78,13 @@ export function openMap(engine: Engine) {
   return guarded('Open', async () => {
     const path = await OpenMapDialog()
     if (!path) return
+    if (engine.focusPath(path)) {
+      setStatus('That map is already open.')
+      return
+    }
     const t0 = performance.now()
     const data = await LoadMap(path)
-    engine.load(fromMapData(data))
-    editor.filePath = path
+    engine.openDocument(fromMapData(data), path)
     setStatus(`Loaded ${path} (${Math.round(performance.now() - t0)} ms)`)
   })
 }

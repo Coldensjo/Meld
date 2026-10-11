@@ -4,6 +4,7 @@
   import { hasBackend, openMap, saveMap } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
   import { ClearThumbnailCache, Quit } from '../../wailsjs/go/main/App'
+  import { requestClose } from './DocTabs.svelte'
 
   type Item =
     | { kind: 'action'; label: string; shortcut?: string; disabled?: boolean; run: () => unknown }
@@ -17,7 +18,7 @@
   }
 
   function exit() {
-    if (editor.dirty) ui.dialog = 'quit'
+    if (engineRef.current?.anyDirty()) ui.dialog = 'quit'
     else if (hasBackend()) Quit()
   }
 
@@ -43,6 +44,7 @@
         { kind: 'sep' },
         { kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveMap(e)) },
         { kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },
+        { kind: 'action', label: 'Close Map', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
         { kind: 'sep' },
         { kind: 'action', label: 'Undo', shortcut: 'Ctrl+Z', disabled: !ui.canUndo, run: withEngine((e) => e.undo()) },
         { kind: 'action', label: 'Redo', shortcut: 'Ctrl+Y', disabled: !ui.canRedo, run: withEngine((e) => e.redo()) },
@@ -193,7 +195,7 @@
     <button onclick={withEngine((e) => e.redo())} disabled={!ui.canRedo} title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
   </div>
   <div class="spacer"></div>
-  <span class="map-title">{editor.mapName}{editor.dirty ? ' •' : ''}</span>
+
 </header>
 
 <style>
@@ -302,7 +304,5 @@
   .spacer {
     flex: 1;
   }
-  .map-title {
-    color: var(--text-dim);
-  }
+
 </style>

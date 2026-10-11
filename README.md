@@ -26,7 +26,9 @@ The layout follows Photoshop:
 - **Menu bar** at the top.
 - **Options bar** below it, showing the active tool's settings (mode, size, strength, falloff…).
 - **Toolbar** on the left.
-- **Document tab** above the 3D view.
+- **Document tabs** above the 3D view. Several maps can be open at once, each with its own undo
+  history and camera. New Map and Open add a tab, Ctrl+Tab switches tabs, and Ctrl+W or the tab's
+  ✕ closes one (it asks first if there are unsaved changes).
 - **Panel dock** on the right, with:
   - **Models / Textures**: the asset browser.
   - **Layers**: the map's 8 texture slots, with coverage.
@@ -83,7 +85,7 @@ Also included:
 
 ### Menus
 
-- **File**: New / Open / Save / Save As, Undo / Redo, Exit (asks first if there are unsaved changes).
+- **File**: New / Open / Save / Save As / Close Map, Undo / Redo, Exit (asks first if there are unsaved changes).
 - **Graphics**: render scale (50–150%), view distance, fog, water, automatic cliff rock, grid.
 - **Preferences**: WoW client folder, clear thumbnail cache, camera speed, mouse sensitivity,
   invert camera Y.

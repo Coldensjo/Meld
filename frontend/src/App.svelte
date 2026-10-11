@@ -14,6 +14,9 @@
   import { editor, prefs, setStatus, ui, wow } from './lib/state/editor.svelte'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveMap } from './lib/io/mapio'
+  import { requestClose } from './components/DocTabs.svelte'
+  import { WindowSetTitle } from '../wailsjs/runtime/runtime'
+  import { hasBackend } from './lib/io/mapio'
 
   let prefsLoaded = $state(false)
   onMount(() => {
@@ -40,6 +43,12 @@
     })
   })
 
+  // Window title and tab label follow the active map.
+  $effect(() => {
+    const title = `${editor.mapName}${editor.dirty ? ' *' : ''} — WorldEditor`
+    if (hasBackend()) WindowSetTitle(title)
+  })
+
   // The palette follows the tool: textures for painting, models otherwise.
   $effect(() => {
     const t = editor.tool
@@ -63,6 +72,8 @@
         const c = engine.redo()
         if (c) setStatus(`Redo: ${c.label}`)
       } else if (key === 's') saveMap(engine, e.shiftKey)
+      else if (key === 'w') requestClose(engine.activeDocumentId())
+      else if (e.key === 'Tab') engine.cycleDocument(e.shiftKey ? -1 : 1)
       else if (key === 'o') openMap(engine)
       else if (key === 'n') ui.showNewDialog = true
       else return

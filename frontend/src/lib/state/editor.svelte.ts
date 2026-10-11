@@ -50,6 +50,12 @@ export const stats = $state({
   cursor: null as { x: number; y: number; z: number } | null,
 })
 
+/** Open map tabs (the active tab's live name/dirty come from `editor`). */
+export const docs = $state({
+  tabs: [] as Array<{ id: number; name: string; dirty: boolean; size: number }>,
+  active: 0,
+})
+
 /** Local WoW client used as an asset source (read live from its MPQs). */
 export const wow = $state({
   path: '',
@@ -80,7 +86,9 @@ export const ui = $state({
   canUndo: false,
   canRedo: false,
   showNewDialog: false,
-  dialog: null as 'about' | 'shortcuts' | 'quit' | null,
+  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | null,
+  /** Tab awaiting "close with unsaved changes?" confirmation. */
+  closeDocId: 0,
   /** Which palette the left panel shows. */
   palette: 'models' as 'models' | 'textures',
   busy: false,

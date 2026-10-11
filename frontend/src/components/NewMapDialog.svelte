@@ -20,10 +20,10 @@
 
   async function create() {
     const textures = wow.loaded ? await defaultLayerTextures() : ['', '', '', '', '', '', '', '']
-    engineRef.current?.newMap(size, kind, seed)
+    engineRef.current?.newDocument(size, kind, seed, name.trim() || 'Untitled')
     editor.layerTextures = textures
-    editor.mapName = name.trim() || 'Untitled'
-    editor.filePath = ''
+    editor.dirty = false
+    engineRef.current?.refreshTabs()
     ui.showNewDialog = false
   }
 </script>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from './Modal.svelte'
-  import { ui } from '../lib/state/editor.svelte'
+  import { docs, ui } from '../lib/state/editor.svelte'
+  import { engineRef } from '../lib/state/engineRef'
   import { Quit } from '../../wailsjs/go/main/App'
   import { APP_VERSION } from '../lib/version'
 
@@ -13,6 +14,8 @@
         ['Ctrl+N', 'New map'],
         ['Ctrl+O', 'Open map'],
         ['Ctrl+S', 'Save'],
+        ['Ctrl+W', 'Close map tab'],
+        ['Ctrl+Tab / Ctrl+Shift+Tab', 'Next / previous map tab'],
         ['Ctrl+Shift+S', 'Save as'],
         ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'],
       ],
@@ -83,9 +86,24 @@
       <button class="active" onclick={close}>Close</button>
     {/snippet}
   </Modal>
+{:else if ui.dialog === 'closeDoc'}
+  {@const tab = docs.tabs.find((t) => t.id === ui.closeDocId)}
+  <Modal title="Unsaved changes" width={380} onclose={close}>
+    <p>“{tab?.name ?? 'This map'}” has unsaved changes. Close it anyway?</p>
+    {#snippet actions()}
+      <button onclick={close}>Cancel</button>
+      <button
+        class="danger"
+        onclick={() => {
+          engineRef.current?.closeDocument(ui.closeDocId)
+          close()
+        }}>Close without saving</button
+      >
+    {/snippet}
+  </Modal>
 {:else if ui.dialog === 'quit'}
   <Modal title="Unsaved changes" width={380} onclose={close}>
-    <p>The current map has unsaved changes. Quit anyway?</p>
+    <p>Some open maps have unsaved changes. Quit anyway?</p>
     {#snippet actions()}
       <button onclick={close}>Cancel</button>
       <button class="danger" onclick={() => Quit()}>Quit without saving</button>
