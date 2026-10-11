@@ -61,7 +61,13 @@
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomRot} /> Random rotation</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomScale} /> Random scale</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeScatter} /> Scatter</label>
-    <span class="dim"><kbd>Ctrl</kbd>+scroll rotates the preview</span>
+    <span class="chip" title="Height above the surface for new placements (Alt+scroll)">
+      <span class="dim">Height:</span> {editor.placeHeight >= 0 ? '+' : ''}{editor.placeHeight.toFixed(2)}
+    </span>
+    {#if editor.placeHeight !== 0}
+      <button onclick={() => (editor.placeHeight = 0)}>Reset</button>
+    {/if}
+    <span class="dim"><kbd>Ctrl</kbd>+scroll rotate · <kbd>Alt</kbd>+scroll height · props attach to what they're placed on</span>
     {#if editor.selected}
       <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
     {/if}

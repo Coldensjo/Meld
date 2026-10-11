@@ -76,6 +76,14 @@ cd frontend && pnpm build   # frontend only
     the dirty sub-rect.
   - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
   - **Every edit must be undoable** through `History`.
+- **Attachments**: a `WorldObject` with `parent` is attached.
+  - Its x/yOff/z/rotY/scale are local to the parent (`matrixOf` walks the chain). Roots use
+    world x/z and yOff above the terrain.
+  - Always move objects through `ObjectLayer.place(o, parentId, worldPlacement)`, which converts
+    to the parent's local space, plus `worldPlacement()`. Never write world values into an
+    attached object's fields.
+  - Placement and dragging use `ToolContext.surface()`: the nearest terrain or object hit.
+  - Ids and parents are saved in map files and preserved by copy/paste.
 - **Objects** (`lib/world/ObjectLayer.ts`):
   - One `InstancedMesh` per model type, so draw calls scale with the number of types, not
     instances.

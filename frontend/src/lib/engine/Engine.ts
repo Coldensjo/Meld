@@ -8,7 +8,7 @@ import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
 import { brushCenter } from '../tools/brush'
-import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
+import { PlaceTool, SelectTool, transformCommand } from '../tools/ObjectTools'
 import { MarqueeTool } from '../tools/MarqueeTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
@@ -26,7 +26,8 @@ export interface MapSnapshot {
   splatRes: number
   waterLevel: number
   waterEnabled: boolean
-  objects: Array<Omit<WorldObject, 'id'>>
+  /** Includes ids so attachments (`parent`) survive save/load. */
+  objects: WorldObject[]
   layerTextures: string[]
   texScale: number
   heights: Uint8Array
@@ -89,6 +90,7 @@ export class Engine {
     before: WorldObject
     startAngle: number
     startY: number
+    startWorldY: number
     planeNormal: THREE.Vector3
   } | null = null
   private dragPlane = new THREE.Plane()
@@ -142,6 +144,7 @@ export class Engine {
       get history() { return self.history },
       get scene() { return self.scene },
       get raycaster() { return self.raycaster },
+      surface: (exclude?: Set<number>) => self.surfaceHit(exclude),
     }
 
     this.marquee = new MarqueeTool({
@@ -160,7 +163,7 @@ export class Engine {
     }
 
     this.controller.arrowsBlocked = () => this.canNudge()
-    this.controller.wheelBlocked = (e) => editor.tool === 'place' && e.ctrlKey
+    this.controller.wheelBlocked = (e) => editor.tool === 'place' && (e.ctrlKey || e.altKey)
     this.scene.add(this.gizmo.group)
 
     this.bindPointer()
@@ -225,14 +228,16 @@ export class Engine {
     c.addEventListener(
       'wheel',
       (e) => {
-        if (editor.tool !== 'place' || !e.ctrlKey) return
+        if (editor.tool !== 'place' || !(e.ctrlKey || e.altKey)) return
         const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY // lines → pixels
         this.wheelAcc += delta
         const notch = 100
         while (Math.abs(this.wheelAcc) >= notch) {
           const dir = Math.sign(this.wheelAcc)
           this.wheelAcc -= dir * notch
-          this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
+          // Ctrl+scroll rotates the preview; Alt+scroll raises/lowers it (0.25 per notch).
+          if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
+          else editor.placeHeight = Math.round((editor.placeHeight - dir * 0.25) * 100) / 100
         }
       },
       { passive: true, signal: this.abort.signal },
@@ -625,7 +630,7 @@ export class Engine {
       splatRes: t.splatRes,
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
-      objects: this.objects.list().map(({ id: _id, ...o }) => o),
+      objects: this.objects.list().map((o) => ({ ...o })),
       layerTextures: [...editor.layerTextures],
       texScale: editor.texScale,
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
@@ -660,6 +665,23 @@ export class Engine {
       paintLayer: 0,
     }
     this.addDocument(d)
+  }
+
+  // ---------------------------------------------------------------- surfaces
+
+  /** Terrain or object surface under the cursor, whichever is nearer. */
+  surfaceHit(exclude?: Set<number>): { point: THREE.Vector3; parent: number | null } | null {
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    const groundPoint = this.terrainPointUnderRay()
+    const obj = this.objects.raycastSurface(this.raycaster, exclude)
+    const groundDist = groundPoint ? groundPoint.distanceTo(this.raycaster.ray.origin) : Infinity
+    if (obj && obj.distance < groundDist) return { point: obj.point, parent: obj.id }
+    return groundPoint ? { point: groundPoint, parent: null } : null
+  }
+
+  private terrainPointUnderRay(): THREE.Vector3 | null {
+    const p = new THREE.Vector3()
+    return this.terrain.raycast(this.raycaster.ray, p) ? p : null
   }
 
   // ---------------------------------------------------------------- marquee / clipboard
@@ -794,9 +816,12 @@ export class Engine {
     const box = this.tmpBox.copy(asset.bbox).applyMatrix4(this.objects.matrixOf(o, this.tmpM))
     box.expandByVector(box.getSize(this.tmpV).multiplyScalar(-0.05))
     let n = 0
+    // A prop resting on/holding another isn't a collision.
+    const family = this.objects.descendantIds(o.id)
+    for (const id of this.objects.ancestorIds(o)) family.add(id)
     for (const other of this.objects.objects.values()) {
       if (n >= this.warnBoxes.length) break
-      if (other.id === o.id) continue
+      if (family.has(other.id)) continue
       if (Math.abs(other.x - o.x) > 200 || Math.abs(other.z - o.z) > 200) continue
       const a = getAsset(other.type)
       if (!a.ready) continue
@@ -835,7 +860,7 @@ export class Engine {
       if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
       startY = this.dragPoint.y
     }
-    this.gizmoDrag = { handle, before: { ...o }, startAngle, startY, planeNormal }
+    this.gizmoDrag = { handle, before: { ...o }, startAngle, startY, startWorldY: this.objects.worldPosition(o, this.tmpV).y, planeNormal }
     this.canvas.style.cursor = handle === 'ring' ? 'grabbing' : 'ns-resize'
     return true
   }
@@ -851,9 +876,11 @@ export class Engine {
       if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
       o.rotY = rot
     } else {
-      let y = d.before.yOff + (this.dragPoint.y - d.startY)
-      if (snap) y = Math.round(y * 2) / 2
-      o.yOff = y
+      let dy = this.dragPoint.y - d.startY
+      if (snap) dy = Math.round(dy * 2) / 2
+      const w = this.objects.worldPlacement(o)
+      w.pos.y = d.startWorldY + dy
+      this.objects.place(o, o.parent ?? null, w)
     }
     this.objects.touch(o.id)
     editor.selected = { ...o }
@@ -865,7 +892,7 @@ export class Engine {
     this.canvas.style.cursor = ''
     const o = this.selectedObject()
     if (!d || !o) return
-    if (o.rotY !== d.before.rotY || o.yOff !== d.before.yOff) {
+    if (o.rotY !== d.before.rotY || o.yOff !== d.before.yOff || o.x !== d.before.x || o.z !== d.before.z) {
       this.history.push(transformCommand(this.objects, d.before, o))
     }
   }
@@ -890,11 +917,13 @@ export class Engine {
     const yaw = this.controller.yaw
     const fx = -Math.sin(yaw)
     const fz = -Math.cos(yaw)
-    o.x = THREE.MathUtils.clamp(o.x + fx * forward - fz * right, 0, this.terrain.worldSize)
-    o.z = THREE.MathUtils.clamp(o.z + fz * forward + fx * right, 0, this.terrain.worldSize)
-    o.yOff += dy
-    o.rotY += dRot
-    this.objects.touch(o.id)
+    // Work in world space so attached props move the way the camera expects.
+    const w = this.objects.worldPlacement(o)
+    w.pos.x = THREE.MathUtils.clamp(w.pos.x + fx * forward - fz * right, 0, this.terrain.worldSize)
+    w.pos.z = THREE.MathUtils.clamp(w.pos.z + fz * forward + fx * right, 0, this.terrain.worldSize)
+    w.pos.y += dy
+    w.rot += dRot
+    this.objects.place(o, o.parent ?? null, w)
     editor.selected = { ...o }
     const cmd = transformCommand(this.objects, before, o)
     if (continuing) this.history.replaceTop(cmd)
@@ -976,11 +1005,48 @@ export class Engine {
     if (commit && before) this.history.push(transformCommand(this.objects, before, o))
   }
 
+  /** Delete the selected object; things attached to it stay where they are (re-homed). */
   deleteSelected() {
     if (!editor.selected) return
-    const o = this.objects.remove(editor.selected.id)
-    if (o) this.history.push(removeCommand(this.objects, [o]))
+    const target = this.objects.objects.get(editor.selected.id)
+    if (!target) return
+    const objects = this.objects
+    const kids = objects.childrenOf(target.id)
+    const kidsBefore = kids.map((k) => ({ ...k }))
+    for (const k of kids) objects.place(k, target.parent ?? null, objects.worldPlacement(k))
+    const kidsAfter = kids.map((k) => ({ ...k }))
+    objects.remove(target.id)
+    const saved = { ...target }
+    const restore = (states: typeof kidsBefore) =>
+      states.forEach((st) => {
+        const k = objects.objects.get(st.id)
+        if (!k) return
+        delete k.parent
+        Object.assign(k, st)
+        objects.touch(k.id)
+      })
+    this.history.push({
+      label: 'Delete',
+      undo: () => {
+        objects.add({ ...saved })
+        restore(kidsBefore)
+      },
+      redo: () => {
+        restore(kidsAfter)
+        objects.remove(saved.id)
+      },
+    })
     editor.selected = null
+  }
+
+  /** Detach the selected object from what it's attached to (keeps its world placement). */
+  detachSelected() {
+    const o = editor.selected ? this.objects.objects.get(editor.selected.id) : undefined
+    if (!o || o.parent === undefined) return
+    const before = { ...o }
+    this.objects.place(o, null, this.objects.worldPlacement(o))
+    this.history.push(transformCommand(this.objects, before, o))
+    editor.selected = { ...o }
   }
 
   focusSelected() {

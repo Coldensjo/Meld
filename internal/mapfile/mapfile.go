@@ -31,14 +31,17 @@ const (
 	Version = 1
 )
 
-// PlacedObject is a prefab instance placed in the world.
+// PlacedObject is a model instance placed in the world. Objects with a Parent
+// are attached to it: X/YOff/Z/RotY are then local to the parent's transform.
 type PlacedObject struct {
-	Type  string  `json:"type"`
-	X     float64 `json:"x"`
-	Z     float64 `json:"z"`
-	YOff  float64 `json:"yOff"`
-	RotY  float64 `json:"rotY"`
-	Scale float64 `json:"scale"`
+	ID     int     `json:"id,omitempty"`
+	Parent int     `json:"parent,omitempty"`
+	Type   string  `json:"type"`
+	X      float64 `json:"x"`
+	Z      float64 `json:"z"`
+	YOff   float64 `json:"yOff"`
+	RotY   float64 `json:"rotY"`
+	Scale  float64 `json:"scale"`
 }
 
 // Header is the JSON metadata section of a map file.

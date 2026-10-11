@@ -8,6 +8,7 @@ export type WaterMode = 'dig' | 'shore'
 export interface SelectedInfo {
   id: number
   type: string
+  parent?: number
   x: number
   z: number
   yOff: number
@@ -29,6 +30,8 @@ export const editor = $state({
   placeRandomRot: true,
   placeRandomScale: true,
   placeScatter: false,
+  /** Extra height above the surface for new placements (Alt+scroll). */
+  placeHeight: 0,
   selected: null as SelectedInfo | null,
   /** Marquee selection in cells (vertex corners), or null. */
   selection: null as { x0: number; z0: number; x1: number; z1: number } | null,

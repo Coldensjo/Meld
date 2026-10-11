@@ -48,6 +48,7 @@
         ['R / Shift+R', 'Spin selected object 15° (or the placement preview)'],
         ['Shift + arrows', 'Bigger steps'],
         ['Ctrl+scroll', 'Rotate the placement preview (Place tool)'],
+        ['Alt+scroll', 'Raise / lower the placement preview (Place tool)'],
         ['Shift+drag', 'Scatter (Place tool)'],
         ['Delete', 'Delete selected object'],
         ['Esc', 'Deselect'],

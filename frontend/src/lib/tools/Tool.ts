@@ -9,6 +9,12 @@ export interface ToolContext {
   readonly history: History
   readonly scene: THREE.Scene
   readonly raycaster: THREE.Raycaster
+  /**
+   * Surface under the cursor: terrain, or a placed object (then `parent` is
+   * its id) — whichever is nearer. `exclude` skips objects (e.g. the one
+   * being dragged and its attachments).
+   */
+  surface(exclude?: Set<number>): { point: THREE.Vector3; parent: number | null } | null
 }
 
 /**

@@ -25,6 +25,13 @@
   {#if editor.selected}
     {@const s = editor.selected}
     <h3>{displayName(s.type)} <span>#{s.id}</span></h3>
+    {#if s.parent !== undefined}
+      {@const p = engineRef.current?.objects.objects.get(s.parent)}
+      <div class="attached">
+        <span>Attached to <b>{p ? displayName(p.type) : '#' + s.parent}</b> (position is relative to it)</span>
+        <button onclick={() => engineRef.current?.detachSelected()}>Detach</button>
+      </div>
+    {/if}
     <Slider label="X" value={s.x} min={0} max={worldSize} step={0.1} digits={1} onstart={startEdit} oninput={(v) => live({ x: v })} onchange={(v) => commit({ x: v })} />
     <Slider label="Z" value={s.z} min={0} max={worldSize} step={0.1} digits={1} onstart={startEdit} oninput={(v) => live({ z: v })} onchange={(v) => commit({ z: v })} />
     <Slider label="Height offset" value={s.yOff} min={-5} max={20} step={0.05} digits={2} onstart={startEdit} oninput={(v) => live({ yOff: v })} onchange={(v) => commit({ yOff: v })} />
@@ -57,6 +64,18 @@
     color: var(--text-dim);
     font-family: var(--mono);
     font-weight: 400;
+  }
+  .attached {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .attached button {
+    padding: 1px 8px;
+    flex: none;
   }
   .check {
     display: flex;

@@ -29,6 +29,7 @@ export function transformCommand(objects: ObjectLayer, before: WorldObject, afte
   const apply = (s: WorldObject) => {
     const o = objects.objects.get(s.id)
     if (!o) return
+    delete o.parent // snapshots without a parent mean "on the ground"
     Object.assign(o, s)
     objects.touch(s.id)
     if (editor.selected?.id === s.id) editor.selected = { ...s }
@@ -84,9 +85,11 @@ export class PlaceTool implements Tool {
       this.ghost.geometry = asset.geometry
       this.ghost.material = asset.material
     }
-    this.ghost.visible = !!hit && !editor.placeScatter && !!editor.prefab
-    if (hit) {
-      this.ghost.position.set(hit.x, ctx.terrain.heightAt(hit.x, hit.z), hit.z)
+    // The preview sits on whatever is under the cursor: terrain, a building, another prop.
+    const surf = hit ? ctx.surface() : null
+    this.ghost.visible = !!surf && !editor.placeScatter && !!editor.prefab
+    if (surf) {
+      this.ghost.position.copy(surf.point).y += editor.placeHeight
       this.ghost.rotation.y = this.rot
       this.ghost.scale.setScalar(this.scale)
     }
@@ -103,8 +106,15 @@ export class PlaceTool implements Tool {
       this.scatterAcc = 1
       return
     }
+    // Attach to the building/prop under the cursor, or sit on the ground.
+    const surf = ctx.surface() ?? { point: hit.clone(), parent: null }
     const o = ctx.objects.add({ type: editor.prefab, x: hit.x, z: hit.z, yOff: 0, rotY: this.rot, scale: this.scale })
-    ctx.history.push(addCommand(ctx.objects, [o], 'Place'))
+    ctx.objects.place(o, surf.parent, {
+      pos: surf.point.clone().setY(surf.point.y + editor.placeHeight),
+      rot: this.rot,
+      scale: this.scale,
+    })
+    ctx.history.push(addCommand(ctx.objects, [o], surf.parent !== null ? 'Place (attached)' : 'Place'))
     // The new object stays selected so it can be nudged/spun with the keys.
     editor.selected = { ...o }
     this.reroll()
@@ -154,7 +164,7 @@ export class PlaceTool implements Tool {
 
 export class SelectTool implements Tool {
   readonly usesBrush = false
-  private dragging: { before: WorldObject; dx: number; dz: number; moved: boolean } | null = null
+  private dragging: { before: WorldObject; dx: number; dz: number; lift: number; exclude: Set<number>; moved: boolean } | null = null
 
   private selected(ctx: ToolContext) {
     return editor.selected ? ctx.objects.objects.get(editor.selected.id) : undefined
@@ -164,16 +174,27 @@ export class SelectTool implements Tool {
     const id = ctx.objects.pick(ctx.raycaster)
     const o = id !== null ? ctx.objects.objects.get(id) : undefined
     editor.selected = o ? { ...o } : null
-    if (o && hit) this.dragging = { before: { ...o }, dx: o.x - hit.x, dz: o.z - hit.z, moved: false }
+    if (!o) return
+    // Drag along whatever surface is under the cursor (never the object itself
+    // or things attached to it); the object re-attaches to what it lands on.
+    const exclude = ctx.objects.descendantIds(o.id)
+    const surf = ctx.surface(exclude)
+    const w = ctx.objects.worldPlacement(o)
+    const at = surf?.point ?? hit
+    if (!at) return
+    this.dragging = { before: { ...o }, dx: w.pos.x - at.x, dz: w.pos.z - at.z, lift: Math.max(0, w.pos.y - at.y), exclude, moved: false }
   }
 
-  onMove(ctx: ToolContext, hit: THREE.Vector3 | null) {
+  onMove(ctx: ToolContext) {
     const o = this.selected(ctx)
-    if (!this.dragging || !o || !hit) return
-    o.x = hit.x + this.dragging.dx
-    o.z = hit.z + this.dragging.dz
-    this.dragging.moved = true
-    ctx.objects.touch(o.id)
+    const d = this.dragging
+    if (!d || !o) return
+    const surf = ctx.surface(d.exclude)
+    if (!surf) return
+    const w = ctx.objects.worldPlacement(o)
+    w.pos.set(surf.point.x + d.dx, surf.point.y + d.lift, surf.point.z + d.dz)
+    ctx.objects.place(o, surf.parent, w)
+    d.moved = true
     editor.selected = { ...o }
   }
 

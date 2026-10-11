@@ -32,7 +32,7 @@ function fromMapData(m: mapfile.MapData): MapSnapshot {
     splatRes: m.splatRes,
     waterLevel: m.waterLevel,
     waterEnabled: m.waterEnabled,
-    objects: (m.objects ?? []).map((o) => ({ ...o })),
+    objects: (m.objects ?? []).map((o, i) => ({ ...o, id: o.id || 100000 + i, parent: o.parent || undefined })),
     layerTextures: m.layerTextures ?? [],
     texScale: m.texScale ?? 0,
     heights: base64ToBytes(m.heights),

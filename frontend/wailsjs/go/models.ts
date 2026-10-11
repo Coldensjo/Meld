@@ -1,6 +1,8 @@
 export namespace mapfile {
 	
 	export class PlacedObject {
+	    id?: number;
+	    parent?: number;
 	    type: string;
 	    x: number;
 	    z: number;
@@ -14,6 +16,8 @@ export namespace mapfile {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.parent = source["parent"];
 	        this.type = source["type"];
 	        this.x = source["x"];
 	        this.z = source["z"];

@@ -12,13 +12,13 @@ Built with **[Wails v2](https://wails.io)** (Go) + **Svelte 5** + **Three.js**. 
 
 | Tool | Key | What it does |
 |---|---|---|
-| Select / Move | `1` / `V` | Click to select, drag to move along the ground. Arrow keys nudge (camera-relative), `Alt+↑/↓` or `PgUp/PgDn` raise/lower, `Alt+←/→` or `R` spin, `Shift` for bigger steps, `Del` delete, `F` focus. Properties panel for precise edits. |
+| Select / Move | `1` / `V` | Click to select, drag to move it over the ground or onto buildings (it re-attaches to what it lands on; Properties › Detach frees it). Arrow keys nudge (camera-relative), `Alt+↑/↓` or `PgUp/PgDn` raise/lower, `Alt+←/→` or `R` spin, `Shift` for bigger steps, `Del` delete, `F` focus. Properties panel for precise edits. |
 | Marquee | `2` / `M` | Drag to select a rectangle of the map. `Ctrl+C` copies its terrain, textures and objects. `Ctrl+V` pastes into any open map: the paste follows the mouse, a click (or `Enter`) places it, `PgUp/PgDn` adjust its height, and `Esc` cancels. Options: what to include, and edge blending. `Ctrl+A` / `Ctrl+D` select all / deselect. |
 | Sculpt | `3` | Raise, Lower, Smooth, Flatten, Noise, Mountain (ridged noise) brushes. |
 | Paint | `4` / `B` | Pick any WoW tileset texture in the palette and paint. Each map has 8 texture slots, assigned automatically. |
 | Roads | `5` | Paints the selected texture with a hard edge and levels the ground across it. |
 | Water | `6` | Global water level. Dig lakes or raise shores relative to it. Animated water with shore foam and depth tint. |
-| Place | `7` | Place the model selected in the palette. The selected prop shows a **ring** (drag to spin) and an **up/down arrow** (drag to raise/lower); hold `Shift` to snap. Its outline is **yellow**; the parts that are underground or inside another prop are drawn **red**. `Ctrl`+scroll rotates the preview before placing. The placed object stays selected, so the arrow keys and `R` adjust it right away. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
+| Place | `7` | Place the model selected in the palette. The selected prop shows a **ring** (drag to spin) and an **up/down arrow** (drag to raise/lower); hold `Shift` to snap. Its outline is **yellow**; the parts that are underground or inside another prop are drawn **red**. Props **attach** to whatever they're placed on: a building's floor or roof, another prop, or the ground. Attached props move along with their building, and ground props follow the terrain. `Ctrl`+scroll rotates the preview and `Alt`+scroll raises/lowers it before placing. The placed object stays selected, so the arrow keys and `R` adjust it right away. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
 
 ### Layout
 

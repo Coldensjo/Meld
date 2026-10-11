@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
 import type { ObjectLayer, WorldObject } from './ObjectLayer'
 import type { Command } from '../state/history'
@@ -15,8 +16,11 @@ export interface MapClip {
   splatB: Uint8Array
   /** Texture path of each source slot, used to remap into the target map. */
   layerTextures: string[]
-  /** Objects with positions relative to the clip's corner. */
-  objects: Array<Omit<WorldObject, 'id'>>
+  /**
+   * Objects: roots have positions relative to the clip's corner; attached
+   * objects keep their local transform and reference their parent by `cid`.
+   */
+  objects: Array<Omit<WorldObject, 'id' | 'parent'> & { cid: number; cparent?: number }>
 }
 
 export interface PasteOptions {
@@ -52,10 +56,30 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, laye
   const cs = terrain.cellSize
   const ox = r.x0 * cs
   const oz = r.z0 * cs
-  const inside = objects
-    .list()
-    .filter((o) => o.x >= ox && o.x <= r.x1 * cs && o.z >= oz && o.z <= r.z1 * cs)
-    .map(({ id: _id, ...o }) => ({ ...o, x: o.x - ox, z: o.z - oz }))
+  const tmp = new THREE.Vector3()
+  const picked = objects.list().filter((o) => {
+    const p = objects.worldPosition(o, tmp)
+    return p.x >= ox && p.x <= r.x1 * cs && p.z >= oz && p.z <= r.z1 * cs
+  })
+  const ids = new Set(picked.map((o) => o.id))
+  const inside = picked.map((o) => {
+    if (o.parent !== undefined && ids.has(o.parent)) {
+      // Attached within the selection: keep the local transform.
+      const { id, parent, ...rest } = o
+      return { ...rest, cid: id, cparent: parent }
+    }
+    // Free-standing (or attached to something outside): store as a root.
+    const w = objects.worldPlacement(o)
+    return {
+      type: o.type,
+      cid: o.id,
+      x: w.pos.x - ox,
+      z: w.pos.z - oz,
+      yOff: w.pos.y - terrain.heightAt(w.pos.x, w.pos.z),
+      rotY: w.rot,
+      scale: w.scale,
+    }
+  })
   return { w, h, heights, splatA, splatB, layerTextures: [...layerTextures], objects: inside }
 }
 
@@ -191,11 +215,30 @@ export function pasteRegion(
   const added: WorldObject[] = []
   if (opts.objects) {
     const cs = terrain.cellSize
-    for (const o of clip.objects) {
-      const x = o.x + px * cs
-      const z = o.z + pz * cs
-      if (!terrain.contains(x, z)) continue
-      added.push(objects.add({ ...o, x, z }))
+    const idMap = new Map<number, number>()
+    // Parents before children; skip children whose parent wasn't pasted.
+    let pending = [...clip.objects]
+    for (let pass = 0; pass < 8 && pending.length; pass++) {
+      const next: typeof pending = []
+      for (const o of pending) {
+        const { cid, cparent, ...rest } = o
+        if (cparent === undefined) {
+          const x = o.x + px * cs
+          const z = o.z + pz * cs
+          if (!terrain.contains(x, z)) continue
+          const n = objects.add({ ...rest, x, z })
+          idMap.set(cid, n.id)
+          added.push(n)
+        } else if (idMap.has(cparent)) {
+          const n = objects.add({ ...rest, parent: idMap.get(cparent) })
+          idMap.set(cid, n.id)
+          added.push(n)
+        } else {
+          next.push(o)
+        }
+      }
+      if (next.length === pending.length) break
+      pending = next
     }
   }
 
