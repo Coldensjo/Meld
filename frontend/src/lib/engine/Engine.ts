@@ -8,7 +8,7 @@ import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
-import { TerrainStroke, brushCenter, paintPixel } from '../tools/brush'
+import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, transformCommand } from '../tools/ObjectTools'
 import { MarqueeTool } from '../tools/MarqueeTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
@@ -665,6 +665,24 @@ export class Engine {
   /** The active tile's outer height grid, in the layout the tile writer takes. */
   outerHeights(): Float32Array {
     return this.terrain.heights
+  }
+
+  /**
+   * Replaces every height with `next` (one vertex per entry, outerHeights' layout) as one undoable
+   * step. Objects on the ground are re-snapped, as they are after sculpting.
+   */
+  setHeights(next: Float32Array, label: string) {
+    const t = this.terrain
+    const cs = t.cellSize
+    const resnap = (r: Rect) => this.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+    const stroke = new TerrainStroke(t, label, { heights: true }, resnap)
+    t.heights.set(next)
+    const whole = { x0: 0, z0: 0, x1: t.size, z1: t.size }
+    t.markAllDirty()
+    stroke.touchHeights(whole)
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    resnap(whole)
   }
 
   /** Saves the camera's view of the open map as a bookmark. */

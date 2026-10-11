@@ -126,7 +126,7 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 
 ## 9. Import, export and data
 
-- **Heightmap import and export** as an image (WorldEditor has neither).
+- ~~**Heightmap import and export** as an image (WorldEditor has neither).~~ *Done: File › Export Heightmap… and Import Heightmap… use a 16-bit grey PNG of (cells + 1) samples per side, mapped from −1024 to +1024 yards. Import needs the same size and is one undo step.*
 - **Object list import / export** as text.
 - **WoW ADT read/write**: noggit's native format. Large, and probably a non-goal given the `.wmap` design in CLAUDE.md.
 - **MySQL UID sync**: shared unique IDs across machines **(format-specific)**.

@@ -2,7 +2,7 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseVmangosFolder, exportWowTile, hasBackend, openMap, saveMap, saveOrPublish } from '../lib/io/mapio'
+  import { chooseVmangosFolder, exportHeightmap, exportWowTile, hasBackend, importHeightmap, openMap, saveMap, saveOrPublish } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
   import { ClearThumbnailCache, Quit } from '../../wailsjs/go/main/App'
   import { requestClose } from './DocTabs.svelte'
@@ -47,6 +47,9 @@
         { kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveOrPublish(e)) },
         { kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },
         { kind: 'action', label: 'Export Tile Heights to Client…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportWowTile(e)) },
+        { kind: 'sep' },
+        { kind: 'action', label: 'Import Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importHeightmap(e)) },
+        { kind: 'action', label: 'Export Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportHeightmap(e)) },
         { kind: 'action', label: 'Close Map', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
         { kind: 'sep' },
         { kind: 'action', label: 'Exit', run: exit },

@@ -29,6 +29,25 @@ export namespace adt {
 
 }
 
+export namespace main {
+	
+	export class HeightmapData {
+	    side: number;
+	    heights: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new HeightmapData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.side = source["side"];
+	        this.heights = source["heights"];
+	    }
+	}
+
+}
+
 export namespace mapfile {
 	
 	export class PlacedObject {

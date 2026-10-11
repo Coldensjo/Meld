@@ -3,12 +3,16 @@ import {
   ExportTileHeights,
   LoadMap,
   LoadTile,
+  OpenHeightmapDialog,
   OpenMapDialog,
   PublishVmangosMap,
+  ReadHeightmap,
+  SaveHeightmapDialog,
   SaveMap,
   SaveMapDialog,
   SetVmangosPath,
   VmangosPath,
+  WriteHeightmap,
 } from '../../../wailsjs/go/main/App'
 import { mapfile } from '../../../wailsjs/go/models'
 import type { Engine, MapSnapshot } from '../engine/Engine'
@@ -172,6 +176,35 @@ export function exportWowTile(engine: Engine) {
     const server = await VmangosPath()
     const next = server ? ` Run update-maps.bat in ${server} to rebuild the server's map data.` : ''
     setStatus(`Wrote the heights of ${tile.mapName} ${tile.x}_${tile.y} to ${patch}.${next} Paint and objects are not exported yet.`, 10000)
+  })
+}
+
+/**
+ * Saves the map's heights as a 16-bit grey PNG. The image has one sample per vertex, so
+ * (cells + 1) on each side, and maps -1024..+1024 yards to black..white.
+ */
+export function exportHeightmap(engine: Engine) {
+  return guarded('Export heightmap', async () => {
+    const path = await SaveHeightmapDialog(editor.mapName)
+    if (!path) return
+    await WriteHeightmap(path, engine.terrain.size + 1, Array.from(engine.outerHeights()))
+    setStatus(`Exported the heightmap to ${path}.`)
+  })
+}
+
+/** Replaces the map's heights with a heightmap PNG of the same size, as one undoable step. */
+export function importHeightmap(engine: Engine) {
+  return guarded('Import heightmap', async () => {
+    const path = await OpenHeightmapDialog()
+    if (!path) return
+    const img = await ReadHeightmap(path)
+    const side = engine.terrain.size + 1
+    if (img.side !== side) {
+      setStatus(`The heightmap is ${img.side}×${img.side} samples, but this map needs ${side}×${side}. Nothing was changed.`, 8000)
+      return
+    }
+    engine.setHeights(Float32Array.from(img.heights), 'Import heightmap')
+    setStatus(`Imported the heightmap from ${path}. Undo reverts it.`)
   })
 }
 

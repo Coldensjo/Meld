@@ -34,6 +34,10 @@ export function LoadTile(arg1, arg2, arg3) {
   return window['go']['main']['App']['LoadTile'](arg1, arg2, arg3);
 }
 
+export function OpenHeightmapDialog() {
+  return window['go']['main']['App']['OpenHeightmapDialog']();
+}
+
 export function OpenMapDialog() {
   return window['go']['main']['App']['OpenMapDialog']();
 }
@@ -44,6 +48,14 @@ export function PublishVmangosMap(arg1) {
 
 export function Quit() {
   return window['go']['main']['App']['Quit']();
+}
+
+export function ReadHeightmap(arg1) {
+  return window['go']['main']['App']['ReadHeightmap'](arg1);
+}
+
+export function SaveHeightmapDialog(arg1) {
+  return window['go']['main']['App']['SaveHeightmapDialog'](arg1);
 }
 
 export function SaveMap(arg1, arg2) {
@@ -76,4 +88,8 @@ export function VmangosPath() {
 
 export function WowStatus() {
   return window['go']['main']['App']['WowStatus']();
+}
+
+export function WriteHeightmap(arg1, arg2, arg3) {
+  return window['go']['main']['App']['WriteHeightmap'](arg1, arg2, arg3);
 }

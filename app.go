@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"WorldEditor/internal/adt"
 	"WorldEditor/internal/config"
+	"WorldEditor/internal/heightmap"
 	"WorldEditor/internal/mapfile"
 	"WorldEditor/internal/mpq"
 	"WorldEditor/internal/vmangos"
@@ -298,4 +300,61 @@ func (a *App) clientRoot() (string, error) {
 func (a *App) releaseClient() func() {
 	a.wow.Suspend()
 	return func() { _ = a.wow.Resume() }
+}
+
+// HeightmapData is a square grid of terrain heights read from an image: Side samples a side, row by row.
+type HeightmapData struct {
+	Side    int       `json:"side"`
+	Heights []float32 `json:"heights"`
+}
+
+var heightmapFilters = []runtime.FileFilter{{DisplayName: "PNG heightmap (*.png)", Pattern: "*.png"}}
+
+// SaveHeightmapDialog asks where to save a heightmap image. Returns "" if cancelled.
+func (a *App) SaveHeightmapDialog(suggested string) (string, error) {
+	if suggested == "" {
+		suggested = "heightmap"
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export Heightmap",
+		DefaultFilename: suggested + ".png",
+		Filters:         heightmapFilters,
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if !strings.EqualFold(filepath.Ext(path), ".png") {
+		path += ".png"
+	}
+	return path, nil
+}
+
+// OpenHeightmapDialog asks for a heightmap image to import. Returns "" if cancelled.
+func (a *App) OpenHeightmapDialog() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "Import Heightmap",
+		Filters: heightmapFilters,
+	})
+}
+
+// WriteHeightmap saves a grid of heights as a 16-bit PNG at path.
+func (a *App) WriteHeightmap(path string, side int, heights []float32) error {
+	data, err := heightmap.Encode(side, heights)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// ReadHeightmap reads a heightmap image as a grid of heights.
+func (a *App) ReadHeightmap(path string) (HeightmapData, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return HeightmapData{}, err
+	}
+	side, heights, err := heightmap.Decode(data)
+	if err != nil {
+		return HeightmapData{}, err
+	}
+	return HeightmapData{Side: side, Heights: heights}, nil
 }
