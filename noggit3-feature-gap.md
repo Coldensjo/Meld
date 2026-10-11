@@ -12,7 +12,7 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 ## 1. Terrain sculpting
 
 - ~~**Falloff curve types**: Linear, Polynomial, Trigonometric, Quadratic, Gaussian, plus a Flat (hard edge) option.~~ *Done: Smooth (the default), Linear, Quadratic, Gaussian and Trigonometric, chosen next to the Falloff slider; a falloff of 0 is still the hard edge.*
-- **Edit-mode limits**: "Only above cursor" / "Only below cursor" (only affect ground above or below the cursor height).
+- ~~**Edit-mode limits**: "Only above cursor" / "Only below cursor" (only affect ground above or below the cursor height).~~ *Done: the Sculpt options have Only above cursor and Only below cursor, which compare each vertex with the height under the cursor. Road and Water don't use it yet (BACKLOG B-019).*
 - **Vertex edit mode**: raise/lower a single vertex, oriented from the mouse or from the selection centre.
 - **Flatten variants**: Flat, Linear, Smooth, Origin (flatten to the clicked height), Smooth-inner, and raise-only / lower-only toggling. *Partly done: Origin was already there; the Sculpt options now add an average-height target (Flat) and raise-only / lower-only. Linear, Smooth and Smooth-inner remain (BACKLOG B-018).*
 - **Blur** as a separate tool from Smooth (noggit combines it with Flatten in one tool).
@@ -56,7 +56,7 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 - **Multi-selection movement** mode, with a local/world coordinate toggle for the gizmo.
 - **Selective paste options**: paste only rotation, tilt or scale.
 - **Hide models**: hide individual objects, toggle hidden-model visibility, and clear the hidden list.
-- ~~**Import / export object lists** as text files.~~ *Done: File › Import Object List and Export Object List, tab-separated, one model per line. Tilt is not in the text format yet.*
+- ~~**Import / export object lists** as text files.~~ *Done: File › Import Object List and Export Object List, tab-separated, one model per line. Tilt is in the text format too, as two more columns; six-column lists from before still read.*
 - **Helper models window**: reference models placed as visual aids.
 - **WMV log import** ("Last M2 / Last WMO from WMV") (niche; depends on the WoW Model Viewer log).
 - ~~**Duplicate-model detection**, and "Clear duplicate models".~~ *Done: Edit › Remove Duplicate Models, one undo step.*

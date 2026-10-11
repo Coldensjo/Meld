@@ -19,7 +19,7 @@ _None logged yet. Add items here when found, whatever their size._
 
 ## Terrain sculpting and painting
 
-- [ ] B-001 **Edit-mode limits**: only above or only below the cursor · gap §1 · M/S · stops over-sculpting
+- [x] B-001 **Edit-mode limits**: only above or only below the cursor · gap §1 · M/S · stops over-sculpting · logged in PROGRESS.md
 - [x] B-002 **Flatten variants**: flat (average target), raise-only and lower-only done; linear, smooth and smooth-inner moved to B-018 · gap §1 · H/M · the most-used sculpt missing piece · logged in PROGRESS.md
 - [ ] B-003 **Vertex edit mode**: raise or lower one vertex · gap §1 · M/M · fine detail
 - [ ] B-004 **Separate Blur tool** · gap §1 · L/S · Smooth already covers most of it
@@ -37,6 +37,7 @@ _None logged yet. Add items here when found, whatever their size._
 - [ ] B-016 **Alphamap 8-bit / 4-bit conversion** · gap §2 · L/L · client format, check the 1.12 path covers it · needs-approval
 - [ ] B-017 **Undockable quick texture palette** · gap §2 · L/M
 - [ ] B-018 **Flatten: linear, smooth and smooth-inner targets**: the rest of the gap §1 flatten variants · Source: loop: B-002 · M/M · left out of B-002 to keep it to the variants the current flatten mode can hold
+- [ ] B-019 **Edit limit for Road and Water tools**: the Sculpt above/below-cursor limit (B-001) doesn't apply to them yet · Source: loop: B-001 · M/S · the limit was added to Sculpt only, to keep that change small
 
 ## Water
 
@@ -56,7 +57,7 @@ _None logged yet. Add items here when found, whatever their size._
 - [ ] B-032 **Multi-selection move mode** with local or world gizmo · gap §4 · M/M
 - [ ] B-033 **Selective paste** (only rotation, tilt or scale) · gap §4 · M/S
 - [ ] B-034 **Hide models**, with a toggle to show hidden ones · gap §4 · M/M
-- [ ] B-035 **Tilt and roll in the text object list** (currently missing) · loop-seeded from owner commit c039c93 · M/S
+- [x] B-035 **Tilt and roll in the text object list** (currently missing) · loop-seeded from owner commit c039c93 · M/S · logged in PROGRESS.md
 - [ ] B-036 **Reset rotation** menu item (Ctrl+R) · gap §4 · L/S · unverified: may already exist
 - [ ] B-037 **Mouse-move snap modes**: follow cursor vs snap to ground · gap §4 · M/S
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
