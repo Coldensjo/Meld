@@ -14,7 +14,7 @@ import { MarqueeTool } from '../tools/MarqueeTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
-import { MAX_PALETTE, convertGlobalLayers, paletteCoverage, paletteIndex } from '../terrain/chunkPaint'
+import { MAX_PALETTE, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, getAsset } from '../models/assets'
@@ -1264,6 +1264,30 @@ export class Engine {
     }
     editor.paintLayer = index
     return index
+  }
+
+  /** Replaces palette texture `from` with `to` across the whole map (undoable). */
+  swapTexture(from: number, to: number) {
+    const t = this.terrain
+    const stroke = new TerrainStroke(t, 'Replace texture', { splat: true })
+    replacePalette(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, from, to)
+    stroke.touchSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
+    t.markSplatDirty()
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    setStatus(`Replaced the texture everywhere on the map.`)
+  }
+
+  /** Makes the whole map one texture, `to` (undoable). */
+  fillTextures(to: number) {
+    const t = this.terrain
+    const stroke = new TerrainStroke(t, 'Fill map with texture', { splat: true })
+    clearPalette(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, to)
+    stroke.touchSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
+    t.markSplatDirty()
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    setStatus(`The whole map is now one texture.`)
   }
 
   regenerateAutoPaint() {

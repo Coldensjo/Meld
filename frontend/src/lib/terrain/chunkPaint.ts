@@ -204,3 +204,45 @@ export function paletteIndex(palette: readonly string[], path: string): number {
   const want = path.toLowerCase()
   return palette.findIndex((p) => p.toLowerCase() === want)
 }
+
+/**
+ * Replaces palette texture `from` with `to` across the whole map. A chunk that has `to` already folds
+ * `from`'s weight into it; otherwise the slot is renamed. res is the splat's texels a side and side the
+ * paint chunks a side.
+ */
+export function replacePalette(side: number, res: number, slots: Uint8Array, weights: Uint8Array, from: number, to: number): void {
+  if (from === to) return
+  const per = res / side
+  for (let c = 0; c < side * side; c++) {
+    const fromSlot = findSlot(slots, c, from)
+    if (fromSlot < 0) continue
+    const toSlot = findSlot(slots, c, to)
+    if (toSlot < 0) {
+      slots[c * SLOTS + fromSlot] = to
+      continue
+    }
+    const cx = c % side
+    const cz = Math.floor(c / side)
+    for (let z = cz * per; z < (cz + 1) * per; z++) {
+      for (let x = cx * per; x < (cx + 1) * per; x++) {
+        const base = (z * res + x) * SLOTS
+        weights[base + toSlot] = Math.min(255, weights[base + toSlot] + weights[base + fromSlot])
+        weights[base + fromSlot] = 0
+        normalizeTexel(weights, base)
+      }
+    }
+    slots[c * SLOTS + fromSlot] = NO_TEXTURE
+  }
+}
+
+/** Sets every chunk to one texture, fully painted, which is how a map starts. */
+export function clearPalette(side: number, res: number, slots: Uint8Array, weights: Uint8Array, to = 0): void {
+  slots.fill(NO_TEXTURE)
+  for (let c = 0; c < side * side; c++) slots[c * SLOTS] = to
+  for (let t = 0; t < res * res; t++) {
+    weights[t * SLOTS] = 255
+    weights[t * SLOTS + 1] = 0
+    weights[t * SLOTS + 2] = 0
+    weights[t * SLOTS + 3] = 0
+  }
+}

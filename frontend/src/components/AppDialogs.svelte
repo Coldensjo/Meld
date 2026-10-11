@@ -1,6 +1,6 @@
 <script lang="ts">
   import Modal from './Modal.svelte'
-  import { docs, ui } from '../lib/state/editor.svelte'
+  import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { openWowTile, saveAndPublish } from '../lib/io/mapio'
   import { Quit } from '../../wailsjs/go/main/App'
@@ -12,6 +12,11 @@
   let tileMap = $state('Azeroth')
   let tileX = $state(32)
   let tileY = $state(48)
+
+  // The texture dialog's choices: palette indices.
+  let texFrom = $state(0)
+  let texTo = $state(1)
+  const textureName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
   const tileValid = $derived(tileMap.trim() !== '' && Number.isInteger(tileX) && Number.isInteger(tileY) && tileX >= 0 && tileX < 64 && tileY >= 0 && tileY < 64)
 
   const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
@@ -152,6 +157,38 @@
           close()
           if (e) saveAndPublish(e)
         }}>Save and publish</button
+      >
+    {/snippet}
+  </Modal>
+{:else if ui.dialog === 'textures'}
+  <Modal title="Replace textures" width={380} onclose={close}>
+    <p class="dim">Replaces a texture everywhere on the map. A chunk that already uses the new texture merges the two.</p>
+    <div class="fields">
+      <label for="tex-from">Replace</label>
+      <select id="tex-from" bind:value={texFrom}>
+        {#each editor.palette as p, i (i)}<option value={i}>{textureName(p)}</option>{/each}
+      </select>
+      <label for="tex-to">With</label>
+      <select id="tex-to" bind:value={texTo}>
+        {#each editor.palette as p, i (i)}<option value={i}>{textureName(p)}</option>{/each}
+      </select>
+    </div>
+    {#snippet actions()}
+      <button onclick={close}>Cancel</button>
+      <button
+        title="Make the whole map the texture on the right"
+        onclick={() => {
+          engineRef.current?.fillTextures(texTo)
+          close()
+        }}>Fill whole map</button
+      >
+      <button
+        class="active"
+        disabled={texFrom === texTo}
+        onclick={() => {
+          engineRef.current?.swapTexture(texFrom, texTo)
+          close()
+        }}>Replace</button
       >
     {/snippet}
   </Modal>

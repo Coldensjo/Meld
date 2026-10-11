@@ -14,6 +14,8 @@ import {
   packRoles,
   paletteCoverage,
   paletteIndex,
+  replacePalette,
+  clearPalette,
 } from '../src/lib/terrain/chunkPaint.ts'
 
 test('a chunk takes four textures and refuses a fifth', () => {
@@ -128,4 +130,52 @@ test('coverage counts each palette entry by its weight across the map', () => {
 test('paletteIndex ignores case', () => {
   assert.equal(paletteIndex(['#112233', 'Tileset\Elwynn\Dirt.blp'], 'tileset\elwynn\dirt.BLP'), 1)
   assert.equal(paletteIndex(['a'], 'b'), -1)
+})
+
+test('a texture swap renames the slot where the target is absent', () => {
+  const side = 1
+  const res = CHUNK_CELLS * 2
+  const slots = new Uint8Array(SLOTS).fill(NO_TEXTURE)
+  slots[0] = 0
+  slots[1] = 1
+  const weights = new Uint8Array(res * res * SLOTS)
+  for (let t = 0; t < res * res; t++) {
+    weights[t * SLOTS] = 128
+    weights[t * SLOTS + 1] = 127
+  }
+  replacePalette(side, res, slots, weights, 1, 3)
+  assert.deepEqual([...slots], [0, 3, NO_TEXTURE, NO_TEXTURE])
+  assert.equal(weights[1], 127)
+})
+
+test('a texture swap folds the weight into a target the chunk already has', () => {
+  const side = 1
+  const res = CHUNK_CELLS * 2
+  const slots = new Uint8Array(SLOTS).fill(NO_TEXTURE)
+  slots[0] = 0
+  slots[1] = 1
+  slots[2] = 2
+  const weights = new Uint8Array(res * res * SLOTS)
+  for (let t = 0; t < res * res; t++) {
+    weights[t * SLOTS] = 100
+    weights[t * SLOTS + 1] = 100
+    weights[t * SLOTS + 2] = 55
+  }
+  replacePalette(side, res, slots, weights, 1, 2)
+  assert.equal(slots[1], NO_TEXTURE)
+  assert.equal(slots[2], 2)
+  assert.equal(weights[0] + weights[1] + weights[2] + weights[3], 255)
+  assert.equal(weights[1], 0)
+  assert.ok(weights[2] >= 154 && weights[2] <= 156, `merged weight ${weights[2]}`)
+})
+
+test('clearing the map leaves one fully painted texture everywhere', () => {
+  const side = 2
+  const res = side * CHUNK_CELLS * 2
+  const slots = new Uint8Array(side * side * SLOTS).fill(1)
+  const weights = new Uint8Array(res * res * SLOTS).fill(50)
+  clearPalette(side, res, slots, weights, 4)
+  for (let c = 0; c < side * side; c++) assert.equal(slots[c * SLOTS], 4)
+  assert.equal(weights[0], 255)
+  assert.equal(weights[1] + weights[2] + weights[3], 0)
 })

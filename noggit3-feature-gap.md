@@ -25,12 +25,12 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 ## 2. Texture painting
 
 - **Spray mode**: a pressure-based spray brush, distinct from the normal brush.
-- **Texture swap tool**: replace one texture with another over a brushed area, or across the whole map.
+- ~~**Texture swap tool**: replace one texture with another over a brushed area, or across the whole map.~~ *Done: whole-map replace, from Layers › Replace…; a chunk that has the new texture merges the two. Brushed areas are not done.*
 - **Animated texture layers**: per-layer animation with a speed setting ("Add anim" / "Remove anim").
 - **Undockable quick texture palette**: a small palette floating outside the dock.
 - **Show unpaintable chunks** overlay.
 - **Alphamap conversion**: convert the map between 8-bit and 4-bit alphamap formats **(format-specific)**.
-- **Clear textures** and **Clear textures + set base texture** as map-wide operations.
+- ~~**Clear textures** and **Clear textures + set base texture** as map-wide operations.~~ *Done: Layers › Replace… › Fill whole map makes the map one chosen texture.*
 - **Remove duplicate texture layers** per tile.
 - **Overbright** option **(unverified: exact effect not clear from the labels)**.
 
