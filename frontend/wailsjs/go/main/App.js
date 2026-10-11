@@ -6,12 +6,24 @@ export function BrowseWowFolder() {
   return window['go']['main']['App']['BrowseWowFolder']();
 }
 
+export function ClearThumbnailCache() {
+  return window['go']['main']['App']['ClearThumbnailCache']();
+}
+
 export function LoadMap(arg1) {
   return window['go']['main']['App']['LoadMap'](arg1);
 }
 
+export function LoadPrefs() {
+  return window['go']['main']['App']['LoadPrefs']();
+}
+
 export function OpenMapDialog() {
   return window['go']['main']['App']['OpenMapDialog']();
+}
+
+export function Quit() {
+  return window['go']['main']['App']['Quit']();
 }
 
 export function SaveMap(arg1, arg2) {
@@ -20,6 +32,10 @@ export function SaveMap(arg1, arg2) {
 
 export function SaveMapDialog(arg1) {
   return window['go']['main']['App']['SaveMapDialog'](arg1);
+}
+
+export function SavePrefs(arg1) {
+  return window['go']['main']['App']['SavePrefs'](arg1);
 }
 
 export function SaveThumbnail(arg1, arg2) {

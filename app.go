@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"WorldEditor/internal/config"
 	"WorldEditor/internal/mapfile"
@@ -18,7 +21,9 @@ import (
 type App struct {
 	ctx context.Context
 	wow *wow.Client
-	cfg config.Config
+
+	cfgMu sync.Mutex // bound methods run concurrently
+	cfg   config.Config
 }
 
 func NewApp() *App {
@@ -55,6 +60,8 @@ func (a *App) SetWowPath(path string) (wow.Status, error) {
 	if err != nil {
 		return st, err
 	}
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
 	a.cfg.WowPath = path
 	if err := config.Save(a.cfg); err != nil {
 		return st, err
@@ -69,6 +76,34 @@ func (a *App) SaveThumbnail(key string, pngBase64 string) error {
 		return err
 	}
 	return a.wow.SaveThumb(key, png)
+}
+
+// ClearThumbnailCache removes cached palette thumbnails for the current client.
+func (a *App) ClearThumbnailCache() error {
+	return a.wow.ClearThumbs()
+}
+
+// LoadPrefs returns the saved preferences JSON ("" if none).
+func (a *App) LoadPrefs() string {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	return string(a.cfg.Prefs)
+}
+
+// SavePrefs stores the preferences JSON in the user config file.
+func (a *App) SavePrefs(prefs string) error {
+	if !json.Valid([]byte(prefs)) {
+		return errors.New("invalid preferences JSON")
+	}
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	a.cfg.Prefs = json.RawMessage(prefs)
+	return config.Save(a.cfg)
+}
+
+// Quit closes the application.
+func (a *App) Quit() {
+	runtime.Quit(a.ctx)
 }
 
 var mapFilters = []runtime.FileFilter{{DisplayName: "WorldEditor Map (*.wmap)", Pattern: "*.wmap"}}

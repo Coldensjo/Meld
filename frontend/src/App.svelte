@@ -6,15 +6,26 @@
   import Viewport from './components/Viewport.svelte'
   import NewMapDialog from './components/NewMapDialog.svelte'
   import Palette from './components/Palette.svelte'
+  import AppDialogs from './components/AppDialogs.svelte'
+  import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { onMount } from 'svelte'
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
-  import { editor, setStatus, ui, wow } from './lib/state/editor.svelte'
+  import { editor, prefs, setStatus, ui, wow } from './lib/state/editor.svelte'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveMap } from './lib/io/mapio'
 
+  let prefsLoaded = $state(false)
   onMount(() => {
     initWow().catch((e) => console.warn('WoW client init failed', e))
+    loadPrefs().finally(() => (prefsLoaded = true))
+  })
+
+  // Apply preferences to the engine whenever they change, and persist them.
+  $effect(() => {
+    const snapshot = { ...prefs }
+    engineRef.current?.applyPrefs(snapshot)
+    if (prefsLoaded) savePrefs()
   })
 
   // A map without any textures assigned gets the default WoW tileset set as
@@ -40,7 +51,7 @@
     const el = e.target as HTMLElement | null
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
     const engine = engineRef.current
-    if (!engine || ui.showNewDialog) return
+    if (!engine || ui.showNewDialog || ui.dialog) return
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
 
@@ -92,6 +103,7 @@
   <StatusBar />
 </div>
 
+<AppDialogs />
 {#if ui.showNewDialog}
   <NewMapDialog />
 {/if}

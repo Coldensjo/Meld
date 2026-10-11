@@ -1,0 +1,29 @@
+import { LoadPrefs, SavePrefs } from '../../../wailsjs/go/main/App'
+import { hasBackend } from '../io/mapio'
+import { prefs, type Prefs } from './editor.svelte'
+
+// Preferences live in the Go-side config file (reliable across platforms,
+// unlike webview storage). Unknown/invalid keys are ignored on load.
+
+export async function loadPrefs() {
+  if (!hasBackend()) return
+  try {
+    const raw = await LoadPrefs()
+    if (!raw) return
+    const saved = JSON.parse(raw) as Partial<Prefs>
+    for (const k of Object.keys(prefs) as (keyof Prefs)[]) {
+      if (typeof saved[k] === typeof prefs[k]) (prefs as Record<string, unknown>)[k] = saved[k]
+    }
+  } catch (e) {
+    console.warn('failed to load preferences', e)
+  }
+}
+
+let timer: ReturnType<typeof setTimeout> | undefined
+/** Debounced save of the current preferences. */
+export function savePrefs() {
+  if (!hasBackend()) return
+  clearTimeout(timer)
+  const json = JSON.stringify(prefs)
+  timer = setTimeout(() => SavePrefs(json).catch((e) => console.warn('failed to save preferences', e)), 400)
+}

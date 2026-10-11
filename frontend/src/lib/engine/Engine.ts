@@ -3,7 +3,7 @@ import { Terrain, type GenerateKind } from '../terrain/Terrain'
 import { Water } from '../water/Water'
 import { ObjectLayer } from '../world/ObjectLayer'
 import { History } from '../state/history'
-import { editor, setStatus, stats, type ToolId } from '../state/editor.svelte'
+import { editor, setStatus, stats, type Prefs, type ToolId } from '../state/editor.svelte'
 import { CameraController } from './CameraController'
 import { HORIZON, createSky } from './Sky'
 import type { Tool, ToolContext } from '../tools/Tool'
@@ -62,6 +62,8 @@ export class Engine {
   private resizeObs: ResizeObserver
   /** Layer texture paths currently bound to the terrain shader. */
   private boundLayers: string[] = []
+  private viewDistance = 1
+  private fogEnabled = true
   private abort = new AbortController()
 
   constructor(
@@ -269,6 +271,31 @@ export class Engine {
     }
   }
 
+  private applyViewDistance() {
+    const w = this.terrain.worldSize
+    const d = this.viewDistance
+    this.scene.fog = this.fogEnabled ? new THREE.Fog(HORIZON, w * 0.5 * d, w * 2.2 * d) : null
+    this.camera.far = Math.max(2000, w * 4 * d)
+    this.camera.updateProjectionMatrix()
+  }
+
+  /** Apply user preferences (graphics + camera). Cheap; safe to call often. */
+  applyPrefs(p: Prefs) {
+    const ratio = Math.min(window.devicePixelRatio * p.renderScale, 3)
+    if (this.renderer.getPixelRatio() !== ratio) {
+      this.renderer.setPixelRatio(ratio)
+      this.resize()
+    }
+    if (this.viewDistance !== p.viewDistance || this.fogEnabled !== p.fog) {
+      this.viewDistance = p.viewDistance
+      this.fogEnabled = p.fog
+      this.applyViewDistance()
+    }
+    this.controller.speed = p.cameraSpeed
+    this.controller.sensitivity = p.mouseSensitivity
+    this.controller.invertY = p.invertY
+  }
+
   /** Bind each paint layer to its procedural or WoW tileset texture. */
   private syncLayerTextures() {
     const want = editor.layerTextures
@@ -308,7 +335,7 @@ export class Engine {
     this.objects.clear()
     this.controller.bounds = this.terrain.worldSize
     this.controller.maxDistance = this.terrain.worldSize * 1.6
-    this.scene.fog = new THREE.Fog(HORIZON, this.terrain.worldSize * 0.5, this.terrain.worldSize * 2.2)
+    this.applyViewDistance()
     this.history.clear()
     editor.selected = null
     this.boundLayers = []

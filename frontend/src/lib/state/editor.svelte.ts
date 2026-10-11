@@ -59,11 +59,23 @@ export const wow = $state({
   revision: 0,
 })
 
+/** User preferences, persisted in the app config (see lib/state/prefs.ts). */
+export const prefs = $state({
+  renderScale: 1,
+  viewDistance: 1,
+  fog: true,
+  cameraSpeed: 1,
+  mouseSensitivity: 1,
+  invertY: false,
+})
+export type Prefs = typeof prefs
+
 export const ui = $state({
   status: 'Ready',
   canUndo: false,
   canRedo: false,
   showNewDialog: false,
+  dialog: null as 'about' | 'shortcuts' | 'quit' | null,
   /** Which palette the left panel shows. */
   palette: 'models' as 'models' | 'textures',
   busy: false,

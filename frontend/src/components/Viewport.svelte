@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { setStatus } from '../lib/state/editor.svelte'
+  import { prefs, setStatus } from '../lib/state/editor.svelte'
 
   let container: HTMLDivElement
   let canvas: HTMLCanvasElement
@@ -17,6 +17,7 @@
       return
     }
     engineRef.current = engine
+    engine.applyPrefs(prefs)
     engine.start()
     setStatus('Welcome! RMB orbit · MMB pan · Wheel zoom · WASD move')
     return () => {

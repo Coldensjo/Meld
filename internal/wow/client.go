@@ -278,6 +278,15 @@ func (c *Client) SaveThumb(key string, png []byte) error {
 	return os.WriteFile(p, png, 0o644)
 }
 
+// ClearThumbs deletes all cached thumbnails for the current client.
+func (c *Client) ClearThumbs() error {
+	p, err := c.thumbPath("x")
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(filepath.Dir(p))
+}
+
 func hashHex(s string) string {
 	h := sha1.Sum([]byte(strings.ToLower(s)))
 	return hex.EncodeToString(h[:])

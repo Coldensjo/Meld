@@ -5,13 +5,21 @@ import {wow} from '../models';
 
 export function BrowseWowFolder():Promise<string>;
 
+export function ClearThumbnailCache():Promise<void>;
+
 export function LoadMap(arg1:string):Promise<mapfile.MapData>;
 
+export function LoadPrefs():Promise<string>;
+
 export function OpenMapDialog():Promise<string>;
+
+export function Quit():Promise<void>;
 
 export function SaveMap(arg1:string,arg2:mapfile.MapData):Promise<void>;
 
 export function SaveMapDialog(arg1:string):Promise<string>;
+
+export function SavePrefs(arg1:string):Promise<void>;
 
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 

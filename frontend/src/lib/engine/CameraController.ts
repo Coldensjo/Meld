@@ -16,6 +16,10 @@ export class CameraController {
   minDistance = 4
   maxDistance = 900
   bounds = 512
+  /** Preferences: multipliers for move speed / mouse orbit, and Y inversion. */
+  speed = 1
+  sensitivity = 1
+  invertY = false
 
   private keys = new Set<string>()
   private drag: 'orbit' | 'pan' | null = null
@@ -64,8 +68,9 @@ export class CameraController {
     const dy = e.clientY - this.last.y
     this.last.set(e.clientX, e.clientY)
     if (this.drag === 'orbit') {
-      this.yaw -= dx * 0.005
-      this.pitch = THREE.MathUtils.clamp(this.pitch + dy * 0.005, 0.08, 1.52)
+      const k = 0.005 * this.sensitivity
+      this.yaw -= dx * k
+      this.pitch = THREE.MathUtils.clamp(this.pitch + dy * k * (this.invertY ? -1 : 1), 0.08, 1.52)
     } else {
       const s = this.distance * 0.0016
       // Grab-the-ground: forward = camera→target, right = forward × up.
@@ -107,11 +112,11 @@ export class CameraController {
     if (k.has('KeyS') || k.has('ArrowDown')) fwd -= 1
     if (k.has('KeyD') || k.has('ArrowRight')) right += 1
     if (k.has('KeyA') || k.has('ArrowLeft')) right -= 1
-    if (k.has('KeyQ')) this.yaw += dt * 1.6
-    if (k.has('KeyE')) this.yaw -= dt * 1.6
+    if (k.has('KeyQ')) this.yaw += dt * 1.6 * this.sensitivity
+    if (k.has('KeyE')) this.yaw -= dt * 1.6 * this.sensitivity
 
     if (fwd || right) {
-      const speed = (20 + this.distance * 0.9) * fast * dt
+      const speed = (20 + this.distance * 0.9) * fast * this.speed * dt
       const fx = -Math.sin(this.yaw)
       const fz = -Math.cos(this.yaw)
       this.target.x += (fx * fwd - fz * right) * speed

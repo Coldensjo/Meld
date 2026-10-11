@@ -61,6 +61,17 @@ Also included:
 | `Q` / `E` | Rotate |
 | `Shift` | Move faster |
 
+### Menus
+
+- **File**: New / Open / Save / Save As, Undo / Redo, Exit (asks first if there are unsaved changes).
+- **Graphics**: render scale (50–150%), view distance, fog, water, automatic cliff rock, grid.
+- **Preferences**: WoW client folder, clear thumbnail cache, camera speed, mouse sensitivity,
+  invert camera Y.
+- **About**: keyboard shortcuts and app info.
+
+Graphics and camera preferences are saved in the user config file
+(`~/.config/WorldEditor/config.json` or `%AppData%\WorldEditor\config.json`).
+
 ### Other shortcuts
 
 `[` / `]` brush size · `G` grid · `Ctrl+N` new · `Ctrl+O` open · `Ctrl+S` save · `Ctrl+Shift+S` save as

@@ -69,6 +69,17 @@ cd frontend && pnpm build   # frontend only
   undoably. Defaults: `lib/wow/defaults.ts`. Slots without a texture render a flat fallback
   colour (`terrain/textures.ts`).
 
+## Menus & preferences
+
+- `components/MenuBar.svelte` builds its dropdowns from a reactive item list (action, check,
+  radio, header, separator). Add entries there, not ad-hoc buttons.
+- `prefs` (in `editor.svelte.ts`) holds user preferences. `App.svelte` applies them via
+  `Engine.applyPrefs` and persists them through the `LoadPrefs`/`SavePrefs` bindings into
+  `config.json` (`internal/config`, opaque JSON). Add new prefs with a default value in `prefs`;
+  loading ignores unknown or mistyped keys.
+- Dialogs live in `components/AppDialogs.svelte` (state: `ui.dialog`) on top of
+  `components/Modal.svelte`.
+
 ## WoW client assets
 
 - The asset source is the user's **local** WoW 1.12 client. `internal/mpq` reads the archives
