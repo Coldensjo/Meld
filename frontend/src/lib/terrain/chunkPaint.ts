@@ -259,3 +259,53 @@ export function resetTexel(w: Uint8Array, o: number, f: number) {
   // Rounding can leave the four weights a unit off 255; the base takes the difference.
   w[o] += 255 - (w[o] + w[o + 1] + w[o + 2] + w[o + 3])
 }
+
+/** The paint chunk that holds splat texel `pixel`, when res texels a side cover side chunks a side. */
+export function chunkOfTexel(side: number, res: number, pixel: number): number {
+  const per = res / side
+  return chunkOf(Math.floor((pixel % res) / per), Math.floor(Math.floor(pixel / res) / per), side)
+}
+
+/**
+ * Moves `amount` (0 to 1) of the weight that texel `pixel` gives palette texture `from` onto palette
+ * texture `to`, in the paint chunk that holds it. The four weights still sum to 255. Returns false when
+ * that chunk has no slot left for `to`, since 1.12 allows four textures per chunk.
+ */
+export function swapTexel(
+  side: number,
+  res: number,
+  slots: Uint8Array,
+  weights: Uint8Array,
+  pixel: number,
+  from: number,
+  to: number,
+  amount: number,
+): boolean {
+  const c = chunkOfTexel(side, res, pixel)
+  const src = findSlot(slots, c, from)
+  if (src < 0) return true
+  const base = pixel * SLOTS
+  const d = Math.min(weights[base + src], Math.round(weights[base + src] * amount))
+  if (d <= 0) return true
+  const k = acquireSlot(slots, c, to)
+  if (k < 0) return false
+  weights[base + src] -= d
+  weights[base + k] += d
+  return true
+}
+
+/** Palette index of the texture with the most weight at texel `pixel`, or -1 if none has weight there. */
+export function dominantTexel(side: number, res: number, slots: Uint8Array, weights: Uint8Array, pixel: number): number {
+  const c = chunkOfTexel(side, res, pixel)
+  const base = pixel * SLOTS
+  let best = -1
+  let bestWeight = 0
+  for (let k = 0; k < SLOTS; k++) {
+    const tex = slots[c * SLOTS + k]
+    if (tex !== NO_TEXTURE && weights[base + k] > bestWeight) {
+      bestWeight = weights[base + k]
+      best = tex
+    }
+  }
+  return best
+}

@@ -64,6 +64,12 @@
     {@render editLimit()}
     <div class="divider"></div>
   {:else if editor.tool === 'paint' || editor.tool === 'road'}
+    {#if editor.tool === 'paint'}
+      <div class="seg">
+        <button class:active={editor.paintMode === 'texture'} onclick={() => (editor.paintMode = 'texture')}>Paint</button>
+        <button class:active={editor.paintMode === 'swap'} onclick={() => (editor.paintMode = 'swap')} title="Replace the texture under the start of each stroke with the active layer">Swap</button>
+      </div>
+    {/if}
     <button class="chip" onclick={() => (ui.palette = 'textures')} title="Active texture layer (pick textures in the Assets panel)">
       <span class="dim">Layer {editor.paintLayer + 1}:</span>
       {slotTex ? texName(slotTex) : 'empty'}

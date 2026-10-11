@@ -3,11 +3,21 @@ import { editor, setStatus } from '../state/editor.svelte'
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
+import { dominantTexel, swapTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
 
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
 const CHUNK_FULL = 'That chunk already has four textures (the 1.12 limit). Paint with one of them, or erase another.'
+
+/** Splat texel under world point (x, z), clamped to the map. */
+function texelAt(t: Terrain, x: number, z: number): number {
+  const R = t.splatRes
+  const ts = t.worldSize / R
+  const tx = Math.min(R - 1, Math.max(0, Math.floor(x / ts)))
+  const tz = Math.min(R - 1, Math.max(0, Math.floor(z / ts)))
+  return tz * R + tx
+}
 
 /** Shared stroke lifecycle for brush tools that modify the terrain. */
 abstract class BrushTool implements Tool {
@@ -184,18 +194,28 @@ export class SculptTool extends BrushTool {
 export class PaintTool extends BrushTool {
   protected label = 'Paint'
   private erasing = false
+  /** Swap mode: the palette texture under the stroke's start, which the stroke replaces. */
+  private swapFrom = -1
 
   protected get records() {
     return editor.paintMode === 'mask' ? { mask: true } : { splat: true }
   }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
-    this.label = editor.paintMode === 'mask' ? 'Mask' : 'Paint'
+    this.label = editor.paintMode === 'mask' ? 'Mask' : editor.paintMode === 'swap' ? 'Swap' : 'Paint'
     this.erasing = editor.maskErase || !!e?.altKey
+    const t = ctx.terrain
+    this.swapFrom =
+      hit && editor.paintMode === 'swap' ? dominantTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, texelAt(t, hit.x, hit.z)) : -1
+    if (this.swapFrom >= 0 && this.swapFrom === editor.paintLayer) setStatus('That spot already uses the active texture.', 3000)
     super.onDown(ctx, hit)
   }
 
   protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
+    if (editor.paintMode === 'swap') {
+      this.swap(ctx, dt, hit)
+      return
+    }
     if (editor.paintMode === 'mask') {
       // Mask brush: hard-edged by falloff, full strength; Alt (or Erase) removes.
       const { radius, falloff } = editor.brush
@@ -217,6 +237,22 @@ export class PaintTool extends BrushTool {
     let refused = 0
     const rect = forEachTexel(ctx.terrain, hit.x, hit.z, radius, falloff, (p, w) => {
       if (!paintPixel(ctx.terrain, p, tex, amt * w)) refused++
+    })
+    if (refused) setStatus(CHUNK_FULL, 3000)
+    this.splatChanged(ctx, rect)
+  }
+
+  /** Moves the stroke's starting texture onto the active layer under the brush. */
+  private swap(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
+    const from = this.swapFrom
+    const to = editor.paintLayer
+    if (from < 0 || from === to) return
+    const { radius, strength, falloff } = editor.brush
+    const amt = Math.min(1, strength * dt * 5)
+    let refused = 0
+    const t = ctx.terrain
+    const rect = forEachTexel(t, hit.x, hit.z, radius, falloff, (p, w) => {
+      if (!swapTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, p, from, to, amt * w)) refused++
     })
     if (refused) setStatus(CHUNK_FULL, 3000)
     this.splatChanged(ctx, rect)

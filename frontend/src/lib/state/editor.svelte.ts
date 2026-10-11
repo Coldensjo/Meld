@@ -45,8 +45,11 @@ export const editor = $state({
   flattenDir: 'both' as FlattenDir,
   sculptLimit: 'none' as SculptLimit,
   paintLayer: 0,
-  /** Paint tool: paint textures, or paint the mask that texture fills apply to. */
-  paintMode: 'texture' as 'texture' | 'mask',
+  /**
+   * Paint tool: paint textures, swap the texture under the stroke's start for the active one, or paint
+   * the mask that texture fills apply to.
+   */
+  paintMode: 'texture' as 'texture' | 'swap' | 'mask',
   maskErase: false,
   roadFlatten: true,
   waterMode: 'dig' as WaterMode,
