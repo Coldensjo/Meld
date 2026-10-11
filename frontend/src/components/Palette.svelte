@@ -4,7 +4,6 @@
   import { engineRef } from '../lib/state/engineRef'
   import { chooseWowFolder, listAssets } from '../lib/wow/api'
   import { buildCatalog, categoryOrder, type CatalogItem } from '../lib/wow/catalog'
-  import { LAYERS } from '../lib/terrain/layers'
   import { hasBackend } from '../lib/io/mapio'
 
   type Kind = 'm2' | 'wmo' | 'tex'
@@ -88,14 +87,9 @@
   }
 
   const slotOf = (path: string) => editor.layerTextures.findIndex((p) => p.toLowerCase() === path.toLowerCase())
-  const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
 </script>
 
-<aside class="palette">
-  <div class="tabs">
-    <button class:active={ui.palette === 'models'} onclick={() => (ui.palette = 'models')}>Models</button>
-    <button class:active={ui.palette === 'textures'} onclick={() => (ui.palette = 'textures')}>Textures</button>
-  </div>
+<div class="palette">
 
   {#if !wow.loaded}
     <div class="empty">
@@ -114,28 +108,6 @@
       <div class="tabs sub">
         <button class:active={modelKind === 'm2'} onclick={() => (modelKind = 'm2')}>Doodads</button>
         <button class:active={modelKind === 'wmo'} onclick={() => (modelKind = 'wmo')}>Buildings</button>
-      </div>
-    {:else}
-      <div class="slots" title="Texture slots used by this map. Click to paint with a slot.">
-        {#each LAYERS as l (l.id)}
-          {@const p = editor.layerTextures[l.id]}
-          <button
-            class="slot"
-            class:active={editor.paintLayer === l.id}
-            title={p ? `Slot ${l.id + 1}: ${texName(p)}` : `Slot ${l.id + 1}: empty`}
-            onclick={() => {
-              editor.paintLayer = l.id
-              if (editor.tool !== 'paint' && editor.tool !== 'road') editor.tool = 'paint'
-            }}
-          >
-            {#if p}
-              <PaletteTile thumbKey={'tex:' + p} label="" title="" onclick={() => {}} />
-            {:else}
-              <span class="swatch" style:background={l.swatch}></span>
-            {/if}
-            <span class="num">{l.id + 1}</span>
-          </button>
-        {/each}
       </div>
     {/if}
 
@@ -184,15 +156,14 @@
       {/if}
     </div>
   {/if}
-</aside>
+</div>
 
 <style>
   .palette {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--panel);
-    border-right: 1px solid var(--border);
+    flex: 1;
     padding: 8px;
     gap: 6px;
   }
@@ -246,48 +217,8 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
     gap: 5px;
-  }
-  .slots {
-    display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    gap: 3px;
-  }
-  .slot {
-    position: relative;
-    padding: 1px;
-    aspect-ratio: 1;
-    overflow: hidden;
-    background: var(--bg);
-  }
-  .slot.active {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
-  }
-  .slot :global(.tile) {
-    padding: 0;
-    border: none;
-    pointer-events: none;
-    background: transparent;
-  }
-  .slot :global(.label) {
-    display: none;
-  }
-  .swatch {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 3px;
-    opacity: 0.5;
-  }
-  .num {
-    position: absolute;
-    right: 2px;
-    bottom: 0;
-    font: 9px var(--mono);
-    color: #fff;
-    text-shadow: 0 0 3px #000;
   }
   .empty {
     color: var(--text-dim);

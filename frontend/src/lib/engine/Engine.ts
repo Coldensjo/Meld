@@ -94,7 +94,11 @@ export class Engine {
     this.objects = new ObjectLayer(this.terrain)
     this.scene.add(this.terrain.group, this.water.mesh, this.objects.group)
 
-    this.controller = new CameraController(this.camera, canvas, (x, z) => this.terrain.heightAt(x, z))
+    // The camera rides on the water surface where the ground is submerged.
+    this.controller = new CameraController(this.camera, canvas, (x, z) => {
+      const h = this.terrain.heightAt(x, z)
+      return editor.waterEnabled ? Math.max(h, editor.waterLevel) : h
+    })
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this
@@ -119,7 +123,7 @@ export class Engine {
     this.resizeObs = new ResizeObserver(() => this.resize())
     this.resizeObs.observe(container)
     this.resize()
-    this.newMap(256, 'hills', 1337)
+    this.newMap(256, 'ocean', 0)
   }
 
   // ---------------------------------------------------------------- lifecycle
@@ -339,12 +343,13 @@ export class Engine {
     this.history.clear()
     editor.selected = null
     this.boundLayers = []
+    editor.mapSize = size
   }
 
   newMap(size: number, kind: GenerateKind, seed: number) {
     this.replaceTerrain(size)
     this.terrain.generate(kind, seed)
-    editor.waterLevel = kind === 'flat' ? -2 : kind === 'island' ? 0 : -1
+    editor.waterLevel = kind === 'ocean' || kind === 'island' ? 0 : kind === 'flat' ? -2 : -1
     editor.waterEnabled = kind !== 'flat'
     this.terrain.autoPaint(editor.waterLevel, editor.waterEnabled)
     const c = this.terrain.worldSize / 2
@@ -431,6 +436,25 @@ export class Engine {
 
   focusSelected() {
     if (editor.selected) this.controller.focus(editor.selected.x, editor.selected.z, 30)
+  }
+
+  /** Fraction of the map covered by each paint slot (sampled, 0..1). */
+  layerCoverage(): number[] {
+    const u = this.slotUsage()
+    const total = u.reduce((a, b) => a + b, 0) || 1
+    return u.map((v) => v / total)
+  }
+
+  /** Unassign a slot's texture (undoable). */
+  clearLayerTexture(i: number) {
+    const before = editor.layerTextures[i]
+    if (!before) return
+    editor.layerTextures[i] = ''
+    this.history.push({
+      label: 'Clear layer texture',
+      undo: () => (editor.layerTextures[i] = before),
+      redo: () => (editor.layerTextures[i] = ''),
+    })
   }
 
   /** Total splat weight per paint slot (sampled), used to find unused slots. */

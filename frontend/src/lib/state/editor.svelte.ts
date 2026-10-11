@@ -36,6 +36,8 @@ export const editor = $state({
   layerTextures: ['', '', '', '', '', '', '', ''] as string[],
   texScale: 8,
   mapName: 'Untitled',
+  /** Terrain cells per side of the open map. */
+  mapSize: 256,
   filePath: '',
   dirty: false,
 })
@@ -67,6 +69,9 @@ export const prefs = $state({
   cameraSpeed: 1,
   mouseSensitivity: 1,
   invertY: false,
+  /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
+  dockWidth: 320,
+  collapsedPanels: ['properties'] as string[],
 })
 export type Prefs = typeof prefs
 

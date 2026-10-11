@@ -135,7 +135,7 @@ export function createTerrainMaterial(
     brushPos: { value: new THREE.Vector2() },
     brushRadius: { value: 8 },
     brushVisible: { value: 0 },
-    brushColor: { value: new THREE.Color(1.0, 0.85, 0.3) },
+    brushColor: { value: new THREE.Color(0.92, 0.95, 1.0) },
     gridVisible: { value: 0 },
   }
   layers.forEach((t, i) => (uniforms['tex' + i] = { value: t }))

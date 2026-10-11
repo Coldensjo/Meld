@@ -23,7 +23,7 @@
       aria-label={t.name}
       onclick={() => (editor.tool = t.id)}
     >
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
         <path d={t.icon} />
       </svg>
       <span class="key">{t.key}</span>
@@ -35,33 +35,32 @@
   .toolbar {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 8px 6px;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
     background: var(--panel);
     border-right: 1px solid var(--border);
   }
   button {
-    position: relative;
-    width: 44px;
-    height: 44px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     display: grid;
     place-items: center;
     background: transparent;
-    border-color: transparent;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--text-dim);
   }
   button:hover:not(.active) {
-    border-color: var(--border);
+    background: var(--panel-2);
+    color: var(--text);
   }
   button.active {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: var(--panel-3);
+    color: #fff;
   }
   .key {
-    position: absolute;
-    right: 3px;
-    bottom: 1px;
-    font: 9px var(--mono);
-    opacity: 0.6;
+    display: none;
   }
 </style>

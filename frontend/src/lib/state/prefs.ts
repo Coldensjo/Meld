@@ -12,7 +12,8 @@ export async function loadPrefs() {
     if (!raw) return
     const saved = JSON.parse(raw) as Partial<Prefs>
     for (const k of Object.keys(prefs) as (keyof Prefs)[]) {
-      if (typeof saved[k] === typeof prefs[k]) (prefs as Record<string, unknown>)[k] = saved[k]
+      const ok = Array.isArray(prefs[k]) ? Array.isArray(saved[k]) : typeof saved[k] === typeof prefs[k]
+      if (ok) (prefs as Record<string, unknown>)[k] = saved[k]
     }
   } catch (e) {
     console.warn('failed to load preferences', e)

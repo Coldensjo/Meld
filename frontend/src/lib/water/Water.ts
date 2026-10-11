@@ -57,6 +57,8 @@ void main() {
 export class Water {
   readonly mesh: THREE.Mesh
   readonly material: THREE.ShaderMaterial
+  /** Deep-water floor extending past the map edge (matches the terrain's depth tint). */
+  readonly floor: THREE.Mesh
 
   constructor(worldSize: number) {
     const geo = new THREE.PlaneGeometry(worldSize * 10, worldSize * 10, 160, 160)
@@ -81,6 +83,13 @@ export class Water {
     this.mesh.position.set(worldSize / 2, 0, worldSize / 2)
     this.mesh.renderOrder = 10
     this.mesh.name = 'water'
+
+    const floorGeo = new THREE.PlaneGeometry(worldSize * 10, worldSize * 10)
+    floorGeo.rotateX(-Math.PI / 2)
+    this.floor = new THREE.Mesh(floorGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.03, 0.12, 0.18) }))
+    this.floor.name = 'seafloor'
+    this.mesh.add(this.floor)
+    this.floor.position.set(0, -40, 0)
   }
 
   set level(y: number) {
@@ -96,6 +105,8 @@ export class Water {
   }
 
   dispose() {
+    this.floor.geometry.dispose()
+    ;(this.floor.material as THREE.Material).dispose()
     this.mesh.geometry.dispose()
     this.material.dispose()
   }

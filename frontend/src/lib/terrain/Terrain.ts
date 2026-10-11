@@ -5,9 +5,11 @@ import { getFallbackTextures } from './textures'
 import { LAYER_COUNT } from './layers'
 
 export const CELL_SIZE = 2
+/** Seabed height of an empty ("ocean") map; water sits at 0. */
+export const OCEAN_FLOOR = -12
 const CHUNK = 32 // cells per chunk side
 
-export type GenerateKind = 'flat' | 'hills' | 'mountains' | 'island'
+export type GenerateKind = 'ocean' | 'flat' | 'hills' | 'mountains' | 'island'
 
 /**
  * Heightmap terrain split into chunks. Heights live in a flat Float32Array of
@@ -264,6 +266,10 @@ export class Terrain {
         const v = z / s
         let y = 0
         switch (kind) {
+          case 'ocean':
+            // Empty map: a flat seabed well below the water surface.
+            y = OCEAN_FLOOR
+            break
           case 'flat':
             y = 0
             break

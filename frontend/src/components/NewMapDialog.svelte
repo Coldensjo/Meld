@@ -7,11 +7,12 @@
 
   let name = $state('Untitled')
   let size = $state(256)
-  let kind = $state<GenerateKind>('hills')
+  let kind = $state<GenerateKind>('ocean')
   let seed = $state(Math.floor(Math.random() * 100000))
 
   const KINDS: Array<{ id: GenerateKind; name: string }> = [
-    { id: 'flat', name: 'Flat' },
+    { id: 'ocean', name: 'Empty (water only)' },
+    { id: 'flat', name: 'Flat land' },
     { id: 'hills', name: 'Rolling Hills' },
     { id: 'mountains', name: 'Mountains' },
     { id: 'island', name: 'Island' },

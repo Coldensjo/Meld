@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { prefs, setStatus } from '../lib/state/editor.svelte'
+  import { editor, prefs, setStatus } from '../lib/state/editor.svelte'
 
   let container: HTMLDivElement
   let canvas: HTMLCanvasElement
@@ -27,16 +27,47 @@
   })
 </script>
 
+<div class="doc">
+  <div class="doctabs">
+    <div class="doctab" title={editor.filePath || 'Not saved yet'}>
+      {editor.mapName}{editor.filePath ? '.wmap' : ''} @ {editor.mapSize}²{editor.dirty ? ' *' : ''}
+    </div>
+  </div>
 <div class="viewport" bind:this={container}>
   <canvas bind:this={canvas} tabindex="-1"></canvas>
   {#if error}<div class="error">{error}</div>{/if}
 </div>
+</div>
 
 <style>
+  .doc {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--bg);
+  }
+  .doctabs {
+    display: flex;
+    height: 26px;
+    background: var(--header);
+    border-bottom: 1px solid var(--border);
+    flex: none;
+  }
+  .doctab {
+    padding: 0 14px;
+    line-height: 26px;
+    font-size: 11px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    color: var(--text);
+    white-space: nowrap;
+  }
   .viewport {
+    flex: 1;
+    min-height: 0;
     position: relative;
     width: 100%;
-    height: 100%;
     overflow: hidden;
     background: #0b0d10;
   }

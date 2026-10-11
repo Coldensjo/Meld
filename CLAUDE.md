@@ -56,7 +56,17 @@ cd frontend && pnpm build   # frontend only
     instances.
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
     sculpting.
-- **Palette** (`components/Palette.svelte`, left of the viewport):
+- **UI layout** (Photoshop-like, `App.svelte`):
+  - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
+  - Main row: `Toolbar` | `Viewport` (with the document tab) | `Dock`.
+  - Per-tool settings go in `OptionsBar` (use `OptSlider`).
+  - Contextual editing goes in dock panels (`DockPanel` wrapper: tabs + collapse). Dock width
+    and collapsed panels are stored in `prefs`.
+  - Theme tokens are in `app.css` (neutral greys, blue `--accent`).
+- **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
+  target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides
+  the map edge.
+- **Palette** (`components/Palette.svelte`, inside the dock's Models/Textures panel):
   - Shows WoW models (doodads/buildings) or tileset textures as a thumbnail grid.
   - Categories and zones come from path keywords in `lib/wow/catalog.ts`; tune the regex rules
     there.

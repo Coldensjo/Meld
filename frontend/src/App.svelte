@@ -1,11 +1,11 @@
 <script lang="ts">
   import MenuBar from './components/MenuBar.svelte'
   import Toolbar, { TOOLS } from './components/Toolbar.svelte'
-  import ToolPanel from './components/ToolPanel.svelte'
+  import OptionsBar from './components/OptionsBar.svelte'
+  import Dock from './components/Dock.svelte'
   import StatusBar from './components/StatusBar.svelte'
   import Viewport from './components/Viewport.svelte'
   import NewMapDialog from './components/NewMapDialog.svelte'
-  import Palette from './components/Palette.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { onMount } from 'svelte'
@@ -94,11 +94,11 @@
 
 <div class="app">
   <MenuBar />
+  <OptionsBar />
   <div class="main">
     <Toolbar />
-    <Palette />
     <Viewport />
-    <ToolPanel />
+    <Dock />
   </div>
   <StatusBar />
 </div>
@@ -111,12 +111,12 @@
 <style>
   .app {
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto 1fr auto;
     height: 100%;
   }
   .main {
     display: grid;
-    grid-template-columns: auto 316px 1fr 280px;
+    grid-template-columns: auto 1fr auto;
     min-height: 0;
   }
 </style>

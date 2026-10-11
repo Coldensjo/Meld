@@ -19,9 +19,29 @@ Built with **[Wails v2](https://wails.io)** (Go) + **Svelte 5** + **Three.js**. 
 | Water | `5` | Global water level. Dig lakes or raise shores relative to it. Animated water with shore foam and depth tint. |
 | Place | `6` | Place the model selected in the palette. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
 
-### Asset palette (left panel)
+### Layout
 
-On first start, click **Select WoW folder…** in the palette and pick your WoW 1.12 client (the
+The layout follows Photoshop:
+
+- **Menu bar** at the top.
+- **Options bar** below it, showing the active tool's settings (mode, size, strength, falloff…).
+- **Toolbar** on the left.
+- **Document tab** above the 3D view.
+- **Panel dock** on the right, with:
+  - **Models / Textures**: the asset browser.
+  - **Layers**: the map's 8 texture slots, with coverage.
+  - **Properties**: the selected object's transform, or world settings.
+
+Drag the dock's left edge to resize it, and click a panel's header (▾) to collapse it. Both are
+remembered.
+
+New maps start **empty: just water over a flat seabed**. Use Sculpt › Raise (or Mountain) to
+build land up out of the sea. The New Map dialog can still generate hills, mountains or an
+island.
+
+### Asset browser (Models / Textures panel)
+
+On first start, click **Select WoW folder…** in the Models panel and pick your WoW 1.12 client (the
 client folder or its `Data` folder). The palette then shows:
 
 - **Models › Doodads**: every `World\…\*.m2`, in categories such as Trees, Bushes & Plants,
@@ -30,7 +50,7 @@ client folder or its `Data` folder). The palette then shows:
   Caves…). Buildings include the furniture from their default doodad set.
 - **Textures**: every `Tileset\…\*.blp`, plus the map's 8 texture slots.
 
-Each palette has a zone filter and a search box. Thumbnails render as tiles scroll into view and
+Each tab has a zone filter and a search box. Thumbnails render as tiles scroll into view and
 are cached in your user cache folder, so they load instantly next time. Clicking a model selects
 the Place tool. Clicking a texture assigns it to a free slot and selects the Paint tool.
 
