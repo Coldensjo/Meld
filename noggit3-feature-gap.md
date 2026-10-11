@@ -14,7 +14,7 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 - ~~**Falloff curve types**: Linear, Polynomial, Trigonometric, Quadratic, Gaussian, plus a Flat (hard edge) option.~~ *Done: Smooth (the default), Linear, Quadratic, Gaussian and Trigonometric, chosen next to the Falloff slider; a falloff of 0 is still the hard edge.*
 - **Edit-mode limits**: "Only above cursor" / "Only below cursor" (only affect ground above or below the cursor height).
 - **Vertex edit mode**: raise/lower a single vertex, oriented from the mouse or from the selection centre.
-- **Flatten variants**: Flat, Linear, Smooth, Origin (flatten to the clicked height), Smooth-inner, and raise-only / lower-only toggling.
+- **Flatten variants**: Flat, Linear, Smooth, Origin (flatten to the clicked height), Smooth-inner, and raise-only / lower-only toggling. *Partly done: Origin was already there; the Sculpt options now add an average-height target (Flat) and raise-only / lower-only. Linear, Smooth and Smooth-inner remain (BACKLOG B-018).*
 - **Blur** as a separate tool from Smooth (noggit combines it with Flatten in one tool).
 - **Tablet pressure**: radius or speed mapped to pen pressure, with an on/off setting.
 - **Chunk Mover**: drag a whole terrain chunk, with its heights and objects, to a new location.
