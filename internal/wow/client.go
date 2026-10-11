@@ -358,3 +358,22 @@ func (c *Client) Handler() http.Handler {
 	})
 	return mux
 }
+
+// Suspend closes the client's archives, so another program can write the game's files (the patch
+// archive, say, which the archives keep open while they're loaded). Resume loads them again.
+func (c *Client) Suspend() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.set != nil {
+		c.set.Close()
+		c.set = nil
+	}
+}
+
+// Resume loads the archives again after Suspend.
+func (c *Client) Resume() error {
+	c.mu.RLock()
+	dir := c.dir
+	c.mu.RUnlock()
+	return c.Open(dir)
+}

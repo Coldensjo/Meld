@@ -84,7 +84,6 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 	if err != nil {
 		return res, err
 	}
-	defer set.Close()
 
 	dbc, err := set.ReadFile(`DBFilesClient\Map.dbc`)
 	if err != nil {
@@ -133,6 +132,8 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		mpq.File{Name: `DBFilesClient\Map.dbc`, Data: dbc},
 	)
 
+	// The read archives hold the patch open, so they close before anything is written.
+	set.Close()
 	res.Patch, err = InstallPatch(patchDir, files)
 	if err != nil {
 		return res, err

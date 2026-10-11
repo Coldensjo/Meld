@@ -189,6 +189,7 @@ func (a *App) SetVmangosPath(path string) error {
 // InstallMapPatch writes the given archive files (path to base64 bytes) into the loaded client's
 // patch-3.MPQ, for the server to load. Returns the archive's path.
 func (a *App) InstallMapPatch(files map[string]string) (string, error) {
+	defer a.releaseClient()()
 	a.cfgMu.Lock()
 	wowPath := a.cfg.WowPath
 	a.cfgMu.Unlock()
@@ -235,6 +236,7 @@ func (a *App) LoadTile(mapName string, x, y int) (*vmangos.TileView, error) {
 // ExportTileHeights writes the edited outer heights of a tile into the client's patch, where the
 // server's map data is built from. Returns the patch's path.
 func (a *App) ExportTileHeights(mapName string, x, y int, outer []float32) (string, error) {
+	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return "", err
@@ -254,6 +256,7 @@ func (a *App) ExportTileHeights(mapName string, x, y int, outer []float32) (stri
 // row go into the client's patch, and the server's copy of the table is updated when a VMaNGOS
 // folder is set.
 func (a *App) ExportVmangosMap(m vmangos.MapSpec) (vmangos.ExportResult, error) {
+	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return vmangos.ExportResult{}, err
@@ -262,4 +265,11 @@ func (a *App) ExportVmangosMap(m vmangos.MapSpec) (vmangos.ExportResult, error) 
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
 	return vmangos.ExportMap(dataDir, dataDir, server, m)
+}
+
+// releaseClient lets the game's files be written: the client's archives keep them open while
+// they're loaded, so they close until the returned function runs.
+func (a *App) releaseClient() func() {
+	a.wow.Suspend()
+	return func() { _ = a.wow.Resume() }
 }
