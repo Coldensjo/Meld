@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"bytes"
+	"math"
 	"os"
 	"testing"
 
@@ -56,5 +57,52 @@ func TestTileRoundTrip(t *testing.T) {
 	}
 	if moved != 0 {
 		t.Errorf("%d samples differ after the edit", moved)
+	}
+}
+
+// Raising the outer samples must raise the inner samples inside them too; leaving the inner ones
+// alone made a sculpted surface jagged. It needs WOW_DIR set to the client.
+func TestPatchMovesInnerSamples(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := BaseTileRoot(dataDir, "Azeroth", 32, 48)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := viewOf(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outer := append([]float32(nil), view.Heights...)
+	for i := range outer {
+		outer[i] += 4
+	}
+	patched, err := PatchTileHeights(root, outer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := adt.ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := adt.ParseTerrain(patched)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for c := range before.Chunks {
+		for r := 0; r < adt.CellsPerChunk; r++ {
+			for col := 0; col < adt.CellsPerChunk; col++ {
+				d := after.Chunks[c].Heights[r*17+9+col] - before.Chunks[c].Heights[r*17+9+col]
+				if math.Abs(float64(d)-4) > 1e-3 {
+					t.Fatalf("chunk %d inner %d,%d moved by %v, want 4", c, r, col, d)
+				}
+			}
+		}
 	}
 }

@@ -133,12 +133,9 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 		}
 	}
 	for k, f := range files {
-		tx, ty := view.X+k%view.Size, view.Y+k/view.Size
-		_, original, err := ReadTile(dataDir, "Azeroth", tx, ty)
-		if err != nil {
-			t.Fatal(err)
-		}
-		before, err := adt.ParsePlacements(original)
+		i, j := k%view.Size, k/view.Size
+		tx, ty := view.X+i, view.Y+j
+		original, err := BaseTileRoot(dataDir, "Azeroth", tx, ty)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -146,34 +143,71 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(after) != len(before) {
-			t.Fatalf("tile %d_%d: %d models after the write, %d before", tx, ty, len(after), len(before))
-		}
-		byUID := map[uint32]adt.Placement{}
-		for _, p := range before {
-			byUID[p.UID] = p
-		}
+		// Each model written must be one the editor showed, at the same place and turn. A tile's
+		// patch can hold models the original lacks (an earlier export), so the editor's view is the
+		// reference, not the original file.
 		for _, p := range after {
-			q, ok := byUID[p.UID]
-			if !ok || q.Position != p.Position || q.Rotation != p.Rotation || q.Name != p.Name {
-				t.Fatalf("tile %d_%d: model %d changed by an unedited write", tx, ty, p.UID)
+			found := false
+			for _, o := range view.Objects {
+				if o.Type == "m2:"+p.Name || o.Type == "wmo:"+p.Name {
+					if math.Abs(float64(o.X+float32(view.X)*adt.TileSize-p.Position[0])) < 0.05 &&
+						math.Abs(float64(o.Z+float32(view.Y)*adt.TileSize-p.Position[2])) < 0.05 {
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				t.Fatalf("tile %d_%d: model %d at %v was not in the editor's view", tx, ty, p.UID, p.Position)
 			}
 		}
-		t0, err := adt.ParseTerrain(original)
+		// The write's outer heights are the editor's, and each inner sample moves by the average
+		// change of the four outer samples around it, from the original tile.
+		base, err := adt.ParseTerrain(original)
 		if err != nil {
 			t.Fatal(err)
 		}
-		t1, err := adt.ParseTerrain(f.Data)
+		written, err := adt.ParseTerrain(f.Data)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for c := range t0.Chunks {
-			for h := range t0.Chunks[c].Heights {
-				if math.Abs(float64(t0.Chunks[c].Heights[h]-t1.Chunks[c].Heights[h])) > 1e-3 {
-					t.Fatalf("tile %d_%d chunk %d: height %d changed by an unedited write", tx, ty, c, h)
+		side := view.Size*tileCells + 1
+		for c := range base.Chunks {
+			cb, cw := base.Chunks[c], written.Chunks[c]
+			var delta [adt.CellsPerChunk + 1][adt.CellsPerChunk + 1]float64
+			for r := 0; r <= adt.CellsPerChunk; r++ {
+				for col := 0; col <= adt.CellsPerChunk; col++ {
+					gr := j*tileCells + cb.IndexY*adt.CellsPerChunk + r
+					gc := i*tileCells + cb.IndexX*adt.CellsPerChunk + col
+					want := float64(view.Heights[gr*side+gc])
+					got := float64(cw.Heights[r*17+col])
+					if math.Abs(got-want) > 1e-3 {
+						t.Fatalf("tile %d_%d chunk %d outer %d,%d: wrote %v, editor has %v", tx, ty, c, r, col, got, want)
+					}
+					delta[r][col] = want - float64(cb.Heights[r*17+col])
+				}
+			}
+			for r := 0; r < adt.CellsPerChunk; r++ {
+				for col := 0; col < adt.CellsPerChunk; col++ {
+					avg := (delta[r][col] + delta[r][col+1] + delta[r+1][col] + delta[r+1][col+1]) / 4
+					want := float64(cb.Heights[r*17+9+col]) + avg
+					if math.Abs(float64(cw.Heights[r*17+9+col])-want) > 1e-3 {
+						t.Fatalf("tile %d_%d chunk %d inner %d,%d: wrote %v, want %v", tx, ty, c, r, col, cw.Heights[r*17+9+col], want)
+					}
 				}
 			}
 		}
+	}
+	written := 0
+	for _, f := range files {
+		placements, err := adt.ParsePlacements(f.Data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		written += len(placements)
+	}
+	if written != len(view.Objects) {
+		t.Fatalf("models written: %d, shown in the editor: %d", written, len(view.Objects))
 	}
 }
 

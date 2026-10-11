@@ -115,12 +115,33 @@ func PatchTileHeights(root []byte, outer []float32) ([]byte, error) {
 	}
 	for i := range terrain.Chunks {
 		c := &terrain.Chunks[i]
+		// The change at each outer sample. The inner samples sit between four outer ones, so each
+		// moves by the average change of those four; an unedited tile keeps its detail exactly.
+		var delta [adt.CellsPerChunk + 1][adt.CellsPerChunk + 1]float32
 		for r := 0; r <= adt.CellsPerChunk; r++ {
 			for col := 0; col <= adt.CellsPerChunk; col++ {
 				gr, gc := c.IndexY*adt.CellsPerChunk+r, c.IndexX*adt.CellsPerChunk+col
-				c.Heights[r*17+col] = outer[gr*LatticeSize+gc]
+				next := outer[gr*LatticeSize+gc]
+				delta[r][col] = next - c.Heights[r*17+col]
+				c.Heights[r*17+col] = next
+			}
+		}
+		for r := 0; r < adt.CellsPerChunk; r++ {
+			for col := 0; col < adt.CellsPerChunk; col++ {
+				avg := (delta[r][col] + delta[r][col+1] + delta[r+1][col] + delta[r+1][col+1]) / 4
+				c.Heights[r*17+9+col] += avg
 			}
 		}
 	}
 	return adt.WriteHeights(root, terrain)
+}
+
+// BaseTileRoot returns a tile's file as the game shipped it, without patch archives' changes.
+func BaseTileRoot(dataDir, mapName string, x, y int) ([]byte, error) {
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	defer set.Close()
+	return set.ReadBaseFile(adt.TilePath(mapName, x, y, ""))
 }

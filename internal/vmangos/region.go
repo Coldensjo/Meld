@@ -282,7 +282,12 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 			k := j*e.Size + i
 			tx, ty := e.X+i, e.Y+j
 			name := adt.TilePath(e.MapName, tx, ty, "")
-			root, err := set.ReadFile(name)
+			// The save starts from each tile as the game shipped it: the editor already holds the whole
+			// block's heights, paint and models, so earlier patch edits are rebuilt from the original.
+			root, err := set.ReadBaseFile(name)
+			if err != nil {
+				root, err = set.ReadFile(name)
+			}
 			if err != nil {
 				return nil, err
 			}
