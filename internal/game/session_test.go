@@ -21,8 +21,11 @@ type fakeRunner struct {
 
 func (f *fakeRunner) Run(dir, name string, args []string, log func(string)) error {
 	f.calls = append(f.calls, name+" "+strings.Join(args, " "))
-	if name == "taskkill" && args[1] != f.stuck {
-		delete(f.running, args[1])
+	if name == "taskkill" {
+		image, forced := args[len(args)-1], args[0] == "/F"
+		if image != f.stuck || forced {
+			delete(f.running, image)
+		}
 	}
 	return nil
 }
@@ -78,6 +81,37 @@ func TestStopReportsAProgramThatWontClose(t *testing.T) {
 	// The game closed before the world server got stuck, so Start still brings the game back.
 	if !c.Game || c.World {
 		t.Fatalf("closed = %+v", c)
+	}
+}
+
+func TestStopForceClosesAuthThatHasNoWindow(t *testing.T) {
+	exitWait = 10 * time.Millisecond
+	authGrace = 10 * time.Millisecond
+	defer func() { exitWait, authGrace = 20*time.Second, 3*time.Second }()
+	run := &fakeRunner{running: map[string]bool{authImage: true}, stuck: authImage}
+	c, err := session(run, "server").Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Auth {
+		t.Fatalf("closed = %+v, want the auth server closed", c)
+	}
+	if last := run.calls[len(run.calls)-1]; !strings.HasPrefix(last, "taskkill /F") {
+		t.Fatalf("last call = %q, want a forced close", last)
+	}
+}
+
+func TestStopDoesNotForceTheWorldServer(t *testing.T) {
+	exitWait = 10 * time.Millisecond
+	defer func() { exitWait = 20 * time.Second }()
+	run := &fakeRunner{running: map[string]bool{worldImage: true}, stuck: worldImage}
+	if _, err := session(run, "server").Stop(); err == nil {
+		t.Fatal("the world server was stopped by force")
+	}
+	for _, c := range run.calls {
+		if strings.HasPrefix(c, "taskkill /F") {
+			t.Fatalf("call %q forces the world server", c)
+		}
 	}
 }
 

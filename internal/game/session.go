@@ -27,6 +27,8 @@ const (
 var (
 	exitWait  = 20 * time.Second
 	readyWait = 60 * time.Second
+	// authGrace is how long the auth server gets to close on its own before it's forced.
+	authGrace = 3 * time.Second
 )
 
 // Session is the game and server a region export shuts down and brings back.
@@ -72,7 +74,7 @@ func (s Session) Stop() (Closed, error) {
 		c.World = true
 	}
 	if s.Run.Running(authImage) {
-		if err := s.close(authImage); err != nil {
+		if err := s.closeAuth(); err != nil {
 			return c, err
 		}
 		c.Auth = true
@@ -122,6 +124,20 @@ func (s Session) close(image string) error {
 	_ = s.Run.Run("", "taskkill", []string{"/IM", image}, nil)
 	if !waitFor(func() bool { return !s.Run.Running(image) }, exitWait) {
 		return fmt.Errorf("%s did not close: close it and export again", image)
+	}
+	return nil
+}
+
+// closeAuth closes the auth server. It has no window, so a graceful close can't reach it, and it keeps
+// no state that a forced stop could lose. It's given a short graceful try, then forced.
+func (s Session) closeAuth() error {
+	_ = s.Run.Run("", "taskkill", []string{"/IM", authImage}, nil)
+	if waitFor(func() bool { return !s.Run.Running(authImage) }, authGrace) {
+		return nil
+	}
+	_ = s.Run.Run("", "taskkill", []string{"/F", "/IM", authImage}, nil)
+	if !waitFor(func() bool { return !s.Run.Running(authImage) }, exitWait) {
+		return fmt.Errorf("%s did not close: close it and export again", authImage)
 	}
 	return nil
 }
