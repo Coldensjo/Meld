@@ -11,6 +11,8 @@ import (
 type Config struct {
 	// WowPath is a local WoW 1.x client folder whose MPQs are read live.
 	WowPath string `json:"wowPath"`
+	// VmangosPath is the VMaNGOS server folder that map patches and SQL are written for.
+	VmangosPath string `json:"vmangosPath,omitempty"`
 	// Prefs is the frontend's preferences object, stored opaquely.
 	Prefs json.RawMessage `json:"prefs,omitempty"`
 }

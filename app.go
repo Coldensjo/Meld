@@ -5,12 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"WorldEditor/internal/config"
 	"WorldEditor/internal/mapfile"
+	"WorldEditor/internal/mpq"
+	"WorldEditor/internal/vmangos"
 	"WorldEditor/internal/wow"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -152,4 +155,56 @@ func (a *App) LoadMap(path string) (*mapfile.MapData, error) {
 	}
 	runtime.WindowSetTitle(a.ctx, "WorldEditor — "+filepath.Base(path))
 	return m, nil
+}
+
+// VmangosPath returns the VMaNGOS server folder map exports are written for, or "".
+func (a *App) VmangosPath() string {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	return a.cfg.VmangosPath
+}
+
+// BrowseVmangosFolder lets the user pick a VMaNGOS server folder. Returns "" if cancelled.
+func (a *App) BrowseVmangosFolder() (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            "Select the VMaNGOS server folder",
+		DefaultDirectory: a.VmangosPath(),
+	})
+}
+
+// SetVmangosPath checks that path is a VMaNGOS server folder and remembers it. "" forgets it.
+func (a *App) SetVmangosPath(path string) error {
+	if path != "" {
+		if err := vmangos.CheckServer(path); err != nil {
+			return err
+		}
+	}
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	a.cfg.VmangosPath = path
+	return config.Save(a.cfg)
+}
+
+// InstallMapPatch writes the given archive files (path to base64 bytes) into the loaded client's
+// patch-3.MPQ, for the server to load. Returns the archive's path.
+func (a *App) InstallMapPatch(files map[string]string) (string, error) {
+	a.cfgMu.Lock()
+	wowPath := a.cfg.WowPath
+	a.cfgMu.Unlock()
+	if wowPath == "" {
+		return "", errors.New("no WoW client is set")
+	}
+	dataDir, err := wow.ResolveDataDir(wowPath)
+	if err != nil {
+		return "", err
+	}
+	list := make([]mpq.File, 0, len(files))
+	for name, b64 := range files {
+		data, err := base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			return "", fmt.Errorf("%s: %w", name, err)
+		}
+		list = append(list, mpq.File{Name: name, Data: data})
+	}
+	return vmangos.InstallPatch(dataDir, list)
 }
