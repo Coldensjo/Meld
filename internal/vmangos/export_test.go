@@ -1,0 +1,133 @@
+package vmangos
+
+import (
+	"encoding/base64"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"WorldEditor/internal/adt"
+	"WorldEditor/internal/mpq"
+	"WorldEditor/internal/wow"
+)
+
+func flatTile(h float32) []float32 {
+	out := make([]float32, LatticeSize*LatticeSize)
+	for i := range out {
+		out[i] = h
+	}
+	return out
+}
+
+// TestExportMapWritesTilesAndTable exports a one-tile map into a temp patch and server folder, then
+// reads the patch back: WOW_DIR=/path/to/client go test ./internal/vmangos/
+func TestExportMapWritesTilesAndTable(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
+	}
+	readDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	patchDir := t.TempDir()
+	server := t.TempDir()
+	os.MkdirAll(filepath.Join(server, "run"), 0o755)
+	os.MkdirAll(filepath.Join(server, "data", "5875", "dbc"), 0o755)
+	os.WriteFile(filepath.Join(server, "run", "mangosd.conf"), []byte("x"), 0o644)
+
+	// Heights: a gentle slope. Paint: chunk 3 with grass and dirt over half of it.
+	outer := make([]float32, LatticeSize*LatticeSize)
+	for i := range outer {
+		outer[i] = float32(i%LatticeSize) * 0.5
+	}
+	weights := make([]byte, 32*32*4)
+	for texel := 0; texel < 32*32; texel++ {
+		weights[texel*4] = 128
+		weights[texel*4+1] = 127
+	}
+	spec := MapSpec{
+		Dir:   "WorldEditorTest",
+		MapID: 1901,
+		Tiles: []TileSpec{{
+			X: 5, Y: 6,
+			Outer:   outer,
+			Paint:   []PaintSpec{{Chunk: 3, Textures: []string{`Tileset\Elwynn\ElwynnGrassBase.blp`, `Tileset\Elwynn\ElwynnDirtBase2.blp`}, Weights: base64.StdEncoding.EncodeToString(weights)}},
+			Objects: []ObjectSpec{{Type: `m2:World\Test\Rock.m2`, X: 50, Y: 20, Z: 60, RotY: math.Pi / 2, Scale: 1}},
+		}},
+	}
+	res, err := ExportMap(readDir, patchDir, server, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Tiles != 1 || res.Server == "" {
+		t.Fatalf("result = %+v", res)
+	}
+
+	arch, err := mpq.Open(res.Patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tile, err := arch.ReadFile(adt.TilePath("WorldEditorTest", 5, 6, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := adt.ParseTerrain(tile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	textures, err := adt.ParseTextures(tile, false, terrain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := textures.Chunks[3].Layers; len(got) != 2 || !strings.EqualFold(got[1].Texture, `Tileset\Elwynn\ElwynnDirtBase2.blp`) {
+		t.Fatalf("chunk 3 layers = %+v", got)
+	}
+	placed, err := adt.ParsePlacements(tile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(placed) != 1 || placed[0].Name != `World\Test\Rock.m2` {
+		t.Fatalf("placements = %+v", placed)
+	}
+	// The tile's ground is where the editor put it: the first corner of the tile.
+	if d := terrain.Chunks[0].Heights[0] - outer[0]; d > 0.01 || d < -0.01 {
+		t.Fatalf("height %v, want %v", terrain.Chunks[0].Heights[0], outer[0])
+	}
+
+	wdt, err := arch.ReadFile(`World\Maps\WorldEditorTest\WorldEditorTest.wdt`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wdt) == 0 {
+		t.Fatal("empty WDT")
+	}
+	dbc, err := arch.ReadFile(`DBFilesClient\Map.dbc`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if MapRowDir(dbc, 1901) != "WorldEditorTest" {
+		t.Fatal("the patch's Map.dbc has no row for the map")
+	}
+	serverDBC, err := os.ReadFile(res.Server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if MapRowDir(serverDBC, 1901) != "WorldEditorTest" {
+		t.Fatal("the server's Map.dbc has no row for the map")
+	}
+
+	arch.Close() // Windows won't replace a patch that is open
+
+	// Exporting again is allowed; a map ID the client already names for another folder is not.
+	if _, err := ExportMap(readDir, patchDir, "", spec); err != nil {
+		t.Fatalf("re-export: %v", err)
+	}
+	clash := spec
+	clash.MapID = 1 // Kalimdor, in every client
+	if _, err := ExportMap(readDir, patchDir, "", clash); err == nil {
+		t.Fatal("a map ID the client already uses was accepted")
+	}
+}
