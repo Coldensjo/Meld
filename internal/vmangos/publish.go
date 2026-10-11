@@ -50,14 +50,9 @@ func (OSRunner) Run(dir, name string, args []string, log func(string)) error {
 	return cmd.Wait()
 }
 
+// Start runs a program that stays up after this returns. See startProgram.
 func (OSRunner) Start(dir, name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Dir = dir
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	go cmd.Wait()
-	return nil
+	return startProgram(dir, name, args)
 }
 
 // PublishPlan says where a map's files go: the client's Data folder (where the patch is written and the
