@@ -174,22 +174,6 @@ export namespace vmangos {
 		    return a;
 		}
 	}
-	export class ExportResult {
-	    Patch: string;
-	    Server: string;
-	    Tiles: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new ExportResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Patch = source["Patch"];
-	        this.Server = source["Server"];
-	        this.Tiles = source["Tiles"];
-	    }
-	}
 	
 	export class ObjectSpec {
 	    Type: string;

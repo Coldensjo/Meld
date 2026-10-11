@@ -14,7 +14,7 @@
   import { LAYERS } from './lib/terrain/layers'
   import { editor, prefs, setStatus, ui, wow } from './lib/state/editor.svelte'
   import { engineRef } from './lib/state/engineRef'
-  import { openMap, saveMap } from './lib/io/mapio'
+  import { openMap, saveOrPublish } from './lib/io/mapio'
   import { requestClose } from './components/DocTabs.svelte'
   import { WindowSetTitle } from '../wailsjs/runtime/runtime'
   import { hasBackend } from './lib/io/mapio'
@@ -77,7 +77,7 @@
       else if (key === 'v') engine.startPaste()
       else if (key === 'a') engine.selectAll()
       else if (key === 'd') engine.deselect()
-      else if (key === 's') saveMap(engine, e.shiftKey)
+      else if (key === 's') saveOrPublish(engine, e.shiftKey)
       else if (key === 'w') requestClose(engine.activeDocumentId())
       else if (e.key === 'Tab') engine.cycleDocument(e.shiftKey ? -1 : 1)
       else if (key === 'o') openMap(engine)

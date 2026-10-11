@@ -1,10 +1,10 @@
 import {
   BrowseVmangosFolder,
   ExportTileHeights,
-  ExportVmangosMap,
   LoadMap,
   LoadTile,
   OpenMapDialog,
+  PublishVmangosMap,
   SaveMap,
   SaveMapDialog,
   SetVmangosPath,
@@ -17,6 +17,7 @@ import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
 import { mapToTiles } from './vmangosExport'
 import { vmangos } from '../../../wailsjs/go/models'
+import { EventsOn } from '../../../wailsjs/runtime/runtime'
 
 /** True when running inside the Wails webview (Go bindings available). */
 export const hasBackend = () => typeof (window as unknown as { go?: unknown }).go !== 'undefined'
@@ -187,35 +188,72 @@ export async function chooseVmangosFolder() {
   }
 }
 
+let lastMapId = 0
+let listening = false
+
+/** Routes progress from the background publish to the status bar, once. */
+function listenToPublish() {
+  if (listening) return
+  listening = true
+  EventsOn('publish:log', (line: string) => setStatus(line, 0))
+  EventsOn('publish:done', (msg: string) => {
+    ui.busy = false
+    if (msg) setStatus(`Publish failed: ${msg}`, 0)
+    else setStatus(`Map published. In game, type .go xyz 16800 16800 10 ${lastMapId} to go there.`, 15000)
+  })
+}
+
 /**
- * Writes a map made for the client: its tiles with their ground, paint and models, the map's WDT and
- * its row in the client's map table. The server's copy of the table follows when its folder is set.
+ * Publishes a map made for the client: it's written into the client's patch, added to the server, and the
+ * server's map data is extracted again before the world server restarts. Runs in the background.
  */
-export function exportVmangosMap(engine: Engine) {
-  return guarded('Export map', async () => {
+export function publishVmangosMap(engine: Engine) {
+  return guarded('Publish', async () => {
     const ref = engine.activeVmangos()
     if (!ref) {
-      setStatus('Only a map made for the client exports this way. Make one with File › New Map…, ticking “For the WoW 1.12 client”.')
+      setStatus('Only a map made for the client publishes this way. Make one with File › New Map…, ticking “For the WoW 1.12 client”.')
       return
     }
+    listenToPublish()
     const input = engine.exportInput()
     const out = mapToTiles(input)
-    const res = await ExportVmangosMap(
-      vmangos.MapSpec.createFrom({
-        Dir: ref.dir,
-        MapID: ref.mapId,
-        Tiles: out.tiles,
-        Water: input.waterEnabled,
-        WaterLevel: input.waterLevel,
-      }),
-    )
     const notes: string[] = []
-    if (out.colorChunks) notes.push(`${out.colorChunks} chunks painted with a colour were left out; paint them with a texture`)
+    if (out.colorChunks) notes.push(`${out.colorChunks} chunks painted with a colour were left out`)
     if (out.outside) notes.push(`${out.outside} models outside the map were left out`)
-    const server = res.Server
-      ? " The server's map table is updated. Run update-maps.bat in your VMaNGOS folder, then start the server."
-      : ' Set the VMaNGOS folder to update the server, then run update-maps.bat.'
-    const extra = notes.length ? ' ' + notes.join('. ') + '.' : ''
-    setStatus(`Wrote ${res.Tiles} tiles of ${ref.dir} (map ${ref.mapId}) to the client's patch.${server}${extra}`, 14000)
+    lastMapId = ref.mapId
+    ui.busy = true
+    setStatus(`Publishing ${ref.dir}…${notes.length ? ' ' + notes.join('. ') + '.' : ''}`, 0)
+    try {
+      await PublishVmangosMap(
+        vmangos.MapSpec.createFrom({
+          Dir: ref.dir,
+          MapID: ref.mapId,
+          Tiles: out.tiles,
+          Water: input.waterEnabled,
+          WaterLevel: input.waterLevel,
+        }),
+      )
+    } catch (e) {
+      ui.busy = false
+      throw e
+    }
   })
+}
+
+/**
+ * Save for a map made for the client is a publish: it asks first, because the world server stops and
+ * players are disconnected. Other maps just save.
+ */
+export function saveOrPublish(engine: Engine, saveAs = false) {
+  if (!saveAs && engine.activeVmangos()) {
+    ui.dialog = 'publish'
+    return
+  }
+  return saveMap(engine, saveAs)
+}
+
+/** Saves the map, then publishes it, if the save went through. */
+export async function saveAndPublish(engine: Engine) {
+  await saveMap(engine)
+  if (!editor.dirty) await publishVmangosMap(engine)
 }

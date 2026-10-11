@@ -252,19 +252,45 @@ func (a *App) ExportTileHeights(mapName string, x, y int, outer []float32) (stri
 	return vmangos.InstallPatch(dataDir, []mpq.File{{Name: adt.TilePath(mapName, x, y, ""), Data: patched}})
 }
 
-// ExportVmangosMap writes a map made in the editor for the 1.12 client: its tiles, WDT and map table
-// row go into the client's patch, and the server's copy of the table is updated when a VMaNGOS
-// folder is set.
-func (a *App) ExportVmangosMap(m vmangos.MapSpec) (vmangos.ExportResult, error) {
-	defer a.releaseClient()()
-	dataDir, err := a.clientDataDir()
+// PublishVmangosMap makes a map made in the editor playable: it's written into the client's patch, added to
+// the server's tables, and the server's map data is extracted again before the world server restarts.
+// It runs in the background. Progress arrives as "publish:log" events, and "publish:done" carries an error
+// message, or nothing when the publish finished.
+func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
+	clientDir, err := a.clientRoot()
 	if err != nil {
-		return vmangos.ExportResult{}, err
+		return err
 	}
 	a.cfgMu.Lock()
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
-	return vmangos.ExportMap(dataDir, dataDir, server, m)
+	if server == "" {
+		return errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
+	}
+	go func() {
+		defer a.releaseClient()()
+		logf := func(line string) { runtime.EventsEmit(a.ctx, "publish:log", line) }
+		msg := ""
+		if err := vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}, m, logf); err != nil {
+			msg = err.Error()
+		}
+		runtime.EventsEmit(a.ctx, "publish:done", msg)
+	}()
+	return nil
+}
+
+// clientRoot is the WoW client's folder (the one holding Data), whichever of the two was configured.
+func (a *App) clientRoot() (string, error) {
+	a.cfgMu.Lock()
+	path := a.cfg.WowPath
+	a.cfgMu.Unlock()
+	if path == "" {
+		return "", errors.New("no WoW client is set")
+	}
+	if strings.EqualFold(filepath.Base(path), "Data") {
+		return filepath.Dir(path), nil
+	}
+	return path, nil
 }
 
 // releaseClient lets the game's files be written: the client's archives keep them open while

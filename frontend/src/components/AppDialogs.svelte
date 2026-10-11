@@ -2,7 +2,7 @@
   import Modal from './Modal.svelte'
   import { docs, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { openWowTile } from '../lib/io/mapio'
+  import { openWowTile, saveAndPublish } from '../lib/io/mapio'
   import { Quit } from '../../wailsjs/go/main/App'
   import { APP_VERSION } from '../lib/version'
 
@@ -136,6 +136,22 @@
           close()
           if (e) openWowTile(e, tileMap.trim(), tileX, tileY)
         }}>Open</button
+      >
+    {/snippet}
+  </Modal>
+{:else if ui.dialog === 'publish'}
+  <Modal title="Publish to the server" width={400} onclose={close}>
+    <p>Publishing rebuilds this map for the server and the client. It writes the map into your WoW client's patch, then stops the world server, extracts the map again (several minutes), and starts the server.</p>
+    <p class="warn">Players on the server will be disconnected. Close World of Warcraft first, or it can't update its patch.</p>
+    {#snippet actions()}
+      <button onclick={close}>Cancel</button>
+      <button
+        class="active"
+        onclick={() => {
+          const e = engineRef.current
+          close()
+          if (e) saveAndPublish(e)
+        }}>Save and publish</button
       >
     {/snippet}
   </Modal>

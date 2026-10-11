@@ -18,10 +18,6 @@ export function ExportTileHeights(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTileHeights'](arg1, arg2, arg3, arg4);
 }
 
-export function ExportVmangosMap(arg1) {
-  return window['go']['main']['App']['ExportVmangosMap'](arg1);
-}
-
 export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
@@ -40,6 +36,10 @@ export function LoadTile(arg1, arg2, arg3) {
 
 export function OpenMapDialog() {
   return window['go']['main']['App']['OpenMapDialog']();
+}
+
+export function PublishVmangosMap(arg1) {
+  return window['go']['main']['App']['PublishVmangosMap'](arg1);
 }
 
 export function Quit() {
