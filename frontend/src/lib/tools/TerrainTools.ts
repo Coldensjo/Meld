@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { editor } from '../state/editor.svelte'
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
-import { TerrainStroke, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
+import { TerrainStroke, brushCenter, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
 
 /** Shared stroke lifecycle for brush tools that modify the terrain. */
 abstract class BrushTool implements Tool {
@@ -26,9 +26,18 @@ abstract class BrushTool implements Tool {
     if (cmd) ctx.history.push(cmd)
   }
 
+  private center = new THREE.Vector3()
+
+  /** Radius of the brush footprint (roads use a narrower one). */
+  radius(): number {
+    return editor.brush.radius
+  }
+
   tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
     if (!this.stroke || !hit) return
-    this.apply(ctx, dt, hit)
+    brushShape.square = editor.brush.shape === 'square'
+    const [x, z] = brushCenter(hit.x, hit.z, this.radius(), ctx.terrain.cellSize, brushShape.square && editor.brush.snap)
+    this.apply(ctx, dt, this.center.set(x, hit.y, z))
   }
 
   protected begin(_ctx: ToolContext, _hit: THREE.Vector3) {}
@@ -152,10 +161,14 @@ export class RoadTool extends BrushTool {
   protected label = 'Road'
   protected records = { heights: true, splat: true }
 
+  radius() {
+    return Math.max(1.5, editor.brush.radius * 0.5)
+  }
+
   protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
     const t = ctx.terrain
     const { radius, strength } = editor.brush
-    const width = Math.max(1.5, radius * 0.5)
+    const width = this.radius()
     const amt = Math.min(1, strength * dt * 8)
     const sr = forEachTexel(t, hit.x, hit.z, width, 0.25, (p, w) => paintPixel(t, p, editor.paintLayer, amt * w))
     this.splatChanged(ctx, sr)

@@ -34,6 +34,7 @@ uniform float waterEnabled;
 uniform vec3 waterDeep;
 uniform vec2 brushPos;
 uniform float brushRadius;
+uniform float brushSquare;
 uniform float brushVisible;
 uniform vec3 brushColor;
 uniform float gridVisible;
@@ -96,7 +97,8 @@ void main() {
   }
 
   if (brushVisible > 0.5) {
-    float d = distance(vWorldPos.xz, brushPos);
+    vec2 bd = abs(vWorldPos.xz - brushPos);
+    float d = brushSquare > 0.5 ? max(bd.x, bd.y) : length(bd);
     float w = max(0.12, brushRadius * 0.035);
     float ring = smoothstep(brushRadius - w * 2.0, brushRadius - w, d) * (1.0 - smoothstep(brushRadius, brushRadius + w, d));
     float inner = (1.0 - smoothstep(0.0, brushRadius, d)) * 0.12;
@@ -134,6 +136,7 @@ export function createTerrainMaterial(
     waterDeep: { value: new THREE.Color(0.03, 0.12, 0.18) },
     brushPos: { value: new THREE.Vector2() },
     brushRadius: { value: 8 },
+    brushSquare: { value: 0 },
     brushVisible: { value: 0 },
     brushColor: { value: new THREE.Color(0.92, 0.95, 1.0) },
     gridVisible: { value: 0 },

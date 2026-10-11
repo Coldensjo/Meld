@@ -17,7 +17,7 @@ export interface SelectedInfo {
 
 export const editor = $state({
   tool: 'sculpt' as ToolId,
-  brush: { radius: 10, strength: 0.5, falloff: 0.6 },
+  brush: { radius: 10, strength: 0.5, falloff: 0.6, shape: 'circle' as 'circle' | 'square', snap: true },
   sculptMode: 'raise' as SculptMode,
   paintLayer: 0,
   roadFlatten: true,

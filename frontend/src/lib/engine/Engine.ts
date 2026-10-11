@@ -8,6 +8,7 @@ import { CameraController } from './CameraController'
 import { HORIZON, createSky } from './Sky'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
+import { brushCenter } from '../tools/brush'
 import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
 import type { WorldObject } from '../world/ObjectLayer'
 import { getFallbackTextures } from '../terrain/textures'
@@ -249,8 +250,14 @@ export class Engine {
     const u = this.terrain.material.uniforms
     u.texScale.value = editor.texScale
     u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
-    if (this.hit) u.brushPos.value.set(this.hit.x, this.hit.z)
-    u.brushRadius.value = editor.tool === 'road' ? Math.max(1.5, editor.brush.radius * 0.5) : editor.brush.radius
+    const radius = editor.tool === 'road' ? Math.max(1.5, editor.brush.radius * 0.5) : editor.brush.radius
+    const square = editor.brush.shape === 'square'
+    if (this.hit) {
+      const [bx, bz] = brushCenter(this.hit.x, this.hit.z, radius, this.terrain.cellSize, square && editor.brush.snap)
+      u.brushPos.value.set(bx, bz)
+    }
+    u.brushRadius.value = radius
+    u.brushSquare.value = square ? 1 : 0
     u.gridVisible.value = editor.grid ? 1 : 0
     u.cliffAuto.value = editor.autoCliff ? 1 : 0
     u.waterLevel.value = editor.waterLevel

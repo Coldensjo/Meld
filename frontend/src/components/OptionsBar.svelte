@@ -72,6 +72,15 @@
     {/if}
   {/if}
 
+  {#if usesBrush && editor.tool !== 'place'}
+    <div class="seg" title="Brush shape">
+      <button class:active={editor.brush.shape === 'circle'} onclick={() => (editor.brush.shape = 'circle')} aria-label="Round brush">●</button>
+      <button class:active={editor.brush.shape === 'square'} onclick={() => (editor.brush.shape = 'square')} aria-label="Square brush">■</button>
+    </div>
+    {#if editor.brush.shape === 'square'}
+      <label class="check" title="Align square brushes to the terrain grid"><input type="checkbox" bind:checked={editor.brush.snap} /> Snap to grid</label>
+    {/if}
+  {/if}
   {#if usesBrush}
     <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={80} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
     <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={1} step={0.01} digits={2} />

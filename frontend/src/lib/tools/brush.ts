@@ -9,6 +9,27 @@ export interface Rect {
   z1: number
 }
 
+/**
+ * Brush footprint used by forEachVertex/forEachTexel. Brush tools set this
+ * from the editor state at the start of each tick.
+ */
+export const brushShape = { square: false }
+
+/** Normalised brush distance: circle (euclidean) or square (chebyshev). */
+function brushDist(dx: number, dz: number, radius: number) {
+  return (brushShape.square ? Math.max(Math.abs(dx), Math.abs(dz)) : Math.hypot(dx, dz)) / radius
+}
+
+/**
+ * Brush centre, optionally snapped so a square brush's edges sit on cell
+ * lines (for tile-aligned square painting).
+ */
+export function brushCenter(x: number, z: number, radius: number, cellSize: number, snap: boolean): [number, number] {
+  if (!snap) return [x, z]
+  const s = (v: number) => Math.round((v - radius) / cellSize) * cellSize + radius
+  return [s(x), s(z)]
+}
+
 /** Brush weight for normalised distance t in [0,1]. falloff 0 = hard edge. */
 export function brushWeight(t: number, falloff: number): number {
   if (t >= 1) return 0
@@ -36,7 +57,7 @@ export function forEachVertex(
   const V = terrain.verts
   for (let z = z0; z <= z1; z++) {
     for (let x = x0; x <= x1; x++) {
-      const d = Math.hypot(x * cs - cx, z * cs - cz) / radius
+      const d = brushDist(x * cs - cx, z * cs - cz, radius)
       const w = brushWeight(d, falloff)
       if (w > 0) fn(z * V + x, w, x, z)
     }
@@ -62,7 +83,7 @@ export function forEachTexel(
   if (x1 < x0 || z1 < z0) return null
   for (let z = z0; z <= z1; z++) {
     for (let x = x0; x <= x1; x++) {
-      const d = Math.hypot((x + 0.5) * ts - cx, (z + 0.5) * ts - cz) / radius
+      const d = brushDist((x + 0.5) * ts - cx, (z + 0.5) * ts - cz, radius)
       const w = brushWeight(d, falloff)
       if (w > 0) fn(z * R + x, w)
     }
