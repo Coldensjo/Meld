@@ -187,6 +187,10 @@ func (c *Client) Texture(path string) ([]byte, error) {
 
 func (c *Client) m2Mesh(path string) (*Mesh, error) {
 	raw, err := c.read(path)
+	// Map files name their models ".mdx", but the client stores them as ".m2".
+	if err != nil && strings.HasSuffix(strings.ToLower(path), ".mdx") {
+		raw, err = c.read(path[:len(path)-len(".mdx")] + ".m2")
+	}
 	if err != nil {
 		return nil, err
 	}
