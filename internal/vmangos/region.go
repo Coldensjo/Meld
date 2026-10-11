@@ -308,6 +308,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 	}
 
+	rc := newReaches(set)
 	seen := map[uint32]bool{}
 	for _, o := range e.Objects {
 		if k, ok := owner[o.UID]; o.UID != 0 && ok {
@@ -320,6 +321,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 			if err != nil {
 				return nil, err
 			}
+			rc.bound(&obj)
 			tiles[k].change.Remove[o.UID] = true
 			tiles[k].change.Add = append(tiles[k].change.Add, obj)
 			continue
@@ -330,6 +332,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		if err != nil {
 			return nil, err
 		}
+		rc.bound(&obj)
 		tiles[k].change.Add = append(tiles[k].change.Add, obj)
 	}
 	for uid, k := range owner {
