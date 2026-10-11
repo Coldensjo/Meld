@@ -37,12 +37,15 @@ type RegionView struct {
 // ObjectView is a placed model in the block's coordinates. UID is the file's unique ID, or 0 for
 // a model that isn't in the client yet. Y is the model's absolute height.
 type ObjectView struct {
-	UID   uint32  `json:"uid"`
-	Type  string  `json:"type"`
-	X     float32 `json:"x"`
-	Y     float32 `json:"y"`
-	Z     float32 `json:"z"`
-	RotY  float32 `json:"rotY"`
+	UID  uint32  `json:"uid"`
+	Type string  `json:"type"`
+	X    float32 `json:"x"`
+	Y    float32 `json:"y"`
+	Z    float32 `json:"z"`
+	RotY float32 `json:"rotY"`
+	// TiltX and TiltZ are the model's tilt forward and back, and side to side, in radians.
+	TiltX float32 `json:"tiltX"`
+	TiltZ float32 `json:"tiltZ"`
 	Scale float32 `json:"scale"`
 }
 
@@ -152,6 +155,8 @@ func objectView(p adt.Placement, x, y int) (ObjectView, bool) {
 	o.Y = p.Position[1]
 	o.Z = p.Position[2] - float32(y)*adt.TileSize
 	o.RotY = float32((float64(p.Rotation[1]) - 90) * math.Pi / 180)
+	o.TiltX = fromDegrees(p.Rotation[0])
+	o.TiltZ = fromDegrees(p.Rotation[2])
 	o.Scale = p.Scale
 	return o, true
 }
@@ -177,15 +182,10 @@ func placementFromView(o ObjectView, e RegionEdit, orig *adt.Placement) (adt.Obj
 	out.UID = o.UID
 	out.Position = [3]float32{o.X + float32(e.X)*adt.TileSize, o.Y, o.Z + float32(e.Y)*adt.TileSize}
 	yaw := float64(o.RotY)*180/math.Pi + 90
-	out.Rotation = [3]float32{0, float32(yaw), 0}
+	out.Rotation = [3]float32{toDegrees(o.TiltX), float32(yaw), toDegrees(o.TiltZ)}
 	out.Scale = o.Scale
 	if orig != nil {
 		out.DoodadSet, out.NameSet = orig.DoodadSet, orig.NameSet
-		if angleDiff(yaw, float64(orig.Rotation[1])) < angleEpsilon {
-			out.Rotation = orig.Rotation
-		} else {
-			out.Rotation[0], out.Rotation[2] = orig.Rotation[0], orig.Rotation[2]
-		}
 	}
 	if out.Scale == 0 {
 		out.Scale = 1
@@ -198,6 +198,16 @@ const (
 	posEpsilon   = 0.01
 	angleEpsilon = 0.01
 )
+
+// toDegrees converts a tilt in radians to the degrees a placement stores.
+func toDegrees(r float32) float32 {
+	return float32(float64(r) * 180 / math.Pi)
+}
+
+// fromDegrees converts a placement's stored degrees to a tilt in radians.
+func fromDegrees(d float32) float32 {
+	return float32(float64(d) * math.Pi / 180)
+}
 
 // angleDiff is the smallest difference between two angles in degrees.
 func angleDiff(a, b float64) float64 {
@@ -224,6 +234,8 @@ func unchanged(o ObjectView, e RegionEdit, orig adt.Placement) bool {
 		math.Abs(float64(o.Y-orig.Position[1])) < posEpsilon &&
 		math.Abs(float64(wz-orig.Position[2])) < posEpsilon &&
 		angleDiff(yaw, float64(orig.Rotation[1])) < angleEpsilon &&
+		angleDiff(float64(toDegrees(o.TiltX)), float64(orig.Rotation[0])) < angleEpsilon &&
+		angleDiff(float64(toDegrees(o.TiltZ)), float64(orig.Rotation[2])) < angleEpsilon &&
 		math.Abs(float64(o.Scale-orig.Scale)) < 0.001
 }
 

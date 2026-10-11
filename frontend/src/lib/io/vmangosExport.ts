@@ -22,6 +22,8 @@ export interface ExportObject {
   y: number
   z: number
   rotY: number
+  tiltX?: number
+  tiltZ?: number
   scale: number
 }
 
@@ -99,6 +101,8 @@ export function mapToTiles(input: ExportInput): ExportOut {
         Y: o.y,
         Z: o.z - ty * tileYards,
         RotY: o.rotY,
+        TiltX: o.tiltX ?? 0,
+        TiltZ: o.tiltZ ?? 0,
         Scale: o.scale,
       }))
   const extent = input.size * input.cellSize

@@ -48,6 +48,8 @@ export interface RegionObject {
   y: number
   z: number
   rotY: number
+  tiltX?: number
+  tiltZ?: number
   scale: number
 }
 
@@ -664,6 +666,8 @@ export class Engine {
         yOff: o.y - d.terrain.heightAt(o.x, o.z),
         rotY: o.rotY,
         scale: o.scale,
+        tiltX: o.tiltX,
+        tiltZ: o.tiltZ,
       })
       if (o.uid) region.uids.set(placed.id, o.uid)
     }
@@ -708,7 +712,7 @@ export class Engine {
     const t = this.terrain
     const objects = this.objects.list().map((o) => {
       const w = this.objects.worldPlacement(o)
-      return { type: o.type, x: w.pos.x, y: w.pos.y, z: w.pos.z, rotY: w.rot, scale: w.scale }
+      return { type: o.type, x: w.pos.x, y: w.pos.y, z: w.pos.z, rotY: w.rot, scale: w.scale, tiltX: o.tiltX ?? 0, tiltZ: o.tiltZ ?? 0 }
     })
     return {
       size: t.size,
@@ -736,7 +740,7 @@ export class Engine {
     const out: RegionObject[] = []
     for (const o of d.objects.objects.values()) {
       const w = d.objects.worldPlacement(o)
-      out.push({ uid: region.uids.get(o.id) ?? 0, type: o.type, x: w.pos.x, y: w.pos.y, z: w.pos.z, rotY: w.rot, scale: w.scale })
+      out.push({ uid: region.uids.get(o.id) ?? 0, type: o.type, x: w.pos.x, y: w.pos.y, z: w.pos.z, rotY: w.rot, scale: w.scale, tiltX: o.tiltX ?? 0, tiltZ: o.tiltZ ?? 0 })
     }
     return out
   }

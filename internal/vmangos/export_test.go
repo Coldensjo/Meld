@@ -142,3 +142,18 @@ func TestObjectRotationIsYawOnly(t *testing.T) {
 		t.Fatalf("an upright model is tilted: %v", o.Rotation)
 	}
 }
+
+// A tilt is written into the placement's outer rotations, as degrees, and the yaw stays in the middle.
+func TestObjectTiltIsWritten(t *testing.T) {
+	o, err := objectIn(0, 0, ObjectSpec{Type: `m2:World\Test\Tree.m2`, X: 1, Y: 2, Z: 3, RotY: 0, Scale: 1,
+		TiltX: float32(10 * math.Pi / 180), TiltZ: float32(-5 * math.Pi / 180)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(float64(o.Rotation[0])-10) > 0.01 || math.Abs(float64(o.Rotation[2])+5) > 0.01 {
+		t.Fatalf("tilt not written: %v", o.Rotation)
+	}
+	if o.Rotation[1] != 90 {
+		t.Fatalf("yaw 0 should be 90 in the file, got %v", o.Rotation[1])
+	}
+}

@@ -19,6 +19,8 @@ export interface SelectedInfo {
   z: number
   yOff: number
   rotY: number
+  tiltX?: number
+  tiltZ?: number
   scale: number
 }
 
@@ -45,6 +47,8 @@ export const editor = $state({
   prefab: '',
   placeRandomRot: true,
   placeRandomScale: true,
+  /** Placed models tilt a little at random (up to 8 degrees each way) when on. */
+  placeRandomTilt: false,
   placeScatter: false,
   /** Extra height above the surface for new placements (Alt+scroll). */
   placeHeight: 0,

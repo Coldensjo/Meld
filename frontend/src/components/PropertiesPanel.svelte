@@ -36,6 +36,8 @@
     <Slider label="Z" value={s.z} min={0} max={worldSize} step={0.1} digits={1} onstart={startEdit} oninput={(v) => live({ z: v })} onchange={(v) => commit({ z: v })} />
     <Slider label="Height offset" value={s.yOff} min={-5} max={20} step={0.05} digits={2} onstart={startEdit} oninput={(v) => live({ yOff: v })} onchange={(v) => commit({ yOff: v })} />
     <Slider label="Rotation°" value={deg(s.rotY) % 360} min={-360} max={360} step={1} digits={0} onstart={startEdit} oninput={(v) => live({ rotY: rad(v) })} onchange={(v) => commit({ rotY: rad(v) })} />
+    <Slider label="Tilt°" value={deg(s.tiltX ?? 0)} min={-60} max={60} step={0.5} digits={1} onstart={startEdit} oninput={(v) => live({ tiltX: rad(v) })} onchange={(v) => commit({ tiltX: rad(v) })} />
+    <Slider label="Roll°" value={deg(s.tiltZ ?? 0)} min={-60} max={60} step={0.5} digits={1} onstart={startEdit} oninput={(v) => live({ tiltZ: rad(v) })} onchange={(v) => commit({ tiltZ: rad(v) })} />
     <Slider label="Scale" value={s.scale} min={0.2} max={5} step={0.01} digits={2} onstart={startEdit} oninput={(v) => live({ scale: v })} onchange={(v) => commit({ scale: v })} />
   {:else}
     <h3>World</h3>

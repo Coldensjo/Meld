@@ -23,7 +23,9 @@ type ObjectSpec struct {
 	Type    string
 	X, Y, Z float32
 	RotY    float32
-	Scale   float32
+	// TiltX and TiltZ are the model's tilt forward and back, and side to side, in radians.
+	TiltX, TiltZ float32
+	Scale        float32
 }
 
 // TileSpec is one tile of a map to write.
@@ -200,7 +202,7 @@ func objectIn(tileX, tileY int, o ObjectSpec) (adt.Object, error) {
 	}
 	out.Position = [3]float32{float32(tileX)*adt.TileSize + o.X, o.Y, float32(tileY)*adt.TileSize + o.Z}
 	yaw := float64(o.RotY) * 180 / math.Pi
-	out.Rotation = [3]float32{0, float32(yaw + 90), 0}
+	out.Rotation = [3]float32{float32(float64(o.TiltX) * 180 / math.Pi), float32(yaw + 90), float32(float64(o.TiltZ) * 180 / math.Pi)}
 	out.Scale = o.Scale
 	if out.Scale == 0 {
 		out.Scale = 1

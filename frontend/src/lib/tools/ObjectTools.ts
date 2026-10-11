@@ -37,6 +37,14 @@ export function transformCommand(objects: ObjectLayer, before: WorldObject, afte
   return { label: 'Transform', undo: () => apply(b), redo: () => apply(a) }
 }
 
+const TILT_LIMIT = (8 * Math.PI) / 180
+
+/** A random tilt each way, up to TILT_LIMIT, when random tilt is on; nothing otherwise. */
+function randomTilt(): { tiltX?: number; tiltZ?: number } {
+  if (!editor.placeRandomTilt) return {}
+  return { tiltX: (Math.random() * 2 - 1) * TILT_LIMIT, tiltZ: (Math.random() * 2 - 1) * TILT_LIMIT }
+}
+
 export class PlaceTool implements Tool {
   get usesBrush() {
     return editor.placeScatter
@@ -47,6 +55,7 @@ export class PlaceTool implements Tool {
   private ghostAsset: ModelAsset | null = null
   private rot = 0
   private scale = 1
+  private tilt: { tiltX?: number; tiltZ?: number } = {}
   private scattering: WorldObject[] | null = null
   private scatterAcc = 0
 
@@ -71,6 +80,7 @@ export class PlaceTool implements Tool {
   private reroll() {
     this.rot = editor.placeRandomRot ? Math.random() * Math.PI * 2 : this.rot
     this.scale = editor.placeRandomScale ? 0.8 + Math.random() * 0.45 : 1
+    this.tilt = randomTilt()
   }
 
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
@@ -108,7 +118,7 @@ export class PlaceTool implements Tool {
     }
     // Attach to the building/prop under the cursor, or sit on the ground.
     const surf = ctx.surface() ?? { point: hit.clone(), parent: null }
-    const o = ctx.objects.add({ type: editor.prefab, x: hit.x, z: hit.z, yOff: 0, rotY: this.rot, scale: this.scale })
+    const o = ctx.objects.add({ type: editor.prefab, x: hit.x, z: hit.z, yOff: 0, rotY: this.rot, scale: this.scale, ...this.tilt })
     ctx.objects.place(o, surf.parent, {
       pos: surf.point.clone().setY(surf.point.y + editor.placeHeight),
       rot: this.rot,
@@ -142,6 +152,7 @@ export class PlaceTool implements Tool {
         yOff: 0,
         rotY: Math.random() * Math.PI * 2,
         scale: editor.placeRandomScale ? 0.75 + Math.random() * 0.5 : 1,
+        ...randomTilt(),
       })
       this.scattering.push(o)
     }

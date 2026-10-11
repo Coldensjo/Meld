@@ -15,6 +15,9 @@ export interface WorldObject {
   z: number
   yOff: number
   rotY: number
+  /** Tilt forward and back, and side to side, in radians, about the model's own axes before its turn. */
+  tiltX?: number
+  tiltZ?: number
   scale: number
 }
 
@@ -163,7 +166,8 @@ export class ObjectLayer {
   }
 
   private matrixAt(o: WorldObject, out: THREE.Matrix4, depth: number): THREE.Matrix4 {
-    const q = new THREE.Quaternion().setFromAxisAngle(this.up, o.rotY)
+    // Tilt is applied in the model's own frame, then the turn about the world up.
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.tiltX ?? 0, o.rotY, o.tiltZ ?? 0, 'YXZ'))
     const sc = new THREE.Vector3().setScalar(o.scale)
     const parent = this.parentOf(o, depth)
     if (!parent) {

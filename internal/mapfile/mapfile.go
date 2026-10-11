@@ -54,6 +54,9 @@ type PlacedObject struct {
 	Scale  float64 `json:"scale"`
 	// UID is the model's unique ID in the client's files, for a model imported from a client region.
 	UID uint32 `json:"uid,omitempty"`
+	// TiltX and TiltZ are the model's tilt forward and back, and side to side, in radians. Zero when upright.
+	TiltX float64 `json:"tiltX,omitempty"`
+	TiltZ float64 `json:"tiltZ,omitempty"`
 }
 
 // Header is the JSON metadata section of a map file.

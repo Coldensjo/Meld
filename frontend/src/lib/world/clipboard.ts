@@ -118,6 +118,8 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
       z: w.pos.z - oz,
       yOff: w.pos.y - terrain.heightAt(w.pos.x, w.pos.z),
       rotY: w.rot,
+      tiltX: o.tiltX,
+      tiltZ: o.tiltZ,
       scale: w.scale,
     }
   })

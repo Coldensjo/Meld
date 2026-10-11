@@ -66,6 +66,7 @@
     </span>
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomRot} /> Random rotation</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomScale} /> Random scale</label>
+    <label class="check" title="Tilt each placed model a little, up to 8 degrees each way"><input type="checkbox" bind:checked={editor.placeRandomTilt} /> Random tilt</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeScatter} /> Scatter</label>
     <span class="chip" title="Height above the surface for new placements (Alt+scroll)">
       <span class="dim">Height:</span> {editor.placeHeight >= 0 ? '+' : ''}{editor.placeHeight.toFixed(2)}
