@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	goruntime "runtime"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"WorldEditor/internal/config"
+	"WorldEditor/internal/game"
 	"WorldEditor/internal/heightmap"
 	"WorldEditor/internal/mapfile"
 	"WorldEditor/internal/mpq"
@@ -250,14 +252,78 @@ func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, 
 }
 
 // SaveRegion writes an edited block back into the client's patch, into the tiles it came from, and
-// returns the patch's path. The server's map data is built from the patch.
+// returns the patch's path. The server's map data is built from the patch. On Windows the game and
+// the servers are closed first, since they hold the patch open, and opened again afterwards.
 func (a *App) SaveRegion(edit vmangos.RegionEdit) (string, error) {
 	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return "", err
 	}
-	return vmangos.SaveRegion(dataDir, edit)
+	if goruntime.GOOS != "windows" {
+		return vmangos.SaveRegion(dataDir, edit)
+	}
+	sess, err := a.gameSession()
+	if err != nil {
+		return "", err
+	}
+	closed, err := sess.Stop()
+	if err != nil {
+		// Open what did close again, and leave the patch alone.
+		return "", errors.Join(err, sess.Start(closed))
+	}
+	patch, err := vmangos.SaveRegion(dataDir, edit)
+	if restart := sess.Start(closed); restart != nil {
+		err = errors.Join(err, restart)
+	}
+	return patch, err
+}
+
+// gameSession is the game and server a region export restarts, with the saved login.
+func (a *App) gameSession() (game.Session, error) {
+	root, err := a.clientRoot()
+	if err != nil {
+		return game.Session{}, err
+	}
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	return game.Session{
+		ClientRoot: root,
+		ServerRoot: a.cfg.VmangosPath,
+		Login:      a.cfg.Login,
+		Run:        vmangos.OSRunner{},
+		Log:        func(msg string) { runtime.LogInfo(a.ctx, msg) },
+	}, nil
+}
+
+// GameLoginInfo is the saved game login. The password itself never goes to the frontend.
+type GameLoginInfo struct {
+	Account     string `json:"account"`
+	HasPassword bool   `json:"hasPassword"`
+}
+
+// GameLogin returns the account the game logs in with after a region export.
+func (a *App) GameLogin() GameLoginInfo {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	return GameLoginInfo{Account: a.cfg.Login.Account, HasPassword: a.cfg.Login.Password != ""}
+}
+
+// SetGameLogin saves the account and password the game logs in with. An empty account clears the login.
+// An empty password keeps the saved one when the account is unchanged, and otherwise saves none.
+func (a *App) SetGameLogin(account, password string) error {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	account = strings.TrimSpace(account)
+	if account == "" {
+		a.cfg.Login = config.Login{}
+	} else {
+		if password == "" && a.cfg.Login.Account == account {
+			password = a.cfg.Login.Password
+		}
+		a.cfg.Login = config.Login{Account: account, Password: password}
+	}
+	return config.Save(a.cfg)
 }
 
 // PublishVmangosMap makes a map made in the editor playable: it's written into the client's patch, added to

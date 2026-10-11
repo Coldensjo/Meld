@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from './Modal.svelte'
   import TileMinimap, { type Block } from './TileMinimap.svelte'
+  import GameLoginDialog from './GameLoginDialog.svelte'
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { openWowRegion, saveAndPublish } from '../lib/io/mapio'
@@ -233,6 +234,8 @@
       <button class="danger" onclick={() => Quit()}>Quit without saving</button>
     {/snippet}
   </Modal>
+{:else if ui.dialog === 'gameLogin'}
+  <GameLoginDialog />
 {/if}
 
 <style>

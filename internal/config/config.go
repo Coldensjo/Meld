@@ -13,8 +13,17 @@ type Config struct {
 	WowPath string `json:"wowPath"`
 	// VmangosPath is the VMaNGOS server folder that map patches and SQL are written for.
 	VmangosPath string `json:"vmangosPath,omitempty"`
+	// Login is the account a region export logs the game back in with. The password is stored in
+	// plain text, so this is for a local dev setup only.
+	Login Login `json:"login,omitempty"`
 	// Prefs is the frontend's preferences object, stored opaquely.
 	Prefs json.RawMessage `json:"prefs,omitempty"`
+}
+
+// Login is a game account to log in with after a region export.
+type Login struct {
+	Account  string `json:"account,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 func path() (string, error) {

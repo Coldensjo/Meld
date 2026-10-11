@@ -17,10 +17,18 @@ import (
 type Runner interface {
 	Run(dir, name string, args []string, log func(string)) error
 	Start(dir, name string, args ...string) error
+	// Running reports whether a program with this image name (say "mangosd.exe") is running.
+	Running(image string) bool
 }
 
 // OSRunner runs programs on this machine.
 type OSRunner struct{}
+
+// Running asks Windows' task list for the image name.
+func (OSRunner) Running(image string) bool {
+	out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq "+image, "/NH").Output()
+	return err == nil && strings.Contains(strings.ToLower(string(out)), strings.ToLower(image))
+}
 
 func (OSRunner) Run(dir, name string, args []string, log func(string)) error {
 	cmd := exec.Command(name, args...)

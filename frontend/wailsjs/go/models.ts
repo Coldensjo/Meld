@@ -25,6 +25,20 @@ export namespace adt {
 
 export namespace main {
 	
+	export class GameLoginInfo {
+	    account: string;
+	    hasPassword: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new GameLoginInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.account = source["account"];
+	        this.hasPassword = source["hasPassword"];
+	    }
+	}
 	export class HeightmapData {
 	    side: number;
 	    heights: number[];
@@ -86,6 +100,8 @@ export namespace mapfile {
 	    rotY: number;
 	    scale: number;
 	    uid?: number;
+	    tiltX?: number;
+	    tiltZ?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PlacedObject(source);
@@ -102,6 +118,8 @@ export namespace mapfile {
 	        this.rotY = source["rotY"];
 	        this.scale = source["scale"];
 	        this.uid = source["uid"];
+	        this.tiltX = source["tiltX"];
+	        this.tiltZ = source["tiltZ"];
 	    }
 	}
 	export class MapData {
@@ -234,6 +252,8 @@ export namespace vmangos {
 	    Y: number;
 	    Z: number;
 	    RotY: number;
+	    TiltX: number;
+	    TiltZ: number;
 	    Scale: number;
 	
 	    static createFrom(source: any = {}) {
@@ -247,6 +267,8 @@ export namespace vmangos {
 	        this.Y = source["Y"];
 	        this.Z = source["Z"];
 	        this.RotY = source["RotY"];
+	        this.TiltX = source["TiltX"];
+	        this.TiltZ = source["TiltZ"];
 	        this.Scale = source["Scale"];
 	    }
 	}
@@ -350,6 +372,8 @@ export namespace vmangos {
 	    y: number;
 	    z: number;
 	    rotY: number;
+	    tiltX: number;
+	    tiltZ: number;
 	    scale: number;
 	
 	    static createFrom(source: any = {}) {
@@ -364,6 +388,8 @@ export namespace vmangos {
 	        this.y = source["y"];
 	        this.z = source["z"];
 	        this.rotY = source["rotY"];
+	        this.tiltX = source["tiltX"];
+	        this.tiltZ = source["tiltZ"];
 	        this.scale = source["scale"];
 	    }
 	}

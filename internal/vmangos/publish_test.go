@@ -27,6 +27,8 @@ func (f *fakeRunner) Start(dir, name string, args ...string) error {
 	return nil
 }
 
+func (f *fakeRunner) Running(image string) bool { return false }
+
 // serverFolder makes a server folder with its configuration and map table.
 func serverFolder(t *testing.T) string {
 	t.Helper()

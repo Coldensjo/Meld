@@ -166,6 +166,7 @@
       items: [
         { kind: 'action', label: wow.loaded ? 'Change WoW Client Folder…' : 'Select WoW Client Folder…', disabled: !hasBackend(), run: chooseWowFolder },
         { kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
+        { kind: 'action', label: 'Game Login…', disabled: !hasBackend(), run: () => (ui.dialog = 'gameLogin') },
         { kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
         { kind: 'sep' },
         { kind: 'header', label: 'Camera speed' },

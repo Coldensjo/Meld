@@ -14,6 +14,10 @@ export function ClearThumbnailCache() {
   return window['go']['main']['App']['ClearThumbnailCache']();
 }
 
+export function GameLogin() {
+  return window['go']['main']['App']['GameLogin']();
+}
+
 export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
@@ -88,6 +92,10 @@ export function SaveTextDialog(arg1) {
 
 export function SaveThumbnail(arg1, arg2) {
   return window['go']['main']['App']['SaveThumbnail'](arg1, arg2);
+}
+
+export function SetGameLogin(arg1, arg2) {
+  return window['go']['main']['App']['SetGameLogin'](arg1, arg2);
 }
 
 export function SetVmangosPath(arg1) {
