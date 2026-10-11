@@ -174,7 +174,12 @@ export class SelectTool implements Tool {
     const id = ctx.objects.pick(ctx.raycaster)
     const o = id !== null ? ctx.objects.objects.get(id) : undefined
     editor.selected = o ? { ...o } : null
-    if (!o) return
+    if (!o) {
+      // No model under the cursor: a creature or object of the region there is selected instead.
+      editor.selectedSpawn = ctx.spawns.pick(ctx.raycaster)
+      return
+    }
+    editor.selectedSpawn = null
     // Drag along whatever surface is under the cursor (never the object itself
     // or things attached to it); the object re-attaches to what it lands on.
     const exclude = ctx.objects.descendantIds(o.id)

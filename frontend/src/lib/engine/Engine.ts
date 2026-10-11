@@ -186,6 +186,7 @@ export class Engine {
     const self = this
     this.ctx = {
       get terrain() { return self.terrain },
+      get spawns() { return self.doc.spawnLayer },
       get objects() { return self.objects },
       get history() { return self.history },
       get scene() { return self.scene },
@@ -564,6 +565,7 @@ export class Engine {
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
     editor.spawns = d.spawnLayer.spawns
+    editor.selectedSpawn = null
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
     editor.selected = null
     editor.selection = null

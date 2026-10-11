@@ -67,6 +67,8 @@ export const editor = $state({
   regionBlock: null as { x: number; y: number; size: number } | null,
   /** The creatures and game objects of the open region, for the Spawns panel. */
   spawns: [] as vmangos.WorldSpawn[],
+  /** The spawn picked in the viewport or the Spawns panel, shown in the panel's details. */
+  selectedSpawn: null as vmangos.WorldSpawn | null,
   filePath: '',
   dirty: false,
 })

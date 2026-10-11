@@ -10,7 +10,8 @@
   const KIND_LABEL: Record<SpawnKind, string> = { monster: 'Monster', npc: 'NPC', object: 'Object' }
 
   let query = $state('')
-  let selected = $state<vmangos.WorldSpawn | null>(null)
+  const isSelected = (s: vmangos.WorldSpawn) =>
+    editor.selectedSpawn !== null && editor.selectedSpawn.kind === s.kind && editor.selectedSpawn.guid === s.guid
 
   const counts = $derived.by(() => {
     const c: Record<SpawnKind, number> = { monster: 0, npc: 0, object: 0 }
@@ -27,7 +28,7 @@
   })
 
   function pick(s: vmangos.WorldSpawn) {
-    selected = s
+    editor.selectedSpawn = s
     engineRef.current?.focusSpawn(s)
   }
 </script>
@@ -49,7 +50,7 @@
     <ul class="list">
       {#each matches.slice(0, LIMIT) as s (`${s.kind}/${s.guid}`)}
         <li>
-          <button class="row" class:active={selected === s} onclick={() => pick(s)}>
+          <button class="row" class:active={isSelected(s)} onclick={() => pick(s)}>
             <span class="dot {s.kind}"></span>
             <span class="name">{s.name}</span>
             {#if s.kind !== 'object'}<span class="dim">{levelText(s.levelMin, s.levelMax)}</span>{/if}
@@ -63,8 +64,8 @@
       <p class="dim">Showing {LIMIT} of {matches.length}. Narrow the filter to see the rest.</p>
     {/if}
 
-    {#if selected}
-      {@const s = selected}
+    {#if editor.selectedSpawn}
+      {@const s = editor.selectedSpawn}
       <dl class="info">
         <dt>Name</dt>
         <dd>{s.name}{s.subname ? ` <${s.subname}>` : ''}</dd>

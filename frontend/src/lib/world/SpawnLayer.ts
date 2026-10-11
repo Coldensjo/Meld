@@ -58,6 +58,16 @@ export class SpawnLayer {
     for (const mesh of this.meshes) mesh.visible = this.shown[mesh.userData.kind as SpawnKind]
   }
 
+  /** The spawn under the ray, nearest first, among the kinds shown; null when none is. */
+  pick(raycaster: THREE.Raycaster): vmangos.WorldSpawn | null {
+    const shown = this.meshes.filter((m) => m.visible && m.count > 0)
+    for (const h of raycaster.intersectObjects(shown, false)) {
+      const items = h.object.userData.items as vmangos.WorldSpawn[] | undefined
+      if (h.instanceId !== undefined && items?.[h.instanceId]) return items[h.instanceId]
+    }
+    return null
+  }
+
   /** Counts of the spawns drawn, by kind. */
   counts(): Record<SpawnKind, number> {
     const out: Record<SpawnKind, number> = { monster: 0, npc: 0, object: 0 }
@@ -88,6 +98,7 @@ export class SpawnLayer {
       const material = asset && asset.ready ? asset.material : this.coneMaterials.get(b.kind)!
       const mesh = new THREE.InstancedMesh(geometry, material, b.items.length)
       mesh.userData.kind = b.kind
+      mesh.userData.items = b.items
       mesh.frustumCulled = false
       const m = new THREE.Matrix4()
       const q = new THREE.Quaternion()

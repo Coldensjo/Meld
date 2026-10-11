@@ -1,11 +1,14 @@
 import type * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
 import type { ObjectLayer } from '../world/ObjectLayer'
+import type { SpawnLayer } from '../world/SpawnLayer'
 import type { History } from '../state/history'
 
 export interface ToolContext {
   readonly terrain: Terrain
   readonly objects: ObjectLayer
+  /** The creatures and game objects of a region, drawn as markers or models. */
+  readonly spawns: SpawnLayer
   readonly history: History
   readonly scene: THREE.Scene
   readonly raycaster: THREE.Raycaster
