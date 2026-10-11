@@ -30,6 +30,8 @@ export class Terrain {
   readonly material: THREE.ShaderMaterial
   readonly group = new THREE.Group()
 
+  /** Incremented whenever heights reach the GPU (lets other views resync). */
+  heightsVersion = 0
   private chunks: THREE.Mesh[] = []
   private chunksPerSide: number
   private dirty = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
@@ -179,6 +181,7 @@ export class Terrain {
       }
       d.x0 = d.z0 = Infinity
       d.x1 = d.z1 = -Infinity
+      this.heightsVersion++
     }
     if (this.splatDirty) {
       this.texA.needsUpdate = true

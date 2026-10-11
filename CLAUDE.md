@@ -130,8 +130,9 @@ cd frontend && pnpm build   # frontend only
     alpha cut-outs, so leaves outline correctly.
   - `TransformGizmo` provides a ring (spin) and an up/down arrow (height). Gizmo drags are
     handled in `Engine` before tools get the pointer, and each drag is one undo step.
-  - `Engine.isColliding` turns the outline red. It checks the terrain under the central
-    footprint against the prop's base, and shrunken AABB overlap with other props.
+  - Red parts of the outline are decided per pixel in the mask shader: below the terrain (from
+    a heightmap texture) or inside an overlapping prop's box (`Engine.overlappingBoxes`, up to
+    8). The edge pass colours the stroke from the neighbouring mask pixels.
 - **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
   the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
   moving. Bursts of nudges merge into one undo step via `History.replaceTop`.

@@ -732,44 +732,35 @@ export class Engine {
     const dist = this.camera.position.distanceTo(base)
     this.gizmo.update(base, Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, dist)
 
-    // Last: isColliding reuses the scratch matrix/vectors used above.
-    this.outline.color.set(this.isColliding(o) ? 0xff3b30 : 0xffcc33)
+    // Last: overlappingBoxes reuses the scratch matrix/vectors used above.
+    this.outline.setTerrain(this.terrain)
+    this.outline.setWarnBoxes(this.overlappingBoxes(o))
   }
 
+  private warnBoxes: THREE.Box3[] = Array.from({ length: 8 }, () => new THREE.Box3())
+
   /**
-   * True if the object sinks into the ground (terrain above its base anywhere
-   * under the middle of its footprint) or overlaps another object.
+   * World boxes of other props that overlap `o` (shrunk, since bounds are
+   * loose). The outline marks the parts of `o` inside them; parts under the
+   * terrain are marked by the outline shader itself.
    */
-  private isColliding(o: WorldObject): boolean {
+  private overlappingBoxes(o: WorldObject): THREE.Box3[] {
     const asset = getAsset(o.type)
-    if (!asset.ready) return false
-    this.objects.matrixOf(o, this.tmpM)
-    const box = this.tmpBox.copy(asset.bbox).applyMatrix4(this.tmpM)
-    const baseY = this.terrain.heightAt(o.x, o.z) + o.yOff
-    const size = box.getSize(this.tmpV)
-    const tol = 0.3 + 0.02 * Math.max(size.x, size.z)
-    // Sample the central 60% of the footprint (canopies overhang the base).
-    const cx = (box.min.x + box.max.x) / 2
-    const cz = (box.min.z + box.max.z) / 2
-    for (let i = -2; i <= 2; i++) {
-      for (let j = -2; j <= 2; j++) {
-        const x = cx + (i / 2) * size.x * 0.3
-        const z = cz + (j / 2) * size.z * 0.3
-        if (this.terrain.heightAt(x, z) > baseY + tol) return true
-      }
-    }
-    // Overlap with other props; boxes are shrunk since bounds are loose.
-    box.expandByVector(this.tmpV.multiplyScalar(-0.1))
+    if (!asset.ready) return []
+    const box = this.tmpBox.copy(asset.bbox).applyMatrix4(this.objects.matrixOf(o, this.tmpM))
+    box.expandByVector(box.getSize(this.tmpV).multiplyScalar(-0.05))
+    let n = 0
     for (const other of this.objects.objects.values()) {
+      if (n >= this.warnBoxes.length) break
       if (other.id === o.id) continue
       if (Math.abs(other.x - o.x) > 200 || Math.abs(other.z - o.z) > 200) continue
       const a = getAsset(other.type)
       if (!a.ready) continue
-      this.otherBox.copy(a.bbox).applyMatrix4(this.objects.matrixOf(other, this.tmpM))
-      this.otherBox.expandByVector(this.otherBox.getSize(this.dragPoint).multiplyScalar(-0.1))
-      if (box.intersectsBox(this.otherBox)) return true
+      const ob = this.otherBox.copy(a.bbox).applyMatrix4(this.objects.matrixOf(other, this.tmpM))
+      ob.expandByVector(ob.getSize(this.dragPoint).multiplyScalar(-0.05))
+      if (box.intersectsBox(ob)) this.warnBoxes[n++].copy(ob)
     }
-    return false
+    return this.warnBoxes.slice(0, n)
   }
 
   // ------------------------------------------------------------- gizmo drag
