@@ -13,6 +13,7 @@ import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTool
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { MarqueeTool } from '../tools/MarqueeTool'
+import { ClearTool } from '../tools/ClearTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
@@ -207,6 +208,7 @@ export class Engine {
       road: new RoadTool(),
       water: new WaterTool(),
       place: this.placeTool,
+      clear: new ClearTool(),
     }
 
     this.controller.arrowsBlocked = () => this.canNudge()

@@ -246,3 +246,16 @@ export function clearPalette(side: number, res: number, slots: Uint8Array, weigh
     weights[t * SLOTS + 3] = 0
   }
 }
+
+/**
+ * Moves one texel's four weights toward the base texture (slot 0 at 255) by `f`, and keeps them
+ * summing to 255. `o` is the texel's first weight in the array.
+ */
+export function resetTexel(w: Uint8Array, o: number, f: number) {
+  for (let k = 0; k < SLOTS; k++) {
+    const target = k === 0 ? 255 : 0
+    w[o + k] = Math.round(w[o + k] + (target - w[o + k]) * f)
+  }
+  // Rounding can leave the four weights a unit off 255; the base takes the difference.
+  w[o] += 255 - (w[o] + w[o + 1] + w[o + 2] + w[o + 3])
+}

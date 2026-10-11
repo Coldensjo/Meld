@@ -6,7 +6,8 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'marquee' | 'sculpt' | 'paint' | 'road' | 'water' | 'place'
+export type ToolId = 'select' | 'marquee' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear'
+export type ClearMode = 'models' | 'textures'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain'
 export type WaterMode = 'dig' | 'shore'
 
@@ -69,6 +70,8 @@ export const editor = $state({
   spawns: [] as vmangos.WorldSpawn[],
   /** The spawn picked in the viewport or the Spawns panel, shown in the panel's details. */
   selectedSpawn: null as vmangos.WorldSpawn | null,
+  /** What the Clear tool erases: placed models, or the paint (back to each chunk's base texture). */
+  clearMode: 'models' as ClearMode,
   filePath: '',
   dirty: false,
 })

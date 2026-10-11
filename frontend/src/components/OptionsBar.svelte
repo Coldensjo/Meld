@@ -19,7 +19,12 @@
   const slotTex = $derived(editor.palette[editor.paintLayer])
   const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
   const usesBrush = $derived(
-    editor.tool === 'sculpt' || editor.tool === 'paint' || editor.tool === 'road' || editor.tool === 'water' || (editor.tool === 'place' && editor.placeScatter),
+    editor.tool === 'sculpt' ||
+      editor.tool === 'paint' ||
+      editor.tool === 'road' ||
+      editor.tool === 'water' ||
+      editor.tool === 'clear' ||
+      (editor.tool === 'place' && editor.placeScatter),
   )
 </script>
 
@@ -126,6 +131,12 @@
         {/each}
       </select>
     {/if}
+  {/if}
+  {#if editor.tool === 'clear'}
+    <select class="curve" bind:value={editor.clearMode} title="What the brush erases" aria-label="What to clear">
+      <option value="models">Models</option>
+      <option value="textures">Textures (to base)</option>
+    </select>
   {/if}
   {#if editor.tool === 'paint'}
     <OptSlider label="Tex scale" bind:value={editor.texScale} min={2} max={24} step={0.5} digits={1} width={70} />
