@@ -44,6 +44,38 @@ export namespace main {
 
 export namespace mapfile {
 	
+	export class VmangosFolder {
+	    dir: string;
+	    mapId: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new VmangosFolder(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.dir = source["dir"];
+	        this.mapId = source["mapId"];
+	    }
+	}
+	export class ClientRegion {
+	    mapName: string;
+	    x: number;
+	    y: number;
+	    size: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ClientRegion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mapName = source["mapName"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.size = source["size"];
+	    }
+	}
 	export class PlacedObject {
 	    id?: number;
 	    parent?: number;
@@ -53,6 +85,7 @@ export namespace mapfile {
 	    yOff: number;
 	    rotY: number;
 	    scale: number;
+	    uid?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PlacedObject(source);
@@ -68,6 +101,7 @@ export namespace mapfile {
 	        this.yOff = source["yOff"];
 	        this.rotY = source["rotY"];
 	        this.scale = source["scale"];
+	        this.uid = source["uid"];
 	    }
 	}
 	export class MapData {
@@ -81,6 +115,10 @@ export namespace mapfile {
 	    palette?: string[];
 	    layerTextures?: string[];
 	    texScale?: number;
+	    // Go type: ClientRegion
+	    region?: any;
+	    // Go type: VmangosFolder
+	    vmangos?: any;
 	    version?: number;
 	    heights: string;
 	    weights?: string;
@@ -104,6 +142,8 @@ export namespace mapfile {
 	        this.palette = source["palette"];
 	        this.layerTextures = source["layerTextures"];
 	        this.texScale = source["texScale"];
+	        this.region = this.convertValues(source["region"], null);
+	        this.vmangos = this.convertValues(source["vmangos"], null);
 	        this.version = source["version"];
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];

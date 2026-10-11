@@ -52,6 +52,8 @@ type PlacedObject struct {
 	YOff   float64 `json:"yOff"`
 	RotY   float64 `json:"rotY"`
 	Scale  float64 `json:"scale"`
+	// UID is the model's unique ID in the client's files, for a model imported from a client region.
+	UID uint32 `json:"uid,omitempty"`
 }
 
 // Header is the JSON metadata section of a map file.
@@ -70,6 +72,10 @@ type Header struct {
 	// the built-in procedural texture.
 	LayerTextures []string `json:"layerTextures,omitempty"`
 	TexScale      float64  `json:"texScale,omitempty"`
+	// Region is the block of client tiles the map was opened from, which saves go back to. Optional.
+	Region *ClientRegion `json:"region,omitempty"`
+	// Vmangos is the server folder map this map publishes under. Optional.
+	Vmangos *VmangosFolder `json:"vmangos,omitempty"`
 }
 
 // MapData is the bridge representation exchanged with the frontend.
@@ -269,4 +275,19 @@ func Load(path string) (*MapData, error) {
 	}
 	defer f.Close()
 	return Read(f)
+}
+
+// ClientRegion is a square block of a 1.12 map's tiles in the client: the tile it starts at, and
+// how many tiles a side.
+type ClientRegion struct {
+	MapName string `json:"mapName"`
+	X       int    `json:"x"`
+	Y       int    `json:"y"`
+	Size    int    `json:"size"`
+}
+
+// VmangosFolder is a map made for the 1.12 client: its folder under World\Maps, and its map ID.
+type VmangosFolder struct {
+	Dir   string `json:"dir"`
+	MapID int    `json:"mapId"`
 }

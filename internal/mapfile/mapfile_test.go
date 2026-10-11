@@ -132,3 +132,43 @@ func TestRejectsGarbage(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+// The client region link and the server folder survive a save, and a model keeps its client UID.
+func TestClientLinkRoundTrip(t *testing.T) {
+	m := sample(32)
+	m.Region = &ClientRegion{MapName: "Azeroth", X: 32, Y: 48, Size: 4}
+	m.Vmangos = &VmangosFolder{Dir: "WorldEditorTest", MapID: 1900}
+	m.Objects[0].UID = 12345
+	path := filepath.Join(t.TempDir(), "linked.wmap")
+	if err := Save(path, m); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Region == nil || *got.Region != *m.Region {
+		t.Fatalf("region link lost: %+v", got.Region)
+	}
+	if got.Vmangos == nil || *got.Vmangos != *m.Vmangos {
+		t.Fatalf("server folder lost: %+v", got.Vmangos)
+	}
+	if got.Objects[0].UID != 12345 {
+		t.Fatalf("model UID lost: %d", got.Objects[0].UID)
+	}
+}
+
+// A map saved without a link has none, so older maps and plain maps still read as they did.
+func TestNoClientLinkByDefault(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plain.wmap")
+	if err := Save(path, sample(32)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Region != nil || got.Vmangos != nil {
+		t.Fatal("a map with no link must not gain one")
+	}
+}

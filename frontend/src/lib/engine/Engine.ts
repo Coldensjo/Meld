@@ -60,8 +60,15 @@ export interface MapSnapshot {
   splatRes: number
   waterLevel: number
   waterEnabled: boolean
-  /** Includes ids so attachments (`parent`) survive save/load. */
-  objects: WorldObject[]
+  /**
+   * Includes ids so attachments (`parent`) survive save/load. `uid` is a model's unique ID in the
+   * client's files, for a model of a client region.
+   */
+  objects: Array<WorldObject & { uid?: number }>
+  /** The client region the map is a block of, so saves go back to it. */
+  region: Pick<RegionRef, 'mapName' | 'x' | 'y' | 'size'> | null
+  /** The server folder map this map publishes under. */
+  vmangos: VmangosRef | null
   /** The texture palette (format 2). */
   palette: string[]
   texScale: number
@@ -848,7 +855,12 @@ export class Engine {
       splatRes: t.splatRes,
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
-      objects: this.objects.list().map((o) => ({ ...o })),
+      objects: this.objects.list().map((o) => {
+        const uid = this.doc.meta.region?.uids.get(o.id)
+        return uid ? { ...o, uid } : { ...o }
+      }),
+      region: this.doc.meta.region ? { mapName: this.doc.meta.region.mapName, x: this.doc.meta.region.x, y: this.doc.meta.region.y, size: this.doc.meta.region.size } : null,
+      vmangos: this.doc.meta.vmangos,
       palette: [...editor.palette],
       texScale: editor.texScale,
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
@@ -882,14 +894,19 @@ export class Engine {
     while (palette.length < LAYERS.length) palette.push(LAYERS[palette.length].swatch)
     t.heights.set(new Float32Array(m.heights.slice().buffer))
     t.markAllDirty()
-    for (const o of m.objects) d.objects.add(o)
+    const region: RegionRef | null = m.region ? { ...m.region, uids: new Map() } : null
+    for (const o of m.objects) {
+      const { uid, ...rest } = o
+      const placed = d.objects.add(rest)
+      if (uid && region) region.uids.set(placed.id, uid)
+    }
     d.meta = {
       mapName: m.name || 'Untitled',
       filePath,
       dirty: false,
       palette,
-      region: null,
-      vmangos: null,
+      region,
+      vmangos: m.vmangos ?? null,
       bookmarks: [],
       texScale: m.texScale || 8,
       waterLevel: m.waterLevel,
