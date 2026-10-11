@@ -125,6 +125,13 @@ cd frontend && pnpm build   # frontend only
   - The clip lives on the Engine, not on a document, so it can be pasted into other tabs.
   - Undo closures must write per-map state through `editor` at call time, never through
     captured arrays, because tab switches replace those arrays.
+- **Selected-prop visuals**:
+  - `SelectionOutline` draws a screen-space silhouette stroke. The mask uses the model's
+    alpha cut-outs, so leaves outline correctly.
+  - `TransformGizmo` provides a ring (spin) and an up/down arrow (height). Gizmo drags are
+    handled in `Engine` before tools get the pointer, and each drag is one undo step.
+  - `Engine.isColliding` turns the outline red. It checks the terrain under the central
+    footprint against the prop's base, and shrunken AABB overlap with other props.
 - **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
   the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
   moving. Bursts of nudges merge into one undo step via `History.replaceTop`.

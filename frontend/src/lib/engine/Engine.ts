@@ -15,6 +15,8 @@ import type { WorldObject } from '../world/ObjectLayer'
 import { getFallbackTextures } from '../terrain/textures'
 import { loadTexture, setMaxAnisotropy } from '../wow/api'
 import { getAsset } from '../models/assets'
+import { SelectionOutline } from './SelectionOutline'
+import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 
 export interface MapSnapshot {
   name: string
@@ -75,8 +77,21 @@ export class Engine {
   private frames = 0
   private statTime = 0
   private resizeObs: ResizeObserver
-  private selectionHelper = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color(1, 0.85, 0.2))
+  private outline = new SelectionOutline()
+  private gizmo = new TransformGizmo()
+  /** Active handle drag: which handle and the state when it started. */
+  private gizmoDrag: {
+    handle: GizmoHandle
+    before: WorldObject
+    startAngle: number
+    startY: number
+    planeNormal: THREE.Vector3
+  } | null = null
+  private dragPlane = new THREE.Plane()
+  private dragPoint = new THREE.Vector3()
   private tmpBox = new THREE.Box3()
+  private otherBox = new THREE.Box3()
+  private tmpV = new THREE.Vector3()
   private tmpM = new THREE.Matrix4()
   /** Merges a burst of key nudges on one object into a single undo step. */
   private nudgeSession: { id: number; before: WorldObject; cmd: Command; time: number } | null = null
@@ -146,8 +161,7 @@ export class Engine {
 
     this.controller.arrowsBlocked = () => this.canNudge()
     this.controller.wheelBlocked = (e) => editor.tool === 'place' && e.ctrlKey
-    this.selectionHelper.visible = false
-    this.scene.add(this.selectionHelper)
+    this.scene.add(this.gizmo.group)
 
     this.bindPointer()
     this.resizeObs = new ResizeObserver(() => this.resize())
@@ -172,6 +186,7 @@ export class Engine {
     this.abort.abort()
     this.resizeObs.disconnect()
     this.controller.dispose()
+    this.outline.dispose()
     for (const d of this.documents) d.dispose()
     this.renderer.dispose()
   }
@@ -181,6 +196,8 @@ export class Engine {
     const h = this.container.clientHeight
     if (!w || !h) return
     this.renderer.setSize(w, h, false)
+    const buf = this.renderer.getDrawingBufferSize(new THREE.Vector2())
+    this.outline.setSize(buf.x, buf.y)
     this.camera.aspect = w / h
     this.camera.updateProjectionMatrix()
   }
@@ -224,6 +241,7 @@ export class Engine {
         this.updatePointer(e)
         if (e.button !== 0) return
         c.setPointerCapture(e.pointerId)
+        if (this.startGizmoDrag()) return
         this.leftDown = true
         this.pick()
         this.activeTool?.onDown?.(this.ctx, this.hit, e)
@@ -235,6 +253,16 @@ export class Engine {
       (e) => {
         this.pointerInside = true
         this.updatePointer(e)
+        if (this.gizmoDrag) {
+          this.updateGizmoDrag(e.shiftKey)
+          return
+        }
+        if (this.gizmo.visible && !this.leftDown && !this.controller.isDragging) {
+          this.raycaster.setFromCamera(this.ndc, this.camera)
+          const h = this.gizmo.pick(this.raycaster)
+          this.gizmo.setHover(h)
+          c.style.cursor = h === 'ring' ? 'grab' : h === 'arrow' ? 'ns-resize' : ''
+        }
         if (this.leftDown) {
           this.pick()
           this.activeTool?.onMove?.(this.ctx, this.hit, e)
@@ -245,6 +273,10 @@ export class Engine {
     c.addEventListener(
       'pointerup',
       (e) => {
+        if (e.button === 0 && this.gizmoDrag) {
+          this.endGizmoDrag()
+          return
+        }
         if (e.button !== 0 || !this.leftDown) return
         this.leftDown = false
         this.updatePointer(e)
@@ -310,11 +342,12 @@ export class Engine {
     this.water.level = editor.waterLevel
     this.water.visible = editor.waterEnabled
 
-    this.updateSelectionHelper()
     this.terrain.update()
     this.objects.update()
+    this.updateSelectionVisuals()
     this.water.update(time)
     this.renderer.render(this.scene, this.camera)
+    this.outline.render(this.renderer, this.camera)
 
     this.frames++
     if (time - this.statTime >= 0.5) {
@@ -676,12 +709,130 @@ export class Engine {
 
   // ---------------------------------------------------------------- editing API
 
-  private updateSelectionHelper() {
-    const o = editor.selected ? this.objects.objects.get(editor.selected.id) : undefined
-    this.selectionHelper.visible = !!o
-    if (!o) return
-    this.tmpBox.copy(getAsset(o.type).bbox).applyMatrix4(this.objects.matrixOf(o, this.tmpM))
-    this.selectionHelper.box.copy(this.tmpBox)
+  private selectedObject(): WorldObject | undefined {
+    return editor.selected ? this.objects.objects.get(editor.selected.id) : undefined
+  }
+
+  /** Outline + handles for the selected object (Select and Place tools). */
+  private updateSelectionVisuals() {
+    const o = this.canNudge() ? this.selectedObject() : undefined
+    if (!o) {
+      this.outline.setTarget(null)
+      this.gizmo.hide()
+      if (this.canvas.style.cursor) this.canvas.style.cursor = ''
+      return
+    }
+    const asset = getAsset(o.type)
+    this.objects.matrixOf(o, this.tmpM)
+    this.outline.setTarget(asset, this.tmpM)
+
+    this.tmpBox.copy(asset.bbox).applyMatrix4(this.tmpM)
+    const size = this.tmpBox.getSize(this.tmpV)
+    const base = this.objects.worldPosition(o, this.dragPoint)
+    const dist = this.camera.position.distanceTo(base)
+    this.gizmo.update(base, Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, dist)
+
+    // Last: isColliding reuses the scratch matrix/vectors used above.
+    this.outline.color.set(this.isColliding(o) ? 0xff3b30 : 0xffcc33)
+  }
+
+  /**
+   * True if the object sinks into the ground (terrain above its base anywhere
+   * under the middle of its footprint) or overlaps another object.
+   */
+  private isColliding(o: WorldObject): boolean {
+    const asset = getAsset(o.type)
+    if (!asset.ready) return false
+    this.objects.matrixOf(o, this.tmpM)
+    const box = this.tmpBox.copy(asset.bbox).applyMatrix4(this.tmpM)
+    const baseY = this.terrain.heightAt(o.x, o.z) + o.yOff
+    const size = box.getSize(this.tmpV)
+    const tol = 0.3 + 0.02 * Math.max(size.x, size.z)
+    // Sample the central 60% of the footprint (canopies overhang the base).
+    const cx = (box.min.x + box.max.x) / 2
+    const cz = (box.min.z + box.max.z) / 2
+    for (let i = -2; i <= 2; i++) {
+      for (let j = -2; j <= 2; j++) {
+        const x = cx + (i / 2) * size.x * 0.3
+        const z = cz + (j / 2) * size.z * 0.3
+        if (this.terrain.heightAt(x, z) > baseY + tol) return true
+      }
+    }
+    // Overlap with other props; boxes are shrunk since bounds are loose.
+    box.expandByVector(this.tmpV.multiplyScalar(-0.1))
+    for (const other of this.objects.objects.values()) {
+      if (other.id === o.id) continue
+      if (Math.abs(other.x - o.x) > 200 || Math.abs(other.z - o.z) > 200) continue
+      const a = getAsset(other.type)
+      if (!a.ready) continue
+      this.otherBox.copy(a.bbox).applyMatrix4(this.objects.matrixOf(other, this.tmpM))
+      this.otherBox.expandByVector(this.otherBox.getSize(this.dragPoint).multiplyScalar(-0.1))
+      if (box.intersectsBox(this.otherBox)) return true
+    }
+    return false
+  }
+
+  // ------------------------------------------------------------- gizmo drag
+
+  private ringAngle(p: THREE.Vector3, o: WorldObject) {
+    return Math.atan2(-(p.z - o.z), p.x - o.x)
+  }
+
+  /** Begin dragging a gizmo handle under the pointer. Returns true if one was hit. */
+  private startGizmoDrag(): boolean {
+    const o = this.canNudge() ? this.selectedObject() : undefined
+    if (!o || !this.gizmo.visible) return false
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    const handle = this.gizmo.pick(this.raycaster)
+    if (!handle) return false
+    const planeNormal = new THREE.Vector3()
+    let startAngle = 0
+    let startY = 0
+    if (handle === 'ring') {
+      planeNormal.set(0, 1, 0)
+      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(o.x, this.gizmo.ringY, o.z))
+      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
+      startAngle = this.ringAngle(this.dragPoint, o)
+    } else {
+      // Vertical plane through the object, facing the camera.
+      planeNormal.copy(this.camera.position).sub(this.tmpV.set(o.x, 0, o.z)).setY(0).normalize()
+      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.objects.worldPosition(o, this.tmpV))
+      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
+      startY = this.dragPoint.y
+    }
+    this.gizmoDrag = { handle, before: { ...o }, startAngle, startY, planeNormal }
+    this.canvas.style.cursor = handle === 'ring' ? 'grabbing' : 'ns-resize'
+    return true
+  }
+
+  private updateGizmoDrag(snap: boolean) {
+    const d = this.gizmoDrag
+    const o = this.selectedObject()
+    if (!d || !o) return
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return
+    if (d.handle === 'ring') {
+      let rot = d.before.rotY + (this.ringAngle(this.dragPoint, o) - d.startAngle)
+      if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
+      o.rotY = rot
+    } else {
+      let y = d.before.yOff + (this.dragPoint.y - d.startY)
+      if (snap) y = Math.round(y * 2) / 2
+      o.yOff = y
+    }
+    this.objects.touch(o.id)
+    editor.selected = { ...o }
+  }
+
+  private endGizmoDrag() {
+    const d = this.gizmoDrag
+    this.gizmoDrag = null
+    this.canvas.style.cursor = ''
+    const o = this.selectedObject()
+    if (!d || !o) return
+    if (o.rotY !== d.before.rotY || o.yOff !== d.before.yOff) {
+      this.history.push(transformCommand(this.objects, d.before, o))
+    }
   }
 
   /** Keyboard editing of the selected object applies in the Select and Place tools. */
