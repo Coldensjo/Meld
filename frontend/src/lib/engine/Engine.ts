@@ -548,6 +548,7 @@ export class Engine {
     editor.paintLayer = m.paintLayer
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
+    editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
     editor.selected = null
     editor.selection = null

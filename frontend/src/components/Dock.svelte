@@ -3,6 +3,7 @@
   import Palette from './Palette.svelte'
   import LayersPanel from './LayersPanel.svelte'
   import PropertiesPanel from './PropertiesPanel.svelte'
+  import MinimapPanel from './MinimapPanel.svelte'
   import { editor, prefs, ui } from '../lib/state/editor.svelte'
 
   // Selecting an object reveals the Properties panel if it was collapsed.
@@ -46,6 +47,9 @@
   </DockPanel>
   <DockPanel id="layers" tabs={[{ id: 'layers', label: 'Layers' }]}>
     <LayersPanel />
+  </DockPanel>
+  <DockPanel id="minimap" tabs={[{ id: 'minimap', label: 'Map' }]}>
+    <MinimapPanel />
   </DockPanel>
   <DockPanel id="properties" tabs={[{ id: 'properties', label: 'Properties' }]}>
     <PropertiesPanel />

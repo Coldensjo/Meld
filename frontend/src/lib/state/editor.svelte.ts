@@ -62,6 +62,8 @@ export const editor = $state({
   mapSize: 256,
   /** The client tiles the open map is a block of, described for the status bar; '' when it isn't one. */
   region: '',
+  /** The tile block the open map is, for the minimap; null when it isn't a client region. */
+  regionBlock: null as { x: number; y: number; size: number } | null,
   filePath: '',
   dirty: false,
 })
