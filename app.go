@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"WorldEditor/internal/adt"
 	"WorldEditor/internal/config"
 	"WorldEditor/internal/mapfile"
 	"WorldEditor/internal/mpq"
@@ -207,4 +208,44 @@ func (a *App) InstallMapPatch(files map[string]string) (string, error) {
 		list = append(list, mpq.File{Name: name, Data: data})
 	}
 	return vmangos.InstallPatch(dataDir, list)
+}
+
+// clientDataDir is the loaded client's Data folder, or an error if none is set.
+func (a *App) clientDataDir() (string, error) {
+	a.cfgMu.Lock()
+	wowPath := a.cfg.WowPath
+	a.cfgMu.Unlock()
+	if wowPath == "" {
+		return "", errors.New("no WoW client is set")
+	}
+	return wow.ResolveDataDir(wowPath)
+}
+
+// LoadTile reads a 1.12 map tile from the client: its outer heights, texture layers and
+// placements, as the editor shows them.
+func (a *App) LoadTile(mapName string, x, y int) (*vmangos.TileView, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	view, _, err := vmangos.ReadTile(dataDir, mapName, x, y)
+	return view, err
+}
+
+// ExportTileHeights writes the edited outer heights of a tile into the client's patch, where the
+// server's map data is built from. Returns the patch's path.
+func (a *App) ExportTileHeights(mapName string, x, y int, outer []float32) (string, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return "", err
+	}
+	_, root, err := vmangos.ReadTile(dataDir, mapName, x, y)
+	if err != nil {
+		return "", err
+	}
+	patched, err := vmangos.PatchTileHeights(root, outer)
+	if err != nil {
+		return "", err
+	}
+	return vmangos.InstallPatch(dataDir, []mpq.File{{Name: adt.TilePath(mapName, x, y, ""), Data: patched}})
 }
