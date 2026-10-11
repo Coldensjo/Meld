@@ -115,6 +115,21 @@ cd frontend && pnpm build   # frontend only
 - Dialogs live in `components/AppDialogs.svelte` (state: `ui.dialog`) on top of
   `components/Modal.svelte`.
 
+## Sky, time of day & shadows
+
+- `lib/engine/Environment.ts` owns the sky dome, hemisphere light and the single
+  shadow-casting key `DirectionalLight` (sun by day, moon by night).
+  - The sky dome is three's Preetham `Sky` shader, patched with our ACES tone mapping, stars,
+    Milky Way and moon.
+  - `update(hour)` computes the sun/moon directions and all lighting colours (`state`).
+- `Engine.updateEnvironment` pushes `state` into the terrain and water uniforms, fog and
+  background every frame. Change lighting there, not in individual shaders.
+- The terrain `ShaderMaterial` uses `lights: true` plus three's shadowmap chunks (it reads
+  `getShadowMask()`). The shadow camera follows the view and is snapped to texels in
+  `Environment.updateShadow`.
+- Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
+  cycling, so it doesn't write reactive state every frame.
+
 ## Selection, clipboard & nudging
 
 - **Marquee** (`tools/MarqueeTool.ts`): the selection is `editor.selection` in cell/vertex

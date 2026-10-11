@@ -1,15 +1,19 @@
 import * as THREE from 'three'
 
 const vertex = /* glsl */ `
+#include <common>
 #include <fog_pars_vertex>
+#include <shadowmap_pars_vertex>
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 void main() {
-  vec4 wp = modelMatrix * vec4(position, 1.0);
-  vWorldPos = wp.xyz;
+  vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+  vWorldPos = worldPosition.xyz;
   vNormal = normal;
-  vec4 mvPosition = viewMatrix * wp;
+  vec3 transformedNormal = normalMatrix * normal;
+  vec4 mvPosition = viewMatrix * worldPosition;
   gl_Position = projectionMatrix * mvPosition;
+  #include <shadowmap_vertex>
   #include <fog_vertex>
 }
 `
@@ -17,6 +21,10 @@ void main() {
 const fragment = /* glsl */ `
 #include <common>
 #include <fog_pars_fragment>
+#include <bsdfs>
+#include <lights_pars_begin>
+#include <shadowmap_pars_fragment>
+#include <shadowmask_pars_fragment>
 uniform sampler2D splatA;
 uniform sampler2D splatB;
 uniform sampler2D tex0; uniform sampler2D tex1; uniform sampler2D tex2; uniform sampler2D tex3;
@@ -80,7 +88,8 @@ void main() {
   }
 
   // Simple stylised lighting: hemisphere ambient + wrapped sun.
-  float diff = max(dot(n, sunDir) * 0.8 + 0.2, 0.0);
+  // Wrapped diffuse, darkened where the key light (sun or moon) is shadowed.
+  float diff = max(dot(n, sunDir) * 0.8 + 0.2, 0.0) * mix(0.25, 1.0, getShadowMask());
   vec3 hemi = mix(groundAmbient, skyAmbient, n.y * 0.5 + 0.5);
   vec3 lit = col * (hemi + sunColor * diff);
 
@@ -90,7 +99,9 @@ void main() {
       lit = mix(lit, waterDeep, clamp(depth / 7.0, 0.0, 0.88));
     }
     float foam = 1.0 - smoothstep(0.0, 0.35, abs(depth));
-    lit = mix(lit, vec3(0.85, 0.92, 0.95), foam * 0.35);
+    // Foam is lit like everything else, so it doesn't glow at night.
+    vec3 foamColor = vec3(0.85, 0.92, 0.95) * clamp(skyAmbient * 1.4 + sunColor * 0.7, 0.0, 1.0);
+    lit = mix(lit, foamColor, foam * 0.35);
   }
 
   if (gridVisible > 0.5) {
@@ -139,6 +150,7 @@ export function createTerrainMaterial(
 ): THREE.ShaderMaterial {
   const uniforms: Record<string, THREE.IUniform> = {
     ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
+    ...THREE.UniformsUtils.clone(THREE.UniformsLib.lights),
     splatA: { value: splatA },
     splatB: { value: splatB },
     worldSize: { value: worldSize },
@@ -168,5 +180,6 @@ export function createTerrainMaterial(
     vertexShader: vertex,
     fragmentShader: fragment,
     fog: true,
+    lights: true,
   })
 }

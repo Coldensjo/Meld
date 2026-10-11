@@ -4,7 +4,7 @@ import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
 import { MapDocument } from './MapDocument'
 import { CameraController } from './CameraController'
-import { HORIZON, createSky } from './Sky'
+import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
 import { brushCenter } from '../tools/brush'
@@ -33,7 +33,6 @@ export interface MapSnapshot {
   splatB: Uint8Array
 }
 
-const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.35).normalize()
 
 /**
  * Owns the renderer, scene and render loop. Svelte components talk to it via
@@ -62,7 +61,10 @@ export class Engine {
     return this.doc.history
   }
 
-  private sky: THREE.Mesh
+  private env: Environment
+  /** Current hour; advances on its own when the day cycle is on. */
+  private hour = 13
+  private prefs: Prefs | null = null
   private tools: Record<ToolId, Tool>
   private activeToolId: ToolId | null = null
   private activeTool: Tool | null = null
@@ -115,16 +117,11 @@ export class Engine {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
 
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.5, 5000)
-    this.scene.background = HORIZON.clone()
+    this.scene.background = new THREE.Color()
+    this.renderer.shadowMap.enabled = true
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.env = new Environment(this.scene)
 
-    this.sky = createSky(SUN_DIR)
-    this.scene.add(this.sky)
-
-    // Lights for props (terrain/water shaders use matching uniforms).
-    const hemi = new THREE.HemisphereLight(new THREE.Color(0.45, 0.5, 0.6), new THREE.Color(0.25, 0.22, 0.18), Math.PI)
-    const sun = new THREE.DirectionalLight(new THREE.Color(1.0, 0.95, 0.85), Math.PI * 0.95)
-    sun.position.copy(SUN_DIR).multiplyScalar(100)
-    this.scene.add(hemi, sun)
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
     setMaxAnisotropy(aniso)
@@ -187,6 +184,7 @@ export class Engine {
     this.resizeObs.disconnect()
     this.controller.dispose()
     this.outline.dispose()
+    this.env.dispose()
     for (const d of this.documents) d.dispose()
     this.renderer.dispose()
   }
@@ -313,7 +311,7 @@ export class Engine {
 
     this.syncTool()
     this.controller.update(dt)
-    this.sky.position.copy(this.camera.position)
+    this.updateEnvironment(dt, time)
 
     if (this.pointerInside && !this.controller.isDragging) this.pick()
     else if (!this.leftDown) this.hit = null
@@ -364,13 +362,49 @@ export class Engine {
   private applyViewDistance() {
     const w = this.terrain.worldSize
     const d = this.viewDistance
-    this.scene.fog = this.fogEnabled ? new THREE.Fog(HORIZON, w * 0.5 * d, w * 2.2 * d) : null
+    this.scene.fog = this.fogEnabled ? new THREE.Fog(this.env.state.horizon.clone(), w * 0.5 * d, w * 2.2 * d) : null
     this.camera.far = Math.max(2000, w * 4 * d)
     this.camera.updateProjectionMatrix()
   }
 
+  /** Time of day, sky and lighting; feeds the terrain/water shaders. */
+  private updateEnvironment(dt: number, time: number) {
+    const p = this.prefs
+    if (p?.dayCycle) this.hour = (this.hour + (dt * 24) / (Math.max(0.5, p.cycleMinutes) * 60)) % 24
+    const env = this.env
+    env.update(this.hour, time, this.camera)
+    const s = env.state
+    ;(this.scene.background as THREE.Color).copy(s.horizon)
+    if (this.scene.fog) this.scene.fog.color.copy(s.horizon)
+
+    const tu = this.terrain.material.uniforms
+    tu.sunDir.value.copy(s.keyDir)
+    tu.sunColor.value.copy(s.keyColor)
+    tu.skyAmbient.value.copy(s.skyAmbient)
+    tu.groundAmbient.value.copy(s.groundAmbient)
+    const light = 0.06 + 0.94 * (1 - s.night)
+    tu.waterDeep.value.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
+
+    const wu = this.water.material.uniforms
+    wu.sunDir.value.copy(s.keyDir)
+    wu.sunColor.value.copy(s.keyColor)
+    wu.skyColor.value.copy(s.horizon).lerp(s.skyAmbient, 0.3)
+    wu.shallow.value.setRGB(0.04 * light, 0.28 * light, 0.38 * light)
+    wu.deep.value.setRGB(0.015 * light, 0.1 * light, 0.2 * light)
+    ;(this.water.floor.material as THREE.MeshBasicMaterial).color.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
+
+    if (env.key.castShadow) {
+      const extent = THREE.MathUtils.clamp(this.controller.distance * 1.3, 40, 700)
+      env.updateShadow(this.controller.target, extent, env.key.shadow.mapSize.x)
+    }
+  }
+
   /** Apply user preferences (graphics + camera). Cheap; safe to call often. */
   applyPrefs(p: Prefs) {
+    this.prefs = p
+    if (!p.dayCycle) this.hour = p.timeOfDay
+    this.env.setClouds(p.clouds)
+    this.env.setShadows(p.shadows)
     const ratio = Math.min(window.devicePixelRatio * p.renderScale, 3)
     if (this.renderer.getPixelRatio() !== ratio) {
       this.renderer.setPixelRatio(ratio)

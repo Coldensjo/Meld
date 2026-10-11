@@ -121,6 +121,8 @@ export class ObjectLayer {
     m.count = 0
     m.userData.type = type
     m.frustumCulled = false
+    m.castShadow = true
+    m.receiveShadow = true
     return m
   }
 

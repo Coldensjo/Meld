@@ -90,7 +90,16 @@ Also included:
 
 - **File**: New / Open / Save / Save As / Close Map, Exit
 - **Edit**: Undo / Redo, Copy / Paste, Select All / Deselect (asks first if there are unsaved changes).
-- **Graphics**: render scale (50–150%), view distance, fog, water, automatic cliff rock, grid.
+- **Graphics**:
+  - Render scale (50–150%) and view distance.
+  - **Time of day** (Dawn / Day / Dusk / Night) and an **animated day/night cycle**.
+  - **Shadows** (Off / Medium / High).
+  - Clouds, fog, water, automatic cliff rock, grid.
+  - The ☀/☾ button next to the menus switches between day and night.
+
+  The sky is a physically based atmosphere with a sun disc, clouds, a moon with phases, stars
+  and the Milky Way. Lighting, fog and water colours follow the sun; at night the moon is the
+  light source and casts soft shadows.
 - **Preferences**: WoW client folder, clear thumbnail cache, camera speed, mouse sensitivity,
   invert camera Y.
 - **About**: keyboard shortcuts and app info.

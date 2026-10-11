@@ -78,6 +78,13 @@ export const prefs = $state({
   cameraSpeed: 1,
   mouseSensitivity: 1,
   invertY: false,
+  /** Hour of day 0-24 (sun/moon position, lighting, sky). */
+  timeOfDay: 13,
+  /** Animate a full day/night cycle (one day ≈ cycleMinutes). */
+  dayCycle: false,
+  cycleMinutes: 10,
+  clouds: true,
+  shadows: 'medium' as 'off' | 'medium' | 'high',
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,
   collapsedPanels: ['properties'] as string[],

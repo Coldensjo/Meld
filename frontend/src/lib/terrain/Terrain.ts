@@ -104,6 +104,8 @@ export class Terrain {
         const mesh = new THREE.Mesh(geo, this.material)
         mesh.userData = { cx, cz, vx, vz, ox: cx * CHUNK, oz: cz * CHUNK }
         mesh.matrixAutoUpdate = false
+        mesh.castShadow = true
+        mesh.receiveShadow = true
         this.chunks.push(mesh)
         this.group.add(mesh)
         this.writeChunk(mesh)

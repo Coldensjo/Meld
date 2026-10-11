@@ -22,6 +22,7 @@ uniform vec3 shallow;
 uniform vec3 deep;
 uniform vec3 skyColor;
 uniform vec3 sunDir;
+uniform vec3 sunColor;
 uniform float opacity;
 varying vec3 vWorldPos;
 
@@ -46,7 +47,7 @@ void main() {
   col = mix(col, skyColor, fres * 0.5);
   vec3 h = normalize(sunDir + v);
   float spec = pow(max(dot(n, h), 0.0), 120.0) * 1.4;
-  col += vec3(1.0, 0.95, 0.8) * spec;
+  col += sunColor * spec;
   gl_FragColor = vec4(col, mix(opacity, 1.0, fres * 0.6));
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -71,6 +72,7 @@ export class Water {
         deep: { value: new THREE.Color(0.015, 0.1, 0.2) },
         skyColor: { value: new THREE.Color(0.6, 0.75, 0.9) },
         sunDir: { value: new THREE.Vector3(0.5, 0.8, 0.3).normalize() },
+        sunColor: { value: new THREE.Color(1.0, 0.95, 0.8) },
         opacity: { value: 0.72 },
       },
       vertexShader: vertex,

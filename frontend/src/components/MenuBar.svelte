@@ -88,6 +88,34 @@
           (v) => (prefs.viewDistance = v),
         ),
         { kind: 'sep' },
+        { kind: 'header', label: 'Time of day' },
+        ...radios(
+          [
+            ['Dawn', 6.3],
+            ['Day', 13],
+            ['Dusk', 17.7],
+            ['Night', 23.5],
+          ],
+          () => prefs.timeOfDay,
+          (v) => {
+            prefs.timeOfDay = v
+            prefs.dayCycle = false
+          },
+        ),
+        { kind: 'check', label: 'Animate day/night cycle', checked: prefs.dayCycle, toggle: () => (prefs.dayCycle = !prefs.dayCycle) },
+        { kind: 'sep' },
+        { kind: 'header', label: 'Shadows' },
+        ...radios(
+          [
+            ['Off', 'off'],
+            ['Medium', 'medium'],
+            ['High', 'high'],
+          ],
+          () => prefs.shadows,
+          (v) => (prefs.shadows = v as typeof prefs.shadows),
+        ),
+        { kind: 'sep' },
+        { kind: 'check', label: 'Clouds', checked: prefs.clouds, toggle: () => (prefs.clouds = !prefs.clouds) },
         { kind: 'check', label: 'Fog', checked: prefs.fog, toggle: () => (prefs.fog = !prefs.fog) },
         { kind: 'check', label: 'Water', checked: editor.waterEnabled, toggle: () => (editor.waterEnabled = !editor.waterEnabled) },
         { kind: 'check', label: 'Automatic cliff rock', checked: editor.autoCliff, toggle: () => (editor.autoCliff = !editor.autoCliff) },
@@ -201,6 +229,15 @@
     {/each}
   </nav>
   <div class="quick">
+    <button
+      class="daynight"
+      title={prefs.timeOfDay >= 6 && prefs.timeOfDay < 19 ? 'Switch to night' : 'Switch to day'}
+      aria-label="Toggle day and night"
+      onclick={() => {
+        prefs.dayCycle = false
+        prefs.timeOfDay = prefs.timeOfDay >= 6 && prefs.timeOfDay < 19 ? 23.5 : 13
+      }}>{prefs.timeOfDay >= 6 && prefs.timeOfDay < 19 ? '☀' : '☾'}</button
+    >
     <button onclick={withEngine((e) => e.undo())} disabled={!ui.canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
     <button onclick={withEngine((e) => e.redo())} disabled={!ui.canRedo} title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
   </div>
