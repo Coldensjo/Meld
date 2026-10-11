@@ -40,7 +40,7 @@ cd frontend && pnpm build   # frontend only
   - Picking ray-marches the heightmap (`raycast`). Don't use triangle raycasts on the terrain.
 - **Splat**: 8 layers in two RGBA8 textures (`splatA` = layers 0–3, `splatB` = layers 4–7) at
   `size*2` resolution. Weights always sum to 255 (`paintPixel` in `tools/brush.ts`). Layer list:
-  `lib/terrain/layers.ts`; textures are procedural (`lib/terrain/textures.ts`).
+  `lib/terrain/layers.ts`; each slot is bound to a WoW tileset (`editor.layerTextures`).
 - **Shaders** are custom `ShaderMaterial`s (terrain, water, sky). They include three's fog,
   tonemapping and colorspace chunks. Prop lighting (Hemisphere + Directional, intensities ×π) is
   tuned to match the terrain shader's uniforms. Change both together.
@@ -52,7 +52,7 @@ cd frontend && pnpm build   # frontend only
   - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
   - **Every edit must be undoable** through `History`.
 - **Objects** (`lib/world/ObjectLayer.ts`):
-  - One `InstancedMesh` per prefab type, so draw calls scale with the number of types, not
+  - One `InstancedMesh` per model type, so draw calls scale with the number of types, not
     instances.
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
     sculpting.

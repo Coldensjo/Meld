@@ -132,7 +132,7 @@ frontend/src/
   App.svelte           Layout + global shortcuts
   components/          Svelte UI (menu, toolbar, tool panel, asset browser, status bar)
   lib/engine/          Renderer, render loop, camera, sky, noise
-  lib/terrain/         Chunked heightmap terrain, splat shader, procedural textures
+  lib/terrain/         Chunked heightmap terrain, splat shader, fallback colours
   lib/water/           Water shader
   lib/tools/           Editor tools (sculpt/paint/road/water/place/select) + brush/undo helpers
   lib/models/          Procedural low-poly prefabs + thumbnails
