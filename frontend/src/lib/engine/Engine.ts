@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { GenerateKind } from '../terrain/Terrain'
 import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
-import { MapDocument } from './MapDocument'
+import { MapDocument, type TileRef } from './MapDocument'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
@@ -20,6 +20,20 @@ import { animatedAssets, getAsset } from '../models/assets'
 import { PropEffects } from '../world/PropEffects'
 import { SelectionOutline } from './SelectionOutline'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
+
+/** A tile of the client, ready to open: its outer heights and its paint in the editor's form. */
+export interface TileOpen {
+  mapName: string
+  x: number
+  y: number
+  heights: Float32Array
+  weights: Uint8Array
+  chunkSlots: Uint8Array
+  palette: string[]
+}
+
+/** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
+const TILE_CELLS = 128
 
 export interface MapSnapshot {
   name: string
@@ -469,6 +483,7 @@ export class Engine {
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
       paintLayer: editor.paintLayer,
+      tile: d.meta.tile,
     }
     const c = this.controller
     d.camera = { target: c.target.clone(), yaw: c.yaw, pitch: c.pitch, distance: c.distance }
@@ -565,6 +580,42 @@ export class Engine {
   }
 
   /** Switch to the tab already showing `path`, if any. */
+  /**
+   * Open a tile of the client in its own tab, or switch to it if it's open already. The tile's
+   * outer heights, palette and paint come from tileImport.ts. Returns false when it was already open.
+   */
+  openTile(t: TileOpen): boolean {
+    const same = this.documents.find((d) => {
+      const r = d.meta.tile
+      return !!r && r.mapName === t.mapName && r.x === t.x && r.y === t.y
+    })
+    if (same) {
+      this.activate(same)
+      return false
+    }
+    const d = new MapDocument(TILE_CELLS, `${t.mapName} ${t.x}_${t.y}`)
+    d.terrain.heights.set(t.heights)
+    d.terrain.weights.set(t.weights)
+    d.terrain.chunkSlots.set(t.chunkSlots)
+    d.terrain.markAllDirty()
+    d.meta.palette = [...t.palette]
+    d.meta.tile = { mapName: t.mapName, x: t.x, y: t.y }
+    // The client's water isn't read yet, so a tile starts with the water off rather than at sea level.
+    d.meta.waterEnabled = false
+    this.addDocument(d)
+    return true
+  }
+
+  /** The client tile the active map came from, or null. */
+  activeTile(): TileRef | null {
+    return this.doc.meta.tile
+  }
+
+  /** The active tile's outer height grid, in the layout the tile writer takes. */
+  outerHeights(): Float32Array {
+    return this.terrain.heights
+  }
+
   focusPath(path: string): boolean {
     const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase()
     const d = this.documents.find((x) => norm(x === this.doc ? editor.filePath : x.meta.filePath) === norm(path))
@@ -663,6 +714,7 @@ export class Engine {
       filePath,
       dirty: false,
       palette,
+      tile: null,
       texScale: m.texScale || 8,
       waterLevel: m.waterLevel,
       waterEnabled: m.waterEnabled,

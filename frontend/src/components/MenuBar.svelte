@@ -1,7 +1,7 @@
 <script lang="ts">
   import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { hasBackend, openMap, saveMap } from '../lib/io/mapio'
+  import { chooseVmangosFolder, exportWowTile, hasBackend, openMap, saveMap } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
   import { ClearThumbnailCache, Quit } from '../../wailsjs/go/main/App'
   import { requestClose } from './DocTabs.svelte'
@@ -41,9 +41,11 @@
       items: [
         { kind: 'action', label: 'New Map…', shortcut: 'Ctrl+N', run: () => (ui.showNewDialog = true) },
         { kind: 'action', label: 'Open…', shortcut: 'Ctrl+O', disabled: ui.busy, run: withEngine(openMap) },
+        { kind: 'action', label: 'Open WoW Tile…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'openTile') },
         { kind: 'sep' },
         { kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveMap(e)) },
         { kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },
+        { kind: 'action', label: 'Export Tile Heights to Client…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportWowTile(e)) },
         { kind: 'action', label: 'Close Map', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
         { kind: 'sep' },
         { kind: 'action', label: 'Exit', run: exit },
@@ -128,6 +130,7 @@
       name: 'Preferences',
       items: [
         { kind: 'action', label: wow.loaded ? 'Change WoW Client Folder…' : 'Select WoW Client Folder…', disabled: !hasBackend(), run: chooseWowFolder },
+        { kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
         { kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
         { kind: 'sep' },
         { kind: 'header', label: 'Camera speed' },

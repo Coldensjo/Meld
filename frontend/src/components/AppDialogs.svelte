@@ -2,10 +2,17 @@
   import Modal from './Modal.svelte'
   import { docs, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
+  import { openWowTile } from '../lib/io/mapio'
   import { Quit } from '../../wailsjs/go/main/App'
   import { APP_VERSION } from '../lib/version'
 
   const close = () => (ui.dialog = null)
+
+  // The open-tile dialog's fields. A 1.12 map is 64x64 tiles, so X and Y run 0 to 63.
+  let tileMap = $state('Azeroth')
+  let tileX = $state(32)
+  let tileY = $state(48)
+  const tileValid = $derived(tileMap.trim() !== '' && Number.isInteger(tileX) && Number.isInteger(tileY) && tileX >= 0 && tileX < 64 && tileY >= 0 && tileY < 64)
 
   const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
     [
@@ -108,6 +115,30 @@
       >
     {/snippet}
   </Modal>
+{:else if ui.dialog === 'openTile'}
+  <Modal title="Open a WoW tile" width={360} onclose={close}>
+    <p class="dim">Read from your WoW 1.12 client. A tile's ground, paint and objects open as one map of 128 × 128 cells.</p>
+    <div class="fields">
+      <label for="tile-map">Map</label>
+      <input id="tile-map" type="text" bind:value={tileMap} />
+      <label for="tile-x">X</label>
+      <input id="tile-x" type="number" min="0" max="63" bind:value={tileX} />
+      <label for="tile-y">Y</label>
+      <input id="tile-y" type="number" min="0" max="63" bind:value={tileY} />
+    </div>
+    {#snippet actions()}
+      <button onclick={close}>Cancel</button>
+      <button
+        class="active"
+        disabled={!tileValid}
+        onclick={() => {
+          const e = engineRef.current
+          close()
+          if (e) openWowTile(e, tileMap.trim(), tileX, tileY)
+        }}>Open</button
+      >
+    {/snippet}
+  </Modal>
 {:else if ui.dialog === 'quit'}
   <Modal title="Unsaved changes" width={380} onclose={close}>
     <p>Some open maps have unsaved changes. Quit anyway?</p>
@@ -119,6 +150,16 @@
 {/if}
 
 <style>
+  .fields {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .fields input {
+    width: 100%;
+  }
   .about {
     display: flex;
     gap: 14px;

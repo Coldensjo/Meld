@@ -12,10 +12,19 @@ export interface DocMeta {
   dirty: boolean
   /** The texture palette: a WoW tileset path or a '#rrggbb' colour per entry. */
   palette: string[]
+  /** The client tile this map was opened from, which exports go back to. */
+  tile: TileRef | null
   texScale: number
   waterLevel: number
   waterEnabled: boolean
   paintLayer: number
+}
+
+/** A tile of a 1.12 map in the client. */
+export interface TileRef {
+  mapName: string
+  x: number
+  y: number
 }
 
 export interface DocCamera {
@@ -51,6 +60,7 @@ export class MapDocument {
       filePath: '',
       dirty: false,
       palette: LAYERS.map((l) => l.swatch),
+      tile: null,
       texScale: 8,
       waterLevel: 0,
       waterEnabled: true,

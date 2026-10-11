@@ -17,4 +17,12 @@ chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swift
 - `paint.html` checks the four-texture rule, undo and redo, copy and paste across palettes, and
   auto-paint on a 512-cell map. It should end with `ALL_PASSED`.
 
-The pure rules have Node tests too: `node --test tests/chunkPaint.test.ts`.
+- `tile.html` converts a tile read from your client into paint and checks the rules on it. It
+  needs a TileView as JSON at http://127.0.0.1:5210/tile.json (or `?url=`). Make that file yourself
+  from `vmangos.ReadTile`, outside the repo: game data isn't committed. It should print `ALL_PASSED`.
+
+The pure rules have Node tests too. Node needs the hook that resolves the app's extensionless imports:
+
+```
+node --import ./tests/register.mjs --test tests/chunkPaint.test.ts tests/tileImport.test.ts
+```

@@ -1,8 +1,19 @@
-import { LoadMap, OpenMapDialog, SaveMap, SaveMapDialog } from '../../../wailsjs/go/main/App'
+import {
+  BrowseVmangosFolder,
+  ExportTileHeights,
+  LoadMap,
+  LoadTile,
+  OpenMapDialog,
+  SaveMap,
+  SaveMapDialog,
+  SetVmangosPath,
+  VmangosPath,
+} from '../../../wailsjs/go/main/App'
 import { mapfile } from '../../../wailsjs/go/models'
 import type { Engine, MapSnapshot } from '../engine/Engine'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { base64ToBytes, bytesToBase64 } from './base64'
+import { tilePaint } from './tileImport'
 
 /** True when running inside the Wails webview (Go bindings available). */
 export const hasBackend = () => typeof (window as unknown as { go?: unknown }).go !== 'undefined'
@@ -100,4 +111,75 @@ export function openMap(engine: Engine) {
     engine.openDocument(fromMapData(data), path)
     setStatus(`Loaded ${path} (${Math.round(performance.now() - t0)} ms)`)
   })
+}
+
+/** Paint chunks a side in a 1.12 tile. */
+const TILE_CHUNKS = 16
+
+/** Opens a tile of the client in a new tab (or switches to it if it's open). */
+export function openWowTile(engine: Engine, mapName: string, x: number, y: number) {
+  return guarded('Open tile', async () => {
+    const view = await LoadTile(mapName, x, y)
+    const paint = tilePaint(
+      view.chunks.map((c) => ({
+        indexX: c.indexX,
+        indexY: c.indexY,
+        layers: (c.layers ?? []).map((l) => ({ texture: l.texture, alpha: l.alpha ? base64ToBytes(l.alpha) : undefined })),
+      })),
+      TILE_CHUNKS,
+    )
+    const t0 = performance.now()
+    const opened = engine.openTile({
+      mapName,
+      x,
+      y,
+      heights: Float32Array.from(view.heights),
+      weights: paint.weights,
+      chunkSlots: paint.chunkSlots,
+      palette: paint.palette,
+    })
+    if (!opened) {
+      setStatus(`${mapName} ${x}_${y} is already open.`)
+      return
+    }
+    const notes = [
+      paint.dropped ? `${paint.dropped} extra layers left out (a chunk takes four)` : '',
+      view.placements.length ? `${view.placements.length} placed models aren't imported yet` : '',
+    ].filter(Boolean)
+    setStatus(
+      `Opened ${mapName} ${x}_${y} (${Math.round(performance.now() - t0)} ms)${notes.length ? '. ' + notes.join('; ') : ''}`,
+      8000,
+    )
+  })
+}
+
+/**
+ * Writes the active tile's edited heights into the client's patch, for the server to build from.
+ * Only heights are written so far: paint and objects stay as the client has them.
+ */
+export function exportWowTile(engine: Engine) {
+  return guarded('Export tile', async () => {
+    const tile = engine.activeTile()
+    if (!tile) {
+      setStatus('This map is not a client tile. Open one with File › Open WoW Tile…')
+      return
+    }
+    const patch = await ExportTileHeights(tile.mapName, tile.x, tile.y, Array.from(engine.outerHeights()))
+    const server = await VmangosPath()
+    const next = server ? ` Run update-maps.bat in ${server} to rebuild the server's map data.` : ''
+    setStatus(`Wrote the heights of ${tile.mapName} ${tile.x}_${tile.y} to ${patch}.${next} Paint and objects are not exported yet.`, 10000)
+  })
+}
+
+/** Asks for the VMaNGOS server folder that the map data is built in. */
+export async function chooseVmangosFolder() {
+  if (!hasBackend()) return
+  try {
+    const dir = await BrowseVmangosFolder()
+    if (!dir) return
+    await SetVmangosPath(dir)
+    setStatus(`VMaNGOS folder: ${dir}`)
+  } catch (e) {
+    setStatus(`Not a VMaNGOS server folder: ${e}`, 8000)
+  }
 }
