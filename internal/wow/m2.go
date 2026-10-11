@@ -40,9 +40,10 @@ func (r reader) cstr(off, n int) string {
 	return string(s)
 }
 
-// ParseM2 parses a pre-WotLK (version 256-263) M2 model into a static mesh
-// using the first (highest detail) view and the bind pose.
-func ParseM2(b []byte) (*Mesh, error) {
+// ParseM2 parses a pre-WotLK (version 256-263) M2 model using the first
+// (highest detail) view. Geometry is the bind pose; the idle animation,
+// lights and flame emitters are returned alongside. path feeds heuristics.
+func ParseM2(b []byte, path string) (*Mesh, error) {
 	if len(b) < 0xB4 || string(b[:4]) != "MD20" {
 		return nil, errors.New("m2: bad magic")
 	}
@@ -115,17 +116,22 @@ func ParseM2(b []byte) (*Mesh, error) {
 		Normal: make([]float32, 0, nIdx*3),
 		UV:     make([]float32, 0, nIdx*2),
 	}
+	vertMap := make([]int, nIdx)
+	var minY, maxY, minX, maxX float32 = 1e9, -1e9, 1e9, -1e9
 	for i := 0; i < nIdx; i++ {
 		vi := r.u16(ofsIdx + i*2)
 		if vi >= nVerts {
 			vi = 0
 		}
+		vertMap[i] = vi
 		o := ofsVerts + vi*48
 		x, y, z := toEditor(r.f32(o), r.f32(o+4), r.f32(o+8))
 		nx, ny, nz := toEditor(r.f32(o+20), r.f32(o+24), r.f32(o+28))
 		m.Pos = append(m.Pos, x, y, z)
 		m.Normal = append(m.Normal, nx, ny, nz)
 		m.UV = append(m.UV, r.f32(o+32), r.f32(o+36))
+		minY, maxY = min(minY, y), max(maxY, y)
+		minX, maxX = min(minX, x), max(maxX, x)
 	}
 	tri := make([]uint32, nTri)
 	for i := range tri {
@@ -165,7 +171,8 @@ func ParseM2(b []byte) (*Mesh, error) {
 		m.Index = append(m.Index, tri[start:start+count]...)
 		m.Groups = append(m.Groups, g)
 	}
-	if len(m.Groups) == 0 {
+	m.Anim, m.Effects = parseM2Extras(r, version, vertMap, textures, path, max(maxY-minY, maxX-minX))
+	if len(m.Groups) == 0 && len(m.Effects) == 0 {
 		return nil, errors.New("m2: no renderable batches")
 	}
 	return m, nil

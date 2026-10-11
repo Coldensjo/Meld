@@ -27,6 +27,8 @@ interface Batch {
 export class ObjectLayer {
   readonly group = new THREE.Group()
   readonly objects = new Map<number, WorldObject>()
+  /** Bumped on any change to placed objects (or their loaded models). */
+  version = 0
   private batches = new Map<string, Batch>()
   private nextId = 1
   private tmpM = new THREE.Matrix4()
@@ -43,6 +45,7 @@ export class ObjectLayer {
     this.unsubscribe = onAssetLoaded((type) => {
       const b = this.batches.get(type)
       if (!b) return
+      this.version++
       this.group.remove(b.mesh)
       b.mesh.dispose()
       b.mesh = this.makeMesh(type, b.mesh.instanceMatrix.count)
@@ -61,6 +64,7 @@ export class ObjectLayer {
     this.nextId = Math.max(this.nextId, obj.id + 1)
     this.objects.set(obj.id, obj)
     this.batch(obj.type).dirty = true
+    this.version++
     return obj
   }
 
@@ -69,6 +73,7 @@ export class ObjectLayer {
     if (!o) return
     this.objects.delete(id)
     this.batch(o.type).dirty = true
+    this.version++
     return o
   }
 
@@ -76,6 +81,7 @@ export class ObjectLayer {
   touch(id: number) {
     const o = this.objects.get(id)
     if (o) this.batch(o.type).dirty = true
+    this.version++
   }
 
   clear() {
@@ -85,12 +91,16 @@ export class ObjectLayer {
 
   markAllDirty() {
     for (const b of this.batches.values()) b.dirty = true
+    this.version++
   }
 
   /** Re-snap objects within a world-space rect after terrain edits. */
   markRegionDirty(x0: number, z0: number, x1: number, z1: number) {
     for (const o of this.objects.values()) {
-      if (o.x >= x0 && o.x <= x1 && o.z >= z0 && o.z <= z1) this.batch(o.type).dirty = true
+      if (o.x >= x0 && o.x <= x1 && o.z >= z0 && o.z <= z1) {
+        this.batch(o.type).dirty = true
+        this.version++
+      }
     }
   }
 

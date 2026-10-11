@@ -190,7 +190,7 @@ func (c *Client) m2Mesh(path string) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseM2(raw)
+	return ParseM2(raw, path)
 }
 
 func (c *Client) wmoMesh(path string) (*Mesh, error) {
@@ -227,11 +227,12 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 			continue
 		}
 		cp := &Mesh{
-			Pos:    append([]float32(nil), src.Pos...),
-			Normal: append([]float32(nil), src.Normal...),
-			UV:     src.UV,
-			Index:  src.Index,
-			Groups: src.Groups,
+			Pos:     append([]float32(nil), src.Pos...),
+			Normal:  append([]float32(nil), src.Normal...),
+			UV:      src.UV,
+			Index:   src.Index,
+			Groups:  src.Groups,
+			Effects: append([]Effect(nil), src.Effects...),
 		}
 		cp.TransformWoW(d.Pos, d.Rot, d.Scale)
 		m.Append(cp)
@@ -239,6 +240,7 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 	if len(m.Index) == 0 {
 		return nil, errors.New("wmo: no geometry")
 	}
+	m.Effects = append(m.Effects, root.Lights...)
 	m.Consolidate()
 	return m, nil
 }

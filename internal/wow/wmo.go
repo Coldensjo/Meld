@@ -32,6 +32,7 @@ type WMORoot struct {
 	Materials []WMOMaterial
 	NumGroups int
 	Doodads   []WMODoodad // default doodad set only
+	Lights    []Effect    // MOLT lights, editor space
 }
 
 type WMOMaterial struct {
@@ -81,6 +82,19 @@ func ParseWMORoot(b []byte) (*WMORoot, error) {
 			mods = c.data
 		case "MODD":
 			modd = c.data
+		case "MOLT":
+			// 48-byte lights: type, atten, pad, BGRA colour, position, intensity, attenStart, attenEnd.
+			r := reader{c.data}
+			for o := 0; o+48 <= len(c.data) && len(root.Lights) < 32; o += 48 {
+				intensity := r.f32(o + 20)
+				end := r.f32(o + 28)
+				if intensity <= 0 || !finite(intensity, end) {
+					continue
+				}
+				x, y, z := toEditor(r.f32(o+8), r.f32(o+12), r.f32(o+16))
+				col := [3]float32{float32(c.data[o+6]) / 255, float32(c.data[o+5]) / 255, float32(c.data[o+4]) / 255}
+				root.Lights = append(root.Lights, Effect{Kind: "light", Pos: [3]float32{x, y, z}, Color: col, Intensity: clampF(intensity, 0.2, 2), Radius: clampF(end, 3, 30)})
+			}
 		}
 	}
 	// Default doodad set ("Set_$DefaultGlobal") is set 0.
@@ -239,6 +253,13 @@ func (m *Mesh) TransformWoW(pos [3]float32, q [4]float32, scale float32) {
 		ccy := qz*cx - qx*cz
 		ccz := qx*cy - qy*cx
 		return x + 2*(qw*cx+ccx), y + 2*(qw*cy+ccy), z + 2*(qw*cz+ccz)
+	}
+	for i := range m.Effects {
+		e := &m.Effects[i]
+		x, y, z := rot(e.Pos[0]*scale, e.Pos[1]*scale, e.Pos[2]*scale)
+		e.Pos = [3]float32{x + px, y + py, z + pz}
+		e.Radius *= scale
+		e.Size *= scale
 	}
 	for i := 0; i+2 < len(m.Pos); i += 3 {
 		x, y, z := rot(m.Pos[i]*scale, m.Pos[i+1]*scale, m.Pos[i+2]*scale)

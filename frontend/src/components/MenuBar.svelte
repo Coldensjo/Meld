@@ -115,6 +115,8 @@
           (v) => (prefs.shadows = v as typeof prefs.shadows),
         ),
         { kind: 'sep' },
+        { kind: 'check', label: 'Prop lights & flames', checked: prefs.propEffects, toggle: () => (prefs.propEffects = !prefs.propEffects) },
+        { kind: 'check', label: 'Prop animations', checked: prefs.animations, toggle: () => (prefs.animations = !prefs.animations) },
         { kind: 'check', label: 'Clouds', checked: prefs.clouds, toggle: () => (prefs.clouds = !prefs.clouds) },
         { kind: 'check', label: 'Fog', checked: prefs.fog, toggle: () => (prefs.fog = !prefs.fog) },
         { kind: 'check', label: 'Water', checked: editor.waterEnabled, toggle: () => (editor.waterEnabled = !editor.waterEnabled) },

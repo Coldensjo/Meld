@@ -14,7 +14,8 @@ import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
 import { getFallbackTextures } from '../terrain/textures'
 import { loadTexture, setMaxAnisotropy } from '../wow/api'
-import { getAsset } from '../models/assets'
+import { animatedAssets, getAsset } from '../models/assets'
+import { PropEffects } from '../world/PropEffects'
 import { SelectionOutline } from './SelectionOutline'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 
@@ -62,6 +63,7 @@ export class Engine {
   }
 
   private env: Environment
+  private effects = new PropEffects()
   /** Current hour; advances on its own when the day cycle is on. */
   private hour = 13
   private prefs: Prefs | null = null
@@ -121,6 +123,7 @@ export class Engine {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.env = new Environment(this.scene)
+    this.scene.add(this.effects.group)
 
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
@@ -185,6 +188,7 @@ export class Engine {
     this.controller.dispose()
     this.outline.dispose()
     this.env.dispose()
+    this.effects.dispose()
     for (const d of this.documents) d.dispose()
     this.renderer.dispose()
   }
@@ -340,8 +344,14 @@ export class Engine {
     this.water.level = editor.waterLevel
     this.water.visible = editor.waterEnabled
 
+    if (this.prefs?.animations !== false) {
+      const ms = time * 1000
+      for (const a of animatedAssets) a.anim?.update(ms)
+    }
     this.terrain.update()
     this.objects.update()
+    this.effects.enabled = this.prefs?.propEffects !== false
+    this.effects.update(this.objects, time, this.controller.target, this.env.state.night)
     this.updateSelectionVisuals()
     this.water.update(time)
     this.renderer.render(this.scene, this.camera)

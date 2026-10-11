@@ -97,6 +97,10 @@ Also included:
   - Clouds, fog, water, automatic cliff rock, grid.
   - The ☀/☾ button next to the menus switches between day and night.
 
+  - **Prop lights & flames**: torches, braziers, campfires, lamps and candles get animated flames
+    and flickering light (up to 8 nearest lights). Buildings light up from their lanterns.
+  - **Prop animations**: props play their idle animation (windmills turn, flags wave…).
+
   The sky is a physically based atmosphere with a sun disc, clouds, a moon with phases, stars
   and the Milky Way. Lighting, fog and water colours follow the sun; at night the moon is the
   light source and casts soft shadows.

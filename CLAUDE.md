@@ -130,6 +130,25 @@ cd frontend && pnpm build   # frontend only
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
   cycling, so it doesn't write reactive state every frame.
 
+## Prop animation, lights & flames
+
+- Go side (`internal/wow/m2anim.go`): `parseM2Extras` reads the following, all converted to
+  editor space and sent in the mesh header (`bones`, `effects`) plus per-vertex bone data after
+  the indices:
+  - Bones with keyframes for the "Stand" loop (or a global sequence).
+  - Lights: 212 bytes each in vanilla.
+  - Particle emitters: **504 bytes in vanilla**. Only their positions are used, as flame
+    anchors when the texture or model name looks like fire.
+  - WMOs add their doodads' effects and their own MOLT lights.
+- `world/Animator.ts` (`ModelAnimation`) CPU-skins the shared geometry per model type. All
+  instances animate in sync. The Engine drives `animatedAssets` each frame.
+- `world/PropEffects.ts` draws the flames (instanced upright billboards with a procedural fire
+  shader) and assigns a pool of `LIGHT_POOL` (8) `PointLight`s to the nearest light sources,
+  with flicker.
+  - A prop's coincident light and flames merge into one light.
+  - The terrain shader adds the point lights with three's falloff.
+  - `ObjectLayer.version` tells it when to rebuild.
+
 ## Selection, clipboard & nudging
 
 - **Marquee** (`tools/MarqueeTool.ts`): the selection is `editor.selection` in cell/vertex

@@ -85,6 +85,10 @@ export const prefs = $state({
   cycleMinutes: 10,
   clouds: true,
   shadows: 'medium' as 'off' | 'medium' | 'high',
+  /** Flames + dynamic lights on torches, braziers, lamps… */
+  propEffects: true,
+  /** Play props' idle animations (windmills, flags, flames…). */
+  animations: true,
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,
   collapsedPanels: ['properties'] as string[],

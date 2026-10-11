@@ -36,6 +36,10 @@ type Mesh struct {
 	Color  []byte    // rgba, optional (len 0 or 4*verts)
 	Index  []uint32
 	Groups []Group
+	// Anim is set for models with a moving idle animation (bone data per vertex).
+	Anim *Anim
+	// Effects are lights/flames in model space (editor coordinates).
+	Effects []Effect
 }
 
 func (m *Mesh) vertCount() int { return len(m.Pos) / 3 }
@@ -66,6 +70,7 @@ func (m *Mesh) Append(o *Mesh) {
 		g.Start += start
 		m.Groups = append(m.Groups, g)
 	}
+	m.Effects = append(m.Effects, o.Effects...)
 }
 
 func whiteColors(n int) []byte {
@@ -122,10 +127,12 @@ type meshHeader struct {
 	Colors  bool      `json:"colors"`
 	Groups  []Group   `json:"groups"`
 	BBox    []float32 `json:"bbox"`
+	Bones   []Bone    `json:"bones,omitempty"`
+	Effects []Effect  `json:"effects,omitempty"`
 }
 
 // Encode serialises the mesh for the frontend:
-// u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32)
+// u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32) | [boneIdx u8x4 | boneW u8x4]
 func (m *Mesh) Encode() []byte {
 	n := m.vertCount()
 	mn := [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
@@ -140,10 +147,15 @@ func (m *Mesh) Encode() []byte {
 	if n == 0 {
 		mn, mx = [3]float32{}, [3]float32{}
 	}
-	hdr, _ := json.Marshal(meshHeader{
+	h := meshHeader{
 		Verts: n, Indices: len(m.Index), Colors: len(m.Color) == n*4 && n > 0, Groups: m.Groups,
-		BBox: []float32{mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]},
-	})
+		BBox: []float32{mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]}, Effects: m.Effects,
+	}
+	hasAnim := m.Anim != nil && len(m.Anim.BoneIdx) == n*4
+	if hasAnim {
+		h.Bones = m.Anim.Bones
+	}
+	hdr, _ := json.Marshal(h)
 	for len(hdr)%4 != 0 {
 		hdr = append(hdr, ' ')
 	}
@@ -158,5 +170,9 @@ func (m *Mesh) Encode() []byte {
 		buf.Write(m.Color)
 	}
 	binary.Write(&buf, binary.LittleEndian, m.Index)
+	if hasAnim {
+		buf.Write(m.Anim.BoneIdx)
+		buf.Write(m.Anim.BoneW)
+	}
 	return buf.Bytes()
 }

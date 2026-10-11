@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { fetchMesh, loadTexture, type MeshGroup, type WowMesh } from '../wow/api'
+import { fetchMesh, loadTexture, type MeshEffect, type MeshGroup, type WowMesh } from '../wow/api'
+import { ModelAnimation } from '../world/Animator'
 
 /**
  * A placeable model: one geometry (with groups) and one material per group.
@@ -12,6 +13,10 @@ export interface ModelAsset {
   bbox: THREE.Box3
   /** False for the placeholder shown while loading or when loading failed. */
   ready: boolean
+  /** Idle animation (shared geometry is skinned in place), if the model moves. */
+  anim?: ModelAnimation
+  /** Lights and flames in model space. */
+  effects: MeshEffect[]
 }
 
 export type ModelKind = 'm2' | 'wmo'
@@ -44,6 +49,7 @@ function getPlaceholder(): ModelAsset {
       material: new THREE.MeshLambertMaterial({ color: 0xcc44cc, transparent: true, opacity: 0.6 }),
       bbox: g.boundingBox!.clone(),
       ready: false,
+      effects: [],
     }
   }
   return placeholder
@@ -67,7 +73,7 @@ export function loadAsset(type: string): Promise<ModelAsset> {
   let p = pending.get(type)
   if (!p) {
     p = fetchMesh(wowPath(type))
-      .then((m) => buildWowAsset(m))
+      .then((m) => buildWowAsset(m, true))
       .catch((err) => {
         console.warn('model load failed', type, err)
         return getPlaceholder()
@@ -137,8 +143,15 @@ export function texturesReady(material: THREE.Material | THREE.Material[]): Prom
   return Promise.allSettled(list.map((m) => m.userData.ready as Promise<void> | undefined))
 }
 
-/** Builds geometry + materials. Callers that don't keep it should dispose the geometry. */
-export function buildWowAsset(m: WowMesh): ModelAsset {
+/** Every animated model loaded so far (driven each frame by the Engine). */
+export const animatedAssets = new Set<ModelAsset>()
+
+/**
+ * Builds geometry + materials. `animate` sets up the idle animation (only for
+ * kept assets — thumbnails pass false). Callers that don't keep it should
+ * dispose the geometry.
+ */
+export function buildWowAsset(m: WowMesh, animate = false): ModelAsset {
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(m.positions, 3))
   geo.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3))
@@ -155,5 +168,10 @@ export function buildWowAsset(m: WowMesh): ModelAsset {
   const b = m.bbox
   const bbox = new THREE.Box3(new THREE.Vector3(b[0], b[1], b[2]), new THREE.Vector3(b[3], b[4], b[5]))
   geo.boundingBox = bbox.clone()
-  return { geometry: geo, material: materials, bbox, ready: true }
+  const asset: ModelAsset = { geometry: geo, material: materials, bbox, ready: true, effects: m.effects }
+  if (animate && m.bones && m.boneIdx && m.boneW) {
+    asset.anim = new ModelAnimation(geo, m.bones, m.boneIdx, m.boneW)
+    animatedAssets.add(asset)
+  }
+  return asset
 }

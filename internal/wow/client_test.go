@@ -51,7 +51,7 @@ func TestClientAssets(t *testing.T) {
 	missing, total := 0, 0
 	for _, p := range []string{`World\Azeroth\Elwynn\PassiveDoodads\Trees\ElwynnFirTree01.m2`} {
 		raw, _ := c.read(p)
-		m, err := ParseM2(raw)
+		m, err := ParseM2(raw, p)
 		if err != nil {
 			t.Fatal(err)
 		}

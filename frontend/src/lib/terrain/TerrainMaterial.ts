@@ -93,6 +93,19 @@ void main() {
   vec3 hemi = mix(groundAmbient, skyAmbient, n.y * 0.5 + 0.5);
   vec3 lit = col * (hemi + sunColor * diff);
 
+  // Point lights from torches, braziers, lamps (same falloff as three's props).
+  #if NUM_POINT_LIGHTS > 0
+    vec3 vPos = (viewMatrix * vec4(vWorldPos, 1.0)).xyz;
+    vec3 vN = normalize((viewMatrix * vec4(n, 0.0)).xyz);
+    for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
+      vec3 L = pointLights[i].position - vPos;
+      float d = max(length(L), 0.001);
+      float cutoff = pointLights[i].distance;
+      float att = cutoff > 0.0 ? pow(clamp(1.0 - pow(d / cutoff, 4.0), 0.0, 1.0), 2.0) / max(d * d, 0.01) : 0.0;
+      lit += col * pointLights[i].color * att * max(dot(vN, L / d), 0.0) * RECIPROCAL_PI;
+    }
+  #endif
+
   if (waterEnabled > 0.5) {
     float depth = waterLevel - vWorldPos.y;
     if (depth > 0.0) {

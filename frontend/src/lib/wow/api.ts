@@ -16,6 +16,31 @@ export interface MeshGroup {
   unlit: boolean
 }
 
+export interface AnimTrack {
+  t: number[]
+  v: number[]
+  loop: number
+  step?: boolean
+}
+
+export interface AnimBone {
+  parent: number
+  pivot: [number, number, number]
+  tr?: AnimTrack
+  rot?: AnimTrack
+  sc?: AnimTrack
+}
+
+/** Light source or flame in model space (editor coordinates). */
+export interface MeshEffect {
+  kind: 'fire' | 'light'
+  pos: [number, number, number]
+  color: [number, number, number]
+  intensity: number
+  radius: number
+  size?: number
+}
+
 export interface WowMesh {
   positions: Float32Array
   normals: Float32Array
@@ -24,6 +49,11 @@ export interface WowMesh {
   indices: Uint32Array
   groups: MeshGroup[]
   bbox: number[]
+  /** Idle animation: bones plus 4 bone indices/weights per vertex. */
+  bones?: AnimBone[]
+  boneIdx?: Uint8Array
+  boneW?: Uint8Array
+  effects: MeshEffect[]
 }
 
 type StatusLike = { path: string; loaded: boolean; error: string; files: number; archives: number }
@@ -157,6 +187,8 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
     colors: boolean
     groups: MeshGroup[]
     bbox: number[]
+    bones?: AnimBone[]
+    effects?: MeshEffect[]
   }
   let o = 4 + hdrLen
   const take = <T>(ctor: new (b: ArrayBuffer, o: number, n: number) => T, n: number, bytes: number) => {
@@ -169,5 +201,11 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
   const uvs = take(Float32Array, hdr.verts * 2, 4)
   const colors = hdr.colors ? take(Uint8Array, hdr.verts * 4, 1) : null
   const indices = take(Uint32Array, hdr.indices, 4)
-  return { positions, normals, uvs, colors, indices, groups: hdr.groups ?? [], bbox: hdr.bbox }
+  const mesh: WowMesh = { positions, normals, uvs, colors, indices, groups: hdr.groups ?? [], bbox: hdr.bbox, effects: hdr.effects ?? [] }
+  if (hdr.bones?.length) {
+    mesh.bones = hdr.bones
+    mesh.boneIdx = take(Uint8Array, hdr.verts * 4, 1)
+    mesh.boneW = take(Uint8Array, hdr.verts * 4, 1)
+  }
+  return mesh
 }
