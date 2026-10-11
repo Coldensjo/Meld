@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { Terrain, type GenerateKind } from '../terrain/Terrain'
 import { Water } from '../water/Water'
 import { ObjectLayer } from '../world/ObjectLayer'
-import { History } from '../state/history'
+import { History, type Command } from '../state/history'
 import { editor, setStatus, stats, type Prefs, type ToolId } from '../state/editor.svelte'
 import { CameraController } from './CameraController'
 import { HORIZON, createSky } from './Sky'
@@ -13,6 +13,7 @@ import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools
 import type { WorldObject } from '../world/ObjectLayer'
 import { getFallbackTextures } from '../terrain/textures'
 import { loadTexture, setMaxAnisotropy } from '../wow/api'
+import { getAsset } from '../models/assets'
 
 export interface MapSnapshot {
   name: string
@@ -63,6 +64,11 @@ export class Engine {
   private resizeObs: ResizeObserver
   /** Layer texture paths currently bound to the terrain shader. */
   private boundLayers: string[] = []
+  private selectionHelper = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color(1, 0.85, 0.2))
+  private tmpBox = new THREE.Box3()
+  private tmpM = new THREE.Matrix4()
+  /** Merges a burst of key nudges on one object into a single undo step. */
+  private nudgeSession: { id: number; before: WorldObject; cmd: Command; time: number } | null = null
   private viewDistance = 1
   private fogEnabled = true
   private abort = new AbortController()
@@ -119,6 +125,10 @@ export class Engine {
       water: new WaterTool(),
       place: new PlaceTool(),
     }
+
+    this.controller.arrowsBlocked = () => this.canNudge()
+    this.selectionHelper.visible = false
+    this.scene.add(this.selectionHelper)
 
     this.bindPointer()
     this.resizeObs = new ResizeObserver(() => this.resize())
@@ -226,6 +236,7 @@ export class Engine {
       this.leftDown = false
     }
     this.activeTool?.deactivate?.(this.ctx)
+    if (editor.tool !== 'select' && editor.tool !== 'place') editor.selected = null
     this.activeToolId = editor.tool
     this.activeTool = this.tools[editor.tool]
     this.activeTool.activate?.(this.ctx)
@@ -265,6 +276,7 @@ export class Engine {
     this.water.level = editor.waterLevel
     this.water.visible = editor.waterEnabled
 
+    this.updateSelectionHelper()
     this.terrain.update()
     this.objects.update()
     this.water.update(time)
@@ -404,6 +416,91 @@ export class Engine {
   }
 
   // ---------------------------------------------------------------- editing API
+
+  private updateSelectionHelper() {
+    const o = editor.selected ? this.objects.objects.get(editor.selected.id) : undefined
+    this.selectionHelper.visible = !!o
+    if (!o) return
+    this.tmpBox.copy(getAsset(o.type).bbox).applyMatrix4(this.objects.matrixOf(o, this.tmpM))
+    this.selectionHelper.box.copy(this.tmpBox)
+  }
+
+  /** Keyboard editing of the selected object applies in the Select and Place tools. */
+  canNudge() {
+    return !!editor.selected && (editor.tool === 'select' || editor.tool === 'place')
+  }
+
+  /**
+   * Move/raise/spin the selected object. dx/dz are camera-relative (right,
+   * forward); dy raises; dRot is radians. Rapid repeats merge into one undo.
+   */
+  nudgeSelected(right: number, forward: number, dy: number, dRot: number) {
+    if (!editor.selected) return
+    const o = this.objects.objects.get(editor.selected.id)
+    if (!o) return
+    const now = performance.now()
+    const s = this.nudgeSession
+    const continuing = s && s.id === o.id && this.history.peek() === s.cmd && now - s.time < 1500
+    const before = continuing ? s!.before : { ...o }
+    const yaw = this.controller.yaw
+    const fx = -Math.sin(yaw)
+    const fz = -Math.cos(yaw)
+    o.x = THREE.MathUtils.clamp(o.x + fx * forward - fz * right, 0, this.terrain.worldSize)
+    o.z = THREE.MathUtils.clamp(o.z + fz * forward + fx * right, 0, this.terrain.worldSize)
+    o.yOff += dy
+    o.rotY += dRot
+    this.objects.touch(o.id)
+    editor.selected = { ...o }
+    const cmd = transformCommand(this.objects, before, o)
+    if (continuing) this.history.replaceTop(cmd)
+    else this.history.push(cmd)
+    this.nudgeSession = { id: o.id, before, cmd, time: now }
+  }
+
+  /** Keys for the selected object. Returns true if handled. */
+  handleSelectionKey(e: KeyboardEvent): boolean {
+    if (!this.canNudge()) return false
+    const big = e.shiftKey
+    const step = big ? 4 : 0.5
+    const lift = big ? 2 : 0.25
+    const spin = THREE.MathUtils.degToRad(e.altKey ? 5 : 15)
+    switch (e.key) {
+      case 'ArrowLeft':
+        if (e.altKey) this.nudgeSelected(0, 0, 0, spin)
+        else this.nudgeSelected(-step, 0, 0, 0)
+        return true
+      case 'ArrowRight':
+        if (e.altKey) this.nudgeSelected(0, 0, 0, -spin)
+        else this.nudgeSelected(step, 0, 0, 0)
+        return true
+      case 'ArrowUp':
+        if (e.altKey) this.nudgeSelected(0, 0, lift, 0)
+        else this.nudgeSelected(0, step, 0, 0)
+        return true
+      case 'ArrowDown':
+        if (e.altKey) this.nudgeSelected(0, 0, -lift, 0)
+        else this.nudgeSelected(0, -step, 0, 0)
+        return true
+      case 'PageUp':
+        this.nudgeSelected(0, 0, lift, 0)
+        return true
+      case 'PageDown':
+        this.nudgeSelected(0, 0, -lift, 0)
+        return true
+      case 'r':
+      case 'R':
+        this.nudgeSelected(0, 0, 0, e.shiftKey ? -spin : spin)
+        return true
+      case 'Delete':
+      case 'Backspace':
+        this.deleteSelected()
+        return true
+      case 'Escape':
+        editor.selected = null
+        return true
+    }
+    return false
+  }
 
   undo() {
     const c = this.history.undo()

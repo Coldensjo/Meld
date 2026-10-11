@@ -20,6 +20,8 @@ export class CameraController {
   speed = 1
   sensitivity = 1
   invertY = false
+  /** When this returns true the arrow keys are left to the editor (object nudging). */
+  arrowsBlocked: () => boolean = () => false
 
   private keys = new Set<string>()
   private drag: 'orbit' | 'pan' | null = null
@@ -96,6 +98,7 @@ export class CameraController {
     const el = e.target as HTMLElement | null
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
     if (e.ctrlKey || e.metaKey || e.altKey) return
+    if (e.code.startsWith('Arrow') && this.arrowsBlocked()) return
     this.keys.add(e.code)
   }
 
@@ -108,10 +111,11 @@ export class CameraController {
     const k = this.keys
     const fast = k.has('ShiftLeft') || k.has('ShiftRight') ? 3 : 1
     let fwd = 0, right = 0
-    if (k.has('KeyW') || k.has('ArrowUp')) fwd += 1
-    if (k.has('KeyS') || k.has('ArrowDown')) fwd -= 1
-    if (k.has('KeyD') || k.has('ArrowRight')) right += 1
-    if (k.has('KeyA') || k.has('ArrowLeft')) right -= 1
+    const arrows = !this.arrowsBlocked()
+    if (k.has('KeyW') || (arrows && k.has('ArrowUp'))) fwd += 1
+    if (k.has('KeyS') || (arrows && k.has('ArrowDown'))) fwd -= 1
+    if (k.has('KeyD') || (arrows && k.has('ArrowRight'))) right += 1
+    if (k.has('KeyA') || (arrows && k.has('ArrowLeft'))) right -= 1
     if (k.has('KeyQ')) this.yaw += dt * 1.6 * this.sensitivity
     if (k.has('KeyE')) this.yaw -= dt * 1.6 * this.sensitivity
 

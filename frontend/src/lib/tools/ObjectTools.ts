@@ -100,6 +100,8 @@ export class PlaceTool implements Tool {
     }
     const o = ctx.objects.add({ type: editor.prefab, x: hit.x, z: hit.z, yOff: 0, rotY: this.rot, scale: this.scale })
     ctx.history.push(addCommand(ctx.objects, [o], 'Place'))
+    // The new object stays selected so it can be nudged/spun with the keys.
+    editor.selected = { ...o }
     this.reroll()
   }
 
@@ -136,7 +138,8 @@ export class PlaceTool implements Tool {
   }
 
   onKey(_ctx: ToolContext, e: KeyboardEvent) {
-    if (e.key === 'r' || e.key === 'R') {
+    // With an object selected, R spins it (handled by the engine instead).
+    if (!editor.selected && (e.key === 'r' || e.key === 'R')) {
       this.rot += (e.shiftKey ? -1 : 1) * (Math.PI / 4)
       return true
     }
@@ -146,19 +149,7 @@ export class PlaceTool implements Tool {
 
 export class SelectTool implements Tool {
   readonly usesBrush = false
-  private helper = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color(1, 0.85, 0.2))
   private dragging: { before: WorldObject; dx: number; dz: number; moved: boolean } | null = null
-  private tmpBox = new THREE.Box3()
-  private tmpM = new THREE.Matrix4()
-
-  activate(ctx: ToolContext) {
-    ctx.scene.add(this.helper)
-  }
-
-  deactivate(ctx: ToolContext) {
-    ctx.scene.remove(this.helper)
-    editor.selected = null
-  }
 
   private selected(ctx: ToolContext) {
     return editor.selected ? ctx.objects.objects.get(editor.selected.id) : undefined
@@ -185,37 +176,5 @@ export class SelectTool implements Tool {
     const o = this.selected(ctx)
     if (this.dragging?.moved && o) ctx.history.push(transformCommand(ctx.objects, this.dragging.before, o))
     this.dragging = null
-  }
-
-  onKey(ctx: ToolContext, e: KeyboardEvent) {
-    const o = this.selected(ctx)
-    if (!o) return false
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      ctx.objects.remove(o.id)
-      ctx.history.push(removeCommand(ctx.objects, [o]))
-      editor.selected = null
-      return true
-    }
-    if (e.key === 'Escape') {
-      editor.selected = null
-      return true
-    }
-    if (e.key === 'r' || e.key === 'R') {
-      const before = { ...o }
-      o.rotY += (e.shiftKey ? -1 : 1) * (Math.PI / 12)
-      ctx.objects.touch(o.id)
-      ctx.history.push(transformCommand(ctx.objects, before, o))
-      editor.selected = { ...o }
-      return true
-    }
-    return false
-  }
-
-  frame(ctx: ToolContext) {
-    const o = this.selected(ctx)
-    this.helper.visible = !!o
-    if (!o) return
-    this.tmpBox.copy(getAsset(o.type).bbox).applyMatrix4(ctx.objects.matrixOf(o, this.tmpM))
-    this.helper.box.copy(this.tmpBox)
   }
 }

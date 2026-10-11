@@ -61,12 +61,16 @@
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomRot} /> Random rotation</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomScale} /> Random scale</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeScatter} /> Scatter</label>
+    {#if editor.selected}
+      <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
+    {/if}
     <div class="divider"></div>
   {:else if editor.tool === 'select'}
     {#if editor.selected}
       <span class="chip"><span class="dim">Selected:</span> {displayName(editor.selected.type)}</span>
       <button onclick={() => engineRef.current?.focusSelected()}>Focus <kbd>F</kbd></button>
       <button onclick={() => engineRef.current?.deleteSelected()}>Delete <kbd>Del</kbd></button>
+      <span class="dim"><kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>Alt+←→</kbd>/<kbd>R</kbd> spin · <kbd>Shift</kbd> bigger steps</span>
     {:else}
       <span class="dim">Click an object to select it. Drag to move, <kbd>R</kbd> rotates.</span>
     {/if}

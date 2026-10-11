@@ -22,6 +22,19 @@ export class History {
     this.sync()
   }
 
+  /** The most recent command still on the undo side, if any. */
+  peek(): Command | null {
+    return this.index > 0 && this.index === this.stack.length ? this.stack[this.index - 1] : null
+  }
+
+  /** Replace the most recent command (used to merge rapid repeated edits). */
+  replaceTop(cmd: Command) {
+    if (this.index === 0 || this.index !== this.stack.length) return this.push(cmd)
+    this.stack[this.index - 1] = cmd
+    editor.dirty = true
+    this.sync()
+  }
+
   undo() {
     if (this.index === 0) return null
     const cmd = this.stack[--this.index]

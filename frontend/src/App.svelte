@@ -70,7 +70,7 @@
       return
     }
 
-    if (engine.handleToolKey(e)) {
+    if (engine.handleSelectionKey(e) || engine.handleToolKey(e)) {
       e.preventDefault()
       return
     }
