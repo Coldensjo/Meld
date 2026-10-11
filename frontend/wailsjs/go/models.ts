@@ -125,7 +125,7 @@ export namespace vmangos {
 	export class LayerView {
 	    texture: string;
 	    effect: number;
-	    alpha?: number[];
+	    alpha?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LayerView(source);
