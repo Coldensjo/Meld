@@ -16,6 +16,8 @@ const (
 	ChunksPerTile = 16
 	// ChunkCount is the number of MCNK chunks in a full tile.
 	ChunkCount = ChunksPerTile * ChunksPerTile
+	// TileSize is the width of a tile in yards.
+	TileSize = 1600.0 / 3.0
 	// CellsPerChunk is the number of cells per side of a chunk.
 	CellsPerChunk = 8
 	// HeightCount is the height samples per chunk: 9x9 outer, then 8x8 inner, alternating rows.

@@ -188,3 +188,172 @@ func TestTileIntegration(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteHeightsSynthetic(t *testing.T) {
+	root := chunkBytes("MVER", []byte{18, 0, 0, 0})
+	root = append(root, mcnk(0, 0, 10, 0)...)
+	terrain, err := ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	same, err := WriteHeights(root, terrain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytesEqual(same, root) {
+		t.Fatal("writing unchanged heights changed the file")
+	}
+
+	terrain.Chunks[0].Heights[5] += 2.5
+	out, err := WriteHeights(root, terrain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := ParseTerrain(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := back.Chunks[0].Heights[5], float32(5+10)+2.5; got != want {
+		t.Errorf("edited height = %v, want %v", got, want)
+	}
+	if back.Chunks[0].Heights[4] != 14 {
+		t.Errorf("neighbouring height changed to %v", back.Chunks[0].Heights[4])
+	}
+	if back.Chunks[0].Position[2] != 10 {
+		t.Errorf("base height changed to %v", back.Chunks[0].Position[2])
+	}
+}
+
+// TestWriteHeightsIntegration edits one sample of a real tile and reads it back:
+// WOW_DIR=/path/to/client go test ./internal/adt/
+func TestWriteHeightsIntegration(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	root, err := set.ReadFile(TilePath("Azeroth", 32, 48, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	same, err := WriteHeights(root, terrain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytesEqual(same, root) {
+		t.Fatal("writing an unedited tile changed it")
+	}
+
+	c := &terrain.Chunks[100]
+	before := c.Heights[40]
+	c.Heights[40] = before + 4
+	out, err := WriteHeights(root, terrain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != len(root) {
+		t.Fatalf("file size changed: %d -> %d", len(root), len(out))
+	}
+	back, err := ParseTerrain(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range back.Chunks {
+		for s := 0; s < HeightCount; s++ {
+			want := terrain.Chunks[i].Heights[s]
+			if d := back.Chunks[i].Heights[s] - want; d > 0.01 || d < -0.01 {
+				t.Fatalf("chunk %d sample %d reads back %v, want %v", i, s, back.Chunks[i].Heights[s], want)
+			}
+		}
+	}
+	t.Logf("sample moved from %.3f to %.3f", before, back.Chunks[100].Heights[40])
+}
+
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestNormalsMatchFile recomputes a real chunk's normals from its heights and compares them with
+// the ones the file stores: WOW_DIR=/path/to/client go test ./internal/adt/
+func TestNormalsMatchFile(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	root, err := set.ReadFile(TilePath("Azeroth", 32, 48, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid := make([]float32, lattice*lattice)
+	for _, c := range terrain.Chunks {
+		for r := 0; r < CellsPerChunk+1; r++ {
+			for col := 0; col < CellsPerChunk+1; col++ {
+				grid[(c.IndexY*CellsPerChunk+r)*lattice+c.IndexX*CellsPerChunk+col] = c.Heights[r*17+col]
+			}
+		}
+	}
+	starts, err := mcnkStarts(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const chunk = 100
+	mcnr, ok := subChunk(root, starts[chunk], len(root), u32(root, starts[chunk]+0x18), "MCNR")
+	if !ok {
+		t.Fatal("no MCNR")
+	}
+	bad, worst := 0, 0
+	for s := 0; s < HeightCount; s++ {
+		n := normalAt(grid, terrain.Chunks[chunk], s)
+		for k := 0; k < 3; k++ {
+			want := int(int8(root[mcnr.start+s*3+k]))
+			got := int(math.Round(float64(n[k]) * 127))
+			d := got - want
+			if d < 0 {
+				d = -d
+			}
+			if d > worst {
+				worst = d
+			}
+			if d > 3 {
+				bad++
+			}
+		}
+	}
+	t.Logf("worst byte difference %d, %d off by more than 3", worst, bad)
+	if bad > HeightCount/10 {
+		t.Errorf("recomputed normals disagree with the file (%d bytes off)", bad)
+	}
+}
