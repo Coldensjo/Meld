@@ -3,6 +3,7 @@ import { editor, setStatus } from '../state/editor.svelte'
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
+import type { Terrain } from '../terrain/Terrain'
 
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
 const CHUNK_FULL = 'That chunk already has four textures (the 1.12 limit). Paint with one of them, or erase another.'
@@ -68,6 +69,18 @@ abstract class BrushTool implements Tool {
 
 const RAISE_RATE = 18 // world units per second at strength 1
 
+/** Weighted mean height under the brush: the flatten target when it averages. */
+function averageHeight(t: Terrain, x: number, z: number, radius: number, falloff: number): number {
+  const h = t.heights
+  let sum = 0
+  let weight = 0
+  forEachVertex(t, x, z, radius, falloff, (i, w) => {
+    sum += h[i] * w
+    weight += w
+  })
+  return weight > 0 ? sum / weight : t.heightAt(x, z)
+}
+
 export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
   protected records = { heights: true }
@@ -75,7 +88,11 @@ export class SculptTool extends BrushTool {
   private scratch = new Float32Array(0)
 
   protected begin(ctx: ToolContext, hit: THREE.Vector3) {
-    this.flattenTarget = ctx.terrain.heightAt(hit.x, hit.z)
+    const { radius, falloff } = editor.brush
+    this.flattenTarget =
+      editor.flattenTarget === 'average'
+        ? averageHeight(ctx.terrain, hit.x, hit.z, radius, falloff)
+        : ctx.terrain.heightAt(hit.x, hit.z)
     this.label = 'Sculpt: ' + editor.sculptMode
   }
 
@@ -97,7 +114,13 @@ export class SculptTool extends BrushTool {
       case 'flatten': {
         const k = Math.min(1, rate * 8)
         const target = this.flattenTarget
-        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => (h[i] += (target - h[i]) * w * k))
+        const dir = editor.flattenDir
+        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
+          const d = target - h[i]
+          // Raise-only and lower-only leave ground on the far side of the target alone.
+          if ((dir === 'raise' && d <= 0) || (dir === 'lower' && d >= 0)) return
+          h[i] += d * w * k
+        })
         break
       }
       case 'smooth': {

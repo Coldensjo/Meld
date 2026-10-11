@@ -9,6 +9,10 @@ import type { vmangos } from '../../../wailsjs/go/models'
 export type ToolId = 'select' | 'marquee' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear'
 export type ClearMode = 'models' | 'textures'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain'
+/** Flatten target: the height under the first click, or the average height under the brush. */
+export type FlattenTarget = 'origin' | 'average'
+/** Flatten direction: move ground both ways, or only up or only down toward the target. */
+export type FlattenDir = 'both' | 'raise' | 'lower'
 export type WaterMode = 'dig' | 'shore'
 
 export interface SelectedInfo {
@@ -35,6 +39,8 @@ export const editor = $state({
     snap: true,
   },
   sculptMode: 'raise' as SculptMode,
+  flattenTarget: 'origin' as FlattenTarget,
+  flattenDir: 'both' as FlattenDir,
   paintLayer: 0,
   /** Paint tool: paint textures, or paint the mask that texture fills apply to. */
   paintMode: 'texture' as 'texture' | 'mask',

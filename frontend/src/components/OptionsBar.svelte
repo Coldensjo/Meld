@@ -42,6 +42,17 @@
         <button class:active={editor.sculptMode === m.id} onclick={() => (editor.sculptMode = m.id)}>{m.name}</button>
       {/each}
     </div>
+    {#if editor.sculptMode === 'flatten'}
+      <select class="curve" bind:value={editor.flattenTarget} title="Height to flatten to" aria-label="Flatten target">
+        <option value="origin">To clicked height</option>
+        <option value="average">To average height</option>
+      </select>
+      <select class="curve" bind:value={editor.flattenDir} title="Which way ground moves toward the target" aria-label="Flatten direction">
+        <option value="both">Raise and lower</option>
+        <option value="raise">Raise only</option>
+        <option value="lower">Lower only</option>
+      </select>
+    {/if}
     <div class="divider"></div>
   {:else if editor.tool === 'paint' || editor.tool === 'road'}
     <button class="chip" onclick={() => (ui.palette = 'textures')} title="Active texture layer (pick textures in the Assets panel)">
