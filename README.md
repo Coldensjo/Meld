@@ -12,12 +12,13 @@ Built with **[Wails v2](https://wails.io)** (Go) + **Svelte 5** + **Three.js**. 
 
 | Tool | Key | What it does |
 |---|---|---|
-| Select / Move | `1` | Click to select, drag to move along the ground, `R` rotate, `Del` delete, `F` focus. Properties panel for precise edits. |
-| Sculpt | `2` | Raise, Lower, Smooth, Flatten, Noise, Mountain (ridged noise) brushes. |
-| Paint | `3` | Pick any WoW tileset texture in the palette and paint. Each map has 8 texture slots, assigned automatically. |
-| Roads | `4` | Paints the selected texture with a hard edge and levels the ground across it. |
-| Water | `5` | Global water level. Dig lakes or raise shores relative to it. Animated water with shore foam and depth tint. |
-| Place | `6` | Place the model selected in the palette. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
+| Select / Move | `1` / `V` | Click to select, drag to move along the ground. Arrow keys nudge (camera-relative), `Alt+↑/↓` or `PgUp/PgDn` raise/lower, `Alt+←/→` or `R` spin, `Shift` for bigger steps, `Del` delete, `F` focus. Properties panel for precise edits. |
+| Marquee | `2` / `M` | Drag to select a rectangle of the map. `Ctrl+C` copies its terrain, textures and objects. `Ctrl+V` pastes into any open map: the paste follows the mouse, a click (or `Enter`) places it, `PgUp/PgDn` adjust its height, and `Esc` cancels. Options: what to include, and edge blending. `Ctrl+A` / `Ctrl+D` select all / deselect. |
+| Sculpt | `3` | Raise, Lower, Smooth, Flatten, Noise, Mountain (ridged noise) brushes. |
+| Paint | `4` / `B` | Pick any WoW tileset texture in the palette and paint. Each map has 8 texture slots, assigned automatically. |
+| Roads | `5` | Paints the selected texture with a hard edge and levels the ground across it. |
+| Water | `6` | Global water level. Dig lakes or raise shores relative to it. Animated water with shore foam and depth tint. |
+| Place | `7` | Place the model selected in the palette. The placed object stays selected, so the arrow keys and `R` adjust it right away. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
 
 ### Layout
 
@@ -66,6 +67,8 @@ replaceable creature skins, WMO liquids.
 
 Also included:
 
+- Round or **square** brushes; square brushes can snap to the grid for tile-aligned painting.
+
 - New-map generator: Flat, Rolling Hills, Mountains or Island, with sizes 128², 256² and 512², seeded.
 - **Auto-paint** textures by height and slope, plus automatic rock on cliffs. New maps start with
   Elwynn tilesets.
@@ -85,7 +88,8 @@ Also included:
 
 ### Menus
 
-- **File**: New / Open / Save / Save As / Close Map, Undo / Redo, Exit (asks first if there are unsaved changes).
+- **File**: New / Open / Save / Save As / Close Map, Exit
+- **Edit**: Undo / Redo, Copy / Paste, Select All / Deselect (asks first if there are unsaved changes).
 - **Graphics**: render scale (50–150%), view distance, fog, water, automatic cliff rock, grid.
 - **Preferences**: WoW client folder, clear thumbnail cache, camera speed, mouse sensitivity,
   invert camera Y.

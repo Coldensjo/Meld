@@ -115,6 +115,20 @@ cd frontend && pnpm build   # frontend only
 - Dialogs live in `components/AppDialogs.svelte` (state: `ui.dialog`) on top of
   `components/Modal.svelte`.
 
+## Selection, clipboard & nudging
+
+- **Marquee** (`tools/MarqueeTool.ts`): the selection is `editor.selection` in cell/vertex
+  coordinates. The terrain shader draws it (`selRect`/`selMode`, marching ants).
+- **Clipboard** (`world/clipboard.ts`): `copyRegion` captures heights, splat texels plus the
+  source slot texture paths, and objects relative to the corner. `pasteRegion` remaps texture
+  slots onto the target map and returns one undo command.
+  - The clip lives on the Engine, not on a document, so it can be pasted into other tabs.
+  - Undo closures must write per-map state through `editor` at call time, never through
+    captured arrays, because tab switches replace those arrays.
+- **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
+  the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
+  moving. Bursts of nudges merge into one undo step via `History.replaceTop`.
+
 ## WoW client assets
 
 - The asset source is the user's **local** WoW 1.12 client. `internal/mpq` reads the archives

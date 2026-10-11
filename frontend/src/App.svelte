@@ -71,7 +71,11 @@
       } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
         const c = engine.redo()
         if (c) setStatus(`Redo: ${c.label}`)
-      } else if (key === 's') saveMap(engine, e.shiftKey)
+      } else if (key === 'c') engine.copySelection()
+      else if (key === 'v') engine.startPaste()
+      else if (key === 'a') engine.selectAll()
+      else if (key === 'd') engine.deselect()
+      else if (key === 's') saveMap(engine, e.shiftKey)
       else if (key === 'w') requestClose(engine.activeDocumentId())
       else if (e.key === 'Tab') engine.cycleDocument(e.shiftKey ? -1 : 1)
       else if (key === 'o') openMap(engine)
@@ -86,7 +90,7 @@
       return
     }
 
-    const tool = TOOLS.find((t) => t.key === e.key)
+    const tool = TOOLS.find((t) => t.key === e.key || t.letter?.toLowerCase() === key)
     if (tool) editor.tool = tool.id
     else if (e.key === '[') editor.brush.radius = Math.max(1, editor.brush.radius / 1.15)
     else if (e.key === ']') editor.brush.radius = Math.min(80, editor.brush.radius * 1.15)

@@ -38,6 +38,9 @@ uniform float brushSquare;
 uniform float brushVisible;
 uniform vec3 brushColor;
 uniform float gridVisible;
+uniform vec4 selRect;
+uniform float selMode;
+uniform float selTime;
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 
@@ -96,6 +99,21 @@ void main() {
     lit = mix(lit, vec3(0.0), line * 0.25);
   }
 
+  if (selMode > 0.5) {
+    // Marching-ants outline around the marquee selection / floating paste.
+    vec2 p = vWorldPos.xz;
+    vec2 lo = selRect.xy;
+    vec2 hi = selRect.zw;
+    float inside = step(lo.x, p.x) * step(p.x, hi.x) * step(lo.y, p.y) * step(p.y, hi.y);
+    float edge = min(min(p.x - lo.x, hi.x - p.x), min(p.y - lo.y, hi.y - p.y));
+    float w = max(0.18, fwidth(p.x) * 1.5);
+    float outline = inside * (1.0 - step(w, edge));
+    float ants = step(0.5, fract((p.x + p.y) * 0.25 - selTime * 0.8));
+    vec3 tint = selMode > 1.5 ? vec3(0.15, 0.5, 0.95) : vec3(0.6, 0.75, 1.0);
+    lit = mix(lit, tint, inside * (selMode > 1.5 ? 0.22 : 0.08));
+    lit = mix(lit, mix(vec3(0.05), vec3(1.0), ants), outline);
+  }
+
   if (brushVisible > 0.5) {
     vec2 bd = abs(vWorldPos.xz - brushPos);
     float d = brushSquare > 0.5 ? max(bd.x, bd.y) : length(bd);
@@ -140,6 +158,9 @@ export function createTerrainMaterial(
     brushVisible: { value: 0 },
     brushColor: { value: new THREE.Color(0.92, 0.95, 1.0) },
     gridVisible: { value: 0 },
+    selRect: { value: new THREE.Vector4() },
+    selMode: { value: 0 },
+    selTime: { value: 0 },
   }
   layers.forEach((t, i) => (uniforms['tex' + i] = { value: t }))
   return new THREE.ShaderMaterial({

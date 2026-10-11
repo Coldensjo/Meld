@@ -46,10 +46,20 @@
         { kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },
         { kind: 'action', label: 'Close Map', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
         { kind: 'sep' },
+        { kind: 'action', label: 'Exit', run: exit },
+      ],
+    },
+    {
+      name: 'Edit',
+      items: [
         { kind: 'action', label: 'Undo', shortcut: 'Ctrl+Z', disabled: !ui.canUndo, run: withEngine((e) => e.undo()) },
         { kind: 'action', label: 'Redo', shortcut: 'Ctrl+Y', disabled: !ui.canRedo, run: withEngine((e) => e.redo()) },
         { kind: 'sep' },
-        { kind: 'action', label: 'Exit', run: exit },
+        { kind: 'action', label: 'Copy', shortcut: 'Ctrl+C', disabled: !editor.selection, run: withEngine((e) => e.copySelection()) },
+        { kind: 'action', label: 'Paste', shortcut: 'Ctrl+V', disabled: !ui.hasClip, run: withEngine((e) => e.startPaste()) },
+        { kind: 'sep' },
+        { kind: 'action', label: 'Select All', shortcut: 'Ctrl+A', run: withEngine((e) => { e.selectAll(); editor.tool = 'marquee' }) },
+        { kind: 'action', label: 'Deselect', shortcut: 'Ctrl+D', disabled: !editor.selection, run: withEngine((e) => e.deselect()) },
       ],
     },
     {

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { GenerateKind } from '../terrain/Terrain'
 import type { Command } from '../state/history'
-import { docs, editor, setStatus, stats, type Prefs, type ToolId } from '../state/editor.svelte'
+import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
 import { MapDocument } from './MapDocument'
 import { CameraController } from './CameraController'
 import { HORIZON, createSky } from './Sky'
@@ -9,6 +9,8 @@ import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
 import { brushCenter } from '../tools/brush'
 import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
+import { MarqueeTool } from '../tools/MarqueeTool'
+import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
 import { getFallbackTextures } from '../terrain/textures'
 import { loadTexture, setMaxAnisotropy } from '../wow/api'
@@ -78,6 +80,9 @@ export class Engine {
   private tmpM = new THREE.Matrix4()
   /** Merges a burst of key nudges on one object into a single undo step. */
   private nudgeSession: { id: number; before: WorldObject; cmd: Command; time: number } | null = null
+  private marquee: MarqueeTool
+  /** Copied region; shared by all documents so it can be pasted into another map. */
+  private clip: MapClip | null = null
   private viewDistance = 1
   private fogEnabled = true
   private abort = new AbortController()
@@ -121,8 +126,14 @@ export class Engine {
       get raycaster() { return self.raycaster },
     }
 
+    this.marquee = new MarqueeTool({
+      clipSize: () => (this.clip ? { w: this.clip.w, h: this.clip.h } : null),
+      commitPaste: () => this.commitPaste(),
+      cancelPaste: () => this.cancelPaste(),
+    })
     this.tools = {
       select: new SelectTool(),
+      marquee: this.marquee,
       sculpt: new SculptTool(),
       paint: new PaintTool(),
       road: new RoadTool(),
@@ -272,6 +283,7 @@ export class Engine {
     u.brushRadius.value = radius
     u.brushSquare.value = square ? 1 : 0
     u.gridVisible.value = editor.grid ? 1 : 0
+    this.updateSelectionUniforms(time)
     u.cliffAuto.value = editor.autoCliff ? 1 : 0
     u.waterLevel.value = editor.waterLevel
     u.waterEnabled.value = editor.waterEnabled ? 1 : 0
@@ -399,6 +411,8 @@ export class Engine {
     editor.paintLayer = m.paintLayer
     editor.mapSize = d.terrain.size
     editor.selected = null
+    editor.selection = null
+    ui.pasting = false
     this.nudgeSession = null
     this.controller.bounds = d.terrain.worldSize
     this.controller.maxDistance = d.terrain.worldSize * 1.6
@@ -549,6 +563,95 @@ export class Engine {
       paintLayer: 0,
     }
     this.addDocument(d)
+  }
+
+  // ---------------------------------------------------------------- marquee / clipboard
+
+  private updateSelectionUniforms(time: number) {
+    const u = this.terrain.material.uniforms
+    const cs = this.terrain.cellSize
+    u.selTime.value = time
+    const at = this.marquee.pasteAt
+    if (ui.pasting && this.clip && at) {
+      u.selRect.value.set(at.x * cs, at.z * cs, (at.x + this.clip.w) * cs, (at.z + this.clip.h) * cs)
+      u.selMode.value = 2
+    } else if (editor.selection) {
+      const s = editor.selection
+      u.selRect.value.set(s.x0 * cs, s.z0 * cs, s.x1 * cs, s.z1 * cs)
+      u.selMode.value = 1
+    } else {
+      u.selMode.value = 0
+    }
+  }
+
+  selectAll() {
+    const n = this.terrain.size
+    editor.selection = { x0: 0, z0: 0, x1: n, z1: n }
+  }
+
+  deselect() {
+    editor.selection = null
+    if (ui.pasting) this.cancelPaste()
+  }
+
+  /** Copy the marquee selection (terrain, textures, objects) to the clipboard. */
+  copySelection(): boolean {
+    const s = editor.selection
+    if (!s || s.x1 <= s.x0 || s.z1 <= s.z0) {
+      setStatus('Nothing selected. Use the Marquee tool (M) to select part of the map first.')
+      return false
+    }
+    this.clip = copyRegion(this.terrain, this.objects, s, editor.layerTextures)
+    ui.hasClip = true
+    setStatus(`Copied ${this.clip.w}×${this.clip.h} cells and ${this.clip.objects.length} objects. Paste with Ctrl+V (works in other map tabs too).`)
+    return true
+  }
+
+  /** Start placing the clipboard: a floating rect follows the mouse until clicked. */
+  startPaste() {
+    if (!this.clip) {
+      setStatus('The clipboard is empty. Select an area with the Marquee tool and press Ctrl+C.')
+      return
+    }
+    editor.tool = 'marquee'
+    editor.selected = null
+    ui.pasting = true
+    this.marquee.pasteAt = null
+    setStatus('Click to place the paste · Enter places it · PgUp/PgDn raise/lower · Esc cancels', 0)
+  }
+
+  cancelPaste() {
+    ui.pasting = false
+    setStatus('Paste cancelled.')
+  }
+
+  commitPaste() {
+    const at = this.marquee.pasteAt
+    if (!this.clip || !at) return
+    const cmd = pasteRegion(
+      this.terrain,
+      this.objects,
+      editor.layerTextures,
+      (t) => (editor.layerTextures = t),
+      this.clip,
+      at.x,
+      at.z,
+      { ...editor.paste },
+      (r) => {
+        const cs = this.terrain.cellSize
+        this.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+      },
+    )
+    if (cmd) this.history.push(cmd)
+    const n = this.terrain.size
+    editor.selection = {
+      x0: Math.max(0, at.x),
+      z0: Math.max(0, at.z),
+      x1: Math.min(n, at.x + this.clip.w),
+      z1: Math.min(n, at.z + this.clip.h),
+    }
+    ui.pasting = false
+    setStatus('Pasted. Ctrl+Z to undo.')
   }
 
   // ---------------------------------------------------------------- editing API

@@ -1,7 +1,7 @@
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place'
+export type ToolId = 'select' | 'marquee' | 'sculpt' | 'paint' | 'road' | 'water' | 'place'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain'
 export type WaterMode = 'dig' | 'shore'
 
@@ -30,6 +30,9 @@ export const editor = $state({
   placeRandomScale: true,
   placeScatter: false,
   selected: null as SelectedInfo | null,
+  /** Marquee selection in cells (vertex corners), or null. */
+  selection: null as { x0: number; z0: number; x1: number; z1: number } | null,
+  paste: { terrain: true, textures: true, objects: true, blend: 2, heightOffset: 0 },
   grid: false,
   autoCliff: true,
   /** Per paint layer: WoW tileset path, or '' for the built-in texture. */
@@ -86,6 +89,9 @@ export const ui = $state({
   canUndo: false,
   canRedo: false,
   showNewDialog: false,
+  /** A copied map region is available / being placed. */
+  hasClip: false,
+  pasting: false,
   dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */
   closeDocId: 0,

@@ -18,6 +18,10 @@
         ['Ctrl+Tab / Ctrl+Shift+Tab', 'Next / previous map tab'],
         ['Ctrl+Shift+S', 'Save as'],
         ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'],
+        ['Ctrl+C / Ctrl+V', 'Copy selection / Paste (also into another map tab)'],
+        ['Ctrl+A / Ctrl+D', 'Select all / Deselect'],
+        ['Enter / Esc', 'Place / cancel a paste'],
+        ['PgUp / PgDn', 'Raise / lower the paste while placing'],
       ],
     ],
     [
@@ -35,7 +39,8 @@
     [
       'Tools',
       [
-        ['1 – 6', 'Select, Sculpt, Paint, Roads, Water, Place'],
+        ['1 – 7', 'Select, Marquee, Sculpt, Paint, Roads, Water, Place'],
+        ['V / M / B', 'Select / Marquee / Paint'],
         ['[ / ]', 'Brush smaller / larger'],
         ['Arrow keys', 'Move selected object (camera-relative)'],
         ['Alt+↑ / Alt+↓, PgUp / PgDn', 'Raise / lower selected object'],

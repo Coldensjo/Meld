@@ -65,6 +65,28 @@
       <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
     {/if}
     <div class="divider"></div>
+  {:else if editor.tool === 'marquee'}
+    {#if ui.pasting}
+      <span class="chip"><span class="dim">Pasting</span></span>
+      <label class="check"><input type="checkbox" bind:checked={editor.paste.terrain} /> Terrain</label>
+      <label class="check"><input type="checkbox" bind:checked={editor.paste.textures} /> Textures</label>
+      <label class="check"><input type="checkbox" bind:checked={editor.paste.objects} /> Objects</label>
+      <OptSlider label="Blend edges" bind:value={editor.paste.blend} min={0} max={8} step={1} digits={0} width={60} title="Cells over which the paste fades into the map" />
+      <OptSlider label="Height" bind:value={editor.paste.heightOffset} min={-60} max={60} step={0.5} digits={1} width={70} title="Raise/lower the pasted terrain (PgUp/PgDn)" />
+      <button onclick={() => engineRef.current?.commitPaste()}>Place <kbd>Enter</kbd></button>
+      <button onclick={() => engineRef.current?.cancelPaste()}>Cancel <kbd>Esc</kbd></button>
+    {:else}
+      {#if editor.selection}
+        {@const s = editor.selection}
+        <span class="chip"><span class="dim">Selection:</span> {s.x1 - s.x0} × {s.z1 - s.z0} cells</span>
+      {:else}
+        <span class="dim">Drag on the map to select an area.</span>
+      {/if}
+      <button disabled={!editor.selection} onclick={() => engineRef.current?.copySelection()}>Copy <kbd>Ctrl+C</kbd></button>
+      <button disabled={!ui.hasClip} onclick={() => engineRef.current?.startPaste()}>Paste <kbd>Ctrl+V</kbd></button>
+      <button onclick={() => engineRef.current?.selectAll()}>Select all</button>
+      <button disabled={!editor.selection} onclick={() => engineRef.current?.deselect()}>Deselect</button>
+    {/if}
   {:else if editor.tool === 'select'}
     {#if editor.selected}
       <span class="chip"><span class="dim">Selected:</span> {displayName(editor.selected.type)}</span>
