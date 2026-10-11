@@ -66,6 +66,8 @@
         { kind: 'sep' },
         { kind: 'action', label: 'Select All', shortcut: 'Ctrl+A', run: withEngine((e) => { e.selectAll(); editor.tool = 'marquee' }) },
         { kind: 'action', label: 'Deselect', shortcut: 'Ctrl+D', disabled: !editor.selection, run: withEngine((e) => e.deselect()) },
+        { kind: 'sep' },
+        { kind: 'action', label: 'Remove Duplicate Models', run: withEngine((e) => e.removeDuplicateModels()) },
       ],
     },
     {

@@ -11,7 +11,7 @@ import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
-import { PlaceTool, SelectTool, transformCommand } from '../tools/ObjectTools'
+import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { MarqueeTool } from '../tools/MarqueeTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
@@ -1325,6 +1325,29 @@ export class Engine {
   }
 
   /** Delete the selected object; things attached to it stay where they are (re-homed). */
+  /**
+   * Removes models that stand exactly where another model of the same type stands, keeping the
+   * first of each. One undo step. Positions and turns are compared to a hundredth.
+   */
+  removeDuplicateModels() {
+    const seen = new Map<string, WorldObject>()
+    const dupes: WorldObject[] = []
+    for (const o of this.objects.objects.values()) {
+      const key = [o.type, o.x, o.z, o.yOff, o.rotY, o.scale, o.parent ?? ''].map((v) => (typeof v === 'number' ? Math.round(v * 100) : v)).join('|')
+      if (seen.has(key)) dupes.push(o)
+      else seen.set(key, o)
+    }
+    if (dupes.length === 0) {
+      setStatus('No duplicate models.')
+      return
+    }
+    const cmd = removeCommand(this.objects, dupes)
+    cmd.redo()
+    this.history.push(cmd)
+    if (editor.selected && dupes.some((d) => d.id === editor.selected!.id)) editor.selected = null
+    setStatus(`Removed ${dupes.length} duplicate ${dupes.length === 1 ? 'model' : 'models'}. Undo restores them.`)
+  }
+
   deleteSelected() {
     if (!editor.selected) return
     const target = this.objects.objects.get(editor.selected.id)
