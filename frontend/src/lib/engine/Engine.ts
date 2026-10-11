@@ -459,6 +459,17 @@ export class Engine {
     this.controller.speed = p.cameraSpeed
     this.controller.sensitivity = p.mouseSensitivity
     this.controller.invertY = p.invertY
+    this.applyLayerVisibility(p)
+  }
+
+  /** Shows or hides the terrain, water and objects, and draws the terrain as a wireframe. */
+  private applyLayerVisibility(p: Prefs) {
+    const d = this.doc
+    if (!d) return
+    d.terrain.group.visible = p.showTerrain
+    d.terrain.material.wireframe = p.wireframe
+    d.water.mesh.visible = p.showWater
+    d.objects.group.visible = p.showObjects
   }
 
   /** Give the active terrain the palette whenever the editor's palette changes. */
@@ -529,6 +540,7 @@ export class Engine {
     this.nudgeSession = null
     this.controller.bounds = d.terrain.worldSize
     this.controller.maxDistance = d.terrain.worldSize * 1.6
+    if (this.prefs) this.applyLayerVisibility(this.prefs)
     if (d.camera) {
       this.controller.target.copy(d.camera.target)
       this.controller.yaw = d.camera.yaw

@@ -97,6 +97,12 @@ export function stepCameraSpeed(faster: boolean) {
 }
 
 export const prefs = $state({
+  /** Draw the terrain as a wireframe (for checking its triangles). */
+  wireframe: false,
+  /** Show each kind of layer; hiding one doesn't change the map. */
+  showTerrain: true,
+  showWater: true,
+  showObjects: true,
   renderScale: 1,
   viewDistance: 1,
   fog: true,

@@ -97,8 +97,8 @@ of that format. WorldEditor saves `.wmap`, so they are listed for completeness, 
 
 ## 7. View toggles and display
 
-- **Per-layer visibility**: Doodads, WMO doodads, Terrain, Water, WMOs (each toggleable on its own).
-- **Wireframe** mode (F10).
+- ~~**Per-layer visibility**: Doodads, WMO doodads, Terrain, Water, WMOs (each toggleable on its own).~~ *Done: Graphics › Layers toggles Terrain, Water and Objects. Doodads and buildings share the Objects toggle, so they can't be hidden separately.*
+- ~~**Wireframe** mode (F10).~~ *Done: Graphics › Layers › Wireframe (no F10 key).*
 - **Height contour lines** (F9).
 - **Tile and chunk grid lines**, with "hole lines always on".
 - **Flight bounds** display.
