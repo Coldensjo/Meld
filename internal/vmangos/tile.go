@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"WorldEditor/internal/adt"
@@ -14,8 +15,9 @@ const LatticeSize = adt.ChunksPerTile*adt.CellsPerChunk + 1
 type LayerView struct {
 	Texture string `json:"texture"`
 	Effect  uint32 `json:"effect"`
-	// Alpha is the 64x64 alpha map of every layer but the first, row-major. Nil for the base layer.
-	Alpha []byte `json:"alpha,omitempty"`
+	// Alpha is the 64x64 alpha map of every layer but the first, row-major, base64 in JSON (the
+	// frontend's bindings type it as a string). Empty for the base layer.
+	Alpha string `json:"alpha,omitempty"`
 }
 
 // ChunkView is one 8x8-cell chunk of a tile, for the editor.
@@ -86,7 +88,7 @@ func viewOf(root []byte, bigAlpha bool) (*TileView, error) {
 		for l, layer := range textures.Chunks[i].Layers {
 			lv := LayerView{Texture: layer.Texture, Effect: layer.Effect}
 			if l > 0 {
-				lv.Alpha = textures.Chunks[i].Alpha[l-1]
+				lv.Alpha = base64.StdEncoding.EncodeToString(textures.Chunks[i].Alpha[l-1])
 			}
 			cv.Layers = append(cv.Layers, lv)
 		}

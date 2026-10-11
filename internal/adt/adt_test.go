@@ -357,3 +357,10 @@ func TestNormalsMatchFile(t *testing.T) {
 		t.Errorf("recomputed normals disagree with the file (%d bytes off)", bad)
 	}
 }
+
+func TestSplitNames(t *testing.T) {
+	got := splitNames([]byte("a.blp\x00b\\c.blp\x00"))
+	if len(got) != 2 || got[0] != "a.blp" || got[1] != `b\c.blp` {
+		t.Fatalf("splitNames = %q", got)
+	}
+}

@@ -68,7 +68,8 @@ func (t *Terrain) At(x, y int) *Chunk {
 
 // TexLayer is one texture layer of a chunk.
 type TexLayer struct {
-	// Texture is the texture's archive path, from the tile's MTEX table.
+	// Texture is the texture's archive path, from the tile's MTEX names: the layer's texture ID is
+	// an index into that list, not a byte offset.
 	Texture string
 	Flags   uint32
 	// Effect is the GroundEffectTexture ID that grows on this layer (0 for none).
@@ -285,13 +286,14 @@ func ParseTextures(tex []byte, bigAlpha bool, terrain *Terrain) (*Textures, erro
 	if err != nil {
 		return nil, err
 	}
+	names := splitNames(mtex)
 	out := &Textures{}
 	for i, c := range mcnks {
 		fix := true
 		if terrain != nil && i < len(terrain.Chunks) {
 			fix = terrain.Chunks[i].Flags&mcnkFlagNoFix == 0
 		}
-		tc, err := parseTexChunk(tex, mtex, c, bigAlpha, fix)
+		tc, err := parseTexChunk(tex, names, c, bigAlpha, fix)
 		if err != nil {
 			return nil, err
 		}
@@ -300,14 +302,32 @@ func ParseTextures(tex []byte, bigAlpha bool, terrain *Terrain) (*Textures, erro
 	return out, nil
 }
 
-func parseTexChunk(data, mtex []byte, c chunk, bigAlpha, fix bool) (TexChunk, error) {
+// splitNames splits MTEX into its zero-terminated texture paths.
+func splitNames(mtex []byte) []string {
+	var names []string
+	start := 0
+	for i, b := range mtex {
+		if b == 0 {
+			names = append(names, string(mtex[start:i]))
+			start = i + 1
+		}
+	}
+	return names
+}
+
+func parseTexChunk(data []byte, names []string, c chunk, bigAlpha, fix bool) (TexChunk, error) {
 	var tc TexChunk
 	var alphaOffsets []uint32
 	h := c.start
 	if mcly, ok := subChunk(data, h, c.end, u32(data, h+0x1c), "MCLY"); ok {
 		for o := mcly.start; o+16 <= mcly.end; o += 16 {
+			id := int(u32(data, o))
+			texture := ""
+			if id < len(names) {
+				texture = names[id]
+			}
 			tc.Layers = append(tc.Layers, TexLayer{
-				Texture: cstring(mtex, u32(data, o)),
+				Texture: texture,
 				Flags:   u32(data, o+4),
 				Effect:  u32(data, o+12),
 			})
