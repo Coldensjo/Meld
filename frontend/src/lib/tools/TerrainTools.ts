@@ -9,7 +9,7 @@ abstract class BrushTool implements Tool {
   readonly usesBrush = true
   protected stroke: TerrainStroke | null = null
   protected abstract label: string
-  protected abstract records: { heights?: boolean; splat?: boolean }
+  protected abstract records: { heights?: boolean; splat?: boolean; mask?: boolean }
   protected strokeStart = new THREE.Vector3()
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null) {
@@ -143,9 +143,34 @@ export class SculptTool extends BrushTool {
 
 export class PaintTool extends BrushTool {
   protected label = 'Paint'
-  protected records = { splat: true }
+  private erasing = false
+
+  protected get records() {
+    return editor.paintMode === 'mask' ? { mask: true } : { splat: true }
+  }
+
+  onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
+    this.label = editor.paintMode === 'mask' ? 'Mask' : 'Paint'
+    this.erasing = editor.maskErase || !!e?.altKey
+    super.onDown(ctx, hit)
+  }
 
   protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
+    if (editor.paintMode === 'mask') {
+      // Mask brush: hard-edged by falloff, full strength; Alt (or Erase) removes.
+      const { radius, falloff } = editor.brush
+      const m = ctx.terrain.mask
+      const erase = this.erasing
+      const rect = forEachTexel(ctx.terrain, hit.x, hit.z, radius, falloff, (p, w) => {
+        const v = Math.round(w * 255)
+        m[p] = erase ? Math.min(m[p], 255 - v) : Math.max(m[p], v)
+      })
+      if (rect) {
+        ctx.terrain.markMaskDirty()
+        this.stroke?.touchMask(rect)
+      }
+      return
+    }
     const { radius, strength, falloff } = editor.brush
     const layer = editor.paintLayer
     const amt = Math.min(1, strength * dt * 5)

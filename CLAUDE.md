@@ -63,6 +63,13 @@ cd frontend && pnpm build   # frontend only
   - The mesh is split into 32×32-cell chunks. Edits call `markDirty(rect)`, and `update()` rewrites
     only the touched chunks.
   - Picking ray-marches the heightmap (`raycast`). Don't use triangle raycasts on the terrain.
+- **Paint mask**:
+  - `Terrain.mask` holds one byte per splat texel, uploaded as `maskTex` and drawn as a red
+    overlay. It isn't saved to the map file.
+  - Mask strokes go through `TerrainStroke({ mask: true })`.
+  - `Engine.fillMask(layer)` paints a layer over the mask, weighted by mask value.
+  - With a mask present, picking a texture in the palette fills it.
+  - `ui.maskActive` is refreshed after strokes, undo/redo and tab switches.
 - **Splat**: 8 layers in two RGBA8 textures (`splatA` = layers 0–3, `splatB` = layers 4–7) at
   `size*2` resolution. Weights always sum to 255 (`paintPixel` in `tools/brush.ts`). Layer list:
   `lib/terrain/layers.ts`; each slot is bound to a WoW tileset (`editor.layerTextures`).

@@ -43,6 +43,9 @@
     </div>
   {/each}
   <div class="foot">
+    {#if ui.maskActive}
+      <button onclick={() => engineRef.current?.fillMask(editor.paintLayer)} title="Fill the paint mask with the active layer">Fill mask</button>
+    {/if}
     <button onclick={() => (ui.palette = 'textures')}>Browse textures…</button>
     <button onclick={() => engineRef.current?.regenerateAutoPaint()} title="Repaint by height and slope">Auto-paint</button>
   </div>

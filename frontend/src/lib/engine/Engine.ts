@@ -7,7 +7,7 @@ import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
-import { brushCenter } from '../tools/brush'
+import { TerrainStroke, brushCenter, paintPixel } from '../tools/brush'
 import { PlaceTool, SelectTool, transformCommand } from '../tools/ObjectTools'
 import { MarqueeTool } from '../tools/MarqueeTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
@@ -289,6 +289,7 @@ export class Engine {
         this.updatePointer(e)
         this.pick()
         this.activeTool?.onUp?.(this.ctx, this.hit, e)
+        if (editor.tool === 'paint') this.refreshMaskState()
       },
       sig,
     )
@@ -342,6 +343,9 @@ export class Engine {
     u.brushRadius.value = radius
     u.brushSquare.value = square ? 1 : 0
     u.gridVisible.value = editor.grid ? 1 : 0
+    // Strong red while editing the mask; faint while painting so results stay visible.
+    const painting = editor.tool === 'paint' || editor.tool === 'road'
+    u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
     this.updateSelectionUniforms(time)
     u.cliffAuto.value = editor.autoCliff ? 1 : 0
     u.waterLevel.value = editor.waterLevel
@@ -529,6 +533,7 @@ export class Engine {
     }
     this.applyViewDistance()
     d.history.refresh()
+    this.refreshMaskState()
     editor.dirty = m.dirty
     this.syncTabs()
   }
@@ -682,6 +687,89 @@ export class Engine {
   private terrainPointUnderRay(): THREE.Vector3 | null {
     const p = new THREE.Vector3()
     return this.terrain.raycast(this.raycaster.ray, p) ? p : null
+  }
+
+  // ---------------------------------------------------------------- paint mask
+
+  /** Publish whether the active map's mask has anything in it. */
+  refreshMaskState() {
+    const m = this.terrain.mask
+    let any = false
+    for (let i = 0; i < m.length; i += 3) {
+      if (m[i]) {
+        any = true
+        break
+      }
+    }
+    ui.maskActive = any
+  }
+
+  /** Run `fn` on the mask and record it as one undo step. */
+  private editMask(label: string, fn: (m: Uint8Array) => void) {
+    const t = this.terrain
+    const R = t.splatRes
+    const stroke = new TerrainStroke(t, label, { mask: true })
+    fn(t.mask)
+    stroke.touchMask({ x0: 0, z0: 0, x1: R - 1, z1: R - 1 })
+    t.markMaskDirty()
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    this.refreshMaskState()
+  }
+
+  clearMask() {
+    this.editMask('Clear mask', (m) => m.fill(0))
+  }
+
+  invertMask() {
+    this.editMask('Invert mask', (m) => {
+      for (let i = 0; i < m.length; i++) m[i] = 255 - m[i]
+    })
+  }
+
+  /** Turn the marquee selection into a mask (added to the existing mask). */
+  maskFromSelection() {
+    const s = editor.selection
+    if (!s) return
+    const R = this.terrain.splatRes
+    const tpc = R / this.terrain.size
+    this.editMask('Mask selection', (m) => {
+      for (let z = s.z0 * tpc; z < s.z1 * tpc; z++) for (let x = s.x0 * tpc; x < s.x1 * tpc; x++) m[z * R + x] = 255
+    })
+  }
+
+  /** Paint texture slot `layer` over the whole mask (soft mask edges blend). */
+  fillMask(layer: number) {
+    const t = this.terrain
+    const R = t.splatRes
+    const m = t.mask
+    let x0 = R, z0 = R, x1 = -1, z1 = -1
+    for (let z = 0; z < R; z++) {
+      for (let x = 0; x < R; x++) {
+        if (!m[z * R + x]) continue
+        if (x < x0) x0 = x
+        if (x > x1) x1 = x
+        if (z < z0) z0 = z
+        if (z > z1) z1 = z
+      }
+    }
+    if (x1 < 0) {
+      setStatus('The mask is empty. Paint a mask first (Paint tool › Mask).')
+      return
+    }
+    const stroke = new TerrainStroke(t, 'Fill mask', { splat: true })
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        const p = z * R + x
+        if (m[p]) paintPixel(t, p, layer, m[p] / 255)
+      }
+    }
+    stroke.touchSplat({ x0, z0, x1, z1 })
+    t.markSplatDirty()
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    const tex = editor.layerTextures[layer]
+    setStatus(`Filled the mask with ${tex ? tex.slice(tex.lastIndexOf('\\') + 1).replace(/\.blp$/i, '') : 'layer ' + (layer + 1)}.`)
   }
 
   // ---------------------------------------------------------------- marquee / clipboard
@@ -979,12 +1067,14 @@ export class Engine {
   undo() {
     const c = this.history.undo()
     this.syncSelection()
+    this.refreshMaskState()
     return c
   }
 
   redo() {
     const c = this.history.redo()
     this.syncSelection()
+    this.refreshMaskState()
     return c
   }
 

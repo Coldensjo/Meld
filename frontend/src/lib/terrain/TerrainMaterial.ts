@@ -46,6 +46,8 @@ uniform float brushSquare;
 uniform float brushVisible;
 uniform vec3 brushColor;
 uniform float gridVisible;
+uniform sampler2D maskTex;
+uniform float maskVisible;
 uniform vec4 selRect;
 uniform float selMode;
 uniform float selTime;
@@ -123,6 +125,12 @@ void main() {
     lit = mix(lit, vec3(0.0), line * 0.25);
   }
 
+  if (maskVisible > 0.0) {
+    // Quick-mask style red overlay; maskVisible is its opacity.
+    float m = texture2D(maskTex, suv).r;
+    lit = mix(lit, vec3(0.95, 0.15, 0.2), m * maskVisible);
+  }
+
   if (selMode > 0.5) {
     // Marching-ants outline around the marquee selection / floating paste.
     vec2 p = vWorldPos.xz;
@@ -183,6 +191,8 @@ export function createTerrainMaterial(
     brushVisible: { value: 0 },
     brushColor: { value: new THREE.Color(0.92, 0.95, 1.0) },
     gridVisible: { value: 0 },
+    maskTex: { value: null },
+    maskVisible: { value: 0 },
     selRect: { value: new THREE.Vector4() },
     selMode: { value: 0 },
     selTime: { value: 0 },

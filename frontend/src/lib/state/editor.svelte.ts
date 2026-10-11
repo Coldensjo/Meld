@@ -21,6 +21,9 @@ export const editor = $state({
   brush: { radius: 10, strength: 0.5, falloff: 0.6, shape: 'circle' as 'circle' | 'square', snap: true },
   sculptMode: 'raise' as SculptMode,
   paintLayer: 0,
+  /** Paint tool: paint textures, or paint the mask that texture fills apply to. */
+  paintMode: 'texture' as 'texture' | 'mask',
+  maskErase: false,
   roadFlatten: true,
   waterMode: 'dig' as WaterMode,
   waterLevel: 0,
@@ -105,6 +108,8 @@ export const ui = $state({
   showNewDialog: false,
   /** A copied map region is available / being placed. */
   hasClip: false,
+  /** The active map's paint mask has something in it. */
+  maskActive: false,
   pasting: false,
   dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */

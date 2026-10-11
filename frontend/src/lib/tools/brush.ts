@@ -153,13 +153,15 @@ export class TerrainStroke {
   private hBefore: Float32Array | null = null
   private aBefore: Uint8Array | null = null
   private bBefore: Uint8Array | null = null
+  private mBefore: Uint8Array | null = null
   private hRect: Rect | null = null
   private sRect: Rect | null = null
+  private mRect: Rect | null = null
 
   constructor(
     private terrain: Terrain,
     private label: string,
-    opts: { heights?: boolean; splat?: boolean },
+    opts: { heights?: boolean; splat?: boolean; mask?: boolean },
     private onHeightsChanged?: (r: Rect) => void,
   ) {
     if (opts.heights) this.hBefore = terrain.heights.slice()
@@ -167,6 +169,11 @@ export class TerrainStroke {
       this.aBefore = terrain.splatA.slice()
       this.bBefore = terrain.splatB.slice()
     }
+    if (opts.mask) this.mBefore = terrain.mask.slice()
+  }
+
+  touchMask(r: Rect | null) {
+    this.mRect = grow(this.mRect, r)
   }
 
   touchHeights(r: Rect | null) {
@@ -208,7 +215,19 @@ export class TerrainStroke {
         },
       })
     }
-    this.hBefore = this.aBefore = this.bBefore = null
+    if (this.mBefore && this.mRect) {
+      const r = this.mRect
+      const R = t.splatRes
+      const before = extract(this.mBefore, R, 1, r)
+      const after = extract(t.mask, R, 1, r)
+      parts.push({
+        apply: (b) => {
+          inject(t.mask, R, 1, r, b ? before : after)
+          t.markMaskDirty()
+        },
+      })
+    }
+    this.hBefore = this.aBefore = this.bBefore = this.mBefore = null
     if (!parts.length) return null
     return {
       label: this.label,

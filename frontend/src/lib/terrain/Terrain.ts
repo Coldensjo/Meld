@@ -27,6 +27,10 @@ export class Terrain {
   readonly splatB: Uint8Array
   readonly texA: THREE.DataTexture
   readonly texB: THREE.DataTexture
+  /** Paint mask (0-255 per splat texel); texture fills apply to it. Not saved. */
+  readonly mask: Uint8Array
+  readonly maskTex: THREE.DataTexture
+  private maskDirty = false
   readonly material: THREE.ShaderMaterial
   readonly group = new THREE.Group()
 
@@ -49,6 +53,10 @@ export class Terrain {
 
     this.texA = this.makeSplatTexture(this.splatA)
     this.texB = this.makeSplatTexture(this.splatB)
+    this.mask = new Uint8Array(this.splatRes * this.splatRes)
+    this.maskTex = new THREE.DataTexture(this.mask, this.splatRes, this.splatRes, THREE.RedFormat, THREE.UnsignedByteType)
+    this.maskTex.magFilter = this.maskTex.minFilter = THREE.LinearFilter
+    this.maskTex.needsUpdate = true
     this.material = createTerrainMaterial(
       this.texA,
       this.texB,
@@ -56,6 +64,7 @@ export class Terrain {
       this.worldSize,
       CELL_SIZE,
     )
+    this.material.uniforms.maskTex.value = this.maskTex
     this.chunksPerSide = Math.ceil(size / CHUNK)
     this.buildChunks()
     this.group.name = 'terrain'
@@ -168,6 +177,10 @@ export class Terrain {
     this.splatDirty = true
   }
 
+  markMaskDirty() {
+    this.maskDirty = true
+  }
+
   /** Push pending edits to the GPU. Call once per frame. */
   update() {
     const d = this.dirty
@@ -184,6 +197,10 @@ export class Terrain {
       d.x0 = d.z0 = Infinity
       d.x1 = d.z1 = -Infinity
       this.heightsVersion++
+    }
+    if (this.maskDirty) {
+      this.maskTex.needsUpdate = true
+      this.maskDirty = false
     }
     if (this.splatDirty) {
       this.texA.needsUpdate = true
@@ -349,5 +366,6 @@ export class Terrain {
     this.material.dispose()
     this.texA.dispose()
     this.texB.dispose()
+    this.maskTex.dispose()
   }
 }
