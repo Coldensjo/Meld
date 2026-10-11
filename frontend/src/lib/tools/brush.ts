@@ -9,11 +9,8 @@ export interface Rect {
   z1: number
 }
 
-/**
- * Brush footprint used by forEachVertex/forEachTexel. Brush tools set this
- * from the editor state at the start of each tick.
- */
-export const brushShape = { square: false }
+export { brushShape, brushWeight, FALLOFF_CURVES, type FalloffCurve } from './falloff'
+import { brushShape, brushWeight } from './falloff'
 
 /** Normalised brush distance: circle (euclidean) or square (chebyshev). */
 function brushDist(dx: number, dz: number, radius: number) {
@@ -28,15 +25,6 @@ export function brushCenter(x: number, z: number, radius: number, cellSize: numb
   if (!snap) return [x, z]
   const s = (v: number) => Math.round((v - radius) / cellSize) * cellSize + radius
   return [s(x), s(z)]
-}
-
-/** Brush weight for normalised distance t in [0,1]. falloff 0 = hard edge. */
-export function brushWeight(t: number, falloff: number): number {
-  if (t >= 1) return 0
-  const hard = 1 - falloff
-  if (t <= hard) return 1
-  const s = (t - hard) / (1 - hard)
-  return 1 - s * s * (3 - 2 * s)
 }
 
 /** Iterate heightmap vertices under a circular brush. Returns touched rect. */

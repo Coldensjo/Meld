@@ -1,4 +1,5 @@
 import { LAYERS } from '../terrain/layers'
+import type { FalloffCurve } from '../tools/brush'
 
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
@@ -20,7 +21,14 @@ export interface SelectedInfo {
 
 export const editor = $state({
   tool: 'sculpt' as ToolId,
-  brush: { radius: 10, strength: 0.5, falloff: 0.6, shape: 'circle' as 'circle' | 'square', snap: true },
+  brush: {
+    radius: 10,
+    strength: 0.5,
+    falloff: 0.6,
+    curve: 'smooth' as FalloffCurve,
+    shape: 'circle' as 'circle' | 'square',
+    snap: true,
+  },
   sculptMode: 'raise' as SculptMode,
   paintLayer: 0,
   /** Paint tool: paint textures, or paint the mask that texture fills apply to. */

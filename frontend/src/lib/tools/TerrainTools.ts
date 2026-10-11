@@ -39,6 +39,7 @@ abstract class BrushTool implements Tool {
   tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
     if (!this.stroke || !hit) return
     brushShape.square = editor.brush.shape === 'square'
+    brushShape.curve = editor.brush.curve
     const [x, z] = brushCenter(hit.x, hit.z, this.radius(), ctx.terrain.cellSize, brushShape.square && editor.brush.snap)
     this.apply(ctx, dt, this.center.set(x, hit.y, z))
   }

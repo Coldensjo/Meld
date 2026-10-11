@@ -4,6 +4,7 @@
   import { editor, ui, type SculptMode } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName } from '../lib/models/assets'
+  import { FALLOFF_CURVES } from '../lib/tools/brush'
 
   const SCULPT_MODES: Array<{ id: SculptMode; name: string }> = [
     { id: 'raise', name: 'Raise' },
@@ -119,6 +120,11 @@
     <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={1} step={0.01} digits={2} />
     {#if editor.tool !== 'road' && editor.tool !== 'place'}
       <OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} />
+      <select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
+        {#each FALLOFF_CURVES as c (c.id)}
+          <option value={c.id}>{c.name}</option>
+        {/each}
+      </select>
     {/if}
   {/if}
   {#if editor.tool === 'paint'}
