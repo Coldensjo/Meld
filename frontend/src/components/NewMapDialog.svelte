@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { GenerateKind } from '../lib/terrain/Terrain'
-  import { CELL_SIZE } from '../lib/terrain/Terrain'
   import { editor, ui, wow } from '../lib/state/editor.svelte'
   import { defaultLayerTextures } from '../lib/wow/defaults'
   import { engineRef } from '../lib/state/engineRef'
@@ -35,9 +34,9 @@
     <label>
       Size
       <select bind:value={size}>
-        <option value={128}>Small — 128² ({128 * CELL_SIZE} m)</option>
-        <option value={256}>Medium — 256² ({256 * CELL_SIZE} m)</option>
-        <option value={512}>Large — 512² ({512 * CELL_SIZE} m)</option>
+        <option value={128}>Small — 1×1 tile (128²)</option>
+        <option value={256}>Medium — 2×2 tiles (256²)</option>
+        <option value={512}>Large — 4×4 tiles (512²)</option>
       </select>
     </label>
     <div class="kinds">

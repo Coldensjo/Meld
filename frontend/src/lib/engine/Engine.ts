@@ -648,7 +648,7 @@ export class Engine {
   openDocument(m: MapSnapshot, filePath: string) {
     const verts = (m.size + 1) * (m.size + 1)
     if (m.heights.byteLength !== verts * 4) throw new Error('height data size mismatch')
-    const d = new MapDocument(m.size, m.name || 'Untitled')
+    const d = new MapDocument(m.size, m.name || 'Untitled', m.cellSize)
     const t = d.terrain
     if (m.splatRes !== t.splatRes) {
       d.dispose()

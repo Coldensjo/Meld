@@ -4,7 +4,10 @@ import { createTerrainMaterial } from './TerrainMaterial'
 import { getFallbackTextures } from './textures'
 import { LAYER_COUNT } from './layers'
 
-export const CELL_SIZE = 2
+/** A 1.12 tile is 1600/3 yards across: 128 cells of this size, the grid the server's maps use. */
+export const TILE_YARDS = 1600 / 3
+/** Default cell size in yards: 128 cells make one tile. */
+export const CELL_SIZE = TILE_YARDS / 128
 /** Seabed height of an empty ("ocean") map; water sits at 0. */
 export const OCEAN_FLOOR = -12
 const CHUNK = 32 // cells per chunk side
@@ -19,7 +22,7 @@ export type GenerateKind = 'ocean' | 'flat' | 'hills' | 'mountains' | 'island'
 export class Terrain {
   readonly size: number
   readonly verts: number
-  readonly cellSize = CELL_SIZE
+  readonly cellSize: number
   readonly worldSize: number
   readonly splatRes: number
   readonly heights: Float32Array
@@ -41,10 +44,11 @@ export class Terrain {
   private dirty = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
   private splatDirty = false
 
-  constructor(size: number) {
+  constructor(size: number, cellSize = CELL_SIZE) {
     this.size = size
+    this.cellSize = cellSize
     this.verts = size + 1
-    this.worldSize = size * CELL_SIZE
+    this.worldSize = size * cellSize
     this.splatRes = size * 2
     this.heights = new Float32Array(this.verts * this.verts)
     this.splatA = new Uint8Array(this.splatRes * this.splatRes * 4)
@@ -62,7 +66,7 @@ export class Terrain {
       this.texB,
       getFallbackTextures(),
       this.worldSize,
-      CELL_SIZE,
+      cellSize,
     )
     this.material.uniforms.maskTex.value = this.maskTex
     this.chunksPerSide = Math.ceil(size / CHUNK)
@@ -129,7 +133,7 @@ export class Terrain {
     const nor = geo.attributes.normal.array as Float32Array
     const V = this.verts
     const h = this.heights
-    const cs = CELL_SIZE
+    const cs = this.cellSize
     for (let z = 0; z < vz; z++) {
       const gz = oz + z
       for (let x = 0; x < vx; x++) {
@@ -211,8 +215,8 @@ export class Terrain {
 
   /** Bilinear height at world position. */
   heightAt(x: number, z: number): number {
-    const fx = THREE.MathUtils.clamp(x / CELL_SIZE, 0, this.size)
-    const fz = THREE.MathUtils.clamp(z / CELL_SIZE, 0, this.size)
+    const fx = THREE.MathUtils.clamp(x / this.cellSize, 0, this.size)
+    const fz = THREE.MathUtils.clamp(z / this.cellSize, 0, this.size)
     const x0 = Math.min(Math.floor(fx), this.size - 1)
     const z0 = Math.min(Math.floor(fz), this.size - 1)
     const tx = fx - x0
@@ -232,7 +236,7 @@ export class Terrain {
 
   /** Ray-march the heightmap. Much cheaper than triangle raycasts. */
   raycast(ray: THREE.Ray, out: THREE.Vector3, maxDist = 4000): boolean {
-    const step = CELL_SIZE * 0.5
+    const step = this.cellSize * 0.5
     const o = ray.origin
     const dir = ray.direction
     // Skip ahead to the terrain's bounding box.

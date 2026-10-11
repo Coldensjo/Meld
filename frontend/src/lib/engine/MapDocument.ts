@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Terrain } from '../terrain/Terrain'
+import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
 import { ObjectLayer } from '../world/ObjectLayer'
 import { History } from '../state/history'
@@ -40,8 +40,8 @@ export class MapDocument {
   meta: DocMeta
   camera: DocCamera | null = null
 
-  constructor(size: number, name: string) {
-    this.terrain = new Terrain(size)
+  constructor(size: number, name: string, cellSize = CELL_SIZE) {
+    this.terrain = new Terrain(size, cellSize)
     this.water = new Water(this.terrain.worldSize)
     this.objects = new ObjectLayer(this.terrain)
     this.meta = {
