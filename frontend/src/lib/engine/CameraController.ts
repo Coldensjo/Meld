@@ -22,6 +22,8 @@ export class CameraController {
   invertY = false
   /** When this returns true the arrow keys are left to the editor (object nudging). */
   arrowsBlocked: () => boolean = () => false
+  /** When this returns true the wheel is left to the editor (e.g. Ctrl+scroll rotates a placement). */
+  wheelBlocked: (e: WheelEvent) => boolean = () => false
 
   private keys = new Set<string>()
   private drag: 'orbit' | 'pan' | null = null
@@ -89,7 +91,8 @@ export class CameraController {
   }
 
   private onWheel = (e: WheelEvent) => {
-    e.preventDefault()
+    e.preventDefault() // also stops Ctrl+wheel from zooming the webview
+    if (this.wheelBlocked(e)) return
     const f = Math.exp(Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 200) * 0.0012)
     this.distance = THREE.MathUtils.clamp(this.distance * f, this.minDistance, this.maxDistance)
   }

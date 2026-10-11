@@ -81,6 +81,9 @@ export class Engine {
   /** Merges a burst of key nudges on one object into a single undo step. */
   private nudgeSession: { id: number; before: WorldObject; cmd: Command; time: number } | null = null
   private marquee: MarqueeTool
+  private placeTool = new PlaceTool()
+  /** Accumulated Ctrl+wheel delta, so smooth trackpads rotate in steps too. */
+  private wheelAcc = 0
   /** Copied region; shared by all documents so it can be pasted into another map. */
   private clip: MapClip | null = null
   private viewDistance = 1
@@ -138,10 +141,11 @@ export class Engine {
       paint: new PaintTool(),
       road: new RoadTool(),
       water: new WaterTool(),
-      place: new PlaceTool(),
+      place: this.placeTool,
     }
 
     this.controller.arrowsBlocked = () => this.canNudge()
+    this.controller.wheelBlocked = (e) => editor.tool === 'place' && e.ctrlKey
     this.selectionHelper.visible = false
     this.scene.add(this.selectionHelper)
 
@@ -198,6 +202,22 @@ export class Engine {
     const c = this.canvas
     c.addEventListener('pointerenter', () => (this.pointerInside = true), sig)
     c.addEventListener('pointerleave', () => (this.pointerInside = false), sig)
+    // Ctrl+scroll rotates the placement preview: 15° per wheel notch.
+    c.addEventListener(
+      'wheel',
+      (e) => {
+        if (editor.tool !== 'place' || !e.ctrlKey) return
+        const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY // lines → pixels
+        this.wheelAcc += delta
+        const notch = 100
+        while (Math.abs(this.wheelAcc) >= notch) {
+          const dir = Math.sign(this.wheelAcc)
+          this.wheelAcc -= dir * notch
+          this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
+        }
+      },
+      { passive: true, signal: this.abort.signal },
+    )
     c.addEventListener(
       'pointerdown',
       (e) => {

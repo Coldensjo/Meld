@@ -18,7 +18,7 @@ Built with **[Wails v2](https://wails.io)** (Go) + **Svelte 5** + **Three.js**. 
 | Paint | `4` / `B` | Pick any WoW tileset texture in the palette and paint. Each map has 8 texture slots, assigned automatically. |
 | Roads | `5` | Paints the selected texture with a hard edge and levels the ground across it. |
 | Water | `6` | Global water level. Dig lakes or raise shores relative to it. Animated water with shore foam and depth tint. |
-| Place | `7` | Place the model selected in the palette. The placed object stays selected, so the arrow keys and `R` adjust it right away. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
+| Place | `7` | Place the model selected in the palette. `Ctrl`+scroll rotates the preview before placing. The placed object stays selected, so the arrow keys and `R` adjust it right away. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
 
 ### Layout
 

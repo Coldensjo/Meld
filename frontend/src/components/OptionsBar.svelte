@@ -61,6 +61,7 @@
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomRot} /> Random rotation</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomScale} /> Random scale</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeScatter} /> Scatter</label>
+    <span class="dim"><kbd>Ctrl</kbd>+scroll rotates the preview</span>
     {#if editor.selected}
       <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
     {/if}

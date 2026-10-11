@@ -62,6 +62,11 @@ export class PlaceTool implements Tool {
     ctx.scene.remove(this.ghost)
   }
 
+  /** Rotate the placement preview (Ctrl+scroll). The next click uses this rotation. */
+  rotatePreview(radians: number) {
+    this.rot += radians
+  }
+
   private reroll() {
     this.rot = editor.placeRandomRot ? Math.random() * Math.PI * 2 : this.rot
     this.scale = editor.placeRandomScale ? 0.8 + Math.random() * 0.45 : 1
