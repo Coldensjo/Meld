@@ -3,15 +3,17 @@ package vmangos
 import (
 	"math"
 	"os"
+	"strings"
 	"testing"
 
 	"WorldEditor/internal/adt"
+	"WorldEditor/internal/wow"
 )
 
 func TestParseSpawnRows(t *testing.T) {
-	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\n" +
-		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\n" +
-		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\n")
+	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\n" +
+		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\n" +
+		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\n")
 	rows, err := parseSpawnRows(raw, "creature")
 	if err != nil {
 		t.Fatal(err)
@@ -48,7 +50,7 @@ func TestRegionSpawnConversion(t *testing.T) {
 	// Tile (32, 48): ADT X runs 32T..33T, so server y is in [zp-33T, zp-32T] = [-533, 0];
 	// ADT Z runs 48T..49T, so server x is in [zp-49T, zp-48T] = [-9067, -8534].
 	s := spawnRow{WorldSpawn: WorldSpawn{Name: "Wolf"}, sx: -8800, sy: -100, height: 42}
-	got := regionSpawn(s, 32, 48)
+	got := regionSpawn(s, 32, 48, nil)
 	if math.Abs(float64(got.X)-100) > 0.01 {
 		t.Fatalf("x = %v, want 100 (ADT X %v less the block's start)", got.X, zp+100)
 	}
@@ -63,14 +65,20 @@ func TestRegionSpawnConversion(t *testing.T) {
 	}
 }
 
-// TestReadSpawnsLive reads a real block from the server's world database. It needs VMANGOS_DIR set
-// to the server folder, with its database running.
+// TestReadSpawnsLive reads a real block from the server's world database and resolves its models
+// from the client. It needs VMANGOS_DIR set to the server folder, with its database running, and
+// WOW_DIR set to the client.
 func TestReadSpawnsLive(t *testing.T) {
 	dir := os.Getenv("VMANGOS_DIR")
-	if dir == "" {
-		t.Skip("VMANGOS_DIR not set")
+	clientDir := os.Getenv("WOW_DIR")
+	if dir == "" || clientDir == "" {
+		t.Skip("VMANGOS_DIR or WOW_DIR not set")
 	}
-	spawns, err := ReadSpawns(dir, "Azeroth", 32, 48, 4)
+	dataDir, err := wow.ResolveDataDir(clientDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spawns, err := ReadSpawns(dir, dataDir, "Azeroth", 32, 48, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,4 +96,53 @@ func TestReadSpawnsLive(t *testing.T) {
 	if kinds[KindMonster]+kinds[KindNPC] == 0 || kinds[KindObject] == 0 {
 		t.Fatalf("expected monsters and objects, got %v", kinds)
 	}
+}
+
+// TestSpawnModelsLoad checks that the models the spawns name load through the editor's model
+// loader, for the same live block. It needs VMANGOS_DIR and WOW_DIR.
+func TestSpawnModelsLoad(t *testing.T) {
+	dir := os.Getenv("VMANGOS_DIR")
+	clientDir := os.Getenv("WOW_DIR")
+	if dir == "" || clientDir == "" {
+		t.Skip("VMANGOS_DIR or WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(clientDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spawns, err := ReadSpawns(dir, dataDir, "Azeroth", 32, 48, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c wow.Client
+	if err := c.Open(clientDir); err != nil {
+		t.Fatal(err)
+	}
+	withModel, failed, invisible := 0, 0, 0
+	seen := map[string]bool{}
+	for _, s := range spawns {
+		if s.Model == "" {
+			continue
+		}
+		withModel++
+		if seen[s.Model] {
+			continue
+		}
+		seen[s.Model] = true
+		if _, err := c.Model(s.Model); err != nil {
+			// Invisible triggers name a model with nothing to draw; the editor shows those as markers.
+			if strings.Contains(err.Error(), "no renderable batches") {
+				invisible++
+				continue
+			}
+			failed++
+			if failed <= 3 {
+				t.Errorf("%s %q: model %q: %v", s.Kind, s.Name, s.Model, err)
+			}
+		}
+	}
+	if withModel*10 < len(spawns)*9 {
+		t.Fatalf("only %d of %d spawns name a model", withModel, len(spawns))
+	}
+	t.Logf("%d spawns with models, %d distinct, %d invisible, %d failed to load", withModel, len(seen), invisible, failed)
 }

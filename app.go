@@ -242,7 +242,11 @@ func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, 
 	if server == "" {
 		return nil, errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
 	}
-	return vmangos.ReadSpawns(server, mapName, x, y, size)
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadSpawns(server, dataDir, mapName, x, y, size)
 }
 
 // SaveRegion writes an edited block back into the client's patch, into the tiles it came from, and

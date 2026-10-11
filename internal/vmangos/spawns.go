@@ -24,11 +24,11 @@ const (
 // WorldSpawn is a creature or game object the world database places on a map, in a region's
 // coordinates (yards from its north-west corner, Y the absolute height).
 type WorldSpawn struct {
-	Kind    string  `json:"kind"`
-	GUID    int     `json:"guid"`
-	Entry   int     `json:"entry"`
-	Name    string  `json:"name"`
-	Subname string  `json:"subname"`
+	Kind    string `json:"kind"`
+	GUID    int    `json:"guid"`
+	Entry   int    `json:"entry"`
+	Name    string `json:"name"`
+	Subname string `json:"subname"`
 	// Level is the creature's level range; zero for an object.
 	LevelMin int `json:"levelMin"`
 	LevelMax int `json:"levelMax"`
@@ -46,6 +46,9 @@ type WorldSpawn struct {
 	Orientation float32 `json:"orientation"`
 	// RespawnSecs is the minimum respawn time in seconds.
 	RespawnSecs int `json:"respawnSecs"`
+	// Model is the client path of the model the spawn shows, such as a .mdx or .wmo name; "" when its
+	// display has none.
+	Model string `json:"model"`
 }
 
 // runSQL runs a query against the world database and returns mariadb's batch output: one line
@@ -63,7 +66,7 @@ var runSQL = func(db worldDB, sql string) ([]byte, error) {
 
 // ReadSpawns returns the creatures and game objects the world database places in the block of
 // size tiles at (x, y) of the named map. The server's map ID comes from its Map.dbc.
-func ReadSpawns(serverRoot, mapName string, x, y, size int) ([]WorldSpawn, error) {
+func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpawn, error) {
 	if err := checkRegion(x, y, size); err != nil {
 		return nil, err
 	}
@@ -86,16 +89,21 @@ func ReadSpawns(serverRoot, mapName string, x, y, size int) ([]WorldSpawn, error
 	gBounds := strings.Replace(bounds, "c.", "g.", -1)
 
 	creatures := fmt.Sprintf(`SELECT c.guid, c.id, t.name, COALESCE(t.subname, ''), t.level_min, t.level_max, t.faction,
-		t.npc_flags, t.rank, t.type, c.position_x, c.position_y, c.position_z, c.orientation, c.spawntimesecsmin
+		t.npc_flags, t.rank, t.type, c.position_x, c.position_y, c.position_z, c.orientation, c.spawntimesecsmin,
+		COALESCE(NULLIF(t.display_id1, 0), NULLIF(t.display_id2, 0), NULLIF(t.display_id3, 0), NULLIF(t.display_id4, 0), 0)
 		FROM creature c JOIN creature_template t ON t.entry = c.id
 		AND t.patch = (SELECT MAX(patch) FROM creature_template WHERE entry = c.id)
 		WHERE %s`, bounds)
 	objects := fmt.Sprintf(`SELECT g.guid, g.id, gt.name, '', 0, 0, 0, 0, 0, gt.type, g.position_x, g.position_y, g.position_z,
-		g.orientation, g.spawntimesecsmin
+		g.orientation, g.spawntimesecsmin, gt.displayId
 		FROM gameobject g JOIN gameobject_template gt ON gt.entry = g.id
 		AND gt.patch = (SELECT MAX(patch) FROM gameobject_template WHERE entry = g.id)
 		WHERE %s`, gBounds)
 
+	tables, err := loadModelTables(dataDir)
+	if err != nil {
+		return nil, err
+	}
 	var out []WorldSpawn
 	for _, q := range []struct {
 		sql  string
@@ -110,7 +118,7 @@ func ReadSpawns(serverRoot, mapName string, x, y, size int) ([]WorldSpawn, error
 			return nil, err
 		}
 		for _, s := range rows {
-			out = append(out, regionSpawn(s, x, y))
+			out = append(out, regionSpawn(s, x, y, tables))
 		}
 	}
 	return out, nil
@@ -118,13 +126,18 @@ func ReadSpawns(serverRoot, mapName string, x, y, size int) ([]WorldSpawn, error
 
 // regionSpawn moves a spawn from the server's coordinates to the block at tile (x, y): editor x is
 // the tile's X less the block's, editor z the tile's Z less the block's, and the height is the same.
-func regionSpawn(s spawnRow, x, y int) WorldSpawn {
+func regionSpawn(s spawnRow, x, y int, tables *modelTables) WorldSpawn {
 	t := float64(adt.TileSize)
 	zp := float64(adt.ZeroPoint)
 	out := s.WorldSpawn
 	out.X = float32(zp - float64(s.sy) - float64(x)*t)
 	out.Z = float32(zp - float64(s.sx) - float64(y)*t)
 	out.Y = s.height
+	if s.Kind == KindObject {
+		out.Model = tables.objectModel(s.display)
+	} else {
+		out.Model = tables.creatureModel(s.display)
+	}
 	return out
 }
 
@@ -132,6 +145,7 @@ func regionSpawn(s spawnRow, x, y int) WorldSpawn {
 type spawnRow struct {
 	WorldSpawn
 	sx, sy, height float32
+	display        uint32
 }
 
 // parseSpawnRows reads the tab-separated rows of a spawn query. The columns are: guid, entry,
@@ -144,8 +158,8 @@ func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 			continue
 		}
 		f := strings.Split(line, "\t")
-		if len(f) != 15 {
-			return nil, fmt.Errorf("spawn row has %d columns, want 15: %q", len(f), line)
+		if len(f) != 16 {
+			return nil, fmt.Errorf("spawn row has %d columns, want 16: %q", len(f), line)
 		}
 		var r spawnRow
 		var err error
@@ -173,6 +187,11 @@ func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 		if r.RespawnSecs, err = strconv.Atoi(f[14]); err != nil {
 			return nil, fmt.Errorf("spawn row: %w", err)
 		}
+		display, err := strconv.ParseUint(f[15], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("spawn row: %w", err)
+		}
+		r.display = uint32(display)
 		switch {
 		case kind == "object":
 			r.Kind = KindObject

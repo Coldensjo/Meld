@@ -403,6 +403,7 @@ export namespace vmangos {
 	    z: number;
 	    orientation: number;
 	    respawnSecs: number;
+	    model: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorldSpawn(source);
@@ -426,6 +427,7 @@ export namespace vmangos {
 	        this.z = source["z"];
 	        this.orientation = source["orientation"];
 	        this.respawnSecs = source["respawnSecs"];
+	        this.model = source["model"];
 	    }
 	}
 

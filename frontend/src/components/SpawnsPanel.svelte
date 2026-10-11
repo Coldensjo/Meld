@@ -87,6 +87,8 @@
           <dt>Role</dt>
           <dd>{npcRoles(s.npcFlags) || 'Monster (no NPC role)'}</dd>
         {/if}
+        <dt>Model</dt>
+        <dd class="path">{s.model || 'none (drawn as a marker)'}</dd>
         <dt>Position</dt>
         <dd>
           {s.x.toFixed(1)}, {s.z.toFixed(1)} <span class="dim">height {s.y.toFixed(1)}</span>
@@ -178,6 +180,10 @@
   }
   .info dd {
     margin: 0;
+  }
+  .info .path {
+    overflow-wrap: anywhere;
+    font-size: 11px;
   }
   .dim {
     color: var(--text-dim);
