@@ -2,6 +2,7 @@ import {
   BrowseVmangosFolder,
   LoadMap,
   LoadRegion,
+  LoadSpawns,
   OpenHeightmapDialog,
   OpenMapDialog,
   PublishVmangosMap,
@@ -16,6 +17,7 @@ import {
 } from '../../../wailsjs/go/main/App'
 import { mapfile } from '../../../wailsjs/go/models'
 import type { Engine, MapSnapshot } from '../engine/Engine'
+import type { MapDocument } from '../engine/MapDocument'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
@@ -124,6 +126,21 @@ export function openMap(engine: Engine) {
 /** Paint chunks a side in a 1.12 tile. */
 const TILE_CHUNKS = 16
 
+/**
+ * Reads a region's creatures and game objects from the server's world database into its document.
+ * A failure (no server folder, the database not running) only costs the spawns, not the region.
+ */
+async function loadSpawns(engine: Engine, d: MapDocument, mapName: string, x: number, y: number, size: number) {
+  try {
+    const spawns = await LoadSpawns(mapName, x, y, size)
+    engine.setSpawns(d, spawns)
+    setStatus(`Loaded ${spawns.length} creatures and game objects from the server.`, 8000)
+  } catch (err) {
+    console.warn('spawns not loaded', err)
+    setStatus(`Spawns not loaded: ${err}`, 10000)
+  }
+}
+
 /** Opens a square block of the client's tiles in a new tab (or switches to it if it's open). */
 export function openWowRegion(engine: Engine, mapName: string, x: number, y: number, size: number) {
   return guarded('Open region', async () => {
@@ -137,7 +154,7 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       TILE_CHUNKS * size,
     )
     const t0 = performance.now()
-    const opened = engine.openRegion({
+    const d = engine.openRegion({
       mapName,
       x,
       y,
@@ -148,7 +165,7 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       palette: paint.palette,
       objects: view.objects,
     })
-    if (!opened) {
+    if (!d) {
       setStatus(`${mapName} ${x}_${y} ${size}×${size} is already open.`)
       return
     }
@@ -157,6 +174,7 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       `Opened ${mapName} ${x}_${y}, ${size}×${size} tiles, with ${view.objects.length} models (${Math.round(performance.now() - t0)} ms)${notes.length ? '. ' + notes.join('; ') : ''}`,
       8000,
     )
+    void loadSpawns(engine, d, mapName, x, y, size)
   })
 }
 

@@ -4,6 +4,7 @@ import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
+import type { vmangos } from '../../../wailsjs/go/models'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
@@ -483,6 +484,7 @@ export class Engine {
     d.terrain.material.wireframe = p.wireframe
     d.water.mesh.visible = p.showWater
     d.objects.group.visible = p.showObjects
+    d.spawnLayer.setKinds({ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects })
   }
 
   /** Give the active terrain the palette whenever the editor's palette changes. */
@@ -533,10 +535,10 @@ export class Engine {
     }
     if (stash && this.doc && this.doc !== d) {
       this.stashActive()
-      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.objects.group)
+      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.objects.group, this.doc.spawnLayer.group)
     }
     this.doc = d
-    this.scene.add(d.terrain.group, d.water.mesh, d.objects.group)
+    this.scene.add(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group)
     const m = d.meta
     editor.mapName = m.mapName
     editor.filePath = m.filePath
@@ -549,6 +551,7 @@ export class Engine {
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
+    editor.spawns = d.spawnLayer.spawns
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
     editor.selected = null
     editor.selection = null
@@ -615,16 +618,17 @@ export class Engine {
   /**
    * Open a block of the client's tiles in its own tab, or switch to it if it's open already. The
    * heights, palette and paint come from tileImport.ts. Each model becomes an object at its place
-   * on the ground, remembering its file ID. Returns false when the block was already open.
+   * on the ground, remembering its file ID. Returns the new document, or null when the block was
+   * already open.
    */
-  openRegion(r: RegionOpen): boolean {
+  openRegion(r: RegionOpen): MapDocument | null {
     const same = this.documents.find((d) => {
       const o = d.meta.region
       return !!o && o.mapName === r.mapName && o.x === r.x && o.y === r.y && o.size === r.size
     })
     if (same) {
       this.activate(same)
-      return false
+      return null
     }
     const d = new MapDocument(r.size * TILE_CELLS, `${r.mapName} ${r.x}_${r.y} ${r.size}x${r.size}`)
     d.terrain.heights.set(r.heights)
@@ -648,7 +652,22 @@ export class Engine {
     // The client's water isn't read yet, so a block starts with the water off rather than at sea level.
     d.meta.waterEnabled = false
     this.addDocument(d)
-    return true
+    return d
+  }
+
+  /**
+   * Gives a region's document its creatures and game objects, from the world database. The
+   * document may no longer be the active tab by the time they arrive; the layer is kept either way.
+   */
+  setSpawns(d: MapDocument, spawns: vmangos.WorldSpawn[]) {
+    d.spawnLayer.set(spawns)
+    if (d === this.doc) editor.spawns = spawns
+    if (this.prefs) this.applyLayerVisibility(this.prefs)
+  }
+
+  /** Moves the camera to a spawn, in the active region's coordinates. */
+  focusSpawn(s: vmangos.WorldSpawn) {
+    this.controller.focus(s.x, s.z, 40)
   }
 
   /**
@@ -787,7 +806,7 @@ export class Engine {
     const d = this.documents[i]
     this.documents.splice(i, 1)
     if (d === this.doc) {
-      this.scene.remove(d.terrain.group, d.water.mesh, d.objects.group)
+      this.scene.remove(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group)
       const next = this.documents[Math.min(i, this.documents.length - 1)]
       // Keep at least one map open. The closed doc isn't stashed.
       if (next) {

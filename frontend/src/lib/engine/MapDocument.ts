@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
 import { ObjectLayer } from '../world/ObjectLayer'
+import { SpawnLayer } from '../world/SpawnLayer'
 import { History } from '../state/history'
 import { LAYERS } from '../terrain/layers'
 
@@ -79,6 +80,7 @@ export class MapDocument {
   readonly terrain: Terrain
   readonly water: Water
   readonly objects: ObjectLayer
+  readonly spawnLayer = new SpawnLayer()
   readonly history = new History()
   /** The palette the terrain's shader was last given, as one string, to tell when it changes. */
   paletteKey = ''
@@ -113,5 +115,6 @@ export class MapDocument {
     this.terrain.dispose()
     this.water.dispose()
     this.objects.dispose()
+    this.spawnLayer.dispose()
   }
 }

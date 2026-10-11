@@ -385,6 +385,49 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	
+	export class WorldSpawn {
+	    kind: string;
+	    guid: number;
+	    entry: number;
+	    name: string;
+	    subname: string;
+	    levelMin: number;
+	    levelMax: number;
+	    faction: number;
+	    npcFlags: number;
+	    rank: number;
+	    type: number;
+	    x: number;
+	    y: number;
+	    z: number;
+	    orientation: number;
+	    respawnSecs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorldSpawn(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.guid = source["guid"];
+	        this.entry = source["entry"];
+	        this.name = source["name"];
+	        this.subname = source["subname"];
+	        this.levelMin = source["levelMin"];
+	        this.levelMax = source["levelMax"];
+	        this.faction = source["faction"];
+	        this.npcFlags = source["npcFlags"];
+	        this.rank = source["rank"];
+	        this.type = source["type"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.orientation = source["orientation"];
+	        this.respawnSecs = source["respawnSecs"];
+	    }
+	}
 
 }
 

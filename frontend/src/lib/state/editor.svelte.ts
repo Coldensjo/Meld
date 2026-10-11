@@ -1,6 +1,7 @@
 import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
 import type { Bookmark } from '../engine/MapDocument'
+import type { vmangos } from '../../../wailsjs/go/models'
 
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
@@ -64,6 +65,8 @@ export const editor = $state({
   region: '',
   /** The tile block the open map is, for the minimap; null when it isn't a client region. */
   regionBlock: null as { x: number; y: number; size: number } | null,
+  /** The creatures and game objects of the open region, for the Spawns panel. */
+  spawns: [] as vmangos.WorldSpawn[],
   filePath: '',
   dirty: false,
 })
@@ -107,6 +110,10 @@ export const prefs = $state({
   showTerrain: true,
   showWater: true,
   showObjects: true,
+  /** The creatures and game objects the world database places in a region, by kind. */
+  showMonsters: true,
+  showNpcs: true,
+  showGameObjects: true,
   renderScale: 1,
   viewDistance: 1,
   fog: true,

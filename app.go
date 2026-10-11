@@ -233,6 +233,18 @@ func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, e
 	return vmangos.ReadRegion(dataDir, mapName, x, y, size)
 }
 
+// LoadSpawns reads the creatures and game objects the server's world database places in a block of
+// tiles. It needs the VMaNGOS server folder, and the server's database running.
+func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, error) {
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if server == "" {
+		return nil, errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
+	}
+	return vmangos.ReadSpawns(server, mapName, x, y, size)
+}
+
 // SaveRegion writes an edited block back into the client's patch, into the tiles it came from, and
 // returns the patch's path. The server's map data is built from the patch.
 func (a *App) SaveRegion(edit vmangos.RegionEdit) (string, error) {

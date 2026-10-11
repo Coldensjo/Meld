@@ -30,6 +30,10 @@ export function LoadRegion(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['LoadRegion'](arg1, arg2, arg3, arg4);
 }
 
+export function LoadSpawns(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['LoadSpawns'](arg1, arg2, arg3, arg4);
+}
+
 export function OpenHeightmapDialog() {
   return window['go']['main']['App']['OpenHeightmapDialog']();
 }
