@@ -41,3 +41,24 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: nothing. No commit.
 - Verified: not run.
 - Left: noggit3-feature-gap.md does not define what linear, smooth and smooth-inner do, and linear would need a stroke direction. Building them now would mean inventing behaviour. The owner needs to say what each mode should do. B-018 stays open in BACKLOG.md.
+
+## 2026-10-11 · B-011 Brushed texture swap · commit 652e4be
+- Done: Paint has a Paint / Swap switch. In Swap, the texture under the start of a stroke is the source, and the brush moves its weight onto the active layer, in that chunk's slots, as one undoable stroke. The source is read where the stroke starts because the gap doc doesn't say how it is picked. A chunk with four textures and no slot for the active one refuses the stroke with the existing message.
+- Verified: frontend tests (node --test): swapPaint, chunkPaint and brush, 26 of 26 passed. make test passed. make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app, so the Swap switch and the stroke were not seen on screen. The owner's uncommitted wailsjs and go.mod changes were left unstaged and unchanged.
+- Left: B-102 (the mask mode has no switch) and B-103 (emptied slots stay assigned), both logged in BACKLOG.md. B-011 is removed from BACKLOG.md as done, in the cleanup pass.
+
+## 2026-10-11 · items left open for owner decisions
+- B-003 Vertex edit mode: "oriented from the mouse or from the selection centre" is not defined.
+- B-005 Tablet pressure: the gap doc names radius or speed and one on/off setting; the owner needs to pick which, and what a mouse does.
+- B-008 Seam fix: the render chunks share edge vertices, so no seam is expected from the code; an in-app check is needed.
+- B-010 Spray mode: defined by pen pressure, which depends on B-005.
+- B-012 Remove duplicate texture layers: needs a check on imported tiles to see whether duplicates occur.
+- B-031 Rotate around a pivot: the pivot point is not defined.
+- B-033 Selective paste: the unchosen fields' behaviour on paste is not defined.
+- B-034 Hide models: not defined whether the hidden list is session-only or saved in the map file.
+- B-037 Mouse-move snap modes: the gap doc doesn't say how the two modes differ.
+- B-052 Reload tile from disk: not started; it must re-read the tile's objects and paint too, so it is larger than S/M.
+
+## 2026-10-11 · stopped
+- Stopped early: none of the stop conditions held. The run did not reach the 8-item cap, and the list was not exhausted. The items above were judged blocked or larger than estimated. The rest of tier 2 (for example B-006 and B-007) and all of tiers 3 to 6 were not looked at beyond their backlog lines.
+- Next top item: B-008 Seam fix, which needs an in-app check first.
