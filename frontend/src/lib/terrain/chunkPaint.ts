@@ -48,6 +48,48 @@ export function acquireSlot(slots: Uint8Array, c: number, tex: number): number {
   return -1
 }
 
+/**
+ * Frees the slots of chunk c that no texel in it uses (weight 0 everywhere), and moves the used ones
+ * down to the lowest slots, so slot 0 stays the base. Every texel keeps its blend; only the order of
+ * its weights changes. Returns true when the chunk's slots or weights changed. res and side are as in
+ * packRoles.
+ */
+export function compactChunk(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number): boolean {
+  const per = res / side
+  const x0 = (c % side) * per
+  const z0 = Math.floor(c / side) * per
+  const keep: number[] = []
+  for (let k = 0; k < SLOTS; k++) {
+    if (slots[c * SLOTS + k] === NO_TEXTURE) continue
+    let used = false
+    for (let z = z0; z < z0 + per && !used; z++) {
+      for (let x = x0; x < x0 + per; x++) {
+        if (weights[(z * res + x) * SLOTS + k] > 0) {
+          used = true
+          break
+        }
+      }
+    }
+    if (used) keep.push(k)
+  }
+  if (keep.length === 0) return false
+  const next = new Uint8Array(SLOTS).fill(NO_TEXTURE)
+  keep.forEach((k, j) => (next[j] = slots[c * SLOTS + k]))
+  let same = true
+  for (let k = 0; k < SLOTS; k++) if (next[k] !== slots[c * SLOTS + k]) same = false
+  if (same) return false
+  const old = new Uint8Array(SLOTS)
+  for (let z = z0; z < z0 + per; z++) {
+    for (let x = x0; x < x0 + per; x++) {
+      const base = (z * res + x) * SLOTS
+      for (let k = 0; k < SLOTS; k++) old[k] = weights[base + k]
+      for (let j = 0; j < SLOTS; j++) weights[base + j] = j < keep.length ? old[keep[j]] : 0
+    }
+  }
+  slots.set(next, c * SLOTS)
+  return true
+}
+
 /** Makes the four weights of a texel sum to 255, adjusting the largest one by any rounding error. */
 export function normalizeTexel(w: Uint8Array, base: number): void {
   let sum = 0

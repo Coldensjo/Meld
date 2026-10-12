@@ -16,6 +16,7 @@ import {
   paletteIndex,
   replacePalette,
   clearPalette,
+  compactChunk,
 } from '../src/lib/terrain/chunkPaint.ts'
 
 test('a chunk takes four textures and refuses a fifth', () => {
@@ -178,4 +179,22 @@ test('clearing the map leaves one fully painted texture everywhere', () => {
   for (let c = 0; c < side * side; c++) assert.equal(slots[c * SLOTS], 4)
   assert.equal(weights[0], 255)
   assert.equal(weights[1] + weights[2] + weights[3], 0)
+})
+
+test('a slot the chunk no longer paints is freed, and the others move down', () => {
+  // One chunk of 2x2 texels: slot 0 is painted away, slots 1 and 2 hold the rest.
+  const slots = new Uint8Array([5, 6, 7, NO_TEXTURE])
+  const weights = new Uint8Array(4 * SLOTS)
+  for (let t = 0; t < 4; t++) weights.set([0, 200, 55, 0], t * SLOTS)
+  assert.equal(compactChunk(1, 2, slots, weights, 0), true)
+  assert.deepEqual([...slots], [6, 7, NO_TEXTURE, NO_TEXTURE])
+  for (let t = 0; t < 4; t++) assert.deepEqual([...weights.subarray(t * SLOTS, t * SLOTS + SLOTS)], [200, 55, 0, 0])
+})
+
+test('a chunk with every slot in use is left alone', () => {
+  const slots = new Uint8Array([1, 2, NO_TEXTURE, NO_TEXTURE])
+  const weights = new Uint8Array(4 * SLOTS)
+  for (let t = 0; t < 4; t++) weights.set([100, 155, 0, 0], t * SLOTS)
+  assert.equal(compactChunk(1, 2, slots, weights, 0), false)
+  assert.deepEqual([...slots], [1, 2, NO_TEXTURE, NO_TEXTURE])
 })

@@ -1,5 +1,5 @@
 import type { Terrain } from '../terrain/Terrain'
-import { CHUNK_CELLS, SLOTS, SPLAT_PER_CELL, acquireSlot, addWeight, chunkOf } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, SLOTS, SPLAT_PER_CELL, acquireSlot, addWeight, chunkOf, compactChunk } from '../terrain/chunkPaint'
 import type { Command } from '../state/history'
 
 export interface Rect {
@@ -166,6 +166,28 @@ export class TerrainStroke {
     this.sRect = grow(this.sRect, r)
   }
 
+  /**
+   * Frees the texture slots that the stroke's chunks no longer use, so a chunk whose texture was painted
+   * away can take a new one. A chunk is reordered as a whole, so the splat rect grows to cover it and
+   * undo restores all of it.
+   */
+  private settleSlots() {
+    const t = this.terrain
+    const r = this.sRect
+    if (!r) return
+    const side = t.paintChunksPerSide
+    const per = t.splatRes / side
+    let changed = false
+    for (let cz = Math.floor(r.z0 / per); cz <= Math.floor(r.z1 / per); cz++) {
+      for (let cx = Math.floor(r.x0 / per); cx <= Math.floor(r.x1 / per); cx++) {
+        if (!compactChunk(side, t.splatRes, t.chunkSlots, t.weights, cz * side + cx)) continue
+        changed = true
+        grow(r, { x0: cx * per, z0: cz * per, x1: cx * per + per - 1, z1: cz * per + per - 1 })
+      }
+    }
+    if (changed) t.markSplatDirty()
+  }
+
   finish(): Command | null {
     const t = this.terrain
     const parts: Array<{ apply: (before: boolean) => void }> = []
@@ -183,6 +205,7 @@ export class TerrainStroke {
       })
     }
     if (this.wBefore && this.slotsBefore) {
+      this.settleSlots()
       const slotsAfter = t.chunkSlots.slice()
       const slotsChanged = slotsAfter.some((v, i) => v !== this.slotsBefore![i])
       const r = this.sRect
