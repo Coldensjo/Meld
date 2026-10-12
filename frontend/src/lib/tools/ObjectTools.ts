@@ -29,7 +29,10 @@ export function transformCommand(objects: ObjectLayer, before: WorldObject, afte
   const apply = (s: WorldObject) => {
     const o = objects.objects.get(s.id)
     if (!o) return
-    delete o.parent // snapshots without a parent mean "on the ground"
+    // Snapshots without a parent mean "on the ground", and without tilts mean upright.
+    delete o.parent
+    delete o.tiltX
+    delete o.tiltZ
     Object.assign(o, s)
     objects.touch(s.id)
     if (editor.selected?.id === s.id) editor.selected = { ...s }
