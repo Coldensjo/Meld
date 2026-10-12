@@ -131,6 +131,10 @@
       <button disabled={!editor.selection} onclick={() => engineRef.current?.deselect()}>Deselect</button>
     {/if}
   {:else if editor.tool === 'select'}
+    <label class="check" title="Tilt a model to the ground's slope while dragging it along the ground"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
+    {#if editor.followGround}
+      <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
+    {/if}
     {#if editor.selected}
       <span class="chip"><span class="dim">Selected:</span> {displayName(editor.selected.type)}</span>
       <button onclick={() => engineRef.current?.focusSelected()}>Focus <kbd>F</kbd></button>

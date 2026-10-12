@@ -4,6 +4,7 @@ import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
+import { groundNormal, tiltToNormal } from '../world/groundTilt'
 
 function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
   const saved = added.map((o) => ({ ...o }))
@@ -178,6 +179,7 @@ export class PlaceTool implements Tool {
 
 export class SelectTool implements Tool {
   readonly usesBrush = false
+  private normal = { x: 0, y: 1, z: 0 }
   private dragging: { before: WorldObject; dx: number; dz: number; lift: number; exclude: Set<number>; moved: boolean } | null = null
 
   private selected(ctx: ToolContext) {
@@ -213,6 +215,12 @@ export class SelectTool implements Tool {
     const w = ctx.objects.worldPlacement(o)
     w.pos.set(surf.point.x + d.dx, surf.point.y + d.lift, surf.point.z + d.dz)
     ctx.objects.place(o, surf.parent, w)
+    if (editor.followGround && surf.parent === null) {
+      const t = ctx.terrain
+      const n = groundNormal((x, z) => t.heightAt(x, z), o.x, o.z, t.cellSize, editor.followGroundSmooth, this.normal)
+      Object.assign(o, tiltToNormal(n.x, n.y, n.z, o.rotY))
+      ctx.objects.touch(o.id)
+    }
     d.moved = true
     editor.selected = { ...o }
   }

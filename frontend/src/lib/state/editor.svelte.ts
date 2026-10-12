@@ -66,6 +66,9 @@ export const editor = $state({
   /** Placed models tilt a little at random (up to 8 degrees each way) when on. */
   placeRandomTilt: false,
   placeScatter: false,
+  /** Dragging a model along the ground tilts it to the ground's slope; smooth blends the slope over a cell each way. */
+  followGround: false,
+  followGroundSmooth: true,
   /** Extra height above the surface for new placements (Alt+scroll). */
   placeHeight: 0,
   selected: null as SelectedInfo | null,
