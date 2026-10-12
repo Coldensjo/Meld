@@ -4,6 +4,9 @@
   import { defaultLayerTextures } from '../lib/wow/defaults'
   import { LAYERS } from '../lib/terrain/layers'
   import { engineRef } from '../lib/state/engineRef'
+  import { hasBackend } from '../lib/io/mapio'
+  import { MapEntries } from '../../wailsjs/go/main/App'
+  import type { vmangos } from '../../wailsjs/go/models'
 
   let name = $state('Untitled')
   let size = $state(256)
@@ -27,6 +30,22 @@
   const mapIdOk = $derived(Number.isInteger(mapId) && mapId > 0 && mapId <= 99999)
   const canCreate = $derived(!forClient || (folderOk && mapIdOk))
 
+  // The client's maps, read once from its Map.dbc the first time the client option is ticked.
+  const MAP_TYPES = ['Continents', 'Dungeons', 'Raids', 'Battlegrounds', 'Arenas']
+  let maps = $state<vmangos.MapEntry[]>([])
+  let mapsError = $state('')
+  let mapsRequested = false
+  const mapGroups = $derived(
+    MAP_TYPES.map((label, type) => ({ label, maps: maps.filter((m) => m.Type === type) })).filter((g) => g.maps.length > 0),
+  )
+  $effect(() => {
+    if (!forClient || mapsRequested || !hasBackend()) return
+    mapsRequested = true
+    MapEntries()
+      .then((list) => (maps = list))
+      .catch((err) => (mapsError = String(err)))
+  })
+
   async function create() {
     if (!canCreate) return
     const palette = wow.loaded ? await defaultLayerTextures() : LAYERS.map((l) => l.swatch)
@@ -49,6 +68,22 @@
     {#if forClient}
       <label>Folder <input type="text" bind:value={folder} /></label>
       {#if !folderOk}<p class="warn">Use letters, digits, - and _ for the folder name.</p>{/if}
+      {#if mapGroups.length > 0}
+        <label>
+          Client map
+          <select bind:value={mapId}>
+            {#each mapGroups as g (g.label)}
+              <optgroup label={g.label}>
+                {#each g.maps as m (m.ID)}
+                  <option value={m.ID}>{m.ID} · {m.Name || m.Dir}</option>
+                {/each}
+              </optgroup>
+            {/each}
+          </select>
+        </label>
+      {:else if mapsError}
+        <p class="warn">Maps from the client are not listed: {mapsError}</p>
+      {/if}
       <label>Map ID <input type="number" min="1" max="99999" bind:value={mapId} /></label>
       {#if !mapIdOk}<p class="warn">A map ID is a whole number from 1 to 99999.</p>{/if}
       <label>

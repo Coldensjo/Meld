@@ -235,6 +235,16 @@ func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, e
 	return vmangos.ReadRegion(dataDir, mapName, x, y, size)
 }
 
+// MapEntries lists the maps the client knows (continents, dungeons, raids, battlegrounds, arenas), so
+// the New Map dialog can offer their IDs.
+func (a *App) MapEntries() ([]vmangos.MapEntry, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.LoadMapEntries(dataDir)
+}
+
 // LoadSpawns reads the creatures and game objects the server's world database places in a block of
 // tiles. It needs the VMaNGOS server folder, and the server's database running.
 func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, error) {

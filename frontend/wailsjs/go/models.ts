@@ -246,6 +246,24 @@ export namespace vmangos {
 		}
 	}
 	
+	export class MapEntry {
+	    ID: number;
+	    Dir: string;
+	    Type: number;
+	    Name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MapEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ID = source["ID"];
+	        this.Dir = source["Dir"];
+	        this.Type = source["Type"];
+	        this.Name = source["Name"];
+	    }
+	}
 	export class ObjectSpec {
 	    Type: string;
 	    X: number;
