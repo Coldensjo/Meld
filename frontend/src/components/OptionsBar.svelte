@@ -168,6 +168,14 @@
       <option value="textures">Textures (to base)</option>
     </select>
   {/if}
+  {#if editor.tool === 'paint' && editor.paintMode === 'texture'}
+    <label class="check" title="Spray random dabs over the brush instead of painting it solid (T)"><input type="checkbox" bind:checked={editor.paintSpray} /> Spray</label>
+    {#if editor.paintSpray}
+      <OptSlider label="Dab size" bind:value={editor.spray.size} min={1} max={40} step={0.5} digits={1} width={60} title="Size of each spray dab" />
+      <OptSlider label="Pressure" bind:value={editor.spray.pressure} min={0} max={10} step={0.1} digits={1} width={60} title="How densely the dabs land" />
+      <label class="check" title="Also paint the brush's solid centre (inside the falloff)"><input type="checkbox" bind:checked={editor.spray.inner} /> Inner radius</label>
+    {/if}
+  {/if}
   {#if editor.tool === 'paint'}
     <OptSlider label="Tex scale" bind:value={editor.texScale} min={2} max={24} step={0.5} digits={1} width={70} />
   {/if}

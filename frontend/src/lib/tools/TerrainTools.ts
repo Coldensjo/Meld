@@ -6,6 +6,7 @@ import { TerrainStroke, brushCenter, brushShape, forEachTexel, forEachVertex, pa
 import { dominantTexel, swapTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
+import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
 
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
 const CHUNK_FULL = 'That chunk already has four textures (the 1.12 limit). Paint with one of them, or erase another.'
@@ -232,14 +233,42 @@ export class PaintTool extends BrushTool {
       return
     }
     const { radius, strength, falloff } = editor.brush
-    const tex = editor.paintLayer
-    const amt = Math.min(1, strength * dt * 5)
-    let refused = 0
-    const rect = forEachTexel(ctx.terrain, hit.x, hit.z, radius, falloff, (p, w) => {
-      if (!paintPixel(ctx.terrain, p, tex, amt * w)) refused++
-    })
+    if (!editor.paintSpray) {
+      if (this.paintAt(ctx, hit.x, hit.z, radius, falloff, Math.min(1, strength * dt * 5))) setStatus(CHUNK_FULL, 3000)
+      return
+    }
+    // Spray: random dabs over the brush, plus the brush's solid centre when Inner radius is on.
+    const t = ctx.terrain
+    const { size, pressure, inner } = editor.spray
+    const dab = sprayDabRadius(size, t.worldSize / t.splatRes)
+    const amt = sprayAmount(strength)
+    const n = sprayDabs(hit.x, hit.z, radius, dab, pressure, dt, Math.random, this.dabs)
+    let refused = false
+    for (let i = 0; i < n; i++) refused = this.paintAt(ctx, this.dabs[i * 2], this.dabs[i * 2 + 1], dab, falloff, amt) || refused
+    if (inner && falloff < 1) refused = this.paintAt(ctx, hit.x, hit.z, radius * (1 - falloff), falloff, Math.min(1, strength * dt * 5)) || refused
     if (refused) setStatus(CHUNK_FULL, 3000)
+  }
+
+  /** Spray dab centres for one frame, as x, z pairs. */
+  private dabs = new Float32Array(MAX_DABS * 2)
+
+  /** Paints the active layer in a circle. Returns true when a chunk refused it for having four textures. */
+  private paintAt(ctx: ToolContext, x: number, z: number, radius: number, falloff: number, amt: number): boolean {
+    const tex = editor.paintLayer
+    let refused = false
+    const rect = forEachTexel(ctx.terrain, x, z, radius, falloff, (p, w) => {
+      if (!paintPixel(ctx.terrain, p, tex, amt * w)) refused = true
+    })
     this.splatChanged(ctx, rect)
+    return refused
+  }
+
+  onKey(_ctx: ToolContext, e: KeyboardEvent) {
+    if (e.key !== 't' && e.key !== 'T') return false
+    editor.paintSpray = !editor.paintSpray
+    if (editor.paintSpray) editor.paintMode = 'texture'
+    setStatus(editor.paintSpray ? 'Spray on' : 'Spray off', 1500)
+    return true
   }
 
   /** Moves the stroke's starting texture onto the active layer under the brush. */

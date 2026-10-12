@@ -51,6 +51,10 @@ export const editor = $state({
    */
   paintMode: 'texture' as 'texture' | 'swap' | 'mask',
   maskErase: false,
+  /** Paint mode sprays random dabs over the brush instead of painting it solid (T toggles). */
+  paintSpray: false,
+  /** Spray: dab Size (1 to 40), Pressure as the dab density (0 to 10), and Inner radius, which also paints the brush's solid centre. */
+  spray: { size: 1, pressure: 2, inner: false },
   roadFlatten: true,
   waterMode: 'dig' as WaterMode,
   waterLevel: 0,
