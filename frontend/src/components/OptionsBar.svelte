@@ -109,6 +109,10 @@
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomRot} /> Random rotation</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomScale} /> Random scale</label>
     <label class="check" title="Tilt each placed model a little, up to 8 degrees each way"><input type="checkbox" bind:checked={editor.placeRandomTilt} /> Random tilt</label>
+    <label class="check" title="Tilt new models on open ground to the slope under them, as the Select tool's drag does"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
+    {#if editor.followGround}
+      <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
+    {/if}
     <label class="check"><input type="checkbox" bind:checked={editor.placeScatter} /> Scatter</label>
     <span class="chip" title="Height above the surface for new placements (Alt+scroll)">
       <span class="dim">Height:</span> {editor.placeHeight >= 0 ? '+' : ''}{editor.placeHeight.toFixed(2)}

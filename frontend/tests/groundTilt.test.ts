@@ -38,3 +38,14 @@ test('the tilts turn the model up axis onto the normal for any turn', () => {
     }
   }
 })
+
+test('a tilt written into a given object is the same, and is that object', () => {
+  const out = { tiltX: 0, tiltZ: 0 }
+  const n = { x: 0.3, y: 0.9, z: -0.2 }
+  const len = Math.hypot(n.x, n.y, n.z)
+  const got = tiltToNormal(n.x / len, n.y / len, n.z / len, 0.7, out)
+  assert.equal(got, out)
+  const want = tiltToNormal(n.x / len, n.y / len, n.z / len, 0.7)
+  near(out.tiltX, want.tiltX)
+  near(out.tiltZ, want.tiltZ)
+})

@@ -62,10 +62,22 @@ export class PlaceTool implements Tool {
   private tilt: { tiltX?: number; tiltZ?: number } = {}
   private scattering: WorldObject[] | null = null
   private scatterAcc = 0
+  private normal = { x: 0, y: 1, z: 0 }
+  private ghostTilt = { tiltX: 0, tiltZ: 0 }
 
   constructor() {
     this.ghost = new THREE.Mesh(new THREE.BufferGeometry())
     this.ghost.renderOrder = 20
+  }
+
+  /**
+   * The tilt a model turned `rotY` needs to stand on the ground at (x, z) with Follow ground rotation on,
+   * the same as the Select tool's drag. Written into `out`.
+   */
+  private groundTilt(ctx: ToolContext, x: number, z: number, rotY: number, out: { tiltX: number; tiltZ: number }) {
+    const t = ctx.terrain
+    groundNormal((px, pz) => t.heightAt(px, pz), x, z, t.cellSize, editor.followGroundSmooth, this.normal)
+    return tiltToNormal(this.normal.x, this.normal.y, this.normal.z, rotY, out)
   }
 
   activate(ctx: ToolContext) {
@@ -102,9 +114,15 @@ export class PlaceTool implements Tool {
     // The preview sits on whatever is under the cursor: terrain, a building, another prop.
     const surf = hit ? ctx.surface() : null
     this.ghost.visible = !!surf && !editor.placeScatter && !!editor.prefab
-    if (surf) {
+    if (surf && hit) {
       this.ghost.position.copy(surf.point).y += editor.placeHeight
-      this.ghost.rotation.y = this.rot
+      // On open ground with Follow ground rotation, the preview leans to the slope it will land on.
+      if (editor.followGround && surf.parent === null) {
+        this.groundTilt(ctx, hit.x, hit.z, this.rot, this.ghostTilt)
+        this.ghost.rotation.set(this.ghostTilt.tiltX, this.rot, this.ghostTilt.tiltZ, 'YXZ')
+      } else {
+        this.ghost.rotation.set(0, this.rot, 0, 'YXZ')
+      }
       this.ghost.scale.setScalar(this.scale)
     }
   }
@@ -122,7 +140,9 @@ export class PlaceTool implements Tool {
     }
     // Attach to the building/prop under the cursor, or sit on the ground.
     const surf = ctx.surface() ?? { point: hit.clone(), parent: null }
-    const o = ctx.objects.add({ type: editor.prefab, x: hit.x, z: hit.z, yOff: 0, rotY: this.rot, scale: this.scale, ...this.tilt })
+    // On open ground, Follow ground rotation replaces Random tilt with the slope's tilt.
+    const tilt = editor.followGround && surf.parent === null ? this.groundTilt(ctx, hit.x, hit.z, this.rot, { tiltX: 0, tiltZ: 0 }) : this.tilt
+    const o = ctx.objects.add({ type: editor.prefab, x: hit.x, z: hit.z, yOff: 0, rotY: this.rot, scale: this.scale, ...tilt })
     ctx.objects.place(o, surf.parent, {
       pos: surf.point.clone().setY(surf.point.y + editor.placeHeight),
       rot: this.rot,
@@ -149,14 +169,15 @@ export class PlaceTool implements Tool {
       if (!ctx.terrain.contains(x, z)) continue
       // Keep a minimum spacing between same-type props in this stroke.
       if (this.scattering.some((o) => Math.hypot(o.x - x, o.z - z) < spacing)) continue
+      const rotY = Math.random() * Math.PI * 2
       const o = ctx.objects.add({
         type: editor.prefab,
         x,
         z,
         yOff: 0,
-        rotY: Math.random() * Math.PI * 2,
+        rotY,
         scale: editor.placeRandomScale ? 0.75 + Math.random() * 0.5 : 1,
-        ...randomTilt(),
+        ...(editor.followGround ? this.groundTilt(ctx, x, z, rotY, { tiltX: 0, tiltZ: 0 }) : randomTilt()),
       })
       this.scattering.push(o)
     }
