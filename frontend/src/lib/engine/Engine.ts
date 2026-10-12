@@ -195,6 +195,7 @@ export class Engine {
       get scene() { return self.scene },
       get raycaster() { return self.raycaster },
       surface: (exclude?: Set<number>) => self.surfaceHit(exclude),
+      pressure: () => (self.prefs?.tabletSupport ? self.penPressure : 1),
     }
 
     this.marquee = new MarqueeTool({
@@ -260,7 +261,11 @@ export class Engine {
 
   // ---------------------------------------------------------------- input
 
+  /** The pen's last pressure, or 1 when the pointer isn't a pen. */
+  private penPressure = 1
+
   private updatePointer(e: PointerEvent) {
+    this.penPressure = e.pointerType === 'pen' ? e.pressure : 1
     const r = this.canvas.getBoundingClientRect()
     this.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
   }

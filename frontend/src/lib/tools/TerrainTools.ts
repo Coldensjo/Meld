@@ -116,8 +116,8 @@ export class SculptTool extends BrushTool {
   protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
     const t = ctx.terrain
     const h = t.heights
-    const { radius, strength, falloff } = editor.brush
-    const rate = strength * dt
+    const { radius, falloff } = editor.brush
+    const rate = editor.brush.strength * ctx.pressure() * dt
     const mode = editor.sculptMode
     // The edit limit compares each vertex with the height under the cursor.
     const limit = editor.sculptLimit
@@ -232,7 +232,8 @@ export class PaintTool extends BrushTool {
       }
       return
     }
-    const { radius, strength, falloff } = editor.brush
+    const { radius, falloff } = editor.brush
+    const strength = editor.brush.strength * ctx.pressure()
     if (!editor.paintSpray) {
       if (this.paintAt(ctx, hit.x, hit.z, radius, falloff, Math.min(1, strength * dt * 5))) setStatus(CHUNK_FULL, 3000)
       return
@@ -276,7 +277,8 @@ export class PaintTool extends BrushTool {
     const from = this.swapFrom
     const to = editor.paintLayer
     if (from < 0 || from === to) return
-    const { radius, strength, falloff } = editor.brush
+    const { radius, falloff } = editor.brush
+    const strength = editor.brush.strength * ctx.pressure()
     const amt = Math.min(1, strength * dt * 5)
     let refused = 0
     const t = ctx.terrain

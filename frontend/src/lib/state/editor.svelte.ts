@@ -145,6 +145,8 @@ export const prefs = $state({
   cameraSpeed: 1,
   mouseSensitivity: 1,
   invertY: false,
+  /** A pen's pressure scales sculpt speed and paint strength (a mouse is unchanged). */
+  tabletSupport: false,
   /** Hour of day 0-24 (sun/moon position, lighting, sky). */
   timeOfDay: 13,
   /** Animate a full day/night cycle (one day ≈ cycleMinutes). */

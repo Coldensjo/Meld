@@ -18,6 +18,11 @@ export interface ToolContext {
    * being dragged and its attachments).
    */
   surface(exclude?: Set<number>): { point: THREE.Vector3; parent: number | null } | null
+  /**
+   * Pen pressure from 0 to 1 while Tablet support is on and a pen is drawing; 1 for a mouse or with the
+   * setting off. Brush tools scale their strength by it.
+   */
+  pressure(): number
 }
 
 /**
