@@ -85,7 +85,21 @@ void main() {
   vec2 tuv = vWorldPos.xz / texScale;
   vec2 cell = floor(vWorldPos.xz / chunkWorld);
   vec4 ids = floor(texture2D(slotTex, (cell + 0.5) / chunksSide) * 255.0 + 0.5);
-  vec4 w = texture2D(weightTex, suv);
+  // Bilinear within the chunk, as the game filters its alpha maps. The four weights name this chunk's
+  // own slots, so texels of a neighbouring chunk (other slots) are never mixed in: every tap is clamped
+  // to this chunk's texels.
+  vec2 res = vec2(textureSize(weightTex, 0));
+  float per = res.x / chunksSide;
+  vec2 tp = suv * res - 0.5;
+  vec2 f = fract(tp);
+  vec2 lo = cell * per;
+  vec2 hi = lo + (per - 1.0);
+  vec2 a = clamp(floor(tp), lo, hi);
+  vec2 b = clamp(floor(tp) + 1.0, lo, hi);
+  vec4 w = mix(
+    mix(texelFetch(weightTex, ivec2(a), 0), texelFetch(weightTex, ivec2(b.x, a.y), 0), f.x),
+    mix(texelFetch(weightTex, ivec2(a.x, b.y), 0), texelFetch(weightTex, ivec2(b), 0), f.x),
+    f.y);
   float total = max(dot(w, vec4(1.0)), 0.0001);
 
   vec3 col = blend(ids, w, tuv) / total;
