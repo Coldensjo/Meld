@@ -1,5 +1,5 @@
 import type { Terrain } from '../terrain/Terrain'
-import { CHUNK_CELLS, SLOTS, SPLAT_PER_CELL, acquireSlot, addWeight, chunkOf, compactChunk } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, SLOTS, SPLAT_PER_CELL, acquireSlotCompacting, addWeight, chunkOf, compactChunk } from '../terrain/chunkPaint'
 import type { Command } from '../state/history'
 
 export interface Rect {
@@ -91,7 +91,7 @@ export function paintPixel(terrain: Terrain, pixel: number, tex: number, amount:
   const x = pixel % R
   const z = Math.floor(pixel / R)
   const c = chunkOf(Math.floor(x / TEXELS_PER_CHUNK), Math.floor(z / TEXELS_PER_CHUNK), terrain.paintChunksPerSide)
-  const k = acquireSlot(terrain.chunkSlots, c, tex)
+  const k = acquireSlotCompacting(terrain.paintChunksPerSide, R, terrain.chunkSlots, terrain.weights, c, tex)
   if (k < 0) return false
   addWeight(terrain.weights, pixel * SLOTS, k, amount)
   return true

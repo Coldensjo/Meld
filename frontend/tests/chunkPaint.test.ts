@@ -6,6 +6,7 @@ import {
   NO_TEXTURE,
   SLOTS,
   acquireSlot,
+  acquireSlotCompacting,
   addWeight,
   chunksPerSide,
   convertGlobalLayers,
@@ -197,4 +198,22 @@ test('a chunk with every slot in use is left alone', () => {
   for (let t = 0; t < 4; t++) weights.set([100, 155, 0, 0], t * SLOTS)
   assert.equal(compactChunk(1, 2, slots, weights, 0), false)
   assert.deepEqual([...slots], [1, 2, NO_TEXTURE, NO_TEXTURE])
+})
+
+test('acquiring a slot in a full chunk frees the textures a stroke has emptied', () => {
+  // One chunk: slot 0 is in use, slots 1 to 3 hold textures with no weight left.
+  const slots = new Uint8Array([5, 6, 7, 8])
+  const weights = new Uint8Array(2 * 2 * SLOTS)
+  weights[0] = 255
+  assert.equal(acquireSlotCompacting(1, 2, slots, weights, 0, 9), 1)
+  assert.deepEqual([...slots], [5, 9, NO_TEXTURE, NO_TEXTURE])
+  assert.deepEqual([...weights.slice(0, SLOTS)], [255, 0, 0, 0])
+})
+
+test('acquiring a slot in a chunk that really uses four textures still fails', () => {
+  const slots = new Uint8Array([5, 6, 7, 8])
+  const weights = new Uint8Array(2 * 2 * SLOTS)
+  for (let k = 0; k < SLOTS; k++) weights[k * SLOTS + k] = 255
+  assert.equal(acquireSlotCompacting(1, 2, slots, weights, 0, 9), -1)
+  assert.deepEqual([...slots], [5, 6, 7, 8])
 })

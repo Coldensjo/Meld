@@ -49,6 +49,18 @@ export function acquireSlot(slots: Uint8Array, c: number, tex: number): number {
 }
 
 /**
+ * Like acquireSlot, but when the chunk is full it first frees the slots that a stroke has emptied, so a
+ * texture painted away earlier in the same stroke makes room at once. Returns -1 only when the chunk
+ * really holds SLOTS textures in use.
+ */
+export function acquireSlotCompacting(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, tex: number): number {
+  const k = acquireSlot(slots, c, tex)
+  if (k >= 0) return k
+  if (!compactChunk(side, res, slots, weights, c)) return -1
+  return acquireSlot(slots, c, tex)
+}
+
+/**
  * Frees the slots of chunk c that no texel in it uses (weight 0 everywhere), and moves the used ones
  * down to the lowest slots, so slot 0 stays the base. Every texel keeps its blend; only the order of
  * its weights changes. Returns true when the chunk's slots or weights changed. res and side are as in
@@ -324,13 +336,15 @@ export function swapTexel(
   amount: number,
 ): boolean {
   const c = chunkOfTexel(side, res, pixel)
-  const src = findSlot(slots, c, from)
-  if (src < 0) return true
   const base = pixel * SLOTS
-  const d = Math.min(weights[base + src], Math.round(weights[base + src] * amount))
+  const src0 = findSlot(slots, c, from)
+  if (src0 < 0) return true
+  const d = Math.min(weights[base + src0], Math.round(weights[base + src0] * amount))
   if (d <= 0) return true
-  const k = acquireSlot(slots, c, to)
+  const k = acquireSlotCompacting(side, res, slots, weights, c, to)
   if (k < 0) return false
+  // Compaction may have moved the source texture to another slot, so look it up again.
+  const src = findSlot(slots, c, from)
   weights[base + src] -= d
   weights[base + k] += d
   return true
