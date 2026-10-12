@@ -178,6 +178,10 @@ export const ui = $state({
   /** Which palette the left panel shows. */
   palette: 'models' as 'models' | 'textures',
   busy: false,
+  /** Draw objects hidden with H. */
+  showHiddenModels: false,
+  /** How many objects the active map has hidden. */
+  hiddenModels: 0,
 })
 
 let statusTimer: ReturnType<typeof setTimeout> | undefined

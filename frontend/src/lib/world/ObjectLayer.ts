@@ -47,6 +47,10 @@ export class ObjectLayer {
   readonly objects = new Map<number, WorldObject>()
   /** Bumped on any change to placed objects (or their loaded models). */
   version = 0
+  /** Objects hidden for this session (H). Not saved in the map, and not undoable, like layer visibility. */
+  readonly hidden = new Set<number>()
+  /** Draw hidden objects anyway, so they can be picked and shown again. */
+  private showHidden = false
   private batches = new Map<string, Batch>()
   private nextId = 1
   private tmpM = new THREE.Matrix4()
@@ -89,6 +93,7 @@ export class ObjectLayer {
     const o = this.objects.get(id)
     if (!o) return
     this.objects.delete(id)
+    this.hidden.delete(id)
     this.batch(o.type).dirty = true
     this.version++
     return o
@@ -139,8 +144,37 @@ export class ObjectLayer {
     return out
   }
 
+  /** Whether an object is left out of drawing and picking. */
+  isHidden(id: number): boolean {
+    return !this.showHidden && this.hidden.has(id)
+  }
+
+  setHidden(id: number, hide: boolean) {
+    const o = this.objects.get(id)
+    if (!o || this.hidden.has(id) === hide) return
+    if (hide) this.hidden.add(id)
+    else this.hidden.delete(id)
+    this.batch(o.type).dirty = true
+    this.version++
+  }
+
+  clearHidden() {
+    if (!this.hidden.size) return
+    this.hidden.clear()
+    this.markAllDirty()
+  }
+
+  /** Returns true when the setting changed. */
+  setShowHidden(show: boolean): boolean {
+    if (this.showHidden === show) return false
+    this.showHidden = show
+    if (this.hidden.size) this.markAllDirty()
+    return true
+  }
+
   clear() {
     this.objects.clear()
+    this.hidden.clear()
     this.markAllDirty()
   }
 
@@ -254,7 +288,7 @@ export class ObjectLayer {
       if (!b.dirty) continue
       b.dirty = false
       b.ids.length = 0
-      for (const o of this.objects.values()) if (o.type === type) b.ids.push(o.id)
+      for (const o of this.objects.values()) if (o.type === type && !this.isHidden(o.id)) b.ids.push(o.id)
       if (b.ids.length > b.mesh.instanceMatrix.count) {
         let cap = b.mesh.instanceMatrix.count
         while (cap < b.ids.length) cap *= 2

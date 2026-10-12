@@ -72,6 +72,10 @@
         { kind: 'action', label: 'Deselect', shortcut: 'Ctrl+D', disabled: !editor.selection, run: withEngine((e) => e.deselect()) },
         { kind: 'sep' },
         { kind: 'action', label: 'Remove Duplicate Models', run: withEngine((e) => e.removeDuplicateModels()) },
+        { kind: 'sep' },
+        { kind: 'action', label: 'Hide Selected Model', shortcut: 'H', disabled: !editor.selected, run: withEngine((e) => e.toggleHideSelected()) },
+        { kind: 'check', label: 'Show Hidden Models', checked: ui.showHiddenModels, toggle: () => (ui.showHiddenModels = !ui.showHiddenModels) },
+        { kind: 'action', label: 'Unhide All Models', shortcut: 'Shift+H', disabled: !ui.hiddenModels, run: withEngine((e) => e.unhideAll()) },
       ],
     },
     {

@@ -125,6 +125,7 @@ export class PropEffects {
     let flameCount = 0
     const color = new THREE.Color()
     for (const o of layer.objects.values()) {
+      if (layer.isHidden(o.id)) continue
       const a = getAsset(o.type)
       if (!a.effects.length) continue
       layer.matrixOf(o, this.tmpM)

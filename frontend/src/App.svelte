@@ -98,6 +98,7 @@
     else if (e.key === '[') editor.brush.radius = Math.max(1, editor.brush.radius / 1.15)
     else if (e.key === ']') editor.brush.radius = Math.min(80, editor.brush.radius * 1.15)
     else if (key === 'g') editor.grid = !editor.grid
+    else if (key === 'h' && e.shiftKey) engine.unhideAll()
     else if (key === 'p') stepCameraSpeed(true)
     else if (key === 'o') stepCameraSpeed(false)
     else if (key === 'f') engine.focusSelected()

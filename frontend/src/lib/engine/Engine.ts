@@ -409,6 +409,8 @@ export class Engine {
       for (const a of animatedAssets) a.anim?.update(ms)
     }
     this.terrain.update()
+    // A hidden object can't stay selected once hidden objects stop being drawn.
+    if (this.objects.setShowHidden(ui.showHiddenModels) && editor.selected && this.objects.isHidden(editor.selected.id)) editor.selected = null
     this.objects.update()
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night)
@@ -569,6 +571,7 @@ export class Engine {
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
     editor.spawns = d.spawnLayer.spawns
+    ui.hiddenModels = d.objects.hidden.size
     editor.selectedSpawn = null
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
     editor.selected = null
@@ -1132,6 +1135,25 @@ export class Engine {
     return editor.selected ? this.objects.objects.get(editor.selected.id) : undefined
   }
 
+  /** Hides the selected object for this session (H), or shows it again when it is already hidden. */
+  toggleHideSelected() {
+    const o = this.selectedObject()
+    if (!o) return
+    const hide = !this.objects.hidden.has(o.id)
+    this.objects.setHidden(o.id, hide)
+    if (hide && !ui.showHiddenModels) editor.selected = null
+    ui.hiddenModels = this.objects.hidden.size
+    setStatus(hide ? 'Model hidden. Shift+H shows all hidden models again.' : 'Model shown.', 3000)
+  }
+
+  /** Shows every hidden object of the active map again (Shift+H). */
+  unhideAll() {
+    const n = this.objects.hidden.size
+    this.objects.clearHidden()
+    ui.hiddenModels = 0
+    if (n) setStatus(`${n} hidden model${n === 1 ? '' : 's'} shown again.`, 3000)
+  }
+
   /** Outline + handles for the selected object (Select and Place tools). */
   private updateSelectionVisuals() {
     const o = this.canNudge() ? this.selectedObject() : undefined
@@ -1324,6 +1346,9 @@ export class Engine {
         return true
       case 'Escape':
         editor.selected = null
+        return true
+      case 'h':
+        this.toggleHideSelected()
         return true
     }
     return false
