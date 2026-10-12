@@ -68,6 +68,7 @@
       <div class="seg">
         <button class:active={editor.paintMode === 'texture'} onclick={() => (editor.paintMode = 'texture')}>Paint</button>
         <button class:active={editor.paintMode === 'swap'} onclick={() => (editor.paintMode = 'swap')} title="Replace the texture under the start of each stroke with the active layer">Swap</button>
+        <button class:active={editor.paintMode === 'mask'} onclick={() => (editor.paintMode = 'mask')} title="Paint the mask that Fill mask uses to place the active texture">Mask</button>
       </div>
     {/if}
     <button class="chip" onclick={() => (ui.palette = 'textures')} title="Active texture layer (pick textures in the Assets panel)">
