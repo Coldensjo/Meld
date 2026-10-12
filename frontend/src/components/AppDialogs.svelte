@@ -4,7 +4,7 @@
   import GameLoginDialog from './GameLoginDialog.svelte'
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { openWowRegion, saveAndPublish } from '../lib/io/mapio'
+  import { openWowRegion, revertMap, saveAndPublish } from '../lib/io/mapio'
   import { Quit } from '../../wailsjs/go/main/App'
   import { APP_VERSION } from '../lib/version'
   import { SvelteSet } from 'svelte/reactivity'
@@ -147,6 +147,21 @@
           engineRef.current?.closeDocument(ui.closeDocId)
           close()
         }}>Close without saving</button
+      >
+    {/snippet}
+  </Modal>
+{:else if ui.dialog === 'revert'}
+  <Modal title="Revert to saved" width={380} onclose={close}>
+    <p>Discard the unsaved changes to “{editor.mapName}” and reload it from {editor.filePath}? This can't be undone.</p>
+    {#snippet actions()}
+      <button onclick={close}>Cancel</button>
+      <button
+        class="danger"
+        onclick={() => {
+          const engine = engineRef.current
+          close()
+          if (engine) revertMap(engine)
+        }}>Revert</button
       >
     {/snippet}
   </Modal>

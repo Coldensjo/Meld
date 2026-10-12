@@ -594,12 +594,13 @@ export class Engine {
     this.syncTabs()
   }
 
-  private addDocument(d: MapDocument) {
+  /** Adds `d` as the active tab. It takes the place of `replace`, or of an untouched empty tab. */
+  private addDocument(d: MapDocument, replace?: MapDocument) {
     // Opening a file into an untouched empty tab replaces it, like most editors.
-    const replace = this.doc?.pristine ? this.doc : null
-    this.documents.push(d)
+    const old = replace ?? (this.doc?.pristine ? this.doc : null)
+    this.documents.splice(replace ? this.documents.indexOf(replace) + 1 : this.documents.length, 0, d)
     this.activate(d)
-    if (replace) this.closeDocument(replace.id)
+    if (old) this.closeDocument(old.id)
   }
 
   /** Create a new map in its own tab. */
@@ -877,8 +878,14 @@ export class Engine {
     }
   }
 
-  /** Open a loaded map in a new tab (replacing an untouched empty tab). */
-  openDocument(m: MapSnapshot, filePath: string) {
+  /**
+   * Open a loaded map in a new tab (replacing an untouched empty tab). With `replaceId`, the map takes
+   * that tab's place instead and keeps its camera and bookmarks, which is how Revert drops a map's
+   * unsaved changes and undo history.
+   */
+  openDocument(m: MapSnapshot, filePath: string, replaceId?: number) {
+    const replace = replaceId === undefined ? undefined : this.documents.find((x) => x.id === replaceId)
+    if (replace === this.doc) this.stashActive()
     const verts = (m.size + 1) * (m.size + 1)
     if (m.heights.byteLength !== verts * 4) throw new Error('height data size mismatch')
     const d = new MapDocument(m.size, m.name || 'Untitled', m.cellSize)
@@ -921,7 +928,11 @@ export class Engine {
       waterEnabled: m.waterEnabled,
       paintLayer: 0,
     }
-    this.addDocument(d)
+    if (replace) {
+      d.camera = replace.camera
+      d.meta.bookmarks = [...replace.meta.bookmarks]
+    }
+    this.addDocument(d, replace)
   }
 
   // ---------------------------------------------------------------- surfaces

@@ -2,7 +2,7 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseVmangosFolder, exportHeightmap, exportObjectList, exportRegion, hasBackend, importHeightmap, importObjectList, openMap, saveMap, saveOrPublish } from '../lib/io/mapio'
+  import { chooseVmangosFolder, exportHeightmap, exportObjectList, exportRegion, hasBackend, importHeightmap, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
   import { ClearThumbnailCache, Quit } from '../../wailsjs/go/main/App'
   import { requestClose } from './DocTabs.svelte'
@@ -46,6 +46,7 @@
         { kind: 'sep' },
         { kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveOrPublish(e)) },
         { kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },
+        { kind: 'action', label: 'Revert to Saved', disabled: !editor.filePath || ui.busy, run: withEngine(requestRevert) },
         { kind: 'action', label: 'Export Region to Client…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportRegion(e)) },
         { kind: 'sep' },
         { kind: 'action', label: 'Import Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importHeightmap(e)) },

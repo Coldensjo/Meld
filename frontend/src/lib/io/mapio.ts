@@ -132,6 +132,28 @@ export function openMap(engine: Engine) {
   })
 }
 
+/**
+ * Re-reads the active map from its file in the same tab, dropping its unsaved changes and undo history.
+ * The UI asks first when there are unsaved changes.
+ */
+export function revertMap(engine: Engine) {
+  return guarded('Revert', async () => {
+    const path = editor.filePath
+    if (!path) return
+    const id = engine.activeDocumentId()
+    const t0 = performance.now()
+    const data = await LoadMap(path)
+    engine.openDocument(fromMapData(data), path, id)
+    setStatus(`Reverted to ${path} (${Math.round(performance.now() - t0)} ms)`)
+  })
+}
+
+/** Asks before reverting a map with unsaved changes, then reverts it. */
+export function requestRevert(engine: Engine) {
+  if (editor.dirty) ui.dialog = 'revert'
+  else revertMap(engine)
+}
+
 /** Paint chunks a side in a 1.12 tile. */
 const TILE_CHUNKS = 16
 

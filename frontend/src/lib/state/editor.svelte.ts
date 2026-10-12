@@ -172,7 +172,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'openTile' | 'publish' | 'textures' | 'gameLogin' | null,
+  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'openTile' | 'publish' | 'textures' | 'gameLogin' | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */
   closeDocId: 0,
   /** Which palette the left panel shows. */
