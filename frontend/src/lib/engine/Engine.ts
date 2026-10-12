@@ -14,10 +14,11 @@ import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brus
 import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { MarqueeTool } from '../tools/MarqueeTool'
 import { ClearTool } from '../tools/ClearTool'
+import { ChunkTool } from '../tools/ChunkTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
-import { CHUNK_CELLS, MAX_PALETTE, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replacePalette } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, chunkTextures, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, getAsset } from '../models/assets'
@@ -212,6 +213,7 @@ export class Engine {
       water: new WaterTool(),
       place: this.placeTool,
       clear: new ClearTool(),
+      chunk: new ChunkTool(),
     }
 
     this.controller.arrowsBlocked = () => this.canNudge()
@@ -554,6 +556,8 @@ export class Engine {
 
   /** Make `d` the edited/rendered document. `stash` saves the current one first. */
   private activate(d: MapDocument, stash = true) {
+    // A chunk picked on one map means nothing on another.
+    editor.chunkSel = -1
     if (this.leftDown) {
       this.activeTool?.onUp?.(this.ctx, this.hit, new PointerEvent('pointerup'))
       this.leftDown = false
@@ -1483,6 +1487,12 @@ export class Engine {
   layerCoverage(): number[] {
     const t = this.terrain
     return paletteCoverage(t.weights, t.chunkSlots, t.splatRes, t.paintChunksPerSide, editor.palette.length)
+  }
+
+  /** The textures chunk c uses, with their shares (see chunkTextures). */
+  chunkContents(c: number) {
+    const t = this.terrain
+    return chunkTextures(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c, editor.palette.length)
   }
 
   /**

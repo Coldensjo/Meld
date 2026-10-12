@@ -10,6 +10,7 @@
     { id: 'water', name: 'Water', key: '6', icon: 'M12 3c4 5 6 8 6 11a6 6 0 01-12 0c0-3 2-6 6-11z' },
     { id: 'place', name: 'Place Objects', key: '7', icon: 'M12 2l7 6v12H5V8zM9 20v-6h6v6' },
     { id: 'clear', name: 'Clear: erase models or paint in the brush', key: '8', icon: 'M4 16l7-9 6 6-5 6H6zM14 20h7' },
+    { id: 'chunk', name: 'Chunk: see the textures in a chunk', key: '9', icon: 'M3 3h18v18H3zM3 12h18M12 3v18' },
   ]
 </script>
 

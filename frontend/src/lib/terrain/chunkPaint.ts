@@ -365,3 +365,33 @@ export function dominantTexel(side: number, res: number, slots: Uint8Array, weig
   }
   return best
 }
+
+/** A texture in one chunk: its palette index, and the share of the chunk's paint it takes (0 to 1). */
+export interface ChunkTexture {
+  tex: number
+  share: number
+}
+
+/**
+ * The textures chunk c uses, largest share first. The share is the texture's weight over every texel of
+ * the chunk, out of the 255 each texel holds. Entries past the palette are left out.
+ */
+export function chunkTextures(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, entries: number): ChunkTexture[] {
+  const per = res / side
+  const x0 = (c % side) * per
+  const z0 = Math.floor(c / side) * per
+  const sums = new Array<number>(SLOTS).fill(0)
+  for (let z = z0; z < z0 + per; z++) {
+    for (let x = x0; x < x0 + per; x++) {
+      const p = (z * res + x) * SLOTS
+      for (let k = 0; k < SLOTS; k++) sums[k] += weights[p + k]
+    }
+  }
+  const out: ChunkTexture[] = []
+  for (let k = 0; k < SLOTS; k++) {
+    const tex = slots[c * SLOTS + k]
+    if (tex === NO_TEXTURE || tex >= entries) continue
+    out.push({ tex, share: sums[k] / (per * per * 255) })
+  }
+  return out.sort((a, b) => b.share - a.share)
+}

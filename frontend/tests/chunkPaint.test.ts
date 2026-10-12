@@ -7,6 +7,7 @@ import {
   SLOTS,
   acquireSlot,
   acquireSlotCompacting,
+  chunkTextures,
   addWeight,
   chunksPerSide,
   convertGlobalLayers,
@@ -216,4 +217,20 @@ test('acquiring a slot in a chunk that really uses four textures still fails', (
   for (let k = 0; k < SLOTS; k++) weights[k * SLOTS + k] = 255
   assert.equal(acquireSlotCompacting(1, 2, slots, weights, 0, 9), -1)
   assert.deepEqual([...slots], [5, 6, 7, 8])
+})
+
+test('a chunk lists its textures by share of the chunk, largest first', () => {
+  // One chunk of 1 x 1 texels: the texture shares are the weights over 255.
+  const slots = new Uint8Array([4, 7, NO_TEXTURE, NO_TEXTURE])
+  const weights = new Uint8Array([64, 191, 0, 0])
+  assert.deepEqual(chunkTextures(1, 1, slots, weights, 0, 8), [
+    { tex: 7, share: 191 / 255 },
+    { tex: 4, share: 64 / 255 },
+  ])
+})
+
+test('a chunk leaves out textures past the palette', () => {
+  const slots = new Uint8Array([4, 9, NO_TEXTURE, NO_TEXTURE])
+  const weights = new Uint8Array([255, 0, 0, 0])
+  assert.deepEqual(chunkTextures(1, 1, slots, weights, 0, 8), [{ tex: 4, share: 1 }])
 })
