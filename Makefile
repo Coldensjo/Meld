@@ -20,6 +20,7 @@ build-windows:
 
 test:
 	go test ./internal/...
+	cd frontend && pnpm test
 
 check:
 	go vet ./internal/...

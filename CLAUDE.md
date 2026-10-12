@@ -25,7 +25,7 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
 make dev             # wails dev -tags webkit2_41 (hot reload; browser debug at http://localhost:34115)
 make build-linux     # wails build -tags webkit2_41  → build/bin/WorldEditor
 make build-windows   # wails build -platform windows/amd64 → build/bin/WorldEditor.exe
-make test            # go test ./internal/...
+make test            # go test ./internal/... + frontend unit tests (node --test, needs Node 22.18+)
 make check           # go vet + (cd frontend && pnpm check)
 cd frontend && pnpm build   # frontend only
 ```
