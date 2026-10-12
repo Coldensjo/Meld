@@ -120,3 +120,54 @@ func TestBuildTileWater(t *testing.T) {
 		t.Fatal("a chunk above the water has liquid")
 	}
 }
+
+// The water a tile is built with reads back through ParseLiquids, the reader that opens the client's
+// own tiles: the level on every vertex, the cells under it covered, and the dry cells left out.
+func TestBuildTileWaterReadsBack(t *testing.T) {
+	const lattice = ChunksPerTile*CellsPerChunk + 1
+	outer := make([]float32, lattice*lattice)
+	for r := 0; r < lattice; r++ {
+		for c := 0; c < lattice; c++ {
+			// The first four columns of cells lie 5 yards under the level, the rest 5 above.
+			if c <= 4 {
+				outer[r*lattice+c] = -5
+			} else {
+				outer[r*lattice+c] = 5
+			}
+		}
+	}
+	const level = 1.5
+	root, err := BuildTile(outer, Changes{TileX: 1, TileY: 1, Water: &Water{Level: level}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	liquids, err := ParseLiquids(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only the chunks of the western column have ground under the level.
+	if len(liquids) != ChunksPerTile {
+		t.Fatalf("got water in %d chunks, want %d", len(liquids), ChunksPerTile)
+	}
+	for _, l := range liquids {
+		if l.IndexX != 0 {
+			t.Fatalf("water in chunk %d,%d, which is above the level", l.IndexX, l.IndexY)
+		}
+		if l.Kind&liquidWater == 0 {
+			t.Fatalf("chunk %d,%d: kind %#x has no water bit", l.IndexX, l.IndexY, l.Kind)
+		}
+		for v, h := range l.Heights {
+			if h != level {
+				t.Fatalf("chunk %d,%d: vertex %d at %v, want %v", l.IndexX, l.IndexY, v, h, level)
+			}
+		}
+		for i, on := range l.Cells {
+			// Cells 0 to 3 of each row sit wholly on the low ground; cell 4 straddles the step (its
+			// average, 0, is under the level too); the rest are dry.
+			want := i%CellsPerChunk <= 4
+			if on != want {
+				t.Fatalf("chunk %d,%d: cell %d covered %v, want %v", l.IndexX, l.IndexY, i, on, want)
+			}
+		}
+	}
+}
