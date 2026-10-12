@@ -6,7 +6,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'marquee' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'chunk' | 'pipette'
+export type ToolId = 'select' | 'marquee' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'pipette'
 export type ClearMode = 'models' | 'textures'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'vertex'
 /** Flatten target: the height under the first click, or the average height under the brush. */
@@ -85,8 +85,8 @@ export const editor = $state({
   grid: false,
   /** Draws the 8x8-cell paint chunk edges, where the 1.12 four-texture limit applies. */
   chunkLines: true,
-  /** The paint chunk picked with the Chunk tool (index into the chunk grid), or -1. */
-  chunkSel: -1,
+  /** The paint chunk under the cursor (index into the chunk grid), or -1. The Layers panel shows it. */
+  hoverChunk: -1,
   autoCliff: true,
   /** The map's texture palette: a WoW tileset path, or a '#rrggbb' colour, per index. */
   palette: LAYERS.map((l) => l.swatch) as string[],
@@ -196,6 +196,8 @@ export const ui = $state({
   busy: false,
   /** Vertices selected in Sculpt's Vertex mode (updated when a stroke ends). */
   vertexCount: 0,
+  /** A chunk texture waiting to be replaced: the next texture picked in the palette takes its place. */
+  replaceSlot: null as { chunk: number; slot: number } | null,
   /** Draw objects hidden with H. */
   showHiddenModels: false,
   /** How many objects the active map has hidden. */

@@ -52,6 +52,8 @@ uniform vec3 brushColor;
 uniform float gridVisible;
 // The width of a paint chunk in world units for the chunk lines; 0 hides them.
 uniform float chunkLineWorld;
+// The paint chunk under the cursor as world x0, z0, x1, z1; tinted so the Layers panel's chunk is visible.
+uniform vec4 chunkHover;
 // The width of a tile in world units when the map is a client region; 0 hides the tile borders.
 uniform float tileWorld;
 uniform sampler2D maskTex;
@@ -143,6 +145,10 @@ void main() {
     lit = mix(lit, vec3(0.55, 0.8, 1.0), edge * 0.6);
   }
 
+  if (chunkHover.z > chunkHover.x && vWorldPos.x >= chunkHover.x && vWorldPos.x < chunkHover.z && vWorldPos.z >= chunkHover.y && vWorldPos.z < chunkHover.w) {
+    lit = mix(lit, vec3(1.0), 0.1);
+  }
+
   if (tileWorld > 0.0) {
     // One line at each tile's edge, drawn about a pixel wide in amber so it reads on any ground.
     vec2 t = vWorldPos.xz / tileWorld;
@@ -224,6 +230,7 @@ export function createTerrainMaterial(
     brushColor: { value: new THREE.Color(0.92, 0.95, 1.0) },
     gridVisible: { value: 0 },
     chunkLineWorld: { value: 0 },
+    chunkHover: { value: new THREE.Vector4() },
     tileWorld: { value: 0 },
     maskTex: { value: null },
     maskVisible: { value: 0 },

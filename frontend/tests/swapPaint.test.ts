@@ -36,13 +36,16 @@ test('a swap takes a free slot for the new texture', () => {
   assert.deepEqual(texel(m), [0, 255, 0, 0])
 })
 
-test('a swap is refused when the chunk has four other textures in use', () => {
+test('a swap in a full chunk gives up the weakest other texture', () => {
   const m = oneChunk([0, 1, 2, 3])
   m.weights[0] = 255
-  // Textures 1 to 3 still paint somewhere else in the chunk, so none of their slots can be freed.
+  // Textures 1 to 3 each paint one other texel, so all four are in use and texture 1 is the first weakest.
   for (const pixel of [1, 2, 3]) m.weights[pixel * SLOTS + pixel] = 255
-  assert.equal(swapTexel(m.side, m.res, m.slots, m.weights, 0, 0, 9, 1), false)
-  assert.deepEqual(texel(m), [255, 0, 0, 0])
+  assert.equal(swapTexel(m.side, m.res, m.slots, m.weights, 0, 0, 9, 1), true)
+  assert.equal(dominantTexel(m.side, m.res, m.slots, m.weights, 0), 9)
+  // Texture 1's texel moved to the chunk's biggest remaining texture, 0, instead of vanishing.
+  assert.equal(dominantTexel(m.side, m.res, m.slots, m.weights, 1), 0)
+  assert.equal(dominantTexel(m.side, m.res, m.slots, m.weights, 2), 2)
 })
 
 test('a swap replaces the texture in a full chunk when the others are no longer used', () => {

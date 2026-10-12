@@ -85,6 +85,13 @@
   function pickTexture(it: CatalogItem) {
     const engine = engineRef.current
     if (!engine) return
+    // A Replace on a Layers panel row is waiting for this pick: it takes the slot's place in that chunk.
+    const target = ui.replaceSlot
+    if (target) {
+      ui.replaceSlot = null
+      engine.replaceChunkTexture(target.chunk, target.slot, it.path)
+      return
+    }
     const slot = engine.useTexture(it.path)
     if (slot < 0) return
     if (editor.tool !== 'paint' && editor.tool !== 'road') editor.tool = 'paint'

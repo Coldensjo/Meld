@@ -1,5 +1,5 @@
 import type { Terrain } from '../terrain/Terrain'
-import { CHUNK_CELLS, SLOTS, SPLAT_PER_CELL, acquireSlotCompacting, addWeight, chunkOf, compactChunk } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, SLOTS, SPLAT_PER_CELL, acquireSlotReplacing, addWeight, chunkOf, compactChunk } from '../terrain/chunkPaint'
 import type { Command } from '../state/history'
 
 export interface Rect {
@@ -84,14 +84,14 @@ const TEXELS_PER_CHUNK = CHUNK_CELLS * SPLAT_PER_CELL
 
 /**
  * Adds `amount` (0 to 1) of palette texture `tex` to a splat texel, in the paint chunk that holds
- * it. Returns false when that chunk already has SLOTS other textures, which 1.12 doesn't allow.
+ * it. A chunk already holding SLOTS other textures (the 1.12 limit) gives up its weakest one for it.
  */
 export function paintPixel(terrain: Terrain, pixel: number, tex: number, amount: number): boolean {
   const R = terrain.splatRes
   const x = pixel % R
   const z = Math.floor(pixel / R)
   const c = chunkOf(Math.floor(x / TEXELS_PER_CHUNK), Math.floor(z / TEXELS_PER_CHUNK), terrain.paintChunksPerSide)
-  const k = acquireSlotCompacting(terrain.paintChunksPerSide, R, terrain.chunkSlots, terrain.weights, c, tex)
+  const k = acquireSlotReplacing(terrain.paintChunksPerSide, R, terrain.chunkSlots, terrain.weights, c, tex)
   if (k < 0) return false
   addWeight(terrain.weights, pixel * SLOTS, k, amount)
   return true
@@ -180,8 +180,8 @@ export class TerrainStroke {
     let changed = false
     for (let cz = Math.floor(r.z0 / per); cz <= Math.floor(r.z1 / per); cz++) {
       for (let cx = Math.floor(r.x0 / per); cx <= Math.floor(r.x1 / per); cx++) {
-        if (!compactChunk(side, t.splatRes, t.chunkSlots, t.weights, cz * side + cx)) continue
-        changed = true
+        // Painting can free or reassign slots anywhere in a chunk, so undo covers each chunk whole.
+        if (compactChunk(side, t.splatRes, t.chunkSlots, t.weights, cz * side + cx)) changed = true
         grow(r, { x0: cx * per, z0: cz * per, x1: cx * per + per - 1, z1: cz * per + per - 1 })
       }
     }

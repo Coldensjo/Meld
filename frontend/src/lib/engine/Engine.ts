@@ -15,11 +15,10 @@ import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brus
 import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { MarqueeTool } from '../tools/MarqueeTool'
 import { ClearTool } from '../tools/ClearTool'
-import { ChunkTool } from '../tools/ChunkTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
-import { CHUNK_CELLS, MAX_PALETTE, chunkTextures, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replacePalette } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, SLOTS, chunkTextures, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, getAsset } from '../models/assets'
@@ -214,7 +213,6 @@ export class Engine {
       water: new WaterTool(),
       place: this.placeTool,
       clear: new ClearTool(),
-      chunk: new ChunkTool(),
       pipette: new PipetteTool(),
     }
 
@@ -409,6 +407,7 @@ export class Engine {
     u.brushSquare.value = square ? 1 : 0
     u.gridVisible.value = editor.grid ? 1 : 0
     u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
+    this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
     // Strong red while editing the mask; faint while painting so results stay visible.
     const painting = editor.tool === 'paint' || editor.tool === 'road'
     u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
@@ -563,8 +562,9 @@ export class Engine {
 
   /** Make `d` the edited/rendered document. `stash` saves the current one first. */
   private activate(d: MapDocument, stash = true) {
-    // A chunk picked on one map means nothing on another.
-    editor.chunkSel = -1
+    // The chunk under the cursor on one map means nothing on another.
+    editor.hoverChunk = -1
+    ui.replaceSlot = null
     if (this.leftDown) {
       this.activeTool?.onUp?.(this.ctx, this.hit, new PointerEvent('pointerup'))
       this.leftDown = false
@@ -1494,6 +1494,43 @@ export class Engine {
   layerCoverage(): number[] {
     const t = this.terrain
     return paletteCoverage(t.weights, t.chunkSlots, t.splatRes, t.paintChunksPerSide, editor.palette.length)
+  }
+
+  /**
+   * Tracks the paint chunk under the cursor for the Layers panel and tints it. `editor.hoverChunk` only
+   * changes when the cursor crosses into another chunk, so this writes no reactive state per frame.
+   */
+  private updateHoverChunk(rect: THREE.Vector4) {
+    const t = this.terrain
+    const side = t.paintChunksPerSide
+    const size = CHUNK_CELLS * t.cellSize
+    if (this.hit && this.pointerInside) {
+      const cx = Math.min(side - 1, Math.max(0, Math.floor(this.hit.x / size)))
+      const cz = Math.min(side - 1, Math.max(0, Math.floor(this.hit.z / size)))
+      const c = cz * side + cx
+      if (c !== editor.hoverChunk) editor.hoverChunk = c
+    }
+    const c = editor.hoverChunk
+    if (c < 0 || c >= side * side || !editor.chunkLines) rect.set(0, 0, 0, 0)
+    else rect.set((c % side) * size, Math.floor(c / side) * size, ((c % side) + 1) * size, (Math.floor(c / side) + 1) * size)
+  }
+
+  /** Replaces the texture in one slot of chunk c with `path`, in that chunk only (undoable). */
+  replaceChunkTexture(c: number, slot: number, path: string) {
+    const t = this.terrain
+    const side = t.paintChunksPerSide
+    if (c < 0 || c >= side * side || slot < 0 || slot >= SLOTS) return
+    const index = this.useTexture(path)
+    if (index < 0) return
+    const per = t.splatRes / side
+    const x0 = (c % side) * per
+    const z0 = Math.floor(c / side) * per
+    const stroke = new TerrainStroke(t, 'Replace texture here', { splat: true })
+    stroke.touchSplat({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
+    replaceInChunk(side, t.splatRes, t.chunkSlots, t.weights, c, slot, index)
+    t.markSplatDirty()
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
   }
 
   /** The textures chunk c uses, with their shares (see chunkTextures). */

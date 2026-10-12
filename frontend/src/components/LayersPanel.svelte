@@ -5,94 +5,156 @@
   import { engineRef } from '../lib/state/engineRef'
   import { LAYERS } from '../lib/terrain/layers'
   import { isColor } from '../lib/terrain/paletteArray'
-  import type { ChunkTexture } from '../lib/terrain/chunkPaint'
+  import { SLOTS, type ChunkTexture } from '../lib/terrain/chunkPaint'
 
-  // The map's texture palette: every texture paint can use, with the share of the map each covers.
-  let coverage = $state<number[]>([])
+  // The chunk under the cursor is what the panel is about: its four texture slots, as the game has them.
   let tick = $state(0)
   onMount(() => {
-    const update = () => {
-      coverage = engineRef.current?.layerCoverage() ?? []
-      tick++
-    }
-    update()
-    const id = setInterval(update, 1500)
+    const id = setInterval(() => tick++, 300)
     return () => clearInterval(id)
   })
 
-  const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+  const texName = (p: string) => p.slice(p.search(/[^\\/]*$/)).replace(/\.blp$/i, '')
   const colorName = (p: string) => LAYERS.find((l) => l.swatch.toLowerCase() === p.toLowerCase())?.name ?? p
   const label = (p: string) => (isColor(p) ? colorName(p) : texName(p))
-  const pct = (v: number | undefined) => (v === undefined ? '' : v < 0.001 ? '—' : v < 0.01 ? '<1%' : `${Math.round(v * 100)}%`)
+  const pct = (v: number) => (v < 0.01 ? '<1%' : `${Math.round(v * 100)}%`)
 
-  // The picked chunk's textures, refreshed with the coverage so painting shows up while the chunk is selected.
+  const active = $derived(editor.palette[editor.paintLayer])
+
   const chunk = $derived.by(() => {
     void tick
     const e = engineRef.current
-    if (!e || editor.chunkSel < 0) return null
+    const c = editor.hoverChunk
+    if (!e || c < 0) return null
     const side = e.terrain.paintChunksPerSide
-    const texes: ChunkTexture[] = e.chunkContents(editor.chunkSel)
-    return { label: `${(editor.chunkSel % side) + 1}, ${Math.floor(editor.chunkSel / side) + 1}`, texes }
+    const found = e.chunkContents(c)
+    const slots: Array<ChunkTexture | null> = Array.from({ length: SLOTS }, (_, k) => found.find((t) => t.slot === k) ?? null)
+    return { index: c, label: `${(c % side) + 1}, ${Math.floor(c / side) + 1}`, slots, used: found.length }
   })
 
-  function select(i: number) {
-    editor.paintLayer = i
+  const replacing = $derived(ui.replaceSlot && chunk && ui.replaceSlot.chunk === chunk.index ? chunk.slots[ui.replaceSlot.slot] : null)
+
+  function use(tex: number) {
+    editor.paintLayer = tex
     if (editor.tool !== 'paint' && editor.tool !== 'road') editor.tool = 'paint'
+  }
+
+  function replace(slot: number) {
+    if (!chunk) return
+    ui.replaceSlot = { chunk: chunk.index, slot }
+    ui.palette = 'textures'
   }
 </script>
 
-<div class="layers" title="Each 8×8-cell chunk can use four of these textures at once, as in 1.12">
+{#snippet thumb(p: string)}
+  <div class="thumb">
+    {#if isColor(p)}
+      <span class="swatch" style:background={p}></span>
+    {:else}
+      <PaletteTile thumbKey={'tex:' + p} label="" title="" onclick={() => {}} />
+    {/if}
+  </div>
+{/snippet}
+
+<div class="layers">
+  <div class="section">Painting with</div>
+  <div class="with">
+    {#if active}
+      {@render thumb(active)}
+      <span class="name" title={active}>{label(active)}</span>
+    {:else}
+      <span class="hint">No texture picked yet.</span>
+    {/if}
+    <button onclick={() => (editor.tool = 'pipette')} title="Pick the texture under the cursor (I, or hold Alt while painting)">Pipette</button>
+    <button onclick={() => (ui.palette = 'textures')} title="Pick a texture from the WoW client">Browse…</button>
+  </div>
+
   {#if chunk}
-    <div class="chunk">
-      <div class="chead">
-        <span>Chunk {chunk.label}</span>
-        <button onclick={() => (editor.chunkSel = -1)} title="Close">×</button>
-      </div>
-      {#each chunk.texes as ct (ct.tex)}
-        <div class="row" class:active={editor.paintLayer === ct.tex} role="button" tabindex="0" onclick={() => select(ct.tex)} onkeydown={(e) => e.key === 'Enter' && select(ct.tex)}>
-          <span class="num">{ct.tex + 1}</span>
-          <span class="name" title={editor.palette[ct.tex]}>{label(editor.palette[ct.tex])}</span>
-          <span class="sub">{pct(ct.share)}</span>
+    <div class="section">
+      <span>This chunk ({chunk.label})</span>
+      <span class="count" class:full={chunk.used >= SLOTS} title="A chunk holds at most four textures">{chunk.used} of {SLOTS}</span>
+    </div>
+    {#each chunk.slots as s, k (k)}
+      {#if s}
+        {@const p = editor.palette[s.tex]}
+        <div class="row" class:active={editor.paintLayer === s.tex} class:target={replacing === s} role="button" tabindex="0" onclick={() => use(s.tex)} onkeydown={(e) => e.key === 'Enter' && use(s.tex)}>
+          {@render thumb(p)}
+          <div class="info">
+            <span class="name" title={p}>{label(p)}</span>
+            <span class="bar"><span style:width="{Math.max(2, Math.round(s.share * 100))}%"></span></span>
+          </div>
+          <span class="sub">{pct(s.share)}</span>
+          <button
+            class="rep"
+            title="Replace this texture in this chunk"
+            onclick={(e) => {
+              e.stopPropagation()
+              replace(k)
+            }}>Replace</button
+          >
         </div>
       {:else}
-        <div class="empty">No textures in this chunk yet.</div>
-      {/each}
-    </div>
-  {/if}
-  {#each editor.palette as p, i (i)}
-    <div class="row" class:active={editor.paintLayer === i} role="button" tabindex="0" onclick={() => select(i)} onkeydown={(e) => e.key === 'Enter' && select(i)}>
-      <div class="thumb">
-        {#if isColor(p)}
-          <span class="swatch" style:background={p}></span>
-        {:else}
-          <PaletteTile thumbKey={'tex:' + p} label="" title="" onclick={() => {}} />
-        {/if}
+        <div class="row empty"><span class="thumb"></span><span class="hint">Empty: paint a new texture here to fill it</span></div>
+      {/if}
+    {/each}
+    {#if replacing}
+      <div class="notice">
+        Pick a texture in the palette to replace {label(editor.palette[replacing.tex])} in this chunk.
+        <button onclick={() => (ui.replaceSlot = null)}>Cancel</button>
       </div>
-      <span class="num">{i + 1}</span>
-      <span class="name" title={p}>{label(p)}</span>
-      <span class="sub">{pct(coverage[i])}</span>
-    </div>
-  {/each}
+    {:else if chunk.used >= SLOTS}
+      <div class="hint pad">This chunk is full. Painting a new texture here replaces its weakest one.</div>
+    {/if}
+  {:else}
+    <div class="hint pad">Move the cursor over the terrain to see which textures are under it.</div>
+  {/if}
+
   <div class="foot">
     {#if ui.maskActive}
       <button onclick={() => engineRef.current?.fillMask(editor.paintLayer)} title="Fill the paint mask with the active texture">Fill mask</button>
     {/if}
-    <button onclick={() => (ui.palette = 'textures')}>Browse textures…</button>
-    <button onclick={() => (ui.dialog = 'textures')} title="Replace a texture everywhere on the map, or fill the map with one">Replace…</button>
     <button onclick={() => engineRef.current?.regenerateAutoPaint()} title="Repaint by height and slope">Auto-paint</button>
+    <button onclick={() => (ui.dialog = 'textures')} title="Replace a texture everywhere on the map, or fill the map with one">Replace everywhere…</button>
   </div>
 </div>
 
 <style>
   .layers {
     overflow-y: auto;
-    padding: 2px 0;
+    padding-bottom: 2px;
+  }
+  .section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px 3px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+  }
+  .count.full {
+    color: #e0a040;
+  }
+  .with {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .with .thumb {
+    width: 36px;
+    height: 36px;
+  }
+  .with button {
+    padding: 2px 6px;
   }
   .row {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 2px 8px;
+    padding: 3px 8px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
   }
@@ -102,9 +164,24 @@
   .row.active {
     background: #3a4a62;
   }
+  .row.target {
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+  }
+  .row.empty {
+    cursor: default;
+    opacity: 0.7;
+  }
+  .row.empty:hover {
+    background: transparent;
+  }
+  .row.empty .thumb {
+    border-style: dashed;
+  }
   .thumb {
-    width: 26px;
-    height: 26px;
+    display: block;
+    width: 28px;
+    height: 28px;
     flex: none;
     border: 1px solid var(--border-soft);
   }
@@ -127,11 +204,12 @@
     width: 100%;
     height: 100%;
   }
-  .num {
-    width: 12px;
-    font: 10px var(--mono);
-    color: var(--text-dim);
-    text-align: right;
+  .info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
   }
   .name {
     flex: 1;
@@ -140,27 +218,44 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .info .name {
+    flex: none;
+  }
+  .bar {
+    display: block;
+    height: 3px;
+    background: var(--border);
+  }
+  .bar > span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+  }
   .sub {
     font-size: 10px;
     color: var(--text-dim);
+    min-width: 26px;
+    text-align: right;
   }
-  .chunk {
-    border-bottom: 2px solid var(--border);
-    background: var(--panel-2);
+  .rep {
+    padding: 1px 6px;
+    font-size: 11px;
   }
-  .chead {
+  .hint {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .pad {
+    padding: 6px 8px;
+  }
+  .notice {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px;
-    font-weight: 600;
-  }
-  .chead button {
-    padding: 0 6px;
-  }
-  .empty {
-    padding: 4px 8px;
-    color: var(--text-dim);
+    gap: 8px;
+    margin: 6px 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--accent);
     font-size: 11px;
   }
   .foot {

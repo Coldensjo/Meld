@@ -70,9 +70,12 @@ cd frontend && pnpm build   # frontend only
   - `Engine.fillMask(layer)` paints a layer over the mask, weighted by mask value.
   - With a mask present, picking a texture in the palette fills it.
   - `ui.maskActive` is refreshed after strokes, undo/redo and tab switches.
-- **Splat**: 8 layers in two RGBA8 textures (`splatA` = layers 0–3, `splatB` = layers 4–7) at
-  `size*2` resolution. Weights always sum to 255 (`paintPixel` in `tools/brush.ts`). Layer list:
-  `lib/terrain/layers.ts`; each slot is bound to a WoW tileset (`editor.layerTextures`).
+- **Splat** (`lib/terrain/chunkPaint.ts`, 1.12 style): the map is cut into paint chunks of 8x8 cells,
+  and each chunk holds at most `SLOTS` (4) textures. `Terrain.chunkSlots` names a chunk's textures
+  (palette indices) and `Terrain.weights` holds four weights per splat texel, always summing to 255.
+  `paintPixel` (`tools/brush.ts`) acquires a slot for the brush texture: it compacts slots a stroke
+  emptied, and a chunk that is still full gives up its weakest texture (`acquireSlotReplacing`), so
+  painting never refuses. Stroke undo covers whole chunks (`settleSlots`).
 - **Shaders** are custom `ShaderMaterial`s (terrain, water, sky). They include three's fog,
   tonemapping and colorspace chunks. Prop lighting (Hemisphere + Directional, intensities ×π) is
   tuned to match the terrain shader's uniforms. Change both together.
@@ -114,10 +117,14 @@ cd frontend && pnpm build   # frontend only
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading
     them. Use bindings for uploads.
-- **Texture slots**: `editor.layerTextures[8]` holds the tileset path per splat slot.
-  `Engine.useTexture(path)` assigns a texture to an unused slot (or replaces the active one),
-  undoably. Defaults: `lib/wow/defaults.ts`. Slots without a texture render a flat fallback
-  colour (`terrain/textures.ts`).
+- **Palette & Layers panel**: `editor.palette` is the map's list of textures (WoW tileset paths or
+  `#rrggbb` colours, up to 255). `Engine.useTexture(path)` adds one and makes it the paint texture.
+  The Layers panel (`components/LayersPanel.svelte`) shows the texture being painted with and the
+  four slots of the chunk under the cursor (`editor.hoverChunk`, tracked in
+  `Engine.updateHoverChunk` and tinted in the terrain shader). Each slot has Replace, which sets
+  `ui.replaceSlot`; the next palette pick goes to `Engine.replaceChunkTexture` (this chunk only,
+  undoable). Whole-map replace is the "Replace everywhere" dialog. The Pipette tool and Alt+click
+  in Paint/Road pick the texture under the cursor (`tools/PipetteTool.ts`).
 
 ## Menus & preferences
 

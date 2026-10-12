@@ -61,6 +61,68 @@ export function acquireSlotCompacting(side: number, res: number, slots: Uint8Arr
 }
 
 /**
+ * Frees the slot of chunk c whose texture covers the least of it, other than the texture `keep`. Each
+ * texel's weight in it moves to the texel's strongest other texture, so every texel still sums to 255.
+ * Returns the freed slot, or -1 if the chunk has nothing else to give up.
+ */
+export function evictWeakest(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, keep: number): number {
+  const per = res / side
+  const x0 = (c % side) * per
+  const z0 = Math.floor(c / side) * per
+  const sums = new Array<number>(SLOTS).fill(0)
+  for (let z = z0; z < z0 + per; z++) {
+    for (let x = x0; x < x0 + per; x++) {
+      const base = (z * res + x) * SLOTS
+      for (let k = 0; k < SLOTS; k++) sums[k] += weights[base + k]
+    }
+  }
+  let weak = -1
+  for (let k = 0; k < SLOTS; k++) {
+    const tex = slots[c * SLOTS + k]
+    if (tex === NO_TEXTURE || tex === keep) continue
+    if (weak < 0 || sums[k] < sums[weak]) weak = k
+  }
+  if (weak < 0) return -1
+  // Where a texel has nothing else, the weight goes to the chunk's biggest remaining texture.
+  let fallback = -1
+  for (let k = 0; k < SLOTS; k++) {
+    if (k === weak || slots[c * SLOTS + k] === NO_TEXTURE) continue
+    if (fallback < 0 || sums[k] > sums[fallback]) fallback = k
+  }
+  if (fallback < 0) return -1
+  for (let z = z0; z < z0 + per; z++) {
+    for (let x = x0; x < x0 + per; x++) {
+      const base = (z * res + x) * SLOTS
+      const w = weights[base + weak]
+      if (w === 0) continue
+      let to = -1
+      for (let k = 0; k < SLOTS; k++) {
+        if (k === weak || slots[c * SLOTS + k] === NO_TEXTURE || weights[base + k] === 0) continue
+        if (to < 0 || weights[base + k] > weights[base + to]) to = k
+      }
+      if (to < 0) to = fallback
+      weights[base + to] += w
+      weights[base + weak] = 0
+    }
+  }
+  slots[c * SLOTS + weak] = NO_TEXTURE
+  return weak
+}
+
+/**
+ * Like acquireSlotCompacting, but a chunk that really holds SLOTS textures gives up its weakest one
+ * (never `keep`, which defaults to `tex`), so painting over a full chunk replaces instead of refusing.
+ */
+export function acquireSlotReplacing(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, tex: number, keep = tex): number {
+  const k = acquireSlotCompacting(side, res, slots, weights, c, tex)
+  if (k >= 0) return k
+  const freed = evictWeakest(side, res, slots, weights, c, keep)
+  if (freed < 0) return -1
+  slots[c * SLOTS + freed] = tex
+  return freed
+}
+
+/**
  * Frees the slots of chunk c that no texel in it uses (weight 0 everywhere), and moves the used ones
  * down to the lowest slots, so slot 0 stays the base. Every texel keeps its blend; only the order of
  * its weights changes. Returns true when the chunk's slots or weights changed. res and side are as in
@@ -266,7 +328,6 @@ export function paletteIndex(palette: readonly string[], path: string): number {
  */
 export function replacePalette(side: number, res: number, slots: Uint8Array, weights: Uint8Array, from: number, to: number): void {
   if (from === to) return
-  const per = res / side
   for (let c = 0; c < side * side; c++) {
     const fromSlot = findSlot(slots, c, from)
     if (fromSlot < 0) continue
@@ -275,18 +336,40 @@ export function replacePalette(side: number, res: number, slots: Uint8Array, wei
       slots[c * SLOTS + fromSlot] = to
       continue
     }
-    const cx = c % side
-    const cz = Math.floor(c / side)
-    for (let z = cz * per; z < (cz + 1) * per; z++) {
-      for (let x = cx * per; x < (cx + 1) * per; x++) {
-        const base = (z * res + x) * SLOTS
-        weights[base + toSlot] = Math.min(255, weights[base + toSlot] + weights[base + fromSlot])
-        weights[base + fromSlot] = 0
-        normalizeTexel(weights, base)
-      }
-    }
+    mergeSlot(side, res, weights, c, fromSlot, toSlot)
     slots[c * SLOTS + fromSlot] = NO_TEXTURE
   }
+}
+
+/** Folds every texel's weight in slot `from` of chunk c into slot `to`. The caller frees the slot. */
+function mergeSlot(side: number, res: number, weights: Uint8Array, c: number, from: number, to: number): void {
+  const per = res / side
+  const x0 = (c % side) * per
+  const z0 = Math.floor(c / side) * per
+  for (let z = z0; z < z0 + per; z++) {
+    for (let x = x0; x < x0 + per; x++) {
+      const base = (z * res + x) * SLOTS
+      weights[base + to] = Math.min(255, weights[base + to] + weights[base + from])
+      weights[base + from] = 0
+      normalizeTexel(weights, base)
+    }
+  }
+}
+
+/**
+ * Replaces the texture in slot `slot` of chunk c with palette texture `to`, in that chunk only. If the
+ * chunk already has `to`, the slot's weight folds into it and the slot is freed.
+ */
+export function replaceInChunk(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, slot: number, to: number): void {
+  const from = slots[c * SLOTS + slot]
+  if (from === NO_TEXTURE || from === to) return
+  const toSlot = findSlot(slots, c, to)
+  if (toSlot < 0) {
+    slots[c * SLOTS + slot] = to
+    return
+  }
+  mergeSlot(side, res, weights, c, slot, toSlot)
+  slots[c * SLOTS + slot] = NO_TEXTURE
 }
 
 /** Sets every chunk to one texture, fully painted, which is how a map starts. */
@@ -341,9 +424,9 @@ export function swapTexel(
   if (src0 < 0) return true
   const d = Math.min(weights[base + src0], Math.round(weights[base + src0] * amount))
   if (d <= 0) return true
-  const k = acquireSlotCompacting(side, res, slots, weights, c, to)
+  const k = acquireSlotReplacing(side, res, slots, weights, c, to, from)
   if (k < 0) return false
-  // Compaction may have moved the source texture to another slot, so look it up again.
+  // Compaction or eviction may have moved the source texture to another slot, so look it up again.
   const src = findSlot(slots, c, from)
   weights[base + src] -= d
   weights[base + k] += d
@@ -368,12 +451,13 @@ export function dominantTexel(side: number, res: number, slots: Uint8Array, weig
 
 /** A texture in one chunk: its palette index, and the share of the chunk's paint it takes (0 to 1). */
 export interface ChunkTexture {
+  slot: number
   tex: number
   share: number
 }
 
 /**
- * The textures chunk c uses, largest share first. The share is the texture's weight over every texel of
+ * The textures chunk c uses, in slot order. The share is the texture's weight over every texel of
  * the chunk, out of the 255 each texel holds. Entries past the palette are left out.
  */
 export function chunkTextures(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, entries: number): ChunkTexture[] {
@@ -391,7 +475,7 @@ export function chunkTextures(side: number, res: number, slots: Uint8Array, weig
   for (let k = 0; k < SLOTS; k++) {
     const tex = slots[c * SLOTS + k]
     if (tex === NO_TEXTURE || tex >= entries) continue
-    out.push({ tex, share: sums[k] / (per * per * 255) })
+    out.push({ slot: k, tex, share: sums[k] / (per * per * 255) })
   }
-  return out.sort((a, b) => b.share - a.share)
+  return out
 }

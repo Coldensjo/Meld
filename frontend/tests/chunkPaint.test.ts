@@ -8,6 +8,8 @@ import {
   acquireSlot,
   acquireSlotCompacting,
   chunkTextures,
+  acquireSlotReplacing,
+  replaceInChunk,
   addWeight,
   chunksPerSide,
   convertGlobalLayers,
@@ -219,18 +221,44 @@ test('acquiring a slot in a chunk that really uses four textures still fails', (
   assert.deepEqual([...slots], [5, 6, 7, 8])
 })
 
-test('a chunk lists its textures by share of the chunk, largest first', () => {
+test('a chunk lists its textures in slot order with their share of the chunk', () => {
   // One chunk of 1 x 1 texels: the texture shares are the weights over 255.
   const slots = new Uint8Array([4, 7, NO_TEXTURE, NO_TEXTURE])
   const weights = new Uint8Array([64, 191, 0, 0])
   assert.deepEqual(chunkTextures(1, 1, slots, weights, 0, 8), [
-    { tex: 7, share: 191 / 255 },
-    { tex: 4, share: 64 / 255 },
+    { slot: 0, tex: 4, share: 64 / 255 },
+    { slot: 1, tex: 7, share: 191 / 255 },
   ])
 })
 
 test('a chunk leaves out textures past the palette', () => {
   const slots = new Uint8Array([4, 9, NO_TEXTURE, NO_TEXTURE])
   const weights = new Uint8Array([255, 0, 0, 0])
-  assert.deepEqual(chunkTextures(1, 1, slots, weights, 0, 8), [{ tex: 4, share: 1 }])
+  assert.deepEqual(chunkTextures(1, 1, slots, weights, 0, 8), [{ slot: 0, tex: 4, share: 1 }])
+})
+
+test('painting a fifth texture into a full chunk replaces the weakest and keeps every texel at 255', () => {
+  // One chunk, 2 x 2 texels: textures 5 to 8 fill the slots, and texture 8 (slot 3) covers the least.
+  const slots = new Uint8Array([5, 6, 7, 8])
+  const weights = new Uint8Array(2 * 2 * SLOTS)
+  weights.set([255, 0, 0, 0], 0)
+  weights.set([0, 255, 0, 0], SLOTS)
+  weights.set([0, 0, 255, 0], 2 * SLOTS)
+  weights.set([100, 0, 0, 155], 3 * SLOTS)
+  assert.equal(acquireSlotReplacing(1, 2, slots, weights, 0, 9), 3)
+  assert.deepEqual([...slots], [5, 6, 7, 9])
+  // The evicted texture's weight went to the texel's strongest other texture, so no texel lost paint.
+  assert.deepEqual([...weights.slice(3 * SLOTS, 4 * SLOTS)], [255, 0, 0, 0])
+  for (let t = 0; t < 4; t++) assert.equal(weights[t * SLOTS] + weights[t * SLOTS + 1] + weights[t * SLOTS + 2] + weights[t * SLOTS + 3], 255)
+})
+
+test('replacing a chunk texture renames its slot, or folds into one the chunk already has', () => {
+  const slots = new Uint8Array([5, 6, NO_TEXTURE, NO_TEXTURE])
+  const weights = new Uint8Array([100, 155, 0, 0])
+  replaceInChunk(1, 1, slots, weights, 0, 1, 9)
+  assert.deepEqual([...slots], [5, 9, NO_TEXTURE, NO_TEXTURE])
+  assert.deepEqual([...weights], [100, 155, 0, 0])
+  replaceInChunk(1, 1, slots, weights, 0, 1, 5)
+  assert.deepEqual([...slots], [5, NO_TEXTURE, NO_TEXTURE, NO_TEXTURE])
+  assert.deepEqual([...weights], [255, 0, 0, 0])
 })
