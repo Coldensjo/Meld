@@ -157,6 +157,7 @@
         { kind: 'check', label: 'Water', checked: editor.waterEnabled, toggle: () => (editor.waterEnabled = !editor.waterEnabled) },
         { kind: 'check', label: 'Automatic cliff rock', checked: editor.autoCliff, toggle: () => (editor.autoCliff = !editor.autoCliff) },
         { kind: 'check', label: 'Show grid', shortcut: 'G', checked: editor.grid, toggle: () => (editor.grid = !editor.grid) },
+        { kind: 'check', label: 'Show chunk lines', checked: editor.chunkLines, toggle: () => (editor.chunkLines = !editor.chunkLines) },
         { kind: 'header', label: 'Layers' },
         { kind: 'check', label: 'Terrain', checked: prefs.showTerrain, toggle: () => (prefs.showTerrain = !prefs.showTerrain) },
         { kind: 'check', label: 'Water', checked: prefs.showWater, toggle: () => (prefs.showWater = !prefs.showWater) },

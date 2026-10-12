@@ -83,6 +83,8 @@ export const editor = $state({
   selection: null as { x0: number; z0: number; x1: number; z1: number } | null,
   paste: { terrain: true, textures: true, objects: true, blend: 2, heightOffset: 0 },
   grid: false,
+  /** Draws the 8x8-cell paint chunk edges, where the 1.12 four-texture limit applies. */
+  chunkLines: true,
   autoCliff: true,
   /** The map's texture palette: a WoW tileset path, or a '#rrggbb' colour, per index. */
   palette: LAYERS.map((l) => l.swatch) as string[],

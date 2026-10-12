@@ -17,7 +17,7 @@ import { ClearTool } from '../tools/ClearTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
-import { MAX_PALETTE, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replacePalette } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, getAsset } from '../models/assets'
@@ -399,6 +399,7 @@ export class Engine {
     u.brushRadius.value = radius
     u.brushSquare.value = square ? 1 : 0
     u.gridVisible.value = editor.grid ? 1 : 0
+    u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
     // Strong red while editing the mask; faint while painting so results stay visible.
     const painting = editor.tool === 'paint' || editor.tool === 'road'
     u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
