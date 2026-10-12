@@ -1201,7 +1201,7 @@ export class Engine {
     for (const id of this.objects.ancestorIds(o)) family.add(id)
     for (const other of this.objects.objects.values()) {
       if (n >= this.warnBoxes.length) break
-      if (family.has(other.id)) continue
+      if (family.has(other.id) || this.objects.isHidden(other.id)) continue
       if (Math.abs(other.x - o.x) > 200 || Math.abs(other.z - o.z) > 200) continue
       const a = getAsset(other.type)
       if (!a.ready) continue
