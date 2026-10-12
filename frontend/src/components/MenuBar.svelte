@@ -2,7 +2,7 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseVmangosFolder, exportHeightmap, exportObjectList, exportRegion, hasBackend, importHeightmap, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
+  import { chooseVmangosFolder, exportHeightmap, exportObjectList, exportRegion, hasBackend, importHeightmap, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
   import { ClearThumbnailCache, Quit } from '../../wailsjs/go/main/App'
   import { requestClose } from './DocTabs.svelte'
@@ -54,6 +54,7 @@
         { kind: 'sep' },
         { kind: 'action', label: 'Import Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importObjectList(e)) },
         { kind: 'action', label: 'Export Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportObjectList(e)) },
+        { kind: 'action', label: 'Export Port Coordinates…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportPortCoords(e)) },
         { kind: 'action', label: 'Close Map', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
         { kind: 'sep' },
         { kind: 'action', label: 'Exit', run: exit },

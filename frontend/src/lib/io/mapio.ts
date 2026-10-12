@@ -27,6 +27,7 @@ import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
 import { mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
+import { formatPortCoords } from './portCoords'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 
@@ -290,6 +291,21 @@ export function exportObjectList(engine: Engine) {
     const count = engine.objects.objects.size
     await WriteTextFile(path, formatObjectList(engine.objects.objects.values()))
     setStatus(`Exported ${count} models to ${path}.`)
+  })
+}
+
+/** Saves the camera's place as the port commands for the map's server (see portCoords.ts). */
+export function exportPortCoords(engine: Engine) {
+  return guarded('Export port coordinates', async () => {
+    const ref = engine.activeVmangos()
+    if (!ref) {
+      setStatus('Port commands need the map’s ID. Make the map with File › New Map…, ticking “For the WoW 1.12 client”.', 8000)
+      return
+    }
+    const path = await SaveTextDialog(editor.mapName)
+    if (!path) return
+    await WriteTextFile(path, formatPortCoords(engine.camera.position, ref.mapId))
+    setStatus(`Wrote the port commands for map ${ref.mapId} to ${path}.`)
   })
 }
 
