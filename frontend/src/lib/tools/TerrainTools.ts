@@ -14,6 +14,11 @@ import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
 const CHUNK_FULL = 'That chunk already has four textures (the 1.12 limit). Paint with one of them, or erase another.'
 
 /** Splat texel under world point (x, z), clamped to the map. */
+/** The palette index of the texture with the most weight under world point (x, z), or -1 if none. */
+export function layerAt(t: Terrain, x: number, z: number): number {
+  return dominantTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, texelAt(t, x, z))
+}
+
 function texelAt(t: Terrain, x: number, z: number): number {
   const R = t.splatRes
   const ts = t.worldSize / R

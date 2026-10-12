@@ -11,6 +11,7 @@
     { id: 'place', name: 'Place Objects', key: '7', icon: 'M12 2l7 6v12H5V8zM9 20v-6h6v6' },
     { id: 'clear', name: 'Clear: erase models or paint in the brush', key: '8', icon: 'M4 16l7-9 6 6-5 6H6zM14 20h7' },
     { id: 'chunk', name: 'Chunk: see the textures in a chunk', key: '9', icon: 'M3 3h18v18H3zM3 12h18M12 3v18' },
+    { id: 'pipette', name: 'Pipette: pick a texture from the terrain (or hold Alt while painting)', key: '0', letter: 'I', icon: 'M15 3l6 6-3 3-6-6zM12 6l6 6-8 8H4v-6z' },
   ]
 </script>
 
