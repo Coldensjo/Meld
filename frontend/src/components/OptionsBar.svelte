@@ -13,6 +13,7 @@
     { id: 'flatten', name: 'Flatten' },
     { id: 'noise', name: 'Noise' },
     { id: 'mountain', name: 'Mountain' },
+    { id: 'vertex', name: 'Vertex' },
   ]
 
   const tool = $derived(TOOLS.find((t) => t.id === editor.tool)!)
@@ -61,7 +62,19 @@
         <option value="lower">Lower only</option>
       </select>
     {/if}
-    {@render editLimit()}
+    {#if editor.sculptMode === 'vertex'}
+      <span class="chip" title="Drag to select vertices, Ctrl or Alt+drag to deselect, Shift+drag to move them up and down"><span class="dim">Selected:</span> {ui.vertexCount}</span>
+      <button disabled={!ui.vertexCount} onclick={() => engineRef.current?.vertexAction('flatten')} title="Level the selected vertices at their mean height">Flatten</button>
+      <button disabled={!ui.vertexCount} onclick={() => engineRef.current?.vertexAction('clear')}>Clear</button>
+      <select class="curve" bind:value={editor.vertexRef} title="Point the slope plane passes through" aria-label="Slope reference">
+        <option value="center">Through selection centre</option>
+        <option value="cursor">Through cursor</option>
+      </select>
+      <OptSlider label="Slope" bind:value={editor.vertexAngle} min={-89} max={89} step={1} digits={0} width={70} title="Angle of the plane the selection is laid on, in degrees" />
+      <OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={70} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
+    {:else}
+      {@render editLimit()}
+    {/if}
     <div class="divider"></div>
   {:else if editor.tool === 'paint' || editor.tool === 'road'}
     {#if editor.tool === 'paint'}

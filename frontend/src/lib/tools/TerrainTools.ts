@@ -1,5 +1,7 @@
 import * as THREE from 'three'
-import { editor, setStatus } from '../state/editor.svelte'
+import { editor, setStatus, ui } from '../state/editor.svelte'
+import type { Command } from '../state/history'
+import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
@@ -98,11 +100,195 @@ function keeps(v: number, limit: SculptLimit, cursorY: number): boolean {
   return limit === 'none' || (limit === 'above' ? v > cursorY : v < cursorY)
 }
 
+/** Sets heightmap vertices `ids` to `before` on undo and back to their current heights on redo. */
+function vertexCommand(ctx: ToolContext, label: string, ids: number[], before: Float32Array, r: VertexRect): Command {
+  const t = ctx.terrain
+  const objects = ctx.objects
+  const after = Float32Array.from(ids, (i) => t.heights[i])
+  const apply = (v: Float32Array) => {
+    ids.forEach((i, k) => (t.heights[i] = v[k]))
+    t.markDirty(r.x0, r.z0, r.x1, r.z1)
+    const cs = t.cellSize
+    objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+  }
+  return { label, undo: () => apply(before), redo: () => apply(after) }
+}
+
+/** Most selected vertices drawn as markers. */
+const MAX_VERTEX_MARKERS = 65536
+
 export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
   protected records = { heights: true }
   private flattenTarget = 0
   private scratch = new Float32Array(0)
+
+  // Vertex mode: the selected vertices of `vselTerrain`, whether this stroke moves them (Shift) or
+  // deselects (Ctrl or Alt), the last cursor point, and the slope last applied.
+  private vsel: VertexSelection | null = null
+  private vselTerrain: Terrain | null = null
+  private moving = false
+  private deselecting = false
+  private cursor = new THREE.Vector3()
+  private hasCursor = false
+  private applied = { angle: 0, dir: 0, ref: 'center' }
+  /** The open slope edit, merged into one undo step while it stays on top of the history. */
+  private orientSession: { cmd: Command | null; ids: number[]; before: Float32Array } | null = null
+  private vcenter = { x: 0, y: 0, z: 0 }
+  private markers: THREE.Points | null = null
+
+  /** The vertex selection for the active map; a new map starts with none. */
+  private selection(t: Terrain): VertexSelection {
+    if (!this.vsel || this.vselTerrain !== t) {
+      this.vsel = new VertexSelection(t.verts)
+      this.vselTerrain = t
+      this.selectionChanged()
+    }
+    return this.vsel
+  }
+
+  /** Resets the slope to level for a new selection, as noggit3 does, and publishes the count. */
+  private selectionChanged() {
+    editor.vertexAngle = 0
+    editor.vertexDir = 0
+    this.applied = { angle: 0, dir: 0, ref: editor.vertexRef }
+    this.orientSession = null
+    ui.vertexCount = this.vsel?.size ?? 0
+  }
+
+  onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
+    const vertex = editor.sculptMode === 'vertex'
+    this.moving = vertex && !!e?.shiftKey
+    this.deselecting = vertex && !!(e?.ctrlKey || e?.altKey)
+    super.onDown(ctx, hit)
+  }
+
+  onMove(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
+    if (!this.moving || !this.stroke) return
+    const sel = this.selection(ctx.terrain)
+    const r = sel.rect()
+    if (!r || !e.movementY) return
+    // Shift-drag moves the selection up and down with the mouse, faster at higher strength.
+    moveVertices(ctx.terrain.heights, sel, -e.movementY * 0.2 * editor.brush.strength * ctx.pressure())
+    this.heightsChanged(ctx, r)
+  }
+
+  onUp(ctx: ToolContext) {
+    super.onUp(ctx)
+    if (editor.sculptMode === 'vertex' && !this.moving) {
+      const sel = this.selection(ctx.terrain)
+      if (sel.size !== ui.vertexCount) this.selectionChanged()
+    }
+    this.moving = false
+  }
+
+  frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    if (hit) {
+      this.cursor.copy(hit)
+      this.hasCursor = true
+    }
+    const sel = editor.sculptMode === 'vertex' ? this.selection(ctx.terrain) : null
+    const a = this.applied
+    if (sel && sel.size && (editor.vertexAngle !== a.angle || editor.vertexDir !== a.dir || editor.vertexRef !== a.ref)) this.orient(ctx, sel)
+    this.drawMarkers(ctx, sel)
+  }
+
+  deactivate(ctx: ToolContext) {
+    this.drawMarkers(ctx, null)
+  }
+
+  onKey(ctx: ToolContext, e: KeyboardEvent) {
+    if (editor.sculptMode !== 'vertex' || e.key !== ' ') return false
+    // Space turns the slope to rise from the cursor toward the selection centre.
+    const sel = this.selection(ctx.terrain)
+    if (!sel.size || !this.hasCursor) return true
+    const c = sel.center(ctx.terrain.heights, ctx.terrain.cellSize, this.vcenter)
+    const deg = (Math.atan2(c.z - this.cursor.z, c.x - this.cursor.x) * 180) / Math.PI
+    editor.vertexDir = Math.round((deg + 360) % 360)
+    return true
+  }
+
+  /** Vertex mode actions from the options bar: flatten the selection to its mean height, or clear it. */
+  vertexAction(ctx: ToolContext, action: 'flatten' | 'clear') {
+    const sel = this.selection(ctx.terrain)
+    if (action === 'clear') {
+      sel.clear()
+      this.selectionChanged()
+      return
+    }
+    const r = sel.rect()
+    if (!r) return
+    const h = ctx.terrain.heights
+    const ids = sel.ids.slice()
+    const before = Float32Array.from(ids, (i) => h[i])
+    flattenVertices(h, sel, sel.center(h, ctx.terrain.cellSize, this.vcenter).y)
+    this.heightsChanged(ctx, r)
+    ctx.history.push(vertexCommand(ctx, 'Vertex flatten', ids, before, r))
+    this.selectionChanged()
+  }
+
+  /** Lays the selection onto the slope plane, as one undo step per run of slope changes. */
+  private orient(ctx: ToolContext, sel: VertexSelection) {
+    const t = ctx.terrain
+    const r = sel.rect()
+    if (!r) return
+    let s = this.orientSession
+    if (!s || !s.cmd || ctx.history.peek() !== s.cmd) {
+      const ids = sel.ids.slice()
+      s = { cmd: null, ids, before: Float32Array.from(ids, (i) => t.heights[i]) }
+    }
+    const ref = editor.vertexRef === 'cursor' && this.hasCursor ? this.cursor : sel.center(t.heights, t.cellSize, this.vcenter)
+    orientVertices(t.heights, sel, t.cellSize, ref, editor.vertexAngle, editor.vertexDir)
+    this.heightsChanged(ctx, r)
+    const cmd = vertexCommand(ctx, 'Vertex slope', s.ids, s.before, r)
+    if (s.cmd) ctx.history.replaceTop(cmd)
+    else ctx.history.push(cmd)
+    s.cmd = cmd
+    this.orientSession = s
+    this.applied = { angle: editor.vertexAngle, dir: editor.vertexDir, ref: editor.vertexRef }
+  }
+
+  /** Draws a dot on each selected vertex. Hidden when `sel` is null or empty. */
+  private drawMarkers(ctx: ToolContext, sel: VertexSelection | null) {
+    const n = sel ? Math.min(sel.size, MAX_VERTEX_MARKERS) : 0
+    if (!n || !sel) {
+      if (this.markers) this.markers.visible = false
+      return
+    }
+    let m = this.markers
+    const cap = m ? m.geometry.attributes.position.count : 0
+    if (!m || cap < n) {
+      if (m) {
+        ctx.scene.remove(m)
+        m.geometry.dispose()
+      }
+      let size = Math.max(256, cap)
+      while (size < n) size *= 2
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(size * 3), 3).setUsage(THREE.DynamicDrawUsage))
+      const mat = m ? (m.material as THREE.PointsMaterial) : new THREE.PointsMaterial({ color: 0xffb020, size: 5, sizeAttenuation: false, depthTest: false })
+      m = new THREE.Points(geo, mat)
+      m.frustumCulled = false
+      m.renderOrder = 10
+      this.markers = m
+    }
+    if (m.parent !== ctx.scene) ctx.scene.add(m)
+    const t = ctx.terrain
+    const V = t.verts
+    const cs = t.cellSize
+    const pos = m.geometry.attributes.position as THREE.BufferAttribute
+    const a = pos.array as Float32Array
+    for (let k = 0; k < n; k++) {
+      const i = sel.ids[k]
+      const x = i % V
+      a[k * 3] = x * cs
+      a[k * 3 + 1] = t.heights[i] + 0.1
+      a[k * 3 + 2] = ((i - x) / V) * cs
+    }
+    pos.needsUpdate = true
+    m.geometry.setDrawRange(0, n)
+    m.visible = true
+  }
 
   protected begin(ctx: ToolContext, hit: THREE.Vector3) {
     const { radius, falloff } = editor.brush
@@ -123,6 +309,15 @@ export class SculptTool extends BrushTool {
     const limit = editor.sculptLimit
     const cursorY = hit.y
     let rect: Rect | null = null
+
+    if (mode === 'vertex') {
+      // The brush selects vertices (Ctrl or Alt deselects); a Shift stroke moves them in onMove instead.
+      if (this.moving) return
+      const sel = this.selection(t)
+      const off = this.deselecting
+      forEachVertex(t, hit.x, hit.z, radius, 0, (i) => (off ? sel.remove(i) : sel.add(i)))
+      return
+    }
 
     switch (mode) {
       case 'raise':

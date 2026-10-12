@@ -1402,6 +1402,11 @@ export class Engine {
     this.history.push(cmd)
   }
 
+  /** Sculpt's Vertex mode: flatten the selected vertices to their mean height, or clear the selection. */
+  vertexAction(action: 'flatten' | 'clear') {
+    ;(this.tools.sculpt as SculptTool).vertexAction(this.ctx, action)
+  }
+
   /**
    * Removes models that stand exactly where another model of the same type stands, keeping the
    * first of each. One undo step. Positions and turns are compared to a hundredth.

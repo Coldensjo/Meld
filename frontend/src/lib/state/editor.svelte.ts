@@ -8,7 +8,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 
 export type ToolId = 'select' | 'marquee' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear'
 export type ClearMode = 'models' | 'textures'
-export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain'
+export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'vertex'
 /** Flatten target: the height under the first click, or the average height under the brush. */
 export type FlattenTarget = 'origin' | 'average'
 /** Flatten direction: move ground both ways, or only up or only down toward the target. */
@@ -44,6 +44,13 @@ export const editor = $state({
   flattenTarget: 'origin' as FlattenTarget,
   flattenDir: 'both' as FlattenDir,
   sculptLimit: 'none' as SculptLimit,
+  /**
+   * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the
+   * cursor, rising at vertexAngle degrees (-89 to 89) toward vertexDir degrees (0 is +x, 90 is +z).
+   */
+  vertexRef: 'center' as 'center' | 'cursor',
+  vertexAngle: 0,
+  vertexDir: 0,
   paintLayer: 0,
   /**
    * Paint tool: paint textures, swap the texture under the stroke's start for the active one, or paint
@@ -183,6 +190,8 @@ export const ui = $state({
   /** Which palette the left panel shows. */
   palette: 'models' as 'models' | 'textures',
   busy: false,
+  /** Vertices selected in Sculpt's Vertex mode (updated when a stroke ends). */
+  vertexCount: 0,
   /** Draw objects hidden with H. */
   showHiddenModels: false,
   /** How many objects the active map has hidden. */
