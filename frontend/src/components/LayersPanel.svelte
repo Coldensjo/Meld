@@ -66,7 +66,6 @@
     {:else}
       <span class="hint">No texture picked yet.</span>
     {/if}
-    <button onclick={() => (editor.tool = 'pipette')} title="Pick the texture under the cursor (I, or hold Alt while painting)">Pipette</button>
     <button onclick={() => { ui.palette = 'textures'; prefs.browserCollapsed = false }} title="Pick a texture from the WoW client">Browse…</button>
   </div>
 

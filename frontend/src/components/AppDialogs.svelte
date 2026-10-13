@@ -46,8 +46,9 @@
     [
       'Tools',
       [
-        ['1 – 8', 'Select, Sculpt, Paint, Roads, Water, Place, Clear, Pipette'],
-        ['V / B / I', 'Select / Paint / Pipette'],
+        ['1 – 7', 'Select, Sculpt, Paint, Roads, Water, Place, Clear'],
+        ['V / B', 'Select / Paint'],
+        ['Alt+click', 'Pipette: pick the model under the cursor to place, or the texture to paint with'],
         ['Click, Shift+click', 'Select a model, add or remove one (Select tool)'],
         ['Drag on the ground', 'Select an area and the models in it (Select tool)'],
         ['[ / ]', 'Brush smaller / larger'],

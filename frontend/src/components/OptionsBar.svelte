@@ -176,7 +176,7 @@
       {#if count}
         <span class="dim"><kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>Alt+←→</kbd>/<kbd>R</kbd> spin · <kbd>Shift</kbd> bigger steps · drag to move</span>
       {:else}
-        <span class="dim">Click a model to select it (<kbd>Shift</kbd> adds). Drag on the ground to select an area and the models in it.</span>
+        <span class="dim">Click a model to select it (<kbd>Shift</kbd> adds). Drag on the ground to select an area and the models in it. <kbd>Alt</kbd>+click picks a model or texture.</span>
       {/if}
     {/if}
   {/if}

@@ -6,7 +6,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'pipette'
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear'
 export type ClearMode = 'models' | 'textures'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'vertex'
 /** Flatten target: the height under the first click, or the average height under the brush. */

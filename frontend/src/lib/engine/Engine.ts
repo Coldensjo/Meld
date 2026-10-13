@@ -11,7 +11,7 @@ import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
-import { PipetteTool, pickLayer } from '../tools/PipetteTool'
+import { pickLayer, pickModel } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
@@ -226,7 +226,6 @@ export class Engine {
       water: new WaterTool(),
       place: this.placeTool,
       clear: new ClearTool(),
-      pipette: new PipetteTool(),
     }
 
     this.controller.arrowsBlocked = () => this.canNudge()
@@ -320,7 +319,15 @@ export class Engine {
         if (e.button !== 0) return
         c.setPointerCapture(e.pointerId)
         if (this.startGizmoDrag()) return
-        // Alt+click on the terrain picks the texture under the cursor while painting.
+        // Alt+click is the pipette: a model's type to place, or the ground's texture to paint with.
+        if (e.altKey && (editor.tool === 'select' || editor.tool === 'place')) {
+          this.raycaster.setFromCamera(this.ndc, this.camera)
+          const id = this.objects.pick(this.raycaster)
+          const o = id !== null ? this.objects.objects.get(id) : undefined
+          if (o) pickModel(o)
+          else if (this.hit) pickLayer(this.terrain, this.hit)
+          return
+        }
         if (e.altKey && this.hit && (editor.tool === 'road' || (editor.tool === 'paint' && editor.paintMode !== 'mask'))) {
           pickLayer(this.terrain, this.hit)
           return

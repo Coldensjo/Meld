@@ -143,8 +143,9 @@ cd frontend && pnpm build   # frontend only
   four slots of the chunk under the cursor (`editor.hoverChunk`, tracked in
   `Engine.updateHoverChunk` and tinted in the terrain shader). Each slot has Replace, which sets
   `ui.replaceSlot`; the next palette pick goes to `Engine.replaceChunkTexture` (this chunk only,
-  undoable). Whole-map replace is the "Replace everywhere" dialog. The Pipette tool and Alt+click
-  in Paint/Road pick the texture under the cursor (`tools/PipetteTool.ts`).
+  undoable). Whole-map replace is the "Replace everywhere" dialog. Alt+click is the pipette
+  (`tools/PipetteTool.ts`): in Select and Place it picks the model under the cursor as the one to
+  place, or the ground's texture; in Paint and Road, the texture.
 
 ## Debugging the UI
 
