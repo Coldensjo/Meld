@@ -193,6 +193,17 @@ export class SpawnLayer {
   }
 
   /**
+   * Changes a spawn the way the world database already has it (its creature template was saved),
+   * so the change is not an edit to save: its saved state changes with it.
+   */
+  rebase(s: vmangos.WorldSpawn, vals: Partial<vmangos.WorldSpawn>) {
+    Object.assign(s, vals)
+    const o = this.originals.get(spawnKey(s))
+    if (o) Object.assign(o, vals)
+    this.refresh(s)
+  }
+
+  /**
    * Adds a spawn made in the editor. `original` is what it was when placed, which the world
    * database is told of with it.
    */

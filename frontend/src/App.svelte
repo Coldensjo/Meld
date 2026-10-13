@@ -8,6 +8,7 @@
   import Viewport from './components/Viewport.svelte'
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
+  import CreatureEditor from './components/CreatureEditor.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { onMount } from 'svelte'
@@ -67,6 +68,16 @@
     if (!engine || ui.showNewDialog || ui.dialog) return
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
+
+    // Over the creature editor only undo and redo reach the map (its spawn edits are undo steps).
+    if (ui.creatureEditor) {
+      if (mod && (key === 'z' || key === 'y')) {
+        const c = key === 'y' || e.shiftKey ? engine.redo() : engine.undo()
+        if (c) setStatus(`${key === 'y' || e.shiftKey ? 'Redo' : 'Undo'}: ${c.label}`)
+        e.preventDefault()
+      }
+      return
+    }
 
     if (mod) {
       if (key === 'z' && !e.shiftKey) {
@@ -137,6 +148,7 @@
   <StatusBar />
 </div>
 
+<CreatureEditor />
 <AppDialogs />
 <DebugOverlay />
 {#if ui.showNewDialog}

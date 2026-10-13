@@ -2,10 +2,11 @@
   import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { exportSpawnSql, reloadSpawns } from '../lib/io/mapio'
-  import { creatureTypeName, levelText, npcRoles, objectTypeName, orientationDegrees, rankName } from '../lib/world/spawnInfo'
-  import { MOVEMENT_TYPES, SHEATH_STATES, STAND_STATES, selectSpawn, withPoint, type SpawnFields } from '../lib/world/spawnEdits'
+  import { creatureTypeName, levelText, npcRoles, objectTypeName, rankName } from '../lib/world/spawnInfo'
+  import { selectSpawn } from '../lib/world/spawnEdits'
   import { spawnKey, type SpawnKind } from '../lib/world/SpawnLayer'
-  import { SearchCreatures, SpawnEmotes } from '../../wailsjs/go/main/App'
+  import { SearchCreatures } from '../../wailsjs/go/main/App'
+  import SpawnFields from './SpawnFields.svelte'
   import type { vmangos } from '../../wailsjs/go/models'
 
   // Long regions have thousands of spawns; the list shows this many matches and asks for a filter past it.
@@ -29,22 +30,6 @@
     const q = query.trim().toLowerCase()
     return editor.spawns.filter((s) => visible(s) && (q === '' || s.name.toLowerCase().includes(q) || String(s.entry) === q))
   })
-
-  // The looping emotes a creature can hold (Emotes.dbc's STATE_* rows), read from the client once.
-  let emotes = $state<vmangos.Emote[]>([])
-  let emotesAsked = false
-  $effect(() => {
-    if (!editor.selectedSpawn || emotesAsked) return
-    emotesAsked = true
-    SpawnEmotes()
-      .then((list) => (emotes = (list ?? []).filter((e) => e.name.toUpperCase().includes('STATE'))))
-      .catch(() => (emotesAsked = false))
-  })
-  const emoteName = (n: string) =>
-    n
-      .replace(/^(ONESHOT|STATE)_/i, '')
-      .toLowerCase()
-      .replace(/_/g, ' ')
 
   // Creature templates to place, searched in the world database as the author types.
   let creatureQuery = $state('')
@@ -82,22 +67,6 @@
     engineRef.current?.focusSpawn(s)
   }
 
-  /** Applies an edit to the selected spawn, as one undo step named `label`. */
-  function edit(vals: SpawnFields, label: string) {
-    const s = editor.selectedSpawn
-    if (s) void engineRef.current?.editSpawn(spawnKey(s), vals, `${label} (${s.name})`)
-  }
-
-  /** A number field's value, or null when it isn't a number (the edit is dropped). */
-  function num(e: Event): number | null {
-    const v = (e.currentTarget as HTMLInputElement).valueAsNumber
-    return Number.isFinite(v) ? v : null
-  }
-  const int = (e: Event) => {
-    const v = num(e)
-    return v === null ? null : Math.round(v)
-  }
-  const selectNum = (e: Event) => Number((e.currentTarget as HTMLSelectElement).value)
 </script>
 
 <div class="spawns">
@@ -127,12 +96,13 @@
       {#if creatures.length}
         <ul class="list short">
           {#each creatures as t (t.entry)}
-            <li>
-              <button class="row" class:active={ui.placeCreature?.entry === t.entry} onclick={() => startPlacing(t)} title="Entry {t.entry}">
+            <li class="template">
+              <button class="row" class:active={ui.placeCreature?.entry === t.entry} onclick={() => startPlacing(t)} title="Place entry {t.entry}">
                 <span class="dot {t.npcFlags ? 'npc' : 'monster'}"></span>
                 <span class="name">{t.name}{t.subname ? ` <${t.subname}>` : ''}</span>
                 <span class="dim">{levelText(t.levelMin, t.levelMax)}</span>
               </button>
+              <button class="edit" title="Open entry {t.entry} in the creature editor" onclick={() => (ui.creatureEditor = { key: null, entry: t.entry })}>Edit</button>
             </li>
           {/each}
         </ul>
@@ -142,6 +112,7 @@
       {#if ui.placeCreature}
         <p class="dim hint">Placing {ui.placeCreature.name}: click the ground (Shift+click for more, Esc stops).</p>
       {/if}
+      <button class="new-creature" onclick={() => (ui.creatureEditor = { key: null, entry: 0 })}>New creature…</button>
     </details>
     <div class="toggles">
       <label><input type="checkbox" bind:checked={prefs.showMonsters} /> Monsters <span class="count">{counts.monster}</span></label>
@@ -192,125 +163,9 @@
         <dd class="path">{s.model || 'none (drawn as a marker)'}</dd>
       </dl>
 
-      <h4>Placement</h4>
-      <div class="fields">
-        <label>X <input type="number" step="0.5" value={s.x.toFixed(2)} onchange={(e) => { const v = num(e); if (v !== null) edit({ x: v }, 'Move') }} /></label>
-        <label>Z <input type="number" step="0.5" value={s.z.toFixed(2)} onchange={(e) => { const v = num(e); if (v !== null) edit({ z: v }, 'Move') }} /></label>
-        <label>Height <input type="number" step="0.25" value={s.y.toFixed(2)} onchange={(e) => { const v = num(e); if (v !== null) edit({ y: v }, 'Raise') }} /></label>
-        <label
-          >Facing °
-          <input
-            type="number"
-            step="5"
-            value={orientationDegrees(s.orientation)}
-            onchange={(e) => {
-              const v = num(e)
-              if (v !== null) edit({ orientation: ((((v % 360) + 360) % 360) * Math.PI) / 180 }, 'Turn')
-            }}
-          /></label
-        >
-        <label>Respawn s <input type="number" min="0" step="10" value={s.respawnSecs} onchange={(e) => { const v = int(e); if (v !== null) edit({ respawnSecs: Math.max(0, v), respawnMaxSecs: Math.max(v, s.respawnMaxSecs) }, 'Respawn time') }} /></label>
-        <label>to s <input type="number" min="0" step="10" value={s.respawnMaxSecs} onchange={(e) => { const v = int(e); if (v !== null) edit({ respawnMaxSecs: Math.max(s.respawnSecs, v) }, 'Respawn time') }} /></label>
-      </div>
-
-      {#if creature}
-        <h4>Movement</h4>
-        <div class="fields">
-          <label
-            >Moves
-            <select value={s.movementType} onchange={(e) => edit({ movementType: selectNum(e) }, 'Movement')}>
-              {#each MOVEMENT_TYPES as name, i (i)}<option value={i}>{name}</option>{/each}
-            </select></label
-          >
-          <label
-            >Wander yd
-            <input type="number" min="0" step="1" disabled={s.movementType !== 1} value={s.wanderDistance} onchange={(e) => { const v = num(e); if (v !== null) edit({ wanderDistance: Math.max(0, v) }, 'Wander distance') }} /></label
-          >
-        </div>
-
-        {@const points = s.waypoints ?? []}
-        <h4>Path</h4>
-        {#if points.length}
-          <p class="dim">
-            {points.length}
-            {points.length === 1 ? 'point' : 'points'}{s.pathFromTemplate ? ", the creature template's path (every spawn of it without its own walks it; an edit gives this spawn its own)" : ''}{s.movementType !== 2 ? '. It only walks the path when it moves by Waypoints.' : '.'}
-          </p>
-          <ol class="points">
-            {#each points as p, i (i)}
-              <li>
-                <button class="row" class:active={editor.selectedWaypoint === i} onclick={() => (editor.selectedWaypoint = i)}>
-                  <span class="name">Point {i + 1}</span>
-                  {#if p.waitMs > 0}<span class="dim">waits {p.waitMs / 1000} s</span>{/if}
-                  {#if p.scriptId}<span class="dim">script {p.scriptId}</span>{/if}
-                </button>
-              </li>
-            {/each}
-          </ol>
-          {#if editor.selectedWaypoint >= 0 && points[editor.selectedWaypoint]}
-            {@const i = editor.selectedWaypoint}
-            {@const p = points[i]}
-            <div class="fields">
-              <label
-                >Wait s
-                <input type="number" min="0" step="1" value={p.waitMs / 1000} onchange={(e) => { const v = num(e); if (v !== null) edit({ waypoints: withPoint(points, i, { ...p, waitMs: Math.max(0, Math.round(v * 1000)) }) }, 'Path point wait') }} /></label
-              >
-              <label
-                >Facing °
-                <input
-                  type="number"
-                  step="5"
-                  title="0 keeps the facing it walked in with"
-                  value={orientationDegrees(p.orientation)}
-                  onchange={(e) => {
-                    const v = num(e)
-                    if (v !== null) edit({ waypoints: withPoint(points, i, { ...p, orientation: ((((v % 360) + 360) % 360) * Math.PI) / 180 }) }, 'Path point facing')
-                  }}
-                /></label
-              >
-            </div>
-            <div class="row-buttons">
-              <button onclick={() => { const e = engineRef.current; if (e) e.focusPoint(p.x, p.z) }}>Focus point</button>
-              <button class="danger" onclick={() => { edit({ waypoints: withPoint(points, i, null) }, 'Delete path point'); editor.selectedWaypoint = Math.min(i, points.length - 2) }}>Delete point</button>
-            </div>
-          {/if}
-        {:else}
-          <p class="dim">No path. Edit the path and click the ground to give it one.</p>
-        {/if}
-        <div class="row-buttons">
-          <button class:active={ui.pathEdit} onclick={() => (ui.pathEdit = !ui.pathEdit)}>{ui.pathEdit ? 'Done' : 'Edit path'}</button>
-          <button disabled={!points.length} onclick={() => { edit({ waypoints: [] }, 'Clear path'); editor.selectedWaypoint = -1 }}>Clear path</button>
-        </div>
-        {#if ui.pathEdit}
-          <p class="dim hint">Click the ground to add a point after the picked one. Drag a point to move it; Delete removes the picked point; Esc stops.</p>
-        {/if}
-
-        <h4>Look and pose</h4>
-        <div class="fields">
-          <label>Display <input type="number" min="0" value={s.display} onchange={(e) => { const v = int(e); if (v !== null) edit({ display: Math.max(0, v) }, 'Display') }} /></label>
-          <label>Equipment <input type="number" min="0" value={s.equipment} onchange={(e) => { const v = int(e); if (v !== null) edit({ equipment: Math.max(0, v) }, 'Equipment') }} /></label>
-          <label
-            >Stance
-            <select value={s.standState} onchange={(e) => edit({ standState: selectNum(e) }, 'Stance')}>
-              {#each STAND_STATES as name, i (i)}<option value={i}>{name}</option>{/each}
-            </select></label
-          >
-          <label
-            >Weapons
-            <select value={s.sheathState} onchange={(e) => edit({ sheathState: selectNum(e) }, 'Weapons')}>
-              {#each SHEATH_STATES as name, i (i)}<option value={i}>{name}</option>{/each}
-            </select></label
-          >
-          <label class="wide"
-            >Emote
-            <select value={s.emoteState} onchange={(e) => edit({ emoteState: selectNum(e) }, 'Emote')}>
-              <option value={0}>None</option>
-              {#if s.emoteState !== 0 && !emotes.some((e) => e.id === s.emoteState)}<option value={s.emoteState}>Emote {s.emoteState}</option>{/if}
-              {#each emotes as e (e.id)}<option value={e.id}>{emoteName(e.name)}</option>{/each}
-            </select></label
-          >
-        </div>
-      {/if}
+      <SpawnFields {s} />
       <div class="row-buttons">
+        <button class="active" disabled={!creature} onclick={() => (ui.creatureEditor = { key: spawnKey(s), entry: s.entry })}>Open editor…</button>
         <button onclick={() => engineRef.current?.focusSpawn(s)}>Focus</button>
         <button class="danger" onclick={() => engineRef.current?.deleteSelectedSpawn()}>Delete</button>
       </div>
@@ -351,6 +206,18 @@
   }
   .add input {
     width: 100%;
+  }
+  .template {
+    display: flex;
+  }
+  .template .edit {
+    flex: none;
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 0;
+  }
+  .new-creature {
+    align-self: flex-start;
   }
   .list.short {
     max-height: 160px;
@@ -429,42 +296,6 @@
   .info .path {
     overflow-wrap: anywhere;
     font-size: 11px;
-  }
-  h4 {
-    margin: 4px 0 0;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .points {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    max-height: 160px;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-  }
-  .fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px 8px;
-    font-size: 12px;
-  }
-  .fields label {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    color: var(--text-dim);
-  }
-  .fields .wide {
-    grid-column: 1 / -1;
-  }
-  .fields input,
-  .fields select {
-    width: 100%;
-    min-width: 0;
   }
   .dim {
     color: var(--text-dim);

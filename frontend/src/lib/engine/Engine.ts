@@ -32,7 +32,7 @@ import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { SpawnPaths } from '../world/SpawnPaths'
-import { newCreatureSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
+import { creatureTemplateOf, newCreatureSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { NextCreatureGUID, SpawnLook } from '../../../wailsjs/go/main/App'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
@@ -939,6 +939,57 @@ export class Engine {
       if (d === this.doc) selectSpawn(s)
     } catch (err) {
       setStatus(`Could not place ${t.name}: ${err}`, 8000)
+    }
+  }
+
+  /**
+   * Brings the spawns of creature template `entry` in every open region up to date after the
+   * template was saved (`was` its values before): name, level, faction and the like, and for a spawn
+   * showing the template's display or equipment rather than its own, the new ones. The database
+   * already has this, so it is not a spawn edit to save, nor an undo step.
+   */
+  async applyCreatureTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
+    const t = creatureTemplateOf(entry, now)
+    const old = creatureTemplateOf(entry, was)
+    const info: Partial<vmangos.WorldSpawn> = {
+      name: t.name,
+      subname: t.subname,
+      levelMin: t.levelMin,
+      levelMax: t.levelMax,
+      faction: t.faction,
+      npcFlags: t.npcFlags,
+      rank: t.rank,
+      type: t.type,
+    }
+    const looks = new Map<string, Promise<vmangos.LookResult>>()
+    for (const d of this.documents) {
+      const layer = d.spawnLayer
+      let touched = false
+      for (const s of layer.spawns.slice()) {
+        if (s.kind === 'object' || s.entry !== entry) continue
+        const vals: Partial<vmangos.WorldSpawn> = { ...info }
+        const ownDisplay = s.display !== old.display
+        const display = ownDisplay ? s.display : t.display
+        const equipment = s.equipment === old.equipment ? t.equipment : s.equipment
+        if (display !== s.display || equipment !== s.equipment || (!ownDisplay && t.scale !== old.scale)) {
+          const key = [display, equipment, s.standState, s.emoteState, s.sheathState].join('|')
+          let p = looks.get(key)
+          if (!p) {
+            p = SpawnLook(display, equipment, s.standState, s.emoteState, s.sheathState)
+            looks.set(key, p)
+          }
+          try {
+            const l = await p
+            const templateScale = ownDisplay ? (s.displayScale > 0 ? s.scale / s.displayScale : 1) : t.scale
+            Object.assign(vals, { display, equipment, model: l.model, look: l.look, anim: l.anim, displayScale: l.displayScale, scale: templateScale * (l.displayScale || 1) })
+          } catch (err) {
+            console.warn('spawn not re-dressed', err)
+          }
+        }
+        layer.rebase(s, vals)
+        touched = true
+      }
+      if (touched && d === this.doc) syncSpawnUi(layer, true)
     }
   }
 

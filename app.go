@@ -372,6 +372,53 @@ func (a *App) NextCreatureGUID() (int, error) {
 	return vmangos.NextCreatureGUID(server)
 }
 
+// ReadCreature reads a creature template's row (its newest patch) for the creature editor.
+func (a *App) ReadCreature(entry int) (vmangos.CreatureRecord, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.CreatureRecord{}, err
+	}
+	return vmangos.ReadCreature(server, entry)
+}
+
+// SaveCreature writes a creature template's changed values (by column) into the world database
+// and returns the SQL it ran.
+func (a *App) SaveCreature(entry, patch int, values map[string]string) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SaveCreature(server, entry, patch, values)
+}
+
+// CreateCreature adds a creature template named name, a copy of template base (or the defaults
+// for 0), and returns its entry.
+func (a *App) CreateCreature(base int, name string) (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.CreateCreature(server, base, name)
+}
+
+// SearchDisplays lists up to 200 creature displays whose model or skin has text in it.
+func (a *App) SearchDisplays(text string) ([]vmangos.DisplayInfo, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SearchDisplays(dataDir, text, 200)
+}
+
+// ModelAnimations lists the animations an M2 model has, for the creature editor's preview.
+func (a *App) ModelAnimations(model string) ([]vmangos.AnimInfo, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ModelAnimations(dataDir, model)
+}
+
 // SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it.
 func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
 	server, _, err := a.serverAndData()

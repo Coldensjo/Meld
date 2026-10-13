@@ -18,6 +18,10 @@ export function ClearThumbnailCache() {
   return window['go']['main']['App']['ClearThumbnailCache']();
 }
 
+export function CreateCreature(arg1, arg2) {
+  return window['go']['main']['App']['CreateCreature'](arg1, arg2);
+}
+
 export function GameLogin() {
   return window['go']['main']['App']['GameLogin']();
 }
@@ -48,6 +52,10 @@ export function MapEntries() {
 
 export function MapZones() {
   return window['go']['main']['App']['MapZones']();
+}
+
+export function ModelAnimations(arg1) {
+  return window['go']['main']['App']['ModelAnimations'](arg1);
 }
 
 export function MouseLookBegin() {
@@ -86,12 +94,20 @@ export function Quit() {
   return window['go']['main']['App']['Quit']();
 }
 
+export function ReadCreature(arg1) {
+  return window['go']['main']['App']['ReadCreature'](arg1);
+}
+
 export function ReadHeightmap(arg1) {
   return window['go']['main']['App']['ReadHeightmap'](arg1);
 }
 
 export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
+}
+
+export function SaveCreature(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveCreature'](arg1, arg2, arg3);
 }
 
 export function SaveHeightmapDialog(arg1) {
@@ -132,6 +148,10 @@ export function SaveThumbnail(arg1, arg2) {
 
 export function SearchCreatures(arg1) {
   return window['go']['main']['App']['SearchCreatures'](arg1);
+}
+
+export function SearchDisplays(arg1) {
+  return window['go']['main']['App']['SearchDisplays'](arg1);
 }
 
 export function SetGameLogin(arg1, arg2) {

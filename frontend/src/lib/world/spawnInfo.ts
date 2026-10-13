@@ -4,7 +4,7 @@
  */
 
 // Indexed by creature type, which starts at 1 (0 is unset).
-const CREATURE_TYPES = [
+export const CREATURE_TYPES = [
   '',
   'Beast',
   'Dragonkin',
@@ -20,7 +20,7 @@ const CREATURE_TYPES = [
 ]
 
 // Indexed by creature rank: CREATURE_ELITE_* in CreatureDefines.h.
-const RANKS = ['Normal', 'Elite', 'Rare elite', 'Boss', 'Rare']
+export const RANKS = ['Normal', 'Elite', 'Rare elite', 'Boss', 'Rare']
 
 // Indexed by game object type: GAMEOBJECT_TYPE_* in GameObjectDefines.h.
 const OBJECT_TYPES = [
@@ -58,7 +58,7 @@ const OBJECT_TYPES = [
 ]
 
 // The NPC flags that say what a creature does, by bit: UNIT_NPC_FLAG_* in UnitDefines.h.
-const NPC_FLAGS: Array<[number, string]> = [
+export const NPC_FLAGS: Array<[number, string]> = [
   [0x0001, 'gossip'],
   [0x0002, 'quest giver'],
   [0x0004, 'vendor'],

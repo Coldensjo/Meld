@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
-import { editor, setStatus, ui } from '../state/editor.svelte'
+import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { movableSelection, objectsInRect, selectObjects } from '../state/selection'
 import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
@@ -531,7 +531,12 @@ export class SelectTool implements Tool {
     this.spawnDrag = null
     if (sd) {
       const s = ctx.spawns.get(sd.key)
-      if (!sd.moved || !s) return
+      if (!s) return
+      if (!sd.moved) {
+        // A click (no drag) on a creature opens it in the creature editor.
+        if (s.kind !== 'object' && prefs.creatureEditorOnClick) ui.creatureEditor = { key: sd.key, entry: s.entry }
+        return
+      }
       const layer = ctx.spawns
       const after: SpawnFields = { x: s.x, y: s.y, z: s.z }
       syncSpawnUi(layer)

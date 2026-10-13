@@ -188,6 +188,8 @@ export const prefs = $state({
   showGameObjects: true,
   /** Draw every creature's waypoint path, not only the selected one's. */
   showAllPaths: false,
+  /** A click on a creature in the Select tool opens it in the creature editor. */
+  creatureEditorOnClick: true,
   renderScale: 1,
   viewDistance: 1,
   fog: true,
@@ -253,6 +255,11 @@ export const ui = $state({
   spawnChanges: 0,
   /** Clicks in the Select tool edit the selected creature's path: add, pick and drag its points. */
   pathEdit: false,
+  /**
+   * The creature editor, full screen: the creature template `entry`, and the spawn `key` it was
+   * opened from (null for a template alone, such as a new creature).
+   */
+  creatureEditor: null as { key: string | null; entry: number } | null,
   /** A creature template being placed: the next click on the ground in the Select tool spawns it. */
   placeCreature: null as vmangos.CreatureTemplate | null,
 })

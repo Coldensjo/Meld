@@ -199,6 +199,20 @@ export namespace mapfile {
 
 export namespace vmangos {
 	
+	export class AnimInfo {
+	    id: number;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AnimInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	    }
+	}
 	export class LayerView {
 	    texture: string;
 	    effect: number;
@@ -253,6 +267,60 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class TemplateColumn {
+	    name: string;
+	    kind: string;
+	    nullable: boolean;
+	    maxLen: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TemplateColumn(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.kind = source["kind"];
+	        this.nullable = source["nullable"];
+	        this.maxLen = source["maxLen"];
+	    }
+	}
+	export class CreatureRecord {
+	    entry: number;
+	    patch: number;
+	    columns: TemplateColumn[];
+	    values: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreatureRecord(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.entry = source["entry"];
+	        this.patch = source["patch"];
+	        this.columns = this.convertValues(source["columns"], TemplateColumn);
+	        this.values = source["values"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class CreatureTemplate {
 	    entry: number;
 	    name: string;
@@ -285,6 +353,24 @@ export namespace vmangos {
 	        this.display = source["display"];
 	        this.scale = source["scale"];
 	        this.equipment = source["equipment"];
+	    }
+	}
+	export class DisplayInfo {
+	    id: number;
+	    model: string;
+	    skin: string;
+	    humanoid: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new DisplayInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.model = source["model"];
+	        this.skin = source["skin"];
+	        this.humanoid = source["humanoid"];
 	    }
 	}
 	export class Emote {
@@ -769,6 +855,7 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	
 	
 	
 	

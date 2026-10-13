@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 )
 
@@ -197,6 +198,28 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 		return nil, errors.New("m2: no renderable batches")
 	}
 	return m, nil
+}
+
+// M2Animations lists the AnimationData IDs of an M2's sequences, each once, in ID order.
+func M2Animations(b []byte) ([]int, error) {
+	if len(b) < 0xB4 || string(b[:4]) != "MD20" {
+		return nil, errors.New("m2: bad magic")
+	}
+	r := reader{b}
+	n, ofs, err := r.arr(0x1C, seqSize)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[int]bool{}
+	var out []int
+	for i := 0; i < n; i++ {
+		if id := r.u16(ofs + i*seqSize); !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	sort.Ints(out)
+	return out, nil
 }
 
 // attachPoint is where a model holds attached items: a position in editor space on a bone.

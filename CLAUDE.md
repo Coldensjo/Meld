@@ -326,6 +326,17 @@ cd frontend && pnpm build   # frontend only
   Select tool adds points on the ground after `editor.selectedWaypoint`, drags them, and Delete
   removes one. Paths are replaced immutably (`withPoint`), so undo can keep the old array. A
   changed path is saved as the spawn's own `creature_movement` rows.
+- **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
+  by a click (no drag) on a creature in the Select tool (pref `creatureEditorOnClick`), the panel's
+  Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
+  any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, shared with
+  the Spawns panel; undo steps), Creature (every `creature_template` column: Go reads the columns
+  and their types from the table and validates each value, `creatureFields.ts` only labels and
+  groups them, and unknown columns land under Other), Looks (`SearchDisplays`), and New creature
+  (`CreateCreature`: the first free entry, from scratch or a copy). Template edits are a form
+  saved with Save (`SaveCreature`, the newest patch row), not undo steps;
+  `Engine.applyCreatureTemplate` then brings that creature's spawns up to date through
+  `SpawnLayer.rebase`, which changes their saved state too.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 
 ## Conventions

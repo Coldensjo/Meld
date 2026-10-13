@@ -169,6 +169,37 @@ export function newCreatureSpawn(t: vmangos.CreatureTemplate, guid: number, x: n
   })
 }
 
+/**
+ * The creature template as placing needs it, from a creature_template row's values (as the
+ * creature editor holds them): its first display with that display's scale.
+ */
+export function creatureTemplateOf(entry: number, v: Record<string, string>): vmangos.CreatureTemplate {
+  const n = (col: string) => Number(v[col]) || 0
+  let display = 0
+  let scale = 1
+  for (let i = 1; i <= 4; i++) {
+    if (n(`display_id${i}`) > 0) {
+      display = n(`display_id${i}`)
+      scale = n(`display_scale${i}`) || 1
+      break
+    }
+  }
+  return {
+    entry,
+    name: v.name ?? '',
+    subname: v.subname ?? '',
+    levelMin: n('level_min'),
+    levelMax: n('level_max'),
+    faction: n('faction'),
+    npcFlags: n('npc_flags'),
+    rank: n('rank'),
+    type: n('type'),
+    display,
+    scale,
+    equipment: n('equipment_id'),
+  }
+}
+
 /** A new path point at a place: no facing, no wait, no wander, no script. */
 export const newWaypoint = (x: number, y: number, z: number): vmangos.Waypoint => ({ x, y, z, orientation: 0, waitMs: 0, wanderDistance: 0, scriptId: 0 })
 

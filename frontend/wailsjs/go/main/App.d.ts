@@ -13,6 +13,8 @@ export function BrowseWowFolder():Promise<string>;
 
 export function ClearThumbnailCache():Promise<void>;
 
+export function CreateCreature(arg1:number,arg2:string):Promise<number>;
+
 export function GameLogin():Promise<main.GameLoginInfo>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
@@ -28,6 +30,8 @@ export function LoadSpawns(arg1:string,arg2:number,arg3:number,arg4:number):Prom
 export function MapEntries():Promise<Array<vmangos.MapEntry>>;
 
 export function MapZones():Promise<Array<vmangos.Zone>>;
+
+export function ModelAnimations(arg1:string):Promise<Array<vmangos.AnimInfo>>;
 
 export function MouseLookBegin():Promise<boolean>;
 
@@ -47,9 +51,13 @@ export function PublishVmangosMap(arg1:vmangos.MapSpec):Promise<void>;
 
 export function Quit():Promise<void>;
 
+export function ReadCreature(arg1:number):Promise<vmangos.CreatureRecord>;
+
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
+
+export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 
 export function SaveHeightmapDialog(arg1:string):Promise<string>;
 
@@ -70,6 +78,8 @@ export function SaveTextDialog(arg1:string):Promise<string>;
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 
 export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTemplate>>;
+
+export function SearchDisplays(arg1:string):Promise<Array<vmangos.DisplayInfo>>;
 
 export function SetGameLogin(arg1:string,arg2:string):Promise<void>;
 
