@@ -3,6 +3,7 @@ import { fetchMesh, loadTexture, type MeshEffect, type MeshGroup, type WowMesh }
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
 import { buildBoundsTree } from '../world/bvh'
+import { buildLod } from './lod'
 
 /**
  * A placeable model: one geometry (with groups) and one material per group.
@@ -21,6 +22,8 @@ export interface ModelAsset {
   skeleton?: THREE.Skeleton
   /** Lights and flames in model space. */
   effects: MeshEffect[]
+  /** A simplified model for instances far away, sharing the geometry's vertices (see lod.ts). */
+  lod?: THREE.BufferGeometry
 }
 
 export type ModelKind = 'm2' | 'wmo'
@@ -103,9 +106,13 @@ export function loadAsset(type: string): Promise<ModelAsset> {
   let p = pending.get(type)
   if (!p) {
     p = fetchMesh(wowPath(type))
-      .then((m) => {
+      .then(async (m) => {
         const asset = buildWowAsset(m, type)
         buildBoundsTree(asset.geometry)
+        asset.lod = await buildLod(asset.geometry).catch((err) => {
+          console.warn('model LOD failed', type, err)
+          return undefined
+        })
         return asset
       })
       .catch((err) => {

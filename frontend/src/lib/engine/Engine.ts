@@ -69,6 +69,8 @@ const TILE_CELLS = 128
 
 /** Models whose bounds cover fewer pixels than this are not drawn, with the preference on. */
 const SMALL_MODEL_PX = 1.5
+/** Props whose bounds cover fewer pixels than this are drawn with their LOD (see models/lod.ts), whose error is about 1% of that. */
+const LOD_PX = 100
 
 export interface MapSnapshot {
   name: string
@@ -550,6 +552,7 @@ export class Engine {
     v.eye.copy(this.camera.position)
     v.pxPerUnit = this.container.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2))
     v.cutoffPx = this.prefs?.cullSmallModels === false ? 0 : SMALL_MODEL_PX
+    v.lodPx = LOD_PX
     this.objects.cull(v)
     this.doc.spawnLayer.cull(v)
   }

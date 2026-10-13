@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { cullSpheres, instanceSphere, packMatrices, type CullView } from '../src/lib/world/instanceCull.ts'
+import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } from '../src/lib/world/instanceCull.ts'
 
 /** A camera at the origin looking down -z with a 90 degree view, and the view it makes. */
 function view(cutoffPx = 0): CullView {
@@ -75,4 +75,22 @@ test('instance spheres follow the placement, and packing copies the chosen matri
   packMatrices(all, [2, 0], into)
   assert.deepEqual([...into.subarray(0, 16)], [...all.subarray(32, 48)])
   assert.deepEqual([...into.subarray(16, 32)], [...all.subarray(0, 16)])
+})
+
+test('instances small on screen go to the LOD, and an unchanged split reports no change', () => {
+  // At 500 px per unit, a radius-1 sphere covers 100 px at a distance of 10.
+  const s = spheres([0, 0, -5, 1], [0, 0, -20, 1], [0, 0, -0.5, 1])
+  const v = { ...view(), lodPx: 100 }
+  const near: number[] = []
+  const far: number[] = []
+  assert.equal(splitLod(v, s, [0, 1, 2], near, far, [], []), true)
+  assert.deepEqual(near, [0, 2], 'the camera inside a model always draws it in full')
+  assert.deepEqual(far, [1])
+  assert.equal(splitLod(v, s, [0, 1, 2], near, far, [], []), false)
+  v.eye.set(0, 0, -18)
+  assert.equal(splitLod(v, s, [0, 1, 2], near, far, [], []), true)
+  assert.deepEqual(near, [1])
+  assert.deepEqual(far, [0, 2])
+  assert.equal(splitLod({ ...v, lodPx: 0 }, s, [0, 1, 2], near, far, [], []), true)
+  assert.deepEqual(far, [], 'no LOD without a threshold')
 })

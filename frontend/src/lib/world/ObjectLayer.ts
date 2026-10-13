@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
 import { SkinnedInstancedMesh } from './Animator'
-import { cullSpheres, instanceSphere, packMatrices, type CullView } from './instanceCull'
+import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } from './instanceCull'
 
 export interface WorldObject {
   id: number
@@ -36,6 +36,12 @@ interface Batch {
   mesh: THREE.InstancedMesh
   /** The ids of the instances drawn, by instance index: the ones in view, packed (see cull). */
   ids: number[]
+  /** Draws the instances small on screen with the model's LOD, when it has one (see models/lod.ts). */
+  lod: THREE.InstancedMesh | null
+  lodIds: number[]
+  /** Indices into `all` of the instances drawn in full and with the LOD. */
+  near: number[]
+  far: number[]
   /** Every object of the type that is not hidden, with its world matrix and bounding sphere. */
   all: number[]
   matrices: Float32Array
@@ -43,6 +49,7 @@ interface Batch {
   /** Indices into `all` of the instances drawn, and scratch for the next frame's. */
   packed: number[]
   scratch: number[]
+  scratchFar: number[]
   dirty: boolean
 }
 
@@ -76,10 +83,7 @@ export class ObjectLayer {
       const b = this.batches.get(type)
       if (!b) return
       this.version++
-      this.group.remove(b.mesh)
-      b.mesh.dispose()
-      b.mesh = this.makeMesh(type, b.mesh.instanceMatrix.count)
-      this.group.add(b.mesh)
+      this.setMeshes(b, type, b.mesh.instanceMatrix.count)
       b.dirty = true
     })
   }
@@ -273,19 +277,53 @@ export class ObjectLayer {
   private batch(type: string): Batch {
     let b = this.batches.get(type)
     if (!b) {
-      b = { mesh: this.makeMesh(type, 64), ids: [], all: [], matrices: new Float32Array(0), spheres: new Float32Array(0), packed: [], scratch: [], dirty: true }
+      const a = getAsset(type)
+      const ids: number[] = []
+      const lodIds: number[] = []
+      b = {
+        mesh: this.makeMesh(type, a.geometry, 64, ids),
+        ids,
+        lod: a.lod ? this.makeMesh(type, a.lod, 64, lodIds) : null,
+        lodIds,
+        near: [],
+        far: [],
+        all: [],
+        matrices: new Float32Array(0),
+        spheres: new Float32Array(0),
+        packed: [],
+        scratch: [],
+        scratchFar: [],
+        dirty: true,
+      }
       this.batches.set(type, b)
       this.group.add(b.mesh)
+      if (b.lod) this.group.add(b.lod)
     }
     return b
   }
 
-  private makeMesh(type: string, capacity: number) {
+  /** Replaces a batch's meshes, for a model that loaded or more instances than they hold. */
+  private setMeshes(b: Batch, type: string, capacity: number) {
+    for (const m of [b.mesh, b.lod]) {
+      if (!m) continue
+      this.group.remove(m)
+      m.dispose()
+    }
     const a = getAsset(type)
-    const m = a.skeleton ? new SkinnedInstancedMesh(a.geometry, a.material, capacity, a.skeleton) : new THREE.InstancedMesh(a.geometry, a.material, capacity)
+    b.mesh = this.makeMesh(type, a.geometry, capacity, b.ids)
+    b.lod = a.lod ? this.makeMesh(type, a.lod, capacity, b.lodIds) : null
+    this.group.add(b.mesh)
+    if (b.lod) this.group.add(b.lod)
+  }
+
+  /** `ids` names the object drawn by each instance, as `cull` packs them. */
+  private makeMesh(type: string, geometry: THREE.BufferGeometry, capacity: number, ids: number[]) {
+    const a = getAsset(type)
+    const m = a.skeleton ? new SkinnedInstancedMesh(geometry, a.material, capacity, a.skeleton) : new THREE.InstancedMesh(geometry, a.material, capacity)
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     m.count = 0
     m.userData.type = type
+    m.userData.ids = ids
     m.frustumCulled = false
     m.castShadow = true
     m.receiveShadow = true
@@ -295,7 +333,7 @@ export class ObjectLayer {
   /** Whether any object of `type` is drawn: not hidden, and in view as of the last cull. */
   hasVisible(type: string): boolean {
     const b = this.batches.get(type)
-    return !!b && b.mesh.count > 0
+    return !!b && (b.mesh.count > 0 || (b.lod?.count ?? 0) > 0)
   }
 
   /**
@@ -312,10 +350,7 @@ export class ObjectLayer {
       if (n > b.mesh.instanceMatrix.count) {
         let cap = b.mesh.instanceMatrix.count
         while (cap < n) cap *= 2
-        this.group.remove(b.mesh)
-        b.mesh.dispose()
-        b.mesh = this.makeMesh(type, cap)
-        this.group.add(b.mesh)
+        this.setMeshes(b, type, cap)
       }
       if (b.matrices.length < n * 16) {
         b.matrices = new Float32Array(b.mesh.instanceMatrix.count * 16)
@@ -335,25 +370,42 @@ export class ObjectLayer {
 
   /**
    * Draws only the instances in `view`: they are packed to the front of each batch's instance buffer,
-   * so a type with nothing in view costs no draw calls. Call once per frame, after `update`.
+   * so a type with nothing in view costs no draw calls. Instances small on screen go to the LOD mesh.
+   * Call once per frame, after `update`.
    */
   cull(view: CullView) {
     for (const b of this.batches.values()) {
-      if (!cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch)) continue
-      packMatrices(b.matrices, b.packed, b.mesh.instanceMatrix.array as Float32Array)
-      b.ids.length = b.packed.length
-      for (let k = 0; k < b.packed.length; k++) b.ids[k] = b.all[b.packed[k]]
-      b.mesh.count = b.packed.length
-      b.mesh.instanceMatrix.needsUpdate = true
-      // Picking tests the mesh's sphere first, so it must cover the instances drawn.
-      b.mesh.computeBoundingSphere()
+      const changed = cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch)
+      if (!b.lod) {
+        if (changed) this.pack(b, b.mesh, b.ids, b.packed)
+        continue
+      }
+      // The split changes as the camera moves, even when the instances in view don't.
+      if (!splitLod(view, b.spheres, b.packed, b.near, b.far, b.scratch, b.scratchFar) && !changed) continue
+      this.pack(b, b.mesh, b.ids, b.near)
+      this.pack(b, b.lod, b.lodIds, b.far)
     }
+  }
+
+  /** Packs the instances `which` names (indices into `b.all`) to the front of `mesh`. */
+  private pack(b: Batch, mesh: THREE.InstancedMesh, ids: number[], which: number[]) {
+    packMatrices(b.matrices, which, mesh.instanceMatrix.array as Float32Array)
+    ids.length = which.length
+    for (let k = 0; k < which.length; k++) ids[k] = b.all[which[k]]
+    mesh.count = which.length
+    mesh.instanceMatrix.needsUpdate = true
+    // Picking tests the mesh's sphere first, so it must cover the instances drawn.
+    mesh.computeBoundingSphere()
   }
 
   /** Hits on the drawn instances, nearest first: one per instance, from its model's bounds tree. */
   private intersect(raycaster: THREE.Raycaster): THREE.Intersection[] {
     const meshes: THREE.Object3D[] = []
-    for (const b of this.batches.values()) if (b.mesh.count > 0) meshes.push(b.mesh)
+    for (const b of this.batches.values()) {
+      if (b.mesh.count > 0) meshes.push(b.mesh)
+      // A LOD shares its model's bounds tree, so it picks the full model.
+      if (b.lod && b.lod.count > 0) meshes.push(b.lod)
+    }
     const first = raycaster.firstHitOnly
     raycaster.firstHitOnly = true
     try {
@@ -368,8 +420,7 @@ export class ObjectLayer {
     const hits = this.intersect(raycaster)
     for (const h of hits) {
       if (h.instanceId === undefined) continue
-      const b = this.batches.get(h.object.userData.type as string)
-      const id = b?.ids[h.instanceId]
+      const id = (h.object.userData.ids as number[])[h.instanceId]
       if (id === undefined || exclude?.has(id)) continue
       if (!getAsset(this.objects.get(id)!.type).ready) continue
       return { id, point: h.point.clone(), distance: h.distance }
@@ -382,8 +433,7 @@ export class ObjectLayer {
     const hits = this.intersect(raycaster)
     for (const h of hits) {
       if (h.instanceId === undefined) continue
-      const b = this.batches.get(h.object.userData.type as string)
-      if (b) return b.ids[h.instanceId] ?? null
+      return (h.object.userData.ids as number[])[h.instanceId] ?? null
     }
     return null
   }
@@ -394,7 +444,10 @@ export class ObjectLayer {
 
   dispose() {
     this.unsubscribe()
-    for (const b of this.batches.values()) b.mesh.dispose()
+    for (const b of this.batches.values()) {
+      b.mesh.dispose()
+      b.lod?.dispose()
+    }
     this.batches.clear()
     this.group.clear()
   }

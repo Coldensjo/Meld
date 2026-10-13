@@ -17,6 +17,8 @@ export interface CullView {
   pxPerUnit: number
   /** Instances whose bounds would cover fewer pixels than this are left out; 0 keeps them all. */
   cutoffPx: number
+  /** Instances whose bounds cover fewer pixels than this are drawn with their model's LOD; 0 never. */
+  lodPx?: number
 }
 
 const sphere = new THREE.Sphere()
@@ -64,6 +66,38 @@ export function cullSpheres(view: CullView, spheres: Float32Array, n: number, ou
   if (same) return false
   out.length = scratch.length
   for (let k = 0; k < scratch.length; k++) out[k] = scratch[k]
+  return true
+}
+
+/**
+ * Splits the instances `packed` names into the ones drawn in full (`near`) and the ones that cover
+ * fewer than `view.lodPx` pixels and get their model's LOD (`far`). Returns false when both already
+ * held exactly them, so the caller can skip re-packing.
+ */
+export function splitLod(view: CullView, spheres: Float32Array, packed: number[], near: number[], far: number[], scratchNear: number[], scratchFar: number[]): boolean {
+  const { eye, pxPerUnit } = view
+  const lodPx = view.lodPx ?? 0
+  scratchNear.length = 0
+  scratchFar.length = 0
+  for (const i of packed) {
+    const o = i * 4
+    const r = spheres[o + 3]
+    const dx = spheres[o] - eye.x, dy = spheres[o + 1] - eye.y, dz = spheres[o + 2] - eye.z
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz)
+    if (lodPx > 0 && d > r && (2 * r * pxPerUnit) / d < lodPx) scratchFar.push(i)
+    else scratchNear.push(i)
+  }
+  const a = copyIfChanged(scratchNear, near)
+  const b = copyIfChanged(scratchFar, far)
+  return a || b
+}
+
+function copyIfChanged(from: number[], to: number[]): boolean {
+  let same = from.length === to.length
+  for (let k = 0; same && k < from.length; k++) if (from[k] !== to[k]) same = false
+  if (same) return false
+  to.length = from.length
+  for (let k = 0; k < from.length; k++) to[k] = from[k]
   return true
 }
 
