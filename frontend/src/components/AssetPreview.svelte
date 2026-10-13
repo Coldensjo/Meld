@@ -186,6 +186,7 @@
     gap: 6px;
   }
   .view {
+    position: relative;
     flex: 1;
     min-height: 0;
     border-radius: 4px;
@@ -199,7 +200,10 @@
   .view:active {
     cursor: grabbing;
   }
+  /* Out of flow, so the canvas's own size never stops the panel from shrinking. */
   canvas {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     display: block;

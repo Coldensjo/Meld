@@ -349,6 +349,7 @@
   .facets {
     display: flex;
     flex-direction: column;
+    min-height: 0;
     overflow-y: auto;
     border-right: 1px solid var(--border);
     padding: 4px;
@@ -403,6 +404,7 @@
     border-left: 1px solid var(--border);
     padding: 8px;
     min-height: 0;
+    overflow: hidden;
   }
   .empty {
     color: var(--text-dim);
