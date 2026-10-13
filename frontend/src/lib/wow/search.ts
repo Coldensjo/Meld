@@ -12,6 +12,8 @@ export interface SearchItem extends CatalogItem {
   tokens: string[]
   /** Lower-case words of the file name only (worth more in a match). */
   nameTokens: string[]
+  /** All the tokens as one space-separated string, for a quick check that a term is in none of them. */
+  text: string
 }
 
 /** Words an author types, and the path words that mean the same thing. */
@@ -84,12 +86,10 @@ export function tokenize(path: string): string[] {
 }
 
 export function indexCatalog(kind: AssetKind, items: CatalogItem[]): SearchItem[] {
-  return items.map((it) => ({
-    ...it,
-    kind,
-    tokens: tokenize(it.path),
-    nameTokens: tokenize(it.path.slice(it.path.lastIndexOf('\\') + 1)),
-  }))
+  return items.map((it) => {
+    const tokens = tokenize(it.path)
+    return { ...it, kind, tokens, nameTokens: tokenize(it.path.slice(it.path.lastIndexOf('\\') + 1)), text: tokens.join(' ') }
+  })
 }
 
 /** How well one query term matches a token list: exact 3, prefix 2, inside 1, nothing 0. */
@@ -118,14 +118,26 @@ function expand(term: string): string[] {
  * File-name words count more than folder words, and synonyms a little less than the word itself.
  */
 export function scoreItem(it: SearchItem, terms: string[]): number {
+  return scoreExpanded(it, terms.map(expand))
+}
+
+/** The best score a term can reach: an exact file-name word. */
+const BEST_SCORE = 3 * 1.5
+
+/** scoreItem over terms already expanded with their synonyms, so a search expands each term once, not per item. */
+function scoreExpanded(it: SearchItem, expanded: string[][]): number {
   let total = 0
-  for (const term of terms) {
-    const alts = expand(term)
+  for (const alts of expanded) {
     let best = 0
     for (let i = 0; i < alts.length; i++) {
+      const alt = alts[i]
+      // A word in no token at all (the usual case) is settled by one search of the joined tokens.
+      if (!it.text.includes(alt)) continue
       const weight = i === 0 ? 1 : 0.7
-      const s = Math.max(termScore(alts[i], it.nameTokens) * 1.5, termScore(alts[i], it.tokens)) * weight
+      const name = termScore(alt, it.nameTokens) * 1.5
+      const s = (name === BEST_SCORE ? name : Math.max(name, termScore(alt, it.tokens))) * weight
       if (s > best) best = s
+      if (best === BEST_SCORE) break
     }
     if (best === 0) return 0
     total += best
@@ -147,12 +159,29 @@ export interface SearchResult {
   zones: Array<{ name: string; count: number }>
 }
 
+/** Orders names as localeCompare does, through one collator instead of one per comparison. */
+const byName = new Intl.Collator()
+
+/** Each catalog sorted by name once, for queries with no words, where every item scores the same. */
+const sortedByName = new WeakMap<readonly SearchItem[], SearchItem[]>()
+
+function nameOrder(all: readonly SearchItem[]): SearchItem[] {
+  let sorted = sortedByName.get(all)
+  if (!sorted) {
+    sorted = [...all].sort((a, b) => byName.compare(a.name, b.name))
+    sortedByName.set(all, sorted)
+  }
+  return sorted
+}
+
 export function searchAssets(all: readonly SearchItem[], f: SearchFilter, categoryOrder: readonly string[]): SearchResult {
   const terms = f.query.toLowerCase().split(/\s+/).filter(Boolean)
+  const expanded = terms.map(expand)
   const scored: Array<{ it: SearchItem; s: number }> = []
-  for (const it of all) {
+  // With no words every item scores 1, so the name order is the whole order: take it ready sorted.
+  for (const it of terms.length ? all : nameOrder(all)) {
     if (f.kind !== 'all' && it.kind !== f.kind) continue
-    const s = terms.length ? scoreItem(it, terms) : 1
+    const s = terms.length ? scoreExpanded(it, expanded) : 1
     if (s > 0) scored.push({ it, s })
   }
   const catCounts = new Map<string, number>()
@@ -161,10 +190,9 @@ export function searchAssets(all: readonly SearchItem[], f: SearchFilter, catego
     if (!f.zone || it.zone === f.zone) catCounts.set(it.category, (catCounts.get(it.category) ?? 0) + 1)
     if (!f.category || it.category === f.category) zoneCounts.set(it.zone, (zoneCounts.get(it.zone) ?? 0) + 1)
   }
-  const items = scored
-    .filter(({ it }) => (!f.category || it.category === f.category) && (!f.zone || it.zone === f.zone))
-    .sort((a, b) => b.s - a.s || a.it.name.localeCompare(b.it.name))
-    .map((x) => x.it)
+  const hits = scored.filter(({ it }) => (!f.category || it.category === f.category) && (!f.zone || it.zone === f.zone))
+  if (terms.length) hits.sort((a, b) => b.s - a.s || byName.compare(a.it.name, b.it.name))
+  const items = hits.map((x) => x.it)
   const order = new Map(categoryOrder.map((c, i) => [c, i]))
   const categories = [...catCounts]
     .map(([name, count]) => ({ name, count }))
