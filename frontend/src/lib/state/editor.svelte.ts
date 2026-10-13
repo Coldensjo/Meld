@@ -243,6 +243,10 @@ export type Prefs = typeof prefs
 
 export const ui = $state({
   status: 'Ready',
+  /** A short-lived notice drawn big over the viewport (e.g. the placement scale while Shift+scrolling); '' when none. */
+  viewportHint: '',
+  /** Bumped with every hint, so the view can restart its fade even when the text is unchanged. */
+  viewportHintSeq: 0,
   canUndo: false,
   canRedo: false,
   showNewDialog: false,
@@ -279,6 +283,15 @@ export const ui = $state({
   /** A creature template being placed: the next click on the ground in the Select tool spawns it. */
   placeCreature: null as vmangos.CreatureTemplate | null,
 })
+
+let hintTimer: ReturnType<typeof setTimeout> | undefined
+/** Show `msg` over the viewport for `timeout` ms. Another call restarts the clock. */
+export function setViewportHint(msg: string, timeout = 1500) {
+  ui.viewportHint = msg
+  ui.viewportHintSeq++
+  clearTimeout(hintTimer)
+  hintTimer = setTimeout(() => (ui.viewportHint = ''), timeout)
+}
 
 let statusTimer: ReturnType<typeof setTimeout> | undefined
 export function setStatus(msg: string, timeout = 4000) {

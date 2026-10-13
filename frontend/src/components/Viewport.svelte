@@ -3,7 +3,7 @@
   import { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
   import DocTabs from './DocTabs.svelte'
-  import { prefs, setStatus } from '../lib/state/editor.svelte'
+  import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
 
   let container: HTMLDivElement
   let canvas: HTMLCanvasElement
@@ -33,6 +33,7 @@
   <div class="viewport" bind:this={container}>
     <canvas bind:this={canvas} tabindex="-1"></canvas>
     {#if error}<div class="error">{error}</div>{/if}
+    {#if ui.viewportHint}{#key ui.viewportHintSeq}<div class="hint">{ui.viewportHint}</div>{/key}{/if}
   </div>
 </div>
 
@@ -62,6 +63,27 @@
     height: 100%;
     outline: none;
     touch-action: none;
+  }
+  /* A short-lived notice near the top of the view (e.g. the placement scale). The pointer goes through it. */
+  .hint {
+    position: absolute;
+    top: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    user-select: none;
+    animation: hint-fade 1.5s ease-in forwards;
+  }
+  @keyframes hint-fade {
+    0%, 60% { opacity: 1; }
+    100% { opacity: 0; }
   }
   .error {
     position: absolute;

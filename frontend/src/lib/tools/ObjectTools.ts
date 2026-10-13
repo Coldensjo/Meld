@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
-import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
+import { editor, prefs, setStatus, setViewportHint, ui } from '../state/editor.svelte'
 import { movableSelection, objectsInRect, selectObjects } from '../state/selection'
 import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
@@ -117,7 +117,7 @@ export class PlaceTool implements Tool {
       return
     }
     this.scale = Math.round(THREE.MathUtils.clamp(this.scale * factor, 0.05, 20) * 100) / 100
-    setStatus(`Scale ×${this.scale.toFixed(2)}`, 1500)
+    setViewportHint(`Scale ×${this.scale.toFixed(2)}`)
   }
 
   private reroll() {
