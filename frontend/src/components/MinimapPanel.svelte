@@ -4,12 +4,12 @@
 </script>
 
 <div class="minimap-panel">
-  <TileMinimap open={editor.regionBlock} />
+  <TileMinimap open={editor.regionBlock} map={editor.regionMap} />
   {#if editor.region}
     <p class="label">{editor.region}</p>
     <p class="dim">Outlined on the map: the tiles this map is made of. Saving writes them back to the client.</p>
   {:else}
-    <p class="dim">No client region is open. Open one with File › Open WoW Region…</p>
+    <p class="dim">This map is not a part of a continent. File › Open Part of Azeroth… opens one.</p>
   {/if}
 </div>
 

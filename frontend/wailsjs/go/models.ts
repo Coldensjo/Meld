@@ -562,6 +562,28 @@ export namespace vmangos {
 	        this.model = source["model"];
 	    }
 	}
+	export class Zone {
+	    MapID: number;
+	    Name: string;
+	    X0: number;
+	    Y0: number;
+	    X1: number;
+	    Y1: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Zone(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.MapID = source["MapID"];
+	        this.Name = source["Name"];
+	        this.X0 = source["X0"];
+	        this.Y0 = source["Y0"];
+	        this.X1 = source["X1"];
+	        this.Y1 = source["Y1"];
+	    }
+	}
 
 }
 

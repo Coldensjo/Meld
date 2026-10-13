@@ -115,6 +115,13 @@ cd frontend && pnpm build   # frontend only
 - **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
   target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides
   the map edge.
+- **Start dialog** (`components/NewMapDialog.svelte`, `ui.showNewDialog` + `ui.newMapMode`): every
+  map is for the 1.12 client (folder + map ID). "New world" picks a size in tiles and a preset from
+  `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands, so a world is
+  bounded by sea); the cards are drawn by `drawPresetPreview`. "Part of Azeroth" picks a square of
+  tiles on `MapPicker.svelte`, a continent overview stitched by the Go side from the client's
+  minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
+  the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps.
 - **Asset browser** (`components/AssetBrowser.svelte`, along the bottom of the window):
   - Search-first: `lib/wow/search.ts` tokenises every path (folder segments, file-name words,
     camel-case) and scores a query against them, with a synonym table (`SYNONYMS`) mapping the

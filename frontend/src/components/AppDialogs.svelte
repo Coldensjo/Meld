@@ -1,48 +1,13 @@
 <script lang="ts">
   import Modal from './Modal.svelte'
-  import TileMinimap, { type Block } from './TileMinimap.svelte'
   import GameLoginDialog from './GameLoginDialog.svelte'
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { openWowRegion, revertMap, saveAndPublish } from '../lib/io/mapio'
   import { Quit } from '../../wailsjs/go/main/App'
   import { APP_VERSION } from '../lib/version'
-  import { SvelteSet } from 'svelte/reactivity'
 
   const close = () => (ui.dialog = null)
-
-  // The open-region dialog: the map's name, and the tiles picked on the minimap ("x,y" keys). A
-  // region is a square block of tiles up to 16 a side, so the editor opens the smallest square that
-  // covers the picks.
-  const MAX_REGION = 16
-  const MAP_TILES = 64
-  let tileMap = $state('Azeroth')
-  const picked = new SvelteSet<string>(Array.from({ length: 16 }, (_, i) => `${32 + (i % 4)},${48 + Math.floor(i / 4)}`))
-  const block = $derived.by((): Block | null => {
-    if (picked.size === 0) return null
-    let minX = MAP_TILES
-    let minY = MAP_TILES
-    let maxX = -1
-    let maxY = -1
-    for (const key of picked) {
-      const [x, y] = key.split(',').map(Number)
-      minX = Math.min(minX, x)
-      minY = Math.min(minY, y)
-      maxX = Math.max(maxX, x)
-      maxY = Math.max(maxY, y)
-    }
-    const size = Math.max(maxX - minX + 1, maxY - minY + 1)
-    if (size > MAX_REGION) return null
-    // Shift the square back onto the map if it runs off the far edge; it still covers every pick.
-    return { x: Math.min(minX, MAP_TILES - size), y: Math.min(minY, MAP_TILES - size), size }
-  })
-  const blockText = $derived(
-    block
-      ? `Opens tiles ${block.x}–${block.x + block.size - 1} × ${block.y}–${block.y + block.size - 1} (${block.size}×${block.size})`
-      : picked.size === 0
-        ? 'Click tiles on the map to select them.'
-        : `The selection spans more than ${MAX_REGION} tiles across. Narrow it down.`,
-  )
 
   // The texture dialog's choices: palette indices.
   let texFrom = $state(0)
@@ -170,34 +135,6 @@
       >
     {/snippet}
   </Modal>
-{:else if ui.dialog === 'openTile'}
-  <Modal title="Open a WoW region" width={380} onclose={close}>
-    <p class="dim">
-      Read from your WoW 1.12 client. Click tiles to select them; click again to deselect. The editor opens the smallest square that
-      covers your selection, outlined in orange, with its ground, paint and models.
-    </p>
-    <div class="fields">
-      <label for="tile-map">Map</label>
-      <input id="tile-map" type="text" bind:value={tileMap} />
-    </div>
-    <div class="pick">
-      <TileMinimap {picked} open={block} interactive />
-    </div>
-    <p class="dim status">{blockText}</p>
-    {#snippet actions()}
-      <button disabled={picked.size === 0} onclick={() => picked.clear()}>Clear selection</button>
-      <button onclick={close}>Cancel</button>
-      <button
-        class="active"
-        disabled={!block || tileMap.trim() === ''}
-        onclick={() => {
-          const e = engineRef.current
-          close()
-          if (e && block) openWowRegion(e, tileMap.trim(), block.x, block.y, block.size)
-        }}>Open</button
-      >
-    {/snippet}
-  </Modal>
 {:else if ui.dialog === 'publish'}
   <Modal title="Publish to the server" width={400} onclose={close}>
     <p>Publishing rebuilds this map for the server and the client. It writes the map into your WoW client's patch, then stops the world server, extracts the map again (several minutes), and starts the server.</p>
@@ -265,15 +202,6 @@
     gap: 8px;
     align-items: center;
     margin-top: 10px;
-  }
-  .fields input {
-    width: 100%;
-  }
-  .pick {
-    margin-top: 12px;
-  }
-  .status {
-    margin: 6px 0 0;
   }
   .about {
     display: flex;

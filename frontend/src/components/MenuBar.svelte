@@ -40,9 +40,9 @@
     {
       name: 'File',
       items: [
-        { kind: 'action', label: 'New Map…', shortcut: 'Ctrl+N', run: () => (ui.showNewDialog = true) },
+        { kind: 'action', label: 'New World…', shortcut: 'Ctrl+N', run: () => { ui.newMapMode = 'new'; ui.showNewDialog = true } },
         { kind: 'action', label: 'Open…', shortcut: 'Ctrl+O', disabled: ui.busy, run: withEngine(openMap) },
-        { kind: 'action', label: 'Open WoW Region…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'openTile') },
+        { kind: 'action', label: 'Open Part of Azeroth…', disabled: !hasBackend() || ui.busy, run: () => { ui.newMapMode = 'open'; ui.showNewDialog = true } },
         { kind: 'sep' },
         { kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveOrPublish(e)) },
         { kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },

@@ -29,6 +29,10 @@ type Client struct {
 	cacheMu   sync.Mutex
 	cache     map[string][]byte
 	cacheSize int
+
+	// The minimap table (see minimap.go), parsed on first use.
+	minimapMu sync.Mutex
+	minimap   map[string][]MapTile
 }
 
 const cacheLimit = 512 << 20
@@ -77,6 +81,9 @@ func (c *Client) Open(dir string) error {
 		return err
 	}
 	c.set = set
+	c.minimapMu.Lock()
+	c.minimap = nil
+	c.minimapMu.Unlock()
 	// Listfiles reference some files that were never shipped; drop those.
 	for _, f := range set.List() {
 		if set.Has(f) {
@@ -355,6 +362,24 @@ func (c *Client) Handler() http.Handler {
 		}
 		w.Header().Set("Content-Type", "image/png")
 		w.Write(b)
+	})
+	// The map overview for picking a region: a PNG stitched from the client's minimap.
+	mux.HandleFunc("/wow/overview", func(w http.ResponseWriter, r *http.Request) {
+		b, err := c.MapOverview(r.URL.Query().Get("map"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(b)
+	})
+	mux.HandleFunc("/wow/tiles", func(w http.ResponseWriter, r *http.Request) {
+		tiles, err := c.MinimapTiles(r.URL.Query().Get("map"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		writeJSON(w, tiles)
 	})
 	mux.HandleFunc("/wow/model", func(w http.ResponseWriter, r *http.Request) {
 		b, err := c.Model(r.URL.Query().Get("path"))

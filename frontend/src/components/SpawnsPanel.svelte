@@ -36,7 +36,7 @@
 <div class="spawns">
   {#if editor.spawns.length === 0}
     <p class="dim">
-      Open a WoW region to see the creatures and game objects the server places in it. They come from the server's world database, so
+      Open a part of Azeroth to see the creatures and game objects the server places in it. They come from the server's world database, so
       the VMaNGOS server folder must be set.
     </p>
   {:else}

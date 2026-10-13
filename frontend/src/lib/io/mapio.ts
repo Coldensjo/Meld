@@ -238,7 +238,7 @@ export function exportRegion(engine: Engine) {
   return guarded('Export region', async () => {
     const region = engine.activeRegion()
     if (!region) {
-      setStatus('This map is not a client region. Open one with File › Open WoW Region…')
+      setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
       return
     }
     const patch = await SaveRegion(
@@ -303,7 +303,7 @@ export function exportPortCoords(engine: Engine) {
   return guarded('Export port coordinates', async () => {
     const ref = engine.activeVmangos()
     if (!ref) {
-      setStatus('Port commands need the map’s ID. Make the map with File › New Map…, ticking “For the WoW 1.12 client”.', 8000)
+      setStatus('Port commands need the map’s ID. Make the map with File › New World…', 8000)
       return
     }
     const path = await SaveTextDialog(editor.mapName)
@@ -365,7 +365,7 @@ export function publishVmangosMap(engine: Engine) {
   return guarded('Publish', async () => {
     const ref = engine.activeVmangos()
     if (!ref) {
-      setStatus('Only a map made for the client publishes this way. Make one with File › New Map…, ticking “For the WoW 1.12 client”.')
+      setStatus('Only a map made for the client publishes this way. Make one with File › New World…')
       return
     }
     listenToPublish()

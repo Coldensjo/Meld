@@ -40,9 +40,18 @@ The layout follows Photoshop:
 Drag the dock's left edge to resize it, and click a panel's header (▾) to collapse it. Both are
 remembered.
 
-New maps start **empty: just water over a flat seabed**. Use Sculpt › Raise (or Mountain) to
-build land up out of the sea. The New Map dialog can still generate hills, mountains or an
-island.
+Every map is a map for the WoW 1.12 client and a VMaNGOS server. The **Start** dialog (`Ctrl+N`)
+has two pages:
+
+- **New world**: a name (the map's folder in the client), a size in tiles, and a preset card:
+  Open sea, Island, Archipelago, Rolling hills, Lakeland, Highlands, Mountains or Flat land. Every
+  preset but Flat land is an island, so the world ends in sea. The cards show the layout for the
+  current seed; the dice rolls another. Once published, the world can be reached from Azeroth
+  through a portal.
+- **Part of Azeroth**: pick a continent, then drag a square of up to 8×8 tiles on a map stitched
+  from the client's own minimap (scroll to zoom, right-drag to pan), or click a zone in the list to
+  jump there. The tiles' ground, textures and models open in a new tab, and saving writes them
+  back to the client.
 
 ### Asset browser (Models / Textures panel)
 

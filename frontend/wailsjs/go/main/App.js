@@ -42,6 +42,10 @@ export function MapEntries() {
   return window['go']['main']['App']['MapEntries']();
 }
 
+export function MapZones() {
+  return window['go']['main']['App']['MapZones']();
+}
+
 export function OpenHeightmapDialog() {
   return window['go']['main']['App']['OpenHeightmapDialog']();
 }

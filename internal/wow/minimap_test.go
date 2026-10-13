@@ -1,0 +1,54 @@
+package wow
+
+import (
+	"bytes"
+	"image/png"
+	"os"
+	"testing"
+)
+
+// TestRealMinimap stitches Azeroth's overview from the client and checks Goldshire's tile is drawn:
+// WOW_DIR=/path/to/client go test ./internal/wow/ -run RealMinimap
+func TestRealMinimap(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
+	}
+	c := NewClient()
+	if err := c.Open(dir); err != nil {
+		t.Fatal(err)
+	}
+	tiles, err := c.MinimapTiles("Azeroth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	has := false
+	for _, tile := range tiles {
+		if tile.X == 32 && tile.Y == 48 {
+			has = true
+		}
+	}
+	if !has {
+		t.Fatalf("tile 32,48 missing from %d Azeroth tiles", len(tiles))
+	}
+	b, err := c.MapOverview("Azeroth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if img.Bounds().Dx() != MapTilesPerSide*OverviewTilePx {
+		t.Fatalf("overview is %v", img.Bounds())
+	}
+	_, _, _, a := img.At(32*OverviewTilePx+16, 48*OverviewTilePx+16).RGBA()
+	if a == 0 {
+		t.Fatal("Goldshire's tile is transparent")
+	}
+	_, _, _, a = img.At(0, 0).RGBA()
+	if a != 0 {
+		t.Fatal("tile 0,0 should be empty")
+	}
+	t.Logf("%d tiles, %d bytes of PNG", len(tiles), len(b))
+}

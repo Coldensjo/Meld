@@ -16,9 +16,11 @@
     /** The block the editor has open, outlined on the map. */
     open?: Block | null
     interactive?: boolean
+    /** The map's folder name: its overview from the client's minimap is drawn behind the grid. */
+    map?: string
   }
 
-  let { picked, open = null, interactive = false }: Props = $props()
+  let { picked, open = null, interactive = false, map = '' }: Props = $props()
 
   const TILES = 64
   // The map's grid lines as one path. Tiles are one unit, so the viewBox is the whole map.
@@ -71,6 +73,9 @@
   onpointermove={move}
   onpointerleave={() => (hover = null)}
 >
+  {#if map}
+    <image href="/wow/overview?map={encodeURIComponent(map)}" x="0" y="0" width={TILES} height={TILES} preserveAspectRatio="none" />
+  {/if}
   <path d={GRID} class="lines" />
   {#each pickedTiles as t (t.key)}
     <rect x={t.x} y={t.y} width="1" height="1" class="pick" />

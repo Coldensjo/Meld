@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { GenerateKind } from '../terrain/Terrain'
+import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
@@ -601,6 +602,7 @@ export class Engine {
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
+    editor.regionMap = m.region?.mapName ?? ''
     editor.spawns = d.spawnLayer.spawns
     ui.hiddenModels = d.objects.hidden.size
     editor.selectedSpawn = null
@@ -642,8 +644,9 @@ export class Engine {
   newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled') {
     const d = new MapDocument(size, this.uniqueName(name))
     d.terrain.generate(kind, seed)
-    d.meta.waterLevel = kind === 'ocean' || kind === 'island' ? 0 : kind === 'flat' ? -2 : -1
-    d.meta.waterEnabled = kind !== 'flat'
+    const preset = presetById(kind)
+    d.meta.waterLevel = preset.waterLevel
+    d.meta.waterEnabled = preset.water
     d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled)
     this.documents.push(d)
     this.activate(d)

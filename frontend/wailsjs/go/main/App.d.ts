@@ -25,6 +25,8 @@ export function LoadSpawns(arg1:string,arg2:number,arg3:number,arg4:number):Prom
 
 export function MapEntries():Promise<Array<vmangos.MapEntry>>;
 
+export function MapZones():Promise<Array<vmangos.Zone>>;
+
 export function OpenHeightmapDialog():Promise<string>;
 
 export function OpenMapDialog():Promise<string>;

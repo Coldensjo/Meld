@@ -103,6 +103,8 @@ export const editor = $state({
   region: '',
   /** The tile block the open map is, for the minimap; null when it isn't a client region. */
   regionBlock: null as { x: number; y: number; size: number } | null,
+  /** The continent the open region is a part of (its folder name), or ''. */
+  regionMap: '',
   /** The creatures and game objects of the open region, for the Spawns panel. */
   spawns: [] as vmangos.WorldSpawn[],
   /** The spawn picked in the viewport or the Spawns panel, shown in the panel's details. */
@@ -192,12 +194,14 @@ export const ui = $state({
   canUndo: false,
   canRedo: false,
   showNewDialog: false,
+  /** Which page the Start dialog shows: a new world, or a part of a continent. */
+  newMapMode: 'new' as 'new' | 'open',
   /** A copied map region is available / being placed. */
   hasClip: false,
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'openTile' | 'publish' | 'textures' | 'gameLogin' | null,
+  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'gameLogin' | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */
   closeDocId: 0,
   /** Which palette the left panel shows. */

@@ -84,7 +84,10 @@
       else if (key === 'w') requestClose(engine.activeDocumentId())
       else if (e.key === 'Tab') engine.cycleDocument(e.shiftKey ? -1 : 1)
       else if (key === 'o') openMap(engine)
-      else if (key === 'n') ui.showNewDialog = true
+      else if (key === 'n') {
+        ui.newMapMode = 'new'
+        ui.showNewDialog = true
+      }
       else if (key === 'b') engine.addBookmark()
       else return
       e.preventDefault()

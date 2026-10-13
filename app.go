@@ -245,6 +245,16 @@ func (a *App) MapEntries() ([]vmangos.MapEntry, error) {
 	return vmangos.LoadMapEntries(dataDir)
 }
 
+// MapZones lists the client's named zones as tile rectangles, so a part of a continent can be picked by
+// name.
+func (a *App) MapZones() ([]vmangos.Zone, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.LoadZones(dataDir)
+}
+
 // LoadSpawns reads the creatures and game objects the server's world database places in a block of
 // tiles. It needs the VMaNGOS server folder, and the server's database running.
 func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, error) {

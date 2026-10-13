@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { fbm, ridged } from '../engine/noise'
+import { fbm } from '../engine/noise'
+import { presetHeight, type PresetId } from './presets'
 import { createTerrainMaterial } from './TerrainMaterial'
 import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
@@ -10,11 +11,11 @@ import { writeCellIndex } from './holes'
 export const TILE_YARDS = 1600 / 3
 /** Default cell size in yards: 128 cells make one tile. */
 export const CELL_SIZE = TILE_YARDS / 128
-/** Seabed height of an empty ("ocean") map; water sits at 0. */
-export const OCEAN_FLOOR = -12
+export { OCEAN_FLOOR } from './presets'
 const CHUNK = 32 // render chunk side, in cells (independent of the 1.12 paint chunks)
 
-export type GenerateKind = 'ocean' | 'flat' | 'hills' | 'mountains' | 'island'
+/** A starting shape (see presets.ts). */
+export type GenerateKind = PresetId
 
 /**
  * Heightmap terrain split into chunks. Heights live in a flat Float32Array of
@@ -317,46 +318,13 @@ export class Terrain {
     return false
   }
 
-  /** Procedural starting terrain. */
+  /** Procedural starting terrain from a preset (see presets.ts). */
   generate(kind: GenerateKind, seed: number) {
     const V = this.verts
     const h = this.heights
     const s = this.size
     for (let z = 0; z < V; z++) {
-      for (let x = 0; x < V; x++) {
-        const u = x / s
-        const v = z / s
-        let y = 0
-        switch (kind) {
-          case 'ocean':
-            // Empty map: a flat seabed well below the water surface.
-            y = OCEAN_FLOOR
-            break
-          case 'flat':
-            y = 0
-            break
-          case 'hills':
-            y = (fbm(u * 4, v * 4, 5, seed) - 0.5) * 24
-            break
-          case 'mountains': {
-            const base = fbm(u * 3, v * 3, 5, seed)
-            const r = ridged(u * 2.5, v * 2.5, 6, seed + 7)
-            const mask = THREE.MathUtils.smoothstep(base, 0.4, 0.75)
-            y = (base - 0.45) * 20 + r * r * 90 * mask
-            break
-          }
-          case 'island': {
-            const dx = u - 0.5
-            const dz = v - 0.5
-            const d = Math.sqrt(dx * dx + dz * dz) * 2
-            const n = fbm(u * 5, v * 5, 5, seed)
-            const r = ridged(u * 3, v * 3, 5, seed + 3)
-            y = (1 - THREE.MathUtils.smoothstep(d, 0.35, 0.95)) * (8 + n * 14 + r * r * 40) - 6
-            break
-          }
-        }
-        h[z * V + x] = y
-      }
+      for (let x = 0; x < V; x++) h[z * V + x] = presetHeight(kind, x / s, z / s, seed)
     }
     this.markAllDirty()
   }
