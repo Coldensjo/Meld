@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { fetchMesh, loadTexture, type MeshEffect, type MeshGroup, type WowMesh } from '../wow/api'
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
+import { buildBoundsTree } from '../world/bvh'
 
 /**
  * A placeable model: one geometry (with groups) and one material per group.
@@ -102,7 +103,11 @@ export function loadAsset(type: string): Promise<ModelAsset> {
   let p = pending.get(type)
   if (!p) {
     p = fetchMesh(wowPath(type))
-      .then((m) => buildWowAsset(m, type))
+      .then((m) => {
+        const asset = buildWowAsset(m, type)
+        buildBoundsTree(asset.geometry)
+        return asset
+      })
       .catch((err) => {
         // Not cached: the next request after RETRY_MS tries the model again.
         console.warn('model load failed', type, err)

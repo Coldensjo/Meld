@@ -350,12 +350,22 @@ export class ObjectLayer {
     }
   }
 
+  /** Hits on the drawn instances, nearest first: one per instance, from its model's bounds tree. */
+  private intersect(raycaster: THREE.Raycaster): THREE.Intersection[] {
+    const meshes: THREE.Object3D[] = []
+    for (const b of this.batches.values()) if (b.mesh.count > 0) meshes.push(b.mesh)
+    const first = raycaster.firstHitOnly
+    raycaster.firstHitOnly = true
+    try {
+      return raycaster.intersectObjects(meshes, false)
+    } finally {
+      raycaster.firstHitOnly = first
+    }
+  }
+
   /** Nearest object surface under the ray, skipping `exclude` ids. */
   raycastSurface(raycaster: THREE.Raycaster, exclude?: Set<number>): { id: number; point: THREE.Vector3; distance: number } | null {
-    const hits = raycaster.intersectObjects(
-      [...this.batches.values()].map((b) => b.mesh).filter((m) => m.count > 0),
-      false,
-    )
+    const hits = this.intersect(raycaster)
     for (const h of hits) {
       if (h.instanceId === undefined) continue
       const b = this.batches.get(h.object.userData.type as string)
@@ -369,10 +379,7 @@ export class ObjectLayer {
 
   /** Returns the id of the object under the ray, or null. */
   pick(raycaster: THREE.Raycaster): number | null {
-    const hits = raycaster.intersectObjects(
-      [...this.batches.values()].map((b) => b.mesh).filter((m) => m.count > 0),
-      false,
-    )
+    const hits = this.intersect(raycaster)
     for (const h of hits) {
       if (h.instanceId === undefined) continue
       const b = this.batches.get(h.object.userData.type as string)
