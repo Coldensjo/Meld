@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import PaletteTile from './PaletteTile.svelte'
   import AssetPreview from './AssetPreview.svelte'
   import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
@@ -41,11 +42,23 @@
     })
   })
 
-  // The tool decides what is wanted: textures while painting, models while placing.
+  // The tool decides what is wanted: textures while painting, models while placing. Only a change of
+  // ui.palette moves the browser; reading kind here would undo every click on a tab.
   $effect(() => {
-    if (ui.palette === 'textures' && kind !== 'tex') kind = 'tex'
-    else if (ui.palette === 'models' && kind === 'tex') kind = 'm2'
+    const want = ui.palette
+    untrack(() => {
+      if (want === 'textures' && kind !== 'tex') kind = 'tex'
+      else if (want === 'models' && kind === 'tex') kind = 'm2'
+    })
   })
+
+  function chooseKind(k: AssetKind | 'all') {
+    kind = k
+    prefs.browserCollapsed = false
+    // Keep ui.palette in step, so the next tool switch moves the browser again.
+    if (k === 'tex') ui.palette = 'textures'
+    else if (k !== 'all') ui.palette = 'models'
+  }
   // A filter from another kind means nothing here.
   $effect(() => {
     void kind
@@ -175,7 +188,7 @@
   <header>
     <div class="kinds">
       {#each KINDS as k (k.id)}
-        <button class="tab" class:active={kind === k.id && !prefs.browserCollapsed} onclick={() => { kind = k.id; prefs.browserCollapsed = false }}>{k.label}</button>
+        <button class="tab" class:active={kind === k.id && !prefs.browserCollapsed} onclick={() => chooseKind(k.id)}>{k.label}</button>
       {/each}
     </div>
     {#if !prefs.browserCollapsed && wow.loaded}
