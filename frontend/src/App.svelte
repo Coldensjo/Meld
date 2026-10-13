@@ -8,6 +8,7 @@
   import Viewport from './components/Viewport.svelte'
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
+  import DebugOverlay from './components/DebugOverlay.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { onMount } from 'svelte'
   import { initWow } from './lib/wow/api'
@@ -130,6 +131,7 @@
 </div>
 
 <AppDialogs />
+<DebugOverlay />
 {#if ui.showNewDialog}
   <NewMapDialog />
 {/if}

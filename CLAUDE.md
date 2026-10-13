@@ -139,6 +139,13 @@ cd frontend && pnpm build   # frontend only
   undoable). Whole-map replace is the "Replace everywhere" dialog. The Pipette tool and Alt+click
   in Paint/Road pick the texture under the cursor (`tools/PipetteTool.ts`).
 
+## Debugging the UI
+
+- Hold **F8** and `components/DebugOverlay.svelte` names what is under the cursor: the component
+  chain and the element. The chain comes from `data-ui="<Component>"` attributes that the
+  preprocessor in `frontend/svelte.config.js` adds to every component's root elements. When a
+  user reports "the X is broken", ask for that label.
+
 ## Menus & preferences
 
 - `components/MenuBar.svelte` builds its dropdowns from a reactive item list (action, check,
