@@ -11,9 +11,9 @@ import (
 )
 
 func TestParseSpawnRows(t *testing.T) {
-	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\n" +
-		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\n" +
-		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\n")
+	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\t1.25\n" +
+		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\t1\n" +
+		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\t1\n")
 	rows, err := parseSpawnRows(raw, "creature")
 	if err != nil {
 		t.Fatal(err)
@@ -21,7 +21,7 @@ func TestParseSpawnRows(t *testing.T) {
 	if len(rows) != 3 {
 		t.Fatalf("%d rows, want 3", len(rows))
 	}
-	if w := rows[0]; w.Kind != KindMonster || w.Name != "Wolf" || w.GUID != 123 || w.LevelMax != 2 || w.sx != -100.5 || w.RespawnSecs != 300 {
+	if w := rows[0]; w.Kind != KindMonster || w.Name != "Wolf" || w.GUID != 123 || w.LevelMax != 2 || w.sx != -100.5 || w.RespawnSecs != 300 || w.display != 880 || w.scale != 1.25 {
 		t.Fatalf("wolf: %+v", w)
 	}
 	if n := rows[1]; n.Kind != KindNPC || n.Subname != "Inn" || n.NPCFlags != 128 || n.Type != 7 {
@@ -62,6 +62,9 @@ func TestRegionSpawnConversion(t *testing.T) {
 	}
 	if got.Name != "Wolf" {
 		t.Fatalf("the template's fields must come through, got %q", got.Name)
+	}
+	if got.Scale != 1 {
+		t.Fatalf("a spawn without a scale is drawn at 1, got %v", got.Scale)
 	}
 }
 

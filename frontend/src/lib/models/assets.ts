@@ -24,9 +24,21 @@ export type ModelKind = 'm2' | 'wmo'
 export const isWowType = (type: string) => type.startsWith('m2:') || type.startsWith('wmo:')
 export const wowPath = (type: string) => type.slice(type.indexOf(':') + 1)
 
+/**
+ * The type of a model drawn with a creature display's skins: the plain type plus a query the model
+ * endpoint reads, one `skin` per slot (an empty one leaves the slot alone). Two spawns of the same
+ * model with different skins are different assets.
+ */
+export function skinnedType(type: string, skins: string[] | null | undefined): string {
+  if (!skins || skins.every((s) => !s)) return type
+  return `${type}?${skins.map((s) => `skin=${encodeURIComponent(s)}`).join('&')}`
+}
+
 export function displayName(type: string): string {
   const p = isWowType(type) ? wowPath(type) : type
-  return p.slice(p.lastIndexOf('\\') + 1).replace(/\.(m2|wmo)$/i, '')
+  const q = p.indexOf('?')
+  const path = q < 0 ? p : p.slice(0, q)
+  return path.slice(path.lastIndexOf('\\') + 1).replace(/\.(m2|wmo|mdx)$/i, '')
 }
 
 const assets = new Map<string, ModelAsset>()

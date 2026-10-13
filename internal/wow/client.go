@@ -192,7 +192,7 @@ func (c *Client) Texture(path string) ([]byte, error) {
 	})
 }
 
-func (c *Client) m2Mesh(path string) (*Mesh, error) {
+func (c *Client) m2Mesh(path string, skins []string) (*Mesh, error) {
 	raw, err := c.read(path)
 	// Map files name their models ".mdx", but the client stores them as ".m2".
 	if err != nil && strings.HasSuffix(strings.ToLower(path), ".mdx") {
@@ -201,7 +201,7 @@ func (c *Client) m2Mesh(path string) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseM2(raw, path)
+	return ParseM2Skinned(raw, path, skins)
 }
 
 func (c *Client) wmoMesh(path string) (*Mesh, error) {
@@ -231,7 +231,7 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 		key := strings.ToLower(d.Model)
 		src, ok := models[key]
 		if !ok {
-			src, _ = c.m2Mesh(d.Model)
+			src, _ = c.m2Mesh(d.Model, nil)
 			models[key] = src
 		}
 		if src == nil {
@@ -257,14 +257,18 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 }
 
 // Model returns an encoded mesh for an .m2 or .wmo path.
-func (c *Client) Model(path string) ([]byte, error) {
-	return c.cached("mdl:"+strings.ToLower(path), func() ([]byte, error) {
+func (c *Client) Model(path string, skins ...string) ([]byte, error) {
+	key := "mdl:" + strings.ToLower(path)
+	if len(skins) > 0 {
+		key += "|" + strings.ToLower(strings.Join(skins, "|"))
+	}
+	return c.cached(key, func() ([]byte, error) {
 		var m *Mesh
 		var err error
 		if strings.HasSuffix(strings.ToLower(path), ".wmo") {
 			m, err = c.wmoMesh(path)
 		} else {
-			m, err = c.m2Mesh(path)
+			m, err = c.m2Mesh(path, skins)
 			if err == nil {
 				m.Consolidate()
 			}
@@ -382,7 +386,8 @@ func (c *Client) Handler() http.Handler {
 		writeJSON(w, tiles)
 	})
 	mux.HandleFunc("/wow/model", func(w http.ResponseWriter, r *http.Request) {
-		b, err := c.Model(r.URL.Query().Get("path"))
+		// skin repeats once per slot (see vmangos.SkinSlots); an empty value leaves the slot alone.
+		b, err := c.Model(r.URL.Query().Get("path"), r.URL.Query()["skin"]...)
 		blob(w, b, err)
 	})
 	return mux

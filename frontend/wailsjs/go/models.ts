@@ -538,6 +538,8 @@ export namespace vmangos {
 	    orientation: number;
 	    respawnSecs: number;
 	    model: string;
+	    skins: string[];
+	    scale: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorldSpawn(source);
@@ -562,6 +564,8 @@ export namespace vmangos {
 	        this.orientation = source["orientation"];
 	        this.respawnSecs = source["respawnSecs"];
 	        this.model = source["model"];
+	        this.skins = source["skins"];
+	        this.scale = source["scale"];
 	    }
 	}
 	export class Zone {

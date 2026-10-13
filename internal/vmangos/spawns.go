@@ -49,6 +49,11 @@ type WorldSpawn struct {
 	// Model is the client path of the model the spawn shows, such as a .mdx or .wmo name; "" when its
 	// display has none.
 	Model string `json:"model"`
+	// Skins are the textures the display puts on the model's replaceable slots (see SkinSlots), ""
+	// for a slot the display leaves alone; nil when there are none.
+	Skins []string `json:"skins"`
+	// Scale is the spawn's size: the template's scale for the display shown, times the display's own.
+	Scale float32 `json:"scale"`
 }
 
 // runSQL runs a query against the world database and returns mariadb's batch output: one line
@@ -93,12 +98,14 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 
 	creatures := fmt.Sprintf(`SELECT c.guid, c.id, t.name, COALESCE(t.subname, ''), t.level_min, t.level_max, t.faction,
 		t.npc_flags, t.rank, t.type, c.position_x, c.position_y, c.position_z, c.orientation, c.spawntimesecsmin,
-		COALESCE(NULLIF(t.display_id1, 0), NULLIF(t.display_id2, 0), NULLIF(t.display_id3, 0), NULLIF(t.display_id4, 0), 0)
+		COALESCE(NULLIF(t.display_id1, 0), NULLIF(t.display_id2, 0), NULLIF(t.display_id3, 0), NULLIF(t.display_id4, 0), 0),
+		CASE WHEN t.display_id1 <> 0 THEN t.display_scale1 WHEN t.display_id2 <> 0 THEN t.display_scale2
+		WHEN t.display_id3 <> 0 THEN t.display_scale3 ELSE t.display_scale4 END
 		FROM creature c JOIN creature_template t ON t.entry = c.id
 		AND t.patch = (SELECT MAX(patch) FROM creature_template WHERE entry = c.id)
 		WHERE %s`, bounds)
 	objects := fmt.Sprintf(`SELECT g.guid, g.id, gt.name, '', 0, 0, 0, 0, 0, gt.type, g.position_x, g.position_y, g.position_z,
-		g.orientation, g.spawntimesecsmin, gt.displayId
+		g.orientation, g.spawntimesecsmin, gt.displayId, gt.size
 		FROM gameobject g JOIN gameobject_template gt ON gt.entry = g.id
 		AND gt.patch = (SELECT MAX(patch) FROM gameobject_template WHERE entry = g.id)
 		WHERE %s`, gBounds)
@@ -136,10 +143,16 @@ func regionSpawn(s spawnRow, x, y int, tables *modelTables) WorldSpawn {
 	out.X = float32(zp - float64(s.sy) - float64(x)*t)
 	out.Z = float32(zp - float64(s.sx) - float64(y)*t)
 	out.Y = s.height
+	out.Scale = s.scale
+	if out.Scale <= 0 {
+		out.Scale = 1
+	}
 	if s.Kind == KindObject {
 		out.Model = tables.objectModel(s.display)
 	} else {
-		out.Model = tables.creatureModel(s.display)
+		look := tables.creatureLook(s.display)
+		out.Model, out.Skins = look.model, look.skins
+		out.Scale *= look.scale
 	}
 	return out
 }
@@ -149,11 +162,12 @@ type spawnRow struct {
 	WorldSpawn
 	sx, sy, height float32
 	display        uint32
+	scale          float32
 }
 
 // parseSpawnRows reads the tab-separated rows of a spawn query. The columns are: guid, entry,
 // name, subname, level_min, level_max, faction, npc_flags, rank, type, x, y, z, orientation,
-// respawn seconds.
+// respawn seconds, display ID, scale.
 func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 	var out []spawnRow
 	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
@@ -161,8 +175,8 @@ func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 			continue
 		}
 		f := strings.Split(line, "\t")
-		if len(f) != 16 {
-			return nil, fmt.Errorf("spawn row has %d columns, want 16: %q", len(f), line)
+		if len(f) != 17 {
+			return nil, fmt.Errorf("spawn row has %d columns, want 17: %q", len(f), line)
 		}
 		var r spawnRow
 		var err error
@@ -179,13 +193,16 @@ func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 				return nil, fmt.Errorf("spawn row: %w", err)
 			}
 		}
-		floats := []*float32{&r.sx, &r.sy, &r.height, &r.Orientation}
-		for i, p := range floats {
-			v, err := strconv.ParseFloat(f[10+i], 32)
+		floats := []struct {
+			p   *float32
+			col int
+		}{{&r.sx, 10}, {&r.sy, 11}, {&r.height, 12}, {&r.Orientation, 13}, {&r.scale, 16}}
+		for _, fl := range floats {
+			v, err := strconv.ParseFloat(f[fl.col], 32)
 			if err != nil {
 				return nil, fmt.Errorf("spawn row: %w", err)
 			}
-			*p = float32(v)
+			*fl.p = float32(v)
 		}
 		if r.RespawnSecs, err = strconv.Atoi(f[14]); err != nil {
 			return nil, fmt.Errorf("spawn row: %w", err)

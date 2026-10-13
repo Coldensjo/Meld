@@ -3,6 +3,8 @@ package vmangos
 import (
 	"encoding/binary"
 	"errors"
+	"math"
+	"strings"
 
 	"WorldEditor/internal/mpq"
 )
@@ -44,6 +46,10 @@ func (t *dbcTable) u32(row, field int) uint32 {
 	return binary.LittleEndian.Uint32(t.data[20+row*t.recSize+field*4:])
 }
 
+func (t *dbcTable) f32(row, field int) float32 {
+	return math.Float32frombits(t.u32(row, field))
+}
+
 // str returns the string a string field points into, or "" for an empty field.
 func (t *dbcTable) str(row, field int) string {
 	off := int(t.u32(row, field))
@@ -71,7 +77,19 @@ func (t *dbcTable) row(id uint32) (int, bool) {
 // it uses, and a game object's display.
 type modelTables struct {
 	creatureDisplay, creatureModelData, objectDisplay *dbcTable
+	// creatureExtra names a humanoid NPC's baked body texture; nil when the client has no such table.
+	creatureExtra *dbcTable
 }
+
+// Where a spawn's model takes the skins the display tables name, by index in WorldSpawn.Skins: the
+// three creature skin slots (M2 texture types 11, 12 and 13), then the character body (type 1).
+const (
+	SkinSlots = 4
+	SkinBody  = 3
+)
+
+// bakedTextures is the client folder of the body textures baked for humanoid NPCs.
+const bakedTextures = `Textures\BakedNpcTextures\`
 
 // loadModelTables reads the model tables from the client's data folder.
 func loadModelTables(dataDir string) (*modelTables, error) {
@@ -97,7 +115,56 @@ func loadModelTables(dataDir string) (*modelTables, error) {
 	if m.objectDisplay, err = read("GameObjectDisplayInfo.dbc"); err != nil {
 		return nil, err
 	}
+	// Optional: a client without it shows humanoid NPCs with their model's default skin.
+	m.creatureExtra, _ = read("CreatureDisplayInfoExtra.dbc")
 	return &m, nil
+}
+
+// creatureDisplay is what the display tables say about a creature display: the model, the skins it
+// shows (see SkinSlots) and the display's scale (1 when unknown).
+type creatureDisplay struct {
+	model string
+	skins []string
+	scale float32
+}
+
+// creatureLook resolves a creature display ID. CreatureDisplayInfo's fields are: 1 the model, 3 the
+// extra display (humanoids), 4 the scale, 6-8 the skin names, which are .blp files in the model's
+// folder. CreatureDisplayInfoExtra's field 18 is the baked body texture's file name.
+func (m *modelTables) creatureLook(display uint32) creatureDisplay {
+	out := creatureDisplay{scale: 1}
+	if m == nil || display == 0 {
+		return out
+	}
+	r, ok := m.creatureDisplay.row(display)
+	if !ok {
+		return out
+	}
+	out.model = m.creatureModel(display)
+	if s := m.creatureDisplay.f32(r, 4); s > 0 {
+		out.scale = s
+	}
+	dir := out.model[:strings.LastIndex(out.model, `\`)+1]
+	skins := make([]string, SkinSlots)
+	for i := 0; i < 3; i++ {
+		if name := m.creatureDisplay.str(r, 6+i); name != "" {
+			skins[i] = dir + name + ".blp"
+		}
+	}
+	if m.creatureExtra != nil {
+		if er, ok := m.creatureExtra.row(m.creatureDisplay.u32(r, 3)); ok && m.creatureExtra.fields > 18 {
+			if bake := m.creatureExtra.str(er, 18); bake != "" {
+				skins[SkinBody] = bakedTextures + bake
+			}
+		}
+	}
+	for _, s := range skins {
+		if s != "" {
+			out.skins = skins
+			break
+		}
+	}
+	return out
 }
 
 // creatureModel is the model path a creature display uses, or "" when the display has none.

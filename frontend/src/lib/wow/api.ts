@@ -110,7 +110,15 @@ export function listAssets(kind: 'm2' | 'wmo' | 'tileset'): Promise<string[]> {
   return p
 }
 
-const url = (endpoint: string, path: string) => `/wow/${endpoint}?path=${encodeURIComponent(path)}`
+/**
+ * The server URL for a client path. A model path may carry a query after '?' (a spawn's skins, see
+ * `skinnedType`), which goes to the server as it is.
+ */
+const url = (endpoint: string, path: string) => {
+  const q = path.indexOf('?')
+  if (q < 0) return `/wow/${endpoint}?path=${encodeURIComponent(path)}`
+  return `/wow/${endpoint}?path=${encodeURIComponent(path.slice(0, q))}&${path.slice(q + 1)}`
+}
 
 async function fetchBinary(endpoint: string, path: string): Promise<ArrayBuffer> {
   const r = await fetch(url(endpoint, path))

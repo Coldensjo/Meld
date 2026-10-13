@@ -44,6 +44,21 @@ func (r reader) cstr(off, n int) string {
 // (highest detail) view. Geometry is the bind pose; the idle animation,
 // lights and flame emitters are returned alongside. path feeds heuristics.
 func ParseM2(b []byte, path string) (*Mesh, error) {
+	return ParseM2Skinned(b, path, nil)
+}
+
+// Replaceable M2 texture types, filled from a creature's display rather than the model.
+const (
+	texBodySkin     = 1
+	texMonsterSkin1 = 11
+	texMonsterSkin3 = 13
+)
+
+// ParseM2Skinned decodes an M2 with the textures a creature display gives its replaceable slots:
+// skins[0..2] are the monster skins (texture types 11-13) and skins[3] the body (type 1); "" leaves a
+// slot blank. With skins, a character model (Character\...) shows only its base geosets and the
+// first variant of each group (one hair style, no armour), since the model holds every variant.
+func ParseM2Skinned(b []byte, path string, skins []string) (*Mesh, error) {
 	if len(b) < 0xB4 || string(b[:4]) != "MD20" {
 		return nil, errors.New("m2: bad magic")
 	}
@@ -76,11 +91,17 @@ func ParseM2(b []byte, path string) (*Mesh, error) {
 	textures := make([]string, nTex)
 	for i := range textures {
 		o := ofsTex + i*16
-		if r.u32(o) == 0 { // hardcoded filename; other types are replaceable skins
+		switch typ := r.u32(o); {
+		case typ == 0: // hardcoded filename; other types are replaceable skins
 			n, off := r.u32(o+8), r.u32(o+12)
 			textures[i] = r.cstr(off, n)
+		case typ == texBodySkin && len(skins) > 3:
+			textures[i] = skins[3]
+		case typ >= texMonsterSkin1 && typ <= texMonsterSkin3 && int(typ-texMonsterSkin1) < len(skins):
+			textures[i] = skins[typ-texMonsterSkin1]
 		}
 	}
+	character := len(skins) > 0 && strings.HasPrefix(strings.ToLower(path), `character\`)
 
 	v := ofsViews // view 0
 	nIdx, ofsIdx, err := r.arr(v, 2)
@@ -151,6 +172,9 @@ func ParseM2(b []byte, path string) (*Mesh, error) {
 			continue
 		}
 		so := ofsSub + sub*stride
+		if id := r.u16(so); character && id >= 100 && id%100 != 1 {
+			continue // another hair style, beard, or a piece of armour
+		}
 		start := r.u16(so+8) + r.u16(so+2)<<16
 		count := r.u16(so + 10)
 		if start+count > nTri || count == 0 {
