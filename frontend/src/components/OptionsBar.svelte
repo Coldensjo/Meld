@@ -232,7 +232,7 @@
         <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
       {/if}
       {#if count}
-        <span class="dim"><kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>Alt+←→</kbd>/<kbd>R</kbd> spin · <kbd>Shift</kbd> bigger steps · drag to move</span>
+        <span class="dim"><kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>Alt+←→</kbd>/<kbd>R</kbd> spin · <kbd>Shift</kbd> bigger steps · drag to move · handles: ring spins, arrow raises, knob resizes</span>
       {:else}
         <span class="dim">Click a model to select it (<kbd>Shift</kbd> adds). Drag on the ground to select an area and the models in it. <kbd>Alt</kbd>+click picks a model or texture.</span>
       {/if}

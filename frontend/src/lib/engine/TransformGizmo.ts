@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-export type GizmoHandle = 'ring' | 'arrow'
+export type GizmoHandle = 'ring' | 'arrow' | 'scale'
 
 const IDLE = new THREE.Color(0xf2f5fa)
 const HOVER = new THREE.Color(0x4b9cf5)
@@ -58,9 +58,10 @@ function handleMaterial(color: THREE.Color) {
 }
 
 /**
- * On-object handles for the selected prop: a ring around its base to spin it
- * and a double-headed arrow above it to raise/lower it. Invisible, fatter
- * "hit" meshes make the handles easy to grab.
+ * On-object handles for the selected prop: a ring around its base to spin it, a double-headed
+ * arrow above it to raise/lower it, and a square knob on the ring (at the camera's right) to drag
+ * away from the prop to grow it or toward it to shrink it. Invisible, fatter "hit" meshes make
+ * the handles easy to grab.
  */
 export class TransformGizmo {
   readonly group = new THREE.Group()
@@ -68,8 +69,13 @@ export class TransformGizmo {
   private ringHit: THREE.Mesh
   private arrow = new THREE.Group()
   private arrowHit: THREE.Mesh
+  private knob: THREE.Mesh
+  private knobHit: THREE.Mesh
   private ringMat: THREE.ShaderMaterial
   private arrowMat = handleMaterial(IDLE.clone())
+  private knobMat = handleMaterial(IDLE.clone())
+  private right = new THREE.Vector3()
+  private up = new THREE.Vector3(0, 1, 0)
   private hovered: GizmoHandle | null = null
   private ringKey = ''
 
@@ -108,18 +114,25 @@ export class TransformGizmo {
     this.arrowHit = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.2, 8), hidden)
     this.arrow.add(this.arrowHit)
 
-    this.group.add(this.ring, this.ringHit, this.arrow)
+    // Unit scale knob: a flat square lying on the ring plane, with a fatter hit box.
+    this.knob = new THREE.Mesh(new THREE.BoxGeometry(1, 0.35, 1), this.knobMat)
+    this.knobHit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 2.2), hidden)
+    this.knob.add(this.knobHit)
+
+    this.group.add(this.ring, this.ringHit, this.arrow, this.knob)
     this.group.traverse((o) => (o.renderOrder = 1000))
     this.group.visible = false
   }
 
   /**
    * Position the handles for an object whose origin is at `base`, with a
-   * footprint `radius` and top at `topY`. `camDist` keeps them a sensible
-   * on-screen size.
+   * footprint `radius` and top at `topY`. `camPos` keeps them a sensible
+   * on-screen size and puts the scale knob at the camera's right; `scalable`
+   * false hides the knob (a WMO is always full size in the client).
    */
-  update(base: THREE.Vector3, radius: number, topY: number, camDist: number) {
+  update(base: THREE.Vector3, radius: number, topY: number, camPos: THREE.Vector3, scalable: boolean) {
     this.group.visible = true
+    const camDist = camPos.distanceTo(base)
     const r = Math.max(1, radius)
     // Band thickness follows camera distance so the ring stays visible/grabbable.
     const tube = THREE.MathUtils.clamp(camDist * 0.0025, 0.03, 1.2)
@@ -136,6 +149,18 @@ export class TransformGizmo {
     const len = THREE.MathUtils.clamp(camDist * 0.1, 1.5, 40)
     this.arrow.position.set(base.x, topY + len * 0.75, base.z)
     this.arrow.scale.setScalar(len)
+    // The knob sits on the ring where the camera's right crosses it, so a sideways drag resizes.
+    this.knob.visible = scalable
+    if (scalable) {
+      this.right.copy(camPos).sub(base).setY(0)
+      if (this.right.lengthSq() < 1e-6) this.right.set(0, 0, 1)
+      // up x (towards camera) is the camera's right on the ground.
+      this.right.normalize().crossVectors(this.up, this.right).normalize()
+      const size = THREE.MathUtils.clamp(camDist * 0.022, 0.3, 3)
+      this.knob.position.set(base.x + this.right.x * r, base.y + 0.15, base.z + this.right.z * r)
+      this.knob.scale.setScalar(size)
+      this.knob.rotation.y = Math.atan2(this.right.x, this.right.z)
+    }
   }
 
   hide() {
@@ -151,9 +176,11 @@ export class TransformGizmo {
   pick(raycaster: THREE.Raycaster): GizmoHandle | null {
     if (!this.group.visible) return null
     this.group.updateMatrixWorld(true)
-    const hits = raycaster.intersectObjects([this.arrowHit, this.ringHit], false)
+    const targets = this.knob.visible ? [this.knobHit, this.arrowHit, this.ringHit] : [this.arrowHit, this.ringHit]
+    const hits = raycaster.intersectObjects(targets, false)
     if (!hits.length) return null
-    return hits[0].object === this.arrowHit ? 'arrow' : 'ring'
+    const first = hits[0].object
+    return first === this.arrowHit ? 'arrow' : first === this.knobHit ? 'scale' : 'ring'
   }
 
   setHover(h: GizmoHandle | null) {
@@ -161,6 +188,7 @@ export class TransformGizmo {
     this.hovered = h
     ;(this.ringMat.uniforms.uColor.value as THREE.Color).copy(h === 'ring' ? HOVER : IDLE)
     this.arrowMat.color.copy(h === 'arrow' ? HOVER : IDLE)
+    this.knobMat.color.copy(h === 'scale' ? HOVER : IDLE)
   }
 
   /** Fill the arc the current spin drag has swept, from `start` (Engine.ringAngle) by `delta` radians. */

@@ -168,6 +168,8 @@ export class Engine {
     startAngle: number
     startY: number
     startWorldY: number
+    /** Scale drag: the cursor's distance from the prop's axis when the drag began, in the ring plane. */
+    startDist: number
     planeNormal: THREE.Vector3
   } | null = null
   private dragPlane = new THREE.Plane()
@@ -1746,8 +1748,7 @@ export class Engine {
     this.tmpBox.copy(asset.bbox).applyMatrix4(this.tmpM)
     const size = this.tmpBox.getSize(this.tmpV)
     const base = this.objects.worldPosition(o, this.dragPoint)
-    const dist = this.camera.position.distanceTo(base)
-    this.gizmo.update(base, Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, dist)
+    this.gizmo.update(base, Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.camera.position, !o.type.startsWith('wmo:'))
 
     // Last: overlappingBoxes reuses the scratch matrix/vectors used above.
     this.outline.setWarnBoxes(this.overlappingBoxes(o))
@@ -1798,11 +1799,14 @@ export class Engine {
     const planeNormal = new THREE.Vector3()
     let startAngle = 0
     let startY = 0
-    if (handle === 'ring') {
+    let startDist = 1
+    if (handle === 'ring' || handle === 'scale') {
       planeNormal.set(0, 1, 0)
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(o.x, this.gizmo.ringY, o.z))
+      const centre = this.objects.worldPosition(o, this.tmpV).setY(this.gizmo.ringY)
+      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, centre)
       if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
       startAngle = this.ringAngle(this.dragPoint, o)
+      startDist = Math.max(0.05, Math.hypot(this.dragPoint.x - centre.x, this.dragPoint.z - centre.z))
     } else {
       // Vertical plane through the object, facing the camera.
       planeNormal.copy(this.camera.position).sub(this.tmpV.set(o.x, 0, o.z)).setY(0).normalize()
@@ -1810,8 +1814,8 @@ export class Engine {
       if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
       startY = this.dragPoint.y
     }
-    this.gizmoDrag = { handle, before: { ...o }, startAngle, startY, startWorldY: this.objects.worldPosition(o, this.tmpV).y, planeNormal }
-    this.canvas.style.cursor = handle === 'ring' ? 'grabbing' : 'ns-resize'
+    this.gizmoDrag = { handle, before: { ...o }, startAngle, startY, startWorldY: this.objects.worldPosition(o, this.tmpV).y, startDist, planeNormal }
+    this.canvas.style.cursor = handle === 'ring' ? 'grabbing' : handle === 'scale' ? 'ew-resize' : 'ns-resize'
     return true
   }
 
@@ -1828,6 +1832,14 @@ export class Engine {
       this.gizmo.setSweep(d.startAngle, rot - d.before.rotY)
       const deg = Math.round(THREE.MathUtils.euclideanModulo(THREE.MathUtils.radToDeg(rot), 360)) % 360
       setViewportHint(`Rotation ${deg}°`)
+    } else if (d.handle === 'scale') {
+      // The knob rides the ring, whose radius grows with the scale, so it follows the cursor.
+      const centre = this.objects.worldPosition(o, this.tmpV)
+      const dist = Math.hypot(this.dragPoint.x - centre.x, this.dragPoint.z - centre.z)
+      let scale = d.before.scale * (dist / d.startDist)
+      if (snap) scale = Math.round(scale * 10) / 10
+      o.scale = THREE.MathUtils.clamp(Math.round(scale * 100) / 100, 0.05, 20)
+      setViewportHint(`Scale ×${o.scale.toFixed(2)}`)
     } else {
       let dy = this.dragPoint.y - d.startY
       if (snap) dy = Math.round(dy * 2) / 2
@@ -1847,7 +1859,7 @@ export class Engine {
     this.canvas.style.cursor = ''
     const o = this.selectedObject()
     if (!d || !o) return
-    if (o.rotY !== d.before.rotY || o.yOff !== d.before.yOff || o.x !== d.before.x || o.z !== d.before.z) {
+    if (o.rotY !== d.before.rotY || o.yOff !== d.before.yOff || o.x !== d.before.x || o.z !== d.before.z || o.scale !== d.before.scale) {
       this.history.push(transformCommand(this.objects, d.before, o))
     }
   }

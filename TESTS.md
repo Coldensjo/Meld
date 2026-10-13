@@ -75,7 +75,7 @@ e.terrain.heightAt(180, 300)                  // then screenshot
   the user's config.
 - Hold F8 in the app to name the component under the cursor (`DebugOverlay.svelte`).
 
-## Gizmo drags (spin ring, height arrow) without a mouse
+## Gizmo drags (spin ring, height arrow, scale knob) without a mouse
 
 Checks: the selected prop's gizmo (`TransformGizmo`), its sweep arc and the viewport badge, in the
 dev page with `javascript_tool`. A drag through the Chrome extension releases the button at once,
@@ -86,7 +86,8 @@ const e = window.__engine
 const sel = await import('<the loaded selection.ts URL>')
 const o = e.objects.add({ type: 'm2:<any model path>', x: e.controller.target.x, z: e.controller.target.z, yOff: 14, rotY: 0, scale: 1 })
 sel.selectObjects(e.objects, [o.id]); for (let i = 0; i < 5; i++) e.frame()
-// Aim the pointer at the ring's +x point (the arrow: e.gizmo.arrow.position), start, move, frame.
+// Aim the pointer at the ring's +x point (the arrow: e.gizmo.arrow.position, the scale knob:
+// e.gizmo.knob.position, dragged along e.gizmo.right), start, move, frame.
 const p = e.gizmo.ring.position.clone(); p.x += e.gizmo.ring.scale.x; p.project(e.camera)
 e.ndc.set(p.x, p.y); e.raycaster.setFromCamera(e.ndc, e.camera); e.startGizmoDrag()
 const q = e.gizmo.ring.position.clone(); q.z -= e.gizmo.ring.scale.x; q.project(e.camera)
@@ -95,7 +96,8 @@ await new Promise((r) => setTimeout(r, 60)); document.querySelector('.viewport .
 e.endGizmoDrag()
 ```
 
-- Traps: the badge is Svelte state, so query it after a short wait, and use `.viewport .hint`,
+- Traps: the gizmo only shows in the Select or Place tool (`editor.tool = 'select'` first). The
+  badge is Svelte state, so query it after a short wait, and use `.viewport .hint`,
   since the asset preview has a `.hint` of its own. A fresh ocean map has its ground at -12, so
   give the object a `yOff` above the water or it sits under the sea.
 
