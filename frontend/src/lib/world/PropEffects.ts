@@ -9,7 +9,7 @@ export const LIGHT_POOL = 8
  * rendered only when a light moves to another source or the scene around it changes.
  */
 export const SHADOW_LIGHTS = 3
-const SHADOW_SIZE = 256
+const SHADOW_SIZE = 512
 const MAX_FLAMES = 2048
 
 interface Source {
@@ -132,10 +132,13 @@ export class PropEffects {
       if (i < SHADOW_LIGHTS) {
         l.shadow.autoUpdate = false
         l.shadow.mapSize.set(SHADOW_SIZE, SHADOW_SIZE)
-        // Past the lamp's own cage or glass, which would otherwise shadow everything.
-        l.shadow.camera.near = 0.6
-        l.shadow.bias = -0.004
-        l.shadow.normalBias = 0.03
+        // Past most of the lamp's own cage or glass, which would otherwise stripe the floor with
+        // shadows. Further out, a wall the lamp hangs on is clipped too and light slips under it.
+        l.shadow.camera.near = 0.45
+        // A small depth bias: a larger one lets light through where a wall meets the ground. The
+        // normal offset keeps grazing ground free of acne instead.
+        l.shadow.bias = -0.0005
+        l.shadow.normalBias = 0.04
       }
       this.lights.push(l)
       this.group.add(l)
