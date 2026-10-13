@@ -9,6 +9,8 @@ import { dominantTexel, swapTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
 import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
+import { OCEAN_OPACITY, RIVER_OPACITY, autoOpacity, paintLiquid } from '../water/liquids'
+import { LiquidStroke } from '../water/liquidStroke'
 
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
 const CHUNK_FULL = 'That chunk already has four textures (the 1.12 limit). Paint with one of them, or erase another.'
@@ -526,10 +528,72 @@ export class RoadTool extends BrushTool {
   }
 }
 
-/** Shapes the ground relative to the water level: dig lakes or raise shores. */
+/** The depth factor the water brush's opacity setting picks for liquid `id`. */
+export function waterOpacityFactor(id: number): number {
+  const w = editor.water
+  switch (w.opacity) {
+    case 'river':
+      return RIVER_OPACITY
+    case 'ocean':
+      return OCEAN_OPACITY
+    case 'custom':
+      return w.customOpacity
+    default:
+      return autoOpacity(id)
+  }
+}
+
+/**
+ * The Water tool. In Paint mode it is noggit's water brush: LMB adds the chosen liquid under the brush,
+ * Ctrl+LMB removes liquid (see paintLiquid). Dig lake and Raise shore shape the ground relative to the
+ * sea level instead.
+ */
 export class WaterTool extends BrushTool {
   protected label = 'Water'
   protected records = { heights: true }
+  private liquidStroke: LiquidStroke | null = null
+  private removing = false
+
+  onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
+    if (editor.waterMode !== 'paint') return super.onDown(ctx, hit)
+    if (!hit) return
+    this.removing = !!e?.ctrlKey
+    this.liquidStroke = new LiquidStroke(ctx.liquids, this.removing ? 'Remove water' : 'Paint water')
+  }
+
+  onUp(ctx: ToolContext) {
+    if (!this.liquidStroke) return super.onUp(ctx)
+    const cmd = this.liquidStroke.finish()
+    this.liquidStroke = null
+    if (cmd) ctx.history.push(cmd)
+  }
+
+  tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
+    if (!this.liquidStroke) return super.tick(ctx, dt, hit)
+    if (!hit) return
+    const w = editor.water
+    const deg = THREE.MathUtils.degToRad
+    paintLiquid(
+      ctx.liquids,
+      ctx.terrain,
+      {
+        x: hit.x,
+        y: hit.y,
+        z: hit.z,
+        radius: editor.brush.radius,
+        id: w.liquid,
+        add: !this.removing,
+        angle: w.angled ? deg(w.angle) : 0,
+        orientation: w.angled ? deg(w.orientation) : 0,
+        lock: w.lock,
+        origin: w.lockPos,
+        overrideHeight: w.overrideHeight,
+        overrideId: w.overrideId,
+        opacity: waterOpacityFactor(w.liquid),
+      },
+      this.liquidStroke.reserve,
+    )
+  }
 
   protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
     const t = ctx.terrain

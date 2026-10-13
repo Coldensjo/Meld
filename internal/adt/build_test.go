@@ -105,10 +105,10 @@ func TestBuildTileWater(t *testing.T) {
 		t.Fatalf("no chunk %d,%d", cx, cy)
 		return nil
 	}
-	// The chunk at (0, 0) is under the level: it gets the water kind and an MCLQ.
+	// The chunk at (0, 0) is under the level: it gets the ocean flag and an MCLQ.
 	west := chunkAt(0, 0)
-	if binary.LittleEndian.Uint32(west[0:])&liquidWater == 0 {
-		t.Fatal("a chunk under the water has no water flag")
+	if binary.LittleEndian.Uint32(west[0:])&mcnkLiquidMask != liquidKinds[LiquidOcean].flag {
+		t.Fatal("a chunk under the sea has no ocean flag")
 	}
 	ofs := int(binary.LittleEndian.Uint32(west[mcnkLiquidOfs:]))
 	if ofs == 0 {
@@ -153,8 +153,8 @@ func TestBuildTileWaterReadsBack(t *testing.T) {
 		if l.IndexX != 0 {
 			t.Fatalf("water in chunk %d,%d, which is above the level", l.IndexX, l.IndexY)
 		}
-		if l.Kind&liquidWater == 0 {
-			t.Fatalf("chunk %d,%d: kind %#x has no water bit", l.IndexX, l.IndexY, l.Kind)
+		if l.Type != LiquidOcean {
+			t.Fatalf("chunk %d,%d: type %d, want ocean", l.IndexX, l.IndexY, l.Type)
 		}
 		for v, h := range l.Heights {
 			if h != level {
@@ -169,5 +169,90 @@ func TestBuildTileWaterReadsBack(t *testing.T) {
 				t.Fatalf("chunk %d,%d: cell %d covered %v, want %v", l.IndexX, l.IndexY, i, on, want)
 			}
 		}
+	}
+}
+
+// Painted layers write into their chunks and read back with their type, heights, depth and cells,
+// in the client's flag order; the sea fills only the cells they leave.
+func TestBuildTileLiquidLayers(t *testing.T) {
+	const lattice = ChunksPerTile*CellsPerChunk + 1
+	outer := make([]float32, lattice*lattice)
+	for i := range outer {
+		outer[i] = -5
+	}
+	lava := Liquid{Type: LiquidMagma}
+	lake := Liquid{Type: LiquidWater}
+	for v := range lake.Heights {
+		lava.Heights[v] = 3
+		lake.Heights[v] = 2 + float32(v%9)*0.25 // a sloping river
+		lake.Depth[v] = byte(v)
+	}
+	for i := 0; i < 8; i++ {
+		lake.Cells[i] = true    // the first row
+		lava.Cells[63-i] = true // the last row
+	}
+	ch := Changes{TileX: 2, TileY: 3, Water: &Water{Level: 0}, Liquids: map[int][]Liquid{
+		17: {lava, lake},
+		18: nil, // listed with no layers: just the sea
+	}}
+	root, err := BuildTile(outer, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	liquids, err := ParseLiquids(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var at17 []Liquid
+	for _, l := range liquids {
+		if l.IndexX == 1 && l.IndexY == 1 {
+			at17 = append(at17, l)
+		}
+	}
+	// River (0x04), then ocean (0x08), then magma (0x10).
+	if len(at17) != 3 || at17[0].Type != LiquidWater || at17[1].Type != LiquidOcean || at17[2].Type != LiquidMagma {
+		t.Fatalf("chunk 17 layers: %+v", typesOf(at17))
+	}
+	if at17[0].Heights != lake.Heights || at17[0].Depth != lake.Depth || at17[0].Cells != lake.Cells {
+		t.Fatal("the lake layer did not read back as written")
+	}
+	if at17[2].Cells != lava.Cells || at17[2].Heights != lava.Heights {
+		t.Fatal("the lava layer did not read back as written")
+	}
+	for i, on := range at17[1].Cells {
+		if on != (i >= 8 && i < 56) {
+			t.Fatalf("sea cell %d covered %v; the sea must fill only what the layers leave", i, on)
+		}
+	}
+}
+
+func typesOf(ls []Liquid) []int {
+	out := make([]int, len(ls))
+	for i, l := range ls {
+		out[i] = l.Type
+	}
+	return out
+}
+
+// A chunk listed with no layers loses the liquid it had; chunks not listed keep theirs.
+func TestRewriteRemovesLiquid(t *testing.T) {
+	const lattice = ChunksPerTile*CellsPerChunk + 1
+	outer := make([]float32, lattice*lattice)
+	lake := Liquid{Type: LiquidWater}
+	lake.Cells[0] = true
+	root, err := BuildTile(outer, Changes{TileX: 0, TileY: 0, Liquids: map[int][]Liquid{0: {lake}, 1: {lake}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := Rewrite(root, Changes{TileX: 0, TileY: 0, Liquids: map[int][]Liquid{0: nil}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	liquids, err := ParseLiquids(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(liquids) != 1 || liquids[0].IndexX != 1 {
+		t.Fatalf("got %d layers, want only chunk 1's", len(liquids))
 	}
 }

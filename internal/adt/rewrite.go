@@ -56,12 +56,16 @@ type Changes struct {
 	Remove map[uint32]bool
 	// Add places new models.
 	Add []Object
-	// Water, when set, writes the water at its level into every chunk the ground lies below. Nil
-	// keeps the tile's own liquids.
+	// Liquids replaces the liquids of the chunks it lists, by chunk index (y*16 + x), with their
+	// layers; a chunk listed with none loses its liquid. Chunks not listed keep their own, unless
+	// Water is set.
+	Liquids map[int][]Liquid
+	// Water, when set, puts sea at its level into every cell of every chunk that the ground lies below
+	// and no layer of Liquids covers. Nil keeps the tile's own liquids.
 	Water *Water
 }
 
-// Water is a map's water: a flat surface at Level yards, over the ground below it.
+// Water is a map's sea: ocean at Level yards, over the ground below it.
 type Water struct {
 	Level float32
 }
@@ -543,15 +547,20 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 		refs = binary.LittleEndian.AppendUint32(refs, r)
 	}
 
-	// Water: the liquid at the map's level, in the cells the ground lies below. A chunk the level
-	// doesn't reach has none, and replaces the tile's own liquid when the level is set.
+	// Liquids: the chunk's new layers, plus the sea in the cells they leave that the ground lies
+	// below. Either replaces the tile's own liquid.
 	var liquid []byte
+	layers, replace := ch.Liquids[idx]
 	if ch.Water != nil {
-		liquid = waterRecord(m, raw["MCVT"], ch.Water.Level)
-		flags &^= mcnkLiquidMask
-		if liquid != nil {
-			flags |= liquidWater
+		if sea := seaLayer(m, raw["MCVT"], ch.Water.Level, layers); sea != nil {
+			layers = append(append([]Liquid(nil), layers...), *sea)
 		}
+		replace = true
+	}
+	if replace {
+		var kinds uint32
+		liquid, kinds = liquidRecords(layers)
+		flags = flags&^mcnkLiquidMask | kinds
 	}
 
 	// Liquid and sound emitters, kept as they are; their size fields are the game's own.
@@ -560,7 +569,7 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 	binary.LittleEndian.PutUint32(header[mcnkLayers:], nLayers)
 	binary.LittleEndian.PutUint32(header[mcnkDoodadRefs:], uint32(len(m2Refs)))
 	binary.LittleEndian.PutUint32(header[mcnkMapObjRefs:], uint32(len(wmoRefs)))
-	if ch.Water != nil {
+	if replace {
 		binary.LittleEndian.PutUint32(header[mcnkLiquidOfs:], 0)
 		binary.LittleEndian.PutUint32(header[mcnkLiquidSize:], 0)
 	}
@@ -599,8 +608,8 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 		}
 	}
 	for _, id := range []string{"MCSH", "MCSE", "MCLQ"} {
-		if id == "MCLQ" && ch.Water != nil {
-			continue // replaced by the water above
+		if id == "MCLQ" && replace {
+			continue // replaced by the liquids above
 		}
 		if r, ok := raw[id]; ok {
 			add(id, r, true)

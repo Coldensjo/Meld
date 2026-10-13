@@ -5,6 +5,7 @@
   import { engineRef } from '../lib/state/engineRef'
   import { displayName } from '../lib/models/assets'
   import { FALLOFF_CURVES } from '../lib/tools/brush'
+  import { LIQUID_TYPES } from '../lib/water/liquids'
 
   const SCULPT_MODES: Array<{ id: SculptMode; name: string }> = [
     { id: 'raise', name: 'Raise' },
@@ -95,11 +96,44 @@
     <div class="divider"></div>
   {:else if editor.tool === 'water'}
     <div class="seg">
-      <button class:active={editor.waterMode === 'dig'} onclick={() => (editor.waterMode = 'dig')}>Dig lake</button>
-      <button class:active={editor.waterMode === 'shore'} onclick={() => (editor.waterMode = 'shore')}>Raise shore</button>
+      <button class:active={editor.waterMode === 'paint'} onclick={() => (editor.waterMode = 'paint')} title="Paint liquid: click adds it, Ctrl+click removes it">Paint water</button>
+      <button class:active={editor.waterMode === 'dig'} onclick={() => (editor.waterMode = 'dig')} title="Lower the ground to below the sea level">Dig lake</button>
+      <button class:active={editor.waterMode === 'shore'} onclick={() => (editor.waterMode = 'shore')} title="Raise the ground to just above the sea level">Raise shore</button>
     </div>
-    <OptSlider label="Water level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} width={80} />
-    {@render editLimit()}
+    {#if editor.waterMode === 'paint'}
+      <select class="curve" bind:value={editor.water.liquid} title="The liquid to paint (the client's LiquidType)" aria-label="Liquid">
+        {#each LIQUID_TYPES as l (l.id)}
+          <option value={l.id}>{l.name}</option>
+        {/each}
+      </select>
+      <label class="check" title="Paint the surface at the locked height (Alt+click sets it from the cursor); off, at the cursor's height"><input type="checkbox" bind:checked={editor.water.lock} /> Lock</label>
+      {#if editor.water.lock}
+        <OptSlider label="Height" bind:value={editor.water.lockPos.y} min={-200} max={400} step={0.1} digits={1} width={80} title="The locked surface height (Alt+click picks it)" />
+      {/if}
+      <label class="check" title="Tilt the surface for flowing rivers"><input type="checkbox" bind:checked={editor.water.angled} /> Angled</label>
+      {#if editor.water.angled}
+        <OptSlider label="Angle" bind:value={editor.water.angle} min={0} max={89} step={0.5} digits={1} width={60} title="How steeply the surface rises, in degrees" />
+        <OptSlider label="Direction" bind:value={editor.water.orientation} min={0} max={360} step={1} digits={0} width={60} title="Direction the surface rises toward, in degrees (0 is east, 90 south). It pivots on the locked point." />
+      {/if}
+      <label class="check" title="Water already there takes the brush's height too"><input type="checkbox" bind:checked={editor.water.overrideHeight} /> Override height</label>
+      <label class="check" title="Painting replaces other liquids under the brush; off, it adds to whichever is there"><input type="checkbox" bind:checked={editor.water.overrideId} /> Override type</label>
+      <select class="curve" bind:value={editor.water.opacity} title="How quickly the water turns opaque with depth" aria-label="Opacity">
+        <option value="auto">Opacity: auto</option>
+        <option value="river">Opacity: river</option>
+        <option value="ocean">Opacity: ocean</option>
+        <option value="custom">Opacity: custom</option>
+      </select>
+      {#if editor.water.opacity === 'custom'}
+        <OptSlider label="Factor" bind:value={editor.water.customOpacity} min={0} max={1} step={0.001} digits={3} width={60} title="Depth factor: (depth + 1) × factor is the opacity" />
+      {/if}
+      <label class="check" title="The brush stops on liquid surfaces (and the sea), not just the ground"><input type="checkbox" bind:checked={editor.water.onLiquids} /> On liquids</label>
+      <button onclick={() => engineRef.current?.cropWater()} title="Remove the liquid that lies under the ground, in the selected area or the whole map">Crop water</button>
+      <button onclick={() => engineRef.current?.regenWaterOpacity()} title="Recompute the water's opacity from the ground, in the selected area or the whole map">Regen opacity</button>
+      <span class="dim"><kbd>Ctrl</kbd>+click remove · <kbd>Alt</kbd>+click lock height</span>
+    {:else}
+      <OptSlider label="Sea level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} width={80} />
+      {@render editLimit()}
+    {/if}
     <div class="divider"></div>
   {:else if editor.tool === 'place'}
     <span class="chip" title={editor.prefab}>

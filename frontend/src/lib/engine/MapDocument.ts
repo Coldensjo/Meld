@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
+import { LiquidMap } from '../water/liquids'
+import { LiquidRenderer } from '../water/LiquidRenderer'
 import { ObjectLayer } from '../world/ObjectLayer'
 import { SpawnLayer } from '../world/SpawnLayer'
 import { History } from '../state/history'
@@ -83,8 +85,14 @@ export class MapDocument {
   readonly spawnLayer = new SpawnLayer()
   /** Why the region's spawns could not be read, for the Spawns panel; '' when they loaded or were not asked for. */
   spawnsError = ''
-  /** The client's water, for a region: a mesh per block, in the same group. */
-  readonly liquids = new THREE.Group()
+  /** The map's painted liquids (lakes, rivers, lava…), per chunk, as noggit edits them. */
+  readonly liquids: LiquidMap
+  readonly liquidRenderer: LiquidRenderer
+  /**
+   * Whether `liquids` holds the region's liquids. A region saved before maps kept liquids opens
+   * without them, and its export then leaves the client's liquids alone.
+   */
+  liquidsKnown = true
   readonly history = new History()
   /** The palette the terrain's shader was last given, as one string, to tell when it changes. */
   paletteKey = ''
@@ -93,7 +101,9 @@ export class MapDocument {
 
   constructor(size: number, name: string, cellSize = CELL_SIZE) {
     this.terrain = new Terrain(size, cellSize)
-    this.water = new Water(this.terrain.worldSize)
+    this.water = new Water(this.terrain)
+    this.liquids = new LiquidMap(size)
+    this.liquidRenderer = new LiquidRenderer(this.liquids, this.terrain.cellSize)
     this.objects = new ObjectLayer(this.terrain)
     this.meta = {
       mapName: name,
@@ -120,7 +130,6 @@ export class MapDocument {
     this.water.dispose()
     this.objects.dispose()
     this.spawnLayer.dispose()
-    for (const m of this.liquids.children) (m as THREE.Mesh).geometry.dispose()
-    this.liquids.clear()
+    this.liquidRenderer.dispose()
   }
 }

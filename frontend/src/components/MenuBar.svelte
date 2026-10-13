@@ -161,7 +161,7 @@
         { kind: 'check', label: 'Skip models too small to see', checked: prefs.cullSmallModels, toggle: () => (prefs.cullSmallModels = !prefs.cullSmallModels) },
         { kind: 'check', label: 'Clouds', checked: prefs.clouds, toggle: () => (prefs.clouds = !prefs.clouds) },
         { kind: 'check', label: 'Fog', checked: prefs.fog, toggle: () => (prefs.fog = !prefs.fog) },
-        { kind: 'check', label: 'Water', checked: editor.waterEnabled, toggle: () => (editor.waterEnabled = !editor.waterEnabled) },
+        { kind: 'check', label: 'Sea', checked: editor.waterEnabled, toggle: () => (editor.waterEnabled = !editor.waterEnabled) },
         { kind: 'check', label: 'Automatic cliff rock', checked: editor.autoCliff, toggle: () => (editor.autoCliff = !editor.autoCliff) },
         { kind: 'check', label: 'Show grid', shortcut: 'G', checked: editor.grid, toggle: () => (editor.grid = !editor.grid) },
         { kind: 'check', label: 'Show chunk lines', checked: editor.chunkLines, toggle: () => (editor.chunkLines = !editor.chunkLines) },

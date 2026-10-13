@@ -30,6 +30,12 @@ func sample(size int) *MapData {
 	}
 	holes := make([]byte, size*size)
 	holes[size+1] = 1
+	// One water layer in chunk 3, over its first cell.
+	liquids := make([]byte, 4+LiquidRecordSize)
+	binary.LittleEndian.PutUint32(liquids, 1)
+	binary.LittleEndian.PutUint32(liquids[4:], 3)
+	liquids[8] = 1
+	liquids[9] = 1
 	return &MapData{
 		Header: Header{
 			Name: "test", Size: size, CellSize: 4, SplatRes: res,
@@ -42,6 +48,7 @@ func sample(size int) *MapData {
 		Weights:    base64.StdEncoding.EncodeToString(w),
 		ChunkSlots: base64.StdEncoding.EncodeToString(slots),
 		Holes:      base64.StdEncoding.EncodeToString(holes),
+		Liquids:    base64.StdEncoding.EncodeToString(liquids),
 	}
 }
 
@@ -58,7 +65,7 @@ func TestRoundTrip(t *testing.T) {
 	if got.Version != Version {
 		t.Fatalf("version = %d, want %d", got.Version, Version)
 	}
-	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots || got.Holes != m.Holes {
+	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots || got.Holes != m.Holes || got.Liquids != m.Liquids {
 		t.Fatal("blob mismatch")
 	}
 	if got.Name != "test" || got.WaterLevel != 1.5 || !got.WaterEnabled || got.CellSize != 4 {
@@ -109,6 +116,12 @@ func TestReadsVersion1(t *testing.T) {
 
 // writeV2 writes a version 2 stream: the current layout without the holes blob.
 func writeV2(t *testing.T, m *MapData) []byte {
+	return writeOld(t, m, 2)
+}
+
+// writeOld writes a version 2 or 3 stream: the current layout without liquids, and for version 2
+// without holes.
+func writeOld(t *testing.T, m *MapData, version uint32) []byte {
 	t.Helper()
 	hdr, err := json.Marshal(&m.Header)
 	if err != nil {
@@ -125,13 +138,16 @@ func writeV2(t *testing.T, m *MapData) []byte {
 	gz := gzip.NewWriter(&buf)
 	var pre [12]byte
 	copy(pre[:4], Magic)
-	binary.LittleEndian.PutUint32(pre[4:8], 2)
+	binary.LittleEndian.PutUint32(pre[4:8], version)
 	binary.LittleEndian.PutUint32(pre[8:12], uint32(len(hdr)))
 	gz.Write(pre[:])
 	gz.Write(hdr)
 	gz.Write(dec(m.Heights))
 	gz.Write(dec(m.Weights))
 	gz.Write(dec(m.ChunkSlots))
+	if version >= 3 {
+		gz.Write(dec(m.Holes))
+	}
 	gz.Close()
 	return buf.Bytes()
 }
@@ -144,6 +160,28 @@ func TestReadsVersion2WithoutHoles(t *testing.T) {
 	}
 	if m.Version != 2 || m.Holes != "" || m.Weights == "" {
 		t.Fatalf("version 2 fields: version %d, holes %d bytes", m.Version, len(m.Holes))
+	}
+}
+
+// A version 3 map has holes but no liquids, and opens with none.
+func TestReadsVersion3WithoutLiquids(t *testing.T) {
+	m, err := Read(bytes.NewReader(writeOld(t, sample(32), 3)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Version != 3 || m.Liquids != "" || m.Holes == "" {
+		t.Fatalf("version 3 fields: version %d, liquids %d bytes", m.Version, len(m.Liquids))
+	}
+}
+
+// A liquid layer must lie in one of the map's chunks.
+func TestRejectsLiquidOffTheMap(t *testing.T) {
+	m := sample(32)
+	b, _ := base64.StdEncoding.DecodeString(m.Liquids)
+	binary.LittleEndian.PutUint32(b[4:], 16) // a 32-cell map has 4x4 chunks
+	m.Liquids = base64.StdEncoding.EncodeToString(b)
+	if err := Write(&bytes.Buffer{}, m); err == nil {
+		t.Fatal("a layer off the map was written")
 	}
 }
 

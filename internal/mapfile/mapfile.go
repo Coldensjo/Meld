@@ -10,8 +10,14 @@
 //	weights    []byte   SplatRes^2 * 4 bytes: four weights per texel, summing to 255 (version 2)
 //	chunkSlots []byte   (Size/8)^2 * 4 bytes: four palette indices per 8x8-cell chunk (version 2)
 //	holes      []byte   Size^2 bytes: 1 where a cell is a hole in the ground (version 3)
+//	liqLen     uint32   length of the liquids blob (version 4)
+//	liquids    []byte   uint32 layer count, then LiquidRecordSize bytes a layer (version 4)
 //
-// Version 2 has no holes blob: such a map opens without holes.
+// A liquid layer (noggit3's liquid_layer) is: uint32 chunk index (8x8-cell chunks, row-major),
+// uint8 liquid type (LiquidType.dbc: 1 water, 2 ocean, 3 magma, 4 slime), uint64 cell mask (bit
+// z*8+x), 81 float32 surface heights and 81 depth bytes, each 9x9 row-major.
+//
+// Version 3 has no liquids: such a map opens with none. Version 2 has no holes blob either.
 //
 // Version 1 stored eight global paint layers instead, as splatA and splatB (SplatRes^2 * 4 bytes
 // each). It's still read; the frontend converts it to chunks.
@@ -34,8 +40,10 @@ import (
 
 const (
 	Magic = "WMAP"
-	// Version is the format written. Versions 1 and 2 are still read.
-	Version = 3
+	// Version is the format written. Versions 1 to 3 are still read.
+	Version = 4
+	// LiquidRecordSize is the bytes of one liquid layer in the liquids blob.
+	LiquidRecordSize = 4 + 1 + 8 + 81*4 + 81
 	// ChunkCells is the size of a paint chunk in cells. A map's size is a multiple of it.
 	ChunkCells = 8
 	// SlotsPerChunk is the number of palette textures a chunk may use.
@@ -94,7 +102,9 @@ type MapData struct {
 	ChunkSlots string `json:"chunkSlots,omitempty"` // base64 RGBA8 per chunk, version 2
 	// Holes is one byte per cell, 1 for a hole, version 3. Empty means no holes: an older map, or
 	// a writer that sends none.
-	Holes  string `json:"holes,omitempty"`
+	Holes string `json:"holes,omitempty"`
+	// Liquids is the liquids blob, version 4: a layer count, then the layers. Empty means none.
+	Liquids string `json:"liquids,omitempty"`
 	SplatA string `json:"splatA,omitempty"` // base64 RGBA8, version 1
 	SplatB string `json:"splatB,omitempty"` // base64 RGBA8, version 1
 }
@@ -132,6 +142,28 @@ func (h *Header) chunkBytes() int {
 // holeBytes is the size of the per-cell holes blob.
 func (h *Header) holeBytes() int { return h.Size * h.Size }
 
+// checkLiquids rejects a liquids blob whose length doesn't match its count, or whose layers lie off
+// the map.
+func (h *Header) checkLiquids(b []byte) error {
+	if len(b) == 0 {
+		return nil
+	}
+	if len(b) < 4 {
+		return errors.New("liquids: truncated")
+	}
+	n := int(binary.LittleEndian.Uint32(b))
+	if len(b) != 4+n*LiquidRecordSize {
+		return fmt.Errorf("liquids: %d bytes for %d layers", len(b), n)
+	}
+	chunks := (h.Size / ChunkCells) * (h.Size / ChunkCells)
+	for i := 0; i < n; i++ {
+		if c := int(binary.LittleEndian.Uint32(b[4+i*LiquidRecordSize:])); c >= chunks {
+			return fmt.Errorf("liquids: layer %d is in chunk %d of %d", i, c, chunks)
+		}
+	}
+	return nil
+}
+
 // Write encodes m to w in the current version.
 func Write(w io.Writer, m *MapData) error {
 	if err := m.validate(); err != nil {
@@ -163,6 +195,17 @@ func Write(w io.Writer, m *MapData) error {
 		blobs = append(blobs, raw)
 	}
 
+	liquids, err := base64.StdEncoding.DecodeString(m.Liquids)
+	if err != nil {
+		return fmt.Errorf("liquids: %w", err)
+	}
+	if err := m.checkLiquids(liquids); err != nil {
+		return err
+	}
+	var liqLen [4]byte
+	binary.LittleEndian.PutUint32(liqLen[:], uint32(len(liquids)))
+	blobs = append(blobs, liqLen[:], liquids)
+
 	hdr, err := json.Marshal(&m.Header)
 	if err != nil {
 		return err
@@ -190,7 +233,7 @@ func Write(w io.Writer, m *MapData) error {
 	return gz.Close()
 }
 
-// Read decodes a map from r. Versions 1 to 3 are all accepted.
+// Read decodes a map from r. Versions 1 to 4 are all accepted.
 func Read(r io.Reader) (*MapData, error) {
 	gz, err := gzip.NewReader(bufio.NewReader(r))
 	if err != nil {
@@ -257,6 +300,24 @@ func Read(r io.Reader) (*MapData, error) {
 			if m.Holes, err = read(m.holeBytes()); err != nil {
 				return nil, fmt.Errorf("holes: %w", err)
 			}
+		}
+		if v >= 4 {
+			var n [4]byte
+			if _, err := io.ReadFull(gz, n[:]); err != nil {
+				return nil, fmt.Errorf("liquids: %w", err)
+			}
+			size := binary.LittleEndian.Uint32(n[:])
+			if size > 1<<30 {
+				return nil, errors.New("liquids: too large")
+			}
+			buf := make([]byte, size)
+			if _, err := io.ReadFull(gz, buf); err != nil {
+				return nil, fmt.Errorf("liquids: %w", err)
+			}
+			if err := m.checkLiquids(buf); err != nil {
+				return nil, err
+			}
+			m.Liquids = base64.StdEncoding.EncodeToString(buf)
 		}
 	}
 	if m.Objects == nil {

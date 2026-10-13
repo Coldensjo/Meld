@@ -3,6 +3,7 @@ import type { Terrain } from '../terrain/Terrain'
 import type { ObjectLayer } from '../world/ObjectLayer'
 import type { SpawnLayer } from '../world/SpawnLayer'
 import type { History } from '../state/history'
+import type { LiquidMap } from '../water/liquids'
 
 export interface ToolContext {
   readonly terrain: Terrain
@@ -10,6 +11,8 @@ export interface ToolContext {
   /** The creatures and game objects of a region, drawn as markers or models. */
   readonly spawns: SpawnLayer
   readonly history: History
+  /** The map's painted liquids. */
+  readonly liquids: LiquidMap
   readonly scene: THREE.Scene
   readonly raycaster: THREE.Raycaster
   /**

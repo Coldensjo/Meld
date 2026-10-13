@@ -60,6 +60,14 @@ type RegionEdit struct {
 	// Paint is the painted chunks of the block, by block chunk index: the block's chunks in rows of
 	// 16*Size, row-major. Chunks not listed keep the paint the client has.
 	Paint []RegionPaint `json:"paint"`
+	// HasLiquids says Liquids holds the block's liquids: every layer of every chunk, placed in the
+	// block like Chunks. A chunk whose layers differ from the client's is rewritten with them, and
+	// one left out loses its liquid. Without it, the client's liquids stay as they are.
+	HasLiquids bool         `json:"hasLiquids"`
+	Liquids    []adt.Liquid `json:"liquids"`
+	// PartialLiquids says Liquids holds only some chunks' liquids (a map saved before maps kept
+	// them): chunks it has layers for are rewritten, and the rest keep the client's.
+	PartialLiquids bool `json:"partialLiquids"`
 }
 
 // RegionPaint is a painted chunk of a region: its index in the block (rows of 16*Size chunks), its
@@ -364,6 +372,18 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		tiles[k].change.Paint[local] = adt.ChunkPaint{Layers: adt.LayersFromWeights(p.Textures, weights, perSide)}
 	}
 
+	if e.HasLiquids {
+		want, err := liquidsByChunk(e.Liquids, perRow)
+		if err != nil {
+			return nil, err
+		}
+		for k := range tiles {
+			if err := changeLiquids(&tiles[k].change, tiles[k].root, want, k%e.Size, k/e.Size, perRow, e.PartialLiquids); err != nil {
+				return nil, fmt.Errorf("tile %d_%d: %w", e.X+k%e.Size, e.Y+k/e.Size, err)
+			}
+		}
+	}
+
 	files := make([]mpq.File, 0, len(tiles))
 	for k := range tiles {
 		t := &tiles[k]
@@ -384,6 +404,73 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		files = append(files, mpq.File{Name: t.name, Data: rewritten})
 	}
 	return files, nil
+}
+
+// changeLiquids lists in ch the chunks of tile (i, j) of the block whose liquids differ from the
+// tile's own: want holds the block's layers by block chunk index. Unchanged chunks keep their bytes,
+// flow data and flags as the client has them, and so do the chunks want has no layers for when
+// partial is set.
+func changeLiquids(ch *adt.Changes, root []byte, want map[int][]adt.Liquid, i, j, perRow int, partial bool) error {
+	have, err := adt.ParseLiquids(root)
+	if err != nil {
+		return err
+	}
+	own := map[int][]adt.Liquid{}
+	for _, l := range have {
+		k := l.IndexY*adt.ChunksPerTile + l.IndexX
+		own[k] = append(own[k], l)
+	}
+	ch.Liquids = map[int][]adt.Liquid{}
+	for cy := 0; cy < adt.ChunksPerTile; cy++ {
+		for cx := 0; cx < adt.ChunksPerTile; cx++ {
+			local := cy*adt.ChunksPerTile + cx
+			layers := want[(j*adt.ChunksPerTile+cy)*perRow+i*adt.ChunksPerTile+cx]
+			if partial && len(layers) == 0 {
+				continue
+			}
+			if !sameLiquids(own[local], layers) {
+				ch.Liquids[local] = layers
+			}
+		}
+	}
+	return nil
+}
+
+// sameLiquids says whether two chunks' layers are the same, in any order.
+func sameLiquids(a, b []adt.Liquid) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for _, x := range a {
+		found := false
+		for _, y := range b {
+			if x.Type == y.Type && x.Cells == y.Cells && x.Depth == y.Depth && sameHeights(x, y) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+// sameHeights compares the heights of the vertices around covered cells; the rest aren't shown.
+func sameHeights(a, b adt.Liquid) bool {
+	for r := 0; r < adt.CellsPerChunk; r++ {
+		for c := 0; c < adt.CellsPerChunk; c++ {
+			if !a.Cells[r*adt.CellsPerChunk+c] {
+				continue
+			}
+			for _, v := range [4]int{r*9 + c, r*9 + c + 1, (r+1)*9 + c, (r+1)*9 + c + 1} {
+				if math.Abs(float64(a.Heights[v]-b.Heights[v])) > 1e-3 {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 // SaveRegion writes the edited block into the client's patch. Returns the patch's path.

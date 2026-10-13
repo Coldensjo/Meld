@@ -1,4 +1,5 @@
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../terrain/chunkPaint'
+import { liquidsToAdt, type AdtLiquid, type LiquidMap } from '../water/liquids'
 
 /** A palette entry that's a colour rather than a texture. */
 const isColor = (entry: string) => /^#[0-9a-fA-F]{6}$/.test(entry)
@@ -44,6 +45,8 @@ export interface ExportInput {
   /** Whether the map has water, and the level it's at in yards. */
   waterEnabled: boolean
   waterLevel: number
+  /** The painted liquids, if any. */
+  liquids?: LiquidMap
 }
 
 export interface PaintOut {
@@ -67,6 +70,8 @@ export interface TileOut {
   Outer: number[]
   Paint: PaintOut[]
   Objects: ObjectOut[]
+  /** The tile's liquid layers, each placed by its chunk in the tile. */
+  Liquids: AdtLiquid[]
 }
 
 export interface ExportOut {
@@ -150,7 +155,8 @@ export function mapToTiles(input: ExportInput): ExportOut {
         }
       }
 
-      tiles.push({ X: tx, Y: ty, Outer: outer, Paint: paint, Objects: objectsOf(tx, ty) })
+      const liquids = input.liquids ? liquidsToAdt(input.liquids, tx * CHUNKS_PER_TILE, ty * CHUNKS_PER_TILE, CHUNKS_PER_TILE) : []
+      tiles.push({ X: tx, Y: ty, Outer: outer, Paint: paint, Objects: objectsOf(tx, ty), Liquids: liquids })
     }
   }
   return { tiles, colorChunks, outside }

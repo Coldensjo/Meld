@@ -52,6 +52,7 @@ function toMapData(s: MapSnapshot): mapfile.MapData {
     weights: bytesToBase64(s.weights),
     chunkSlots: bytesToBase64(s.chunkSlots),
     holes: bytesToBase64(s.holes),
+    liquids: s.liquids ? bytesToBase64(s.liquids) : undefined,
   })
 }
 
@@ -77,6 +78,7 @@ function fromMapData(m: mapfile.MapData): MapSnapshot {
       weights: new Uint8Array(0),
       chunkSlots: new Uint8Array(0),
       holes: new Uint8Array(0),
+      liquids: null,
       legacy: { layerTextures: m.layerTextures ?? [], splatA: base64ToBytes(m.splatA ?? ''), splatB: base64ToBytes(m.splatB ?? '') },
     }
   }
@@ -85,8 +87,9 @@ function fromMapData(m: mapfile.MapData): MapSnapshot {
     palette: m.palette ?? [],
     weights: base64ToBytes(m.weights ?? ''),
     chunkSlots: base64ToBytes(m.chunkSlots ?? ''),
-    // A format 2 map has no holes.
+    // A format 2 map has no holes, and a format 3 map no liquids.
     holes: base64ToBytes(m.holes ?? ''),
+    liquids: (m.version ?? 0) >= 4 ? base64ToBytes(m.liquids ?? '') : null,
   }
 }
 
@@ -267,6 +270,7 @@ export function exportRegion(engine: Engine) {
       setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
       return
     }
+    const water = engine.regionLiquids()
     const patch = await SaveRegion(
       vmangos.RegionEdit.createFrom({
         mapName: region.mapName,
@@ -276,6 +280,9 @@ export function exportRegion(engine: Engine) {
         heights: Array.from(engine.outerHeights()),
         objects: engine.regionObjects(),
         paint: regionPaint(engine, region.size),
+        hasLiquids: true,
+        liquids: water.liquids,
+        partialLiquids: water.partial,
       }),
     )
     const server = await VmangosPath()

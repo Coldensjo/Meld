@@ -60,6 +60,13 @@ export class Terrain {
    */
   private weightSrc: THREE.DataTexture
   private maskSrc: THREE.DataTexture
+  /**
+   * The heights as a float texture, one texel a vertex, made on first use (the sea reads the ground's
+   * depth from it), and what changed in it since its last upload. `heightSrc` is its CPU-side view.
+   */
+  private heightTex: THREE.DataTexture | null = null
+  private heightSrc: THREE.DataTexture | null = null
+  private heightTexDirty = new DirtyRegion()
   readonly material: THREE.ShaderMaterial
   readonly group = new THREE.Group()
 
@@ -234,10 +241,17 @@ export class Terrain {
 
   /**
    * Uploads what `region` says changed in `dst`: its rect from `src`, a never-bound view of the same
-   * array, when the renderer is there and the rect is small enough, else the whole texture.
+   * array, when the renderer is there and the rect is small enough, else the whole texture. `res` is
+   * the texture's side.
    */
-  private uploadRegion(renderer: THREE.WebGLRenderer | undefined, region: DirtyRegion, src: THREE.DataTexture, dst: THREE.DataTexture) {
-    const r = renderer && region.rect ? uploadRect(region.rect, this.splatRes) : 'whole'
+  private uploadRegion(
+    renderer: THREE.WebGLRenderer | undefined,
+    region: DirtyRegion,
+    src: THREE.DataTexture,
+    dst: THREE.DataTexture,
+    res = this.splatRes,
+  ) {
+    const r = renderer && region.rect ? uploadRect(region.rect, res) : 'whole'
     if (r === null) return
     if (r === 'whole') {
       dst.needsUpdate = true
@@ -271,9 +285,14 @@ export class Terrain {
           this.writeChunk(this.chunks[cz * this.chunksPerSide + cx])
         }
       }
+      if (this.heightTex) this.heightTexDirty.mark({ x0: d.x0, z0: d.z0, x1: d.x1, z1: d.z1 })
       d.x0 = d.z0 = Infinity
       d.x1 = d.z1 = -Infinity
       this.heightsVersion++
+    }
+    if (this.heightTexDirty.dirty) {
+      this.uploadRegion(renderer, this.heightTexDirty, this.heightSrc!, this.heightTex!, this.verts)
+      this.heightTexDirty.clear()
     }
     if (this.maskDirty.dirty) {
       this.uploadRegion(renderer, this.maskDirty, this.maskSrc, this.maskTex)
@@ -285,6 +304,22 @@ export class Terrain {
       this.slotTex.needsUpdate = true
       this.splatDirty.clear()
     }
+  }
+
+  /** The heights as a float texture, one texel a vertex, kept up to date by `update`. */
+  heightTexture(): THREE.DataTexture {
+    if (!this.heightTex) {
+      const make = () => {
+        const t = new THREE.DataTexture(this.heights, this.verts, this.verts, THREE.RedFormat, THREE.FloatType)
+        t.minFilter = t.magFilter = THREE.NearestFilter
+        t.generateMipmaps = false
+        return t
+      }
+      this.heightTex = make()
+      this.heightTex.needsUpdate = true
+      this.heightSrc = make()
+    }
+    return this.heightTex
   }
 
   /** Whether the cell under world position (x, z) is a hole. Outside the map counts as solid. */
@@ -428,6 +463,8 @@ export class Terrain {
     this.maskTex.dispose()
     this.weightSrc.dispose()
     this.maskSrc.dispose()
+    this.heightTex?.dispose()
+    this.heightSrc?.dispose()
   }
 }
 

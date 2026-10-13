@@ -42,9 +42,9 @@ cd frontend && pnpm build   # frontend only
 - **Go owns file I/O only** (`app.go`: dialogs, `SaveMap`, `LoadMap`). Keep it thin. Everything about
   rendering and editing lives in the frontend.
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
-  float32 + weights + chunkSlots + holes). Blobs cross the bridge as base64 strings. If you change the
-  format, bump `Version` and update the tests. Older versions stay readable (a version 2 map has no
-  holes blob).
+  float32 + weights + chunkSlots + holes + liquids). Blobs cross the bridge as base64 strings. If you
+  change the format, bump `Version` and update the tests. Older versions stay readable (a version 3
+  map has no liquids blob, a version 2 map no holes blob either).
 - **Engine** (`frontend/src/lib/engine/Engine.ts`) owns the renderer, scene, camera and rAF loop.
   Svelte talks to it through `engineRef.current` methods.
 - **Documents** (`lib/engine/MapDocument.ts`):
@@ -115,6 +115,23 @@ cd frontend && pnpm build   # frontend only
 - **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
   target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides
   the map edge.
+- **Water** follows noggit3 (`lib/water/`):
+  - `liquids.ts`: a `LiquidMap` per document holds liquid layers per 8x8-cell chunk (an MCNK). A
+    layer has a LiquidType.dbc ID (1 water, 2 ocean, 3 magma, 4 slime), 9x9 surface heights, 9x9
+    depths (0..1) and an 8x8 cell mask. `paintLiquid`, `cropLiquids` and `regenOpacity` port
+    noggit's `liquid_chunk`/`liquid_layer` logic. Edits go through `LiquidStroke` for undo.
+  - The Water tool's Paint mode is noggit's water brush (`editor.water`: lock, angled mode,
+    overrides, opacity mode, cursor on liquids). Dig lake and Raise shore shape the ground around
+    the sea.
+  - The sea (`editor.waterEnabled`/`waterLevel`, `Water.ts`) is a map-wide ocean plane. Its shader
+    reads the ground's depth from `Terrain.heightTexture()`. The export writes it as ocean in the
+    cells that no painted layer covers.
+  - `liquidMaterial.ts` draws both as noggit's shader does: the client's animated `XTextures`
+    frames plus a depth colour and alpha from Azeroth's default light (LightIntBand colours by hour,
+    LightParams alphas).
+  - Go: `adt.Liquid` is one layer. `ParseLiquids` reads every MCLQ layer, and `Changes.Liquids`
+    rewrites chunks in the client's flag order (`internal/adt/water.go`). A region save only
+    rewrites chunks whose liquids differ from the client's.
 - **Start dialog** (`components/NewMapDialog.svelte`, `ui.showNewDialog` + `ui.newMapMode`): every
   map is for the 1.12 client (folder + map ID). "New world" picks a size in tiles and a preset from
   `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands, so a world is

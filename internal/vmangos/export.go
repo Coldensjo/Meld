@@ -37,6 +37,8 @@ type TileSpec struct {
 	Paint []PaintSpec
 	// Objects are the models on the tile.
 	Objects []ObjectSpec
+	// Liquids are the tile's painted liquid layers, each placed by its chunk in the tile.
+	Liquids []adt.Liquid
 }
 
 // PaintSpec is a chunk's paint: its index in the tile (y*16 + x), its textures in slot order, and
@@ -53,7 +55,8 @@ type MapSpec struct {
 	Dir   string
 	MapID uint32
 	Tiles []TileSpec
-	// Water, when set, puts water at WaterLevel yards into every chunk the ground lies below.
+	// Water, when set, puts sea (ocean) at WaterLevel yards into every cell the ground lies below
+	// and no painted liquid covers.
 	Water      bool
 	WaterLevel float32
 }
@@ -153,6 +156,11 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 // buildTile writes one tile: its ground, paint and models.
 func buildTile(t TileSpec, water *adt.Water) ([]byte, error) {
 	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water}
+	liquids, err := liquidsByChunk(t.Liquids, adt.ChunksPerTile)
+	if err != nil {
+		return nil, err
+	}
+	ch.Liquids = liquids
 	for _, p := range t.Paint {
 		if p.Chunk < 0 || p.Chunk >= adt.ChunkCount {
 			return nil, fmt.Errorf("chunk %d is outside the tile", p.Chunk)
@@ -181,6 +189,22 @@ func buildTile(t TileSpec, water *adt.Water) ([]byte, error) {
 		ch.Add = append(ch.Add, obj)
 	}
 	return adt.BuildTile(t.Outer, ch)
+}
+
+// liquidsByChunk groups liquid layers by their chunk's index, in a grid of perRow chunks a side.
+func liquidsByChunk(layers []adt.Liquid, perRow int) (map[int][]adt.Liquid, error) {
+	out := map[int][]adt.Liquid{}
+	for _, l := range layers {
+		if l.IndexX < 0 || l.IndexY < 0 || l.IndexX >= perRow || l.IndexY >= perRow {
+			return nil, fmt.Errorf("liquid in chunk %d,%d is outside the grid of %d", l.IndexX, l.IndexY, perRow)
+		}
+		if l.Type < adt.LiquidWater || l.Type > adt.LiquidSlime {
+			return nil, fmt.Errorf("chunk %d,%d: liquid type %d is not one the 1.12 client has", l.IndexX, l.IndexY, l.Type)
+		}
+		k := l.IndexY*perRow + l.IndexX
+		out[k] = append(out[k], l)
+	}
+	return out, nil
 }
 
 // objectIn converts a placed model to the file's terms: the tile's corner is added to X and Z, and

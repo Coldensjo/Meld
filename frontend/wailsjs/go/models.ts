@@ -3,8 +3,9 @@ export namespace adt {
 	export class Liquid {
 	    indexX: number;
 	    indexY: number;
-	    kind: number;
+	    type: number;
 	    heights: number[];
+	    depth: number[];
 	    cells: boolean[];
 	
 	    static createFrom(source: any = {}) {
@@ -15,8 +16,9 @@ export namespace adt {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.indexX = source["indexX"];
 	        this.indexY = source["indexY"];
-	        this.kind = source["kind"];
+	        this.type = source["type"];
 	        this.heights = source["heights"];
+	        this.depth = source["depth"];
 	        this.cells = source["cells"];
 	    }
 	}
@@ -142,6 +144,7 @@ export namespace mapfile {
 	    weights?: string;
 	    chunkSlots?: string;
 	    holes?: string;
+	    liquids?: string;
 	    splatA?: string;
 	    splatB?: string;
 	
@@ -168,6 +171,7 @@ export namespace mapfile {
 	        this.weights = source["weights"];
 	        this.chunkSlots = source["chunkSlots"];
 	        this.holes = source["holes"];
+	        this.liquids = source["liquids"];
 	        this.splatA = source["splatA"];
 	        this.splatB = source["splatB"];
 	    }
@@ -316,6 +320,7 @@ export namespace vmangos {
 	    Outer: number[];
 	    Paint: PaintSpec[];
 	    Objects: ObjectSpec[];
+	    Liquids: adt.Liquid[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TileSpec(source);
@@ -328,6 +333,7 @@ export namespace vmangos {
 	        this.Outer = source["Outer"];
 	        this.Paint = this.convertValues(source["Paint"], PaintSpec);
 	        this.Objects = this.convertValues(source["Objects"], ObjectSpec);
+	        this.Liquids = this.convertValues(source["Liquids"], adt.Liquid);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -440,6 +446,9 @@ export namespace vmangos {
 	    heights: number[];
 	    objects: ObjectView[];
 	    paint: RegionPaint[];
+	    hasLiquids: boolean;
+	    liquids: adt.Liquid[];
+	    partialLiquids: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionEdit(source);
@@ -454,6 +463,9 @@ export namespace vmangos {
 	        this.heights = source["heights"];
 	        this.objects = this.convertValues(source["objects"], ObjectView);
 	        this.paint = this.convertValues(source["paint"], RegionPaint);
+	        this.hasLiquids = source["hasLiquids"];
+	        this.liquids = this.convertValues(source["liquids"], adt.Liquid);
+	        this.partialLiquids = source["partialLiquids"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

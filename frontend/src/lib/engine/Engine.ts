@@ -2,15 +2,17 @@ import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
-import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
+import { docs, editor, setStatus, stats, ui, wow, type Prefs, type ToolId } from '../state/editor.svelte'
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import type { adt, vmangos } from '../../../wailsjs/go/models'
-import { liquidMesh } from '../world/LiquidLayer'
+import { cropLiquids, decodeLiquids, encodeLiquids, liquidsFromAdt, liquidsToAdt, raycastLiquids, regenOpacity, type AdtLiquid } from '../water/liquids'
+import { resetLiquidFrames, updateLiquids } from '../water/liquidMaterial'
+import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
-import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
+import { PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
 import { pickLayer, pickModel } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
@@ -94,6 +96,8 @@ export interface MapSnapshot {
   chunkSlots: Uint8Array
   /** One byte per cell, 1 for a hole (format 3). Empty for an older map. */
   holes: Uint8Array
+  /** The liquids blob (format 4, see liquids.ts); null for an older map, which has none. */
+  liquids: Uint8Array | null
   /** Format 1 maps only, converted on open: the eight global layers and their splats. */
   legacy?: { layerTextures: string[]; splatA: Uint8Array; splatB: Uint8Array }
 }
@@ -139,6 +143,8 @@ export class Engine {
   private pointerInside = false
   private leftDown = false
   private hitVec = new THREE.Vector3()
+  /** The client's status revision the liquids' frames were loaded for. */
+  private wowRevision = -1
   private hit: THREE.Vector3 | null = null
   private clock = new THREE.Clock()
   private raf = 0
@@ -216,6 +222,7 @@ export class Engine {
       get spawns() { return self.doc.spawnLayer },
       get objects() { return self.objects },
       get history() { return self.history },
+      get liquids() { return self.doc.liquids },
       get scene() { return self.scene },
       get raycaster() { return self.raycaster },
       surface: (exclude?: Set<number>) => self.surfaceHit(exclude),
@@ -294,10 +301,40 @@ export class Engine {
     this.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
   }
 
+  private liquidHit = new THREE.Vector3()
+
   private pick() {
     this.raycaster.setFromCamera(this.ndc, this.camera)
     this.hit = this.terrain.raycast(this.raycaster.ray, this.hitVec) ? this.hitVec : null
+    if (editor.tool === 'water' && editor.waterMode === 'paint' && editor.water.onLiquids) this.pickLiquid()
   }
+
+  /**
+   * noggit's "Cursor intersects liquids": the water brush stops on a liquid's surface, or the sea's,
+   * when it is nearer than the ground.
+   */
+  private pickLiquid() {
+    const ray = this.raycaster.ray
+    let best = this.hit ? this.hit.distanceTo(ray.origin) : Infinity
+    let found = false
+    if (raycastLiquids(this.doc.liquids, this.terrain.cellSize, ray, this.liquidHit, best)) {
+      best = this.liquidHit.distanceTo(ray.origin)
+      found = true
+    }
+    if (editor.waterEnabled && ray.direction.y !== 0) {
+      const t = (editor.waterLevel - ray.origin.y) / ray.direction.y
+      if (t > 0 && t < best) {
+        ray.at(t, this.seaHit)
+        if (this.terrain.contains(this.seaHit.x, this.seaHit.z)) {
+          this.liquidHit.copy(this.seaHit)
+          found = true
+        }
+      }
+    }
+    if (found) this.hit = this.hitVec.copy(this.liquidHit)
+  }
+
+  private seaHit = new THREE.Vector3()
 
   private bindPointer() {
     const sig = { signal: this.abort.signal }
@@ -336,6 +373,12 @@ export class Engine {
           const o = id !== null ? this.objects.objects.get(id) : undefined
           if (o) pickModel(o)
           else if (this.hit) pickLayer(this.terrain, this.hit)
+          return
+        }
+        // Alt+click in the water brush locks its height (and angled mode's origin) to the cursor.
+        if (e.altKey && editor.tool === 'water' && editor.waterMode === 'paint') {
+          this.pick()
+          if (this.hit) this.lockWater(this.hit)
           return
         }
         if (e.altKey && this.hit && (editor.tool === 'road' || (editor.tool === 'paint' && editor.paintMode !== 'mask'))) {
@@ -446,7 +489,14 @@ export class Engine {
     u.waterLevel.value = editor.waterLevel
     u.waterEnabled.value = editor.waterEnabled ? 1 : 0
     this.water.level = editor.waterLevel
-    this.water.visible = editor.waterEnabled
+    this.water.visible = editor.waterEnabled && this.prefs?.showWater !== false
+    this.doc.liquidRenderer.update()
+    if (this.wowRevision !== wow.revision) {
+      this.wowRevision = wow.revision
+      resetLiquidFrames()
+    }
+    const ring = editor.tool === 'water' && editor.waterMode === 'paint' && this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z, radius: editor.brush.radius } : null
+    updateLiquids(time * 1000, this.hour, wow.loaded, ring)
 
     this.terrain.update(this.renderer)
     // A hidden object can't stay selected once hidden objects stop being drawn.
@@ -459,7 +509,6 @@ export class Engine {
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night)
     this.updateSelectionVisuals()
-    this.water.update(time)
     this.renderer.render(this.scene, this.camera)
     // The counters describe the last render call, so read the scene's before the outline passes.
     const calls = this.renderer.info.render.calls
@@ -544,12 +593,6 @@ export class Engine {
     const light = 0.06 + 0.94 * (1 - s.night)
     tu.waterDeep.value.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
 
-    const wu = this.water.material.uniforms
-    wu.sunDir.value.copy(s.keyDir)
-    wu.sunColor.value.copy(s.keyColor)
-    wu.skyColor.value.copy(s.horizon).lerp(s.skyAmbient, 0.3)
-    wu.shallow.value.setRGB(0.04 * light, 0.28 * light, 0.38 * light)
-    wu.deep.value.setRGB(0.015 * light, 0.1 * light, 0.2 * light)
     ;(this.water.floor.material as THREE.MeshBasicMaterial).color.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
 
     if (env.key.castShadow) {
@@ -587,9 +630,8 @@ export class Engine {
     if (!d) return
     d.terrain.group.visible = p.showTerrain
     d.terrain.material.wireframe = p.wireframe
-    // A region's water is the client's, drawn per chunk; the flat sea-level plane is for maps made here.
-    d.water.mesh.visible = p.showWater && !d.meta.region
-    d.liquids.visible = p.showWater
+    d.water.mesh.visible = p.showWater && editor.waterEnabled
+    d.liquidRenderer.group.visible = p.showWater
     d.objects.group.visible = p.showObjects
     d.spawnLayer.setKinds({ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects })
   }
@@ -645,10 +687,10 @@ export class Engine {
     }
     if (stash && this.doc && this.doc !== d) {
       this.stashActive()
-      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.objects.group, this.doc.spawnLayer.group, this.doc.liquids)
+      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.objects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)
     }
     this.doc = d
-    this.scene.add(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group, d.liquids)
+    this.scene.add(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group, d.liquidRenderer.group)
     const m = d.meta
     editor.mapName = m.mapName
     editor.filePath = m.filePath
@@ -754,8 +796,7 @@ export class Engine {
     if (r.holes.length === d.terrain.holes.length) d.terrain.holes.set(r.holes)
     d.terrain.markAllDirty()
     d.meta.palette = [...r.palette]
-    const water = liquidMesh(r.liquids, d.terrain.cellSize)
-    if (water) d.liquids.add(water)
+    liquidsFromAdt(d.liquids, r.liquids)
     const region: RegionRef = { mapName: r.mapName, x: r.x, y: r.y, size: r.size, uids: new Map() }
     d.meta.region = region
     for (const o of r.objects) {
@@ -771,7 +812,7 @@ export class Engine {
       })
       if (o.uid) region.uids.set(placed.id, o.uid)
     }
-    // The client's water isn't read yet, so a block starts with the water off rather than at sea level.
+    // The client's water is in the liquid layers, so a block has no sea of its own.
     d.meta.waterEnabled = false
     this.addDocument(d)
     return d
@@ -834,7 +875,49 @@ export class Engine {
       objects,
       waterEnabled: editor.waterEnabled,
       waterLevel: editor.waterLevel,
+      liquids: this.doc.liquids,
     }
+  }
+
+  /**
+   * The active region's liquids for its save, placed by block chunk: every layer, and whether only
+   * the chunks that have some count (`partial`, for a region saved before maps kept liquids), which
+   * leaves the client's other liquids alone.
+   */
+  regionLiquids(): { liquids: AdtLiquid[]; partial: boolean } {
+    return { liquids: liquidsToAdt(this.doc.liquids), partial: !this.doc.liquidsKnown }
+  }
+
+  /** Sets the water brush's lock to a point and turns the lock on (Alt+click in the water brush). */
+  lockWater(p: THREE.Vector3) {
+    editor.water.lockPos = { x: p.x, y: Math.round(p.y * 100) / 100, z: p.z }
+    editor.water.lock = true
+    setStatus(`Water locked at height ${editor.water.lockPos.y.toFixed(2)}.`)
+  }
+
+  /** The selected area's cells, or undefined for the whole map. */
+  private selectionCells() {
+    const s = editor.selection
+    return s ? { x0: s.x0, z0: s.z0, x1: s.x1 - 1, z1: s.z1 - 1 } : undefined
+  }
+
+  /** noggit's Crop water: removes liquid cells that lie under the ground, in the selected area or the whole map. */
+  cropWater() {
+    const stroke = new LiquidStroke(this.doc.liquids, 'Crop water')
+    const n = cropLiquids(this.doc.liquids, this.terrain, this.selectionCells(), stroke.reserve).length
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    setStatus(n ? `Cropped the water in ${n} chunks.` : 'No water lies under the ground there.')
+  }
+
+  /** noggit's Regen ADT opacity: every liquid vertex's depth again from the ground, at the brush's opacity setting. */
+  regenWaterOpacity() {
+    const stroke = new LiquidStroke(this.doc.liquids, 'Regenerate water opacity')
+    const factor = editor.water.opacity === 'auto' ? null : waterOpacityFactor(editor.water.liquid)
+    const n = regenOpacity(this.doc.liquids, this.terrain, factor, this.selectionCells(), stroke.reserve).length
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    setStatus(n ? `Regenerated the opacity of the water in ${n} chunks.` : 'There is no water to regenerate.')
   }
 
   /** The client region the active map came from, or null. */
@@ -939,7 +1022,7 @@ export class Engine {
     const d = this.documents[i]
     this.documents.splice(i, 1)
     if (d === this.doc) {
-      this.scene.remove(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group, d.liquids)
+      this.scene.remove(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group, d.liquidRenderer.group)
       const next = this.documents[Math.min(i, this.documents.length - 1)]
       // Keep at least one map open. The closed doc isn't stashed.
       if (next) {
@@ -991,6 +1074,7 @@ export class Engine {
       weights: t.weights,
       chunkSlots: t.chunkSlots,
       holes: t.holes,
+      liquids: encodeLiquids(this.doc.liquids),
     }
   }
 
@@ -1026,6 +1110,8 @@ export class Engine {
     t.heights.set(new Float32Array(m.heights.slice().buffer))
     if (m.holes.length === t.holes.length) t.holes.set(m.holes)
     else if (m.holes.length) throw new Error('hole data size mismatch')
+    if (m.liquids) decodeLiquids(d.liquids, m.liquids)
+    d.liquidsKnown = m.liquids !== null
     t.markAllDirty()
     const region: RegionRef | null = m.region ? { ...m.region, uids: new Map() } : null
     for (const o of m.objects) {

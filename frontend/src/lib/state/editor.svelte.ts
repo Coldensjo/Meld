@@ -15,7 +15,10 @@ export type FlattenTarget = 'origin' | 'average'
 export type FlattenDir = 'both' | 'raise' | 'lower'
 /** Sculpt edit limit: change ground everywhere, or only the ground above or below the cursor's height. */
 export type SculptLimit = 'none' | 'above' | 'below'
-export type WaterMode = 'dig' | 'shore'
+/** Water tool: paint liquids (noggit's water brush), or shape the ground around the sea level. */
+export type WaterMode = 'paint' | 'dig' | 'shore'
+/** The depth factor a water stroke uses: by the liquid, a river's, an ocean's, or `customOpacity`. */
+export type WaterOpacity = 'auto' | 'river' | 'ocean' | 'custom'
 
 export interface SelectedInfo {
   id: number
@@ -63,7 +66,28 @@ export const editor = $state({
   /** Spray: dab Size (1 to 40), Pressure as the dab density (0 to 10), and Inner radius, which also paints the brush's solid centre. */
   spray: { size: 1, pressure: 2, inner: false },
   roadFlatten: true,
-  waterMode: 'dig' as WaterMode,
+  waterMode: 'paint' as WaterMode,
+  /**
+   * The water brush, after noggit's Water tool. LMB adds `liquid` (a LiquidType.dbc ID), Ctrl+LMB
+   * removes liquid. With `lock`, the surface is at `lockPos` (Alt+click sets it), else at the cursor;
+   * angled mode tilts it by `angle` degrees toward `orientation` degrees (0 is +x). The overrides let a
+   * stroke reset the height of water already there and replace other liquids. `onLiquids` makes the
+   * cursor stop on liquid surfaces.
+   */
+  water: {
+    liquid: 1,
+    lock: true,
+    lockPos: { x: 0, y: 0, z: 0 },
+    angled: false,
+    angle: 10,
+    orientation: 0,
+    overrideHeight: true,
+    overrideId: true,
+    opacity: 'auto' as WaterOpacity,
+    customOpacity: 0.0337,
+    onLiquids: true,
+  },
+  /** The sea: ocean at this level wherever the ground lies below it. */
   waterLevel: 0,
   waterEnabled: true,
   /** Selected model type to place ("m2:<path>" / "wmo:<path>"), or ''. */

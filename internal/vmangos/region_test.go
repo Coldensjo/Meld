@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"WorldEditor/internal/adt"
+	"WorldEditor/internal/mpq"
 	"WorldEditor/internal/wow"
 )
 
@@ -286,7 +287,7 @@ func TestRegionReadsWater(t *testing.T) {
 		if l.IndexX < 0 || l.IndexX >= 16 || l.IndexY < 0 || l.IndexY >= 16 {
 			t.Fatalf("liquid chunk %d,%d is outside the block", l.IndexX, l.IndexY)
 		}
-		if l.Kind == 0x08 {
+		if l.Type == adt.LiquidOcean {
 			ocean++
 		}
 	}
@@ -331,5 +332,62 @@ func TestRegionPaintWritten(t *testing.T) {
 	}
 	if got := tex.Chunks[0].Layers[0].Texture; got != texture {
 		t.Fatalf("chunk 0 base texture %q, want %q", got, texture)
+	}
+}
+
+// TestRegionLiquidsUnchanged reads a real tile's liquids, as a region opens them, and hands them back:
+// no chunk may count as changed, so a save keeps the client's own liquid bytes. It needs WOW_DIR set
+// to the client.
+func TestRegionLiquidsUnchanged(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := ReadRegion(dataDir, "Azeroth", 32, 48, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	root, err := set.ReadFile(adt.TilePath("Azeroth", 32, 48, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := liquidsByChunk(view.Liquids, adt.ChunksPerTile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ch adt.Changes
+	if err := changeLiquids(&ch, root, want, 0, 0, adt.ChunksPerTile, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Liquids) == 0 {
+		t.Fatal("Elwynn's tile 32_48 has no liquids; pick a tile with a lake")
+	}
+	if len(ch.Liquids) != 0 {
+		t.Fatalf("%d chunks count as changed though nothing was edited", len(ch.Liquids))
+	}
+	// Dropping every liquid changes exactly the chunks that had one.
+	ch = adt.Changes{}
+	if err := changeLiquids(&ch, root, nil, 0, 0, adt.ChunksPerTile, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(ch.Liquids) != len(want) {
+		t.Fatalf("removing the liquids changed %d chunks, want %d", len(ch.Liquids), len(want))
+	}
+	// A partial save without layers changes nothing.
+	ch = adt.Changes{}
+	if err := changeLiquids(&ch, root, nil, 0, 0, adt.ChunksPerTile, true); err != nil {
+		t.Fatal(err)
+	}
+	if len(ch.Liquids) != 0 {
+		t.Fatalf("a partial save with no layers changed %d chunks", len(ch.Liquids))
 	}
 }

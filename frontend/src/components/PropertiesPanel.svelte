@@ -64,9 +64,9 @@
     <Slider label="Scale" value={s.scale} min={0.2} max={5} step={0.01} digits={2} onstart={startEdit} oninput={(v) => live({ scale: v })} onchange={(v) => commit({ scale: v })} />
   {:else}
     <h3>World</h3>
-    <label class="check"><input type="checkbox" bind:checked={editor.waterEnabled} /> Water</label>
+    <label class="check" title="Ocean at the sea level wherever the ground lies below it"><input type="checkbox" bind:checked={editor.waterEnabled} /> Sea</label>
     {#if editor.waterEnabled}
-      <Slider label="Water level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} />
+      <Slider label="Sea level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} />
     {/if}
     <label class="check"><input type="checkbox" bind:checked={editor.autoCliff} /> Automatic cliff rock</label>
     <label class="check"><input type="checkbox" bind:checked={editor.grid} /> Show grid</label>
