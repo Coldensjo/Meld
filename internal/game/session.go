@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"WorldEditor/internal/config"
-	"WorldEditor/internal/vmangos"
+	"Meld/internal/config"
+	"Meld/internal/vmangos"
 )
 
 const (

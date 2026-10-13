@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"WorldEditor/internal/adt"
+	"Meld/internal/adt"
 )
 
 // SpawnEdit is a spawn of a region as the editor has it now, in the region's coordinates.

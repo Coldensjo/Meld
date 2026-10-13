@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 var tileFiles = []mpq.File{{Name: `World\Maps\Azeroth\Azeroth_32_48.adt`, Data: []byte("tile")}}

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/mpq"
+	"Meld/internal/adt"
+	"Meld/internal/mpq"
 )
 
 // TestExportMapInClientFolder exports with the read and patch folders the same, as the editor does

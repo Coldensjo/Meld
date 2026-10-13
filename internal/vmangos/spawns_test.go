@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/wow"
+	"Meld/internal/adt"
+	"Meld/internal/wow"
 )
 
 func TestParseSpawnRows(t *testing.T) {

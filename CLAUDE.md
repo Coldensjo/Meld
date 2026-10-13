@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Meld (formerly WorldEditor): a 3D world/map editor (WoW/WC3-editor style). Desktop app built with Wails v2 (Go) and a
+Meld: a 3D world/map editor (WoW/WC3-editor style). Desktop app built with Wails v2 (Go) and a
 Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **Windows and Linux**.
 
 ## Git workflow

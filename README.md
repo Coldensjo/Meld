@@ -122,7 +122,7 @@ Also included:
 - **About**: keyboard shortcuts and app info.
 
 Graphics and camera preferences are saved in the user config file
-(`~/.config/Meld/config.json` or `%AppData%\WorldEditor\config.json`).
+(`~/.config/Meld/config.json` or `%AppData%\Meld\config.json`).
 
 ### Other shortcuts
 

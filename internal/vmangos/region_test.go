@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/adt"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 func TestPlacementRoundTrip(t *testing.T) {

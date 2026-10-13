@@ -3,7 +3,7 @@ package game
 import (
 	"testing"
 
-	"WorldEditor/internal/config"
+	"Meld/internal/config"
 )
 
 func TestLoginStrokesTypeAccountThenPassword(t *testing.T) {

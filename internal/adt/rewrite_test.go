@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 // realTile reads Azeroth 32_48 from the client: WOW_DIR=/path/to/client go test ./internal/adt/

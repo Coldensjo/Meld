@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/mpq"
+	"Meld/internal/adt"
+	"Meld/internal/mpq"
 )
 
 // LatticeSize is the side of a tile's outer height grid: 129 samples across.

@@ -3,7 +3,7 @@ package vmangos
 import (
 	"sort"
 
-	"WorldEditor/internal/mpq"
+	"Meld/internal/mpq"
 )
 
 // The instance types the client's Map.dbc gives in its type field.

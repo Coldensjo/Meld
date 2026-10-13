@@ -3,8 +3,8 @@ package vmangos
 import (
 	"strings"
 
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 // modelTables are the client's tables that name a spawn's model and dress it: a creature's

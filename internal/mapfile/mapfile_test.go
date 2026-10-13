@@ -237,7 +237,7 @@ func TestRejectsGarbage(t *testing.T) {
 func TestClientLinkRoundTrip(t *testing.T) {
 	m := sample(32)
 	m.Region = &ClientRegion{MapName: "Azeroth", X: 32, Y: 48, Size: 4}
-	m.Vmangos = &VmangosFolder{Dir: "WorldEditorTest", MapID: 1900}
+	m.Vmangos = &VmangosFolder{Dir: "MeldTest", MapID: 1900}
 	m.Objects[0].UID = 12345
 	path := filepath.Join(t.TempDir(), "linked.wmap")
 	if err := Save(path, m); err != nil {

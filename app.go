@@ -14,13 +14,13 @@ import (
 	"sync"
 	"time"
 
-	"WorldEditor/internal/config"
-	"WorldEditor/internal/game"
-	"WorldEditor/internal/heightmap"
-	"WorldEditor/internal/mapfile"
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/vmangos"
-	"WorldEditor/internal/wow"
+	"Meld/internal/config"
+	"Meld/internal/game"
+	"Meld/internal/heightmap"
+	"Meld/internal/mapfile"
+	"Meld/internal/mpq"
+	"Meld/internal/vmangos"
+	"Meld/internal/wow"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )

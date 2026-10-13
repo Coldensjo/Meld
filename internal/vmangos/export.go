@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/mpq"
+	"Meld/internal/adt"
+	"Meld/internal/mpq"
 )
 
 // Chunks and tiles here use the tile grid of the 1.12 client.

@@ -6,8 +6,8 @@ import (
 	"math"
 	"strings"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/mpq"
+	"Meld/internal/adt"
+	"Meld/internal/mpq"
 )
 
 // tileCells is the cells a side of a 1.12 tile.

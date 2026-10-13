@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"WorldEditor/internal/mpq"
+	"Meld/internal/mpq"
 )
 
 // Client serves assets read directly from a local WoW 1.x installation.

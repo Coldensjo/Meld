@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"WorldEditor/internal/mpq"
+	"Meld/internal/mpq"
 )
 
 // PatchName is the client's patch archive that map edits go into. The VMaNGOS tools read
@@ -20,7 +20,7 @@ const PatchName = "patch-3.MPQ"
 const IronforgeMarker = "(ironforge)"
 
 // BackupSuffix is added to an existing patch before Meld first replaces it.
-const BackupSuffix = ".before-worldeditor"
+const BackupSuffix = ".before-meld"
 
 // CheckServer reports whether dir looks like a VMaNGOS server folder: it has the configuration and
 // the map data the update script writes.
@@ -113,7 +113,7 @@ func archiveOwner(path string) (string, error) {
 	}
 	defer a.Close()
 	switch {
-	case a.Has(mpq.MarkerName):
+	case a.Has(mpq.MarkerName), a.Has(mpq.OldMarkerName):
 		return mpq.MarkerName, nil
 	case a.Has(IronforgeMarker):
 		return IronforgeMarker, nil

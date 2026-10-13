@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 // chunkBytes frames a payload as an IFF chunk, with its id stored byte-reversed as on disk.

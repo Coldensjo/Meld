@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/wow"
+	"Meld/internal/adt"
+	"Meld/internal/wow"
 )
 
 // TestTileRoundTrip reads a real tile, edits one outer height and reads it back:

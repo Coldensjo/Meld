@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"WorldEditor/internal/mpq"
+	"Meld/internal/mpq"
 )
 
 func TestInUseRecognisesLockedErrors(t *testing.T) {

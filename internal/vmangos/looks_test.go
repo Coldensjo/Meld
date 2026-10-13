@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"WorldEditor/internal/wow"
+	"Meld/internal/wow"
 )
 
 // testDBC builds a DBC table of rows of the given width. A string field is put in the string

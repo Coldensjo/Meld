@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 func TestAddMapRowSynthetic(t *testing.T) {
@@ -69,11 +69,11 @@ func TestRealMapTables(t *testing.T) {
 			free = id + 1
 		}
 	}
-	out, err := AddMapRow(dbc, free, "WorldEditorTest")
+	out, err := AddMapRow(dbc, free, "MeldTest")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if MapRowDir(out, free) != "WorldEditorTest" || len(MapRowIDs(out)) != len(MapRowIDs(dbc))+1 {
+	if MapRowDir(out, free) != "MeldTest" || len(MapRowIDs(out)) != len(MapRowIDs(dbc))+1 {
 		t.Fatal("the new row did not read back")
 	}
 	wdt, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)

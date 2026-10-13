@@ -20,7 +20,10 @@ const (
 
 // MarkerName is a file every archive written by Write carries, so an editor can tell its own
 // patches from the game's and refuse to overwrite the game's.
-const MarkerName = "(worldeditor)"
+const MarkerName = "(meld)"
+
+// OldMarkerName is the marker of archives written before the app was renamed.
+const OldMarkerName = "(worldeditor)"
 
 // MarkerText is the marker file's contents. Stored uncompressed, it can be found in the file.
 const MarkerText = "Meld map export: this patch was written by Meld and is replaced by its next export."
@@ -31,7 +34,7 @@ const MarkerText = "Meld map export: this patch was written by Meld and is repla
 func Write(files []File) []byte {
 	all := make([]File, 0, len(files)+2)
 	for _, f := range files {
-		if f.Name != "(listfile)" && f.Name != MarkerName {
+		if f.Name != "(listfile)" && f.Name != MarkerName && f.Name != OldMarkerName {
 			all = append(all, f)
 		}
 	}

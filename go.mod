@@ -1,4 +1,4 @@
-module WorldEditor
+module Meld
 
 go 1.25.0
 

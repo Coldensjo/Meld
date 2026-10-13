@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"WorldEditor/internal/wow"
+	"Meld/internal/wow"
 )
 
 // Rows as SHOW COLUMNS prints them: field, type, null, key, default, extra.

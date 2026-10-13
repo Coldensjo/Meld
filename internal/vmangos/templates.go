@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 // TemplateColumn is a column of creature_template: its name, and the kind of value it holds

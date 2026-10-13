@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"WorldEditor/internal/wow"
+	"Meld/internal/wow"
 )
 
 // TestRealRegionHoles checks that Elwynn's mines come through as holes:

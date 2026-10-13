@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"WorldEditor/internal/config"
+	"Meld/internal/config"
 )
 
 // windowTitle is the client's window title, which the login is typed into.

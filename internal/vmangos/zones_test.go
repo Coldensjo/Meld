@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"WorldEditor/internal/wow"
+	"Meld/internal/wow"
 )
 
 // TestRealZones reads the client's zones and checks Elwynn Forest sits where Goldshire is (tile

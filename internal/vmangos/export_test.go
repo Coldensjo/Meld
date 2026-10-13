@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/adt"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 func flatTile(h float32) []float32 {
@@ -49,7 +49,7 @@ func TestExportMapWritesTilesAndTable(t *testing.T) {
 		weights[texel*4+1] = 127
 	}
 	spec := MapSpec{
-		Dir:   "WorldEditorTest",
+		Dir:   "MeldTest",
 		MapID: 1901,
 		Tiles: []TileSpec{{
 			X: 5, Y: 6,
@@ -70,7 +70,7 @@ func TestExportMapWritesTilesAndTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tile, err := arch.ReadFile(adt.TilePath("WorldEditorTest", 5, 6, ""))
+	tile, err := arch.ReadFile(adt.TilePath("MeldTest", 5, 6, ""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestExportMapWritesTilesAndTable(t *testing.T) {
 		t.Fatalf("height %v, want %v", terrain.Chunks[0].Heights[0], outer[0])
 	}
 
-	wdt, err := arch.ReadFile(`World\Maps\WorldEditorTest\WorldEditorTest.wdt`)
+	wdt, err := arch.ReadFile(`World\Maps\MeldTest\MeldTest.wdt`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,14 +108,14 @@ func TestExportMapWritesTilesAndTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if MapRowDir(dbc, 1901) != "WorldEditorTest" {
+	if MapRowDir(dbc, 1901) != "MeldTest" {
 		t.Fatal("the patch's Map.dbc has no row for the map")
 	}
 	serverDBC, err := os.ReadFile(res.Server)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if MapRowDir(serverDBC, 1901) != "WorldEditorTest" {
+	if MapRowDir(serverDBC, 1901) != "MeldTest" {
 		t.Fatal("the server's Map.dbc has no row for the map")
 	}
 

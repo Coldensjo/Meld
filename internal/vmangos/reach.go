@@ -5,9 +5,9 @@ import (
 	"math"
 	"strings"
 
-	"WorldEditor/internal/adt"
-	"WorldEditor/internal/mpq"
-	"WorldEditor/internal/wow"
+	"Meld/internal/adt"
+	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 // reaches works out how far placed models reach. The writer lists a model in the terrain chunks its

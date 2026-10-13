@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"WorldEditor/internal/config"
-	"WorldEditor/internal/vmangos"
+	"Meld/internal/config"
+	"Meld/internal/vmangos"
 )
 
 // fakeRunner keeps a set of running images. taskkill stops an image, and Start runs one.

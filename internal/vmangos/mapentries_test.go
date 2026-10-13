@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"WorldEditor/internal/wow"
+	"Meld/internal/wow"
 )
 
 // TestReadMapEntriesSynthetic reads two rows of five fields (ID, folder, type, flags, name) out of

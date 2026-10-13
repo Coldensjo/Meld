@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"WorldEditor/internal/adt"
+	"Meld/internal/adt"
 )
 
 // WorldSpawn kinds, as the editor shows them: a monster is a creature with no NPC flags, an NPC is a

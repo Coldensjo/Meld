@@ -5,7 +5,7 @@ import (
 	"math"
 	"sort"
 
-	"WorldEditor/internal/mpq"
+	"Meld/internal/mpq"
 )
 
 // Zone is a named part of a map (Elwynn Forest, Durotar…) as a rectangle of tiles, from the
