@@ -150,7 +150,9 @@ export class CameraController {
   private onKeyDown = (e: KeyboardEvent) => {
     const el = e.target as HTMLElement | null
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
-    if (e.ctrlKey || e.metaKey || e.altKey) return
+    // Ctrl and Alt combinations are the editor's shortcuts, except Ctrl held as the very-fast modifier.
+    if (e.altKey || e.metaKey) return
+    if (e.ctrlKey && !e.code.startsWith('Control') && !e.code.startsWith('Shift')) return
     if (e.code.startsWith('Arrow') && this.arrowsBlocked()) return
     this.keys.add(e.code)
   }
@@ -162,7 +164,10 @@ export class CameraController {
 
   update(dt: number) {
     const k = this.keys
-    const fast = k.has('ShiftLeft') || k.has('ShiftRight') ? 3 : 1
+    // Shift is fast and Ctrl+Shift very fast (Ctrl alone is left to the editor's shortcuts).
+    const shift = k.has('ShiftLeft') || k.has('ShiftRight')
+    const ctrl = k.has('ControlLeft') || k.has('ControlRight')
+    const fast = shift && ctrl ? 12 : shift ? 4 : 1
     let fwd = 0, right = 0
     const arrows = !this.arrowsBlocked()
     if (k.has('KeyW') || (arrows && k.has('ArrowUp'))) fwd += 1
@@ -214,7 +219,7 @@ export class CameraController {
   /** Units per second for the keys: in orbit, slow close in and faster zoomed out; flying, a steady pace the wheel scales. */
   private moveSpeed(fast: number) {
     if (this.followGround) return (6 + Math.min(this.distance, 300) * 0.4) * fast * this.speed
-    return 24 * this.flyBoost * fast * this.speed
+    return 72 * this.flyBoost * fast * this.speed
   }
 
   dispose() {

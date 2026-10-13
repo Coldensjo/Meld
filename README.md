@@ -96,7 +96,7 @@ Also included:
 | `W A S D` / arrows | Fly first person: `W` goes the way you look, so look down and hold `W` to dive into a cave; `A`/`D` strafe |
 | `Space` / `X` | Fly up / down |
 | `Q` / `E` | Rotate |
-| `Shift` | Move faster |
+| `Shift` / `Ctrl+Shift` | Fast / very fast |
 | `T` | Follow the ground on/off (Camera menu). On, the camera orbits a point that rides the terrain and stays above the ground, for sculpting from above |
 
 ### Menus

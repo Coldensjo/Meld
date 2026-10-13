@@ -40,7 +40,7 @@
         ['W A S D / arrows', 'Fly: W goes the way you look, A/D strafe (arrows nudge the object when one is selected)'],
         ['Space / X', 'Fly up / down'],
         ['Q / E', 'Rotate'],
-        ['Shift', 'Move faster'],
+        ['Shift / Ctrl+Shift', 'Fast / very fast'],
         ['T', 'Follow the ground on/off (on, the camera stays above the terrain; off, it can enter caves)'],
         ['F', 'Focus selected object'],
       ],
