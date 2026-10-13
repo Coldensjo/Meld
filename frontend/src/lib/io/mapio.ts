@@ -25,6 +25,7 @@ import type { MapDocument } from '../engine/MapDocument'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
+import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
@@ -189,6 +190,19 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       })),
       TILE_CHUNKS * size,
     )
+    // The client's holes (cave mouths): each chunk gives a byte per cell row, a bit per cell.
+    const cells = TILE_CHUNKS * size * CHUNK_CELLS
+    const holes = new Uint8Array(cells * cells)
+    for (const c of view.chunks) {
+      if (!c.holes) continue
+      for (let row = 0; row < CHUNK_CELLS; row++) {
+        const bits = c.holes[row] ?? 0
+        if (!bits) continue
+        for (let col = 0; col < CHUNK_CELLS; col++) {
+          if (bits & (1 << col)) holes[(c.indexY * CHUNK_CELLS + row) * cells + c.indexX * CHUNK_CELLS + col] = 1
+        }
+      }
+    }
     const t0 = performance.now()
     const d = engine.openRegion({
       mapName,
@@ -198,6 +212,7 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       heights: Float32Array.from(view.heights),
       weights: paint.weights,
       chunkSlots: paint.chunkSlots,
+      holes,
       palette: paint.palette,
       objects: view.objects,
       liquids: view.liquids,

@@ -26,6 +26,8 @@ type ChunkView struct {
 	IndexY int         `json:"indexY"`
 	AreaID uint32      `json:"areaId"`
 	Layers []LayerView `json:"layers"`
+	// Holes has one byte per cell row; bit n set means cell n of that row is a hole (a cave mouth).
+	Holes []uint8 `json:"holes,omitempty"`
 }
 
 // TileView is a tile as the editor reads it. Heights is the outer grid (LatticeSize squared,
@@ -91,6 +93,12 @@ func viewOf(root []byte, bigAlpha bool) (*TileView, error) {
 			}
 		}
 		cv := ChunkView{IndexX: c.IndexX, IndexY: c.IndexY, AreaID: c.AreaID}
+		for _, row := range c.Holes {
+			if row != 0 {
+				cv.Holes = c.Holes[:]
+				break
+			}
+		}
 		for l, layer := range textures.Chunks[i].Layers {
 			lv := LayerView{Texture: layer.Texture, Effect: layer.Effect}
 			if l > 0 {

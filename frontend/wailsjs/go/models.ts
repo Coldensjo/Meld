@@ -216,6 +216,7 @@ export namespace vmangos {
 	    indexY: number;
 	    areaId: number;
 	    layers: LayerView[];
+	    holes?: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ChunkView(source);
@@ -227,6 +228,7 @@ export namespace vmangos {
 	        this.indexY = source["indexY"];
 	        this.areaId = source["areaId"];
 	        this.layers = this.convertValues(source["layers"], LayerView);
+	        this.holes = source["holes"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -37,6 +37,8 @@ export interface RegionOpen {
   heights: Float32Array
   weights: Uint8Array
   chunkSlots: Uint8Array
+  /** One byte per cell, 1 for a hole; empty when the region has none. */
+  holes: Uint8Array
   palette: string[]
   objects: RegionObject[]
   /** The client's water, as the region's chunks hold it. */
@@ -698,6 +700,7 @@ export class Engine {
     d.terrain.heights.set(r.heights)
     d.terrain.weights.set(r.weights)
     d.terrain.chunkSlots.set(r.chunkSlots)
+    if (r.holes.length === d.terrain.holes.length) d.terrain.holes.set(r.holes)
     d.terrain.markAllDirty()
     d.meta.palette = [...r.palette]
     const water = liquidMesh(r.liquids, d.terrain.cellSize)
