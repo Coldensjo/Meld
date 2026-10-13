@@ -24,7 +24,16 @@ const fragment = /* glsl */ `
 #include <bsdfs>
 #include <lights_pars_begin>
 #include <shadowmap_pars_fragment>
-#include <shadowmask_pars_fragment>
+// The key light's (sun or moon) shadow alone. three's getShadowMask would also multiply in the
+// point lights' shadows, which only darken their own light below.
+float keyShadow() {
+  #if defined(USE_SHADOWMAP) && NUM_DIR_LIGHT_SHADOWS > 0
+    DirectionalLightShadow ds = directionalLightShadows[0];
+    return getShadow(directionalShadowMap[0], ds.shadowMapSize, ds.shadowIntensity, ds.shadowBias, ds.shadowRadius, vDirectionalShadowCoord[0]);
+  #else
+    return 1.0;
+  #endif
+}
 // The palette: one texture per layer. Each chunk names its four textures in slotTex, and each
 // texel's weights for those four are in weightTex. Both are sampled nearest, so chunks keep hard edges.
 uniform sampler2DArray palette;
@@ -118,7 +127,7 @@ void main() {
 
   // Simple stylised lighting: hemisphere ambient + wrapped sun.
   // Wrapped diffuse, darkened where the key light (sun or moon) is shadowed.
-  float diff = max(dot(n, sunDir) * 0.8 + 0.2, 0.0) * mix(0.25, 1.0, getShadowMask());
+  float diff = max(dot(n, sunDir) * 0.8 + 0.2, 0.0) * mix(0.25, 1.0, keyShadow());
   vec3 hemi = mix(groundAmbient, skyAmbient, n.y * 0.5 + 0.5);
   vec3 lit = col * (hemi + sunColor * diff);
 
@@ -126,13 +135,25 @@ void main() {
   #if NUM_POINT_LIGHTS > 0
     vec3 vPos = (viewMatrix * vec4(vWorldPos, 1.0)).xyz;
     vec3 vN = normalize((viewMatrix * vec4(n, 0.0)).xyz);
+    // The nearest lights cast shadows (three sorts shadowed lights first), so walls block them.
+    #pragma unroll_loop_start
     for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
+      // A block per light: the unrolled copies would otherwise share one scope.
+      {
       vec3 L = pointLights[i].position - vPos;
       float d = max(length(L), 0.001);
       float cutoff = pointLights[i].distance;
       float att = cutoff > 0.0 ? pow(clamp(1.0 - pow(d / cutoff, 4.0), 0.0, 1.0), 2.0) / max(d * d, 0.01) : 0.0;
+      #if defined(USE_SHADOWMAP) && (UNROLLED_LOOP_INDEX < NUM_POINT_LIGHT_SHADOWS) && (defined(SHADOWMAP_TYPE_PCF) || defined(SHADOWMAP_TYPE_BASIC))
+        if (att > 0.0) {
+          PointLightShadow ps = pointLightShadows[i];
+          att *= getPointShadow(pointShadowMap[i], ps.shadowMapSize, ps.shadowIntensity, ps.shadowBias, ps.shadowRadius, vPointShadowCoord[i], ps.shadowCameraNear, ps.shadowCameraFar);
+        }
+      #endif
       lit += col * pointLights[i].color * att * max(dot(vN, L / d), 0.0) * RECIPROCAL_PI;
+      }
     }
+    #pragma unroll_loop_end
   #endif
 
   if (waterEnabled > 0.5) {

@@ -4,6 +4,12 @@ import type { ObjectLayer } from './ObjectLayer'
 
 /** Max simultaneous dynamic lights (nearest to the camera target win). */
 export const LIGHT_POOL = 8
+/**
+ * The nearest few of them cast shadows, so they don't shine through walls. Their cube maps are
+ * rendered only when a light moves to another source or the scene around it changes.
+ */
+export const SHADOW_LIGHTS = 3
+const SHADOW_SIZE = 256
 const MAX_FLAMES = 2048
 
 interface Source {
@@ -91,6 +97,13 @@ export class PropEffects {
   private order: number[] = []
   /** Each source's squared distance to the camera target this frame, for the light pool's order. */
   private dist = new Float32Array(0)
+  /** The source each pooled light shows (-1 for none), kept across frames so shadows aren't redrawn. */
+  private slots = new Int32Array(LIGHT_POOL).fill(-1)
+  private sceneVersion = -1
+  private shadows = false
+  /** The reach of the shadowed lights in use, for culling: what can throw their shadows must be drawn. */
+  readonly shadowSpheres: THREE.Sphere[] = []
+  private sphereFree: THREE.Sphere[] = []
   enabled = true
 
   constructor() {
@@ -116,6 +129,14 @@ export class PropEffects {
     for (let i = 0; i < LIGHT_POOL; i++) {
       const l = new THREE.PointLight(0xffaa55, 0, 10, 2)
       l.castShadow = false
+      if (i < SHADOW_LIGHTS) {
+        l.shadow.autoUpdate = false
+        l.shadow.mapSize.set(SHADOW_SIZE, SHADOW_SIZE)
+        // Past the lamp's own cage or glass, which would otherwise shadow everything.
+        l.shadow.camera.near = 0.6
+        l.shadow.bias = -0.004
+        l.shadow.normalBias = 0.03
+      }
       this.lights.push(l)
       this.group.add(l)
     }
@@ -174,40 +195,108 @@ export class PropEffects {
     this.seeds.needsUpdate = true
   }
 
-  /** Per frame: refresh sources if needed, animate flames, assign lights. */
-  update(layer: ObjectLayer, time: number, focus: THREE.Vector3, night: number) {
-    if (layer !== this.layer || layer.version !== this.version) {
+  /** Whether the nearest lights cast shadows (the shadow preference). Changing it recompiles shaders. */
+  setShadows(on: boolean) {
+    if (on === this.shadows) return
+    this.shadows = on
+    for (let i = 0; i < SHADOW_LIGHTS; i++) {
+      const l = this.lights[i]
+      l.castShadow = on
+      l.shadow.needsUpdate = on
+      if (!on) {
+        l.shadow.map?.dispose()
+        l.shadow.map = null
+      }
+    }
+  }
+
+  /**
+   * Per frame, before culling: refresh sources if needed, animate flames, assign lights.
+   * `sceneVersion` changes whenever what could throw a light's shadow changed (here, the terrain).
+   */
+  update(layer: ObjectLayer, time: number, focus: THREE.Vector3, night: number, sceneVersion: number) {
+    const rebuilt = layer !== this.layer || layer.version !== this.version
+    if (rebuilt) {
       this.layer = layer
       this.version = layer.version
       this.rebuild(layer)
+      // Source indices name other sources now.
+      this.slots.fill(-1)
     }
+    const redraw = rebuilt || sceneVersion !== this.sceneVersion
+    this.sceneVersion = sceneVersion
     this.material.uniforms.time.value = time
     this.flames.visible = this.enabled
 
-    // Nearest sources to the camera target get the light pool.
+    // Nearest sources to the camera target get the light pool, and the nearest of those its shadows.
     const src = this.sources
     this.order.length = 0
     for (let i = 0; i < src.length; i++) this.order.push(i)
-    if (src.length > LIGHT_POOL) {
+    if (src.length > SHADOW_LIGHTS) {
       if (this.dist.length < src.length) this.dist = new Float32Array(src.length)
       const d = this.dist
       for (let i = 0; i < src.length; i++) d[i] = src[i].pos.distanceToSquared(focus)
       this.order.sort((a, b) => d[a] - d[b])
     }
+    this.assignSlots(this.enabled ? Math.min(LIGHT_POOL, this.order.length) : 0)
+    for (const sp of this.shadowSpheres) this.sphereFree.push(sp)
+    this.shadowSpheres.length = 0
+
     // Lights read stronger at night; by day they're a subtle warm touch.
     const strength = 0.35 + 0.65 * night
     for (let i = 0; i < LIGHT_POOL; i++) {
       const l = this.lights[i]
-      const s = i < this.order.length ? src[this.order[i]] : null
-      if (!s || !this.enabled) {
+      const s = this.slots[i] >= 0 ? src[this.slots[i]] : null
+      if (!s) {
         l.intensity = 0
         continue
+      }
+      if (l.castShadow) {
+        if (redraw) l.shadow.needsUpdate = true
+        const sp = this.sphereFree.pop() ?? new THREE.Sphere()
+        sp.center.copy(s.pos)
+        sp.radius = s.radius
+        this.shadowSpheres.push(sp)
       }
       const flicker = s.fire ? 0.82 + 0.1 * Math.sin(time * 9.1 + s.seed * 40) + 0.08 * Math.sin(time * 23.7 + s.seed * 17) : 1
       l.position.copy(s.pos).add(this.tmpV.set(0, s.fire ? 0.3 : 0, 0))
       l.color.copy(s.color)
       l.distance = s.radius
       l.intensity = s.intensity * s.radius * s.radius * 0.5 * flicker * strength
+    }
+  }
+
+  /**
+   * Gives the pooled lights the `n` nearest sources (the front of `order`). The nearest SHADOW_LIGHTS
+   * go to the shadowed lights, and a source keeps the light it already had, so its shadow map stays.
+   */
+  private assignSlots(n: number) {
+    const slots = this.slots
+    const order = this.order
+    const ns = Math.min(n, SHADOW_LIGHTS)
+    // Shadowed lights: keep those whose source is still among the nearest, refill the rest.
+    for (let i = 0; i < SHADOW_LIGHTS; i++) {
+      let keep = false
+      for (let k = 0; !keep && k < ns; k++) keep = order[k] === slots[i]
+      if (!keep) slots[i] = -1
+    }
+    for (let k = 0; k < ns; k++) {
+      const s = order[k]
+      let held = false
+      for (let i = 0; !held && i < SHADOW_LIGHTS; i++) held = slots[i] === s
+      if (held) continue
+      for (let i = 0; i < SHADOW_LIGHTS; i++) {
+        if (slots[i] < 0) {
+          slots[i] = s
+          this.lights[i].shadow.needsUpdate = true
+          break
+        }
+      }
+    }
+    // The others cost nothing to move.
+    for (let i = SHADOW_LIGHTS; i < LIGHT_POOL; i++) {
+      const k = ns + i - SHADOW_LIGHTS
+      slots[i] = k < n ? order[k] : -1
     }
   }
 

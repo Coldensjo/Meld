@@ -9,6 +9,8 @@ import * as THREE from 'three'
 export interface CullView {
   /** An instance is drawn when any of these holds it: the camera's frustum and, with shadows, the shadow camera's. */
   frustums: THREE.Frustum[]
+  /** An instance is also drawn when it touches one of these: the reach of the shadowed point lights. */
+  spheres?: THREE.Sphere[]
   /** The camera's position. */
   eye: THREE.Vector3
   /** Pixels one world unit covers at a distance of one, for the small-model cutoff. */
@@ -51,12 +53,11 @@ export function cullSpheres(view: CullView, spheres: Float32Array, n: number, ou
       // Seen from outside, the model covers about its diameter over its distance.
       if (d > r && (2 * r * pxPerUnit) / d < cutoffPx) continue
     }
-    for (let k = 0; k < frustums.length; k++) {
-      if (frustums[k].intersectsSphere(sphere)) {
-        scratch.push(i)
-        break
-      }
-    }
+    let seen = false
+    for (let k = 0; !seen && k < frustums.length; k++) seen = frustums[k].intersectsSphere(sphere)
+    const reach = view.spheres
+    for (let k = 0; !seen && reach && k < reach.length; k++) seen = reach[k].intersectsSphere(sphere)
+    if (seen) scratch.push(i)
   }
   let same = scratch.length === out.length
   for (let k = 0; same && k < scratch.length; k++) if (scratch[k] !== out[k]) same = false

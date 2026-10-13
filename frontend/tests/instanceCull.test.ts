@@ -45,6 +45,14 @@ test('a second frustum keeps what the first would drop', () => {
   assert.deepEqual(out, [0, 1])
 })
 
+test('a shadowed light keeps the models within its reach, out of view or not', () => {
+  const v = view()
+  v.spheres = [new THREE.Sphere(new THREE.Vector3(0, 0, 20), 5)]
+  const out: number[] = []
+  cullSpheres(v, spheres([0, 0, -10, 1], [0, 0, 24, 2], [0, 0, 40, 1]), 3, out, [])
+  assert.deepEqual(out, [0, 1])
+})
+
 test('the cutoff drops models too small on screen, never one the camera is inside', () => {
   // At 500 px per unit, a radius-1 model 100 units away covers 10 px; at 1000 units, 1 px.
   const s = spheres([0, 0, -100, 1], [0, 0, -1000, 1], [0, 0, 0, 5])

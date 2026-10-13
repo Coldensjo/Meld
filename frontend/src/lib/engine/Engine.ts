@@ -186,7 +186,7 @@ export class Engine {
   private fogEnabled = true
   private abort = new AbortController()
   /** What is in view this frame, for culling the models and spawns (see world/instanceCull.ts). */
-  private cullView: CullView = { frustums: [], eye: new THREE.Vector3(), pxPerUnit: 1, cutoffPx: 0 }
+  private cullView: CullView = { frustums: [], spheres: [], eye: new THREE.Vector3(), pxPerUnit: 1, cutoffPx: 0 }
   private viewFrustum = new THREE.Frustum()
   private viewProj = new THREE.Matrix4()
 
@@ -504,10 +504,11 @@ export class Engine {
       selectObjects(this.objects, editor.selectedIds.filter((id) => !this.objects.isHidden(id)), editor.selected?.id)
     }
     this.objects.update()
+    // Lights first: culling keeps what can throw the shadowed lights' shadows.
+    this.effects.enabled = this.prefs?.propEffects !== false
+    this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)
     this.cullInstances()
     this.animateModels(time)
-    this.effects.enabled = this.prefs?.propEffects !== false
-    this.effects.update(this.objects, time, this.controller.target, this.env.state.night)
     this.updateSelectionVisuals()
     this.renderer.render(this.scene, this.camera)
     // The counters describe the last render call, so read the scene's before the outline passes.
@@ -545,6 +546,7 @@ export class Engine {
       key.shadow.updateMatrices(key)
       v.frustums.push(key.shadow.getFrustum())
     }
+    v.spheres = this.effects.shadowSpheres
     v.eye.copy(this.camera.position)
     v.pxPerUnit = this.container.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2))
     v.cutoffPx = this.prefs?.cullSmallModels === false ? 0 : SMALL_MODEL_PX
@@ -607,6 +609,7 @@ export class Engine {
     if (!p.dayCycle) this.hour = p.timeOfDay
     this.env.setClouds(p.clouds)
     this.env.setShadows(p.shadows)
+    this.effects.setShadows(p.shadows !== 'off')
     const ratio = Math.min(window.devicePixelRatio * p.renderScale, 3)
     if (this.renderer.getPixelRatio() !== ratio) {
       this.renderer.setPixelRatio(ratio)
