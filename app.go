@@ -320,6 +320,76 @@ func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, 
 	return vmangos.ReadSpawns(server, dataDir, mapName, x, y, size)
 }
 
+// serverAndData are the VMaNGOS server folder and the client's data folder, which the spawn
+// bindings need both of.
+func (a *App) serverAndData() (string, string, error) {
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if server == "" {
+		return "", "", errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
+	}
+	dataDir, err := a.clientDataDir()
+	return server, dataDir, err
+}
+
+// SpawnLook dresses a creature display with an equipment and a pose, for a spawn whose display,
+// equipment, stand state, emote or sheath state was edited.
+func (a *App) SpawnLook(display, equipment, stand, emote, sheath int) (vmangos.LookResult, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return vmangos.LookResult{}, err
+	}
+	return vmangos.CreatureLook(server, dataDir, display, equipment, stand, emote, sheath)
+}
+
+// SpawnEmotes lists the client's emotes, for picking a spawn's looping emote.
+func (a *App) SpawnEmotes() ([]vmangos.Emote, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.Emotes(dataDir)
+}
+
+// SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it.
+func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.Result{}, err
+	}
+	return vmangos.SpawnSQL(server, mapName, x, y, size, edits, time.Now())
+}
+
+// ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
+// <user cache>/WorldEditor/spawn-sql first, so what changed can be looked up (or undone by hand).
+func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.Result{}, err
+	}
+	res, err := vmangos.SpawnSQL(server, mapName, x, y, size, edits, time.Now())
+	if err != nil {
+		return res, err
+	}
+	if cache, err := os.UserCacheDir(); err == nil {
+		dir := filepath.Join(cache, "WorldEditor", "spawn-sql")
+		if os.MkdirAll(dir, 0o755) == nil {
+			_ = os.WriteFile(filepath.Join(dir, time.Now().Format("20060102-150405")+"-"+mapName+".sql"), []byte(res.SQL), 0o644)
+		}
+	}
+	return res, vmangos.ApplySQL(server, res.SQL)
+}
+
+// SaveSQLDialog asks where to save an SQL file. Returns "" if cancelled.
+func (a *App) SaveSQLDialog(suggested string) (string, error) {
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export Spawn SQL",
+		DefaultFilename: suggested + ".sql",
+		Filters:         []runtime.FileFilter{{DisplayName: "SQL script (*.sql)", Pattern: "*.sql"}},
+	})
+}
+
 // SaveRegion writes an edited block back into the client's patch, into the tiles it came from, and
 // returns the patch's path. The server's map data is built from the patch. On Windows the game and
 // the servers are closed first, since they hold the patch open, and opened again afterwards.

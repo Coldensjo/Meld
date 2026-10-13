@@ -253,7 +253,41 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class Emote {
+	    id: number;
+	    name: string;
+	    anim: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new Emote(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.anim = source["anim"];
+	    }
+	}
+	
+	export class LookResult {
+	    model: string;
+	    look: string;
+	    anim: number;
+	    displayScale: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LookResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.model = source["model"];
+	        this.look = source["look"];
+	        this.anim = source["anim"];
+	        this.displayScale = source["displayScale"];
+	    }
+	}
 	export class MapEntry {
 	    ID: number;
 	    Dir: string;
@@ -531,7 +565,26 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class Result {
+	    sql: string;
+	    added: number;
+	    changed: number;
+	    deleted: number;
+	    skipped: string[];
 	
+	    static createFrom(source: any = {}) {
+	        return new Result(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sql = source["sql"];
+	        this.added = source["added"];
+	        this.changed = source["changed"];
+	        this.deleted = source["deleted"];
+	        this.skipped = source["skipped"];
+	    }
+	}
 	export class WorldSpawn {
 	    kind: string;
 	    guid: number;
@@ -555,6 +608,7 @@ export namespace vmangos {
 	    look: string;
 	    anim: number;
 	    scale: number;
+	    displayScale: number;
 	    equipment: number;
 	    standState: number;
 	    emoteState: number;
@@ -590,6 +644,7 @@ export namespace vmangos {
 	        this.look = source["look"];
 	        this.anim = source["anim"];
 	        this.scale = source["scale"];
+	        this.displayScale = source["displayScale"];
 	        this.equipment = source["equipment"];
 	        this.standState = source["standState"];
 	        this.emoteState = source["emoteState"];
@@ -598,6 +653,44 @@ export namespace vmangos {
 	        this.wanderDistance = source["wanderDistance"];
 	    }
 	}
+	export class SpawnEdit {
+	    spawn: WorldSpawn;
+	    original?: WorldSpawn;
+	    created: boolean;
+	    deleted: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpawnEdit(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.spawn = this.convertValues(source["spawn"], WorldSpawn);
+	        this.original = this.convertValues(source["original"], WorldSpawn);
+	        this.created = source["created"];
+	        this.deleted = source["deleted"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
 	export class Zone {
 	    MapID: number;
 	    Name: string;

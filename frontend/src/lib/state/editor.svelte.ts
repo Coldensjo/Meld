@@ -231,7 +231,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'gameLogin' | null,
+  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'gameLogin' | 'saveSpawns' | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */
   closeDocId: 0,
   /** Which palette the left panel shows. */
@@ -245,6 +245,8 @@ export const ui = $state({
   showHiddenModels: false,
   /** How many objects the active map has hidden. */
   hiddenModels: 0,
+  /** How many of the active region's spawns were changed, added or deleted since they were saved. */
+  spawnChanges: 0,
 })
 
 let statusTimer: ReturnType<typeof setTimeout> | undefined

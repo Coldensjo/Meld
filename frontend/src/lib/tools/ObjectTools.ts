@@ -8,6 +8,8 @@ import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
 import { hasSkeleton, modelMesh } from '../world/Animator'
+import { cloneSpawn, spawnKey } from '../world/SpawnLayer'
+import { applySpawn, syncSpawnUi, type SpawnFields } from '../world/spawnEdits'
 
 function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
   const saved = added.map((o) => ({ ...o }))
@@ -244,6 +246,8 @@ export class SelectTool implements Tool {
     others: Array<{ id: number; ox: number; oz: number }>
     before: WorldObject[]
   } | null = null
+  /** Dragging a region's spawn along the surface under the cursor, keeping its offset from the cursor. */
+  private spawnDrag: { key: string; dx: number; dz: number; before: SpawnFields; moved: boolean } | null = null
   /** The cell an area drag started at. */
   private rectStart: Cell | null = null
   /** Where a floating area paste would land (corner cell), updated every frame. */
@@ -343,9 +347,17 @@ export class SelectTool implements Tool {
       this.pressObject(ctx, id, hit, e.shiftKey)
       return
     }
-    // No model under the cursor: a creature or object of the region there is selected instead.
-    editor.selectedSpawn = ctx.spawns.pick(ctx.raycaster)
-    if (editor.selectedSpawn || !hit) return
+    // No model under the cursor: a creature or object of the region there is selected instead, and
+    // a drag moves it. The panel gets a copy, so its state never wraps the drawn spawn.
+    const spawn = ctx.spawns.pick(ctx.raycaster)
+    editor.selectedSpawn = spawn ? cloneSpawn(spawn) : null
+    if (spawn) {
+      if (editor.selectedIds.length) selectObjects(ctx.objects, [])
+      const at = ctx.surface()?.point ?? hit
+      if (at) this.spawnDrag = { key: spawnKey(spawn), dx: spawn.x - at.x, dz: spawn.z - at.z, before: { x: spawn.x, y: spawn.y, z: spawn.z }, moved: false }
+      return
+    }
+    if (!hit) return
     if (!e.shiftKey) selectObjects(ctx.objects, [])
     this.rectStart = this.cell(ctx, hit)
     editor.selection = { x0: this.rectStart.x, z0: this.rectStart.z, x1: this.rectStart.x, z1: this.rectStart.z }
@@ -385,6 +397,23 @@ export class SelectTool implements Tool {
   }
 
   onMove(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    const sd = this.spawnDrag
+    if (sd) {
+      const s = ctx.spawns.get(sd.key)
+      const surf = ctx.surface()
+      if (!s || !surf) return
+      const x = surf.point.x + sd.dx
+      const z = surf.point.z + sd.dz
+      if (!ctx.terrain.contains(x, z)) return
+      ctx.spawns.touch(s)
+      // A spawn stands on what is under the cursor: the ground where it is, or a building's floor.
+      s.x = x
+      s.z = z
+      s.y = surf.parent === null ? ctx.terrain.heightAt(x, z) : surf.point.y
+      ctx.spawns.refresh(s)
+      sd.moved = true
+      return
+    }
     if (this.rectStart) {
       if (!hit) return
       const c = this.cell(ctx, hit)
@@ -428,6 +457,17 @@ export class SelectTool implements Tool {
   }
 
   onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
+    const sd = this.spawnDrag
+    this.spawnDrag = null
+    if (sd) {
+      const s = ctx.spawns.get(sd.key)
+      if (!sd.moved || !s) return
+      const layer = ctx.spawns
+      const after: SpawnFields = { x: s.x, y: s.y, z: s.z }
+      syncSpawnUi(layer)
+      ctx.history.push({ label: `Move ${s.name}`, undo: () => applySpawn(layer, sd.key, sd.before), redo: () => applySpawn(layer, sd.key, after) })
+      return
+    }
     if (this.rectStart) {
       this.rectStart = null
       const s = editor.selection

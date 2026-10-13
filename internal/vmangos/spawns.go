@@ -59,8 +59,10 @@ type WorldSpawn struct {
 	Look string `json:"look"`
 	// Anim is the AnimationData ID of the loop the spawn's pose plays (0 Stand).
 	Anim int `json:"anim"`
-	// Scale is the spawn's size: the template's scale for the display shown, times the display's own.
-	Scale float32 `json:"scale"`
+	// Scale is the spawn's size: the template's scale for the display shown, times the display's own
+	// (DisplayScale, 1 for an object).
+	Scale        float32 `json:"scale"`
+	DisplayScale float32 `json:"displayScale"`
 	// The creature's spawn settings: its equipment (creature_equip_template; 0 none), stand state,
 	// looping emote and sheath state (creature_addon, else the defaults), and how it moves
 	// (MovementType: 0 idle, 1 random within WanderDistance, 2 waypoints). Zero for an object.
@@ -268,6 +270,7 @@ func regionSpawn(s spawnRow, x, y int, tables *modelTables, weapons [3]heldItem)
 		out.Scale = 1
 	}
 	out.Display = int(s.display)
+	out.DisplayScale = 1
 	if s.Kind == KindObject {
 		out.Model = tables.objectModel(s.display)
 		return out
@@ -278,6 +281,7 @@ func regionSpawn(s spawnRow, x, y int, tables *modelTables, weapons [3]heldItem)
 	look := tables.creatureLook(uint32(out.Display), gear{weapons: weapons, sheath: s.SheathState, stand: s.StandState, emote: s.EmoteState})
 	out.Model = look.model
 	out.Scale *= look.scale
+	out.DisplayScale = look.scale
 	out.Anim = look.look.Anim
 	look.look.Anim = 0
 	out.Look = look.look.Query()

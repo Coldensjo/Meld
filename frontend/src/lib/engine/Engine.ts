@@ -30,6 +30,8 @@ import { movableSelection, objectsInRect, selectObjects, selectedObjects } from 
 import { countHoles, fillHoles } from '../terrain/holes'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
+import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
+import { spawnChange, spawnDelete, syncSpawnUi, withLook, type SpawnFields } from '../world/spawnEdits'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -739,8 +741,9 @@ export class Engine {
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
     editor.regionMap = m.region?.mapName ?? ''
-    editor.spawns = d.spawnLayer.spawns
+    editor.spawns = d.spawnLayer.spawns.slice()
     editor.spawnsError = d.spawnsError
+    ui.spawnChanges = d.spawnLayer.edits().length
     ui.hiddenModels = d.objects.hidden.size
     editor.selectedSpawn = null
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
@@ -861,8 +864,9 @@ export class Engine {
     d.spawnLayer.set(spawns)
     d.spawnsError = ''
     if (d === this.doc) {
-      editor.spawns = spawns
+      editor.spawns = spawns.slice()
       editor.spawnsError = ''
+      ui.spawnChanges = 0
     }
     if (this.prefs) this.applyLayerVisibility(this.prefs)
   }
@@ -876,6 +880,67 @@ export class Engine {
   /** Moves the camera to a spawn, in the active region's coordinates. */
   focusSpawn(s: vmangos.WorldSpawn) {
     this.controller.focus(s.x, s.z, 40)
+  }
+
+  /**
+   * Changes fields of the active region's spawn `key` as one undoable step. A creature whose
+   * display, equipment or pose changes is dressed again by the Go side first.
+   */
+  async editSpawn(key: string, vals: SpawnFields, label: string) {
+    const d = this.doc
+    const s = d.spawnLayer.get(key)
+    if (!s) return
+    let full: SpawnFields
+    try {
+      full = await withLook(s, vals)
+    } catch (err) {
+      setStatus(`Could not dress the spawn: ${err}`, 8000)
+      return
+    }
+    const cmd = spawnChange(d.spawnLayer, key, full, label)
+    if (cmd) d.history.push(cmd)
+  }
+
+  /** Deletes the selected spawn of the active region, undoably. */
+  deleteSelectedSpawn() {
+    const sel = editor.selectedSpawn
+    if (!sel) return
+    const cmd = spawnDelete(this.doc.spawnLayer, spawnKey(sel), `Delete ${sel.name}`)
+    if (cmd) this.history.push(cmd)
+  }
+
+  /** The active region's spawn edits for the world database. */
+  spawnEdits(): vmangos.SpawnEdit[] {
+    return this.doc.spawnLayer.edits()
+  }
+
+  /** The world database now has the active region's spawn edits. */
+  markSpawnsSaved() {
+    this.doc.spawnLayer.markSaved()
+    syncSpawnUi(this.doc.spawnLayer)
+  }
+
+  /** Keys for a spawn selected alone: turn it (R), delete it, deselect it. */
+  private handleSpawnKey(e: KeyboardEvent): boolean {
+    const sel = editor.selectedSpawn
+    if (!sel || editor.selectedIds.length > 0 || editor.tool !== 'select') return false
+    switch (e.key) {
+      case 'r':
+      case 'R': {
+        const spin = THREE.MathUtils.degToRad(e.altKey ? 5 : 15) * (e.shiftKey ? -1 : 1)
+        const o = spawnOrientation(spawnRotation(sel.orientation) + spin)
+        void this.editSpawn(spawnKey(sel), { orientation: o }, `Turn ${sel.name}`)
+        return true
+      }
+      case 'Delete':
+      case 'Backspace':
+        this.deleteSelectedSpawn()
+        return true
+      case 'Escape':
+        editor.selectedSpawn = null
+        return true
+    }
+    return false
   }
 
   /**
@@ -1682,6 +1747,7 @@ export class Engine {
 
   /** Keys for the selected object. Returns true if handled. */
   handleSelectionKey(e: KeyboardEvent): boolean {
+    if (this.handleSpawnKey(e)) return true
     if (!this.canNudge()) return false
     const big = e.shiftKey
     const step = big ? 4 : 0.5

@@ -1,5 +1,8 @@
 import {
+  ApplySpawnEdits,
   BrowseVmangosFolder,
+  SaveSQLDialog,
+  SpawnEditSQL,
   LoadMap,
   LoadRegion,
   LoadSpawns,
@@ -190,6 +193,37 @@ export function reloadSpawns(engine: Engine) {
   engine.setSpawnsError(d, '')
   setStatus('Loading creatures and game objects from the server…')
   void loadSpawns(engine, d, editor.regionMap, b.x, b.y, b.size)
+}
+
+/**
+ * Writes the active region's spawn edits (moved, changed, added and deleted creatures and objects)
+ * into the server's world database. The world server reads its spawns at start, so it has to be
+ * restarted to show them.
+ */
+export function saveSpawns(engine: Engine) {
+  return guarded('Save spawns', async () => {
+    const b = editor.regionBlock
+    const edits = engine.spawnEdits()
+    if (!b || !editor.regionMap || edits.length === 0) return
+    const res = await ApplySpawnEdits(editor.regionMap, b.x, b.y, b.size, edits)
+    engine.markSpawnsSaved()
+    const skipped = res.skipped?.length ? ` Not written: ${res.skipped.join('; ')}.` : ''
+    setStatus(`Saved spawns to the world database: ${res.added} added, ${res.changed} changed, ${res.deleted} deleted. Restart the world server to see them.${skipped}`, 12000)
+  })
+}
+
+/** Saves the active region's spawn edits as an SQL script for the world database, without running it. */
+export function exportSpawnSql(engine: Engine) {
+  return guarded('Export spawn SQL', async () => {
+    const b = editor.regionBlock
+    const edits = engine.spawnEdits()
+    if (!b || !editor.regionMap || edits.length === 0) return
+    const res = await SpawnEditSQL(editor.regionMap, b.x, b.y, b.size, edits)
+    const path = await SaveSQLDialog(`${editor.regionMap}-spawns`)
+    if (!path) return
+    await WriteTextFile(path, res.sql)
+    setStatus(`Exported ${res.added + res.changed + res.deleted} spawn edits to ${path}.`, 8000)
+  })
 }
 
 /** Opens a square block of the client's tiles in a new tab (or switches to it if it's open). */

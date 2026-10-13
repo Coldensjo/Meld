@@ -3,7 +3,7 @@
   import GameLoginDialog from './GameLoginDialog.svelte'
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { openWowRegion, revertMap, saveAndPublish } from '../lib/io/mapio'
+  import { openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
   import { Quit } from '../../wailsjs/go/main/App'
   import { APP_VERSION } from '../lib/version'
 
@@ -135,6 +135,28 @@
           close()
           if (engine) revertMap(engine)
         }}>Revert</button
+      >
+    {/snippet}
+  </Modal>
+{:else if ui.dialog === 'saveSpawns'}
+  <Modal title="Save spawns to the world database" width={400} onclose={close}>
+    <p>
+      Write {ui.spawnChanges}
+      {ui.spawnChanges === 1 ? 'change' : 'changes'} to the creatures and game objects of {editor.region} into the server's world database?
+    </p>
+    <p class="dim">
+      The world database keeps no undo. The SQL that is run is kept in the user cache folder (WorldEditor/spawn-sql). Restart the world server
+      to see the changes in the game.
+    </p>
+    {#snippet actions()}
+      <button onclick={close}>Cancel</button>
+      <button
+        class="active"
+        onclick={() => {
+          const e = engineRef.current
+          close()
+          if (e) saveSpawns(e)
+        }}>Save</button
       >
     {/snippet}
   </Modal>

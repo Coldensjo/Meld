@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { vmangos } from '../../../wailsjs/go/models'
+import { vmangos } from '../../../wailsjs/go/models'
 import { getAsset, isWowType, onAssetLoaded } from '../models/assets'
 import { spawnType } from './spawnInfo'
 import { SkinnedInstancedMesh } from './Animator'
@@ -9,12 +9,17 @@ import { cullSpheres, instanceSphere, packMatrices, type CullView } from './inst
 interface SpawnBatch {
   mesh: THREE.InstancedMesh
   kind: SpawnKind
+  /** The spawn type every spawn of the batch has, or 'cone' for the markers. */
+  type: string
+  ready: boolean
   all: vmangos.WorldSpawn[]
   matrices: Float32Array
   spheres: Float32Array
   /** Indices into `all` of the spawns drawn, by instance index, and scratch for the next cull. */
   packed: number[]
   scratch: number[]
+  /** A spawn moved: the next cull repacks the batch even if the same spawns are in view. */
+  dirty: boolean
 }
 
 export type SpawnKind = 'monster' | 'npc' | 'object'
@@ -28,6 +33,12 @@ export const SPAWN_COLORS: Record<SpawnKind, number> = {
 
 const KINDS: SpawnKind[] = ['monster', 'npc', 'object']
 
+/** A spawn's key: its kind and guid, unique within a region. */
+export const spawnKey = (s: { kind: string; guid: number }) => `${s.kind}/${s.guid}`
+
+/** A copy of a spawn that edits of the original can't reach. */
+export const cloneSpawn = (s: vmangos.WorldSpawn): vmangos.WorldSpawn => vmangos.WorldSpawn.createFrom(JSON.parse(JSON.stringify(s)))
+
 /**
  * The three.js rotation about Y for a server facing. The server's orientation is measured from its
  * +X axis (north) towards +Y (west). Server +X is the editor's -Z and +Y is -X, and a model faces
@@ -37,17 +48,42 @@ export function spawnRotation(orientation: number): number {
   return orientation + Math.PI / 2
 }
 
+/** The server facing that turns a model to three.js rotation `rotY`, in [0, 2π). */
+export function spawnOrientation(rotY: number): number {
+  const o = (rotY - Math.PI / 2) % (2 * Math.PI)
+  return o < 0 ? o + 2 * Math.PI : o
+}
+
+const tmpQ = new THREE.Quaternion()
+const tmpScale = new THREE.Vector3()
+const tmpPos = new THREE.Vector3()
+const UP = new THREE.Vector3(0, 1, 0)
+
+/** A spawn's instance matrix: a model turns to the spawn's facing and takes its size; a cone points up. */
+function spawnMatrix(s: vmangos.WorldSpawn, model: boolean, out: THREE.Matrix4) {
+  tmpPos.set(s.x, s.y, s.z)
+  tmpQ.setFromAxisAngle(UP, model ? spawnRotation(s.orientation) : 0)
+  const k = model && s.scale > 0 ? s.scale : 1
+  return out.compose(tmpPos, tmpQ, tmpScale.set(k, k, k))
+}
+
 /**
  * The creatures and game objects a region's world database places. Each spawn shows its client
  * model, one instanced mesh per model and kind, as objects are drawn. A spawn whose model is still
  * loading, or has none, shows a coloured cone at its spawn point instead, so nothing draws as the
  * loader's placeholder box.
+ *
+ * Spawns can be edited: `touch` keeps a spawn's database state before its first edit, so `edits`
+ * can list what changed for the world database (see world/spawnEdits.ts).
  */
 export class SpawnLayer {
   readonly group = new THREE.Group()
   /** The spawns drawn now, in the region's coordinates. */
   spawns: vmangos.WorldSpawn[] = []
   private batches: SpawnBatch[] = []
+  /** Where each spawn is drawn: its batch, its index in it, and its spawn type when it was drawn. */
+  private where = new Map<vmangos.WorldSpawn, { batch: SpawnBatch; i: number; type: string }>()
+  private keys = new Map<string, vmangos.WorldSpawn>()
   private readonly cone = new THREE.ConeGeometry(1.2, 4, 6).translate(0, 2, 0)
   private readonly coneMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(
     KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k] })]),
@@ -60,12 +96,31 @@ export class SpawnLayer {
   /** Bumped whenever what is drawn changes (spawns, their loaded models or the kinds shown). */
   version = 0
 
-  /** Replaces the drawn spawns, and starts loading their models. */
+  /** The database state of each spawn edited since the last save, by key, as it was read. */
+  private originals = new Map<string, vmangos.WorldSpawn>()
+  /** Keys of spawns added in the editor, and the database spawns deleted since the last save. */
+  private created = new Set<string>()
+  private deleted = new Map<string, vmangos.WorldSpawn>()
+
+  /** Replaces the drawn spawns, and starts loading their models. Forgets every edit. */
   set(spawns: vmangos.WorldSpawn[]) {
     this.spawns = spawns
-    this.types = new Set(spawns.map((s) => spawnType(s)).filter((t) => t !== ''))
-    for (const t of this.types) getAsset(t)
+    this.keys = new Map(spawns.map((s) => [spawnKey(s), s]))
+    this.originals.clear()
+    this.created.clear()
+    this.deleted.clear()
+    this.retype()
     this.rebuild()
+  }
+
+  private retype() {
+    this.types = new Set(this.spawns.map((s) => spawnType(s)).filter((t) => t !== ''))
+    for (const t of this.types) getAsset(t)
+  }
+
+  /** The spawn with key `key`, as drawn. */
+  get(key: string): vmangos.WorldSpawn | undefined {
+    return this.keys.get(key)
   }
 
   /** Whether any spawn uses the model `type`. */
@@ -97,7 +152,8 @@ export class SpawnLayer {
   /** Draws only the spawns in `view`, packed to the front of each batch's instance buffer. Call once per frame. */
   cull(view: CullView) {
     for (const b of this.batches) {
-      if (!cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch)) continue
+      if (!cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch) && !b.dirty) continue
+      b.dirty = false
       packMatrices(b.matrices, b.packed, b.mesh.instanceMatrix.array as Float32Array)
       b.mesh.count = b.packed.length
       b.mesh.instanceMatrix.needsUpdate = true
@@ -112,11 +168,89 @@ export class SpawnLayer {
     return out
   }
 
+  /**
+   * Keeps a spawn's database state before it is first edited. Call before changing a spawn, then
+   * `refresh` it.
+   */
+  touch(s: vmangos.WorldSpawn) {
+    const key = spawnKey(s)
+    if (!this.originals.has(key)) this.originals.set(key, cloneSpawn(s))
+  }
+
+  /** Redraws a spawn after it moved, turned or changed its look. */
+  refresh(s: vmangos.WorldSpawn) {
+    const at = this.where.get(s)
+    if (!at || at.type !== spawnType(s)) {
+      this.retype()
+      this.rebuild()
+      return
+    }
+    const m = spawnMatrix(s, at.batch.ready, new THREE.Matrix4())
+    m.toArray(at.batch.matrices, at.i * 16)
+    instanceSphere(at.batch.mesh.geometry, m, at.batch.spheres, at.i * 4)
+    at.batch.dirty = true
+    this.version++
+  }
+
+  /**
+   * Adds a spawn made in the editor. `original` is what it was when placed, which the world
+   * database is told of with it.
+   */
+  add(s: vmangos.WorldSpawn) {
+    const key = spawnKey(s)
+    this.spawns.push(s)
+    this.keys.set(key, s)
+    if (this.deleted.has(key)) {
+      // Deleted and added back (an undo): it is the database's spawn again.
+      this.deleted.delete(key)
+    } else if (!this.originals.has(key)) {
+      this.created.add(key)
+      this.originals.set(key, cloneSpawn(s))
+    }
+    this.retype()
+    this.rebuild()
+  }
+
+  /** Removes a spawn; one the database has is deleted from it on save. */
+  remove(s: vmangos.WorldSpawn) {
+    const key = spawnKey(s)
+    const i = this.spawns.indexOf(s)
+    if (i < 0) return
+    this.spawns.splice(i, 1)
+    this.keys.delete(key)
+    if (!this.created.has(key)) this.deleted.set(key, this.originals.get(key) ?? cloneSpawn(s))
+    this.retype()
+    this.rebuild()
+  }
+
+  /** The edits to tell the world database of: changed, added and deleted spawns. */
+  edits(): vmangos.SpawnEdit[] {
+    const out: vmangos.SpawnEdit[] = []
+    for (const [key, original] of this.originals) {
+      const s = this.keys.get(key)
+      if (!s) continue
+      const created = this.created.has(key)
+      if (!created && JSON.stringify(s) === JSON.stringify(original)) continue
+      out.push(vmangos.SpawnEdit.createFrom({ spawn: s, original, created, deleted: false }))
+    }
+    for (const original of this.deleted.values()) {
+      out.push(vmangos.SpawnEdit.createFrom({ spawn: original, original, created: false, deleted: true }))
+    }
+    return out
+  }
+
+  /** The world database now has every edit: they become the spawns' saved state. */
+  markSaved() {
+    this.originals.clear()
+    this.created.clear()
+    this.deleted.clear()
+  }
+
   private rebuild() {
     this.version++
     this.clearMeshes()
     // Group the spawns by kind and model; a spawn with a ready model joins that model's batch.
-    const batches = new Map<string, { kind: SpawnKind; items: vmangos.WorldSpawn[] }>()
+    const batches = new Map<string, { kind: SpawnKind; type: string; items: vmangos.WorldSpawn[] }>()
     for (const s of this.spawns) {
       const type = spawnType(s)
       const asset = type && isWowType(type) ? getAsset(type) : null
@@ -124,14 +258,14 @@ export class SpawnLayer {
       const key = ready ? `${s.kind}|${type}` : `${s.kind}|cone`
       let b = batches.get(key)
       if (!b) {
-        b = { kind: s.kind as SpawnKind, items: [] }
+        b = { kind: s.kind as SpawnKind, type: ready ? type : 'cone', items: [] }
         batches.set(key, b)
       }
       b.items.push(s)
     }
-    for (const [key, b] of batches) {
-      const type = key.slice(key.indexOf('|') + 1)
-      const asset = type !== 'cone' ? getAsset(type) : null
+    const m = new THREE.Matrix4()
+    for (const b of batches.values()) {
+      const asset = b.type !== 'cone' ? getAsset(b.type) : null
       const ready = asset?.ready === true
       const geometry = ready ? asset.geometry : this.cone
       const material = ready ? asset.material : this.coneMaterials.get(b.kind)!
@@ -140,26 +274,18 @@ export class SpawnLayer {
       mesh.frustumCulled = false
       mesh.castShadow = ready
       mesh.receiveShadow = ready
-      const m = new THREE.Matrix4()
-      const q = new THREE.Quaternion()
-      const up = new THREE.Vector3(0, 1, 0)
-      const scale = new THREE.Vector3(1, 1, 1)
-      const pos = new THREE.Vector3()
       const matrices = new Float32Array(b.items.length * 16)
       const spheres = new Float32Array(b.items.length * 4)
+      const batch: SpawnBatch = { mesh, kind: b.kind, type: b.type, ready, all: b.items, matrices, spheres, packed: [-1], scratch: [], dirty: true }
       b.items.forEach((s, i) => {
-        // Cones point up at the spawn point. Models turn to the spawn's facing and take its size.
-        pos.set(s.x, s.y, s.z)
-        q.setFromAxisAngle(up, ready ? spawnRotation(s.orientation) : 0)
-        const k = ready && s.scale > 0 ? s.scale : 1
-        scale.set(k, k, k)
-        m.compose(pos, q, scale)
+        spawnMatrix(s, ready, m)
         m.toArray(matrices, i * 16)
         instanceSphere(geometry, m, spheres, i * 4)
+        this.where.set(s, { batch, i, type: spawnType(s) })
       })
       // Nothing is drawn until the first cull packs the spawns in view.
       mesh.count = 0
-      this.batches.push({ mesh, kind: b.kind, all: b.items, matrices, spheres, packed: [-1], scratch: [] })
+      this.batches.push(batch)
       this.group.add(mesh)
     }
     this.applyKinds()
@@ -172,6 +298,7 @@ export class SpawnLayer {
       b.mesh.dispose()
     }
     this.batches = []
+    this.where.clear()
   }
 
   dispose() {

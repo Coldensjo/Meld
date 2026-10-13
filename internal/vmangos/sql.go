@@ -25,7 +25,7 @@ const (
 	GameObject
 )
 
-// Spawn is one NPC or game object on a map.
+// Spawn is one NPC or game object on a map, in the server's coordinates.
 type Spawn struct {
 	Kind       Kind
 	GUID       int
@@ -37,12 +37,19 @@ type Spawn struct {
 	Rotation *[4]float64
 	// Scale is the editor's scale. VMaNGOS takes scale from the template, so a change is reported.
 	Scale float64
-	// Pose is an editor pose: a stand state or a looping emote. Zero means none.
-	Pose int
+	// RespawnMin and RespawnMax are the respawn time's range in seconds; zero for the default.
+	RespawnMin, RespawnMax int
+	// The creature's movement: MovementType 0 idle, 1 random within WanderDistance, 2 waypoints.
+	MovementType   int
+	WanderDistance float64
+	// The creature's creature_addon fields: its display (0 for the template's), its equipment
+	// (-1 for the template's), stand state, looping emote and sheath state.
+	Display, Equipment                  int
+	StandState, EmoteState, SheathState int
 }
 
-// Edit is a spawn as the editor has it now. Original is what the database has (nil when the spawn
-// was added in the editor); Created says the spawn is new; Deleted says it was removed.
+// Edit is a spawn as the editor has it now. Original is what the database has (for a created
+// spawn, what the editor first placed); Created says the spawn is new; Deleted says it was removed.
 type Edit struct {
 	Spawn    Spawn
 	Original *Spawn
@@ -52,22 +59,12 @@ type Edit struct {
 
 // Result is the SQL for a set of edits, with counts and the things that couldn't be written.
 type Result struct {
-	SQL     string
-	Added   int
-	Changed int
-	Deleted int
+	SQL     string `json:"sql"`
+	Added   int    `json:"added"`
+	Changed int    `json:"changed"`
+	Deleted int    `json:"deleted"`
 	// Skipped says, one line each, what wasn't exported and why.
-	Skipped []string
-}
-
-// Editor poses (AnimationData IDs) as a creature_addon stand state (UnitStandStateType).
-var standStates = map[int]int{97: 1, 100: 3, 102: 4, 103: 5, 104: 6, 6: 7, 115: 8}
-
-// Editor poses as a looping 1.12 emote, where there's one.
-var emoteStates = map[int]int{
-	60: 1, 64: 5, 65: 6, 67: 3, 66: 2, 113: 66, 68: 4, 80: 21, 70: 11, 69: 10, 84: 29, 82: 23, 81: 22, 74: 15, 77: 18, 79: 20,
-	83: 24, 76: 17, 73: 14, 78: 19, 62: 28, 25: 27, 26: 333, 27: 375, 29: 376, 48: 214, 16: 35, 17: 36, 18: 37, 24: 43, 32: 51,
-	55: 53, 14: 64,
+	Skipped []string `json:"skipped"`
 }
 
 // Rows elsewhere that name a spawn by its guid, removed with it.
@@ -102,6 +99,43 @@ func quaternion(s Spawn) [4]float64 {
 		return *s.Rotation
 	}
 	return facing(s.O)
+}
+
+// respawn is the spawn's respawn range, the editor's default where it has none.
+func respawn(s Spawn) (int, int) {
+	lo, hi := s.RespawnMin, s.RespawnMax
+	if lo <= 0 {
+		lo = RespawnSeconds
+	}
+	if hi < lo {
+		hi = lo
+	}
+	return lo, hi
+}
+
+// addonChanges are the creature_addon columns whose values differ from the original's, in a fixed
+// order. A created spawn without an original sets every column that isn't the default.
+func addonChanges(s Spawn, orig *Spawn) []string {
+	base := Spawn{Equipment: -1, SheathState: 1}
+	if orig != nil {
+		base = *orig
+	}
+	var out []string
+	for _, c := range []struct {
+		col      string
+		now, was int
+	}{
+		{"display_id", s.Display, base.Display},
+		{"equipment_id", s.Equipment, base.Equipment},
+		{"stand_state", s.StandState, base.StandState},
+		{"emote_state", s.EmoteState, base.EmoteState},
+		{"sheath_state", s.SheathState, base.SheathState},
+	} {
+		if c.now != c.was {
+			out = append(out, fmt.Sprintf("`%s` = %d", c.col, c.now))
+		}
+	}
+	return out
 }
 
 // ExportSQL turns spawn edits into SQL for the world database. Running the output twice gives the
@@ -147,50 +181,44 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 			res.Skipped = append(res.Skipped, fmt.Sprintf("%s: its scale (%s); VMaNGOS takes scale from the template", name, num(s.Scale)))
 		}
 		q := quaternion(s)
+		lo, hi := respawn(s)
 		if e.Created {
 			out = append(out, "-- Add "+name)
 			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d;", table, s.GUID))
 			if s.Kind == Creature {
 				out = append(out, fmt.Sprintf("INSERT INTO `creature` (`guid`, `id`, `map`, `position_x`, `position_y`, `position_z`, `orientation`, "+
 					"`spawntimesecsmin`, `spawntimesecsmax`, `wander_distance`, `health_percent`, `mana_percent`, `movement_type`, `spawn_flags`, "+
-					"`visibility_mod`, `patch_min`, `patch_max`) VALUES (%d, %d, %d, %s, %s, %s, %s, %d, %d, 0, 100, 100, 0, 0, 0, 0, 10);",
-					s.GUID, s.Entry, s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), RespawnSeconds, RespawnSeconds))
+					"`visibility_mod`, `patch_min`, `patch_max`) VALUES (%d, %d, %d, %s, %s, %s, %s, %d, %d, %s, 100, 100, %d, 0, 0, 0, 10);",
+					s.GUID, s.Entry, s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), lo, hi, num(s.WanderDistance), s.MovementType))
 			} else {
 				out = append(out, fmt.Sprintf("INSERT INTO `gameobject` (`guid`, `id`, `map`, `position_x`, `position_y`, `position_z`, `orientation`, "+
 					"`rotation0`, `rotation1`, `rotation2`, `rotation3`, `spawntimesecsmin`, `spawntimesecsmax`, `animprogress`, `state`, "+
 					"`spawn_flags`, `visibility_mod`, `patch_min`, `patch_max`) VALUES (%d, %d, %d, %s, %s, %s, %s, %s, %s, %s, %s, %d, %d, 100, 1, 0, 0, 0, 10);",
-					s.GUID, s.Entry, s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), num(q[0]), num(q[1]), num(q[2]), num(q[3]),
-					RespawnSeconds, RespawnSeconds))
+					s.GUID, s.Entry, s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), num(q[0]), num(q[1]), num(q[2]), num(q[3]), lo, hi))
 			}
 			res.Added++
 		} else {
 			out = append(out, "-- Change "+name)
 			if s.Kind == Creature {
-				// Edited NPCs stand still: they stop wandering and walking their paths.
 				out = append(out, fmt.Sprintf("UPDATE `creature` SET `map` = %d, `position_x` = %s, `position_y` = %s, `position_z` = %s, "+
-					"`orientation` = %s, `wander_distance` = 0, `movement_type` = 0 WHERE `guid` = %d;",
-					s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), s.GUID))
+					"`orientation` = %s, `spawntimesecsmin` = %d, `spawntimesecsmax` = %d, `wander_distance` = %s, `movement_type` = %d WHERE `guid` = %d;",
+					s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), lo, hi, num(s.WanderDistance), s.MovementType, s.GUID))
 			} else {
 				out = append(out, fmt.Sprintf("UPDATE `gameobject` SET `map` = %d, `position_x` = %s, `position_y` = %s, `position_z` = %s, "+
-					"`orientation` = %s, `rotation0` = %s, `rotation1` = %s, `rotation2` = %s, `rotation3` = %s WHERE `guid` = %d;",
-					s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), num(q[0]), num(q[1]), num(q[2]), num(q[3]), s.GUID))
+					"`orientation` = %s, `rotation0` = %s, `rotation1` = %s, `rotation2` = %s, `rotation3` = %s, `spawntimesecsmin` = %d, "+
+					"`spawntimesecsmax` = %d WHERE `guid` = %d;",
+					s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), num(q[0]), num(q[1]), num(q[2]), num(q[3]), lo, hi, s.GUID))
 			}
 			res.Changed++
 		}
 
-		// The pose, when it's set or was changed: a stand state or a looping emote.
-		origPose := 0
-		if e.Original != nil {
-			origPose = e.Original.Pose
-		}
-		if s.Kind == Creature && (s.Pose != 0 || origPose != s.Pose) {
-			stand, emote := standStates[s.Pose], emoteStates[s.Pose]
-			if s.Pose != 0 && stand == 0 && emote == 0 {
-				res.Skipped = append(res.Skipped, fmt.Sprintf("%s: its pose (animation %d) has no 1.12 emote; it stands", name, s.Pose))
+		// The creature_addon columns that changed: its display, equipment and pose.
+		if s.Kind == Creature {
+			if cols := addonChanges(s, e.Original); len(cols) > 0 {
+				out = append(out, fmt.Sprintf("INSERT INTO `creature_addon` (`guid`, `patch`) SELECT %d, 0 FROM DUAL "+
+					"WHERE NOT EXISTS (SELECT 1 FROM `creature_addon` WHERE `guid` = %d);", s.GUID, s.GUID))
+				out = append(out, fmt.Sprintf("UPDATE `creature_addon` SET %s WHERE `guid` = %d;", strings.Join(cols, ", "), s.GUID))
 			}
-			out = append(out, fmt.Sprintf("INSERT INTO `creature_addon` (`guid`, `patch`, `stand_state`, `emote_state`) SELECT %d, 0, %d, %d FROM DUAL "+
-				"WHERE NOT EXISTS (SELECT 1 FROM `creature_addon` WHERE `guid` = %d);", s.GUID, stand, emote, s.GUID))
-			out = append(out, fmt.Sprintf("UPDATE `creature_addon` SET `stand_state` = %d, `emote_state` = %d WHERE `guid` = %d;", stand, emote, s.GUID))
 		}
 	}
 

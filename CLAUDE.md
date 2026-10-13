@@ -311,6 +311,14 @@ cd frontend && pnpm build   # frontend only
   (`spawnType` in `world/spawnInfo.ts`), so each look is one cached mesh and one InstancedMesh.
   Items are welded on in Go (`Mesh.Attach`) and bound to the attachment's bone, so GPU skinning
   carries them.
+- **Spawn editing** (`world/spawnEdits.ts`): spawns are edited in place in the `SpawnLayer`
+  (keyed `kind/guid`), and every change is a `History` command. `SpawnLayer.touch` keeps a
+  spawn's database state before its first edit, so `edits()` lists what changed; the Spawns panel
+  saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
+  one transaction, a copy kept in `<user cache>/WorldEditor/spawn-sql`) or exports the SQL. A
+  changed display, equipment or pose is re-dressed by `SpawnLook` in Go. `editor.selectedSpawn`
+  is always a copy (`cloneSpawn`), never the drawn spawn, since Svelte's proxy would not see edits
+  to it.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 
 ## Conventions
