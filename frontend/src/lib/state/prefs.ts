@@ -21,6 +21,13 @@ export async function loadPrefs() {
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined
+/** Writes the preferences now, for the moment before the app quits. */
+export async function flushPrefs() {
+  if (!hasBackend()) return
+  clearTimeout(timer)
+  await SavePrefs(JSON.stringify(prefs)).catch((e) => console.warn('failed to save preferences', e))
+}
+
 /** Debounced save of the current preferences. */
 export function savePrefs() {
   if (!hasBackend()) return

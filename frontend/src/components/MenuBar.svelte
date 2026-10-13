@@ -5,7 +5,8 @@
   import { chooseVmangosFolder, exportHeightmap, exportObjectList, exportRegion, hasBackend, importHeightmap, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
   import { copyScene, pasteScene } from '../lib/io/scene'
-  import { ClearThumbnailCache, Quit } from '../../wailsjs/go/main/App'
+  import { ClearThumbnailCache } from '../../wailsjs/go/main/App'
+  import { quitNow } from '../lib/io/session'
   import { requestClose } from './DocTabs.svelte'
 
   type Item =
@@ -21,7 +22,7 @@
 
   function exit() {
     if (engineRef.current?.anyDirty()) ui.dialog = 'quit'
-    else if (hasBackend()) Quit()
+    else if (hasBackend()) quitNow()
   }
 
   async function clearThumbs() {

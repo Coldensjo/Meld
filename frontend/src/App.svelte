@@ -11,6 +11,7 @@
   import CreatureEditor from './components/CreatureEditor.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
+  import { restoreSession, saveSession, startSessionSaving } from './lib/io/session'
   import { onMount } from 'svelte'
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
@@ -24,8 +25,17 @@
 
   let prefsLoaded = $state(false)
   onMount(() => {
-    initWow().catch((e) => console.warn('WoW client init failed', e))
-    loadPrefs().finally(() => (prefsLoaded = true))
+    const wowReady = initWow().catch((e) => console.warn('WoW client init failed', e))
+    const prefsReady = loadPrefs().finally(() => (prefsLoaded = true))
+    // With the preferences and the client's status known, open what was open at the last close.
+    let stopSaving = () => {}
+    Promise.all([wowReady, prefsReady]).then(async () => {
+      const engine = engineRef.current
+      if (!engine) return
+      await restoreSession(engine).catch((e) => console.warn('could not restore the session', e))
+      stopSaving = startSessionSaving(engine)
+    })
+    return () => stopSaving()
   })
 
   // Apply preferences to the engine whenever they change, and persist them.
@@ -141,6 +151,7 @@
   }
 
   function onBeforeUnload(e: BeforeUnloadEvent) {
+    if (engineRef.current) saveSession(engineRef.current)
     if (editor.dirty) e.preventDefault()
   }
 </script>

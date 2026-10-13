@@ -1,3 +1,4 @@
+import type { SessionTab } from '../io/session'
 import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
 import type { Bookmark } from '../engine/MapDocument'
@@ -238,6 +239,8 @@ export const prefs = $state({
   browserTile: 112,
   /** Recently picked assets (catalog keys), newest first. */
   recentAssets: [] as string[],
+  /** The tabs open at the last close, reopened at the next start (io/session.ts). */
+  session: { tabs: [] as SessionTab[], active: 0 },
 })
 export type Prefs = typeof prefs
 

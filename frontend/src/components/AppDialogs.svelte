@@ -5,7 +5,7 @@
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
-  import { Quit } from '../../wailsjs/go/main/App'
+  import { quitNow } from '../lib/io/session'
   import { APP_VERSION } from '../lib/version'
 
   const close = () => (ui.dialog = null)
@@ -217,7 +217,7 @@
     <p>Some open maps have unsaved changes. Quit anyway?</p>
     {#snippet actions()}
       <button onclick={close}>Cancel</button>
-      <button class="danger" onclick={() => Quit()}>Quit without saving</button>
+      <button class="danger" onclick={() => quitNow()}>Quit without saving</button>
     {/snippet}
   </Modal>
 {:else if ui.dialog === 'gameLogin'}

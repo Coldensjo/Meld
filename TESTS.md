@@ -101,6 +101,21 @@ e.endGizmoDrag()
   since the asset preview has a `.hint` of its own. A fresh ocean map has its ground at -12, so
   give the object a `yOff` above the water or it sits under the sea.
 
+## Session restore (reopening the last tabs at start)
+
+Checks: `lib/io/session.ts` keeps the open file and region tabs with their cameras in
+`prefs.session` (every 3 s when changed, and on quit) and opens them again at start. In the dev page:
+
+```js
+await window.__loadScene('Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":32,"y":48,"size":1}},"view":{"target":[182,30,353],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}')
+await new Promise((r) => setTimeout(r, 4000))      // the periodic save
+JSON.stringify(prefs.session)                      // prefs from the loaded editor.svelte.ts URL
+location.reload()                                  // then, after ~6 s: editor.regionMap, __engine.sceneView()
+```
+
+- The dev page writes the real config.json, so the user's own app will also open that region next.
+  The target's y differs a little after a restore because the camera target rides on the ground.
+
 ## Dock panels (Layers, Properties)
 
 Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the
