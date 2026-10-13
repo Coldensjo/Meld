@@ -34,10 +34,10 @@
     [
       'Camera',
       [
-        ['Right mouse drag', 'Orbit'],
-        ['Middle mouse drag', 'Pan'],
-        ['Mouse wheel', 'Zoom'],
-        ['W A S D / arrows', 'Move: W flies the way you look (arrows nudge the object when one is selected)'],
+        ['Right mouse drag', 'Look around (orbit when following the ground)'],
+        ['Middle mouse drag', 'Slide sideways and up/down (pan when following the ground)'],
+        ['Mouse wheel', 'Flight speed (zoom when following the ground)'],
+        ['W A S D / arrows', 'Fly: W goes the way you look, A/D strafe (arrows nudge the object when one is selected)'],
         ['Space / X', 'Fly up / down'],
         ['Q / E', 'Rotate'],
         ['Shift', 'Move faster'],

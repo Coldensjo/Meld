@@ -504,7 +504,7 @@ export class Engine {
     ;(this.water.floor.material as THREE.MeshBasicMaterial).color.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
 
     if (env.key.castShadow) {
-      const extent = THREE.MathUtils.clamp(this.controller.distance * 1.3, 40, 700)
+      const extent = this.controller.followGround ? THREE.MathUtils.clamp(this.controller.distance * 1.3, 40, 700) : 260
       env.updateShadow(this.controller.target, extent, env.key.shadow.mapSize.x)
     }
   }

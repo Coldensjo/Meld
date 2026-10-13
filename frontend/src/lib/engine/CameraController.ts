@@ -1,17 +1,15 @@
 import * as THREE from 'three'
 
 /**
- * Third-person orbit camera around a target point.
+ * The camera, in one of two modes.
  *
- *  RMB drag      orbit (yaw/pitch)
- *  MMB drag      pan
- *  Wheel         zoom
- *  WASD / arrows move target, Q/E rotate, Shift = fast
+ * Flying (the default) is first person: `target` is the camera's own position, RMB drag looks
+ * around, W/S fly the way the camera looks, A/D strafe, Space/X go up and down, and the wheel sets
+ * the speed. Nothing snaps to the ground, so caves and cellars can be entered.
  *
- * By default the camera flies: W moves the target along the view direction, nothing snaps to the
- * ground, and the camera may look up and go underground, so caves and cellars can be entered. With
- * `followGround` on, the target rides the terrain (or the water) and the camera stays above it,
- * which suits sculpting from above.
+ * With `followGround` on it is a third-person orbit camera: the target rides the terrain (or the
+ * water), RMB orbits, MMB pans, the wheel zooms, and the camera stays above the ground, which suits
+ * sculpting from above.
  */
 export class CameraController {
   readonly target = new THREE.Vector3()
@@ -25,8 +23,10 @@ export class CameraController {
   speed = 1
   sensitivity = 1
   invertY = false
-  /** Keep the target on the ground and the camera above it, instead of flying freely. */
+  /** Keep the target on the ground and the camera above it, instead of flying first person. */
   followGround = false
+  /** Flight speed multiplier set by the wheel. */
+  private flyBoost = 1
   /** When this returns true the arrow keys are left to the editor (object nudging). */
   arrowsBlocked: () => boolean = () => false
   /** When this returns true the wheel is left to the editor (e.g. Ctrl+scroll rotates a placement). */
@@ -58,19 +58,37 @@ export class CameraController {
     return this.drag !== null
   }
 
+  /** Looks at the ground point (x, z) from `distance` away (flying: the camera moves back to there). */
   focus(x: number, z: number, distance?: number) {
+    if (distance) this.distance = distance
     this.target.set(x, this.ground(x, z), z)
     this.smoothTargetY = this.target.y
-    if (distance) this.distance = distance
+    if (!this.followGround) {
+      this.pitch = Math.max(this.pitch, 0.3)
+      this.target.add(this.viewOffset(this.distance))
+    }
   }
 
-  /** Switches ground following on or off; turning it on drops the target back onto the ground. */
+  /** The offset from a looked-at point back to the camera, `dist` away along the view direction. */
+  private viewOffset(dist: number, out = new THREE.Vector3()) {
+    const cp = Math.cos(this.pitch)
+    return out.set(Math.sin(this.yaw) * cp * dist, Math.sin(this.pitch) * dist, Math.cos(this.yaw) * cp * dist)
+  }
+
+  /** Switches ground following on or off without the view jumping. */
   setFollowGround(on: boolean) {
     if (on === this.followGround) return
     this.followGround = on
     if (on) {
-      this.smoothTargetY = this.ground(this.target.x, this.target.z)
+      // The camera stays put; the orbit target is the ground in front of it, as far as it was looking.
       this.pitch = Math.max(this.pitch, 0.08)
+      const back = this.viewOffset(this.distance)
+      this.target.sub(back)
+      this.target.y = this.ground(this.target.x, this.target.z)
+      this.smoothTargetY = this.target.y
+    } else {
+      // First person starts where the camera was.
+      this.target.copy(this.camera.position)
     }
   }
 
@@ -81,19 +99,22 @@ export class CameraController {
     e.preventDefault()
     this.last.set(e.clientX, e.clientY)
     this.dom.setPointerCapture?.(e.pointerId)
+    // Looking around hides the cursor and never runs into the screen's edge.
+    if (e.button === 2) this.dom.requestPointerLock?.()
   }
 
   private onMove = (e: PointerEvent) => {
     if (!this.drag) return
-    const dx = e.clientX - this.last.x
-    const dy = e.clientY - this.last.y
+    const locked = document.pointerLockElement === this.dom
+    const dx = locked ? e.movementX : e.clientX - this.last.x
+    const dy = locked ? e.movementY : e.clientY - this.last.y
     this.last.set(e.clientX, e.clientY)
     if (this.drag === 'orbit') {
       const k = 0.005 * this.sensitivity
       this.yaw -= dx * k
       // Looking up is only useful when flying; on the ground the camera stays above the target.
       this.pitch = THREE.MathUtils.clamp(this.pitch + dy * k * (this.invertY ? -1 : 1), this.followGround ? 0.08 : -1.45, 1.52)
-    } else {
+    } else if (this.followGround) {
       const s = this.distance * 0.0016
       // Grab-the-ground: forward = camera→target, right = forward × up.
       const fx = -Math.sin(this.yaw)
@@ -101,18 +122,29 @@ export class CameraController {
       this.target.x += (fz * dx + fx * dy) * s
       this.target.z += (-fx * dx + fz * dy) * s
       this.clampTarget()
+    } else {
+      // Flying: a middle drag slides the camera sideways and up/down.
+      const s = 0.05 * this.flyBoost
+      const fx = -Math.sin(this.yaw)
+      const fz = -Math.cos(this.yaw)
+      this.target.x += -fz * -dx * s
+      this.target.z += fx * -dx * s
+      this.target.y += dy * s
+      this.clampTarget()
     }
   }
 
   private onUp = (e: PointerEvent) => {
     if ((e.button === 2 && this.drag === 'orbit') || (e.button === 1 && this.drag === 'pan')) this.drag = null
+    if (e.button === 2 && document.pointerLockElement === this.dom) document.exitPointerLock()
   }
 
   private onWheel = (e: WheelEvent) => {
     e.preventDefault() // also stops Ctrl+wheel from zooming the webview
     if (this.wheelBlocked(e)) return
     const f = Math.exp(Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 200) * 0.0012)
-    this.distance = THREE.MathUtils.clamp(this.distance * f, this.minDistance, this.maxDistance)
+    if (this.followGround) this.distance = THREE.MathUtils.clamp(this.distance * f, this.minDistance, this.maxDistance)
+    else this.flyBoost = THREE.MathUtils.clamp(this.flyBoost / f, 0.1, 8)
   }
 
   private onKeyDown = (e: KeyboardEvent) => {
@@ -140,10 +172,10 @@ export class CameraController {
     if (k.has('KeyQ')) this.yaw += dt * 1.6 * this.sensitivity
     if (k.has('KeyE')) this.yaw -= dt * 1.6 * this.sensitivity
 
+    const speed = this.moveSpeed(fast) * dt
+    const fx = -Math.sin(this.yaw)
+    const fz = -Math.cos(this.yaw)
     if (fwd || right) {
-      const speed = this.moveSpeed(fast) * dt
-      const fx = -Math.sin(this.yaw)
-      const fz = -Math.cos(this.yaw)
       if (this.followGround) {
         this.target.x += (fx * fwd - fz * right) * speed
         this.target.z += (fz * fwd + fx * right) * speed
@@ -156,49 +188,33 @@ export class CameraController {
       }
       this.clampTarget()
     }
-    if (k.has('Space') && !this.followGround) this.target.y += this.moveSpeed(fast) * dt
-    if ((k.has('KeyX') || k.has('KeyC')) && !this.followGround) this.target.y -= this.moveSpeed(fast) * dt
+    if (!this.followGround) {
+      if (k.has('Space')) this.target.y += speed
+      if (k.has('KeyX') || k.has('KeyC')) this.target.y -= speed
+    }
 
+    const pos = this.camera.position
     if (this.followGround) {
-      // Glide the target height along the terrain.
+      // Glide the target height along the terrain, and orbit it from above.
       const gy = this.ground(this.target.x, this.target.z)
       this.smoothTargetY += (gy - this.smoothTargetY) * Math.min(1, dt * 8)
       this.target.y = this.smoothTargetY
-    } else {
-      this.smoothTargetY = this.target.y
-    }
-
-    const cp = Math.cos(this.pitch)
-    const pos = this.camera.position
-    const dx = Math.sin(this.yaw) * cp
-    const dy = Math.sin(this.pitch)
-    const dz = Math.cos(this.yaw) * cp
-    let dist = this.distance
-    if (!this.followGround && this.target.y > this.ground(this.target.x, this.target.z) + 0.5) {
-      // The target is in the open: keep the ground from coming between it and the camera, as a
-      // game camera does on a hillside, by pulling the camera in to just before the surface.
-      const steps = 24
-      for (let i = 1; i <= steps; i++) {
-        const d = (this.distance * i) / steps
-        const x = this.target.x + dx * d
-        const z = this.target.z + dz * d
-        if (this.target.y + dy * d < this.ground(x, z) + 1) {
-          dist = Math.max(this.minDistance, (this.distance * (i - 1)) / steps)
-          break
-        }
-      }
-    }
-    pos.set(this.target.x + dx * dist, this.target.y + dy * dist, this.target.z + dz * dist)
-    if (this.followGround) {
+      pos.copy(this.target).add(this.viewOffset(this.distance))
       const floor = this.ground(pos.x, pos.z) + 1.5
       if (pos.y < floor) pos.y = floor
+      this.camera.lookAt(this.target)
+    } else {
+      // First person: the camera is the target, looking along yaw and pitch.
+      this.smoothTargetY = this.target.y
+      pos.copy(this.target)
+      this.camera.lookAt(this.target.x + fx * Math.cos(this.pitch), this.target.y - Math.sin(this.pitch), this.target.z + fz * Math.cos(this.pitch))
     }
-    this.camera.lookAt(this.target)
   }
 
-  /** Units per second for the keys: slow close in, faster zoomed out, but never a blur. */
+  /** Units per second for the keys: in orbit, slow close in and faster zoomed out; flying, a steady pace the wheel scales. */
   private moveSpeed(fast: number) {
-    return (6 + Math.min(this.distance, 300) * 0.4) * fast * this.speed
+    if (this.followGround) return (6 + Math.min(this.distance, 300) * 0.4) * fast * this.speed
+    return 24 * this.flyBoost * fast * this.speed
   }
 
   dispose() {

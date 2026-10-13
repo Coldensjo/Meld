@@ -90,14 +90,14 @@ Also included:
 
 | Input | Action |
 |---|---|
-| Right mouse drag | Orbit |
-| Middle mouse drag | Pan |
-| Mouse wheel | Zoom |
-| `W A S D` / arrows | Move. The camera flies: `W` goes the way you look, so pitch down and hold `W` to dive into a cave |
+| Right mouse drag | Look around (the cursor hides while you hold it). Orbit when following the ground |
+| Middle mouse drag | Slide sideways and up/down. Pan when following the ground |
+| Mouse wheel | Flight speed. Zoom when following the ground |
+| `W A S D` / arrows | Fly first person: `W` goes the way you look, so look down and hold `W` to dive into a cave; `A`/`D` strafe |
 | `Space` / `X` | Fly up / down |
 | `Q` / `E` | Rotate |
 | `Shift` | Move faster |
-| `T` | Follow the ground on/off (Camera menu). On, the target rides the terrain and the camera stays above it, for sculpting from above |
+| `T` | Follow the ground on/off (Camera menu). On, the camera orbits a point that rides the terrain and stays above the ground, for sculpting from above |
 
 ### Menus
 
