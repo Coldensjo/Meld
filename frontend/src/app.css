@@ -29,6 +29,14 @@
   cursor: none !important;
 }
 
+/* Alt held over the viewport where Alt+click picks something (Engine.updatePipetteCursor): an
+   eyedropper whose tip (bottom left) is the hotspot. */
+canvas.pipette {
+  cursor:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M20.7 3.3a2.5 2.5 0 0 0-3.5 0l-2.6 2.6-1.1-1.1-1.4 1.4 1.1 1.1-8.3 8.3c-.3.3-.5.7-.6 1.1L3.5 20l.5.5 3.3-.8c.4-.1.8-.3 1.1-.6l8.3-8.3 1.1 1.1 1.4-1.4-1.1-1.1 2.6-2.6a2.5 2.5 0 0 0 0-3.5z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M6.2 17.8l8.3-8.3' stroke='black' stroke-width='1.2'/></svg>") 3 21,
+    crosshair !important;
+}
+
 html,
 body,
 #app {

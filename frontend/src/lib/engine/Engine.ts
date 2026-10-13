@@ -149,6 +149,9 @@ export class Engine {
   private ctx: ToolContext
   private ndc = new THREE.Vector2()
   private pointerInside = false
+  /** Alt is down: the pipette (Alt+click) is what a click would do, where the tool has one. */
+  private altHeld = false
+  private pipetteOn = false
   private leftDown = false
   private hitVec = new THREE.Vector3()
   /** The client's status revision the liquids' frames were loaded for. */
@@ -357,6 +360,10 @@ export class Engine {
     const c = this.canvas
     c.addEventListener('pointerenter', () => (this.pointerInside = true), sig)
     c.addEventListener('pointerleave', () => (this.pointerInside = false), sig)
+    // Alt is tracked for the pipette cursor; a lost focus (Alt+Tab) releases it.
+    window.addEventListener('keydown', (e) => e.key === 'Alt' && (this.altHeld = true), sig)
+    window.addEventListener('keyup', (e) => e.key === 'Alt' && (this.altHeld = false), sig)
+    window.addEventListener('blur', () => (this.altHeld = false), sig)
     // Ctrl+scroll rotates the placement preview (15° per notch), Alt+scroll raises it, Shift+scroll scales it.
     c.addEventListener(
       'wheel',
@@ -422,6 +429,7 @@ export class Engine {
       (e) => {
         this.pointerInside = true
         this.updatePointer(e)
+        this.altHeld = e.altKey
         if (this.gizmoDrag) {
           this.updateGizmoDrag(e.shiftKey)
           return
@@ -487,6 +495,7 @@ export class Engine {
 
     if (this.pointerInside && !this.controller.isDragging) this.pick()
     else if (!this.leftDown) this.hit = null
+    this.updatePipetteCursor()
 
     const tool = this.activeTool!
     if (this.leftDown) tool.tick?.(this.ctx, dt, this.hit)
@@ -1862,6 +1871,23 @@ export class Engine {
     if (o.rotY !== d.before.rotY || o.yOff !== d.before.yOff || o.x !== d.before.x || o.z !== d.before.z || o.scale !== d.before.scale) {
       this.history.push(transformCommand(this.objects, d.before, o))
     }
+  }
+
+  /** Whether Alt+click picks something in the active tool: a model or the ground's texture, a texture, or the water's height. */
+  private pipetteApplies() {
+    const t = editor.tool
+    if (t === 'select' || t === 'place' || t === 'road') return true
+    if (t === 'paint') return editor.paintMode !== 'mask'
+    if (t === 'water') return editor.waterMode === 'paint'
+    return false
+  }
+
+  /** Shows the eyedropper while Alt is held over the viewport where Alt+click is the pipette. Toggles a class only on change. */
+  private updatePipetteCursor() {
+    const want = this.altHeld && this.pointerInside && !this.leftDown && !this.gizmoDrag && !this.controller.isDragging && this.pipetteApplies()
+    if (want === this.pipetteOn) return
+    this.pipetteOn = want
+    this.canvas.classList.toggle('pipette', want)
   }
 
   /** Keyboard editing of the selected objects applies in the Select and Place tools. */
