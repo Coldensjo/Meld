@@ -1,4 +1,6 @@
-// Small, allocation-free noise helpers (value noise + fBm), seeded.
+// Small, allocation-free noise helpers (simplex noise + fBm), seeded.
+
+import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
 
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0
@@ -11,42 +13,27 @@ export function mulberry32(seed: number): () => number {
   }
 }
 
-function hash2(x: number, y: number, seed: number): number {
-  let h = (x * 374761393 + y * 668265263 + seed * 2147483647) | 0
-  h = Math.imul(h ^ (h >>> 13), 1274126177)
-  h ^= h >>> 16
-  return (h >>> 0) / 4294967296
-}
+const tables = new Map<number, NoiseFunction2D>()
 
-const smooth = (t: number) => t * t * (3 - 2 * t)
-
-/** Value noise in [0,1]. If `period` > 0 the noise tiles every `period` units. */
-export function valueNoise(x: number, y: number, seed = 0, period = 0): number {
-  const xi = Math.floor(x)
-  const yi = Math.floor(y)
-  const xf = x - xi
-  const yf = y - yi
-  let x0 = xi, x1 = xi + 1, y0 = yi, y1 = yi + 1
-  if (period > 0) {
-    x0 = ((x0 % period) + period) % period
-    x1 = ((x1 % period) + period) % period
-    y0 = ((y0 % period) + period) % period
-    y1 = ((y1 % period) + period) % period
+/**
+ * Simplex noise in [0,1] (simplex-noise, MIT). Unlike value noise it has no grid-aligned blobs or
+ * creases. Each seed gets its own permutation table, built once.
+ */
+export function noise(x: number, y: number, seed = 0): number {
+  let n = tables.get(seed)
+  if (!n) {
+    n = createNoise2D(mulberry32(seed))
+    tables.set(seed, n)
   }
-  const a = hash2(x0, y0, seed)
-  const b = hash2(x1, y0, seed)
-  const c = hash2(x0, y1, seed)
-  const d = hash2(x1, y1, seed)
-  const u = smooth(xf)
-  const v = smooth(yf)
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v
+  // Halved, so features are as big as the value noise the presets and brushes were tuned with.
+  return n(x * 0.5, y * 0.5) * 0.5 + 0.5
 }
 
 /** Fractal noise in roughly [0,1]. */
-export function fbm(x: number, y: number, octaves = 5, seed = 0, period = 0): number {
+export function fbm(x: number, y: number, octaves = 5, seed = 0): number {
   let sum = 0, amp = 0.5, freq = 1, norm = 0
   for (let i = 0; i < octaves; i++) {
-    sum += valueNoise(x * freq, y * freq, seed + i * 31, period > 0 ? period * freq : 0) * amp
+    sum += noise(x * freq, y * freq, seed + i * 31) * amp
     norm += amp
     amp *= 0.5
     freq *= 2
@@ -58,7 +45,7 @@ export function fbm(x: number, y: number, octaves = 5, seed = 0, period = 0): nu
 export function ridged(x: number, y: number, octaves = 5, seed = 0): number {
   let sum = 0, amp = 0.5, freq = 1, norm = 0
   for (let i = 0; i < octaves; i++) {
-    const n = 1 - Math.abs(valueNoise(x * freq, y * freq, seed + i * 17) * 2 - 1)
+    const n = 1 - Math.abs(noise(x * freq, y * freq, seed + i * 17) * 2 - 1)
     sum += n * n * amp
     norm += amp
     amp *= 0.5
