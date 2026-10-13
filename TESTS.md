@@ -95,4 +95,7 @@ ed.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()]);
   by pixels × step and `ui.canUndo` turns true on release.
 - Trap: texture thumbnails stay blank in a hidden extension tab, since they render on the main
   renderer's rAF loop. The rows, names and coverage still show.
+- The map's facts and world settings are not in the dock: `ui.dialog = 'mapProps'` opens the
+  Map Properties dialog (File > Map Properties…). With a region open (`ed.region` set) the sea
+  level is shown read-only; on a new world it is a slider bound to `ed.waterLevel`.
 

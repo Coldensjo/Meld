@@ -185,8 +185,13 @@ cd frontend && pnpm build   # frontend only
     placement as `PropField`s (type a number, or drag the label to scrub; live preview and one undo
     step on release) with Focus, Duplicate, Hide, Delete, Detach, Place more and Select all of
     these (`Engine.selectModelsOfType`); a mixed selection's models by kind (a click narrows the
-    selection to that kind); the selected area (size, holes, cut/fill, copy, mask); or, with
-    nothing selected, the map's facts and the world settings (sea, steep slopes as rock).
+    selection to that kind); or the selected area (size, holes, cut/fill, copy, mask). With
+    nothing selected it only shows a hint.
+  - **Map Properties** (`MapPropertiesDialog.svelte`, File > Map Properties…, `ui.dialog =
+    'mapProps'`) holds the map's facts and the world settings (sea on/off, sea level, steep
+    slopes as rock). The sea level is one height for the whole map and is read-only for a part
+    of Azeroth, which keeps the client's ocean. Lakes and rivers are the Water tool's Paint mode.
+    Put any new per-map setting in this dialog, not in a panel or the Graphics menu.
   - Alt+click is the pipette (`tools/PipetteTool.ts`): in Select and Place it picks the model
     under the cursor as the one to place, or the ground's texture; in Paint and Road, the texture.
 

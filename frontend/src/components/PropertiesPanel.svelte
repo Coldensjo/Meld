@@ -1,7 +1,6 @@
 <script lang="ts">
   import PropField from './PropField.svelte'
-  import Slider from './Slider.svelte'
-  import { editor, stats } from '../lib/state/editor.svelte'
+  import { editor } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName, isWowType, wowPath } from '../lib/models/assets'
   import type { WorldObject } from '../lib/world/ObjectLayer'
@@ -45,8 +44,6 @@
   const area = $derived(editor.selection)
   const holes = $derived(area ? (e?.holesInSelection() ?? 0) : 0)
 
-  /** The map's size: in client tiles for a region, else in cells. */
-  const tiles = $derived(editor.regionBlock ? `${editor.regionBlock.size}×${editor.regionBlock.size} tiles` : `${editor.mapSize} × ${editor.mapSize} cells`)
 
   /** Makes the selected model the one the Place tool puts down. */
   function placeMore(type: string) {
@@ -146,21 +143,8 @@
     </div>
     <p class="dim">Drag on the ground to select another area. Models standing in it are selected too.</p>
   {:else}
-    <div class="title"><span class="name">{editor.mapName}</span></div>
-    <div class="facts">
-      <span class="k">Size</span><span>{tiles}</span>
-      {#if editor.region}<span class="k">Region</span><span title={editor.region}>{editor.region}</span>{/if}
-      <span class="k">Models</span><span>{stats.objects}</span>
-      <span class="k">Textures</span><span>{editor.palette.length}</span>
-      {#if editor.spawns.length}<span class="k">Spawns</span><span>{editor.spawns.length}</span>{/if}
-    </div>
-    <div class="section">World</div>
-    <label class="check" title="Ocean at the sea level wherever the ground lies below it"><input type="checkbox" bind:checked={editor.waterEnabled} /> Sea</label>
-    {#if editor.waterEnabled}
-      <Slider label="Sea level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} />
-    {/if}
-    <label class="check" title="Steep slopes are drawn as rock in the editor's view, without painting them"><input type="checkbox" bind:checked={editor.autoCliff} /> Show steep slopes as rock</label>
     <p class="dim">Select a model with the Select tool (<kbd>V</kbd>) to see its placement here, or drag on the ground to select an area.</p>
+    <p class="dim">The map's size, sea and world settings are in File › Map Properties.</p>
   {/if}
 </div>
 
@@ -264,13 +248,6 @@
   .k {
     color: var(--text-dim);
     font-size: 11px;
-  }
-  .check {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 4px 0;
-    cursor: pointer;
   }
   .dim {
     color: var(--text-dim);

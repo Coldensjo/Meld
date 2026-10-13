@@ -155,7 +155,7 @@
       <button onclick={() => engineRef.current?.regenWaterOpacity()} title="Recompute the water's opacity from the ground, in the selected area or the whole map">Regen opacity</button>
       <span class="dim" title="Ctrl+click removes water. Alt+click locks the height at the cursor."><kbd>Ctrl</kbd> remove · <kbd>Alt</kbd> lock</span>
     {:else}
-      <OptSlider label="Sea level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} width={80} />
+      <span class="chip" title="The map's sea level, set in File > Map Properties"><span class="dim">Sea level:</span> {editor.waterEnabled ? editor.waterLevel.toFixed(1) : 'off'}</span>
       {@render editLimit()}
     {/if}
     <div class="divider"></div>

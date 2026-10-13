@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from './Modal.svelte'
   import GameLoginDialog from './GameLoginDialog.svelte'
+  import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
@@ -208,6 +209,8 @@
       >
     {/snippet}
   </Modal>
+{:else if ui.dialog === 'mapProps'}
+  <MapPropertiesDialog onclose={close} />
 {:else if ui.dialog === 'quit'}
   <Modal title="Unsaved changes" width={380} onclose={close}>
     <p>Some open maps have unsaved changes. Quit anyway?</p>
