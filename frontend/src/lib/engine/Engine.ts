@@ -614,6 +614,7 @@ export class Engine {
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
     editor.regionMap = m.region?.mapName ?? ''
     editor.spawns = d.spawnLayer.spawns
+    editor.spawnsError = d.spawnsError
     ui.hiddenModels = d.objects.hidden.size
     editor.selectedSpawn = null
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
@@ -733,8 +734,18 @@ export class Engine {
    */
   setSpawns(d: MapDocument, spawns: vmangos.WorldSpawn[]) {
     d.spawnLayer.set(spawns)
-    if (d === this.doc) editor.spawns = spawns
+    d.spawnsError = ''
+    if (d === this.doc) {
+      editor.spawns = spawns
+      editor.spawnsError = ''
+    }
     if (this.prefs) this.applyLayerVisibility(this.prefs)
+  }
+
+  /** Records why a region's spawns could not be read, so the Spawns panel can say so and offer a retry. */
+  setSpawnsError(d: MapDocument, message: string) {
+    d.spawnsError = message
+    if (d === this.doc) editor.spawnsError = message
   }
 
   /** Moves the camera to a spawn, in the active region's coordinates. */
@@ -902,6 +913,11 @@ export class Engine {
 
   activeDocumentId() {
     return this.doc.id
+  }
+
+  /** The active map's document, for work that outlives a tab switch (loading its spawns). */
+  activeDocument() {
+    return this.doc
   }
 
   snapshot(): MapSnapshot {

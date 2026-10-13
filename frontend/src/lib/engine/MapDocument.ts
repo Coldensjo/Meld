@@ -81,6 +81,8 @@ export class MapDocument {
   readonly water: Water
   readonly objects: ObjectLayer
   readonly spawnLayer = new SpawnLayer()
+  /** Why the region's spawns could not be read, for the Spawns panel; '' when they loaded or were not asked for. */
+  spawnsError = ''
   /** The client's water, for a region: a mesh per block, in the same group. */
   readonly liquids = new THREE.Group()
   readonly history = new History()

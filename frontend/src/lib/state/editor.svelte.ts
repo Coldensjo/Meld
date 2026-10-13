@@ -109,6 +109,8 @@ export const editor = $state({
   spawns: [] as vmangos.WorldSpawn[],
   /** The spawn picked in the viewport or the Spawns panel, shown in the panel's details. */
   selectedSpawn: null as vmangos.WorldSpawn | null,
+  /** Why the open region's spawns could not be read (the database down, no server folder), or ''. */
+  spawnsError: '',
   /** What the Clear tool erases: placed models, or the paint (back to each chunk's base texture). */
   clearMode: 'models' as ClearMode,
   filePath: '',

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { editor, prefs } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
+  import { reloadSpawns } from '../lib/io/mapio'
   import { creatureTypeName, levelText, npcRoles, objectTypeName, orientationDegrees, rankName } from '../lib/world/spawnInfo'
   import type { SpawnKind } from '../lib/world/SpawnLayer'
   import type { vmangos } from '../../wailsjs/go/models'
@@ -34,7 +35,11 @@
 </script>
 
 <div class="spawns">
-  {#if editor.spawns.length === 0}
+  {#if editor.spawnsError}
+    <p class="error">The creatures and game objects could not be read from the server's world database.</p>
+    <p class="dim detail">{editor.spawnsError}</p>
+    <button class="retry" onclick={() => engineRef.current && reloadSpawns(engineRef.current)}>Try again</button>
+  {:else if editor.spawns.length === 0}
     <p class="dim">
       Open a part of Azeroth to see the creatures and game objects the server places in it. They come from the server's world database, so
       the VMaNGOS server folder must be set.
@@ -190,5 +195,17 @@
     color: var(--text-dim);
     font-size: 12px;
     margin: 0;
+  }
+  .error {
+    color: var(--danger);
+    font-size: 12px;
+    margin: 0;
+  }
+  .detail {
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+  .retry {
+    align-self: flex-start;
   }
 </style>

@@ -78,6 +78,9 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 	if err != nil {
 		return nil, err
 	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return nil, err
+	}
 	// The server's coordinates are the ADT ones swapped and mirrored: its x is ZeroPoint less the
 	// tile's Z, and its y is ZeroPoint less the tile's X. So the block's server bounds are:
 	t := float64(adt.TileSize)

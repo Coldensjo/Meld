@@ -174,8 +174,19 @@ async function loadSpawns(engine: Engine, d: MapDocument, mapName: string, x: nu
     setStatus(`Loaded ${spawns.length} creatures and game objects from the server.`, 8000)
   } catch (err) {
     console.warn('spawns not loaded', err)
+    engine.setSpawnsError(d, String(err))
     setStatus(`Spawns not loaded: ${err}`, 10000)
   }
+}
+
+/** Reads the active region's spawns again, after the server or its database has been started. */
+export function reloadSpawns(engine: Engine) {
+  const b = editor.regionBlock
+  if (!b || !editor.regionMap) return
+  const d = engine.activeDocument()
+  engine.setSpawnsError(d, '')
+  setStatus('Loading creatures and game objects from the server…')
+  void loadSpawns(engine, d, editor.regionMap, b.x, b.y, b.size)
 }
 
 /** Opens a square block of the client's tiles in a new tab (or switches to it if it's open). */
