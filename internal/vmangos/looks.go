@@ -178,6 +178,7 @@ const (
 	geoPants    = 11
 	geoTabard   = 12
 	geoRobe     = 13
+	geoCloak    = 15
 )
 
 // The items a humanoid display wears, by index in CreatureDisplayInfoExtra's fields 8-17.
@@ -222,7 +223,11 @@ func (m *modelTables) dressCharacter(out *creatureDisplay, er int) {
 		}
 	}
 
-	geo := map[int]int{geoGloves: 401, geoBoots: 501, geoEars: 702, geoRobe: 1301,
+	// Every group shows its first variant unless an item replaces it; the groups whose first variant
+	// the model lacks (sleeves, kneepads, chest, pants, tabard) are simply absent. 1501 is "no cloak":
+	// a patch over the upper back that is part of the body without it, so leaving it out opens the
+	// shoulder blades. A 1.12 NPC's extra row has no cloak slot, so it is always 1501.
+	geo := map[int]int{geoGloves: 401, geoBoots: 501, geoEars: 702, geoRobe: 1301, geoCloak: 1501,
 		geoFacial1: 101, geoFacial2: 201, geoFacial3: 301}
 	// CharHairGeosets: 1 race, 2 sex, 3 variation, 4 the hair's submesh (0 for bald).
 	if t := m.hairGeosets; t != nil && t.fields > 4 {

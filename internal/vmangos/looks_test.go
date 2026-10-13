@@ -95,7 +95,7 @@ func TestCreatureLookDressesAHumanoid(t *testing.T) {
 		t.Fatalf("hair texture %q, want CharSections' hair for style 2 colour 1", got)
 	}
 	geo := d.look.Geosets
-	for _, want := range []int{0, 802, 1302, 403, 102, 303, 201, 702, 501} {
+	for _, want := range []int{0, 802, 1302, 403, 102, 303, 201, 702, 501, 1501} {
 		if !slices.Contains(geo, want) {
 			t.Errorf("geosets %v lack %d", geo, want)
 		}

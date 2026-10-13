@@ -53,8 +53,8 @@ const (
 )
 
 // defaultGeosets is what a character model shows with nothing chosen: the body, the first hair
-// style, no facial hair, bare hands and feet, ears, and plain legs.
-var defaultGeosets = []int{0, 1, 101, 201, 301, 401, 501, 702, 1301}
+// style, no facial hair, bare hands and feet, ears, plain legs and the back without a cloak (1501).
+var defaultGeosets = []int{0, 1, 101, 201, 301, 401, 501, 702, 1301, 1501}
 
 // Empty says the look changes nothing about the model.
 func (l Look) Empty() bool {
