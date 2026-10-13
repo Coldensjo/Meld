@@ -62,6 +62,10 @@ export function MouseLookRecenter() {
   return window['go']['main']['App']['MouseLookRecenter']();
 }
 
+export function NextCreatureGUID() {
+  return window['go']['main']['App']['NextCreatureGUID']();
+}
+
 export function OpenHeightmapDialog() {
   return window['go']['main']['App']['OpenHeightmapDialog']();
 }
@@ -124,6 +128,10 @@ export function SaveTextDialog(arg1) {
 
 export function SaveThumbnail(arg1, arg2) {
   return window['go']['main']['App']['SaveThumbnail'](arg1, arg2);
+}
+
+export function SearchCreatures(arg1) {
+  return window['go']['main']['App']['SearchCreatures'](arg1);
 }
 
 export function SetGameLogin(arg1, arg2) {

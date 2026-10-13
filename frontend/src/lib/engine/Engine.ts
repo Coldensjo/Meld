@@ -32,7 +32,8 @@ import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { SpawnPaths } from '../world/SpawnPaths'
-import { selectSpawn, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
+import { newCreatureSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
+import { NextCreatureGUID, SpawnLook } from '../../../wailsjs/go/main/App'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -243,6 +244,7 @@ export class Engine {
       objectClip: () => (this.lastCopied === 'objects' ? this.objectClip : null),
       commitPaste: () => this.commitPaste(),
       cancelPaste: () => this.cancelPaste(),
+      placeCreature: (t, at) => void this.placeCreature(t, at),
     })
     this.tools = {
       select: this.selectTool,
@@ -914,6 +916,32 @@ export class Engine {
     if (cmd) d.history.push(cmd)
   }
 
+  /** The guid the next placed creature gets; 0 until the world database has been asked. */
+  private nextCreatureGuid = 0
+
+  /**
+   * Spawns creature template `t` at `at` in the active region, facing the camera, as one undoable
+   * step, and selects it. Its guid is above every creature guid of the world database and of every
+   * open region, so creatures placed in different tabs never share one.
+   */
+  async placeCreature(t: vmangos.CreatureTemplate, at: THREE.Vector3) {
+    const d = this.doc
+    try {
+      const [dbNext, look] = await Promise.all([this.nextCreatureGuid ? Promise.resolve(0) : NextCreatureGUID(), SpawnLook(t.display, t.equipment, 0, 0, 1)])
+      let guid = Math.max(this.nextCreatureGuid, dbNext)
+      for (const doc of this.documents) for (const s of doc.spawnLayer.spawns) if (s.kind !== 'object') guid = Math.max(guid, s.guid + 1)
+      this.nextCreatureGuid = guid + 1
+      // Face the camera: the model's front (+X at rest) turned towards where the camera is.
+      const cam = this.camera.position
+      const o = spawnOrientation(Math.atan2(-(cam.z - at.z), cam.x - at.x))
+      const s = newCreatureSpawn(t, guid, at.x, at.y, at.z, o, look)
+      d.history.push(spawnAdd(d.spawnLayer, s, `Add ${t.name}`))
+      if (d === this.doc) selectSpawn(s)
+    } catch (err) {
+      setStatus(`Could not place ${t.name}: ${err}`, 8000)
+    }
+  }
+
   /** Deletes the selected spawn of the active region, undoably. */
   deleteSelectedSpawn() {
     const sel = editor.selectedSpawn
@@ -938,6 +966,11 @@ export class Engine {
    * edited, Delete removes the picked point and Esc stops editing.
    */
   private handleSpawnKey(e: KeyboardEvent): boolean {
+    if (ui.placeCreature && e.key === 'Escape') {
+      ui.placeCreature = null
+      setStatus('Stopped placing creatures.')
+      return true
+    }
     const sel = editor.selectedSpawn
     if (!sel || editor.selectedIds.length > 0 || editor.tool !== 'select') return false
     if (ui.pathEdit) {

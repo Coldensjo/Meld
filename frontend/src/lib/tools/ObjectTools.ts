@@ -269,6 +269,8 @@ export class SelectTool implements Tool {
       /** The model clip while models are being pasted. */
       objectClip: () => ObjectClip | null
       commitPaste: () => void
+      /** Spawns a creature template at a point (see Engine.placeCreature). */
+      placeCreature: (t: vmangos.CreatureTemplate, at: THREE.Vector3) => void
       cancelPaste: () => void
     },
   ) {
@@ -348,6 +350,13 @@ export class SelectTool implements Tool {
     const id = ctx.objects.pick(ctx.raycaster)
     if (id !== null) {
       this.pressObject(ctx, id, hit, e.shiftKey)
+      return
+    }
+    if (ui.placeCreature) {
+      // Shift keeps placing the same creature; a plain click places one and stops.
+      const surf = ctx.surface()
+      if (surf) this.hooks.placeCreature(ui.placeCreature, surf.point.clone())
+      if (!e.shiftKey) ui.placeCreature = null
       return
     }
     if (ui.pathEdit && editor.selectedSpawn && this.pressPath(ctx, spawnKey(editor.selectedSpawn))) return

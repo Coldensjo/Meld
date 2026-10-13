@@ -253,6 +253,40 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class CreatureTemplate {
+	    entry: number;
+	    name: string;
+	    subname: string;
+	    levelMin: number;
+	    levelMax: number;
+	    faction: number;
+	    npcFlags: number;
+	    rank: number;
+	    type: number;
+	    display: number;
+	    scale: number;
+	    equipment: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreatureTemplate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.entry = source["entry"];
+	        this.name = source["name"];
+	        this.subname = source["subname"];
+	        this.levelMin = source["levelMin"];
+	        this.levelMax = source["levelMax"];
+	        this.faction = source["faction"];
+	        this.npcFlags = source["npcFlags"];
+	        this.rank = source["rank"];
+	        this.type = source["type"];
+	        this.display = source["display"];
+	        this.scale = source["scale"];
+	        this.equipment = source["equipment"];
+	    }
+	}
 	export class Emote {
 	    id: number;
 	    name: string;

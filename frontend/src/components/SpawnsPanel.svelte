@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { editor, prefs, ui } from '../lib/state/editor.svelte'
+  import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { exportSpawnSql, reloadSpawns } from '../lib/io/mapio'
   import { creatureTypeName, levelText, npcRoles, objectTypeName, orientationDegrees, rankName } from '../lib/world/spawnInfo'
   import { MOVEMENT_TYPES, SHEATH_STATES, STAND_STATES, selectSpawn, withPoint, type SpawnFields } from '../lib/world/spawnEdits'
   import { spawnKey, type SpawnKind } from '../lib/world/SpawnLayer'
-  import { SpawnEmotes } from '../../wailsjs/go/main/App'
+  import { SearchCreatures, SpawnEmotes } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
 
   // Long regions have thousands of spawns; the list shows this many matches and asks for a filter past it.
@@ -45,6 +45,36 @@
       .replace(/^(ONESHOT|STATE)_/i, '')
       .toLowerCase()
       .replace(/_/g, ' ')
+
+  // Creature templates to place, searched in the world database as the author types.
+  let creatureQuery = $state('')
+  let creatures = $state<vmangos.CreatureTemplate[]>([])
+  let searchError = $state('')
+  let searchTimer: ReturnType<typeof setTimeout> | undefined
+  $effect(() => {
+    const q = creatureQuery.trim()
+    clearTimeout(searchTimer)
+    if (!q) {
+      creatures = []
+      return
+    }
+    searchTimer = setTimeout(() => {
+      SearchCreatures(q)
+        .then((list) => {
+          // A slower answer to an older query must not replace a newer one's.
+          if (creatureQuery.trim() !== q) return
+          creatures = list ?? []
+          searchError = ''
+        })
+        .catch((err) => (searchError = String(err)))
+    }, 250)
+  })
+
+  function startPlacing(t: vmangos.CreatureTemplate) {
+    ui.placeCreature = t
+    editor.tool = 'select'
+    setStatus(`Click the ground to place ${t.name}. Shift+click places more; Esc stops.`, 10000)
+  }
 
   function pick(s: vmangos.WorldSpawn) {
     const drawn = engineRef.current?.activeDocument().spawnLayer.get(spawnKey(s))
@@ -90,6 +120,29 @@
         </div>
       </div>
     {/if}
+    <details class="add" open={creatureQuery !== ''}>
+      <summary>Add a creature</summary>
+      <input type="search" placeholder="Search creatures by name or entry" bind:value={creatureQuery} />
+      {#if searchError}<p class="error detail">{searchError}</p>{/if}
+      {#if creatures.length}
+        <ul class="list short">
+          {#each creatures as t (t.entry)}
+            <li>
+              <button class="row" class:active={ui.placeCreature?.entry === t.entry} onclick={() => startPlacing(t)} title="Entry {t.entry}">
+                <span class="dot {t.npcFlags ? 'npc' : 'monster'}"></span>
+                <span class="name">{t.name}{t.subname ? ` <${t.subname}>` : ''}</span>
+                <span class="dim">{levelText(t.levelMin, t.levelMax)}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else if creatureQuery.trim()}
+        <p class="dim">No creature matches.</p>
+      {/if}
+      {#if ui.placeCreature}
+        <p class="dim hint">Placing {ui.placeCreature.name}: click the ground (Shift+click for more, Esc stops).</p>
+      {/if}
+    </details>
     <div class="toggles">
       <label><input type="checkbox" bind:checked={prefs.showMonsters} /> Monsters <span class="count">{counts.monster}</span></label>
       <label><input type="checkbox" bind:checked={prefs.showNpcs} /> NPCs <span class="count">{counts.npc}</span></label>
@@ -284,6 +337,24 @@
   .row-buttons {
     display: flex;
     gap: 6px;
+  }
+  .add {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .add summary {
+    cursor: pointer;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .add input {
+    width: 100%;
+  }
+  .list.short {
+    max-height: 160px;
+    margin-top: 4px;
   }
   .toggles {
     display: flex;

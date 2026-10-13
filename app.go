@@ -352,6 +352,26 @@ func (a *App) SpawnEmotes() ([]vmangos.Emote, error) {
 	return vmangos.Emotes(dataDir)
 }
 
+// SearchCreatures lists up to 100 creature templates of the world database whose name has text
+// in it (or whose entry it is), for placing new creatures.
+func (a *App) SearchCreatures(text string) ([]vmangos.CreatureTemplate, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SearchCreatures(server, text, 100)
+}
+
+// NextCreatureGUID is the first creature guid the world database doesn't use yet, for creatures
+// placed in the editor.
+func (a *App) NextCreatureGUID() (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.NextCreatureGUID(server)
+}
+
 // SpawnEditSQL turns a region's spawn edits into SQL for the world database, without running it.
 func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
 	server, _, err := a.serverAndData()

@@ -1,4 +1,5 @@
 import type { vmangos } from '../../../wailsjs/go/models'
+import { vmangos as models } from '../../../wailsjs/go/models'
 import { SpawnLook } from '../../../wailsjs/go/main/App'
 import type { Command } from '../state/history'
 import { editor, ui } from '../state/editor.svelte'
@@ -125,6 +126,47 @@ export function withPoint(points: vmangos.Waypoint[], i: number, p: vmangos.Wayp
   else if (insert) out.splice(i, 0, p)
   else out[i] = p
   return out
+}
+
+/**
+ * A new spawn of creature template `t` at a place, with guid `guid`, facing `orientation`, dressed
+ * by `look` (its template's display and equipment, standing, melee weapons out), with the editor's
+ * respawn time and no movement.
+ */
+export function newCreatureSpawn(t: vmangos.CreatureTemplate, guid: number, x: number, y: number, z: number, orientation: number, look: vmangos.LookResult): vmangos.WorldSpawn {
+  return models.WorldSpawn.createFrom({
+    kind: t.npcFlags ? 'npc' : 'monster',
+    guid,
+    entry: t.entry,
+    name: t.name,
+    subname: t.subname,
+    levelMin: t.levelMin,
+    levelMax: t.levelMax,
+    faction: t.faction,
+    npcFlags: t.npcFlags,
+    rank: t.rank,
+    type: t.type,
+    x,
+    y,
+    z,
+    orientation,
+    respawnSecs: 300,
+    respawnMaxSecs: 300,
+    display: t.display,
+    model: look.model,
+    look: look.look,
+    anim: look.anim,
+    scale: t.scale * (look.displayScale || 1),
+    displayScale: look.displayScale || 1,
+    equipment: t.equipment,
+    standState: 0,
+    emoteState: 0,
+    sheathState: 1,
+    movementType: 0,
+    wanderDistance: 0,
+    waypoints: [],
+    pathFromTemplate: false,
+  })
 }
 
 /** A new path point at a place: no facing, no wait, no wander, no script. */

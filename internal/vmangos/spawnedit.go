@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -193,4 +194,98 @@ func Emotes(dataDir string) ([]Emote, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
+}
+
+// CreatureTemplate is a creature the world database can spawn, as the editor's creature search
+// lists it: its template's fields and how its first display looks.
+type CreatureTemplate struct {
+	Entry    int    `json:"entry"`
+	Name     string `json:"name"`
+	Subname  string `json:"subname"`
+	LevelMin int    `json:"levelMin"`
+	LevelMax int    `json:"levelMax"`
+	Faction  int    `json:"faction"`
+	NPCFlags int    `json:"npcFlags"`
+	Rank     int    `json:"rank"`
+	Type     int    `json:"type"`
+	// Display is the template's first display, and Scale its scale for it (1 when unset).
+	Display   int     `json:"display"`
+	Scale     float32 `json:"scale"`
+	Equipment int     `json:"equipment"`
+}
+
+// likePattern makes text an SQL string literal that matches it anywhere with LIKE: quotes and
+// backslashes are escaped, and so are LIKE's own wildcards.
+func likePattern(text string) string {
+	r := strings.NewReplacer(`\`, `\\\\`, `'`, `\'`, `%`, `\%`, `_`, `\_`)
+	return "'%" + r.Replace(text) + "%'"
+}
+
+// SearchCreatures lists the creature templates whose name has text in it, or whose entry is text,
+// by name, at most limit of them.
+func SearchCreatures(serverRoot, text string, limit int) ([]CreatureTemplate, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, nil
+	}
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return nil, err
+	}
+	match := "t.name LIKE " + likePattern(text)
+	if n, err := strconv.Atoi(text); err == nil {
+		match = fmt.Sprintf("(%s OR t.entry = %d)", match, n)
+	}
+	raw, err := runSQL(db, fmt.Sprintf(`SELECT t.entry, t.name, COALESCE(t.subname, ''), t.level_min, t.level_max, t.faction, t.npc_flags,
+		t.rank, t.type, COALESCE(NULLIF(t.display_id1, 0), NULLIF(t.display_id2, 0), NULLIF(t.display_id3, 0), NULLIF(t.display_id4, 0), 0),
+		CASE WHEN t.display_id1 <> 0 THEN t.display_scale1 WHEN t.display_id2 <> 0 THEN t.display_scale2
+		WHEN t.display_id3 <> 0 THEN t.display_scale3 ELSE t.display_scale4 END, t.equipment_id
+		FROM creature_template t WHERE %s AND t.patch = (SELECT MAX(patch) FROM creature_template WHERE entry = t.entry)
+		ORDER BY t.name, t.entry LIMIT %d`, match, max(limit, 1)))
+	if err != nil {
+		return nil, err
+	}
+	var out []CreatureTemplate
+	for _, f := range tsvRows(raw, 12) {
+		var c CreatureTemplate
+		c.Name, c.Subname = f[1], f[2]
+		ok := true
+		for i, p := range []*int{&c.Entry, nil, nil, &c.LevelMin, &c.LevelMax, &c.Faction, &c.NPCFlags, &c.Rank, &c.Type, &c.Display, nil, &c.Equipment} {
+			if p == nil {
+				continue
+			}
+			n, err := strconv.Atoi(f[i])
+			ok = ok && err == nil
+			*p = n
+		}
+		scale, err := strconv.ParseFloat(f[10], 32)
+		if !ok || err != nil {
+			continue
+		}
+		c.Scale = float32(scale)
+		if c.Scale <= 0 {
+			c.Scale = 1
+		}
+		out = append(out, c)
+	}
+	return out, nil
+}
+
+// NextCreatureGUID is the first creature guid above every one the world database has.
+func NextCreatureGUID(serverRoot string) (int, error) {
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return 0, err
+	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return 0, err
+	}
+	raw, err := runSQL(db, "SELECT COALESCE(MAX(guid), 0) + 1 FROM creature")
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(strings.TrimSpace(string(raw)))
 }

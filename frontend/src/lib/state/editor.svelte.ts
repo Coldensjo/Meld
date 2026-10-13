@@ -253,6 +253,8 @@ export const ui = $state({
   spawnChanges: 0,
   /** Clicks in the Select tool edit the selected creature's path: add, pick and drag its points. */
   pathEdit: false,
+  /** A creature template being placed: the next click on the ground in the Select tool spawns it. */
+  placeCreature: null as vmangos.CreatureTemplate | null,
 })
 
 let statusTimer: ReturnType<typeof setTimeout> | undefined

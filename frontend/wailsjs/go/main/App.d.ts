@@ -35,6 +35,8 @@ export function MouseLookEnd():Promise<void>;
 
 export function MouseLookRecenter():Promise<void>;
 
+export function NextCreatureGUID():Promise<number>;
+
 export function OpenHeightmapDialog():Promise<string>;
 
 export function OpenMapDialog():Promise<string>;
@@ -66,6 +68,8 @@ export function SaveSceneMap(arg1:mapfile.MapData):Promise<string>;
 export function SaveTextDialog(arg1:string):Promise<string>;
 
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
+
+export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTemplate>>;
 
 export function SetGameLogin(arg1:string,arg2:string):Promise<void>;
 

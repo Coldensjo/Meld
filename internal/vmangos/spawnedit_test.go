@@ -120,3 +120,42 @@ func TestServerSpawnPath(t *testing.T) {
 		t.Fatalf("point %+v, want at %v %v", p, at.X, at.Y)
 	}
 }
+
+func TestLikePattern(t *testing.T) {
+	bs := string(rune(92))
+	cases := map[string]string{
+		"Wolf":         "'%Wolf%'",
+		"50%":          "'%50" + bs + "%%'",
+		"a_b":          "'%a" + bs + "_b%'",
+		"O'Brien":      "'%O" + bs + "'Brien%'",
+		"x" + bs + "y": "'%x" + bs + bs + bs + bs + "y%'",
+	}
+	for in, want := range cases {
+		if got := likePattern(in); got != want {
+			t.Errorf("likePattern(%q) = %s, want %s", in, got, want)
+		}
+	}
+}
+
+// TestSearchCreaturesLive searches the server's creature templates. It needs VMANGOS_DIR with the
+// database running.
+func TestSearchCreaturesLive(t *testing.T) {
+	dir := os.Getenv("VMANGOS_DIR")
+	if dir == "" {
+		t.Skip("VMANGOS_DIR not set")
+	}
+	got, err := SearchCreatures(dir, "Northshire Guard", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) == 0 || got[0].Name != "Northshire Guard" || got[0].Display == 0 || got[0].LevelMin == 0 {
+		t.Fatalf("search: %+v", got)
+	}
+	if odd, err := SearchCreatures(dir, "'; DROP TABLE x; --", 5); err != nil || len(odd) != 0 {
+		t.Fatalf("a quote in the search must stay text: %v %v", odd, err)
+	}
+	next, err := NextCreatureGUID(dir)
+	if err != nil || next <= 1 {
+		t.Fatalf("next guid %d, %v", next, err)
+	}
+}
