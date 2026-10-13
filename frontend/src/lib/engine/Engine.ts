@@ -452,13 +452,16 @@ export class Engine {
     this.updateSelectionVisuals()
     this.water.update(time)
     this.renderer.render(this.scene, this.camera)
+    // The counters describe the last render call, so read the scene's before the outline passes.
+    const calls = this.renderer.info.render.calls
+    const triangles = this.renderer.info.render.triangles
     this.outline.render(this.renderer, this.camera)
 
     this.frames++
     if (time - this.statTime >= 0.5) {
       stats.fps = Math.round(this.frames / (time - this.statTime))
-      stats.drawCalls = this.renderer.info.render.calls
-      stats.triangles = this.renderer.info.render.triangles
+      stats.drawCalls = calls
+      stats.triangles = triangles
       stats.objects = this.objects.objects.size
       stats.cursor = this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z } : null
       this.frames = 0
