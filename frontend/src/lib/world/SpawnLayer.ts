@@ -2,6 +2,19 @@ import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { getAsset, isWowType, onAssetLoaded, skinnedType } from '../models/assets'
 import { SkinnedInstancedMesh } from './Animator'
+import { cullSpheres, instanceSphere, packMatrices, type CullView } from './instanceCull'
+
+/** The spawns of one kind and model, and what's needed to draw the ones in view. */
+interface SpawnBatch {
+  mesh: THREE.InstancedMesh
+  kind: SpawnKind
+  all: vmangos.WorldSpawn[]
+  matrices: Float32Array
+  spheres: Float32Array
+  /** Indices into `all` of the spawns drawn, by instance index, and scratch for the next cull. */
+  packed: number[]
+  scratch: number[]
+}
 
 export type SpawnKind = 'monster' | 'npc' | 'object'
 
@@ -43,7 +56,7 @@ export class SpawnLayer {
   readonly group = new THREE.Group()
   /** The spawns drawn now, in the region's coordinates. */
   spawns: vmangos.WorldSpawn[] = []
-  private meshes: THREE.InstancedMesh[] = []
+  private batches: SpawnBatch[] = []
   private readonly cone = new THREE.ConeGeometry(1.2, 4, 6).translate(0, 2, 0)
   private readonly coneMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(
     KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k] })]),
@@ -74,17 +87,28 @@ export class SpawnLayer {
   }
 
   private applyKinds() {
-    for (const mesh of this.meshes) mesh.visible = this.shown[mesh.userData.kind as SpawnKind]
+    for (const b of this.batches) b.mesh.visible = this.shown[b.kind]
   }
 
   /** The spawn under the ray, nearest first, among the kinds shown; null when none is. */
   pick(raycaster: THREE.Raycaster): vmangos.WorldSpawn | null {
-    const shown = this.meshes.filter((m) => m.visible && m.count > 0)
-    for (const h of raycaster.intersectObjects(shown, false)) {
-      const items = h.object.userData.items as vmangos.WorldSpawn[] | undefined
-      if (h.instanceId !== undefined && items?.[h.instanceId]) return items[h.instanceId]
+    const shown = this.batches.filter((b) => b.mesh.visible && b.mesh.count > 0)
+    for (const h of raycaster.intersectObjects(shown.map((b) => b.mesh), false)) {
+      const b = shown.find((x) => x.mesh === h.object)
+      if (b && h.instanceId !== undefined && h.instanceId < b.packed.length) return b.all[b.packed[h.instanceId]]
     }
     return null
+  }
+
+  /** Draws only the spawns in `view`, packed to the front of each batch's instance buffer. Call once per frame. */
+  cull(view: CullView) {
+    for (const b of this.batches) {
+      if (!cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch)) continue
+      packMatrices(b.matrices, b.packed, b.mesh.instanceMatrix.array as Float32Array)
+      b.mesh.count = b.packed.length
+      b.mesh.instanceMatrix.needsUpdate = true
+      b.mesh.computeBoundingSphere()
+    }
   }
 
   /** Counts of the spawns drawn, by kind. */
@@ -118,8 +142,6 @@ export class SpawnLayer {
       const material = ready ? asset.material : this.coneMaterials.get(b.kind)!
       const mesh =
         ready && asset.skeleton ? new SkinnedInstancedMesh(geometry, material, b.items.length, asset.skeleton) : new THREE.InstancedMesh(geometry, material, b.items.length)
-      mesh.userData.kind = b.kind
-      mesh.userData.items = b.items
       mesh.frustumCulled = false
       mesh.castShadow = ready
       mesh.receiveShadow = ready
@@ -128,6 +150,8 @@ export class SpawnLayer {
       const up = new THREE.Vector3(0, 1, 0)
       const scale = new THREE.Vector3(1, 1, 1)
       const pos = new THREE.Vector3()
+      const matrices = new Float32Array(b.items.length * 16)
+      const spheres = new Float32Array(b.items.length * 4)
       b.items.forEach((s, i) => {
         // Cones point up at the spawn point. Models turn to the spawn's facing and take its size.
         pos.set(s.x, s.y, s.z)
@@ -135,23 +159,24 @@ export class SpawnLayer {
         const k = ready && s.scale > 0 ? s.scale : 1
         scale.set(k, k, k)
         m.compose(pos, q, scale)
-        mesh.setMatrixAt(i, m)
+        m.toArray(matrices, i * 16)
+        instanceSphere(geometry, m, spheres, i * 4)
       })
-      mesh.instanceMatrix.needsUpdate = true
-      mesh.computeBoundingSphere()
-      this.meshes.push(mesh)
+      // Nothing is drawn until the first cull packs the spawns in view.
+      mesh.count = 0
+      this.batches.push({ mesh, kind: b.kind, all: b.items, matrices, spheres, packed: [-1], scratch: [] })
       this.group.add(mesh)
     }
     this.applyKinds()
   }
 
   private clearMeshes() {
-    for (const mesh of this.meshes) {
-      this.group.remove(mesh)
+    for (const b of this.batches) {
+      this.group.remove(b.mesh)
       // Shared model geometry and materials belong to the asset loader; only the instances are freed.
-      mesh.dispose()
+      b.mesh.dispose()
     }
-    this.meshes = []
+    this.batches = []
   }
 
   dispose() {

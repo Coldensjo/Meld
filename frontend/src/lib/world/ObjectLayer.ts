@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
 import { SkinnedInstancedMesh } from './Animator'
+import { cullSpheres, instanceSphere, packMatrices, type CullView } from './instanceCull'
 
 export interface WorldObject {
   id: number
@@ -33,7 +34,15 @@ const MAX_DEPTH = 8
 
 interface Batch {
   mesh: THREE.InstancedMesh
+  /** The ids of the instances drawn, by instance index: the ones in view, packed (see cull). */
   ids: number[]
+  /** Every object of the type that is not hidden, with its world matrix and bounding sphere. */
+  all: number[]
+  matrices: Float32Array
+  spheres: Float32Array
+  /** Indices into `all` of the instances drawn, and scratch for the next frame's. */
+  packed: number[]
+  scratch: number[]
   dirty: boolean
 }
 
@@ -264,7 +273,7 @@ export class ObjectLayer {
   private batch(type: string): Batch {
     let b = this.batches.get(type)
     if (!b) {
-      b = { mesh: this.makeMesh(type, 64), ids: [], dirty: true }
+      b = { mesh: this.makeMesh(type, 64), ids: [], all: [], matrices: new Float32Array(0), spheres: new Float32Array(0), packed: [], scratch: [], dirty: true }
       this.batches.set(type, b)
       this.group.add(b.mesh)
     }
@@ -283,32 +292,60 @@ export class ObjectLayer {
     return m
   }
 
-  /** Whether any object of `type` is drawn (as of the last update). */
+  /** Whether any object of `type` is drawn: not hidden, and in view as of the last cull. */
   hasVisible(type: string): boolean {
     const b = this.batches.get(type)
     return !!b && b.mesh.count > 0
   }
 
-  /** Rebuild instance buffers for dirty batches. Call once per frame. */
+  /**
+   * Recomputes the matrices and bounds of the dirty batches' objects. Call once per frame, before
+   * `cull`, which packs the ones in view into the instance buffers.
+   */
   update() {
     for (const [type, b] of this.batches) {
       if (!b.dirty) continue
       b.dirty = false
-      b.ids.length = 0
-      for (const o of this.objects.values()) if (o.type === type && !this.isHidden(o.id)) b.ids.push(o.id)
-      if (b.ids.length > b.mesh.instanceMatrix.count) {
+      b.all.length = 0
+      for (const o of this.objects.values()) if (o.type === type && !this.isHidden(o.id)) b.all.push(o.id)
+      const n = b.all.length
+      if (n > b.mesh.instanceMatrix.count) {
         let cap = b.mesh.instanceMatrix.count
-        while (cap < b.ids.length) cap *= 2
+        while (cap < n) cap *= 2
         this.group.remove(b.mesh)
         b.mesh.dispose()
         b.mesh = this.makeMesh(type, cap)
         this.group.add(b.mesh)
       }
-      for (let i = 0; i < b.ids.length; i++) {
-        b.mesh.setMatrixAt(i, this.matrixOf(this.objects.get(b.ids[i])!, this.tmpM))
+      if (b.matrices.length < n * 16) {
+        b.matrices = new Float32Array(b.mesh.instanceMatrix.count * 16)
+        b.spheres = new Float32Array(b.mesh.instanceMatrix.count * 4)
       }
-      b.mesh.count = b.ids.length
+      const geometry = b.mesh.geometry
+      for (let i = 0; i < n; i++) {
+        this.matrixOf(this.objects.get(b.all[i])!, this.tmpM)
+        this.tmpM.toArray(b.matrices, i * 16)
+        instanceSphere(geometry, this.tmpM, b.spheres, i * 4)
+      }
+      // Whatever was packed no longer matches; the next cull repacks it.
+      b.packed.length = 0
+      b.packed.push(-1)
+    }
+  }
+
+  /**
+   * Draws only the instances in `view`: they are packed to the front of each batch's instance buffer,
+   * so a type with nothing in view costs no draw calls. Call once per frame, after `update`.
+   */
+  cull(view: CullView) {
+    for (const b of this.batches.values()) {
+      if (!cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch)) continue
+      packMatrices(b.matrices, b.packed, b.mesh.instanceMatrix.array as Float32Array)
+      b.ids.length = b.packed.length
+      for (let k = 0; k < b.packed.length; k++) b.ids[k] = b.all[b.packed[k]]
+      b.mesh.count = b.packed.length
       b.mesh.instanceMatrix.needsUpdate = true
+      // Picking tests the mesh's sphere first, so it must cover the instances drawn.
       b.mesh.computeBoundingSphere()
     }
   }

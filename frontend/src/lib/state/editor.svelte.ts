@@ -181,6 +181,8 @@ export const prefs = $state({
   propEffects: true,
   /** Play props' idle animations (windmills, flags, flames…). */
   animations: true,
+  /** Leave out models too small on screen to see (a pixel or two), which dense zones have thousands of. */
+  cullSmallModels: true,
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,
   collapsedPanels: ['properties'] as string[],

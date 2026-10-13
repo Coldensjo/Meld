@@ -27,6 +27,7 @@ import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
 import { countHoles, fillHoles } from '../terrain/holes'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
+import type { CullView } from '../world/instanceCull'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -63,6 +64,9 @@ const NO_BOXES: THREE.Box3[] = []
 
 /** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
 const TILE_CELLS = 128
+
+/** Models whose bounds cover fewer pixels than this are not drawn, with the preference on. */
+const SMALL_MODEL_PX = 1.5
 
 export interface MapSnapshot {
   name: string
@@ -175,6 +179,10 @@ export class Engine {
   private viewDistance = 1
   private fogEnabled = true
   private abort = new AbortController()
+  /** What is in view this frame, for culling the models and spawns (see world/instanceCull.ts). */
+  private cullView: CullView = { frustums: [], eye: new THREE.Vector3(), pxPerUnit: 1, cutoffPx: 0 }
+  private viewFrustum = new THREE.Frustum()
+  private viewProj = new THREE.Matrix4()
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -446,6 +454,7 @@ export class Engine {
       selectObjects(this.objects, editor.selectedIds.filter((id) => !this.objects.isHidden(id)), editor.selected?.id)
     }
     this.objects.update()
+    this.cullInstances()
     this.animateModels(time)
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night)
@@ -467,6 +476,31 @@ export class Engine {
       this.frames = 0
       this.statTime = time
     }
+  }
+
+  /**
+   * Draws only the models and spawns in view: inside the camera's frustum, or the shadow camera's so
+   * what is just off screen still throws its shadow into view, and (by preference) large enough on
+   * screen to see.
+   */
+  private cullInstances() {
+    const v = this.cullView
+    this.camera.updateMatrixWorld()
+    this.viewProj.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+    this.viewFrustum.setFromProjectionMatrix(this.viewProj)
+    v.frustums.length = 0
+    v.frustums.push(this.viewFrustum)
+    const key = this.env.key
+    if (key.castShadow) {
+      key.updateMatrixWorld()
+      key.shadow.updateMatrices(key)
+      v.frustums.push(key.shadow.getFrustum())
+    }
+    v.eye.copy(this.camera.position)
+    v.pxPerUnit = this.container.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2))
+    v.cutoffPx = this.prefs?.cullSmallModels === false ? 0 : SMALL_MODEL_PX
+    this.objects.cull(v)
+    this.doc.spawnLayer.cull(v)
   }
 
   /**
