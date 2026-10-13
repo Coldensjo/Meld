@@ -53,6 +53,10 @@ export function tilePaint(chunks: TileChunkIn[], side: number): TilePaint {
   const weights = new Uint8Array(res * res * SLOTS)
   const chunkSlots = new Uint8Array(side * side * SLOTS).fill(NO_TEXTURE)
   let dropped = 0
+  const step = ALPHA / perChunk
+  // Scratch for one texel: each layer's alpha, and its share of the texel.
+  const alphas = new Float64Array(SLOTS)
+  const w = new Float64Array(SLOTS)
 
   for (const chunk of chunks) {
     const c = chunk.indexY * side + chunk.indexX
@@ -69,22 +73,26 @@ export function tilePaint(chunks: TileChunkIn[], side: number): TilePaint {
     }
     layers.forEach((layer, k) => (chunkSlots[c * SLOTS + k] = indexOf(layer.texture)))
 
+    const n = layers.length
     for (let v = 0; v < perChunk; v++) {
       for (let u = 0; u < perChunk; u++) {
-        // Each texel covers a 2x2 block of alpha texels (64 over 32).
-        const alphas = layers.map((layer) => {
-          if (!layer.alpha) return 0
-          const step = ALPHA / perChunk
+        // Each texel covers a step x step block of alpha texels (64 over 32).
+        for (let k = 0; k < n; k++) {
+          const alpha = layers[k].alpha
+          if (!alpha) {
+            alphas[k] = 0
+            continue
+          }
           let sum = 0
           for (let by = 0; by < step; by++) {
-            for (let bx = 0; bx < step; bx++) sum += layer.alpha[(v * step + by) * ALPHA + u * step + bx]
+            const row = (v * step + by) * ALPHA + u * step
+            for (let bx = 0; bx < step; bx++) sum += alpha[row + bx]
           }
-          return sum / (step * step) / 255
-        })
+          alphas[k] = sum / (step * step) / 255
+        }
         // WoW blends the layers in order: layer k shows alpha_k of what the layers above it leave.
-        const w = new Array<number>(layers.length).fill(0)
         let rest = 1
-        for (let k = layers.length - 1; k >= 1; k--) {
+        for (let k = n - 1; k >= 1; k--) {
           w[k] = alphas[k] * rest
           rest *= 1 - alphas[k]
         }
@@ -92,7 +100,7 @@ export function tilePaint(chunks: TileChunkIn[], side: number): TilePaint {
         const x = chunk.indexX * perChunk + u
         const z = chunk.indexY * perChunk + v
         const base = (z * res + x) * SLOTS
-        for (let k = 0; k < layers.length; k++) weights[base + k] = Math.round(w[k] * 255)
+        for (let k = 0; k < n; k++) weights[base + k] = Math.round(w[k] * 255)
         normalizeTexel(weights, base)
       }
     }
