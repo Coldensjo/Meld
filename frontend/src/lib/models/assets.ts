@@ -137,6 +137,9 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
   }
   // Interiors are lit by their baked colours alone, as in the game: no sun, sky or shadows reach them.
   m = g.unlit || interior ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params)
+  // Cast shadows from both faces: three's default casts from the back faces only, and a building's
+  // single-sided walls then let the sun through onto the walls behind them.
+  m.shadowSide = THREE.DoubleSide
   const mat = m as THREE.MeshLambertMaterial
   // userData.ready resolves once the texture is bound (or failed).
   mat.userData.ready = g.texture
