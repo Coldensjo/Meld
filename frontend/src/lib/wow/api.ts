@@ -14,6 +14,8 @@ export interface MeshGroup {
   blend: number
   twoSided: boolean
   unlit: boolean
+  /** A building's or cave's inside: lit by its baked vertex colours, not the sun and sky. */
+  interior?: boolean
 }
 
 export interface AnimTrack {

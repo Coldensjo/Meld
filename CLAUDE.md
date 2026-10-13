@@ -251,7 +251,9 @@ cd frontend && pnpm build   # frontend only
   - `onAssetLoaded` lets `ObjectLayer` and the place-tool ghost swap the placeholder for the real
     mesh.
   - WoW meshes are one geometry with groups plus a material array, which keeps it at one
-    `InstancedMesh` per type.
+    `InstancedMesh` per type. A WMO group flagged interior (`Group.Interior`, from MOGP flag
+    0x2000) gets an unlit `MeshBasicMaterial` lit by its baked MOCV vertex colours, as in the game,
+    so the sun, sky and shadows never reach the inside of a cave or building.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 
 ## Conventions

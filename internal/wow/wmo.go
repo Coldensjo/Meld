@@ -221,7 +221,7 @@ func ParseWMOGroup(b []byte, mats []WMOMaterial) (*Mesh, error) {
 		byMat[mat] = append(byMat[mat], uint32(a), uint32(b2), uint32(c))
 	}
 	for _, mat := range order {
-		g := Group{Start: len(m.Index), Count: len(byMat[mat])}
+		g := Group{Start: len(m.Index), Count: len(byMat[mat]), Interior: interior}
 		if mat < len(mats) {
 			mm := mats[mat]
 			g.Texture, g.Blend, g.TwoSided, g.Unlit = mm.Texture, mm.Blend, mm.TwoSided, mm.Unlit

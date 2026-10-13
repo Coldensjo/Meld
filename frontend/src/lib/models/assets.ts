@@ -103,13 +103,15 @@ export function loadAsset(type: string): Promise<ModelAsset> {
 const materialCache = new Map<string, THREE.Material>()
 
 function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
-  const key = `${g.texture.toLowerCase()}|${g.blend}|${g.twoSided}|${g.unlit}|${vertexColors}`
+  const key = `${g.texture.toLowerCase()}|${g.blend}|${g.twoSided}|${g.unlit}|${!!g.interior}|${vertexColors}`
   let m = materialCache.get(key)
   if (m) return m
+  // An interior without baked colours would be full bright unlit, so it gets a dim grey instead.
+  const interior = !!g.interior && !g.unlit
   const params: THREE.MeshLambertMaterialParameters = {
     vertexColors,
     side: g.twoSided ? THREE.DoubleSide : THREE.FrontSide,
-    color: g.texture ? 0xffffff : 0x9a9a9a,
+    color: !g.texture ? 0x9a9a9a : interior && !vertexColors ? 0x707070 : 0xffffff,
   }
   switch (g.blend) {
     case 0:
@@ -133,7 +135,8 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
       params.blending = THREE.MultiplyBlending
       params.premultipliedAlpha = true
   }
-  m = g.unlit ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params)
+  // Interiors are lit by their baked colours alone, as in the game: no sun, sky or shadows reach them.
+  m = g.unlit || interior ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params)
   const mat = m as THREE.MeshLambertMaterial
   // userData.ready resolves once the texture is bound (or failed).
   mat.userData.ready = g.texture

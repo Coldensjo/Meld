@@ -26,6 +26,9 @@ type Group struct {
 	Blend    int    `json:"blend"`
 	TwoSided bool   `json:"twoSided"`
 	Unlit    bool   `json:"unlit"`
+	// Interior marks a WMO group inside a building or cave: the game lights it from its baked
+	// vertex colours, not the sun and sky, so the editor draws it unlit too.
+	Interior bool `json:"interior,omitempty"`
 }
 
 // Mesh is a static, renderer-ready mesh in editor space (Y up, yards).
