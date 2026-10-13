@@ -261,8 +261,8 @@ export const ui = $state({
   busy: false,
   /** Vertices selected in Sculpt's Vertex mode (updated when a stroke ends). */
   vertexCount: 0,
-  /** A chunk texture waiting to be replaced: the next texture picked in the palette takes its place. */
-  replaceSlot: null as { chunk: number; slot: number } | null,
+  /** A texture waiting to be replaced in these paint chunks: the next texture picked in the browser takes its place. */
+  replaceSlot: null as { chunks: number[]; tex: number } | null,
   /** Draw objects hidden with H. */
   showHiddenModels: false,
   /** How many objects the active map has hidden. */

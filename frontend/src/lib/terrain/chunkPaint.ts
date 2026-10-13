@@ -372,6 +372,49 @@ export function replaceInChunk(side: number, res: number, slots: Uint8Array, wei
   slots[c * SLOTS + slot] = NO_TEXTURE
 }
 
+/**
+ * Empties one slot of chunk c: each texel's weight in it goes to the texel's strongest other texture
+ * (else the chunk's biggest one), so every texel still sums to 255, and the chunk's used slots move
+ * down so slot 0 stays the base. A chunk whose only texture is removed is empty (every slot
+ * NO_TEXTURE): the ground draws black and exports without layers, until something is painted there.
+ */
+export function removeSlot(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, slot: number): void {
+  if (slots[c * SLOTS + slot] === NO_TEXTURE) return
+  const per = res / side
+  const x0 = (c % side) * per
+  const z0 = Math.floor(c / side) * per
+  const sums = new Array<number>(SLOTS).fill(0)
+  for (let z = z0; z < z0 + per; z++) {
+    for (let x = x0; x < x0 + per; x++) {
+      const base = (z * res + x) * SLOTS
+      for (let k = 0; k < SLOTS; k++) sums[k] += weights[base + k]
+    }
+  }
+  let fallback = -1
+  for (let k = 0; k < SLOTS; k++) {
+    if (k === slot || slots[c * SLOTS + k] === NO_TEXTURE) continue
+    if (fallback < 0 || sums[k] > sums[fallback]) fallback = k
+  }
+  for (let z = z0; z < z0 + per; z++) {
+    for (let x = x0; x < x0 + per; x++) {
+      const base = (z * res + x) * SLOTS
+      const w = weights[base + slot]
+      if (w === 0) continue
+      let to = -1
+      for (let k = 0; k < SLOTS; k++) {
+        if (k === slot || slots[c * SLOTS + k] === NO_TEXTURE || weights[base + k] === 0) continue
+        if (to < 0 || weights[base + k] > weights[base + to]) to = k
+      }
+      if (to < 0) to = fallback
+      weights[base + slot] = 0
+      // The last texture's weight has nowhere to go: slot 0 keeps the sum at 255 (it's ignored while empty).
+      weights[base + (to < 0 ? 0 : to)] += w
+    }
+  }
+  slots[c * SLOTS + slot] = NO_TEXTURE
+  if (fallback >= 0) compactChunk(side, res, slots, weights, c)
+}
+
 /** Sets every chunk to one texture, fully painted, which is how a map starts. */
 export function clearPalette(side: number, res: number, slots: Uint8Array, weights: Uint8Array, to = 0): void {
   slots.fill(NO_TEXTURE)

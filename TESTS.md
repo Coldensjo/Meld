@@ -90,6 +90,9 @@ ed.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()]);
 ```
 
 - Then zoom the screenshot on the dock (x from about 1408 at a 1568-wide window).
+- The Layers panel's selection mode: `ed.selection = { x0: 20, z0: 8, x1: 44, z1: 24 }` (cells,
+  so 8 chunks at 8 cells each); `e.selectedChunks()` lists them, and the panel's `.del` buttons and
+  "Delete all" can be clicked from script. `e.chunkContents(c).length === 0` is an emptied chunk.
 - A `PropField` label scrub can be driven with synthetic `PointerEvent`s (`pointerdown`, a few
   `pointermove`s, `pointerup`, `pointerId: 1`, `button: 0`) on the `.label` span; the value moves
   by pixels × step and `ui.canUndo` turns true on release.

@@ -20,7 +20,7 @@ import { ClearTool } from '../tools/ClearTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
-import { CHUNK_CELLS, MAX_PALETTE, SLOTS, chunkTextures, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, SLOTS, chunkTextures, clearPalette, convertGlobalLayers, findSlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset } from '../models/assets'
@@ -2092,23 +2092,73 @@ export class Engine {
     else rect.set((c % side) * size, Math.floor(c / side) * size, ((c % side) + 1) * size, (Math.floor(c / side) + 1) * size)
   }
 
-  /** Replaces the texture in one slot of chunk c with `path`, in that chunk only (undoable). */
-  replaceChunkTexture(c: number, slot: number, path: string) {
+  /** The paint chunks the selected area touches, or none without a selection. */
+  selectedChunks(): number[] {
+    const s = editor.selection
+    if (!s || s.x1 <= s.x0 || s.z1 <= s.z0) return []
+    const side = this.terrain.paintChunksPerSide
+    const cx0 = Math.max(0, Math.floor(s.x0 / CHUNK_CELLS))
+    const cz0 = Math.max(0, Math.floor(s.z0 / CHUNK_CELLS))
+    const cx1 = Math.min(side - 1, Math.floor((s.x1 - 1) / CHUNK_CELLS))
+    const cz1 = Math.min(side - 1, Math.floor((s.z1 - 1) / CHUNK_CELLS))
+    const out: number[] = []
+    for (let cz = cz0; cz <= cz1; cz++) for (let cx = cx0; cx <= cx1; cx++) out.push(cz * side + cx)
+    return out
+  }
+
+  /** The textures of `chunks` together, each with how many of the chunks hold it, most first. */
+  chunksContents(chunks: number[]): Array<{ tex: number; chunks: number }> {
+    const counts = new Map<number, number>()
+    for (const c of chunks) for (const t of this.chunkContents(c)) counts.set(t.tex, (counts.get(t.tex) ?? 0) + 1)
+    return [...counts].map(([tex, n]) => ({ tex, chunks: n })).sort((a, b) => b.chunks - a.chunks || a.tex - b.tex)
+  }
+
+  /** Edits the splat of each chunk in `chunks` through `edit(c)`, as one undo step named `label`. */
+  private editChunks(label: string, chunks: number[], edit: (c: number) => void) {
     const t = this.terrain
     const side = t.paintChunksPerSide
-    if (c < 0 || c >= side * side || slot < 0 || slot >= SLOTS) return
-    const index = this.useTexture(path)
-    if (index < 0) return
     const per = t.splatRes / side
-    const x0 = (c % side) * per
-    const z0 = Math.floor(c / side) * per
-    const stroke = new TerrainStroke(t, 'Replace texture here', { splat: true })
-    stroke.reserveSplat({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
-    replaceInChunk(side, t.splatRes, t.chunkSlots, t.weights, c, slot, index)
-    stroke.touchSplat({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
-    t.markSplatDirty({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
+    const stroke = new TerrainStroke(t, label, { splat: true })
+    for (const c of chunks) {
+      if (c < 0 || c >= side * side) continue
+      const x0 = (c % side) * per
+      const z0 = Math.floor(c / side) * per
+      const rect = { x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 }
+      stroke.reserveSplat(rect)
+      edit(c)
+      stroke.touchSplat(rect)
+      t.markSplatDirty(rect)
+    }
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
+  }
+
+  /** Replaces palette texture `tex` with `path` in `chunks` only (undoable). */
+  replaceTextureInChunks(chunks: number[], tex: number, path: string) {
+    const t = this.terrain
+    const index = this.useTexture(path)
+    if (index < 0) return
+    this.editChunks(chunks.length === 1 ? 'Replace texture here' : `Replace texture in ${chunks.length} chunks`, chunks, (c) => {
+      const slot = findSlot(t.chunkSlots, c, tex)
+      if (slot >= 0) replaceInChunk(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c, slot, index)
+    })
+  }
+
+  /** Removes palette texture `tex` from `chunks`: its layer there is empty afterwards (undoable). */
+  deleteTextureInChunks(chunks: number[], tex: number) {
+    const t = this.terrain
+    this.editChunks(chunks.length === 1 ? 'Delete texture here' : `Delete texture in ${chunks.length} chunks`, chunks, (c) => {
+      const slot = findSlot(t.chunkSlots, c, tex)
+      if (slot >= 0) removeSlot(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c, slot)
+    })
+  }
+
+  /** Empties every layer of `chunks`, so they have no textures at all (undoable). */
+  clearChunks(chunks: number[]) {
+    const t = this.terrain
+    this.editChunks(chunks.length === 1 ? 'Delete all textures here' : `Delete all textures in ${chunks.length} chunks`, chunks, (c) => {
+      for (let k = SLOTS - 1; k >= 0; k--) removeSlot(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c, k)
+    })
   }
 
   /** The textures chunk c uses, with their shares (see chunkTextures). */

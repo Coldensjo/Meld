@@ -10,6 +10,7 @@ import {
   chunkTextures,
   acquireSlotReplacing,
   replaceInChunk,
+  removeSlot,
   addWeight,
   chunksPerSide,
   convertGlobalLayers,
@@ -250,6 +251,20 @@ test('painting a fifth texture into a full chunk replaces the weakest and keeps 
   // The evicted texture's weight went to the texel's strongest other texture, so no texel lost paint.
   assert.deepEqual([...weights.slice(3 * SLOTS, 4 * SLOTS)], [255, 0, 0, 0])
   for (let t = 0; t < 4; t++) assert.equal(weights[t * SLOTS] + weights[t * SLOTS + 1] + weights[t * SLOTS + 2] + weights[t * SLOTS + 3], 255)
+})
+
+test("removing a chunk texture gives its weight to each texel's strongest other texture, and the last one leaves the chunk empty", () => {
+  // One chunk of 2x2 texels with three textures.
+  const slots = new Uint8Array([5, 6, 7, NO_TEXTURE])
+  const weights = new Uint8Array([100, 155, 0, 0, 0, 55, 200, 0, 255, 0, 0, 0, 85, 85, 85, 0])
+  removeSlot(1, 2, slots, weights, 0, 1)
+  assert.deepEqual([...slots], [5, 7, NO_TEXTURE, NO_TEXTURE], 'slot 6 is gone and 7 moved down')
+  assert.deepEqual([...weights], [255, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 170, 85, 0, 0])
+  removeSlot(1, 2, slots, weights, 0, 1)
+  removeSlot(1, 2, slots, weights, 0, 0)
+  assert.deepEqual([...slots], [NO_TEXTURE, NO_TEXTURE, NO_TEXTURE, NO_TEXTURE], 'the chunk is empty')
+  for (let t = 0; t < 4; t++) assert.equal(weights[t * SLOTS] + weights[t * SLOTS + 1] + weights[t * SLOTS + 2] + weights[t * SLOTS + 3], 255)
+  assert.equal(acquireSlot(slots, 0, 9), 0, 'an empty chunk takes a texture again')
 })
 
 test('replacing a chunk texture renames its slot, or folds into one the chunk already has', () => {

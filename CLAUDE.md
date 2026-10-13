@@ -175,10 +175,14 @@ cd frontend && pnpm build   # frontend only
 - **Dock panels** (`components/Dock.svelte`, top to bottom): Layers, Map, Spawns, Properties.
   - **Layers** (`LayersPanel.svelte`) is only the four texture layers of the paint chunk under the
     cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in the terrain
-    shader), an unused slot shown as an empty layer. Replace on a layer sets `ui.replaceSlot`; the
-    next pick in the asset browser goes to `Engine.replaceChunkTexture` (this chunk only, undoable).
-    Nothing else goes in this panel. Auto-paint, Fill mask and the "Replace Texture Everywhere"
-    dialog are in the Edit menu.
+    shader), an unused slot shown as an empty layer. With an area selected it is instead about every
+    chunk the area touches (`Engine.selectedChunks`), listing their textures together
+    (`chunksContents`) with a Delete all. Replace on a layer sets `ui.replaceSlot` (`chunks` + `tex`);
+    the next pick in the asset browser goes to `Engine.replaceTextureInChunks`. Delete (✕) is
+    `deleteTextureInChunks` (`removeSlot` in `chunkPaint.ts`: the layer's weight goes to each texel's
+    strongest other texture; a chunk whose last texture goes is empty, drawn black and exported
+    with no layers). All are one undo step. Nothing else goes in this panel. Auto-paint, Fill mask
+    and the "Replace Texture Everywhere" dialog are in the Edit menu.
   - `editor.palette` is the map's list of textures (WoW tileset paths or `#rrggbb` colours, up to
     255). `Engine.useTexture(path)` adds one and makes it the paint texture.
   - **Properties** (`PropertiesPanel.svelte`) is the inspector for what is selected: one model's
