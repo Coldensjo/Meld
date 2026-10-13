@@ -88,6 +88,7 @@
       name: 'Camera',
       items: [
         { kind: 'action', label: 'Turn Around (180°)', run: withEngine((e) => e.turnCameraAround()) },
+        { kind: 'check', label: 'Follow the Ground', shortcut: 'T', checked: prefs.cameraFollowGround, toggle: () => (prefs.cameraFollowGround = !prefs.cameraFollowGround) },
         { kind: 'sep' },
         { kind: 'action', label: 'Faster', shortcut: 'P', run: () => stepCameraSpeed(true) },
         { kind: 'action', label: 'Slower', shortcut: 'O', run: () => stepCameraSpeed(false) },

@@ -164,6 +164,8 @@ export const prefs = $state({
   cameraSpeed: 1,
   mouseSensitivity: 1,
   invertY: false,
+  /** The camera's target rides the ground and the camera stays above it; off, the camera flies anywhere (caves included). */
+  cameraFollowGround: false,
   /** A pen's pressure scales sculpt speed and paint strength (a mouse is unchanged). */
   tabletSupport: false,
   /** Hour of day 0-24 (sun/moon position, lighting, sky). */

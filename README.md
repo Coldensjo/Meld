@@ -93,9 +93,11 @@ Also included:
 | Right mouse drag | Orbit |
 | Middle mouse drag | Pan |
 | Mouse wheel | Zoom |
-| `W A S D` / arrows | Move |
+| `W A S D` / arrows | Move. The camera flies: `W` goes the way you look, so pitch down and hold `W` to dive into a cave |
+| `Space` / `X` | Fly up / down |
 | `Q` / `E` | Rotate |
 | `Shift` | Move faster |
+| `T` | Follow the ground on/off (Camera menu). On, the target rides the terrain and the camera stays above it, for sculpting from above |
 
 ### Menus
 

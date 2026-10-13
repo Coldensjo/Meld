@@ -1,12 +1,17 @@
 import * as THREE from 'three'
 
 /**
- * WoW-style third-person orbit camera around a ground-following target.
+ * Third-person orbit camera around a target point.
  *
  *  RMB drag      orbit (yaw/pitch)
- *  MMB drag      pan along the ground
+ *  MMB drag      pan
  *  Wheel         zoom
  *  WASD / arrows move target, Q/E rotate, Shift = fast
+ *
+ * By default the camera flies: W moves the target along the view direction, nothing snaps to the
+ * ground, and the camera may look up and go underground, so caves and cellars can be entered. With
+ * `followGround` on, the target rides the terrain (or the water) and the camera stays above it,
+ * which suits sculpting from above.
  */
 export class CameraController {
   readonly target = new THREE.Vector3()
@@ -20,6 +25,8 @@ export class CameraController {
   speed = 1
   sensitivity = 1
   invertY = false
+  /** Keep the target on the ground and the camera above it, instead of flying freely. */
+  followGround = false
   /** When this returns true the arrow keys are left to the editor (object nudging). */
   arrowsBlocked: () => boolean = () => false
   /** When this returns true the wheel is left to the editor (e.g. Ctrl+scroll rotates a placement). */
@@ -57,6 +64,16 @@ export class CameraController {
     if (distance) this.distance = distance
   }
 
+  /** Switches ground following on or off; turning it on drops the target back onto the ground. */
+  setFollowGround(on: boolean) {
+    if (on === this.followGround) return
+    this.followGround = on
+    if (on) {
+      this.smoothTargetY = this.ground(this.target.x, this.target.z)
+      this.pitch = Math.max(this.pitch, 0.08)
+    }
+  }
+
   private onDown = (e: PointerEvent) => {
     if (e.button === 2) this.drag = 'orbit'
     else if (e.button === 1) this.drag = 'pan'
@@ -74,7 +91,8 @@ export class CameraController {
     if (this.drag === 'orbit') {
       const k = 0.005 * this.sensitivity
       this.yaw -= dx * k
-      this.pitch = THREE.MathUtils.clamp(this.pitch + dy * k * (this.invertY ? -1 : 1), 0.08, 1.52)
+      // Looking up is only useful when flying; on the ground the camera stays above the target.
+      this.pitch = THREE.MathUtils.clamp(this.pitch + dy * k * (this.invertY ? -1 : 1), this.followGround ? 0.08 : -1.45, 1.52)
     } else {
       const s = this.distance * 0.0016
       // Grab-the-ground: forward = camera→target, right = forward × up.
@@ -126,15 +144,29 @@ export class CameraController {
       const speed = (20 + this.distance * 0.9) * fast * this.speed * dt
       const fx = -Math.sin(this.yaw)
       const fz = -Math.cos(this.yaw)
-      this.target.x += (fx * fwd - fz * right) * speed
-      this.target.z += (fz * fwd + fx * right) * speed
+      if (this.followGround) {
+        this.target.x += (fx * fwd - fz * right) * speed
+        this.target.z += (fz * fwd + fx * right) * speed
+      } else {
+        // Flying: forward is the way the camera looks, so pitching down and holding W descends.
+        const cp = Math.cos(this.pitch)
+        this.target.x += (fx * cp * fwd - fz * right) * speed
+        this.target.z += (fz * cp * fwd + fx * right) * speed
+        this.target.y -= Math.sin(this.pitch) * fwd * speed
+      }
       this.clampTarget()
     }
+    if (k.has('Space') && !this.followGround) this.target.y += (20 + this.distance * 0.9) * fast * this.speed * dt
+    if ((k.has('KeyX') || k.has('KeyC')) && !this.followGround) this.target.y -= (20 + this.distance * 0.9) * fast * this.speed * dt
 
-    // Glide the target height along the terrain.
-    const gy = this.ground(this.target.x, this.target.z)
-    this.smoothTargetY += (gy - this.smoothTargetY) * Math.min(1, dt * 8)
-    this.target.y = this.smoothTargetY
+    if (this.followGround) {
+      // Glide the target height along the terrain.
+      const gy = this.ground(this.target.x, this.target.z)
+      this.smoothTargetY += (gy - this.smoothTargetY) * Math.min(1, dt * 8)
+      this.target.y = this.smoothTargetY
+    } else {
+      this.smoothTargetY = this.target.y
+    }
 
     const cp = Math.cos(this.pitch)
     const pos = this.camera.position
@@ -143,8 +175,10 @@ export class CameraController {
       this.target.y + Math.sin(this.pitch) * this.distance,
       this.target.z + Math.cos(this.yaw) * cp * this.distance,
     )
-    const floor = this.ground(pos.x, pos.z) + 1.5
-    if (pos.y < floor) pos.y = floor
+    if (this.followGround) {
+      const floor = this.ground(pos.x, pos.z) + 1.5
+      if (pos.y < floor) pos.y = floor
+    }
     this.camera.lookAt(this.target)
   }
 

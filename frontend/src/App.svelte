@@ -104,6 +104,10 @@
     else if (e.key === '[') editor.brush.radius = Math.max(1, editor.brush.radius / 1.15)
     else if (e.key === ']') editor.brush.radius = Math.min(80, editor.brush.radius * 1.15)
     else if (key === 'g') editor.grid = !editor.grid
+    else if (key === 't' && editor.tool !== 'paint') {
+      prefs.cameraFollowGround = !prefs.cameraFollowGround
+      setStatus(prefs.cameraFollowGround ? 'Camera follows the ground (T to fly freely).' : 'Camera flies freely: W goes where you look, Space/X up and down (T to follow the ground).', 3000)
+    }
     else if (key === 'h' && e.shiftKey) engine.unhideAll()
     else if (key === 'p') stepCameraSpeed(true)
     else if (key === 'o') stepCameraSpeed(false)
