@@ -107,6 +107,9 @@ export class PlaceTool implements Tool {
   /** Rotate the placement preview (Ctrl+scroll). The next click uses this rotation. */
   rotatePreview(radians: number) {
     this.rot += radians
+    // Shown as a compass heading in 0..360, rounded so 15° notches read as whole degrees.
+    const deg = Math.round(THREE.MathUtils.euclideanModulo(THREE.MathUtils.radToDeg(this.rot), 360))
+    setViewportHint(`Rotation ${deg % 360}°`)
   }
 
   /**
