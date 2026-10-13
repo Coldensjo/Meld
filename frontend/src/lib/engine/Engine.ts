@@ -599,11 +599,14 @@ export class Engine {
    * the CPU per model type, so types loaded for other tabs or nothing at all cost nothing.
    */
   private animateModels(time: number) {
-    if (this.prefs?.animations === false) return
-    const ms = time * 1000
+    // With animations off, a model still holds the first frame of its idle (or posed) loop rather
+    // than the bind pose, which for many creatures is a T-pose. It is posed once, at time 0.
+    const still = this.prefs?.animations === false
+    const ms = still ? 0 : time * 1000
     const prefab = editor.tool === 'place' ? editor.prefab : ''
     const spawns = this.doc.spawnLayer
     for (const [type, a] of animatedAssets) {
+      if (still && a.anim!.posedAt === 0) continue
       if (ui.pasting || type === prefab || this.objects.hasVisible(type) || spawns.hasType(type)) a.anim!.update(ms)
     }
   }

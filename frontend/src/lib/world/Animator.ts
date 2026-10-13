@@ -74,8 +74,12 @@ export class ModelAnimation {
   private s3 = [0, 0, 0]
   private s4 = [0, 0, 0, 1]
 
+  /** The last time the bones were posed for, or -1 before the first pose (the bind pose, often a T-pose). */
+  posedAt = -1
+
   /** Poses the bones for time `ms`. The skeleton picks the matrices up when it is next drawn. */
   update(ms: number) {
+    this.posedAt = ms
     const b = this.bones
     for (let i = 0; i < b.length; i++) {
       const bone = b[i]
