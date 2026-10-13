@@ -1,4 +1,11 @@
 import * as THREE from 'three'
+import { MouseLookBegin, MouseLookEnd, MouseLookRecenter } from '../../../wailsjs/go/main/App'
+
+/** WebView2 shows a banner on every pointer lock, so Windows hides and recentres the cursor natively. */
+const nativeLook = navigator.userAgent.includes('Windows')
+/** How far the hidden cursor may wander before it is moved back, and how near the anchor a move counts as that warp. */
+const WARP_AT = 150
+const WARP_LANDED = 40
 
 /**
  * The camera, in one of two modes.
@@ -35,6 +42,10 @@ export class CameraController {
   private keys = new Set<string>()
   private drag: 'orbit' | 'pan' | null = null
   private last = new THREE.Vector2()
+  /** Native mouse look: where the drag started (client px) and whether the cursor is being moved back there. */
+  private anchor = new THREE.Vector2()
+  private looking = false
+  private warping = false
   private smoothTargetY = 0
   private abort = new AbortController()
 
@@ -51,7 +62,10 @@ export class CameraController {
     dom.addEventListener('contextmenu', (e) => e.preventDefault(), sig)
     window.addEventListener('keydown', this.onKeyDown, sig)
     window.addEventListener('keyup', (e) => this.keys.delete(e.code), sig)
-    window.addEventListener('blur', () => this.keys.clear(), sig)
+    window.addEventListener('blur', () => {
+      this.keys.clear()
+      this.endLook()
+    }, sig)
   }
 
   get isDragging() {
@@ -109,15 +123,30 @@ export class CameraController {
     this.last.set(e.clientX, e.clientY)
     this.dom.setPointerCapture?.(e.pointerId)
     // Looking around hides the cursor and never runs into the screen's edge.
-    if (e.button === 2) this.dom.requestPointerLock?.()
+    if (e.button === 2) {
+      if (nativeLook) this.beginLook(e)
+      else this.dom.requestPointerLock?.()
+    }
   }
 
   private onMove = (e: PointerEvent) => {
     if (!this.drag) return
     const locked = document.pointerLockElement === this.dom
-    const dx = locked ? e.movementX : e.clientX - this.last.x
-    const dy = locked ? e.movementY : e.clientY - this.last.y
+    let dx = locked ? e.movementX : e.clientX - this.last.x
+    let dy = locked ? e.movementY : e.clientY - this.last.y
     this.last.set(e.clientX, e.clientY)
+    if (this.looking) {
+      const ax = e.clientX - this.anchor.x
+      const ay = e.clientY - this.anchor.y
+      if (this.warping && Math.abs(ax) < WARP_LANDED && Math.abs(ay) < WARP_LANDED) {
+        // The cursor was moved back to the anchor: that jump is not the user's.
+        this.warping = false
+        dx = dy = 0
+      } else if (!this.warping && (Math.abs(ax) > WARP_AT || Math.abs(ay) > WARP_AT)) {
+        this.warping = true
+        void MouseLookRecenter()
+      }
+    }
     if (this.drag === 'orbit') {
       const k = 0.005 * this.sensitivity
       this.yaw -= dx * k
@@ -146,6 +175,24 @@ export class CameraController {
   private onUp = (e: PointerEvent) => {
     if ((e.button === 2 && this.drag === 'orbit') || (e.button === 1 && this.drag === 'pan')) this.drag = null
     if (e.button === 2 && document.pointerLockElement === this.dom) document.exitPointerLock()
+    if (e.button === 2) this.endLook()
+  }
+
+  private beginLook(e: PointerEvent) {
+    this.looking = true
+    this.warping = false
+    this.anchor.set(e.clientX, e.clientY)
+    document.documentElement.classList.add('mouse-look')
+    MouseLookBegin().then((ok) => {
+      if (!ok) this.looking = false
+    }, () => (this.looking = false))
+  }
+
+  private endLook() {
+    if (!this.looking) return
+    this.looking = false
+    document.documentElement.classList.remove('mouse-look')
+    void MouseLookEnd()
   }
 
   private onWheel = (e: WheelEvent) => {
@@ -232,6 +279,7 @@ export class CameraController {
   }
 
   dispose() {
+    this.endLook()
     this.abort.abort()
   }
 }

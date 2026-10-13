@@ -46,6 +46,18 @@ export function MapZones() {
   return window['go']['main']['App']['MapZones']();
 }
 
+export function MouseLookBegin() {
+  return window['go']['main']['App']['MouseLookBegin']();
+}
+
+export function MouseLookEnd() {
+  return window['go']['main']['App']['MouseLookEnd']();
+}
+
+export function MouseLookRecenter() {
+  return window['go']['main']['App']['MouseLookRecenter']();
+}
+
 export function OpenHeightmapDialog() {
   return window['go']['main']['App']['OpenHeightmapDialog']();
 }

@@ -27,6 +27,12 @@ export function MapEntries():Promise<Array<vmangos.MapEntry>>;
 
 export function MapZones():Promise<Array<vmangos.Zone>>;
 
+export function MouseLookBegin():Promise<boolean>;
+
+export function MouseLookEnd():Promise<void>;
+
+export function MouseLookRecenter():Promise<void>;
+
 export function OpenHeightmapDialog():Promise<string>;
 
 export function OpenMapDialog():Promise<string>;
