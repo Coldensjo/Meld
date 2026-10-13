@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { editor, setStatus } from '../state/editor.svelte'
+import { editor, setStatus, ui } from '../state/editor.svelte'
+import { movableSelection, objectsInRect, selectObjects } from '../state/selection'
 import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { Command } from '../state/history'
@@ -25,20 +26,27 @@ export function removeCommand(objects: ObjectLayer, removed: WorldObject[]): Com
 }
 
 export function transformCommand(objects: ObjectLayer, before: WorldObject, after: WorldObject): Command {
-  const b = { ...before }
-  const a = { ...after }
-  const apply = (s: WorldObject) => {
-    const o = objects.objects.get(s.id)
-    if (!o) return
-    // Snapshots without a parent mean "on the ground", and without tilts mean upright.
-    delete o.parent
-    delete o.tiltX
-    delete o.tiltZ
-    Object.assign(o, s)
-    objects.touch(s.id)
-    if (editor.selected?.id === s.id) editor.selected = { ...s }
+  return groupTransformCommand(objects, [before], [after], 'Transform')
+}
+
+/** One undo step for several objects' transforms: `before[i]` and `after[i]` are snapshots of the same object. */
+export function groupTransformCommand(objects: ObjectLayer, before: WorldObject[], after: WorldObject[], label?: string): Command {
+  const b = before.map((o) => ({ ...o }))
+  const a = after.map((o) => ({ ...o }))
+  const apply = (states: WorldObject[]) => {
+    for (const s of states) {
+      const o = objects.objects.get(s.id)
+      if (!o) continue
+      // Snapshots without a parent mean "on the ground", and without tilts mean upright.
+      delete o.parent
+      delete o.tiltX
+      delete o.tiltZ
+      Object.assign(o, s)
+      objects.touch(s.id)
+      if (editor.selected?.id === s.id) editor.selected = { ...s }
+    }
   }
-  return { label: 'Transform', undo: () => apply(b), redo: () => apply(a) }
+  return { label: label ?? (b.length > 1 ? `Move ${b.length} objects` : 'Transform'), undo: () => apply(b), redo: () => apply(a) }
 }
 
 const TILT_LIMIT = (8 * Math.PI) / 180
@@ -150,7 +158,7 @@ export class PlaceTool implements Tool {
     })
     ctx.history.push(addCommand(ctx.objects, [o], surf.parent !== null ? 'Place (attached)' : 'Place'))
     // The new object stays selected so it can be nudged/spun with the keys.
-    editor.selected = { ...o }
+    selectObjects(ctx.objects, [o.id])
     this.reroll()
   }
 
@@ -198,38 +206,125 @@ export class PlaceTool implements Tool {
   }
 }
 
+/** An area drag's corner, in cells. */
+interface Cell {
+  x: number
+  z: number
+}
+
+/**
+ * The Select tool. A click on a model selects it (Shift adds or removes it) and a drag moves the
+ * selection along whatever is under the cursor; the clicked model leads and the others keep their
+ * offsets. A drag on the ground selects an area, and with it every model standing in it. While
+ * pasting, the floating clip follows the cursor and a click drops it.
+ */
 export class SelectTool implements Tool {
   readonly usesBrush = false
   private normal = { x: 0, y: 1, z: 0 }
-  private dragging: { before: WorldObject; dx: number; dz: number; lift: number; exclude: Set<number>; moved: boolean } | null = null
+  /** Dragging the selection: `lead` is the clicked model; `others` keep their world offset from it. */
+  private dragging: {
+    lead: number
+    dx: number
+    dz: number
+    lift: number
+    exclude: Set<number>
+    moved: boolean
+    others: Array<{ id: number; ox: number; oz: number }>
+    before: WorldObject[]
+  } | null = null
+  /** The cell an area drag started at. */
+  private rectStart: Cell | null = null
+  /** Where the floating paste would land (corner cell), updated every frame. */
+  pasteAt: Cell | null = null
 
-  private selected(ctx: ToolContext) {
-    return editor.selected ? ctx.objects.objects.get(editor.selected.id) : undefined
+  constructor(
+    private hooks: {
+      clipSize: () => { w: number; h: number } | null
+      commitPaste: () => void
+      cancelPaste: () => void
+    },
+  ) {}
+
+  private cell(ctx: ToolContext, hit: THREE.Vector3): Cell {
+    const cs = ctx.terrain.cellSize
+    const n = ctx.terrain.size
+    return {
+      x: Math.min(n, Math.max(0, Math.round(hit.x / cs))),
+      z: Math.min(n, Math.max(0, Math.round(hit.z / cs))),
+    }
   }
 
-  onDown(ctx: ToolContext, hit: THREE.Vector3 | null) {
-    const id = ctx.objects.pick(ctx.raycaster)
-    const o = id !== null ? ctx.objects.objects.get(id) : undefined
-    editor.selected = o ? { ...o } : null
-    if (!o) {
-      // No model under the cursor: a creature or object of the region there is selected instead.
-      editor.selectedSpawn = ctx.spawns.pick(ctx.raycaster)
+  deactivate() {
+    this.rectStart = null
+    this.dragging = null
+    if (ui.pasting) this.hooks.cancelPaste()
+  }
+
+  onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
+    if (ui.pasting) {
+      this.hooks.commitPaste()
       return
     }
+    const id = ctx.objects.pick(ctx.raycaster)
+    if (id !== null) {
+      this.pressObject(ctx, id, hit, e.shiftKey)
+      return
+    }
+    // No model under the cursor: a creature or object of the region there is selected instead.
+    editor.selectedSpawn = ctx.spawns.pick(ctx.raycaster)
+    if (editor.selectedSpawn || !hit) return
+    if (!e.shiftKey) selectObjects(ctx.objects, [])
+    this.rectStart = this.cell(ctx, hit)
+    editor.selection = { x0: this.rectStart.x, z0: this.rectStart.z, x1: this.rectStart.x, z1: this.rectStart.z }
+  }
+
+  /** A click on model `id`: selects it (Shift toggles it in the selection) and starts dragging the selection. */
+  private pressObject(ctx: ToolContext, id: number, hit: THREE.Vector3 | null, shift: boolean) {
+    const o = ctx.objects.objects.get(id)
+    if (!o) return
     editor.selectedSpawn = null
-    // Drag along whatever surface is under the cursor (never the object itself
-    // or things attached to it); the object re-attaches to what it lands on.
-    const exclude = ctx.objects.descendantIds(o.id)
+    let ids = editor.selectedIds
+    if (shift) {
+      // Shift+click adds or removes without moving anything.
+      ids = ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]
+      selectObjects(ctx.objects, ids, ids.includes(id) ? id : undefined)
+      return
+    }
+    if (!ids.includes(id)) ids = [id]
+    selectObjects(ctx.objects, ids, id)
+    // Drag along whatever surface is under the cursor (never the selection itself or things attached
+    // to it); the lead re-attaches to what it lands on.
+    const exclude = new Set<number>()
+    for (const sid of ids) for (const d of ctx.objects.descendantIds(sid)) exclude.add(d)
     const surf = ctx.surface(exclude)
     const w = ctx.objects.worldPlacement(o)
     const at = surf?.point ?? hit
     if (!at) return
-    this.dragging = { before: { ...o }, dx: w.pos.x - at.x, dz: w.pos.z - at.z, lift: Math.max(0, w.pos.y - at.y), exclude, moved: false }
+    const moving = movableSelection(ctx.objects)
+    const others = moving
+      .filter((s) => s.id !== id)
+      .map((s) => {
+        const sw = ctx.objects.worldPlacement(s)
+        return { id: s.id, ox: sw.pos.x - w.pos.x, oz: sw.pos.z - w.pos.z }
+      })
+    const before = [o, ...others.map((s) => ctx.objects.objects.get(s.id)!)].map((s) => ({ ...s }))
+    this.dragging = { lead: id, dx: w.pos.x - at.x, dz: w.pos.z - at.z, lift: Math.max(0, w.pos.y - at.y), exclude, moved: false, others, before }
   }
 
-  onMove(ctx: ToolContext) {
-    const o = this.selected(ctx)
+  onMove(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    if (this.rectStart) {
+      if (!hit) return
+      const c = this.cell(ctx, hit)
+      editor.selection = {
+        x0: Math.min(this.rectStart.x, c.x),
+        z0: Math.min(this.rectStart.z, c.z),
+        x1: Math.max(this.rectStart.x, c.x),
+        z1: Math.max(this.rectStart.z, c.z),
+      }
+      return
+    }
     const d = this.dragging
+    const o = d ? ctx.objects.objects.get(d.lead) : undefined
     if (!d || !o) return
     const surf = ctx.surface(d.exclude)
     if (!surf) return
@@ -242,13 +337,69 @@ export class SelectTool implements Tool {
       Object.assign(o, tiltToNormal(n.x, n.y, n.z, o.rotY))
       ctx.objects.touch(o.id)
     }
+    // The rest of the selection keeps its offset from the lead; a model on the ground keeps its height above it.
+    for (const other of d.others) {
+      const s = ctx.objects.objects.get(other.id)
+      if (!s) continue
+      const sw = ctx.objects.worldPlacement(s)
+      const nx = w.pos.x + other.ox
+      const nz = w.pos.z + other.oz
+      if (!ctx.terrain.contains(nx, nz)) continue
+      sw.pos.x = nx
+      sw.pos.z = nz
+      if (s.parent === undefined) sw.pos.y = ctx.terrain.heightAt(nx, nz) + s.yOff
+      ctx.objects.place(s, s.parent ?? null, sw)
+    }
     d.moved = true
-    editor.selected = { ...o }
+    if (editor.selected?.id === o.id) editor.selected = { ...o }
   }
 
-  onUp(ctx: ToolContext) {
-    const o = this.selected(ctx)
-    if (this.dragging?.moved && o) ctx.history.push(transformCommand(ctx.objects, this.dragging.before, o))
+  onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
+    if (this.rectStart) {
+      this.rectStart = null
+      const s = editor.selection
+      if (!s) return
+      if (s.x1 === s.x0 || s.z1 === s.z0) {
+        // A plain click (no area) clears the area.
+        editor.selection = null
+        return
+      }
+      const inside = objectsInRect(ctx.objects, ctx.terrain.cellSize, s).map((o) => o.id)
+      const ids = e.shiftKey ? [...editor.selectedIds, ...inside] : inside
+      selectObjects(ctx.objects, ids)
+      const n = editor.selectedIds.length
+      setStatus(`Selected ${s.x1 - s.x0} × ${s.z1 - s.z0} cells with ${n} ${n === 1 ? 'object' : 'objects'}.`)
+      return
+    }
+    const d = this.dragging
     this.dragging = null
+    if (!d?.moved) return
+    const after = d.before.map((b) => ctx.objects.objects.get(b.id)).filter((o): o is WorldObject => !!o)
+    const before = d.before.filter((b) => after.some((a) => a.id === b.id))
+    ctx.history.push(groupTransformCommand(ctx.objects, before, after))
+  }
+
+  frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    const size = ui.pasting ? this.hooks.clipSize() : null
+    if (!size || !hit) return
+    const cs = ctx.terrain.cellSize
+    this.pasteAt = { x: Math.round(hit.x / cs - size.w / 2), z: Math.round(hit.z / cs - size.h / 2) }
+  }
+
+  onKey(ctx: ToolContext, e: KeyboardEvent) {
+    if (ui.pasting) {
+      if (e.key === 'Escape') this.hooks.cancelPaste()
+      else if (e.key === 'Enter') this.hooks.commitPaste()
+      else if (e.key === 'PageUp') editor.paste.heightOffset += e.shiftKey ? 5 : 1
+      else if (e.key === 'PageDown') editor.paste.heightOffset -= e.shiftKey ? 5 : 1
+      else return false
+      return true
+    }
+    if (e.key === 'Escape' && (editor.selection || editor.selectedIds.length)) {
+      editor.selection = null
+      selectObjects(ctx.objects, [])
+      return true
+    }
+    return false
   }
 }

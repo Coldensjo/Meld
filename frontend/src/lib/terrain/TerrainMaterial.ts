@@ -178,7 +178,7 @@ void main() {
   }
 
   if (selMode > 0.5) {
-    // Marching-ants outline around the marquee selection / floating paste.
+    // Marching-ants outline around the selected area / floating paste.
     vec2 p = vWorldPos.xz;
     vec2 lo = selRect.xy;
     vec2 hi = selRect.zw;

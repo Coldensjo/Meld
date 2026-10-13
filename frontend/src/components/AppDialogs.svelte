@@ -81,8 +81,10 @@
     [
       'Tools',
       [
-        ['1 – 7', 'Select, Marquee, Sculpt, Paint, Roads, Water, Place'],
-        ['V / M / B', 'Select / Marquee / Paint'],
+        ['1 – 8', 'Select, Sculpt, Paint, Roads, Water, Place, Clear, Pipette'],
+        ['V / B / I', 'Select / Paint / Pipette'],
+        ['Click, Shift+click', 'Select a model, add or remove one (Select tool)'],
+        ['Drag on the ground', 'Select an area and the models in it (Select tool)'],
         ['[ / ]', 'Brush smaller / larger'],
         ['Arrow keys', 'Move selected object (camera-relative)'],
         ['Alt+↑ / Alt+↓, PgUp / PgDn', 'Raise / lower selected object'],
@@ -92,7 +94,7 @@
         ['Ctrl+scroll', 'Rotate the placement preview (Place tool)'],
         ['Alt+scroll', 'Raise / lower the placement preview (Place tool)'],
         ['Shift+drag', 'Scatter (Place tool)'],
-        ['Delete', 'Delete selected object'],
+        ['Delete', 'Delete the selected models'],
         ['Esc', 'Deselect'],
         ['G', 'Toggle grid'],
       ],

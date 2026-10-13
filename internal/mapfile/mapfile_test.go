@@ -11,7 +11,8 @@ import (
 	"testing"
 )
 
-// sample is a version 2 map: size cells a side, with four texel weights per texel and a slot table.
+// sample is a current-format map: size cells a side, with four texel weights per texel, a slot table
+// and a hole in one cell.
 func sample(size int) *MapData {
 	h := make([]byte, (size+1)*(size+1)*4)
 	for i := 0; i < (size+1)*(size+1); i++ {
@@ -27,6 +28,8 @@ func sample(size int) *MapData {
 	for i := range slots {
 		slots[i] = byte(i % 3)
 	}
+	holes := make([]byte, size*size)
+	holes[size+1] = 1
 	return &MapData{
 		Header: Header{
 			Name: "test", Size: size, CellSize: 4, SplatRes: res,
@@ -38,6 +41,7 @@ func sample(size int) *MapData {
 		Heights:    base64.StdEncoding.EncodeToString(h),
 		Weights:    base64.StdEncoding.EncodeToString(w),
 		ChunkSlots: base64.StdEncoding.EncodeToString(slots),
+		Holes:      base64.StdEncoding.EncodeToString(holes),
 	}
 }
 
@@ -54,7 +58,7 @@ func TestRoundTrip(t *testing.T) {
 	if got.Version != Version {
 		t.Fatalf("version = %d, want %d", got.Version, Version)
 	}
-	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots {
+	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots || got.Holes != m.Holes {
 		t.Fatal("blob mismatch")
 	}
 	if got.Name != "test" || got.WaterLevel != 1.5 || !got.WaterEnabled || got.CellSize != 4 {
@@ -100,6 +104,64 @@ func TestReadsVersion1(t *testing.T) {
 	}
 	if len(m.LayerTextures) != 2 || m.LayerTextures[1] != `Tileset\Dirt.blp` {
 		t.Fatalf("layers = %v", m.LayerTextures)
+	}
+}
+
+// writeV2 writes a version 2 stream: the current layout without the holes blob.
+func writeV2(t *testing.T, m *MapData) []byte {
+	t.Helper()
+	hdr, err := json.Marshal(&m.Header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dec := func(s string) []byte {
+		b, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	var pre [12]byte
+	copy(pre[:4], Magic)
+	binary.LittleEndian.PutUint32(pre[4:8], 2)
+	binary.LittleEndian.PutUint32(pre[8:12], uint32(len(hdr)))
+	gz.Write(pre[:])
+	gz.Write(hdr)
+	gz.Write(dec(m.Heights))
+	gz.Write(dec(m.Weights))
+	gz.Write(dec(m.ChunkSlots))
+	gz.Close()
+	return buf.Bytes()
+}
+
+// A version 2 map has no holes blob and opens with no holes.
+func TestReadsVersion2WithoutHoles(t *testing.T) {
+	m, err := Read(bytes.NewReader(writeV2(t, sample(32))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Version != 2 || m.Holes != "" || m.Weights == "" {
+		t.Fatalf("version 2 fields: version %d, holes %d bytes", m.Version, len(m.Holes))
+	}
+}
+
+// A writer that sends no holes still produces a full file, with every cell solid.
+func TestWritesEmptyHolesWhenNoneGiven(t *testing.T) {
+	m := sample(32)
+	m.Holes = ""
+	var buf bytes.Buffer
+	if err := Write(&buf, m); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	holes, _ := base64.StdEncoding.DecodeString(got.Holes)
+	if len(holes) != 32*32 || bytes.Contains(holes, []byte{1}) {
+		t.Fatalf("holes = %d bytes", len(holes))
 	}
 }
 

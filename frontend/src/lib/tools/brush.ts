@@ -136,14 +136,16 @@ export class TerrainStroke {
   private wBefore: Uint8Array | null = null
   private slotsBefore: Uint8Array | null = null
   private mBefore: Uint8Array | null = null
+  private holesBefore: Uint8Array | null = null
   private hRect: Rect | null = null
   private sRect: Rect | null = null
   private mRect: Rect | null = null
+  private holesRect: Rect | null = null
 
   constructor(
     private terrain: Terrain,
     private label: string,
-    opts: { heights?: boolean; splat?: boolean; mask?: boolean },
+    opts: { heights?: boolean; splat?: boolean; mask?: boolean; holes?: boolean },
     private onHeightsChanged?: (r: Rect) => void,
   ) {
     if (opts.heights) this.hBefore = terrain.heights.slice()
@@ -152,6 +154,12 @@ export class TerrainStroke {
       this.slotsBefore = terrain.chunkSlots.slice()
     }
     if (opts.mask) this.mBefore = terrain.mask.slice()
+    if (opts.holes) this.holesBefore = terrain.holes.slice()
+  }
+
+  /** A cell rect (inclusive cells) whose holes changed. */
+  touchHoles(r: Rect | null) {
+    this.holesRect = grow(this.holesRect, r)
   }
 
   touchMask(r: Rect | null) {
@@ -235,7 +243,20 @@ export class TerrainStroke {
         },
       })
     }
-    this.hBefore = this.wBefore = this.slotsBefore = this.mBefore = null
+    if (this.holesBefore && this.holesRect) {
+      const r = this.holesRect
+      const n = t.size
+      const before = extract(this.holesBefore, n, 1, r)
+      const after = extract(t.holes, n, 1, r)
+      parts.push({
+        apply: (b) => {
+          inject(t.holes, n, 1, r, b ? before : after)
+          // The chunk rebuild runs off vertices; a cell's far corner is one past it.
+          t.markDirty(r.x0, r.z0, r.x1 + 1, r.z1 + 1)
+        },
+      })
+    }
+    this.hBefore = this.wBefore = this.slotsBefore = this.mBefore = this.holesBefore = null
     if (!parts.length) return null
     return {
       label: this.label,

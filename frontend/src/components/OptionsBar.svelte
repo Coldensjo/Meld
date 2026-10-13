@@ -125,7 +125,7 @@
       <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
     {/if}
     <div class="divider"></div>
-  {:else if editor.tool === 'marquee'}
+  {:else if editor.tool === 'select'}
     {#if ui.pasting}
       <span class="chip"><span class="dim">Pasting</span></span>
       <label class="check"><input type="checkbox" bind:checked={editor.paste.terrain} /> Terrain</label>
@@ -136,29 +136,40 @@
       <button onclick={() => engineRef.current?.commitPaste()}>Place <kbd>Enter</kbd></button>
       <button onclick={() => engineRef.current?.cancelPaste()}>Cancel <kbd>Esc</kbd></button>
     {:else}
+      {@const count = editor.selectedIds.length}
+      {#if editor.selected && count <= 1}
+        <span class="chip"><span class="dim">Selected:</span> {displayName(editor.selected.type)}</span>
+      {:else if count > 1}
+        <span class="chip"><span class="dim">Selected:</span> {count} objects</span>
+      {/if}
       {#if editor.selection}
         {@const s = editor.selection}
-        <span class="chip"><span class="dim">Selection:</span> {s.x1 - s.x0} × {s.z1 - s.z0} cells</span>
-      {:else}
-        <span class="dim">Drag on the map to select an area.</span>
+        {@const holes = engineRef.current?.holesInSelection() ?? 0}
+        <span class="chip" title="The selected area of the ground"><span class="dim">Area:</span> {s.x1 - s.x0} × {s.z1 - s.z0} cells{holes ? ` (${holes} hole)` : ''}</span>
+        <button onclick={() => engineRef.current?.setHoleInSelection(true)} title="Cut the ground away in the selected area, so a cave or cellar can go below">Cut hole</button>
+        <button disabled={!holes} onclick={() => engineRef.current?.setHoleInSelection(false)} title="Put the ground back in the selected area">Fill hole</button>
+        <button onclick={() => engineRef.current?.copySelection()}>Copy <kbd>Ctrl+C</kbd></button>
       {/if}
-      <button disabled={!editor.selection} onclick={() => engineRef.current?.copySelection()}>Copy <kbd>Ctrl+C</kbd></button>
-      <button disabled={!ui.hasClip} onclick={() => engineRef.current?.startPaste()}>Paste <kbd>Ctrl+V</kbd></button>
-      <button onclick={() => engineRef.current?.selectAll()}>Select all</button>
-      <button disabled={!editor.selection} onclick={() => engineRef.current?.deselect()}>Deselect</button>
-    {/if}
-  {:else if editor.tool === 'select'}
-    <label class="check" title="Tilt a model to the ground's slope while dragging it along the ground"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
-    {#if editor.followGround}
-      <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
-    {/if}
-    {#if editor.selected}
-      <span class="chip"><span class="dim">Selected:</span> {displayName(editor.selected.type)}</span>
-      <button onclick={() => engineRef.current?.focusSelected()}>Focus <kbd>F</kbd></button>
-      <button onclick={() => engineRef.current?.deleteSelected()}>Delete <kbd>Del</kbd></button>
-      <span class="dim"><kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>Alt+←→</kbd>/<kbd>R</kbd> spin · <kbd>Shift</kbd> bigger steps</span>
-    {:else}
-      <span class="dim">Click an object to select it. Drag to move, <kbd>R</kbd> rotates.</span>
+      {#if ui.hasClip}
+        <button onclick={() => engineRef.current?.startPaste()}>Paste <kbd>Ctrl+V</kbd></button>
+      {/if}
+      {#if count}
+        <button onclick={() => engineRef.current?.focusSelected()}>Focus <kbd>F</kbd></button>
+        <button onclick={() => engineRef.current?.deleteSelected()}>Delete <kbd>Del</kbd></button>
+      {/if}
+      {#if count || editor.selection}
+        <button onclick={() => engineRef.current?.deselect()}>Deselect <kbd>Esc</kbd></button>
+      {/if}
+      <div class="divider"></div>
+      <label class="check" title="Tilt a model to the ground's slope while dragging it along the ground"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
+      {#if editor.followGround}
+        <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
+      {/if}
+      {#if count}
+        <span class="dim"><kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>Alt+←→</kbd>/<kbd>R</kbd> spin · <kbd>Shift</kbd> bigger steps · drag to move</span>
+      {:else}
+        <span class="dim">Click a model to select it (<kbd>Shift</kbd> adds). Drag on the ground to select an area and the models in it.</span>
+      {/if}
     {/if}
   {/if}
 

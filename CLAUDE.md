@@ -42,8 +42,9 @@ cd frontend && pnpm build   # frontend only
 - **Go owns file I/O only** (`app.go`: dialogs, `SaveMap`, `LoadMap`). Keep it thin. Everything about
   rendering and editing lives in the frontend.
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
-  float32 + splatA + splatB). Blobs cross the bridge as base64 strings. If you change the format, bump
-  `Version` and update the tests.
+  float32 + weights + chunkSlots + holes). Blobs cross the bridge as base64 strings. If you change the
+  format, bump `Version` and update the tests. Older versions stay readable (a version 2 map has no
+  holes blob).
 - **Engine** (`frontend/src/lib/engine/Engine.ts`) owns the renderer, scene, camera and rAF loop.
   Svelte talks to it through `engineRef.current` methods.
 - **Documents** (`lib/engine/MapDocument.ts`):
@@ -63,6 +64,10 @@ cd frontend && pnpm build   # frontend only
   - The mesh is split into 32×32-cell chunks. Edits call `markDirty(rect)`, and `update()` rewrites
     only the touched chunks.
   - Picking ray-marches the heightmap (`raycast`). Don't use triangle raycasts on the terrain.
+  - **Holes**: `Terrain.holes` is one byte per cell (`terrain/holes.ts`). A hole cell gets no
+    triangles (`writeChunk` rebuilds the chunk's index and draw range) and the ray passes through it.
+    Holes are edited through `TerrainStroke({ holes: true })`, copied with the clipboard and saved in
+    the map file. They are not exported to client tiles yet.
 - **Paint mask**:
   - `Terrain.mask` holds one byte per splat texel, uploaded as `maskTex` and drawn as a red
     overlay. It isn't saved to the map file.
@@ -173,8 +178,15 @@ cd frontend && pnpm build   # frontend only
 
 ## Selection, clipboard & nudging
 
-- **Marquee** (`tools/MarqueeTool.ts`): the selection is `editor.selection` in cell/vertex
-  coordinates. The terrain shader draws it (`selRect`/`selMode`, marching ants).
+- **Select tool** (`tools/ObjectTools.ts`, `SelectTool`) does both kinds of selection:
+  - A click on a model selects it, Shift+click adds or removes one, and a drag moves the whole
+    selection (the clicked model leads, the others keep their offsets).
+  - A drag on the ground selects an **area**, `editor.selection` in cell/vertex coordinates, and
+    with it every model standing in it. The terrain shader draws the area (`selRect`/`selMode`,
+    marching ants). `Engine.setHoleInSelection` cuts or fills holes in it.
+  - `editor.selectedIds` holds every selected object and `editor.selected` the primary one (the
+    gizmo and the Properties sliders work on it). Change them through `lib/state/selection.ts`
+    (`selectObjects`), never by hand. Delete, hide, nudge and focus act on the whole selection.
 - **Clipboard** (`world/clipboard.ts`): `copyRegion` captures heights, splat texels plus the
   source slot texture paths, and objects relative to the corner. `pasteRegion` remaps texture
   slots onto the target map and returns one undo command.

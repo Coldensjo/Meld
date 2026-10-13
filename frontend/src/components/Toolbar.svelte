@@ -2,15 +2,14 @@
   import type { ToolId } from '../lib/state/editor.svelte'
 
   export const TOOLS: Array<{ id: ToolId; name: string; key: string; letter?: string; icon: string }> = [
-    { id: 'select', name: 'Select / Move objects', key: '1', letter: 'V', icon: 'M5 3l14 8-6 2-2 6z' },
-    { id: 'marquee', name: 'Marquee: select map area', key: '2', letter: 'M', icon: 'M4 4h3M10 4h4M17 4h3v3M20 10v4M20 17v3h-3M14 20h-4M7 20H4v-3M4 14v-4M4 7V4' },
-    { id: 'sculpt', name: 'Sculpt Terrain', key: '3', icon: 'M2 20l6-10 4 6 3-4 7 8z' },
-    { id: 'paint', name: 'Paint Textures', key: '4', letter: 'B', icon: 'M4 20c3 0 4-2 4-4l9-11 3 3-11 9c-2 0-4 1-5 3zM14 6l3 3' },
-    { id: 'road', name: 'Roads', key: '5', icon: 'M8 21L10 3M16 21L14 3M12 5v2M12 11v2M12 17v2' },
-    { id: 'water', name: 'Water', key: '6', icon: 'M12 3c4 5 6 8 6 11a6 6 0 01-12 0c0-3 2-6 6-11z' },
-    { id: 'place', name: 'Place Objects', key: '7', icon: 'M12 2l7 6v12H5V8zM9 20v-6h6v6' },
-    { id: 'clear', name: 'Clear: erase models or paint in the brush', key: '8', icon: 'M4 16l7-9 6 6-5 6H6zM14 20h7' },
-    { id: 'pipette', name: 'Pipette: pick a texture from the terrain (or hold Alt while painting)', key: '0', letter: 'I', icon: 'M15 3l6 6-3 3-6-6zM12 6l6 6-8 8H4v-6z' },
+    { id: 'select', name: 'Select: click a model, or drag on the ground to select an area and the models in it', key: '1', letter: 'V', icon: 'M5 3l14 8-6 2-2 6z' },
+    { id: 'sculpt', name: 'Sculpt Terrain', key: '2', icon: 'M2 20l6-10 4 6 3-4 7 8z' },
+    { id: 'paint', name: 'Paint Textures', key: '3', letter: 'B', icon: 'M4 20c3 0 4-2 4-4l9-11 3 3-11 9c-2 0-4 1-5 3zM14 6l3 3' },
+    { id: 'road', name: 'Roads', key: '4', icon: 'M8 21L10 3M16 21L14 3M12 5v2M12 11v2M12 17v2' },
+    { id: 'water', name: 'Water', key: '5', icon: 'M12 3c4 5 6 8 6 11a6 6 0 01-12 0c0-3 2-6 6-11z' },
+    { id: 'place', name: 'Place Objects', key: '6', icon: 'M12 2l7 6v12H5V8zM9 20v-6h6v6' },
+    { id: 'clear', name: 'Clear: erase models or paint in the brush', key: '7', icon: 'M4 16l7-9 6 6-5 6H6zM14 20h7' },
+    { id: 'pipette', name: 'Pipette: pick a texture from the terrain (or hold Alt while painting)', key: '8', letter: 'I', icon: 'M15 3l6 6-3 3-6-6zM12 6l6 6-8 8H4v-6z' },
   ]
 </script>
 

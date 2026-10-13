@@ -19,10 +19,33 @@
   const deg = (r: number) => (r * 180) / Math.PI
   const rad = (d: number) => (d * Math.PI) / 180
   const worldSize = $derived(engineRef.current?.terrain.worldSize ?? 512)
+  /** The selected objects' model names, most common first, for a selection of several. */
+  const breakdown = $derived.by(() => {
+    const objects = engineRef.current?.objects.objects
+    const counts = new Map<string, number>()
+    for (const id of editor.selectedIds) {
+      const o = objects?.get(id)
+      if (o) counts.set(o.type, (counts.get(o.type) ?? 0) + 1)
+    }
+    return [...counts].sort((a, b) => b[1] - a[1]).map(([type, n]) => ({ type, n }))
+  })
 </script>
 
 <div class="props">
-  {#if editor.selected}
+  {#if editor.selectedIds.length > 1}
+    <h3>{editor.selectedIds.length} objects selected</h3>
+    <ul class="list">
+      {#each breakdown as b (b.type)}
+        <li><span class="n">{b.n}×</span> {displayName(b.type)}</li>
+      {/each}
+    </ul>
+    <p class="dim">Drag one of them to move them all; the arrow keys and <kbd>R</kbd> work on all of them. Click one alone to edit its transform here.</p>
+    <div class="row">
+      <button onclick={() => engineRef.current?.focusSelected()}>Focus</button>
+      <button onclick={() => engineRef.current?.deleteSelected()}>Delete</button>
+      <button onclick={() => engineRef.current?.deselect()}>Deselect</button>
+    </div>
+  {:else if editor.selected}
     {@const s = editor.selected}
     <h3>{displayName(s.type)} <span>#{s.id}</span></h3>
     {#if s.parent !== undefined}
@@ -47,7 +70,7 @@
     {/if}
     <label class="check"><input type="checkbox" bind:checked={editor.autoCliff} /> Automatic cliff rock</label>
     <label class="check"><input type="checkbox" bind:checked={editor.grid} /> Show grid</label>
-    <p class="dim">Select an object with the Select tool (1) to edit its transform here.</p>
+    <p class="dim">Select an object with the Select tool (V) to edit its transform here. Drag on the ground to select an area: Cut hole in the options bar cuts it out of the ground.</p>
   {/if}
 </div>
 
@@ -89,5 +112,32 @@
   .dim {
     color: var(--text-dim);
     font-size: 11px;
+  }
+  .list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 12px;
+  }
+  .list li {
+    display: flex;
+    gap: 6px;
+    padding: 2px 0;
+  }
+  .n {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    min-width: 30px;
+    text-align: right;
+  }
+  .row {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .row button {
+    flex: 1;
   }
 </style>

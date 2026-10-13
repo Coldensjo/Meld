@@ -22,6 +22,8 @@ export interface MapClip {
   h: number
   /** (w+1)*(h+1) vertex heights. */
   heights: Float32Array
+  /** w*h cells: 1 where the ground is a hole. */
+  holes: Uint8Array
   /** Splat texels (SPLAT_PER_CELL per cell): SLOTS weights per texel. */
   weights: Uint8Array
   /** SLOTS indices into `palette` per texel (NO_TEXTURE where the slot is empty). */
@@ -58,6 +60,10 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
   const heights = new Float32Array((w + 1) * (h + 1))
   for (let z = 0; z <= h; z++) {
     for (let x = 0; x <= w; x++) heights[z * (w + 1) + x] = terrain.heights[(r.z0 + z) * V + r.x0 + x]
+  }
+  const holes = new Uint8Array(w * h)
+  for (let z = 0; z < h; z++) {
+    for (let x = 0; x < w; x++) holes[z * w + x] = terrain.holes[(r.z0 + z) * terrain.size + r.x0 + x]
   }
 
   // Texels keep their own slots, which index a palette local to the clip, so the clip doesn't
@@ -123,7 +129,7 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
       scale: w.scale,
     }
   })
-  return { w, h, heights, weights, slots, palette: clipPalette, objects: inside }
+  return { w, h, heights, holes, weights, slots, palette: clipPalette, objects: inside }
 }
 
 /** Edge fade factor for a point `d` cells from the nearest pasted edge. */
@@ -149,7 +155,7 @@ export function pasteRegion(
   opts: PasteOptions,
   onHeights: (r: Rect) => void,
 ): Command | null {
-  const stroke = new TerrainStroke(terrain, 'Paste', { heights: opts.terrain, splat: opts.textures }, onHeights)
+  const stroke = new TerrainStroke(terrain, 'Paste', { heights: opts.terrain, splat: opts.textures, holes: opts.terrain }, onHeights)
   const V = terrain.verts
   const size = terrain.size
 
@@ -174,6 +180,15 @@ export function pasteRegion(
       terrain.markDirty(x0, z0, x1, z1)
       stroke.touchHeights(r)
       onHeights(r)
+      // Holes come along with the ground, cell for cell (the edge blend doesn't apply to them).
+      const cx1 = Math.min(size - 1, px + clip.w - 1)
+      const cz1 = Math.min(size - 1, pz + clip.h - 1)
+      if (cx1 >= x0 && cz1 >= z0) {
+        for (let z = z0; z <= cz1; z++) {
+          for (let x = x0; x <= cx1; x++) terrain.holes[z * size + x] = clip.holes[(z - pz) * clip.w + (x - px)]
+        }
+        stroke.touchHoles({ x0, z0, x1: cx1, z1: cz1 })
+      }
     }
   }
 

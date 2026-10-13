@@ -12,8 +12,7 @@ import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool } from '../tools/TerrainTools'
 import { PipetteTool, pickLayer } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
-import { PlaceTool, SelectTool, removeCommand, transformCommand } from '../tools/ObjectTools'
-import { MarqueeTool } from '../tools/MarqueeTool'
+import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
 import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
@@ -23,7 +22,9 @@ import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, getAsset } from '../models/assets'
 import { PropEffects } from '../world/PropEffects'
-import { SelectionOutline } from './SelectionOutline'
+import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
+import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
+import { countHoles, fillHoles } from '../terrain/holes'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
@@ -54,6 +55,9 @@ export interface RegionObject {
   scale: number
 }
 
+/** No overlap boxes, for a selection of several objects. */
+const NO_BOXES: THREE.Box3[] = []
+
 /** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
 const TILE_CELLS = 128
 
@@ -81,6 +85,8 @@ export interface MapSnapshot {
   weights: Uint8Array
   /** Four palette indices per paint chunk (format 2). */
   chunkSlots: Uint8Array
+  /** One byte per cell, 1 for a hole (format 3). Empty for an older map. */
+  holes: Uint8Array
   /** Format 1 maps only, converted on open: the eight global layers and their splats. */
   legacy?: { layerTextures: string[]; splatA: Uint8Array; splatB: Uint8Array }
 }
@@ -149,9 +155,12 @@ export class Engine {
   private otherBox = new THREE.Box3()
   private tmpV = new THREE.Vector3()
   private tmpM = new THREE.Matrix4()
-  /** Merges a burst of key nudges on one object into a single undo step. */
-  private nudgeSession: { id: number; before: WorldObject; cmd: Command; time: number } | null = null
-  private marquee: MarqueeTool
+  /** Merges a burst of key nudges on the same selection into a single undo step. */
+  private nudgeSession: { key: string; before: WorldObject[]; cmd: Command; time: number } | null = null
+  private selectTool: SelectTool
+  /** Scratch for the outline: one matrix per selected model, reused each frame. */
+  private outlineTargets: OutlineTarget[] = []
+  private outlineMatrices: THREE.Matrix4[] = []
   private placeTool = new PlaceTool()
   /** Accumulated Ctrl+wheel delta, so smooth trackpads rotate in steps too. */
   private wheelAcc = 0
@@ -199,14 +208,13 @@ export class Engine {
       pressure: () => (self.prefs?.tabletSupport ? self.penPressure : 1),
     }
 
-    this.marquee = new MarqueeTool({
+    this.selectTool = new SelectTool({
       clipSize: () => (this.clip ? { w: this.clip.w, h: this.clip.h } : null),
       commitPaste: () => this.commitPaste(),
       cancelPaste: () => this.cancelPaste(),
     })
     this.tools = {
-      select: new SelectTool(),
-      marquee: this.marquee,
+      select: this.selectTool,
       sculpt: new SculptTool(),
       paint: new PaintTool(),
       road: new RoadTool(),
@@ -372,7 +380,7 @@ export class Engine {
       this.leftDown = false
     }
     this.activeTool?.deactivate?.(this.ctx)
-    if (editor.tool !== 'select' && editor.tool !== 'place') editor.selected = null
+    if (editor.tool !== 'select' && editor.tool !== 'place') selectObjects(this.objects, [])
     this.activeToolId = editor.tool
     this.activeTool = this.tools[editor.tool]
     this.activeTool.activate?.(this.ctx)
@@ -424,7 +432,9 @@ export class Engine {
     }
     this.terrain.update()
     // A hidden object can't stay selected once hidden objects stop being drawn.
-    if (this.objects.setShowHidden(ui.showHiddenModels) && editor.selected && this.objects.isHidden(editor.selected.id)) editor.selected = null
+    if (this.objects.setShowHidden(ui.showHiddenModels) && editor.selectedIds.some((id) => this.objects.isHidden(id))) {
+      selectObjects(this.objects, editor.selectedIds.filter((id) => !this.objects.isHidden(id)), editor.selected?.id)
+    }
     this.objects.update()
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night)
@@ -592,6 +602,7 @@ export class Engine {
     editor.selectedSpawn = null
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
     editor.selected = null
+    editor.selectedIds = []
     editor.selection = null
     ui.pasting = false
     this.nudgeSession = null
@@ -895,6 +906,7 @@ export class Engine {
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       weights: t.weights,
       chunkSlots: t.chunkSlots,
+      holes: t.holes,
     }
   }
 
@@ -928,6 +940,8 @@ export class Engine {
     }
     while (palette.length < LAYERS.length) palette.push(LAYERS[palette.length].swatch)
     t.heights.set(new Float32Array(m.heights.slice().buffer))
+    if (m.holes.length === t.holes.length) t.holes.set(m.holes)
+    else if (m.holes.length) throw new Error('hole data size mismatch')
     t.markAllDirty()
     const region: RegionRef | null = m.region ? { ...m.region, uids: new Map() } : null
     for (const o of m.objects) {
@@ -1010,7 +1024,7 @@ export class Engine {
     })
   }
 
-  /** Turn the marquee selection into a mask (added to the existing mask). */
+  /** Turn the selected area into a mask (added to the existing mask). */
   maskFromSelection() {
     const s = editor.selection
     if (!s) return
@@ -1057,13 +1071,13 @@ export class Engine {
     setStatus(refused ? `Filled the mask with ${name}, except where a chunk already has four textures.` : `Filled the mask with ${name}.`)
   }
 
-  // ---------------------------------------------------------------- marquee / clipboard
+  // ---------------------------------------------------------------- selected area / clipboard
 
   private updateSelectionUniforms(time: number) {
     const u = this.terrain.material.uniforms
     const cs = this.terrain.cellSize
     u.selTime.value = time
-    const at = this.marquee.pasteAt
+    const at = this.selectTool.pasteAt
     if (ui.pasting && this.clip && at) {
       u.selRect.value.set(at.x * cs, at.z * cs, (at.x + this.clip.w) * cs, (at.z + this.clip.h) * cs)
       u.selMode.value = 2
@@ -1076,21 +1090,55 @@ export class Engine {
     }
   }
 
+  /** Selects the whole map and every object in it. */
   selectAll() {
     const n = this.terrain.size
     editor.selection = { x0: 0, z0: 0, x1: n, z1: n }
+    selectObjects(this.objects, objectsInRect(this.objects, this.terrain.cellSize, editor.selection).map((o) => o.id))
   }
 
   deselect() {
     editor.selection = null
+    selectObjects(this.objects, [])
     if (ui.pasting) this.cancelPaste()
   }
 
-  /** Copy the marquee selection (terrain, textures, objects) to the clipboard. */
+  /**
+   * Cuts the selected area out of the ground (`hole` true) or fills it in again. A hole draws no ground
+   * and the cursor sees through it, so a cave or a cellar can be placed below. One undo step.
+   */
+  setHoleInSelection(hole: boolean) {
+    const s = editor.selection
+    if (!s || s.x1 <= s.x0 || s.z1 <= s.z0) {
+      setStatus('Select an area first: drag on the ground with the Select tool (V).')
+      return
+    }
+    const t = this.terrain
+    const stroke = new TerrainStroke(t, hole ? 'Cut hole' : 'Fill hole', { holes: true })
+    const n = fillHoles(t.holes, t.size, s.x0, s.z0, s.x1, s.z1, hole ? 1 : 0)
+    if (!n) {
+      setStatus(hole ? 'That area is already a hole.' : 'There is no hole in that area.')
+      return
+    }
+    stroke.touchHoles({ x0: s.x0, z0: s.z0, x1: s.x1 - 1, z1: s.z1 - 1 })
+    t.markDirty(s.x0, s.z0, s.x1, s.z1)
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    this.refreshSelectionArea()
+    setStatus(hole ? `Cut a hole of ${n} ${n === 1 ? 'cell' : 'cells'}. Fill hole puts the ground back; Ctrl+Z undoes.` : `Filled ${n} ${n === 1 ? 'cell' : 'cells'} of hole.`)
+  }
+
+  /** How many cells of the selected area are holes, for the options bar. */
+  holesInSelection(): number {
+    const s = editor.selection
+    return s ? countHoles(this.terrain.holes, this.terrain.size, s.x0, s.z0, s.x1, s.z1) : 0
+  }
+
+  /** Copy the selected area (terrain, holes, textures, objects) to the clipboard. */
   copySelection(): boolean {
     const s = editor.selection
     if (!s || s.x1 <= s.x0 || s.z1 <= s.z0) {
-      setStatus('Nothing selected. Use the Marquee tool (M) to select part of the map first.')
+      setStatus('Nothing selected. Drag on the ground with the Select tool (V) to select part of the map first.')
       return false
     }
     this.clip = copyRegion(this.terrain, this.objects, s, editor.palette)
@@ -1102,13 +1150,13 @@ export class Engine {
   /** Start placing the clipboard: a floating rect follows the mouse until clicked. */
   startPaste() {
     if (!this.clip) {
-      setStatus('The clipboard is empty. Select an area with the Marquee tool and press Ctrl+C.')
+      setStatus('The clipboard is empty. Select an area with the Select tool and press Ctrl+C.')
       return
     }
-    editor.tool = 'marquee'
-    editor.selected = null
+    editor.tool = 'select'
+    selectObjects(this.objects, [])
     ui.pasting = true
-    this.marquee.pasteAt = null
+    this.selectTool.pasteAt = null
     setStatus('Click to place the paste · Enter places it · PgUp/PgDn raise/lower · Esc cancels', 0)
   }
 
@@ -1118,7 +1166,7 @@ export class Engine {
   }
 
   commitPaste() {
-    const at = this.marquee.pasteAt
+    const at = this.selectTool.pasteAt
     if (!this.clip || !at) return
     const cmd = pasteRegion(
       this.terrain,
@@ -1152,15 +1200,16 @@ export class Engine {
     return editor.selected ? this.objects.objects.get(editor.selected.id) : undefined
   }
 
-  /** Hides the selected object for this session (H), or shows it again when it is already hidden. */
+  /** Hides the selected objects for this session (H), or shows them again when they are all hidden. */
   toggleHideSelected() {
-    const o = this.selectedObject()
-    if (!o) return
-    const hide = !this.objects.hidden.has(o.id)
-    this.objects.setHidden(o.id, hide)
-    if (hide && !ui.showHiddenModels) editor.selected = null
+    const sel = selectedObjects(this.objects)
+    if (!sel.length) return
+    const hide = sel.some((o) => !this.objects.hidden.has(o.id))
+    for (const o of sel) this.objects.setHidden(o.id, hide)
+    if (hide && !ui.showHiddenModels) selectObjects(this.objects, [])
     ui.hiddenModels = this.objects.hidden.size
-    setStatus(hide ? 'Model hidden. Shift+H shows all hidden models again.' : 'Model shown.', 3000)
+    const n = sel.length
+    setStatus(hide ? `${n === 1 ? 'Model' : `${n} models`} hidden. Shift+H shows all hidden models again.` : `${n === 1 ? 'Model' : `${n} models`} shown.`, 3000)
   }
 
   /** Shows every hidden object of the active map again (Shift+H). */
@@ -1171,18 +1220,30 @@ export class Engine {
     if (n) setStatus(`${n} hidden model${n === 1 ? '' : 's'} shown again.`, 3000)
   }
 
-  /** Outline + handles for the selected object (Select and Place tools). */
+  /**
+   * Outlines every selected object, and shows the handles on the selection when it is one object
+   * (Select and Place tools).
+   */
   private updateSelectionVisuals() {
-    const o = this.canNudge() ? this.selectedObject() : undefined
+    const sel = this.canNudge() ? selectedObjects(this.objects) : []
+    const targets = this.outlineTargets
+    targets.length = 0
+    for (let i = 0; i < sel.length; i++) {
+      const m = (this.outlineMatrices[i] ??= new THREE.Matrix4())
+      this.objects.matrixOf(sel[i], m)
+      targets.push({ asset: getAsset(sel[i].type), matrix: m })
+    }
+    this.outline.setTargets(targets)
+    this.outline.setTerrain(this.terrain)
+    const o = sel.length === 1 ? sel[0] : undefined
     if (!o) {
-      this.outline.setTarget(null)
       this.gizmo.hide()
+      this.outline.setWarnBoxes(NO_BOXES)
       if (this.canvas.style.cursor) this.canvas.style.cursor = ''
       return
     }
     const asset = getAsset(o.type)
     this.objects.matrixOf(o, this.tmpM)
-    this.outline.setTarget(asset, this.tmpM)
 
     this.tmpBox.copy(asset.bbox).applyMatrix4(this.tmpM)
     const size = this.tmpBox.getSize(this.tmpV)
@@ -1191,7 +1252,6 @@ export class Engine {
     this.gizmo.update(base, Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, dist)
 
     // Last: overlappingBoxes reuses the scratch matrix/vectors used above.
-    this.outline.setTerrain(this.terrain)
     this.outline.setWarnBoxes(this.overlappingBoxes(o))
   }
 
@@ -1232,7 +1292,7 @@ export class Engine {
 
   /** Begin dragging a gizmo handle under the pointer. Returns true if one was hit. */
   private startGizmoDrag(): boolean {
-    const o = this.canNudge() ? this.selectedObject() : undefined
+    const o = this.canNudge() && editor.selectedIds.length === 1 ? this.selectedObject() : undefined
     if (!o || !this.gizmo.visible) return false
     this.raycaster.setFromCamera(this.ndc, this.camera)
     const handle = this.gizmo.pick(this.raycaster)
@@ -1289,38 +1349,41 @@ export class Engine {
     }
   }
 
-  /** Keyboard editing of the selected object applies in the Select and Place tools. */
+  /** Keyboard editing of the selected objects applies in the Select and Place tools. */
   canNudge() {
-    return !!editor.selected && (editor.tool === 'select' || editor.tool === 'place')
+    return (!!editor.selected || editor.selectedIds.length > 0) && (editor.tool === 'select' || editor.tool === 'place')
   }
 
   /**
-   * Move/raise/spin the selected object. dx/dz are camera-relative (right,
-   * forward); dy raises; dRot is radians. Rapid repeats merge into one undo.
+   * Move/raise/spin the selected objects. dx/dz are camera-relative (right,
+   * forward); dy raises; dRot is radians, each object turning about itself. Rapid repeats merge
+   * into one undo.
    */
   nudgeSelected(right: number, forward: number, dy: number, dRot: number) {
-    if (!editor.selected) return
-    const o = this.objects.objects.get(editor.selected.id)
-    if (!o) return
+    const targets = movableSelection(this.objects)
+    if (!targets.length) return
     const now = performance.now()
     const s = this.nudgeSession
-    const continuing = s && s.id === o.id && this.history.peek() === s.cmd && now - s.time < 1500
-    const before = continuing ? s!.before : { ...o }
+    const key = targets.map((o) => o.id).join(',')
+    const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < 1500
+    const before = continuing ? s.before : targets.map((o) => ({ ...o }))
     const yaw = this.controller.yaw
     const fx = -Math.sin(yaw)
     const fz = -Math.cos(yaw)
-    // Work in world space so attached props move the way the camera expects.
-    const w = this.objects.worldPlacement(o)
-    w.pos.x = THREE.MathUtils.clamp(w.pos.x + fx * forward - fz * right, 0, this.terrain.worldSize)
-    w.pos.z = THREE.MathUtils.clamp(w.pos.z + fz * forward + fx * right, 0, this.terrain.worldSize)
-    w.pos.y += dy
-    w.rot += dRot
-    this.objects.place(o, o.parent ?? null, w)
-    editor.selected = { ...o }
-    const cmd = transformCommand(this.objects, before, o)
+    for (const o of targets) {
+      // Work in world space so attached props move the way the camera expects.
+      const w = this.objects.worldPlacement(o)
+      w.pos.x = THREE.MathUtils.clamp(w.pos.x + fx * forward - fz * right, 0, this.terrain.worldSize)
+      w.pos.z = THREE.MathUtils.clamp(w.pos.z + fz * forward + fx * right, 0, this.terrain.worldSize)
+      w.pos.y += dy
+      w.rot += dRot
+      this.objects.place(o, o.parent ?? null, w)
+      if (editor.selected?.id === o.id) editor.selected = { ...o }
+    }
+    const cmd = groupTransformCommand(this.objects, before, targets)
     if (continuing) this.history.replaceTop(cmd)
     else this.history.push(cmd)
-    this.nudgeSession = { id: o.id, before, cmd, time: now }
+    this.nudgeSession = { key, before, cmd, time: now }
   }
 
   /** Keys for the selected object. Returns true if handled. */
@@ -1362,7 +1425,7 @@ export class Engine {
         this.deleteSelected()
         return true
       case 'Escape':
-        editor.selected = null
+        selectObjects(this.objects, [])
         return true
       case 'h':
         this.toggleHideSelected()
@@ -1374,6 +1437,7 @@ export class Engine {
   undo() {
     const c = this.history.undo()
     this.syncSelection()
+    this.refreshSelectionArea()
     this.refreshMaskState()
     return c
   }
@@ -1381,14 +1445,19 @@ export class Engine {
   redo() {
     const c = this.history.redo()
     this.syncSelection()
+    this.refreshSelectionArea()
     this.refreshMaskState()
     return c
   }
 
+  /** Republishes the selected area, so the options bar re-reads what it holds (holes, for one). */
+  private refreshSelectionArea() {
+    if (editor.selection) editor.selection = { ...editor.selection }
+  }
+
   private syncSelection() {
-    if (!editor.selected) return
-    const o = this.objects.objects.get(editor.selected.id)
-    editor.selected = o ? { ...o } : null
+    if (!editor.selected && !editor.selectedIds.length) return
+    selectObjects(this.objects, editor.selectedIds, editor.selected?.id)
   }
 
   /** Live-edit the selected object from the properties panel. */
@@ -1438,22 +1507,29 @@ export class Engine {
     const cmd = removeCommand(this.objects, dupes)
     cmd.redo()
     this.history.push(cmd)
-    if (editor.selected && dupes.some((d) => d.id === editor.selected!.id)) editor.selected = null
+    this.syncSelection()
     setStatus(`Removed ${dupes.length} duplicate ${dupes.length === 1 ? 'model' : 'models'}. Undo restores them.`)
   }
 
-  /** Delete the selected object; things attached to it stay where they are (re-homed). */
+  /**
+   * Deletes the selected objects as one undo step. Things attached to a deleted object stay where
+   * they are, re-homed to its nearest surviving ancestor (or the ground).
+   */
   deleteSelected() {
-    if (!editor.selected) return
-    const target = this.objects.objects.get(editor.selected.id)
-    if (!target) return
+    const targets = selectedObjects(this.objects)
+    if (!targets.length) return
     const objects = this.objects
-    const kids = objects.childrenOf(target.id)
+    const gone = new Set(targets.map((t) => t.id))
+    const kids = [...objects.objects.values()].filter((k) => k.parent !== undefined && gone.has(k.parent) && !gone.has(k.id))
     const kidsBefore = kids.map((k) => ({ ...k }))
-    for (const k of kids) objects.place(k, target.parent ?? null, objects.worldPlacement(k))
+    for (const k of kids) {
+      let p = objects.objects.get(k.parent!)
+      while (p && gone.has(p.id)) p = p.parent !== undefined ? objects.objects.get(p.parent) : undefined
+      objects.place(k, p ? p.id : null, objects.worldPlacement(k))
+    }
     const kidsAfter = kids.map((k) => ({ ...k }))
-    objects.remove(target.id)
-    const saved = { ...target }
+    const saved = targets.map((t) => ({ ...t }))
+    for (const t of targets) objects.remove(t.id)
     const restore = (states: typeof kidsBefore) =>
       states.forEach((st) => {
         const k = objects.objects.get(st.id)
@@ -1463,17 +1539,17 @@ export class Engine {
         objects.touch(k.id)
       })
     this.history.push({
-      label: 'Delete',
+      label: saved.length === 1 ? 'Delete' : `Delete ${saved.length} objects`,
       undo: () => {
-        objects.add({ ...saved })
+        for (const o of saved) objects.add({ ...o })
         restore(kidsBefore)
       },
       redo: () => {
         restore(kidsAfter)
-        objects.remove(saved.id)
+        for (const o of saved) objects.remove(o.id)
       },
     })
-    editor.selected = null
+    selectObjects(objects, [])
   }
 
   /** Detach the selected object from what it's attached to (keeps its world placement). */
@@ -1486,8 +1562,22 @@ export class Engine {
     editor.selected = { ...o }
   }
 
+  /** Moves the camera to the selection: its primary object, or the middle of the selected objects. */
   focusSelected() {
-    if (editor.selected) this.controller.focus(editor.selected.x, editor.selected.z, 30)
+    const sel = selectedObjects(this.objects)
+    if (!sel.length) return
+    if (editor.selected) {
+      const p = this.objects.worldPosition(sel[0], this.tmpV)
+      this.controller.focus(p.x, p.z, 30)
+      return
+    }
+    let x = 0, z = 0
+    for (const o of sel) {
+      const p = this.objects.worldPosition(o, this.tmpV)
+      x += p.x
+      z += p.z
+    }
+    this.controller.focus(x / sel.length, z / sel.length, 30 + sel.length * 2)
   }
 
   /** Share of the painted map each palette entry takes (sampled, 0..1). */

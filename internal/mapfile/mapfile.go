@@ -9,6 +9,9 @@
 //	heights    []byte   (Size+1)^2 float32 little endian
 //	weights    []byte   SplatRes^2 * 4 bytes: four weights per texel, summing to 255 (version 2)
 //	chunkSlots []byte   (Size/8)^2 * 4 bytes: four palette indices per 8x8-cell chunk (version 2)
+//	holes      []byte   Size^2 bytes: 1 where a cell is a hole in the ground (version 3)
+//
+// Version 2 has no holes blob: such a map opens without holes.
 //
 // Version 1 stored eight global paint layers instead, as splatA and splatB (SplatRes^2 * 4 bytes
 // each). It's still read; the frontend converts it to chunks.
@@ -31,8 +34,8 @@ import (
 
 const (
 	Magic = "WMAP"
-	// Version is the format written. Version 1 is still read.
-	Version = 2
+	// Version is the format written. Versions 1 and 2 are still read.
+	Version = 3
 	// ChunkCells is the size of a paint chunk in cells. A map's size is a multiple of it.
 	ChunkCells = 8
 	// SlotsPerChunk is the number of palette textures a chunk may use.
@@ -89,8 +92,11 @@ type MapData struct {
 	Heights    string `json:"heights"`              // base64 float32 LE
 	Weights    string `json:"weights,omitempty"`    // base64 RGBA8, version 2
 	ChunkSlots string `json:"chunkSlots,omitempty"` // base64 RGBA8 per chunk, version 2
-	SplatA     string `json:"splatA,omitempty"`     // base64 RGBA8, version 1
-	SplatB     string `json:"splatB,omitempty"`     // base64 RGBA8, version 1
+	// Holes is one byte per cell, 1 for a hole, version 3. Empty means no holes: an older map, or
+	// a writer that sends none.
+	Holes  string `json:"holes,omitempty"`
+	SplatA string `json:"splatA,omitempty"` // base64 RGBA8, version 1
+	SplatB string `json:"splatB,omitempty"` // base64 RGBA8, version 1
 }
 
 func (h *Header) validate() error {
@@ -123,12 +129,15 @@ func (h *Header) chunkBytes() int {
 	return c * c * SlotsPerChunk
 }
 
+// holeBytes is the size of the per-cell holes blob.
+func (h *Header) holeBytes() int { return h.Size * h.Size }
+
 // Write encodes m to w in the current version.
 func Write(w io.Writer, m *MapData) error {
 	if err := m.validate(); err != nil {
 		return err
 	}
-	blobs := make([][]byte, 0, 3)
+	blobs := make([][]byte, 0, 4)
 	for _, b := range []struct {
 		name string
 		s    string
@@ -137,7 +146,13 @@ func Write(w io.Writer, m *MapData) error {
 		{"heights", m.Heights, m.heightBytes()},
 		{"weights", m.Weights, m.splatBytes()},
 		{"chunkSlots", m.ChunkSlots, m.chunkBytes()},
+		{"holes", m.Holes, m.holeBytes()},
 	} {
+		if b.name == "holes" && b.s == "" {
+			// No holes given: the map has none.
+			blobs = append(blobs, make([]byte, b.want))
+			continue
+		}
 		raw, err := base64.StdEncoding.DecodeString(b.s)
 		if err != nil {
 			return fmt.Errorf("%s: %w", b.name, err)
@@ -175,7 +190,7 @@ func Write(w io.Writer, m *MapData) error {
 	return gz.Close()
 }
 
-// Read decodes a map from r. Versions 1 and 2 are both accepted.
+// Read decodes a map from r. Versions 1 to 3 are all accepted.
 func Read(r io.Reader) (*MapData, error) {
 	gz, err := gzip.NewReader(bufio.NewReader(r))
 	if err != nil {
@@ -191,7 +206,7 @@ func Read(r io.Reader) (*MapData, error) {
 		return nil, errors.New("not a WorldEditor map: bad magic")
 	}
 	v := binary.LittleEndian.Uint32(pre[4:8])
-	if v != 1 && v != 2 {
+	if v < 1 || v > Version {
 		return nil, fmt.Errorf("unsupported map version %d", v)
 	}
 	hdrLen := binary.LittleEndian.Uint32(pre[8:12])
@@ -237,6 +252,11 @@ func Read(r io.Reader) (*MapData, error) {
 		}
 		if m.ChunkSlots, err = read(m.chunkBytes()); err != nil {
 			return nil, fmt.Errorf("chunkSlots: %w", err)
+		}
+		if v >= 3 {
+			if m.Holes, err = read(m.holeBytes()); err != nil {
+				return nil, fmt.Errorf("holes: %w", err)
+			}
 		}
 	}
 	if m.Objects == nil {

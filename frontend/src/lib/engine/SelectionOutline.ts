@@ -4,8 +4,14 @@ import type { Terrain } from '../terrain/Terrain'
 
 const MAX_BOXES = 8
 
+/** A model to outline, and where it stands. */
+export interface OutlineTarget {
+  asset: ModelAsset
+  matrix: THREE.Matrix4
+}
+
 /**
- * Screen-space silhouette stroke around one model. The model is drawn into a
+ * Screen-space silhouette stroke around the selected models. Each model is drawn into a
  * mask (respecting alpha-tested textures, so leaves outline correctly, not as
  * quads), then a full-screen pass draws a coloured edge around the mask.
  */
@@ -27,7 +33,8 @@ export class SelectionOutline {
   private terrainVersion = -1
   private maskRT = new THREE.WebGLRenderTarget(1, 1)
   private maskScene = new THREE.Scene()
-  private proxy = new THREE.Mesh()
+  /** One stand-in mesh per outlined model, grown as needed. */
+  private proxies: THREE.Mesh[] = []
   private maskMats = new WeakMap<THREE.Material, THREE.ShaderMaterial>()
   private quadScene = new THREE.Scene()
   private quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
@@ -35,9 +42,6 @@ export class SelectionOutline {
   private active = false
 
   constructor() {
-    this.proxy.matrixAutoUpdate = false
-    this.proxy.frustumCulled = false
-    this.maskScene.add(this.proxy)
     this.quadMat = new THREE.ShaderMaterial({
       uniforms: {
         mask: { value: this.maskRT.texture },
@@ -177,14 +181,26 @@ export class SelectionOutline {
     this.shared.boxCount.value = n
   }
 
-  /** Outline `asset` drawn with `matrix`, or nothing when asset is null. */
-  setTarget(asset: ModelAsset | null, matrix?: THREE.Matrix4) {
-    this.active = !!asset && !!matrix
-    if (!asset || !matrix) return
-    this.proxy.geometry = asset.geometry
-    this.proxy.material = Array.isArray(asset.material) ? asset.material.map((m) => this.maskMaterial(m)) : this.maskMaterial(asset.material)
-    this.proxy.matrix.copy(matrix)
-    this.proxy.matrixWorld.copy(matrix)
+  /** Outline every target, or nothing when the list is empty. */
+  setTargets(targets: readonly OutlineTarget[]) {
+    this.active = targets.length > 0
+    while (this.proxies.length < targets.length) {
+      const p = new THREE.Mesh()
+      p.matrixAutoUpdate = false
+      p.frustumCulled = false
+      this.maskScene.add(p)
+      this.proxies.push(p)
+    }
+    for (let i = 0; i < this.proxies.length; i++) {
+      const proxy = this.proxies[i]
+      const t = targets[i]
+      proxy.visible = !!t
+      if (!t) continue
+      proxy.geometry = t.asset.geometry
+      proxy.material = Array.isArray(t.asset.material) ? t.asset.material.map((m) => this.maskMaterial(m)) : this.maskMaterial(t.asset.material)
+      proxy.matrix.copy(t.matrix)
+      proxy.matrixWorld.copy(t.matrix)
+    }
   }
 
   /** Draw the stroke on top of the already-rendered frame. */

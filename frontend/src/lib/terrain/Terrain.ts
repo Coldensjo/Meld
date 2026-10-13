@@ -4,6 +4,7 @@ import { createTerrainMaterial } from './TerrainMaterial'
 import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRoles } from './chunkPaint'
+import { writeCellIndex } from './holes'
 
 /** A 1.12 tile is 1600/3 yards across: 128 cells of this size, the grid the server's maps use. */
 export const TILE_YARDS = 1600 / 3
@@ -33,6 +34,8 @@ export class Terrain {
   /** Paint chunks along one side of the map. */
   readonly paintChunksPerSide: number
   readonly heights: Float32Array
+  /** One byte per cell: 1 where the ground is cut out (see holes.ts). A hole draws nothing and isn't picked. */
+  readonly holes: Uint8Array
   /** SLOTS weights per splat texel, for the chunk's slots; each texel sums to 255. */
   readonly weights: Uint8Array
   /** SLOTS palette indices per paint chunk (NO_TEXTURE for an empty slot). */
@@ -64,6 +67,7 @@ export class Terrain {
     this.splatRes = size * SPLAT_PER_CELL
     this.paintChunksPerSide = chunksPerSide(size)
     this.heights = new Float32Array(this.verts * this.verts)
+    this.holes = new Uint8Array(size * size)
     this.weights = new Uint8Array(this.splatRes * this.splatRes * SLOTS)
     this.chunkSlots = new Uint8Array(this.paintChunksPerSide * this.paintChunksPerSide * SLOTS).fill(NO_TEXTURE)
     // Every texel starts as palette entry 0, the first ground texture.
@@ -122,30 +126,14 @@ export class Terrain {
         const vz = cellsZ + 1
         const pos = new Float32Array(vx * vz * 3)
         const nor = new Float32Array(vx * vz * 3)
+        // The index has room for every cell; hole cells are left out when the chunk is written.
         const idx = new Uint32Array(cells * cellsZ * 6)
-        let k = 0
-        for (let z = 0; z < cellsZ; z++) {
-          for (let x = 0; x < cells; x++) {
-            const a = z * vx + x
-            const b = a + 1
-            const c = a + vx
-            const d = c + 1
-            // Alternate diagonals for a less directional look.
-            if ((x + z) & 1) {
-              idx[k++] = a; idx[k++] = c; idx[k++] = b
-              idx[k++] = b; idx[k++] = c; idx[k++] = d
-            } else {
-              idx[k++] = a; idx[k++] = c; idx[k++] = d
-              idx[k++] = a; idx[k++] = d; idx[k++] = b
-            }
-          }
-        }
         const geo = new THREE.BufferGeometry()
         geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
         geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3))
         geo.setIndex(new THREE.BufferAttribute(idx, 1))
         const mesh = new THREE.Mesh(geo, this.material)
-        mesh.userData = { cx, cz, vx, vz, ox: cx * CHUNK, oz: cz * CHUNK }
+        mesh.userData = { cx, cz, vx, vz, cells, cellsZ, ox: cx * CHUNK, oz: cz * CHUNK }
         mesh.matrixAutoUpdate = false
         mesh.castShadow = true
         mesh.receiveShadow = true
@@ -157,10 +145,14 @@ export class Terrain {
   }
 
   private writeChunk(mesh: THREE.Mesh) {
-    const { vx, vz, ox, oz } = mesh.userData as { vx: number; vz: number; ox: number; oz: number }
+    const { vx, vz, cells, cellsZ, ox, oz } = mesh.userData as { vx: number; vz: number; cells: number; cellsZ: number; ox: number; oz: number }
     const geo = mesh.geometry
     const pos = geo.attributes.position.array as Float32Array
     const nor = geo.attributes.normal.array as Float32Array
+    const idx = geo.index!
+    const count = writeCellIndex(idx.array as Uint32Array, cells, cellsZ, vx, ox, oz, this.holes, this.size)
+    geo.setDrawRange(0, count)
+    idx.needsUpdate = true
     const V = this.verts
     const h = this.heights
     const cs = this.cellSize
@@ -243,6 +235,19 @@ export class Terrain {
     }
   }
 
+  /** Whether the cell under world position (x, z) is a hole. Outside the map counts as solid. */
+  isHole(x: number, z: number): boolean {
+    const cx = Math.floor(x / this.cellSize)
+    const cz = Math.floor(z / this.cellSize)
+    if (cx < 0 || cz < 0 || cx >= this.size || cz >= this.size) return false
+    return this.holes[cz * this.size + cx] !== 0
+  }
+
+  /** Whether any cell of the map is a hole. */
+  hasHoles(): boolean {
+    return this.holes.some((v) => v !== 0)
+  }
+
   /** Bilinear height at world position. */
   heightAt(x: number, z: number): number {
     const fx = THREE.MathUtils.clamp(x / this.cellSize, 0, this.size)
@@ -291,7 +296,8 @@ export class Terrain {
         prevT = t
         continue
       }
-      const above = y > this.heightAt(x, z)
+      // The ray passes through holes, so what's below a cave mouth can be picked.
+      const above = y > this.heightAt(x, z) || this.isHole(x, z)
       if (!above) {
         // Binary refine between prevT and t.
         let lo = prevT, hi = t
@@ -299,7 +305,7 @@ export class Terrain {
           const mid = (lo + hi) * 0.5
           const mx = o.x + dir.x * mid
           const mz = o.z + dir.z * mid
-          if (o.y + dir.y * mid > this.heightAt(mx, mz)) lo = mid
+          if (o.y + dir.y * mid > this.heightAt(mx, mz) || this.isHole(mx, mz)) lo = mid
           else hi = mid
         }
         out.copy(dir).multiplyScalar(hi).add(o)

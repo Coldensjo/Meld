@@ -50,6 +50,7 @@ function toMapData(s: MapSnapshot): mapfile.MapData {
     heights: bytesToBase64(s.heights),
     weights: bytesToBase64(s.weights),
     chunkSlots: bytesToBase64(s.chunkSlots),
+    holes: bytesToBase64(s.holes),
   })
 }
 
@@ -74,6 +75,7 @@ function fromMapData(m: mapfile.MapData): MapSnapshot {
       palette: [],
       weights: new Uint8Array(0),
       chunkSlots: new Uint8Array(0),
+      holes: new Uint8Array(0),
       legacy: { layerTextures: m.layerTextures ?? [], splatA: base64ToBytes(m.splatA ?? ''), splatB: base64ToBytes(m.splatB ?? '') },
     }
   }
@@ -82,6 +84,8 @@ function fromMapData(m: mapfile.MapData): MapSnapshot {
     palette: m.palette ?? [],
     weights: base64ToBytes(m.weights ?? ''),
     chunkSlots: base64ToBytes(m.chunkSlots ?? ''),
+    // A format 2 map has no holes.
+    holes: base64ToBytes(m.holes ?? ''),
   }
 }
 

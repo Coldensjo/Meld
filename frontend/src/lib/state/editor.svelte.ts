@@ -6,7 +6,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'marquee' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'pipette'
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'pipette'
 export type ClearMode = 'models' | 'textures'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'vertex'
 /** Flatten target: the height under the first click, or the average height under the brush. */
@@ -78,8 +78,11 @@ export const editor = $state({
   followGroundSmooth: true,
   /** Extra height above the surface for new placements (Alt+scroll). */
   placeHeight: 0,
+  /** The primary selected object: the one the gizmo and the Properties panel work on. */
   selected: null as SelectedInfo | null,
-  /** Marquee selection in cells (vertex corners), or null. */
+  /** Every selected object (see lib/state/selection.ts). The primary is one of them when there is one. */
+  selectedIds: [] as number[],
+  /** The selected area in cells (vertex corners), or null. The Select tool's drag on the ground makes it. */
   selection: null as { x0: number; z0: number; x1: number; z1: number } | null,
   paste: { terrain: true, textures: true, objects: true, blend: 2, heightOffset: 0 },
   grid: false,

@@ -141,6 +141,7 @@ export namespace mapfile {
 	    heights: string;
 	    weights?: string;
 	    chunkSlots?: string;
+	    holes?: string;
 	    splatA?: string;
 	    splatB?: string;
 	
@@ -166,6 +167,7 @@ export namespace mapfile {
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];
 	        this.chunkSlots = source["chunkSlots"];
+	        this.holes = source["holes"];
 	        this.splatA = source["splatA"];
 	        this.splatB = source["splatB"];
 	    }
