@@ -94,7 +94,7 @@ export function loadAsset(type: string): Promise<ModelAsset> {
   let p = pending.get(type)
   if (!p) {
     p = fetchMesh(wowPath(type))
-      .then((m) => buildWowAsset(m, true))
+      .then((m) => buildWowAsset(m, type))
       .catch((err) => {
         // Not cached: the next request after RETRY_MS tries the model again.
         console.warn('model load failed', type, err)
@@ -172,15 +172,15 @@ export function texturesReady(material: THREE.Material | THREE.Material[]): Prom
   return Promise.allSettled(list.map((m) => m.userData.ready as Promise<void> | undefined))
 }
 
-/** Every animated model loaded so far (driven each frame by the Engine). */
-export const animatedAssets = new Set<ModelAsset>()
+/** Every animated model loaded so far, by type (the Engine drives the ones in view each frame). */
+export const animatedAssets = new Map<string, ModelAsset>()
 
 /**
- * Builds geometry + materials. `animate` sets up the idle animation (only for
- * kept assets — thumbnails pass false). Callers that don't keep it should
- * dispose the geometry.
+ * Builds geometry + materials. `animateAs` is the type to register the idle animation under, for a
+ * kept asset only (thumbnails and previews pass nothing and show the bind pose). Callers that don't
+ * keep the asset should dispose the geometry.
  */
-export function buildWowAsset(m: WowMesh, animate = false): ModelAsset {
+export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(m.positions, 3))
   geo.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3))
@@ -198,9 +198,9 @@ export function buildWowAsset(m: WowMesh, animate = false): ModelAsset {
   const bbox = new THREE.Box3(new THREE.Vector3(b[0], b[1], b[2]), new THREE.Vector3(b[3], b[4], b[5]))
   geo.boundingBox = bbox.clone()
   const asset: ModelAsset = { geometry: geo, material: materials, bbox, ready: true, effects: m.effects }
-  if (animate && m.bones && m.boneIdx && m.boneW) {
+  if (animateAs !== undefined && m.bones && m.boneIdx && m.boneW) {
     asset.anim = new ModelAnimation(geo, m.bones, m.boneIdx, m.boneW)
-    animatedAssets.add(asset)
+    animatedAssets.set(animateAs, asset)
   }
   return asset
 }

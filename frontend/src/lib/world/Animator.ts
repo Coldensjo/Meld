@@ -42,8 +42,13 @@ export class ModelAnimation {
       return
     }
     const t = ms % tr.loop
-    let hi = times.findIndex((x) => x > t)
-    if (hi < 0) hi = times.length - 1
+    let hi = times.length - 1
+    for (let i = 0; i < times.length; i++) {
+      if (times[i] > t) {
+        hi = i
+        break
+      }
+    }
     const lo = Math.max(0, hi - 1)
     const span = times[hi] - times[lo]
     const f = tr.step || span <= 0 ? 0 : Math.min(1, Math.max(0, (t - times[lo]) / span))

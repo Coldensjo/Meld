@@ -440,16 +440,13 @@ export class Engine {
     this.water.level = editor.waterLevel
     this.water.visible = editor.waterEnabled
 
-    if (this.prefs?.animations !== false) {
-      const ms = time * 1000
-      for (const a of animatedAssets) a.anim?.update(ms)
-    }
     this.terrain.update(this.renderer)
     // A hidden object can't stay selected once hidden objects stop being drawn.
     if (this.objects.setShowHidden(ui.showHiddenModels) && editor.selectedIds.some((id) => this.objects.isHidden(id))) {
       selectObjects(this.objects, editor.selectedIds.filter((id) => !this.objects.isHidden(id)), editor.selected?.id)
     }
     this.objects.update()
+    this.animateModels(time)
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night)
     this.updateSelectionVisuals()
@@ -466,6 +463,21 @@ export class Engine {
       stats.cursor = this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z } : null
       this.frames = 0
       this.statTime = time
+    }
+  }
+
+  /**
+   * Plays the idle animations of the model types in view: those with a placed or spawned instance on
+   * the active map, the placement preview, and (while pasting) the paste's previews. Skinning runs on
+   * the CPU per model type, so types loaded for other tabs or nothing at all cost nothing.
+   */
+  private animateModels(time: number) {
+    if (this.prefs?.animations === false) return
+    const ms = time * 1000
+    const prefab = editor.tool === 'place' ? editor.prefab : ''
+    const spawns = this.doc.spawnLayer
+    for (const [type, a] of animatedAssets) {
+      if (ui.pasting || type === prefab || this.objects.hasVisible(type) || spawns.hasType(type)) a.anim!.update(ms)
     }
   }
 

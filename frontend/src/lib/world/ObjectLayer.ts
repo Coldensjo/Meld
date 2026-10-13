@@ -282,6 +282,12 @@ export class ObjectLayer {
     return m
   }
 
+  /** Whether any object of `type` is drawn (as of the last update). */
+  hasVisible(type: string): boolean {
+    const b = this.batches.get(type)
+    return !!b && b.mesh.count > 0
+  }
+
   /** Rebuild instance buffers for dirty batches. Call once per frame. */
   update() {
     for (const [type, b] of this.batches) {

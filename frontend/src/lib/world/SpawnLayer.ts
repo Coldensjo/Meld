@@ -61,6 +61,11 @@ export class SpawnLayer {
     this.rebuild()
   }
 
+  /** Whether any spawn uses the model `type`. */
+  hasType(type: string): boolean {
+    return this.types.has(type)
+  }
+
   /** Shows the kinds that are `true` and hides the rest; the choice holds across rebuilds. */
   setKinds(shown: Record<SpawnKind, boolean>) {
     this.shown = { ...shown }
