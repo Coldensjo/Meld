@@ -265,6 +265,8 @@ export const ui = $state({
   closeDocId: 0,
   /** Which palette the left panel shows. */
   palette: 'models' as 'models' | 'textures',
+  /** An asset the browser should show and scroll to (the pipette's pick); `seq` makes every pick a new request. */
+  revealAsset: null as { key: string; seq: number } | null,
   busy: false,
   /** Vertices selected in Sculpt's Vertex mode (updated when a stroke ends). */
   vertexCount: 0,

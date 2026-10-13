@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import PaletteTile from './PaletteTile.svelte'
   import AssetPreview from './AssetPreview.svelte'
   import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
@@ -139,11 +139,44 @@
   const visible = $derived(items.slice(first * cols, last * cols))
 
   let scroller: HTMLDivElement | undefined = $state()
+  /** The virtualised block; the Recent section above it offsets it from the scroller's top. */
+  let virtualEl: HTMLDivElement | undefined = $state()
+  const contentTop = () => virtualEl?.offsetTop ?? 0
+  /** Scroll position within the virtualised block, which the rendered rows come from. */
+  function onScroll(e: Event) {
+    scrollTop = Math.max(0, (e.currentTarget as HTMLDivElement).scrollTop - contentTop())
+  }
   $effect(() => {
     void items
     scroller?.scrollTo(0, 0)
     scrollTop = 0
   })
+
+  // The pipette's pick (ui.revealAsset) is shown in the browser: the filters are cleared so it is
+  // in the list, its kind's tab is chosen, the browser is opened and the grid scrolls to its row.
+  $effect(() => {
+    const req = ui.revealAsset
+    if (!req) return
+    untrack(() => void reveal(req.key))
+  })
+
+  async function reveal(key: string) {
+    const it = itemFor(key)
+    if (!it) return
+    query = ''
+    category = ''
+    zone = ''
+    if (kind !== 'all' && kind !== it.kind) chooseKind(it.kind)
+    prefs.browserCollapsed = false
+    // Let the list and the reset-to-top effect settle before scrolling to the row.
+    await tick()
+    await tick()
+    const idx = items.indexOf(it)
+    if (idx < 0 || !scroller) return
+    // The row sits a little below the top edge, clear of the scroller's padding.
+    scroller.scrollTo({ top: Math.max(0, contentTop() + Math.floor(idx / cols) * rowH - GAP * 3) })
+    scrollTop = Math.max(0, scroller.scrollTop - contentTop())
+  }
 
   /** The tile a shown item gets in the sidebar list of the selected model, when it exists. */
   const previewItem = $derived.by(() => {
@@ -247,7 +280,7 @@
           {/each}
         </nav>
 
-        <div class="grid-wrap" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)}>
+        <div class="grid-wrap" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={onScroll}>
           {#if loadingList}
             <p class="hint">Reading the client's file list…</p>
           {:else}
@@ -263,7 +296,7 @@
             {#if !items.length}
               <p class="hint">Nothing matches. Try another word, or clear the zone and category.</p>
             {:else}
-              <div class="virtual" style:height="{rows * rowH}px">
+              <div class="virtual" bind:this={virtualEl} style:height="{rows * rowH}px">
                 <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
                   {#each visible as it (it.key)}
                     <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />

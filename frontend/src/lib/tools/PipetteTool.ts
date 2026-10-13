@@ -1,6 +1,6 @@
 import type * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
-import { editor, setStatus } from '../state/editor.svelte'
+import { editor, setStatus, ui } from '../state/editor.svelte'
 import { displayName } from '../models/assets'
 import type { WorldObject } from '../world/ObjectLayer'
 import { layerAt } from './TerrainTools'
@@ -21,14 +21,21 @@ export function pickLayer(t: Terrain, hit: THREE.Vector3): boolean {
   }
   editor.paintLayer = i
   const p = editor.palette[i]
+  if (!p.startsWith('#')) revealAsset(`tex:${p}`)
   const name = p.startsWith('#') ? p : p.slice(p.search(/[^\/]*$/)).replace(/\.blp$/i, '')
   setStatus(`Picked ${name}`, 2000)
   return true
+}
+
+/** Asks the asset browser to show `key` (a catalog key) and scroll to it. */
+function revealAsset(key: string) {
+  ui.revealAsset = { key, seq: (ui.revealAsset?.seq ?? 0) + 1 }
 }
 
 /** Makes a placed model's type the model to place next and switches to the Place tool (Alt+click on it). */
 export function pickModel(o: WorldObject) {
   editor.prefab = o.type
   editor.tool = 'place'
+  revealAsset(o.type)
   setStatus(`Picked ${displayName(o.type)}: click to place more.`, 3000)
 }
