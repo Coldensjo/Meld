@@ -19,6 +19,8 @@ export function GameLogin():Promise<main.GameLoginInfo>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
+export function ListDisplays():Promise<Array<vmangos.DisplayEntry>>;
+
 export function LoadMap(arg1:string):Promise<mapfile.MapData>;
 
 export function LoadPrefs():Promise<string>;
@@ -78,8 +80,6 @@ export function SaveTextDialog(arg1:string):Promise<string>;
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 
 export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTemplate>>;
-
-export function SearchDisplays(arg1:string):Promise<Array<vmangos.DisplayInfo>>;
 
 export function SetGameLogin(arg1:string,arg2:string):Promise<void>;
 

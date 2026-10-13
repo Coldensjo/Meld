@@ -283,52 +283,125 @@ func createCreatureSQL(cols []TemplateColumn, entry, base int, name string) (str
 		"ORDER BY t.`patch` DESC LIMIT 1;", strings.Join(names, ", "), strings.Join(sel, ", "), base), nil
 }
 
-// DisplayInfo is a creature display as the display search lists it: its ID, model and skin.
-type DisplayInfo struct {
-	ID    int    `json:"id"`
-	Model string `json:"model"`
-	Skin  string `json:"skin"`
+// DisplayEntry is a creature display as the creature editor's display picker shows it: the model,
+// the look it dresses the model in (wow.Look's query), its scale, and the creatures of the world
+// database that use it.
+type DisplayEntry struct {
+	ID    int     `json:"id"`
+	Model string  `json:"model"`
+	Look  string  `json:"look"`
+	Scale float32 `json:"scale"`
+	// Skin is the display's first creature skin name ("" for none or a dressed humanoid).
+	Skin string `json:"skin"`
 	// Humanoid says the display dresses a character model (CreatureDisplayInfoExtra).
 	Humanoid bool `json:"humanoid"`
+	// Type is the creature type most creatures using the display have (0 when none uses it).
+	Type int `json:"type"`
+	// Names are a few creatures that use the display, the most used first.
+	Names []string `json:"names"`
+	// Uses is how many creature templates use the display.
+	Uses int `json:"uses"`
 }
 
-// SearchDisplays lists up to limit creature displays whose model path or skin names text, or
-// whose ID is text, by ID.
-func SearchDisplays(dataDir, text string, limit int) ([]DisplayInfo, error) {
+var (
+	displaysMu    sync.Mutex
+	displaysCache = map[string][]DisplayEntry{}
+)
+
+// ListDisplays lists every creature display with a model, dressed as a spawn of it would be (no
+// equipment, standing), with the creature templates that use it when the world database can be
+// read (serverRoot "" or a database that is down leaves them out). The list is made once per client
+// and server.
+func ListDisplays(serverRoot, dataDir string) ([]DisplayEntry, error) {
+	key := dataDir + "|" + serverRoot
+	displaysMu.Lock()
+	defer displaysMu.Unlock()
+	if d, ok := displaysCache[key]; ok {
+		return d, nil
+	}
 	tables, err := cachedModelTables(dataDir)
 	if err != nil {
 		return nil, err
 	}
-	text = strings.ToLower(strings.TrimSpace(text))
-	if text == "" {
-		return nil, nil
-	}
-	id, _ := strconv.Atoi(text)
-	t := tables.creatureDisplay
-	var out []DisplayInfo
-	for r := 0; r < t.records; r++ {
-		d := DisplayInfo{ID: int(t.u32(r, 0)), Humanoid: t.u32(r, 3) != 0}
-		d.Model = tables.creatureModel(uint32(d.ID))
-		d.Skin = t.str(r, 6)
-		if d.ID != id && !strings.Contains(strings.ToLower(d.Model), text) && !strings.Contains(strings.ToLower(d.Skin), text) {
-			continue
+	uses := map[int]*displayUse{}
+	if serverRoot != "" {
+		if db, err := worldDatabase(serverRoot); err == nil && ensureDatabase(db, serverRoot) == nil {
+			if raw, err := runSQL(db, displayUsesSQL); err == nil {
+				uses = parseDisplayUses(raw)
+			}
 		}
-		if d.Model == "" {
-			continue
-		}
-		out = append(out, d)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		// An exact ID first, then by ID.
-		if (out[i].ID == id) != (out[j].ID == id) {
-			return out[i].ID == id
-		}
-		return out[i].ID < out[j].ID
-	})
-	if len(out) > limit {
-		out = out[:limit]
-	}
+	out := listDisplays(tables, uses)
+	displaysCache[key] = out
 	return out, nil
+}
+
+// displayUsesSQL lists each creature template's displays with its type and name, newest patch.
+const displayUsesSQL = `SELECT d, t.type, t.name FROM (
+	SELECT entry, display_id1 AS d FROM creature_template UNION ALL SELECT entry, display_id2 FROM creature_template
+	UNION ALL SELECT entry, display_id3 FROM creature_template UNION ALL SELECT entry, display_id4 FROM creature_template) u
+	JOIN creature_template t ON t.entry = u.entry AND t.patch = (SELECT MAX(patch) FROM creature_template WHERE entry = u.entry)
+	WHERE d <> 0 GROUP BY d, t.entry`
+
+// displayUse is what the creature templates using a display have in common: the count of each type,
+// and their names.
+type displayUse struct {
+	types map[int]int
+	names []string
+}
+
+// parseDisplayUses reads displayUsesSQL's rows (display, type, name).
+func parseDisplayUses(raw []byte) map[int]*displayUse {
+	out := map[int]*displayUse{}
+	for _, f := range tsvRows(raw, 3) {
+		d, err1 := strconv.Atoi(f[0])
+		t, err2 := strconv.Atoi(f[1])
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		u := out[d]
+		if u == nil {
+			u = &displayUse{types: map[int]int{}}
+			out[d] = u
+		}
+		u.types[t]++
+		u.names = append(u.names, f[2])
+	}
+	return out
+}
+
+// listDisplays makes the display list from the client's tables and the templates' uses, by ID.
+func listDisplays(tables *modelTables, uses map[int]*displayUse) []DisplayEntry {
+	t := tables.creatureDisplay
+	out := make([]DisplayEntry, 0, t.records)
+	for r := 0; r < t.records; r++ {
+		id := int(t.u32(r, 0))
+		look := tables.creatureLook(uint32(id), gear{sheath: sheathMelee})
+		if look.model == "" {
+			continue
+		}
+		e := DisplayEntry{ID: id, Model: look.model, Look: look.look.Query(), Scale: look.scale, Skin: t.str(r, 6), Humanoid: t.u32(r, 3) != 0}
+		if e.Humanoid {
+			e.Skin = ""
+		}
+		if u := uses[id]; u != nil {
+			e.Uses = len(u.names)
+			best := -1
+			for typ, n := range u.types {
+				if n > best || (n == best && typ < e.Type) {
+					e.Type, best = typ, n
+				}
+			}
+			sort.Strings(u.names)
+			e.Names = u.names
+			if len(e.Names) > 3 {
+				e.Names = e.Names[:3]
+			}
+		}
+		out = append(out, e)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
 }
 
 // AnimInfo is an animation a model has: its AnimationData ID and name.

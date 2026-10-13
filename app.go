@@ -401,13 +401,18 @@ func (a *App) CreateCreature(base int, name string) (int, error) {
 	return vmangos.CreateCreature(server, base, name)
 }
 
-// SearchDisplays lists up to 200 creature displays whose model or skin has text in it.
-func (a *App) SearchDisplays(text string) ([]vmangos.DisplayInfo, error) {
+// ListDisplays lists every creature display, dressed, with the creatures that use it, for the
+// creature editor's display picker. The world database is optional: without it the displays come
+// without their creatures.
+func (a *App) ListDisplays() ([]vmangos.DisplayEntry, error) {
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return nil, err
 	}
-	return vmangos.SearchDisplays(dataDir, text, 200)
+	return vmangos.ListDisplays(server, dataDir)
 }
 
 // ModelAnimations lists the animations an M2 model has, for the creature editor's preview.

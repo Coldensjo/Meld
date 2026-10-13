@@ -355,22 +355,32 @@ export namespace vmangos {
 	        this.equipment = source["equipment"];
 	    }
 	}
-	export class DisplayInfo {
+	export class DisplayEntry {
 	    id: number;
 	    model: string;
+	    look: string;
+	    scale: number;
 	    skin: string;
 	    humanoid: boolean;
+	    type: number;
+	    names: string[];
+	    uses: number;
 	
 	    static createFrom(source: any = {}) {
-	        return new DisplayInfo(source);
+	        return new DisplayEntry(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.model = source["model"];
+	        this.look = source["look"];
+	        this.scale = source["scale"];
 	        this.skin = source["skin"];
 	        this.humanoid = source["humanoid"];
+	        this.type = source["type"];
+	        this.names = source["names"];
+	        this.uses = source["uses"];
 	    }
 	}
 	export class Emote {

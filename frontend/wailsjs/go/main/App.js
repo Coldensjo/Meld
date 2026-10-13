@@ -30,6 +30,10 @@ export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
 
+export function ListDisplays() {
+  return window['go']['main']['App']['ListDisplays']();
+}
+
 export function LoadMap(arg1) {
   return window['go']['main']['App']['LoadMap'](arg1);
 }
@@ -148,10 +152,6 @@ export function SaveThumbnail(arg1, arg2) {
 
 export function SearchCreatures(arg1) {
   return window['go']['main']['App']['SearchCreatures'](arg1);
-}
-
-export function SearchDisplays(arg1) {
-  return window['go']['main']['App']['SearchDisplays'](arg1);
 }
 
 export function SetGameLogin(arg1, arg2) {

@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"WorldEditor/internal/wow"
 )
@@ -121,9 +122,20 @@ func TestCreatureRecordsLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	displays, err := SearchDisplays(dataDir, "wolf", 50)
-	if err != nil || len(displays) == 0 {
-		t.Fatalf("wolf displays: %v %v", displays, err)
+	start := time.Now()
+	displays, err := ListDisplays(dir, dataDir)
+	if err != nil || len(displays) < 5000 {
+		t.Fatalf("displays: %d, %v", len(displays), err)
+	}
+	t.Logf("%d displays listed in %v", len(displays), time.Since(start))
+	found := false
+	for _, d := range displays {
+		if d.ID == 3167 { // a Stormwind guard: dressed, used by humanoids
+			found = d.Humanoid && d.Type == 7 && d.Uses > 0 && strings.Contains(d.Look, "att=") && len(d.Names) > 0
+		}
+	}
+	if !found {
+		t.Fatal("display 3167 is not listed as a dressed humanoid with its creatures")
 	}
 	anims, err := ModelAnimations(dataDir, `Character\Human\Male\HumanMale.mdx`)
 	if err != nil {
@@ -135,5 +147,17 @@ func TestCreatureRecordsLive(t *testing.T) {
 	}
 	if !names["Stand"] || !names["Walk"] || !names["Run"] {
 		t.Fatalf("human male animations: %+v", anims)
+	}
+}
+
+func TestDisplayUses(t *testing.T) {
+	uses := parseDisplayUses([]byte("10\t1\tWolf\n10\t1\tTimber Wolf\n10\t8\tPup\n11\t7\tGuard\n"))
+	if u := uses[10]; u == nil || u.types[1] != 2 || u.types[8] != 1 || len(u.names) != 3 {
+		t.Fatalf("display 10: %+v", uses[10])
+	}
+	m := humanTables(t)
+	list := listDisplays(m, map[int]*displayUse{10: {types: map[int]int{7: 2, 1: 1}, names: []string{"b", "a", "c", "d"}}})
+	if len(list) != 1 || list[0].ID != 10 || list[0].Type != 7 || list[0].Uses != 4 || strings.Join(list[0].Names, ",") != "a,b,c" || !list[0].Humanoid {
+		t.Fatalf("list %+v", list)
 	}
 }

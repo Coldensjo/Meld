@@ -1,12 +1,13 @@
 <script lang="ts">
   import { editor, setStatus, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SearchDisplays, SpawnLook } from '../../wailsjs/go/main/App'
+  import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
   import { changedValues, fieldGroups, withBit, type CreatureField } from '../lib/world/creatureFields'
   import { creatureTemplateOf } from '../lib/world/spawnEdits'
   import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
   import CreaturePreview from './CreaturePreview.svelte'
+  import DisplayPicker from './DisplayPicker.svelte'
   import SpawnFields from './SpawnFields.svelte'
 
   // The creature editor: one creature full screen. The left shows it big and animated; the right
@@ -82,10 +83,15 @@
       .then((l) => (templateLook = l))
       .catch(() => (templateLook = null))
   })
+  // The display slot (1-4) a click in the Looks picker fills, and the display under the pointer.
+  let slot = $state(1)
+  let hoveredDisplay = $state<vmangos.DisplayEntry | null>(null)
   const usingSpawn = $derived(tab === 'spawn' && spawn !== null)
   const preview = $derived(
     !target || target.entry === 0
       ? null
+      : tab === 'looks' && hoveredDisplay
+      ? { model: hoveredDisplay.model, look: hoveredDisplay.look, anim: 0, scale: hoveredDisplay.scale }
       : usingSpawn && spawn
       ? { model: spawn.model, look: spawn.look, anim: spawn.anim, scale: spawn.scale }
       : templateLook
@@ -188,32 +194,17 @@
     }
   }
 
-  // Looks: displays found by model or skin name.
-  let displayQuery = $state('')
-  let displays = $state<vmangos.DisplayInfo[]>([])
-  let displayTimer: ReturnType<typeof setTimeout> | undefined
-  $effect(() => {
-    const q = displayQuery.trim()
-    clearTimeout(displayTimer)
-    if (!q) {
-      displays = []
-      return
-    }
-    displayTimer = setTimeout(() => {
-      SearchDisplays(q)
-        .then((list) => {
-          if (displayQuery.trim() === q) displays = list ?? []
-        })
-        .catch(() => (displays = []))
-    }, 250)
-  })
-  function useDisplay(d: vmangos.DisplayInfo) {
-    values.display_id1 = String(d.id)
-    if (!(Number(values.display_scale1) > 0)) values.display_scale1 = '1'
-    if (!(Number(values.display_probability1) > 0)) values.display_probability1 = '100'
-    if (!(Number(values.display_total_probability) > 0)) values.display_total_probability = values.display_probability1
+  // Looks: the display picker. A click puts the display in slot `slot` (1-4); hovering a tile shows
+  // it in the preview until the pointer leaves.
+  function useDisplay(d: vmangos.DisplayEntry) {
+    const n = slot
+    values[`display_id${n}`] = String(d.id)
+    if (!(Number(values[`display_scale${n}`]) > 0)) values[`display_scale${n}`] = '1'
+    if (!(Number(values[`display_probability${n}`]) > 0)) values[`display_probability${n}`] = '100'
+    let total = 0
+    for (let i = 1; i <= 4; i++) if (Number(values[`display_id${i}`]) > 0) total += Number(values[`display_probability${i}`]) || 0
+    values.display_total_probability = String(total)
   }
-  const modelName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.(mdx|m2)$/i, '')
 
   function fieldValue(f: CreatureField): string {
     return values[f.col] ?? ''
@@ -290,11 +281,17 @@
               {#each anims as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
             </select>
           </label>
-          <span class="dim">{usingSpawn ? 'Showing this spawn as placed.' : 'Showing the creature template: its first display and equipment.'}</span>
+          <span class="dim"
+            >{tab === 'looks' && hoveredDisplay
+              ? `Showing display ${hoveredDisplay.id}.`
+              : usingSpawn
+                ? 'Showing this spawn as placed.'
+                : 'Showing the creature template: its first display and equipment.'}</span
+          >
         </div>
       </section>
 
-      <section class="right">
+      <section class="right" class:wide={tab === 'looks' && !!record && target.entry !== 0}>
         <nav class="tabs">
           {#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
           {#if record}
@@ -320,22 +317,15 @@
             <SpawnFields s={spawn} />
             <p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (Spawns panel › Save to database). Edit the path in the world: close the editor, then Edit path.</p>
           {:else if tab === 'looks' && record}
-            <h3>Find a display</h3>
-            <input type="search" placeholder="Model or skin name, or a display ID (wolf, kobold, 3167…)" bind:value={displayQuery} />
-            {#if displays.length}
-              <ul class="displays">
-                {#each displays as d (d.id)}
-                  <li>
-                    <button class="row" class:on={Number(values.display_id1) === d.id} onclick={() => useDisplay(d)}>
-                      <span class="id">{d.id}</span>
-                      <span class="name">{modelName(d.model)}</span>
-                      <span class="dim">{d.humanoid ? 'dressed humanoid' : d.skin}</span>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-              <p class="dim">A click makes it display 1; the preview shows it at once.</p>
-            {/if}
+            <div class="slot">
+              <span>A click sets</span>
+              <select bind:value={slot}>
+                {#each [1, 2, 3, 4] as n (n)}<option value={n}>display {n}{Number(values[`display_id${n}`]) > 0 ? ` (now ${values[`display_id${n}`]})` : ''}</option>{/each}
+              </select>
+              <span class="dim">Hover a tile to see it big on the left.</span>
+            </div>
+            <DisplayPicker selected={Number(values[`display_id${slot}`]) || 0} onpick={useDisplay} onhover={(d) => (hoveredDisplay = d)} />
+            <h3>Displays</h3>
             {#each groups.filter((g) => g.title === 'Looks') as g (g.title)}
               {@render group(g.fields)}
             {/each}
@@ -474,6 +464,15 @@
     border-left: 1px solid var(--border);
     background: var(--panel);
   }
+  .right.wide {
+    width: min(860px, 62vw);
+  }
+  .slot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
   .tabs {
     display: flex;
     gap: 2px;
@@ -559,37 +558,6 @@
   .changed select {
     border-color: var(--accent);
   }
-  .displays {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    max-height: 240px;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-  }
-  .row {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    text-align: left;
-    background: none;
-    border: none;
-    border-radius: 0;
-    padding: 4px 8px;
-    font-size: 12px;
-  }
-  .row.on {
-    background: var(--accent);
-    color: #fff;
-  }
-  .row .id {
-    width: 48px;
-    color: var(--text-dim);
-  }
-  .row .name {
-    flex: 1;
-  }
   .new {
     display: flex;
     flex-direction: column;
@@ -611,8 +579,5 @@
   .hint {
     margin: 0;
     font-size: 11px;
-  }
-  input[type='search'] {
-    width: 100%;
   }
 </style>
