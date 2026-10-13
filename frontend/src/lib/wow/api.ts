@@ -113,8 +113,8 @@ export function listAssets(kind: 'm2' | 'wmo' | 'tileset'): Promise<string[]> {
 }
 
 /**
- * The server URL for a client path. A model path may carry a query after '?' (a spawn's skins, see
- * `skinnedType`), which goes to the server as it is.
+ * The server URL for a client path. A model path may carry a query after '?' (a spawn's look, see
+ * `spawnType`), which goes to the server as it is.
  */
 const url = (endpoint: string, path: string) => {
   const q = path.indexOf('?')

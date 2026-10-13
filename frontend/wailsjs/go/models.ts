@@ -549,9 +549,18 @@ export namespace vmangos {
 	    z: number;
 	    orientation: number;
 	    respawnSecs: number;
+	    respawnMaxSecs: number;
+	    display: number;
 	    model: string;
-	    skins: string[];
+	    look: string;
+	    anim: number;
 	    scale: number;
+	    equipment: number;
+	    standState: number;
+	    emoteState: number;
+	    sheathState: number;
+	    movementType: number;
+	    wanderDistance: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorldSpawn(source);
@@ -575,9 +584,18 @@ export namespace vmangos {
 	        this.z = source["z"];
 	        this.orientation = source["orientation"];
 	        this.respawnSecs = source["respawnSecs"];
+	        this.respawnMaxSecs = source["respawnMaxSecs"];
+	        this.display = source["display"];
 	        this.model = source["model"];
-	        this.skins = source["skins"];
+	        this.look = source["look"];
+	        this.anim = source["anim"];
 	        this.scale = source["scale"];
+	        this.equipment = source["equipment"];
+	        this.standState = source["standState"];
+	        this.emoteState = source["emoteState"];
+	        this.sheathState = source["sheathState"];
+	        this.movementType = source["movementType"];
+	        this.wanderDistance = source["wanderDistance"];
 	    }
 	}
 	export class Zone {

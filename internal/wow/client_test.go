@@ -39,13 +39,13 @@ func TestClientAssets(t *testing.T) {
 	}
 	check("tileset", 300, func(p string) error { _, err := c.Texture(p); return err })
 	check("m2", 600, func(p string) error {
-		b, err := c.Model(p)
+		b, err := c.Model(p, Look{})
 		if err == nil && len(b) < 16 {
 			t.Errorf("tiny mesh for %s", p)
 		}
 		return err
 	})
-	check("wmo", 120, func(p string) error { _, err := c.Model(p); return err })
+	check("wmo", 120, func(p string) error { _, err := c.Model(p, Look{}); return err })
 
 	// Textures referenced by models should resolve.
 	missing, total := 0, 0

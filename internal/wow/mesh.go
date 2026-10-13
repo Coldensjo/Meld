@@ -43,6 +43,49 @@ type Mesh struct {
 	Anim *Anim
 	// Effects are lights/flames in model space (editor coordinates).
 	Effects []Effect
+	// points are an M2's attachment points by ID, for the items a look attaches. Not encoded.
+	points map[int]attachPoint
+}
+
+// Attach welds an item model onto m at attachment point id, which the item is modelled around.
+// When m animates, the item's vertices follow the point's bone, so a weapon stays in the hand.
+// It reports false when m has no such point.
+func (m *Mesh) Attach(id int, item *Mesh) bool {
+	p, ok := m.points[id]
+	if !ok || item == nil {
+		return false
+	}
+	base := m.vertCount()
+	cp := &Mesh{
+		Pos:    append([]float32(nil), item.Pos...),
+		Normal: item.Normal,
+		UV:     item.UV,
+		Color:  item.Color,
+		Index:  item.Index,
+		Groups: item.Groups,
+	}
+	for i := 0; i < len(cp.Pos); i += 3 {
+		cp.Pos[i] += p.Pos[0]
+		cp.Pos[i+1] += p.Pos[1]
+		cp.Pos[i+2] += p.Pos[2]
+	}
+	for _, e := range item.Effects {
+		e.Pos = [3]float32{e.Pos[0] + p.Pos[0], e.Pos[1] + p.Pos[1], e.Pos[2] + p.Pos[2]}
+		cp.Effects = append(cp.Effects, e)
+	}
+	m.Append(cp)
+	if m.Anim != nil {
+		n := m.vertCount() - base
+		bone := byte(0)
+		if p.Bone < 256 {
+			bone = byte(p.Bone)
+		}
+		for i := 0; i < n; i++ {
+			m.Anim.BoneIdx = append(m.Anim.BoneIdx, bone, 0, 0, 0)
+			m.Anim.BoneW = append(m.Anim.BoneW, 255, 0, 0, 0)
+		}
+	}
+	return true
 }
 
 func (m *Mesh) vertCount() int { return len(m.Pos) / 3 }

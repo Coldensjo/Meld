@@ -60,9 +60,10 @@ func hasAny(s string, words []string) bool {
 	return false
 }
 
-// parseM2Extras reads bones/animation, lights and particle emitters.
+// parseM2Extras reads bones/animation, lights and particle emitters. The loop played is the
+// first sequence of AnimationData ID animID, else Stand, else the model's first sequence.
 // vertMap maps output vertices to source vertex indices (the view's list).
-func parseM2Extras(r reader, version int, vertMap []int, textures []string, modelPath string, bboxSize float32) (*Anim, []Effect) {
+func parseM2Extras(r reader, version int, vertMap []int, textures []string, modelPath string, bboxSize float32, animID int) (*Anim, []Effect) {
 	nGlobal, ofsGlobal, _ := r.arr(0x14, 4)
 	globalLoop := func(i int) uint32 {
 		if i < 0 || i >= nGlobal {
@@ -71,14 +72,15 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 		return uint32(r.u32(ofsGlobal + i*4))
 	}
 
-	// "Stand" (id 0) sequence, falling back to the first one.
+	// The asked-for sequence, else "Stand" (id 0), else the first one.
 	nSeq, ofsSeq, err := r.arr(0x1C, seqSize)
 	seqIdx, seqStart, seqEnd := -1, uint32(0), uint32(0)
 	if err == nil {
-		for i := 0; i < nSeq; i++ {
-			if r.u16(ofsSeq+i*seqSize) == 0 {
-				seqIdx = i
-				break
+		for _, want := range []int{animID, 0} {
+			for i := 0; i < nSeq && seqIdx < 0; i++ {
+				if r.u16(ofsSeq+i*seqSize) == want {
+					seqIdx = i
+				}
 			}
 		}
 		if seqIdx < 0 && nSeq > 0 {

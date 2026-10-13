@@ -106,3 +106,16 @@ export function levelText(min: number, max: number): string {
 export function orientationDegrees(radians: number): number {
   return Math.round((radians * 180) / Math.PI)
 }
+
+/**
+ * The editor's type for a spawn's client model: "wmo:" for buildings, "m2:" for everything else,
+ * with the query the model endpoint dresses it by: the display's look (textures, geosets, items
+ * held; see wow.Look) and the animation its pose plays. Spawns with the same model, look and pose
+ * share one asset.
+ */
+export function spawnType(s: { model: string; look?: string; anim?: number }): string {
+  if (!s.model) return ''
+  if (s.model.toLowerCase().endsWith('.wmo')) return `wmo:${s.model}`
+  const query = [s.look ?? '', s.anim ? `anim=${s.anim}` : ''].filter((q) => q !== '').join('&')
+  return query ? `m2:${s.model}?${query}` : `m2:${s.model}`
+}

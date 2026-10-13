@@ -302,6 +302,15 @@ cd frontend && pnpm build   # frontend only
     `InstancedMesh` per type. A WMO group flagged interior (`Group.Interior`, from MOGP flag
     0x2000) gets an unlit `MeshBasicMaterial` lit by its baked MOCV vertex colours, as in the game,
     so the sun, sky and shadows never reach the inside of a cave or building.
+- **Spawn looks** (`internal/vmangos/looks.go`, `internal/wow/look.go`): a creature spawn's
+  display is resolved in Go into a `wow.Look`: textures per replaceable M2 texture type (bake,
+  hair, fur, creature skins), the character geosets shown (hair, facial hair, gear from
+  ItemDisplayInfo, hidden under a helmet by HelmetGeosetVisData's race masks), item models at
+  attachment points (helm, shoulders, weapons by sheath state) and the pose's animation
+  (creature_addon stand state or emote, via Emotes.dbc). It travels as the model endpoint's query
+  (`spawnType` in `world/spawnInfo.ts`), so each look is one cached mesh and one InstancedMesh.
+  Items are welded on in Go (`Mesh.Attach`) and bound to the attachment's bone, so GPU skinning
+  carries them.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 
 ## Conventions

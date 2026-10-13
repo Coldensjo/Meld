@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"math"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -11,9 +12,9 @@ import (
 )
 
 func TestParseSpawnRows(t *testing.T) {
-	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\t1.25\n" +
-		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\t1\n" +
-		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\t1\n")
+	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\t1.25\t0\t7\t1\t233\t1\t1\t5.5\t420\n" +
+		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\t1\t99\t0\t0\t0\t1\t2\t0\t600\r\n" +
+		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\t1\t0\t0\t0\t0\t0\t0\t0\t180\n")
 	rows, err := parseSpawnRows(raw, "creature")
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +25,11 @@ func TestParseSpawnRows(t *testing.T) {
 	if w := rows[0]; w.Kind != KindMonster || w.Name != "Wolf" || w.GUID != 123 || w.LevelMax != 2 || w.sx != -100.5 || w.RespawnSecs != 300 || w.display != 880 || w.scale != 1.25 {
 		t.Fatalf("wolf: %+v", w)
 	}
-	if n := rows[1]; n.Kind != KindNPC || n.Subname != "Inn" || n.NPCFlags != 128 || n.Type != 7 {
+	if w := rows[0]; w.Equipment != 7 || w.StandState != 1 || w.EmoteState != 233 || w.SheathState != 1 || w.MovementType != 1 ||
+		w.WanderDistance != 5.5 || w.RespawnMaxSecs != 420 {
+		t.Fatalf("wolf's spawn settings: %+v", w)
+	}
+	if n := rows[1]; n.Kind != KindNPC || n.Subname != "Inn" || n.NPCFlags != 128 || n.Type != 7 || n.addonDisplay != 99 || n.MovementType != 2 {
 		t.Fatalf("innkeeper: %+v", n)
 	}
 	objs, err := parseSpawnRows(raw, "object")
@@ -50,7 +55,7 @@ func TestRegionSpawnConversion(t *testing.T) {
 	// Tile (32, 48): ADT X runs 32T..33T, so server y is in [zp-33T, zp-32T] = [-533, 0];
 	// ADT Z runs 48T..49T, so server x is in [zp-49T, zp-48T] = [-9067, -8534].
 	s := spawnRow{WorldSpawn: WorldSpawn{Name: "Wolf"}, sx: -8800, sy: -100, height: 42}
-	got := regionSpawn(s, 32, 48, nil)
+	got := regionSpawn(s, 32, 48, nil, [3]heldItem{})
 	if math.Abs(float64(got.X)-100) > 0.01 {
 		t.Fatalf("x = %v, want 100 (ADT X %v less the block's start)", got.X, zp+100)
 	}
@@ -121,18 +126,28 @@ func TestSpawnModelsLoad(t *testing.T) {
 	if err := c.Open(clientDir); err != nil {
 		t.Fatal(err)
 	}
-	withModel, failed, invisible := 0, 0, 0
+	withModel, failed, invisible, dressed := 0, 0, 0, 0
 	seen := map[string]bool{}
 	for _, s := range spawns {
 		if s.Model == "" {
 			continue
 		}
 		withModel++
-		if seen[s.Model] {
+		key := s.Model + "?" + s.Look
+		if seen[key] {
 			continue
 		}
-		seen[s.Model] = true
-		if _, err := c.Model(s.Model); err != nil {
+		seen[key] = true
+		q, err := url.ParseQuery(s.Look)
+		if err != nil {
+			t.Fatalf("%q: look %q: %v", s.Name, s.Look, err)
+		}
+		look := wow.ParseLook(q)
+		look.Anim = s.Anim
+		if len(look.Attach) > 0 {
+			dressed++
+		}
+		if _, err := c.Model(s.Model, look); err != nil {
 			// Invisible triggers name a model with nothing to draw; the editor shows those as markers.
 			if strings.Contains(err.Error(), "no renderable batches") {
 				invisible++
@@ -147,5 +162,5 @@ func TestSpawnModelsLoad(t *testing.T) {
 	if withModel*10 < len(spawns)*9 {
 		t.Fatalf("only %d of %d spawns name a model", withModel, len(spawns))
 	}
-	t.Logf("%d spawns with models, %d distinct, %d invisible, %d failed to load", withModel, len(seen), invisible, failed)
+	t.Logf("%d spawns with models, %d distinct looks (%d with items attached), %d invisible, %d failed to load", withModel, len(seen), dressed, invisible, failed)
 }

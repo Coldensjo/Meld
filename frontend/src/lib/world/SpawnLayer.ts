@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
-import { getAsset, isWowType, onAssetLoaded, skinnedType } from '../models/assets'
+import { getAsset, isWowType, onAssetLoaded } from '../models/assets'
+import { spawnType } from './spawnInfo'
 import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, type CullView } from './instanceCull'
 
@@ -26,16 +27,6 @@ export const SPAWN_COLORS: Record<SpawnKind, number> = {
 }
 
 const KINDS: SpawnKind[] = ['monster', 'npc', 'object']
-
-/**
- * The editor's type for a spawn's client model: "wmo:" for buildings, "m2:" for everything else,
- * with the display's skins when it has any.
- */
-export function spawnType(s: { model: string; skins?: string[] | null }): string {
-  if (!s.model) return ''
-  const type = s.model.toLowerCase().endsWith('.wmo') ? `wmo:${s.model}` : `m2:${s.model}`
-  return skinnedType(type, s.skins)
-}
 
 /**
  * The three.js rotation about Y for a server facing. The server's orientation is measured from its

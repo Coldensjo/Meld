@@ -192,16 +192,39 @@ func (c *Client) Texture(path string) ([]byte, error) {
 	})
 }
 
-func (c *Client) m2Mesh(path string, skins []string) (*Mesh, error) {
-	raw, err := c.read(path)
-	// Map files name their models ".mdx", but the client stores them as ".m2".
-	if err != nil && strings.HasSuffix(strings.ToLower(path), ".mdx") {
-		raw, err = c.read(path[:len(path)-len(".mdx")] + ".m2")
-	}
+// m2Mesh decodes an M2 dressed in look (nil for none), with the look's items attached. An item
+// that can't be read is left off.
+func (c *Client) m2Mesh(path string, look *Look) (*Mesh, error) {
+	raw, err := c.readM2(path)
 	if err != nil {
 		return nil, err
 	}
-	return ParseM2Skinned(raw, path, skins)
+	m, err := ParseM2Look(raw, path, look)
+	if err != nil || look == nil {
+		return m, err
+	}
+	for _, a := range look.Attach {
+		b, err := c.readM2(a.Model)
+		if err != nil {
+			continue
+		}
+		item, err := ParseM2Look(b, a.Model, &Look{Textures: map[int]string{TexItem: a.Texture}})
+		if err != nil {
+			continue
+		}
+		m.Attach(a.Point, item)
+	}
+	return m, nil
+}
+
+// readM2 reads a model file. Map files and the client's tables name models ".mdx", but the
+// client stores them as ".m2".
+func (c *Client) readM2(path string) ([]byte, error) {
+	raw, err := c.read(path)
+	if err != nil && strings.HasSuffix(strings.ToLower(path), ".mdx") {
+		raw, err = c.read(path[:len(path)-len(".mdx")] + ".m2")
+	}
+	return raw, err
 }
 
 func (c *Client) wmoMesh(path string) (*Mesh, error) {
@@ -261,11 +284,13 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 	return m, nil
 }
 
-// Model returns an encoded mesh for an .m2 or .wmo path.
-func (c *Client) Model(path string, skins ...string) ([]byte, error) {
+// Model returns an encoded mesh for an .m2 or .wmo path, an M2 dressed in look.
+func (c *Client) Model(path string, look Look) ([]byte, error) {
 	key := "mdl:" + strings.ToLower(path)
-	if len(skins) > 0 {
-		key += "|" + strings.ToLower(strings.Join(skins, "|"))
+	var lp *Look
+	if !look.Empty() {
+		key += "|" + strings.ToLower(look.Query())
+		lp = &look
 	}
 	return c.cached(key, func() ([]byte, error) {
 		var m *Mesh
@@ -273,7 +298,7 @@ func (c *Client) Model(path string, skins ...string) ([]byte, error) {
 		if strings.HasSuffix(strings.ToLower(path), ".wmo") {
 			m, err = c.wmoMesh(path)
 		} else {
-			m, err = c.m2Mesh(path, skins)
+			m, err = c.m2Mesh(path, lp)
 			if err == nil {
 				m.Consolidate()
 			}
@@ -391,8 +416,8 @@ func (c *Client) Handler() http.Handler {
 		writeJSON(w, tiles)
 	})
 	mux.HandleFunc("/wow/model", func(w http.ResponseWriter, r *http.Request) {
-		// skin repeats once per slot (see vmangos.SkinSlots); an empty value leaves the slot alone.
-		b, err := c.Model(r.URL.Query().Get("path"), r.URL.Query()["skin"]...)
+		// The rest of the query is the look a spawn's display dresses the model in (see Look.Query).
+		b, err := c.Model(r.URL.Query().Get("path"), ParseLook(r.URL.Query()))
 		blob(w, b, err)
 	})
 	return mux
