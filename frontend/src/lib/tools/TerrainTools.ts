@@ -174,6 +174,7 @@ export class SculptTool extends BrushTool {
     const r = sel.rect()
     if (!r || !e.movementY) return
     // Shift-drag moves the selection up and down with the mouse, faster at higher strength.
+    this.stroke.reserveHeights(r)
     moveVertices(ctx.terrain.heights, sel, -e.movementY * 0.2 * editor.brush.strength * ctx.pressure())
     this.heightsChanged(ctx, r)
   }
@@ -330,7 +331,7 @@ export class SculptTool extends BrushTool {
         const s = (mode === 'raise' ? 1 : -1) * RAISE_RATE * rate
         rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
           if (keeps(h[i], limit, cursorY)) h[i] += s * w
-        })
+        }, this.stroke)
         break
       }
       case 'flatten': {
@@ -342,7 +343,7 @@ export class SculptTool extends BrushTool {
           // Raise-only and lower-only leave ground on the far side of the target alone.
           if ((dir === 'raise' && d <= 0) || (dir === 'lower' && d >= 0)) return
           if (keeps(h[i], limit, cursorY)) h[i] += d * w * k
-        })
+        }, this.stroke)
         break
       }
       case 'smooth': {
@@ -366,7 +367,7 @@ export class SculptTool extends BrushTool {
             }
           }
           h[i] += (sum / n - h[i]) * w * k
-        })
+        }, this.stroke)
         break
       }
       case 'noise': {
@@ -374,7 +375,7 @@ export class SculptTool extends BrushTool {
         const cs = t.cellSize
         rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w, x, z) => {
           if (keeps(h[i], limit, cursorY)) h[i] += (fbm(x * cs * 0.08, z * cs * 0.08, 4, 5) - 0.5) * 2 * s * w
-        })
+        }, this.stroke)
         break
       }
       case 'mountain': {
@@ -384,7 +385,7 @@ export class SculptTool extends BrushTool {
           if (!keeps(h[i], limit, cursorY)) return
           const r = ridged(x * cs * 0.025, z * cs * 0.025, 5, 13)
           h[i] += r * r * s * w * w
-        })
+        }, this.stroke)
         break
       }
     }
@@ -425,7 +426,7 @@ export class PaintTool extends BrushTool {
       const rect = forEachTexel(ctx.terrain, hit.x, hit.z, radius, falloff, (p, w) => {
         const v = Math.round(w * 255)
         m[p] = erase ? Math.min(m[p], 255 - v) : Math.max(m[p], v)
-      })
+      }, this.stroke)
       if (rect) {
         ctx.terrain.markMaskDirty(rect)
         this.stroke?.touchMask(rect)
@@ -459,7 +460,7 @@ export class PaintTool extends BrushTool {
     let refused = false
     const rect = forEachTexel(ctx.terrain, x, z, radius, falloff, (p, w) => {
       if (!paintPixel(ctx.terrain, p, tex, amt * w)) refused = true
-    })
+    }, this.stroke)
     this.splatChanged(ctx, rect)
     return refused
   }
@@ -484,7 +485,7 @@ export class PaintTool extends BrushTool {
     const t = ctx.terrain
     const rect = forEachTexel(t, hit.x, hit.z, radius, falloff, (p, w) => {
       if (!swapTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, p, from, to, amt * w)) refused++
-    })
+    }, this.stroke)
     if (refused) setStatus(CHUNK_FULL, 3000)
     this.splatChanged(ctx, rect)
   }
@@ -507,7 +508,7 @@ export class RoadTool extends BrushTool {
     let refused = 0
     const sr = forEachTexel(t, hit.x, hit.z, width, 0.25, (p, w) => {
       if (!paintPixel(t, p, editor.paintLayer, amt * w)) refused++
-    })
+    }, this.stroke)
     if (refused) setStatus(CHUNK_FULL, 3000)
     this.splatChanged(ctx, sr)
 
@@ -519,7 +520,7 @@ export class RoadTool extends BrushTool {
       const cursorY = hit.y
       const hr = forEachVertex(t, hit.x, hit.z, width * 1.4, 0.5, (i, w) => {
         if (keeps(h[i], limit, cursorY)) h[i] += (target - h[i]) * w * k
-      })
+      }, this.stroke)
       this.heightsChanged(ctx, hr)
     }
   }
@@ -543,12 +544,12 @@ export class WaterTool extends BrushTool {
       const floor = lvl - 4
       rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
         if (h[i] > floor && keeps(h[i], limit, cursorY)) h[i] += (floor - h[i]) * w * k
-      })
+      }, this.stroke)
     } else {
       const shore = lvl + 0.6
       rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
         if (h[i] < shore && keeps(h[i], limit, cursorY)) h[i] += (shore - h[i]) * w * k
-      })
+      }, this.stroke)
     }
     this.heightsChanged(ctx, rect)
   }

@@ -820,8 +820,9 @@ export class Engine {
     const cs = t.cellSize
     const resnap = (r: Rect) => this.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
     const stroke = new TerrainStroke(t, label, { heights: true }, resnap)
-    t.heights.set(next)
     const whole = { x0: 0, z0: 0, x1: t.size, z1: t.size }
+    stroke.reserveHeights(whole)
+    t.heights.set(next)
     t.markAllDirty()
     stroke.touchHeights(whole)
     const cmd = stroke.finish()
@@ -1040,6 +1041,7 @@ export class Engine {
     const t = this.terrain
     const R = t.splatRes
     const stroke = new TerrainStroke(t, label, { mask: true })
+    stroke.reserveMask({ x0: 0, z0: 0, x1: R - 1, z1: R - 1 })
     fn(t.mask)
     stroke.touchMask({ x0: 0, z0: 0, x1: R - 1, z1: R - 1 })
     t.markMaskDirty()
@@ -1089,6 +1091,7 @@ export class Engine {
       return
     }
     const stroke = new TerrainStroke(t, 'Fill mask', { splat: true })
+    stroke.reserveSplat({ x0, z0, x1, z1 })
     let refused = 0
     for (let z = z0; z <= z1; z++) {
       for (let x = x0; x <= x1; x++) {
@@ -1149,6 +1152,7 @@ export class Engine {
     }
     const t = this.terrain
     const stroke = new TerrainStroke(t, hole ? 'Cut hole' : 'Fill hole', { holes: true })
+    stroke.reserveHoles({ x0: s.x0, z0: s.z0, x1: s.x1 - 1, z1: s.z1 - 1 })
     const n = fillHoles(t.holes, t.size, s.x0, s.z0, s.x1, s.z1, hole ? 1 : 0)
     if (!n) {
       setStatus(hole ? 'That area is already a hole.' : 'There is no hole in that area.')
@@ -1711,8 +1715,9 @@ export class Engine {
     const x0 = (c % side) * per
     const z0 = Math.floor(c / side) * per
     const stroke = new TerrainStroke(t, 'Replace texture here', { splat: true })
-    stroke.touchSplat({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
+    stroke.reserveSplat({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
     replaceInChunk(side, t.splatRes, t.chunkSlots, t.weights, c, slot, index)
+    stroke.touchSplat({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
     t.markSplatDirty({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
@@ -1754,6 +1759,7 @@ export class Engine {
   swapTexture(from: number, to: number) {
     const t = this.terrain
     const stroke = new TerrainStroke(t, 'Replace texture', { splat: true })
+    stroke.reserveSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
     replacePalette(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, from, to)
     stroke.touchSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
     t.markSplatDirty()
@@ -1766,6 +1772,7 @@ export class Engine {
   fillTextures(to: number) {
     const t = this.terrain
     const stroke = new TerrainStroke(t, 'Fill map with texture', { splat: true })
+    stroke.reserveSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
     clearPalette(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, to)
     stroke.touchSplat({ x0: 0, z0: 0, x1: t.splatRes - 1, z1: t.splatRes - 1 })
     t.markSplatDirty()

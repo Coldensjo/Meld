@@ -247,6 +247,7 @@ export function pasteRegion(
     const x1 = Math.min(size, px + clip.w)
     const z1 = Math.min(size, pz + clip.h)
     if (x1 >= x0 && z1 >= z0) {
+      stroke.reserveHeights({ x0, z0, x1, z1 })
       for (let z = z0; z <= z1; z++) {
         for (let x = x0; x <= x1; x++) {
           const cx = x - px
@@ -266,6 +267,7 @@ export function pasteRegion(
       const cx1 = Math.min(size - 1, px + clip.w - 1)
       const cz1 = Math.min(size - 1, pz + clip.h - 1)
       if (cx1 >= x0 && cz1 >= z0) {
+        stroke.reserveHoles({ x0, z0, x1: cx1, z1: cz1 })
         for (let z = z0; z <= cz1; z++) {
           for (let x = x0; x <= cx1; x++) terrain.holes[z * size + x] = clip.holes[(z - pz) * clip.w + (x - px)]
         }
@@ -299,6 +301,7 @@ export function pasteRegion(
     const mix = new Map<number, number>()
     const w4 = new Float32Array(SLOTS)
     let rect: Rect | null = null
+    stroke.reserveSplat({ x0: Math.max(0, tx0), z0: Math.max(0, tz0), x1: Math.min(R - 1, tx0 + tw - 1), z1: Math.min(R - 1, tz0 + th - 1) })
     for (let z = 0; z < th; z++) {
       const gz = tz0 + z
       if (gz < 0 || gz >= R) continue

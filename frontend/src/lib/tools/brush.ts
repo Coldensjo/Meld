@@ -1,6 +1,7 @@
 import type { Terrain } from '../terrain/Terrain'
 import { CHUNK_CELLS, SLOTS, SPLAT_PER_CELL, acquireSlotReplacing, addWeight, chunkOf, compactChunk } from '../terrain/chunkPaint'
 import type { Command } from '../state/history'
+import { BlockSnapshot } from './blockSnapshot'
 
 export interface Rect {
   x0: number
@@ -27,7 +28,10 @@ export function brushCenter(x: number, z: number, radius: number, cellSize: numb
   return [s(x), s(z)]
 }
 
-/** Iterate heightmap vertices under a circular brush. Returns touched rect. */
+/**
+ * Iterate heightmap vertices under a circular brush. Returns touched rect. A `stroke` that records
+ * heights saves the rect's blocks first, so what `fn` writes can be undone.
+ */
 export function forEachVertex(
   terrain: Terrain,
   cx: number,
@@ -35,6 +39,7 @@ export function forEachVertex(
   radius: number,
   falloff: number,
   fn: (index: number, w: number, x: number, z: number) => void,
+  stroke?: TerrainStroke | null,
 ): Rect | null {
   const cs = terrain.cellSize
   const x0 = Math.max(0, Math.floor((cx - radius) / cs))
@@ -42,6 +47,7 @@ export function forEachVertex(
   const x1 = Math.min(terrain.size, Math.ceil((cx + radius) / cs))
   const z1 = Math.min(terrain.size, Math.ceil((cz + radius) / cs))
   if (x1 < x0 || z1 < z0) return null
+  stroke?.reserveHeights({ x0, z0, x1, z1 })
   const V = terrain.verts
   for (let z = z0; z <= z1; z++) {
     for (let x = x0; x <= x1; x++) {
@@ -53,7 +59,10 @@ export function forEachVertex(
   return { x0, z0, x1, z1 }
 }
 
-/** Iterate splat texels under a circular brush. Returns touched texel rect. */
+/**
+ * Iterate splat texels under a circular brush. Returns touched texel rect. A `stroke` that records the
+ * paint or the mask saves the rect's chunks first, so what `fn` writes can be undone.
+ */
 export function forEachTexel(
   terrain: Terrain,
   cx: number,
@@ -61,6 +70,7 @@ export function forEachTexel(
   radius: number,
   falloff: number,
   fn: (pixel: number, w: number) => void,
+  stroke?: TerrainStroke | null,
 ): Rect | null {
   const R = terrain.splatRes
   const ts = terrain.worldSize / R
@@ -69,6 +79,7 @@ export function forEachTexel(
   const x1 = Math.min(R - 1, Math.ceil((cx + radius) / ts))
   const z1 = Math.min(R - 1, Math.ceil((cz + radius) / ts))
   if (x1 < x0 || z1 < z0) return null
+  stroke?.reserveTexels({ x0, z0, x1, z1 })
   for (let z = z0; z <= z1; z++) {
     for (let x = x0; x <= x1; x++) {
       const d = brushDist((x + 0.5) * ts - cx, (z + 0.5) * ts - cz, radius)
@@ -127,16 +138,20 @@ function inject(dst: Float32Array | Uint8Array, width: number, ch: number, r: Re
   }
 }
 
+/** Cells a side of the blocks a stroke saves: the splat's paint chunk, so a chunk's slots are saved whole. */
+const SNAPSHOT_BLOCK = TEXELS_PER_CHUNK
+
 /**
- * Records a brush stroke for undo. Snapshots the touched layers at stroke
- * start, tracks the dirty rect, and on finish stores only that sub-rect.
+ * Records a brush stroke for undo. Before a layer is written, `reserve*` saves the blocks under the
+ * rect about to change (the brush iterators do this for a stroke they are given); `touch*` grows the
+ * stroke's dirty rect after the write; and `finish` stores that sub-rect, before and after.
  */
 export class TerrainStroke {
-  private hBefore: Float32Array | null = null
-  private wBefore: Uint8Array | null = null
+  private hBefore: BlockSnapshot<Float32Array> | null = null
+  private wBefore: BlockSnapshot<Uint8Array> | null = null
   private slotsBefore: Uint8Array | null = null
-  private mBefore: Uint8Array | null = null
-  private holesBefore: Uint8Array | null = null
+  private mBefore: BlockSnapshot<Uint8Array> | null = null
+  private holesBefore: BlockSnapshot<Uint8Array> | null = null
   private hRect: Rect | null = null
   private sRect: Rect | null = null
   private mRect: Rect | null = null
@@ -148,29 +163,70 @@ export class TerrainStroke {
     opts: { heights?: boolean; splat?: boolean; mask?: boolean; holes?: boolean },
     private onHeightsChanged?: (r: Rect) => void,
   ) {
-    if (opts.heights) this.hBefore = terrain.heights.slice()
+    const R = terrain.splatRes
+    if (opts.heights) this.hBefore = new BlockSnapshot(terrain.heights, terrain.verts, terrain.verts, 1, SNAPSHOT_BLOCK)
     if (opts.splat) {
-      this.wBefore = terrain.weights.slice()
+      this.wBefore = new BlockSnapshot(terrain.weights, R, R, SLOTS, SNAPSHOT_BLOCK)
       this.slotsBefore = terrain.chunkSlots.slice()
     }
-    if (opts.mask) this.mBefore = terrain.mask.slice()
-    if (opts.holes) this.holesBefore = terrain.holes.slice()
+    if (opts.mask) this.mBefore = new BlockSnapshot(terrain.mask, R, R, 1, SNAPSHOT_BLOCK)
+    if (opts.holes) this.holesBefore = new BlockSnapshot(terrain.holes, terrain.size, terrain.size, 1, SNAPSHOT_BLOCK)
+  }
+
+  /** Saves the heights (vertex rect, inclusive) about to be written. */
+  reserveHeights(r: Rect | null) {
+    if (r) this.hBefore?.reserve(r)
+  }
+
+  /** Saves the paint (texel rect, inclusive) about to be written. */
+  reserveSplat(r: Rect | null) {
+    if (r) this.wBefore?.reserve(r)
+  }
+
+  /** Saves the mask (texel rect, inclusive) about to be written. */
+  reserveMask(r: Rect | null) {
+    if (r) this.mBefore?.reserve(r)
+  }
+
+  /** Saves the holes (cell rect, inclusive) about to be written. */
+  reserveHoles(r: Rect | null) {
+    if (r) this.holesBefore?.reserve(r)
+  }
+
+  /** Saves whichever of the paint and the mask the stroke records, under a texel rect about to be written. */
+  reserveTexels(r: Rect | null) {
+    this.reserveSplat(r)
+    this.reserveMask(r)
+  }
+
+  /**
+   * A write that reached blocks that were not saved first can't be undone there. It's a bug in the
+   * caller; the blocks are saved now (too late) so the rest of the stroke still records.
+   */
+  private late(snap: BlockSnapshot<Float32Array> | BlockSnapshot<Uint8Array> | null, r: Rect | null, what: string) {
+    if (!snap || !r || snap.covers(r)) return
+    console.warn(`TerrainStroke: ${what} written before they were reserved; undo will not restore them`)
+    snap.reserve(r)
   }
 
   /** A cell rect (inclusive cells) whose holes changed. */
   touchHoles(r: Rect | null) {
+    this.late(this.holesBefore, r, 'holes')
     this.holesRect = grow(this.holesRect, r)
   }
 
   touchMask(r: Rect | null) {
+    this.late(this.mBefore, r, 'mask texels')
     this.mRect = grow(this.mRect, r)
   }
 
   touchHeights(r: Rect | null) {
+    this.late(this.hBefore, r, 'heights')
     this.hRect = grow(this.hRect, r)
   }
 
   touchSplat(r: Rect | null) {
+    this.late(this.wBefore, r, 'paint texels')
     this.sRect = grow(this.sRect, r)
   }
 
@@ -201,7 +257,7 @@ export class TerrainStroke {
     const parts: Array<{ apply: (before: boolean) => void }> = []
     if (this.hBefore && this.hRect) {
       const r = this.hRect
-      const before = extract(this.hBefore, t.verts, 1, r)
+      const before = this.hBefore.extract(r)
       const after = extract(t.heights, t.verts, 1, r)
       const cb = this.onHeightsChanged
       parts.push({
@@ -218,7 +274,7 @@ export class TerrainStroke {
       const slotsChanged = slotsAfter.some((v, i) => v !== this.slotsBefore![i])
       const r = this.sRect
       const R = t.splatRes
-      const wB = r ? extract(this.wBefore, R, SLOTS, r) : null
+      const wB = r ? this.wBefore.extract(r) : null
       const wA = r ? extract(t.weights, R, SLOTS, r) : null
       if (r || slotsChanged) {
         const slotsBefore = this.slotsBefore
@@ -234,7 +290,7 @@ export class TerrainStroke {
     if (this.mBefore && this.mRect) {
       const r = this.mRect
       const R = t.splatRes
-      const before = extract(this.mBefore, R, 1, r)
+      const before = this.mBefore.extract(r)
       const after = extract(t.mask, R, 1, r)
       parts.push({
         apply: (b) => {
@@ -246,7 +302,7 @@ export class TerrainStroke {
     if (this.holesBefore && this.holesRect) {
       const r = this.holesRect
       const n = t.size
-      const before = extract(this.holesBefore, n, 1, r)
+      const before = this.holesBefore.extract(r)
       const after = extract(t.holes, n, 1, r)
       parts.push({
         apply: (b) => {
