@@ -253,13 +253,14 @@ func (m *modelTables) dressCharacter(out *creatureDisplay, er int) {
 			worn[i] = row
 		}
 	}
-	// ItemDisplayInfo: 1-2 models, 3-4 their textures, 7-9 geoset groups, 12-13 the helmet's
-	// HelmetGeosetVisData for a male and a female wearer.
+	// ItemDisplayInfo (23 fields in 1.12): 1-2 models, 3-4 their textures, 5 the icon, 6-8 the
+	// geoset groups, 9 flags, 10 spell visual, 11 group sound, 12-13 the helmet's HelmetGeosetVisData
+	// for a male and a female wearer, 14-21 the body-region textures.
 	group := func(slot, i int) int {
 		if worn[slot] < 0 {
 			return 0
 		}
-		return int(m.itemDisplay.u32(worn[slot], 7+i))
+		return int(m.itemDisplay.u32(worn[slot], 6+i))
 	}
 	for _, slot := range []int{wearShirt, wearChest} {
 		if v := group(slot, 0); v > 0 {

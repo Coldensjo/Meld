@@ -64,8 +64,9 @@ func humanTables(t *testing.T) *modelTables {
 		itemDisplay: testDBC(t, 23,
 			[]any{100, "Helm_A.mdx", "", "HelmTex", "", "", "", 0, 0, 0, 0, 0, 50, 51},
 			[]any{101, "LShoulder_A.mdx", "RShoulder_A.mdx", "ShoulderTex", "ShoulderTex"},
-			[]any{102, "", "", "", "", "", "", 1, 0, 1},
-			[]any{103, "", "", "", "", "", "", 2},
+			// 102: a robe with sleeves (geoset groups at 6-8); 103: gloves of variant 2.
+			[]any{102, "", "", "", "", "", 1, 0, 1},
+			[]any{103, "", "", "", "", "", 2},
 			[]any{104, "Sword_A.mdx", "", "SwordTex"},
 			[]any{105, "Shield_A.mdx", "", "ShieldTex"},
 			[]any{106, "Bow_A.mdx", "", "BowTex"}),
