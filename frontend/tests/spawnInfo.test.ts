@@ -43,9 +43,9 @@ test('orientation converts from radians to whole degrees', () => {
 
 test('a spawn type carries the look and pose the model endpoint dresses the model by', () => {
   assert.equal(spawnType({ model: '' }), '')
-  assert.equal(spawnType({ model: 'World\Wmo\Inn.wmo', look: 'geo=0', anim: 4 }), 'wmo:World\Wmo\Inn.wmo')
-  assert.equal(spawnType({ model: 'Creature\Wolf\Wolf.mdx' }), 'm2:Creature\Wolf\Wolf.mdx')
-  assert.equal(spawnType({ model: 'Creature\Wolf\Wolf.mdx', look: '', anim: 0 }), 'm2:Creature\Wolf\Wolf.mdx')
-  assert.equal(spawnType({ model: 'Character\Human\Male\HumanMale.mdx', look: 'geo=0%2C5', anim: 69 }), 'm2:Character\Human\Male\HumanMale.mdx?geo=0%2C5&anim=69')
-  assert.equal(spawnType({ model: 'Creature\Wolf\Wolf.mdx', anim: 97 }), 'm2:Creature\Wolf\Wolf.mdx?anim=97')
+  assert.equal(spawnType({ model: 'World\\Wmo\\Inn.wmo', look: 'geo=0', anim: 4 }), 'wmo:World\\Wmo\\Inn.wmo')
+  assert.equal(spawnType({ model: 'Creature\\Wolf\\Wolf.mdx' }), 'm2:Creature\\Wolf\\Wolf.mdx')
+  assert.equal(spawnType({ model: 'Creature\\Wolf\\Wolf.mdx', look: '', anim: 0 }), 'm2:Creature\\Wolf\\Wolf.mdx')
+  assert.equal(spawnType({ model: 'Character\\Human\\Male\\HumanMale.mdx', look: 'geo=0%2C5', anim: 69 }), 'm2:Character\\Human\\Male\\HumanMale.mdx?geo=0%2C5&anim=69')
+  assert.equal(spawnType({ model: 'Creature\\Wolf\\Wolf.mdx', anim: 97 }), 'm2:Creature\\Wolf\\Wolf.mdx?anim=97')
 })
