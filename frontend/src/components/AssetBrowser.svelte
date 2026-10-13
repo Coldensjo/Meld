@@ -163,10 +163,15 @@
   async function reveal(key: string) {
     const it = itemFor(key)
     if (!it) return
+    if (kind !== 'all' && kind !== it.kind) {
+      chooseKind(it.kind)
+      // The kind change clears the filters in its effect; set ours after it has run.
+      await tick()
+    }
+    // Its own zone and category (Durotar › Trees), so the list is short and few thumbnails load.
     query = ''
-    category = ''
-    zone = ''
-    if (kind !== 'all' && kind !== it.kind) chooseKind(it.kind)
+    zone = it.zone
+    category = it.category
     prefs.browserCollapsed = false
     // Let the list and the reset-to-top effect settle before scrolling to the row.
     await tick()
