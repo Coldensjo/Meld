@@ -26,8 +26,9 @@ export function pickLayer(t: Terrain, hit: THREE.Vector3): boolean {
   return true
 }
 
-/** Makes a placed model's type the model to place next (Alt+click on it). */
+/** Makes a placed model's type the model to place next and switches to the Place tool (Alt+click on it). */
 export function pickModel(o: WorldObject) {
   editor.prefab = o.type
-  setStatus(`Picked ${displayName(o.type)} to place. Switch to the Place tool (6) to put more down.`, 3000)
+  editor.tool = 'place'
+  setStatus(`Picked ${displayName(o.type)}: click to place more.`, 3000)
 }
