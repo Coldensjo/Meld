@@ -70,11 +70,18 @@
   const result = $derived(searchAssets(all, { kind, query, category, zone }, orderFor(kind)))
   const items = $derived(result.items)
 
+  /**
+   * A key as the client's tiles name models: lower case, and the old .mdx extension as .m2. A model
+   * picked from a loaded region (the pipette) only matches the catalog this way.
+   */
+  const normKey = (k: string) => k.toLowerCase().replace(/\.mdx$/, '.m2')
+  const byNormKey = $derived(new Map(all.map((it) => [normKey(it.key), it])))
+  const itemFor = (key: string) => byNormKey.get(normKey(key)) ?? null
+
   /** Recently picked assets, newest first, shown when the search box is empty. */
   const recent = $derived.by(() => {
     if (query || category || zone) return []
-    const byKey = new Map(all.map((it) => [it.key, it]))
-    return prefs.recentAssets.map((k) => byKey.get(k)).filter((it): it is SearchItem => !!it && (kind === 'all' || it.kind === kind))
+    return prefs.recentAssets.map(itemFor).filter((it): it is SearchItem => !!it && (kind === 'all' || it.kind === kind))
   })
 
   function remember(key: string) {
@@ -110,7 +117,8 @@
   }
 
   const slotOf = (path: string) => paletteIndex(editor.palette, path)
-  const isActive = (it: SearchItem) => (it.kind === 'tex' ? slotOf(it.path) >= 0 && slotOf(it.path) === editor.paintLayer : editor.prefab === it.key)
+  const activeModel = $derived(itemFor(editor.prefab))
+  const isActive = (it: SearchItem) => (it.kind === 'tex' ? slotOf(it.path) >= 0 && slotOf(it.path) === editor.paintLayer : activeModel === it)
   const badgeOf = (it: SearchItem) => {
     if (it.kind !== 'tex') return undefined
     const s = slotOf(it.path)
@@ -140,8 +148,7 @@
   /** The tile a shown item gets in the sidebar list of the selected model, when it exists. */
   const previewItem = $derived.by(() => {
     if (hovered) return hovered
-    const key = kind === 'tex' ? `tex:${editor.palette[editor.paintLayer] ?? ''}` : editor.prefab
-    return all.find((it) => it.key === key) ?? null
+    return kind === 'tex' ? itemFor(`tex:${editor.palette[editor.paintLayer] ?? ''}`) : activeModel
   })
 
   function onKey(e: KeyboardEvent) {
