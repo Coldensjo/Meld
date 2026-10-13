@@ -14,7 +14,7 @@ import { OCEAN_OPACITY, RIVER_OPACITY, autoOpacity, paintLiquid } from '../water
 import { LiquidStroke } from '../water/liquidStroke'
 
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
-const CHUNK_FULL = 'That chunk already has four textures (the 1.12 limit). Paint with one of them, or erase another.'
+const CHUNK_FULL = 'Not painted: that chunk already has four textures (the 1.12 limit). Replace one in the Layers panel, use Swap mode, or paint with one of its four.'
 
 /** Splat texel under world point (x, z), clamped to the map. */
 /** The palette index of the texture with the most weight under world point (x, z), or -1 if none. */

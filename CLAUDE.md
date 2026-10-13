@@ -89,8 +89,10 @@ cd frontend && pnpm build   # frontend only
   and each chunk holds at most `SLOTS` (4) textures. `Terrain.chunkSlots` names a chunk's textures
   (palette indices) and `Terrain.weights` holds four weights per splat texel, always summing to 255.
   `paintPixel` (`tools/brush.ts`) acquires a slot for the brush texture: it compacts slots a stroke
-  emptied, and a chunk that is still full gives up its weakest texture (`acquireSlotReplacing`), so
-  painting never refuses. Stroke undo covers whole chunks (`settleSlots`).
+  emptied, and a chunk that is still full refuses the fifth texture (`acquireSlotCompacting` returns
+  -1), which the tools report in the status bar (`CHUNK_FULL`). Only Swap mode and the Layers
+  panel's Replace put a texture into a full chunk (`acquireSlotReplacing`, which evicts the weakest
+  or the swapped-out one). Stroke undo covers whole chunks (`settleSlots`).
 - **Shaders** are custom `ShaderMaterial`s (terrain, water, sky). They include three's fog,
   tonemapping and colorspace chunks. Prop lighting (Hemisphere + Directional, intensities ×π) is
   tuned to match the terrain shader's uniforms. Change both together.
