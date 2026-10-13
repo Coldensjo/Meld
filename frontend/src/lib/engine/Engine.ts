@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { GenerateKind } from '../terrain/Terrain'
+import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
 import { docs, editor, setStatus, stats, ui, type Prefs, type ToolId } from '../state/editor.svelte'
@@ -1035,16 +1035,24 @@ export class Engine {
 
   // ---------------------------------------------------------------- paint mask
 
+  /** The last mask scan, by map and mask version, so a stroke that left the mask alone skips the scan. */
+  private maskScan: { terrain: Terrain; version: number; active: boolean } | null = null
+
   /** Publish whether the active map's mask has anything in it. */
   refreshMaskState() {
-    const m = this.terrain.mask
-    let any = false
-    for (let i = 0; i < m.length; i += 3) {
-      if (m[i]) {
-        any = true
-        break
-      }
+    const t = this.terrain
+    const s = this.maskScan
+    if (s && s.terrain === t && s.version === t.maskVersion) {
+      ui.maskActive = s.active
+      return
     }
+    const m = t.mask
+    // Four texels a step: the mask is a whole number of words (its side is a multiple of 32).
+    const words = new Uint32Array(m.buffer, m.byteOffset, m.byteLength >> 2)
+    let any = false
+    for (let i = 0; i < words.length && !any; i++) if (words[i]) any = true
+    for (let i = words.length << 2; i < m.length && !any; i++) if (m[i]) any = true
+    this.maskScan = { terrain: t, version: t.maskVersion, active: any }
     ui.maskActive = any
   }
 
