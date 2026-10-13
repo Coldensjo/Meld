@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { getAsset, isWowType, onAssetLoaded, skinnedType } from '../models/assets'
+import { SkinnedInstancedMesh } from './Animator'
 
 export type SpawnKind = 'monster' | 'npc' | 'object'
 
@@ -115,7 +116,8 @@ export class SpawnLayer {
       const ready = asset?.ready === true
       const geometry = ready ? asset.geometry : this.cone
       const material = ready ? asset.material : this.coneMaterials.get(b.kind)!
-      const mesh = new THREE.InstancedMesh(geometry, material, b.items.length)
+      const mesh =
+        ready && asset.skeleton ? new SkinnedInstancedMesh(geometry, material, b.items.length, asset.skeleton) : new THREE.InstancedMesh(geometry, material, b.items.length)
       mesh.userData.kind = b.kind
       mesh.userData.items = b.items
       mesh.frustumCulled = false

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
+import { SkinnedInstancedMesh } from './Animator'
 
 export interface WorldObject {
   id: number
@@ -272,7 +273,7 @@ export class ObjectLayer {
 
   private makeMesh(type: string, capacity: number) {
     const a = getAsset(type)
-    const m = new THREE.InstancedMesh(a.geometry, a.material, capacity)
+    const m = a.skeleton ? new SkinnedInstancedMesh(a.geometry, a.material, capacity, a.skeleton) : new THREE.InstancedMesh(a.geometry, a.material, capacity)
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     m.count = 0
     m.userData.type = type

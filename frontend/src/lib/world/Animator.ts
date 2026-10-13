@@ -1,14 +1,19 @@
 import * as THREE from 'three'
 import type { AnimBone, AnimTrack } from '../wow/api'
 
+const IDENTITY = new THREE.Matrix4()
+
 /**
- * Plays a model's idle loop by skinning its shared geometry on the CPU. All
- * instances of a model animate in sync, so the cost is per model type, not
- * per placed object — fine for doodads (windmills, flags, braziers).
+ * Plays a model's idle loop on the GPU. Each frame the bones' matrices are sampled into a Skeleton
+ * that every instance of the model shares, and the shader skins the vertices from it, so a model
+ * type costs its bone count per frame rather than its vertex count, and nothing but the small bone
+ * texture is uploaded. All instances of a model animate in sync.
  */
 export class ModelAnimation {
-  private bindPos: Float32Array
-  private bindNor: Float32Array
+  /** The bones' current matrices in model space, for any mesh drawing the geometry. */
+  readonly skeleton: THREE.Skeleton
+  private bones: AnimBone[]
+  /** The matrix of each bone: its Bone's world matrix, which the skeleton reads. */
   private mats: THREE.Matrix4[]
   private tmpV = new THREE.Vector3()
   private tmpQ = new THREE.Quaternion()
@@ -17,20 +22,31 @@ export class ModelAnimation {
   private pivot = new THREE.Matrix4()
   private unpivot = new THREE.Matrix4()
 
-  constructor(
-    private geometry: THREE.BufferGeometry,
-    private bones: AnimBone[],
-    private boneIdx: Uint8Array,
-    private boneW: Uint8Array,
-  ) {
-    const pos = geometry.attributes.position.array as Float32Array
-    const nor = geometry.attributes.normal.array as Float32Array
-    this.bindPos = pos.slice()
-    this.bindNor = nor.slice()
-    // Each mesh animates in place; make sure the GPU copy is updatable.
-    ;(geometry.attributes.position as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage)
-    ;(geometry.attributes.normal as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage)
-    this.mats = bones.map(() => new THREE.Matrix4())
+  constructor(geometry: THREE.BufferGeometry, bones: AnimBone[], boneIdx: Uint8Array, boneW: Uint8Array) {
+    this.bones = bones
+    // A vertex no bone moves (all weights zero) keeps the bind pose through a still bone at the end.
+    const rest = bones.length
+    const idx = boneIdx.slice()
+    const w = boneW.slice()
+    const still = rest <= 255
+    if (still) {
+      for (let o = 0; o < w.length; o += 4) {
+        if (w[o] + w[o + 1] + w[o + 2] + w[o + 3] === 0) {
+          idx[o] = rest
+          w[o] = 255
+        }
+      }
+    }
+    geometry.setAttribute('skinIndex', new THREE.BufferAttribute(idx, 4))
+    geometry.setAttribute('skinWeight', new THREE.BufferAttribute(w, 4, true))
+    const list: THREE.Bone[] = []
+    for (let i = 0; i < rest + (still ? 1 : 0); i++) {
+      const b = new THREE.Bone()
+      b.matrixAutoUpdate = false
+      list.push(b)
+    }
+    this.mats = list.map((b) => b.matrixWorld)
+    this.skeleton = new THREE.Skeleton(list, list.map(() => new THREE.Matrix4()))
   }
 
   /** Sample a track at time `ms` into `out` (3 or 4 components). */
@@ -58,6 +74,7 @@ export class ModelAnimation {
   private s3 = [0, 0, 0]
   private s4 = [0, 0, 0, 1]
 
+  /** Poses the bones for time `ms`. The skeleton picks the matrices up when it is next drawn. */
   update(ms: number) {
     const b = this.bones
     for (let i = 0; i < b.length; i++) {
@@ -86,39 +103,41 @@ export class ModelAnimation {
       // M2 lists parents before children.
       if (bone.parent >= 0 && bone.parent < i) m.premultiply(this.mats[bone.parent])
     }
-
-    const pos = this.geometry.attributes.position.array as Float32Array
-    const nor = this.geometry.attributes.normal.array as Float32Array
-    const bp = this.bindPos
-    const bn = this.bindNor
-    const bi = this.boneIdx
-    const bw = this.boneW
-    const n = bp.length / 3
-    for (let v = 0; v < n; v++) {
-      const x = bp[v * 3], y = bp[v * 3 + 1], z = bp[v * 3 + 2]
-      const nx = bn[v * 3], ny = bn[v * 3 + 1], nz = bn[v * 3 + 2]
-      let px = 0, py = 0, pz = 0, qx = 0, qy = 0, qz = 0, wsum = 0
-      for (let k = 0; k < 4; k++) {
-        const w = bw[v * 4 + k]
-        if (!w) continue
-        const e = this.mats[bi[v * 4 + k]].elements
-        const f = w / 255
-        wsum += f
-        px += (e[0] * x + e[4] * y + e[8] * z + e[12]) * f
-        py += (e[1] * x + e[5] * y + e[9] * z + e[13]) * f
-        pz += (e[2] * x + e[6] * y + e[10] * z + e[14]) * f
-        qx += (e[0] * nx + e[4] * ny + e[8] * nz) * f
-        qy += (e[1] * nx + e[5] * ny + e[9] * nz) * f
-        qz += (e[2] * nx + e[6] * ny + e[10] * nz) * f
-      }
-      if (wsum === 0) {
-        px = x; py = y; pz = z; qx = nx; qy = ny; qz = nz
-      }
-      pos[v * 3] = px; pos[v * 3 + 1] = py; pos[v * 3 + 2] = pz
-      const l = Math.hypot(qx, qy, qz) || 1
-      nor[v * 3] = qx / l; nor[v * 3 + 1] = qy / l; nor[v * 3 + 2] = qz / l
-    }
-    this.geometry.attributes.position.needsUpdate = true
-    this.geometry.attributes.normal.needsUpdate = true
   }
+}
+
+/**
+ * Instances of an animated model. The renderer skins any object flagged as a skinned mesh with its
+ * skeleton, in model space before the instance matrix applies, so the instances share one pose.
+ */
+export class SkinnedInstancedMesh extends THREE.InstancedMesh {
+  /** Read by the renderer: skin the vertices with `skeleton` in the shader. */
+  readonly isSkinnedMesh = true
+  readonly bindMatrix = IDENTITY
+  readonly bindMatrixInverse = IDENTITY
+  readonly skeleton: THREE.Skeleton
+
+  constructor(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], count: number, skeleton: THREE.Skeleton) {
+    super(geometry, material, count)
+    this.skeleton = skeleton
+  }
+}
+
+/**
+ * One mesh of a model: a skinned mesh posed by `skeleton` when the model animates, so a preview or
+ * an outline follows the instances, else a plain mesh.
+ */
+export function modelMesh(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], skeleton?: THREE.Skeleton | null): THREE.Mesh {
+  if (!skeleton) return new THREE.Mesh(geometry, material)
+  const m = new THREE.SkinnedMesh(geometry, material)
+  // The bones are in model space, so the mesh's own transform must not fold into the bind matrix.
+  m.bindMode = THREE.DetachedBindMode
+  m.bind(skeleton, IDENTITY)
+  return m
+}
+
+/** Whether `mesh` is posed by `skeleton` (null: not skinned at all), as modelMesh makes it. */
+export function hasSkeleton(mesh: THREE.Mesh, skeleton: THREE.Skeleton | null | undefined): boolean {
+  const s = (mesh as THREE.SkinnedMesh).isSkinnedMesh ? (mesh as THREE.SkinnedMesh).skeleton : null
+  return (s ?? null) === (skeleton ?? null)
 }

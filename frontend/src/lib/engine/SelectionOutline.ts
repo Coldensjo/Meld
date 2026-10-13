@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { ModelAsset } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
+import { hasSkeleton, modelMesh } from '../world/Animator'
 
 const MAX_BOXES = 8
 
@@ -96,11 +97,16 @@ export class SelectionOutline {
         uniforms: { map: { value: null }, useMap: { value: 0 }, cutoff: { value: 0 }, ...this.shared },
         defines: { MAX_BOXES },
         vertexShader: /* glsl */ `
+          #include <skinning_pars_vertex>
           varying vec2 vUv;
           varying vec3 vWorld;
           void main() {
             vUv = uv;
-            vec4 w = modelMatrix * vec4(position, 1.0);
+            // An animated model's proxy is skinned, so the outline follows the pose.
+            #include <skinbase_vertex>
+            #include <begin_vertex>
+            #include <skinning_vertex>
+            vec4 w = modelMatrix * vec4(transformed, 1.0);
             vWorld = w.xyz;
             gl_Position = projectionMatrix * viewMatrix * w;
           }`,
@@ -192,10 +198,19 @@ export class SelectionOutline {
       this.proxies.push(p)
     }
     for (let i = 0; i < this.proxies.length; i++) {
-      const proxy = this.proxies[i]
+      let proxy = this.proxies[i]
       const t = targets[i]
       proxy.visible = !!t
       if (!t) continue
+      if (!hasSkeleton(proxy, t.asset.skeleton)) {
+        // An animated model's stand-in is skinned with its bones, so the outline follows the pose.
+        proxy = modelMesh(t.asset.geometry, t.asset.material, t.asset.skeleton)
+        proxy.matrixAutoUpdate = false
+        proxy.frustumCulled = false
+        this.maskScene.remove(this.proxies[i])
+        this.maskScene.add(proxy)
+        this.proxies[i] = proxy
+      }
       proxy.geometry = t.asset.geometry
       proxy.material = Array.isArray(t.asset.material) ? t.asset.material.map((m) => this.maskMaterial(m)) : this.maskMaterial(t.asset.material)
       proxy.matrix.copy(t.matrix)

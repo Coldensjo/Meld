@@ -7,6 +7,7 @@ import type { ObjectClip } from '../world/clipboard'
 import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
+import { hasSkeleton, modelMesh } from '../world/Animator'
 
 function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
   const saved = added.map((o) => ({ ...o }))
@@ -115,10 +116,16 @@ export class PlaceTool implements Tool {
     }
     const asset = getAsset(editor.prefab)
     if (asset !== this.ghostAsset) {
-      // Async models swap from placeholder to the real mesh when loaded.
+      // Async models swap from placeholder to the real mesh when loaded. An animated model's preview
+      // is a skinned mesh, so it moves as the placed copies will.
       this.ghostAsset = asset
-      this.ghost.geometry = asset.geometry
-      this.ghost.material = asset.material
+      const next = modelMesh(asset.geometry, asset.material, asset.skeleton)
+      next.renderOrder = this.ghost.renderOrder
+      next.visible = this.ghost.visible
+      const parent = this.ghost.parent
+      parent?.remove(this.ghost)
+      this.ghost = next
+      parent?.add(next)
     }
     // The preview sits on whatever is under the cursor: terrain, a building, another prop.
     const surf = hit ? ctx.surface() : null
@@ -292,14 +299,17 @@ export class SelectTool implements Tool {
     }
     const byCid = new Map<number, THREE.Mesh>()
     for (let i = 0; i < this.ghosts.length; i++) {
-      const g = this.ghosts[i]
+      let g = this.ghosts[i]
       const o = list[i]
       g.visible = !!o
       if (!o || !at) continue
       const asset = getAsset(o.type)
-      if (g.geometry !== asset.geometry) {
-        g.geometry = asset.geometry
-        g.material = asset.material
+      if (g.geometry !== asset.geometry || !hasSkeleton(g, asset.skeleton)) {
+        g = modelMesh(asset.geometry, asset.material, asset.skeleton)
+        g.matrixAutoUpdate = false
+        this.ghostGroup.remove(this.ghosts[i])
+        this.ghostGroup.add(g)
+        this.ghosts[i] = g
       }
       byCid.set(o.cid, g)
       if (o.cparent !== undefined) {

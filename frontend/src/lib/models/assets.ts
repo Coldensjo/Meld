@@ -13,8 +13,10 @@ export interface ModelAsset {
   bbox: THREE.Box3
   /** False for the placeholder shown while loading or when loading failed. */
   ready: boolean
-  /** Idle animation (shared geometry is skinned in place), if the model moves. */
+  /** Idle animation, if the model moves: poses `skeleton` each frame. */
   anim?: ModelAnimation
+  /** The bones every mesh of an animated model is skinned with (see world/Animator.ts). */
+  skeleton?: THREE.Skeleton
   /** Lights and flames in model space. */
   effects: MeshEffect[]
 }
@@ -200,6 +202,7 @@ export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
   const asset: ModelAsset = { geometry: geo, material: materials, bbox, ready: true, effects: m.effects }
   if (animateAs !== undefined && m.bones && m.boneIdx && m.boneW) {
     asset.anim = new ModelAnimation(geo, m.bones, m.boneIdx, m.boneW)
+    asset.skeleton = asset.anim.skeleton
     animatedAssets.set(animateAs, asset)
   }
   return asset
