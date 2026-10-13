@@ -221,7 +221,7 @@ cd frontend && pnpm build   # frontend only
   shader) and assigns a pool of `LIGHT_POOL` (8) `PointLight`s to the nearest light sources,
   with flicker.
   - A prop's coincident light and flames merge into one light.
-  - The nearest `SHADOW_LIGHTS` (3) cast cube shadows so they don't shine through walls. Their maps
+  - The nearest `SHADOW_LIGHTS` (3) cast cube shadows (even with the Shadows pref off) so they don't shine through walls. Their maps
     redraw only when a light gets another source or the objects or terrain change, and culling keeps
     every model within their reach (`CullView.spheres`). The terrain shader applies them per light
     and reads the sun's shadow alone (`keyShadow`), not `getShadowMask`.

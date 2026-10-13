@@ -140,6 +140,7 @@ export class PropEffects {
       this.lights.push(l)
       this.group.add(l)
     }
+    this.setShadows(true)
   }
 
   /** Rebuild the source list when the objects (or loaded assets) changed. */
@@ -195,7 +196,11 @@ export class PropEffects {
     this.seeds.needsUpdate = true
   }
 
-  /** Whether the nearest lights cast shadows (the shadow preference). Changing it recompiles shaders. */
+  /**
+   * Whether the nearest lights cast shadows. On from the start, whatever the sun's Shadows preference:
+   * their maps redraw only on changes, and without them lights shine through walls. Changing it
+   * recompiles shaders.
+   */
   setShadows(on: boolean) {
     if (on === this.shadows) return
     this.shadows = on

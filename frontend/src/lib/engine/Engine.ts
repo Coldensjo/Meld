@@ -609,7 +609,6 @@ export class Engine {
     if (!p.dayCycle) this.hour = p.timeOfDay
     this.env.setClouds(p.clouds)
     this.env.setShadows(p.shadows)
-    this.effects.setShadows(p.shadows !== 'off')
     const ratio = Math.min(window.devicePixelRatio * p.renderScale, 3)
     if (this.renderer.getPixelRatio() !== ratio) {
       this.renderer.setPixelRatio(ratio)
