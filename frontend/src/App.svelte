@@ -15,7 +15,7 @@
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
   import { LAYERS } from './lib/terrain/layers'
-  import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from './lib/state/editor.svelte'
+  import { MAX_BRUSH_RADIUS, editor, prefs, setStatus, stepCameraSpeed, ui, wow } from './lib/state/editor.svelte'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveOrPublish } from './lib/io/mapio'
   import { requestClose } from './components/DocTabs.svelte'
@@ -113,7 +113,7 @@
     const tool = TOOLS.find((t) => t.key === e.key || t.letter?.toLowerCase() === key)
     if (tool) editor.tool = tool.id
     else if (e.key === '[') editor.brush.radius = Math.max(1, editor.brush.radius / 1.15)
-    else if (e.key === ']') editor.brush.radius = Math.min(80, editor.brush.radius * 1.15)
+    else if (e.key === ']') editor.brush.radius = Math.min(MAX_BRUSH_RADIUS, editor.brush.radius * 1.15)
     else if (key === 'g') editor.grid = !editor.grid
     else if (key === 't' && editor.tool !== 'paint') {
       prefs.cameraFollowGround = !prefs.cameraFollowGround

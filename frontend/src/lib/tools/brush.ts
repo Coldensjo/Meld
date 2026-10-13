@@ -14,7 +14,7 @@ export { brushShape, brushWeight, FALLOFF_CURVES, type FalloffCurve } from './fa
 import { brushShape, brushWeight } from './falloff'
 
 /** Normalised brush distance: circle (euclidean) or square (chebyshev). */
-function brushDist(dx: number, dz: number, radius: number) {
+export function brushDist(dx: number, dz: number, radius: number) {
   return (brushShape.square ? Math.max(Math.abs(dx), Math.abs(dz)) : Math.sqrt(dx * dx + dz * dz)) / radius
 }
 

@@ -45,6 +45,29 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   back to PCF), shadow maps are depth textures, and inside `#pragma unroll_loop` only
   `UNROLLED_LOOP_INDEX` and `[ i ]` are substituted.
 
+## Scripted brush strokes
+
+Checks: what a sculpt mode does to the heights, without dragging the mouse. In the dev page
+(`javascript_tool`), make a flat map and drive the tool directly:
+
+```js
+const e = window.__engine
+const ed = (await import(performance.getEntriesByType('resource').map(r => r.name).find(n => n.includes('editor.svelte.ts')))).editor
+e.newDocument(256, 'flat', 0, 'Brushes')
+ed.tool = 'sculpt'; e.frame()                 // frame() activates the tool
+ed.sculptMode = 'crevice'; ed.brush.radius = 14; ed.brush.strength = 1
+const V3 = e.controller.target.constructor    // THREE.Vector3
+const at = (x, z) => new V3(x, e.terrain.heightAt(x, z), z)
+e.tools.sculpt.onDown(e.ctx, at(60, 300))
+for (let i = 0; i < 120; i++) e.tools.sculpt.tick(e.ctx, 0.05, at(60 + i * 2, 300))
+e.tools.sculpt.onUp(e.ctx)                    // pushes the undo step
+e.controller.target.set(180, 0, 300); e.controller.distance = 120; for (let i = 0; i < 5; i++) e.frame()
+e.terrain.heightAt(180, 300)                  // then screenshot
+```
+
+- `tick(dt)` scales by `dt`, so a fast scripted drag digs as little as a fast real one.
+- `e.history.undo()` then `e.frame()` checks the stroke's undo.
+
 ## Reproducing a user's view
 
 - A pasted `WorldEditor scene {...}` line (Help > Copy Scene) loads with

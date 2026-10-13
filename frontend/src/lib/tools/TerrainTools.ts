@@ -4,7 +4,8 @@ import type { Command } from '../state/history'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
-import { TerrainStroke, brushCenter, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
+import { TerrainStroke, brushCenter, brushDist, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
+import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale } from './sculptShapes'
 import { dominantTexel, swapTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
@@ -89,6 +90,10 @@ abstract class BrushTool implements Tool {
 }
 
 const RAISE_RATE = 18 // world units per second at strength 1
+/** Mountain builds much faster than Raise, since a peak is a few hundred units tall. */
+const MOUNTAIN_RATE = RAISE_RATE * 4
+/** Crevice digs at this rate (the ridges rise with what was dug); faster than Raise since a dragged brush passes each spot briefly. */
+const CREVICE_RATE = RAISE_RATE * 2
 
 /** Weighted mean height under the brush: the flatten target when it averages. */
 function averageHeight(t: Terrain, x: number, z: number, radius: number, falloff: number): number {
@@ -340,8 +345,14 @@ export class SculptTool extends BrushTool {
         const k = Math.min(1, rate * 8)
         const target = this.flattenTarget
         const dir = editor.flattenDir
-        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
-          const d = target - h[i]
+        // Angled: the target is a plane through the stroke's start, pivoting there like noggit's.
+        const ang = editor.flattenAngled
+        const angled = ang.on && ang.angle !== 0
+        const ox = this.strokeStart.x
+        const oz = this.strokeStart.z
+        const cs = t.cellSize
+        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w, x, z) => {
+          const d = (angled ? angledHeight(x * cs, z * cs, ox, target, oz, ang.angle, ang.orientation) : target) - h[i]
           // Raise-only and lower-only leave ground on the far side of the target alone.
           if ((dir === 'raise' && d <= 0) || (dir === 'lower' && d >= 0)) return
           if (keeps(h[i], limit, cursorY)) h[i] += d * w * k
@@ -381,12 +392,40 @@ export class SculptTool extends BrushTool {
         break
       }
       case 'mountain': {
-        const s = RAISE_RATE * rate * 1.6
+        // A peak the size of the brush: the ridge noise is sampled in world space, so holding the
+        // brush in place keeps piling the same ridges higher, and its features scale with the brush.
+        const s = MOUNTAIN_RATE * rate
         const cs = t.cellSize
-        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w, x, z) => {
+        const f = 1.2 / radius
+        const ridges = editor.mountain.ridges
+        rect = forEachVertex(t, hit.x, hit.z, radius, 1, (i, _w, x, z) => {
           if (!keeps(h[i], limit, cursorY)) return
-          const r = ridged(x * cs * 0.025, z * cs * 0.025, 5, 13)
-          h[i] += r * r * s * w * w
+          const wx = x * cs
+          const wz = z * cs
+          const n = ridged(wx * f, wz * f, 5, 13)
+          h[i] += mountainHeight(brushDist(wx - hit.x, wz - hit.z, radius), n * n, ridges) * s
+        }, this.stroke)
+        break
+      }
+      case 'crevice': {
+        // Dig the solid centre and pile the dug ground onto the falloff band, so dragging the brush
+        // ploughs a path with ridges along both sides. Pass one sums the two profiles over the brush
+        // so the ridge can hold exactly what the trench loses.
+        const s = CREVICE_RATE * rate
+        const cs = t.cellSize
+        let dig = 0
+        let ridge = 0
+        forEachVertex(t, hit.x, hit.z, radius, 0, (i, _w, x, z) => {
+          if (!keeps(h[i], limit, cursorY)) return
+          const d = brushDist(x * cs - hit.x, z * cs - hit.z, radius)
+          dig += creviceDig(d, falloff)
+          ridge += creviceRidge(d, falloff)
+        })
+        const k = ridgeScale(dig, ridge) * editor.crevice.ridge
+        rect = forEachVertex(t, hit.x, hit.z, radius, 0, (i, _w, x, z) => {
+          if (!keeps(h[i], limit, cursorY)) return
+          const d = brushDist(x * cs - hit.x, z * cs - hit.z, radius)
+          h[i] += (creviceRidge(d, falloff) * k - creviceDig(d, falloff)) * s
         }, this.stroke)
         break
       }

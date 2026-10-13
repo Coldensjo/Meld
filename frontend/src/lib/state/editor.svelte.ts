@@ -8,7 +8,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 
 export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear'
 export type ClearMode = 'models' | 'textures'
-export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'vertex'
+export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'vertex'
 /** Flatten target: the height under the first click, or the average height under the brush. */
 export type FlattenTarget = 'origin' | 'average'
 /** Flatten direction: move ground both ways, or only up or only down toward the target. */
@@ -33,6 +33,9 @@ export interface SelectedInfo {
   scale: number
 }
 
+/** Largest brush radius in world units: wide enough for a mountain or a lake in one stroke. */
+export const MAX_BRUSH_RADIUS = 200
+
 export const editor = $state({
   tool: 'sculpt' as ToolId,
   brush: {
@@ -46,6 +49,19 @@ export const editor = $state({
   sculptMode: 'raise' as SculptMode,
   flattenTarget: 'origin' as FlattenTarget,
   flattenDir: 'both' as FlattenDir,
+  /**
+   * Flatten's angled mode (noggit3's): instead of one height, the brush levels the ground to a plane
+   * through the stroke's start that rises at `angle` degrees toward `orientation` degrees (0 is +x,
+   * 90 is +z).
+   */
+  flattenAngled: { on: false, angle: 20, orientation: 0 },
+  /**
+   * Crevice digs the brush's solid centre into a trench and piles the ground onto both sides, in the
+   * falloff band. `ridge` scales the pile: 1 keeps the dug volume, 0 only digs.
+   */
+  crevice: { ridge: 1 },
+  /** Mountain: how much of the peak its ridges carve away (0 a smooth hill, 1 all ridges). */
+  mountain: { ridges: 0.7 },
   sculptLimit: 'none' as SculptLimit,
   /**
    * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the

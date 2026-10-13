@@ -1,7 +1,7 @@
 <script lang="ts">
   import OptSlider from './OptSlider.svelte'
   import { TOOLS } from './Toolbar.svelte'
-  import { editor, prefs, ui, type SculptMode } from '../lib/state/editor.svelte'
+  import { MAX_BRUSH_RADIUS, editor, prefs, ui, type SculptMode } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName } from '../lib/models/assets'
   import { FALLOFF_CURVES } from '../lib/tools/brush'
@@ -14,6 +14,7 @@
     { id: 'flatten', name: 'Flatten' },
     { id: 'noise', name: 'Noise' },
     { id: 'mountain', name: 'Mountain' },
+    { id: 'crevice', name: 'Crevice' },
     { id: 'vertex', name: 'Vertex' },
   ]
 
@@ -74,6 +75,17 @@
         <option value="raise">Raise only</option>
         <option value="lower">Lower only</option>
       </select>
+      <label class="check" title="Level to a plane through the stroke's start instead of one height"><input type="checkbox" bind:checked={editor.flattenAngled.on} /> Angled</label>
+      {#if editor.flattenAngled.on}
+        <OptSlider label="Angle" bind:value={editor.flattenAngled.angle} min={-89} max={89} step={0.5} digits={1} width={60} title="How steeply the plane rises, in degrees" />
+        <OptSlider label="Direction" bind:value={editor.flattenAngled.orientation} min={0} max={360} step={1} digits={0} width={60} title="Direction the plane rises toward, in degrees (0 is east, 90 south)" />
+      {/if}
+    {/if}
+    {#if editor.sculptMode === 'mountain'}
+      <OptSlider label="Ridges" bind:value={editor.mountain.ridges} min={0} max={1} step={0.01} digits={2} width={60} title="How much the ridges carve the peak: 0 a smooth hill, 1 all ridges. The whole brush is slope (the falloff curve shapes it) and the ridges scale with the brush." />
+    {/if}
+    {#if editor.sculptMode === 'crevice'}
+      <OptSlider label="Ridge" bind:value={editor.crevice.ridge} min={0} max={2} step={0.05} digits={2} width={60} title="How much of the dug ground is piled onto the sides: 1 keeps the volume, 0 only digs. Falloff sets how wide the ridges are." />
     {/if}
     {#if editor.sculptMode === 'vertex'}
       <span class="chip" title="Drag to select vertices, Ctrl or Alt+drag to deselect, Shift+drag to move them up and down"><span class="dim">Selected:</span> {ui.vertexCount}</span>
@@ -238,7 +250,7 @@
   {/if}
   {#if usesBrush}
     {#if !vertexMode}
-      <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={80} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
+      <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={MAX_BRUSH_RADIUS} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
     {/if}
     {#if !paintingWater}
       <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={1} step={0.01} digits={2} title={vertexMode ? 'How fast Shift+drag moves the selected vertices' : undefined} />
