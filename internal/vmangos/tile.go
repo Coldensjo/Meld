@@ -26,8 +26,9 @@ type ChunkView struct {
 	IndexY int         `json:"indexY"`
 	AreaID uint32      `json:"areaId"`
 	Layers []LayerView `json:"layers"`
-	// Holes has one byte per cell row; bit n set means cell n of that row is a hole (a cave mouth).
-	Holes []uint8 `json:"holes,omitempty"`
+	// Holes has one entry per cell row; bit n set means cell n of that row is a hole (a cave mouth).
+	// Ints rather than bytes, since a byte slice would travel as base64.
+	Holes []int `json:"holes,omitempty"`
 }
 
 // TileView is a tile as the editor reads it. Heights is the outer grid (LatticeSize squared,
@@ -95,7 +96,10 @@ func viewOf(root []byte, bigAlpha bool) (*TileView, error) {
 		cv := ChunkView{IndexX: c.IndexX, IndexY: c.IndexY, AreaID: c.AreaID}
 		for _, row := range c.Holes {
 			if row != 0 {
-				cv.Holes = c.Holes[:]
+				cv.Holes = make([]int, len(c.Holes))
+				for i, r := range c.Holes {
+					cv.Holes[i] = int(r)
+				}
 				break
 			}
 		}
