@@ -40,6 +40,7 @@
   .doc {
     display: flex;
     flex-direction: column;
+    flex: 1;
     min-width: 0;
     min-height: 0;
     background: var(--bg);
@@ -52,7 +53,10 @@
     overflow: hidden;
     background: #0b0d10;
   }
+  /* Out of flow, so the canvas's pixel size never becomes the viewport's minimum height. */
   canvas {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
