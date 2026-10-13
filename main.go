@@ -28,7 +28,7 @@ func main() {
 	}
 
 	err := wails.Run(&options.App{
-		Title:            "WorldEditor",
+		Title:            "Meld",
 		Width:            width,
 		Height:           height,
 		MinWidth:         1024,
@@ -61,7 +61,7 @@ func main() {
 		Linux: &linux.Options{
 			// WebGL performance on WebKitGTK depends heavily on this.
 			WebviewGpuPolicy: linux.WebviewGpuPolicyAlways,
-			ProgramName:      "WorldEditor",
+			ProgramName:      "Meld",
 		},
 	})
 

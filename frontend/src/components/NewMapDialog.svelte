@@ -10,7 +10,7 @@
   import { MapEntries, MapZones } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
 
-  // Every map WorldEditor makes is a map for the 1.12 client and the VMaNGOS server. It starts
+  // Every map Meld makes is a map for the 1.12 client and the VMaNGOS server. It starts
   // either as a new world of its own (an island, hills, mountains…), reachable from Azeroth by a
   // portal once published, or as a part of an existing continent opened from the client.
 

@@ -171,5 +171,5 @@ func (c *Client) cachePath(kind, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "WorldEditor", kind, hashHex(dir)[:12], hashHex(key)+".png"), nil
+	return filepath.Join(base, "Meld", kind, hashHex(dir)[:12], hashHex(key)+".png"), nil
 }

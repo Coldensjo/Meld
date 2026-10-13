@@ -7,7 +7,7 @@ import type { WorldObject } from './ObjectLayer'
  * comments. Lists written before tilt have six fields, and still read; their models are not tilted.
  */
 export const OBJECT_LIST_HEADER =
-  '# WorldEditor object list: type, x, z, height above ground, turn (radians), scale, tilt forward-back (radians), roll (radians)'
+  '# Meld object list: type, x, z, height above ground, turn (radians), scale, tilt forward-back (radians), roll (radians)'
 
 /** The models that stand on their own (attached models are placed relative to their parent, so they're left out). */
 export function formatObjectList(objects: Iterable<WorldObject>): string {

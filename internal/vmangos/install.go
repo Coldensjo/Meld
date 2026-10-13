@@ -15,11 +15,11 @@ import (
 // patch-3 through patch-9 for the server's map data, so it's the one the server sees too.
 const PatchName = "patch-3.MPQ"
 
-// IronforgeMarker is the file Ironforge's exports carry. Its patch is replaced by WorldEditor's,
-// after a backup, since WorldEditor takes over the same job.
+// IronforgeMarker is the file Ironforge's exports carry. Its patch is replaced by Meld's,
+// after a backup, since Meld takes over the same job.
 const IronforgeMarker = "(ironforge)"
 
-// BackupSuffix is added to an existing patch before WorldEditor first replaces it.
+// BackupSuffix is added to an existing patch before Meld first replaces it.
 const BackupSuffix = ".before-worldeditor"
 
 // CheckServer reports whether dir looks like a VMaNGOS server folder: it has the configuration and
@@ -35,7 +35,7 @@ func CheckServer(dir string) error {
 }
 
 // InstallPatch writes files as the client's patch archive in its Data folder. An archive that
-// WorldEditor or Ironforge wrote is replaced (Ironforge's after a backup); any other patch-3 is
+// Meld or Ironforge wrote is replaced (Ironforge's after a backup); any other patch-3 is
 // left alone, since it may be the game's. Returns the archive's path.
 func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 	target := filepath.Join(dataDir, PatchName)
@@ -51,7 +51,7 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 		}
 		switch owner {
 		case "":
-			return "", fmt.Errorf("%s is not a patch WorldEditor or Ironforge wrote; move it out of the Data folder first", PatchName)
+			return "", fmt.Errorf("%s is not a patch Meld or Ironforge wrote; move it out of the Data folder first", PatchName)
 		case IronforgeMarker:
 			if err := backup(target, target+BackupSuffix); err != nil {
 				return "", err
@@ -105,7 +105,7 @@ func carryOver(path string, files []mpq.File) ([]mpq.File, error) {
 	return out, nil
 }
 
-// archiveOwner returns the marker of an archive WorldEditor or Ironforge wrote, or "" for any other.
+// archiveOwner returns the marker of an archive Meld or Ironforge wrote, or "" for any other.
 func archiveOwner(path string) (string, error) {
 	a, err := mpq.Open(path)
 	if err != nil {

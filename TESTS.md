@@ -1,6 +1,6 @@
 # TESTS.md
 
-Ways to test and verify WorldEditor that are known to work. Read this before working out how to check
+Ways to test and verify Meld that are known to work. Read this before working out how to check
 a change, and add to it when you find a good way to test something (see CLAUDE.md).
 
 Each entry says what it checks, how to run it, and the traps that cost time.
@@ -70,7 +70,7 @@ e.terrain.heightAt(180, 300)                  // then screenshot
 
 ## Reproducing a user's view
 
-- A pasted `WorldEditor scene {...}` line (Help > Copy Scene) loads with
+- A pasted `Meld scene {...}` line (Help > Copy Scene) loads with
   `await window.__loadScene(text)` in the dev page. Loading sets the view prefs, which are saved to
   the user's config.
 - Hold F8 in the app to name the component under the cursor (`DebugOverlay.svelte`).

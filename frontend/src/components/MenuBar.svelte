@@ -220,7 +220,7 @@
         { kind: 'action', label: 'Copy Scene', disabled: !hasBackend() || ui.busy, run: withEngine(copyScene) },
         { kind: 'action', label: 'Load Scene from Clipboard', disabled: !hasBackend() || ui.busy, run: withEngine(pasteScene) },
         { kind: 'sep' },
-        { kind: 'action', label: 'About WorldEditor…', run: () => (ui.dialog = 'about') },
+        { kind: 'action', label: 'About Meld…', run: () => (ui.dialog = 'about') },
       ],
     },
   ])
@@ -250,7 +250,7 @@
 <svelte:window onpointerdown={onWindowPointer} onkeydown={(e) => open && e.key === 'Escape' && (open = null)} onblur={() => (open = null)} />
 
 <header class="menubar" bind:this={bar}>
-  <span class="brand">⛰ WorldEditor</span>
+  <span class="brand">⛰ Meld</span>
   <nav class="menus">
     {#each menus as m (m.name)}
       <div class="menu">

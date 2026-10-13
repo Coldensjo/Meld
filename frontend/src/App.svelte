@@ -50,7 +50,7 @@
 
   // Window title and tab label follow the active map.
   $effect(() => {
-    const title = `${editor.mapName}${editor.dirty ? ' *' : ''} — WorldEditor`
+    const title = `${editor.mapName}${editor.dirty ? ' *' : ''} — Meld`
     if (hasBackend()) WindowSetTitle(title)
   })
 

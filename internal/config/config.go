@@ -1,5 +1,5 @@
 // Package config persists small per-user settings in the OS config dir
-// (e.g. ~/.config/WorldEditor/config.json, %AppData%\WorldEditor\config.json).
+// (e.g. ~/.config/Meld/config.json, %AppData%\Meld\config.json).
 package config
 
 import (
@@ -35,12 +35,32 @@ type Login struct {
 	Password string `json:"password,omitempty"`
 }
 
+// dirName is the app's folder in the config dir. oldDirName is what it was called before the
+// app was renamed; an existing folder by that name is moved over once so settings survive.
+const (
+	dirName    = "Meld"
+	oldDirName = "WorldEditor"
+)
+
 func path() (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "WorldEditor", "config.json"), nil
+	migrate(dir)
+	return filepath.Join(dir, dirName, "config.json"), nil
+}
+
+// migrate renames the old app folder to the new one if only the old one exists.
+func migrate(dir string) {
+	newDir, oldDir := filepath.Join(dir, dirName), filepath.Join(dir, oldDirName)
+	if _, err := os.Stat(newDir); err == nil {
+		return
+	}
+	if _, err := os.Stat(oldDir); err != nil {
+		return
+	}
+	_ = os.Rename(oldDir, newDir)
 }
 
 func Load() Config {

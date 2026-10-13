@@ -74,11 +74,11 @@
 </script>
 
 {#if ui.dialog === 'about'}
-  <Modal title="About WorldEditor" onclose={close}>
+  <Modal title="About Meld" onclose={close}>
     <div class="about">
       <div class="logo">⛰</div>
       <div>
-        <p class="name">WorldEditor <span>v{APP_VERSION}</span></p>
+        <p class="name">Meld <span>v{APP_VERSION}</span></p>
         <p>A 3D world editor for building WoW-style landscapes: sculpt terrain, paint textures, shape water and roads, and place doodads and buildings.</p>
         <p class="dim">Built with Wails (Go), Svelte 5 and Three.js.</p>
         <p class="dim">
@@ -145,7 +145,7 @@
       {ui.spawnChanges === 1 ? 'change' : 'changes'} to the creatures and game objects of {editor.region} into the server's world database?
     </p>
     <p class="dim">
-      The world database keeps no undo. The SQL that is run is kept in the user cache folder (WorldEditor/spawn-sql). Restart the world server
+      The world database keeps no undo. The SQL that is run is kept in the user cache folder (Meld/spawn-sql). Restart the world server
       to see the changes in the game.
     </p>
     {#snippet actions()}

@@ -270,7 +270,7 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 	}
 
 	header := []string{
-		"-- WorldEditor spawn edits for a VMaNGOS world database (`mangos`).",
+		"-- Meld spawn edits for a VMaNGOS world database (`mangos`).",
 		fmt.Sprintf("-- Exported %s: %d added, %d changed, %d deleted.", now.UTC().Format(time.RFC3339), res.Added, res.Changed, res.Deleted),
 		"-- Import it into the world database, then restart the world server (mangosd).",
 		"-- The world tables keep no undo: to go back, restore the world database from its dump.",

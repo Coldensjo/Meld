@@ -134,7 +134,7 @@ func (a *App) Quit() {
 	runtime.Quit(a.ctx)
 }
 
-var mapFilters = []runtime.FileFilter{{DisplayName: "WorldEditor Map (*.wmap)", Pattern: "*.wmap"}}
+var mapFilters = []runtime.FileFilter{{DisplayName: "Meld Map (*.wmap)", Pattern: "*.wmap"}}
 
 // SaveMapDialog asks for a destination path. Returns "" if cancelled.
 func (a *App) SaveMapDialog(suggested string) (string, error) {
@@ -168,7 +168,7 @@ func (a *App) SaveMap(path string, data mapfile.MapData) error {
 	if err := mapfile.Save(path, &data); err != nil {
 		return err
 	}
-	runtime.WindowSetTitle(a.ctx, "WorldEditor — "+filepath.Base(path))
+	runtime.WindowSetTitle(a.ctx, "Meld — "+filepath.Base(path))
 	return nil
 }
 
@@ -178,7 +178,7 @@ func (a *App) LoadMap(path string) (*mapfile.MapData, error) {
 	if err != nil {
 		return nil, err
 	}
-	runtime.WindowSetTitle(a.ctx, "WorldEditor — "+filepath.Base(path))
+	runtime.WindowSetTitle(a.ctx, "Meld — "+filepath.Base(path))
 	return m, nil
 }
 
@@ -192,7 +192,7 @@ func (a *App) SaveSceneMap(data mapfile.MapData) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(base, "WorldEditor", "scenes")
+	dir := filepath.Join(base, "Meld", "scenes")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -434,7 +434,7 @@ func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.Spawn
 }
 
 // ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
-// <user cache>/WorldEditor/spawn-sql first, so what changed can be looked up (or undone by hand).
+// <user cache>/Meld/spawn-sql first, so what changed can be looked up (or undone by hand).
 func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
 	server, _, err := a.serverAndData()
 	if err != nil {
@@ -445,7 +445,7 @@ func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.Sp
 		return res, err
 	}
 	if cache, err := os.UserCacheDir(); err == nil {
-		dir := filepath.Join(cache, "WorldEditor", "spawn-sql")
+		dir := filepath.Join(cache, "Meld", "spawn-sql")
 		if os.MkdirAll(dir, 0o755) == nil {
 			_ = os.WriteFile(filepath.Join(dir, time.Now().Format("20060102-150405")+"-"+mapName+".sql"), []byte(res.SQL), 0o644)
 		}

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-WorldEditor: a 3D world/map editor (WoW/WC3-editor style). Desktop app built with Wails v2 (Go) and a
+Meld (formerly WorldEditor): a 3D world/map editor (WoW/WC3-editor style). Desktop app built with Wails v2 (Go) and a
 Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **Windows and Linux**.
 
 ## Git workflow
@@ -23,8 +23,8 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
 
 ```bash
 make dev             # wails dev -tags webkit2_41 (hot reload; browser debug at http://localhost:34115)
-make build-linux     # wails build -tags webkit2_41  → build/bin/WorldEditor
-make build-windows   # wails build -platform windows/amd64 → build/bin/WorldEditor.exe
+make build-linux     # wails build -tags webkit2_41  → build/bin/Meld
+make build-windows   # wails build -platform windows/amd64 → build/bin/Meld.exe
 make test            # go test ./internal/... + frontend unit tests (node --test, needs Node 22.18+)
 make check           # go vet + (cd frontend && pnpm check)
 cd frontend && pnpm build   # frontend only
@@ -200,8 +200,8 @@ cd frontend && pnpm build   # frontend only
   user reports "the X is broken", ask for that label.
 
 - **Scenes** (`lib/io/scene.ts`): Help > Copy Scene puts one line on the clipboard
-  (`WorldEditor scene {...}`) with the map, camera, hour, tool, selection and view prefs. A map
-  with unsaved changes is first written to a copy in `<user cache>/WorldEditor/scenes`
+  (`Meld scene {...}`) with the map, camera, hour, tool, selection and view prefs. A map
+  with unsaved changes is first written to a copy in `<user cache>/Meld/scenes`
   (`SaveSceneMap`, the last 20 kept). Help > Load Scene from Clipboard opens it again. When a
   user pastes a scene, load it in `make dev`'s browser page with `await window.__loadScene(text)`
   (and `window.__sceneText()` gives the current one). Loading sets the view prefs, which are
@@ -313,7 +313,7 @@ cd frontend && pnpm build   # frontend only
 - **Never copy, bundle or commit Blizzard assets.** No extracted files in the repo, the binary or
   test fixtures. Map files store only paths (`m2:<path>` / `wmo:<path>` object types and
   `layerTextures`).
-- The client path is persisted by `internal/config` (`os.UserConfigDir()/WorldEditor/config.json`).
+- The client path is persisted by `internal/config` (`os.UserConfigDir()/Meld/config.json`).
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so
   triangle winding is unchanged. 1 world unit ≈ 1 yard.
 - Frontend: `lib/models/assets.ts` is the registry for all placeable types.
@@ -337,7 +337,7 @@ cd frontend && pnpm build   # frontend only
   (keyed `kind/guid`), and every change is a `History` command. `SpawnLayer.touch` keeps a
   spawn's database state before its first edit, so `edits()` lists what changed; the Spawns panel
   saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
-  one transaction, a copy kept in `<user cache>/WorldEditor/spawn-sql`) or exports the SQL. A
+  one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. A
   changed display, equipment or pose is re-dressed by `SpawnLook` in Go. `editor.selectedSpawn`
   is always a copy (`cloneSpawn`), never the drawn spawn, since Svelte's proxy would not see edits
   to it. Select spawns through `selectSpawn`.

@@ -12,7 +12,9 @@ import { ClipboardGetText, ClipboardSetText } from '../../../wailsjs/runtime/run
 // the map, the camera, the hour, the tool, the selection and the graphics preferences. A map with
 // unsaved changes is written to a copy in the cache dir first, which the scene names.
 
-const PREFIX = 'WorldEditor scene '
+const PREFIX = 'Meld scene '
+/** Scenes copied before the rename. */
+const OLD_PREFIX = 'WorldEditor scene '
 
 /** The preferences that change what the view looks like. Layout and input prefs stay the viewer's. */
 const VIEW_PREFS = [
@@ -99,7 +101,8 @@ export async function copyScene(engine: Engine) {
 /** Opens the scene's map (or switches to its tab) and restores everything else the scene holds. */
 export async function loadScene(engine: Engine, text: string) {
   const at = text.indexOf('{')
-  if (!text.trim().startsWith(PREFIX.trim()) || at < 0) throw new Error('not a WorldEditor scene')
+  const head = text.trim()
+  if (!(head.startsWith(PREFIX.trim()) || head.startsWith(OLD_PREFIX.trim())) || at < 0) throw new Error('not a Meld scene')
   const scene = JSON.parse(text.slice(at)) as Scene
   if (scene.v !== 1) throw new Error(`unknown scene version ${scene.v}`)
 

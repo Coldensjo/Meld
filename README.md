@@ -1,4 +1,4 @@
-# WorldEditor
+# Meld
 
 A fast, cross-platform 3D world editor in the spirit of the classic Warcraft / World of Warcraft
 editors. You can sculpt terrain, paint ground textures, dig lakes, lay roads, and place WoW
@@ -122,7 +122,7 @@ Also included:
 - **About**: keyboard shortcuts and app info.
 
 Graphics and camera preferences are saved in the user config file
-(`~/.config/WorldEditor/config.json` or `%AppData%\WorldEditor\config.json`).
+(`~/.config/Meld/config.json` or `%AppData%\WorldEditor\config.json`).
 
 ### Other shortcuts
 
@@ -159,8 +159,8 @@ with Go bindings still working.
 ## Building
 
 ```bash
-make build-linux     # → build/bin/WorldEditor
-make build-windows   # → build/bin/WorldEditor.exe  (cross-compiles from Linux)
+make build-linux     # → build/bin/Meld
+make build-windows   # → build/bin/Meld.exe  (cross-compiles from Linux)
 ```
 
 On Windows, natively: `wails build`. To build an NSIS installer: `wails build -nsis`.

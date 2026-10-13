@@ -351,7 +351,7 @@ func (c *Client) thumbPath(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "WorldEditor", "thumbs", hashHex(dir)[:12], hashHex(key)+".png"), nil
+	return filepath.Join(base, "Meld", "thumbs", hashHex(dir)[:12], hashHex(key)+".png"), nil
 }
 
 // Handler serves /wow/* endpoints for the frontend.

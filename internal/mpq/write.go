@@ -23,7 +23,7 @@ const (
 const MarkerName = "(worldeditor)"
 
 // MarkerText is the marker file's contents. Stored uncompressed, it can be found in the file.
-const MarkerText = "WorldEditor map export: this patch was written by WorldEditor and is replaced by its next export."
+const MarkerText = "Meld map export: this patch was written by Meld and is replaced by its next export."
 
 // Write builds an MPQ archive (format 1) that the 1.12 client reads: each file is stored whole and
 // uncompressed, found through encrypted hash and block tables. A (listfile) names the files, and

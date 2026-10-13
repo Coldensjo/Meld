@@ -1,4 +1,4 @@
-// Package mapfile reads and writes WorldEditor map files (*.wmap).
+// Package mapfile reads and writes Meld map files (*.wmap).
 //
 // On-disk layout (whole stream gzip-compressed):
 //
@@ -237,7 +237,7 @@ func Write(w io.Writer, m *MapData) error {
 func Read(r io.Reader) (*MapData, error) {
 	gz, err := gzip.NewReader(bufio.NewReader(r))
 	if err != nil {
-		return nil, fmt.Errorf("not a WorldEditor map: %w", err)
+		return nil, fmt.Errorf("not a Meld map: %w", err)
 	}
 	defer gz.Close()
 
@@ -246,7 +246,7 @@ func Read(r io.Reader) (*MapData, error) {
 		return nil, err
 	}
 	if string(pre[:4]) != Magic {
-		return nil, errors.New("not a WorldEditor map: bad magic")
+		return nil, errors.New("not a Meld map: bad magic")
 	}
 	v := binary.LittleEndian.Uint32(pre[4:8])
 	if v < 1 || v > Version {

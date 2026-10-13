@@ -27,7 +27,7 @@ func TestInstallPatchFreshThenReplace(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, PatchName+BackupSuffix)); err == nil {
-		t.Error("a WorldEditor patch was backed up")
+		t.Error("a Meld patch was backed up")
 	}
 	a, err := mpq.Open(path)
 	if err != nil {

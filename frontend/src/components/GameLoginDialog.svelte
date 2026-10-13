@@ -35,7 +35,7 @@
 
 <Modal title="Game login" width={400} onclose={close}>
   <p>After a region export the editor closes the game and the servers, then opens them again and logs in with this account.</p>
-  <p class="warn">The password is saved in plain text in your WorldEditor config file. Use this on a development machine only.</p>
+  <p class="warn">The password is saved in plain text in your Meld config file. Use this on a development machine only.</p>
   <div class="fields">
     <label for="login-account">Account</label>
     <input id="login-account" type="text" autocomplete="off" bind:value={account} />
