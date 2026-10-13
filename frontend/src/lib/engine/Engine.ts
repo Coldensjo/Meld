@@ -499,6 +499,7 @@ export class Engine {
 
     const tool = this.activeTool!
     if (this.leftDown) tool.tick?.(this.ctx, dt, this.hit)
+    this.placeTool.hidePreview = this.altHeld
     tool.frame?.(this.ctx, this.hit)
 
     this.syncPalette()

@@ -80,6 +80,8 @@ export class PlaceTool implements Tool {
   private scatterAcc = 0
   private normal = { x: 0, y: 1, z: 0 }
   private ghostTilt = { tiltX: 0, tiltZ: 0 }
+  /** Alt is held: the preview steps aside so the pipette can see what is under the pointer. */
+  hidePreview = false
 
   constructor() {
     this.ghost = new THREE.Mesh(new THREE.BufferGeometry())
@@ -155,7 +157,7 @@ export class PlaceTool implements Tool {
     }
     // The preview sits on whatever is under the cursor: terrain, a building, another prop.
     const surf = hit ? ctx.surface() : null
-    this.ghost.visible = !!surf && !editor.placeScatter && !!editor.prefab
+    this.ghost.visible = !!surf && !editor.placeScatter && !!editor.prefab && !this.hidePreview
     if (surf && hit) {
       this.ghost.position.copy(surf.point).y += editor.placeHeight
       // On open ground with Follow ground rotation, the preview leans to the slope it will land on.
