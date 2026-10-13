@@ -62,6 +62,7 @@
         ['Shift + arrows', 'Bigger steps'],
         ['Ctrl+scroll', 'Rotate the placement preview (Place tool)'],
         ['Alt+scroll', 'Raise / lower the placement preview (Place tool)'],
+        ['Shift+scroll', 'Scale the placement preview (Place tool; doodads only, the client draws buildings at full size)'],
         ['Shift+drag', 'Scatter (Place tool)'],
         ['Delete', 'Delete the selected models'],
         ['Ctrl+C / Ctrl+V', 'Copy the selected models (or area) / paste under the cursor'],

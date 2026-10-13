@@ -106,6 +106,20 @@ export class PlaceTool implements Tool {
     this.rot += radians
   }
 
+  /**
+   * Scale the placement preview by `factor` (Shift+scroll), within the Properties panel's range. The
+   * next click uses this scale. A WMO stays at 1: the 1.12 client draws buildings at full size only
+   * (MODF has no scale), while a doodad's MDDF scale is honoured.
+   */
+  scalePreview(factor: number) {
+    if (editor.prefab.startsWith('wmo:')) {
+      setStatus('Buildings (WMOs) cannot be scaled: the 1.12 client always draws them at full size.', 3000)
+      return
+    }
+    this.scale = Math.round(THREE.MathUtils.clamp(this.scale * factor, 0.05, 20) * 100) / 100
+    setStatus(`Scale ×${this.scale.toFixed(2)}`, 1500)
+  }
+
   private reroll() {
     this.rot = editor.placeRandomRot ? Math.random() * Math.PI * 2 : this.rot
     this.scale = editor.placeRandomScale ? 0.8 + Math.random() * 0.45 : 1

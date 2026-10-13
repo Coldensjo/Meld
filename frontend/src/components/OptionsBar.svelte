@@ -178,7 +178,7 @@
     {#if editor.placeHeight !== 0}
       <button onclick={() => (editor.placeHeight = 0)}>Reset</button>
     {/if}
-    <span class="dim"><kbd>Ctrl</kbd>+scroll rotate · <kbd>Alt</kbd>+scroll height · props attach to what they're placed on</span>
+    <span class="dim"><kbd>Ctrl</kbd>+scroll rotate · <kbd>Alt</kbd>+scroll height · <kbd>Shift</kbd>+scroll scale · props attach to what they're placed on</span>
     {#if editor.selected}
       <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
     {/if}

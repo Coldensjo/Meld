@@ -259,7 +259,7 @@ export class Engine {
     }
 
     this.controller.arrowsBlocked = () => this.canNudge()
-    this.controller.wheelBlocked = (e) => editor.tool === 'place' && (e.ctrlKey || e.altKey)
+    this.controller.wheelBlocked = (e) => editor.tool === 'place' && (e.ctrlKey || e.altKey || e.shiftKey)
     this.scene.add(this.gizmo.group)
 
     this.bindPointer()
@@ -355,12 +355,12 @@ export class Engine {
     const c = this.canvas
     c.addEventListener('pointerenter', () => (this.pointerInside = true), sig)
     c.addEventListener('pointerleave', () => (this.pointerInside = false), sig)
-    // Ctrl+scroll rotates the placement preview: 15° per wheel notch.
+    // Ctrl+scroll rotates the placement preview (15° per notch), Alt+scroll raises it, Shift+scroll scales it.
     c.addEventListener(
       'wheel',
       (e) => {
-        if (editor.tool !== 'place' || !(e.ctrlKey || e.altKey)) return
-        const mod = e.ctrlKey ? 'ctrl' : 'alt'
+        if (editor.tool !== 'place' || !(e.ctrlKey || e.altKey || e.shiftKey)) return
+        const mod = e.ctrlKey ? 'ctrl' : e.altKey ? 'alt' : 'shift'
         if (mod !== this.wheelMod) {
           this.wheelMod = mod
           this.wheelAcc = 0
@@ -371,8 +371,10 @@ export class Engine {
         while (Math.abs(this.wheelAcc) >= notch) {
           const dir = Math.sign(this.wheelAcc)
           this.wheelAcc -= dir * notch
-          // Ctrl+scroll rotates the preview; Alt+scroll raises/lowers it (0.25 per notch).
+          // Ctrl+scroll rotates the preview; Alt+scroll raises/lowers it (0.25 per notch); Shift+scroll
+          // scales it (10% per notch).
           if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
+          else if (e.shiftKey) this.placeTool.scalePreview(dir < 0 ? 1.1 : 1 / 1.1)
           else editor.placeHeight = Math.round((editor.placeHeight - dir * 0.25) * 100) / 100
         }
       },
