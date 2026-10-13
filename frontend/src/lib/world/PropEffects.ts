@@ -89,6 +89,8 @@ export class PropEffects {
   private tmpQ = new THREE.Quaternion()
   private tmpS = new THREE.Vector3()
   private order: number[] = []
+  /** Each source's squared distance to the camera target this frame, for the light pool's order. */
+  private dist = new Float32Array(0)
   enabled = true
 
   constructor() {
@@ -184,7 +186,10 @@ export class PropEffects {
     this.order.length = 0
     for (let i = 0; i < src.length; i++) this.order.push(i)
     if (src.length > LIGHT_POOL) {
-      this.order.sort((a, b) => src[a].pos.distanceToSquared(focus) - src[b].pos.distanceToSquared(focus))
+      if (this.dist.length < src.length) this.dist = new Float32Array(src.length)
+      const d = this.dist
+      for (let i = 0; i < src.length; i++) d[i] = src[i].pos.distanceToSquared(focus)
+      this.order.sort((a, b) => d[a] - d[b])
     }
     // Lights read stronger at night; by day they're a subtle warm touch.
     const strength = 0.35 + 0.65 * night
