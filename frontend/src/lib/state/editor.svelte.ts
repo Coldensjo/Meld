@@ -128,7 +128,7 @@ export const editor = $state({
   grid: false,
   /** Draws the 8x8-cell paint chunk edges, where the 1.12 four-texture limit applies. */
   chunkLines: false,
-  /** The paint chunk under the cursor (index into the chunk grid), or -1. The Layers panel shows it. */
+  /** The paint chunk under the cursor (index into the chunk grid), or -1. The Textures panel marks its textures. */
   hoverChunk: -1,
   autoCliff: true,
   /** The map's texture palette: a WoW tileset path, or a '#rrggbb' colour, per index. */

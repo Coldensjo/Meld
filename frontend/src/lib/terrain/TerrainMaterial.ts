@@ -58,7 +58,7 @@ uniform vec3 brushColor;
 uniform float gridVisible;
 // The width of a paint chunk in world units for the chunk lines; 0 hides them.
 uniform float chunkLineWorld;
-// The paint chunk under the cursor as world x0, z0, x1, z1; tinted so the Layers panel's chunk is visible.
+// The paint chunk under the cursor as world x0, z0, x1, z1; tinted so the Textures panel's chunk is visible.
 uniform vec4 chunkHover;
 // The width of a tile in world units when the map is a client region; 0 hides the tile borders.
 uniform float tileWorld;

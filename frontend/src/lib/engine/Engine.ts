@@ -23,7 +23,7 @@ import { LAYERS } from '../terrain/layers'
 import { CHUNK_CELLS, MAX_PALETTE, SLOTS, chunkTextures, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
-import { animatedAssets, getAsset } from '../models/assets'
+import { animatedAssets, displayName, getAsset } from '../models/assets'
 import { PropEffects } from '../world/PropEffects'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
@@ -1509,6 +1509,18 @@ export class Engine {
     selectObjects(this.objects, objectsInRect(this.objects, this.terrain.cellSize, editor.selection).map((o) => o.id))
   }
 
+  /**
+   * Selects every placed model of `type`: among the selected models when `within` is set (narrowing
+   * a mixed selection to one kind), else in the whole map. Hidden models are left out.
+   */
+  selectModelsOfType(type: string, within = false) {
+    const pool = within ? selectedObjects(this.objects) : [...this.objects.objects.values()]
+    const ids = pool.filter((o) => o.type === type && !this.objects.isHidden(o.id)).map((o) => o.id)
+    selectObjects(this.objects, ids)
+    const name = displayName(type)
+    setStatus(ids.length === 1 ? `Selected the one ${name}.` : `Selected ${ids.length} × ${name}.`)
+  }
+
   deselect() {
     editor.selection = null
     selectObjects(this.objects, [])
@@ -2062,7 +2074,7 @@ export class Engine {
   }
 
   /**
-   * Tracks the paint chunk under the cursor for the Layers panel and tints it. `editor.hoverChunk` only
+   * Tracks the paint chunk under the cursor for the Textures panel and tints it. `editor.hoverChunk` only
    * changes when the cursor crosses into another chunk, so this writes no reactive state per frame.
    */
   private updateHoverChunk(rect: THREE.Vector4) {

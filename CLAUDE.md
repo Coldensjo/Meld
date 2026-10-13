@@ -170,15 +170,27 @@ cd frontend && pnpm build   # frontend only
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading
     them. Use bindings for uploads.
-- **Palette & Layers panel**: `editor.palette` is the map's list of textures (WoW tileset paths or
-  `#rrggbb` colours, up to 255). `Engine.useTexture(path)` adds one and makes it the paint texture.
-  The Layers panel (`components/LayersPanel.svelte`) shows the texture being painted with and the
-  four slots of the chunk under the cursor (`editor.hoverChunk`, tracked in
-  `Engine.updateHoverChunk` and tinted in the terrain shader). Each slot has Replace, which sets
-  `ui.replaceSlot`; the next palette pick goes to `Engine.replaceChunkTexture` (this chunk only,
-  undoable). Whole-map replace is the "Replace everywhere" dialog. Alt+click is the pipette
-  (`tools/PipetteTool.ts`): in Select and Place it picks the model under the cursor as the one to
-  place, or the ground's texture; in Paint and Road, the texture.
+- **Dock panels** (`components/Dock.svelte`, top to bottom): Layers, Textures, Map, Spawns,
+  Properties.
+  - **Layers** (`LayersPanel.svelte`) is the scene's layers with an eye each and a count: terrain,
+    water, models, monsters, NPCs, game objects, creature paths, grid, chunk lines, and the models
+    hidden with H. They toggle the same `prefs`/`editor` flags as the View menu.
+  - **Textures** (`TexturesPanel.svelte`) is the map's palette: `editor.palette` is its list of
+    textures (WoW tileset paths or `#rrggbb` colours, up to 255), kept in palette order so rows
+    don't move while painting, each with its share of the map (`Engine.layerCoverage`). A click
+    paints with it. `Engine.useTexture(path)` adds one and makes it the paint texture. Rows in the
+    chunk under the cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in
+    the terrain shader) get a dot and a ⇄ button, which sets `ui.replaceSlot`; the next browser
+    pick goes to `Engine.replaceChunkTexture` (this chunk only, undoable). Whole-map replace is the
+    "Replace…" dialog.
+  - **Properties** (`PropertiesPanel.svelte`) is the inspector for what is selected: one model's
+    placement as `PropField`s (type a number, or drag the label to scrub; live preview and one undo
+    step on release) with Focus, Duplicate, Hide, Delete, Detach, Place more and Select all of
+    these (`Engine.selectModelsOfType`); a mixed selection's models by kind (a click narrows the
+    selection to that kind); the selected area (size, holes, cut/fill, copy, mask); or, with
+    nothing selected, the map's facts and the world settings (sea, steep slopes as rock).
+  - Alt+click is the pipette (`tools/PipetteTool.ts`): in Select and Place it picks the model
+    under the cursor as the one to place, or the ground's texture; in Paint and Road, the texture.
 
 ## Debugging the UI
 

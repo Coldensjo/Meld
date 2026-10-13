@@ -74,3 +74,25 @@ e.terrain.heightAt(180, 300)                  // then screenshot
   `await window.__loadScene(text)` in the dev page. Loading sets the view prefs, which are saved to
   the user's config.
 - Hold F8 in the app to name the component under the cursor (`DebugOverlay.svelte`).
+
+## Dock panels (Layers, Textures, Properties)
+
+Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the
+mouse. In the dev page (`javascript_tool`), after the module imports from "Scripted brush strokes":
+
+```js
+e.newDocument(128, 'island', 3, 'Panels'); for (let i = 0; i < 5; i++) e.frame()
+e.regenerateAutoPaint()                        // the Textures panel shows coverage per texture
+ed.hoverChunk = 8 * 16 + 8                     // marks that chunk's textures (16 chunks a side at 128 cells)
+const sel = await import(performance.getEntriesByType('resource').map(r => r.name).find(n => n.includes('selection.ts')))
+e.addObjects([{ type: 'm2:World\Azeroth\Elwynn\PassiveDoodads\Trees\ElwynnTree01.m2', x: 120, z: 130, yOff: 0, rotY: 0.7, scale: 1 }])
+ed.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()]); for (let i = 0; i < 3; i++) e.frame()
+```
+
+- Then zoom the screenshot on the dock (x from about 1408 at a 1568-wide window).
+- A `PropField` label scrub can be driven with synthetic `PointerEvent`s (`pointerdown`, a few
+  `pointermove`s, `pointerup`, `pointerId: 1`, `button: 0`) on the `.label` span; the value moves
+  by pixels × step and `ui.canUndo` turns true on release.
+- Trap: texture thumbnails stay blank in a hidden extension tab, since they render on the main
+  renderer's rAF loop. The rows, names and coverage still show.
+

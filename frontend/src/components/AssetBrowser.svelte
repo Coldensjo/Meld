@@ -95,7 +95,7 @@
   function pickTexture(it: SearchItem) {
     const engine = engineRef.current
     if (!engine) return
-    // A Replace on a Layers panel row is waiting for this pick: it takes the slot's place in that chunk.
+    // A Replace here on a Textures panel row is waiting for this pick: it takes the slot's place in that chunk.
     const target = ui.replaceSlot
     if (target) {
       ui.replaceSlot = null

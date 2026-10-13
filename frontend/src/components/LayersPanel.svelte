@@ -1,215 +1,108 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import PaletteTile from './PaletteTile.svelte'
-  import { editor, prefs, ui } from '../lib/state/editor.svelte'
+  import { editor, prefs, stats, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { LAYERS } from '../lib/terrain/layers'
-  import { isColor } from '../lib/terrain/paletteArray'
-  import { SLOTS, type ChunkTexture } from '../lib/terrain/chunkPaint'
 
-  // The chunk under the cursor is what the panel is about: its four texture slots, as the game has them.
-  let tick = $state(0)
-  onMount(() => {
-    const id = setInterval(() => tick++, 300)
-    return () => clearInterval(id)
+  // The scene's layers, Photoshop-style: an eye per layer, with how much is on it. Hiding a layer
+  // never changes the map; these are the View menu's toggles, one click away.
+
+  // Spawn counts follow the spawn list; the model count is the throttled `stats` one.
+  const spawnCounts = $derived.by(() => {
+    const n = { monster: 0, npc: 0, object: 0 }
+    for (const s of editor.spawns) if (s.kind in n) n[s.kind as keyof typeof n]++
+    return n
   })
+  const paths = $derived(editor.spawns.filter((s) => s.kind === 'monster' && (s.waypoints?.length ?? 0) > 1).length)
+  const hidden = $derived(ui.hiddenModels)
 
-  const texName = (p: string) => p.slice(p.search(/[^\\/]*$/)).replace(/\.blp$/i, '')
-  const colorName = (p: string) => LAYERS.find((l) => l.swatch.toLowerCase() === p.toLowerCase())?.name ?? p
-  const label = (p: string) => (isColor(p) ? colorName(p) : texName(p))
-  const pct = (v: number) => (v < 0.01 ? '<1%' : `${Math.round(v * 100)}%`)
-
-  const active = $derived(editor.palette[editor.paintLayer])
-
-  const chunk = $derived.by(() => {
-    void tick
-    const e = engineRef.current
-    const c = editor.hoverChunk
-    if (!e || c < 0) return null
-    const side = e.terrain.paintChunksPerSide
-    const found = e.chunkContents(c)
-    const slots: Array<ChunkTexture | null> = Array.from({ length: SLOTS }, (_, k) => found.find((t) => t.slot === k) ?? null)
-    return { index: c, label: `${(c % side) + 1}, ${Math.floor(c / side) + 1}`, slots, used: found.length }
-  })
-
-  const replacing = $derived(ui.replaceSlot && chunk && ui.replaceSlot.chunk === chunk.index ? chunk.slots[ui.replaceSlot.slot] : null)
-
-  function use(tex: number) {
-    editor.paintLayer = tex
-    if (editor.tool !== 'paint' && editor.tool !== 'road') editor.tool = 'paint'
+  interface Row {
+    id: string
+    name: string
+    on: boolean
+    toggle: () => void
+    count?: number | string
+    title: string
   }
-
-  function replace(slot: number) {
-    if (!chunk) return
-    ui.replaceSlot = { chunk: chunk.index, slot }
-    ui.palette = 'textures'
-    prefs.browserCollapsed = false
-  }
+  const rows: Row[] = $derived([
+    { id: 'terrain', name: 'Terrain', on: prefs.showTerrain, toggle: () => (prefs.showTerrain = !prefs.showTerrain), title: 'The ground' },
+    { id: 'water', name: 'Water', on: prefs.showWater, toggle: () => (prefs.showWater = !prefs.showWater), title: 'The sea and painted liquids' },
+    { id: 'objects', name: 'Models', on: prefs.showObjects, toggle: () => (prefs.showObjects = !prefs.showObjects), count: stats.objects, title: 'Placed doodads and buildings' },
+    { id: 'monsters', name: 'Monsters', on: prefs.showMonsters, toggle: () => (prefs.showMonsters = !prefs.showMonsters), count: spawnCounts.monster, title: 'Creature spawns from the world database' },
+    { id: 'npcs', name: 'NPCs', on: prefs.showNpcs, toggle: () => (prefs.showNpcs = !prefs.showNpcs), count: spawnCounts.npc, title: 'NPC spawns from the world database' },
+    { id: 'gameobjects', name: 'Game objects', on: prefs.showGameObjects, toggle: () => (prefs.showGameObjects = !prefs.showGameObjects), count: spawnCounts.object, title: 'Game object spawns from the world database' },
+    { id: 'paths', name: 'Creature paths', on: prefs.showAllPaths, toggle: () => (prefs.showAllPaths = !prefs.showAllPaths), count: paths, title: "Every creature's waypoint path (the selected creature's always shows)" },
+    { id: 'grid', name: 'Grid', on: editor.grid, toggle: () => (editor.grid = !editor.grid), title: 'The terrain cell grid (G)' },
+    { id: 'chunks', name: 'Chunk lines', on: editor.chunkLines, toggle: () => (editor.chunkLines = !editor.chunkLines), title: 'The 8x8-cell paint chunks, where the four-texture limit applies' },
+  ])
 </script>
 
-{#snippet thumb(p: string)}
-  <div class="thumb">
-    {#if isColor(p)}
-      <span class="swatch" style:background={p}></span>
-    {:else}
-      <PaletteTile thumbKey={'tex:' + p} label="" title="" onclick={() => {}} />
-    {/if}
-  </div>
-{/snippet}
-
 <div class="layers">
-  <div class="section">Painting with</div>
-  <div class="with">
-    {#if active}
-      {@render thumb(active)}
-      <span class="name" title={active}>{label(active)}</span>
-    {:else}
-      <span class="hint">No texture picked yet.</span>
-    {/if}
-    <button onclick={() => { ui.palette = 'textures'; prefs.browserCollapsed = false }} title="Pick a texture from the WoW client">Browse…</button>
-  </div>
-
-  {#if chunk}
-    <div class="section">
-      <span>This chunk ({chunk.label})</span>
-      <span class="count" class:full={chunk.used >= SLOTS} title="A chunk holds at most four textures">{chunk.used} of {SLOTS}</span>
+  {#each rows as r (r.id)}
+    <div class="row" class:off={!r.on} title={r.title}>
+      <button class="eye" class:on={r.on} onclick={r.toggle} aria-label={r.on ? `Hide ${r.name}` : `Show ${r.name}`} aria-pressed={r.on}>
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
+          <circle cx="8" cy="8" r="2" />
+          {#if !r.on}<path d="M3 13 13 3" />{/if}
+        </svg>
+      </button>
+      <span class="name">{r.name}</span>
+      {#if r.count !== undefined}<span class="count">{r.count}</span>{/if}
     </div>
-    {#each chunk.slots as s, k (k)}
-      {#if s}
-        {@const p = editor.palette[s.tex]}
-        <div class="row" class:active={editor.paintLayer === s.tex} class:target={replacing === s} role="button" tabindex="0" onclick={() => use(s.tex)} onkeydown={(e) => e.key === 'Enter' && use(s.tex)}>
-          {@render thumb(p)}
-          <div class="info">
-            <span class="name" title={p}>{label(p)}</span>
-            <span class="bar"><span style:width="{Math.max(2, Math.round(s.share * 100))}%"></span></span>
-          </div>
-          <span class="sub">{pct(s.share)}</span>
-          <button
-            class="rep"
-            title="Replace this texture in this chunk"
-            onclick={(e) => {
-              e.stopPropagation()
-              replace(k)
-            }}>Replace</button
-          >
-        </div>
-      {:else}
-        <div class="row empty"><span class="thumb"></span><span class="hint">Empty: paint a new texture here to fill it</span></div>
-      {/if}
-    {/each}
-    {#if replacing}
-      <div class="notice">
-        Pick a texture in the palette to replace {label(editor.palette[replacing.tex])} in this chunk.
-        <button onclick={() => (ui.replaceSlot = null)}>Cancel</button>
-      </div>
-    {:else if chunk.used >= SLOTS}
-      <div class="hint pad">This chunk is full. Painting a new texture here replaces its weakest one.</div>
-    {/if}
-  {:else}
-    <div class="hint pad">Move the cursor over the terrain to see which textures are under it.</div>
+  {/each}
+  {#if hidden}
+    <div class="row sub" title="Models hidden with H for this session. They are still in the map.">
+      <button class="eye" class:on={ui.showHiddenModels} onclick={() => (ui.showHiddenModels = !ui.showHiddenModels)} aria-label="Draw hidden models" aria-pressed={ui.showHiddenModels}>
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
+          <circle cx="8" cy="8" r="2" />
+          {#if !ui.showHiddenModels}<path d="M3 13 13 3" />{/if}
+        </svg>
+      </button>
+      <span class="name">Hidden models</span>
+      <span class="count">{hidden}</span>
+      <button class="small" onclick={() => engineRef.current?.unhideAll()} title="Show every hidden model again (Shift+H)">Show all</button>
+    </div>
   {/if}
-
-  <div class="foot">
-    {#if ui.maskActive}
-      <button onclick={() => engineRef.current?.fillMask(editor.paintLayer)} title="Fill the paint mask with the active texture">Fill mask</button>
-    {/if}
-    <button onclick={() => engineRef.current?.regenerateAutoPaint()} title="Repaint by height and slope">Auto-paint</button>
-    <button onclick={() => (ui.dialog = 'textures')} title="Replace a texture everywhere on the map, or fill the map with one">Replace everywhere…</button>
-  </div>
 </div>
 
 <style>
   .layers {
-    overflow-y: auto;
-    padding-bottom: 2px;
-  }
-  .section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 8px 3px;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-dim);
-  }
-  .count.full {
-    color: #e0a040;
-  }
-  .with {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  .with .thumb {
-    width: 36px;
-    height: 36px;
-  }
-  .with button {
-    padding: 2px 6px;
+    padding: 2px 0;
   }
   .row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 3px 8px;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
+    gap: 6px;
+    height: 24px;
+    padding: 0 8px 0 4px;
   }
   .row:hover {
     background: var(--panel-2);
   }
-  .row.active {
-    background: #3a4a62;
+  .row.off .name,
+  .row.off .count {
+    color: var(--text-dim);
   }
-  .row.target {
-    outline: 1px solid var(--accent);
-    outline-offset: -1px;
+  .row.sub {
+    border-top: 1px solid var(--border);
   }
-  .row.empty {
-    cursor: default;
-    opacity: 0.7;
-  }
-  .row.empty:hover {
-    background: transparent;
-  }
-  .row.empty .thumb {
-    border-style: dashed;
-  }
-  .thumb {
-    display: block;
-    width: 28px;
-    height: 28px;
-    flex: none;
-    border: 1px solid var(--border-soft);
-  }
-  .thumb :global(.tile) {
-    width: 100%;
-    height: 100%;
+  .eye {
+    width: 22px;
+    height: 20px;
     padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     background: transparent;
-    pointer-events: none;
+    color: var(--text-dim);
+    flex: none;
   }
-  .thumb :global(.label) {
-    display: none;
+  .eye.on {
+    color: var(--text);
   }
-  .thumb :global(.img) {
-    border-radius: 0;
-  }
-  .swatch {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-  .info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+  .eye:hover {
+    background: var(--panel-3);
   }
   .name {
     flex: 1;
@@ -218,53 +111,13 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .info .name {
-    flex: none;
-  }
-  .bar {
-    display: block;
-    height: 3px;
-    background: var(--border);
-  }
-  .bar > span {
-    display: block;
-    height: 100%;
-    background: var(--accent);
-  }
-  .sub {
-    font-size: 10px;
-    color: var(--text-dim);
-    min-width: 26px;
-    text-align: right;
-  }
-  .rep {
-    padding: 1px 6px;
-    font-size: 11px;
-  }
-  .hint {
-    font-size: 11px;
+  .count {
+    font: 11px var(--mono);
     color: var(--text-dim);
   }
-  .pad {
-    padding: 6px 8px;
-  }
-  .notice {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin: 6px 8px;
-    padding: 6px 8px;
-    border: 1px solid var(--accent);
+  .small {
+    padding: 0 6px;
     font-size: 11px;
-  }
-  .foot {
-    display: flex;
-    gap: 6px;
-    padding: 6px 8px;
-  }
-  .foot button {
-    flex: 1;
-    padding: 2px 6px;
+    line-height: 16px;
   }
 </style>
