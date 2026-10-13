@@ -62,6 +62,9 @@ function randomTilt(): { tiltX?: number; tiltZ?: number } {
   return { tiltX: (Math.random() * 2 - 1) * TILT_LIMIT, tiltZ: (Math.random() * 2 - 1) * TILT_LIMIT }
 }
 
+/** One Shift+scroll notch scales the placement preview by this much. */
+const SCALE_STEP = 1.1
+
 export class PlaceTool implements Tool {
   get usesBrush() {
     return editor.placeScatter
@@ -107,16 +110,19 @@ export class PlaceTool implements Tool {
   }
 
   /**
-   * Scale the placement preview by `factor` (Shift+scroll), within the Properties panel's range. The
-   * next click uses this scale. A WMO stays at 1: the 1.12 client draws buildings at full size only
-   * (MODF has no scale), while a doodad's MDDF scale is honoured.
+   * Scale the placement preview by `steps` notches (Shift+scroll), within the Properties panel's range.
+   * The scale sits on a ladder of powers of SCALE_STEP, so step 0 is exactly 1 and scrolling back always
+   * returns to it; a random scale snaps to the nearest rung on the first notch. The next click uses
+   * this scale. A WMO stays at 1: the 1.12 client draws buildings at full size only (MODF has no
+   * scale), while a doodad's MDDF scale is honoured.
    */
-  scalePreview(factor: number) {
+  scalePreview(steps: number) {
     if (editor.prefab.startsWith('wmo:')) {
       setStatus('Buildings (WMOs) cannot be scaled: the 1.12 client always draws them at full size.', 3000)
       return
     }
-    this.scale = Math.round(THREE.MathUtils.clamp(this.scale * factor, 0.05, 20) * 100) / 100
+    const rung = Math.round(Math.log(this.scale) / Math.log(SCALE_STEP)) + steps
+    this.scale = rung === 0 ? 1 : THREE.MathUtils.clamp(Math.round(SCALE_STEP ** rung * 100) / 100, 0.05, 20)
     setViewportHint(`Scale ×${this.scale.toFixed(2)}`)
   }
 

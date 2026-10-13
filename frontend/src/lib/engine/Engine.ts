@@ -374,7 +374,7 @@ export class Engine {
           // Ctrl+scroll rotates the preview; Alt+scroll raises/lowers it (0.25 per notch); Shift+scroll
           // scales it (10% per notch).
           if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
-          else if (e.shiftKey) this.placeTool.scalePreview(dir < 0 ? 1.1 : 1 / 1.1)
+          else if (e.shiftKey) this.placeTool.scalePreview(-dir)
           else editor.placeHeight = Math.round((editor.placeHeight - dir * 0.25) * 100) / 100
         }
       },
