@@ -106,7 +106,8 @@ cd frontend && pnpm build   # frontend only
     sculpting.
 - **UI layout** (Photoshop-like, `App.svelte`):
   - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
-  - Main row: `Toolbar` | `Viewport` (with the document tab) | `Dock`.
+  - Main row: `Toolbar` | centre column | `Dock`. The centre column is the `Viewport` (with the
+    document tab) over the `AssetBrowser`, which has its own area along the bottom.
   - Per-tool settings go in `OptionsBar` (use `OptSlider`).
   - Contextual editing goes in dock panels (`DockPanel` wrapper: tabs + collapse). Dock width
     and collapsed panels are stored in `prefs`.
@@ -114,10 +115,17 @@ cd frontend && pnpm build   # frontend only
 - **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
   target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides
   the map edge.
-- **Palette** (`components/Palette.svelte`, inside the dock's Models/Textures panel):
-  - Shows WoW models (doodads/buildings) or tileset textures as a thumbnail grid.
+- **Asset browser** (`components/AssetBrowser.svelte`, along the bottom of the window):
+  - Search-first: `lib/wow/search.ts` tokenises every path (folder segments, file-name words,
+    camel-case) and scores a query against them, with a synonym table (`SYNONYMS`) mapping the
+    words an author types to the client's words. Kind tabs (Doodads, Buildings, Textures, All), a
+    zone select and category facets narrow the results. Ctrl+F focuses the search.
   - Categories and zones come from path keywords in `lib/wow/catalog.ts`; tune the regex rules
     there.
+  - The grid is virtualised (only the rows in view are rendered), so there is no result cap.
+    `AssetPreview.svelte` shows the hovered (else picked) item live in its own small renderer.
+  - `ui.palette` follows the tool (textures while painting) and the browser follows it. Its
+    height, collapsed state, tile size and recent picks are `prefs`.
   - Thumbnails (`lib/wow/thumbs.ts`) render lazily into a render target on the **main**
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading

@@ -3,6 +3,7 @@
   import Toolbar, { TOOLS } from './components/Toolbar.svelte'
   import OptionsBar from './components/OptionsBar.svelte'
   import Dock from './components/Dock.svelte'
+  import AssetBrowser from './components/AssetBrowser.svelte'
   import StatusBar from './components/StatusBar.svelte'
   import Viewport from './components/Viewport.svelte'
   import NewMapDialog from './components/NewMapDialog.svelte'
@@ -119,7 +120,10 @@
   <OptionsBar />
   <div class="main">
     <Toolbar />
-    <Viewport />
+    <div class="centre">
+      <Viewport />
+      <AssetBrowser />
+    </div>
     <Dock />
   </div>
   <StatusBar />
@@ -139,6 +143,12 @@
   .main {
     display: grid;
     grid-template-columns: auto 1fr auto;
+    min-height: 0;
+  }
+  .centre {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     min-height: 0;
   }
 </style>

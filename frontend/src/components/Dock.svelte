@@ -1,11 +1,10 @@
 <script lang="ts">
   import DockPanel from './DockPanel.svelte'
-  import Palette from './Palette.svelte'
   import LayersPanel from './LayersPanel.svelte'
   import PropertiesPanel from './PropertiesPanel.svelte'
   import MinimapPanel from './MinimapPanel.svelte'
   import SpawnsPanel from './SpawnsPanel.svelte'
-  import { editor, prefs, ui } from '../lib/state/editor.svelte'
+  import { editor, prefs } from '../lib/state/editor.svelte'
 
   // Selecting an object reveals the Properties panel if it was collapsed.
   $effect(() => {
@@ -34,19 +33,7 @@
 
 <div class="dock" style:width="{prefs.dockWidth}px">
   <div class="resizer" role="separator" aria-orientation="vertical" onpointerdown={startResize}></div>
-  <DockPanel
-    id="assets"
-    grow
-    tabs={[
-      { id: 'models', label: 'Models' },
-      { id: 'textures', label: 'Textures' },
-    ]}
-    active={ui.palette}
-    onselect={(id) => (ui.palette = id as 'models' | 'textures')}
-  >
-    <Palette />
-  </DockPanel>
-  <DockPanel id="layers" tabs={[{ id: 'layers', label: 'Layers' }]}>
+  <DockPanel id="layers" grow tabs={[{ id: 'layers', label: 'Layers' }]}>
     <LayersPanel />
   </DockPanel>
   <DockPanel id="minimap" tabs={[{ id: 'minimap', label: 'Map' }]}>
@@ -83,12 +70,11 @@
     background: var(--accent);
     opacity: 0.5;
   }
-  /* Keep Layers/Properties from eating the Assets panel on short windows. */
   .dock :global(.panel:not(.grow) .body) {
-    max-height: 30vh;
+    max-height: 40vh;
     overflow-y: auto;
   }
-  .dock :global(.panel.grow) {
-    min-height: 260px;
+  .dock :global(.panel.grow .body) {
+    overflow-y: auto;
   }
 </style>

@@ -27,11 +27,13 @@ The layout follows Photoshop:
 - **Menu bar** at the top.
 - **Options bar** below it, showing the active tool's settings (mode, size, strength, falloff…).
 - **Toolbar** on the left.
+- **Asset browser** along the bottom: search the client's doodads, buildings and textures in one box
+  (`Ctrl+F`), narrow by category and zone, and hover a tile to see it large and turning in the
+  preview on the right. Recent picks sit at the top. Drag its top edge to resize it.
 - **Document tabs** above the 3D view. Several maps can be open at once, each with its own undo
   history and camera. New Map and Open add a tab, Ctrl+Tab switches tabs, and Ctrl+W or the tab's
   ✕ closes one (it asks first if there are unsaved changes).
 - **Panel dock** on the right, with:
-  - **Models / Textures**: the asset browser.
   - **Layers**: the map's 8 texture slots, with coverage.
   - **Properties**: the selected object's transform, or world settings.
 

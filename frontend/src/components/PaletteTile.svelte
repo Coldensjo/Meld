@@ -7,9 +7,12 @@
     title: string
     active?: boolean
     badge?: string
+    /** Tile width in px (the image is square). */
+    size?: number
     onclick: () => void
+    onhover?: (over: boolean) => void
   }
-  let { thumbKey, label, title, active = false, badge, onclick }: Props = $props()
+  let { thumbKey, label, title, active = false, badge, size, onclick, onhover }: Props = $props()
 
   let url = $state('')
   let failed = $state(false)
@@ -54,7 +57,7 @@
   }
 </script>
 
-<button class="tile" class:active class:failed {title} {onclick} use:lazy={thumbKey}>
+<button class="tile" class:active class:failed {title} {onclick} use:lazy={thumbKey} style:width={size ? `${size}px` : undefined} onpointerenter={() => onhover?.(true)} onpointerleave={() => onhover?.(false)}>
   <div class="img">
     {#if url}
       <img src={url} alt="" draggable="false" />
@@ -74,9 +77,13 @@
     flex-direction: column;
     align-items: center;
     gap: 3px;
-    padding: 4px;
+    padding: 3px;
     min-width: 0;
     background: var(--bg);
+  }
+  .tile:hover:not(:disabled) {
+    background: var(--panel-2);
+    border-color: var(--accent-2);
   }
   .tile.active {
     border-color: var(--accent);
@@ -94,7 +101,7 @@
     display: grid;
     place-items: center;
     border-radius: 4px;
-    background: radial-gradient(circle at 50% 35%, #4a5366, #262b35 75%);
+    background: radial-gradient(circle at 50% 40%, #5a6373, #2b3038 80%);
     overflow: hidden;
   }
   img {
@@ -104,7 +111,7 @@
   }
   .label {
     width: 100%;
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.2;
     text-align: center;
     overflow: hidden;

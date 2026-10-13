@@ -9,8 +9,8 @@ import { bytesToBase64 } from '../io/base64'
 // WebGL context (sharing GPU textures with the scene), then get cached as PNG
 // in the user's cache dir by the Go side, so later sessions load instantly.
 
-const VERSION = 'v1'
-const SIZE = 96
+const VERSION = 'v2'
+const SIZE = 176
 const SUPERSAMPLE = 2
 
 const urls = new Map<string, Promise<string>>()
@@ -96,8 +96,12 @@ async function renderModel(type: string): Promise<Blob> {
   scene.add(mesh)
   const s = asset.bbox.getBoundingSphere(new THREE.Sphere())
   const r = Math.max(s.radius, 0.3)
-  const d = (r / Math.sin(THREE.MathUtils.degToRad(15))) * 1.02
-  const dir = new THREE.Vector3(0.75, 0.5, 0.65).normalize()
+  const d = (r / Math.sin(THREE.MathUtils.degToRad(15))) * 0.96
+  // Tall things (trees, towers) are seen from lower down, flat things (rugs, platforms) from above.
+  const size = asset.bbox.getSize(new THREE.Vector3())
+  const flat = Math.max(size.x, size.z)
+  const dir = size.y > flat * 1.5 ? new THREE.Vector3(0.8, 0.3, 0.6) : size.y < flat * 0.3 ? new THREE.Vector3(0.5, 0.95, 0.4) : new THREE.Vector3(0.75, 0.5, 0.65)
+  dir.normalize()
   camera.position.copy(s.center).addScaledVector(dir, d)
   camera.near = d / 50
   camera.far = d * 3

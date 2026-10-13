@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import PaletteTile from './PaletteTile.svelte'
-  import { editor, ui } from '../lib/state/editor.svelte'
+  import { editor, prefs, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { LAYERS } from '../lib/terrain/layers'
   import { isColor } from '../lib/terrain/paletteArray'
@@ -43,6 +43,7 @@
     if (!chunk) return
     ui.replaceSlot = { chunk: chunk.index, slot }
     ui.palette = 'textures'
+    prefs.browserCollapsed = false
   }
 </script>
 
@@ -66,7 +67,7 @@
       <span class="hint">No texture picked yet.</span>
     {/if}
     <button onclick={() => (editor.tool = 'pipette')} title="Pick the texture under the cursor (I, or hold Alt while painting)">Pipette</button>
-    <button onclick={() => (ui.palette = 'textures')} title="Pick a texture from the WoW client">Browse…</button>
+    <button onclick={() => { ui.palette = 'textures'; prefs.browserCollapsed = false }} title="Pick a texture from the WoW client">Browse…</button>
   </div>
 
   {#if chunk}

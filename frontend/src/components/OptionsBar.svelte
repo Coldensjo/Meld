@@ -1,7 +1,7 @@
 <script lang="ts">
   import OptSlider from './OptSlider.svelte'
   import { TOOLS } from './Toolbar.svelte'
-  import { editor, ui, type SculptMode } from '../lib/state/editor.svelte'
+  import { editor, prefs, ui, type SculptMode } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName } from '../lib/models/assets'
   import { FALLOFF_CURVES } from '../lib/tools/brush'
@@ -84,7 +84,7 @@
         <button class:active={editor.paintMode === 'mask'} onclick={() => (editor.paintMode = 'mask')} title="Paint the mask that Fill mask uses to place the active texture">Mask</button>
       </div>
     {/if}
-    <button class="chip" onclick={() => (ui.palette = 'textures')} title="Active texture layer (pick textures in the Assets panel)">
+    <button class="chip" onclick={() => { ui.palette = 'textures'; prefs.browserCollapsed = false }} title="Active texture layer (pick textures in the asset browser below)">
       <span class="dim">Layer {editor.paintLayer + 1}:</span>
       {slotTex ? texName(slotTex) : 'empty'}
     </button>
@@ -104,7 +104,7 @@
   {:else if editor.tool === 'place'}
     <span class="chip" title={editor.prefab}>
       <span class="dim">Model:</span>
-      {editor.prefab ? displayName(editor.prefab) : 'pick one in Assets'}
+      {editor.prefab ? displayName(editor.prefab) : 'pick one in the browser below'}
     </span>
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomRot} /> Random rotation</label>
     <label class="check"><input type="checkbox" bind:checked={editor.placeRandomScale} /> Random scale</label>
