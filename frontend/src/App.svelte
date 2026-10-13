@@ -61,7 +61,20 @@
     else if (t === 'place') ui.palette = 'models'
   })
 
+  /**
+   * A bare Alt press is swallowed on its way down and up. Otherwise Windows takes the released Alt as
+   * "enter the menu loop" and moves keyboard focus out of the page, so after Alt+scroll (place height)
+   * the page no longer sees Ctrl and Ctrl+scroll (spin) stops working.
+   */
+  function onKeyUp(e: KeyboardEvent) {
+    if (e.key === 'Alt') e.preventDefault()
+  }
+
   function onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Alt') {
+      e.preventDefault()
+      return
+    }
     const el = e.target as HTMLElement | null
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
     const engine = engineRef.current
@@ -132,7 +145,7 @@
   }
 </script>
 
-<svelte:window onkeydown={onKeyDown} onbeforeunload={onBeforeUnload} />
+<svelte:window onkeydown={onKeyDown} onkeyup={onKeyUp} onbeforeunload={onBeforeUnload} />
 
 <div class="app">
   <MenuBar />

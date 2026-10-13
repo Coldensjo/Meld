@@ -185,6 +185,8 @@ export class Engine {
   private placeTool = new PlaceTool()
   /** Accumulated Ctrl+wheel delta, so smooth trackpads rotate in steps too. */
   private wheelAcc = 0
+  /** Which modifier the accumulated wheel delta belongs to, so a remainder never carries over to the other. */
+  private wheelMod = ''
   /** Copied region; shared by all documents so it can be pasted into another map. */
   private clip: MapClip | null = null
   /** Copied models, likewise shared. Whichever was copied last is what Paste places. */
@@ -358,6 +360,11 @@ export class Engine {
       'wheel',
       (e) => {
         if (editor.tool !== 'place' || !(e.ctrlKey || e.altKey)) return
+        const mod = e.ctrlKey ? 'ctrl' : 'alt'
+        if (mod !== this.wheelMod) {
+          this.wheelMod = mod
+          this.wheelAcc = 0
+        }
         const delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY // lines → pixels
         this.wheelAcc += delta
         const notch = 100
