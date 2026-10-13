@@ -80,7 +80,8 @@ vec3 blend(vec4 ids, vec4 w, vec2 tuv) {
 }
 
 void main() {
-  vec3 n = normalize(vNormal);
+  // Seen from below (the camera under the ground, or inside a hill), the ground is a dark ceiling.
+  vec3 n = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
   vec2 suv = vWorldPos.xz / worldSize;
   vec2 tuv = vWorldPos.xz / texScale;
   vec2 cell = floor(vWorldPos.xz / chunkWorld);
@@ -253,6 +254,8 @@ export function createTerrainMaterial(
     selTime: { value: 0 },
   }
   return new THREE.ShaderMaterial({
+    // Double-sided, so going under the surface shows a ceiling rather than the world from below.
+    side: THREE.DoubleSide,
     uniforms,
     vertexShader: vertex,
     fragmentShader: fragment,

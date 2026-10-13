@@ -141,7 +141,7 @@ export class CameraController {
     if (k.has('KeyE')) this.yaw -= dt * 1.6 * this.sensitivity
 
     if (fwd || right) {
-      const speed = (20 + this.distance * 0.9) * fast * this.speed * dt
+      const speed = this.moveSpeed(fast) * dt
       const fx = -Math.sin(this.yaw)
       const fz = -Math.cos(this.yaw)
       if (this.followGround) {
@@ -156,8 +156,8 @@ export class CameraController {
       }
       this.clampTarget()
     }
-    if (k.has('Space') && !this.followGround) this.target.y += (20 + this.distance * 0.9) * fast * this.speed * dt
-    if ((k.has('KeyX') || k.has('KeyC')) && !this.followGround) this.target.y -= (20 + this.distance * 0.9) * fast * this.speed * dt
+    if (k.has('Space') && !this.followGround) this.target.y += this.moveSpeed(fast) * dt
+    if ((k.has('KeyX') || k.has('KeyC')) && !this.followGround) this.target.y -= this.moveSpeed(fast) * dt
 
     if (this.followGround) {
       // Glide the target height along the terrain.
@@ -170,16 +170,35 @@ export class CameraController {
 
     const cp = Math.cos(this.pitch)
     const pos = this.camera.position
-    pos.set(
-      this.target.x + Math.sin(this.yaw) * cp * this.distance,
-      this.target.y + Math.sin(this.pitch) * this.distance,
-      this.target.z + Math.cos(this.yaw) * cp * this.distance,
-    )
+    const dx = Math.sin(this.yaw) * cp
+    const dy = Math.sin(this.pitch)
+    const dz = Math.cos(this.yaw) * cp
+    let dist = this.distance
+    if (!this.followGround && this.target.y > this.ground(this.target.x, this.target.z) + 0.5) {
+      // The target is in the open: keep the ground from coming between it and the camera, as a
+      // game camera does on a hillside, by pulling the camera in to just before the surface.
+      const steps = 24
+      for (let i = 1; i <= steps; i++) {
+        const d = (this.distance * i) / steps
+        const x = this.target.x + dx * d
+        const z = this.target.z + dz * d
+        if (this.target.y + dy * d < this.ground(x, z) + 1) {
+          dist = Math.max(this.minDistance, (this.distance * (i - 1)) / steps)
+          break
+        }
+      }
+    }
+    pos.set(this.target.x + dx * dist, this.target.y + dy * dist, this.target.z + dz * dist)
     if (this.followGround) {
       const floor = this.ground(pos.x, pos.z) + 1.5
       if (pos.y < floor) pos.y = floor
     }
     this.camera.lookAt(this.target)
+  }
+
+  /** Units per second for the keys: slow close in, faster zoomed out, but never a blur. */
+  private moveSpeed(fast: number) {
+    return (6 + Math.min(this.distance, 300) * 0.4) * fast * this.speed
   }
 
   dispose() {
