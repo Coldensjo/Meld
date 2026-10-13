@@ -18,12 +18,22 @@ var assets embed.FS
 func main() {
 	app := NewApp()
 
+	// The window opens at the size it was closed at.
+	width, height, state := 1600, 900, options.Normal
+	if w := app.cfg.Window; w.Width >= 1024 && w.Height >= 640 {
+		width, height = w.Width, w.Height
+	}
+	if app.cfg.Window.Maximised {
+		state = options.Maximised
+	}
+
 	err := wails.Run(&options.App{
-		Title:     "WorldEditor",
-		Width:     1600,
-		Height:    900,
-		MinWidth:  1024,
-		MinHeight: 640,
+		Title:            "WorldEditor",
+		Width:            width,
+		Height:           height,
+		MinWidth:         1024,
+		MinHeight:        640,
+		WindowStartState: state,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 			// /wow/* is served from the user's local WoW client (see internal/wow).
@@ -40,6 +50,7 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 17, G: 19, B: 24, A: 1},
 		OnStartup:        app.startup,
+		OnBeforeClose:    app.beforeClose,
 		Bind: []interface{}{
 			app,
 		},

@@ -49,6 +49,25 @@ func (a *App) startup(ctx context.Context) {
 	}
 }
 
+// beforeClose remembers the window's size for the next start. It never stops the close.
+func (a *App) beforeClose(ctx context.Context) bool {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	w := &a.cfg.Window
+	switch {
+	case runtime.WindowIsMinimised(ctx):
+		// Keep the size from before it was minimised.
+	case runtime.WindowIsMaximised(ctx) || runtime.WindowIsFullscreen(ctx):
+		// The unmaximised size isn't available, so the last one saved stays.
+		w.Maximised = true
+	default:
+		w.Width, w.Height = runtime.WindowGetSize(ctx)
+		w.Maximised = false
+	}
+	_ = config.Save(a.cfg)
+	return false
+}
+
 // WowStatus reports whether a WoW client is configured and loaded.
 func (a *App) WowStatus() wow.Status {
 	return a.wow.Status()

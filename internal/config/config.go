@@ -18,6 +18,15 @@ type Config struct {
 	Login Login `json:"login,omitempty"`
 	// Prefs is the frontend's preferences object, stored opaquely.
 	Prefs json.RawMessage `json:"prefs,omitempty"`
+	// Window is the main window's size when it was last closed.
+	Window Window `json:"window,omitempty"`
+}
+
+// Window is the main window's last size (unmaximised) and whether it was maximised.
+type Window struct {
+	Width     int  `json:"width,omitempty"`
+	Height    int  `json:"height,omitempty"`
+	Maximised bool `json:"maximised,omitempty"`
 }
 
 // Login is a game account to log in with after a region export.
