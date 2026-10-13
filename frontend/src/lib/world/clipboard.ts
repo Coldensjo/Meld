@@ -360,7 +360,7 @@ export function pasteRegion(
       }
     }
     if (rect) {
-      terrain.markSplatDirty()
+      terrain.markSplatDirty(rect)
       stroke.touchSplat(rect)
     }
   }

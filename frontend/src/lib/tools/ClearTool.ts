@@ -83,7 +83,7 @@ export class ClearTool implements Tool {
     const w = t.weights
     const rect = forEachTexel(t, hit.x, hit.z, radius, falloff, (p, weight) => resetTexel(w, p * SLOTS, weight))
     if (rect) {
-      t.markSplatDirty()
+      t.markSplatDirty(rect)
       this.stroke?.touchSplat(rect)
     }
   }

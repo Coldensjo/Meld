@@ -6,6 +6,9 @@ import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRoles } from './chunkPaint'
 import { writeCellIndex } from './holes'
+import { DirtyRegion, uploadRect, type DirtyRect } from './dirtyRect'
+
+export type { DirtyRect } from './dirtyRect'
 
 /** A 1.12 tile is 1600/3 yards across: 128 cells of this size, the grid the server's maps use. */
 export const TILE_YARDS = 1600 / 3
@@ -48,7 +51,15 @@ export class Terrain {
   /** Paint mask (0-255 per splat texel); texture fills apply to it. Not saved. */
   readonly mask: Uint8Array
   readonly maskTex: THREE.DataTexture
-  private maskDirty = false
+  /** Bumped whenever the mask is marked dirty, so a scan of it can be skipped when nothing changed. */
+  maskVersion = 0
+  private maskDirty = new DirtyRegion()
+  /**
+   * CPU-side views of the weights and the mask, never bound to a material. A sub-rect upload reads
+   * the changed texels straight from the arrays through them (see uploadRect).
+   */
+  private weightSrc: THREE.DataTexture
+  private maskSrc: THREE.DataTexture
   readonly material: THREE.ShaderMaterial
   readonly group = new THREE.Group()
 
@@ -57,7 +68,10 @@ export class Terrain {
   private chunks: THREE.Mesh[] = []
   private chunksPerSide: number
   private dirty = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
-  private splatDirty = false
+  private splatDirty = new DirtyRegion()
+  /** Scratch for uploadRegion. */
+  private uploadBox = new THREE.Box2()
+  private uploadPos = new THREE.Vector2()
 
   constructor(size: number, cellSize = CELL_SIZE) {
     if (size % CHUNK_CELLS !== 0) throw new Error(`map size ${size} is not a multiple of ${CHUNK_CELLS}`)
@@ -81,7 +95,11 @@ export class Terrain {
     this.mask = new Uint8Array(this.splatRes * this.splatRes)
     this.maskTex = new THREE.DataTexture(this.mask, this.splatRes, this.splatRes, THREE.RedFormat, THREE.UnsignedByteType)
     this.maskTex.magFilter = this.maskTex.minFilter = THREE.LinearFilter
+    // Linear filtering never reads mipmaps; without this a partial upload would rebuild them.
+    this.maskTex.generateMipmaps = false
     this.maskTex.needsUpdate = true
+    this.weightSrc = new THREE.DataTexture(this.weights, this.splatRes, this.splatRes, THREE.RGBAFormat)
+    this.maskSrc = new THREE.DataTexture(this.mask, this.splatRes, this.splatRes, THREE.RedFormat, THREE.UnsignedByteType)
     this.material = createTerrainMaterial(
       this.palette.texture,
       this.slotTex,
@@ -173,7 +191,7 @@ export class Terrain {
         let nx = hl - hr
         let ny = 2 * cs
         let nz = hd - hu
-        const len = Math.hypot(nx, ny, nz)
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz)
         nx /= len; ny /= len; nz /= len
         nor[i] = nx
         nor[i + 1] = ny
@@ -197,19 +215,51 @@ export class Terrain {
 
   markAllDirty() {
     this.markDirty(0, 0, this.size, this.size)
-    this.splatDirty = true
+    this.markSplatDirty()
   }
 
-  markSplatDirty() {
-    this.splatDirty = true
+  /**
+   * The weights (and chunk slots) changed. With `rect`, an inclusive texel rect, only those texels are
+   * uploaded on the next update; without one the whole weights texture is.
+   */
+  markSplatDirty(rect?: DirtyRect | null) {
+    this.splatDirty.mark(rect)
   }
 
-  markMaskDirty() {
-    this.maskDirty = true
+  /** The mask changed, in the inclusive texel `rect` or (without one) anywhere. */
+  markMaskDirty(rect?: DirtyRect | null) {
+    this.maskVersion++
+    this.maskDirty.mark(rect)
   }
 
-  /** Push pending edits to the GPU. Call once per frame. */
-  update() {
+  /**
+   * Uploads what `region` says changed in `dst`: its rect from `src`, a never-bound view of the same
+   * array, when the renderer is there and the rect is small enough, else the whole texture.
+   */
+  private uploadRegion(renderer: THREE.WebGLRenderer | undefined, region: DirtyRegion, src: THREE.DataTexture, dst: THREE.DataTexture) {
+    const r = renderer && region.rect ? uploadRect(region.rect, this.splatRes) : 'whole'
+    if (r === null) return
+    if (r === 'whole') {
+      dst.needsUpdate = true
+      return
+    }
+    this.uploadBox.min.set(r.x0, r.z0)
+    this.uploadBox.max.set(r.x1 + 1, r.z1 + 1)
+    this.uploadPos.set(r.x0, r.z0)
+    try {
+      renderer!.copyTextureToTexture(src, dst, this.uploadBox, this.uploadPos)
+    } catch (err) {
+      // A context that can't take a sub-rect upload still gets the whole texture.
+      console.warn('partial texture upload failed; uploading the whole texture', err)
+      dst.needsUpdate = true
+    }
+  }
+
+  /**
+   * Push pending edits to the GPU. Call once per frame. With the renderer, paint and mask edits upload
+   * only the texels that changed; without it the whole textures are re-uploaded.
+   */
+  update(renderer?: THREE.WebGLRenderer) {
     const d = this.dirty
     if (d.x1 >= d.x0) {
       const c0x = Math.max(0, Math.floor(d.x0 / CHUNK))
@@ -225,14 +275,15 @@ export class Terrain {
       d.x1 = d.z1 = -Infinity
       this.heightsVersion++
     }
-    if (this.maskDirty) {
-      this.maskTex.needsUpdate = true
-      this.maskDirty = false
+    if (this.maskDirty.dirty) {
+      this.uploadRegion(renderer, this.maskDirty, this.maskSrc, this.maskTex)
+      this.maskDirty.clear()
     }
-    if (this.splatDirty) {
-      this.weightTex.needsUpdate = true
+    if (this.splatDirty.dirty) {
+      this.uploadRegion(renderer, this.splatDirty, this.weightSrc, this.weightTex)
+      // The slot table is small, and painting can rename a slot anywhere in a touched chunk.
       this.slotTex.needsUpdate = true
-      this.splatDirty = false
+      this.splatDirty.clear()
     }
   }
 
@@ -365,7 +416,7 @@ export class Terrain {
       const role = packed.chunkSlots[k]
       this.chunkSlots[k] = role === NO_TEXTURE ? NO_TEXTURE : roleTex[role] ?? 0
     }
-    this.splatDirty = true
+    this.markSplatDirty()
   }
 
   dispose() {
@@ -375,5 +426,8 @@ export class Terrain {
     this.slotTex.dispose()
     this.palette.dispose()
     this.maskTex.dispose()
+    this.weightSrc.dispose()
+    this.maskSrc.dispose()
   }
 }
+

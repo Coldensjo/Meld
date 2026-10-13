@@ -14,7 +14,7 @@ import { brushShape, brushWeight } from './falloff'
 
 /** Normalised brush distance: circle (euclidean) or square (chebyshev). */
 function brushDist(dx: number, dz: number, radius: number) {
-  return (brushShape.square ? Math.max(Math.abs(dx), Math.abs(dz)) : Math.hypot(dx, dz)) / radius
+  return (brushShape.square ? Math.max(Math.abs(dx), Math.abs(dz)) : Math.sqrt(dx * dx + dz * dz)) / radius
 }
 
 /**
@@ -193,7 +193,7 @@ export class TerrainStroke {
         grow(r, { x0: cx * per, z0: cz * per, x1: cx * per + per - 1, z1: cz * per + per - 1 })
       }
     }
-    if (changed) t.markSplatDirty()
+    if (changed) t.markSplatDirty(r)
   }
 
   finish(): Command | null {
@@ -226,7 +226,7 @@ export class TerrainStroke {
           apply: (b) => {
             if (r) inject(t.weights, R, SLOTS, r, b ? wB! : wA!)
             t.chunkSlots.set(b ? slotsBefore : slotsAfter)
-            t.markSplatDirty()
+            t.markSplatDirty(r)
           },
         })
       }
@@ -239,7 +239,7 @@ export class TerrainStroke {
       parts.push({
         apply: (b) => {
           inject(t.mask, R, 1, r, b ? before : after)
-          t.markMaskDirty()
+          t.markMaskDirty(r)
         },
       })
     }

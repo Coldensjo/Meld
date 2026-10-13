@@ -76,7 +76,7 @@ abstract class BrushTool implements Tool {
 
   protected splatChanged(ctx: ToolContext, r: Rect | null) {
     if (!r) return
-    ctx.terrain.markSplatDirty()
+    ctx.terrain.markSplatDirty(r)
     this.stroke?.touchSplat(r)
   }
 
@@ -427,7 +427,7 @@ export class PaintTool extends BrushTool {
         m[p] = erase ? Math.min(m[p], 255 - v) : Math.max(m[p], v)
       })
       if (rect) {
-        ctx.terrain.markMaskDirty()
+        ctx.terrain.markMaskDirty(rect)
         this.stroke?.touchMask(rect)
       }
       return

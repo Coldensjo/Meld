@@ -444,7 +444,7 @@ export class Engine {
       const ms = time * 1000
       for (const a of animatedAssets) a.anim?.update(ms)
     }
-    this.terrain.update()
+    this.terrain.update(this.renderer)
     // A hidden object can't stay selected once hidden objects stop being drawn.
     if (this.objects.setShowHidden(ui.showHiddenModels) && editor.selectedIds.some((id) => this.objects.isHidden(id))) {
       selectObjects(this.objects, editor.selectedIds.filter((id) => !this.objects.isHidden(id)), editor.selected?.id)
@@ -1097,7 +1097,7 @@ export class Engine {
       }
     }
     stroke.touchSplat({ x0, z0, x1, z1 })
-    t.markSplatDirty()
+    t.markSplatDirty({ x0, z0, x1, z1 })
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
     const tex = editor.palette[layer] ?? ''
@@ -1713,7 +1713,7 @@ export class Engine {
     const stroke = new TerrainStroke(t, 'Replace texture here', { splat: true })
     stroke.touchSplat({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
     replaceInChunk(side, t.splatRes, t.chunkSlots, t.weights, c, slot, index)
-    t.markSplatDirty()
+    t.markSplatDirty({ x0, z0, x1: x0 + per - 1, z1: z0 + per - 1 })
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
   }
