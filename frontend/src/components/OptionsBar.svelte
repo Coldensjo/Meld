@@ -28,6 +28,18 @@
       editor.tool === 'clear' ||
       (editor.tool === 'place' && editor.placeScatter),
   )
+  // The water brush paints whole cells in a circle, so only its size applies; Vertex mode moves the
+  // selection at the brush strength and uses nothing else of the brush.
+  const paintingWater = $derived(editor.tool === 'water' && editor.waterMode === 'paint')
+  const vertexMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'vertex')
+
+  /** The bar never shows a scrollbar; the wheel scrolls it sideways when it holds more than fits. */
+  function scrollSideways(e: WheelEvent) {
+    const el = e.currentTarget as HTMLElement
+    if (el.scrollWidth <= el.clientWidth || e.deltaX !== 0) return
+    el.scrollLeft += e.deltaY
+    e.preventDefault()
+  }
 </script>
 
 {#snippet editLimit()}
@@ -38,7 +50,7 @@
   </select>
 {/snippet}
 
-<div class="options">
+<div class="options" onwheel={scrollSideways}>
   <div class="tool" title={tool.name}>
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
       <path d={tool.icon} />
@@ -129,7 +141,7 @@
       <label class="check" title="The brush stops on liquid surfaces (and the sea), not just the ground"><input type="checkbox" bind:checked={editor.water.onLiquids} /> On liquids</label>
       <button onclick={() => engineRef.current?.cropWater()} title="Remove the liquid that lies under the ground, in the selected area or the whole map">Crop water</button>
       <button onclick={() => engineRef.current?.regenWaterOpacity()} title="Recompute the water's opacity from the ground, in the selected area or the whole map">Regen opacity</button>
-      <span class="dim"><kbd>Ctrl</kbd>+click remove · <kbd>Alt</kbd>+click lock height</span>
+      <span class="dim" title="Ctrl+click removes water. Alt+click locks the height at the cursor."><kbd>Ctrl</kbd> remove · <kbd>Alt</kbd> lock</span>
     {:else}
       <OptSlider label="Sea level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} width={80} />
       {@render editLimit()}
@@ -215,7 +227,7 @@
     {/if}
   {/if}
 
-  {#if usesBrush && editor.tool !== 'place'}
+  {#if usesBrush && editor.tool !== 'place' && !paintingWater && !vertexMode}
     <div class="seg" title="Brush shape">
       <button class:active={editor.brush.shape === 'circle'} onclick={() => (editor.brush.shape = 'circle')} aria-label="Round brush">●</button>
       <button class:active={editor.brush.shape === 'square'} onclick={() => (editor.brush.shape = 'square')} aria-label="Square brush">■</button>
@@ -225,9 +237,13 @@
     {/if}
   {/if}
   {#if usesBrush}
-    <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={80} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
-    <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={1} step={0.01} digits={2} />
-    {#if editor.tool !== 'road' && editor.tool !== 'place'}
+    {#if !vertexMode}
+      <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={80} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
+    {/if}
+    {#if !paintingWater}
+      <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={1} step={0.01} digits={2} title={vertexMode ? 'How fast Shift+drag moves the selected vertices' : undefined} />
+    {/if}
+    {#if editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !vertexMode}
       <OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} />
       <select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
         {#each FALLOFF_CURVES as c (c.id)}
@@ -267,6 +283,11 @@
     overflow-x: auto;
     overflow-y: hidden;
     white-space: nowrap;
+    /* A scrollbar would add a second row under the bar; the wheel scrolls it instead. */
+    scrollbar-width: none;
+  }
+  .options::-webkit-scrollbar {
+    display: none;
   }
   .tool {
     display: grid;
