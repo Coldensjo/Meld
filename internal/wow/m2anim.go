@@ -38,6 +38,9 @@ type Effect struct {
 	Intensity float32    `json:"intensity"`
 	Radius    float32    `json:"radius"`
 	Size      float32    `json:"size,omitempty"`
+	// Interior marks a light inside a WMO's interior group. The game bakes those into the
+	// group's vertex colours, and without shadows a dynamic light would shine out through the walls.
+	Interior bool `json:"interior,omitempty"`
 }
 
 const (

@@ -41,6 +41,8 @@ export interface MeshEffect {
   intensity: number
   radius: number
   size?: number
+  /** Inside a WMO interior group: flames only, no dynamic light (it would shine through walls). */
+  interior?: boolean
 }
 
 export interface WowMesh {

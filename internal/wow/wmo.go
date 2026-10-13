@@ -134,6 +134,37 @@ func cstrAt(blob []byte, off int) string {
 	return string(blob[off:end])
 }
 
+// InteriorBox returns the bounding box (editor space: min xyz, max xyz) of a group file
+// flagged interior.
+func InteriorBox(b []byte) ([6]float32, bool) {
+	for _, c := range chunks(b) {
+		if c.id != "MOGP" || len(c.data) < 36 {
+			continue
+		}
+		r := reader{c.data}
+		if r.u32(8)&0x2000 == 0 {
+			return [6]float32{}, false
+		}
+		ax, ay, az := toEditor(r.f32(12), r.f32(16), r.f32(20))
+		bx, by, bz := toEditor(r.f32(24), r.f32(28), r.f32(32))
+		return [6]float32{min(ax, bx), min(ay, by), min(az, bz), max(ax, bx), max(ay, by), max(az, bz)}, true
+	}
+	return [6]float32{}, false
+}
+
+// markInterior flags the effects that lie inside one of the interior boxes.
+func markInterior(effects []Effect, boxes [][6]float32) {
+	for i := range effects {
+		p := effects[i].Pos
+		for _, b := range boxes {
+			if p[0] >= b[0] && p[1] >= b[1] && p[2] >= b[2] && p[0] <= b[3] && p[1] <= b[4] && p[2] <= b[5] {
+				effects[i].Interior = true
+				break
+			}
+		}
+	}
+}
+
 // ParseWMOGroup parses one group file into a mesh using root materials.
 func ParseWMOGroup(b []byte, mats []WMOMaterial) (*Mesh, error) {
 	cs := chunks(b)

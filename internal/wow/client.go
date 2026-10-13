@@ -214,10 +214,14 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 		return nil, err
 	}
 	m := &Mesh{}
+	var interiors [][6]float32
 	for i := 0; i < root.NumGroups; i++ {
 		gb, err := c.read(GroupPath(path, i))
 		if err != nil {
 			continue
+		}
+		if box, ok := InteriorBox(gb); ok {
+			interiors = append(interiors, box)
 		}
 		g, err := ParseWMOGroup(gb, root.Materials)
 		if err != nil {
@@ -252,6 +256,7 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 		return nil, errors.New("wmo: no geometry")
 	}
 	m.Effects = append(m.Effects, root.Lights...)
+	markInterior(m.Effects, interiors)
 	m.Consolidate()
 	return m, nil
 }

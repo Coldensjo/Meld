@@ -145,8 +145,11 @@ export class PropEffects {
           fire: e.kind === 'fire',
           seed,
         }
-        const near = this.sources.slice(firstOfObject).find((x) => x.pos.distanceTo(pos) < 2.5 * o.scale)
-        if (near) {
+        const near = e.interior ? null : this.sources.slice(firstOfObject).find((x) => x.pos.distanceTo(pos) < 2.5 * o.scale)
+        if (e.interior) {
+          // Interiors are lit by their baked vertex colours; with no shadows,
+          // a point light here would only light the outside through the walls.
+        } else if (near) {
           // Keep the model's own light colour; let flames make it flicker.
           if (src.fire) near.fire = true
           else near.color.copy(src.color)
