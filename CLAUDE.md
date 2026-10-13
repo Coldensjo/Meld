@@ -102,6 +102,12 @@ cd frontend && pnpm build   # frontend only
 - **Objects** (`lib/world/ObjectLayer.ts`):
   - One `InstancedMesh` per model type, so draw calls scale with the number of types, not
     instances.
+  - Each loaded model gets a three-mesh-bvh bounds tree (`world/bvh.ts`), which `pick` and
+    `raycastSurface` cast through.
+  - Each loaded model may also get a meshoptimizer LOD (`models/lod.ts`): a second index over the
+    same vertices, drawn by a second InstancedMesh for instances under `LOD_PX` on screen
+    (`splitLod` in `instanceCull.ts`). The LOD shares the full model's bounds tree, so picking
+    always hits the full model.
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
     sculpting.
 - **UI layout** (Photoshop-like, `App.svelte`):
