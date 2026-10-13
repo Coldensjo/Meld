@@ -375,7 +375,10 @@ export class Engine {
           // scales it (10% per notch).
           if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
           else if (e.shiftKey) this.placeTool.scalePreview(-dir)
-          else editor.placeHeight = Math.round((editor.placeHeight - dir * 0.25) * 100) / 100
+          else {
+            editor.placeHeight = Math.round((editor.placeHeight - dir * 0.25) * 100) / 100
+            setViewportHint(`Height ${editor.placeHeight >= 0 ? '+' : ''}${editor.placeHeight.toFixed(2)}`)
+          }
         }
       },
       { passive: true, signal: this.abort.signal },
