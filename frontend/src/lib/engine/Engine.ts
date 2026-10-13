@@ -2074,7 +2074,7 @@ export class Engine {
   }
 
   /**
-   * Tracks the paint chunk under the cursor for the Textures panel and tints it. `editor.hoverChunk` only
+   * Tracks the paint chunk under the cursor for the Layers panel and tints it. `editor.hoverChunk` only
    * changes when the cursor crosses into another chunk, so this writes no reactive state per frame.
    */
   private updateHoverChunk(rect: THREE.Vector4) {

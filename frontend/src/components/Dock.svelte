@@ -1,7 +1,6 @@
 <script lang="ts">
   import DockPanel from './DockPanel.svelte'
   import LayersPanel from './LayersPanel.svelte'
-  import TexturesPanel from './TexturesPanel.svelte'
   import PropertiesPanel from './PropertiesPanel.svelte'
   import MinimapPanel from './MinimapPanel.svelte'
   import SpawnsPanel from './SpawnsPanel.svelte'
@@ -34,11 +33,8 @@
 
 <div class="dock" style:width="{prefs.dockWidth}px">
   <div class="resizer" role="separator" aria-orientation="vertical" onpointerdown={startResize}></div>
-  <DockPanel id="layers" tabs={[{ id: 'layers', label: 'Layers' }]}>
+  <DockPanel id="layers" grow tabs={[{ id: 'layers', label: 'Layers' }]}>
     <LayersPanel />
-  </DockPanel>
-  <DockPanel id="textures" grow tabs={[{ id: 'textures', label: 'Textures' }]}>
-    <TexturesPanel />
   </DockPanel>
   <DockPanel id="minimap" tabs={[{ id: 'minimap', label: 'Map' }]}>
     <MinimapPanel />

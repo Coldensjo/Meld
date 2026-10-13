@@ -170,19 +170,15 @@ cd frontend && pnpm build   # frontend only
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading
     them. Use bindings for uploads.
-- **Dock panels** (`components/Dock.svelte`, top to bottom): Layers, Textures, Map, Spawns,
-  Properties.
-  - **Layers** (`LayersPanel.svelte`) is the scene's layers with an eye each and a count: terrain,
-    water, models, monsters, NPCs, game objects, creature paths, grid, chunk lines, and the models
-    hidden with H. They toggle the same `prefs`/`editor` flags as the View menu.
-  - **Textures** (`TexturesPanel.svelte`) is the map's palette: `editor.palette` is its list of
-    textures (WoW tileset paths or `#rrggbb` colours, up to 255), kept in palette order so rows
-    don't move while painting, each with its share of the map (`Engine.layerCoverage`). A click
-    paints with it. `Engine.useTexture(path)` adds one and makes it the paint texture. Rows in the
-    chunk under the cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in
-    the terrain shader) get a dot and a ⇄ button, which sets `ui.replaceSlot`; the next browser
-    pick goes to `Engine.replaceChunkTexture` (this chunk only, undoable). Whole-map replace is the
-    "Replace…" dialog.
+- **Dock panels** (`components/Dock.svelte`, top to bottom): Layers, Map, Spawns, Properties.
+  - **Layers** (`LayersPanel.svelte`) is only the four texture layers of the paint chunk under the
+    cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in the terrain
+    shader), an unused slot shown as an empty layer. Replace on a layer sets `ui.replaceSlot`; the
+    next pick in the asset browser goes to `Engine.replaceChunkTexture` (this chunk only, undoable).
+    Nothing else goes in this panel. Auto-paint, Fill mask and the "Replace Texture Everywhere"
+    dialog are in the Edit menu.
+  - `editor.palette` is the map's list of textures (WoW tileset paths or `#rrggbb` colours, up to
+    255). `Engine.useTexture(path)` adds one and makes it the paint texture.
   - **Properties** (`PropertiesPanel.svelte`) is the inspector for what is selected: one model's
     placement as `PropField`s (type a number, or drag the label to scrub; live preview and one undo
     step on release) with Focus, Duplicate, Hide, Delete, Detach, Place more and Select all of
