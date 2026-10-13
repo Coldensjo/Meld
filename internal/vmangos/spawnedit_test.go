@@ -61,3 +61,62 @@ func TestRunScriptLive(t *testing.T) {
 		t.Fatal("a failing script must report its error")
 	}
 }
+
+func TestReadWaypoints(t *testing.T) {
+	old := runSQL
+	defer func() { runSQL = old }()
+	var queries []string
+	runSQL = func(_ worldDB, sql string) ([]byte, error) {
+		queries = append(queries, sql)
+		if strings.Contains(sql, "creature_movement_template") {
+			return []byte("20\t1\t-8800\t-100\t40\t0\t0\t0\t0\n20\t2\t-8810\t-100\t41\t0\t0\t0\t0\n"), nil
+		}
+		// Creature 1 has its own path, with a wait, a facing, a script and a wander.
+		return []byte("1\t1\t-8800\t-100\t40\t1.5\t3000\t77\t2\n1\t2\t-8790\t-90\t41\t0\t0\t0\t0\n"), nil
+	}
+	spawns := []WorldSpawn{
+		{Kind: KindMonster, GUID: 1, Entry: 10, MovementType: 2},
+		{Kind: KindNPC, GUID: 2, Entry: 20, MovementType: 2},
+		{Kind: KindNPC, GUID: 3, Entry: 20, MovementType: 0},
+		{Kind: KindObject, GUID: 4, Entry: 30},
+	}
+	if err := readWaypoints(worldDB{}, spawns, 32, 48); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(queries[0], "IN (1, 2, 3)") || !strings.Contains(queries[0], "path_id = 0") {
+		t.Fatalf("own paths query: %s", queries[0])
+	}
+	if len(queries) != 2 || !strings.Contains(queries[1], "entry IN (20)") {
+		t.Fatalf("only creature 2 walks waypoints without its own: %v", queries)
+	}
+	own := spawns[0].Waypoints
+	if len(own) != 2 || spawns[0].PathFromTemplate {
+		t.Fatalf("creature 1's path: %+v", spawns[0])
+	}
+	if p := own[0]; p.WaitMs != 3000 || p.ScriptID != 77 || p.Orientation != 1.5 || p.WanderDistance != 2 || p.Y != 40 {
+		t.Fatalf("point 1: %+v", p)
+	}
+	// The point is where regionSpawn puts a spawn at the same server position.
+	at := regionSpawn(spawnRow{sx: -8800, sy: -100, height: 40}, 32, 48, nil, [3]heldItem{})
+	if math.Abs(float64(own[0].X-at.X)) > 1e-3 || math.Abs(float64(own[0].Z-at.Z)) > 1e-3 {
+		t.Fatalf("point at %v,%v, spawn at %v,%v", own[0].X, own[0].Z, at.X, at.Z)
+	}
+	if len(spawns[1].Waypoints) != 2 || !spawns[1].PathFromTemplate {
+		t.Fatalf("creature 2 walks its template's path: %+v", spawns[1])
+	}
+	if spawns[2].Waypoints != nil || spawns[3].Waypoints != nil {
+		t.Fatal("an idle creature and an object have no path")
+	}
+}
+
+func TestServerSpawnPath(t *testing.T) {
+	w := WorldSpawn{Kind: KindMonster, GUID: 1, Waypoints: []Waypoint{{X: 100, Y: 40, Z: 200, WaitMs: 5, WanderDistance: 1, ScriptID: 2, Orientation: 0.5}}}
+	s := serverSpawn(w, 0, 32, 48)
+	at := serverSpawn(WorldSpawn{X: 100, Y: 40, Z: 200}, 0, 32, 48)
+	if len(s.Path) != 1 {
+		t.Fatalf("path %+v", s.Path)
+	}
+	if p := s.Path[0]; p.X != at.X || p.Y != at.Y || p.Z != 40 || p.WaitMs != 5 || p.WanderDistance != 1 || p.ScriptID != 2 || p.O != 0.5 {
+		t.Fatalf("point %+v, want at %v %v", p, at.X, at.Y)
+	}
+}

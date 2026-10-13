@@ -26,6 +26,7 @@ export type SpawnFields = Partial<
     | 'anim'
     | 'scale'
     | 'displayScale'
+    | 'waypoints'
   >
 >
 
@@ -63,6 +64,19 @@ export function applySpawn(layer: SpawnLayer, key: string, vals: SpawnFields) {
 }
 
 /**
+ * Selects a spawn (a copy of it, see syncSpawnUi), or none. Another spawn than before loses the
+ * picked path point and leaves path editing.
+ */
+export function selectSpawn(s: vmangos.WorldSpawn | null) {
+  const before = editor.selectedSpawn ? spawnKey(editor.selectedSpawn) : null
+  editor.selectedSpawn = s ? cloneSpawn(s) : null
+  if ((s ? spawnKey(s) : null) !== before) {
+    editor.selectedWaypoint = -1
+    ui.pathEdit = false
+  }
+}
+
+/**
  * Brings the Spawns panel up to date with the layer: the selected spawn's details (a copy, since
  * the panel's reactive state must not wrap the drawn spawns) and the count of unsaved edits.
  */
@@ -71,6 +85,8 @@ export function syncSpawnUi(layer: SpawnLayer, listChanged = false) {
   if (sel) {
     const s = layer.get(spawnKey(sel))
     editor.selectedSpawn = s ? cloneSpawn(s) : null
+    if (!s) ui.pathEdit = false
+    if (editor.selectedWaypoint >= (s?.waypoints?.length ?? 0)) editor.selectedWaypoint = -1
   }
   if (listChanged) editor.spawns = layer.spawns.slice()
   ui.spawnChanges = layer.edits().length
@@ -97,10 +113,22 @@ function addTo(layer: SpawnLayer, s: vmangos.WorldSpawn) {
 }
 
 function removeFrom(layer: SpawnLayer, s: vmangos.WorldSpawn) {
-  if (editor.selectedSpawn && spawnKey(editor.selectedSpawn) === spawnKey(s)) editor.selectedSpawn = null
+  if (editor.selectedSpawn && spawnKey(editor.selectedSpawn) === spawnKey(s)) selectSpawn(null)
   layer.remove(s)
   syncSpawnUi(layer, true)
 }
+
+/** A copy of a creature's path with point `i` replaced, inserted (`insert`) or removed (`p` null). */
+export function withPoint(points: vmangos.Waypoint[], i: number, p: vmangos.Waypoint | null, insert = false): vmangos.Waypoint[] {
+  const out = points.slice()
+  if (p === null) out.splice(i, 1)
+  else if (insert) out.splice(i, 0, p)
+  else out[i] = p
+  return out
+}
+
+/** A new path point at a place: no facing, no wait, no wander, no script. */
+export const newWaypoint = (x: number, y: number, z: number): vmangos.Waypoint => ({ x, y, z, orientation: 0, waitMs: 0, wanderDistance: 0, scriptId: 0 })
 
 /** Adds a spawn now, as one undoable command. */
 export function spawnAdd(layer: SpawnLayer, s: vmangos.WorldSpawn, label: string): Command {

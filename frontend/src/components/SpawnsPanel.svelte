@@ -3,7 +3,7 @@
   import { engineRef } from '../lib/state/engineRef'
   import { exportSpawnSql, reloadSpawns } from '../lib/io/mapio'
   import { creatureTypeName, levelText, npcRoles, objectTypeName, orientationDegrees, rankName } from '../lib/world/spawnInfo'
-  import { MOVEMENT_TYPES, SHEATH_STATES, STAND_STATES, type SpawnFields } from '../lib/world/spawnEdits'
+  import { MOVEMENT_TYPES, SHEATH_STATES, STAND_STATES, selectSpawn, withPoint, type SpawnFields } from '../lib/world/spawnEdits'
   import { spawnKey, type SpawnKind } from '../lib/world/SpawnLayer'
   import { SpawnEmotes } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
@@ -47,7 +47,8 @@
       .replace(/_/g, ' ')
 
   function pick(s: vmangos.WorldSpawn) {
-    editor.selectedSpawn = s
+    const drawn = engineRef.current?.activeDocument().spawnLayer.get(spawnKey(s))
+    selectSpawn(drawn ?? null)
     engineRef.current?.focusSpawn(s)
   }
 
@@ -173,6 +174,62 @@
             <input type="number" min="0" step="1" disabled={s.movementType !== 1} value={s.wanderDistance} onchange={(e) => { const v = num(e); if (v !== null) edit({ wanderDistance: Math.max(0, v) }, 'Wander distance') }} /></label
           >
         </div>
+
+        {@const points = s.waypoints ?? []}
+        <h4>Path</h4>
+        {#if points.length}
+          <p class="dim">
+            {points.length}
+            {points.length === 1 ? 'point' : 'points'}{s.pathFromTemplate ? ", the creature template's path (every spawn of it without its own walks it; an edit gives this spawn its own)" : ''}{s.movementType !== 2 ? '. It only walks the path when it moves by Waypoints.' : '.'}
+          </p>
+          <ol class="points">
+            {#each points as p, i (i)}
+              <li>
+                <button class="row" class:active={editor.selectedWaypoint === i} onclick={() => (editor.selectedWaypoint = i)}>
+                  <span class="name">Point {i + 1}</span>
+                  {#if p.waitMs > 0}<span class="dim">waits {p.waitMs / 1000} s</span>{/if}
+                  {#if p.scriptId}<span class="dim">script {p.scriptId}</span>{/if}
+                </button>
+              </li>
+            {/each}
+          </ol>
+          {#if editor.selectedWaypoint >= 0 && points[editor.selectedWaypoint]}
+            {@const i = editor.selectedWaypoint}
+            {@const p = points[i]}
+            <div class="fields">
+              <label
+                >Wait s
+                <input type="number" min="0" step="1" value={p.waitMs / 1000} onchange={(e) => { const v = num(e); if (v !== null) edit({ waypoints: withPoint(points, i, { ...p, waitMs: Math.max(0, Math.round(v * 1000)) }) }, 'Path point wait') }} /></label
+              >
+              <label
+                >Facing °
+                <input
+                  type="number"
+                  step="5"
+                  title="0 keeps the facing it walked in with"
+                  value={orientationDegrees(p.orientation)}
+                  onchange={(e) => {
+                    const v = num(e)
+                    if (v !== null) edit({ waypoints: withPoint(points, i, { ...p, orientation: ((((v % 360) + 360) % 360) * Math.PI) / 180 }) }, 'Path point facing')
+                  }}
+                /></label
+              >
+            </div>
+            <div class="row-buttons">
+              <button onclick={() => { const e = engineRef.current; if (e) e.focusPoint(p.x, p.z) }}>Focus point</button>
+              <button class="danger" onclick={() => { edit({ waypoints: withPoint(points, i, null) }, 'Delete path point'); editor.selectedWaypoint = Math.min(i, points.length - 2) }}>Delete point</button>
+            </div>
+          {/if}
+        {:else}
+          <p class="dim">No path. Edit the path and click the ground to give it one.</p>
+        {/if}
+        <div class="row-buttons">
+          <button class:active={ui.pathEdit} onclick={() => (ui.pathEdit = !ui.pathEdit)}>{ui.pathEdit ? 'Done' : 'Edit path'}</button>
+          <button disabled={!points.length} onclick={() => { edit({ waypoints: [] }, 'Clear path'); editor.selectedWaypoint = -1 }}>Clear path</button>
+        </div>
+        {#if ui.pathEdit}
+          <p class="dim hint">Click the ground to add a point after the picked one. Drag a point to move it; Delete removes the picked point; Esc stops.</p>
+        {/if}
 
         <h4>Look and pose</h4>
         <div class="fields">
@@ -309,6 +366,14 @@
     color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 0.04em;
+  }
+  .points {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 160px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
   }
   .fields {
     display: grid;

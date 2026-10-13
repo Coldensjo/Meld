@@ -72,6 +72,23 @@ type WorldSpawn struct {
 	SheathState    int     `json:"sheathState"`
 	MovementType   int     `json:"movementType"`
 	WanderDistance float32 `json:"wanderDistance"`
+	// Waypoints are the creature's path, in point order: its own (creature_movement), or else for a
+	// creature that walks waypoints its template's (creature_movement_template, PathFromTemplate).
+	Waypoints        []Waypoint `json:"waypoints"`
+	PathFromTemplate bool       `json:"pathFromTemplate"`
+}
+
+// Waypoint is a point of a creature's path, in the region's coordinates like its spawn: where it
+// walks to, the facing it turns to there (0 for none), how long it waits there in milliseconds,
+// how far it wanders there, and the movement script it runs there (0 for none).
+type Waypoint struct {
+	X              float32 `json:"x"`
+	Y              float32 `json:"y"`
+	Z              float32 `json:"z"`
+	Orientation    float32 `json:"orientation"`
+	WaitMs         int     `json:"waitMs"`
+	WanderDistance float32 `json:"wanderDistance"`
+	ScriptID       int     `json:"scriptId"`
 }
 
 // runSQL runs a query against the world database and returns mariadb's batch output: one line
@@ -159,7 +176,96 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 	for i, s := range rows {
 		out[i] = regionSpawn(s, x, y, tables, weapons[s.Equipment])
 	}
+	if err := readWaypoints(db, out, x, y); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// readWaypoints gives the region's creatures their paths: each one's own points from
+// creature_movement, and for a creature that walks waypoints without its own, its template's from
+// creature_movement_template. The points move to the region's coordinates like the spawns.
+func readWaypoints(db worldDB, spawns []WorldSpawn, x, y int) error {
+	guids := map[int]bool{}
+	for _, s := range spawns {
+		if s.Kind != KindObject {
+			guids[s.GUID] = true
+		}
+	}
+	if len(guids) == 0 {
+		return nil
+	}
+	// Only the main path (path_id 0): the few other paths are for scripts, not the spawn's walk.
+	const cols = "point, position_x, position_y, position_z, orientation, waittime, script_id, wander_distance"
+	raw, err := runSQL(db, fmt.Sprintf("SELECT id, %s FROM creature_movement WHERE id IN (%s) AND path_id = 0 ORDER BY id, point", cols, intList(guids)))
+	if err != nil {
+		return err
+	}
+	own := parseWaypoints(raw, x, y)
+	entries := map[int]bool{}
+	for i := range spawns {
+		s := &spawns[i]
+		if s.Kind == KindObject {
+			continue
+		}
+		if p, ok := own[s.GUID]; ok {
+			s.Waypoints = p
+		} else if s.MovementType == 2 {
+			entries[s.Entry] = true
+		}
+	}
+	if len(entries) == 0 {
+		return nil
+	}
+	raw, err = runSQL(db, fmt.Sprintf("SELECT entry, %s FROM creature_movement_template WHERE entry IN (%s) AND path_id = 0 ORDER BY entry, point", cols, intList(entries)))
+	if err != nil {
+		return err
+	}
+	shared := parseWaypoints(raw, x, y)
+	for i := range spawns {
+		s := &spawns[i]
+		if s.Kind != KindObject && s.Waypoints == nil && s.MovementType == 2 {
+			if p, ok := shared[s.Entry]; ok {
+				s.Waypoints = append([]Waypoint(nil), p...)
+				s.PathFromTemplate = true
+			}
+		}
+	}
+	return nil
+}
+
+// parseWaypoints reads path rows (owner, point, x, y, z, orientation, wait, script, wander) into
+// paths by owner, in the region at tile (x, y), in the order the rows come.
+func parseWaypoints(raw []byte, x, y int) map[int][]Waypoint {
+	t := float64(adt.TileSize)
+	zp := float64(adt.ZeroPoint)
+	out := map[int][]Waypoint{}
+	for _, f := range tsvRows(raw, 9) {
+		owner, err1 := strconv.Atoi(f[0])
+		wait, err2 := strconv.Atoi(f[6])
+		script, err3 := strconv.Atoi(f[7])
+		wander, err4 := strconv.ParseFloat(f[8], 32)
+		var v [4]float64
+		ok := err1 == nil && err2 == nil && err3 == nil && err4 == nil
+		for i := range v {
+			n, err := strconv.ParseFloat(f[2+i], 64)
+			ok = ok && err == nil
+			v[i] = n
+		}
+		if !ok {
+			continue
+		}
+		out[owner] = append(out[owner], Waypoint{
+			X:           float32(zp - v[1] - float64(x)*t),
+			Z:           float32(zp - v[0] - float64(y)*t),
+			Y:           float32(v[2]),
+			Orientation: float32(v[3]),
+			WaitMs:         wait,
+			WanderDistance: float32(wander),
+			ScriptID:       script,
+		})
+	}
+	return out
 }
 
 // readEquipment reads the items the spawns' equipment puts in their hands, by equipment ID: the

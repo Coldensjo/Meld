@@ -31,7 +31,8 @@ import { countHoles, fillHoles } from '../terrain/holes'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
-import { spawnChange, spawnDelete, syncSpawnUi, withLook, type SpawnFields } from '../world/spawnEdits'
+import { SpawnPaths } from '../world/SpawnPaths'
+import { selectSpawn, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -136,6 +137,8 @@ export class Engine {
 
   private env: Environment
   private effects = new PropEffects()
+  /** The creatures' waypoint paths, for the active region. */
+  readonly paths = new SpawnPaths()
   /** Current hour; advances on its own when the day cycle is on. */
   private hour = 13
   private prefs: Prefs | null = null
@@ -209,6 +212,7 @@ export class Engine {
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.env = new Environment(this.scene)
     this.scene.add(this.effects.group)
+    this.scene.add(this.paths.group)
 
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
@@ -224,6 +228,7 @@ export class Engine {
     this.ctx = {
       get terrain() { return self.terrain },
       get spawns() { return self.doc.spawnLayer },
+      get paths() { return self.paths },
       get objects() { return self.objects },
       get history() { return self.history },
       get liquids() { return self.doc.liquids },
@@ -279,6 +284,7 @@ export class Engine {
     this.outline.dispose()
     this.env.dispose()
     this.effects.dispose()
+    this.paths.dispose()
     for (const d of this.documents) d.dispose()
     this.renderer.dispose()
   }
@@ -557,6 +563,8 @@ export class Engine {
     v.lodPx = LOD_PX
     this.objects.cull(v)
     this.doc.spawnLayer.cull(v)
+    const sel = editor.selectedSpawn
+    this.paths.update(this.doc.spawnLayer, sel ? spawnKey(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
   }
 
   /**
@@ -745,7 +753,7 @@ export class Engine {
     editor.spawnsError = d.spawnsError
     ui.spawnChanges = d.spawnLayer.edits().length
     ui.hiddenModels = d.objects.hidden.size
-    editor.selectedSpawn = null
+    selectSpawn(null)
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
     editor.selected = null
     editor.selectedIds = []
@@ -882,6 +890,11 @@ export class Engine {
     this.controller.focus(s.x, s.z, 40)
   }
 
+  /** Moves the camera to a point of the active region, such as a waypoint. */
+  focusPoint(x: number, z: number) {
+    this.controller.focus(x, z, 30)
+  }
+
   /**
    * Changes fields of the active region's spawn `key` as one undoable step. A creature whose
    * display, equipment or pose changes is dressed again by the Go side first.
@@ -920,10 +933,28 @@ export class Engine {
     syncSpawnUi(this.doc.spawnLayer)
   }
 
-  /** Keys for a spawn selected alone: turn it (R), delete it, deselect it. */
+  /**
+   * Keys for a spawn selected alone: turn it (R), delete it, deselect it. While its path is being
+   * edited, Delete removes the picked point and Esc stops editing.
+   */
   private handleSpawnKey(e: KeyboardEvent): boolean {
     const sel = editor.selectedSpawn
     if (!sel || editor.selectedIds.length > 0 || editor.tool !== 'select') return false
+    if (ui.pathEdit) {
+      if (e.key === 'Escape') {
+        ui.pathEdit = false
+        return true
+      }
+      const i = editor.selectedWaypoint
+      if ((e.key === 'Delete' || e.key === 'Backspace') && i >= 0) {
+        const s = this.doc.spawnLayer.get(spawnKey(sel))
+        if (!s?.waypoints?.[i]) return true
+        const cmd = spawnChange(this.doc.spawnLayer, spawnKey(sel), { waypoints: withPoint(s.waypoints, i, null) }, `Delete path point (${sel.name})`)
+        if (cmd) this.history.push(cmd)
+        editor.selectedWaypoint = Math.min(i, s.waypoints.length - 1)
+        return true
+      }
+    }
     switch (e.key) {
       case 'r':
       case 'R': {
@@ -937,7 +968,7 @@ export class Engine {
         this.deleteSelectedSpawn()
         return true
       case 'Escape':
-        editor.selectedSpawn = null
+        selectSpawn(null)
         return true
     }
     return false

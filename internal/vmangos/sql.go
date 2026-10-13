@@ -46,6 +46,32 @@ type Spawn struct {
 	// (-1 for the template's), stand state, looping emote and sheath state.
 	Display, Equipment                  int
 	StandState, EmoteState, SheathState int
+	// Path is the creature's waypoints (creature_movement), in point order.
+	Path []PathPoint
+}
+
+// PathPoint is a waypoint in the server's coordinates: where, the facing there (0 none), the wait
+// in milliseconds, the wander distance and the movement script run there.
+type PathPoint struct {
+	X, Y, Z, O     float64
+	WaitMs         int
+	WanderDistance float64
+	ScriptID       int
+}
+
+// samePath says whether two paths have the same points.
+func samePath(a, b []PathPoint) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		p, q := a[i], b[i]
+		if p.WaitMs != q.WaitMs || p.ScriptID != q.ScriptID || math.Abs(p.WanderDistance-q.WanderDistance) > 1e-3 ||
+			math.Abs(p.X-q.X) > 1e-3 || math.Abs(p.Y-q.Y) > 1e-3 || math.Abs(p.Z-q.Z) > 1e-3 || math.Abs(p.O-q.O) > 1e-4 {
+			return false
+		}
+	}
+	return true
 }
 
 // Edit is a spawn as the editor has it now. Original is what the database has (for a created
@@ -210,6 +236,27 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 					s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), num(q[0]), num(q[1]), num(q[2]), num(q[3]), lo, hi, s.GUID))
 			}
 			res.Changed++
+		}
+
+		// The path, when it changed: the spawn's own points replace its main path (path_id 0). A
+		// creature that walked its template's path gets its own, which the server prefers.
+		if s.Kind == Creature {
+			var was []PathPoint
+			if e.Original != nil {
+				was = e.Original.Path
+			}
+			if !samePath(s.Path, was) || (e.Created && len(s.Path) > 0) {
+				out = append(out, fmt.Sprintf("DELETE FROM `creature_movement` WHERE `id` = %d AND `path_id` = 0;", s.GUID))
+				if len(s.Path) > 0 {
+					rows := make([]string, len(s.Path))
+					for i, p := range s.Path {
+						rows[i] = fmt.Sprintf("(%d, %d, %s, %s, %s, %s, %d, %s, %d)", s.GUID, i+1, num(p.X), num(p.Y), num(p.Z), num(p.O),
+							max(p.WaitMs, 0), num(max(p.WanderDistance, 0)), p.ScriptID)
+					}
+					out = append(out, "INSERT INTO `creature_movement` (`id`, `point`, `position_x`, `position_y`, `position_z`, `orientation`, "+
+						"`waittime`, `wander_distance`, `script_id`) VALUES "+strings.Join(rows, ", ")+";")
+				}
+			}
 		}
 
 		// The creature_addon columns that changed: its display, equipment and pose.

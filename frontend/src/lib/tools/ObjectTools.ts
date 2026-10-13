@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { vmangos } from '../../../wailsjs/go/models'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import { movableSelection, objectsInRect, selectObjects } from '../state/selection'
 import { getAsset, type ModelAsset } from '../models/assets'
@@ -8,8 +9,8 @@ import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
 import { hasSkeleton, modelMesh } from '../world/Animator'
-import { cloneSpawn, spawnKey } from '../world/SpawnLayer'
-import { applySpawn, syncSpawnUi, type SpawnFields } from '../world/spawnEdits'
+import { spawnKey } from '../world/SpawnLayer'
+import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
 
 function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
   const saved = added.map((o) => ({ ...o }))
@@ -248,6 +249,8 @@ export class SelectTool implements Tool {
   } | null = null
   /** Dragging a region's spawn along the surface under the cursor, keeping its offset from the cursor. */
   private spawnDrag: { key: string; dx: number; dz: number; before: SpawnFields; moved: boolean } | null = null
+  /** Dragging point `i` of a creature's path (Path editing), with the path as it was. */
+  private pointDrag: { key: string; i: number; before: vmangos.Waypoint[]; moved: boolean } | null = null
   /** The cell an area drag started at. */
   private rectStart: Cell | null = null
   /** Where a floating area paste would land (corner cell), updated every frame. */
@@ -347,10 +350,11 @@ export class SelectTool implements Tool {
       this.pressObject(ctx, id, hit, e.shiftKey)
       return
     }
+    if (ui.pathEdit && editor.selectedSpawn && this.pressPath(ctx, spawnKey(editor.selectedSpawn))) return
     // No model under the cursor: a creature or object of the region there is selected instead, and
     // a drag moves it. The panel gets a copy, so its state never wraps the drawn spawn.
     const spawn = ctx.spawns.pick(ctx.raycaster)
-    editor.selectedSpawn = spawn ? cloneSpawn(spawn) : null
+    selectSpawn(spawn)
     if (spawn) {
       if (editor.selectedIds.length) selectObjects(ctx.objects, [])
       const at = ctx.surface()?.point ?? hit
@@ -363,11 +367,41 @@ export class SelectTool implements Tool {
     editor.selection = { x0: this.rectStart.x, z0: this.rectStart.z, x1: this.rectStart.x, z1: this.rectStart.z }
   }
 
+  /**
+   * A click while editing a creature's path: on a point, picks it and starts dragging it; on the
+   * ground, adds a point after the picked one (or at the end) where the click was. Returns false
+   * when there is no path to edit, so the click selects as usual.
+   */
+  private pressPath(ctx: ToolContext, key: string): boolean {
+    const s = ctx.spawns.get(key)
+    if (!s || s.kind === 'object') {
+      ui.pathEdit = false
+      return false
+    }
+    const points = s.waypoints ?? []
+    const i = ctx.paths.pickPoint(ctx.raycaster)
+    if (i >= 0) {
+      editor.selectedWaypoint = i
+      this.pointDrag = { key, i, before: points, moved: false }
+      return true
+    }
+    const surf = ctx.surface()
+    if (!surf) return true
+    const at = editor.selectedWaypoint >= 0 && editor.selectedWaypoint < points.length ? editor.selectedWaypoint + 1 : points.length
+    const vals: SpawnFields = { waypoints: withPoint(points, at, newWaypoint(surf.point.x, surf.point.y, surf.point.z), true) }
+    // A creature given a path walks it.
+    if (s.movementType !== 2) vals.movementType = 2
+    const cmd = spawnChange(ctx.spawns, key, vals, `Add path point (${s.name})`)
+    if (cmd) ctx.history.push(cmd)
+    editor.selectedWaypoint = at
+    return true
+  }
+
   /** A click on model `id`: selects it (Shift toggles it in the selection) and starts dragging the selection. */
   private pressObject(ctx: ToolContext, id: number, hit: THREE.Vector3 | null, shift: boolean) {
     const o = ctx.objects.objects.get(id)
     if (!o) return
-    editor.selectedSpawn = null
+    selectSpawn(null)
     let ids = editor.selectedIds
     if (shift) {
       // Shift+click adds or removes without moving anything.
@@ -397,6 +431,18 @@ export class SelectTool implements Tool {
   }
 
   onMove(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    const pd = this.pointDrag
+    if (pd) {
+      const s = ctx.spawns.get(pd.key)
+      const surf = ctx.surface()
+      const p = s?.waypoints?.[pd.i]
+      if (!s || !surf || !p || !ctx.terrain.contains(surf.point.x, surf.point.z)) return
+      ctx.spawns.touch(s)
+      s.waypoints = withPoint(s.waypoints, pd.i, { ...p, x: surf.point.x, y: surf.point.y, z: surf.point.z })
+      ctx.spawns.refresh(s)
+      pd.moved = true
+      return
+    }
     const sd = this.spawnDrag
     if (sd) {
       const s = ctx.spawns.get(sd.key)
@@ -457,6 +503,21 @@ export class SelectTool implements Tool {
   }
 
   onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
+    const pd = this.pointDrag
+    this.pointDrag = null
+    if (pd) {
+      const s = ctx.spawns.get(pd.key)
+      if (!pd.moved || !s) return
+      const layer = ctx.spawns
+      const after = s.waypoints
+      syncSpawnUi(layer)
+      ctx.history.push({
+        label: `Move path point (${s.name})`,
+        undo: () => applySpawn(layer, pd.key, { waypoints: pd.before }),
+        redo: () => applySpawn(layer, pd.key, { waypoints: after }),
+      })
+      return
+    }
     const sd = this.spawnDrag
     this.spawnDrag = null
     if (sd) {

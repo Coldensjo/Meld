@@ -99,3 +99,31 @@ func TestExportLeavesAnUnchangedAddonAlone(t *testing.T) {
 		t.Fatalf("an added creature without a respawn time gets the default:\n%s", res.SQL)
 	}
 }
+
+func TestExportWritesAChangedPath(t *testing.T) {
+	path := []PathPoint{{X: 1, Y: 2, Z: 3, WaitMs: 1000, ScriptID: 4, WanderDistance: 2}, {X: 5, Y: 6, Z: 7, O: 0.5}}
+	orig := Spawn{Kind: Creature, GUID: 9, Entry: 1, Map: 0, Scale: 1, Equipment: -1, SheathState: 1, Path: path}
+	same := orig
+	same.Path = append([]PathPoint(nil), path...)
+	res := ExportSQL([]Edit{{Spawn: same, Original: &orig}}, fixedTime)
+	if strings.Contains(res.SQL, "creature_movement") {
+		t.Fatalf("an unchanged path must not be written:\n%s", res.SQL)
+	}
+	moved := orig
+	moved.Path = []PathPoint{path[0], {X: 5, Y: 6.5, Z: 7, O: 0.5}}
+	res = ExportSQL([]Edit{{Spawn: moved, Original: &orig}}, fixedTime)
+	for _, want := range []string{
+		"DELETE FROM `creature_movement` WHERE `id` = 9 AND `path_id` = 0;",
+		"VALUES (9, 1, 1, 2, 3, 0, 1000, 2, 4), (9, 2, 5, 6.5, 7, 0.5, 0, 0, 0);",
+	} {
+		if !strings.Contains(res.SQL, want) {
+			t.Errorf("SQL lacks %q\n%s", want, res.SQL)
+		}
+	}
+	cleared := orig
+	cleared.Path = nil
+	res = ExportSQL([]Edit{{Spawn: cleared, Original: &orig}}, fixedTime)
+	if !strings.Contains(res.SQL, "DELETE FROM `creature_movement` WHERE `id` = 9 AND `path_id` = 0;") || strings.Contains(res.SQL, "INSERT INTO `creature_movement`") {
+		t.Fatalf("a cleared path is deleted:\n%s", res.SQL)
+	}
+}

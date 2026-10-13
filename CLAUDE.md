@@ -318,7 +318,14 @@ cd frontend && pnpm build   # frontend only
   one transaction, a copy kept in `<user cache>/WorldEditor/spawn-sql`) or exports the SQL. A
   changed display, equipment or pose is re-dressed by `SpawnLook` in Go. `editor.selectedSpawn`
   is always a copy (`cloneSpawn`), never the drawn spawn, since Svelte's proxy would not see edits
-  to it.
+  to it. Select spawns through `selectSpawn`.
+- **Waypoints**: `WorldSpawn.waypoints` is a creature's main path (`creature_movement`,
+  `path_id` 0), or its template's (`creature_movement_template`, `pathFromTemplate`) when it walks
+  waypoints without its own. `world/SpawnPaths.ts` draws the selected creature's path (and all
+  paths with View › All creature paths) with pickable point markers. With `ui.pathEdit` on, the
+  Select tool adds points on the ground after `editor.selectedWaypoint`, drags them, and Delete
+  removes one. Paths are replaced immutably (`withPoint`), so undo can keep the old array. A
+  changed path is saved as the spawn's own `creature_movement` rows.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 
 ## Conventions

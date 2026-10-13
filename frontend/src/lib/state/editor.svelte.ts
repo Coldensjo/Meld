@@ -133,6 +133,8 @@ export const editor = $state({
   spawns: [] as vmangos.WorldSpawn[],
   /** The spawn picked in the viewport or the Spawns panel, shown in the panel's details. */
   selectedSpawn: null as vmangos.WorldSpawn | null,
+  /** The picked point of the selected creature's path, or -1. */
+  selectedWaypoint: -1,
   /** Why the open region's spawns could not be read (the database down, no server folder), or ''. */
   spawnsError: '',
   /** What the Clear tool erases: placed models, or the paint (back to each chunk's base texture). */
@@ -184,6 +186,8 @@ export const prefs = $state({
   showMonsters: true,
   showNpcs: true,
   showGameObjects: true,
+  /** Draw every creature's waypoint path, not only the selected one's. */
+  showAllPaths: false,
   renderScale: 1,
   viewDistance: 1,
   fog: true,
@@ -247,6 +251,8 @@ export const ui = $state({
   hiddenModels: 0,
   /** How many of the active region's spawns were changed, added or deleted since they were saved. */
   spawnChanges: 0,
+  /** Clicks in the Select tool edit the selected creature's path: add, pick and drag its points. */
+  pathEdit: false,
 })
 
 let statusTimer: ReturnType<typeof setTimeout> | undefined
