@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { fetchMesh, loadTexture, type MeshEffect, type MeshGroup, type WowMesh } from '../wow/api'
 import { ModelAnimation } from '../world/Animator'
+import { patchCascadeShadows } from '../engine/shadowCascades'
 
 /**
  * A placeable model: one geometry (with groups) and one material per group.
@@ -54,13 +55,18 @@ export function onAssetLoaded(fn: (type: string) => void): () => void {
 }
 
 let placeholder: ModelAsset | null = null
+function placeholderMaterial() {
+  const m = new THREE.MeshLambertMaterial({ color: 0xcc44cc, transparent: true, opacity: 0.6 })
+  patchCascadeShadows(m)
+  return m
+}
 function getPlaceholder(): ModelAsset {
   if (!placeholder) {
     const g = new THREE.BoxGeometry(2, 2, 2).translate(0, 1, 0)
     g.computeBoundingBox()
     placeholder = {
       geometry: g,
-      material: new THREE.MeshLambertMaterial({ color: 0xcc44cc, transparent: true, opacity: 0.6 }),
+      material: placeholderMaterial(),
       bbox: g.boundingBox!.clone(),
       ready: false,
       effects: [],
@@ -154,6 +160,7 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
   // Cast shadows from both faces: three's default casts from the back faces only, and a building's
   // single-sided walls then let the sun through onto the walls behind them.
   m.shadowSide = THREE.DoubleSide
+  if (m instanceof THREE.MeshLambertMaterial) patchCascadeShadows(m)
   const mat = m as THREE.MeshLambertMaterial
   // userData.ready resolves once the texture is bound (or failed).
   mat.userData.ready = g.texture

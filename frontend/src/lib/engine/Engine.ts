@@ -18,7 +18,7 @@ import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brus
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
-import type { WorldObject } from '../world/ObjectLayer'
+import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
 import { CHUNK_CELLS, MAX_PALETTE, SLOTS, chunkTextures, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
@@ -202,7 +202,7 @@ export class Engine {
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.5, 5000)
     this.scene.background = new THREE.Color()
     this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.env = new Environment(this.scene)
     this.scene.add(this.effects.group)
 
@@ -540,11 +540,11 @@ export class Engine {
     this.viewFrustum.setFromProjectionMatrix(this.viewProj)
     v.frustums.length = 0
     v.frustums.push(this.viewFrustum)
-    const key = this.env.key
-    if (key.castShadow) {
-      key.updateMatrixWorld()
-      key.shadow.updateMatrices(key)
-      v.frustums.push(key.shadow.getFrustum())
+    for (const light of [this.env.key, this.env.far]) {
+      if (!light.castShadow) continue
+      light.updateMatrixWorld()
+      light.shadow.updateMatrices(light)
+      v.frustums.push(light.shadow.getFrustum())
     }
     v.spheres = this.effects.shadowSpheres
     v.eye.copy(this.camera.position)
@@ -597,11 +597,41 @@ export class Engine {
 
     ;(this.water.floor.material as THREE.MeshBasicMaterial).color.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
 
-    if (env.key.castShadow) {
-      const extent = this.controller.followGround ? THREE.MathUtils.clamp(this.controller.distance * 1.3, 40, 700) : 260
-      env.updateShadow(this.controller.target, extent, env.key.shadow.mapSize.x)
+    if (env.key.castShadow) this.fitShadows()
+  }
+
+  /**
+   * Fits the shadow cascades to the view: the sharp near one around where the camera looks (the
+   * ground point ahead, kept within its own reach of the camera), the far one around the distance.
+   * The far map is redrawn only when its fit or the scene changes, as it covers everything in reach.
+   */
+  private fitShadows() {
+    const env = this.env
+    const eye = this.camera.position
+    const fwd = this.camera.getWorldDirection(this.shadowFwd)
+    this.shadowRay.set(eye, fwd)
+    const focus = this.shadowFocus
+    const dist = this.terrain.raycast(this.shadowRay, focus, 3000) ? focus.distanceTo(eye) : 300
+    const nearExtent = THREE.MathUtils.clamp(dist, 30, 250)
+    const farExtent = THREE.MathUtils.clamp(dist * 6, 800, 2500)
+    const nearCenter = this.shadowNear.copy(eye).addScaledVector(fwd, Math.min(dist, nearExtent))
+    const farCenter = this.shadowFar.copy(eye).addScaledVector(fwd, Math.min(dist, farExtent * 0.6))
+    const moved = env.updateShadow(nearCenter, nearExtent, farCenter, farExtent)
+    const objects = this.objects
+    const scene = `${objects.version}/${this.terrain.heightsVersion}/${this.doc.spawnLayer.version}`
+    if (moved || objects !== this.shadowObjects || scene !== this.shadowScene) {
+      env.far.shadow.needsUpdate = true
+      this.shadowObjects = objects
+      this.shadowScene = scene
     }
   }
+  private shadowFwd = new THREE.Vector3()
+  private shadowRay = new THREE.Ray()
+  private shadowFocus = new THREE.Vector3()
+  private shadowNear = new THREE.Vector3()
+  private shadowFar = new THREE.Vector3()
+  private shadowObjects: ObjectLayer | null = null
+  private shadowScene = ''
 
   /** Apply user preferences (graphics + camera). Cheap; safe to call often. */
   applyPrefs(p: Prefs) {

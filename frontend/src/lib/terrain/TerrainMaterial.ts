@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { CASCADE_SHADOW_GLSL } from '../engine/shadowCascades'
 
 const vertex = /* glsl */ `
 #include <common>
@@ -24,15 +25,11 @@ const fragment = /* glsl */ `
 #include <bsdfs>
 #include <lights_pars_begin>
 #include <shadowmap_pars_fragment>
-// The key light's (sun or moon) shadow alone. three's getShadowMask would also multiply in the
-// point lights' shadows, which only darken their own light below.
+${CASCADE_SHADOW_GLSL}
+// The key light's (sun or moon) shadow alone, from its cascades. three's getShadowMask would also
+// multiply in the point lights' shadows, which only darken their own light below.
 float keyShadow() {
-  #if defined(USE_SHADOWMAP) && NUM_DIR_LIGHT_SHADOWS > 0
-    DirectionalLightShadow ds = directionalLightShadows[0];
-    return getShadow(directionalShadowMap[0], ds.shadowMapSize, ds.shadowIntensity, ds.shadowBias, ds.shadowRadius, vDirectionalShadowCoord[0]);
-  #else
-    return 1.0;
-  #endif
+  return cascadeShadow(0);
 }
 // The palette: one texture per layer. Each chunk names its four textures in slotTex, and each
 // texel's weights for those four are in weightTex. Both are sampled nearest, so chunks keep hard edges.
@@ -125,9 +122,9 @@ void main() {
     col = mix(col, rx * w3.x + ry * w3.y + rz * w3.z, rockW);
   }
 
-  // Simple stylised lighting: hemisphere ambient + wrapped sun.
-  // Wrapped diffuse, darkened where the key light (sun or moon) is shadowed.
-  float diff = max(dot(n, sunDir) * 0.8 + 0.2, 0.0) * mix(0.25, 1.0, keyShadow());
+  // Hemisphere ambient plus the key light (sun or moon) as plain Lambert, the same as the props, so a
+  // prop and the ground it stands on agree. Where the key light is shadowed only the sky light is left.
+  float diff = max(dot(n, sunDir), 0.0) * keyShadow();
   vec3 hemi = mix(groundAmbient, skyAmbient, n.y * 0.5 + 0.5);
   vec3 lit = col * (hemi + sunColor * diff);
 

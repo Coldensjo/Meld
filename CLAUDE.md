@@ -199,9 +199,20 @@ cd frontend && pnpm build   # frontend only
   - `update(hour)` computes the sun/moon directions and all lighting colours (`state`).
 - `Engine.updateEnvironment` pushes `state` into the terrain and water uniforms, fog and
   background every frame. Change lighting there, not in individual shaders.
-- The terrain `ShaderMaterial` uses `lights: true` plus three's shadowmap chunks (it reads
-  `getShadowMask()`). The shadow camera follows the view and is snapped to texels in
-  `Environment.updateShadow`.
+- **Shadow cascades** (`engine/shadowCascades.ts`): the key light's shadow has two maps. The
+  near one is the key light's own (sharp, fitted around the ground point the camera looks at);
+  the far one belongs to `Environment.far`, a black `DirectionalLight` that lights nothing and
+  only carries the coarse map for the distance. `cascadeShadow(light)` in GLSL reads the near map
+  where it reaches and blends into the far one at its edge. The terrain shader calls it as
+  `keyShadow()`, and `patchCascadeShadows` makes every Lambert prop material do the same through
+  `onBeforeCompile`. The key light must stay directional light 0.
+- `Engine.fitShadows` fits both cascades each frame (`Environment.fitCascade` snaps each to its
+  texels and sets its depth range and biases in world units from the texel size). The near map is
+  redrawn every frame, the far one only when its fit or the scene (objects, heights, spawns)
+  changed. Both cascade frustums feed instance culling, so what is off screen still casts.
+- Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
+  surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun
+  for the shadows to read.
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
   cycling, so it doesn't write reactive state every frame.
 

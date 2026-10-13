@@ -66,6 +66,8 @@ export class SpawnLayer {
   })
   private types = new Set<string>()
   private shown: Record<SpawnKind, boolean> = { monster: true, npc: true, object: true }
+  /** Bumped whenever what is drawn changes (spawns, their loaded models or the kinds shown). */
+  version = 0
 
   /** Replaces the drawn spawns, and starts loading their models. */
   set(spawns: vmangos.WorldSpawn[]) {
@@ -88,6 +90,7 @@ export class SpawnLayer {
 
   private applyKinds() {
     for (const b of this.batches) b.mesh.visible = this.shown[b.kind]
+    this.version++
   }
 
   /** The spawn under the ray, nearest first, among the kinds shown; null when none is. */
@@ -119,6 +122,7 @@ export class SpawnLayer {
   }
 
   private rebuild() {
+    this.version++
     this.clearMeshes()
     // Group the spawns by kind and model; a spawn with a ready model joins that model's batch.
     const batches = new Map<string, { kind: SpawnKind; items: vmangos.WorldSpawn[] }>()

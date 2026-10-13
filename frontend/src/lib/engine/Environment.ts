@@ -119,10 +119,11 @@ const smooth = (e0: number, e1: number, x: number) => THREE.MathUtils.smoothstep
 const lerpColor = (a: THREE.Color, b: THREE.Color, t: number, out: THREE.Color) => out.copy(a).lerp(b, t)
 
 const C = {
-  daySky: new THREE.Color(0.46, 0.52, 0.62),
-  duskSky: new THREE.Color(0.36, 0.3, 0.38),
+  // Sky light is a few times weaker than the sun, so a shadow reads as one.
+  daySky: new THREE.Color(0.4, 0.46, 0.56),
+  duskSky: new THREE.Color(0.32, 0.27, 0.34),
   nightSky: new THREE.Color(0.012, 0.018, 0.038),
-  dayGround: new THREE.Color(0.26, 0.23, 0.19),
+  dayGround: new THREE.Color(0.22, 0.2, 0.17),
   nightGround: new THREE.Color(0.004, 0.005, 0.009),
   sunNoon: new THREE.Color(1.0, 0.96, 0.88),
   sunLow: new THREE.Color(1.0, 0.5, 0.24),
@@ -132,10 +133,25 @@ const C = {
   horizonNight: new THREE.Color('#0b1020'),
 }
 
+/** One shadow cascade: a directional light's shadow camera and where it was last fitted. */
+interface Cascade {
+  light: THREE.DirectionalLight
+  extent: number
+  /** The snapped centre and light direction of the last fit, to tell when the map must be redrawn. */
+  center: THREE.Vector3
+  dir: THREE.Vector3
+}
+
+/** How far above or below the focus the shadow camera's depth range reaches: mountains and towers. */
+const HEIGHT_SLACK = 1000
+
 export class Environment {
   readonly sky: THREE.Mesh
   readonly hemi: THREE.HemisphereLight
+  /** The key light (sun by day, moon by night). Its own shadow map is the near cascade. */
   readonly key: THREE.DirectionalLight
+  /** A black light that only carries the far cascade's shadow map (see `shadowCascades.ts`). */
+  readonly far: THREE.DirectionalLight
   readonly sunDir = new THREE.Vector3()
   readonly moonDir = new THREE.Vector3()
   readonly state: LightingState = {
@@ -147,7 +163,7 @@ export class Environment {
     night: 0,
   }
   private material: THREE.ShaderMaterial
-  private shadowExtent = 0
+  private cascades: Cascade[]
 
   constructor(scene: THREE.Scene) {
     this.material = buildSkyMaterial()
@@ -158,11 +174,14 @@ export class Environment {
     this.sky.name = 'sky'
     this.hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, Math.PI)
     this.key = new THREE.DirectionalLight(0xffffff, Math.PI)
-    this.key.shadow.bias = -0.0004
-    this.key.shadow.normalBias = 0.6
-    this.key.shadow.camera.near = 1
-    this.key.shadow.camera.far = 4000
-    scene.add(this.sky, this.hemi, this.key, this.key.target)
+    this.far = new THREE.DirectionalLight(0x000000, 0)
+    // The far map is redrawn only when its fit or the scene changes (Engine.updateEnvironment).
+    this.far.shadow.autoUpdate = false
+    this.key.shadow.radius = 1.5
+    this.far.shadow.radius = 1
+    this.cascades = [this.key, this.far].map((light) => ({ light, extent: 0, center: new THREE.Vector3(), dir: new THREE.Vector3() }))
+    // The key light must stay the first directional light: shader cascade 0 is light 0.
+    scene.add(this.sky, this.hemi, this.key, this.key.target, this.far, this.far.target)
   }
 
   /**
@@ -221,26 +240,57 @@ export class Environment {
     this.sky.position.copy(camera.position)
   }
 
-  /** Fit the key light's shadow camera around the view, snapped to texels. */
-  updateShadow(center: THREE.Vector3, extent: number, mapSize: number) {
-    const cam = this.key.shadow.camera
-    if (Math.abs(extent - this.shadowExtent) > extent * 0.05) {
-      this.shadowExtent = extent
+  /**
+   * Fits the two shadow cascades: the near one (half-size `nearExtent`) around `nearCenter`, the far
+   * one (half-size `farExtent`) around `farCenter`, each snapped to its own texels. Returns whether
+   * the far cascade's fit changed, so its map is redrawn.
+   */
+  updateShadow(nearCenter: THREE.Vector3, nearExtent: number, farCenter: THREE.Vector3, farExtent: number): boolean {
+    this.fitCascade(this.cascades[0], nearCenter, nearExtent)
+    return this.fitCascade(this.cascades[1], farCenter, farExtent)
+  }
+
+  /** Fits one cascade's orthographic shadow camera; true when its centre, size or direction moved. */
+  private fitCascade(c: Cascade, center: THREE.Vector3, extent: number): boolean {
+    const { light } = c
+    const cam = light.shadow.camera
+    const mapSize = light.shadow.mapSize.x
+    let changed = false
+    if (Math.abs(extent - c.extent) > extent * 0.05) {
+      c.extent = extent
       cam.left = cam.bottom = -extent
       cam.right = cam.top = extent
+      // The depth range must hold the ground across the box under a low sun (its depth then spans
+      // about the box's width) plus whatever stands far above or below the focus.
+      const reach = extent * 2 + HEIGHT_SLACK
+      cam.near = 1
+      cam.far = reach * 2
       cam.updateProjectionMatrix()
+      // Biases in world units, scaled by the texel: a small offset along the normal against acne and a
+      // tiny constant one, so contact shadows stay put and thin walls still throw a shadow.
+      const texel = (2 * extent) / mapSize
+      light.shadow.normalBias = texel * 1.5
+      light.shadow.bias = (-texel * 0.25) / (cam.far - cam.near)
+      changed = true
     }
     // Snap the centre to whole shadow texels to stop shimmering as the camera moves.
-    const texel = (2 * this.shadowExtent) / mapSize
-    const fwd = this.tmpV1.copy(this.state.keyDir).negate()
+    const texel = (2 * c.extent) / mapSize
+    const dir = this.state.keyDir
+    const fwd = this.tmpV1.copy(dir).negate()
     const right = this.tmpV2.crossVectors(fwd, Math.abs(fwd.y) > 0.99 ? this.ax : this.up).normalize()
     const up = this.tmpV3.crossVectors(right, fwd)
     const r = Math.round(center.dot(right) / texel) * texel - center.dot(right)
     const u = Math.round(center.dot(up) / texel) * texel - center.dot(up)
-    const c = this.tmpV4.copy(center).addScaledVector(right, r).addScaledVector(up, u)
-    this.key.target.position.copy(c)
-    this.key.position.copy(c).addScaledVector(this.state.keyDir, 1500)
-    this.key.target.updateMatrixWorld()
+    const snapped = this.tmpV4.copy(center).addScaledVector(right, r).addScaledVector(up, u)
+    if (!snapped.equals(c.center) || !dir.equals(c.dir)) {
+      c.center.copy(snapped)
+      c.dir.copy(dir)
+      changed = true
+    }
+    light.target.position.copy(snapped)
+    light.position.copy(snapped).addScaledVector(dir, c.extent * 2 + HEIGHT_SLACK)
+    light.target.updateMatrixWorld()
+    return changed
   }
   private up = new THREE.Vector3(0, 1, 0)
   private ax = new THREE.Vector3(1, 0, 0)
@@ -249,20 +299,26 @@ export class Environment {
   private tmpV3 = new THREE.Vector3()
   private tmpV4 = new THREE.Vector3()
 
-  /** Shadow-casting key light on/off with the given map size. */
+  /** Shadow-casting key light on/off with the given map sizes. */
   setShadows(mode: 'off' | 'medium' | 'high') {
-    const size = mode === 'high' ? 4096 : 2048
-    this.key.castShadow = mode !== 'off'
-    if (this.key.shadow.mapSize.x !== size) {
-      this.key.shadow.mapSize.set(size, size)
-      this.key.shadow.map?.dispose()
-      this.key.shadow.map = null
-    }
+    const on = mode !== 'off'
+    const sizes: [number, number] = mode === 'high' ? [4096, 2048] : [2048, 2048]
+    this.cascades.forEach((c, i) => {
+      const { light } = c
+      light.castShadow = on
+      if (light.shadow.mapSize.x !== sizes[i]) {
+        light.shadow.mapSize.set(sizes[i], sizes[i])
+        light.shadow.map?.dispose()
+        light.shadow.map = null
+        c.extent = 0 // refit: the biases depend on the texel size
+      }
+    })
+    if (on) this.far.shadow.needsUpdate = true
   }
 
   dispose() {
     this.material.dispose()
     this.sky.geometry.dispose()
-    this.key.shadow.map?.dispose()
+    for (const c of this.cascades) c.light.shadow.map?.dispose()
   }
 }
