@@ -299,6 +299,27 @@ cd frontend && pnpm build   # frontend only
 - The app ships asset-free. All models and textures come from the user's own WoW install at
   runtime; there are no built-in prefabs.
 
+## Reuse existing code
+
+- Don't write everything from scratch. Before building a non-trivial piece (a format parser,
+  geometry or noise algorithm, UI widget, compression, spatial index, etc.), check whether a good
+  library or project on GitHub already does it, and import or port it when it fits.
+  - Frontend: add npm packages with `pnpm add`. Three.js addons (`three/examples/jsm/...`) are
+    already available.
+  - Go: add modules with `go get`.
+  - WoW-specific logic: noggit3, wowdev.wiki and similar projects are good references to
+    port from (as the water code ports noggit3).
+- Pick code that fits the project:
+  - **License**: MIT, BSD, Apache-2.0, ISC, zlib or similar permissive licenses only. No GPL,
+    LGPL or AGPL code or dependencies (that's why `Gophercraft/mpq` isn't used). When porting
+    from a copyleft project such as noggit3, port the behaviour and reimplement it rather than
+    copying code verbatim.
+  - **Fast and small**: no heavy dependencies for a small gain, and nothing that allocates per
+    frame in hot paths.
+  - **Cross-platform**: it must build on Windows and Linux. Avoid Go modules that need cgo.
+  - **Maintained** and typed (TypeScript types for npm packages).
+- Mention the library you chose, and why, in the commit message.
+
 ## Platform notes
 
 - Linux/Wayland: `env_linux.go` sets `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Without it, WebKitGTK
