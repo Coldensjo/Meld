@@ -340,7 +340,8 @@ func intList(ids map[int]bool) string {
 // tsvRows splits mariadb's batch output into rows of n fields, skipping rows of another width.
 func tsvRows(raw []byte, n int) [][]string {
 	var out [][]string
-	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+	// Only line ends are trimmed: an empty last column leaves a trailing tab that is a field.
+	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
 		if f := strings.Split(strings.TrimRight(line, "\r"), "\t"); len(f) == n {
 			out = append(out, f)
 		}
