@@ -1825,12 +1825,16 @@ export class Engine {
       let rot = d.before.rotY + (this.ringAngle(this.dragPoint, o) - d.startAngle)
       if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
       o.rotY = rot
+      this.gizmo.setSweep(d.startAngle, rot - d.before.rotY)
+      const deg = Math.round(THREE.MathUtils.euclideanModulo(THREE.MathUtils.radToDeg(rot), 360)) % 360
+      setViewportHint(`Rotation ${deg}°`)
     } else {
       let dy = this.dragPoint.y - d.startY
       if (snap) dy = Math.round(dy * 2) / 2
       const w = this.objects.worldPlacement(o)
       w.pos.y = d.startWorldY + dy
       this.objects.place(o, o.parent ?? null, w)
+      setViewportHint(`Height ${o.yOff >= 0 ? '+' : ''}${o.yOff.toFixed(2)}`)
     }
     this.objects.touch(o.id)
     editor.selected = { ...o }
@@ -1839,6 +1843,7 @@ export class Engine {
   private endGizmoDrag() {
     const d = this.gizmoDrag
     this.gizmoDrag = null
+    this.gizmo.setSweep(0, 0)
     this.canvas.style.cursor = ''
     const o = this.selectedObject()
     if (!d || !o) return
