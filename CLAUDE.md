@@ -171,6 +171,14 @@ cd frontend && pnpm build   # frontend only
   preprocessor in `frontend/svelte.config.js` adds to every component's root elements. When a
   user reports "the X is broken", ask for that label.
 
+- **Scenes** (`lib/io/scene.ts`): Help > Copy Scene puts one line on the clipboard
+  (`WorldEditor scene {...}`) with the map, camera, hour, tool, selection and view prefs. A map
+  with unsaved changes is first written to a copy in `<user cache>/WorldEditor/scenes`
+  (`SaveSceneMap`, the last 20 kept). Help > Load Scene from Clipboard opens it again. When a
+  user pastes a scene, load it in `make dev`'s browser page with `await window.__loadScene(text)`
+  (and `window.__sceneText()` gives the current one). Loading sets the view prefs, which are
+  saved to the user's config.
+
 ## Menus & preferences
 
 - `components/MenuBar.svelte` builds its dropdowns from a reactive item list (action, check,

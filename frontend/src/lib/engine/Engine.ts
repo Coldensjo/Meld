@@ -993,6 +993,23 @@ export class Engine {
     c.distance = b.distance
   }
 
+  /** The viewport's size in CSS pixels. */
+  viewportSize(): [number, number] {
+    return [this.container.clientWidth, this.container.clientHeight]
+  }
+
+  /** The camera's view and the hour of day, for a copied scene (io/scene.ts). */
+  sceneView() {
+    const c = this.controller
+    return { target: [c.target.x, c.target.y, c.target.z] as [number, number, number], yaw: c.yaw, pitch: c.pitch, distance: c.distance, hour: this.hour }
+  }
+
+  /** Restores a copied scene's view and hour. Call it after the scene's prefs are applied. */
+  setSceneView(v: ReturnType<Engine['sceneView']>) {
+    this.controller.setView(v.target[0], v.target[1], v.target[2], v.yaw, v.pitch, v.distance)
+    this.hour = v.hour
+  }
+
   clearBookmarks() {
     editor.bookmarks = []
   }

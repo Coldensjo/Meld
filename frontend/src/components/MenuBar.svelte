@@ -4,6 +4,7 @@
   import { engineRef } from '../lib/state/engineRef'
   import { chooseVmangosFolder, exportHeightmap, exportObjectList, exportRegion, hasBackend, importHeightmap, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
   import { chooseWowFolder } from '../lib/wow/api'
+  import { copyScene, pasteScene } from '../lib/io/scene'
   import { ClearThumbnailCache, Quit } from '../../wailsjs/go/main/App'
   import { requestClose } from './DocTabs.svelte'
 
@@ -213,6 +214,9 @@
       name: 'About',
       items: [
         { kind: 'action', label: 'Keyboard Shortcuts…', run: () => (ui.dialog = 'shortcuts') },
+        { kind: 'sep' },
+        { kind: 'action', label: 'Copy Scene', disabled: !hasBackend() || ui.busy, run: withEngine(copyScene) },
+        { kind: 'action', label: 'Load Scene from Clipboard', disabled: !hasBackend() || ui.busy, run: withEngine(pasteScene) },
         { kind: 'sep' },
         { kind: 'action', label: 'About WorldEditor…', run: () => (ui.dialog = 'about') },
       ],

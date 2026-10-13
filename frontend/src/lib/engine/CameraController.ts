@@ -69,6 +69,15 @@ export class CameraController {
     }
   }
 
+  /** Puts the camera back on a saved view (a bookmark or a copied scene) without easing to it. */
+  setView(x: number, y: number, z: number, yaw: number, pitch: number, distance: number) {
+    this.target.set(x, y, z)
+    this.smoothTargetY = y
+    this.yaw = yaw
+    this.pitch = pitch
+    this.distance = distance
+  }
+
   /** The offset from a looked-at point back to the camera, `dist` away along the view direction. */
   private viewOffset(dist: number, out = new THREE.Vector3()) {
     const cp = Math.cos(this.pitch)

@@ -51,6 +51,8 @@ export function SavePrefs(arg1:string):Promise<void>;
 
 export function SaveRegion(arg1:vmangos.RegionEdit):Promise<string>;
 
+export function SaveSceneMap(arg1:mapfile.MapData):Promise<string>;
+
 export function SaveTextDialog(arg1:string):Promise<string>;
 
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;

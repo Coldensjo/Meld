@@ -9,8 +9,10 @@ import (
 	"os"
 	goruntime "runtime"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"WorldEditor/internal/config"
 	"WorldEditor/internal/game"
@@ -159,6 +161,34 @@ func (a *App) LoadMap(path string) (*mapfile.MapData, error) {
 	}
 	runtime.WindowSetTitle(a.ctx, "WorldEditor — "+filepath.Base(path))
 	return m, nil
+}
+
+// sceneKeep is how many scene map copies SaveSceneMap keeps; older ones are removed.
+const sceneKeep = 20
+
+// SaveSceneMap writes a copy of the open map for a copied scene (Help > Copy Scene) into the
+// user's cache dir and returns its path. Unlike SaveMap it leaves the window title alone.
+func (a *App) SaveSceneMap(data mapfile.MapData) (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(base, "WorldEditor", "scenes")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, "scene-"+time.Now().Format("20060102-150405.000")+".wmap")
+	if err := mapfile.Save(path, &data); err != nil {
+		return "", err
+	}
+	// The names sort by time, so the oldest come first.
+	if old, err := filepath.Glob(filepath.Join(dir, "scene-*.wmap")); err == nil && len(old) > sceneKeep {
+		sort.Strings(old)
+		for _, f := range old[:len(old)-sceneKeep] {
+			os.Remove(f)
+		}
+	}
+	return path, nil
 }
 
 // VmangosPath returns the VMaNGOS server folder map exports are written for, or "".

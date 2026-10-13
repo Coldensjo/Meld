@@ -35,7 +35,7 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime'
 /** True when running inside the Wails webview (Go bindings available). */
 export const hasBackend = () => typeof (window as unknown as { go?: unknown }).go !== 'undefined'
 
-function toMapData(s: MapSnapshot): mapfile.MapData {
+export function toMapData(s: MapSnapshot): mapfile.MapData {
   return mapfile.MapData.createFrom({
     name: s.name,
     size: s.size,
@@ -56,7 +56,7 @@ function toMapData(s: MapSnapshot): mapfile.MapData {
   })
 }
 
-function fromMapData(m: mapfile.MapData): MapSnapshot {
+export function fromMapData(m: mapfile.MapData): MapSnapshot {
   const common = {
     name: m.name,
     size: m.size,

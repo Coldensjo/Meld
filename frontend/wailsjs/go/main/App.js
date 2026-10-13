@@ -94,6 +94,10 @@ export function SaveRegion(arg1) {
   return window['go']['main']['App']['SaveRegion'](arg1);
 }
 
+export function SaveSceneMap(arg1) {
+  return window['go']['main']['App']['SaveSceneMap'](arg1);
+}
+
 export function SaveTextDialog(arg1) {
   return window['go']['main']['App']['SaveTextDialog'](arg1);
 }
