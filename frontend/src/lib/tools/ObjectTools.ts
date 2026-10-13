@@ -3,6 +3,7 @@ import { editor, setStatus, ui } from '../state/editor.svelte'
 import { movableSelection, objectsInRect, selectObjects } from '../state/selection'
 import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
+import type { ObjectClip } from '../world/clipboard'
 import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
@@ -206,6 +207,10 @@ export class PlaceTool implements Tool {
   }
 }
 
+const tmpQ = new THREE.Quaternion()
+const tmpE = new THREE.Euler()
+const tmpS = new THREE.Vector3()
+
 /** An area drag's corner, in cells. */
 interface Cell {
   x: number
@@ -234,16 +239,31 @@ export class SelectTool implements Tool {
   } | null = null
   /** The cell an area drag started at. */
   private rectStart: Cell | null = null
-  /** Where the floating paste would land (corner cell), updated every frame. */
+  /** Where a floating area paste would land (corner cell), updated every frame. */
   pasteAt: Cell | null = null
+  /** Where a floating model paste would land (its anchor, on the surface under the cursor), updated every frame. */
+  pasteWorld: THREE.Vector3 | null = null
+  /** Previews of the models being pasted, one mesh per clip object, grown as needed. */
+  private ghosts: THREE.Mesh[] = []
+  private ghostGroup = new THREE.Group()
+  private ghostTmp = new THREE.Vector3()
 
   constructor(
     private hooks: {
+      /** The area clip's size while an area is being pasted. */
       clipSize: () => { w: number; h: number } | null
+      /** The model clip while models are being pasted. */
+      objectClip: () => ObjectClip | null
       commitPaste: () => void
       cancelPaste: () => void
     },
-  ) {}
+  ) {
+    this.ghostGroup.renderOrder = 20
+  }
+
+  activate(ctx: ToolContext) {
+    ctx.scene.add(this.ghostGroup)
+  }
 
   private cell(ctx: ToolContext, hit: THREE.Vector3): Cell {
     const cs = ctx.terrain.cellSize
@@ -254,10 +274,53 @@ export class SelectTool implements Tool {
     }
   }
 
-  deactivate() {
+  deactivate(ctx: ToolContext) {
     this.rectStart = null
     this.dragging = null
+    ctx.scene.remove(this.ghostGroup)
     if (ui.pasting) this.hooks.cancelPaste()
+  }
+
+  /** Shows the clip's models at the anchor `at`, or hides the previews when there is no clip. */
+  private updateGhosts(ctx: ToolContext, clip: ObjectClip | null, at: THREE.Vector3 | null) {
+    const list = clip && at ? clip.objects : []
+    while (this.ghosts.length < list.length) {
+      const m = new THREE.Mesh(new THREE.BufferGeometry())
+      m.matrixAutoUpdate = false
+      this.ghosts.push(m)
+      this.ghostGroup.add(m)
+    }
+    const byCid = new Map<number, THREE.Mesh>()
+    for (let i = 0; i < this.ghosts.length; i++) {
+      const g = this.ghosts[i]
+      const o = list[i]
+      g.visible = !!o
+      if (!o || !at) continue
+      const asset = getAsset(o.type)
+      if (g.geometry !== asset.geometry) {
+        g.geometry = asset.geometry
+        g.material = asset.material
+      }
+      byCid.set(o.cid, g)
+      if (o.cparent !== undefined) {
+        const p = byCid.get(o.cparent)
+        if (!p) {
+          g.visible = false
+          continue
+        }
+        g.matrix.compose(this.ghostTmp.set(o.x, o.yOff, o.z), tmpQ.setFromEuler(tmpE.set(o.tiltX ?? 0, o.rotY, o.tiltZ ?? 0, 'YXZ')), tmpS.setScalar(o.scale))
+        g.matrix.premultiply(p.matrix)
+      } else {
+        const x = at.x + o.x
+        const z = at.z + o.z
+        g.matrix.compose(
+          this.ghostTmp.set(x, ctx.terrain.heightAt(x, z) + o.yOff, z),
+          tmpQ.setFromEuler(tmpE.set(o.tiltX ?? 0, o.rotY, o.tiltZ ?? 0, 'YXZ')),
+          tmpS.setScalar(o.scale),
+        )
+      }
+      g.matrixWorld.copy(g.matrix)
+    }
   }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
@@ -380,6 +443,15 @@ export class SelectTool implements Tool {
   }
 
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    const clip = ui.pasting ? this.hooks.objectClip() : null
+    if (clip) {
+      // Models paste onto the ground under the cursor (buildings included, since the ray stops there).
+      const surf = hit ? ctx.surface() : null
+      this.pasteWorld = surf ? surf.point : null
+      this.updateGhosts(ctx, clip, this.pasteWorld)
+      return
+    }
+    this.updateGhosts(ctx, null, null)
     const size = ui.pasting ? this.hooks.clipSize() : null
     if (!size || !hit) return
     const cs = ctx.terrain.cellSize

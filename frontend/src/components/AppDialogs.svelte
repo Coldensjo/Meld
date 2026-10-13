@@ -95,6 +95,8 @@
         ['Alt+scroll', 'Raise / lower the placement preview (Place tool)'],
         ['Shift+drag', 'Scatter (Place tool)'],
         ['Delete', 'Delete the selected models'],
+        ['Ctrl+C / Ctrl+V', 'Copy the selected models (or area) / paste under the cursor'],
+        ['Ctrl+Shift+D', 'Duplicate the selected models in place'],
         ['Esc', 'Deselect'],
         ['G', 'Toggle grid'],
       ],

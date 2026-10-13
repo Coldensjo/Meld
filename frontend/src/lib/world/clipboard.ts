@@ -46,6 +46,108 @@ export interface PasteOptions {
   heightOffset: number
 }
 
+/** A copied object: roots relative to the clip's anchor, attached ones in their parent's local space. */
+export type ClipObject = MapClip['objects'][number]
+
+/** Copied models only (no ground), for pasting at the cursor. */
+export interface ObjectClip {
+  objects: ClipObject[]
+}
+
+/**
+ * Encodes `picked` for a clip whose anchor is world (ax, az): an object attached to another picked
+ * object keeps its local transform; the rest become roots with positions relative to the anchor
+ * and their height above the ground.
+ */
+function encodeObjects(terrain: Terrain, objects: ObjectLayer, picked: WorldObject[], ax: number, az: number): ClipObject[] {
+  const ids = new Set(picked.map((o) => o.id))
+  return picked.map((o) => {
+    if (o.parent !== undefined && ids.has(o.parent)) {
+      const { id, parent, ...rest } = o
+      return { ...rest, cid: id, cparent: parent }
+    }
+    const w = objects.worldPlacement(o)
+    return {
+      type: o.type,
+      cid: o.id,
+      x: w.pos.x - ax,
+      z: w.pos.z - az,
+      yOff: w.pos.y - terrain.heightAt(w.pos.x, w.pos.z),
+      rotY: w.rot,
+      tiltX: o.tiltX,
+      tiltZ: o.tiltZ,
+      scale: w.scale,
+    }
+  })
+}
+
+/**
+ * Adds the clip's objects with the anchor at world (ax, az), parents before children, and returns
+ * them. A root that would land outside the map is left out, as is anything attached to it.
+ */
+function decodeObjects(terrain: Terrain, objects: ObjectLayer, list: readonly ClipObject[], ax: number, az: number): WorldObject[] {
+  const added: WorldObject[] = []
+  const idMap = new Map<number, number>()
+  let pending = [...list]
+  for (let pass = 0; pass < 8 && pending.length; pass++) {
+    const next: typeof pending = []
+    for (const o of pending) {
+      const { cid, cparent, ...rest } = o
+      if (cparent === undefined) {
+        const x = o.x + ax
+        const z = o.z + az
+        if (!terrain.contains(x, z)) continue
+        const n = objects.add({ ...rest, x, z })
+        idMap.set(cid, n.id)
+        added.push(n)
+      } else if (idMap.has(cparent)) {
+        const n = objects.add({ ...rest, parent: idMap.get(cparent) })
+        idMap.set(cid, n.id)
+        added.push(n)
+      } else {
+        next.push(o)
+      }
+    }
+    if (next.length === pending.length) break
+    pending = next
+  }
+  return added
+}
+
+/** Copies `picked` with the anchor at the middle of their world positions. */
+export function copyObjects(terrain: Terrain, objects: ObjectLayer, picked: WorldObject[]): ObjectClip {
+  const tmp = new THREE.Vector3()
+  let ax = 0
+  let az = 0
+  for (const o of picked) {
+    const p = objects.worldPosition(o, tmp)
+    ax += p.x
+    az += p.z
+  }
+  ax /= Math.max(1, picked.length)
+  az /= Math.max(1, picked.length)
+  return { objects: encodeObjects(terrain, objects, picked, ax, az) }
+}
+
+/**
+ * Pastes an object clip with its anchor at world (x, z). Returns the new objects and one undoable
+ * command, or null when nothing landed on the map.
+ */
+export function pasteObjects(terrain: Terrain, objects: ObjectLayer, clip: ObjectClip, x: number, z: number): { added: WorldObject[]; cmd: Command } | null {
+  const added = decodeObjects(terrain, objects, clip.objects, x, z)
+  if (!added.length) return null
+  const saved = added.map((o) => ({ ...o }))
+  const label = saved.length === 1 ? 'Paste model' : `Paste ${saved.length} models`
+  return {
+    added,
+    cmd: {
+      label,
+      undo: () => saved.forEach((o) => objects.remove(o.id)),
+      redo: () => saved.forEach((o) => objects.add({ ...o })),
+    },
+  }
+}
+
 /** A stand-in colour for a clip texture that isn't in the palette it came from. */
 const MISSING = '#808080'
 
@@ -108,27 +210,7 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
     const p = objects.worldPosition(o, tmp)
     return p.x >= ox && p.x <= r.x1 * cs && p.z >= oz && p.z <= r.z1 * cs
   })
-  const ids = new Set(picked.map((o) => o.id))
-  const inside = picked.map((o) => {
-    if (o.parent !== undefined && ids.has(o.parent)) {
-      // Attached within the selection: keep the local transform.
-      const { id, parent, ...rest } = o
-      return { ...rest, cid: id, cparent: parent }
-    }
-    // Free-standing (or attached to something outside): store as a root.
-    const w = objects.worldPlacement(o)
-    return {
-      type: o.type,
-      cid: o.id,
-      x: w.pos.x - ox,
-      z: w.pos.z - oz,
-      yOff: w.pos.y - terrain.heightAt(w.pos.x, w.pos.z),
-      rotY: w.rot,
-      tiltX: o.tiltX,
-      tiltZ: o.tiltZ,
-      scale: w.scale,
-    }
-  })
+  const inside = encodeObjects(terrain, objects, picked, ox, oz)
   return { w, h, heights, holes, weights, slots, palette: clipPalette, objects: inside }
 }
 
@@ -285,35 +367,8 @@ export function pasteRegion(
   const paletteChanged = paletteBefore.length !== palette.length || paletteBefore.some((p, i) => p !== palette[i])
   if (paletteChanged) setPalette(palette)
 
-  const added: WorldObject[] = []
-  if (opts.objects) {
-    const cs = terrain.cellSize
-    const idMap = new Map<number, number>()
-    // Parents before children; skip children whose parent wasn't pasted.
-    let pending = [...clip.objects]
-    for (let pass = 0; pass < 8 && pending.length; pass++) {
-      const next: typeof pending = []
-      for (const o of pending) {
-        const { cid, cparent, ...rest } = o
-        if (cparent === undefined) {
-          const x = o.x + px * cs
-          const z = o.z + pz * cs
-          if (!terrain.contains(x, z)) continue
-          const n = objects.add({ ...rest, x, z })
-          idMap.set(cid, n.id)
-          added.push(n)
-        } else if (idMap.has(cparent)) {
-          const n = objects.add({ ...rest, parent: idMap.get(cparent) })
-          idMap.set(cid, n.id)
-          added.push(n)
-        } else {
-          next.push(o)
-        }
-      }
-      if (next.length === pending.length) break
-      pending = next
-    }
-  }
+  const cs = terrain.cellSize
+  const added = opts.objects ? decodeObjects(terrain, objects, clip.objects, px * cs, pz * cs) : []
 
   const terrainCmd = stroke.finish()
   if (!terrainCmd && !added.length && !paletteChanged) return null

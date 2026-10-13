@@ -76,6 +76,7 @@
       } else if (key === 'c') engine.copySelection()
       else if (key === 'v') engine.startPaste()
       else if (key === 'a') engine.selectAll()
+      else if (key === 'd' && e.shiftKey) engine.duplicateSelected()
       else if (key === 'd') engine.deselect()
       else if (key === 's') saveOrPublish(engine, e.shiftKey)
       else if (key === 'w') requestClose(engine.activeDocumentId())

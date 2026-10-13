@@ -127,12 +127,17 @@
     <div class="divider"></div>
   {:else if editor.tool === 'select'}
     {#if ui.pasting}
-      <span class="chip"><span class="dim">Pasting</span></span>
-      <label class="check"><input type="checkbox" bind:checked={editor.paste.terrain} /> Terrain</label>
-      <label class="check"><input type="checkbox" bind:checked={editor.paste.textures} /> Textures</label>
-      <label class="check"><input type="checkbox" bind:checked={editor.paste.objects} /> Objects</label>
-      <OptSlider label="Blend edges" bind:value={editor.paste.blend} min={0} max={8} step={1} digits={0} width={60} title="Cells over which the paste fades into the map" />
-      <OptSlider label="Height" bind:value={editor.paste.heightOffset} min={-60} max={60} step={0.5} digits={1} width={70} title="Raise/lower the pasted terrain (PgUp/PgDn)" />
+      {#if engineRef.current?.pastingModels()}
+        <span class="chip"><span class="dim">Pasting models</span></span>
+        <span class="dim">Click where the copies should stand.</span>
+      {:else}
+        <span class="chip"><span class="dim">Pasting</span></span>
+        <label class="check"><input type="checkbox" bind:checked={editor.paste.terrain} /> Terrain</label>
+        <label class="check"><input type="checkbox" bind:checked={editor.paste.textures} /> Textures</label>
+        <label class="check"><input type="checkbox" bind:checked={editor.paste.objects} /> Objects</label>
+        <OptSlider label="Blend edges" bind:value={editor.paste.blend} min={0} max={8} step={1} digits={0} width={60} title="Cells over which the paste fades into the map" />
+        <OptSlider label="Height" bind:value={editor.paste.heightOffset} min={-60} max={60} step={0.5} digits={1} width={70} title="Raise/lower the pasted terrain (PgUp/PgDn)" />
+      {/if}
       <button onclick={() => engineRef.current?.commitPaste()}>Place <kbd>Enter</kbd></button>
       <button onclick={() => engineRef.current?.cancelPaste()}>Cancel <kbd>Esc</kbd></button>
     {:else}
@@ -148,12 +153,15 @@
         <span class="chip" title="The selected area of the ground"><span class="dim">Area:</span> {s.x1 - s.x0} × {s.z1 - s.z0} cells{holes ? ` (${holes} hole)` : ''}</span>
         <button onclick={() => engineRef.current?.setHoleInSelection(true)} title="Cut the ground away in the selected area, so a cave or cellar can go below">Cut hole</button>
         <button disabled={!holes} onclick={() => engineRef.current?.setHoleInSelection(false)} title="Put the ground back in the selected area">Fill hole</button>
-        <button onclick={() => engineRef.current?.copySelection()}>Copy <kbd>Ctrl+C</kbd></button>
+      {/if}
+      {#if count || editor.selection}
+        <button onclick={() => engineRef.current?.copySelection()} title={count ? 'Copy the selected models' : 'Copy the selected area'}>Copy <kbd>Ctrl+C</kbd></button>
       {/if}
       {#if ui.hasClip}
         <button onclick={() => engineRef.current?.startPaste()}>Paste <kbd>Ctrl+V</kbd></button>
       {/if}
       {#if count}
+        <button onclick={() => engineRef.current?.duplicateSelected()} title="Put a copy of the selected models down next to them">Duplicate <kbd>Ctrl+Shift+D</kbd></button>
         <button onclick={() => engineRef.current?.focusSelected()}>Focus <kbd>F</kbd></button>
         <button onclick={() => engineRef.current?.deleteSelected()}>Delete <kbd>Del</kbd></button>
       {/if}

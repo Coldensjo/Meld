@@ -187,9 +187,12 @@ cd frontend && pnpm build   # frontend only
   - `editor.selectedIds` holds every selected object and `editor.selected` the primary one (the
     gizmo and the Properties sliders work on it). Change them through `lib/state/selection.ts`
     (`selectObjects`), never by hand. Delete, hide, nudge and focus act on the whole selection.
-- **Clipboard** (`world/clipboard.ts`): `copyRegion` captures heights, splat texels plus the
+- **Clipboard** (`world/clipboard.ts`): `copyRegion` captures heights, holes, splat texels plus the
   source slot texture paths, and objects relative to the corner. `pasteRegion` remaps texture
-  slots onto the target map and returns one undo command.
+  slots onto the target map and returns one undo command. `copyObjects`/`pasteObjects` copy
+  models alone, relative to their mean position; Ctrl+C copies the selected models when there
+  are any, else the area, and Paste places whichever was copied last (the Select tool draws
+  ghost meshes for a model paste). `Engine.duplicateSelected` is copy + paste in place.
   - The clip lives on the Engine, not on a document, so it can be pasted into other tabs.
   - Undo closures must write per-map state through `editor` at call time, never through
     captured arrays, because tab switches replace those arrays.

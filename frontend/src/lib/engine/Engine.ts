@@ -14,7 +14,7 @@ import { PipetteTool, pickLayer } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
-import { copyRegion, pasteRegion, type MapClip } from '../world/clipboard'
+import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import type { WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
 import { CHUNK_CELLS, MAX_PALETTE, SLOTS, chunkTextures, clearPalette, convertGlobalLayers, paletteCoverage, paletteIndex, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
@@ -166,6 +166,9 @@ export class Engine {
   private wheelAcc = 0
   /** Copied region; shared by all documents so it can be pasted into another map. */
   private clip: MapClip | null = null
+  /** Copied models, likewise shared. Whichever was copied last is what Paste places. */
+  private objectClip: ObjectClip | null = null
+  private lastCopied: 'area' | 'objects' = 'area'
   private viewDistance = 1
   private fogEnabled = true
   private abort = new AbortController()
@@ -209,7 +212,8 @@ export class Engine {
     }
 
     this.selectTool = new SelectTool({
-      clipSize: () => (this.clip ? { w: this.clip.w, h: this.clip.h } : null),
+      clipSize: () => (this.clip && this.lastCopied === 'area' ? { w: this.clip.w, h: this.clip.h } : null),
+      objectClip: () => (this.lastCopied === 'objects' ? this.objectClip : null),
       commitPaste: () => this.commitPaste(),
       cancelPaste: () => this.cancelPaste(),
     })
@@ -1078,7 +1082,7 @@ export class Engine {
     const cs = this.terrain.cellSize
     u.selTime.value = time
     const at = this.selectTool.pasteAt
-    if (ui.pasting && this.clip && at) {
+    if (ui.pasting && this.lastCopied === 'area' && this.clip && at) {
       u.selRect.value.set(at.x * cs, at.z * cs, (at.x + this.clip.w) * cs, (at.z + this.clip.h) * cs)
       u.selMode.value = 2
     } else if (editor.selection) {
@@ -1135,29 +1139,75 @@ export class Engine {
   }
 
   /** Copy the selected area (terrain, holes, textures, objects) to the clipboard. */
+  /**
+   * Copies the selected models, or, with none selected, the selected area (terrain, holes, textures
+   * and the models in it), to the clipboard.
+   */
   copySelection(): boolean {
+    const sel = selectedObjects(this.objects)
+    if (sel.length) {
+      this.objectClip = copyObjects(this.terrain, this.objects, sel)
+      this.lastCopied = 'objects'
+      ui.hasClip = true
+      const n = this.objectClip.objects.length
+      setStatus(`Copied ${n} ${n === 1 ? 'model' : 'models'}. Ctrl+V pastes a copy under the cursor (in any map tab); Ctrl+Shift+D duplicates in place.`)
+      return true
+    }
     const s = editor.selection
     if (!s || s.x1 <= s.x0 || s.z1 <= s.z0) {
-      setStatus('Nothing selected. Drag on the ground with the Select tool (V) to select part of the map first.')
+      setStatus('Nothing selected. Click a model, or drag on the ground with the Select tool (V) to select part of the map first.')
       return false
     }
     this.clip = copyRegion(this.terrain, this.objects, s, editor.palette)
+    this.lastCopied = 'area'
     ui.hasClip = true
     setStatus(`Copied ${this.clip.w}×${this.clip.h} cells and ${this.clip.objects.length} objects. Paste with Ctrl+V (works in other map tabs too).`)
     return true
   }
 
-  /** Start placing the clipboard: a floating rect follows the mouse until clicked. */
+  /** Whether what Paste would place is models rather than an area. */
+  pastingModels() {
+    return this.lastCopied === 'objects'
+  }
+
+  /** Start placing the clipboard: the copied models, or a rect of the copied area, follow the mouse until clicked. */
   startPaste() {
-    if (!this.clip) {
-      setStatus('The clipboard is empty. Select an area with the Select tool and press Ctrl+C.')
+    if (!(this.lastCopied === 'objects' ? this.objectClip : this.clip)) {
+      setStatus('The clipboard is empty. Select models or an area with the Select tool and press Ctrl+C.')
       return
     }
     editor.tool = 'select'
     selectObjects(this.objects, [])
     ui.pasting = true
     this.selectTool.pasteAt = null
-    setStatus('Click to place the paste · Enter places it · PgUp/PgDn raise/lower · Esc cancels', 0)
+    this.selectTool.pasteWorld = null
+    setStatus(
+      this.lastCopied === 'objects'
+        ? 'Click to put the copied models down · Enter places them · Esc cancels'
+        : 'Click to place the paste · Enter places it · PgUp/PgDn raise/lower · Esc cancels',
+      0,
+    )
+  }
+
+  /** Copies the selected models and puts the copies down a little to the side, selected, as one undo step. */
+  duplicateSelected() {
+    const sel = selectedObjects(this.objects)
+    if (!sel.length) return
+    const clip = copyObjects(this.terrain, this.objects, sel)
+    let ax = 0
+    let az = 0
+    for (const o of sel) {
+      const p = this.objects.worldPosition(o, this.tmpV)
+      ax += p.x
+      az += p.z
+    }
+    const step = this.terrain.cellSize
+    const r = pasteObjects(this.terrain, this.objects, clip, ax / sel.length + step, az / sel.length + step)
+    if (!r) return
+    r.cmd.label = sel.length === 1 ? 'Duplicate model' : `Duplicate ${sel.length} models`
+    this.history.push(r.cmd)
+    selectObjects(this.objects, r.added.map((o) => o.id))
+    setStatus(`Duplicated ${r.added.length} ${r.added.length === 1 ? 'model' : 'models'}; the copies are selected, so the arrow keys move them.`)
   }
 
   cancelPaste() {
@@ -1166,6 +1216,21 @@ export class Engine {
   }
 
   commitPaste() {
+    if (this.lastCopied === 'objects') {
+      const at = this.selectTool.pasteWorld
+      if (!this.objectClip || !at) return
+      const r = pasteObjects(this.terrain, this.objects, this.objectClip, at.x, at.z)
+      if (!r) {
+        setStatus('Nothing landed on the map.')
+        return
+      }
+      this.history.push(r.cmd)
+      // The copies stay selected, so they can be nudged into place or pasted again with Ctrl+V.
+      selectObjects(this.objects, r.added.map((o) => o.id))
+      ui.pasting = false
+      setStatus(`Pasted ${r.added.length} ${r.added.length === 1 ? 'model' : 'models'}. Ctrl+V pastes again; Ctrl+Z undoes.`)
+      return
+    }
     const at = this.selectTool.pasteAt
     if (!this.clip || !at) return
     const cmd = pasteRegion(
