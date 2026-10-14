@@ -99,6 +99,11 @@ cd frontend && pnpm build   # frontend only
 - **Tools** implement `Tool` (`lib/tools/Tool.ts`):
   - LMB goes to the active tool; RMB and MMB belong to the camera.
   - `tick(dt)` runs every frame while the button is held, so scale effects by `dt`.
+  - Brush size follows Photoshop (`tools/brushSize.ts`): `[` `]` and Ctrl+scroll step the radius
+    through size bands (`stepRadius`, via `Engine.stepBrush`), Shift+`[` `]` step the falloff, and
+    Alt+right-drag (`Engine.sizeDrag`, which the camera leaves alone through `rightBlocked`) sizes
+    the brush on the spot: sideways doubles the radius every `DRAG_DOUBLE` px, up and down set the
+    falloff, and the ring stays on the ground point it started on.
   - Terrain brush tools extend `BrushTool` and record undo through `TerrainStroke`, which stores only
     the dirty sub-rect.
   - Sculpt's **Paint texture** (`editor.sculptPaint`, layer `editor.sculptPaintLayer`, per map in

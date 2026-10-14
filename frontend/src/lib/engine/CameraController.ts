@@ -40,6 +40,8 @@ export class CameraController {
   wheelBlocked: (e: WheelEvent) => boolean = () => false
   /** A right-click that did not orbit (the pointer barely moved): the editor's context menu. */
   onContextClick: (e: PointerEvent) => void = () => {}
+  /** When this returns true a right press is left to the editor (Alt+right-drag sizes a brush). */
+  rightBlocked: (e: PointerEvent) => boolean = () => false
   private rightMoved = 0
 
   private keys = new Set<string>()
@@ -119,6 +121,7 @@ export class CameraController {
   }
 
   private onDown = (e: PointerEvent) => {
+    if (e.button === 2 && this.rightBlocked(e)) return
     if (e.button === 2) this.drag = 'orbit'
     else if (e.button === 1) this.drag = 'pan'
     else return

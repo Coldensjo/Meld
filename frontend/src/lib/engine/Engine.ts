@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
-import { docs, editor, setStatus, setViewportHint, stats, ui, wow, type ContextItem, type Prefs, type ToolId } from '../state/editor.svelte'
+import { MAX_BRUSH_RADIUS, docs, editor, setStatus, setViewportHint, stats, type ContextItem, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import type { adt, vmangos } from '../../../wailsjs/go/models'
@@ -17,6 +17,7 @@ import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
+import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
@@ -154,6 +155,11 @@ export class Engine {
   private altHeld = false
   private pipetteOn = false
   private leftDown = false
+  /**
+   * Alt+right-drag sizing the brush (Photoshop's): where it started, the size and falloff then, and the
+   * ground point the brush ring stays on while the pointer moves.
+   */
+  private sizeDrag: { x: number; y: number; radius: number; falloff: number; hit: THREE.Vector3 } | null = null
   private hitVec = new THREE.Vector3()
   /** The client's status revision the liquids' frames were loaded for. */
   private wowRevision = -1
@@ -271,7 +277,8 @@ export class Engine {
 
     // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
     this.controller.arrowsBlocked = () => this.canNudge() || (editor.tool === 'place' && !!editor.prefab && !editor.placeScatter)
-    this.controller.wheelBlocked = (e) => (editor.tool === 'place' && (e.ctrlKey || e.shiftKey)) || (editor.tool === 'doodad' && e.ctrlKey)
+    this.controller.wheelBlocked = (e) => (editor.tool === 'place' && (e.ctrlKey || e.shiftKey)) || (editor.tool === 'doodad' && e.ctrlKey) || (this.brushSizable() && e.ctrlKey)
+    this.controller.rightBlocked = (e) => e.altKey && this.brushSizable()
     this.controller.onContextClick = (e) => this.openContextMenu(e)
     this.scene.add(this.gizmo.group)
 
@@ -380,7 +387,8 @@ export class Engine {
       'wheel',
       (e) => {
         const doodads = editor.tool === 'doodad' && e.ctrlKey
-        if (!doodads && (editor.tool !== 'place' || !(e.ctrlKey || e.shiftKey))) return
+        const sizing = this.brushSizable() && e.ctrlKey
+        if (!doodads && !sizing && (editor.tool !== 'place' || !(e.ctrlKey || e.shiftKey))) return
         const mod = e.ctrlKey ? 'ctrl' : 'shift'
         if (mod !== this.wheelMod) {
           this.wheelMod = mod
@@ -392,7 +400,8 @@ export class Engine {
         while (Math.abs(this.wheelAcc) >= notch) {
           const dir = Math.sign(this.wheelAcc)
           this.wheelAcc -= dir * notch
-          if (doodads) this.doodadTool.spinPreview(-dir * THREE.MathUtils.degToRad(15))
+          if (sizing) this.stepBrush(-dir > 0 ? 1 : -1)
+          else if (doodads) this.doodadTool.spinPreview(-dir * THREE.MathUtils.degToRad(15))
           else if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
           else this.placeTool.scalePreview(-dir)
         }
@@ -403,6 +412,19 @@ export class Engine {
       'pointerdown',
       (e) => {
         this.updatePointer(e)
+        // Alt+right-drag sizes the brush where it stands: sideways for the size, up and down for the falloff.
+        if (e.button === 2 && e.altKey && this.brushSizable() && !this.leftDown) {
+          this.pick()
+          if (!this.hit) return
+          try {
+            c.setPointerCapture(e.pointerId)
+          } catch {
+            // A synthetic event (tests) has no pointer to capture.
+          }
+          this.sizeDrag = { x: e.clientX, y: e.clientY, radius: editor.brush.radius, falloff: editor.brush.falloff, hit: this.hit.clone() }
+          this.showBrushHint()
+          return
+        }
         if (e.button !== 0) return
         c.setPointerCapture(e.pointerId)
         if (this.startGizmoDrag()) return
@@ -439,6 +461,13 @@ export class Engine {
         this.pointerInside = true
         this.updatePointer(e)
         this.altHeld = e.altKey
+        if (this.sizeDrag) {
+          const d = this.sizeDrag
+          editor.brush.radius = dragRadius(d.radius, e.clientX - d.x, 1, MAX_BRUSH_RADIUS)
+          if (this.brushFalloffApplies()) editor.brush.falloff = dragFalloff(d.falloff, e.clientY - d.y)
+          this.showBrushHint()
+          return
+        }
         if (this.gizmoDrag) {
           this.updateGizmoDrag(e.shiftKey)
           return
@@ -459,6 +488,10 @@ export class Engine {
     c.addEventListener(
       'pointerup',
       (e) => {
+        if (e.button === 2 && this.sizeDrag) {
+          this.sizeDrag = null
+          return
+        }
         if (e.button === 0 && this.gizmoDrag) {
           this.endGizmoDrag()
           return
@@ -502,7 +535,8 @@ export class Engine {
     this.controller.update(dt)
     this.updateEnvironment(dt, time)
 
-    if (this.pointerInside && !this.controller.isDragging) this.pick()
+    if (this.sizeDrag) this.hit = this.hitVec.copy(this.sizeDrag.hit)
+    else if (this.pointerInside && !this.controller.isDragging) this.pick()
     else if (!this.leftDown) this.hit = null
     this.updatePipetteCursor()
 
@@ -2067,6 +2101,28 @@ export class Engine {
     if (want === this.pipetteOn) return
     this.pipetteOn = want
     this.canvas.classList.toggle('pipette', want)
+  }
+
+  /** The active tool has a brush the size controls apply to (the doodad brush spins on Ctrl+scroll instead). */
+  private brushSizable(): boolean {
+    return !!this.activeTool?.usesBrush && editor.tool !== 'place' && editor.tool !== 'doodad'
+  }
+
+  /** Whether the falloff means anything to the active tool (the water brush and roads have none). */
+  private brushFalloffApplies(): boolean {
+    const t = editor.tool
+    return t !== 'road' && !(t === 'water' && editor.waterMode === 'paint') && !(t === 'sculpt' && editor.sculptMode === 'vertex')
+  }
+
+  /** [ and ] (and Ctrl+scroll): the brush one Photoshop-style notch bigger or smaller. */
+  stepBrush(dir: 1 | -1) {
+    editor.brush.radius = stepRadius(editor.brush.radius, dir, 1, MAX_BRUSH_RADIUS)
+    this.showBrushHint()
+  }
+
+  private showBrushHint() {
+    const f = this.brushFalloffApplies() ? ` · Falloff ${editor.brush.falloff.toFixed(2)}` : ''
+    setViewportHint(`Size ${editor.brush.radius.toFixed(1)}${f}`)
   }
 
   /** Keyboard editing of the selected objects applies in the Select and Place tools. */

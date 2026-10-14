@@ -45,6 +45,25 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   back to PCF), shadow maps are depth textures, and inside `#pragma unroll_loop` only
   `UNROLLED_LOOP_INDEX` and `[ i ]` are substituted.
 
+## Brush size controls (Photoshop-style)
+
+Checks: `tools/brushSize.ts` (unit tests in `tests/brushSize.test.ts`) and the engine's Alt+right-drag.
+In the dev page, with a brush tool active and the `editor.svelte.ts` module as `ed`:
+
+```js
+const c = document.querySelector('canvas')
+const down = new PointerEvent('pointerdown', { button: 2, buttons: 2, altKey: true, clientX: 600, clientY: 300, bubbles: true, pointerId: 1 })
+c.dispatchEvent(down)                                 // needs a ground hit under (600, 300): aim the camera at the map first
+c.dispatchEvent(new PointerEvent('pointermove', { buttons: 2, altKey: true, clientX: 760, clientY: 300, bubbles: true, pointerId: 1 }))
+ed.editor.brush.radius                                // doubled (DRAG_DOUBLE = 160 px)
+c.dispatchEvent(new PointerEvent('pointerup', { button: 2, altKey: true, clientX: 760, clientY: 300, bubbles: true, pointerId: 1 }))
+```
+
+- The engine picks the ground from the pointer position on the press, so the pointer must be over
+  the terrain in the hidden tab too (`__engine.frame()` first, after aiming the camera).
+- `setPointerCapture` throws on a synthetic event without a real pointer; the engine ignores that
+  (it is wrapped), so the drag still works from a script.
+
 ## Scripted brush strokes
 
 Checks: what a sculpt mode does to the heights, without dragging the mouse. In the dev page
