@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/holes.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { countHoles, fillHoles, writeCellIndex } from '../src/lib/terrain/holes.ts'
+import { HOLE_CELL, HOLE_FIRST, HOLE_NONE, HOLE_SECOND, countHoles, fillHoles, holeTriangle, triangleIsHole, withTriangle, writeCellIndex } from '../src/lib/terrain/holes.ts'
 
 test('a chunk without holes gets two triangles per cell', () => {
   const size = 4
@@ -49,4 +49,42 @@ test('fillHoles cuts and fills a rect clipped to the map and counts the changes'
   assert.equal(fillHoles(holes, size, 6, 6, 10, 10, 1), 0)
   assert.equal(fillHoles(holes, size, 0, 0, size, size, 0), 4)
   assert.equal(countHoles(holes, size, 0, 0, size, size), 0)
+})
+
+test('a half-cut cell keeps one of its two triangles', () => {
+  const size = 2
+  const holes = new Uint8Array(size * size)
+  const idx = new Uint32Array(size * size * 6)
+  // Cell (1,0) is odd: the first triangle holds corner (1,0) = vertex 1, the second the far corner (2,1) = vertex 5.
+  holes[0 * size + 1] = HOLE_FIRST
+  let n = writeCellIndex(idx, size, size, size + 1, 0, 0, holes, size)
+  assert.equal(n, (size * size - 1) * 6 + 3)
+  const tris = () => Array.from({ length: n / 3 }, (_, i) => [idx[i * 3], idx[i * 3 + 1], idx[i * 3 + 2]])
+  assert.ok(!tris().some((t) => t.includes(1) && t.includes(2) && t.includes(4)), 'the first triangle is cut')
+  assert.ok(tris().some((t) => t.includes(2) && t.includes(4) && t.includes(5)), 'the second triangle stays')
+  holes[0 * size + 1] = HOLE_SECOND
+  n = writeCellIndex(idx, size, size, size + 1, 0, 0, holes, size)
+  assert.ok(tris().some((t) => t.includes(1) && t.includes(2) && t.includes(4)), 'the first triangle stays')
+  assert.ok(!tris().some((t) => t.includes(2) && t.includes(4) && t.includes(5)), 'the second triangle is cut')
+})
+
+test('a point falls in the triangle on its side of the diagonal', () => {
+  // Odd cell: the diagonal runs (1,0)-(0,1); the (0,0) corner is in the first triangle.
+  assert.equal(holeTriangle(1, 0, 0.1, 0.1), 1)
+  assert.equal(holeTriangle(1, 0, 0.9, 0.9), 2)
+  // Even cell: the diagonal runs (0,0)-(1,1); the (0,1) corner is in the first triangle.
+  assert.equal(holeTriangle(0, 0, 0.1, 0.9), 1)
+  assert.equal(holeTriangle(0, 0, 0.9, 0.1), 2)
+})
+
+test('cutting and filling triangles composes into the four cell values', () => {
+  assert.equal(withTriangle(HOLE_NONE, 1, true), HOLE_FIRST)
+  assert.equal(withTriangle(HOLE_FIRST, 2, true), HOLE_CELL)
+  assert.equal(withTriangle(HOLE_CELL, 1, false), HOLE_SECOND)
+  assert.equal(withTriangle(HOLE_SECOND, 2, false), HOLE_NONE)
+  assert.equal(withTriangle(HOLE_CELL, 1, true), HOLE_CELL)
+  assert.ok(triangleIsHole(HOLE_CELL, 2) && triangleIsHole(HOLE_SECOND, 2) && !triangleIsHole(HOLE_FIRST, 2))
+  // A half-cut cell counts as one hole for the area's count.
+  const holes = Uint8Array.of(HOLE_FIRST, HOLE_NONE, HOLE_CELL, HOLE_SECOND)
+  assert.equal(countHoles(holes, 2, 0, 0, 2, 2), 3)
 })

@@ -9,7 +9,7 @@
 //	heights    []byte   (Size+1)^2 float32 little endian
 //	weights    []byte   SplatRes^2 * 4 bytes: four weights per texel, summing to 255 (version 2)
 //	chunkSlots []byte   (Size/8)^2 * 4 bytes: four palette indices per 8x8-cell chunk (version 2)
-//	holes      []byte   Size^2 bytes: 1 where a cell is a hole in the ground (version 3)
+//	holes      []byte   Size^2 bytes: a cell's hole (version 3): 0 none, 1 the whole cell, 2 or 3 one of its two triangles
 //	liqLen     uint32   length of the liquids blob (version 4)
 //	liquids    []byte   uint32 layer count, then LiquidRecordSize bytes a layer (version 4)
 //
@@ -100,7 +100,7 @@ type MapData struct {
 	Heights    string `json:"heights"`              // base64 float32 LE
 	Weights    string `json:"weights,omitempty"`    // base64 RGBA8, version 2
 	ChunkSlots string `json:"chunkSlots,omitempty"` // base64 RGBA8 per chunk, version 2
-	// Holes is one byte per cell, 1 for a hole, version 3. Empty means no holes: an older map, or
+	// Holes is one byte per cell (0 none, 1 the whole cell, 2 or 3 one of its triangles), version 3. Empty means no holes: an older map, or
 	// a writer that sends none.
 	Holes string `json:"holes,omitempty"`
 	// Liquids is the liquids blob, version 4: a layer count, then the layers. Empty means none.

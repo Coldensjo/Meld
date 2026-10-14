@@ -5,7 +5,7 @@ import { createTerrainMaterial } from './TerrainMaterial'
 import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRoles } from './chunkPaint'
-import { writeCellIndex } from './holes'
+import { holeTriangle, triangleIsHole, writeCellIndex } from './holes'
 import { DirtyRegion, uploadRect, type DirtyRect } from './dirtyRect'
 
 export type { DirtyRect } from './dirtyRect'
@@ -322,12 +322,15 @@ export class Terrain {
     return this.heightTex
   }
 
-  /** Whether the cell under world position (x, z) is a hole. Outside the map counts as solid. */
+  /** Whether the ground under world position (x, z) is a hole: its cell's triangle there is cut. Outside the map counts as solid. */
   isHole(x: number, z: number): boolean {
-    const cx = Math.floor(x / this.cellSize)
-    const cz = Math.floor(z / this.cellSize)
+    const gx = x / this.cellSize
+    const gz = z / this.cellSize
+    const cx = Math.floor(gx)
+    const cz = Math.floor(gz)
     if (cx < 0 || cz < 0 || cx >= this.size || cz >= this.size) return false
-    return this.holes[cz * this.size + cx] !== 0
+    const v = this.holes[cz * this.size + cx]
+    return v !== 0 && triangleIsHole(v, holeTriangle(cx, cz, gx - cx, gz - cz))
   }
 
   /** Whether any cell of the map is a hole. */

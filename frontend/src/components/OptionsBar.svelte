@@ -16,6 +16,7 @@
     { id: 'mountain', name: 'Mountain' },
     { id: 'crevice', name: 'Crevice' },
     { id: 'vertex', name: 'Vertex' },
+    { id: 'hole', name: 'Hole' },
   ]
 
   const tool = $derived(TOOLS.find((t) => t.id === editor.tool)!)
@@ -33,6 +34,7 @@
   // selection at the brush strength and uses nothing else of the brush.
   const paintingWater = $derived(editor.tool === 'water' && editor.waterMode === 'paint')
   const vertexMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'vertex')
+  const holeMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'hole')
 
   /** The bar never shows a scrollbar; the wheel scrolls it sideways when it holds more than fits. */
   function scrollSideways(e: WheelEvent) {
@@ -87,7 +89,13 @@
     {#if editor.sculptMode === 'crevice'}
       <OptSlider label="Ridge" bind:value={editor.crevice.ridge} min={0} max={2} step={0.05} digits={2} width={60} title="How much of the dug ground is piled onto the sides: 1 keeps the volume, 0 only digs. Falloff sets how wide the ridges are." />
     {/if}
-    {#if editor.sculptMode === 'vertex'}
+    {#if editor.sculptMode === 'hole'}
+      <div class="seg">
+        <button class:active={!editor.holeFill} onclick={() => (editor.holeFill = false)} title="Click or drag over a triangle of the ground to cut it out">Cut</button>
+        <button class:active={editor.holeFill} onclick={() => (editor.holeFill = true)} title="Click or drag over a cut triangle to put the ground back">Fill</button>
+      </div>
+      <span class="dim">one triangle at a time · <kbd>Shift</kbd> does the other · select an area for whole-area holes</span>
+    {:else if editor.sculptMode === 'vertex'}
       <span class="chip" title="Drag to select vertices, Ctrl or Alt+drag to deselect, Shift+drag to move them up and down"><span class="dim">Selected:</span> {ui.vertexCount}</span>
       <button disabled={!ui.vertexCount} onclick={() => engineRef.current?.vertexAction('flatten')} title="Level the selected vertices at their mean height">Flatten</button>
       <button disabled={!ui.vertexCount} onclick={() => engineRef.current?.vertexAction('clear')}>Clear</button>
@@ -239,7 +247,7 @@
     {/if}
   {/if}
 
-  {#if usesBrush && editor.tool !== 'place' && !paintingWater && !vertexMode}
+  {#if usesBrush && editor.tool !== 'place' && !paintingWater && !vertexMode && !holeMode}
     <div class="seg" title="Brush shape">
       <button class:active={editor.brush.shape === 'circle'} onclick={() => (editor.brush.shape = 'circle')} aria-label="Round brush">●</button>
       <button class:active={editor.brush.shape === 'square'} onclick={() => (editor.brush.shape = 'square')} aria-label="Square brush">■</button>

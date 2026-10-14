@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { holeTriangle, withTriangle } from '../terrain/holes'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import type { Command } from '../state/history'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
@@ -32,7 +33,9 @@ function texelAt(t: Terrain, x: number, z: number): number {
 
 /** Shared stroke lifecycle for brush tools that modify the terrain. */
 abstract class BrushTool implements Tool {
-  readonly usesBrush = true
+  get usesBrush() {
+    return true
+  }
   protected stroke: TerrainStroke | null = null
   protected abstract label: string
   protected abstract records: { heights?: boolean; splat?: boolean; mask?: boolean }
@@ -132,6 +135,13 @@ const MAX_VERTEX_MARKERS = 65536
 export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
   protected records = { heights: true }
+  /** Hole mode works on the triangle under the cursor, not a brush footprint. */
+  get usesBrush() {
+    return editor.sculptMode !== 'hole'
+  }
+  /** Hole mode: whether this stroke restores ground (else it cuts), and the cell rect it touched. */
+  private holeFilling = false
+  private holeCell = { x0: 0, z0: 0, x1: 0, z1: 0 }
   private flattenTarget = 0
   private scratch = new Float32Array(0)
 
@@ -169,10 +179,45 @@ export class SculptTool extends BrushTool {
   }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
+    if (editor.sculptMode === 'hole') {
+      if (!hit) return
+      this.holeFilling = editor.holeFill !== !!e?.shiftKey
+      this.stroke = new TerrainStroke(ctx.terrain, this.holeFilling ? 'Fill hole' : 'Cut hole', { holes: true })
+      this.paintHole(ctx, hit)
+      return
+    }
     const vertex = editor.sculptMode === 'vertex'
     this.moving = vertex && !!e?.shiftKey
     this.deselecting = vertex && !!(e?.ctrlKey || e?.altKey)
     super.onDown(ctx, hit)
+  }
+
+  tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
+    if (editor.sculptMode === 'hole') {
+      if (this.stroke && hit) this.paintHole(ctx, hit)
+      return
+    }
+    super.tick(ctx, dt, hit)
+  }
+
+  /** Cuts or restores the triangle of the ground under `hit`, as part of the stroke's hole edit. */
+  private paintHole(ctx: ToolContext, hit: THREE.Vector3) {
+    const t = ctx.terrain
+    const gx = hit.x / t.cellSize
+    const gz = hit.z / t.cellSize
+    const cx = Math.floor(gx)
+    const cz = Math.floor(gz)
+    if (cx < 0 || cz < 0 || cx >= t.size || cz >= t.size) return
+    const i = cz * t.size + cx
+    const next = withTriangle(t.holes[i], holeTriangle(cx, cz, gx - cx, gz - cz), !this.holeFilling)
+    if (next === t.holes[i]) return
+    const r = this.holeCell
+    r.x0 = r.x1 = cx
+    r.z0 = r.z1 = cz
+    this.stroke?.reserveHoles(r)
+    t.holes[i] = next
+    t.markDirty(cx, cz, cx + 1, cz + 1)
+    this.stroke?.touchHoles(r)
   }
 
   onMove(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {

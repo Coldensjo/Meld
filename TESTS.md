@@ -136,6 +136,25 @@ await window.go.main.App.EquipmentFor([14643, 1897, 0])   // finds or makes a te
   the highest entry (987002 on this database): delete it again after a test, with its items in
   the WHERE clause. `editor.spawns` is a snapshot; read the layer's spawn for the edited state.
 
+## Holes per triangle (Sculpt › Hole)
+
+Checks: `holes.ts` (cell values 0 none, 1 whole cell, 2 first triangle, 3 second) and the Sculpt
+tool's Hole mode. Unit tests: `tests/holes.test.ts`. In the dev page, without a mouse:
+
+```js
+const ed = await import('<editor.svelte.ts URL>'); const e = __engine; const t = e.terrain; const cs = t.cellSize
+const cx = Math.floor(326 / cs), cz = Math.floor(720 / cs)       // a region's cells are 4.17 units, a new map's 2
+ed.editor.tool = 'select'; ed.editor.selection = { x0: cx - 2, z0: cz - 2, x1: cx + 3, z1: cz + 3 }; e.setHoleInSelection(true)
+ed.editor.selection = null; ed.editor.tool = 'sculpt'; ed.editor.sculptMode = 'hole'; ed.editor.holeFill = true
+const hit = e.controller.target.clone().set((cx + 0.2) * cs, 0, (cz + 0.2) * cs)
+e.tools.sculpt.onDown(e.ctx, hit, { shiftKey: false }); e.tools.sculpt.onUp(e.ctx)   // one triangle back
+t.holes[cz * t.size + cx]                                          // 2 or 3; e.history.peek().label is 'Fill hole'
+```
+
+- Traps: on the default ocean map the hole is under the sea; set `prefs.showWater = false` and look
+  down at it to see the floor through it. A point exactly on a cell's diagonal (0.8, 0.8 of an even
+  cell) can land in either triangle, so probe away from it.
+
 ## Dock panels (Layers, Properties)
 
 Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the
