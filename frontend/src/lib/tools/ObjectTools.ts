@@ -395,10 +395,23 @@ export class SelectTool implements Tool {
       if (at) this.spawnDrag = { key: spawnKey(spawn), dx: spawn.x - at.x, dz: spawn.z - at.z, before: { x: spawn.x, y: spawn.y, z: spawn.z }, moved: false }
       return
     }
-    if (!hit) return
+    const at = this.groundPoint(ctx, hit)
+    if (!at) return
     if (!e.shiftKey) selectObjects(ctx.objects, [])
-    this.rectStart = this.cell(ctx, hit)
+    this.rectStart = this.cell(ctx, at)
     editor.selection = { x0: this.rectStart.x, z0: this.rectStart.z, x1: this.rectStart.x, z1: this.rectStart.z }
+  }
+
+  private solidHit = new THREE.Vector3()
+
+  /**
+   * The ground under the cursor for an area selection: the terrain hit, or, where the cursor is over
+   * a hole (the pick ray passes through holes), where the ground would be, so an area can start or
+   * end on a hole and a hole can be selected on its own to fill it.
+   */
+  private groundPoint(ctx: ToolContext, hit: THREE.Vector3 | null): THREE.Vector3 | null {
+    if (hit && !ctx.terrain.isHole(hit.x, hit.z)) return hit
+    return ctx.terrain.raycast(ctx.raycaster.ray, this.solidHit, 4000, true) ? this.solidHit : hit
   }
 
   /**
@@ -495,8 +508,9 @@ export class SelectTool implements Tool {
       return
     }
     if (this.rectStart) {
-      if (!hit) return
-      const c = this.cell(ctx, hit)
+      const at = this.groundPoint(ctx, hit)
+      if (!at) return
+      const c = this.cell(ctx, at)
       editor.selection = {
         x0: Math.min(this.rectStart.x, c.x),
         z0: Math.min(this.rectStart.z, c.z),
