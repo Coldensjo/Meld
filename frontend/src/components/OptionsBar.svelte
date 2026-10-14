@@ -38,12 +38,10 @@
   const vertexMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'vertex')
   const holeMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'hole')
 
-  /** Opens the Doodad brush panel (making a brush when there is none) and the model browser, where picks add to it. */
+  /** Opens the brush editor window, making a brush first when there is none. */
   function editBrush() {
     if (!activeDoodadBrush()) addDoodadBrush()
-    prefs.collapsedPanels = prefs.collapsedPanels.filter((p) => p !== 'doodad')
-    ui.palette = 'models'
-    prefs.browserCollapsed = false
+    ui.brushEditor = true
   }
 
   /** The bar never shows a scrollbar; the wheel scrolls it sideways when it holds more than fits. */
@@ -220,8 +218,8 @@
         <option value={b.name}>{b.name} ({b.entries.length})</option>
       {/each}
     </select>
-    <button onclick={editBrush} title="Edit the brush's models and weights in the Doodad brush panel; picking a model in the browser adds it">
-      {activeDoodadBrush() ? 'Edit brush' : 'New brush'}
+    <button onclick={editBrush} title="Open the brush editor: the brush's models, weights, scale, sink and tilt">
+      {activeDoodadBrush() ? 'Edit brush…' : 'New brush…'}
     </button>
     <label class="check"><input type="checkbox" bind:checked={editor.doodad.randomRot} /> Random rotation</label>
     <label class="check" title="Tilt placed models to the slope under them (instead of each model's random tilt)"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
@@ -229,7 +227,7 @@
       <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
     {/if}
     <label class="check" title="Put nothing on ground under the sea level"><input type="checkbox" bind:checked={editor.doodad.avoidWater} /> Keep out of the sea</label>
-    <span class="dim">drag to scatter · <kbd>Ctrl</kbd>+drag erases the brush's models · pick models in the browser to add them</span>
+    <span class="dim">drag to scatter · <kbd>Ctrl</kbd>+drag erases the brush's models · a model picked in the browser below joins the brush</span>
     <div class="divider"></div>
   {:else if editor.tool === 'select'}
     {#if ui.pasting}

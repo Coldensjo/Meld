@@ -9,6 +9,7 @@
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
   import CreatureEditor from './components/CreatureEditor.svelte'
+  import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
   import ContextMenu from './components/ContextMenu.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
@@ -93,7 +94,9 @@
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
 
-    // Over the creature editor only undo and redo reach the map (its spawn edits are undo steps).
+    // Over the creature editor only undo and redo reach the map (its spawn edits are undo steps);
+    // the brush editor takes every key (its own Esc closes it).
+    if (ui.brushEditor) return
     if (ui.creatureEditor) {
       if (mod && (key === 'z' || key === 'y')) {
         const c = key === 'y' || e.shiftKey ? engine.redo() : engine.undo()
@@ -174,6 +177,7 @@
 </div>
 
 <CreatureEditor />
+<DoodadBrushEditor />
 <AppDialogs />
 <ContextMenu />
 <DebugOverlay />

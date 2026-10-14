@@ -89,6 +89,7 @@
         { kind: 'action', label: 'Auto-paint Textures by Height and Slope', run: withEngine((e) => e.regenerateAutoPaint()) },
         { kind: 'action', label: 'Fill Mask with Paint Texture', disabled: !ui.maskActive, run: withEngine((e) => e.fillMask(editor.paintLayer)) },
         { kind: 'action', label: 'Replace Texture Everywhere…', run: () => (ui.dialog = 'textures') },
+        { kind: 'action', label: 'Doodad Brushes…', run: () => (ui.brushEditor = true) },
         { kind: 'sep' },
         { kind: 'action', label: 'Hide Selected Models', shortcut: 'H', disabled: !editor.selectedIds.length, run: withEngine((e) => e.toggleHideSelected()) },
         { kind: 'check', label: 'Show Hidden Models', checked: ui.showHiddenModels, toggle: () => (ui.showHiddenModels = !ui.showHiddenModels) },

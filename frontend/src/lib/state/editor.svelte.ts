@@ -241,7 +241,7 @@ export const prefs = $state({
   cullSmallModels: true,
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,
-  collapsedPanels: ['properties', 'doodad'] as string[],
+  collapsedPanels: ['properties'] as string[],
   /** The asset browser along the bottom: its height in px, whether it is folded away, and its tile size. */
   browserHeight: 300,
   browserCollapsed: false,
@@ -311,6 +311,8 @@ export const ui = $state({
    * opened from (null for a template alone, such as a new creature).
    */
   creatureEditor: null as { key: string | null; entry: number } | null,
+  /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
+  brushEditor: false,
   /** A creature template being placed: the next click on the ground in the Select tool spawns it. */
   placeCreature: null as vmangos.CreatureTemplate | null,
   /** The game object template the Place tool puts down (see placeCreature). */

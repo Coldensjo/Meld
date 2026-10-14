@@ -7,10 +7,11 @@
   import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { newEntry } from '../lib/tools/doodadBrush'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseWowFolder, listAssets } from '../lib/wow/api'
+  import { chooseWowFolder } from '../lib/wow/api'
+  import { loadCatalog } from '../lib/wow/catalogIndex'
   import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
-  import { buildCatalog, categoryOrder } from '../lib/wow/catalog'
-  import { indexCatalog, searchAssets, type AssetKind, type SearchItem } from '../lib/wow/search'
+  import { categoryOrder } from '../lib/wow/catalog'
+  import { searchAssets, type AssetKind, type SearchItem } from '../lib/wow/search'
   import { hasBackend } from '../lib/io/mapio'
   import { paletteIndex } from '../lib/terrain/chunkPaint'
 
@@ -48,8 +49,8 @@
     if (!wow.loaded || loadedRevision === wow.revision) return
     loadedRevision = wow.revision
     loadingList = true
-    Promise.all([listAssets('m2'), listAssets('wmo'), listAssets('tileset')]).then(([m2, wmo, tex]) => {
-      all = [...indexCatalog('m2', buildCatalog('m2', m2)), ...indexCatalog('wmo', buildCatalog('wmo', wmo)), ...indexCatalog('tex', buildCatalog('tex', tex))]
+    void loadCatalog().then((items) => {
+      all = items
       loadingList = false
     })
   })
