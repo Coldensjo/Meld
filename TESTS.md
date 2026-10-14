@@ -254,6 +254,11 @@ e.history.undo(); e.objects.objects.size            // 0
 - An erase is `onDown` with `new PointerEvent('pointerdown', { ctrlKey: true })`.
 - The editor window is `ui.brushEditor = true` (Edit brush… in the options bar, or Edit › Doodad
   Brushes…); a click on a tile adds the model, a ✓ badge marks the ones in the brush.
+- Trap: an `$effect` that reads a `$state` it also writes (the editor once read `all.length` before
+  loading `all`) re-runs after every write and hangs the app as soon as the window opens. Guard such
+  loads with a revision variable (plain `let`, not state), as the asset browser does.
+- The dev page writes the user's real config.json, so remove any brush made while testing
+  (`prefs.doodadBrushes = prefs.doodadBrushes.filter(...)`).
 - A brush file is `formatBrush(brush)` from `tools/doodadBrush.ts`; paste its text into a `.toml` file
   and File › Import Doodad Brushes… adds it under a free name ("Test 2" if "Test" exists).
 

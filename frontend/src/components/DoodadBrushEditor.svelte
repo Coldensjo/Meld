@@ -101,9 +101,13 @@
   let hovered = $state<SearchItem | null>(null)
   let searchBox: HTMLInputElement | undefined = $state()
 
+  // Read once per client, and only while the window is open; the effect must read nothing it writes,
+  // or it would run again after every load.
+  let loadedRevision = -1
   $effect(() => {
-    if (!open || !wow.loaded) return
-    loadingList = all.length === 0
+    if (!open || !wow.loaded || loadedRevision === wow.revision) return
+    loadedRevision = wow.revision
+    loadingList = true
     void loadCatalog().then((items) => {
       all = items
       loadingList = false
