@@ -18,25 +18,31 @@ import { setViewportHint } from '../state/editor.svelte'
 
 /** How far (grid units) the cursor may be from a wall's line to grab it. */
 const GRAB = 0.3
-const RIBBON = 0.12
 const LIFT = 0.12
+/** Line widths as a share of the camera's distance, so they stay a few pixels at any zoom. */
+const LINE = 0.0022
+const HOVER_LINE = 0.0045
+const GLOW = 0.014
 
 function badgeTexture(glyph: string, color: string): THREE.CanvasTexture {
   const c = document.createElement('canvas')
   c.width = c.height = 64
   const g = c.getContext('2d')!
+  // A flat disc with a soft shadow and a thin light ring, the glyph drawn as bars (crisper than text).
+  g.shadowColor = 'rgba(0,0,0,0.45)'
+  g.shadowBlur = 6
+  g.shadowOffsetY = 2
   g.beginPath()
-  g.arc(32, 32, 28, 0, Math.PI * 2)
+  g.arc(32, 31, 25, 0, Math.PI * 2)
   g.fillStyle = color
   g.fill()
-  g.lineWidth = 3
-  g.strokeStyle = 'rgba(0,0,0,0.55)'
+  g.shadowColor = 'transparent'
+  g.lineWidth = 2
+  g.strokeStyle = 'rgba(255,255,255,0.85)'
   g.stroke()
   g.fillStyle = '#fff'
-  g.font = 'bold 44px sans-serif'
-  g.textAlign = 'center'
-  g.textBaseline = 'middle'
-  g.fillText(glyph, 32, 34)
+  g.fillRect(21, 28.5, 22, 5)
+  if (glyph === '+') g.fillRect(29.5, 20, 5, 22)
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
   return t
@@ -49,6 +55,10 @@ export class HoleWalls {
   private builtTerrain: Terrain | null = null
   private ribbons: THREE.Mesh
   private hoverRibbon: THREE.Mesh
+  private hoverGlow: THREE.Mesh
+  /** The camera's distance the ribbons were last built for, quantised; they are rebuilt when it changes a lot. */
+  private widthKey = -1
+  private dist = 50
   private plus: THREE.Sprite
   private minus: THREE.Sprite
   private hovered: Wall | null = null
@@ -61,17 +71,18 @@ export class HoleWalls {
   constructor() {
     const mat = (color: number, opacity: number) =>
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
-    this.ribbons = new THREE.Mesh(new THREE.BufferGeometry(), mat(0xf2f5fa, 0.55))
-    this.hoverRibbon = new THREE.Mesh(new THREE.BufferGeometry(), mat(0x4b9cf5, 0.95))
-    this.hoverRibbon.visible = false
+    this.ribbons = new THREE.Mesh(new THREE.BufferGeometry(), mat(0xf2f5fa, 0.6))
+    this.hoverRibbon = new THREE.Mesh(new THREE.BufferGeometry(), mat(0x4b9cf5, 1))
+    this.hoverGlow = new THREE.Mesh(new THREE.BufferGeometry(), mat(0x4b9cf5, 0.22))
+    this.hoverRibbon.visible = this.hoverGlow.visible = false
     const sprite = (glyph: string, color: string) => {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: badgeTexture(glyph, color), depthTest: false, depthWrite: false, transparent: true }))
       s.visible = false
       return s
     }
-    this.plus = sprite('+', '#3fa65b')
-    this.minus = sprite('−', '#d9534f')
-    this.group.add(this.ribbons, this.hoverRibbon, this.plus, this.minus)
+    this.plus = sprite('+', '#2f9e55')
+    this.minus = sprite('−', '#d9483f')
+    this.group.add(this.ribbons, this.hoverGlow, this.hoverRibbon, this.plus, this.minus)
     this.group.traverse((o) => (o.renderOrder = 950))
   }
 
@@ -82,7 +93,7 @@ export class HoleWalls {
   detach(scene: THREE.Scene) {
     scene.remove(this.group)
     this.hovered = null
-    this.hoverRibbon.visible = this.plus.visible = this.minus.visible = false
+    this.hoverRibbon.visible = this.hoverGlow.visible = this.plus.visible = this.minus.visible = false
   }
 
   /** The cursor is on a wall or a badge, or a drag is on: a press belongs to the walls. */
@@ -93,8 +104,15 @@ export class HoleWalls {
   /** Rebuilds the walls when the holes changed, and finds the wall under the cursor. */
   frame(ctx: ToolContext) {
     const t = ctx.terrain
-    if (this.builtTerrain !== t || this.builtVersion !== t.holesVersion) this.build(t)
     this.hasGround = t.raycast(ctx.raycaster.ray, this.ground, 4000, true)
+    // Widths follow the camera's distance to the ground under the cursor (else to where it looks).
+    const cam = ctx.raycaster.camera
+    if (cam) this.dist = this.hasGround ? cam.position.distanceTo(this.ground) : Math.max(5, Math.abs(cam.position.y) * 2)
+    const key = Math.round(Math.log(this.dist) * 3)
+    if (this.builtTerrain !== t || this.builtVersion !== t.holesVersion || key !== this.widthKey) {
+      this.widthKey = key
+      this.build(t)
+    }
     if (this.drag) return
     // On a badge, the wall stays hovered: the badges sit half a cell off the wall's line.
     if (this.hovered && this.onBadge(ctx)) return
@@ -213,15 +231,18 @@ export class HoleWalls {
     this.builtVersion = t.holesVersion
     this.walls = findWalls(t.holes, t.size)
     this.ribbons.geometry.dispose()
-    this.ribbons.geometry = ribbonGeometry(this.walls, t)
+    this.ribbons.geometry = ribbonGeometry(this.walls, t, this.dist * LINE)
     this.hovered = null
     this.drawHover(t)
   }
 
   private drawHover(t: Terrain) {
     this.hoverRibbon.geometry.dispose()
-    this.hoverRibbon.geometry = this.hovered ? ribbonGeometry([this.hovered], t, RIBBON * 1.6) : new THREE.BufferGeometry()
-    this.hoverRibbon.visible = this.hovered !== null
+    this.hoverGlow.geometry.dispose()
+    const w = this.hovered
+    this.hoverRibbon.geometry = w ? ribbonGeometry([w], t, this.dist * HOVER_LINE) : new THREE.BufferGeometry()
+    this.hoverGlow.geometry = w ? ribbonGeometry([w], t, this.dist * GLOW) : new THREE.BufferGeometry()
+    this.hoverRibbon.visible = this.hoverGlow.visible = w !== null
   }
 
   private placeBadges(t: Terrain) {
@@ -230,12 +251,16 @@ export class HoleWalls {
     this.plus.visible = this.minus.visible = show
     if (!w || !show) return
     const cs = t.cellSize
-    const size = THREE.MathUtils.clamp(cs * 0.55, 0.5, 6)
+    // Small discs just either side of the edge at the cursor: + over the hole, − over the ground.
+    const size = THREE.MathUtils.clamp(this.dist * 0.038, 0.3, 6)
+    const off = Math.min(0.45 * cs, size * 0.8)
     for (const [sprite, inside] of [[this.plus, true], [this.minus, false]] as const) {
       const c = this.badgeCell(w, inside)
-      const x = (c.x + 0.5) * cs
-      const z = (c.z + 0.5) * cs
-      sprite.position.set(x, t.heightAt(x, z) + size * 0.6, z)
+      const along = (this.hoverAt + 0.5) * cs
+      const across = w.line * cs + (inside ? w.side : -w.side) * off
+      const x = w.axis === 'x' ? across : along
+      const z = w.axis === 'x' ? along : across
+      sprite.position.set(x, t.heightAt(x, z) + size * 0.55, z)
       sprite.scale.setScalar(size)
       sprite.visible = c.x >= 0 && c.z >= 0 && c.x < t.size && c.z < t.size
       // Placed now, so a press in the same frame finds it where it is drawn.
@@ -268,12 +293,12 @@ function inject(dst: Uint8Array, src: Uint8Array, size: number, r: Rect) {
   }
 }
 
-/** A ribbon along each wall, following the ground's height, as one geometry. */
-function ribbonGeometry(walls: Wall[], t: Terrain, halfWidth = RIBBON): THREE.BufferGeometry {
+/** A ribbon `halfWidth` (world units) to each side of every wall, following the ground's height, as one geometry. */
+function ribbonGeometry(walls: Wall[], t: Terrain, halfWidth: number): THREE.BufferGeometry {
   const cs = t.cellSize
   const pos: number[] = []
   const idx: number[] = []
-  const hw = halfWidth * cs
+  const hw = Math.max(0.01, halfWidth)
   for (const w of walls) {
     for (let k = w.from; k <= w.to; k++) {
       const x = w.axis === 'x' ? w.line * cs : k * cs
