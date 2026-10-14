@@ -262,8 +262,12 @@ e.history.undo(); e.objects.objects.size            // 0
 - Trap: an `$effect` that reads a `$state` it also writes (the editor once read `all.length` before
   loading `all`) re-runs after every write and hangs the app as soon as the window opens. Guard such
   loads with a revision variable (plain `let`, not state), as the asset browser does.
-- The dev page writes the user's real config.json, so remove any brush made while testing
-  (`prefs.doodadBrushes = prefs.doodadBrushes.filter(...)`).
+- **Trap: the dev page and the user's desktop window share config.json, and each writes its whole
+  prefs on any change.** A brush made or the pick changed in the dev page is saved over the user's
+  brushes, and a hot reload makes the desktop window load that file; a test brush this way wiped
+  the user's own brush once. Never write `prefs.doodadBrushes` in the dev page. Drive the tool with
+  a brush object instead: patch `activeDoodadBrush` is not possible, so set the pick to a brush the
+  user already has and only read it, or test the brush logic in `tests/doodadBrush.test.ts`.
 - A brush file is `formatBrush(brush)` from `tools/doodadBrush.ts`; paste its text into a `.toml` file
   and File › Import Doodad Brushes… adds it under a free name ("Test 2" if "Test" exists).
 

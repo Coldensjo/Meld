@@ -110,7 +110,8 @@ cd frontend && pnpm build   # frontend only
   picks an entry by weight (`pickEntry`) and drops it when another root model stands too close
   (`fits`); the rate scales with strength and brush area (`attemptRate`). While the brush hovers, the
   next placements are drawn ahead (`plan`, redrawn when the brush or its settings change) and shown
-  as ghost meshes; the press puts them down first. Shift ignores the spacing so models stack;
+  as ghost meshes (none for a model still loading); Ctrl+scroll or R spins the plan about the brush,
+  and the press puts it down first. Shift ignores the spacing so models stack;
   Ctrl+drag erases the brush's models. A stroke is one undo step. Brushes are `prefs.doodadBrushes` (the pick is
   `prefs.doodadBrush`), edited in the brush editor (`DoodadBrushEditor.svelte`, `ui.brushEditor`), a
   full-screen window like the creature editor with its own model picker over the shared catalog

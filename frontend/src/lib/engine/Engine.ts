@@ -271,7 +271,7 @@ export class Engine {
 
     // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
     this.controller.arrowsBlocked = () => this.canNudge() || (editor.tool === 'place' && !!editor.prefab && !editor.placeScatter)
-    this.controller.wheelBlocked = (e) => editor.tool === 'place' && (e.ctrlKey || e.shiftKey)
+    this.controller.wheelBlocked = (e) => (editor.tool === 'place' && (e.ctrlKey || e.shiftKey)) || (editor.tool === 'doodad' && e.ctrlKey)
     this.controller.onContextClick = (e) => this.openContextMenu(e)
     this.scene.add(this.gizmo.group)
 
@@ -379,7 +379,8 @@ export class Engine {
     c.addEventListener(
       'wheel',
       (e) => {
-        if (editor.tool !== 'place' || !(e.ctrlKey || e.shiftKey)) return
+        const doodads = editor.tool === 'doodad' && e.ctrlKey
+        if (!doodads && (editor.tool !== 'place' || !(e.ctrlKey || e.shiftKey))) return
         const mod = e.ctrlKey ? 'ctrl' : 'shift'
         if (mod !== this.wheelMod) {
           this.wheelMod = mod
@@ -391,7 +392,8 @@ export class Engine {
         while (Math.abs(this.wheelAcc) >= notch) {
           const dir = Math.sign(this.wheelAcc)
           this.wheelAcc -= dir * notch
-          if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
+          if (doodads) this.doodadTool.spinPreview(-dir * THREE.MathUtils.degToRad(15))
+          else if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
           else this.placeTool.scalePreview(-dir)
         }
       },

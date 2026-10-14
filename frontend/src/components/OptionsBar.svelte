@@ -227,7 +227,7 @@
       <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
     {/if}
     <label class="check" title="Put nothing on ground under the sea level"><input type="checkbox" bind:checked={editor.doodad.avoidWater} /> Keep out of the sea</label>
-    <span class="dim">drag to scatter · <kbd>Shift</kbd> ignores the spacing so models stack · <kbd>Ctrl</kbd>+drag erases the brush's models · a model picked in the browser below joins the brush</span>
+    <span class="dim">drag to scatter · <kbd>Ctrl</kbd>+scroll / <kbd>R</kbd> spin the preview · <kbd>Shift</kbd> ignores the spacing so models stack · <kbd>Ctrl</kbd>+drag erases the brush's models · a model picked in the browser below joins the brush</span>
     <div class="divider"></div>
   {:else if editor.tool === 'select'}
     {#if ui.pasting}

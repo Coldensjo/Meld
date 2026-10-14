@@ -92,6 +92,7 @@
         ['Arrow keys', 'Move the placement preview away from the cursor (Place tool, nothing selected; Shift for bigger steps)'],
         ['Shift+scroll', 'Scale the placement preview (Place tool; doodads only, the client draws buildings at full size)'],
         ['Shift+drag', 'Scatter (Place tool)'],
+        ['Ctrl+scroll, R', 'Spin the preview about the brush (Doodad brush tool)'],
         ['Shift+drag', 'Stack models on top of each other, ignoring the spacing (Doodad brush tool)'],
         ['Ctrl+drag', "Erase the brush's models (Doodad brush tool)"],
         ['Delete', 'Delete the selected models'],

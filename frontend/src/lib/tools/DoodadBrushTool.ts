@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
-import { editor, prefs, setStatus } from '../state/editor.svelte'
+import { editor, prefs, setStatus, setViewportHint } from '../state/editor.svelte'
 import type { Command } from '../state/history'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { getAsset } from '../models/assets'
@@ -51,7 +51,8 @@ interface Planned {
  *
  * While the brush hovers, the next placements are drawn ahead (`plan`) and shown as ghost models
  * under it; the press puts those down first, then goes on at random, and a new plan is drawn when
- * the stroke ends or the brush changes.
+ * the stroke ends or the brush changes. Ctrl+scroll (or R) spins the planned cluster about the
+ * brush centre. A model still loading (or one that failed) shows no ghost rather than a placeholder.
  */
 export class DoodadBrushTool implements Tool {
   readonly usesBrush = true
@@ -73,6 +74,8 @@ export class DoodadBrushTool implements Tool {
   private plan: Planned[] = []
   /** What the plan was drawn for; a change of brush or settings draws a new one. */
   private planKey = ''
+  /** How far the plan has been spun (for the hint); a new plan starts afresh. */
+  private spun = 0
   private ghosts: THREE.Mesh[] = []
   private ghostGroup = new THREE.Group()
 
@@ -88,6 +91,30 @@ export class DoodadBrushTool implements Tool {
     ctx.scene.remove(this.ghostGroup)
     this.plan = []
     this.planKey = ''
+  }
+
+  /** Turns the planned placements about the brush centre by `radians`, each model facing along. */
+  spinPreview(radians: number) {
+    this.spun += radians
+    const c = Math.cos(radians)
+    const s = Math.sin(radians)
+    for (const p of this.plan) {
+      const dx = p.dx * c - p.dz * s
+      const dz = p.dx * s + p.dz * c
+      p.dx = dx
+      p.dz = dz
+      p.rotY -= radians
+    }
+    const deg = Math.round(THREE.MathUtils.euclideanModulo(THREE.MathUtils.radToDeg(this.spun), 360))
+    setViewportHint(`Spin ${deg % 360}°`)
+  }
+
+  onKey(_ctx: ToolContext, e: KeyboardEvent) {
+    if (e.key === 'r' || e.key === 'R') {
+      this.spinPreview((e.shiftKey ? -1 : 1) * (Math.PI / 4))
+      return true
+    }
+    return false
   }
 
   /** Whether the preview shows a model of `type`, for the engine to animate it as the placed copies will. */
@@ -192,6 +219,11 @@ export class DoodadBrushTool implements Tool {
       if (!g.visible) continue
       const e = brush.entries[p.entry]
       const asset = getAsset(e.type)
+      // A model still loading shows nothing rather than the placeholder box.
+      if (!asset.ready) {
+        g.visible = false
+        continue
+      }
       if (g.geometry !== asset.geometry || !hasSkeleton(g, asset.skeleton)) {
         g = modelMesh(asset.geometry, asset.material, asset.skeleton)
         g.renderOrder = this.ghostGroup.renderOrder
@@ -219,6 +251,7 @@ export class DoodadBrushTool implements Tool {
     if (key === this.planKey) return
     this.planKey = key
     this.plan = []
+    this.spun = 0
     const want = Math.max(1, Math.min(MAX_PREVIEW, Math.round(attemptRate(radius, strength) / 4)))
     // The planned models keep the spacing among themselves (the press also checks the map).
     this.nearCount = 0
