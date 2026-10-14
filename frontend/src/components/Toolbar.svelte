@@ -9,7 +9,7 @@
     { id: 'water', name: 'Water', key: '5', icon: 'M12 3c4 5 6 8 6 11a6 6 0 01-12 0c0-3 2-6 6-11z' },
     { id: 'place', name: 'Place Objects', key: '6', icon: 'M12 2l7 6v12H5V8zM9 20v-6h6v6' },
     { id: 'clear', name: 'Clear: erase models or paint in the brush', key: '7', icon: 'M4 16l7-9 6 6-5 6H6zM14 20h7' },
-    { id: 'doodad', name: 'Doodad brush: scatter a brush of weighted models over the ground (Ctrl erases them)', key: '8', icon: 'M12 21v-6M12 15c-4 0-6-3-6-6 3 0 5 1 6 3 1-2 3-3 6-3 0 3-2 6-6 6zM12 9V3' },
+    { id: 'doodad', name: 'Doodad brush: scatter a brush of weighted models over the ground (Ctrl erases them)', key: '8', icon: 'M3 21c0-3.5 1.2-6 3.5-6S10 16.5 10 18.5 7.5 22 3 21zM9 15l9-9M13 3h.01M19 3h.01M21 9h.01M16 7h.01' },
   ]
 </script>
 
@@ -25,7 +25,7 @@
       aria-label={t.name}
       onclick={() => (editor.tool = t.id)}
     >
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
         <path d={t.icon} />
       </svg>
       <span class="key">{t.key}</span>
@@ -44,8 +44,8 @@
     border-right: 1px solid var(--border);
   }
   button {
-    width: 32px;
-    height: 32px;
+    width: 38px;
+    height: 38px;
     padding: 0;
     display: grid;
     place-items: center;
