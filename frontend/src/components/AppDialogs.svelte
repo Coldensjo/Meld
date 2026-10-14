@@ -238,7 +238,7 @@
     {/snippet}
   </Modal>
 {:else if ui.dialog === 'weapon' && ui.weaponPick}
-  <Modal title="{SLOTS[ui.weaponPick.slot]}{weaponSpawn ? ` of ${weaponSpawn.name}` : ''}" width={720} onclose={close}>
+  <Modal title="{SLOTS[ui.weaponPick.slot]}{weaponSpawn ? ` of ${weaponSpawn.name}` : ''}" width={980} onclose={close}>
     <WeaponPicker which={ui.weaponPick.slot} selected={weaponSpawn?.equipItems?.[ui.weaponPick.slot] ?? 0} onpick={pickWeapon} />
   </Modal>
 {:else if ui.dialog === 'mapProps'}

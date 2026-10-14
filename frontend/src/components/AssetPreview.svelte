@@ -111,6 +111,9 @@
     void show(item)
   })
 
+  /** The path without a look query (a weapon's texture), which is noise to a reader. */
+  const shownPath = $derived(item ? item.path.split('?')[0] : '')
+
   onMount(() => {
     if (canvas) {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
@@ -167,12 +170,12 @@
     {#if loading}<p class="hint">Loading…</p>{/if}
     {#if failed}<p class="hint">Nothing to show (an effect-only model).</p>{/if}
     <div class="details">
-      <div class="name" title={item.path}>{item.name}</div>
+      <div class="name" title={shownPath}>{item.name}</div>
       <div class="dim">{item.kind === 'tex' ? 'Texture' : item.kind === 'm2' ? 'Doodad' : 'Building'} · {item.category} · {item.zone}</div>
       {#if info}
         <div class="dim">{yards(info.w)} × {yards(info.d)} yd, {yards(info.h)} yd tall · {info.tris.toLocaleString()} tris</div>
       {/if}
-      <div class="path">{item.path}</div>
+      <div class="path">{shownPath}</div>
     </div>
   {/if}
 </div>

@@ -54,6 +54,8 @@
 
 <script lang="ts">
   import PaletteTile from './PaletteTile.svelte'
+  import AssetPreview from './AssetPreview.svelte'
+  import type { SearchItem } from '../lib/wow/search'
 
   // A visual picker of the items a creature can hold in one slot: rendered tiles in a virtualised
   // grid, narrowed by kind (sword, shield, bow…), by whether the item is a creature's own
@@ -126,61 +128,98 @@
   })
 
   const label = (w: vmangos.WeaponEntry) => w.name.replace(/^monster\s*-\s*/i, '')
+
+  // The preview shows the item under the pointer, else the one held now, as the asset browser's
+  // preview shows a model: the item's model with its texture as the path's query.
+  let hovered = $state<vmangos.WeaponEntry | null>(null)
+  const previewItem = $derived.by((): SearchItem | null => {
+    const w = hovered ?? all.find((x) => x.entry === selected) ?? null
+    if (!w || !w.model) return null
+    const key = weaponThumbKey(w)
+    return { kind: 'm2', key, path: key.slice(3), name: label(w), category: weaponKind(w), zone: `Item ${w.entry}`, tokens: [], nameTokens: [], text: '' }
+  })
+  function hover(w: vmangos.WeaponEntry | null) {
+    hovered = w
+    onhover?.(w)
+  }
   const title = (w: vmangos.WeaponEntry) => `${w.name} (item ${w.entry})\n${weaponKind(w)}`
 </script>
 
 <div class="picker">
-  <input type="search" placeholder="Search: a name (scimitar, buckler) or an item entry" bind:value={query} />
-  <div class="chips">
-    <button class:on={owner === 'monster'} onclick={() => (owner = 'monster')}>Creature items</button>
-    <button class:on={owner === 'player'} onclick={() => (owner = 'player')}>Player items</button>
-    <button class:on={owner === ''} onclick={() => (owner = '')}>All</button>
-  </div>
-  <div class="chips">
-    <button class:on={kind === ''} onclick={() => (kind = '')}>All kinds <span>{byOwner.length}</span></button>
-    {#each kinds as [name, n] (name)}
-      <button class:on={kind === name} onclick={() => (kind = name)}>{name} <span>{n}</span></button>
-    {/each}
-  </div>
-  {#if error}<p class="error">{error}</p>{/if}
-  <div
-    class="grid-wrap"
-    role="listbox"
-    aria-label="{SLOTS[which]} items"
-    tabindex="-1"
-    bind:this={scroller}
-    bind:clientWidth={width}
-    bind:clientHeight={height}
-    onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)}
-    onpointerleave={() => onhover?.(null)}
-  >
-    {#if loading}
-      <p class="dim">Reading the world database's items…</p>
-    {:else if !items.length}
-      <p class="dim">Nothing matches.</p>
-    {:else}
-      <div class="virtual" style:height="{rows * rowH}px">
-        <div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-          {#each visible as w (w.entry)}
-            <PaletteTile thumbKey={weaponThumbKey(w)} label={label(w)} title={title(w)} size={TILE} active={w.entry === selected} onclick={() => onpick(w.entry)} onhover={(on) => onhover?.(on ? w : null)} />
-          {/each}
-        </div>
+  <div class="list">
+    <input type="search" placeholder="Search: a name (scimitar, buckler) or an item entry" bind:value={query} />
+    <div class="row">
+      <div class="chips">
+        <button class:on={owner === 'monster'} onclick={() => (owner = 'monster')}>Creature items</button>
+        <button class:on={owner === 'player'} onclick={() => (owner = 'player')}>Player items</button>
+        <button class:on={owner === ''} onclick={() => (owner = '')}>All</button>
       </div>
-    {/if}
-  </div>
-  <div class="row">
+      <select bind:value={kind} title="Kind" aria-label="Kind">
+        <option value="">All kinds ({byOwner.length})</option>
+        {#each kinds as [name, n] (name)}<option value={name}>{name} ({n})</option>{/each}
+      </select>
+    </div>
+    {#if error}<p class="error">{error}</p>{/if}
+    <div
+      class="grid-wrap"
+      role="listbox"
+      aria-label="{SLOTS[which]} items"
+      tabindex="-1"
+      bind:this={scroller}
+      bind:clientWidth={width}
+      bind:clientHeight={height}
+      onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)}
+      onpointerleave={() => hover(null)}
+    >
+      {#if loading}
+        <p class="dim">Reading the world database's items…</p>
+      {:else if !items.length}
+        <p class="dim">Nothing matches.</p>
+      {:else}
+        <div class="virtual" style:height="{rows * rowH}px">
+          <div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
+            {#each visible as w (w.entry)}
+              <PaletteTile thumbKey={weaponThumbKey(w)} label={label(w)} title={title(w)} size={TILE} active={w.entry === selected} onclick={() => onpick(w.entry)} onhover={(on) => hover(on ? w : hovered === w ? null : hovered)} />
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
     <span class="dim">{items.length.toLocaleString()} items</span>
+  </div>
+  <div class="side">
+    <div class="preview">
+      <AssetPreview item={previewItem} />
+    </div>
     <button onclick={() => onpick(0)} disabled={!selected}>Empty the slot</button>
   </div>
 </div>
 
 <style>
   .picker {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 12px;
+    min-height: 0;
+    flex: 1;
+  }
+  .list {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-height: 0;
-    flex: 1;
+    min-width: 0;
+  }
+  /* The preview sits at the top right, as big as the grid is tall. */
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .side .preview {
+    height: 360px;
+  }
+  .side button {
+    align-self: flex-end;
   }
   input[type='search'] {
     width: 100%;
@@ -195,21 +234,18 @@
     font-size: 11px;
     border-radius: 10px;
   }
-  .chips button span {
-    color: var(--text-dim);
-  }
   .chips button.on {
     background: var(--accent);
     color: #fff;
   }
-  .chips button.on span {
-    color: rgba(255, 255, 255, 0.75);
-  }
   .row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
+  }
+  .row select {
+    flex: 1;
+    min-width: 0;
   }
   .grid-wrap {
     height: min(52vh, 560px);
