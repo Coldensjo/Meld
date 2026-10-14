@@ -25,6 +25,8 @@ export function GroundEffects():Promise<vmangos.GroundEffectTables>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
+export function LiquidTypes():Promise<Array<vmangos.LiquidTypeEntry>>;
+
 export function ListCreatureTemplates():Promise<Array<vmangos.CreatureTemplate>>;
 
 export function ListDisplays():Promise<Array<vmangos.DisplayEntry>>;

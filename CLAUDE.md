@@ -165,8 +165,11 @@ cd frontend && pnpm build   # frontend only
   the map edge.
 - **Water** follows noggit3 (`lib/water/`):
   - `liquids.ts`: a `LiquidMap` per document holds liquid layers per 8x8-cell chunk (an MCNK). A
-    layer has a LiquidType.dbc ID (1 water, 2 ocean, 3 magma, 4 slime), 9x9 surface heights, 9x9
-    depths (0..1) and an 8x8 cell mask. `paintLiquid`, `cropLiquids` and `regenOpacity` port
+    layer has a LiquidType.dbc ID (1 water, 2 ocean, 3 magma, 4 slime are the base rows; the
+    client's own table, read by the `LiquidTypes` binding into `LIQUID_TYPES` through
+    `setLiquidTypes`, adds rows such as Naxxramas's slime, each drawn as its kind), 9x9 surface
+    heights, 9x9 depths (0..1) and an 8x8 cell mask. A tile stores a chunk's liquid by kind, so
+    the export writes the base row of the layer's kind (`tileLiquidType`); the `.wmap` keeps the ID. `paintLiquid`, `cropLiquids` and `regenOpacity` port
     noggit's `liquid_chunk`/`liquid_layer` logic. Edits go through `LiquidStroke` for undo.
   - The Water tool's Paint mode is noggit's water brush (`editor.water`: lock, angled mode,
     overrides, opacity mode, cursor on liquids). Dig lake and Raise shore shape the ground around

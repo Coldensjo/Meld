@@ -284,6 +284,15 @@ func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, e
 	return vmangos.ReadRegion(dataDir, mapName, x, y, size)
 }
 
+// LiquidTypes lists the client's LiquidType.dbc rows: every liquid it knows, for the Water tool.
+func (a *App) LiquidTypes() ([]vmangos.LiquidTypeEntry, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.LoadLiquidTypes(dataDir)
+}
+
 // GroundEffects reads the client's ground effect tables (the grass tufts each texture grows). The
 // first call for a client learns the texture-to-effect pairs from its tiles, which takes a while;
 // progress goes out as "effects:log" events, and the result is cached in the user's cache dir.

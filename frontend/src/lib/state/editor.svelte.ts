@@ -211,6 +211,8 @@ export const wow = $state({
   files: 0,
   /** Bumped whenever the client changes so lists refetch. */
   revision: 0,
+  /** Bumped when the client's liquid list (LIQUID_TYPES) was read, so the Water tool's select refreshes. */
+  liquidsRevision: 0,
 })
 
 /** User preferences, persisted in the app config (see lib/state/prefs.ts). */

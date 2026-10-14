@@ -25,19 +25,75 @@ export interface LiquidType {
   frames: number
 }
 
-/** The 1.12 client's liquids: LiquidType.dbc's rows, and the animations its client draws them with. */
-export const LIQUID_TYPES: readonly LiquidType[] = [
-  { id: 1, name: 'Water', kind: 'river', texture: 'XTextures\\river\\lake_a.%d.blp', frames: 30 },
-  { id: 2, name: 'Ocean', kind: 'ocean', texture: 'XTextures\\ocean\\ocean_h.%d.blp', frames: 30 },
-  { id: 3, name: 'Magma', kind: 'magma', texture: 'XTextures\\lava\\lava.%d.blp', frames: 30 },
-  { id: 4, name: 'Slime', kind: 'slime', texture: 'XTextures\\slime\\slime.%d.blp', frames: 30 },
+/** The animation each kind of liquid is drawn with, from the client's XTextures. */
+const KIND_TEXTURES: Record<LiquidClass, { texture: string; frames: number }> = {
+  river: { texture: 'XTextures\\river\\lake_a.%d.blp', frames: 30 },
+  ocean: { texture: 'XTextures\\ocean\\ocean_h.%d.blp', frames: 30 },
+  magma: { texture: 'XTextures\\lava\\lava.%d.blp', frames: 30 },
+  slime: { texture: 'XTextures\\slime\\slime.%d.blp', frames: 30 },
+}
+
+/**
+ * The client's liquids: LiquidType.dbc's rows. These four are the 1.12 client's base rows, which a
+ * tile can hold (its chunks store the kind, not the ID); `setLiquidTypes` replaces the list with the
+ * client's own table once it is read, which adds the rows only a building uses, such as Naxxramas's
+ * slime. Painted with one of those, a chunk is written as its kind.
+ */
+export const LIQUID_TYPES: LiquidType[] = [
+  { id: 1, name: 'Water', kind: 'river', ...KIND_TEXTURES.river },
+  { id: 2, name: 'Ocean', kind: 'ocean', ...KIND_TEXTURES.ocean },
+  { id: 3, name: 'Magma', kind: 'magma', ...KIND_TEXTURES.magma },
+  { id: 4, name: 'Slime', kind: 'slime', ...KIND_TEXTURES.slime },
 ]
 
 export const LIQUID_WATER = 1
 export const LIQUID_OCEAN = 2
+export const LIQUID_MAGMA = 3
+export const LIQUID_SLIME = 4
+
+/** The kind a LiquidType.dbc row's type column names: 0 magma, 2 slime, 3 water; the ocean is water row 2. */
+export function kindOfDbcType(id: number, type: number): LiquidClass {
+  if (id === LIQUID_OCEAN) return 'ocean'
+  switch (type) {
+    case 0:
+      return 'magma'
+    case 2:
+      return 'slime'
+    default:
+      return 'river'
+  }
+}
+
+/** Replaces the liquid list with the client's rows (kept in ID order, the base four first). */
+export function setLiquidTypes(rows: ReadonlyArray<{ id: number; name: string; kind: number }>) {
+  const list: LiquidType[] = rows
+    .filter((r) => r.id > 0 && r.name)
+    .map((r) => {
+      const kind = kindOfDbcType(r.id, r.kind)
+      return { id: r.id, name: r.name, kind, ...KIND_TEXTURES[kind] }
+    })
+    .sort((a, b) => a.id - b.id)
+  if (list.length === 0) return
+  LIQUID_TYPES.length = 0
+  LIQUID_TYPES.push(...list)
+}
 
 export function liquidType(id: number): LiquidType {
   return LIQUID_TYPES.find((t) => t.id === id) ?? LIQUID_TYPES[0]
+}
+
+/** The base row (1 to 4) a tile stores for a liquid: its kind's, since a chunk keeps the kind, not the ID. */
+export function tileLiquidType(id: number): number {
+  switch (liquidType(id).kind) {
+    case 'ocean':
+      return LIQUID_OCEAN
+    case 'magma':
+      return LIQUID_MAGMA
+    case 'slime':
+      return LIQUID_SLIME
+    default:
+      return LIQUID_WATER
+  }
 }
 
 /** noggit's depth factors: a vertex's depth is (surface - ground + 1) times one, clamped to 0..1. */
@@ -487,7 +543,7 @@ export function liquidsToAdt(map: LiquidMap, cx0 = 0, cz0 = 0, chunks = map.side
         out.push({
           indexX: c,
           indexY: r,
-          type: l.id,
+          type: tileLiquidType(l.id),
           heights: Array.from(l.heights),
           depth: Array.from(l.depth, (d) => Math.round(d * 255)),
           cells: Array.from(l.cells, (v) => v === 1),

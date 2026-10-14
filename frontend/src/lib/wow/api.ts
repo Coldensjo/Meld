@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { BrowseWowFolder, SetWowPath, WowStatus } from '../../../wailsjs/go/main/App'
+import { BrowseWowFolder, LiquidTypes, SetWowPath, WowStatus } from '../../../wailsjs/go/main/App'
+import { setLiquidTypes } from '../water/liquids'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { hasBackend } from '../io/mapio'
 import { wow } from '../state/editor.svelte'
@@ -70,6 +71,17 @@ function applyStatus(s: StatusLike) {
   wow.loading = false
   lists.clear()
   wow.revision++
+  if (s.loaded) void loadLiquidTypes()
+}
+
+/** Reads the client's LiquidType.dbc into the Water tool's list of liquids. */
+async function loadLiquidTypes() {
+  try {
+    setLiquidTypes(await LiquidTypes())
+    wow.liquidsRevision++
+  } catch (e) {
+    console.warn('liquid types', e)
+  }
 }
 
 export async function initWow() {

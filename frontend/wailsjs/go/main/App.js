@@ -42,6 +42,10 @@ export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
 
+export function LiquidTypes() {
+  return window['go']['main']['App']['LiquidTypes']();
+}
+
 export function ListCreatureTemplates() {
   return window['go']['main']['App']['ListCreatureTemplates']();
 }

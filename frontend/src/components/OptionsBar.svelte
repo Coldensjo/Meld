@@ -1,7 +1,7 @@
 <script lang="ts">
   import OptSlider from './OptSlider.svelte'
   import { TOOLS } from './Toolbar.svelte'
-  import { MAX_BRUSH_RADIUS, editor, prefs, ui, type SculptMode } from '../lib/state/editor.svelte'
+  import { MAX_BRUSH_RADIUS, editor, prefs, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName } from '../lib/models/assets'
   import { FALLOFF_CURVES } from '../lib/tools/brush'
@@ -21,6 +21,11 @@
   ]
 
   const tool = $derived(TOOLS.find((t) => t.id === editor.tool)!)
+  /** The client's liquids, re-read when the client's table arrives (LIQUID_TYPES is a plain array). */
+  const liquidList = $derived.by(() => {
+    void wow.liquidsRevision
+    return [...LIQUID_TYPES]
+  })
   const slotTex = $derived(editor.palette[editor.paintLayer])
   const sculptTex = $derived(editor.palette[editor.sculptPaintLayer])
   const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
@@ -161,7 +166,7 @@
     </div>
     {#if editor.waterMode === 'paint'}
       <select class="curve" bind:value={editor.water.liquid} title="The liquid to paint (the client's LiquidType)" aria-label="Liquid">
-        {#each LIQUID_TYPES as l (l.id)}
+        {#each liquidList as l (l.id)}
           <option value={l.id}>{l.name}</option>
         {/each}
       </select>

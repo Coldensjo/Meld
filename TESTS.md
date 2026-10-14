@@ -153,6 +153,15 @@ __engine.exportInput().effects          // the effect per palette index
 - The detail models load like any other; the layer draws a model once it is ready, so the first
   build after opening shows fewer tufts for a moment.
 
+## Liquid types from the client
+
+Checks: the Water tool's liquid list is the client's LiquidType.dbc (`LiquidTypes` binding,
+`setLiquidTypes` in `water/liquids.ts`), so it holds the base four plus rows such as 21 "Naxxramas -
+Slime". `go test ./internal/vmangos/ -run TestLoadLiquidTypesFromClient` with `WOW_DIR` set reads
+the real table; `tests/liquidTypes.test.ts` covers the mapping. In the dev page the Water tool's
+select lists five liquids once the client is loaded, and a layer painted with 21 exports as slime
+(`liquidsToAdt` gives type 4) while the `.wmap` keeps 21.
+
 ## Growing a region (the Map panel's plus)
 
 Checks: `extendRegion` (`io/mapio.ts`) and `grownBlock` (`io/regionGrow.ts`, unit tests in
