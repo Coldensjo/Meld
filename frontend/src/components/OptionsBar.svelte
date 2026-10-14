@@ -186,15 +186,21 @@
         <button class="x" onclick={() => (ui.placeCreature = ui.placeObject = null)} title="Stop placing it" aria-label="Stop placing">×</button>
       </span>
     {/if}
-    <span class="chip" title="Height above the surface for new placements (Alt+scroll)">
+    <span class="chip" title="Height above the surface for new placements (PgUp / PgDn)">
       <span class="dim">Height:</span> {editor.placeHeight >= 0 ? '+' : ''}{editor.placeHeight.toFixed(2)}
     </span>
     {#if editor.placeHeight !== 0}
       <button onclick={() => (editor.placeHeight = 0)}>Reset</button>
     {/if}
-    <span class="dim"><kbd>Ctrl</kbd>+scroll rotate · <kbd>Alt</kbd>+scroll height · <kbd>Shift</kbd>+scroll scale · props attach to what they're placed on</span>
+    {#if editor.placeOffset.x !== 0 || editor.placeOffset.z !== 0}
+      <span class="chip" title="New placements sit this far from the cursor (arrow keys)">
+        <span class="dim">Offset:</span> {Math.hypot(editor.placeOffset.x, editor.placeOffset.z).toFixed(2)}
+      </span>
+      <button onclick={() => (editor.placeOffset = { x: 0, z: 0 })}>Reset</button>
+    {/if}
+    <span class="dim"><kbd>Ctrl</kbd>+scroll rotate · <kbd>Shift</kbd>+scroll scale · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>←↑↓→</kbd> offset from the cursor · <kbd>R</kbd> spin · props attach to what they're placed on</span>
     {#if editor.selected}
-      <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
+      <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
     {/if}
     <div class="divider"></div>
   {:else if editor.tool === 'select'}

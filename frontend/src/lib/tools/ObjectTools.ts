@@ -83,6 +83,7 @@ export class PlaceTool implements Tool {
   private ghostTilt = { tiltX: 0, tiltZ: 0 }
   /** Alt is held: the preview steps aside so the pipette can see what is under the pointer. */
   hidePreview = false
+  private point = new THREE.Vector3()
 
   constructor(
     private hooks: {
@@ -106,6 +107,34 @@ export class PlaceTool implements Tool {
 
   activate(ctx: ToolContext) {
     ctx.scene.add(this.ghost)
+  }
+
+  /**
+   * Where a placement goes for the surface under the cursor: the arrows' offset away from it (on open
+   * ground, back on the ground there) and the height above it. Written into `this.point`.
+   */
+  private placePoint(ctx: ToolContext, surf: { point: THREE.Vector3; parent: number | null }) {
+    const p = this.point.copy(surf.point)
+    const { x, z } = editor.placeOffset
+    if (x !== 0 || z !== 0) {
+      p.x += x
+      p.z += z
+      if (surf.parent === null && ctx.terrain.contains(p.x, p.z)) p.y = ctx.terrain.heightAt(p.x, p.z)
+    }
+    p.y += editor.placeHeight
+    return p
+  }
+
+  /** Moves the preview's offset from the cursor by (right, forward) in the camera's view. */
+  private moveOffset(ctx: ToolContext, right: number, forward: number) {
+    const yaw = ctx.cameraYaw()
+    const fx = -Math.sin(yaw)
+    const fz = -Math.cos(yaw)
+    const o = editor.placeOffset
+    const x = Math.round((o.x + fx * forward - fz * right) * 100) / 100
+    const z = Math.round((o.z + fz * forward + fx * right) * 100) / 100
+    editor.placeOffset = { x, z }
+    setViewportHint(`Offset ${Math.hypot(x, z).toFixed(2)} from the cursor`)
   }
 
   deactivate(ctx: ToolContext) {
@@ -165,10 +194,11 @@ export class PlaceTool implements Tool {
     const surf = hit ? ctx.surface() : null
     this.ghost.visible = !!surf && !editor.placeScatter && !!editor.prefab && !this.hidePreview
     if (surf && hit) {
-      this.ghost.position.copy(surf.point).y += editor.placeHeight
+      const p = this.placePoint(ctx, surf)
+      this.ghost.position.copy(p)
       // On open ground with Follow ground rotation, the preview leans to the slope it will land on.
       if (editor.followGround && surf.parent === null) {
-        this.groundTilt(ctx, hit.x, hit.z, this.rot, this.ghostTilt)
+        this.groundTilt(ctx, p.x, p.z, this.rot, this.ghostTilt)
         this.ghost.rotation.set(this.ghostTilt.tiltX, this.rot, this.ghostTilt.tiltZ, 'YXZ')
       } else {
         this.ghost.rotation.set(0, this.rot, 0, 'YXZ')
@@ -182,7 +212,7 @@ export class PlaceTool implements Tool {
     // A creature or object template from the browser's spawn tabs is spawned, not placed as a model.
     if (ui.placeCreature || ui.placeObject) {
       const surf = ctx.surface() ?? { point: hit.clone(), parent: null }
-      this.hooks.placeSpawn(surf.point.clone())
+      this.hooks.placeSpawn(this.placePoint(ctx, surf).clone().setY(surf.point.y))
       return
     }
     if (!editor.prefab) {
@@ -196,11 +226,12 @@ export class PlaceTool implements Tool {
     }
     // Attach to the building/prop under the cursor, or sit on the ground.
     const surf = ctx.surface() ?? { point: hit.clone(), parent: null }
+    const p = this.placePoint(ctx, surf)
     // On open ground, Follow ground rotation replaces Random tilt with the slope's tilt.
-    const tilt = editor.followGround && surf.parent === null ? this.groundTilt(ctx, hit.x, hit.z, this.rot, { tiltX: 0, tiltZ: 0 }) : this.tilt
-    const o = ctx.objects.add({ type: editor.prefab, x: hit.x, z: hit.z, yOff: 0, rotY: this.rot, scale: this.scale, ...tilt })
+    const tilt = editor.followGround && surf.parent === null ? this.groundTilt(ctx, p.x, p.z, this.rot, { tiltX: 0, tiltZ: 0 }) : this.tilt
+    const o = ctx.objects.add({ type: editor.prefab, x: p.x, z: p.z, yOff: 0, rotY: this.rot, scale: this.scale, ...tilt })
     ctx.objects.place(o, surf.parent, {
-      pos: surf.point.clone().setY(surf.point.y + editor.placeHeight),
+      pos: p.clone(),
       rot: this.rot,
       scale: this.scale,
     })
@@ -244,11 +275,36 @@ export class PlaceTool implements Tool {
     this.scattering = null
   }
 
-  onKey(_ctx: ToolContext, e: KeyboardEvent) {
-    // With an object selected, R spins it (handled by the engine instead).
-    if (!editor.selected && (e.key === 'r' || e.key === 'R')) {
+  /**
+   * Keys for the preview. With an object selected the engine's selection keys come first (R spins
+   * it, the arrows and PgUp / PgDn move it), so these act on the preview when nothing is selected.
+   */
+  onKey(ctx: ToolContext, e: KeyboardEvent) {
+    if (e.key === 'r' || e.key === 'R') {
       this.rot += (e.shiftKey ? -1 : 1) * (Math.PI / 4)
       return true
+    }
+    if (!editor.prefab || editor.placeScatter) return false
+    const step = e.shiftKey ? 4 : 0.5
+    const lift = e.shiftKey ? 1 : 0.25
+    switch (e.key) {
+      case 'ArrowLeft':
+        this.moveOffset(ctx, -step, 0)
+        return true
+      case 'ArrowRight':
+        this.moveOffset(ctx, step, 0)
+        return true
+      case 'ArrowUp':
+        this.moveOffset(ctx, 0, step)
+        return true
+      case 'ArrowDown':
+        this.moveOffset(ctx, 0, -step)
+        return true
+      case 'PageUp':
+      case 'PageDown':
+        editor.placeHeight = Math.round((editor.placeHeight + (e.key === 'PageUp' ? lift : -lift)) * 100) / 100
+        setViewportHint(`Height ${editor.placeHeight >= 0 ? '+' : ''}${editor.placeHeight.toFixed(2)}`)
+        return true
     }
     return false
   }

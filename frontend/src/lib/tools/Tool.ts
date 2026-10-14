@@ -29,6 +29,8 @@ export interface ToolContext {
    * setting off. Brush tools scale their strength by it.
    */
   pressure(): number
+  /** The camera's yaw, for camera-relative keys (the arrows move the way the view faces). */
+  cameraYaw(): number
 }
 
 /**

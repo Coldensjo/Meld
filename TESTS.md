@@ -207,6 +207,22 @@ IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe and
   through mariadb plus dressing), `ListObjectTemplates` about 0.2 s; a screenful of 80 fresh
   creature thumbnails about 3-4 s, cached PNGs near instant.
 
+## Place tool keys (preview height and offset)
+
+Checks: `PlaceTool.onKey` (PgUp / PgDn set `editor.placeHeight`, the arrows `editor.placeOffset`,
+camera-relative) and that Alt+scroll no longer touches the height. In the dev page, with the
+`editor.svelte.ts` and `selection.ts` module URLs from "Scripted brush strokes":
+
+```js
+ed.editor.tool = 'place'; ed.editor.prefab = 'm2:World\Azeroth\Elwynn\PassiveDoodads\Trees\ElwynnTree01.m2'
+sel.selectObjects(e.objects, [])          // with a selection the engine's nudge keys take the arrows instead
+const key = (k, shift = false) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, shiftKey: shift }))
+key('ArrowRight'); key('PageUp', true)    // placeOffset about 0.5 along the camera's right, placeHeight 1
+document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel', { deltaY: 100, altKey: true, bubbles: true }))   // height unchanged
+```
+
+- The Options bar shows an Offset chip with Reset while the offset is not zero.
+
 ## Dock panels (Layers, Properties)
 
 Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the

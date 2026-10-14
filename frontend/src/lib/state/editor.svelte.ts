@@ -119,8 +119,10 @@ export const editor = $state({
   /** Dragging a model along the ground tilts it to the ground's slope; smooth blends the slope over a cell each way. */
   followGround: false,
   followGroundSmooth: true,
-  /** Extra height above the surface for new placements (Alt+scroll). */
+  /** Extra height above the surface for new placements (PgUp / PgDn in the Place tool). */
   placeHeight: 0,
+  /** World x/z offset of new placements from the cursor (the arrow keys in the Place tool, camera-relative). */
+  placeOffset: { x: 0, z: 0 },
   /** The primary selected object: the one the gizmo and the Properties panel work on. */
   selected: null as SelectedInfo | null,
   /** Every selected object (see lib/state/selection.ts). The primary is one of them when there is one. */

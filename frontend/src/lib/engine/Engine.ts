@@ -246,6 +246,7 @@ export class Engine {
       get raycaster() { return self.raycaster },
       surface: (exclude?: Set<number>) => self.surfaceHit(exclude),
       pressure: () => (self.prefs?.tabletSupport ? self.penPressure : 1),
+      cameraYaw: () => self.controller.yaw,
     }
 
     this.selectTool = new SelectTool({
@@ -265,8 +266,9 @@ export class Engine {
       clear: new ClearTool(),
     }
 
-    this.controller.arrowsBlocked = () => this.canNudge()
-    this.controller.wheelBlocked = (e) => editor.tool === 'place' && (e.ctrlKey || e.altKey || e.shiftKey)
+    // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
+    this.controller.arrowsBlocked = () => this.canNudge() || (editor.tool === 'place' && !!editor.prefab && !editor.placeScatter)
+    this.controller.wheelBlocked = (e) => editor.tool === 'place' && (e.ctrlKey || e.shiftKey)
     this.controller.onContextClick = (e) => this.openContextMenu(e)
     this.scene.add(this.gizmo.group)
 
@@ -369,12 +371,13 @@ export class Engine {
     window.addEventListener('keydown', (e) => e.key === 'Alt' && (this.altHeld = true), sig)
     window.addEventListener('keyup', (e) => e.key === 'Alt' && (this.altHeld = false), sig)
     window.addEventListener('blur', () => (this.altHeld = false), sig)
-    // Ctrl+scroll rotates the placement preview (15° per notch), Alt+scroll raises it, Shift+scroll scales it.
+    // Ctrl+scroll rotates the placement preview (15° per notch), Shift+scroll scales it. Its height is
+    // PgUp / PgDn and its offset the arrows (PlaceTool.onKey): Alt is the pipette, so Alt+scroll clashed.
     c.addEventListener(
       'wheel',
       (e) => {
-        if (editor.tool !== 'place' || !(e.ctrlKey || e.altKey || e.shiftKey)) return
-        const mod = e.ctrlKey ? 'ctrl' : e.altKey ? 'alt' : 'shift'
+        if (editor.tool !== 'place' || !(e.ctrlKey || e.shiftKey)) return
+        const mod = e.ctrlKey ? 'ctrl' : 'shift'
         if (mod !== this.wheelMod) {
           this.wheelMod = mod
           this.wheelAcc = 0
@@ -385,14 +388,8 @@ export class Engine {
         while (Math.abs(this.wheelAcc) >= notch) {
           const dir = Math.sign(this.wheelAcc)
           this.wheelAcc -= dir * notch
-          // Ctrl+scroll rotates the preview; Alt+scroll raises/lowers it (0.25 per notch); Shift+scroll
-          // scales it (10% per notch).
           if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
-          else if (e.shiftKey) this.placeTool.scalePreview(-dir)
-          else {
-            editor.placeHeight = Math.round((editor.placeHeight - dir * 0.25) * 100) / 100
-            setViewportHint(`Height ${editor.placeHeight >= 0 ? '+' : ''}${editor.placeHeight.toFixed(2)}`)
-          }
+          else this.placeTool.scalePreview(-dir)
         }
       },
       { passive: true, signal: this.abort.signal },

@@ -74,7 +74,7 @@
 
   /**
    * A bare Alt press is swallowed on its way down and up. Otherwise Windows takes the released Alt as
-   * "enter the menu loop" and moves keyboard focus out of the page, so after Alt+scroll (place height)
+   * "enter the menu loop" and moves keyboard focus out of the page, so after an Alt+click (pipette)
    * the page no longer sees Ctrl and Ctrl+scroll (spin) stops working.
    */
   function onKeyUp(e: KeyboardEvent) {
