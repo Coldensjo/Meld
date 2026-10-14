@@ -37,6 +37,8 @@
   let pitch = 0.15
   let distance = 6
   let target = new THREE.Vector3(0, 1, 0)
+  /** The model and look shown, to tell a new creature (reframed) from a new animation of the same one. */
+  let shownKey = ''
   let spinning = $state(false)
   let raf = 0
   let loadId = 0
@@ -98,7 +100,9 @@
         a.geometry.dispose()
         return
       }
-      const first = !mesh
+      // Another creature (model or look) is framed whole; another animation of the same one keeps the view.
+      const reframe = !mesh || shownKey !== `${model}|${look}`
+      shownKey = `${model}|${look}`
       drop()
       geometry = a.geometry
       // The preview poses its own copy of the bones, so it never moves the scene's instances.
@@ -107,7 +111,13 @@
       const k = scale > 0 ? scale : 1
       mesh.scale.setScalar(k)
       pivot.add(mesh)
+      // The box of the model as its pose places it (the bind-pose box can be far off), scaled.
       const box = a.bbox.clone()
+      if (animation) {
+        animation.update(0)
+        animation.posedBounds(a.geometry, box)
+        if (box.isEmpty()) box.copy(a.bbox)
+      }
       box.min.multiplyScalar(k)
       box.max.multiplyScalar(k)
       const s = box.getSize(new THREE.Vector3())
@@ -115,10 +125,11 @@
       ground.scale.setScalar(r)
       rings.scale.setScalar(r)
       size = { h: s.y, tris: a.geometry.index ? a.geometry.index.count / 3 : 0 }
-      // A new creature is framed whole; another animation or look of the same one keeps the view.
-      if (first || Math.abs(target.y - s.y * 0.55) > s.y * 0.3) {
-        target = new THREE.Vector3(0, s.y * 0.55, 0)
+      if (reframe) {
+        // Look a little above the box's middle (the box, not the ground: a model's origin need not be at its feet).
+        target = new THREE.Vector3((box.min.x + box.max.x) / 2, box.min.y + s.y * 0.55, (box.min.z + box.max.z) / 2)
         distance = (Math.max(s.y, s.x, s.z) / 2 / Math.tan(THREE.MathUtils.degToRad(15))) * 1.25
+        pitch = 0.15
         camera.near = distance / 200
         camera.far = distance * 20
         camera.updateProjectionMatrix()

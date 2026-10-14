@@ -108,6 +108,37 @@ export class ModelAnimation {
       if (bone.parent >= 0 && bone.parent < i) m.premultiply(this.mats[bone.parent])
     }
   }
+
+  /**
+   * The bounds of `geometry` as the current pose skins it, for framing a view: a pose can carry a
+   * model far from its bind-pose box (a tree creature rising from the ground, a root bone that
+   * walks). Skins every vertex once on the CPU, so it is for a load, not a frame.
+   */
+  posedBounds(geometry: THREE.BufferGeometry, out: THREE.Box3): THREE.Box3 {
+    const pos = geometry.getAttribute('position') as THREE.BufferAttribute
+    const idx = geometry.getAttribute('skinIndex') as THREE.BufferAttribute
+    const w = geometry.getAttribute('skinWeight') as THREE.BufferAttribute
+    out.makeEmpty()
+    const v = this.tmpV
+    const sum = new THREE.Vector3()
+    for (let i = 0; i < pos.count; i++) {
+      sum.set(0, 0, 0)
+      let total = 0
+      for (let k = 0; k < 4; k++) {
+        const weight = w.getComponent(i, k)
+        if (weight === 0) continue
+        const m = this.mats[idx.getComponent(i, k)]
+        if (!m) continue
+        v.fromBufferAttribute(pos, i).applyMatrix4(m)
+        sum.addScaledVector(v, weight)
+        total += weight
+      }
+      if (total === 0) sum.fromBufferAttribute(pos, i)
+      else if (total !== 1) sum.divideScalar(total)
+      out.expandByPoint(sum)
+    }
+    return out
+  }
 }
 
 /**
