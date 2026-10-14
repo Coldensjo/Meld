@@ -360,7 +360,11 @@ export class Terrain {
   }
 
   /** Ray-march the heightmap. Much cheaper than triangle raycasts. */
-  raycast(ray: THREE.Ray, out: THREE.Vector3, maxDist = 4000): boolean {
+  /**
+   * Where `ray` meets the ground, in `out`. The ray passes through holes, so what is below a cave
+   * mouth can be picked, unless `solid` is set, which the Hole mode's Fill needs to aim at a hole.
+   */
+  raycast(ray: THREE.Ray, out: THREE.Vector3, maxDist = 4000, solid = false): boolean {
     const step = this.cellSize * 0.5
     const o = ray.origin
     const dir = ray.direction
@@ -387,7 +391,7 @@ export class Terrain {
         continue
       }
       // The ray passes through holes, so what's below a cave mouth can be picked.
-      const above = y > this.heightAt(x, z) || this.isHole(x, z)
+      const above = y > this.heightAt(x, z) || (!solid && this.isHole(x, z))
       if (!above) {
         // Binary refine between prevT and t.
         let lo = prevT, hi = t
@@ -395,7 +399,7 @@ export class Terrain {
           const mid = (lo + hi) * 0.5
           const mx = o.x + dir.x * mid
           const mz = o.z + dir.z * mid
-          if (o.y + dir.y * mid > this.heightAt(mx, mz) || this.isHole(mx, mz)) lo = mid
+          if (o.y + dir.y * mid > this.heightAt(mx, mz) || (!solid && this.isHole(mx, mz))) lo = mid
           else hi = mid
         }
         out.copy(dir).multiplyScalar(hi).add(o)

@@ -324,7 +324,9 @@ export class Engine {
 
   private pick() {
     this.raycaster.setFromCamera(this.ndc, this.camera)
-    this.hit = this.terrain.raycast(this.raycaster.ray, this.hitVec) ? this.hitVec : null
+    // The Hole mode aims at holes too (to fill them), so its ray stops where the ground would be.
+    const solid = editor.tool === 'sculpt' && editor.sculptMode === 'hole'
+    this.hit = this.terrain.raycast(this.raycaster.ray, this.hitVec, 4000, solid) ? this.hitVec : null
     if (editor.tool === 'water' && editor.waterMode === 'paint' && editor.water.onLiquids) this.pickLiquid()
   }
 
