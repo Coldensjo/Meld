@@ -251,6 +251,10 @@ e.history.undo(); e.objects.objects.size            // 0
 
 - Models load async; before the mesh arrives the placeholder's box sets the footprint, so the first
   stroke on a fresh page spaces by the placeholder. Place once, wait, undo, place again to compare.
+- Hovering shows the next placements as ghosts: `e.tools.doodad.frame(e.ctx, at(200, 200))`, then
+  `e.tools.doodad.ghostGroup.children.filter((g) => g.visible).length` is the plan's size (about a
+  quarter second of the brush, at most 32); a press places those first, so a click puts down what
+  was shown.
 - An erase is `onDown` with `new PointerEvent('pointerdown', { ctrlKey: true })`; `shiftKey: true`
   stacks (no spacing), so the count keeps growing with every tick instead of settling.
 - The editor window is `ui.brushEditor = true` (Edit brush… in the options bar, or Edit › Doodad

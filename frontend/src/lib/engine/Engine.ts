@@ -191,6 +191,7 @@ export class Engine {
   private outlineTargets: OutlineTarget[] = []
   private outlineMatrices: THREE.Matrix4[] = []
   private placeTool = new PlaceTool({ placeSpawn: (at) => this.placeSpawnAt(at) })
+  private doodadTool = new DoodadBrushTool()
   /** Accumulated Ctrl+wheel delta, so smooth trackpads rotate in steps too. */
   private wheelAcc = 0
   /** Which modifier the accumulated wheel delta belongs to, so a remainder never carries over to the other. */
@@ -265,7 +266,7 @@ export class Engine {
       water: new WaterTool(),
       place: this.placeTool,
       clear: new ClearTool(),
-      doodad: new DoodadBrushTool(),
+      doodad: this.doodadTool,
     }
 
     // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
@@ -611,10 +612,11 @@ export class Engine {
     const still = this.prefs?.animations === false
     const ms = still ? 0 : time * 1000
     const prefab = editor.tool === 'place' ? editor.prefab : ''
+    const doodads = editor.tool === 'doodad'
     const spawns = this.doc.spawnLayer
     for (const [type, a] of animatedAssets) {
       if (still && a.anim!.posedAt === 0) continue
-      if (ui.pasting || type === prefab || this.objects.hasVisible(type) || spawns.hasType(type)) a.anim!.update(ms)
+      if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.hasType(type)) a.anim!.update(ms)
     }
   }
 
