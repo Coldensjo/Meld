@@ -182,6 +182,11 @@ cd frontend && pnpm build   # frontend only
   tiles on `MapPicker.svelte`, a continent overview stitched by the Go side from the client's
   minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
   the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps.
+- **Growing a region**: the Map panel's `TileMinimap` shows a plus on each side of the open block
+  (`onextend`); `extendRegion` in `mapio.ts` opens the block one tile bigger that way
+  (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south
+  unless the map ends there), closes the old tab and keeps the camera's view. It refuses a dirty map,
+  since the bigger block is read from the client.
 - **Asset browser** (`components/AssetBrowser.svelte`, along the bottom of the window):
   - Search-first: `lib/wow/search.ts` tokenises every path (folder segments, file-name words,
     camel-case) and scores a query against them, with a synonym table (`SYNONYMS`) mapping the

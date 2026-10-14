@@ -123,6 +123,23 @@ e.endGizmoDrag()
   since the asset preview has a `.hint` of its own. A fresh ocean map has its ground at -12, so
   give the object a `yOff` above the water or it sits under the sea.
 
+## Growing a region (the Map panel's plus)
+
+Checks: `extendRegion` (`io/mapio.ts`) and `grownBlock` (`io/regionGrow.ts`, unit tests in
+`tests/regionGrow.test.ts`). In the dev page, with a region open and `editor.svelte.ts` as `ed`:
+
+```js
+const m = await import('<the loaded mapio.ts URL>')
+ed.editor.regionBlock                         // e.g. {x: 32, y: 48, size: 1}
+await m.extendRegion(window.__engine, 'e')    // opens 2×2 at the same origin, closes the 1×1 tab
+ed.editor.regionBlock, ed.docs.tabs.length    // {x: 32, y: 48, size: 2}, the tab count unchanged
+```
+
+- A dirty region is refused with a status message (save first). The buttons are `.plus` in the Map
+  panel; they are missing on a side where the map ends or when the region is 16 tiles.
+- Opening a region takes a few seconds; `ui.busy` is true meanwhile, and the Map panel ignores a
+  second plus until it is done.
+
 ## Session restore (reopening the last tabs at start)
 
 Checks: `lib/io/session.ts` keeps the open file and region tabs with their cameras in

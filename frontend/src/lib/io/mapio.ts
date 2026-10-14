@@ -29,10 +29,12 @@ import type { Engine, MapSnapshot } from '../engine/Engine'
 import type { MapDocument } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
+import { grownBlock, type Side } from './regionGrow'
+import { CELL_SIZE } from '../terrain/Terrain'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
-import { mapToTiles } from './vmangosExport'
+import { TILE_CELLS, mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
 import { vmangos } from '../../../wailsjs/go/models'
@@ -278,6 +280,40 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       8000,
     )
     void loadSpawns(engine, d, mapName, x, y, size)
+  })
+}
+
+/**
+ * Opens the active region one tile bigger on `side` (the Map panel's plus), in the old tab's place,
+ * with the camera where it was. The block stays square (see regionGrow.ts). Unsaved changes would
+ * be lost in the reload, so the map must be saved first: saving writes the tiles to the client,
+ * which the bigger block is then read from.
+ */
+export function extendRegion(engine: Engine, side: Side) {
+  const block = editor.regionBlock
+  const mapName = editor.regionMap
+  if (!block || !mapName) return
+  const grown = grownBlock(block, side)
+  if (!grown) return
+  if (editor.dirty) {
+    setStatus('Save the map first (Ctrl+S writes its tiles to the client), then add the next tiles.', 8000)
+    return
+  }
+  const oldId = engine.activeDocumentId()
+  const c = engine.controller
+  // Where the camera looks, in the bigger block's coordinates (its origin may have moved north or west).
+  const shift = TILE_CELLS * CELL_SIZE
+  const target = c.target.clone()
+  target.x += (block.x - grown.x) * shift
+  target.z += (block.y - grown.y) * shift
+  const view = { yaw: c.yaw, pitch: c.pitch, distance: c.distance }
+  return openWowRegion(engine, mapName, grown.x, grown.y, grown.size).then(() => {
+    if (engine.activeDocumentId() === oldId) return
+    engine.closeDocument(oldId)
+    c.target.copy(target)
+    c.yaw = view.yaw
+    c.pitch = view.pitch
+    c.distance = view.distance
   })
 }
 
