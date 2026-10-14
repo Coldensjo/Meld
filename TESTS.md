@@ -17,6 +17,10 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
 
 - `make dev` (`wails dev`) serves the app at http://localhost:34115. The page exposes
   `window.__engine` (the Engine), `window.__loadScene(text)` and `window.__sceneText()`.
+- **Always open the page as http://localhost:34115/?nosave.** The page and the user's desktop window
+  share config.json and each writes all of its preferences on any change (a tab opened, a panel
+  folded, a brush made), so a page without the flag overwrites what the user set in the window.
+  With `?nosave` the page never writes the file (`lib/state/prefs.ts`).
 - Open a known spot with a scene: `{map:{region:{mapName:'Azeroth',x:32,y:48,size:1}}}` opens
   Northshire (the abbey is at about world x 182, z 353; the valley is dense canopy, so most ground
   is in tree shadow).
@@ -301,12 +305,8 @@ e.history.undo(); e.objects.objects.size            // 0
 - Trap: an `$effect` that reads a `$state` it also writes (the editor once read `all.length` before
   loading `all`) re-runs after every write and hangs the app as soon as the window opens. Guard such
   loads with a revision variable (plain `let`, not state), as the asset browser does.
-- **Trap: the dev page and the user's desktop window share config.json, and each writes its whole
-  prefs on any change.** A brush made or the pick changed in the dev page is saved over the user's
-  brushes, and a hot reload makes the desktop window load that file; a test brush this way wiped
-  the user's own brush once. Never write `prefs.doodadBrushes` in the dev page. Drive the tool with
-  a brush object instead: patch `activeDoodadBrush` is not possible, so set the pick to a brush the
-  user already has and only read it, or test the brush logic in `tests/doodadBrush.test.ts`.
+- Trap: a test brush made in a dev page opened without `?nosave` was saved over the user's own
+  brushes once (see the note at the top). With the flag, test brushes are safe; they vanish on reload.
 - A brush file is `formatBrush(brush)` from `tools/doodadBrush.ts`; paste its text into a `.toml` file
   and File › Import Doodad Brushes… adds it under a free name ("Test 2" if "Test" exists).
 
