@@ -30,6 +30,7 @@ import type { MapDocument } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
 import { grownBlock, type Side } from './regionGrow'
+import type { TextureEffects } from '../world/groundEffects'
 import { CELL_SIZE } from '../terrain/Terrain'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
@@ -57,6 +58,7 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     palette: s.palette,
     texScale: s.texScale,
     roles: s.roles ?? undefined,
+    textureEffects: Object.keys(s.textureEffects).length ? s.textureEffects : undefined,
     heights: bytesToBase64(s.heights),
     weights: bytesToBase64(s.weights),
     chunkSlots: bytesToBase64(s.chunkSlots),
@@ -78,6 +80,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
     vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId } : null,
     texScale: m.texScale ?? 0,
     roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
+    textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
     heights: base64ToBytes(m.heights),
   }
   if (m.version === 1) {
@@ -329,7 +332,7 @@ function regionPaint(engine: Engine, size: number) {
     t.Paint.map((p) => {
       const cx = p.Chunk % 16
       const cy = Math.floor(p.Chunk / 16)
-      return { chunk: (t.Y * 16 + cy) * perRow + t.X * 16 + cx, textures: p.Textures, weights: p.Weights }
+      return { chunk: (t.Y * 16 + cy) * perRow + t.X * 16 + cx, textures: p.Textures, weights: p.Weights, effects: p.Effects }
     }),
   )
 }

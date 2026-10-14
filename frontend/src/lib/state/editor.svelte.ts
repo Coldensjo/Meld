@@ -3,6 +3,7 @@ import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
 import type { DoodadBrush } from '../tools/doodadBrush'
 import { noRoles, type TextureRoles } from '../terrain/roles'
+import type { TextureEffects } from '../world/groundEffects'
 import type { Bookmark } from '../engine/MapDocument'
 import type { vmangos } from '../../../wailsjs/go/models'
 
@@ -82,6 +83,8 @@ export const editor = $state({
   slopePaint: { rockDeg: 40, dirtDeg: 22 },
   /** The map's texture roles (terrain/roles.ts): the palette entries that are its rock and dirt. */
   roles: noRoles() as TextureRoles,
+  /** The map's own ground effect per texture path (world/groundEffects.ts), over what the client's tiles give. */
+  textureEffects: {} as TextureEffects,
   /**
    * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the
    * cursor, rising at vertexAngle degrees (-89 to 89) toward vertexDir degrees (0 is +x, 90 is +z).
@@ -254,6 +257,8 @@ export const prefs = $state({
   animations: true,
   /** Leave out models too small on screen to see (a pixel or two), which dense zones have thousands of. */
   cullSmallModels: true,
+  /** Draw the ground effects: the grass tufts, flowers and pebbles the game grows on each texture. */
+  showGroundEffects: true,
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,
   collapsedPanels: ['properties'] as string[],
@@ -297,7 +302,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
+  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
   /** The viewport's right-click menu: where it opens (CSS pixels) and what it offers; null when closed. */
   contextMenu: null as { x: number; y: number; title?: string; items: ContextItem[] } | null,
   /** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */

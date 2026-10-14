@@ -19,6 +19,8 @@ import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformC
 import { ClearTool } from '../tools/ClearTool'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
+import { groundEffectTables } from '../wow/groundEffectTables'
+import { effectFor, type TextureEffects } from '../world/groundEffects'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
@@ -100,6 +102,8 @@ export interface MapSnapshot {
   texScale: number
   /** The palette entries that are the map's rock and dirt; null in a map saved before roles. */
   roles: TextureRoles | null
+  /** The map's own ground effect per texture path. */
+  textureEffects: TextureEffects
   heights: Uint8Array
   /** Four weights per splat texel (format 2). */
   weights: Uint8Array
@@ -638,6 +642,7 @@ export class Engine {
     v.lodPx = LOD_PX
     this.objects.cull(v)
     this.doc.spawnLayer.cull(v)
+    this.updateGroundEffects()
     const sel = editor.selectedSpawn
     this.paths.update(this.doc.spawnLayer, sel ? spawnKey(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
   }
@@ -760,6 +765,7 @@ export class Engine {
     d.water.mesh.visible = p.showWater && editor.waterEnabled
     d.liquidRenderer.group.visible = p.showWater
     d.objects.group.visible = p.showObjects
+    d.groundEffects.group.visible = p.showGroundEffects
     d.spawnLayer.setKinds({ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects })
   }
 
@@ -788,6 +794,7 @@ export class Engine {
       paintLayer: editor.paintLayer,
       sculptPaintLayer: editor.sculptPaintLayer,
       roles: { ...editor.roles },
+      textureEffects: { ...editor.textureEffects },
       region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
@@ -816,10 +823,10 @@ export class Engine {
     }
     if (stash && this.doc && this.doc !== d) {
       this.stashActive()
-      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.water.floor, this.doc.objects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)
+      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.water.floor, this.doc.objects.group, this.doc.groundEffects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)
     }
     this.doc = d
-    this.scene.add(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.spawnLayer.group, d.liquidRenderer.group)
+    this.scene.add(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.groundEffects.group, d.spawnLayer.group, d.liquidRenderer.group)
     const m = d.meta
     editor.mapName = m.mapName
     editor.filePath = m.filePath
@@ -831,6 +838,7 @@ export class Engine {
     editor.paintLayer = m.paintLayer
     editor.sculptPaintLayer = m.sculptPaintLayer
     editor.roles = { ...m.roles }
+    editor.textureEffects = { ...m.textureEffects }
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
@@ -1234,6 +1242,7 @@ export class Engine {
       weights: t.weights,
       chunkSlots: t.chunkSlots,
       palette: editor.palette,
+      effects: editor.palette.map((p) => effectFor(p, editor.textureEffects, groundEffectTables())),
       objects,
       waterEnabled: editor.waterEnabled,
       waterLevel: editor.waterLevel,
@@ -1401,7 +1410,7 @@ export class Engine {
     const d = this.documents[i]
     this.documents.splice(i, 1)
     if (d === this.doc) {
-      this.scene.remove(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.spawnLayer.group, d.liquidRenderer.group)
+      this.scene.remove(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.groundEffects.group, d.spawnLayer.group, d.liquidRenderer.group)
       const next = this.documents[Math.min(i, this.documents.length - 1)]
       // Keep at least one map open. The closed doc isn't stashed.
       if (next) {
@@ -1450,6 +1459,7 @@ export class Engine {
       palette: [...editor.palette],
       texScale: editor.texScale,
       roles: { ...editor.roles },
+      textureEffects: { ...editor.textureEffects },
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       weights: t.weights,
       chunkSlots: t.chunkSlots,
@@ -1513,6 +1523,7 @@ export class Engine {
       paintLayer: 0,
       sculptPaintLayer: 0,
       roles: m.roles ? validRoles(m.roles, palette.length) : guessRoles(palette),
+      textureEffects: { ...m.textureEffects },
     }
     if (replace) {
       d.camera = replace.camera
@@ -2134,6 +2145,23 @@ export class Engine {
   private showBrushHint() {
     const f = this.brushFalloffApplies() ? ` · Falloff ${editor.brush.falloff.toFixed(2)}` : ''
     setViewportHint(`Size ${editor.brush.radius.toFixed(1)}${f}`)
+  }
+
+  /** Keeps the grass tufts around the camera current (see GroundEffectLayer). */
+  private updateGroundEffects() {
+    const layer = this.doc.groundEffects
+    if (!layer.group.visible) return
+    const tables = groundEffectTables()
+    if (!tables) return
+    // What the build depends on besides the ground: the palette and the map's own effects.
+    let key = editor.palette.join('|')
+    for (const [tex, id] of Object.entries(editor.textureEffects)) key += `|${tex}=${id}`
+    layer.update(this.camera.position, editor.palette, editor.textureEffects, tables, key, performance.now())
+  }
+
+  /** How many grass tufts are drawn now, for the status bar. */
+  tuftCount(): number {
+    return this.doc.groundEffects.count
   }
 
   /** Keyboard editing of the selected objects applies in the Select and Place tools. */

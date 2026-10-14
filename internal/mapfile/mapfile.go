@@ -93,6 +93,9 @@ type Header struct {
 	// Roles names the palette entries that play the rock and the dirt (-1 for none), which the
 	// Sculpt tool paints by slope. Optional; a map without them guesses from its texture names.
 	Roles *TextureRoles `json:"roles,omitempty"`
+	// TextureEffects is the ground effect (GroundEffectTexture ID) a texture grows, by texture path,
+	// where the map says so itself; other textures grow what the client's tiles give them. Optional.
+	TextureEffects map[string]uint32 `json:"textureEffects,omitempty"`
 }
 
 // TextureRoles are palette indices for the textures sculpting paints by slope.

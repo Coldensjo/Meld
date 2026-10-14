@@ -219,7 +219,12 @@ export class Terrain {
     this.holesVersion++
   }
 
+  /** Bumped whenever heights or paint change, for layers that rebuild from them (the ground effects). */
+  heightVersion = 0
+  paintVersion = 0
+
   markDirty(x0: number, z0: number, x1: number, z1: number) {
+    this.heightVersion++
     const d = this.dirty
     d.x0 = Math.min(d.x0, x0 - 1)
     d.z0 = Math.min(d.z0, z0 - 1)
@@ -237,6 +242,7 @@ export class Terrain {
    * uploaded on the next update; without one the whole weights texture is.
    */
   markSplatDirty(rect?: DirtyRect | null) {
+    this.paintVersion++
     this.splatDirty.mark(rect)
   }
 

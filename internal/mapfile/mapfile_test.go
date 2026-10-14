@@ -44,6 +44,7 @@ func sample(size int) *MapData {
 			Palette:  []string{"#5d8a2f", `Tileset\Elwynn\ElwynnGrassBase.blp`},
 			TexScale: 4,
 			Roles:    &TextureRoles{Rock: 1, Dirt: -1},
+			TextureEffects: map[string]uint32{`Tileset\Elwynn\ElwynnGrassBase.blp`: 42},
 		},
 		Heights:    base64.StdEncoding.EncodeToString(h),
 		Weights:    base64.StdEncoding.EncodeToString(w),

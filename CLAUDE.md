@@ -187,6 +187,20 @@ cd frontend && pnpm build   # frontend only
   tiles on `MapPicker.svelte`, a continent overview stitched by the Go side from the client's
   minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
   the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps.
+- **Ground effects (grass tufts)**: the game grows detail doodads on each cell by the texture on top of
+  it: a texture layer's GroundEffectTexture ID names up to four `World\NoDXT\Detail` models and a
+  density, and the chunk's predominant-texture map picks the layer per cell. Go
+  (`internal/vmangos/groundeffects.go`, `GroundEffects` binding) reads the two DBCs and learns which
+  effect each tileset texture carries from the client's own tiles (a vote over every layer; cached in
+  the user's cache dir, progress on "effects:log"). The frontend keeps the tables in
+  `wow/groundEffectTables.ts`; `world/groundEffects.ts` is the arithmetic (`effectFor`,
+  `cellTexture`, `cellTufts`) and `world/GroundEffectLayer.ts` draws the tufts within `TUFT_RANGE`
+  of the camera as one InstancedMesh per model, rebuilt when the camera moves half a chunk or
+  `Terrain.heightVersion`/`paintVersion` change (View › Ground effects, `prefs.showGroundEffects`).
+  A map's own effect per texture (`editor.textureEffects`, Edit › Ground Effects…, saved as the map
+  file's `textureEffects`) overrides the learned one. The export sends the effect per layer
+  (`PaintSpec.Effects`) and Go writes it into MCLY and the per-cell predominant map into the MCNK
+  header (`adt/effects.go`), so the client grows the same tufts.
 - **Growing a region**: the Map panel's `TileMinimap` shows a plus on each side of the open block
   (`onextend`); `extendRegion` in `mapio.ts` opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

@@ -41,6 +41,8 @@ export interface ExportInput {
   chunkSlots: Uint8Array
   /** The palette: a WoW tileset path or a colour per index. */
   palette: readonly string[]
+  /** The ground effect (GroundEffectTexture ID, 0 for none) per palette index; optional. */
+  effects?: readonly number[]
   objects: readonly ExportObject[]
   /** Whether the map has water, and the level it's at in yards. */
   waterEnabled: boolean
@@ -53,6 +55,8 @@ export interface PaintOut {
   Chunk: number
   Textures: string[]
   Weights: string
+  /** The ground effect per texture, in the same order (0 for none, which keeps the tile's own). */
+  Effects: number[]
 }
 
 export interface ObjectOut {
@@ -136,6 +140,7 @@ export function mapToTiles(input: ExportInput): ExportOut {
           }
           if (used.length === 0) continue
           const names = used.map((k) => input.palette[input.chunkSlots[chunk * SLOTS + k]] ?? '')
+          const effects = used.map((k) => input.effects?.[input.chunkSlots[chunk * SLOTS + k]] ?? 0)
           if (names.some((n) => !n || isColor(n))) {
             colorChunks++
             continue
@@ -151,7 +156,7 @@ export function mapToTiles(input: ExportInput): ExportOut {
               used.forEach((k, j) => (weights[dst + j] = input.weights[src + k]))
             }
           }
-          paint.push({ Chunk: cy * CHUNKS_PER_TILE + cx, Textures: names, Weights: toBase64(weights) })
+          paint.push({ Chunk: cy * CHUNKS_PER_TILE + cx, Textures: names, Weights: toBase64(weights), Effects: effects })
         }
       }
 

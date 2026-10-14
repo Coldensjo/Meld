@@ -21,6 +21,8 @@ export function EquipmentItems(arg1:number):Promise<any>;
 
 export function GameLogin():Promise<main.GameLoginInfo>;
 
+export function GroundEffects():Promise<vmangos.GroundEffectTables>;
+
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
 export function ListCreatureTemplates():Promise<Array<vmangos.CreatureTemplate>>;

@@ -34,6 +34,10 @@ export function GameLogin() {
   return window['go']['main']['App']['GameLogin']();
 }
 
+export function GroundEffects() {
+  return window['go']['main']['App']['GroundEffects']();
+}
+
 export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }

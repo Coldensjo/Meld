@@ -131,6 +131,28 @@ e.endGizmoDrag()
   since the asset preview has a `.hint` of its own. A fresh ocean map has its ground at -12, so
   give the object a `yOff` above the water or it sits under the sea.
 
+## Ground effects (grass tufts)
+
+Checks: the tables load (`groundEffectTables()` in `wow/groundEffectTables.ts`), the tufts build
+around the camera (`GroundEffectLayer`) and the export carries effects. Unit tests:
+`tests/groundEffects.test.ts` and `go test ./internal/adt/` (`effects_test.go`). In the dev page:
+
+```js
+const g = await import('<the loaded wow/groundEffectTables.ts URL>')
+await g.loadGroundEffectTables()        // the first time for a client scans every tile: a minute or two
+g.groundEffectTables().textures['tileset\elwynn\elwynngrassbase.blp']   // an effect id
+// With Northshire open and the camera on the ground: a few frames, then
+__engine.tuftCount()                    // thousands
+__engine.exportInput().effects          // the effect per palette index
+```
+
+- The first load of a client is slow (it reads every ADT of every map); the status bar counts the
+  tiles. Afterwards it comes from `<user cache>/Meld/groundeffects/`.
+- Tufts only appear for textures the client's tiles use, or ones given an effect in Edit › Ground
+  Effects…; a new world painted with the default tilesets grows Elwynn's grass.
+- The detail models load like any other; the layer draws a model once it is ready, so the first
+  build after opening shows fewer tufts for a moment.
+
 ## Growing a region (the Map panel's plus)
 
 Checks: `extendRegion` (`io/mapio.ts`) and `grownBlock` (`io/regionGrow.ts`, unit tests in

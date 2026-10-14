@@ -47,6 +47,8 @@ type PaintSpec struct {
 	Chunk    int
 	Textures []string
 	Weights  string
+	// Effects is the GroundEffectTexture ID per texture (0 for none, or the tile's own); optional.
+	Effects []uint32
 }
 
 // MapSpec is a map to write: its folder and ID, and the tiles that have a file.
@@ -179,7 +181,7 @@ func buildTile(t TileSpec, water *adt.Water) ([]byte, error) {
 		if len(weights) != perSide*perSide*4 {
 			return nil, fmt.Errorf("chunk %d has %d weights, want %d", p.Chunk, len(weights), perSide*perSide*4)
 		}
-		ch.Paint[p.Chunk] = adt.ChunkPaint{Layers: adt.LayersFromWeights(p.Textures, weights, perSide)}
+		ch.Paint[p.Chunk] = chunkPaint(p.Textures, p.Effects, weights, perSide)
 	}
 	for _, o := range t.Objects {
 		obj, err := objectIn(t.X, t.Y, o)

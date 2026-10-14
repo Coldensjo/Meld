@@ -1,4 +1,6 @@
 import { noRoles, type TextureRoles } from '../terrain/roles'
+import { GroundEffectLayer } from '../world/GroundEffectLayer'
+import type { TextureEffects } from '../world/groundEffects'
 import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
@@ -30,6 +32,8 @@ export interface DocMeta {
   sculptPaintLayer: number
   /** The palette entries that are the map's rock and dirt (editor.roles), saved with the map. */
   roles: TextureRoles
+  /** The map's own ground effect per texture path (editor.textureEffects), saved with the map. */
+  textureEffects: TextureEffects
 }
 
 /** A saved camera view: where it looks at, and from what angle and distance. */
@@ -87,6 +91,8 @@ export class MapDocument {
   readonly terrain: Terrain
   readonly water: Water
   readonly objects: ObjectLayer
+  /** The grass tufts and flowers the game grows on the ground's textures. */
+  readonly groundEffects: GroundEffectLayer
   readonly spawnLayer = new SpawnLayer()
   /** Why the region's spawns could not be read, for the Spawns panel; '' when they loaded or were not asked for. */
   spawnsError = ''
@@ -110,6 +116,7 @@ export class MapDocument {
     this.liquids = new LiquidMap(size)
     this.liquidRenderer = new LiquidRenderer(this.liquids, this.terrain.cellSize)
     this.objects = new ObjectLayer(this.terrain)
+    this.groundEffects = new GroundEffectLayer(this.terrain)
     this.meta = {
       mapName: name,
       filePath: '',
@@ -124,6 +131,7 @@ export class MapDocument {
       paintLayer: 0,
       sculptPaintLayer: 0,
       roles: noRoles(),
+      textureEffects: {},
     }
   }
 
@@ -133,6 +141,7 @@ export class MapDocument {
   }
 
   dispose() {
+    this.groundEffects.dispose()
     this.terrain.dispose()
     this.water.dispose()
     this.objects.dispose()

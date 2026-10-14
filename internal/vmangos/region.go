@@ -76,6 +76,20 @@ type RegionPaint struct {
 	Chunk    int      `json:"chunk"`
 	Textures []string `json:"textures"`
 	Weights  string   `json:"weights"`
+	// Effects is the GroundEffectTexture ID per texture (0 for none, or the tile's own); optional.
+	Effects []uint32 `json:"effects,omitempty"`
+}
+
+// chunkPaint is a chunk's layers from the bridge's textures, effects and weights, with the per-cell
+// predominant layer the game grows the effects on.
+func chunkPaint(textures []string, effects []uint32, weights []byte, perSide int) adt.ChunkPaint {
+	layers := adt.LayersFromWeights(textures, weights, perSide)
+	for k := range layers {
+		if k < len(effects) {
+			layers[k].Effect = effects[k]
+		}
+	}
+	return adt.ChunkPaint{Layers: layers, Predominant: adt.PredominantFromWeights(len(textures), weights, perSide)}
 }
 
 // ChunksPerTileSide is the chunks a side of a tile.
@@ -369,7 +383,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		gx, gy := p.Chunk%perRow, p.Chunk/perRow
 		k := (gy/ChunksPerTileSide)*e.Size + gx/ChunksPerTileSide
 		local := (gy%ChunksPerTileSide)*ChunksPerTileSide + gx%ChunksPerTileSide
-		tiles[k].change.Paint[local] = adt.ChunkPaint{Layers: adt.LayersFromWeights(p.Textures, weights, perSide)}
+		tiles[k].change.Paint[local] = chunkPaint(p.Textures, p.Effects, weights, perSide)
 	}
 
 	if e.HasLiquids {

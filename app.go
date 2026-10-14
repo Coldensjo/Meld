@@ -284,6 +284,21 @@ func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, e
 	return vmangos.ReadRegion(dataDir, mapName, x, y, size)
 }
 
+// GroundEffects reads the client's ground effect tables (the grass tufts each texture grows). The
+// first call for a client learns the texture-to-effect pairs from its tiles, which takes a while;
+// progress goes out as "effects:log" events, and the result is cached in the user's cache dir.
+func (a *App) GroundEffects() (*vmangos.GroundEffectTables, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.LoadGroundEffects(dataDir, cacheDir, func(line string) { runtime.EventsEmit(a.ctx, "effects:log", line) })
+}
+
 // MapEntries lists the maps the client knows (continents, dungeons, raids, battlegrounds, arenas), so
 // the New Map dialog can offer their IDs.
 func (a *App) MapEntries() ([]vmangos.MapEntry, error) {

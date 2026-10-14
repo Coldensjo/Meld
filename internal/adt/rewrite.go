@@ -24,11 +24,17 @@ import (
 type Layer struct {
 	Texture string
 	Alpha   []byte
+	// Effect is the GroundEffectTexture ID the layer grows (grass tufts); 0 keeps the effect the
+	// tile's own layers of that texture had, if any.
+	Effect uint32
 }
 
 // ChunkPaint is a chunk's painted layers, the base first, at most four in all.
 type ChunkPaint struct {
 	Layers []Layer
+	// Predominant is the layer that weighs most in each of the 64 cells (row-major), which the game
+	// grows that layer's effect on; nil leaves the chunk's own map. See PredominantFromWeights.
+	Predominant []uint8
 }
 
 // Object is a model to place on the tile, in the file's own space: X east, Y up, Z south, with a
@@ -204,23 +210,9 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 
 	// Textures: the tile's own names keep their indices, and new ones go after them.
 	texNames := newNameList(splitNames(top.mtex))
-	// Ground effects by texture: a layer keeps the effect its texture had in this tile.
-	effects := map[string]uint32{}
-	for _, m := range top.mcnks {
-		mcly, ok := subRegion(m, int(binary.LittleEndian.Uint32(m[0x1c:])))
-		if !ok {
-			continue
-		}
-		for o := 0; o+16 <= len(mcly); o += 16 {
-			id := int(binary.LittleEndian.Uint32(mcly[o:]))
-			if id < len(texNames.names) {
-				key := strings.ToLower(texNames.names[id])
-				if e := binary.LittleEndian.Uint32(mcly[o+12:]); e != 0 && effects[key] == 0 {
-					effects[key] = e
-				}
-			}
-		}
-	}
+	// Ground effects by texture: a layer without one of its own keeps the effect its texture had
+	// in this tile.
+	effects := tileEffects(top)
 
 	// Models: the kept ones keep their order and their names' indices, the added ones follow.
 	m2Names := newNameList(nameTable(top.mmdx, top.mmid))
@@ -508,7 +500,11 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 			}
 			binary.LittleEndian.PutUint32(mcly[l*16+4:], f)
 			binary.LittleEndian.PutUint32(mcly[l*16+8:], alphaOfs)
-			binary.LittleEndian.PutUint32(mcly[l*16+12:], effects[strings.ToLower(layer.Texture)])
+			effect := layer.Effect
+			if effect == 0 {
+				effect = effects[strings.ToLower(layer.Texture)]
+			}
+			binary.LittleEndian.PutUint32(mcly[l*16+12:], effect)
 		}
 		nLayers = uint32(len(paint.Layers))
 		if len(paint.Layers) > 1 {
@@ -565,6 +561,9 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 
 	// Liquid and sound emitters, kept as they are; their size fields are the game's own.
 	header := append([]byte(nil), m[:mcnkHeaderLen]...)
+	if paint, ok := ch.Paint[idx]; ok && len(paint.Layers) > 0 && paint.Predominant != nil {
+		writePredominant(header, paint.Predominant)
+	}
 	binary.LittleEndian.PutUint32(header[0:], flags)
 	binary.LittleEndian.PutUint32(header[mcnkLayers:], nLayers)
 	binary.LittleEndian.PutUint32(header[mcnkDoodadRefs:], uint32(len(m2Refs)))
