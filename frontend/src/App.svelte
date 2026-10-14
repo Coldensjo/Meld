@@ -69,7 +69,7 @@
   // The palette follows the tool: textures for painting, models otherwise.
   $effect(() => {
     const t = editor.tool
-    if (t === 'paint' || t === 'road') ui.palette = 'textures'
+    if (t === 'paint' || t === 'road' || (t === 'sculpt' && editor.sculptPaint)) ui.palette = 'textures'
     else if (t === 'place') ui.palette = 'models'
   })
 

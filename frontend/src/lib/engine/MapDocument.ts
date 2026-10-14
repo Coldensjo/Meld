@@ -25,6 +25,8 @@ export interface DocMeta {
   waterLevel: number
   waterEnabled: boolean
   paintLayer: number
+  /** The palette index the Sculpt tool paints while sculpting (editor.sculptPaintLayer). */
+  sculptPaintLayer: number
 }
 
 /** A saved camera view: where it looks at, and from what angle and distance. */
@@ -117,6 +119,7 @@ export class MapDocument {
       waterLevel: 0,
       waterEnabled: true,
       paintLayer: 0,
+      sculptPaintLayer: 0,
     }
   }
 

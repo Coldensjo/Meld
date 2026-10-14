@@ -22,6 +22,7 @@
 
   const tool = $derived(TOOLS.find((t) => t.id === editor.tool)!)
   const slotTex = $derived(editor.palette[editor.paintLayer])
+  const sculptTex = $derived(editor.palette[editor.sculptPaintLayer])
   const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
   const usesBrush = $derived(
     editor.tool === 'sculpt' ||
@@ -115,6 +116,13 @@
       <OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={70} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
     {:else}
       {@render editLimit()}
+      <label class="check" title="Also paint a texture on the ground the brush shapes, as a raised hill was painted rock while it was raised"><input type="checkbox" bind:checked={editor.sculptPaint} /> Paint texture</label>
+      {#if editor.sculptPaint}
+        <button class="chip" onclick={() => { ui.palette = 'textures'; prefs.browserCollapsed = false }} title="The texture sculpting paints (pick one in the asset browser below)">
+          <span class="dim">Texture:</span>
+          {sculptTex ? texName(sculptTex) : 'pick one below'}
+        </button>
+      {/if}
     {/if}
     <div class="divider"></div>
   {:else if editor.tool === 'paint' || editor.tool === 'road'}

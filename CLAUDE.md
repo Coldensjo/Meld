@@ -101,6 +101,10 @@ cd frontend && pnpm build   # frontend only
   - `tick(dt)` runs every frame while the button is held, so scale effects by `dt`.
   - Terrain brush tools extend `BrushTool` and record undo through `TerrainStroke`, which stores only
     the dirty sub-rect.
+  - Sculpt's **Paint texture** (`editor.sculptPaint`, layer `editor.sculptPaintLayer`, per map in
+    `DocMeta`) paints that palette texture under the brush in the shaping modes as the ground moves,
+    in the same stroke and undo step; a texture picked in the browser while it is on becomes that
+    layer instead of switching to Paint.
   - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
   - **Every edit must be undoable** through `History`.
 - **Doodad brush** (`tools/DoodadBrushTool.ts`, tool `doodad`, key 8) scatters models the way Paint

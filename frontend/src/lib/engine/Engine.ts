@@ -747,6 +747,7 @@ export class Engine {
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
       paintLayer: editor.paintLayer,
+      sculptPaintLayer: editor.sculptPaintLayer,
       region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
@@ -788,6 +789,7 @@ export class Engine {
     editor.waterLevel = m.waterLevel
     editor.waterEnabled = m.waterEnabled
     editor.paintLayer = m.paintLayer
+    editor.sculptPaintLayer = m.sculptPaintLayer
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
@@ -1465,6 +1467,7 @@ export class Engine {
       waterLevel: m.waterLevel,
       waterEnabled: m.waterEnabled,
       paintLayer: 0,
+      sculptPaintLayer: 0,
     }
     if (replace) {
       d.camera = replace.camera

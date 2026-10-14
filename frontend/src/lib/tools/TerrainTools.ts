@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { holeTriangle, withTriangle } from '../terrain/holes'
 import { HoleWalls } from './HoleWalls'
-import { editor, setStatus, ui } from '../state/editor.svelte'
+import { editor, setStatus, ui, type SculptMode } from '../state/editor.svelte'
 import type { Command } from '../state/history'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
 import { fbm, ridged } from '../engine/noise'
@@ -133,9 +133,15 @@ function vertexCommand(ctx: ToolContext, label: string, ids: number[], before: F
 /** Most selected vertices drawn as markers. */
 const MAX_VERTEX_MARKERS = 65536
 
+/** The sculpt modes that shape the ground under the brush, and so paint it too with Paint texture on. */
+const SHAPING_MODES = new Set<SculptMode>(['raise', 'lower', 'smooth', 'flatten', 'noise', 'mountain', 'crevice'])
+
 export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
-  protected records = { heights: true }
+  /** With Paint texture on, a shaping stroke records the splat too, so the paint undoes with the heights. */
+  protected get records() {
+    return { heights: true, splat: editor.sculptPaint && SHAPING_MODES.has(editor.sculptMode) }
+  }
   /** Hole mode works on the triangle under the cursor, not a brush footprint. */
   get usesBrush() {
     return editor.sculptMode !== 'hole'
@@ -493,6 +499,18 @@ export class SculptTool extends BrushTool {
       }
     }
     this.heightsChanged(ctx, rect)
+
+    // Paint texture: the shaped ground takes the chosen texture, as much of the brush as the mode shapes.
+    if (rect && editor.sculptPaint && SHAPING_MODES.has(mode)) {
+      const pf = mode === 'mountain' ? 1 : mode === 'crevice' ? 0 : falloff
+      const amt = Math.min(1, editor.brush.strength * ctx.pressure() * dt * 5)
+      let refused = 0
+      const sr = forEachTexel(t, hit.x, hit.z, radius, pf, (p, w) => {
+        if (!paintPixel(t, p, editor.sculptPaintLayer, amt * w)) refused++
+      }, this.stroke)
+      if (refused) setStatus(CHUNK_FULL, 3000)
+      this.splatChanged(ctx, sr)
+    }
   }
 }
 

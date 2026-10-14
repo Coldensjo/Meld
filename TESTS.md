@@ -66,6 +66,9 @@ e.terrain.heightAt(180, 300)                  // then screenshot
 ```
 
 - `tick(dt)` scales by `dt`, so a fast scripted drag digs as little as a fast real one.
+- Sculpt's Paint texture: `ed.sculptPaint = true; ed.sculptPaintLayer = 1` before the stroke, then
+  `e.terrain.chunkSlots` holds texture 1 in the chunks under it and `e.terrain.weights` leans to it
+  where the ground rose; one `e.history.undo()` takes both the heights and the paint back.
 - `e.history.undo()` then `e.frame()` checks the stroke's undo.
 
 ## Reproducing a user's view

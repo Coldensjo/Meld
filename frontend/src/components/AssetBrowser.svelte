@@ -136,6 +136,11 @@
     }
     const slot = engine.useTexture(it.path)
     if (slot < 0) return
+    // Sculpting with Paint texture on: the pick is the texture sculpting paints, and the tool stays.
+    if (editor.tool === 'sculpt' && editor.sculptPaint) {
+      editor.sculptPaintLayer = slot
+      return
+    }
     if (editor.tool !== 'paint' && editor.tool !== 'road') editor.tool = 'paint'
     // With a mask painted, picking a texture fills the whole mask with it.
     if (ui.maskActive && editor.tool === 'paint') engine.fillMask(slot)

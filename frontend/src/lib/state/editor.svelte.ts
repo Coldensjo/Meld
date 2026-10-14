@@ -68,6 +68,13 @@ export const editor = $state({
   mountain: { ridges: 0.7 },
   sculptLimit: 'none' as SculptLimit,
   /**
+   * Sculpting also paints `sculptPaintLayer` (a palette index, per map) under the brush, so a raised
+   * hill comes up as rock the way Blizzard's artists painted cliffs while shaping them. Off, the ground
+   * keeps its paint.
+   */
+  sculptPaint: false,
+  sculptPaintLayer: 0,
+  /**
    * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the
    * cursor, rising at vertexAngle degrees (-89 to 89) toward vertexDir degrees (0 is +x, 90 is +z).
    */
