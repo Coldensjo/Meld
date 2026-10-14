@@ -27,12 +27,14 @@ export class Water {
     floorGeo.rotateX(-Math.PI / 2)
     this.floor = new THREE.Mesh(floorGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.03, 0.12, 0.18) }))
     this.floor.name = 'seafloor'
-    this.mesh.add(this.floor)
-    this.floor.position.set(0, -40, 0)
+    // The floor is its own scene object, not the sea's child: it also shows, dark, through holes in
+    // the ground when the sea is off (else a hole shows the sky dome below the horizon).
+    this.floor.position.set(worldSize / 2, -40, worldSize / 2)
   }
 
   set level(y: number) {
     this.mesh.position.y = y
+    this.floor.position.y = y - 40
   }
 
   set visible(v: boolean) {

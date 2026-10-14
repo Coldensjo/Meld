@@ -639,7 +639,10 @@ export class Engine {
     const light = 0.06 + 0.94 * (1 - s.night)
     tu.waterDeep.value.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
 
-    ;(this.water.floor.material as THREE.MeshBasicMaterial).color.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
+    // Under the sea the floor is deep water; with the sea off it is dark earth, seen through holes.
+    const floor = this.water.floor.material as THREE.MeshBasicMaterial
+    if (editor.waterEnabled) floor.color.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
+    else floor.color.setRGB(0.05 * light, 0.042 * light, 0.035 * light)
 
     if (env.key.castShadow) this.fitShadows()
   }
@@ -763,10 +766,10 @@ export class Engine {
     }
     if (stash && this.doc && this.doc !== d) {
       this.stashActive()
-      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.objects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)
+      this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.water.floor, this.doc.objects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)
     }
     this.doc = d
-    this.scene.add(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group, d.liquidRenderer.group)
+    this.scene.add(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.spawnLayer.group, d.liquidRenderer.group)
     const m = d.meta
     editor.mapName = m.mapName
     editor.filePath = m.filePath
@@ -1283,7 +1286,7 @@ export class Engine {
     const d = this.documents[i]
     this.documents.splice(i, 1)
     if (d === this.doc) {
-      this.scene.remove(d.terrain.group, d.water.mesh, d.objects.group, d.spawnLayer.group, d.liquidRenderer.group)
+      this.scene.remove(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.spawnLayer.group, d.liquidRenderer.group)
       const next = this.documents[Math.min(i, this.documents.length - 1)]
       // Keep at least one map open. The closed doc isn't stashed.
       if (next) {
