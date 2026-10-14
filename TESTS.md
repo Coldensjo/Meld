@@ -173,6 +173,22 @@ const m = walls.minus.position; ray.origin.set(m.x, m.y + 30, m.z); walls.frame(
   a cell). The session restore opens the user's own map: undo every test edit (`e.undo()`) before
   leaving.
 
+## Spawn tabs of the asset browser (Creatures, NPCs, Objects)
+
+Checks: `SpawnBrowser.svelte` and the `ListCreatureTemplates` / `ListObjectTemplates` bindings (the
+world database must be up). In the dev page:
+
+```js
+[...document.querySelectorAll('[data-ui="AssetBrowser"] .tab')].find(b => b.textContent.trim() === 'Creatures').click()
+// drive frames for the thumbnails; then search, e.g. 'hogger', and read the tiles
+const sb = document.querySelector('[data-ui="SpawnBrowser"]'); sb.querySelector('.tile').click()   // ui.placeCreature, tool 'place'
+e.tools.place.onDown(e.ctx, hit, {})      // spawns it at `hit`; e.history.peek().label is 'Add Hogger'; e.undo() removes it
+const pip = await import('<PipetteTool.ts URL>'); await pip.pickSpawn(editor.spawns[0])   // the pipette on a spawn
+```
+
+- Traps: a creature tile's badge is its level; the title holds entry, level, rank and type. The
+  lists are cached in Go per server and client, so a changed template needs a restart to show.
+
 ## Dock panels (Layers, Properties)
 
 Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the

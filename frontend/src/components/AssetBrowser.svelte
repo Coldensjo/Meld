@@ -2,6 +2,7 @@
   import { tick, untrack } from 'svelte'
   import PaletteTile from './PaletteTile.svelte'
   import AssetPreview from './AssetPreview.svelte'
+  import SpawnBrowser, { type SpawnKind } from './SpawnBrowser.svelte'
   import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { chooseWowFolder, listAssets } from '../lib/wow/api'
@@ -14,14 +15,22 @@
   // Search-first: one box over everything, facets to narrow, big tiles, and a live preview of the
   // tile under the cursor. Nothing is read from the client until it is shown.
 
-  const KINDS: Array<{ id: AssetKind | 'all'; label: string }> = [
+  const KINDS: Array<{ id: AssetKind | 'all' | SpawnKind; label: string }> = [
     { id: 'm2', label: 'Doodads' },
     { id: 'wmo', label: 'Buildings' },
     { id: 'tex', label: 'Textures' },
+    { id: 'creature', label: 'Creatures' },
+    { id: 'npc', label: 'NPCs' },
+    { id: 'object', label: 'Objects' },
     { id: 'all', label: 'All' },
   ]
 
-  let kind = $state<AssetKind | 'all'>('m2')
+  let kind = $state<AssetKind | 'all' | SpawnKind>('m2')
+  /** The spawn tabs list the world database's templates (SpawnBrowser), not the client's files. */
+  const spawnKind = $derived(kind === 'creature' || kind === 'npc' || kind === 'object')
+  /** The catalog's kind: the spawn tabs search nothing of the catalog. */
+  const catalogKind = $derived((spawnKind ? 'all' : kind) as AssetKind | 'all')
+  let spawnHover = $state<SearchItem | null>(null)
   let query = $state('')
   let category = $state('')
   let zone = $state('')
@@ -52,7 +61,7 @@
     })
   })
 
-  function chooseKind(k: AssetKind | 'all') {
+  function chooseKind(k: AssetKind | 'all' | SpawnKind) {
     kind = k
     prefs.browserCollapsed = false
     // Keep ui.palette in step, so the next tool switch moves the browser again.
@@ -67,7 +76,7 @@
   })
 
   const orderFor = (k: AssetKind | 'all') => (k === 'all' ? [...categoryOrder('m2'), ...categoryOrder('wmo'), ...categoryOrder('tex')] : categoryOrder(k))
-  const result = $derived(searchAssets(all, { kind, query, category, zone }, orderFor(kind)))
+  const result = $derived(searchAssets(all, { kind: catalogKind, query, category, zone }, orderFor(catalogKind)))
   const items = $derived(result.items)
 
   /**
@@ -81,7 +90,7 @@
   /** Recently picked assets, newest first, shown when the search box is empty. */
   const recent = $derived.by(() => {
     if (query || category || zone) return []
-    return prefs.recentAssets.map(itemFor).filter((it): it is SearchItem => !!it && (kind === 'all' || it.kind === kind))
+    return prefs.recentAssets.map(itemFor).filter((it): it is SearchItem => !!it && (catalogKind === 'all' || it.kind === catalogKind))
   })
 
   function remember(key: string) {
@@ -96,6 +105,8 @@
 
   function pickModel(it: SearchItem) {
     editor.prefab = it.key
+    // A model replaces whatever creature or object template the Place tool was putting down.
+    ui.placeCreature = ui.placeObject = null
     if (editor.tool !== 'place') editor.tool = 'place'
   }
 
@@ -161,6 +172,13 @@
   })
 
   async function reveal(key: string) {
+    // A creature, NPC or object template: its tab shows it (SpawnBrowser scrolls to it).
+    const prefix = key.slice(0, key.indexOf(':'))
+    if (prefix === 'creature' || prefix === 'npc' || prefix === 'object') {
+      if (kind !== prefix) chooseKind(prefix)
+      prefs.browserCollapsed = false
+      return
+    }
     const it = itemFor(key)
     if (!it) return
     if (kind !== 'all' && kind !== it.kind) {
@@ -236,7 +254,7 @@
         <button class="tab" class:active={kind === k.id && !prefs.browserCollapsed} onclick={() => chooseKind(k.id)}>{k.label}</button>
       {/each}
     </div>
-    {#if !prefs.browserCollapsed && wow.loaded}
+    {#if !prefs.browserCollapsed && wow.loaded && !spawnKind}
       <input
         class="search"
         type="text"
@@ -271,6 +289,13 @@
           {#if wow.error}<p class="err">{wow.error}</p>{/if}
           <button class="active" onclick={chooseWowFolder}>Select WoW folder…</button>
         {/if}
+      </div>
+    {:else if spawnKind}
+      <div class="body spawn">
+        <SpawnBrowser kind={kind as SpawnKind} onhover={(it) => (spawnHover = it)} />
+        <aside class="side">
+          <AssetPreview item={spawnHover} />
+        </aside>
       </div>
     {:else}
       <div class="body">
@@ -403,6 +428,10 @@
     grid-template-columns: 150px 1fr 260px;
     flex: 1;
     min-height: 0;
+  }
+  /* The spawn tabs bring their own facets column. */
+  .body.spawn {
+    grid-template-columns: 1fr 260px;
   }
   .facets {
     display: flex;

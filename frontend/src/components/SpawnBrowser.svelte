@@ -1,0 +1,310 @@
+<script lang="ts" module>
+  import { ListCreatureTemplates, ListObjectTemplates } from '../../wailsjs/go/main/App'
+  import type { vmangos } from '../../wailsjs/go/models'
+  import { spawnType, creatureTypeName, objectTypeName, rankName } from '../lib/world/spawnInfo'
+
+  // The world database's creature and game object templates, read once for the whole session (the
+  // Go side caches them too). The pipette and the options bar use them by entry.
+  let creaturesPromise: Promise<vmangos.CreatureTemplate[]> | null = null
+  export function loadCreatureTemplates(): Promise<vmangos.CreatureTemplate[]> {
+    if (!creaturesPromise) {
+      creaturesPromise = ListCreatureTemplates().then((c) => c ?? [])
+      creaturesPromise.catch(() => (creaturesPromise = null))
+    }
+    return creaturesPromise
+  }
+  let objectsPromise: Promise<vmangos.ObjectTemplate[]> | null = null
+  export function loadObjectTemplates(): Promise<vmangos.ObjectTemplate[]> {
+    if (!objectsPromise) {
+      objectsPromise = ListObjectTemplates().then((o) => o ?? [])
+      objectsPromise.catch(() => (objectsPromise = null))
+    }
+    return objectsPromise
+  }
+
+  /** The browser's spawn tabs: monsters, NPCs (creatures with npc flags) and game objects. */
+  export type SpawnKind = 'creature' | 'npc' | 'object'
+
+  /** The key a template is revealed and remembered by, like a catalog key. */
+  export const creatureKey = (t: vmangos.CreatureTemplate) => `${t.npcFlags ? 'npc' : 'creature'}:${t.entry}`
+  export const objectKey = (t: vmangos.ObjectTemplate) => `object:${t.entry}`
+
+  /** A creature's level range as the tile badge shows it. */
+  export const levelText = (t: { levelMin: number; levelMax: number }) => (t.levelMin === t.levelMax ? `${t.levelMin}` : `${t.levelMin}–${t.levelMax}`)
+
+  const HERBS = /\b(peacebloom|silverleaf|earthroot|mageroyal|briarthorn|stranglekelp|bruiseweed|steelbloom|grave moss|kingsblood|liferoot|fadeleaf|goldthorn|khadgar's whisker|wintersbite|firebloom|purple lotus|arthas' tears|sungrass|blindweed|ghost mushroom|gromsblood|golden sansam|dreamfoil|mountain silversage|plaguebloom|icecap|black lotus|bloodthistle)\b/i
+  const ORE = /\b(vein|deposit|dark iron|mithril|thorium|truesilver)\b/i
+
+  /** An object's category: the herbs and ore veins the client lumps in with chests get their own. */
+  export function objectCategory(t: vmangos.ObjectTemplate): string {
+    if (t.type === 3) {
+      if (ORE.test(t.name)) return 'Ore'
+      if (HERBS.test(t.name)) return 'Herb'
+    }
+    return objectTypeName(t.type)
+  }
+</script>
+
+<script lang="ts">
+  import PaletteTile from './PaletteTile.svelte'
+  import { editor, prefs, ui } from '../lib/state/editor.svelte'
+  import type { SearchItem } from '../lib/wow/search'
+  import { tick } from 'svelte'
+
+  // The asset browser's Creatures, NPCs and Objects tabs: the world database's templates as
+  // rendered tiles in a virtualised grid, narrowed by category (creature type, or object type with
+  // herbs and ore apart) and a search over names and entries. A creature tile shows its level. A
+  // pick makes the template what the Place tool puts down.
+
+  interface Props {
+    kind: SpawnKind
+    /** The tile under the pointer, for the browser's preview. */
+    onhover: (item: SearchItem | null) => void
+  }
+  let { kind, onhover }: Props = $props()
+
+  let creatures = $state<vmangos.CreatureTemplate[]>([])
+  let objects = $state<vmangos.ObjectTemplate[]>([])
+  let error = $state('')
+  let loading = $state(true)
+  $effect(() => {
+    loading = true
+    const p = kind === 'object' ? loadObjectTemplates().then((o) => (objects = o)) : loadCreatureTemplates().then((c) => (creatures = c))
+    p.catch((err) => (error = String(err))).finally(() => (loading = false))
+  })
+
+  /** One tile: a creature or an object template, with what the grid and the preview need. */
+  interface Tile {
+    key: string
+    name: string
+    sub: string
+    category: string
+    badge?: string
+    thumb: string
+    path: string
+    title: string
+    entry: number
+    creature?: vmangos.CreatureTemplate
+    object?: vmangos.ObjectTemplate
+  }
+
+  const all = $derived.by((): Tile[] => {
+    if (kind === 'object') {
+      return objects
+        .filter((t) => t.model)
+        .map((t) => ({
+          key: objectKey(t),
+          name: t.name,
+          sub: objectTypeName(t.type),
+          category: objectCategory(t),
+          thumb: spawnType({ model: t.model }),
+          path: t.model,
+          title: `${t.name} (object ${t.entry})\n${objectTypeName(t.type)}`,
+          entry: t.entry,
+          object: t,
+        }))
+    }
+    const npc = kind === 'npc'
+    return creatures
+      .filter((t) => t.model && (t.npcFlags !== 0) === npc)
+      .map((t) => ({
+        key: creatureKey(t),
+        name: t.name,
+        sub: t.subname,
+        category: creatureTypeName(t.type),
+        badge: levelText(t),
+        thumb: spawnType({ model: t.model, look: t.look }),
+        path: `${t.model}${t.look ? `?${t.look}` : ''}`,
+        title: `${t.name}${t.subname ? ` <${t.subname}>` : ''} (creature ${t.entry})\nLevel ${levelText(t)} ${rankName(t.rank)} ${creatureTypeName(t.type)}`,
+        entry: t.entry,
+        creature: t,
+      }))
+  })
+
+  let category = $state('')
+  let query = $state('')
+  $effect(() => {
+    void kind
+    category = ''
+  })
+
+  const categories = $derived.by(() => {
+    const n = new Map<string, number>()
+    for (const t of all) n.set(t.category, (n.get(t.category) ?? 0) + 1)
+    return [...n].sort((a, b) => b[1] - a[1])
+  })
+
+  const items = $derived.by(() => {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+    return all.filter((t) => (!category || t.category === category) && (!words.length || words.every((w) => `${t.entry} ${t.name} ${t.sub}`.toLowerCase().includes(w))))
+  })
+
+  /** The template the Place tool puts down now, drawn highlighted. */
+  const activeKey = $derived(ui.placeCreature ? creatureKey(ui.placeCreature) : ui.placeObject ? objectKey(ui.placeObject) : '')
+
+  function pick(t: Tile) {
+    if (t.creature) {
+      ui.placeCreature = t.creature
+      ui.placeObject = null
+    } else if (t.object) {
+      ui.placeObject = t.object
+      ui.placeCreature = null
+    }
+    // The Place tool's preview is the template's model.
+    editor.prefab = t.thumb
+    if (editor.tool !== 'place') editor.tool = 'place'
+  }
+
+  const asItem = (t: Tile): SearchItem => ({ kind: 'm2', key: t.thumb, path: t.path, name: t.name, category: t.category, zone: t.sub || (t.creature ? `Level ${t.badge}` : ''), tokens: [], nameTokens: [], text: '' })
+
+  // The grid renders only the rows in view.
+  const GAP = 6
+  const tile = $derived(prefs.browserTile)
+  const rowH = $derived(tile + 22 + GAP)
+  let width = $state(0)
+  let height = $state(0)
+  let scrollTop = $state(0)
+  let scroller: HTMLDivElement | undefined = $state()
+  const cols = $derived(Math.max(1, Math.floor((width - GAP) / (tile + GAP))))
+  const rows = $derived(Math.ceil(items.length / cols))
+  const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
+  const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
+  const visible = $derived(items.slice(first * cols, last * cols))
+  $effect(() => {
+    void items
+    scroller?.scrollTo(0, 0)
+    scrollTop = 0
+  })
+
+  // The pipette's pick (ui.revealAsset with a creature: or object: key) is shown: its category,
+  // no search, and its row scrolled into view.
+  $effect(() => {
+    const req = ui.revealAsset
+    if (!req || !req.key.startsWith(`${kind}:`)) return
+    void reveal(req.key)
+  })
+  async function reveal(key: string) {
+    const t = all.find((x) => x.key === key)
+    if (!t) return
+    query = ''
+    category = t.category
+    await tick()
+    await tick()
+    const idx = items.indexOf(t)
+    if (idx < 0 || !scroller) return
+    scroller.scrollTo({ top: Math.max(0, Math.floor(idx / cols) * rowH - GAP * 3) })
+    scrollTop = scroller.scrollTop
+  }
+</script>
+
+<div class="spawn-browser">
+  <div class="top">
+    <input type="search" placeholder={kind === 'object' ? 'Search objects: a name (chest, vein, peacebloom) or an entry' : 'Search: a name (Hogger) or an entry'} bind:value={query} />
+    <span class="dim">{items.length.toLocaleString()} {kind === 'object' ? 'objects' : kind === 'npc' ? 'NPCs' : 'creatures'}</span>
+  </div>
+  <div class="body">
+    <nav class="facets">
+      <button class="facet" class:active={!category} onclick={() => (category = '')}>All <span>{all.length.toLocaleString()}</span></button>
+      {#each categories as [name, n] (name)}
+        <button class="facet" class:active={category === name} onclick={() => (category = category === name ? '' : name)}>{name} <span>{n.toLocaleString()}</span></button>
+      {/each}
+    </nav>
+    <div class="grid-wrap" role="listbox" aria-label="Templates" tabindex="-1" bind:this={scroller} bind:clientWidth={width} bind:clientHeight={height} onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)} onpointerleave={() => onhover(null)}>
+      {#if error}
+        <p class="hint error">{error}</p>
+      {:else if loading}
+        <p class="hint">Reading the world database…</p>
+      {:else if !items.length}
+        <p class="hint">Nothing matches.</p>
+      {:else}
+        <div class="virtual" style:height="{rows * rowH}px">
+          <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
+            {#each visible as t (t.key)}
+              <PaletteTile thumbKey={t.thumb} label={t.name} title={t.title} size={tile} badge={t.badge} active={t.key === activeKey} onclick={() => pick(t)} onhover={(on) => onhover(on ? asItem(t) : null)} />
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
+</div>
+
+<style>
+  .spawn-browser {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+  }
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 6px;
+  }
+  .top input {
+    flex: 1;
+    min-width: 0;
+  }
+  .body {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+  }
+  .facets {
+    width: 150px;
+    flex: none;
+    overflow-y: auto;
+    padding: 4px;
+    border-right: 1px solid var(--border);
+  }
+  .facet {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 3px 6px;
+    text-align: left;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  .facet span {
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+  .facet.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .facet.active span {
+    color: rgba(255, 255, 255, 0.75);
+  }
+  .grid-wrap {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 6px;
+    position: relative;
+  }
+  .virtual {
+    position: relative;
+  }
+  .grid {
+    display: grid;
+    align-content: start;
+  }
+  .hint {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin: 8px;
+  }
+  .hint.error {
+    color: var(--danger);
+  }
+  .dim {
+    color: var(--text-dim);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+</style>

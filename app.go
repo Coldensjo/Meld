@@ -390,6 +390,33 @@ func (a *App) SearchCreatures(text string) ([]vmangos.CreatureTemplate, error) {
 	return vmangos.SearchCreatures(server, text, 100)
 }
 
+// ListCreatureTemplates lists every creature template of the world database, dressed for a thumbnail.
+func (a *App) ListCreatureTemplates() ([]vmangos.CreatureTemplate, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ListCreatureTemplates(server, dataDir)
+}
+
+// ListObjectTemplates lists every game object template of the world database with its model.
+func (a *App) ListObjectTemplates() ([]vmangos.ObjectTemplate, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ListObjectTemplates(server, dataDir)
+}
+
+// NextObjectGUID is the first free game object guid of the world database, for placed objects.
+func (a *App) NextObjectGUID() (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.NextObjectGUID(server)
+}
+
 // NextCreatureGUID is the first creature guid the world database doesn't use yet, for creatures
 // placed in the editor.
 func (a *App) NextCreatureGUID() (int, error) {

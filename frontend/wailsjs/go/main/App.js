@@ -38,8 +38,16 @@ export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
 
+export function ListCreatureTemplates() {
+  return window['go']['main']['App']['ListCreatureTemplates']();
+}
+
 export function ListDisplays() {
   return window['go']['main']['App']['ListDisplays']();
+}
+
+export function ListObjectTemplates() {
+  return window['go']['main']['App']['ListObjectTemplates']();
 }
 
 export function ListWeapons() {
@@ -88,6 +96,10 @@ export function MouseLookRecenter() {
 
 export function NextCreatureGUID() {
   return window['go']['main']['App']['NextCreatureGUID']();
+}
+
+export function NextObjectGUID() {
+  return window['go']['main']['App']['NextObjectGUID']();
 }
 
 export function OpenHeightmapDialog() {

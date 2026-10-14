@@ -23,7 +23,11 @@ export function GameLogin():Promise<main.GameLoginInfo>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
+export function ListCreatureTemplates():Promise<Array<vmangos.CreatureTemplate>>;
+
 export function ListDisplays():Promise<Array<vmangos.DisplayEntry>>;
+
+export function ListObjectTemplates():Promise<Array<vmangos.ObjectTemplate>>;
 
 export function ListWeapons():Promise<Array<vmangos.WeaponEntry>>;
 
@@ -48,6 +52,8 @@ export function MouseLookEnd():Promise<void>;
 export function MouseLookRecenter():Promise<void>;
 
 export function NextCreatureGUID():Promise<number>;
+
+export function NextObjectGUID():Promise<number>;
 
 export function OpenHeightmapDialog():Promise<string>;
 

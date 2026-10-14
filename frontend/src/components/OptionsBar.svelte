@@ -180,6 +180,12 @@
       <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
     {/if}
     <label class="check"><input type="checkbox" bind:checked={editor.placeScatter} /> Scatter</label>
+    {#if ui.placeCreature || ui.placeObject}
+      <span class="chip" title="The creature or object from the browser's spawn tabs that a click places (Esc stops)">
+        <span class="dim">Placing:</span> {ui.placeCreature?.name ?? ui.placeObject?.name}
+        <button class="x" onclick={() => (ui.placeCreature = ui.placeObject = null)} title="Stop placing it" aria-label="Stop placing">×</button>
+      </span>
+    {/if}
     <span class="chip" title="Height above the surface for new placements (Alt+scroll)">
       <span class="dim">Height:</span> {editor.placeHeight >= 0 ? '+' : ''}{editor.placeHeight.toFixed(2)}
     </span>

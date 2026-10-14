@@ -84,7 +84,12 @@ export class PlaceTool implements Tool {
   /** Alt is held: the preview steps aside so the pipette can see what is under the pointer. */
   hidePreview = false
 
-  constructor() {
+  constructor(
+    private hooks: {
+      /** Spawns the creature or object template being placed (ui.placeCreature / ui.placeObject) at a point. */
+      placeSpawn: (at: THREE.Vector3) => void
+    },
+  ) {
     this.ghost = new THREE.Mesh(new THREE.BufferGeometry())
     this.ghost.renderOrder = 20
   }
@@ -174,6 +179,12 @@ export class PlaceTool implements Tool {
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
     if (!hit) return
+    // A creature or object template from the browser's spawn tabs is spawned, not placed as a model.
+    if (ui.placeCreature || ui.placeObject) {
+      const surf = ctx.surface() ?? { point: hit.clone(), parent: null }
+      this.hooks.placeSpawn(surf.point.clone())
+      return
+    }
     if (!editor.prefab) {
       setStatus('Pick a model in the palette first.')
       return
@@ -295,8 +306,8 @@ export class SelectTool implements Tool {
       /** The model clip while models are being pasted. */
       objectClip: () => ObjectClip | null
       commitPaste: () => void
-      /** Spawns a creature template at a point (see Engine.placeCreature). */
-      placeCreature: (t: vmangos.CreatureTemplate, at: THREE.Vector3) => void
+      /** Spawns the creature or object template being placed at a point (see Engine.placeSpawnAt). */
+      placeSpawn: (at: THREE.Vector3) => void
       cancelPaste: () => void
     },
   ) {
@@ -386,11 +397,11 @@ export class SelectTool implements Tool {
       this.pressObject(ctx, id, hit, e.shiftKey)
       return
     }
-    if (ui.placeCreature) {
-      // Shift keeps placing the same creature; a plain click places one and stops.
+    if (ui.placeCreature || ui.placeObject) {
+      // Shift keeps placing the same template; a plain click places one and stops.
       const surf = ctx.surface()
-      if (surf) this.hooks.placeCreature(ui.placeCreature, surf.point.clone())
-      if (!e.shiftKey) ui.placeCreature = null
+      if (surf) this.hooks.placeSpawn(surf.point.clone())
+      if (!e.shiftKey) ui.placeCreature = ui.placeObject = null
       return
     }
     if (ui.pathEdit && editor.selectedSpawn && this.pressPath(ctx, spawnKey(editor.selectedSpawn))) return

@@ -198,6 +198,9 @@ export function creatureTemplateOf(entry: number, v: Record<string, string>): vm
     display,
     scale,
     equipment: n('equipment_id'),
+    model: '',
+    look: '',
+    displayScale: 1,
   }
 }
 
@@ -205,6 +208,44 @@ export function creatureTemplateOf(entry: number, v: Record<string, string>): vm
 export const newWaypoint = (x: number, y: number, z: number): vmangos.Waypoint => ({ x, y, z, orientation: 0, waitMs: 0, wanderDistance: 0, scriptId: 0 })
 
 /** Adds a spawn now, as one undoable command. */
+/** A game object spawn of template `t` at a point, as the Place tool makes it. */
+export function newObjectSpawn(t: vmangos.ObjectTemplate, guid: number, x: number, y: number, z: number, orientation: number): vmangos.WorldSpawn {
+  return models.WorldSpawn.createFrom({
+    kind: 'object',
+    guid,
+    entry: t.entry,
+    name: t.name,
+    subname: '',
+    levelMin: 0,
+    levelMax: 0,
+    faction: 0,
+    npcFlags: 0,
+    rank: 0,
+    type: t.type,
+    x,
+    y,
+    z,
+    orientation,
+    respawnSecs: 300,
+    respawnMaxSecs: 300,
+    display: t.display,
+    model: t.model,
+    look: '',
+    anim: 0,
+    scale: t.size || 1,
+    displayScale: 1,
+    equipment: 0,
+    equipItems: [0, 0, 0],
+    standState: 0,
+    emoteState: 0,
+    sheathState: 0,
+    movementType: 0,
+    wanderDistance: 0,
+    waypoints: [],
+    pathFromTemplate: false,
+  })
+}
+
 export function spawnAdd(layer: SpawnLayer, s: vmangos.WorldSpawn, label: string): Command {
   addTo(layer, s)
   return { label, undo: () => removeFrom(layer, s), redo: () => addTo(layer, s) }

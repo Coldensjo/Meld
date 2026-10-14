@@ -13,7 +13,7 @@ import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
-import { pickLayer, pickModel } from '../tools/PipetteTool'
+import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
@@ -32,8 +32,8 @@ import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { SpawnPaths } from '../world/SpawnPaths'
-import { applySpawn, creatureTemplateOf, newCreatureSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { NextCreatureGUID, SpawnLook } from '../../../wailsjs/go/main/App'
+import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
+import { NextCreatureGUID, NextObjectGUID, SpawnLook } from '../../../wailsjs/go/main/App'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -189,7 +189,7 @@ export class Engine {
   /** Scratch for the outline: one matrix per selected model, reused each frame. */
   private outlineTargets: OutlineTarget[] = []
   private outlineMatrices: THREE.Matrix4[] = []
-  private placeTool = new PlaceTool()
+  private placeTool = new PlaceTool({ placeSpawn: (at) => this.placeSpawnAt(at) })
   /** Accumulated Ctrl+wheel delta, so smooth trackpads rotate in steps too. */
   private wheelAcc = 0
   /** Which modifier the accumulated wheel delta belongs to, so a remainder never carries over to the other. */
@@ -253,7 +253,7 @@ export class Engine {
       objectClip: () => (this.lastCopied === 'objects' ? this.objectClip : null),
       commitPaste: () => this.commitPaste(),
       cancelPaste: () => this.cancelPaste(),
-      placeCreature: (t, at) => void this.placeCreature(t, at),
+      placeSpawn: (at) => this.placeSpawnAt(at),
     })
     this.tools = {
       select: this.selectTool,
@@ -407,9 +407,11 @@ export class Engine {
         // Alt+click is the pipette: a model's type to place, or the ground's texture to paint with.
         if (e.altKey && (editor.tool === 'select' || editor.tool === 'place')) {
           this.raycaster.setFromCamera(this.ndc, this.camera)
-          const id = this.objects.pick(this.raycaster)
+          const spawn = this.doc.spawnLayer.pick(this.raycaster)
+          const id = spawn ? null : this.objects.pick(this.raycaster)
           const o = id !== null ? this.objects.objects.get(id) : undefined
-          if (o) pickModel(o)
+          if (spawn) void pickSpawn(spawn)
+          else if (o) pickModel(o)
           else if (this.hit) pickLayer(this.terrain, this.hit)
           return
         }
@@ -994,6 +996,32 @@ export class Engine {
    * step, and selects it. Its guid is above every creature guid of the world database and of every
    * open region, so creatures placed in different tabs never share one.
    */
+  /** Spawns whichever template the browser's spawn tabs picked (ui.placeCreature or ui.placeObject) at a point. */
+  placeSpawnAt(at: THREE.Vector3) {
+    if (ui.placeCreature) void this.placeCreature(ui.placeCreature, at)
+    else if (ui.placeObject) void this.placeObject(ui.placeObject, at)
+  }
+
+  private nextObjectGuid = 0
+
+  /** Spawns a game object template at a point, facing the camera, as one undo step. */
+  async placeObject(t: vmangos.ObjectTemplate, at: THREE.Vector3) {
+    const d = this.doc
+    try {
+      const dbNext = this.nextObjectGuid ? 0 : await NextObjectGUID()
+      let guid = Math.max(this.nextObjectGuid, dbNext)
+      for (const doc of this.documents) for (const s of doc.spawnLayer.spawns) if (s.kind === 'object') guid = Math.max(guid, s.guid + 1)
+      this.nextObjectGuid = guid + 1
+      const cam = this.camera.position
+      const o = spawnOrientation(Math.atan2(-(cam.z - at.z), cam.x - at.x))
+      const s = newObjectSpawn(t, guid, at.x, at.y, at.z, o)
+      d.history.push(spawnAdd(d.spawnLayer, s, `Add ${t.name}`))
+      if (d === this.doc) selectSpawn(s)
+    } catch (err) {
+      setStatus(`Could not place ${t.name}: ${err}`, 8000)
+    }
+  }
+
   async placeCreature(t: vmangos.CreatureTemplate, at: THREE.Vector3) {
     const d = this.doc
     try {
@@ -1087,8 +1115,8 @@ export class Engine {
    * edited, Delete removes the picked point and Esc stops editing.
    */
   private handleSpawnKey(e: KeyboardEvent): boolean {
-    if (ui.placeCreature && e.key === 'Escape') {
-      ui.placeCreature = null
+    if ((ui.placeCreature || ui.placeObject) && e.key === 'Escape') {
+      ui.placeCreature = ui.placeObject = null
       setStatus('Stopped placing creatures.')
       return true
     }

@@ -4,6 +4,9 @@ import { editor, setStatus, ui } from '../state/editor.svelte'
 import { displayName } from '../models/assets'
 import type { WorldObject } from '../world/ObjectLayer'
 import { layerAt } from './TerrainTools'
+import { loadCreatureTemplates, loadObjectTemplates, creatureKey, objectKey } from '../../components/SpawnBrowser.svelte'
+import { spawnType } from '../world/spawnInfo'
+import type { vmangos } from '../../../wailsjs/go/models'
 
 // The pipette: Alt+click picks what is under the cursor. In the Select and Place tools, a model's type
 // becomes the model to place and the ground's texture becomes the paint texture; in Paint and Road,
@@ -35,7 +38,36 @@ function revealAsset(key: string) {
 /** Makes a placed model's type the model to place next and switches to the Place tool (Alt+click on it). */
 export function pickModel(o: WorldObject) {
   editor.prefab = o.type
+  ui.placeCreature = ui.placeObject = null
   editor.tool = 'place'
   revealAsset(o.type)
   setStatus(`Picked ${displayName(o.type)}: click to place more.`, 3000)
+}
+
+/**
+ * Makes a spawn's template (creature or game object) what the Place tool puts down next, from the
+ * browser's lists, and shows it in the browser (Alt+click on a creature or object of the region).
+ */
+export async function pickSpawn(s: vmangos.WorldSpawn) {
+  try {
+    if (s.kind === 'object') {
+      const t = (await loadObjectTemplates()).find((x) => x.entry === s.entry)
+      if (!t) return setStatus(`Object ${s.entry} is not in the world database's templates.`, 4000)
+      ui.placeObject = t
+      ui.placeCreature = null
+      editor.prefab = spawnType({ model: t.model })
+      revealAsset(objectKey(t))
+    } else {
+      const t = (await loadCreatureTemplates()).find((x) => x.entry === s.entry)
+      if (!t) return setStatus(`Creature ${s.entry} is not in the world database's templates.`, 4000)
+      ui.placeCreature = t
+      ui.placeObject = null
+      editor.prefab = spawnType({ model: t.model, look: t.look })
+      revealAsset(creatureKey(t))
+    }
+    editor.tool = 'place'
+    setStatus(`Picked ${s.name}: click to place more.`, 3000)
+  } catch (err) {
+    setStatus(`Could not pick ${s.name}: ${err}`, 6000)
+  }
 }

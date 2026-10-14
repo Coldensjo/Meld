@@ -212,6 +212,10 @@ type CreatureTemplate struct {
 	Display   int     `json:"display"`
 	Scale     float32 `json:"scale"`
 	Equipment int     `json:"equipment"`
+	// How the display looks, for a thumbnail (ListCreatureTemplates fills these; a search leaves them empty).
+	Model        string  `json:"model"`
+	Look         string  `json:"look"`
+	DisplayScale float32 `json:"displayScale"`
 }
 
 // likePattern makes text an SQL string literal that matches it anywhere with LIKE: quotes and
@@ -239,39 +243,11 @@ func SearchCreatures(serverRoot, text string, limit int) ([]CreatureTemplate, er
 	if n, err := strconv.Atoi(text); err == nil {
 		match = fmt.Sprintf("(%s OR t.entry = %d)", match, n)
 	}
-	raw, err := runSQL(db, fmt.Sprintf(`SELECT t.entry, t.name, COALESCE(t.subname, ''), t.level_min, t.level_max, t.faction, t.npc_flags,
-		t.rank, t.type, COALESCE(NULLIF(t.display_id1, 0), NULLIF(t.display_id2, 0), NULLIF(t.display_id3, 0), NULLIF(t.display_id4, 0), 0),
-		CASE WHEN t.display_id1 <> 0 THEN t.display_scale1 WHEN t.display_id2 <> 0 THEN t.display_scale2
-		WHEN t.display_id3 <> 0 THEN t.display_scale3 ELSE t.display_scale4 END, t.equipment_id
-		FROM creature_template t WHERE %s AND t.patch = (SELECT MAX(patch) FROM creature_template WHERE entry = t.entry)
-		ORDER BY t.name, t.entry LIMIT %d`, match, max(limit, 1)))
+	raw, err := runSQL(db, creatureTemplateSQL(match, fmt.Sprintf("ORDER BY t.name, t.entry LIMIT %d", max(limit, 1))))
 	if err != nil {
 		return nil, err
 	}
-	var out []CreatureTemplate
-	for _, f := range tsvRows(raw, 12) {
-		var c CreatureTemplate
-		c.Name, c.Subname = f[1], f[2]
-		ok := true
-		for i, p := range []*int{&c.Entry, nil, nil, &c.LevelMin, &c.LevelMax, &c.Faction, &c.NPCFlags, &c.Rank, &c.Type, &c.Display, nil, &c.Equipment} {
-			if p == nil {
-				continue
-			}
-			n, err := strconv.Atoi(f[i])
-			ok = ok && err == nil
-			*p = n
-		}
-		scale, err := strconv.ParseFloat(f[10], 32)
-		if !ok || err != nil {
-			continue
-		}
-		c.Scale = float32(scale)
-		if c.Scale <= 0 {
-			c.Scale = 1
-		}
-		out = append(out, c)
-	}
-	return out, nil
+	return parseCreatureTemplates(raw), nil
 }
 
 // NextCreatureGUID is the first creature guid above every one the world database has.

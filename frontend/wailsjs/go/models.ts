@@ -334,6 +334,9 @@ export namespace vmangos {
 	    display: number;
 	    scale: number;
 	    equipment: number;
+	    model: string;
+	    look: string;
+	    displayScale: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new CreatureTemplate(source);
@@ -353,6 +356,9 @@ export namespace vmangos {
 	        this.display = source["display"];
 	        this.scale = source["scale"];
 	        this.equipment = source["equipment"];
+	        this.model = source["model"];
+	        this.look = source["look"];
+	        this.displayScale = source["displayScale"];
 	    }
 	}
 	export class DisplayEntry {
@@ -557,6 +563,28 @@ export namespace vmangos {
 		}
 	}
 	
+	export class ObjectTemplate {
+	    entry: number;
+	    name: string;
+	    type: number;
+	    display: number;
+	    size: number;
+	    model: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ObjectTemplate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.entry = source["entry"];
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.display = source["display"];
+	        this.size = source["size"];
+	        this.model = source["model"];
+	    }
+	}
 	export class ObjectView {
 	    uid: number;
 	    type: string;

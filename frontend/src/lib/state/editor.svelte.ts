@@ -302,6 +302,8 @@ export const ui = $state({
   creatureEditor: null as { key: string | null; entry: number } | null,
   /** A creature template being placed: the next click on the ground in the Select tool spawns it. */
   placeCreature: null as vmangos.CreatureTemplate | null,
+  /** The game object template the Place tool puts down (see placeCreature). */
+  placeObject: null as vmangos.ObjectTemplate | null,
 })
 
 let hintTimer: ReturnType<typeof setTimeout> | undefined
