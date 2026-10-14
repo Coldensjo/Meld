@@ -585,11 +585,8 @@ export class SelectTool implements Tool {
     if (sd) {
       const s = ctx.spawns.get(sd.key)
       if (!s) return
-      if (!sd.moved) {
-        // A click (no drag) on a creature opens it in the creature editor.
-        if (s.kind !== 'object' && prefs.creatureEditorOnClick) ui.creatureEditor = { key: sd.key, entry: s.entry }
-        return
-      }
+      // A click (no drag) only selects; the creature editor opens from the right-click menu.
+      if (!sd.moved) return
       const layer = ctx.spawns
       const after: SpawnFields = { x: s.x, y: s.y, z: s.z }
       syncSpawnUi(layer)

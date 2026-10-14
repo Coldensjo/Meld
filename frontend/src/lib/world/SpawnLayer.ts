@@ -177,6 +177,18 @@ export class SpawnLayer {
     if (!this.originals.has(key)) this.originals.set(key, cloneSpawn(s))
   }
 
+  /**
+   * The world-space box of a spawn's drawn model (or its marker cone while the model loads), for
+   * the selection handles. Null for a spawn that is not drawn.
+   */
+  boundsOf(s: vmangos.WorldSpawn, out: THREE.Box3): THREE.Box3 | null {
+    const at = this.where.get(s)
+    if (!at) return null
+    const g = at.batch.mesh.geometry
+    if (!g.boundingBox) g.computeBoundingBox()
+    return out.copy(g.boundingBox!).applyMatrix4(spawnMatrix(s, at.batch.ready, new THREE.Matrix4()))
+  }
+
   /** Redraws a spawn after it moved, turned or changed its look. */
   refresh(s: vmangos.WorldSpawn) {
     const at = this.where.get(s)

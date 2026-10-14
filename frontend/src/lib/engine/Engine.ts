@@ -32,7 +32,7 @@ import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { SpawnPaths } from '../world/SpawnPaths'
-import { creatureTemplateOf, newCreatureSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
+import { applySpawn, creatureTemplateOf, newCreatureSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { NextCreatureGUID, SpawnLook } from '../../../wailsjs/go/main/App'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
@@ -174,6 +174,8 @@ export class Engine {
     /** Scale drag: the cursor's distance from the prop's axis when the drag began, in the ring plane. */
     startDist: number
     planeNormal: THREE.Vector3
+    /** The spawn being dragged instead of a model, with its facing and height before the drag. */
+    spawn?: { key: string; orientation: number; y: number }
   } | null = null
   private dragPlane = new THREE.Plane()
   private dragPoint = new THREE.Vector3()
@@ -1791,9 +1793,14 @@ export class Engine {
     this.outline.setTerrain(this.terrain)
     const o = sel.length === 1 ? sel[0] : undefined
     if (!o) {
-      this.gizmo.hide()
+      // No model: the selected creature or object of the region gets the ring and arrow instead.
+      const s = this.gizmoSpawn()
+      if (s && this.doc.spawnLayer.boundsOf(s, this.tmpBox)) {
+        const size = this.tmpBox.getSize(this.tmpV)
+        this.gizmo.update(this.dragPoint.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.camera.position, false)
+      } else this.gizmo.hide()
       this.outline.setWarnBoxes(NO_BOXES)
-      if (this.canvas.style.cursor) this.canvas.style.cursor = ''
+      if (this.canvas.style.cursor && !this.gizmoDrag) this.canvas.style.cursor = ''
       return
     }
     const asset = getAsset(o.type)
@@ -1839,14 +1846,21 @@ export class Engine {
 
   // ------------------------------------------------------------- gizmo drag
 
-  private ringAngle(p: THREE.Vector3, o: WorldObject) {
+  private ringAngle(p: THREE.Vector3, o: { x: number; z: number }) {
     return Math.atan2(-(p.z - o.z), p.x - o.x)
+  }
+
+  /** The selected creature or region object the gizmo works on, when no model is selected (Select tool). */
+  private gizmoSpawn(): vmangos.WorldSpawn | undefined {
+    if (editor.tool !== 'select' || editor.selectedIds.length || !editor.selectedSpawn) return undefined
+    return this.doc.spawnLayer.get(spawnKey(editor.selectedSpawn)) ?? undefined
   }
 
   /** Begin dragging a gizmo handle under the pointer. Returns true if one was hit. */
   private startGizmoDrag(): boolean {
     const o = this.canNudge() && editor.selectedIds.length === 1 ? this.selectedObject() : undefined
-    if (!o || !this.gizmo.visible) return false
+    if (!o) return this.startSpawnGizmoDrag()
+    if (!this.gizmo.visible) return false
     this.raycaster.setFromCamera(this.ndc, this.camera)
     const handle = this.gizmo.pick(this.raycaster)
     if (!handle) return false
@@ -1873,8 +1887,59 @@ export class Engine {
     return true
   }
 
+  /** The spawn's ring turns its facing and its arrow its height; its position stays. */
+  private startSpawnGizmoDrag(): boolean {
+    const s = this.gizmoSpawn()
+    if (!s || !this.gizmo.visible) return false
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    const handle = this.gizmo.pick(this.raycaster)
+    if (!handle || handle === 'scale') return false
+    const planeNormal = new THREE.Vector3()
+    let startAngle = 0
+    let startY = 0
+    if (handle === 'ring') {
+      planeNormal.set(0, 1, 0)
+      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(s.x, this.gizmo.ringY, s.z))
+      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
+      startAngle = this.ringAngle(this.dragPoint, s)
+    } else {
+      planeNormal.copy(this.camera.position).sub(this.tmpV.set(s.x, 0, s.z)).setY(0).normalize()
+      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(s.x, s.y, s.z))
+      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
+      startY = this.dragPoint.y
+    }
+    const key = spawnKey(s)
+    this.gizmoDrag = { handle, before: { id: -1, type: '', x: s.x, z: s.z, yOff: 0, rotY: 0, scale: 1 }, startAngle, startY, startWorldY: s.y, startDist: 1, planeNormal, spawn: { key, orientation: s.orientation, y: s.y } }
+    this.canvas.style.cursor = handle === 'ring' ? 'grabbing' : 'ns-resize'
+    return true
+  }
+
+  private updateSpawnGizmoDrag(snap: boolean) {
+    const d = this.gizmoDrag
+    const sp = d?.spawn
+    const s = sp ? this.doc.spawnLayer.get(sp.key) : undefined
+    if (!d || !sp || !s) return
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return
+    if (d.handle === 'ring') {
+      let rot = spawnRotation(sp.orientation) + (this.ringAngle(this.dragPoint, s) - d.startAngle)
+      if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
+      this.gizmo.setSweep(d.startAngle, rot - spawnRotation(sp.orientation))
+      applySpawn(this.doc.spawnLayer, sp.key, { orientation: spawnOrientation(rot) })
+      setViewportHint(`Facing ${Math.round(THREE.MathUtils.radToDeg(spawnOrientation(rot)))}°`)
+    } else {
+      let dy = this.dragPoint.y - d.startY
+      if (snap) dy = Math.round(dy * 2) / 2
+      const y = sp.y + dy
+      applySpawn(this.doc.spawnLayer, sp.key, { y })
+      const above = y - this.terrain.heightAt(s.x, s.z)
+      setViewportHint(`Height ${above >= 0 ? '+' : ''}${above.toFixed(2)} above the ground`)
+    }
+  }
+
   private updateGizmoDrag(snap: boolean) {
     const d = this.gizmoDrag
+    if (d?.spawn) return this.updateSpawnGizmoDrag(snap)
     const o = this.selectedObject()
     if (!d || !o) return
     this.raycaster.setFromCamera(this.ndc, this.camera)
@@ -1911,6 +1976,16 @@ export class Engine {
     this.gizmoDrag = null
     this.gizmo.setSweep(0, 0)
     this.canvas.style.cursor = ''
+    if (d?.spawn) {
+      const layer = this.doc.spawnLayer
+      const sp = d.spawn
+      const s = layer.get(sp.key)
+      if (!s || (s.orientation === sp.orientation && s.y === sp.y)) return
+      const before: SpawnFields = d.handle === 'ring' ? { orientation: sp.orientation } : { y: sp.y }
+      const after: SpawnFields = d.handle === 'ring' ? { orientation: s.orientation } : { y: s.y }
+      this.history.push({ label: `${d.handle === 'ring' ? 'Turn' : 'Raise'} ${s.name}`, undo: () => applySpawn(layer, sp.key, before), redo: () => applySpawn(layer, sp.key, after) })
+      return
+    }
     const o = this.selectedObject()
     if (!d || !o) return
     if (o.rotY !== d.before.rotY || o.yOff !== d.before.yOff || o.x !== d.before.x || o.z !== d.before.z || o.scale !== d.before.scale) {

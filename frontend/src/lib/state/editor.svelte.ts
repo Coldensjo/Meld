@@ -208,7 +208,6 @@ export const prefs = $state({
   /** Draw every creature's waypoint path, not only the selected one's. */
   showAllPaths: false,
   /** A click on a creature in the Select tool opens it in the creature editor. */
-  creatureEditorOnClick: false,
   renderScale: 1,
   viewDistance: 1,
   fog: true,
