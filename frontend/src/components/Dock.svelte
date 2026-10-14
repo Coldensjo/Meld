@@ -1,17 +1,7 @@
 <script lang="ts">
   import DockPanel from './DockPanel.svelte'
   import LayersPanel from './LayersPanel.svelte'
-  import PropertiesPanel from './PropertiesPanel.svelte'
-  import MinimapPanel from './MinimapPanel.svelte'
-  import SpawnsPanel from './SpawnsPanel.svelte'
-  import { editor, prefs } from '../lib/state/editor.svelte'
-
-  // Selecting a model or an area reveals the Properties panel if it was collapsed.
-  $effect(() => {
-    if ((editor.selectedIds.length || editor.selection) && prefs.collapsedPanels.includes('properties')) {
-      prefs.collapsedPanels = prefs.collapsedPanels.filter((p) => p !== 'properties')
-    }
-  })
+  import { prefs } from '../lib/state/editor.svelte'
 
   // Drag the left edge to resize the dock, like Photoshop's panel column.
   function startResize(e: PointerEvent) {
@@ -35,15 +25,6 @@
   <div class="resizer" role="separator" aria-orientation="vertical" onpointerdown={startResize}></div>
   <DockPanel id="layers" grow tabs={[{ id: 'layers', label: 'Layers' }]}>
     <LayersPanel />
-  </DockPanel>
-  <DockPanel id="minimap" tabs={[{ id: 'minimap', label: 'Map' }]}>
-    <MinimapPanel />
-  </DockPanel>
-  <DockPanel id="spawns" tabs={[{ id: 'spawns', label: 'Spawns' }]}>
-    <SpawnsPanel />
-  </DockPanel>
-  <DockPanel id="properties" tabs={[{ id: 'properties', label: 'Properties' }]}>
-    <PropertiesPanel />
   </DockPanel>
 </div>
 
