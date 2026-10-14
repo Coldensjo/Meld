@@ -106,10 +106,15 @@ cd frontend && pnpm build   # frontend only
     falloff, and the ring stays on the ground point it started on.
   - Terrain brush tools extend `BrushTool` and record undo through `TerrainStroke`, which stores only
     the dirty sub-rect.
-  - Sculpt's **Paint texture** (`editor.sculptPaint`, layer `editor.sculptPaintLayer`, per map in
-    `DocMeta`) paints that palette texture under the brush in the shaping modes as the ground moves,
-    in the same stroke and undo step; a texture picked in the browser while it is on becomes that
-    layer instead of switching to Paint.
+  - Sculpt's **painting while shaping** (`editor.sculptPaint`: 'off', 'texture' or 'slope') paints
+    under the brush in the shaping modes as the ground moves, in the same stroke and undo step.
+    'texture' paints `editor.sculptPaintLayer` (per map in `DocMeta`; a texture picked in the
+    browser while it is on becomes that layer instead of switching to Paint). 'slope' paints the
+    map's **texture roles** (`terrain/roles.ts`, `editor.roles`, per map, saved in the map file's
+    `roles` header field, guessed from the texture names of a map without one): the rock from
+    `slopePaint.rockDeg` and the dirt on the moderate slopes below it (`slopeWeights`), which is how
+    Blizzard's zones are painted (rock mountains rimmed with dirt over a grass base). The roles are
+    set in Map Properties, and the preview-only cliff rock in the shader uses the rock role too.
   - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
   - **Every edit must be undoable** through `History`.
 - **Doodad brush** (`tools/DoodadBrushTool.ts`, tool `doodad`, key 8) scatters models the way Paint

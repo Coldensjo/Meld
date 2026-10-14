@@ -137,7 +137,7 @@
     const slot = engine.useTexture(it.path)
     if (slot < 0) return
     // Sculpting with Paint texture on: the pick is the texture sculpting paints, and the tool stays.
-    if (editor.tool === 'sculpt' && editor.sculptPaint) {
+    if (editor.tool === 'sculpt' && editor.sculptPaint === 'texture') {
       editor.sculptPaintLayer = slot
       return
     }

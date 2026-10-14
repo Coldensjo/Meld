@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { holeTriangle, withTriangle } from '../terrain/holes'
 import { HoleWalls } from './HoleWalls'
 import { editor, setStatus, ui, type SculptMode } from '../state/editor.svelte'
+import { slopeDegrees, slopeWeights } from '../terrain/roles'
 import type { Command } from '../state/history'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
 import { fbm, ridged } from '../engine/noise'
@@ -140,8 +141,9 @@ export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
   /** With Paint texture on, a shaping stroke records the splat too, so the paint undoes with the heights. */
   protected get records() {
-    return { heights: true, splat: editor.sculptPaint && SHAPING_MODES.has(editor.sculptMode) }
+    return { heights: true, splat: editor.sculptPaint !== 'off' && SHAPING_MODES.has(editor.sculptMode) }
   }
+  private slopeW = new Float32Array(2)
   /** Hole mode works on the triangle under the cursor, not a brush footprint. */
   get usesBrush() {
     return editor.sculptMode !== 'hole'
@@ -500,14 +502,37 @@ export class SculptTool extends BrushTool {
     }
     this.heightsChanged(ctx, rect)
 
-    // Paint texture: the shaped ground takes the chosen texture, as much of the brush as the mode shapes.
-    if (rect && editor.sculptPaint && SHAPING_MODES.has(mode)) {
+    // Painting while shaping, over as much of the brush as the mode shapes: one texture, or the rock
+    // and dirt roles by the slope the ground now has (rock on the steep, dirt rimming its foot).
+    if (rect && editor.sculptPaint !== 'off' && SHAPING_MODES.has(mode)) {
       const pf = mode === 'mountain' ? 1 : mode === 'crevice' ? 0 : falloff
       const amt = Math.min(1, editor.brush.strength * ctx.pressure() * dt * 5)
       let refused = 0
-      const sr = forEachTexel(t, hit.x, hit.z, radius, pf, (p, w) => {
-        if (!paintPixel(t, p, editor.sculptPaintLayer, amt * w)) refused++
-      }, this.stroke)
+      let sr: Rect | null = null
+      if (editor.sculptPaint === 'texture') {
+        sr = forEachTexel(t, hit.x, hit.z, radius, pf, (p, w) => {
+          if (!paintPixel(t, p, editor.sculptPaintLayer, amt * w)) refused++
+        }, this.stroke)
+      } else {
+        const { rock, dirt } = editor.roles
+        if (rock < 0 && dirt < 0) {
+          setStatus('By-slope painting needs the map\'s rock and dirt textures: set them in File › Map Properties.', 4000)
+        } else {
+          const { rockDeg, dirtDeg } = editor.slopePaint
+          const R = t.splatRes
+          const ts = t.worldSize / R
+          const e = ts
+          const sw = this.slopeW
+          sr = forEachTexel(t, hit.x, hit.z, radius, pf, (p, w) => {
+            const x = ((p % R) + 0.5) * ts
+            const z = (Math.floor(p / R) + 0.5) * ts
+            const deg = slopeDegrees((t.heightAt(x + e, z) - t.heightAt(x - e, z)) / (2 * e), (t.heightAt(x, z + e) - t.heightAt(x, z - e)) / (2 * e))
+            slopeWeights(deg, rockDeg, dirtDeg, sw)
+            if (rock >= 0 && sw[0] > 0.001 && !paintPixel(t, p, rock, amt * w * sw[0])) refused++
+            if (dirt >= 0 && sw[1] > 0.001 && !paintPixel(t, p, dirt, amt * w * sw[1])) refused++
+          }, this.stroke)
+        }
+      }
       if (refused) setStatus(CHUNK_FULL, 3000)
       this.splatChanged(ctx, sr)
     }

@@ -1,3 +1,4 @@
+import { noRoles, type TextureRoles } from '../terrain/roles'
 import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
@@ -27,6 +28,8 @@ export interface DocMeta {
   paintLayer: number
   /** The palette index the Sculpt tool paints while sculpting (editor.sculptPaintLayer). */
   sculptPaintLayer: number
+  /** The palette entries that are the map's rock and dirt (editor.roles), saved with the map. */
+  roles: TextureRoles
 }
 
 /** A saved camera view: where it looks at, and from what angle and distance. */
@@ -120,6 +123,7 @@ export class MapDocument {
       waterEnabled: true,
       paintLayer: 0,
       sculptPaintLayer: 0,
+      roles: noRoles(),
     }
   }
 

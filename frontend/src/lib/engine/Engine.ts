@@ -18,6 +18,7 @@ import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brus
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
+import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
@@ -97,6 +98,8 @@ export interface MapSnapshot {
   /** The texture palette (format 2). */
   palette: string[]
   texScale: number
+  /** The palette entries that are the map's rock and dirt; null in a map saved before roles. */
+  roles: TextureRoles | null
   heights: Uint8Array
   /** Four weights per splat texel (format 2). */
   weights: Uint8Array
@@ -565,7 +568,9 @@ export class Engine {
     const painting = editor.tool === 'paint' || editor.tool === 'road'
     u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
     this.updateSelectionUniforms(time)
+    // The preview's rock on steep slopes is the map's rock role (the palette's slot 3 without one).
     u.cliffAuto.value = editor.autoCliff ? 1 : 0
+    u.rockLayer.value = editor.roles.rock === NO_ROLE ? 3 : editor.roles.rock
     u.waterLevel.value = editor.waterLevel
     u.waterEnabled.value = editor.waterEnabled ? 1 : 0
     this.water.level = editor.waterLevel
@@ -782,6 +787,7 @@ export class Engine {
       waterEnabled: editor.waterEnabled,
       paintLayer: editor.paintLayer,
       sculptPaintLayer: editor.sculptPaintLayer,
+      roles: { ...editor.roles },
       region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
@@ -824,6 +830,7 @@ export class Engine {
     editor.waterEnabled = m.waterEnabled
     editor.paintLayer = m.paintLayer
     editor.sculptPaintLayer = m.sculptPaintLayer
+    editor.roles = { ...m.roles }
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
@@ -875,6 +882,7 @@ export class Engine {
     d.meta.waterLevel = preset.waterLevel
     d.meta.waterEnabled = preset.water
     d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled)
+    d.meta.roles = guessRoles(d.meta.palette)
     this.documents.push(d)
     this.activate(d)
     return d
@@ -921,6 +929,7 @@ export class Engine {
     if (r.holes.length === d.terrain.holes.length) d.terrain.holes.set(r.holes)
     d.terrain.markAllDirty()
     d.meta.palette = [...r.palette]
+    d.meta.roles = guessRoles(r.palette)
     liquidsFromAdt(d.liquids, r.liquids)
     const region: RegionRef = { mapName: r.mapName, x: r.x, y: r.y, size: r.size, uids: new Map() }
     d.meta.region = region
@@ -1440,6 +1449,7 @@ export class Engine {
       vmangos: this.doc.meta.vmangos,
       palette: [...editor.palette],
       texScale: editor.texScale,
+      roles: { ...editor.roles },
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       weights: t.weights,
       chunkSlots: t.chunkSlots,
@@ -1502,6 +1512,7 @@ export class Engine {
       waterEnabled: m.waterEnabled,
       paintLayer: 0,
       sculptPaintLayer: 0,
+      roles: m.roles ? validRoles(m.roles, palette.length) : guessRoles(palette),
     }
     if (replace) {
       d.camera = replace.camera

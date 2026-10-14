@@ -2,6 +2,9 @@
   import Modal from './Modal.svelte'
   import Slider from './Slider.svelte'
   import { editor, stats } from '../lib/state/editor.svelte'
+  import { NO_ROLE } from '../lib/terrain/roles'
+
+  const textureName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
 
   // The map's facts and its world settings (File > Map Properties). The sea is one level for the
   // whole map, so it is set here and nowhere else; a part of Azeroth keeps the client's ocean.
@@ -41,9 +44,23 @@
       <p class="dim">One level for the whole map. Dig lake, Raise shore and Auto-paint shape the coast around it.</p>
     {/if}
   {/if}
-  <label class="check" title="Steep slopes are drawn as rock in the editor's view, without painting them"
-    ><input type="checkbox" bind:checked={editor.autoCliff} /> Show steep slopes as rock</label
+  <label class="check" title="Steep slopes are drawn as rock in the editor's view only. Nothing is painted, so the client will not show it: paint the rock with Sculpt's by-slope painting instead."
+    ><input type="checkbox" bind:checked={editor.autoCliff} /> Show steep slopes as rock (preview only)</label
   >
+  <div class="section">Texture roles</div>
+  <p class="dim">The textures Sculpt paints by slope while it shapes the ground: rock on the steep, dirt rimming its foot. Pick them from the map's palette (the asset browser adds textures to it).</p>
+  <div class="facts">
+    <label class="k" for="role-rock">Rock</label>
+    <select id="role-rock" bind:value={editor.roles.rock}>
+      <option value={NO_ROLE}>none</option>
+      {#each editor.palette as p, i (i)}<option value={i}>{textureName(p)}</option>{/each}
+    </select>
+    <label class="k" for="role-dirt">Dirt</label>
+    <select id="role-dirt" bind:value={editor.roles.dirt}>
+      <option value={NO_ROLE}>none</option>
+      {#each editor.palette as p, i (i)}<option value={i}>{textureName(p)}</option>{/each}
+    </select>
+  </div>
   {#snippet actions()}
     <button class="active" onclick={onclose}>Close</button>
   {/snippet}

@@ -2,6 +2,7 @@ import type { SessionTab } from '../io/session'
 import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
 import type { DoodadBrush } from '../tools/doodadBrush'
+import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { Bookmark } from '../engine/MapDocument'
 import type { vmangos } from '../../../wailsjs/go/models'
 
@@ -17,6 +18,8 @@ export type FlattenTarget = 'origin' | 'average'
 export type FlattenDir = 'both' | 'raise' | 'lower'
 /** Sculpt edit limit: change ground everywhere, or only the ground above or below the cursor's height. */
 export type SculptLimit = 'none' | 'above' | 'below'
+/** What the Sculpt tool paints while it shapes the ground: nothing, one texture, or the rock and dirt roles by slope. */
+export type SculptPaint = 'off' | 'texture' | 'slope'
 /** Water tool: paint liquids (noggit's water brush), or shape the ground around the sea level. */
 export type WaterMode = 'paint' | 'dig' | 'shore'
 /** The depth factor a water stroke uses: by the liquid, a river's, an ocean's, or `customOpacity`. */
@@ -68,12 +71,17 @@ export const editor = $state({
   mountain: { ridges: 0.7 },
   sculptLimit: 'none' as SculptLimit,
   /**
-   * Sculpting also paints `sculptPaintLayer` (a palette index, per map) under the brush, so a raised
-   * hill comes up as rock the way Blizzard's artists painted cliffs while shaping them. Off, the ground
-   * keeps its paint.
+   * Sculpting also paints under the brush: 'texture' paints `sculptPaintLayer` (a palette index, per
+   * map); 'slope' paints the map's rock role on the steep ground and its dirt role on the moderate
+   * slopes below it, so a raised hill comes up as rock rimmed with dirt, the way Blizzard's zones are
+   * painted. 'off' keeps the paint.
    */
-  sculptPaint: false,
+  sculptPaint: 'off' as SculptPaint,
   sculptPaintLayer: 0,
+  /** By-slope painting: the slope in degrees from which the ground is rock, and from which it is dirt. */
+  slopePaint: { rockDeg: 40, dirtDeg: 22 },
+  /** The map's texture roles (terrain/roles.ts): the palette entries that are its rock and dirt. */
+  roles: noRoles() as TextureRoles,
   /**
    * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the
    * cursor, rising at vertexAngle degrees (-89 to 89) toward vertexDir degrees (0 is +x, 90 is +z).

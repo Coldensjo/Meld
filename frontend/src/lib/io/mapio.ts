@@ -56,6 +56,7 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     vmangos: s.vmangos ?? undefined,
     palette: s.palette,
     texScale: s.texScale,
+    roles: s.roles ?? undefined,
     heights: bytesToBase64(s.heights),
     weights: bytesToBase64(s.weights),
     chunkSlots: bytesToBase64(s.chunkSlots),
@@ -76,6 +77,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
     region: m.region ? { mapName: m.region.mapName, x: m.region.x, y: m.region.y, size: m.region.size } : null,
     vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId } : null,
     texScale: m.texScale ?? 0,
+    roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
     heights: base64ToBytes(m.heights),
   }
   if (m.version === 1) {

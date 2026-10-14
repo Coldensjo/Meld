@@ -43,6 +43,7 @@ func sample(size int) *MapData {
 			Objects:  []PlacedObject{{ID: 1, Type: "oak", X: 1, Z: 2, RotY: 0.5, Scale: 1.2}, {ID: 2, Parent: 1, Type: "crate", X: 0.5, YOff: 3, Scale: 1}},
 			Palette:  []string{"#5d8a2f", `Tileset\Elwynn\ElwynnGrassBase.blp`},
 			TexScale: 4,
+			Roles:    &TextureRoles{Rock: 1, Dirt: -1},
 		},
 		Heights:    base64.StdEncoding.EncodeToString(h),
 		Weights:    base64.StdEncoding.EncodeToString(w),

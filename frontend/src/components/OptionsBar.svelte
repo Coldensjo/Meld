@@ -23,7 +23,7 @@
   const tool = $derived(TOOLS.find((t) => t.id === editor.tool)!)
   const slotTex = $derived(editor.palette[editor.paintLayer])
   const sculptTex = $derived(editor.palette[editor.sculptPaintLayer])
-  const texName = (p: string) => p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+  const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
   const usesBrush = $derived(
     editor.tool === 'sculpt' ||
       editor.tool === 'paint' ||
@@ -116,12 +116,23 @@
       <OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={70} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
     {:else}
       {@render editLimit()}
-      <label class="check" title="Also paint a texture on the ground the brush shapes, as a raised hill was painted rock while it was raised"><input type="checkbox" bind:checked={editor.sculptPaint} /> Paint texture</label>
-      {#if editor.sculptPaint}
+      <select class="curve" bind:value={editor.sculptPaint} title="Also paint the ground the brush shapes: one texture, or the map's rock on the steep ground and its dirt on the slopes below it, as a raised hill was painted while it was raised" aria-label="Paint while sculpting">
+        <option value="off">Paint: off</option>
+        <option value="slope">Paint: rock and dirt by slope</option>
+        <option value="texture">Paint: one texture</option>
+      </select>
+      {#if editor.sculptPaint === 'texture'}
         <button class="chip" onclick={() => { ui.palette = 'textures'; prefs.browserCollapsed = false }} title="The texture sculpting paints (pick one in the asset browser below)">
           <span class="dim">Texture:</span>
           {sculptTex ? texName(sculptTex) : 'pick one below'}
         </button>
+      {:else if editor.sculptPaint === 'slope'}
+        <button class="chip" onclick={() => (ui.dialog = 'mapProps')} title="The map's rock and dirt textures (File › Map Properties)">
+          <span class="dim">Rock:</span> {editor.roles.rock >= 0 ? texName(editor.palette[editor.roles.rock] ?? '') : 'none'}
+          <span class="dim">· Dirt:</span> {editor.roles.dirt >= 0 ? texName(editor.palette[editor.roles.dirt] ?? '') : 'none'}
+        </button>
+        <OptSlider label="Rock from" bind:value={editor.slopePaint.rockDeg} min={10} max={80} step={1} digits={0} width={60} title="Ground steeper than this many degrees is painted rock" />
+        <OptSlider label="Dirt from" bind:value={editor.slopePaint.dirtDeg} min={0} max={70} step={1} digits={0} width={60} title="Ground steeper than this many degrees, up to the rock, is painted dirt: the rim at a mountain's foot" />
       {/if}
     {/if}
     <div class="divider"></div>

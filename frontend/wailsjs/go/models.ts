@@ -60,6 +60,20 @@ export namespace main {
 
 export namespace mapfile {
 	
+	export class TextureRoles {
+	    rock: number;
+	    dirt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TextureRoles(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rock = source["rock"];
+	        this.dirt = source["dirt"];
+	    }
+	}
 	export class VmangosFolder {
 	    dir: string;
 	    mapId: number;
@@ -139,6 +153,8 @@ export namespace mapfile {
 	    region?: any;
 	    // Go type: VmangosFolder
 	    vmangos?: any;
+	    // Go type: TextureRoles
+	    roles?: any;
 	    version?: number;
 	    heights: string;
 	    weights?: string;
@@ -166,6 +182,7 @@ export namespace mapfile {
 	        this.texScale = source["texScale"];
 	        this.region = this.convertValues(source["region"], null);
 	        this.vmangos = this.convertValues(source["vmangos"], null);
+	        this.roles = this.convertValues(source["roles"], null);
 	        this.version = source["version"];
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];

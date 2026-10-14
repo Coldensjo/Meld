@@ -90,6 +90,15 @@ type Header struct {
 	Region *ClientRegion `json:"region,omitempty"`
 	// Vmangos is the server folder map this map publishes under. Optional.
 	Vmangos *VmangosFolder `json:"vmangos,omitempty"`
+	// Roles names the palette entries that play the rock and the dirt (-1 for none), which the
+	// Sculpt tool paints by slope. Optional; a map without them guesses from its texture names.
+	Roles *TextureRoles `json:"roles,omitempty"`
+}
+
+// TextureRoles are palette indices for the textures sculpting paints by slope.
+type TextureRoles struct {
+	Rock int `json:"rock"`
+	Dirt int `json:"dirt"`
 }
 
 // MapData is the bridge representation exchanged with the frontend.

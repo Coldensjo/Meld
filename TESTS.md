@@ -89,9 +89,13 @@ e.terrain.heightAt(180, 300)                  // then screenshot
 ```
 
 - `tick(dt)` scales by `dt`, so a fast scripted drag digs as little as a fast real one.
-- Sculpt's Paint texture: `ed.sculptPaint = true; ed.sculptPaintLayer = 1` before the stroke, then
-  `e.terrain.chunkSlots` holds texture 1 in the chunks under it and `e.terrain.weights` leans to it
-  where the ground rose; one `e.history.undo()` takes both the heights and the paint back.
+- Sculpt's painting while shaping: `ed.sculptPaint = 'texture'; ed.sculptPaintLayer = 1` before the
+  stroke, then `e.terrain.chunkSlots` holds texture 1 in the chunks under it and `e.terrain.weights`
+  leans to it where the ground rose; one `e.history.undo()` takes both the heights and the paint
+  back. `ed.sculptPaint = 'slope'` with `ed.roles = { rock: 3, dirt: 2 }` (a new world's defaults)
+  paints a Mountain stroke's steep sides with texture 3 and the band at its foot with texture 2,
+  while the flat ground outside keeps its paint: compare the dominant texture at the peak's flank,
+  at its foot and on the plain.
 - `e.history.undo()` then `e.frame()` checks the stroke's undo.
 
 ## Reproducing a user's view
