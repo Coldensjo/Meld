@@ -28,8 +28,8 @@ const MIN_FOOTPRINT = 0.8
  * The Doodad brush: while the button is held, the brush's models land at random points under it,
  * drawn by their weights, each sized, sunk and tilted as its entry says, and never closer to another
  * model than the brush's spacing allows. The falloff thins the placements toward the edge, and the
- * strength sets how fast they come. Ctrl+drag erases the brush's models under it instead. A stroke
- * is one undo step.
+ * strength sets how fast they come. With Shift held the spacing is ignored, so models stack on top
+ * of each other. Ctrl+drag erases the brush's models under it instead. A stroke is one undo step.
  */
 export class DoodadBrushTool implements Tool {
   readonly usesBrush = true
@@ -38,6 +38,8 @@ export class DoodadBrushTool implements Tool {
   /** The object layer the stroke started on: undo must restore that map, not whichever tab is active then. */
   private objects: ObjectLayer | null = null
   private acc = 0
+  /** Shift is held: placements ignore the spacing and pile up. Read on every pointer event. */
+  private stacking = false
   private point = new Float32Array(2)
   /** The models already standing near the brush this tick: x, z and footprint each. */
   private near = new Float32Array(3 * 256)
@@ -54,6 +56,7 @@ export class DoodadBrushTool implements Tool {
       return
     }
     this.objects = ctx.objects
+    this.stacking = e.shiftKey
     if (e.ctrlKey) {
       this.erased = []
       this.erase(ctx, hit, brush)
@@ -67,6 +70,10 @@ export class DoodadBrushTool implements Tool {
     // The first placements land at once, so a click puts something down.
     this.acc = 1
     this.scatter(ctx, hit, brush, 0)
+  }
+
+  onMove(_ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
+    this.stacking = e.shiftKey
   }
 
   tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
@@ -149,7 +156,8 @@ export class DoodadBrushTool implements Tool {
     this.acc -= attempts
     // Models of a brush are at most a few yards wide; what stands a little beyond the brush still
     // keeps a placement at the edge away.
-    this.gatherNear(ctx, hit, radius + 8 * Math.max(1, brush.spacing))
+    if (this.stacking) this.nearCount = 0
+    else this.gatherNear(ctx, hit, radius + 8 * Math.max(1, brush.spacing))
     const t = ctx.terrain
     const sea = editor.doodad.avoidWater && editor.waterEnabled ? editor.waterLevel : -Infinity
     while (attempts-- > 0) {
@@ -163,7 +171,7 @@ export class DoodadBrushTool implements Tool {
       const e = brush.entries[i]
       const scale = e.scaleMin + Math.random() * (e.scaleMax - e.scaleMin)
       const size = this.footprint(e.type, scale)
-      if (!fits(x, z, size, brush.spacing, this.near, this.nearCount)) continue
+      if (!this.stacking && !fits(x, z, size, brush.spacing, this.near, this.nearCount)) continue
       const rotY = editor.doodad.randomRot ? Math.random() * Math.PI * 2 : 0
       let tilt: { tiltX?: number; tiltZ?: number } = {}
       if (editor.followGround) {
@@ -176,7 +184,7 @@ export class DoodadBrushTool implements Tool {
       }
       const o = ctx.objects.add({ type: e.type, x, z, yOff: e.sink, rotY, scale, ...tilt })
       this.placed!.push(o)
-      this.pushNear(x, z, size)
+      if (!this.stacking) this.pushNear(x, z, size)
     }
   }
 

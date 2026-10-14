@@ -251,7 +251,8 @@ e.history.undo(); e.objects.objects.size            // 0
 
 - Models load async; before the mesh arrives the placeholder's box sets the footprint, so the first
   stroke on a fresh page spaces by the placeholder. Place once, wait, undo, place again to compare.
-- An erase is `onDown` with `new PointerEvent('pointerdown', { ctrlKey: true })`.
+- An erase is `onDown` with `new PointerEvent('pointerdown', { ctrlKey: true })`; `shiftKey: true`
+  stacks (no spacing), so the count keeps growing with every tick instead of settling.
 - The editor window is `ui.brushEditor = true` (Edit brush… in the options bar, or Edit › Doodad
   Brushes…); a click on a tile adds the model, a ✓ badge marks the ones in the brush.
 - Trap: an `$effect` that reads a `$state` it also writes (the editor once read `all.length` before
