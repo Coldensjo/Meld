@@ -38,6 +38,9 @@ export class CameraController {
   arrowsBlocked: () => boolean = () => false
   /** When this returns true the wheel is left to the editor (e.g. Ctrl+scroll rotates a placement). */
   wheelBlocked: (e: WheelEvent) => boolean = () => false
+  /** A right-click that did not orbit (the pointer barely moved): the editor's context menu. */
+  onContextClick: (e: PointerEvent) => void = () => {}
+  private rightMoved = 0
 
   private keys = new Set<string>()
   private drag: 'orbit' | 'pan' | null = null
@@ -121,6 +124,7 @@ export class CameraController {
     else return
     e.preventDefault()
     this.last.set(e.clientX, e.clientY)
+    this.rightMoved = 0
     this.dom.setPointerCapture?.(e.pointerId)
     // Looking around hides the cursor and never runs into the screen's edge.
     if (e.button === 2) {
@@ -132,6 +136,7 @@ export class CameraController {
   private onMove = (e: PointerEvent) => {
     if (!this.drag) return
     const locked = document.pointerLockElement === this.dom
+    if (this.drag === 'orbit') this.rightMoved += Math.abs(e.movementX) + Math.abs(e.movementY)
     let dx = locked ? e.movementX : e.clientX - this.last.x
     let dy = locked ? e.movementY : e.clientY - this.last.y
     this.last.set(e.clientX, e.clientY)
@@ -173,9 +178,11 @@ export class CameraController {
   }
 
   private onUp = (e: PointerEvent) => {
+    const click = e.button === 2 && this.drag === 'orbit' && this.rightMoved < 4
     if ((e.button === 2 && this.drag === 'orbit') || (e.button === 1 && this.drag === 'pan')) this.drag = null
     if (e.button === 2 && document.pointerLockElement === this.dom) document.exitPointerLock()
     if (e.button === 2) this.endLook()
+    if (click) this.onContextClick(e)
   }
 
   private beginLook(e: PointerEvent) {

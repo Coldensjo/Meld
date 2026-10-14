@@ -10,6 +10,7 @@
   import AppDialogs from './components/AppDialogs.svelte'
   import CreatureEditor from './components/CreatureEditor.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
+  import ContextMenu from './components/ContextMenu.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { restoreSession, saveSession, startSessionSaving } from './lib/io/session'
   import { onMount } from 'svelte'
@@ -174,6 +175,7 @@
 
 <CreatureEditor />
 <AppDialogs />
+<ContextMenu />
 <DebugOverlay />
 {#if ui.showNewDialog}
   <NewMapDialog />

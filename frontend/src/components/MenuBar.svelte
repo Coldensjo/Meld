@@ -178,7 +178,7 @@
         { kind: 'check', label: 'NPCs', checked: prefs.showNpcs, toggle: () => (prefs.showNpcs = !prefs.showNpcs) },
         { kind: 'check', label: 'Game objects', checked: prefs.showGameObjects, toggle: () => (prefs.showGameObjects = !prefs.showGameObjects) },
         { kind: 'check', label: 'All creature paths', checked: prefs.showAllPaths, toggle: () => (prefs.showAllPaths = !prefs.showAllPaths) },
-        { kind: 'check', label: 'Open creatures on click', checked: prefs.creatureEditorOnClick, toggle: () => (prefs.creatureEditorOnClick = !prefs.creatureEditorOnClick) },
+        { kind: 'check', label: 'Open creatures on click (else right-click › Edit)', checked: prefs.creatureEditorOnClick, toggle: () => (prefs.creatureEditorOnClick = !prefs.creatureEditorOnClick) },
         { kind: 'check', label: 'Wireframe', checked: prefs.wireframe, toggle: () => (prefs.wireframe = !prefs.wireframe) },
       ],
     },

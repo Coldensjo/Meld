@@ -208,7 +208,7 @@ export const prefs = $state({
   /** Draw every creature's waypoint path, not only the selected one's. */
   showAllPaths: false,
   /** A click on a creature in the Select tool opens it in the creature editor. */
-  creatureEditorOnClick: true,
+  creatureEditorOnClick: false,
   renderScale: 1,
   viewDistance: 1,
   fog: true,
@@ -246,6 +246,16 @@ export const prefs = $state({
 })
 export type Prefs = typeof prefs
 
+/** An entry of the viewport's right-click menu: an action, or a separator. */
+export interface ContextItem {
+  label?: string
+  shortcut?: string
+  disabled?: boolean
+  danger?: boolean
+  separator?: boolean
+  run?: () => void
+}
+
 export const ui = $state({
   status: 'Ready',
   /** A short-lived notice drawn big over the viewport (e.g. the placement scale while Shift+scrolling); '' when none. */
@@ -263,6 +273,8 @@ export const ui = $state({
   maskActive: false,
   pasting: false,
   dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
+  /** The viewport's right-click menu: where it opens (CSS pixels) and what it offers; null when closed. */
+  contextMenu: null as { x: number; y: number; title?: string; items: ContextItem[] } | null,
   /** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */
   weaponPick: null as { key: string; slot: number } | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */

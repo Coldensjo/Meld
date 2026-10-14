@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
-import { docs, editor, setStatus, setViewportHint, stats, ui, wow, type Prefs, type ToolId } from '../state/editor.svelte'
+import { docs, editor, setStatus, setViewportHint, stats, ui, wow, type ContextItem, type Prefs, type ToolId } from '../state/editor.svelte'
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import type { adt, vmangos } from '../../../wailsjs/go/models'
@@ -265,6 +265,7 @@ export class Engine {
 
     this.controller.arrowsBlocked = () => this.canNudge()
     this.controller.wheelBlocked = (e) => editor.tool === 'place' && (e.ctrlKey || e.altKey || e.shiftKey)
+    this.controller.onContextClick = (e) => this.openContextMenu(e)
     this.scene.add(this.gizmo.group)
 
     this.bindPointer()
@@ -920,6 +921,41 @@ export class Engine {
   }
 
   /** Moves the camera to a spawn, in the active region's coordinates. */
+  /**
+   * A plain right-click: selects the creature, region object or placed model under the cursor and
+   * opens a menu of what can be done with it. On bare ground there is no menu.
+   */
+  private openContextMenu(e: PointerEvent) {
+    ui.contextMenu = null
+    this.updatePointer(e)
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    const items: ContextItem[] = []
+    let title = ''
+    const spawn = this.doc.spawnLayer.pick(this.raycaster)
+    if (spawn) {
+      if (editor.tool !== 'select') editor.tool = 'select'
+      selectSpawn(spawn)
+      const key = spawnKey(spawn)
+      title = `${spawn.name} (${spawn.kind === 'object' ? 'object' : 'creature'} ${spawn.entry})`
+      if (spawn.kind !== 'object') items.push({ label: 'Edit creature…', run: () => (ui.creatureEditor = { key, entry: spawn.entry }) })
+      items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
+      items.push({ separator: true }, { label: 'Delete spawn', shortcut: 'Del', danger: true, run: () => this.deleteSelectedSpawn() })
+    } else {
+      const id = this.objects.pick(this.raycaster)
+      const o = id !== null ? this.objects.objects.get(id) : undefined
+      if (!o) return
+      if (editor.tool !== 'select' && editor.tool !== 'place') editor.tool = 'select'
+      if (!editor.selectedIds.includes(o.id)) selectObjects(this.objects, [o.id])
+      const n = editor.selectedIds.length
+      title = n > 1 ? `${n} models` : displayName(o.type)
+      items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSelected() })
+      items.push({ label: 'Duplicate', shortcut: 'Ctrl+Shift+D', run: () => this.duplicateSelected() })
+      items.push({ label: 'Place more of this', run: () => pickModel(o) })
+      items.push({ separator: true }, { label: n > 1 ? 'Delete models' : 'Delete model', shortcut: 'Del', danger: true, run: () => this.deleteSelected() })
+    }
+    ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
+  }
+
   focusSpawn(s: vmangos.WorldSpawn) {
     this.controller.focus(s.x, s.z, 40)
   }
