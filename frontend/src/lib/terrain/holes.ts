@@ -102,3 +102,64 @@ export function countHoles(holes: Uint8Array, size: number, x0: number, z0: numb
   }
   return n
 }
+
+// ---- The holes' edges as walls (see tools/HoleWalls.ts) ----
+
+/** A straight run of hole boundary on grid line `line` (x = line for axis 'x', z = line for 'z'), over [from, to) along the other axis. The hole lies on `side` (-1 the lower coordinates, +1 the higher). */
+export interface Wall {
+  axis: 'x' | 'z'
+  line: number
+  from: number
+  to: number
+  side: -1 | 1
+}
+
+/** Walls from the hole bytes: every boundary edge between a hole cell and a ground cell, in maximal straight runs. */
+export function findWalls(holes: Uint8Array, size: number): Wall[] {
+  const walls: Wall[] = []
+  const hole = (x: number, z: number) => holes[z * size + x] !== HOLE_NONE
+  // Vertical lines x = L separate cells (L-1, z) and (L, z); horizontal lines z = L separate (x, L-1) and (x, L).
+  for (const axis of ['x', 'z'] as const) {
+    for (let line = 1; line < size; line++) {
+      let run: Wall | null = null
+      for (let t = 0; t < size; t++) {
+        const lo = axis === 'x' ? hole(line - 1, t) : hole(t, line - 1)
+        const hi = axis === 'x' ? hole(line, t) : hole(t, line)
+        const side: -1 | 1 | 0 = lo === hi ? 0 : lo ? -1 : 1
+        if (run && (side === 0 || side !== run.side)) {
+          walls.push(run)
+          run = null
+        }
+        if (side !== 0) {
+          if (run) run.to = t + 1
+          else run = { axis, line, from: t, to: t + 1, side }
+        }
+      }
+      if (run) walls.push(run)
+    }
+  }
+  return walls
+}
+
+/** A rect of cells, inclusive. */
+export interface CellRect {
+  x0: number
+  z0: number
+  x1: number
+  z1: number
+}
+
+/** The `depth` cells across wall `w` over its run: outward (into the ground) or inward (into the hole), clipped to the map. */
+export function bandOf(w: Wall, depth: number, outward: boolean, size: number): CellRect | null {
+  if (depth <= 0) return null
+  // The hole is on `side`; outward goes the other way.
+  const dir = outward ? -w.side : w.side
+  // The first cell across the line in direction dir: line for +1, line-1 for -1.
+  const first = dir === 1 ? w.line : w.line - 1
+  const last = first + dir * (depth - 1)
+  const a0 = Math.max(0, Math.min(first, last))
+  const a1 = Math.min(size - 1, Math.max(first, last))
+  if (a0 > a1) return null
+  return w.axis === 'x' ? { x0: a0, z0: w.from, x1: a1, z1: w.to - 1 } : { x0: w.from, z0: a0, x1: w.to - 1, z1: a1 }
+}
+

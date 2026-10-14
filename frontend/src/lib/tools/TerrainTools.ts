@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { holeTriangle, withTriangle } from '../terrain/holes'
+import { HoleWalls } from './HoleWalls'
 import { editor, setStatus, ui } from '../state/editor.svelte'
 import type { Command } from '../state/history'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
@@ -142,6 +143,9 @@ export class SculptTool extends BrushTool {
   /** Hole mode: whether this stroke restores ground (else it cuts), and the cell rect it touched. */
   private holeFilling = false
   private holeCell = { x0: 0, z0: 0, x1: 0, z1: 0 }
+  /** Hole mode's wall handles: drag an edge, + and − for single cells. */
+  private walls = new HoleWalls()
+  private wallsShown = false
   private flattenTarget = 0
   private scratch = new Float32Array(0)
 
@@ -180,6 +184,7 @@ export class SculptTool extends BrushTool {
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
     if (editor.sculptMode === 'hole') {
+      if (this.walls.onDown(ctx)) return
       if (!hit) return
       this.holeFilling = editor.holeFill !== !!e?.shiftKey
       this.stroke = new TerrainStroke(ctx.terrain, this.holeFilling ? 'Fill hole' : 'Cut hole', { holes: true })
@@ -194,7 +199,8 @@ export class SculptTool extends BrushTool {
 
   tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
     if (editor.sculptMode === 'hole') {
-      if (this.stroke && hit) this.paintHole(ctx, hit)
+      if (this.walls.active) this.walls.onMove(ctx)
+      else if (this.stroke && hit) this.paintHole(ctx, hit)
       return
     }
     super.tick(ctx, dt, hit)
@@ -232,6 +238,7 @@ export class SculptTool extends BrushTool {
   }
 
   onUp(ctx: ToolContext) {
+    this.walls.onUp(ctx)
     super.onUp(ctx)
     if (editor.sculptMode === 'vertex' && !this.moving) {
       const sel = this.selection(ctx.terrain)
@@ -241,6 +248,14 @@ export class SculptTool extends BrushTool {
   }
 
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    // The hole walls show in Hole mode only.
+    const hole = editor.sculptMode === 'hole'
+    if (hole !== this.wallsShown) {
+      this.wallsShown = hole
+      if (hole) this.walls.attach(ctx.scene)
+      else this.walls.detach(ctx.scene)
+    }
+    if (hole) this.walls.frame(ctx)
     if (hit) {
       this.cursor.copy(hit)
       this.hasCursor = true
@@ -253,6 +268,8 @@ export class SculptTool extends BrushTool {
 
   deactivate(ctx: ToolContext) {
     this.drawMarkers(ctx, null)
+    this.walls.detach(ctx.scene)
+    this.wallsShown = false
   }
 
   onKey(ctx: ToolContext, e: KeyboardEvent) {

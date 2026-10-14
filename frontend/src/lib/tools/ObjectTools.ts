@@ -9,6 +9,7 @@ import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
 import { hasSkeleton, modelMesh } from '../world/Animator'
+import { HoleWalls } from './HoleWalls'
 import { spawnKey } from '../world/SpawnLayer'
 import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
 
@@ -302,8 +303,12 @@ export class SelectTool implements Tool {
     this.ghostGroup.renderOrder = 20
   }
 
+  /** The holes' edges as handles: drag one to move it, + and − for single cells. */
+  private walls = new HoleWalls()
+
   activate(ctx: ToolContext) {
     ctx.scene.add(this.ghostGroup)
+    this.walls.attach(ctx.scene)
   }
 
   private cell(ctx: ToolContext, hit: THREE.Vector3): Cell {
@@ -319,6 +324,7 @@ export class SelectTool implements Tool {
     this.rectStart = null
     this.dragging = null
     ctx.scene.remove(this.ghostGroup)
+    this.walls.detach(ctx.scene)
     if (ui.pasting) this.hooks.cancelPaste()
   }
 
@@ -377,6 +383,8 @@ export class SelectTool implements Tool {
       this.pressObject(ctx, id, hit, e.shiftKey)
       return
     }
+    // A hole's edge under the cursor: the press moves it or cuts/fills a cell at it.
+    if (this.walls.onDown(ctx)) return
     if (ui.placeCreature) {
       // Shift keeps placing the same creature; a plain click places one and stops.
       const surf = ctx.surface()
@@ -478,6 +486,10 @@ export class SelectTool implements Tool {
   }
 
   onMove(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    if (this.walls.active) {
+      this.walls.onMove(ctx)
+      return
+    }
     const pd = this.pointDrag
     if (pd) {
       const s = ctx.spawns.get(pd.key)
@@ -551,6 +563,7 @@ export class SelectTool implements Tool {
   }
 
   onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
+    this.walls.onUp(ctx)
     const pd = this.pointDrag
     this.pointDrag = null
     if (pd) {
@@ -607,6 +620,7 @@ export class SelectTool implements Tool {
   }
 
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    this.walls.frame(ctx)
     const clip = ui.pasting ? this.hooks.objectClip() : null
     if (clip) {
       // Models paste onto the ground under the cursor (buildings included, since the ray stops there).

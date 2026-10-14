@@ -214,6 +214,7 @@ export class TerrainStroke {
   touchHoles(r: Rect | null) {
     this.late(this.holesBefore, r, 'holes')
     this.holesRect = grow(this.holesRect, r)
+    this.terrain.touchHoles()
   }
 
   touchMask(r: Rect | null) {
@@ -308,6 +309,7 @@ export class TerrainStroke {
       parts.push({
         apply: (b) => {
           inject(t.holes, n, 1, r, b ? before : after)
+          t.touchHoles()
           // The chunk rebuild runs off vertices; a cell's far corner is one past it.
           t.markDirty(r.x0, r.z0, r.x1 + 1, r.z1 + 1)
         },

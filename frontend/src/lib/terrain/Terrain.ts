@@ -38,8 +38,10 @@ export class Terrain {
   /** Paint chunks along one side of the map. */
   readonly paintChunksPerSide: number
   readonly heights: Float32Array
-  /** One byte per cell: 1 where the ground is cut out (see holes.ts). A hole draws nothing and isn't picked. */
+  /** One byte per cell: non-zero where the ground is cut out (see holes.ts). A hole draws nothing and isn't picked. */
   readonly holes: Uint8Array
+  /** Counts the edits of `holes`, so a view of them (the hole walls) knows when to rebuild. */
+  holesVersion = 0
   /** SLOTS weights per splat texel, for the chunk's slots; each texel sums to 255. */
   readonly weights: Uint8Array
   /** SLOTS palette indices per paint chunk (NO_TEXTURE for an empty slot). */
@@ -212,6 +214,11 @@ export class Terrain {
   }
 
   /** Mark a vertex-space rect (inclusive) as changed. */
+  /** Says `holes` changed (every writer of it calls this, TerrainStroke for the undoable ones). */
+  touchHoles() {
+    this.holesVersion++
+  }
+
   markDirty(x0: number, z0: number, x1: number, z1: number) {
     const d = this.dirty
     d.x0 = Math.min(d.x0, x0 - 1)

@@ -155,6 +155,24 @@ t.holes[cz * t.size + cx]                                          // 2 or 3; e.
   down at it to see the floor through it. A point exactly on a cell's diagonal (0.8, 0.8 of an even
   cell) can land in either triangle, so probe away from it.
 
+## Hole walls (drag an edge, + and − badges)
+
+Checks: `lib/tools/HoleWalls.ts` (the Select tool and Sculpt › Hole show them). Unit tests of the
+wall finder and the band maths: `tests/holeWalls.test.ts`. In the dev page, driving the Select
+tool with the engine's raycaster (set its camera, which `setFromCamera` normally does):
+
+```js
+const e = __engine, t = e.terrain, cs = t.cellSize, walls = e.tools.select.walls, tool = e.tools.select
+e.raycaster.camera = e.camera; const ray = e.raycaster.ray; ray.direction.set(0, -1, 0)
+ray.origin.set(44 * cs + 0.1, 60, 41.5 * cs); walls.frame(e.ctx)      // hover the wall on line x = 44
+tool.onDown(e.ctx, null, {}); ray.origin.x = 46 * cs; walls.frame(e.ctx); tool.onMove(e.ctx, null); tool.onUp(e.ctx, null, {})
+const m = walls.minus.position; ray.origin.set(m.x, m.y + 30, m.z); walls.frame(e.ctx); tool.onDown(e.ctx, null, {}); tool.onUp(e.ctx, null, {})
+```
+
+- Traps: a badge click changes the walls, so re-hover before the next one (the wall may have moved
+  a cell). The session restore opens the user's own map: undo every test edit (`e.undo()`) before
+  leaving.
+
 ## Dock panels (Layers, Properties)
 
 Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the
