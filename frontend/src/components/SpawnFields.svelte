@@ -6,6 +6,7 @@
   import { spawnKey } from '../lib/world/SpawnLayer'
   import { SpawnEmotes } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
+  import { loadWeapons, SLOTS } from './WeaponPicker.svelte'
 
   // The fields of one spawn the editor changes: placement, respawn time, movement, path, look and
   // pose. The Spawns panel and the creature editor both show them; every change is one undo step.
@@ -26,6 +27,23 @@
       .then((list) => (emotes = (list ?? []).filter((e) => e.name.toUpperCase().includes('STATE'))))
       .catch(() => (emotesAsked = false))
   })
+  // The names of the items a creature holds, from the world database's holdable items (read once).
+  let weaponNames = $state<Map<number, string>>(new Map())
+  let weaponsAsked = false
+  $effect(() => {
+    if (weaponsAsked || !creature) return
+    weaponsAsked = true
+    loadWeapons()
+      .then((list) => (weaponNames = new Map(list.map((w) => [w.entry, w.name]))))
+      .catch(() => (weaponsAsked = false))
+  })
+  const itemName = (entry: number) => (entry ? (weaponNames.get(entry) ?? `Item ${entry}`).replace(/^monster\s*-\s*/i, '') : 'None')
+  /** Opens the gear picker for a slot of this spawn. */
+  function chooseWeapon(slot: number) {
+    ui.weaponPick = { key: spawnKey(s), slot }
+    ui.dialog = 'weapon'
+  }
+
   const emoteName = (n: string) =>
     n
       .replace(/^(ONESHOT|STATE)_/i, '')
@@ -145,7 +163,15 @@
     <h4>Look and pose</h4>
     <div class="fields">
       <label>Display <input type="number" min="0" value={s.display} onchange={(e) => { const v = int(e); if (v !== null) edit({ display: Math.max(0, v) }, 'Display') }} /></label>
-      <label>Equipment <input type="number" min="0" value={s.equipment} onchange={(e) => { const v = int(e); if (v !== null) edit({ equipment: Math.max(0, v) }, 'Equipment') }} /></label>
+      <div class="wide gear">
+        <span class="dim">Gear{s.equipment ? ` (equipment ${s.equipment})` : ''}</span>
+        {#each SLOTS as slot, i (slot)}
+          <button class="slot" title="Choose what goes in the {slot.toLowerCase()}" onclick={() => chooseWeapon(i)}>
+            <span class="dim">{slot}</span>
+            <span class="item" class:none={!s.equipItems?.[i]}>{itemName(s.equipItems?.[i] ?? 0)}</span>
+          </button>
+        {/each}
+      </div>
       <label
         >Stance
         <select value={s.standState} onchange={(e) => edit({ standState: selectNum(e) }, 'Stance')}>
@@ -234,6 +260,27 @@
   .row-buttons {
     display: flex;
     gap: 6px;
+  }
+  .gear {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .gear .slot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    text-align: left;
+    padding: 3px 8px;
+  }
+  .gear .item {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gear .item.none {
+    color: var(--text-dim);
+    font-style: italic;
   }
   .dim {
     color: var(--text-dim);

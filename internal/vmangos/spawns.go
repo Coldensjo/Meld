@@ -67,6 +67,9 @@ type WorldSpawn struct {
 	// looping emote and sheath state (creature_addon, else the defaults), and how it moves
 	// (MovementType: 0 idle, 1 random within WanderDistance, 2 waypoints). Zero for an object.
 	Equipment      int     `json:"equipment"`
+	// EquipItems are the equipment's items (item_template entries): main hand, off hand, ranged;
+	// 0 for an empty slot.
+	EquipItems     [3]int  `json:"equipItems"`
 	StandState     int     `json:"standState"`
 	EmoteState     int     `json:"emoteState"`
 	SheathState    int     `json:"sheathState"`
@@ -318,7 +321,12 @@ func readEquipment(db worldDB, rows []spawnRow) (map[int][3]heldItem, error) {
 		}
 	}
 	for id, it := range items {
-		out[id] = [3]heldItem{held[it[0]], held[it[1]], held[it[2]]}
+		var slots [3]heldItem
+		for k, entry := range it {
+			slots[k] = held[entry]
+			slots[k].entry = entry
+		}
+		out[id] = slots
 	}
 	return out, nil
 }
@@ -384,6 +392,9 @@ func regionSpawn(s spawnRow, x, y int, tables *modelTables, weapons [3]heldItem)
 	}
 	if s.addonDisplay != 0 {
 		out.Display = int(s.addonDisplay)
+	}
+	for k, w := range weapons {
+		out.EquipItems[k] = w.entry
 	}
 	look := tables.creatureLook(uint32(out.Display), gear{weapons: weapons, sheath: s.SheathState, stand: s.StandState, emote: s.EmoteState})
 	out.Model = look.model

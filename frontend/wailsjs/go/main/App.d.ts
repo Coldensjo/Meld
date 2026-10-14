@@ -15,11 +15,17 @@ export function ClearThumbnailCache():Promise<void>;
 
 export function CreateCreature(arg1:number,arg2:string):Promise<number>;
 
+export function EquipmentFor(arg1:any):Promise<number>;
+
+export function EquipmentItems(arg1:number):Promise<any>;
+
 export function GameLogin():Promise<main.GameLoginInfo>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
 export function ListDisplays():Promise<Array<vmangos.DisplayEntry>>;
+
+export function ListWeapons():Promise<Array<vmangos.WeaponEntry>>;
 
 export function LoadMap(arg1:string):Promise<mapfile.MapData>;
 

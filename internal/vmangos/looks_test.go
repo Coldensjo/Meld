@@ -193,10 +193,10 @@ func TestReadEquipment(t *testing.T) {
 	if !strings.Contains(queries[0], "IN (7, 8)") {
 		t.Fatalf("an object's equipment must not be read: %s", queries[0])
 	}
-	if want := [3]heldItem{{500, 13}, {501, invShield}, {}}; got[7] != want {
+	if want := [3]heldItem{{1001, 500, 13}, {1002, 501, invShield}, {}}; got[7] != want {
 		t.Fatalf("equipment 7: %+v, want %+v", got[7], want)
 	}
-	if want := [3]heldItem{{500, 13}, {}, {502, invRanged}}; got[8] != want {
+	if want := [3]heldItem{{1001, 500, 13}, {}, {1003, 502, invRanged}}; got[8] != want {
 		t.Fatalf("equipment 8: %+v, want %+v", got[8], want)
 	}
 }

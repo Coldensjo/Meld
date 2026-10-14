@@ -2,6 +2,9 @@
   import Modal from './Modal.svelte'
   import GameLoginDialog from './GameLoginDialog.svelte'
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
+  import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
+  import { EquipmentFor } from '../../wailsjs/go/main/App'
+  import { setStatus } from '../lib/state/editor.svelte'
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
@@ -9,6 +12,30 @@
   import { APP_VERSION } from '../lib/version'
 
   const close = () => (ui.dialog = null)
+
+  /** The spawn the weapon dialog is for, in the active map. */
+  const weaponSpawn = $derived.by(() => {
+    const p = ui.weaponPick
+    return p ? (engineRef.current?.activeDocument().spawnLayer.get(p.key) ?? null) : null
+  })
+
+  /** Puts item `entry` (0 for none) in the dialog's slot: the equipment template with those items becomes the spawn's. */
+  async function pickWeapon(entry: number) {
+    const p = ui.weaponPick
+    const s = weaponSpawn
+    const engine = engineRef.current
+    if (!p || !s || !engine) return close()
+    const items = [...(s.equipItems ?? [0, 0, 0])] as number[]
+    while (items.length < 3) items.push(0)
+    items[p.slot] = entry
+    close()
+    try {
+      const equipment = await EquipmentFor(items)
+      await engine.editSpawn(p.key, { equipment, equipItems: items }, `${SLOTS[p.slot]} (${s.name})`)
+    } catch (err) {
+      setStatus(`Equipping failed: ${err}`, 8000)
+    }
+  }
 
   // The texture dialog's choices: palette indices.
   let texFrom = $state(0)
@@ -209,6 +236,10 @@
         }}>Replace</button
       >
     {/snippet}
+  </Modal>
+{:else if ui.dialog === 'weapon' && ui.weaponPick}
+  <Modal title="{SLOTS[ui.weaponPick.slot]}{weaponSpawn ? ` of ${weaponSpawn.name}` : ''}" width={720} onclose={close}>
+    <WeaponPicker which={ui.weaponPick.slot} selected={weaponSpawn?.equipItems?.[ui.weaponPick.slot] ?? 0} onpick={pickWeapon} />
   </Modal>
 {:else if ui.dialog === 'mapProps'}
   <MapPropertiesDialog onclose={close} />

@@ -764,6 +764,7 @@ export namespace vmangos {
 	    scale: number;
 	    displayScale: number;
 	    equipment: number;
+	    equipItems: number[];
 	    standState: number;
 	    emoteState: number;
 	    sheathState: number;
@@ -802,6 +803,7 @@ export namespace vmangos {
 	        this.scale = source["scale"];
 	        this.displayScale = source["displayScale"];
 	        this.equipment = source["equipment"];
+	        this.equipItems = source["equipItems"];
 	        this.standState = source["standState"];
 	        this.emoteState = source["emoteState"];
 	        this.sheathState = source["sheathState"];
@@ -868,6 +870,34 @@ export namespace vmangos {
 	
 	
 	
+	export class WeaponEntry {
+	    entry: number;
+	    name: string;
+	    display: number;
+	    invType: number;
+	    quality: number;
+	    class: number;
+	    subclass: number;
+	    model: string;
+	    texture: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WeaponEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.entry = source["entry"];
+	        this.name = source["name"];
+	        this.display = source["display"];
+	        this.invType = source["invType"];
+	        this.quality = source["quality"];
+	        this.class = source["class"];
+	        this.subclass = source["subclass"];
+	        this.model = source["model"];
+	        this.texture = source["texture"];
+	    }
+	}
 	
 	export class Zone {
 	    MapID: number;

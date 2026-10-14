@@ -260,7 +260,9 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'gameLogin' | 'saveSpawns' | 'mapProps' | null,
+  dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
+  /** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */
+  weaponPick: null as { key: string; slot: number } | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */
   closeDocId: 0,
   /** Which palette the left panel shows. */

@@ -19,6 +19,7 @@ export type SpawnFields = Partial<
     | 'wanderDistance'
     | 'display'
     | 'equipment'
+    | 'equipItems'
     | 'standState'
     | 'emoteState'
     | 'sheathState'

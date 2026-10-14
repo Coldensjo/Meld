@@ -87,6 +87,7 @@ type gear struct {
 
 // heldItem is an item a creature holds: its display and its inventory type.
 type heldItem struct {
+	entry   int
 	display uint32
 	invType int
 }
@@ -389,17 +390,11 @@ func (m *modelTables) holdWeapons(out *creatureDisplay, g gear) {
 // attach holds the item model name, in folder dir, at a point, with the texture of that name from
 // the same folder. A slot with no model is skipped.
 func (d *creatureDisplay) attach(point int, name, dir, texture string) {
-	if name == "" {
+	model, tex := itemPaths(name, dir, texture)
+	if model == "" {
 		return
 	}
-	if texture != "" {
-		texture = dir + texture + ".blp"
-	}
-	model := name
-	if !strings.HasPrefix(strings.ToLower(name), `item\`) {
-		model = dir + name
-	}
-	d.look.Attach = append(d.look.Attach, wow.Attachment{Point: point, Model: model, Texture: texture})
+	d.look.Attach = append(d.look.Attach, wow.Attachment{Point: point, Model: model, Texture: tex})
 }
 
 // item is the ItemDisplayInfo row of a display. ok is false for no item, or a display the

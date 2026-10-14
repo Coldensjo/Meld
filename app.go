@@ -343,6 +343,34 @@ func (a *App) SpawnLook(display, equipment, stand, emote, sheath int) (vmangos.L
 	return vmangos.CreatureLook(server, dataDir, display, equipment, stand, emote, sheath)
 }
 
+// ListWeapons lists every item of the world database a creature can hold, for the gear picker.
+func (a *App) ListWeapons() ([]vmangos.WeaponEntry, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ListWeapons(server, dataDir)
+}
+
+// EquipmentItems are the main hand, off hand and ranged items of an equipment template.
+func (a *App) EquipmentItems(id int) ([3]int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return [3]int{}, err
+	}
+	return vmangos.EquipmentItems(server, id)
+}
+
+// EquipmentFor is the equipment template with these items (main hand, off hand, ranged), made
+// in the world database when none has them; 0 for none.
+func (a *App) EquipmentFor(items [3]int) (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.EquipmentFor(server, items)
+}
+
 // SpawnEmotes lists the client's emotes, for picking a spawn's looping emote.
 func (a *App) SpawnEmotes() ([]vmangos.Emote, error) {
 	dataDir, err := a.clientDataDir()

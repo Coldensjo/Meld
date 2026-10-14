@@ -116,6 +116,26 @@ location.reload()                                  // then, after ~6 s: editor.r
 - The dev page writes the real config.json, so the user's own app will also open that region next.
   The target's y differs a little after a restore because the camera target rides on the ground.
 
+## Gear picker (a spawn's main hand, off hand and ranged items)
+
+Checks: `WeaponPicker.svelte` and the `ListWeapons` / `EquipmentFor` / `EquipmentItems` bindings. The
+world database must be up (the picker reads item_template and writes creature_equip_template).
+
+```js
+const ed = await import('<editor.svelte.ts URL>'), se = await import('<spawnEdits.ts URL>')
+const layer = __engine.activeDocument().spawnLayer; const s = layer.get('monster/106001')   // a Southsea Pirate
+ed.editor.tool = 'select'; se.selectSpawn(s)
+ed.ui.weaponPick = { key: 'monster/106001', slot: 1 }; ed.ui.dialog = 'weapon'   // 0 main hand, 1 off hand, 2 ranged
+// then click a tile (or document.querySelector('[data-ui="WeaponPicker"] .tile').click())
+layer.get('monster/106001').equipment, .equipItems, decodeURIComponent(look).match(/att=1:[^&]*/)
+await window.go.main.App.EquipmentFor([14643, 1897, 0])   // finds or makes a template; run twice, same id
+```
+
+- Traps: thumbnails only render while frames run (`__engine.frame()` in a loop with short
+  waits). `EquipmentFor` writes a creature_equip_template row for a new item combination, after
+  the highest entry (987002 on this database): delete it again after a test, with its items in
+  the WHERE clause. `editor.spawns` is a snapshot; read the layer's spawn for the edited state.
+
 ## Dock panels (Layers, Properties)
 
 Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the

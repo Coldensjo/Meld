@@ -22,6 +22,14 @@ export function CreateCreature(arg1, arg2) {
   return window['go']['main']['App']['CreateCreature'](arg1, arg2);
 }
 
+export function EquipmentFor(arg1) {
+  return window['go']['main']['App']['EquipmentFor'](arg1);
+}
+
+export function EquipmentItems(arg1) {
+  return window['go']['main']['App']['EquipmentItems'](arg1);
+}
+
 export function GameLogin() {
   return window['go']['main']['App']['GameLogin']();
 }
@@ -32,6 +40,10 @@ export function InstallMapPatch(arg1) {
 
 export function ListDisplays() {
   return window['go']['main']['App']['ListDisplays']();
+}
+
+export function ListWeapons() {
+  return window['go']['main']['App']['ListWeapons']();
 }
 
 export function LoadMap(arg1) {
