@@ -122,7 +122,7 @@
 {#if open && onextend}
   {#each SIDES.filter((s) => growable.includes(s.side)) as s (s.side)}
     {@const at = plusAt(s.side)}
-    <button class="plus" style:left="{at.left}%" style:top="{at.top}%" title="Add the tiles to the {s.name} ({open.size + 1}×{open.size + 1} tiles)" aria-label="Add the tiles to the {s.name}" onclick={() => onextend(s.side)}>+</button>
+    <button class="plus {s.side}" style:left="{at.left}%" style:top="{at.top}%" title="Add the tiles to the {s.name} ({open.size + 1}×{open.size + 1} tiles)" aria-label="Add the tiles to the {s.name}" onclick={() => onextend(s.side)}>+</button>
   {/each}
 {/if}
 </div>
@@ -147,6 +147,19 @@
     line-height: 16px;
     text-align: center;
     cursor: pointer;
+  }
+  /* Each plus sits just outside its side, so a one-tile block has them around it like a compass. */
+  .plus.n {
+    transform: translate(-50%, calc(-100% - 2px));
+  }
+  .plus.s {
+    transform: translate(-50%, 2px);
+  }
+  .plus.e {
+    transform: translate(2px, -50%);
+  }
+  .plus.w {
+    transform: translate(calc(-100% - 2px), -50%);
   }
   .plus:hover {
     background: #ffd27a;
