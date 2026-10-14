@@ -378,13 +378,14 @@ export class SelectTool implements Tool {
       this.hooks.commitPaste()
       return
     }
+    // A hole's edge or badge under the cursor comes before a model over it: the edge is lit up, so
+    // the intent is clear, and the press moves the edge or cuts/fills a cell at it.
+    if (this.walls.onDown(ctx)) return
     const id = ctx.objects.pick(ctx.raycaster)
     if (id !== null) {
       this.pressObject(ctx, id, hit, e.shiftKey)
       return
     }
-    // A hole's edge under the cursor: the press moves it or cuts/fills a cell at it.
-    if (this.walls.onDown(ctx)) return
     if (ui.placeCreature) {
       // Shift keeps placing the same creature; a plain click places one and stops.
       const surf = ctx.surface()
