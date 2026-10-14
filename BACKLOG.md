@@ -15,65 +15,61 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 ## Bugs and broken things (always first)
 
-- [ ] B-102 **Mask paint mode has no switch**: `paintMode` can be `mask`, but the Paint options have no control for it, so the mask strokes and the Layers panel's Fill mask button can't be reached · Source: loop: B-011 · M/S · found while adding the Swap switch to the same place; the owner may want the mask kept or removed
-- [ ] B-103 **Emptied texture slots stay assigned**: a slot whose weight reaches zero stays on its chunk, so the chunk can hit the four-texture limit with a texture it no longer shows · Source: loop: B-011 · M/S · Clear textures does the same; a pass over the touched chunks at stroke end would fix both
+- [ ] B-118 **Re-home what the dropped dock panels did**: the dock keeps only Layers (owner, 2026-10-15), so growing a region by a tile (the Map panel's plus), Save to database and Export SQL for spawns, and typing exact numbers for a model's placement have no entry point · Source: owner · M/S · the components are still in the code; decide where each goes (menus, options bar, a dialog)
 
 ## Terrain sculpting and painting
 
-- [ ] B-003 **Vertex edit mode**: raise or lower one vertex · gap §1 · M/M · fine detail · left open in the 2026-10-11 loop run: "oriented from the mouse or from the selection centre" is not defined, so the owner needs to say what the orientation means
 - [ ] B-004 **Separate Blur tool** · gap §1 · L/S · Smooth already covers most of it
-- [ ] B-005 **Tablet pressure** mapped to radius or speed · gap §1 · M/M · opt-in setting · left open in the 2026-10-11 loop run: the gap doc names radius or speed and one on/off setting, so the owner needs to pick which, and what a mouse (no pressure) should do
-- [ ] B-006 **Chunk Mover**: drag a chunk with its heights and objects · gap §1 · M/L
-- [ ] B-007 **Clear tool: height, liquids, holes, shadows, vertex colours, impassable** · gap §1 · M/L · models and textures are done, these are not
-- [ ] B-008 **Seam fix** for gaps between chunks · gap §1 · M/M · check whether a gap still shows first · left open in the 2026-10-11 loop run: the render chunks share one height array and their edge vertices, so the code gives no seam to fix; an in-app check is needed to confirm whether one shows
+- [ ] B-006 **Chunk Mover**: drag a chunk with its heights and objects · gap §1 · M/L · effort L (confirmed in the 2026-10-12 loop run): moves chunk data and objects across the grid, too large to finish in one loop item
+- [ ] B-007 **Clear tool: height, liquids, holes, shadows, vertex colours, impassable** · gap §1 · M/L · models and textures are done, these are not · left open in the 2026-10-12 loop run: liquids have no per-cell data to clear, and holes, shadows, vertex colours and impassable need format fields (see B-055 to B-058)
 - [ ] B-009 **Terrain-projected and sphere cursor shapes** · gap §1 · L/M · unverified against the current outline
-- [ ] B-010 **Spray mode**: pressure-based brush · gap §2 · M/S · left open in the 2026-10-11 loop run: the mode is defined by pen pressure, which depends on B-005
-- [ ] B-012 **Remove duplicate texture layers** per tile · gap §2 · M/S · left open in the 2026-10-11 loop run: the paint model can't add a texture to a chunk twice, so a check on imported tiles is needed to see whether duplicates ever occur
 - [ ] B-013 **Show unpaintable chunks** overlay · gap §2 · L/S
 - [ ] B-014 **Animated texture layers** with speed · gap §2 · L/M
 - [ ] B-015 **Overbright** option · gap §2 · L/S · unverified: effect unclear
 - [ ] B-016 **Alphamap 8-bit / 4-bit conversion** · gap §2 · L/L · client format, check the 1.12 path covers it · needs-approval
 - [ ] B-017 **Undockable quick texture palette** · gap §2 · L/M
-- [ ] B-018 **Flatten: linear, smooth and smooth-inner targets**: the rest of the gap §1 flatten variants · Source: loop: B-002 · M/M · left out of B-002 to keep it to the variants the current flatten mode can hold · left unfinished in the 2026-10-11 run: the gap doc doesn't define these three modes (linear needs a stroke direction), so the owner needs to confirm what each does
+- [x] B-111 **Paint while sculpting, and texture roles**: Sculpt paints one texture or the map's rock and dirt by slope as it shapes the ground; roles are guessed from texture names and set in Map Properties · Source: owner · H/M · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
+- [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
+- [x] B-116 **Sculpt strength up to 10** · Source: owner · M/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session)
+- [ ] B-119 **By-slope painting: restore the base on ground that flattens again**: lowering a hill leaves its rock painted; an option to paint the base role back under the dirt angle · Source: loop: B-111 · L/S · off by default, since it would erase roads and details under the brush
 
 ## Water
 
-- [ ] B-020 **Multiple liquid types** with a liquid ID each · gap §3 · M/M · the 1.12 writer already writes water
-- [ ] B-021 **Crop water** in a region · gap §3 · M/S
-- [ ] B-022 **Cursor intersects liquids** (brush picks the water surface) · gap §3 · M/S
-- [ ] B-023 **Lock setting** for the liquid layer · gap §3 · L/S
-- [ ] B-024 **Angled river mode** for flowing water · gap §3 · M/M
-- [ ] B-025 **Opacity modes** (auto, river, ocean, custom) · gap §3 · L/M
+- [x] B-020 **Multiple liquid types** with a liquid ID each · gap §3 · M/M · done: the Water tool's Paint mode paints LiquidType IDs (water, ocean, magma, slime) into per-chunk layers, `.wmap` version 4 (see CLAUDE.md, Water)
+- [x] B-021 **Crop water** in a region · gap §3 · M/S · done: Crop water in the Water tool's options bar (`Engine.cropWater`)
+- [x] B-022 **Cursor intersects liquids** (brush picks the water surface) · gap §3 · M/S · done: the Water tool's "On liquids" switch
+- [x] B-023 **Lock setting** for the liquid layer · gap §3 · L/S · done: Lock with Alt+click in the Water tool
+- [x] B-024 **Angled river mode** for flowing water · gap §3 · M/M · done: Angled with angle and direction in the Water tool
+- [x] B-025 **Opacity modes** (auto, river, ocean, custom) · gap §3 · L/M · done: the Water tool's Opacity select
 - [ ] B-026 **Water layers** with a current-layer selector · gap §3 · L/L · needs-approval
-- [ ] B-027 **MCLQ export**: check first whether the tile writer already covers it · gap §3 · M/S
 
 ## Objects (props)
 
-- [ ] B-030 **Follow-ground rotation**: tilt to the terrain normal · gap §4 · M/M
-- [ ] B-031 **Rotate around a pivot** for single and multi-selection · gap §4 · M/M · left open in the 2026-10-11 loop run: the pivot point isn't defined (selection centre, cursor or each model's origin)
-- [ ] B-032 **Multi-selection move mode** with local or world gizmo · gap §4 · M/M
-- [ ] B-033 **Selective paste** (only rotation, tilt or scale) · gap §4 · M/S · left open in the 2026-10-11 loop run: the gap doc names the options but not what the unchosen fields get on paste
-- [ ] B-034 **Hide models**, with a toggle to show hidden ones · gap §4 · M/M · left open in the 2026-10-11 loop run: not defined whether the hidden list lasts only for the session or is saved in the map file
+- [ ] B-031 **Rotate around a pivot** for single and multi-selection · gap §4 · M/M · left open in the 2026-10-11 loop run: decided in IDEAS.md: pivot is the mean position of the selection, behind a "Rotate around pivot point" checkbox, on by default · needs multi-selection (B-032) first: a single model always turns about its own origin, so there is nothing to pivot yet
+- [ ] B-032 **Multi-selection move mode** with local or world gizmo · gap §4 · M/L · effort re-estimated to L in the 2026-10-12 loop run: the selection is one object (`editor.selected`) through the Engine, tools, gizmo and nudging, so a selection set touches all of them
+- [ ] B-105 **Hide a model with its attachments**: H hides only the selected object, so props attached to it stay drawn in mid-air · Source: loop: B-034 · L/S · may be what an author expects; check with the owner
 - [ ] B-036 **Reset rotation** menu item (Ctrl+R) · gap §4 · L/S · unverified: may already exist
-- [ ] B-037 **Mouse-move snap modes**: follow cursor vs snap to ground · gap §4 · M/S · left open in the 2026-10-11 loop run: the gap doc doesn't say how the two modes differ on mouse move
+- [ ] B-037 **Mouse-move snap**: two checkboxes, follow cursor for a single model and snap to ground for a group · gap §4 · M/S · decided in IDEAS.md (noggit3) · left open in the 2026-10-12 loop run: the "off" single-model drag needs a camera-facing plane and the owner's rule for a parented model, and the group checkbox needs multi-selection (B-032), which the app doesn't have yet
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
-- [ ] B-039 **Rotate-following-cursor** mode · gap §4 · L/M
 - [ ] B-040 **Helper models**: reference models as visual aids · gap §4 · L/M
+- [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
+- [ ] B-120 **Doodad brush: slope and surface rules**: keep models off ground steeper than an angle, and let a brush place onto props (attach) as the Place tool does · Source: loop: B-110 · M/M · the brush only reads the terrain now
 
 ## Map, client and server
 
 - [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large)
-- [ ] B-051 **Tile-level save**: current tile or changed tiles only · gap §5 · H/M
-- [ ] B-052 **Reload tile from disk** · gap §5 · M/S · not started in the 2026-10-11 loop run: the reload has to re-read the tile's objects and paint too, so it is larger than S/M
-- [ ] B-053 **Port coordinates export** (TrinityCore / ArcEmu / VMaNGOS style) · gap §5 · M/S
-- [ ] B-054 **Area ID painting** with a zone ID browser · gap §5 · M/M
-- [ ] B-055 **Impassable flag** tool · gap §5 · M/M
-- [ ] B-056 **Holes tool** for caves · gap §5 · M/M
+- [ ] B-051 **Tile-level save**: current tile or changed tiles only · gap §5 · H/M · left open in the 2026-10-12 loop run (2nd): the save is one `.wmap` file, so per-tile or changed-tile saves change the file format, which needs the owner's decision on the format first
+- [ ] B-054 **Area ID painting** with a zone ID browser · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): the area ID is a format field the `.wmap` doesn't have, so it needs the owner's format decision (like B-055 to B-056)
+- [ ] B-055 **Impassable flag** tool · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): needs a format field the `.wmap` doesn't have, so it waits for the owner's format decision
+- [x] B-056 **Holes tool** for caves · gap §5 · M/M · done: Sculpt › Hole cuts and fills triangles, holes are in the `.wmap` (version 3) and in the clipboard, with wall handles; not yet exported to client tiles (see CLAUDE.md)
+- [x] B-113 **Grow a region by a tile**: a plus on each side of the open block in the Map panel opens the block one tile bigger (square, so a row or column comes along) · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session) · no longer reachable since B-115 dropped the Map panel; see B-118
+- [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
+- [ ] B-117 **Ground effects: per-cell "no doodads" and density**: the MCNK `noEffectDoodad` bits (no tufts under buildings and roads) are neither read nor written, and the tufts' count per cell is fixed at half the density; a density preference and a per-cell switch (automatic under WMOs, or painted) · Source: loop: B-114 · M/M
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
 - [ ] B-058 **Vertex colour editor** · gap §5 · L/L · needs-approval
 - [ ] B-059 **Save minimap image** (Ctrl+Shift+P) · gap §5 · L/S
-- [ ] B-060 **Minimap window**: click to jump, with tile borders · gap §6 & priority 5 · H/L
-- [ ] B-061 **Map entry list** (continents, dungeons, raids) from the client's map table · gap §6 · M/M
+- [ ] B-060 **Minimap window**: click to jump, with tile borders · gap §6 & priority 5 · H/L · the Map dock panel drew the continent's tiles with the open block outlined, but had no jump, and was dropped from the dock (B-115); a click-to-jump map needs a new home
+- [ ] B-108 **Port commands: area name and ADT header**: noggit's port file starts each entry with `Map: <area> on ADT x y` · Source: loop: B-053 · L/M · the editor has no area names, so this waits on B-054
 
 ## Navigation, view and display
 
@@ -98,10 +94,26 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [ ] B-090 **Settings panel**: game path, import path, project path, MCLQ path · gap §10 · M/M
 - [ ] B-091 **Log window** with a file-loading log setting · gap §10 · M/M
 - [ ] B-092 **Help window** and manual links · gap §10 · M/S
-- [ ] B-093 **Asset browser search** improvements · gap §10 · L/S · unverified: palette may already cover this
+- [x] B-093 **Asset browser search** improvements · gap §10 · L/S · done: the search-first asset browser with synonyms, kinds, zones and category facets (CLAUDE.md, Asset browser)
+- [x] B-115 **Dock reduced to Layers**: the Map, Spawns and Properties panels are no longer mounted · Source: owner · -/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session); their functions are B-118
 - [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval
 
 ## Scripting (needs approval before any work)
 
 - [ ] B-100 **Lua 5.1 scripting engine** with a script editor · gap §8 · H/L · needs-approval
 - [ ] B-101 **Script brushes**, procedural placement, noise and image import on top of B-100 · gap §8 · H/L · needs-approval
+
+## Tooling
+
+- [x] B-121 **Dev page must not write the user's preferences**: the dev browser page and the desktop window share config.json and each wrote all of it, so a test in the page overwrote the owner's doodad brushes; `?nosave` makes the page read-only (TESTS.md) · Source: loop: B-110 · H/S · done 2026-10-14
+- [ ] B-122 **Preferences written by two windows**: two app instances (or the dev page without `?nosave`) still overwrite each other's whole config.json; a merge on save, or a lock, would make it safe · Source: loop: B-121 · M/M
+
+
+## Parked
+
+Items moved here by the owner decisions in IDEAS.md, with the reason.
+
+- B-008 **Seam fix**: Meld keeps one height array with no tile border, so there is no seam to fix. Revisit only if an in-app check shows one.
+- B-012 **Remove duplicate texture layers**: the paint model and the `.wmap` loader never create a duplicate slot. A duplicate on load would be a loader bug.
+- B-018 (part) **Flatten smooth-inner**: noggit3 labels it "wip", and it needs cell-centre vertices, which Meld's grid doesn't have. Its meaning here is not settled.
+- B-033 **Selective paste**: noggit3 has no per-field paste, only one copy option for rotation, tilt and scale together.
