@@ -318,7 +318,7 @@
       <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={MAX_BRUSH_RADIUS} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
     {/if}
     {#if !paintingWater}
-      <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={1} step={0.01} digits={2} title={vertexMode ? 'How fast Shift+drag moves the selected vertices' : undefined} />
+      <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={editor.tool === 'sculpt' ? 10 : 1} step={0.01} digits={2} title={vertexMode ? 'How fast Shift+drag moves the selected vertices' : editor.tool === 'sculpt' ? 'How fast the ground moves: up to ten times the normal speed, for big mountains' : undefined} />
     {/if}
     {#if editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !vertexMode}
       <OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} />
