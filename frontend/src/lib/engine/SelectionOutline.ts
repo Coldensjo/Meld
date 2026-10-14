@@ -5,19 +5,26 @@ import { hasSkeleton, modelMesh } from '../world/Animator'
 
 const MAX_BOXES = 8
 
-/** A model to outline, and where it stands. */
+/** A model to outline, where it stands, and whether it touches anything (the stroke's colour). */
 export interface OutlineTarget {
   asset: ModelAsset
   matrix: THREE.Matrix4
+  /** It stands on the ground, is attached to a parent, or meets another prop: drawn in `touchColor`. */
+  touching: boolean
 }
 
 /**
  * Screen-space silhouette stroke around the selected models. Each model is drawn into a
  * mask (respecting alpha-tested textures, so leaves outline correctly, not as
- * quads), then a full-screen pass draws a coloured edge around the mask.
+ * quads), then a full-screen pass draws a coloured edge around the mask. The stroke is yellow
+ * around a model that floats free, green around one that touches something (the ground, its
+ * parent or another prop), and red along the parts that are buried or inside another prop.
  */
 export class SelectionOutline {
+  /** Colour around a model that touches nothing. */
   readonly color = new THREE.Color(1, 0.8, 0.2)
+  /** Colour around a model that touches the ground, its parent or another prop. */
+  readonly touchColor = new THREE.Color(0.3, 0.9, 0.45)
   /** Colour for the parts that are underground or inside another prop. */
   readonly warnColor = new THREE.Color(1, 0.23, 0.19)
   // Shared by all mask materials: terrain heightmap + other props' boxes.
@@ -36,7 +43,8 @@ export class SelectionOutline {
   private maskScene = new THREE.Scene()
   /** One stand-in mesh per outlined model, grown as needed. */
   private proxies: THREE.Mesh[] = []
-  private maskMats = new WeakMap<THREE.Material, THREE.ShaderMaterial>()
+  /** Mask materials per source material, for a free and for a touching model (the B channel). */
+  private maskMats = [new WeakMap<THREE.Material, THREE.ShaderMaterial>(), new WeakMap<THREE.Material, THREE.ShaderMaterial>()]
   private quadScene = new THREE.Scene()
   private quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
   private quadMat: THREE.ShaderMaterial
@@ -48,6 +56,7 @@ export class SelectionOutline {
         mask: { value: this.maskRT.texture },
         texel: { value: new THREE.Vector2(1, 1) },
         color: { value: this.color },
+        touchColor: { value: this.touchColor },
         warnColor: { value: this.warnColor },
       },
       vertexShader: /* glsl */ `
@@ -57,13 +66,16 @@ export class SelectionOutline {
         uniform sampler2D mask;
         uniform vec2 texel;
         uniform vec3 color;
+        uniform vec3 touchColor;
         uniform vec3 warnColor;
         varying vec2 vUv;
         void main() {
           float c = texture2D(mask, vUv).r;
           float m = 0.0;
           float warn = 0.0;
-          // Dilate by ~2.5px in 12 directions; G marks underground/overlapping parts.
+          float touch = 0.0;
+          // Dilate by ~2.5px in 12 directions; G marks underground/overlapping parts, B a model
+          // that touches something.
           for (int i = 0; i < 12; i++) {
             float a = float(i) * 0.5236;
             vec2 d = vec2(cos(a), sin(a)) * texel;
@@ -71,10 +83,11 @@ export class SelectionOutline {
             vec4 s2 = texture2D(mask, vUv + d * 2.5);
             m = max(m, max(s1.r, s2.r));
             warn = max(warn, max(s1.g, s2.g));
+            touch = max(touch, max(s1.b, s2.b));
           }
           float edge = clamp(m - c, 0.0, 1.0);
           if (edge < 0.01) discard;
-          gl_FragColor = vec4(mix(color, warnColor, warn), edge);
+          gl_FragColor = vec4(mix(mix(color, touchColor, touch), warnColor, warn), edge);
           #include <colorspace_fragment>
         }`,
       transparent: true,
@@ -90,11 +103,12 @@ export class SelectionOutline {
   }
 
   /** White mask material that keeps the source's alpha cut-outs (e.g. leaves). */
-  private maskMaterial(src: THREE.Material): THREE.ShaderMaterial {
-    let m = this.maskMats.get(src)
+  private maskMaterial(src: THREE.Material, touching: boolean): THREE.ShaderMaterial {
+    const mats = this.maskMats[touching ? 1 : 0]
+    let m = mats.get(src)
     if (!m) {
       m = new THREE.ShaderMaterial({
-        uniforms: { map: { value: null }, useMap: { value: 0 }, cutoff: { value: 0 }, ...this.shared },
+        uniforms: { map: { value: null }, useMap: { value: 0 }, cutoff: { value: 0 }, touch: { value: touching ? 1 : 0 }, ...this.shared },
         defines: { MAX_BOXES },
         vertexShader: /* glsl */ `
           #include <skinning_pars_vertex>
@@ -114,6 +128,7 @@ export class SelectionOutline {
           uniform sampler2D map;
           uniform float useMap;
           uniform float cutoff;
+          uniform float touch;
           uniform sampler2D heightTex;
           uniform float cellSize;
           uniform float verts;
@@ -143,10 +158,10 @@ export class SelectionOutline {
               if (k >= boxCount) break;
               if (all(greaterThan(vWorld, boxMin[k])) && all(lessThan(vWorld, boxMax[k]))) warn = 1.0;
             }
-            gl_FragColor = vec4(1.0, warn, 0.0, 1.0);
+            gl_FragColor = vec4(1.0, warn, touch, 1.0);
           }`,
       })
-      this.maskMats.set(src, m)
+      mats.set(src, m)
     }
     const s = src as THREE.MeshLambertMaterial
     const cutoff = s.alphaTest > 0 ? s.alphaTest : s.transparent ? 0.3 : 0
@@ -212,7 +227,7 @@ export class SelectionOutline {
         this.proxies[i] = proxy
       }
       proxy.geometry = t.asset.geometry
-      proxy.material = Array.isArray(t.asset.material) ? t.asset.material.map((m) => this.maskMaterial(m)) : this.maskMaterial(t.asset.material)
+      proxy.material = Array.isArray(t.asset.material) ? t.asset.material.map((m) => this.maskMaterial(m, t.touching)) : this.maskMaterial(t.asset.material, t.touching)
       proxy.matrix.copy(t.matrix)
       proxy.matrixWorld.copy(t.matrix)
     }

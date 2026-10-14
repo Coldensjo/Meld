@@ -1812,7 +1812,7 @@ export class Engine {
     for (let i = 0; i < sel.length; i++) {
       const m = (this.outlineMatrices[i] ??= new THREE.Matrix4())
       this.objects.matrixOf(sel[i], m)
-      targets.push({ asset: getAsset(sel[i].type), matrix: m })
+      targets.push({ asset: getAsset(sel[i].type), matrix: m, touching: this.touchesSomething(sel[i], sel.length) })
     }
     this.outline.setTargets(targets)
     this.outline.setTerrain(this.terrain)
@@ -1841,6 +1841,30 @@ export class Engine {
   }
 
   private warnBoxes: THREE.Box3[] = Array.from({ length: 8 }, () => new THREE.Box3())
+  private touchBox = new THREE.Box3()
+  private touchM = new THREE.Matrix4()
+
+  /**
+   * Whether a selected model touches anything, for the outline's colour: it is attached to a parent,
+   * its lowest point is on (or under) the ground somewhere across its footprint, or another prop's
+   * box meets its own. The prop test walks every object, so a big selection skips it.
+   */
+  private touchesSomething(o: WorldObject, selected: number): boolean {
+    if (o.parent !== null && o.parent !== undefined) return true
+    const box = this.touchBox.copy(getAsset(o.type).bbox).applyMatrix4(this.objects.matrixOf(o, this.touchM))
+    // The ground under the footprint's centre and corners (no allocation: this runs every frame).
+    let ground = this.groundAt((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2)
+    ground = Math.max(ground, this.groundAt(box.min.x, box.min.z), this.groundAt(box.max.x, box.min.z))
+    ground = Math.max(ground, this.groundAt(box.min.x, box.max.z), this.groundAt(box.max.x, box.max.z))
+    if (box.min.y <= ground + 0.25) return true
+    return selected <= 16 && this.overlappingBoxes(o).length > 0
+  }
+
+  /** The terrain height at a point, or -Infinity off the map or over a hole. */
+  private groundAt(x: number, z: number): number {
+    const t = this.terrain
+    return t.contains(x, z) && !t.isHole(x, z) ? t.heightAt(x, z) : -Infinity
+  }
 
   /**
    * World boxes of other props that overlap `o` (shrunk, since bounds are

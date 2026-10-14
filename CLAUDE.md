@@ -298,7 +298,11 @@ cd frontend && pnpm build   # frontend only
     captured arrays, because tab switches replace those arrays.
 - **Selected-prop visuals**:
   - `SelectionOutline` draws a screen-space silhouette stroke. The mask uses the model's
-    alpha cut-outs, so leaves outline correctly.
+    alpha cut-outs, so leaves outline correctly. The stroke is yellow around a model that touches
+    nothing and green around one that does (`OutlineTarget.touching`, from
+    `Engine.touchesSomething`: attached to a parent, its lowest point on or under the ground across
+    its footprint, or another prop's box meeting its own), so an author sees when a model is
+    attached. The mask's B channel carries it per model.
   - `TransformGizmo` provides a ring (spin) and an up/down arrow (height). Gizmo drags are
     handled in `Engine` before tools get the pointer, and each drag is one undo step.
   - Red parts of the outline are decided per pixel in the mask shader: below the terrain (from

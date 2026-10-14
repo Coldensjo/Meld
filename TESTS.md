@@ -223,6 +223,23 @@ document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel', { deltaY:
 
 - The Options bar shows an Offset chip with Reset while the offset is not zero.
 
+## Selection outline colours (free, touching, buried)
+
+Checks: `SelectionOutline` and `Engine.touchesSomething`. In the dev page, with the `editor.svelte.ts`
+and `selection.ts` module URLs from "Scripted brush strokes":
+
+```js
+e.newDocument(128, 'island', 3, 'Outline'); for (let i = 0; i < 5; i++) e.frame()
+const type = 'm2:World\Azeroth\Elwynn\PassiveDoodads\Trees\ElwynnTree01.m2'
+e.addObjects([{ type, x: 128, z: 128, yOff: 0, rotY: 0, scale: 1 }, { type, x: 140, z: 128, yOff: 6, rotY: 0, scale: 1 }])
+ed.editor.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()])
+e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (let i = 0; i < 10; i++) e.frame()
+```
+
+- Screenshot and zoom on the two: the one on the ground has a green stroke (red along any part
+  under the slope), the one 6 units up a yellow one. The models may still be the purple
+  placeholder boxes, which is enough for the colours.
+
 ## Dock panels (Layers, Properties)
 
 Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the
