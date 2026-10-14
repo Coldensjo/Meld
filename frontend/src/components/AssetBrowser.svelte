@@ -6,6 +6,7 @@
   import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { chooseWowFolder, listAssets } from '../lib/wow/api'
+  import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
   import { buildCatalog, categoryOrder } from '../lib/wow/catalog'
   import { indexCatalog, searchAssets, type AssetKind, type SearchItem } from '../lib/wow/search'
   import { hasBackend } from '../lib/io/mapio'
@@ -148,6 +149,11 @@
   const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
   const last = $derived(Math.min(rows, Math.ceil((scrollTop + viewHeight) / rowH) + 1))
   const visible = $derived(items.slice(first * cols, last * cols))
+  // The rows just outside the view are prepared after the ones in it, so scrolling finds them ready.
+  $effect(() => {
+    if (prefs.browserCollapsed) prefetchThumbs([])
+    else if (!spawnKind && !loadingList) prefetchAround(items.length, cols, first, last, (i) => items[i].key)
+  })
 
   let scroller: HTMLDivElement | undefined = $state()
   /** The virtualised block; the Recent section above it offsets it from the scroller's top. */

@@ -50,6 +50,7 @@
   import { editor, prefs, ui } from '../lib/state/editor.svelte'
   import type { SearchItem } from '../lib/wow/search'
   import { tick } from 'svelte'
+  import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
 
   // The asset browser's Creatures, NPCs and Objects tabs: the world database's templates as
   // rendered tiles in a virtualised grid, narrowed by category (creature type, or object type with
@@ -170,6 +171,11 @@
   const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
   const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
   const visible = $derived(items.slice(first * cols, last * cols))
+  // The rows just outside the view are prepared after the ones in it, so scrolling finds them ready.
+  $effect(() => {
+    prefetchAround(items.length, cols, first, last, (i) => items[i].thumb)
+    return () => prefetchThumbs([])
+  })
   $effect(() => {
     void items
     scroller?.scrollTo(0, 0)

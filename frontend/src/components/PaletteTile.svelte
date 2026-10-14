@@ -17,25 +17,40 @@
   let url = $state('')
   let failed = $state(false)
 
-  // Request the thumbnail only while the tile is on screen.
+  /** The scrolling ancestor the tile is seen in (the grid), else the viewport. */
+  function scrollRoot(node: HTMLElement): Element | null {
+    for (let el = node.parentElement; el; el = el.parentElement) {
+      const o = getComputedStyle(el).overflowY
+      if (o === 'auto' || o === 'scroll') return el
+    }
+    return null
+  }
+
+  // Request the thumbnail only while the tile is on screen, the tiles nearest the grid's centre
+  // first (the priority is the distance to it, with a little of the tile's x to keep rows in order).
   function lazy(node: HTMLElement, key: string) {
     let cancel: (() => void) | null = null
     let current = key
     const io = new IntersectionObserver(
       (entries) => {
-        const visible = entries.some((e) => e.isIntersecting)
+        const e = entries[entries.length - 1]
+        const visible = e.isIntersecting
         if (visible && !cancel && !url) {
+          const root = e.rootBounds
+          const r = e.boundingClientRect
+          const dy = root ? (r.top + r.bottom - root.top - root.bottom) / 2 : 0
           cancel = requestThumb(
             current,
             (u) => (url = u),
             () => (failed = true),
+            Math.abs(dy) + Math.max(0, r.left) * 1e-4,
           )
         } else if (!visible && cancel && !url) {
           cancel()
           cancel = null
         }
       },
-      { rootMargin: '120px' },
+      { root: scrollRoot(node), rootMargin: '120px' },
     )
     io.observe(node)
     return {

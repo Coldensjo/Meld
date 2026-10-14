@@ -189,6 +189,24 @@ const pip = await import('<PipetteTool.ts URL>'); await pip.pickSpawn(editor.spa
 - Traps: a creature tile's badge is its level; the title holds entry, level, rank and type. The
   lists are cached in Go per server and client, so a changed template needs a restart to show.
 
+## Thumbnail loading order (asset browser grids)
+
+Checks: `lib/wow/thumbQueue.ts` (the priority queue: tiles on screen nearest the grid's centre
+first, then the rows just outside the view that `prefetchAround` asks for) and `PaletteTile`'s
+IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe and prefetch set.
+
+- In the live app: open a tab with uncached thumbnails (Creatures after `/wow/thumb` cache is
+  cleared, or a zone not browsed before), then scroll by 3 rows (one mouse-wheel tick is a row)
+  and screenshot at once: the rows that came in should already be filled.
+- Traps: tiles only ask for thumbnails from an IntersectionObserver, which does not fire in a
+  hidden tab (`document.hidden`), so a `javascript_tool` loop counting `.tile img` in a hidden tab
+  sees nothing finish however many `__engine.frame()` it drives; and `await`ing
+  `requestAnimationFrame` there never returns (the eval times out after 45 s). Use the `computer`
+  tool's scroll and screenshots, which keep the tab visible. Cold list timings for reference: the
+  three `/wow/list` kinds about 40 ms each, `ListCreatureTemplates` about 0.3 s uncached (10k rows
+  through mariadb plus dressing), `ListObjectTemplates` about 0.2 s; a screenful of 80 fresh
+  creature thumbnails about 3-4 s, cached PNGs near instant.
+
 ## Dock panels (Layers, Properties)
 
 Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the

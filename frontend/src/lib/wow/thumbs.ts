@@ -4,6 +4,7 @@ import { buildWowAsset, texturesReady, wowPath } from '../models/assets'
 import { fetchMesh, texturePreview } from './api'
 import { SaveThumbnail } from '../../../wailsjs/go/main/App'
 import { bytesToBase64 } from '../io/base64'
+import { ThumbQueue } from './thumbQueue'
 
 // Palette thumbnails. Models render into an offscreen target on the main
 // WebGL context (sharing GPU textures with the scene), then get cached as PNG
@@ -13,37 +14,9 @@ const VERSION = 'v2'
 const SIZE = 176
 const SUPERSAMPLE = 2
 
-const urls = new Map<string, Promise<string>>()
-
-// --- small cancellable work queue (only visible tiles get rendered) --------
-
-interface Job {
-  run: () => Promise<void>
-  cancelled: boolean
-}
-const queue: Job[] = []
-let running = 0
-const MAX_RUNNING = 3
-
-function pump() {
-  while (running < MAX_RUNNING && queue.length) {
-    const job = queue.shift()!
-    if (job.cancelled) continue
-    running++
-    job.run().finally(() => {
-      running--
-      pump()
-    })
-  }
-}
-
-/** Enqueue thumbnail work; returns a cancel function. */
-function enqueue(run: () => Promise<void>): () => void {
-  const job: Job = { run, cancelled: false }
-  queue.push(job)
-  pump()
-  return () => (job.cancelled = true)
-}
+// Only tiles on screen ask for thumbnails, nearest the grid's centre first, and the grids prefetch
+// the rows just outside the view (ThumbQueue). Three run at once: each needs the main renderer.
+const queue = new ThumbQueue<string>(produce, 3)
 
 // --- disk cache via Go ------------------------------------------------------
 
@@ -137,38 +110,51 @@ async function renderModel(type: string): Promise<Blob> {
   return new Promise((res, rej) => small.toBlob((b) => (b ? res(b) : rej(new Error('toBlob failed'))), 'image/png'))
 }
 
+async function produce(key: string): Promise<string> {
+  if (key.startsWith('tex:')) return texturePreview(key.slice(4), SIZE)
+  const cached = await fromCache(key)
+  if (cached) return cached
+  const blob = await renderModel(key)
+  toCache(key, blob)
+  return URL.createObjectURL(blob)
+}
+
 /**
- * Request a thumbnail for a model type ("m2:..."/"wmo:...") or texture
- * ("tex:<path>"). `onReady` gets an image URL. Returns a cancel function
- * (cancels only if the work hasn't started yet).
+ * Request a thumbnail for a model type ("m2:..."/"wmo:...") or texture ("tex:<path>"). `onReady`
+ * gets an image URL. Lower `priority` values are made first (a tile's distance from its grid's
+ * centre). Returns a cancel function (cancels only if the work hasn't started yet).
  */
-export function requestThumb(key: string, onReady: (url: string) => void, onError?: () => void): () => void {
-  const existing = urls.get(key)
-  if (existing) {
-    existing.then(onReady, () => onError?.())
-    return () => {}
-  }
-  let cancelled = false
-  const cancel = enqueue(async () => {
-    if (cancelled) return
-    const p = (async () => {
-      if (key.startsWith('tex:')) return texturePreview(key.slice(4), SIZE)
-      const cached = await fromCache(key)
-      if (cached) return cached
-      const blob = await renderModel(key)
-      toCache(key, blob)
-      return URL.createObjectURL(blob)
-    })()
-    urls.set(key, p)
-    p.catch(() => urls.delete(key))
-    try {
-      onReady(await p)
-    } catch {
-      onError?.()
+export function requestThumb(key: string, onReady: (url: string) => void, onError?: () => void, priority = 0): () => void {
+  return queue.request(key, priority, onReady, () => onError?.())
+}
+
+/**
+ * The thumbnails to make once the ones on screen are done: the rows just outside the view, so
+ * scrolling finds them ready. Replaces the previous set; `priority` orders them (nearest first).
+ */
+export function prefetchThumbs(wanted: { key: string; priority: number }[]) {
+  queue.prefetch(wanted)
+}
+
+/** How many rows beyond each edge of the view a grid prepares. */
+export const PREFETCH_ROWS = 3
+
+/**
+ * Prefetches the rows just outside a virtualised grid's rendered rows `first..last` (exclusive),
+ * the nearest first and those below before those above; `key(i)` names item i's thumbnail. Rows
+ * beyond the view count less than every tile on screen (priorities from 1e4 up).
+ */
+export function prefetchAround(count: number, cols: number, first: number, last: number, key: (i: number) => string) {
+  const wanted: { key: string; priority: number }[] = []
+  const rows = Math.ceil(count / cols)
+  for (let d = 0; d < PREFETCH_ROWS; d++) {
+    for (const row of [last + d, first - 1 - d]) {
+      if (row < 0 || row >= rows) continue
+      for (let i = row * cols; i < Math.min(count, (row + 1) * cols); i++) {
+        const k = key(i)
+        if (k) wanted.push({ key: k, priority: 1e4 + wanted.length })
+      }
     }
-  })
-  return () => {
-    cancelled = true
-    cancel()
   }
+  prefetchThumbs(wanted)
 }
