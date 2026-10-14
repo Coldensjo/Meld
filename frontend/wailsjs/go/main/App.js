@@ -102,6 +102,10 @@ export function NextObjectGUID() {
   return window['go']['main']['App']['NextObjectGUID']();
 }
 
+export function OpenBrushDialog() {
+  return window['go']['main']['App']['OpenBrushDialog']();
+}
+
 export function OpenHeightmapDialog() {
   return window['go']['main']['App']['OpenHeightmapDialog']();
 }
@@ -132,6 +136,10 @@ export function ReadHeightmap(arg1) {
 
 export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
+}
+
+export function SaveBrushDialog(arg1) {
+  return window['go']['main']['App']['SaveBrushDialog'](arg1);
 }
 
 export function SaveCreature(arg1, arg2, arg3) {

@@ -2,7 +2,8 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseVmangosFolder, exportHeightmap, exportObjectList, exportRegion, hasBackend, importHeightmap, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
+  import { chooseVmangosFolder, exportDoodadBrush, exportHeightmap, exportObjectList, exportRegion, hasBackend, importDoodadBrushes, importHeightmap, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
+  import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
   import { copyScene, pasteScene } from '../lib/io/scene'
   import { ClearThumbnailCache } from '../../wailsjs/go/main/App'
@@ -58,6 +59,9 @@
         { kind: 'action', label: 'Import Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importObjectList(e)) },
         { kind: 'action', label: 'Export Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportObjectList(e)) },
         { kind: 'action', label: 'Export Port Coordinates…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportPortCoords(e)) },
+        { kind: 'sep' },
+        { kind: 'action', label: 'Import Doodad Brushes…', disabled: !hasBackend() || ui.busy, run: () => importDoodadBrushes() },
+        { kind: 'action', label: 'Export Doodad Brush…', disabled: !hasBackend() || ui.busy || !activeDoodadBrush(), run: () => { const b = activeDoodadBrush(); if (b) exportDoodadBrush(b) } },
         { kind: 'action', label: 'Close Map', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
         { kind: 'sep' },
         { kind: 'action', label: 'Exit', run: exit },

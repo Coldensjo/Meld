@@ -6,8 +6,10 @@ import {
   LoadMap,
   LoadRegion,
   LoadSpawns,
+  OpenBrushDialog,
   OpenTextDialog,
   ReadTextFile,
+  SaveBrushDialog,
   SaveTextDialog,
   WriteTextFile,
   OpenHeightmapDialog,
@@ -25,7 +27,8 @@ import {
 import { mapfile } from '../../../wailsjs/go/models'
 import type { Engine, MapSnapshot } from '../engine/Engine'
 import type { MapDocument } from '../engine/MapDocument'
-import { editor, setStatus, ui } from '../state/editor.svelte'
+import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
+import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
@@ -363,6 +366,44 @@ export function exportObjectList(engine: Engine) {
     await WriteTextFile(path, formatObjectList(engine.objects.objects.values()))
     setStatus(`Exported ${count} models to ${path}.`)
   })
+}
+
+/** Saves a doodad brush as a TOML file (see tools/doodadBrush.ts). */
+export function exportDoodadBrush(brush: DoodadBrush) {
+  return guarded('Export doodad brush', async () => {
+    const path = await SaveBrushDialog(brush.name.replace(/[\/:*?"<>|]+/g, '-'))
+    if (!path) return
+    await WriteTextFile(path, formatBrush(brush))
+    setStatus(`Exported the brush "${brush.name}" to ${path}.`)
+  })
+}
+
+/**
+ * Reads doodad brush files into the brush list. A brush named like one already there is added under a
+ * new name, so a shared brush never overwrites the user's own. Returns the names added.
+ */
+export function importDoodadBrushes() {
+  const added: string[] = []
+  return guarded('Import doodad brush', async () => {
+    const paths = (await OpenBrushDialog()) ?? []
+    if (!paths.length) return
+    const problems: string[] = []
+    for (const path of paths) {
+      const { brush, errors } = parseBrush(await ReadTextFile(path))
+      if (!brush) {
+        problems.push(`${path}: ${errors[0] ?? 'no brush'}`)
+        continue
+      }
+      brush.name = uniqueName(brush.name, prefs.doodadBrushes.map((b) => b.name))
+      prefs.doodadBrushes = [...prefs.doodadBrushes, brush]
+      added.push(brush.name)
+      if (errors.length) problems.push(`${path}: ${errors[0]}`)
+    }
+    if (added.length) prefs.doodadBrush = added[added.length - 1]
+    const what = added.length === 1 ? `the brush "${added[0]}"` : `${added.length} brushes`
+    const trouble = problems.length ? ` Skipped: ${problems.join('; ')}` : ''
+    setStatus(added.length ? `Imported ${what}.${trouble}` : `No brush imported.${trouble}`, problems.length ? 10000 : 4000)
+  }).then(() => added)
 }
 
 /** Saves the camera's place as the port commands for the map's server (see portCoords.ts). */

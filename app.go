@@ -719,6 +719,28 @@ func (a *App) OpenTextDialog() (string, error) {
 	})
 }
 
+var brushFilters = []runtime.FileFilter{{DisplayName: "Doodad brush (*.toml)", Pattern: "*.toml"}}
+
+// SaveBrushDialog asks where to save a doodad brush. Returns "" if cancelled.
+func (a *App) SaveBrushDialog(suggested string) (string, error) {
+	if suggested == "" {
+		suggested = "brush"
+	}
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export Doodad Brush",
+		DefaultFilename: suggested + ".toml",
+		Filters:         brushFilters,
+	})
+}
+
+// OpenBrushDialog asks for doodad brush files to import. Returns none if cancelled.
+func (a *App) OpenBrushDialog() ([]string, error) {
+	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "Import Doodad Brushes",
+		Filters: brushFilters,
+	})
+}
+
 // WriteTextFile saves text at path.
 func (a *App) WriteTextFile(path, text string) error {
 	return os.WriteFile(path, []byte(text), 0o644)

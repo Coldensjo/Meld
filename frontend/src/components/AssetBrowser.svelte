@@ -3,7 +3,9 @@
   import PaletteTile from './PaletteTile.svelte'
   import AssetPreview from './AssetPreview.svelte'
   import SpawnBrowser, { type SpawnKind } from './SpawnBrowser.svelte'
-  import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
+  import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
+  import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
+  import { newEntry } from '../lib/tools/doodadBrush'
   import { engineRef } from '../lib/state/engineRef'
   import { chooseWowFolder, listAssets } from '../lib/wow/api'
   import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
@@ -105,6 +107,16 @@
   }
 
   function pickModel(it: SearchItem) {
+    // In the Doodad brush tool a pick goes into the brush being edited, not under the cursor.
+    if (editor.tool === 'doodad') {
+      const brush = activeDoodadBrush() ?? addDoodadBrush()
+      if (brush.entries.some((e) => e.type === it.key)) setStatus(`${it.name} is in the brush "${brush.name}" already.`)
+      else {
+        brush.entries.push(newEntry(it.key))
+        setStatus(`Added ${it.name} to the brush "${brush.name}".`)
+      }
+      return
+    }
     editor.prefab = it.key
     // A model replaces whatever creature or object template the Place tool was putting down.
     ui.placeCreature = ui.placeObject = null

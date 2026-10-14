@@ -4,12 +4,20 @@
   import PropertiesPanel from './PropertiesPanel.svelte'
   import MinimapPanel from './MinimapPanel.svelte'
   import SpawnsPanel from './SpawnsPanel.svelte'
+  import DoodadBrushPanel from './DoodadBrushPanel.svelte'
   import { editor, prefs } from '../lib/state/editor.svelte'
 
   // Selecting a model or an area reveals the Properties panel if it was collapsed.
   $effect(() => {
     if ((editor.selectedIds.length || editor.selection) && prefs.collapsedPanels.includes('properties')) {
       prefs.collapsedPanels = prefs.collapsedPanels.filter((p) => p !== 'properties')
+    }
+  })
+
+  // The Doodad brush tool opens its panel, where the brush's models are edited.
+  $effect(() => {
+    if (editor.tool === 'doodad' && prefs.collapsedPanels.includes('doodad')) {
+      prefs.collapsedPanels = prefs.collapsedPanels.filter((p) => p !== 'doodad')
     }
   })
 
@@ -35,6 +43,9 @@
   <div class="resizer" role="separator" aria-orientation="vertical" onpointerdown={startResize}></div>
   <DockPanel id="layers" grow tabs={[{ id: 'layers', label: 'Layers' }]}>
     <LayersPanel />
+  </DockPanel>
+  <DockPanel id="doodad" tabs={[{ id: 'doodad', label: 'Doodad brush' }]}>
+    <DoodadBrushPanel />
   </DockPanel>
   <DockPanel id="minimap" tabs={[{ id: 'minimap', label: 'Map' }]}>
     <MinimapPanel />

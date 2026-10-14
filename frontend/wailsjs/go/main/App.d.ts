@@ -55,6 +55,8 @@ export function NextCreatureGUID():Promise<number>;
 
 export function NextObjectGUID():Promise<number>;
 
+export function OpenBrushDialog():Promise<Array<string>>;
+
 export function OpenHeightmapDialog():Promise<string>;
 
 export function OpenMapDialog():Promise<string>;
@@ -70,6 +72,8 @@ export function ReadCreature(arg1:number):Promise<vmangos.CreatureRecord>;
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
+
+export function SaveBrushDialog(arg1:string):Promise<string>;
 
 export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 

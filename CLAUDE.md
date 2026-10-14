@@ -103,6 +103,17 @@ cd frontend && pnpm build   # frontend only
     the dirty sub-rect.
   - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
   - **Every edit must be undoable** through `History`.
+- **Doodad brush** (`tools/DoodadBrushTool.ts`, tool `doodad`, key 8) scatters models the way Paint
+  lays down textures. A brush (`tools/doodadBrush.ts`, `DoodadBrush`) is a named list of models with
+  a weight, scale range, sink and tilt each, plus a spacing (a multiple of the models' footprints).
+  Each attempt draws a point in the brush circle, keeps it with the falloff's weight (`candidate`),
+  picks an entry by weight (`pickEntry`) and drops it when another root model stands too close
+  (`fits`); the rate scales with strength and brush area (`attemptRate`). Ctrl+drag erases the
+  brush's models. A stroke is one undo step. Brushes are `prefs.doodadBrushes` (the pick is
+  `prefs.doodadBrush`), edited in the Doodad brush dock panel (`DoodadBrushPanel.svelte`): while the
+  tool is active, picking a model in the asset browser adds it to the brush instead of placing it.
+  Brush files are TOML (`formatBrush`/`parseBrush`, read with smol-toml), through File › Import /
+  Export Doodad Brush and the `SaveBrushDialog`/`OpenBrushDialog` bindings.
 - **Attachments**: a `WorldObject` with `parent` is attached.
   - Its x/yOff/z/rotY/scale are local to the parent (`matrixOf` walks the chain). Roots use
     world x/z and yOff above the terrain.

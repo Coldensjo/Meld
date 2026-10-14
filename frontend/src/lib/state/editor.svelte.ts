@@ -1,13 +1,14 @@
 import type { SessionTab } from '../io/session'
 import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
+import type { DoodadBrush } from '../tools/doodadBrush'
 import type { Bookmark } from '../engine/MapDocument'
 import type { vmangos } from '../../../wailsjs/go/models'
 
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear'
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad'
 export type ClearMode = 'models' | 'textures'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'vertex' | 'hole'
 /** Flatten target: the height under the first click, or the average height under the brush. */
@@ -123,6 +124,11 @@ export const editor = $state({
   placeHeight: 0,
   /** World x/z offset of new placements from the cursor (the arrow keys in the Place tool, camera-relative). */
   placeOffset: { x: 0, z: 0 },
+  /**
+   * The Doodad brush tool: each model turned at random, and no placements on ground under the sea.
+   * The brushes themselves are `prefs.doodadBrushes`.
+   */
+  doodad: { randomRot: true, avoidWater: true },
   /** The primary selected object: the one the gizmo and the Properties panel work on. */
   selected: null as SelectedInfo | null,
   /** Every selected object (see lib/state/selection.ts). The primary is one of them when there is one. */
@@ -235,13 +241,16 @@ export const prefs = $state({
   cullSmallModels: true,
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,
-  collapsedPanels: ['properties'] as string[],
+  collapsedPanels: ['properties', 'doodad'] as string[],
   /** The asset browser along the bottom: its height in px, whether it is folded away, and its tile size. */
   browserHeight: 300,
   browserCollapsed: false,
   browserTile: 112,
   /** Recently picked assets (catalog keys), newest first. */
   recentAssets: [] as string[],
+  /** The doodad brushes (tools/doodadBrush.ts) and the name of the one the Doodad brush tool paints with. */
+  doodadBrushes: [] as DoodadBrush[],
+  doodadBrush: '',
   /** The tabs open at the last close, reopened at the next start (io/session.ts). */
   session: { tabs: [] as SessionTab[], active: 0 },
 })

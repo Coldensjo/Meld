@@ -223,6 +223,38 @@ document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel', { deltaY:
 
 - The Options bar shows an Offset chip with Reset while the offset is not zero.
 
+## Doodad brush (scatter models by weight)
+
+Checks: `DoodadBrushTool` places the brush's models under the brush in their weights' proportions,
+keeps them apart by the spacing, erases them with Ctrl, and undoes as one step. The brush logic alone
+(`pickEntry`, `candidate`, `fits`, the TOML round trip) is `tests/doodadBrush.test.ts`. In the dev
+page, with the `editor.svelte.ts` module URL from "Scripted brush strokes" (it exports `prefs`):
+
+```js
+const e = window.__engine
+e.newDocument(256, 'flat', 0, 'Doodads')
+ed.prefs.doodadBrushes = [{ name: 'Test', spacing: 1, entries: [
+  { type: 'm2:World\Azeroth\Elwynn\PassiveDoodads\Bush\ElwynnBush01.m2', weight: 30, scaleMin: 0.9, scaleMax: 1.1, sink: 0, tilt: 0 },
+  { type: 'm2:World\Azeroth\Elwynn\PassiveDoodads\Trees\ElwynnTree01.m2', weight: 10, scaleMin: 0.9, scaleMax: 1.1, sink: 0, tilt: 0 },
+]}]
+ed.prefs.doodadBrush = 'Test'
+ed.editor.tool = 'doodad'; e.frame()
+ed.editor.brush.radius = 20; ed.editor.brush.strength = 1; ed.editor.brush.falloff = 0.5
+const V3 = e.controller.target.constructor
+const at = (x, z) => new V3(x, e.terrain.heightAt(x, z), z)
+e.tools.doodad.onDown(e.ctx, at(200, 200), new PointerEvent('pointerdown'))
+for (let i = 0; i < 120; i++) e.tools.doodad.tick(e.ctx, 0.05, at(200, 200))
+e.tools.doodad.onUp(e.ctx)
+e.objects.objects.size                              // settles at a few dozen: the spacing fills the circle up
+e.history.undo(); e.objects.objects.size            // 0
+```
+
+- Models load async; before the mesh arrives the placeholder's box sets the footprint, so the first
+  stroke on a fresh page spaces by the placeholder. Place once, wait, undo, place again to compare.
+- An erase is `onDown` with `new PointerEvent('pointerdown', { ctrlKey: true })`.
+- A brush file is `formatBrush(brush)` from `tools/doodadBrush.ts`; paste its text into a `.toml` file
+  and File › Import Doodad Brushes… adds it under a free name ("Test 2" if "Test" exists).
+
 ## Selection outline colours (free, touching, buried)
 
 Checks: `SelectionOutline` and `Engine.touchesSomething`. In the dev page, with the `editor.svelte.ts`

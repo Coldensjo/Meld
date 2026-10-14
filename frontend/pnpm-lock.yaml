@@ -14,6 +14,9 @@ importers:
       simplex-noise:
         specifier: ^4.0.3
         version: 4.0.3
+      smol-toml:
+        specifier: ^1.9.1
+        version: 1.9.1
       three:
         specifier: ^0.186.1
         version: 0.186.1
@@ -388,6 +391,10 @@ packages:
   simplex-noise@4.0.3:
     resolution: {integrity: sha512-qSE2I4AngLQG7BXqoZj51jokT4WUXe8mOBrvfOXpci8+6Yu44+/dD5zqDpOx3Ux792eamTd2lLcI8jqFntk/lg==}
 
+  smol-toml@1.9.1:
+    resolution: {integrity: sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==}
+    engines: {node: '>= 18'}
+
   source-map-js@1.2.2:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
@@ -732,6 +739,8 @@ snapshots:
       mri: 1.2.0
 
   simplex-noise@4.0.3: {}
+
+  smol-toml@1.9.1: {}
 
   source-map-js@1.2.2: {}
 

@@ -76,7 +76,7 @@
     [
       'Tools',
       [
-        ['1 – 7', 'Select, Sculpt, Paint, Roads, Water, Place, Clear'],
+        ['1 – 8', 'Select, Sculpt, Paint, Roads, Water, Place, Clear, Doodad brush'],
         ['V / B', 'Select / Paint'],
         ['Alt+click', 'Pipette: pick the model under the cursor to place, or the texture to paint with'],
         ['Click, Shift+click', 'Select a model, add or remove one (Select tool)'],
@@ -92,6 +92,7 @@
         ['Arrow keys', 'Move the placement preview away from the cursor (Place tool, nothing selected; Shift for bigger steps)'],
         ['Shift+scroll', 'Scale the placement preview (Place tool; doodads only, the client draws buildings at full size)'],
         ['Shift+drag', 'Scatter (Place tool)'],
+        ['Ctrl+drag', "Erase the brush's models (Doodad brush tool)"],
         ['Delete', 'Delete the selected models'],
         ['Ctrl+C / Ctrl+V', 'Copy the selected models (or area) / paste under the cursor'],
         ['Ctrl+Shift+D', 'Duplicate the selected models in place'],

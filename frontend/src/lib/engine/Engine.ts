@@ -17,6 +17,7 @@ import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
+import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
@@ -264,6 +265,7 @@ export class Engine {
       water: new WaterTool(),
       place: this.placeTool,
       clear: new ClearTool(),
+      doodad: new DoodadBrushTool(),
     }
 
     // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
@@ -511,7 +513,8 @@ export class Engine {
     u.texScale.value = editor.texScale
     u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
     const radius = editor.tool === 'road' ? Math.max(1.5, editor.brush.radius * 0.5) : editor.brush.radius
-    const square = editor.brush.shape === 'square'
+    // The doodad brush scatters in a circle whatever shape the other tools use.
+    const square = editor.brush.shape === 'square' && editor.tool !== 'doodad'
     if (this.hit) {
       const [bx, bz] = brushCenter(this.hit.x, this.hit.z, radius, this.terrain.cellSize, square && editor.brush.snap)
       u.brushPos.value.set(bx, bz)

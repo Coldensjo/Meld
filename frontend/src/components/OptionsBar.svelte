@@ -6,6 +6,7 @@
   import { displayName } from '../lib/models/assets'
   import { FALLOFF_CURVES } from '../lib/tools/brush'
   import { LIQUID_TYPES } from '../lib/water/liquids'
+  import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
 
   const SCULPT_MODES: Array<{ id: SculptMode; name: string }> = [
     { id: 'raise', name: 'Raise' },
@@ -28,6 +29,7 @@
       editor.tool === 'road' ||
       editor.tool === 'water' ||
       editor.tool === 'clear' ||
+      editor.tool === 'doodad' ||
       (editor.tool === 'place' && editor.placeScatter),
   )
   // The water brush paints whole cells in a circle, so only its size applies; Vertex mode moves the
@@ -35,6 +37,14 @@
   const paintingWater = $derived(editor.tool === 'water' && editor.waterMode === 'paint')
   const vertexMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'vertex')
   const holeMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'hole')
+
+  /** Opens the Doodad brush panel (making a brush when there is none) and the model browser, where picks add to it. */
+  function editBrush() {
+    if (!activeDoodadBrush()) addDoodadBrush()
+    prefs.collapsedPanels = prefs.collapsedPanels.filter((p) => p !== 'doodad')
+    ui.palette = 'models'
+    prefs.browserCollapsed = false
+  }
 
   /** The bar never shows a scrollbar; the wheel scrolls it sideways when it holds more than fits. */
   function scrollSideways(e: WheelEvent) {
@@ -203,6 +213,24 @@
       <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
     {/if}
     <div class="divider"></div>
+  {:else if editor.tool === 'doodad'}
+    <select class="curve" value={activeDoodadBrush()?.name ?? ''} onchange={(e) => (prefs.doodadBrush = (e.target as HTMLSelectElement).value)} disabled={!prefs.doodadBrushes.length} title="The brush to paint with" aria-label="Doodad brush">
+      {#if !prefs.doodadBrushes.length}<option value="">No brushes yet</option>{/if}
+      {#each prefs.doodadBrushes as b (b.name)}
+        <option value={b.name}>{b.name} ({b.entries.length})</option>
+      {/each}
+    </select>
+    <button onclick={editBrush} title="Edit the brush's models and weights in the Doodad brush panel; picking a model in the browser adds it">
+      {activeDoodadBrush() ? 'Edit brush' : 'New brush'}
+    </button>
+    <label class="check"><input type="checkbox" bind:checked={editor.doodad.randomRot} /> Random rotation</label>
+    <label class="check" title="Tilt placed models to the slope under them (instead of each model's random tilt)"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
+    {#if editor.followGround}
+      <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
+    {/if}
+    <label class="check" title="Put nothing on ground under the sea level"><input type="checkbox" bind:checked={editor.doodad.avoidWater} /> Keep out of the sea</label>
+    <span class="dim">drag to scatter · <kbd>Ctrl</kbd>+drag erases the brush's models · pick models in the browser to add them</span>
+    <div class="divider"></div>
   {:else if editor.tool === 'select'}
     {#if ui.pasting}
       {#if engineRef.current?.pastingModels()}
@@ -259,7 +287,7 @@
     {/if}
   {/if}
 
-  {#if usesBrush && editor.tool !== 'place' && !paintingWater && !vertexMode && !holeMode}
+  {#if usesBrush && editor.tool !== 'place' && editor.tool !== 'doodad' && !paintingWater && !vertexMode && !holeMode}
     <div class="seg" title="Brush shape">
       <button class:active={editor.brush.shape === 'circle'} onclick={() => (editor.brush.shape = 'circle')} aria-label="Round brush">●</button>
       <button class:active={editor.brush.shape === 'square'} onclick={() => (editor.brush.shape = 'square')} aria-label="Square brush">■</button>
