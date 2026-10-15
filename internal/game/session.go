@@ -49,6 +49,8 @@ type Session struct {
 	// Benilla, when set, is the Benilla folder: the game closed and opened is Benilla instead of
 	// Wow.exe, started from that folder with the install's Data folder and the login in its environment.
 	Benilla string
+	// Window is how the game's window opens, written into its settings before it starts.
+	Window Window
 }
 
 // BenillaExe is where a release build of Benilla puts its program, under its folder.
@@ -121,6 +123,11 @@ func (s Session) Start(c Closed) error {
 	}
 	if c.World && !s.waitReady(worldPort) {
 		s.log("The world server is not accepting connections yet.")
+	}
+	if c.Game {
+		if err := s.applyWindow(); err != nil {
+			s.log("The game's window setting wasn't written: " + err.Error())
+		}
 	}
 	if c.Game && s.Benilla != "" {
 		s.log("Starting Benilla…")

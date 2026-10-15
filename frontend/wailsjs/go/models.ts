@@ -92,6 +92,20 @@ export namespace main {
 	        this.hasPassword = source["hasPassword"];
 	    }
 	}
+	export class GameWindowInfo {
+	    mode: string;
+	    resolution: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GameWindowInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mode = source["mode"];
+	        this.resolution = source["resolution"];
+	    }
+	}
 	export class HeightmapData {
 	    side: number;
 	    heights: number[];

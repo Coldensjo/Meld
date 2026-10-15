@@ -34,6 +34,8 @@ export function GameClient():Promise<main.GameClientInfo>;
 
 export function GameLogin():Promise<main.GameLoginInfo>;
 
+export function GameWindow():Promise<main.GameWindowInfo>;
+
 export function GroundEffects():Promise<vmangos.GroundEffectTables>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
@@ -145,6 +147,8 @@ export function SetBenillaPath(arg1:string):Promise<void>;
 export function SetGameClient(arg1:string):Promise<void>;
 
 export function SetGameLogin(arg1:string,arg2:string):Promise<void>;
+
+export function SetGameWindow(arg1:string,arg2:string):Promise<void>;
 
 export function SetVmangosPath(arg1:string):Promise<void>;
 

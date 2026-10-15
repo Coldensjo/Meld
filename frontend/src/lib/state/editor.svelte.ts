@@ -460,6 +460,9 @@ export const ui = $state({
   brushEditor: false,
   /** The game Meld closes and opens around an export (Preferences › Game Client): Wow.exe or Benilla. */
   gameClient: 'wow' as 'wow' | 'benilla',
+  /** How the game's window opens when Meld starts it (Preferences › Game Window): '' the game's own setting. */
+  gameWindow: '' as '' | 'windowed' | 'fullscreen',
+  gameResolution: '1280x720',
   /** The floating quick texture palette (components/TexturePaletteWindow.svelte): the map's textures to paint with. */
   texturePalette: false,
   /** The floating History window (components/HistoryWindow.svelte): the undo stack, a click goes to any step. */

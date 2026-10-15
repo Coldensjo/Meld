@@ -839,7 +839,39 @@ func (a *App) gameSession() (game.Session, error) {
 	if a.cfg.GameClient == "benilla" && a.cfg.BenillaPath != "" {
 		s.Benilla = a.cfg.BenillaPath
 	}
+	s.Window = game.Window{Mode: a.cfg.GameWindow, Resolution: a.cfg.GameResolution}
 	return s, nil
+}
+
+// GameWindowInfo is how the game's window opens when Meld starts it (game.Window).
+type GameWindowInfo struct {
+	// Mode is "" (the game's own setting), "windowed" or "fullscreen".
+	Mode       string `json:"mode"`
+	Resolution string `json:"resolution"`
+}
+
+// GameWindow says how the game's window opens when Meld starts it.
+func (a *App) GameWindow() GameWindowInfo {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	return GameWindowInfo{Mode: a.cfg.GameWindow, Resolution: a.cfg.GameResolution}
+}
+
+// SetGameWindow sets how the game's window opens when Meld starts it: mode "" (the game's own
+// setting), "windowed" or "fullscreen", at resolution ("1280x720"). It's written into the game's
+// own settings the next time Meld starts it.
+func (a *App) SetGameWindow(mode, resolution string) error {
+	w := game.Window{Mode: mode, Resolution: resolution}
+	if err := w.Check(); err != nil {
+		return err
+	}
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	a.cfg.GameWindow, a.cfg.GameResolution = mode, resolution
+	return config.Update(func(c *config.Config) error {
+		c.GameWindow, c.GameResolution = mode, resolution
+		return nil
+	})
 }
 
 // GameClientInfo is which game Meld closes and opens around an export, and Benilla's folder.

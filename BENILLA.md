@@ -31,6 +31,14 @@ To rebuild after `git pull` in the Benilla folder: `cargo build --release -p ben
   `WOW_USER` and `WOW_PASS`, so Benilla logs itself in. No keystrokes are typed into a window, unlike
   Wow.exe's login.
 - **Preferences › Launch Benilla** opens it on demand.
+- **Preferences › Game window**: the game's own setting, Windowed or Fullscreen, at a size (1280×720
+  to 2560×1440). Each time Meld starts the game it writes the 1.12 client's `gxWindow`, `gxMaximize`
+  and `gxResolution` into the game's own settings (Benilla's `benilla-config\config.toml` `[cvars]`,
+  Wow.exe's `WTF\Config.wtf`), so the in-game Video options still work until Meld next starts it
+  (`internal/game/window.go`; config `gameWindow`, `gameResolution`). Benilla's fullscreen is borderless
+  at the monitor's size; its `gxResolution` is the window's inner size, checked at 1280×720 on
+  2026-10-15. Benilla's own `WOW_WIN` would also force a size, but it quits when the window comes out
+  any other size, so Meld doesn't use it.
 
 ## What Benilla reads of Meld's output (checked in its source)
 

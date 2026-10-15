@@ -58,6 +58,10 @@ export function GameLogin() {
   return window['go']['main']['App']['GameLogin']();
 }
 
+export function GameWindow() {
+  return window['go']['main']['App']['GameWindow']();
+}
+
 export function GroundEffects() {
   return window['go']['main']['App']['GroundEffects']();
 }
@@ -280,6 +284,10 @@ export function SetGameClient(arg1) {
 
 export function SetGameLogin(arg1, arg2) {
   return window['go']['main']['App']['SetGameLogin'](arg1, arg2);
+}
+
+export function SetGameWindow(arg1, arg2) {
+  return window['go']['main']['App']['SetGameWindow'](arg1, arg2);
 }
 
 export function SetVmangosPath(arg1) {

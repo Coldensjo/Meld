@@ -2,7 +2,7 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseBenillaFolder, launchGame, setGameClient, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportObjectList, exportRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish } from '../lib/io/mapio'
+  import { chooseBenillaFolder, launchGame, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportObjectList, exportRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish } from '../lib/io/mapio'
   import { growableSides, type Side } from '../lib/io/regionGrow'
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
@@ -54,6 +54,8 @@
 
   /** The climb view's steepest walkable slopes, in degrees: 49 is Noggit Red's default. */
   const CLIMB_ANGLES = [40, 45, 49, 55, 60]
+  // The game window sizes Preferences › Game Window offers (gxResolution).
+  const GAME_RESOLUTIONS = ['1280x720', '1600x900', '1920x1080', '2560x1440']
 
   const radios = <T,>(options: Array<[string, T]>, get: () => T, set: (v: T) => void): Item[] =>
     options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
@@ -285,6 +287,23 @@
         ),
         { kind: 'action', label: 'Benilla Folder…', disabled: !hasBackend(), run: chooseBenillaFolder },
         { kind: 'action', label: ui.gameClient === 'benilla' ? 'Launch Benilla' : 'Launch World of Warcraft', disabled: !hasBackend() || !wow.loaded, run: launchGame },
+        { kind: 'header', label: 'Game window (when Meld starts it)' },
+        ...radios<'' | 'windowed' | 'fullscreen'>(
+          [
+            ["The Game's Own Setting", ''],
+            ['Windowed', 'windowed'],
+            ['Fullscreen', 'fullscreen'],
+          ],
+          () => ui.gameWindow,
+          (v) => void setGameWindow(v),
+        ),
+        ...(ui.gameWindow === ''
+          ? []
+          : radios<string>(
+              GAME_RESOLUTIONS.map((r) => [r.replace('x', ' × '), r]),
+              () => ui.gameResolution,
+              (v) => void setGameWindow(ui.gameWindow, v),
+            )),
         { kind: 'sep' },
         { kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
         { kind: 'sep' },

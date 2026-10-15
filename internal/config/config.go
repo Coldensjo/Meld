@@ -25,6 +25,10 @@ type Config struct {
 	GameClient string `json:"gameClient,omitempty"`
 	// BenillaPath is the Benilla folder (its repository, with target/release/benilla.exe built in it).
 	BenillaPath string `json:"benillaPath,omitempty"`
+	// GameWindow is how the game's window opens when Meld starts it: "" the game's own setting,
+	// "windowed" or "fullscreen", at GameResolution ("1280x720"). See game.Window.
+	GameWindow     string `json:"gameWindow,omitempty"`
+	GameResolution string `json:"gameResolution,omitempty"`
 }
 
 // Window is the main window's last size (unmaximised) and whether it was maximised.

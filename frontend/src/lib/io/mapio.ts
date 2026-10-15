@@ -16,6 +16,8 @@ import {
   OpenImageDialog,
   GameClient,
   SetGameClient,
+  GameWindow,
+  SetGameWindow,
   BrowseBenillaFolder,
   SetBenillaPath,
   LaunchGame,
@@ -668,6 +670,9 @@ export async function refreshGameClient() {
   if (!hasBackend()) return
   try {
     ui.gameClient = (await GameClient()).client === 'benilla' ? 'benilla' : 'wow'
+    const w = await GameWindow()
+    ui.gameWindow = w.mode === 'windowed' || w.mode === 'fullscreen' ? w.mode : ''
+    if (w.resolution) ui.gameResolution = w.resolution
   } catch {
     /* no backend */
   }
@@ -680,6 +685,23 @@ export async function setGameClient(client: 'wow' | 'benilla') {
     await SetGameClient(client)
     await refreshGameClient()
     setStatus(client === 'benilla' ? 'Meld now closes and opens Benilla around an export, logged in with the saved Game Login.' : 'Meld now closes and opens World of Warcraft (Wow.exe) around an export.', 6000)
+  } catch (e) {
+    setStatus(`${e}`, 8000)
+  }
+}
+
+/**
+ * Sets how the game's window opens when Meld starts it (Preferences › Game Window): the game's own
+ * setting, windowed or fullscreen, at `resolution`. Meld writes it into the game's own settings
+ * (Benilla's config.toml, Wow.exe's Config.wtf) each time it starts the game.
+ */
+export async function setGameWindow(mode: '' | 'windowed' | 'fullscreen', resolution = ui.gameResolution) {
+  if (!hasBackend()) return
+  try {
+    await SetGameWindow(mode, resolution)
+    await refreshGameClient()
+    const size = resolution.replace('x', '×')
+    setStatus(mode === '' ? 'The game opens as its own Video options say.' : `The game opens ${mode === 'windowed' ? `in a ${size} window` : `fullscreen (${size} for Wow.exe)`} the next time Meld starts it.`, 6000)
   } catch (e) {
     setStatus(`${e}`, 8000)
   }
