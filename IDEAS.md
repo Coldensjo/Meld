@@ -455,3 +455,10 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   tile; a narrower one wins) and written on export, rather than painted into tiles at once, so they stay
   undoable and editable; a new set's models are picked from the detail models the client's own effects
   use (GroundEffectDoodad rows already there).
+
+### B-163 WMO-only maps · the client's own form
+- The loop's call (2026-10-15, B-163). Noggit Red's map wizard makes WMO-only maps (a global WMO in the
+  WDT). Meld writes the form the 1.12 client's own WMO-only dungeons have (Blackfathom Deeps, the
+  Stormwind Stockade: MPHD flag 0x1, an empty MAIN, MWMO and one MODF with unique ID 0xFFFFFFFF), checked
+  byte for byte. The building is the map's first WMO as placed in the editor, so the author places and
+  turns it like any model; the rest of the map (ground, other models) isn't written for such a map.

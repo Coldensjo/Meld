@@ -105,6 +105,9 @@ type MapSpec struct {
 	// Info, when set, is written into the map's Map.dbc row and the server's map_template; without it
 	// a new row is a world map like the continents.
 	Info *MapInfo
+	// Global, when set, makes a WMO-only map: the WDT places this building (X and Z in yards from the
+	// map's corner, as a tile 0,0 object) and the map has no tiles, as the client's Blackfathom Deeps.
+	Global *ObjectSpec
 }
 
 // ExportResult says what was written.
@@ -131,7 +134,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 	if m.MapID == 0 || m.MapID > MaxGameMap {
 		return res, fmt.Errorf("map id %d is not one the editor can use", m.MapID)
 	}
-	if len(m.Tiles) == 0 {
+	if len(m.Tiles) == 0 && m.Global == nil {
 		return res, errors.New("the map has no tiles")
 	}
 	set, err := mpq.OpenDataDir(readDir)
@@ -186,15 +189,35 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 	if err != nil {
 		return res, err
 	}
-	wdt, err := BuildWDT(wdtTemplate, func(x, y int) bool { return present[[2]int{x, y}] })
-	if err != nil {
-		return res, err
+	if m.Global != nil {
+		// A WMO-only map: one building in the WDT, no tiles and no horizon.
+		obj, err := objectIn(0, 0, *m.Global)
+		if err != nil {
+			return res, err
+		}
+		if obj.Kind != adt.WMO {
+			return res, errors.New("a WMO-only map's building must be a WMO")
+		}
+		newReaches(set).bound(&obj)
+		wdt, err := BuildWMOOnlyWDT(wdtTemplate, GlobalWMO{Name: obj.Name, Position: obj.Position, Rotation: obj.Rotation, Min: obj.Min, Max: obj.Max, DoodadSet: obj.DoodadSet})
+		if err != nil {
+			return res, err
+		}
+		files = append(files,
+			mpq.File{Name: fmt.Sprintf(`World\Maps\%s\%s.wdt`, m.Dir, m.Dir), Data: wdt},
+			mpq.File{Name: `DBFilesClient\Map.dbc`, Data: dbc},
+		)
+	} else {
+		wdt, err := BuildWDT(wdtTemplate, func(x, y int) bool { return present[[2]int{x, y}] })
+		if err != nil {
+			return res, err
+		}
+		files = append(files,
+			mpq.File{Name: fmt.Sprintf(`World\Maps\%s\%s.wdt`, m.Dir, m.Dir), Data: wdt},
+			mpq.File{Name: wdlPath(m.Dir), Data: BuildWDL(horizon)},
+			mpq.File{Name: `DBFilesClient\Map.dbc`, Data: dbc},
+		)
 	}
-	files = append(files,
-		mpq.File{Name: fmt.Sprintf(`World\Maps\%s\%s.wdt`, m.Dir, m.Dir), Data: wdt},
-		mpq.File{Name: wdlPath(m.Dir), Data: BuildWDL(horizon)},
-		mpq.File{Name: `DBFilesClient\Map.dbc`, Data: dbc},
-	)
 
 	// The read archives hold the patch open, so they close before anything is written.
 	set.Close()

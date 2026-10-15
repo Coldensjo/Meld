@@ -964,6 +964,7 @@ export namespace vmangos {
 	    Water: boolean;
 	    WaterLevel: number;
 	    Info?: MapInfo;
+	    Global?: ObjectSpec;
 	
 	    static createFrom(source: any = {}) {
 	        return new MapSpec(source);
@@ -977,6 +978,7 @@ export namespace vmangos {
 	        this.Water = source["Water"];
 	        this.WaterLevel = source["WaterLevel"];
 	        this.Info = this.convertValues(source["Info"], MapInfo);
+	        this.Global = this.convertValues(source["Global"], ObjectSpec);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

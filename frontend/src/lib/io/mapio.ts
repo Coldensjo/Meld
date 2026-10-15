@@ -40,7 +40,7 @@ import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
-import { TILE_CELLS, mapToTiles } from './vmangosExport'
+import { TILE_CELLS, mapToTiles, type ExportObject } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
 import { minimapScale, shadeHeights } from './minimapImage'
@@ -702,6 +702,16 @@ export function publishVmangosMap(engine: Engine) {
     const notes: string[] = []
     if (out.colorChunks) notes.push(`${out.colorChunks} chunks painted with a colour were left out`)
     if (out.outside) notes.push(`${out.outside} models outside the map were left out`)
+    // A WMO-only map is its first building: the WDT places it, and the map has no tiles.
+    let global: ExportObject | undefined
+    if (ref.info?.wmoOnly) {
+      global = input.objects.find((o) => o.type.startsWith('wmo:'))
+      if (!global) {
+        setStatus('A WMO-only map needs a building (a WMO) on it: place one first, or untick WMO-only in Map Properties.', 6000)
+        return
+      }
+      out.tiles = []
+    }
     lastMapId = ref.mapId
     ui.busy = true
     setStatus(`Publishing ${ref.dir}…${notes.length ? ' ' + notes.join('. ') + '.' : ''}`, 0)
@@ -714,6 +724,7 @@ export function publishVmangosMap(engine: Engine) {
           Water: input.waterEnabled,
           WaterLevel: input.waterLevel,
           Info: ref.info,
+          Global: global ? { Type: global.type, X: global.x, Y: global.y, Z: global.z, RotY: global.rotY, TiltX: global.tiltX ?? 0, TiltZ: global.tiltZ ?? 0, Scale: global.scale } : undefined,
         }),
       )
     } catch (e) {

@@ -80,6 +80,10 @@
       </select>
       <label class="k" for="mi-players">Player limit</label>
       <input id="mi-players" type="number" min="0" value={info.maxPlayers} onchange={(e) => setInfo({ maxPlayers: Math.max(0, num(e)) })} title="0 for no limit" />
+      <span class="k">WMO-only</span>
+      <label class="check" title="The map is its first building (a WMO), with no ground, as the client's Blackfathom Deeps; publish writes no tiles"
+        ><input type="checkbox" checked={!!info.wmoOnly} onchange={(e) => setInfo({ wmoOnly: (e.target as HTMLInputElement).checked })} /> The map is its first building</label
+      >
       <span class="k">Ghost goes to</span>
       <span class="row">
         <input type="number" value={info.ghostMap} onchange={(e) => setInfo({ ghostMap: Math.round(num(e)) })} title="The map a dead player's ghost goes back to its corpse from (-1 for this map)" aria-label="Ghost entrance map" />
