@@ -58,6 +58,7 @@ const tmpQ = new THREE.Quaternion()
 const tmpScale = new THREE.Vector3()
 const tmpPos = new THREE.Vector3()
 const UP = new THREE.Vector3(0, 1, 0)
+const eachM = new THREE.Matrix4()
 
 /** A spawn's instance matrix: a model turns to the spawn's facing and takes its size; a cone points up. */
 function spawnMatrix(s: vmangos.WorldSpawn, model: boolean, out: THREE.Matrix4) {
@@ -181,6 +182,17 @@ export class SpawnLayer {
    * The world-space box of a spawn's drawn model (or its marker cone while the model loads), for
    * the selection handles. Null for a spawn that is not drawn.
    */
+  /**
+   * Calls `fn` for each spawn drawn with its model (of a kind shown): its key, model type and
+   * instance matrix (one matrix, reused between calls).
+   */
+  forEachModel(fn: (key: string, type: string, m: THREE.Matrix4) => void) {
+    for (const b of this.batches) {
+      if (!b.ready || !this.shown[b.kind]) continue
+      for (const s of b.all) fn(spawnKey(s), b.type, spawnMatrix(s, true, eachM))
+    }
+  }
+
   boundsOf(s: vmangos.WorldSpawn, out: THREE.Box3): THREE.Box3 | null {
     const at = this.where.get(s)
     if (!at) return null

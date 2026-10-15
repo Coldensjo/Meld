@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { getAsset, type ModelAsset } from '../models/assets'
 import { loadTexture } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
+import type { SpawnLayer } from './SpawnLayer'
 import { blendOf, fogOf, litOf, PARTICLE_FLOATS, ParticlePool, VERTEX_FLOATS, type ParticleBlend } from './particles'
 import { RibbonTrail, ribbonBlend } from './ribbons'
 
@@ -167,7 +168,7 @@ class Batch {
   }
 }
 
-/** One emitter or ribbon of one placed model. */
+/** One emitter or ribbon of one placed model or spawn. */
 interface Live {
   pool: ParticlePool | null
   trail: RibbonTrail | null
@@ -189,10 +190,17 @@ const right = new THREE.Vector3()
 const up = new THREE.Vector3()
 const sphere = new THREE.Sphere()
 
+/** A seed for an emitter's randomizer from its owner's key, so each owner sprays its own pattern. */
+function seedOf(key: string, i: number): number {
+  let h = 0x811c9dc5
+  for (let k = 0; k < key.length; k++) h = Math.imul(h ^ key.charCodeAt(k), 0x01000193)
+  return h ^ Math.imul(i + 1, 0x85ebca6b)
+}
+
 /**
- * The particles and ribbons of the placed models (B-182, B-183): one pool per emitter and one trail
- * per ribbon of each object, simulated each frame while near and in view (world/particles.ts,
- * world/ribbons.ts), and drawn as one dynamic mesh per material.
+ * The particles and ribbons of the placed models and the spawns (B-182, B-183, #110): one pool per
+ * emitter and one trail per ribbon of each, simulated each frame while near and in view
+ * (world/particles.ts, world/ribbons.ts), and drawn as one dynamic mesh per material.
  */
 export class ParticleLayer {
   readonly group = new THREE.Group()
@@ -203,6 +211,8 @@ export class ParticleLayer {
   private batches = new Map<string, Batch>()
   private layer: ObjectLayer | null = null
   private version = -1
+  private spawns: SpawnLayer | null = null
+  private spawnsVersion = -1
   private generation = 0
 
   constructor() {
@@ -235,11 +245,15 @@ export class ParticleLayer {
     this.live.set(key, { ...l, inst: m.clone(), seen: gen })
   }
 
-  /** Every pool and trail and its key, after the objects changed. One whose emitter stays keeps its particles. */
-  private rebuild(layer: ObjectLayer) {
-    if (layer !== this.layer) {
+  /**
+   * Every pool and trail and its key, after the objects or the spawns changed. One whose emitter
+   * stays keeps its particles.
+   */
+  private rebuild(layer: ObjectLayer, spawns: SpawnLayer | null) {
+    if (layer !== this.layer || spawns !== this.spawns) {
       this.live.clear()
       this.layer = layer
+      this.spawns = spawns
     }
     const gen = ++this.generation
     for (const o of layer.objects.values()) {
@@ -247,34 +261,47 @@ export class ParticleLayer {
       const asset = getAsset(o.type)
       if (!asset.emitters.length && !asset.ribbons.length) continue
       layer.matrixOf(o, m)
-      for (let i = 0; i < asset.emitters.length; i++) {
-        const def = asset.emitters[i]
-        const key = `${o.id}:${i}`
-        if (this.keep(key, def, asset, gen)) continue
-        const batch = this.batchFor({ texture: def.texture, blend: blendOf(def), lit: litOf(def), fog: fogOf(def) })
-        const pool = new ParticlePool(def, Math.imul(o.id, 0x9e3779b9) ^ (i * 0x85ebca6b))
-        this.add(key, { pool, trail: null, bone: def.bone, batch, asset, frame: new THREE.Matrix4().fromArray(def.frame) }, gen)
-      }
-      for (let i = 0; i < asset.ribbons.length; i++) {
-        const def = asset.ribbons[i]
-        const key = `${o.id}:r${i}`
-        if (this.keep(key, def, asset, gen)) continue
-        // Ribbons are never lit, and fog as particles of their blend do.
-        const blend = ribbonBlend(def.blend)
-        const batch = this.batchFor({ texture: def.texture, blend, lit: false, fog: blend === 'add' ? 'black' : 'scene' })
-        this.add(key, { pool: null, trail: new RibbonTrail(def), bone: def.bone, batch, asset, frame: new THREE.Matrix4().fromArray(def.frame) }, gen)
-      }
+      this.addModel(String(o.id), asset, gen)
     }
+    spawns?.forEachModel((key, type, at) => {
+      const asset = getAsset(type)
+      if (!asset.emitters.length && !asset.ribbons.length) return
+      m.copy(at)
+      this.addModel(`s:${key}`, asset, gen)
+    })
     for (const [key, l] of this.live) if (l.seen !== gen) this.live.delete(key)
   }
 
+  /** The pools and trails of one model drawn at `m`, its owner named by `owner`. */
+  private addModel(owner: string, asset: ModelAsset, gen: number) {
+    for (let i = 0; i < asset.emitters.length; i++) {
+      const def = asset.emitters[i]
+      const key = `${owner}:${i}`
+      if (this.keep(key, def, asset, gen)) continue
+      const batch = this.batchFor({ texture: def.texture, blend: blendOf(def), lit: litOf(def), fog: fogOf(def) })
+      const pool = new ParticlePool(def, seedOf(owner, i))
+      this.add(key, { pool, trail: null, bone: def.bone, batch, asset, frame: new THREE.Matrix4().fromArray(def.frame) }, gen)
+    }
+    for (let i = 0; i < asset.ribbons.length; i++) {
+      const def = asset.ribbons[i]
+      const key = `${owner}:r${i}`
+      if (this.keep(key, def, asset, gen)) continue
+      // Ribbons are never lit, and fog as particles of their blend do.
+      const blend = ribbonBlend(def.blend)
+      const batch = this.batchFor({ texture: def.texture, blend, lit: false, fog: blend === 'add' ? 'black' : 'scene' })
+      this.add(key, { pool: null, trail: new RibbonTrail(def), bone: def.bone, batch, asset, frame: new THREE.Matrix4().fromArray(def.frame) }, gen)
+    }
+  }
+
   /** Advances and draws the particles: dt seconds have passed and the models' clock reads `ms`. */
-  update(layer: ObjectLayer, dt: number, ms: number, camera: THREE.Camera, frustum: THREE.Frustum) {
+  update(layer: ObjectLayer, spawns: SpawnLayer | null, dt: number, ms: number, camera: THREE.Camera, frustum: THREE.Frustum) {
     this.group.visible = this.enabled
     if (!this.enabled) return
-    if (layer !== this.layer || layer.version !== this.version) {
-      this.rebuild(layer)
+    const spawnsVersion = spawns?.version ?? -1
+    if (layer !== this.layer || layer.version !== this.version || spawns !== this.spawns || spawnsVersion !== this.spawnsVersion) {
+      this.rebuild(layer, spawns)
       this.version = layer.version
+      this.spawnsVersion = spawnsVersion
     }
     camera.getWorldPosition(eye)
     right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()

@@ -844,7 +844,7 @@ export class Engine {
     p.light.copy(tu.skyAmbient.value as THREE.Color).add(this.tmpColor.copy(tu.sunColor.value as THREE.Color).multiplyScalar(sun))
     p.light.setRGB(Math.min(1, p.light.r), Math.min(1, p.light.g), Math.min(1, p.light.b))
     // With animations off the tracks hold at the loop's start, as the bones do, but the particles still fly.
-    p.update(this.objects, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum)
+    p.update(this.objects, this.doc.spawnLayer, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum)
   }
 
   private applyViewDistance() {

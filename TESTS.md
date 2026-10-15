@@ -163,6 +163,10 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   cleared ground sweeps two blue strips 60 to 160 yd up across the sky; from `distance: 260` both
   trails hold about 95 edges (`__engine.particles.live.get('<id>:r0').trail.count`). Its bones are
   linearly keyed, 9 keys in 16.7 s, so the strips run straight between keys, as the client draws them.
+- Spawns (#110): a spawn's pools and trails are keyed `s:<kind>/<guid>:<emitter>` (`:r<n>` for a
+  ribbon). The Durotar region Kalimdor 41_33 (2x2) has 50 of them; its Copper Vein `object/112723`
+  has four additive glow emitters with 5 or 6 particles each once the camera is near it. A hidden
+  spawn kind (the Spawns filter) drops its spawns' particles.
 
 ## Brush size controls (Photoshop-style)
 
