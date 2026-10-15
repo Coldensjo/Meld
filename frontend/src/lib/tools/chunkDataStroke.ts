@@ -1,10 +1,23 @@
 import type { Terrain } from '../terrain/Terrain'
 import type { Command } from '../state/history'
-import { BlockSnapshot } from './blockSnapshot'
-import { extract, inject, type Rect } from './brush'
+import { BlockSnapshot, type SnapRect as Rect } from './blockSnapshot'
 
 /** Cells a side of the blocks a stroke saves of the no-effect cells. */
 const CELL_BLOCK = 32
+
+/** The bytes of a rect of a `width`-wide byte grid, row by row. */
+function extract(src: Uint8Array, width: number, r: Rect) {
+  const w = r.x1 - r.x0 + 1
+  const out = new Uint8Array(w * (r.z1 - r.z0 + 1))
+  for (let z = r.z0; z <= r.z1; z++) out.set(src.subarray(z * width + r.x0, z * width + r.x0 + w), (z - r.z0) * w)
+  return out
+}
+
+/** Writes `data` (as `extract` gives it) back into the rect. */
+function inject(dst: Uint8Array, width: number, r: Rect, data: Uint8Array) {
+  const w = r.x1 - r.x0 + 1
+  for (let z = r.z0; z <= r.z1; z++) dst.set(data.subarray((z - r.z0) * w, (z - r.z0 + 1) * w), z * width + r.x0)
+}
 
 /**
  * Records a Map data stroke for undo: the chunks' area IDs and flags, and the no-effect cells. The
@@ -17,11 +30,12 @@ export class ChunkDataStroke {
   private flagsBefore: Uint8Array
   private cellsBefore: BlockSnapshot<Uint8Array>
   private cellRect: Rect | null = null
+  private terrain: Terrain
+  private label: string
 
-  constructor(
-    private terrain: Terrain,
-    private label: string,
-  ) {
+  constructor(terrain: Terrain, label: string) {
+    this.terrain = terrain
+    this.label = label
     this.areasBefore = terrain.areaIds.slice()
     this.flagsBefore = terrain.chunkFlags.slice()
     this.cellsBefore = new BlockSnapshot(terrain.noEffect, terrain.size, terrain.size, 1, CELL_BLOCK)
@@ -53,7 +67,7 @@ export class ChunkDataStroke {
     const areas = { before: Uint32Array.from(chunks, (i) => this.areasBefore[i]), after: Uint32Array.from(chunks, (i) => t.areaIds[i]) }
     const flags = { before: Uint8Array.from(chunks, (i) => this.flagsBefore[i]), after: Uint8Array.from(chunks, (i) => t.chunkFlags[i]) }
     const r = this.cellRect
-    const cells = r ? { before: this.cellsBefore.extract(r), after: extract(t.noEffect, t.size, 1, r) as Uint8Array } : null
+    const cells = r ? { before: this.cellsBefore.extract(r), after: extract(t.noEffect, t.size, r) } : null
     if (cells && cells.before.every((v, i) => v === cells.after[i])) this.cellRect = null
     if (!chunks.length && !this.cellRect) return null
     const keepCells = this.cellRect !== null
@@ -62,7 +76,7 @@ export class ChunkDataStroke {
         t.areaIds[c] = before ? areas.before[k] : areas.after[k]
         t.chunkFlags[c] = before ? flags.before[k] : flags.after[k]
       })
-      if (keepCells && r && cells) inject(t.noEffect, t.size, 1, r, before ? cells.before : cells.after)
+      if (keepCells && r && cells) inject(t.noEffect, t.size, r, before ? cells.before : cells.after)
       t.touchChunkData()
     }
     return { label: this.label, undo: () => apply(true), redo: () => apply(false) }

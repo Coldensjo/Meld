@@ -377,25 +377,33 @@
     </select>
   {/if}
   {#if mapData}
-    <div class="seg" title="Set the zone under the brush, or clear it">
+    <select class="curve" bind:value={editor.mapDataMode} title="What the brush paints into the chunks" aria-label="Map data">
+      <option value="area">Zone</option>
+      <option value="impassable">Impassable</option>
+    </select>
+    <div class="seg" title={editor.mapDataMode === 'area' ? 'Set the zone under the brush, or clear it' : 'Mark the chunks under the brush impassable, or make them passable again'}>
       <button class:active={!editor.mapDataClear} onclick={() => (editor.mapDataClear = false)}>Set</button>
       <button class:active={editor.mapDataClear} onclick={() => (editor.mapDataClear = true)}>Clear</button>
     </div>
-    <input
-      class="area"
-      list="meld-areas"
-      placeholder={areas.length ? 'Zone: type a name' : 'Zones need the client'}
-      title="The zone (AreaTable.dbc) the brush paints into the chunks; Alt+click a chunk to take its zone"
-      aria-label="Zone"
-      value={areaText}
-      onchange={(e) => pickArea(e.currentTarget.value)}
-    />
-    <datalist id="meld-areas">
-      {#each areas as a (a.id)}
-        <option value="{areaName(a.id)} ({a.id})"></option>
-      {/each}
-    </datalist>
-    <span class="dim">{stats.hoverArea ? `Under the cursor: ${stats.hoverArea}` : 'Under the cursor: no zone'}</span>
+    {#if editor.mapDataMode === 'area'}
+      <input
+        class="area"
+        list="meld-areas"
+        placeholder={areas.length ? 'Zone: type a name' : 'Zones need the client'}
+        title="The zone (AreaTable.dbc) the brush paints into the chunks; Alt+click a chunk to take its zone"
+        aria-label="Zone"
+        value={areaText}
+        onchange={(e) => pickArea(e.currentTarget.value)}
+      />
+      <datalist id="meld-areas">
+        {#each areas as a (a.id)}
+          <option value="{areaName(a.id)} ({a.id})"></option>
+        {/each}
+      </datalist>
+      <span class="dim">{stats.hoverArea ? `Under the cursor: ${stats.hoverArea}` : 'Under the cursor: no zone'}</span>
+    {:else}
+      <span class="dim">Impassable chunks are hatched red. The export sets the flag (0x2) in their chunk headers.</span>
+    {/if}
   {/if}
   {#if editor.tool === 'paint' && editor.paintMode === 'texture'}
     <label class="check" title="Spray random dabs over the brush instead of painting it solid (T)"><input type="checkbox" bind:checked={editor.paintSpray} /> Spray</label>

@@ -20,6 +20,7 @@ import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformC
 import { ClearTool } from '../tools/ClearTool'
 import { MapDataTool } from '../tools/MapDataTool'
 import { areaName } from '../wow/areas'
+import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
@@ -650,7 +651,7 @@ export class Engine {
     u.gridVisible.value = editor.grid ? 1 : 0
     u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
     this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
-    this.terrain.setMapDataOverlay(editor.tool === 'mapdata' ? 1 : 0)
+    this.terrain.setMapDataOverlay(editor.tool !== 'mapdata' ? 0 : editor.mapDataMode === 'area' ? 1 : 2)
     // Strong red while editing the mask; faint while painting so results stay visible.
     const painting = editor.tool === 'paint' || editor.tool === 'road'
     u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
@@ -2751,6 +2752,7 @@ export class Engine {
       slope: groundSlopeDeg((px, pz) => t.heightAt(px, pz), hit.x, hit.z, t.cellSize),
       hole: t.isHole(hit.x, hit.z),
       noTufts: t.noEffect[cz * t.size + cx] !== 0,
+      impassable: (t.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0,
       area: t.areaIds[chunk] ? `${areaName(t.areaIds[chunk])} (${t.areaIds[chunk]})` : '',
       textures,
       liquids,

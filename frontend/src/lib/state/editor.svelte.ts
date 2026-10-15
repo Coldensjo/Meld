@@ -11,8 +11,8 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
 export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata'
-/** What the Map data tool paints into the chunk headers: the zone (an AreaTable.dbc ID). */
-export type MapDataMode = 'area'
+/** What the Map data tool paints into the chunk headers: the zone (an AreaTable.dbc ID), or the impassable flag. */
+export type MapDataMode = 'area' | 'impassable'
 export type ClearMode = 'models' | 'textures' | 'heights' | 'liquids' | 'holes'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'vertex' | 'hole'
 /** Flatten target: the height under the first click, or the average height under the brush. */
@@ -223,6 +223,8 @@ export interface DetailInfo {
   hole: boolean
   /** The client's own no-doodad bit (no grass tufts) on the cell. */
   noTufts: boolean
+  /** The chunk's header flags it as impassable. */
+  impassable: boolean
   /** The chunk's zone, named with its AreaTable.dbc ID, or '' for none. */
   area: string
   /** The chunk's texture layers: a short name, the share at the cell (percent) and the ground effect ID. */

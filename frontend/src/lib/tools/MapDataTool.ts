@@ -2,15 +2,16 @@ import type * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import { editor, setStatus } from '../state/editor.svelte'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
-import { squaresUnder, type GridRect } from '../terrain/chunkFlags'
+import { CHUNK_IMPASSABLE, squaresUnder, type GridRect } from '../terrain/chunkFlags'
 import { ChunkDataStroke } from './chunkDataStroke'
 import { areaName } from '../wow/areas'
 
 /**
- * The Map data tool paints what a chunk's header says besides its ground: in Area mode, the zone
- * (AreaTable.dbc ID) of every chunk whose centre is under the brush, or of the chunk under the cursor
- * when the brush is smaller than a chunk. Clear sets it back to none. Alt+click picks the zone under
- * the cursor. A stroke is one undo step.
+ * The Map data tool paints what a chunk's header says besides its ground, into every chunk whose
+ * centre is under the brush (or the chunk under the cursor when the brush is smaller than a chunk):
+ * in Area mode the zone (AreaTable.dbc ID), which Clear sets back to none, and in Impassable mode the
+ * impassable flag, which Clear takes off. Alt+click picks the zone under the cursor. A stroke is one
+ * undo step.
  */
 export class MapDataTool implements Tool {
   readonly usesBrush = true
@@ -19,14 +20,14 @@ export class MapDataTool implements Tool {
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
     if (e.altKey) {
-      if (hit) this.pickArea(ctx, hit)
+      if (hit && editor.mapDataMode === 'area') this.pickArea(ctx, hit)
       return
     }
     if (editor.mapDataMode === 'area' && !editor.mapDataClear && !editor.mapDataArea) {
       setStatus('Pick a zone in the options bar first, or Alt+click a chunk to take its zone.')
       return
     }
-    this.stroke = new ChunkDataStroke(ctx.terrain, editor.mapDataClear ? 'Clear zone' : `Paint zone ${areaName(editor.mapDataArea)}`)
+    this.stroke = new ChunkDataStroke(ctx.terrain, this.label())
     this.apply(ctx, hit)
   }
 
@@ -38,6 +39,11 @@ export class MapDataTool implements Tool {
     const cmd = this.stroke?.finish() ?? null
     this.stroke = null
     if (cmd) ctx.history.push(cmd)
+  }
+
+  private label() {
+    if (editor.mapDataMode === 'impassable') return editor.mapDataClear ? 'Make passable' : 'Mark impassable'
+    return editor.mapDataClear ? 'Clear zone' : `Paint zone ${areaName(editor.mapDataArea)}`
   }
 
   /** Takes the zone of the chunk under the cursor as the one to paint. */
@@ -61,13 +67,26 @@ export class MapDataTool implements Tool {
   private apply(ctx: ToolContext, hit: THREE.Vector3 | null) {
     if (!hit) return
     const t = ctx.terrain
-    const value = editor.mapDataClear ? 0 : editor.mapDataArea
     let changed = false
-    squaresUnder(t.paintChunksPerSide, CHUNK_CELLS * t.cellSize, hit.x, hit.z, editor.brush.radius, this.rect, (i) => {
-      if (t.areaIds[i] === value) return
-      t.areaIds[i] = value
-      changed = true
-    })
+    const side = t.paintChunksPerSide
+    const step = CHUNK_CELLS * t.cellSize
+    const radius = editor.brush.radius
+    if (editor.mapDataMode === 'impassable') {
+      const set = !editor.mapDataClear
+      squaresUnder(side, step, hit.x, hit.z, radius, this.rect, (i) => {
+        const f = set ? t.chunkFlags[i] | CHUNK_IMPASSABLE : t.chunkFlags[i] & ~CHUNK_IMPASSABLE
+        if (f === t.chunkFlags[i]) return
+        t.chunkFlags[i] = f
+        changed = true
+      })
+    } else {
+      const value = editor.mapDataClear ? 0 : editor.mapDataArea
+      squaresUnder(side, step, hit.x, hit.z, radius, this.rect, (i) => {
+        if (t.areaIds[i] === value) return
+        t.areaIds[i] = value
+        changed = true
+      })
+    }
     if (changed) t.touchChunkData()
   }
 }

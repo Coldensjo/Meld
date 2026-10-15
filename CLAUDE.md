@@ -71,7 +71,7 @@ cd frontend && pnpm build   # frontend only
   versions stay readable (a version 4 map has no chunk data, a version 3 map no liquids blob, a
   version 2 map no holes blob either).
 - **Map data** (`terrain/chunkFlags.ts`, `tools/MapDataTool.ts`, tool `mapdata`, key 9): what a
-  chunk's MCNK header says besides its ground. `Terrain.areaIds` is an AreaTable.dbc ID per paint
+  chunk's MCNK header says besides its ground, by mode (`editor.mapDataMode`: zone, impassable). `Terrain.areaIds` is an AreaTable.dbc ID per paint
   chunk (the `Areas` binding lists them, `wow/areas.ts` names them) and `Terrain.chunkFlags` a byte
   per chunk (`CHUNK_IMPASSABLE`); both and `Terrain.noEffect` are read from a region, saved in the
   map file (version 5) and painted by the tool through `ChunkDataStroke` (one undo step a stroke).
