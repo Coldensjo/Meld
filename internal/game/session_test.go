@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -189,7 +190,7 @@ func TestSessionWithBenilla(t *testing.T) {
 	if err := s.Start(c); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"WOW_DATA=" + filepath.Join(`C:\WoW`, "Data"), "WOW_USER=MELD", "WOW_PASS=secret"}
+	want := []string{"WOW_DATA=" + filepath.Join(`C:\WoW`, "Data"), "BENILLA_HOME=" + filepath.Join(`C:\benilla`, "benilla-config"), "WOW_USER=MELD", "WOW_PASS=secret"}
 	if r.dir != `C:\benilla` || strings.Join(r.env, "|") != strings.Join(want, "|") || !r.running["benilla.exe"] {
 		t.Fatalf("started from %q with %v", r.dir, r.env)
 	}
@@ -202,7 +203,7 @@ func TestBenillaEntersTheWorldAsTheCharacter(t *testing.T) {
 	if err := s.StartGame(); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"WOW_DATA=" + filepath.Join(`C:\WoW`, "Data"), "WOW_USER=MELD", "WOW_PASS=secret", "WOW_REALM=Meld Test", "WOW_CHAR=Sizaro"}
+	want := []string{"WOW_DATA=" + filepath.Join(`C:\WoW`, "Data"), "BENILLA_HOME=" + filepath.Join(`C:\benilla`, "benilla-config"), "WOW_USER=MELD", "WOW_PASS=secret", "WOW_REALM=Meld Test", "WOW_CHAR=Sizaro"}
 	if strings.Join(r.env, "|") != strings.Join(want, "|") {
 		t.Fatalf("started with %v, want %v", r.env, want)
 	}
@@ -214,7 +215,7 @@ func TestBenillaEntersTheWorldAsTheCharacter(t *testing.T) {
 	if err := s.StartGame(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(r.env, "|") != "WOW_DATA="+filepath.Join(`C:\WoW`, "Data") {
+	if strings.Join(r.env, "|") != "WOW_DATA="+filepath.Join(`C:\WoW`, "Data")+"|BENILLA_HOME="+filepath.Join(`C:\benilla`, "benilla-config") {
 		t.Fatalf("started with %v", r.env)
 	}
 }
@@ -231,4 +232,46 @@ func TestStopGameLeavesTheServersRunning(t *testing.T) {
 	if err := s.StopGame(); err != nil {
 		t.Fatalf("a game that isn't running needs no closing: %v", err)
 	}
+}
+
+func TestBenillaStartsThroughTheLauncherOnceBuilt(t *testing.T) {
+	folder := t.TempDir()
+	release := filepath.Join(folder, "target", "release")
+	if err := os.MkdirAll(release, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := BenillaExe(folder); got != filepath.Join(release, "benilla.exe") {
+		t.Fatalf("without the launcher: %s", got)
+	}
+	if err := os.WriteFile(filepath.Join(release, "meld-benilla.exe"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := BenillaExe(folder); got != filepath.Join(release, "meld-benilla.exe") {
+		t.Fatalf("with the launcher: %s", got)
+	}
+
+	// A Benilla started before the launcher was built is still closed.
+	r := &loggedRunner{envRunner: envRunner{fakeRunner: fakeRunner{running: map[string]bool{"benilla.exe": true}}}}
+	s := Session{ClientRoot: `C:\WoW`, Benilla: folder, Run: r}
+	if err := s.StopGame(); err != nil || r.running["benilla.exe"] {
+		t.Fatalf("running %v, %v", r.running, err)
+	}
+	if err := s.StartGame(); err != nil {
+		t.Fatal(err)
+	}
+	// The launcher starts without a console, its output in a log file, not through cmd's start.
+	if !r.running["meld-benilla.exe"] || r.log != LauncherLog(folder) || r.dir != folder {
+		t.Fatalf("started %v from %q, log %q", r.running, r.dir, r.log)
+	}
+}
+
+// loggedRunner is an envRunner that can also start a windowed program with its output in a log file.
+type loggedRunner struct {
+	envRunner
+	log string
+}
+
+func (f *loggedRunner) StartLogged(dir, name, logPath string, env []string, args ...string) error {
+	f.log = logPath
+	return f.StartEnv(dir, name, env, args...)
 }

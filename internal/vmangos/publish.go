@@ -61,6 +61,31 @@ func (OSRunner) StartEnv(dir, name string, env []string, args ...string) error {
 	return startProgramEnv(dir, name, args, env)
 }
 
+// StartLogged starts a program directly, not through cmd's start, so it gets no console of its own,
+// with `env` added to its environment and its output written to a new file at logPath. It's for a
+// windowed program (Meld's Benilla launcher), which needs no console, unlike the servers.
+func (OSRunner) StartLogged(dir, name, logPath string, env []string, args ...string) error {
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		return err
+	}
+	log, err := os.Create(logPath)
+	if err != nil {
+		return err
+	}
+	// The program gets its own copy of the handle, so this one closes once it's started.
+	defer log.Close()
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), env...)
+	cmd.Stdout, cmd.Stderr = log, log
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start %s: %w", name, err)
+	}
+	allowForeground(cmd.Process.Pid)
+	// It runs on after the editor exits; nothing waits for it.
+	return cmd.Process.Release()
+}
+
 // PublishPlan says where a map's files go: the client's Data folder (where the patch is written and the
 // extractors read the client from), the VMaNGOS server folder, and the mariadb client program.
 type PublishPlan struct {

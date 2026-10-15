@@ -1,0 +1,38 @@
+[package]
+name = "meld-benilla"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Benilla as Meld starts it: with a login and a character in the environment, the window stays hidden through the login screens and opens in the world"
+
+# A workspace of its own, so cargo never looks for one in Meld's folders above.
+[workspace]
+
+[features]
+# Benilla's dev/player seam; Meld uses the dev build, which reads the install from WOW_DATA.
+default = ["dev"]
+dev = ["benilla-app/dev"]
+
+[dependencies]
+# The Benilla clone beside Meld (C:\WoW\benilla), so this builds on what was pulled there.
+# `default-features = false`, or `--no-default-features` still builds benilla-app with `dev`.
+benilla-app = { path = "../../benilla/crates/benilla-app", default-features = false }
+# Benilla's version, adding no features: bevy's defaults bring its audio stack back.
+bevy = { version = "0.18.1", default-features = false }
+
+[build-dependencies]
+benilla-buildstamp = { path = "../../benilla/crates/benilla-buildstamp" }
+
+# Cargo reads `[patch]` and `[profile]` from the root manifest only, so Benilla's are repeated:
+# without the patches the addon Lua and the mixer are not Benilla's.
+[patch.crates-io]
+lua-src = { path = "../../benilla/third_party/lua-src" }
+kira = { path = "../../benilla/third_party/kira" }
+
+[profile.dev]
+opt-level = 1
+lto = "off"
+
+[profile.dev.package."*"]
+opt-level = 3
+codegen-units = 1

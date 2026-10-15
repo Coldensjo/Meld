@@ -714,3 +714,20 @@ where it really stood (the zone too, which only the server sets).
   placement. So the row is only written once `online` is 0. Benilla logs out as it closes, but a
   killed client (`taskkill /F`) leaves the character in for two minutes (ForceLogoutDelay).
 - Trap: without `WOW_REALM` Benilla stops at the realm list, so `WOW_CHAR` never applies.
+
+## Benilla launcher: nothing on screen until the world (benilla-launcher)
+
+Checks: started by Meld with a login and a character, `meld-benilla.exe` shows no console and no
+window until the character is in the world, then its game window in front. Unit tests: `cargo test
+--release` in `benilla-launcher` (when the window hides and shows), `internal/game/session_test.go`
+(`BenillaExe` prefers the launcher; it's started through `StartLogged`, not `cmd /c start`). Live: run
+the session's `StopGame`, `vmangos.PlaceCharacter` and `StartGame` from a scratch program, and sample
+the launcher's windows every 50 ms with user32's `EnumWindows`, `IsWindowVisible` and `GetClassName`
+(PowerShell `Add-Type`): the game's window is class `Window Class`, created hidden; `ConsoleWindowClass`
+must never appear. Its log is `C:\WoW\benilla\benilla-config\meld-benilla.log`, with
+`meld-benilla: in the world, showing the window` at the reveal.
+- Trap: winit's `Winit Thread Event Target` counts as visible but is never on screen; leave it out.
+- Trap: a launcher started from a script that isn't in front can't take the foreground, so it opens
+  behind; Meld, in front when Launch is clicked, hands it the right (`AllowSetForegroundWindow`). Judge
+  the foreground only from a real click.
+- Trap: a running launcher locks `meld-benilla.exe`, so a rebuild fails with "access denied".

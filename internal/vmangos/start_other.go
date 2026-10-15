@@ -45,3 +45,6 @@ var (
 	heldMu sync.Mutex
 	held   []*os.File
 )
+
+// allowForeground does nothing here: only Windows keeps a program from bringing its window to the front.
+func allowForeground(int) {}

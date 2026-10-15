@@ -79,9 +79,10 @@ The tool chain lives in `C:\WoW` (moved there 2026-10-15, from `C:\Servers\Meld`
 - `backup`: files kept aside by hand (not a backup of the rest).
 
 `benilla`, `vmangos` and `noggit-red` are clones of other people's projects. Never commit to their
-upstream branches or push them. Our changes to vmangos (the extractor reading patch-3 to patch-9) and to
-noggit-red (opening 1.12.1 clients) are on a branch named `local` in each; after a `git pull` on the
-upstream branch, rebase `local` onto it.
+upstream branches or push them. Our changes to vmangos (the extractor reading patch-3 to patch-9), to
+noggit-red (opening 1.12.1 clients) and to benilla (dialling IPv4 first, offered upstream on the branch
+`fix/dial-ipv4-first`) are on a branch named `local` in each; after a `git pull` on the upstream branch,
+rebase `local` onto it. A change of ours that upstream merges drops out of `local` in that rebase.
 
 Meld's config (`%APPDATA%\Meld\config.json`) holds absolute paths (`wowPath`, `vmangosPath`,
 `benillaPath`), so moving a folder means updating those.

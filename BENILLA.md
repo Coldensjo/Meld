@@ -23,6 +23,30 @@ into the world database), and Benilla is just another program that shows it.
 
 To rebuild after `git pull` in the Benilla folder: `cargo build --release -p benilla`.
 
+### Meld's launcher (`benilla-launcher/`)
+
+Benilla always shows the login, realm and character screens, as the 1.12.1 client does, so a launch
+that should open straight in the world is a feature on top of Benilla, not in it (Benilla's
+`docs/CONTRIBUTING.md`, "Building on top"). `benilla-launcher/` is that crate: Benilla started through
+`benilla_app::run_with`, plus one plugin (`src/hidden_login.rs`). With `WOW_USER`, `WOW_PASS` and
+`WOW_CHAR` set, the window is created hidden and shown, focused, once the character is in the world
+(Benilla's `Objects::player()`); a login that stops at a dialog is shown after 30 seconds.
+
+- Build it after Benilla: `cargo build --release` in `benilla-launcher`. It builds into Benilla's own
+  target folder (`.cargo/config.toml`), sharing its compiled crates, as
+  `C:\WoW\benilla\target\release\meld-benilla.exe`.
+- Meld starts it instead of `benilla.exe` whenever it's built there (`game.BenillaExe`), with
+  `BENILLA_HOME` set to Benilla's `benilla-config`, so it keeps Benilla's settings, addons and window.
+- It's a windowed program on Windows (`windows_subsystem`), so no console opens beside the game. Meld
+  starts it directly rather than through `cmd /c start` (`OSRunner.StartLogged`), its log written to
+  `benilla-config\meld-benilla.log`, and lets it take the foreground (`AllowSetForegroundWindow`),
+  which Windows otherwise refuses a program the user isn't working in, so the game opens in front.
+- Checked on 2026-10-15 through Meld's launch path: no console, nothing on screen until Sizaro was in
+  the world (3.8 s after the start, the login itself 12 ms), then the game window.
+- It depends on the Benilla clone by path, so it builds against what was pulled there. After a
+  `git pull` in Benilla, rebuild both. If Benilla's `Cargo.lock` moved, copy it over the launcher's
+  first (cargo reads only the root's lockfile).
+
 ## What Meld does with it (done)
 
 - **Preferences › Game client**: World of Warcraft (Wow.exe) or Benilla. Benilla needs its folder

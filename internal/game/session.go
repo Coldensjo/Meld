@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -16,8 +17,11 @@ import (
 const (
 	gameImage    = "Wow.exe"
 	benillaImage = "benilla.exe"
-	worldImage   = "mangosd.exe"
-	authImage    = "realmd.exe"
+	// launcherImage is Meld's launcher for Benilla (benilla-launcher), built beside benilla.exe: Benilla
+	// with its window hidden until a login from the environment is in the world.
+	launcherImage = "meld-benilla.exe"
+	worldImage    = "mangosd.exe"
+	authImage     = "realmd.exe"
 
 	// The ports the servers listen on by default. A server whose conf changes them only costs the wait.
 	authPort  = 3724
@@ -56,8 +60,13 @@ type Session struct {
 	Realm string
 }
 
-// BenillaExe is where a release build of Benilla puts its program, under its folder.
+// BenillaExe is the program Meld starts from a Benilla folder: Meld's launcher when it's built there
+// (`cargo build --release` in benilla-launcher puts it in Benilla's target folder), else Benilla's own.
 func BenillaExe(folder string) string {
+	launcher := filepath.Join(folder, "target", "release", launcherImage)
+	if _, err := os.Stat(launcher); err == nil {
+		return launcher
+	}
 	return filepath.Join(folder, "target", "release", benillaImage)
 }
 
@@ -66,12 +75,25 @@ type envStarter interface {
 	StartEnv(dir, name string, env []string, args ...string) error
 }
 
-// game is the image of the game this session closes and opens.
-func (s Session) game() string {
+// loggedStarter is a Runner that can also start a windowed program without a console, its output
+// written to a log file.
+type loggedStarter interface {
+	StartLogged(dir, name, logPath string, env []string, args ...string) error
+}
+
+// LauncherLog is where the launcher's output goes when Meld starts it: in Benilla's settings folder,
+// written anew at each start.
+func LauncherLog(folder string) string {
+	return filepath.Join(folder, "benilla-config", "meld-benilla.log")
+}
+
+// games are the images of the game this session closes: with Benilla, both its programs, since the one
+// running may have been started before the launcher was built.
+func (s Session) games() []string {
 	if s.Benilla != "" {
-		return benillaImage
+		return []string{launcherImage, benillaImage}
 	}
-	return gameImage
+	return []string{gameImage}
 }
 
 // Closed is what Stop shut down, so Start opens only those again.
@@ -85,11 +107,10 @@ type Closed struct {
 // one to exit. On an error it returns what it did close, so the caller can still Start them.
 func (s Session) Stop() (Closed, error) {
 	var c Closed
-	if s.Run.Running(s.game()) {
-		if err := s.close(s.game()); err != nil {
-			return c, err
-		}
-		c.Game = true
+	closed, err := s.closeGame()
+	c.Game = closed
+	if err != nil {
+		return c, err
 	}
 	if s.ServerRoot == "" {
 		return c, nil
@@ -150,7 +171,12 @@ func (s Session) Start(c Closed) error {
 // Data folder; with a saved login, Benilla logs itself in (WOW_USER and WOW_PASS), no typing needed,
 // picks the realm (WOW_REALM) and, with a saved character, enters the world as it (WOW_CHAR).
 func (s Session) startBenilla() error {
-	env := []string{"WOW_DATA=" + filepath.Join(s.ClientRoot, "Data")}
+	env := []string{
+		"WOW_DATA=" + filepath.Join(s.ClientRoot, "Data"),
+		// Benilla's settings folder in its own folder, which the launcher, a program of its own, would
+		// otherwise look for beside itself; window.go writes the game window into it.
+		"BENILLA_HOME=" + filepath.Join(s.Benilla, "benilla-config"),
+	}
 	if s.Login.Account != "" && s.Login.Password != "" {
 		env = append(env, "WOW_USER="+s.Login.Account, "WOW_PASS="+s.Login.Password)
 		if s.Realm != "" {
@@ -161,13 +187,19 @@ func (s Session) startBenilla() error {
 		}
 	}
 	exe := BenillaExe(s.Benilla)
-	if r, ok := s.Run.(envStarter); ok {
-		if err := r.StartEnv(s.Benilla, exe, env); err != nil {
-			return fmt.Errorf("starting Benilla: %w", err)
-		}
-		return nil
+	var err error
+	if r, ok := s.Run.(loggedStarter); ok && filepath.Base(exe) == launcherImage {
+		// The launcher is a windowed program: no console beside the game, its log in a file.
+		err = r.StartLogged(s.Benilla, exe, LauncherLog(s.Benilla), env)
+	} else if r, ok := s.Run.(envStarter); ok {
+		err = r.StartEnv(s.Benilla, exe, env)
+	} else {
+		return errors.New("this runner can't start Benilla with its data folder")
 	}
-	return errors.New("this runner can't start Benilla with its data folder")
+	if err != nil {
+		return fmt.Errorf("starting Benilla: %w", err)
+	}
+	return nil
 }
 
 // StartGame opens the session's game on its own (the menu's Launch Game), logged in when a login is saved.
@@ -177,10 +209,23 @@ func (s Session) StartGame() error {
 
 // StopGame closes the session's game, when it's running, and leaves the servers alone.
 func (s Session) StopGame() error {
-	if !s.Run.Running(s.game()) {
-		return nil
+	_, err := s.closeGame()
+	return err
+}
+
+// closeGame closes the game when it's running, and reports whether it was.
+func (s Session) closeGame() (bool, error) {
+	closed := false
+	for _, image := range s.games() {
+		if !s.Run.Running(image) {
+			continue
+		}
+		if err := s.close(image); err != nil {
+			return closed, err
+		}
+		closed = true
 	}
-	return s.close(s.game())
+	return closed, nil
 }
 
 // WorldRunning reports whether the world server is running.
