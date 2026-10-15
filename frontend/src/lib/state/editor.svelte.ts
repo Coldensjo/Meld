@@ -442,6 +442,8 @@ export const ui = $state({
   creatureEditor: null as { key: string | null; entry: number } | null,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
+  /** The floating quick texture palette (components/TexturePaletteWindow.svelte): the map's textures to paint with. */
+  texturePalette: false,
   /** The floating History window (components/HistoryWindow.svelte): the undo stack, a click goes to any step. */
   history: false,
   /** Bumped whenever the active map's undo stack changes or another map's becomes active, so the History window re-reads it. */

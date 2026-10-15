@@ -536,3 +536,7 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-142 Object palette
 - Done (IDEAS.md records the choice): a right-click on any asset browser tile stars it as a favourite (a yellow star in its corner; again to unstar), and with the search box empty the browser shows a Favourites row first, above Recent, for the kind tab in use (`prefs.favoriteAssets`, so every map has them; textures can be favourites too). A click on one places or paints it as any tile does.
 - Verified: make test passed (Go plus 225 of 225 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+
+## 2026-10-15 · B-017 Undockable quick texture palette
+- Done (IDEAS.md records the choice): Edit › Map Textures (quick palette) opens a floating window (`TexturePaletteWindow.svelte`, `ui.texturePalette`) with the map's own textures and colours as tiles numbered by palette slot; a click makes one the paint texture and switches to Paint (or, while Sculpt paints a texture, makes it the one sculpting paints), without the asset browser. It floats over the viewport like the History window and closes with its ✕.
+- Verified: make test passed (Go plus 225 of 225 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.

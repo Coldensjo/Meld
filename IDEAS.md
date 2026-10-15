@@ -378,3 +378,10 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   of favourite models filled from its asset browser, to place from. **Ours**: the favourites are a row at
   the top of Meld's asset browser (starred with a right-click on a tile), not a dock panel, since the owner
   keeps the dock to Layers alone; they are a preference, shared by every map, and textures can be starred too.
+
+### B-017 Quick texture palette · the map's palette, floating
+- Chosen by the loop from Noggit Red (2026-10-15, B-017). Noggit Red's Quick Access Texture Palette
+  (`ui/texture_palette_small.cpp`) is a floating list of textures saved with the project, added and
+  removed by hand, a click selecting one. **Ours**: the window lists the map's own palette, which is
+  already the textures saved with the map, so nothing is kept twice; a texture joins it by being picked
+  in the asset browser, and favourites (B-142) are the cross-map list.
