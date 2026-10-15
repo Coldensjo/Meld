@@ -51,6 +51,9 @@ type Session struct {
 	Benilla string
 	// Window is how the game's window opens, written into its settings before it starts.
 	Window Window
+	// Realm is the realm Benilla picks after logging in (WOW_REALM), so it doesn't stop at the realm
+	// list. Empty leaves the pick to Benilla (the realm it was last on).
+	Realm string
 }
 
 // BenillaExe is where a release build of Benilla puts its program, under its folder.
@@ -144,11 +147,18 @@ func (s Session) Start(c Closed) error {
 }
 
 // startBenilla starts Benilla from its folder (where it keeps benilla-config), reading the install's
-// Data folder; with a saved login, Benilla logs itself in (WOW_USER and WOW_PASS), no typing needed.
+// Data folder; with a saved login, Benilla logs itself in (WOW_USER and WOW_PASS), no typing needed,
+// picks the realm (WOW_REALM) and, with a saved character, enters the world as it (WOW_CHAR).
 func (s Session) startBenilla() error {
 	env := []string{"WOW_DATA=" + filepath.Join(s.ClientRoot, "Data")}
 	if s.Login.Account != "" && s.Login.Password != "" {
 		env = append(env, "WOW_USER="+s.Login.Account, "WOW_PASS="+s.Login.Password)
+		if s.Realm != "" {
+			env = append(env, "WOW_REALM="+s.Realm)
+		}
+		if s.Login.Character != "" {
+			env = append(env, "WOW_CHAR="+s.Login.Character)
+		}
 	}
 	exe := BenillaExe(s.Benilla)
 	if r, ok := s.Run.(envStarter); ok {
@@ -163,6 +173,19 @@ func (s Session) startBenilla() error {
 // StartGame opens the session's game on its own (the menu's Launch Game), logged in when a login is saved.
 func (s Session) StartGame() error {
 	return s.Start(Closed{Game: true})
+}
+
+// StopGame closes the session's game, when it's running, and leaves the servers alone.
+func (s Session) StopGame() error {
+	if !s.Run.Running(s.game()) {
+		return nil
+	}
+	return s.close(s.game())
+}
+
+// WorldRunning reports whether the world server is running.
+func (s Session) WorldRunning() bool {
+	return s.Run.Running(worldImage)
 }
 
 // logIn types the saved account into the client's login screen. It runs in the background, since the

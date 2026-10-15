@@ -81,6 +81,7 @@ export namespace main {
 	export class GameLoginInfo {
 	    account: string;
 	    hasPassword: boolean;
+	    character: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new GameLoginInfo(source);
@@ -90,6 +91,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.account = source["account"];
 	        this.hasPassword = source["hasPassword"];
+	        this.character = source["character"];
 	    }
 	}
 	export class GameWindowInfo {
@@ -387,6 +389,26 @@ export namespace vmangos {
 	        this.minElevation = source["minElevation"];
 	        this.ambientMul = source["ambientMul"];
 	        this.light = source["light"];
+	    }
+	}
+	export class CharacterSpot {
+	    map: number;
+	    x: number;
+	    y: number;
+	    z: number;
+	    o: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CharacterSpot(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.map = source["map"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.o = source["o"];
 	    }
 	}
 	export class LayerView {

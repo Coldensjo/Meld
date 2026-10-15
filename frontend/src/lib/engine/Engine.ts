@@ -50,7 +50,7 @@ import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
-import { teleportCommand } from '../io/portCoords'
+import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import type { MapInfo } from './MapDocument'
@@ -106,6 +106,13 @@ const NO_BOXES: THREE.Box3[] = []
 
 /** How far above the ground the top-down view's camera stands: over any building or mountain a map holds. */
 const ORTHO_HEIGHT = 1500
+
+/** Straight down, for finding the ground below a point. */
+const DOWN = new THREE.Vector3(0, -1, 0)
+/** How far above an orbit target `playerSpot` looks down from, in yards: a floor up to this high over the terrain is stood on. */
+const PLAYER_PROBE = 3
+/** How far above the ground a launched character is put, in yards, so it never starts inside the surface. */
+const PLAYER_LIFT = 0.5
 
 /** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
 const TILE_CELLS = 128
@@ -1576,6 +1583,35 @@ export class Engine {
     if (!m.vmangos) await this.loadMapIds()
     const id = this.openMapId() ?? 0
     return { command: teleportCommand(at, id, m.region?.x ?? 0, m.region?.y ?? 0) }
+  }
+
+  /**
+   * Where a character launched into the game should stand: on the ground or the model surface below
+   * the camera (the orbit target in ground-following mode, the camera itself when flying), facing the
+   * way the camera looks, in the server's coordinates and map. Null for a map that isn't in the client.
+   */
+  async playerSpot(): Promise<ServerSpot | null> {
+    const m = this.doc.meta
+    if (!m.vmangos && !m.region) return null
+    if (!m.vmangos) await this.loadMapIds()
+    const id = this.openMapId()
+    if (id === null) return null
+    const c = this.controller
+    // From a little above an orbit target, so a floor just over the terrain is found, not a roof.
+    const from = c.followGround ? c.target.clone().setY(c.target.y + PLAYER_PROBE) : this.camera.position.clone()
+    const at = this.groundBelow(from) ?? from.clone().setY(this.terrain.heightAt(from.x, from.z))
+    at.y += PLAYER_LIFT
+    return serverSpot(at, id, m.region?.x ?? 0, m.region?.y ?? 0, c.yaw)
+  }
+
+  /** The nearest terrain or model surface straight below `from`, or null when there is none. */
+  private groundBelow(from: THREE.Vector3): THREE.Vector3 | null {
+    this.raycaster.set(from, DOWN)
+    const ground = new THREE.Vector3()
+    const onGround = this.terrain.raycast(this.raycaster.ray, ground)
+    const obj = this.objects.raycastSurface(this.raycaster)
+    if (obj && (!onGround || obj.distance < ground.distanceTo(from))) return obj.point
+    return onGround ? ground : null
   }
 
   /** The active map as the client export takes it. */

@@ -130,7 +130,10 @@ cd frontend && pnpm build   # frontend only
     needs (maps, zones, emotes, liquids, ground effects), and launching the client and servers.
   - `game` closes and reopens the client and servers around an export: Wow.exe, or Benilla (the
     open-source 1.12.1 client, `config.GameClient`, started from its folder with `WOW_DATA`,
-    `WOW_USER` and `WOW_PASS`; see BENILLA.md).
+    `WOW_USER`, `WOW_PASS`, `WOW_REALM` and `WOW_CHAR`; see BENILLA.md). Launch (`LaunchGameAt`)
+    puts the Game Login's character where the camera is: `Engine.playerSpot` finds the ground or
+    model below the camera in the server's coordinates (`io/portCoords.ts` `serverSpot`), and
+    `vmangos.PlaceCharacter` writes it into the character's row once the server has logged it out.
 
   No editing logic goes in Go: it never decides what a brush does. It parses, converts and writes
   formats the frontend should not have to know, and anything that must read the client's archives.

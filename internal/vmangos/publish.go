@@ -214,13 +214,19 @@ func (d worldDB) args(sql string) []string {
 // worldDatabase reads WorldDatabase.Info from the server's mangosd.conf:
 // "host;port;user;password;database".
 func worldDatabase(serverRoot string) (worldDB, error) {
+	return confDatabase(serverRoot, "WorldDatabase.Info")
+}
+
+// confDatabase reads a database's connection (key: WorldDatabase.Info, CharacterDatabase.Info or
+// LoginDatabase.Info) from the server's mangosd.conf.
+func confDatabase(serverRoot, key string) (worldDB, error) {
 	b, err := os.ReadFile(filepath.Join(serverRoot, "run", "mangosd.conf"))
 	if err != nil {
 		return worldDB{}, err
 	}
 	for _, line := range strings.Split(string(b), "\n") {
 		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "WorldDatabase.Info") || strings.HasPrefix(line, "#") {
+		if !strings.HasPrefix(line, key) || strings.HasPrefix(line, "#") {
 			continue
 		}
 		q := strings.Index(line, `"`)
@@ -236,5 +242,5 @@ func worldDatabase(serverRoot string) (worldDB, error) {
 		}
 		return worldDB{host: parts[0], port: parts[1], user: parts[2], password: parts[3], name: parts[4]}, nil
 	}
-	return worldDB{}, errors.New("mangosd.conf has no WorldDatabase.Info")
+	return worldDB{}, errors.New("mangosd.conf has no " + key)
 }

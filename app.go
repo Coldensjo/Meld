@@ -838,6 +838,10 @@ func (a *App) gameSession() (game.Session, error) {
 	}
 	if a.cfg.GameClient == "benilla" && a.cfg.BenillaPath != "" {
 		s.Benilla = a.cfg.BenillaPath
+		if s.ServerRoot != "" {
+			// Without it Benilla stops at the realm list; a database that's down only costs that.
+			s.Realm, _ = vmangos.RealmName(s.ServerRoot)
+		}
 	}
 	s.Window = game.Window{Mode: a.cfg.GameWindow, Resolution: a.cfg.GameResolution}
 	return s, nil
@@ -959,22 +963,47 @@ func (a *App) LaunchGame() error {
 	return sess.StartGame()
 }
 
+// LaunchGameAt is LaunchGame with the saved character entering the world at spot (where the editor's
+// camera is): with the server folder set, the game is closed, the character logged out and moved
+// there in the server's database first. It returns the character placed, or "" when there is no
+// character or server to place it on, and the game is only launched.
+func (a *App) LaunchGameAt(spot vmangos.CharacterSpot) (string, error) {
+	sess, err := a.gameSession()
+	if err != nil {
+		return "", err
+	}
+	character := sess.Login.Character
+	if character == "" || sess.ServerRoot == "" {
+		return "", sess.StartGame()
+	}
+	if err := sess.StopGame(); err != nil {
+		return "", err
+	}
+	if err := vmangos.PlaceCharacter(sess.ServerRoot, character, spot, sess.WorldRunning); err != nil {
+		return "", err
+	}
+	return character, sess.StartGame()
+}
+
 // GameLoginInfo is the saved game login. The password itself never goes to the frontend.
 type GameLoginInfo struct {
 	Account     string `json:"account"`
 	HasPassword bool   `json:"hasPassword"`
+	Character   string `json:"character"`
 }
 
 // GameLogin returns the account the game logs in with after a region export.
 func (a *App) GameLogin() GameLoginInfo {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	return GameLoginInfo{Account: a.cfg.Login.Account, HasPassword: a.cfg.Login.Password != ""}
+	l := a.cfg.Login
+	return GameLoginInfo{Account: l.Account, HasPassword: l.Password != "", Character: l.Character}
 }
 
-// SetGameLogin saves the account and password the game logs in with. An empty account clears the login.
-// An empty password keeps the saved one when the account is unchanged, and otherwise saves none.
-func (a *App) SetGameLogin(account, password string) error {
+// SetGameLogin saves the account and password the game logs in with, and the character it enters the
+// world as ("" for character select). An empty account clears the login. An empty password keeps the
+// saved one when the account is unchanged, and otherwise saves none.
+func (a *App) SetGameLogin(account, password, character string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	account = strings.TrimSpace(account)
@@ -984,7 +1013,7 @@ func (a *App) SetGameLogin(account, password string) error {
 		if password == "" && a.cfg.Login.Account == account {
 			password = a.cfg.Login.Password
 		}
-		a.cfg.Login = config.Login{Account: account, Password: password}
+		a.cfg.Login = config.Login{Account: account, Password: password, Character: strings.TrimSpace(character)}
 	}
 	login := a.cfg.Login
 	return config.Update(func(c *config.Config) error {

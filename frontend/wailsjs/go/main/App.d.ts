@@ -42,6 +42,8 @@ export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
 export function LaunchGame():Promise<void>;
 
+export function LaunchGameAt(arg1:vmangos.CharacterSpot):Promise<string>;
+
 export function LiquidTypes():Promise<Array<vmangos.LiquidTypeEntry>>;
 
 export function ListBrushImages(arg1:string):Promise<Array<string>>;
@@ -146,7 +148,7 @@ export function SetBenillaPath(arg1:string):Promise<void>;
 
 export function SetGameClient(arg1:string):Promise<void>;
 
-export function SetGameLogin(arg1:string,arg2:string):Promise<void>;
+export function SetGameLogin(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SetGameWindow(arg1:string,arg2:string):Promise<void>;
 

@@ -74,6 +74,10 @@ export function LaunchGame() {
   return window['go']['main']['App']['LaunchGame']();
 }
 
+export function LaunchGameAt(arg1) {
+  return window['go']['main']['App']['LaunchGameAt'](arg1);
+}
+
 export function LiquidTypes() {
   return window['go']['main']['App']['LiquidTypes']();
 }
@@ -282,8 +286,8 @@ export function SetGameClient(arg1) {
   return window['go']['main']['App']['SetGameClient'](arg1);
 }
 
-export function SetGameLogin(arg1, arg2) {
-  return window['go']['main']['App']['SetGameLogin'](arg1, arg2);
+export function SetGameLogin(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetGameLogin'](arg1, arg2, arg3);
 }
 
 export function SetGameWindow(arg1, arg2) {

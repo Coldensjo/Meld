@@ -699,3 +699,18 @@ the ground, liquids and models together.
 - Trap: node's type stripping can't load `tools/brush.ts` (a constructor with parameter properties),
   so a unit test can't import `world/clipboard.ts` or anything else that pulls it in. Put what a
   test needs in its own module (`world/clipRotate.ts` is one) and import only that.
+
+## Launch where the camera is (character placement)
+
+Checks: Launch puts the Game Login's character on the ground below the camera, on the open map,
+facing the camera's way. Unit tests: `internal/vmangos/character_test.go` (waits for the logout,
+the UPDATE it writes), `internal/game/session_test.go` (`WOW_REALM`, `WOW_CHAR`, `StopGame`),
+`tests/portCoords.test.ts` (`serverSpot`: position and facing). Against the real server, read the
+row before and after: `mariadb -h 127.0.0.1 -P 3307 -u root -e "select map, zone, position_x,
+position_y, position_z, orientation, online from characters.characters where name = 'Sizaro'"`.
+Once in the world, close the game: the server saves the character on logout, and the row then shows
+where it really stood (the zone too, which only the server sets).
+- Trap: a character still in the world is saved over its row when it leaves, which undoes the
+  placement. So the row is only written once `online` is 0. Benilla logs out as it closes, but a
+  killed client (`taskkill /F`) leaves the character in for two minutes (ForceLogoutDelay).
+- Trap: without `WOW_REALM` Benilla stops at the realm list, so `WOW_CHAR` never applies.

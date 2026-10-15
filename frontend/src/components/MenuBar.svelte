@@ -286,7 +286,7 @@
           (v) => void setGameClient(v),
         ),
         { kind: 'action', label: 'Benilla Folder…', disabled: !hasBackend(), run: chooseBenillaFolder },
-        { kind: 'action', label: ui.gameClient === 'benilla' ? 'Launch Benilla' : 'Launch World of Warcraft', disabled: !hasBackend() || !wow.loaded, run: launchGame },
+        { kind: 'action', label: ui.gameClient === 'benilla' ? 'Launch Benilla' : 'Launch World of Warcraft', disabled: !hasBackend() || !wow.loaded, run: () => launchGame(engineRef.current) },
         { kind: 'header', label: 'Game window (when Meld starts it)' },
         ...radios<'' | 'windowed' | 'fullscreen'>(
           [

@@ -42,6 +42,9 @@ type Window struct {
 type Login struct {
 	Account  string `json:"account,omitempty"`
 	Password string `json:"password,omitempty"`
+	// Character is the account's character the game enters the world as, skipping character select
+	// (Benilla's WOW_CHAR), and the one Launch places where the editor's camera is. Empty for none.
+	Character string `json:"character,omitempty"`
 }
 
 // dirName is the app's folder in the config dir. oldDirName is what it was called before the

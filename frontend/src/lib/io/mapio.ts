@@ -21,6 +21,7 @@ import {
   BrowseBenillaFolder,
   SetBenillaPath,
   LaunchGame,
+  LaunchGameAt,
   OpenMapDialog,
   PublishVmangosMap,
   ReadHeightmap,
@@ -721,12 +722,24 @@ export async function chooseBenillaFolder() {
   }
 }
 
-/** Opens the chosen game client now, logged in with the saved Game Login. */
-export async function launchGame() {
+/**
+ * Opens the chosen game client now, logged in with the saved Game Login. With a saved character, it
+ * enters the world where the camera is, when the open map is in the client.
+ */
+export async function launchGame(engine: Engine | null) {
   if (!hasBackend()) return
+  const game = ui.gameClient === 'benilla' ? 'Benilla' : 'World of Warcraft'
   try {
-    await LaunchGame()
-    setStatus(ui.gameClient === 'benilla' ? 'Starting Benilla…' : 'Starting World of Warcraft…', 4000)
+    const spot = engine ? await engine.playerSpot() : null
+    if (!spot) {
+      await LaunchGame()
+      setStatus(`Starting ${game}…`, 4000)
+      return
+    }
+    // Placing the character can wait for the server to log it out.
+    setStatus(`Starting ${game}…`, 20000)
+    const placed = await LaunchGameAt(vmangos.CharacterSpot.createFrom(spot))
+    setStatus(placed ? `Starting ${game} with ${placed} where the camera is…` : `Starting ${game}…`, 5000)
   } catch (e) {
     setStatus(`The game didn't start: ${e}`, 8000)
   }

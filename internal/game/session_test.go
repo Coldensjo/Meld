@@ -194,3 +194,41 @@ func TestSessionWithBenilla(t *testing.T) {
 		t.Fatalf("started from %q with %v", r.dir, r.env)
 	}
 }
+
+func TestBenillaEntersTheWorldAsTheCharacter(t *testing.T) {
+	r := &envRunner{fakeRunner: fakeRunner{running: map[string]bool{}}}
+	login := config.Login{Account: "MELD", Password: "secret", Character: "Sizaro"}
+	s := Session{ClientRoot: `C:\WoW`, Benilla: `C:\benilla`, Login: login, Realm: "Meld Test", Run: r}
+	if err := s.StartGame(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"WOW_DATA=" + filepath.Join(`C:\WoW`, "Data"), "WOW_USER=MELD", "WOW_PASS=secret", "WOW_REALM=Meld Test", "WOW_CHAR=Sizaro"}
+	if strings.Join(r.env, "|") != strings.Join(want, "|") {
+		t.Fatalf("started with %v, want %v", r.env, want)
+	}
+
+	// Without a password nothing logs in, so neither the realm nor the character is passed.
+	r.env = nil
+	r.running = map[string]bool{}
+	s.Login.Password = ""
+	if err := s.StartGame(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(r.env, "|") != "WOW_DATA="+filepath.Join(`C:\WoW`, "Data") {
+		t.Fatalf("started with %v", r.env)
+	}
+}
+
+func TestStopGameLeavesTheServersRunning(t *testing.T) {
+	r := &envRunner{fakeRunner: fakeRunner{running: map[string]bool{"benilla.exe": true, "mangosd.exe": true, "realmd.exe": true}}}
+	s := Session{ClientRoot: `C:\WoW`, ServerRoot: `C:\server`, Benilla: `C:\benilla`, Run: r}
+	if err := s.StopGame(); err != nil {
+		t.Fatal(err)
+	}
+	if r.running["benilla.exe"] || !r.running["mangosd.exe"] || !r.running["realmd.exe"] || !s.WorldRunning() {
+		t.Fatalf("running %v", r.running)
+	}
+	if err := s.StopGame(); err != nil {
+		t.Fatalf("a game that isn't running needs no closing: %v", err)
+	}
+}

@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/portCoords.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatPortCoords, teleportCommand } from '../src/lib/io/portCoords.ts'
+import { formatPortCoords, serverSpot, teleportCommand } from '../src/lib/io/portCoords.ts'
 
 const ZP = 32 * (533 + 1 / 3)
 
@@ -29,4 +29,24 @@ test("the teleport command adds a region's first tile: Northshire Abbey in Azero
   // The abbey stands at about (182, 81, 353) in the region; the client has it near (-8887, -182, 81) on map 0.
   assert.equal(teleportCommand({ x: 182, y: 81, z: 353 }, 0, 32, 48), '.go xyz -8886.33 -182.00 81.00 0')
   assert.equal(teleportCommand({ x: 100, y: 25.5, z: 200 }, 530), `.go xyz ${(ZP - 200).toFixed(2)} ${(ZP - 100).toFixed(2)} 25.50 530`)
+})
+
+test("a server spot is the teleport's point, on the region's map", () => {
+  const s = serverSpot({ x: 182, y: 81, z: 353 }, 0, 32, 48)
+  assert.equal(s.map, 0)
+  assert.equal(s.x.toFixed(2), '-8886.33')
+  assert.equal(s.y.toFixed(2), '-182.00')
+  assert.equal(s.z, 81)
+})
+
+test('a server spot faces where the camera looks', () => {
+  // The camera looks along (-sin yaw, -cos yaw) in the editor: yaw 0 looks to -z, the server's +x (facing 0).
+  const at = { x: 0, y: 0, z: 0 }
+  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} is not ${b}`)
+  close(serverSpot(at, 0, 0, 0, 0).o, 0)
+  // Yaw a quarter turn looks to -x, the server's +y: facing a quarter turn.
+  close(serverSpot(at, 0, 0, 0, Math.PI / 2).o, Math.PI / 2)
+  // Any yaw comes out in [0, 2π).
+  close(serverSpot(at, 0, 0, 0, -Math.PI / 2).o, (3 * Math.PI) / 2)
+  close(serverSpot(at, 0, 0, 0, 5 * Math.PI).o, Math.PI)
 })

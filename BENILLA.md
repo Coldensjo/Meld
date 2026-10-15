@@ -33,7 +33,17 @@ To rebuild after `git pull` in the Benilla folder: `cargo build --release -p ben
 - **Starting Benilla**: from its own folder (it keeps `benilla-config\` there: settings, addons,
   screenshots), with `WOW_DATA` set to the install's `Data` folder and, with a saved Game Login,
   `WOW_USER` and `WOW_PASS`, so Benilla logs itself in. No keystrokes are typed into a window, unlike
-  Wow.exe's login.
+  Wow.exe's login. It's also given `WOW_REALM` (the server's first realm, from realmd's `realmlist`;
+  without it Benilla stops at the realm list) and, with a character in the Game Login, `WOW_CHAR`, so
+  it skips character select and enters the world as that character.
+- **Entering where the camera is**: with a character in the Game Login and the open map in the
+  client, Launch puts the character on the ground below the camera, facing the camera's way. Meld
+  closes the game, waits until the server has logged the character out (Benilla logs out as it
+  closes, so that's under a second; a crashed client is kept in the world for two minutes by
+  mangosd.conf's ForceLogoutDelay), then writes the spot into the character's row in the character
+  database (`internal/vmangos/character.go`). It works for Wow.exe too, which still stops at
+  character select. Checked on 2026-10-15: Sizaro moved from Tanaris to Northshire Abbey and
+  entered the world there, in Elwynn Forest.
 - **Preferences › Launch Benilla** opens it on demand.
 - **Preferences › Game window**: the game's own setting, Windowed or Fullscreen, at a size (1280×720
   to 2560×1440). Each time Meld starts the game it writes the 1.12 client's `gxWindow`, `gxMaximize`
