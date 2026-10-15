@@ -49,9 +49,9 @@ An item is done only when all of these hold:
 - It is implemented, and it is undoable if it edits a map.
 - `make test` and `make check` pass.
 - `make build-windows` passes. `make build-linux` passes on Linux. On a Windows host it cannot run,
-  so PROGRESS.md records that it was not run.
-- Behaviour that shows on screen was checked in the app, or PROGRESS.md says it was not.
-- It has one commit with a one-sentence imperative message (CLAUDE.md), and it is logged in PROGRESS.md.
+  so its issue's closing comment records that it was not run.
+- Behaviour that shows on screen was checked in the app, or its issue's closing comment says it was not.
+- It has one commit with a one-sentence imperative message (CLAUDE.md), and it is logged on its issue, which is closed.
 
 ## Known drift to review
 

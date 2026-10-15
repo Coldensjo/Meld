@@ -46,7 +46,7 @@ To rebuild after `git pull` in the Benilla folder: `cargo build --release -p ben
 
 ## What needs to be done
 
-In order. Each becomes a BACKLOG.md item (B-164 onwards).
+In order. Each became a backlog item (B-164 onwards), now a GitHub issue with the same B-number (label `benilla` or `benilla-port`).
 
 1. **Check a round trip by hand (B-164).** Save a region in Meld, let it restart Benilla, and walk the
    edited ground: heights, paint, water, holes, models, tufts. Then a new map published to the server.

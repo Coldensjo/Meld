@@ -13,6 +13,10 @@ noggit-red-feature-gap.md, under "Definitions for the items the loop left open".
 
 Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/noggit3.
 
+Since 2026-10-15 the backlog is GitHub issues (BACKLOG.md). A decision about one item is now a comment
+on its issue; this file keeps the decisions made before then and the ones that reach beyond one item
+(rules for many items or for the loop).
+
 ## Decisions
 
 ### Nothing beyond the 1.12 client · owner
@@ -465,7 +469,8 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 
 ### Benilla ports first · owner decision 2026-10-15
 - Question: where do the ports from Benilla go in the loop's order?
-- Choice: **first**, in the order of BACKLOG.md's "Benilla ports" section and BENILLA.md's table (B-172 ground
+- Choice: **first** (since the move to issues: the `benilla-port` issues, lowest number first, which
+  keeps this order), in the order of BACKLOG.md's "Benilla ports" section and BENILLA.md's table (B-172 ground
   tufts, B-166 sun/sky/fog, B-173 baked shadows, B-167 WDL horizon, B-168 particles, then the rest), ahead of
   the usual DESIGN.md priority and value order, starting in a fresh session. Bugs still come first.
 - Decided by the owner, 2026-10-15.

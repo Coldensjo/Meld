@@ -18,6 +18,30 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
   changed and why, e.g. "Save palette thumbnails through a Go binding instead of a POST, since
   WebKitGTK crashes on request bodies".
 - Commit to the current branch. Do not push unless the user asks.
+- When a commit finishes an issue, end the message with a blank line and `Closes #<n>` before the
+  `Co-Authored-By` trailer.
+
+## Backlog: GitHub issues
+
+The backlog is the issues of `Coldensjo/Meld`, through `gh` (logged in on this machine). BACKLOG.md
+and PROGRESS.md are frozen as of 2026-10-15; LOOP.md is the loop's own use of the issues.
+
+- **Anything new goes in an issue**: a bug you find, an idea, a follow-up you leave for later. Search
+  first (`gh issue list --search`) and comment on an existing issue rather than filing a duplicate.
+  Don't build it unasked. Label it `value:H|M|L`, `effort:S|M|L`, one `area:` label, a `source:`
+  label (`owner` if the user asked for it, `loop` if you found it while working on another issue,
+  `gap` for noggit-red-feature-gap.md), and `bug` or `needs-approval` where they apply.
+- **Before working on an issue**, read it with its comments (`gh issue view <n> --comments`).
+- **Comments**: start every comment you write with `**Claude:**`. Any other comment is the owner's,
+  and an owner comment on an issue is an instruction for that item. A decision about an item (the
+  user's answer, or a choice you made from Noggit Red or Benilla) goes in a comment on its issue;
+  only a decision that reaches beyond one item goes in IDEAS.md.
+- **When the work is done and committed**, comment `**Claude:** done in <hash>.` with Done, Verified
+  (checks run, and whether it was seen in the app) and Left (follow-ups as new issues), then close it
+  (`gh issue close <n>`). Partly done: comment what is left and keep it open. Dropped: label it
+  `parked` and close it as not planned, with the reason.
+- Pass bodies and comments with `--body-file`, so backticks and backslashes survive the shell.
+- Older items keep their B-number in the title (`B-182 ...`), which the older docs refer to.
 
 ## Commands
 

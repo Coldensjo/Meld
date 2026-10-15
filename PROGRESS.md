@@ -1,5 +1,9 @@
 # PROGRESS.md: log of loop runs
 
+**Frozen on 2026-10-15**, when the backlog moved to GitHub issues (BACKLOG.md). An item's log is now
+the last comment on its issue, and each run's summary is a comment on the pinned "Loop run log"
+issue. This file is kept for the history before the move.
+
 The loop appends one entry per finished item, and one entry per run that stops early. Newest entries
 go at the bottom. Earlier work is recorded in git history and in noggit3-feature-gap.md, not here.
 

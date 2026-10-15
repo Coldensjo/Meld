@@ -1,16 +1,38 @@
 # LOOP.md: the repeated prompt
 
 Run this same prompt each time, for example with `/loop` or `claude -p "$(cat LOOP.md)"`.
-All state lives in DESIGN.md, BACKLOG.md, IDEAS.md and PROGRESS.md, so each run starts fresh.
+The backlog is the GitHub issues of `Coldensjo/Meld`, read and written with `gh` (logged in on this
+machine). The rest of the state lives in DESIGN.md and IDEAS.md, so each run starts fresh.
+BACKLOG.md and PROGRESS.md are frozen as of 2026-10-15; read PROGRESS.md only for history.
 
 ---
 
-Read CLAUDE.md, DESIGN.md, BACKLOG.md, IDEAS.md and PROGRESS.md. Do not edit DESIGN.md.
+Read CLAUDE.md, DESIGN.md and IDEAS.md. Do not edit DESIGN.md. Then read the backlog:
 
-**1. Work through items until a stop condition applies.** Skip anything tagged `needs-approval`.
-Bugs come first, then the rest in DESIGN.md priority order, then value (highest first), then effort
-(smallest first). Prefer items that finish cleanly. Do up to **8 items per run**. Finish each item
-(steps 3 to 4) before you choose the next one.
+```
+gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title,labels,body
+```
+
+and the last comment of the pinned **Loop run log** issue (label `loop-log`). If `gh` fails (no
+network, logged out), stop the run and say so; do not fall back to the frozen files.
+
+**Comments.** Every comment the loop (or any Claude session) writes starts with `**Claude:**`. Any
+other comment is the owner's. An owner comment on an issue is an instruction for that item: it ranks
+above the issue's body and above IDEAS.md. Write each comment or issue body to a temp file and pass it
+with `--body-file`, so backticks and backslashes survive the shell.
+
+**0. Triage.** An open issue with no `value:` or `effort:` label was filed by the owner. Give it
+`value:` and `effort:` labels by your estimate, `source:owner`, an `area:` label (and `bug` if it
+is one), and comment `**Claude:** labelled ...` with a one-line reason. Triage doesn't count toward
+the run's cap.
+
+**1. Work through items until a stop condition applies.** Skip issues labelled `needs-approval`,
+`parked` or `owner-question` (but see *Asking the owner* for answered questions). The order:
+`bug` first; then `benilla-port`, lowest issue number first (the owner's order, IDEAS.md "Benilla
+ports first"); then the rest in DESIGN.md priority order, then value (H first), then effort (S first).
+Prefer items that finish cleanly. Do up to **8 items per run**. Finish each item (steps 3 to 4) before
+you choose the next one. Before starting one, read it with its comments:
+`gh issue view <n> --repo Coldensjo/Meld --comments`.
 
 **2. Stop conditions.** Stop when any of these holds:
 - 8 items are done in this run.
@@ -18,47 +40,45 @@ Bugs come first, then the rest in DESIGN.md priority order, then value (highest 
   IDEAS.md records (owner decision 2026-10-15); do not stop only because the rest are value L.
 - The context is getting full. Stop after the item in progress, not in the middle of it.
 
-When you stop, append a `stopped` entry to PROGRESS.md that says which condition applied. Do not
-invent work.
+Do not invent work.
 
-**Blocked items.** If a check fails and cannot be fixed, log the item as unfinished in PROGRESS.md,
-leave it open in BACKLOG.md, and go on to the next item. Where IDEAS.md records a decision, follow it;
-do not reopen it. Do not guess at behaviour the owner has not defined: if an item needs the owner's
-decision, IDEAS.md does not record one, and Noggit Red does not settle it (see below), ask the owner.
+**Blocked items.** If a check fails and cannot be fixed, comment on the issue what failed and why
+(`**Claude:** left unfinished: ...`), leave it open, and go on to the next item. Where IDEAS.md or a
+comment on the issue records a decision, follow it; do not reopen it. Do not guess at behaviour the
+owner has not defined: if an item needs the owner's decision, neither IDEAS.md nor the issue's
+comments record one, and Noggit Red does not settle it (see below), ask the owner.
 
-**Asking the owner.** Enter plan mode (`EnterPlanMode`), then ask with `AskUserQuestion`: one question
-per open decision, with the options you see, your recommendation first and marked "(Recommended)", and
-the trade-off of each in its description. Once answered:
+**Asking the owner.**
+- In an interactive session: enter plan mode (`EnterPlanMode`), then ask with `AskUserQuestion`: one
+  question per open decision, with the options you see, your recommendation first and marked
+  "(Recommended)", and the trade-off of each in its description. Record each answer as a comment on
+  the issue: `**Claude:** decided by the owner <date>`, the question and the choice. Leave plan mode
+  with `ExitPlanMode`, giving the plan for that item, and continue the item once it is approved.
+- Otherwise (a non-interactive `claude -p` run, or no answer): comment the questions on the issue,
+  each with its options, your recommendation and the trade-offs, add the `owner-question` label, and
+  go on to the next item.
+- At the start of each run, look at the `owner-question` issues. Where the owner has commented since
+  the question, remove the label, record their answer as a decision comment, and treat the item as
+  eligible again.
 
-1. Record each answer in IDEAS.md under the item: the question, the choice, and "decided by the owner"
-   with today's date. Note it in the item's BACKLOG.md line as decided in IDEAS.md.
-2. Leave plan mode with `ExitPlanMode`, giving the plan for that item, and continue the item once it
-   is approved.
-
-If plan mode or `AskUserQuestion` is not available (for example a non-interactive `claude -p` run), or
-the owner does not answer or rejects the plan without a decision, log the item as blocked in
-PROGRESS.md with the open questions, leave it open in BACKLOG.md, and go on to the next item.
-
-**Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from
-BACKLOG.md, noggit-red-feature-gap.md, IDEAS.md or the code, check Noggit Red before you decide it is
+**Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from the
+issue, noggit-red-feature-gap.md, IDEAS.md or the code, check Noggit Red before you decide it is
 blocked:
 
 1. Find the behaviour in Noggit Red source. Clone it once per run, shallow, into the scratchpad, never
    into the repo: `git clone --depth 1 https://gitlab.com/prophecy-rp/noggit-red.git <scratchpad>/noggit-red`.
    Look in `src/noggit/` (the UI is in `src/noggit/ui/`). If the clone fails, use WebFetch on
-   `https://gitlab.com/prophecy-rp/noggit-red`. If neither works, log the item as blocked, with the
-   failure. Noggit Red targets later clients as well as 1.12, so check that a file-format behaviour
+   `https://gitlab.com/prophecy-rp/noggit-red`. If neither works, leave the item with a comment
+   saying so. Noggit Red targets later clients as well as 1.12, so check that a file-format behaviour
    holds for 1.12 tiles before you follow it.
 2. Pick the behaviour. The default is Noggit Red's. Keep our current behaviour instead only when ours
    is clearly better, and say why.
-3. Record the decision in IDEAS.md under the item: the term, the Noggit Red file and function it came
-   from, the choice (Noggit Red or ours), and the reason. Then note it in the item's BACKLOG.md line as
-   decided in IDEAS.md.
+3. Record the decision as a comment on the issue: the term, the Noggit Red file and function it came
+   from, the choice (Noggit Red or ours), the reason, and "chosen by the loop from Noggit Red", so the
+   owner can see it and change it. A decision that reaches beyond the one item (a rule for many items
+   or for the loop) goes in IDEAS.md instead, with a link from the issue.
 4. Continue the item. Recording a decision is not a DESIGN.md change, so do not edit DESIGN.md. If the
    decision would change a hard rule or a non-goal, ask the owner instead (see *Asking the owner*).
-
-A decision made this way is the loop's own call, not the owner's. The IDEAS.md entry should say
-"chosen by the loop from Noggit Red" so the owner can see it and change it.
 
 **3. For each item, in order:**
 
@@ -71,32 +91,45 @@ b. Verify it:
    - `make build-windows`
    - `make build-linux`, only if this is Linux. On a Windows host it cannot run. Say so in the log.
 
-   If a check fails, fix it. If it cannot be fixed in this run, do not commit the item. Log it as
-   left unfinished in PROGRESS.md and move on.
+   If a check fails, fix it. If it cannot be fixed in this run, do not commit the item. Comment on
+   the issue that it was left unfinished and why, and move on.
 
 c. If the item changes what the app shows, check it in the app or say in the log that you did not.
 
 d. Commit that item alone, following CLAUDE.md. Stage only the files you changed, by name. Never run
-   `git add -A` or `git add .`. The working tree already has the owner's uncommitted changes
-   (go.mod and frontend/wailsjs). Leave them unstaged. Regenerate wailsjs only if the item changed a
-   bound Go method, and stage only the wailsjs files that changed for that reason. Do not push.
-   The message is one imperative sentence that says what changed and why, and ends with the
-   `Co-Authored-By` trailer the harness gives for the model running the loop. Do not hard-code a
-   model name here, and do not note in PROGRESS.md which model ran.
+   `git add -A` or `git add .`. The working tree may hold the owner's uncommitted changes. Leave them
+   unstaged. Regenerate wailsjs only if the item changed a bound Go method, and stage only the wailsjs
+   files that changed for that reason. Do not push. The message is one imperative sentence that says
+   what changed and why, then a blank line, `Closes #<n>`, and the `Co-Authored-By` trailer the
+   harness gives for the model running the loop. Do not hard-code a model name here, and do not note
+   in the log which model ran.
 
-e. Mark the item `[x]` in BACKLOG.md. If it is a gap item, strike it through in
-   noggit-red-feature-gap.md and add a short *Done:* note, as earlier commits did. Append its entry to
-   PROGRESS.md. Put these doc changes in the item's commit, or in a separate
-   `Update the backlog and progress logs` commit.
+e. Close the issue with its log as the last comment: `gh issue comment <n> --repo Coldensjo/Meld
+   --body-file <file>`, then `gh issue close <n> --repo Coldensjo/Meld`. The comment is:
 
-**4. Log new ideas, do not build them.** Anything you notice that is not the current item goes into
-BACKLOG.md as a new line, with `Source: loop: <item>` and a one-line reason. Do not implement it in
-this run.
+   ```
+   **Claude:** done in <short-hash>.
+   - Done: what changed, in one or two lines.
+   - Verified: which checks ran and passed (make test, make check, make build-windows,
+     make build-linux), and anything not run with the reason; whether it was checked in the app.
+   - Left: follow-ups as new issues (#n), or "none".
+   ```
 
-**5. Before stopping, tidy the backlog.** Merge duplicates. Remove any item that is done but still
-listed. Move anything that no longer fits DESIGN.md into a `## Parked` section at the bottom, with the
-reason. Do not delete owner-written items without saying so in PROGRESS.md.
+   If it is a gap item, strike it through in noggit-red-feature-gap.md and add a short *Done:* note
+   naming the issue (`#<n>`), in the item's commit.
 
-**6. Report.** End the run with a short summary: items done with their commit hashes, items left
-unfinished and why, which stop condition applied, and the next top item. Do not start work after
-the stop condition applies.
+**4. Log new ideas, do not build them.** Anything you notice that is not the current item becomes a
+new issue: a short title, a body that says what and why, `Found while working on #<n>.`, and the
+labels `source:loop`, `value:`, `effort:`, an `area:` (and `bug` for a bug, `needs-approval` for
+large, format-level or non-goal work). Search the open issues first (`gh issue list --search`) and
+comment on an existing one instead of filing a duplicate. Do not implement it in this run.
+
+**5. Before stopping, tidy the backlog.** Close duplicates with `--reason "not planned"` and a comment
+`**Claude:** duplicate of #<m>`. Anything that no longer fits DESIGN.md gets the `parked` label and is
+closed as not planned, with the reason in a comment. Never close an owner-filed issue except as a
+duplicate, and say so in the run log.
+
+**6. Report.** Comment on the pinned Loop run log issue, and end the run with the same short summary:
+items done with their issue numbers and commit hashes, items left unfinished and why, owner questions
+asked, which stop condition applied, and the next top item. Do not start work after the stop
+condition applies.
