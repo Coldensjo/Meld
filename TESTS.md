@@ -417,3 +417,12 @@ e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cel
 
 - A WMO whose bottom floats more than 4 yards above the ground (a bridge) bares nothing.
 - The density is View › Sparse / Normal / Full tufts; the layer rebuilds within a quarter second.
+
+## Hide panels (Tab)
+
+Checks: Tab hides the toolbar, options bar, asset browser, dock and status bar and the viewport
+grows to fill the window; Tab again brings them back; Graphics › Hide panels is the same switch.
+In the dev page: `ed.ui.hidePanels = true`, then `document.querySelector('canvas').clientHeight`
+grows and `document.querySelector('[data-ui="Toolbar"]')` is null. A key event
+(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))`) does the
+same unless an input has focus; Ctrl+Tab still cycles the map tabs.

@@ -52,6 +52,7 @@
         ['Ctrl+S', 'Save'],
         ['Ctrl+W', 'Close map tab'],
         ['Ctrl+Tab / Ctrl+Shift+Tab', 'Next / previous map tab'],
+        ['Tab', 'Hide / show the panels (the menu bar stays)'],
         ['Ctrl+Shift+S', 'Save as'],
         ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'],
         ['Ctrl+C / Ctrl+V', 'Copy selection / Paste (also into another map tab)'],

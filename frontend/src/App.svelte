@@ -114,6 +114,13 @@
       return
     }
 
+    // Tab hides the panels, so the map fills the window; Ctrl+Tab cycles the map tabs below.
+    if (e.key === 'Tab' && !mod) {
+      ui.hidePanels = !ui.hidePanels
+      e.preventDefault()
+      return
+    }
+
     if (mod) {
       if (key === 'z' && !e.shiftKey) {
         const c = engine.undo()
@@ -171,18 +178,28 @@
 
 <svelte:window onkeydown={onKeyDown} onkeyup={onKeyUp} onbeforeunload={onBeforeUnload} />
 
-<div class="app">
+<div class="app" class:bare={ui.hidePanels}>
   <MenuBar />
-  <OptionsBar />
+  {#if !ui.hidePanels}
+    <OptionsBar />
+  {/if}
   <div class="main">
-    <Toolbar />
+    {#if !ui.hidePanels}
+      <Toolbar />
+    {/if}
     <div class="centre">
       <Viewport />
-      <AssetBrowser />
+      {#if !ui.hidePanels}
+        <AssetBrowser />
+      {/if}
     </div>
-    <Dock />
+    {#if !ui.hidePanels}
+      <Dock />
+    {/if}
   </div>
-  <StatusBar />
+  {#if !ui.hidePanels}
+    <StatusBar />
+  {/if}
 </div>
 
 <Inspector />
@@ -200,6 +217,10 @@
     display: grid;
     grid-template-rows: auto auto 1fr auto;
     height: 100%;
+  }
+  /* With the panels hidden (Tab) the viewport takes the window below the menu bar. */
+  .app.bare {
+    grid-template-rows: auto 1fr;
   }
   .main {
     display: grid;

@@ -105,7 +105,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 - **Vertex colour display**.
 - **DBC lighting colour data**: use the client's lighting data for preview.
 - **Skybox** toggle, separate from the sky.
-- **Toggle UI** (Tab) to hide all panels.
+- ~~**Toggle UI** (Tab) to hide all panels.~~ *Done: Tab (and Graphics › Hide panels) hides the toolbar, options bar, asset browser, dock and status bar; the menu bar stays, as Photoshop's Tab keeps it. Ctrl+Tab still cycles the map tabs.*
 - **Detail info panel**: per-tile or chunk information.
 - **Light zone display** on the minimap.
 - **Anti-aliasing**, **VSync** and **view distance** settings. Meld has render scale and view distance.

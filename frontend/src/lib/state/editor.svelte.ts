@@ -308,6 +308,8 @@ export const ui = $state({
   maskActive: false,
   pasting: false,
   dialog: null as 'about' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
+  /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
+  hidePanels: false,
   /** The viewport's right-click menu: where it opens (CSS pixels) and what it offers; null when closed. */
   contextMenu: null as { x: number; y: number; title?: string; items: ContextItem[] } | null,
   /** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */
