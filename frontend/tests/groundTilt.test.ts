@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { groundNormal, tiltToNormal } from '../src/lib/world/groundTilt.ts'
+import { groundNormal, groundSlopeDeg, tiltToNormal } from '../src/lib/world/groundTilt.ts'
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`)
 
@@ -48,4 +48,14 @@ test('a tilt written into a given object is the same, and is that object', () =>
   const want = tiltToNormal(n.x / len, n.y / len, n.z / len, 0.7)
   near(out.tiltX, want.tiltX)
   near(out.tiltZ, want.tiltZ)
+})
+
+test('the ground slope in degrees is 0 on the flat and the rise angle on a ramp', () => {
+  assert.equal(groundSlopeDeg(() => 3, 5, 5, 2), 0)
+  // Rising one unit per unit along x is a 45 degree slope, whichever way it is crossed.
+  assert.ok(Math.abs(groundSlopeDeg((x) => x, 5, 5, 2) - 45) < 1e-6)
+  assert.ok(Math.abs(groundSlopeDeg((_x, z) => -z, 5, 5, 2) - 45) < 1e-6)
+  // A gentle 1 in 10 rise is under 6 degrees; a 3 in 1 wall is over 70.
+  assert.ok(groundSlopeDeg((x) => x / 10, 0, 0, 2) < 6)
+  assert.ok(groundSlopeDeg((x) => x * 3, 0, 0, 2) > 70)
 })

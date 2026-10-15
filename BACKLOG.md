@@ -52,7 +52,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
 - [ ] B-040 **Helper models**: reference models as visual aids · gap §4 · L/M
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
-- [ ] B-120 **Doodad brush: slope and surface rules**: keep models off ground steeper than an angle, and let a brush place onto props (attach) as the Place tool does · Source: loop: B-110 · M/M · the brush only reads the terrain now
+- [x] B-120 **Doodad brush: slope and surface rules**: keep models off ground steeper than an angle, and let a brush place onto props (attach) as the Place tool does · Source: loop: B-110 · M/M · done 2026-10-15 (PROGRESS.md): Max slope and On props in the options bar
 
 ## Map, client and server
 

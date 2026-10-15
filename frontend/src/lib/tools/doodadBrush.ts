@@ -110,6 +110,21 @@ export function fits(x: number, z: number, size: number, spacing: number, near: 
   return true
 }
 
+/**
+ * `fits` for a placement on a prop: `nearOn` holds x, z, footprint and parent id quadruples, and only
+ * the models standing on the same prop (`parent`) keep the placement away.
+ */
+export function fitsOn(x: number, z: number, size: number, spacing: number, nearOn: Float32Array, count: number, parent: number): boolean {
+  for (let i = 0; i < count; i++) {
+    if (nearOn[i * 4 + 3] !== parent) continue
+    const dx = nearOn[i * 4] - x
+    const dz = nearOn[i * 4 + 1] - z
+    const min = ((nearOn[i * 4 + 2] + size) / 2) * spacing
+    if (dx * dx + dz * dz < min * min) return false
+  }
+  return true
+}
+
 // ---- text form -------------------------------------------------------------------------------------
 
 export const BRUSH_FILE_HEADER = '# Meld doodad brush: the models it scatters and their weights'

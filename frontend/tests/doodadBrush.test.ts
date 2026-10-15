@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/doodadBrush.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { attemptRate, candidate, fits, formatBrush, newBrush, newEntry, parseBrush, pickEntry, uniqueName } from '../src/lib/tools/doodadBrush.ts'
+import { attemptRate, candidate, fits, fitsOn, formatBrush, newBrush, newEntry, parseBrush, pickEntry, uniqueName } from '../src/lib/tools/doodadBrush.ts'
 
 const bush = () => {
   const b = newBrush('Bush')
@@ -109,4 +109,13 @@ test('the attempt rate grows with the brush area', () => {
   assert.equal(attemptRate(20, 1), 240)
   assert.equal(attemptRate(20, 0.5), 120)
   assert.equal(attemptRate(10, 0), 0)
+})
+
+test('a placement on a prop is spaced only against the models on that same prop', () => {
+  // Two models of footprint 2: one on prop 7 at (10, 10), one on prop 8 at (10, 10).
+  const on = new Float32Array([10, 10, 2, 7, 10, 10, 2, 8])
+  assert.equal(fitsOn(11, 10, 2, 1, on, 2, 7), false, 'too close to the model on prop 7')
+  assert.equal(fitsOn(11, 10, 2, 1, on, 2, 9), true, 'nothing stands on prop 9')
+  assert.equal(fitsOn(12.5, 10, 2, 1, on, 2, 7), true, 'a footprint away fits')
+  assert.equal(fitsOn(12.5, 10, 2, 2, on, 2, 7), false, 'spacing 2 wants twice that')
 })

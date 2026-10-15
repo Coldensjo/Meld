@@ -5,8 +5,8 @@ import type { Command } from '../state/history'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { getAsset } from '../models/assets'
 import { hasSkeleton, modelMesh } from '../world/Animator'
-import { groundNormal, tiltToNormal } from '../world/groundTilt'
-import { MAX_ATTEMPTS, attemptRate, candidate, fits, newBrush, pickEntry, uniqueName, type DoodadBrush } from './doodadBrush'
+import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
+import { MAX_ATTEMPTS, attemptRate, candidate, fits, fitsOn, newBrush, pickEntry, uniqueName, type DoodadBrush } from './doodadBrush'
 
 /** The brush the Doodad tool paints with: the preference's pick, else the first one; null with none made. */
 export function activeDoodadBrush(): DoodadBrush | null {
@@ -24,6 +24,9 @@ export function addDoodadBrush(name = 'New brush'): DoodadBrush {
 
 /** Models with a footprint under this are spaced as if this wide, so tufts of grass don't pile onto one spot. */
 const MIN_FOOTPRINT = 0.8
+
+/** Where the On props ray starts: above anything a map holds. */
+const RAY_TOP = 10000
 
 /** Most models the preview shows (and the press puts down first): a quarter second of the brush, at least one. */
 const MAX_PREVIEW = 32
@@ -53,10 +56,17 @@ interface Planned {
  * under it; the press puts those down first, then goes on at random, and a new plan is drawn when
  * the stroke ends or the brush changes. Ctrl+scroll (or R) spins the planned cluster about the
  * brush centre. A model still loading (or one that failed) shows no ghost rather than a placeholder.
+ *
+ * Two surface rules in the options bar: Max slope keeps the models off ground steeper than that many
+ * degrees (90 allows any), and On props lets a placement land on a prop under the brush (attached to
+ * it, as the Place tool attaches), found by a ray straight down at the point. A model on a prop keeps
+ * its entry's random tilt and is spaced only against what else stands on that prop.
  */
 export class DoodadBrushTool implements Tool {
   readonly usesBrush = true
   private placed: WorldObject[] | null = null
+  /** The ids placed in this stroke: a placement never lands on one of them. */
+  private placedIds = new Set<number>()
   private erased: WorldObject[] | null = null
   /** The object layer the stroke started on: undo must restore that map, not whichever tab is active then. */
   private objects: ObjectLayer | null = null
@@ -67,6 +77,12 @@ export class DoodadBrushTool implements Tool {
   /** The models already standing near the brush this tick: x, z and footprint each. */
   private near = new Float32Array(3 * 256)
   private nearCount = 0
+  /** The models standing on props near the brush: world x, z, footprint and the parent's id each. */
+  private nearOn = new Float32Array(4 * 64)
+  private nearOnCount = 0
+  /** Casts straight down at a point for the prop under it (On props). */
+  private ray = new THREE.Raycaster()
+  private pos = new THREE.Vector3()
   private normal = { x: 0, y: 1, z: 0 }
   private tilt = { tiltX: 0, tiltZ: 0 }
   private size = new THREE.Vector3()
@@ -145,6 +161,7 @@ export class DoodadBrushTool implements Tool {
       return
     }
     this.placed = []
+    this.placedIds.clear()
     // The previewed placements land first, so a click puts down what was shown.
     this.ensurePlan(brush)
     this.prepareNear(ctx, hit, brush)
@@ -187,6 +204,7 @@ export class DoodadBrushTool implements Tool {
       ctx.history.push(cmd)
     }
     this.placed = this.erased = this.objects = null
+    this.placedIds.clear()
   }
 
   /** Shows the planned placements as ghost models under the hovering brush. */
@@ -204,7 +222,6 @@ export class DoodadBrushTool implements Tool {
       this.ghostGroup.add(m)
     }
     const t = ctx.terrain
-    const sea = editor.doodad.avoidWater && editor.waterEnabled ? editor.waterLevel : -Infinity
     for (let i = 0; i < this.ghosts.length; i++) {
       let g = this.ghosts[i]
       const p = this.plan[i]
@@ -214,9 +231,10 @@ export class DoodadBrushTool implements Tool {
       }
       const x = hit.x + p.dx
       const z = hit.z + p.dz
-      const y = t.contains(x, z) ? t.heightAt(x, z) : -Infinity
-      g.visible = y > -Infinity && y >= sea && !t.isHole(x, z)
+      const parent = this.propAt(ctx, x, z)
+      g.visible = parent !== null || this.groundAllows(ctx, x, z)
       if (!g.visible) continue
+      const y = parent !== null ? this.pos.y : t.heightAt(x, z)
       const e = brush.entries[p.entry]
       const asset = getAsset(e.type)
       // A model still loading shows nothing rather than the placeholder box.
@@ -232,7 +250,7 @@ export class DoodadBrushTool implements Tool {
         this.ghosts[i] = g
       }
       g.position.set(x, y + e.sink, z)
-      if (editor.followGround) {
+      if (editor.followGround && parent === null) {
         groundNormal((px, pz) => t.heightAt(px, pz), x, z, t.cellSize, editor.followGroundSmooth, this.normal)
         tiltToNormal(this.normal.x, this.normal.y, this.normal.z, p.rotY, this.tilt)
         g.rotation.set(this.tilt.tiltX, p.rotY, this.tilt.tiltZ, 'YXZ')
@@ -299,12 +317,34 @@ export class DoodadBrushTool implements Tool {
     else this.gatherNear(ctx, hit, editor.brush.radius + 8 * Math.max(1, brush.spacing))
   }
 
-  /** Gathers the root models within `reach` of the brush into `near`. */
+  /**
+   * Gathers the root models within `reach` of the brush into `near`, and with On props the attached
+   * ones into `nearOn` (at their world position; the footprint is taken at the model's own scale).
+   */
   private gatherNear(ctx: ToolContext, hit: THREE.Vector3, reach: number) {
     let n = 0
+    let m = 0
     const r2 = reach * reach
+    const onProps = editor.doodad.onProps
     for (const o of ctx.objects.objects.values()) {
-      if (o.parent !== undefined) continue
+      if (o.parent !== undefined) {
+        if (!onProps) continue
+        const w = ctx.objects.worldPosition(o, this.pos)
+        const dx = w.x - hit.x
+        const dz = w.z - hit.z
+        if (dx * dx + dz * dz > r2) continue
+        if (m * 4 + 4 > this.nearOn.length) {
+          const grown = new Float32Array(this.nearOn.length * 2)
+          grown.set(this.nearOn)
+          this.nearOn = grown
+        }
+        this.nearOn[m * 4] = w.x
+        this.nearOn[m * 4 + 1] = w.z
+        this.nearOn[m * 4 + 2] = this.footprint(o.type, o.scale)
+        this.nearOn[m * 4 + 3] = o.parent
+        m++
+        continue
+      }
       const dx = o.x - hit.x
       const dz = o.z - hit.z
       if (dx * dx + dz * dz > r2) continue
@@ -319,6 +359,48 @@ export class DoodadBrushTool implements Tool {
       n++
     }
     this.nearCount = n
+    this.nearOnCount = m
+  }
+
+  private pushNearOn(x: number, z: number, size: number, parent: number) {
+    const m = this.nearOnCount
+    if (m * 4 + 4 > this.nearOn.length) {
+      const grown = new Float32Array(this.nearOn.length * 2)
+      grown.set(this.nearOn)
+      this.nearOn = grown
+    }
+    this.nearOn[m * 4] = x
+    this.nearOn[m * 4 + 1] = z
+    this.nearOn[m * 4 + 2] = size
+    this.nearOn[m * 4 + 3] = parent
+    this.nearOnCount = m + 1
+  }
+
+  /** Whether the ground at (x, z) takes a placement: on the map, no hole, above the sea and not too steep. */
+  private groundAllows(ctx: ToolContext, x: number, z: number): boolean {
+    const t = ctx.terrain
+    if (!t.contains(x, z) || t.isHole(x, z)) return false
+    const sea = editor.doodad.avoidWater && editor.waterEnabled ? editor.waterLevel : -Infinity
+    if (t.heightAt(x, z) < sea) return false
+    const max = editor.doodad.maxSlope
+    return max >= 90 || groundSlopeDeg((px, pz) => t.heightAt(px, pz), x, z, t.cellSize) <= max
+  }
+
+  /**
+   * With On props, the id of the prop whose surface is straight below the sky at (x, z) and above the
+   * ground, with its surface point left in `pos`; null for open ground. What this stroke placed never
+   * counts, so a brush doesn't pile onto its own models.
+   */
+  private propAt(ctx: ToolContext, x: number, z: number): number | null {
+    if (!editor.doodad.onProps) return null
+    this.ray.ray.origin.set(x, RAY_TOP, z)
+    this.ray.ray.direction.set(0, -1, 0)
+    const hit = ctx.objects.raycastSurface(this.ray, this.placedIds)
+    if (!hit) return null
+    const t = ctx.terrain
+    if (t.contains(x, z) && hit.point.y < t.heightAt(x, z)) return null
+    this.pos.copy(hit.point)
+    return hit.id
   }
 
   private pushNear(x: number, z: number, size: number) {
@@ -336,17 +418,27 @@ export class DoodadBrushTool implements Tool {
 
   /**
    * Puts a planned placement down at the brush at `hit`, unless it lands off the map, in a hole, under
-   * the sea, or (unless stacking) too close to what `near` holds. Returns whether it was placed.
+   * the sea, on too steep a slope, or (unless stacking) too close to what `near` holds. With On props
+   * it lands on the prop under the point instead, attached to it. Returns whether it was placed.
    */
   private place(ctx: ToolContext, brush: DoodadBrush, hit: THREE.Vector3, p: Planned): boolean {
     const t = ctx.terrain
     const x = hit.x + p.dx
     const z = hit.z + p.dz
-    if (!t.contains(x, z) || t.isHole(x, z)) return false
-    const sea = editor.doodad.avoidWater && editor.waterEnabled ? editor.waterLevel : -Infinity
-    if (t.heightAt(x, z) < sea) return false
-    if (!this.stacking && !fits(x, z, p.size, brush.spacing, this.near, this.nearCount)) return false
     const e = brush.entries[p.entry]
+    const parent = this.propAt(ctx, x, z)
+    if (parent !== null) {
+      if (!this.stacking && !fitsOn(x, z, p.size, brush.spacing, this.nearOn, this.nearOnCount, parent)) return false
+      const tilt = p.tiltX !== 0 || p.tiltZ !== 0 ? { tiltX: p.tiltX, tiltZ: p.tiltZ } : {}
+      const o = ctx.objects.add({ type: e.type, x, z, yOff: e.sink, rotY: p.rotY, scale: p.scale, ...tilt })
+      ctx.objects.place(o, parent, { pos: this.pos.clone().setY(this.pos.y + e.sink), rot: p.rotY, scale: p.scale })
+      this.placed!.push(o)
+      this.placedIds.add(o.id)
+      if (!this.stacking) this.pushNearOn(x, z, p.size, parent)
+      return true
+    }
+    if (!this.groundAllows(ctx, x, z)) return false
+    if (!this.stacking && !fits(x, z, p.size, brush.spacing, this.near, this.nearCount)) return false
     let tilt: { tiltX?: number; tiltZ?: number } = {}
     if (editor.followGround) {
       groundNormal((px, pz) => t.heightAt(px, pz), x, z, t.cellSize, editor.followGroundSmooth, this.normal)
@@ -357,6 +449,7 @@ export class DoodadBrushTool implements Tool {
     }
     const o = ctx.objects.add({ type: e.type, x, z, yOff: e.sink, rotY: p.rotY, scale: p.scale, ...tilt })
     this.placed!.push(o)
+    this.placedIds.add(o.id)
     if (!this.stacking) this.pushNear(x, z, p.size)
     return true
   }

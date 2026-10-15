@@ -197,3 +197,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Verified: make test, make check and make build-windows passed; make build-linux not run (Windows host).
 - Left: B-050 still needs the owner's yes or no.
 
+
+## 2026-10-15 · B-120 Doodad brush: slope and surface rules
+- Done: The Doodad brush's options bar gets Max slope (degrees, 90 allows any) and On props. A placement whose ground is steeper than Max slope is dropped, and its ghost is hidden. With On props a ray straight down at each point finds the prop under it; the model is then attached to that prop (`ObjectLayer.place`, as the Place tool attaches), keeps its entry's random tilt instead of the ground's, and is spaced only against the other models standing on that prop (`fitsOn`). What the stroke itself placed is never a surface, so a brush doesn't pile onto its own models. Both are undone with the stroke as before. `groundSlopeDeg` in `world/groundTilt.ts` is the slope arithmetic.
+- Verified: new tests for `groundSlopeDeg` and `fitsOn`. make test passed (Go plus 181 of 181 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app: the ghosts on a prop and the bare steep flanks were not seen on screen.
+- Left: a model on a prop takes its footprint at its own scale, not its world scale, for the spacing (the parent's scale is ignored). The ray is one per attempt (up to 256 a frame) while On props is on; a map with very many models could feel it.

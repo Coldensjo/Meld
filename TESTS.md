@@ -347,6 +347,13 @@ e.history.undo(); e.objects.objects.size            // 0
   brushes once (see the note at the top). With the flag, test brushes are safe; they vanish on reload.
 - A brush file is `formatBrush(brush)` from `tools/doodadBrush.ts`; paste its text into a `.toml` file
   and File › Import Doodad Brushes… adds it under a free name ("Test 2" if "Test" exists).
+- Slope and prop rules (`editor.doodad.maxSlope`, `editor.doodad.onProps`): on a `'hills'` preset
+  document, `ed.editor.doodad.maxSlope = 10` and a stroke as above leaves the steep flanks bare
+  (`groundSlopeDeg` in `world/groundTilt.ts` is the angle; unit test in `groundTilt.test.ts`). With
+  `onProps = true` and a WMO placed first (`e.addObjects([...])` as in "Attachments"), models whose
+  point falls on its roof come out with `parent` set to the WMO's id and `yOff` local to it; the ray
+  skips what the stroke itself placed, so a brush never piles onto its own models. `fitsOn` (spacing
+  per prop) is in `doodadBrush.test.ts`.
 
 ## Selection outline colours (free, touching, buried)
 

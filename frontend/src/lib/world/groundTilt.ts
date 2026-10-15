@@ -46,3 +46,11 @@ export function tiltToNormal(
   out.tiltZ = Math.asin(Math.max(-1, Math.min(1, -mx)))
   return out
 }
+
+/** The ground's steepness at (x, z) in degrees: 0 on the flat, 90 on a wall. The slope right under the point, as the unsmoothed normal. */
+export function groundSlopeDeg(heightAt: (x: number, z: number) => number, x: number, z: number, cellSize: number): number {
+  const e = cellSize * 0.05
+  const dx = (heightAt(x + e, z) - heightAt(x - e, z)) / (2 * e)
+  const dz = (heightAt(x, z + e) - heightAt(x, z - e)) / (2 * e)
+  return (Math.atan(Math.hypot(dx, dz)) * 180) / Math.PI
+}

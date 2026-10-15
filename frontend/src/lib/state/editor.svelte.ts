@@ -143,10 +143,11 @@ export const editor = $state({
   /** World x/z offset of new placements from the cursor (the arrow keys in the Place tool, camera-relative). */
   placeOffset: { x: 0, z: 0 },
   /**
-   * The Doodad brush tool: each model turned at random, and no placements on ground under the sea.
-   * The brushes themselves are `prefs.doodadBrushes`.
+   * The Doodad brush tool: each model turned at random, no placements on ground under the sea, none on
+   * ground steeper than `maxSlope` degrees (90 allows any), and placements onto props (attached, as
+   * the Place tool does) when `onProps` is on. The brushes themselves are `prefs.doodadBrushes`.
    */
-  doodad: { randomRot: true, avoidWater: true },
+  doodad: { randomRot: true, avoidWater: true, maxSlope: 90, onProps: false },
   /** The primary selected object: the one the gizmo and the Properties panel work on. */
   selected: null as SelectedInfo | null,
   /** Every selected object (see lib/state/selection.ts). The primary is one of them when there is one. */
