@@ -426,8 +426,9 @@
     font-size: 12px;
     margin: 8px;
   }
+  /* Wide enough to judge a model before adding it; a narrow window keeps room for the grid. */
   .side {
-    width: 260px;
+    width: min(520px, 28vw);
     flex: none;
     display: flex;
     flex-direction: column;
