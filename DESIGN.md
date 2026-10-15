@@ -41,6 +41,9 @@ When two backlog items compete, the higher one wins.
 - MySQL UID sync and other shared-server features.
 - macOS support (CLAUDE.md targets Windows and Linux).
 - Shipping prebuilt maps or any client-extracted content.
+- Anything only later clients have (the owner, 2026-10-15, #56): vertex colours (MCCV), 8-bit alpha
+  maps, MH2O water, texture height mapping, WMO low-res models, map difficulties, skyboxes and zone
+  lights. Meld targets the 1.12 client only.
 
 ## Definition of done
 

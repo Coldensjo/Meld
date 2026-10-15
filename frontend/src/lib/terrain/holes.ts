@@ -96,7 +96,7 @@ export function fillHoles(holes: Uint8Array, size: number, x0: number, z0: numbe
 
 /**
  * Cells a side of a hole block. A 1.12 tile keeps a chunk's holes as a 4x4 bitmap, a bit per 2x2 cells,
- * so Meld cuts and fills holes by whole blocks (the owner's decision, IDEAS.md B-145): what the editor
+ * so Meld cuts and fills holes by whole blocks (the owner's decision, B-145, issue #76): what the editor
  * shows is what the game gets.
  */
 export const HOLE_BLOCK = 2

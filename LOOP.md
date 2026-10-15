@@ -2,11 +2,12 @@
 
 Run this same prompt each time, for example with `/loop` or `claude -p "$(cat LOOP.md)"`.
 The backlog is the GitHub issues of `Coldensjo/Meld`, read and written with `gh` (logged in on this
-machine). The rest of the state lives in DESIGN.md and IDEAS.md, so each run starts fresh.
+machine). The rest lives in DESIGN.md (goals, rules, priorities) and in the closed issues labelled `decision`
+(how finished features were decided), so each run starts fresh.
 
 ---
 
-Read CLAUDE.md, DESIGN.md and IDEAS.md. Do not edit DESIGN.md. Then read the backlog:
+Read CLAUDE.md and DESIGN.md. Do not edit DESIGN.md. Then read the backlog:
 
 ```
 gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title,labels,body
@@ -17,7 +18,7 @@ network, logged out), stop the run and say so; do not fall back to the frozen fi
 
 **Comments.** Every comment the loop (or any Claude session) writes starts with `**Claude:**`. A
 comment by `Coldensjo` that doesn't start so is the owner's, and is an instruction for that item: it
-ranks above the issue's body and above IDEAS.md. Comments by `github-actions` are only pings (below).
+ranks above the issue's body and above any `decision` issue. Comments by `github-actions` are only pings (below).
 The `**Claude:** notes for the agent` comment on an issue is where earlier sessions left what you need
 to know (code, decisions, how to verify, traps); read it before starting. Write each comment or issue body to a temp file and pass it
 with `--body-file`, so backticks and backslashes survive the shell.
@@ -29,8 +30,8 @@ the run's cap.
 
 **1. Work through items until a stop condition applies.** Skip issues labelled `needs-approval`,
 `parked` or `owner-question` (but see *Asking the owner* for answered questions). The order:
-`bug` first; then `benilla-port`, lowest issue number first (the owner's order, IDEAS.md "Benilla
-ports first"); then the rest in DESIGN.md priority order, then value (H first), then effort (S first).
+`bug` first; then `benilla-port`, lowest issue number first (the owner's order,
+#103); then the rest in DESIGN.md priority order, then value (H first), then effort (S first).
 Prefer items that finish cleanly. Do up to **8 items per run**. Finish each item (steps 3 to 4) before
 you choose the next one. Before starting one, read it with its comments:
 `gh issue view <n> --repo Coldensjo/Meld --comments`.
@@ -38,17 +39,17 @@ you choose the next one. Before starting one, read it with its comments:
 **2. Stop conditions.** Stop when any of these holds:
 - 8 items are done in this run.
 - Nothing eligible is left. When no value H or M item is eligible, go on with value L items, as
-  IDEAS.md records (owner decision 2026-10-15); do not stop only because the rest are value L.
+  the owner decided 2026-10-15 (#80); do not stop only because the rest are value L.
 - The context is getting full. Stop after the item in progress, not in the middle of it.
 
 Do not invent work.
 
 **Blocked items.** If a check fails and cannot be fixed, comment on the issue what failed, why, what
 you tried and where the work stands (`**Claude:** left unfinished: ...`), so the next run doesn't
-start over, leave it open, and go on to the next item. Where IDEAS.md or a
-comment on the issue records a decision, follow it; do not reopen it. Do not guess at behaviour the
-owner has not defined: if an item needs the owner's decision, neither IDEAS.md nor the issue's
-comments record one, and Noggit Red does not settle it (see below), ask the owner.
+start over, leave it open, and go on to the next item. Where a comment on
+the issue or a `decision` issue records a decision, follow it; do not reopen it. Do not guess at behaviour the
+owner has not defined: if an item needs the owner's decision, neither the issue's comments nor
+a `decision` issue record one, and Noggit Red does not settle it (see below), ask the owner.
 
 **Asking the owner.**
 - In an interactive session: enter plan mode (`EnterPlanMode`), then ask with `AskUserQuestion`: one
@@ -67,7 +68,7 @@ comments record one, and Noggit Red does not settle it (see below), ask the owne
   eligible again.
 
 **Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from the
-issue and its comments, IDEAS.md or the code, check Noggit Red before you decide it is
+issue and its comments, the `decision` issues or the code, check Noggit Red before you decide it is
 blocked:
 
 1. Find the behaviour in Noggit Red source. Clone it once per run, shallow, into the scratchpad, never
@@ -81,13 +82,15 @@ blocked:
 3. Record the decision as a comment on the issue: the term, the Noggit Red file and function it came
    from, the choice (Noggit Red or ours), the reason, and "chosen by the loop from Noggit Red", so the
    owner can see it and change it. A decision that reaches beyond the one item (a rule for many items
-   or for the loop) goes in IDEAS.md instead, with a link from the issue.
+   or for the loop) becomes its own issue labelled `decision`, closed once recorded and linked from
+   this one; a change to the loop's own rules is the owner's to put in LOOP.md, so ask.
 4. Continue the item. Recording a decision is not a DESIGN.md change, so do not edit DESIGN.md. If the
    decision would change a hard rule or a non-goal, ask the owner instead (see *Asking the owner*).
 
 **3. For each item, in order:**
 
-a. Read the code it touches before changing it. Keep the change to that item. Follow the hard rules
+a. Read the code it touches before changing it, and search the decisions about the features it
+   changes: `gh issue list --repo Coldensjo/Meld --state closed --label decision --search "<words>"`. Keep the change to that item. Follow the hard rules
    in DESIGN.md, and every edit through `History`.
 
 b. Verify it:

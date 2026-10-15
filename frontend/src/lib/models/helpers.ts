@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-// Helper models, as the owner decided for Noggit Red's (IDEAS.md B-040): plain shapes of set sizes that
+// Helper models, as the owner decided for Noggit Red's (B-040, issue #95): plain shapes of set sizes that
 // an author places as visual aids (how big is 8 yards, how tall is a player), saved in the map like any
 // model but never exported to the client. They are generated here, not client models, so they are the
 // one exception to Meld shipping no built-in models; they draw as see-through shapes so they never pass

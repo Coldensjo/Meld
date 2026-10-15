@@ -34,7 +34,7 @@ in the git history (`git show b47706b:PROGRESS.md`).
   `gap` for a Noggit Red feature Meld lacks; those issues are the gap list), and `bug` or `needs-approval` where they apply.
 - **Write issues for the next agent.** It starts cold, so the issue must hold what it needs: what and
   why, then a `**Claude:** notes for the agent working on this.` comment (or a section in the body)
-  with the code to read (files and functions), the decisions that apply (IDEAS.md sections, earlier
+  with the code to read (files and functions), the decisions that apply (`decision` issues, earlier
   comments), how to verify it (the TESTS.md section, a client test, a spot on the map) and the traps
   you know of. While working on an issue, comment anything a later session would otherwise have to
   rediscover: a dead end, a finding about the client's format, where a half-done item stands.
@@ -42,8 +42,9 @@ in the git history (`git show b47706b:PROGRESS.md`).
 - **Comments**: start every comment you write with `**Claude:**`. A comment by the owner (author
   `Coldensjo`, not starting with `**Claude:**`) is an instruction for that item; comments by
   `github-actions` are only pings. A decision about an item (the user's answer, or a choice you made
-  from Noggit Red or Benilla) goes in a comment on its issue; only a decision that reaches beyond one
-  item goes in IDEAS.md.
+  from Noggit Red or Benilla) goes in a comment on its issue; a decision that reaches beyond one item
+  becomes its own closed issue labelled `decision`. Before changing how a finished feature behaves,
+  search those: `gh issue list --state closed --label decision --search "<words>"`.
 - **When the owner is needed** (a question, a decision, something only they can do, such as a check
   in the game), comment what you need from them, starting `**Claude:** @Coldensjo`, with the options
   and your recommendation, and add the `owner-question` label. Claude posts through the owner's own
