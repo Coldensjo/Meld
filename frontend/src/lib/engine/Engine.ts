@@ -15,6 +15,7 @@ import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
 import { PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
+import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
@@ -334,6 +335,7 @@ export class Engine {
       place: this.placeTool,
       clear: new ClearTool(),
       doodad: this.doodadTool,
+      stamp: new StampTool(),
       mapdata: new MapDataTool(),
     }
 

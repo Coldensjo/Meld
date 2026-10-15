@@ -1,7 +1,28 @@
 import * as THREE from 'three'
 import { HOLE_CELL, HOLE_NONE, fillHoles, snapToBlocks } from '../terrain/holes'
 import { HoleWalls } from './HoleWalls'
-import { editor, setStatus, ui, type SculptMode } from '../state/editor.svelte'
+import { editor as liveEditor, setStatus, ui, type SculptMode } from '../state/editor.svelte'
+
+/** The editor state the brush tools read their settings from. */
+export type ToolSettings = typeof liveEditor
+
+/**
+ * What every brush tool in this module reads its settings from: the editor, or, while the Stamp tool
+ * runs one of its stack's brushes, that brush's own copy (`withSettings`). The swap is a plain module
+ * binding, so a stack's brushes never write the reactive editor state each frame.
+ */
+let editor: ToolSettings = liveEditor
+
+/** Runs `fn` with the brush tools reading `settings` instead of the editor's (the Stamp tool's brushes). */
+export function withSettings<T>(settings: ToolSettings, fn: () => T): T {
+  const prev = editor
+  editor = settings
+  try {
+    return fn()
+  } finally {
+    editor = prev
+  }
+}
 import { slopeDegrees, slopeWeights } from '../terrain/roles'
 import { tentBlur } from '../terrain/blur'
 import type { Command } from '../state/history'
@@ -50,6 +71,16 @@ abstract class BrushTool implements Tool {
     this.strokeStart.copy(hit)
     this.stroke = new TerrainStroke(ctx.terrain, this.label, this.records, (r) => this.resnap(ctx, r))
     this.begin(ctx, hit)
+  }
+
+  /** Puts this tool's stroke on `stroke`, shared with the Stamp tool's other brushes (after its onDown). */
+  useStroke(stroke: TerrainStroke) {
+    this.stroke = stroke
+  }
+
+  /** Leaves the shared stroke without finishing it: the Stamp tool finishes it once for all its brushes. */
+  releaseStroke() {
+    this.stroke = null
   }
 
   onUp(ctx: ToolContext) {

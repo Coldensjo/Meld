@@ -8,6 +8,7 @@
   import { LIQUID_TYPES } from '../lib/water/liquids'
   import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { areaName, loadAreas } from '../lib/wow/areas'
+  import { activeBrushStack } from '../lib/tools/StampTool'
   import { chooseBrushImageFolder, listBrushImages, useBrushImage } from '../lib/io/brushImages'
   import type { vmangos } from '../../wailsjs/go/models'
 
@@ -41,6 +42,7 @@
       editor.tool === 'clear' ||
       editor.tool === 'doodad' ||
       editor.tool === 'mapdata' ||
+      editor.tool === 'stamp' ||
       (editor.tool === 'place' && editor.placeScatter),
   )
   // The water brush paints whole cells in a circle, so only its size applies; Vertex mode moves the
@@ -328,6 +330,17 @@
     {#if editor.selected}
       <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
     {/if}
+    <div class="divider"></div>
+  {:else if editor.tool === 'stamp'}
+    <select class="curve" value={activeBrushStack()?.name ?? ''} onchange={(e) => (prefs.brushStack = (e.target as HTMLSelectElement).value)} disabled={!prefs.brushStacks.length} title="The brush stack a stroke applies" aria-label="Brush stack">
+      {#if !prefs.brushStacks.length}<option value="">No stacks yet</option>{/if}
+      {#each prefs.brushStacks as s (s.name)}
+        <option value={s.name}>{s.name} ({s.items.length})</option>
+      {/each}
+    </select>
+    <button onclick={() => (ui.dialog = 'stack')} title="Edit the stack's brushes: their order, modes, textures and what they take from the stack">{activeBrushStack() ? 'Edit stack…' : 'New stack…'}</button>
+    <OptSlider label="Turn" bind:value={editor.brushImage.rotation} min={0} max={360} step={1} digits={0} width={60} title="The stack's turn for the image brush, which its brushes take unless they have their own" />
+    <span class="dim">The size and strength are the stack's: its brushes take them unless they have their own.</span>
     <div class="divider"></div>
   {:else if editor.tool === 'doodad'}
     <select class="curve" value={activeDoodadBrush()?.name ?? ''} onchange={(e) => (prefs.doodadBrush = (e.target as HTMLSelectElement).value)} disabled={!prefs.doodadBrushes.length} title="The brush to paint with" aria-label="Doodad brush">

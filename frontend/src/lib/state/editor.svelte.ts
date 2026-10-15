@@ -2,6 +2,7 @@ import type { SessionTab } from '../io/session'
 import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
 import type { DoodadBrush } from '../tools/doodadBrush'
+import type { BrushStack } from '../tools/brushStack'
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
@@ -12,7 +13,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata'
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata' | 'stamp'
 /**
  * What the Map data tool paints into the chunk headers: the zone (an AreaTable.dbc ID), the
  * impassable flag, or the cells that grow no ground effect doodads.
@@ -375,6 +376,9 @@ export const prefs = $state({
   favoriteAssets: [] as string[],
   /** The doodad brushes (tools/doodadBrush.ts) and the name of the one the Doodad brush tool paints with. */
   doodadBrushes: [] as DoodadBrush[],
+  /** The Stamp tool's brush stacks (tools/brushStack.ts) and the name of the one it applies. */
+  brushStacks: [] as BrushStack[],
+  brushStack: '',
   doodadBrush: '',
   /** The folder of the user's own greyscale images that shape the image brushes (editor.brushImage). */
   brushImageDir: '',
@@ -409,7 +413,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
+  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */

@@ -407,3 +407,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   along its eight direction tables; Meld uses the same rate and directions. Noggit Red draws no glow for
   overbright, so **ours** is an approximation: 1.5 times brighter. Only the looks the map sets are drawn;
   a texture keeping the client's own look shows still, as the editor doesn't read those flags per texture.
+
+### B-132 Stamp tool with brush stacks · Noggit Red's stack, Meld's brushes
+- Chosen by the loop from Noggit Red (2026-10-15, B-132, approved by the owner). Noggit Red's brush stack
+  (`ui/tools/BrushStack/`) holds raise/lower, flatten/blur, texturing and shader brushes; one stroke runs
+  each brush that is on, with the stack's radius, inner radius and speed overriding a brush's where it
+  "affects" them, and the mask rotation likewise. **Ours**: brushes are Meld's Sculpt shaping modes and
+  Paint textures (the shader brush paints vertex colours, which 1.12 hasn't got); the stack's size,
+  strength and image turn are the Stamp tool's own brush settings; stacks are preferences rather than
+  per-project files. Noggit Red's one-imprint Stamp mode is not built.

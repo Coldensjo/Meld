@@ -22,7 +22,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-111 **Paint while sculpting, and texture roles**: Sculpt paints one texture or the map's rock and dirt by slope as it shapes the ground; roles are guessed from texture names and set in Map Properties · Source: owner · H/M · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-116 **Sculpt strength up to 10** · Source: owner · M/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session)
-- [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · builds on B-131 · approved by the owner 2026-10-15, decided in IDEAS.md
+- [x] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · builds on B-131 · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [x] B-162 **Preview texture looks in the editor**: scroll and brighten the textures a map sets to animate or glow (B-014), so the view matches the client · Source: loop: B-014 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Water

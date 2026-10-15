@@ -148,6 +148,12 @@ cd frontend && pnpm build   # frontend only
     set in Map Properties, and the preview-only cliff rock in the shader uses the rock role too.
   - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
   - **Every edit must be undoable** through `History`.
+- **Stamp** (`tools/StampTool.ts`, tool `stamp`, key 0) applies a brush stack (`tools/brushStack.ts`,
+  `prefs.brushStacks`, edited in `BrushStackDialog.svelte`): each brush of the stack runs a pooled Sculpt or
+  Paint tool on one shared `TerrainStroke` (`useStroke`/`releaseStroke`), one undo step a stroke. The brush
+  tools in `TerrainTools.ts` read their settings from a module binding named `editor`, which
+  `withSettings` points at a brush's own copy of the editor state for the call, so a stack never writes
+  the reactive editor each frame; keep new settings reads in that module going through it.
 - **Doodad brush** (`tools/DoodadBrushTool.ts`, tool `doodad`, key 8) scatters models the way Paint
   lays down textures. A brush (`tools/doodadBrush.ts`, `DoodadBrush`) is a named list of models with
   a weight, scale range, sink and tilt each, plus a spacing (a multiple of the models' footprints).

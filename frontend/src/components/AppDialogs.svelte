@@ -10,6 +10,7 @@
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
   import ZonesDialog from './ZonesDialog.svelte'
+  import BrushStackDialog from './BrushStackDialog.svelte'
   import TextureLooksDialog from './TextureLooksDialog.svelte'
   import HeightmapImportDialog from './HeightmapImportDialog.svelte'
   import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
@@ -143,7 +144,7 @@
     [
       'Tools',
       [
-        ['1 – 9', 'Select, Sculpt, Paint, Roads, Water, Place, Clear, Doodad brush, Map data'],
+        ['1 – 9, 0', 'Select, Sculpt, Paint, Roads, Water, Place, Clear, Doodad brush, Map data, Stamp'],
         ['V / B', 'Select / Paint'],
         ['Alt+click', 'Pipette: pick the model under the cursor to place, or the texture to paint with'],
         ['Click, Shift+click', 'Select a model, add or remove one (Select tool)'],
@@ -347,6 +348,8 @@
   <GroundEffectsDialog onclose={close} />
 {:else if ui.dialog === 'zones'}
   <ZonesDialog onclose={close} />
+{:else if ui.dialog === 'stack'}
+  <BrushStackDialog onclose={close} />
 {:else if ui.dialog === 'looks'}
   <TextureLooksDialog onclose={close} />
 {:else if ui.dialog === 'heightmap'}
