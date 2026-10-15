@@ -212,3 +212,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: Tab hides every panel but the menu bar (`ui.hidePanels`: the toolbar, options bar, asset browser, dock and status bar leave the layout and the viewport fills the window below the menu); Tab again brings them back, and Graphics › Hide panels is the same switch with the key shown. The menu bar stays, as Photoshop's Tab keeps it, so the switch is always reachable; the loop chose that over noggit's all-or-nothing. Ctrl+Tab still cycles the map tabs, and Tab in an input is left to the input. Listed in Keyboard Shortcuts.
 - Verified: make test passed (Go plus 183 of 183 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app: the viewport filling the window was not seen on screen (the Engine's ResizeObserver resizes the canvas with its container).
 - Left: none. The hidden state is not a preference; the app starts with the panels shown.
+
+## 2026-10-15 · B-075 Tile and chunk grid lines
+- Done: Checked first, as B-027 was. The lines are already there: Graphics › Show grid draws a line every four cells, Show chunk lines the 8x8-cell paint chunk edges in pale blue, and a region always draws amber lines at its tile edges (`Terrain.setTileBorders`, set in `Engine.activate`). noggit's "hole lines always on" draws the chunk lines around a hole so it can be seen when the lines are off; Meld cuts holes out of the mesh and draws their walls, so a hole is visible on its own. Nothing to build; marked done in the backlog and the gap list.
+- Verified: nothing changed in the code, so no checks were run. Not checked in the app.
+- Left: none.

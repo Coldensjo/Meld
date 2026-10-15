@@ -100,7 +100,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 - ~~**Per-layer visibility**: Doodads, WMO doodads, Terrain, Water, WMOs (each toggleable on its own).~~ *Done: Graphics › Layers toggles Terrain, Water and Objects. Doodads and buildings share the Objects toggle, so they can't be hidden separately.*
 - ~~**Wireframe** mode (F10).~~ *Done: Graphics › Layers › Wireframe (no F10 key).*
 - **Height contour lines** (F9).
-- **Tile and chunk grid lines**, with "hole lines always on".
+- ~~**Tile and chunk grid lines**, with "hole lines always on".~~ *Done already: Graphics › Show grid (every 4 cells), Show chunk lines (the 8x8-cell paint chunks, pale blue) and the amber tile lines a region always draws (`Terrain.setTileBorders`). Holes are cut out of the mesh with walls, so they are always visible without lines.*
 - **Flight bounds** display.
 - **Vertex colour display**.
 - **DBC lighting colour data**: use the client's lighting data for preview.

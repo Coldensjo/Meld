@@ -78,7 +78,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [ ] B-072 **Top-down 2D tile mode** · gap §6 · M/M
 - [ ] B-073 **Pause and speed keys for the day cycle** · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M
-- [ ] B-075 **Tile and chunk grid lines**, with hole lines always on · gap §7 · M/S
+- [x] B-075 **Tile and chunk grid lines**, with hole lines always on · gap §7 · M/S · checked 2026-10-15 (PROGRESS.md): already there; holes show as cut-outs with walls, so there are no hole lines to keep on
 - [x] B-076 **Toggle UI (Tab)** to hide all panels · gap §7 · M/S · done 2026-10-15 (PROGRESS.md): Tab and Graphics › Hide panels
 - [ ] B-077 **Detail info panel** per tile or chunk · gap §7 · M/M
 - [ ] B-078 **Height contour lines** · gap §7 · L/M
