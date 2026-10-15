@@ -242,6 +242,10 @@ export function VmangosPath() {
   return window['go']['main']['App']['VmangosPath']();
 }
 
+export function WMODoodadSets(arg1) {
+  return window['go']['main']['App']['WMODoodadSets'](arg1);
+}
+
 export function WowStatus() {
   return window['go']['main']['App']['WowStatus']();
 }

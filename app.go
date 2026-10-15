@@ -358,6 +358,12 @@ func (a *App) MapZones() ([]vmangos.Zone, error) {
 	return vmangos.LoadZones(dataDir)
 }
 
+// WMODoodadSets names a WMO's doodad sets, by index (set 0 is the global set), for the Inspector's
+// doodad set choice.
+func (a *App) WMODoodadSets(path string) ([]string, error) {
+	return a.wow.WMODoodadSets(path)
+}
+
 // Areas lists the client's zones and subzones (AreaTable.dbc), which the Map data tool paints into
 // chunks by ID.
 func (a *App) Areas() ([]vmangos.Area, error) {

@@ -86,7 +86,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 - **Object palette** **(Red)**: a dockable list of favourite models filled from the asset browser, to place from (`ui/object_palette.cpp`). Meld's asset browser keeps recent picks; the doodad brush (B-110) is a saved list of models, but for scattering.
 - **Translate/rotate/scale gizmo** **(Red)**: an ImGuizmo-based gizmo with move arrows on three axes, rotation rings and scale handles, in world or local space (`ui/tools/ViewportGizmo/`). Meld's gizmo has a spin ring, a height arrow and a scale knob.
 - **Server coordinates** **(Red)**: the object context menu's "Save objects coords (to file)" writes each selected model's server position and rotation quaternion, for a gameobject spawn. Meld writes spawns itself.
-- **WMO doodad set and name set** per placed WMO **(Red)**: "Selected WMO Options" chooses the doodad set shown and the name set. Meld places WMOs with their default set **(unverified)**.
+- ~~**WMO doodad set and name set** per placed WMO **(Red)**: "Selected WMO Options" chooses the doodad set shown and the name set.~~ Meld places WMOs with their default set **(unverified)**. *Done: the Inspector chooses a placed WMO's doodad set, drawn with its global set and written as the MODF doodad set; the name set is kept, not shown.*
 
 ## 5. Map and tile management (Assist and File menus)
 

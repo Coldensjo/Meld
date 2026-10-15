@@ -3,6 +3,9 @@
   import { editor } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName, isWowType, wowPath } from '../lib/models/assets'
+  import { baseType, doodadSetOf } from '../lib/models/wmoSet'
+  import { WMODoodadSets } from '../../wailsjs/go/main/App'
+  import { hasBackend } from '../lib/io/mapio'
   import type { WorldObject } from '../lib/world/ObjectLayer'
 
   // What is selected, and everything about it: one model's placement as numbers and actions, a
@@ -28,7 +31,26 @@
   const selected = $derived(editor.selected)
   const count = $derived(editor.selectedIds.length)
   const parent = $derived(selected?.parent !== undefined ? e?.objects.objects.get(selected.parent) : undefined)
-  const modelPath = $derived(selected ? (isWowType(selected.type) ? wowPath(selected.type) : selected.type) : '')
+  const modelPath = $derived(selected ? (isWowType(selected.type) ? wowPath(baseType(selected.type)) : selected.type) : '')
+
+  /** A selected WMO's doodad sets by index, read from the client when it is picked. */
+  let sets = $state<string[]>([])
+  let setsFor = ''
+  $effect(() => {
+    const path = selected?.type.startsWith('wmo:') ? modelPath : ''
+    if (path === setsFor) return
+    setsFor = path
+    sets = []
+    if (path && hasBackend()) {
+      WMODoodadSets(path)
+        .then((names) => {
+          if (setsFor === path) sets = names ?? []
+        })
+        .catch(() => {})
+    }
+  })
+  /** A doodad set's name without the client's "Set_" prefix. */
+  const setName = (n: string, i: number) => (i === 0 ? 'Global only' : n.replace(/^Set_/, '') || `Set ${i}`)
 
   /** The selected models by kind, most numerous first, for a selection of several. */
   const breakdown = $derived.by(() => {
@@ -85,6 +107,21 @@
     <PropField label="Roll" value={deg(selected.tiltZ ?? 0)} step={0.5} digits={1} unit="°" min={-89} max={89} onstart={startEdit} oninput={(v) => live({ tiltZ: rad(v) })} onchange={(v) => commit({ tiltZ: rad(v) })} title="Lean to a side" />
     {#if selected.tiltX || selected.tiltZ}
       <button class="link" onclick={() => { startEdit(); commit({ tiltX: 0, tiltZ: 0 }) }}>Stand upright</button>
+    {/if}
+
+    {#if selected.type.startsWith('wmo:') && sets.length > 1}
+      <div class="section">Doodad set</div>
+      <select
+        class="set"
+        value={doodadSetOf(selected.type)}
+        onchange={(ev) => e?.setDoodadSet(Number(ev.currentTarget.value))}
+        title="The furniture and decorations the building shows besides its global set, as the game draws this placement"
+        aria-label="Doodad set"
+      >
+        {#each sets as n, i (i)}
+          <option value={i}>{setName(n, i)}</option>
+        {/each}
+      </select>
     {/if}
 
     <div class="section">Scale</div>
@@ -172,6 +209,10 @@
   .id {
     font: 11px var(--mono);
     color: var(--text-dim);
+  }
+  .set {
+    width: 100%;
+    margin-bottom: 4px;
   }
   .path {
     display: block;

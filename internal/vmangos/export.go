@@ -260,19 +260,11 @@ func liquidsByChunk(layers []adt.Liquid, perRow int) (map[int][]adt.Liquid, erro
 // the rotation is the one the client's placement matrix undoes (yaw is the Y angle minus 90).
 func objectIn(tileX, tileY int, o ObjectSpec) (adt.Object, error) {
 	var out adt.Object
-	switch {
-	case strings.HasPrefix(o.Type, "m2:"):
-		out.Kind = adt.M2
-		out.Name = strings.TrimPrefix(o.Type, "m2:")
-	case strings.HasPrefix(o.Type, "wmo:"):
-		out.Kind = adt.WMO
-		out.Name = strings.TrimPrefix(o.Type, "wmo:")
-	default:
-		return out, fmt.Errorf("%q is not a model", o.Type)
+	kind, name, set, _, err := parseModelType(o.Type)
+	if err != nil {
+		return out, err
 	}
-	if out.Name == "" {
-		return out, fmt.Errorf("%q has no path", o.Type)
-	}
+	out.Kind, out.Name, out.DoodadSet = kind, name, set
 	out.Position = [3]float32{float32(tileX)*adt.TileSize + o.X, o.Y, float32(tileY)*adt.TileSize + o.Z}
 	yaw := float64(o.RotY) * 180 / math.Pi
 	out.Rotation = [3]float32{float32(float64(o.TiltX) * 180 / math.Pi), float32(yaw + 90), float32(float64(o.TiltZ) * 180 / math.Pi)}

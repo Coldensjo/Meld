@@ -22,6 +22,8 @@ type Look struct {
 	Attach []Attachment
 	// Anim is the AnimationData ID of the loop to play; the model's Stand when it has no such loop.
 	Anim int
+	// Set is the doodad set a WMO shows with its global set 0 (the placement's MODF doodad set).
+	Set int
 }
 
 // Attachment is an item model at one of a model's attachment points, with the texture for its
@@ -58,12 +60,12 @@ var defaultGeosets = []int{0, 1, 101, 201, 301, 401, 501, 702, 1301, 1501}
 
 // Empty says the look changes nothing about the model.
 func (l Look) Empty() bool {
-	return len(l.Textures) == 0 && l.Geosets == nil && len(l.Attach) == 0 && l.Anim == 0
+	return len(l.Textures) == 0 && l.Geosets == nil && len(l.Attach) == 0 && l.Anim == 0 && l.Set == 0
 }
 
 // Query encodes the look for the model endpoint, the same way for the same look:
 // tex=<type>:<path> per texture, geo=<id>,<id>..., att=<point>:<model>:<texture> per item, and
-// anim=<id>.
+// anim=<id>, and set=<n> for a WMO's doodad set.
 func (l Look) Query() string {
 	v := url.Values{}
 	types := make([]int, 0, len(l.Textures))
@@ -90,6 +92,9 @@ func (l Look) Query() string {
 	}
 	if l.Anim != 0 {
 		v.Set("anim", strconv.Itoa(l.Anim))
+	}
+	if l.Set != 0 {
+		v.Set("set", strconv.Itoa(l.Set))
 	}
 	return v.Encode()
 }
@@ -128,6 +133,7 @@ func ParseLook(q url.Values) Look {
 		l.Attach = append(l.Attach, Attachment{Point: n, Model: parts[1], Texture: parts[2]})
 	}
 	l.Anim, _ = strconv.Atoi(q.Get("anim"))
+	l.Set, _ = strconv.Atoi(q.Get("set"))
 	return l
 }
 

@@ -33,6 +33,36 @@ type WMORoot struct {
 	NumGroups int
 	Doodads   []WMODoodad // default doodad set only
 	Lights    []Effect    // MOLT lights, editor space
+	// Sets are the doodad sets (MODS): set 0 is the global set, always shown; a placement adds one more.
+	Sets []WMODoodadSet
+	// AllDoodads are every MODD entry, by index (an entry without a model is empty).
+	AllDoodads []WMODoodad
+}
+
+// WMODoodadSet is a named run of a WMO's doodads.
+type WMODoodadSet struct {
+	Name         string
+	Start, Count int
+}
+
+// DoodadsOf are the doodads a placement with doodad set `set` shows: the global set 0, and the set itself.
+func (r *WMORoot) DoodadsOf(set int) []WMODoodad {
+	var out []WMODoodad
+	add := func(s int) {
+		if s < 0 || s >= len(r.Sets) {
+			return
+		}
+		for i := r.Sets[s].Start; i < r.Sets[s].Start+r.Sets[s].Count && i < len(r.AllDoodads); i++ {
+			if r.AllDoodads[i].Model != "" {
+				out = append(out, r.AllDoodads[i])
+			}
+		}
+	}
+	add(0)
+	if set > 0 {
+		add(set)
+	}
+	return out
 }
 
 type WMOMaterial struct {
@@ -97,29 +127,28 @@ func ParseWMORoot(b []byte) (*WMORoot, error) {
 			}
 		}
 	}
-	// Default doodad set ("Set_$DefaultGlobal") is set 0.
-	if len(mods) >= 32 && len(modd) > 0 {
-		r := reader{mods}
-		start, count := r.u32(20), r.u32(24)
-		d := reader{modd}
-		for i := start; i < start+count && (i+1)*40 <= len(modd); i++ {
-			o := i * 40
-			name := cstrAt(modn, d.u32(o)&0xFFFFFF)
-			if name == "" {
-				continue
-			}
-			// Vanilla references .mdx; the client ships them as .m2.
-			if ext := strings.ToLower(name); strings.HasSuffix(ext, ".mdx") || strings.HasSuffix(ext, ".mdl") {
-				name = name[:len(name)-4] + ".m2"
-			}
-			root.Doodads = append(root.Doodads, WMODoodad{
-				Model: name,
-				Pos:   [3]float32{d.f32(o + 4), d.f32(o + 8), d.f32(o + 12)},
-				Rot:   [4]float32{d.f32(o + 16), d.f32(o + 20), d.f32(o + 24), d.f32(o + 28)},
-				Scale: d.f32(o + 32),
-			})
-		}
+	// MODS: 32-byte sets, a 20-byte name, then the first doodad and the count.
+	r := reader{mods}
+	for o := 0; o+32 <= len(mods); o += 32 {
+		root.Sets = append(root.Sets, WMODoodadSet{Name: cstrAt(mods[o:o+20], 0), Start: r.u32(o + 20), Count: r.u32(o + 24)})
 	}
+	d := reader{modd}
+	for i := 0; (i+1)*40 <= len(modd); i++ {
+		o := i * 40
+		name := cstrAt(modn, d.u32(o)&0xFFFFFF)
+		// Vanilla references .mdx; the client ships them as .m2.
+		if ext := strings.ToLower(name); strings.HasSuffix(ext, ".mdx") || strings.HasSuffix(ext, ".mdl") {
+			name = name[:len(name)-4] + ".m2"
+		}
+		root.AllDoodads = append(root.AllDoodads, WMODoodad{
+			Model: name,
+			Pos:   [3]float32{d.f32(o + 4), d.f32(o + 8), d.f32(o + 12)},
+			Rot:   [4]float32{d.f32(o + 16), d.f32(o + 20), d.f32(o + 24), d.f32(o + 28)},
+			Scale: d.f32(o + 32),
+		})
+	}
+	// The default doodad set ("Set_$DefaultGlobal") is set 0.
+	root.Doodads = root.DoodadsOf(0)
 	return root, nil
 }
 

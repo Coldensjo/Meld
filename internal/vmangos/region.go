@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
-	"strings"
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
@@ -177,14 +176,10 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 // (x, y)). The editor's yaw is the file's middle rotation less 90 degrees, as objectIn writes it.
 func objectView(p adt.Placement, x, y int) (ObjectView, bool) {
 	var o ObjectView
-	switch p.Kind {
-	case adt.M2:
-		o.Type = "m2:" + p.Name
-	case adt.WMO:
-		o.Type = "wmo:" + p.Name
-	default:
+	if p.Kind != adt.M2 && p.Kind != adt.WMO {
 		return o, false
 	}
+	o.Type = modelType(p.Kind, p.Name, p.DoodadSet)
 	o.UID = p.UID
 	o.X = p.Position[0] - float32(x)*adt.TileSize
 	o.Y = p.Position[1]
@@ -201,19 +196,11 @@ func objectView(p adt.Placement, x, y int) (ObjectView, bool) {
 // yaw changes.
 func placementFromView(o ObjectView, e RegionEdit, orig *adt.Placement) (adt.Object, error) {
 	var out adt.Object
-	switch {
-	case strings.HasPrefix(o.Type, "m2:"):
-		out.Kind = adt.M2
-		out.Name = strings.TrimPrefix(o.Type, "m2:")
-	case strings.HasPrefix(o.Type, "wmo:"):
-		out.Kind = adt.WMO
-		out.Name = strings.TrimPrefix(o.Type, "wmo:")
-	default:
-		return out, fmt.Errorf("%q is not a model", o.Type)
+	kind, name, set, hasSet, err := parseModelType(o.Type)
+	if err != nil {
+		return out, err
 	}
-	if out.Name == "" {
-		return out, fmt.Errorf("%q has no path", o.Type)
-	}
+	out.Kind, out.Name = kind, name
 	out.UID = o.UID
 	out.Position = [3]float32{o.X + float32(e.X)*adt.TileSize, o.Y, o.Z + float32(e.Y)*adt.TileSize}
 	yaw := float64(o.RotY)*180/math.Pi + 90
@@ -221,6 +208,11 @@ func placementFromView(o ObjectView, e RegionEdit, orig *adt.Placement) (adt.Obj
 	out.Scale = o.Scale
 	if orig != nil {
 		out.DoodadSet, out.NameSet = orig.DoodadSet, orig.NameSet
+	}
+	// A WMO's doodad set is the one its name carries (objectView writes it for every set but 0); a
+	// name without one keeps the original's, or 0 for a new model.
+	if kind == adt.WMO && (hasSet || orig == nil) {
+		out.DoodadSet = set
 	}
 	if out.Scale == 0 {
 		out.Scale = 1
@@ -255,11 +247,8 @@ func angleDiff(a, b float64) float64 {
 
 // unchanged reports whether an object still sits as its placement in the file does.
 func unchanged(o ObjectView, e RegionEdit, orig adt.Placement) bool {
-	typ := "m2:" + orig.Name
-	if orig.Kind == adt.WMO {
-		typ = "wmo:" + orig.Name
-	}
-	if o.Type != typ {
+	kind, name, set, hasSet, err := parseModelType(o.Type)
+	if err != nil || kind != orig.Kind || name != orig.Name || (hasSet && set != orig.DoodadSet) {
 		return false
 	}
 	wx := o.X + float32(e.X)*adt.TileSize

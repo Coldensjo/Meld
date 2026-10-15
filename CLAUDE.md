@@ -430,7 +430,10 @@ cd frontend && pnpm build   # frontend only
   - `onAssetLoaded` lets `ObjectLayer` and the place-tool ghost swap the placeholder for the real
     mesh.
   - WoW meshes are one geometry with groups plus a material array, which keeps it at one
-    `InstancedMesh` per type. A WMO group flagged interior (`Group.Interior`, from MOGP flag
+    `InstancedMesh` per type.
+  - A placed WMO's doodad set rides in its type, `wmo:<path>?set=<n>` (`models/wmoSet.ts`): the model
+    endpoint bakes set 0 and that set (`WMORoot.DoodadsOf`), and the export writes it as the MODF doodad
+    set (`vmangos/modeltype.go`). A bare `wmo:` type in a region keeps the client's set on save. A WMO group flagged interior (`Group.Interior`, from MOGP flag
     0x2000) gets an unlit `MeshBasicMaterial` lit by its baked MOCV vertex colours, as in the game,
     so the sun, sky and shadows never reach the inside of a cave or building.
 - **Spawn looks** (`internal/vmangos/looks.go`, `internal/wow/look.go`): a creature spawn's

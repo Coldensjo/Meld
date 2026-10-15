@@ -59,7 +59,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-141 **Snap selected to ground** (Page Down): set the selected roots' height offset to the ground · gap §4 · L/S · unverified whether a one-key drop is missing
 - [ ] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M
 - [ ] B-143 **Three-axis gizmo**: move arrows on each axis and scale handles, in world or local space · gap §4 · L/M
-- [ ] B-144 **WMO doodad set and name set** per placed WMO, shown in the editor and written on export · gap §4 · M/M · unverified what the export writes now
+- [x] B-144 **WMO doodad set and name set** per placed WMO, shown in the editor and written on export · gap §4 · M/M · unverified what the export writes now · done 2026-10-15 (PROGRESS.md)
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 
 ## Map, client and server

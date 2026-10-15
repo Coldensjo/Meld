@@ -35,6 +35,7 @@ import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextu
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset } from '../models/assets'
+import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
@@ -2653,6 +2654,39 @@ export class Engine {
   }
 
   /**
+   * Shows doodad set `set` on the selected WMOs besides their global set 0, as a placement's MODF doodad
+   * set does in the game; the export writes it. One undo step.
+   */
+  setDoodadSet(set: number) {
+    const changes: Array<{ id: number; from: string; to: string }> = []
+    for (const id of editor.selectedIds) {
+      const o = this.objects.objects.get(id)
+      if (!o || !o.type.startsWith('wmo:')) continue
+      const to = withDoodadSet(o.type, set)
+      if (to !== o.type) changes.push({ id, from: o.type, to })
+    }
+    if (!changes.length) return
+    this.retype(changes, changes.length === 1 ? 'Doodad set' : `Doodad set of ${changes.length} buildings`)
+  }
+
+  /** Changes objects' types (their model, or a WMO's doodad set) as one undo step. */
+  private retype(changes: Array<{ id: number; from: string; to: string }>, label: string) {
+    const objects = this.objects
+    const refresh = () => {
+      if (editor.selected) {
+        const p = objects.objects.get(editor.selected.id)
+        if (p) editor.selected = { ...p }
+      }
+    }
+    const apply = (to: boolean) => {
+      for (const c of changes) objects.setType(c.id, to ? c.to : c.from)
+      refresh()
+    }
+    apply(true)
+    this.history.push({ label, undo: () => apply(false), redo: () => apply(true) })
+  }
+
+  /**
    * Puts the selected models into one new selection group (Noggit Red's Group Selected Objects), taking
    * them out of the groups they were in, so clicking any of them selects them all. One undo step.
    */
@@ -2715,7 +2749,7 @@ export class Engine {
     const type = clip.objects[0].type
     const kind = (t: string) => t.slice(0, t.indexOf(':'))
     const objects = this.objects
-    const changed: Array<{ id: number; from: string }> = []
+    const changed: Array<{ id: number; from: string; to: string }> = []
     let other = 0
     for (const id of editor.selectedIds) {
       const o = objects.objects.get(id)
@@ -2724,32 +2758,14 @@ export class Engine {
         other++
         continue
       }
-      changed.push({ id, from: o.type })
-      objects.setType(id, type)
+      changed.push({ id, from: o.type, to: type })
     }
     const skipped = other ? ` ${other} ${kind(type) === 'wmo' ? 'doodads' : 'buildings'} left as they are (a doodad replaces doodads, a building buildings).` : ''
     if (!changed.length) {
       setStatus(editor.selectedIds.length ? `Nothing replaced.${skipped}` : 'Select the models to replace first.', 6000)
       return
     }
-    const refresh = () => {
-      if (editor.selected) {
-        const p = objects.objects.get(editor.selected.id)
-        if (p) editor.selected = { ...p }
-      }
-    }
-    refresh()
-    this.history.push({
-      label: changed.length === 1 ? 'Replace model' : `Replace ${changed.length} models`,
-      undo: () => {
-        for (const c of changed) objects.setType(c.id, c.from)
-        refresh()
-      },
-      redo: () => {
-        for (const c of changed) objects.setType(c.id, type)
-        refresh()
-      },
-    })
+    this.retype(changed, changed.length === 1 ? 'Replace model' : `Replace ${changed.length} models`)
     setStatus(`Replaced ${changed.length} ${changed.length === 1 ? 'model' : 'models'} with ${displayName(type)}.${skipped}`, 6000)
   }
 

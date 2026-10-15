@@ -227,7 +227,7 @@ func (c *Client) readM2(path string) ([]byte, error) {
 	return raw, err
 }
 
-func (c *Client) wmoMesh(path string) (*Mesh, error) {
+func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 	raw, err := c.read(path)
 	if err != nil {
 		return nil, err
@@ -252,9 +252,9 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 		}
 		m.Append(g)
 	}
-	// Bake the default doodad set (furniture, lamps, crates...) into the mesh.
+	// Bake the doodads (furniture, lamps, crates...) into the mesh: the global set, and the placement's.
 	models := map[string]*Mesh{}
-	for _, d := range root.Doodads {
+	for _, d := range root.DoodadsOf(set) {
 		key := strings.ToLower(d.Model)
 		src, ok := models[key]
 		if !ok {
@@ -284,7 +284,24 @@ func (c *Client) wmoMesh(path string) (*Mesh, error) {
 	return m, nil
 }
 
-// Model returns an encoded mesh for an .m2 or .wmo path, an M2 dressed in look.
+// WMODoodadSets names a WMO's doodad sets, by index: set 0 is the global set every placement shows.
+func (c *Client) WMODoodadSets(path string) ([]string, error) {
+	raw, err := c.read(path)
+	if err != nil {
+		return nil, err
+	}
+	root, err := ParseWMORoot(raw)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, len(root.Sets))
+	for i, s := range root.Sets {
+		names[i] = s.Name
+	}
+	return names, nil
+}
+
+// Model returns an encoded mesh for an .m2 or .wmo path, an M2 dressed in look (a WMO with its doodad set).
 func (c *Client) Model(path string, look Look) ([]byte, error) {
 	key := "mdl:" + strings.ToLower(path)
 	var lp *Look
@@ -296,7 +313,7 @@ func (c *Client) Model(path string, look Look) ([]byte, error) {
 		var m *Mesh
 		var err error
 		if strings.HasSuffix(strings.ToLower(path), ".wmo") {
-			m, err = c.wmoMesh(path)
+			m, err = c.wmoMesh(path, look.Set)
 		} else {
 			m, err = c.m2Mesh(path, lp)
 			if err == nil {

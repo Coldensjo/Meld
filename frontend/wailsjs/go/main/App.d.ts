@@ -126,6 +126,8 @@ export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:n
 
 export function VmangosPath():Promise<string>;
 
+export function WMODoodadSets(arg1:string):Promise<Array<string>>;
+
 export function WowStatus():Promise<wow.Status>;
 
 export function WriteHeightmap(arg1:string,arg2:number,arg3:Array<number>):Promise<void>;
