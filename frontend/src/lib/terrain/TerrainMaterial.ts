@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { CASCADE_SHADOW_GLSL } from '../engine/shadowCascades'
+import { BAKED_SHADOW_LIGHT } from './bakedShadows'
 
 const vertex = /* glsl */ `
 #include <common>
@@ -75,6 +76,9 @@ uniform vec4 chunkHover;
 // The width of a tile in world units when the map is a client region; 0 hides the tile borders.
 uniform float tileWorld;
 uniform sampler2D maskTex;
+// The client's baked shadows (MCSH) of a region, 255 in shadow; bakedShadowOn 0 when there are none or they are hidden.
+uniform sampler2D bakedShadowTex;
+uniform float bakedShadowOn;
 uniform float maskVisible;
 // The Map data overlay: 0 off, 1 zones, 2 impassable, 3 no tufts (see Terrain.setMapDataOverlay).
 uniform float mapDataMode;
@@ -151,6 +155,8 @@ void main() {
   float diff = max(dot(n, sunDir), 0.0) * keyShadow();
   vec3 hemi = mix(groundAmbient, skyAmbient, n.y * 0.5 + 0.5);
   vec3 lit = col * (hemi + sunColor * diff);
+  // The client's baked shadow keeps 70% of the light (terrain/bakedShadows.ts).
+  if (bakedShadowOn > 0.5) lit *= 1.0 - ${(1 - BAKED_SHADOW_LIGHT).toFixed(2)} * texture2D(bakedShadowTex, suv).r;
 
   // Point lights from torches, braziers, lamps (same falloff as three's props).
   #if NUM_POINT_LIGHTS > 0
@@ -335,6 +341,8 @@ export function createTerrainMaterial(
     chunkHover: { value: new THREE.Vector4() },
     tileWorld: { value: 0 },
     maskTex: { value: null },
+    bakedShadowTex: { value: null },
+    bakedShadowOn: { value: 0 },
     maskVisible: { value: 0 },
     mapDataMode: { value: 0 },
     chunkDataTex: { value: null },

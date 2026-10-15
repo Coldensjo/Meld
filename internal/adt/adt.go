@@ -52,7 +52,14 @@ type Chunk struct {
 	Position [3]float32
 	// Heights are absolute heights for the 145 samples (see HeightCount).
 	Heights [HeightCount]float32
+	// Shadow is the chunk's baked shadow map (MCSH): 64x64 bits, a row of 8 bytes per texel row,
+	// bit n of a byte the texel n columns into it, set where the ground lies in shadow. Nil for a
+	// chunk without one, which the client draws lit.
+	Shadow []byte
 }
+
+// ShadowSize is a chunk's baked shadow map: 64 texels a side, 8 a cell.
+const ShadowSize = 64
 
 // Terrain is the geometry of one tile. Chunks are kept in file order, which the texture file
 // also uses, so chunk i here and chunk i in Textures describe the same piece of ground.
@@ -248,6 +255,13 @@ func parseChunk(data []byte, h, end int) (Chunk, error) {
 	}
 	for row := 0; row < CellsPerChunk; row++ {
 		ch.NoEffect[row] = data[h+mcnkNoEffect+row]
+	}
+	// The client reads MCSH wherever the header gives it a size (Benilla's benilla-adt, MIT/Apache).
+	if u32(data, h+0x30) > 0 {
+		if sh, ok := subChunk(data, h, end, u32(data, h+0x2c), "MCSH"); ok && sh.end > sh.start {
+			ch.Shadow = make([]byte, ShadowSize*ShadowSize/8)
+			copy(ch.Shadow, data[sh.start:sh.end])
+		}
 	}
 	mcvt, ok := subChunk(data, h, end, u32(data, h+0x14), "MCVT")
 	if !ok || mcvt.end-mcvt.start < HeightCount*4 {

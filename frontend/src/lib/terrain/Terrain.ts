@@ -8,6 +8,7 @@ import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRole
 import { holeTriangle, triangleIsHole, writeCellIndex } from './holes'
 import { DirtyRegion, uploadRect, type DirtyRect } from './dirtyRect'
 import { CHUNK_IMPASSABLE, areaColor } from './chunkFlags'
+import { unpackShadowBits } from './bakedShadows'
 
 export type { DirtyRect } from './dirtyRect'
 
@@ -74,6 +75,10 @@ export class Terrain {
   /** Paint mask (0-255 per splat texel); texture fills apply to it. Not saved. */
   readonly mask: Uint8Array
   readonly maskTex: THREE.DataTexture
+  /** The client's baked shadows of a region, drawn as the client draws them; null without. Read from the client, not saved. */
+  private bakedTex: THREE.DataTexture | null = null
+  /** Whether the Engine has asked the client for this terrain's baked shadows (once per terrain). */
+  bakedRequested = false
   /** Bumped whenever the mask is marked dirty, so a scan of it can be skipped when nothing changed. */
   maskVersion = 0
   private maskDirty = new DirtyRegion()
@@ -535,8 +540,28 @@ export class Terrain {
     this.markSplatDirty()
   }
 
+  /** Sets the baked shadows from their bits (`side` texels a side, see terrain/bakedShadows.ts); null clears them. */
+  setBakedShadows(bits: Uint8Array | null, side: number) {
+    this.bakedTex?.dispose()
+    this.bakedTex = null
+    if (bits) {
+      const t = new THREE.DataTexture(unpackShadowBits(bits, side), side, side, THREE.RedFormat, THREE.UnsignedByteType)
+      t.magFilter = t.minFilter = THREE.LinearFilter
+      t.generateMipmaps = false
+      t.needsUpdate = true
+      this.bakedTex = t
+    }
+    this.material.uniforms.bakedShadowTex.value = this.bakedTex
+  }
+
+  /** Draws the baked shadows (when the terrain has any) or not. */
+  showBakedShadows(on: boolean) {
+    this.material.uniforms.bakedShadowOn.value = on && this.bakedTex ? 1 : 0
+  }
+
   dispose() {
     for (const c of this.chunks) c.geometry.dispose()
+    this.bakedTex?.dispose()
     this.material.dispose()
     this.weightTex.dispose()
     this.slotTex.dispose()

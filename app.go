@@ -326,6 +326,16 @@ func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, e
 	return vmangos.ReadRegion(dataDir, mapName, x, y, size)
 }
 
+// RegionShadows reads the baked terrain shadows (MCSH) of a square block of 1.12 map tiles from the
+// client, for the editor to draw as the client does.
+func (a *App) RegionShadows(mapName string, x, y, size int) (*vmangos.RegionShadows, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadRegionShadows(dataDir, mapName, x, y, size)
+}
+
 // LiquidTypes lists the client's LiquidType.dbc rows: every liquid it knows, for the Water tool.
 func (a *App) LiquidTypes() ([]vmangos.LiquidTypeEntry, error) {
 	dataDir, err := a.clientDataDir()

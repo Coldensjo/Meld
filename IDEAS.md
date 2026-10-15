@@ -486,3 +486,10 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   negative), and the client's band walk (keys as a cycle in stored order). The clouds (Benilla's `clouds/`,
   a module of its own) are left for B-179, and the bodies are drawn as before rather than from the client's
   moon and star textures. three's fog is a smoothstep between its distances where the client's is linear.
+
+### B-173 Baked terrain shadows · shown, not kept
+- The loop's call (2026-10-15, B-173). A region's baked shadows (MCSH) are read from the client for the open
+  block and drawn as the client draws them (70% of the light in shadow), behind View › Baked Shadows, on by
+  default since the game always draws them. They are not saved in the `.wmap` (no format change): a region
+  save keeps the client's MCSH as before, so what the preview shows is what the game will show. Storing and
+  editing them is B-057's to decide. Sculpting doesn't move them, in the editor or in the game.

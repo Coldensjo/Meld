@@ -107,6 +107,12 @@ cd frontend && pnpm build   # frontend only
     1.12 tile keeps a chunk's holes in a 4x4 bitmap; the export sends each chunk's hole cells in its
     `HeaderSpec.Holes` and Go writes the bitmap at MCNK 0x3C (`adt.HoleBits`: a block with any hole
     cell is a hole).
+- **Baked shadows** (View › Baked Shadows, `prefs.bakedShadows`, B-173): a region's chunks carry the
+  client's baked shadow maps (MCSH, 64x64 bits a chunk, read by `adt` into `Chunk.Shadow`). The
+  `RegionShadows` binding stitches them for the open block, the Engine reads them once per terrain
+  (`updateBakedShadows`) and `Terrain.setBakedShadows` uploads them as `bakedShadowTex`; the terrain
+  shader keeps 70% of the light in shadow, as the client does (`terrain/bakedShadows.ts`). They are
+  read from the client, never saved with the map, and a region save keeps the client's MCSH.
 - **Paint mask**:
   - `Terrain.mask` holds one byte per splat texel, uploaded as `maskTex` and drawn as a red
     overlay. It isn't saved to the map file.

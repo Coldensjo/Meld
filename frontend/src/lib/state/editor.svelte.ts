@@ -317,6 +317,8 @@ export const prefs = $state({
   showUnpaintable: false,
   /** View › Client Lighting: the sun, sky light, fog and water colours follow the client's lights where the camera is. */
   clientLighting: false,
+  /** View › Baked Shadows: a region's ground darkened where the client's tiles bake shadow (MCSH), as the game draws it. */
+  bakedShadows: true,
   /** View › Bounding boxes: draw a box around every model (Noggit Red's model boxes). */
   showBoxes: false,
   /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb). */

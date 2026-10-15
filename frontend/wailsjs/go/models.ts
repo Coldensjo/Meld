@@ -1160,6 +1160,20 @@ export namespace vmangos {
 	        this.changed = source["changed"];
 	    }
 	}
+	export class RegionShadows {
+	    side: number;
+	    bits: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RegionShadows(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.side = source["side"];
+	        this.bits = source["bits"];
+	    }
+	}
 	export class RegionView {
 	    mapName: string;
 	    x: number;

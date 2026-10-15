@@ -59,7 +59,8 @@ import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, SpawnLook } from '../../../wailsjs/go/main/App'
+import { MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { base64ToBytes } from '../io/base64'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -768,6 +769,7 @@ export class Engine {
     this.objects.cull(v)
     this.doc.spawnLayer.cull(v)
     this.updateGroundEffects()
+    this.updateBakedShadows()
     const sel = editor.selectedSpawn
     this.paths.update(this.doc.spawnLayer, sel ? spawnKey(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
   }
@@ -2768,6 +2770,24 @@ export class Engine {
     const gx = Math.min(side - 1, Math.max(0, Math.floor(at.x / per)))
     const gz = Math.min(side - 1, Math.max(0, Math.floor(at.z / per)))
     return { areaId: t.areaIds[gz * side + gx], tx: Math.floor(gx / 16), tz: Math.floor(gz / 16) }
+  }
+
+  /**
+   * View › Baked Shadows: reads the open region's baked shadows (MCSH) from the client once per terrain
+   * and shows or hides them. A map of its own has none; they are not saved with the map.
+   */
+  private updateBakedShadows() {
+    const t = this.terrain
+    const on = !!this.prefs?.bakedShadows
+    t.showBakedShadows(on)
+    const region = this.doc.meta.region
+    if (!on || t.bakedRequested || !region || !wow.loaded) return
+    t.bakedRequested = true
+    RegionShadows(region.mapName, region.x, region.y, region.size)
+      .then((s) => {
+        if (s?.bits) t.setBakedShadows(base64ToBytes(s.bits), s.side)
+      })
+      .catch((err) => console.warn('baked shadows not read', err))
   }
 
   /** Keeps the grass tufts around the camera current (see GroundEffectLayer). */

@@ -106,6 +106,8 @@ export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
 
+export function RegionShadows(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionShadows>;
+
 export function SaveAreas(arg1:Array<vmangos.AreaRow>):Promise<main.AreaSaveResult>;
 
 export function SaveBrushDialog(arg1:string):Promise<string>;

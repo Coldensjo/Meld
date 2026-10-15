@@ -20,6 +20,15 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   reads a few levels off its stop.
 - Used for the client sky dome (B-166): each ring elevation reads its band's colour, the fog colour
   below the horizon.
+- A whole module (a `Terrain`, an `Environment`) can be drawn the same way: bundle a scratch
+  `entry.ts` with Vite's JS API (`build()` from `frontend/node_modules/vite/dist/node/index.js`,
+  `configFile: false`, `root` the scratch folder, `resolve.alias` for `three` and `@meld` →
+  `frontend/src`). Modules that pull in the runes state need a shim before the bundle in the page
+  (`window.$state = Object.assign(v => v, { raw: v => v, snapshot: v => v })`, `$derived` with
+  `by`, `$effect` with `root` and `pre`). `--enable-logging=stderr --v=0` prints the page's console.
+  Used for the baked shadows (B-173): on dry ground (`waterEnabled` 0, or the default ocean map's
+  seabed takes 88% of the deep-water colour) a shadowed texel reads 117 against 138 lit, 0.70 in
+  linear light.
 
 ## Unit and integration tests
 
