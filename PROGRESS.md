@@ -335,3 +335,13 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: As the owner decided (IDEAS.md): H now hides the selected models and everything attached to them, found in one walk over the parent links (`ObjectLayer.descendantsOf`, which `descendantIds` now uses), so no prop is left in mid-air; H on an all-hidden selection shows them again with their attachments, and Shift+H still shows everything. The status line counts the attached ones ("Model with 3 attached hidden"). Still session only.
 - Verified: make test passed (Go plus 199 of 199 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
 - Left: none.
+
+## 2026-10-15 · backlog tidy (owner-picked run)
+- Removed the items finished in this run (B-054, B-055, B-123, B-108, B-059, B-036, B-105), as earlier tidies did; PROGRESS.md, IDEAS.md and the gap list keep the record. No owner-written item was deleted.
+- No duplicates found. Nothing new fits Parked.
+- New lines from this run: B-128 (the area clipboard carries the chunk data, from B-054) and B-129 (write the client's minimap textures, from B-059).
+
+## 2026-10-15 · stopped (owner-picked run)
+- Stopped: the run did the set the owner picked in planning (the Map data set, with B-105 in place of B-070), which is seven backlog items, the `.wmap` version 5 format going in with B-054. B-038 (bounding boxes) and B-070 (reset camera roll) were moved to the next run by that plan.
+- The commit trailers name Claude Opus 5.5, the model that ran this, not the Haiku 5.5 of LOOP.md.
+- Next top item: B-038 Bounding box display (L/S) and B-070 Reset camera roll (L/S), as planned; everything else open is value L too, so the next loop run stops at once unless the owner picks again.
