@@ -23,10 +23,40 @@ The `**Claude:** notes for the agent` comment on an issue is where earlier sessi
 to know (code, decisions, how to verify, traps); read it before starting. Write each comment or issue body to a temp file and pass it
 with `--body-file`, so backticks and backslashes survive the shell.
 
-**0. Triage.** An open issue with no `value:` or `effort:` label was filed by the owner. Give it
-`value:` and `effort:` labels by your estimate, `source:owner`, an `area:` label (and `bug` if it
-is one), and comment `**Claude:** labelled ...` with a one-line reason. Triage doesn't count toward
-the run's cap.
+**0. Triage.** An open issue the owner wrote by hand is a backlog item like any other, but it is in
+their words and the next agent starts cold. Such an issue has no `value:` or `effort:` label, or it
+has `source:owner` and no comment starting `**Claude:**`, which this lists:
+
+```
+gh issue list --repo Coldensjo/Meld --state open --label source:owner --limit 300 --json number,comments --jq '.[] | select(all(.comments[]; .body | startswith("**Claude:**") | not)) | .number'
+```
+
+Triage each one before choosing work, and
+the issue is eligible for this run afterwards. Triage doesn't count toward the run's cap. For each:
+
+a. Read it with its comments, and search for a duplicate (`gh issue list --search`, open and
+   closed) and for the `decision` issues it touches. If it duplicates an open issue, comment
+   `**Claude:** duplicate of #<m>` and copy anything new from it onto #m, then close it as not
+   planned; that is the one way an owner-filed issue may be closed.
+b. Pin down what it asks for: read the code it names or touches, and where a term is unclear, check
+   Noggit Red as in *Unknown meaning*.
+c. Rewrite it in the backlog's wording (CLAUDE.md, "Backlog: GitHub issues"): a title that is one
+   short sentence of what should change (`gh issue edit <n> --title`), and a body that says what and
+   why in plain terms (`gh issue edit <n> --body-file`). Never lose what the owner wrote: keep their
+   original text at the end of the body under `**Original text by the owner:**` as a quote, and do
+   not narrow or widen the request. Where you are unsure what they meant, ask rather than choose.
+d. Add what the next agent needs as a `**Claude:** notes for the agent working on this.` comment:
+   the files and functions to read, the decisions that apply, how to verify it (a TESTS.md section,
+   a spot on the map, a client test) and the traps you know of.
+e. Label it: `value:` and `effort:` by your estimate, `source:owner`, one `area:`, and `bug` if it
+   is one. Add `needs-approval` for large, format-level or non-goal work (DESIGN.md), which pings the
+   owner. Keep any label the owner set themselves.
+f. If it cannot be worked without the owner (what they want is ambiguous, or it needs a choice the
+   decisions, the comments and Noggit Red don't settle), ask as in *Asking the owner*: the comment
+   starting `**Claude:** @Coldensjo` with the options and your recommendation, then the
+   `owner-question` label, so the owner is pinged.
+g. Comment `**Claude:** triaged.` with a line each on what you changed in the title and body, the
+   labels and why, and any question asked. Mention the triaged issues in the run log.
 
 **1. Work through items until a stop condition applies.** Skip issues labelled `needs-approval`,
 `parked` or `owner-question` (but see *Asking the owner* for answered questions). The owner
