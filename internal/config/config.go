@@ -87,6 +87,17 @@ func Save(c Config) error {
 	return os.WriteFile(p, b, 0o644)
 }
 
+// Update applies change to the config as the file holds it now and saves the result. Two windows
+// share one config file, so a window that sets one field (its client folder, its size) must not
+// write the other fields from its own older copy over what the other window saved since.
+func Update(change func(*Config) error) error {
+	c := Load()
+	if err := change(&c); err != nil {
+		return err
+	}
+	return Save(c)
+}
+
 // MergePrefs overlays the keys of patch (a JSON object of preference keys) onto existing (the
 // stored preferences object, or empty) and returns the merged object. Two windows share one
 // config file, and each saves only the preferences it changed, so one window's brushes are not

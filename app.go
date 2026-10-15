@@ -65,7 +65,10 @@ func (a *App) beforeClose(ctx context.Context) bool {
 		w.Width, w.Height = runtime.WindowGetSize(ctx)
 		w.Maximised = false
 	}
-	_ = config.Save(a.cfg)
+	_ = config.Update(func(c *config.Config) error {
+		c.Window = *w
+		return nil
+	})
 	return false
 }
 
@@ -92,7 +95,10 @@ func (a *App) SetWowPath(path string) (wow.Status, error) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	a.cfg.WowPath = path
-	if err := config.Save(a.cfg); err != nil {
+	if err := config.Update(func(c *config.Config) error {
+		c.WowPath = path
+		return nil
+	}); err != nil {
 		return st, err
 	}
 	return st, nil
@@ -125,12 +131,15 @@ func (a *App) LoadPrefs() string {
 func (a *App) SavePrefs(prefs string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	merged, err := config.MergePrefs(config.Load().Prefs, json.RawMessage(prefs))
-	if err != nil {
-		return fmt.Errorf("invalid preferences JSON: %w", err)
-	}
-	a.cfg.Prefs = merged
-	return config.Save(a.cfg)
+	return config.Update(func(c *config.Config) error {
+		merged, err := config.MergePrefs(c.Prefs, json.RawMessage(prefs))
+		if err != nil {
+			return fmt.Errorf("invalid preferences JSON: %w", err)
+		}
+		c.Prefs = merged
+		a.cfg.Prefs = merged
+		return nil
+	})
 }
 
 // Quit closes the application.
@@ -265,7 +274,10 @@ func (a *App) SetVmangosPath(path string) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	a.cfg.VmangosPath = path
-	return config.Save(a.cfg)
+	return config.Update(func(c *config.Config) error {
+		c.VmangosPath = path
+		return nil
+	})
 }
 
 // InstallMapPatch writes the given archive files (path to base64 bytes) into the loaded client's
@@ -741,7 +753,11 @@ func (a *App) SetGameLogin(account, password string) error {
 		}
 		a.cfg.Login = config.Login{Account: account, Password: password}
 	}
-	return config.Save(a.cfg)
+	login := a.cfg.Login
+	return config.Update(func(c *config.Config) error {
+		c.Login = login
+		return nil
+	})
 }
 
 // PublishVmangosMap makes a map made in the editor playable: it's written into the client's patch, added to
