@@ -52,7 +52,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · after B-084 · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-163 **WMO-only maps**: a map made of one global WMO (the WDT's MPHD flag and MODF, no tiles), as Noggit Red's map wizard makes for dungeons · Source: loop: B-147 · L/M
 - [ ] B-150 **Area trigger display and editor**: the map's AreaTrigger.dbc boxes and spheres, added, moved and resized · gap §11 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
-- [ ] B-151 **New ground effect sets**, and applying an effect per zone, subzone or tile rather than per map · gap §11 · L/M · approved by the owner 2026-10-15, decided in IDEAS.md
+- [x] B-151 **New ground effect sets**, and applying an effect per zone, subzone or tile rather than per map · gap §11 · L/M · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Navigation, view and display
 

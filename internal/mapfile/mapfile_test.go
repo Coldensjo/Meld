@@ -53,6 +53,8 @@ func sample(size int) *MapData {
 			Roles:    &TextureRoles{Rock: 1, Dirt: -1},
 			TextureEffects: map[string]uint32{`Tileset\Elwynn\ElwynnGrassBase.blp`: 42},
 			TextureLooks:   map[string]uint32{`Tileset\Elwynn\ElwynnGrassBase.blp`: 0xd2},
+			ZoneEffects:    map[string]map[string]uint32{"12": {`Tileset\Elwynn\ElwynnGrassBase.blp`: 7}},
+			TileEffects:    map[string]map[string]uint32{"1,2": {`Tileset\Elwynn\ElwynnGrassBase.blp`: 9}},
 		},
 		Heights:    base64.StdEncoding.EncodeToString(h),
 		Weights:    base64.StdEncoding.EncodeToString(w),
@@ -87,6 +89,9 @@ func TestRoundTrip(t *testing.T) {
 	}
 	if len(got.Palette) != 2 || got.Palette[1] != m.Palette[1] || got.TexScale != 4 {
 		t.Fatalf("palette mismatch: %+v", got.Palette)
+	}
+	if got.ZoneEffects["12"][m.Palette[1]] != 7 || got.TileEffects["1,2"][m.Palette[1]] != 9 {
+		t.Fatalf("zone effects %v and tile effects %v", got.ZoneEffects, got.TileEffects)
 	}
 	if got.TextureEffects[m.Palette[1]] != 42 || got.TextureLooks[m.Palette[1]] != 0xd2 {
 		t.Fatalf("texture effects %v and looks %v", got.TextureEffects, got.TextureLooks)

@@ -18,6 +18,12 @@ export function groundEffectTables(): GroundEffectTables | null {
   return tables
 }
 
+/** Reads the tables again (after a new effect was written to the client). */
+export function reloadGroundEffectTables(): Promise<void> {
+  loadedRevision = -1
+  return loadGroundEffectTables()
+}
+
 export function loadGroundEffectTables(): Promise<void> {
   if (!hasBackend() || !wow.loaded) return Promise.resolve()
   if (loading) return loading

@@ -33,7 +33,7 @@ import type { MapDocument } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
 import { grownBlock, type Side } from './regionGrow'
-import type { TextureEffects } from '../world/groundEffects'
+import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import { CELL_SIZE } from '../terrain/Terrain'
 import { base64ToBytes, bytesToBase64 } from './base64'
@@ -72,6 +72,8 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     roles: s.roles ?? undefined,
     textureEffects: Object.keys(s.textureEffects).length ? s.textureEffects : undefined,
     textureLooks: Object.keys(s.textureLooks).length ? s.textureLooks : undefined,
+    zoneEffects: Object.keys(s.scopedEffects.zones).length ? s.scopedEffects.zones : undefined,
+    tileEffects: Object.keys(s.scopedEffects.tiles).length ? s.scopedEffects.tiles : undefined,
     heights: bytesToBase64(s.heights),
     weights: bytesToBase64(s.weights),
     chunkSlots: bytesToBase64(s.chunkSlots),
@@ -108,6 +110,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
     roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
     textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
     textureLooks: { ...((m.textureLooks ?? {}) as TextureLooks) },
+    scopedEffects: { zones: (m.zoneEffects ?? {}) as ScopedEffects['zones'], tiles: (m.tileEffects ?? {}) as ScopedEffects['tiles'] },
     heights: base64ToBytes(m.heights),
   }
   if (m.version === 1) {

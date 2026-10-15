@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -162,4 +163,49 @@ func LoadGroundEffects(dataDir, cacheDir string, progress func(string)) (*Ground
 		}
 	}
 	return t, nil
+}
+
+// AddGroundEffect returns GroundEffectTexture.dbc with a new row growing `doodads` (archive paths, as
+// GroundEffectTables names them; each must be a GroundEffectDoodad row already) at `density`, with the
+// footstep sounds of TerrainType `terrain`, and the new row's ID (the first past the table's).
+func AddGroundEffect(doodadDBC, textureDBC []byte, doodads []string, density, terrain uint32) ([]byte, uint32, error) {
+	if len(doodads) == 0 || len(doodads) > 4 {
+		return nil, 0, fmt.Errorf("a ground effect grows one to four models, not %d", len(doodads))
+	}
+	if density == 0 || density > 64 {
+		return nil, 0, fmt.Errorf("density %d is outside 1 to 64", density)
+	}
+	dt, err := parseDBC(doodadDBC)
+	if err != nil {
+		return nil, 0, err
+	}
+	tt, err := parseDBC(textureDBC)
+	if err != nil {
+		return nil, 0, err
+	}
+	if dt.fields < 3 || tt.fields != 7 {
+		return nil, 0, errors.New("the ground effect tables aren't the 1.12 client's")
+	}
+	ids := map[string]uint32{}
+	for r := 0; r < dt.records; r++ {
+		name := dt.str(r, 2)
+		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdl"), ".MDL")
+		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdx"), ".MDX")
+		ids[strings.ToLower(detailDir+name+".m2")] = dt.u32(r, 0)
+	}
+	var next uint32
+	for r := 0; r < tt.records; r++ {
+		next = max(next, tt.u32(r, 0))
+	}
+	next++
+	row := []uint32{next, 0, 0, 0, 0, density, terrain}
+	for i, d := range doodads {
+		id, ok := ids[strings.ToLower(d)]
+		if !ok {
+			return nil, 0, fmt.Errorf("%s is not a ground effect model of the client", d)
+		}
+		row[1+i] = id
+	}
+	out, err := setRecords(textureDBC, [][]uint32{row})
+	return out, next, err
 }

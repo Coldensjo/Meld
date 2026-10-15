@@ -107,6 +107,10 @@ type Header struct {
 	// TextureLooks is a texture's look flags (the MCLY animation and overbright bits), by texture path,
 	// where the map sets them; other textures keep what the client's tiles give them. Optional.
 	TextureLooks map[string]uint32 `json:"textureLooks,omitempty"`
+	// ZoneEffects and TileEffects are ground effect choices per texture path for one zone (by AreaTable
+	// ID) or one tile of the map ("x,y"), over the map's own. Optional.
+	ZoneEffects map[string]map[string]uint32 `json:"zoneEffects,omitempty"`
+	TileEffects map[string]map[string]uint32 `json:"tileEffects,omitempty"`
 }
 
 // TextureRoles are palette indices for the textures sculpting paints by slope.

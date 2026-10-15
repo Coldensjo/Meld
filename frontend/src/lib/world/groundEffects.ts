@@ -22,6 +22,41 @@ export interface GroundEffectTables {
 /** A map's own choice of effect per texture path (0 for none), over what the client's tiles say. */
 export type TextureEffects = Record<string, number>
 
+/**
+ * A map's effects for narrower scopes than the whole map (B-151): per zone (an AreaTable ID, the one a
+ * chunk carries) and per tile (the map's own tile, "x,y" counted from its north-west corner), each a
+ * choice per texture path. A tile's choice comes before its zone's, and a zone's before the map's.
+ */
+export interface ScopedEffects {
+  zones: Record<string, TextureEffects>
+  tiles: Record<string, TextureEffects>
+}
+
+export const noScopedEffects = (): ScopedEffects => ({ zones: {}, tiles: {} })
+
+/** Whether any zone or tile has a choice of its own. */
+export function hasScopedEffects(s: ScopedEffects): boolean {
+  for (const k in s.zones) if (Object.keys(s.zones[k]).length) return true
+  for (const k in s.tiles) if (Object.keys(s.tiles[k]).length) return true
+  return false
+}
+
+/** The key a tile's choices are kept under: the map's own tile, x and z counted from its corner. */
+export const tileKey = (tx: number, tz: number) => `${tx},${tz}`
+
+/**
+ * The effect ID texture `path` grows in a chunk of zone `areaId` on tile (`tx`, `tz`): the tile's own
+ * choice, else the zone's, else the map's, else the client's.
+ */
+export function effectAt(path: string, own: TextureEffects, scoped: ScopedEffects, areaId: number, tx: number, tz: number, tables: GroundEffectTables | null): number {
+  if (path.startsWith('#')) return 0
+  const tile = scoped.tiles[tileKey(tx, tz)]?.[path]
+  if (tile !== undefined) return tile
+  const zone = areaId ? scoped.zones[String(areaId)]?.[path] : undefined
+  if (zone !== undefined) return zone
+  return effectFor(path, own, tables)
+}
+
 /** The effect ID texture `path` grows: the map's own choice first, else what the client's tiles give it; 0 for none. */
 export function effectFor(path: string, own: TextureEffects, tables: GroundEffectTables | null): number {
   if (path.startsWith('#')) return 0

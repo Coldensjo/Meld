@@ -4,7 +4,7 @@ import type { FalloffCurve } from '../tools/brush'
 import type { DoodadBrush } from '../tools/doodadBrush'
 import type { BrushStack } from '../tools/brushStack'
 import { noRoles, type TextureRoles } from '../terrain/roles'
-import type { TextureEffects } from '../world/groundEffects'
+import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { Bookmark } from '../engine/MapDocument'
@@ -101,6 +101,8 @@ export const editor = $state({
   textureEffects: {} as TextureEffects,
   /** The map's own look flags (animation, overbright) per texture path (world/textureLooks.ts); saved with the map. */
   textureLooks: {} as TextureLooks,
+  /** The map's ground effect choices per zone and per tile (world/groundEffects.ts); saved with the map. */
+  scopedEffects: { zones: {}, tiles: {} } as ScopedEffects,
   /**
    * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the
    * cursor, rising at vertexAngle degrees (-89 to 89) toward vertexDir degrees (0 is +x, 90 is +z).

@@ -6,6 +6,8 @@ import {mapfile} from '../models';
 import {heightmap} from '../models';
 import {wow} from '../models';
 
+export function AddGroundEffect(arg1:Array<string>,arg2:number,arg3:number):Promise<number>;
+
 export function ApplySpawnEdits(arg1:string,arg2:number,arg3:number,arg4:number,arg5:Array<vmangos.SpawnEdit>):Promise<vmangos.Result>;
 
 export function AreaRows(arg1:number):Promise<Array<vmangos.AreaRow>>;

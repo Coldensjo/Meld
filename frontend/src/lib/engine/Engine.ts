@@ -28,7 +28,10 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
-import { densityFactor, effectFor, type TextureEffects } from '../world/groundEffects'
+import { densityFactor, effectAt, effectFor, hasScopedEffects, noScopedEffects, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
+
+/** A plain copy of the zone and tile effect choices (they may be Svelte proxies). */
+const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringify(s)) as ScopedEffects
 import { layAlphamapChunk, textureWeights } from '../terrain/alphamap'
 import { lookOf, looksByIndex, type TextureLooks } from '../world/textureLooks'
 import { blockedCells } from '../world/GroundEffectLayer'
@@ -133,6 +136,8 @@ export interface MapSnapshot {
   textureEffects: TextureEffects
   /** The map's own look flags (animation, overbright) per texture path. */
   textureLooks: TextureLooks
+  /** The map's ground effect choices per zone and per tile. */
+  scopedEffects: ScopedEffects
   heights: Uint8Array
   /** Four weights per splat texel (format 2). */
   weights: Uint8Array
@@ -1033,6 +1038,7 @@ export class Engine {
       roles: { ...editor.roles },
       textureEffects: { ...editor.textureEffects },
       textureLooks: { ...editor.textureLooks },
+      scopedEffects: structuredClone(plainScoped(editor.scopedEffects)),
       region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
@@ -1078,6 +1084,7 @@ export class Engine {
     editor.roles = { ...m.roles }
     editor.textureEffects = { ...m.textureEffects }
     editor.textureLooks = { ...m.textureLooks }
+    editor.scopedEffects = structuredClone(m.scopedEffects ?? noScopedEffects())
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
@@ -1487,6 +1494,7 @@ export class Engine {
       palette: editor.palette,
       effects: editor.palette.map((p) => effectFor(p, editor.textureEffects, groundEffectTables())),
       looks: looksByIndex(editor.palette, editor.textureLooks),
+      effectAt: hasScopedEffects(editor.scopedEffects) ? this.exportEffectAt() : undefined,
       noEffect: blockedCells(t, this.objects, new Uint8Array(t.size * t.size)),
       // A map saved before the file kept chunk data has none of its own, so the client's stays.
       headers: this.doc.chunkDataKnown ? { areaIds: t.areaIds, chunkFlags: t.chunkFlags } : undefined,
@@ -1731,6 +1739,7 @@ export class Engine {
       roles: { ...editor.roles },
       textureEffects: { ...editor.textureEffects },
       textureLooks: { ...editor.textureLooks },
+      scopedEffects: structuredClone(plainScoped(editor.scopedEffects)),
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       weights: t.weights,
       chunkSlots: t.chunkSlots,
@@ -1808,6 +1817,7 @@ export class Engine {
       roles: m.roles ? validRoles(m.roles, palette.length) : guessRoles(palette),
       textureEffects: { ...m.textureEffects },
       textureLooks: { ...(m.textureLooks ?? {}) },
+      scopedEffects: structuredClone(m.scopedEffects ?? noScopedEffects()),
     }
     if (replace) {
       d.camera = replace.camera
@@ -2695,6 +2705,32 @@ export class Engine {
     setViewportHint(`Size ${editor.brush.radius.toFixed(1)}${f}`)
   }
 
+  /** The zone and tile effect choices the tuft key was last made from, and that key. */
+  private scopedFrom: ScopedEffects | null = null
+  private scopedKey = ''
+
+  /** The export's effect per palette texture and paint chunk, with the map's zone and tile choices. */
+  private exportEffectAt(): (tex: number, gx: number, gz: number) => number {
+    const t = this.terrain
+    const side = t.paintChunksPerSide
+    const palette = editor.palette
+    const own = editor.textureEffects
+    const scoped = plainScoped(editor.scopedEffects)
+    const tables = groundEffectTables()
+    return (tex, gx, gz) => effectAt(palette[tex] ?? '', own, scoped, t.areaIds[gz * side + gx], Math.floor(gx / 16), Math.floor(gz / 16), tables)
+  }
+
+  /** Where the camera is for the ground effect choices: the zone of the chunk under it and the map's tile. */
+  effectScopeAtCamera(): { areaId: number; tx: number; tz: number } {
+    const t = this.terrain
+    const at = this.controller.target
+    const side = t.paintChunksPerSide
+    const per = t.worldSize / side
+    const gx = Math.min(side - 1, Math.max(0, Math.floor(at.x / per)))
+    const gz = Math.min(side - 1, Math.max(0, Math.floor(at.z / per)))
+    return { areaId: t.areaIds[gz * side + gx], tx: Math.floor(gx / 16), tz: Math.floor(gz / 16) }
+  }
+
   /** Keeps the grass tufts around the camera current (see GroundEffectLayer). */
   private updateGroundEffects() {
     const layer = this.doc.groundEffects
@@ -2706,7 +2742,12 @@ export class Engine {
     const density = this.prefs?.groundEffectDensity ?? 'normal'
     let key = `${density}|${this.objects.version}|` + editor.palette.join('|')
     for (const [tex, id] of Object.entries(editor.textureEffects)) key += `|${tex}=${id}`
-    layer.update(this.viewEye(), editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, densityFactor(density))
+    if (this.scopedFrom !== editor.scopedEffects) {
+      this.scopedFrom = editor.scopedEffects
+      this.scopedKey = JSON.stringify(editor.scopedEffects)
+    }
+    key += this.scopedKey
+    layer.update(this.viewEye(), editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, densityFactor(density), editor.scopedEffects)
   }
 
   /** How many grass tufts are drawn now, for the status bar. */

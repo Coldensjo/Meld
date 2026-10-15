@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/groundEffects.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cellPredominant, cellTexture, cellTufts, chunkNoEffect, coverCells, effectFor, hash01, knownEffects, tuftsPerCell, type GroundEffectTables, type Tuft } from '../src/lib/world/groundEffects.ts'
+import { cellPredominant, cellTexture, cellTufts, chunkNoEffect, coverCells, effectAt, effectFor, hasScopedEffects, hash01, noScopedEffects, knownEffects, tuftsPerCell, type GroundEffectTables, type Tuft } from '../src/lib/world/groundEffects.ts'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
 
 const tables: GroundEffectTables = {
@@ -95,4 +95,17 @@ test('a cell grows the same tufts every time, spread over it', () => {
 
 test('the known effects are those the client uses, most used first', () => {
   assert.deepEqual(knownEffects(tables), [{ id: 7, uses: 2 }])
+})
+
+test('a tile\'s choice comes before its zone\'s, a zone\'s before the map\'s, and the map\'s before the client\'s', () => {
+  const grass = 'Tileset\\Grass.blp'
+  const tables = { effects: {}, textures: { [grass.toLowerCase()]: 5 } }
+  const scoped = { zones: { '12': { [grass]: 7 } }, tiles: { '1,2': { [grass]: 9 } } }
+  assert.equal(effectAt(grass, {}, noScopedEffects(), 12, 1, 2, tables), 5)
+  assert.equal(effectAt(grass, { [grass]: 6 }, noScopedEffects(), 12, 1, 2, tables), 6)
+  assert.equal(effectAt(grass, { [grass]: 6 }, scoped, 12, 0, 0, tables), 7)
+  assert.equal(effectAt(grass, { [grass]: 6 }, scoped, 12, 1, 2, tables), 9)
+  assert.equal(effectAt(grass, { [grass]: 6 }, scoped, 40, 0, 0, tables), 6)
+  assert.equal(hasScopedEffects(noScopedEffects()), false)
+  assert.equal(hasScopedEffects(scoped), true)
 })

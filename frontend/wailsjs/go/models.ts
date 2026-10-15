@@ -210,6 +210,8 @@ export namespace mapfile {
 	    roles?: any;
 	    textureEffects?: Record<string, number>;
 	    textureLooks?: Record<string, number>;
+	    zoneEffects?: Record<string, any>;
+	    tileEffects?: Record<string, any>;
 	    version?: number;
 	    heights: string;
 	    weights?: string;
@@ -243,6 +245,8 @@ export namespace mapfile {
 	        this.roles = this.convertValues(source["roles"], null);
 	        this.textureEffects = source["textureEffects"];
 	        this.textureLooks = source["textureLooks"];
+	        this.zoneEffects = source["zoneEffects"];
+	        this.tileEffects = source["tileEffects"];
 	        this.version = source["version"];
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];

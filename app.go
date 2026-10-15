@@ -350,6 +350,35 @@ func (a *App) GroundEffects() (*vmangos.GroundEffectTables, error) {
 	return vmangos.LoadGroundEffects(dataDir, cacheDir, func(line string) { runtime.EventsEmit(a.ctx, "effects:log", line) })
 }
 
+// AddGroundEffect writes a new ground effect (GroundEffectTexture row) growing the given detail models
+// into the client's patch, with the game closed around it on Windows, and returns its ID.
+func (a *App) AddGroundEffect(doodads []string, density, terrain uint32) (uint32, error) {
+	defer a.releaseClient()()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return 0, err
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return 0, err
+	}
+	doodadDBC, err := set.ReadFile(`DBFilesClient\GroundEffectDoodad.dbc`)
+	if err == nil {
+		var textureDBC []byte
+		if textureDBC, err = set.ReadFile(`DBFilesClient\GroundEffectTexture.dbc`); err == nil {
+			set.Close()
+			out, id, err := vmangos.AddGroundEffect(doodadDBC, textureDBC, doodads, density, terrain)
+			if err != nil {
+				return 0, err
+			}
+			_, err = a.installWithGameClosed(dataDir, []mpq.File{{Name: `DBFilesClient\GroundEffectTexture.dbc`, Data: out}})
+			return id, err
+		}
+	}
+	set.Close()
+	return 0, err
+}
+
 // MapEntries lists the maps the client knows (continents, dungeons, raids, battlegrounds, arenas), so
 // the New Map dialog can offer their IDs.
 func (a *App) MapEntries() ([]vmangos.MapEntry, error) {

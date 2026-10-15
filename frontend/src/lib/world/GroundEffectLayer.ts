@@ -3,7 +3,10 @@ import type { Terrain } from '../terrain/Terrain'
 import { CHUNK_CELLS, NO_TEXTURE } from '../terrain/chunkPaint'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import type { ObjectLayer } from './ObjectLayer'
-import { cellTexture, cellTufts, coverCells, effectFor, tuftsPerCell, type CoverBox, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
+import { cellTexture, cellTufts, coverCells, effectAt, effectFor, hasScopedEffects, noScopedEffects, tuftsPerCell, type GroundEffect, type ScopedEffects, type CoverBox, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
+
+/** Paint chunks a side of a 1.12 tile, which a tile's own effect choices cover. */
+const TILE_CHUNKS = 16
 
 /** How high above the ground a building's bottom may float and still bare the cells under it. */
 const COVER_LIFT = 4
@@ -85,7 +88,7 @@ export class GroundEffectLayer {
    * Keeps the tufts around `eye` current. `key` names everything else the build depends on (the
    * palette, the map's own effects and the tables), so a change of any redraws.
    */
-  update(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables | null, key: string, now: number, objects: ObjectLayer, factor: number) {
+  update(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables | null, key: string, now: number, objects: ObjectLayer, factor: number, scoped: ScopedEffects = noScopedEffects()) {
     if (!this.group.visible || !tables) return
     const t = this.terrain
     const half = (CHUNK_CELLS * t.cellSize) / 2
@@ -101,10 +104,10 @@ export class GroundEffectLayer {
     this.paintVersion = t.paintVersion
     this.chunkDataVersion = t.chunkDataVersion
     this.assetsChanged = false
-    this.build(eye, palette, own, tables, objects, factor)
+    this.build(eye, palette, own, tables, objects, factor, scoped)
   }
 
-  private build(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables, objects: ObjectLayer, factor: number) {
+  private build(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables, objects: ObjectLayer, factor: number, scoped: ScopedEffects) {
     const t = this.terrain
     const cs = t.cellSize
     const cells = t.size
@@ -121,6 +124,11 @@ export class GroundEffectLayer {
       const id = effectFor(p, own, tables)
       return id ? (tables.effects[id] ?? null) : null
     })
+    // With zone or tile choices, a cell's effect depends on its chunk's zone and its tile too: looked up
+    // once per texture, zone and tile in a build.
+    const scopedOn = hasScopedEffects(scoped)
+    const byScope = new Map<number, GroundEffect | null>()
+    const side = t.paintChunksPerSide
     const r2 = r * r
     let total = 0
     for (let cz = cz0; cz <= cz1; cz++) {
@@ -133,7 +141,22 @@ export class GroundEffectLayer {
         if (blocked[cz * cells + cx] || t.isHole(xc, zc)) continue
         const tex = cellTexture(t.weights, t.chunkSlots, t.splatRes, t.paintChunksPerSide, cx, cz)
         if (tex === NO_TEXTURE) continue
-        const effect = effectOf[tex]
+        let effect = effectOf[tex]
+        if (scopedOn) {
+          const gx = Math.floor(cx / CHUNK_CELLS)
+          const gz = Math.floor(cz / CHUNK_CELLS)
+          const area = t.areaIds[gz * side + gx]
+          const tx = Math.floor(gx / TILE_CHUNKS)
+          const tz = Math.floor(gz / TILE_CHUNKS)
+          const k = ((area * 64 + tz) * 64 + tx) * 256 + tex
+          let e = byScope.get(k)
+          if (e === undefined) {
+            const id = effectAt(palette[tex] ?? '', own, scoped, area, tx, tz, tables)
+            e = id ? (tables.effects[id] ?? null) : null
+            byScope.set(k, e)
+          }
+          effect = e
+        }
         if (!effect || effect.doodads.length === 0) continue
         const n = tuftsPerCell(effect.density, factor)
         if (n === 0) continue

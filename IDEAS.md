@@ -446,3 +446,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   rows; the player limit and the ghost's corpse position live in VMaNGOS's map_template, not the client's
   table. **Ours**: Map Properties edits all of them for a map made for the client; publish writes the
   client's fields into Map.dbc and the server's into map_template. WMO-only maps are left for B-163.
+
+### B-151 Ground effect sets and scopes · Noggit Red's, per zone and tile
+- Chosen by the loop from Noggit Red (2026-10-15, B-151, approved by the owner). Noggit Red's Ground Effects
+  tool (`ui/GroundEffectsTool.cpp`) shows the effect sets on the loaded tiles, creates and saves new
+  GroundEffectTexture sets (up to four doodads and a density), and applies a set to a texture across a
+  zone, a tile or the loaded tiles. **Ours**: the choices are kept as the map's (whole map, per zone, per
+  tile; a narrower one wins) and written on export, rather than painted into tiles at once, so they stay
+  undoable and editable; a new set's models are picked from the detail models the client's own effects
+  use (GroundEffectDoodad rows already there).

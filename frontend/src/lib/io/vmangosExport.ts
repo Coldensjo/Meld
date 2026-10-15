@@ -47,6 +47,11 @@ export interface ExportInput {
   effects?: readonly number[]
   /** The look flags (world/textureLooks.ts) per palette index, -1 to keep the tile's own; optional. */
   looks?: readonly number[]
+  /**
+   * The effect a palette texture grows in a paint chunk (gx, gz) of the map, where the map chooses per
+   * zone or tile; optional, `effects` otherwise.
+   */
+  effectAt?: (tex: number, gx: number, gz: number) => number
   /** One byte per cell, set where no ground effect doodads grow (under buildings); optional. */
   noEffect?: Uint8Array
   /**
@@ -172,7 +177,7 @@ export function mapToTiles(input: ExportInput): ExportOut {
           }
           if (used.length === 0) continue
           const names = used.map((k) => input.palette[input.chunkSlots[chunk * SLOTS + k]] ?? '')
-          const effects = used.map((k) => input.effects?.[input.chunkSlots[chunk * SLOTS + k]] ?? 0)
+          const effects = used.map((k) => (input.effectAt ? input.effectAt(input.chunkSlots[chunk * SLOTS + k], gx, gz) : (input.effects?.[input.chunkSlots[chunk * SLOTS + k]] ?? 0)))
           if (names.some((n) => !n || isColor(n))) {
             colorChunks++
             continue
