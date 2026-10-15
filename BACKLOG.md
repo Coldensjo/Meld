@@ -20,18 +20,14 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 ## Terrain sculpting and painting
 
 - [ ] B-004 **Separate Blur tool** · gap §1 · L/S · Smooth already covers most of it
-- [x] B-013 **Show unpaintable chunks** overlay · gap §2 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-014 **Animated texture layers** with speed and direction (Noggit Red adds a rotation dial) · gap §2 · L/M
 - [ ] B-015 **Overbright** option · gap §2 · L/S · defined from Noggit Red: it sets the layer's glow flag in MCLY, next to the animation settings, so do it with B-014
 - [ ] B-017 **Undockable quick texture palette** · gap §2 · L/M
 - [x] B-111 **Paint while sculpting, and texture roles**: Sculpt paints one texture or the map's rock and dirt by slope as it shapes the ground; roles are guessed from texture names and set in Map Properties · Source: owner · H/M · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-116 **Sculpt strength up to 10** · Source: owner · M/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session)
-- [x] B-119 **By-slope painting: restore the base on ground that flattens again**: lowering a hill leaves its rock painted; an option to paint the base role back under the dirt angle · Source: loop: B-111 · L/S · off by default, since it would erase roads and details under the brush · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-159 **Brush image on the cursor**: the brush ring shows the image brush's shape and turn, so a stroke can be aimed · Source: loop: B-131 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · builds on B-131 · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-135 **Alphamap image export and import**: a texture's weights as an image, read back into a chosen texture · gap §9 · L/M
-- [x] B-136 **Heightmap import modes**: Set, Add, Subtract and Multiply, with a min and max height, as Noggit Red's importer · gap §9 · L/S · done 2026-10-15 (PROGRESS.md)
 
 ## Water
 
@@ -42,7 +38,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-024 **Angled river mode** for flowing water · gap §3 · M/M · done: Angled with angle and direction in the Water tool
 - [x] B-025 **Opacity modes** (auto, river, ocean, custom) · gap §3 · L/M · done: the Water tool's Opacity select
 - [ ] B-026 **Water layers** with a current-layer selector · gap §3 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
-- [ ] B-137 **Watermap import**: painted water heights from a PNG between a min and max height · gap §3 · L/S
+- [ ] B-137 **Watermap import**: painted water heights from a PNG between a min and max height · gap §3 · L/S · decided by the owner 2026-10-15 in IDEAS.md (depth above ground)
 
 ## Objects (props)
 
@@ -63,15 +59,12 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · after B-084 · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-150 **Area trigger display and editor**: the map's AreaTrigger.dbc boxes and spheres, added, moved and resized · gap §11 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-151 **New ground effect sets**, and applying an effect per zone, subzone or tile rather than per map · gap §11 · L/M · approved by the owner 2026-10-15, decided in IDEAS.md
-- [x] B-124 **Doodad brush On props: footprint at world scale and a cheaper prop lookup**: a model standing on a prop is spaced by its own scale, not its world scale, and each attempt casts a ray through every model's bounds tree (up to 256 a frame); a chunk-bucketed lookup would keep a dense map smooth · Source: loop: B-120 · L/S · done 2026-10-15 (PROGRESS.md)
 
 ## Navigation, view and display
 
-- [x] B-127 **Group gizmo arrow in the top-down view**: the height arrow can't be dragged while top-down, since its drag plane is edge-on to the straight-down ray; a screen-space drag (pixels to height) would work in both views · Source: loop: B-072 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-071 **Locked cursor mode** while the camera moves · gap §6 · L/S
 - [ ] B-073 **Pause and speed keys for the day cycle** (Noggit Red: N faster, B slower, J pause) · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M · Noggit Red's FPS camera stays 3 yards above the ground, so it walks the map as a player would
-- [x] B-152 **Camera collision**: keep the free camera at least 3 yards above the ground · gap §6 · L/S · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-078 **Height contour lines** · gap §7 · L/M
 - [ ] B-154 **M2 particles and ribbons** drawn from the emitters, beyond the procedural flames · gap §7 · L/L
 - [ ] B-155 **Far horizon** from the map's WDL beyond the open block · gap §7 · L/M · after B-146 for a new map
@@ -83,7 +76,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Settings, UI and help
 
-- [x] B-125 **Config fields other than the preferences written whole**: the client folder, server folder, window size and login are still saved from one instance's copy, so two windows can overwrite each other's; the same patch-and-merge as B-122 per field · Source: loop: B-122 · L/S · done 2026-10-15 (PROGRESS.md)
 - [x] B-093 **Asset browser search** improvements · gap §10 · L/S · done: the search-first asset browser with synonyms, kinds, zones and category facets (CLAUDE.md, Asset browser)
 - [x] B-115 **Dock reduced to Layers**: the Map, Spawns and Properties panels are no longer mounted · Source: owner · -/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session); their functions are B-118
 - [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval · not approved by the owner 2026-10-15 (IDEAS.md)

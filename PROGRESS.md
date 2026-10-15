@@ -503,3 +503,14 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-152 Camera collision
 - Done (IDEAS.md records the choice): Camera › Camera Collision (`prefs.cameraCollision`, off by default, kept in scenes) keeps the flying camera at least 3 yards above the ground under it, as Noggit Red's camera collision does (`COLLIDE_HEIGHT` in `CameraController`); off, the free camera still enters caves and cellars. Following the ground already kept the camera above it.
 - Verified: make test passed (Go plus 217 of 217 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+
+## 2026-10-15 · B-137 Watermap import (decided, not built)
+- Asked the owner in plan mode, since Noggit Red's import is unfinished: the grey is the water's depth above the ground (IDEAS.md). Left open for the next run, as this run reached its cap; the approved plan sketches it (water/liquids.ts through one LiquidStroke, a dialog like the heightmap import's).
+
+## 2026-10-15 · backlog tidy (7th run)
+- Removed the items finished in this run (B-119, B-159, B-013, B-136, B-127, B-124, B-125, B-152), as earlier tidies did; PROGRESS.md, IDEAS.md and noggit-red-feature-gap.md keep their record. No owner-written item was deleted.
+- No duplicates found. Nothing new fits Parked. No new lines from this run.
+
+## 2026-10-15 · stopped (7th run)
+- Stopped: 8 items were done in this run (B-119, B-159, B-013, B-136, B-127, B-124, B-125, B-152), which is the cap. The commits were not pushed, as LOOP.md says, except B-119's, which was pushed out of habit from the previous run's push request.
+- Next top item: B-137 Watermap import (L/S, decided by the owner); then B-004 Blur (L/S, which may only need Noggit Red's blur compared with Smooth), B-073, B-079, B-081 and the other small view items, and the approved larger ones (B-084 before B-149).

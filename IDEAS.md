@@ -333,3 +333,11 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   so camera collision is a Camera menu switch, off by default, not the flying camera's only behaviour. It
   keeps the camera 3 yards above the ground the controller follows, which is the water's surface where the
   ground is under the sea, so with it on the camera stays above water too.
+
+### B-137 Watermap import · owner decision 2026-10-15
+- Question: what does the image's grey mean? Noggit Red's own import (`TileWater::setWatermapImage`) is
+  unfinished: it works out a height, then skips with a TODO and changes nothing; its comments say black is
+  no water and grey is water added on top of the ground.
+- Choice: **depth above ground**. Black is no water; grey puts the water's surface at the ground's height
+  plus min + grey × (max − min). A cell gets water where all four of its corners are not black.
+- Decided by the owner, 2026-10-15.
