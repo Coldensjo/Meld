@@ -2171,6 +2171,21 @@ export class Engine {
     return this.doc.spawnLayer.get(spawnKey(editor.selectedSpawn)) ?? undefined
   }
 
+  /**
+   * Puts where a gizmo drag is into dragPoint: the cursor on the drag plane, or, for the height arrow in
+   * the top-down view (whose straight-down ray never meets the arrow's upright plane), a height from the
+   * cursor's height on screen, a yard per yard of the view. Returns false when the cursor misses the plane.
+   */
+  private dragAt(handle: GizmoHandle): boolean {
+    if (handle === 'arrow' && this.topDown) {
+      const o = this.ortho
+      this.dragPoint.y = (this.ndc.y * (o.top - o.bottom)) / (2 * o.zoom)
+      return true
+    }
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    return !!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)
+  }
+
   /** Begin dragging a gizmo handle under the pointer. Returns true if one was hit. */
   private startGizmoDrag(): boolean {
     if (this.canNudge() && editor.selectedIds.length > 1) return this.startGroupGizmoDrag()
@@ -2195,7 +2210,7 @@ export class Engine {
       // Vertical plane through the object, facing the camera.
       planeNormal.copy(this.camera.position).sub(this.tmpV.set(o.x, 0, o.z)).setY(0).normalize()
       this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.objects.worldPosition(o, this.tmpV))
-      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
+      if (!this.dragAt('arrow')) return false
       startY = this.dragPoint.y
     }
     this.gizmoDrag = { handle, before: { ...o }, startAngle, startY, startWorldY: this.objects.worldPosition(o, this.tmpV).y, startDist, planeNormal }
@@ -2228,7 +2243,7 @@ export class Engine {
     } else {
       planeNormal.copy(this.camera.position).sub(this.tmpV.set(pivot.x, 0, pivot.z)).setY(0).normalize()
       this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(pivot.x, this.gizmo.ringY, pivot.z))
-      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
+      if (!this.dragAt('arrow')) return false
       startY = this.dragPoint.y
     }
     const start = targets.map((o) => {
@@ -2254,8 +2269,7 @@ export class Engine {
     const d = this.gizmoDrag
     const g = d?.group
     if (!d || !g) return
-    this.raycaster.setFromCamera(this.ndc, this.camera)
-    if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return
+    if (!this.dragAt(d.handle)) return
     const p = g.pivot
     let turn = 0
     let factor = 1
@@ -2319,7 +2333,7 @@ export class Engine {
     } else {
       planeNormal.copy(this.camera.position).sub(this.tmpV.set(s.x, 0, s.z)).setY(0).normalize()
       this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(s.x, s.y, s.z))
-      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
+      if (!this.dragAt('arrow')) return false
       startY = this.dragPoint.y
     }
     const key = spawnKey(s)
@@ -2333,8 +2347,7 @@ export class Engine {
     const sp = d?.spawn
     const s = sp ? this.doc.spawnLayer.get(sp.key) : undefined
     if (!d || !sp || !s) return
-    this.raycaster.setFromCamera(this.ndc, this.camera)
-    if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return
+    if (!this.dragAt(d.handle)) return
     if (d.handle === 'ring') {
       let rot = spawnRotation(sp.orientation) + (this.ringAngle(this.dragPoint, s) - d.startAngle)
       if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
@@ -2357,8 +2370,7 @@ export class Engine {
     if (d?.group) return this.updateGroupGizmoDrag(snap)
     const o = this.selectedObject()
     if (!d || !o) return
-    this.raycaster.setFromCamera(this.ndc, this.camera)
-    if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return
+    if (!this.dragAt(d.handle)) return
     if (d.handle === 'ring') {
       let rot = d.before.rotY + (this.ringAngle(this.dragPoint, o) - d.startAngle)
       if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)

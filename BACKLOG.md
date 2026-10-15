@@ -67,7 +67,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Navigation, view and display
 
-- [ ] B-127 **Group gizmo arrow in the top-down view**: the height arrow can't be dragged while top-down, since its drag plane is edge-on to the straight-down ray; a screen-space drag (pixels to height) would work in both views · Source: loop: B-072 · L/S
+- [x] B-127 **Group gizmo arrow in the top-down view**: the height arrow can't be dragged while top-down, since its drag plane is edge-on to the straight-down ray; a screen-space drag (pixels to height) would work in both views · Source: loop: B-072 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-071 **Locked cursor mode** while the camera moves · gap §6 · L/S
 - [ ] B-073 **Pause and speed keys for the day cycle** (Noggit Red: N faster, B slower, J pause) · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M · Noggit Red's FPS camera stays 3 yards above the ground, so it walks the map as a player would
