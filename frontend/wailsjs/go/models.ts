@@ -658,6 +658,7 @@ export namespace vmangos {
 	}
 	export class LightParamSet {
 	    id: number;
+	    highlightSky: boolean;
 	    glow: number;
 	    waterAlpha: number[];
 	    oceanAlpha: number[];
@@ -671,6 +672,7 @@ export namespace vmangos {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
+	        this.highlightSky = source["highlightSky"];
 	        this.glow = source["glow"];
 	        this.waterAlpha = source["waterAlpha"];
 	        this.oceanAlpha = source["oceanAlpha"];

@@ -368,8 +368,14 @@ cd frontend && pnpm build   # frontend only
 - **Client lighting** (View › Client Lighting, `prefs.clientLighting`): Go reads a map's Light, LightParams,
   LightIntBand and LightFloatBand rows (`vmangos/lights.go`, `MapLights` binding; 1.12 layouts, positions
   in 1/36 yard, band times in half-minutes); `wow/clientLight.ts` blends the global light with the local
-  lights reaching the camera, as Noggit Red's Skies do, and `Engine.applyClientLight` puts the sun, sky
-  ambient, horizon/fog and water colours over the Environment's each frame. The sky dome stays the editor's.
+  lights reaching the camera, as Noggit Red's Skies and the client do (bands walked as a cycle in stored
+  order, as the client walks them), and `Engine.applyClientLight` puts the sun, sky ambient, horizon/fog
+  and water colours over the Environment's each frame. From Benilla's port of the client: the sun's
+  direction is DayNight's (`wow/dayNight.ts`: it never sets, 20° to 37° up in the north-west, so night is
+  only its colours), the scene fog ends at the light's fog end (or the far clip) and starts at its share
+  of that, and the sky dome is the client's (`Environment.setClientSky`: the five sky bands on the
+  client's ring elevations, the fog colour at the horizon, the dawn and dusk warp where LightParams'
+  highlightSky says so, drawn raw), with the visible sun, moon and stars on the client's tables.
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
   cycling, so it doesn't write reactive state every frame.
 

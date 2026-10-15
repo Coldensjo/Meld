@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/clientLight.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { BAND, bandColor, bandFloat, lightAt, lightWeight, newLightAt, type ClientLights } from '../src/lib/wow/clientLight.ts'
+import { BAND, bandColor, bandFloat, lightAt, lightWeight, newLightAt, sceneFog, type ClientLights } from '../src/lib/wow/clientLight.ts'
 
 // Azeroth's ocean band (LightIntBand 213 in the 1.12 client).
 const OCEAN = [{ t: 0, v: 0x213e2f }, { t: 360, v: 0x213e2f }, { t: 720, v: 0x5b4842 }, { t: 1440, v: 0x114b59 }, { t: 2520, v: 0x5a4846 }, { t: 2640, v: 0x213e2f }]
@@ -37,4 +37,47 @@ test('a local light blends over the global one by its distance', () => {
   lightAt(set, 100, 0, 120, 12, out)
   assert.ok(Math.abs(out.colors[BAND.fog * 3] - 0.5) < 1e-6)
   assert.equal(lightWeight(set.lights[1], 31), 0)
+})
+
+// Benilla's light/tables.rs tests of the client's walk (0x6d63e0): keys as a cycle in stored order.
+test('a band walks its keys as the client does, in stored order', () => {
+  const k = (...ts: number[]) => ts.map((t, i) => ({ t, v: i * 100 }))
+  // LightParams 8's rows store [720, 1440, 0]: 09:00 sits between 06:00 and noon, 18:00 between noon and midnight.
+  assert.equal(bandFloat(k(720, 1440, 0), 1080), 50)
+  assert.equal(bandFloat(k(720, 1440, 0), 2160), 150)
+  // [2640, 2520, 0, 1440]: the first pair wraps across most of the day and wins.
+  const f = (1440 + 2880 - 2640) / 2760
+  assert.ok(Math.abs(bandFloat(k(2640, 2520, 0, 1440), 1440) - f * 100) < 1e-9)
+  // Keys at 06:00 and 18:00: 03:00 wraps from the last key.
+  assert.ok(Math.abs(bandFloat(k(720, 2160), 360) - (100 - ((360 + 2880 - 2160) / 1440) * 100)) < 1e-9)
+})
+
+test("the scene's fog ends at the light's end or the far clip, and starts at its share, a storm's below zero", () => {
+  const l = newLightAt()
+  l.floats[0] = 500 * 36
+  l.floats[1] = 0.25
+  assert.deepEqual(sceneFog(l, 2000, [0, 0]), [125, 500])
+  assert.deepEqual(sceneFog(l, 400, [0, 0]), [100, 400])
+  l.floats[1] = -0.5
+  assert.deepEqual(sceneFog(l, 2000, [0, 0]), [-250, 500])
+})
+
+test("a light's highlightSky blends like its colours", () => {
+  const colors = Array.from({ length: 18 }, () => [{ t: 0, v: 0 }])
+  const floats = Array.from({ length: 6 }, () => [{ t: 0, v: 0 }])
+  const set: ClientLights = {
+    lights: [
+      { x: 0, y: 0, z: 0, inner: 0, outer: 0, global: true, params: [1, 0, 0, 0, 0] },
+      { x: 100, y: 0, z: 0, inner: 10, outer: 30, global: false, params: [2, 0, 0, 0, 0] },
+    ],
+    params: {
+      1: { waterAlpha: [0.5, 1], oceanAlpha: [0.75, 1], colors, floats },
+      2: { highlightSky: true, waterAlpha: [0.5, 1], oceanAlpha: [0.75, 1], colors, floats },
+    },
+  }
+  const out = newLightAt()
+  lightAt(set, 0, 0, 0, 12, out)
+  assert.equal(out.highlightSky, 0)
+  lightAt(set, 80, 0, 0, 12, out)
+  assert.equal(out.highlightSky, 0.5)
 })

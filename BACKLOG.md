@@ -15,6 +15,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Bugs and broken things (always first)
 
+- [ ] B-180 **The key light isn't aimed with Shadows off**: only the shadow fit (`Environment.fitCascade`) places the key light, so with Shadows off the props' sun stays straight overhead whatever the hour · Source: loop: B-166 · M/S
 - [x] B-177 **Ground effect slots name the wrong models**: Meld matched a GroundEffectTexture slot against GroundEffectDoodad's row ID, where the client uses its internal ID (one less), so the tuft preview grew the neighbouring row's model and a new effect was written with IDs the client read as other models (and its empty slots as 0, ElwFlo01) · Source: loop: B-172 · H/S · done 2026-10-15
 - [x] B-118 **Re-home what the dropped dock panels did** · Source: owner · M/S · decided and done 2026-10-15: growing a region is File › Grow region (four actions); Save Spawns to Database and Export Spawn SQL are File actions with the unsaved count as a status bar chip; the placement numbers are a floating Inspector on the I key; no spawn list (the creature editor opens from a click); the region's facts stay in Map Properties
 
@@ -60,7 +61,7 @@ The client's own behaviour, ported from Benilla's MIT/Apache Rust into Meld's Go
 wants these worked first, in this order, starting in a fresh session (2026-10-15).
 
 - [x] B-172 **Ground tufts placed as the client places them**: port `scatter_ground_doodads` (the client's `CMapChunk::CreateDetailDoodads`: Blizzard's randomizer seeded per chunk, the cell pass and the doodad pass, the predominant layer, the no-tuft mask, the 70 yd range) over Meld's hash-based `cellTufts`/`tuftsPerCell` · Source: owner · M/S · done 2026-10-15, density levels decided in IDEAS.md
-- [ ] B-166 **The client's sun, sky and fog**: port the DayNight sun direction, the five-stop sky gradient (bands 2 to 6), the cloud bands and the scene fog rule (end = zone fog or far clip, start = fraction, storms negative) into Client Lighting, replacing Meld's own sun path and Preetham sky while it is on · Source: owner · M/M
+- [x] B-166 **The client's sun, sky and fog**: port the DayNight sun direction, the five-stop sky gradient (bands 2 to 6), the cloud bands and the scene fog rule (end = zone fog or far clip, start = fraction, storms negative) into Client Lighting, replacing Meld's own sun path and Preetham sky while it is on · Source: owner · M/M · done 2026-10-15 but the clouds (B-179), scope in IDEAS.md
 - [ ] B-173 **Baked terrain shadows (MCSH) read and drawn**: read each chunk's 64x64 shadow bits as Benilla does and shade the terrain with them as the client does (lit where a chunk has none); the groundwork for the shadows editor B-057 · Source: owner · M/M
 - [ ] B-167 **Far horizon from the WDL**: mesh the map's WDL beyond the open block and draw it unlit under its own fog that fades to the scene fog, after Benilla's `wdl.rs`/`wdl.wgsl` (with B-155) · Source: owner · L/M
 - [ ] B-168 **M2 particles, ribbons and texture animation**: CPU particle emitters with their over-life colour, size and texture cells, ribbons, and UV and material-alpha animation, after Benilla's `particles/`, `ribbons.rs`, `tex_anim.rs`, `mat_anim.rs` (with B-154) · Source: owner · L/L
@@ -69,6 +70,7 @@ wants these worked first, in this order, starting in a fresh session (2026-10-15
 - [ ] B-169 **Minimap textures as the client finds them** (`md5translate.trs`), after Benilla's `minimap_translate.rs` (with B-129) · Source: owner · L/M
 - [ ] B-175 **Footstep sounds by terrain type**: name TerrainType rows in the ground effect editor (B-151 picks them by number), after Benilla's `footsteps.rs`/`terrain.rs` · Source: owner · L/S
 - [ ] B-176 **WMO interiors after Benilla's portal culling and interior fog**, for big buildings' speed and look · Source: owner · L/M
+- [ ] B-179 **The client's clouds under Client Lighting**: port Benilla's `clouds/` (the cloud dome builder 0x6cfb00: density band 3 as the coverage threshold, the sun-glow, slope and base colour bands 10 to 12, the glow track) onto the client sky dome, which has no clouds yet · Source: loop: B-166 · L/M · a module of its own (about 1000 lines of Rust)
 - [ ] B-178 **Tufts fade out by view depth as the client's do**: the client fades detail doodads over the last part of the 70 yd (alpha from about 52.6 yd to zero at 69.9, on view depth, with its own alpha-test ref 128/255); Meld cuts them off at 70 yd from the camera, so the edge of the grass shows · Source: loop: B-172 · L/S · after Benilla's `clutter.rs` and `wow_model.wgsl`
 
 ## Navigation, view and display

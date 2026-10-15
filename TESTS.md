@@ -5,6 +5,22 @@ a change, and add to it when you find a good way to test something (see CLAUDE.m
 
 Each entry says what it checks, how to run it, and the traps that cost time.
 
+## Compiling a shader without the app (headless Chrome)
+
+Checks: that a `ShaderMaterial` compiles and draws what it should, when Claude in Chrome isn't there.
+Get the material's sources through the real module in node (`node --import ./tests/register.mjs x.ts`
+from `frontend/`; a script outside `frontend/` must import three and the module by absolute `file:///`
+URLs, or 'three' doesn't resolve) and write them to JSON. In a scratch folder (not the repo), with
+copies of `three.module.js` and `three.core.js`, a page builds the material, renders it with
+`r.debug.onShaderError` set and puts `readPixels` of the centre into the DOM. Serve the folder
+(`python -m http.server`) and run
+`chrome.exe --headless=new --disable-gpu --use-angle=swiftshader --enable-unsafe-swiftshader --virtual-time-budget=8000 --dump-dom http://localhost:<port>/page.html`.
+- Trap: `camera.lookAt` straight up or down with the default up vector gives a black frame; aim a
+  degree off. The centre pixel of an even canvas is half a pixel off the view axis, so a gradient
+  reads a few levels off its stop.
+- Used for the client sky dome (B-166): each ring elevation reads its band's colour, the fog colour
+  below the horizon.
+
 ## Unit and integration tests
 
 - `make test` runs `go test ./internal/...` and the frontend unit tests (`node --test`, Node 22.18+).

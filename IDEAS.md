@@ -478,3 +478,11 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   those stops (16, 32, 48), with Normal (32, the panel's Medium) as the default, as Benilla defaults to it.
   The pref keeps its values, so a saved choice carries over. The range is the client's 70 yd from the
   camera; the client's fade over its last part is left for B-178.
+
+### B-166 The client's sun, sky and fog · scope
+- The loop's call (2026-10-15, B-166). Ported from Benilla: DayNight's lighting sun (it never sets; night is
+  its colours), the visible sun, moon and stars on the client's tables, the five-stop sky dome with the dawn
+  and dusk warp, the scene fog rule (end = the light's fog end or the far clip, start = its share, a storm's
+  negative), and the client's band walk (keys as a cycle in stored order). The clouds (Benilla's `clouds/`,
+  a module of its own) are left for B-179, and the bodies are drawn as before rather than from the client's
+  moon and star textures. three's fog is a smoothstep between its distances where the client's is linear.

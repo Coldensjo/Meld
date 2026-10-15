@@ -52,12 +52,15 @@ type LightKey struct {
 // 1 the ambient, 2 to 6 the sky from top to horizon, 7 the fog, 9 the sun, 14 to 17 the shallow and
 // deep ocean and river colours), Floats[i] float band i (0 the fog distance, 1 the fog multiplier).
 type LightParamSet struct {
-	ID         uint32       `json:"id"`
-	Glow       float32      `json:"glow"`
-	WaterAlpha [2]float32   `json:"waterAlpha"`
-	OceanAlpha [2]float32   `json:"oceanAlpha"`
-	Colors     [][]LightKey `json:"colors"`
-	Floats     [][]LightKey `json:"floats"`
+	ID uint32 `json:"id"`
+	// HighlightSky is LightParams field 1: the sky dome's dawn and dusk warp is on. It is read only;
+	// a write keeps the client's.
+	HighlightSky bool         `json:"highlightSky"`
+	Glow         float32      `json:"glow"`
+	WaterAlpha   [2]float32   `json:"waterAlpha"`
+	OceanAlpha   [2]float32   `json:"oceanAlpha"`
+	Colors       [][]LightKey `json:"colors"`
+	Floats       [][]LightKey `json:"floats"`
 }
 
 // MapLights is a map's lights and the LightParams rows they name.
@@ -152,7 +155,7 @@ func ReadMapLights(light, params, intBand, floatBand []byte, mapID uint32) (*Map
 			continue
 		}
 		p := LightParamSet{
-			ID: id, Glow: pt.f32(r, 4),
+			ID: id, HighlightSky: pt.u32(r, 1) != 0, Glow: pt.f32(r, 4),
 			WaterAlpha: [2]float32{pt.f32(r, 5), pt.f32(r, 6)},
 			OceanAlpha: [2]float32{pt.f32(r, 7), pt.f32(r, 8)},
 		}

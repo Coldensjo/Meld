@@ -9,11 +9,12 @@ import type { adt, vmangos } from '../../../wailsjs/go/models'
 import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid, type LiquidClipCell } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { resetLiquidFrames, setLiquidLight, updateLiquids } from '../water/liquidMaterial'
-import { BAND, lightAt, newLightAt, type ClientLights } from '../wow/clientLight'
+import { BAND, lightAt, newLightAt, sceneFog, type ClientLights } from '../wow/clientLight'
+import { celestialSunDir, lightingSunDir, moonDir, skyWarp, starAlpha, sunDiscScale } from '../wow/dayNight'
 import { TILE_YARDS } from '../terrain/Terrain'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
-import { Environment } from './Environment'
+import { Environment, type ClientSky } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
 import { PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
@@ -793,7 +794,9 @@ export class Engine {
   private applyViewDistance() {
     const w = this.terrain.worldSize
     const d = this.viewDistance
-    this.scene.fog = this.fogEnabled && !this.topDown ? new THREE.Fog(this.env.state.horizon.clone(), w * 0.5 * d, w * 2.2 * d) : null
+    this.fogNear = w * 0.5 * d
+    this.fogFar = w * 2.2 * d
+    this.scene.fog = this.fogEnabled && !this.topDown ? new THREE.Fog(this.env.state.horizon.clone(), this.fogNear, this.fogFar) : null
     this.persp.far = Math.max(2000, w * 4 * d)
     this.persp.updateProjectionMatrix()
   }
@@ -805,9 +808,15 @@ export class Engine {
     const env = this.env
     env.update(this.hour, time, this.camera)
     const s = env.state
-    this.applyClientLight()
+    // The editor's own fog distances; client lighting replaces them with the light's.
+    const fog = this.scene.fog as THREE.Fog | null
+    if (fog) {
+      fog.near = this.fogNear
+      fog.far = this.fogFar
+    }
+    this.applyClientLight(time)
     ;(this.scene.background as THREE.Color).copy(s.horizon)
-    if (this.scene.fog) this.scene.fog.color.copy(s.horizon)
+    if (fog) fog.color.copy(s.horizon)
 
     const tu = this.terrain.material.uniforms
     tu.sunDir.value.copy(s.keyDir)
@@ -830,6 +839,14 @@ export class Engine {
   private clientLightsMap = -1
   private clientLightsLoading = false
   private lightOut = newLightAt()
+  /** The editor's own fog distances (applyViewDistance), put back each frame before client lighting. */
+  private fogNear = 0
+  private fogFar = 0
+  private fogOut = [0, 0]
+  private sunDirOut = [0, 1, 0]
+  private celestialOut = [0, 1, 0]
+  private moonOut = [0, 1, 0]
+  private clientSky: ClientSky = { colors: this.lightOut.colors, skyAt: BAND.skyTop * 3, fogAt: BAND.fog * 3, sunAt: BAND.sun * 3, warp: 0, sunDir: this.celestialOut, moonDir: this.moonOut, sunScale: 1, starAlpha: 0 }
   /** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
   private mapIds: Map<string, number> | null = null
   private mapIdsLoading = false
@@ -892,15 +909,18 @@ export class Engine {
   }
 
   /**
-   * With View › Client Lighting on, the sun's and the sky's light, the horizon and fog colour and the
-   * water's colours become the client's own at the camera (wow/clientLight.ts): the map's global light
-   * with the local lights it is in blended over it. The sky dome itself stays the editor's. Off, or
-   * until the lights are read, the editor's own lighting stays.
+   * With View › Client Lighting on, the light becomes the client's own at the camera (wow/clientLight.ts):
+   * the map's global light with the local lights it is in blended over it gives the sun's and the sky's
+   * light, the fog's colour and distances and the water's colours, and the client's DayNight tables
+   * (wow/dayNight.ts) the sun's direction, which never sets. The sky dome is the client's too: its five
+   * colour stops, warped toward the sun at dawn and dusk where the light says so. Off, or until the
+   * lights are read, the editor's own lighting and sky stay.
    */
-  private applyClientLight() {
+  private applyClientLight(time: number) {
     const id = this.prefs?.clientLighting && wow.loaded ? this.openMapId() : null
     if (id === null) {
       setLiquidLight(null)
+      this.env.setClientSky(null, time)
       return
     }
     if (id !== this.clientLightsMap) {
@@ -927,10 +947,28 @@ export class Engine {
     const z = cam.z + (region ? region.y * TILE_YARDS : 0)
     if (!lights || !lightAt(lights, x, cam.y, z, this.hour, this.lightOut)) {
       setLiquidLight(null)
+      this.env.setClientSky(null, time)
       return
     }
     const c = this.lightOut.colors
     const s = this.env.state
+    const minute = this.hour * 60
+    const sun = lightingSunDir(minute, this.sunDirOut)
+    s.keyDir.set(sun[0], sun[1], sun[2])
+    const fog = this.scene.fog as THREE.Fog | null
+    if (fog) {
+      const [near, far] = sceneFog(this.lightOut, this.persp.far, this.fogOut)
+      // A light with no fog end (two of the client's) fogs everything, as the client does.
+      fog.far = Math.max(far, 0.001)
+      fog.near = Math.min(near, fog.far - 0.001)
+    }
+    const sky = this.clientSky
+    celestialSunDir(minute, this.celestialOut)
+    moonDir(minute, this.moonOut)
+    sky.warp = skyWarp(minute, this.lightOut.highlightSky)
+    sky.sunScale = sunDiscScale(minute)
+    sky.starAlpha = starAlpha(minute)
+    this.env.setClientSky(sky, time)
     s.keyColor.setRGB(c[BAND.diffuse * 3], c[BAND.diffuse * 3 + 1], c[BAND.diffuse * 3 + 2], THREE.SRGBColorSpace)
     s.skyAmbient.setRGB(c[BAND.ambient * 3], c[BAND.ambient * 3 + 1], c[BAND.ambient * 3 + 2], THREE.SRGBColorSpace)
     s.groundAmbient.copy(s.skyAmbient).multiplyScalar(0.5)

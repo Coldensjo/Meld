@@ -62,7 +62,17 @@ func TestClientMapLights(t *testing.T) {
 	if len(fresh.Lights) != 1 || fresh.Lights[0].ID != 1 {
 		t.Fatalf("a new map's lights = %+v", fresh.Lights)
 	}
-	t.Logf("Azeroth has %d lights, %d params rows", len(az.Lights), len(az.Params))
+	// Some of Azeroth's lights warp the sky at dawn and dusk (LightParams field 1), most don't.
+	highlight := 0
+	for _, p := range az.Params {
+		if p.HighlightSky {
+			highlight++
+		}
+	}
+	if highlight == 0 || highlight == len(az.Params) {
+		t.Fatalf("%d of Azeroth's %d params rows highlight the sky", highlight, len(az.Params))
+	}
+	t.Logf("Azeroth has %d lights, %d params rows, %d highlighting the sky", len(az.Lights), len(az.Params), highlight)
 }
 
 // TestClientLightsWriteBack writes Azeroth's own lights and params back unchanged (the params and band
