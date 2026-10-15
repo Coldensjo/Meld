@@ -749,3 +749,13 @@ editor space as `(x, z, -y)` and through `e.objects.matrixOf(o, m)`, then put th
 exterior shell (MOGP 0x8) and reads outside, as the client does.
 - Trap: the controller's target rides the ground, which is often under a building's floor; turn
   `followGround` off first, or the camera ends up below the floor and reads outside.
+- The portal flood and room fog on top of it (`world/wmoFlood.ts`, `wmoFog.ts`, `roomGate.ts`):
+  `tests/wmoFlood.test.ts` builds rooms and doorways and a three camera, and holds Benilla's fog cases.
+  Live: place the Goldshire inn (`e.objects.add({ type: 'wmo:World\\wmo\\Azeroth\\Buildings\\GoldshireInn\\GoldshireInn.wmo', ... })`
+  on open ground), put the camera on a floor of group g as above, step frames, then read
+  `e.roomFlood.visible` / `.fog` (per group, the first `nav.groups.length`) and `e.roomFog.t` (the 4 s
+  fade). In its hall (group 2) the flood draws 2, 3, 5 and 10 looking along it and fewer facing a
+  wall; in a closed bedroom (9) only 9. A WMO mesh must carry the `wmoRoom` attribute (Go's
+  `"rooms":true` header); a page loaded before a Go change keeps the old assets, so reload it.
+- Trap: the inn placed with `yOff: 0` on rough ground can have its floor under the terrain, and the
+  probe's terrain race then reads outside; pick a floor above the ground.

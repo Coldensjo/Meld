@@ -273,6 +273,13 @@ cd frontend && pnpm build   # frontend only
     always hits the full model.
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
     sculpting.
+  - **WMO rooms** (#8, from Benilla's `wmo_portal`): `world/WmoRooms.ts` finds the room (group) of the
+    placed WMO the camera is in with the client's down-ray (`wmoRoom.ts`, room data from `/wow/wmonav`),
+    `wmoFlood.ts` runs the portal flood from it each frame and `wmoFog.ts` picks the room's MFOG fog
+    and its 4 s fade. `roomGate.ts` applies both in the shared WMO materials: WMO vertices carry their
+    group (`wmoRoom` attribute, Go's `Mesh.Room`), and the instance at the room's origin hides the
+    groups the flood didn't reach and fogs the reached interiors with the room fog. Only the WMO the
+    camera is in is gated; from outside every WMO draws whole.
 - **UI layout** (Photoshop-like, `App.svelte`):
   - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
   - Main row: `Toolbar` | centre column | `Dock`. The centre column is the `Viewport` (with the

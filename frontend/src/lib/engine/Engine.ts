@@ -49,6 +49,9 @@ import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from 
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { WmoRooms } from '../world/WmoRooms'
+import { RoomFlood } from '../world/wmoFlood'
+import { RoomFogFade } from '../world/wmoFog'
+import { setRoomFog, setRoomGate } from '../world/roomGate'
 import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
 import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
@@ -213,6 +216,12 @@ export class Engine {
   private rooms = new WmoRooms()
   private roomGround = (x: number, z: number): number | null =>
     this.terrain.contains(x, z) && !this.terrain.isHole(x, z) ? this.terrain.heightAt(x, z) : null
+  /** The portal flood and room fog of the WMO the camera is in (`world/roomGate.ts`). */
+  private roomFlood = new RoomFlood()
+  private roomFog = new RoomFogFade()
+  private roomClip = new THREE.Matrix4()
+  private roomSceneFog = { r: 0, g: 0, b: 0 }
+  private roomSceneRgb = [0, 0, 0]
   private particles = new ParticleLayer()
   private clouds = new CloudDome()
   /** The time the clouds last moved, to advance them by. */
@@ -744,6 +753,7 @@ export class Engine {
     this.effects.particles = this.prefs?.particles !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)
     this.rooms.update(this.objects, this.camera.position, this.roomGround)
+    this.updateRoomGate(dt)
     this.cullInstances()
     this.animateModels(time)
     this.updateParticles(dt, time)
@@ -3439,6 +3449,31 @@ export class Engine {
       liquids,
       models,
     }
+  }
+
+  /**
+   * Runs the portal flood of the WMO the camera is in and hands the gate its groups, and fades the
+   * room's fog in or out over the scene's.
+   */
+  private updateRoomGate(dt: number) {
+    const r = this.rooms.current
+    if (!r || this.topDown) {
+      setRoomGate(null)
+    } else {
+      this.camera.updateMatrixWorld()
+      this.roomClip.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse).multiply(r.matrix)
+      const pvs = this.roomFlood.run(r.nav, r.seeds, r.eye, this.roomClip)
+      setRoomGate(r.origin, pvs.visible, pvs.fog)
+    }
+    const fog = this.scene.fog as THREE.Fog | null
+    if (!fog) return
+    fog.color.getRGB(this.roomSceneFog, THREE.SRGBColorSpace)
+    const rgb = this.roomSceneRgb
+    rgb[0] = this.roomSceneFog.r
+    rgb[1] = this.roomSceneFog.g
+    rgb[2] = this.roomSceneFog.b
+    this.roomFog.update(r?.fog ?? null, rgb, fog.near, fog.far, this.persp.far, dt)
+    setRoomFog(this.roomFog.color, this.roomFog.near, this.roomFog.far)
   }
 
   /** The WMO room the camera is in, named for the detail readout, or '' outside. */

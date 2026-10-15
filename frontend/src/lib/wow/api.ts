@@ -124,6 +124,8 @@ export interface WowMesh {
   effects: MeshEffect[]
   emitters: MeshEmitter[]
   ribbons: MeshRibbon[]
+  /** A WMO's vertices' groups plus one (0 for none), for the room gate (`world/roomGate.ts`). */
+  rooms?: Uint16Array
 }
 
 type StatusLike = { path: string; loaded: boolean; error: string; files: number; archives: number }
@@ -293,6 +295,7 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
     effects?: MeshEffect[]
     emitters?: MeshEmitter[]
     ribbons?: MeshRibbon[]
+    rooms?: boolean
   }
   let o = 4 + hdrLen
   const take = <T>(ctor: new (b: ArrayBuffer, o: number, n: number) => T, n: number, bytes: number) => {
@@ -311,5 +314,6 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
     mesh.boneIdx = take(Uint8Array, hdr.verts * 4, 1)
     mesh.boneW = take(Uint8Array, hdr.verts * 4, 1)
   }
+  if (hdr.rooms) mesh.rooms = take(Uint16Array, hdr.verts, 2)
   return mesh
 }

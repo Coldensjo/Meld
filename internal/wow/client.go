@@ -238,6 +238,8 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 	}
 	m := &Mesh{}
 	var interiors [][6]float32
+	// The group each doodad belongs to, plus one: the first whose MODR names it.
+	doodadRoom := map[int]uint16{}
 	for i := 0; i < root.NumGroups; i++ {
 		gb, err := c.read(GroupPath(path, i))
 		if err != nil {
@@ -246,15 +248,25 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 		if box, ok := InteriorBox(gb); ok {
 			interiors = append(interiors, box)
 		}
+		for _, d := range GroupDoodadRefs(gb) {
+			if _, ok := doodadRoom[d]; !ok {
+				doodadRoom[d] = uint16(i + 1)
+			}
+		}
 		g, err := ParseWMOGroup(gb, root.Materials)
 		if err != nil {
 			continue
+		}
+		g.Room = make([]uint16, g.vertCount())
+		for k := range g.Room {
+			g.Room[k] = uint16(i + 1)
 		}
 		m.Append(g)
 	}
 	// Bake the doodads (furniture, lamps, crates...) into the mesh: the global set, and the placement's.
 	models := map[string]*Mesh{}
-	for _, d := range root.DoodadsOf(set) {
+	for _, di := range root.DoodadIndicesOf(set) {
+		d := root.AllDoodads[di]
 		key := strings.ToLower(d.Model)
 		src, ok := models[key]
 		if !ok {
@@ -275,6 +287,12 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 			Ribbons:  append([]Ribbon(nil), src.Ribbons...),
 		}
 		cp.TransformWoW(d.Pos, d.Rot, d.Scale)
+		if room := doodadRoom[di]; room > 0 {
+			cp.Room = make([]uint16, cp.vertCount())
+			for k := range cp.Room {
+				cp.Room[k] = room
+			}
+		}
 		m.Append(cp)
 	}
 	if len(m.Index) == 0 {

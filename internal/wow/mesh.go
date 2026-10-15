@@ -70,6 +70,9 @@ type Mesh struct {
 	Emitters []Emitter
 	// Ribbons are an M2's ribbon emitters, their frames in model space (editor coordinates).
 	Ribbons []Ribbon
+	// Room is each vertex's WMO group plus one (0 for none): which room of a building it belongs to,
+	// for the portal culling and room fog of the building the camera is in. Empty for an M2.
+	Room []uint16
 	// points are an M2's attachment points by ID, for the items a look attaches. Not encoded.
 	points map[int]attachPoint
 }
@@ -147,6 +150,14 @@ func (m *Mesh) Append(o *Mesh) {
 	base := uint32(m.vertCount())
 	if len(o.Color) > 0 && len(m.Color) == 0 && base > 0 {
 		m.Color = whiteColors(int(base))
+	}
+	if len(o.Room) > 0 || len(m.Room) > 0 {
+		m.Room = append(m.Room, make([]uint16, int(base)-len(m.Room))...)
+		if len(o.Room) == o.vertCount() {
+			m.Room = append(m.Room, o.Room...)
+		} else {
+			m.Room = append(m.Room, make([]uint16, o.vertCount())...)
+		}
 	}
 	m.Pos = append(m.Pos, o.Pos...)
 	m.Normal = append(m.Normal, o.Normal...)
@@ -231,10 +242,12 @@ type meshHeader struct {
 	Effects  []Effect  `json:"effects,omitempty"`
 	Emitters []Emitter `json:"emitters,omitempty"`
 	Ribbons  []Ribbon  `json:"ribbons,omitempty"`
+	// Rooms says each vertex's WMO group (Mesh.Room) follows the rest.
+	Rooms bool `json:"rooms,omitempty"`
 }
 
 // Encode serialises the mesh for the frontend:
-// u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32) | [boneIdx u8x4 | boneW u8x4]
+// u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32) | [boneIdx u8x4 | boneW u8x4] | [room u16, pad to 4]
 func (m *Mesh) Encode() []byte {
 	n := m.vertCount()
 	mn := [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
@@ -257,6 +270,7 @@ func (m *Mesh) Encode() []byte {
 	if hasAnim {
 		h.Bones = m.Anim.Bones
 	}
+	h.Rooms = len(m.Room) == n && n > 0
 	hdr, _ := json.Marshal(h)
 	for len(hdr)%4 != 0 {
 		hdr = append(hdr, ' ')
@@ -275,6 +289,12 @@ func (m *Mesh) Encode() []byte {
 	if hasAnim {
 		buf.Write(m.Anim.BoneIdx)
 		buf.Write(m.Anim.BoneW)
+	}
+	if h.Rooms {
+		binary.Write(&buf, binary.LittleEndian, m.Room)
+		if n%2 != 0 {
+			buf.Write([]byte{0, 0})
+		}
 	}
 	return buf.Bytes()
 }

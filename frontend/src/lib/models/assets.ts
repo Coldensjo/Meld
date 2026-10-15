@@ -3,6 +3,7 @@ import { fetchMesh, loadTexture, type MeshEffect, type MeshEmitter, type MeshGro
 import { colorAt, colorFades, colorIsStatic, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../world/uvAnim'
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
+import { patchRoomGate, ROOM_ATTRIBUTE } from '../world/roomGate'
 import { buildBoundsTree } from '../world/bvh'
 import { buildLod } from './lod'
 import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
@@ -171,8 +172,9 @@ export function updateMaterialAnimations(ms: number) {
   for (const a of colorAnimated) applyColor(a.material, a.base, colorAt(a.spec, ms, rgba))
 }
 
-function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
-  const key = `${g.texture.toLowerCase()}|${g.blend}|${g.twoSided}|${g.unlit}|${!!g.interior}|${vertexColors}`
+function wowMaterial(g: MeshGroup, vertexColors: boolean, rooms: boolean): THREE.Material {
+  // A WMO's materials carry the room gate, so they are never shared with an M2's.
+  const key = `${g.texture.toLowerCase()}|${g.blend}|${g.twoSided}|${g.unlit}|${!!g.interior}|${vertexColors}|${rooms}`
   // A group whose texture moves gets a material of its own, so its texture's matrix moves only it, and
   // so does one with a colour of its own.
   const moving = !!g.uv && !!g.texture
@@ -222,6 +224,7 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
   // single-sided walls then let the sun through onto the walls behind them.
   m.shadowSide = THREE.DoubleSide
   if (m instanceof THREE.MeshLambertMaterial) patchCascadeShadows(m)
+  if (rooms) patchRoomGate(m)
   const mat = m as THREE.MeshLambertMaterial
   // userData.ready resolves once the texture is bound (or failed).
   mat.userData.ready = g.texture
@@ -263,11 +266,12 @@ export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
   geo.setAttribute('uv', new THREE.BufferAttribute(m.uvs, 2))
   const vc = !!m.colors
   if (m.colors) geo.setAttribute('color', new THREE.BufferAttribute(m.colors, 4, true))
+  if (m.rooms) geo.setAttribute(ROOM_ATTRIBUTE, new THREE.BufferAttribute(m.rooms, 1))
   const nVerts = m.positions.length / 3
   geo.setIndex(new THREE.BufferAttribute(nVerts < 65535 ? Uint16Array.from(m.indices) : m.indices, 1))
   const materials = m.groups.map((g, i) => {
     geo.addGroup(g.start, g.count, i)
-    return wowMaterial(g, vc)
+    return wowMaterial(g, vc, !!m.rooms)
   })
   geo.computeBoundingSphere()
   const b = m.bbox

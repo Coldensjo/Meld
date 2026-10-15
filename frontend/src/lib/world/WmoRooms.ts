@@ -3,7 +3,9 @@ import { getAsset } from '../models/assets'
 import { baseType } from '../models/wmoSet'
 import { fetchWmoNav } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
-import { decodeWmoNav, downRayPick, toModel, type WmoNav } from './wmoRoom'
+import { EXTERIOR_LIT } from './wmoFlood'
+import { selectWmoFog, type FogTarget } from './wmoFog'
+import { decodeWmoNav, downRayPick, EXTERIOR, toModel, type RoomSeeds, type WmoNav } from './wmoRoom'
 
 /** The WMO room the camera is in. */
 export interface CameraRoom {
@@ -16,6 +18,13 @@ export interface CameraRoom {
   across: number | null
   /** The eye in the WMO's model space (WoW axes). */
   eye: [number, number, number]
+  /** The probe's verdict, the portal flood's seeds. */
+  seeds: RoomSeeds
+  /** The placement's world matrix and origin, as the probe saw them. */
+  matrix: THREE.Matrix4
+  origin: THREE.Vector3
+  /** The room's fog, or null where the WMO keeps the scene's. */
+  fog: FogTarget | null
 }
 
 /** The camera has to move this far (yd) before the probe runs again. */
@@ -82,7 +91,26 @@ export class WmoRooms {
       const [ex, ey, ez] = this.eyeModel
       const seeds = downRayPick(nav, ex, ey, ez, groundZ)
       if (seeds.inGroup === null) continue
-      this.current = { id, path, nav, group: seeds.inGroup, across: seeds.across, eye: [ex, ey, ez] }
+      // The fog comes from the first of the camera's groups that is a true interior (no 0x48).
+      let fog: FogTarget | null = null
+      for (const g of [seeds.inGroup, seeds.across]) {
+        if (g === null || nav.groups[g].flags & (EXTERIOR | EXTERIOR_LIT)) continue
+        fog = selectWmoFog(nav.fogs, nav.groups[g].fogs, this.eyeModel)
+        break
+      }
+      const matrix = this.m.clone()
+      this.current = {
+        id,
+        path,
+        nav,
+        group: seeds.inGroup,
+        across: seeds.across,
+        eye: [ex, ey, ez],
+        seeds,
+        matrix,
+        origin: new THREE.Vector3().setFromMatrixPosition(matrix),
+        fog,
+      }
       return
     }
   }

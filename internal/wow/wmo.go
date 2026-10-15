@@ -47,14 +47,25 @@ type WMODoodadSet struct {
 
 // DoodadsOf are the doodads a placement with doodad set `set` shows: the global set 0, and the set itself.
 func (r *WMORoot) DoodadsOf(set int) []WMODoodad {
-	var out []WMODoodad
+	idx := r.DoodadIndicesOf(set)
+	out := make([]WMODoodad, len(idx))
+	for k, i := range idx {
+		out[k] = r.AllDoodads[i]
+	}
+	return out
+}
+
+// DoodadIndicesOf are DoodadsOf's doodads as indices into AllDoodads (MODD), the numbers a group's
+// MODR names them by.
+func (r *WMORoot) DoodadIndicesOf(set int) []int {
+	var out []int
 	add := func(s int) {
 		if s < 0 || s >= len(r.Sets) {
 			return
 		}
 		for i := r.Sets[s].Start; i < r.Sets[s].Start+r.Sets[s].Count && i < len(r.AllDoodads); i++ {
 			if r.AllDoodads[i].Model != "" {
-				out = append(out, r.AllDoodads[i])
+				out = append(out, i)
 			}
 		}
 	}
@@ -63,6 +74,27 @@ func (r *WMORoot) DoodadsOf(set int) []WMODoodad {
 		add(set)
 	}
 	return out
+}
+
+// GroupDoodadRefs reads a group file's MODR: the doodads (MODD indices) the group shows.
+func GroupDoodadRefs(b []byte) []int {
+	for _, c := range chunks(b) {
+		if c.id != "MOGP" || len(c.data) < 68 {
+			continue
+		}
+		for _, s := range chunks(c.data[68:]) {
+			if s.id != "MODR" {
+				continue
+			}
+			r := reader{s.data}
+			out := make([]int, 0, len(s.data)/2)
+			for o := 0; o+2 <= len(s.data); o += 2 {
+				out = append(out, r.u16(o))
+			}
+			return out
+		}
+	}
+	return nil
 }
 
 type WMOMaterial struct {
