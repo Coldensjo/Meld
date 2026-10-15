@@ -56,7 +56,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-113 **Grow a region by a tile**: a plus on each side of the open block in the Map panel opens the block one tile bigger (square, so a row or column comes along) · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session) · no longer reachable since B-115 dropped the Map panel; see B-118
 - [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
-- [ ] B-058 **Vertex colour editor** · gap §5 · L/L · needs-approval
 - [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as older noggit did, so the in-game minimap shows the edited ground · Source: loop: B-059 · L/L · a client write, checked against the client's own reader
 - [ ] B-124 **Doodad brush On props: footprint at world scale and a cheaper prop lookup**: a model standing on a prop is spaced by its own scale, not its world scale, and each attempt casts a ray through every model's bounds tree (up to 256 a frame); a chunk-bucketed lookup would keep a dense map smooth · Source: loop: B-120 · L/S
 
@@ -72,7 +71,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-080 **Anti-aliasing, VSync and full-screen** settings · gap §7 · L/S
 - [ ] B-081 **Flight bounds** display · gap §7 · L/S
 - [ ] B-082 **Light zone display** · gap §7 · L/M
-- [ ] B-083 **Vertex colour display** · gap §7 · L/M
 - [ ] B-084 **Client lighting data** for the preview · gap §7 · L/L · approved by the owner 2026-10-15: read the client's Light, LightParams and LightIntBand tables so the editor's sky, fog and ambient follow the zone the camera is in
 
 ## Settings, UI and help
@@ -101,3 +99,4 @@ Items moved here by the owner decisions in IDEAS.md, with the reason.
 - B-018 (part) **Flatten smooth-inner**: noggit3 labels it "wip", and it needs cell-centre vertices, which Meld's grid doesn't have. Its meaning here is not settled.
 - B-016 **Alphamap 8-bit / 4-bit conversion**: disapproved by the owner 2026-10-15; Meld targets the 1.12 client only, which stores 4-bit alpha maps, and Meld already reads every form. Revisit only with a later client.
 - B-033 **Selective paste**: noggit3 has no per-field paste, only one copy option for rotation, tilt and scale together.
+- B-058 **Vertex colour editor** and B-083 **Vertex colour display**: vertex colours (MCCV) arrived after 1.12, and the owner wants no feature beyond the 1.12 client (2026-10-15).

@@ -12,8 +12,9 @@ Items marked **(unverified)** are inferred from code or docs and were not tested
 
 noggit edits WoW's native ADT/WMO tile format. Items tagged **(format-specific)** only exist because
 of that format. Meld saves `.wmap`, so they are listed for completeness, not as goals. Noggit Red also
-edits clients after 1.12 (up to WotLK and, partly, later ones); items tagged **(later client)** only
-apply to those and are moot while Meld targets 1.12.
+edits clients after 1.12 (up to WotLK and, partly, later ones). Features that only exist in those
+clients are left out of this list, since Meld targets 1.12: vertex colours (MCCV), 8-bit alpha maps,
+MH2O water, texture height mapping, WMO low-res models, map difficulties, skyboxes and zone lights.
 
 ## 1. Terrain sculpting
 
@@ -25,11 +26,11 @@ apply to those and are moot while Meld targets 1.12.
 - **Blur** as a separate tool from Smooth (noggit combines it with Flatten in one tool).
 - ~~**Tablet pressure**: radius or speed mapped to pen pressure, with an on/off setting.~~ *Done: Camera › Tablet support (off by default) scales every Sculpt mode's speed and Paint's strength (paint, spray, swap) by pen pressure. Radius is unchanged, and so is a mouse.* **(Red)** Noggit Red instead puts a "Use Tablet" switch on every slider (`ui/tools/UiCommon/ExtendedSlider.cpp`), so radius, speed, inner radius or pressure can each follow the pen. Meld still has no pressure-driven radius.
 - ~~**Chunk Mover**: drag a whole terrain chunk, with its heights and objects, to a new location.~~ *Done: noggit3's chunk mover (`chunk_mover.cpp`) copies the selected chunks' heights, textures, holes, liquids and models to where the cursor is, with a preview, a height offset, a quarter turn and a mirror. Meld's area copy and paste does the same for any cell rect (Ctrl+C, Ctrl+V with a preview, Height and Blend edges in the options bar), now with the painted liquids and a quarter turn (R). No mirror, and no min/max/add height modes. Noggit Red's Chunk Manipulator tool (`tools/ChunkTool.cpp`) is an empty panel so far, with only its chunk clipboard written.*
-- **Clearing tool**: brush-based erase by category (height, textures, models, liquids, holes, shadows, vertex colours, impassable flags), with a radius and a texture-alpha threshold. *Mostly done: the Clear tool (7) erases models, resets textures to the base texture, brings the height to zero, removes painted liquids and fills holes, with the brush size and falloff. Shadows, vertex colours and impassable flags have no field in Meld's map file (B-055, B-057, B-058). No texture-alpha threshold. Noggit Red has no clearing brush; it clears per tile from Assist › Clean up (§5).*
+- **Clearing tool**: brush-based erase by category (height, textures, models, liquids, holes, shadows, impassable flags), with a radius and a texture-alpha threshold. *Mostly done: the Clear tool (7) erases models, resets textures to the base texture, brings the height to zero, removes painted liquids and fills holes, with the brush size and falloff. Shadows have no field in Meld's map file (B-057); impassable flags are painted with the Map data tool. No texture-alpha threshold. Noggit Red has no clearing brush; it clears per tile from Assist › Clean up (§5).*
 - **Seam fix**: "Fix terrain gaps between chunks" (Assist menu).
 - **Sphere and terrain-projected cursor shapes** (noggit3's cursor switcher offers disk, sphere and terrain modes) **(unverified for Meld's current brush outline)**. Noggit Red dropped the switcher: it draws a circle, or the stamp image for an image brush (`CursorType`).
-- **Image brushes** **(Red)**: Raise/Lower, Texture painting and Vertex Painter each take a "Custom Brush", a greyscale image from the user's Samples folder that shapes the brush footprint, with a rotation dial, used either as a sculpt brush or as a stamp (`ui/tools/UiCommon/ImageMaskSelector.cpp`, `World::stamp`).
-- **Stamp mode and brush stacks** **(Red)**: a Stamp tool (`tools/StampTool.cpp`, `ui/tools/BrushStack/`) that applies a stack of brushes in one press: Raise/Lower, Flatten/Blur, Texture and Shader (vertex colour) items, reordered by drag, each inheriting or overriding the radius, inner radius, speed and rotation. Stacks are saved and loaded as files.
+- **Image brushes** **(Red)**: Raise/Lower and Texture painting each take a "Custom Brush", a greyscale image from the user's Samples folder that shapes the brush footprint, with a rotation dial, used either as a sculpt brush or as a stamp (`ui/tools/UiCommon/ImageMaskSelector.cpp`, `World::stamp`).
+- **Stamp mode and brush stacks** **(Red)**: a Stamp tool (`tools/StampTool.cpp`, `ui/tools/BrushStack/`) that applies a stack of brushes in one press: Raise/Lower, Flatten/Blur and Texture items, reordered by drag, each inheriting or overriding the radius, inner radius, speed and rotation. Stacks are saved and loaded as files.
 - **Inner radius** for the sculpt brush **(Red)**: Raise/Lower has an Inner Radius slider, a flat-top core before the falloff starts. Meld's single Falloff slider covers the same ground (falloff 0 is a hard edge).
 
 ## 2. Texture painting
@@ -39,14 +40,12 @@ apply to those and are moot while Meld targets 1.12.
 - **Animated texture layers**: per-layer animation with a speed setting ("Add anim" / "Remove anim"). Noggit Red adds a rotation dial for the direction (`ui/texturing_tool.cpp`).
 - **Undockable quick texture palette**: a small palette floating outside the dock.
 - **Show unpaintable chunks** overlay.
-- **Alphamap conversion**: convert the map between 8-bit and 4-bit alphamap formats **(format-specific)**.
 - ~~**Clear textures** and **Clear textures + set base texture** as map-wide operations.~~ *Done: Layers › Replace… › Fill whole map makes the map one chosen texture.*
 - **Remove duplicate texture layers** per tile.
 - **Overbright** option. *Defined from Noggit Red's source: it sets the layer's glow flag (`FLAG_GLOW` in MCLY) when Add anim is applied, next to the animation settings, so it belongs with animated layers (`texturing_tool::change_tex_flag`).* **(format-specific)**
 - **Brush hardness** **(Red)**: Paint's Hardness slider (0–1) sets the inner radius as a share of the radius (`Brush::setHardness`). Meld's Falloff slider is the same control.
 - **Ensure 4 texture layers** **(Red)**: Assist › Ensure 4 texture layers fills every chunk of a tile (or the map) up to four layers. *(format-specific: a modding aid; Meld's chunk slots don't need it.)*
 - **Cleanup empty texture chunks** **(Red)**: Assist › Loaded ADTs removes layers whose alpha is empty everywhere in a chunk. Meld's slot compaction (`acquireSlotCompacting`) frees an emptied slot only when a stroke needs it.
-- **Height mapping** **(Red)** **(later client)**: Mists-of-Pandaria texture height scale and offset per texture, with Apply (Current ADT) and Apply (Global).
 
 ## 3. Water and liquids
 
@@ -88,7 +87,6 @@ apply to those and are moot while Meld targets 1.12.
 - **Translate/rotate/scale gizmo** **(Red)**: an ImGuizmo-based gizmo with move arrows on three axes, rotation rings and scale handles, in world or local space (`ui/tools/ViewportGizmo/`). Meld's gizmo has a spin ring, a height arrow and a scale knob.
 - **Server coordinates** **(Red)**: the object context menu's "Save objects coords (to file)" writes each selected model's server position and rotation quaternion, for a gameobject spawn. Meld writes spawns itself.
 - **WMO doodad set and name set** per placed WMO **(Red)**: "Selected WMO Options" chooses the doodad set shown and the name set. Meld places WMOs with their default set **(unverified)**.
-- **Low-res model path** per WMO **(Red)** **(later client)**: a distant stand-in model for landmarks.
 
 ## 5. Map and tile management (Assist and File menus)
 
@@ -96,7 +94,6 @@ apply to those and are moot while Meld targets 1.12.
 - ~~**Impassable flag** tool **(format-specific)**.~~ *Done: the Map data tool's Impassable mode marks the chunks under the brush (Set or Clear), hatched red, kept in the `.wmap` (version 5) and written as the MCNK header's 0x2 flag on export.*
 - ~~**Holes tool**: cut terrain holes, e.g. for caves **(format-specific)**.~~ *Done: Sculpt › Hole cuts and fills triangles, kept in the `.wmap` (version 3) and the clipboard (B-056). Not yet exported to client tiles. Noggit Red's Hole Cutter is a brush with a radius.*
 - **Shadows editor**: auto-generate baked shadows with a sun pitch and threshold, plus a brush. noggit bakes shadows into the tile; Meld shadows are runtime-only **(format-specific)**. Noggit Red also has Assist › Clean up › Clear shadows and a Baked Shadows view toggle (Shift+F4).
-- **Vertex colour (shader) editor**: paint per-vertex colour with hue, saturation, value, radius and speed **(format-specific)**. Noggit Red's Vertex Painter adds a colour palette to drag colours from, an image brush, and "Use image colors" to paint an image's colours (`ui/ShaderTool.cpp`). Vertex colours (MCCV) are a WotLK chunk, so this is **(later client)** too.
 - **Tile-level save**: save the current tile, changed tiles, or all tiles. Meld saves one `.wmap` file.
 - ~~**Reload tile** from disk.~~ *Done: File › Revert to Saved reloads the whole `.wmap` in the same tab, since Meld has no tiles; it asks first when there are unsaved changes.*
 - **Load full map** and mark everything changed.
@@ -106,16 +103,15 @@ apply to those and are moot while Meld targets 1.12.
 - ~~**Port coordinates export**: write the camera position to a text file in TrinityCore / ArcEmu `.go` / `.worldport` format.~~ *Done: File › Export Port Coordinates writes the camera's `.go xyz` and `.worldport` lines for a map made for the client, using its map ID. The file starts with noggit's `Map: <zone> on ADT x y` line, the zone being the chunk's from the Map data tool.*
 - ~~**Save minimap images** (Ctrl+Shift+P).~~ *Done: File › Save Minimap Image… (Ctrl+Shift+P) saves the map from above as a PNG, with the tile borders (noggit3's own action does nothing; see IDEAS.md B-059). Not written into the client's minimap textures.*
 - **Minimap Editor** **(Red)**: a tool (`tools/MinimapTool.cpp`, `ui/MinimapCreator.cpp`) that renders the selected tiles (or the current one) into the client's minimap textures, with a resolution, what to draw (terrain textures, normals, models, WMOs, water, shadows, elevation, the ADT grid), the lighting and water colours, and per-model include/exclude filters. This is the client write in BACKLOG B-129.
-- **Convert map** between alphamap formats **(format-specific)**.
 - **Per-tile Clean up** **(Red)**: Assist › Clean up on the tile under the camera: Clear height map, Remove texture duplicates, Clear textures, Clear textures + set base, Clear shadows, Clear models, Clear duplicate models. Meld's Clear tool and Layers › Fill whole map do these by brush or for the whole map, not per tile.
 - **Generate new WDL** **(Red)**: rewrites the map's WDL (the low-detail horizon heights and the map's tile mask) from its tiles. Meld exports tiles to the client but leaves the WDL, so a new or reshaped region keeps the old far horizon **(unverified in game)**.
-- **Map creation wizard** **(Red)**: create or edit a Map.dbc entry (name, directory, type, expansion, loading screen, area, corpse position, time-of-day override, max players, difficulties), pick its tiles on a 64×64 grid (click adds, Ctrl erases, Shift adds 3×3), or make a WMO-only map; it writes the DBCs and the WDT (`ui/tools/MapCreationWizard/`). *Partly covered: New World writes a new map for the client (folder and map ID, Map.dbc row); Meld edits no other Map.dbc field, and has no WMO-only map.*
+- **Map creation wizard** **(Red)**: create or edit a Map.dbc entry (name, directory, type, loading screen, area, corpse position, max players), pick its tiles on a 64×64 grid (click adds, Ctrl erases, Shift adds 3×3), or make a WMO-only map; it writes the DBCs and the WDT (`ui/tools/MapCreationWizard/`). *Partly covered: New World writes a new map for the client (folder and map ID, Map.dbc row); Meld edits no other Map.dbc field, and has no WMO-only map.*
 
 ## 6. Navigation and bookmarks
 
 - ~~**Bookmarks**: save named camera positions per map, shown in a menu.~~ *Done: Bookmarks menu, Ctrl+B adds a view of the map; each map keeps its own.*
 - ~~**Minimap window**: click to jump to a location, with ADT boundaries and light-zone overlays.~~ *Done: Camera › Minimap Window (M), a floating map of the heights (and the continent overview for a part of Azeroth) with the tile borders and the camera's spot; a click moves the camera there. Light zones are B-082.*
-- ~~**Map entry list** (Continents, Dungeons, Raids, Battlegrounds, Arenas, from the DBC map database). Meld only has New / Open.~~ *Done: New Map lists the client's maps from Map.dbc, grouped by type, for a map made for the client. It is not yet in Open.* Noggit Red's list adds search, a type filter, pinned maps and per-map bookmarks.
+- ~~**Map entry list** (Continents, Dungeons, Raids, Battlegrounds, from the DBC map database). Meld only has New / Open.~~ *Done: New Map lists the client's maps from Map.dbc, grouped by type, for a map made for the client. It is not yet in Open.* Noggit Red's list adds search, a type filter, pinned maps and per-map bookmarks.
 - ~~**Turn camera 180°** (Shift+R).~~ *Done: Camera › Turn Around (180°). Not on Shift+R, which rotates a selected prop.*
 - **Reset camera roll** (End).
 - **FPS camera mode**, and a **debug camera** you can return to. In Noggit Red the FPS camera stays 3 yards above the ground, so it walks the map as a player would; its separate Game View toggle is commented out (`MapView.cpp`).
@@ -134,7 +130,6 @@ apply to those and are moot while Meld targets 1.12.
 - ~~**Tile and chunk grid lines**, with "hole lines always on".~~ *Done already: Graphics › Show grid (every 4 cells), Show chunk lines (the 8x8-cell paint chunks, pale blue) and the amber tile lines a region always draws (`Terrain.setTileBorders`). Holes are cut out of the mesh with walls, so they are always visible without lines.*
 - **Climb view** **(Red)**: View › Climb (Shift+F2) colours the ground too steep for a character to walk up, with a maximum climb value and an option to colour every angle (`draw_impassible_climb` in the terrain shader).
 - **Flight bounds** display.
-- **Vertex colour display**.
 - **DBC lighting colour data**: use the client's lighting data for preview.
 - **Skybox** toggle, separate from the sky.
 - **Fog** toggle (F12). *Covered: Graphics › Fog.*
@@ -159,14 +154,13 @@ apply to those and are moot while Meld targets 1.12.
 - **Clean-up script** (`clean.lua`) and **height noise** (`height_noise.lua`) examples.
 - **Script settings and profiles** saved per user.
 - **Script-writes-to-any-file** permission setting.
-- **Node editor** **(Red)**: a visual scripting graph (View › Show Node Editor, Shift+N; `ui/tools/NodeEditor/`) saved as `.ns` files, with nodes for maths, logic, lists, images and the world: chunk heightmaps, textures and alpha layers, vertex colours, area IDs, detail doodads, and adding and selecting object instances. It is a second way to script besides Lua.
+- **Node editor** **(Red)**: a visual scripting graph (View › Show Node Editor, Shift+N; `ui/tools/NodeEditor/`) saved as `.ns` files, with nodes for maths, logic, lists, images and the world: chunk heightmaps, textures and alpha layers, area IDs, detail doodads, and adding and selecting object instances. It is a second way to script besides Lua.
 
 ## 9. Import, export and data
 
 - ~~**Heightmap import and export** as an image (Meld has neither).~~ *Done: File › Export Heightmap… and Import Heightmap… use a 16-bit grey PNG of (cells + 1) samples per side, mapped from −1024 to +1024 yards. Import needs the same size and is one undo step.* **(Red)** Noggit Red's importer also has Set, Add, Subtract and Multiply modes, a min/max height (with Auto Heights from the tile) and tiled edges, per tile or for every tile; its exporter adds a normal map export.
 - ~~**Object list import / export** as text.~~ *Done: see §4, Import / export object lists.*
 - **Alphamap export and import** **(Red)**: Assist › Export alphamaps (all, or the current texture's) writes a tile's texture alphas as images, and Import alphamaps reads them back into a chosen layer, optionally removing layers that end up empty. Meld has no texture-weight image import or export.
-- **Vertex colour map export and import** **(Red)**: the same for MCCV colours as a 257×257 image **(later client)**.
 - **WoW ADT read/write**: noggit's native format. *Mostly covered: Meld opens part of Azeroth from the client's tiles and exports regions and new worlds back as tiles, while its own documents stay `.wmap` (CLAUDE.md, `internal/adt`).*
 - **MySQL UID sync**: shared unique IDs across machines **(format-specific)**.
 
@@ -189,8 +183,8 @@ Noggit Red edits the client's DBC tables and patches the client. Meld reads the 
 writes only Map.dbc rows and tiles, so these are all gaps. Each is a client write, so check it against
 the client's own reader as the tile writer is checked.
 
-- **Zone editor** **(Red)**: the Area Designator's zone browser (`ui/ZoneIDBrowser.cpp`) also creates zones and subzones and edits an AreaTable row: name, parent, exploration level, faction group, flags, minimum elevation, ambient multiplier, sound ambience by day and night, sound provider preferences, zone music and intro music (with pickers that play the sounds), and liquid type overrides for water, ocean, magma and slime; Save writes the DBC. Meld's Map data tool only picks existing zones.
-- **Light editor** **(Red)**: the Lightning Editor (`tools/LightTool.cpp`, `ui/tools/LightEditor/`) lists the map's Light.dbc entries and the ones active at the camera (with their weights), and edits a light's position and inner and outer radius, its LightParams (skybox model, glow, highlight sky, the water and ocean alphas) and its colour bands by time of day (sky, fog, clouds, water, ocean), for clear, storm and underwater weather. It adds zone lights and copies, and writes the DBCs. Related: B-082 (light zones on the minimap) and B-084 (reading the client's lighting for the preview).
+- **Zone editor** **(Red)**: the Area Designator's zone browser (`ui/ZoneIDBrowser.cpp`) also creates zones and subzones and edits an AreaTable row: name, parent, exploration level, faction group, flags, minimum elevation, ambient multiplier, sound ambience by day and night, sound provider preferences, zone music and intro music (with pickers that play the sounds), and the zone's liquid type; Save writes the DBC. Meld's Map data tool only picks existing zones.
+- **Light editor** **(Red)**: the Lightning Editor (`tools/LightTool.cpp`, `ui/tools/LightEditor/`) lists the map's Light.dbc entries and the ones active at the camera (with their weights), and edits a light's position and inner and outer radius, its LightParams (glow, highlight sky, the water and ocean alphas) and its colour bands by time of day (sky, fog, clouds, water, ocean), for clear, storm and underwater weather. It adds lights and copies, and writes the DBCs. Related: B-082 (light zones on the minimap) and B-084 (reading the client's lighting for the preview).
 - **Area trigger editor** **(Red)**: an Area Trigger tool (`tools/AreaTriggerTool.cpp`, `ui/tools/AreaTriggerEditor/`) that shows the map's AreaTrigger.dbc entries as boxes and spheres, and adds, removes, moves, resizes and rotates them, with a category and name per trigger. Meld has no trigger display; VMaNGOS keeps its own `areatrigger_*` tables beside the DBC.
 - **Ground effects editor** **(Red)**: the Ground Effects tool (`ui/GroundEffectsTool.cpp`) scans the current or loaded tiles for each texture's effect sets, shows them coloured by set, creates and saves new GroundEffectTexture sets (up to four doodads and a terrain type), applies a set to a texture in the current tile, subzone, zone or the whole map, and paints the per-cell exclusion (`noEffectDoodad`). *Mostly covered: Meld learns each texture's effect from the client's tiles, sets one per texture per map (Edit › Ground Effects…), draws the tufts, and paints the no-tuft cells with the Map data tool. It can't make a new effect set, and the choice is per map, not per subzone or tile.*
 - **Patch client** **(Red)**: Client › Patch Client and "Save Project to Client MPQ" pack the project's edited files into an MPQ (with compression and a DBC locale) for the client. *Covered differently: Meld's region export writes the tiles and map table into the user's client folder and server.*

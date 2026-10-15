@@ -15,6 +15,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 
 ## Decisions
 
+### Nothing beyond the 1.12 client · owner
+- A Noggit Red feature that only exists in clients after 1.12 does not go in the gap list or the
+  backlog: vertex colours (MCCV), 8-bit alpha maps, MH2O water, texture height mapping, WMO low-res
+  models, map difficulties, skyboxes and zone lights. B-058 and B-083 are parked for this.
+- Decided by the owner, 2026-10-15.
+
 ### B-003 Vertex edit mode: orientation reference · noggit3
 - Two references, as noggit has: **Selection centre** (default) and **Cursor**.
 - The ramp has a slope angle (−89° to 89°) and a direction (0° to 360°). Space + right-drag turns the
