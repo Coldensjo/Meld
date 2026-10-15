@@ -220,6 +220,9 @@ export class Engine {
   private roomFlood = new RoomFlood()
   private roomFog = new RoomFogFade()
   private roomClip = new THREE.Matrix4()
+  private roomNarrow = new THREE.Matrix4()
+  private roomGateFrustums: THREE.Frustum[] = []
+  private roomGate: THREE.Frustum[] = []
   private roomSceneFog = { r: 0, g: 0, b: 0 }
   private roomSceneRgb = [0, 0, 0]
   private particles = new ParticleLayer()
@@ -815,6 +818,27 @@ export class Engine {
       v.frustums.push(light.shadow.getFrustum())
     }
     v.spheres = this.effects.shadowSpheres
+    // In a WMO room the open world shows only through its doorways (#116): each window the portal
+    // flood left is the view narrowed to its rect, and a sealed room has none.
+    const room = this.rooms.current
+    if (room && !this.topDown) {
+      const w = this.roomFlood.exteriorWindows
+      const n = w.length / 4
+      while (this.roomGateFrustums.length < n) this.roomGateFrustums.push(new THREE.Frustum())
+      this.roomGate.length = 0
+      for (let i = 0; i < n; i++) {
+        const x0 = w[i * 4], y0 = w[i * 4 + 1], x1 = w[i * 4 + 2], y1 = w[i * 4 + 3]
+        const sx = x1 - x0, sy = y1 - y0
+        this.roomNarrow.set(2 / sx, 0, 0, -(x0 + x1) / sx, 0, 2 / sy, 0, -(y0 + y1) / sy, 0, 0, 1, 0, 0, 0, 0, 1).multiply(this.viewProj)
+        this.roomGateFrustums[i].setFromProjectionMatrix(this.roomNarrow)
+        this.roomGate.push(this.roomGateFrustums[i])
+      }
+      v.gate = this.roomGate
+      v.gateExempt = room.id
+    } else {
+      v.gate = null
+    }
+    this.terrain.gate(v.gate)
     v.eye.copy(this.camera.position)
     // Pixels per unit at a distance of one. The top-down camera stands ORTHO_HEIGHT above the ground,
     // so its constant pixels per unit is scaled by that distance.
@@ -862,7 +886,7 @@ export class Engine {
     p.light.copy(tu.skyAmbient.value as THREE.Color).add(this.tmpColor.copy(tu.sunColor.value as THREE.Color).multiplyScalar(sun))
     p.light.setRGB(Math.min(1, p.light.r), Math.min(1, p.light.g), Math.min(1, p.light.b))
     // With animations off the tracks hold at the loop's start, as the bones do, but the particles still fly.
-    p.update(this.objects, this.doc.spawnLayer, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum)
+    p.update(this.objects, this.doc.spawnLayer, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum, this.cullView.gate ?? null, this.rooms.current?.id ?? -1)
   }
 
   private applyViewDistance() {

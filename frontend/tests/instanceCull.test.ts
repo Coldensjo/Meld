@@ -94,3 +94,23 @@ test('instances small on screen go to the LOD, and an unchanged split reports no
   assert.equal(splitLod({ ...v, lodPx: 0 }, s, [0, 1, 2], near, far, [], []), true)
   assert.deepEqual(far, [], 'no LOD without a threshold')
 })
+
+test('in a WMO room only what a doorway shows is kept, the building itself always', () => {
+  // A doorway straight ahead: the view narrowed to the middle tenth of the screen.
+  const cam = new THREE.PerspectiveCamera(90, 1, 0.1, 1000)
+  cam.updateMatrixWorld()
+  const vp = new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)
+  const x0 = -0.1, x1 = 0.1, y0 = -0.1, y1 = 0.1
+  const narrow = new THREE.Matrix4().set(2 / (x1 - x0), 0, 0, -(x0 + x1) / (x1 - x0), 0, 2 / (y1 - y0), 0, -(y0 + y1) / (y1 - y0), 0, 0, 1, 0, 0, 0, 0, 1).multiply(vp)
+  const door = new THREE.Frustum().setFromProjectionMatrix(narrow)
+  const s = spheres([0, 0, -50, 1], [30, 0, -50, 1], [-30, 0, -50, 1])
+  const out: number[] = []
+  cullSpheres({ ...view(), gate: [door] }, s, 3, out, [])
+  assert.deepEqual(out, [0], 'only the one through the doorway')
+  cullSpheres({ ...view(), gate: [door] }, s, 3, out, [], 2)
+  assert.deepEqual(out, [0, 2], 'the exempt building stays')
+  cullSpheres({ ...view(), gate: [] }, s, 3, out, [])
+  assert.deepEqual(out, [], 'a sealed room shows none of the world')
+  cullSpheres({ ...view(), gate: null }, s, 3, out, [])
+  assert.deepEqual(out, [0, 1, 2], 'outside, no gate')
+})

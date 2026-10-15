@@ -228,6 +228,12 @@ const right = new THREE.Vector3()
 const up = new THREE.Vector3()
 const sphere = new THREE.Sphere()
 
+/** Whether `s` meets one of `frustums`. */
+function meetsAny(frustums: THREE.Frustum[], s: THREE.Sphere): boolean {
+  for (let k = 0; k < frustums.length; k++) if (frustums[k].intersectsSphere(s)) return true
+  return false
+}
+
 /** A seed for an emitter's randomizer from its owner's key, so each owner sprays its own pattern. */
 function seedOf(key: string, i: number): number {
   let h = 0x811c9dc5
@@ -344,7 +350,21 @@ export class ParticleLayer {
   }
 
   /** Advances and draws the particles: dt seconds have passed and the models' clock reads `ms`. */
-  update(layer: ObjectLayer, spawns: SpawnLayer | null, dt: number, ms: number, camera: THREE.Camera, frustum: THREE.Frustum) {
+  /**
+   * `gate`, with the camera in a WMO room, are its doorways' frustums: an emitter outside them all is
+   * frozen and hidden, except those of the building itself, the object `gateExempt`.
+   */
+  update(
+    layer: ObjectLayer,
+    spawns: SpawnLayer | null,
+    dt: number,
+    ms: number,
+    camera: THREE.Camera,
+    frustum: THREE.Frustum,
+    gate: THREE.Frustum[] | null = null,
+    gateExempt = -1,
+  ) {
+    const exempt = `${gateExempt}:`
     this.group.visible = this.enabled
     if (!this.enabled) return
     const spawnsVersion = spawns?.version ?? -1
@@ -364,7 +384,7 @@ export class ParticleLayer {
     right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
     up.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
     for (const b of this.batches.values()) b.floats = 0
-    for (const l of this.live.values()) {
+    for (const [key, l] of this.live) {
       if (l.follow) {
         if (!shown(l.follow)) continue
         l.follow.updateWorldMatrix(true, false)
@@ -376,6 +396,7 @@ export class ParticleLayer {
       origin.setFromMatrixPosition(m)
       const d = origin.distanceTo(eye)
       if (d > RANGE || !frustum.intersectsSphere(sphere.set(origin, REACH))) continue
+      if (gate && !key.startsWith(exempt) && !meetsAny(gate, sphere)) continue
       const b = l.batch
       const pool = l.pool
       if (pool) {

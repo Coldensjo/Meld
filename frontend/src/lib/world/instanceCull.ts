@@ -19,6 +19,21 @@ export interface CullView {
   cutoffPx: number
   /** Instances whose bounds cover fewer pixels than this are drawn with their model's LOD; 0 never. */
   lodPx?: number
+  /**
+   * With the camera in a WMO room, the open world shows only through the room's doorways: an
+   * instance must also meet one of these frustums (none, in a sealed room). Null outside.
+   */
+  gate?: THREE.Frustum[] | null
+  /** The object the gate leaves alone: the building the camera is in, gated by its own groups. */
+  gateExempt?: number
+}
+
+/** Whether a sphere passes the view's room gate (always, with no gate). */
+export function throughGate(view: CullView, s: THREE.Sphere): boolean {
+  const gate = view.gate
+  if (!gate) return true
+  for (let k = 0; k < gate.length; k++) if (gate[k].intersectsSphere(s)) return true
+  return false
 }
 
 const sphere = new THREE.Sphere()
@@ -42,7 +57,7 @@ export function instanceSphere(geometry: THREE.BufferGeometry, matrix: THREE.Mat
  * are in view, in order, written into `out`. Returns false when `out` already held exactly them, so
  * the caller can skip re-packing the instance buffer.
  */
-export function cullSpheres(view: CullView, spheres: Float32Array, n: number, out: number[], scratch: number[]): boolean {
+export function cullSpheres(view: CullView, spheres: Float32Array, n: number, out: number[], scratch: number[], exempt = -1): boolean {
   scratch.length = 0
   const { frustums, eye, pxPerUnit, cutoffPx } = view
   for (let i = 0; i < n; i++) {
@@ -59,6 +74,7 @@ export function cullSpheres(view: CullView, spheres: Float32Array, n: number, ou
     for (let k = 0; !seen && k < frustums.length; k++) seen = frustums[k].intersectsSphere(sphere)
     const reach = view.spheres
     for (let k = 0; !seen && reach && k < reach.length; k++) seen = reach[k].intersectsSphere(sphere)
+    if (seen && i !== exempt && !throughGate(view, sphere)) seen = false
     if (seen) scratch.push(i)
   }
   let same = scratch.length === out.length

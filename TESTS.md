@@ -785,6 +785,14 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
   `"rooms":true` header); a page loaded before a Go change keeps the old assets, so reload it.
 - Trap: the inn placed with `yOff: 0` on rough ground can have its floor under the terrain, and the
   probe's terrain race then reads outside; pick a floor above the ground.
+- The world through the windows (#116): `tests/instanceCull.test.ts` (a doorway, the exempt
+  building, a sealed room). Live, after the steps above: `__engine.roomFlood.exteriorWindows` (four
+  NDC numbers a window), `__engine.cullView.gate` (their frustums), the drawn instances (sum of
+  `mesh.count` over `__engine.objects.batches`) and `__engine.terrain.chunks.filter(c => c.visible)`.
+  In the Goldshire inn only portal 0 (group 0 to the porch, group 11) leads out: from the hall
+  (group 2) no window, so only the inn draws; from group 0 facing the door, one window and a few
+  chunks. Set `prefs.cameraFollowGround = false` in the app's editor module (see the `?t=` trap)
+  first: `controller.followGround` alone is reset from the prefs.
 
 ## Client Lighting's ground: per-vertex light and the sheen (#111)
 

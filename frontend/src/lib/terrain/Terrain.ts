@@ -201,6 +201,24 @@ export class Terrain {
     }
   }
 
+  /**
+   * Shows only the chunks that meet one of `frustums` (the doorways of the WMO room the camera is
+   * in), or every chunk for null.
+   */
+  gate(frustums: THREE.Frustum[] | null) {
+    for (const c of this.chunks) {
+      if (!frustums) {
+        c.visible = true
+        continue
+      }
+      const g = c.geometry
+      if (!g.boundingBox) g.computeBoundingBox()
+      let seen = false
+      for (let k = 0; !seen && k < frustums.length; k++) seen = frustums[k].intersectsBox(g.boundingBox!)
+      c.visible = seen
+    }
+  }
+
   private writeChunk(mesh: THREE.Mesh) {
     const { vx, vz, cells, cellsZ, ox, oz } = mesh.userData as { vx: number; vz: number; cells: number; cellsZ: number; ox: number; oz: number }
     const geo = mesh.geometry

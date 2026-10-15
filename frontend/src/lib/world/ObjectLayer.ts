@@ -408,7 +408,8 @@ export class ObjectLayer {
    */
   cull(view: CullView) {
     for (const b of this.batches.values()) {
-      const changed = cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch)
+      const exempt = view.gate && view.gateExempt !== undefined ? b.all.indexOf(view.gateExempt) : -1
+      const changed = cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch, exempt)
       if (!b.lod) {
         if (changed) this.pack(b, b.mesh, b.ids, b.packed)
         continue

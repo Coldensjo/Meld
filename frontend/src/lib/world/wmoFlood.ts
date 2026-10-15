@@ -49,6 +49,13 @@ export class RoomFlood {
   /** The walk's stack, eight numbers a step: group, came-from, rect x0 y0 x1 y1, depth and chain. */
   private stack: number[] = []
   private windows: number[] = []
+  /**
+   * The last run's deferred exterior windows, four numbers (NDC x0 y0 x1 y1) each: the doorways the
+   * open world may be seen through. Empty for a sealed room, or when the run had no seed.
+   */
+  get exteriorWindows(): readonly number[] {
+    return this.windows
+  }
   private roots: number[] = []
   private iters = 0
   private nav!: WmoNav
@@ -77,6 +84,7 @@ export class RoomFlood {
     this.iters = 0
     for (let i = 0; i < 16; i++) this.m[i] = clipFromLocal.elements[i]
     const out: RoomPvs = { visible: this.visible.subarray(0, n), fog: this.fog.subarray(0, n) }
+    this.windows.length = 0
     if (seeds.inGroup === null) return out
 
     // Pass 1 from the camera's groups, full screen each. It records windows only on the inside leg:
