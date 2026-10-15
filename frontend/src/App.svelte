@@ -99,6 +99,12 @@
     // Over the creature editor only undo and redo reach the map (its spawn edits are undo steps);
     // the brush editor takes every key (its own Esc closes it).
     if (ui.brushEditor) return
+    // Esc closes the inspector alone; the selection stays.
+    if (e.key === 'Escape' && ui.inspector) {
+      ui.inspector = false
+      e.preventDefault()
+      return
+    }
     if (ui.creatureEditor) {
       if (mod && (key === 'z' || key === 'y')) {
         const c = key === 'y' || e.shiftKey ? engine.redo() : engine.undo()

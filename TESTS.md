@@ -66,8 +66,8 @@ c.dispatchEvent(new PointerEvent('pointerup', { button: 2, altKey: true, clientX
 - The engine picks the ground from the pointer position on the press, so the pointer must be over
   the terrain in the hidden tab too (`__engine.frame()` first, after aiming the camera).
 - The inspector: `ui.inspector = true` (or the I key) shows `.inspector` with the Properties
-  panel's fields for the selection; Esc closes it without deselecting (its capture-phase listener
-  stops the engine's Esc).
+  panel's fields for the selection; Esc closes it without deselecting (App.svelte's key handler
+  takes that Esc before the engine's selection keys).
 - `setPointerCapture` throws on a synthetic event without a real pointer; the engine ignores that
   (it is wrapped), so the drag still works from a script.
 

@@ -2,23 +2,9 @@
   import PropertiesPanel from './PropertiesPanel.svelte'
   import { prefs, ui } from '../lib/state/editor.svelte'
 
-  // A floating inspector over the viewport (I opens and closes it, so does Esc): the Properties
-  // panel's numbers and actions for what is selected, kept out of the dock.
-
-  function onKey(e: KeyboardEvent) {
-    if (!ui.inspector || e.key !== 'Escape') return
-    const el = e.target as HTMLElement | null
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) return
-    // Esc closes the inspector alone; the selection stays.
-    e.stopImmediatePropagation()
-    e.preventDefault()
-    ui.inspector = false
-  }
-
-  $effect(() => {
-    window.addEventListener('keydown', onKey, { capture: true })
-    return () => window.removeEventListener('keydown', onKey, { capture: true })
-  })
+  // A floating inspector over the viewport (I opens and closes it, and Esc closes it, handled with
+  // the other keys in App.svelte): the Properties panel's numbers and actions for what is selected,
+  // kept out of the dock.
 </script>
 
 {#if ui.inspector}
