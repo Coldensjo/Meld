@@ -452,6 +452,8 @@ export const ui = $state({
   creatureEditor: null as { key: string | null; entry: number } | null,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
+  /** The game Meld closes and opens around an export (Preferences › Game Client): Wow.exe or Benilla. */
+  gameClient: 'wow' as 'wow' | 'benilla',
   /** The floating quick texture palette (components/TexturePaletteWindow.svelte): the map's textures to paint with. */
   texturePalette: false,
   /** The floating History window (components/HistoryWindow.svelte): the undo stack, a click goes to any step. */

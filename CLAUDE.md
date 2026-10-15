@@ -61,7 +61,9 @@ cd frontend && pnpm build   # frontend only
   - `vmangos` is the server side: regions read from the client and written back as a patch (with the
     map's WDL horizon redrawn for the block, `wdl.go`), the map and spawn exports, the world database's spawns, templates and looks, the DBC tables the editor
     needs (maps, zones, emotes, liquids, ground effects), and launching the client and servers.
-  - `game` closes and reopens the client and servers around an export.
+  - `game` closes and reopens the client and servers around an export: Wow.exe, or Benilla (the
+    open-source 1.12.1 client, `config.GameClient`, started from its folder with `WOW_DATA`,
+    `WOW_USER` and `WOW_PASS`; see BENILLA.md).
 
   No editing logic goes in Go: it never decides what a brush does. It parses, converts and writes
   formats the frontend should not have to know, and anything that must read the client's archives.

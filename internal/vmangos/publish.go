@@ -55,6 +55,12 @@ func (OSRunner) Start(dir, name string, args ...string) error {
 	return startProgram(dir, name, args)
 }
 
+// StartEnv is Start with `env` (KEY=value) added to the program's environment (Benilla takes its data
+// folder and login from it).
+func (OSRunner) StartEnv(dir, name string, env []string, args ...string) error {
+	return startProgramEnv(dir, name, args, env)
+}
+
 // PublishPlan says where a map's files go: the client's Data folder (where the patch is written and the
 // extractors read the client from), the VMaNGOS server folder, and the mariadb client program.
 type PublishPlan struct {

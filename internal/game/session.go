@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	gameImage  = "Wow.exe"
-	worldImage = "mangosd.exe"
-	authImage  = "realmd.exe"
+	gameImage    = "Wow.exe"
+	benillaImage = "benilla.exe"
+	worldImage   = "mangosd.exe"
+	authImage    = "realmd.exe"
 
 	// The ports the servers listen on by default. A server whose conf changes them only costs the wait.
 	authPort  = 3724
@@ -45,6 +46,27 @@ type Session struct {
 	Log func(string)
 	// Ready reports whether a port accepts connections. Nil checks it on this machine.
 	Ready func(port int) bool
+	// Benilla, when set, is the Benilla folder: the game closed and opened is Benilla instead of
+	// Wow.exe, started from that folder with the install's Data folder and the login in its environment.
+	Benilla string
+}
+
+// BenillaExe is where a release build of Benilla puts its program, under its folder.
+func BenillaExe(folder string) string {
+	return filepath.Join(folder, "target", "release", benillaImage)
+}
+
+// envStarter is a Runner that can also start a program with extra environment variables.
+type envStarter interface {
+	StartEnv(dir, name string, env []string, args ...string) error
+}
+
+// game is the image of the game this session closes and opens.
+func (s Session) game() string {
+	if s.Benilla != "" {
+		return benillaImage
+	}
+	return gameImage
 }
 
 // Closed is what Stop shut down, so Start opens only those again.
@@ -58,8 +80,8 @@ type Closed struct {
 // one to exit. On an error it returns what it did close, so the caller can still Start them.
 func (s Session) Stop() (Closed, error) {
 	var c Closed
-	if s.Run.Running(gameImage) {
-		if err := s.close(gameImage); err != nil {
+	if s.Run.Running(s.game()) {
+		if err := s.close(s.game()); err != nil {
 			return c, err
 		}
 		c.Game = true
@@ -100,7 +122,10 @@ func (s Session) Start(c Closed) error {
 	if c.World && !s.waitReady(worldPort) {
 		s.log("The world server is not accepting connections yet.")
 	}
-	if c.Game {
+	if c.Game && s.Benilla != "" {
+		s.log("Starting Benilla…")
+		errs = append(errs, s.startBenilla())
+	} else if c.Game {
 		s.log("Starting World of Warcraft…")
 		if err := s.Run.Start(s.ClientRoot, filepath.Join(s.ClientRoot, gameImage)); err != nil {
 			errs = append(errs, fmt.Errorf("starting the game: %w", err))
@@ -109,6 +134,28 @@ func (s Session) Start(c Closed) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// startBenilla starts Benilla from its folder (where it keeps benilla-config), reading the install's
+// Data folder; with a saved login, Benilla logs itself in (WOW_USER and WOW_PASS), no typing needed.
+func (s Session) startBenilla() error {
+	env := []string{"WOW_DATA=" + filepath.Join(s.ClientRoot, "Data")}
+	if s.Login.Account != "" && s.Login.Password != "" {
+		env = append(env, "WOW_USER="+s.Login.Account, "WOW_PASS="+s.Login.Password)
+	}
+	exe := BenillaExe(s.Benilla)
+	if r, ok := s.Run.(envStarter); ok {
+		if err := r.StartEnv(s.Benilla, exe, env); err != nil {
+			return fmt.Errorf("starting Benilla: %w", err)
+		}
+		return nil
+	}
+	return errors.New("this runner can't start Benilla with its data folder")
+}
+
+// StartGame opens the session's game on its own (the menu's Launch Game), logged in when a login is saved.
+func (s Session) StartGame() error {
+	return s.Start(Closed{Game: true})
 }
 
 // logIn types the saved account into the client's login screen. It runs in the background, since the

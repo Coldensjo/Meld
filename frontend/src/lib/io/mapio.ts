@@ -14,6 +14,11 @@ import {
   WriteTextFile,
   OpenHeightmapDialog,
   OpenImageDialog,
+  GameClient,
+  SetGameClient,
+  BrowseBenillaFolder,
+  SetBenillaPath,
+  LaunchGame,
   OpenMapDialog,
   PublishVmangosMap,
   ReadHeightmap,
@@ -658,6 +663,53 @@ export function importObjectList(engine: Engine) {
 }
 
 /** Asks for the VMaNGOS server folder that the map data is built in. */
+/** Reads which game client Meld uses into ui.gameClient (Preferences › Game Client). */
+export async function refreshGameClient() {
+  if (!hasBackend()) return
+  try {
+    ui.gameClient = (await GameClient()).client === 'benilla' ? 'benilla' : 'wow'
+  } catch {
+    /* no backend */
+  }
+}
+
+/** Picks the game Meld closes and opens around an export: the WoW client or Benilla. */
+export async function setGameClient(client: 'wow' | 'benilla') {
+  if (!hasBackend()) return
+  try {
+    await SetGameClient(client)
+    await refreshGameClient()
+    setStatus(client === 'benilla' ? 'Meld now closes and opens Benilla around an export, logged in with the saved Game Login.' : 'Meld now closes and opens World of Warcraft (Wow.exe) around an export.', 6000)
+  } catch (e) {
+    setStatus(`${e}`, 8000)
+  }
+}
+
+/** Picks the Benilla folder (its repository, with the release build in target/release). */
+export async function chooseBenillaFolder() {
+  if (!hasBackend()) return
+  try {
+    const dir = await BrowseBenillaFolder()
+    if (!dir) return
+    await SetBenillaPath(dir)
+    const info = await GameClient()
+    setStatus(info.benillaBuilt ? `Benilla folder: ${dir}. Pick Preferences › Benilla to use it.` : `Benilla folder: ${dir}, but it isn't built: run cargo build --release -p benilla there.`, 8000)
+  } catch (e) {
+    setStatus(`${e}`, 8000)
+  }
+}
+
+/** Opens the chosen game client now, logged in with the saved Game Login. */
+export async function launchGame() {
+  if (!hasBackend()) return
+  try {
+    await LaunchGame()
+    setStatus(ui.gameClient === 'benilla' ? 'Starting Benilla…' : 'Starting World of Warcraft…', 4000)
+  } catch (e) {
+    setStatus(`The game didn't start: ${e}`, 8000)
+  }
+}
+
 export async function chooseVmangosFolder() {
   if (!hasBackend()) return
   try {

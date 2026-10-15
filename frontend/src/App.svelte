@@ -19,6 +19,7 @@
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { restoreSession, saveSession, startSessionSaving } from './lib/io/session'
   import { onMount } from 'svelte'
+  import { refreshGameClient } from './lib/io/mapio'
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
   import { LAYERS } from './lib/terrain/layers'
@@ -32,6 +33,7 @@
 
   let prefsLoaded = $state(false)
   onMount(() => {
+    void refreshGameClient()
     const wowReady = initWow().catch((e) => console.warn('WoW client init failed', e))
     const prefsReady = loadPrefs().finally(() => (prefsLoaded = true))
     // With the preferences and the client's status known, open what was open at the last close.

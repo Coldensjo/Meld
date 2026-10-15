@@ -20,6 +20,11 @@ type Config struct {
 	Prefs json.RawMessage `json:"prefs,omitempty"`
 	// Window is the main window's size when it was last closed.
 	Window Window `json:"window,omitempty"`
+	// GameClient is the game Meld closes and opens around an export: "" for the WoW client (Wow.exe),
+	// "benilla" for Benilla, the open-source 1.12.1 client, which reads the same install.
+	GameClient string `json:"gameClient,omitempty"`
+	// BenillaPath is the Benilla folder (its repository, with target/release/benilla.exe built in it).
+	BenillaPath string `json:"benillaPath,omitempty"`
 }
 
 // Window is the main window's last size (unmaximised) and whether it was maximised.

@@ -4,6 +4,7 @@ package vmangos
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -14,11 +15,20 @@ import (
 // gets an empty input, so it can't be started directly. start gives it a real console, and the server
 // keeps running after the editor exits.
 func startProgram(dir, name string, args []string) error {
+	return startProgramEnv(dir, name, args, nil)
+}
+
+// startProgramEnv is startProgram with `env` (KEY=value) added to the program's environment.
+func startProgramEnv(dir, name string, args, env []string) error {
 	quoted := []string{`/D "` + dir + `"`, `"` + name + `"`}
 	for _, a := range args {
 		quoted = append(quoted, `"`+a+`"`)
 	}
 	cmd := exec.Command("cmd.exe")
+	if len(env) > 0 {
+		// start hands cmd's environment on to the program.
+		cmd.Env = append(os.Environ(), env...)
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: `cmd.exe /c start "" ` + strings.Join(quoted, " ")}
 	// No output is captured: the started program inherits the pipe, and this would wait for it to exit.
 	if err := cmd.Run(); err != nil {

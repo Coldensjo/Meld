@@ -14,6 +14,8 @@ export function AreaRows(arg1:number):Promise<Array<vmangos.AreaRow>>;
 
 export function Areas():Promise<Array<vmangos.Area>>;
 
+export function BrowseBenillaFolder():Promise<string>;
+
 export function BrowseBrushImageFolder(arg1:string):Promise<string>;
 
 export function BrowseVmangosFolder():Promise<string>;
@@ -28,11 +30,15 @@ export function EquipmentFor(arg1:any):Promise<number>;
 
 export function EquipmentItems(arg1:number):Promise<any>;
 
+export function GameClient():Promise<main.GameClientInfo>;
+
 export function GameLogin():Promise<main.GameLoginInfo>;
 
 export function GroundEffects():Promise<vmangos.GroundEffectTables>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
+
+export function LaunchGame():Promise<void>;
 
 export function LiquidTypes():Promise<Array<vmangos.LiquidTypeEntry>>;
 
@@ -129,6 +135,10 @@ export function SaveTextDialog(arg1:string):Promise<string>;
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 
 export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTemplate>>;
+
+export function SetBenillaPath(arg1:string):Promise<void>;
+
+export function SetGameClient(arg1:string):Promise<void>;
 
 export function SetGameLogin(arg1:string,arg2:string):Promise<void>;
 

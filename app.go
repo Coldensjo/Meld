@@ -808,13 +808,102 @@ func (a *App) gameSession() (game.Session, error) {
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	return game.Session{
+	s := game.Session{
 		ClientRoot: root,
 		ServerRoot: a.cfg.VmangosPath,
 		Login:      a.cfg.Login,
 		Run:        vmangos.OSRunner{},
 		Log:        func(msg string) { runtime.LogInfo(a.ctx, msg) },
-	}, nil
+	}
+	if a.cfg.GameClient == "benilla" && a.cfg.BenillaPath != "" {
+		s.Benilla = a.cfg.BenillaPath
+	}
+	return s, nil
+}
+
+// GameClientInfo is which game Meld closes and opens around an export, and Benilla's folder.
+type GameClientInfo struct {
+	// Client is "wow" (Wow.exe) or "benilla".
+	Client      string `json:"client"`
+	BenillaPath string `json:"benillaPath"`
+	// BenillaBuilt says the Benilla folder has a release build of the program.
+	BenillaBuilt bool `json:"benillaBuilt"`
+}
+
+// GameClient says which game client Meld uses.
+func (a *App) GameClient() GameClientInfo {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	info := GameClientInfo{Client: "wow", BenillaPath: a.cfg.BenillaPath}
+	if a.cfg.GameClient == "benilla" {
+		info.Client = "benilla"
+	}
+	if info.BenillaPath != "" {
+		_, err := os.Stat(game.BenillaExe(info.BenillaPath))
+		info.BenillaBuilt = err == nil
+	}
+	return info
+}
+
+// SetGameClient picks the game Meld closes and opens around an export: "wow" or "benilla". Benilla
+// needs its folder set first, with a release build in it.
+func (a *App) SetGameClient(client string) error {
+	if client != "wow" && client != "benilla" {
+		return fmt.Errorf("unknown game client %q", client)
+	}
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	if client == "benilla" {
+		if a.cfg.BenillaPath == "" {
+			return errors.New("choose the Benilla folder first (Settings › Benilla Folder…)")
+		}
+		if _, err := os.Stat(game.BenillaExe(a.cfg.BenillaPath)); err != nil {
+			return fmt.Errorf("Benilla isn't built in %s: run cargo build --release -p benilla there", a.cfg.BenillaPath)
+		}
+	}
+	value := ""
+	if client == "benilla" {
+		value = "benilla"
+	}
+	a.cfg.GameClient = value
+	return config.Update(func(c *config.Config) error {
+		c.GameClient = value
+		return nil
+	})
+}
+
+// BrowseBenillaFolder lets the user pick the Benilla folder (its repository). Returns "" if cancelled.
+func (a *App) BrowseBenillaFolder() (string, error) {
+	a.cfgMu.Lock()
+	dir := a.cfg.BenillaPath
+	a.cfgMu.Unlock()
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Select the Benilla folder", DefaultDirectory: dir})
+}
+
+// SetBenillaPath saves the Benilla folder: the repository, with its Cargo.toml (the program is built
+// into target/release there).
+func (a *App) SetBenillaPath(path string) error {
+	if path != "" {
+		if _, err := os.Stat(filepath.Join(path, "crates", "benilla-mpq")); err != nil {
+			return fmt.Errorf("%s isn't a Benilla folder (it has no crates/benilla-mpq)", path)
+		}
+	}
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	a.cfg.BenillaPath = path
+	return config.Update(func(c *config.Config) error {
+		c.BenillaPath = path
+		return nil
+	})
+}
+
+// LaunchGame opens the chosen game client now (Wow.exe or Benilla), logged in when a login is saved.
+func (a *App) LaunchGame() error {
+	sess, err := a.gameSession()
+	if err != nil {
+		return err
+	}
+	return sess.StartGame()
 }
 
 // GameLoginInfo is the saved game login. The password itself never goes to the frontend.

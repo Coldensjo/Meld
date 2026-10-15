@@ -18,6 +18,10 @@ export function Areas() {
   return window['go']['main']['App']['Areas']();
 }
 
+export function BrowseBenillaFolder() {
+  return window['go']['main']['App']['BrowseBenillaFolder']();
+}
+
 export function BrowseBrushImageFolder(arg1) {
   return window['go']['main']['App']['BrowseBrushImageFolder'](arg1);
 }
@@ -46,6 +50,10 @@ export function EquipmentItems(arg1) {
   return window['go']['main']['App']['EquipmentItems'](arg1);
 }
 
+export function GameClient() {
+  return window['go']['main']['App']['GameClient']();
+}
+
 export function GameLogin() {
   return window['go']['main']['App']['GameLogin']();
 }
@@ -56,6 +64,10 @@ export function GroundEffects() {
 
 export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
+}
+
+export function LaunchGame() {
+  return window['go']['main']['App']['LaunchGame']();
 }
 
 export function LiquidTypes() {
@@ -248,6 +260,14 @@ export function SaveThumbnail(arg1, arg2) {
 
 export function SearchCreatures(arg1) {
   return window['go']['main']['App']['SearchCreatures'](arg1);
+}
+
+export function SetBenillaPath(arg1) {
+  return window['go']['main']['App']['SetBenillaPath'](arg1);
+}
+
+export function SetGameClient(arg1) {
+  return window['go']['main']['App']['SetGameClient'](arg1);
 }
 
 export function SetGameLogin(arg1, arg2) {

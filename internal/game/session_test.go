@@ -161,3 +161,36 @@ func (f *failingStarter) Start(dir, name string, args ...string) error {
 	f.calls = append(f.calls, "START "+filepath.Base(name))
 	return errBoom
 }
+
+// envRunner is a fakeRunner that can start a program with an environment, as OSRunner does.
+type envRunner struct {
+	fakeRunner
+	dir string
+	env []string
+}
+
+func (f *envRunner) StartEnv(dir, name string, env []string, args ...string) error {
+	f.dir, f.env = dir, env
+	return f.Start(dir, name, args...)
+}
+
+// With Benilla as the game, a session closes benilla.exe (not Wow.exe) and starts it from its folder
+// with the install's Data folder and the login in its environment.
+func TestSessionWithBenilla(t *testing.T) {
+	r := &envRunner{fakeRunner: fakeRunner{running: map[string]bool{"benilla.exe": true, "Wow.exe": true}}}
+	s := Session{ClientRoot: `C:\WoW`, Benilla: `C:\benilla`, Login: config.Login{Account: "MELD", Password: "secret"}, Run: r}
+	c, err := s.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Game || r.running["benilla.exe"] || !r.running["Wow.exe"] {
+		t.Fatalf("closed %+v, running %v", c, r.running)
+	}
+	if err := s.Start(c); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"WOW_DATA=" + filepath.Join(`C:\WoW`, "Data"), "WOW_USER=MELD", "WOW_PASS=secret"}
+	if r.dir != `C:\benilla` || strings.Join(r.env, "|") != strings.Join(want, "|") || !r.running["benilla.exe"] {
+		t.Fatalf("started from %q with %v", r.dir, r.env)
+	}
+}

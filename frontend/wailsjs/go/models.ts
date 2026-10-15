@@ -62,6 +62,22 @@ export namespace main {
 	        this.server = source["server"];
 	    }
 	}
+	export class GameClientInfo {
+	    client: string;
+	    benillaPath: string;
+	    benillaBuilt: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new GameClientInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.client = source["client"];
+	        this.benillaPath = source["benillaPath"];
+	        this.benillaBuilt = source["benillaBuilt"];
+	    }
+	}
 	export class GameLoginInfo {
 	    account: string;
 	    hasPassword: boolean;

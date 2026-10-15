@@ -47,6 +47,17 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as Noggit Red's Minimap Editor does (with a resolution, what to draw, and model filters), so the in-game minimap shows the edited ground · Source: loop: B-059, gap §5 · L/L · a client write, checked against the client's own reader
 - [ ] B-150 **Area trigger display and editor**: the map's AreaTrigger.dbc boxes and spheres, added, moved and resized · gap §11 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 
+## Benilla (see BENILLA.md)
+
+- [ ] B-164 **Check a round trip in Benilla by hand**: a region save and a published map, walked in Benilla, with the SoloCraft install as its data · Source: owner · M/S
+- [ ] B-165 **Write the patch without closing Benilla**: test whether Benilla's shared file handles let Meld replace patch-3.MPQ while it runs, and if so skip the close (Benilla still needs a restart or a reload to show it) · Source: owner · L/S
+- [ ] B-166 **Port the client's light blending, sky dome colours and fog from Benilla** (MIT/Apache) over Client Lighting's colours-only take · Source: owner · L/M
+- [ ] B-167 **Far horizon from the WDL, after Benilla's renderer** (with B-155) · Source: owner · L/M
+- [ ] B-168 **M2 particles and ribbons after Benilla's** (with B-154) · Source: owner · L/L
+- [ ] B-169 **Minimap textures after Benilla's reading of them** (with B-129) · Source: owner · L/M
+- [ ] B-170 **Overbright and scrolling textures exactly as Benilla draws them** (Meld's overbright is a guess) · Source: owner · L/S
+- [ ] B-171 **Play here**: teleport the logged-in character to the camera's spot from Meld · Source: owner · L/M · needs-approval (a server-side command)
+
 ## Navigation, view and display
 
 - [ ] B-071 **Locked cursor mode** while the camera moves · gap §6 · L/S
