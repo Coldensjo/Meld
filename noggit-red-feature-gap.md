@@ -135,7 +135,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 - **Fog** toggle (F12). *Covered: Graphics › Fog.*
 - **Model animation** toggle (F11). *Covered: Graphics › Prop animations.*
 - **Particles and ribbons** **(Red)**: Noggit Red draws M2 particle emitters and ribbons (`Particle.cpp`, `rendering/glsl/particle_*`, `ribbon_*`). Meld draws only a procedural flame at a fire emitter.
-- **Far horizon** **(Red)**: beyond the loaded tiles Noggit Red draws the map's WDL horizon (`map_horizon.cpp`). Meld's sea floor plane hides the map edge, and a part of Azeroth ends at its block.
+- ~~**Far horizon** **(Red)**: beyond the loaded tiles Noggit Red draws the map's WDL horizon (`map_horizon.cpp`). Meld's sea floor plane hides the map edge, and a part of Azeroth ends at its block.~~ *Done: around an open region Meld draws the map's WDL tiles within five tiles, as the client draws them (View › Far Horizon; BACKLOG B-155 with B-167).*
 - ~~**Toggle UI** (Tab) to hide all panels.~~ *Done: Tab (and Graphics › Hide panels) hides the toolbar, options bar, asset browser, dock and status bar; the menu bar stays, as Photoshop's Tab keeps it. Ctrl+Tab still cycles the map tabs.*
 - ~~**Detail info panel**: per-tile or chunk information.~~ *Done: Graphics › Detail info shows the tile, chunk, cell, height, slope, hole and no-tuft flags, the chunk's texture layers with their share at the cell and effect IDs, the liquids covering the cell and the models in the chunk, in the viewport's top right corner, refreshed at 2 Hz.*
 - **Light zone display** on the minimap.

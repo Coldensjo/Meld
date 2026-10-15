@@ -15,8 +15,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Bugs and broken things (always first)
 
-- [x] B-180 **The key light isn't aimed with Shadows off**: only the shadow fit (`Environment.fitCascade`) places the key light, so with Shadows off the props' sun stays straight overhead whatever the hour · Source: loop: B-166 · M/S · done 2026-10-15
-- [x] B-177 **Ground effect slots name the wrong models**: Meld matched a GroundEffectTexture slot against GroundEffectDoodad's row ID, where the client uses its internal ID (one less), so the tuft preview grew the neighbouring row's model and a new effect was written with IDs the client read as other models (and its empty slots as 0, ElwFlo01) · Source: loop: B-172 · H/S · done 2026-10-15
 - [x] B-118 **Re-home what the dropped dock panels did** · Source: owner · M/S · decided and done 2026-10-15: growing a region is File › Grow region (four actions); Save Spawns to Database and Export Spawn SQL are File actions with the unsaved count as a status bar chip; the placement numbers are a floating Inspector on the I key; no spawn list (the creature editor opens from a click); the region's facts stay in Map Properties
 
 ## Terrain sculpting and painting
@@ -60,14 +58,8 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 The client's own behaviour, ported from Benilla's MIT/Apache Rust into Meld's Go and TypeScript. The owner
 wants these worked first, in this order, starting in a fresh session (2026-10-15).
 
-- [x] B-172 **Ground tufts placed as the client places them**: port `scatter_ground_doodads` (the client's `CMapChunk::CreateDetailDoodads`: Blizzard's randomizer seeded per chunk, the cell pass and the doodad pass, the predominant layer, the no-tuft mask, the 70 yd range) over Meld's hash-based `cellTufts`/`tuftsPerCell` · Source: owner · M/S · done 2026-10-15, density levels decided in IDEAS.md
-- [x] B-166 **The client's sun, sky and fog**: port the DayNight sun direction, the five-stop sky gradient (bands 2 to 6), the cloud bands and the scene fog rule (end = zone fog or far clip, start = fraction, storms negative) into Client Lighting, replacing Meld's own sun path and Preetham sky while it is on · Source: owner · M/M · done 2026-10-15 but the clouds (B-179), scope in IDEAS.md
-- [x] B-173 **Baked terrain shadows (MCSH) read and drawn**: read each chunk's 64x64 shadow bits as Benilla does and shade the terrain with them as the client does (lit where a chunk has none); the groundwork for the shadows editor B-057 · Source: owner · M/M · done 2026-10-15, decided in IDEAS.md
-- [x] B-167 **Far horizon from the WDL**: mesh the map's WDL beyond the open block and draw it unlit under its own fog that fades to the scene fog, after Benilla's `wdl.rs`/`wdl.wgsl` (with B-155) · Source: owner · L/M · done 2026-10-15, decided in IDEAS.md
-- [x] B-168 **M2 particles, ribbons and texture animation**: CPU particle emitters with their over-life colour, size and texture cells, ribbons, and UV and material-alpha animation, after Benilla's `particles/`, `ribbons.rs`, `tex_anim.rs`, `mat_anim.rs` (with B-154) · Source: owner · L/L · split by the loop 2026-10-15 (about 7000 lines of Rust): the texture animation is done, the rest is B-181 to B-183
-- [x] B-181 **M2 colour and transparency animation**: a batch's colour (M2Color) and texture weight tracks, which fade glows, flames and spell models in and out, after Benilla's `models/mat_anim.rs` · Source: loop: B-168 · L/M · done 2026-10-15
-- [ ] B-182 **M2 particle emitters**: CPU particles with their over-life colour, size and texture cells, after Benilla's `particles/` and `benilla-formats/src/particles.rs`; replaces the procedural flames where an emitter is a fire (with B-154) · Source: loop: B-168 · L/L
-- [ ] B-183 **M2 ribbons**: ribbon emitters (trails on spell and gameobject models), after Benilla's `ribbons.rs` · Source: loop: B-168 · L/M
+- [ ] B-182 **M2 particle emitters**: CPU particles with their over-life colour, size and texture cells, after Benilla's `particles/` and `benilla-formats/src/particles.rs`; replaces the procedural flames where an emitter is a fire · Source: loop: B-168, gap §7 (was B-154, merged) · L/L
+- [ ] B-183 **M2 ribbons**: ribbon emitters (trails on spell and gameobject models), after Benilla's `ribbons.rs` · Source: loop: B-168, gap §7 (was B-154, merged) · L/M
 - [ ] B-170 **Terrain look checked against the client's**: texture repeats per chunk, layer blending, alpha filtering at chunk edges, and exact overbright and scrolling (Meld's overbright is a x1.5 guess), after Benilla's `terrain.wgsl`/`terrain.rs` · Source: owner · L/S
 - [ ] B-174 **Water look checked against the client's**: surface, depth colour, shore and flow against Benilla's `liquid/` and `liquid.wgsl` · Source: owner · L/S
 - [ ] B-169 **Minimap textures as the client finds them** (`md5translate.trs`), after Benilla's `minimap_translate.rs` (with B-129) · Source: owner · L/M
@@ -82,8 +74,6 @@ wants these worked first, in this order, starting in a fresh session (2026-10-15
 - [ ] B-073 **Pause and speed keys for the day cycle** (Noggit Red: N faster, B slower, J pause) · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M · Noggit Red's FPS camera stays 3 yards above the ground, so it walks the map as a player would
 - [ ] B-078 **Height contour lines** · gap §7 · L/M
-- [ ] B-154 **M2 particles and ribbons** drawn from the emitters, beyond the procedural flames · gap §7 · L/L
-- [x] B-155 **Far horizon** from the map's WDL beyond the open block · gap §7 · L/M · done with B-167 (2026-10-15) for a region; a map of its own has no map around it
 - [ ] B-079 **Skybox toggle**, separate from the sky · gap §7 · L/S
 - [ ] B-080 **Anti-aliasing, VSync, an FPS limit and full-screen** settings · gap §7 · L/S
 - [ ] B-081 **Flight bounds** display · gap §7 · L/S
