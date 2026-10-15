@@ -32,7 +32,7 @@ When two backlog items compete, the higher one wins.
 2. **Core authoring.** Sculpt, paint, place, select, copy/paste and undo work reliably on real maps.
 3. **Client round trip.** Open a region, edit it, export it to the 1.12 client and the VMaNGOS server.
 4. **Speed on large maps.** Streaming, culling and frame time.
-5. **Noggit Red parity** (noggit-red-feature-gap.md). Only when it serves 1 to 4.
+5. **Noggit Red parity** (the issues labelled `source:gap`). Only when it serves 1 to 4.
 6. **Polish.** Small UI and visual extras. These are picked last.
 
 ## Non-goals

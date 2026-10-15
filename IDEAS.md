@@ -9,7 +9,8 @@ The owner can change any of them.
 
 Each decision says which source it follows. Where the owner asked for noggit3 unless ours was better,
 the entry says whether **noggit3** or **ours** won, and why. The definitions themselves are in
-noggit-red-feature-gap.md, under "Definitions for the items the loop left open".
+noggit-red-feature-gap.md, under "Definitions for the items the loop left open" (the file is gone since
+the gap list moved to issues; `git show 48308a8:noggit-red-feature-gap.md` prints it).
 
 Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/noggit3.
 
@@ -20,8 +21,8 @@ on its issue; this file keeps the decisions made before then and the ones that r
 ## Decisions
 
 ### Nothing beyond the 1.12 client · owner
-- A Noggit Red feature that only exists in clients after 1.12 does not go in the gap list or the
-  backlog: vertex colours (MCCV), 8-bit alpha maps, MH2O water, texture height mapping, WMO low-res
+- A Noggit Red feature that only exists in clients after 1.12 does not go in the backlog
+  (the issues): vertex colours (MCCV), 8-bit alpha maps, MH2O water, texture height mapping, WMO low-res
   models, map difficulties, skyboxes and zone lights. B-058 and B-083 are parked for this.
 - Decided by the owner, 2026-10-15.
 

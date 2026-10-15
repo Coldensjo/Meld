@@ -31,7 +31,7 @@ in the git history (`git show b47706b:PROGRESS.md`).
   first (`gh issue list --search`) and comment on an existing issue rather than filing a duplicate.
   Don't build it unasked. Label it `value:H|M|L`, `effort:S|M|L`, one `area:` label, a `source:`
   label (`owner` if the user asked for it, `loop` if you found it while working on another issue,
-  `gap` for noggit-red-feature-gap.md), and `bug` or `needs-approval` where they apply.
+  `gap` for a Noggit Red feature Meld lacks; those issues are the gap list), and `bug` or `needs-approval` where they apply.
 - **Before working on an issue**, read it with its comments (`gh issue view <n> --comments`).
 - **Comments**: start every comment you write with `**Claude:**`. Any other comment is the owner's,
   and an owner comment on an issue is an instruction for that item. A decision about an item (the

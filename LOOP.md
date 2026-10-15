@@ -61,7 +61,7 @@ comments record one, and Noggit Red does not settle it (see below), ask the owne
   eligible again.
 
 **Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from the
-issue, noggit-red-feature-gap.md, IDEAS.md or the code, check Noggit Red before you decide it is
+issue and its comments, IDEAS.md or the code, check Noggit Red before you decide it is
 blocked:
 
 1. Find the behaviour in Noggit Red source. Clone it once per run, shallow, into the scratchpad, never
@@ -113,9 +113,6 @@ e. Close the issue with its log as the last comment: `gh issue comment <n> --rep
      make build-linux), and anything not run with the reason; whether it was checked in the app.
    - Left: follow-ups as new issues (#n), or "none".
    ```
-
-   If it is a gap item, strike it through in noggit-red-feature-gap.md and add a short *Done:* note
-   naming the issue (`#<n>`), in the item's commit.
 
 **4. Log new ideas, do not build them.** Anything you notice that is not the current item becomes a
 new issue: a short title, a body that says what and why, `Found while working on #<n>.`, and the
