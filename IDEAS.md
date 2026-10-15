@@ -1,0 +1,125 @@
+# IDEAS.md: owner decisions on open items
+
+This file records the decisions behind items that were left open for the owner. The loop in LOOP.md
+reads it and treats these decisions as settled. Do not reopen one without the owner's say-so.
+
+When the loop meets a term it cannot pin down, it checks noggit3 (LOOP.md, "Unknown meaning") and
+records its choice here, marked "chosen by the loop from noggit3". The owner can change any of them.
+
+Each decision says which source it follows. Where the owner asked for noggit3 unless ours was better,
+the entry says whether **noggit3** or **ours** won, and why. The definitions themselves are in
+noggit3-feature-gap.md, under "Definitions for the items the loop left open".
+
+Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/noggit3.
+
+## Decisions
+
+### B-003 Vertex edit mode: orientation reference · noggit3
+- Two references, as noggit has: **Selection centre** (default) and **Cursor**.
+- The ramp has a slope angle (−89° to 89°) and a direction (0° to 360°). Space + right-drag turns the
+  direction to point from the cursor toward the selection centre.
+- Status: unblocked. Eligible for the loop.
+
+### B-005 Tablet pressure · noggit3
+- One on/off setting, "Tablet support", off by default.
+- With the setting on and a pen in use: pressure drives sculpt **speed** (Ground and Flatten), and paint
+  **strength** in Paint.
+- Pressure does **not** drive brush radius.
+- A mouse has no pressure, so the sliders apply unchanged.
+- Status: unblocked. Eligible for the loop.
+- How pressure drives them, chosen by the loop (2026-10-12, B-005) · **ours**: noggit3 overwrites the speed
+  and paint-pressure sliders with the pen's pressure (`MapView.cpp`, speed = pressure × 10). Meld
+  multiplies the Strength slider by the pressure instead, so the slider still sets the maximum and a pen
+  stroke doesn't leave the slider at its last pressure. Pressure applies to every Sculpt mode (noggit's
+  Ground and Flatten tools between them cover all of its sculpt modes) and to Paint, Spray and Swap, not to
+  the Mask brush, which always paints at full strength. The owner can change this.
+
+### B-008 Seam fix · ours
+- Keep ours. Meld keeps one height array, so there is no tile border to leave a gap.
+- Status: dropped. Moved to Parked in BACKLOG.md. Revisit only if the in-app check shows a seam.
+
+### B-010 Spray mode · noggit3
+- Toggle with T. The spray group has Size (1 to 40, the scatter radius), Pressure (0 to 10) and an
+  Inner radius checkbox.
+- Pressure is the density. A grid point inside Size gets a paint dab with chance Pressure/1000.
+- Inner radius also paints the normal brush at the cursor.
+- Pen pressure changes dab strength, as it does for ordinary painting. It does not define the spray.
+- Status: unblocked. Eligible for the loop.
+- Correction, chosen by the loop from noggit3 (2026-10-12, B-010): in noggit3's code Size is not the
+  scatter radius. `texturing_tool::update_spray_brush` sets the dab brush radius to Size × TEXDETAILSIZE / 2,
+  and `World::sprayTexture` scatters over the normal brush radius. Meld follows the code: the brush
+  Size is the scatter radius and the spray slider, labelled "Dab size", sizes each dab (at least one splat
+  texel). Inner radius paints the brush's solid centre, radius × (1 − falloff), as noggit's inner brush is
+  radius × hardness. The owner can change this.
+
+### B-012 Remove duplicate texture layers · ours
+- Keep ours. The paint model cannot give one chunk the same texture twice, and the `.wmap` load path
+  does no merging, so it can't create a duplicate either.
+- If a duplicate ever shows up on load, treat it as a bug in the loader, not as a feature.
+- Status: dropped. Moved to Parked in BACKLOG.md.
+
+### B-018 Flatten targets · ours
+- noggit's Linear and Smooth flatten types are distance falloff curves. Ours already applies the Falloff
+  curve to every sculpt mode, so they are covered. Keep ours.
+- Smooth-inner is noggit's "wip" routine. It needs cell-centre vertices, which Meld does not have.
+  Its meaning in our grid is not settled.
+- Status: Linear and Smooth closed. Smooth-inner moved to Parked in BACKLOG.md.
+
+### B-030 Follow-ground rotation · noggit3 behaviour, ours for the default
+- Chosen by the loop from noggit3 (2026-10-12). noggit3's "Follow Ground Rotation" group
+  (`ui/ObjectEditor.cpp`) has "Rotate following cursor" (on by default) and "Smooth follow rotation" (on).
+  When a dragged model snaps to the ground, `World::rotate_selected_models_to_ground_normal` sets its X and Z
+  rotation from the terrain normal. Meld does the same in the Select tool's drag, with a Smooth option.
+- Default **off** (ours): on would overwrite tilts set by hand on every drag. The owner can change it.
+- B-039 "Rotate-following-cursor mode" is this same checkbox, so it is closed with B-030.
+
+### B-031 Rotate around a pivot · noggit3
+- Pivot is the **mean position** of the selection. noggit's UI says "median", but its code uses the mean.
+- A checkbox, "Rotate around pivot point", is on by default. With it off, each model turns about its
+  own origin.
+- A single model always uses its own origin.
+- Status: unblocked. Eligible for the loop.
+
+### B-033 Selective paste · ours
+- Drop it. noggit3 has no per-field paste either. It has one "Copy rotation, tilt, and scale" option.
+- Status: dropped. Moved to Parked in BACKLOG.md.
+
+### B-034 Hide models · noggit3 for the lifetime, ours for the scope
+- **Session only**, as noggit has it. The hidden state is not saved in the map file. Shift+H clears it.
+- **Per placed object**, not per model type. Ours already places objects as separate instances, and a
+  per-type hide would hide every copy of a model. noggit's per-type hide comes from its model cache, not
+  from a design choice.
+- Status: unblocked. Eligible for the loop.
+
+### B-037 Mouse-move snap · noggit3
+- Two independent checkboxes, one per selection size. They are not two modes.
+- **Single model**, "Mouse move follow cursor on the ground", on by default. On: the model follows the
+  cursor's ground point. Off: the mouse moves the model across the camera plane, at its current height.
+- **Multiple models**, "Mouse move snap models to the ground", off by default. Off: the group moves to
+  the cursor and keeps each model's height. On: each model is then snapped to the terrain.
+- Status: unblocked. Eligible for the loop.
+
+### B-052 Reload tile from disk · ours, scoped to the map
+- Meld has no tiles, so "reload tile" becomes **Revert to saved map**. It discards unsaved
+  changes and reloads the `.wmap` file.
+- This is smaller than the tile reload noggit does, because the whole map is one file. Effort is S/M.
+- Status: unblocked. Eligible for the loop.
+
+### B-053 Port coordinates export · noggit3, one line changed
+- noggit3 writes the camera position as `.go X Y Z MAP` (Trinity) and `.worldport MAP X Y Z` (ArcEmu), with
+  `X = ZEROPOINT - z`, `Y = ZEROPOINT - x`, `Z = y` (`MapView.cpp`, "Write coordinates to port.txt").
+- The Trinity line is the one change: it uses `.go xyz X Y Z MAP`, because the `xyz` subcommand is what
+  the app's own publish hint already uses for this server. The loop chose this from noggit3's line, and
+  the owner can change it back.
+- The map ID comes from the map's client ref, so a map that is not made for the client can't export.
+- Status: built. chosen by the loop from noggit3.
+
+### B-061 Map entry list · the item's own wording
+- Grouped by the Map.dbc instance type (continents, dungeons, raids, battlegrounds, arenas), named from
+  the English name field and offered in New Map. Field layout checked against the owner's 1.12 client.
+- Status: built. chosen by the loop from the item's wording.
+
+## Not decided here
+
+- B-102 (mask mode has no switch) and B-103 (emptied slots stay assigned) were not open for owner
+  decisions. They are still in BACKLOG.md as the loop's to pick up.

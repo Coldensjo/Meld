@@ -49,8 +49,22 @@ cd frontend && pnpm build   # frontend only
 
 ## Architecture
 
-- **Go owns file I/O only** (`app.go`: dialogs, `SaveMap`, `LoadMap`). Keep it thin. Everything about
-  rendering and editing lives in the frontend.
+- **Go owns files, archives and the server; the frontend owns rendering and editing.** `app.go` is
+  the thin binding layer (dialogs, `SaveMap`, `LoadMap`, the client and server calls), and the real
+  work sits in packages under `internal/`:
+  - `mapfile` reads and writes `.wmap` files; `config` keeps the user's settings; `heightmap` reads
+    and writes heightmap PNGs.
+  - `mpq` is our own read-only MPQ reader; `wow` opens the client, decodes BLP, M2 and WMO, dresses
+    creature looks, builds minimap overviews and serves `/wow/*`.
+  - `adt` reads and rewrites 1.12 tiles: terrain, textures and alpha maps, liquids (MCLQ), models,
+    holes and ground effects, and builds new tiles.
+  - `vmangos` is the server side: regions read from the client and written back as a patch, the map
+    and spawn exports, the world database's spawns, templates and looks, the DBC tables the editor
+    needs (maps, zones, emotes, liquids, ground effects), and launching the client and servers.
+  - `game` closes and reopens the client and servers around an export.
+
+  No editing logic goes in Go: it never decides what a brush does. It parses, converts and writes
+  formats the frontend should not have to know, and anything that must read the client's archives.
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
   float32 + weights + chunkSlots + holes + liquids). Blobs cross the bridge as base64 strings. If you
   change the format, bump `Version` and update the tests. Older versions stay readable (a version 3
@@ -379,8 +393,10 @@ cd frontend && pnpm build   # frontend only
   - Textures: `"RGBA" w h pixels`.
   - Meshes: `Mesh.Encode()` = JSON header + pos/normal/uv/[color]/u32 index.
 - **Never copy, bundle or commit Blizzard assets.** No extracted files in the repo, the binary or
-  test fixtures. Map files store only paths (`m2:<path>` / `wmo:<path>` object types and
-  `layerTextures`).
+  test fixtures. A `.wmap` file refers to the client's assets by path only (`m2:<path>` /
+  `wmo:<path>` object types and the texture `palette`), never by content. What Meld writes *into*
+  the client (tiles, the map table, spawn SQL) goes to the user's own client and server folders and
+  is never checked in.
 - The client path is persisted by `internal/config` (`os.UserConfigDir()/Meld/config.json`).
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so
   triangle winding is unchanged. 1 world unit ≈ 1 yard.
