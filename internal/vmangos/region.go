@@ -142,7 +142,9 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 	bigAlpha := adt.ReadBigAlpha(wdt)
 
 	side := size*tileCells + 1
-	view := &RegionView{MapName: mapName, X: x, Y: y, Size: size, Heights: make([]float32, side*side)}
+	// Empty, not nil, so a block with no models or no liquid (Naxxramas has none) sends [] and not null.
+	view := &RegionView{MapName: mapName, X: x, Y: y, Size: size, Heights: make([]float32, side*side),
+		Chunks: []ChunkView{}, Objects: []ObjectView{}, Liquids: []adt.Liquid{}}
 	for j := 0; j < size; j++ {
 		for i := 0; i < size; i++ {
 			tx, ty := x+i, y+j

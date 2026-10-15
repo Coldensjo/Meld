@@ -63,6 +63,9 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
   checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the
   hole export's block mapping. Seeing a cut cave mouth in game is still a manual check.
+- `TestRegionWithoutLiquids` (WOW_DIR) opens Naxxramas (map 533, folder `Stratholme Raid`) at 38_25, a
+  block with no liquid, and checks the view sends `[]`, not `null` (#120). Naxxramas has tiles only at
+  37..42 by 24..27; anywhere else on that map the tile read fails with "mpq: file not found".
 - Trying SQL against the world database (`mysql -uroot -P3307 -h127.0.0.1 mangos`): its tables are
   MyISAM, so `START TRANSACTION ... ROLLBACK` does not undo an INSERT. Use an entry nothing uses and
   delete the row yourself afterwards. A template whose `unit_class` has no `creature_classlevelstats`
