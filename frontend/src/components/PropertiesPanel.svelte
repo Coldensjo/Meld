@@ -1,6 +1,6 @@
 <script lang="ts">
   import PropField from './PropField.svelte'
-  import { editor } from '../lib/state/editor.svelte'
+  import { editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName, isWowType, wowPath } from '../lib/models/assets'
   import { baseType, doodadSetOf } from '../lib/models/wmoSet'
@@ -63,6 +63,20 @@
     return [...counts].sort((a, b) => b[1] - a[1]).map(([type, n]) => ({ type, n }))
   })
 
+  /** The selection groups the selected models are in, with their sizes; re-read after every undo step, which grouping is. */
+  const groups = $derived.by(() => {
+    void ui.historyVersion
+    const objects = e?.objects.objects
+    const ids = new Set<number>()
+    for (const id of editor.selectedIds) {
+      const g = objects?.get(id)?.group
+      if (g) ids.add(g)
+    }
+    const sizes = new Map<number, number>()
+    if (ids.size && objects) for (const o of objects.values()) if (o.group && ids.has(o.group)) sizes.set(o.group, (sizes.get(o.group) ?? 0) + 1)
+    return [...sizes.values()]
+  })
+
   const area = $derived(editor.selection)
   const holes = $derived(area ? (e?.holesInSelection() ?? 0) : 0)
 
@@ -93,6 +107,13 @@
       <div class="attached">
         <span>Attached to <b>{parent ? displayName(parent.type) : '#' + selected.parent}</b>, so its position is local to it.</span>
         <button onclick={() => e?.detachSelected()} title="Keep it where it stands, but no longer move with the parent">Detach</button>
+      </div>
+    {/if}
+
+    {#if groups.length}
+      <div class="attached">
+        <span>In a group of {groups[0]} models.</span>
+        <button onclick={() => e?.ungroupSelected()} title="Break up the group (Ctrl+Shift+G)">Ungroup</button>
       </div>
     {/if}
 
@@ -151,6 +172,15 @@
         </li>
       {/each}
     </ul>
+    <div class="grouping">
+      {#if groups.length}
+        <span>{groups.length === 1 ? `One group of ${groups[0]} models` : `${groups.length} groups (${groups.join(', ')} models)`}: a click on any member selects the whole group.</span>
+        <button onclick={() => e?.ungroupSelected()} title="Break up the groups (Ctrl+Shift+G)">Ungroup</button>
+      {:else}
+        <span class="dim">Not grouped.</span>
+        <button onclick={() => e?.groupSelected()} title="Group them, so a click on one selects them all (Ctrl+G)">Group</button>
+      {/if}
+    </div>
     <p class="dim">Drag one to move them all. The arrow keys move them and <kbd>R</kbd> spins them. Click a model alone to edit its numbers.</p>
     <div class="actions">
       <button onclick={() => e?.focusSelected()} title="Move the camera to them (F)">Focus</button>

@@ -60,3 +60,70 @@ export class ModelBoxes {
     ;(this.lines.material as THREE.Material).dispose()
   }
 }
+
+/**
+ * The box around each selection group a selected model is in (Noggit Red draws its groups so), the
+ * union of its members' boxes. Rebuilt only when the selection, the models or the ground change.
+ */
+export class GroupBoxes {
+  readonly lines: THREE.LineSegments
+  private geometry = new THREE.BufferGeometry()
+  private key = ''
+  private ids: readonly number[] | null = null
+  private layer: ObjectLayer | null = null
+  private version = -1
+  private heights = -1
+  private history = -1
+  private box = new THREE.Box3()
+  private member = new THREE.Box3()
+  private m = new THREE.Matrix4()
+
+  constructor() {
+    const material = new THREE.LineBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.9, depthTest: false, fog: false })
+    this.lines = new THREE.LineSegments(this.geometry, material)
+    this.lines.name = 'group boxes'
+    this.lines.frustumCulled = false
+    this.lines.renderOrder = 10
+  }
+
+  /** `history` is ui.historyVersion, which moves when models are grouped or ungrouped. */
+  update(layer: ObjectLayer, selectedIds: readonly number[], heightsVersion: number, history: number) {
+    // Nothing is looked at, nor allocated, on a frame where none of these moved.
+    if (selectedIds === this.ids && layer === this.layer && layer.version === this.version && heightsVersion === this.heights && history === this.history) return
+    this.ids = selectedIds
+    this.layer = layer
+    this.version = layer.version
+    this.heights = heightsVersion
+    this.history = history
+    const groups = new Set<number>()
+    for (const id of selectedIds) {
+      const g = layer.objects.get(id)?.group
+      if (g) groups.add(g)
+    }
+    const key = groups.size ? `${layer.version}:${heightsVersion}:${history}:${[...groups].join(',')}` : ''
+    if (key === this.key) return
+    this.key = key
+    const pos: number[] = []
+    for (const g of groups) {
+      this.box.makeEmpty()
+      for (const o of layer.objects.values()) {
+        if (o.group !== g) continue
+        const asset = getAsset(o.type)
+        if (!asset.ready) continue
+        this.box.union(this.member.copy(asset.bbox).applyMatrix4(layer.matrixOf(o, this.m)))
+      }
+      if (this.box.isEmpty()) continue
+      const { min, max } = this.box
+      for (const k of EDGES) pos.push(k & 1 ? max.x : min.x, k & 2 ? max.y : min.y, k & 4 ? max.z : min.z)
+    }
+    this.geometry.dispose()
+    this.geometry = new THREE.BufferGeometry()
+    this.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    this.lines.geometry = this.geometry
+  }
+
+  dispose() {
+    this.geometry.dispose()
+    ;(this.lines.material as THREE.Material).dispose()
+  }
+}

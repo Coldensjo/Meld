@@ -458,3 +458,7 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-038 Bounding box display
 - Done: View › Bounding boxes (`prefs.showBoxes`, kept in scenes) draws a box around every shown model, its model box turned, tilted and scaled with it (`world/ModelBoxes.ts`). All boxes are one set of lines, rebuilt only when the models, their loaded meshes or the ground change (`ObjectLayer.version`, `heightsVersion`), never per frame; with the view off nothing is built.
 - Verified: make test passed (Go plus 214 of 214 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+
+## 2026-10-15 · B-158 Draw selection groups
+- Done: with grouped models selected, each of their selection groups gets a yellow box around all its members (the union of their boxes, drawn over everything; `GroupBoxes` in `world/ModelBoxes.ts`), rebuilt only when the selection, the models, the ground or the history moves, with nothing looked at or allocated on other frames. The Inspector says the selection is grouped (how many groups, of how many models) with Ungroup, or offers Group for an ungrouped selection of several; it re-reads the groups on every history change.
+- Verified: make test passed (Go plus 214 of 214 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.

@@ -37,7 +37,7 @@ import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
-import { ModelBoxes } from '../world/ModelBoxes'
+import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
@@ -182,6 +182,8 @@ export class Engine {
   private effects = new PropEffects()
   /** View › Bounding boxes: a box around every model. */
   private boxes = new ModelBoxes()
+  /** The box around each selection group a selected model is in. */
+  private groupBoxes = new GroupBoxes()
   /** The creatures' waypoint paths, for the active region. */
   readonly paths = new SpawnPaths()
   /** Current hour; advances on its own when the day cycle is on. */
@@ -280,7 +282,7 @@ export class Engine {
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.env = new Environment(this.scene)
     this.scene.add(this.effects.group)
-    this.scene.add(this.boxes.lines)
+    this.scene.add(this.boxes.lines, this.groupBoxes.lines)
     this.scene.add(this.paths.group)
 
 
@@ -361,6 +363,7 @@ export class Engine {
     this.env.dispose()
     this.effects.dispose()
     this.boxes.dispose()
+    this.groupBoxes.dispose()
     this.paths.dispose()
     for (const d of this.documents) d.dispose()
     this.renderer.dispose()
@@ -685,6 +688,7 @@ export class Engine {
     }
     this.objects.update()
     this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightsVersion)
+    this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightsVersion, ui.historyVersion)
     // Lights first: culling keeps what can throw the shadowed lights' shadows.
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)
