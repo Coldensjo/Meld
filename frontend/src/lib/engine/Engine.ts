@@ -683,6 +683,8 @@ export class Engine {
       stats.objects = this.objects.objects.size
       stats.cursor = this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z } : null
       stats.detail = this.prefs?.detailInfo ? this.detailInfo() : null
+      const c = this.controller
+      stats.view = ui.minimap ? { x: c.target.x, z: c.target.z, yaw: c.yaw, cells: this.terrain.size, world: this.terrain.worldSize } : null
       this.frames = 0
       this.statTime = time
     }

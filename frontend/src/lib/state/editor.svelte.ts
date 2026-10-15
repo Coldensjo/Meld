@@ -232,6 +232,8 @@ export const stats = $state({
   cursor: null as { x: number; y: number; z: number } | null,
   /** The ground under the cursor, while Graphics › Detail info is on (refreshed at 2 Hz like the rest). */
   detail: null as DetailInfo | null,
+  /** Where the camera is for the Minimap window, while it is open: the target, its yaw, and the map's size in cells and yards. */
+  view: null as { x: number; z: number; yaw: number; cells: number; world: number } | null,
 })
 
 /** Open map tabs (the active tab's live name/dirty come from `editor`). */
@@ -385,6 +387,8 @@ export const ui = $state({
   brushEditor: false,
   /** The floating inspector over the viewport (components/Inspector.svelte): the selection's numbers and actions. I toggles it. */
   inspector: false,
+  /** The floating Minimap window (M): the map from above with the camera's spot; a click moves the camera. */
+  minimap: false,
   /** A creature template being placed: the next click on the ground in the Select tool spawns it. */
   placeCreature: null as vmangos.CreatureTemplate | null,
   /** The game object template the Place tool puts down (see placeCreature). */

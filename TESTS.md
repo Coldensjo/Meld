@@ -511,3 +511,13 @@ and with Preferences › Log file loading (`prefs.logFileLoading`) every client 
 `ed.prefs.logFileLoading = true`, place a model, then `ed.appLog.lines.slice(-3)` shows the
 `model` and `texture` lines; `ed.ui.dialog = 'log'` opens the window, which stays scrolled to
 the newest line. Copy puts the whole log on the clipboard.
+
+## Minimap window (M)
+
+Checks: M (or Camera › Minimap Window) opens a floating map at the top left: the heights drawn grey
+by height and blue under the sea (redrawn when `terrain.heightsVersion` changes, checked at 2 Hz
+through `stats.view`), the client's overview behind it for a part of Azeroth (cropped to the open
+block), amber tile borders on a map bigger than a tile, and a white dot with a line for the camera's
+target and facing. A click moves the camera there (`controller.focus`). In the dev page:
+`ed.ui.minimap = true`, then `ed.stats.view` fills within half a second and
+`document.querySelector('[aria-label="Minimap"] canvas').width` is the map's size in cells.

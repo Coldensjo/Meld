@@ -66,7 +66,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
 - [ ] B-058 **Vertex colour editor** · gap §5 · L/L · needs-approval
 - [ ] B-059 **Save minimap image** (Ctrl+Shift+P) · gap §5 · L/S
-- [ ] B-060 **Minimap window**: click to jump, with tile borders · gap §6 & priority 5 · H/L · the Map dock panel drew the continent's tiles with the open block outlined, but had no jump, and was dropped from the dock (B-115); a click-to-jump map needs a new home
+- [x] B-060 **Minimap window**: click to jump, with tile borders · gap §6 & priority 5 · H/L · done 2026-10-15 (PROGRESS.md): a floating Minimap window (M, Camera menu) with the heights, the overview, tile borders, the camera's spot and click to jump
 - [ ] B-124 **Doodad brush On props: footprint at world scale and a cheaper prop lookup**: a model standing on a prop is spaced by its own scale, not its world scale, and each attempt casts a ray through every model's bounds tree (up to 256 a frame); a chunk-bucketed lookup would keep a dense map smooth · Source: loop: B-120 · L/S
 - [ ] B-108 **Port commands: area name and ADT header**: noggit's port file starts each entry with `Map: <area> on ADT x y` · Source: loop: B-053 · L/M · the editor has no area names, so this waits on B-054
 

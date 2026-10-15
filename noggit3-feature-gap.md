@@ -85,7 +85,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 ## 6. Navigation and bookmarks
 
 - ~~**Bookmarks**: save named camera positions per map, shown in a menu.~~ *Done: Bookmarks menu, Ctrl+B adds a view of the map; each map keeps its own.*
-- **Minimap window**: click to jump to a location, with ADT boundaries and light-zone overlays.
+- ~~**Minimap window**: click to jump to a location, with ADT boundaries and light-zone overlays.~~ *Done: Camera › Minimap Window (M), a floating map of the heights (and the continent overview for a part of Azeroth) with the tile borders and the camera's spot; a click moves the camera there. Light zones are B-082.*
 - ~~**Map entry list** (Continents, Dungeons, Raids, Battlegrounds, Arenas, from the DBC map database). Meld only has New / Open.~~ *Done: New Map lists the client's maps from Map.dbc, grouped by type, for a map made for the client. It is not yet in Open.*
 - ~~**Turn camera 180°** (Shift+R).~~ *Done: Camera › Turn Around (180°). Not on Shift+R, which rotates a selected prop.*
 - **Reset camera roll** (End).

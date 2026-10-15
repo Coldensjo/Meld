@@ -11,6 +11,7 @@
   import CreatureEditor from './components/CreatureEditor.svelte'
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
   import Inspector from './components/Inspector.svelte'
+  import MinimapWindow from './components/MinimapWindow.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
   import ContextMenu from './components/ContextMenu.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
@@ -174,6 +175,7 @@
     else if (key === 'o') stepCameraSpeed(false)
     else if (key === 'f') engine.focusSelected()
     else if (key === 'i') ui.inspector = !ui.inspector
+    else if (key === 'm') ui.minimap = !ui.minimap
     else return
     e.preventDefault()
   }
@@ -211,6 +213,7 @@
 </div>
 
 <Inspector />
+<MinimapWindow />
 <CreatureEditor />
 <DoodadBrushEditor />
 <AppDialogs />
