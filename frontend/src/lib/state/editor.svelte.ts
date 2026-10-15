@@ -301,6 +301,8 @@ export const prefs = $state({
   showGroundEffects: true,
   /** The Detail info readout in the viewport's corner: tile, chunk, cell, height, layers and liquids under the cursor. */
   detailInfo: false,
+  /** Every file read from the client (models, textures, lists) goes into the Log window too, with its time (noggit's "additional file loading log"). */
+  logFileLoading: false,
   /** How many tufts a cell grows: a quarter, half or all of the game's amount (world/groundEffects.ts). */
   groundEffectDensity: 'normal' as 'sparse' | 'normal' | 'full',
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
@@ -346,7 +348,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'about' | 'help' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
+  dialog: null as 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */
@@ -399,7 +401,33 @@ export function setViewportHint(msg: string, timeout = 1500) {
 }
 
 let statusTimer: ReturnType<typeof setTimeout> | undefined
+/**
+ * The Log window's lines (Help › Log…): every status message, the Go side's progress lines (which
+ * arrive as status messages) and, with Log file loading on, every file read from the client. The
+ * newest is last; at most LOG_LINES are kept.
+ */
+export const appLog = $state({ lines: [] as Array<{ time: string; text: string }> })
+const LOG_LINES = 500
+
+export function logLine(text: string) {
+  const d = new Date()
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
+  appLog.lines.push({ time, text })
+  if (appLog.lines.length > LOG_LINES) appLog.lines.splice(0, appLog.lines.length - LOG_LINES)
+}
+
+export function clearLog() {
+  appLog.lines = []
+}
+
+/** Logs a file read from the client (its kind, path, time taken and any error) when Log file loading is on. */
+export function logFile(kind: string, path: string, ms: number, err?: unknown) {
+  if (!prefs.logFileLoading) return
+  logLine(err ? `${kind} ${path}: failed after ${Math.round(ms)} ms: ${err instanceof Error ? err.message : err}` : `${kind} ${path} (${Math.round(ms)} ms)`)
+}
+
 export function setStatus(msg: string, timeout = 4000) {
+  if (msg && msg !== 'Ready' && msg !== ui.status) logLine(msg)
   ui.status = msg
   clearTimeout(statusTimer)
   if (timeout > 0) statusTimer = setTimeout(() => (ui.status = 'Ready'), timeout)

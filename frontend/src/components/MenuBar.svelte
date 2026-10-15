@@ -264,12 +264,14 @@
         { kind: 'sep' },
         { kind: 'check', label: 'Invert camera Y', checked: prefs.invertY, toggle: () => (prefs.invertY = !prefs.invertY) },
         { kind: 'check', label: 'Tablet support (pen pressure)', checked: prefs.tabletSupport, toggle: () => (prefs.tabletSupport = !prefs.tabletSupport) },
+        { kind: 'check', label: 'Log file loading (every client file read, in Help › Log)', checked: prefs.logFileLoading, toggle: () => (prefs.logFileLoading = !prefs.logFileLoading) },
       ],
     },
     {
       name: 'Help',
       items: [
         { kind: 'action', label: 'Help…', shortcut: 'F1', run: () => (ui.dialog = 'help') },
+        { kind: 'action', label: 'Log…', run: () => (ui.dialog = 'log') },
         { kind: 'action', label: 'Keyboard Shortcuts…', run: () => (ui.dialog = 'shortcuts') },
         { kind: 'action', label: 'Manual (README on GitHub)', run: () => openUrl(MANUAL_URL) },
         { kind: 'sep' },

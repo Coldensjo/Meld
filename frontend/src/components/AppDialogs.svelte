@@ -12,9 +12,23 @@
   import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
   import { EquipmentFor } from '../../wailsjs/go/main/App'
   import { setStatus } from '../lib/state/editor.svelte'
-  import { docs, editor, ui } from '../lib/state/editor.svelte'
+  import { appLog, clearLog, docs, editor, prefs, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { hasBackend, openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
+
+  /** Keeps the Log window scrolled to its newest line while it is open. */
+  function stickToEnd(el: HTMLElement) {
+    const toEnd = () => (el.scrollTop = el.scrollHeight)
+    toEnd()
+    const obs = new MutationObserver(toEnd)
+    obs.observe(el, { childList: true, subtree: true })
+    return { destroy: () => obs.disconnect() }
+  }
+
+  function copyLog() {
+    const text = appLog.lines.map((l) => `${l.time} ${l.text}`).join('\n')
+    void navigator.clipboard?.writeText(text)
+  }
   import { quitNow } from '../lib/io/session'
   import { APP_VERSION } from '../lib/version'
 
@@ -185,6 +199,22 @@
     {#snippet actions()}
       <button onclick={() => (hasBackend() ? BrowserOpenURL(MANUAL_URL) : window.open(MANUAL_URL, '_blank', 'noopener'))}>Open the manual</button>
       <button onclick={() => (ui.dialog = 'shortcuts')}>Keyboard shortcuts</button>
+      <button class="active" onclick={close}>Close</button>
+    {/snippet}
+  </Modal>
+{:else if ui.dialog === 'log'}
+  <Modal title="Log" width={640} onclose={close}>
+    <div class="log" use:stickToEnd>
+      {#each appLog.lines as l, i (i)}
+        <div><span class="time">{l.time}</span>{l.text}</div>
+      {:else}
+        <p class="dim">Nothing yet. Status messages, the progress of exports and (with Preferences › Log file loading) every file read from the client appear here.</p>
+      {/each}
+    </div>
+    {#snippet actions()}
+      <label class="check"><input type="checkbox" bind:checked={prefs.logFileLoading} /> Log file loading</label>
+      <button onclick={copyLog} disabled={!appLog.lines.length}>Copy</button>
+      <button onclick={clearLog} disabled={!appLog.lines.length}>Clear</button>
       <button class="active" onclick={close}>Close</button>
     {/snippet}
   </Modal>
@@ -362,6 +392,26 @@
     margin: 4px 0;
     font-size: 12.5px;
     line-height: 1.45;
+  }
+  .log {
+    max-height: 60vh;
+    overflow: auto;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .log .time {
+    color: var(--text-dim);
+    margin-right: 8px;
+  }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: auto;
+    font-size: 12px;
   }
   table {
     width: 100%;

@@ -501,3 +501,13 @@ is true and `e.camera.position.y` is 1500 above the ground under the target; a b
 script (see "Scripted brush strokes") still lands where `at(x, z)` says. `ed.ui.topDown = false`
 brings the perspective camera back. The arrow handle of the gizmo can't be dragged top-down (its
 plane is edge-on), the ring and knob can.
+
+## Log window
+
+Checks: Help › Log… lists every status message with its time (`appLog.lines` in
+`editor.svelte.ts`, the last 500), the Go side's progress lines (they arrive as status messages),
+and with Preferences › Log file loading (`prefs.logFileLoading`) every client file read
+(`fetchBinary` in `wow/api.ts`: kind, path, time, or the error). In the dev page:
+`ed.prefs.logFileLoading = true`, place a model, then `ed.appLog.lines.slice(-3)` shows the
+`model` and `texture` lines; `ed.ui.dialog = 'log'` opens the window, which stays scrolled to
+the newest line. Copy puts the whole log on the clipboard.
