@@ -120,6 +120,12 @@
       e.preventDefault()
       return
     }
+    if (e.key === 'F2' && e.shiftKey && !mod) {
+      prefs.climbView = !prefs.climbView
+      setStatus(prefs.climbView ? `Climb view: ground steeper than ${prefs.climbAngle}° is tinted red (Shift+F2 to hide).` : 'Climb view off.', 3000)
+      e.preventDefault()
+      return
+    }
     // Tab hides the panels, so the map fills the window; Ctrl+Tab cycles the map tabs below.
     if (e.key === 'Tab' && !mod) {
       ui.hidePanels = !ui.hidePanels

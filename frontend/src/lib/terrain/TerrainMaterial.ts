@@ -56,6 +56,8 @@ uniform float brushSquare;
 uniform float brushVisible;
 uniform vec3 brushColor;
 uniform float gridVisible;
+// The climb view: the cosine of the steepest walkable slope, or 0 for off.
+uniform float climbCos;
 // The width of a paint chunk in world units for the chunk lines; 0 hides them.
 uniform float chunkLineWorld;
 // The paint chunk under the cursor as world x0, z0, x1, z1; tinted so the Layers panel's chunk is visible.
@@ -166,6 +168,13 @@ void main() {
     // Foam is lit like everything else, so it doesn't glow at night.
     vec3 foamColor = vec3(0.85, 0.92, 0.95) * clamp(skyAmbient * 1.4 + sunColor * 0.7, 0.0, 1.0);
     lit = mix(lit, foamColor, foam * 0.35);
+  }
+
+  if (climbCos > 0.0) {
+    // Ground too steep to walk up, by its triangle's own slope (as Noggit Red's climb view does by
+    // default), so a steep triangle shows even where the smoothed normals lean less.
+    vec3 face = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
+    if (abs(face.y) < climbCos) lit.r = mix(lit.r, 1.0, 0.5);
   }
 
   if (gridVisible > 0.5) {
@@ -283,6 +292,7 @@ export function createTerrainMaterial(
     brushVisible: { value: 0 },
     brushColor: { value: new THREE.Color(0.92, 0.95, 1.0) },
     gridVisible: { value: 0 },
+    climbCos: { value: 0 },
     chunkLineWorld: { value: 0 },
     chunkHover: { value: new THREE.Vector4() },
     tileWorld: { value: 0 },

@@ -304,6 +304,10 @@ export function stepCameraSpeed(faster: boolean) {
 export const prefs = $state({
   /** Draw the terrain as a wireframe (for checking its triangles). */
   wireframe: false,
+  /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb). */
+  climbView: false,
+  /** The climb view's steepest walkable slope, in degrees (Noggit Red's default is 49). */
+  climbAngle: 49,
   /** Show each kind of layer; hiding one doesn't change the map. */
   showTerrain: true,
   showWater: true,

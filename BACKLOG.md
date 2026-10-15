@@ -83,7 +83,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M · Noggit Red's FPS camera stays 3 yards above the ground, so it walks the map as a player would
 - [ ] B-152 **Camera collision**: keep the free camera at least 3 yards above the ground · gap §6 · L/S
 - [ ] B-078 **Height contour lines** · gap §7 · L/M
-- [ ] B-153 **Climb view**: colour the ground too steep for a character to walk up, with a maximum climb angle · gap §7 · M/S
+- [x] B-153 **Climb view**: colour the ground too steep for a character to walk up, with a maximum climb angle · gap §7 · M/S · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-154 **M2 particles and ribbons** drawn from the emitters, beyond the procedural flames · gap §7 · L/L
 - [ ] B-155 **Far horizon** from the map's WDL beyond the open block · gap §7 · L/M · after B-146 for a new map
 - [ ] B-079 **Skybox toggle**, separate from the sky · gap §7 · L/S

@@ -134,6 +134,7 @@
         ['U', 'Top-down view on/off: straight down with no perspective; the wheel zooms, Q/E or a right drag turn the map'],
         ['M', 'Minimap window: the map from above with the camera\'s spot; a click moves the camera there'],
         ['F', 'Focus selected object'],
+        ['Shift+F2', 'Climb view on/off: ground too steep to walk up is tinted red (the slope is in the View menu)'],
       ],
     ],
     [

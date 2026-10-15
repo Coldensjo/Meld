@@ -52,6 +52,9 @@
     ['w', 'west'],
   ]
 
+  /** The climb view's steepest walkable slopes, in degrees: 49 is Noggit Red's default. */
+  const CLIMB_ANGLES = [40, 45, 49, 55, 60]
+
   const radios = <T,>(options: Array<[string, T]>, get: () => T, set: (v: T) => void): Item[] =>
     options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
 
@@ -215,6 +218,15 @@
         { kind: 'check', label: 'Fog', checked: prefs.fog, toggle: () => (prefs.fog = !prefs.fog) },
         { kind: 'check', label: 'Show grid', shortcut: 'G', checked: editor.grid, toggle: () => (editor.grid = !editor.grid) },
         { kind: 'check', label: 'Show chunk lines', checked: editor.chunkLines, toggle: () => (editor.chunkLines = !editor.chunkLines) },
+        { kind: 'check', label: 'Climb (ground too steep to walk up)', shortcut: 'Shift+F2', checked: prefs.climbView, toggle: () => (prefs.climbView = !prefs.climbView) },
+        ...radios(
+          CLIMB_ANGLES.map((a): [string, number] => [`Steepest walkable slope ${a}°`, a]),
+          () => prefs.climbAngle,
+          (v) => {
+            prefs.climbAngle = v
+            prefs.climbView = true
+          },
+        ),
         { kind: 'check', label: 'Hide panels', shortcut: 'Tab', checked: ui.hidePanels, toggle: () => (ui.hidePanels = !ui.hidePanels) },
         { kind: 'check', label: 'Detail info (the ground under the cursor)', checked: prefs.detailInfo, toggle: () => (prefs.detailInfo = !prefs.detailInfo) },
         { kind: 'header', label: 'Layers' },

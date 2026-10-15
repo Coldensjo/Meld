@@ -237,3 +237,15 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   some form of averaging", and the mean comes about twice as close to the client's.
 - A new map's export writes the WDL from its tiles; a region save rewrites the map's WDL with its
   block's tiles redrawn from the edited heights and every other tile as the client has it.
+
+### B-153 Climb view · Noggit Red
+- Chosen by the loop from Noggit Red (2026-10-15, B-153). Noggit Red's View › Climb (Shift+F2;
+  `MapView.cpp`, `ViewToolbar.cpp`, `draw_impassible_climb` in `terrain_frag.glsl`) blends the ground half
+  way to full red where the normal's angle from straight up passes the climb value (0 to 90°, 856
+  milliradians or 49° by default, with a Reset), by the triangle's normal unless Smooth uses the vertex
+  normals; "Display all angle color" instead puts the angle into the red channel everywhere.
+- Meld does the default: the triangle's slope, the same half-way red, Shift+F2 and View › Climb, with the
+  slope picked from 40°, 45°, 49°, 55° and 60° in the View menu (a pick turns the view on). It is a view
+  preference (`prefs.climbView`, `prefs.climbAngle`), carried in scenes. **Ours**: Smooth and the
+  all-angle colour are left out, since the triangle's slope is what the game's walk test uses and the
+  all-angle colour only reads in Noggit Red's red channel.

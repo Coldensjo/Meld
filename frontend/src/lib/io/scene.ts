@@ -19,6 +19,8 @@ const OLD_PREFIX = 'WorldEditor scene '
 /** The preferences that change what the view looks like. Layout and input prefs stay the viewer's. */
 const VIEW_PREFS = [
   'wireframe',
+  'climbView',
+  'climbAngle',
   'showTerrain',
   'showWater',
   'showObjects',
