@@ -82,6 +82,8 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A batch names its texture transform through this lookup; 0xFFFF there is none.
+	nUVLookup, ofsUVLookup, _ := r.arr(0xAC, 2)
 
 	textures := make([]string, nTex)
 	for i := range textures {
@@ -135,6 +137,8 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 		UV:     make([]float32, 0, nIdx*2),
 	}
 	vertMap := make([]int, nIdx)
+	// Each group's texture transform, -1 for none.
+	var uvOf []int
 	var minY, maxY, minX, maxX float32 = 1e9, -1e9, 1e9, -1e9
 	for i := 0; i < nIdx; i++ {
 		vi := r.u16(ofsIdx + i*2)
@@ -165,6 +169,7 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 		sub := r.u16(o + 4)
 		matIdx := r.u16(o + 10)
 		texCombo := r.u16(o + 16)
+		uvCombo := r.u16(o + 22)
 		if sub >= nSub {
 			continue
 		}
@@ -189,10 +194,17 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 				g.Texture = textures[ti]
 			}
 		}
+		uv := -1
+		if uvCombo < nUVLookup {
+			if ti := r.u16(ofsUVLookup + uvCombo*2); ti != 0xFFFF {
+				uv = ti
+			}
+		}
 		m.Index = append(m.Index, tri[start:start+count]...)
 		m.Groups = append(m.Groups, g)
+		uvOf = append(uvOf, uv)
 	}
-	m.Anim, m.Effects = parseM2Extras(r, version, vertMap, textures, path, max(maxY-minY, maxX-minX), anim)
+	m.Anim, m.Effects = parseM2Extras(r, version, vertMap, textures, path, max(maxY-minY, maxX-minX), anim, m.Groups, uvOf)
 	m.points = parseAttachments(r)
 	if len(m.Groups) == 0 && len(m.Effects) == 0 {
 		return nil, errors.New("m2: no renderable batches")

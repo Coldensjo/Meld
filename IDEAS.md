@@ -501,3 +501,9 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   editor's own, or the client's fog colour with Client Lighting), on by default behind View › Far Horizon,
   hidden in the top-down view. Where the client shows a bare white hull with fog off, Meld keeps the
   horizon colour, since fog off is only a viewing choice in the editor. A map of its own has no map around it.
+
+### B-168 split · the loop's call
+- The loop's call (2026-10-15, B-168). Benilla's particles, ribbons, texture and material animation are about
+  7000 lines of Rust, too much for one item that finishes cleanly. The texture (UV) animation was done as
+  B-168; the colour and transparency animation (B-181), the particles (B-182, with B-154) and the ribbons
+  (B-183) are their own items, in that order after B-168's place in the Benilla ports.

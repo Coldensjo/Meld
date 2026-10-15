@@ -29,6 +29,17 @@ type Group struct {
 	// Interior marks a WMO group inside a building or cave: the game lights it from its baked
 	// vertex colours, not the sun and sky, so the editor draws it unlit too.
 	Interior bool `json:"interior,omitempty"`
+	// UV is the group's texture animation (an M2 batch's texture transform), nil for a still one.
+	UV *UVAnim `json:"uv,omitempty"`
+}
+
+// UVAnim is an M2 texture transform resolved for the model's clip, in the model's own UV space: the
+// client draws uv' = R((uv + T - p) * S) + p about p = (0.5, 0.5) (Benilla's tex_anim.rs, MIT/Apache).
+// A channel that never leaves its identity is nil.
+type UVAnim struct {
+	T *Track `json:"t,omitempty"` // u, v, w (w unused)
+	R *Track `json:"r,omitempty"` // a raw quaternion; only its z turn is used
+	S *Track `json:"s,omitempty"` // u, v, w (w unused)
 }
 
 // Mesh is a static, renderer-ready mesh in editor space (Y up, yards).
@@ -134,11 +145,12 @@ func (m *Mesh) Consolidate() {
 		tex             string
 		blend           int
 		twoSided, unlit bool
+		uv              *UVAnim
 	}
 	order := []key{}
 	buckets := map[key][]uint32{}
 	for _, g := range m.Groups {
-		k := key{g.Texture, g.Blend, g.TwoSided, g.Unlit}
+		k := key{g.Texture, g.Blend, g.TwoSided, g.Unlit, g.UV}
 		if _, ok := buckets[k]; !ok {
 			order = append(order, k)
 		}
@@ -159,7 +171,7 @@ func (m *Mesh) Consolidate() {
 				continue
 			}
 			b := buckets[k]
-			groups = append(groups, Group{Start: len(idx), Count: len(b), Texture: k.tex, Blend: k.blend, TwoSided: k.twoSided, Unlit: k.unlit})
+			groups = append(groups, Group{Start: len(idx), Count: len(b), Texture: k.tex, Blend: k.blend, TwoSided: k.twoSided, Unlit: k.unlit, UV: k.uv})
 			idx = append(idx, b...)
 		}
 	}

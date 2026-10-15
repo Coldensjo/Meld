@@ -400,6 +400,12 @@ cd frontend && pnpm build   # frontend only
   - Particle emitters: **504 bytes in vanilla**. Only their positions are used, as flame
     anchors when the texture or model name looks like fire.
   - WMOs add their doodads' effects and their own MOLT lights.
+- Texture animation (B-168): each M2 batch's texture transform (header 0x74, lookup 0xAC, the batch's
+  combo at +22) is read for the same loop as the bones into `Group.UV` (`UVAnim`: translation, raw
+  quaternion, scaling; `Consolidate` keeps such groups apart). The frontend gives an animated group a
+  material of its own with a copy of its texture (`assets.ts`, one GPU texture still) and sets the
+  copy's matrix each frame from the client's law (`world/uvAnim.ts`, `updateUVAnimations`, called from
+  `Engine.animateModels`): waterfalls and lava scroll as in the game.
 - `world/Animator.ts` (`ModelAnimation`) CPU-skins the shared geometry per model type. All
   instances animate in sync. The Engine drives `animatedAssets` each frame.
 - `world/PropEffects.ts` draws the flames (instanced upright billboards with a procedural fire

@@ -17,6 +17,8 @@ export interface MeshGroup {
   unlit: boolean
   /** A building's or cave's inside: lit by its baked vertex colours, not the sun and sky. */
   interior?: boolean
+  /** The group's texture animation (an M2 texture transform, see world/uvAnim.ts). */
+  uv?: { t?: AnimTrack; r?: AnimTrack; s?: AnimTrack }
 }
 
 export interface AnimTrack {

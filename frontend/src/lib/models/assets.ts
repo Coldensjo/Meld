@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { fetchMesh, loadTexture, type MeshEffect, type MeshGroup, type WowMesh } from '../wow/api'
+import { uvMatrix, type UVAnimSpec } from '../world/uvAnim'
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
 import { buildBoundsTree } from '../world/bvh'
@@ -137,9 +138,26 @@ export function loadAsset(type: string): Promise<ModelAsset> {
 
 const materialCache = new Map<string, THREE.Material>()
 
+/** The textures that move (M2 texture transforms): each animated group's own copy of its texture, and its animation. */
+const uvAnimated: Array<{ texture: THREE.Texture; spec: UVAnimSpec }> = []
+const uvRows = [0, 0, 0, 0, 0, 0]
+
+/**
+ * Moves every animated texture to time `ms`, as the client does (world/uvAnim.ts). All instances of a
+ * model share the material, so they move in sync, as the bones do.
+ */
+export function updateUVAnimations(ms: number) {
+  for (const a of uvAnimated) {
+    const m = uvMatrix(a.spec, ms, uvRows)
+    a.texture.matrix.set(m[0], m[1], m[2], m[3], m[4], m[5], 0, 0, 1)
+  }
+}
+
 function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
   const key = `${g.texture.toLowerCase()}|${g.blend}|${g.twoSided}|${g.unlit}|${!!g.interior}|${vertexColors}`
-  let m = materialCache.get(key)
+  // A group whose texture moves gets a material of its own, so its texture's matrix moves only it.
+  const moving = !!g.uv && !!g.texture
+  let m = moving ? undefined : materialCache.get(key)
   if (m) return m
   // An interior without baked colours would be full bright unlit, so it gets a dim grey instead.
   const interior = !!g.interior && !g.unlit
@@ -181,12 +199,18 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
   mat.userData.ready = g.texture
     ? loadTexture(g.texture)
         .then((t) => {
+          if (moving) {
+            // A copy shares the image (three keeps one GPU texture for both) but has its own matrix.
+            t = t.clone()
+            t.matrixAutoUpdate = false
+            uvAnimated.push({ texture: t, spec: g.uv as UVAnimSpec })
+          }
           mat.map = t
           mat.needsUpdate = true
         })
         .catch(() => mat.color.set(0x9a9a9a))
     : Promise.resolve()
-  materialCache.set(key, m)
+  if (!moving) materialCache.set(key, m)
   return m
 }
 

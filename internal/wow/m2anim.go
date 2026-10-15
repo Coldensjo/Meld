@@ -62,8 +62,9 @@ func hasAny(s string, words []string) bool {
 
 // parseM2Extras reads bones/animation, lights and particle emitters. The loop played is the
 // first sequence of AnimationData ID animID, else Stand, else the model's first sequence.
-// vertMap maps output vertices to source vertex indices (the view's list).
-func parseM2Extras(r reader, version int, vertMap []int, textures []string, modelPath string, bboxSize float32, animID int) (*Anim, []Effect) {
+// vertMap maps output vertices to source vertex indices (the view's list). uvOf names each group's
+// texture transform (-1 for none), whose animation for the same loop is set on the group.
+func parseM2Extras(r reader, version int, vertMap []int, textures []string, modelPath string, bboxSize float32, animID int, groups []Group, uvOf []int) (*Anim, []Effect) {
 	nGlobal, ofsGlobal, _ := r.arr(0x14, 4)
 	globalLoop := func(i int) uint32 {
 		if i < 0 || i >= nGlobal {
@@ -225,6 +226,43 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 					anim.BoneIdx[i*4+k] = idx
 				}
 			}
+		}
+	}
+
+	// ---- texture transforms (three tracks each: translation, rotation, scaling) ----
+	if nUV, ofsUV, err := r.arr(0x74, 3*trackSize); err == nil && nUV > 0 {
+		raw := func(v []float32) []float32 { return v }
+		// A channel that only ever holds its identity is dropped, as the client's bake does.
+		keep := func(t *Track, id ...float32) *Track {
+			if t == nil {
+				return nil
+			}
+			for i, v := range t.Values {
+				if d := v - id[i%len(id)]; d > 1e-6 || d < -1e-6 {
+					return t
+				}
+			}
+			return nil
+		}
+		baked := map[int]*UVAnim{}
+		for gi, ti := range uvOf {
+			if ti < 0 || ti >= nUV || gi >= len(groups) {
+				continue
+			}
+			a, ok := baked[ti]
+			if !ok {
+				o := ofsUV + ti*3*trackSize
+				a = &UVAnim{
+					T: keep(readTrack(o, 3, raw), 0, 0, 0),
+					R: keep(readTrack(o+trackSize, 4, raw), 0, 0, 0, 1),
+					S: keep(readTrack(o+2*trackSize, 3, raw), 1, 1, 1),
+				}
+				if a.T == nil && a.R == nil && a.S == nil {
+					a = nil
+				}
+				baked[ti] = a
+			}
+			groups[gi].UV = a
 		}
 	}
 
