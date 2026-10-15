@@ -999,6 +999,8 @@ export class Engine {
    * lights are read, the editor's own lighting and sky stay.
    */
   private applyClientLight(time: number) {
+    const tu = this.terrain.material.uniforms
+    tu.clientLit.value = 0
     const id = this.prefs?.clientLighting && wow.loaded ? this.openMapId() : null
     if (id === null) {
       setLiquidLight(null)
@@ -1064,6 +1066,11 @@ export class Engine {
     this.env.hemi.groundColor.copy(s.groundAmbient)
     this.env.key.color.copy(s.keyColor)
     setLiquidLight(this.lightOut)
+    // The ground takes the rows as the client stores them (gamma), lit per vertex with the sheen.
+    tu.clientLit.value = 1
+    ;(tu.clientAmbient.value as THREE.Vector3).fromArray(c, BAND.ambient * 3)
+    ;(tu.clientDiffuse.value as THREE.Vector3).fromArray(c, BAND.diffuse * 3)
+    ;(tu.clientSpecular.value as THREE.Vector3).fromArray(c, BAND.sun * 3)
   }
 
   /**

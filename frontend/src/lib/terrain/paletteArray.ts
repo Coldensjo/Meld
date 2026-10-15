@@ -1,9 +1,12 @@
 import * as THREE from 'three'
 import { fetchImage } from '../wow/api'
+import { applySheen, sheenPath } from './sheen'
 
 // The map's texture palette as one array texture: layer i is palette entry i. Each entry is a WoW
 // tileset path, or a '#rrggbb' colour that stands in for a texture while none is set. WoW
-// textures are resampled to PALETTE_RES, so one array holds them all.
+// textures are resampled to PALETTE_RES, so one array holds them all. A layer's alpha is its sheen
+// mask: the alpha of the texture's `_s` twin (`Foo_s.blp`), which the client's terrain specular
+// reads (Benilla's terrain.rs), or 0 for a texture without one.
 
 export const PALETTE_RES = 256
 
@@ -29,7 +32,7 @@ function solid(hex: string): Uint8Array {
     out[i * 4] = r
     out[i * 4 + 1] = g
     out[i * 4 + 2] = b
-    out[i * 4 + 3] = 255
+    out[i * 4 + 3] = 0
   }
   return out
 }
@@ -86,7 +89,7 @@ export class PaletteArray {
 
   private make(depth: number): THREE.DataArrayTexture {
     this.data = new Uint8Array(PALETTE_RES * PALETTE_RES * 4 * depth).fill(128)
-    for (let i = 3; i < this.data.length; i += 4) this.data[i] = 255
+    for (let i = 3; i < this.data.length; i += 4) this.data[i] = 0
     const t = new THREE.DataArrayTexture(this.data, PALETTE_RES, PALETTE_RES, depth)
     t.wrapS = t.wrapT = THREE.RepeatWrapping
     t.magFilter = THREE.LinearFilter
@@ -122,10 +125,15 @@ export class PaletteArray {
     }
     if (this.loading.has(path)) return
     this.loading.add(path)
-    fetchImage(path)
-      .then((img) => {
+    const sheen = fetchImage(sheenPath(path)).then(
+      (img) => resample(img.pixels, img.width, img.height),
+      () => null,
+    )
+    Promise.all([fetchImage(path), sheen])
+      .then(([img, mask]) => {
         this.loading.delete(path)
         const px = resample(img.pixels, img.width, img.height)
+        applySheen(px, mask)
         this.loaded.set(path, px)
         // Every layer that shows this path gets it, whichever slot it sits in now.
         this.paths.forEach((p, i) => {

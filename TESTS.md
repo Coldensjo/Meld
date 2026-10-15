@@ -775,3 +775,14 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
   `"rooms":true` header); a page loaded before a Go change keeps the old assets, so reload it.
 - Trap: the inn placed with `yOff: 0` on rough ground can have its floor under the terrain, and the
   probe's terrain race then reads outside; pick a floor above the ground.
+
+## Client Lighting's ground: per-vertex light and the sheen (#111)
+
+Checks: under View › Client Lighting the terrain shader takes the light's rows in gamma space
+(`clientAmbient`, `clientDiffuse`, `clientSpecular` = rows 1, 0 and 9), sums and clamps them per
+vertex, and adds the sheen times the layers' `_s` mask (`paletteArray.ts` puts each `_s` twin's alpha
+in the palette layer's alpha, 0 without one). In the dev page, load a region with
+`"prefs":{"clientLighting":true}` in the scene, step frames, then read
+`__engine.terrain.material.uniforms.clientLit.value` (1) and the masks from `__engine.terrain.palette.data`
+(layer i's alpha bytes at `i * 256 * 256 * 4 + 3`, every fourth). Durotar's textures all have masks
+(Black.blp none). With Client Lighting off `clientLit` is 0 and the ground is drawn as before.

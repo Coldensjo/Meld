@@ -8,10 +8,33 @@ const vertex = /* glsl */ `
 #include <shadowmap_pars_vertex>
 varying vec3 vWorldPos;
 varying vec3 vNormal;
+// Client Lighting's ground (Benilla's terrain.wgsl, MIT/Apache-2.0, after the client's fixed-function
+// terrain): the light's rows in the client's gamma space, summed and clamped per vertex, then
+// interpolated. clientLit is 0 under the editor's own lighting.
+uniform float clientLit;
+uniform vec3 sunDir;
+uniform vec3 clientAmbient;
+uniform vec3 clientDiffuse;
+uniform vec3 clientSpecular;
+varying vec3 vPrimaryLit;
+varying vec3 vPrimaryDark;
+varying vec3 vSpecular;
 void main() {
   vec4 worldPosition = modelMatrix * vec4(position, 1.0);
   vWorldPos = worldPosition.xyz;
   vNormal = normal;
+  if (clientLit > 0.5) {
+    // Ambient (row 1) plus the sun's diffuse (row 0) times N.L, clamped; and without the sun, for a
+    // vertex the sun's shadow covers. The sun's specular (row 9) with shininess 20, local viewer.
+    vec3 n = normalize(normal);
+    vec3 v = normalize(cameraPosition - worldPosition.xyz);
+    vec3 h = normalize(sunDir + v);
+    vPrimaryLit = clamp(clientAmbient + clientDiffuse * max(dot(n, sunDir), 0.0), 0.0, 1.0);
+    vPrimaryDark = clamp(clientAmbient, 0.0, 1.0);
+    vSpecular = clamp(clientSpecular * pow(max(dot(n, h), 0.0), 20.0), 0.0, 1.0);
+  } else {
+    vPrimaryLit = vPrimaryDark = vSpecular = vec3(0.0);
+  }
   vec3 transformedNormal = normalMatrix * normal;
   vec4 mvPosition = viewMatrix * worldPosition;
   gl_Position = projectionMatrix * mvPosition;
@@ -47,6 +70,10 @@ uniform sampler2D lookTex;
 uniform float lookTime;
 uniform float cellSize;
 uniform vec3 sunDir;
+uniform float clientLit;
+varying vec3 vPrimaryLit;
+varying vec3 vPrimaryDark;
+varying vec3 vSpecular;
 uniform vec3 sunColor;
 uniform vec3 skyAmbient;
 uniform vec3 groundAmbient;
@@ -89,21 +116,31 @@ uniform float selTime;
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 
+// The sRGB transfer both ways, for the client's gamma-space light.
+vec3 srgbOf(vec3 c) {
+  return mix(c * 12.92, 1.055 * pow(max(c, 0.0), vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
+}
+vec3 linearOf(vec3 c) {
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+}
+
 // Noggit Red's scroll directions (animUVOffset): the 45-degree step's offset per texture repeat.
 const vec2 SCROLL[8] = vec2[8](vec2(0.0, 1.0), vec2(-1.0, 1.0), vec2(-1.0, 0.0), vec2(-1.0, -1.0), vec2(0.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 0.0), vec2(1.0, 1.0));
 
 // A texture the map scrolls moves a repeat every 1.6 s at speed 7, slower in proportion below, as
 // Noggit Red draws it; an overbright one is drawn brighter.
-vec3 tap(float layer, vec2 uv) {
+// The alpha is the layer's sheen mask (paletteArray.ts).
+vec4 tap(float layer, vec2 uv) {
   vec4 look = floor(texture2D(lookTex, vec2((layer + 0.5) / 256.0, 0.5)) * 255.0 + 0.5);
   if (look.r > 0.5) uv += SCROLL[int(look.g) & 7] * fract(lookTime * (look.r - 1.0) / (7.0 * 1.6));
-  vec3 c = texture(palette, vec3(uv, layer)).rgb;
-  return look.b > 127.5 ? c * 1.5 : c;
+  vec4 c = texture(palette, vec3(uv, layer));
+  return look.b > 127.5 ? vec4(c.rgb * 1.5, c.a) : c;
 }
 
-// Blends the chunk's four textures by this texel's weights. Slot ids are 0-255 with 255 empty.
-vec3 blend(vec4 ids, vec4 w, vec2 tuv) {
-  vec3 c = vec3(0.0);
+// Blends the chunk's four textures, and their sheen masks, by this texel's weights. Slot ids are
+// 0-255 with 255 empty.
+vec4 blend(vec4 ids, vec4 w, vec2 tuv) {
+  vec4 c = vec4(0.0);
   if (w.r > 0.004 && ids.r < 254.5) c += tap(ids.r, tuv) * w.r;
   if (w.g > 0.004 && ids.g < 254.5) c += tap(ids.g, tuv) * w.g;
   if (w.b > 0.004 && ids.b < 254.5) c += tap(ids.b, tuv) * w.b;
@@ -137,7 +174,9 @@ void main() {
     f.y);
   float total = max(dot(w, vec4(1.0)), 0.0001);
 
-  vec3 col = blend(ids, w, tuv) / total;
+  vec4 layers = blend(ids, w, tuv) / total;
+  vec3 col = layers.rgb;
+  float sheen = layers.a;
 
   // Automatic rock on steep slopes, triplanar so cliffs don't stretch.
   float slope = 1.0 - n.y;
@@ -145,18 +184,33 @@ void main() {
   if (rockW > 0.001) {
     vec3 w3 = abs(n); w3 /= (w3.x + w3.y + w3.z);
     vec3 rx = texture(palette, vec3(vWorldPos.zy / cellSize, rockLayer)).rgb;
-    vec3 ry = texture(palette, vec3(tuv, rockLayer)).rgb;
+    vec4 ryA = texture(palette, vec3(tuv, rockLayer));
+    vec3 ry = ryA.rgb;
+    sheen = mix(sheen, ryA.a, rockW);
     vec3 rz = texture(palette, vec3(vWorldPos.xy / cellSize, rockLayer)).rgb;
     col = mix(col, rx * w3.x + ry * w3.y + rz * w3.z, rockW);
   }
 
   // Hemisphere ambient plus the key light (sun or moon) as plain Lambert, the same as the props, so a
   // prop and the ground it stands on agree. Where the key light is shadowed only the sky light is left.
-  float diff = max(dot(n, sunDir), 0.0) * keyShadow();
-  vec3 hemi = mix(groundAmbient, skyAmbient, n.y * 0.5 + 0.5);
-  vec3 lit = col * (hemi + sunColor * diff);
-  // The client's baked shadow keeps 70% of the light (terrain/bakedShadows.ts).
-  if (bakedShadowOn > 0.5) lit *= 1.0 - ${(1 - BAKED_SHADOW_LIGHT).toFixed(2)} * texture2D(bakedShadowTex, suv).r;
+  vec3 lit;
+  if (clientLit > 0.5) {
+    // Client Lighting: the client's terrainp_s combine in its gamma space, texture times the
+    // interpolated per-vertex light, 70% of it in baked shadow, plus the sheen (the specular times
+    // the layers' blended mask), none in shadow; clamped, then back to linear.
+    float ks = keyShadow();
+    float baked = bakedShadowOn > 0.5 ? texture2D(bakedShadowTex, suv).r : 0.0;
+    float shadowLit = 1.0 - baked;
+    vec3 primary = mix(vPrimaryDark, vPrimaryLit, ks);
+    vec3 g = clamp(srgbOf(col) * primary * (${(1 - BAKED_SHADOW_LIGHT).toFixed(2)} * shadowLit + ${BAKED_SHADOW_LIGHT.toFixed(2)}) + vSpecular * sheen * shadowLit * ks, 0.0, 1.0);
+    lit = linearOf(g);
+  } else {
+    float diff = max(dot(n, sunDir), 0.0) * keyShadow();
+    vec3 hemi = mix(groundAmbient, skyAmbient, n.y * 0.5 + 0.5);
+    lit = col * (hemi + sunColor * diff);
+    // The client's baked shadow keeps 70% of the light (terrain/bakedShadows.ts).
+    if (bakedShadowOn > 0.5) lit *= 1.0 - ${(1 - BAKED_SHADOW_LIGHT).toFixed(2)} * texture2D(bakedShadowTex, suv).r;
+  }
 
   // Point lights from torches, braziers, lamps (same falloff as three's props).
   #if NUM_POINT_LIGHTS > 0
@@ -319,6 +373,10 @@ export function createTerrainMaterial(
     lookTime: { value: 0 },
     sunDir: { value: new THREE.Vector3(0.5, 0.8, 0.3).normalize() },
     sunColor: { value: new THREE.Color(1.0, 0.95, 0.85) },
+    clientLit: { value: 0 },
+    clientAmbient: { value: new THREE.Vector3() },
+    clientDiffuse: { value: new THREE.Vector3() },
+    clientSpecular: { value: new THREE.Vector3() },
     skyAmbient: { value: new THREE.Color(0.45, 0.5, 0.6) },
     groundAmbient: { value: new THREE.Color(0.25, 0.22, 0.18) },
     cliffAuto: { value: 1 },
