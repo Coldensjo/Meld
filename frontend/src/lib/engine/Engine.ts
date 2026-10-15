@@ -27,7 +27,7 @@ import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/r
 import { groundEffectTables } from '../wow/groundEffectTables'
 import { densityFactor, effectFor, type TextureEffects } from '../world/groundEffects'
 import { layAlphamapChunk, textureWeights } from '../terrain/alphamap'
-import { looksByIndex, type TextureLooks } from '../world/textureLooks'
+import { lookOf, looksByIndex, type TextureLooks } from '../world/textureLooks'
 import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
@@ -655,6 +655,7 @@ export class Engine {
     this.syncPalette()
     const u = this.terrain.material.uniforms
     u.texScale.value = editor.texScale
+    this.updateLookTexture(u, time)
     u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
     const radius = editor.tool === 'road' ? Math.max(1.5, editor.brush.radius * 0.5) : editor.brush.radius
     // The doodad brush scatters in a circle whatever shape the other tools use.
@@ -1940,6 +1941,37 @@ export class Engine {
     if (!ui.pasting || this.lastCopied !== 'area' || !this.clip) return
     this.clip = rotateClip(this.clip, this.terrain.cellSize)
     setViewportHint(`Paste ${this.clip.w}×${this.clip.h}`)
+  }
+
+  /** The texture looks for the terrain shader, 256 entries of RGBA, and what it was built from. */
+  private lookTex: THREE.DataTexture | null = null
+  private lookFrom: { looks: unknown; palette: unknown } = { looks: null, palette: null }
+
+  /** Keeps the terrain shader's texture looks (scrolling, overbright) in step with the map's (B-162). */
+  private updateLookTexture(u: Record<string, THREE.IUniform>, time: number) {
+    // time is the clock's seconds.
+    if (!this.lookTex) {
+      this.lookTex = new THREE.DataTexture(new Uint8Array(256 * 4), 256, 1, THREE.RGBAFormat, THREE.UnsignedByteType)
+      this.lookTex.needsUpdate = true
+    }
+    const looks = editor.textureLooks
+    const palette = editor.palette
+    if (this.lookFrom.looks !== looks || this.lookFrom.palette !== palette) {
+      this.lookFrom = { looks, palette }
+      const data = this.lookTex.image.data as Uint8Array
+      data.fill(0)
+      palette.forEach((p, i) => {
+        const f = looks[p]
+        if (f === undefined || i >= 256) return
+        const l = lookOf(f)
+        data[i * 4] = l.animate ? l.speed + 1 : 0
+        data[i * 4 + 1] = l.turn
+        data[i * 4 + 2] = l.overbright ? 255 : 0
+      })
+      this.lookTex.needsUpdate = true
+    }
+    u.lookTex.value = this.lookTex
+    u.lookTime.value = time
   }
 
   /** The image brush's texture on the GPU, and the brushImage version it holds. */

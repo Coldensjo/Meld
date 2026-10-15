@@ -41,6 +41,10 @@ uniform float chunkWorld;
 uniform float rockLayer;
 uniform float worldSize;
 uniform float texScale;
+// The texture looks (world/textureLooks.ts) per palette entry, 256 wide: r is 0 for still or the speed
+// plus one, g the scroll's direction (0 to 7), b 255 for overbright. lookTime is in seconds.
+uniform sampler2D lookTex;
+uniform float lookTime;
 uniform float cellSize;
 uniform vec3 sunDir;
 uniform vec3 sunColor;
@@ -82,9 +86,17 @@ uniform float selTime;
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 
-// Two scales mixed together hide texture tiling at a distance.
+// Noggit Red's scroll directions (animUVOffset): the 45-degree step's offset per texture repeat.
+const vec2 SCROLL[8] = vec2[8](vec2(0.0, 1.0), vec2(-1.0, 1.0), vec2(-1.0, 0.0), vec2(-1.0, -1.0), vec2(0.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 0.0), vec2(1.0, 1.0));
+
+// Two scales mixed together hide texture tiling at a distance. A texture the map scrolls moves a
+// repeat every 1.6 s at speed 7, slower in proportion below, as Noggit Red draws it; an overbright one
+// is drawn brighter.
 vec3 tap(float layer, vec2 uv) {
-  return mix(texture(palette, vec3(uv, layer)).rgb, texture(palette, vec3(uv * 0.23 + 0.37, layer)).rgb, 0.35);
+  vec4 look = floor(texture2D(lookTex, vec2((layer + 0.5) / 256.0, 0.5)) * 255.0 + 0.5);
+  if (look.r > 0.5) uv += SCROLL[int(look.g) & 7] * fract(lookTime * (look.r - 1.0) / (7.0 * 1.6));
+  vec3 c = mix(texture(palette, vec3(uv, layer)).rgb, texture(palette, vec3(uv * 0.23 + 0.37, layer)).rgb, 0.35);
+  return look.b > 127.5 ? c * 1.5 : c;
 }
 
 // Blends the chunk's four textures by this texel's weights. Slot ids are 0-255 with 255 empty.
@@ -298,6 +310,8 @@ export function createTerrainMaterial(
     worldSize: { value: worldSize },
     cellSize: { value: cellSize },
     texScale: { value: 8 },
+    lookTex: { value: null },
+    lookTime: { value: 0 },
     sunDir: { value: new THREE.Vector3(0.5, 0.8, 0.3).normalize() },
     sunColor: { value: new THREE.Color(1.0, 0.95, 0.85) },
     skyAmbient: { value: new THREE.Color(0.45, 0.5, 0.6) },

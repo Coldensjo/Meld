@@ -400,3 +400,10 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   human-height post), placeable and saved in the `.wmap` like models, never exported to the client, and
   drawn as see-through outlines. No Blizzard assets; an exception to "no built-in prefabs" for visual aids.
 - Decided by the owner, 2026-10-15.
+
+### B-162 Texture looks in the editor's view · Noggit Red's scroll, an approximate glow
+- Chosen by the loop from Noggit Red (2026-10-15, B-162). Noggit Red's terrain vertex shader
+  (`animUVOffset`) scrolls an animated layer's texture coordinates by one unit every 1600 ms × 7 / speed,
+  along its eight direction tables; Meld uses the same rate and directions. Noggit Red draws no glow for
+  overbright, so **ours** is an approximation: 1.5 times brighter. Only the looks the map sets are drawn;
+  a texture keeping the client's own look shows still, as the editor doesn't read those flags per texture.

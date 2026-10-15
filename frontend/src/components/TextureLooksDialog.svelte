@@ -37,7 +37,7 @@
 </script>
 
 <Modal title="Texture looks" width={620} {onclose}>
-  <p class="dim">How the client draws each texture besides its picture: scrolling (lava, water, slime) and overbright (a glow). A texture on "The client's" keeps what the client's tiles give it; the editor doesn't animate the textures itself.</p>
+  <p class="dim">How the client draws each texture besides its picture: scrolling (lava, water, slime) and overbright (a glow). A texture on "The client's" keeps what the client's tiles give it. The editor's view scrolls and brightens the textures this map sets.</p>
   {#if !textures.length}
     <p class="dim">The map has no client textures yet. Textures picked in the asset browser appear here.</p>
   {:else}
