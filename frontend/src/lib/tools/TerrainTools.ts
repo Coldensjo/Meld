@@ -10,7 +10,7 @@ import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushDist, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
 import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale } from './sculptShapes'
 import { brushImage, setBrushImageRotation } from './brushImage'
-import { CHUNK_CELLS, dominantTexel, findSlot, paletteIndex, replaceInChunk, swapTexel } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, NO_TEXTURE, SLOTS, chunkOfTexel, dominantTexel, findSlot, paletteIndex, replaceInChunk, swapTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
 import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
@@ -557,8 +557,9 @@ export class SculptTool extends BrushTool {
         if (rock < 0 && dirt < 0) {
           setStatus('By-slope painting needs the map\'s rock and dirt textures: set them in File › Map Properties.', 4000)
         } else {
-          const { rockDeg, dirtDeg } = editor.slopePaint
+          const { rockDeg, dirtDeg, restoreBase } = editor.slopePaint
           const R = t.splatRes
+          const side = t.paintChunksPerSide
           const ts = t.worldSize / R
           const e = ts
           const sw = this.slopeW
@@ -569,6 +570,13 @@ export class SculptTool extends BrushTool {
             slopeWeights(deg, rockDeg, dirtDeg, sw)
             if (rock >= 0 && sw[0] > 0.001 && !paintPixel(t, p, rock, amt * w * sw[0])) refused++
             if (dirt >= 0 && sw[1] > 0.001 && !paintPixel(t, p, dirt, amt * w * sw[1])) refused++
+            // Ground gentler than the dirt gets its chunk's base (first) texture back, so a hill
+            // lowered again loses its rock; never where the base is the rock or the dirt itself.
+            const flat = 1 - sw[0] - sw[1]
+            if (restoreBase && flat > 0.001) {
+              const base = t.chunkSlots[chunkOfTexel(side, R, p) * SLOTS]
+              if (base !== NO_TEXTURE && base !== rock && base !== dirt) paintPixel(t, p, base, amt * w * flat)
+            }
           }, this.stroke)
         }
       }

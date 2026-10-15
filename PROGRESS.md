@@ -471,3 +471,7 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · stopped (6th run)
 - Stopped: 8 items were done in this run (B-051, B-148, B-128, B-141, B-134, B-126, B-038, B-158), which is the cap. It followed the owner's approval round in plan mode, and the new LOOP.md rule to go on with value L items.
 - Next top item: B-149 Light editor needs B-084 (client lighting data) first, so B-084 (L/L, approved) is the next client-data item; by DESIGN.md order the next small ones are B-159 brush image on the cursor and B-119 by-slope base restore (core authoring, L/S).
+
+## 2026-10-15 · B-119 By-slope painting: restore the base
+- Done (IDEAS.md records the meaning): Sculpt's By-slope painting has a Restore base switch, off by default. With it on, the ground gentler than the dirt angle gets its chunk's base texture (the chunk's first layer, which slot compaction keeps as the base) painted back by how flat it is, so lowering a hill takes its rock away too; it never paints where that base is the rock or the dirt itself. Same stroke and undo step as the rest of the shaping.
+- Verified: make test passed (Go plus 214 of 214 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.

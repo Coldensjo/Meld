@@ -320,3 +320,10 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   way, taking WoW models to face +x and be left-right symmetric: across x the yaw becomes pi - yaw, across z
   -yaw, and the forward tilt flips. A model that isn't symmetric (a sign with text, say) shows its other
   side rather than a mirror image.
+
+### B-119 Restore the base under the dirt · the loop's call
+- The map's texture roles have a rock and a dirt but no base, and adding one would change the map file's
+  roles field and Map Properties. So "the base" is each chunk's own first texture, which slot compaction
+  keeps as the chunk's base: on ground gentler than the dirt angle Restore base paints it back by how flat
+  the ground is, and never where that first texture is the rock or the dirt role. Off by default, as the
+  backlog line asked, since it also paints over roads and details under the brush.

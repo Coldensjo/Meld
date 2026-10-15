@@ -92,7 +92,7 @@ export const editor = $state({
   sculptPaint: 'off' as SculptPaint,
   sculptPaintLayer: 0,
   /** By-slope painting: the slope in degrees from which the ground is rock, and from which it is dirt. */
-  slopePaint: { rockDeg: 40, dirtDeg: 22 },
+  slopePaint: { rockDeg: 40, dirtDeg: 22, restoreBase: false },
   /** The map's texture roles (terrain/roles.ts): the palette entries that are its rock and dirt. */
   roles: noRoles() as TextureRoles,
   /** The map's own ground effect per texture path (world/groundEffects.ts), over what the client's tiles give. */

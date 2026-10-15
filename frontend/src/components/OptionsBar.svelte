@@ -212,6 +212,9 @@
         </button>
         <OptSlider label="Rock from" bind:value={editor.slopePaint.rockDeg} min={10} max={80} step={1} digits={0} width={60} title="Ground steeper than this many degrees is painted rock" />
         <OptSlider label="Dirt from" bind:value={editor.slopePaint.dirtDeg} min={0} max={70} step={1} digits={0} width={60} title="Ground steeper than this many degrees, up to the rock, is painted dirt: the rim at a mountain's foot" />
+        <label class="check" title="Ground gentler than the dirt gets each chunk's base (first) texture back, so lowering a hill takes its rock away too. Off by default, since it also paints over roads and details under the brush.">
+          <input type="checkbox" bind:checked={editor.slopePaint.restoreBase} /> Restore base
+        </label>
       {/if}
     {/if}
     <div class="divider"></div>
