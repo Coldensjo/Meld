@@ -343,6 +343,9 @@
     <select class="curve" bind:value={editor.clearMode} title="What the brush erases" aria-label="What to clear">
       <option value="models">Models</option>
       <option value="textures">Textures (to base)</option>
+      <option value="heights">Height (to zero)</option>
+      <option value="liquids">Liquids (painted water)</option>
+      <option value="holes">Holes (fill)</option>
     </select>
   {/if}
   {#if editor.tool === 'paint' && editor.paintMode === 'texture'}

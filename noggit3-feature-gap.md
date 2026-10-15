@@ -18,7 +18,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 - **Blur** as a separate tool from Smooth (noggit combines it with Flatten in one tool).
 - ~~**Tablet pressure**: radius or speed mapped to pen pressure, with an on/off setting.~~ *Done: Camera › Tablet support (off by default) scales every Sculpt mode's speed and Paint's strength (paint, spray, swap) by pen pressure. Radius is unchanged, and so is a mouse.*
 - **Chunk Mover**: drag a whole terrain chunk, with its heights and objects, to a new location.
-- **Clearing tool**: brush-based erase by category (height, textures, models, liquids, holes, shadows, vertex colours, impassable flags), with a radius and a texture-alpha threshold. *Partly done: the Clear tool (8) erases models and resets textures to the base texture, with the brush size. Height, liquids, holes, shadows, vertex colours and impassable flags are not done yet.*
+- **Clearing tool**: brush-based erase by category (height, textures, models, liquids, holes, shadows, vertex colours, impassable flags), with a radius and a texture-alpha threshold. *Mostly done: the Clear tool (7) erases models, resets textures to the base texture, brings the height to zero, removes painted liquids and fills holes, with the brush size and falloff. Shadows, vertex colours and impassable flags have no field in Meld's map file (B-055, B-057, B-058). No texture-alpha threshold.*
 - **Seam fix**: "Fix terrain gaps between chunks" (Assist menu).
 - **Sphere and terrain-projected cursor shapes** (noggit's cursor switcher offers disk, sphere and terrain modes) **(unverified for Meld's current brush outline)**.
 

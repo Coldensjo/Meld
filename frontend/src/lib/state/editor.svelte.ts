@@ -11,7 +11,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
 export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad'
-export type ClearMode = 'models' | 'textures'
+export type ClearMode = 'models' | 'textures' | 'heights' | 'liquids' | 'holes'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'vertex' | 'hole'
 /** Flatten target: the height under the first click, or the average height under the brush. */
 export type FlattenTarget = 'origin' | 'average'

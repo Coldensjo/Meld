@@ -521,3 +521,20 @@ block), amber tile borders on a map bigger than a tile, and a white dot with a l
 target and facing. A click moves the camera there (`controller.focus`). In the dev page:
 `ed.ui.minimap = true`, then `ed.stats.view` fills within half a second and
 `document.querySelector('[aria-label="Minimap"] canvas').width` is the map's size in cells.
+
+## Clear tool: height, liquids, holes
+
+Checks: Clear (7) with `editor.clearMode` set to `'heights'` brings the ground under the brush to
+zero by the brush weight; `'liquids'` removes every painted liquid layer's cells under it;
+`'holes'` fills the holes of the cells whose centre is under it. Each stroke is one undo step
+(Clear height, Clear liquids, Fill holes). In the dev page, with `at(x, z)` from "Doodad brush":
+
+```js
+ed.editor.tool = 'clear'; ed.editor.clearMode = 'heights'; ed.editor.brush.radius = 12; ed.editor.brush.falloff = 0
+e.tools.clear.onDown(e.ctx, at(100, 100)); e.tools.clear.onUp(e.ctx)
+e.terrain.heightAt(100, 100)                 // 0 on a hills map (was the hill's height); e.history.undo() restores it
+```
+
+- `'liquids'`: paint some water first (Water tool, Paint mode), then clear it; `e.doc.liquids.layers(c)`
+  of the chunk lose the cells. `'holes'`: cut a hole with Sculpt › Hole, then clear it;
+  `e.terrain.holes` has no bytes set under the brush afterwards.
