@@ -52,7 +52,6 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
 - [ ] B-040 **Helper models**: reference models as visual aids · gap §4 · L/M
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
-- [x] B-120 **Doodad brush: slope and surface rules**: keep models off ground steeper than an angle, and let a brush place onto props (attach) as the Place tool does · Source: loop: B-110 · M/M · done 2026-10-15 (PROGRESS.md): Max slope and On props in the options bar
 
 ## Map, client and server
 
@@ -63,12 +62,12 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [x] B-056 **Holes tool** for caves · gap §5 · M/M · done: Sculpt › Hole cuts and fills triangles, holes are in the `.wmap` (version 3) and in the clipboard, with wall handles; not yet exported to client tiles (see CLAUDE.md)
 - [x] B-113 **Grow a region by a tile**: a plus on each side of the open block in the Map panel opens the block one tile bigger (square, so a row or column comes along) · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session) · no longer reachable since B-115 dropped the Map panel; see B-118
 - [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
-- [x] B-117 **Ground effects: per-cell "no doodads" and density**: the MCNK `noEffectDoodad` bits (no tufts under buildings and roads) are neither read nor written, and the tufts' count per cell is fixed at half the density; a density preference and a per-cell switch (automatic under WMOs, or painted) · Source: loop: B-114 · M/M · done 2026-10-15 (PROGRESS.md): read from the client, automatic under WMOs, written on export (ORed), View › Sparse/Normal/Full tufts
 - [ ] B-123 **Painted no-doodad cells, kept in the map file**: a brush that marks cells as growing no tufts (noggit has none; Blizzard's roads have the bits), and the client's bits saved in the `.wmap` so a reopened region draws them; both need a per-cell field in the format · Source: loop: B-117 · L/M · the export already ORs into the client's bits, so nothing is lost without it
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
 - [ ] B-058 **Vertex colour editor** · gap §5 · L/L · needs-approval
 - [ ] B-059 **Save minimap image** (Ctrl+Shift+P) · gap §5 · L/S
 - [ ] B-060 **Minimap window**: click to jump, with tile borders · gap §6 & priority 5 · H/L · the Map dock panel drew the continent's tiles with the open block outlined, but had no jump, and was dropped from the dock (B-115); a click-to-jump map needs a new home
+- [ ] B-124 **Doodad brush On props: footprint at world scale and a cheaper prop lookup**: a model standing on a prop is spaced by its own scale, not its world scale, and each attempt casts a ray through every model's bounds tree (up to 256 a frame); a chunk-bucketed lookup would keep a dense map smooth · Source: loop: B-120 · L/S
 - [ ] B-108 **Port commands: area name and ADT header**: noggit's port file starts each entry with `Map: <area> on ADT x y` · Source: loop: B-053 · L/M · the editor has no area names, so this waits on B-054
 
 ## Navigation, view and display
@@ -78,9 +77,6 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [ ] B-072 **Top-down 2D tile mode** · gap §6 · M/M
 - [ ] B-073 **Pause and speed keys for the day cycle** · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M
-- [x] B-075 **Tile and chunk grid lines**, with hole lines always on · gap §7 · M/S · checked 2026-10-15 (PROGRESS.md): already there; holes show as cut-outs with walls, so there are no hole lines to keep on
-- [x] B-076 **Toggle UI (Tab)** to hide all panels · gap §7 · M/S · done 2026-10-15 (PROGRESS.md): Tab and Graphics › Hide panels
-- [x] B-077 **Detail info panel** per tile or chunk · gap §7 · M/M · done 2026-10-15 (PROGRESS.md): Graphics › Detail info, a readout in the viewport corner
 - [ ] B-078 **Height contour lines** · gap §7 · L/M
 - [ ] B-079 **Skybox toggle**, separate from the sky · gap §7 · L/S
 - [ ] B-080 **Anti-aliasing, VSync and full-screen** settings · gap §7 · L/S
@@ -91,9 +87,8 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 ## Settings, UI and help
 
-- [x] B-090 **Settings panel**: game path, import path, project path, MCLQ path · gap §10 · M/M · checked 2026-10-15 (PROGRESS.md): the Preferences menu already holds the paths that apply (client folder, server folder); noggit's import, WMV log and MCLQ paths have no counterpart in Meld
+- [ ] B-125 **Config fields other than the preferences written whole**: the client folder, server folder, window size and login are still saved from one instance's copy, so two windows can overwrite each other's; the same patch-and-merge as B-122 per field · Source: loop: B-122 · L/S
 - [ ] B-091 **Log window** with a file-loading log setting · gap §10 · M/M
-- [x] B-092 **Help window** and manual links · gap §10 · M/S · done 2026-10-15 (PROGRESS.md): Help › Help… (F1), Manual (README on GitHub)
 - [x] B-093 **Asset browser search** improvements · gap §10 · L/S · done: the search-first asset browser with synonyms, kinds, zones and category facets (CLAUDE.md, Asset browser)
 - [x] B-115 **Dock reduced to Layers**: the Map, Spawns and Properties panels are no longer mounted · Source: owner · -/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session); their functions are B-118
 - [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval
@@ -106,7 +101,6 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 ## Tooling
 
 - [x] B-121 **Dev page must not write the user's preferences**: the dev browser page and the desktop window share config.json and each wrote all of it, so a test in the page overwrote the owner's doodad brushes; `?nosave` makes the page read-only (TESTS.md) · Source: loop: B-110 · H/S · done 2026-10-14
-- [x] B-122 **Preferences written by two windows**: two app instances (or the dev page without `?nosave`) still overwrite each other's whole config.json; a merge on save, or a lock, would make it safe · Source: loop: B-121 · M/M · done 2026-10-15 (PROGRESS.md): each save sends only the changed keys and Go merges them over the file
 
 
 ## Parked

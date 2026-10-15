@@ -237,3 +237,12 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: Checked first, as B-075 was. The settings noggit's panel holds are already in Meld's Preferences menu where they apply: the game path (WoW Client Folder), the project path (VMaNGOS Server Folder, which the tiles, map table and spawn SQL are written into), plus the game login, the thumbnail cache, camera speed, mouse sensitivity, invert Y and tablet support. noggit's import path names its model import list, which Meld asks for in a file dialog (File › Import Object List); its WMV log path imports from WoW Model Viewer, which Meld has no use for; and its MCLQ export path is moot, since Meld's tiles are always written as MCLQ for the 1.12 client. Nothing to build; marked covered in the backlog and the gap list.
 - Verified: nothing changed in the code, so no checks were run.
 - Left: none.
+
+## 2026-10-15 · backlog tidy
+- Removed the items finished in this run (B-120, B-117, B-076, B-075, B-092, B-122, B-077, B-090), as earlier tidies did; PROGRESS.md and the gap list keep the record. The owner session's [x] items (B-110 to B-116, B-118, B-121 and the water and holes items) stay listed, since the owner wrote them. No owner-written item was deleted.
+- No duplicates found. Nothing new fits Parked: B-050 stays open with its needs-approval tag and the owner's back-burner note.
+- New lines from this run: B-123 (painted no-doodad cells and the client's bits in the map file, from B-117), B-124 (On props footprint and lookup, from B-120), B-125 (the other config fields, from B-122).
+
+## 2026-10-15 · stopped
+- Stopped: 8 items were done in this run (B-120, B-117, B-076, B-075, B-092, B-122, B-077, B-090), which is the cap. Two of them (B-075, B-090) closed on a check that the behaviour was already there.
+- Next top item: B-072 Top-down 2D tile mode (M/M, priority 5) or B-091 Log window (M/M); B-060 Minimap window (H/L) and B-084 Client lighting data (L/L, approved) are the larger picks. B-032 Multi-selection (M/L) is the biggest core-authoring item still open and gates B-031 and B-037.
