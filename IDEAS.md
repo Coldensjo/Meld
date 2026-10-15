@@ -13,7 +13,7 @@ noggit-red-feature-gap.md, under "Definitions for the items the loop left open".
 
 Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/noggit3.
 
-Since 2026-10-15 the backlog is GitHub issues (BACKLOG.md). A decision about one item is now a comment
+Since 2026-10-15 the backlog is GitHub issues (CLAUDE.md, "Backlog: GitHub issues"). A decision about one item is now a comment
 on its issue; this file keeps the decisions made before then and the ones that reach beyond one item
 (rules for many items or for the loop).
 
@@ -47,7 +47,7 @@ on its issue; this file keeps the decisions made before then and the ones that r
 
 ### B-008 Seam fix · ours
 - Keep ours. Meld keeps one height array, so there is no tile border to leave a gap.
-- Status: dropped. Moved to Parked in BACKLOG.md. Revisit only if the in-app check shows a seam.
+- Status: dropped. Parked (a closed issue labelled `parked`). Revisit only if the in-app check shows a seam.
 
 ### B-010 Spray mode · noggit3
 - Toggle with T. The spray group has Size (1 to 40, the scatter radius), Pressure (0 to 10) and an
@@ -67,14 +67,14 @@ on its issue; this file keeps the decisions made before then and the ones that r
 - Keep ours. The paint model cannot give one chunk the same texture twice, and the `.wmap` load path
   does no merging, so it can't create a duplicate either.
 - If a duplicate ever shows up on load, treat it as a bug in the loader, not as a feature.
-- Status: dropped. Moved to Parked in BACKLOG.md.
+- Status: dropped. Parked (a closed issue labelled `parked`).
 
 ### B-018 Flatten targets · ours
 - noggit's Linear and Smooth flatten types are distance falloff curves. Ours already applies the Falloff
   curve to every sculpt mode, so they are covered. Keep ours.
 - Smooth-inner is noggit's "wip" routine. It needs cell-centre vertices, which Meld does not have.
   Its meaning in our grid is not settled.
-- Status: Linear and Smooth closed. Smooth-inner moved to Parked in BACKLOG.md.
+- Status: Linear and Smooth closed. Smooth-inner parked (a closed issue labelled `parked`).
 
 ### B-030 Follow-ground rotation · noggit3 behaviour, ours for the default
 - Chosen by the loop from noggit3 (2026-10-12). noggit3's "Follow Ground Rotation" group
@@ -93,7 +93,7 @@ on its issue; this file keeps the decisions made before then and the ones that r
 
 ### B-033 Selective paste · ours
 - Drop it. noggit3 has no per-field paste either. It has one "Copy rotation, tilt, and scale" option.
-- Status: dropped. Moved to Parked in BACKLOG.md.
+- Status: dropped. Parked (a closed issue labelled `parked`).
 
 ### B-034 Hide models · noggit3 for the lifetime, ours for the scope
 - **Session only**, as noggit has it. The hidden state is not saved in the map file. Shift+H clears it.
@@ -139,7 +139,7 @@ on its issue; this file keeps the decisions made before then and the ones that r
 ## Not decided here
 
 - B-102 (mask mode has no switch) and B-103 (emptied slots stay assigned) were not open for owner
-  decisions. They are still in BACKLOG.md as the loop's to pick up.
+  decisions. They were left for the loop to pick up (both done 2026-10-12).
 
 ### B-006 Chunk Mover · noggit3, as Meld's area paste
 - Chosen by the loop from noggit3 (2026-10-15, B-006). noggit3's chunk mover (`src/noggit/chunk_mover.cpp`,
@@ -470,7 +470,7 @@ on its issue; this file keeps the decisions made before then and the ones that r
 ### Benilla ports first · owner decision 2026-10-15
 - Question: where do the ports from Benilla go in the loop's order?
 - Choice: **first** (since the move to issues: the `benilla-port` issues, lowest number first, which
-  keeps this order), in the order of BACKLOG.md's "Benilla ports" section and BENILLA.md's table (B-172 ground
+  keeps this order), in the order of the old backlog's "Benilla ports" section and BENILLA.md's table (B-172 ground
   tufts, B-166 sun/sky/fog, B-173 baked shadows, B-167 WDL horizon, B-168 particles, then the rest), ahead of
   the usual DESIGN.md priority and value order, starting in a fresh session. Bugs still come first.
 - Decided by the owner, 2026-10-15.

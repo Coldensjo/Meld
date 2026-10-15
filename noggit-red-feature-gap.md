@@ -6,7 +6,7 @@ shallow clone, read from source: `src/noggit/MapView.cpp`, `src/noggit/tools/*`,
 `TerrainTools.ts` and `ObjectTools.ts`. This file began as the noggit3 gap list; Noggit Red is the
 maintained fork of noggit3 and keeps nearly all of its features, so the noggit3 items stay where they
 were and the ones only Noggit Red has are tagged **(Red)**. Section numbers are unchanged, since
-the backlog issues cite them as `gap §N` (and older B-numbers in BACKLOG.md did).
+the backlog issues cite them as `gap §N` (by their B-numbers).
 
 Items marked **(unverified)** are inferred from code or docs and were not tested in either app.
 

@@ -23,8 +23,9 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
 
 ## Backlog: GitHub issues
 
-The backlog is the issues of `Coldensjo/Meld`, through `gh` (logged in on this machine). BACKLOG.md
-and PROGRESS.md are frozen as of 2026-10-15; LOOP.md is the loop's own use of the issues.
+The backlog is the issues of `Coldensjo/Meld`, through `gh` (logged in on this machine); LOOP.md is
+the loop's own use of them. The old BACKLOG.md and PROGRESS.md (the loop's log up to 2026-10-15) are
+in the git history (`git show b47706b:PROGRESS.md`).
 
 - **Anything new goes in an issue**: a bug you find, an idea, a follow-up you leave for later. Search
   first (`gh issue list --search`) and comment on an existing issue rather than filing a duplicate.

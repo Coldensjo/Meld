@@ -3,7 +3,6 @@
 Run this same prompt each time, for example with `/loop` or `claude -p "$(cat LOOP.md)"`.
 The backlog is the GitHub issues of `Coldensjo/Meld`, read and written with `gh` (logged in on this
 machine). The rest of the state lives in DESIGN.md and IDEAS.md, so each run starts fresh.
-BACKLOG.md and PROGRESS.md are frozen as of 2026-10-15; read PROGRESS.md only for history.
 
 ---
 
