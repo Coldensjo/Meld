@@ -210,9 +210,9 @@ behaviour in its source. "Open" is what still needs an owner decision.
 - **B-034 Hide models.** Hiding is per **model file**, not per placed object. `H` toggles a flag on the
   shared `Model`, so every instance of that model type hides together (`ModelManager`). `Space+H` draws
   hidden models, and `Shift+H` clears all hidden models and WMOs. The flag lives in memory and is not
-  written to any file, so it is **session-only**. *Open:* the owner decides whether Meld hides per
-  instance, which the noggit design does not do, and whether to keep it session-only. The `.wmap` format
-  has no field for it.
+  written to any file, so it is **session-only**. *Covered:* Meld hides per placed model (H),
+  session-only, with Show hidden models and Shift+H to unhide all; whether H should take a model's
+  attachments with it is B-105.
 - **B-037 Mouse-move snap.** These are two **independent checkboxes**, not two modes, and each applies to
   a different selection size (`ui/ObjectEditor.cpp`, middle-drag handling):
   - Single model: "Mouse move follow cursor on the ground" (default on). On: the model's position follows
@@ -224,6 +224,5 @@ behaviour in its source. "Open" is what still needs an owner decision.
   *Open:* the owner decides whether Meld needs both pairs, and the defaults.
 - **B-052 Reload tile from disk.** File › Reload tile (`Shift+J`) reloads the ADT under the camera
   (`World::reload_tile` → `MapIndex::reloadTile`). It **discards unsaved edits to that tile**, re-reads
-  its models and textures, and resets the selection. *Open:* Meld has no tiles; it saves one
-  `.wmap`. The equivalent is "Revert to saved map", which discards unsaved changes and reloads the file.
-  The owner needs to confirm that scope, since it is larger than S/M.
+  its models and textures, and resets the selection. *Covered:* Meld has no tiles; it saves one
+  `.wmap`, and File › Revert to Saved discards unsaved changes and reloads the file.
