@@ -39,7 +39,7 @@ the owner does not answer or rejects the plan without a decision, log the item a
 PROGRESS.md with the open questions, leave it open in BACKLOG.md, and go on to the next item.
 
 **Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from
-BACKLOG.md, noggit3-feature-gap.md, IDEAS.md or the code, check Noggit Red before you decide it is
+BACKLOG.md, noggit-red-feature-gap.md, IDEAS.md or the code, check Noggit Red before you decide it is
 blocked:
 
 1. Find the behaviour in Noggit Red source. Clone it once per run, shallow, into the scratchpad, never
@@ -86,7 +86,7 @@ d. Commit that item alone, following CLAUDE.md. Stage only the files you changed
    ```
 
 e. Mark the item `[x]` in BACKLOG.md. If it is a gap item, strike it through in
-   noggit3-feature-gap.md and add a short *Done:* note, as earlier commits did. Append its entry to
+   noggit-red-feature-gap.md and add a short *Done:* note, as earlier commits did. Append its entry to
    PROGRESS.md. Put these doc changes in the item's commit, or in a separate
    `Update the backlog and progress logs` commit.
 

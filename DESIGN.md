@@ -1,6 +1,6 @@
 # DESIGN.md: what Meld is for
 
-Status: **draft**, written from README.md, CLAUDE.md and noggit3-feature-gap.md. Changes to this file
+Status: **draft**, written from README.md, CLAUDE.md and noggit-red-feature-gap.md. Changes to this file
 need the owner's approval. The loop in LOOP.md must not edit it.
 
 ## Goal
@@ -32,7 +32,7 @@ When two backlog items compete, the higher one wins.
 2. **Core authoring.** Sculpt, paint, place, select, copy/paste and undo work reliably on real maps.
 3. **Client round trip.** Open a region, edit it, export it to the 1.12 client and the VMaNGOS server.
 4. **Speed on large maps.** Streaming, culling and frame time.
-5. **noggit parity** (noggit3-feature-gap.md). Only when it serves 1 to 4.
+5. **Noggit Red parity** (noggit-red-feature-gap.md). Only when it serves 1 to 4.
 6. **Polish.** Small UI and visual extras. These are picked last.
 
 ## Non-goals

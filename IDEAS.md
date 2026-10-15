@@ -3,12 +3,13 @@
 This file records the decisions behind items that were left open for the owner. The loop in LOOP.md
 reads it and treats these decisions as settled. Do not reopen one without the owner's say-so.
 
-When the loop meets a term it cannot pin down, it checks noggit3 (LOOP.md, "Unknown meaning") and
-records its choice here, marked "chosen by the loop from noggit3". The owner can change any of them.
+When the loop meets a term it cannot pin down, it checks Noggit Red (LOOP.md, "Unknown meaning") and
+records its choice here, marked "chosen by the loop from Noggit Red" (earlier entries say noggit3).
+The owner can change any of them.
 
 Each decision says which source it follows. Where the owner asked for noggit3 unless ours was better,
 the entry says whether **noggit3** or **ours** won, and why. The definitions themselves are in
-noggit3-feature-gap.md, under "Definitions for the items the loop left open".
+noggit-red-feature-gap.md, under "Definitions for the items the loop left open".
 
 Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/noggit3.
 

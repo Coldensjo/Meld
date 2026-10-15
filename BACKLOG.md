@@ -2,7 +2,7 @@
 
 Each item is one line: `- [ ] ID **Title**: what · source · value/effort · reason`.
 
-- **Source**: `gap §N` (noggit3-feature-gap.md section N), `loop: <item>` (found while working on
+- **Source**: `gap §N` (noggit-red-feature-gap.md section N), `loop: <item>` (found while working on
   another item), or `owner` (the owner asked for it).
 - **Value**: H, M or L. How much it advances DESIGN.md's priorities.
 - **Effort**: S (under a day), M, or L.
@@ -11,7 +11,7 @@ Each item is one line: `- [ ] ID **Title**: what · source · value/effort · re
 - Mark done with `[x]` and a PROGRESS.md link. Do not delete done items until the next cleanup pass.
 
 Value and effort were first estimated by the agent that seeded this file. The owner should correct
-them. Fixed-section numbers refer to noggit3-feature-gap.md.
+them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Bugs and broken things (always first)
 
