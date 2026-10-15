@@ -589,7 +589,24 @@ export namespace vmangos {
 	        this.terrain = source["terrain"];
 	    }
 	}
+	export class TerrainType {
+	    id: number;
+	    name: string;
+	    footprints: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new TerrainType(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.footprints = source["footprints"];
+	    }
+	}
 	export class GroundEffectTables {
+	    terrains: TerrainType[];
 	    effects: Record<number, GroundEffect>;
 	    textures: Record<string, number>;
 	
@@ -599,6 +616,7 @@ export namespace vmangos {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.terrains = this.convertValues(source["terrains"], TerrainType);
 	        this.effects = this.convertValues(source["effects"], GroundEffect, true);
 	        this.textures = source["textures"];
 	    }
@@ -1406,6 +1424,7 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	
 	
 	
 	

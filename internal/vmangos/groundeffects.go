@@ -35,8 +35,20 @@ type GroundEffect struct {
 	Terrain int `json:"terrain"`
 }
 
+// TerrainType is a TerrainType.dbc row, what a ground effect's Terrain names: the footstep sounds of
+// the ground (after Benilla's footsteps.rs, MIT/Apache: the 1.12 table is ID, description, two spray
+// IDs, the footstep sound class and flags, 11 rows).
+type TerrainType struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	// Footprints is flag 0x1: walking there leaves prints (snow and sand).
+	Footprints bool `json:"footprints"`
+}
+
 // GroundEffectTables is what the editor needs of the ground effects.
 type GroundEffectTables struct {
+	// Terrains are the TerrainType rows, in ID order.
+	Terrains []TerrainType `json:"terrains"`
 	// Effects by GroundEffectTexture ID; rows that grow nothing are left out.
 	Effects map[uint32]GroundEffect `json:"effects"`
 	// Textures is the effect each tileset texture (lower-case path) carries in the client's own
@@ -113,6 +125,27 @@ func readGroundEffectDBCs(set *mpq.Set) (map[uint32]GroundEffect, error) {
 	return out, nil
 }
 
+// readTerrainTypes reads TerrainType.dbc.
+func readTerrainTypes(set *mpq.Set) ([]TerrainType, error) {
+	b, err := set.ReadFile(`DBFilesClient\TerrainType.dbc`)
+	if err != nil {
+		return nil, fmt.Errorf("TerrainType.dbc: %w", err)
+	}
+	t, err := parseDBC(b)
+	if err != nil {
+		return nil, err
+	}
+	if t.fields != 6 {
+		return nil, fmt.Errorf("TerrainType.dbc has %d fields; the 1.12 layout has 6", t.fields)
+	}
+	out := make([]TerrainType, 0, t.records)
+	for r := 0; r < t.records; r++ {
+		out = append(out, TerrainType{ID: int(t.u32(r, 0)), Name: t.str(r, 1), Footprints: t.u32(r, 5)&1 != 0})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
 // learnTextureEffects reads every tile of every map in the client and returns, per texture, the
 // effect most of its layers carry. progress is told every so often, for the status bar.
 func learnTextureEffects(set *mpq.Set, progress func(string)) map[string]uint32 {
@@ -169,7 +202,11 @@ func LoadGroundEffects(dataDir, cacheDir string, progress func(string)) (*Ground
 	if err != nil {
 		return nil, err
 	}
-	t := &GroundEffectTables{Effects: effects}
+	terrains, err := readTerrainTypes(set)
+	if err != nil {
+		return nil, err
+	}
+	t := &GroundEffectTables{Effects: effects, Terrains: terrains}
 	sum := sha1.Sum([]byte(strings.ToLower(filepath.Clean(dataDir))))
 	cache := filepath.Join(cacheDir, "Meld", "groundeffects", hex.EncodeToString(sum[:])[:12]+".json")
 	if b, err := os.ReadFile(cache); err == nil {

@@ -34,7 +34,7 @@ export function loadGroundEffectTables(): Promise<void> {
   }
   loading = GroundEffects()
     .then((t) => {
-      tables = { effects: {}, textures: t.textures ?? {} }
+      tables = { effects: {}, textures: t.textures ?? {}, terrains: (t.terrains ?? []).map((r) => ({ id: r.id, name: r.name, footprints: r.footprints })) }
       for (const [id, e] of Object.entries(t.effects ?? {})) {
         const row = e as { doodads?: string[]; slots?: number[]; density?: number; terrain?: number }
         const doodads = row.doodads ?? []

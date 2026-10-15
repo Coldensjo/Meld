@@ -125,3 +125,41 @@ func TestClientGroundEffectModels(t *testing.T) {
 		t.Fatalf("%d of %d effects mix models of different zones", mixed, len(effects))
 	}
 }
+
+// TestClientTerrainTypes reads TerrainType.dbc as Benilla's footsteps.rs describes it: 11 rows, named,
+// with footprints on snow and sand only. It needs WOW_DIR.
+func TestClientTerrainTypes(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer set.Close()
+	tt, err := readTerrainTypes(set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tt) != 11 {
+		t.Fatalf("%d terrain types, want 11", len(tt))
+	}
+	var prints []int
+	for _, r := range tt {
+		if r.Name == "" {
+			t.Fatalf("terrain type %d has no name", r.ID)
+		}
+		if r.Footprints {
+			prints = append(prints, r.ID)
+		}
+		t.Logf("%d %s footprints=%v", r.ID, r.Name, r.Footprints)
+	}
+	if len(prints) != 2 || prints[0] != 3 || prints[1] != 7 {
+		t.Fatalf("footprints on %v, want snow (3) and sand (7)", prints)
+	}
+}

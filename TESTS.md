@@ -127,6 +127,9 @@ in a loop and returns what it wants to report as JSON. The viewport of a 1400x90
     (x 150, z 300 in Azeroth 32_48 is open grass). Nothing of this is saved with `?nosave` unless
     the map is saved.
   - Writing `__engine.prefs.x` doesn't stick: the prefs effect re-applies its own copy.
+  - Dialogs open through the menu bar's DOM: click the `button` whose text is the menu's name
+    (`Edit`), then the item's label `span` (its `closest('button')`), then read the dialog's DOM. Used
+    for the ground effect editor's Footsteps pick (B-175): it lists Dirt to None by name.
   - The user's prefs may have Prop animations off, which a probe should not take for a bug.
 
 ## Particles (M2 emitters, B-182)

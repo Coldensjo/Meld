@@ -109,7 +109,14 @@
   let density = $state(8)
   let terrain = $state(0)
   const models = $derived(tables ? [...new Set(Object.values(tables.effects).flatMap((e) => e.doodads))].sort() : [])
-  const terrains = $derived(tables ? [...new Set(Object.values(tables.effects).map((e) => e.terrain))].sort((a, b) => a - b) : [])
+  // The client's terrain types by name (TerrainType.dbc), else the numbers the effects use.
+  const terrains = $derived(
+    tables?.terrains?.length
+      ? tables.terrains.map((t) => ({ id: t.id, label: t.footprints ? `${t.name} (footprints)` : t.name }))
+      : tables
+        ? [...new Set(Object.values(tables.effects).map((e) => e.terrain))].sort((a, b) => a - b).map((id) => ({ id, label: String(id) }))
+        : [],
+  )
   async function create() {
     const chosen = picks.filter(Boolean)
     if (!chosen.length) return
@@ -175,7 +182,7 @@
           <label class="check">Density <input type="number" min="1" max="64" bind:value={density} /></label>
           <label class="check"
             >Footsteps <select bind:value={terrain}>
-              {#each terrains as tt (tt)}<option value={tt}>{tt}</option>{/each}
+              {#each terrains as tt (tt.id)}<option value={tt.id}>{tt.label}</option>{/each}
             </select></label
           >
           <button class="active" onclick={() => void create()} disabled={!picks.some(Boolean)}>Make it</button>

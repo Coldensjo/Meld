@@ -14,9 +14,19 @@ export interface GroundEffect {
   terrain: number
 }
 
+/** A TerrainType.dbc row: the footstep sounds a ground effect gives its ground. */
+export interface TerrainType {
+  id: number
+  name: string
+  /** Walking there leaves footprints (snow, sand). */
+  footprints: boolean
+}
+
 export interface GroundEffectTables {
   /** By GroundEffectTexture ID. */
   effects: Record<string, GroundEffect>
+  /** The TerrainType rows, by ID. */
+  terrains?: TerrainType[]
   /** The effect each tileset texture (lower-case path) carries in the client's tiles. */
   textures: Record<string, number>
 }
