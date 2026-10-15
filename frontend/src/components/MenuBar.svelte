@@ -250,9 +250,9 @@
         { kind: 'check', label: 'Ground effects (grass tufts)', checked: prefs.showGroundEffects, toggle: () => (prefs.showGroundEffects = !prefs.showGroundEffects) },
         ...radios<typeof prefs.groundEffectDensity>(
           [
-            ['Sparse tufts', 'sparse'],
-            ['Normal tufts', 'normal'],
-            ['Full tufts (the game\'s amount)', 'full'],
+            ['Sparse tufts (the game\'s Low)', 'sparse'],
+            ['Normal tufts (Medium)', 'normal'],
+            ['Full tufts (High)', 'full'],
           ],
           () => prefs.groundEffectDensity,
           (v) => (prefs.groundEffectDensity = v),

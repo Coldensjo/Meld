@@ -25,6 +25,10 @@ import (
 type GroundEffect struct {
 	// Doodads are the models' archive paths (World\NoDXT\Detail\...m2), one to four.
 	Doodads []string `json:"doodads"`
+	// Slots are the row's four doodad slots in order, each an index into Doodads, or -1 for an empty
+	// slot or one naming no model. The client keeps the slot pattern: the nth doodad of a cell takes
+	// slot (n + the cell's turn) & 3, and an empty one places nothing.
+	Slots [4]int `json:"slots"`
 	// Density is the row's amount: 8 for most grass, up to 24.
 	Density int `json:"density"`
 	// Terrain is the TerrainType.dbc ID the row gives (footstep sounds).
@@ -91,8 +95,10 @@ func readGroundEffectDBCs(set *mpq.Set) (map[uint32]GroundEffect, error) {
 	for r := 0; r < textures.records; r++ {
 		var e GroundEffect
 		for f := 1; f <= 4; f++ {
+			e.Slots[f-1] = -1
 			if id := textures.u32(r, f); id != noDoodad {
 				if p, ok := paths[id]; ok {
+					e.Slots[f-1] = len(e.Doodads)
 					e.Doodads = append(e.Doodads, p)
 				}
 			}

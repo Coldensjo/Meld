@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/groundEffects.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cellPredominant, cellTexture, cellTufts, chunkNoEffect, coverCells, effectAt, effectFor, hasScopedEffects, hash01, noScopedEffects, knownEffects, tuftsPerCell, type GroundEffectTables, type Tuft } from '../src/lib/world/groundEffects.ts'
+import { BlizzardRandomizer, cellPredominant, cellTexture, chunkSeed, chunkNoEffect, coverCells, effectAt, effectFor, frillDensity, hasScopedEffects, noScopedEffects, knownEffects, scatterChunk, type GroundEffect, type GroundEffectTables, type Tuft } from '../src/lib/world/groundEffects.ts'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
 
 const tables: GroundEffectTables = {
@@ -38,14 +38,11 @@ test('the cell grows the slot that weighs most over its texels', () => {
   assert.equal(cellTexture(w, slots, res, 2, 5, 5), NO_TEXTURE)
 })
 
-test('tufts per cell follow the density and the density level, within the cap', () => {
-  assert.equal(tuftsPerCell(8), 4)
-  assert.equal(tuftsPerCell(1), 1)
-  assert.equal(tuftsPerCell(0), 0)
-  assert.equal(tuftsPerCell(24), 12)
-  assert.equal(tuftsPerCell(8, 1), 8, 'full is the game\'s amount')
-  assert.equal(tuftsPerCell(8, 0.25), 2, 'sparse is a quarter')
-  assert.equal(tuftsPerCell(24, 1), 16, 'capped')
+test("the View menu's densities are the client's Ground Clutter stops", () => {
+  assert.equal(frillDensity('sparse'), 16)
+  assert.equal(frillDensity('normal'), 32)
+  assert.equal(frillDensity('full'), 48)
+  assert.equal(frillDensity('nonsense'), 32)
 })
 
 test('a building bares the cells under its turned box, and the chunk bits pack per row', () => {
@@ -73,24 +70,52 @@ test('a building bares the cells under its turned box, and the chunk bits pack p
   assert.equal(mid[3], 0)
 })
 
-test('a cell grows the same tufts every time, spread over it', () => {
-  const a: Tuft[] = []
-  const b: Tuft[] = []
-  cellTufts(10, 20, 4, 2, a)
-  cellTufts(10, 20, 4, 2, b)
-  assert.deepEqual(a, b)
-  for (const t of a) {
-    assert.ok(t.u >= 0 && t.u < 1 && t.v >= 0 && t.v < 1)
-    assert.ok(t.doodad === 0 || t.doodad === 1)
-    assert.ok(t.scale >= 0.85 && t.scale <= 1.15)
-  }
-  // No two tufts share a sub-cell of the jittered grid.
-  const cells = new Set(a.map((t) => `${Math.floor(t.u * 2)},${Math.floor(t.v * 2)}`))
-  assert.equal(cells.size, 4)
-  const c: Tuft[] = []
-  cellTufts(11, 20, 4, 2, c)
-  assert.notDeepEqual(a, c, 'the next cell differs')
-  assert.ok(hash01(1, 2, 3) >= 0 && hash01(1, 2, 3) < 1)
+// The vectors below are Benilla's own BlizzardRandomizer and scatter loop (ground_effects.rs), built
+// with rustc and run for chunk seed (33 << 16) | 47.
+const near = (a: number, b: number) => Math.abs(a - b) < 1e-6
+
+test("the randomizer gives the client's stream", () => {
+  const r = new BlizzardRandomizer(chunkSeed(47, 33))
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(() => r.shuffle()), [462909168, 669678877, 618994953, 2678731783, 1483417433, 513740583])
+  const units = [-0.62321985, -0.15041244, 0.89484084, -0.21164262, 0.66742706, 0.91216016]
+  for (const u of units) assert.ok(near(r.signedUnit(), u))
+  r.reset(0)
+  assert.deepEqual([r.shuffle(), r.shuffle(), r.shuffle()], [381586089, 3124349024, 2984236384])
+})
+
+test('a chunk scatters as the client does: cells with repeats, slots by turn, nothing drawn for a bare cell', () => {
+  const effect: GroundEffect = { doodads: ['A', 'B', 'C'], slots: [0, -1, 1, 2], density: 2, terrain: 0 }
+  // Row 0 grows nothing, so its picks draw nothing from the stream.
+  const cells = Array.from({ length: 64 }, (_, k) => (k < 8 ? null : effect))
+  const out: Tuft[] = []
+  const n = scatterChunk(new BlizzardRandomizer(), chunkSeed(47, 33), 16, cells, out)
+  assert.equal(n, 23)
+  const first = [
+    [5 * 8 + 0, 'A', 0.095027566, 0.8864776, 0.99882096, 0.17729574],
+    [7 * 8 + 1, 'B', 0.63113964, 0.9786581, 0.9235268, 2.852817],
+    [7 * 8 + 1, 'B', 0.41656452, 0.71796393, 1.0066075, -2.915309],
+    [7 * 8 + 1, 'C', 0.40600616, 0.54572713, 0.98517305, 2.629112],
+  ] as const
+  first.forEach(([cell, model, u, v, scale, rotY], i) => {
+    const t = out[i]
+    assert.equal(t.cell, cell)
+    assert.equal(effect.doodads[t.doodad], model)
+    assert.ok(near(t.u, u) && near(t.v, v) && near(t.scale, scale) && Math.abs(t.rotY - rotY) < 1e-5, `tuft ${i}`)
+  })
+  const last = out[n - 1]
+  assert.equal(last.cell, 4 * 8 + 3)
+  assert.equal(effect.doodads[last.doodad], 'A')
+  assert.ok(near(last.u, 0.8509138) && near(last.v, 0.60398227))
+  // The same chunk always grows the same tufts; another chunk others.
+  const again: Tuft[] = []
+  scatterChunk(new BlizzardRandomizer(), chunkSeed(47, 33), 16, cells, again)
+  assert.deepEqual(again.slice(0, n), out.slice(0, n))
+  const other: Tuft[] = []
+  scatterChunk(new BlizzardRandomizer(), chunkSeed(48, 33), 16, cells, other)
+  assert.notDeepEqual(other[0], out[0])
+  // A density of 0 grows the client's 8.
+  const zero = scatterChunk(new BlizzardRandomizer(), chunkSeed(47, 33), 1, Array(64).fill({ ...effect, slots: [0, 0, 0, 0], density: 0 }), [])
+  assert.equal(zero, 8)
 })
 
 test('the known effects are those the client uses, most used first', () => {

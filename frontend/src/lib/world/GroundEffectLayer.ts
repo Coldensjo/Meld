@@ -3,7 +3,7 @@ import type { Terrain } from '../terrain/Terrain'
 import { CHUNK_CELLS, NO_TEXTURE } from '../terrain/chunkPaint'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import type { ObjectLayer } from './ObjectLayer'
-import { cellTexture, cellTufts, coverCells, effectAt, effectFor, hasScopedEffects, noScopedEffects, tuftsPerCell, type GroundEffect, type ScopedEffects, type CoverBox, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
+import { BlizzardRandomizer, cellTexture, chunkSeed, coverCells, effectAt, effectFor, hasScopedEffects, noScopedEffects, scatterChunk, type GroundEffect, type ScopedEffects, type CoverBox, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
 
 /** Paint chunks a side of a 1.12 tile, which a tile's own effect choices cover. */
 const TILE_CHUNKS = 16
@@ -36,9 +36,9 @@ export function blockedCells(terrain: Terrain, objects: ObjectLayer, out: Uint8A
   return out
 }
 
-/** How far from the camera tufts are drawn, in yards (the game's ground effect distance is about this). */
-export const TUFT_RANGE = 90
-/** Most tufts drawn at once; past it the cells nearest the camera keep theirs. */
+/** How far from the camera tufts are drawn, in yards: the client's detail-doodad distance ([0x867958]). */
+export const TUFT_RANGE = 70
+/** Most tufts drawn at once; past it the chunks built first keep theirs. */
 const MAX_TUFTS = 60000
 /** The layer is rebuilt no more often than this while the camera moves or the ground changes. */
 const REBUILD_MS = 250
@@ -50,14 +50,19 @@ interface Batch {
 
 /**
  * Draws the ground effects of one map: the grass tufts, flowers and pebbles the game scatters on
- * each cell by the texture on top of it. Only the cells within TUFT_RANGE of the camera are built,
- * one InstancedMesh per detail model, and the build is redone when the camera has moved half a
- * chunk, the ground or its paint changed, or a model finished loading.
+ * each chunk by the texture on top of each cell, placed as the client places them (`scatterChunk`,
+ * seeded by the chunk's place in the client's map, so the tufts stand where the game puts them).
+ * Only the tufts within TUFT_RANGE of the camera are built, one InstancedMesh per detail model, and
+ * the build is redone when the camera has moved half a chunk, the ground or its paint changed, or a
+ * model finished loading.
  */
 export class GroundEffectLayer {
   readonly group = new THREE.Group()
   private batches = new Map<string, Batch>()
   private tufts: Tuft[] = []
+  private rng = new BlizzardRandomizer()
+  /** The effect of each cell of the chunk being built, row by row. */
+  private cellEffects = new Array<GroundEffect | null>(CHUNK_CELLS * CHUNK_CELLS).fill(null)
   private m = new THREE.Matrix4()
   private q = new THREE.Quaternion()
   private p = new THREE.Vector3()
@@ -86,9 +91,11 @@ export class GroundEffectLayer {
 
   /**
    * Keeps the tufts around `eye` current. `key` names everything else the build depends on (the
-   * palette, the map's own effects and the tables), so a change of any redraws.
+   * palette, the map's own effects and the tables), so a change of any redraws. `frill` is the
+   * client's cells per chunk (`frillDensity`), and (`tileX`, `tileY`) the client tile at the map's
+   * north-west corner (a region's first tile, 0 for a map of its own), which seeds each chunk.
    */
-  update(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables | null, key: string, now: number, objects: ObjectLayer, factor: number, scoped: ScopedEffects = noScopedEffects()) {
+  update(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables | null, key: string, now: number, objects: ObjectLayer, frill: number, scoped: ScopedEffects = noScopedEffects(), tileX = 0, tileY = 0) {
     if (!this.group.visible || !tables) return
     const t = this.terrain
     const half = (CHUNK_CELLS * t.cellSize) / 2
@@ -104,20 +111,22 @@ export class GroundEffectLayer {
     this.paintVersion = t.paintVersion
     this.chunkDataVersion = t.chunkDataVersion
     this.assetsChanged = false
-    this.build(eye, palette, own, tables, objects, factor, scoped)
+    this.build(eye, palette, own, tables, objects, frill, scoped, tileX, tileY)
   }
 
-  private build(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables, objects: ObjectLayer, factor: number, scoped: ScopedEffects) {
+  private build(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables, objects: ObjectLayer, frill: number, scoped: ScopedEffects, tileX: number, tileY: number) {
     const t = this.terrain
     const cs = t.cellSize
     const cells = t.size
     if (this.blocked.length !== cells * cells) this.blocked = new Uint8Array(cells * cells)
     const blocked = blockedCells(t, objects, this.blocked)
     const r = TUFT_RANGE
-    const cx0 = Math.max(0, Math.floor((eye.x - r) / cs))
-    const cx1 = Math.min(cells - 1, Math.ceil((eye.x + r) / cs))
-    const cz0 = Math.max(0, Math.floor((eye.z - r) / cs))
-    const cz1 = Math.min(cells - 1, Math.ceil((eye.z + r) / cs))
+    const side = t.paintChunksPerSide
+    const per = CHUNK_CELLS * cs
+    const gx0 = Math.max(0, Math.floor((eye.x - r) / per))
+    const gx1 = Math.min(side - 1, Math.floor((eye.x + r) / per))
+    const gz0 = Math.max(0, Math.floor((eye.z - r) / per))
+    const gz1 = Math.min(side - 1, Math.floor((eye.z + r) / per))
     for (const b of this.batches.values()) b.count = 0
     // The effect of each palette entry, looked up once per build.
     const effectOf = palette.map((p) => {
@@ -128,46 +137,57 @@ export class GroundEffectLayer {
     // once per texture, zone and tile in a build.
     const scopedOn = hasScopedEffects(scoped)
     const byScope = new Map<number, GroundEffect | null>()
-    const side = t.paintChunksPerSide
+    const cellEffects = this.cellEffects
     const r2 = r * r
     let total = 0
-    for (let cz = cz0; cz <= cz1; cz++) {
-      const zc = (cz + 0.5) * cs
-      for (let cx = cx0; cx <= cx1; cx++) {
-        const xc = (cx + 0.5) * cs
-        const dx = xc - eye.x
-        const dz = zc - eye.z
-        if (dx * dx + dz * dz > r2) continue
-        if (blocked[cz * cells + cx] || t.isHole(xc, zc)) continue
-        const tex = cellTexture(t.weights, t.chunkSlots, t.splatRes, t.paintChunksPerSide, cx, cz)
-        if (tex === NO_TEXTURE) continue
-        let effect = effectOf[tex]
-        if (scopedOn) {
-          const gx = Math.floor(cx / CHUNK_CELLS)
-          const gz = Math.floor(cz / CHUNK_CELLS)
-          const area = t.areaIds[gz * side + gx]
-          const tx = Math.floor(gx / TILE_CHUNKS)
-          const tz = Math.floor(gz / TILE_CHUNKS)
-          const k = ((area * 64 + tz) * 64 + tx) * 256 + tex
-          let e = byScope.get(k)
-          if (e === undefined) {
-            const id = effectAt(palette[tex] ?? '', own, scoped, area, tx, tz, tables)
-            e = id ? (tables.effects[id] ?? null) : null
-            byScope.set(k, e)
+    for (let gz = gz0; gz <= gz1; gz++) {
+      const nz = Math.min(Math.max(eye.z, gz * per), (gz + 1) * per) - eye.z
+      for (let gx = gx0; gx <= gx1; gx++) {
+        const nx = Math.min(Math.max(eye.x, gx * per), (gx + 1) * per) - eye.x
+        if (nx * nx + nz * nz > r2) continue
+        const area = t.areaIds[gz * side + gx]
+        const tx = Math.floor(gx / TILE_CHUNKS)
+        const tz = Math.floor(gz / TILE_CHUNKS)
+        // Each cell's effect, by the texture that weighs most on it; none where it grows nothing.
+        let any = false
+        for (let row = 0; row < CHUNK_CELLS; row++) {
+          const cz = gz * CHUNK_CELLS + row
+          for (let col = 0; col < CHUNK_CELLS; col++) {
+            const cx = gx * CHUNK_CELLS + col
+            let effect: GroundEffect | null = null
+            if (!blocked[cz * cells + cx] && !t.isHole((cx + 0.5) * cs, (cz + 0.5) * cs)) {
+              const tex = cellTexture(t.weights, t.chunkSlots, t.splatRes, side, cx, cz)
+              if (tex !== NO_TEXTURE) {
+                effect = effectOf[tex]
+                if (scopedOn) {
+                  const k = ((area * 64 + tz) * 64 + tx) * 256 + tex
+                  let e = byScope.get(k)
+                  if (e === undefined) {
+                    const id = effectAt(palette[tex] ?? '', own, scoped, area, tx, tz, tables)
+                    e = id ? (tables.effects[id] ?? null) : null
+                    byScope.set(k, e)
+                  }
+                  effect = e
+                }
+              }
+            }
+            if (effect && effect.doodads.length === 0) effect = null
+            cellEffects[row * CHUNK_CELLS + col] = effect
+            if (effect) any = true
           }
-          effect = e
         }
-        if (!effect || effect.doodads.length === 0) continue
-        const n = tuftsPerCell(effect.density, factor)
-        if (n === 0) continue
+        if (!any) continue
+        const n = scatterChunk(this.rng, chunkSeed(tileX * TILE_CHUNKS + gx, tileY * TILE_CHUNKS + gz), frill, cellEffects, this.tufts)
         if (total + n > MAX_TUFTS) continue
-        cellTufts(cx, cz, n, effect.doodads.length, this.tufts)
         for (let i = 0; i < n; i++) {
           const tuft = this.tufts[i]
-          const x = (cx + tuft.u) * cs
-          const z = (cz + tuft.v) * cs
-          const y = t.heightAt(x, z)
-          this.place(effect.doodads[tuft.doodad], x, y, z, tuft.rotY, tuft.scale)
+          const x = (gx * CHUNK_CELLS + (tuft.cell % CHUNK_CELLS) + tuft.u) * cs
+          const z = (gz * CHUNK_CELLS + Math.floor(tuft.cell / CHUNK_CELLS) + tuft.v) * cs
+          const dx = x - eye.x
+          const dz = z - eye.z
+          if (dx * dx + dz * dz > r2) continue
+          const effect = cellEffects[tuft.cell] as GroundEffect
+          this.place(effect.doodads[tuft.doodad], x, t.heightAt(x, z), z, tuft.rotY, tuft.scale)
         }
         total += n
       }

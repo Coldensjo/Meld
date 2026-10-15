@@ -470,3 +470,11 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   the usual DESIGN.md priority and value order, starting in a fresh session. Bugs still come first.
 - Decided by the owner, 2026-10-15.
 
+
+### B-172 Tuft density levels · the client's Ground Clutter stops
+- The loop's call (2026-10-15, B-172), from Benilla's `clutter.rs` and the client's `SetWorldDetail` (0x488dd0).
+  The client's density is `frillDensity`, the cells of a chunk that grow tufts (drawn with repeats), not a
+  share per cell: its options panel writes 16, 32 or 48. **Ours**: View › Sparse, Normal and Full tufts are
+  those stops (16, 32, 48), with Normal (32, the panel's Medium) as the default, as Benilla defaults to it.
+  The pref keeps its values, so a saved choice carries over. The range is the client's 70 yd from the
+  camera; the client's fade over its last part is left for B-178.

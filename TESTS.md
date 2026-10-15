@@ -429,7 +429,7 @@ ed.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()]);
 
 Checks: tufts stay off the cells under buildings and off the client's own `noEffectDoodad` cells,
 and the export writes those cells. Unit tests: `groundEffects.test.ts` (`coverCells`,
-`chunkNoEffect`, `tuftsPerCell` with the density factor), `vmangosExport.test.ts` (the row bits
+`chunkNoEffect`, `frillDensity`), `vmangosExport.test.ts` (the row bits
 per chunk) and Go `TestRewriteNoEffectBitsReadBackAndKeepTheTilesOwn` (written bits read back by
 `ParseTerrain`, ORed with the tile's own). In the dev page, on a region:
 
@@ -442,6 +442,11 @@ e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cel
 
 - A WMO whose bottom floats more than 4 yards above the ground (a bridge) bares nothing.
 - The density is View › Sparse / Normal / Full tufts; the layer rebuilds within a quarter second.
+- The scatter itself (`scatterChunk`, `BlizzardRandomizer`) is tested against vectors printed by
+  Benilla's own Rust (`ground_effects.rs`): copy `GROUND_EFFECT_NOISE`, `BlizzardRandomizer` and the
+  pass loop into a scratch `.rs` with a `main` that prints them, and build it with
+  `rustc -O --edition 2021` (rustup's toolchain, `~/.cargo/bin`); no cargo project is needed. The
+  JS values match Rust's f32 ones to 1e-6, not exactly, since JS works in doubles.
 
 ## Hide panels (Tab)
 

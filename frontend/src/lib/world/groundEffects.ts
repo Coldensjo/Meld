@@ -8,6 +8,8 @@ import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../terrain/chunk
 
 export interface GroundEffect {
   doodads: string[]
+  /** The row's four doodad slots, each an index into `doodads` or -1 (empty, or naming no model). */
+  slots: number[]
   density: number
   terrain: number
 }
@@ -102,16 +104,14 @@ export function cellTexture(weights: Uint8Array, chunkSlots: Uint8Array, splatRe
   return chunkSlots[chunk * SLOTS + k]
 }
 
-/** How many tufts a cell grows for an effect's density: the game's amount runs 0 to 24, mostly 8. */
-export const MAX_TUFTS_PER_CELL = 16
-/** The View menu's density: the share of the game's amount drawn per cell. */
+/**
+ * The View menu's density, as the client's Ground Clutter slider stops (`SetWorldDetail` writes
+ * `frillDensity` 16, 32 or 48): how many cells of a chunk grow tufts, drawn with repeats.
+ */
 export type DensityLevel = 'sparse' | 'normal' | 'full'
-export const DENSITY_FACTORS: Record<DensityLevel, number> = { sparse: 0.25, normal: 0.5, full: 1 }
-export function densityFactor(level: string): number {
-  return DENSITY_FACTORS[level as DensityLevel] ?? DENSITY_FACTORS.normal
-}
-export function tuftsPerCell(density: number, factor = DENSITY_FACTORS.normal): number {
-  return Math.min(MAX_TUFTS_PER_CELL, Math.max(0, Math.round(density * factor)))
+export const FRILL_DENSITY: Record<DensityLevel, number> = { sparse: 16, normal: 32, full: 48 }
+export function frillDensity(level: string): number {
+  return FRILL_DENSITY[level as DensityLevel] ?? FRILL_DENSITY.normal
 }
 
 /** A building's footprint: its position and turn on the map, and its box in its own space. */
@@ -184,16 +184,85 @@ export function chunkNoEffect(blocked: Uint8Array, cells: number, gx: number, gz
   return any ? rows : null
 }
 
-/** A hash of three integers to [0, 1), stable across frames so tufts stand still. */
-export function hash01(a: number, b: number, c: number): number {
-  let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0
-  h = Math.imul(h ^ (h >>> 13), 1274126177)
-  h ^= h >>> 16
-  return (h >>> 0) / 4294967296
+// The client's own scatter, CMapChunk::CreateDetailDoodads (0x6bfc10), ported from Benilla's
+// ground_effects.rs (MIT/Apache; `scatter_ground_doodads`, `BlizzardRandomizer`). Its noise table is the
+// one Noggit Red's ChunkAddDetailDoodads.cpp recovers.
+
+/** The client's detail-doodad noise table, a permutation of 0..255. */
+const NOISE = new Uint8Array([
+  0x8e, 0x14, 0x27, 0x99, 0xfd, 0xaa, 0xc7, 0x08, 0xd5, 0xe6, 0x3e, 0x1f, 0xf6, 0xbb, 0x55, 0xda,
+  0x75, 0xa0, 0x4a, 0x6a, 0xe8, 0xbd, 0x97, 0xff, 0xde, 0x9b, 0xbc, 0x9f, 0x81, 0x8a, 0xa1, 0x46,
+  0x6e, 0x0b, 0xe3, 0x63, 0x76, 0x7a, 0x6c, 0x5d, 0x88, 0xd3, 0x69, 0xca, 0xc3, 0x47, 0xb9, 0x25,
+  0x83, 0xab, 0xa2, 0x3f, 0xa6, 0x41, 0x7c, 0xba, 0xe5, 0xac, 0x95, 0x01, 0x7e, 0xcf, 0x09, 0xc1,
+  0xd9, 0x62, 0x70, 0x71, 0x8d, 0xdb, 0x05, 0x02, 0x24, 0x87, 0xef, 0x54, 0xc6, 0xd4, 0x37, 0x30,
+  0xd0, 0x1b, 0xcb, 0x7b, 0xb8, 0xe4, 0xd8, 0xec, 0x49, 0xce, 0xad, 0xdc, 0x13, 0xa9, 0x94, 0xc4,
+  0x8f, 0x39, 0xae, 0x0d, 0x18, 0x52, 0xdd, 0x0e, 0x78, 0xfa, 0xf5, 0x85, 0x58, 0xd2, 0xaf, 0x6d,
+  0xa4, 0xb2, 0x53, 0x3b, 0x51, 0xa5, 0x50, 0xbe, 0xfc, 0x2d, 0xf4, 0x11, 0x48, 0x98, 0x16, 0xf1,
+  0x86, 0xdf, 0x3d, 0x66, 0x5e, 0x44, 0x2e, 0x2f, 0x36, 0x07, 0x6b, 0x17, 0x8b, 0x29, 0x4c, 0xb6,
+  0xe2, 0x89, 0x5f, 0xe7, 0xcd, 0xa7, 0x21, 0xe1, 0x4d, 0xc9, 0x65, 0xed, 0xfe, 0xee, 0x9c, 0x23,
+  0x33, 0x7d, 0xb7, 0x04, 0x9e, 0x9a, 0x2a, 0x40, 0xb3, 0x10, 0x5b, 0xf3, 0x82, 0x77, 0x1c, 0x92,
+  0x20, 0x4e, 0x1e, 0x57, 0x22, 0x72, 0x06, 0x8c, 0x67, 0x2c, 0x73, 0xfb, 0x59, 0xc2, 0x0a, 0xbf,
+  0x79, 0x5c, 0xf9, 0x0c, 0x28, 0x1a, 0x12, 0x68, 0x74, 0x34, 0x19, 0x42, 0xb1, 0xc0, 0x84, 0xf8,
+  0x38, 0xf0, 0x15, 0x9d, 0x60, 0xf2, 0x3a, 0x6f, 0xb4, 0x90, 0xeb, 0x91, 0x1d, 0x7f, 0x35, 0x61,
+  0x5a, 0x32, 0x03, 0x56, 0xa3, 0xc5, 0x2b, 0x93, 0x80, 0x0f, 0x4b, 0x43, 0xf7, 0xa8, 0xe0, 0x3c,
+  0x96, 0xd1, 0x64, 0x26, 0xd7, 0x45, 0xcc, 0x4f, 0xc8, 0xb0, 0xe9, 0xb5, 0x00, 0xd6, 0x31, 0xea,
+])
+
+/** Little-endian u32 at byte `i` of the noise table; the lanes keep `i` at most 251. */
+function noise32(i: number): number {
+  return (NOISE[i] | (NOISE[i + 1] << 8) | (NOISE[i + 2] << 16) | (NOISE[i + 3] << 24)) >>> 0
 }
 
-/** One tuft of a cell: where in the cell (0..1 each way), which doodad, its turn and its size. */
+const rotl = (x: number, n: number) => ((x << n) | (x >>> (32 - n))) >>> 0
+
+/** One lane of the seed: a negative index adds the lane's own constant, not a mod-256 wrap (0x4531e0). */
+function lane(byte: number, sub: number, wrap: number): number {
+  const i = (byte & 0xff) - sub
+  return i < 0 ? i + wrap : i
+}
+
+/** The client's detail-doodad randomizer (0x4531e0, its seed expanded by 0x44ea80), seeded once a chunk. */
+export class BlizzardRandomizer {
+  source = 0
+  seed = 0
+
+  constructor(source = 0) {
+    this.reset(source)
+  }
+
+  reset(source: number): this {
+    source >>>= 0
+    this.source = source
+    this.seed = (((source % 0x2f) << 26) | ((source % 0x35) << 18) | ((source % 0x3b) << 10) | (4 * (source % 0x3d))) >>> 0
+    return this
+  }
+
+  /** Advances and returns the next source, a u32. */
+  shuffle(): number {
+    const s = this.seed
+    const a = lane(s, 0x1c, 0xf4)
+    const b = lane(s >>> 8, 0x18, 0xec)
+    const c = lane(s >>> 16, 0x0c, 0xd4)
+    const d = lane(s >>> 24, 0x04, 0xbc)
+    this.seed = (a | (b << 8) | (c << 16) | (d << 24)) >>> 0
+    this.source = (this.source + ((noise32(a) ^ rotl(noise32(d), 1) ^ rotl(noise32(c), 2) ^ rotl(noise32(b), 3)) >>> 0)) >>> 0
+    return this.source
+  }
+
+  /** The client's genCoord: a mantissa in [1, 2), mapped by the roll's sign bit to (0, 1] or [-1, 0). */
+  signedUnit(): number {
+    const u = this.shuffle()
+    const f = 1 + (u & 0x7fffff) / 0x800000
+    return u >= 0x80000000 ? 2 - f : f - 2
+  }
+}
+
+/** The seed of a chunk: its place among all the map's chunks, (global row << 16) | global column. */
+export const chunkSeed = (globalX: number, globalY: number) => ((globalY << 16) | (globalX & 0xffff)) >>> 0
+
+/** One tuft of a chunk: its cell (row * 8 + column), where in it (0..1 east and south), which of the effect's doodads, its turn and size. */
 export interface Tuft {
+  cell: number
   u: number
   v: number
   doodad: number
@@ -202,26 +271,48 @@ export interface Tuft {
 }
 
 /**
- * The tufts of cell (cx, cz): `count` of them, spread over the cell at hashed spots, each one of
- * `doodads` models (hashed, so neighbours differ), turned at random and sized 0.85 to 1.15. Written
- * into `out[0..count)`, which is reused across cells.
+ * The tufts of one chunk, as the client scatters them: `frill` cells drawn at random with repeats
+ * (column, then row), then in each, in that order, the effect's density of doodads (8 for a density
+ * of 0), the nth taking slot (n + the cell's turn in the list) & 3. `cells` holds each cell's effect
+ * (row * 8 + column), null for a cell that grows nothing (no texture or effect, a hole, a no-tuft
+ * cell), which draws nothing from the stream. A doodad's position is drawn even when its slot is
+ * empty; its size (0.9 to 1.1) and turn only when it is placed. Written into `out`, reused; returns how many.
  */
-export function cellTufts(cx: number, cz: number, count: number, doodads: number, out: Tuft[]): number {
-  for (let i = 0; i < count; i++) {
-    const t = out[i] ?? (out[i] = { u: 0, v: 0, doodad: 0, rotY: 0, scale: 1 })
-    // A jittered grid keeps tufts from piling up: each gets a sub-cell, then a random spot in it.
-    const cols = count > 4 ? 3 : 2
-    const col = i % cols
-    const row = Math.floor(i / cols)
-    const rows = Math.ceil(count / cols)
-    t.u = (col + hash01(cx, cz, i * 4)) / cols
-    t.v = (row + hash01(cx, cz, i * 4 + 1)) / rows
-    t.doodad = Math.min(doodads - 1, Math.floor(hash01(cx, cz, i * 4 + 2) * doodads))
-    t.rotY = hash01(cx, cz, i * 4 + 3) * Math.PI * 2
-    t.scale = 0.85 + hash01(cz, cx, i) * 0.3
+export function scatterChunk(rng: BlizzardRandomizer, seed: number, frill: number, cells: ReadonlyArray<GroundEffect | null>, out: Tuft[]): number {
+  rng.reset(seed)
+  const picks = scatterPicks
+  if (picks.length < frill) picks.length = frill
+  for (let i = 0; i < frill; i++) {
+    const col = rng.shuffle() & 7
+    const row = rng.shuffle() & 7
+    picks[i] = row * CHUNK_CELLS + col
+  }
+  let count = 0
+  for (let i = 0; i < frill; i++) {
+    const cell = picks[i]
+    const effect = cells[cell]
+    if (!effect) continue
+    const density = effect.density || 8
+    for (let n = 0; n < density; n++) {
+      const rx = rng.signedUnit()
+      const ry = rng.signedUnit()
+      const slot = effect.slots[(n + i) & 3]
+      if (slot < 0) continue
+      const scale = rng.signedUnit() * 0.1 + 1
+      const yaw = rng.signedUnit() * Math.PI
+      const t = out[count] ?? (out[count] = { cell: 0, u: 0, v: 0, doodad: 0, rotY: 0, scale: 1 })
+      t.cell = cell
+      t.u = (rx + 1) * 0.5
+      t.v = (ry + 1) * 0.5
+      t.doodad = slot
+      t.rotY = yaw
+      t.scale = scale
+      count++
+    }
   }
   return count
 }
+const scatterPicks: number[] = []
 
 /** The effect IDs the client's tiles use, with how many textures use each, most used first, for a chooser. */
 export function knownEffects(tables: GroundEffectTables): Array<{ id: number; uses: number }> {

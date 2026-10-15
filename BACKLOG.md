@@ -59,7 +59,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 The client's own behaviour, ported from Benilla's MIT/Apache Rust into Meld's Go and TypeScript. The owner
 wants these worked first, in this order, starting in a fresh session (2026-10-15).
 
-- [ ] B-172 **Ground tufts placed as the client places them**: port `scatter_ground_doodads` (the client's `CMapChunk::CreateDetailDoodads`: Blizzard's randomizer seeded per chunk, the cell pass and the doodad pass, the predominant layer, the no-tuft mask, the 70 yd range) over Meld's hash-based `cellTufts`/`tuftsPerCell` · Source: owner · M/S
+- [x] B-172 **Ground tufts placed as the client places them**: port `scatter_ground_doodads` (the client's `CMapChunk::CreateDetailDoodads`: Blizzard's randomizer seeded per chunk, the cell pass and the doodad pass, the predominant layer, the no-tuft mask, the 70 yd range) over Meld's hash-based `cellTufts`/`tuftsPerCell` · Source: owner · M/S · done 2026-10-15, density levels decided in IDEAS.md
 - [ ] B-166 **The client's sun, sky and fog**: port the DayNight sun direction, the five-stop sky gradient (bands 2 to 6), the cloud bands and the scene fog rule (end = zone fog or far clip, start = fraction, storms negative) into Client Lighting, replacing Meld's own sun path and Preetham sky while it is on · Source: owner · M/M
 - [ ] B-173 **Baked terrain shadows (MCSH) read and drawn**: read each chunk's 64x64 shadow bits as Benilla does and shade the terrain with them as the client does (lit where a chunk has none); the groundwork for the shadows editor B-057 · Source: owner · M/M
 - [ ] B-167 **Far horizon from the WDL**: mesh the map's WDL beyond the open block and draw it unlit under its own fog that fades to the scene fog, after Benilla's `wdl.rs`/`wdl.wgsl` (with B-155) · Source: owner · L/M
@@ -69,6 +69,7 @@ wants these worked first, in this order, starting in a fresh session (2026-10-15
 - [ ] B-169 **Minimap textures as the client finds them** (`md5translate.trs`), after Benilla's `minimap_translate.rs` (with B-129) · Source: owner · L/M
 - [ ] B-175 **Footstep sounds by terrain type**: name TerrainType rows in the ground effect editor (B-151 picks them by number), after Benilla's `footsteps.rs`/`terrain.rs` · Source: owner · L/S
 - [ ] B-176 **WMO interiors after Benilla's portal culling and interior fog**, for big buildings' speed and look · Source: owner · L/M
+- [ ] B-178 **Tufts fade out by view depth as the client's do**: the client fades detail doodads over the last part of the 70 yd (alpha from about 52.6 yd to zero at 69.9, on view depth, with its own alpha-test ref 128/255); Meld cuts them off at 70 yd from the camera, so the edge of the grass shows · Source: loop: B-172 · L/S · after Benilla's `clutter.rs` and `wow_model.wgsl`
 
 ## Navigation, view and display
 

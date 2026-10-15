@@ -97,7 +97,20 @@ func TestClientGroundEffectModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	mixed := 0
-	for _, e := range effects {
+	for id, e := range effects {
+		// Every model is named by a slot, in order, and every slot names a model or none.
+		next := 0
+		for _, s := range e.Slots {
+			if s >= 0 {
+				if s != next {
+					t.Fatalf("effect %d's slots %v don't follow its %d models", id, e.Slots, len(e.Doodads))
+				}
+				next++
+			}
+		}
+		if next != len(e.Doodads) {
+			t.Fatalf("effect %d's slots %v name %d of its %d models", id, e.Slots, next, len(e.Doodads))
+		}
 		zones := map[string]bool{}
 		for _, d := range e.Doodads {
 			name := strings.ToLower(d[len(detailDir):])

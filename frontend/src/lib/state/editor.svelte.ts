@@ -365,7 +365,7 @@ export const prefs = $state({
   detailInfo: false,
   /** Every file read from the client (models, textures, lists) goes into the Log window too, with its time (noggit's "additional file loading log"). */
   logFileLoading: false,
-  /** How many tufts a cell grows: a quarter, half or all of the game's amount (world/groundEffects.ts). */
+  /** How many cells of a chunk grow tufts: the client's Ground Clutter stops Low, Medium and High, 16, 32 and 48 (`frillDensity` in world/groundEffects.ts). */
   groundEffectDensity: 'normal' as 'sparse' | 'normal' | 'full',
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,

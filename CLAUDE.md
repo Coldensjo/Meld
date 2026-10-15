@@ -241,8 +241,11 @@ cd frontend && pnpm build   # frontend only
   effect each tileset texture carries from the client's own tiles (a vote over every layer; cached in
   the user's cache dir, progress on "effects:log"). The frontend keeps the tables in
   `wow/groundEffectTables.ts`; `world/groundEffects.ts` is the arithmetic (`effectFor`,
-  `cellTexture`, `cellTufts`) and `world/GroundEffectLayer.ts` draws the tufts within `TUFT_RANGE`
-  of the camera as one InstancedMesh per model, rebuilt when the camera moves half a chunk or
+  `cellTexture`, and `scatterChunk`, the client's own scatter ported from Benilla: Blizzard's
+  randomizer seeded by the chunk's place in the client's map, `frill` cells drawn with repeats, the
+  effect's density in each, slot (n + turn) & 3 of the row's four `slots`) and
+  `world/GroundEffectLayer.ts` draws the tufts within `TUFT_RANGE` (the client's 70 yd) of the
+  camera as one InstancedMesh per model, rebuilt when the camera moves half a chunk or
   `Terrain.heightVersion`/`paintVersion` change (View › Ground effects, `prefs.showGroundEffects`).
   A map's own effect per texture (`editor.textureEffects`, Edit › Ground Effects…, saved as the map
   file's `textureEffects`) overrides the learned one. The export sends the effect per layer
@@ -253,7 +256,8 @@ cd frontend && pnpm build   # frontend only
   `GroundEffectLayer.ts`), skipped when drawing and sent on export. A map that holds its chunk data
   sends them as `HeaderSpec.NoEffect`, which replaces the chunk's bits (so a cell the Map data tool
   cleared comes off); an older one only as `PaintSpec.NoEffect`, which Go ORs into the chunk's own. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
-  the share of the game's amount drawn per cell.
+  the client's Ground Clutter stop (`frillDensity` 16, 32, 48 cells a chunk). A GroundEffectTexture
+  slot names a GroundEffectDoodad by its internal ID (field 1), not its row ID.
 - **Growing a region**: the Map panel's `TileMinimap` shows a plus on each side of the open block
   (`onextend`); `extendRegion` in `mapio.ts` opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

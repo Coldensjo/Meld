@@ -573,6 +573,7 @@ export namespace vmangos {
 	}
 	export class GroundEffect {
 	    doodads: string[];
+	    slots: number[];
 	    density: number;
 	    terrain: number;
 	
@@ -583,6 +584,7 @@ export namespace vmangos {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.doodads = source["doodads"];
+	        this.slots = source["slots"];
 	        this.density = source["density"];
 	        this.terrain = source["terrain"];
 	    }

@@ -83,7 +83,7 @@ a change shows on screen (it reads the same install, so what Meld previews shoul
 
 | Order | Item | Benilla source | Meld code it replaces or extends |
 |---|---|---|---|
-| 1 | **B-172 Ground tufts as the client places them** | `benilla-formats/src/ground_effects.rs` (`scatter_ground_doodads`, `BlizzardRandomizer`, `FRILL_DENSITY`), `benilla-world/src/clutter.rs` (the 70 yd range) | `frontend/src/lib/world/groundEffects.ts` (`cellTufts`, `tuftsPerCell`, `hash01`), `world/GroundEffectLayer.ts` (`TUFT_RANGE`) |
+| 1 | **B-172 Ground tufts as the client places them** (done 2026-10-15) | `benilla-formats/src/ground_effects.rs` (`scatter_ground_doodads`, `BlizzardRandomizer`, `FRILL_DENSITY`), `benilla-world/src/clutter.rs` (the 70 yd range) | `frontend/src/lib/world/groundEffects.ts` (`cellTufts`, `tuftsPerCell`, `hash01`), `world/GroundEffectLayer.ts` (`TUFT_RANGE`) |
 | 2 | **B-166 The client's sun, sky and fog** | `benilla-world/src/lighting/daynight.rs` (sun direction), `lighting/resolve.rs` (scene fog), `benilla-formats/src/light/atmosphere.rs` and `light/tables.rs` (band meanings), `benilla-world/src/shaders/sky.wgsl`, `sky.rs`, `clouds/` | `frontend/src/lib/wow/clientLight.ts`, `Engine.applyClientLight`, `engine/Environment.ts` (sun path, Preetham sky) |
 | 3 | **B-173 Baked terrain shadows (MCSH)** | `benilla-adt/src/lib.rs` (MCSH read), `benilla-assets/src/terrain.rs` (shadow array), `benilla-assets/src/shaders/terrain.wgsl` (how it shades) | `internal/adt` (reads MCSH: today it is only passed through), `terrain/TerrainMaterial.ts`; then B-057 (the editor) |
 | 4 | **B-167 Far horizon from the WDL** | `benilla-formats/src/wdl.rs` (mesh), `benilla-world/src/wdl.rs`, `benilla-assets/src/shaders/wdl.wgsl` (unlit, own fog) | new: a horizon layer beside `Water.floor`; Go already writes and reads the WDL (`internal/vmangos/wdl.go`) |
@@ -96,6 +96,9 @@ a change shows on screen (it reads the same install, so what Meld previews shoul
 
 Also useful as references while doing other items: `benilla-formats/src/area_trigger.rs` (B-150),
 `benilla-formats/src/light/` (the light editor B-149), `benilla-world/src/collision.rs` (camera collision).
+
+Already gained from porting: the client's tuft scatter (B-172), and with it a bug fix (B-177): a ground
+effect's slots name GroundEffectDoodad rows by their internal ID, not their row ID, which Meld had wrong.
 
 Already gained from reading it: Benilla's ADT reader confirmed Meld's ground effect header offsets
 (predominant map at 0x40 to 0x4F, no-tuft bits at 0x50), and its MPQ, WDT and WDL readers match what Meld
