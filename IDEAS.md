@@ -249,3 +249,14 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   preference (`prefs.climbView`, `prefs.climbAngle`), carried in scenes. **Ours**: Smooth and the
   all-angle colour are left out, since the triangle's slope is what the game's walk test uses and the
   all-angle colour only reads in Noggit Red's red channel.
+
+### B-156 History panel · Noggit Red, as a floating window
+- Chosen by the loop from Noggit Red (2026-10-15, B-156). Noggit Red's action history navigator
+  (`ui/tools/ActionHistoryNavigator/ActionHistoryNavigator.cpp`) is a dock widget listing every action
+  with its time and what it touched (terrain, textures, objects added…), the stack's size against its
+  limit, and a radio button per action that sets the current action (undoing or redoing to it).
+- Meld does the same list with each step's own label (Meld's commands already name what they did) and
+  time, the size against the 100-step limit, and a click to go to a step; the steps Redo would bring back
+  are dimmed. **Ours** for the place: a floating window opened from Edit › History, like the Inspector,
+  since the owner keeps the dock to Layers alone (2026-10-15). Going to a step runs each step's own
+  undo or redo, so it is no new edit of its own and the jump can be undone step by step.

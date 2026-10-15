@@ -11,6 +11,7 @@
   import CreatureEditor from './components/CreatureEditor.svelte'
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
   import Inspector from './components/Inspector.svelte'
+  import HistoryWindow from './components/HistoryWindow.svelte'
   import MinimapWindow from './components/MinimapWindow.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
   import ContextMenu from './components/ContextMenu.svelte'
@@ -222,6 +223,7 @@
 </div>
 
 <Inspector />
+<HistoryWindow />
 <MinimapWindow />
 <CreatureEditor />
 <DoodadBrushEditor />

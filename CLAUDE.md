@@ -267,6 +267,10 @@ cd frontend && pnpm build   # frontend only
   growing a region and saving or exporting spawns are File menu actions (shown for a region), with
   the unsaved spawn count as a chip in the status bar; the region's facts are in Map Properties.
   `MinimapPanel` and `SpawnsPanel` are no longer mounted (the owner wants no spawn list).
+  - **History** (`components/HistoryWindow.svelte`, `ui.history`, Edit › History) is a floating window
+    like the Inspector, not a dock panel: the active map's undo stack (`History.steps`), where a click
+    calls `Engine.goToHistory` (undo or redo to that step). It re-reads the stack when
+    `ui.historyVersion`, bumped by every `History` change and tab switch, moves.
   - **Layers** (`LayersPanel.svelte`) is only the four texture layers of the paint chunk under the
     cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in the terrain
     shader), an unused slot shown as an empty layer. With an area selected it is instead about every

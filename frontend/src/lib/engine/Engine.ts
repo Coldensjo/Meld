@@ -2552,6 +2552,14 @@ export class Engine {
     return c
   }
 
+  /** Undoes or redoes until `position` steps of the history are done (the History window's click). */
+  goToHistory(position: number) {
+    if (!this.history.goTo(position)) return
+    this.syncSelection()
+    this.refreshSelectionArea()
+    this.refreshMaskState()
+  }
+
   /** Republishes the selected area, so the options bar re-reads what it holds (holes, for one). */
   private refreshSelectionArea() {
     if (editor.selection) editor.selection = { ...editor.selection }

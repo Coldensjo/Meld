@@ -98,7 +98,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-093 **Asset browser search** improvements · gap §10 · L/S · done: the search-first asset browser with synonyms, kinds, zones and category facets (CLAUDE.md, Asset browser)
 - [x] B-115 **Dock reduced to Layers**: the Map, Spawns and Properties panels are no longer mounted · Source: owner · -/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session); their functions are B-118
 - [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval
-- [ ] B-156 **History panel**: the undo stack as a list, where a click goes back to any step · gap §10 · M/M
+- [x] B-156 **History panel**: the undo stack as a list, where a click goes back to any step · gap §10 · M/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Scripting (needs approval before any work)
 

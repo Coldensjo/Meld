@@ -430,6 +430,10 @@ export const ui = $state({
   creatureEditor: null as { key: string | null; entry: number } | null,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
+  /** The floating History window (components/HistoryWindow.svelte): the undo stack, a click goes to any step. */
+  history: false,
+  /** Bumped whenever the active map's undo stack changes or another map's becomes active, so the History window re-reads it. */
+  historyVersion: 0,
   /** The floating inspector over the viewport (components/Inspector.svelte): the selection's numbers and actions. I toggles it. */
   inspector: false,
   /** The floating Minimap window (M): the map from above with the camera's spot; a click moves the camera. */
