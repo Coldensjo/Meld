@@ -78,6 +78,75 @@ export interface WmoNav {
   /** Each group's walking faces and camera-only faces, nine floats a triangle. */
   walk: Float32Array[]
   camera: Float32Array[]
+  /** Each group's column index over its walking faces, or null for a group too small to need one. */
+  walkGrids?: Array<ColumnGrid | null>
+}
+
+/**
+ * A column index over a face set (Benilla's column_grid.rs, MIT/Apache-2.0, one level): which faces
+ * can own a vertical (x, y) column. A uniform XY grid of about one face a cell, in CSR form, and
+ * the faces spanning more than SPAN_CELLS cells, tested for every column. Candidates come out in
+ * ascending face order, as a linear scan visits them, so ties resolve the same: it never changes a
+ * verdict.
+ */
+export interface ColumnGrid {
+  minX: number
+  minY: number
+  inv: number
+  nx: number
+  ny: number
+  starts: Uint32Array
+  items: Uint32Array
+  spanning: Uint32Array
+}
+
+/** Fewer faces than this are scanned directly. */
+const GRID_MIN_TRIS = 64
+const SPAN_CELLS = 32
+const MIN_CELL = 0.25
+const MAX_CELLS = 1 << 16
+
+/** The column index of `tris` (nine floats a face), or null for fewer than GRID_MIN_TRIS faces. */
+export function buildColumnGrid(tris: Float32Array): ColumnGrid | null {
+  const n = tris.length / 9
+  if (n < GRID_MIN_TRIS) return null
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (let i = 0; i < tris.length; i += 3) {
+    minX = Math.min(minX, tris[i])
+    maxX = Math.max(maxX, tris[i])
+    minY = Math.min(minY, tris[i + 1])
+    maxY = Math.max(maxY, tris[i + 1])
+  }
+  const w = Math.max(maxX - minX, 1e-3), h = Math.max(maxY - minY, 1e-3)
+  let cell = Math.max(MIN_CELL, Math.sqrt((w * h) / n))
+  while (Math.ceil(w / cell) * Math.ceil(h / cell) > MAX_CELLS) cell *= 1.5
+  const nx = Math.max(1, Math.ceil(w / cell)), ny = Math.max(1, Math.ceil(h / cell))
+  const inv = 1 / cell
+  const at = (v: number, min: number, cells: number) => Math.min(cells - 1, Math.max(0, Math.floor((v - min) * inv)))
+  const counts = new Uint32Array(nx * ny + 1)
+  const span: number[] = []
+  const box = new Int32Array(n * 4)
+  for (let f = 0; f < n; f++) {
+    const o = f * 9
+    const x0 = at(Math.min(tris[o], tris[o + 3], tris[o + 6]), minX, nx), x1 = at(Math.max(tris[o], tris[o + 3], tris[o + 6]), minX, nx)
+    const y0 = at(Math.min(tris[o + 1], tris[o + 4], tris[o + 7]), minY, ny), y1 = at(Math.max(tris[o + 1], tris[o + 4], tris[o + 7]), minY, ny)
+    box.set([x0, y0, x1, y1], f * 4)
+    if ((x1 - x0 + 1) * (y1 - y0 + 1) > SPAN_CELLS) {
+      span.push(f)
+      box[f * 4] = -1
+      continue
+    }
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) counts[y * nx + x + 1]++
+  }
+  for (let c = 0; c < nx * ny; c++) counts[c + 1] += counts[c]
+  const items = new Uint32Array(counts[nx * ny])
+  const fill = counts.slice(0, nx * ny)
+  // Faces in ascending order, so each cell's list is ascending.
+  for (let f = 0; f < n; f++) {
+    if (box[f * 4] < 0) continue
+    for (let y = box[f * 4 + 1]; y <= box[f * 4 + 3]; y++) for (let x = box[f * 4]; x <= box[f * 4 + 2]; x++) items[fill[y * nx + x]++] = f
+  }
+  return { minX, minY, inv, nx, ny, starts: counts, items, spanning: Uint32Array.from(span) }
 }
 
 /** Decodes the endpoint's body: a u32 header length, the JSON header, then the faces as float32. */
@@ -93,7 +162,8 @@ export function decodeWmoNav(buf: ArrayBuffer): WmoNav {
   }
   const walk = hdr.groups.map((g) => take(g.walk))
   const camera = hdr.groups.map((g) => take(g.camera))
-  return { groups: hdr.groups, portalVerts: hdr.portalVerts, portals: hdr.portals, refs: hdr.refs, fogs: hdr.fogs, walk, camera }
+  const walkGrids = walk.map(buildColumnGrid)
+  return { groups: hdr.groups, portalVerts: hdr.portalVerts, portals: hdr.portals, refs: hdr.refs, fogs: hdr.fogs, walk, camera, walkGrids }
 }
 
 /** The z at column (x, y) of the triangle at `tris[o..o+9]`, or NaN outside it or for a vertical face. */
@@ -151,8 +221,27 @@ export function downRayPick(nav: WmoNav, ex: number, ey: number, ez: number, ter
   for (let gi = 0; gi < groups.length; gi++) {
     if (!inColumn(groups[gi])) continue
     const tris = nav.walk[gi]
-    for (let o = 0; o + 9 <= tris.length; o += 9) {
-      const z = triangleZAt(tris, o, ex, ey)
+    const grid = nav.walkGrids?.[gi]
+    if (!grid) {
+      for (let o = 0; o + 9 <= tris.length; o += 9) {
+        const z = triangleZAt(tris, o, ex, ey)
+        if (z <= ez && z > bestZ) {
+          bestZ = z
+          best = gi
+        }
+      }
+      continue
+    }
+    // The column's cell and the spanning faces, merged in ascending order.
+    const cx = Math.floor((ex - grid.minX) * grid.inv), cy = Math.floor((ey - grid.minY) * grid.inv)
+    const inGrid = cx >= 0 && cy >= 0 && cx < grid.nx && cy < grid.ny
+    let a = inGrid ? grid.starts[cy * grid.nx + cx] : 0
+    const aEnd = inGrid ? grid.starts[cy * grid.nx + cx + 1] : 0
+    let b = 0
+    const sp = grid.spanning
+    while (a < aEnd || b < sp.length) {
+      const f = b >= sp.length || (a < aEnd && grid.items[a] < sp[b]) ? grid.items[a++] : sp[b++]
+      const z = triangleZAt(tris, f * 9, ex, ey)
       if (z <= ez && z > bestZ) {
         bestZ = z
         best = gi

@@ -2,7 +2,7 @@
 // The cases are Benilla's own for `down_ray_pick` (wmo_portal/seed.rs).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { downRayPick, EXTERIOR, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
+import { buildColumnGrid, downRayPick, EXTERIOR, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
 
 type Tri = number[] // nine floats
 
@@ -119,4 +119,34 @@ test('triangleZAt interpolates inside and rejects outside', () => {
   assert.ok(Number.isNaN(triangleZAt([0, 0, 4, 10, 0, 4, 0, 10, 4], 0, 9, 9)))
   assert.equal(triangleZAt([0, 0, 0, 10, 0, 10, 0, 10, 0], 0, 5, 0), 5)
   assert.ok(Number.isNaN(triangleZAt([0, 0, 0, 0, 0, 10, 10, 0, 5], 0, 0, 0)))
+})
+
+test('the column index never changes a pick', () => {
+  // Three storeys of small tiles over the same ground, each tile at its own height, plus one slab
+  // big enough to span the grid.
+  const storey = (z: number): Tri[] => {
+    const out: Tri[] = []
+    for (let ix = 0; ix < 10; ix++)
+      for (let iy = 0; iy < 10; iy++) {
+        const x = ix * 3, y = iy * 3, tz = z + ((ix + iy) % 4) * 0.25
+        out.push([x, y, tz, x + 3, y, tz, x + 3, y + 3, tz], [x, y, tz, x + 3, y + 3, tz, x, y + 3, tz])
+      }
+    return out
+  }
+  const slab: Tri = [0, 0, 4, 30, 0, 4, 30, 30, 4]
+  const groups = [0, 1, 2].map((i) => group(0, [0, 0, i * 8], [30, 30, i * 8 + 8]))
+  const linear = nav(groups, [[...storey(0), slab], storey(8), storey(16)])
+  const indexed = { ...linear, walkGrids: linear.walk.map(buildColumnGrid) }
+  assert.ok(indexed.walkGrids.every((g) => g !== null), 'each storey is indexed')
+  assert.ok(indexed.walkGrids[0]!.spanning.length === 1, 'the slab is tested for every column')
+  let hits = 0
+  for (let gx = -1; gx <= 32; gx++)
+    for (let gy = -1; gy <= 32; gy++)
+      for (const ez of [1, 5, 9.5, 17, 25]) {
+        const eye = [gx * 0.97, gy * 1.03, ez]
+        const a = pick(linear, eye)
+        assert.deepEqual(pick(indexed, eye), a, `column ${eye}`)
+        if (a.inGroup !== null) hits++
+      }
+  assert.ok(hits > 1000, `the sweep lands on the storeys: ${hits}`)
 })
