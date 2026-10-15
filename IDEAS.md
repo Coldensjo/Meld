@@ -307,3 +307,16 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   to the ground's under it, one undo step. Meld had no such action: its Page Down lowers the selection
   a step, so the snap is **Ctrl+Page Down** and Edit › Put Selected Models on the Ground. **Ours**:
   attached models are left alone, since their height is in their parent's space and they ride it.
+
+### B-126 Area paste mirror and height modes · the loop's call
+- Noggit Red's chunk manipulator has no mirror or height modes (its paste only replaces); the backlog line
+  came from noggit3's chunk mover, which defines them: mirror the copied chunks, and lay the heights in as
+  min, max, add or subtract. Meld's meaning, as no Noggit Red behaviour settles it: **raise only** (max)
+  and **lower only** (min) take the higher or lower of the ground and the paste; **add** and **subtract**
+  raise or lower the ground by how far the clip rises above its own lowest point, so a copied hill lands
+  as a bump or a dent on any ground (adding absolute heights would throw it hundreds of yards up). The
+  height offset slider applies in every mode, and the edge blend fades each mode's result.
+- Mirror flips everything in the clip. A model can't be mirrored itself, so it turns to face the mirrored
+  way, taking WoW models to face +x and be left-right symmetric: across x the yaw becomes pi - yaw, across z
+  -yaw, and the forward tilt flips. A model that isn't symmetric (a sign with text, say) shows its other
+  side rather than a mirror image.

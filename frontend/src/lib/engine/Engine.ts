@@ -28,7 +28,7 @@ import { densityFactor, effectFor, type TextureEffects } from '../world/groundEf
 import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
-import { rotateClip } from '../world/clipRotate'
+import { mirrorClip, rotateClip } from '../world/clipRotate'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, compactChunk, convertGlobalLayers, findSlot, hasEmptySlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
@@ -1891,6 +1891,13 @@ export class Engine {
     if (!ui.pasting || this.lastCopied !== 'area' || !this.clip) return
     this.clip = rotateClip(this.clip, this.terrain.cellSize)
     setViewportHint(`Paste ${this.clip.w}×${this.clip.h}`)
+  }
+
+  /** Mirrors the area waiting to be pasted east to west (`x`) or north to south (`z`). */
+  mirrorClip(axis: 'x' | 'z') {
+    if (!ui.pasting || this.lastCopied !== 'area' || !this.clip) return
+    this.clip = mirrorClip(this.clip, axis, this.terrain.cellSize)
+    setViewportHint(axis === 'x' ? 'Paste mirrored east to west' : 'Paste mirrored north to south')
   }
 
   /** Copies the selected models and puts the copies down a little to the side, selected, as one undo step. */

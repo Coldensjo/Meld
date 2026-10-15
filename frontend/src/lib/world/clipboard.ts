@@ -6,6 +6,7 @@ import { TerrainStroke, type Rect } from '../tools/brush'
 import { LiquidStroke } from '../water/liquidStroke'
 import { ChunkDataStroke } from '../tools/chunkDataStroke'
 import { copyChunkData, pasteChunkData } from './clipChunkData'
+import { pastedHeight, type PasteHeightMode } from './pasteHeight'
 import { copyLiquidCells, pasteLiquidCells, type LiquidClip, type LiquidMap } from '../water/liquids'
 import {
   CHUNK_CELLS,
@@ -55,7 +56,11 @@ export interface PasteOptions {
   /** Cells over which the pasted edge fades into the existing map (0 = hard). */
   blend: number
   heightOffset: number
+  /** How the heights meet the map's; `set` when absent. */
+  heightMode?: PasteHeightMode
 }
+
+export type { PasteHeightMode }
 
 /** A copied object: roots relative to the clip's anchor, attached ones in their parent's local space. */
 export type ClipObject = MapClip['objects'][number]
@@ -285,6 +290,9 @@ export function pasteRegion(
     const z1 = Math.min(size, pz + clip.h)
     if (x1 >= x0 && z1 >= z0) {
       stroke.reserveHeights({ x0, z0, x1, z1 })
+      const mode = opts.heightMode ?? 'set'
+      let clipLow = Infinity
+      if (mode === 'add' || mode === 'subtract') for (const v of clip.heights) clipLow = Math.min(clipLow, v)
       for (let z = z0; z <= z1; z++) {
         for (let x = x0; x <= x1; x++) {
           const cx = x - px
@@ -292,8 +300,8 @@ export function pasteRegion(
           const d = Math.min(cx, cz, clip.w - cx, clip.h - cz)
           const f = fade(d, opts.blend)
           const i = z * V + x
-          const src = clip.heights[cz * (clip.w + 1) + cx] + opts.heightOffset
-          terrain.heights[i] += (src - terrain.heights[i]) * f
+          const target = pastedHeight(mode, terrain.heights[i], clip.heights[cz * (clip.w + 1) + cx], clipLow, opts.heightOffset)
+          terrain.heights[i] += (target - terrain.heights[i]) * f
         }
       }
       const r = { x0, z0, x1, z1 }

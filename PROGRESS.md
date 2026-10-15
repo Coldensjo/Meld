@@ -449,3 +449,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-134 Remove empty texture layers
 - Done: Edit › Remove Empty Texture Layers (… in Selection with an area selected) frees, in every chunk that has one, the texture layers whose weight is 0 on all of the chunk's texels, as Noggit Red's Assist › Loaded ADTs clean-up does, through the existing `compactChunk` (used layers move down so slot 0 stays the base; every texel keeps its blend). Only the chunks with an empty layer are touched (`hasEmptySlot`), as one undo step, and the status says how many layers went.
 - Verified: a new chunkPaint test for `hasEmptySlot`. make test passed (Go plus 212 of 212 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+
+## 2026-10-15 · B-126 Area paste: mirror and height modes
+- Done (IDEAS.md records the meanings): while pasting an area, the options bar has a Heights select (replace, raise only, lower only, add the bumps, subtract the bumps; `world/pasteHeight.ts`, used by `pasteRegion` before the edge blend) and Mirror ↔ and Mirror ↕ beside Turn 90° (`mirrorClip` in `world/clipRotate.ts`, `mirrorLiquidClip`): heights, holes, texels, liquids, chunk data and models flip together, models turning to face the mirrored way. The paste stays one undo step.
+- Verified: new clipboard tests (each height mode, the mirror both ways including liquids and models, mirrored twice is the same). make test passed (Go plus 214 of 214 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+- Left: a model can't be mirrored itself (see IDEAS.md).

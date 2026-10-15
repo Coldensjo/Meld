@@ -357,7 +357,16 @@
         <label class="check"><input type="checkbox" bind:checked={editor.paste.objects} /> Objects</label>
         <OptSlider label="Blend edges" bind:value={editor.paste.blend} min={0} max={8} step={1} digits={0} width={60} title="Cells over which the paste fades into the map" />
         <OptSlider label="Height" bind:value={editor.paste.heightOffset} min={-60} max={60} step={0.5} digits={1} width={70} title="Raise/lower the pasted terrain (PgUp/PgDn)" />
+        <select bind:value={editor.paste.heightMode} title="How the pasted heights meet the map's" aria-label="Paste heights">
+          <option value="set">Heights: replace</option>
+          <option value="max">Heights: raise only</option>
+          <option value="min">Heights: lower only</option>
+          <option value="add">Heights: add the bumps</option>
+          <option value="subtract">Heights: subtract the bumps</option>
+        </select>
         <button onclick={() => engineRef.current?.rotateClip()} title="Turn the paste a quarter turn: ground, textures, holes, liquids and models together">Turn 90° <kbd>R</kbd></button>
+        <button onclick={() => engineRef.current?.mirrorClip('x')} title="Mirror the paste east to west">Mirror ↔</button>
+        <button onclick={() => engineRef.current?.mirrorClip('z')} title="Mirror the paste north to south">Mirror ↕</button>
       {/if}
       <button onclick={() => engineRef.current?.commitPaste()}>Place <kbd>Enter</kbd></button>
       <button onclick={() => engineRef.current?.cancelPaste()}>Cancel <kbd>Esc</kbd></button>

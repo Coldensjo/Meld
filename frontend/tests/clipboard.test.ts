@@ -2,7 +2,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { MapClip } from '../src/lib/world/clipboard.ts'
-import { rotateClip } from '../src/lib/world/clipRotate.ts'
+import { mirrorClip, rotateClip } from '../src/lib/world/clipRotate.ts'
+import { pastedHeight } from '../src/lib/world/pasteHeight.ts'
 import { LiquidMap, copyLiquidCells, pasteLiquidCells, rotateLiquidClip, newLayer, LIQUID_CELLS } from '../src/lib/water/liquids.ts'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
 
@@ -74,4 +75,41 @@ test('liquid cells copy, paste anywhere, and turn with the clip', () => {
   const r = rotateLiquidClip(c)
   assert.deepEqual([r.w, r.h, r.cells[0].x, r.cells[0].z], [2, 3, 0, 1])
   assert.deepEqual(r.cells[0].heights, [5, 5, 6, 5])
+})
+
+test('pasted heights: replace, raise only, lower only, and bumps added or subtracted', () => {
+  // Ground at 10; a clip vertex at 7 on a clip whose lowest point is 5; offset 1.
+  assert.equal(pastedHeight('set', 10, 7, 5, 1), 8)
+  assert.equal(pastedHeight('max', 10, 7, 5, 1), 10)
+  assert.equal(pastedHeight('max', 6, 7, 5, 1), 8)
+  assert.equal(pastedHeight('min', 10, 7, 5, 1), 8)
+  assert.equal(pastedHeight('add', 10, 7, 5, 1), 13)
+  assert.equal(pastedHeight('subtract', 10, 7, 5, 1), 9)
+})
+
+test('a mirror flips every part of the clip across its middle and turns its models to face the mirrored way', () => {
+  const c = clip()
+  c.objects[0].rotY = 0.3
+  c.objects[0].tiltX = 0.1
+  c.liquids = { w: 3, h: 2, cells: [{ x: 0, z: 1, id: 1, heights: [1, 2, 3, 4], depth: [0, 0, 0, 0] }] }
+  const m = mirrorClip(c, 'x', 2)
+  assert.equal(m.w, 3)
+  // Vertex (x, z) lands at (w - x, z); cell (2, 1) at (0, 1); texel (1, 0) of 12 at (10, 0).
+  assert.equal(m.heights[0 * 4 + 3], c.heights[0])
+  assert.equal(m.holes[1 * 3 + 0], 1)
+  const T = SPLAT_PER_CELL
+  assert.equal(m.weights[(0 * 3 * T + 10) * SLOTS], 255)
+  // The model at x 1 of a 6-wide clip stands at 5, facing pi - yaw, its forward tilt flipped.
+  assert.equal(m.objects[0].x, 5)
+  assert.ok(Math.abs(m.objects[0].rotY - (Math.PI - 0.3)) < 1e-9)
+  assert.equal(m.objects[0].tiltX, -0.1)
+  // The liquid cell (0, 1) lands at (2, 1) with its corners swapped east to west.
+  assert.deepEqual(m.liquids!.cells[0], { x: 2, z: 1, id: 1, heights: [2, 1, 4, 3], depth: [0, 0, 0, 0] })
+  // North to south: cell (2, 1) lands at (2, 0), the model at z 0.5 of a 4-deep clip at 3.5 facing -yaw.
+  const n = mirrorClip(c, 'z', 2)
+  assert.equal(n.holes[0 * 3 + 2], 1)
+  assert.equal(n.objects[0].z, 3.5)
+  assert.ok(Math.abs(n.objects[0].rotY + 0.3) < 1e-9)
+  // Mirrored twice, the clip is the same.
+  assert.deepEqual([...mirrorClip(m, 'x', 2).heights], [...c.heights])
 })

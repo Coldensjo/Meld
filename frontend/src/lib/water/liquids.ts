@@ -652,6 +652,19 @@ export function pasteLiquidCells(map: LiquidMap, clip: LiquidClip, px: number, p
   return changed
 }
 
+/** The clip mirrored, the way `mirrorClip` mirrors the area: across x, cell (x, z) goes to (w - 1 - x, z); across z, to (x, h - 1 - z). */
+export function mirrorLiquidClip(clip: LiquidClip, axis: 'x' | 'z'): LiquidClip {
+  return {
+    w: clip.w,
+    h: clip.h,
+    cells: clip.cells.map((c) =>
+      axis === 'x'
+        ? { x: clip.w - 1 - c.x, z: c.z, id: c.id, heights: [c.heights[1], c.heights[0], c.heights[3], c.heights[2]], depth: [c.depth[1], c.depth[0], c.depth[3], c.depth[2]] }
+        : { x: c.x, z: clip.h - 1 - c.z, id: c.id, heights: [c.heights[2], c.heights[3], c.heights[0], c.heights[1]], depth: [c.depth[2], c.depth[3], c.depth[0], c.depth[1]] },
+    ),
+  }
+}
+
 /** The clip turned a quarter turn, the way `rotateClip` turns the area: cell (x, z) goes to (z, w - 1 - x). */
 export function rotateLiquidClip(clip: LiquidClip): LiquidClip {
   return {

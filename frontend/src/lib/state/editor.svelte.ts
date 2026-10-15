@@ -4,6 +4,7 @@ import type { FalloffCurve } from '../tools/brush'
 import type { DoodadBrush } from '../tools/doodadBrush'
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { TextureEffects } from '../world/groundEffects'
+import type { PasteHeightMode } from '../world/pasteHeight'
 import type { Bookmark } from '../engine/MapDocument'
 import type { vmangos } from '../../../wailsjs/go/models'
 
@@ -195,7 +196,7 @@ export const editor = $state({
   selectedIds: [] as number[],
   /** The selected area in cells (vertex corners), or null. The Select tool's drag on the ground makes it. */
   selection: null as { x0: number; z0: number; x1: number; z1: number } | null,
-  paste: { terrain: true, textures: true, objects: true, blend: 2, heightOffset: 0 },
+  paste: { terrain: true, textures: true, objects: true, blend: 2, heightOffset: 0, heightMode: 'set' as PasteHeightMode },
   grid: false,
   /** Draws the 8x8-cell paint chunk edges, where the 1.12 four-texture limit applies. */
   chunkLines: false,
