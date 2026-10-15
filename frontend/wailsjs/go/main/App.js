@@ -182,6 +182,10 @@ export function OpenMapDialog() {
   return window['go']['main']['App']['OpenMapDialog']();
 }
 
+export function OpenModelSetDialog() {
+  return window['go']['main']['App']['OpenModelSetDialog']();
+}
+
 export function OpenTextDialog() {
   return window['go']['main']['App']['OpenTextDialog']();
 }
@@ -248,6 +252,10 @@ export function SaveMap(arg1, arg2) {
 
 export function SaveMapDialog(arg1) {
   return window['go']['main']['App']['SaveMapDialog'](arg1);
+}
+
+export function SaveModelSetDialog(arg1) {
+  return window['go']['main']['App']['SaveModelSetDialog'](arg1);
 }
 
 export function SavePrefs(arg1) {

@@ -376,7 +376,11 @@ cd frontend && pnpm build   # frontend only
   - The grid is virtualised (only the rows in view are rendered), so there is no result cap.
     `AssetPreview.svelte` shows the hovered (else picked) item live in its own small renderer.
   - `ui.palette` follows the tool (textures while painting) and the browser follows it. Its
-    height, collapsed state, tile size and recent picks are `prefs`.
+    height, collapsed state, tile size and recent picks are `prefs`, and so are the tab
+    (`browserKind`) and each tab's search, zone, category and scroll (`browserViews`, `wow/browserViews.ts`).
+  - The **Sets** tab shows the author's model sets (`wow/modelSets.ts`, `prefs.modelSets`): named lists
+    of doodads and buildings, made and filled through a tile's right-click menu (which also holds the
+    favourite star), and imported or exported as TOML (`importModelSets`/`exportModelSet` in `mapio.ts`).
   - Thumbnails (`lib/wow/thumbs.ts`) render lazily into a render target on the **main**
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading

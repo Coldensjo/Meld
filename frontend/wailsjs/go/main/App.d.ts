@@ -96,6 +96,8 @@ export function OpenImageDialog(arg1:string):Promise<string>;
 
 export function OpenMapDialog():Promise<string>;
 
+export function OpenModelSetDialog():Promise<Array<string>>;
+
 export function OpenTextDialog():Promise<string>;
 
 export function PublishVmangosMap(arg1:vmangos.MapSpec):Promise<void>;
@@ -129,6 +131,8 @@ export function SaveLights(arg1:vmangos.LightsEdit):Promise<string>;
 export function SaveMap(arg1:string,arg2:mapfile.MapData):Promise<void>;
 
 export function SaveMapDialog(arg1:string):Promise<string>;
+
+export function SaveModelSetDialog(arg1:string):Promise<string>;
 
 export function SavePrefs(arg1:string):Promise<void>;
 

@@ -130,7 +130,7 @@ export function fitsOn(x: number, z: number, size: number, spacing: number, near
 export const BRUSH_FILE_HEADER = '# Meld doodad brush: the models it scatters and their weights'
 
 /** A TOML string for `s`: literal (single quotes, as client paths have backslashes) unless it holds one. */
-function tomlString(s: string): string {
+export function tomlString(s: string): string {
   if (!s.includes("'") && !/[\n\r]/.test(s)) return `'${s}'`
   return JSON.stringify(s)
 }

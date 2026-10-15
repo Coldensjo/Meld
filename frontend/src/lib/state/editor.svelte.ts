@@ -9,6 +9,7 @@ import type { TextureLooks } from '../world/textureLooks'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { Bookmark } from '../engine/MapDocument'
 import type { BrowserView } from '../wow/browserViews'
+import type { ModelSet } from '../wow/modelSets'
 import type { vmangos } from '../../../wailsjs/go/models'
 
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
@@ -393,6 +394,9 @@ export const prefs = $state({
   recentAssets: [] as string[],
   /** The favourite assets (catalog keys), starred with a right-click in the asset browser, shown first there. */
   favoriteAssets: [] as string[],
+  /** The author's model sets (wow/modelSets.ts), shown in the asset browser's Sets tab, and the name of the one shown. */
+  modelSets: [] as ModelSet[],
+  modelSet: '',
   /** The doodad brushes (tools/doodadBrush.ts) and the name of the one the Doodad brush tool paints with. */
   doodadBrushes: [] as DoodadBrush[],
   /** The Stamp tool's brush stacks (tools/brushStack.ts) and the name of the one it applies. */

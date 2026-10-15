@@ -1189,6 +1189,28 @@ func (a *App) OpenBrushDialog() ([]string, error) {
 	})
 }
 
+var setFilters = []runtime.FileFilter{{DisplayName: "Model set (*.toml)", Pattern: "*.toml"}}
+
+// SaveModelSetDialog asks where to save a model set. Returns "" if cancelled.
+func (a *App) SaveModelSetDialog(suggested string) (string, error) {
+	if suggested == "" {
+		suggested = "set"
+	}
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export Model Set",
+		DefaultFilename: suggested + ".toml",
+		Filters:         setFilters,
+	})
+}
+
+// OpenModelSetDialog asks for model set files to import. Returns none if cancelled.
+func (a *App) OpenModelSetDialog() ([]string, error) {
+	return runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "Import Model Sets",
+		Filters: setFilters,
+	})
+}
+
 // WriteTextFile saves text at path.
 func (a *App) WriteTextFile(path, text string) error {
 	return os.WriteFile(path, []byte(text), 0o644)

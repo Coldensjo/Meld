@@ -477,6 +477,15 @@ facet click then goes to the top. `tests/browserViews.test.ts` covers the stored
 `?nosave` nothing reaches config.json, so a restart can't be checked in the page; reload the desktop
 window instead.
 
+## Model sets (the asset browser's Sets tab, #124)
+
+Checks: making a set, adding models by a tile's right-click, showing it. In headless Chrome (above):
+click the Sets tab, its `.setbar` New, type a name into `.setbar .setname` and dispatch `change`; on
+Doodads dispatch a `contextmenu` MouseEvent (with `clientX`/`clientY`) on a `.browser .virtual .tile`
+and click the `.menu .item` reading `Add to "<name>"`; back on Sets the tiles' titles are the set's
+paths. The file form is `tests/modelSets.test.ts`; Import… and Export… open native dialogs, which the
+headless page can't drive.
+
 ## Menu heights (#122)
 
 Checks: every menu fits the window. In headless Chrome (above), click each `.menubar .title`, read

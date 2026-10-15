@@ -3,7 +3,7 @@
   import PaletteTile from './PaletteTile.svelte'
   import AssetPreview from './AssetPreview.svelte'
   import SpawnBrowser, { type SpawnKind } from './SpawnBrowser.svelte'
-  import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
+  import { editor, prefs, setStatus, ui, wow, type ContextItem } from '../lib/state/editor.svelte'
   import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { newEntry } from '../lib/tools/doodadBrush'
   import { engineRef } from '../lib/state/engineRef'
@@ -13,14 +13,19 @@
   import { categoryOrder } from '../lib/wow/catalog'
   import { searchAssets, type AssetKind, type SearchItem } from '../lib/wow/search'
   import { readView, writeView, type BrowserView } from '../lib/wow/browserViews'
-  import { hasBackend } from '../lib/io/mapio'
+  import { isModelKey, newSet, sameModel, validSets, withModel, withoutModel, type ModelSet } from '../lib/wow/modelSets'
+  import { uniqueName } from '../lib/tools/doodadBrush'
+  import { exportModelSet, hasBackend, importModelSets } from '../lib/io/mapio'
   import { paletteIndex } from '../lib/terrain/chunkPaint'
+
+  /** A tab: the client's files by kind, all of them, the world database's templates, or the author's sets. */
+  type Kind = AssetKind | 'all' | SpawnKind | 'sets'
 
   // The asset browser: the panel along the bottom of the window where models and textures are found.
   // Search-first: one box over everything, facets to narrow, big tiles, and a live preview of the
   // tile under the cursor. Nothing is read from the client until it is shown.
 
-  const KINDS: Array<{ id: AssetKind | 'all' | SpawnKind; label: string }> = [
+  const KINDS: Array<{ id: Kind; label: string }> = [
     { id: 'm2', label: 'Doodads' },
     { id: 'wmo', label: 'Buildings' },
     { id: 'tex', label: 'Textures' },
@@ -28,15 +33,15 @@
     { id: 'npc', label: 'NPCs' },
     { id: 'object', label: 'Objects' },
     { id: 'all', label: 'All' },
+    { id: 'sets', label: 'Sets' },
   ]
 
-  type Kind = AssetKind | 'all' | SpawnKind
   /** The tab, kept in the preferences so a restart opens it again. */
   const kind = $derived<Kind>(KINDS.find((k) => k.id === prefs.browserKind)?.id ?? 'm2')
   /** The spawn tabs list the world database's templates (SpawnBrowser), not the client's files. */
   const spawnKind = $derived(kind === 'creature' || kind === 'npc' || kind === 'object')
   /** The catalog's kind: the spawn tabs search nothing of the catalog. */
-  const catalogKind = $derived((spawnKind ? 'all' : kind) as AssetKind | 'all')
+  const catalogKind = $derived((spawnKind || kind === 'sets' ? 'all' : kind) as AssetKind | 'all')
   let spawnHover = $state<SearchItem | null>(null)
   // Each tab's search, category and zone live in the preferences (#123), so changing tab or
   // restarting finds them as they were left.
@@ -90,7 +95,13 @@
   }
 
   const orderFor = (k: AssetKind | 'all') => (k === 'all' ? [...categoryOrder('m2'), ...categoryOrder('wmo'), ...categoryOrder('tex')] : categoryOrder(k))
-  const result = $derived(searchAssets(all, { kind: catalogKind, query, category, zone }, orderFor(catalogKind)))
+  // The Sets tab searches the shown set's models only; a model this client lacks is kept in the set
+  // but can't be shown.
+  const sets = $derived(validSets(prefs.modelSets))
+  const activeSet = $derived(sets.find((s) => s.name === prefs.modelSet) ?? sets[0] ?? null)
+  const setItems = $derived(kind === 'sets' && activeSet ? activeSet.models.map((k) => itemFor(k)).filter((it): it is SearchItem => !!it) : [])
+  const missing = $derived(kind === 'sets' && activeSet ? activeSet.models.length - setItems.length : 0)
+  const result = $derived(searchAssets(kind === 'sets' ? setItems : all, { kind: catalogKind, query, category, zone }, orderFor(catalogKind)))
   const items = $derived(result.items)
 
   /**
@@ -103,13 +114,13 @@
 
   /** Recently picked assets, newest first, shown when the search box is empty. */
   const recent = $derived.by(() => {
-    if (query || category || zone) return []
+    if (query || category || zone || kind === 'sets') return []
     return prefs.recentAssets.map(itemFor).filter((it): it is SearchItem => !!it && (catalogKind === 'all' || it.kind === catalogKind))
   })
 
   /** The favourites (prefs.favoriteAssets), in the order they were starred, shown first when the search box is empty. */
   const favourites = $derived.by(() => {
-    if (query || category || zone) return []
+    if (query || category || zone || kind === 'sets') return []
     return prefs.favoriteAssets.map(itemFor).filter((it): it is SearchItem => !!it && (catalogKind === 'all' || it.kind === catalogKind))
   })
   const favouriteSet = $derived(new Set(prefs.favoriteAssets.map(normKey)))
@@ -120,6 +131,59 @@
     const on = !isFavourite(it)
     prefs.favoriteAssets = on ? [...prefs.favoriteAssets, it.key] : prefs.favoriteAssets.filter((k) => normKey(k) !== normKey(it.key))
     setStatus(on ? `${it.name} is a favourite: it shows first in the browser (right-click again to remove it).` : `${it.name} is no longer a favourite.`, 3000)
+  }
+
+  // --- model sets (#124) --------------------------------------------------------------------------
+  function putSet(name: string, next: ModelSet) {
+    prefs.modelSets = sets.map((s) => (s.name === name ? next : s))
+  }
+  function addSet(first?: SearchItem) {
+    const name = uniqueName('New set', sets.map((s) => s.name))
+    const set = first ? withModel(newSet(name), first.key) : newSet(name)
+    prefs.modelSets = [...sets, set]
+    prefs.modelSet = name
+    setStatus(first ? `Made the set "${name}" with ${first.name}; rename it in the Sets tab.` : `Made the set "${name}": right-click a model in Doodads or Buildings to add it.`, 4000)
+  }
+  function renameSet(e: Event) {
+    const input = e.currentTarget as HTMLInputElement
+    const set = activeSet
+    const name = input.value.trim()
+    if (!set || !name || name === set.name) {
+      input.value = set?.name ?? ''
+      return
+    }
+    const unique = uniqueName(name, sets.filter((s) => s !== set).map((s) => s.name))
+    putSet(set.name, { ...set, name: unique })
+    prefs.modelSet = unique
+    input.value = unique
+  }
+  function deleteSet() {
+    const set = activeSet
+    if (!set || !confirm(`Delete the set "${set.name}"? Its ${set.models.length} models stay in the client; only the list goes.`)) return
+    prefs.modelSets = sets.filter((s) => s !== set)
+    prefs.modelSet = ''
+  }
+  function addToSet(set: ModelSet, it: SearchItem) {
+    putSet(set.name, withModel(set, it.key))
+    setStatus(`Added ${it.name} to the set "${set.name}".`, 3000)
+  }
+  function removeFromSet(set: ModelSet, it: SearchItem) {
+    putSet(set.name, withoutModel(set, it.key))
+    setStatus(`Took ${it.name} out of the set "${set.name}".`, 3000)
+  }
+
+  /** A tile's right-click menu: the favourite star, and for a model the sets it can join or leave. */
+  function tileMenu(e: MouseEvent, it: SearchItem) {
+    const items: ContextItem[] = [{ label: isFavourite(it) ? 'Remove from Favourites' : 'Add to Favourites', run: () => toggleFavourite(it) }]
+    if (isModelKey(it.key)) {
+      items.push({ separator: true })
+      for (const set of sets) {
+        const has = set.models.some((m) => sameModel(m, it.key))
+        items.push(has ? { label: `Remove from "${set.name}"`, run: () => removeFromSet(set, it) } : { label: `Add to "${set.name}"`, run: () => addToSet(set, it) })
+      }
+      items.push({ label: 'Add to a New Set', run: () => addSet(it) })
+    }
+    ui.contextMenu = { x: e.clientX, y: e.clientY, title: it.name, items }
   }
 
   function remember(key: string) {
@@ -377,14 +441,33 @@
         </nav>
 
         <div class="grid-wrap" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={onScroll}>
+          {#if kind === 'sets'}
+            <div class="setbar">
+              {#if activeSet}
+                <select value={activeSet.name} onchange={(e) => (prefs.modelSet = (e.currentTarget as HTMLSelectElement).value)} title="The set shown" aria-label="Model set">
+                  {#each sets as s (s.name)}<option value={s.name}>{s.name} ({s.models.length})</option>{/each}
+                </select>
+                {#key activeSet.name}<input class="setname" value={activeSet.name} onchange={renameSet} title="Rename the set" aria-label="Set name" />{/key}
+              {:else}
+                <span class="dim">No sets yet.</span>
+              {/if}
+              <button onclick={() => addSet()} title="Make an empty set">New</button>
+              <button onclick={deleteSet} disabled={!activeSet} title="Delete this set">Delete</button>
+              <button onclick={() => void importModelSets()} disabled={!hasBackend()} title="Read sets from .toml files">Import…</button>
+              <button onclick={() => activeSet && void exportModelSet(activeSet)} disabled={!hasBackend() || !activeSet} title="Save this set as a .toml file to share">Export…</button>
+              {#if missing}<span class="dim" title="Models the set names that this client doesn't have; they stay in the set">{missing} not in this client</span>{/if}
+            </div>
+          {/if}
           {#if loadingList}
             <p class="hint">Reading the client's file list…</p>
+          {:else if kind === 'sets' && !setItems.length}
+            <p class="hint">{activeSet ? 'This set is empty.' : 'A set is your own list of doodads and buildings to place from.'} Right-click a model in Doodads, Buildings or All, then Add to a set.</p>
           {:else}
             {#if favourites.length}
               <div class="section">Favourites</div>
               <div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)" style:gap="{GAP}px">
                 {#each favourites as it (it.key)}
-                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onstar={() => toggleFavourite(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
                 {/each}
               </div>
               {#if !recent.length}<div class="section">{query ? 'Results' : category || 'Everything'}</div>{/if}
@@ -393,7 +476,7 @@
               <div class="section">Recent</div>
               <div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)" style:gap="{GAP}px">
                 {#each recent as it (it.key)}
-                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onstar={() => toggleFavourite(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
                 {/each}
               </div>
               <div class="section">{query ? 'Results' : category || 'Everything'}</div>
@@ -404,7 +487,7 @@
               <div class="virtual" bind:this={virtualEl} style:height="{rows * rowH}px">
                 <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
                   {#each visible as it (it.key)}
-                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onstar={() => toggleFavourite(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
                   {/each}
                 </div>
               </div>
@@ -576,6 +659,23 @@
   }
   .err {
     color: var(--danger);
+  }
+  .setbar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 0 6px;
+    background: var(--panel);
+  }
+  .setbar .setname {
+    width: 160px;
+  }
+  .setbar .dim {
+    color: var(--text-dim);
+    font-size: 12px;
   }
   .hint {
     color: var(--text-dim);

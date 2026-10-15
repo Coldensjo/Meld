@@ -7,9 +7,11 @@ import {
   LoadRegion,
   LoadSpawns,
   OpenBrushDialog,
+  OpenModelSetDialog,
   OpenTextDialog,
   ReadTextFile,
   SaveBrushDialog,
+  SaveModelSetDialog,
   SaveTextDialog,
   WriteTextFile,
   OpenHeightmapDialog,
@@ -41,6 +43,7 @@ import type { Engine, MapSnapshot } from '../engine/Engine'
 import type { MapDocument } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
+import { formatSet, parseSet, type ModelSet } from '../wow/modelSets'
 import { grownBlock, type Side } from './regionGrow'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
@@ -605,6 +608,44 @@ export function importDoodadBrushes() {
     const what = added.length === 1 ? `the brush "${added[0]}"` : `${added.length} brushes`
     const trouble = problems.length ? ` Skipped: ${problems.join('; ')}` : ''
     setStatus(added.length ? `Imported ${what}.${trouble}` : `No brush imported.${trouble}`, problems.length ? 10000 : 4000)
+  }).then(() => added)
+}
+
+/** Saves a model set as a TOML file (see wow/modelSets.ts). */
+export function exportModelSet(set: ModelSet) {
+  return guarded('Export model set', async () => {
+    const path = await SaveModelSetDialog(set.name.replace(/[\/:*?"<>|]+/g, '-'))
+    if (!path) return
+    await WriteTextFile(path, formatSet(set))
+    setStatus(`Exported the set "${set.name}" to ${path}.`)
+  })
+}
+
+/**
+ * Reads model set files into the set list. A set named like one already there is added under a new
+ * name, so a shared set never overwrites the user's own. Returns the names added.
+ */
+export function importModelSets() {
+  const added: string[] = []
+  return guarded('Import model set', async () => {
+    const paths = (await OpenModelSetDialog()) ?? []
+    if (!paths.length) return
+    const problems: string[] = []
+    for (const path of paths) {
+      const { set, errors } = parseSet(await ReadTextFile(path))
+      if (!set) {
+        problems.push(`${path}: ${errors[0] ?? 'no set'}`)
+        continue
+      }
+      set.name = uniqueName(set.name, prefs.modelSets.map((s) => s.name))
+      prefs.modelSets = [...prefs.modelSets, set]
+      added.push(set.name)
+      if (errors.length) problems.push(`${path}: ${errors[0]}`)
+    }
+    if (added.length) prefs.modelSet = added[added.length - 1]
+    const what = added.length === 1 ? `the set "${added[0]}"` : `${added.length} sets`
+    const trouble = problems.length ? ` Skipped: ${problems.join('; ')}` : ''
+    setStatus(added.length ? `Imported ${what}.${trouble}` : `No set imported.${trouble}`, problems.length ? 10000 : 4000)
   }).then(() => added)
 }
 

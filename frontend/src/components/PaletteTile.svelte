@@ -13,10 +13,12 @@
     onhover?: (over: boolean) => void
     /** A favourite: a star in the corner. */
     starred?: boolean
-    /** A right-click on the tile (the asset browser toggles the favourite). */
+    /** A right-click on the tile toggles the favourite, unless the tile has a menu. */
     onstar?: () => void
+    /** A right-click on the tile opens this menu (the asset browser's: favourite and model sets). */
+    onmenu?: (e: MouseEvent) => void
   }
-  let { thumbKey, label, title, active = false, badge, size, onclick, onhover, starred = false, onstar }: Props = $props()
+  let { thumbKey, label, title, active = false, badge, size, onclick, onhover, starred = false, onstar, onmenu }: Props = $props()
 
   let url = $state('')
   let failed = $state(false)
@@ -83,6 +85,11 @@
   {title}
   {onclick}
   oncontextmenu={(e) => {
+    if (onmenu) {
+      e.preventDefault()
+      onmenu(e)
+      return
+    }
     if (!onstar) return
     e.preventDefault()
     onstar()
