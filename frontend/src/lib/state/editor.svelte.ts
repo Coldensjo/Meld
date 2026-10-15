@@ -349,6 +349,8 @@ export const ui = $state({
   dialog: null as 'about' | 'help' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
+  /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */
+  topDown: false,
   /** The viewport's right-click menu: where it opens (CSS pixels) and what it offers; null when closed. */
   contextMenu: null as { x: number; y: number; title?: string; items: ContextItem[] } | null,
   /** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */

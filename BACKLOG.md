@@ -74,7 +74,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 - [ ] B-070 **Reset camera roll** (End) · gap §6 · L/S
 - [ ] B-071 **Locked cursor mode** while the camera moves · gap §6 · L/S
-- [ ] B-072 **Top-down 2D tile mode** · gap §6 · M/M
+- [x] B-072 **Top-down 2D tile mode** · gap §6 · M/M · done 2026-10-15 (PROGRESS.md): U and Camera › Top-down View, an orthographic camera over the target
 - [ ] B-073 **Pause and speed keys for the day cycle** · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M
 - [ ] B-078 **Height contour lines** · gap §7 · L/M

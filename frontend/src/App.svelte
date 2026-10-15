@@ -162,7 +162,10 @@
     else if (e.key === '[' || e.key === ']') engine.stepBrush(e.key === ']' ? 1 : -1)
     else if (e.key === '{' || e.key === '}') editor.brush.falloff = stepFalloff(editor.brush.falloff, e.key === '}' ? 1 : -1)
     else if (key === 'g') editor.grid = !editor.grid
-    else if (key === 't' && editor.tool !== 'paint') {
+    else if (key === 'u') {
+      ui.topDown = !ui.topDown
+      setStatus(ui.topDown ? 'Top-down view: the wheel zooms, Q/E or a right drag turn the map (U for the 3D view).' : '3D view.', 3000)
+    } else if (key === 't' && editor.tool !== 'paint') {
       prefs.cameraFollowGround = !prefs.cameraFollowGround
       setStatus(prefs.cameraFollowGround ? 'Camera follows the ground (T to fly freely).' : 'Camera flies freely: W goes where you look, Space/X up and down (T to follow the ground).', 3000)
     }

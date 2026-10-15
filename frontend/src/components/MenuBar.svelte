@@ -134,6 +134,7 @@
       items: [
         { kind: 'action', label: 'Turn Around (180°)', run: withEngine((e) => e.turnCameraAround()) },
         { kind: 'check', label: 'Follow the Ground', shortcut: 'T', checked: prefs.cameraFollowGround, toggle: () => (prefs.cameraFollowGround = !prefs.cameraFollowGround) },
+        { kind: 'check', label: 'Top-down View (2D)', shortcut: 'U', checked: ui.topDown, toggle: () => (ui.topDown = !ui.topDown) },
         { kind: 'sep' },
         { kind: 'action', label: 'Faster', shortcut: 'P', run: () => stepCameraSpeed(true) },
         { kind: 'action', label: 'Slower', shortcut: 'O', run: () => stepCameraSpeed(false) },

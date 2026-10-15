@@ -490,3 +490,14 @@ In the dev page the drag needs the mouse: select a tree, untick Follow cursor, d
 and watch `ed.editor.selected.yOff` go negative (it keeps its world height). A test by script:
 `e.tools.select.onDown` / `onMove` with `e.ctx` and a hit (see "Doodad brush" for `at(x, z)`) after
 `e.raycaster.setFromCamera(e.ndc, e.camera)`; `onMove` reads `ctx.raycaster.ray` for the plane.
+
+## Top-down view (U)
+
+Checks: U (or Camera › Top-down View) draws the map straight down with an orthographic camera
+over the controller's target; the wheel zooms, WASD and a middle drag pan, Q/E and a right drag
+turn the map, and every tool picks and paints as in 3D (the ray goes straight down). Fog is off
+while it is on. In the dev page: `ed.ui.topDown = true; e.frame()`, then `e.camera.isOrthographicCamera`
+is true and `e.camera.position.y` is 1500 above the ground under the target; a brush stroke by
+script (see "Scripted brush strokes") still lands where `at(x, z)` says. `ed.ui.topDown = false`
+brings the perspective camera back. The arrow handle of the gizmo can't be dragged top-down (its
+plane is edge-on), the ring and knob can.

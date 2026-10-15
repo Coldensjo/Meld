@@ -32,6 +32,12 @@ export class CameraController {
   invertY = false
   /** Keep the target on the ground and the camera above it, instead of flying first person. */
   followGround = false
+  /**
+   * The Engine draws the top-down 2D view (U) from above `target` with its own camera; here it only
+   * means the wheel zooms (`distance`), and the keys and a middle drag pan across the ground, as they
+   * do when following the ground.
+   */
+  topDown = false
   /** Flight speed multiplier set by the wheel. */
   private flyBoost = 1
   /** When this returns true the arrow keys are left to the editor (object nudging). */
@@ -160,7 +166,7 @@ export class CameraController {
       this.yaw -= dx * k
       // Looking up is only useful when flying; on the ground the camera stays above the target.
       this.pitch = THREE.MathUtils.clamp(this.pitch + dy * k * (this.invertY ? -1 : 1), this.followGround ? 0.08 : -1.45, 1.52)
-    } else if (this.followGround) {
+    } else if (this.followGround || this.topDown) {
       const s = this.distance * 0.0016
       // Grab-the-ground: forward = camera→target, right = forward × up.
       const fx = -Math.sin(this.yaw)
@@ -209,7 +215,7 @@ export class CameraController {
     e.preventDefault() // also stops Ctrl+wheel from zooming the webview
     if (this.wheelBlocked(e)) return
     const f = Math.exp(Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 200) * 0.0012)
-    if (this.followGround) this.distance = THREE.MathUtils.clamp(this.distance * f, this.minDistance, this.maxDistance)
+    if (this.followGround || this.topDown) this.distance = THREE.MathUtils.clamp(this.distance * f, this.minDistance, this.maxDistance)
     else this.flyBoost = THREE.MathUtils.clamp(this.flyBoost / f, 0.1, 8)
   }
 
@@ -247,7 +253,7 @@ export class CameraController {
     const fx = -Math.sin(this.yaw)
     const fz = -Math.cos(this.yaw)
     if (fwd || right) {
-      if (this.followGround) {
+      if (this.followGround || this.topDown) {
         this.target.x += (fx * fwd - fz * right) * speed
         this.target.z += (fz * fwd + fx * right) * speed
       } else {

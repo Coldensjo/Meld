@@ -78,6 +78,9 @@ export interface RegionObject {
 /** No overlap boxes, for a selection of several objects. */
 const NO_BOXES: THREE.Box3[] = []
 
+/** How far above the ground the top-down view's camera stands: over any building or mountain a map holds. */
+const ORTHO_HEIGHT = 1500
+
 /** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
 const TILE_CELLS = 128
 /** A client tile's paint chunks a side. */
@@ -132,7 +135,16 @@ export interface MapSnapshot {
 export class Engine {
   readonly renderer: THREE.WebGLRenderer
   readonly scene = new THREE.Scene()
-  readonly camera: THREE.PerspectiveCamera
+  /** The 3D view's camera, which the controller drives. */
+  private persp: THREE.PerspectiveCamera
+  /** The top-down 2D view's camera (U), placed over the controller's target each frame (`updateTopDown`). */
+  private ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, ORTHO_HEIGHT + 1000)
+  private topDown = false
+  private eyeV = new THREE.Vector3()
+  /** The camera the view is drawn and picked with: the perspective one, or the top-down one while that view is on. */
+  get camera(): THREE.Camera {
+    return this.topDown ? this.ortho : this.persp
+  }
   readonly controller: CameraController
   readonly raycaster = new THREE.Raycaster()
   /** All open maps (document tabs); `doc` is the one being edited. */
@@ -246,7 +258,7 @@ export class Engine {
     this.renderer.toneMapping = THREE.NoToneMapping
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
 
-    this.camera = new THREE.PerspectiveCamera(55, 1, 0.5, 5000)
+    this.persp = new THREE.PerspectiveCamera(55, 1, 0.5, 5000)
     this.scene.background = new THREE.Color()
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
@@ -258,7 +270,7 @@ export class Engine {
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
     setMaxAnisotropy(aniso)
     // The camera rides on the water surface where the ground is submerged.
-    this.controller = new CameraController(this.camera, canvas, (x, z) => {
+    this.controller = new CameraController(this.persp, canvas, (x, z) => {
       const h = this.terrain.heightAt(x, z)
       return editor.waterEnabled ? Math.max(h, editor.waterLevel) : h
     })
@@ -342,8 +354,50 @@ export class Engine {
     this.renderer.setSize(w, h, false)
     const buf = this.renderer.getDrawingBufferSize(new THREE.Vector2())
     this.outline.setSize(buf.x, buf.y)
-    this.camera.aspect = w / h
-    this.camera.updateProjectionMatrix()
+    this.persp.aspect = w / h
+    this.persp.updateProjectionMatrix()
+  }
+
+  /**
+   * The top-down 2D view (noggit's tile mode, U): an orthographic camera straight above the
+   * controller's target, turned with the yaw so Q, E and a right drag still turn the map, and sized
+   * so the ground spans what the 3D view would show at the controller's distance (the wheel zooms).
+   * Fog is off while it is on, since the camera stands far above the ground.
+   */
+  private updateTopDown() {
+    const on = ui.topDown
+    this.controller.topDown = on
+    if (on !== this.topDown) {
+      this.topDown = on
+      this.applyViewDistance()
+    }
+    if (!on) return
+    const c = this.controller
+    const g = this.terrain.heightAt(c.target.x, c.target.z)
+    const ground = editor.waterEnabled ? Math.max(g, editor.waterLevel) : g
+    const half = Math.max(2, c.distance * Math.tan(THREE.MathUtils.degToRad(this.persp.fov) / 2))
+    const aspect = this.container.clientWidth / Math.max(1, this.container.clientHeight)
+    const o = this.ortho
+    o.left = -half * aspect
+    o.right = half * aspect
+    o.top = half
+    o.bottom = -half
+    o.updateProjectionMatrix()
+    o.up.set(-Math.sin(c.yaw), 0, -Math.cos(c.yaw))
+    o.position.set(c.target.x, ground + ORTHO_HEIGHT, c.target.z)
+    o.lookAt(c.target.x, ground, c.target.z)
+    o.updateMatrixWorld()
+  }
+
+  /**
+   * Where the view is seen from, for what sizes itself by the distance to the viewer (the gizmo's
+   * handles, the grass tufts' range): the camera, or in the top-down view a point the controller's
+   * distance above the target, so zooming in still brings them closer.
+   */
+  private viewEye(): THREE.Vector3 {
+    if (!this.topDown) return this.camera.position
+    const c = this.controller
+    return this.eyeV.set(c.target.x, this.ortho.position.y - ORTHO_HEIGHT + c.distance, c.target.z)
   }
 
   // ---------------------------------------------------------------- input
@@ -555,6 +609,7 @@ export class Engine {
 
     this.syncTool()
     this.controller.update(dt)
+    this.updateTopDown()
     this.updateEnvironment(dt, time)
 
     if (this.sizeDrag) this.hit = this.hitVec.copy(this.sizeDrag.hit)
@@ -653,7 +708,9 @@ export class Engine {
     }
     v.spheres = this.effects.shadowSpheres
     v.eye.copy(this.camera.position)
-    v.pxPerUnit = this.container.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2))
+    // Pixels per unit at a distance of one. The top-down camera stands ORTHO_HEIGHT above the ground,
+    // so its constant pixels per unit is scaled by that distance.
+    v.pxPerUnit = this.topDown ? (this.container.clientHeight / (2 * this.ortho.top)) * ORTHO_HEIGHT : this.container.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.persp.fov) / 2))
     v.cutoffPx = this.prefs?.cullSmallModels === false ? 0 : SMALL_MODEL_PX
     v.lodPx = LOD_PX
     this.objects.cull(v)
@@ -685,9 +742,9 @@ export class Engine {
   private applyViewDistance() {
     const w = this.terrain.worldSize
     const d = this.viewDistance
-    this.scene.fog = this.fogEnabled ? new THREE.Fog(this.env.state.horizon.clone(), w * 0.5 * d, w * 2.2 * d) : null
-    this.camera.far = Math.max(2000, w * 4 * d)
-    this.camera.updateProjectionMatrix()
+    this.scene.fog = this.fogEnabled && !this.topDown ? new THREE.Fog(this.env.state.horizon.clone(), w * 0.5 * d, w * 2.2 * d) : null
+    this.persp.far = Math.max(2000, w * 4 * d)
+    this.persp.updateProjectionMatrix()
   }
 
   /** Time of day, sky and lighting; feeds the terrain/water shaders. */
@@ -1913,7 +1970,7 @@ export class Engine {
       const s = this.gizmoSpawn()
       if (s && this.doc.spawnLayer.boundsOf(s, this.tmpBox)) {
         const size = this.tmpBox.getSize(this.tmpV)
-        this.gizmo.update(this.dragPoint.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.camera.position, false)
+        this.gizmo.update(this.dragPoint.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), false)
       } else this.gizmo.hide()
       this.outline.setWarnBoxes(NO_BOXES)
       if (this.canvas.style.cursor && !this.gizmoDrag) this.canvas.style.cursor = ''
@@ -1925,7 +1982,7 @@ export class Engine {
     this.tmpBox.copy(asset.bbox).applyMatrix4(this.tmpM)
     const size = this.tmpBox.getSize(this.tmpV)
     const base = this.objects.worldPosition(o, this.dragPoint)
-    this.gizmo.update(base, Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.camera.position, !o.type.startsWith('wmo:'))
+    this.gizmo.update(base, Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), !o.type.startsWith('wmo:'))
 
     // Last: overlappingBoxes reuses the scratch matrix/vectors used above.
     this.outline.setWarnBoxes(this.overlappingBoxes(o))
@@ -1947,7 +2004,7 @@ export class Engine {
       baseY += this.objects.worldPosition(o, this.tmpV).y / sel.length
       if (o.type.startsWith('wmo:')) scalable = false
     }
-    this.gizmo.update(this.dragPoint.set(pivot.x, baseY, pivot.z), radius * 1.05, topY, this.camera.position, scalable)
+    this.gizmo.update(this.dragPoint.set(pivot.x, baseY, pivot.z), radius * 1.05, topY, this.viewEye(), scalable)
   }
 
   private warnBoxes: THREE.Box3[] = Array.from({ length: 8 }, () => new THREE.Box3())
@@ -2310,7 +2367,7 @@ export class Engine {
     const density = this.prefs?.groundEffectDensity ?? 'normal'
     let key = `${density}|${this.objects.version}|` + editor.palette.join('|')
     for (const [tex, id] of Object.entries(editor.textureEffects)) key += `|${tex}=${id}`
-    layer.update(this.camera.position, editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, densityFactor(density))
+    layer.update(this.viewEye(), editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, densityFactor(density))
   }
 
   /** How many grass tufts are drawn now, for the status bar. */

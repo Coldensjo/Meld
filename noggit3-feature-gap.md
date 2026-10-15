@@ -92,7 +92,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 - **FPS camera mode**, and a **debug camera** you can return to.
 - **Locked cursor mode**, which keeps the cursor fixed while the camera moves.
 - ~~**Camera speed step keys** (O / P).~~ *Done: O and P slow and speed up the camera, and the Camera menu does the same.*
-- **Top-down 2D tile mode** (U).
+- ~~**Top-down 2D tile mode** (U).~~ *Done: U (Camera › Top-down View) draws the map straight down with an orthographic camera, as noggit's tile mode does; the wheel zooms, the keys and a middle drag pan, Q/E and a right drag turn the map. Every tool works in it (noggit switches to paint), and the 3D view comes back where it was.*
 - **Time-speed controls**: increase, decrease and pause time. Meld has a day cycle but no explicit pause or speed keys **(unverified)**.
 
 ## 7. View toggles and display

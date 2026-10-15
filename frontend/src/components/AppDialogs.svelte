@@ -114,6 +114,7 @@
         ['Q / E', 'Rotate'],
         ['Shift / Ctrl+Shift', 'Fast / very fast'],
         ['T', 'Follow the ground on/off (on, the camera stays above the terrain; off, it can enter caves)'],
+        ['U', 'Top-down view on/off: straight down with no perspective; the wheel zooms, Q/E or a right drag turn the map'],
         ['F', 'Focus selected object'],
       ],
     ],
