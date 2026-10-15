@@ -15,6 +15,7 @@ import { TILE_YARDS } from '../terrain/Terrain'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
 import { Environment, type ClientSky } from './Environment'
+import { HorizonLayer } from '../world/HorizonLayer'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
 import { PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
@@ -300,6 +301,7 @@ export class Engine {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.env = new Environment(this.scene)
+    this.scene.add(this.horizon.mesh)
     this.scene.add(this.effects.group)
     this.scene.add(this.boxes.lines, this.groupBoxes.lines)
     this.scene.add(this.paths.group)
@@ -381,6 +383,7 @@ export class Engine {
     this.controller.dispose()
     this.outline.dispose()
     this.env.dispose()
+    this.horizon.dispose()
     this.effects.dispose()
     this.boxes.dispose()
     this.groupBoxes.dispose()
@@ -819,6 +822,7 @@ export class Engine {
     this.applyClientLight(time)
     ;(this.scene.background as THREE.Color).copy(s.horizon)
     if (fog) fog.color.copy(s.horizon)
+    this.horizon.update(this.doc.id, this.doc.meta.region, !!this.prefs?.showHorizon && wow.loaded && !this.topDown, s.horizon)
 
     const tu = this.terrain.material.uniforms
     tu.sunDir.value.copy(s.keyDir)
@@ -842,6 +846,8 @@ export class Engine {
   private clientLightsMap = -1
   private clientLightsLoading = false
   private lightOut = newLightAt()
+  /** View › Far Horizon: the map's WDL around an open region. */
+  private horizon = new HorizonLayer()
   /** The editor's own fog distances (applyViewDistance), put back each frame before client lighting. */
   private fogNear = 0
   private fogFar = 0

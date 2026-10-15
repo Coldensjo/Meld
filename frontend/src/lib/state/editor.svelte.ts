@@ -319,6 +319,8 @@ export const prefs = $state({
   clientLighting: false,
   /** View › Baked Shadows: a region's ground darkened where the client's tiles bake shadow (MCSH), as the game draws it. */
   bakedShadows: true,
+  /** View › Far Horizon: past an open region, the map's coarse WDL ground in the fog colour, as the client draws it. */
+  showHorizon: true,
   /** View › Bounding boxes: draw a box around every model (Noggit Red's model boxes). */
   showBoxes: false,
   /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb). */

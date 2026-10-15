@@ -336,6 +336,17 @@ func (a *App) RegionShadows(mapName string, x, y, size int) (*vmangos.RegionShad
 	return vmangos.ReadRegionShadows(dataDir, mapName, x, y, size)
 }
 
+// RegionHorizon reads the map's far horizon (its WDL tiles) within five tiles around a square block of
+// 1.12 map tiles, for the editor to draw past the block as the client does. Five tiles, as Benilla
+// draws it: the client's own three leave hills still in view uncovered.
+func (a *App) RegionHorizon(mapName string, x, y, size int) ([]vmangos.HorizonTile, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadRegionHorizon(dataDir, mapName, x, y, size, 5)
+}
+
 // LiquidTypes lists the client's LiquidType.dbc rows: every liquid it knows, for the Water tool.
 func (a *App) LiquidTypes() ([]vmangos.LiquidTypeEntry, error) {
 	dataDir, err := a.clientDataDir()

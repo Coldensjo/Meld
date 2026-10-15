@@ -641,6 +641,22 @@ export namespace vmangos {
 	        this.holes = source["holes"];
 	    }
 	}
+	export class HorizonTile {
+	    dx: number;
+	    dy: number;
+	    heights: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new HorizonTile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.dx = source["dx"];
+	        this.dy = source["dy"];
+	        this.heights = source["heights"];
+	    }
+	}
 	
 	export class LightKey {
 	    t: number;

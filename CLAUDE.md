@@ -113,6 +113,11 @@ cd frontend && pnpm build   # frontend only
   (`updateBakedShadows`) and `Terrain.setBakedShadows` uploads them as `bakedShadowTex`; the terrain
   shader keeps 70% of the light in shadow, as the client does (`terrain/bakedShadows.ts`). They are
   read from the client, never saved with the map, and a region save keeps the client's MCSH.
+- **Far horizon** (View › Far Horizon, `prefs.showHorizon`, B-167): around an open region, the map's
+  WDL tiles within five tiles (`RegionHorizon` binding, `vmangos.ReadRegionHorizon`), meshed as the
+  client meshes them (`world/horizonMesh.ts`: chunk corners and centres, four triangles a chunk) and
+  drawn by `world/HorizonLayer.ts` unlit in the horizon/fog colour, a silhouette as in the game. Read
+  from the client once per document; a map of its own has none.
 - **Paint mask**:
   - `Terrain.mask` holds one byte per splat texel, uploaded as `maskTex` and drawn as a red
     overlay. It isn't saved to the map file.

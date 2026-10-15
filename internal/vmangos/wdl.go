@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	"Meld/internal/mpq"
 )
 
 // The WDL holds a map's far horizon: per tile a coarse grid of heights the client draws past the
@@ -114,4 +116,53 @@ func WDLTileOf(outer []float32, stride int) *WDLTile {
 		}
 	}
 	return &t
+}
+
+// HorizonTile is one tile of a map's far horizon around an open block: where it lies in tiles from
+// the block's first tile, and its WDL heights in yards (WDLOuter squared at the chunk corners, then
+// WDLInner squared at the chunk centres, rows running south).
+type HorizonTile struct {
+	DX      int   `json:"dx"`
+	DY      int   `json:"dy"`
+	Heights []int `json:"heights"`
+}
+
+// ReadRegionHorizon reads the WDL tiles of the named map within radius tiles of the size x size block
+// at (x, y), leaving out the block's own, as the client draws the horizon past the tiles it has loaded.
+// A map without a WDL has no horizon.
+func ReadRegionHorizon(dataDir, mapName string, x, y, size, radius int) ([]HorizonTile, error) {
+	if err := checkRegion(x, y, size); err != nil {
+		return nil, err
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	defer set.Close()
+	b, err := set.ReadFile(wdlPath(mapName))
+	if err != nil {
+		return nil, nil
+	}
+	tiles, err := ParseWDL(b)
+	if err != nil {
+		return nil, err
+	}
+	var out []HorizonTile
+	for ty := max(0, y-radius); ty < min(MapTiles, y+size+radius); ty++ {
+		for tx := max(0, x-radius); tx < min(MapTiles, x+size+radius); tx++ {
+			if tx >= x && tx < x+size && ty >= y && ty < y+size {
+				continue
+			}
+			t := tiles[tx+MapTiles*ty]
+			if t == nil {
+				continue
+			}
+			h := HorizonTile{DX: tx - x, DY: ty - y, Heights: make([]int, WDLHeights)}
+			for i, v := range t {
+				h.Heights[i] = int(v)
+			}
+			out = append(out, h)
+		}
+	}
+	return out, nil
 }

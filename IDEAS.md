@@ -493,3 +493,11 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   default since the game always draws them. They are not saved in the `.wmap` (no format change): a region
   save keeps the client's MCSH as before, so what the preview shows is what the game will show. Storing and
   editing them is B-057's to decide. Sculpting doesn't move them, in the editor or in the game.
+
+### B-167 Far horizon · Benilla's ring, in the fog colour
+- The loop's call (2026-10-15, B-167). The client draws the WDL past its loaded tiles as a flat silhouette in
+  the fog colour, ±3 tiles; Benilla draws ±5, since hills further out still rise above the horizon. **Ours**:
+  around an open region, the map's WDL tiles within five tiles of the block, in the horizon colour (the
+  editor's own, or the client's fog colour with Client Lighting), on by default behind View › Far Horizon,
+  hidden in the top-down view. Where the client shows a bare white hull with fog off, Meld keeps the
+  horizon colour, since fog off is only a viewing choice in the editor. A map of its own has no map around it.
