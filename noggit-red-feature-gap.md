@@ -57,7 +57,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 - ~~**Lock** setting for the liquid layer.~~ *Done: Lock, set with Alt+click, in the Water tool (B-023).*
 - ~~**Cursor intersects liquids**: the brush can pick the water surface.~~ *Done: the Water tool's "On liquids" switch (B-022).*
 - ~~**MCLQ export** **(format-specific)**.~~ *Done: noggit3's setting writes vanilla MCLQ liquids instead of MH2O. Meld's tile writer only writes MCLQ, and a test now reads the written water back through the client tile reader.*
-- **Watermap import** **(Red)**: Assist › Import › Import watermap reads a 257×257 PNG as the tile's water heights between a min and max height, with Set, Add, Subtract and Multiply modes and tiled edges.
+- ~~**Watermap import** **(Red)**: Assist › Import › Import watermap reads a 257×257 PNG as the tile's water heights between a min and max height, with Set, Add, Subtract and Multiply modes and tiled edges.~~ *Done as the owner decided: File › Import Watermap… lays water where the image isn't black, its grey the depth above the ground between Min and Max (BACKLOG B-137).*
 
 ## 4. Object (prop) editing
 

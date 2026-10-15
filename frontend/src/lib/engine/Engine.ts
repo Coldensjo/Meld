@@ -6,7 +6,7 @@ import { MAX_BRUSH_RADIUS, docs, editor, setStatus, setViewportHint, stats, type
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import type { adt, vmangos } from '../../../wailsjs/go/models'
-import { cropLiquids, decodeLiquids, encodeLiquids, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid } from '../water/liquids'
+import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid, type LiquidClipCell } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { resetLiquidFrames, updateLiquids } from '../water/liquidMaterial'
 import { LiquidStroke } from '../water/liquidStroke'
@@ -1393,6 +1393,27 @@ export class Engine {
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
     setStatus(n ? `Cropped the water in ${n} chunks.` : 'No water lies under the ground there.')
+  }
+
+  /**
+   * Lays watermap cells (see io/watermapImport.ts) into the map's liquids as water, then works the
+   * depth colours out again over the cells it touched, as one undo step. Returns the cells laid.
+   */
+  importWatermap(cells: LiquidClipCell[]): number {
+    if (!cells.length) return 0
+    const stroke = new LiquidStroke(this.doc.liquids, 'Import watermap')
+    layLiquidCells(this.doc.liquids, cells, stroke.reserve)
+    const rect = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
+    for (const c of cells) {
+      rect.x0 = Math.min(rect.x0, c.x)
+      rect.z0 = Math.min(rect.z0, c.z)
+      rect.x1 = Math.max(rect.x1, c.x)
+      rect.z1 = Math.max(rect.z1, c.z)
+    }
+    regenOpacity(this.doc.liquids, this.terrain, null, rect, stroke.reserve)
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    return cells.length
   }
 
   /** noggit's Regen ADT opacity: every liquid vertex's depth again from the ground, at the brush's opacity setting. */

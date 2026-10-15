@@ -598,6 +598,44 @@ export function copyLiquidCells(map: LiquidMap, r: { x0: number; z0: number; x1:
 }
 
 /**
+ * Lays `cells` (map cell coordinates) into the map, each taking its cell from every other layer there:
+ * the cells not listed keep their liquid. `reserve` is told each chunk before it changes (for undo).
+ * Returns the chunks changed.
+ */
+export function layLiquidCells(map: LiquidMap, cells: readonly LiquidClipCell[], reserve?: (c: number) => void): number[] {
+  const side = map.side
+  const n = side * LIQUID_CELLS
+  const work = new Map<number, LiquidLayer[]>()
+  for (const cell of cells) {
+    if (cell.x < 0 || cell.z < 0 || cell.x >= n || cell.z >= n) continue
+    const c = Math.floor(cell.z / LIQUID_CELLS) * side + Math.floor(cell.x / LIQUID_CELLS)
+    let layers = work.get(c)
+    if (!layers) {
+      reserve?.(c)
+      layers = map.layers(c).map(cloneLayer)
+      work.set(c, layers)
+    }
+    const lx = cell.x % LIQUID_CELLS
+    const lz = cell.z % LIQUID_CELLS
+    const i = lz * LIQUID_CELLS + lx
+    for (const l of layers) l.cells[i] = 0
+    let l = layers.find((t) => t.id === cell.id)
+    if (!l) {
+      l = newLayer(cell.id, cell.heights[0])
+      layers.push(l)
+    }
+    l.cells[i] = 1
+    const k = cornersOf(lx, lz)
+    for (let j = 0; j < 4; j++) {
+      l.heights[k[j]] = cell.heights[j]
+      l.depth[k[j]] = cell.depth[j]
+    }
+  }
+  for (const [c, layers] of work) map.set(c, layers.filter((l) => !layerEmpty(l)))
+  return [...work.keys()]
+}
+
+/**
  * Pastes a liquid clip with its corner at cell (px, pz): the cells of the pasted rect lose the liquid
  * they had, then the clip's cells are laid in, a layer per liquid ID in each chunk. `reserve` is
  * told each chunk before it changes (for undo). Returns the chunks changed.

@@ -42,6 +42,7 @@ import { TILE_CELLS, mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
 import { minimapScale, shadeHeights } from './minimapImage'
+import { watermapCells } from './watermapImport'
 import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, type HeightmapMode } from './heightmapImport'
 import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
@@ -442,6 +443,22 @@ export function importHeightmap(engine: Engine, opts: { mode: HeightmapMode; min
     engine.setHeights(importHeights(engine.outerHeights(), ratios, opts.mode, opts.min, opts.max), 'Import heightmap')
     const stretched = img.side !== side ? ` (stretched from ${img.side}×${img.side} to the map's ${side}×${side})` : ''
     setStatus(`Imported the heightmap from ${path}${stretched}. Undo reverts it.`, 6000)
+  })
+}
+
+/**
+ * Lays a watermap image's water over the map (see io/watermapImport.ts): black is no water, and a grey
+ * is the water's depth above the ground, between `min` and `max` yards.
+ */
+export function importWatermap(engine: Engine, opts: { min: number; max: number }) {
+  return guarded('Import watermap', async () => {
+    const path = await OpenHeightmapDialog()
+    if (!path) return
+    const img = await ReadHeightmap(path)
+    const size = engine.terrain.size
+    const cells = watermapCells(imageRatios(img, size + 1), engine.outerHeights(), size, opts.min, opts.max)
+    const n = engine.importWatermap(cells)
+    setStatus(n ? `Laid water on ${n} cells from ${path}. Undo removes it.` : `The watermap ${path} is all black, so no water was laid.`, 6000)
   })
 }
 

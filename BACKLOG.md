@@ -38,7 +38,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-024 **Angled river mode** for flowing water · gap §3 · M/M · done: Angled with angle and direction in the Water tool
 - [x] B-025 **Opacity modes** (auto, river, ocean, custom) · gap §3 · L/M · done: the Water tool's Opacity select
 - [ ] B-026 **Water layers** with a current-layer selector · gap §3 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
-- [ ] B-137 **Watermap import**: painted water heights from a PNG between a min and max height · gap §3 · L/S · decided by the owner 2026-10-15 in IDEAS.md (depth above ground)
+- [x] B-137 **Watermap import**: painted water heights from a PNG between a min and max height · gap §3 · L/S · decided by the owner 2026-10-15 in IDEAS.md (depth above ground) · done 2026-10-15 (PROGRESS.md)
 
 ## Objects (props)
 
