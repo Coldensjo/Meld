@@ -266,3 +266,17 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 - Choice: **keep working on the value L items**, in the usual order (bugs, DESIGN.md priority, value,
   then the smallest effort first), up to the run's cap. Items tagged `needs-approval` are still skipped.
 - Decided by the owner, 2026-10-15.
+
+### Approval round · owner decisions 2026-10-15
+- B-051 Tile-level save. Question: save to the export's changed tiles, a tile index inside the `.wmap`, a
+  folder of per-tile files, or drop it? Choice: **changed tiles in the export**; the `.wmap` stays one
+  file, and Export to Client and the region save write only the tiles changed since the last export.
+  Decided by the owner, 2026-10-15.
+- DBC editors. Question: which client-DBC editors may the loop build? Choice: **all four**: B-148 Zone
+  editor, B-149 Light editor (after B-084), B-150 Area triggers, B-151 New ground effect sets, each write
+  checked against the client's reader. Decided by the owner, 2026-10-15.
+- Other large items. Question: which may the loop build? Choice: **B-132 Stamp tool, B-026 Water layers
+  and B-057 Baked shadows editor**; B-094 Undockable tool properties is **not approved**. Decided by the
+  owner, 2026-10-15.
+- Scripting. Question: approve B-100 (Lua engine), B-101 (script brushes), B-157 (node editor)? Choice:
+  **keep it off**; the three stay blocked as a non-goal. Decided by the owner, 2026-10-15.

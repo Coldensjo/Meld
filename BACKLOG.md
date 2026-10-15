@@ -29,7 +29,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-116 **Sculpt strength up to 10** · Source: owner · M/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-119 **By-slope painting: restore the base on ground that flattens again**: lowering a hill leaves its rock painted; an option to paint the base role back under the dirt angle · Source: loop: B-111 · L/S · off by default, since it would erase roads and details under the brush
 - [ ] B-159 **Brush image on the cursor**: the brush ring shows the image brush's shape and turn, so a stroke can be aimed · Source: loop: B-131 · L/S
-- [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · needs-approval · builds on B-131
+- [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · builds on B-131 · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-134 **Remove empty texture layers** across the map: drop a chunk's layer whose weight is zero everywhere · gap §2 · L/S
 - [ ] B-135 **Alphamap image export and import**: a texture's weights as an image, read back into a chosen texture · gap §9 · L/M
 - [ ] B-136 **Heightmap import modes**: Set, Add, Subtract and Multiply, with a min and max height, as Noggit Red's importer · gap §9 · L/S
@@ -42,7 +42,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-023 **Lock setting** for the liquid layer · gap §3 · L/S · done: Lock with Alt+click in the Water tool
 - [x] B-024 **Angled river mode** for flowing water · gap §3 · M/M · done: Angled with angle and direction in the Water tool
 - [x] B-025 **Opacity modes** (auto, river, ocean, custom) · gap §3 · L/M · done: the Water tool's Opacity select
-- [ ] B-026 **Water layers** with a current-layer selector · gap §3 · L/L · needs-approval
+- [ ] B-026 **Water layers** with a current-layer selector · gap §3 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-137 **Watermap import**: painted water heights from a PNG between a min and max height · gap §3 · L/S
 
 ## Objects (props)
@@ -60,17 +60,17 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 ## Map, client and server
 
 - [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large) · on the back burner by the owner's decision 2026-10-15: not now; when it comes, as a second document kind beside the block editor (see PROGRESS.md 2026-10-15 B-118 entry)
-- [ ] B-051 **Tile-level save**: current tile or changed tiles only · gap §5 · H/M · left open in the 2026-10-12 loop run (2nd): the save is one `.wmap` file, so per-tile or changed-tile saves change the file format, which needs the owner's decision on the format first · still blocked 2026-10-15 (5th run): the run was non-interactive, so the questions are in PROGRESS.md
+- [ ] B-051 **Tile-level save: export only the changed tiles**: Export to Client and the region save write only the tiles whose bytes changed since the last export (a hash per tile kept in the user's cache dir); the `.wmap` stays one file · gap §5 · H/M · approved by the owner 2026-10-15, decided in IDEAS.md
 - [x] B-056 **Holes tool** for caves · gap §5 · M/M · done: Sculpt › Hole cuts and fills triangles, holes are in the `.wmap` (version 3) and in the clipboard, with wall handles; not yet exported to client tiles (see CLAUDE.md)
 - [x] B-113 **Grow a region by a tile**: a plus on each side of the open block in the Map panel opens the block one tile bigger (square, so a row or column comes along) · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session) · no longer reachable since B-115 dropped the Map panel; see B-118
 - [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
-- [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
+- [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as Noggit Red's Minimap Editor does (with a resolution, what to draw, and model filters), so the in-game minimap shows the edited ground · Source: loop: B-059, gap §5 · L/L · a client write, checked against the client's own reader
 - [ ] B-147 **More Map.dbc fields for a new map** (instance type, loading screen, area, corpse position, max players) and WMO-only maps, as Noggit Red's map creation wizard · gap §5 · L/M
-- [ ] B-148 **Zone editor**: create zones and subzones and edit an AreaTable row (name, parent, level, faction, flags, sounds, music, liquid), written to the client's DBC · gap §11 · M/L · needs-approval (a DBC write)
-- [ ] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · needs-approval (a DBC write) · after B-084
-- [ ] B-150 **Area trigger display and editor**: the map's AreaTrigger.dbc boxes and spheres, added, moved and resized · gap §11 · L/L · needs-approval (a DBC write)
-- [ ] B-151 **New ground effect sets**, and applying an effect per zone, subzone or tile rather than per map · gap §11 · L/M · needs-approval (a DBC write)
+- [ ] B-148 **Zone editor**: create zones and subzones and edit an AreaTable row (name, parent, level, faction, flags, sounds, music, liquid), written to the client's DBC · gap §11 · M/L · approved by the owner 2026-10-15, decided in IDEAS.md
+- [ ] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · after B-084 · approved by the owner 2026-10-15, decided in IDEAS.md
+- [ ] B-150 **Area trigger display and editor**: the map's AreaTrigger.dbc boxes and spheres, added, moved and resized · gap §11 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
+- [ ] B-151 **New ground effect sets**, and applying an effect per zone, subzone or tile rather than per map · gap §11 · L/M · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-124 **Doodad brush On props: footprint at world scale and a cheaper prop lookup**: a model standing on a prop is spaced by its own scale, not its world scale, and each attempt casts a ray through every model's bounds tree (up to 256 a frame); a chunk-bucketed lookup would keep a dense map smooth · Source: loop: B-120 · L/S
 
 ## Navigation, view and display
@@ -95,13 +95,13 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-125 **Config fields other than the preferences written whole**: the client folder, server folder, window size and login are still saved from one instance's copy, so two windows can overwrite each other's; the same patch-and-merge as B-122 per field · Source: loop: B-122 · L/S
 - [x] B-093 **Asset browser search** improvements · gap §10 · L/S · done: the search-first asset browser with synonyms, kinds, zones and category facets (CLAUDE.md, Asset browser)
 - [x] B-115 **Dock reduced to Layers**: the Map, Spawns and Properties panels are no longer mounted · Source: owner · -/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session); their functions are B-118
-- [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval
+- [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval · not approved by the owner 2026-10-15 (IDEAS.md)
 
 ## Scripting (needs approval before any work)
 
-- [ ] B-100 **Lua 5.1 scripting engine** with a script editor · gap §8 · H/L · needs-approval
-- [ ] B-101 **Script brushes**, procedural placement, noise and image import on top of B-100 · gap §8 · H/L · needs-approval
-- [ ] B-157 **Node editor**: visual scripting graphs over the map's chunks, textures and models, a second way to script · gap §8 · L/L · needs-approval
+- [ ] B-100 **Lua 5.1 scripting engine** with a script editor · gap §8 · H/L · needs-approval · not approved by the owner 2026-10-15 (IDEAS.md)
+- [ ] B-101 **Script brushes**, procedural placement, noise and image import on top of B-100 · gap §8 · H/L · needs-approval · not approved by the owner 2026-10-15 (IDEAS.md)
+- [ ] B-157 **Node editor**: visual scripting graphs over the map's chunks, textures and models, a second way to script · gap §8 · L/L · needs-approval · not approved by the owner 2026-10-15 (IDEAS.md)
 
 ## Tooling
 

@@ -424,3 +424,6 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Stopped: the top remaining items are all value L. The run did the three value-M items (B-146, B-153, B-156); B-050 is needs-approval and B-051 (H/M) is blocked on the owner's format decision (questions above).
 - The commit trailers name Claude Opus 5.5, the model that ran this, not the Haiku 5.5 of LOOP.md.
 - Next top item: B-051 Tile-level save once the owner answers; otherwise every open item is value L (by DESIGN.md order the first is B-128, the area clipboard carrying the chunk data, L/S), so the next loop run stops at once unless the owner picks again.
+
+## 2026-10-15 · approval round (owner, in plan mode)
+- The owner answered the items tagged `needs-approval` and B-051 (IDEAS.md records each answer). Approved, and the tag dropped: B-148, B-149, B-150, B-151, B-132, B-026, B-057. Not approved: B-094, and the scripting items B-100, B-101 and B-157 stay off. B-051 is now "export only the changed tiles" and is no longer blocked. B-050 was not asked; it stays on the back burner by the owner's earlier decision.
