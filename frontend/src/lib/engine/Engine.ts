@@ -2650,6 +2650,59 @@ export class Engine {
   }
 
   /**
+   * Replaces each selected model with the one copied (Ctrl+C on a single model), keeping its place,
+   * turn, tilt, scale and attachments, as Noggit Red's Replace Models (By Clipboard). A doodad is only
+   * replaced by a doodad and a building by a building, as Noggit Red's menu says, since a 1.12 building
+   * has no scale. One undo step.
+   */
+  replaceSelectedWithCopied() {
+    const clip = this.lastCopied === 'objects' ? this.objectClip : null
+    if (!clip || clip.objects.length !== 1) {
+      setStatus('Copy one model first (select it, Ctrl+C), then select the models to replace with it.', 6000)
+      return
+    }
+    const type = clip.objects[0].type
+    const kind = (t: string) => t.slice(0, t.indexOf(':'))
+    const objects = this.objects
+    const changed: Array<{ id: number; from: string }> = []
+    let other = 0
+    for (const id of editor.selectedIds) {
+      const o = objects.objects.get(id)
+      if (!o || o.type === type) continue
+      if (kind(o.type) !== kind(type)) {
+        other++
+        continue
+      }
+      changed.push({ id, from: o.type })
+      objects.setType(id, type)
+    }
+    const skipped = other ? ` ${other} ${kind(type) === 'wmo' ? 'doodads' : 'buildings'} left as they are (a doodad replaces doodads, a building buildings).` : ''
+    if (!changed.length) {
+      setStatus(editor.selectedIds.length ? `Nothing replaced.${skipped}` : 'Select the models to replace first.', 6000)
+      return
+    }
+    const refresh = () => {
+      if (editor.selected) {
+        const p = objects.objects.get(editor.selected.id)
+        if (p) editor.selected = { ...p }
+      }
+    }
+    refresh()
+    this.history.push({
+      label: changed.length === 1 ? 'Replace model' : `Replace ${changed.length} models`,
+      undo: () => {
+        for (const c of changed) objects.setType(c.id, c.from)
+        refresh()
+      },
+      redo: () => {
+        for (const c of changed) objects.setType(c.id, type)
+        refresh()
+      },
+    })
+    setStatus(`Replaced ${changed.length} ${changed.length === 1 ? 'model' : 'models'} with ${displayName(type)}.${skipped}`, 6000)
+  }
+
+  /**
    * Stands the selected models upright again, as noggit's Reset rotation (Ctrl+R,
    * `moveable_object_group::reset_xz_rotation`): the tilt both ways goes, and the heading stays. One
    * undo step; nothing happens when every selected model is already upright.

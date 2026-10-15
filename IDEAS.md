@@ -187,3 +187,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   swap, Noggit Red's set texture). **Ours** under the brush: the swap follows the brush's strength and
   falloff, as Meld's Swap mode already did, where Noggit Red moves each texel wholly; at full strength
   and no falloff the two are the same. The owner can change this.
+
+### B-140 Replace models with the copied one · Noggit Red, in place
+- Chosen by the loop from Noggit Red (2026-10-15, B-140). Noggit Red's Replace Models (By Clipboard)
+  (`tools/ObjectTool.cpp`) needs exactly one copied model and swaps every selected model of another type
+  for it, keeping position, rotation and scale; its menu text says M2s are only replaced by M2s.
+- Meld follows it, with a doodad replacing only doodads and a building only buildings (the menu's rule;
+  a 1.12 building has no scale). **Ours** for how: the model's type changes in place, so it keeps its id,
+  attachments and, in a region, its unique ID (the region save then rewrites that placement with the new
+  model), where Noggit Red deletes the old instances and adds new ones. The owner can change this.

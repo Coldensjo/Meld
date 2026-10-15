@@ -55,7 +55,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M
 - [ ] B-138 **Selection groups**: group and ungroup models so a click selects the group · gap §4 · M/M
 - [x] B-139 **Selection brush**: a brush that adds the models under it to the selection · gap §4 · M/S · done 2026-10-15 (PROGRESS.md)
-- [ ] B-140 **Replace models with the copied one**, keeping each placement · gap §4 · M/S
+- [x] B-140 **Replace models with the copied one**, keeping each placement · gap §4 · M/S · decided in IDEAS.md (loop, from Noggit Red) · done 2026-10-15 (PROGRESS.md)
 - [ ] B-141 **Snap selected to ground** (Page Down): set the selected roots' height offset to the ground · gap §4 · L/S · unverified whether a one-key drop is missing
 - [ ] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M
 - [ ] B-143 **Three-axis gizmo**: move arrows on each axis and scale handles, in world or local space · gap §4 · L/M

@@ -113,6 +113,19 @@ export class ObjectLayer {
     return o
   }
 
+  /**
+   * Changes an object's model, keeping its id, placement and attachments: it leaves its old type's
+   * instanced mesh for the new one's.
+   */
+  setType(id: number, type: string) {
+    const o = this.objects.get(id)
+    if (!o || o.type === type) return
+    this.batch(o.type).dirty = true
+    o.type = type
+    this.markTree(o, 0)
+    this.version++
+  }
+
   /** Call after mutating an object's fields. Attached children follow. */
   touch(id: number) {
     const o = this.objects.get(id)
