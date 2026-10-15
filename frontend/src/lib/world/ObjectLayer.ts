@@ -133,7 +133,12 @@ export class ObjectLayer {
 
   /** The object plus everything attached to it, recursively. */
   descendantIds(id: number): Set<number> {
-    const out = new Set<number>([id])
+    return this.descendantsOf([id])
+  }
+
+  /** The objects plus everything attached to any of them, recursively, found in one walk. */
+  descendantsOf(ids: Iterable<number>): Set<number> {
+    const out = new Set<number>(ids)
     let grew = true
     while (grew) {
       grew = false

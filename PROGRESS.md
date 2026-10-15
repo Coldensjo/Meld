@@ -330,3 +330,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: Checked first: Meld had no reset. Checked noggit3 (IDEAS.md records it): its Reset rotation zeroes the X and Z rotation and keeps the heading. Edit › Reset Rotation (Ctrl+R) does the same for every selected model (`Engine.resetRotation`): the tilt goes, the turn stays, as one undo step ("Reset rotation of N objects"), and it says so when they already stand upright. Ctrl+R no longer reaches the webview, which would reload the page.
 - Verified: make test passed (Go plus 199 of 199 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
 - Left: none.
+
+## 2026-10-15 · B-105 Hide a model with its attachments
+- Done: As the owner decided (IDEAS.md): H now hides the selected models and everything attached to them, found in one walk over the parent links (`ObjectLayer.descendantsOf`, which `descendantIds` now uses), so no prop is left in mid-air; H on an all-hidden selection shows them again with their attachments, and Shift+H still shows everything. The status line counts the attached ones ("Model with 3 attached hidden"). Still session only.
+- Verified: make test passed (Go plus 199 of 199 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+- Left: none.

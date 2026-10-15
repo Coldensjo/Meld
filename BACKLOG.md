@@ -44,7 +44,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 - [ ] B-126 **Area paste: mirror and height modes**: noggit's chunk mover also mirrors the copied chunks and lays the heights in as min, max, add or subtract over the target; Meld's paste has the quarter turn, offset and blend only · Source: loop: B-006 · L/S
 - [ ] B-128 **Area copy and paste carries the chunks' zones and flags**: the area clipboard copies heights, holes, paint, liquids and models, but not the zone, impassable flag or no-tuft cells of the chunks it covers · Source: loop: B-054 · L/S
-- [ ] B-105 **Hide a model with its attachments**: H hides only the selected object, so props attached to it stay drawn in mid-air · Source: loop: B-034 · L/S · decided in IDEAS.md (owner, 2026-10-15): hide the attachments too
+- [x] B-105 **Hide a model with its attachments**: H hides only the selected object, so props attached to it stay drawn in mid-air · Source: loop: B-034 · L/S · decided in IDEAS.md (owner, 2026-10-15): hide the attachments too · done 2026-10-15 (PROGRESS.md)
 - [x] B-036 **Reset rotation** menu item (Ctrl+R) · gap §4 · L/S · decided in IDEAS.md (loop, from noggit3) · done 2026-10-15 (PROGRESS.md)
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
 - [ ] B-040 **Helper models**: reference models as visual aids · gap §4 · L/M

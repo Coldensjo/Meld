@@ -155,7 +155,7 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 ### B-105 Hide a model with its attachments · owner decision 2026-10-15
 - H hides the selected objects and everything attached to them (the whole `parent` chain below), so no
   prop is left floating. Shift+H shows them all again. Still session only, as in B-034.
-- Status: unblocked. Eligible for the loop.
+- Status: built 2026-10-15.
 
 ### B-059 Save minimap image · ours
 - Chosen by the loop from noggit3 (2026-10-15, B-059). noggit3's File › "Save minimaps" (Ctrl+Shift+P,

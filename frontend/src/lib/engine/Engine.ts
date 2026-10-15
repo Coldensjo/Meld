@@ -1965,16 +1965,23 @@ export class Engine {
     return editor.selected ? this.objects.objects.get(editor.selected.id) : undefined
   }
 
-  /** Hides the selected objects for this session (H), or shows them again when they are all hidden. */
+  /**
+   * Hides the selected objects for this session (H), with everything attached to them so nothing is
+   * left in mid-air, or shows them all again when the selection is all hidden.
+   */
   toggleHideSelected() {
     const sel = selectedObjects(this.objects)
     if (!sel.length) return
     const hide = sel.some((o) => !this.objects.hidden.has(o.id))
-    for (const o of sel) this.objects.setHidden(o.id, hide)
+    const ids = this.objects.descendantsOf(sel.map((o) => o.id))
+    for (const id of ids) this.objects.setHidden(id, hide)
     if (hide && !ui.showHiddenModels) selectObjects(this.objects, [])
     ui.hiddenModels = this.objects.hidden.size
     const n = sel.length
-    setStatus(hide ? `${n === 1 ? 'Model' : `${n} models`} hidden. Shift+H shows all hidden models again.` : `${n === 1 ? 'Model' : `${n} models`} shown.`, 3000)
+    const what = n === 1 ? 'Model' : `${n} models`
+    const kids = ids.size - n
+    const attached = kids ? ` with ${kids} attached` : ''
+    setStatus(hide ? `${what}${attached} hidden. Shift+H shows all hidden models again.` : `${what}${attached} shown.`, 3000)
   }
 
   /** Shows every hidden object of the active map again (Shift+H). */
