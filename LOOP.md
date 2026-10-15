@@ -23,7 +23,7 @@ invent work.
 **Blocked items.** If a check fails and cannot be fixed, log the item as unfinished in PROGRESS.md,
 leave it open in BACKLOG.md, and go on to the next item. Where IDEAS.md records a decision, follow it;
 do not reopen it. Do not guess at behaviour the owner has not defined: if an item needs the owner's
-decision, IDEAS.md does not record one, and noggit3 does not settle it (see below), ask the owner.
+decision, IDEAS.md does not record one, and Noggit Red does not settle it (see below), ask the owner.
 
 **Asking the owner.** Enter plan mode (`EnterPlanMode`), then ask with `AskUserQuestion`: one question
 per open decision, with the options you see, your recommendation first and marked "(Recommended)", and
@@ -39,22 +39,25 @@ the owner does not answer or rejects the plan without a decision, log the item a
 PROGRESS.md with the open questions, leave it open in BACKLOG.md, and go on to the next item.
 
 **Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from
-BACKLOG.md, noggit3-feature-gap.md, IDEAS.md or the code, check noggit3 before you decide it is blocked:
+BACKLOG.md, noggit3-feature-gap.md, IDEAS.md or the code, check Noggit Red before you decide it is
+blocked:
 
-1. Find the behaviour in noggit3 source. Clone it once per run, shallow, into the scratchpad, never into
-   the repo: `git clone --depth 1 https://github.com/wowdev/noggit3.git <scratchpad>/noggit3`. Look in
-   `src/noggit/` (the UI is in `src/noggit/ui/`). If the clone fails, use WebFetch on
-   `https://github.com/wowdev/noggit3`. If neither works, log the item as blocked, with the failure.
-2. Pick the behaviour. The default is noggit3's. Keep our current behaviour instead only when ours is
-   clearly better, and say why.
-3. Record the decision in IDEAS.md under the item: the term, the noggit3 file and function it came
-   from, the choice (noggit3 or ours), and the reason. Then note it in the item's BACKLOG.md line as
+1. Find the behaviour in Noggit Red source. Clone it once per run, shallow, into the scratchpad, never
+   into the repo: `git clone --depth 1 https://gitlab.com/prophecy-rp/noggit-red.git <scratchpad>/noggit-red`.
+   Look in `src/noggit/` (the UI is in `src/noggit/ui/`). If the clone fails, use WebFetch on
+   `https://gitlab.com/prophecy-rp/noggit-red`. If neither works, log the item as blocked, with the
+   failure. Noggit Red targets later clients as well as 1.12, so check that a file-format behaviour
+   holds for 1.12 tiles before you follow it.
+2. Pick the behaviour. The default is Noggit Red's. Keep our current behaviour instead only when ours
+   is clearly better, and say why.
+3. Record the decision in IDEAS.md under the item: the term, the Noggit Red file and function it came
+   from, the choice (Noggit Red or ours), and the reason. Then note it in the item's BACKLOG.md line as
    decided in IDEAS.md.
 4. Continue the item. Recording a decision is not a DESIGN.md change, so do not edit DESIGN.md. If the
    decision would change a hard rule or a non-goal, ask the owner instead (see *Asking the owner*).
 
 A decision made this way is the loop's own call, not the owner's. The IDEAS.md entry should say
-"chosen by the loop from noggit3" so the owner can see it and change it.
+"chosen by the loop from Noggit Red" so the owner can see it and change it.
 
 **3. For each item, in order:**
 
