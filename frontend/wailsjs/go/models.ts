@@ -504,6 +504,7 @@ export namespace vmangos {
 	    chunk: number;
 	    areaId: number;
 	    impassable: boolean;
+	    noEffect?: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new HeaderSpec(source);
@@ -514,6 +515,7 @@ export namespace vmangos {
 	        this.chunk = source["chunk"];
 	        this.areaId = source["areaId"];
 	        this.impassable = source["impassable"];
+	        this.noEffect = source["noEffect"];
 	    }
 	}
 	

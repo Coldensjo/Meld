@@ -71,6 +71,16 @@ test('the export sends every chunk header, with its zone and flag', () => {
   assert.deepEqual(h[0], { chunk: 0, areaId: 0, impassable: false })
 })
 
+test('the header carries every chunk’s no-tuft rows, zeros included, so a cleared cell comes off', () => {
+  const inp = input(true)
+  inp.noEffect = new Uint8Array(128 * 128)
+  // Cell (9, 8) is in chunk (1, 1): row 0, bit 1.
+  inp.noEffect[8 * 128 + 9] = 1
+  const h = mapToTiles(inp).tiles[0].Headers!
+  assert.deepEqual(h[17].noEffect, [2, 0, 0, 0, 0, 0, 0, 0])
+  assert.deepEqual(h[0].noEffect, [0, 0, 0, 0, 0, 0, 0, 0])
+})
+
 test('a map without chunk data sends no headers, which keeps the tile’s own', () => {
   assert.equal(mapToTiles(input(false)).tiles[0].Headers, undefined)
 })

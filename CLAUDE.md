@@ -71,7 +71,7 @@ cd frontend && pnpm build   # frontend only
   versions stay readable (a version 4 map has no chunk data, a version 3 map no liquids blob, a
   version 2 map no holes blob either).
 - **Map data** (`terrain/chunkFlags.ts`, `tools/MapDataTool.ts`, tool `mapdata`, key 9): what a
-  chunk's MCNK header says besides its ground, by mode (`editor.mapDataMode`: zone, impassable). `Terrain.areaIds` is an AreaTable.dbc ID per paint
+  chunk's MCNK header says besides its ground, by mode (`editor.mapDataMode`: zone, impassable, no tufts per cell). `Terrain.areaIds` is an AreaTable.dbc ID per paint
   chunk (the `Areas` binding lists them, `wow/areas.ts` names them) and `Terrain.chunkFlags` a byte
   per chunk (`CHUNK_IMPASSABLE`); both and `Terrain.noEffect` are read from a region, saved in the
   map file (version 5) and painted by the tool through `ChunkDataStroke` (one undo step a stroke).
@@ -230,8 +230,9 @@ cd frontend && pnpm build   # frontend only
   header (`adt/effects.go`), so the client grows the same tufts. The header's `noEffectDoodad` bits
   (no tufts under a building or a road) are read from a region into `Terrain.noEffect` (kept in
   the map file since version 5) and, with the cells under the map's root WMOs (`blockedCells` in
-  `GroundEffectLayer.ts`), skipped when drawing and sent on export as `PaintSpec.NoEffect`, which Go
-  ORs into the chunk's own bits. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
+  `GroundEffectLayer.ts`), skipped when drawing and sent on export. A map that holds its chunk data
+  sends them as `HeaderSpec.NoEffect`, which replaces the chunk's bits (so a cell the Map data tool
+  cleared comes off); an older one only as `PaintSpec.NoEffect`, which Go ORs into the chunk's own. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
   the share of the game's amount drawn per cell.
 - **Growing a region**: the Map panel's `TileMinimap` shows a plus on each side of the open block
   (`onextend`); `extendRegion` in `mapio.ts` opens the block one tile bigger that way

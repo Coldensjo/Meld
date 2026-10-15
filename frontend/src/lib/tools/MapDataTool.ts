@@ -10,8 +10,9 @@ import { areaName } from '../wow/areas'
  * The Map data tool paints what a chunk's header says besides its ground, into every chunk whose
  * centre is under the brush (or the chunk under the cursor when the brush is smaller than a chunk):
  * in Area mode the zone (AreaTable.dbc ID), which Clear sets back to none, and in Impassable mode the
- * impassable flag, which Clear takes off. Alt+click picks the zone under the cursor. A stroke is one
- * undo step.
+ * impassable flag, which Clear takes off. No tufts works on cells instead: it marks the cells under
+ * the brush as growing no ground effect doodads (as the client's roads are), and Clear lets them grow
+ * again. Alt+click picks the zone under the cursor. A stroke is one undo step.
  */
 export class MapDataTool implements Tool {
   readonly usesBrush = true
@@ -43,6 +44,7 @@ export class MapDataTool implements Tool {
 
   private label() {
     if (editor.mapDataMode === 'impassable') return editor.mapDataClear ? 'Make passable' : 'Mark impassable'
+    if (editor.mapDataMode === 'noTufts') return editor.mapDataClear ? 'Grow tufts' : 'No tufts'
     return editor.mapDataClear ? 'Clear zone' : `Paint zone ${areaName(editor.mapDataArea)}`
   }
 
@@ -71,7 +73,25 @@ export class MapDataTool implements Tool {
     const side = t.paintChunksPerSide
     const step = CHUNK_CELLS * t.cellSize
     const radius = editor.brush.radius
-    if (editor.mapDataMode === 'impassable') {
+    if (editor.mapDataMode === 'noTufts') {
+      const cs = t.cellSize
+      const n = t.size
+      // Saved before the write: the cells the brush's square covers.
+      const b = this.rect
+      b.x0 = Math.max(0, Math.floor((hit.x - radius) / cs))
+      b.z0 = Math.max(0, Math.floor((hit.z - radius) / cs))
+      b.x1 = Math.min(n - 1, Math.floor((hit.x + radius) / cs))
+      b.z1 = Math.min(n - 1, Math.floor((hit.z + radius) / cs))
+      if (b.x1 < b.x0 || b.z1 < b.z0) return
+      this.stroke?.reserveCells(b)
+      const v = editor.mapDataClear ? 0 : 1
+      squaresUnder(n, cs, hit.x, hit.z, radius, this.rect, (i) => {
+        if (t.noEffect[i] === v) return
+        t.noEffect[i] = v
+        changed = true
+      })
+      if (changed) this.stroke?.touchCells(this.rect)
+    } else if (editor.mapDataMode === 'impassable') {
       const set = !editor.mapDataClear
       squaresUnder(side, step, hit.x, hit.z, radius, this.rect, (i) => {
         const f = set ? t.chunkFlags[i] | CHUNK_IMPASSABLE : t.chunkFlags[i] & ~CHUNK_IMPASSABLE

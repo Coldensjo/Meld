@@ -32,6 +32,21 @@ func TestRewriteChunkHeadersReadBack(t *testing.T) {
 		t.Fatal("heights changed")
 	}
 
+	// The no-effect bits are replaced, not added to, even over what a paint adds.
+	alpha := make([]byte, 64*64)
+	paint := map[int]ChunkPaint{5: {Layers: []Layer{{Texture: `Tileset\Elwynn\ElwynnGrassBase.blp`}, {Texture: `Tileset\Elwynn\ElwynnDirtBase.blp`, Alpha: alpha}}, NoEffect: []uint8{0xff, 0, 0, 0, 0, 0, 0, 0}}}
+	bits, err := Rewrite(out, Changes{TileX: 32, TileY: 48, Paint: paint, Headers: map[int]ChunkHeader{5: {AreaID: 12, Impassable: true, NoEffect: []uint8{1, 0, 0, 0, 0, 0, 0, 2}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err = ParseTerrain(bits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := terrain.Chunks[5].NoEffect; got != [CellsPerChunk]uint8{1, 0, 0, 0, 0, 0, 0, 2} {
+		t.Fatalf("no-effect rows %v", got)
+	}
+
 	// Area 0 keeps the chunk's own zone, and a cleared flag comes off.
 	out2, err := Rewrite(out, Changes{TileX: 32, TileY: 48, Headers: map[int]ChunkHeader{5: {}}})
 	if err != nil {

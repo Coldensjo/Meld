@@ -335,7 +335,7 @@ func TestRegionPaintWritten(t *testing.T) {
 	}
 }
 
-// TestRegionHeadersWritten sets a real chunk's zone and impassable flag through a region save: they
+// TestRegionHeadersWritten sets a real chunk's zone, impassable flag and no-effect bits through a region save: they
 // must read back, and every other chunk keep the zone, flags and heights the same save without them
 // writes. It needs WOW_DIR set to
 // the client.
@@ -363,7 +363,7 @@ func TestRegionHeadersWritten(t *testing.T) {
 	}
 	// Block chunk 17 is the tile's chunk (1, 1).
 	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects,
-		Headers: []HeaderSpec{{Chunk: 17, AreaID: 40, Impassable: true}}}
+		Headers: []HeaderSpec{{Chunk: 17, AreaID: 40, Impassable: true, NoEffect: []int{3, 0, 0, 0, 0, 0, 0, 0x80}}}}
 	files, err := BuildRegion(dataDir, edit)
 	if err != nil {
 		t.Fatal(err)
@@ -381,9 +381,12 @@ func TestRegionHeadersWritten(t *testing.T) {
 			if c.AreaID != 40 || !c.Impassable() || c.Flags&^0x2 != b.Flags&^0x2 {
 				t.Fatalf("chunk 17: area %d, flags %#x (was %#x)", c.AreaID, c.Flags, b.Flags)
 			}
+			if c.NoEffect != [adt.CellsPerChunk]uint8{3, 0, 0, 0, 0, 0, 0, 0x80} {
+				t.Fatalf("chunk 17 no-effect rows %v", c.NoEffect)
+			}
 			continue
 		}
-		if c.AreaID != b.AreaID || c.Flags != b.Flags {
+		if c.AreaID != b.AreaID || c.Flags != b.Flags || c.NoEffect != b.NoEffect {
 			t.Fatalf("chunk %d: area %d flags %#x, was %d %#x", i, c.AreaID, c.Flags, b.AreaID, b.Flags)
 		}
 	}

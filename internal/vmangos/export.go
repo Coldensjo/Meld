@@ -45,10 +45,25 @@ type TileSpec struct {
 
 // HeaderSpec is a chunk's header fields: its index (in the tile for a TileSpec, in the block for a
 // RegionEdit), its AreaTable.dbc ID (0 keeps the chunk's own) and whether it is impassable.
+// NoEffect, one entry per cell row with a bit per cell, replaces the chunk's noEffectDoodad bits;
+// empty keeps them (with a PaintSpec's added).
 type HeaderSpec struct {
 	Chunk      int    `json:"chunk"`
 	AreaID     uint32 `json:"areaId"`
 	Impassable bool   `json:"impassable"`
+	NoEffect   []int  `json:"noEffect,omitempty"`
+}
+
+// chunkHeader is the adt form of a HeaderSpec.
+func (h HeaderSpec) chunkHeader() adt.ChunkHeader {
+	ch := adt.ChunkHeader{AreaID: h.AreaID, Impassable: h.Impassable}
+	if len(h.NoEffect) == adt.CellsPerChunk {
+		ch.NoEffect = make([]uint8, adt.CellsPerChunk)
+		for i, v := range h.NoEffect {
+			ch.NoEffect[i] = uint8(v)
+		}
+	}
+	return ch
 }
 
 // PaintSpec is a chunk's paint: its index in the tile (y*16 + x), its textures in slot order, and
@@ -182,7 +197,7 @@ func buildTile(t TileSpec, water *adt.Water) ([]byte, error) {
 			if h.Chunk < 0 || h.Chunk >= adt.ChunkCount {
 				return nil, fmt.Errorf("header chunk %d is outside the tile", h.Chunk)
 			}
-			ch.Headers[h.Chunk] = adt.ChunkHeader{AreaID: h.AreaID, Impassable: h.Impassable}
+			ch.Headers[h.Chunk] = h.chunkHeader()
 		}
 	}
 	for _, p := range t.Paint {

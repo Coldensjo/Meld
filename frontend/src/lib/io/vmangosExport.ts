@@ -77,6 +77,8 @@ export interface HeaderOut {
   /** AreaTable.dbc ID; 0 keeps the tile's own. */
   areaId: number
   impassable: boolean
+  /** The cells that grow no ground effect doodads, a bit per cell in each row; replaces the tile's own. */
+  noEffect?: number[]
 }
 
 export interface ObjectOut {
@@ -193,7 +195,13 @@ export function mapToTiles(input: ExportInput): ExportOut {
         for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
           for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
             const chunk = (ty * CHUNKS_PER_TILE + cy) * paintSide + tx * CHUNKS_PER_TILE + cx
-            tile.Headers.push({ chunk: cy * CHUNKS_PER_TILE + cx, areaId: h.areaIds[chunk], impassable: (h.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0 })
+            const gx = tx * CHUNKS_PER_TILE + cx
+            const gz = ty * CHUNKS_PER_TILE + cy
+            // The map holds every no-tuft cell (the client's, the painted ones and, in noEffect,
+            // those under its buildings), so the header's bits are replaced and a cleared cell comes off.
+            const header: HeaderOut = { chunk: cy * CHUNKS_PER_TILE + cx, areaId: h.areaIds[chunk], impassable: (h.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0 }
+            if (input.noEffect) header.noEffect = chunkNoEffect(input.noEffect, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
+            tile.Headers.push(header)
           }
         }
       }

@@ -5,13 +5,16 @@ import "encoding/binary"
 // mcnkAreaID is where the chunk header keeps the chunk's zone: an AreaTable.dbc ID.
 const mcnkAreaID = 0x34
 
-// ChunkHeader is what the editor sets in a chunk's header: the zone it belongs to and whether
-// players can walk it.
+// ChunkHeader is what the editor sets in a chunk's header: the zone it belongs to, whether players
+// can walk it, and the cells that grow no ground effect doodads.
 type ChunkHeader struct {
 	// AreaID is the chunk's AreaTable.dbc ID; 0 keeps the chunk's own.
 	AreaID uint32
 	// Impassable sets the header's impassable flag (0x2); false clears it.
 	Impassable bool
+	// NoEffect, one byte per cell row with a bit per cell, replaces the chunk's noEffectDoodad bits,
+	// including any a ChunkPaint added; nil keeps them.
+	NoEffect []uint8
 }
 
 // apply writes h into a chunk header and returns the chunk's flags with the impassable bit set
@@ -19,6 +22,9 @@ type ChunkHeader struct {
 func (h ChunkHeader) apply(header []byte, flags uint32) uint32 {
 	if h.AreaID != 0 {
 		binary.LittleEndian.PutUint32(header[mcnkAreaID:], h.AreaID)
+	}
+	if len(h.NoEffect) == CellsPerChunk {
+		copy(header[mcnkNoEffect:mcnkNoEffect+CellsPerChunk], h.NoEffect)
 	}
 	if h.Impassable {
 		return flags | mcnkFlagImpass

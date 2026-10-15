@@ -380,8 +380,16 @@
     <select class="curve" bind:value={editor.mapDataMode} title="What the brush paints into the chunks" aria-label="Map data">
       <option value="area">Zone</option>
       <option value="impassable">Impassable</option>
+      <option value="noTufts">No tufts</option>
     </select>
-    <div class="seg" title={editor.mapDataMode === 'area' ? 'Set the zone under the brush, or clear it' : 'Mark the chunks under the brush impassable, or make them passable again'}>
+    <div
+      class="seg"
+      title={editor.mapDataMode === 'area'
+        ? 'Set the zone under the brush, or clear it'
+        : editor.mapDataMode === 'impassable'
+          ? 'Mark the chunks under the brush impassable, or make them passable again'
+          : 'Mark the cells under the brush as growing no tufts, or let them grow again'}
+    >
       <button class:active={!editor.mapDataClear} onclick={() => (editor.mapDataClear = false)}>Set</button>
       <button class:active={editor.mapDataClear} onclick={() => (editor.mapDataClear = true)}>Clear</button>
     </div>
@@ -401,8 +409,10 @@
         {/each}
       </datalist>
       <span class="dim">{stats.hoverArea ? `Under the cursor: ${stats.hoverArea}` : 'Under the cursor: no zone'}</span>
-    {:else}
+    {:else if editor.mapDataMode === 'impassable'}
       <span class="dim">Impassable chunks are hatched red. The export sets the flag (0x2) in their chunk headers.</span>
+    {:else}
+      <span class="dim">Cells that grow no grass tufts are hatched orange, as the game leaves roads bare.</span>
     {/if}
   {/if}
   {#if editor.tool === 'paint' && editor.paintMode === 'texture'}

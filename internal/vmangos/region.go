@@ -408,7 +408,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		if tiles[k].change.Headers == nil {
 			tiles[k].change.Headers = map[int]adt.ChunkHeader{}
 		}
-		tiles[k].change.Headers[(gy%ChunksPerTileSide)*ChunksPerTileSide+gx%ChunksPerTileSide] = adt.ChunkHeader{AreaID: h.AreaID, Impassable: h.Impassable}
+		tiles[k].change.Headers[(gy%ChunksPerTileSide)*ChunksPerTileSide+gx%ChunksPerTileSide] = h.chunkHeader()
 	}
 
 	if e.HasLiquids {

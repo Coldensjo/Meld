@@ -64,6 +64,7 @@ export class GroundEffectLayer {
   private builtKey = ''
   private heightVersion = -1
   private paintVersion = -1
+  private chunkDataVersion = -1
   private lastBuild = 0
   private assetsChanged = true
   private unsubscribe: () => void
@@ -89,7 +90,8 @@ export class GroundEffectLayer {
     const t = this.terrain
     const half = (CHUNK_CELLS * t.cellSize) / 2
     const moved = Math.abs(eye.x - this.builtAt.x) > half || Math.abs(eye.z - this.builtAt.y) > half
-    const changed = t.heightVersion !== this.heightVersion || t.paintVersion !== this.paintVersion || key !== this.builtKey || this.assetsChanged
+    const changed =
+      t.heightVersion !== this.heightVersion || t.paintVersion !== this.paintVersion || t.chunkDataVersion !== this.chunkDataVersion || key !== this.builtKey || this.assetsChanged
     if (!moved && !changed) return
     if (now - this.lastBuild < REBUILD_MS) return
     this.lastBuild = now
@@ -97,6 +99,7 @@ export class GroundEffectLayer {
     this.builtKey = key
     this.heightVersion = t.heightVersion
     this.paintVersion = t.paintVersion
+    this.chunkDataVersion = t.chunkDataVersion
     this.assetsChanged = false
     this.build(eye, palette, own, tables, objects, factor)
   }
