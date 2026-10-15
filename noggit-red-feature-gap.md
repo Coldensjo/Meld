@@ -130,7 +130,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 - ~~**Tile and chunk grid lines**, with "hole lines always on".~~ *Done already: Graphics › Show grid (every 4 cells), Show chunk lines (the 8x8-cell paint chunks, pale blue) and the amber tile lines a region always draws (`Terrain.setTileBorders`). Holes are cut out of the mesh with walls, so they are always visible without lines.*
 - ~~**Climb view** **(Red)**: View › Climb (Shift+F2) colours the ground too steep for a character to walk up, with a maximum climb value and an option to colour every angle (`draw_impassible_climb` in the terrain shader).~~ *Done: View › Climb (Shift+F2) tints the triangles steeper than the chosen slope red (40° to 60°, 49° by default); the colour-every-angle and smooth options are left out (BACKLOG B-153).*
 - **Flight bounds** display.
-- **DBC lighting colour data**: use the client's lighting data for preview.
+- ~~**DBC lighting colour data**: use the client's lighting data for preview.~~ *Done: View › Client Lighting takes the sun, sky light, fog and water colours from the client's Light tables where the camera is (BACKLOG B-084).*
 - **Skybox** toggle, separate from the sky.
 - **Fog** toggle (F12). *Covered: Graphics › Fog.*
 - **Model animation** toggle (F11). *Covered: Graphics › Prop animations.*

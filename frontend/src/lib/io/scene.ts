@@ -21,6 +21,7 @@ const VIEW_PREFS = [
   'wireframe',
   'climbView',
   'showBoxes',
+  'clientLighting',
   'climbAngle',
   'showTerrain',
   'showWater',

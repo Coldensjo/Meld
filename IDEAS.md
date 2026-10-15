@@ -416,3 +416,15 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   Paint textures (the shader brush paints vertex colours, which 1.12 hasn't got); the stack's size,
   strength and image turn are the Stamp tool's own brush settings; stacks are preferences rather than
   per-project files. Noggit Red's one-imprint Stamp mode is not built.
+
+### B-084 Client lighting · Noggit Red's Skies, on the editor's own sky
+- Chosen by the loop from Noggit Red (2026-10-15, B-084, approved by the owner). Noggit Red's Skies
+  (`Sky.cpp`: `Sky::Sky`, `findSkyWeights`, `colorFor`) read Light.dbc (positions and radii divided by 36),
+  start from the map's global light (at 0,0,0) and blend each local light over it by distance, fully
+  inside the inner radius and fading to the outer, sorted farthest first; colours interpolate between
+  band keys by time of day. Meld does the same with the 1.12 layouts (5 params per light, not 8).
+- **Ours**: the client's colours drive the sun's light, the sky light, the horizon and fog colour and the
+  water, while Meld keeps its own sky dome, fog distance and shadows (the client's sky is a coloured dome
+  that would replace the Preetham sky; left for later). Only clear weather (the first params) is read. The
+  ground ambient is half the sky ambient, as the editor's hemisphere light needs a ground colour the client
+  doesn't have.

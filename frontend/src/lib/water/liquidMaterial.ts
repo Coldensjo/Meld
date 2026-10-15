@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { BAND, type LightAt } from '../wow/clientLight'
 import { loadTexture } from '../wow/api'
 import { LIQUID_TYPES, OCEAN_OPACITY, type LiquidClass } from './liquids'
 import { TILE_YARDS } from '../terrain/Terrain'
@@ -204,16 +205,42 @@ export function updateLiquids(ms: number, hour: number, clientReady: boolean, cu
     const list = frames[k]
     shared[`${k}Tex`].value = list.length ? list[f % list.length] : blank
   }
-  bandColor(RIVER_LIGHT, hour, shared.riverLight.value)
-  bandColor(RIVER_DARK, hour, shared.riverDark.value)
-  bandColor(OCEAN_LIGHT, hour, shared.oceanLight.value)
-  bandColor(OCEAN_DARK, hour, shared.oceanDark.value)
+  const c = clientLight
+  if (c) {
+    // The client's own light where the camera is (View › Client Lighting, wow/clientLight.ts).
+    fromBand(shared.riverLight.value, c, BAND.riverLight)
+    fromBand(shared.riverDark.value, c, BAND.riverDark)
+    fromBand(shared.oceanLight.value, c, BAND.oceanLight)
+    fromBand(shared.oceanDark.value, c, BAND.oceanDark)
+    shared.riverAlpha.value.set(c.waterAlpha[0], c.waterAlpha[1])
+    shared.oceanAlpha.value.set(c.oceanAlpha[0], c.oceanAlpha[1])
+  } else {
+    bandColor(RIVER_LIGHT, hour, shared.riverLight.value)
+    bandColor(RIVER_DARK, hour, shared.riverDark.value)
+    bandColor(OCEAN_LIGHT, hour, shared.oceanLight.value)
+    bandColor(OCEAN_DARK, hour, shared.oceanDark.value)
+    shared.riverAlpha.value.set(0.5, 1)
+    shared.oceanAlpha.value.set(0.75, 1)
+  }
   if (cursor) {
     shared.cursorPos.value.set(cursor.x, cursor.y, cursor.z)
     shared.cursorRadius.value = cursor.radius
   } else {
     shared.cursorRadius.value = 0
   }
+}
+
+/** The client's light at the camera, which the water's colours follow instead of Azeroth's default; null for the default. */
+let clientLight: LightAt | null = null
+
+/** A colour band of the client light into `v`, as the raw sRGB the shader takes. */
+function fromBand(v: THREE.Vector3, c: LightAt, band: number) {
+  v.set(c.colors[band * 3], c.colors[band * 3 + 1], c.colors[band * 3 + 2])
+}
+
+/** Sets (or with null clears) the client light the water's colours and alphas follow. */
+export function setLiquidLight(light: LightAt | null) {
+  clientLight = light
 }
 
 /** The material painted liquids draw with: one for every map. */

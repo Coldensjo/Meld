@@ -359,6 +359,11 @@ cd frontend && pnpm build   # frontend only
 - Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
   surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun
   for the shadows to read.
+- **Client lighting** (View › Client Lighting, `prefs.clientLighting`): Go reads a map's Light, LightParams,
+  LightIntBand and LightFloatBand rows (`vmangos/lights.go`, `MapLights` binding; 1.12 layouts, positions
+  in 1/36 yard, band times in half-minutes); `wow/clientLight.ts` blends the global light with the local
+  lights reaching the camera, as Noggit Red's Skies do, and `Engine.applyClientLight` puts the sun, sky
+  ambient, horizon/fog and water colours over the Environment's each frame. The sky dome stays the editor's.
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
   cycling, so it doesn't write reactive state every frame.
 

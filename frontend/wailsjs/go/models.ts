@@ -604,6 +604,60 @@ export namespace vmangos {
 	    }
 	}
 	
+	export class LightKey {
+	    t: number;
+	    v: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LightKey(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.t = source["t"];
+	        this.v = source["v"];
+	    }
+	}
+	export class LightParamSet {
+	    id: number;
+	    glow: number;
+	    waterAlpha: number[];
+	    oceanAlpha: number[];
+	    colors: LightKey[][];
+	    floats: LightKey[][];
+	
+	    static createFrom(source: any = {}) {
+	        return new LightParamSet(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.glow = source["glow"];
+	        this.waterAlpha = source["waterAlpha"];
+	        this.oceanAlpha = source["oceanAlpha"];
+	        this.colors = this.convertValues(source["colors"], LightKey);
+	        this.floats = this.convertValues(source["floats"], LightKey);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class LiquidTypeEntry {
 	    id: number;
 	    name: string;
@@ -657,6 +711,66 @@ export namespace vmangos {
 	        this.Type = source["Type"];
 	        this.Name = source["Name"];
 	    }
+	}
+	export class MapLight {
+	    id: number;
+	    x: number;
+	    y: number;
+	    z: number;
+	    inner: number;
+	    outer: number;
+	    global: boolean;
+	    params: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new MapLight(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.inner = source["inner"];
+	        this.outer = source["outer"];
+	        this.global = source["global"];
+	        this.params = source["params"];
+	    }
+	}
+	export class MapLights {
+	    mapId: number;
+	    lights: MapLight[];
+	    params: Record<number, LightParamSet>;
+	
+	    static createFrom(source: any = {}) {
+	        return new MapLights(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mapId = source["mapId"];
+	        this.lights = this.convertValues(source["lights"], MapLight);
+	        this.params = this.convertValues(source["params"], LightParamSet, true);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ObjectSpec {
 	    Type: string;

@@ -54,6 +54,8 @@ export function LoadSpawns(arg1:string,arg2:number,arg3:number,arg4:number):Prom
 
 export function MapEntries():Promise<Array<vmangos.MapEntry>>;
 
+export function MapLights(arg1:number):Promise<vmangos.MapLights>;
+
 export function MapZones():Promise<Array<vmangos.Zone>>;
 
 export function ModelAnimations(arg1:string):Promise<Array<vmangos.AnimInfo>>;

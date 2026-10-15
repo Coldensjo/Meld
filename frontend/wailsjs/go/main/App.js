@@ -98,6 +98,10 @@ export function MapEntries() {
   return window['go']['main']['App']['MapEntries']();
 }
 
+export function MapLights(arg1) {
+  return window['go']['main']['App']['MapLights'](arg1);
+}
+
 export function MapZones() {
   return window['go']['main']['App']['MapZones']();
 }

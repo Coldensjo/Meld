@@ -640,6 +640,15 @@ func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, e
 	return patch, err
 }
 
+// MapLights reads a map's lights from the client's Light tables, for the preview's client lighting.
+func (a *App) MapLights(mapID uint32) (*vmangos.MapLights, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.LoadMapLights(dataDir, mapID)
+}
+
 // AreaRows lists a map's zones and subzones from the client's AreaTable.dbc, for the zone editor.
 func (a *App) AreaRows(mapID uint32) ([]vmangos.AreaRow, error) {
 	dataDir, err := a.clientDataDir()

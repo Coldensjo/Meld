@@ -65,7 +65,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-080 **Anti-aliasing, VSync, an FPS limit and full-screen** settings · gap §7 · L/S
 - [ ] B-081 **Flight bounds** display · gap §7 · L/S
 - [ ] B-082 **Light zone display** · gap §7 · L/M
-- [ ] B-084 **Client lighting data** for the preview · gap §7 · L/L · approved by the owner 2026-10-15: read the client's Light, LightParams and LightIntBand tables so the editor's sky, fog and ambient follow the zone the camera is in
+- [x] B-084 **Client lighting data** for the preview · gap §7 · L/L · approved by the owner 2026-10-15: read the client's Light, LightParams and LightIntBand tables so the editor's sky, fog and ambient follow the zone the camera is in · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Settings, UI and help
 

@@ -8,7 +8,9 @@ import type { ExportInput } from '../io/vmangosExport'
 import type { adt, vmangos } from '../../../wailsjs/go/models'
 import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid, type LiquidClipCell } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
-import { resetLiquidFrames, updateLiquids } from '../water/liquidMaterial'
+import { resetLiquidFrames, setLiquidLight, updateLiquids } from '../water/liquidMaterial'
+import { BAND, lightAt, newLightAt, type ClientLights } from '../wow/clientLight'
+import { TILE_YARDS } from '../terrain/Terrain'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
@@ -52,7 +54,7 @@ import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { NextCreatureGUID, NextObjectGUID, SpawnLook } from '../../../wailsjs/go/main/App'
+import { MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, SpawnLook } from '../../../wailsjs/go/main/App'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -797,6 +799,7 @@ export class Engine {
     const env = this.env
     env.update(this.hour, time, this.camera)
     const s = env.state
+    this.applyClientLight()
     ;(this.scene.background as THREE.Color).copy(s.horizon)
     if (this.scene.fog) this.scene.fog.color.copy(s.horizon)
 
@@ -814,6 +817,82 @@ export class Engine {
     else floor.color.setRGB(0.05 * light, 0.042 * light, 0.035 * light)
 
     if (env.key.castShadow) this.fitShadows()
+  }
+
+  /** View › Client Lighting: the client's lights of the open map, which map they are, and the light at the camera. */
+  private clientLights: ClientLights | null = null
+  private clientLightsMap = -1
+  private clientLightsLoading = false
+  private lightOut = newLightAt()
+  /** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
+  private mapIds: Map<string, number> | null = null
+  private mapIdsLoading = false
+
+  /** The open map's Map.dbc ID: a map made for the client's own, a region's by its folder, else Azeroth's (0); null while unknown. */
+  private openMapId(): number | null {
+    const m = this.doc.meta
+    if (m.vmangos) return m.vmangos.mapId
+    if (!m.region) return 0
+    if (!this.mapIds) {
+      if (!this.mapIdsLoading) {
+        this.mapIdsLoading = true
+        MapEntries()
+          .then((rows) => (this.mapIds = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.ID]))))
+          .catch(() => (this.mapIds = new Map()))
+      }
+      return null
+    }
+    return this.mapIds.get(m.region.mapName.toLowerCase()) ?? 0
+  }
+
+  /**
+   * With View › Client Lighting on, the sun's and the sky's light, the horizon and fog colour and the
+   * water's colours become the client's own at the camera (wow/clientLight.ts): the map's global light
+   * with the local lights it is in blended over it. The sky dome itself stays the editor's. Off, or
+   * until the lights are read, the editor's own lighting stays.
+   */
+  private applyClientLight() {
+    const id = this.prefs?.clientLighting && wow.loaded ? this.openMapId() : null
+    if (id === null) {
+      setLiquidLight(null)
+      return
+    }
+    if (id !== this.clientLightsMap) {
+      this.clientLights = null
+      if (!this.clientLightsLoading) {
+        this.clientLightsLoading = true
+        const want = id
+        MapLights(want)
+          .then((l) => {
+            this.clientLights = l as ClientLights
+            this.clientLightsMap = want
+          })
+          .catch((err) => {
+            console.warn('client lights not read', err)
+            this.clientLightsMap = want
+          })
+          .finally(() => (this.clientLightsLoading = false))
+      }
+    }
+    const lights = this.clientLights
+    const cam = this.camera.position
+    const region = this.doc.meta.region
+    const x = cam.x + (region ? region.x * TILE_YARDS : 0)
+    const z = cam.z + (region ? region.y * TILE_YARDS : 0)
+    if (!lights || !lightAt(lights, x, cam.y, z, this.hour, this.lightOut)) {
+      setLiquidLight(null)
+      return
+    }
+    const c = this.lightOut.colors
+    const s = this.env.state
+    s.keyColor.setRGB(c[BAND.diffuse * 3], c[BAND.diffuse * 3 + 1], c[BAND.diffuse * 3 + 2], THREE.SRGBColorSpace)
+    s.skyAmbient.setRGB(c[BAND.ambient * 3], c[BAND.ambient * 3 + 1], c[BAND.ambient * 3 + 2], THREE.SRGBColorSpace)
+    s.groundAmbient.copy(s.skyAmbient).multiplyScalar(0.5)
+    s.horizon.setRGB(c[BAND.fog * 3], c[BAND.fog * 3 + 1], c[BAND.fog * 3 + 2], THREE.SRGBColorSpace)
+    this.env.hemi.color.copy(s.skyAmbient)
+    this.env.hemi.groundColor.copy(s.groundAmbient)
+    this.env.key.color.copy(s.keyColor)
+    setLiquidLight(this.lightOut)
   }
 
   /**
