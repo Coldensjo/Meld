@@ -224,6 +224,7 @@
         ),
         { kind: 'sep' },
         { kind: 'check', label: 'Prop lights & flames', checked: prefs.propEffects, toggle: () => (prefs.propEffects = !prefs.propEffects) },
+        { kind: 'check', label: 'Particles', checked: prefs.particles, toggle: () => (prefs.particles = !prefs.particles) },
         { kind: 'check', label: 'Prop animations', checked: prefs.animations, toggle: () => (prefs.animations = !prefs.animations) },
         { kind: 'check', label: 'Skip models too small to see', checked: prefs.cullSmallModels, toggle: () => (prefs.cullSmallModels = !prefs.cullSmallModels) },
         { kind: 'check', label: 'Clouds', checked: prefs.clouds, toggle: () => (prefs.clouds = !prefs.clouds) },

@@ -94,6 +94,53 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   back to PCF), shadow maps are depth textures, and inside `#pragma unroll_loop` only
   `UNROLLED_LOOP_INDEX` and `[ i ]` are substituted.
 
+## The live app without Claude in Chrome (headless Chrome over CDP)
+
+Checks: the same as above, when the Chrome extension isn't connected (a `claude -p` loop run). Start
+`make dev` in the background, wait until `curl localhost:34115/wow/status` answers, then drive a
+headless Chrome over the DevTools protocol from a scratch folder (not the repo):
+`uv run -q --with websocket-client python -u cdp.py "http://localhost:34115/?nosave" shot step1.js step2.js`.
+The script (about 40 lines) starts `chrome.exe --headless=new --remote-debugging-port=9333
+--user-data-dir=<scratch>\profile --window-size=1400,900 --use-angle=swiftshader
+--enable-unsafe-swiftshader about:blank`, reads the page's websocket from
+`http://127.0.0.1:9333/json`, sends `Page.navigate`, waits 4 s, and for each JS file runs
+`Runtime.evaluate` on `(async () => { <file> })()` with `awaitPromise` and `returnByValue`, prints
+the result and saves `Page.captureScreenshot` as `<prefix>-<n>.png`. A step loads a scene with
+`__loadScene`, then steps the app with `await new Promise(r => setTimeout(r, 50)); __engine.frame()`
+in a loop and returns what it wants to report as JSON. The viewport of a 1400x900 window is
+`magick shot.png -crop 1068x285+47+95` (the asset browser takes the bottom).
+- Traps:
+  - Swiftshader renders a region in seconds a frame: a few hundred `frame()` calls take minutes, so
+    run it with a long timeout, and `python -u`, or nothing prints until the end.
+  - Write step files with the Write tool, not a heredoc: heredocs here halve backslashes, and client
+    paths in JS strings need `\\`.
+  - The camera target rides the ground (`followGround`, re-applied from prefs by the scene), so a
+    point high up (a lantern, a waterfall's top) can't be centred with `setSceneView`; move the
+    model instead (`yOff`), or stand the camera far back.
+  - A dense spot (Northshire's village) hides what you place behind props. Clear the view for the
+    session: `for (const id of e.objects.objects.keys()) e.objects.hidden.add(id); e.objects.markAllDirty()`,
+    then `e.objects.add({ type: 'm2:<path>', x, z, yOff: 0, rotY: 0, scale: 1 })` on open ground
+    (x 150, z 300 in Azeroth 32_48 is open grass). Nothing of this is saved with `?nosave` unless
+    the map is saved.
+  - Writing `__engine.prefs.x` doesn't stick: the prefs effect re-applies its own copy.
+  - The user's prefs may have Prop animations off, which a probe should not take for a bug.
+
+## Particles (M2 emitters, B-182)
+
+Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
+- `go test ./internal/wow -run Emitter` (and `TestClientEmitters` with `WOW_DIR`: Elwynn's tall
+  waterfall has one lit alpha emitter with flags 0x2, BloodSpurt.m2 four, FlameStrike_Area.m2 four
+  spline emitters, `FreestandingTorch01.m2` two additive flames on a 4x4 flipbook) and
+  `tests/particles.test.ts` (kernels, ramps, integrator, quad writer, after Benilla's own tests).
+- In the app (the CDP route above), place `World\Generic\PassiveDoodads\Lights\FreestandingTorch01.m2`
+  and `World\Azeroth\Elwynn\PassiveDoodads\Waterfall\ElwynnTallWaterfall01.m2` (yOff -70: its emitter
+  is 94 yd up) on cleared ground. `__engine.particles.live` maps `<objectId>:<emitter>` to a pool
+  (`pool.count` live particles); `__engine.particles.batches` holds the draws (`floats / 36` quads).
+  The torch burns with the flipbook flame and the waterfall throws a lit white spray (about 100
+  particles).
+- Trap: an emitter out of view or beyond `RANGE` (300 yd) is frozen, so a pool with `acc` 0 and no
+  particles is usually just off screen.
+
 ## Brush size controls (Photoshop-style)
 
 Checks: `tools/brushSize.ts` (unit tests in `tests/brushSize.test.ts`) and the engine's Alt+right-drag.

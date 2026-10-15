@@ -85,7 +85,7 @@
       // A helper shape gets a geometry of its own here, since the preview disposes what it drew.
       const helper = isHelper(it.key) ? helperGeometry(it.key) : null
       if (helper) helper.computeBoundingBox()
-      const a: ModelAsset = helper ? { geometry: helper, material: helperMaterial(), bbox: helper.boundingBox!.clone(), ready: true, effects: [] } : buildWowAsset(await fetchMesh(it.path))
+      const a: ModelAsset = helper ? { geometry: helper, material: helperMaterial(), bbox: helper.boundingBox!.clone(), ready: true, effects: [], emitters: [] } : buildWowAsset(await fetchMesh(it.path))
       await texturesReady(a.material)
       if (id !== loadId) {
         a.geometry.dispose()

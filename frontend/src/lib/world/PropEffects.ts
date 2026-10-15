@@ -105,6 +105,12 @@ export class PropEffects {
   readonly shadowSpheres: THREE.Sphere[] = []
   private sphereFree: THREE.Sphere[] = []
   enabled = true
+  /**
+   * Whether the models' particles are drawn (world/ParticleLayer.ts): a model with emitters then
+   * shows its own flames, and its fire effects only light.
+   */
+  particles = false
+  private drawnParticles = false
 
   constructor() {
     this.material = new THREE.ShaderMaterial({
@@ -155,6 +161,7 @@ export class PropEffects {
       if (layer.isHidden(o.id)) continue
       const a = getAsset(o.type)
       if (!a.effects.length) continue
+      const ownFlames = this.particles && a.emitters.length > 0
       layer.matrixOf(o, this.tmpM)
       // One dynamic light per prop cluster: a model's light + flames at the
       // same spot would otherwise waste several of the pooled lights.
@@ -182,7 +189,7 @@ export class PropEffects {
         } else {
           this.sources.push(src)
         }
-        if (src.fire && flameCount < MAX_FLAMES) {
+        if (src.fire && !ownFlames && flameCount < MAX_FLAMES) {
           const size = (e.size ?? 0.4) * o.scale
           this.tmpM.compose(pos, this.tmpQ.identity(), this.tmpS.setScalar(size))
           this.flames.setMatrixAt(flameCount, this.tmpM)
@@ -223,10 +230,11 @@ export class PropEffects {
    * `sceneVersion` changes whenever what could throw a light's shadow changed (here, the terrain).
    */
   update(layer: ObjectLayer, time: number, focus: THREE.Vector3, night: number, sceneVersion: number) {
-    const rebuilt = layer !== this.layer || layer.version !== this.version
+    const rebuilt = layer !== this.layer || layer.version !== this.version || this.particles !== this.drawnParticles
     if (rebuilt) {
       this.layer = layer
       this.version = layer.version
+      this.drawnParticles = this.particles
       this.rebuild(layer)
       // Source indices name other sources now.
       this.slots.fill(-1)

@@ -74,6 +74,11 @@ export class ModelAnimation {
   private s3 = [0, 0, 0]
   private s4 = [0, 0, 0, 1]
 
+  /** Bone i's current matrix in model space (from the last `update`), or null for no such bone. */
+  boneMatrix(i: number): THREE.Matrix4 | null {
+    return i >= 0 && i < this.bones.length ? this.mats[i] : null
+  }
+
   /** The last time the bones were posed for, or -1 before the first pose (the bind pose, often a T-pose). */
   posedAt = -1
 

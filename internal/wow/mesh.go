@@ -66,6 +66,8 @@ type Mesh struct {
 	Anim *Anim
 	// Effects are lights/flames in model space (editor coordinates).
 	Effects []Effect
+	// Emitters are an M2's particle emitters, their frames in model space (editor coordinates).
+	Emitters []Emitter
 	// points are an M2's attachment points by ID, for the items a look attaches. Not encoded.
 	points map[int]attachPoint
 }
@@ -95,6 +97,17 @@ func (m *Mesh) Attach(id int, item *Mesh) bool {
 	for _, e := range item.Effects {
 		e.Pos = [3]float32{e.Pos[0] + p.Pos[0], e.Pos[1] + p.Pos[1], e.Pos[2] + p.Pos[2]}
 		cp.Effects = append(cp.Effects, e)
+	}
+	// The item's emitters ride the point's bone, as its vertices do.
+	for _, e := range item.Emitters {
+		e.Frame[12] += p.Pos[0]
+		e.Frame[13] += p.Pos[1]
+		e.Frame[14] += p.Pos[2]
+		e.Bone = -1
+		if m.Anim != nil {
+			e.Bone = p.Bone
+		}
+		cp.Emitters = append(cp.Emitters, e)
 	}
 	m.Append(cp)
 	if m.Anim != nil {
@@ -140,6 +153,7 @@ func (m *Mesh) Append(o *Mesh) {
 		m.Groups = append(m.Groups, g)
 	}
 	m.Effects = append(m.Effects, o.Effects...)
+	m.Emitters = append(m.Emitters, o.Emitters...)
 }
 
 func whiteColors(n int) []byte {
@@ -193,13 +207,14 @@ func (m *Mesh) Consolidate() {
 }
 
 type meshHeader struct {
-	Verts   int       `json:"verts"`
-	Indices int       `json:"indices"`
-	Colors  bool      `json:"colors"`
-	Groups  []Group   `json:"groups"`
-	BBox    []float32 `json:"bbox"`
-	Bones   []Bone    `json:"bones,omitempty"`
-	Effects []Effect  `json:"effects,omitempty"`
+	Verts    int       `json:"verts"`
+	Indices  int       `json:"indices"`
+	Colors   bool      `json:"colors"`
+	Groups   []Group   `json:"groups"`
+	BBox     []float32 `json:"bbox"`
+	Bones    []Bone    `json:"bones,omitempty"`
+	Effects  []Effect  `json:"effects,omitempty"`
+	Emitters []Emitter `json:"emitters,omitempty"`
 }
 
 // Encode serialises the mesh for the frontend:
@@ -220,7 +235,7 @@ func (m *Mesh) Encode() []byte {
 	}
 	h := meshHeader{
 		Verts: n, Indices: len(m.Index), Colors: len(m.Color) == n*4 && n > 0, Groups: m.Groups,
-		BBox: []float32{mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]}, Effects: m.Effects,
+		BBox: []float32{mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]}, Effects: m.Effects, Emitters: m.Emitters,
 	}
 	hasAnim := m.Anim != nil && len(m.Anim.BoneIdx) == n*4
 	if hasAnim {

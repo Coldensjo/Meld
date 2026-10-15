@@ -48,6 +48,7 @@ import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
+import { ParticleLayer } from '../world/ParticleLayer'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import type { MapInfo } from './MapDocument'
@@ -198,6 +199,8 @@ export class Engine {
 
   private env: Environment
   private effects = new PropEffects()
+  private particles = new ParticleLayer()
+  private tmpColor = new THREE.Color()
   /** View › Bounding boxes: a box around every model. */
   private boxes = new ModelBoxes()
   /** The box around each selection group a selected model is in. */
@@ -303,6 +306,7 @@ export class Engine {
     this.env = new Environment(this.scene)
     this.scene.add(this.horizon.mesh)
     this.scene.add(this.effects.group)
+    this.scene.add(this.particles.group)
     this.scene.add(this.boxes.lines, this.groupBoxes.lines)
     this.scene.add(this.paths.group)
 
@@ -385,6 +389,7 @@ export class Engine {
     this.env.dispose()
     this.horizon.dispose()
     this.effects.dispose()
+    this.particles.dispose()
     this.boxes.dispose()
     this.groupBoxes.dispose()
     this.paths.dispose()
@@ -717,9 +722,11 @@ export class Engine {
     this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightsVersion, ui.historyVersion)
     // Lights first: culling keeps what can throw the shadowed lights' shadows.
     this.effects.enabled = this.prefs?.propEffects !== false
+    this.effects.particles = this.prefs?.particles !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)
     this.cullInstances()
     this.animateModels(time)
+    this.updateParticles(dt, time)
     this.updateSelectionVisuals()
     this.renderer.render(this.scene, this.camera)
     // The counters describe the last render call, so read the scene's before the outline passes.
@@ -797,6 +804,19 @@ export class Engine {
       if (still && a.anim!.posedAt === 0) continue
       if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.hasType(type)) a.anim!.update(ms)
     }
+  }
+
+  /** Runs the models' particles on the animations' clock, after the bones they ride are posed. */
+  private updateParticles(dt: number, time: number) {
+    const p = this.particles
+    p.enabled = this.prefs?.particles !== false
+    // Lit particles take the sky light and the sun on a surface facing up, as the terrain shades.
+    const tu = this.terrain.material.uniforms
+    const sun = Math.max(0, (tu.sunDir.value as THREE.Vector3).y)
+    p.light.copy(tu.skyAmbient.value as THREE.Color).add(this.tmpColor.copy(tu.sunColor.value as THREE.Color).multiplyScalar(sun))
+    p.light.setRGB(Math.min(1, p.light.r), Math.min(1, p.light.g), Math.min(1, p.light.b))
+    // With animations off the tracks hold at the loop's start, as the bones do, but the particles still fly.
+    p.update(this.objects, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum)
   }
 
   private applyViewDistance() {

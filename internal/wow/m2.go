@@ -234,9 +234,9 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 		m.Groups = append(m.Groups, g)
 		refs = append(refs, ref)
 	}
-	m.Anim, m.Effects = parseM2Extras(r, version, vertMap, textures, path, max(maxY-minY, maxX-minX), anim, m.Groups, refs)
+	m.Anim, m.Effects, m.Emitters = parseM2Extras(r, version, vertMap, textures, path, max(maxY-minY, maxX-minX), anim, m.Groups, refs)
 	m.points = parseAttachments(r)
-	if len(m.Groups) == 0 && len(m.Effects) == 0 {
+	if len(m.Groups) == 0 && len(m.Effects) == 0 && len(m.Emitters) == 0 {
 		return nil, errors.New("m2: no renderable batches")
 	}
 	return m, nil

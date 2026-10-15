@@ -50,6 +50,43 @@ export interface MeshEffect {
   interior?: boolean
 }
 
+/**
+ * An M2 particle emitter (B-182), its tracks resolved for the model's loop (Go: internal/wow/particles.go;
+ * simulated by world/particles.ts).
+ */
+export interface MeshEmitter {
+  /** Spawn space (WoW axes, before the client's 90° turn) to model space: a column-major 4x4. */
+  frame: number[]
+  /** The animated bone it rides, or -1. */
+  bone: number
+  flags: number
+  /** 1 plane, 2 sphere, 3 spline. */
+  shape: number
+  /** The M2 blend byte: 0 opaque, 1 alpha key, 2 alpha, 3 and 4 add, 5 and 6 mod. */
+  blend: number
+  texture: string
+  rows: number
+  cols: number
+  /** 0 a camera-facing quad, 1 a streak along the velocity, 2 both. */
+  headTail: number
+  rate: AnimTrack | null
+  on?: AnimTrack
+  /** Speed, speed variation, vertical range, horizontal range, gravity, lifespan, area length, area width, z source. */
+  params: (AnimTrack | null)[]
+  drag: number
+  tailTime: number
+  spin: number
+  /** Speed, percent, min, max. */
+  twinkle: [number, number, number, number]
+  mid: number
+  colors: [number, number, number, number][]
+  sizes: [number, number, number]
+  headCells: [number, number, number, number]
+  tailCells: [number, number, number, number]
+  repeat: [number, number]
+  spline?: number[]
+}
+
 export interface WowMesh {
   positions: Float32Array
   normals: Float32Array
@@ -63,6 +100,7 @@ export interface WowMesh {
   boneIdx?: Uint8Array
   boneW?: Uint8Array
   effects: MeshEffect[]
+  emitters: MeshEmitter[]
 }
 
 type StatusLike = { path: string; loaded: boolean; error: string; files: number; archives: number }
@@ -225,6 +263,7 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
     bbox: number[]
     bones?: AnimBone[]
     effects?: MeshEffect[]
+    emitters?: MeshEmitter[]
   }
   let o = 4 + hdrLen
   const take = <T>(ctor: new (b: ArrayBuffer, o: number, n: number) => T, n: number, bytes: number) => {
@@ -237,7 +276,7 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
   const uvs = take(Float32Array, hdr.verts * 2, 4)
   const colors = hdr.colors ? take(Uint8Array, hdr.verts * 4, 1) : null
   const indices = take(Uint32Array, hdr.indices, 4)
-  const mesh: WowMesh = { positions, normals, uvs, colors, indices, groups: hdr.groups ?? [], bbox: hdr.bbox, effects: hdr.effects ?? [] }
+  const mesh: WowMesh = { positions, normals, uvs, colors, indices, groups: hdr.groups ?? [], bbox: hdr.bbox, effects: hdr.effects ?? [], emitters: hdr.emitters ?? [] }
   if (hdr.bones?.length) {
     mesh.bones = hdr.bones
     mesh.boneIdx = take(Uint8Array, hdr.verts * 4, 1)

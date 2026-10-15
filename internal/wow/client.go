@@ -265,12 +265,13 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 			continue
 		}
 		cp := &Mesh{
-			Pos:     append([]float32(nil), src.Pos...),
-			Normal:  append([]float32(nil), src.Normal...),
-			UV:      src.UV,
-			Index:   src.Index,
-			Groups:  src.Groups,
-			Effects: append([]Effect(nil), src.Effects...),
+			Pos:      append([]float32(nil), src.Pos...),
+			Normal:   append([]float32(nil), src.Normal...),
+			UV:       src.UV,
+			Index:    src.Index,
+			Groups:   src.Groups,
+			Effects:  append([]Effect(nil), src.Effects...),
+			Emitters: append([]Emitter(nil), src.Emitters...),
 		}
 		cp.TransformWoW(d.Pos, d.Rot, d.Scale)
 		m.Append(cp)

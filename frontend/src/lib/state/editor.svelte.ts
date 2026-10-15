@@ -359,6 +359,8 @@ export const prefs = $state({
   shadows: 'medium' as 'off' | 'medium' | 'high',
   /** Flames + dynamic lights on torches, braziers, lamps… */
   propEffects: true,
+  /** The models' particles (flames, smoke, sparks, spray) as the client emits them; off, a torch shows a drawn flame instead. */
+  particles: true,
   /** Play props' idle animations (windmills, flags, flames…). */
   animations: true,
   /** Leave out models too small on screen to see (a pixel or two), which dense zones have thousands of. */

@@ -439,9 +439,22 @@ cd frontend && pnpm build   # frontend only
   the indices:
   - Bones with keyframes for the "Stand" loop (or a global sequence).
   - Lights: 212 bytes each in vanilla.
-  - Particle emitters: **504 bytes in vanilla**. Only their positions are used, as flame
-    anchors when the texture or model name looks like fire.
-  - WMOs add their doodads' effects and their own MOLT lights.
+  - Particle emitters: **504 bytes in vanilla**. Their positions are flame anchors (a fire effect,
+    for the lights) when the texture or model name looks like fire, and each is also sent whole as
+    an `Emitter` (`internal/wow/particles.go`, header `emitters`, below).
+  - WMOs add their doodads' effects, emitters and their own MOLT lights.
+- **Particles** (B-182, ported from Benilla's `particles/`): `parseEmitters` reads each record (rate,
+  gate and nine parameter tracks baked for the loop by `bakeTrack`, the client's key-window rule, not
+  `readTrack`'s; over-life ramps, flipbook, twinkle, spin, tail, spline points) with a `Frame` from
+  spawn space (WoW axes, before the client's 90° turn about +Z) to model space, moved with a WMO's
+  doodad placement. `world/particles.ts` is the simulation (`ParticlePool`: spawn kernels, integrator,
+  quad writer; world-space particles stay where born, flag 0x10 ones ride the emitter) and
+  `world/ParticleLayer.ts` runs a pool per emitter of each placed object within `RANGE` and in view,
+  frozen otherwise, and draws one dynamic mesh per texture, blend, lighting and fog. View › Particles
+  (`prefs.particles`); with it on, `PropEffects` draws no procedural flame on a model that has
+  emitters (its fire effects only light). With animations off the tracks hold at time 0 but the
+  particles still fly. Not ported: geometry-model and recursion particles, ground snap, following or
+  inheriting the emitter's motion, spawns' and previews' particles.
 - Texture animation (B-168): each M2 batch's texture transform (header 0x74, lookup 0xAC, the batch's
   combo at +22) is read for the same loop as the bones into `Group.UV` (`UVAnim`: translation, raw
   quaternion, scaling; `Consolidate` keeps such groups apart). The frontend gives an animated group a
