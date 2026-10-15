@@ -43,7 +43,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 ## Objects (props)
 
 - [ ] B-126 **Area paste: mirror and height modes**: noggit's chunk mover also mirrors the copied chunks and lays the heights in as min, max, add or subtract over the target; Meld's paste has the quarter turn, offset and blend only · Source: loop: B-006 · L/S
-- [ ] B-105 **Hide a model with its attachments**: H hides only the selected object, so props attached to it stay drawn in mid-air · Source: loop: B-034 · L/S · may be what an author expects; check with the owner
+- [ ] B-105 **Hide a model with its attachments**: H hides only the selected object, so props attached to it stay drawn in mid-air · Source: loop: B-034 · L/S · decided in IDEAS.md (owner, 2026-10-15): hide the attachments too
 - [ ] B-036 **Reset rotation** menu item (Ctrl+R) · gap §4 · L/S · unverified: may already exist
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
 - [ ] B-040 **Helper models**: reference models as visual aids · gap §4 · L/M
@@ -53,12 +53,12 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 - [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large) · on the back burner by the owner's decision 2026-10-15: not now; when it comes, as a second document kind beside the block editor (see PROGRESS.md 2026-10-15 B-118 entry)
 - [ ] B-051 **Tile-level save**: current tile or changed tiles only · gap §5 · H/M · left open in the 2026-10-12 loop run (2nd): the save is one `.wmap` file, so per-tile or changed-tile saves change the file format, which needs the owner's decision on the format first
-- [ ] B-054 **Area ID painting** with a zone ID browser · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): the area ID is a format field the `.wmap` doesn't have, so it needs the owner's format decision (like B-055 to B-056)
-- [ ] B-055 **Impassable flag** tool · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): needs a format field the `.wmap` doesn't have, so it waits for the owner's format decision
+- [ ] B-054 **Area ID painting** with a zone ID browser · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): the area ID is a format field the `.wmap` doesn't have, decided in IDEAS.md (owner, 2026-10-15): `.wmap` version 5, exported
+- [ ] B-055 **Impassable flag** tool · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): needs a format field the `.wmap` doesn't have, decided in IDEAS.md (owner, 2026-10-15): `.wmap` version 5, exported
 - [x] B-056 **Holes tool** for caves · gap §5 · M/M · done: Sculpt › Hole cuts and fills triangles, holes are in the `.wmap` (version 3) and in the clipboard, with wall handles; not yet exported to client tiles (see CLAUDE.md)
 - [x] B-113 **Grow a region by a tile**: a plus on each side of the open block in the Map panel opens the block one tile bigger (square, so a row or column comes along) · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session) · no longer reachable since B-115 dropped the Map panel; see B-118
 - [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
-- [ ] B-123 **Painted no-doodad cells, kept in the map file**: a brush that marks cells as growing no tufts (noggit has none; Blizzard's roads have the bits), and the client's bits saved in the `.wmap` so a reopened region draws them; both need a per-cell field in the format · Source: loop: B-117 · L/M · the export already ORs into the client's bits, so nothing is lost without it
+- [ ] B-123 **Painted no-doodad cells, kept in the map file**: a brush that marks cells as growing no tufts (noggit has none; Blizzard's roads have the bits), and the client's bits saved in the `.wmap` so a reopened region draws them; both need a per-cell field in the format · Source: loop: B-117 · L/M · the export already ORs into the client's bits, decided in IDEAS.md (owner, 2026-10-15): `.wmap` version 5
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
 - [ ] B-058 **Vertex colour editor** · gap §5 · L/L · needs-approval
 - [ ] B-059 **Save minimap image** (Ctrl+Shift+P) · gap §5 · L/S

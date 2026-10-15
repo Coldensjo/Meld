@@ -142,3 +142,17 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   painted liquids travel with the area, and R turns the pending paste a quarter turn. Not added: the
   mirror and the min/max/add/subtract height modes (**ours**: the blend and offset cover the common case;
   they can be a later item), and the chunk-aligned selection (ours is any rect, which is more).
+
+### B-054, B-055, B-123 Map data fields in the `.wmap` · owner decision 2026-10-15
+- One format bump: `.wmap` version 5 adds an area ID per paint chunk, an impassable flag per chunk and
+  the no-tuft (noEffectDoodad) bits per cell. Maps of versions 1 to 4 still open, with the fields empty.
+- The export writes them into the MCNK headers (area ID, flag 0x2, the noEffectDoodad bits), checked
+  against our own reader as hard rule 5 asks.
+- A region keeps the client's own values for these fields, so a save and export doesn't drop them.
+- Painting them is one new Map data tool with Area, Impassable and No tufts modes.
+- Status: unblocked. Eligible for the loop.
+
+### B-105 Hide a model with its attachments · owner decision 2026-10-15
+- H hides the selected objects and everything attached to them (the whole `parent` chain below), so no
+  prop is left floating. Shift+H shows them all again. Still session only, as in B-034.
+- Status: unblocked. Eligible for the loop.
