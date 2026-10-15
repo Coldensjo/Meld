@@ -2698,14 +2698,20 @@ export class Engine {
   /** The zone of the chunk under the cursor, named with its ID, or '' for none or no ground. */
   private hoverArea(): string {
     const hit = this.hit
+    if (!hit || !this.pointerInside) return ''
+    const id = this.areaAt(hit.x, hit.z)
+    return id ? `${areaName(id)} (${id})` : ''
+  }
+
+  /** The AreaTable.dbc ID of the active map's chunk at (x, z), or 0 for none or off the map. */
+  areaAt(x: number, z: number): number {
     const t = this.terrain
-    if (!hit || !this.pointerInside || !t.contains(hit.x, hit.z)) return ''
+    if (!t.contains(x, z)) return 0
     const step = CHUNK_CELLS * t.cellSize
     const side = t.paintChunksPerSide
-    const gx = Math.min(side - 1, Math.floor(hit.x / step))
-    const gz = Math.min(side - 1, Math.floor(hit.z / step))
-    const id = t.areaIds[gz * side + gx]
-    return id ? `${areaName(id)} (${id})` : ''
+    const gx = Math.min(side - 1, Math.floor(x / step))
+    const gz = Math.min(side - 1, Math.floor(z / step))
+    return t.areaIds[gz * side + gx]
   }
 
   private detailInfo(): DetailInfo | null {

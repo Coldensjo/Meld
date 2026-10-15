@@ -39,6 +39,7 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { TILE_CELLS, mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
+import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 
@@ -495,7 +496,10 @@ export function exportPortCoords(engine: Engine) {
     }
     const path = await SaveTextDialog(editor.mapName)
     if (!path) return
-    await WriteTextFile(path, formatPortCoords(engine.camera.position, ref.mapId))
+    const at = engine.camera.position
+    const area = engine.areaAt(at.x, at.z)
+    if (area) await loadAreas()
+    await WriteTextFile(path, formatPortCoords(at, ref.mapId, area ? areaName(area) : ''))
     setStatus(`Wrote the port commands for map ${ref.mapId} to ${path}.`)
   })
 }
