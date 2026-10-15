@@ -27,6 +27,12 @@ export function loadAreas(): Promise<vmangos.Area[]> {
   return loading
 }
 
+/** Reads the client's areas again (after the zone editor saved), so names and the picker see the changes. */
+export function reloadAreas(): Promise<vmangos.Area[]> {
+  loading = null
+  return loadAreas()
+}
+
 /** An area's name, with its zone's for a subzone ("Goldshire, Elwynn Forest"); '' for 0, and "Area <id>" for one not (yet) known. */
 export function areaName(id: number): string {
   const a = byId.get(id)

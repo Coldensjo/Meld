@@ -9,6 +9,7 @@
   import GameLoginDialog from './GameLoginDialog.svelte'
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
+  import ZonesDialog from './ZonesDialog.svelte'
   import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
   import { EquipmentFor } from '../../wailsjs/go/main/App'
   import { setStatus } from '../lib/state/editor.svelte'
@@ -341,6 +342,8 @@
   </Modal>
 {:else if ui.dialog === 'effects'}
   <GroundEffectsDialog onclose={close} />
+{:else if ui.dialog === 'zones'}
+  <ZonesDialog onclose={close} />
 {:else if ui.dialog === 'weapon' && ui.weaponPick}
   <Modal title="{SLOTS[ui.weaponPick.slot]}{weaponSpawn ? ` of ${weaponSpawn.name}` : ''}" width={980} onclose={close}>
     <WeaponPicker which={ui.weaponPick.slot} selected={weaponSpawn?.equipItems?.[ui.weaponPick.slot] ?? 0} onpick={pickWeapon} />

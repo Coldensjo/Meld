@@ -130,6 +130,7 @@
         { kind: 'action', label: 'Replace Texture Everywhere…', run: () => (ui.dialog = 'textures') },
         { kind: 'action', label: 'Doodad Brushes…', run: () => (ui.brushEditor = true) },
         { kind: 'action', label: 'Ground Effects (Grass Tufts)…', run: () => (ui.dialog = 'effects') },
+        { kind: 'action', label: 'Zones…', disabled: !hasBackend(), run: () => (ui.dialog = 'zones') },
         { kind: 'sep' },
         { kind: 'check', label: 'History (go back to any step)', checked: ui.history, toggle: () => (ui.history = !ui.history) },
         { kind: 'check', label: 'Inspector (placement numbers)', shortcut: 'I', checked: ui.inspector, toggle: () => (ui.inspector = !ui.inspector) },

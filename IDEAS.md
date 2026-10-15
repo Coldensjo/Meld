@@ -288,3 +288,15 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   an unedited save finds nothing changed. With nothing changed a region save leaves the patch, the game and
   the servers alone, and a publish skips the server's map extraction when its map files are newer than
   the patch.
+
+### B-148 Zone editor · Noggit Red, written where 1.12 and VMaNGOS read it
+- Chosen by the loop from Noggit Red (2026-10-15, B-148). Noggit Red's zone browser (`ui/ZoneIDBrowser.cpp`,
+  `AreaDB` in `DBC.h`, `get_new_areabit`) edits an AreaTable row and adds zones and subzones with the next
+  area bit. Its field numbers are WotLK's (16 locales); the 1.12 client's table has 25 fields: ID, map,
+  parent, area bit, flags, two sound preferences, ambience, music, intro music, exploration level, eight
+  names and a locale mask (11 to 19), faction group, liquid, minimum elevation, ambient multiplier and
+  light. Meld uses that layout, checked against the client's own file.
+- **Ours**: VMaNGOS reads areas from the world database's `area_template` (entry, map, zone, explore
+  bit, flags, level, name, team, liquid), not from AreaTable.dbc, so Save writes both. Sounds, music and
+  light are typed as IDs; Noggit Red's pickers that play them are B-161. Rows are a form saved with Save,
+  not undo steps, as the creature templates are.

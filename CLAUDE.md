@@ -221,6 +221,11 @@ cd frontend && pnpm build   # frontend only
   tiles on `MapPicker.svelte`, a continent overview stitched by the Go side from the client's
   minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
   the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps.
+- **Zones** (`components/ZonesDialog.svelte`, Edit › Zones…, `ui.dialog = 'zones'`): a map's AreaTable.dbc
+  rows (`vmangos/areatable.go`: `ReadAreaRows`, `NewAreaRow`, `SetAreaRows`; bindings `AreaRows`,
+  `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (the game closed around it) and
+  the rows into the world database's `area_template`, which is where VMaNGOS reads areas from (not the
+  DBC). A form saved with Save, not undo steps, like creature templates.
 - **Ground effects (grass tufts)**: the game grows detail doodads on each cell by the texture on top of
   it: a texture layer's GroundEffectTexture ID names up to four `World\NoDXT\Detail` models and a
   density, and the chunk's predominant-texture map picks the layer per cell. Go

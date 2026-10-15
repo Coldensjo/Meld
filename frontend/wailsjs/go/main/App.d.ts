@@ -8,6 +8,8 @@ import {wow} from '../models';
 
 export function ApplySpawnEdits(arg1:string,arg2:number,arg3:number,arg4:number,arg5:Array<vmangos.SpawnEdit>):Promise<vmangos.Result>;
 
+export function AreaRows(arg1:number):Promise<Array<vmangos.AreaRow>>;
+
 export function Areas():Promise<Array<vmangos.Area>>;
 
 export function BrowseBrushImageFolder(arg1:string):Promise<string>;
@@ -62,6 +64,8 @@ export function MouseLookEnd():Promise<void>;
 
 export function MouseLookRecenter():Promise<void>;
 
+export function NewAreaRow(arg1:number,arg2:number):Promise<vmangos.AreaRow>;
+
 export function NextCreatureGUID():Promise<number>;
 
 export function NextObjectGUID():Promise<number>;
@@ -85,6 +89,8 @@ export function ReadCreature(arg1:number):Promise<vmangos.CreatureRecord>;
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
+
+export function SaveAreas(arg1:Array<vmangos.AreaRow>):Promise<main.AreaSaveResult>;
 
 export function SaveBrushDialog(arg1:string):Promise<string>;
 

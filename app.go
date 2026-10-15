@@ -602,24 +602,99 @@ func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) 
 	if err != nil || len(files) == 0 {
 		return res, err
 	}
+	res.Patch, err = a.installWithGameClosed(dataDir, files)
+	return res, err
+}
+
+// installWithGameClosed writes files into the client's patch. On Windows the game and the servers
+// hold the patch open, so they are closed first and opened again afterwards.
+func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, error) {
 	if goruntime.GOOS != "windows" {
-		res.Patch, err = vmangos.InstallPatch(dataDir, files)
-		return res, err
+		return vmangos.InstallPatch(dataDir, files)
 	}
 	sess, err := a.gameSession()
 	if err != nil {
-		return res, err
+		return "", err
 	}
 	closed, err := sess.Stop()
 	if err != nil {
 		// Open what did close again, and leave the patch alone.
-		return res, errors.Join(err, sess.Start(closed))
+		return "", errors.Join(err, sess.Start(closed))
 	}
-	res.Patch, err = vmangos.InstallPatch(dataDir, files)
+	patch, err := vmangos.InstallPatch(dataDir, files)
 	if restart := sess.Start(closed); restart != nil {
 		err = errors.Join(err, restart)
 	}
-	return res, err
+	return patch, err
+}
+
+// AreaRows lists a map's zones and subzones from the client's AreaTable.dbc, for the zone editor.
+func (a *App) AreaRows(mapID uint32) ([]vmangos.AreaRow, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	dbc, err := vmangos.LoadAreaTable(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadAreaRows(dbc, mapID)
+}
+
+// NewAreaRow is a new zone (parent 0) or subzone on a map, with a free ID and exploration bit. It is
+// not written until SaveAreas.
+func (a *App) NewAreaRow(mapID, parent uint32) (vmangos.AreaRow, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.AreaRow{}, err
+	}
+	dbc, err := vmangos.LoadAreaTable(dataDir)
+	if err != nil {
+		return vmangos.AreaRow{}, err
+	}
+	return vmangos.NewAreaRow(dbc, mapID, parent)
+}
+
+// AreaSaveResult says where the zone editor's rows went: the client's patch, and whether the
+// server's world database (area_template) took them too.
+type AreaSaveResult struct {
+	Patch  string `json:"patch"`
+	Server bool   `json:"server"`
+}
+
+// SaveAreas writes the zone editor's rows into the client's AreaTable.dbc (in Meld's patch) and,
+// with a server folder set, into the world database's area_template, which the server reads areas
+// from. The game and the servers are closed around the patch write on Windows.
+func (a *App) SaveAreas(rows []vmangos.AreaRow) (AreaSaveResult, error) {
+	var res AreaSaveResult
+	defer a.releaseClient()()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return res, err
+	}
+	dbc, err := vmangos.LoadAreaTable(dataDir)
+	if err != nil {
+		return res, err
+	}
+	out, err := vmangos.SetAreaRows(dbc, rows)
+	if err != nil {
+		return res, err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if server != "" {
+		if err := vmangos.ApplySQL(server, vmangos.AreaSQL(rows)); err != nil {
+			return res, fmt.Errorf("world database: %w", err)
+		}
+		res.Server = true
+	}
+	if !bytes.Equal(out, dbc) {
+		if res.Patch, err = a.installWithGameClosed(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}); err != nil {
+			return res, err
+		}
+	}
+	return res, nil
 }
 
 // gameSession is the game and server a region export restarts, with the saved login.

@@ -6,6 +6,10 @@ export function ApplySpawnEdits(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ApplySpawnEdits'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function AreaRows(arg1) {
+  return window['go']['main']['App']['AreaRows'](arg1);
+}
+
 export function Areas() {
   return window['go']['main']['App']['Areas']();
 }
@@ -114,6 +118,10 @@ export function MouseLookRecenter() {
   return window['go']['main']['App']['MouseLookRecenter']();
 }
 
+export function NewAreaRow(arg1, arg2) {
+  return window['go']['main']['App']['NewAreaRow'](arg1, arg2);
+}
+
 export function NextCreatureGUID() {
   return window['go']['main']['App']['NextCreatureGUID']();
 }
@@ -160,6 +168,10 @@ export function ReadHeightmap(arg1) {
 
 export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
+}
+
+export function SaveAreas(arg1) {
+  return window['go']['main']['App']['SaveAreas'](arg1);
 }
 
 export function SaveBrushDialog(arg1) {

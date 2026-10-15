@@ -48,6 +48,20 @@ export namespace heightmap {
 
 export namespace main {
 	
+	export class AreaSaveResult {
+	    patch: string;
+	    server: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AreaSaveResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.patch = source["patch"];
+	        this.server = source["server"];
+	    }
+	}
 	export class GameLoginInfo {
 	    account: string;
 	    hasPassword: boolean;
@@ -277,6 +291,50 @@ export namespace vmangos {
 	        this.mapId = source["mapId"];
 	        this.parent = source["parent"];
 	        this.name = source["name"];
+	    }
+	}
+	export class AreaRow {
+	    id: number;
+	    mapId: number;
+	    parent: number;
+	    areaBit: number;
+	    flags: number;
+	    soundPref: number;
+	    soundSwim: number;
+	    ambience: number;
+	    music: number;
+	    introMusic: number;
+	    level: number;
+	    name: string;
+	    faction: number;
+	    liquid: number;
+	    minElevation: number;
+	    ambientMul: number;
+	    light: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new AreaRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.mapId = source["mapId"];
+	        this.parent = source["parent"];
+	        this.areaBit = source["areaBit"];
+	        this.flags = source["flags"];
+	        this.soundPref = source["soundPref"];
+	        this.soundSwim = source["soundSwim"];
+	        this.ambience = source["ambience"];
+	        this.music = source["music"];
+	        this.introMusic = source["introMusic"];
+	        this.level = source["level"];
+	        this.name = source["name"];
+	        this.faction = source["faction"];
+	        this.liquid = source["liquid"];
+	        this.minElevation = source["minElevation"];
+	        this.ambientMul = source["ambientMul"];
+	        this.light = source["light"];
 	    }
 	}
 	export class LayerView {
