@@ -55,6 +55,10 @@ uniform float brushRadius;
 uniform float brushSquare;
 uniform float brushVisible;
 uniform vec3 brushColor;
+// The image brush under the ring (brushImage.ts): its grey levels, on or off, and its turn's cos and sin.
+uniform sampler2D brushImg;
+uniform float brushImgOn;
+uniform vec2 brushImgRot;
 uniform float gridVisible;
 // The climb view: the cosine of the steepest walkable slope, or 0 for off.
 uniform float climbCos;
@@ -247,6 +251,13 @@ void main() {
     float w = max(0.12, brushRadius * 0.035);
     float ring = smoothstep(brushRadius - w * 2.0, brushRadius - w, d) * (1.0 - smoothstep(brushRadius, brushRadius + w, d));
     float inner = (1.0 - smoothstep(0.0, brushRadius, d)) * 0.12;
+    if (brushImgOn > 0.5) {
+      // The image over the brush's square, turned as the stroke turns it (imageWeight's frame).
+      vec2 o = vWorldPos.xz - brushPos;
+      vec2 uv = vec2(o.x * brushImgRot.x + o.y * brushImgRot.y, -o.x * brushImgRot.y + o.y * brushImgRot.x) / brushRadius;
+      inner = 0.0;
+      if (abs(uv.x) <= 1.0 && abs(uv.y) <= 1.0) inner = texture2D(brushImg, uv * 0.5 + 0.5).r * 0.35;
+    }
     lit = mix(lit, brushColor, clamp(ring + inner, 0.0, 1.0));
   }
 
@@ -291,6 +302,9 @@ export function createTerrainMaterial(
     brushSquare: { value: 0 },
     brushVisible: { value: 0 },
     brushColor: { value: new THREE.Color(0.92, 0.95, 1.0) },
+    brushImg: { value: null },
+    brushImgOn: { value: 0 },
+    brushImgRot: { value: new THREE.Vector2(1, 0) },
     gridVisible: { value: 0 },
     climbCos: { value: 0 },
     chunkLineWorld: { value: 0 },

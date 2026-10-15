@@ -13,6 +13,7 @@ import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
 import { Environment } from './Environment'
 import type { Tool, ToolContext } from '../tools/Tool'
+import { brushImage } from '../tools/brushImage'
 import { PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
@@ -657,6 +658,7 @@ export class Engine {
     }
     u.brushRadius.value = radius
     u.brushSquare.value = square ? 1 : 0
+    this.updateBrushImageCursor(u, tool)
     u.gridVisible.value = editor.grid ? 1 : 0
     u.climbCos.value = this.prefs?.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
     u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
@@ -1901,6 +1903,30 @@ export class Engine {
     if (!ui.pasting || this.lastCopied !== 'area' || !this.clip) return
     this.clip = rotateClip(this.clip, this.terrain.cellSize)
     setViewportHint(`Paste ${this.clip.w}×${this.clip.h}`)
+  }
+
+  /** The image brush's texture on the GPU, and the brushImage version it holds. */
+  private brushImgTex: THREE.DataTexture | null = null
+  private brushImgVersion = -1
+
+  /** Shows the image brush in the brush ring while a tool it shapes is active, turned as its stroke will be. */
+  private updateBrushImageCursor(u: Record<string, THREE.IUniform>, tool: Tool) {
+    if (this.brushImgVersion !== brushImage.version) {
+      this.brushImgVersion = brushImage.version
+      this.brushImgTex?.dispose()
+      this.brushImgTex = null
+      if (brushImage.bytes) {
+        this.brushImgTex = new THREE.DataTexture(brushImage.bytes, brushImage.w, brushImage.h, THREE.RedFormat, THREE.UnsignedByteType)
+        this.brushImgTex.magFilter = this.brushImgTex.minFilter = THREE.LinearFilter
+        this.brushImgTex.needsUpdate = true
+      }
+    }
+    const on = !!this.brushImgTex && tool.usesBrush && !!tool.imageShaped?.()
+    u.brushImgOn.value = on ? 1 : 0
+    if (!on) return
+    u.brushImg.value = this.brushImgTex
+    const r = (editor.brushImage.rotation * Math.PI) / 180
+    ;(u.brushImgRot.value as THREE.Vector2).set(Math.cos(r), Math.sin(r))
   }
 
   /** Mirrors the area waiting to be pasted east to west (`x`) or north to south (`z`). */

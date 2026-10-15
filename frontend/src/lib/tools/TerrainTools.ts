@@ -82,7 +82,7 @@ abstract class BrushTool implements Tool {
   }
 
   /** Whether the brush image shapes this tool's strokes (Sculpt's shaping modes and Paint's textures). */
-  protected imageShaped() {
+  imageShaped() {
     return false
   }
 
@@ -164,7 +164,7 @@ export class SculptTool extends BrushTool {
     return { heights: true, splat: editor.sculptPaint !== 'off' && SHAPING_MODES.has(editor.sculptMode) }
   }
   private slopeW = new Float32Array(2)
-  protected imageShaped() {
+  imageShaped() {
     return SHAPING_MODES.has(editor.sculptMode)
   }
   /** Hole mode works on the triangle under the cursor, not a brush footprint. */
@@ -597,7 +597,7 @@ export class PaintTool extends BrushTool {
   }
 
   /** The brush image shapes painting (not the spray's dabs, the swap or the mask). */
-  protected imageShaped() {
+  imageShaped() {
     return editor.paintMode === 'texture' && !editor.paintSpray
   }
 

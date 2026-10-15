@@ -8,15 +8,19 @@
  * `w` by `h`, and the rotation's cosine and sine. Brush tools switch `active` on for their own stroke
  * only, so the other brushes are never shaped by it.
  */
-export const brushImage = { active: false, data: null as Float32Array | null, w: 0, h: 0, cos: 1, sin: 0 }
+export const brushImage = { active: false, data: null as Float32Array | null, w: 0, h: 0, cos: 1, sin: 0, bytes: null as Uint8Array | null, version: 0 }
 
 /** Sets the image (grey bytes, row-major), or clears it with null. */
 export function setBrushImage(pix: Uint8Array | null, w = 0, h = 0) {
+  brushImage.version++
   if (!pix || !w || !h) {
     brushImage.data = null
+    brushImage.bytes = null
     brushImage.w = brushImage.h = 0
     return
   }
+  // The grey bytes as they came, for the cursor's texture (the brush ring shows the image).
+  brushImage.bytes = pix
   const data = new Float32Array(w * h)
   for (let i = 0; i < data.length; i++) data[i] = pix[i] / 255
   brushImage.data = data

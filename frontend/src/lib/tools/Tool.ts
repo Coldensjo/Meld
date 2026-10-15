@@ -41,6 +41,8 @@ export interface ToolContext {
 export interface Tool {
   /** Show the circular brush cursor on the terrain. */
   readonly usesBrush: boolean
+  /** Whether the brush image shapes this tool's strokes, so the cursor shows it (brushImage.ts). */
+  imageShaped?(): boolean
   activate?(ctx: ToolContext): void
   deactivate?(ctx: ToolContext): void
   onDown?(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent): void
