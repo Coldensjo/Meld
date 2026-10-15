@@ -84,6 +84,11 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 	}
 	// A batch names its texture transform through this lookup; 0xFFFF there is none.
 	nUVLookup, ofsUVLookup, _ := r.arr(0xAC, 2)
+	// The colours (an RGB track and an alpha track each) and transparency weights, the latter
+	// through their lookup.
+	nColors, ofsColors, _ := r.arr(0x54, 2*trackSize)
+	nWeights, ofsWeights, _ := r.arr(0x64, trackSize)
+	nWeightLookup, ofsWeightLookup, _ := r.arr(0xA4, 2)
 
 	textures := make([]string, nTex)
 	for i := range textures {
@@ -137,8 +142,8 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 		UV:     make([]float32, 0, nIdx*2),
 	}
 	vertMap := make([]int, nIdx)
-	// Each group's texture transform, -1 for none.
-	var uvOf []int
+	// Each group's texture transform, colour and transparency, -1 for none.
+	var refs []batchRefs
 	var minY, maxY, minX, maxX float32 = 1e9, -1e9, 1e9, -1e9
 	for i := 0; i < nIdx; i++ {
 		vi := r.u16(ofsIdx + i*2)
@@ -170,6 +175,9 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 		matIdx := r.u16(o + 10)
 		texCombo := r.u16(o + 16)
 		uvCombo := r.u16(o + 22)
+		colorIdx := r.u16(o + 8)
+		texCount := r.u16(o + 14)
+		weightCombo := r.u16(o + 20)
 		if sub >= nSub {
 			continue
 		}
@@ -194,17 +202,39 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 				g.Texture = textures[ti]
 			}
 		}
-		uv := -1
+		ref := batchRefs{uv: -1, color: -1, weight: -1}
 		if uvCombo < nUVLookup {
 			if ti := r.u16(ofsUVLookup + uvCombo*2); ti != 0xFFFF {
-				uv = ti
+				ref.uv = ti
 			}
+		}
+		if colorIdx < nColors {
+			ref.color = colorIdx
+		}
+		// A batch without textures has no transparency factor.
+		if texCount != 0 && weightCombo < nWeightLookup {
+			if ti := r.u16(ofsWeightLookup + weightCombo*2); ti < nWeights {
+				ref.weight = ti
+			}
+		}
+		// The client never draws a batch whose colour alpha times transparency weight is a constant
+		// 0 or less (0x707b3a, after Benilla's m2_batches.rs): hidden parts of a model.
+		ca, cok := float32(1), true
+		if ref.color >= 0 {
+			ca, cok = constFixed16(r, ofsColors+ref.color*2*trackSize+trackSize)
+		}
+		wa, wok := float32(1), true
+		if ref.weight >= 0 {
+			wa, wok = constFixed16(r, ofsWeights+ref.weight*trackSize)
+		}
+		if cok && wok && ca*wa <= 0 {
+			continue
 		}
 		m.Index = append(m.Index, tri[start:start+count]...)
 		m.Groups = append(m.Groups, g)
-		uvOf = append(uvOf, uv)
+		refs = append(refs, ref)
 	}
-	m.Anim, m.Effects = parseM2Extras(r, version, vertMap, textures, path, max(maxY-minY, maxX-minX), anim, m.Groups, uvOf)
+	m.Anim, m.Effects = parseM2Extras(r, version, vertMap, textures, path, max(maxY-minY, maxX-minX), anim, m.Groups, refs)
 	m.points = parseAttachments(r)
 	if len(m.Groups) == 0 && len(m.Effects) == 0 {
 		return nil, errors.New("m2: no renderable batches")

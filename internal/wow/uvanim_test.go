@@ -44,3 +44,56 @@ func TestClientWaterfallUVAnim(t *testing.T) {
 	}
 	t.Logf("V scroll per loop: %v", ends)
 }
+
+// TestClientColorAnim follows Benilla's mat_anim.rs tests: the Stormwind mage portal's shimmer is a
+// transparency weight that changes over the loop, within 0 to 1; and Tanaris's troll gate holds an
+// intact gate and its burnt twin, whose colour alpha hides the twin (-1, a signed decode) in the loop
+// played while the gate shows. It needs WOW_DIR.
+func TestClientColorAnim(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("set WOW_DIR to a WoW 1.x client to run")
+	}
+	c := NewClient()
+	if err := c.Open(dir); err != nil {
+		t.Fatal(err)
+	}
+	portal, err := c.m2Mesh(`World\generic\activedoodads\mageportals\StormwindMagePortal01.m2`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shimmer := false
+	for _, g := range portal.Groups {
+		if g.Color == nil || g.Color.Weight == nil || len(g.Color.Weight.Times) < 2 {
+			continue
+		}
+		lo, hi := float32(2), float32(-2)
+		for _, v := range g.Color.Weight.Values {
+			lo, hi = min(lo, v), max(hi, v)
+		}
+		if lo < 0 || hi > 1 {
+			t.Fatalf("a weight outside 0 to 1: %v", g.Color.Weight.Values)
+		}
+		shimmer = shimmer || hi-lo > 1e-3
+	}
+	if !shimmer {
+		t.Fatal("the portal's shimmer has no changing weight")
+	}
+	gate, err := c.m2Mesh(`World\Kalimdor\Tanaris\ActiveDoodads\TrollGate\TanarisTrollGate.m2`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hidden, shown := 0, 0
+	for _, g := range gate.Groups {
+		// A group drawn throughout has no alpha track (it holds 1) or a positive one.
+		if g.Color != nil && g.Color.Alpha != nil && g.Color.Alpha.Values[0] <= 0 {
+			hidden++
+		} else {
+			shown++
+		}
+	}
+	if hidden == 0 || shown == 0 {
+		t.Fatalf("troll gate: %d groups hidden by their alpha, %d shown", hidden, shown)
+	}
+	t.Logf("troll gate: %d groups hidden, %d shown by alpha", hidden, shown)
+}

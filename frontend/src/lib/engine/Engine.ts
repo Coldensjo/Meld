@@ -45,7 +45,7 @@ import { LAYERS } from '../terrain/layers'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, compactChunk, convertGlobalLayers, findSlot, hasEmptySlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
-import { animatedAssets, displayName, getAsset, updateUVAnimations } from '../models/assets'
+import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
@@ -790,8 +790,9 @@ export class Engine {
     const prefab = editor.tool === 'place' ? editor.prefab : ''
     const doodads = editor.tool === 'doodad'
     const spawns = this.doc.spawnLayer
-    // Moving textures (waterfalls, lava) follow the same clock; with animations off they hold still.
-    updateUVAnimations(ms)
+    // Moving textures (waterfalls, lava) and changing colours (glows, shimmers) follow the same clock;
+    // with animations off they hold still.
+    updateMaterialAnimations(ms)
     for (const [type, a] of animatedAssets) {
       if (still && a.anim!.posedAt === 0) continue
       if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.hasType(type)) a.anim!.update(ms)

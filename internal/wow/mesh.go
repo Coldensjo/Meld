@@ -31,6 +31,18 @@ type Group struct {
 	Interior bool `json:"interior,omitempty"`
 	// UV is the group's texture animation (an M2 batch's texture transform), nil for a still one.
 	UV *UVAnim `json:"uv,omitempty"`
+	// Color is the group's colour and transparency (an M2 batch's colour and texture weight), nil
+	// for plain white and opaque.
+	Color *ColorAnim `json:"color,omitempty"`
+}
+
+// ColorAnim is an M2 batch's colour for the model's clip: the client multiplies its RGB into the
+// batch's colour and draws it at alpha times weight, hiding it at 0 (Benilla's mat_anim.rs,
+// MIT/Apache). A channel that only holds its identity is nil; a constant is one key.
+type ColorAnim struct {
+	RGB    *Track `json:"rgb,omitempty"`
+	Alpha  *Track `json:"a,omitempty"`
+	Weight *Track `json:"w,omitempty"`
 }
 
 // UVAnim is an M2 texture transform resolved for the model's clip, in the model's own UV space: the
@@ -146,11 +158,12 @@ func (m *Mesh) Consolidate() {
 		blend           int
 		twoSided, unlit bool
 		uv              *UVAnim
+		color           *ColorAnim
 	}
 	order := []key{}
 	buckets := map[key][]uint32{}
 	for _, g := range m.Groups {
-		k := key{g.Texture, g.Blend, g.TwoSided, g.Unlit, g.UV}
+		k := key{g.Texture, g.Blend, g.TwoSided, g.Unlit, g.UV, g.Color}
 		if _, ok := buckets[k]; !ok {
 			order = append(order, k)
 		}
@@ -171,7 +184,7 @@ func (m *Mesh) Consolidate() {
 				continue
 			}
 			b := buckets[k]
-			groups = append(groups, Group{Start: len(idx), Count: len(b), Texture: k.tex, Blend: k.blend, TwoSided: k.twoSided, Unlit: k.unlit, UV: k.uv})
+			groups = append(groups, Group{Start: len(idx), Count: len(b), Texture: k.tex, Blend: k.blend, TwoSided: k.twoSided, Unlit: k.unlit, UV: k.uv, Color: k.color})
 			idx = append(idx, b...)
 		}
 	}

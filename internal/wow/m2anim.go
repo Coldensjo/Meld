@@ -62,9 +62,10 @@ func hasAny(s string, words []string) bool {
 
 // parseM2Extras reads bones/animation, lights and particle emitters. The loop played is the
 // first sequence of AnimationData ID animID, else Stand, else the model's first sequence.
-// vertMap maps output vertices to source vertex indices (the view's list). uvOf names each group's
-// texture transform (-1 for none), whose animation for the same loop is set on the group.
-func parseM2Extras(r reader, version int, vertMap []int, textures []string, modelPath string, bboxSize float32, animID int, groups []Group, uvOf []int) (*Anim, []Effect) {
+// vertMap maps output vertices to source vertex indices (the view's list). refs names each group's
+// texture transform, colour and transparency (-1 for none), whose animations for the same loop are
+// set on the group.
+func parseM2Extras(r reader, version int, vertMap []int, textures []string, modelPath string, bboxSize float32, animID int, groups []Group, refs []batchRefs) (*Anim, []Effect) {
 	nGlobal, ofsGlobal, _ := r.arr(0x14, 4)
 	globalLoop := func(i int) uint32 {
 		if i < 0 || i >= nGlobal {
@@ -108,9 +109,13 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 			return nil
 		}
 		// Value width: vec3 = 12 bytes; quaternions are float (16) in vanilla,
-		// packed int16 (8) in later versions. Detect by normalisation.
+		// packed int16 (8) in later versions. Detect by normalisation. Kind 1 is a fixed-point
+		// scalar (int16 over 32767): an alpha or a transparency weight.
 		width := 12
 		packed := false
+		if kind == 1 {
+			width = 2
+		}
 		if kind == 4 {
 			width = 16
 			if ofsVals+nVals*16 > len(r.b) || !unitQuat(r.f32(ofsVals), r.f32(ofsVals+4), r.f32(ofsVals+8), r.f32(ofsVals+12)) {
@@ -156,6 +161,8 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 			vo := ofsVals + i*width
 			var v []float32
 			switch {
+			case kind == 1:
+				v = []float32{float32(int16(r.u16(vo))) / 32767}
 			case kind == 3:
 				v = []float32{r.f32(vo), r.f32(vo + 4), r.f32(vo + 8)}
 			case packed:
@@ -245,7 +252,8 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 			return nil
 		}
 		baked := map[int]*UVAnim{}
-		for gi, ti := range uvOf {
+		for gi, ref := range refs {
+			ti := ref.uv
 			if ti < 0 || ti >= nUV || gi >= len(groups) {
 				continue
 			}
@@ -263,6 +271,45 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 				baked[ti] = a
 			}
 			groups[gi].UV = a
+		}
+	}
+
+	// ---- colours and transparency (after Benilla's mat_anim.rs and m2_batches.rs) ----
+	nColors, ofsColors, _ := r.arr(0x54, 2*trackSize)
+	nWeights, ofsWeights, _ := r.arr(0x64, trackSize)
+	// A scalar for the clip: nil when it only ever holds 1 there.
+	scalar := func(o int) *Track {
+		t := readTrack(o, 1, func(v []float32) []float32 { return v })
+		if t == nil {
+			return nil
+		}
+		for _, v := range t.Values {
+			if v != 1 {
+				return t
+			}
+		}
+		return nil
+	}
+	for gi, ref := range refs {
+		if gi >= len(groups) {
+			break
+		}
+		c := &ColorAnim{}
+		if ref.color >= 0 && ref.color < nColors {
+			o := ofsColors + ref.color*2*trackSize
+			// Modulating blends drop the colour's RGB (0x70c507), so their tint stays white.
+			if b := groups[gi].Blend; b != BlendMod && b != BlendMod2x {
+				if t := readTrack(o, 3, func(v []float32) []float32 { return v }); t != nil && !allOnes(t.Values) {
+					c.RGB = t
+				}
+			}
+			c.Alpha = scalar(o + trackSize)
+		}
+		if ref.weight >= 0 && ref.weight < nWeights {
+			c.Weight = scalar(ofsWeights + ref.weight*trackSize)
+		}
+		if c.RGB != nil || c.Alpha != nil || c.Weight != nil {
+			groups[gi].Color = c
 		}
 	}
 
@@ -349,6 +396,42 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 		}
 	}
 	return anim, effects
+}
+
+// batchRefs is what a batch's animations come from: its texture transform, colour and transparency
+// weight, by index into the model's tables (-1 for none).
+type batchRefs struct{ uv, color, weight int }
+
+// constFixed16 is the fixed-point scalar track at o's value when every key of it (in every sequence)
+// holds the same one, or 1 for a track without keys; ok is false for a track that changes.
+func constFixed16(r reader, o int) (float32, bool) {
+	if o+trackSize > len(r.b) {
+		return 1, true
+	}
+	n, ofs := r.u32(o+20), r.u32(o+24)
+	if n == 0 {
+		return 1, true
+	}
+	if ofs < 0 || ofs+n*2 > len(r.b) {
+		return 1, false
+	}
+	v := r.u16(ofs)
+	for i := 1; i < n; i++ {
+		if r.u16(ofs+i*2) != v {
+			return 1, false
+		}
+	}
+	return float32(int16(v)) / 32767, true
+}
+
+// allOnes reports whether every value is 1 (a white tint).
+func allOnes(v []float32) bool {
+	for _, x := range v {
+		if x != 1 {
+			return false
+		}
+	}
+	return true
 }
 
 // sanePos rejects garbage positions (denormals, huge values) from a wrong stride.

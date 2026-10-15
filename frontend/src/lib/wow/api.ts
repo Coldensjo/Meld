@@ -19,6 +19,8 @@ export interface MeshGroup {
   interior?: boolean
   /** The group's texture animation (an M2 texture transform, see world/uvAnim.ts). */
   uv?: { t?: AnimTrack; r?: AnimTrack; s?: AnimTrack }
+  /** The group's colour and transparency (an M2 batch's colour and texture weight, see world/uvAnim.ts). */
+  color?: { rgb?: AnimTrack; a?: AnimTrack; w?: AnimTrack }
 }
 
 export interface AnimTrack {

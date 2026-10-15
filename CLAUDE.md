@@ -405,7 +405,11 @@ cd frontend && pnpm build   # frontend only
   quaternion, scaling; `Consolidate` keeps such groups apart). The frontend gives an animated group a
   material of its own with a copy of its texture (`assets.ts`, one GPU texture still) and sets the
   copy's matrix each frame from the client's law (`world/uvAnim.ts`, `updateUVAnimations`, called from
-  `Engine.animateModels`): waterfalls and lava scroll as in the game.
+  `Engine.animateModels`): waterfalls and lava scroll as in the game. A batch's colour (0x54, by its
+  colour index) and transparency weight (0x64 through 0xA4) work the same way (B-181, `Group.Color`,
+  `ColorAnim`): Go drops a batch whose alpha times weight is a constant 0 or less (the client never
+  draws it), and the frontend tints the group's own material and sets its opacity, hiding it at 0
+  (`updateMaterialAnimations`).
 - `world/Animator.ts` (`ModelAnimation`) CPU-skins the shared geometry per model type. All
   instances animate in sync. The Engine drives `animatedAssets` each frame.
 - `world/PropEffects.ts` draws the flames (instanced upright billboards with a procedural fire

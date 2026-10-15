@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { fetchMesh, loadTexture, type MeshEffect, type MeshGroup, type WowMesh } from '../wow/api'
-import { uvMatrix, type UVAnimSpec } from '../world/uvAnim'
+import { colorAt, colorFades, colorIsStatic, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../world/uvAnim'
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
 import { buildBoundsTree } from '../world/bvh'
@@ -140,24 +140,38 @@ const materialCache = new Map<string, THREE.Material>()
 
 /** The textures that move (M2 texture transforms): each animated group's own copy of its texture, and its animation. */
 const uvAnimated: Array<{ texture: THREE.Texture; spec: UVAnimSpec }> = []
+/** The materials whose colour or transparency changes (M2 colours and weights), with their colour before the tint. */
+const colorAnimated: Array<{ material: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial; base: THREE.Color; spec: ColorAnimSpec }> = []
 const uvRows = [0, 0, 0, 0, 0, 0]
+const rgba = [1, 1, 1, 1]
+
+/** Tints `m` from its `base` colour and sets its opacity, as the client draws an M2 colour; at 0 or less it is not drawn. */
+function applyColor(m: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial, base: THREE.Color, c: number[]) {
+  // The client tints in its own (sRGB) colour space; a product there is the product of the linear values.
+  m.color.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace).multiply(base)
+  m.opacity = Math.min(1, Math.max(0, c[3]))
+  m.visible = c[3] > 0
+}
 
 /**
- * Moves every animated texture to time `ms`, as the client does (world/uvAnim.ts). All instances of a
- * model share the material, so they move in sync, as the bones do.
+ * Moves every animated texture and colour to time `ms`, as the client does (world/uvAnim.ts). All
+ * instances of a model share the material, so they move in sync, as the bones do.
  */
-export function updateUVAnimations(ms: number) {
+export function updateMaterialAnimations(ms: number) {
   for (const a of uvAnimated) {
     const m = uvMatrix(a.spec, ms, uvRows)
     a.texture.matrix.set(m[0], m[1], m[2], m[3], m[4], m[5], 0, 0, 1)
   }
+  for (const a of colorAnimated) applyColor(a.material, a.base, colorAt(a.spec, ms, rgba))
 }
 
 function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
   const key = `${g.texture.toLowerCase()}|${g.blend}|${g.twoSided}|${g.unlit}|${!!g.interior}|${vertexColors}`
-  // A group whose texture moves gets a material of its own, so its texture's matrix moves only it.
+  // A group whose texture moves gets a material of its own, so its texture's matrix moves only it, and
+  // so does one with a colour of its own.
   const moving = !!g.uv && !!g.texture
-  let m = moving ? undefined : materialCache.get(key)
+  const own = moving || !!g.color
+  let m = own ? undefined : materialCache.get(key)
   if (m) return m
   // An interior without baked colours would be full bright unlit, so it gets a dim grey instead.
   const interior = !!g.interior && !g.unlit
@@ -188,8 +202,16 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
       params.blending = THREE.MultiplyBlending
       params.premultipliedAlpha = true
   }
+  // A colour that can fade blends, even on an opaque batch, as the client draws it.
+  if (g.color && colorFades(g.color)) params.transparent = true
   // Interiors are lit by their baked colours alone, as in the game: no sun, sky or shadows reach them.
   m = g.unlit || interior ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params)
+  if (g.color) {
+    const tinted = m as THREE.MeshBasicMaterial | THREE.MeshLambertMaterial
+    const base = tinted.color.clone()
+    applyColor(tinted, base, colorAt(g.color, 0, rgba))
+    if (!colorIsStatic(g.color)) colorAnimated.push({ material: tinted, base, spec: g.color })
+  }
   // Cast shadows from both faces: three's default casts from the back faces only, and a building's
   // single-sided walls then let the sun through onto the walls behind them.
   m.shadowSide = THREE.DoubleSide
@@ -210,7 +232,7 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean): THREE.Material {
         })
         .catch(() => mat.color.set(0x9a9a9a))
     : Promise.resolve()
-  if (!moving) materialCache.set(key, m)
+  if (!own) materialCache.set(key, m)
   return m
 }
 

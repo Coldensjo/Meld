@@ -4,7 +4,51 @@ import type { AnimTrack } from '../wow/api'
 // model's loop, moves its texture as the client does (Benilla's tex_anim.rs, MIT/Apache, after the
 // client's 0x715f25): uv' = R((uv + T - p) * S) + p about p = (0.5, 0.5), where R is the raw quaternion's
 // turn about z, built unnormalised (cos = 1 - 2z², sin = 2zw) as the client builds it. Waterfalls, lava
-// and the like scroll this way. Kept free of three.js so it can be tested on its own.
+// and the like scroll this way. A batch's colour and transparency (B-181) tint and fade it the same way,
+// on the same clock. Kept free of three.js so it can be tested on its own.
+
+/**
+ * A group's colour (B-181, Benilla's mat_anim.rs): an RGB tint multiplied into it (client colour space)
+ * and an alpha and transparency weight whose product is its opacity; at 0 or less the client skips it.
+ */
+export interface ColorAnimSpec {
+  rgb?: AnimTrack
+  a?: AnimTrack
+  w?: AnimTrack
+}
+
+/** Whether every track of a colour holds one value, so it is set once rather than every frame. */
+export function colorIsStatic(spec: ColorAnimSpec): boolean {
+  return [spec.rgb, spec.a, spec.w].every((t) => !t || t.t.length < 2 || !t.loop)
+}
+
+/** Whether the colour can ever be see-through (an alpha or weight below 1), so its material blends. */
+export function colorFades(spec: ColorAnimSpec): boolean {
+  return [spec.a, spec.w].some((t) => !!t && t.v.some((v) => v < 1))
+}
+
+const cv = [1, 1, 1]
+const av = [1]
+
+/** The colour at `ms` into `out` as [r, g, b, opacity]. */
+export function colorAt(spec: ColorAnimSpec, ms: number, out: number[]): number[] {
+  if (spec.rgb) sampleTrack(spec.rgb, ms, 3, cv)
+  else cv[0] = cv[1] = cv[2] = 1
+  let o = 1
+  if (spec.a) {
+    sampleTrack(spec.a, ms, 1, av)
+    o *= av[0]
+  }
+  if (spec.w) {
+    sampleTrack(spec.w, ms, 1, av)
+    o *= av[0]
+  }
+  out[0] = cv[0]
+  out[1] = cv[1]
+  out[2] = cv[2]
+  out[3] = o
+  return out
+}
 
 /** A group's texture transform: translation (u, v, w), a raw quaternion and scaling (u, v, w), each optional. */
 export interface UVAnimSpec {
