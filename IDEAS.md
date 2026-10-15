@@ -372,3 +372,9 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   the whole open map, of the paint texture (the one picked to paint with), since Meld's splat is one grid
   over the map rather than per tile; the image is stretched on import as the heightmap's is. A full chunk
   refuses a texture it lacks rather than evicting one, as painting does.
+
+### B-142 Object palette · in the asset browser
+- Chosen by the loop from Noggit Red (2026-10-15, B-142). Noggit Red's object palette is a dockable list
+  of favourite models filled from its asset browser, to place from. **Ours**: the favourites are a row at
+  the top of Meld's asset browser (starred with a right-click on a tile), not a dock panel, since the owner
+  keeps the dock to Layers alone; they are a preference, shared by every map, and textures can be starred too.

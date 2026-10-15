@@ -43,7 +43,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 ## Objects (props)
 
 - [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M
-- [ ] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M
+- [x] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-143 **Three-axis gizmo**: move arrows on each axis and scale handles, in world or local space · gap §4 · L/M
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 

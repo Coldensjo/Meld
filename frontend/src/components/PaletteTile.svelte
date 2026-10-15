@@ -11,8 +11,12 @@
     size?: number
     onclick: () => void
     onhover?: (over: boolean) => void
+    /** A favourite: a star in the corner. */
+    starred?: boolean
+    /** A right-click on the tile (the asset browser toggles the favourite). */
+    onstar?: () => void
   }
-  let { thumbKey, label, title, active = false, badge, size, onclick, onhover }: Props = $props()
+  let { thumbKey, label, title, active = false, badge, size, onclick, onhover, starred = false, onstar }: Props = $props()
 
   let url = $state('')
   let failed = $state(false)
@@ -72,7 +76,18 @@
   }
 </script>
 
-<button class="tile" class:active class:failed {title} {onclick} use:lazy={thumbKey} style:width={size ? `${size}px` : undefined} onpointerenter={() => onhover?.(true)} onpointerleave={() => onhover?.(false)}>
+<button
+  class="tile"
+  class:active
+  class:failed
+  {title}
+  {onclick}
+  oncontextmenu={(e) => {
+    if (!onstar) return
+    e.preventDefault()
+    onstar()
+  }}
+  use:lazy={thumbKey} style:width={size ? `${size}px` : undefined} onpointerenter={() => onhover?.(true)} onpointerleave={() => onhover?.(false)}>
   <div class="img">
     {#if url}
       <img src={url} alt="" draggable="false" />
@@ -82,6 +97,7 @@
       <span class="spin"></span>
     {/if}
     {#if badge}<span class="badge">{badge}</span>{/if}
+    {#if starred}<span class="star" aria-label="Favourite">★</span>{/if}
   </div>
   <span class="label">{label}</span>
 </button>
@@ -132,6 +148,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .star {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 13px;
+    color: #ffd23f;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   }
   .badge {
     position: absolute;

@@ -97,6 +97,21 @@
     return prefs.recentAssets.map(itemFor).filter((it): it is SearchItem => !!it && (catalogKind === 'all' || it.kind === catalogKind))
   })
 
+  /** The favourites (prefs.favoriteAssets), in the order they were starred, shown first when the search box is empty. */
+  const favourites = $derived.by(() => {
+    if (query || category || zone) return []
+    return prefs.favoriteAssets.map(itemFor).filter((it): it is SearchItem => !!it && (catalogKind === 'all' || it.kind === catalogKind))
+  })
+  const favouriteSet = $derived(new Set(prefs.favoriteAssets.map(normKey)))
+  const isFavourite = (it: SearchItem) => favouriteSet.has(normKey(it.key))
+
+  /** Stars or unstars an asset (a right-click on its tile). */
+  function toggleFavourite(it: SearchItem) {
+    const on = !isFavourite(it)
+    prefs.favoriteAssets = on ? [...prefs.favoriteAssets, it.key] : prefs.favoriteAssets.filter((k) => normKey(k) !== normKey(it.key))
+    setStatus(on ? `${it.name} is a favourite: it shows first in the browser (right-click again to remove it).` : `${it.name} is no longer a favourite.`, 3000)
+  }
+
   function remember(key: string) {
     prefs.recentAssets = [key, ...prefs.recentAssets.filter((k) => k !== key)].slice(0, 24)
   }
@@ -338,11 +353,20 @@
           {#if loadingList}
             <p class="hint">Reading the client's file list…</p>
           {:else}
+            {#if favourites.length}
+              <div class="section">Favourites</div>
+              <div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)" style:gap="{GAP}px">
+                {#each favourites as it (it.key)}
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onstar={() => toggleFavourite(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                {/each}
+              </div>
+              {#if !recent.length}<div class="section">{query ? 'Results' : category || 'Everything'}</div>{/if}
+            {/if}
             {#if recent.length}
               <div class="section">Recent</div>
               <div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)" style:gap="{GAP}px">
                 {#each recent as it (it.key)}
-                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onstar={() => toggleFavourite(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
                 {/each}
               </div>
               <div class="section">{query ? 'Results' : category || 'Everything'}</div>
@@ -353,7 +377,7 @@
               <div class="virtual" bind:this={virtualEl} style:height="{rows * rowH}px">
                 <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
                   {#each visible as it (it.key)}
-                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onstar={() => toggleFavourite(it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
                   {/each}
                 </div>
               </div>

@@ -369,6 +369,8 @@ export const prefs = $state({
   browserTile: 112,
   /** Recently picked assets (catalog keys), newest first. */
   recentAssets: [] as string[],
+  /** The favourite assets (catalog keys), starred with a right-click in the asset browser, shown first there. */
+  favoriteAssets: [] as string[],
   /** The doodad brushes (tools/doodadBrush.ts) and the name of the one the Doodad brush tool paints with. */
   doodadBrushes: [] as DoodadBrush[],
   doodadBrush: '',
