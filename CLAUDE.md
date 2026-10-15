@@ -32,11 +32,24 @@ in the git history (`git show b47706b:PROGRESS.md`).
   Don't build it unasked. Label it `value:H|M|L`, `effort:S|M|L`, one `area:` label, a `source:`
   label (`owner` if the user asked for it, `loop` if you found it while working on another issue,
   `gap` for a Noggit Red feature Meld lacks; those issues are the gap list), and `bug` or `needs-approval` where they apply.
+- **Write issues for the next agent.** It starts cold, so the issue must hold what it needs: what and
+  why, then a `**Claude:** notes for the agent working on this.` comment (or a section in the body)
+  with the code to read (files and functions), the decisions that apply (IDEAS.md sections, earlier
+  comments), how to verify it (the TESTS.md section, a client test, a spot on the map) and the traps
+  you know of. While working on an issue, comment anything a later session would otherwise have to
+  rediscover: a dead end, a finding about the client's format, where a half-done item stands.
 - **Before working on an issue**, read it with its comments (`gh issue view <n> --comments`).
-- **Comments**: start every comment you write with `**Claude:**`. Any other comment is the owner's,
-  and an owner comment on an issue is an instruction for that item. A decision about an item (the
-  user's answer, or a choice you made from Noggit Red or Benilla) goes in a comment on its issue;
-  only a decision that reaches beyond one item goes in IDEAS.md.
+- **Comments**: start every comment you write with `**Claude:**`. A comment by the owner (author
+  `Coldensjo`, not starting with `**Claude:**`) is an instruction for that item; comments by
+  `github-actions` are only pings. A decision about an item (the user's answer, or a choice you made
+  from Noggit Red or Benilla) goes in a comment on its issue; only a decision that reaches beyond one
+  item goes in IDEAS.md.
+- **When the owner is needed** (a question, a decision, something only they can do, such as a check
+  in the game), comment what you need from them, starting `**Claude:** @Coldensjo`, with the options
+  and your recommendation, and add the `owner-question` label. Claude posts through the owner's own
+  login, so the mention alone would not notify them; the label does: `.github/workflows/ping-owner.yml`
+  then mentions them as `github-actions[bot]`. Adding `needs-approval` pings them the same way. Add the
+  label after the comment, so the ping lands under it.
 - **When the work is done and committed**, comment `**Claude:** done in <hash>.` with Done, Verified
   (checks run, and whether it was seen in the app) and Left (follow-ups as new issues), then close it
   (`gh issue close <n>`). Partly done: comment what is left and keep it open. Dropped: label it

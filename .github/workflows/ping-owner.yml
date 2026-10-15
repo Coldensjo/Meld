@@ -1,0 +1,31 @@
+# Claude posts through the owner's own gh login, and GitHub never notifies anyone about their own
+# comments, so an @mention from Claude would be silent. This workflow posts the mention as
+# github-actions[bot] instead, which does notify, whenever an issue gets a label that needs the owner.
+name: Ping the owner
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+
+jobs:
+  ping:
+    if: github.event.label.name == 'owner-question' || github.event.label.name == 'needs-approval'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mention the owner
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          OWNER: ${{ github.repository_owner }}
+          LABEL: ${{ github.event.label.name }}
+        run: |
+          if [ "$LABEL" = "owner-question" ]; then
+            msg="@$OWNER this needs you: see Claude's comment above. Reply here and the loop picks it up on its next run."
+          else
+            msg="@$OWNER this needs your approval before the loop may work on it. Comment approve (with any limits), or close it."
+          fi
+          gh issue comment "$NUMBER" --repo "$REPO" --body "$msg"

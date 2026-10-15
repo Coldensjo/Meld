@@ -15,9 +15,11 @@ gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title
 and the last comment of the pinned **Loop run log** issue (label `loop-log`). If `gh` fails (no
 network, logged out), stop the run and say so; do not fall back to the frozen files.
 
-**Comments.** Every comment the loop (or any Claude session) writes starts with `**Claude:**`. Any
-other comment is the owner's. An owner comment on an issue is an instruction for that item: it ranks
-above the issue's body and above IDEAS.md. Write each comment or issue body to a temp file and pass it
+**Comments.** Every comment the loop (or any Claude session) writes starts with `**Claude:**`. A
+comment by `Coldensjo` that doesn't start so is the owner's, and is an instruction for that item: it
+ranks above the issue's body and above IDEAS.md. Comments by `github-actions` are only pings (below).
+The `**Claude:** notes for the agent` comment on an issue is where earlier sessions left what you need
+to know (code, decisions, how to verify, traps); read it before starting. Write each comment or issue body to a temp file and pass it
 with `--body-file`, so backticks and backslashes survive the shell.
 
 **0. Triage.** An open issue with no `value:` or `effort:` label was filed by the owner. Give it
@@ -41,8 +43,9 @@ you choose the next one. Before starting one, read it with its comments:
 
 Do not invent work.
 
-**Blocked items.** If a check fails and cannot be fixed, comment on the issue what failed and why
-(`**Claude:** left unfinished: ...`), leave it open, and go on to the next item. Where IDEAS.md or a
+**Blocked items.** If a check fails and cannot be fixed, comment on the issue what failed, why, what
+you tried and where the work stands (`**Claude:** left unfinished: ...`), so the next run doesn't
+start over, leave it open, and go on to the next item. Where IDEAS.md or a
 comment on the issue records a decision, follow it; do not reopen it. Do not guess at behaviour the
 owner has not defined: if an item needs the owner's decision, neither IDEAS.md nor the issue's
 comments record one, and Noggit Red does not settle it (see below), ask the owner.
@@ -54,8 +57,11 @@ comments record one, and Noggit Red does not settle it (see below), ask the owne
   the issue: `**Claude:** decided by the owner <date>`, the question and the choice. Leave plan mode
   with `ExitPlanMode`, giving the plan for that item, and continue the item once it is approved.
 - Otherwise (a non-interactive `claude -p` run, or no answer): comment the questions on the issue,
-  each with its options, your recommendation and the trade-offs, add the `owner-question` label, and
-  go on to the next item.
+  starting `**Claude:** @Coldensjo`, each with its options, your recommendation and the trade-offs,
+  then add the `owner-question` label, and go on to the next item. The label is what notifies the
+  owner: `.github/workflows/ping-owner.yml` mentions them as `github-actions[bot]`, since a mention
+  from their own login (which `gh` uses) is silent. Do the same for an item only the owner can do,
+  such as a check in the game.
 - At the start of each run, look at the `owner-question` issues. Where the owner has commented since
   the question, remove the label, record their answer as a decision comment, and treat the item as
   eligible again.
@@ -115,9 +121,11 @@ e. Close the issue with its log as the last comment: `gh issue comment <n> --rep
    ```
 
 **4. Log new ideas, do not build them.** Anything you notice that is not the current item becomes a
-new issue: a short title, a body that says what and why, `Found while working on #<n>.`, and the
+new issue: a short title, a body that says what and why, `Found while working on #<n>.`, a
+`**Claude:** notes for the agent working on this.` comment (the code to read, the decisions that
+apply, how to verify it, the traps you know of; CLAUDE.md, "Backlog: GitHub issues"), and the
 labels `source:loop`, `value:`, `effort:`, an `area:` (and `bug` for a bug, `needs-approval` for
-large, format-level or non-goal work). Search the open issues first (`gh issue list --search`) and
+large, format-level or non-goal work; that label also pings the owner). Search the open issues first (`gh issue list --search`) and
 comment on an existing one instead of filing a duplicate. Do not implement it in this run.
 
 **5. Before stopping, tidy the backlog.** Close duplicates with `--reason "not planned"` and a comment
