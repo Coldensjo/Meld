@@ -110,7 +110,7 @@ type ExportResult struct {
 	Tiles  int
 }
 
-// ExportMap writes a map's tiles, WDT and Map.dbc row into the client's patch archive. readDir is the
+// ExportMap writes a map's tiles, WDT, WDL (its far horizon) and Map.dbc row into the client's patch archive. readDir is the
 // client's Data folder, which the template files come from; patchDir is where the patch goes (the same
 // folder in the game). When serverDir is set, the server's copy of Map.dbc is updated too, which the
 // map extractor (update-maps.bat) reads the map from.
@@ -145,6 +145,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 
 	var files []mpq.File
 	present := map[[2]int]bool{}
+	horizon := map[int]*WDLTile{}
 	for _, t := range m.Tiles {
 		if t.X < 0 || t.X > 63 || t.Y < 0 || t.Y > 63 {
 			return res, fmt.Errorf("tile %d,%d is outside the 64x64 map", t.X, t.Y)
@@ -162,6 +163,9 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 			return res, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
 		}
 		files = append(files, mpq.File{Name: adt.TilePath(m.Dir, t.X, t.Y, ""), Data: data})
+		if len(t.Outer) == LatticeSize*LatticeSize {
+			horizon[t.Y*MapTiles+t.X] = WDLTileOf(t.Outer, LatticeSize)
+		}
 	}
 
 	wdtTemplate, err := set.ReadFile(`World\Maps\Azeroth\Azeroth.wdt`)
@@ -174,6 +178,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 	}
 	files = append(files,
 		mpq.File{Name: fmt.Sprintf(`World\Maps\%s\%s.wdt`, m.Dir, m.Dir), Data: wdt},
+		mpq.File{Name: wdlPath(m.Dir), Data: BuildWDL(horizon)},
 		mpq.File{Name: `DBFilesClient\Map.dbc`, Data: dbc},
 	)
 

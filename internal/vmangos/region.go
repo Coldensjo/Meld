@@ -278,7 +278,7 @@ func clampTile(i, size int) int {
 // go into every tile. Models that are unchanged keep their placements exactly; changed ones are
 // rewritten in the tile they came from; new ones go into the tile they fall in; and placements
 // that were removed in the editor are dropped. Painted chunks are rewritten from their weights; the rest
-// keep the paint the client has.
+// keep the paint the client has. The map's WDL comes last, its block's horizon redrawn from the heights.
 func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	if err := checkRegion(e.X, e.Y, e.Size); err != nil {
 		return nil, err
@@ -430,6 +430,19 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 			return nil, fmt.Errorf("tile %d_%d: %w", e.X+i, e.Y+j, err)
 		}
 		files = append(files, mpq.File{Name: t.name, Data: rewritten})
+	}
+	// The far horizon follows the new heights. A map without a WDL is left without one.
+	if b, err := set.ReadFile(wdlPath(e.MapName)); err == nil {
+		horizon, err := ParseWDL(b)
+		if err != nil {
+			return nil, err
+		}
+		for j := 0; j < e.Size; j++ {
+			for i := 0; i < e.Size; i++ {
+				horizon[(e.Y+j)*MapTiles+e.X+i] = WDLTileOf(e.Heights[j*tileCells*side+i*tileCells:], side)
+			}
+		}
+		files = append(files, mpq.File{Name: wdlPath(e.MapName), Data: BuildWDL(horizon)})
 	}
 	return files, nil
 }

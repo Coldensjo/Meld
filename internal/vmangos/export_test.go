@@ -104,6 +104,18 @@ func TestExportMapWritesTilesAndTable(t *testing.T) {
 	if len(wdt) == 0 {
 		t.Fatal("empty WDT")
 	}
+	wdl, err := arch.ReadFile(`World\Maps\MeldTest\MeldTest.wdl`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	horizon, err := ParseWDL(wdl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The slope rises half a yard a column, so the tile's last corner stands 64 yards up.
+	if h := horizon[6*MapTiles+5]; len(horizon) != 1 || h == nil || h[WDLOuter-1] != 64 {
+		t.Fatalf("the WDL's tiles = %v", horizon)
+	}
 	dbc, err := arch.ReadFile(`DBFilesClient\Map.dbc`)
 	if err != nil {
 		t.Fatal(err)

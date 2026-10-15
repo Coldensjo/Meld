@@ -224,3 +224,16 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   what the editor shows is what the game gets; single-cell and half-cell holes go. A hole made before the
   snap (an older map, a paste at an odd offset) exports as a hole in every block it touches.
 - Decided by the owner, 2026-10-15.
+
+### B-146 Generate the WDL · Noggit Red, with the client's sampling
+- Chosen by the loop from Noggit Red (2026-10-15, B-146). Noggit Red's WDL save (`map_horizon.cpp`,
+  `map_horizon::save_wdl`, `update_horizon_tile`, `getWdlheight`) writes MAOF and per tile a MARE of
+  17×17 heights at the chunk corners and 16×16 at the chunk centres, each truncated to an int16, plus a
+  MAHO hole mask.
+- **Ours** where the 1.12 client differs: the client's own WDLs (Azeroth, Kalimdor, PVPZone01) are MVER
+  18, MAOF and MARE only, with no MAHO, so Meld writes no MAHO. The outer heights are Noggit Red's (they
+  match the client's Azeroth.wdl exactly). For the inner heights Meld takes the mean of the chunk's outer
+  heights instead of its centre height: Noggit Red's own comment says the client's values "appear to use
+  some form of averaging", and the mean comes about twice as close to the client's.
+- A new map's export writes the WDL from its tiles; a region save rewrites the map's WDL with its
+  block's tiles redrawn from the edited heights and every other tile as the client has it.

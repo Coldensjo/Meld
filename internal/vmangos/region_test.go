@@ -113,8 +113,40 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 4 {
-		t.Fatalf("a 2x2 region writes 4 tiles, got %d", len(files))
+	if len(files) != 5 || files[4].Name != wdlPath("Azeroth") {
+		t.Fatalf("a 2x2 region writes 4 tiles and the WDL, got %d files", len(files))
+	}
+	// The block's horizon is sampled from its heights, and the rest of the map's is the client's.
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := set.ReadFile(wdlPath("Azeroth"))
+	set.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	was, err := ParseWDL(before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now, err := ParseWDL(files[4].Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(now) != len(was) {
+		t.Fatalf("the WDL has %d tiles, the client's %d", len(now), len(was))
+	}
+	for k, h := range was {
+		x, y := k%MapTiles-view.X, k/MapTiles-view.Y
+		want := *h
+		if x >= 0 && y >= 0 && x < view.Size && y < view.Size {
+			stride := view.Size*tileCells + 1
+			want = *WDLTileOf(view.Heights[y*tileCells*stride+x*tileCells:], stride)
+		}
+		if *now[k] != want {
+			t.Fatalf("tile %d's horizon is not the one expected", k)
+		}
 	}
 	// Each tile's heights must sit at its place in the stitched block, checked against a tile read on its own.
 	side := view.Size*tileCells + 1
@@ -133,7 +165,7 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 			}
 		}
 	}
-	for k, f := range files {
+	for k, f := range files[:view.Size*view.Size] {
 		i, j := k%view.Size, k/view.Size
 		tx, ty := view.X+i, view.Y+j
 		original, err := BaseTileRoot(dataDir, "Azeroth", tx, ty)
@@ -200,7 +232,7 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 		}
 	}
 	written := 0
-	for _, f := range files {
+	for _, f := range files[:view.Size*view.Size] {
 		placements, err := adt.ParsePlacements(f.Data)
 		if err != nil {
 			t.Fatal(err)
@@ -429,7 +461,7 @@ func TestRegionHolesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k, f := range files {
+	for k, f := range files[:view.Size*view.Size] {
 		after, err := adt.ParseTerrain(f.Data)
 		if err != nil {
 			t.Fatal(err)

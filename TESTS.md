@@ -15,6 +15,11 @@ Each entry says what it checks, how to run it, and the traps that cost time.
   client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk
   flags (0x8000 on some chunks), so compare a write against the same save without your change, not
   against the client's tile.
+- `TestClientWDL` (WOW_DIR) is the check for the WDL write: Azeroth.wdl parsed and rebuilt must be
+  byte-identical, and the outer horizon heights sampled from a client tile must equal the client's. Trap:
+  Northshire (32,48) is a few yards off the client's WDL (the tile was edited after Blizzard built it), so
+  don't use it for an exact comparison; Westfall (31,49) is exact. `BuildRegion` returns the WDL after the
+  tiles, so a test that walks the files as tiles takes `files[:size*size]`.
 - `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
   checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the
   hole export's block mapping. Seeing a cut cave mouth in game is still a manual check.

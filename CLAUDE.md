@@ -58,8 +58,8 @@ cd frontend && pnpm build   # frontend only
     creature looks, builds minimap overviews and serves `/wow/*`.
   - `adt` reads and rewrites 1.12 tiles: terrain, textures and alpha maps, liquids (MCLQ), models,
     holes and ground effects, and builds new tiles.
-  - `vmangos` is the server side: regions read from the client and written back as a patch, the map
-    and spawn exports, the world database's spawns, templates and looks, the DBC tables the editor
+  - `vmangos` is the server side: regions read from the client and written back as a patch (with the
+    map's WDL horizon redrawn for the block, `wdl.go`), the map and spawn exports, the world database's spawns, templates and looks, the DBC tables the editor
     needs (maps, zones, emotes, liquids, ground effects), and launching the client and servers.
   - `game` closes and reopens the client and servers around an export.
 
