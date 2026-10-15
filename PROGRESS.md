@@ -295,3 +295,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · stopped (2nd run)
 - Stopped: 8 items were done in this run (B-031, B-032, B-037, B-072, B-091, B-060, B-007, B-006), which is the cap.
 - Next top item: every item still open and unblocked is value L (B-004, B-009, B-013 to B-017, B-036, B-038, B-040, B-059, B-070, B-071, B-073, B-074, B-078 to B-083, B-105, B-108, B-119, B-123 to B-127). The next run will meet the "top remaining items are all value L" stop unless the owner raises one; B-084 (approved) and B-123 (the painted no-doodad cells, which needs the owner's format decision) are the ones to look at first.
+
+## 2026-10-15 · stopped (3rd run)
+- Stopped before any item: the top remaining items are all value L. The open items above L are either tagged `needs-approval` (B-026, B-050, B-057, B-058, B-094, B-100, B-101) or wait on the owner's `.wmap` format decision, which IDEAS.md does not record (B-051 H/M, B-054 M/M, B-055 M/M). No code changed, so no checks were run.
+- Backlog tidy: no duplicates, no finished loop items still listed, nothing new for Parked. No owner-written item was deleted.
+- Next top item: unchanged from the 2nd run. To let the loop go on, the owner can decide the format question behind B-051, B-054, B-055 and B-123 in IDEAS.md, or raise the value of an L item such as B-084 (approved, L/L).
