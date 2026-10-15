@@ -34,6 +34,10 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 
 - `make test` runs `go test ./internal/...` and the frontend unit tests (`node --test`, Node 22.18+).
 - `make check` runs go vet and svelte-check/tsc.
+- `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit,
+  replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
+  runes state. Trap: `node --test` strips types only, so a module a test loads can't use TypeScript
+  parameter properties (`constructor(private x: T)`) or import a `.svelte.ts` runes module.
 - WoW client integration tests: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 - The same `WOW_DIR` runs the client checks in `internal/vmangos` (region round trips, the chunk
   header write `TestRegionHeadersWritten`, `TestReadAreasFromClient`). On the owner's machine the
