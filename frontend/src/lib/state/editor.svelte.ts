@@ -8,6 +8,7 @@ import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { Bookmark } from '../engine/MapDocument'
+import type { BrowserView } from '../wow/browserViews'
 import type { vmangos } from '../../../wailsjs/go/models'
 
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
@@ -385,6 +386,9 @@ export const prefs = $state({
   browserHeight: 300,
   browserCollapsed: false,
   browserTile: 112,
+  /** The asset browser's tab (a catalog kind, 'all' or a spawn kind) and where each tab was (wow/browserViews.ts). */
+  browserKind: 'm2',
+  browserViews: {} as Record<string, BrowserView>,
   /** Recently picked assets (catalog keys), newest first. */
   recentAssets: [] as string[],
   /** The favourite assets (catalog keys), starred with a right-click in the asset browser, shown first there. */

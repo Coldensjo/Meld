@@ -12,6 +12,7 @@
   import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
   import { categoryOrder } from '../lib/wow/catalog'
   import { searchAssets, type AssetKind, type SearchItem } from '../lib/wow/search'
+  import { readView, writeView, type BrowserView } from '../lib/wow/browserViews'
   import { hasBackend } from '../lib/io/mapio'
   import { paletteIndex } from '../lib/terrain/chunkPaint'
 
@@ -29,15 +30,23 @@
     { id: 'all', label: 'All' },
   ]
 
-  let kind = $state<AssetKind | 'all' | SpawnKind>('m2')
+  type Kind = AssetKind | 'all' | SpawnKind
+  /** The tab, kept in the preferences so a restart opens it again. */
+  const kind = $derived<Kind>(KINDS.find((k) => k.id === prefs.browserKind)?.id ?? 'm2')
   /** The spawn tabs list the world database's templates (SpawnBrowser), not the client's files. */
   const spawnKind = $derived(kind === 'creature' || kind === 'npc' || kind === 'object')
   /** The catalog's kind: the spawn tabs search nothing of the catalog. */
   const catalogKind = $derived((spawnKind ? 'all' : kind) as AssetKind | 'all')
   let spawnHover = $state<SearchItem | null>(null)
-  let query = $state('')
-  let category = $state('')
-  let zone = $state('')
+  // Each tab's search, category and zone live in the preferences (#123), so changing tab or
+  // restarting finds them as they were left.
+  const view = $derived(readView(prefs.browserViews, kind))
+  const query = $derived(view.query)
+  const category = $derived(view.category)
+  const zone = $derived(view.zone)
+  function setView(patch: Partial<BrowserView>) {
+    prefs.browserViews = writeView(prefs.browserViews, kind, patch)
+  }
   let hovered = $state<SearchItem | null>(null)
   let searchBox: HTMLInputElement | undefined = $state()
 
@@ -60,24 +69,25 @@
   $effect(() => {
     const want = ui.palette
     untrack(() => {
-      if (want === 'textures' && kind !== 'tex') kind = 'tex'
-      else if (want === 'models' && kind === 'tex') kind = 'm2'
+      if (want === 'textures' && kind !== 'tex') setKind('tex')
+      else if (want === 'models' && kind === 'tex') setKind('m2')
     })
   })
 
-  function chooseKind(k: AssetKind | 'all' | SpawnKind) {
-    kind = k
+  /** Changes tab, first keeping where the grid of the one left was scrolled to. */
+  function setKind(k: Kind) {
+    if (k === kind) return
+    saveScroll()
+    prefs.browserKind = k
+  }
+
+  function chooseKind(k: Kind) {
+    setKind(k)
     prefs.browserCollapsed = false
     // Keep ui.palette in step, so the next tool switch moves the browser again.
     if (k === 'tex') ui.palette = 'textures'
     else if (k !== 'all') ui.palette = 'models'
   }
-  // A filter from another kind means nothing here.
-  $effect(() => {
-    void kind
-    category = ''
-    zone = ''
-  })
 
   const orderFor = (k: AssetKind | 'all') => (k === 'all' ? [...categoryOrder('m2'), ...categoryOrder('wmo'), ...categoryOrder('tex')] : categoryOrder(k))
   const result = $derived(searchAssets(all, { kind: catalogKind, query, category, zone }, orderFor(catalogKind)))
@@ -195,11 +205,34 @@
   /** Scroll position within the virtualised block, which the rendered rows come from. */
   function onScroll(e: Event) {
     scrollTop = Math.max(0, (e.currentTarget as HTMLDivElement).scrollTop - contentTop())
+    // Kept once the scrolling stops, not on every event, as a preferences write wakes their savers.
+    clearTimeout(scrollTimer)
+    scrollTimer = setTimeout(saveScroll, 300)
   }
+  let scrollTimer: ReturnType<typeof setTimeout> | undefined
+  /** Keeps the grid's scroll position in the tab's view. */
+  function saveScroll() {
+    clearTimeout(scrollTimer)
+    if (scroller && !spawnKind && !loadingList && all.length) setView({ scroll: Math.round(scroller.scrollTop) })
+  }
+  /** The tab whose list the grid shows, so a new list knows whether it came with a tab change. */
+  let shownKind: Kind | null = null
+  // A new list from the same tab (another search or filter) starts at the top; a tab changed to, or
+  // the catalog loaded, goes back to where that tab was left.
   $effect(() => {
     void items
-    scroller?.scrollTo(0, 0)
-    scrollTop = 0
+    const k = kind
+    // No grid (folded away, a spawn tab, the catalog loading): the next grid shown is restored.
+    if (prefs.browserCollapsed || spawnKind || loadingList || !all.length) {
+      shownKind = null
+      return
+    }
+    const top = untrack(() => (k === shownKind ? 0 : view.scroll))
+    shownKind = k
+    void tick().then(() => {
+      scroller?.scrollTo(0, top)
+      scrollTop = Math.max(0, (scroller?.scrollTop ?? 0) - contentTop())
+    })
   })
 
   // The pipette's pick (ui.revealAsset) is shown in the browser: the filters are cleared so it is
@@ -220,15 +253,9 @@
     }
     const it = itemFor(key)
     if (!it) return
-    if (kind !== 'all' && kind !== it.kind) {
-      chooseKind(it.kind)
-      // The kind change clears the filters in its effect; set ours after it has run.
-      await tick()
-    }
+    if (kind !== 'all' && kind !== it.kind) chooseKind(it.kind)
     // Its own zone and category (Durotar › Trees), so the list is short and few thumbnails load.
-    query = ''
-    zone = it.zone
-    category = it.category
+    setView({ query: '', zone: it.zone, category: it.category })
     prefs.browserCollapsed = false
     // Let the list and the reset-to-top effect settle before scrolling to the row.
     await tick()
@@ -248,7 +275,7 @@
 
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
-      query = ''
+      setView({ query: '' })
       searchBox?.blur()
     }
   }
@@ -298,11 +325,11 @@
         class="search"
         type="text"
         placeholder={kind === 'tex' ? 'Search textures… (Ctrl+F)' : kind === 'all' ? 'Search everything… (Ctrl+F)' : 'Search models… (Ctrl+F)'}
-        bind:value={query}
+        bind:value={() => query, (v) => setView({ query: v })}
         bind:this={searchBox}
         onkeydown={onKey}
       />
-      <select bind:value={zone} title="Zone" aria-label="Zone">
+      <select bind:value={() => zone, (v) => setView({ zone: v })} title="Zone" aria-label="Zone">
         <option value="">All zones</option>
         {#each result.zones as z (z.name)}<option value={z.name}>{z.name} ({z.count})</option>{/each}
       </select>
@@ -339,11 +366,11 @@
     {:else}
       <div class="body">
         <nav class="facets">
-          <button class="facet" class:active={!category} onclick={() => (category = '')}>
+          <button class="facet" class:active={!category} onclick={() => setView({ category: '' })}>
             All <span>{result.categories.reduce((n, c) => n + c.count, 0).toLocaleString()}</span>
           </button>
           {#each result.categories as c (c.name)}
-            <button class="facet" class:active={category === c.name} onclick={() => (category = category === c.name ? '' : c.name)}>
+            <button class="facet" class:active={category === c.name} onclick={() => setView({ category: category === c.name ? '' : c.name })}>
               {c.name} <span>{c.count.toLocaleString()}</span>
             </button>
           {/each}

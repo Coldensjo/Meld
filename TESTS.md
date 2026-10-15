@@ -467,6 +467,16 @@ IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe and
   through mariadb plus dressing), `ListObjectTemplates` about 0.2 s; a screenful of 80 fresh
   creature thumbnails about 3-4 s, cached PNGs near instant.
 
+## Asset browser tabs remember their place (#123)
+
+Checks: each tab keeps its search, zone, category and scroll (`prefs.browserViews`, `wow/browserViews.ts`).
+In headless Chrome (above): click the `.browser .tab` named Doodads, set the `.browser select` to a zone
+and dispatch `change`, `grid-wrap.scrollTo(0, 400)`, wait 800 ms (the scroll is kept 300 ms after it
+stops), go to Textures and Creatures and back: the zone, the count and the scrollTop come back; a
+facet click then goes to the top. `tests/browserViews.test.ts` covers the stored shape. Trap: with
+`?nosave` nothing reaches config.json, so a restart can't be checked in the page; reload the desktop
+window instead.
+
 ## Place tool keys (preview height and offset)
 
 Checks: `PlaceTool.onKey` (PgUp / PgDn set `editor.placeHeight`, the arrows `editor.placeOffset`,

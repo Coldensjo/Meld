@@ -49,7 +49,8 @@
   import PaletteTile from './PaletteTile.svelte'
   import { editor, prefs, ui } from '../lib/state/editor.svelte'
   import type { SearchItem } from '../lib/wow/search'
-  import { tick } from 'svelte'
+  import { onDestroy, tick, untrack } from 'svelte'
+  import { readView, writeView, type BrowserView } from '../lib/wow/browserViews'
   import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
 
   // The asset browser's Creatures, NPCs and Objects tabs: the world database's templates as
@@ -122,12 +123,13 @@
       }))
   })
 
-  let category = $state('')
-  let query = $state('')
-  $effect(() => {
-    void kind
-    category = ''
-  })
+  // Each tab's search and category live in the preferences, as the asset browser's do (#123).
+  const view = $derived(readView(prefs.browserViews, kind))
+  const query = $derived(view.query)
+  const category = $derived(view.category)
+  function setView(patch: Partial<BrowserView>, k: SpawnKind = kind) {
+    prefs.browserViews = writeView(prefs.browserViews, k, patch)
+  }
 
   const categories = $derived.by(() => {
     const n = new Map<string, number>()
@@ -176,11 +178,42 @@
     prefetchAround(items.length, cols, first, last, (i) => items[i].thumb)
     return () => prefetchThumbs([])
   })
+  /** The tab whose list the grid shows, so a new list knows whether it came with a tab change. */
+  let shownKind: SpawnKind | null = null
+  // A new list from the same tab (another search or category) starts at the top; a tab changed to,
+  // or the templates loaded, goes back to where that tab was left.
   $effect(() => {
     void items
-    scroller?.scrollTo(0, 0)
-    scrollTop = 0
+    const k = kind
+    if (loading || error) {
+      shownKind = null
+      return
+    }
+    const top = untrack(() => (k === shownKind ? 0 : view.scroll))
+    shownKind = k
+    void tick().then(() => {
+      scroller?.scrollTo(0, top)
+      scrollTop = scroller?.scrollTop ?? 0
+    })
   })
+
+  // The scroll position is kept once the scrolling stops, for the tab it happened in.
+  let pendingScroll: { kind: SpawnKind; top: number } | null = null
+  let scrollTimer: ReturnType<typeof setTimeout> | undefined
+  function flushScroll() {
+    clearTimeout(scrollTimer)
+    if (pendingScroll) setView({ scroll: Math.round(pendingScroll.top) }, pendingScroll.kind)
+    pendingScroll = null
+  }
+  function onScroll(e: Event) {
+    scrollTop = (e.currentTarget as HTMLDivElement).scrollTop
+    if (loading || error) return
+    if (pendingScroll && pendingScroll.kind !== kind) flushScroll()
+    pendingScroll = { kind, top: scrollTop }
+    clearTimeout(scrollTimer)
+    scrollTimer = setTimeout(flushScroll, 300)
+  }
+  onDestroy(flushScroll)
 
   // The pipette's pick (ui.revealAsset with a creature: or object: key) is shown: its category,
   // no search, and its row scrolled into view.
@@ -192,8 +225,7 @@
   async function reveal(key: string) {
     const t = all.find((x) => x.key === key)
     if (!t) return
-    query = ''
-    category = t.category
+    setView({ query: '', category: t.category })
     await tick()
     await tick()
     const idx = items.indexOf(t)
@@ -205,17 +237,17 @@
 
 <div class="spawn-browser">
   <div class="top">
-    <input type="search" placeholder={kind === 'object' ? 'Search objects: a name (chest, vein, peacebloom) or an entry' : 'Search: a name (Hogger) or an entry'} bind:value={query} />
+    <input type="search" placeholder={kind === 'object' ? 'Search objects: a name (chest, vein, peacebloom) or an entry' : 'Search: a name (Hogger) or an entry'} bind:value={() => query, (v) => setView({ query: v })} />
     <span class="dim">{items.length.toLocaleString()} {kind === 'object' ? 'objects' : kind === 'npc' ? 'NPCs' : 'creatures'}</span>
   </div>
   <div class="body">
     <nav class="facets">
-      <button class="facet" class:active={!category} onclick={() => (category = '')}>All <span>{all.length.toLocaleString()}</span></button>
+      <button class="facet" class:active={!category} onclick={() => setView({ category: '' })}>All <span>{all.length.toLocaleString()}</span></button>
       {#each categories as [name, n] (name)}
-        <button class="facet" class:active={category === name} onclick={() => (category = category === name ? '' : name)}>{name} <span>{n.toLocaleString()}</span></button>
+        <button class="facet" class:active={category === name} onclick={() => setView({ category: category === name ? '' : name })}>{name} <span>{n.toLocaleString()}</span></button>
       {/each}
     </nav>
-    <div class="grid-wrap" role="listbox" aria-label="Templates" tabindex="-1" bind:this={scroller} bind:clientWidth={width} bind:clientHeight={height} onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)} onpointerleave={() => onhover(null)}>
+    <div class="grid-wrap" role="listbox" aria-label="Templates" tabindex="-1" bind:this={scroller} bind:clientWidth={width} bind:clientHeight={height} onscroll={onScroll} onpointerleave={() => onhover(null)}>
       {#if error}
         <p class="hint error">{error}</p>
       {:else if loading}
