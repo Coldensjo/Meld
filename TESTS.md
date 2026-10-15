@@ -468,3 +468,14 @@ ed.editor.rotatePivot = false; e.nudgeSelected(0, 0, 0, Math.PI / 2)   // they s
 
 - `e.selectionPivot()` gives the pivot. A ground model is re-seated on the terrain where it lands;
   an attached one keeps its height on its parent.
+
+## Group gizmo (ring, knob and arrow on a multi-selection)
+
+Checks: with two or more models selected in the Select or Place tool, the ring, scale knob and
+arrow stand at the selection's pivot (`e.selectionPivot()`), sized round the whole group; the ring
+turns the group (about the pivot with Rotate around pivot point, else each in place), the knob
+scales the models and their spread, and the arrow lifts them all. A drag is one undo step ("Turn N
+objects"). The knob is hidden when a WMO is in the group. In the dev page, after the "Selection
+outline colours" set-up: `e.frame()` then `e.gizmo.visible` is true with both trees selected
+(`e.gizmo` is private; read it through `e['gizmo']` in the console). Drags need the mouse: hover
+the ring (the cursor becomes a grab hand), drag sideways and watch the hint "Rotation N° (2 objects)".

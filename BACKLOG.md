@@ -45,7 +45,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 ## Objects (props)
 
 - [x] B-031 **Rotate around a pivot** for single and multi-selection · gap §4 · M/M · decided in IDEAS.md · done 2026-10-15 (PROGRESS.md): R, Alt+arrows and the group gizmo's ring turn a multi-selection about its mean position behind the Select tool's "Rotate around pivot point" checkbox (on by default)
-- [ ] B-032 **Multi-selection move mode** with local or world gizmo · gap §4 · M/L · effort re-estimated to L in the 2026-10-12 loop run: the selection is one object (`editor.selected`) through the Engine, tools, gizmo and nudging, so a selection set touches all of them
+- [x] B-032 **Multi-selection move mode** with local or world gizmo · gap §4 · M/L · done 2026-10-15 (PROGRESS.md): the selection set came with the owner's session; the group gizmo (ring, knob, arrow about the pivot) finished it. noggit has no local/world toggle; its "multi selection movement" is the pivot (B-031) and the ground snap (B-037)
 - [ ] B-105 **Hide a model with its attachments**: H hides only the selected object, so props attached to it stay drawn in mid-air · Source: loop: B-034 · L/S · may be what an author expects; check with the owner
 - [ ] B-036 **Reset rotation** menu item (Ctrl+R) · gap §4 · L/S · unverified: may already exist
 - [ ] B-037 **Mouse-move snap**: two checkboxes, follow cursor for a single model and snap to ground for a group · gap §4 · M/S · decided in IDEAS.md (noggit3) · left open in the 2026-10-12 loop run: the "off" single-model drag needs a camera-facing plane and the owner's rule for a parented model, and the group checkbox needs multi-selection (B-032), which the app doesn't have yet
