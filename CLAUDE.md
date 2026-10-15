@@ -217,7 +217,12 @@ cd frontend && pnpm build   # frontend only
   A map's own effect per texture (`editor.textureEffects`, Edit › Ground Effects…, saved as the map
   file's `textureEffects`) overrides the learned one. The export sends the effect per layer
   (`PaintSpec.Effects`) and Go writes it into MCLY and the per-cell predominant map into the MCNK
-  header (`adt/effects.go`), so the client grows the same tufts.
+  header (`adt/effects.go`), so the client grows the same tufts. The header's `noEffectDoodad` bits
+  (no tufts under a building or a road) are read from a region into `Terrain.noEffect` (not kept in
+  the map file) and, with the cells under the map's root WMOs (`blockedCells` in
+  `GroundEffectLayer.ts`), skipped when drawing and sent on export as `PaintSpec.NoEffect`, which Go
+  ORs into the chunk's own bits. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
+  the share of the game's amount drawn per cell.
 - **Growing a region**: the Map panel's `TileMinimap` shows a plus on each side of the open block
   (`onextend`); `extendRegion` in `mapio.ts` opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

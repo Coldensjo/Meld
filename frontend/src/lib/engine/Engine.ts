@@ -20,7 +20,8 @@ import { ClearTool } from '../tools/ClearTool'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
-import { effectFor, type TextureEffects } from '../world/groundEffects'
+import { densityFactor, effectFor, type TextureEffects } from '../world/groundEffects'
+import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
@@ -51,6 +52,8 @@ export interface RegionOpen {
   chunkSlots: Uint8Array
   /** One byte per cell, 1 for a hole; empty when the region has none. */
   holes: Uint8Array
+  /** One byte per cell, 1 where the client grows no ground effect doodads; empty when none. */
+  noEffect: Uint8Array
   palette: string[]
   objects: RegionObject[]
   /** The client's water, as the region's chunks hold it. */
@@ -935,6 +938,7 @@ export class Engine {
     d.terrain.weights.set(r.weights)
     d.terrain.chunkSlots.set(r.chunkSlots)
     if (r.holes.length === d.terrain.holes.length) d.terrain.holes.set(r.holes)
+    if (r.noEffect.length === d.terrain.noEffect.length) d.terrain.noEffect.set(r.noEffect)
     d.terrain.markAllDirty()
     d.meta.palette = [...r.palette]
     d.meta.roles = guessRoles(r.palette)
@@ -1243,6 +1247,7 @@ export class Engine {
       chunkSlots: t.chunkSlots,
       palette: editor.palette,
       effects: editor.palette.map((p) => effectFor(p, editor.textureEffects, groundEffectTables())),
+      noEffect: blockedCells(t, this.objects, new Uint8Array(t.size * t.size)),
       objects,
       waterEnabled: editor.waterEnabled,
       waterLevel: editor.waterLevel,
@@ -2153,10 +2158,12 @@ export class Engine {
     if (!layer.group.visible) return
     const tables = groundEffectTables()
     if (!tables) return
-    // What the build depends on besides the ground: the palette and the map's own effects.
-    let key = editor.palette.join('|')
+    // What the build depends on besides the ground: the palette, the map's own effects, the density
+    // and the buildings (any object change, since the cells under a building grow nothing).
+    const density = this.prefs?.groundEffectDensity ?? 'normal'
+    let key = `${density}|${this.objects.version}|` + editor.palette.join('|')
     for (const [tex, id] of Object.entries(editor.textureEffects)) key += `|${tex}=${id}`
-    layer.update(this.camera.position, editor.palette, editor.textureEffects, tables, key, performance.now())
+    layer.update(this.camera.position, editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, densityFactor(density))
   }
 
   /** How many grass tufts are drawn now, for the status bar. */

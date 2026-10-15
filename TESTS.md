@@ -399,3 +399,21 @@ ed.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()]);
   Map Properties dialog (File > Map Properties…). With a region open (`ed.region` set) the sea
   level is shown read-only; on a new world it is a slider bound to `ed.waterLevel`.
 
+
+## Ground effects: no-doodad cells and density
+
+Checks: tufts stay off the cells under buildings and off the client's own `noEffectDoodad` cells,
+and the export writes those cells. Unit tests: `groundEffects.test.ts` (`coverCells`,
+`chunkNoEffect`, `tuftsPerCell` with the density factor), `vmangosExport.test.ts` (the row bits
+per chunk) and Go `TestRewriteNoEffectBitsReadBackAndKeepTheTilesOwn` (written bits read back by
+`ParseTerrain`, ORed with the tile's own). In the dev page, on a region:
+
+```js
+const e = window.__engine
+e.terrain.noEffect.reduce((a, b) => a + b, 0)        // the client's no-doodad cells (roads, buildings)
+e.tuftCount()                                       // falls when a WMO is placed over grass
+e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cells under root WMOs
+```
+
+- A WMO whose bottom floats more than 4 yards above the ground (a bridge) bares nothing.
+- The density is View › Sparse / Normal / Full tufts; the layer rebuilds within a quarter second.

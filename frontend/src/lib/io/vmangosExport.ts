@@ -1,5 +1,6 @@
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../terrain/chunkPaint'
 import { liquidsToAdt, type AdtLiquid, type LiquidMap } from '../water/liquids'
+import { chunkNoEffect } from '../world/groundEffects'
 
 /** A palette entry that's a colour rather than a texture. */
 const isColor = (entry: string) => /^#[0-9a-fA-F]{6}$/.test(entry)
@@ -43,6 +44,8 @@ export interface ExportInput {
   palette: readonly string[]
   /** The ground effect (GroundEffectTexture ID, 0 for none) per palette index; optional. */
   effects?: readonly number[]
+  /** One byte per cell, set where no ground effect doodads grow (under buildings); optional. */
+  noEffect?: Uint8Array
   objects: readonly ExportObject[]
   /** Whether the map has water, and the level it's at in yards. */
   waterEnabled: boolean
@@ -57,6 +60,8 @@ export interface PaintOut {
   Weights: string
   /** The ground effect per texture, in the same order (0 for none, which keeps the tile's own). */
   Effects: number[]
+  /** The no-doodad bits, one per cell row with a bit per cell, where any is set (added to the tile's own). */
+  NoEffect?: number[]
 }
 
 export interface ObjectOut {
@@ -156,7 +161,10 @@ export function mapToTiles(input: ExportInput): ExportOut {
               used.forEach((k, j) => (weights[dst + j] = input.weights[src + k]))
             }
           }
-          paint.push({ Chunk: cy * CHUNKS_PER_TILE + cx, Textures: names, Weights: toBase64(weights), Effects: effects })
+          const out: PaintOut = { Chunk: cy * CHUNKS_PER_TILE + cx, Textures: names, Weights: toBase64(weights), Effects: effects }
+          const noEffect = input.noEffect ? chunkNoEffect(input.noEffect, input.size, gx, gz) : null
+          if (noEffect) out.NoEffect = noEffect
+          paint.push(out)
         }
       }
 

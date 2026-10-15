@@ -78,18 +78,28 @@ type RegionPaint struct {
 	Weights  string   `json:"weights"`
 	// Effects is the GroundEffectTexture ID per texture (0 for none, or the tile's own); optional.
 	Effects []uint32 `json:"effects,omitempty"`
+	// NoEffect is one entry per cell row, a bit per cell set where no ground effect doodads grow;
+	// optional, added to the tile's own bits.
+	NoEffect []int `json:"noEffect,omitempty"`
 }
 
 // chunkPaint is a chunk's layers from the bridge's textures, effects and weights, with the per-cell
-// predominant layer the game grows the effects on.
-func chunkPaint(textures []string, effects []uint32, weights []byte, perSide int) adt.ChunkPaint {
+// predominant layer the game grows the effects on and the cells it grows none on.
+func chunkPaint(textures []string, effects []uint32, noEffect []int, weights []byte, perSide int) adt.ChunkPaint {
 	layers := adt.LayersFromWeights(textures, weights, perSide)
 	for k := range layers {
 		if k < len(effects) {
 			layers[k].Effect = effects[k]
 		}
 	}
-	return adt.ChunkPaint{Layers: layers, Predominant: adt.PredominantFromWeights(len(textures), weights, perSide)}
+	paint := adt.ChunkPaint{Layers: layers, Predominant: adt.PredominantFromWeights(len(textures), weights, perSide)}
+	if len(noEffect) == adt.CellsPerChunk {
+		paint.NoEffect = make([]uint8, adt.CellsPerChunk)
+		for i, v := range noEffect {
+			paint.NoEffect[i] = uint8(v)
+		}
+	}
+	return paint
 }
 
 // ChunksPerTileSide is the chunks a side of a tile.
@@ -383,7 +393,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		gx, gy := p.Chunk%perRow, p.Chunk/perRow
 		k := (gy/ChunksPerTileSide)*e.Size + gx/ChunksPerTileSide
 		local := (gy%ChunksPerTileSide)*ChunksPerTileSide + gx%ChunksPerTileSide
-		tiles[k].change.Paint[local] = chunkPaint(p.Textures, p.Effects, weights, perSide)
+		tiles[k].change.Paint[local] = chunkPaint(p.Textures, p.Effects, p.NoEffect, weights, perSide)
 	}
 
 	if e.HasLiquids {

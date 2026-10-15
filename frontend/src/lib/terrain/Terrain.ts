@@ -42,6 +42,11 @@ export class Terrain {
   readonly holes: Uint8Array
   /** Counts the edits of `holes`, so a view of them (the hole walls) knows when to rebuild. */
   holesVersion = 0
+  /**
+   * One byte per cell: non-zero where the client's tile grows no ground effect doodads (its
+   * noEffectDoodad bits, under roads and buildings). Read from a region; not kept in the map file.
+   */
+  readonly noEffect: Uint8Array
   /** SLOTS weights per splat texel, for the chunk's slots; each texel sums to 255. */
   readonly weights: Uint8Array
   /** SLOTS palette indices per paint chunk (NO_TEXTURE for an empty slot). */
@@ -92,6 +97,7 @@ export class Terrain {
     this.paintChunksPerSide = chunksPerSide(size)
     this.heights = new Float32Array(this.verts * this.verts)
     this.holes = new Uint8Array(size * size)
+    this.noEffect = new Uint8Array(size * size)
     this.weights = new Uint8Array(this.splatRes * this.splatRes * SLOTS)
     this.chunkSlots = new Uint8Array(this.paintChunksPerSide * this.paintChunksPerSide * SLOTS).fill(NO_TEXTURE)
     // Every texel starts as palette entry 0, the first ground texture.

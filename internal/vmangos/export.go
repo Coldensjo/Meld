@@ -49,6 +49,9 @@ type PaintSpec struct {
 	Weights  string
 	// Effects is the GroundEffectTexture ID per texture (0 for none, or the tile's own); optional.
 	Effects []uint32
+	// NoEffect is one entry per cell row, a bit per cell set where no ground effect doodads grow
+	// (under a building); optional. The bits are added to the tile's own.
+	NoEffect []int
 }
 
 // MapSpec is a map to write: its folder and ID, and the tiles that have a file.
@@ -181,7 +184,7 @@ func buildTile(t TileSpec, water *adt.Water) ([]byte, error) {
 		if len(weights) != perSide*perSide*4 {
 			return nil, fmt.Errorf("chunk %d has %d weights, want %d", p.Chunk, len(weights), perSide*perSide*4)
 		}
-		ch.Paint[p.Chunk] = chunkPaint(p.Textures, p.Effects, weights, perSide)
+		ch.Paint[p.Chunk] = chunkPaint(p.Textures, p.Effects, p.NoEffect, weights, perSide)
 	}
 	for _, o := range t.Objects {
 		obj, err := objectIn(t.X, t.Y, o)

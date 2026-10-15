@@ -205,6 +205,15 @@
         { kind: 'check', label: 'Water', checked: prefs.showWater, toggle: () => (prefs.showWater = !prefs.showWater) },
         { kind: 'check', label: 'Objects (doodads and buildings)', checked: prefs.showObjects, toggle: () => (prefs.showObjects = !prefs.showObjects) },
         { kind: 'check', label: 'Ground effects (grass tufts)', checked: prefs.showGroundEffects, toggle: () => (prefs.showGroundEffects = !prefs.showGroundEffects) },
+        ...radios<typeof prefs.groundEffectDensity>(
+          [
+            ['Sparse tufts', 'sparse'],
+            ['Normal tufts', 'normal'],
+            ['Full tufts (the game\'s amount)', 'full'],
+          ],
+          () => prefs.groundEffectDensity,
+          (v) => (prefs.groundEffectDensity = v),
+        ),
         { kind: 'check', label: 'Monsters', checked: prefs.showMonsters, toggle: () => (prefs.showMonsters = !prefs.showMonsters) },
         { kind: 'check', label: 'NPCs', checked: prefs.showNpcs, toggle: () => (prefs.showNpcs = !prefs.showNpcs) },
         { kind: 'check', label: 'Game objects', checked: prefs.showGameObjects, toggle: () => (prefs.showGameObjects = !prefs.showGameObjects) },

@@ -262,6 +262,8 @@ export const prefs = $state({
   cullSmallModels: true,
   /** Draw the ground effects: the grass tufts, flowers and pebbles the game grows on each texture. */
   showGroundEffects: true,
+  /** How many tufts a cell grows: a quarter, half or all of the game's amount (world/groundEffects.ts). */
+  groundEffectDensity: 'normal' as 'sparse' | 'normal' | 'full',
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,
   collapsedPanels: ['properties'] as string[],

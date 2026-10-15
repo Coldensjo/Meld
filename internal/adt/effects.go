@@ -78,6 +78,21 @@ func PredominantFromWeights(n int, weights []byte, perSide int) []uint8 {
 	return out
 }
 
+// mcnkNoEffect is where the chunk header keeps the noEffectDoodad bits: one byte per cell row, a
+// bit per cell, set where the game grows no ground effect doodads.
+const mcnkNoEffect = 0x50
+
+// writeNoEffect adds a chunk's no-doodad bits (one byte per cell row) to the header's own, so bits
+// the client's tile already has (under its roads, say) stay set.
+func writeNoEffect(header []byte, bits []uint8) {
+	if len(bits) != CellsPerChunk {
+		return
+	}
+	for i, b := range bits {
+		header[mcnkNoEffect+i] |= b
+	}
+}
+
 // writePredominant packs a chunk's per-cell layer indices into the header's two-bit map.
 func writePredominant(header []byte, pred []uint8) {
 	if len(pred) != CellsPerChunk*CellsPerChunk {

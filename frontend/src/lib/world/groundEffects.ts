@@ -68,9 +68,85 @@ export function cellTexture(weights: Uint8Array, chunkSlots: Uint8Array, splatRe
 }
 
 /** How many tufts a cell grows for an effect's density: the game's amount runs 0 to 24, mostly 8. */
-export const MAX_TUFTS_PER_CELL = 8
-export function tuftsPerCell(density: number): number {
-  return Math.min(MAX_TUFTS_PER_CELL, Math.max(0, Math.round(density / 2)))
+export const MAX_TUFTS_PER_CELL = 16
+/** The View menu's density: the share of the game's amount drawn per cell. */
+export type DensityLevel = 'sparse' | 'normal' | 'full'
+export const DENSITY_FACTORS: Record<DensityLevel, number> = { sparse: 0.25, normal: 0.5, full: 1 }
+export function densityFactor(level: string): number {
+  return DENSITY_FACTORS[level as DensityLevel] ?? DENSITY_FACTORS.normal
+}
+export function tuftsPerCell(density: number, factor = DENSITY_FACTORS.normal): number {
+  return Math.min(MAX_TUFTS_PER_CELL, Math.max(0, Math.round(density * factor)))
+}
+
+/** A building's footprint: its position and turn on the map, and its box in its own space. */
+export interface CoverBox {
+  x: number
+  z: number
+  rotY: number
+  scale: number
+  minX: number
+  minZ: number
+  maxX: number
+  maxZ: number
+}
+
+/**
+ * Marks in `out` (one byte per cell of a `cells`-a-side map) every cell whose centre lies inside one
+ * of the boxes, as the game's tiles mark the cells under a building so no grass grows through its
+ * floor. The bytes already set stay set.
+ */
+export function coverCells(boxes: readonly CoverBox[], cellSize: number, cells: number, out: Uint8Array) {
+  for (const b of boxes) {
+    const c = Math.cos(b.rotY)
+    const s = Math.sin(b.rotY)
+    // The box's reach on the map: the turned box's corners, so only the cells near it are tried.
+    let lo = Infinity
+    let hi = -Infinity
+    let loZ = Infinity
+    let hiZ = -Infinity
+    for (const [lx, lz] of [[b.minX, b.minZ], [b.maxX, b.minZ], [b.minX, b.maxZ], [b.maxX, b.maxZ]]) {
+      const wx = b.x + (lx * c + lz * s) * b.scale
+      const wz = b.z + (-lx * s + lz * c) * b.scale
+      lo = Math.min(lo, wx)
+      hi = Math.max(hi, wx)
+      loZ = Math.min(loZ, wz)
+      hiZ = Math.max(hiZ, wz)
+    }
+    const cx0 = Math.max(0, Math.floor(lo / cellSize))
+    const cx1 = Math.min(cells - 1, Math.floor(hi / cellSize))
+    const cz0 = Math.max(0, Math.floor(loZ / cellSize))
+    const cz1 = Math.min(cells - 1, Math.floor(hiZ / cellSize))
+    for (let cz = cz0; cz <= cz1; cz++) {
+      const dz = (cz + 0.5) * cellSize - b.z
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const dx = (cx + 0.5) * cellSize - b.x
+        // The cell centre in the box's own space: turned back and unscaled.
+        const lx = (dx * c - dz * s) / b.scale
+        const lz = (dx * s + dz * c) / b.scale
+        if (lx >= b.minX && lx <= b.maxX && lz >= b.minZ && lz <= b.maxZ) out[cz * cells + cx] = 1
+      }
+    }
+  }
+}
+
+/**
+ * The no-doodad bits of paint chunk (gx, gz) of a `cells`-a-side map from a per-cell map: one byte
+ * per cell row, bit n for cell n, as the tile's header holds them; null when none is set.
+ */
+export function chunkNoEffect(blocked: Uint8Array, cells: number, gx: number, gz: number): number[] | null {
+  let any = false
+  const rows = new Array<number>(CHUNK_CELLS).fill(0)
+  for (let r = 0; r < CHUNK_CELLS; r++) {
+    const base = (gz * CHUNK_CELLS + r) * cells + gx * CHUNK_CELLS
+    for (let c = 0; c < CHUNK_CELLS; c++) {
+      if (blocked[base + c]) {
+        rows[r] |= 1 << c
+        any = true
+      }
+    }
+  }
+  return any ? rows : null
 }
 
 /** A hash of three integers to [0, 1), stable across frames so tufts stand still. */

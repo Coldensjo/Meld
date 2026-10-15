@@ -254,6 +254,7 @@ export namespace vmangos {
 	    areaId: number;
 	    layers: LayerView[];
 	    holes?: number[];
+	    noEffect?: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ChunkView(source);
@@ -266,6 +267,7 @@ export namespace vmangos {
 	        this.areaId = source["areaId"];
 	        this.layers = this.convertValues(source["layers"], LayerView);
 	        this.holes = source["holes"];
+	        this.noEffect = source["noEffect"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -558,6 +560,7 @@ export namespace vmangos {
 	    Textures: string[];
 	    Weights: string;
 	    Effects: number[];
+	    NoEffect: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new PaintSpec(source);
@@ -569,6 +572,7 @@ export namespace vmangos {
 	        this.Textures = source["Textures"];
 	        this.Weights = source["Weights"];
 	        this.Effects = source["Effects"];
+	        this.NoEffect = source["NoEffect"];
 	    }
 	}
 	export class TileSpec {
@@ -706,6 +710,7 @@ export namespace vmangos {
 	    textures: string[];
 	    weights: string;
 	    effects?: number[];
+	    noEffect?: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionPaint(source);
@@ -717,6 +722,7 @@ export namespace vmangos {
 	        this.textures = source["textures"];
 	        this.weights = source["weights"];
 	        this.effects = source["effects"];
+	        this.noEffect = source["noEffect"];
 	    }
 	}
 	export class RegionEdit {

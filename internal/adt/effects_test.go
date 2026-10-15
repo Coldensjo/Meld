@@ -85,3 +85,50 @@ func TestRewriteWritesLayerEffectsAndLearnsThem(t *testing.T) {
 		t.Fatalf("the tile's own effect was lost: %v", effects)
 	}
 }
+
+func TestRewriteNoEffectBitsReadBackAndKeepTheTilesOwn(t *testing.T) {
+	root := newTileRoot(32, 48)
+	alpha := make([]byte, 64*64)
+	paint := func(bits []uint8) map[int]ChunkPaint {
+		return map[int]ChunkPaint{5: {Layers: []Layer{{Texture: `Tileset\Elwynn\ElwynnGrassBase.blp`}, {Texture: `Tileset\Elwynn\ElwynnDirtBase.blp`, Alpha: alpha}}, NoEffect: bits}}
+	}
+	// Row 0 cells 0 and 1, row 7 cell 7.
+	out, err := Rewrite(root, Changes{TileX: 32, TileY: 48, Paint: paint([]uint8{3, 0, 0, 0, 0, 0, 0, 0x80})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := ParseTerrain(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := terrain.Chunks[5].NoEffect; got != [CellsPerChunk]uint8{3, 0, 0, 0, 0, 0, 0, 0x80} {
+		t.Fatalf("no-effect rows %v", got)
+	}
+	if terrain.Chunks[4].NoEffect != [CellsPerChunk]uint8{} {
+		t.Fatal("another chunk got bits")
+	}
+	// A second write adds its bits to the tile's own rather than replacing them.
+	out2, err := Rewrite(out, Changes{TileX: 32, TileY: 48, Paint: paint([]uint8{0, 4, 0, 0, 0, 0, 0, 0})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err = ParseTerrain(out2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := terrain.Chunks[5].NoEffect; got != [CellsPerChunk]uint8{3, 4, 0, 0, 0, 0, 0, 0x80} {
+		t.Fatalf("no-effect rows after the second write %v", got)
+	}
+	// A write without bits keeps them.
+	out3, err := Rewrite(out2, Changes{TileX: 32, TileY: 48, Paint: paint(nil)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err = ParseTerrain(out3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := terrain.Chunks[5].NoEffect; got != [CellsPerChunk]uint8{3, 4, 0, 0, 0, 0, 0, 0x80} {
+		t.Fatalf("no-effect rows after a write without bits %v", got)
+	}
+}

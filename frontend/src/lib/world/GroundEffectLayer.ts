@@ -2,7 +2,36 @@ import * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
 import { CHUNK_CELLS, NO_TEXTURE } from '../terrain/chunkPaint'
 import { getAsset, onAssetLoaded } from '../models/assets'
-import { cellTexture, cellTufts, effectFor, tuftsPerCell, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
+import type { ObjectLayer } from './ObjectLayer'
+import { cellTexture, cellTufts, coverCells, effectFor, tuftsPerCell, type CoverBox, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
+
+/** How high above the ground a building's bottom may float and still bare the cells under it. */
+const COVER_LIFT = 4
+
+/**
+ * The footprints of the map's buildings (root WMOs standing on or in the ground), for the cells
+ * they bare. A model still loading has the placeholder's box until it arrives.
+ */
+export function buildingBoxes(objects: ObjectLayer): CoverBox[] {
+  const out: CoverBox[] = []
+  for (const o of objects.objects.values()) {
+    if (o.parent !== undefined || !o.type.startsWith('wmo:')) continue
+    const bb = getAsset(o.type).bbox
+    if (bb.isEmpty() || o.yOff + bb.min.y * o.scale > COVER_LIFT) continue
+    out.push({ x: o.x, z: o.z, rotY: o.rotY, scale: o.scale, minX: bb.min.x, minZ: bb.min.z, maxX: bb.max.x, maxZ: bb.max.z })
+  }
+  return out
+}
+
+/**
+ * The cells that grow no ground effects, one byte per cell in `out`: the client's own no-doodad
+ * bits plus the cells under the map's buildings.
+ */
+export function blockedCells(terrain: Terrain, objects: ObjectLayer, out: Uint8Array): Uint8Array {
+  out.set(terrain.noEffect)
+  coverCells(buildingBoxes(objects), terrain.cellSize, terrain.size, out)
+  return out
+}
 
 /** How far from the camera tufts are drawn, in yards (the game's ground effect distance is about this). */
 export const TUFT_RANGE = 90
@@ -38,6 +67,8 @@ export class GroundEffectLayer {
   private lastBuild = 0
   private assetsChanged = true
   private unsubscribe: () => void
+  /** The cells that grow nothing (see blockedCells), rebuilt with the layer. */
+  private blocked = new Uint8Array(0)
 
   constructor(private terrain: Terrain) {
     this.group.name = 'groundEffects'
@@ -53,7 +84,7 @@ export class GroundEffectLayer {
    * Keeps the tufts around `eye` current. `key` names everything else the build depends on (the
    * palette, the map's own effects and the tables), so a change of any redraws.
    */
-  update(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables | null, key: string, now: number) {
+  update(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables | null, key: string, now: number, objects: ObjectLayer, factor: number) {
     if (!this.group.visible || !tables) return
     const t = this.terrain
     const half = (CHUNK_CELLS * t.cellSize) / 2
@@ -67,13 +98,15 @@ export class GroundEffectLayer {
     this.heightVersion = t.heightVersion
     this.paintVersion = t.paintVersion
     this.assetsChanged = false
-    this.build(eye, palette, own, tables)
+    this.build(eye, palette, own, tables, objects, factor)
   }
 
-  private build(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables) {
+  private build(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables, objects: ObjectLayer, factor: number) {
     const t = this.terrain
     const cs = t.cellSize
     const cells = t.size
+    if (this.blocked.length !== cells * cells) this.blocked = new Uint8Array(cells * cells)
+    const blocked = blockedCells(t, objects, this.blocked)
     const r = TUFT_RANGE
     const cx0 = Math.max(0, Math.floor((eye.x - r) / cs))
     const cx1 = Math.min(cells - 1, Math.ceil((eye.x + r) / cs))
@@ -94,12 +127,12 @@ export class GroundEffectLayer {
         const dx = xc - eye.x
         const dz = zc - eye.z
         if (dx * dx + dz * dz > r2) continue
-        if (t.isHole(xc, zc)) continue
+        if (blocked[cz * cells + cx] || t.isHole(xc, zc)) continue
         const tex = cellTexture(t.weights, t.chunkSlots, t.splatRes, t.paintChunksPerSide, cx, cz)
         if (tex === NO_TEXTURE) continue
         const effect = effectOf[tex]
         if (!effect || effect.doodads.length === 0) continue
-        const n = tuftsPerCell(effect.density)
+        const n = tuftsPerCell(effect.density, factor)
         if (n === 0) continue
         if (total + n > MAX_TUFTS) continue
         cellTufts(cx, cz, n, effect.doodads.length, this.tufts)

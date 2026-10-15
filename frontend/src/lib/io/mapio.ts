@@ -248,18 +248,24 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       })),
       TILE_CHUNKS * size,
     )
-    // The client's holes (cave mouths): each chunk gives a byte per cell row, a bit per cell.
+    // The client's holes (cave mouths) and no-doodad cells: each chunk gives a byte per cell row, a
+    // bit per cell.
     const cells = TILE_CHUNKS * size * CHUNK_CELLS
     const holes = new Uint8Array(cells * cells)
-    for (const c of view.chunks) {
-      if (!c.holes) continue
+    const noEffect = new Uint8Array(cells * cells)
+    const unpack = (c: { indexX: number; indexY: number }, rows: number[] | undefined, out: Uint8Array) => {
+      if (!rows) return
       for (let row = 0; row < CHUNK_CELLS; row++) {
-        const bits = c.holes[row] ?? 0
+        const bits = rows[row] ?? 0
         if (!bits) continue
         for (let col = 0; col < CHUNK_CELLS; col++) {
-          if (bits & (1 << col)) holes[(c.indexY * CHUNK_CELLS + row) * cells + c.indexX * CHUNK_CELLS + col] = 1
+          if (bits & (1 << col)) out[(c.indexY * CHUNK_CELLS + row) * cells + c.indexX * CHUNK_CELLS + col] = 1
         }
       }
+    }
+    for (const c of view.chunks) {
+      unpack(c, c.holes, holes)
+      unpack(c, c.noEffect, noEffect)
     }
     const t0 = performance.now()
     const d = engine.openRegion({
@@ -271,6 +277,7 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       weights: paint.weights,
       chunkSlots: paint.chunkSlots,
       holes,
+      noEffect,
       palette: paint.palette,
       objects: view.objects,
       liquids: view.liquids,
@@ -332,7 +339,7 @@ function regionPaint(engine: Engine, size: number) {
     t.Paint.map((p) => {
       const cx = p.Chunk % 16
       const cy = Math.floor(p.Chunk / 16)
-      return { chunk: (t.Y * 16 + cy) * perRow + t.X * 16 + cx, textures: p.Textures, weights: p.Weights, effects: p.Effects }
+      return { chunk: (t.Y * 16 + cy) * perRow + t.X * 16 + cx, textures: p.Textures, weights: p.Weights, effects: p.Effects, noEffect: p.NoEffect ?? undefined }
     }),
   )
 }

@@ -35,6 +35,9 @@ type ChunkPaint struct {
 	// Predominant is the layer that weighs most in each of the 64 cells (row-major), which the game
 	// grows that layer's effect on; nil leaves the chunk's own map. See PredominantFromWeights.
 	Predominant []uint8
+	// NoEffect is one byte per cell row, a bit per cell set where the game is to grow no ground
+	// effect doodads; the bits are added to the chunk's own. Nil leaves the chunk's own bits.
+	NoEffect []uint8
 }
 
 // Object is a model to place on the tile, in the file's own space: X east, Y up, Z south, with a
@@ -561,8 +564,13 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 
 	// Liquid and sound emitters, kept as they are; their size fields are the game's own.
 	header := append([]byte(nil), m[:mcnkHeaderLen]...)
-	if paint, ok := ch.Paint[idx]; ok && len(paint.Layers) > 0 && paint.Predominant != nil {
-		writePredominant(header, paint.Predominant)
+	if paint, ok := ch.Paint[idx]; ok && len(paint.Layers) > 0 {
+		if paint.Predominant != nil {
+			writePredominant(header, paint.Predominant)
+		}
+		if paint.NoEffect != nil {
+			writeNoEffect(header, paint.NoEffect)
+		}
 	}
 	binary.LittleEndian.PutUint32(header[0:], flags)
 	binary.LittleEndian.PutUint32(header[mcnkLayers:], nLayers)

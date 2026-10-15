@@ -43,6 +43,9 @@ type Chunk struct {
 	AreaID         uint32
 	// Holes has one byte per cell row; bit n set means cell n of that row is a hole.
 	Holes [CellsPerChunk]uint8
+	// NoEffect has one byte per cell row; bit n set means cell n of that row grows no ground
+	// effect doodads (the header's noEffectDoodad bits: no grass under a building or a road).
+	NoEffect [CellsPerChunk]uint8
 	// Position is the chunk's corner in world space. Position[2] is the base height that every
 	// height sample is stored relative to.
 	Position [3]float32
@@ -241,6 +244,9 @@ func parseChunk(data []byte, h, end int) (Chunk, error) {
 				}
 			}
 		}
+	}
+	for row := 0; row < CellsPerChunk; row++ {
+		ch.NoEffect[row] = data[h+mcnkNoEffect+row]
 	}
 	mcvt, ok := subChunk(data, h, end, u32(data, h+0x14), "MCVT")
 	if !ok || mcvt.end-mcvt.start < HeightCount*4 {

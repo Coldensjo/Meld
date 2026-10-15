@@ -92,3 +92,16 @@ test('base64 of bytes round-trips', () => {
   const bytes = Uint8Array.from({ length: 70000 }, (_, i) => i * 7)
   assert.deepEqual(Buffer.from(toBase64(bytes), 'base64'), Buffer.from(bytes))
 })
+
+test('the no-doodad cells go out per chunk as row bits, and only for chunks that have any', () => {
+  const size = 128
+  const noEffect = new Uint8Array(size * size)
+  noEffect[0] = 1
+  noEffect[1 * size + 9] = 1
+  const { tiles } = mapToTiles(input(size, { noEffect }))
+  const first = tiles[0].Paint.find((p) => p.Chunk === 0)!
+  assert.deepEqual(first.NoEffect, [1, 0, 0, 0, 0, 0, 0, 0])
+  const second = tiles[0].Paint.find((p) => p.Chunk === 1)!
+  assert.deepEqual(second.NoEffect, [0, 2, 0, 0, 0, 0, 0, 0])
+  assert.equal(tiles[0].Paint.find((p) => p.Chunk === 2)!.NoEffect, undefined)
+})
