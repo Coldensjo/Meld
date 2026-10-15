@@ -410,3 +410,17 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: Checked Noggit Red first (IDEAS.md records it). Edit › History opens a floating History window (`HistoryWindow.svelte`, left of the viewport so it doesn't cover the Inspector): the active map's undo stack, oldest first, each step with its label and time, the count against the 100-step limit, and a first row for the state before them. A click undoes or redoes to that step (`History.goTo`, `Engine.goToHistory`, which then refreshes the selection and mask as Undo does); the steps Redo would bring back are dimmed. The window follows tab switches and new steps through `ui.historyVersion`, which only moves on history changes, never per frame.
 - Verified: make test passed (Go plus 207 of 207 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app: no browser tools in this run, so the window was not opened on screen. No unit test: `History` imports the runes state, which the node tests cannot load.
 - Left: no key opens the window.
+
+## 2026-10-15 · B-051 Tile-level save (blocked)
+- Not started: it needs the owner's decision on the `.wmap` format, and this run was non-interactive (no plan mode or questions to the owner), so per LOOP.md it is logged as blocked and left open.
+- Open questions for the owner: (1) What does "tile-level save" save to: one `.wmap` that rewrites only changed tiles in place (a new format version with a tile index), a folder of per-tile files, or only the client export (write only changed tiles into the patch)? (2) Is a region save to the client already enough, so the item is only about standalone `.wmap` maps? (3) Must older single-file maps still open and be saved as before?
+
+## 2026-10-15 · backlog tidy (5th run)
+- Removed the items finished in this run (B-146, B-153, B-156), as earlier tidies did; PROGRESS.md, IDEAS.md and noggit-red-feature-gap.md keep their record. The older done items (owner-written ones among them) stay listed as the earlier tidies left them; no owner-written item was deleted.
+- No duplicates found. Nothing new fits Parked.
+- New line from this run: B-160 (unit tests for History, from B-156).
+
+## 2026-10-15 · stopped (5th run)
+- Stopped: the top remaining items are all value L. The run did the three value-M items (B-146, B-153, B-156); B-050 is needs-approval and B-051 (H/M) is blocked on the owner's format decision (questions above).
+- The commit trailers name Claude Opus 5.5, the model that ran this, not the Haiku 5.5 of LOOP.md.
+- Next top item: B-051 Tile-level save once the owner answers; otherwise every open item is value L (by DESIGN.md order the first is B-128, the area clipboard carrying the chunk data, L/S), so the next loop run stops at once unless the owner picks again.

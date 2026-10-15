@@ -60,13 +60,12 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 ## Map, client and server
 
 - [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large) · on the back burner by the owner's decision 2026-10-15: not now; when it comes, as a second document kind beside the block editor (see PROGRESS.md 2026-10-15 B-118 entry)
-- [ ] B-051 **Tile-level save**: current tile or changed tiles only · gap §5 · H/M · left open in the 2026-10-12 loop run (2nd): the save is one `.wmap` file, so per-tile or changed-tile saves change the file format, which needs the owner's decision on the format first
+- [ ] B-051 **Tile-level save**: current tile or changed tiles only · gap §5 · H/M · left open in the 2026-10-12 loop run (2nd): the save is one `.wmap` file, so per-tile or changed-tile saves change the file format, which needs the owner's decision on the format first · still blocked 2026-10-15 (5th run): the run was non-interactive, so the questions are in PROGRESS.md
 - [x] B-056 **Holes tool** for caves · gap §5 · M/M · done: Sculpt › Hole cuts and fills triangles, holes are in the `.wmap` (version 3) and in the clipboard, with wall handles; not yet exported to client tiles (see CLAUDE.md)
 - [x] B-113 **Grow a region by a tile**: a plus on each side of the open block in the Map panel opens the block one tile bigger (square, so a row or column comes along) · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session) · no longer reachable since B-115 dropped the Map panel; see B-118
 - [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
 - [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as Noggit Red's Minimap Editor does (with a resolution, what to draw, and model filters), so the in-game minimap shows the edited ground · Source: loop: B-059, gap §5 · L/L · a client write, checked against the client's own reader
-- [x] B-146 **Generate the WDL** for an exported map, so the far horizon and the tile mask match the new tiles · gap §5 · M/M · a client write · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-147 **More Map.dbc fields for a new map** (instance type, loading screen, area, corpse position, max players) and WMO-only maps, as Noggit Red's map creation wizard · gap §5 · L/M
 - [ ] B-148 **Zone editor**: create zones and subzones and edit an AreaTable row (name, parent, level, faction, flags, sounds, music, liquid), written to the client's DBC · gap §11 · M/L · needs-approval (a DBC write)
 - [ ] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · needs-approval (a DBC write) · after B-084
@@ -83,7 +82,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M · Noggit Red's FPS camera stays 3 yards above the ground, so it walks the map as a player would
 - [ ] B-152 **Camera collision**: keep the free camera at least 3 yards above the ground · gap §6 · L/S
 - [ ] B-078 **Height contour lines** · gap §7 · L/M
-- [x] B-153 **Climb view**: colour the ground too steep for a character to walk up, with a maximum climb angle · gap §7 · M/S · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-154 **M2 particles and ribbons** drawn from the emitters, beyond the procedural flames · gap §7 · L/L
 - [ ] B-155 **Far horizon** from the map's WDL beyond the open block · gap §7 · L/M · after B-146 for a new map
 - [ ] B-079 **Skybox toggle**, separate from the sky · gap §7 · L/S
@@ -98,7 +96,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-093 **Asset browser search** improvements · gap §10 · L/S · done: the search-first asset browser with synonyms, kinds, zones and category facets (CLAUDE.md, Asset browser)
 - [x] B-115 **Dock reduced to Layers**: the Map, Spawns and Properties panels are no longer mounted · Source: owner · -/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session); their functions are B-118
 - [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval
-- [x] B-156 **History panel**: the undo stack as a list, where a click goes back to any step · gap §10 · M/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Scripting (needs approval before any work)
 
@@ -108,6 +105,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Tooling
 
+- [ ] B-160 **Unit tests for History**: `History` imports the runes state (`editor`, `ui`), which the node tests cannot load, so `goTo` and the step list have no test; handing it a small state sink would make it testable · Source: loop: B-156 · L/S
 - [x] B-121 **Dev page must not write the user's preferences**: the dev browser page and the desktop window share config.json and each wrote all of it, so a test in the page overwrote the owner's doodad brushes; `?nosave` makes the page read-only (TESTS.md) · Source: loop: B-110 · H/S · done 2026-10-14
 
 
