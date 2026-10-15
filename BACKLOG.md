@@ -56,7 +56,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 ## Map, client and server
 
-- [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large) · the owner asked 2026-10-15 what it costs and whether the block editor and streaming can coexist; see the session's answer in PROGRESS.md
+- [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large) · on the back burner by the owner's decision 2026-10-15: not now; when it comes, as a second document kind beside the block editor (see PROGRESS.md 2026-10-15 B-118 entry)
 - [ ] B-051 **Tile-level save**: current tile or changed tiles only · gap §5 · H/M · left open in the 2026-10-12 loop run (2nd): the save is one `.wmap` file, so per-tile or changed-tile saves change the file format, which needs the owner's decision on the format first
 - [ ] B-054 **Area ID painting** with a zone ID browser · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): the area ID is a format field the `.wmap` doesn't have, so it needs the owner's format decision (like B-055 to B-056)
 - [ ] B-055 **Impassable flag** tool · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): needs a format field the `.wmap` doesn't have, so it waits for the owner's format decision
