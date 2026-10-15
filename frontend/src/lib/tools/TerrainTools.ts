@@ -3,6 +3,7 @@ import { HOLE_CELL, HOLE_NONE, fillHoles, snapToBlocks } from '../terrain/holes'
 import { HoleWalls } from './HoleWalls'
 import { editor, setStatus, ui, type SculptMode } from '../state/editor.svelte'
 import { slopeDegrees, slopeWeights } from '../terrain/roles'
+import { tentBlur } from '../terrain/blur'
 import type { Command } from '../state/history'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
 import { fbm, ridged } from '../engine/noise'
@@ -155,7 +156,7 @@ function vertexCommand(ctx: ToolContext, label: string, ids: number[], before: F
 const MAX_VERTEX_MARKERS = 65536
 
 /** The sculpt modes that shape the ground under the brush, and so paint it too with Paint texture on. */
-const SHAPING_MODES = new Set<SculptMode>(['raise', 'lower', 'smooth', 'flatten', 'noise', 'mountain', 'crevice'])
+const SHAPING_MODES = new Set<SculptMode>(['raise', 'lower', 'smooth', 'blur', 'flatten', 'noise', 'mountain', 'crevice'])
 
 export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
@@ -164,6 +165,8 @@ export class SculptTool extends BrushTool {
     return { heights: true, splat: editor.sculptPaint !== 'off' && SHAPING_MODES.has(editor.sculptMode) }
   }
   private slopeW = new Float32Array(2)
+  /** Blur's scratch space between its two passes. */
+  private blurTmp = new Float32Array(0)
   imageShaped() {
     return SHAPING_MODES.has(editor.sculptMode)
   }
@@ -489,6 +492,25 @@ export class SculptTool extends BrushTool {
             }
           }
           h[i] += (sum / n - h[i]) * w * k
+        }, this.stroke)
+        break
+      }
+      case 'blur': {
+        // Toward the tent average over the brush's width (terrain/blur.ts), from a snapshot of before.
+        const V = t.verts
+        const cs = t.cellSize
+        if (this.scratch.length !== h.length) this.scratch = new Float32Array(h.length)
+        const r = {
+          x0: Math.max(0, Math.floor((hit.x - radius) / cs)),
+          z0: Math.max(0, Math.floor((hit.z - radius) / cs)),
+          x1: Math.min(V - 1, Math.ceil((hit.x + radius) / cs)),
+          z1: Math.min(V - 1, Math.ceil((hit.z + radius) / cs)),
+        }
+        this.blurTmp = tentBlur(h, V, r, radius / cs, this.scratch, this.blurTmp)
+        const blurred = this.scratch
+        const k = Math.min(1, rate * 8)
+        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
+          if (keeps(h[i], limit, cursorY)) h[i] += (blurred[i] - h[i]) * w * k
         }, this.stroke)
         break
       }

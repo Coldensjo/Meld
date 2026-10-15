@@ -341,3 +341,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 - Choice: **depth above ground**. Black is no water; grey puts the water's surface at the ground's height
   plus min + grey × (max − min). A cell gets water where all four of its corners are not black.
 - Decided by the owner, 2026-10-15.
+
+### B-004 Blur · Noggit Red's, as a Sculpt mode
+- Chosen by the loop from Noggit Red (2026-10-15, B-004). Noggit Red's blur (`flatten_blur_tool::blur`,
+  `MapChunk::blurTerrain`) moves each vertex toward the average height within the brush radius, weighted
+  1 - distance / radius. It differs from Meld's Smooth (a 3x3 average), so it is kept as its own mode.
+- **Ours**: a Sculpt mode rather than a tool of its own, as Meld's Sculpt holds Smooth and Flatten; and the
+  weight runs along x then z (a separable tent) instead of by the round distance, which is nearly the same
+  blur and keeps big brushes fast. Noggit Red's Flatten/Blur raise-only and lower-only toggles are Meld's
+  Only above/below cursor limits.

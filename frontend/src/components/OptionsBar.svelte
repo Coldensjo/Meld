@@ -15,6 +15,7 @@
     { id: 'raise', name: 'Raise' },
     { id: 'lower', name: 'Lower' },
     { id: 'smooth', name: 'Smooth' },
+    { id: 'blur', name: 'Blur' },
     { id: 'flatten', name: 'Flatten' },
     { id: 'noise', name: 'Noise' },
     { id: 'mountain', name: 'Mountain' },
