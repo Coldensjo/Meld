@@ -3,7 +3,7 @@
   import { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
   import DocTabs from './DocTabs.svelte'
-  import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
+  import { prefs, setStatus, stats, ui } from '../lib/state/editor.svelte'
 
   let container: HTMLDivElement
   let canvas: HTMLCanvasElement
@@ -34,6 +34,20 @@
     <canvas bind:this={canvas} tabindex="-1"></canvas>
     {#if error}<div class="error">{error}</div>{/if}
     {#if ui.viewportHint}{#key ui.viewportHintSeq}<div class="hint">{ui.viewportHint}</div>{/key}{/if}
+    {#if prefs.detailInfo && stats.detail}
+      {@const d = stats.detail}
+      <div class="detail" data-ui="DetailInfo">
+        <div><span>Tile</span>{d.tile} <span>Chunk</span>{d.chunk} <span>Cell</span>{d.cell}</div>
+        <div><span>Height</span>{d.height.toFixed(2)} <span>Slope</span>{d.slope.toFixed(0)}°{#if d.hole} · hole{/if}{#if d.noTufts} · no tufts{/if}</div>
+        {#each d.textures as tx, i (i)}
+          <div><span>Layer {i}</span>{tx.name} {tx.weight}%{#if tx.effect} · effect {tx.effect}{/if}</div>
+        {/each}
+        {#each d.liquids as l (l)}
+          <div><span>Liquid</span>{l}</div>
+        {/each}
+        <div><span>Models</span>{d.models} in the chunk</div>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -84,6 +98,29 @@
   @keyframes hint-fade {
     0%, 60% { opacity: 1; }
     100% { opacity: 0; }
+  }
+  /* The Detail info readout (Graphics › Detail info): the ground under the cursor, in the top right corner. */
+  .detail {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #eee;
+    font-size: 12px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    user-select: none;
+    max-width: 320px;
+  }
+  .detail span {
+    color: var(--text-dim);
+    margin-right: 4px;
+  }
+  .detail span:not(:first-child) {
+    margin-left: 8px;
   }
   .error {
     position: absolute;

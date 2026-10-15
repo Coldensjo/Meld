@@ -2,11 +2,12 @@ import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
-import { MAX_BRUSH_RADIUS, docs, editor, setStatus, setViewportHint, stats, type ContextItem, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
+import { MAX_BRUSH_RADIUS, docs, editor, setStatus, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import type { adt, vmangos } from '../../../wailsjs/go/models'
-import { cropLiquids, decodeLiquids, encodeLiquids, liquidsFromAdt, liquidsToAdt, raycastLiquids, regenOpacity, type AdtLiquid } from '../water/liquids'
+import { cropLiquids, decodeLiquids, encodeLiquids, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid } from '../water/liquids'
+import { groundSlopeDeg } from '../world/groundTilt'
 import { resetLiquidFrames, updateLiquids } from '../water/liquidMaterial'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
@@ -26,7 +27,7 @@ import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
-import { CHUNK_CELLS, MAX_PALETTE, SLOTS, chunkTextures, clearPalette, convertGlobalLayers, findSlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, convertGlobalLayers, findSlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset } from '../models/assets'
@@ -78,6 +79,8 @@ const NO_BOXES: THREE.Box3[] = []
 
 /** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
 const TILE_CELLS = 128
+/** A client tile's paint chunks a side. */
+const TILE_PAINT_CHUNKS = TILE_CELLS / CHUNK_CELLS
 
 /** Models whose bounds cover fewer pixels than this are not drawn, with the preference on. */
 const SMALL_MODEL_PX = 1.5
@@ -615,6 +618,7 @@ export class Engine {
       stats.triangles = triangles
       stats.objects = this.objects.objects.size
       stats.cursor = this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z } : null
+      stats.detail = this.prefs?.detailInfo ? this.detailInfo() : null
       this.frames = 0
       this.statTime = time
     }
@@ -2426,6 +2430,57 @@ export class Engine {
     const c = editor.hoverChunk
     if (c < 0 || c >= side * side || !editor.chunkLines) rect.set(0, 0, 0, 0)
     else rect.set((c % side) * size, Math.floor(c / side) * size, ((c % side) + 1) * size, (Math.floor(c / side) + 1) * size)
+  }
+
+  /** The Detail info readout for the ground under the cursor (noggit's detail window), or null off the map. */
+  private detailInfo(): DetailInfo | null {
+    const hit = this.hit
+    const t = this.terrain
+    if (!hit || !this.pointerInside || !t.contains(hit.x, hit.z)) return null
+    const cx = Math.min(t.size - 1, Math.max(0, Math.floor(hit.x / t.cellSize)))
+    const cz = Math.min(t.size - 1, Math.max(0, Math.floor(hit.z / t.cellSize)))
+    const gx = Math.floor(cx / CHUNK_CELLS)
+    const gz = Math.floor(cz / CHUNK_CELLS)
+    const side = t.paintChunksPerSide
+    const chunk = gz * side + gx
+    const block = editor.regionBlock
+    // The share of each slot over the cell's texels.
+    const sums = [0, 0, 0, 0]
+    for (let v = 0; v < SPLAT_PER_CELL; v++) {
+      let i = ((cz * SPLAT_PER_CELL + v) * t.splatRes + cx * SPLAT_PER_CELL) * SLOTS
+      for (let u = 0; u < SPLAT_PER_CELL; u++, i += SLOTS) for (let k = 0; k < SLOTS; k++) sums[k] += t.weights[i + k]
+    }
+    const tables = groundEffectTables()
+    const textures: DetailInfo['textures'] = []
+    for (let k = 0; k < SLOTS; k++) {
+      const idx = t.chunkSlots[chunk * SLOTS + k]
+      if (idx === NO_TEXTURE) continue
+      const path = editor.palette[idx] ?? ''
+      const name = path.startsWith('#') ? path : path.slice(path.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+      textures.push({ name, weight: Math.round((sums[k] / (SPLAT_PER_CELL * SPLAT_PER_CELL * 255)) * 100), effect: effectFor(path, editor.textureEffects, tables) })
+    }
+    const lc = (cz % CHUNK_CELLS) * CHUNK_CELLS + (cx % CHUNK_CELLS)
+    const liquids = this.doc.liquids
+      .layers(chunk)
+      .filter((l) => l.cells[lc])
+      .map((l) => `${liquidType(l.id).name} at ${l.heights[(cz % CHUNK_CELLS) * (CHUNK_CELLS + 1) + (cx % CHUNK_CELLS)].toFixed(1)}`)
+    const chunkSize = CHUNK_CELLS * t.cellSize
+    let models = 0
+    for (const o of this.objects.objects.values()) {
+      if (o.parent === undefined && Math.floor(o.x / chunkSize) === gx && Math.floor(o.z / chunkSize) === gz) models++
+    }
+    return {
+      tile: block ? `${block.x + Math.floor(gx / TILE_PAINT_CHUNKS)}, ${block.y + Math.floor(gz / TILE_PAINT_CHUNKS)}` : '—',
+      chunk: `${gx % TILE_PAINT_CHUNKS}, ${gz % TILE_PAINT_CHUNKS}`,
+      cell: `${cx}, ${cz}`,
+      height: t.heightAt(hit.x, hit.z),
+      slope: groundSlopeDeg((px, pz) => t.heightAt(px, pz), hit.x, hit.z, t.cellSize),
+      hole: t.isHole(hit.x, hit.z),
+      noTufts: t.noEffect[cz * t.size + cx] !== 0,
+      textures,
+      liquids,
+      models,
+    }
   }
 
   /** The paint chunks the selected area touches, or none without a selection. */

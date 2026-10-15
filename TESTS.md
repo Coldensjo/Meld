@@ -442,3 +442,12 @@ Checks: a save writes only the changed keys, merged into the file (`changedPrefs
 desktop app and a dev page without `?nosave`, add a doodad brush in the app, then turn the fog off
 in the page; the app's brush is still in `config.json` (the page sent only `fog`). The page's
 `baseline` is private to `prefs.ts`; a key that was never saved goes out on the first save.
+
+## Detail info readout
+
+Checks: Graphics › Detail info shows, in the viewport's top right corner, the client tile, the
+chunk in it, the cell, height, slope, hole and no-tuft flags, the chunk's texture layers with their
+share at the cell and effect IDs, the liquid layers covering the cell and the root models in the
+chunk. In the dev page: `ed.prefs.detailInfo = true`, move the mouse over the ground, then
+`ed.stats.detail` (refreshed at 2 Hz with the other stats; null off the map). The readout is
+`[data-ui="DetailInfo"]`.

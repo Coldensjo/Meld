@@ -189,12 +189,36 @@ export const editor = $state({
   dirty: false,
 })
 
+/** What the Detail info readout says about the ground under the cursor (Graphics › Detail info). */
+export interface DetailInfo {
+  /** The client tile ("x, y"), or a dash on a map that isn't a region. */
+  tile: string
+  /** The paint chunk in its tile ("x, y"). */
+  chunk: string
+  /** The cell on the map ("x, z"). */
+  cell: string
+  height: number
+  /** The ground's steepness in degrees. */
+  slope: number
+  hole: boolean
+  /** The client's own no-doodad bit (no grass tufts) on the cell. */
+  noTufts: boolean
+  /** The chunk's texture layers: a short name, the share at the cell (percent) and the ground effect ID. */
+  textures: Array<{ name: string; weight: number; effect: number }>
+  /** The liquid layers covering the cell, named with their surface height. */
+  liquids: string[]
+  /** Root models standing in the chunk. */
+  models: number
+}
+
 export const stats = $state({
   fps: 0,
   drawCalls: 0,
   triangles: 0,
   objects: 0,
   cursor: null as { x: number; y: number; z: number } | null,
+  /** The ground under the cursor, while Graphics › Detail info is on (refreshed at 2 Hz like the rest). */
+  detail: null as DetailInfo | null,
 })
 
 /** Open map tabs (the active tab's live name/dirty come from `editor`). */
@@ -262,6 +286,8 @@ export const prefs = $state({
   cullSmallModels: true,
   /** Draw the ground effects: the grass tufts, flowers and pebbles the game grows on each texture. */
   showGroundEffects: true,
+  /** The Detail info readout in the viewport's corner: tile, chunk, cell, height, layers and liquids under the cursor. */
+  detailInfo: false,
   /** How many tufts a cell grows: a quarter, half or all of the game's amount (world/groundEffects.ts). */
   groundEffectDensity: 'normal' as 'sparse' | 'normal' | 'full',
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
