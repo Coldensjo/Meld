@@ -14,7 +14,8 @@ Bugs come first, then the rest in DESIGN.md priority order, then value (highest 
 
 **2. Stop conditions.** Stop when any of these holds:
 - 8 items are done in this run.
-- Nothing eligible is left, or the top remaining items are all value L.
+- Nothing eligible is left. When no value H or M item is eligible, go on with value L items, as
+  IDEAS.md records (owner decision 2026-10-15); do not stop only because the rest are value L.
 - The context is getting full. Stop after the item in progress, not in the middle of it.
 
 When you stop, append a `stopped` entry to PROGRESS.md that says which condition applied. Do not
@@ -79,11 +80,9 @@ d. Commit that item alone, following CLAUDE.md. Stage only the files you changed
    `git add -A` or `git add .`. The working tree already has the owner's uncommitted changes
    (go.mod and frontend/wailsjs). Leave them unstaged. Regenerate wailsjs only if the item changed a
    bound Go method, and stage only the wailsjs files that changed for that reason. Do not push.
-   The message is one imperative sentence that says what changed and why, and ends with:
-
-   ```
-   Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>
-   ```
+   The message is one imperative sentence that says what changed and why, and ends with the
+   `Co-Authored-By` trailer the harness gives for the model running the loop. Do not hard-code a
+   model name here, and do not note in PROGRESS.md which model ran.
 
 e. Mark the item `[x]` in BACKLOG.md. If it is a gap item, strike it through in
    noggit-red-feature-gap.md and add a short *Done:* note, as earlier commits did. Append its entry to
