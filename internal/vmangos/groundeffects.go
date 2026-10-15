@@ -43,6 +43,29 @@ type GroundEffectTables struct {
 // detailDir is where the game keeps the detail doodads the DBC names by file name alone.
 const detailDir = `World\NoDXT\Detail\`
 
+// noDoodad is an empty GroundEffectTexture slot. 0 is not empty: it is ElwFlo01's internal ID, which
+// sixteen of the client's slots name.
+const noDoodad = 0xFFFFFFFF
+
+// detailPaths maps each GroundEffectDoodad row's internal ID (field 1) to its model's archive path. A
+// GroundEffectTexture slot names a doodad by that ID, not by the row ID (field 0, mostly one more),
+// as the client's CMapChunk::CreateDetailDoodads looks it up (after Benilla's ground_effects.rs, MIT/
+// Apache); keyed by the row ID, 264 of the client's effects mix models of other zones, by the internal
+// ID 29. A path is the file name, .mdl in the table and .m2 in the archives.
+func detailPaths(doodads *dbcTable) map[uint32]string {
+	paths := map[uint32]string{}
+	for r := 0; r < doodads.records; r++ {
+		name := doodads.str(r, 2)
+		if name == "" {
+			continue
+		}
+		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdl"), ".MDL")
+		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdx"), ".MDX")
+		paths[doodads.u32(r, 1)] = detailDir + name + ".m2"
+	}
+	return paths
+}
+
 // readGroundEffectDBCs reads the two tables from the client.
 func readGroundEffectDBCs(set *mpq.Set) (map[uint32]GroundEffect, error) {
 	read := func(name string) (*dbcTable, error) {
@@ -63,23 +86,15 @@ func readGroundEffectDBCs(set *mpq.Set) (map[uint32]GroundEffect, error) {
 	if doodads.fields < 3 || textures.fields < 7 {
 		return nil, fmt.Errorf("ground effect tables have %d and %d fields; the 1.12 layout has 3 and 7", doodads.fields, textures.fields)
 	}
-	// A doodad's path is its file name, .mdl in the table and .m2 in the archives.
-	paths := map[uint32]string{}
-	for r := 0; r < doodads.records; r++ {
-		name := doodads.str(r, 2)
-		if name == "" {
-			continue
-		}
-		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdl"), ".MDL")
-		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdx"), ".MDX")
-		paths[doodads.u32(r, 0)] = detailDir + name + ".m2"
-	}
+	paths := detailPaths(doodads)
 	out := map[uint32]GroundEffect{}
 	for r := 0; r < textures.records; r++ {
 		var e GroundEffect
 		for f := 1; f <= 4; f++ {
-			if p, ok := paths[textures.u32(r, f)]; ok {
-				e.Doodads = append(e.Doodads, p)
+			if id := textures.u32(r, f); id != noDoodad {
+				if p, ok := paths[id]; ok {
+					e.Doodads = append(e.Doodads, p)
+				}
 			}
 		}
 		if len(e.Doodads) == 0 {
@@ -186,19 +201,20 @@ func AddGroundEffect(doodadDBC, textureDBC []byte, doodads []string, density, te
 	if dt.fields < 3 || tt.fields != 7 {
 		return nil, 0, errors.New("the ground effect tables aren't the 1.12 client's")
 	}
+	// A slot names the doodad's internal ID (see detailPaths); a model listed twice takes its lower one.
 	ids := map[string]uint32{}
-	for r := 0; r < dt.records; r++ {
-		name := dt.str(r, 2)
-		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdl"), ".MDL")
-		name = strings.TrimSuffix(strings.TrimSuffix(name, ".mdx"), ".MDX")
-		ids[strings.ToLower(detailDir+name+".m2")] = dt.u32(r, 0)
+	for id, p := range detailPaths(dt) {
+		low := strings.ToLower(p)
+		if old, ok := ids[low]; !ok || id < old {
+			ids[low] = id
+		}
 	}
 	var next uint32
 	for r := 0; r < tt.records; r++ {
 		next = max(next, tt.u32(r, 0))
 	}
 	next++
-	row := []uint32{next, 0, 0, 0, 0, density, terrain}
+	row := []uint32{next, noDoodad, noDoodad, noDoodad, noDoodad, density, terrain}
 	for i, d := range doodads {
 		id, ok := ids[strings.ToLower(d)]
 		if !ok {

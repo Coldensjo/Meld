@@ -175,6 +175,11 @@ __engine.exportInput().effects          // the effect per palette index
   Effects…; a new world painted with the default tilesets grows Elwynn's grass.
 - The detail models load like any other; the layer draws a model once it is ready, so the first
   build after opening shows fewer tufts for a moment.
+- Which model a GroundEffectTexture slot names: `TestClientGroundEffectModels` (WOW_DIR) counts the
+  effects whose models come from more than one zone (the file name's three-letter prefix). Keyed by
+  GroundEffectDoodad's internal ID (field 1), as the client does, 29 do; keyed by the row ID (field 0,
+  mostly one more), 264. The trap: the IDs look alike and both keyings resolve most slots, so a wrong
+  one still shows plausible grass. An empty slot is 0xFFFFFFFF; 0 is ElwFlo01.
 
 ## Liquid types from the client
 
