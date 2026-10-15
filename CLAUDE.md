@@ -301,8 +301,11 @@ cd frontend && pnpm build   # frontend only
   `cellTexture`, and `scatterChunk`, the client's own scatter ported from Benilla: Blizzard's
   randomizer seeded by the chunk's place in the client's map, `frill` cells drawn with repeats, the
   effect's density in each, slot (n + turn) & 3 of the row's four `slots`) and
-  `world/GroundEffectLayer.ts` draws the tufts within `TUFT_RANGE` (the client's 70 yd) of the
-  camera as one InstancedMesh per model, rebuilt when the camera moves half a chunk or
+  `world/GroundEffectLayer.ts` draws the tufts as one InstancedMesh per model, through tuft twins of
+  the models' materials that fade them out by view depth as the client does (B-178, `tuftFade`: a
+  ramp from 52.5 to 70 yd multiplied into the alpha, cut out at 128/255, so grass is gone by 61.1 yd).
+  It builds them within `reach` of the camera (`tuftReach`: that depth out to the view's side edge,
+  set by the Engine from the camera), rebuilt when the camera moves half a chunk or
   `Terrain.heightVersion`/`paintVersion` change (View › Ground effects, `prefs.showGroundEffects`).
   A map's own effect per texture (`editor.textureEffects`, Edit › Ground Effects…, saved as the map
   file's `textureEffects`) overrides the learned one. The export sends the effect per layer

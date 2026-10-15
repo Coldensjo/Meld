@@ -266,6 +266,12 @@ __engine.exportInput().effects          // the effect per palette index
   GroundEffectDoodad's internal ID (field 1), as the client does, 29 do; keyed by the row ID (field 0,
   mostly one more), 264. The trap: the IDs look alike and both keyings resolve most slots, so a wrong
   one still shows plausible grass. An empty slot is 0xFFFFFFFF; 0 is ElwFlo01.
+- The fade (B-178): `tests/groundEffects.test.ts` pins Benilla's landmarks (plateau to 52.64 yd, cut-out
+  at 61.11, zero at 69.86). In the app (CDP route), Northshire's meadow at x 150, z 300 with the map's
+  objects hidden, `yaw: 2.2, pitch: 0.1, distance: 4`: the grass thins away toward the hills instead
+  of ending at a ring. `__engine.doc.groundEffects.reach` is the build radius; the headless viewport
+  is 1068x285 (aspect 3.75), which makes it about 133 yd and the tuft count about four times a 70 yd
+  ring's, so count tufts in a normal window when judging the cost.
 
 ## Water look (the client's combine, B-174)
 

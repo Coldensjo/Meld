@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/groundEffects.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { BlizzardRandomizer, cellPredominant, cellTexture, chunkSeed, chunkNoEffect, coverCells, effectAt, effectFor, frillDensity, hasScopedEffects, noScopedEffects, knownEffects, scatterChunk, type GroundEffect, type GroundEffectTables, type Tuft } from '../src/lib/world/groundEffects.ts'
+import { BlizzardRandomizer, cellPredominant, cellTexture, chunkSeed, chunkNoEffect, coverCells, effectAt, effectFor, frillDensity, hasScopedEffects, noScopedEffects, knownEffects, scatterChunk, tuftFade, tuftReach, TUFT_CUT_DEPTH, type GroundEffect, type GroundEffectTables, type Tuft } from '../src/lib/world/groundEffects.ts'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
 
 const tables: GroundEffectTables = {
@@ -133,4 +133,19 @@ test('a tile\'s choice comes before its zone\'s, a zone\'s before the map\'s, an
   assert.equal(effectAt(grass, { [grass]: 6 }, scoped, 40, 0, 0, tables), 6)
   assert.equal(hasScopedEffects(noScopedEffects()), false)
   assert.equal(hasScopedEffects(scoped), true)
+})
+
+test("tufts fade on view depth as the client's do (Benilla clutter.rs landmarks)", () => {
+  assert.ok(Math.abs(tuftFade(0) - 252 / 255) < 1e-6, 'the near plateau')
+  assert.ok(Math.abs(tuftFade(52.63672) - 252 / 255) < 1e-5, 'the plateau ends at 52.64, not 52.5')
+  assert.ok(tuftFade(52.7) < 252 / 255, 'then it falls')
+  assert.ok(tuftFade(69.86328) < 1e-5, 'gone by 69.86')
+  assert.ok(Math.abs(TUFT_CUT_DEPTH - 61.11328) < 1e-4, 'opaque grass is cut out at 61.11')
+  assert.ok(Math.abs(tuftFade(TUFT_CUT_DEPTH) - 128 / 255) < 1e-6)
+})
+
+test('tufts are built out to the cut depth at the side edge of the view', () => {
+  // A square 90-degree view: the side edge is at 45 degrees, sqrt(2) times the depth away.
+  assert.ok(Math.abs(tuftReach(90, 1) - TUFT_CUT_DEPTH * Math.SQRT2) < 1e-6)
+  assert.ok(tuftReach(1, 1) - TUFT_CUT_DEPTH < 0.01, 'a narrow view needs barely more than the depth')
 })

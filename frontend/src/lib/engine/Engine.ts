@@ -30,7 +30,7 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
-import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
+import { effectAt, frillDensity, effectFor, hasScopedEffects, noScopedEffects, tuftReach, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
 
 /** A plain copy of the zone and tile effect choices (they may be Svelte proxies). */
 const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringify(s)) as ScopedEffects
@@ -2837,6 +2837,8 @@ export class Engine {
     key += this.scopedKey
     // The client seeds each chunk's tufts by its place in the client's map: a region's tiles start at its first.
     const region = this.doc.meta.region
+    // Tufts show as far as the fade lets them, which is farther at the corners of a wide view.
+    layer.reach = tuftReach(this.persp.fov, this.persp.aspect)
     layer.update(this.viewEye(), editor.palette, editor.textureEffects, tables, key, performance.now(), this.objects, frillDensity(density), editor.scopedEffects, region?.x ?? 0, region?.y ?? 0)
   }
 

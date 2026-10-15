@@ -2,8 +2,9 @@ import * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
 import { CHUNK_CELLS, NO_TEXTURE } from '../terrain/chunkPaint'
 import { getAsset, onAssetLoaded } from '../models/assets'
+import { patchCascadeShadows } from '../engine/shadowCascades'
 import type { ObjectLayer } from './ObjectLayer'
-import { BlizzardRandomizer, cellTexture, chunkSeed, coverCells, effectAt, effectFor, hasScopedEffects, noScopedEffects, scatterChunk, type GroundEffect, type ScopedEffects, type CoverBox, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
+import { BlizzardRandomizer, cellTexture, chunkSeed, coverCells, effectAt, effectFor, hasScopedEffects, noScopedEffects, scatterChunk, TUFT_ALPHA_REF, TUFT_FADE_FAR, TUFT_FADE_NEAR, type GroundEffect, type ScopedEffects, type CoverBox, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
 
 /** Paint chunks a side of a 1.12 tile, which a tile's own effect choices cover. */
 const TILE_CHUNKS = 16
@@ -36,8 +37,6 @@ export function blockedCells(terrain: Terrain, objects: ObjectLayer, out: Uint8A
   return out
 }
 
-/** How far from the camera tufts are drawn, in yards: the client's detail-doodad distance ([0x867958]). */
-export const TUFT_RANGE = 70
 /** Most tufts drawn at once; past it the chunks built first keep theirs. */
 const MAX_TUFTS = 60000
 /** The layer is rebuilt no more often than this while the camera moves or the ground changes. */
@@ -48,13 +47,48 @@ interface Batch {
   count: number
 }
 
+// The tufts' fade on view depth (groundEffects.ts, tuftFade), multiplied into the alpha the cut-out tests.
+const FADE_VERTEX = /* glsl */ `#include <project_vertex>
+  vTuftDepth = -mvPosition.z;`
+const FADE_FRAGMENT = /* glsl */ `diffuseColor.a *= clamp((254.0 - 256.0 * ((vTuftDepth - ${TUFT_FADE_NEAR.toFixed(1)}) / ${(TUFT_FADE_FAR - TUFT_FADE_NEAR).toFixed(1)})) / 255.0, 0.0, 252.0 / 255.0);
+  #include <alphatest_fragment>`
+
+/** Each model material's tuft twin: the same look, faded by view depth and cut out at 128/255. */
+const tuftMaterials = new WeakMap<THREE.Material, THREE.Material>()
+
+/**
+ * The tuft twin of a model's material. The client draws every tuft as a cut-out with culling off,
+ * whatever the batch's own blend. A clone loses the material's shader patch, so the cascade shadows
+ * are patched in again and the fade chained after them.
+ */
+function tuftMaterial(src: THREE.Material): THREE.Material {
+  let m = tuftMaterials.get(src)
+  if (m) return m
+  const twin = src.clone()
+  twin.alphaTest = TUFT_ALPHA_REF
+  twin.transparent = false
+  twin.depthWrite = true
+  twin.side = THREE.DoubleSide
+  if (twin instanceof THREE.MeshLambertMaterial) patchCascadeShadows(twin)
+  const before = twin.onBeforeCompile
+  const key = twin.customProgramCacheKey
+  twin.onBeforeCompile = (shader, renderer) => {
+    before.call(twin, shader, renderer)
+    shader.vertexShader = 'varying float vTuftDepth;\n' + shader.vertexShader.replace('#include <project_vertex>', FADE_VERTEX)
+    shader.fragmentShader = 'varying float vTuftDepth;\n' + shader.fragmentShader.replace('#include <alphatest_fragment>', FADE_FRAGMENT)
+  }
+  twin.customProgramCacheKey = () => key.call(twin) + '|tuftFade'
+  tuftMaterials.set(src, twin)
+  return twin
+}
+
 /**
  * Draws the ground effects of one map: the grass tufts, flowers and pebbles the game scatters on
  * each chunk by the texture on top of each cell, placed as the client places them (`scatterChunk`,
- * seeded by the chunk's place in the client's map, so the tufts stand where the game puts them).
- * Only the tufts within TUFT_RANGE of the camera are built, one InstancedMesh per detail model, and
- * the build is redone when the camera has moved half a chunk, the ground or its paint changed, or a
- * model finished loading.
+ * seeded by the chunk's place in the client's map, so the tufts stand where the game puts them), and
+ * faded out by view depth as the client fades them (`tuftFade`). Only the tufts within `reach` of the
+ * camera are built, one InstancedMesh per detail model, and the build is redone when the camera has
+ * moved half a chunk, the ground or its paint changed, or a model finished loading.
  */
 export class GroundEffectLayer {
   readonly group = new THREE.Group()
@@ -78,6 +112,8 @@ export class GroundEffectLayer {
   private unsubscribe: () => void
   /** The cells that grow nothing (see blockedCells), rebuilt with the layer. */
   private blocked = new Uint8Array(0)
+  /** How far from the camera (yd, flat) tufts are built: as far as the fade lets one show (`tuftReach`), set by the Engine. */
+  reach = TUFT_FADE_FAR
 
   constructor(private terrain: Terrain) {
     this.group.name = 'groundEffects'
@@ -97,6 +133,7 @@ export class GroundEffectLayer {
    */
   update(eye: THREE.Vector3, palette: readonly string[], own: TextureEffects, tables: GroundEffectTables | null, key: string, now: number, objects: ObjectLayer, frill: number, scoped: ScopedEffects = noScopedEffects(), tileX = 0, tileY = 0) {
     if (!this.group.visible || !tables) return
+    this.syncTextures()
     const t = this.terrain
     const half = (CHUNK_CELLS * t.cellSize) / 2
     const moved = Math.abs(eye.x - this.builtAt.x) > half || Math.abs(eye.z - this.builtAt.y) > half
@@ -120,7 +157,7 @@ export class GroundEffectLayer {
     const cells = t.size
     if (this.blocked.length !== cells * cells) this.blocked = new Uint8Array(cells * cells)
     const blocked = blockedCells(t, objects, this.blocked)
-    const r = TUFT_RANGE
+    const r = this.reach
     const side = t.paintChunksPerSide
     const per = CHUNK_CELLS * cs
     const gx0 = Math.max(0, Math.floor((eye.x - r) / per))
@@ -231,7 +268,7 @@ export class GroundEffectLayer {
   }
 
   private makeMesh(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[], capacity: number): THREE.InstancedMesh {
-    const m = new THREE.InstancedMesh(geometry, material, capacity)
+    const m = new THREE.InstancedMesh(geometry, Array.isArray(material) ? material.map(tuftMaterial) : tuftMaterial(material), capacity)
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     // The instances spread over the whole range; three's per-mesh sphere would cull them wrongly.
     m.frustumCulled = false
@@ -240,6 +277,19 @@ export class GroundEffectLayer {
     m.count = 0
     this.group.add(m)
     return m
+  }
+
+  /** Gives each tuft twin its model's texture, which may arrive after the twin was made. */
+  private syncTextures() {
+    for (const [type, b] of this.batches) {
+      const src = getAsset(type).material
+      const twins = b.mesh.material
+      if (!Array.isArray(src) || !Array.isArray(twins)) {
+        if (!Array.isArray(src) && !Array.isArray(twins)) syncMap(src, twins)
+        continue
+      }
+      for (let i = 0; i < src.length && i < twins.length; i++) syncMap(src[i], twins[i])
+    }
   }
 
   /** How many tufts are drawn now. */
@@ -256,5 +306,15 @@ export class GroundEffectLayer {
       b.mesh.dispose()
     }
     this.batches.clear()
+  }
+}
+
+/** Copies a material's texture to its twin when it changed. */
+function syncMap(src: THREE.Material, twin: THREE.Material) {
+  const a = src as THREE.MeshLambertMaterial
+  const b = twin as THREE.MeshLambertMaterial
+  if (a.map !== b.map) {
+    b.map = a.map
+    b.needsUpdate = true
   }
 }

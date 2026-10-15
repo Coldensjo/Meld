@@ -124,6 +124,36 @@ export function frillDensity(level: string): number {
   return FRILL_DENSITY[level as DensityLevel] ?? FRILL_DENSITY.normal
 }
 
+/**
+ * The client's tuft fade (B-178, Benilla's clutter.rs and wow_model.wgsl, MIT/Apache, after the
+ * client's 0x6b2b80): on view depth, not distance, the alpha is multiplied by a ramp that holds at
+ * 252/255 to three quarters of the 70 yd detail-doodad distance and falls to 0 by its end, and tufts
+ * are cut out at alpha 128/255, so opaque grass thins away by 61.1 yd and the edge never shows.
+ */
+export const TUFT_FADE_FAR = 70
+export const TUFT_FADE_NEAR = TUFT_FADE_FAR * 0.75
+export const TUFT_ALPHA_REF = 128 / 255
+
+/** The fade's alpha factor at view depth `depth` (yd). */
+export function tuftFade(depth: number): number {
+  const u = (depth - TUFT_FADE_NEAR) / (TUFT_FADE_FAR - TUFT_FADE_NEAR)
+  return Math.min(252 / 255, Math.max(0, (254 - 256 * u) / 255))
+}
+
+/** The view depth past which no tuft shows: where the fade takes an opaque texel under the cut-out. */
+export const TUFT_CUT_DEPTH = TUFT_FADE_NEAR + ((TUFT_FADE_FAR - TUFT_FADE_NEAR) * (254 - 128)) / 256
+
+/**
+ * How far from the camera (in yards, flat) tufts must be built for a view of vertical field `fovY`
+ * (degrees) and `aspect`: the cut depth out to the view's side edge, where a tuft is farthest away for
+ * its depth. Tufts reach farthest when the view is level, where the vertical angle adds nothing on
+ * the ground; looking down, the ground in view is nearer anyway.
+ */
+export function tuftReach(fovY: number, aspect: number): number {
+  const tx = Math.tan((fovY * Math.PI) / 360) * aspect
+  return TUFT_CUT_DEPTH * Math.sqrt(1 + tx * tx)
+}
+
 /** A building's footprint: its position and turn on the map, and its box in its own space. */
 export interface CoverBox {
   x: number
