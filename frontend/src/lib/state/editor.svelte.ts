@@ -305,6 +305,8 @@ export function stepCameraSpeed(faster: boolean) {
 export const prefs = $state({
   /** Draw the terrain as a wireframe (for checking its triangles). */
   wireframe: false,
+  /** Paint's "Show unpaintable chunks": tint the chunks full with four other textures, which refuse the paint texture. */
+  showUnpaintable: false,
   /** View › Bounding boxes: draw a box around every model (Noggit Red's model boxes). */
   showBoxes: false,
   /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb). */

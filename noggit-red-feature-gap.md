@@ -39,7 +39,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 - ~~**Texture swap tool**: replace one texture with another over a brushed area, or across the whole map.~~ *Done: whole-map replace, from Layers › Replace…; a chunk that has the new texture merges the two. Brushed areas are not done.* **(Red)** Noggit Red's swapper (`ui/texture_swapper.cpp`) also has a Brush mode with a radius, Entire chunk and Entire tile scopes, and "Remove this texture from ADT". Meld's Layers panel replaces or deletes a texture in the chunks of a selected area, which covers the chunk scope. *Done (B-133): Paint › Swap swaps under the brush, in Entire chunks or the Entire tile, and Keep holds the swapped texture across strokes, as the swapper's Brush mode.*
 - **Animated texture layers**: per-layer animation with a speed setting ("Add anim" / "Remove anim"). Noggit Red adds a rotation dial for the direction (`ui/texturing_tool.cpp`).
 - **Undockable quick texture palette**: a small palette floating outside the dock.
-- **Show unpaintable chunks** overlay.
+- ~~**Show unpaintable chunks** overlay.~~ *Done: Paint's Show unpaintable chunks tints red the chunks full with four other textures (BACKLOG B-013).*
 - ~~**Clear textures** and **Clear textures + set base texture** as map-wide operations.~~ *Done: Layers › Replace… › Fill whole map makes the map one chosen texture.*
 - **Remove duplicate texture layers** per tile.
 - **Overbright** option. *Defined from Noggit Red's source: it sets the layer's glow flag (`FLAG_GLOW` in MCLY) when Add anim is applied, next to the animation settings, so it belongs with animated layers (`texturing_tool::change_tex_flag`).* **(format-specific)**

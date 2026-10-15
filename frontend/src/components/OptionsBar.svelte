@@ -499,6 +499,7 @@
   {/if}
   {#if editor.tool === 'paint' && editor.paintMode === 'texture'}
     <label class="check" title="Spray random dabs over the brush instead of painting it solid (T)"><input type="checkbox" bind:checked={editor.paintSpray} /> Spray</label>
+    <label class="check" title="Tint red the chunks that already hold four other textures, where this texture can't be painted"><input type="checkbox" bind:checked={prefs.showUnpaintable} /> Show unpaintable chunks</label>
     {#if editor.paintSpray}
       <OptSlider label="Dab size" bind:value={editor.spray.size} min={1} max={40} step={0.5} digits={1} width={60} title="Size of each spray dab" />
       <OptSlider label="Pressure" bind:value={editor.spray.pressure} min={0} max={10} step={0.1} digits={1} width={60} title="How densely the dabs land" />

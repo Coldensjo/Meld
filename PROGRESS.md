@@ -479,3 +479,7 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-159 Brush image on the cursor
 - Done: while a tool the image brush shapes is active (Sculpt's shaping modes, Paint's texture brush), the brush ring shows the image's grey over the brush's square, turned by Turn exactly as the stroke samples it (`imageWeight`'s frame), in place of the plain inner tint, so a stroke can be aimed. The image goes to the GPU once per image picked (`brushImage.version`, `Engine.updateBrushImageCursor`); each frame only sets two uniforms.
 - Verified: make test passed (Go plus 214 of 214 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+
+## 2026-10-15 · B-013 Show unpaintable chunks
+- Done: Paint's texture mode has a Show unpaintable chunks switch (`prefs.showUnpaintable`, off by default as in Noggit Red's texturing tool). With it on, the terrain shader tints red every chunk whose four slots are all taken by other textures, so the paint texture can't go there (Noggit Red's paintability overlay multiplies the colour by red the same way). It reads the chunk slots the shader already has; nothing is computed on the CPU.
+- Verified: make test passed (Go plus 214 of 214 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.

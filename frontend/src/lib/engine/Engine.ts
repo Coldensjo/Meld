@@ -660,6 +660,7 @@ export class Engine {
     u.brushSquare.value = square ? 1 : 0
     this.updateBrushImageCursor(u, tool)
     u.gridVisible.value = editor.grid ? 1 : 0
+    u.unpaintable.value = this.prefs?.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
     u.climbCos.value = this.prefs?.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
     u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
     this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)

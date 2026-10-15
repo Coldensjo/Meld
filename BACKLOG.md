@@ -20,7 +20,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 ## Terrain sculpting and painting
 
 - [ ] B-004 **Separate Blur tool** · gap §1 · L/S · Smooth already covers most of it
-- [ ] B-013 **Show unpaintable chunks** overlay · gap §2 · L/S
+- [x] B-013 **Show unpaintable chunks** overlay · gap §2 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-014 **Animated texture layers** with speed and direction (Noggit Red adds a rotation dial) · gap §2 · L/M
 - [ ] B-015 **Overbright** option · gap §2 · L/S · defined from Noggit Red: it sets the layer's glow flag in MCLY, next to the animation settings, so do it with B-014
 - [ ] B-017 **Undockable quick texture palette** · gap §2 · L/M

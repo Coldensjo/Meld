@@ -60,6 +60,8 @@ uniform sampler2D brushImg;
 uniform float brushImgOn;
 uniform vec2 brushImgRot;
 uniform float gridVisible;
+// Paint's "Show unpaintable chunks": the paint texture's palette index, or -1 for off.
+uniform float unpaintable;
 // The climb view: the cosine of the steepest walkable slope, or 0 for off.
 uniform float climbCos;
 // The width of a paint chunk in world units for the chunk lines; 0 hides them.
@@ -172,6 +174,13 @@ void main() {
     // Foam is lit like everything else, so it doesn't glow at night.
     vec3 foamColor = vec3(0.85, 0.92, 0.95) * clamp(skyAmbient * 1.4 + sunColor * 0.7, 0.0, 1.0);
     lit = mix(lit, foamColor, foam * 0.35);
+  }
+
+  if (unpaintable >= 0.0) {
+    // A chunk with four other textures can't take the paint texture (Noggit Red's paintability overlay).
+    bool full = all(lessThan(ids, vec4(254.5)));
+    bool has = any(equal(ids, vec4(unpaintable)));
+    if (full && !has) lit *= vec3(1.0, 0.22, 0.22);
   }
 
   if (climbCos > 0.0) {
@@ -307,6 +316,7 @@ export function createTerrainMaterial(
     brushImgRot: { value: new THREE.Vector2(1, 0) },
     gridVisible: { value: 0 },
     climbCos: { value: 0 },
+    unpaintable: { value: -1 },
     chunkLineWorld: { value: 0 },
     chunkHover: { value: new THREE.Vector4() },
     tileWorld: { value: 0 },
