@@ -140,6 +140,7 @@
         { kind: 'sep' },
         { kind: 'check', label: 'Map Textures (quick palette)', checked: ui.texturePalette, toggle: () => (ui.texturePalette = !ui.texturePalette) },
         { kind: 'check', label: 'History (go back to any step)', checked: ui.history, toggle: () => (ui.history = !ui.history) },
+        { kind: 'check', label: 'Gizmo Arrows in Local Space', checked: editor.gizmoLocal, toggle: () => (editor.gizmoLocal = !editor.gizmoLocal) },
         { kind: 'check', label: 'Inspector (placement numbers)', shortcut: 'I', checked: ui.inspector, toggle: () => (ui.inspector = !ui.inspector) },
         { kind: 'action', label: 'Hide Selected Models', shortcut: 'H', disabled: !editor.selectedIds.length, run: withEngine((e) => e.toggleHideSelected()) },
         { kind: 'check', label: 'Show Hidden Models', checked: ui.showHiddenModels, toggle: () => (ui.showHiddenModels = !ui.showHiddenModels) },

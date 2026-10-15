@@ -199,6 +199,8 @@ export const editor = $state({
   selectedIds: [] as number[],
   /** The selected area in cells (vertex corners), or null. The Select tool's drag on the ground makes it. */
   selection: null as { x0: number; z0: number; x1: number; z1: number } | null,
+  /** The gizmo's move arrows follow the selected model's own turn (local space) instead of the map's x and z. */
+  gizmoLocal: false,
   paste: { terrain: true, textures: true, objects: true, blend: 2, heightOffset: 0, heightMode: 'set' as PasteHeightMode },
   grid: false,
   /** Draws the 8x8-cell paint chunk edges, where the 1.12 four-texture limit applies. */

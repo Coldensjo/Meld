@@ -486,6 +486,17 @@ export class ObjectLayer {
     return best < Infinity ? this.amongHit : null
   }
 
+  /** World yaw, accumulated through the parents, without allocating. */
+  worldYaw(o: WorldObject): number {
+    let rot = o.rotY
+    let p = this.parentOf(o, 0)
+    for (let d = 1; p && d <= MAX_DEPTH; d++) {
+      rot += p.rotY
+      p = this.parentOf(p, d)
+    }
+    return rot
+  }
+
   /** World uniform scale, accumulated through the parents, without allocating. */
   worldScale(o: WorldObject): number {
     let scale = o.scale

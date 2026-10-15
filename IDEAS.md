@@ -385,3 +385,10 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   removed by hand, a click selecting one. **Ours**: the window lists the map's own palette, which is
   already the textures saved with the map, so nothing is kept twice; a texture joins it by being picked
   in the asset browser, and favourites (B-142) are the cross-map list.
+
+### B-143 Three-axis gizmo · move arrows, uniform scale
+- Chosen by the loop from Noggit Red (2026-10-15, B-143). Noggit Red's ImGuizmo gizmo has move arrows on
+  three axes, rotation rings and scale handles per axis, in world or local space. **Ours**: Meld's gizmo
+  gains x and z move arrows (y is its height arrow already) and a local-space switch for them; rotation
+  stays the yaw ring (tilts are typed in the Inspector), and scale stays the one uniform knob, since a 1.12
+  placement (MDDF and MODF) stores a single scale, so a per-axis scale couldn't be exported.
