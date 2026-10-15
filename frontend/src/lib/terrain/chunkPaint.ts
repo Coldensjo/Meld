@@ -473,6 +473,36 @@ export function dropFaintLayers(side: number, res: number, slots: Uint8Array, we
   return n
 }
 
+/**
+ * Merges chunk `c`'s slots that hold the same palette texture into the first of them, each texel's
+ * weights added, and frees the others (Noggit Red's "Remove texture duplicates"). Returns how many
+ * slots went.
+ */
+export function mergeDuplicateSlots(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number): number {
+  const per = res / side
+  const x0 = (c % side) * per
+  const z0 = Math.floor(c / side) * per
+  let n = 0
+  for (let a = 0; a < SLOTS; a++) {
+    const tex = slots[c * SLOTS + a]
+    if (tex === NO_TEXTURE) continue
+    for (let b = a + 1; b < SLOTS; b++) {
+      if (slots[c * SLOTS + b] !== tex) continue
+      for (let z = z0; z < z0 + per; z++) {
+        for (let x = x0; x < x0 + per; x++) {
+          const o = (z * res + x) * SLOTS
+          weights[o + a] += weights[o + b]
+          weights[o + b] = 0
+        }
+      }
+      slots[c * SLOTS + b] = NO_TEXTURE
+      n++
+    }
+  }
+  if (n) compactChunk(side, res, slots, weights, c)
+  return n
+}
+
 /** Sets every chunk to one texture, fully painted, which is how a map starts. */
 export function clearPalette(side: number, res: number, slots: Uint8Array, weights: Uint8Array, to = 0): void {
   slots.fill(NO_TEXTURE)

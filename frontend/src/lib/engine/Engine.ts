@@ -42,7 +42,7 @@ import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type 
 import { mirrorClip, rotateClip } from '../world/clipRotate'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
-import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, compactChunk, convertGlobalLayers, findSlot, hasEmptySlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, compactChunk, convertGlobalLayers, findSlot, hasEmptySlot, mergeDuplicateSlots, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette, resetTexel } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from '../models/assets'
@@ -3201,6 +3201,107 @@ export class Engine {
     this.history.push(cmd)
     this.syncSelection()
     setStatus(`Removed ${dupes.length} duplicate ${dupes.length === 1 ? 'model' : 'models'}. Undo restores them.`)
+  }
+
+  /**
+   * Noggit Red's Assist › Clean up, on the client tile under the camera target (#45), one undo step
+   * each: the height to zero, the textures back to each chunk's base, the textures replaced by the
+   * paint texture alone, each chunk's duplicate textures merged, every model removed, or the
+   * duplicate models removed.
+   */
+  cleanUpTile(what: 'height' | 'textures' | 'setBase' | 'textureDuplicates' | 'models' | 'duplicateModels') {
+    const t = this.terrain
+    const target = this.controller.target
+    const tiles = Math.max(1, Math.round(t.size / TILE_CELLS))
+    const tx = Math.floor(target.x / (TILE_CELLS * t.cellSize))
+    const tz = Math.floor(target.z / (TILE_CELLS * t.cellSize))
+    if (tx < 0 || tz < 0 || tx >= tiles || tz >= tiles) {
+      setStatus('The camera is not over the map.', 3000)
+      return
+    }
+    const block = editor.regionBlock
+    const name = block ? `tile ${block.x + tx}, ${block.y + tz}` : `tile ${tx}, ${tz}`
+    const x0 = tx * TILE_CELLS * t.cellSize, z0 = tz * TILE_CELLS * t.cellSize
+    const x1 = x0 + TILE_CELLS * t.cellSize, z1 = z0 + TILE_CELLS * t.cellSize
+    if (what === 'models' || what === 'duplicateModels') {
+      const roots = [...this.objects.objects.values()].filter((o) => o.parent === undefined && o.x >= x0 && o.x < x1 && o.z >= z0 && o.z < z1)
+      let gone: WorldObject[]
+      if (what === 'models') {
+        const ids = new Set<number>()
+        for (const o of roots) {
+          ids.add(o.id)
+          for (const d of this.objects.descendantIds(o.id)) ids.add(d)
+        }
+        gone = [...ids].map((id) => this.objects.objects.get(id)!).filter(Boolean)
+      } else {
+        const seen = new Set<string>()
+        gone = []
+        for (const o of roots) {
+          const key = [o.type, o.x, o.z, o.yOff, o.rotY, o.scale].map((v) => (typeof v === 'number' ? Math.round(v * 100) : v)).join('|')
+          if (seen.has(key)) gone.push(o)
+          else seen.add(key)
+        }
+      }
+      if (!gone.length) {
+        setStatus(`No ${what === 'models' ? '' : 'duplicate '}models on ${name}.`, 3000)
+        return
+      }
+      const cmd = removeCommand(this.objects, gone)
+      cmd.label = what === 'models' ? `Clear models on ${name}` : `Remove duplicate models on ${name}`
+      cmd.redo()
+      this.history.push(cmd)
+      this.syncSelection()
+      setStatus(`Removed ${gone.length} ${gone.length === 1 ? 'model' : 'models'} on ${name}. Undo restores them.`, 4000)
+      return
+    }
+    if (what === 'height') {
+      const r = { x0: tx * TILE_CELLS, z0: tz * TILE_CELLS, x1: Math.min(t.size, (tx + 1) * TILE_CELLS), z1: Math.min(t.size, (tz + 1) * TILE_CELLS) }
+      const cs = t.cellSize
+      const stroke = new TerrainStroke(t, `Clear height on ${name}`, { heights: true }, (q) => this.objects.markRegionDirty(q.x0 * cs, q.z0 * cs, q.x1 * cs, q.z1 * cs))
+      stroke.reserveHeights(r)
+      for (let z = r.z0; z <= r.z1; z++) for (let x = r.x0; x <= r.x1; x++) t.heights[z * t.verts + x] = 0
+      t.markDirty(r.x0, r.z0, r.x1, r.z1)
+      stroke.touchHeights(r)
+      this.objects.markRegionDirty(x0, z0, x1, z1)
+      const cmd = stroke.finish()
+      if (cmd) this.history.push(cmd)
+      return
+    }
+    const side = t.paintChunksPerSide
+    const chunks: number[] = []
+    for (let cz = tz * TILE_PAINT_CHUNKS; cz < (tz + 1) * TILE_PAINT_CHUNKS && cz < side; cz++) {
+      for (let cx = tx * TILE_PAINT_CHUNKS; cx < (tx + 1) * TILE_PAINT_CHUNKS && cx < side; cx++) chunks.push(cz * side + cx)
+    }
+    const per = t.splatRes / side
+    const forTexels = (c: number, fn: (o: number) => void) => {
+      const px = (c % side) * per, pz = Math.floor(c / side) * per
+      for (let z = pz; z < pz + per; z++) for (let x = px; x < px + per; x++) fn((z * t.splatRes + x) * SLOTS)
+    }
+    if (what === 'textures') {
+      this.editChunks(`Clear textures on ${name}`, chunks, (c) => forTexels(c, (o) => resetTexel(t.weights, o, 1)))
+    } else if (what === 'setBase') {
+      const tex = editor.paintLayer
+      this.editChunks(`Clear textures and set base on ${name}`, chunks, (c) => {
+        t.chunkSlots[c * SLOTS] = tex
+        for (let k = 1; k < SLOTS; k++) t.chunkSlots[c * SLOTS + k] = NO_TEXTURE
+        forTexels(c, (o) => {
+          t.weights[o] = 255
+          t.weights[o + 1] = t.weights[o + 2] = t.weights[o + 3] = 0
+        })
+      })
+    } else {
+      const dupes = chunks.filter((c) => {
+        const s = t.chunkSlots.subarray(c * SLOTS, c * SLOTS + SLOTS)
+        return s.some((tex, k) => tex !== NO_TEXTURE && s.indexOf(tex) !== k)
+      })
+      if (!dupes.length) {
+        setStatus(`No duplicate textures on ${name}.`, 3000)
+        return
+      }
+      let merged = 0
+      this.editChunks(`Remove texture duplicates on ${name}`, dupes, (c) => (merged += mergeDuplicateSlots(side, t.splatRes, t.chunkSlots, t.weights, c)))
+      setStatus(`Merged ${merged} duplicate texture layer${merged === 1 ? '' : 's'} on ${name}.`, 3000)
+    }
   }
 
   /**

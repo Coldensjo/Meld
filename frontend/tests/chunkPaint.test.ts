@@ -313,3 +313,14 @@ test('a chunk drops its painted layers fainter than the threshold everywhere, ne
   assert.equal(dropFaintLayers(side, res, slots, weights, 0, 255), 1, 'at 100% the strong layer goes too, the base stays')
   assert.equal(slots[0], 0)
 })
+
+test('duplicate textures in a chunk merge into the first slot', async () => {
+  const { mergeDuplicateSlots, NO_TEXTURE: NONE } = await import('../src/lib/terrain/chunkPaint.ts')
+  const side = 1, res = 2
+  const slots = Uint8Array.from([5, 7, 5, NONE])
+  const weights = Uint8Array.from([100, 55, 100, 0, 255, 0, 0, 0, 0, 0, 255, 0, 50, 50, 155, 0])
+  assert.equal(mergeDuplicateSlots(side, res, slots, weights, 0), 1)
+  assert.deepEqual([...slots], [5, 7, NONE, NONE])
+  assert.deepEqual([...weights], [200, 55, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 205, 50, 0, 0])
+  assert.equal(mergeDuplicateSlots(side, res, slots, weights, 0), 0, 'nothing left to merge')
+})

@@ -824,3 +824,14 @@ in the palette layer's alpha, 0 without one). In the dev page, load a region wit
   Lighting, place one and read `__engine.terrain.material.uniforms.clientPointCount` and
   `clientPointColor`. Trap: a sharp line across the ground near a light is usually two chunks'
   textures; compare with `clientPointCount` held at 0 before blaming the light sum.
+
+## Clean up the tile under the camera (#45)
+
+Checks: Edit › "Clean up the tile under the camera" (`Engine.cleanUpTile`). In the dev page, on the
+Durotar region (Kalimdor 41_33, 2x2) with `e.controller.target.set(180, 20, 300)` (tile 41, 33):
+`e.cleanUpTile('models')` removes the tile's 386 root models and what hangs on them (1196 to 810,
+"Clear models on tile 41, 33"), `e.cleanUpTile('height')` puts the tile's ground at 0 while the next
+tile keeps its own, and `e.history.undo()` restores either. `'textureDuplicates'` reports none on the
+client's paint; `tests/chunkPaint.test.ts` covers `mergeDuplicateSlots`.
+- Trap: a few region models stand just outside the map (negative x or z); a count of "models with
+  x and z under 533" includes them, though they are on no tile.
