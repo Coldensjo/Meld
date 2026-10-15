@@ -168,7 +168,30 @@ class Batch {
   }
 }
 
-/** One emitter or ribbon of one placed model or spawn. */
+/**
+ * The tools' previews of models not yet placed (the Place tool's ghost, a paste's, the doodad brush's
+ * plan), by mesh: their particles run too, following the mesh while it is shown in the scene.
+ */
+const previews = new Map<THREE.Object3D, ModelAsset>()
+let previewsVersion = 0
+
+/** Runs the particles of `asset` on the preview `mesh`; null stops them. */
+export function previewParticles(mesh: THREE.Object3D, asset: ModelAsset | null) {
+  if (asset && (asset.emitters.length || asset.ribbons.length)) previews.set(mesh, asset)
+  else if (!previews.delete(mesh)) return
+  previewsVersion++
+}
+
+/** Whether `o` and its parents are visible and in a scene. */
+function shown(o: THREE.Object3D): boolean {
+  for (let p: THREE.Object3D | null = o; p; p = p.parent) {
+    if (!p.visible) return false
+    if ((p as THREE.Scene).isScene) return true
+  }
+  return false
+}
+
+/** One emitter or ribbon of one placed model, spawn or preview. */
 interface Live {
   pool: ParticlePool | null
   trail: RibbonTrail | null
@@ -178,6 +201,8 @@ interface Live {
   asset: ModelAsset
   /** The object's matrix. */
   inst: THREE.Matrix4
+  /** A preview's mesh, whose world matrix it follows each frame; null for a placed model or spawn. */
+  follow: THREE.Object3D | null
   frame: THREE.Matrix4
   /** The rebuild that last saw it. */
   seen: number
@@ -213,6 +238,7 @@ export class ParticleLayer {
   private version = -1
   private spawns: SpawnLayer | null = null
   private spawnsVersion = -1
+  private previewsVersion = -1
   private generation = 0
 
   constructor() {
@@ -241,9 +267,12 @@ export class ParticleLayer {
     return true
   }
 
-  private add(key: string, l: Omit<Live, 'inst' | 'seen'>, gen: number) {
-    this.live.set(key, { ...l, inst: m.clone(), seen: gen })
+  private add(key: string, l: Omit<Live, 'inst' | 'seen' | 'follow'>, gen: number) {
+    this.live.set(key, { ...l, inst: m.clone(), seen: gen, follow: this.following })
   }
+
+  /** The preview mesh the pools being made follow, while `rebuild` walks the previews. */
+  private following: THREE.Object3D | null = null
 
   /**
    * Every pool and trail and its key, after the objects or the spawns changed. One whose emitter
@@ -269,6 +298,12 @@ export class ParticleLayer {
       m.copy(at)
       this.addModel(`s:${key}`, asset, gen)
     })
+    for (const [mesh, asset] of previews) {
+      this.following = mesh
+      m.copy(mesh.matrixWorld)
+      this.addModel(`p:${mesh.id}`, asset, gen)
+    }
+    this.following = null
     for (const [key, l] of this.live) if (l.seen !== gen) this.live.delete(key)
   }
 
@@ -298,16 +333,28 @@ export class ParticleLayer {
     this.group.visible = this.enabled
     if (!this.enabled) return
     const spawnsVersion = spawns?.version ?? -1
-    if (layer !== this.layer || layer.version !== this.version || spawns !== this.spawns || spawnsVersion !== this.spawnsVersion) {
+    if (
+      layer !== this.layer ||
+      layer.version !== this.version ||
+      spawns !== this.spawns ||
+      spawnsVersion !== this.spawnsVersion ||
+      previewsVersion !== this.previewsVersion
+    ) {
       this.rebuild(layer, spawns)
       this.version = layer.version
       this.spawnsVersion = spawnsVersion
+      this.previewsVersion = previewsVersion
     }
     camera.getWorldPosition(eye)
     right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
     up.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
     for (const b of this.batches.values()) b.floats = 0
     for (const l of this.live.values()) {
+      if (l.follow) {
+        if (!shown(l.follow)) continue
+        l.follow.updateWorldMatrix(true, false)
+        l.inst.copy(l.follow.matrixWorld)
+      }
       const bone = l.bone >= 0 ? l.asset.anim?.boneMatrix(l.bone) : null
       m.multiplyMatrices(l.inst, bone ?? l.frame)
       if (bone) m.multiply(l.frame)

@@ -167,6 +167,13 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   ribbon). The Durotar region Kalimdor 41_33 (2x2) has 50 of them; its Copper Vein `object/112723`
   has four additive glow emitters with 5 or 6 particles each once the camera is near it. A hidden
   spawn kind (the Spawns filter) drops its spawns' particles.
+- Previews (#110): the tools register their ghost meshes (`previewParticles`), keyed `p:<mesh id>`.
+  With the Place tool on `FreestandingTorch01.m2` and the pointer over the ground the ghost burns
+  (`p:<id>:0` about 18 particles); switching tools takes its quads out of the batch at once.
+- Trap: in the dev page, `await import('/src/lib/state/editor.svelte.ts')` can load a second copy of
+  the module (the app's has a `?t=` hot-reload query), and writing `editor.tool` there changes
+  nothing. Import the app's own URL:
+  `performance.getEntriesByType('resource').map(r => r.name).find(n => n.includes('/src/lib/state/editor.svelte.ts'))`.
 
 ## Brush size controls (Photoshop-style)
 

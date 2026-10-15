@@ -9,6 +9,7 @@ import type { Command } from '../state/history'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
 import { hasSkeleton, modelMesh } from '../world/Animator'
+import { previewParticles } from '../world/ParticleLayer'
 import { HoleWalls } from './HoleWalls'
 import { spawnKey } from '../world/SpawnLayer'
 import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
@@ -185,6 +186,8 @@ export class PlaceTool implements Tool {
       // is a skinned mesh, so it moves as the placed copies will.
       this.ghostAsset = asset
       const next = modelMesh(asset.geometry, asset.material, asset.skeleton)
+      previewParticles(this.ghost, null)
+      previewParticles(next, asset)
       next.renderOrder = this.ghost.renderOrder
       next.visible = this.ghost.visible
       const parent = this.ghost.parent
@@ -424,6 +427,8 @@ export class SelectTool implements Tool {
       if (g.geometry !== asset.geometry || !hasSkeleton(g, asset.skeleton)) {
         g = modelMesh(asset.geometry, asset.material, asset.skeleton)
         g.matrixAutoUpdate = false
+        previewParticles(this.ghosts[i], null)
+        previewParticles(g, asset)
         this.ghostGroup.remove(this.ghosts[i])
         this.ghostGroup.add(g)
         this.ghosts[i] = g

@@ -5,6 +5,7 @@ import type { Command } from '../state/history'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { getAsset } from '../models/assets'
 import { hasSkeleton, modelMesh } from '../world/Animator'
+import { previewParticles } from '../world/ParticleLayer'
 import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
 import { MAX_ATTEMPTS, attemptRate, candidate, fits, fitsOn, newBrush, pickEntry, uniqueName, type DoodadBrush } from './doodadBrush'
 
@@ -252,6 +253,8 @@ export class DoodadBrushTool implements Tool {
       if (g.geometry !== asset.geometry || !hasSkeleton(g, asset.skeleton)) {
         g = modelMesh(asset.geometry, asset.material, asset.skeleton)
         g.renderOrder = this.ghostGroup.renderOrder
+        previewParticles(this.ghosts[i], null)
+        previewParticles(g, asset)
         this.ghostGroup.remove(this.ghosts[i])
         this.ghostGroup.add(g)
         this.ghosts[i] = g
