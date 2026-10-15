@@ -286,3 +286,12 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: Checked noggit3 first (IDEAS.md records it): its chunk mover is a copy of selected chunks to the cursor with a preview, not a drag, and Meld's area copy and paste already does that for any cell rect. Two gaps were closed: the area clipboard now carries the painted liquid cells (`copyLiquidCells`, `pasteLiquidCells` in `liquids.ts`: the pasted rect loses the liquid it had and the clip's cells are laid in, a layer per liquid ID in each chunk, undone with the paste through `LiquidStroke`), and R (or Turn 90° in the options bar) turns the pending paste a quarter turn (`rotateClip` in `world/clipRotate.ts`: heights, holes, texels, liquids and models together, the models' yaw turning too; the preview rect swaps its sides). The old 2026-10-12 estimate assumed a chunk-grid move that noggit3 doesn't do either.
 - Verified: new clipboard.test.ts, 2 tests (a turn moves every part the same way and four turns come back; liquid cells copy, paste anywhere and turn). make test passed (Go plus 188 of 188 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
 - Left: no mirror and no min/max/add/subtract height modes; a hole of one triangle keeps its value when turned, so it may land on the other triangle of its cell.
+
+## 2026-10-15 · backlog tidy (2nd run)
+- Removed the items finished in this run (B-031, B-032, B-037, B-072, B-091, B-060, B-007, B-006), as earlier tidies did; PROGRESS.md, IDEAS.md and the gap list keep the record. No owner-written item was deleted; the owner session's [x] items stay listed.
+- No duplicates found. Nothing new fits Parked.
+- New lines from this run: B-126 (paste mirror and height modes, from B-006) and B-127 (the group gizmo's arrow top-down, from B-072).
+
+## 2026-10-15 · stopped (2nd run)
+- Stopped: 8 items were done in this run (B-031, B-032, B-037, B-072, B-091, B-060, B-007, B-006), which is the cap.
+- Next top item: every item still open and unblocked is value L (B-004, B-009, B-013 to B-017, B-036, B-038, B-040, B-059, B-070, B-071, B-073, B-074, B-078 to B-083, B-105, B-108, B-119, B-123 to B-127). The next run will meet the "top remaining items are all value L" stop unless the owner raises one; B-084 (approved) and B-123 (the painted no-doodad cells, which needs the owner's format decision) are the ones to look at first.

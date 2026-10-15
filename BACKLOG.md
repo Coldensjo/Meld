@@ -20,8 +20,6 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 ## Terrain sculpting and painting
 
 - [ ] B-004 **Separate Blur tool** · gap §1 · L/S · Smooth already covers most of it
-- [x] B-006 **Chunk Mover**: drag a chunk with its heights and objects · gap §1 · M/L · done 2026-10-15 (PROGRESS.md): noggit's chunk mover is a copy with a preview, which the area paste already was; it now carries painted liquids and turns with R
-- [x] B-007 **Clear tool: height, liquids, holes, shadows, vertex colours, impassable** · gap §1 · M/L · done 2026-10-15 (PROGRESS.md) for what the map holds: Height (to zero), Liquids and Holes (fill) joined Models and Textures; shadows, vertex colours and impassable have no field in the `.wmap` and stay with B-057, B-058 and B-055
 - [ ] B-009 **Terrain-projected and sphere cursor shapes** · gap §1 · L/M · unverified against the current outline
 - [ ] B-013 **Show unpaintable chunks** overlay · gap §2 · L/S
 - [ ] B-014 **Animated texture layers** with speed · gap §2 · L/M
@@ -44,11 +42,9 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 ## Objects (props)
 
-- [x] B-031 **Rotate around a pivot** for single and multi-selection · gap §4 · M/M · decided in IDEAS.md · done 2026-10-15 (PROGRESS.md): R, Alt+arrows and the group gizmo's ring turn a multi-selection about its mean position behind the Select tool's "Rotate around pivot point" checkbox (on by default)
-- [x] B-032 **Multi-selection move mode** with local or world gizmo · gap §4 · M/L · done 2026-10-15 (PROGRESS.md): the selection set came with the owner's session; the group gizmo (ring, knob, arrow about the pivot) finished it. noggit has no local/world toggle; its "multi selection movement" is the pivot (B-031) and the ground snap (B-037)
+- [ ] B-126 **Area paste: mirror and height modes**: noggit's chunk mover also mirrors the copied chunks and lays the heights in as min, max, add or subtract over the target; Meld's paste has the quarter turn, offset and blend only · Source: loop: B-006 · L/S
 - [ ] B-105 **Hide a model with its attachments**: H hides only the selected object, so props attached to it stay drawn in mid-air · Source: loop: B-034 · L/S · may be what an author expects; check with the owner
 - [ ] B-036 **Reset rotation** menu item (Ctrl+R) · gap §4 · L/S · unverified: may already exist
-- [x] B-037 **Mouse-move snap**: two checkboxes, follow cursor for a single model and snap to ground for a group · gap §4 · M/S · decided in IDEAS.md (noggit3) · done 2026-10-15 (PROGRESS.md): Follow cursor on the ground (on) and Snap models to the ground (off) in the Select tool's options bar
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
 - [ ] B-040 **Helper models**: reference models as visual aids · gap §4 · L/M
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
@@ -66,15 +62,14 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
 - [ ] B-058 **Vertex colour editor** · gap §5 · L/L · needs-approval
 - [ ] B-059 **Save minimap image** (Ctrl+Shift+P) · gap §5 · L/S
-- [x] B-060 **Minimap window**: click to jump, with tile borders · gap §6 & priority 5 · H/L · done 2026-10-15 (PROGRESS.md): a floating Minimap window (M, Camera menu) with the heights, the overview, tile borders, the camera's spot and click to jump
 - [ ] B-124 **Doodad brush On props: footprint at world scale and a cheaper prop lookup**: a model standing on a prop is spaced by its own scale, not its world scale, and each attempt casts a ray through every model's bounds tree (up to 256 a frame); a chunk-bucketed lookup would keep a dense map smooth · Source: loop: B-120 · L/S
 - [ ] B-108 **Port commands: area name and ADT header**: noggit's port file starts each entry with `Map: <area> on ADT x y` · Source: loop: B-053 · L/M · the editor has no area names, so this waits on B-054
 
 ## Navigation, view and display
 
+- [ ] B-127 **Group gizmo arrow in the top-down view**: the height arrow can't be dragged while top-down, since its drag plane is edge-on to the straight-down ray; a screen-space drag (pixels to height) would work in both views · Source: loop: B-072 · L/S
 - [ ] B-070 **Reset camera roll** (End) · gap §6 · L/S
 - [ ] B-071 **Locked cursor mode** while the camera moves · gap §6 · L/S
-- [x] B-072 **Top-down 2D tile mode** · gap §6 · M/M · done 2026-10-15 (PROGRESS.md): U and Camera › Top-down View, an orthographic camera over the target
 - [ ] B-073 **Pause and speed keys for the day cycle** · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M
 - [ ] B-078 **Height contour lines** · gap §7 · L/M
@@ -88,7 +83,6 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 ## Settings, UI and help
 
 - [ ] B-125 **Config fields other than the preferences written whole**: the client folder, server folder, window size and login are still saved from one instance's copy, so two windows can overwrite each other's; the same patch-and-merge as B-122 per field · Source: loop: B-122 · L/S
-- [x] B-091 **Log window** with a file-loading log setting · gap §10 · M/M · done 2026-10-15 (PROGRESS.md): Help › Log…, Preferences › Log file loading
 - [x] B-093 **Asset browser search** improvements · gap §10 · L/S · done: the search-first asset browser with synonyms, kinds, zones and category facets (CLAUDE.md, Asset browser)
 - [x] B-115 **Dock reduced to Layers**: the Map, Spawns and Properties panels are no longer mounted · Source: owner · -/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session); their functions are B-118
 - [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval
