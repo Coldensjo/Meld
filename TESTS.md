@@ -241,6 +241,10 @@ e.terrain.heightAt(180, 300)                  // then screenshot
   while the flat ground outside keeps its paint: compare the dominant texture at the peak's flank,
   at its foot and on the plain.
 - `e.history.undo()` then `e.frame()` checks the stroke's undo.
+- Pen pressure on the radius (#42): set `prefs.tabletSupport = prefs.tabletRadius = true` (the app's
+  module, see the `?t=` trap), then `e.penPressure = 0.3` before a stroke: a Raise stroke at radius 20
+  touches 9 vertices instead of 69, `editor.brush.radius` stays 20 and the ring's
+  `terrain.material.uniforms.brushRadius` reads 6.
 
 ## Reproducing a user's view
 

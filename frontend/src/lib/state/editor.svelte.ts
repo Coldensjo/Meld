@@ -353,6 +353,8 @@ export const prefs = $state({
   cameraCollision: false,
   /** A pen's pressure scales sculpt speed and paint strength (a mouse is unchanged). */
   tabletSupport: false,
+  /** With Tablet support, a pen's pressure also sizes the brush tools' radius (Noggit Red's Use Tablet on the radius slider). */
+  tabletRadius: false,
   /** Hour of day 0-24 (sun/moon position, lighting, sky). */
   timeOfDay: 13,
   /** Animate a full day/night cycle (one day ≈ cycleMinutes). */

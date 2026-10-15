@@ -18,7 +18,7 @@ import { Environment, type ClientSky } from './Environment'
 import { HorizonLayer } from '../world/HorizonLayer'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
-import { PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
+import { BrushTool, PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
 import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
@@ -385,6 +385,7 @@ export class Engine {
       get raycaster() { return self.raycaster },
       surface: (exclude?: Set<number>) => self.surfaceHit(exclude),
       pressure: () => (self.prefs?.tabletSupport ? self.penPressure : 1),
+      radiusPressure: () => self.radiusPressure(),
       cameraYaw: () => self.controller.yaw,
     }
 
@@ -508,6 +509,11 @@ export class Engine {
 
   /** The pen's last pressure, or 1 when the pointer isn't a pen. */
   private penPressure = 1
+
+  /** The pen's share of the brush radius while "Pen pressure sizes the brush" is on (#42), else 1. */
+  private radiusPressure(): number {
+    return this.prefs?.tabletSupport && this.prefs.tabletRadius ? Math.max(0.05, Math.min(1, this.penPressure)) : 1
+  }
 
   private updatePointer(e: PointerEvent) {
     this.penPressure = e.pointerType === 'pen' ? e.pressure : 1
@@ -730,7 +736,9 @@ export class Engine {
     const u = this.terrain.material.uniforms
     this.updateLookTexture(u, time)
     u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
-    const radius = editor.tool === 'road' ? Math.max(1.5, editor.brush.radius * 0.5) : editor.brush.radius
+    // The ring shows the radius the pen's pressure gives the brush tools (#42).
+    const r0 = editor.brush.radius * (tool instanceof BrushTool ? this.radiusPressure() : 1)
+    const radius = editor.tool === 'road' ? Math.max(1.5, r0 * 0.5) : r0
     // The doodad brush scatters in a circle whatever shape the other tools use.
     const square = editor.brush.shape === 'square' && editor.tool !== 'doodad'
     if (this.hit) {

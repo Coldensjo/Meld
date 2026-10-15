@@ -331,6 +331,7 @@
         { kind: 'sep' },
         { kind: 'check', label: 'Invert camera Y', checked: prefs.invertY, toggle: () => (prefs.invertY = !prefs.invertY) },
         { kind: 'check', label: 'Tablet support (pen pressure)', checked: prefs.tabletSupport, toggle: () => (prefs.tabletSupport = !prefs.tabletSupport) },
+        { kind: 'check', label: 'Pen pressure sizes the brush (with Tablet support)', checked: prefs.tabletRadius, toggle: () => (prefs.tabletRadius = !prefs.tabletRadius) },
         { kind: 'check', label: 'Log file loading (every client file read, in Help › Log)', checked: prefs.logFileLoading, toggle: () => (prefs.logFileLoading = !prefs.logFileLoading) },
       ],
     },

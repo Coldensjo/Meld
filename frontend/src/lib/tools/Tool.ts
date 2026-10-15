@@ -29,6 +29,11 @@ export interface ToolContext {
    * setting off. Brush tools scale their strength by it.
    */
   pressure(): number
+  /**
+   * What the pen's pressure does to the brush radius, 0.05 to 1: the pressure while "Pen pressure
+   * sizes the brush" is on and a pen is drawing (#42), else 1.
+   */
+  radiusPressure(): number
   /** The camera's yaw, for camera-relative keys (the arrows move the way the view faces). */
   cameraYaw(): number
 }

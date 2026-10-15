@@ -13,6 +13,19 @@ export type ToolSettings = typeof liveEditor
  */
 let editor: ToolSettings = liveEditor
 
+/**
+ * `settings` with the brush radius scaled by `p` (the pen's pressure, #42): a view that reads every
+ * other setting through to `settings`. Its own properties are defined, never assigned, so nothing
+ * is written into the reactive editor behind it.
+ */
+function pressured(settings: ToolSettings, p: number): ToolSettings {
+  const brush = Object.create(settings.brush) as ToolSettings['brush']
+  Object.defineProperty(brush, 'radius', { value: settings.brush.radius * p })
+  const view = Object.create(settings) as ToolSettings
+  Object.defineProperty(view, 'brush', { value: brush })
+  return view
+}
+
 /** Runs `fn` with the brush tools reading `settings` instead of the editor's (the Stamp tool's brushes). */
 export function withSettings<T>(settings: ToolSettings, fn: () => T): T {
   const prev = editor
@@ -57,7 +70,7 @@ function texelAt(t: Terrain, x: number, z: number): number {
 }
 
 /** Shared stroke lifecycle for brush tools that modify the terrain. */
-abstract class BrushTool implements Tool {
+export abstract class BrushTool implements Tool {
   get usesBrush() {
     return true
   }
@@ -107,7 +120,9 @@ abstract class BrushTool implements Tool {
     brushImage.active = this.imageShaped() && !!brushImage.data
     if (brushImage.active) setBrushImageRotation(editor.brushImage.rotation)
     try {
-      this.apply(ctx, dt, this.center.set(x, hit.y, z))
+      const p = ctx.radiusPressure()
+      if (p < 1) withSettings(pressured(editor, p), () => this.apply(ctx, dt, this.center.set(x, hit.y, z)))
+      else this.apply(ctx, dt, this.center.set(x, hit.y, z))
     } finally {
       brushImage.active = false
     }
