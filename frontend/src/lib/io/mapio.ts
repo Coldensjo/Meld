@@ -42,6 +42,7 @@ import { TILE_CELLS, mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
 import { minimapScale, shadeHeights } from './minimapImage'
+import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, type HeightmapMode } from './heightmapImport'
 import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
@@ -430,18 +431,17 @@ export function exportHeightmap(engine: Engine) {
 }
 
 /** Replaces the map's heights with a heightmap PNG of the same size, as one undoable step. */
-export function importHeightmap(engine: Engine) {
+export function importHeightmap(engine: Engine, opts: { mode: HeightmapMode; min: number; max: number } = { mode: 'set', min: IMAGE_MIN, max: IMAGE_MAX }) {
   return guarded('Import heightmap', async () => {
     const path = await OpenHeightmapDialog()
     if (!path) return
     const img = await ReadHeightmap(path)
     const side = engine.terrain.size + 1
-    if (img.side !== side) {
-      setStatus(`The heightmap is ${img.side}×${img.side} samples, but this map needs ${side}×${side}. Nothing was changed.`, 8000)
-      return
-    }
-    engine.setHeights(Float32Array.from(img.heights), 'Import heightmap')
-    setStatus(`Imported the heightmap from ${path}. Undo reverts it.`)
+    // The image's greys between Min and Max, put onto the ground by the mode; another size is stretched over the map.
+    const ratios = imageRatios(img, side)
+    engine.setHeights(importHeights(engine.outerHeights(), ratios, opts.mode, opts.min, opts.max), 'Import heightmap')
+    const stretched = img.side !== side ? ` (stretched from ${img.side}×${img.side} to the map's ${side}×${side})` : ''
+    setStatus(`Imported the heightmap from ${path}${stretched}. Undo reverts it.`, 6000)
   })
 }
 

@@ -10,6 +10,7 @@
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
   import ZonesDialog from './ZonesDialog.svelte'
+  import HeightmapImportDialog from './HeightmapImportDialog.svelte'
   import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
   import { EquipmentFor } from '../../wailsjs/go/main/App'
   import { setStatus } from '../lib/state/editor.svelte'
@@ -345,6 +346,8 @@
   <GroundEffectsDialog onclose={close} />
 {:else if ui.dialog === 'zones'}
   <ZonesDialog onclose={close} />
+{:else if ui.dialog === 'heightmap'}
+  <HeightmapImportDialog onclose={close} />
 {:else if ui.dialog === 'weapon' && ui.weaponPick}
   <Modal title="{SLOTS[ui.weaponPick.slot]}{weaponSpawn ? ` of ${weaponSpawn.name}` : ''}" width={980} onclose={close}>
     <WeaponPicker which={ui.weaponPick.slot} selected={weaponSpawn?.equipItems?.[ui.weaponPick.slot] ?? 0} onpick={pickWeapon} />
