@@ -133,7 +133,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 
 ## 10. Settings and UI
 
-- **Settings panel** covering game path, import path, project path, WMV log path, and MCLQ export path. Meld only has the WoW folder and cache.
+- ~~**Settings panel** covering game path, import path, project path, WMV log path, and MCLQ export path.~~ *Covered: the Preferences menu holds the game path (WoW Client Folder), the project path (VMaNGOS Server Folder, where tiles, the map table and SQL go), the game login, the thumbnail cache, camera speed, mouse sensitivity, invert Y and tablet support. noggit's import path (its model import list) is a file dialog in Meld (File › Import Object List), its WMV log path imports from WoW Model Viewer, which Meld doesn't do, and its MCLQ export path is moot since Meld's tiles are always MCLQ.*
 - **Undockable tool properties** panel. Meld's dock is fixed.
 - **Floating tool windows**: noggit's tools open as separate windows.
 - ~~**Help window** and manual links.~~ *Done: the About menu is now Help, with Help… (F1: a window of short sections on getting started, the tools, brushes and undo, camera and view, with buttons to the manual and the shortcuts), Keyboard Shortcuts… and Manual (the README on GitHub, opened in the browser).*
