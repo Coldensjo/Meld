@@ -82,6 +82,13 @@ export class DoodadBrushTool implements Tool {
   private nearOnCount = 0
   /** Casts straight down at a point for the prop under it (On props). */
   private ray = new THREE.Raycaster()
+  /** The models that may stand under the brush (On props): ids, `propCount` of them, gathered about `propCentre`. */
+  private props = new Int32Array(256)
+  private propCount = 0
+  private propCentre = new THREE.Vector3()
+  private propReach = 0
+  private propLayer: ObjectLayer | null = null
+  private propVersion = -1
   private pos = new THREE.Vector3()
   private normal = { x: 0, y: 1, z: 0 }
   private tilt = { tiltX: 0, tiltZ: 0 }
@@ -319,7 +326,7 @@ export class DoodadBrushTool implements Tool {
 
   /**
    * Gathers the root models within `reach` of the brush into `near`, and with On props the attached
-   * ones into `nearOn` (at their world position; the footprint is taken at the model's own scale).
+   * ones into `nearOn` (at their world position and world scale).
    */
   private gatherNear(ctx: ToolContext, hit: THREE.Vector3, reach: number) {
     let n = 0
@@ -340,7 +347,8 @@ export class DoodadBrushTool implements Tool {
         }
         this.nearOn[m * 4] = w.x
         this.nearOn[m * 4 + 1] = w.z
-        this.nearOn[m * 4 + 2] = this.footprint(o.type, o.scale)
+        // Spaced by its size on the map: its own scale times its parents'.
+        this.nearOn[m * 4 + 2] = this.footprint(o.type, ctx.objects.worldScale(o))
         this.nearOn[m * 4 + 3] = o.parent
         m++
         continue
@@ -393,14 +401,51 @@ export class DoodadBrushTool implements Tool {
    */
   private propAt(ctx: ToolContext, x: number, z: number): number | null {
     if (!editor.doodad.onProps) return null
+    this.ensureProps(ctx, x, z)
     this.ray.ray.origin.set(x, RAY_TOP, z)
     this.ray.ray.direction.set(0, -1, 0)
-    const hit = ctx.objects.raycastSurface(this.ray, this.placedIds)
+    const hit = ctx.objects.raycastAmong(this.ray.ray, this.props, this.propCount, this.placedIds)
     if (!hit) return null
     const t = ctx.terrain
     if (t.contains(x, z) && hit.point.y < t.heightAt(x, z)) return null
     this.pos.copy(hit.point)
     return hit.id
+  }
+
+  /**
+   * Keeps `props` holding every model whose box may reach over the brush around (x, z): gathered again
+   * only when the point leaves the margin it was gathered with, or the map's models changed, so the
+   * per-point ray tests a handful of models, not every instance on the map.
+   */
+  private ensureProps(ctx: ToolContext, x: number, z: number) {
+    const layer = ctx.objects
+    const margin = this.propReach * 0.25
+    const dx = x - this.propCentre.x
+    const dz = z - this.propCentre.z
+    if (layer === this.propLayer && layer.version === this.propVersion && dx * dx + dz * dz <= margin * margin) return
+    const reach = (editor.brush.radius + 8) * 1.5
+    this.propLayer = layer
+    this.propVersion = layer.version
+    this.propReach = reach
+    this.propCentre.set(x, 0, z)
+    let n = 0
+    for (const o of layer.objects.values()) {
+      const box = getAsset(o.type).bbox
+      // The box's half diagonal across the ground, at the model's world scale, as its reach.
+      const half = Math.hypot(box.max.x - box.min.x, box.max.z - box.min.z) * 0.5 * layer.worldScale(o)
+      const w = o.parent === undefined ? this.pos.set(o.x, 0, o.z) : layer.worldPosition(o, this.pos)
+      const ox = w.x - x
+      const oz = w.z - z
+      const r = reach + half
+      if (ox * ox + oz * oz > r * r) continue
+      if (n >= this.props.length) {
+        const grown = new Int32Array(this.props.length * 2)
+        grown.set(this.props)
+        this.props = grown
+      }
+      this.props[n++] = o.id
+    }
+    this.propCount = n
   }
 
   private pushNear(x: number, z: number, size: number) {

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { MeshBVH } from 'three-mesh-bvh'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
 import { SkinnedInstancedMesh } from './Animator'
@@ -445,6 +446,55 @@ export class ObjectLayer {
     } finally {
       raycaster.firstHitOnly = first
     }
+  }
+
+  private amongInv = new THREE.Matrix4()
+  private amongM = new THREE.Matrix4()
+  private amongRay = new THREE.Ray()
+  private amongPoint = new THREE.Vector3()
+  private amongHit = { id: 0, point: new THREE.Vector3(), distance: 0 }
+
+  /**
+   * The nearest surface under the ray among the first `count` of `ids` (skipping `exclude`), each
+   * tested through its own model's bounds tree: for a ray only a few nearby models can meet, far
+   * cheaper than raycastSurface, which walks every instance of every model. The result (and its
+   * point) is reused by the next call.
+   */
+  raycastAmong(ray: THREE.Ray, ids: ArrayLike<number>, count: number, exclude?: Set<number>): { id: number; point: THREE.Vector3; distance: number } | null {
+    let best = Infinity
+    for (let i = 0; i < count; i++) {
+      const id = ids[i]
+      if (exclude?.has(id) || this.isHidden(id)) continue
+      const o = this.objects.get(id)
+      if (!o) continue
+      const asset = getAsset(o.type)
+      const tree = asset.ready ? (asset.geometry.boundsTree as MeshBVH | undefined) : undefined
+      if (!tree) continue
+      this.matrixOf(o, this.amongM)
+      const local = this.amongRay.copy(ray).applyMatrix4(this.amongInv.copy(this.amongM).invert())
+      if (!local.intersectsBox(asset.bbox)) continue
+      const hit = tree.raycastFirst(local, THREE.DoubleSide)
+      if (!hit) continue
+      const p = this.amongPoint.copy(hit.point).applyMatrix4(this.amongM)
+      const d = p.distanceTo(ray.origin)
+      if (d >= best) continue
+      best = d
+      this.amongHit.id = id
+      this.amongHit.point.copy(p)
+      this.amongHit.distance = d
+    }
+    return best < Infinity ? this.amongHit : null
+  }
+
+  /** World uniform scale, accumulated through the parents, without allocating. */
+  worldScale(o: WorldObject): number {
+    let scale = o.scale
+    let p = this.parentOf(o, 0)
+    for (let d = 1; p && d <= MAX_DEPTH; d++) {
+      scale *= p.scale
+      p = this.parentOf(p, d)
+    }
+    return scale
   }
 
   /** Nearest object surface under the ray, skipping `exclude` ids. */
