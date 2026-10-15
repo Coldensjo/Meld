@@ -19,15 +19,11 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Terrain sculpting and painting
 
-- [x] B-004 **Separate Blur tool** · gap §1 · L/S · Smooth already covers most of it · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-014 **Animated texture layers** with speed and direction (Noggit Red adds a rotation dial) · gap §2 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-015 **Overbright** option · gap §2 · L/S · defined from Noggit Red: it sets the layer's glow flag in MCLY, next to the animation settings, so do it with B-014 · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-017 **Undockable quick texture palette** · gap §2 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [x] B-111 **Paint while sculpting, and texture roles**: Sculpt paints one texture or the map's rock and dirt by slope as it shapes the ground; roles are guessed from texture names and set in Map Properties · Source: owner · H/M · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-116 **Sculpt strength up to 10** · Source: owner · M/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · builds on B-131 · approved by the owner 2026-10-15, decided in IDEAS.md
-- [x] B-135 **Alphamap image export and import**: a texture's weights as an image, read back into a chosen texture · gap §9 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
+- [ ] B-162 **Preview texture looks in the editor**: scroll and brighten the textures a map sets to animate or glow (B-014), so the view matches the client · Source: loop: B-014 · L/M
 
 ## Water
 
@@ -38,13 +34,10 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-024 **Angled river mode** for flowing water · gap §3 · M/M · done: Angled with angle and direction in the Water tool
 - [x] B-025 **Opacity modes** (auto, river, ocean, custom) · gap §3 · L/M · done: the Water tool's Opacity select
 - [ ] B-026 **Water layers** with a current-layer selector · gap §3 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
-- [x] B-137 **Watermap import**: painted water heights from a PNG between a min and max height · gap §3 · L/S · decided by the owner 2026-10-15 in IDEAS.md (depth above ground) · done 2026-10-15 (PROGRESS.md)
 
 ## Objects (props)
 
-- [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M
-- [x] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-143 **Three-axis gizmo**: move arrows on each axis and scale handles, in world or local space · gap §4 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
+- [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M · decided by the owner 2026-10-15 in IDEAS.md (editor-only primitives, never exported)
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 
 ## Map, client and server

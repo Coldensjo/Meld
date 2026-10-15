@@ -544,3 +544,14 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-143 Three-axis gizmo
 - Done (IDEAS.md records the choices): the gizmo has a red x and a blue z move arrow standing out from the ring, next to the height arrow (the third axis), the ring and the scale knob. Dragging one moves the selected model, or the whole selection, along that axis only (Shift snaps to half yards); a model on the ground stays on it, an attached one keeps its height; one undo step a drag. Edit › Gizmo Arrows in Local Space turns the arrows to the model's own yaw (the primary model's for a group; `ObjectLayer.worldYaw`, no allocation). Region spawns keep their ring and height arrow only.
 - Verified: new gizmoAxes test (the drag directions in world and local space match the drawn arrows). make test passed (Go plus 226 of 226 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+
+## 2026-10-15 · B-040 Helper models (decided, not built)
+- Asked the owner in plan mode, since helpers would be built-in shapes and CLAUDE.md says Meld ships no prefabs: editor-only primitives, never exported (IDEAS.md). Left open for the next run, as this run reached its cap; the approved plan sketches it.
+
+## 2026-10-15 · backlog tidy (8th run)
+- Removed the items finished in this run (B-137, B-004, B-014, B-015, B-135, B-142, B-017, B-143), as earlier tidies did; PROGRESS.md, IDEAS.md and noggit-red-feature-gap.md keep their record. No owner-written item was deleted.
+- No duplicates found. Nothing new fits Parked. New line: B-162 (preview texture looks in the editor, from B-014).
+
+## 2026-10-15 · stopped (8th run)
+- Stopped: 8 items were done in this run (B-137, B-004, B-014, B-015, B-135, B-142, B-017, B-143), which is the cap. B-014 brought a data-loss fix with it: a region save no longer drops the client's animated and overbright texture flags. The commits were not pushed, as LOOP.md says.
+- Next top item: B-040 Helper models (L/M, decided by the owner), then the approved larger items (B-084 before B-149, B-150, B-151, B-132, B-026, B-057, B-147, B-129) and the small view items (B-073, B-079, B-081, B-071, B-080).
