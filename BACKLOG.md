@@ -52,7 +52,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-158 **Draw selection groups**: a selected group's box around all its members, and the Inspector saying a model is grouped, as Noggit Red draws its groups · Source: loop: B-138 · L/S
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
 - [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M
-- [ ] B-141 **Snap selected to ground** (Page Down): set the selected roots' height offset to the ground · gap §4 · L/S · unverified whether a one-key drop is missing
+- [x] B-141 **Snap selected to ground** (Page Down): set the selected roots' height offset to the ground · gap §4 · L/S · unverified whether a one-key drop is missing · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M
 - [ ] B-143 **Three-axis gizmo**: move arrows on each axis and scale handles, in world or local space · gap §4 · L/M
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)

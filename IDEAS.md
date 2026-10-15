@@ -300,3 +300,10 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   bit, flags, level, name, team, liquid), not from AreaTable.dbc, so Save writes both. Sounds, music and
   light are typed as IDs; Noggit Red's pickers that play them are B-161. Rows are a form saved with Save,
   not undo steps, as the creature templates are.
+
+### B-141 Snap selected to ground · Noggit Red, on another key
+- Chosen by the loop from Noggit Red (2026-10-15, B-141). Noggit Red's Page Down
+  (`World::snap_selected_models_to_the_ground`, `get_ground_height`) sets each selected model's height
+  to the ground's under it, one undo step. Meld had no such action: its Page Down lowers the selection
+  a step, so the snap is **Ctrl+Page Down** and Edit › Put Selected Models on the Ground. **Ours**:
+  attached models are left alone, since their height is in their parent's space and they ride it.

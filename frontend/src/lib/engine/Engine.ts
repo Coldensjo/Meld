@@ -2483,6 +2483,27 @@ export class Engine {
     this.nudgeSession = { key, before, cmd, time: now }
   }
 
+  /**
+   * Sets the selected models that stand on the ground back onto it (a height offset of 0), as Noggit
+   * Red's Snap to ground does; attached models ride their parents and are left alone. One undo step.
+   */
+  snapSelectedToGround() {
+    const targets = movableSelection(this.objects).filter((o) => o.parent === undefined && o.yOff !== 0)
+    if (!targets.length) {
+      setStatus(editor.selectedIds.length ? 'The selected models already stand on the ground (attached ones ride their parents).' : 'Select the models to put on the ground first.', 3000)
+      return
+    }
+    const before = targets.map((o) => ({ ...o }))
+    for (const o of targets) {
+      const w = this.objects.worldPlacement(o)
+      w.pos.y = this.terrain.heightAt(w.pos.x, w.pos.z)
+      this.objects.place(o, null, w)
+      if (editor.selected?.id === o.id) editor.selected = { ...o }
+    }
+    this.history.push(groupTransformCommand(this.objects, before, targets))
+    setStatus(`Put ${targets.length} model${targets.length === 1 ? '' : 's'} on the ground.`, 2500)
+  }
+
   /** Keys for the selected object. Returns true if handled. */
   handleSelectionKey(e: KeyboardEvent): boolean {
     if (ui.pasting && this.lastCopied === 'area' && (e.key === 'r' || e.key === 'R')) {

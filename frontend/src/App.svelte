@@ -158,6 +158,7 @@
         ui.showNewDialog = true
       }
       else if (key === 'b') engine.addBookmark()
+      else if (e.key === 'PageDown') engine.snapSelectedToGround()
       else return
       e.preventDefault()
       return

@@ -150,6 +150,7 @@
         ['Shift+[ / Shift+]', 'Brush falloff softer / harder'],
         ['Alt+right-drag', 'Size the brush where it stands: sideways for the size, up and down for the falloff'],
         ['Arrow keys', 'Move selected object (camera-relative)'],
+        ['Ctrl+Page Down', 'Put the selected models back on the ground'],
         ['Alt+↑ / Alt+↓, PgUp / PgDn', 'Raise / lower selected object'],
         ['Alt+← / Alt+→', 'Spin selected object 5°'],
         ['R / Shift+R', 'Spin selected object 15° (or the placement preview)'],
