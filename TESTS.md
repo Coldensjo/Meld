@@ -175,6 +175,12 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   emitter (flags 0x3009, flat shockwave rings) births on the ground (ground height plus the birth
   size, about 0.5), not at the model's base. The fire and water rifts, `UndercityMonsterBirth.m2`,
   `G_GhostTrap.m2` and `G_ScourgeRuneCircleCrystal.m2` use the flag too.
+- Sorting (#118): an alpha batch (`__engine.particles.batches`, key `<texture>|alpha|...`) uploads its
+  quads back to front from the camera each frame. With Elwynn's tall waterfall placed as above, walk
+  each batch's `data` (36 floats a quad; the centre is the mean of floats 0..2 and 18..20) and check
+  the distances to `__engine.camera.position` never grow.
+- Trap: a page that hot-reloads between two edits of the same feature can run one module old and
+  one new; reload it by hand before checking.
 - Trap: in the dev page, `await import('/src/lib/state/editor.svelte.ts')` can load a second copy of
   the module (the app's has a `?t=` hot-reload query), and writing `editor.tool` there changes
   nothing. Import the app's own URL:

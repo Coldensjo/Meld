@@ -3,7 +3,7 @@ import { getAsset, type ModelAsset } from '../models/assets'
 import { loadTexture } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
 import type { SpawnLayer } from './SpawnLayer'
-import { blendOf, fogOf, litOf, PARTICLE_FLOATS, ParticlePool, VERTEX_FLOATS, type GroundProbe, type ParticleBlend } from './particles'
+import { blendOf, fogOf, litOf, PARTICLE_FLOATS, ParticlePool, sortQuads, VERTEX_FLOATS, type GroundProbe, type ParticleBlend } from './particles'
 import { RibbonTrail, ribbonBlend } from './ribbons'
 
 /**
@@ -88,6 +88,9 @@ class Batch {
   data = new Float32Array(0)
   floats = 0
   private ready = false
+  /** An alpha-blended draw sorts its quads back to front each frame; `spare` is the sort's scratch. */
+  private readonly sorted: boolean
+  private spare = new Float32Array(0)
 
   constructor(look: Look, light: THREE.Color) {
     const { blend, fog } = look
@@ -97,6 +100,7 @@ class Batch {
     if (look.lit) defines.LIT = ''
     if (fog === 'black') defines.FOG_BLACK = ''
     const blended = blend === 'add' || blend === 'alpha'
+    this.sorted = blend === 'alpha'
     this.material = new THREE.ShaderMaterial({
       uniforms: { ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog), map: { value: null }, light: { value: light } },
       vertexShader: vertex,
@@ -151,11 +155,20 @@ class Batch {
     this.mesh.geometry = this.geometry
   }
 
-  /** Uploads this frame's quads. */
-  finish() {
+  /**
+   * Uploads this frame's quads. An alpha-blended draw first orders them back to front from `eye`,
+   * as the client sorts a cloud (0x7b3a10), across every emitter in the draw, so one cloud seen
+   * through another blends in the right order. Additive and opaque draws need no order.
+   */
+  finish(eye: THREE.Vector3) {
     const quads = this.floats / (4 * VERTEX_FLOATS)
     this.mesh.visible = this.ready && quads > 0
     if (!quads) return
+    if (this.sorted && quads > 1) {
+      if (this.spare.length < this.floats) this.spare = new Float32Array(this.data.length)
+      const out = sortQuads(this.data, this.floats, eye.x, eye.y, eye.z, this.spare)
+      if (out !== this.data) this.data.set(out.subarray(0, this.floats))
+    }
     this.geometry.setDrawRange(0, quads * 6)
     this.buffer.clearUpdateRanges()
     this.buffer.addUpdateRange(0, this.floats)
@@ -377,7 +390,7 @@ export class ParticleLayer {
         b.floats += l.trail.expand(b.data, b.floats)
       }
     }
-    for (const b of this.batches.values()) b.finish()
+    for (const b of this.batches.values()) b.finish(eye)
   }
 
   dispose() {

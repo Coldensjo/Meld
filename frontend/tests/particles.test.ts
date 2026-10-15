@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import type { AnimTrack, MeshEmitter } from '../src/lib/wow/api.ts'
-import { accumulate, blendOf, cellAt, emitLocal, fogOf, followFraction, litOf, overLife, ParticlePool, PARTICLE_FLOATS, SplineChain, spinAngle, VERTEX_FLOATS, type LifeSample } from '../src/lib/world/particles.ts'
+import { accumulate, blendOf, cellAt, emitLocal, fogOf, followFraction, litOf, overLife, ParticlePool, PARTICLE_FLOATS, sortQuads, SplineChain, spinAngle, VERTEX_FLOATS, type LifeSample } from '../src/lib/world/particles.ts'
 
 const k = (v: number): AnimTrack => ({ t: [0], v: [v], loop: 0 })
 
@@ -271,4 +271,24 @@ test('an inheriting emitter gives its births its motion, sampled 30 times a seco
   const last = pool.count - 1
   assert.ok(Math.abs(pool.vel[last * 3] - 0.1 / 30 / 0.05) < 1e-5, `inherited: ${pool.vel[last * 3]}`)
   assert.ok(Math.abs(pool.vel[0]) < 1e-6, 'the first births, before anything lived, inherit nothing')
+})
+
+test('an alpha cloud sorts its quads back to front from the eye', () => {
+  const quad = 4 * VERTEX_FLOATS
+  // Three quads along z at 1, 5 and 3, each tagged by its first vertex's u.
+  const data = new Float32Array(3 * quad)
+  ;[1, 5, 3].forEach((z, q) => {
+    for (let v = 0; v < 4; v++) {
+      const o = q * quad + v * VERTEX_FLOATS
+      data[o] = v === 1 || v === 2 ? 1 : 0
+      data[o + 1] = v >= 2 ? 1 : 0
+      data[o + 2] = z
+      data[o + 3] = z
+    }
+  })
+  const out = sortQuads(data, data.length, 0, 0, 0, new Float32Array(data.length))
+  assert.deepEqual([out[3], out[quad + 3], out[2 * quad + 3]], [5, 3, 1], 'farthest first')
+  const back = sortQuads(data, data.length, 0, 0, 10, new Float32Array(data.length))
+  assert.deepEqual([back[3], back[quad + 3], back[2 * quad + 3]], [1, 3, 5], 'from the other side')
+  assert.equal(sortQuads(data, quad, 0, 0, 0, new Float32Array(quad)), data, 'one quad needs no order')
 })

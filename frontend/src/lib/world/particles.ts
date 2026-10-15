@@ -19,6 +19,39 @@ export const VERTEX_FLOATS = 9
 /** Floats one particle can write: a head and a tail quad. */
 export const PARTICLE_FLOATS = 2 * 4 * VERTEX_FLOATS
 
+/** Scratch for sortQuads, grown as needed. */
+const sortScratch = { keys: new Float32Array(0), order: new Uint32Array(0), data: new Float32Array(0) }
+
+/**
+ * Orders the quads in `data[0..floats)` back to front from the eye at (ex, ey, ez), by each quad's
+ * centre, as the client sorts an alpha-blended cloud (0x7b3a10). Returns the array that now holds
+ * them: `data` itself, or `spare` (as large) with the quads written in order.
+ */
+export function sortQuads(data: Float32Array, floats: number, ex: number, ey: number, ez: number, spare: Float32Array): Float32Array {
+  const quadFloats = 4 * VERTEX_FLOATS
+  const n = floats / quadFloats
+  if (n < 2) return data
+  const s = sortScratch
+  if (s.keys.length < n) {
+    s.keys = new Float32Array(n * 2)
+    s.order = new Uint32Array(n * 2)
+  }
+  const keys = s.keys
+  for (let q = 0; q < n; q++) {
+    const o = q * quadFloats
+    // The centre of the quad's first and third corners, its diagonal.
+    const cx = (data[o] + data[o + 2 * VERTEX_FLOATS]) * 0.5 - ex
+    const cy = (data[o + 1] + data[o + 2 * VERTEX_FLOATS + 1]) * 0.5 - ey
+    const cz = (data[o + 2] + data[o + 2 * VERTEX_FLOATS + 2]) * 0.5 - ez
+    keys[q] = cx * cx + cy * cy + cz * cz
+  }
+  const order = s.order.subarray(0, n)
+  for (let q = 0; q < n; q++) order[q] = q
+  order.sort((a, b) => keys[b] - keys[a])
+  for (let q = 0; q < n; q++) spare.set(data.subarray(order[q] * quadFloats, (order[q] + 1) * quadFloats), q * quadFloats)
+  return spare
+}
+
 // The nine parameter tracks, in MeshEmitter.params order, and the values a keyless one holds.
 const SPEED = 0
 const SPEED_VAR = 1
