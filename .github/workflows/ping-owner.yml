@@ -26,6 +26,6 @@ jobs:
           if [ "$LABEL" = "owner-question" ]; then
             msg="@$OWNER this needs you: see Claude's comment above. Reply here and the loop picks it up on its next run."
           else
-            msg="@$OWNER this needs your approval before the loop may work on it. Comment approve (with any limits), or close it."
+            msg="@$OWNER this needs your approval before the loop may work on it. Comment \`approved\` (any limits after it apply), or close it."
           fi
           gh issue comment "$NUMBER" --repo "$REPO" --body "$msg"

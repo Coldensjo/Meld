@@ -29,7 +29,10 @@ is one), and comment `**Claude:** labelled ...` with a one-line reason. Triage d
 the run's cap.
 
 **1. Work through items until a stop condition applies.** Skip issues labelled `needs-approval`,
-`parked` or `owner-question` (but see *Asking the owner* for answered questions). The order:
+`parked` or `owner-question` (but see *Asking the owner* for answered questions). The owner
+approves by commenting `approved` (any limits after it bind the work), and a workflow then removes
+`needs-approval`; if the label is still there under such a comment by the owner, the workflow didn't
+run, so remove the label yourself and treat the item as approved. The order:
 `bug` first; then `benilla-port`, lowest issue number first (the owner's order,
 #103); then the rest in DESIGN.md priority order, then value (H first), then effort (S first).
 Prefer items that finish cleanly. Do up to **8 items per run**. Finish each item (steps 3 to 4) before

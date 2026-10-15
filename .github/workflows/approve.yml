@@ -1,0 +1,32 @@
+# The owner approves a needs-approval issue by commenting "approved" (anything after the word, such
+# as limits, is kept as part of the approval and the loop reads it). This removes the label so the
+# loop may pick the issue up. Claude's own comments start with **Claude:**, so they never match.
+name: Approve an issue
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  approve:
+    if: >-
+      !github.event.issue.pull_request &&
+      github.event.comment.user.login == github.repository_owner &&
+      contains(github.event.issue.labels.*.name, 'needs-approval')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove needs-approval when the comment says approved
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          first=$(printf '%s\n' "$BODY" | head -n 1)
+          if printf '%s\n' "$first" | grep -qiE '^[[:space:]]*approved([^[:alnum:]]|$)'; then
+            gh issue edit "$NUMBER" --repo "$REPO" --remove-label needs-approval
+            gh issue comment "$NUMBER" --repo "$REPO" --body "Approved: the loop may now work on this. Anything written with the approval applies as the owner's instruction."
+          fi

@@ -51,6 +51,9 @@ in the git history (`git show b47706b:PROGRESS.md`).
   login, so the mention alone would not notify them; the label does: `.github/workflows/ping-owner.yml`
   then mentions them as `github-actions[bot]`. Adding `needs-approval` pings them the same way. Add the
   label after the comment, so the ping lands under it.
+- **Approval**: the owner approves a `needs-approval` issue by commenting `approved`, with any limits
+  after the word; `.github/workflows/approve.yml` then removes the label. Those limits are part of the
+  approval. Never remove `needs-approval` yourself without such a comment.
 - **When the work is done and committed**, comment `**Claude:** done in <hash>.` with Done, Verified
   (checks run, and whether it was seen in the app) and Left (follow-ups as new issues), then close it
   (`gh issue close <n>`). Partly done: comment what is left and keep it open. Dropped: label it
