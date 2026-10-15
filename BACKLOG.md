@@ -28,10 +28,8 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-116 **Sculpt strength up to 10** · Source: owner · M/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-119 **By-slope painting: restore the base on ground that flattens again**: lowering a hill leaves its rock painted; an option to paint the base role back under the dirt angle · Source: loop: B-111 · L/S · off by default, since it would erase roads and details under the brush
-- [x] B-130 **Flatten lock mode**: flatten to a locked point set from the cursor, so several strokes level to one height · gap §1 · M/S · done 2026-10-15 (PROGRESS.md)
-- [x] B-131 **Image brushes**: a greyscale image from a samples folder shapes the sculpt and paint brushes, with a rotation · gap §1 · M/M · decided in IDEAS.md (loop, from Noggit Red) · done 2026-10-15 (PROGRESS.md)
+- [ ] B-159 **Brush image on the cursor**: the brush ring shows the image brush's shape and turn, so a stroke can be aimed · Source: loop: B-131 · L/S
 - [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · needs-approval · builds on B-131
-- [x] B-133 **Texture swap brush**: swap one texture for another under the brush, as Noggit Red's swapper's Brush mode · gap §2 · M/S · decided in IDEAS.md (loop, from Noggit Red) · done 2026-10-15 (PROGRESS.md)
 - [ ] B-134 **Remove empty texture layers** across the map: drop a chunk's layer whose weight is zero everywhere · gap §2 · L/S
 - [ ] B-135 **Alphamap image export and import**: a texture's weights as an image, read back into a chosen texture · gap §9 · L/M
 - [ ] B-136 **Heightmap import modes**: Set, Add, Subtract and Multiply, with a min and max height, as Noggit Red's importer · gap §9 · L/S
@@ -51,15 +49,12 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 - [ ] B-126 **Area paste: mirror and height modes**: noggit's chunk mover also mirrors the copied chunks and lays the heights in as min, max, add or subtract over the target; Meld's paste has the quarter turn, offset and blend only · Source: loop: B-006 · L/S
 - [ ] B-128 **Area copy and paste carries the chunks' zones and flags**: the area clipboard copies heights, holes, paint, liquids and models, but not the zone, impassable flag or no-tuft cells of the chunks it covers · Source: loop: B-054 · L/S
+- [ ] B-158 **Draw selection groups**: a selected group's box around all its members, and the Inspector saying a model is grouped, as Noggit Red draws its groups · Source: loop: B-138 · L/S
 - [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
 - [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M
-- [x] B-138 **Selection groups**: group and ungroup models so a click selects the group · gap §4 · M/M · decided in IDEAS.md (loop, from Noggit Red) · done 2026-10-15 (PROGRESS.md)
-- [x] B-139 **Selection brush**: a brush that adds the models under it to the selection · gap §4 · M/S · done 2026-10-15 (PROGRESS.md)
-- [x] B-140 **Replace models with the copied one**, keeping each placement · gap §4 · M/S · decided in IDEAS.md (loop, from Noggit Red) · done 2026-10-15 (PROGRESS.md)
 - [ ] B-141 **Snap selected to ground** (Page Down): set the selected roots' height offset to the ground · gap §4 · L/S · unverified whether a one-key drop is missing
 - [ ] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M
 - [ ] B-143 **Three-axis gizmo**: move arrows on each axis and scale handles, in world or local space · gap §4 · L/M
-- [x] B-144 **WMO doodad set and name set** per placed WMO, shown in the editor and written on export · gap §4 · M/M · unverified what the export writes now · done 2026-10-15 (PROGRESS.md)
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 
 ## Map, client and server
@@ -71,7 +66,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
 - [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as Noggit Red's Minimap Editor does (with a resolution, what to draw, and model filters), so the in-game minimap shows the edited ground · Source: loop: B-059, gap §5 · L/L · a client write, checked against the client's own reader
-- [x] B-145 **Export holes to client tiles**: holes are in the `.wmap` and read from regions, but the tile writer does not write them · gap §5 · H/M · client round trip; the client's holes are coarser than Meld's cells, so the mapping needs a check in game · decided in IDEAS.md (owner, 2026-10-15): the Hole tool snaps to the client's 2×2 blocks · done 2026-10-15 (PROGRESS.md)
 - [ ] B-146 **Generate the WDL** for an exported map, so the far horizon and the tile mask match the new tiles · gap §5 · M/M · a client write
 - [ ] B-147 **More Map.dbc fields for a new map** (instance type, loading screen, area, corpse position, max players) and WMO-only maps, as Noggit Red's map creation wizard · gap §5 · L/M
 - [ ] B-148 **Zone editor**: create zones and subzones and edit an AreaTable row (name, parent, level, faction, flags, sounds, music, liquid), written to the client's DBC · gap §11 · M/L · needs-approval (a DBC write)
