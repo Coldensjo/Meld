@@ -64,6 +64,10 @@ uniform vec4 chunkHover;
 uniform float tileWorld;
 uniform sampler2D maskTex;
 uniform float maskVisible;
+// The Map data overlay: 0 off, 1 zones, 2 impassable, 3 no tufts (see Terrain.setMapDataOverlay).
+uniform float mapDataMode;
+uniform sampler2D chunkDataTex;
+uniform sampler2D noEffectTex;
 uniform vec4 selRect;
 uniform float selMode;
 uniform float selTime;
@@ -196,6 +200,23 @@ void main() {
     lit = mix(lit, vec3(0.95, 0.15, 0.2), m * maskVisible);
   }
 
+  if (mapDataMode > 0.5) {
+    vec2 cc = clamp(floor(vWorldPos.xz / chunkWorld), 0.0, chunksSide - 1.0);
+    vec4 cd = texture2D(chunkDataTex, (cc + 0.5) / chunksSide);
+    float stripes = step(0.5, fract((vWorldPos.x + vWorldPos.z) / (cellSize * 2.0)));
+    if (mapDataMode < 1.5) {
+      // Each zone in its own colour; a chunk with none is left as it is.
+      lit = mix(lit, cd.rgb, dot(cd.rgb, vec3(1.0)) > 0.0 ? 0.4 : 0.0);
+    } else if (mapDataMode < 2.5) {
+      lit = mix(lit, vec3(0.9, 0.1, 0.1), cd.a > 0.5 ? 0.25 + 0.25 * stripes : 0.0);
+    } else {
+      float cells = worldSize / cellSize;
+      vec2 cell = clamp(floor(vWorldPos.xz / cellSize), 0.0, cells - 1.0);
+      float n = texture2D(noEffectTex, (cell + 0.5) / cells).r;
+      lit = mix(lit, vec3(1.0, 0.6, 0.1), n > 0.002 ? 0.25 + 0.2 * stripes : 0.0);
+    }
+  }
+
   if (selMode > 0.5) {
     // Marching-ants outline around the selected area / floating paste.
     vec2 p = vWorldPos.xz;
@@ -267,6 +288,9 @@ export function createTerrainMaterial(
     tileWorld: { value: 0 },
     maskTex: { value: null },
     maskVisible: { value: 0 },
+    mapDataMode: { value: 0 },
+    chunkDataTex: { value: null },
+    noEffectTex: { value: null },
     selRect: { value: new THREE.Vector4() },
     selMode: { value: 0 },
     selTime: { value: 0 },

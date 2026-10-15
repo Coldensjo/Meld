@@ -10,6 +10,7 @@
     { id: 'place', name: 'Place Objects', key: '6', icon: 'M12 2l7 6v12H5V8zM9 20v-6h6v6' },
     { id: 'clear', name: 'Clear: erase models or paint in the brush', key: '7', icon: 'M4 16l7-9 6 6-5 6H6zM14 20h7' },
     { id: 'doodad', name: 'Doodad brush: scatter a brush of weighted models over the ground (Ctrl erases them)', key: '8', icon: 'M3 21c0-3.5 1.2-6 3.5-6S10 16.5 10 18.5 7.5 22 3 21zM9 15l9-9M13 3h.01M19 3h.01M21 9h.01M16 7h.01' },
+    { id: 'mapdata', name: 'Map data: paint the zone each chunk belongs to (Alt+click picks the one under the cursor)', key: '9', icon: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15' },
   ]
 </script>
 

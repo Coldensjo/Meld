@@ -68,6 +68,9 @@ type RegionEdit struct {
 	// PartialLiquids says Liquids holds only some chunks' liquids (a map saved before maps kept
 	// them): chunks it has layers for are rewritten, and the rest keep the client's.
 	PartialLiquids bool `json:"partialLiquids"`
+	// Headers are the zones and impassable flags of the block's chunks, by block chunk index.
+	// Chunks not listed keep the client's.
+	Headers []HeaderSpec `json:"headers"`
 }
 
 // RegionPaint is a painted chunk of a region: its index in the block (rows of 16*Size chunks), its
@@ -394,6 +397,18 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		k := (gy/ChunksPerTileSide)*e.Size + gx/ChunksPerTileSide
 		local := (gy%ChunksPerTileSide)*ChunksPerTileSide + gx%ChunksPerTileSide
 		tiles[k].change.Paint[local] = chunkPaint(p.Textures, p.Effects, p.NoEffect, weights, perSide)
+	}
+
+	for _, h := range e.Headers {
+		if h.Chunk < 0 || h.Chunk >= perRow*perRow {
+			return nil, fmt.Errorf("header chunk %d is outside the block", h.Chunk)
+		}
+		gx, gy := h.Chunk%perRow, h.Chunk/perRow
+		k := (gy/ChunksPerTileSide)*e.Size + gx/ChunksPerTileSide
+		if tiles[k].change.Headers == nil {
+			tiles[k].change.Headers = map[int]adt.ChunkHeader{}
+		}
+		tiles[k].change.Headers[(gy%ChunksPerTileSide)*ChunksPerTileSide+gx%ChunksPerTileSide] = adt.ChunkHeader{AreaID: h.AreaID, Impassable: h.Impassable}
 	}
 
 	if e.HasLiquids {

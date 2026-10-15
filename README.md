@@ -19,6 +19,7 @@ Built with **[Wails v2](https://wails.io)** (Go) + **Svelte 5** + **Three.js**. 
 | Roads | `4` | Paints the selected texture with a hard edge and levels the ground across it. |
 | Water | `5` | Global water level. Dig lakes or raise shores relative to it. Animated water with shore foam and depth tint. |
 | Place | `6` | Place the model selected in the palette. The selected prop shows a **ring** (drag to spin) and an **up/down arrow** (drag to raise/lower); hold `Shift` to snap. Its outline is **yellow**; the parts that are underground or inside another prop are drawn **red**. Props **attach** to whatever they're placed on: a building's floor or roof, another prop, or the ground. Attached props move along with their building, and ground props follow the terrain. `Ctrl`+scroll rotates the preview and `Alt`+scroll raises/lowers it before placing. The placed object stays selected, so the arrow keys and `R` adjust it right away. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
+| Map data | `9` | Paints the zone (AreaTable.dbc) each chunk belongs to, shown as a colour per zone; Set or Clear, `Alt`+click takes the zone under the cursor. The export writes it into the tiles' chunk headers. |
 
 ### Layout
 

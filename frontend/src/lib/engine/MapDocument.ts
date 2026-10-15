@@ -104,6 +104,12 @@ export class MapDocument {
    * without them, and its export then leaves the client's liquids alone.
    */
   liquidsKnown = true
+  /**
+   * Whether the terrain's area IDs, chunk flags and no-effect cells are the map's own. A map saved
+   * before the file kept them opens without them, and a region's export then leaves the client's
+   * chunk headers alone.
+   */
+  chunkDataKnown = true
   readonly history = new History()
   /** The palette the terrain's shader was last given, as one string, to tell when it changes. */
   paletteKey = ''

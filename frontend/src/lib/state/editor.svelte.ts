@@ -10,7 +10,9 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad'
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata'
+/** What the Map data tool paints into the chunk headers: the zone (an AreaTable.dbc ID). */
+export type MapDataMode = 'area'
 export type ClearMode = 'models' | 'textures' | 'heights' | 'liquids' | 'holes'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'vertex' | 'hole'
 /** Flatten target: the height under the first click, or the average height under the brush. */
@@ -198,6 +200,11 @@ export const editor = $state({
   spawnsError: '',
   /** What the Clear tool erases: placed models, or the paint (back to each chunk's base texture). */
   clearMode: 'models' as ClearMode,
+  /** What the Map data tool paints, and whether it sets it or clears it. */
+  mapDataMode: 'area' as MapDataMode,
+  mapDataClear: false,
+  /** The zone (AreaTable.dbc ID) the Map data tool paints; 0 before one is picked. */
+  mapDataArea: 0,
   filePath: '',
   dirty: false,
 })
@@ -216,6 +223,8 @@ export interface DetailInfo {
   hole: boolean
   /** The client's own no-doodad bit (no grass tufts) on the cell. */
   noTufts: boolean
+  /** The chunk's zone, named with its AreaTable.dbc ID, or '' for none. */
+  area: string
   /** The chunk's texture layers: a short name, the share at the cell (percent) and the ground effect ID. */
   textures: Array<{ name: string; weight: number; effect: number }>
   /** The liquid layers covering the cell, named with their surface height. */
@@ -232,6 +241,8 @@ export const stats = $state({
   cursor: null as { x: number; y: number; z: number } | null,
   /** The ground under the cursor, while Graphics › Detail info is on (refreshed at 2 Hz like the rest). */
   detail: null as DetailInfo | null,
+  /** The zone of the chunk under the cursor while the Map data tool is active ('' for none). */
+  hoverArea: '',
   /** Where the camera is for the Minimap window, while it is open: the target, its yaw, and the map's size in cells and yards. */
   view: null as { x: number; z: number; yaw: number; cells: number; world: number } | null,
 })

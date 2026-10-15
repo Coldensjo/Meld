@@ -119,7 +119,7 @@ function grow(r: Rect | null, add: Rect | null): Rect | null {
   return r
 }
 
-function extract(src: Float32Array | Uint8Array, width: number, ch: number, r: Rect) {
+export function extract(src: Float32Array | Uint8Array, width: number, ch: number, r: Rect) {
   const w = r.x1 - r.x0 + 1
   const h = r.z1 - r.z0 + 1
   const out = new (src.constructor as Float32ArrayConstructor | Uint8ArrayConstructor)(w * h * ch)
@@ -130,7 +130,7 @@ function extract(src: Float32Array | Uint8Array, width: number, ch: number, r: R
   return out
 }
 
-function inject(dst: Float32Array | Uint8Array, width: number, ch: number, r: Rect, data: Float32Array | Uint8Array) {
+export function inject(dst: Float32Array | Uint8Array, width: number, ch: number, r: Rect, data: Float32Array | Uint8Array) {
   const w = r.x1 - r.x0 + 1
   const h = r.z1 - r.z0 + 1
   for (let z = 0; z < h; z++) {

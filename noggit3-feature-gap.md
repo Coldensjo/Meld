@@ -67,7 +67,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 
 ## 5. Map and tile management (Assist and File menus)
 
-- **Area ID painting** with a zone ID browser **(format-specific)**.
+- ~~**Area ID painting** with a zone ID browser **(format-specific)**.~~ *Done: the Map data tool (9) paints a zone from the client's AreaTable.dbc (a picker with every zone and subzone) into the chunks under the brush, Set or Clear, Alt+click takes a chunk's zone, and an overlay colours the chunks by zone. The `.wmap` keeps it (version 5) and the export writes it into the MCNK headers.*
 - **Impassable flag** tool **(format-specific)**.
 - **Holes tool**: cut terrain holes, e.g. for caves **(format-specific)**.
 - **Shadows editor**: auto-generate baked shadows with a sun pitch and threshold, plus a brush. noggit bakes shadows into the tile; Meld shadows are runtime-only **(format-specific)**.

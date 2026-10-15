@@ -162,6 +162,9 @@ export namespace mapfile {
 	    chunkSlots?: string;
 	    holes?: string;
 	    liquids?: string;
+	    areaIds?: string;
+	    chunkFlags?: string;
+	    noEffect?: string;
 	    splatA?: string;
 	    splatB?: string;
 	
@@ -191,6 +194,9 @@ export namespace mapfile {
 	        this.chunkSlots = source["chunkSlots"];
 	        this.holes = source["holes"];
 	        this.liquids = source["liquids"];
+	        this.areaIds = source["areaIds"];
+	        this.chunkFlags = source["chunkFlags"];
+	        this.noEffect = source["noEffect"];
 	        this.splatA = source["splatA"];
 	        this.splatB = source["splatB"];
 	    }
@@ -232,6 +238,24 @@ export namespace vmangos {
 	        this.name = source["name"];
 	    }
 	}
+	export class Area {
+	    id: number;
+	    mapId: number;
+	    parent: number;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Area(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.mapId = source["mapId"];
+	        this.parent = source["parent"];
+	        this.name = source["name"];
+	    }
+	}
 	export class LayerView {
 	    texture: string;
 	    effect: number;
@@ -252,6 +276,7 @@ export namespace vmangos {
 	    indexX: number;
 	    indexY: number;
 	    areaId: number;
+	    impassable?: boolean;
 	    layers: LayerView[];
 	    holes?: number[];
 	    noEffect?: number[];
@@ -265,6 +290,7 @@ export namespace vmangos {
 	        this.indexX = source["indexX"];
 	        this.indexY = source["indexY"];
 	        this.areaId = source["areaId"];
+	        this.impassable = source["impassable"];
 	        this.layers = this.convertValues(source["layers"], LayerView);
 	        this.holes = source["holes"];
 	        this.noEffect = source["noEffect"];
@@ -474,6 +500,22 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class HeaderSpec {
+	    chunk: number;
+	    areaId: number;
+	    impassable: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new HeaderSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.chunk = source["chunk"];
+	        this.areaId = source["areaId"];
+	        this.impassable = source["impassable"];
+	    }
+	}
 	
 	export class LiquidTypeEntry {
 	    id: number;
@@ -582,6 +624,7 @@ export namespace vmangos {
 	    Paint: PaintSpec[];
 	    Objects: ObjectSpec[];
 	    Liquids: adt.Liquid[];
+	    Headers: HeaderSpec[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TileSpec(source);
@@ -595,6 +638,7 @@ export namespace vmangos {
 	        this.Paint = this.convertValues(source["Paint"], PaintSpec);
 	        this.Objects = this.convertValues(source["Objects"], ObjectSpec);
 	        this.Liquids = this.convertValues(source["Liquids"], adt.Liquid);
+	        this.Headers = this.convertValues(source["Headers"], HeaderSpec);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -736,6 +780,7 @@ export namespace vmangos {
 	    hasLiquids: boolean;
 	    liquids: adt.Liquid[];
 	    partialLiquids: boolean;
+	    headers: HeaderSpec[];
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionEdit(source);
@@ -753,6 +798,7 @@ export namespace vmangos {
 	        this.hasLiquids = source["hasLiquids"];
 	        this.liquids = this.convertValues(source["liquids"], adt.Liquid);
 	        this.partialLiquids = source["partialLiquids"];
+	        this.headers = this.convertValues(source["headers"], HeaderSpec);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

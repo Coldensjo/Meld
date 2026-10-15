@@ -66,9 +66,19 @@ cd frontend && pnpm build   # frontend only
   No editing logic goes in Go: it never decides what a brush does. It parses, converts and writes
   formats the frontend should not have to know, and anything that must read the client's archives.
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
-  float32 + weights + chunkSlots + holes + liquids). Blobs cross the bridge as base64 strings. If you
-  change the format, bump `Version` and update the tests. Older versions stay readable (a version 3
-  map has no liquids blob, a version 2 map no holes blob either).
+  float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect). Blobs cross the
+  bridge as base64 strings. If you change the format, bump `Version` and update the tests. Older
+  versions stay readable (a version 4 map has no chunk data, a version 3 map no liquids blob, a
+  version 2 map no holes blob either).
+- **Map data** (`terrain/chunkFlags.ts`, `tools/MapDataTool.ts`, tool `mapdata`, key 9): what a
+  chunk's MCNK header says besides its ground. `Terrain.areaIds` is an AreaTable.dbc ID per paint
+  chunk (the `Areas` binding lists them, `wow/areas.ts` names them) and `Terrain.chunkFlags` a byte
+  per chunk (`CHUNK_IMPASSABLE`); both and `Terrain.noEffect` are read from a region, saved in the
+  map file (version 5) and painted by the tool through `ChunkDataStroke` (one undo step a stroke).
+  The tool draws its overlay through `Terrain.setMapDataOverlay`. The export sends every chunk's
+  `HeaderSpec` (`TileSpec.Headers`, `RegionEdit.Headers`) and Go sets the area ID and the 0x2 flag
+  (`adt/header.go`); a map saved before version 5 (`MapDocument.chunkDataKnown` false) sends none,
+  so a region keeps the client's.
 - **Engine** (`frontend/src/lib/engine/Engine.ts`) owns the renderer, scene, camera and rAF loop.
   Svelte talks to it through `engineRef.current` methods.
 - **Documents** (`lib/engine/MapDocument.ts`):
@@ -218,8 +228,8 @@ cd frontend && pnpm build   # frontend only
   file's `textureEffects`) overrides the learned one. The export sends the effect per layer
   (`PaintSpec.Effects`) and Go writes it into MCLY and the per-cell predominant map into the MCNK
   header (`adt/effects.go`), so the client grows the same tufts. The header's `noEffectDoodad` bits
-  (no tufts under a building or a road) are read from a region into `Terrain.noEffect` (not kept in
-  the map file) and, with the cells under the map's root WMOs (`blockedCells` in
+  (no tufts under a building or a road) are read from a region into `Terrain.noEffect` (kept in
+  the map file since version 5) and, with the cells under the map's root WMOs (`blockedCells` in
   `GroundEffectLayer.ts`), skipped when drawing and sent on export as `PaintSpec.NoEffect`, which Go
   ORs into the chunk's own bits. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
   the share of the game's amount drawn per cell.

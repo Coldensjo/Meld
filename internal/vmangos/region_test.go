@@ -335,6 +335,60 @@ func TestRegionPaintWritten(t *testing.T) {
 	}
 }
 
+// TestRegionHeadersWritten sets a real chunk's zone and impassable flag through a region save: they
+// must read back, and every other chunk keep the zone, flags and heights the same save without them
+// writes. It needs WOW_DIR set to
+// the client.
+func TestRegionHeadersWritten(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := ReadRegion(dataDir, "Azeroth", 32, 48, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The same save without headers, which the one with them is compared against.
+	plain, err := BuildRegion(dataDir, RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := adt.ParseTerrain(plain[0].Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Block chunk 17 is the tile's chunk (1, 1).
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects,
+		Headers: []HeaderSpec{{Chunk: 17, AreaID: 40, Impassable: true}}}
+	files, err := BuildRegion(dataDir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := adt.ParseTerrain(files[0].Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, c := range after.Chunks {
+		b := before.Chunks[i]
+		if c.Heights != b.Heights {
+			t.Fatalf("chunk %d heights changed", i)
+		}
+		if i == 17 {
+			if c.AreaID != 40 || !c.Impassable() || c.Flags&^0x2 != b.Flags&^0x2 {
+				t.Fatalf("chunk 17: area %d, flags %#x (was %#x)", c.AreaID, c.Flags, b.Flags)
+			}
+			continue
+		}
+		if c.AreaID != b.AreaID || c.Flags != b.Flags {
+			t.Fatalf("chunk %d: area %d flags %#x, was %d %#x", i, c.AreaID, c.Flags, b.AreaID, b.Flags)
+		}
+	}
+}
+
 // TestRegionLiquidsUnchanged reads a real tile's liquids, as a region opens them, and hands them back:
 // no chunk may count as changed, so a save keeps the client's own liquid bytes. It needs WOW_DIR set
 // to the client.

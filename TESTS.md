@@ -10,6 +10,11 @@ Each entry says what it checks, how to run it, and the traps that cost time.
 - `make test` runs `go test ./internal/...` and the frontend unit tests (`node --test`, Node 22.18+).
 - `make check` runs go vet and svelte-check/tsc.
 - WoW client integration tests: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
+- The same `WOW_DIR` runs the client checks in `internal/vmangos` (region round trips, the chunk
+  header write `TestRegionHeadersWritten`, `TestReadAreasFromClient`). On the owner's machine the
+  client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk
+  flags (0x8000 on some chunks), so compare a write against the same save without your change, not
+  against the client's tile.
 
 ## Rendering and UI in the live app (Claude in Chrome)
 

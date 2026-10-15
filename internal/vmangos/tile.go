@@ -22,10 +22,12 @@ type LayerView struct {
 
 // ChunkView is one 8x8-cell chunk of a tile, for the editor.
 type ChunkView struct {
-	IndexX int         `json:"indexX"`
-	IndexY int         `json:"indexY"`
-	AreaID uint32      `json:"areaId"`
-	Layers []LayerView `json:"layers"`
+	IndexX int    `json:"indexX"`
+	IndexY int    `json:"indexY"`
+	AreaID uint32 `json:"areaId"`
+	// Impassable says the chunk's header flags it as impassable.
+	Impassable bool        `json:"impassable,omitempty"`
+	Layers     []LayerView `json:"layers"`
 	// Holes has one entry per cell row; bit n set means cell n of that row is a hole (a cave mouth).
 	// Ints rather than bytes, since a byte slice would travel as base64.
 	Holes []int `json:"holes,omitempty"`
@@ -95,7 +97,7 @@ func viewOf(root []byte, bigAlpha bool) (*TileView, error) {
 				view.Heights[gr*LatticeSize+gc] = c.Heights[r*17+col]
 			}
 		}
-		cv := ChunkView{IndexX: c.IndexX, IndexY: c.IndexY, AreaID: c.AreaID}
+		cv := ChunkView{IndexX: c.IndexX, IndexY: c.IndexY, AreaID: c.AreaID, Impassable: c.Impassable()}
 		cv.Holes = rowBits(c.Holes)
 		cv.NoEffect = rowBits(c.NoEffect)
 		for l, layer := range textures.Chunks[i].Layers {

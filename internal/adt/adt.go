@@ -26,6 +26,7 @@ const (
 	AlphaSize = 64
 
 	mcnkHeaderSize   = 0x80
+	mcnkFlagImpass   = 0x2
 	mcnkFlagNoFix    = 0x8000
 	mcnkFlagHighHole = 0x10000
 	layerUseAlpha    = 0x100
@@ -223,7 +224,7 @@ func parseChunk(data []byte, h, end int) (Chunk, error) {
 		Flags:    u32(data, h),
 		IndexX:   int(u32(data, h+0x04)),
 		IndexY:   int(u32(data, h+0x08)),
-		AreaID:   u32(data, h+0x34),
+		AreaID:   u32(data, h+mcnkAreaID),
 		Position: [3]float32{f32(data, h+0x68), f32(data, h+0x6c), f32(data, h+0x70)},
 	}
 	if ch.IndexX >= ChunksPerTile || ch.IndexY >= ChunksPerTile {

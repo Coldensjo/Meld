@@ -35,6 +35,7 @@ import { CELL_SIZE } from '../terrain/Terrain'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
+import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { TILE_CELLS, mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
@@ -64,7 +65,20 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     chunkSlots: bytesToBase64(s.chunkSlots),
     holes: bytesToBase64(s.holes),
     liquids: s.liquids ? bytesToBase64(s.liquids) : undefined,
+    areaIds: s.chunkData ? bytesToBase64(u32Bytes(s.chunkData.areaIds)) : undefined,
+    chunkFlags: s.chunkData ? bytesToBase64(s.chunkData.chunkFlags) : undefined,
+    noEffect: s.chunkData ? bytesToBase64(s.chunkData.noEffect) : undefined,
   })
+}
+
+/** The bytes of a Uint32Array, little endian as the map file stores them (every target is little endian). */
+function u32Bytes(a: Uint32Array) {
+  return new Uint8Array(a.buffer, a.byteOffset, a.byteLength)
+}
+
+/** A Uint32Array read from little-endian bytes. */
+function bytesU32(b: Uint8Array) {
+  return new Uint32Array(b.slice().buffer, 0, b.byteLength >> 2)
 }
 
 export function fromMapData(m: mapfile.MapData): MapSnapshot {
@@ -92,6 +106,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
       chunkSlots: new Uint8Array(0),
       holes: new Uint8Array(0),
       liquids: null,
+      chunkData: null,
       legacy: { layerTextures: m.layerTextures ?? [], splatA: base64ToBytes(m.splatA ?? ''), splatB: base64ToBytes(m.splatB ?? '') },
     }
   }
@@ -103,6 +118,11 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
     // A format 2 map has no holes, and a format 3 map no liquids.
     holes: base64ToBytes(m.holes ?? ''),
     liquids: (m.version ?? 0) >= 4 ? base64ToBytes(m.liquids ?? '') : null,
+    // A format 4 map has no area IDs, chunk flags or no-effect cells.
+    chunkData:
+      (m.version ?? 0) >= 5
+        ? { areaIds: bytesU32(base64ToBytes(m.areaIds ?? '')), chunkFlags: base64ToBytes(m.chunkFlags ?? ''), noEffect: base64ToBytes(m.noEffect ?? '') }
+        : null,
   }
 }
 
@@ -263,9 +283,14 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
         }
       }
     }
+    const side = TILE_CHUNKS * size
+    const areaIds = new Uint32Array(side * side)
+    const chunkFlags = new Uint8Array(side * side)
     for (const c of view.chunks) {
       unpack(c, c.holes, holes)
       unpack(c, c.noEffect, noEffect)
+      areaIds[c.indexY * side + c.indexX] = c.areaId
+      if (c.impassable) chunkFlags[c.indexY * side + c.indexX] = CHUNK_IMPASSABLE
     }
     const t0 = performance.now()
     const d = engine.openRegion({
@@ -278,6 +303,8 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
       chunkSlots: paint.chunkSlots,
       holes,
       noEffect,
+      areaIds,
+      chunkFlags,
       palette: paint.palette,
       objects: view.objects,
       liquids: view.liquids,
@@ -335,13 +362,15 @@ export function extendRegion(engine: Engine, side: Side) {
  */
 function regionPaint(engine: Engine, size: number) {
   const perRow = 16 * size
-  return mapToTiles(engine.exportInput()).tiles.flatMap((t) =>
-    t.Paint.map((p) => {
-      const cx = p.Chunk % 16
-      const cy = Math.floor(p.Chunk / 16)
-      return { chunk: (t.Y * 16 + cy) * perRow + t.X * 16 + cx, textures: p.Textures, weights: p.Weights, effects: p.Effects, noEffect: p.NoEffect ?? undefined }
-    }),
-  )
+  const tiles = mapToTiles(engine.exportInput()).tiles
+  const block = (t: { X: number; Y: number }, chunk: number) => (t.Y * 16 + Math.floor(chunk / 16)) * perRow + t.X * 16 + (chunk % 16)
+  return {
+    paint: tiles.flatMap((t) =>
+      t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, noEffect: p.NoEffect ?? undefined })),
+    ),
+    // The chunk headers, by block chunk; none for a map saved before it kept them.
+    headers: tiles.flatMap((t) => (t.Headers ?? []).map((h) => ({ ...h, chunk: block(t, h.chunk) }))),
+  }
 }
 
 /**
@@ -356,6 +385,7 @@ export function exportRegion(engine: Engine) {
       return
     }
     const water = engine.regionLiquids()
+    const { paint, headers } = regionPaint(engine, region.size)
     const patch = await SaveRegion(
       vmangos.RegionEdit.createFrom({
         mapName: region.mapName,
@@ -364,7 +394,8 @@ export function exportRegion(engine: Engine) {
         size: region.size,
         heights: Array.from(engine.outerHeights()),
         objects: engine.regionObjects(),
-        paint: regionPaint(engine, region.size),
+        paint,
+        headers,
         hasLiquids: true,
         liquids: water.liquids,
         partialLiquids: water.partial,

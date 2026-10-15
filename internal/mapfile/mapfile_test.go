@@ -36,6 +36,13 @@ func sample(size int) *MapData {
 	binary.LittleEndian.PutUint32(liquids[4:], 3)
 	liquids[8] = 1
 	liquids[9] = 1
+	// Chunk 2 is in zone 12 and impassable, and one cell grows no tufts.
+	areas := make([]byte, chunks*4)
+	binary.LittleEndian.PutUint32(areas[2*4:], 12)
+	flags := make([]byte, chunks)
+	flags[2] = ChunkImpassable
+	noEffect := make([]byte, size*size)
+	noEffect[2*size+5] = 1
 	return &MapData{
 		Header: Header{
 			Name: "test", Size: size, CellSize: 4, SplatRes: res,
@@ -51,6 +58,9 @@ func sample(size int) *MapData {
 		ChunkSlots: base64.StdEncoding.EncodeToString(slots),
 		Holes:      base64.StdEncoding.EncodeToString(holes),
 		Liquids:    base64.StdEncoding.EncodeToString(liquids),
+		AreaIDs:    base64.StdEncoding.EncodeToString(areas),
+		ChunkFlags: base64.StdEncoding.EncodeToString(flags),
+		NoEffect:   base64.StdEncoding.EncodeToString(noEffect),
 	}
 }
 
@@ -67,7 +77,8 @@ func TestRoundTrip(t *testing.T) {
 	if got.Version != Version {
 		t.Fatalf("version = %d, want %d", got.Version, Version)
 	}
-	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots || got.Holes != m.Holes || got.Liquids != m.Liquids {
+	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots || got.Holes != m.Holes || got.Liquids != m.Liquids ||
+		got.AreaIDs != m.AreaIDs || got.ChunkFlags != m.ChunkFlags || got.NoEffect != m.NoEffect {
 		t.Fatal("blob mismatch")
 	}
 	if got.Name != "test" || got.WaterLevel != 1.5 || !got.WaterEnabled || got.CellSize != 4 {
@@ -121,8 +132,8 @@ func writeV2(t *testing.T, m *MapData) []byte {
 	return writeOld(t, m, 2)
 }
 
-// writeOld writes a version 2 or 3 stream: the current layout without liquids, and for version 2
-// without holes.
+// writeOld writes a version 2, 3 or 4 stream: the current layout without the version 5 blobs, for
+// version 3 without liquids too, and for version 2 without holes.
 func writeOld(t *testing.T, m *MapData, version uint32) []byte {
 	t.Helper()
 	hdr, err := json.Marshal(&m.Header)
@@ -150,6 +161,13 @@ func writeOld(t *testing.T, m *MapData, version uint32) []byte {
 	if version >= 3 {
 		gz.Write(dec(m.Holes))
 	}
+	if version >= 4 {
+		liquids := dec(m.Liquids)
+		var n [4]byte
+		binary.LittleEndian.PutUint32(n[:], uint32(len(liquids)))
+		gz.Write(n[:])
+		gz.Write(liquids)
+	}
 	gz.Close()
 	return buf.Bytes()
 }
@@ -173,6 +191,42 @@ func TestReadsVersion3WithoutLiquids(t *testing.T) {
 	}
 	if m.Version != 3 || m.Liquids != "" || m.Holes == "" {
 		t.Fatalf("version 3 fields: version %d, liquids %d bytes", m.Version, len(m.Liquids))
+	}
+}
+
+// A version 4 map has liquids but no area IDs, chunk flags or no-effect cells, and opens with none.
+func TestReadsVersion4WithoutChunkData(t *testing.T) {
+	m, err := Read(bytes.NewReader(writeOld(t, sample(32), 4)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Version != 4 || m.Liquids == "" || m.AreaIDs != "" || m.ChunkFlags != "" || m.NoEffect != "" {
+		t.Fatalf("version 4 fields: version %d, areas %q", m.Version, m.AreaIDs)
+	}
+}
+
+// A writer that sends no chunk data writes zeros: no zone, nothing impassable, tufts everywhere.
+func TestWritesEmptyChunkDataWhenNoneGiven(t *testing.T) {
+	m := sample(32)
+	m.AreaIDs, m.ChunkFlags, m.NoEffect = "", "", ""
+	var buf bytes.Buffer
+	if err := Write(&buf, m); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	areas, _ := base64.StdEncoding.DecodeString(got.AreaIDs)
+	flags, _ := base64.StdEncoding.DecodeString(got.ChunkFlags)
+	cells, _ := base64.StdEncoding.DecodeString(got.NoEffect)
+	if len(areas) != 16*4 || len(flags) != 16 || len(cells) != 32*32 {
+		t.Fatalf("sizes %d %d %d", len(areas), len(flags), len(cells))
+	}
+	for _, b := range [][]byte{areas, flags, cells} {
+		if !bytes.Equal(b, make([]byte, len(b))) {
+			t.Fatal("not all zero")
+		}
 	}
 }
 

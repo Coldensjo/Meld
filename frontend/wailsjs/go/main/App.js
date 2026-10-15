@@ -6,6 +6,10 @@ export function ApplySpawnEdits(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ApplySpawnEdits'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function Areas() {
+  return window['go']['main']['App']['Areas']();
+}
+
 export function BrowseVmangosFolder() {
   return window['go']['main']['App']['BrowseVmangosFolder']();
 }

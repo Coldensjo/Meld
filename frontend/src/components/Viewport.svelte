@@ -38,6 +38,9 @@
       {@const d = stats.detail}
       <div class="detail" data-ui="DetailInfo">
         <div><span>Tile</span>{d.tile} <span>Chunk</span>{d.chunk} <span>Cell</span>{d.cell}</div>
+        {#if d.area}
+          <div><span>Zone</span>{d.area}</div>
+        {/if}
         <div><span>Height</span>{d.height.toFixed(2)} <span>Slope</span>{d.slope.toFixed(0)}°{#if d.hole} · hole{/if}{#if d.noTufts} · no tufts{/if}</div>
         {#each d.textures as tx, i (i)}
           <div><span>Layer {i}</span>{tx.name} {tx.weight}%{#if tx.effect} · effect {tx.effect}{/if}</div>

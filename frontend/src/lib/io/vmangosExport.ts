@@ -1,6 +1,7 @@
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../terrain/chunkPaint'
 import { liquidsToAdt, type AdtLiquid, type LiquidMap } from '../water/liquids'
 import { chunkNoEffect } from '../world/groundEffects'
+import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 
 /** A palette entry that's a colour rather than a texture. */
 const isColor = (entry: string) => /^#[0-9a-fA-F]{6}$/.test(entry)
@@ -46,6 +47,11 @@ export interface ExportInput {
   effects?: readonly number[]
   /** One byte per cell, set where no ground effect doodads grow (under buildings); optional. */
   noEffect?: Uint8Array
+  /**
+   * Each paint chunk's AreaTable.dbc ID and flags (CHUNK_IMPASSABLE), for the chunk headers; optional,
+   * which leaves the headers as the tile has them.
+   */
+  headers?: { areaIds: Uint32Array; chunkFlags: Uint8Array }
   objects: readonly ExportObject[]
   /** Whether the map has water, and the level it's at in yards. */
   waterEnabled: boolean
@@ -62,6 +68,15 @@ export interface PaintOut {
   Effects: number[]
   /** The no-doodad bits, one per cell row with a bit per cell, where any is set (added to the tile's own). */
   NoEffect?: number[]
+}
+
+/** A chunk's header fields, as the Go side's HeaderSpec has them. */
+export interface HeaderOut {
+  /** The chunk's index in the tile (y*16 + x), or in the block for a region save. */
+  chunk: number
+  /** AreaTable.dbc ID; 0 keeps the tile's own. */
+  areaId: number
+  impassable: boolean
 }
 
 export interface ObjectOut {
@@ -81,6 +96,8 @@ export interface TileOut {
   Objects: ObjectOut[]
   /** The tile's liquid layers, each placed by its chunk in the tile. */
   Liquids: AdtLiquid[]
+  /** Every chunk's header fields, when the map has them. */
+  Headers?: HeaderOut[]
 }
 
 export interface ExportOut {
@@ -169,7 +186,18 @@ export function mapToTiles(input: ExportInput): ExportOut {
       }
 
       const liquids = input.liquids ? liquidsToAdt(input.liquids, tx * CHUNKS_PER_TILE, ty * CHUNKS_PER_TILE, CHUNKS_PER_TILE) : []
-      tiles.push({ X: tx, Y: ty, Outer: outer, Paint: paint, Objects: objectsOf(tx, ty), Liquids: liquids })
+      const tile: TileOut = { X: tx, Y: ty, Outer: outer, Paint: paint, Objects: objectsOf(tx, ty), Liquids: liquids }
+      const h = input.headers
+      if (h) {
+        tile.Headers = []
+        for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
+          for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
+            const chunk = (ty * CHUNKS_PER_TILE + cy) * paintSide + tx * CHUNKS_PER_TILE + cx
+            tile.Headers.push({ chunk: cy * CHUNKS_PER_TILE + cx, areaId: h.areaIds[chunk], impassable: (h.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0 })
+          }
+        }
+      }
+      tiles.push(tile)
     }
   }
   return { tiles, colorChunks, outside }

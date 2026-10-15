@@ -74,13 +74,13 @@
       ],
     ],
     [
-      'Tools (keys 1 to 8)',
+      'Tools (keys 1 to 9)',
       [
         'Select (1): click a model, Shift+click adds one, drag moves the selection; drag on the ground to select an area and the models in it. Alt+click is the pipette. I opens the Inspector with the placement numbers.',
         'Sculpt (2): raise, lower, smooth, flatten, noise, mountain, vertex and hole modes. Painting while shaping paints a texture, or rock and dirt by slope, under the brush as the ground moves.',
         'Paint (3): paints the texture picked in the browser; a chunk of 8x8 cells takes four textures, and the Layers panel shows the ones under the cursor. Mask mode marks ground to fill with one texture.',
         'Roads (4) paint a hard-edged texture and level the ground across it. Water (5) paints lakes and rivers by liquid type, or shapes the sea\'s shore; the sea level is in Map Properties.',
-        'Place (6) puts down the model picked in the browser, onto the ground or onto a building. Clear (7) wipes textures or models under the brush. Doodad brush (8) scatters a brush of weighted models like paint; Edit › Doodad Brushes makes brushes.',
+        'Place (6) puts down the model picked in the browser, onto the ground or onto a building. Clear (7) wipes textures or models under the brush. Doodad brush (8) scatters a brush of weighted models like paint; Edit › Doodad Brushes makes brushes. Map data (9) paints the zone each chunk belongs to, which the export writes into the tiles; Alt+click takes the zone of the chunk under the cursor.',
       ],
     ],
     [
@@ -136,7 +136,7 @@
     [
       'Tools',
       [
-        ['1 – 8', 'Select, Sculpt, Paint, Roads, Water, Place, Clear, Doodad brush'],
+        ['1 – 9', 'Select, Sculpt, Paint, Roads, Water, Place, Clear, Doodad brush, Map data'],
         ['V / B', 'Select / Paint'],
         ['Alt+click', 'Pipette: pick the model under the cursor to place, or the texture to paint with'],
         ['Click, Shift+click', 'Select a model, add or remove one (Select tool)'],

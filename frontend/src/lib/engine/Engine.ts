@@ -18,6 +18,8 @@ import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
+import { MapDataTool } from '../tools/MapDataTool'
+import { areaName } from '../wow/areas'
 import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
@@ -57,6 +59,9 @@ export interface RegionOpen {
   holes: Uint8Array
   /** One byte per cell, 1 where the client grows no ground effect doodads; empty when none. */
   noEffect: Uint8Array
+  /** Each chunk's AreaTable.dbc ID and flags (CHUNK_IMPASSABLE), by block chunk. */
+  areaIds: Uint32Array
+  chunkFlags: Uint8Array
   palette: string[]
   objects: RegionObject[]
   /** The client's water, as the region's chunks hold it. */
@@ -124,6 +129,11 @@ export interface MapSnapshot {
   holes: Uint8Array
   /** The liquids blob (format 4, see liquids.ts); null for an older map, which has none. */
   liquids: Uint8Array | null
+  /**
+   * Each chunk's AreaTable.dbc ID and flags, and a byte per cell where no tufts grow (format 5);
+   * null for an older map, which has none.
+   */
+  chunkData: { areaIds: Uint32Array; chunkFlags: Uint8Array; noEffect: Uint8Array } | null
   /** Format 1 maps only, converted on open: the eight global layers and their splats. */
   legacy?: { layerTextures: string[]; splatA: Uint8Array; splatB: Uint8Array }
 }
@@ -308,6 +318,7 @@ export class Engine {
       place: this.placeTool,
       clear: new ClearTool(),
       doodad: this.doodadTool,
+      mapdata: new MapDataTool(),
     }
 
     // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
@@ -639,6 +650,7 @@ export class Engine {
     u.gridVisible.value = editor.grid ? 1 : 0
     u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
     this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
+    this.terrain.setMapDataOverlay(editor.tool === 'mapdata' ? 1 : 0)
     // Strong red while editing the mask; faint while painting so results stay visible.
     const painting = editor.tool === 'paint' || editor.tool === 'road'
     u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
@@ -684,6 +696,8 @@ export class Engine {
       stats.objects = this.objects.objects.size
       stats.cursor = this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z } : null
       stats.detail = this.prefs?.detailInfo ? this.detailInfo() : null
+      const hoverArea = editor.tool === 'mapdata' ? this.hoverArea() : ''
+      if (stats.hoverArea !== hoverArea) stats.hoverArea = hoverArea
       const c = this.controller
       stats.view = ui.minimap ? { x: c.target.x, z: c.target.z, yaw: c.yaw, cells: this.terrain.size, world: this.terrain.worldSize } : null
       this.frames = 0
@@ -1012,6 +1026,8 @@ export class Engine {
     d.terrain.chunkSlots.set(r.chunkSlots)
     if (r.holes.length === d.terrain.holes.length) d.terrain.holes.set(r.holes)
     if (r.noEffect.length === d.terrain.noEffect.length) d.terrain.noEffect.set(r.noEffect)
+    if (r.areaIds.length === d.terrain.areaIds.length) d.terrain.areaIds.set(r.areaIds)
+    if (r.chunkFlags.length === d.terrain.chunkFlags.length) d.terrain.chunkFlags.set(r.chunkFlags)
     d.terrain.markAllDirty()
     d.meta.palette = [...r.palette]
     d.meta.roles = guessRoles(r.palette)
@@ -1321,6 +1337,8 @@ export class Engine {
       palette: editor.palette,
       effects: editor.palette.map((p) => effectFor(p, editor.textureEffects, groundEffectTables())),
       noEffect: blockedCells(t, this.objects, new Uint8Array(t.size * t.size)),
+      // A map saved before the file kept chunk data has none of its own, so the client's stays.
+      headers: this.doc.chunkDataKnown ? { areaIds: t.areaIds, chunkFlags: t.chunkFlags } : undefined,
       objects,
       waterEnabled: editor.waterEnabled,
       waterLevel: editor.waterLevel,
@@ -1543,6 +1561,7 @@ export class Engine {
       chunkSlots: t.chunkSlots,
       holes: t.holes,
       liquids: encodeLiquids(this.doc.liquids),
+      chunkData: { areaIds: t.areaIds, chunkFlags: t.chunkFlags, noEffect: t.noEffect },
     }
   }
 
@@ -1580,6 +1599,17 @@ export class Engine {
     else if (m.holes.length) throw new Error('hole data size mismatch')
     if (m.liquids) decodeLiquids(d.liquids, m.liquids)
     d.liquidsKnown = m.liquids !== null
+    if (m.chunkData) {
+      const c = m.chunkData
+      if (c.areaIds.length !== t.areaIds.length || c.chunkFlags.length !== t.chunkFlags.length || c.noEffect.length !== t.noEffect.length) {
+        d.dispose()
+        throw new Error('chunk data size mismatch')
+      }
+      t.areaIds.set(c.areaIds)
+      t.chunkFlags.set(c.chunkFlags)
+      t.noEffect.set(c.noEffect)
+    }
+    d.chunkDataKnown = m.chunkData !== null
     t.markAllDirty()
     const region: RegionRef | null = m.region ? { ...m.region, uids: new Map() } : null
     for (const o of m.objects) {
@@ -2335,6 +2365,7 @@ export class Engine {
     if (t === 'select' || t === 'place' || t === 'road') return true
     if (t === 'paint') return editor.paintMode !== 'mask'
     if (t === 'water') return editor.waterMode === 'paint'
+    if (t === 'mapdata') return editor.mapDataMode === 'area'
     return false
   }
 
@@ -2663,6 +2694,19 @@ export class Engine {
   }
 
   /** The Detail info readout for the ground under the cursor (noggit's detail window), or null off the map. */
+  /** The zone of the chunk under the cursor, named with its ID, or '' for none or no ground. */
+  private hoverArea(): string {
+    const hit = this.hit
+    const t = this.terrain
+    if (!hit || !this.pointerInside || !t.contains(hit.x, hit.z)) return ''
+    const step = CHUNK_CELLS * t.cellSize
+    const side = t.paintChunksPerSide
+    const gx = Math.min(side - 1, Math.floor(hit.x / step))
+    const gz = Math.min(side - 1, Math.floor(hit.z / step))
+    const id = t.areaIds[gz * side + gx]
+    return id ? `${areaName(id)} (${id})` : ''
+  }
+
   private detailInfo(): DetailInfo | null {
     const hit = this.hit
     const t = this.terrain
@@ -2707,6 +2751,7 @@ export class Engine {
       slope: groundSlopeDeg((px, pz) => t.heightAt(px, pz), hit.x, hit.z, t.cellSize),
       hole: t.isHole(hit.x, hit.z),
       noTufts: t.noEffect[cz * t.size + cx] !== 0,
+      area: t.areaIds[chunk] ? `${areaName(t.areaIds[chunk])} (${t.areaIds[chunk]})` : '',
       textures,
       liquids,
       models,

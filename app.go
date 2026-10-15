@@ -331,6 +331,16 @@ func (a *App) MapZones() ([]vmangos.Zone, error) {
 	return vmangos.LoadZones(dataDir)
 }
 
+// Areas lists the client's zones and subzones (AreaTable.dbc), which the Map data tool paints into
+// chunks by ID.
+func (a *App) Areas() ([]vmangos.Area, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.LoadAreas(dataDir)
+}
+
 // LoadSpawns reads the creatures and game objects the server's world database places in a block of
 // tiles. It needs the VMaNGOS server folder, and the server's database running.
 func (a *App) LoadSpawns(mapName string, x, y, size int) ([]vmangos.WorldSpawn, error) {

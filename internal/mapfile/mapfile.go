@@ -12,12 +12,16 @@
 //	holes      []byte   Size^2 bytes: a cell's hole (version 3): 0 none, 1 the whole cell, 2 or 3 one of its two triangles
 //	liqLen     uint32   length of the liquids blob (version 4)
 //	liquids    []byte   uint32 layer count, then LiquidRecordSize bytes a layer (version 4)
+//	areaIds    []byte   (Size/8)^2 uint32: each chunk's AreaTable.dbc ID, 0 for none (version 5)
+//	chunkFlags []byte   (Size/8)^2 bytes: each chunk's flags, bit 0 impassable (version 5)
+//	noEffect   []byte   Size^2 bytes: 1 where a cell grows no ground effect doodads (version 5)
 //
 // A liquid layer (noggit3's liquid_layer) is: uint32 chunk index (8x8-cell chunks, row-major),
 // uint8 liquid type (LiquidType.dbc: 1 water, 2 ocean, 3 magma, 4 slime), uint64 cell mask (bit
 // z*8+x), 81 float32 surface heights and 81 depth bytes, each 9x9 row-major.
 //
-// Version 3 has no liquids: such a map opens with none. Version 2 has no holes blob either.
+// Version 4 has no area IDs, chunk flags or no-effect cells: such a map opens with none, and says so
+// (Version < 5), so a region's export can keep the client's own. Version 3 has no liquids: such a map opens with none. Version 2 has no holes blob either.
 //
 // Version 1 stored eight global paint layers instead, as splatA and splatB (SplatRes^2 * 4 bytes
 // each). It's still read; the frontend converts it to chunks.
@@ -40,8 +44,8 @@ import (
 
 const (
 	Magic = "WMAP"
-	// Version is the format written. Versions 1 to 3 are still read.
-	Version = 4
+	// Version is the format written. Versions 1 to 4 are still read.
+	Version = 5
 	// LiquidRecordSize is the bytes of one liquid layer in the liquids blob.
 	LiquidRecordSize = 4 + 1 + 8 + 81*4 + 81
 	// ChunkCells is the size of a paint chunk in cells. A map's size is a multiple of it.
@@ -50,6 +54,8 @@ const (
 	SlotsPerChunk = 4
 	// MaxPalette is the number of palette entries a map may hold.
 	MaxPalette = 255
+	// ChunkImpassable is the chunk flag that marks a chunk players can't walk.
+	ChunkImpassable = 1
 )
 
 // PlacedObject is a model instance placed in the world. Objects with a Parent
@@ -117,6 +123,12 @@ type MapData struct {
 	Holes string `json:"holes,omitempty"`
 	// Liquids is the liquids blob, version 4: a layer count, then the layers. Empty means none.
 	Liquids string `json:"liquids,omitempty"`
+	// AreaIDs is a uint32 per chunk (row-major), version 5: the chunk's AreaTable.dbc ID, 0 for none.
+	// ChunkFlags is a byte per chunk (bit 0 impassable) and NoEffect a byte per cell (1 where no
+	// ground effect doodads grow), also version 5. Empty means all zero.
+	AreaIDs    string `json:"areaIds,omitempty"`
+	ChunkFlags string `json:"chunkFlags,omitempty"`
+	NoEffect   string `json:"noEffect,omitempty"`
 	SplatA string `json:"splatA,omitempty"` // base64 RGBA8, version 1
 	SplatB string `json:"splatB,omitempty"` // base64 RGBA8, version 1
 }
@@ -151,8 +163,14 @@ func (h *Header) chunkBytes() int {
 	return c * c * SlotsPerChunk
 }
 
-// holeBytes is the size of the per-cell holes blob.
+// holeBytes is the size of a per-cell blob: the holes, or the no-effect cells.
 func (h *Header) holeBytes() int { return h.Size * h.Size }
+
+// chunkCount is the number of paint chunks.
+func (h *Header) chunkCount() int {
+	c := h.Size / ChunkCells
+	return c * c
+}
 
 // checkLiquids rejects a liquids blob whose length doesn't match its count, or whose layers lie off
 // the map.
@@ -181,32 +199,40 @@ func Write(w io.Writer, m *MapData) error {
 	if err := m.validate(); err != nil {
 		return err
 	}
-	blobs := make([][]byte, 0, 4)
-	for _, b := range []struct {
+	type blob struct {
 		name string
 		s    string
 		want int
-	}{
-		{"heights", m.Heights, m.heightBytes()},
-		{"weights", m.Weights, m.splatBytes()},
-		{"chunkSlots", m.ChunkSlots, m.chunkBytes()},
-		{"holes", m.Holes, m.holeBytes()},
-	} {
-		if b.name == "holes" && b.s == "" {
-			// No holes given: the map has none.
-			blobs = append(blobs, make([]byte, b.want))
-			continue
-		}
-		raw, err := base64.StdEncoding.DecodeString(b.s)
-		if err != nil {
-			return fmt.Errorf("%s: %w", b.name, err)
-		}
-		if len(raw) != b.want {
-			return fmt.Errorf("%s: got %d bytes, want %d", b.name, len(raw), b.want)
-		}
-		blobs = append(blobs, raw)
+		// optional blobs may be left empty, which writes zeros.
+		optional bool
 	}
-
+	fixed := func(list []blob) ([][]byte, error) {
+		out := make([][]byte, 0, len(list))
+		for _, b := range list {
+			if b.optional && b.s == "" {
+				out = append(out, make([]byte, b.want))
+				continue
+			}
+			raw, err := base64.StdEncoding.DecodeString(b.s)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", b.name, err)
+			}
+			if len(raw) != b.want {
+				return nil, fmt.Errorf("%s: got %d bytes, want %d", b.name, len(raw), b.want)
+			}
+			out = append(out, raw)
+		}
+		return out, nil
+	}
+	blobs, err := fixed([]blob{
+		{"heights", m.Heights, m.heightBytes(), false},
+		{"weights", m.Weights, m.splatBytes(), false},
+		{"chunkSlots", m.ChunkSlots, m.chunkBytes(), false},
+		{"holes", m.Holes, m.holeBytes(), true},
+	})
+	if err != nil {
+		return err
+	}
 	liquids, err := base64.StdEncoding.DecodeString(m.Liquids)
 	if err != nil {
 		return fmt.Errorf("liquids: %w", err)
@@ -217,6 +243,15 @@ func Write(w io.Writer, m *MapData) error {
 	var liqLen [4]byte
 	binary.LittleEndian.PutUint32(liqLen[:], uint32(len(liquids)))
 	blobs = append(blobs, liqLen[:], liquids)
+	tail, err := fixed([]blob{
+		{"areaIds", m.AreaIDs, m.chunkCount() * 4, true},
+		{"chunkFlags", m.ChunkFlags, m.chunkCount(), true},
+		{"noEffect", m.NoEffect, m.holeBytes(), true},
+	})
+	if err != nil {
+		return err
+	}
+	blobs = append(blobs, tail...)
 
 	hdr, err := json.Marshal(&m.Header)
 	if err != nil {
@@ -245,7 +280,7 @@ func Write(w io.Writer, m *MapData) error {
 	return gz.Close()
 }
 
-// Read decodes a map from r. Versions 1 to 4 are all accepted.
+// Read decodes a map from r. Versions 1 to 5 are all accepted.
 func Read(r io.Reader) (*MapData, error) {
 	gz, err := gzip.NewReader(bufio.NewReader(r))
 	if err != nil {
@@ -330,6 +365,17 @@ func Read(r io.Reader) (*MapData, error) {
 				return nil, err
 			}
 			m.Liquids = base64.StdEncoding.EncodeToString(buf)
+		}
+		if v >= 5 {
+			if m.AreaIDs, err = read(m.chunkCount() * 4); err != nil {
+				return nil, fmt.Errorf("areaIds: %w", err)
+			}
+			if m.ChunkFlags, err = read(m.chunkCount()); err != nil {
+				return nil, fmt.Errorf("chunkFlags: %w", err)
+			}
+			if m.NoEffect, err = read(m.holeBytes()); err != nil {
+				return nil, fmt.Errorf("noEffect: %w", err)
+			}
 		}
 	}
 	if m.Objects == nil {

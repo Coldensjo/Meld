@@ -1,12 +1,14 @@
 <script lang="ts">
   import OptSlider from './OptSlider.svelte'
   import { TOOLS } from './Toolbar.svelte'
-  import { MAX_BRUSH_RADIUS, editor, prefs, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
+  import { MAX_BRUSH_RADIUS, editor, prefs, stats, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName } from '../lib/models/assets'
   import { FALLOFF_CURVES } from '../lib/tools/brush'
   import { LIQUID_TYPES } from '../lib/water/liquids'
   import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
+  import { areaName, loadAreas } from '../lib/wow/areas'
+  import type { vmangos } from '../../wailsjs/go/models'
 
   const SCULPT_MODES: Array<{ id: SculptMode; name: string }> = [
     { id: 'raise', name: 'Raise' },
@@ -36,6 +38,7 @@
       editor.tool === 'water' ||
       editor.tool === 'clear' ||
       editor.tool === 'doodad' ||
+      editor.tool === 'mapdata' ||
       (editor.tool === 'place' && editor.placeScatter),
   )
   // The water brush paints whole cells in a circle, so only its size applies; Vertex mode moves the
@@ -43,6 +46,30 @@
   const paintingWater = $derived(editor.tool === 'water' && editor.waterMode === 'paint')
   const vertexMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'vertex')
   const holeMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'hole')
+  // The Map data tool marks whole chunks or cells under the brush, so only its size applies.
+  const mapData = $derived(editor.tool === 'mapdata')
+
+  /** The client's zones for the Map data tool's picker, read when the tool is first opened. */
+  let areas = $state<vmangos.Area[]>([])
+  $effect(() => {
+    if (mapData && !areas.length) void loadAreas().then((a) => (areas = a))
+  })
+  /** The picker's text: the picked zone's name and ID. */
+  let areaText = $state('')
+  $effect(() => {
+    const id = editor.mapDataArea
+    areaText = id ? `${areaName(id)} (${id})` : ''
+  })
+  /** Takes the zone from what was typed or chosen in the picker: its "(id)", or a name that matches one. */
+  function pickArea(text: string) {
+    const m = /\((\d+)\)\s*$/.exec(text)
+    const id = m ? Number(m[1]) : (areas.find((a) => a.name.toLowerCase() === text.trim().toLowerCase())?.id ?? 0)
+    if (id) {
+      editor.mapDataArea = id
+      editor.mapDataClear = false
+    }
+    areaText = editor.mapDataArea ? `${areaName(editor.mapDataArea)} (${editor.mapDataArea})` : ''
+  }
 
   /** Opens the brush editor window, making a brush first when there is none. */
   function editBrush() {
@@ -315,7 +342,7 @@
     {/if}
   {/if}
 
-  {#if usesBrush && editor.tool !== 'place' && editor.tool !== 'doodad' && !paintingWater && !vertexMode && !holeMode}
+  {#if usesBrush && editor.tool !== 'place' && editor.tool !== 'doodad' && !paintingWater && !vertexMode && !holeMode && !mapData}
     <div class="seg" title="Brush shape">
       <button class:active={editor.brush.shape === 'circle'} onclick={() => (editor.brush.shape = 'circle')} aria-label="Round brush">●</button>
       <button class:active={editor.brush.shape === 'square'} onclick={() => (editor.brush.shape = 'square')} aria-label="Square brush">■</button>
@@ -328,10 +355,10 @@
     {#if !vertexMode}
       <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={MAX_BRUSH_RADIUS} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
     {/if}
-    {#if !paintingWater}
+    {#if !paintingWater && !mapData}
       <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={editor.tool === 'sculpt' ? 10 : 1} step={0.01} digits={2} title={vertexMode ? 'How fast Shift+drag moves the selected vertices' : editor.tool === 'sculpt' ? 'How fast the ground moves: up to ten times the normal speed, for big mountains' : undefined} />
     {/if}
-    {#if editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !vertexMode}
+    {#if editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !vertexMode && !mapData}
       <OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} />
       <select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
         {#each FALLOFF_CURVES as c (c.id)}
@@ -348,6 +375,27 @@
       <option value="liquids">Liquids (painted water)</option>
       <option value="holes">Holes (fill)</option>
     </select>
+  {/if}
+  {#if mapData}
+    <div class="seg" title="Set the zone under the brush, or clear it">
+      <button class:active={!editor.mapDataClear} onclick={() => (editor.mapDataClear = false)}>Set</button>
+      <button class:active={editor.mapDataClear} onclick={() => (editor.mapDataClear = true)}>Clear</button>
+    </div>
+    <input
+      class="area"
+      list="meld-areas"
+      placeholder={areas.length ? 'Zone: type a name' : 'Zones need the client'}
+      title="The zone (AreaTable.dbc) the brush paints into the chunks; Alt+click a chunk to take its zone"
+      aria-label="Zone"
+      value={areaText}
+      onchange={(e) => pickArea(e.currentTarget.value)}
+    />
+    <datalist id="meld-areas">
+      {#each areas as a (a.id)}
+        <option value="{areaName(a.id)} ({a.id})"></option>
+      {/each}
+    </datalist>
+    <span class="dim">{stats.hoverArea ? `Under the cursor: ${stats.hoverArea}` : 'Under the cursor: no zone'}</span>
   {/if}
   {#if editor.tool === 'paint' && editor.paintMode === 'texture'}
     <label class="check" title="Spray random dabs over the brush instead of painting it solid (T)"><input type="checkbox" bind:checked={editor.paintSpray} /> Spray</label>
@@ -434,6 +482,10 @@
   }
   button {
     padding: 2px 8px;
+    flex: none;
+  }
+  .area {
+    width: 240px;
     flex: none;
   }
 </style>

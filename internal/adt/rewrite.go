@@ -72,6 +72,9 @@ type Changes struct {
 	// Water, when set, puts sea at its level into every cell of every chunk that the ground lies below
 	// and no layer of Liquids covers. Nil keeps the tile's own liquids.
 	Water *Water
+	// Headers sets header fields of the chunks it lists, by chunk index (y*16 + x). Chunks not
+	// listed keep their own.
+	Headers map[int]ChunkHeader
 }
 
 // Water is a map's sea: ocean at Level yards, over the ground below it.
@@ -571,6 +574,9 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 		if paint.NoEffect != nil {
 			writeNoEffect(header, paint.NoEffect)
 		}
+	}
+	if h, ok := ch.Headers[idx]; ok {
+		flags = h.apply(header, flags)
 	}
 	binary.LittleEndian.PutUint32(header[0:], flags)
 	binary.LittleEndian.PutUint32(header[mcnkLayers:], nLayers)

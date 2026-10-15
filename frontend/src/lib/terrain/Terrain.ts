@@ -7,6 +7,7 @@ import { PaletteArray } from './paletteArray'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRoles } from './chunkPaint'
 import { holeTriangle, triangleIsHole, writeCellIndex } from './holes'
 import { DirtyRegion, uploadRect, type DirtyRect } from './dirtyRect'
+import { CHUNK_IMPASSABLE, areaColor } from './chunkFlags'
 
 export type { DirtyRect } from './dirtyRect'
 
@@ -44,9 +45,24 @@ export class Terrain {
   holesVersion = 0
   /**
    * One byte per cell: non-zero where the client's tile grows no ground effect doodads (its
-   * noEffectDoodad bits, under roads and buildings). Read from a region; not kept in the map file.
+   * noEffectDoodad bits, under roads and buildings). Read from a region, painted with the Map data
+   * tool, and kept in the map file.
    */
   readonly noEffect: Uint8Array
+  /** One AreaTable.dbc ID per paint chunk (an MCNK), 0 for none, which the chunk's header names. */
+  readonly areaIds: Uint32Array
+  /** One byte of flags per paint chunk: CHUNK_IMPASSABLE (chunkFlags.ts) where players can't walk it. */
+  readonly chunkFlags: Uint8Array
+  /** Counts the edits of `noEffect`, `areaIds` and `chunkFlags`, so their overlay knows when to redraw. */
+  chunkDataVersion = 0
+  /**
+   * The Map data tool's overlay, made on first use: a texel per chunk (its zone's colour, and the
+   * impassable flag in alpha) and a texel per cell (the no-effect cells). Uploaded whole by `update`
+   * after an edit; both are small next to the paint.
+   */
+  private chunkDataTex: THREE.DataTexture | null = null
+  private noEffectTex: THREE.DataTexture | null = null
+  private chunkDataDirty = false
   /** SLOTS weights per splat texel, for the chunk's slots; each texel sums to 255. */
   readonly weights: Uint8Array
   /** SLOTS palette indices per paint chunk (NO_TEXTURE for an empty slot). */
@@ -98,6 +114,8 @@ export class Terrain {
     this.heights = new Float32Array(this.verts * this.verts)
     this.holes = new Uint8Array(size * size)
     this.noEffect = new Uint8Array(size * size)
+    this.areaIds = new Uint32Array(this.paintChunksPerSide * this.paintChunksPerSide)
+    this.chunkFlags = new Uint8Array(this.paintChunksPerSide * this.paintChunksPerSide)
     this.weights = new Uint8Array(this.splatRes * this.splatRes * SLOTS)
     this.chunkSlots = new Uint8Array(this.paintChunksPerSide * this.paintChunksPerSide * SLOTS).fill(NO_TEXTURE)
     // Every texel starts as palette entry 0, the first ground texture.
@@ -317,12 +335,49 @@ export class Terrain {
       this.uploadRegion(renderer, this.maskDirty, this.maskSrc, this.maskTex)
       this.maskDirty.clear()
     }
+    if (this.chunkDataDirty && this.chunkDataTex && this.noEffectTex) {
+      const px = this.chunkDataTex.image.data as Uint8Array
+      for (let c = 0; c < this.areaIds.length; c++) {
+        areaColor(this.areaIds[c], px, c * 4)
+        px[c * 4 + 3] = this.chunkFlags[c] & CHUNK_IMPASSABLE ? 255 : 0
+      }
+      this.chunkDataTex.needsUpdate = true
+      this.noEffectTex.needsUpdate = true
+      this.chunkDataDirty = false
+    }
     if (this.splatDirty.dirty) {
       this.uploadRegion(renderer, this.splatDirty, this.weightSrc, this.weightTex)
       // The slot table is small, and painting can rename a slot anywhere in a touched chunk.
       this.slotTex.needsUpdate = true
       this.splatDirty.clear()
     }
+  }
+
+  /** Marks the area IDs, chunk flags or no-effect cells as edited, for their overlay and the tufts. */
+  touchChunkData() {
+    this.chunkDataVersion++
+    this.chunkDataDirty = true
+  }
+
+  /**
+   * Shows the Map data overlay: 0 off, 1 the chunks' zones, 2 the impassable chunks, 3 the cells that
+   * grow no tufts. Its textures are made the first time it is shown. Cheap to call every frame.
+   */
+  setMapDataOverlay(mode: number) {
+    const u = this.material.uniforms
+    if (u.mapDataMode.value === mode) return
+    u.mapDataMode.value = mode
+    if (!mode || this.chunkDataTex) return
+    const side = this.paintChunksPerSide
+    this.chunkDataTex = new THREE.DataTexture(new Uint8Array(side * side * 4), side, side, THREE.RGBAFormat)
+    this.noEffectTex = new THREE.DataTexture(this.noEffect, this.size, this.size, THREE.RedFormat, THREE.UnsignedByteType)
+    for (const t of [this.chunkDataTex, this.noEffectTex]) {
+      t.magFilter = t.minFilter = THREE.NearestFilter
+      t.generateMipmaps = false
+    }
+    u.chunkDataTex.value = this.chunkDataTex
+    u.noEffectTex.value = this.noEffectTex
+    this.chunkDataDirty = true
   }
 
   /** The heights as a float texture, one texel a vertex, kept up to date by `update`. */
@@ -491,6 +546,8 @@ export class Terrain {
     this.maskSrc.dispose()
     this.heightTex?.dispose()
     this.heightSrc?.dispose()
+    this.chunkDataTex?.dispose()
+    this.noEffectTex?.dispose()
   }
 }
 

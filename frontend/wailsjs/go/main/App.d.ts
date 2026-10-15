@@ -7,6 +7,8 @@ import {wow} from '../models';
 
 export function ApplySpawnEdits(arg1:string,arg2:number,arg3:number,arg4:number,arg5:Array<vmangos.SpawnEdit>):Promise<vmangos.Result>;
 
+export function Areas():Promise<Array<vmangos.Area>>;
+
 export function BrowseVmangosFolder():Promise<string>;
 
 export function BrowseWowFolder():Promise<string>;

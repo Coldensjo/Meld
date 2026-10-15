@@ -39,6 +39,16 @@ type TileSpec struct {
 	Objects []ObjectSpec
 	// Liquids are the tile's painted liquid layers, each placed by its chunk in the tile.
 	Liquids []adt.Liquid
+	// Headers are the chunks' zones and impassable flags; chunks not listed keep the new tile's.
+	Headers []HeaderSpec
+}
+
+// HeaderSpec is a chunk's header fields: its index (in the tile for a TileSpec, in the block for a
+// RegionEdit), its AreaTable.dbc ID (0 keeps the chunk's own) and whether it is impassable.
+type HeaderSpec struct {
+	Chunk      int    `json:"chunk"`
+	AreaID     uint32 `json:"areaId"`
+	Impassable bool   `json:"impassable"`
 }
 
 // PaintSpec is a chunk's paint: its index in the tile (y*16 + x), its textures in slot order, and
@@ -166,6 +176,15 @@ func buildTile(t TileSpec, water *adt.Water) ([]byte, error) {
 		return nil, err
 	}
 	ch.Liquids = liquids
+	if len(t.Headers) > 0 {
+		ch.Headers = map[int]adt.ChunkHeader{}
+		for _, h := range t.Headers {
+			if h.Chunk < 0 || h.Chunk >= adt.ChunkCount {
+				return nil, fmt.Errorf("header chunk %d is outside the tile", h.Chunk)
+			}
+			ch.Headers[h.Chunk] = adt.ChunkHeader{AreaID: h.AreaID, Impassable: h.Impassable}
+		}
+	}
 	for _, p := range t.Paint {
 		if p.Chunk < 0 || p.Chunk >= adt.ChunkCount {
 			return nil, fmt.Errorf("chunk %d is outside the tile", p.Chunk)
