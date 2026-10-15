@@ -58,7 +58,7 @@ func TestMeshRoomsEncoded(t *testing.T) {
 	tri := func(room uint16) *Mesh {
 		m := &Mesh{Pos: make([]float32, 9), Normal: make([]float32, 9), UV: make([]float32, 6), Index: []uint32{0, 1, 2}}
 		if room > 0 {
-			m.Room = []uint16{room, room, room}
+			m.Room = []uint16{room, 0, room, 0, room, 7}
 		}
 		return m
 	}
@@ -66,7 +66,7 @@ func TestMeshRoomsEncoded(t *testing.T) {
 	m.Append(tri(0))
 	m.Append(tri(3))
 	m.Append(tri(0))
-	if len(m.Room) != 9 || m.Room[0] != 0 || m.Room[3] != 3 || m.Room[8] != 0 {
+	if len(m.Room) != 18 || m.Room[0] != 0 || m.Room[6] != 3 || m.Room[11] != 7 || m.Room[17] != 0 {
 		t.Fatalf("rooms %v", m.Room)
 	}
 	b := m.Encode()
@@ -74,9 +74,9 @@ func TestMeshRoomsEncoded(t *testing.T) {
 	if !strings.Contains(string(b[4:4+n]), `"rooms":true`) {
 		t.Fatal("header lacks rooms")
 	}
-	// 9 vertices of pos, normal, uv, 9 indices, then 9 tags and a 2-byte pad.
+	// 9 vertices of pos, normal, uv, 9 indices, then two tags a vertex.
 	tail := b[4+n+9*(12+12+8)+9*4:]
-	if len(tail) != 20 || binary.LittleEndian.Uint16(tail[6:]) != 3 {
+	if len(tail) != 36 || binary.LittleEndian.Uint16(tail[12:]) != 3 || binary.LittleEndian.Uint16(tail[22:]) != 7 {
 		t.Fatalf("tail %v", tail)
 	}
 	if strings.Contains(string(tri(0).Encode()), `"rooms"`) {

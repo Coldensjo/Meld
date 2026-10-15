@@ -124,3 +124,17 @@ test('the room fog fades in and out over four seconds, its end clamped to the fa
   assert.equal(fade.update(null, [0, 0, 0], 100, 500, 1000, 2), false)
   assert.equal(fade.far, 500)
 })
+
+test('from outside, an interior shows only through a doorway in view, and takes no room fog', () => {
+  // B is the building's exterior shell (0x8); A, an interior, opens onto it through the x = 0 doorway.
+  const nav = hall(EXTERIOR, EXTERIOR)
+  const outside = { inGroup: null, across: null }
+  // The eye at WoW (5, 0, 2), editor (5, 2, 0), on B's side of the doorway.
+  const eye: [number, number, number] = [5, 0, 2]
+  const toward = new RoomFlood().run(nav, outside, eye, clip([5, 2, 0], [-5, 2, 0]))
+  assert.equal(toward.visible[0], 1, 'the interior through the doorway')
+  assert.deepEqual([...toward.fog], [0, 0, 0])
+  const away = new RoomFlood().run(nav, outside, eye, clip([5, 2, 0], [15, 2, 0]))
+  assert.equal(away.visible[0], 0, 'the doorway behind the camera')
+  assert.equal(away.visible[1], 1, 'the shell is always a root')
+})

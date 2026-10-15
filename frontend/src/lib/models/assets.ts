@@ -266,7 +266,7 @@ export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
   geo.setAttribute('uv', new THREE.BufferAttribute(m.uvs, 2))
   const vc = !!m.colors
   if (m.colors) geo.setAttribute('color', new THREE.BufferAttribute(m.colors, 4, true))
-  if (m.rooms) geo.setAttribute(ROOM_ATTRIBUTE, new THREE.BufferAttribute(m.rooms, 1))
+  if (m.rooms) geo.setAttribute(ROOM_ATTRIBUTE, new THREE.BufferAttribute(m.rooms, 2))
   const nVerts = m.positions.length / 3
   geo.setIndex(new THREE.BufferAttribute(nVerts < 65535 ? Uint16Array.from(m.indices) : m.indices, 1))
   const materials = m.groups.map((g, i) => {

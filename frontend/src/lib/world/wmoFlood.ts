@@ -1,20 +1,20 @@
-// The client's portal flood for the WMO the camera is in: which groups it draws this frame, and
+// The client's portal flood for a placed WMO: which of its groups it draws this frame, and
 // which of them take the room's fog. Ported from Benilla's `wmo_portal/mod.rs` (`compute_pvs_traced`,
 // `Flood::walk`, `portal_screen_rect`; MIT/Apache-2.0), which follows the 1.12 client's recursion
 // (0x6b41c0): from the camera's groups (the down-ray's seeds, `wmoRoom.ts`) it crosses each portal
 // whose front side the eye is on, projects the portal to a screen rect, intersects it with the rect
 // it carries and goes on with the overlap, ending a branch when the overlap collapses.
 //
-// - Pass 1 floods from the camera's groups. A portal it crosses onto an exterior group (0x8) leaves
-//   a deferred window: its rect.
+// - Pass 1 floods from the camera's groups, or, with the camera outside the building, from every
+//   exterior group. Inside, a portal it crosses onto an exterior group (0x8) leaves a deferred
+//   window: its rect.
 // - Pass 2, per window, floods again from every exterior group inside the view narrowed to it, so
 //   from inside the building's shell is drawn only through its doorways.
 // - Pass 3 draws each callback group (0x10000) in the view, whatever the flood reached.
 // - A group takes the room's fog when the flood reached it from the camera's groups through true
 //   interiors only (no 0x8 or 0x40 on the way, nor on it).
 //
-// Benilla also floods from outside (every exterior group a root) and gates the open world through
-// the windows; Meld runs the flood only for the WMO the camera is in and leaves the world alone.
+// The windows of the building the camera is in gate the open world (Engine.cullInstances, #116).
 // The epsilons are the client's: the side test at exactly 0, the rect collapse at 0.001, the w clamp.
 
 import * as THREE from 'three'
@@ -85,15 +85,19 @@ export class RoomFlood {
     for (let i = 0; i < 16; i++) this.m[i] = clipFromLocal.elements[i]
     const out: RoomPvs = { visible: this.visible.subarray(0, n), fog: this.fog.subarray(0, n) }
     this.windows.length = 0
-    if (seeds.inGroup === null) return out
-
-    // Pass 1 from the camera's groups, full screen each. It records windows only on the inside leg:
-    // a seed group that is not exterior.
     this.stack.length = 0
-    this.windows.length = 0
-    this.push(this.stack, seeds.inGroup, -1, -1, -1, 1, 1, 0, true)
-    if (seeds.across !== null) this.push(this.stack, seeds.across, -1, -1, -1, 1, 1, 0, true)
-    const insideLeg = (nav.groups[seeds.inGroup].flags & EXTERIOR) === 0
+    let insideLeg = false
+    if (seeds.inGroup !== null) {
+      // Pass 1 from the camera's groups, full screen each. It records windows only on the inside
+      // leg: a seed group that is not exterior.
+      this.push(this.stack, seeds.inGroup, -1, -1, -1, 1, 1, 0, true)
+      if (seeds.across !== null) this.push(this.stack, seeds.across, -1, -1, -1, 1, 1, 0, true)
+      insideLeg = (nav.groups[seeds.inGroup].flags & EXTERIOR) === 0
+    } else {
+      // The outside leg: every exterior group a full-screen root, with no interior chain, so no
+      // room fog; an interior is drawn only where a doorway shows it.
+      for (let g = 0; g < n; g++) if (nav.groups[g].flags & EXTERIOR) this.push(this.stack, g, -1, -1, -1, 1, 1, 0, false)
+    }
     this.walk(this.stack, insideLeg)
 
     // Pass 2: per window, every exterior group (not a callback one) in the view narrowed to it.

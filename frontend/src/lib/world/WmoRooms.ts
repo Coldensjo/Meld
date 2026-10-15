@@ -29,6 +29,19 @@ export interface CameraRoom {
 
 /** The camera has to move this far (yd) before the probe runs again. */
 const MOVE_EPS = 0.01
+/** How far (yd) from the camera a building is flooded from outside. */
+const OUTSIDE_RANGE = 400
+
+/** A placed WMO with portals in view that the camera is not in, flooded from outside. */
+export interface OutsideWmo {
+  id: number
+  nav: WmoNav
+  /** The placement's world matrix and origin. */
+  matrix: THREE.Matrix4
+  origin: THREE.Vector3
+  /** Its distance from the camera, nearest first. */
+  dist: number
+}
 
 /**
  * Tracks which room of which placed WMO the camera is in (`wmoRoom.ts`'s probe), loading each WMO's
@@ -49,6 +62,47 @@ export class WmoRooms {
   private local = new THREE.Vector3()
   private eyeModel: [number, number, number] = [0, 0, 0]
   private groundModel: [number, number, number] = [0, 0, 0]
+  private pool: OutsideWmo[] = []
+  private found: OutsideWmo[] = []
+  private box = new THREE.Box3()
+
+  /**
+   * The nearest `max` placed WMOs with a portal graph that meet `frustum` within OUTSIDE_RANGE of
+   * `eye`, other than the one the camera is in; one whose room data is still loading is left out
+   * (and starts loading). The list and its entries are reused by the next call.
+   */
+  outside(objects: ObjectLayer, frustum: THREE.Frustum, eye: THREE.Vector3, max: number): readonly OutsideWmo[] {
+    const found = this.found
+    found.length = 0
+    if (objects !== this.layer) return found
+    for (const id of this.wmoIds) {
+      if (id === this.current?.id) continue
+      const o = objects.objects.get(id)
+      if (!o || objects.isHidden(id)) continue
+      const asset = getAsset(o.type)
+      if (!asset.ready) continue
+      objects.matrixOf(o, this.m)
+      this.box.copy(asset.bbox).applyMatrix4(this.m)
+      const dist = this.box.distanceToPoint(eye)
+      if (dist > OUTSIDE_RANGE || !frustum.intersectsBox(this.box)) continue
+      const nav = this.nav(baseType(o.type).slice('wmo:'.length))
+      if (!nav || !nav.portals.length) continue
+      let e = this.pool[found.length]
+      if (!e) {
+        e = { id: 0, nav, matrix: new THREE.Matrix4(), origin: new THREE.Vector3(), dist: 0 }
+        this.pool.push(e)
+      }
+      e.id = id
+      e.nav = nav
+      e.matrix.copy(this.m)
+      e.origin.setFromMatrixPosition(this.m)
+      e.dist = dist
+      found.push(e)
+    }
+    found.sort((a, b) => a.dist - b.dist)
+    if (found.length > max) found.length = max
+    return found
+  }
 
   /**
    * Runs the probe for an eye at `eye` (world space). `groundAt` gives the terrain's height under a

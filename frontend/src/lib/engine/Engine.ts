@@ -52,7 +52,8 @@ import { WmoRooms } from '../world/WmoRooms'
 import { GROUND_SNAP_REACH } from '../world/particles'
 import { RoomFlood } from '../world/wmoFlood'
 import { RoomFogFade } from '../world/wmoFog'
-import { setRoomFog, setRoomGate } from '../world/roomGate'
+import { addRoomGate, beginRoomGates, endRoomGates, ROOM_MAX_GATED, setRoomFog } from '../world/roomGate'
+import { toModel } from '../world/wmoRoom'
 import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
 import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
@@ -114,6 +115,8 @@ const ORTHO_HEIGHT = 1500
 
 /** Straight down, for finding the ground below a point. */
 const DOWN = new THREE.Vector3(0, -1, 0)
+/** The portal flood's seeds for a building the camera is not in: its outside leg. */
+const NO_SEEDS = { inGroup: null, across: null } as const
 /** How far above an orbit target `playerSpot` looks down from, in yards: a floor up to this high over the terrain is stood on. */
 const PLAYER_PROBE = 3
 /** How far above the ground a launched character is put, in yards, so it never starts inside the surface. */
@@ -220,6 +223,10 @@ export class Engine {
   private roomFlood = new RoomFlood()
   private roomFog = new RoomFogFade()
   private roomClip = new THREE.Matrix4()
+  private outsideFlood = new RoomFlood()
+  private roomInv = new THREE.Matrix4()
+  private roomEyeLocal = new THREE.Vector3()
+  private roomEyeModel: [number, number, number] = [0, 0, 0]
   private roomNarrow = new THREE.Matrix4()
   private roomGateFrustums: THREE.Frustum[] = []
   private roomGate: THREE.Frustum[] = []
@@ -3500,14 +3507,27 @@ export class Engine {
    */
   private updateRoomGate(dt: number) {
     const r = this.rooms.current
-    if (!r || this.topDown) {
-      setRoomGate(null)
-    } else {
+    beginRoomGates()
+    if (!this.topDown) {
       this.camera.updateMatrixWorld()
-      this.roomClip.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse).multiply(r.matrix)
-      const pvs = this.roomFlood.run(r.nav, r.seeds, r.eye, this.roomClip)
-      setRoomGate(r.origin, pvs.visible, pvs.fog)
+      this.viewProj.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+      this.viewFrustum.setFromProjectionMatrix(this.viewProj)
+      if (r) {
+        this.roomClip.copy(this.viewProj).multiply(r.matrix)
+        const pvs = this.roomFlood.run(r.nav, r.seeds, r.eye, this.roomClip)
+        addRoomGate(r.origin, pvs.visible, pvs.fog)
+      }
+      // The other buildings in view are flooded from outside (#116): an interior shows only where a
+      // doorway does.
+      for (const w of this.rooms.outside(this.objects, this.viewFrustum, this.camera.position, ROOM_MAX_GATED - 1)) {
+        this.roomEyeLocal.copy(this.camera.position).applyMatrix4(this.roomInv.copy(w.matrix).invert())
+        toModel(this.roomEyeLocal, this.roomEyeModel)
+        this.roomClip.copy(this.viewProj).multiply(w.matrix)
+        const pvs = this.outsideFlood.run(w.nav, NO_SEEDS, this.roomEyeModel, this.roomClip)
+        addRoomGate(w.origin, pvs.visible, pvs.fog)
+      }
     }
+    endRoomGates()
     const fog = this.scene.fog as THREE.Fog | null
     if (!fog) return
     fog.color.getRGB(this.roomSceneFog, THREE.SRGBColorSpace)

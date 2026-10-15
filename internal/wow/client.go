@@ -239,7 +239,7 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 	m := &Mesh{}
 	var interiors [][6]float32
 	// The group each doodad belongs to, plus one: the first whose MODR names it.
-	doodadRoom := map[int]uint16{}
+	doodadRoom := map[int][]uint16{}
 	for i := 0; i < root.NumGroups; i++ {
 		gb, err := c.read(GroupPath(path, i))
 		if err != nil {
@@ -249,16 +249,14 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 			interiors = append(interiors, box)
 		}
 		for _, d := range GroupDoodadRefs(gb) {
-			if _, ok := doodadRoom[d]; !ok {
-				doodadRoom[d] = uint16(i + 1)
-			}
+			doodadRoom[d] = append(doodadRoom[d], uint16(i+1))
 		}
 		g, err := ParseWMOGroup(gb, root.Materials)
 		if err != nil {
 			continue
 		}
-		g.Room = make([]uint16, g.vertCount())
-		for k := range g.Room {
+		g.Room = make([]uint16, 2*g.vertCount())
+		for k := 0; k < len(g.Room); k += 2 {
 			g.Room[k] = uint16(i + 1)
 		}
 		m.Append(g)
@@ -287,10 +285,10 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 			Ribbons:  append([]Ribbon(nil), src.Ribbons...),
 		}
 		cp.TransformWoW(d.Pos, d.Rot, d.Scale)
-		if room := doodadRoom[di]; room > 0 {
-			cp.Room = make([]uint16, cp.vertCount())
-			for k := range cp.Room {
-				cp.Room[k] = room
+		if rooms := doodadRoom[di]; len(rooms) > 0 && len(rooms) <= 2 {
+			cp.Room = make([]uint16, 2*cp.vertCount())
+			for k := 0; k < len(cp.Room); k += 2 {
+				copy(cp.Room[k:k+2], rooms)
 			}
 		}
 		m.Append(cp)

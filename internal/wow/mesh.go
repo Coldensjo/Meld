@@ -70,8 +70,10 @@ type Mesh struct {
 	Emitters []Emitter
 	// Ribbons are an M2's ribbon emitters, their frames in model space (editor coordinates).
 	Ribbons []Ribbon
-	// Room is each vertex's WMO group plus one (0 for none): which room of a building it belongs to,
-	// for the portal culling and room fog of the building the camera is in. Empty for an M2.
+	// Room is two values a vertex: the WMO groups plus one (0 for none) it belongs to, for the portal
+	// culling and room fog of the buildings near the camera. A group's own geometry has one; a doodad
+	// has the groups whose MODR names it, two at most (one named by more has none, so it always
+	// draws). Empty for an M2.
 	Room []uint16
 	// points are an M2's attachment points by ID, for the items a look attaches. Not encoded.
 	points map[int]attachPoint
@@ -152,11 +154,11 @@ func (m *Mesh) Append(o *Mesh) {
 		m.Color = whiteColors(int(base))
 	}
 	if len(o.Room) > 0 || len(m.Room) > 0 {
-		m.Room = append(m.Room, make([]uint16, int(base)-len(m.Room))...)
-		if len(o.Room) == o.vertCount() {
+		m.Room = append(m.Room, make([]uint16, 2*int(base)-len(m.Room))...)
+		if len(o.Room) == 2*o.vertCount() {
 			m.Room = append(m.Room, o.Room...)
 		} else {
-			m.Room = append(m.Room, make([]uint16, o.vertCount())...)
+			m.Room = append(m.Room, make([]uint16, 2*o.vertCount())...)
 		}
 	}
 	m.Pos = append(m.Pos, o.Pos...)
@@ -242,12 +244,12 @@ type meshHeader struct {
 	Effects  []Effect  `json:"effects,omitempty"`
 	Emitters []Emitter `json:"emitters,omitempty"`
 	Ribbons  []Ribbon  `json:"ribbons,omitempty"`
-	// Rooms says each vertex's WMO group (Mesh.Room) follows the rest.
+	// Rooms says each vertex's two WMO groups (Mesh.Room) follow the rest.
 	Rooms bool `json:"rooms,omitempty"`
 }
 
 // Encode serialises the mesh for the frontend:
-// u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32) | [boneIdx u8x4 | boneW u8x4] | [room u16, pad to 4]
+// u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32) | [boneIdx u8x4 | boneW u8x4] | [room u16x2]
 func (m *Mesh) Encode() []byte {
 	n := m.vertCount()
 	mn := [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
@@ -270,7 +272,7 @@ func (m *Mesh) Encode() []byte {
 	if hasAnim {
 		h.Bones = m.Anim.Bones
 	}
-	h.Rooms = len(m.Room) == n && n > 0
+	h.Rooms = len(m.Room) == 2*n && n > 0
 	hdr, _ := json.Marshal(h)
 	for len(hdr)%4 != 0 {
 		hdr = append(hdr, ' ')
@@ -292,9 +294,6 @@ func (m *Mesh) Encode() []byte {
 	}
 	if h.Rooms {
 		binary.Write(&buf, binary.LittleEndian, m.Room)
-		if n%2 != 0 {
-			buf.Write([]byte{0, 0})
-		}
 	}
 	return buf.Bytes()
 }
