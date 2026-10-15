@@ -41,7 +41,6 @@ uniform float chunksSide;
 uniform float chunkWorld;
 uniform float rockLayer;
 uniform float worldSize;
-uniform float texScale;
 // The texture looks (world/textureLooks.ts) per palette entry, 256 wide: r is 0 for still or the speed
 // plus one, g the scroll's direction (0 to 7), b 255 for overbright. lookTime is in seconds.
 uniform sampler2D lookTex;
@@ -93,13 +92,12 @@ varying vec3 vNormal;
 // Noggit Red's scroll directions (animUVOffset): the 45-degree step's offset per texture repeat.
 const vec2 SCROLL[8] = vec2[8](vec2(0.0, 1.0), vec2(-1.0, 1.0), vec2(-1.0, 0.0), vec2(-1.0, -1.0), vec2(0.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 0.0), vec2(1.0, 1.0));
 
-// Two scales mixed together hide texture tiling at a distance. A texture the map scrolls moves a
-// repeat every 1.6 s at speed 7, slower in proportion below, as Noggit Red draws it; an overbright one
-// is drawn brighter.
+// A texture the map scrolls moves a repeat every 1.6 s at speed 7, slower in proportion below, as
+// Noggit Red draws it; an overbright one is drawn brighter.
 vec3 tap(float layer, vec2 uv) {
   vec4 look = floor(texture2D(lookTex, vec2((layer + 0.5) / 256.0, 0.5)) * 255.0 + 0.5);
   if (look.r > 0.5) uv += SCROLL[int(look.g) & 7] * fract(lookTime * (look.r - 1.0) / (7.0 * 1.6));
-  vec3 c = mix(texture(palette, vec3(uv, layer)).rgb, texture(palette, vec3(uv * 0.23 + 0.37, layer)).rgb, 0.35);
+  vec3 c = texture(palette, vec3(uv, layer)).rgb;
   return look.b > 127.5 ? c * 1.5 : c;
 }
 
@@ -117,7 +115,9 @@ void main() {
   // Seen from below (the camera under the ground, or inside a hill), the ground is a dark ceiling.
   vec3 n = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
   vec2 suv = vWorldPos.xz / worldSize;
-  vec2 tuv = vWorldPos.xz / texScale;
+  // One repeat a cell, eight a chunk, as the client tiles its ground textures (Benilla's
+  // TERRAIN_LAYER_TILES, terrain.rs; MIT/Apache-2.0): fixed, not a setting.
+  vec2 tuv = vWorldPos.xz / cellSize;
   vec2 cell = floor(vWorldPos.xz / chunkWorld);
   vec4 ids = floor(texture2D(slotTex, (cell + 0.5) / chunksSide) * 255.0 + 0.5);
   // Bilinear within the chunk, as the game filters its alpha maps. The four weights name this chunk's
@@ -144,9 +144,9 @@ void main() {
   float rockW = smoothstep(0.32, 0.55, slope) * cliffAuto;
   if (rockW > 0.001) {
     vec3 w3 = abs(n); w3 /= (w3.x + w3.y + w3.z);
-    vec3 rx = texture(palette, vec3(vWorldPos.zy / texScale, rockLayer)).rgb;
+    vec3 rx = texture(palette, vec3(vWorldPos.zy / cellSize, rockLayer)).rgb;
     vec3 ry = texture(palette, vec3(tuv, rockLayer)).rgb;
-    vec3 rz = texture(palette, vec3(vWorldPos.xy / texScale, rockLayer)).rgb;
+    vec3 rz = texture(palette, vec3(vWorldPos.xy / cellSize, rockLayer)).rgb;
     col = mix(col, rx * w3.x + ry * w3.y + rz * w3.z, rockW);
   }
 
@@ -315,7 +315,6 @@ export function createTerrainMaterial(
     rockLayer: { value: 3 },
     worldSize: { value: worldSize },
     cellSize: { value: cellSize },
-    texScale: { value: 8 },
     lookTex: { value: null },
     lookTime: { value: 0 },
     sunDir: { value: new THREE.Vector3(0.5, 0.8, 0.3).normalize() },

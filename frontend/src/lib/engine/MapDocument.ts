@@ -25,7 +25,6 @@ export interface DocMeta {
   vmangos: VmangosRef | null
   /** Named camera views of this map, kept with it. */
   bookmarks: Bookmark[]
-  texScale: number
   waterLevel: number
   waterEnabled: boolean
   paintLayer: number
@@ -155,7 +154,6 @@ export class MapDocument {
       region: null,
       vmangos: null,
       bookmarks: [],
-      texScale: 8,
       waterLevel: 0,
       waterEnabled: true,
       paintLayer: 0,

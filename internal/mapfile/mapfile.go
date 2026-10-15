@@ -93,7 +93,6 @@ type Header struct {
 	// LayerTextures are the eight global paint layers of version 1: a WoW tileset path, or "" for
 	// the built-in procedural texture.
 	LayerTextures []string `json:"layerTextures,omitempty"`
-	TexScale      float64  `json:"texScale,omitempty"`
 	// Region is the block of client tiles the map was opened from, which saves go back to. Optional.
 	Region *ClientRegion `json:"region,omitempty"`
 	// Vmangos is the server folder map this map publishes under. Optional.
@@ -138,8 +137,8 @@ type MapData struct {
 	AreaIDs    string `json:"areaIds,omitempty"`
 	ChunkFlags string `json:"chunkFlags,omitempty"`
 	NoEffect   string `json:"noEffect,omitempty"`
-	SplatA string `json:"splatA,omitempty"` // base64 RGBA8, version 1
-	SplatB string `json:"splatB,omitempty"` // base64 RGBA8, version 1
+	SplatA     string `json:"splatA,omitempty"` // base64 RGBA8, version 1
+	SplatB     string `json:"splatB,omitempty"` // base64 RGBA8, version 1
 }
 
 func (h *Header) validate() error {

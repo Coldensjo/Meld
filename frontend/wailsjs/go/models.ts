@@ -233,7 +233,6 @@ export namespace mapfile {
 	    objects: PlacedObject[];
 	    palette?: string[];
 	    layerTextures?: string[];
-	    texScale?: number;
 	    // Go type: ClientRegion
 	    region?: any;
 	    // Go type: VmangosFolder
@@ -271,7 +270,6 @@ export namespace mapfile {
 	        this.objects = this.convertValues(source["objects"], PlacedObject);
 	        this.palette = source["palette"];
 	        this.layerTextures = source["layerTextures"];
-	        this.texScale = source["texScale"];
 	        this.region = this.convertValues(source["region"], null);
 	        this.vmangos = this.convertValues(source["vmangos"], null);
 	        this.roles = this.convertValues(source["roles"], null);

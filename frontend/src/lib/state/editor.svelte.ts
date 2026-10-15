@@ -215,7 +215,6 @@ export const editor = $state({
   palette: LAYERS.map((l) => l.swatch) as string[],
   /** The open map's camera bookmarks. */
   bookmarks: [] as Bookmark[],
-  texScale: 8,
   mapName: 'Untitled',
   /** Terrain cells per side of the open map. */
   mapSize: 256,

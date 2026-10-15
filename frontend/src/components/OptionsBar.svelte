@@ -520,9 +520,6 @@
       <label class="check" title="Also paint the brush's solid centre (inside the falloff)"><input type="checkbox" bind:checked={editor.spray.inner} /> Inner radius</label>
     {/if}
   {/if}
-  {#if editor.tool === 'paint'}
-    <OptSlider label="Tex scale" bind:value={editor.texScale} min={2} max={24} step={0.5} digits={1} width={70} />
-  {/if}
 </div>
 
 <style>

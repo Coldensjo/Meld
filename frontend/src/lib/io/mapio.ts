@@ -76,7 +76,6 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     // The info travels as JSON the Go side keeps opaque (mapfile.VmangosFolder.Info).
     vmangos: s.vmangos ? { dir: s.vmangos.dir, mapId: s.vmangos.mapId, info: s.vmangos.info as unknown as number[] | undefined } : undefined,
     palette: s.palette,
-    texScale: s.texScale,
     roles: s.roles ?? undefined,
     textureEffects: Object.keys(s.textureEffects).length ? s.textureEffects : undefined,
     textureLooks: Object.keys(s.textureLooks).length ? s.textureLooks : undefined,
@@ -114,7 +113,6 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
     objects: (m.objects ?? []).map((o, i) => ({ ...o, id: o.id || 100000 + i, parent: o.parent || undefined, uid: o.uid || undefined })),
     region: m.region ? { mapName: m.region.mapName, x: m.region.x, y: m.region.y, size: m.region.size } : null,
     vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId, info: m.vmangos.info ? ({ ...defaultMapInfo(), ...(m.vmangos.info as unknown as Partial<MapInfo>) } as MapInfo) : undefined } : null,
-    texScale: m.texScale ?? 0,
     roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
     textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
     textureLooks: { ...((m.textureLooks ?? {}) as TextureLooks) },

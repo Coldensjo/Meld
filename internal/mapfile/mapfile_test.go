@@ -47,10 +47,9 @@ func sample(size int) *MapData {
 		Header: Header{
 			Name: "test", Size: size, CellSize: 4, SplatRes: res,
 			WaterLevel: 1.5, WaterEnabled: true,
-			Objects:  []PlacedObject{{ID: 1, Type: "oak", X: 1, Z: 2, RotY: 0.5, Scale: 1.2, Group: 3}, {ID: 2, Parent: 1, Type: "crate", X: 0.5, YOff: 3, Scale: 1}},
-			Palette:  []string{"#5d8a2f", `Tileset\Elwynn\ElwynnGrassBase.blp`},
-			TexScale: 4,
-			Roles:    &TextureRoles{Rock: 1, Dirt: -1},
+			Objects:        []PlacedObject{{ID: 1, Type: "oak", X: 1, Z: 2, RotY: 0.5, Scale: 1.2, Group: 3}, {ID: 2, Parent: 1, Type: "crate", X: 0.5, YOff: 3, Scale: 1}},
+			Palette:        []string{"#5d8a2f", `Tileset\Elwynn\ElwynnGrassBase.blp`},
+			Roles:          &TextureRoles{Rock: 1, Dirt: -1},
 			TextureEffects: map[string]uint32{`Tileset\Elwynn\ElwynnGrassBase.blp`: 42},
 			TextureLooks:   map[string]uint32{`Tileset\Elwynn\ElwynnGrassBase.blp`: 0xd2},
 			ZoneEffects:    map[string]map[string]uint32{"12": {`Tileset\Elwynn\ElwynnGrassBase.blp`: 7}},
@@ -87,7 +86,7 @@ func TestRoundTrip(t *testing.T) {
 	if got.Name != "test" || got.WaterLevel != 1.5 || !got.WaterEnabled || got.CellSize != 4 {
 		t.Fatalf("header mismatch: %+v", got.Header)
 	}
-	if len(got.Palette) != 2 || got.Palette[1] != m.Palette[1] || got.TexScale != 4 {
+	if len(got.Palette) != 2 || got.Palette[1] != m.Palette[1] {
 		t.Fatalf("palette mismatch: %+v", got.Palette)
 	}
 	if got.ZoneEffects["12"][m.Palette[1]] != 7 || got.TileEffects["1,2"][m.Palette[1]] != 9 {

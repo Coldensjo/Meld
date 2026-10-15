@@ -146,7 +146,6 @@ export interface MapSnapshot {
   vmangos: VmangosRef | null
   /** The texture palette (format 2). */
   palette: string[]
-  texScale: number
   /** The palette entries that are the map's rock and dirt; null in a map saved before roles. */
   roles: TextureRoles | null
   /** The map's own ground effect per texture path. */
@@ -702,7 +701,6 @@ export class Engine {
 
     this.syncPalette()
     const u = this.terrain.material.uniforms
-    u.texScale.value = editor.texScale
     this.updateLookTexture(u, time)
     u.brushVisible.value = tool.usesBrush && this.hit ? 1 : 0
     const radius = editor.tool === 'road' ? Math.max(1.5, editor.brush.radius * 0.5) : editor.brush.radius
@@ -1139,7 +1137,6 @@ export class Engine {
       filePath: editor.filePath,
       dirty: editor.dirty,
       palette: [...editor.palette],
-      texScale: editor.texScale,
       waterLevel: editor.waterLevel,
       waterEnabled: editor.waterEnabled,
       paintLayer: editor.paintLayer,
@@ -1185,7 +1182,6 @@ export class Engine {
     editor.filePath = m.filePath
     editor.palette = [...m.palette]
     editor.bookmarks = [...m.bookmarks]
-    editor.texScale = m.texScale
     editor.waterLevel = m.waterLevel
     editor.waterEnabled = m.waterEnabled
     editor.paintLayer = m.paintLayer
@@ -1888,7 +1884,6 @@ export class Engine {
       region: this.doc.meta.region ? { mapName: this.doc.meta.region.mapName, x: this.doc.meta.region.x, y: this.doc.meta.region.y, size: this.doc.meta.region.size } : null,
       vmangos: this.doc.meta.vmangos,
       palette: [...editor.palette],
-      texScale: editor.texScale,
       roles: { ...editor.roles },
       textureEffects: { ...editor.textureEffects },
       textureLooks: { ...editor.textureLooks },
@@ -1962,7 +1957,6 @@ export class Engine {
       region,
       vmangos: m.vmangos ?? null,
       bookmarks: [],
-      texScale: m.texScale || 8,
       waterLevel: m.waterLevel,
       waterEnabled: m.waterEnabled,
       paintLayer: 0,
