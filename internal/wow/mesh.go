@@ -68,6 +68,8 @@ type Mesh struct {
 	Effects []Effect
 	// Emitters are an M2's particle emitters, their frames in model space (editor coordinates).
 	Emitters []Emitter
+	// Ribbons are an M2's ribbon emitters, their frames in model space (editor coordinates).
+	Ribbons []Ribbon
 	// points are an M2's attachment points by ID, for the items a look attaches. Not encoded.
 	points map[int]attachPoint
 }
@@ -108,6 +110,16 @@ func (m *Mesh) Attach(id int, item *Mesh) bool {
 			e.Bone = p.Bone
 		}
 		cp.Emitters = append(cp.Emitters, e)
+	}
+	for _, rb := range item.Ribbons {
+		rb.Frame[12] += p.Pos[0]
+		rb.Frame[13] += p.Pos[1]
+		rb.Frame[14] += p.Pos[2]
+		rb.Bone = -1
+		if m.Anim != nil {
+			rb.Bone = p.Bone
+		}
+		cp.Ribbons = append(cp.Ribbons, rb)
 	}
 	m.Append(cp)
 	if m.Anim != nil {
@@ -154,6 +166,7 @@ func (m *Mesh) Append(o *Mesh) {
 	}
 	m.Effects = append(m.Effects, o.Effects...)
 	m.Emitters = append(m.Emitters, o.Emitters...)
+	m.Ribbons = append(m.Ribbons, o.Ribbons...)
 }
 
 func whiteColors(n int) []byte {
@@ -215,6 +228,7 @@ type meshHeader struct {
 	Bones    []Bone    `json:"bones,omitempty"`
 	Effects  []Effect  `json:"effects,omitempty"`
 	Emitters []Emitter `json:"emitters,omitempty"`
+	Ribbons  []Ribbon  `json:"ribbons,omitempty"`
 }
 
 // Encode serialises the mesh for the frontend:
@@ -235,7 +249,7 @@ func (m *Mesh) Encode() []byte {
 	}
 	h := meshHeader{
 		Verts: n, Indices: len(m.Index), Colors: len(m.Color) == n*4 && n > 0, Groups: m.Groups,
-		BBox: []float32{mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]}, Effects: m.Effects, Emitters: m.Emitters,
+		BBox: []float32{mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]}, Effects: m.Effects, Emitters: m.Emitters, Ribbons: m.Ribbons,
 	}
 	hasAnim := m.Anim != nil && len(m.Anim.BoneIdx) == n*4
 	if hasAnim {

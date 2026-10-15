@@ -272,6 +272,7 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 			Groups:   src.Groups,
 			Effects:  append([]Effect(nil), src.Effects...),
 			Emitters: append([]Emitter(nil), src.Emitters...),
+			Ribbons:  append([]Ribbon(nil), src.Ribbons...),
 		}
 		cp.TransformWoW(d.Pos, d.Rot, d.Scale)
 		m.Append(cp)

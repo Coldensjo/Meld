@@ -60,13 +60,13 @@ func hasAny(s string, words []string) bool {
 	return false
 }
 
-// parseM2Extras reads bones/animation, lights and particle emitters (as flame anchors among the
-// effects, and as emitters for the frontend to simulate). The loop played is the
+// parseM2Extras reads bones/animation, lights, particle emitters (as flame anchors among the
+// effects, and as emitters for the frontend to simulate) and ribbons. The loop played is the
 // first sequence of AnimationData ID animID, else Stand, else the model's first sequence.
 // vertMap maps output vertices to source vertex indices (the view's list). refs names each group's
 // texture transform, colour and transparency (-1 for none), whose animations for the same loop are
 // set on the group.
-func parseM2Extras(r reader, version int, vertMap []int, textures []string, modelPath string, bboxSize float32, animID int, groups []Group, refs []batchRefs) (*Anim, []Effect, []Emitter) {
+func parseM2Extras(r reader, version int, vertMap []int, textures []string, modelPath string, bboxSize float32, animID int, groups []Group, refs []batchRefs) (*Anim, []Effect, []Emitter, []Ribbon) {
 	nGlobal, ofsGlobal, _ := r.arr(0x14, 4)
 	globalLoop := func(i int) uint32 {
 		if i < 0 || i >= nGlobal {
@@ -397,11 +397,13 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 		}
 	}
 	var emitters []Emitter
+	var ribbons []Ribbon
 	if version < 260 {
 		loops := seqWindow{idx: seqIdx, start: seqStart, end: seqEnd, global: globalLoop}
 		emitters = parseEmitters(r, textures, anim != nil, loops)
+		ribbons = parseRibbons(r, textures, anim != nil, loops)
 	}
-	return anim, effects, emitters
+	return anim, effects, emitters, ribbons
 }
 
 // batchRefs is what a batch's animations come from: its texture transform, colour and transparency

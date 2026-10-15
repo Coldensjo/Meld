@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 import { getAsset, type ModelAsset } from '../models/assets'
-import { loadTexture, type MeshEmitter } from '../wow/api'
+import { loadTexture } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
-import { blendOf, fogOf, litOf, PARTICLE_FLOATS, ParticlePool, VERTEX_FLOATS } from './particles'
+import { blendOf, fogOf, litOf, PARTICLE_FLOATS, ParticlePool, VERTEX_FLOATS, type ParticleBlend } from './particles'
+import { RibbonTrail, ribbonBlend } from './ribbons'
 
 /**
  * How far from the camera an emitter runs, in yards. Beyond it, or out of view, its particles freeze
@@ -66,10 +67,15 @@ void main() {
 }
 `
 
-/** The material key of an emitter: its texture, blend, lighting and fog. Emitters sharing one share a draw. */
-function batchKey(e: MeshEmitter): string {
-  return `${e.texture.toLowerCase()}|${blendOf(e)}|${litOf(e)}|${fogOf(e)}`
+/** How a draw looks: its texture, blend, lighting and fog. Emitters and ribbons sharing one share a draw. */
+interface Look {
+  texture: string
+  blend: ParticleBlend
+  lit: boolean
+  fog: 'off' | 'black' | 'scene'
 }
+
+const lookKey = (l: Look) => `${l.texture.toLowerCase()}|${l.blend}|${l.lit}|${l.fog}`
 
 /** One draw: the quads of every emitter with the same material, rewritten each frame. */
 class Batch {
@@ -82,13 +88,12 @@ class Batch {
   floats = 0
   private ready = false
 
-  constructor(e: MeshEmitter, light: THREE.Color) {
-    const blend = blendOf(e)
-    const fog = fogOf(e)
+  constructor(look: Look, light: THREE.Color) {
+    const { blend, fog } = look
     const defines: Record<string, string> = {}
     if (blend === 'alphaKey') defines.ALPHA_KEY = ''
     if (blend === 'opaque') defines.OPAQUE = ''
-    if (litOf(e)) defines.LIT = ''
+    if (look.lit) defines.LIT = ''
     if (fog === 'black') defines.FOG_BLACK = ''
     const blended = blend === 'add' || blend === 'alpha'
     this.material = new THREE.ShaderMaterial({
@@ -109,7 +114,7 @@ class Batch {
     this.mesh.visible = false
     // After the props' own transparent parts, as the client draws effects after models.
     this.mesh.renderOrder = 6
-    loadTexture(e.texture)
+    loadTexture(look.texture)
       .then((t) => {
         this.material.uniforms.map.value = t
         this.ready = true
@@ -162,9 +167,12 @@ class Batch {
   }
 }
 
-/** One emitter of one placed model. */
+/** One emitter or ribbon of one placed model. */
 interface Live {
-  pool: ParticlePool
+  pool: ParticlePool | null
+  trail: RibbonTrail | null
+  /** The bone it rides, or -1. */
+  bone: number
   batch: Batch
   asset: ModelAsset
   /** The object's matrix. */
@@ -182,8 +190,9 @@ const up = new THREE.Vector3()
 const sphere = new THREE.Sphere()
 
 /**
- * The particles of the placed models (B-182): one pool per emitter of each object, simulated each
- * frame while near and in view (world/particles.ts), and drawn as one dynamic mesh per material.
+ * The particles and ribbons of the placed models (B-182, B-183): one pool per emitter and one trail
+ * per ribbon of each object, simulated each frame while near and in view (world/particles.ts,
+ * world/ribbons.ts), and drawn as one dynamic mesh per material.
  */
 export class ParticleLayer {
   readonly group = new THREE.Group()
@@ -200,7 +209,33 @@ export class ParticleLayer {
     this.group.name = 'particles'
   }
 
-  /** Every pool and its key, after the objects changed. A pool whose emitter stays keeps its particles. */
+  /** The draw for a look, made on first use. */
+  private batchFor(look: Look): Batch {
+    const key = lookKey(look)
+    let b = this.batches.get(key)
+    if (!b) {
+      b = new Batch(look, this.light)
+      this.batches.set(key, b)
+      this.group.add(b.mesh)
+    }
+    return b
+  }
+
+  /** Marks entry `key` seen in this rebuild at the object's matrix; false when it must be made anew for `def`. */
+  private keep(key: string, def: object, asset: ModelAsset, gen: number): boolean {
+    const l = this.live.get(key)
+    if (!l || (l.pool ?? l.trail)!.def !== def) return false
+    l.asset = asset
+    l.inst.copy(m)
+    l.seen = gen
+    return true
+  }
+
+  private add(key: string, l: Omit<Live, 'inst' | 'seen'>, gen: number) {
+    this.live.set(key, { ...l, inst: m.clone(), seen: gen })
+  }
+
+  /** Every pool and trail and its key, after the objects changed. One whose emitter stays keeps its particles. */
   private rebuild(layer: ObjectLayer) {
     if (layer !== this.layer) {
       this.live.clear()
@@ -210,25 +245,24 @@ export class ParticleLayer {
     for (const o of layer.objects.values()) {
       if (layer.isHidden(o.id)) continue
       const asset = getAsset(o.type)
-      if (!asset.emitters.length) continue
+      if (!asset.emitters.length && !asset.ribbons.length) continue
       layer.matrixOf(o, m)
       for (let i = 0; i < asset.emitters.length; i++) {
         const def = asset.emitters[i]
         const key = `${o.id}:${i}`
-        let l = this.live.get(key)
-        if (!l || l.pool.def !== def) {
-          let b = this.batches.get(batchKey(def))
-          if (!b) {
-            b = new Batch(def, this.light)
-            this.batches.set(batchKey(def), b)
-            this.group.add(b.mesh)
-          }
-          l = { pool: new ParticlePool(def, Math.imul(o.id, 0x9e3779b9) ^ (i * 0x85ebca6b)), batch: b, asset, inst: new THREE.Matrix4(), frame: new THREE.Matrix4().fromArray(def.frame), seen: gen }
-          this.live.set(key, l)
-        }
-        l.asset = asset
-        l.inst.copy(m)
-        l.seen = gen
+        if (this.keep(key, def, asset, gen)) continue
+        const batch = this.batchFor({ texture: def.texture, blend: blendOf(def), lit: litOf(def), fog: fogOf(def) })
+        const pool = new ParticlePool(def, Math.imul(o.id, 0x9e3779b9) ^ (i * 0x85ebca6b))
+        this.add(key, { pool, trail: null, bone: def.bone, batch, asset, frame: new THREE.Matrix4().fromArray(def.frame) }, gen)
+      }
+      for (let i = 0; i < asset.ribbons.length; i++) {
+        const def = asset.ribbons[i]
+        const key = `${o.id}:r${i}`
+        if (this.keep(key, def, asset, gen)) continue
+        // Ribbons are never lit, and fog as particles of their blend do.
+        const blend = ribbonBlend(def.blend)
+        const batch = this.batchFor({ texture: def.texture, blend, lit: false, fog: blend === 'add' ? 'black' : 'scene' })
+        this.add(key, { pool: null, trail: new RibbonTrail(def), bone: def.bone, batch, asset, frame: new THREE.Matrix4().fromArray(def.frame) }, gen)
       }
     }
     for (const [key, l] of this.live) if (l.seen !== gen) this.live.delete(key)
@@ -247,18 +281,25 @@ export class ParticleLayer {
     up.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
     for (const b of this.batches.values()) b.floats = 0
     for (const l of this.live.values()) {
-      const bone = l.pool.def.bone >= 0 ? l.asset.anim?.boneMatrix(l.pool.def.bone) : null
+      const bone = l.bone >= 0 ? l.asset.anim?.boneMatrix(l.bone) : null
       m.multiplyMatrices(l.inst, bone ?? l.frame)
       if (bone) m.multiply(l.frame)
       origin.setFromMatrixPosition(m)
       const d = origin.distanceTo(eye)
       if (d > RANGE || !frustum.intersectsSphere(sphere.set(origin, REACH))) continue
-      // The client's emission LOD: full rate to 50 yd, down to a quarter by 87.5 yd (0x7b5550).
-      l.pool.step(dt, ms, m, Math.min(1, Math.max(0.25, 1 - (d - 50) * 0.02)))
-      if (!l.pool.count) continue
       const b = l.batch
-      b.reserve(l.pool.count * PARTICLE_FLOATS)
-      b.floats += l.pool.expand(m, right, up, b.data, b.floats)
+      const pool = l.pool
+      if (pool) {
+        // The client's emission LOD: full rate to 50 yd, down to a quarter by 87.5 yd (0x7b5550).
+        pool.step(dt, ms, m, Math.min(1, Math.max(0.25, 1 - (d - 50) * 0.02)))
+        if (!pool.count) continue
+        b.reserve(pool.count * PARTICLE_FLOATS)
+        b.floats += pool.expand(m, right, up, b.data, b.floats)
+      } else if (l.trail) {
+        l.trail.step(dt, ms, m)
+        b.reserve(l.trail.floats)
+        b.floats += l.trail.expand(b.data, b.floats)
+      }
     }
     for (const b of this.batches.values()) b.finish()
   }

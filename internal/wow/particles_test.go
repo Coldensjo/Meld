@@ -52,7 +52,7 @@ func (f *fakeM2) track(o int, v float32) {
 func (f *fakeM2) parse(t *testing.T) []Emitter {
 	t.Helper()
 	// The fake has no geometry; read the extras directly.
-	_, _, em := parseM2Extras(reader{f.b}, 256, nil, []string{`Particles\Smoke.blp`}, "", 1, 0, nil, nil)
+	_, _, em, _ := parseM2Extras(reader{f.b}, 256, nil, []string{`Particles\Smoke.blp`}, "", 1, 0, nil, nil)
 	return em
 }
 
@@ -179,5 +179,93 @@ func TestClientEmitters(t *testing.T) {
 	torch := read(`World\Generic\PassiveDoodads\Lights\FreestandingTorch01.m2`)
 	if len(torch) != 2 || torch[0].Blend != 4 || torch[0].Rows != 4 || torch[0].Cols != 4 {
 		t.Fatalf("torch emitters %+v", torch)
+	}
+}
+
+func TestParseRibbonRecord(t *testing.T) {
+	f := newFakeM2()
+	// One ribbon record after the emitter's, at 0x134/0x138.
+	rb := len(f.b)
+	f.u32(0x134, 1)
+	f.u32(0x138, rb)
+	f.b = append(f.b, make([]byte, ribbonStride)...)
+	f.f32(rb+0x08, 1) // position (1, 2, 3)
+	f.f32(rb+0x0C, 2)
+	f.f32(rb+0x10, 3)
+	// textureIndices: one entry, texture 0.
+	at := len(f.b)
+	f.b = append(f.b, 0, 0, 0, 0)
+	f.u32(rb+0x14, 1)
+	f.u32(rb+0x18, at)
+	f.f32(rb+0x94, 30)  // edges a second
+	f.f32(rb+0x98, 0.1) // lifetime, raised to 0.25
+	at = len(f.b)
+	f.b = append(f.b, make([]byte, 16)...)
+	f.u32(at, 0)
+	f.u32(at+4, 0)
+	f.u32(at+8, 0)
+	f.f32(at+12, 0.5)
+	for _, o := range []int{0x5C, 0x78} { // above and below: 0.5 each
+		f.u32(rb+o+4, 1)
+		f.u32(rb+o+8, at)
+		f.u32(rb+o+12, 1)
+		f.u32(rb+o+16, at+8)
+		f.u32(rb+o+20, 1)
+		f.u32(rb+o+24, at+12)
+	}
+	_, _, _, got := parseM2Extras(reader{f.b}, 256, nil, []string{`Spells\Trail.blp`}, "", 1, 0, nil, nil)
+	if len(got) != 1 {
+		t.Fatalf("%d ribbons", len(got))
+	}
+	g := got[0]
+	if g.Texture != `Spells\Trail.blp` || g.Blend != 4 || g.EdgeLifetime != 0.25 || g.Rows != 1 || g.Cols != 1 {
+		t.Fatalf("fields %+v", g)
+	}
+	if g.Above == nil || g.Above.Values[0] != 0.5 || g.Below == nil {
+		t.Fatalf("heights %+v %+v", g.Above, g.Below)
+	}
+	// WoW +Y (the edge's axis) is editor -Z; the origin is toEditor(1, 2, 3).
+	if fr := g.Frame; fr[4] != 0 || fr[5] != 0 || fr[6] != -1 || fr[12] != 1 || fr[13] != 3 || fr[14] != -2 {
+		t.Fatalf("frame %v", fr)
+	}
+}
+
+// TestClientRibbons reads Benilla's ribbons.rs case: Holy Smite's impact slash is two ribbons whose
+// height rises to 0.167 and falls back; and the Caverns of Time energy trail lays its five ribbons from a
+// moving bone. It needs WOW_DIR.
+func TestClientRibbons(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("set WOW_DIR to a WoW 1.x client to run")
+	}
+	c := NewClient()
+	if err := c.Open(dir); err != nil {
+		t.Fatal(err)
+	}
+	m, err := c.m2Mesh(`Spells\HolySmite_Low_Chest.m2`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Ribbons) != 2 {
+		t.Fatalf("%d smite ribbons", len(m.Ribbons))
+	}
+	for _, rb := range m.Ribbons {
+		peak := float32(0)
+		for _, v := range rb.Above.Values {
+			peak = max(peak, v)
+		}
+		if math.Abs(float64(peak-0.167)) > 1e-3 || rb.Above.Values[0] != 0 {
+			t.Fatalf("slash height %+v", rb.Above)
+		}
+		if rb.On != nil {
+			t.Fatal("an always-on slash has a gate")
+		}
+	}
+	trail, err := c.m2Mesh(`World\Dungeon\CavernsOfTime\PassiveDoodads\EnergyTrails\EnergyTrail01.m2`, nil)
+	if err != nil {
+		t.Skip("no Caverns of Time trail in this client:", err)
+	}
+	if len(trail.Ribbons) != 5 || trail.Ribbons[0].Bone < 0 || trail.Anim == nil {
+		t.Fatalf("energy trail: %d ribbons, bone %d", len(trail.Ribbons), trail.Ribbons[0].Bone)
 	}
 }

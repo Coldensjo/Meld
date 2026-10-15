@@ -140,6 +140,13 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   particles).
 - Trap: an emitter out of view or beyond `RANGE` (300 yd) is frozen, so a pool with `acc` 0 and no
   particles is usually just off screen.
+- Ribbons (B-183): `TestParseRibbonRecord`, `TestClientRibbons` (Holy Smite's two slash ribbons, the
+  Caverns of Time energy trail) and `tests/ribbons.test.ts`. In the app a ribbon needs a moving bone,
+  so load the scene with `"prefs":{"animations":true}` (the owner's own prefs have animations off).
+  `World\Dungeon\CavernsOfTime\PassiveDoodads\EnergyTrails\EnergyTrailHourglass.m2` placed on
+  cleared ground sweeps two blue strips 60 to 160 yd up across the sky; from `distance: 260` both
+  trails hold about 95 edges (`__engine.particles.live.get('<id>:r0').trail.count`). Its bones are
+  linearly keyed, 9 keys in 16.7 s, so the strips run straight between keys, as the client draws them.
 
 ## Brush size controls (Photoshop-style)
 

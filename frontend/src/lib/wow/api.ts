@@ -87,6 +87,28 @@ export interface MeshEmitter {
   spline?: number[]
 }
 
+/** An M2 ribbon emitter (B-183): a trail laid behind a moving bone (Go: internal/wow/ribbons.go; world/ribbons.ts). */
+export interface MeshRibbon {
+  /** The ribbon's own space (WoW axes; an edge spans its +Y) to model space: a column-major 4x4. */
+  frame: number[]
+  /** The animated bone it rides, or -1. */
+  bone: number
+  texture: string
+  /** The M2 blend of its material. */
+  blend: number
+  color?: AnimTrack
+  alpha?: AnimTrack
+  above?: AnimTrack
+  below?: AnimTrack
+  on?: AnimTrack
+  edgesPerSecond: number
+  edgeLifetime: number
+  gravity: number
+  rows: number
+  cols: number
+  slot: number
+}
+
 export interface WowMesh {
   positions: Float32Array
   normals: Float32Array
@@ -101,6 +123,7 @@ export interface WowMesh {
   boneW?: Uint8Array
   effects: MeshEffect[]
   emitters: MeshEmitter[]
+  ribbons: MeshRibbon[]
 }
 
 type StatusLike = { path: string; loaded: boolean; error: string; files: number; archives: number }
@@ -264,6 +287,7 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
     bones?: AnimBone[]
     effects?: MeshEffect[]
     emitters?: MeshEmitter[]
+    ribbons?: MeshRibbon[]
   }
   let o = 4 + hdrLen
   const take = <T>(ctor: new (b: ArrayBuffer, o: number, n: number) => T, n: number, bytes: number) => {
@@ -276,7 +300,7 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
   const uvs = take(Float32Array, hdr.verts * 2, 4)
   const colors = hdr.colors ? take(Uint8Array, hdr.verts * 4, 1) : null
   const indices = take(Uint32Array, hdr.indices, 4)
-  const mesh: WowMesh = { positions, normals, uvs, colors, indices, groups: hdr.groups ?? [], bbox: hdr.bbox, effects: hdr.effects ?? [], emitters: hdr.emitters ?? [] }
+  const mesh: WowMesh = { positions, normals, uvs, colors, indices, groups: hdr.groups ?? [], bbox: hdr.bbox, effects: hdr.effects ?? [], emitters: hdr.emitters ?? [], ribbons: hdr.ribbons ?? [] }
   if (hdr.bones?.length) {
     mesh.bones = hdr.bones
     mesh.boneIdx = take(Uint8Array, hdr.verts * 4, 1)

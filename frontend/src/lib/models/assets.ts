@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { fetchMesh, loadTexture, type MeshEffect, type MeshEmitter, type MeshGroup, type WowMesh } from '../wow/api'
+import { fetchMesh, loadTexture, type MeshEffect, type MeshEmitter, type MeshGroup, type MeshRibbon, type WowMesh } from '../wow/api'
 import { colorAt, colorFades, colorIsStatic, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../world/uvAnim'
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
@@ -26,6 +26,8 @@ export interface ModelAsset {
   effects: MeshEffect[]
   /** Particle emitters in model space (world/particles.ts). */
   emitters: MeshEmitter[]
+  /** Ribbon emitters in model space (world/ribbons.ts). */
+  ribbons: MeshRibbon[]
   /** A simplified model for instances far away, sharing the geometry's vertices (see lod.ts). */
   lod?: THREE.BufferGeometry
 }
@@ -70,6 +72,7 @@ function getPlaceholder(): ModelAsset {
       ready: false,
       effects: [],
       emitters: [],
+      ribbons: [],
     }
   }
   return placeholder
@@ -92,7 +95,7 @@ export function getAsset(type: string): ModelAsset {
     if (g) {
       g.computeBoundingBox()
       buildBoundsTree(g)
-      const helper: ModelAsset = { geometry: g, material: helperMaterial(), bbox: g.boundingBox!.clone(), ready: true, effects: [], emitters: [] }
+      const helper: ModelAsset = { geometry: g, material: helperMaterial(), bbox: g.boundingBox!.clone(), ready: true, effects: [], emitters: [], ribbons: [] }
       assets.set(type, helper)
       return helper
     }
@@ -270,7 +273,7 @@ export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
   const b = m.bbox
   const bbox = new THREE.Box3(new THREE.Vector3(b[0], b[1], b[2]), new THREE.Vector3(b[3], b[4], b[5]))
   geo.boundingBox = bbox.clone()
-  const asset: ModelAsset = { geometry: geo, material: materials, bbox, ready: true, effects: m.effects, emitters: m.emitters }
+  const asset: ModelAsset = { geometry: geo, material: materials, bbox, ready: true, effects: m.effects, emitters: m.emitters, ribbons: m.ribbons }
   if (animateAs !== undefined && m.bones && m.boneIdx && m.boneW) {
     asset.anim = new ModelAnimation(geo, m.bones, m.boneIdx, m.boneW)
     asset.skeleton = asset.anim.skeleton

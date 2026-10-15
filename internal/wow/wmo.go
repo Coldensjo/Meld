@@ -324,6 +324,9 @@ func (m *Mesh) TransformWoW(pos [3]float32, q [4]float32, scale float32) {
 	for i := range m.Emitters {
 		m.Emitters[i].place(rot, scale, [3]float32{px, py, pz})
 	}
+	for i := range m.Ribbons {
+		m.Ribbons[i].place(rot, scale, [3]float32{px, py, pz})
+	}
 	for i := 0; i+2 < len(m.Pos); i += 3 {
 		x, y, z := rot(m.Pos[i]*scale, m.Pos[i+1]*scale, m.Pos[i+2]*scale)
 		m.Pos[i], m.Pos[i+1], m.Pos[i+2] = x+px, y+py, z+pz

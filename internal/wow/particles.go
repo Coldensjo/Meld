@@ -56,12 +56,12 @@ type seqWindow struct {
 	global     func(int) uint32
 }
 
-// bakeTrack resolves the scalar track at o (values width bytes each, read by val) for the loop, as
-// the client's key-window kernel samples it (0x713d50), after Benilla's key_anim.rs bake_track: a
-// track whose keys are all equal is that constant; a global sequence's keys loop on their own; else
-// the sequence's key range (the whole list without ranges) is sampled at the band's two edges and
-// keeps its keys inside the band. Nil for a track without keys.
-func bakeTrack(r reader, o, width int, val func(int) float32, w seqWindow) *Track {
+// bakeTrack resolves the track at o for the loop: its values are width bytes and n components each,
+// which val reads into out. It samples as the client's key-window kernel does (0x713d50), after
+// Benilla's key_anim.rs bake_track: a track whose keys are all equal is that constant; a global
+// sequence's keys loop on their own; else the sequence's key range (the whole list without ranges) is
+// sampled at the band's two edges and keeps its keys inside the band. Nil for a track without keys.
+func bakeTrack(r reader, o, width, n int, val func(at int, out []float32), w seqWindow) *Track {
 	if o+trackSize > len(r.b) {
 		return nil
 	}
@@ -73,69 +73,90 @@ func bakeTrack(r reader, o, width int, val func(int) float32, w seqWindow) *Trac
 	if err1 != nil || err2 != nil || err3 != nil || nTimes == 0 || nVals == 0 {
 		return nil
 	}
-	n := min(nTimes, nVals)
-	times := make([]uint32, n)
-	vals := make([]float32, n)
+	keys := min(nTimes, nVals)
+	times := make([]uint32, keys)
+	vals := make([]float32, keys*n)
 	same := true
 	for i := range times {
 		times[i] = uint32(r.u32(ofsTimes + i*4))
-		vals[i] = val(ofsVals + i*width)
-		same = same && vals[i] == vals[0]
+		val(ofsVals+i*width, vals[i*n:(i+1)*n])
+		for c := 0; c < n; c++ {
+			same = same && vals[i*n+c] == vals[c]
+		}
 	}
+	key := func(k int) []float32 { return vals[k*n : (k+1)*n] }
+	constant := func(v []float32) *Track { return &Track{Times: []uint32{0}, Values: v, Step: step} }
 	if same {
-		return &Track{Times: []uint32{0}, Values: vals[:1], Step: step}
+		return constant(key(0))
 	}
 	if gseq != 0xFFFF {
 		loop := w.global(gseq)
 		if loop == 0 {
-			loop = max(times[n-1], 1)
+			loop = max(times[keys-1], 1)
 		}
 		return &Track{Times: times, Values: vals, Loop: loop, Step: step}
 	}
-	lo, hi := 0, n-1
+	lo, hi := 0, keys-1
 	if w.idx >= 0 && w.idx < nRanges {
 		lo, hi = r.u32(ofsRanges+w.idx*8), r.u32(ofsRanges+w.idx*8+4)
 	}
 	start, end := w.start, w.end
 	if w.idx < 0 {
-		start, end = 0, times[n-1]
+		start, end = 0, times[keys-1]
 	}
 	// The key at or before t within [lo, hi], held for a stepped track, else lerped toward the next.
-	at := func(t uint32) float32 {
-		lo, hi := min(lo, n-1), min(hi, n-1)
+	at := func(t uint32) []float32 {
+		lo, hi := min(lo, keys-1), min(hi, keys-1)
 		if lo >= hi {
-			return vals[lo]
+			return key(lo)
 		}
 		k := lo
 		for i := lo; i <= hi && times[i] <= t; i++ {
 			k = i
 		}
-		if step || k+1 >= n || times[k+1] <= times[k] {
-			return vals[k]
+		if step || k+1 >= keys || times[k+1] <= times[k] {
+			return key(k)
 		}
-		f := (float32(t) - float32(times[k])) / float32(times[k+1]-times[k])
-		return vals[k] + (vals[k+1]-vals[k])*min(max(f, 0), 1)
+		f := min(max((float32(t)-float32(times[k]))/float32(times[k+1]-times[k]), 0), 1)
+		out := make([]float32, n)
+		for c := range out {
+			out[c] = vals[k*n+c] + (vals[(k+1)*n+c]-vals[k*n+c])*f
+		}
+		return out
+	}
+	equal := func(a, b []float32) bool {
+		for c := range a {
+			if a[c] != b[c] {
+				return false
+			}
+		}
+		return true
 	}
 	head := at(start)
 	if end <= start {
-		return &Track{Times: []uint32{0}, Values: []float32{head}, Step: step}
+		return constant(head)
 	}
-	tr := &Track{Times: []uint32{0}, Values: []float32{head}, Loop: end - start, Step: step}
+	tr := &Track{Times: []uint32{0}, Values: append([]float32(nil), head...), Loop: end - start, Step: step}
 	moves := false
-	for k := lo; k <= hi && k < n; k++ {
+	for k := lo; k <= hi && k < keys; k++ {
 		if times[k] > start && times[k] < end {
 			tr.Times = append(tr.Times, times[k]-start)
-			tr.Values = append(tr.Values, vals[k])
-			moves = moves || vals[k] != head
+			tr.Values = append(tr.Values, key(k)...)
+			moves = moves || !equal(key(k), head)
 		}
 	}
 	tail := at(end)
 	tr.Times = append(tr.Times, end-start)
-	tr.Values = append(tr.Values, tail)
-	if !moves && tail == head {
-		return &Track{Times: []uint32{0}, Values: []float32{head}, Step: step}
+	tr.Values = append(tr.Values, tail...)
+	if !moves && equal(tail, head) {
+		return constant(head)
 	}
 	return tr
+}
+
+// scalarTrack bakes a track of float32 values.
+func scalarTrack(r reader, o int, w seqWindow) *Track {
+	return bakeTrack(r, o, 4, 1, func(at int, out []float32) { out[0] = r.f32(at) }, w)
 }
 
 // emitterFrame is the frame of an emitter at pos (WoW model space): the turn of 90° about +Z the client
@@ -146,6 +167,15 @@ func emitterFrame(pos [3]float32) [16]float32 {
 	return [16]float32{0, 0, -1, 0, -1, 0, 0, 0, 0, 1, 0, 0, x, y, z, 1}
 }
 
+// gateTrack bakes a track of on/off bytes, as 0 or 1; nil when it is on throughout the loop.
+func gateTrack(r reader, o int, w seqWindow) *Track {
+	t := bakeTrack(r, o, 1, 1, func(at int, out []float32) { out[0] = float32(min(r.u8(at), 1)) }, w)
+	if t != nil && allOnes(t.Values) {
+		return nil
+	}
+	return t
+}
+
 // parseEmitters reads a vanilla M2's particle emitters, their tracks baked for the loop w; bones says
 // whether the model has moving bones, which an emitter can ride.
 func parseEmitters(r reader, textures []string, bones bool, w seqWindow) []Emitter {
@@ -153,10 +183,7 @@ func parseEmitters(r reader, textures []string, bones bool, w seqWindow) []Emitt
 	if n <= 0 || n > 256 || ofs < 0 || ofs+n*emitterStride > len(r.b) {
 		return nil
 	}
-	f := func(o int) *Track { return bakeTrack(r, o, 4, r.f32, w) }
-	gate := func(o int) *Track {
-		return bakeTrack(r, o, 1, func(at int) float32 { return float32(min(r.u8(at), 1)) }, w)
-	}
+	f := func(o int) *Track { return scalarTrack(r, o, w) }
 	peak := func(t *Track) float32 {
 		m := float32(math.Inf(-1))
 		if t != nil {
@@ -194,7 +221,7 @@ func parseEmitters(r reader, textures []string, bones bool, w seqWindow) []Emitt
 			Cols:     r.u16(e + 0x32),
 			HeadTail: r.u8(e + 0x2C),
 			Rate:     f(e + 0xDC),
-			On:       gate(e + 0x1DC),
+			On:       gateTrack(r, e+0x1DC, w),
 			Drag:     r.f32(e + 0x194),
 			TailTime: r.f32(e + 0x17C),
 			Spin:     r.f32(e + 0x198),
@@ -244,10 +271,16 @@ func parseEmitters(r reader, textures []string, bones bool, w seqWindow) []Emitt
 
 func pow2(v int) bool { return v > 0 && v&(v-1) == 0 }
 
-// place moves the emitter's frame by a doodad placement in editor space: rot (a rotation of a vector),
-// then scale, then the move to p. The doodad's bones are gone in the baked mesh, so it rides none.
+// place moves the emitter's frame by a doodad placement (placeFrame). The doodad's bones are gone in
+// the baked mesh, so it rides none.
 func (e *Emitter) place(rot func(x, y, z float32) (float32, float32, float32), scale float32, p [3]float32) {
-	f := &e.Frame
+	placeFrame(&e.Frame, rot, scale, p)
+	e.Bone = -1
+}
+
+// placeFrame moves a frame by a doodad placement in editor space: rot (a rotation of a vector), then
+// scale, then the move to p.
+func placeFrame(f *[16]float32, rot func(x, y, z float32) (float32, float32, float32), scale float32, p [3]float32) {
 	for c := 0; c < 4; c++ {
 		x, y, z := rot(f[c*4]*scale, f[c*4+1]*scale, f[c*4+2]*scale)
 		if c == 3 {
@@ -255,5 +288,4 @@ func (e *Emitter) place(rot func(x, y, z float32) (float32, float32, float32), s
 		}
 		f[c*4], f[c*4+1], f[c*4+2] = x, y, z
 	}
-	e.Bone = -1
 }

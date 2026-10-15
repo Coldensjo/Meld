@@ -442,7 +442,7 @@ cd frontend && pnpm build   # frontend only
   - Particle emitters: **504 bytes in vanilla**. Their positions are flame anchors (a fire effect,
     for the lights) when the texture or model name looks like fire, and each is also sent whole as
     an `Emitter` (`internal/wow/particles.go`, header `emitters`, below).
-  - WMOs add their doodads' effects, emitters and their own MOLT lights.
+  - WMOs add their doodads' effects, emitters, ribbons and their own MOLT lights.
 - **Particles** (B-182, ported from Benilla's `particles/`): `parseEmitters` reads each record (rate,
   gate and nine parameter tracks baked for the loop by `bakeTrack`, the client's key-window rule, not
   `readTrack`'s; over-life ramps, flipbook, twinkle, spin, tail, spline points) with a `Frame` from
@@ -454,7 +454,14 @@ cd frontend && pnpm build   # frontend only
   (`prefs.particles`); with it on, `PropEffects` draws no procedural flame on a model that has
   emitters (its fire effects only light). With animations off the tracks hold at time 0 but the
   particles still fly. Not ported: geometry-model and recursion particles, ground snap, following or
-  inheriting the emitter's motion, spawns' and previews' particles.
+  inheriting the emitter's motion, spawns' and previews' particles (#110).
+- **Ribbons** (B-183, Benilla's `ribbons.rs`): `parseRibbons` (`internal/wow/ribbons.go`, header
+  `ribbons`) reads the 0xDC records the same way (colour, alpha, heights and gate baked by
+  `bakeTrack`, which takes n components). `world/ribbons.ts` (`RibbonTrail`) lays edges spanning the
+  frame's +Y behind the point at `edgesPerSecond`, keeps each `edgeLifetime` in world space, raises
+  them by gravity and draws the strip back from the point; `ParticleLayer` runs a trail per ribbon
+  of each placed object beside the pools and in the same batches (unlit). A ribbon on a still bone
+  draws nothing, as in the client, so with Prop animations off every ribbon is dark.
 - Texture animation (B-168): each M2 batch's texture transform (header 0x74, lookup 0xAC, the batch's
   combo at +22) is read for the same loop as the bones into `Group.UV` (`UVAnim`: translation, raw
   quaternion, scaling; `Consolidate` keeps such groups apart). The frontend gives an animated group a
