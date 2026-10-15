@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import type { AnimTrack, MeshEmitter } from '../src/lib/wow/api.ts'
-import { accumulate, blendOf, cellAt, emitLocal, fogOf, litOf, overLife, ParticlePool, PARTICLE_FLOATS, SplineChain, spinAngle, VERTEX_FLOATS, type LifeSample } from '../src/lib/world/particles.ts'
+import { accumulate, blendOf, cellAt, emitLocal, fogOf, followFraction, litOf, overLife, ParticlePool, PARTICLE_FLOATS, SplineChain, spinAngle, VERTEX_FLOATS, type LifeSample } from '../src/lib/world/particles.ts'
 
 const k = (v: number): AnimTrack => ({ t: [0], v: [v], loop: 0 })
 
@@ -233,4 +233,42 @@ test('the ground snap stands a world-space birth on the surface below it, lifted
   const plain = new ParticlePool(def({ rate: k(10), params: [k(0), null, null, null, null, k(5), null, null, null] }), 4)
   plain.step(0.1, 0, at, 1, () => 2)
   assert.ok(Math.abs(plain.pos[1] - 10) < 1, 'an emitter without the flag ignores the ground')
+})
+
+test('the follow response is the line through the two samples, clamped, and only with flag 0x4000', () => {
+  const f = def({ flags: 0x4000, follow: [2.5, 0.1, 16.667, 0.9] })
+  assert.ok(Math.abs(followFraction(f, 2.5) - 0.1) < 1e-3)
+  assert.ok(Math.abs(followFraction(f, 16.667) - 0.9) < 1e-3)
+  assert.equal(followFraction(f, 1000), 1)
+  assert.equal(followFraction(def({ follow: [2.5, 0.1, 16.667, 0.9] }), 5), 0, 'no flag')
+  assert.equal(followFraction(def({ flags: 0x4000, follow: [3, 0.1, 3, 0.9] }), 5), 0, 'equal speeds')
+})
+
+test('a following emitter drags its live particles along, but not one born since the last step', () => {
+  // Still particles (speed 0) that live long; the emitter follows its full motion.
+  const still = { params: [k(0), null, null, null, null, k(10), null, null, null] as MeshEmitter['params'], rate: k(10) }
+  const pool = new ParticlePool(def({ ...still, flags: 0x4000, follow: [0, 1, 10, 1] }), 2)
+  pool.step(0.1, 0, new THREE.Matrix4(), 1)
+  assert.equal(pool.count, 1)
+  const x0 = pool.pos[0]
+  pool.step(0.1, 100, new THREE.Matrix4().makeTranslation(1, 0, 0), 1)
+  assert.ok(Math.abs(pool.pos[0] - x0) < 1e-6, 'its first step skips the follow')
+  pool.step(0.1, 200, new THREE.Matrix4().makeTranslation(2, 0, 0), 1)
+  assert.ok(Math.abs(pool.pos[0] - (x0 + 1)) < 1e-5, `moved with the emitter: ${pool.pos[0] - x0}`)
+  const plain = new ParticlePool(def(still), 2)
+  plain.step(0.1, 0, new THREE.Matrix4(), 1)
+  const p0 = plain.pos[0]
+  plain.step(0.1, 100, new THREE.Matrix4().makeTranslation(1, 0, 0), 1)
+  plain.step(0.1, 200, new THREE.Matrix4().makeTranslation(2, 0, 0), 1)
+  assert.ok(Math.abs(plain.pos[0] - p0) < 1e-6, 'a world-space particle stays where it was born')
+})
+
+test('an inheriting emitter gives its births its motion, sampled 30 times a second', () => {
+  const pool = new ParticlePool(def({ flags: 0x40, inherit: 1, rate: k(30), params: [k(0), null, null, null, null, k(10), null, null, null] }), 6)
+  // Moving 0.1 yd a 1/20 s step. Each step passes the 1/30 s period, so the held motion is the
+  // step's displacement scaled to the period, 0.1 · (1/30) / 0.05, as the client keeps it.
+  for (let i = 0; i < 6; i++) pool.step(0.05, i * 50, new THREE.Matrix4().makeTranslation(i * 0.1, 0, 0), 1)
+  const last = pool.count - 1
+  assert.ok(Math.abs(pool.vel[last * 3] - 0.1 / 30 / 0.05) < 1e-5, `inherited: ${pool.vel[last * 3]}`)
+  assert.ok(Math.abs(pool.vel[0]) < 1e-6, 'the first births, before anything lived, inherit nothing')
 })

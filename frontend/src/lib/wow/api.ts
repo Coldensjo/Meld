@@ -85,6 +85,10 @@ export interface MeshEmitter {
   tailCells: [number, number, number, number]
   repeat: [number, number]
   spline?: number[]
+  /** Flag 0x40: how much of the emitter's motion births inherit. */
+  inherit?: number
+  /** Flag 0x4000: two (emitter speed, fraction) samples of the follow response. */
+  follow?: number[]
 }
 
 /** An M2 ribbon emitter (B-183): a trail laid behind a moving bone (Go: internal/wow/ribbons.go; world/ribbons.ts). */

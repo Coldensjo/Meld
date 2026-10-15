@@ -41,6 +41,10 @@ type Emitter struct {
 	Repeat    [2]float32    `json:"repeat"`
 	// Spline holds a spline emitter's control points (3K+1, x y z flat, spawn space).
 	Spline []float32 `json:"spline,omitempty"`
+	// Inherit scales the emitter's motion a flag-0x40 emitter's births inherit (+0x190), and Follow
+	// is the flag-0x4000 response: two (emitter speed, fraction) samples (+0x1C4..+0x1D0).
+	Inherit float32    `json:"inherit,omitempty"`
+	Follow  [4]float32 `json:"follow"`
 }
 
 const (
@@ -233,6 +237,8 @@ func parseEmitters(r reader, textures []string, bones bool, w seqWindow) []Emitt
 			HeadCells: [4]int{r.u16(e + 0x168), r.u16(e + 0x16A), r.u16(e + 0x16E), r.u16(e + 0x170)},
 			TailCells: [4]int{r.u16(e + 0x174), r.u16(e + 0x176), r.u16(e + 0x178), r.u16(e + 0x17A)},
 			Repeat:    [2]float32{float32(r.u16(e + 0x16C)), float32(r.u16(e + 0x172))},
+			Inherit:   r.f32(e + 0x190),
+			Follow:    [4]float32{r.f32(e + 0x1C4), r.f32(e + 0x1C8), r.f32(e + 0x1CC), r.f32(e + 0x1D0)},
 		}
 		// The atlas: both counts powers of two, else the client keeps its 1x1 (0x7b4ed0).
 		if !pow2(em.Rows) || !pow2(em.Cols) {

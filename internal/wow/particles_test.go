@@ -70,6 +70,11 @@ func TestParseEmitterRecord(t *testing.T) {
 	f.u16(e+0x32, 3) // cols: not a power of two, so the atlas falls back to 1x1
 	f.u32(e+0x150, 0x80FF4020)
 	f.f32(e+0x15C, 0.5)
+	f.f32(e+0x190, 0.75) // inherit scale
+	f.f32(e+0x1C4, 2.5)  // follow samples: speed, fraction, speed, fraction
+	f.f32(e+0x1C8, 0.1)
+	f.f32(e+0x1CC, 16.667)
+	f.f32(e+0x1D0, 0.9)
 	f.track(0xDC, 20) // rate
 	f.track(0xC0, 2)  // lifespan
 	got := f.parse(t)
@@ -99,6 +104,9 @@ func TestParseEmitterRecord(t *testing.T) {
 	}
 	if g.Bone != -1 {
 		t.Fatalf("bone %d on a model without moving bones", g.Bone)
+	}
+	if g.Inherit != 0.75 || g.Follow != [4]float32{2.5, 0.1, 16.667, 0.9} {
+		t.Fatalf("inherit %v follow %v", g.Inherit, g.Follow)
 	}
 }
 

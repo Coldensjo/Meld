@@ -40,6 +40,10 @@ const FLAG_SPHERE_UP = 0x100
 const FLAG_TAIL_AGE = 0x400
 const FLAG_XY_QUAD = 0x1000
 const FLAG_GROUND_SNAP = 0x2000
+const FLAG_INHERIT = 0x40
+const FLAG_FOLLOW = 0x4000
+/** The inherit trigger's period: the emitter's motion is sampled 30 times a second (0x7b5230). */
+const INHERIT_INTERVAL = 1 / 30
 /** How far below a birth the ground snap looks, in yards. */
 export const GROUND_SNAP_REACH = 20
 const FLAG_BURST = 0x8000
@@ -368,6 +372,22 @@ const bPos = new THREE.Vector3()
 const bDir = new THREE.Vector3()
 const mOrigin = new THREE.Vector3()
 const m3 = new THREE.Matrix3()
+const toStored = new THREE.Matrix3()
+const delta = new THREE.Vector3()
+const follow = new THREE.Vector3()
+const inherit = new THREE.Vector3()
+
+/**
+ * The share of the emitter's motion its live particles follow (file flag 0x4000, 0x7b2744), from
+ * its speed in yd/s: the line through the record's two (speed, fraction) samples, clamped to 0..1;
+ * 0 without the flag or with equal sample speeds (Benilla's follow_fraction).
+ */
+export function followFraction(e: MeshEmitter, speed: number): number {
+  const f = e.follow
+  if (!(e.flags & FLAG_FOLLOW) || !f || Math.abs(f[2] - f[0]) < 1e-6) return 0
+  const slope = (f[3] - f[1]) / (f[2] - f[0])
+  return Math.min(1, Math.max(0, slope * speed + f[1] - slope * f[0]))
+}
 const life: LifeSample = { color: [0, 0, 0, 0], size: 0, head: 0, tail: 0 }
 const c = new THREE.Vector3()
 const r = new THREE.Vector3()
@@ -393,7 +413,14 @@ export class ParticlePool implements Rng {
   age = new Float32Array(0)
   life = new Float32Array(0)
   phase = new Uint32Array(0)
+  /** 1 for a particle not yet stepped, which the follow skips. */
+  fresh = new Uint8Array(0)
   acc = 0
+  /** The emitter's world origin last step, for its motion; the inherit trigger's clock and velocity. */
+  private prev = new THREE.Vector3()
+  private hasPrev = false
+  private inheritAcc = 0
+  private inheritVel = new THREE.Vector3()
   gatePrev = false
   rng: number
   readonly def: MeshEmitter
@@ -422,6 +449,9 @@ export class ParticlePool implements Rng {
     const p = new Uint32Array(cap)
     p.set(this.phase)
     this.phase = p
+    const fr = new Uint8Array(cap)
+    fr.set(this.fresh)
+    this.fresh = fr
   }
 
   /**
@@ -438,8 +468,27 @@ export class ParticlePool implements Rng {
     const drag = Math.min(dt * e.drag, 1)
     const up = this.anchored ? 1 : 2
     const kill = e.shape === SHAPE_SPHERE && (e.flags & FLAG_KILL_OUTBOUND) !== 0
-    if (this.anchored) mOrigin.setFromMatrixPosition(m)
-    else mOrigin.set(0, 0, 0)
+    // The emitter's motion this step, for the follow and the inherit, taken to the particles' own
+    // frame: world space for an anchored emitter, else the emitter's spawn space.
+    mOrigin.setFromMatrixPosition(m)
+    if (this.hasPrev) delta.subVectors(mOrigin, this.prev)
+    else delta.set(0, 0, 0)
+    this.prev.copy(mOrigin)
+    this.hasPrev = true
+    if (!this.anchored) toStored.setFromMatrix4(m).invert()
+    const frac = dt > 0 ? followFraction(e, delta.length() / dt) : 0
+    follow.copy(delta).multiplyScalar(frac)
+    if (!this.anchored) follow.applyMatrix3(toStored)
+    const following = frac > 0 && follow.lengthSq() > 0
+    if (e.flags & FLAG_INHERIT) {
+      this.inheritAcc += dt
+      if (this.inheritAcc > INHERIT_INTERVAL) {
+        if (this.count > 0) this.inheritVel.copy(delta).multiplyScalar((INHERIT_INTERVAL / this.inheritAcc) * (e.inherit ?? 0))
+        else this.inheritVel.set(0, 0, 0)
+        this.inheritAcc = 0
+      }
+    }
+    if (!this.anchored) mOrigin.set(0, 0, 0)
     const { pos, vel, age } = this
     let n = this.count
     for (let i = 0; i < n; ) {
@@ -449,6 +498,13 @@ export class ParticlePool implements Rng {
         continue
       }
       const o = i * 3
+      // The follow moves every particle but one born since the last step (0x7b2744).
+      if (this.fresh[i]) this.fresh[i] = 0
+      else if (following) {
+        pos[o] += follow.x
+        pos[o + 1] += follow.y
+        pos[o + 2] += follow.z
+      }
       const vx = vel[o]
       const vy = vel[o + 1]
       const vz = vel[o + 2]
@@ -491,7 +547,14 @@ export class ParticlePool implements Rng {
           if (h !== null && h <= bPos.y && bPos.y - h <= GROUND_SNAP_REACH) bPos.y = h + overLife(e, 0, snapLife).size
         }
       }
+      // The inherit (flag 0x40): (1 + S11 · speed variation) of the held emitter motion.
+      if (e.flags & FLAG_INHERIT && this.inheritVel.lengthSq() > 0) {
+        inherit.copy(this.inheritVel)
+        if (!this.anchored) inherit.applyMatrix3(toStored)
+        bDir.addScaledVector(inherit, 1 + now[SPEED_VAR] * randS11(this))
+      }
       const i = this.count++
+      this.fresh[i] = 1
       bPos.toArray(this.pos, i * 3)
       bDir.toArray(this.vel, i * 3)
       // Births of one frame start a little apart, so a stream does not come out in clumps.
@@ -512,6 +575,7 @@ export class ParticlePool implements Rng {
     this.age[to] = this.age[from]
     this.life[to] = this.life[from]
     this.phase[to] = this.phase[from]
+    this.fresh[to] = this.fresh[from]
   }
 
   /** Drops every particle. */
