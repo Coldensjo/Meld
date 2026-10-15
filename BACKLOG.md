@@ -20,7 +20,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 ## Terrain sculpting and painting
 
 - [ ] B-004 **Separate Blur tool** · gap §1 · L/S · Smooth already covers most of it
-- [ ] B-006 **Chunk Mover**: drag a chunk with its heights and objects · gap §1 · M/L · effort L (confirmed in the 2026-10-12 loop run): moves chunk data and objects across the grid, too large to finish in one loop item
+- [x] B-006 **Chunk Mover**: drag a chunk with its heights and objects · gap §1 · M/L · done 2026-10-15 (PROGRESS.md): noggit's chunk mover is a copy with a preview, which the area paste already was; it now carries painted liquids and turns with R
 - [x] B-007 **Clear tool: height, liquids, holes, shadows, vertex colours, impassable** · gap §1 · M/L · done 2026-10-15 (PROGRESS.md) for what the map holds: Height (to zero), Liquids and Holes (fill) joined Models and Textures; shadows, vertex colours and impassable have no field in the `.wmap` and stay with B-057, B-058 and B-055
 - [ ] B-009 **Terrain-projected and sphere cursor shapes** · gap §1 · L/M · unverified against the current outline
 - [ ] B-013 **Show unpaintable chunks** overlay · gap §2 · L/S

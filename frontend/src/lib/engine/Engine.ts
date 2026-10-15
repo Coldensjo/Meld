@@ -25,6 +25,7 @@ import { densityFactor, effectFor, type TextureEffects } from '../world/groundEf
 import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
+import { rotateClip } from '../world/clipRotate'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, convertGlobalLayers, findSlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
@@ -1817,10 +1818,11 @@ export class Engine {
       setStatus('Nothing selected. Click a model, or drag on the ground with the Select tool (V) to select part of the map first.')
       return false
     }
-    this.clip = copyRegion(this.terrain, this.objects, s, editor.palette)
+    this.clip = copyRegion(this.terrain, this.objects, s, editor.palette, this.doc.liquids)
     this.lastCopied = 'area'
     ui.hasClip = true
-    setStatus(`Copied ${this.clip.w}×${this.clip.h} cells and ${this.clip.objects.length} objects. Paste with Ctrl+V (works in other map tabs too).`)
+    const liquid = this.clip.liquids?.cells.length ? `, ${this.clip.liquids.cells.length} liquid cells` : ''
+    setStatus(`Copied ${this.clip.w}×${this.clip.h} cells${liquid} and ${this.clip.objects.length} objects. Paste with Ctrl+V (works in other map tabs too).`)
     return true
   }
 
@@ -1843,9 +1845,16 @@ export class Engine {
     setStatus(
       this.lastCopied === 'objects'
         ? 'Click to put the copied models down · Enter places them · Esc cancels'
-        : 'Click to place the paste · Enter places it · PgUp/PgDn raise/lower · Esc cancels',
+        : 'Click to place the paste · Enter places it · R turns it · PgUp/PgDn raise/lower · Esc cancels',
       0,
     )
+  }
+
+  /** Turns the area waiting to be pasted a quarter turn (R while pasting; noggit's chunk mover has the same). */
+  rotateClip() {
+    if (!ui.pasting || this.lastCopied !== 'area' || !this.clip) return
+    this.clip = rotateClip(this.clip, this.terrain.cellSize)
+    setViewportHint(`Paste ${this.clip.w}×${this.clip.h}`)
   }
 
   /** Copies the selected models and puts the copies down a little to the side, selected, as one undo step. */
@@ -1905,6 +1914,7 @@ export class Engine {
         const cs = this.terrain.cellSize
         this.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
       },
+      this.doc.liquids,
     )
     if (cmd) this.history.push(cmd)
     const n = this.terrain.size
@@ -2430,6 +2440,10 @@ export class Engine {
 
   /** Keys for the selected object. Returns true if handled. */
   handleSelectionKey(e: KeyboardEvent): boolean {
+    if (ui.pasting && this.lastCopied === 'area' && (e.key === 'r' || e.key === 'R')) {
+      this.rotateClip()
+      return true
+    }
     if (this.handleSpawnKey(e)) return true
     if (!this.canNudge()) return false
     const big = e.shiftKey

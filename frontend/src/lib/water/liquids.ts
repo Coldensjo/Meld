@@ -553,3 +553,117 @@ export function liquidsToAdt(map: LiquidMap, cx0 = 0, cz0 = 0, chunks = map.side
   }
   return out
 }
+
+// ---- clipboard ------------------------------------------------------------------------------------
+
+/** One liquid cell of a copied area: its place in the clip, its liquid and its four corners' surface and depth (x then x+1, then the next row). */
+export interface LiquidClipCell {
+  x: number
+  z: number
+  id: number
+  heights: [number, number, number, number]
+  depth: [number, number, number, number]
+}
+
+/** The painted liquid of a copied area, cell by cell, so a paste can land anywhere, not just on a chunk. */
+export interface LiquidClip {
+  w: number
+  h: number
+  cells: LiquidClipCell[]
+}
+
+/** The corner vertex indices of cell (lx, lz) in a chunk's 9x9 surface. */
+function cornersOf(lx: number, lz: number): [number, number, number, number] {
+  const i = lz * LIQUID_VERTS + lx
+  return [i, i + 1, i + LIQUID_VERTS, i + LIQUID_VERTS + 1]
+}
+
+/** Copies the liquid cells of the cell rect (x0..x1, z0..z1 exclusive at the far side). */
+export function copyLiquidCells(map: LiquidMap, r: { x0: number; z0: number; x1: number; z1: number }): LiquidClip {
+  const cells: LiquidClipCell[] = []
+  for (let z = r.z0; z < r.z1; z++) {
+    for (let x = r.x0; x < r.x1; x++) {
+      const c = Math.floor(z / LIQUID_CELLS) * map.side + Math.floor(x / LIQUID_CELLS)
+      if (c < 0 || c >= map.side * map.side) continue
+      const lx = x % LIQUID_CELLS
+      const lz = z % LIQUID_CELLS
+      for (const l of map.layers(c)) {
+        if (!l.cells[lz * LIQUID_CELLS + lx]) continue
+        const k = cornersOf(lx, lz)
+        cells.push({ x: x - r.x0, z: z - r.z0, id: l.id, heights: [l.heights[k[0]], l.heights[k[1]], l.heights[k[2]], l.heights[k[3]]], depth: [l.depth[k[0]], l.depth[k[1]], l.depth[k[2]], l.depth[k[3]]] })
+      }
+    }
+  }
+  return { w: r.x1 - r.x0, h: r.z1 - r.z0, cells }
+}
+
+/**
+ * Pastes a liquid clip with its corner at cell (px, pz): the cells of the pasted rect lose the liquid
+ * they had, then the clip's cells are laid in, a layer per liquid ID in each chunk. `reserve` is
+ * told each chunk before it changes (for undo). Returns the chunks changed.
+ */
+export function pasteLiquidCells(map: LiquidMap, clip: LiquidClip, px: number, pz: number, reserve?: (c: number) => void): number[] {
+  const side = map.side
+  const n = side * LIQUID_CELLS
+  // The chunks the pasted rect touches, with their cloned layers to work on.
+  const work = new Map<number, LiquidLayer[]>()
+  const chunkAt = (x: number, z: number): number | null => {
+    if (x < 0 || z < 0 || x >= n || z >= n) return null
+    const c = Math.floor(z / LIQUID_CELLS) * side + Math.floor(x / LIQUID_CELLS)
+    if (!work.has(c)) {
+      reserve?.(c)
+      work.set(c, map.layers(c).map(cloneLayer))
+    }
+    return c
+  }
+  for (let z = 0; z < clip.h; z++) {
+    for (let x = 0; x < clip.w; x++) {
+      const c = chunkAt(px + x, pz + z)
+      if (c === null) continue
+      const i = ((pz + z) % LIQUID_CELLS) * LIQUID_CELLS + ((px + x) % LIQUID_CELLS)
+      for (const l of work.get(c)!) l.cells[i] = 0
+    }
+  }
+  for (const cell of clip.cells) {
+    const x = px + cell.x
+    const z = pz + cell.z
+    const c = chunkAt(x, z)
+    if (c === null) continue
+    const layers = work.get(c)!
+    let l = layers.find((t) => t.id === cell.id)
+    if (!l) {
+      l = newLayer(cell.id, cell.heights[0])
+      layers.push(l)
+    }
+    const lx = x % LIQUID_CELLS
+    const lz = z % LIQUID_CELLS
+    l.cells[lz * LIQUID_CELLS + lx] = 1
+    const k = cornersOf(lx, lz)
+    for (let j = 0; j < 4; j++) {
+      l.heights[k[j]] = cell.heights[j]
+      l.depth[k[j]] = cell.depth[j]
+    }
+  }
+  const changed: number[] = []
+  for (const [c, layers] of work) {
+    map.set(c, layers.filter((l) => !layerEmpty(l)))
+    changed.push(c)
+  }
+  return changed
+}
+
+/** The clip turned a quarter turn, the way `rotateClip` turns the area: cell (x, z) goes to (z, w - 1 - x). */
+export function rotateLiquidClip(clip: LiquidClip): LiquidClip {
+  return {
+    w: clip.h,
+    h: clip.w,
+    cells: clip.cells.map((c) => ({
+      x: c.z,
+      z: clip.w - 1 - c.x,
+      id: c.id,
+      // The corners turn with the cell: (0,0) lands at (0,1), (1,0) at (0,0), (0,1) at (1,1), (1,1) at (1,0).
+      heights: [c.heights[1], c.heights[3], c.heights[0], c.heights[2]],
+      depth: [c.depth[1], c.depth[3], c.depth[0], c.depth[2]],
+    })),
+  }
+}

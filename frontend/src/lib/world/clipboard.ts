@@ -3,6 +3,8 @@ import type { Terrain } from '../terrain/Terrain'
 import type { ObjectLayer, WorldObject } from './ObjectLayer'
 import type { Command } from '../state/history'
 import { TerrainStroke, type Rect } from '../tools/brush'
+import { LiquidStroke } from '../water/liquidStroke'
+import { copyLiquidCells, pasteLiquidCells, type LiquidClip, type LiquidMap } from '../water/liquids'
 import {
   CHUNK_CELLS,
   MAX_PALETTE,
@@ -35,6 +37,8 @@ export interface MapClip {
    * objects keep their local transform and reference their parent by `cid`.
    */
   objects: Array<Omit<WorldObject, 'id' | 'parent'> & { cid: number; cparent?: number }>
+  /** The painted liquid of the area, cell by cell (absent in a clip made before liquids were copied). */
+  liquids?: LiquidClip
 }
 
 export interface PasteOptions {
@@ -154,8 +158,8 @@ const MISSING = '#808080'
 /** Splat texels per paint chunk along one side. */
 const TEXELS_PER_CHUNK = CHUNK_CELLS * SPLAT_PER_CELL
 
-/** Copy the cell rect (inclusive vertex corners x0..x1, z0..z1). */
-export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, palette: readonly string[]): MapClip {
+/** Copy the cell rect (inclusive vertex corners x0..x1, z0..z1), with its painted liquid when `liquids` is given. */
+export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, palette: readonly string[], liquids?: LiquidMap): MapClip {
   const w = r.x1 - r.x0
   const h = r.z1 - r.z0
   const V = terrain.verts
@@ -211,8 +215,11 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
     return p.x >= ox && p.x <= r.x1 * cs && p.z >= oz && p.z <= r.z1 * cs
   })
   const inside = encodeObjects(terrain, objects, picked, ox, oz)
-  return { w, h, heights, holes, weights, slots, palette: clipPalette, objects: inside }
+  const clip: MapClip = { w, h, heights, holes, weights, slots, palette: clipPalette, objects: inside }
+  if (liquids) clip.liquids = copyLiquidCells(liquids, r)
+  return clip
 }
+
 
 /** Edge fade factor for a point `d` cells from the nearest pasted edge. */
 const fade = (d: number, blend: number) => (blend <= 0 ? 1 : Math.min(1, Math.max(0, d / blend)))
@@ -236,8 +243,16 @@ export function pasteRegion(
   pz: number,
   opts: PasteOptions,
   onHeights: (r: Rect) => void,
+  /** The map's liquids: the clip's painted liquid lands in them with the ground. */
+  liquids?: LiquidMap,
 ): Command | null {
   const stroke = new TerrainStroke(terrain, 'Paste', { heights: opts.terrain, splat: opts.textures, holes: opts.terrain }, onHeights)
+  let liquidCmd: Command | null = null
+  if (opts.terrain && liquids && clip.liquids) {
+    const ls = new LiquidStroke(liquids, 'Paste')
+    pasteLiquidCells(liquids, clip.liquids, px, pz, ls.reserve)
+    liquidCmd = ls.finish()
+  }
   const V = terrain.verts
   const size = terrain.size
 
@@ -374,17 +389,19 @@ export function pasteRegion(
   const added = opts.objects ? decodeObjects(terrain, objects, clip.objects, px * cs, pz * cs) : []
 
   const terrainCmd = stroke.finish()
-  if (!terrainCmd && !added.length && !paletteChanged) return null
+  if (!terrainCmd && !liquidCmd && !added.length && !paletteChanged) return null
   const saved = added.map((o) => ({ ...o }))
   return {
     label: 'Paste',
     undo: () => {
       terrainCmd?.undo()
+      liquidCmd?.undo()
       for (const o of saved) objects.remove(o.id)
       if (paletteChanged) setPalette(paletteBefore)
     },
     redo: () => {
       terrainCmd?.redo()
+      liquidCmd?.redo()
       for (const o of saved) objects.add({ ...o })
       if (paletteChanged) setPalette(palette)
     },

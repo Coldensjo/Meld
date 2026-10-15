@@ -538,3 +538,17 @@ e.terrain.heightAt(100, 100)                 // 0 on a hills map (was the hill's
 - `'liquids'`: paint some water first (Water tool, Paint mode), then clear it; `e.doc.liquids.layers(c)`
   of the chunk lose the cells. `'holes'`: cut a hole with Sculpt › Hole, then clear it;
   `e.terrain.holes` has no bytes set under the brush afterwards.
+
+## Area paste: liquids and turning (chunk mover)
+
+Checks: Ctrl+C on a selected area copies its painted liquid cells too (the status says how many),
+Ctrl+V lays them in with the ground, and R (or Turn 90° in the options bar) turns the pending paste
+a quarter turn: heights, holes, texels, liquids and models together, the preview rect swapping its
+sides. Unit tests: `tests/clipboard.test.ts` (`rotateClip`, `copyLiquidCells`, `pasteLiquidCells`,
+`rotateLiquidClip`). In the dev page: `ed.editor.selection = { x0: 20, z0: 20, x1: 36, z1: 28 }`,
+`e.copySelection()`, `e.startPaste()`, `e.rotateClip()` then `e['clip'].w` is 8 and `.h` 16;
+`e.commitPaste()` with `e.tools.select.pasteAt = { x: 60, z: 60 }` set first; one Ctrl+Z undoes
+the ground, liquids and models together.
+- Trap: node's type stripping can't load `tools/brush.ts` (a constructor with parameter properties),
+  so a unit test can't import `world/clipboard.ts` or anything else that pulls it in. Put what a
+  test needs in its own module (`world/clipRotate.ts` is one) and import only that.

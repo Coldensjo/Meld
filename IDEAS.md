@@ -129,3 +129,16 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 
 - B-102 (mask mode has no switch) and B-103 (emptied slots stay assigned) were not open for owner
   decisions. They are still in BACKLOG.md as the loop's to pick up.
+
+### B-006 Chunk Mover · noggit3, as Meld's area paste
+- Chosen by the loop from noggit3 (2026-10-15, B-006). noggit3's chunk mover (`src/noggit/chunk_mover.cpp`,
+  `ui/chunk_mover.cpp`) is not a drag: chunks are selected, follow the cursor as a preview, and a click
+  copies their heights, textures, alpha maps, vertex colours, liquids, shadows, area IDs, holes and models
+  onto the target chunks (each behind an Override checkbox), with a height offset, height modes (normal,
+  min, max, add, subtract), a quarter turn, a mirror, "fix gaps" and "clear models" at the target. The
+  source stays as it was.
+- Meld's area copy and paste is the same operation for any cell rect, with a preview, Terrain / Textures /
+  Objects switches, a height offset and an edge blend. The loop added what it lacked and was cheap: the
+  painted liquids travel with the area, and R turns the pending paste a quarter turn. Not added: the
+  mirror and the min/max/add/subtract height modes (**ours**: the blend and offset cover the common case;
+  they can be a later item), and the chunk-aligned selection (ours is any rect, which is more).
