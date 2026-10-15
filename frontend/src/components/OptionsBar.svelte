@@ -467,10 +467,14 @@
     <select class="curve" bind:value={editor.clearMode} title="What the brush erases" aria-label="What to clear">
       <option value="models">Models</option>
       <option value="textures">Textures (to base)</option>
+      <option value="faint">Faint layers (below threshold)</option>
       <option value="heights">Height (to zero)</option>
       <option value="liquids">Liquids (painted water)</option>
       <option value="holes">Holes (fill)</option>
     </select>
+    {#if editor.clearMode === 'faint'}
+      <OptSlider label="Threshold %" bind:value={editor.clearThreshold} min={1} max={50} step={1} digits={0} title="A painted layer goes from a chunk the brush touches when it is weaker than this everywhere in the chunk" />
+    {/if}
   {/if}
   {#if mapData}
     <select class="curve" bind:value={editor.mapDataMode} title="What the brush paints into the chunks" aria-label="Map data">

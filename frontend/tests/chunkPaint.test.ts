@@ -290,3 +290,26 @@ test('hasEmptySlot finds a layer with no weight, and not a chunk that is all use
   assert.equal(hasEmptySlot(1, 2, slots, weights, 0), false)
   assert.equal(hasEmptySlot(1, 2, slots, new Uint8Array(4 * SLOTS), 0), false)
 })
+
+test('a chunk drops its painted layers fainter than the threshold everywhere, never the base', async () => {
+  const { dropFaintLayers, faintSlot, NO_TEXTURE: NONE } = await import('../src/lib/terrain/chunkPaint.ts')
+  // One chunk of 4x4 texels: base 0, a strong layer 1 in one texel, a faint layer 2 everywhere.
+  const side = 1, res = 4
+  const slots = Uint8Array.from([0, 1, 2, NONE])
+  const weights = new Uint8Array(res * res * 4)
+  for (let t = 0; t < res * res; t++) {
+    weights[t * 4] = 235
+    weights[t * 4 + 2] = 20
+  }
+  weights[0] = 35
+  weights[1] = 200
+  assert.equal(faintSlot(side, res, slots, weights, 0, 26), 2, 'layer 2 peaks at 20 of 255, under 10%')
+  assert.equal(dropFaintLayers(side, res, slots, weights, 0, 26), 1)
+  assert.ok(!slots.includes(2), 'its slot is free')
+  for (let t = 0; t < res * res; t++) {
+    const sum = weights[t * 4] + weights[t * 4 + 1] + weights[t * 4 + 2] + weights[t * 4 + 3]
+    assert.equal(sum, 255, `texel ${t} still sums to 255`)
+  }
+  assert.equal(dropFaintLayers(side, res, slots, weights, 0, 255), 1, 'at 100% the strong layer goes too, the base stays')
+  assert.equal(slots[0], 0)
+})

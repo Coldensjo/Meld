@@ -19,7 +19,7 @@ export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' 
  * impassable flag, or the cells that grow no ground effect doodads.
  */
 export type MapDataMode = 'area' | 'impassable' | 'noTufts'
-export type ClearMode = 'models' | 'textures' | 'heights' | 'liquids' | 'holes'
+export type ClearMode = 'models' | 'textures' | 'faint' | 'heights' | 'liquids' | 'holes'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'blur' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'vertex' | 'hole'
 /** Flatten target: the height under the first click, or the average height under the brush. */
 export type FlattenTarget = 'origin' | 'average'
@@ -234,6 +234,8 @@ export const editor = $state({
   spawnsError: '',
   /** What the Clear tool erases: placed models, or the paint (back to each chunk's base texture). */
   clearMode: 'models' as ClearMode,
+  /** The Clear tool's faint-layer threshold, in percent: a chunk's painted layer weaker than this everywhere goes (#41). */
+  clearThreshold: 10,
   /** What the Map data tool paints, and whether it sets it or clears it. */
   mapDataMode: 'area' as MapDataMode,
   mapDataClear: false,

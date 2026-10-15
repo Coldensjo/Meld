@@ -440,6 +440,39 @@ export function removeSlot(side: number, res: number, slots: Uint8Array, weights
   if (fallback >= 0) compactChunk(side, res, slots, weights, c)
 }
 
+/**
+ * The first painted layer (slot 1 to 3; the base is kept) of chunk `c` whose strongest texel weighs
+ * less than `below` (0 to 255), or -1 for none: a layer too faint to see that still takes a slot.
+ */
+export function faintSlot(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, below: number): number {
+  const per = res / side
+  const x0 = (c % side) * per
+  const z0 = Math.floor(c / side) * per
+  for (let k = 1; k < SLOTS; k++) {
+    if (slots[c * SLOTS + k] === NO_TEXTURE) continue
+    let peak = 0
+    for (let z = z0; z < z0 + per && peak < below; z++) {
+      for (let x = x0; x < x0 + per; x++) peak = Math.max(peak, weights[(z * res + x) * SLOTS + k])
+    }
+    if (peak < below) return k
+  }
+  return -1
+}
+
+/**
+ * Removes chunk `c`'s faint layers (faintSlot), each one's weight going to the strongest other
+ * texture of each texel. Returns how many went.
+ */
+export function dropFaintLayers(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number, below: number): number {
+  let n = 0
+  // Removing a layer can compact the chunk's slots, so look again after each.
+  for (let k = faintSlot(side, res, slots, weights, c, below); k >= 0; k = faintSlot(side, res, slots, weights, c, below)) {
+    removeSlot(side, res, slots, weights, c, k)
+    n++
+  }
+  return n
+}
+
 /** Sets every chunk to one texture, fully painted, which is how a map starts. */
 export function clearPalette(side: number, res: number, slots: Uint8Array, weights: Uint8Array, to = 0): void {
   slots.fill(NO_TEXTURE)

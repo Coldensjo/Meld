@@ -716,6 +716,11 @@ e.terrain.heightAt(100, 100)                 // 0 on a hills map (was the hill's
   of the chunk lose the cells. `'holes'`: cut a hole with Sculpt › Hole, then clear it;
   `e.terrain.holes` has no bytes set under the brush afterwards.
 
+- Faint layers (#41): `tests/chunkPaint.test.ts` (`dropFaintLayers`). Live: the client's own paint
+  rarely has a faint layer (Durotar's chunks all peak at 255), so make one: on a new flat map set a
+  chunk's slot 1 to texture 1 at weight 8 (base 247) in `e.terrain.chunkSlots`/`weights`, then stroke
+  Clear with `clearMode = 'faint'`, `clearThreshold = 10`: the base goes back to 255, the step is
+  "Clear faint layers", and `e.history.undo()` brings the layer back.
 ## Area paste: liquids and turning (chunk mover)
 
 Checks: Ctrl+C on a selected area copies its painted liquid cells too (the status says how many),

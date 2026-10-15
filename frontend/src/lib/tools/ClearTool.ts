@@ -4,7 +4,7 @@ import { editor } from '../state/editor.svelte'
 import type { Command } from '../state/history'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { TerrainStroke, forEachTexel, forEachVertex, type Rect } from './brush'
-import { SLOTS, resetTexel } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, SLOTS, dropFaintLayers, resetTexel } from '../terrain/chunkPaint'
 import { LiquidStroke } from '../water/liquidStroke'
 import { RIVER_OPACITY, paintLiquid } from '../water/liquids'
 import { HOLE_BLOCK, countHoles, fillHoles } from '../terrain/holes'
@@ -32,6 +32,7 @@ export class ClearTool implements Tool {
     this.objects = ctx.objects
     const mode = editor.clearMode
     if (mode === 'textures') this.stroke = new TerrainStroke(ctx.terrain, 'Clear textures', { splat: true })
+    else if (mode === 'faint') this.stroke = new TerrainStroke(ctx.terrain, 'Clear faint layers', { splat: true })
     else if (mode === 'heights') this.stroke = new TerrainStroke(ctx.terrain, 'Clear height', { heights: true }, (r) => this.resnap(ctx, r))
     else if (mode === 'holes') this.stroke = new TerrainStroke(ctx.terrain, 'Fill holes', { holes: true })
     else if (mode === 'liquids') this.liquidStroke = new LiquidStroke(ctx.liquids, 'Clear liquids')
@@ -71,12 +72,44 @@ export class ClearTool implements Tool {
         return this.clearModels(ctx, hit)
       case 'textures':
         return this.clearTextures(ctx, hit)
+      case 'faint':
+        return this.clearFaint(ctx, hit)
       case 'heights':
         return this.clearHeights(ctx, hit)
       case 'liquids':
         return this.clearLiquids(ctx, hit)
       case 'holes':
         return this.fillHoles(ctx, hit)
+    }
+  }
+
+  /**
+   * Each paint chunk the brush touches loses its painted layers whose strongest texel is under the
+   * threshold (the owner's reading of noggit3's texture-alpha threshold, #41): their weight goes to
+   * the strongest other texture, and the slot is free for another.
+   */
+  private clearFaint(ctx: ToolContext, hit: THREE.Vector3) {
+    const t = ctx.terrain
+    const side = t.paintChunksPerSide
+    const per = t.splatRes / side
+    const size = CHUNK_CELLS * t.cellSize
+    const r = editor.brush.radius
+    const below = Math.round((editor.clearThreshold / 100) * 255)
+    const cx0 = Math.max(0, Math.floor((hit.x - r) / size)), cx1 = Math.min(side - 1, Math.floor((hit.x + r) / size))
+    const cz0 = Math.max(0, Math.floor((hit.z - r) / size)), cz1 = Math.min(side - 1, Math.floor((hit.z + r) / size))
+    for (let cz = cz0; cz <= cz1; cz++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        // The chunk's nearest point to the brush centre must be inside the brush.
+        const dx = Math.max(cx * size - hit.x, 0, hit.x - (cx + 1) * size)
+        const dz = Math.max(cz * size - hit.z, 0, hit.z - (cz + 1) * size)
+        if (dx * dx + dz * dz > r * r) continue
+        const c = cz * side + cx
+        const rect = { x0: cx * per, z0: cz * per, x1: cx * per + per - 1, z1: cz * per + per - 1 }
+        this.stroke?.reserveSplat(rect)
+        if (!dropFaintLayers(side, t.splatRes, t.chunkSlots, t.weights, c, below)) continue
+        this.stroke?.touchSplat(rect)
+        t.markSplatDirty(rect)
+      }
     }
   }
 
