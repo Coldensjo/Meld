@@ -51,7 +51,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 - ~~**Tilt** (pitch) per object. Meld only spins props around Y.~~ *Done: Tilt and Roll (forward-back and side-to-side) in the Properties panel, saved in the map and written to the client placements. The sign of the tilt in the client is not yet checked in game.*
 - ~~**Random rotation, tilt and scale** on placement. Meld has random rotation and scale but no tilt.~~ *Done: Random tilt (up to 8 degrees each way) is an option next to Random rotation and scale.*
 - ~~**Follow-ground rotation**: props tilt to match the terrain normal, with a smooth-follow option.~~ *Done: the Select tool's Follow ground rotation option tilts a model dragged along the ground to the ground's slope, with a Smooth option.*
-- **Rotate around a pivot point**, for single and multi-selection.
+- ~~**Rotate around a pivot point**, for single and multi-selection.~~ *Done: with two or more models selected, R, Alt+arrows and the gizmo ring turn them about the mean of their positions (the Select tool's "Rotate around pivot point", on by default, as noggit's); off, or with one model, each turns about its own origin.*
 - ~~**Rotate-following-cursor** mode.~~ *Done with Follow-ground rotation: "Rotate following cursor" is noggit3's label for that same checkbox (`ui/ObjectEditor.cpp`, "Follow Ground Rotation" group).*
 - **Multi-selection movement** mode, with a local/world coordinate toggle for the gizmo.
 - **Selective paste options**: paste only rotation, tilt or scale.

@@ -276,6 +276,7 @@
         <span class="chip"><span class="dim">Selected:</span> {displayName(editor.selected.type)}</span>
       {:else if count > 1}
         <span class="chip"><span class="dim">Selected:</span> {count} objects</span>
+        <label class="check" title="R and Alt+arrows turn the group about the mean of its positions, so it keeps its shape; off, each model turns about its own origin"><input type="checkbox" bind:checked={editor.rotatePivot} /> Rotate around pivot point</label>
       {/if}
       {#if editor.selection}
         {@const s = editor.selection}

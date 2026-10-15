@@ -34,6 +34,7 @@ import { animatedAssets, displayName, getAsset } from '../models/assets'
 import { PropEffects } from '../world/PropEffects'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
+import { meanPivot, turnAbout } from '../world/pivot'
 import { countHoles, fillHoles } from '../terrain/holes'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
@@ -2180,9 +2181,15 @@ export class Engine {
     return (!!editor.selected || editor.selectedIds.length > 0) && (editor.tool === 'select' || editor.tool === 'place')
   }
 
+  /** The pivot a group turns about: the mean of the movable selection's world positions (see pivot.ts). */
+  selectionPivot(targets: readonly WorldObject[] = movableSelection(this.objects)): { x: number; z: number } {
+    return meanPivot(targets.map((o) => this.objects.worldPosition(o, this.tmpV)).map((p) => ({ x: p.x, z: p.z })))
+  }
+
   /**
    * Move/raise/spin the selected objects. dx/dz are camera-relative (right,
-   * forward); dy raises; dRot is radians, each object turning about itself. Rapid repeats merge
+   * forward); dy raises; dRot is radians: each object turns about itself, and with Rotate around
+   * pivot point a group also turns about its pivot, keeping its shape. Rapid repeats merge
    * into one undo.
    */
   nudgeSelected(right: number, forward: number, dy: number, dRot: number) {
@@ -2196,11 +2203,19 @@ export class Engine {
     const yaw = this.controller.yaw
     const fx = -Math.sin(yaw)
     const fz = -Math.cos(yaw)
+    const pivot = dRot !== 0 && editor.rotatePivot && targets.length > 1 ? this.selectionPivot(targets) : null
     for (const o of targets) {
       // Work in world space so attached props move the way the camera expects.
       const w = this.objects.worldPlacement(o)
+      if (pivot) {
+        const t = turnAbout(w.pos.x, w.pos.z, pivot.x, pivot.z, dRot)
+        w.pos.x = t.x
+        w.pos.z = t.z
+      }
       w.pos.x = THREE.MathUtils.clamp(w.pos.x + fx * forward - fz * right, 0, this.terrain.worldSize)
       w.pos.z = THREE.MathUtils.clamp(w.pos.z + fz * forward + fx * right, 0, this.terrain.worldSize)
+      // A model on the ground stays on it where it lands; an attached one keeps its height.
+      if (pivot && o.parent === undefined) w.pos.y = this.terrain.heightAt(w.pos.x, w.pos.z) + o.yOff
       w.pos.y += dy
       w.rot += dRot
       this.objects.place(o, o.parent ?? null, w)

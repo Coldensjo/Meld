@@ -135,6 +135,12 @@ export const editor = $state({
   /** Placed models tilt a little at random (up to 8 degrees each way) when on. */
   placeRandomTilt: false,
   placeScatter: false,
+  /**
+   * Spinning two or more selected models (R, Alt+arrows, the gizmo ring) turns them about the mean of
+   * their positions, so the group keeps its shape (noggit's "Rotate around pivot point"); off, each
+   * turns about its own origin. A single model always turns about itself.
+   */
+  rotatePivot: true,
   /** Dragging a model along the ground tilts it to the ground's slope; smooth blends the slope over a cell each way. */
   followGround: false,
   followGroundSmooth: true,

@@ -451,3 +451,20 @@ share at the cell and effect IDs, the liquid layers covering the cell and the ro
 chunk. In the dev page: `ed.prefs.detailInfo = true`, move the mouse over the ground, then
 `ed.stats.detail` (refreshed at 2 Hz with the other stats; null off the map). The readout is
 `[data-ui="DetailInfo"]`.
+
+## Rotate around pivot point (group spins)
+
+Checks: with two or more models selected, R (and Alt+arrows) turn the group about the mean of its
+positions when `editor.rotatePivot` is on (the Select tool's checkbox, shown for a multi-selection),
+and each about its own origin when off. Unit test: `tests/pivot.test.ts` (`meanPivot`, `turnAbout`
+against three's rotation). In the dev page, after the "Selection outline colours" set-up with the
+two trees at x 128 and 140:
+
+```js
+e.nudgeSelected(0, 0, 0, Math.PI / 2)        // rotatePivot on: the trees swap to z 134 ± 6, both rotY π/2
+e.history.undo()
+ed.editor.rotatePivot = false; e.nudgeSelected(0, 0, 0, Math.PI / 2)   // they stay put and only turn
+```
+
+- `e.selectionPivot()` gives the pivot. A ground model is re-seated on the terrain where it lands;
+  an attached one keeps its height on its parent.
