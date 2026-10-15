@@ -514,11 +514,36 @@ func sameHeights(a, b adt.Liquid) bool {
 	return true
 }
 
-// SaveRegion writes the edited block into the client's patch. Returns the patch's path.
-func SaveRegion(dataDir string, e RegionEdit) (string, error) {
+// RegionResult says what a region save wrote: the patch, the block's tile count, and how many of
+// them differed from the patch's copies and were written. Changed 0 with no Patch means nothing at
+// all changed (nor the WDL), so the patch was left alone.
+type RegionResult struct {
+	Patch   string `json:"patch"`
+	Tiles   int    `json:"tiles"`
+	Changed int    `json:"changed"`
+}
+
+// RegionChanges builds the edited block's files and keeps those that differ from the patch's copies.
+func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, error) {
+	res := RegionResult{Tiles: e.Size * e.Size}
 	files, err := BuildRegion(dataDir, e)
 	if err != nil {
-		return "", err
+		return nil, res, err
 	}
-	return InstallPatch(dataDir, files)
+	changed, err := ChangedFiles(dataDir, files)
+	if err != nil {
+		return nil, res, err
+	}
+	res.Changed = countTiles(changed)
+	return changed, res, nil
+}
+
+// SaveRegion writes the edited block's changed files into the client's patch.
+func SaveRegion(dataDir string, e RegionEdit) (RegionResult, error) {
+	files, res, err := RegionChanges(dataDir, e)
+	if err != nil || len(files) == 0 {
+		return res, err
+	}
+	res.Patch, err = InstallPatch(dataDir, files)
+	return res, err
 }

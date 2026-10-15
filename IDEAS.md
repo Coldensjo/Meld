@@ -280,3 +280,11 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   owner, 2026-10-15.
 - Scripting. Question: approve B-100 (Lua engine), B-101 (script brushes), B-157 (node editor)? Choice:
   **keep it off**; the three stay blocked as a non-goal. Decided by the owner, 2026-10-15.
+
+### B-051 how "changed since the last export" is found · the loop's call
+- The plan sketched a hash per tile kept in the cache dir. Built instead: each built file is compared
+  with the copy in Meld's own patch (`ChangedFiles`), which is always current, needs no cache and can't go
+  stale when the patch is replaced or deleted. A region build is byte-for-byte deterministic (tested), so
+  an unedited save finds nothing changed. With nothing changed a region save leaves the patch, the game and
+  the servers alone, and a publish skips the server's map extraction when its map files are newer than
+  the patch.

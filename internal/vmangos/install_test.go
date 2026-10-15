@@ -127,3 +127,35 @@ func TestInstallPatchKeepsOtherTiles(t *testing.T) {
 		}
 	}
 }
+
+// TestChangedFiles keeps only what differs from the patch: a changed tile and a new one, not an
+// unchanged tile. Without a patch, or with one Meld didn't write, everything counts.
+func TestChangedFiles(t *testing.T) {
+	dir := t.TempDir()
+	same := mpq.File{Name: `World\Maps\Azeroth\Azeroth_32_48.adt`, Data: []byte("same")}
+	edited := mpq.File{Name: `World\Maps\Azeroth\Azeroth_33_48.adt`, Data: []byte("before")}
+	files := []mpq.File{same, {Name: edited.Name, Data: []byte("after")}, {Name: `World\Maps\Azeroth\Azeroth_34_48.adt`, Data: []byte("new")}}
+	if got, err := ChangedFiles(dir, files); err != nil || len(got) != 3 {
+		t.Fatalf("with no patch %d files changed, %v; want all 3", len(got), err)
+	}
+	if _, err := InstallPatch(dir, []mpq.File{same, edited}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ChangedFiles(dir, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Name != edited.Name || string(got[1].Data) != "new" {
+		t.Fatalf("changed = %v, want the edited and the new tile", got)
+	}
+	if countTiles(got) != 2 || countTiles([]mpq.File{{Name: `World\Maps\X\X.wdl`}}) != 0 {
+		t.Fatal("countTiles counts something other than the tiles")
+	}
+	other := t.TempDir()
+	if err := os.WriteFile(filepath.Join(other, PatchName), []byte("not ours"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := ChangedFiles(other, files); err != nil || len(got) != 3 {
+		t.Fatalf("with a foreign patch %d files changed, %v; want all 3", len(got), err)
+	}
+}

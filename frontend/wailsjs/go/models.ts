@@ -847,6 +847,22 @@ export namespace vmangos {
 		}
 	}
 	
+	export class RegionResult {
+	    patch: string;
+	    tiles: number;
+	    changed: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RegionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.patch = source["patch"];
+	        this.tiles = source["tiles"];
+	        this.changed = source["changed"];
+	    }
+	}
 	export class RegionView {
 	    mapName: string;
 	    x: number;

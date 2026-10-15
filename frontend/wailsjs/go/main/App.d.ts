@@ -100,7 +100,7 @@ export function SaveMapDialog(arg1:string):Promise<string>;
 
 export function SavePrefs(arg1:string):Promise<void>;
 
-export function SaveRegion(arg1:vmangos.RegionEdit):Promise<string>;
+export function SaveRegion(arg1:vmangos.RegionEdit):Promise<vmangos.RegionResult>;
 
 export function SaveSQLDialog(arg1:string):Promise<string>;
 

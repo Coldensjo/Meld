@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"bytes"
 	"encoding/base64"
 	"math"
 	"os"
@@ -115,6 +116,16 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 	}
 	if len(files) != 5 || files[4].Name != wdlPath("Azeroth") {
 		t.Fatalf("a 2x2 region writes 4 tiles and the WDL, got %d files", len(files))
+	}
+	// The same edit builds the same bytes, so a save with nothing edited finds every file unchanged.
+	twice, err := BuildRegion(dataDir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k := range files {
+		if !bytes.Equal(files[k].Data, twice[k].Data) {
+			t.Fatalf("%s differs between two builds of the same edit", files[k].Name)
+		}
 	}
 	// The block's horizon is sampled from its heights, and the rest of the map's is the client's.
 	set, err := mpq.OpenDataDir(dataDir)

@@ -94,7 +94,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 - ~~**Impassable flag** tool **(format-specific)**.~~ *Done: the Map data tool's Impassable mode marks the chunks under the brush (Set or Clear), hatched red, kept in the `.wmap` (version 5) and written as the MCNK header's 0x2 flag on export.*
 - ~~**Holes tool**: cut terrain holes, e.g. for caves **(format-specific)**.~~ *Done: Sculpt › Hole cuts and fills triangles, kept in the `.wmap` (version 3) and the clipboard (B-056). Exported to client tiles since B-145: the hole tools work on the client's 2×2-cell blocks (the owner's decision) and the export writes the chunks' hole bitmaps. Noggit Red's Hole Cutter is a brush with a radius.*
 - **Shadows editor**: auto-generate baked shadows with a sun pitch and threshold, plus a brush. noggit bakes shadows into the tile; Meld shadows are runtime-only **(format-specific)**. Noggit Red also has Assist › Clean up › Clear shadows and a Baked Shadows view toggle (Shift+F4).
-- **Tile-level save**: save the current tile, changed tiles, or all tiles. Meld saves one `.wmap` file.
+- ~~**Tile-level save**: save the current tile, changed tiles, or all tiles. Meld saves one `.wmap` file.~~ *Done as the owner chose: the `.wmap` stays one file, and Export to Client and the region save write only the tiles that changed since the last export (BACKLOG B-051).*
 - ~~**Reload tile** from disk.~~ *Done: File › Revert to Saved reloads the whole `.wmap` in the same tab, since Meld has no tiles; it asks first when there are unsaved changes.*
 - **Load full map** and mark everything changed.
 - **Streaming**: ADT loading radius, unload distance and interval, plus an async loader thread count. Meld loads the whole map in memory.

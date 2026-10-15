@@ -89,9 +89,39 @@ func Publish(p PublishPlan, spec MapSpec, log func(string)) error {
 	if err != nil {
 		return err
 	}
-	log(fmt.Sprintf("Wrote %d tiles to %s", res.Tiles, filepath.Base(res.Patch)))
+	if res.Patch == "" && serverMapsCurrent(p.ServerRoot, spec.MapID, filepath.Join(clientData, PatchName)) {
+		log("Nothing changed since the last publish, and the server's map data is newer than the patch: the server was left running.")
+		return nil
+	}
+	if res.Patch != "" {
+		log(fmt.Sprintf("Wrote %d of %d tiles to %s (the rest were unchanged)", res.Changed, res.Tiles, filepath.Base(res.Patch)))
+	}
 
 	return publishServer(p, clientData, spec, log)
+}
+
+// serverMapsCurrent reports whether the server has extracted map data for the map since the patch was
+// last written: one of its data/maps files (named by the map ID in three digits and the tile) is newer.
+func serverMapsCurrent(serverRoot string, mapID uint32, patch string) bool {
+	info, err := os.Stat(patch)
+	if err != nil {
+		return false
+	}
+	prefix := fmt.Sprintf("%03d", mapID)
+	entries, err := os.ReadDir(filepath.Join(serverRoot, "data", "maps"))
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if len(name) != len(prefix)+8 || !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, ".map") {
+			continue
+		}
+		if fi, err := e.Info(); err == nil && fi.ModTime().After(info.ModTime()) {
+			return true
+		}
+	}
+	return false
 }
 
 // publishServer does the server's share of a publish, once the map is in the client's patch: the world

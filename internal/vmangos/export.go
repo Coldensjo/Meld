@@ -107,11 +107,14 @@ type ExportResult struct {
 	Patch string
 	// Server is the server's Map.dbc, when a server folder was given.
 	Server string
-	Tiles  int
+	// Tiles is the map's tile count, and Changed how many of them differed from the patch's copies
+	// and were written. With nothing changed at all, Patch is empty and the patch was left alone.
+	Tiles   int
+	Changed int
 }
 
-// ExportMap writes a map's tiles, WDT, WDL (its far horizon) and Map.dbc row into the client's patch archive. readDir is the
-// client's Data folder, which the template files come from; patchDir is where the patch goes (the same
+// ExportMap writes a map's tiles, WDT, WDL (its far horizon) and Map.dbc row into the client's patch
+// archive, only the files that changed since the last export. readDir is the client's Data folder, which the template files come from; patchDir is where the patch goes (the same
 // folder in the game). When serverDir is set, the server's copy of Map.dbc is updated too, which the
 // map extractor (update-maps.bat) reads the map from.
 func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, error) {
@@ -184,11 +187,16 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 
 	// The read archives hold the patch open, so they close before anything is written.
 	set.Close()
-	res.Patch, err = InstallPatch(patchDir, files)
-	if err != nil {
+	res.Tiles = len(m.Tiles)
+	if files, err = ChangedFiles(patchDir, files); err != nil {
 		return res, err
 	}
-	res.Tiles = len(m.Tiles)
+	res.Changed = countTiles(files)
+	if len(files) > 0 {
+		if res.Patch, err = InstallPatch(patchDir, files); err != nil {
+			return res, err
+		}
+	}
 	if serverDir != "" {
 		res.Server, err = installServerMapTable(serverDir, dbc)
 		if err != nil {

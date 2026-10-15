@@ -133,10 +133,21 @@ func TestExportMapWritesTilesAndTable(t *testing.T) {
 
 	arch.Close() // Windows won't replace a patch that is open
 
-	// Exporting again is allowed; a map ID the client already names for another folder is not.
-	if _, err := ExportMap(readDir, patchDir, "", spec); err != nil {
+	// Exporting again is allowed, and with nothing edited it writes nothing; an edited tile is written.
+	again, err := ExportMap(readDir, patchDir, "", spec)
+	if err != nil {
 		t.Fatalf("re-export: %v", err)
 	}
+	if again.Patch != "" || again.Changed != 0 || again.Tiles != 1 {
+		t.Fatalf("an unedited re-export = %+v, want nothing written", again)
+	}
+	edited := spec
+	edited.Tiles = []TileSpec{spec.Tiles[0]}
+	edited.Tiles[0].Outer = flatTile(3)
+	if again, err = ExportMap(readDir, patchDir, "", edited); err != nil || again.Changed != 1 || again.Patch == "" {
+		t.Fatalf("an edited re-export = %+v, %v; want its tile written", again, err)
+	}
+	// A map ID the client already names for another folder is refused.
 	clash := spec
 	clash.MapID = 1 // Kalimdor, in every client
 	if _, err := ExportMap(readDir, patchDir, "", clash); err == nil {

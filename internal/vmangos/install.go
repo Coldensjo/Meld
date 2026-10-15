@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -143,4 +144,45 @@ func backup(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// ChangedFiles keeps the files whose bytes differ from the copy in the patch in dataDir, so an export
+// writes only what changed since the last one. Without a patch Meld or Ironforge wrote, every file
+// counts as changed (InstallPatch then decides what to do with that patch).
+func ChangedFiles(dataDir string, files []mpq.File) ([]mpq.File, error) {
+	target := filepath.Join(dataDir, PatchName)
+	if _, err := os.Stat(target); err != nil {
+		return files, nil
+	}
+	if owner, err := archiveOwner(target); err != nil || owner == "" {
+		return files, nil
+	}
+	a, err := mpq.Open(target)
+	if err != nil {
+		return nil, err
+	}
+	defer a.Close()
+	var out []mpq.File
+	for _, f := range files {
+		if !a.Has(f.Name) {
+			out = append(out, f)
+			continue
+		}
+		have, err := a.ReadFile(f.Name)
+		if err != nil || !bytes.Equal(have, f.Data) {
+			out = append(out, f)
+		}
+	}
+	return out, nil
+}
+
+// countTiles is how many of the files are map tiles.
+func countTiles(files []mpq.File) int {
+	n := 0
+	for _, f := range files {
+		if strings.EqualFold(filepath.Ext(f.Name), ".adt") {
+			n++
+		}
+	}
+	return n
 }

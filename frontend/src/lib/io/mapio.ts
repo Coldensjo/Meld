@@ -379,7 +379,7 @@ function regionPaint(engine: Engine, size: number) {
 
 /**
  * Writes the active region back into the client's patch, into the tiles it was opened from, for the
- * server to build from. Heights and models are written; paint stays as the client has it.
+ * server to build from. Only the tiles that differ from the patch's copies are written.
  */
 export function exportRegion(engine: Engine) {
   return guarded('Export region', async () => {
@@ -390,7 +390,7 @@ export function exportRegion(engine: Engine) {
     }
     const water = engine.regionLiquids()
     const { paint, headers } = regionPaint(engine, region.size)
-    const patch = await SaveRegion(
+    const res = await SaveRegion(
       vmangos.RegionEdit.createFrom({
         mapName: region.mapName,
         x: region.x,
@@ -405,9 +405,14 @@ export function exportRegion(engine: Engine) {
         partialLiquids: water.partial,
       }),
     )
+    if (!res.patch) {
+      setStatus(`Nothing changed in ${region.mapName} ${region.x}_${region.y} since the last export, so the patch and the game were left alone.`, 6000)
+      return
+    }
     const server = await VmangosPath()
     const next = server ? ` Run update-maps.bat in ${server} to rebuild the server's map data.` : ''
-    setStatus(`Wrote ${region.size}×${region.size} tiles of ${region.mapName} ${region.x}_${region.y} to ${patch}.${next} Paint is not exported yet.`, 10000)
+    const unchanged = res.tiles - res.changed
+    setStatus(`Wrote ${res.changed} of ${res.tiles} tiles of ${region.mapName} ${region.x}_${region.y} to ${res.patch}${unchanged ? ` (${unchanged} unchanged)` : ''}.${next}`, 10000)
   })
 }
 

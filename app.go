@@ -588,31 +588,38 @@ func (a *App) SaveSQLDialog(suggested string) (string, error) {
 }
 
 // SaveRegion writes an edited block back into the client's patch, into the tiles it came from, and
-// returns the patch's path. The server's map data is built from the patch. On Windows the game and
-// the servers are closed first, since they hold the patch open, and opened again afterwards.
-func (a *App) SaveRegion(edit vmangos.RegionEdit) (string, error) {
+// says what it wrote. Only the tiles that differ from the patch's copies are written; with nothing
+// changed the patch, the game and the servers are left alone. The server's map data is built from
+// the patch. On Windows the game and the servers are closed first, since they hold the patch open,
+// and opened again afterwards.
+func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) {
 	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
-		return "", err
+		return vmangos.RegionResult{}, err
+	}
+	files, res, err := vmangos.RegionChanges(dataDir, edit)
+	if err != nil || len(files) == 0 {
+		return res, err
 	}
 	if goruntime.GOOS != "windows" {
-		return vmangos.SaveRegion(dataDir, edit)
+		res.Patch, err = vmangos.InstallPatch(dataDir, files)
+		return res, err
 	}
 	sess, err := a.gameSession()
 	if err != nil {
-		return "", err
+		return res, err
 	}
 	closed, err := sess.Stop()
 	if err != nil {
 		// Open what did close again, and leave the patch alone.
-		return "", errors.Join(err, sess.Start(closed))
+		return res, errors.Join(err, sess.Start(closed))
 	}
-	patch, err := vmangos.SaveRegion(dataDir, edit)
+	res.Patch, err = vmangos.InstallPatch(dataDir, files)
 	if restart := sess.Start(closed); restart != nil {
 		err = errors.Join(err, restart)
 	}
-	return patch, err
+	return res, err
 }
 
 // gameSession is the game and server a region export restarts, with the saved login.
