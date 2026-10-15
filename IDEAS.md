@@ -165,3 +165,9 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   ground shaded by height (the client's overview for a part of Azeroth) with the tile borders, at least
   512 pixels across. Writing the client's own minimap textures would be a client write, which is a
   larger item. The owner can change this.
+
+### B-036 Reset rotation · noggit3
+- Chosen by the loop from noggit3 (2026-10-15, B-036). noggit3's Edit › Reset rotation (Ctrl+R,
+  `MapView.cpp`) calls `moveable_object_group::reset_xz_rotation`, which zeroes each selected model's X and
+  Z rotation (its tilt) and keeps Y (its heading). Meld does the same: Edit › Reset Rotation (Ctrl+R) takes
+  the tilt off the selected models and keeps their turn. The owner can change this.

@@ -2641,6 +2641,34 @@ export class Engine {
     selectObjects(objects, [])
   }
 
+  /**
+   * Stands the selected models upright again, as noggit's Reset rotation (Ctrl+R,
+   * `moveable_object_group::reset_xz_rotation`): the tilt both ways goes, and the heading stays. One
+   * undo step; nothing happens when every selected model is already upright.
+   */
+  resetRotation() {
+    const before: WorldObject[] = []
+    const after: WorldObject[] = []
+    for (const id of editor.selectedIds) {
+      const o = this.objects.objects.get(id)
+      if (!o || (!o.tiltX && !o.tiltZ)) continue
+      before.push({ ...o })
+      delete o.tiltX
+      delete o.tiltZ
+      this.objects.touch(id)
+      after.push({ ...o })
+    }
+    if (!after.length) {
+      setStatus(editor.selectedIds.length ? 'The selected models already stand upright.' : 'Select models to reset their rotation.')
+      return
+    }
+    if (editor.selected) {
+      const p = this.objects.objects.get(editor.selected.id)
+      if (p) editor.selected = { ...p }
+    }
+    this.history.push(groupTransformCommand(this.objects, before, after, after.length === 1 ? 'Reset rotation' : `Reset rotation of ${after.length} objects`))
+  }
+
   /** Detach the selected object from what it's attached to (keeps its world placement). */
   detachSelected() {
     const o = editor.selected ? this.objects.objects.get(editor.selected.id) : undefined

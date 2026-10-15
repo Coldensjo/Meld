@@ -141,6 +141,7 @@
       else if (key === 'd') engine.deselect()
       else if (key === 's') saveOrPublish(engine, e.shiftKey)
       else if (key === 'p' && e.shiftKey) saveMinimapImage(engine)
+      else if (key === 'r' && !e.shiftKey) engine.resetRotation()
       else if (key === 'w') requestClose(engine.activeDocumentId())
       else if (e.key === 'Tab') engine.cycleDocument(e.shiftKey ? -1 : 1)
       else if (key === 'o') openMap(engine)

@@ -325,3 +325,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: Checked noggit3 first (IDEAS.md records it): its "Save minimaps" action sets a flag nothing reads. Meld's File › Save Minimap Image… (Ctrl+Shift+P) saves the map from above as a PNG: the ground shaded by height and blue under the sea (the Minimap window's drawing, now `shadeHeights` in `io/minimapImage.ts`, which the window uses too), the client's overview of the block for a part of Azeroth, and the tile borders, at a few pixels a cell so a one-tile map is 512 across. The image goes through two new bindings, `SaveImageDialog` and `WritePNG` (base64, refused unless it is a PNG), since the asset server must not get request bodies.
 - Verified: new minimapImage.test.ts (shading and scale). make test passed (Go plus 199 of 199 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app: no image was saved by hand.
 - Left: the client's own minimap textures are not written (B-129, new).
+
+## 2026-10-15 · B-036 Reset rotation
+- Done: Checked first: Meld had no reset. Checked noggit3 (IDEAS.md records it): its Reset rotation zeroes the X and Z rotation and keeps the heading. Edit › Reset Rotation (Ctrl+R) does the same for every selected model (`Engine.resetRotation`): the tilt goes, the turn stays, as one undo step ("Reset rotation of N objects"), and it says so when they already stand upright. Ctrl+R no longer reaches the webview, which would reload the page.
+- Verified: make test passed (Go plus 199 of 199 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+- Left: none.
