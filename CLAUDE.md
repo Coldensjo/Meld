@@ -63,16 +63,28 @@ in the git history (`git show b47706b:PROGRESS.md`).
 
 ## Folder layout (this machine)
 
-The whole tool chain lives in `C:\Servers\Meld` (moved there 2026-10-15):
+The tool chain lives in `C:\WoW` (moved there 2026-10-15, from `C:\Servers\Meld` and `C:\Servers\Software`):
 
 - `meld`: this repository.
-- `vmangos`: the VMaNGOS server (`start-server.bat`, `stop-server.bat`; confs in `run`, logs in `logs`).
+- `client`: the WoW 1.12.1 client (Meld's client folder, `wowPath`; Meld writes its `Data\patch-3.MPQ`).
+  The only copy on the machine: Benilla reads it too, through `WOW_DATA` (set for the user to `C:\WoW\client\Data`).
+- `vmangos`: the VMaNGOS server (confs in `run`, logs in `logs`, map data in `data`).
 - `mariadb`: the database it runs on (port 3307, data in `vmangos\database`; `mariadb\bin` is on the PATH).
-- `benilla`: the Benilla client (BENILLA.md), with its own copy of the client data in `WoW\Data`.
+- `scripts`: the server scripts (`start-server.bat`, `stop-server.bat`, `apply-sql.bat`,
+  `restore-world.bat`, `update-maps.bat`), kept out of the vmangos clone. They find the other folders
+  relative to their own (`%~dp0..`), so moving all of `C:\WoW` needs no edits.
+- `benilla`: the Benilla client (BENILLA.md).
 - `blender`: Blender 5.2 LTS, portable (its settings and add-ons in `blender\portable`).
+- `noggit-red`: the Noggit Red map editor.
+- `backup`: files kept aside by hand (not a backup of the rest).
 
-The WoW 1.12.1 client stays in `C:\Servers\Software\SoloCraft 1.12.1` (Meld's client folder). A path in
-a conf or script that names one of these folders is absolute, so moving one means fixing those.
+`benilla`, `vmangos` and `noggit-red` are clones of other people's projects. Never commit to their
+upstream branches or push them. Our changes to vmangos (the extractor reading patch-3 to patch-9) and to
+noggit-red (opening 1.12.1 clients) are on a branch named `local` in each; after a `git pull` on the
+upstream branch, rebase `local` onto it.
+
+Meld's config (`%APPDATA%\Meld\config.json`) holds absolute paths (`wowPath`, `vmangosPath`,
+`benillaPath`), so moving a folder means updating those.
 
 ## Commands
 
