@@ -269,9 +269,13 @@ cd frontend && pnpm build   # frontend only
   - The sea (`editor.waterEnabled`/`waterLevel`, `Water.ts`) is a map-wide ocean plane. Its shader
     reads the ground's depth from `Terrain.heightTexture()`. The export writes it as ocean in the
     cells that no painted layer covers.
-  - `liquidMaterial.ts` draws both as noggit's shader does: the client's animated `XTextures`
-    frames plus a depth colour and alpha from Azeroth's default light (LightIntBand colours by hour,
-    LightParams alphas).
+  - `liquidMaterial.ts` draws both as the client's `ocean0_s` program does (B-174, Benilla's
+    `liquid.wgsl`): in gamma space, the lit depth swatch (the light's shallow and deep colours and
+    alphas in the client's 64 byte rows, the ocean's last row darker and opaque; a river's depth
+    reaches the deep row at byte 42, the ocean's at 255) plus the animated `XTextures` frame (24 a
+    second) plus `(sun sheen + 0.25) · frame alpha`, the ripple. The light is the client's where the
+    camera is (Client Lighting) or Azeroth's default (LightParams 12: bands 0, 1, 9 and 14 to 17 by
+    hour). Magma and slime are their frame, opaque and unlit.
   - Go: `adt.Liquid` is one layer. `ParseLiquids` reads every MCLQ layer, and `Changes.Liquids`
     rewrites chunks in the client's flag order (`internal/adt/water.go`). A region save only
     rewrites chunks whose liquids differ from the client's.

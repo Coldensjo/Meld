@@ -260,6 +260,16 @@ __engine.exportInput().effects          // the effect per palette index
   mostly one more), 264. The trap: the IDs look alike and both keyings resolve most slots, so a wrong
   one still shows plausible grass. An empty slot is 0xFFFFFFFF; 0 is ElwFlo01.
 
+## Water look (the client's combine, B-174)
+
+Checks: `water/liquidMaterial.ts` against the client's look. Northshire's stream in Azeroth 32_48 is
+river water up to depth byte 79: with the CDP route (above) load the region, then
+`e.setSceneView({ target: [340, 70.2, 283], yaw: 2.4, pitch: 0.35, distance: 45, hour: 13 })`. It
+should be teal with white ripple glints, as in the game; the old noggit-style shader drew it a flat
+olive. `__engine.doc.liquids.layers(c)` lists a chunk's layers (id, `depth` 0 to 1 per vertex) to find
+water elsewhere. For a before and after, `git stash push` the changed files, shoot, and `git stash
+pop`: the dev page reloads them.
+
 ## Liquid types from the client
 
 Checks: the Water tool's liquid list is the client's LiquidType.dbc (`LiquidTypes` binding,

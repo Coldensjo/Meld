@@ -4,14 +4,21 @@ import { loadTexture } from '../wow/api'
 import { LIQUID_TYPES, OCEAN_OPACITY, type LiquidClass } from './liquids'
 import { TILE_YARDS } from '../terrain/Terrain'
 
-// How liquids draw, after noggit3's liquid shader (liquid_frag.glsl): each liquid's animated texture
-// from the client, plus a colour between the light's "light" (shallow) and "dark" (deep) water
-// colour by the vertex's depth, at an opacity between the light's shallow and deep alphas. Magma and
-// slime are just their texture, opaque. The colours and alphas are the 1.12 client's for Azeroth's
-// default light (Light.dbc 1: LightParams 12, LightIntBand colours 14 to 17), by time of day.
+// How liquids draw, as the client draws a tile's water (B-174, Benilla's liquid.wgsl and liquid.rs,
+// MIT/Apache, after the client's ocean0_s pixel program): a depth swatch between the light's
+// shallow and deep water colours and alphas, built as the client builds it (64 rows in byte steps,
+// the ocean's last row darker and opaque), lit by the light's ambient and sun on a surface facing up,
+// plus the liquid's animated frame, whose alpha is the ripple: it adds the sun's sheen and a quarter
+// of white. The swatch's alpha is the water's opacity. Magma and slime are just their frame, opaque
+// and unlit. The colours are the client light where the camera is (View › Client Lighting) or else
+// Azeroth's default light (Light.dbc 1: LightParams 12), by time of day.
 
-/** The client's frames change every 60 ms (noggit sends animtime / 60). */
-const FRAME_MS = 60
+/** The client flips a liquid's frames 24 times a second (0x68aac0). */
+const FRAME_RATE = 24
+/** A river's or lake's depth byte at which the swatch reaches its deep row, about 5 yd (the LUT 0xc81768); the ocean's is 255. */
+const RIVER_DEPTH_FULL = 42
+/** Water's own shininess for the sun's sheen. */
+const WATER_SHININESS = 6
 /** A texture repeats every four cells, as noggit's liquid uv (vertex index / 4). */
 const UV_SCALE = 1 / (4 * (TILE_YARDS / 128))
 
@@ -25,6 +32,10 @@ const OCEAN_LIGHT: Band = [[0, 0x213e2f], [3, 0x213e2f], [6, 0x5b4842], [12, 0x1
 const OCEAN_DARK: Band = [[0, 0x000c18], [3, 0x000c18], [6, 0x14302f], [12, 0x001d29], [21, 0x152235], [22, 0x000c18]]
 const RIVER_LIGHT: Band = [[0, 0x1a3c1e], [3, 0x27423c], [6, 0x2f3a37], [12, 0x4f5d14], [21, 0x27423c], [22, 0x1a3c1e]]
 const RIVER_DARK: Band = [[0, 0x27372f], [3, 0x243a3c], [6, 0x2e4b4d], [12, 0x335255], [21, 0x243a3c], [22, 0x27372f]]
+// Bands 0 (the sun's diffuse light), 1 (ambient) and 9 (the sun, the sheen's colour) of the same light.
+const DIFFUSE: Band = [[0, 0x6182a2], [3, 0x6182a2], [6, 0xff6700], [12, 0xff8800], [21, 0xff6d00], [22, 0x6182a2]]
+const AMBIENT: Band = [[0, 0x1d3c54], [3, 0x1d3c54], [6, 0x5d7d9c], [12, 0x68829a], [21, 0x665c77], [22, 0x1d3c54]]
+const SUN: Band = [[0, 0xe8f1ff], [3, 0xe8f1ff], [6, 0xffd296], [12, 0xfff7de], [21, 0xffe2a9], [22, 0xe8f1ff]]
 
 /** A band's colour at `hour`, interpolated between its keys and wrapping at midnight, as raw sRGB. */
 function bandColor(band: Band, hour: number, out: THREE.Vector3) {
@@ -77,6 +88,9 @@ uniform vec3 oceanLight;
 uniform vec3 oceanDark;
 uniform vec2 riverAlpha;
 uniform vec2 oceanAlpha;
+uniform vec3 waterLit;
+uniform vec3 sheenColor;
+uniform vec3 sunDir;
 uniform float uvScale;
 uniform vec3 cursorPos;
 uniform float cursorRadius;
@@ -106,6 +120,23 @@ float groundAt(vec2 p) {
 }
 #endif
 
+// One row of the client's depth swatch (0x68a830): byte steps from the shallow end, the ocean's last
+// row darkened to 0.9 and opaque.
+vec4 swatchRow(vec4 c0, vec4 c1, float i, bool ocean) {
+  vec4 row = c0 + floor(i * (c1 - c0) / 64.0);
+  if (ocean && i >= 63.0) return vec4(floor(row.rgb * 0.9), 255.0) / 255.0;
+  return row / 255.0;
+}
+
+// The swatch at depth v (0 to 1), linear between the two rows it falls between, as the client samples it.
+vec4 swatch(vec3 light, vec3 dark, vec2 alphas, float v, bool ocean) {
+  vec4 c0 = vec4(floor(light * 255.0 + 0.5), floor(alphas.x * 255.0));
+  vec4 c1 = vec4(floor(dark * 255.0 + 0.5), floor(alphas.y * 255.0));
+  float t = clamp(v * 64.0 - 0.5, 0.0, 63.0);
+  float i0 = floor(t);
+  return mix(swatchRow(c0, c1, i0, ocean), swatchRow(c0, c1, min(i0 + 1.0, 63.0), ocean), t - i0);
+}
+
 void main() {
   vec2 uv = vWorldPos.xz * uvScale;
   float depth = vDepth;
@@ -119,11 +150,18 @@ void main() {
     col = k == 2 ? texture2D(magmaTex, uv).rgb : texture2D(slimeTex, uv).rgb;
     alpha = 1.0;
   } else {
-    // noggit adds the texel to the depth colour in the client's (gamma) space.
-    vec3 texel = pow(k == 1 ? texture2D(oceanTex, uv).rgb : texture2D(riverTex, uv).rgb, vec3(1.0 / 2.2));
-    vec3 lerpCol = k == 1 ? mix(oceanLight, oceanDark, depth) : mix(riverLight, riverDark, depth);
-    alpha = k == 1 ? mix(oceanAlpha.x, oceanAlpha.y, depth) : mix(riverAlpha.x, riverAlpha.y, depth);
-    col = pow(clamp(texel + lerpCol, 0.0, 1.0), vec3(2.2));
+    // In the client's (gamma) space: rgb = lit · swatch + frame + (sheen + 0.25) · ripple.
+    bool ocean = k == 1;
+    vec4 frame = ocean ? texture2D(oceanTex, uv) : texture2D(riverTex, uv);
+    vec3 detail = pow(frame.rgb, vec3(1.0 / 2.2));
+    // A river's depth byte reaches the deep row at 42, the ocean's at 255.
+    float v = ocean ? depth : clamp(depth * (255.0 / ${RIVER_DEPTH_FULL}.0), 0.0, 1.0);
+    vec4 sw = ocean ? swatch(oceanLight, oceanDark, oceanAlpha, v, true) : swatch(riverLight, riverDark, riverAlpha, v, false);
+    // The sun's Blinn sheen on the flat surface, seen from the camera.
+    vec3 h = normalize(sunDir + normalize(cameraPosition - vWorldPos));
+    vec3 sheen = sheenColor * pow(max(h.y, 0.0), ${WATER_SHININESS}.0);
+    col = pow(clamp(waterLit * sw.rgb + detail + (sheen + 0.25) * frame.a, 0.0, 1.0), vec3(2.2));
+    alpha = sw.a;
   }
   if (cursorRadius > 0.0) {
     float fw = length(fwidth(vWorldPos.xz));
@@ -155,6 +193,11 @@ const shared = {
   // LightParams 12: water shallow and deep alpha, ocean shallow and deep alpha.
   riverAlpha: { value: new THREE.Vector2(0.5, 1) },
   oceanAlpha: { value: new THREE.Vector2(0.75, 1) },
+  // The light's ambient plus its diffuse sun on a surface facing up, clamped; the sun's colour for
+  // the sheen; the way to the sun. All in the client's (gamma) space.
+  waterLit: { value: new THREE.Vector3(1, 1, 1) },
+  sheenColor: { value: new THREE.Vector3() },
+  sunDir: { value: new THREE.Vector3(0, 1, 0) },
   uvScale: { value: UV_SCALE },
   cursorPos: { value: new THREE.Vector3() },
   cursorRadius: { value: 0 },
@@ -194,13 +237,15 @@ export function resetLiquidFrames() {
   for (const k of KINDS) frames[k] = []
 }
 
+const diffuse = new THREE.Vector3()
+
 /**
  * Per frame: the animation's frame, the time of day's colours, and the brush ring. `clientReady`
- * says the client's files can be read, which the frames wait for.
+ * says the client's files can be read, which the frames wait for; `sun` is the way to the sun.
  */
-export function updateLiquids(ms: number, hour: number, clientReady: boolean, cursor: { x: number; y: number; z: number; radius: number } | null) {
+export function updateLiquids(ms: number, hour: number, clientReady: boolean, cursor: { x: number; y: number; z: number; radius: number } | null, sun: THREE.Vector3) {
   if (clientReady) for (const k of wanted) requestFrames(k)
-  const f = Math.floor(ms / FRAME_MS)
+  const f = Math.floor((ms * FRAME_RATE) / 1000)
   for (const k of KINDS) {
     const list = frames[k]
     shared[`${k}Tex`].value = list.length ? list[f % list.length] : blank
@@ -214,6 +259,9 @@ export function updateLiquids(ms: number, hour: number, clientReady: boolean, cu
     fromBand(shared.oceanDark.value, c, BAND.oceanDark)
     shared.riverAlpha.value.set(c.waterAlpha[0], c.waterAlpha[1])
     shared.oceanAlpha.value.set(c.oceanAlpha[0], c.oceanAlpha[1])
+    fromBand(shared.waterLit.value, c, BAND.ambient)
+    fromBand(diffuse, c, BAND.diffuse)
+    fromBand(shared.sheenColor.value, c, BAND.sun)
   } else {
     bandColor(RIVER_LIGHT, hour, shared.riverLight.value)
     bandColor(RIVER_DARK, hour, shared.riverDark.value)
@@ -221,7 +269,13 @@ export function updateLiquids(ms: number, hour: number, clientReady: boolean, cu
     bandColor(OCEAN_DARK, hour, shared.oceanDark.value)
     shared.riverAlpha.value.set(0.5, 1)
     shared.oceanAlpha.value.set(0.75, 1)
+    bandColor(AMBIENT, hour, shared.waterLit.value)
+    bandColor(DIFFUSE, hour, diffuse)
+    bandColor(SUN, hour, shared.sheenColor.value)
   }
+  shared.sunDir.value.copy(sun).normalize()
+  const lit = shared.waterLit.value.addScaledVector(diffuse, Math.max(0, shared.sunDir.value.y))
+  lit.set(Math.min(1, lit.x), Math.min(1, lit.y), Math.min(1, lit.z))
   if (cursor) {
     shared.cursorPos.value.set(cursor.x, cursor.y, cursor.z)
     shared.cursorRadius.value = cursor.radius
@@ -280,6 +334,8 @@ export function seaMaterial(ground: THREE.Texture, verts: number, cell: number):
     fragmentShader: fragment,
     transparent: true,
     depthWrite: false,
+    // The client draws every liquid with culling off.
+    side: THREE.DoubleSide,
     fog: true,
   })
 }

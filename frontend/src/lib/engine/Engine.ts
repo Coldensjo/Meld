@@ -710,7 +710,7 @@ export class Engine {
       resetLiquidFrames()
     }
     const ring = editor.tool === 'water' && editor.waterMode === 'paint' && this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z, radius: editor.brush.radius } : null
-    updateLiquids(time * 1000, this.hour, wow.loaded, ring)
+    updateLiquids(time * 1000, this.hour, wow.loaded, ring, this.env.state.keyDir)
 
     this.terrain.update(this.renderer)
     // A hidden object can't stay selected once hidden objects stop being drawn.
