@@ -15,7 +15,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 ## Bugs and broken things (always first)
 
-- [ ] B-118 **Re-home what the dropped dock panels did**: the dock keeps only Layers (owner, 2026-10-15), so growing a region by a tile (the Map panel's plus), Save to database and Export SQL for spawns, and typing exact numbers for a model's placement have no entry point · Source: owner · M/S · the components are still in the code; decide where each goes (menus, options bar, a dialog)
+- [x] B-118 **Re-home what the dropped dock panels did** · Source: owner · M/S · decided and done 2026-10-15: growing a region is File › Grow region (four actions); Save Spawns to Database and Export Spawn SQL are File actions with the unsaved count as a status bar chip; the placement numbers are a floating Inspector on the I key; no spawn list (the creature editor opens from a click); the region's facts stay in Map Properties
 
 ## Terrain sculpting and painting
 
@@ -26,7 +26,6 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [ ] B-013 **Show unpaintable chunks** overlay · gap §2 · L/S
 - [ ] B-014 **Animated texture layers** with speed · gap §2 · L/M
 - [ ] B-015 **Overbright** option · gap §2 · L/S · unverified: effect unclear
-- [ ] B-016 **Alphamap 8-bit / 4-bit conversion** · gap §2 · L/L · client format, check the 1.12 path covers it · needs-approval
 - [ ] B-017 **Undockable quick texture palette** · gap §2 · L/M
 - [x] B-111 **Paint while sculpting, and texture roles**: Sculpt paints one texture or the map's rock and dirt by slope as it shapes the ground; roles are guessed from texture names and set in Map Properties · Source: owner · H/M · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
@@ -57,7 +56,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 ## Map, client and server
 
-- [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large)
+- [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large) · the owner asked 2026-10-15 what it costs and whether the block editor and streaming can coexist; see the session's answer in PROGRESS.md
 - [ ] B-051 **Tile-level save**: current tile or changed tiles only · gap §5 · H/M · left open in the 2026-10-12 loop run (2nd): the save is one `.wmap` file, so per-tile or changed-tile saves change the file format, which needs the owner's decision on the format first
 - [ ] B-054 **Area ID painting** with a zone ID browser · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): the area ID is a format field the `.wmap` doesn't have, so it needs the owner's format decision (like B-055 to B-056)
 - [ ] B-055 **Impassable flag** tool · gap §5 · M/M · left open in the 2026-10-12 loop run (2nd): needs a format field the `.wmap` doesn't have, so it waits for the owner's format decision
@@ -116,4 +115,5 @@ Items moved here by the owner decisions in IDEAS.md, with the reason.
 - B-008 **Seam fix**: Meld keeps one height array with no tile border, so there is no seam to fix. Revisit only if an in-app check shows one.
 - B-012 **Remove duplicate texture layers**: the paint model and the `.wmap` loader never create a duplicate slot. A duplicate on load would be a loader bug.
 - B-018 (part) **Flatten smooth-inner**: noggit3 labels it "wip", and it needs cell-centre vertices, which Meld's grid doesn't have. Its meaning here is not settled.
+- B-016 **Alphamap 8-bit / 4-bit conversion**: disapproved by the owner 2026-10-15; Meld targets the 1.12 client only, which stores 4-bit alpha maps, and Meld already reads every form. Revisit only with a later client.
 - B-033 **Selective paste**: noggit3 has no per-field paste, only one copy option for rotation, tilt and scale together.

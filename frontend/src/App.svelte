@@ -10,6 +10,7 @@
   import AppDialogs from './components/AppDialogs.svelte'
   import CreatureEditor from './components/CreatureEditor.svelte'
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
+  import Inspector from './components/Inspector.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
   import ContextMenu from './components/ContextMenu.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
@@ -151,6 +152,7 @@
     else if (key === 'p') stepCameraSpeed(true)
     else if (key === 'o') stepCameraSpeed(false)
     else if (key === 'f') engine.focusSelected()
+    else if (key === 'i') ui.inspector = !ui.inspector
     else return
     e.preventDefault()
   }
@@ -177,6 +179,7 @@
   <StatusBar />
 </div>
 
+<Inspector />
 <CreatureEditor />
 <DoodadBrushEditor />
 <AppDialogs />

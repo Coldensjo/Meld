@@ -335,6 +335,8 @@ export const ui = $state({
   creatureEditor: null as { key: string | null; entry: number } | null,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
+  /** The floating inspector over the viewport (components/Inspector.svelte): the selection's numbers and actions. I toggles it. */
+  inspector: false,
   /** A creature template being placed: the next click on the ground in the Select tool spawns it. */
   placeCreature: null as vmangos.CreatureTemplate | null,
   /** The game object template the Place tool puts down (see placeCreature). */

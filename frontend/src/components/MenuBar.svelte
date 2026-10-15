@@ -2,7 +2,8 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseVmangosFolder, exportDoodadBrush, exportHeightmap, exportObjectList, exportRegion, hasBackend, importDoodadBrushes, importHeightmap, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
+  import { chooseVmangosFolder, exportDoodadBrush, exportHeightmap, exportObjectList, exportRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, importHeightmap, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveOrPublish } from '../lib/io/mapio'
+  import { growableSides, type Side } from '../lib/io/regionGrow'
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
   import { copyScene, pasteScene } from '../lib/io/scene'
@@ -35,6 +36,14 @@
     }
   }
 
+  /** The sides a region can grow toward, for the File menu. */
+  const SIDES: Array<[Side, string]> = [
+    ['n', 'north'],
+    ['e', 'east'],
+    ['s', 'south'],
+    ['w', 'west'],
+  ]
+
   const radios = <T,>(options: Array<[string, T]>, get: () => T, set: (v: T) => void): Item[] =>
     options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
 
@@ -52,6 +61,20 @@
         { kind: 'action', label: 'Revert to Saved', disabled: !editor.filePath || ui.busy, run: withEngine(requestRevert) },
         { kind: 'action', label: 'Map Properties…', run: () => (ui.dialog = 'mapProps') },
         { kind: 'action', label: 'Export Region to Client…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportRegion(e)) },
+        ...(editor.regionBlock
+          ? [
+              { kind: 'header' as const, label: 'Grow region (save first; the map stays square)' },
+              ...SIDES.map(([side, name]) => ({
+                kind: 'action' as const,
+                label: `Add the tiles to the ${name}`,
+                disabled: !hasBackend() || ui.busy || !growableSides(editor.regionBlock!).includes(side),
+                run: withEngine((e: Engine) => extendRegion(e, side)),
+              })),
+              { kind: 'sep' as const },
+              { kind: 'action' as const, label: 'Save Spawns to Database…', disabled: !hasBackend() || ui.busy || !ui.spawnChanges, run: () => (ui.dialog = 'saveSpawns') },
+              { kind: 'action' as const, label: 'Export Spawn SQL…', disabled: !hasBackend() || ui.busy || !ui.spawnChanges, run: withEngine((e: Engine) => exportSpawnSql(e)) },
+            ]
+          : []),
         { kind: 'sep' },
         { kind: 'action', label: 'Import Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importHeightmap(e)) },
         { kind: 'action', label: 'Export Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportHeightmap(e)) },
@@ -92,6 +115,7 @@
         { kind: 'action', label: 'Doodad Brushes…', run: () => (ui.brushEditor = true) },
         { kind: 'action', label: 'Ground Effects (Grass Tufts)…', run: () => (ui.dialog = 'effects') },
         { kind: 'sep' },
+        { kind: 'check', label: 'Inspector (placement numbers)', shortcut: 'I', checked: ui.inspector, toggle: () => (ui.inspector = !ui.inspector) },
         { kind: 'action', label: 'Hide Selected Models', shortcut: 'H', disabled: !editor.selectedIds.length, run: withEngine((e) => e.toggleHideSelected()) },
         { kind: 'check', label: 'Show Hidden Models', checked: ui.showHiddenModels, toggle: () => (ui.showHiddenModels = !ui.showHiddenModels) },
         { kind: 'action', label: 'Unhide All Models', shortcut: 'Shift+H', disabled: !ui.hiddenModels, run: withEngine((e) => e.unhideAll()) },

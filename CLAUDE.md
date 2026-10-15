@@ -224,9 +224,12 @@ cd frontend && pnpm build   # frontend only
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading
     them. Use bindings for uploads.
-- **Dock panels** (`components/Dock.svelte`): only Layers is shown now. Map (`MinimapPanel`, with the
-  region-growing plus), Spawns (`SpawnsPanel`) and Properties (`PropertiesPanel`) still exist as
-  components but are not mounted, at the owner's request (2026-10-15).
+- **Dock panels** (`components/Dock.svelte`): only Layers is shown, at the owner's request
+  (2026-10-15). What the dropped panels did lives elsewhere now: `PropertiesPanel` is shown by the
+  floating **Inspector** (`components/Inspector.svelte`, `ui.inspector`, the I key, Esc closes it);
+  growing a region and saving or exporting spawns are File menu actions (shown for a region), with
+  the unsaved spawn count as a chip in the status bar; the region's facts are in Map Properties.
+  `MinimapPanel` and `SpawnsPanel` are no longer mounted (the owner wants no spawn list).
   - **Layers** (`LayersPanel.svelte`) is only the four texture layers of the paint chunk under the
     cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in the terrain
     shader), an unused slot shown as an empty layer. With an area selected it is instead about every

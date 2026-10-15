@@ -14,12 +14,25 @@
     {/if}
   </span>
   {#if editor.region}<span class="cell region">{editor.region}</span>{/if}
+  {#if ui.spawnChanges > 0}
+    <button class="cell changes" onclick={() => (ui.dialog = 'saveSpawns')} title="Unsaved changes to the region's creatures and game objects: File › Save Spawns to Database…">
+      {ui.spawnChanges} spawn {ui.spawnChanges === 1 ? 'change' : 'changes'}
+    </button>
+  {/if}
   <span class="cell">{stats.objects} objects</span>
   <span class="cell">{stats.drawCalls} draws · {fmt(stats.triangles)} tris</span>
   <span class="cell fps" class:low={stats.fps < 30}>{stats.fps} FPS</span>
 </footer>
 
 <style>
+  .changes {
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+  }
   .status {
     display: flex;
     align-items: center;

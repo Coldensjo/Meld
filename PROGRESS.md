@@ -192,3 +192,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Verified: make test, make check and make build-windows passed after every commit; make build-linux was not run (Windows host). Each feature was driven in the dev page (TESTS.md has the probes) and most were looked at on screen. The learned ground effects were checked against the owner's SoloCraft 1.12.1 client (346 textures, 681 effects, Elwynn grass = effect 505).
 - Left: B-117 (per-cell no-doodad bits and a density preference), B-118 (the dropped panels' functions need a new home), B-119, B-120, B-122 in BACKLOG.md. The owner's "Bushes" doodad brush may have been lost to the config overwrite that B-121 now prevents.
 
+## 2026-10-15 · B-118 Re-home the dropped panels' functions, and the owner's approvals
+- Done: File › Grow region (four actions, shown for a region), File › Save Spawns to Database… and Export Spawn SQL…, a spawn-change chip in the status bar, and a floating Inspector (I, Esc closes) holding the Properties panel. The owner dropped the spawn list. B-084 approved, B-016 disapproved (1.12 only), B-050 asked about: the answer given was that streaming reworks terrain, paint, objects, undo and save (weeks), that the block editor can stay as the editing model while streaming becomes a second document kind that loads tiles around the camera and hands a block to the same tools, and that a cheaper middle step is B-051 tile-level save plus a larger block limit.
+- Verified: make test, make check and make build-windows passed; make build-linux not run (Windows host).
+- Left: B-050 still needs the owner's yes or no.
+

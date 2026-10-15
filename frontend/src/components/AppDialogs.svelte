@@ -103,6 +103,7 @@
         ['Ctrl+Shift+D', 'Duplicate the selected models in place'],
         ['Esc', 'Deselect'],
         ['G', 'Toggle grid'],
+        ['I', 'Inspector: the selected model\'s placement numbers and actions (Esc closes it)'],
         ['Hold F8', 'Name the part of the UI under the cursor (for bug reports)'],
       ],
     ],
