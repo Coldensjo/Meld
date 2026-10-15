@@ -20,10 +20,23 @@ Bugs come first, then the rest in DESIGN.md priority order, then value (highest 
 When you stop, append a `stopped` entry to PROGRESS.md that says which condition applied. Do not
 invent work.
 
-**Blocked items.** If an item needs the owner's decision and IDEAS.md does not record one, or a check
-fails and cannot be fixed, log it as unfinished in PROGRESS.md, leave it open in BACKLOG.md, and go on
-to the next item. Do not guess at behaviour the owner has not defined. Where IDEAS.md records a
-decision, follow it; do not reopen it.
+**Blocked items.** If a check fails and cannot be fixed, log the item as unfinished in PROGRESS.md,
+leave it open in BACKLOG.md, and go on to the next item. Where IDEAS.md records a decision, follow it;
+do not reopen it. Do not guess at behaviour the owner has not defined: if an item needs the owner's
+decision, IDEAS.md does not record one, and noggit3 does not settle it (see below), ask the owner.
+
+**Asking the owner.** Enter plan mode (`EnterPlanMode`), then ask with `AskUserQuestion`: one question
+per open decision, with the options you see, your recommendation first and marked "(Recommended)", and
+the trade-off of each in its description. Once answered:
+
+1. Record each answer in IDEAS.md under the item: the question, the choice, and "decided by the owner"
+   with today's date. Note it in the item's BACKLOG.md line as decided in IDEAS.md.
+2. Leave plan mode with `ExitPlanMode`, giving the plan for that item, and continue the item once it
+   is approved.
+
+If plan mode or `AskUserQuestion` is not available (for example a non-interactive `claude -p` run), or
+the owner does not answer or rejects the plan without a decision, log the item as blocked in
+PROGRESS.md with the open questions, leave it open in BACKLOG.md, and go on to the next item.
 
 **Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from
 BACKLOG.md, noggit3-feature-gap.md, IDEAS.md or the code, check noggit3 before you decide it is blocked:
@@ -38,7 +51,7 @@ BACKLOG.md, noggit3-feature-gap.md, IDEAS.md or the code, check noggit3 before y
    from, the choice (noggit3 or ours), and the reason. Then note it in the item's BACKLOG.md line as
    decided in IDEAS.md.
 4. Continue the item. Recording a decision is not a DESIGN.md change, so do not edit DESIGN.md. If the
-   decision would change a hard rule or a non-goal, log it as blocked instead.
+   decision would change a hard rule or a non-goal, ask the owner instead (see *Asking the owner*).
 
 A decision made this way is the loop's own call, not the owner's. The IDEAS.md entry should say
 "chosen by the loop from noggit3" so the owner can see it and change it.
