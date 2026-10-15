@@ -69,6 +69,12 @@ export const editor = $state({
    */
   flattenAngled: { on: false, angle: 20, orientation: 0 },
   /**
+   * Flatten's lock mode (Noggit Red's): with it on, every stroke levels to the locked point's height
+   * `y` (and Angled pivots its plane on the point) instead of the height under each stroke's start,
+   * so several strokes meet at one level. Alt+click in Flatten locks the point under the cursor.
+   */
+  flattenLock: { on: false, x: 0, y: 0, z: 0 },
+  /**
    * Crevice digs the brush's solid centre into a trench and piles the ground onto both sides, in the
    * falloff band. `ridge` scales the pile: 1 keeps the dug volume, 0 only digs.
    */

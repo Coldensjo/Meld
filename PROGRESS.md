@@ -345,3 +345,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Stopped: the run did the set the owner picked in planning (the Map data set, with B-105 in place of B-070), which is seven backlog items, the `.wmap` version 5 format going in with B-054. B-038 (bounding boxes) and B-070 (reset camera roll) were moved to the next run by that plan.
 - The commit trailers name Claude Opus 5.5, the model that ran this, not the Haiku 5.5 of LOOP.md.
 - Next top item: B-038 Bounding box display (L/S) and B-070 Reset camera roll (L/S), as planned; everything else open is value L too, so the next loop run stops at once unless the owner picks again.
+
+## 2026-10-15 · B-130 Flatten lock mode
+- Done: Sculpt › Flatten has Noggit Red's Lock (`ui/FlattenTool.cpp`, `MapChunk::flattenTerrain` with `use_ref_pos`): with Lock on, every stroke levels to the locked point's height instead of the height where it starts, and Angled pivots its plane on the locked point, so several strokes meet at one level. Alt+click in Flatten locks the point under the cursor and turns Lock on (Noggit Red sets it with a key; Alt+click is what Meld's Water tool already uses for its lock, and the eyedropper cursor shows it); the height can be typed in the options bar. The target select is disabled while locked. The lock is a tool setting (`editor.flattenLock`), like Noggit Red's, not per map.
+- Verified: make test passed (Go plus 199 of 199 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+- Left: the locked point is not drawn on the ground; the X and Z are only set by Alt+click, not typed.

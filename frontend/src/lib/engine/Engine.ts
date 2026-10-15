@@ -2374,6 +2374,7 @@ export class Engine {
     if (t === 'paint') return editor.paintMode !== 'mask'
     if (t === 'water') return editor.waterMode === 'paint'
     if (t === 'mapdata') return editor.mapDataMode === 'area'
+    if (t === 'sculpt') return editor.sculptMode === 'flatten'
     return false
   }
 

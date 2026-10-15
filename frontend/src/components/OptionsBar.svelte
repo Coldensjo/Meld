@@ -109,7 +109,7 @@
       {/each}
     </div>
     {#if editor.sculptMode === 'flatten'}
-      <select class="curve" bind:value={editor.flattenTarget} title="Height to flatten to" aria-label="Flatten target">
+      <select class="curve" bind:value={editor.flattenTarget} disabled={editor.flattenLock.on} title="Height to flatten to (the lock sets it while on)" aria-label="Flatten target">
         <option value="origin">To clicked height</option>
         <option value="average">To average height</option>
       </select>
@@ -118,7 +118,12 @@
         <option value="raise">Raise only</option>
         <option value="lower">Lower only</option>
       </select>
-      <label class="check" title="Level to a plane through the stroke's start instead of one height"><input type="checkbox" bind:checked={editor.flattenAngled.on} /> Angled</label>
+      <label class="check" title="Level every stroke to the locked height instead of the height where it starts; Alt+click locks the point under the cursor"><input type="checkbox" bind:checked={editor.flattenLock.on} /> Lock</label>
+      {#if editor.flattenLock.on}
+        <label class="check" title="The locked height, in yards">H <input class="num" type="number" step="0.1" bind:value={editor.flattenLock.y} /></label>
+        <span class="dim"><kbd>Alt</kbd>+click locks</span>
+      {/if}
+      <label class="check" title="Level to a plane through the stroke's start (or the locked point) instead of one height"><input type="checkbox" bind:checked={editor.flattenAngled.on} /> Angled</label>
       {#if editor.flattenAngled.on}
         <OptSlider label="Angle" bind:value={editor.flattenAngled.angle} min={-89} max={89} step={0.5} digits={1} width={60} title="How steeply the plane rises, in degrees" />
         <OptSlider label="Direction" bind:value={editor.flattenAngled.orientation} min={0} max={360} step={1} digits={0} width={60} title="Direction the plane rises toward, in degrees (0 is east, 90 south)" />
@@ -505,5 +510,8 @@
   .area {
     width: 240px;
     flex: none;
+  }
+  .num {
+    width: 70px;
   }
 </style>

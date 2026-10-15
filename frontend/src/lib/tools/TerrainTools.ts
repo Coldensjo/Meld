@@ -199,6 +199,17 @@ export class SculptTool extends BrushTool {
       this.paintHole(ctx, hit)
       return
     }
+    if (editor.sculptMode === 'flatten' && e?.altKey) {
+      // Alt+click locks the flatten height (and the angled plane's pivot) to the point under the cursor.
+      if (!hit) return
+      const lock = editor.flattenLock
+      lock.x = hit.x
+      lock.y = hit.y
+      lock.z = hit.z
+      lock.on = true
+      setStatus(`Flatten locked at height ${hit.y.toFixed(2)}. Every stroke now levels to it.`)
+      return
+    }
     const vertex = editor.sculptMode === 'vertex'
     this.moving = vertex && !!e?.shiftKey
     this.deselecting = vertex && !!(e?.ctrlKey || e?.altKey)
@@ -375,8 +386,9 @@ export class SculptTool extends BrushTool {
 
   protected begin(ctx: ToolContext, hit: THREE.Vector3) {
     const { radius, falloff } = editor.brush
-    this.flattenTarget =
-      editor.flattenTarget === 'average'
+    this.flattenTarget = editor.flattenLock.on
+      ? editor.flattenLock.y
+      : editor.flattenTarget === 'average'
         ? averageHeight(ctx.terrain, hit.x, hit.z, radius, falloff)
         : ctx.terrain.heightAt(hit.x, hit.z)
     this.label = 'Sculpt: ' + editor.sculptMode
@@ -415,11 +427,12 @@ export class SculptTool extends BrushTool {
         const k = Math.min(1, rate * 8)
         const target = this.flattenTarget
         const dir = editor.flattenDir
-        // Angled: the target is a plane through the stroke's start, pivoting there like noggit's.
+        // Angled: the target is a plane through the stroke's start (or the locked point), pivoting there like noggit's.
         const ang = editor.flattenAngled
         const angled = ang.on && ang.angle !== 0
-        const ox = this.strokeStart.x
-        const oz = this.strokeStart.z
+        const lock = editor.flattenLock
+        const ox = lock.on ? lock.x : this.strokeStart.x
+        const oz = lock.on ? lock.z : this.strokeStart.z
         const cs = t.cellSize
         rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w, x, z) => {
           const d = (angled ? angledHeight(x * cs, z * cs, ox, target, oz, ang.angle, ang.orientation) : target) - h[i]
