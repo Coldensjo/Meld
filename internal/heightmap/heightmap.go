@@ -38,6 +38,24 @@ func Encode(side int, heights []float32) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// EncodeRGB writes a square grid of 8-bit RGB pixels (side x side, three bytes each, row-major) as a
+// PNG, for the normal map export.
+func EncodeRGB(side int, rgb []byte) ([]byte, error) {
+	if side < 1 || len(rgb) != side*side*3 {
+		return nil, fmt.Errorf("heightmap: %d bytes for a %dx%d RGB image", len(rgb), side, side)
+	}
+	img := image.NewNRGBA(image.Rect(0, 0, side, side))
+	for i := 0; i < side*side; i++ {
+		copy(img.Pix[4*i:4*i+3], rgb[3*i:3*i+3])
+		img.Pix[4*i+3] = 255
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 // Decode reads a PNG as a square grid of heights. Any 8- or 16-bit grayscale image works, as do other
 // images, which are read as grayscale. It fails when the image isn't square.
 func Decode(data []byte) (int, []float32, error) {

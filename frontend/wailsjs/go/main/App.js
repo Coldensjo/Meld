@@ -330,6 +330,10 @@ export function WriteHeightmap(arg1, arg2, arg3) {
   return window['go']['main']['App']['WriteHeightmap'](arg1, arg2, arg3);
 }
 
+export function WriteNormalMap(arg1, arg2, arg3) {
+  return window['go']['main']['App']['WriteNormalMap'](arg1, arg2, arg3);
+}
+
 export function WritePNG(arg1, arg2) {
   return window['go']['main']['App']['WritePNG'](arg1, arg2);
 }

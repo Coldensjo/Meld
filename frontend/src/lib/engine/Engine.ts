@@ -3209,18 +3209,54 @@ export class Engine {
    * paint texture alone, each chunk's duplicate textures merged, every model removed, or the
    * duplicate models removed.
    */
-  cleanUpTile(what: 'height' | 'textures' | 'setBase' | 'textureDuplicates' | 'models' | 'duplicateModels') {
+  /**
+   * The client tile under the camera target: its index in the map, its first vertex and a name for
+   * the status bar (the client's tile numbers in a region), or null off the map.
+   */
+  tileUnderCamera(): { tx: number; tz: number; x0: number; z0: number; cells: number; name: string } | null {
     const t = this.terrain
     const target = this.controller.target
     const tiles = Math.max(1, Math.round(t.size / TILE_CELLS))
     const tx = Math.floor(target.x / (TILE_CELLS * t.cellSize))
     const tz = Math.floor(target.z / (TILE_CELLS * t.cellSize))
-    if (tx < 0 || tz < 0 || tx >= tiles || tz >= tiles) {
+    if (tx < 0 || tz < 0 || tx >= tiles || tz >= tiles) return null
+    const block = editor.regionBlock
+    const name = block ? `tile ${block.x + tx}, ${block.y + tz}` : `tile ${tx}, ${tz}`
+    return { tx, tz, x0: tx * TILE_CELLS, z0: tz * TILE_CELLS, cells: TILE_CELLS, name }
+  }
+
+  /** The lowest and highest ground on the tile under the camera, or on the whole map (Noggit Red's Auto Heights). */
+  heightRange(scope: 'map' | 'tile'): [number, number] | null {
+    const t = this.terrain
+    const side = t.verts
+    let x0 = 0, z0 = 0, x1 = side - 1, z1 = side - 1
+    if (scope === 'tile') {
+      const tile = this.tileUnderCamera()
+      if (!tile) return null
+      x0 = tile.x0
+      z0 = tile.z0
+      x1 = Math.min(side - 1, x0 + tile.cells)
+      z1 = Math.min(side - 1, z0 + tile.cells)
+    }
+    let lo = Infinity, hi = -Infinity
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        const h = t.heights[z * side + x]
+        lo = Math.min(lo, h)
+        hi = Math.max(hi, h)
+      }
+    }
+    return [lo, hi]
+  }
+
+  cleanUpTile(what: 'height' | 'textures' | 'setBase' | 'textureDuplicates' | 'models' | 'duplicateModels') {
+    const t = this.terrain
+    const tile = this.tileUnderCamera()
+    if (!tile) {
       setStatus('The camera is not over the map.', 3000)
       return
     }
-    const block = editor.regionBlock
-    const name = block ? `tile ${block.x + tx}, ${block.y + tz}` : `tile ${tx}, ${tz}`
+    const { tx, tz, name } = tile
     const x0 = tx * TILE_CELLS * t.cellSize, z0 = tz * TILE_CELLS * t.cellSize
     const x1 = x0 + TILE_CELLS * t.cellSize, z1 = z0 + TILE_CELLS * t.cellSize
     if (what === 'models' || what === 'duplicateModels') {

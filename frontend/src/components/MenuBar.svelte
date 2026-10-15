@@ -2,7 +2,7 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseBenillaFolder, launchGame, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportObjectList, exportRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish } from '../lib/io/mapio'
+  import { chooseBenillaFolder, launchGame, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, exportRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish } from '../lib/io/mapio'
   import { growableSides, type Side } from '../lib/io/regionGrow'
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
@@ -92,6 +92,7 @@
         { kind: 'action', label: 'Import Heightmap…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'heightmap') },
         { kind: 'action', label: 'Import Watermap…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'watermap') },
         { kind: 'action', label: 'Export Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportHeightmap(e)) },
+        { kind: 'action', label: 'Export Normal Map…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportNormalMap(e)) },
         { kind: 'action', label: 'Export Alphamap of the Paint Texture…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportAlphamap(e)) },
         { kind: 'action', label: 'Import Alphamap into the Paint Texture…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importAlphamap(e)) },
         { kind: 'sep' },

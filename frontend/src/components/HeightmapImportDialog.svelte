@@ -2,7 +2,7 @@
   import type { HeightmapMode } from '../lib/io/heightmapImport'
 
   /** The last choices, kept for the session so a second import starts from them. */
-  const last = $state({ mode: 'set' as HeightmapMode, min: -1024, max: 1024 })
+  const last = $state({ mode: 'set' as HeightmapMode, min: -1024, max: 1024, scope: 'map' as 'map' | 'tile', tiledEdges: false })
   /** The watermap's last depths, in yards above the ground. */
   const lastWater = $state({ min: 0.5, max: 8 })
 </script>
@@ -31,6 +31,14 @@
     ['multiply', 'Multiply', 'The ground is multiplied by the image\'s heights (use a Min and Max around 1)'],
   ]
 
+  /** Noggit Red's Auto Heights: Min and Max from the ground the import covers now. */
+  function autoHeights() {
+    const r = engineRef.current?.heightRange(last.scope)
+    if (!r) return
+    last.min = Math.floor(r[0] * 100) / 100
+    last.max = Math.ceil(r[1] * 100) / 100
+  }
+
   async function run() {
     const e = engineRef.current
     if (!e) return
@@ -55,10 +63,27 @@
         {/each}
       </div>
     {/if}
+    {#if !water}
+      <span class="k">Onto</span>
+      <div class="seg">
+        <button class:active={last.scope === 'map'} onclick={() => (last.scope = 'map')} title="The image covers the whole map">Whole map</button>
+        <button class:active={last.scope === 'tile'} onclick={() => (last.scope = 'tile')} title="The image covers the client tile under the camera">Tile under camera</button>
+      </div>
+      {#if last.scope === 'tile'}
+        <span class="k"></span>
+        <label class="check" title="The image covers the tile less its last row and column (the vertices it shares with the next tiles), so tiles imported one by one meet without seams: a 128 image instead of 129, as Noggit Red's 256 instead of 257">
+          <input type="checkbox" bind:checked={last.tiledEdges} /> Tiled edges
+        </label>
+      {/if}
+    {/if}
     <label class="k" for="hm-min">{water ? 'Min depth' : 'Min (black)'}</label>
     <input id="hm-min" type="number" step="any" bind:value={range.min} />
     <label class="k" for="hm-max">{water ? 'Max depth (white)' : 'Max (white)'}</label>
     <input id="hm-max" type="number" step="any" bind:value={range.max} />
+    {#if !water}
+      <span class="k"></span>
+      <button onclick={autoHeights} title="Min and Max from the lowest and highest ground the import covers now">Auto heights</button>
+    {/if}
   </div>
   {#if !water}<p class="dim">Min −1024 and Max 1024 with Set read back a heightmap Meld exported exactly.</p>{/if}
   {#snippet actions()}

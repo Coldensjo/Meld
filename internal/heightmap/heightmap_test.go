@@ -1,6 +1,8 @@
 package heightmap
 
 import (
+	"bytes"
+	"image/png"
 	"math"
 	"testing"
 )
@@ -47,5 +49,22 @@ func TestHeightsOutsideTheRangeAreClamped(t *testing.T) {
 func TestRejectsNonSquare(t *testing.T) {
 	if _, err := Encode(3, make([]float32, 8)); err == nil {
 		t.Fatal("a grid of the wrong size was encoded")
+	}
+}
+
+func TestEncodeRGB(t *testing.T) {
+	data, err := EncodeRGB(2, []byte{255, 0, 0, 0, 255, 0, 0, 0, 255, 128, 128, 255})
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, g, b, _ := img.At(1, 1).RGBA(); r>>8 != 128 || g>>8 != 128 || b>>8 != 255 {
+		t.Fatalf("pixel (1, 1) = %d %d %d", r>>8, g>>8, b>>8)
+	}
+	if _, err := EncodeRGB(2, make([]byte, 5)); err == nil {
+		t.Fatal("a short buffer must be refused")
 	}
 }

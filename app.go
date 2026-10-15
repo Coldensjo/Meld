@@ -1119,6 +1119,19 @@ func (a *App) WriteHeightmap(path string, side int, heights []float32) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
+// WriteNormalMap saves a normal map: side x side RGB pixels, three bytes each, sent base64-encoded.
+func (a *App) WriteNormalMap(path string, side int, rgb string) error {
+	raw, err := base64.StdEncoding.DecodeString(rgb)
+	if err != nil {
+		return err
+	}
+	data, err := heightmap.EncodeRGB(side, raw)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
 // ReadHeightmap reads a heightmap image as a grid of heights.
 func (a *App) ReadHeightmap(path string) (HeightmapData, error) {
 	data, err := os.ReadFile(path)

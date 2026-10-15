@@ -34,6 +34,7 @@ import {
   SetVmangosPath,
   VmangosPath,
   WriteHeightmap,
+  WriteNormalMap,
 } from '../../../wailsjs/go/main/App'
 import { mapfile } from '../../../wailsjs/go/models'
 import type { Engine, MapSnapshot } from '../engine/Engine'
@@ -55,7 +56,8 @@ import { minimapScale, shadeHeights } from './minimapImage'
 import { isHelper } from '../models/helpers'
 import { defaultMapInfo, type MapInfo } from '../engine/MapDocument'
 import { watermapCells } from './watermapImport'
-import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, type HeightmapMode } from './heightmapImport'
+import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, importHeightsOnTile, type HeightmapMode } from './heightmapImport'
+import { normalMapPixels, toBase64 } from './normalMap'
 import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
@@ -447,12 +449,43 @@ export function exportHeightmap(engine: Engine) {
   })
 }
 
-/** Replaces the map's heights with a heightmap PNG of the same size, as one undoable step. */
-export function importHeightmap(engine: Engine, opts: { mode: HeightmapMode; min: number; max: number } = { mode: 'set', min: IMAGE_MIN, max: IMAGE_MAX }) {
+/** Saves the map's ground normals as an RGB PNG, one pixel a vertex (Noggit Red's Export normalmap, #44). */
+export function exportNormalMap(engine: Engine) {
+  return guarded('Export normal map', async () => {
+    const path = await SaveImageDialog('Export Normal Map', `${editor.mapName}-normals`)
+    if (!path) return
+    const t = engine.terrain
+    const side = t.size + 1
+    await WriteNormalMap(path, side, toBase64(normalMapPixels(engine.outerHeights(), side, t.cellSize)))
+    setStatus(`Exported the normal map (${side}×${side}) to ${path}.`, 6000)
+  })
+}
+
+/**
+ * Puts a heightmap PNG onto the map's heights by `opts.mode`, as one undoable step: over the whole
+ * map, or with `opts.scope` 'tile' over the client tile under the camera (Noggit Red's per-tile
+ * import), where `opts.tiledEdges` leaves the vertices it shares with the next tiles alone (#44).
+ */
+export function importHeightmap(
+  engine: Engine,
+  opts: { mode: HeightmapMode; min: number; max: number; scope?: 'map' | 'tile'; tiledEdges?: boolean } = { mode: 'set', min: IMAGE_MIN, max: IMAGE_MAX },
+) {
   return guarded('Import heightmap', async () => {
+    if (opts.scope === 'tile' && !engine.tileUnderCamera()) {
+      setStatus('The camera is not over the map, so there is no tile to import onto.', 4000)
+      return
+    }
     const path = await OpenHeightmapDialog()
     if (!path) return
     const img = await ReadHeightmap(path)
+    const tile = opts.scope === 'tile' ? engine.tileUnderCamera() : null
+    if (tile) {
+      const n = tile.cells + (opts.tiledEdges ? 0 : 1)
+      const next = importHeightsOnTile(engine.outerHeights(), engine.terrain.size + 1, imageRatios(img, n), tile.x0, tile.z0, opts.mode, opts.min, opts.max)
+      engine.setHeights(next, `Import heightmap on ${tile.name}`)
+      setStatus(`Imported the heightmap from ${path} onto ${tile.name}${img.side !== n ? ` (stretched from ${img.side}×${img.side} to ${n}×${n})` : ''}. Undo reverts it.`, 6000)
+      return
+    }
     const side = engine.terrain.size + 1
     // The image's greys between Min and Max, put onto the ground by the mode; another size is stretched over the map.
     const ratios = imageRatios(img, side)

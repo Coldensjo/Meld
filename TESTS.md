@@ -835,3 +835,16 @@ tile keeps its own, and `e.history.undo()` restores either. `'textureDuplicates'
 client's paint; `tests/chunkPaint.test.ts` covers `mergeDuplicateSlots`.
 - Trap: a few region models stand just outside the map (negative x or z); a count of "models with
   x and z under 533" includes them, though they are on no tile.
+
+## Heightmap import on a tile, Auto heights and the normal map (#44)
+
+Checks: `tests/heightmapImport.test.ts` (`importHeightsOnTile`, tiled edges leave the shared row and
+column) and `tests/normalMap.test.ts` (flat is (128, 255, 128), a 45-degree ramp, base64). Live,
+the import needs the native file dialog; check the rest from the dev page: `__engine.tileUnderCamera()`
+names the tile under the camera target, `__engine.heightRange('tile' | 'map')` is what Auto heights
+fills in, and the export can be driven without its dialog:
+`window.go.main.App.WriteNormalMap('<path>.png', side, toBase64(normalMapPixels(e.outerHeights(), side, e.terrain.cellSize)))`
+(from `/src/lib/io/normalMap.ts`), then `magick identify` the file (side x side, 8-bit RGB).
+- Trap: after adding a Go binding, a dev page loaded before Wails regenerated `wailsjs` keeps importing
+  a stale `App.js` (Vite pins its `?t=`), and the app fails to start with "does not provide an export
+  named ...". Touching the file does not help; restart `make dev`.

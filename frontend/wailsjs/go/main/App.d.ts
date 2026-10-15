@@ -170,6 +170,8 @@ export function WowStatus():Promise<wow.Status>;
 
 export function WriteHeightmap(arg1:string,arg2:number,arg3:Array<number>):Promise<void>;
 
+export function WriteNormalMap(arg1:string,arg2:number,arg3:string):Promise<void>;
+
 export function WritePNG(arg1:string,arg2:string):Promise<void>;
 
 export function WriteTextFile(arg1:string,arg2:string):Promise<void>;

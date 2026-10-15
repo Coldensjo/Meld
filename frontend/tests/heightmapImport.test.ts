@@ -25,3 +25,16 @@ test('an image of another size is stretched over the map', () => {
   const r = imageRatios({ side: 2, heights: [IMAGE_MIN, IMAGE_MAX, IMAGE_MIN, IMAGE_MAX] }, 3)
   assert.deepEqual([...r], [0, 0.5, 1, 0, 0.5, 1, 0, 0.5, 1])
 })
+
+test('a tile import touches only its tile; tiled edges leave the shared vertices alone', async () => {
+  const { importHeightsOnTile } = await import('../src/lib/io/heightmapImport.ts')
+  // A 5x5 vertex grid, two tiles of two cells a side: the second tile starts at vertex 2.
+  const current = new Float32Array(25).fill(7)
+  const full = importHeightsOnTile(current, 5, new Float32Array(9).fill(1), 2, 2, 'set', 0, 10)
+  assert.equal(full[2 * 5 + 2], 10)
+  assert.equal(full[4 * 5 + 4], 10)
+  assert.equal(full[1 * 5 + 1], 7, 'outside the tile')
+  const tiled = importHeightsOnTile(current, 5, new Float32Array(4).fill(1), 0, 0, 'add', 0, 10)
+  assert.equal(tiled[1 * 5 + 1], 17)
+  assert.equal(tiled[2 * 5 + 2], 7, 'the vertex shared with the next tiles keeps its height')
+})

@@ -43,3 +43,33 @@ export function importHeights(current: Float32Array, ratios: Float32Array, mode:
   }
   return out
 }
+
+/**
+ * Noggit Red's per-tile import (`MapTile::setHeightmapImage`): `ratios` (a square image already
+ * resampled to its side) put onto the tile whose first vertex is (x0, z0) in a `side`-vertex grid,
+ * by `mode`. With `tiledEdges` the image covers the tile less its last row and column, the vertices
+ * it shares with the next tiles, which keep their heights, so tiles imported one by one meet
+ * without seams. Returns the whole grid, the rest unchanged.
+ */
+export function importHeightsOnTile(
+  current: Float32Array,
+  side: number,
+  ratios: Float32Array,
+  x0: number,
+  z0: number,
+  mode: HeightmapMode,
+  min: number,
+  max: number,
+): Float32Array {
+  const out = current.slice()
+  const n = Math.round(Math.sqrt(ratios.length))
+  for (let z = 0; z < n && z0 + z < side; z++) {
+    for (let x = 0; x < n && x0 + x < side; x++) {
+      const i = (z0 + z) * side + x0 + x
+      const h = min + ratios[z * n + x] * (max - min)
+      const c = current[i]
+      out[i] = mode === 'add' ? c + h : mode === 'subtract' ? c - h : mode === 'multiply' ? c * h : h
+    }
+  }
+  return out
+}
