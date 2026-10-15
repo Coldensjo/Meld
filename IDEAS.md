@@ -428,3 +428,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   that would replace the Preetham sky; left for later). Only clear weather (the first params) is read. The
   ground ambient is half the sky ambient, as the editor's hemisphere light needs a ground colour the client
   doesn't have.
+
+### B-149 Light editor · Noggit Red's, clear weather, one table write
+- Chosen by the loop from Noggit Red (2026-10-15, B-149, approved by the owner). Noggit Red's Lightning
+  Editor (`tools/LightTool.cpp`, `ui/tools/LightEditor/`) lists the map's lights and the ones active at the
+  camera, edits a light's position and radii, and its params' colour and float bands by time. **Ours**: the
+  same in a dialog (Edit › Lights…), for the clear-weather params only; a float band (fog distance and
+  start) is set as one value for the day rather than keyed; a new light copies the global light's params
+  into a params row of its own. A params row shared by several lights is edited once for all of them (the
+  dialog says so). Nothing reaches the server, which doesn't read the lights.

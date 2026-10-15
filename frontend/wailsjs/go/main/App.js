@@ -126,6 +126,10 @@ export function NewAreaRow(arg1, arg2) {
   return window['go']['main']['App']['NewAreaRow'](arg1, arg2);
 }
 
+export function NewLightIDs() {
+  return window['go']['main']['App']['NewLightIDs']();
+}
+
 export function NextCreatureGUID() {
   return window['go']['main']['App']['NextCreatureGUID']();
 }
@@ -196,6 +200,10 @@ export function SaveHeightmapDialog(arg1) {
 
 export function SaveImageDialog(arg1, arg2) {
   return window['go']['main']['App']['SaveImageDialog'](arg1, arg2);
+}
+
+export function SaveLights(arg1) {
+  return window['go']['main']['App']['SaveLights'](arg1);
 }
 
 export function SaveMap(arg1, arg2) {

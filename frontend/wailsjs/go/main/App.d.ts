@@ -68,6 +68,8 @@ export function MouseLookRecenter():Promise<void>;
 
 export function NewAreaRow(arg1:number,arg2:number):Promise<vmangos.AreaRow>;
 
+export function NewLightIDs():Promise<main.LightIDs>;
+
 export function NextCreatureGUID():Promise<number>;
 
 export function NextObjectGUID():Promise<number>;
@@ -103,6 +105,8 @@ export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>
 export function SaveHeightmapDialog(arg1:string):Promise<string>;
 
 export function SaveImageDialog(arg1:string,arg2:string):Promise<string>;
+
+export function SaveLights(arg1:vmangos.LightsEdit):Promise<string>;
 
 export function SaveMap(arg1:string,arg2:mapfile.MapData):Promise<void>;
 

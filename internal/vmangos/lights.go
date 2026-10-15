@@ -1,8 +1,10 @@
 package vmangos
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"math"
 
 	"Meld/internal/mpq"
 )
@@ -179,4 +181,171 @@ func LoadMapLights(dataDir string, mapID uint32) (*MapLights, error) {
 		}
 	}
 	return ReadMapLights(tables[0], tables[1], tables[2], tables[3], mapID)
+}
+
+// LightsEdit is what the light editor saves: lights of a map (edited or new, by ID) and the params rows
+// they use (edited or new, with all their bands).
+type LightsEdit struct {
+	MapID  uint32          `json:"mapId"`
+	Lights []MapLight      `json:"lights"`
+	Params []LightParamSet `json:"params"`
+}
+
+// lightTables are the four light DBCs, in the order LoadMapLights reads them.
+var lightTables = [4]string{"Light", "LightParams", "LightIntBand", "LightFloatBand"}
+
+// lightTablePath is a light table's name in the client's archives.
+func lightTablePath(name string) string { return `DBFilesClient\` + name + `.dbc` }
+
+// WriteLights returns the four tables with the edit's lights and params written: a light's row is
+// replaced by its ID or added (a global light keeps its position at 0,0,0), a params row keeps its sky
+// box and cloud fields (a new one takes the first row's) and gets its glow and water alphas, and each
+// of its 18 colour and 6 float bands is written whole. A band holds at most 16 keys, in time order
+// within the day (0 to 2879 half-minutes).
+func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
+	var out [4][]byte
+	pt, err := parseDBC(tables[1])
+	if err != nil {
+		return out, fmt.Errorf("LightParams.dbc: %w", err)
+	}
+	it, err := parseDBC(tables[2])
+	if err != nil {
+		return out, fmt.Errorf("LightIntBand.dbc: %w", err)
+	}
+	ft, err := parseDBC(tables[3])
+	if err != nil {
+		return out, fmt.Errorf("LightFloatBand.dbc: %w", err)
+	}
+	var lightRows, paramRows, intRows, floatRows [][]uint32
+	for _, l := range e.Lights {
+		if l.ID == 0 {
+			return out, errors.New("a light needs an ID")
+		}
+		if !l.Global && (l.Outer <= 0 || l.Inner < 0 || l.Inner > l.Outer) {
+			return out, fmt.Errorf("light %d: the inner radius must be within the outer one", l.ID)
+		}
+		x, y, z := l.X, l.Y, l.Z
+		if l.Global {
+			x, y, z = 0, 0, 0
+		}
+		row := []uint32{l.ID, e.MapID, f32bits(x * lightScale), f32bits(y * lightScale), f32bits(z * lightScale), f32bits(l.Inner * lightScale), f32bits(l.Outer * lightScale)}
+		for _, p := range l.Params {
+			row = append(row, p)
+		}
+		lightRows = append(lightRows, row)
+	}
+	for _, p := range e.Params {
+		if p.ID == 0 {
+			return out, errors.New("a light's params need an ID")
+		}
+		if len(p.Colors) != LightBands || len(p.Floats) != LightFloats {
+			return out, fmt.Errorf("params %d has %d colour and %d float bands, want %d and %d", p.ID, len(p.Colors), len(p.Floats), LightBands, LightFloats)
+		}
+		src := 0
+		if r, ok := pt.row(p.ID); ok {
+			src = r
+		}
+		paramRows = append(paramRows, []uint32{p.ID, pt.u32(src, 1), pt.u32(src, 2), pt.u32(src, 3), f32bits(p.Glow),
+			f32bits(p.WaterAlpha[0]), f32bits(p.WaterAlpha[1]), f32bits(p.OceanAlpha[0]), f32bits(p.OceanAlpha[1])})
+		band := func(t *dbcTable, id uint32, keys []LightKey, float bool) ([]uint32, error) {
+			if len(keys) > 16 {
+				return nil, fmt.Errorf("params %d: a band has %d keys, the client takes 16", p.ID, len(keys))
+			}
+			// An existing row keeps what its unused key slots hold (the client's are 0xcccccccc).
+			row := make([]uint32, 34)
+			if r, ok := t.row(id); ok {
+				for f := range row {
+					row[f] = t.u32(r, f)
+				}
+			}
+			row[0], row[1] = id, uint32(len(keys))
+			last := -1
+			for k, key := range keys {
+				if key.T <= last || key.T >= 2880 {
+					return nil, fmt.Errorf("params %d: band keys must run through the day in order (half-minutes 0 to 2879)", p.ID)
+				}
+				last = key.T
+				row[2+k] = uint32(key.T)
+				if float {
+					row[18+k] = f32bits(float32(key.V))
+				} else {
+					row[18+k] = uint32(key.V) & 0xffffff
+				}
+			}
+			return row, nil
+		}
+		for i, keys := range p.Colors {
+			row, err := band(it, p.ID*LightBands-(LightBands-1)+uint32(i), keys, false)
+			if err != nil {
+				return out, err
+			}
+			intRows = append(intRows, row)
+		}
+		for i, keys := range p.Floats {
+			row, err := band(ft, p.ID*LightFloats-(LightFloats-1)+uint32(i), keys, true)
+			if err != nil {
+				return out, err
+			}
+			floatRows = append(floatRows, row)
+		}
+	}
+	for i, rows := range [4][][]uint32{lightRows, paramRows, intRows, floatRows} {
+		if len(rows) == 0 {
+			out[i] = tables[i]
+			continue
+		}
+		if out[i], err = setRecords(tables[i], rows); err != nil {
+			return out, fmt.Errorf("%s.dbc: %w", lightTables[i], err)
+		}
+	}
+	return out, nil
+}
+
+// NewLightIDs gives the IDs a new light and its params row take: past every light and params row in
+// the tables, so the params row's bands (whose IDs follow from it) are new too.
+func NewLightIDs(light, params []byte) (lightID, paramsID uint32, err error) {
+	lt, err := parseDBC(light)
+	if err != nil {
+		return 0, 0, err
+	}
+	pt, err := parseDBC(params)
+	if err != nil {
+		return 0, 0, err
+	}
+	for r := 0; r < lt.records; r++ {
+		lightID = max(lightID, lt.u32(r, 0))
+	}
+	for r := 0; r < pt.records; r++ {
+		paramsID = max(paramsID, pt.u32(r, 0))
+	}
+	return lightID + 1, paramsID + 1, nil
+}
+
+func f32bits(f float32) uint32 { return math.Float32bits(f) }
+
+// LoadLightTables reads the four light tables from the client (Meld's patch included).
+func LoadLightTables(dataDir string) ([4][]byte, error) {
+	var tables [4][]byte
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return tables, err
+	}
+	defer set.Close()
+	for i, n := range lightTables {
+		if tables[i], err = set.ReadFile(lightTablePath(n)); err != nil {
+			return tables, err
+		}
+	}
+	return tables, nil
+}
+
+// LightFiles are the light tables as patch files, only those the edit changed.
+func LightFiles(before, after [4][]byte) []mpq.File {
+	var files []mpq.File
+	for i := range before {
+		if !bytes.Equal(before[i], after[i]) {
+			files = append(files, mpq.File{Name: lightTablePath(lightTables[i]), Data: after[i]})
+		}
+	}
+	return files
 }

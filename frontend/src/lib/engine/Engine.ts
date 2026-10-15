@@ -845,6 +845,29 @@ export class Engine {
     return this.mapIds.get(m.region.mapName.toLowerCase()) ?? 0
   }
 
+  /** The open map's Map.dbc ID for the light editor: waits for the map table when a region needs it. */
+  async lightsMapId(): Promise<number> {
+    for (let i = 0; i < 100; i++) {
+      const id = this.openMapId()
+      if (id !== null) return id
+      await new Promise((r) => setTimeout(r, 50))
+    }
+    return 0
+  }
+
+  /** Where the camera is in the tiles' placement frame (yards), which the client's lights are placed in. */
+  cameraInFileFrame(): { x: number; y: number; z: number } {
+    const cam = this.camera.position
+    const region = this.doc.meta.region
+    return { x: cam.x + (region ? region.x * TILE_YARDS : 0), y: cam.y, z: cam.z + (region ? region.y * TILE_YARDS : 0) }
+  }
+
+  /** Reads the map's lights again for the preview (after the light editor saved them). */
+  reloadClientLights() {
+    this.clientLightsMap = -1
+    this.clientLights = null
+  }
+
   /**
    * With View › Client Lighting on, the sun's and the sky's light, the horizon and fog colour and the
    * water's colours become the client's own at the camera (wow/clientLight.ts): the map's global light

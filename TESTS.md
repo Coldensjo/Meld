@@ -23,6 +23,10 @@ Each entry says what it checks, how to run it, and the traps that cost time.
 - `TestClientAnimatedLayersKept` (WOW_DIR) finds an animated layer in the client (Burning Steppes lava,
   tile 33_44) and rewrites its chunk as a region save does: the layer must keep its MCLY look flags. It is
   the check that a paint rewrite doesn't drop the client's animation or overbright.
+- `TestClientLightsWriteBack` (WOW_DIR) is the check for the light editor's writes: Azeroth's lights and
+  params written back must leave LightParams and both band tables byte-identical. Trap: the client's unused
+  band key slots hold 0xcccccccc (uninitialised memory in Blizzard's tool), so a writer that zeroes them
+  isn't byte-identical; `WriteLights` starts each band row from the client's own.
 - `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
   checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the
   hole export's block mapping. Seeing a cut cave mouth in game is still a manual check.

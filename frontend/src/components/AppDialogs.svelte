@@ -10,6 +10,7 @@
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
   import ZonesDialog from './ZonesDialog.svelte'
+  import LightsDialog from './LightsDialog.svelte'
   import BrushStackDialog from './BrushStackDialog.svelte'
   import TextureLooksDialog from './TextureLooksDialog.svelte'
   import HeightmapImportDialog from './HeightmapImportDialog.svelte'
@@ -348,6 +349,8 @@
   <GroundEffectsDialog onclose={close} />
 {:else if ui.dialog === 'zones'}
   <ZonesDialog onclose={close} />
+{:else if ui.dialog === 'lights'}
+  <LightsDialog onclose={close} />
 {:else if ui.dialog === 'stack'}
   <BrushStackDialog onclose={close} />
 {:else if ui.dialog === 'looks'}

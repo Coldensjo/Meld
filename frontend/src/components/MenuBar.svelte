@@ -137,6 +137,7 @@
         { kind: 'action', label: 'Ground Effects (Grass Tufts)…', run: () => (ui.dialog = 'effects') },
         { kind: 'action', label: 'Texture Looks (Scrolling, Overbright)…', run: () => (ui.dialog = 'looks') },
         { kind: 'action', label: 'Zones…', disabled: !hasBackend(), run: () => (ui.dialog = 'zones') },
+        { kind: 'action', label: 'Lights…', disabled: !hasBackend(), run: () => (ui.dialog = 'lights') },
         { kind: 'sep' },
         { kind: 'check', label: 'Map Textures (quick palette)', checked: ui.texturePalette, toggle: () => (ui.texturePalette = !ui.texturePalette) },
         { kind: 'check', label: 'History (go back to any step)', checked: ui.history, toggle: () => (ui.history = !ui.history) },

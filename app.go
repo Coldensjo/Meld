@@ -649,6 +649,50 @@ func (a *App) MapLights(mapID uint32) (*vmangos.MapLights, error) {
 	return vmangos.LoadMapLights(dataDir, mapID)
 }
 
+// LightIDs are the IDs a new light and its params row take (see vmangos.NewLightIDs).
+type LightIDs struct {
+	Light  uint32 `json:"light"`
+	Params uint32 `json:"params"`
+}
+
+// NewLightIDs gives the light editor the IDs for a new light; nothing is written until SaveLights.
+func (a *App) NewLightIDs() (LightIDs, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return LightIDs{}, err
+	}
+	tables, err := vmangos.LoadLightTables(dataDir)
+	if err != nil {
+		return LightIDs{}, err
+	}
+	l, p, err := vmangos.NewLightIDs(tables[0], tables[1])
+	return LightIDs{Light: l, Params: p}, err
+}
+
+// SaveLights writes the light editor's lights and params into the client's light tables in Meld's
+// patch (only the tables that changed; the game and servers closed around it on Windows). Returns the
+// patch's path, or "" when nothing changed. The server doesn't read the lights.
+func (a *App) SaveLights(edit vmangos.LightsEdit) (string, error) {
+	defer a.releaseClient()()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return "", err
+	}
+	tables, err := vmangos.LoadLightTables(dataDir)
+	if err != nil {
+		return "", err
+	}
+	out, err := vmangos.WriteLights(tables, edit)
+	if err != nil {
+		return "", err
+	}
+	files := vmangos.LightFiles(tables, out)
+	if len(files) == 0 {
+		return "", nil
+	}
+	return a.installWithGameClosed(dataDir, files)
+}
+
 // AreaRows lists a map's zones and subzones from the client's AreaTable.dbc, for the zone editor.
 func (a *App) AreaRows(mapID uint32) ([]vmangos.AreaRow, error) {
 	dataDir, err := a.clientDataDir()

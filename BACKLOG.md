@@ -49,7 +49,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as Noggit Red's Minimap Editor does (with a resolution, what to draw, and model filters), so the in-game minimap shows the edited ground · Source: loop: B-059, gap §5 · L/L · a client write, checked against the client's own reader
 - [ ] B-147 **More Map.dbc fields for a new map** (instance type, loading screen, area, corpse position, max players) and WMO-only maps, as Noggit Red's map creation wizard · gap §5 · L/M
-- [ ] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · after B-084 · approved by the owner 2026-10-15, decided in IDEAS.md
+- [x] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · after B-084 · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-150 **Area trigger display and editor**: the map's AreaTrigger.dbc boxes and spheres, added, moved and resized · gap §11 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-151 **New ground effect sets**, and applying an effect per zone, subzone or tile rather than per map · gap §11 · L/M · approved by the owner 2026-10-15, decided in IDEAS.md
 
