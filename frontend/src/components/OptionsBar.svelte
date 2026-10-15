@@ -181,6 +181,19 @@
         <button class:active={editor.paintMode === 'mask'} onclick={() => (editor.paintMode = 'mask')} title="Paint the mask that Fill mask uses to place the active texture">Mask</button>
       </div>
     {/if}
+    {#if editor.tool === 'paint' && editor.paintMode === 'swap'}
+      <select class="curve" bind:value={editor.swap.scope} title="Swap by the brush's weight, or the whole layer in every chunk the brush touches, or in the tile under it" aria-label="Swap scope">
+        <option value="brush">Under the brush</option>
+        <option value="chunk">Entire chunks</option>
+        <option value="tile">Entire tile</option>
+      </select>
+      <label class="check" title="Keep swapping the texture the first stroke swapped, instead of the one under each stroke's start">
+        <input type="checkbox" bind:checked={editor.swap.keep} onchange={() => (editor.swap.from = '')} /> Keep
+      </label>
+      {#if editor.swap.keep}
+        <span class="dim">{editor.swap.from ? `Swapping ${texName(editor.swap.from)}` : 'The next stroke picks the texture to swap'}</span>
+      {/if}
+    {/if}
     <button class="chip" onclick={() => { ui.palette = 'textures'; prefs.browserCollapsed = false }} title="Active texture layer (pick textures in the asset browser below)">
       <span class="dim">Layer {editor.paintLayer + 1}:</span>
       {slotTex ? texName(slotTex) : 'empty'}

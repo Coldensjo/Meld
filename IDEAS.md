@@ -178,3 +178,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   `MapView.cpp`) calls `moveable_object_group::reset_xz_rotation`, which zeroes each selected model's X and
   Z rotation (its tilt) and keeps Y (its heading). Meld does the same: Edit › Reset Rotation (Ctrl+R) takes
   the tilt off the selected models and keeps their turn. The owner can change this.
+
+### B-133 Texture swap brush · Noggit Red, with our weighted brush
+- Chosen by the loop from Noggit Red (2026-10-15, B-133). Noggit Red's swapper (`ui/texture_swapper.cpp`,
+  `TextureSet::replace_texture`) swaps a set "texture to swap" for the selected texture within the brush
+  radius, or in each chunk the brush reaches (Entire chunk), or in every chunk of the tile (Entire tile).
+- Meld's Paint › Swap gets the two scopes and a Keep switch (the first stroke's texture stays the one to
+  swap, Noggit Red's set texture). **Ours** under the brush: the swap follows the brush's strength and
+  falloff, as Meld's Swap mode already did, where Noggit Red moves each texel wholly; at full strength
+  and no falloff the two are the same. The owner can change this.

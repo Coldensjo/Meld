@@ -31,7 +31,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-130 **Flatten lock mode**: flatten to a locked point set from the cursor, so several strokes level to one height · gap §1 · M/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-131 **Image brushes**: a greyscale image from a samples folder shapes the sculpt and paint brushes, with a rotation · gap §1 · M/M
 - [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · needs-approval · builds on B-131
-- [ ] B-133 **Texture swap brush**: swap one texture for another under the brush, as Noggit Red's swapper's Brush mode · gap §2 · M/S
+- [x] B-133 **Texture swap brush**: swap one texture for another under the brush, as Noggit Red's swapper's Brush mode · gap §2 · M/S · decided in IDEAS.md (loop, from Noggit Red) · done 2026-10-15 (PROGRESS.md)
 - [ ] B-134 **Remove empty texture layers** across the map: drop a chunk's layer whose weight is zero everywhere · gap §2 · L/S
 - [ ] B-135 **Alphamap image export and import**: a texture's weights as an image, read back into a chosen texture · gap §9 · L/M
 - [ ] B-136 **Heightmap import modes**: Set, Add, Subtract and Multiply, with a min and max height, as Noggit Red's importer · gap §9 · L/S

@@ -109,6 +109,12 @@ export const editor = $state({
    * the mask that texture fills apply to.
    */
   paintMode: 'texture' as 'texture' | 'swap' | 'mask',
+  /**
+   * Swap mode, after Noggit Red's swapper: with `keep` on, the texture the first stroke swapped away
+   * (`from`, a texture path, so it holds across maps) stays the one to swap until unkept; `scope` swaps
+   * by the brush's weight, or the whole layer in every chunk the brush touches, or in the tile under it.
+   */
+  swap: { keep: false, from: '', scope: 'brush' as 'brush' | 'chunk' | 'tile' },
   maskErase: false,
   /** Paint mode sprays random dabs over the brush instead of painting it solid (T toggles). */
   paintSpray: false,

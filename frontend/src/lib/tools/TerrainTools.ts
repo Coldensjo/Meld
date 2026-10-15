@@ -9,7 +9,7 @@ import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushDist, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
 import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale } from './sculptShapes'
-import { dominantTexel, swapTexel } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, dominantTexel, findSlot, paletteIndex, replaceInChunk, swapTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
 import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
@@ -93,6 +93,12 @@ abstract class BrushTool implements Tool {
     ctx.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
   }
 }
+
+/** Paint chunks a side of a 1.12 tile, which Swap's Entire tile works on. */
+const TILE_CHUNKS = 16
+
+/** A texture's file name without its folders and extension, for messages. */
+const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
 
 const RAISE_RATE = 18 // world units per second at strength 1
 /** Mountain builds much faster than Raise, since a peak is a few hundred units tall. */
@@ -566,9 +572,19 @@ export class PaintTool extends BrushTool {
     this.label = editor.paintMode === 'mask' ? 'Mask' : editor.paintMode === 'swap' ? 'Swap' : 'Paint'
     this.erasing = editor.maskErase || !!e?.altKey
     const t = ctx.terrain
-    this.swapFrom =
-      hit && editor.paintMode === 'swap' ? dominantTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, texelAt(t, hit.x, hit.z)) : -1
-    if (this.swapFrom >= 0 && this.swapFrom === editor.paintLayer) setStatus('That spot already uses the active texture.', 3000)
+    this.swapFrom = -1
+    this.swapDone.clear()
+    if (hit && editor.paintMode === 'swap') {
+      const sw = editor.swap
+      if (sw.keep && sw.from) {
+        this.swapFrom = paletteIndex(editor.palette, sw.from)
+        if (this.swapFrom < 0) setStatus(`This map has no ${texName(sw.from)} to swap. Untick Keep to swap what is under the brush.`, 4000)
+      } else {
+        this.swapFrom = dominantTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, texelAt(t, hit.x, hit.z))
+        if (sw.keep && this.swapFrom >= 0) sw.from = editor.palette[this.swapFrom] ?? ''
+      }
+      if (this.swapFrom >= 0 && this.swapFrom === editor.paintLayer) setStatus('That texture is the active one already: pick the texture to swap to.', 3000)
+    }
     super.onDown(ctx, hit)
   }
 
@@ -632,11 +648,72 @@ export class PaintTool extends BrushTool {
     return true
   }
 
+  /** Chunks a whole-layer swap has done in this stroke. */
+  private swapDone = new Set<number>()
+  private swapRect: Rect = { x0: 0, z0: 0, x1: 0, z1: 0 }
+
+  /**
+   * Swaps the whole layer of the stroke's texture for the active one in each chunk the brush touches
+   * (Entire chunk) or in every chunk of the tile under the cursor (Entire tile), once a chunk a stroke,
+   * as Noggit Red's swapper's brush does. A chunk without the texture is left alone.
+   */
+  private swapChunks(ctx: ToolContext, hit: THREE.Vector3, from: number, to: number) {
+    const t = ctx.terrain
+    const side = t.paintChunksPerSide
+    const step = CHUNK_CELLS * t.cellSize
+    const per = t.splatRes / side
+    let x0: number, z0: number, x1: number, z1: number
+    if (editor.swap.scope === 'tile') {
+      const tile = TILE_CHUNKS * step
+      x0 = Math.floor(hit.x / tile) * TILE_CHUNKS
+      z0 = Math.floor(hit.z / tile) * TILE_CHUNKS
+      x1 = x0 + TILE_CHUNKS - 1
+      z1 = z0 + TILE_CHUNKS - 1
+    } else {
+      const r = editor.brush.radius
+      x0 = Math.floor((hit.x - r) / step)
+      z0 = Math.floor((hit.z - r) / step)
+      x1 = Math.floor((hit.x + r) / step)
+      z1 = Math.floor((hit.z + r) / step)
+    }
+    x0 = Math.max(0, x0)
+    z0 = Math.max(0, z0)
+    x1 = Math.min(side - 1, x1)
+    z1 = Math.min(side - 1, z1)
+    const r = this.swapRect
+    for (let cz = z0; cz <= z1; cz++) {
+      for (let cx = x0; cx <= x1; cx++) {
+        const c = cz * side + cx
+        if (this.swapDone.has(c)) continue
+        // Entire chunk takes the chunks the brush circle reaches, not only those its square covers.
+        if (editor.swap.scope === 'chunk') {
+          const nx = Math.max(cx * step, Math.min(hit.x, (cx + 1) * step))
+          const nz = Math.max(cz * step, Math.min(hit.z, (cz + 1) * step))
+          if ((nx - hit.x) ** 2 + (nz - hit.z) ** 2 > editor.brush.radius ** 2) continue
+        }
+        this.swapDone.add(c)
+        const slot = findSlot(t.chunkSlots, c, from)
+        if (slot < 0) continue
+        r.x0 = cx * per
+        r.z0 = cz * per
+        r.x1 = r.x0 + per - 1
+        r.z1 = r.z0 + per - 1
+        this.stroke?.reserveSplat(r)
+        replaceInChunk(side, t.splatRes, t.chunkSlots, t.weights, c, slot, to)
+        this.splatChanged(ctx, r)
+      }
+    }
+  }
+
   /** Moves the stroke's starting texture onto the active layer under the brush. */
   private swap(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
     const from = this.swapFrom
     const to = editor.paintLayer
     if (from < 0 || from === to) return
+    if (editor.swap.scope !== 'brush') {
+      this.swapChunks(ctx, hit, from, to)
+      return
+    }
     const { radius, falloff } = editor.brush
     const strength = editor.brush.strength * ctx.pressure()
     const amt = Math.min(1, strength * dt * 5)
