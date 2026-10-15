@@ -44,6 +44,7 @@ import { TILE_CELLS, mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
 import { minimapScale, shadeHeights } from './minimapImage'
+import { isHelper } from '../models/helpers'
 import { watermapCells } from './watermapImport'
 import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, type HeightmapMode } from './heightmapImport'
 import { areaName, loadAreas } from '../wow/areas'
@@ -517,8 +518,10 @@ export function exportObjectList(engine: Engine) {
   return guarded('Export object list', async () => {
     const path = await SaveTextDialog(editor.mapName)
     if (!path) return
-    const count = engine.objects.objects.size
-    await WriteTextFile(path, formatObjectList(engine.objects.objects.values()))
+    // The helper shapes are the editor's own and stay out of the list, as they stay out of the client.
+    const objects = [...engine.objects.objects.values()].filter((o) => !isHelper(o.type))
+    const count = objects.length
+    await WriteTextFile(path, formatObjectList(objects))
     setStatus(`Exported ${count} models to ${path}.`)
   })
 }

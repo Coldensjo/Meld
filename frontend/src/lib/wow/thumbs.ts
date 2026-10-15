@@ -1,6 +1,7 @@
 import * as THREE from 'three'
+import { isHelper } from '../models/helpers'
 import { engineRef } from '../state/engineRef'
-import { buildWowAsset, texturesReady, wowPath } from '../models/assets'
+import { buildWowAsset, getAsset, texturesReady, wowPath } from '../models/assets'
 import { fetchMesh, texturePreview } from './api'
 import { SaveThumbnail } from '../../../wailsjs/go/main/App'
 import { bytesToBase64 } from '../io/base64'
@@ -61,7 +62,7 @@ function getRig() {
 async function renderModel(type: string): Promise<Blob> {
   const engine = engineRef.current
   if (!engine) throw new Error('renderer not ready')
-  const asset = buildWowAsset(await fetchMesh(wowPath(type)))
+  const asset = isHelper(type) ? getAsset(type) : buildWowAsset(await fetchMesh(wowPath(type)))
   await texturesReady(asset.material)
 
   const { scene, camera, target } = getRig()

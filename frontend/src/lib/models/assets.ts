@@ -4,6 +4,7 @@ import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
 import { buildBoundsTree } from '../world/bvh'
 import { buildLod } from './lod'
+import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
 
 /**
  * A placeable model: one geometry (with groups) and one material per group.
@@ -32,6 +33,7 @@ export const isWowType = (type: string) => type.startsWith('m2:') || type.starts
 export const wowPath = (type: string) => type.slice(type.indexOf(':') + 1)
 
 export function displayName(type: string): string {
+  if (isHelper(type)) return helperName(type)
   const p = isWowType(type) ? wowPath(type) : type
   const q = p.indexOf('?')
   const path = q < 0 ? p : p.slice(0, q)
@@ -80,6 +82,17 @@ const failedAt = new Map<string, number>()
 export function getAsset(type: string): ModelAsset {
   const a = assets.get(type)
   if (a) return a
+  if (isHelper(type)) {
+    // A helper is generated at once, never loaded (models/helpers.ts).
+    const g = helperGeometry(type)
+    if (g) {
+      g.computeBoundingBox()
+      buildBoundsTree(g)
+      const helper: ModelAsset = { geometry: g, material: helperMaterial(), bbox: g.boundingBox!.clone(), ready: true, effects: [] }
+      assets.set(type, helper)
+      return helper
+    }
+  }
   if (isWowType(type) && !pending.has(type) && retryDue(type)) void loadAsset(type)
   return getPlaceholder()
 }

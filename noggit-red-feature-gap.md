@@ -71,7 +71,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 - **Selective paste options**: paste only rotation, tilt or scale.
 - ~~**Hide models**: hide individual objects, toggle hidden-model visibility, and clear the hidden list.~~ *Done: H hides the selected placed object for the session, Edit › Show Hidden Models draws them again so H can unhide one, and Shift+H unhides all. Hiding is per placed object and is not saved.*
 - ~~**Import / export object lists** as text files.~~ *Done: File › Import Object List and Export Object List, tab-separated, one model per line. Tilt is in the text format too, as two more columns; six-column lists from before still read.*
-- **Helper models window**: reference models placed as visual aids (Noggit Red's list: cubes of 50 to 1000, discs and spheres of 50, 200 and 777 radius, a human-scale figure; `ui/HelperModels.cpp`).
+- ~~**Helper models window**: reference models placed as visual aids (Noggit Red's list: cubes of 50 to 1000, discs and spheres of 50, 200 and 777 radius, a human-scale figure; `ui/HelperModels.cpp`).~~ *Done as the owner decided: the asset browser's Helpers category has see-through cubes, discs, spheres and a human-height post, placed and saved like models and never exported (BACKLOG B-040).*
 - **WMV log import** ("Last M2 / Last WMO from WMV") (niche; depends on the WoW Model Viewer log).
 - ~~**Duplicate-model detection**, and "Clear duplicate models".~~ *Done: Edit › Remove Duplicate Models, one undo step.*
 - ~~**Clear all models** in an area.~~ *Done: the Clear tool in Models mode.*

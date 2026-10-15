@@ -495,7 +495,10 @@ cd frontend && pnpm build   # frontend only
   framework dependency.
 - Avoid per-frame allocations in hot paths (brush loops, `frame()`). Reuse vectors and buffers.
 - The app ships asset-free. All models and textures come from the user's own WoW install at
-  runtime; there are no built-in prefabs.
+  runtime; there are no built-in prefabs. The one exception is the helper shapes (`models/helpers.ts`,
+  types `helper:*`, the owner's decision): generated cubes, discs, spheres and a human-height post,
+  placed as visual aids, saved in the map and never exported (`exportInput`, `regionObjects` and the
+  object list leave them out).
 
 ## Reuse existing code
 

@@ -41,6 +41,7 @@ import { animatedAssets, displayName, getAsset } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
+import { isHelper } from '../models/helpers'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
@@ -1349,7 +1350,8 @@ export class Engine {
   /** The active map as the client export takes it. */
   exportInput(): ExportInput {
     const t = this.terrain
-    const objects = this.objects.list().map((o) => {
+    // Helper shapes are the editor's own visual aids and never go to the client.
+    const objects = this.objects.list().filter((o) => !isHelper(o.type)).map((o) => {
       const w = this.objects.worldPlacement(o)
       return { type: o.type, x: w.pos.x, y: w.pos.y, z: w.pos.z, rotY: w.rot, scale: w.scale, tiltX: o.tiltX ?? 0, tiltZ: o.tiltZ ?? 0 }
     })
@@ -1447,6 +1449,7 @@ export class Engine {
     if (!region) return []
     const out: RegionObject[] = []
     for (const o of d.objects.objects.values()) {
+      if (isHelper(o.type)) continue
       const w = d.objects.worldPlacement(o)
       out.push({ uid: region.uids.get(o.id) ?? 0, type: o.type, x: w.pos.x, y: w.pos.y, z: w.pos.z, rotY: w.rot, scale: w.scale, tiltX: o.tiltX ?? 0, tiltZ: o.tiltZ ?? 0 })
     }

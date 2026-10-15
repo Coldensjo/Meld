@@ -2,6 +2,7 @@
   import * as THREE from 'three'
   import { onMount } from 'svelte'
   import { buildWowAsset, texturesReady, type ModelAsset } from '../lib/models/assets'
+  import { helperGeometry, helperMaterial, isHelper } from '../lib/models/helpers'
   import { fetchMesh, texturePreview } from '../lib/wow/api'
   import type { SearchItem } from '../lib/wow/search'
 
@@ -81,7 +82,10 @@
         if (id === loadId) texUrl = u
         return
       }
-      const a = buildWowAsset(await fetchMesh(it.path))
+      // A helper shape gets a geometry of its own here, since the preview disposes what it drew.
+      const helper = isHelper(it.key) ? helperGeometry(it.key) : null
+      if (helper) helper.computeBoundingBox()
+      const a: ModelAsset = helper ? { geometry: helper, material: helperMaterial(), bbox: helper.boundingBox!.clone(), ready: true, effects: [] } : buildWowAsset(await fetchMesh(it.path))
       await texturesReady(a.material)
       if (id !== loadId) {
         a.geometry.dispose()

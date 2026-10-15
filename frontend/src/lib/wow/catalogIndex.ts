@@ -1,4 +1,5 @@
 import { wow } from '../state/editor.svelte'
+import { HELPERS } from '../models/helpers'
 import { listAssets } from './api'
 import { buildCatalog } from './catalog'
 import { indexCatalog, type SearchItem } from './search'
@@ -17,6 +18,8 @@ export function loadCatalog(): Promise<SearchItem[]> {
     ...indexCatalog('m2', buildCatalog('m2', m2)),
     ...indexCatalog('wmo', buildCatalog('wmo', wmo)),
     ...indexCatalog('tex', buildCatalog('tex', tex)),
+    // The helper shapes (models/helpers.ts): placed like doodads, never exported.
+    ...indexCatalog('m2', HELPERS.map((h) => ({ key: h.type, path: `Helpers\\${h.name}`, name: h.name, category: 'Helpers', zone: '' }))),
   ])
   return indexed
 }

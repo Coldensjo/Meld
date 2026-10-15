@@ -37,7 +37,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Objects (props)
 
-- [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M · decided by the owner 2026-10-15 in IDEAS.md (editor-only primitives, never exported)
+- [x] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M · decided by the owner 2026-10-15 in IDEAS.md (editor-only primitives, never exported) · done 2026-10-15 (PROGRESS.md)
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 
 ## Map, client and server
