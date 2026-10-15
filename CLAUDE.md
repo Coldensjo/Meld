@@ -61,6 +61,19 @@ in the git history (`git show b47706b:PROGRESS.md`).
 - Pass bodies and comments with `--body-file`, so backticks and backslashes survive the shell.
 - Older items keep their B-number in the title (`B-182 ...`), which the older docs refer to.
 
+## Folder layout (this machine)
+
+The whole tool chain lives in `C:\Servers\Meld` (moved there 2026-10-15):
+
+- `meld`: this repository.
+- `vmangos`: the VMaNGOS server (`start-server.bat`, `stop-server.bat`; confs in `run`, logs in `logs`).
+- `mariadb`: the database it runs on (port 3307, data in `vmangos\database`; `mariadb\bin` is on the PATH).
+- `benilla`: the Benilla client (BENILLA.md), with its own copy of the client data in `WoW\Data`.
+- `blender`: Blender 5.2 LTS, portable (its settings and add-ons in `blender\portable`).
+
+The WoW 1.12.1 client stays in `C:\Servers\Software\SoloCraft 1.12.1` (Meld's client folder). A path in
+a conf or script that names one of these folders is absolute, so moving one means fixing those.
+
 ## Commands
 
 ```bash

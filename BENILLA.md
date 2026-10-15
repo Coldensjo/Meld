@@ -8,13 +8,13 @@ into the world database), and Benilla is just another program that shows it.
 
 ## Setup on this machine (done 2026-10-15)
 
-- Cloned to `C:\Servers\Software\benilla` (beside Meld, not inside it).
+- Cloned to `C:\Servers\Meld\benilla` (beside Meld, not inside it).
 - Built with `cargo build --release -p benilla` (Rust 1.98.1, pinned by its `rust-toolchain.toml` and
   fetched by rustup; its Lua is compiled by the Visual Studio 2022 C toolchain). The program is
-  `C:\Servers\Software\benilla\target\release\benilla.exe`. This is the default "dev" build, which
+  `C:\Servers\Meld\benilla\target\release\benilla.exe`. This is the default "dev" build, which
   reads the install from `WOW_DATA`; `--no-default-features` is the player build, which only looks for
   `Data\` beside the binary, so keep the dev build for Meld.
-- Meld points at it: Preferences › Benilla Folder… is `C:\Servers\Software\benilla`, and Preferences ›
+- Meld points at it: Preferences › Benilla Folder… is `C:\Servers\Meld\benilla`, and Preferences ›
   Game client › Benilla is picked (both in `%APPDATA%\Meld\config.json`: `benillaPath`, `gameClient`).
 
 To rebuild after `git pull` in the Benilla folder: `cargo build --release -p benilla`.
@@ -85,7 +85,7 @@ session (decided 2026-10-15).
 behaviour, not the code layout: read the Benilla module, then write it Meld's way, with Meld's tests. Keep
 Benilla's client address references in the comments where they explain a constant. Say in each commit
 message that it ports from Benilla (MIT/Apache) and which module. The clone is at
-`C:\Servers\Software\benilla` (read only; `git pull` there to update). Benilla's paths below are under
+`C:\Servers\Meld\benilla` (read only; `git pull` there to update). Benilla's paths below are under
 `crates/`. Verify against the client the way the earlier items did (TESTS.md), and in Benilla itself where
 a change shows on screen (it reads the same install, so what Meld previews should match what Benilla draws).
 
