@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { editor, prefs, setStatus, setViewportHint, ui } from '../state/editor.svelte'
-import { movableSelection, objectsInRect, selectObjects } from '../state/selection'
+import { movableSelection, objectsInRect, selectObjects, withGroups } from '../state/selection'
 import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { ObjectClip } from '../world/clipboard'
@@ -516,11 +516,13 @@ export class SelectTool implements Tool {
         z = p.z
       }
       if ((x - at.x) ** 2 + (z - at.z) ** 2 > r2) continue
-      if (b.remove) {
-        if (b.ids.delete(o.id)) changed = true
-      } else if (!b.ids.has(o.id)) {
-        b.ids.add(o.id)
-        changed = true
+      for (const m of o.group ? withGroups(ctx.objects, [o.id]) : [o.id]) {
+        if (b.remove) {
+          if (b.ids.delete(m)) changed = true
+        } else if (!b.ids.has(m)) {
+          b.ids.add(m)
+          changed = true
+        }
       }
     }
     if (changed) selectObjects(ctx.objects, b.ids, editor.selected?.id)
@@ -572,13 +574,15 @@ export class SelectTool implements Tool {
     if (!o) return
     selectSpawn(null)
     let ids = editor.selectedIds
+    // A model in a selection group comes with the whole group.
+    const members = withGroups(ctx.objects, [id])
     if (shift) {
       // Shift+click adds or removes without moving anything.
-      ids = ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]
+      ids = ids.includes(id) ? ids.filter((i) => !members.includes(i)) : [...ids, ...members]
       selectObjects(ctx.objects, ids, ids.includes(id) ? id : undefined)
       return
     }
-    if (!ids.includes(id)) ids = [id]
+    if (!ids.includes(id)) ids = members
     selectObjects(ctx.objects, ids, id)
     // Drag along whatever surface is under the cursor (never the selection itself or things attached
     // to it); the lead re-attaches to what it lands on.
@@ -741,7 +745,7 @@ export class SelectTool implements Tool {
         editor.selection = null
         return
       }
-      const inside = objectsInRect(ctx.objects, ctx.terrain.cellSize, s).map((o) => o.id)
+      const inside = withGroups(ctx.objects, objectsInRect(ctx.objects, ctx.terrain.cellSize, s).map((o) => o.id))
       const ids = e.shiftKey ? [...editor.selectedIds, ...inside] : inside
       selectObjects(ctx.objects, ids)
       const n = editor.selectedIds.length

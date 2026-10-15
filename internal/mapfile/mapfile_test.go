@@ -47,7 +47,7 @@ func sample(size int) *MapData {
 		Header: Header{
 			Name: "test", Size: size, CellSize: 4, SplatRes: res,
 			WaterLevel: 1.5, WaterEnabled: true,
-			Objects:  []PlacedObject{{ID: 1, Type: "oak", X: 1, Z: 2, RotY: 0.5, Scale: 1.2}, {ID: 2, Parent: 1, Type: "crate", X: 0.5, YOff: 3, Scale: 1}},
+			Objects:  []PlacedObject{{ID: 1, Type: "oak", X: 1, Z: 2, RotY: 0.5, Scale: 1.2, Group: 3}, {ID: 2, Parent: 1, Type: "crate", X: 0.5, YOff: 3, Scale: 1}},
 			Palette:  []string{"#5d8a2f", `Tileset\Elwynn\ElwynnGrassBase.blp`},
 			TexScale: 4,
 			Roles:    &TextureRoles{Rock: 1, Dirt: -1},
@@ -87,7 +87,7 @@ func TestRoundTrip(t *testing.T) {
 	if len(got.Palette) != 2 || got.Palette[1] != m.Palette[1] || got.TexScale != 4 {
 		t.Fatalf("palette mismatch: %+v", got.Palette)
 	}
-	if len(got.Objects) != 2 || got.Objects[0].Type != "oak" || got.Objects[0].Scale != 1.2 || got.Objects[1].Parent != 1 {
+	if len(got.Objects) != 2 || got.Objects[0].Type != "oak" || got.Objects[0].Scale != 1.2 || got.Objects[1].Parent != 1 || got.Objects[0].Group != 3 || got.Objects[1].Group != 0 {
 		t.Fatalf("objects mismatch: %+v", got.Objects)
 	}
 }

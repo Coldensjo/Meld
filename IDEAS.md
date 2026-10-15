@@ -206,3 +206,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 - Meld does the Sculpt mode for Sculpt's shaping modes and Paint's texture painting, with the folder as a
   preference and the image, Turn and Random turn in the options bar. The Stamp mode is left for B-132
   (stamps, which needs approval). The images are the user's own, read at runtime, so nothing ships.
+
+### B-138 Selection groups · Noggit Red, kept in the map file
+- Chosen by the loop from Noggit Red (2026-10-15, B-138). Noggit Red's selection groups (`Selection.cpp`,
+  `World::add_to_selection`, the object tool's Group and Ungroup Selected Objects) make selecting one
+  member select the whole group and deselecting one deselect it; grouping takes the models out of the
+  groups they were in. Noggit Red keeps them per map in its project file.
+- Meld does the same, with the group as a number on each placed model, saved in the `.wmap`'s header (a
+  JSON field, so no format bump; older Meld ignores it). **Ours** for paste: pasted models form new groups
+  of their own instead of joining the originals'. Group and Ungroup are undo steps (Ctrl+G, Ctrl+Shift+G).

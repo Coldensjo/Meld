@@ -74,6 +74,8 @@ type PlacedObject struct {
 	// TiltX and TiltZ are the model's tilt forward and back, and side to side, in radians. Zero when upright.
 	TiltX float64 `json:"tiltX,omitempty"`
 	TiltZ float64 `json:"tiltZ,omitempty"`
+	// Group is the selection group the model is in (a click on one selects them all); 0 for none.
+	Group int `json:"group,omitempty"`
 }
 
 // Header is the JSON metadata section of a map file.

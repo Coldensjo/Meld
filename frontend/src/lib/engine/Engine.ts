@@ -2650,6 +2650,54 @@ export class Engine {
   }
 
   /**
+   * Puts the selected models into one new selection group (Noggit Red's Group Selected Objects), taking
+   * them out of the groups they were in, so clicking any of them selects them all. One undo step.
+   */
+  groupSelected() {
+    const ids = editor.selectedIds.filter((id) => this.objects.objects.has(id))
+    if (ids.length < 2) {
+      setStatus('Select two or more models to group them.')
+      return
+    }
+    const g = this.objects.newGroup()
+    this.setGroups(ids.map((id) => ({ id, from: this.objects.objects.get(id)!.group, to: g })), `Group ${ids.length} models`)
+    setStatus(`Grouped ${ids.length} models: a click on one selects them all. Ctrl+Shift+G ungroups them.`, 5000)
+  }
+
+  /** Breaks up every selection group a selected model is in (Noggit Red's Ungroup). One undo step. */
+  ungroupSelected() {
+    const groups = new Set<number>()
+    for (const id of editor.selectedIds) {
+      const g = this.objects.objects.get(id)?.group
+      if (g) groups.add(g)
+    }
+    if (!groups.size) {
+      setStatus('The selected models are in no group.')
+      return
+    }
+    const changes: Array<{ id: number; from: number | undefined; to: number | undefined }> = []
+    for (const o of this.objects.objects.values()) if (o.group && groups.has(o.group)) changes.push({ id: o.id, from: o.group, to: undefined })
+    this.setGroups(changes, groups.size === 1 ? 'Ungroup models' : `Ungroup ${groups.size} groups`)
+    setStatus(`Ungrouped ${changes.length} models.`, 4000)
+  }
+
+  /** Sets objects' selection groups as one undo step; `to` undefined takes an object out of its group. */
+  private setGroups(changes: Array<{ id: number; from: number | undefined; to: number | undefined }>, label: string) {
+    const objects = this.objects
+    const apply = (to: boolean) => {
+      for (const c of changes) {
+        const o = objects.objects.get(c.id)
+        if (!o) continue
+        const g = to ? c.to : c.from
+        if (g) o.group = g
+        else delete o.group
+      }
+    }
+    apply(true)
+    this.history.push({ label, undo: () => apply(false), redo: () => apply(true) })
+  }
+
+  /**
    * Replaces each selected model with the one copied (Ctrl+C on a single model), keeping its place,
    * turn, tilt, scale and attachments, as Noggit Red's Replace Models (By Clipboard). A doodad is only
    * replaced by a doodad and a building by a building, as Noggit Red's menu says, since a 1.12 building

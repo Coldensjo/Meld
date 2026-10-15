@@ -92,6 +92,14 @@ function encodeObjects(terrain: Terrain, objects: ObjectLayer, picked: WorldObje
 function decodeObjects(terrain: Terrain, objects: ObjectLayer, list: readonly ClipObject[], ax: number, az: number): WorldObject[] {
   const added: WorldObject[] = []
   const idMap = new Map<number, number>()
+  // Pasted models form groups of their own, apart from the ones they were copied from.
+  const groups = new Map<number, number>()
+  const group = (g: number | undefined) => {
+    if (!g) return undefined
+    let n = groups.get(g)
+    if (n === undefined) groups.set(g, (n = objects.newGroup()))
+    return n
+  }
   let pending = [...list]
   for (let pass = 0; pass < 8 && pending.length; pass++) {
     const next: typeof pending = []
@@ -101,11 +109,11 @@ function decodeObjects(terrain: Terrain, objects: ObjectLayer, list: readonly Cl
         const x = o.x + ax
         const z = o.z + az
         if (!terrain.contains(x, z)) continue
-        const n = objects.add({ ...rest, x, z })
+        const n = objects.add({ ...rest, x, z, group: group(rest.group) })
         idMap.set(cid, n.id)
         added.push(n)
       } else if (idMap.has(cparent)) {
-        const n = objects.add({ ...rest, parent: idMap.get(cparent) })
+        const n = objects.add({ ...rest, parent: idMap.get(cparent), group: group(rest.group) })
         idMap.set(cid, n.id)
         added.push(n)
       } else {

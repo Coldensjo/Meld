@@ -139,6 +139,7 @@ export namespace mapfile {
 	    uid?: number;
 	    tiltX?: number;
 	    tiltZ?: number;
+	    group?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PlacedObject(source);
@@ -157,6 +158,7 @@ export namespace mapfile {
 	        this.uid = source["uid"];
 	        this.tiltX = source["tiltX"];
 	        this.tiltZ = source["tiltZ"];
+	        this.group = source["group"];
 	    }
 	}
 	export class MapData {

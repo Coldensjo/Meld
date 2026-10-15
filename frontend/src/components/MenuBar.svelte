@@ -110,6 +110,8 @@
         { kind: 'action', label: 'Duplicate Selected Models', shortcut: 'Ctrl+Shift+D', disabled: !editor.selectedIds.length, run: withEngine((e) => e.duplicateSelected()) },
         { kind: 'action', label: 'Reset Rotation', shortcut: 'Ctrl+R', disabled: !editor.selectedIds.length, run: withEngine((e) => e.resetRotation()) },
         { kind: 'action', label: 'Replace with Copied Model', disabled: !editor.selectedIds.length, run: withEngine((e) => e.replaceSelectedWithCopied()) },
+        { kind: 'action', label: 'Group Selected Models', shortcut: 'Ctrl+G', disabled: editor.selectedIds.length < 2, run: withEngine((e) => e.groupSelected()) },
+        { kind: 'action', label: 'Ungroup Selected Models', shortcut: 'Ctrl+Shift+G', disabled: !editor.selectedIds.length, run: withEngine((e) => e.ungroupSelected()) },
         { kind: 'sep' },
         { kind: 'action', label: 'Select All', shortcut: 'Ctrl+A', run: withEngine((e) => { e.selectAll(); editor.tool = 'select' }) },
         { kind: 'action', label: 'Deselect', shortcut: 'Ctrl+D', disabled: !editor.selection && !editor.selectedIds.length, run: withEngine((e) => e.deselect()) },

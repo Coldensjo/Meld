@@ -16,6 +16,21 @@ export function selectObjects(objects: ObjectLayer, ids: Iterable<number>, prima
   editor.selected = o ? { ...o } : null
 }
 
+/**
+ * `ids` with every member of each selection group one of them is in, as Noggit Red selects a whole
+ * group when one member is picked.
+ */
+export function withGroups(objects: ObjectLayer, ids: Iterable<number>): number[] {
+  const out = new Set<number>(ids)
+  const groups = new Set<number>()
+  for (const id of out) {
+    const g = objects.objects.get(id)?.group
+    if (g) groups.add(g)
+  }
+  if (groups.size) for (const o of objects.objects.values()) if (o.group && groups.has(o.group)) out.add(o.id)
+  return [...out]
+}
+
 /** The selected objects that still exist, the primary first. */
 export function selectedObjects(objects: ObjectLayer): WorldObject[] {
   const out: WorldObject[] = []

@@ -21,6 +21,11 @@ export interface WorldObject {
   tiltX?: number
   tiltZ?: number
   scale: number
+  /**
+   * The selection group the object is in (Noggit Red's selection groups): selecting one member
+   * selects them all. Saved in the map file; none when unset.
+   */
+  group?: number
 }
 
 /** World-space placement of an object (position, yaw, uniform scale). */
@@ -70,6 +75,8 @@ export class ObjectLayer {
   private showHidden = false
   private batches = new Map<string, Batch>()
   private nextId = 1
+  /** The next unused selection group number. */
+  private nextGroup = 1
   private tmpM = new THREE.Matrix4()
   private tmpM2 = new THREE.Matrix4()
   private up = new THREE.Vector3(0, 1, 0)
@@ -96,6 +103,8 @@ export class ObjectLayer {
   add(o: Omit<WorldObject, 'id'> & { id?: number }): WorldObject {
     const obj: WorldObject = { ...o, id: o.id && o.id > 0 ? o.id : this.nextId++ }
     if (!obj.parent) delete obj.parent
+    if (!obj.group) delete obj.group
+    else this.nextGroup = Math.max(this.nextGroup, obj.group + 1)
     this.nextId = Math.max(this.nextId, obj.id + 1)
     this.objects.set(obj.id, obj)
     this.batch(obj.type).dirty = true
@@ -142,6 +151,11 @@ export class ObjectLayer {
 
   childrenOf(id: number): WorldObject[] {
     return [...this.objects.values()].filter((c) => c.parent === id)
+  }
+
+  /** A selection group number no object has yet. */
+  newGroup(): number {
+    return this.nextGroup++
   }
 
   /** The object plus everything attached to it, recursively. */
