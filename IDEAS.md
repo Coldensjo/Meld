@@ -462,3 +462,11 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   Stormwind Stockade: MPHD flag 0x1, an empty MAIN, MWMO and one MODF with unique ID 0xFFFFFFFF), checked
   byte for byte. The building is the map's first WMO as placed in the editor, so the author places and
   turns it like any model; the rest of the map (ground, other models) isn't written for such a map.
+
+### Benilla ports first · owner decision 2026-10-15
+- Question: where do the ports from Benilla go in the loop's order?
+- Choice: **first**, in the order of BACKLOG.md's "Benilla ports" section and BENILLA.md's table (B-172 ground
+  tufts, B-166 sun/sky/fog, B-173 baked shadows, B-167 WDL horizon, B-168 particles, then the rest), ahead of
+  the usual DESIGN.md priority and value order, starting in a fresh session. Bugs still come first.
+- Decided by the owner, 2026-10-15.
+
