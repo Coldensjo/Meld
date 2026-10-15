@@ -45,6 +45,8 @@ const REBUILD_MS = 250
 interface Batch {
   mesh: THREE.InstancedMesh
   count: number
+  /** The last build's instance matrices, which the room gate packs from. */
+  full?: Float32Array
 }
 
 // The tufts' fade on view depth (groundEffects.ts, tuftFade), multiplied into the alpha the cut-out tests.
@@ -232,6 +234,8 @@ export class GroundEffectLayer {
     for (const [type, b] of this.batches) {
       b.mesh.count = b.count
       b.mesh.instanceMatrix.needsUpdate = true
+      // The full set, for the room gate to pack from.
+      b.full = (b.mesh.instanceMatrix.array as Float32Array).slice(0, b.count * 16)
       if (b.count === 0 && b.mesh.instanceMatrix.count > 4096) {
         // A model no longer in range gives its buffer back.
         this.group.remove(b.mesh)
@@ -291,6 +295,40 @@ export class GroundEffectLayer {
       for (let i = 0; i < src.length && i < twins.length; i++) syncMap(src[i], twins[i])
     }
   }
+
+  /**
+   * With the camera in a WMO room (#119), draws only the tufts within one of `frustums` (its
+   * doorways), packed from the last build's full set; null draws them all again.
+   */
+  gate(frustums: THREE.Frustum[] | null) {
+    if (!frustums && !this.gated) return
+    this.gated = !!frustums
+    for (const b of this.batches.values()) {
+      const full = b.full
+      if (!full) continue
+      const arr = b.mesh.instanceMatrix.array as Float32Array
+      if (!frustums) {
+        arr.set(full)
+        b.mesh.count = full.length / 16
+      } else {
+        let k = 0
+        for (let i = 0; i < full.length; i += 16) {
+          this.gateSphere.center.set(full[i + 12], full[i + 13], full[i + 14])
+          let seen = false
+          for (let f = 0; !seen && f < frustums.length; f++) seen = frustums[f].intersectsSphere(this.gateSphere)
+          if (!seen) continue
+          if (k !== i) for (let j = 0; j < 16; j++) arr[k + j] = full[i + j]
+          k += 16
+        }
+        b.mesh.count = k / 16
+      }
+      b.mesh.instanceMatrix.needsUpdate = true
+    }
+  }
+
+  private gated = false
+  /** A tuft's reach for the gate: a sphere about its foot. */
+  private gateSphere = new THREE.Sphere(new THREE.Vector3(), 1.5)
 
   /** How many tufts are drawn now. */
   get count(): number {

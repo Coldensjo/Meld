@@ -856,6 +856,10 @@ export class Engine {
     this.objects.cull(v)
     this.doc.spawnLayer.cull(v)
     this.updateGroundEffects()
+    // The water and the tufts show through a room's doorways only, as the rest of the world (#119).
+    this.doc.groundEffects.gate(v.gate ?? null)
+    this.doc.liquidRenderer.gate(v.gate ?? null)
+    this.water.gate(v.gate ?? null)
     this.updateBakedShadows()
     const sel = editor.selectedSpawn
     this.paths.update(this.doc.spawnLayer, sel ? spawnKey(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)

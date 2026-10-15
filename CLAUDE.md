@@ -285,7 +285,8 @@ cd frontend && pnpm build   # frontend only
     through the flood's exterior windows (#116, `CullView.gate`, `Terrain.gate`, the particles): a
     model, spawn, terrain chunk or emitter must meet a doorway's narrowed frustum, and a sealed room
     shows none, as in the client; so a model placed inside a building (not one of its own doodads)
-    vanishes from inside. Water and grass tufts are not gated.
+    vanishes from inside. The liquids, the sea and the grass tufts are gated too (#119: `LiquidRenderer.gate`,
+    `Water.gate`, `GroundEffectLayer.gate`, which packs from the last build's full set).
 - **UI layout** (Photoshop-like, `App.svelte`):
   - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
   - Main row: `Toolbar` | centre column | `Dock`. The centre column is the `Viewport` (with the

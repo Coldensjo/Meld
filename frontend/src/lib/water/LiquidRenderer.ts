@@ -111,6 +111,23 @@ export class LiquidRenderer {
     this.group.add(mesh)
   }
 
+  /**
+   * Shows only the blocks that meet one of `frustums` (the doorways of the WMO room the camera is
+   * in, #119), or every block for null.
+   */
+  gate(frustums: THREE.Frustum[] | null) {
+    for (const mesh of this.blocks.values()) {
+      if (!frustums) {
+        mesh.visible = true
+        continue
+      }
+      const s = mesh.geometry.boundingSphere
+      let seen = !s
+      for (let k = 0; !seen && k < frustums.length; k++) seen = frustums[k].intersectsSphere(s!)
+      mesh.visible = seen
+    }
+  }
+
   /** Every chunk again (after the map's liquids were replaced wholesale). */
   rebuildAll() {
     for (const m of this.blocks.values()) m.geometry.dispose()

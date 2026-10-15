@@ -793,6 +793,10 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
   (group 2) no window, so only the inn draws; from group 0 facing the door, one window and a few
   chunks. Set `prefs.cameraFollowGround = false` in the app's editor module (see the `?t=` trap)
   first: `controller.followGround` alone is reset from the prefs.
+- Water and tufts (#119): with the inn placed in Durotar, outside it the region draws about 4400 tufts
+  (sum of `mesh.count` over `__engine.doc.groundEffects.batches`) and 59 liquid blocks
+  (`__engine.doc.liquidRenderer.blocks`, visible ones); in its sealed common room both drop to 0,
+  and they come back on leaving.
 
 ## Client Lighting's ground: per-vertex light and the sheen (#111)
 

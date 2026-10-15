@@ -42,6 +42,22 @@ export class Water {
     if (v) wantLiquid('ocean')
   }
 
+  /**
+   * Hides the sea unless it meets one of `frustums` (the doorways of the WMO room the camera is in,
+   * #119); null leaves it as it is.
+   */
+  gate(frustums: THREE.Frustum[] | null) {
+    if (!frustums || !this.mesh.visible) return
+    const g = this.mesh.geometry
+    if (!g.boundingBox) g.computeBoundingBox()
+    this.box.copy(g.boundingBox!).applyMatrix4(this.mesh.matrixWorld)
+    let seen = false
+    for (let k = 0; !seen && k < frustums.length; k++) seen = frustums[k].intersectsBox(this.box)
+    this.mesh.visible = seen
+  }
+
+  private box = new THREE.Box3()
+
   dispose() {
     this.floor.geometry.dispose()
     ;(this.floor.material as THREE.Material).dispose()
