@@ -1,6 +1,7 @@
 <script lang="ts">
   import { editor, stats, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
+  import { shadeHeights } from '../lib/io/minimapImage'
 
   // A floating minimap over the viewport (M opens and closes it), after noggit's minimap window: the
   // whole map from above, with the client's overview behind it for a part of Azeroth, the tile
@@ -29,35 +30,8 @@
     c.height = size
     const ctx = c.getContext('2d')
     if (!ctx) return
-    const V = size + 1
-    let lo = Infinity
-    let hi = -Infinity
-    for (let i = 0; i < heights.length; i++) {
-      const h = heights[i]
-      if (h < lo) lo = h
-      if (h > hi) hi = h
-    }
-    const span = Math.max(1, hi - Math.max(lo, sea))
     const img = ctx.createImageData(size, size)
-    const d = img.data
-    for (let z = 0; z < size; z++) {
-      for (let x = 0; x < size; x++) {
-        const h = heights[z * V + x]
-        const i = (z * size + x) * 4
-        if (h < sea) {
-          const depth = Math.min(1, (sea - h) / 30)
-          d[i] = 20 + 20 * (1 - depth)
-          d[i + 1] = 60 + 40 * (1 - depth)
-          d[i + 2] = 110 + 50 * (1 - depth)
-        } else {
-          const v = 70 + 150 * Math.min(1, (h - Math.max(lo, sea)) / span)
-          d[i] = v
-          d[i + 1] = v
-          d[i + 2] = v * 0.92
-        }
-        d[i + 3] = 255
-      }
-    }
+    shadeHeights(heights, size, sea, img.data)
     ctx.putImageData(img, 0, 0)
   }
 

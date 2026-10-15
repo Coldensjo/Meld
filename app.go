@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -781,6 +782,40 @@ func (a *App) OpenBrushDialog() ([]string, error) {
 // WriteTextFile saves text at path.
 func (a *App) WriteTextFile(path, text string) error {
 	return os.WriteFile(path, []byte(text), 0o644)
+}
+
+var imageFilters = []runtime.FileFilter{{DisplayName: "PNG image (*.png)", Pattern: "*.png"}}
+
+// SaveImageDialog asks where to save a PNG image. Returns "" if cancelled.
+func (a *App) SaveImageDialog(title, suggested string) (string, error) {
+	if suggested == "" {
+		suggested = "image"
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           title,
+		DefaultFilename: suggested + ".png",
+		Filters:         imageFilters,
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if !strings.EqualFold(filepath.Ext(path), ".png") {
+		path += ".png"
+	}
+	return path, nil
+}
+
+// WritePNG saves a PNG image, given as base64 (a binding, since the asset server must not get
+// request bodies), at path. It refuses anything that isn't a PNG.
+func (a *App) WritePNG(path, pngBase64 string) error {
+	b, err := base64.StdEncoding.DecodeString(pngBase64)
+	if err != nil {
+		return err
+	}
+	if !bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n")) {
+		return errors.New("not a PNG image")
+	}
+	return os.WriteFile(path, b, 0o644)
 }
 
 // ReadTextFile returns the text of the file at path.

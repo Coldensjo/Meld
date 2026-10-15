@@ -17,6 +17,8 @@ import {
   PublishVmangosMap,
   ReadHeightmap,
   SaveHeightmapDialog,
+  SaveImageDialog,
+  WritePNG,
   SaveMap,
   SaveMapDialog,
   SaveRegion,
@@ -39,6 +41,7 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { TILE_CELLS, mapToTiles } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
+import { minimapScale, shadeHeights } from './minimapImage'
 import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
@@ -484,6 +487,60 @@ export function importDoodadBrushes() {
     const trouble = problems.length ? ` Skipped: ${problems.join('; ')}` : ''
     setStatus(added.length ? `Imported ${what}.${trouble}` : `No brush imported.${trouble}`, problems.length ? 10000 : 4000)
   }).then(() => added)
+}
+
+/**
+ * Saves the map from above as a PNG: the ground shaded by height (or, for a part of Azeroth, the
+ * client's overview of the block), with the tile borders, at a few pixels a cell for a small map.
+ */
+export function saveMinimapImage(engine: Engine) {
+  return guarded('Save minimap image', async () => {
+    const t = engine.terrain
+    const size = t.size
+    const scale = minimapScale(size)
+    const side = size * scale
+    const flat = document.createElement('canvas')
+    flat.width = flat.height = size
+    const fctx = flat.getContext('2d')!
+    const img = fctx.createImageData(size, size)
+    shadeHeights(t.heights, size, editor.waterEnabled ? editor.waterLevel : -Infinity, img.data)
+    fctx.putImageData(img, 0, 0)
+    const out = document.createElement('canvas')
+    out.width = out.height = side
+    const ctx = out.getContext('2d')!
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(flat, 0, 0, side, side)
+    const block = editor.regionBlock
+    if (block && editor.regionMap) {
+      // The continent's overview is 64 tiles a side; the block is cut from it.
+      const ov = new Image()
+      ov.src = `/wow/overview?map=${encodeURIComponent(editor.regionMap)}`
+      try {
+        await ov.decode()
+        const per = ov.naturalWidth / 64
+        ctx.imageSmoothingEnabled = true
+        ctx.drawImage(ov, block.x * per, block.y * per, block.size * per, block.size * per, 0, 0, side, side)
+      } catch (err) {
+        console.warn('overview not drawn', err)
+      }
+    }
+    if (size > TILE_CELLS) {
+      ctx.strokeStyle = 'rgba(255, 184, 51, 0.85)'
+      ctx.lineWidth = Math.max(1, scale)
+      ctx.beginPath()
+      for (let i = TILE_CELLS; i < size; i += TILE_CELLS) {
+        ctx.moveTo(i * scale, 0)
+        ctx.lineTo(i * scale, side)
+        ctx.moveTo(0, i * scale)
+        ctx.lineTo(side, i * scale)
+      }
+      ctx.stroke()
+    }
+    const path = await SaveImageDialog('Save Minimap Image', `${editor.mapName}-minimap`)
+    if (!path) return
+    await WritePNG(path, out.toDataURL('image/png').slice('data:image/png;base64,'.length))
+    setStatus(`Saved the minimap (${side}×${side}) to ${path}.`)
+  })
 }
 
 /** Saves the camera's place as the port commands for the map's server (see portCoords.ts). */

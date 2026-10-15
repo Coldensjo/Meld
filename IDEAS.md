@@ -156,3 +156,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 - H hides the selected objects and everything attached to them (the whole `parent` chain below), so no
   prop is left floating. Shift+H shows them all again. Still session only, as in B-034.
 - Status: unblocked. Eligible for the loop.
+
+### B-059 Save minimap image · ours
+- Chosen by the loop from noggit3 (2026-10-15, B-059). noggit3's File › "Save minimaps" (Ctrl+Shift+P,
+  `MapView.cpp`) only sets a `Saving` flag that nothing reads, so in noggit3 it does nothing; older noggit
+  rendered each tile top-down into the client's minimap textures.
+- **Ours**: File › Save Minimap Image… (Ctrl+Shift+P) saves the Minimap window's picture as a PNG: the
+  ground shaded by height (the client's overview for a part of Azeroth) with the tile borders, at least
+  512 pixels across. Writing the client's own minimap textures would be a client write, which is a
+  larger item. The owner can change this.

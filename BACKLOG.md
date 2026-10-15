@@ -62,7 +62,8 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 - [x] B-123 **Painted no-doodad cells, kept in the map file**: a brush that marks cells as growing no tufts (noggit has none; Blizzard's roads have the bits), and the client's bits saved in the `.wmap` so a reopened region draws them; both need a per-cell field in the format · Source: loop: B-117 · L/M · the export already ORs into the client's bits, decided in IDEAS.md (owner, 2026-10-15): `.wmap` version 5 · done 2026-10-15 (PROGRESS.md)
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · needs-approval
 - [ ] B-058 **Vertex colour editor** · gap §5 · L/L · needs-approval
-- [ ] B-059 **Save minimap image** (Ctrl+Shift+P) · gap §5 · L/S
+- [x] B-059 **Save minimap image** (Ctrl+Shift+P) · gap §5 · L/S · decided in IDEAS.md (loop, from noggit3) · done 2026-10-15 (PROGRESS.md)
+- [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as older noggit did, so the in-game minimap shows the edited ground · Source: loop: B-059 · L/L · a client write, checked against the client's own reader
 - [ ] B-124 **Doodad brush On props: footprint at world scale and a cheaper prop lookup**: a model standing on a prop is spaced by its own scale, not its world scale, and each attempt casts a ray through every model's bounds tree (up to 256 a frame); a chunk-bucketed lookup would keep a dense map smooth · Source: loop: B-120 · L/S
 - [x] B-108 **Port commands: area name and ADT header**: noggit's port file starts each entry with `Map: <area> on ADT x y` · Source: loop: B-053 · L/M · the editor has no area names, so this waits on B-054 · done 2026-10-15 (PROGRESS.md)
 

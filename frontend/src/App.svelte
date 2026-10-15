@@ -23,7 +23,7 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from './lib/state/editor.svelte'
   import { stepFalloff } from './lib/tools/brushSize'
   import { engineRef } from './lib/state/engineRef'
-  import { openMap, saveOrPublish } from './lib/io/mapio'
+  import { openMap, saveMinimapImage, saveOrPublish } from './lib/io/mapio'
   import { requestClose } from './components/DocTabs.svelte'
   import { WindowSetTitle } from '../wailsjs/runtime/runtime'
   import { hasBackend } from './lib/io/mapio'
@@ -140,6 +140,7 @@
       else if (key === 'd' && e.shiftKey) engine.duplicateSelected()
       else if (key === 'd') engine.deselect()
       else if (key === 's') saveOrPublish(engine, e.shiftKey)
+      else if (key === 'p' && e.shiftKey) saveMinimapImage(engine)
       else if (key === 'w') requestClose(engine.activeDocumentId())
       else if (e.key === 'Tab') engine.cycleDocument(e.shiftKey ? -1 : 1)
       else if (key === 'o') openMap(engine)

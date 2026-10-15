@@ -110,6 +110,7 @@
         ['Ctrl+Tab / Ctrl+Shift+Tab', 'Next / previous map tab'],
         ['Tab', 'Hide / show the panels (the menu bar stays)'],
         ['Ctrl+Shift+S', 'Save as'],
+        ['Ctrl+Shift+P', 'Save the minimap as an image'],
         ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'],
         ['Ctrl+C / Ctrl+V', 'Copy selection / Paste (also into another map tab)'],
         ['Ctrl+A / Ctrl+D', 'Select all / Deselect'],

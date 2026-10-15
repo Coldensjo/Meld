@@ -85,6 +85,8 @@ export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>
 
 export function SaveHeightmapDialog(arg1:string):Promise<string>;
 
+export function SaveImageDialog(arg1:string,arg2:string):Promise<string>;
+
 export function SaveMap(arg1:string,arg2:mapfile.MapData):Promise<void>;
 
 export function SaveMapDialog(arg1:string):Promise<string>;
@@ -120,5 +122,7 @@ export function VmangosPath():Promise<string>;
 export function WowStatus():Promise<wow.Status>;
 
 export function WriteHeightmap(arg1:string,arg2:number,arg3:Array<number>):Promise<void>;
+
+export function WritePNG(arg1:string,arg2:string):Promise<void>;
 
 export function WriteTextFile(arg1:string,arg2:string):Promise<void>;

@@ -78,8 +78,8 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 - **Streaming**: ADT loading radius, unload distance and interval, plus an async loader thread count. Meld loads the whole map in memory.
 - **Native tile grid**: noggit works on a 64×64 ADT tile world; Meld works on standalone 128–512 maps.
 - **UID management**: unique IDs for models, a UID fix tool, forced UID checks, and optional shared UID storage in MySQL **(format-specific)**.
-- ~~**Port coordinates export**: write the camera position to a text file in TrinityCore / ArcEmu `.go` / `.worldport` format.~~ *Done: File › Export Port Coordinates writes the camera's `.go xyz` and `.worldport` lines for a map made for the client, using its map ID. Noggit's `Map: <area>` header is not written; Meld has no area names (see B-108). The file starts with noggit's `Map: <zone> on ADT x y` line, the zone being the chunk's from the Map data tool.*
-- **Save minimap images** (Ctrl+Shift+P).
+- ~~**Port coordinates export**: write the camera position to a text file in TrinityCore / ArcEmu `.go` / `.worldport` format.~~ *Done: File › Export Port Coordinates writes the camera's `.go xyz` and `.worldport` lines for a map made for the client, using its map ID. The file starts with noggit's `Map: <zone> on ADT x y` line, the zone being the chunk's from the Map data tool.*
+- ~~**Save minimap images** (Ctrl+Shift+P).~~ *Done: File › Save Minimap Image… (Ctrl+Shift+P) saves the map from above as a PNG, with the tile borders (noggit3's own action does nothing; see IDEAS.md B-059). Not written into the client's minimap textures.*
 - **Convert map** between alphamap formats **(format-specific)**.
 
 ## 6. Navigation and bookmarks
