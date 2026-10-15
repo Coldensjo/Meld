@@ -45,6 +45,7 @@ import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
 import { minimapScale, shadeHeights } from './minimapImage'
 import { isHelper } from '../models/helpers'
+import { defaultMapInfo, type MapInfo } from '../engine/MapDocument'
 import { watermapCells } from './watermapImport'
 import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, type HeightmapMode } from './heightmapImport'
 import { areaName, loadAreas } from '../wow/areas'
@@ -64,7 +65,8 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     waterEnabled: s.waterEnabled,
     objects: s.objects,
     region: s.region ?? undefined,
-    vmangos: s.vmangos ?? undefined,
+    // The info travels as JSON the Go side keeps opaque (mapfile.VmangosFolder.Info).
+    vmangos: s.vmangos ? { dir: s.vmangos.dir, mapId: s.vmangos.mapId, info: s.vmangos.info as unknown as number[] | undefined } : undefined,
     palette: s.palette,
     texScale: s.texScale,
     roles: s.roles ?? undefined,
@@ -101,7 +103,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
     waterEnabled: m.waterEnabled,
     objects: (m.objects ?? []).map((o, i) => ({ ...o, id: o.id || 100000 + i, parent: o.parent || undefined, uid: o.uid || undefined })),
     region: m.region ? { mapName: m.region.mapName, x: m.region.x, y: m.region.y, size: m.region.size } : null,
-    vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId } : null,
+    vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId, info: m.vmangos.info ? ({ ...defaultMapInfo(), ...(m.vmangos.info as unknown as Partial<MapInfo>) } as MapInfo) : undefined } : null,
     texScale: m.texScale ?? 0,
     roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
     textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
@@ -708,6 +710,7 @@ export function publishVmangosMap(engine: Engine) {
           Tiles: out.tiles,
           Water: input.waterEnabled,
           WaterLevel: input.waterLevel,
+          Info: ref.info,
         }),
       )
     } catch (e) {

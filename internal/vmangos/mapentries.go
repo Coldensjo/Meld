@@ -61,3 +61,31 @@ func LoadMapEntries(dataDir string) ([]MapEntry, error) {
 	}
 	return ReadMapEntries(b)
 }
+
+// LoadingScreen is a row of LoadingScreens.dbc: its ID and name (field 1; field 2 is the image).
+type LoadingScreen struct {
+	ID   uint32 `json:"id"`
+	Name string `json:"name"`
+}
+
+// LoadLoadingScreens lists the client's loading screens, for a map's own.
+func LoadLoadingScreens(dataDir string) ([]LoadingScreen, error) {
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	defer set.Close()
+	b, err := set.ReadFile(`DBFilesClient\LoadingScreens.dbc`)
+	if err != nil {
+		return nil, err
+	}
+	t, err := parseDBC(b)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]LoadingScreen, 0, t.records)
+	for r := 0; r < t.records; r++ {
+		out = append(out, LoadingScreen{ID: t.u32(r, 0), Name: t.str(r, 1)})
+	}
+	return out, nil
+}

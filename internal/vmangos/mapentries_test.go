@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"Meld/internal/mpq"
 	"Meld/internal/wow"
 )
 
@@ -66,5 +67,57 @@ func TestRealMapEntries(t *testing.T) {
 		if got := byID[want.ID]; got != want {
 			t.Errorf("map %d = %+v, want %+v", want.ID, got, want)
 		}
+	}
+}
+
+// TestClientMapRowInfo adds a map to the client's Map.dbc and gives it a raid's info: the client's
+// reader sees the type and the name, and the zone and loading screen sit where Molten Core's do. It
+// needs WOW_DIR.
+func TestClientMapRowInfo(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbc, err := set.ReadFile(`DBFilesClient\Map.dbc`)
+	set.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	added, err := AddMapRow(dbc, 1901, "MeldRaid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := SetMapRowInfo(added, 1901, MapInfo{Type: 2, Name: "Meld's Raid", AreaID: 2717, LoadingScreen: 192})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := ReadMapEntries(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got *MapEntry
+	for i := range entries {
+		if entries[i].ID == 1901 {
+			got = &entries[i]
+		}
+	}
+	if got == nil || got.Dir != "MeldRaid" || got.Type != 2 || got.Name != "Meld's Raid" {
+		t.Fatalf("the new map reads back as %+v", got)
+	}
+	tb, _ := parseDBC(out)
+	r, _ := tb.row(1901)
+	if tb.u32(r, 19) != 2717 || tb.u32(r, 38) != 192 || tb.u32(r, 3) != 0 {
+		t.Fatalf("zone %d, loading screen %d, pvp %d", tb.u32(r, 19), tb.u32(r, 38), tb.u32(r, 3))
+	}
+	if _, err := SetMapRowInfo(out, 1901, MapInfo{Type: 7}); err == nil {
+		t.Fatal("map type 7 was accepted")
 	}
 }

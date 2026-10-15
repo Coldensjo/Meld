@@ -54,7 +54,24 @@ export interface Bookmark {
 export interface VmangosRef {
   dir: string
   mapId: number
+  /** The map's own Map.dbc and map_template facts (Map Properties); absent until set. */
+  info?: MapInfo
 }
+
+/** What a map made for the client says about itself (vmangos.MapInfo): written on publish. */
+export interface MapInfo {
+  /** 0 a world map, 1 a dungeon, 2 a raid, 3 a battleground. */
+  type: number
+  name: string
+  areaId: number
+  loadingScreen: number
+  maxPlayers: number
+  ghostMap: number
+  ghostX: number
+  ghostY: number
+}
+
+export const defaultMapInfo = (): MapInfo => ({ type: 0, name: '', areaId: 0, loadingScreen: 0, maxPlayers: 0, ghostMap: -1, ghostX: 0, ghostY: 0 })
 
 /**
  * A square block of 1.12 map tiles in the client: the tile it starts at, and how many tiles a side.

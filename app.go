@@ -693,6 +693,15 @@ func (a *App) SaveLights(edit vmangos.LightsEdit) (string, error) {
 	return a.installWithGameClosed(dataDir, files)
 }
 
+// LoadingScreens lists the client's loading screens, which a map made for the client may show.
+func (a *App) LoadingScreens() ([]vmangos.LoadingScreen, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.LoadLoadingScreens(dataDir)
+}
+
 // AreaRows lists a map's zones and subzones from the client's AreaTable.dbc, for the zone editor.
 func (a *App) AreaRows(mapID uint32) ([]vmangos.AreaRow, error) {
 	dataDir, err := a.clientDataDir()

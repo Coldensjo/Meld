@@ -102,6 +102,9 @@ type MapSpec struct {
 	// and no painted liquid covers.
 	Water      bool
 	WaterLevel float32
+	// Info, when set, is written into the map's Map.dbc row and the server's map_template; without it
+	// a new row is a world map like the continents.
+	Info *MapInfo
 }
 
 // ExportResult says what was written.
@@ -147,6 +150,11 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		}
 	case !strings.EqualFold(existing, m.Dir):
 		return res, fmt.Errorf("map id %d is %q in the client; pick another id", m.MapID, existing)
+	}
+	if m.Info != nil {
+		if dbc, err = SetMapRowInfo(dbc, m.MapID, *m.Info); err != nil {
+			return res, err
+		}
 	}
 
 	var files []mpq.File

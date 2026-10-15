@@ -133,3 +133,56 @@ func MapRowDir(dbc []byte, mapID uint32) string {
 	}
 	return ""
 }
+
+// MapInfo is what a map made for the client says about itself besides its folder and ID: the client's
+// Map.dbc row (instance type, display name, zone, loading screen; fields checked against the 1.12 table:
+// 2 the type, 3 the PvP flag, 4 the English name, 19 the AreaTable ID, 38 the LoadingScreens ID) and the
+// server's map_template (type, zone, player limit and where a ghost goes back to its corpse).
+type MapInfo struct {
+	// Type is 0 a world map, 1 a dungeon, 2 a raid, 3 a battleground (the same in both tables).
+	Type          uint32  `json:"type"`
+	Name          string  `json:"name,omitempty"`
+	AreaID        uint32  `json:"areaId"`
+	LoadingScreen uint32  `json:"loadingScreen"`
+	MaxPlayers    uint32  `json:"maxPlayers"`
+	GhostMap      int32   `json:"ghostMap"`
+	GhostX        float32 `json:"ghostX"`
+	GhostY        float32 `json:"ghostY"`
+}
+
+// SetMapRowInfo returns Map.dbc with the row for mapID given the info's type, PvP flag (a
+// battleground's), zone, loading screen and, when set, English name (added to the string block).
+func SetMapRowInfo(dbc []byte, mapID uint32, info MapInfo) ([]byte, error) {
+	t, err := parseDBC(dbc)
+	if err != nil {
+		return nil, err
+	}
+	if t.fields < 39 || t.recSize != t.fields*4 {
+		return nil, fmt.Errorf("Map.dbc has %d fields, not the 1.12 client's 42", t.fields)
+	}
+	if info.Type > 3 {
+		return nil, fmt.Errorf("map type %d is not one of the client's (0 to 3)", info.Type)
+	}
+	r, ok := t.row(mapID)
+	if !ok {
+		return nil, fmt.Errorf("map %d is not in the map table", mapID)
+	}
+	out := append([]byte(nil), dbc...)
+	at := 20 + r*t.recSize
+	put := func(f int, v uint32) { binary.LittleEndian.PutUint32(out[at+f*4:], v) }
+	put(2, info.Type)
+	pvp := uint32(0)
+	if info.Type == 3 {
+		pvp = 1
+	}
+	put(3, pvp)
+	put(19, info.AreaID)
+	put(38, info.LoadingScreen)
+	if info.Name != "" && !strings.ContainsRune(info.Name, 0) && t.str(r, 4) != info.Name {
+		put(4, uint32(len(dbc)-t.strsAt))
+		out = append(out, info.Name...)
+		out = append(out, 0)
+		binary.LittleEndian.PutUint32(out[16:], uint32(len(out)-t.strsAt))
+	}
+	return out, nil
+}

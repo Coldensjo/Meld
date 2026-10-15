@@ -437,3 +437,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   start) is set as one value for the day rather than keyed; a new light copies the global light's params
   into a params row of its own. A params row shared by several lights is edited once for all of them (the
   dialog says so). Nothing reaches the server, which doesn't read the lights.
+
+### B-147 Map.dbc fields · the 1.12 layout, client and server
+- Chosen by the loop from Noggit Red (2026-10-15, B-147). Noggit Red's map creation wizard edits a Map.dbc
+  entry's name, directory, type, loading screen, area, corpse position and max players (its layout is a
+  later client's). In 1.12 the client's Map.dbc keeps the type (field 2), PvP flag (3), names (4 to 12),
+  zone (19) and loading screen (38), found against Molten Core's (raid, 2717, 192), Onyxia's and Warsong's
+  rows; the player limit and the ghost's corpse position live in VMaNGOS's map_template, not the client's
+  table. **Ours**: Map Properties edits all of them for a map made for the client; publish writes the
+  client's fields into Map.dbc and the server's into map_template. WMO-only maps are left for B-163.

@@ -88,3 +88,16 @@ func TestWorldDatabaseFromConfig(t *testing.T) {
 		t.Fatalf("db = %+v", db)
 	}
 }
+
+func TestTemplateSQLWithInfo(t *testing.T) {
+	plain := templateSQL(MapSpec{Dir: "Test", MapID: 1901})
+	if !strings.Contains(plain, "INSERT IGNORE") || !strings.Contains(plain, "'Test'") {
+		t.Fatalf("plain SQL = %s", plain)
+	}
+	sql := templateSQL(MapSpec{Dir: "Test", MapID: 1901, Info: &MapInfo{Type: 1, AreaID: 12, MaxPlayers: 5, GhostMap: 0, GhostX: -9000.5, GhostY: 120, Name: "Meld's Keep"}})
+	for _, want := range []string{`VALUES (1901, 0, 0, 1, 12, 5, 0, 0, -9000.5, 120, 'Meld\'s Keep', '')`, "ON DUPLICATE KEY UPDATE map_type = VALUES(map_type)"} {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("SQL %s lacks %s", sql, want)
+		}
+	}
+}

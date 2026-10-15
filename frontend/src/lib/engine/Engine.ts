@@ -45,6 +45,7 @@ import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
+import type { MapInfo } from './MapDocument'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
@@ -843,6 +844,23 @@ export class Engine {
       return null
     }
     return this.mapIds.get(m.region.mapName.toLowerCase()) ?? 0
+  }
+
+  /**
+   * Sets the open client map's own facts (Map Properties: type, name, zone, loading screen, players,
+   * ghost entrance), written on publish; one undo step.
+   */
+  setMapInfo(info: MapInfo) {
+    const ref = this.doc.meta.vmangos
+    if (!ref) return
+    const before = ref.info ? { ...ref.info } : undefined
+    const after = { ...info }
+    ref.info = after
+    this.history.push({
+      label: 'Map info',
+      undo: () => (ref.info = before ? { ...before } : undefined),
+      redo: () => (ref.info = { ...after }),
+    })
   }
 
   /** The open map's Map.dbc ID for the light editor: waits for the map table when a region needs it. */

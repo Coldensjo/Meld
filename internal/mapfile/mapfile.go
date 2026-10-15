@@ -437,4 +437,7 @@ type ClientRegion struct {
 type VmangosFolder struct {
 	Dir   string `json:"dir"`
 	MapID int    `json:"mapId"`
+	// Info is the map's own Map.dbc and map_template facts (vmangos.MapInfo's fields), kept opaque
+	// here; absent for a map that hasn't set them.
+	Info json.RawMessage `json:"info,omitempty"`
 }

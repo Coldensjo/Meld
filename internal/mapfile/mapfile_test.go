@@ -297,7 +297,7 @@ func TestRejectsGarbage(t *testing.T) {
 func TestClientLinkRoundTrip(t *testing.T) {
 	m := sample(32)
 	m.Region = &ClientRegion{MapName: "Azeroth", X: 32, Y: 48, Size: 4}
-	m.Vmangos = &VmangosFolder{Dir: "MeldTest", MapID: 1900}
+	m.Vmangos = &VmangosFolder{Dir: "MeldTest", MapID: 1900, Info: json.RawMessage(`{"type":2,"maxPlayers":40}`)}
 	m.Objects[0].UID = 12345
 	path := filepath.Join(t.TempDir(), "linked.wmap")
 	if err := Save(path, m); err != nil {
@@ -310,7 +310,7 @@ func TestClientLinkRoundTrip(t *testing.T) {
 	if got.Region == nil || *got.Region != *m.Region {
 		t.Fatalf("region link lost: %+v", got.Region)
 	}
-	if got.Vmangos == nil || *got.Vmangos != *m.Vmangos {
+	if got.Vmangos == nil || got.Vmangos.Dir != m.Vmangos.Dir || got.Vmangos.MapID != m.Vmangos.MapID || string(got.Vmangos.Info) != string(m.Vmangos.Info) {
 		t.Fatalf("server folder lost: %+v", got.Vmangos)
 	}
 	if got.Objects[0].UID != 12345 {

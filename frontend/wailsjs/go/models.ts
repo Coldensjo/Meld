@@ -126,6 +126,7 @@ export namespace mapfile {
 	export class VmangosFolder {
 	    dir: string;
 	    mapId: number;
+	    info?: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new VmangosFolder(source);
@@ -135,6 +136,7 @@ export namespace mapfile {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.dir = source["dir"];
 	        this.mapId = source["mapId"];
+	        this.info = source["info"];
 	    }
 	}
 	export class ClientRegion {
@@ -750,6 +752,20 @@ export namespace vmangos {
 	        this.spell = source["spell"];
 	    }
 	}
+	export class LoadingScreen {
+	    id: number;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LoadingScreen(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	    }
+	}
 	export class LookResult {
 	    model: string;
 	    look: string;
@@ -784,6 +800,32 @@ export namespace vmangos {
 	        this.Dir = source["Dir"];
 	        this.Type = source["Type"];
 	        this.Name = source["Name"];
+	    }
+	}
+	export class MapInfo {
+	    type: number;
+	    name?: string;
+	    areaId: number;
+	    loadingScreen: number;
+	    maxPlayers: number;
+	    ghostMap: number;
+	    ghostX: number;
+	    ghostY: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MapInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.name = source["name"];
+	        this.areaId = source["areaId"];
+	        this.loadingScreen = source["loadingScreen"];
+	        this.maxPlayers = source["maxPlayers"];
+	        this.ghostMap = source["ghostMap"];
+	        this.ghostX = source["ghostX"];
+	        this.ghostY = source["ghostY"];
 	    }
 	}
 	
@@ -917,6 +959,7 @@ export namespace vmangos {
 	    Tiles: TileSpec[];
 	    Water: boolean;
 	    WaterLevel: number;
+	    Info?: MapInfo;
 	
 	    static createFrom(source: any = {}) {
 	        return new MapSpec(source);
@@ -929,6 +972,7 @@ export namespace vmangos {
 	        this.Tiles = this.convertValues(source["Tiles"], TileSpec);
 	        this.Water = source["Water"];
 	        this.WaterLevel = source["WaterLevel"];
+	        this.Info = this.convertValues(source["Info"], MapInfo);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
