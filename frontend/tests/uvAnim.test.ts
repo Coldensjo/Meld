@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/uvAnim.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { colorAt, colorFades, colorIsStatic, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../src/lib/world/uvAnim.ts'
+import { colorAt, colorFades, colorIsStatic, sampleTrack, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../src/lib/world/uvAnim.ts'
 
 // Benilla's tex_anim.rs cases of the client's transform.
 const apply = (spec: UVAnimSpec, ms: number, u: number, v: number) => {
@@ -42,4 +42,19 @@ test("a colour's opacity is its alpha times its weight, its tint the RGB; consta
   assert.ok(!colorFades({ rgb: { t: [0], v: [0.2, 0.2, 0.2], loop: 0 } }))
   // The troll gate's hidden twin: alpha -1, drawn at no opacity.
   assert.ok(colorAt({ a: { t: [0], v: [-1], loop: 0 } }, 0, [0, 0, 0, 0])[3] <= 0)
+})
+
+test('a stepped track holds its last key from that key to the loop end', () => {
+  const tr = { t: [0, 500], v: [1, 2], loop: 1000, step: true }
+  const out = [0]
+  sampleTrack(tr, 250, 1, out)
+  assert.equal(out[0], 1)
+  sampleTrack(tr, 500, 1, out)
+  assert.equal(out[0], 2, 'at the key')
+  sampleTrack(tr, 700, 1, out)
+  assert.equal(out[0], 2, 'after the last key')
+  sampleTrack(tr, 1200, 1, out)
+  assert.equal(out[0], 1, 'the next loop starts over')
+  sampleTrack({ ...tr, step: false }, 700, 1, out)
+  assert.equal(out[0], 2, 'a lerped one too')
 })

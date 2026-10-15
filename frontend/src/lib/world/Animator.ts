@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import type { AnimBone, AnimTrack } from '../wow/api'
+import type { AnimBone } from '../wow/api'
+import { sampleTrack } from './uvAnim'
 
 const IDENTITY = new THREE.Matrix4()
 
@@ -49,28 +50,6 @@ export class ModelAnimation {
     this.skeleton = new THREE.Skeleton(list, list.map(() => new THREE.Matrix4()))
   }
 
-  /** Sample a track at time `ms` into `out` (3 or 4 components). */
-  private sample(tr: AnimTrack, ms: number, n: number, out: number[]) {
-    const times = tr.t
-    const v = tr.v
-    if (times.length === 1 || !tr.loop) {
-      for (let k = 0; k < n; k++) out[k] = v[k]
-      return
-    }
-    const t = ms % tr.loop
-    let hi = times.length - 1
-    for (let i = 0; i < times.length; i++) {
-      if (times[i] > t) {
-        hi = i
-        break
-      }
-    }
-    const lo = Math.max(0, hi - 1)
-    const span = times[hi] - times[lo]
-    const f = tr.step || span <= 0 ? 0 : Math.min(1, Math.max(0, (t - times[lo]) / span))
-    for (let k = 0; k < n; k++) out[k] = v[lo * n + k] + (v[hi * n + k] - v[lo * n + k]) * f
-  }
-
   private s3 = [0, 0, 0]
   private s4 = [0, 0, 0, 1]
 
@@ -96,15 +75,15 @@ export class ModelAnimation {
       this.tmpQ.identity()
       this.tmpS.set(1, 1, 1)
       if (bone.tr) {
-        this.sample(bone.tr, ms, 3, this.s3)
+        sampleTrack(bone.tr, ms, 3, this.s3)
         this.tmpV.fromArray(this.s3)
       }
       if (bone.rot) {
-        this.sample(bone.rot, ms, 4, this.s4)
+        sampleTrack(bone.rot, ms, 4, this.s4)
         this.tmpQ.fromArray(this.s4).normalize()
       }
       if (bone.sc) {
-        this.sample(bone.sc, ms, 3, this.s3)
+        sampleTrack(bone.sc, ms, 3, this.s3)
         this.tmpS.fromArray(this.s3)
       }
       this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS)

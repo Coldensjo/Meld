@@ -57,7 +57,10 @@ export interface UVAnimSpec {
   s?: AnimTrack
 }
 
-/** A track's value at `ms` into `out` (`n` components): keys lerped (or held for a stepped track), the time wrapped by its loop. */
+/**
+ * A track's value at `ms` into `out` (`n` components): keys lerped (or held for a stepped track), the
+ * time wrapped by its loop. Past the last key, the last key holds.
+ */
 export function sampleTrack(tr: AnimTrack, ms: number, n: number, out: number[]) {
   const times = tr.t
   const v = tr.v
@@ -66,12 +69,17 @@ export function sampleTrack(tr: AnimTrack, ms: number, n: number, out: number[])
     return
   }
   const t = ms % tr.loop
-  let hi = times.length - 1
+  // The first key later than t; none means t is at or past the last key.
+  let hi = times.length
   for (let i = 0; i < times.length; i++) {
     if (times[i] > t) {
       hi = i
       break
     }
+  }
+  if (hi === times.length) {
+    for (let k = 0; k < n; k++) out[k] = v[(hi - 1) * n + k]
+    return
   }
   const lo = Math.max(0, hi - 1)
   const span = times[hi] - times[lo]

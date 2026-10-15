@@ -66,3 +66,11 @@ test('meshes of an animated model are skinned with its skeleton; others are plai
   assert.ok(hasSkeleton(plain, null))
   assert.ok(!hasSkeleton(plain, a.skeleton))
 })
+
+test('a stepped bone track holds its last key until the loop ends', () => {
+  const bones: AnimBone[] = [{ parent: -1, pivot: [0, 0, 0], tr: { t: [0, 500], v: [0, 0, 0, 4, 0, 0], loop: 1000, step: true } }]
+  const a = new ModelAnimation(geometry(1), bones, new Uint8Array([0, 0, 0, 0]), new Uint8Array([255, 0, 0, 0]))
+  a.update(700)
+  a.skeleton.update()
+  near(a.skeleton.boneMatrices.subarray(12, 15), [4, 0, 0], 'the second key holds')
+})
