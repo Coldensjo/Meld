@@ -91,6 +91,12 @@ export interface MeshEmitter {
   inherit?: number
   /** Flag 0x4000: two (emitter speed, fraction) samples of the follow response. */
   follow?: number[]
+  /** The model each particle is drawn as instead of a quad, and its tumble range (rad/s per axis). */
+  geometry?: string
+  spinMin?: [number, number, number]
+  spinMax?: [number, number, number]
+  /** A recursion model's emitters, born at this emitter's live particles. */
+  children?: MeshEmitter[]
 }
 
 /** An M2 ribbon emitter (B-183): a trail laid behind a moving bone (Go: internal/wow/ribbons.go; world/ribbons.ts). */

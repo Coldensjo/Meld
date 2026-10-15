@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import type { AnimTrack, MeshEmitter } from '../src/lib/wow/api.ts'
-import { accumulate, blendOf, cellAt, emitLocal, fogOf, followFraction, litOf, overLife, ParticlePool, PARTICLE_FLOATS, sortQuads, SplineChain, spinAngle, VERTEX_FLOATS, type LifeSample } from '../src/lib/world/particles.ts'
+import { accumulate, blendOf, cellAt, emitLocal, fogOf, followFraction, litOf, overLife, ParticlePool, PARTICLE_FLOATS, sortQuads, SplineChain, tumble, spinAngle, VERTEX_FLOATS, type LifeSample } from '../src/lib/world/particles.ts'
 
 const k = (v: number): AnimTrack => ({ t: [0], v: [v], loop: 0 })
 
@@ -291,4 +291,42 @@ test('an alpha cloud sorts its quads back to front from the eye', () => {
   const back = sortQuads(data, data.length, 0, 0, 10, new Float32Array(data.length))
   assert.deepEqual([back[3], back[quad + 3], back[2 * quad + 3]], [1, 3, 5], 'from the other side')
   assert.equal(sortQuads(data, quad, 0, 0, 0, new Float32Array(quad)), data, 'one quad needs no order')
+})
+
+test('a recursion child is born at the live particles of its parent, in the frame of the parent', () => {
+  // A parent pouring still particles 5 yd up; its child pours at 50 a second per parent particle.
+  const child = def({ rate: k(50), params: [k(0), null, null, null, null, k(2), k(0.1), k(0.1), null] })
+  const parent = new ParticlePool(def({ rate: k(10), params: [k(0), null, null, null, null, k(10), null, null, null], children: [child], flags: 0x10 }), 3)
+  assert.equal(parent.children.length, 1)
+  assert.equal(parent.children[0].anchored, false, 'the child keeps the model space of the parent')
+  const at = new THREE.Matrix4().makeTranslation(0, 5, 0)
+  for (let i = 0; i < 10; i++) parent.step(0.1, i * 100, at, 1)
+  const c = parent.children[0]
+  assert.ok(parent.count >= 5 && c.count > parent.count, `${parent.count} parents, ${c.count} children`)
+  // Every child sits within its spawn plane (0.1 yd) of some parent particle.
+  for (let i = 0; i < c.count; i++) {
+    let near = Infinity
+    for (let p = 0; p < parent.count; p++) near = Math.min(near, Math.hypot(c.pos[i * 3] - parent.pos[p * 3], c.pos[i * 3 + 1] - parent.pos[p * 3 + 1], c.pos[i * 3 + 2] - parent.pos[p * 3 + 2]))
+    assert.ok(near < 0.2, `child ${i} is ${near} yd from every parent`)
+  }
+  const lone = new ParticlePool(child, 3)
+  lone.step(0.1, 0, at, 1)
+  assert.ok(lone.count > 0, 'on its own the same emitter pours')
+})
+
+test('a geometry particle starts in its frame and tumbles at its spin', () => {
+  const geo = def({ geometry: 'rock.m2', flags: 0x10, spinMin: [1, 0, 0], spinMax: [1, 0, 0], rate: k(10), params: [k(0), null, null, null, null, k(10), null, null, null] })
+  const pool = new ParticlePool(geo, 2)
+  pool.step(0.1, 0, new THREE.Matrix4(), 1)
+  assert.equal(pool.count, 1)
+  const q0 = new THREE.Quaternion().fromArray(pool.quat, 0)
+  const editorToWow = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)
+  assert.ok(Math.abs(q0.dot(editorToWow)) > 0.999, 'born in the spawn frame')
+  assert.deepEqual([...pool.spin.subarray(0, 3)], [1, 0, -0], 'X spin 1 rad/s, Y and Z ranges empty')
+  // One second of tumble at 1 rad/s about the body X axis.
+  const quat = Float32Array.from([0, 0, 0, 1])
+  const spin = Float32Array.from([1, 0, 0])
+  for (let i = 0; i < 10; i++) tumble(quat, spin, 0, 0.1)
+  const turned = new THREE.Quaternion().fromArray(quat, 0)
+  assert.ok(Math.abs(turned.angleTo(new THREE.Quaternion()) - 1) < 1e-4, `turned ${turned.angleTo(new THREE.Quaternion())} rad`)
 })

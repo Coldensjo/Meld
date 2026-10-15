@@ -277,3 +277,50 @@ func TestClientRibbons(t *testing.T) {
 		t.Fatalf("energy trail: %d ribbons, bone %d", len(trail.Ribbons), trail.Ribbons[0].Bone)
 	}
 }
+
+// TestClientRecursionAndGeometry reads the explosive trap's child emitters and the frostwyrm
+// waterfall's geometry particles from the client (WOW_DIR).
+func TestClientRecursionAndGeometry(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("set WOW_DIR to a WoW 1.x client to run")
+	}
+	c := NewClient()
+	if err := c.Open(dir); err != nil {
+		t.Fatal(err)
+	}
+	// The explosive trap's recursion emitters (records 3 to 6) emit only when it fires, so its idle
+	// loop drops them; resolve their recursion model directly.
+	raw, err := c.readM2(`World\Goober\G_ExplosiveTrap.m2`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := reader{raw}
+	rec := m2PathAt(r, r.u32(0x140)+3*emitterStride+0x20)
+	if rec != `Spells\ExplosiveTrap_Recursive.m2` {
+		t.Fatalf("recursion path %q", rec)
+	}
+	m := &Mesh{Emitters: []Emitter{{Recursion: rec}}}
+	c.recursionChildren(m)
+	children := m.Emitters[0].Children
+	t.Logf("%s: %d children", rec, len(children))
+	if len(children) == 0 || len(children) > 4 {
+		t.Fatal("no children from the recursion model")
+	}
+	for _, ch := range children {
+		if len(ch.Children) > 0 || ch.Recursion != "" {
+			t.Fatalf("a child keeps its own recursion: %+v", ch)
+		}
+	}
+	// DarkIronNode's geometry emitter (record 5) is idle-silent too; its path must name a model.
+	raw, err = c.readM2(`World\AZEROTH\BurningSteppes\ActiveDoodads\DarkIronNode\DarkIronNode.m2`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r = reader{raw}
+	geo := m2PathAt(r, r.u32(0x140)+5*emitterStride+0x18)
+	t.Logf("geometry %q", geo)
+	if _, err := c.readM2(geo); err != nil {
+		t.Fatalf("geometry model %q: %v", geo, err)
+	}
+}

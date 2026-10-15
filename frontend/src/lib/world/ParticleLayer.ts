@@ -3,7 +3,7 @@ import { getAsset, type ModelAsset } from '../models/assets'
 import { loadTexture } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
 import type { SpawnLayer } from './SpawnLayer'
-import { blendOf, fogOf, litOf, PARTICLE_FLOATS, ParticlePool, sortQuads, VERTEX_FLOATS, type GroundProbe, type ParticleBlend } from './particles'
+import { blendOf, fogOf, litOf, overLife, PARTICLE_FLOATS, ParticlePool, sortQuads, VERTEX_FLOATS, type GroundProbe, type LifeSample, type ParticleBlend } from './particles'
 import { RibbonTrail, ribbonBlend } from './ribbons'
 
 /**
@@ -219,6 +219,69 @@ interface Live {
   frame: THREE.Matrix4
   /** The rebuild that last saw it. */
   seen: number
+  /** The draws of the pool's recursion children, by child. */
+  childBatches: Batch[]
+  /** A geometry emitter's models, made once its model has loaded. */
+  models: ModelCloud | null
+}
+
+/** The most model particles one emitter draws, as Benilla caps them. */
+const MAX_MODEL_PARTICLES = 128
+const modelLife: LifeSample = { color: [0, 0, 0, 0], size: 0, head: 0, tail: 0 }
+const mq = new THREE.Quaternion()
+const mPos = new THREE.Vector3()
+const mScale = new THREE.Vector3()
+const mRot = new THREE.Quaternion()
+const mTint = new THREE.Color()
+const mMat = new THREE.Matrix4()
+
+/**
+ * A geometry emitter's particles drawn as its model (0x7b4840): each at its position and
+ * orientation, scaled by its over-life size and tinted by its colour. The model's own alpha is
+ * kept: the over-life alpha is not applied per instance.
+ */
+class ModelCloud {
+  readonly mesh: THREE.InstancedMesh
+
+  constructor(asset: ModelAsset) {
+    this.mesh = new THREE.InstancedMesh(asset.geometry, asset.material, MAX_MODEL_PARTICLES)
+    this.mesh.frustumCulled = false
+    this.mesh.count = 0
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  }
+
+  /** Places the pool's live particles, `m` taking the particles' frame to the world. */
+  update(pool: ParticlePool, m: THREE.Matrix4) {
+    const e = pool.def
+    const n = Math.min(pool.count, MAX_MODEL_PARTICLES)
+    const scale = e.flags & 0x20 ? Math.max(1e-4, mPos.setFromMatrixColumn(m, 0).length()) : 1
+    if (!pool.anchored) {
+      mMat.extractRotation(m)
+      mRot.setFromRotationMatrix(mMat)
+    }
+    for (let i = 0; i < n; i++) {
+      overLife(e, pool.age[i] / Math.max(pool.life[i], 1e-6), modelLife)
+      mPos.fromArray(pool.pos, i * 3)
+      mq.fromArray(pool.quat, i * 4)
+      if (!pool.anchored) {
+        mPos.applyMatrix4(m)
+        mq.premultiply(mRot)
+      }
+      mMat.compose(mPos, mq, mScale.setScalar(modelLife.size * scale))
+      this.mesh.setMatrixAt(i, mMat)
+      this.mesh.setColorAt(i, mTint.setRGB(modelLife.color[0], modelLife.color[1], modelLife.color[2], THREE.SRGBColorSpace))
+    }
+    this.mesh.count = n
+    this.mesh.visible = n > 0
+    this.mesh.instanceMatrix.needsUpdate = true
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true
+  }
+
+  dispose() {
+    this.mesh.removeFromParent()
+    // The geometry and materials belong to the asset loader.
+    this.mesh.dispose()
+  }
 }
 
 const m = new THREE.Matrix4()
@@ -266,6 +329,12 @@ export class ParticleLayer {
     this.group.name = 'particles'
   }
 
+  /** Drops every pool and trail, and the model particles they drew. */
+  private clearLive() {
+    for (const l of this.live.values()) l.models?.dispose()
+    this.live.clear()
+  }
+
   /** The draw for a look, made on first use. */
   private batchFor(look: Look): Batch {
     const key = lookKey(look)
@@ -288,8 +357,9 @@ export class ParticleLayer {
     return true
   }
 
-  private add(key: string, l: Omit<Live, 'inst' | 'seen' | 'follow'>, gen: number) {
-    this.live.set(key, { ...l, inst: m.clone(), seen: gen, follow: this.following })
+  private add(key: string, l: Omit<Live, 'inst' | 'seen' | 'follow' | 'childBatches' | 'models'>, gen: number) {
+    const childBatches = (l.pool?.children ?? []).map((c) => this.batchFor({ texture: c.def.texture, blend: blendOf(c.def), lit: litOf(c.def), fog: fogOf(c.def) }))
+    this.live.set(key, { ...l, inst: m.clone(), seen: gen, follow: this.following, childBatches, models: null })
   }
 
   /** The preview mesh the pools being made follow, while `rebuild` walks the previews. */
@@ -301,7 +371,7 @@ export class ParticleLayer {
    */
   private rebuild(layer: ObjectLayer, spawns: SpawnLayer | null) {
     if (layer !== this.layer || spawns !== this.spawns) {
-      this.live.clear()
+      this.clearLive()
       this.layer = layer
       this.spawns = spawns
     }
@@ -325,7 +395,11 @@ export class ParticleLayer {
       this.addModel(`p:${mesh.id}`, asset, gen)
     }
     this.following = null
-    for (const [key, l] of this.live) if (l.seen !== gen) this.live.delete(key)
+    for (const [key, l] of this.live) {
+      if (l.seen === gen) continue
+      l.models?.dispose()
+      this.live.delete(key)
+    }
   }
 
   /** The pools and trails of one model drawn at `m`, its owner named by `owner`. */
@@ -384,6 +458,7 @@ export class ParticleLayer {
     right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
     up.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
     for (const b of this.batches.values()) b.floats = 0
+    for (const l of this.live.values()) if (l.models) l.models.mesh.visible = false
     for (const [key, l] of this.live) {
       if (l.follow) {
         if (!shown(l.follow)) continue
@@ -402,7 +477,27 @@ export class ParticleLayer {
       if (pool) {
         // The client's emission LOD: full rate to 50 yd, down to a quarter by 87.5 yd (0x7b5550).
         pool.step(dt, ms, m, Math.min(1, Math.max(0.25, 1 - (d - 50) * 0.02)), this.ground)
-        if (!pool.count) continue
+        // The recursion children draw with their own looks, in the parent's frame.
+        for (let k = 0; k < pool.children.length; k++) {
+          const c = pool.children[k]
+          if (!c.count || !c.def.texture) continue
+          const cb = l.childBatches[k]
+          cb.reserve(c.count * PARTICLE_FLOATS)
+          cb.floats += c.expand(m, right, up, cb.data, cb.floats)
+        }
+        if (pool.geometry) {
+          if (!l.models) {
+            const model = getAsset(`m2:${pool.def.geometry}`)
+            if (model.ready) {
+              l.models = new ModelCloud(model)
+              this.group.add(l.models.mesh)
+            }
+          }
+          l.models?.update(pool, m)
+          continue
+        }
+        // A recursion parent with no texture of its own only carries its children.
+        if (!pool.count || !pool.def.texture) continue
         b.reserve(pool.count * PARTICLE_FLOATS)
         b.floats += pool.expand(m, right, up, b.data, b.floats)
       } else if (l.trail) {
@@ -417,6 +512,6 @@ export class ParticleLayer {
   dispose() {
     for (const b of this.batches.values()) b.dispose()
     this.batches.clear()
-    this.live.clear()
+    this.clearLive()
   }
 }

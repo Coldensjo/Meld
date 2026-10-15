@@ -200,8 +200,12 @@ func (c *Client) m2Mesh(path string, look *Look) (*Mesh, error) {
 		return nil, err
 	}
 	m, err := ParseM2Look(raw, path, look)
-	if err != nil || look == nil {
+	if err != nil {
 		return m, err
+	}
+	c.recursionChildren(m)
+	if look == nil {
+		return m, nil
 	}
 	for _, a := range look.Attach {
 		b, err := c.readM2(a.Model)
@@ -215,6 +219,30 @@ func (c *Client) m2Mesh(path string, look *Look) (*Mesh, error) {
 		m.Attach(a.Point, item)
 	}
 	return m, nil
+}
+
+// recursionChildren gives each of m's emitters that names a recursion model the first four
+// emitters of that model as its children (one level: a child's own recursion is dropped).
+func (c *Client) recursionChildren(m *Mesh) {
+	for i := range m.Emitters {
+		e := &m.Emitters[i]
+		if e.Recursion == "" {
+			continue
+		}
+		raw, err := c.readM2(e.Recursion)
+		if err != nil {
+			continue
+		}
+		child, err := ParseM2Look(raw, e.Recursion, nil)
+		if err != nil {
+			continue
+		}
+		for k := 0; k < len(child.Emitters) && len(e.Children) < 4; k++ {
+			ce := child.Emitters[k]
+			ce.Recursion, ce.Children = "", nil
+			e.Children = append(e.Children, ce)
+		}
+	}
 }
 
 // readM2 reads a model file. Map files and the client's tables name models ".mdx", but the

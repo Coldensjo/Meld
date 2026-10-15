@@ -431,6 +431,25 @@ const tail = new THREE.Vector3()
 const perp = new THREE.Vector3()
 const v3 = new THREE.Vector3()
 const params = new Float32Array(9)
+const childParams = new Float32Array(9)
+/** File flag 0x200 on a geometry emitter: each tumble axis's sign is random. */
+const FLAG_TUMBLE_SIGN = 0x200
+/** Takes the model's editor axes to its WoW axes: +90 degrees about X, (x, y, z) to (x, -z, y). */
+const EDITOR_TO_WOW = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)
+const birthQuat = new THREE.Quaternion()
+const rotOnly = new THREE.Matrix4()
+const spinQ = new THREE.Quaternion()
+const spinAxis = new THREE.Vector3()
+const tq = new THREE.Quaternion()
+
+/** One step of a geometry particle's tumble (0x7b28e0): a body-frame turn, skipped under 1e-4 rad/s. */
+export function tumble(quat: Float32Array, spin: Float32Array, i: number, dt: number) {
+  const wx = spin[i * 3], wy = spin[i * 3 + 1], wz = spin[i * 3 + 2]
+  const theta = Math.hypot(wx, wy, wz)
+  if (theta <= 1e-4) return
+  spinQ.setFromAxisAngle(spinAxis.set(wx / theta, wy / theta, wz / theta), theta * dt)
+  tq.fromArray(quat, i * 4).multiply(spinQ).normalize().toArray(quat, i * 4)
+}
 
 /** One emitter's live particles and emission state. */
 /** The height of the surface under a world point, or null where there is none in reach. */
@@ -460,12 +479,31 @@ export class ParticlePool implements Rng {
   readonly anchored: boolean
   private spline: SplineChain | null
 
-  constructor(def: MeshEmitter, seed: number) {
+  /**
+   * `anchored` overrides the record's own space: a recursion child keeps its particles in its
+   * parent's frame (world or the parent's spawn space).
+   */
+  constructor(def: MeshEmitter, seed: number, anchored?: boolean) {
     this.def = def
     this.rng = (seed >>> 0) | 1
-    this.anchored = (def.flags & FLAG_MODEL_SPACE) === 0
+    this.anchored = anchored ?? (def.flags & FLAG_MODEL_SPACE) === 0
     this.spline = def.shape === SHAPE_SPLINE && SplineChain.valid(def.spline) ? new SplineChain(def.spline) : null
+    // A recursion model's first four emitters, born at this pool's live particles (+0x20).
+    let childSeed = (this.rng << 7) | (this.rng >>> 25) | 1
+    this.children = (def.children ?? []).slice(0, 4).map((c) => {
+      childSeed = Math.imul(childSeed, 0x9e3779b9) | 1
+      return new ParticlePool(c, childSeed, this.anchored)
+    })
+    this.geometry = !!def.geometry
   }
+
+  /** The recursion children, stepped by this pool, each drawn with its own look. */
+  readonly children: ParticlePool[]
+  /** A geometry emitter's particles are models: each keeps an orientation and a tumble. */
+  readonly geometry: boolean
+  /** Per particle, for a geometry emitter: its orientation (x y z w, in the particles' frame) and spin (rad/s, body axes). */
+  quat = new Float32Array(0)
+  spin = new Float32Array(0)
 
   private grow(n: number) {
     if (n <= this.age.length) return
@@ -485,6 +523,10 @@ export class ParticlePool implements Rng {
     const fr = new Uint8Array(cap)
     fr.set(this.fresh)
     this.fresh = fr
+    if (this.geometry) {
+      this.quat = f(this.quat, 4)
+      this.spin = f(this.spin, 3)
+    }
   }
 
   /**
@@ -556,14 +598,15 @@ export class ParticlePool implements Rng {
         this.move(--n, i)
         continue
       }
+      if (this.geometry) tumble(this.quat, this.spin, i, dt)
       i++
     }
     this.count = n
 
     const burst = (e.flags & FLAG_BURST) !== 0
     accumulate(burst, rateAt(e, ms), emitting(e, ms), lod, dt, this)
-    if (this.acc < 1) return
     m3.setFromMatrix4(m)
+    if (this.geometry && this.anchored) birthQuat.setFromRotationMatrix(rotOnly.extractRotation(m)).multiply(EDITOR_TO_WOW)
     while (this.acc >= 1 && this.count < MAX_PARTICLES) {
       this.acc -= 1
       this.grow(this.count + 1)
@@ -588,6 +631,7 @@ export class ParticlePool implements Rng {
       }
       const i = this.count++
       this.fresh[i] = 1
+      if (this.geometry) this.birthTumble(i)
       bPos.toArray(this.pos, i * 3)
       bDir.toArray(this.vel, i * 3)
       // Births of one frame start a little apart, so a stream does not come out in clumps.
@@ -596,6 +640,101 @@ export class ParticlePool implements Rng {
       this.phase[i] = nextU32(this)
     }
     // A full pool owes no backlog: the client's would pour out all at once as particles die.
+    if (this.count >= MAX_PARTICLES) this.acc = Math.min(this.acc, 1)
+    for (const c of this.children) c.driveFrom(this, dt, ms, m, lod)
+  }
+
+  /**
+   * A geometry particle's birth orientation and tumble (0x7b2420): the emitter's frame (the model's
+   * editor axes turned to its WoW axes), and a spin whose X is min + u * range but whose Y and Z are
+   * a [1, 2) mantissa times the range, as the client rolls them; flag 0x200 flips each axis's sign
+   * with probability one half.
+   */
+  private birthTumble(i: number) {
+    const e = this.def
+    const lo = e.spinMin ?? [0, 0, 0]
+    const hi = e.spinMax ?? [0, 0, 0]
+    const w = [lo[0] + rand01(this) * (hi[0] - lo[0]), (1 + rand01(this)) * (hi[1] - lo[1]), (1 + rand01(this)) * (hi[2] - lo[2])]
+    if (e.flags & FLAG_TUMBLE_SIGN) for (let k = 0; k < 3; k++) if ((nextU32(this) & 1) === 0) w[k] = -w[k]
+    const q = this.anchored ? birthQuat : EDITOR_TO_WOW
+    this.quat[i * 4] = q.x
+    this.quat[i * 4 + 1] = q.y
+    this.quat[i * 4 + 2] = q.z
+    this.quat[i * 4 + 3] = q.w
+    // Spin about the body's WoW axes, in the model's editor axes: (x, z, -y).
+    this.spin[i * 3] = w[0]
+    this.spin[i * 3 + 1] = w[2]
+    this.spin[i * 3 + 2] = -w[1]
+  }
+
+  /**
+   * Steps a recursion child (0x7b5b9f): its own particles age and move, and its rate is owed once
+   * per live particle of `parent`, each birth landing at that particle with the child's spawn
+   * offset and velocity turned by the parent's frame (none in model space); child flag 0x40 adds
+   * (1 + S11 * speed variation) of the parent particle's velocity. A child never emits on its own.
+   */
+  private driveFrom(parent: ParticlePool, dt: number, ms: number, m: THREE.Matrix4, lod: number) {
+    const e = this.def
+    const now = sampleParams(e, ms, childParams)
+    const g = now[GRAVITY]
+    const drag = Math.min(dt * e.drag, 1)
+    const up = this.anchored ? 1 : 2
+    const { pos, vel, age } = this
+    let n = this.count
+    for (let i = 0; i < n; ) {
+      age[i] += dt
+      if (age[i] >= this.life[i]) {
+        this.move(--n, i)
+        continue
+      }
+      const o = i * 3
+      pos[o] += vel[o] * dt
+      pos[o + 1] += vel[o + 1] * dt
+      pos[o + 2] += vel[o + 2] * dt
+      pos[o + up] -= 0.5 * g * dt * dt
+      vel[o + up] -= g * dt
+      if (e.drag !== 0) {
+        vel[o] -= drag * vel[o]
+        vel[o + 1] -= drag * vel[o + 1]
+        vel[o + 2] -= drag * vel[o + 2]
+      }
+      i++
+    }
+    this.count = n
+    const burst = (e.flags & FLAG_BURST) !== 0
+    const rate = rateAt(e, ms)
+    const on = emitting(e, ms)
+    m3.setFromMatrix4(m)
+    for (let p = 0; p < parent.count; p++) {
+      accumulate(burst, rate, on, lod, dt, this)
+      while (this.acc >= 1 && this.count < MAX_PARTICLES) {
+        this.acc -= 1
+        this.grow(this.count + 1)
+        emitLocal(e, now, this, this.spline, bPos, bDir)
+        bDir.multiplyScalar(now[SPEED] * (1 + now[SPEED_VAR] * randS11(this)))
+        if (this.anchored) {
+          bPos.applyMatrix3(m3)
+          bDir.applyMatrix3(m3)
+        }
+        const po = p * 3
+        bPos.x += parent.pos[po]
+        bPos.y += parent.pos[po + 1]
+        bPos.z += parent.pos[po + 2]
+        if (e.flags & FLAG_INHERIT) {
+          const k = 1 + now[SPEED_VAR] * randS11(this)
+          bDir.x += k * parent.vel[po]
+          bDir.y += k * parent.vel[po + 1]
+          bDir.z += k * parent.vel[po + 2]
+        }
+        const i = this.count++
+        this.fresh[i] = 1
+        bPos.toArray(this.pos, i * 3)
+        bDir.toArray(this.vel, i * 3)
+        this.age[i] = burst ? 0 : rand01(this) * Math.min(dt, 0.1)
+        this.life[i] = now[LIFESPAN]
+        this.phase[i] = nextU32(this)
+      }
+    }
     if (this.count >= MAX_PARTICLES) this.acc = Math.min(this.acc, 1)
   }
 
@@ -609,6 +748,10 @@ export class ParticlePool implements Rng {
     this.life[to] = this.life[from]
     this.phase[to] = this.phase[from]
     this.fresh[to] = this.fresh[from]
+    if (this.geometry) {
+      for (let k = 0; k < 4; k++) this.quat[to * 4 + k] = this.quat[from * 4 + k]
+      for (let k = 0; k < 3; k++) this.spin[to * 3 + k] = this.spin[from * 3 + k]
+    }
   }
 
   /** Drops every particle. */

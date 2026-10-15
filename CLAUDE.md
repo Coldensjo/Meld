@@ -507,8 +507,7 @@ cd frontend && pnpm build   # frontend only
   frozen otherwise, and draws one dynamic mesh per texture, blend, lighting and fog. View › Particles
   (`prefs.particles`); with it on, `PropEffects` draws no procedural flame on a model that has
   emitters (its fire effects only light). With animations off the tracks hold at time 0 but the
-  particles still fly. Not ported: geometry-model and recursion particles, ground snap, following or
-  inheriting the emitter's motion, spawns' and previews' particles (#110).
+  particles still fly. Spawns and the tools' previews run particles too (#110); a geometry emitter draws each particle as its model (`ModelCloud`, tumbling), a recursion emitter drives up to four child emitters of another model at its particles, and alpha draws are sorted back to front (#118). In 1.12's world models the geometry and recursion emitters are silent in the idle loop the editor plays.
 - **Ribbons** (B-183, Benilla's `ribbons.rs`): `parseRibbons` (`internal/wow/ribbons.go`, header
   `ribbons`) reads the 0xDC records the same way (colour, alpha, heights and gate baked by
   `bakeTrack`, which takes n components). `world/ribbons.ts` (`RibbonTrail`) lays edges spanning the

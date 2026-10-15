@@ -1,6 +1,9 @@
 package wow
 
-import "math"
+import (
+	"math"
+	"strings"
+)
 
 // Emitter is one M2 particle emitter (B-182), read as the client reads a vanilla record (0x1F8 bytes,
 // the array at MD20+0x13C), after Benilla's benilla-formats particles.rs (MIT/Apache), which cites the
@@ -45,6 +48,29 @@ type Emitter struct {
 	// is the flag-0x4000 response: two (emitter speed, fraction) samples (+0x1C4..+0x1D0).
 	Inherit float32    `json:"inherit,omitempty"`
 	Follow  [4]float32 `json:"follow"`
+	// Geometry is the model each particle is drawn as instead of a quad (+0x18), with its tumble:
+	// the spin range per axis (+0x19C min, +0x1A8 max, rad/s). "" for a quad emitter.
+	Geometry string     `json:"geometry,omitempty"`
+	SpinMin  [3]float32 `json:"spinMin"`
+	SpinMax  [3]float32 `json:"spinMax"`
+	// Recursion names the model whose emitters (the first four) run as children of this one, born
+	// at its live particles (+0x20); Children holds them once the client has read that model.
+	Recursion string    `json:"-"`
+	Children  []Emitter `json:"children,omitempty"`
+}
+
+// m2PathAt reads an emitter's model path (an M2Array<char> at o), the client's ".mdx" named ".m2"
+// as the archives store it; "" for none.
+func m2PathAt(r reader, o int) string {
+	n, ofs := r.u32(o), r.u32(o+4)
+	if n <= 1 || ofs <= 0 || ofs+n > len(r.b) {
+		return ""
+	}
+	name := r.cstr(ofs, n)
+	if l := strings.ToLower(name); strings.HasSuffix(l, ".mdx") || strings.HasSuffix(l, ".mdl") {
+		name = name[:len(name)-4] + ".m2"
+	}
+	return name
 }
 
 const (
@@ -204,15 +230,15 @@ func parseEmitters(r reader, textures []string, bones bool, w seqWindow) []Emitt
 	var out []Emitter
 	for i := 0; i < n && len(out) < maxEmitters; i++ {
 		e := ofs + i*emitterStride
-		// A geometry model's particles are small models, not quads: not drawn yet.
-		if r.u32(e+0x18) > 1 {
-			continue
-		}
+		geometry := m2PathAt(r, e+0x18)
 		tex := ""
 		if ti := r.u16(e + 0x16); ti < len(textures) {
 			tex = textures[ti]
 		}
-		if tex == "" {
+		// A quad needs a texture; a geometry model brings its own, and a recursion parent's particles
+		// carry its children even when they draw nothing themselves.
+		recursion := m2PathAt(r, e+0x20)
+		if tex == "" && geometry == "" && recursion == "" {
 			continue
 		}
 		em := Emitter{
@@ -238,6 +264,10 @@ func parseEmitters(r reader, textures []string, bones bool, w seqWindow) []Emitt
 			TailCells: [4]int{r.u16(e + 0x174), r.u16(e + 0x176), r.u16(e + 0x178), r.u16(e + 0x17A)},
 			Repeat:    [2]float32{float32(r.u16(e + 0x16C)), float32(r.u16(e + 0x172))},
 			Inherit:   r.f32(e + 0x190),
+			Geometry:  geometry,
+			SpinMin:   [3]float32{r.f32(e + 0x19C), r.f32(e + 0x1A0), r.f32(e + 0x1A4)},
+			SpinMax:   [3]float32{r.f32(e + 0x1A8), r.f32(e + 0x1AC), r.f32(e + 0x1B0)},
+			Recursion: recursion,
 			Follow:    [4]float32{r.f32(e + 0x1C4), r.f32(e + 0x1C8), r.f32(e + 0x1CC), r.f32(e + 0x1D0)},
 		}
 		// The atlas: both counts powers of two, else the client keeps its 1x1 (0x7b4ed0).
