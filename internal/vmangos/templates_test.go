@@ -73,7 +73,7 @@ func TestCreateCreatureSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(sql, "VALUES (18200, 0, 'Grub', 1, 1, 14, 1, 100, 100);") {
+	if !strings.Contains(sql, "`unit_class`, `faction`") || !strings.Contains(sql, "VALUES (18200, 0, 'Grub', 1, 1, 1, 14, 1, 100, 100);") {
 		t.Fatalf("from scratch: %s", sql)
 	}
 	sql, err = createCreatureSQL(cols, 18200, 68, "Guard copy")
@@ -91,6 +91,18 @@ func TestCreateCreatureSQL(t *testing.T) {
 	}
 	if _, err := createCreatureSQL(cols, 1, 0, strings.Repeat("x", 101)); err == nil {
 		t.Fatal("a name over 100 characters must be refused")
+	}
+}
+
+func TestUnitClassAllowed(t *testing.T) {
+	classes := []string{"1", "2", "8"}
+	if err := unitClassAllowed(" 8", classes); err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range []string{"0", "4", ""} {
+		if unitClassAllowed(v, classes) == nil {
+			t.Errorf("class %q must be refused", v)
+		}
 	}
 }
 

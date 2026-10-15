@@ -217,6 +217,11 @@ func SaveCreature(serverRoot string, entry, patch int, values map[string]string)
 	if err != nil {
 		return "", err
 	}
+	if v, ok := values["unit_class"]; ok {
+		if err := checkUnitClass(db, v); err != nil {
+			return "", err
+		}
+	}
 	sql, err := creatureUpdateSQL(cols, entry, patch, values)
 	if err != nil || sql == "" {
 		return sql, err
@@ -224,9 +229,32 @@ func SaveCreature(serverRoot string, entry, patch int, values map[string]string)
 	return sql, runScript(db, sql)
 }
 
+// checkUnitClass refuses a creature class the server has no creature_classlevelstats rows for:
+// mangosd stops at startup on a template that uses one.
+func checkUnitClass(db worldDB, v string) error {
+	raw, err := runSQL(db, "SELECT DISTINCT `class` FROM `creature_classlevelstats` ORDER BY `class`")
+	if err != nil {
+		return err
+	}
+	return unitClassAllowed(v, strings.Fields(string(raw)))
+}
+
+// unitClassAllowed says whether class v is one of classes.
+func unitClassAllowed(v string, classes []string) error {
+	v = strings.TrimSpace(v)
+	for _, c := range classes {
+		if c == v {
+			return nil
+		}
+	}
+	return fmt.Errorf("unit_class %s has no class level stats on the server, which would stop it from starting: use one of %s",
+		v, strings.Join(classes, ", "))
+}
+
 // CreateCreature adds a creature template named name under the first free entry and returns the
 // entry. It copies template base (its newest patch) when base is not 0, else it starts from the
-// table's defaults: level 1, hostile to everyone (faction 14), no display.
+// table's defaults: level 1, a warrior (class 1: the server has no stats for class 0, the column's
+// default), hostile to everyone (faction 14), no display.
 func CreateCreature(serverRoot string, base int, name string) (int, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -266,8 +294,8 @@ func createCreatureSQL(cols []TemplateColumn, entry, base int, name string) (str
 		return "", errors.New("the name is longer than 100 characters")
 	}
 	if base == 0 {
-		return fmt.Sprintf("INSERT INTO `creature_template` (`entry`, `patch`, `name`, `level_min`, `level_max`, `faction`, `display_scale1`, "+
-			"`display_probability1`, `display_total_probability`) VALUES (%d, 0, %s, 1, 1, 14, 1, 100, 100);", entry, nameCol), nil
+		return fmt.Sprintf("INSERT INTO `creature_template` (`entry`, `patch`, `name`, `level_min`, `level_max`, `unit_class`, `faction`, "+
+			"`display_scale1`, `display_probability1`, `display_total_probability`) VALUES (%d, 0, %s, 1, 1, 1, 14, 1, 100, 100);", entry, nameCol), nil
 	}
 	names := []string{"`entry`", "`patch`"}
 	sel := []string{strconv.Itoa(entry), "0"}
