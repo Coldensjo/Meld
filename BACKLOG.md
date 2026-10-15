@@ -15,7 +15,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Bugs and broken things (always first)
 
-- [ ] B-180 **The key light isn't aimed with Shadows off**: only the shadow fit (`Environment.fitCascade`) places the key light, so with Shadows off the props' sun stays straight overhead whatever the hour · Source: loop: B-166 · M/S
+- [x] B-180 **The key light isn't aimed with Shadows off**: only the shadow fit (`Environment.fitCascade`) places the key light, so with Shadows off the props' sun stays straight overhead whatever the hour · Source: loop: B-166 · M/S · done 2026-10-15
 - [x] B-177 **Ground effect slots name the wrong models**: Meld matched a GroundEffectTexture slot against GroundEffectDoodad's row ID, where the client uses its internal ID (one less), so the tuft preview grew the neighbouring row's model and a new effect was written with IDs the client read as other models (and its empty slots as 0, ElwFlo01) · Source: loop: B-172 · H/S · done 2026-10-15
 - [x] B-118 **Re-home what the dropped dock panels did** · Source: owner · M/S · decided and done 2026-10-15: growing a region is File › Grow region (four actions); Save Spawns to Database and Export Spawn SQL are File actions with the unsaved count as a status bar chip; the placement numbers are a floating Inspector on the I key; no spawn list (the creature editor opens from a click); the region's facts stay in Map Properties
 

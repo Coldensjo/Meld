@@ -832,6 +832,7 @@ export class Engine {
     else floor.color.setRGB(0.05 * light, 0.042 * light, 0.035 * light)
 
     if (env.key.castShadow) this.fitShadows()
+    else env.aimKey(this.camera.position)
   }
 
   /** View › Client Lighting: the client's lights of the open map, which map they are, and the light at the camera. */

@@ -415,6 +415,16 @@ export class Environment {
     return this.fitCascade(this.cascades[1], farCenter, farExtent)
   }
 
+  /**
+   * Points the key light along `state.keyDir` at `center` when it casts no shadow (the shadow fit
+   * places it otherwise), so props are lit from the sun's side at every hour.
+   */
+  aimKey(center: THREE.Vector3) {
+    this.key.target.position.copy(center)
+    this.key.position.copy(center).add(this.state.keyDir)
+    this.key.target.updateMatrixWorld()
+  }
+
   /** Fits one cascade's orthographic shadow camera; true when its centre, size or direction moved. */
   private fitCascade(c: Cascade, center: THREE.Vector3, extent: number): boolean {
     const { light } = c
