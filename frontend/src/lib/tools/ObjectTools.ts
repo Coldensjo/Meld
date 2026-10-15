@@ -329,7 +329,11 @@ interface Cell {
  * pasting, the floating clip follows the cursor and a click drops it.
  */
 export class SelectTool implements Tool {
-  readonly usesBrush = false
+  get usesBrush() {
+    return editor.selectBrush
+  }
+  /** A selection brush stroke: the selection it builds, and whether it takes models out. */
+  private brushing: { remove: boolean; ids: Set<number> } | null = null
   private normal = { x: 0, y: 1, z: 0 }
   /** Dragging the selection: `lead` is the clicked model; `others` keep their world offset from it. */
   private dragging: {
@@ -479,12 +483,48 @@ export class SelectTool implements Tool {
     }
     const at = this.groundPoint(ctx, hit)
     if (!at) return
+    if (editor.selectBrush) {
+      // A plain stroke starts a new selection; Shift adds to the one there is, Ctrl takes models out.
+      this.brushing = { remove: e.ctrlKey, ids: new Set(e.shiftKey || e.ctrlKey ? editor.selectedIds : []) }
+      if (!e.shiftKey && !e.ctrlKey) editor.selection = null
+      this.brushAt(ctx, at)
+      return
+    }
     if (!e.shiftKey) selectObjects(ctx.objects, [])
     this.rectStart = this.cell(ctx, at)
     editor.selection = { x0: this.rectStart.x, z0: this.rectStart.z, x1: this.rectStart.x, z1: this.rectStart.z }
   }
 
   private solidHit = new THREE.Vector3()
+
+  /**
+   * The selection brush at `at`: every drawn model whose place is within the brush radius joins the
+   * stroke's selection (or leaves it, with Ctrl), as Noggit Red's `range_add_to_selection`.
+   */
+  private brushAt(ctx: ToolContext, at: THREE.Vector3) {
+    const b = this.brushing
+    if (!b) return
+    const r2 = editor.brush.radius * editor.brush.radius
+    let changed = b.ids.size === 0 && editor.selectedIds.length > 0
+    for (const o of ctx.objects.objects.values()) {
+      if (ctx.objects.isHidden(o.id)) continue
+      let x = o.x
+      let z = o.z
+      if (o.parent !== undefined) {
+        const p = ctx.objects.worldPlacement(o).pos
+        x = p.x
+        z = p.z
+      }
+      if ((x - at.x) ** 2 + (z - at.z) ** 2 > r2) continue
+      if (b.remove) {
+        if (b.ids.delete(o.id)) changed = true
+      } else if (!b.ids.has(o.id)) {
+        b.ids.add(o.id)
+        changed = true
+      }
+    }
+    if (changed) selectObjects(ctx.objects, b.ids, editor.selected?.id)
+  }
 
   /**
    * The ground under the cursor for an area selection: the terrain hit, or, where the cursor is over
@@ -593,6 +633,11 @@ export class SelectTool implements Tool {
       sd.moved = true
       return
     }
+    if (this.brushing) {
+      const at = this.groundPoint(ctx, hit)
+      if (at) this.brushAt(ctx, at)
+      return
+    }
     if (this.rectStart) {
       const at = this.groundPoint(ctx, hit)
       if (!at) return
@@ -655,6 +700,10 @@ export class SelectTool implements Tool {
 
   onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
     this.walls.onUp(ctx)
+    if (this.brushing) {
+      this.brushing = null
+      return
+    }
     const pd = this.pointDrag
     this.pointDrag = null
     if (pd) {

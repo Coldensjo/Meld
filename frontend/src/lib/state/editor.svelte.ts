@@ -167,6 +167,11 @@ export const editor = $state({
   moveSnapGroup: false,
   /** Dragging a model along the ground tilts it to the ground's slope; smooth blends the slope over a cell each way. */
   followGround: false,
+  /**
+   * The Select tool's selection brush (Noggit Red's): a drag on the ground selects the models under the
+   * brush instead of an area. Shift adds to the selection, Ctrl takes models out of it.
+   */
+  selectBrush: false,
   followGroundSmooth: true,
   /** Extra height above the surface for new placements (PgUp / PgDn in the Place tool). */
   placeHeight: 0,

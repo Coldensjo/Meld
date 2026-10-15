@@ -318,6 +318,13 @@
       <button onclick={() => engineRef.current?.cancelPaste()}>Cancel <kbd>Esc</kbd></button>
     {:else}
       {@const count = editor.selectedIds.length}
+      <div class="seg" title="What a drag on the ground selects">
+        <button class:active={!editor.selectBrush} onclick={() => (editor.selectBrush = false)} title="Drag a rectangle: the area and the models in it">Area</button>
+        <button class:active={editor.selectBrush} onclick={() => (editor.selectBrush = true)} title="Brush over the models to select them: Shift adds to the selection, Ctrl takes models out">Brush</button>
+      </div>
+      {#if editor.selectBrush}
+        <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={MAX_BRUSH_RADIUS} step={0.5} digits={1} title="Selection brush radius ( [ / ] )" />
+      {/if}
       {#if editor.selected && count <= 1}
         <span class="chip"><span class="dim">Selected:</span> {displayName(editor.selected.type)}</span>
         <label class="check" title="Dragging the model moves it along the ground (and onto buildings) under the cursor; off, it slides across a level plane at its own height"><input type="checkbox" bind:checked={editor.moveFollowCursor} /> Follow cursor on the ground</label>
