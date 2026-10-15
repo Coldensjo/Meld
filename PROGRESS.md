@@ -462,3 +462,12 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-158 Draw selection groups
 - Done: with grouped models selected, each of their selection groups gets a yellow box around all its members (the union of their boxes, drawn over everything; `GroupBoxes` in `world/ModelBoxes.ts`), rebuilt only when the selection, the models, the ground or the history moves, with nothing looked at or allocated on other frames. The Inspector says the selection is grouped (how many groups, of how many models) with Ungroup, or offers Group for an ungrouped selection of several; it re-reads the groups on every history change.
 - Verified: make test passed (Go plus 214 of 214 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+
+## 2026-10-15 · backlog tidy (6th run)
+- Removed the items finished in this run (B-051, B-148, B-128, B-141, B-134, B-126, B-038, B-158), as earlier tidies did; PROGRESS.md, IDEAS.md and noggit-red-feature-gap.md keep their record. B-051 was the owner's item in the sense that its scope was the owner's decision; it is done as decided.
+- Parked B-070 (reset camera roll): Meld's camera has no roll.
+- No duplicates found. New line from this run: B-161 (sound and music pickers in the zone editor, from B-148).
+
+## 2026-10-15 · stopped (6th run)
+- Stopped: 8 items were done in this run (B-051, B-148, B-128, B-141, B-134, B-126, B-038, B-158), which is the cap. It followed the owner's approval round in plan mode, and the new LOOP.md rule to go on with value L items.
+- Next top item: B-149 Light editor needs B-084 (client lighting data) first, so B-084 (L/L, approved) is the next client-data item; by DESIGN.md order the next small ones are B-159 brush image on the cursor and B-119 by-slope base restore (core authoring, L/S).

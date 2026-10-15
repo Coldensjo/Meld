@@ -30,7 +30,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-119 **By-slope painting: restore the base on ground that flattens again**: lowering a hill leaves its rock painted; an option to paint the base role back under the dirt angle · Source: loop: B-111 · L/S · off by default, since it would erase roads and details under the brush
 - [ ] B-159 **Brush image on the cursor**: the brush ring shows the image brush's shape and turn, so a stroke can be aimed · Source: loop: B-131 · L/S
 - [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · builds on B-131 · approved by the owner 2026-10-15, decided in IDEAS.md
-- [x] B-134 **Remove empty texture layers** across the map: drop a chunk's layer whose weight is zero everywhere · gap §2 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-135 **Alphamap image export and import**: a texture's weights as an image, read back into a chosen texture · gap §9 · L/M
 - [ ] B-136 **Heightmap import modes**: Set, Add, Subtract and Multiply, with a min and max height, as Noggit Red's importer · gap §9 · L/S
 
@@ -47,12 +46,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Objects (props)
 
-- [x] B-126 **Area paste: mirror and height modes**: noggit's chunk mover also mirrors the copied chunks and lays the heights in as min, max, add or subtract over the target; Meld's paste has the quarter turn, offset and blend only · Source: loop: B-006 · L/S · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-128 **Area copy and paste carries the chunks' zones and flags**: the area clipboard copies heights, holes, paint, liquids and models, but not the zone, impassable flag or no-tuft cells of the chunks it covers · Source: loop: B-054 · L/S · done 2026-10-15 (PROGRESS.md)
-- [x] B-158 **Draw selection groups**: a selected group's box around all its members, and the Inspector saying a model is grouped, as Noggit Red draws its groups · Source: loop: B-138 · L/S · done 2026-10-15 (PROGRESS.md)
-- [x] B-038 **Bounding box display**, one box per model · gap §4 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M
-- [x] B-141 **Snap selected to ground** (Page Down): set the selected roots' height offset to the ground · gap §4 · L/S · unverified whether a one-key drop is missing · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M
 - [ ] B-143 **Three-axis gizmo**: move arrows on each axis and scale handles, in world or local space · gap §4 · L/M
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
@@ -60,14 +54,12 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 ## Map, client and server
 
 - [ ] B-050 **Chunk streaming** or at least tile-level load and save for large maps · gap §5 & priority 3 · H/L · needs-approval (large) · on the back burner by the owner's decision 2026-10-15: not now; when it comes, as a second document kind beside the block editor (see PROGRESS.md 2026-10-15 B-118 entry)
-- [x] B-051 **Tile-level save: export only the changed tiles**: Export to Client and the region save write only the tiles whose bytes changed since the last export (a hash per tile kept in the user's cache dir); the `.wmap` stays one file · gap §5 · H/M · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md)
 - [x] B-056 **Holes tool** for caves · gap §5 · M/M · done: Sculpt › Hole cuts and fills triangles, holes are in the `.wmap` (version 3) and in the clipboard, with wall handles; not yet exported to client tiles (see CLAUDE.md)
 - [x] B-113 **Grow a region by a tile**: a plus on each side of the open block in the Map panel opens the block one tile bigger (square, so a row or column comes along) · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session) · no longer reachable since B-115 dropped the Map panel; see B-118
 - [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as Noggit Red's Minimap Editor does (with a resolution, what to draw, and model filters), so the in-game minimap shows the edited ground · Source: loop: B-059, gap §5 · L/L · a client write, checked against the client's own reader
 - [ ] B-147 **More Map.dbc fields for a new map** (instance type, loading screen, area, corpse position, max players) and WMO-only maps, as Noggit Red's map creation wizard · gap §5 · L/M
-- [x] B-148 **Zone editor**: create zones and subzones and edit an AreaTable row (name, parent, level, faction, flags, sounds, music, liquid), written to the client's DBC · gap §11 · M/L · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md)
 - [ ] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · after B-084 · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-150 **Area trigger display and editor**: the map's AreaTrigger.dbc boxes and spheres, added, moved and resized · gap §11 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-151 **New ground effect sets**, and applying an effect per zone, subzone or tile rather than per map · gap §11 · L/M · approved by the owner 2026-10-15, decided in IDEAS.md
@@ -76,7 +68,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 ## Navigation, view and display
 
 - [ ] B-127 **Group gizmo arrow in the top-down view**: the height arrow can't be dragged while top-down, since its drag plane is edge-on to the straight-down ray; a screen-space drag (pixels to height) would work in both views · Source: loop: B-072 · L/S
-- [ ] B-070 **Reset camera roll** (End) · gap §6 · L/S
 - [ ] B-071 **Locked cursor mode** while the camera moves · gap §6 · L/S
 - [ ] B-073 **Pause and speed keys for the day cycle** (Noggit Red: N faster, B slower, J pause) · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M · Noggit Red's FPS camera stays 3 yards above the ground, so it walks the map as a player would
@@ -121,3 +112,4 @@ Items moved here by the owner decisions in IDEAS.md, with the reason.
 - B-033 **Selective paste**: noggit3 has no per-field paste, only one copy option for rotation, tilt and scale together.
 - B-058 **Vertex colour editor** and B-083 **Vertex colour display**: vertex colours (MCCV) arrived after 1.12, and the owner wants no feature beyond the 1.12 client (2026-10-15).
 - B-009 **Terrain-projected and sphere cursor shapes**: Noggit Red dropped noggit3's cursor switcher and draws a circle (or the stamp image), so there is no parity to reach.
+- B-070 **Reset camera roll** (End): Meld's camera has only yaw and pitch, so there is no roll to reset (parked by the loop 2026-10-15; Noggit Red keeps a roll it only sets through a camera reset).
