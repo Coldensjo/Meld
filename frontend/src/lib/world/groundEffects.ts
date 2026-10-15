@@ -131,7 +131,7 @@ export function coverCells(boxes: readonly CoverBox[], cellSize: number, cells: 
 }
 
 /**
- * The no-doodad bits of paint chunk (gx, gz) of a `cells`-a-side map from a per-cell map: one byte
+ * The no-doodad bits (or the hole cells) of paint chunk (gx, gz) of a `cells`-a-side map from a per-cell map: one byte
  * per cell row, bit n for cell n, as the tile's header holds them; null when none is set.
  */
 export function chunkNoEffect(blocked: Uint8Array, cells: number, gx: number, gz: number): number[] | null {

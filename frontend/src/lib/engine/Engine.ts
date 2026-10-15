@@ -39,7 +39,7 @@ import { PropEffects } from '../world/PropEffects'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
-import { countHoles, fillHoles } from '../terrain/holes'
+import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
@@ -1340,6 +1340,7 @@ export class Engine {
       noEffect: blockedCells(t, this.objects, new Uint8Array(t.size * t.size)),
       // A map saved before the file kept chunk data has none of its own, so the client's stays.
       headers: this.doc.chunkDataKnown ? { areaIds: t.areaIds, chunkFlags: t.chunkFlags } : undefined,
+      holes: t.holes,
       objects,
       waterEnabled: editor.waterEnabled,
       waterLevel: editor.waterLevel,
@@ -1809,14 +1810,16 @@ export class Engine {
     }
     const t = this.terrain
     const stroke = new TerrainStroke(t, hole ? 'Cut hole' : 'Fill hole', { holes: true })
-    stroke.reserveHoles({ x0: s.x0, z0: s.z0, x1: s.x1 - 1, z1: s.z1 - 1 })
-    const n = fillHoles(t.holes, t.size, s.x0, s.z0, s.x1, s.z1, hole ? 1 : 0)
+    // Whole 2x2-cell blocks, as the client keeps holes: the area grows out to the blocks it touches.
+    const r = snapToBlocks({ x0: s.x0, z0: s.z0, x1: s.x1 - 1, z1: s.z1 - 1 }, t.size)
+    stroke.reserveHoles(r)
+    const n = fillHoles(t.holes, t.size, r.x0, r.z0, r.x1 + 1, r.z1 + 1, hole ? 1 : 0)
     if (!n) {
       setStatus(hole ? 'That area is already a hole.' : 'There is no hole in that area.')
       return
     }
-    stroke.touchHoles({ x0: s.x0, z0: s.z0, x1: s.x1 - 1, z1: s.z1 - 1 })
-    t.markDirty(s.x0, s.z0, s.x1, s.z1)
+    stroke.touchHoles(r)
+    t.markDirty(r.x0, r.z0, r.x1 + 1, r.z1 + 1)
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
     this.refreshSelectionArea()

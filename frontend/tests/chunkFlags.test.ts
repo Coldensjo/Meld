@@ -81,6 +81,17 @@ test('the header carries every chunk’s no-tuft rows, zeros included, so a clea
   assert.deepEqual(h[0].noEffect, [0, 0, 0, 0, 0, 0, 0, 0])
 })
 
+test('the header carries every chunk’s hole cells, which Go turns into blocks', () => {
+  const inp = input(true)
+  inp.holes = new Uint8Array(128 * 128)
+  // Cells (8, 8) and (9, 8) are in chunk (1, 1), row 0.
+  inp.holes[8 * 128 + 8] = 1
+  inp.holes[8 * 128 + 9] = 1
+  const h = mapToTiles(inp).tiles[0].Headers!
+  assert.deepEqual(h[17].holes, [3, 0, 0, 0, 0, 0, 0, 0])
+  assert.deepEqual(h[16].holes, [0, 0, 0, 0, 0, 0, 0, 0])
+})
+
 test('a map without chunk data sends no headers, which keeps the tile’s own', () => {
   assert.equal(mapToTiles(input(false)).tiles[0].Headers, undefined)
 })

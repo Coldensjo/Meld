@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
-import { HOLE_CELL, HOLE_NONE, bandOf, findWalls, type Wall } from '../terrain/holes'
+import { HOLE_BLOCK, HOLE_CELL, HOLE_NONE, bandOf, findWalls, snapToBlocks, type CellRect, type Wall } from '../terrain/holes'
+
+/** A wall's band grown to whole hole blocks. */
+const snapBand = (r: CellRect | null, size: number) => (r ? snapToBlocks(r, size) : null)
 import { TerrainStroke } from './brush'
 import type { ToolContext } from './Tool'
 import { setViewportHint } from '../state/editor.svelte'
@@ -8,9 +11,10 @@ import { setViewportHint } from '../state/editor.svelte'
 /**
  * The edges of the holes in the ground as handles. Every straight run of boundary between hole and
  * ground is a wall, drawn as a ribbon along the edge. Hovering a wall highlights it; dragging it
- * across moves the whole wall by whole cells (out into the ground to widen the hole, in to put
- * ground back), and a + and a − badge follow the cursor along the wall: + puts the one hole cell
- * there back, − cuts the one ground cell there. Each drag or badge click is one undo step.
+ * across moves the whole wall by whole 2x2-cell blocks, as the client keeps holes (out into the
+ * ground to widen the hole, in to put ground back), and a + and a − badge follow the cursor along the
+ * wall: + puts the hole block there back, − cuts the ground block there. Each drag or badge click is
+ * one undo step.
  *
  * The Select tool and the Sculpt tool's Hole mode both drive one of these from their pointer
  * handlers; `active` tells them the cursor is on a wall or a badge, so the press is the wall's.
@@ -146,8 +150,8 @@ export class HoleWalls {
     if (hit) {
       const fill = hit === this.plus
       const c = this.badgeCell(w, fill)
-      this.setCells(ctx, fill ? 'Fill a cell' : 'Cut a cell', [c], fill ? HOLE_NONE : HOLE_CELL)
-      setViewportHint(fill ? 'Put one cell of ground back' : 'Cut one cell')
+      this.setCells(ctx, fill ? 'Fill a hole block' : 'Cut a hole block', [c], fill ? HOLE_NONE : HOLE_CELL)
+      setViewportHint(fill ? 'Put one 2×2 block of ground back' : 'Cut one 2×2 block')
       return true
     }
     this.drag = { wall: w, stroke: new TerrainStroke(t, 'Move hole edge', { holes: true }), orig: t.holes.slice(), moved: 0, rect: null }
@@ -168,12 +172,13 @@ export class HoleWalls {
     const t = ctx.terrain
     const w = d.wall
     const across = (w.axis === 'x' ? this.ground.x : this.ground.z) / t.cellSize
-    // Outward is from the hole into the ground: moving the wall that way widens the hole.
-    const n = Math.round((across - w.line) * -w.side)
+    // Outward is from the hole into the ground: moving the wall that way widens the hole. It moves by
+    // whole 2x2-cell blocks, as the client keeps holes.
+    const n = Math.round(((across - w.line) * -w.side) / HOLE_BLOCK) * HOLE_BLOCK
     if (n === d.moved) return
     // Put back what the last position wrote, then write this one, from the holes as they were.
-    const old = bandOf(w, Math.abs(d.moved), d.moved > 0, t.size)
-    const band = bandOf(w, Math.abs(n), n > 0, t.size)
+    const old = snapBand(bandOf(w, Math.abs(d.moved), d.moved > 0, t.size), t.size)
+    const band = snapBand(bandOf(w, Math.abs(n), n > 0, t.size), t.size)
     const rect = old && band ? grow({ ...old }, band) : old ?? band
     if (rect) {
       d.stroke.reserveHoles(rect)
@@ -188,7 +193,7 @@ export class HoleWalls {
       d.rect = grow(d.rect, rect)
     }
     d.moved = n
-    setViewportHint(n === 0 ? 'Hole edge: as it was' : n > 0 ? `Hole widened by ${n} ${n === 1 ? 'cell' : 'cells'}` : `Ground back: ${-n} ${n === -1 ? 'cell' : 'cells'}`)
+    setViewportHint(n === 0 ? 'Hole edge: as it was' : n > 0 ? `Hole widened by ${n} cells` : `Ground back: ${-n} cells`)
   }
 
   onUp(ctx: ToolContext) {
@@ -212,9 +217,10 @@ export class HoleWalls {
     let rect: Rect | null = null
     for (const c of cells) {
       if (c.x < 0 || c.z < 0 || c.x >= t.size || c.z >= t.size) continue
-      const r = { x0: c.x, z0: c.z, x1: c.x, z1: c.z }
+      // The cell's whole 2x2 block.
+      const r = snapToBlocks({ x0: c.x, z0: c.z, x1: c.x, z1: c.z }, t.size)
       stroke.reserveHoles(r)
-      t.holes[c.z * t.size + c.x] = value
+      for (let z = r.z0; z <= r.z1; z++) for (let x = r.x0; x <= r.x1; x++) t.holes[z * t.size + x] = value
       stroke.touchHoles(r)
       rect = grow(rect, r)
     }

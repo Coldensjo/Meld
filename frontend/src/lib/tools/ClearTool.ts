@@ -7,13 +7,14 @@ import { TerrainStroke, forEachTexel, forEachVertex, type Rect } from './brush'
 import { SLOTS, resetTexel } from '../terrain/chunkPaint'
 import { LiquidStroke } from '../water/liquidStroke'
 import { RIVER_OPACITY, paintLiquid } from '../water/liquids'
+import { HOLE_BLOCK, countHoles, fillHoles } from '../terrain/holes'
 
 /**
  * Clear erases what the brush covers, after noggit's clear tools. "models" removes the placed models
  * whose ground point is in the brush, with anything attached to them; "textures" resets the paint to
  * each chunk's base texture (weight to slot 0); "heights" brings the ground to zero (noggit's
  * clearHeight), weighted by the brush; "liquids" removes every painted liquid under the brush; and
- * "holes" fills the holes of the cells under it. A stroke is one undo step.
+ * "holes" fills the hole blocks under it. A stroke is one undo step.
  */
 export class ClearTool implements Tool {
   readonly usesBrush = true
@@ -108,37 +109,34 @@ export class ClearTool implements Tool {
     )
   }
 
-  /** The holes of the cells whose centre is under the brush are filled. */
+  /** The holes of the 2x2-cell blocks (the client's hole blocks) whose centre is under the brush are filled. */
   private fillHoles(ctx: ToolContext, hit: THREE.Vector3) {
     const t = ctx.terrain
     const cs = t.cellSize
+    const bs = HOLE_BLOCK * cs
     const r = editor.brush.radius
-    const x0 = Math.max(0, Math.floor((hit.x - r) / cs))
-    const z0 = Math.max(0, Math.floor((hit.z - r) / cs))
-    const x1 = Math.min(t.size - 1, Math.floor((hit.x + r) / cs))
-    const z1 = Math.min(t.size - 1, Math.floor((hit.z + r) / cs))
-    if (x1 < x0 || z1 < z0) return
+    const blocks = Math.ceil(t.size / HOLE_BLOCK)
+    const bx0 = Math.max(0, Math.floor((hit.x - r) / bs))
+    const bz0 = Math.max(0, Math.floor((hit.z - r) / bs))
+    const bx1 = Math.min(blocks - 1, Math.floor((hit.x + r) / bs))
+    const bz1 = Math.min(blocks - 1, Math.floor((hit.z + r) / bs))
     const rect = this.cellRect
-    rect.x0 = x0
-    rect.z0 = z0
-    rect.x1 = x1
-    rect.z1 = z1
-    let any = false
-    for (let cz = z0; cz <= z1; cz++) {
-      for (let cx = x0; cx <= x1; cx++) {
-        const i = cz * t.size + cx
-        if (!t.holes[i]) continue
-        const dx = (cx + 0.5) * cs - hit.x
-        const dz = (cz + 0.5) * cs - hit.z
+    for (let bz = bz0; bz <= bz1; bz++) {
+      for (let bx = bx0; bx <= bx1; bx++) {
+        const dx = (bx + 0.5) * bs - hit.x
+        const dz = (bz + 0.5) * bs - hit.z
         if (dx * dx + dz * dz > r * r) continue
-        if (!any) this.stroke?.reserveHoles(rect)
-        any = true
-        t.holes[i] = 0
+        rect.x0 = bx * HOLE_BLOCK
+        rect.z0 = bz * HOLE_BLOCK
+        rect.x1 = Math.min(t.size - 1, rect.x0 + HOLE_BLOCK - 1)
+        rect.z1 = Math.min(t.size - 1, rect.z0 + HOLE_BLOCK - 1)
+        if (!countHoles(t.holes, t.size, rect.x0, rect.z0, rect.x1 + 1, rect.z1 + 1)) continue
+        this.stroke?.reserveHoles(rect)
+        fillHoles(t.holes, t.size, rect.x0, rect.z0, rect.x1 + 1, rect.z1 + 1, 0)
+        t.markDirty(rect.x0, rect.z0, rect.x1 + 1, rect.z1 + 1)
+        this.stroke?.touchHoles(rect)
       }
     }
-    if (!any) return
-    t.markDirty(x0, z0, x1 + 1, z1 + 1)
-    this.stroke?.touchHoles(rect)
   }
 
   private clearModels(ctx: ToolContext, hit: THREE.Vector3) {

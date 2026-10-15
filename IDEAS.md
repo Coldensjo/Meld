@@ -215,3 +215,12 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
 - Meld does the same, with the group as a number on each placed model, saved in the `.wmap`'s header (a
   JSON field, so no format bump; older Meld ignores it). **Ours** for paste: pasted models form new groups
   of their own instead of joining the originals'. Group and Ungroup are undo steps (Ctrl+G, Ctrl+Shift+G).
+  Noggit Red's key is Ctrl+B, which is Meld's Add Bookmark, so Meld uses Ctrl+G.
+
+### B-145 Export holes to client tiles · owner decision 2026-10-15
+- Question: a 1.12 tile stores holes per 2×2-cell block (a 4×4 bitmap per chunk), but Meld cut single
+  cells and half cells. How should the export map Meld's holes onto the blocks?
+- Choice: **snap the Hole tool to blocks**. Cutting and filling holes works on whole 2×2-cell blocks, so
+  what the editor shows is what the game gets; single-cell and half-cell holes go. A hole made before the
+  snap (an older map, a paste at an odd offset) exports as a hole in every block it touches.
+- Decided by the owner, 2026-10-15.

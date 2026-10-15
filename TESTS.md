@@ -15,6 +15,9 @@ Each entry says what it checks, how to run it, and the traps that cost time.
   client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk
   flags (0x8000 on some chunks), so compare a write against the same save without your change, not
   against the client's tile.
+- `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
+  checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the
+  hole export's block mapping. Seeing a cut cave mouth in game is still a manual check.
 
 ## Rendering and UI in the live app (Claude in Chrome)
 

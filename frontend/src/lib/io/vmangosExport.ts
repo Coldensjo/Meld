@@ -52,6 +52,8 @@ export interface ExportInput {
    * which leaves the headers as the tile has them.
    */
   headers?: { areaIds: Uint32Array; chunkFlags: Uint8Array }
+  /** One byte per cell, non-zero where the ground is a hole; sent in the headers, so only with them. */
+  holes?: Uint8Array
   objects: readonly ExportObject[]
   /** Whether the map has water, and the level it's at in yards. */
   waterEnabled: boolean
@@ -79,6 +81,8 @@ export interface HeaderOut {
   impassable: boolean
   /** The cells that grow no ground effect doodads, a bit per cell in each row; replaces the tile's own. */
   noEffect?: number[]
+  /** The hole cells, a bit per cell in each row; Go turns them into the client's 2x2-cell blocks. */
+  holes?: number[]
 }
 
 export interface ObjectOut {
@@ -201,6 +205,7 @@ export function mapToTiles(input: ExportInput): ExportOut {
             // those under its buildings), so the header's bits are replaced and a cleared cell comes off.
             const header: HeaderOut = { chunk: cy * CHUNKS_PER_TILE + cx, areaId: h.areaIds[chunk], impassable: (h.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0 }
             if (input.noEffect) header.noEffect = chunkNoEffect(input.noEffect, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
+            if (input.holes) header.holes = chunkNoEffect(input.holes, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
             tile.Headers.push(header)
           }
         }

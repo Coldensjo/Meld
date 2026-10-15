@@ -94,6 +94,22 @@ export function fillHoles(holes: Uint8Array, size: number, x0: number, z0: numbe
   return n
 }
 
+/**
+ * Cells a side of a hole block. A 1.12 tile keeps a chunk's holes as a 4x4 bitmap, a bit per 2x2 cells,
+ * so Meld cuts and fills holes by whole blocks (the owner's decision, IDEAS.md B-145): what the editor
+ * shows is what the game gets.
+ */
+export const HOLE_BLOCK = 2
+
+/** Grows an inclusive cell rect outward to whole hole blocks, clipped to the map, in place. */
+export function snapToBlocks<R extends CellRect>(r: R, size: number): R {
+  r.x0 = Math.max(0, r.x0 - (r.x0 % HOLE_BLOCK))
+  r.z0 = Math.max(0, r.z0 - (r.z0 % HOLE_BLOCK))
+  r.x1 = Math.min(size - 1, r.x1 - (r.x1 % HOLE_BLOCK) + HOLE_BLOCK - 1)
+  r.z1 = Math.min(size - 1, r.z1 - (r.z1 % HOLE_BLOCK) + HOLE_BLOCK - 1)
+  return r
+}
+
 /** How many cells of the rect (cell corners, exclusive at x1/z1) are holes, a half-cut cell counting as one. */
 export function countHoles(holes: Uint8Array, size: number, x0: number, z0: number, x1: number, z1: number): number {
   let n = 0

@@ -335,7 +335,7 @@ func TestRegionPaintWritten(t *testing.T) {
 	}
 }
 
-// TestRegionHeadersWritten sets a real chunk's zone, impassable flag and no-effect bits through a region save: they
+// TestRegionHeadersWritten sets a real chunk's zone, impassable flag, no-effect bits and holes through a region save: they
 // must read back, and every other chunk keep the zone, flags and heights the same save without them
 // writes. It needs WOW_DIR set to
 // the client.
@@ -363,7 +363,7 @@ func TestRegionHeadersWritten(t *testing.T) {
 	}
 	// Block chunk 17 is the tile's chunk (1, 1).
 	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects,
-		Headers: []HeaderSpec{{Chunk: 17, AreaID: 40, Impassable: true, NoEffect: []int{3, 0, 0, 0, 0, 0, 0, 0x80}}}}
+		Headers: []HeaderSpec{{Chunk: 17, AreaID: 40, Impassable: true, NoEffect: []int{3, 0, 0, 0, 0, 0, 0, 0x80}, Holes: []int{0, 0, 0, 0, 0, 0, 1, 0}}}}
 	files, err := BuildRegion(dataDir, edit)
 	if err != nil {
 		t.Fatal(err)
@@ -384,12 +384,71 @@ func TestRegionHeadersWritten(t *testing.T) {
 			if c.NoEffect != [adt.CellsPerChunk]uint8{3, 0, 0, 0, 0, 0, 0, 0x80} {
 				t.Fatalf("chunk 17 no-effect rows %v", c.NoEffect)
 			}
+			// Cell (0, 6) cuts its whole 2x2 block, as the client keeps holes.
+			if c.Holes != [adt.CellsPerChunk]uint8{0, 0, 0, 0, 0, 0, 3, 3} {
+				t.Fatalf("chunk 17 holes %v", c.Holes)
+			}
 			continue
 		}
-		if c.AreaID != b.AreaID || c.Flags != b.Flags || c.NoEffect != b.NoEffect {
+		if c.AreaID != b.AreaID || c.Flags != b.Flags || c.NoEffect != b.NoEffect || c.Holes != b.Holes {
 			t.Fatalf("chunk %d: area %d flags %#x, was %d %#x", i, c.AreaID, c.Flags, b.AreaID, b.Flags)
 		}
 	}
+}
+
+// TestRegionHolesRoundTrip sends a real region's holes back as the editor does (every chunk's cell
+// rows in its header): every chunk must keep the hole bits the client has. It needs WOW_DIR set.
+func TestRegionHolesRoundTrip(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Westfall around the Deadmines, which has cave mouths.
+	view, err := ReadRegion(dataDir, "Azeroth", 31, 49, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	perRow := ChunksPerTileSide * view.Size
+	var headers []HeaderSpec
+	holed := 0
+	for _, c := range view.Chunks {
+		rows := c.Holes
+		if rows == nil {
+			rows = make([]int, adt.CellsPerChunk)
+		} else {
+			holed++
+		}
+		headers = append(headers, HeaderSpec{Chunk: c.IndexY*perRow + c.IndexX, Holes: rows})
+	}
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects, Headers: headers}
+	files, err := BuildRegion(dataDir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, f := range files {
+		after, err := adt.ParseTerrain(f.Data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, root, err := ReadTile(dataDir, "Azeroth", view.X+k%view.Size, view.Y+k/view.Size)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before, err := adt.ParseTerrain(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range after.Chunks {
+			if after.Chunks[i].Holes != before.Chunks[i].Holes {
+				t.Fatalf("tile %d chunk %d holes %v, client %v", k, i, after.Chunks[i].Holes, before.Chunks[i].Holes)
+			}
+		}
+	}
+	t.Logf("%d chunks with holes kept", holed)
 }
 
 // TestRegionLiquidsUnchanged reads a real tile's liquids, as a region opens them, and hands them back:

@@ -178,10 +178,10 @@
     {/if}
     {#if editor.sculptMode === 'hole'}
       <div class="seg">
-        <button class:active={!editor.holeFill} onclick={() => (editor.holeFill = false)} title="Click or drag over a triangle of the ground to cut it out">Cut</button>
-        <button class:active={editor.holeFill} onclick={() => (editor.holeFill = true)} title="Click or drag over a cut triangle to put the ground back">Fill</button>
+        <button class:active={!editor.holeFill} onclick={() => (editor.holeFill = false)} title="Click or drag over the ground to cut it out, a 2×2-cell block at a time (the client keeps holes in such blocks)">Cut</button>
+        <button class:active={editor.holeFill} onclick={() => (editor.holeFill = true)} title="Click or drag over a hole to put the ground back, a 2×2-cell block at a time">Fill</button>
       </div>
-      <span class="dim">one triangle at a time · <kbd>Shift</kbd> does the other · select an area for whole-area holes</span>
+      <span class="dim">2×2-cell blocks, as the game keeps holes · <kbd>Shift</kbd> does the other · select an area for whole-area holes</span>
     {:else if editor.sculptMode === 'vertex'}
       <span class="chip" title="Drag to select vertices, Ctrl or Alt+drag to deselect, Shift+drag to move them up and down"><span class="dim">Selected:</span> {ui.vertexCount}</span>
       <button disabled={!ui.vertexCount} onclick={() => engineRef.current?.vertexAction('flatten')} title="Level the selected vertices at their mean height">Flatten</button>

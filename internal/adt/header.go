@@ -15,6 +15,29 @@ type ChunkHeader struct {
 	// NoEffect, one byte per cell row with a bit per cell, replaces the chunk's noEffectDoodad bits,
 	// including any a ChunkPaint added; nil keeps them.
 	NoEffect []uint8
+	// Holes, when set, replaces the chunk's holes: the 1.12 4x4 bitmap, bit row*4+col for the 2x2-cell
+	// block (col, row). See HoleBits.
+	Holes *uint16
+}
+
+// mcnkHoles is where a 1.12 chunk header keeps its 4x4 hole bitmap.
+const mcnkHoles = 0x3c
+
+// HoleBits is a chunk's 1.12 hole bitmap from its holes per cell (8 rows, bit n of a row for cell n):
+// a 2x2-cell block is a hole when any of its cells is.
+func HoleBits(rows []uint8) uint16 {
+	var bits uint16
+	for r, row := range rows {
+		if r >= CellsPerChunk {
+			break
+		}
+		for c := 0; c < CellsPerChunk; c++ {
+			if row&(1<<c) != 0 {
+				bits |= 1 << ((r>>1)*4 + c>>1)
+			}
+		}
+	}
+	return bits
 }
 
 // apply writes h into a chunk header and returns the chunk's flags with the impassable bit set
@@ -25,6 +48,11 @@ func (h ChunkHeader) apply(header []byte, flags uint32) uint32 {
 	}
 	if len(h.NoEffect) == CellsPerChunk {
 		copy(header[mcnkNoEffect:mcnkNoEffect+CellsPerChunk], h.NoEffect)
+	}
+	if h.Holes != nil {
+		// 1.12 knows only the low-resolution holes; the high-resolution flag of later clients goes.
+		binary.LittleEndian.PutUint16(header[mcnkHoles:], *h.Holes)
+		flags &^= mcnkFlagHighHole
 	}
 	if h.Impassable {
 		return flags | mcnkFlagImpass

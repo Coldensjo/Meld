@@ -63,3 +63,37 @@ func TestRewriteChunkHeadersReadBack(t *testing.T) {
 		t.Fatal("a chunk not listed in the second write lost its area")
 	}
 }
+
+func TestHoleBitsTakeAnyCellOfABlock(t *testing.T) {
+	// Cell (0, 0) alone cuts block (0, 0); cells (7, 7) and (6, 6) cut block (3, 3).
+	if got := HoleBits([]uint8{1, 0, 0, 0, 0, 0, 0x40, 0x80}); got != 1|1<<15 {
+		t.Fatalf("bits %#x", got)
+	}
+	if HoleBits(make([]uint8, CellsPerChunk)) != 0 {
+		t.Fatal("no cells, but bits")
+	}
+}
+
+func TestRewriteHolesReadBack(t *testing.T) {
+	root := newTileRoot(32, 48)
+	bits := HoleBits([]uint8{0, 0, 0, 0x0c, 0, 0, 0, 0})
+	out, err := Rewrite(root, Changes{TileX: 32, TileY: 48, Headers: map[int]ChunkHeader{9: {Holes: &bits}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := ParseTerrain(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := terrain.Chunks[9]
+	// Cells 2 and 3 of row 3 make block (1, 1): rows 2 and 3, cells 2 and 3.
+	if c.Holes != [CellsPerChunk]uint8{0, 0, 0x0c, 0x0c, 0, 0, 0, 0} {
+		t.Fatalf("holes %v", c.Holes)
+	}
+	if c.Flags&mcnkFlagHighHole != 0 {
+		t.Fatal("high-resolution hole flag set")
+	}
+	if terrain.Chunks[8].Holes != [CellsPerChunk]uint8{} {
+		t.Fatal("another chunk got holes")
+	}
+}

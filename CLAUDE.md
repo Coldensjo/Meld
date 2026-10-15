@@ -101,7 +101,10 @@ cd frontend && pnpm build   # frontend only
   - **Holes**: `Terrain.holes` is one byte per cell (`terrain/holes.ts`). A hole cell gets no
     triangles (`writeChunk` rebuilds the chunk's index and draw range) and the ray passes through it.
     Holes are edited through `TerrainStroke({ holes: true })`, copied with the clipboard and saved in
-    the map file. They are not exported to client tiles yet.
+    the map file. Every hole edit works on whole 2x2-cell blocks (`HOLE_BLOCK`, `snapToBlocks`), as the
+    1.12 tile keeps a chunk's holes in a 4x4 bitmap; the export sends each chunk's hole cells in its
+    `HeaderSpec.Holes` and Go writes the bitmap at MCNK 0x3C (`adt.HoleBits`: a block with any hole
+    cell is a hole).
 - **Paint mask**:
   - `Terrain.mask` holds one byte per splat texel, uploaded as `maskTex` and drawn as a red
     overlay. It isn't saved to the map file.

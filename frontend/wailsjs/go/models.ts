@@ -528,6 +528,7 @@ export namespace vmangos {
 	    areaId: number;
 	    impassable: boolean;
 	    noEffect?: number[];
+	    holes?: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new HeaderSpec(source);
@@ -539,6 +540,7 @@ export namespace vmangos {
 	        this.areaId = source["areaId"];
 	        this.impassable = source["impassable"];
 	        this.noEffect = source["noEffect"];
+	        this.holes = source["holes"];
 	    }
 	}
 	

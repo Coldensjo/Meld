@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { holeTriangle, withTriangle } from '../terrain/holes'
+import { HOLE_CELL, HOLE_NONE, fillHoles, snapToBlocks } from '../terrain/holes'
 import { HoleWalls } from './HoleWalls'
 import { editor, setStatus, ui, type SculptMode } from '../state/editor.svelte'
 import { slopeDegrees, slopeWeights } from '../terrain/roles'
@@ -256,15 +256,18 @@ export class SculptTool extends BrushTool {
     const cx = Math.floor(gx)
     const cz = Math.floor(gz)
     if (cx < 0 || cz < 0 || cx >= t.size || cz >= t.size) return
-    const i = cz * t.size + cx
-    const next = withTriangle(t.holes[i], holeTriangle(cx, cz, gx - cx, gz - cz), !this.holeFilling)
-    if (next === t.holes[i]) return
+    // The whole 2x2-cell block under the cursor, as the client keeps holes.
     const r = this.holeCell
     r.x0 = r.x1 = cx
     r.z0 = r.z1 = cz
+    snapToBlocks(r, t.size)
+    const value = this.holeFilling ? HOLE_NONE : HOLE_CELL
+    let changed = false
+    for (let z = r.z0; z <= r.z1 && !changed; z++) for (let x = r.x0; x <= r.x1; x++) if (t.holes[z * t.size + x] !== value) changed = true
+    if (!changed) return
     this.stroke?.reserveHoles(r)
-    t.holes[i] = next
-    t.markDirty(cx, cz, cx + 1, cz + 1)
+    fillHoles(t.holes, t.size, r.x0, r.z0, r.x1 + 1, r.z1 + 1, value)
+    t.markDirty(r.x0, r.z0, r.x1 + 1, r.z1 + 1)
     this.stroke?.touchHoles(r)
   }
 

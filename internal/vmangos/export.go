@@ -46,12 +46,14 @@ type TileSpec struct {
 // HeaderSpec is a chunk's header fields: its index (in the tile for a TileSpec, in the block for a
 // RegionEdit), its AreaTable.dbc ID (0 keeps the chunk's own) and whether it is impassable.
 // NoEffect, one entry per cell row with a bit per cell, replaces the chunk's noEffectDoodad bits;
-// empty keeps them (with a PaintSpec's added).
+// empty keeps them (with a PaintSpec's added). Holes, in the same form, replaces the chunk's holes,
+// each 2x2-cell block a hole when any of its cells is; empty keeps them.
 type HeaderSpec struct {
 	Chunk      int    `json:"chunk"`
 	AreaID     uint32 `json:"areaId"`
 	Impassable bool   `json:"impassable"`
 	NoEffect   []int  `json:"noEffect,omitempty"`
+	Holes      []int  `json:"holes,omitempty"`
 }
 
 // chunkHeader is the adt form of a HeaderSpec.
@@ -62,6 +64,14 @@ func (h HeaderSpec) chunkHeader() adt.ChunkHeader {
 		for i, v := range h.NoEffect {
 			ch.NoEffect[i] = uint8(v)
 		}
+	}
+	if len(h.Holes) == adt.CellsPerChunk {
+		rows := make([]uint8, adt.CellsPerChunk)
+		for i, v := range h.Holes {
+			rows[i] = uint8(v)
+		}
+		bits := adt.HoleBits(rows)
+		ch.Holes = &bits
 	}
 	return ch
 }
