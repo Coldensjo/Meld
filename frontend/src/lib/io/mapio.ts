@@ -429,7 +429,7 @@ export function exportRegion(engine: Engine) {
       return
     }
     const server = await VmangosPath()
-    const next = server ? ` Run update-maps.bat in ${server} to rebuild the server's map data.` : ''
+    const next = server ? ` Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.` : ''
     const unchanged = res.tiles - res.changed
     setStatus(`Wrote ${res.changed} of ${res.tiles} tiles of ${region.mapName} ${region.x}_${region.y} to ${res.patch}${unchanged ? ` (${unchanged} unchanged)` : ''}.${next}`, 10000)
   })
