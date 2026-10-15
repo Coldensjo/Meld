@@ -777,6 +777,7 @@ export class Engine {
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.particles = this.prefs?.particles !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)
+    this.updateClientPoints()
     this.rooms.update(this.objects, this.camera.position, this.roomGround)
     this.updateRoomGate(dt)
     this.cullInstances()
@@ -3537,6 +3538,19 @@ export class Engine {
     rgb[2] = this.roomSceneFog.b
     this.roomFog.update(r?.fog ?? null, rgb, fog.near, fog.far, this.persp.far, dt)
     setRoomFog(this.roomFog.color, this.roomFog.near, this.roomFog.far)
+  }
+
+  /** Hands Client Lighting's terrain the pooled M2 lights it sums per vertex (#117). */
+  private updateClientPoints() {
+    const u = this.terrain.material.uniforms
+    const fx = this.effects
+    u.clientPointCount.value = fx.clientCount
+    const pos = u.clientPointPos.value as THREE.Vector3[]
+    const col = u.clientPointColor.value as THREE.Vector3[]
+    for (let i = 0; i < fx.clientCount; i++) {
+      pos[i].fromArray(fx.clientPos, i * 3)
+      col[i].fromArray(fx.clientColor, i * 3)
+    }
   }
 
   /** The WMO room the camera is in, named for the detail readout, or '' outside. */

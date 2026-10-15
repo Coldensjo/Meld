@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { CASCADE_SHADOW_GLSL } from '../engine/shadowCascades'
 import { BAKED_SHADOW_LIGHT } from './bakedShadows'
+import { LIGHT_POOL } from '../world/PropEffects'
 
 const vertex = /* glsl */ `
 #include <common>
@@ -16,6 +17,38 @@ uniform vec3 sunDir;
 uniform vec3 clientAmbient;
 uniform vec3 clientDiffuse;
 uniform vec3 clientSpecular;
+// The pooled M2 lights' world positions and raw colours (PropEffects), and the paint chunk's width.
+uniform int clientPointCount;
+uniform vec3 clientPointPos[${LIGHT_POOL}];
+uniform vec3 clientPointColor[${LIGHT_POOL}];
+uniform float chunkWorld;
+// The client adds a chunk's three nearest point lights, within this reach of its centre across the
+// ground, to the ground's per-vertex light (Benilla's terrain.wgsl point_light_sum).
+const float POINT_REACH = 33.570166;
+vec3 pointLightSum(vec3 p, vec3 n) {
+  vec2 anchor = (floor(p.xz / chunkWorld) + 0.5) * chunkWorld;
+  int sel0 = -1, sel1 = -1, sel2 = -1;
+  float d0 = 1e30, d1 = 1e30, d2 = 1e30;
+  for (int i = 0; i < ${LIGHT_POOL}; i++) {
+    if (i >= clientPointCount) break;
+    vec3 dv = clientPointPos[i] - vec3(anchor.x, p.y, anchor.y);
+    if (max(abs(dv.x), abs(dv.z)) > POINT_REACH) continue;
+    float dd = dot(dv, dv);
+    if (dd < d0) { d2 = d1; sel2 = sel1; d1 = d0; sel1 = sel0; d0 = dd; sel0 = i; }
+    else if (dd < d1) { d2 = d1; sel2 = sel1; d1 = dd; sel1 = i; }
+    else if (dd < d2) { d2 = dd; sel2 = i; }
+  }
+  vec3 sum = vec3(0.0);
+  for (int s = 0; s < 3; s++) {
+    int i = s == 0 ? sel0 : s == 1 ? sel1 : sel2;
+    if (i < 0) break;
+    vec3 toLight = clientPointPos[i] - p;
+    float d = length(toLight);
+    // Diffuse only, 1 / (0.7 d + 0.03 d^2), no cut-off.
+    sum += clientPointColor[i] * max(dot(n, toLight / max(d, 1e-4)), 0.0) / max(0.7 * d + 0.03 * d * d, 1e-4);
+  }
+  return sum;
+}
 varying vec3 vPrimaryLit;
 varying vec3 vPrimaryDark;
 varying vec3 vSpecular;
@@ -29,8 +62,9 @@ void main() {
     vec3 n = normalize(normal);
     vec3 v = normalize(cameraPosition - worldPosition.xyz);
     vec3 h = normalize(sunDir + v);
-    vPrimaryLit = clamp(clientAmbient + clientDiffuse * max(dot(n, sunDir), 0.0), 0.0, 1.0);
-    vPrimaryDark = clamp(clientAmbient, 0.0, 1.0);
+    vec3 points = pointLightSum(worldPosition.xyz, n);
+    vPrimaryLit = clamp(clientAmbient + clientDiffuse * max(dot(n, sunDir), 0.0) + points, 0.0, 1.0);
+    vPrimaryDark = clamp(clientAmbient + points, 0.0, 1.0);
     vSpecular = clamp(clientSpecular * pow(max(dot(n, h), 0.0), 20.0), 0.0, 1.0);
   } else {
     vPrimaryLit = vPrimaryDark = vSpecular = vec3(0.0);
@@ -212,8 +246,10 @@ void main() {
     if (bakedShadowOn > 0.5) lit *= 1.0 - ${(1 - BAKED_SHADOW_LIGHT).toFixed(2)} * texture2D(bakedShadowTex, suv).r;
   }
 
-  // Point lights from torches, braziers, lamps (same falloff as three's props).
+  // Point lights from torches, braziers, lamps (same falloff as three's props). Under Client Lighting
+  // they are in the per-vertex light instead.
   #if NUM_POINT_LIGHTS > 0
+  if (clientLit < 0.5) {
     vec3 vPos = (viewMatrix * vec4(vWorldPos, 1.0)).xyz;
     vec3 vN = normalize((viewMatrix * vec4(n, 0.0)).xyz);
     // The nearest lights cast shadows (three sorts shadowed lights first), so walls block them.
@@ -235,6 +271,7 @@ void main() {
       }
     }
     #pragma unroll_loop_end
+  }
   #endif
 
   if (waterEnabled > 0.5) {
@@ -377,6 +414,9 @@ export function createTerrainMaterial(
     clientAmbient: { value: new THREE.Vector3() },
     clientDiffuse: { value: new THREE.Vector3() },
     clientSpecular: { value: new THREE.Vector3() },
+    clientPointCount: { value: 0 },
+    clientPointPos: { value: Array.from({ length: LIGHT_POOL }, () => new THREE.Vector3()) },
+    clientPointColor: { value: Array.from({ length: LIGHT_POOL }, () => new THREE.Vector3()) },
     skyAmbient: { value: new THREE.Color(0.45, 0.5, 0.6) },
     groundAmbient: { value: new THREE.Color(0.25, 0.22, 0.18) },
     cliffAuto: { value: 1 },

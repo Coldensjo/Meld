@@ -804,3 +804,10 @@ in the palette layer's alpha, 0 without one). In the dev page, load a region wit
 `__engine.terrain.material.uniforms.clientLit.value` (1) and the masks from `__engine.terrain.palette.data`
 (layer i's alpha bytes at `i * 256 * 256 * 4 + 3`, every fourth). Durotar's textures all have masks
 (Black.blp none). With Client Lighting off `clientLit` is 0 and the ground is drawn as before.
+- Point lights (#117): M2 lights carry `raw` (colour times intensity) in the model's effects; models
+  with them include `World\Azeroth\Elwynn\PassiveDoodads\Campfire\ElwynnCampfire.m2` (raw about
+  0.71, 0.2, 0), `StonePyre.m2`, `DwarvenBrazier01.m2` and the human guard towers. Torches such as
+  `FreestandingTorch01.m2` have only flame anchors from their emitters, so no raw light. Under Client
+  Lighting, place one and read `__engine.terrain.material.uniforms.clientPointCount` and
+  `clientPointColor`. Trap: a sharp line across the ground near a light is usually two chunks'
+  textures; compare with `clientPointCount` held at 0 before blaming the light sum.

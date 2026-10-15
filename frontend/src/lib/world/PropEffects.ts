@@ -19,6 +19,8 @@ interface Source {
   radius: number
   fire: boolean
   seed: number
+  /** The client's raw light colour (an M2 light's colour times intensity), or null for none. */
+  raw: [number, number, number] | null
 }
 
 const flameVertex = /* glsl */ `
@@ -84,6 +86,13 @@ void main() {
 export class PropEffects {
   readonly group = new THREE.Group()
   readonly lights: THREE.PointLight[] = []
+  /**
+   * The pooled lights the client would add to the ground (those with a raw colour): world positions
+   * and raw colours, three floats each, the first `clientCount`; for Client Lighting's terrain.
+   */
+  readonly clientPos = new Float32Array(LIGHT_POOL * 3)
+  readonly clientColor = new Float32Array(LIGHT_POOL * 3)
+  clientCount = 0
   private flames: THREE.InstancedMesh
   private seeds: THREE.InstancedBufferAttribute
   private material: THREE.ShaderMaterial
@@ -176,6 +185,7 @@ export class PropEffects {
           radius: e.radius * o.scale,
           fire: e.kind === 'fire',
           seed,
+          raw: e.raw && (e.raw[0] || e.raw[1] || e.raw[2]) ? e.raw : null,
         }
         const near = e.interior ? null : this.sources.slice(firstOfObject).find((x) => x.pos.distanceTo(pos) < 2.5 * o.scale)
         if (e.interior) {
@@ -184,7 +194,10 @@ export class PropEffects {
         } else if (near) {
           // Keep the model's own light colour; let flames make it flicker.
           if (src.fire) near.fire = true
-          else near.color.copy(src.color)
+          else {
+            near.color.copy(src.color)
+            near.raw = src.raw
+          }
           near.radius = Math.max(near.radius, src.radius)
         } else {
           this.sources.push(src)
@@ -260,12 +273,22 @@ export class PropEffects {
 
     // Lights read stronger at night; by day they're a subtle warm touch.
     const strength = 0.35 + 0.65 * night
+    this.clientCount = 0
     for (let i = 0; i < LIGHT_POOL; i++) {
       const l = this.lights[i]
       const s = this.slots[i] >= 0 ? src[this.slots[i]] : null
       if (!s) {
         l.intensity = 0
         continue
+      }
+      if (s.raw) {
+        const k = this.clientCount++ * 3
+        this.clientPos[k] = s.pos.x
+        this.clientPos[k + 1] = s.pos.y
+        this.clientPos[k + 2] = s.pos.z
+        this.clientColor[k] = s.raw[0]
+        this.clientColor[k + 1] = s.raw[1]
+        this.clientColor[k + 2] = s.raw[2]
       }
       if (l.castShadow) {
         if (redraw) l.shadow.needsUpdate = true

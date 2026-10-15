@@ -48,6 +48,8 @@ export interface MeshEffect {
   size?: number
   /** Inside a WMO interior group: flames only, no dynamic light (it would shine through walls). */
   interior?: boolean
+  /** An M2 light's colour times intensity as stored, unclamped: what the client adds to the ground. */
+  raw?: [number, number, number]
 }
 
 /**

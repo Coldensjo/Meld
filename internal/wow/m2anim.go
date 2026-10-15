@@ -41,6 +41,9 @@ type Effect struct {
 	// Interior marks a light inside a WMO's interior group. The game bakes those into the
 	// group's vertex colours, and without shadows a dynamic light would shine out through the walls.
 	Interior bool `json:"interior,omitempty"`
+	// Raw is an M2 light's colour times its intensity as the model stores them, unclamped (it can be
+	// over-gamut): what the client adds to the ground's per-vertex light. Zero for the others.
+	Raw [3]float32 `json:"raw,omitempty"`
 }
 
 const (
@@ -344,7 +347,11 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 				radius = 8
 			}
 			// WoW's attenuation radii are small; scale up so the light reads on the terrain.
-			effects = append(effects, Effect{Kind: "light", Pos: [3]float32{x, y, z}, Color: col, Intensity: clampF(intensity, 0.2, 3), Radius: clampF(radius*3, 8, 30)})
+			raw := [3]float32{col[0] * intensity, col[1] * intensity, col[2] * intensity}
+			if !finite(raw[0], raw[1], raw[2]) {
+				raw = [3]float32{}
+			}
+			effects = append(effects, Effect{Kind: "light", Pos: [3]float32{x, y, z}, Color: col, Intensity: clampF(intensity, 0.2, 3), Radius: clampF(radius*3, 8, 30), Raw: raw})
 		}
 	}
 
