@@ -217,3 +217,20 @@ test('a negative spin turns back on the particles with bit 5 of their phase', ()
   assert.equal(spinAngle(-3, 0.5, 0x1f), -1.5)
   assert.equal(spinAngle(3, 0.5, 0x20), 1.5)
 })
+
+test('the ground snap stands a world-space birth on the surface below it, lifted by its birth size', () => {
+  const snap = def({ flags: 0x2000, rate: k(10), params: [k(0), null, null, null, null, k(5), null, null, null], sizes: [0.5, 1, 1] })
+  // The emitter 10 yd up; the ground at 2.
+  const at = new THREE.Matrix4().makeTranslation(0, 10, 0)
+  const pool = new ParticlePool(snap, 4)
+  pool.step(0.1, 0, at, 1, () => 2)
+  assert.equal(pool.count, 1)
+  const size0 = overLife(snap, 0, { color: [0, 0, 0, 0], size: 0, head: 0, tail: 0 }).size
+  assert.ok(Math.abs(pool.pos[1] - (2 + size0)) < 1e-5, `on the ground: ${pool.pos[1]}`)
+  const far = new ParticlePool(snap, 4)
+  far.step(0.1, 0, at, 1, () => -15)
+  assert.ok(Math.abs(far.pos[1] - 10) < 1, 'ground beyond 20 yd leaves the birth where it was')
+  const plain = new ParticlePool(def({ rate: k(10), params: [k(0), null, null, null, null, k(5), null, null, null] }), 4)
+  plain.step(0.1, 0, at, 1, () => 2)
+  assert.ok(Math.abs(plain.pos[1] - 10) < 1, 'an emitter without the flag ignores the ground')
+})

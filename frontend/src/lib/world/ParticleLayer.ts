@@ -3,7 +3,7 @@ import { getAsset, type ModelAsset } from '../models/assets'
 import { loadTexture } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
 import type { SpawnLayer } from './SpawnLayer'
-import { blendOf, fogOf, litOf, PARTICLE_FLOATS, ParticlePool, VERTEX_FLOATS, type ParticleBlend } from './particles'
+import { blendOf, fogOf, litOf, PARTICLE_FLOATS, ParticlePool, VERTEX_FLOATS, type GroundProbe, type ParticleBlend } from './particles'
 import { RibbonTrail, ribbonBlend } from './ribbons'
 
 /**
@@ -230,6 +230,8 @@ function seedOf(key: string, i: number): number {
 export class ParticleLayer {
   readonly group = new THREE.Group()
   enabled = true
+  /** The ground under a point, for the emitters that stand their particles on it; set by the Engine. */
+  ground: GroundProbe | undefined = undefined
   /** The scene light lit particles take, set by the Engine each frame. */
   readonly light = new THREE.Color(1, 1, 1)
   private live = new Map<string, Live>()
@@ -365,7 +367,7 @@ export class ParticleLayer {
       const pool = l.pool
       if (pool) {
         // The client's emission LOD: full rate to 50 yd, down to a quarter by 87.5 yd (0x7b5550).
-        pool.step(dt, ms, m, Math.min(1, Math.max(0.25, 1 - (d - 50) * 0.02)))
+        pool.step(dt, ms, m, Math.min(1, Math.max(0.25, 1 - (d - 50) * 0.02)), this.ground)
         if (!pool.count) continue
         b.reserve(pool.count * PARTICLE_FLOATS)
         b.floats += pool.expand(m, right, up, b.data, b.floats)

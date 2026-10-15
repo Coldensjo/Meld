@@ -39,6 +39,9 @@ const FLAG_KILL_OUTBOUND = 0x80
 const FLAG_SPHERE_UP = 0x100
 const FLAG_TAIL_AGE = 0x400
 const FLAG_XY_QUAD = 0x1000
+const FLAG_GROUND_SNAP = 0x2000
+/** How far below a birth the ground snap looks, in yards. */
+export const GROUND_SNAP_REACH = 20
 const FLAG_BURST = 0x8000
 
 const SHAPE_SPHERE = 2
@@ -377,6 +380,11 @@ const v3 = new THREE.Vector3()
 const params = new Float32Array(9)
 
 /** One emitter's live particles and emission state. */
+/** The height of the surface under a world point, or null where there is none in reach. */
+export type GroundProbe = (x: number, y: number, z: number) => number | null
+
+const snapLife: LifeSample = { color: [0, 0, 0, 0], size: 0, head: 0, tail: 0 }
+
 export class ParticlePool implements Rng {
   /** Live particles. */
   count = 0
@@ -420,8 +428,10 @@ export class ParticlePool implements Rng {
    * Advances the pool by dt seconds at `ms` on the model's clock: ages and moves the live particles
    * (0x7b2680: gravity on world or spawn-space up, then drag), then emits what the rate owes. `m` is
    * the emitter's matrix (spawn space to world); `lod` scales the rate (the client's distance LOD).
+   * `ground` gives the height of the surface under a world point (within GROUND_SNAP_REACH below
+   * it), or null, for the ground snap.
    */
-  step(dt: number, ms: number, m: THREE.Matrix4, lod: number) {
+  step(dt: number, ms: number, m: THREE.Matrix4, lod: number, ground?: GroundProbe) {
     const e = this.def
     const now = sampleParams(e, ms, params)
     const g = now[GRAVITY]
@@ -474,6 +484,12 @@ export class ParticlePool implements Rng {
       if (this.anchored) {
         bPos.applyMatrix4(m)
         bDir.applyMatrix3(m3)
+        // The ground snap (file flag 0x2000, 0x7b2140): a world-space birth over a surface within
+        // 20 yd stands on it, lifted by its birth size (0x7b9e20).
+        if (e.flags & FLAG_GROUND_SNAP && ground) {
+          const h = ground(bPos.x, bPos.y, bPos.z)
+          if (h !== null && h <= bPos.y && bPos.y - h <= GROUND_SNAP_REACH) bPos.y = h + overLife(e, 0, snapLife).size
+        }
       }
       const i = this.count++
       bPos.toArray(this.pos, i * 3)

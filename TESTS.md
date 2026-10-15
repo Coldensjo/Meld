@@ -170,6 +170,11 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
 - Previews (#110): the tools register their ghost meshes (`previewParticles`), keyed `p:<mesh id>`.
   With the Place tool on `FreestandingTorch01.m2` and the pointer over the ground the ghost burns
   (`p:<id>:0` about 18 particles); switching tools takes its quads out of the batch at once.
+- Ground snap (flag 0x2000, #110): `tests/particles.test.ts`; in the app, place
+  `World\ENVIRONMENT\DOODAD\GENERALDOODADS\ElementalRifts\AirRift.m2` with `yOff: 3`: its first
+  emitter (flags 0x3009, flat shockwave rings) births on the ground (ground height plus the birth
+  size, about 0.5), not at the model's base. The fire and water rifts, `UndercityMonsterBirth.m2`,
+  `G_GhostTrap.m2` and `G_ScourgeRuneCircleCrystal.m2` use the flag too.
 - Trap: in the dev page, `await import('/src/lib/state/editor.svelte.ts')` can load a second copy of
   the module (the app's has a `?t=` hot-reload query), and writing `editor.tool` there changes
   nothing. Import the app's own URL:

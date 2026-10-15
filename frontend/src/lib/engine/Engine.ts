@@ -49,6 +49,7 @@ import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from 
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { WmoRooms } from '../world/WmoRooms'
+import { GROUND_SNAP_REACH } from '../world/particles'
 import { RoomFlood } from '../world/wmoFlood'
 import { RoomFogFade } from '../world/wmoFog'
 import { setRoomFog, setRoomGate } from '../world/roomGate'
@@ -222,6 +223,22 @@ export class Engine {
   private roomSceneFog = { r: 0, g: 0, b: 0 }
   private roomSceneRgb = [0, 0, 0]
   private particles = new ParticleLayer()
+  /** The particles' ground snap probe: terrain and models up to GROUND_SNAP_REACH below a point. */
+  private snapRay = new THREE.Raycaster()
+  private snapHit = new THREE.Vector3()
+  private particleGround = (x: number, y: number, z: number): number | null => {
+    const t = this.terrain
+    let best: number | null = null
+    if (t.contains(x, z) && !t.isHole(x, z)) {
+      const h = t.heightAt(x, z)
+      if (h <= y) best = h
+    }
+    this.snapRay.set(this.snapHit.set(x, y, z), DOWN)
+    this.snapRay.far = GROUND_SNAP_REACH
+    const obj = this.objects.raycastSurface(this.snapRay)
+    if (obj && (best === null || obj.point.y > best)) best = obj.point.y
+    return best
+  }
   private clouds = new CloudDome()
   /** The time the clouds last moved, to advance them by. */
   private cloudsAt = 0
@@ -838,6 +855,7 @@ export class Engine {
   private updateParticles(dt: number, time: number) {
     const p = this.particles
     p.enabled = this.prefs?.particles !== false
+    p.ground = this.particleGround
     // Lit particles take the sky light and the sun on a surface facing up, as the terrain shades.
     const tu = this.terrain.material.uniforms
     const sun = Math.max(0, (tu.sunDir.value as THREE.Vector3).y)
