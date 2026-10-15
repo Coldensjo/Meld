@@ -4,6 +4,8 @@ import type { ObjectLayer, WorldObject } from './ObjectLayer'
 import type { Command } from '../state/history'
 import { TerrainStroke, type Rect } from '../tools/brush'
 import { LiquidStroke } from '../water/liquidStroke'
+import { ChunkDataStroke } from '../tools/chunkDataStroke'
+import { copyChunkData, pasteChunkData } from './clipChunkData'
 import { copyLiquidCells, pasteLiquidCells, type LiquidClip, type LiquidMap } from '../water/liquids'
 import {
   CHUNK_CELLS,
@@ -39,6 +41,11 @@ export interface MapClip {
   objects: Array<Omit<WorldObject, 'id' | 'parent'> & { cid: number; cparent?: number }>
   /** The painted liquid of the area, cell by cell (absent in a clip made before liquids were copied). */
   liquids?: LiquidClip
+  /**
+   * The chunk data under each of the w*h cells: the zone and flags of the chunk the cell is in, and
+   * the cell's no-tuft byte (absent in a clip made before they were copied).
+   */
+  chunkData?: { areas: Uint32Array; flags: Uint8Array; noEffect: Uint8Array }
 }
 
 export interface PasteOptions {
@@ -223,7 +230,7 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
     return p.x >= ox && p.x <= r.x1 * cs && p.z >= oz && p.z <= r.z1 * cs
   })
   const inside = encodeObjects(terrain, objects, picked, ox, oz)
-  const clip: MapClip = { w, h, heights, holes, weights, slots, palette: clipPalette, objects: inside }
+  const clip: MapClip = { w, h, heights, holes, weights, slots, palette: clipPalette, objects: inside, chunkData: copyChunkData(terrain, r) }
   if (liquids) clip.liquids = copyLiquidCells(liquids, r)
   return clip
 }
@@ -256,6 +263,13 @@ export function pasteRegion(
 ): Command | null {
   const stroke = new TerrainStroke(terrain, 'Paste', { heights: opts.terrain, splat: opts.textures, holes: opts.terrain }, onHeights)
   let liquidCmd: Command | null = null
+  // The chunks' zones, flags and no-tuft cells come along with the ground.
+  let chunkCmd: Command | null = null
+  if (opts.terrain && clip.chunkData) {
+    const cs = new ChunkDataStroke(terrain, 'Paste')
+    pasteChunkData(terrain, clip, px, pz, cs)
+    chunkCmd = cs.finish()
+  }
   if (opts.terrain && liquids && clip.liquids) {
     const ls = new LiquidStroke(liquids, 'Paste')
     pasteLiquidCells(liquids, clip.liquids, px, pz, ls.reserve)
@@ -397,19 +411,21 @@ export function pasteRegion(
   const added = opts.objects ? decodeObjects(terrain, objects, clip.objects, px * cs, pz * cs) : []
 
   const terrainCmd = stroke.finish()
-  if (!terrainCmd && !liquidCmd && !added.length && !paletteChanged) return null
+  if (!terrainCmd && !liquidCmd && !chunkCmd && !added.length && !paletteChanged) return null
   const saved = added.map((o) => ({ ...o }))
   return {
     label: 'Paste',
     undo: () => {
       terrainCmd?.undo()
       liquidCmd?.undo()
+      chunkCmd?.undo()
       for (const o of saved) objects.remove(o.id)
       if (paletteChanged) setPalette(paletteBefore)
     },
     redo: () => {
       terrainCmd?.redo()
       liquidCmd?.redo()
+      chunkCmd?.redo()
       for (const o of saved) objects.add({ ...o })
       if (paletteChanged) setPalette(palette)
     },

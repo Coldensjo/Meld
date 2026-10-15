@@ -7,8 +7,9 @@ import { rotateLiquidClip } from '../water/liquids'
 /**
  * The clip turned a quarter turn clockwise seen from above (the turn a model's yaw makes for +90°):
  * what was at (x, z) lands at (z, w - x), so a w by h clip becomes h by w. Heights, holes, texels,
- * liquids and models turn together; a model's own yaw turns too. A hole of one triangle keeps its
- * value, so it may land on the other triangle of its cell. noggit's chunk mover has the same turn.
+ * liquids, chunk data and models turn together; a model's own yaw turns too. A hole of one triangle
+ * keeps its value, so it may land on the other triangle of its cell. noggit's chunk mover has the
+ * same turn.
  */
 export function rotateClip(clip: MapClip, cellSize: number): MapClip {
   const { w, h } = clip
@@ -38,5 +39,13 @@ export function rotateClip(clip: MapClip, cellSize: number): MapClip {
   const objects = clip.objects.map((o) => (o.cparent === undefined ? { ...o, x: o.z, z: W - o.x, rotY: o.rotY + Math.PI / 2 } : { ...o }))
   const out: MapClip = { w: nw, h: nh, heights, holes, weights, slots, palette: [...clip.palette], objects }
   if (clip.liquids) out.liquids = rotateLiquidClip(clip.liquids)
+  if (clip.chunkData) {
+    const turn = <A extends Uint8Array | Uint32Array>(src: A, dst: A) => {
+      for (let z = 0; z < h; z++) for (let x = 0; x < w; x++) dst[(w - 1 - x) * nw + z] = src[z * w + x]
+      return dst
+    }
+    const d = clip.chunkData
+    out.chunkData = { areas: turn(d.areas, new Uint32Array(d.areas.length)), flags: turn(d.flags, new Uint8Array(d.flags.length)), noEffect: turn(d.noEffect, new Uint8Array(d.noEffect.length)) }
+  }
   return out
 }
