@@ -58,20 +58,48 @@ In order. Each becomes a BACKLOG.md item (B-164 onwards).
    has loaded: either restart it (as now) or teach it to reopen the chain and drop its caches for the
    changed tiles (a change in Benilla, so a fork or an upstream pull request). Test the file sharing
    first.
-3. **Port Benilla's exact client behaviour where Meld approximates (B-166 to B-170).** Benilla is built
-   against reverse engineering of the real client and is MIT/Apache, which CLAUDE.md allows porting
-   from (unlike Noggit, which is GPL). Port the behaviour into Meld's Go and TypeScript:
-   - the client's light blending, sky dome colours and fog (Meld keeps its own Preetham sky; Client
-     Lighting only takes the colours) (B-166);
-   - the WDL far horizon beyond the open block (B-155, now with a renderer to follow) (B-167);
-   - M2 particles and ribbons (B-154) (B-168);
-   - the minimap textures and `md5translate.trs` (B-129): how the client finds and draws them (B-169);
-   - overbright and scrolling textures exactly as the client draws them (Meld's overbright is a ×1.5
-     guess) (B-170).
+3. **Port Benilla's exact client behaviour** where Meld approximates: see "Porting from Benilla" below
+   (B-166 to B-176).
 4. **Optional: a "Play here" button (B-171).** Benilla takes `WOW_HOST`, the login and the data folder
    from its environment; a server-side teleport of the logged-in character to the camera's spot (a GM
    command over the world database or the server's console) would let an author jump into the spot
    they are editing.
+
+## Porting from Benilla
+
+Benilla is MIT or Apache-2.0, which CLAUDE.md allows porting from (unlike Noggit, which is GPL), and it is
+written against reverse engineering of the real 1.12.1 client ([benilla-re](https://github.com/samwhosung/benilla-re)),
+citing the client's own function addresses in its comments. Porting it gives Meld the client's own rules
+instead of approximations. The owner wants these done first, in the order below, starting in a fresh
+session (decided 2026-10-15).
+
+**How to port.** Benilla is Rust; Meld is Go (files, formats) and TypeScript (rendering, editing). Port the
+behaviour, not the code layout: read the Benilla module, then write it Meld's way, with Meld's tests. Keep
+Benilla's client address references in the comments where they explain a constant. Say in each commit
+message that it ports from Benilla (MIT/Apache) and which module. The clone is at
+`C:\Servers\Software\benilla` (read only; `git pull` there to update). Benilla's paths below are under
+`crates/`. Verify against the client the way the earlier items did (TESTS.md), and in Benilla itself where
+a change shows on screen (it reads the same install, so what Meld previews should match what Benilla draws).
+
+| Order | Item | Benilla source | Meld code it replaces or extends |
+|---|---|---|---|
+| 1 | **B-172 Ground tufts as the client places them** | `benilla-formats/src/ground_effects.rs` (`scatter_ground_doodads`, `BlizzardRandomizer`, `FRILL_DENSITY`), `benilla-world/src/clutter.rs` (the 70 yd range) | `frontend/src/lib/world/groundEffects.ts` (`cellTufts`, `tuftsPerCell`, `hash01`), `world/GroundEffectLayer.ts` (`TUFT_RANGE`) |
+| 2 | **B-166 The client's sun, sky and fog** | `benilla-world/src/lighting/daynight.rs` (sun direction), `lighting/resolve.rs` (scene fog), `benilla-formats/src/light/atmosphere.rs` and `light/tables.rs` (band meanings), `benilla-world/src/shaders/sky.wgsl`, `sky.rs`, `clouds/` | `frontend/src/lib/wow/clientLight.ts`, `Engine.applyClientLight`, `engine/Environment.ts` (sun path, Preetham sky) |
+| 3 | **B-173 Baked terrain shadows (MCSH)** | `benilla-adt/src/lib.rs` (MCSH read), `benilla-assets/src/terrain.rs` (shadow array), `benilla-assets/src/shaders/terrain.wgsl` (how it shades) | `internal/adt` (reads MCSH: today it is only passed through), `terrain/TerrainMaterial.ts`; then B-057 (the editor) |
+| 4 | **B-167 Far horizon from the WDL** | `benilla-formats/src/wdl.rs` (mesh), `benilla-world/src/wdl.rs`, `benilla-assets/src/shaders/wdl.wgsl` (unlit, own fog) | new: a horizon layer beside `Water.floor`; Go already writes and reads the WDL (`internal/vmangos/wdl.go`) |
+| 5 | **B-168 M2 particles, ribbons, texture animation** | `benilla-world/src/particles/`, `ribbons.rs`, `benilla-formats/src/particles.rs`, `ribbons.rs`, `models/tex_anim.rs`, `models/mat_anim.rs` | `internal/wow/m2anim.go` (emitters are only flame anchors today), `world/PropEffects.ts`, `world/Animator.ts` |
+| 6 | **B-170 Terrain look** | `benilla-assets/src/shaders/terrain.wgsl`, `terrain.rs` (repeats, blending, alpha edge filtering, overbright, layer animation) | `terrain/TerrainMaterial.ts` (the x1.5 overbright, the scroll rate) |
+| 7 | **B-174 Water look** | `benilla-world/src/liquid/`, `benilla-assets/src/shaders/liquid.wgsl`, `water_fx/` | `water/liquidMaterial.ts` |
+| 8 | **B-169 Minimap textures** | `benilla-formats/src/minimap_translate.rs`, `benilla-assets/src/minimap_grid.rs` | B-129 (writing them) |
+| 9 | **B-175 Footsteps by terrain type** | `benilla-formats/src/footsteps.rs`, `terrain.rs` | `GroundEffectsDialog.svelte` (footsteps picked by number) |
+| 10 | **B-176 WMO interiors** | `benilla-world/src/wmo_portal/` (portal culling, interior fog) | `world/ObjectLayer.ts`, the interior materials |
+
+Also useful as references while doing other items: `benilla-formats/src/area_trigger.rs` (B-150),
+`benilla-formats/src/light/` (the light editor B-149), `benilla-world/src/collision.rs` (camera collision).
+
+Already gained from reading it: Benilla's ADT reader confirmed Meld's ground effect header offsets
+(predominant map at 0x40 to 0x4F, no-tuft bits at 0x50), and its MPQ, WDT and WDL readers match what Meld
+writes.
 
 ## Things to keep in mind
 

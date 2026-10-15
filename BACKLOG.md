@@ -51,12 +51,23 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 - [ ] B-164 **Check a round trip in Benilla by hand**: a region save and a published map, walked in Benilla, with the SoloCraft install as its data · Source: owner · M/S
 - [ ] B-165 **Write the patch without closing Benilla**: test whether Benilla's shared file handles let Meld replace patch-3.MPQ while it runs, and if so skip the close (Benilla still needs a restart or a reload to show it) · Source: owner · L/S
-- [ ] B-166 **Port the client's light blending, sky dome colours and fog from Benilla** (MIT/Apache) over Client Lighting's colours-only take · Source: owner · L/M
-- [ ] B-167 **Far horizon from the WDL, after Benilla's renderer** (with B-155) · Source: owner · L/M
-- [ ] B-168 **M2 particles and ribbons after Benilla's** (with B-154) · Source: owner · L/L
-- [ ] B-169 **Minimap textures after Benilla's reading of them** (with B-129) · Source: owner · L/M
-- [ ] B-170 **Overbright and scrolling textures exactly as Benilla draws them** (Meld's overbright is a guess) · Source: owner · L/S
 - [ ] B-171 **Play here**: teleport the logged-in character to the camera's spot from Meld · Source: owner · L/M · needs-approval (a server-side command)
+
+## Benilla ports (see BENILLA.md, "Porting from Benilla")
+
+The client's own behaviour, ported from Benilla's MIT/Apache Rust into Meld's Go and TypeScript. The owner
+wants these worked first, in this order, starting in a fresh session (2026-10-15).
+
+- [ ] B-172 **Ground tufts placed as the client places them**: port `scatter_ground_doodads` (the client's `CMapChunk::CreateDetailDoodads`: Blizzard's randomizer seeded per chunk, the cell pass and the doodad pass, the predominant layer, the no-tuft mask, the 70 yd range) over Meld's hash-based `cellTufts`/`tuftsPerCell` · Source: owner · M/S
+- [ ] B-166 **The client's sun, sky and fog**: port the DayNight sun direction, the five-stop sky gradient (bands 2 to 6), the cloud bands and the scene fog rule (end = zone fog or far clip, start = fraction, storms negative) into Client Lighting, replacing Meld's own sun path and Preetham sky while it is on · Source: owner · M/M
+- [ ] B-173 **Baked terrain shadows (MCSH) read and drawn**: read each chunk's 64x64 shadow bits as Benilla does and shade the terrain with them as the client does (lit where a chunk has none); the groundwork for the shadows editor B-057 · Source: owner · M/M
+- [ ] B-167 **Far horizon from the WDL**: mesh the map's WDL beyond the open block and draw it unlit under its own fog that fades to the scene fog, after Benilla's `wdl.rs`/`wdl.wgsl` (with B-155) · Source: owner · L/M
+- [ ] B-168 **M2 particles, ribbons and texture animation**: CPU particle emitters with their over-life colour, size and texture cells, ribbons, and UV and material-alpha animation, after Benilla's `particles/`, `ribbons.rs`, `tex_anim.rs`, `mat_anim.rs` (with B-154) · Source: owner · L/L
+- [ ] B-170 **Terrain look checked against the client's**: texture repeats per chunk, layer blending, alpha filtering at chunk edges, and exact overbright and scrolling (Meld's overbright is a x1.5 guess), after Benilla's `terrain.wgsl`/`terrain.rs` · Source: owner · L/S
+- [ ] B-174 **Water look checked against the client's**: surface, depth colour, shore and flow against Benilla's `liquid/` and `liquid.wgsl` · Source: owner · L/S
+- [ ] B-169 **Minimap textures as the client finds them** (`md5translate.trs`), after Benilla's `minimap_translate.rs` (with B-129) · Source: owner · L/M
+- [ ] B-175 **Footstep sounds by terrain type**: name TerrainType rows in the ground effect editor (B-151 picks them by number), after Benilla's `footsteps.rs`/`terrain.rs` · Source: owner · L/S
+- [ ] B-176 **WMO interiors after Benilla's portal culling and interior fog**, for big buildings' speed and look · Source: owner · L/M
 
 ## Navigation, view and display
 
