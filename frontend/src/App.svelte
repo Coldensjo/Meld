@@ -114,6 +114,11 @@
       return
     }
 
+    if (e.key === 'F1') {
+      ui.dialog = 'help'
+      e.preventDefault()
+      return
+    }
     // Tab hides the panels, so the map fills the window; Ctrl+Tab cycles the map tabs below.
     if (e.key === 'Tab' && !mod) {
       ui.hidePanels = !ui.hidePanels

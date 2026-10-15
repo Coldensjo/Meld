@@ -119,7 +119,7 @@ Also included:
   light source and casts soft shadows.
 - **Preferences**: WoW client folder, clear thumbnail cache, camera speed, mouse sensitivity,
   invert camera Y.
-- **About**: keyboard shortcuts and app info.
+- **Help**: a help window (F1) with the tools, brushes, camera and view in short, the keyboard shortcuts, the manual (this README) and app info.
 
 Graphics and camera preferences are saved in the user config file
 (`~/.config/Meld/config.json` or `%AppData%\Meld\config.json`).

@@ -10,6 +10,14 @@
   import { ClearThumbnailCache } from '../../wailsjs/go/main/App'
   import { quitNow } from '../lib/io/session'
   import { requestClose } from './DocTabs.svelte'
+  import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
+  import { MANUAL_URL } from './AppDialogs.svelte'
+
+  /** Opens a web page in the user's browser (the desktop runtime's way, else the dev page's). */
+  function openUrl(url: string) {
+    if (hasBackend()) BrowserOpenURL(url)
+    else window.open(url, '_blank', 'noopener')
+  }
 
   type Item =
     | { kind: 'action'; label: string; shortcut?: string; disabled?: boolean; run: () => unknown }
@@ -257,9 +265,11 @@
       ],
     },
     {
-      name: 'About',
+      name: 'Help',
       items: [
+        { kind: 'action', label: 'Help…', shortcut: 'F1', run: () => (ui.dialog = 'help') },
         { kind: 'action', label: 'Keyboard Shortcuts…', run: () => (ui.dialog = 'shortcuts') },
+        { kind: 'action', label: 'Manual (README on GitHub)', run: () => openUrl(MANUAL_URL) },
         { kind: 'sep' },
         { kind: 'action', label: 'Copy Scene', disabled: !hasBackend() || ui.busy, run: withEngine(copyScene) },
         { kind: 'action', label: 'Load Scene from Clipboard', disabled: !hasBackend() || ui.busy, run: withEngine(pasteScene) },

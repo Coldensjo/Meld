@@ -93,7 +93,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 
 - [ ] B-090 **Settings panel**: game path, import path, project path, MCLQ path · gap §10 · M/M
 - [ ] B-091 **Log window** with a file-loading log setting · gap §10 · M/M
-- [ ] B-092 **Help window** and manual links · gap §10 · M/S
+- [x] B-092 **Help window** and manual links · gap §10 · M/S · done 2026-10-15 (PROGRESS.md): Help › Help… (F1), Manual (README on GitHub)
 - [x] B-093 **Asset browser search** improvements · gap §10 · L/S · done: the search-first asset browser with synonyms, kinds, zones and category facets (CLAUDE.md, Asset browser)
 - [x] B-115 **Dock reduced to Layers**: the Map, Spawns and Properties panels are no longer mounted · Source: owner · -/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session); their functions are B-118
 - [ ] B-094 **Undockable tool properties** panel · gap §10 · L/L · needs-approval

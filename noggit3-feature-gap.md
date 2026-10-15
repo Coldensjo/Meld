@@ -136,7 +136,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 - **Settings panel** covering game path, import path, project path, WMV log path, and MCLQ export path. Meld only has the WoW folder and cache.
 - **Undockable tool properties** panel. Meld's dock is fixed.
 - **Floating tool windows**: noggit's tools open as separate windows.
-- **Help window** and manual links.
+- ~~**Help window** and manual links.~~ *Done: the About menu is now Help, with Help… (F1: a window of short sections on getting started, the tools, brushes and undo, camera and view, with buttons to the manual and the shortcuts), Keyboard Shortcuts… and Manual (the README on GitHub, opened in the browser).*
 - **Log window** and "additional file loading log" setting.
 - **Asset browser** with a dedicated search **(unverified: Meld's palette is similar; may be covered)**.
 

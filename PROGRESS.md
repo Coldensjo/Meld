@@ -217,3 +217,8 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 - Done: Checked first, as B-027 was. The lines are already there: Graphics › Show grid draws a line every four cells, Show chunk lines the 8x8-cell paint chunk edges in pale blue, and a region always draws amber lines at its tile edges (`Terrain.setTileBorders`, set in `Engine.activate`). noggit's "hole lines always on" draws the chunk lines around a hole so it can be seen when the lines are off; Meld cuts holes out of the mesh and draws their walls, so a hole is visible on its own. Nothing to build; marked done in the backlog and the gap list.
 - Verified: nothing changed in the code, so no checks were run. Not checked in the app.
 - Left: none.
+
+## 2026-10-15 · B-092 Help window and manual links
+- Done: The About menu is now Help. Help › Help… (F1) opens a Help dialog with short sections: getting started (client folder, New World and Part of Azeroth, save, publish and export), the eight tools, brushes and undo, camera and view; its buttons open the manual and the Keyboard Shortcuts dialog. Help › Manual (README on GitHub) opens the repository's README in the system browser through the Wails runtime (the dev page uses window.open). The README's menu list names the new menu.
+- Verified: make test passed (Go plus 183 of 183 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app: the dialog was not seen on screen.
+- Left: the help text is written by hand in `AppDialogs.svelte` (`HELP`), so it must be kept in step with the tools; the README is the full manual.

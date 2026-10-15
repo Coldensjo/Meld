@@ -1,4 +1,10 @@
+<script module lang="ts">
+  /** The manual: the README of the project's repository, which Help › Manual opens in the browser. */
+  export const MANUAL_URL = 'https://github.com/Coldensjo/WorldEditor#readme'
+</script>
+
 <script lang="ts">
+  import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import Modal from './Modal.svelte'
   import GameLoginDialog from './GameLoginDialog.svelte'
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
@@ -8,7 +14,7 @@
   import { setStatus } from '../lib/state/editor.svelte'
   import { docs, editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
+  import { hasBackend, openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
   import { quitNow } from '../lib/io/session'
   import { APP_VERSION } from '../lib/version'
 
@@ -42,6 +48,42 @@
   let texFrom = $state(0)
   let texTo = $state(1)
   const textureName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
+
+  /** The help window's sections: a title and short paragraphs each (Help › Help…, F1). */
+  const HELP: Array<[string, string[]]> = [
+    [
+      'Getting started',
+      [
+        'Preferences › WoW client folder points Meld at your 1.12 client. Its doodads, buildings and tileset textures then fill the asset browser along the bottom; nothing is copied out of it.',
+        'File › New World (Ctrl+N) makes a world of a few tiles from a preset, and File › Open Part of Azeroth opens a square of tiles of a continent with its ground, textures, models and water.',
+        'Save (Ctrl+S) writes a .wmap file; for a map made for the client it also offers Publish, which writes the tiles into the client and builds the server\'s files. A part of Azeroth goes back into its tiles with File › Export Region to Client.',
+      ],
+    ],
+    [
+      'Tools (keys 1 to 8)',
+      [
+        'Select (1): click a model, Shift+click adds one, drag moves the selection; drag on the ground to select an area and the models in it. Alt+click is the pipette. I opens the Inspector with the placement numbers.',
+        'Sculpt (2): raise, lower, smooth, flatten, noise, mountain, vertex and hole modes. Painting while shaping paints a texture, or rock and dirt by slope, under the brush as the ground moves.',
+        'Paint (3): paints the texture picked in the browser; a chunk of 8x8 cells takes four textures, and the Layers panel shows the ones under the cursor. Mask mode marks ground to fill with one texture.',
+        'Roads (4) paint a hard-edged texture and level the ground across it. Water (5) paints lakes and rivers by liquid type, or shapes the sea\'s shore; the sea level is in Map Properties.',
+        'Place (6) puts down the model picked in the browser, onto the ground or onto a building. Clear (7) wipes textures or models under the brush. Doodad brush (8) scatters a brush of weighted models like paint; Edit › Doodad Brushes makes brushes.',
+      ],
+    ],
+    [
+      'Brushes and undo',
+      [
+        '[ and ] step the brush size, Shift+[ and ] the falloff, and Alt+right-drag sizes the brush where it stands. Ctrl+scroll also steps the size.',
+        'Every edit is undoable with Ctrl+Z and Ctrl+Y, including strokes, placements, water and spawn changes.',
+      ],
+    ],
+    [
+      'Camera and view',
+      [
+        'Right-drag looks around, W A S D fly, Space and X go up and down, the wheel sets the speed; T follows the ground, so the camera orbits a point on it. F focuses the selection.',
+        'Graphics has the time of day, shadows, fog, the grid and chunk lines, and the layers to show. Tab hides every panel but the menu bar. Hold F8 to name the part of the UI under the cursor for a bug report.',
+      ],
+    ],
+  ]
 
   const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
     [
@@ -127,6 +169,21 @@
       </div>
     </div>
     {#snippet actions()}
+      <button class="active" onclick={close}>Close</button>
+    {/snippet}
+  </Modal>
+{:else if ui.dialog === 'help'}
+  <Modal title="Help" width={560} onclose={close}>
+    {#each HELP as [title, paragraphs] (title)}
+      <h3>{title}</h3>
+      {#each paragraphs as text (text)}
+        <p class="help">{text}</p>
+      {/each}
+    {/each}
+    <p class="dim">The manual is the project's README, with every tool, menu and format in full.</p>
+    {#snippet actions()}
+      <button onclick={() => (hasBackend() ? BrowserOpenURL(MANUAL_URL) : window.open(MANUAL_URL, '_blank', 'noopener'))}>Open the manual</button>
+      <button onclick={() => (ui.dialog = 'shortcuts')}>Keyboard shortcuts</button>
       <button class="active" onclick={close}>Close</button>
     {/snippet}
   </Modal>
@@ -299,6 +356,11 @@
   }
   h3 {
     margin-top: 12px;
+  }
+  .help {
+    margin: 4px 0;
+    font-size: 12.5px;
+    line-height: 1.45;
   }
   table {
     width: 100%;
