@@ -365,3 +365,10 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   as "has alpha" alone, so the client's animated and overbright textures (lava, slime) lost both; now a
   layer without the map's own look keeps the flags its texture has in the tile (`tileLayerFlags`), checked
   against the client's Burning Steppes tiles.
+
+### B-135 Alphamap images · Noggit Red, for the whole map and the paint texture
+- Chosen by the loop from Noggit Red (2026-10-15, B-135). Noggit Red's Assist › Export/Import alphamaps
+  write and read a tile's alpha maps as images, all textures or the current one. **Ours**: one image for
+  the whole open map, of the paint texture (the one picked to paint with), since Meld's splat is one grid
+  over the map rather than per tile; the image is stretched on import as the heightmap's is. A full chunk
+  refuses a texture it lacks rather than evicting one, as painting does.

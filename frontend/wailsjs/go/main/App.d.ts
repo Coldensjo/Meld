@@ -74,6 +74,8 @@ export function OpenBrushDialog():Promise<Array<string>>;
 
 export function OpenHeightmapDialog():Promise<string>;
 
+export function OpenImageDialog(arg1:string):Promise<string>;
+
 export function OpenMapDialog():Promise<string>;
 
 export function OpenTextDialog():Promise<string>;

@@ -160,7 +160,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 
 - ~~**Heightmap import and export** as an image (Meld has neither).~~ *Done: File › Export Heightmap… and Import Heightmap… use a 16-bit grey PNG of (cells + 1) samples per side, mapped from −1024 to +1024 yards. Import needs the same size and is one undo step.* **(Red)** Noggit Red's importer also has Set, Add, Subtract and Multiply modes, a min/max height (with Auto Heights from the tile) and tiled edges, per tile or for every tile; its exporter adds a normal map export.
 - ~~**Object list import / export** as text.~~ *Done: see §4, Import / export object lists.*
-- **Alphamap export and import** **(Red)**: Assist › Export alphamaps (all, or the current texture's) writes a tile's texture alphas as images, and Import alphamaps reads them back into a chosen layer, optionally removing layers that end up empty. Meld has no texture-weight image import or export.
+- ~~**Alphamap export and import** **(Red)**: Assist › Export alphamaps (all, or the current texture's) writes a tile's texture alphas as images, and Import alphamaps reads them back into a chosen layer, optionally removing layers that end up empty. Meld has no texture-weight image import or export.~~ *Done: File › Export Alphamap of the Paint Texture… and Import Alphamap into the Paint Texture…, over the whole map (BACKLOG B-135).*
 - **WoW ADT read/write**: noggit's native format. *Mostly covered: Meld opens part of Azeroth from the client's tiles and exports regions and new worlds back as tiles, while its own documents stay `.wmap` (CLAUDE.md, `internal/adt`).*
 - **MySQL UID sync**: shared unique IDs across machines **(format-specific)**.
 

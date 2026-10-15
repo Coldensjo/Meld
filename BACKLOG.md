@@ -27,7 +27,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-116 **Sculpt strength up to 10** · Source: owner · M/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · builds on B-131 · approved by the owner 2026-10-15, decided in IDEAS.md
-- [ ] B-135 **Alphamap image export and import**: a texture's weights as an image, read back into a chosen texture · gap §9 · L/M
+- [x] B-135 **Alphamap image export and import**: a texture's weights as an image, read back into a chosen texture · gap §9 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Water
 

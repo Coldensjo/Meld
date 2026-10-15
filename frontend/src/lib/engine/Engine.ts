@@ -26,6 +26,7 @@ import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
 import { densityFactor, effectFor, type TextureEffects } from '../world/groundEffects'
+import { layAlphamapChunk, textureWeights } from '../terrain/alphamap'
 import { looksByIndex, type TextureLooks } from '../world/textureLooks'
 import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
@@ -3111,6 +3112,26 @@ export class Engine {
       for (let k = 0; k < SLOTS; k++) if (t.chunkSlots[c * SLOTS + k] !== NO_TEXTURE) layers--
     })
     setStatus(`Removed ${layers} empty texture layer${layers === 1 ? '' : 's'} in ${chunks.length} chunk${chunks.length === 1 ? '' : 's'}.`, 4000)
+  }
+
+  /**
+   * Lays an alphamap (splatRes squared values, 0 to 1) into palette texture `tex` over the whole map as
+   * one undo step (terrain/alphamap.ts). Returns how many chunks refused it for want of a free slot.
+   */
+  importAlphamap(tex: number, values: Float32Array): number {
+    const t = this.terrain
+    const side = t.paintChunksPerSide
+    let refused = 0
+    const all = Array.from({ length: side * side }, (_, c) => c)
+    this.editChunks(`Import alphamap of ${editor.palette[tex] ?? 'a texture'}`, all, (c) => {
+      if (layAlphamapChunk(t, c, tex, values)) refused++
+    })
+    return refused
+  }
+
+  /** Palette texture `tex`'s weight at every splat texel, 0 to 1 (for the alphamap export). */
+  alphamapOf(tex: number): Float32Array {
+    return textureWeights(this.terrain, tex)
   }
 
   /** Removes palette texture `tex` from `chunks`: its layer there is empty afterwards (undoable). */

@@ -13,6 +13,7 @@ import {
   SaveTextDialog,
   WriteTextFile,
   OpenHeightmapDialog,
+  OpenImageDialog,
   OpenMapDialog,
   PublishVmangosMap,
   ReadHeightmap,
@@ -462,6 +463,52 @@ export function importWatermap(engine: Engine, opts: { min: number; max: number 
     const cells = watermapCells(imageRatios(img, size + 1), engine.outerHeights(), size, opts.min, opts.max)
     const n = engine.importWatermap(cells)
     setStatus(n ? `Laid water on ${n} cells from ${path}. Undo removes it.` : `The watermap ${path} is all black, so no water was laid.`, 6000)
+  })
+}
+
+/** The paint texture's name for a file, or '' when it is a colour. */
+function paintTextureName(): string {
+  const path = editor.palette[editor.paintLayer] ?? ''
+  return path.startsWith('#') ? '' : path.slice(path.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
+}
+
+/**
+ * Saves the paint texture's alphamap: its weight at every splat texel as a 16-bit grey PNG, black for
+ * none and white for all of it (terrain/alphamap.ts).
+ */
+export function exportAlphamap(engine: Engine) {
+  return guarded('Export alphamap', async () => {
+    const name = paintTextureName()
+    if (!name) {
+      setStatus('Pick a client texture to paint with first: its alphamap is what gets exported.', 5000)
+      return
+    }
+    const path = await SaveImageDialog('Export Alphamap', `${editor.mapName}-${name}`)
+    if (!path) return
+    const values = engine.alphamapOf(editor.paintLayer)
+    const side = engine.terrain.splatRes
+    const heights = Array.from(values, (v) => IMAGE_MIN + v * (IMAGE_MAX - IMAGE_MIN))
+    await WriteHeightmap(path, side, heights)
+    setStatus(`Exported the alphamap of ${name} (${side}×${side}) to ${path}.`, 6000)
+  })
+}
+
+/**
+ * Reads a grey image into the paint texture's alphamap (stretched to the map), so the texture covers
+ * each texel as much as the image is light. One undo step.
+ */
+export function importAlphamap(engine: Engine) {
+  return guarded('Import alphamap', async () => {
+    const name = paintTextureName()
+    if (!name) {
+      setStatus('Pick a client texture to paint with first: the alphamap is laid into it.', 5000)
+      return
+    }
+    const path = await OpenImageDialog(`Import Alphamap into ${name}`)
+    if (!path) return
+    const img = await ReadHeightmap(path)
+    const refused = engine.importAlphamap(editor.paintLayer, imageRatios(img, engine.terrain.splatRes))
+    setStatus(`Laid the alphamap from ${path} into ${name}.${refused ? ` ${refused} chunks already hold four other textures and kept their paint.` : ''} Undo reverts it.`, 8000)
   })
 }
 

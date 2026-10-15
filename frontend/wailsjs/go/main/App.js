@@ -138,6 +138,10 @@ export function OpenHeightmapDialog() {
   return window['go']['main']['App']['OpenHeightmapDialog']();
 }
 
+export function OpenImageDialog(arg1) {
+  return window['go']['main']['App']['OpenImageDialog'](arg1);
+}
+
 export function OpenMapDialog() {
   return window['go']['main']['App']['OpenMapDialog']();
 }

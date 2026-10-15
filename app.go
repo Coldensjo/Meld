@@ -835,6 +835,11 @@ func (a *App) SaveHeightmapDialog(suggested string) (string, error) {
 	return path, nil
 }
 
+// OpenImageDialog asks for a PNG image to read, under the given dialog title. Returns "" if cancelled.
+func (a *App) OpenImageDialog(title string) (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: imageFilters})
+}
+
 // OpenHeightmapDialog asks for a heightmap image to import. Returns "" if cancelled.
 func (a *App) OpenHeightmapDialog() (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
