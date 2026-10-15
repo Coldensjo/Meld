@@ -133,3 +133,28 @@ export function sunDiscScale(minute: number): number {
 
 /** The ring elevations (degrees) of the client's sky dome, apex down: LightIntBand rows 2 to 6 sit on them, the fog colour (row 7) at the horizon. */
 export const SKY_RINGS = [90, 16.8, 9.8, 3.7, 1.8] as const
+
+/**
+ * The clouds' sun-glow envelope (the static track 0xce9ab8, not a Light.dbc band): 1 all day with
+ * notches at dawn and dusk. Its last two keys are stored out of order and never reached, as in the client.
+ */
+const CLOUD_GLOW: Table = [
+  [0.16667, 1],
+  [0.19444, 0],
+  [0.20139, 0],
+  [0.22917, 1],
+  [0.89583, 1],
+  [0.92361, 0],
+  [0.88889, 0],
+  [0.91667, 1],
+]
+
+export function cloudGlowTrack(minute: number): number {
+  return interpDayNight(CLOUD_GLOW, minute / 1440)
+}
+
+/** Whether the clouds glow toward the sun (04:50 to 22:10) rather than the moon. */
+export function cloudGlowIsSun(minute: number): boolean {
+  const dp = minute / 1440
+  return dp >= 0.2013889 && dp <= 0.9236111
+}

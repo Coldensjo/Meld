@@ -49,6 +49,7 @@ import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from 
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { ParticleLayer } from '../world/ParticleLayer'
+import { CloudDome } from './CloudDome'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import type { MapInfo } from './MapDocument'
@@ -200,6 +201,9 @@ export class Engine {
   private env: Environment
   private effects = new PropEffects()
   private particles = new ParticleLayer()
+  private clouds = new CloudDome()
+  /** The time the clouds last moved, to advance them by. */
+  private cloudsAt = 0
   private tmpColor = new THREE.Color()
   /** View › Bounding boxes: a box around every model. */
   private boxes = new ModelBoxes()
@@ -307,6 +311,7 @@ export class Engine {
     this.scene.add(this.horizon.mesh)
     this.scene.add(this.effects.group)
     this.scene.add(this.particles.group)
+    this.scene.add(this.clouds.mesh)
     this.scene.add(this.boxes.lines, this.groupBoxes.lines)
     this.scene.add(this.paths.group)
 
@@ -390,6 +395,7 @@ export class Engine {
     this.horizon.dispose()
     this.effects.dispose()
     this.particles.dispose()
+    this.clouds.dispose()
     this.boxes.dispose()
     this.groupBoxes.dispose()
     this.paths.dispose()
@@ -953,6 +959,7 @@ export class Engine {
     if (id === null) {
       setLiquidLight(null)
       this.env.setClientSky(null, time)
+      this.clouds.hide()
       return
     }
     if (id !== this.clientLightsMap) {
@@ -980,6 +987,7 @@ export class Engine {
     if (!lights || !lightAt(lights, x, cam.y, z, this.hour, this.lightOut)) {
       setLiquidLight(null)
       this.env.setClientSky(null, time)
+      this.clouds.hide()
       return
     }
     const c = this.lightOut.colors
@@ -1001,6 +1009,9 @@ export class Engine {
     sky.sunScale = sunDiscScale(minute)
     sky.starAlpha = starAlpha(minute)
     this.env.setClientSky(sky, time)
+    const dt = Math.min(0.1, Math.max(0, time - this.cloudsAt))
+    this.cloudsAt = time
+    this.clouds.update(dt, this.lightOut, minute, this.celestialOut, this.moonOut, this.camera.position, this.prefs?.clouds !== false && !this.topDown)
     s.keyColor.setRGB(c[BAND.diffuse * 3], c[BAND.diffuse * 3 + 1], c[BAND.diffuse * 3 + 2], THREE.SRGBColorSpace)
     s.skyAmbient.setRGB(c[BAND.ambient * 3], c[BAND.ambient * 3 + 1], c[BAND.ambient * 3 + 2], THREE.SRGBColorSpace)
     s.groundAmbient.copy(s.skyAmbient).multiplyScalar(0.5)

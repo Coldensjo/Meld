@@ -283,6 +283,16 @@ olive. `__engine.doc.liquids.layers(c)` lists a chunk's layers (id, `depth` 0 to
 water elsewhere. For a before and after, `git stash push` the changed files, shoot, and `git stash
 pop`: the dev page reloads them.
 
+## Client clouds (B-179)
+
+Checks: `wow/clouds.ts` and `engine/CloudDome.ts`. `tests/clouds.test.ts` ports Benilla's kernel tests
+(clear at density 0, overcast mean above 200 at 1, scattered at 0.6, the glow only brightening, the
+quarter-tile scroll). In the app (CDP route) load a scene with `"prefs":{"clientLighting":true,"clouds":true}`,
+hide the map's objects, then `setSceneView({ target: [150, 80, 300], yaw: 2.2, pitch: 0.08, distance:
+120, hour: 13 })` in Azeroth 32_48: soft cloud banks over the client sky. `__engine.clouds.kernel.tile`
+is the coverage (Elwynn's light gives density 0.5, about 60% of the cells covered). The camera can't
+look up (it rides the ground), so the clouds show low over the horizon, where the dome's cap is.
+
 ## Liquid types from the client
 
 Checks: the Water tool's liquid list is the client's LiquidType.dbc (`LiquidTypes` binding,

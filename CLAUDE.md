@@ -436,6 +436,11 @@ cd frontend && pnpm build   # frontend only
   of that, and the sky dome is the client's (`Environment.setClientSky`: the five sky bands on the
   client's ring elevations, the fog colour at the horizon, the dawn and dusk warp where LightParams'
   highlightSky says so, drawn raw), with the visible sun, moon and stars on the client's tables.
+  Its clouds (B-179, Benilla's `clouds/`) are `wow/clouds.ts` (`CloudKernel`: the client's 128² tile of
+  four octaves of scrolling value noise, thresholded by the light's float band 3, coloured from colour
+  bands 10 to 12 with a glow toward the sun or moon, a quarter redrawn ten times a second) on
+  `engine/CloudDome.ts`, a dome from the zenith to the eye-level rim drawn right after the sky, while
+  View › Clouds is on.
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
   cycling, so it doesn't write reactive state every frame.
 
