@@ -36,7 +36,7 @@ void main() {
 
 /**
  * The client's clouds over its sky dome (B-179, wow/clouds.ts), drawn while the sky is the client's
- * (View › Client Lighting) and View › Clouds is on: right after the sky and before everything else, so
+ * (Lighting › Client Lighting) and Lighting › Clouds is on: right after the sky and before everything else, so
  * the ground covers them.
  */
 export class CloudDome {
@@ -85,7 +85,7 @@ export class CloudDome {
   /**
    * Per frame while the client's sky shows: advances the clouds by dt seconds under `light` at game
    * `minute`, toward the sun or the moon (`sunDir`, `moonDir`, the client's visible bodies), around
-   * the camera at `eye`. `on` is View › Clouds.
+   * the camera at `eye`. `on` is Lighting › Clouds.
    */
   update(dt: number, light: LightAt, minute: number, sunDir: ArrayLike<number>, moonDir: ArrayLike<number>, eye: THREE.Vector3, on: boolean) {
     this.mesh.visible = on

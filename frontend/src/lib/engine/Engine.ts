@@ -954,7 +954,7 @@ export class Engine {
     else env.aimKey(this.camera.position)
   }
 
-  /** View › Client Lighting: the client's lights of the open map, which map they are, and the light at the camera. */
+  /** Lighting › Client Lighting: the client's lights of the open map, which map they are, and the light at the camera. */
   private clientLights: ClientLights | null = null
   private clientLightsMap = -1
   private clientLightsLoading = false
@@ -1035,7 +1035,7 @@ export class Engine {
   }
 
   /**
-   * With View › Client Lighting on, the light becomes the client's own at the camera (wow/clientLight.ts):
+   * With Lighting › Client Lighting on, the light becomes the client's own at the camera (wow/clientLight.ts):
    * the map's global light with the local lights it is in blended over it gives the sun's and the sky's
    * light, the fog's colour and distances and the water's colours, and the client's DayNight tables
    * (wow/dayNight.ts) the sun's direction, which never sets. The sky dome is the client's too: its five
@@ -2948,7 +2948,7 @@ export class Engine {
   }
 
   /**
-   * View › Baked Shadows: reads the open region's baked shadows (MCSH) from the client once per terrain
+   * Lighting › Baked Shadows: reads the open region's baked shadows (MCSH) from the client once per terrain
    * and shows or hides them. A map of its own has none; they are not saved with the map.
    */
   private updateBakedShadows() {

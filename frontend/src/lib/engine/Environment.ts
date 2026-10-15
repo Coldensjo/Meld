@@ -104,7 +104,7 @@ function buildSkyMaterial(): THREE.ShaderMaterial {
   })
 }
 
-// The client's own sky dome (View › Client Lighting), after Benilla's sky.wgsl (MIT/Apache): the five
+// The client's own sky dome (Lighting › Client Lighting), after Benilla's sky.wgsl (MIT/Apache): the five
 // LightIntBand sky stops on the client's ring elevations, the fog colour at and below the horizon,
 // linear in elevation between them, with the dawn and dusk warp of the four middle rings toward the
 // sun (0x6d0f50). The colours are drawn raw, as the client draws the DBC bytes. The visible sun, the

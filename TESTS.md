@@ -299,7 +299,7 @@ __engine.exportInput().effects          // the effect per palette index
 
 - The first load of a client is slow (it reads every ADT of every map); the status bar counts the
   tiles. Afterwards it comes from `<user cache>/Meld/groundeffects/`.
-- Tufts only appear for textures the client's tiles use, or ones given an effect in Edit › Ground
+- Tufts only appear for textures the client's tiles use, or ones given an effect in World › Ground
   Effects…; a new world painted with the default tilesets grows Elwynn's grass.
 - The detail models load like any other; the layer draws a model once it is ready, so the first
   build after opening shows fewer tufts for a moment.
@@ -477,6 +477,15 @@ facet click then goes to the top. `tests/browserViews.test.ts` covers the stored
 `?nosave` nothing reaches config.json, so a restart can't be checked in the page; reload the desktop
 window instead.
 
+## Menu heights (#122)
+
+Checks: every menu fits the window. In headless Chrome (above), click each `.menubar .title`, read
+the `.menubar .dropdown`'s height and whether `scrollHeight > clientHeight`, and click it shut. An
+item is about 31 px tall, so a menu of 20 items with headers is near 700 px: keep a menu under about
+18 rows, or it passes a 768 px tall window (the dropdown then scrolls rather than running off). A
+script that compares the `label:` strings of `MenuBar.svelte` before and after a move (`git show
+HEAD:...`, sorted) proves no item was lost.
+
 ## Place tool keys (preview height and offset)
 
 Checks: `PlaceTool.onKey` (PgUp / PgDn set `editor.placeHeight`, the arrows `editor.placeOffset`,
@@ -527,7 +536,7 @@ e.history.undo(); e.objects.objects.size            // 0
   was shown.
 - An erase is `onDown` with `new PointerEvent('pointerdown', { ctrlKey: true })`; `shiftKey: true`
   stacks (no spacing), so the count keeps growing with every tick instead of settling.
-- The editor window is `ui.brushEditor = true` (Edit brush… in the options bar, or Edit › Doodad
+- The editor window is `ui.brushEditor = true` (Edit brush… in the options bar, or World › Doodad
   Brushes…); a click on a tile adds the model, a ✓ badge marks the ones in the brush.
 - Trap: an `$effect` that reads a `$state` it also writes (the editor once read `all.length` before
   loading `all`) re-runs after every write and hangs the app as soon as the window opens. Guard such
@@ -535,7 +544,7 @@ e.history.undo(); e.objects.objects.size            // 0
 - Trap: a test brush made in a dev page opened without `?nosave` was saved over the user's own
   brushes once (see the note at the top). With the flag, test brushes are safe; they vanish on reload.
 - A brush file is `formatBrush(brush)` from `tools/doodadBrush.ts`; paste its text into a `.toml` file
-  and File › Import Doodad Brushes… adds it under a free name ("Test 2" if "Test" exists).
+  and Import/Export › Import Doodad Brushes… adds it under a free name ("Test 2" if "Test" exists).
 - Slope and prop rules (`editor.doodad.maxSlope`, `editor.doodad.onProps`): on a `'hills'` preset
   document, `ed.editor.doodad.maxSlope = 10` and a stroke as above leaves the steep flanks bare
   (`groundSlopeDeg` in `world/groundTilt.ts` is the angle; unit test in `groundTilt.test.ts`). With
@@ -615,7 +624,7 @@ e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cel
 ## Hide panels (Tab)
 
 Checks: Tab hides the toolbar, options bar, asset browser, dock and status bar and the viewport
-grows to fill the window; Tab again brings them back; Graphics › Hide panels is the same switch.
+grows to fill the window; Tab again brings them back; View › Hide panels is the same switch.
 In the dev page: `ed.ui.hidePanels = true`, then `document.querySelector('canvas').clientHeight`
 grows and `document.querySelector('[data-ui="Toolbar"]')` is null. A key event
 (`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))`) does the
@@ -639,7 +648,7 @@ in the page; the app's brush is still in `config.json` (the page sent only `fog`
 
 ## Detail info readout
 
-Checks: Graphics › Detail info shows, in the viewport's top right corner, the client tile, the
+Checks: View › Detail info shows, in the viewport's top right corner, the client tile, the
 chunk in it, the cell, height, slope, hole and no-tuft flags, the chunk's texture layers with their
 share at the cell and effect IDs, the liquid layers covering the cell and the root models in the
 chunk. In the dev page: `ed.prefs.detailInfo = true`, move the mouse over the ground, then
@@ -822,7 +831,7 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
 
 ## Client Lighting's ground: per-vertex light and the sheen (#111)
 
-Checks: under View › Client Lighting the terrain shader takes the light's rows in gamma space
+Checks: under Lighting › Client Lighting the terrain shader takes the light's rows in gamma space
 (`clientAmbient`, `clientDiffuse`, `clientSpecular` = rows 1, 0 and 9), sums and clamps them per
 vertex, and adds the sheen times the layers' `_s` mask (`paletteArray.ts` puts each `_s` twin's alpha
 in the palette layer's alpha, 0 without one). In the dev page, load a region with
@@ -840,7 +849,7 @@ in the palette layer's alpha, 0 without one). In the dev page, load a region wit
 
 ## Clean up the tile under the camera (#45)
 
-Checks: Edit › "Clean up the tile under the camera" (`Engine.cleanUpTile`). In the dev page, on the
+Checks: Terrain › "Clean up the tile under the camera" (`Engine.cleanUpTile`). In the dev page, on the
 Durotar region (Kalimdor 41_33, 2x2) with `e.controller.target.set(180, 20, 300)` (tile 41, 33):
 `e.cleanUpTile('models')` removes the tile's 386 root models and what hangs on them (1196 to 810,
 "Clear models on tile 41, 33"), `e.cleanUpTile('height')` puts the tile's ground at 0 while the next

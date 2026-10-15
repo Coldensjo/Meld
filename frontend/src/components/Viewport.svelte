@@ -105,7 +105,7 @@
     0%, 60% { opacity: 1; }
     100% { opacity: 0; }
   }
-  /* The Detail info readout (Graphics › Detail info): the ground under the cursor, in the top right corner. */
+  /* The Detail info readout (View › Detail info): the ground under the cursor, in the top right corner. */
   .detail {
     position: absolute;
     top: 8px;

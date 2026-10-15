@@ -7,7 +7,7 @@
   import { hasBackend } from '../lib/io/mapio'
   import { lightWeight } from '../lib/wow/clientLight'
 
-  // Edit › Lights (Noggit Red's light editor): the open map's lights from the client's Light.dbc, each
+  // World › Lights (Noggit Red's light editor): the open map's lights from the client's Light.dbc, each
   // placed in the world with an inner radius it is full within and an outer one it fades out by, and
   // its clear-weather params: the colour bands by time of day (the sun's light, the ambient, the sky,
   // the fog, the water), the fog distance and the water alphas. Save writes the changed lights and params
@@ -127,7 +127,7 @@
       dirtyLights = []
       dirtyParams = []
       engineRef.current?.reloadClientLights()
-      setStatus(patch ? `Saved the lights to ${patch}. ${prefs.clientLighting ? '' : 'Turn on View › Client Lighting to see them in the editor.'}` : 'Nothing changed.', 6000)
+      setStatus(patch ? `Saved the lights to ${patch}. ${prefs.clientLighting ? '' : 'Turn on Lighting › Client Lighting to see them in the editor.'}` : 'Nothing changed.', 6000)
     } catch (err) {
       error = String(err)
     } finally {
@@ -251,7 +251,7 @@
       </div>
     {/if}
   </div>
-  <p class="dim">Save writes the changed lights into the client's Light tables (Meld's patch; the game restarts to read them). View › Client Lighting shows them in the editor.</p>
+  <p class="dim">Save writes the changed lights into the client's Light tables (Meld's patch; the game restarts to read them). Lighting › Client Lighting shows them in the editor.</p>
   {#snippet actions()}
     <button onclick={close}>Close</button>
     <button class="active" onclick={() => void save()} disabled={(!dirtyLights.length && !dirtyParams.length) || saving}>{saving ? 'Saving…' : 'Save'}</button>

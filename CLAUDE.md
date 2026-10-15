@@ -178,7 +178,7 @@ cd frontend && pnpm build   # frontend only
     1.12 tile keeps a chunk's holes in a 4x4 bitmap; the export sends each chunk's hole cells in its
     `HeaderSpec.Holes` and Go writes the bitmap at MCNK 0x3C (`adt.HoleBits`: a block with any hole
     cell is a hole).
-- **Baked shadows** (View › Baked Shadows, `prefs.bakedShadows`, B-173): a region's chunks carry the
+- **Baked shadows** (Lighting › Baked Shadows, `prefs.bakedShadows`, B-173): a region's chunks carry the
   client's baked shadow maps (MCSH, 64x64 bits a chunk, read by `adt` into `Chunk.Shadow`). The
   `RegionShadows` binding stitches them for the open block, the Engine reads them once per terrain
   (`updateBakedShadows`) and `Terrain.setBakedShadows` uploads them as `bakedShadowTex`; the terrain
@@ -252,7 +252,7 @@ cd frontend && pnpm build   # frontend only
   full-screen window like the creature editor with its own model picker over the shared catalog
   index (`lib/wow/catalogIndex.ts`); while the tool is active, a model picked in the asset browser
   also joins the brush instead of being placed.
-  Brush files are TOML (`formatBrush`/`parseBrush`, read with smol-toml), through File › Import /
+  Brush files are TOML (`formatBrush`/`parseBrush`, read with smol-toml), through Import/Export › Import /
   Export Doodad Brush and the `SaveBrushDialog`/`OpenBrushDialog` bindings.
 - **Attachments**: a `WorldObject` with `parent` is attached.
   - Its x/yOff/z/rotY/scale are local to the parent (`matrixOf` walks the chain). Roots use
@@ -329,7 +329,7 @@ cd frontend && pnpm build   # frontend only
   tiles on `MapPicker.svelte`, a continent overview stitched by the Go side from the client's
   minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
   the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps.
-- **Zones** (`components/ZonesDialog.svelte`, Edit › Zones…, `ui.dialog = 'zones'`): a map's AreaTable.dbc
+- **Zones** (`components/ZonesDialog.svelte`, World › Zones…, `ui.dialog = 'zones'`): a map's AreaTable.dbc
   rows (`vmangos/areatable.go`: `ReadAreaRows`, `NewAreaRow`, `SetAreaRows`; bindings `AreaRows`,
   `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (the game closed around it) and
   the rows into the world database's `area_template`, which is where VMaNGOS reads areas from (not the
@@ -350,7 +350,7 @@ cd frontend && pnpm build   # frontend only
   It builds them within `reach` of the camera (`tuftReach`: that depth out to the view's side edge,
   set by the Engine from the camera), rebuilt when the camera moves half a chunk or
   `Terrain.heightVersion`/`paintVersion` change (View › Ground effects, `prefs.showGroundEffects`).
-  A map's own effect per texture (`editor.textureEffects`, Edit › Ground Effects…, saved as the map
+  A map's own effect per texture (`editor.textureEffects`, World › Ground Effects…, saved as the map
   file's `textureEffects`) overrides the learned one. The export sends the effect per layer
   (`PaintSpec.Effects`) and Go writes it into MCLY and the per-cell predominant map into the MCNK
   header (`adt/effects.go`), so the client grows the same tufts. The header's `noEffectDoodad` bits
@@ -400,7 +400,7 @@ cd frontend && pnpm build   # frontend only
     `deleteTextureInChunks` (`removeSlot` in `chunkPaint.ts`: the layer's weight goes to each texel's
     strongest other texture; a chunk whose last texture goes is empty, drawn black and exported
     with no layers). All are one undo step. Nothing else goes in this panel. Auto-paint, Fill mask
-    and the "Replace Texture Everywhere" dialog are in the Edit menu.
+    and the "Replace Texture Everywhere" dialog are in the Terrain menu.
   - `editor.palette` is the map's list of textures (WoW tileset paths or `#rrggbb` colours, up to
     255). `Engine.useTexture(path)` adds one and makes it the paint texture.
   - **Properties** (`PropertiesPanel.svelte`) is the inspector for what is selected: one model's
@@ -468,7 +468,7 @@ cd frontend && pnpm build   # frontend only
 - Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
   surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun
   for the shadows to read.
-- **Client lighting** (View › Client Lighting, `prefs.clientLighting`): Go reads a map's Light, LightParams,
+- **Client lighting** (Lighting › Client Lighting, `prefs.clientLighting`): Go reads a map's Light, LightParams,
   LightIntBand and LightFloatBand rows (`vmangos/lights.go`, `MapLights` binding; 1.12 layouts, positions
   in 1/36 yard, band times in half-minutes); `wow/clientLight.ts` blends the global light with the local
   lights reaching the camera, as Noggit Red's Skies and the client do (bands walked as a cycle in stored
@@ -483,7 +483,7 @@ cd frontend && pnpm build   # frontend only
   four octaves of scrolling value noise, thresholded by the light's float band 3, coloured from colour
   bands 10 to 12 with a glow toward the sun or moon, a quarter redrawn ten times a second) on
   `engine/CloudDome.ts`, a dome from the zenith to the eye-level rim drawn right after the sky, while
-  View › Clouds is on.
+  Lighting › Clouds is on.
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
   cycling, so it doesn't write reactive state every frame.
 
@@ -505,7 +505,7 @@ cd frontend && pnpm build   # frontend only
   doodad placement. `world/particles.ts` is the simulation (`ParticlePool`: spawn kernels, integrator,
   quad writer; world-space particles stay where born, flag 0x10 ones ride the emitter) and
   `world/ParticleLayer.ts` runs a pool per emitter of each placed object within `RANGE` and in view,
-  frozen otherwise, and draws one dynamic mesh per texture, blend, lighting and fog. View › Particles
+  frozen otherwise, and draws one dynamic mesh per texture, blend, lighting and fog. Graphics › Particles
   (`prefs.particles`); with it on, `PropEffects` draws no procedural flame on a model that has
   emitters (its fire effects only light). With animations off the tracks hold at time 0 but the
   particles still fly. Spawns and the tools' previews run particles too (#110); a geometry emitter draws each particle as its model (`ModelCloud`, tumbling), a recursion emitter drives up to four child emitters of another model at its particles, and alpha draws are sorted back to front (#118). In 1.12's world models the geometry and recursion emitters are silent in the idle loop the editor plays.

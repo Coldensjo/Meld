@@ -7,7 +7,7 @@
   import { hasBackend } from '../lib/io/mapio'
   import { reloadAreas } from '../lib/wow/areas'
 
-  // Edit › Zones (Noggit Red's zone editor in its Area Designator): a map's zones and subzones from
+  // World › Zones (Noggit Red's zone editor in its Area Designator): a map's zones and subzones from
   // the client's AreaTable.dbc. Pick one to edit its row, or add a zone or a subzone; Save writes the
   // changed and new rows into the client's patch and the server's area_template. A form saved with
   // Save, like the creature editor's templates: not undo steps, since the rows aren't part of a map.

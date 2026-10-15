@@ -12,9 +12,9 @@
   import { importHeightmap, importWatermap } from '../lib/io/mapio'
   import { engineRef } from '../lib/state/engineRef'
 
-  // File › Import Heightmap (Noggit Red's heightmap importer): the image's black and white become the
+  // Import/Export › Import Heightmap (Noggit Red's heightmap importer): the image's black and white become the
   // Min and Max heights, which are set on the ground or added to, subtracted from or multiplied into it.
-  // With `water` it is File › Import Watermap: black is no water and the greys are the water's depth
+  // With `water` it is Import/Export › Import Watermap: black is no water and the greys are the water's depth
   // above the ground, from Min to Max (the owner's choice for Noggit Red's unfinished watermap import).
 
   interface Props {

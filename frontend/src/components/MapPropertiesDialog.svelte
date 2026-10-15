@@ -68,7 +68,7 @@
         {#each TYPES as [v, label] (v)}<option value={v}>{label}</option>{/each}
       </select>
       <label class="k" for="mi-area">Zone</label>
-      <select id="mi-area" value={info.areaId} onchange={(e) => setInfo({ areaId: Number((e.target as HTMLSelectElement).value) })} title="The map's zone (Edit › Zones makes one)">
+      <select id="mi-area" value={info.areaId} onchange={(e) => setInfo({ areaId: Number((e.target as HTMLSelectElement).value) })} title="The map's zone (World › Zones makes one)">
         <option value={0}>None</option>
         {#each areas as a (a.id)}<option value={a.id}>{a.name}</option>{/each}
         {#if info.areaId && !areas.some((a) => a.id === info.areaId)}<option value={info.areaId}>Area {info.areaId}</option>{/if}

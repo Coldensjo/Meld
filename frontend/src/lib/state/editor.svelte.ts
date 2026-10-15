@@ -246,7 +246,7 @@ export const editor = $state({
   dirty: false,
 })
 
-/** What the Detail info readout says about the ground under the cursor (Graphics › Detail info). */
+/** What the Detail info readout says about the ground under the cursor (View › Detail info). */
 export interface DetailInfo {
   /** The client tile ("x, y"), or a dash on a map that isn't a region. */
   tile: string
@@ -280,7 +280,7 @@ export const stats = $state({
   triangles: 0,
   objects: 0,
   cursor: null as { x: number; y: number; z: number } | null,
-  /** The ground under the cursor, while Graphics › Detail info is on (refreshed at 2 Hz like the rest). */
+  /** The ground under the cursor, while View › Detail info is on (refreshed at 2 Hz like the rest). */
   detail: null as DetailInfo | null,
   /** The zone of the chunk under the cursor while the Map data tool is active ('' for none). */
   hoverArea: '',
@@ -319,15 +319,15 @@ export const prefs = $state({
   wireframe: false,
   /** Paint's "Show unpaintable chunks": tint the chunks full with four other textures, which refuse the paint texture. */
   showUnpaintable: false,
-  /** View › Client Lighting: the sun, sky light, fog and water colours follow the client's lights where the camera is. */
+  /** Lighting › Client Lighting: the sun, sky light, fog and water colours follow the client's lights where the camera is. */
   clientLighting: false,
-  /** View › Baked Shadows: a region's ground darkened where the client's tiles bake shadow (MCSH), as the game draws it. */
+  /** Lighting › Baked Shadows: a region's ground darkened where the client's tiles bake shadow (MCSH), as the game draws it. */
   bakedShadows: true,
   /** View › Far Horizon: past an open region, the map's coarse WDL ground in the fog colour, as the client draws it. */
   showHorizon: true,
   /** View › Bounding boxes: draw a box around every model (Noggit Red's model boxes). */
   showBoxes: false,
-  /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb). */
+  /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb; Meld's Terrain › Climb). */
   climbView: false,
   /** The climb view's steepest walkable slope, in degrees (Noggit Red's default is 49). */
   climbAngle: 49,
@@ -467,9 +467,9 @@ export const ui = $state({
   creatureEditor: null as { key: string | null; entry: number } | null,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
-  /** The game Meld closes and opens around an export (Preferences › Game Client): Wow.exe or Benilla. */
+  /** The game Meld closes and opens around an export (Game › Game Client): Wow.exe or Benilla. */
   gameClient: 'wow' as 'wow' | 'benilla',
-  /** How the game's window opens when Meld starts it (Preferences › Game Window): '' the game's own setting. */
+  /** How the game's window opens when Meld starts it (Game › Game Window): '' the game's own setting. */
   gameWindow: '' as '' | 'windowed' | 'fullscreen',
   gameResolution: '1280x720',
   /** The floating quick texture palette (components/TexturePaletteWindow.svelte): the map's textures to paint with. */

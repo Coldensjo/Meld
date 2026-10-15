@@ -10,7 +10,7 @@ import { TILE_YARDS } from '../terrain/Terrain'
 // the ocean's last row darker and opaque), lit by the light's ambient and sun on a surface facing up,
 // plus the liquid's animated frame, whose alpha is the ripple: it adds the sun's sheen and a quarter
 // of white. The swatch's alpha is the water's opacity. Magma and slime are just their frame, opaque
-// and unlit. The colours are the client light where the camera is (View › Client Lighting) or else
+// and unlit. The colours are the client light where the camera is (Lighting › Client Lighting) or else
 // Azeroth's default light (Light.dbc 1: LightParams 12), by time of day.
 
 /** The client flips a liquid's frames 24 times a second (0x68aac0). */
@@ -252,7 +252,7 @@ export function updateLiquids(ms: number, hour: number, clientReady: boolean, cu
   }
   const c = clientLight
   if (c) {
-    // The client's own light where the camera is (View › Client Lighting, wow/clientLight.ts).
+    // The client's own light where the camera is (Lighting › Client Lighting, wow/clientLight.ts).
     fromBand(shared.riverLight.value, c, BAND.riverLight)
     fromBand(shared.riverDark.value, c, BAND.riverDark)
     fromBand(shared.oceanLight.value, c, BAND.oceanLight)

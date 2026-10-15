@@ -4,7 +4,7 @@
   import { engineRef } from '../lib/state/engineRef'
   import { lookFlags, lookOf, type Look } from '../lib/world/textureLooks'
 
-  // Edit › Texture Looks (Noggit Red's texture animation and overbright settings): per texture of the
+  // World › Texture Looks (Noggit Red's texture animation and overbright settings): per texture of the
   // map, whether the client scrolls it (direction and speed) and draws it overbright. A texture left on
   // "The client's" keeps what the client's tiles give it on export. Each change is an undo step.
 
