@@ -7,6 +7,9 @@ const nativeLook = navigator.userAgent.includes('Windows')
 const WARP_AT = 150
 const WARP_LANDED = 40
 
+/** How far above the ground the flying camera stays with camera collision on, in yards (Noggit Red's 3). */
+const COLLIDE_HEIGHT = 3
+
 /**
  * The camera, in one of two modes.
  *
@@ -32,6 +35,11 @@ export class CameraController {
   invertY = false
   /** Keep the target on the ground and the camera above it, instead of flying first person. */
   followGround = false
+  /**
+   * Camera collision (Noggit Red's): the flying camera stays at least COLLIDE_HEIGHT above the ground
+   * (or the water over it), so it can't sink into a hill; off, it enters caves and cellars.
+   */
+  collision = false
   /**
    * The Engine draws the top-down 2D view (U) from above `target` with its own camera; here it only
    * means the wheel zooms (`distance`), and the keys and a middle drag pan across the ground, as they
@@ -268,6 +276,7 @@ export class CameraController {
     if (!this.followGround) {
       if (k.has('Space')) this.target.y += speed
       if (k.has('KeyX') || k.has('KeyC')) this.target.y -= speed
+      if (this.collision && !this.topDown) this.target.y = Math.max(this.target.y, this.ground(this.target.x, this.target.z) + COLLIDE_HEIGHT)
     }
 
     const pos = this.camera.position

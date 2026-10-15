@@ -332,6 +332,8 @@ export const prefs = $state({
   invertY: false,
   /** The camera's target rides the ground and the camera stays above it; off, the camera flies anywhere (caves included). */
   cameraFollowGround: false,
+  /** The flying camera stays at least 3 yards above the ground (camera collision); off, it enters caves. */
+  cameraCollision: false,
   /** A pen's pressure scales sculpt speed and paint strength (a mouse is unchanged). */
   tabletSupport: false,
   /** Hour of day 0-24 (sun/moon position, lighting, sky). */

@@ -327,3 +327,9 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   keeps as the chunk's base: on ground gentler than the dirt angle Restore base paints it back by how flat
   the ground is, and never where that first texture is the rock or the dirt role. Off by default, as the
   backlog line asked, since it also paints over roads and details under the brush.
+
+### B-152 Camera collision · off by default
+- The loop's call (2026-10-15, B-152): Meld's free camera is meant to enter caves and cellars (CLAUDE.md),
+  so camera collision is a Camera menu switch, off by default, not the flying camera's only behaviour. It
+  keeps the camera 3 yards above the ground the controller follows, which is the water's surface where the
+  ground is under the sea, so with it on the camera stays above water too.

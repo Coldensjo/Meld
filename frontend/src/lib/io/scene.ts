@@ -32,6 +32,7 @@ const VIEW_PREFS = [
   'viewDistance',
   'fog',
   'cameraFollowGround',
+  'cameraCollision',
   'timeOfDay',
   'dayCycle',
   'cycleMinutes',

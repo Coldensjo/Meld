@@ -71,7 +71,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-071 **Locked cursor mode** while the camera moves · gap §6 · L/S
 - [ ] B-073 **Pause and speed keys for the day cycle** (Noggit Red: N faster, B slower, J pause) · gap §6 · L/S · unverified
 - [ ] B-074 **FPS camera mode**, with a debug camera to return to · gap §6 · L/M · Noggit Red's FPS camera stays 3 yards above the ground, so it walks the map as a player would
-- [ ] B-152 **Camera collision**: keep the free camera at least 3 yards above the ground · gap §6 · L/S
+- [x] B-152 **Camera collision**: keep the free camera at least 3 yards above the ground · gap §6 · L/S · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-078 **Height contour lines** · gap §7 · L/M
 - [ ] B-154 **M2 particles and ribbons** drawn from the emitters, beyond the procedural flames · gap §7 · L/L
 - [ ] B-155 **Far horizon** from the map's WDL beyond the open block · gap §7 · L/M · after B-146 for a new map

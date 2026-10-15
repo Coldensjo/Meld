@@ -499,3 +499,7 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-125 Config fields written whole
 - Done: every config write now goes through `config.Update`, which reads the file as it is now, changes the one field the binding owns and saves that: the client folder (`SetWowPath`), the server folder, the game login, the window size on close and the preferences (still merged key by key, B-122). Before, each saved this window's whole copy, so a window that only changed its prefs or closed wrote its older client folder, server folder, login and size over what another window had saved. A window still keeps its own client folder in use until it sets another.
 - Verified: new config test (one field set, another window's field kept). make test passed (Go plus 217 of 217 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked with two windows open.
+
+## 2026-10-15 · B-152 Camera collision
+- Done (IDEAS.md records the choice): Camera › Camera Collision (`prefs.cameraCollision`, off by default, kept in scenes) keeps the flying camera at least 3 yards above the ground under it, as Noggit Red's camera collision does (`COLLIDE_HEIGHT` in `CameraController`); off, the free camera still enters caves and cellars. Following the ground already kept the camera above it.
+- Verified: make test passed (Go plus 217 of 217 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.

@@ -859,6 +859,7 @@ export class Engine {
     this.controller.sensitivity = p.mouseSensitivity
     this.controller.invertY = p.invertY
     this.controller.setFollowGround(p.cameraFollowGround)
+    this.controller.collision = p.cameraCollision
     this.applyLayerVisibility(p)
   }
 
