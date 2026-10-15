@@ -97,7 +97,13 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   cursor's ground point. Off: the mouse moves the model across the camera plane, at its current height.
 - **Multiple models**, "Mouse move snap models to the ground", off by default. Off: the group moves to
   the cursor and keeps each model's height. On: each model is then snapped to the terrain.
-- Status: unblocked. Eligible for the loop.
+- Status: built 2026-10-15.
+- Two details noggit3 leaves open, chosen by the loop (2026-10-15, B-037): a model attached to a prop
+  that is moved with Follow cursor off, or in a group with Snap off, **stays attached** and keeps its
+  height on its parent (noggit3 has no attachments, so it has no rule); and a model snapped to the
+  ground keeps its height above it (`yOff`), so a sunk rock stays sunk, where noggit3's
+  `snap_selected_models_to_the_ground` puts the origin on the ground (**ours**, since the sink is a
+  deliberate setting). The owner can change either.
 
 ### B-052 Reload tile from disk · ours, scoped to the map
 - Meld has no tiles, so "reload tile" becomes **Revert to saved map**. It discards unsaved

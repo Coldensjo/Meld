@@ -62,7 +62,7 @@ of that format. Meld saves `.wmap`, so they are listed for completeness, not as 
 - ~~**Duplicate-model detection**, and "Clear duplicate models".~~ *Done: Edit › Remove Duplicate Models, one undo step.*
 - ~~**Clear all models** in an area.~~ *Done: the Clear tool in Models mode.*
 - **Reset rotation** (Ctrl+R) as a menu item **(unverified: Meld may have no explicit reset)**.
-- **Mouse-move snap**: "follow cursor on the ground" vs "snap models to the ground" as separate modes.
+- ~~**Mouse-move snap**: "follow cursor on the ground" vs "snap models to the ground" as separate modes.~~ *Done: two checkboxes in the Select tool's options bar, as noggit's. Follow cursor on the ground (on by default): a dragged single model follows the surface under the cursor, or off, slides across a level plane at its own height. Snap models to the ground (off by default): a dragged group lands on the ground, or off, keeps every model's height. An attached model stays attached either way.*
 - **Bounding box display**: draw models with boxes, and a single-box-per-model option.
 
 ## 5. Map and tile management (Assist and File menus)

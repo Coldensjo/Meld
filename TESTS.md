@@ -479,3 +479,14 @@ objects"). The knob is hidden when a WMO is in the group. In the dev page, after
 outline colours" set-up: `e.frame()` then `e.gizmo.visible` is true with both trees selected
 (`e.gizmo` is private; read it through `e['gizmo']` in the console). Drags need the mouse: hover
 the ring (the cursor becomes a grab hand), drag sideways and watch the hint "Rotation N° (2 objects)".
+
+## Mouse-move snap (Follow cursor, Snap models to the ground)
+
+Checks: in the Select tool, a dragged single model follows the surface under the cursor with
+`editor.moveFollowCursor` on (default) and slides across a level plane at its starting height with
+it off; a dragged group lands on the ground with `editor.moveSnapGroup` on and keeps every model's
+height with it off (default). Both are checkboxes in the options bar next to the selection chip.
+In the dev page the drag needs the mouse: select a tree, untick Follow cursor, drag it up a slope
+and watch `ed.editor.selected.yOff` go negative (it keeps its world height). A test by script:
+`e.tools.select.onDown` / `onMove` with `e.ctx` and a hit (see "Doodad brush" for `at(x, z)`) after
+`e.raycaster.setFromCamera(e.ndc, e.camera)`; `onMove` reads `ctx.raycaster.ray` for the plane.

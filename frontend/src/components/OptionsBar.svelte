@@ -274,9 +274,11 @@
       {@const count = editor.selectedIds.length}
       {#if editor.selected && count <= 1}
         <span class="chip"><span class="dim">Selected:</span> {displayName(editor.selected.type)}</span>
+        <label class="check" title="Dragging the model moves it along the ground (and onto buildings) under the cursor; off, it slides across a level plane at its own height"><input type="checkbox" bind:checked={editor.moveFollowCursor} /> Follow cursor on the ground</label>
       {:else if count > 1}
         <span class="chip"><span class="dim">Selected:</span> {count} objects</span>
-        <label class="check" title="R and Alt+arrows turn the group about the mean of its positions, so it keeps its shape; off, each model turns about its own origin"><input type="checkbox" bind:checked={editor.rotatePivot} /> Rotate around pivot point</label>
+        <label class="check" title="Dragging the group sets each model on the ground where it lands (its height above it kept); off, every model keeps its height"><input type="checkbox" bind:checked={editor.moveSnapGroup} /> Snap models to the ground</label>
+        <label class="check" title="R, Alt+arrows and the gizmo ring turn the group about the mean of its positions, so it keeps its shape; off, each model turns about its own origin"><input type="checkbox" bind:checked={editor.rotatePivot} /> Rotate around pivot point</label>
       {/if}
       {#if editor.selection}
         {@const s = editor.selection}

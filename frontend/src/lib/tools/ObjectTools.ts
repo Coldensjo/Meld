@@ -55,6 +55,8 @@ export function groupTransformCommand(objects: ObjectLayer, before: WorldObject[
   return { label: label ?? (b.length > 1 ? `Move ${b.length} objects` : 'Transform'), undo: () => apply(b), redo: () => apply(a) }
 }
 
+const UP = new THREE.Vector3(0, 1, 0)
+
 const TILT_LIMIT = (8 * Math.PI) / 180
 
 /** A random tilt each way, up to TILT_LIMIT, when random tilt is on; nothing otherwise. */
@@ -335,11 +337,15 @@ export class SelectTool implements Tool {
     dx: number
     dz: number
     lift: number
+    /** The lead's world height when the drag began, for a move across a level plane (follow cursor off) or a group that keeps its heights. */
+    startY: number
     exclude: Set<number>
     moved: boolean
     others: Array<{ id: number; ox: number; oz: number }>
     before: WorldObject[]
   } | null = null
+  private plane = new THREE.Plane()
+  private planeHit = new THREE.Vector3()
   /** Dragging a region's spawn along the surface under the cursor, keeping its offset from the cursor. */
   private spawnDrag: { key: string; dx: number; dz: number; before: SpawnFields; moved: boolean } | null = null
   /** Dragging point `i` of a creature's path (Path editing), with the path as it was. */
@@ -550,7 +556,7 @@ export class SelectTool implements Tool {
         return { id: s.id, ox: sw.pos.x - w.pos.x, oz: sw.pos.z - w.pos.z }
       })
     const before = [o, ...others.map((s) => ctx.objects.objects.get(s.id)!)].map((s) => ({ ...s }))
-    this.dragging = { lead: id, dx: w.pos.x - at.x, dz: w.pos.z - at.z, lift: Math.max(0, w.pos.y - at.y), exclude, moved: false, others, before }
+    this.dragging = { lead: id, dx: w.pos.x - at.x, dz: w.pos.z - at.z, lift: Math.max(0, w.pos.y - at.y), startY: w.pos.y, exclude, moved: false, others, before }
   }
 
   onMove(ctx: ToolContext, hit: THREE.Vector3 | null) {
@@ -602,18 +608,35 @@ export class SelectTool implements Tool {
     const d = this.dragging
     const o = d ? ctx.objects.objects.get(d.lead) : undefined
     if (!d || !o) return
-    const surf = ctx.surface(d.exclude)
-    if (!surf) return
+    const group = d.others.length > 0
+    // noggit's mouse-move checkboxes: a single model either follows the cursor's ground point or
+    // slides across a level plane at its own height; a group either lands on the ground or keeps
+    // every model's height. Keeping a height means keeping the parent too.
+    const onSurface = group ? editor.moveSnapGroup : editor.moveFollowCursor
     const w = ctx.objects.worldPlacement(o)
-    w.pos.set(surf.point.x + d.dx, surf.point.y + d.lift, surf.point.z + d.dz)
-    ctx.objects.place(o, surf.parent, w)
-    if (editor.followGround && surf.parent === null) {
-      const t = ctx.terrain
-      const n = groundNormal((x, z) => t.heightAt(x, z), o.x, o.z, t.cellSize, editor.followGroundSmooth, this.normal)
-      Object.assign(o, tiltToNormal(n.x, n.y, n.z, o.rotY))
-      ctx.objects.touch(o.id)
+    if (onSurface) {
+      const surf = ctx.surface(d.exclude)
+      if (!surf) return
+      w.pos.set(surf.point.x + d.dx, surf.point.y + d.lift, surf.point.z + d.dz)
+      ctx.objects.place(o, surf.parent, w)
+      if (editor.followGround && surf.parent === null) {
+        const t = ctx.terrain
+        const n = groundNormal((x, z) => t.heightAt(x, z), o.x, o.z, t.cellSize, editor.followGroundSmooth, this.normal)
+        Object.assign(o, tiltToNormal(n.x, n.y, n.z, o.rotY))
+        ctx.objects.touch(o.id)
+      }
+    } else {
+      // Where the pointer's ray crosses the level plane through the lead's starting height.
+      this.plane.set(UP, -d.startY)
+      if (!ctx.raycaster.ray.intersectPlane(this.plane, this.planeHit)) return
+      const nx = this.planeHit.x + d.dx
+      const nz = this.planeHit.z + d.dz
+      if (!ctx.terrain.contains(nx, nz)) return
+      w.pos.set(nx, d.startY, nz)
+      ctx.objects.place(o, o.parent ?? null, w)
     }
-    // The rest of the selection keeps its offset from the lead; a model on the ground keeps its height above it.
+    // The rest of the selection keeps its offset from the lead: set on the ground where it lands
+    // (its height above it kept), or left at its height.
     for (const other of d.others) {
       const s = ctx.objects.objects.get(other.id)
       if (!s) continue
@@ -623,7 +646,7 @@ export class SelectTool implements Tool {
       if (!ctx.terrain.contains(nx, nz)) continue
       sw.pos.x = nx
       sw.pos.z = nz
-      if (s.parent === undefined) sw.pos.y = ctx.terrain.heightAt(nx, nz) + s.yOff
+      if (onSurface && s.parent === undefined) sw.pos.y = ctx.terrain.heightAt(nx, nz) + s.yOff
       ctx.objects.place(s, s.parent ?? null, sw)
     }
     d.moved = true

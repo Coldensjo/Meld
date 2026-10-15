@@ -141,6 +141,13 @@ export const editor = $state({
    * turns about its own origin. A single model always turns about itself.
    */
   rotatePivot: true,
+  /**
+   * noggit's two mouse-move checkboxes. A single dragged model follows the cursor's ground point (on,
+   * the default), or moves across a level plane at its own height (off). A dragged group is set on the
+   * ground where it lands (on), or keeps every model's height (off, the default).
+   */
+  moveFollowCursor: true,
+  moveSnapGroup: false,
   /** Dragging a model along the ground tilts it to the ground's slope; smooth blends the slope over a cell each way. */
   followGround: false,
   followGroundSmooth: true,
