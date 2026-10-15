@@ -6,7 +6,7 @@
   import { growableSides, type Side } from '../lib/io/regionGrow'
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
-  import { copyScene, pasteScene } from '../lib/io/scene'
+  import { copyScene, copyTeleport, pasteScene } from '../lib/io/scene'
   import { ClearThumbnailCache } from '../../wailsjs/go/main/App'
   import { quitNow } from '../lib/io/session'
   import { requestClose } from './DocTabs.svelte'
@@ -96,6 +96,7 @@
         { kind: 'action', label: 'Import Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importObjectList(e)) },
         { kind: 'action', label: 'Export Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportObjectList(e)) },
         { kind: 'action', label: 'Export Port Coordinates…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportPortCoords(e)) },
+        { kind: 'action', label: 'Copy Position as Teleport Command', shortcut: 'F9', run: withEngine((e) => copyTeleport(e)) },
         { kind: 'action', label: 'Save Minimap Image…', shortcut: 'Ctrl+Shift+P', disabled: !hasBackend() || ui.busy, run: withEngine((e) => saveMinimapImage(e)) },
         { kind: 'sep' },
         { kind: 'action', label: 'Import Doodad Brushes…', disabled: !hasBackend() || ui.busy, run: () => importDoodadBrushes() },

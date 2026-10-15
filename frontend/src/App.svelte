@@ -18,6 +18,7 @@
   import ContextMenu from './components/ContextMenu.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { restoreSession, saveSession, startSessionSaving } from './lib/io/session'
+  import { copyTeleport } from './lib/io/scene'
   import { onMount } from 'svelte'
   import { refreshGameClient } from './lib/io/mapio'
   import { initWow } from './lib/wow/api'
@@ -121,6 +122,11 @@
 
     if (e.key === 'F1') {
       ui.dialog = 'help'
+      e.preventDefault()
+      return
+    }
+    if (e.key === 'F9' && !mod) {
+      void copyTeleport(engine)
       e.preventDefault()
       return
     }

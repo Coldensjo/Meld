@@ -174,6 +174,7 @@
         ['G', 'Toggle grid'],
         ['I', 'Inspector: the selected model\'s placement numbers and actions (Esc closes it)'],
         ['Hold F8', 'Name the part of the UI under the cursor (for bug reports)'],
+        ['F9', 'Copy the GM teleport command (.go xyz) to the point under the cursor'],
       ],
     ],
   ]

@@ -89,6 +89,19 @@ export async function sceneText(engine: Engine): Promise<string> {
   return PREFIX + JSON.stringify(scene)
 }
 
+/** F9 (File › Copy Position as Teleport Command): the GM command to the point under the cursor, onto the clipboard. */
+export async function copyTeleport(engine: Engine) {
+  const r = await engine.teleportAtCursor()
+  if ('error' in r) return setStatus(r.error, 6000)
+  try {
+    if (hasBackend()) await ClipboardSetText(r.command)
+    else await navigator.clipboard.writeText(r.command)
+    setStatus(`Copied ${r.command}: paste it in the game's chat as a GM.`, 6000)
+  } catch (err) {
+    setStatus(`Copying the position failed: ${err}`, 8000)
+  }
+}
+
 /** Help > Copy Scene: puts the scene on the clipboard. */
 export async function copyScene(engine: Engine) {
   if (!hasBackend()) return setStatus('Copying a scene needs the desktop app (run via `wails dev`).')

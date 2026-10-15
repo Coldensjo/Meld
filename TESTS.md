@@ -127,6 +127,11 @@ in a loop and returns what it wants to report as JSON. The viewport of a 1400x90
     (x 150, z 300 in Azeroth 32_48 is open grass). Nothing of this is saved with `?nosave` unless
     the map is saved.
   - Writing `__engine.prefs.x` doesn't stick: the prefs effect re-applies its own copy.
+  - The point under the cursor (`__engine.hit`) is picked only while the pointer is inside the
+    viewport: set `e.ndc.set(x, y); e.pointerInside = true`, then step a few frames. F9's copy
+    position is `await e.teleportAtCursor()`: Northshire Abbey's courtyard at the screen centre of
+    `target: [182, 80, 353], pitch: 0.9` in Azeroth 32_48 gives `.go xyz -8886.33 -182.00 80.26 0`
+    (same conversion as `serverSpawn`). Calling it doesn't touch the clipboard; pressing F9 does.
   - Dialogs open through the menu bar's DOM: click the `button` whose text is the menu's name
     (`Edit`), then the item's label `span` (its `closest('button')`), then read the dialog's DOM. Used
     for the ground effect editor's Footsteps pick (B-175): it lists Dirt to None by name.

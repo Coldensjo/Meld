@@ -23,9 +23,20 @@ export function formatPortCoords(pos: { x: number; y: number; z: number }, mapId
   return [
     `Map: ${area || 'Unknown area'} on ADT ${Math.floor(pos.x / TILE_SIZE)} ${Math.floor(pos.z / TILE_SIZE)}`,
     'Trinity:',
-    `.go xyz ${wowX} ${wowY} ${h} ${mapId}`,
+    teleportCommand(pos, mapId),
     'ArcEmu:',
     `.worldport ${mapId} ${wowX} ${wowY} ${h}`,
     '',
   ].join('\n')
+}
+
+/**
+ * The VMaNGOS (and Trinity) command that teleports a GM to a point of the editor's map: `.go xyz <x> <y>
+ * <z> <map>` in the client's coordinates. `tileX` and `tileY` are the client tile at the map's
+ * north-west corner: a region's first tile, 0 for a map made with New World, whose tiles start at 0.
+ */
+export function teleportCommand(pos: { x: number; y: number; z: number }, mapId: number, tileX = 0, tileY = 0): string {
+  const x = pos.x + tileX * TILE_SIZE
+  const z = pos.z + tileY * TILE_SIZE
+  return `.go xyz ${fmt(ZERO_POINT - z)} ${fmt(ZERO_POINT - x)} ${fmt(pos.y)} ${mapId}`
 }

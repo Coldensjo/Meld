@@ -50,6 +50,7 @@ import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
+import { teleportCommand } from '../io/portCoords'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import type { MapInfo } from './MapDocument'
@@ -887,20 +888,24 @@ export class Engine {
   private clientSky: ClientSky = { colors: this.lightOut.colors, skyAt: BAND.skyTop * 3, fogAt: BAND.fog * 3, sunAt: BAND.sun * 3, warp: 0, sunDir: this.celestialOut, moonDir: this.moonOut, sunScale: 1, starAlpha: 0 }
   /** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
   private mapIds: Map<string, number> | null = null
-  private mapIdsLoading = false
+  /** The client's map list being read, once asked for. */
+  private mapIdsLoading: Promise<void> | null = null
 
   /** The open map's Map.dbc ID: a map made for the client's own, a region's by its folder, else Azeroth's (0); null while unknown. */
+  /** Reads the client's map list (folder to map ID) once. */
+  private loadMapIds(): Promise<void> {
+    this.mapIdsLoading ??= MapEntries()
+      .then((rows) => void (this.mapIds = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.ID]))))
+      .catch(() => void (this.mapIds = new Map()))
+    return this.mapIdsLoading
+  }
+
   private openMapId(): number | null {
     const m = this.doc.meta
     if (m.vmangos) return m.vmangos.mapId
     if (!m.region) return 0
     if (!this.mapIds) {
-      if (!this.mapIdsLoading) {
-        this.mapIdsLoading = true
-        MapEntries()
-          .then((rows) => (this.mapIds = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.ID]))))
-          .catch(() => (this.mapIds = new Map()))
-      }
+      void this.loadMapIds()
       return null
     }
     return this.mapIds.get(m.region.mapName.toLowerCase()) ?? 0
@@ -1556,6 +1561,21 @@ export class Engine {
   /** The active map's client folder and map ID, when it was made for the client. */
   activeVmangos(): VmangosRef | null {
     return this.doc.meta.vmangos
+  }
+
+  /**
+   * The GM command that teleports to the point under the cursor (`.go xyz`, io/portCoords.ts), in the
+   * client's coordinates and map, or why there is none: nothing under the cursor, or a map that isn't
+   * in the client. A region's map ID waits for the client's map list the first time.
+   */
+  async teleportAtCursor(): Promise<{ command: string } | { error: string }> {
+    if (!this.hit) return { error: 'Point at the ground or a model to copy its position.' }
+    const at = this.hit.clone()
+    const m = this.doc.meta
+    if (!m.vmangos && !m.region) return { error: 'This map isn’t in the client yet, so it has no map ID: make it with File › New World… or open a part of Azeroth.' }
+    if (!m.vmangos) await this.loadMapIds()
+    const id = this.openMapId() ?? 0
+    return { command: teleportCommand(at, id, m.region?.x ?? 0, m.region?.y ?? 0) }
   }
 
   /** The active map as the client export takes it. */
