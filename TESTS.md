@@ -735,3 +735,17 @@ must never appear. Its log is `C:\WoW\benilla\benilla-config\meld-benilla.log`, 
   behind; Meld, in front when Launch is clicked, hands it the right (`AllowSetForegroundWindow`). Judge
   the foreground only from a real click.
 - Trap: a running launcher locks `meld-benilla.exe`, so a rebuild fails with "access denied".
+
+## The camera's WMO room (down-ray probe, #8)
+
+Checks: which group of a placed WMO the camera is in (`world/wmoRoom.ts`, Benilla's `seed.rs`), shown
+as "Camera in" in Detail info. Unit cases are Benilla's own (`tests/wmoRoom.test.ts`); the client data
+is `TestClientWMONav` (WOW_DIR, the Goldshire inn: 12 groups, 10 portals, 2 fogs). Live, in the dev
+page: `const nav = e.rooms.navs.get('<lowercased wmo path>')` once the camera has been inside the WMO's
+box, take a flat face of `nav.walk[g]` (nine floats a triangle, WoW axes), lift it 1.7 yd, take it to
+editor space as `(x, z, -y)` and through `e.objects.matrixOf(o, m)`, then put the camera there:
+`c = e.controller; c.followGround = false; c.collision = false; c.target.copy(p)`, and step `e.frame()`.
+`e.rooms.current.group` and the readout should name group g. Above the roof the probe meets the
+exterior shell (MOGP 0x8) and reads outside, as the client does.
+- Trap: the controller's target rides the ground, which is often under a building's floor; turn
+  `followGround` off first, or the camera ends up below the floor and reads outside.

@@ -48,6 +48,7 @@ import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
+import { WmoRooms } from '../world/WmoRooms'
 import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
 import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
@@ -208,6 +209,10 @@ export class Engine {
 
   private env: Environment
   private effects = new PropEffects()
+  /** The WMO room the camera is in (`world/wmoRoom.ts`). */
+  private rooms = new WmoRooms()
+  private roomGround = (x: number, z: number): number | null =>
+    this.terrain.contains(x, z) && !this.terrain.isHole(x, z) ? this.terrain.heightAt(x, z) : null
   private particles = new ParticleLayer()
   private clouds = new CloudDome()
   /** The time the clouds last moved, to advance them by. */
@@ -738,6 +743,7 @@ export class Engine {
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.particles = this.prefs?.particles !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)
+    this.rooms.update(this.objects, this.camera.position, this.roomGround)
     this.cullInstances()
     this.animateModels(time)
     this.updateParticles(dt, time)
@@ -3428,10 +3434,20 @@ export class Engine {
       noTufts: t.noEffect[cz * t.size + cx] !== 0,
       impassable: (t.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0,
       area: t.areaIds[chunk] ? `${areaName(t.areaIds[chunk])} (${t.areaIds[chunk]})` : '',
+      room: this.roomName(),
       textures,
       liquids,
       models,
     }
+  }
+
+  /** The WMO room the camera is in, named for the detail readout, or '' outside. */
+  private roomName(): string {
+    const r = this.rooms.current
+    if (!r) return ''
+    const name = (g: number) => r.nav.groups[g]?.name || `group ${g}`
+    const file = r.path.slice(r.path.lastIndexOf('\\') + 1)
+    return `${file} › ${name(r.group)} (${r.group})${r.across !== null ? `, across ${name(r.across)} (${r.across})` : ''}`
   }
 
   /** The paint chunks the selected area touches, or none without a selection. */

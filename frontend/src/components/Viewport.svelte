@@ -49,6 +49,9 @@
           <div><span>Liquid</span>{l}</div>
         {/each}
         <div><span>Models</span>{d.models} in the chunk</div>
+        {#if d.room}
+          <div><span>Camera in</span>{d.room}</div>
+        {/if}
       </div>
     {/if}
   </div>

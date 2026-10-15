@@ -439,6 +439,11 @@ func (c *Client) Handler() http.Handler {
 		b, err := c.Model(r.URL.Query().Get("path"), ParseLook(r.URL.Query()))
 		blob(w, b, err)
 	})
+	// A WMO's room data (groups, portals, collision faces, fogs) for the camera's room probe.
+	mux.HandleFunc("/wow/wmonav", func(w http.ResponseWriter, r *http.Request) {
+		b, err := c.WMONav(r.URL.Query().Get("path"))
+		blob(w, b, err)
+	})
 	return mux
 }
 

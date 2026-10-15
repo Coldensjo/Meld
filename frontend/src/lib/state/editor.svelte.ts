@@ -262,6 +262,8 @@ export interface DetailInfo {
   impassable: boolean
   /** The chunk's zone, named with its AreaTable.dbc ID, or '' for none. */
   area: string
+  /** The WMO room the camera is in (file, group name and index, and the group across a portal it stands in), or ''. */
+  room: string
   /** The chunk's texture layers: a short name, the share at the cell (percent) and the ground effect ID. */
   textures: Array<{ name: string; weight: number; effect: number }>
   /** The liquid layers covering the cell, named with their surface height. */

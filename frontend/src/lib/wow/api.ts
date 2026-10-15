@@ -213,6 +213,11 @@ async function fetchBinary(endpoint: string, path: string): Promise<ArrayBuffer>
   }
 }
 
+/** A WMO's room data (groups, portals, collision faces, fogs), decoded by `world/wmoRoom.ts`. */
+export function fetchWmoNav(path: string): Promise<ArrayBuffer> {
+  return fetchBinary('wmonav', path)
+}
+
 export interface RawImage {
   width: number
   height: number
