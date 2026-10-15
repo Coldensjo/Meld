@@ -35,3 +35,19 @@ func TestInteriorBoxMarksEffects(t *testing.T) {
 		t.Fatal("exterior group reported as interior")
 	}
 }
+
+// Consolidate keeps an interior group apart from an exterior one with the same texture (#115).
+func TestConsolidateKeepsInterior(t *testing.T) {
+	m := &Mesh{
+		Index: []uint32{0, 1, 2, 0, 2, 3, 1, 2, 3},
+		Groups: []Group{
+			{Start: 0, Count: 3, Texture: "wall.blp"},
+			{Start: 3, Count: 3, Texture: "wall.blp", Interior: true},
+			{Start: 6, Count: 3, Texture: "wall.blp", Interior: true},
+		},
+	}
+	m.Consolidate()
+	if len(m.Groups) != 2 || m.Groups[0].Interior || !m.Groups[1].Interior || m.Groups[1].Count != 6 {
+		t.Fatalf("groups: %+v", m.Groups)
+	}
+}

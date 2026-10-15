@@ -184,13 +184,15 @@ func (m *Mesh) Consolidate() {
 		tex             string
 		blend           int
 		twoSided, unlit bool
-		uv              *UVAnim
-		color           *ColorAnim
+		// An interior group is drawn unlit by its baked colours, so it never merges with an exterior one.
+		interior bool
+		uv       *UVAnim
+		color    *ColorAnim
 	}
 	order := []key{}
 	buckets := map[key][]uint32{}
 	for _, g := range m.Groups {
-		k := key{g.Texture, g.Blend, g.TwoSided, g.Unlit, g.UV, g.Color}
+		k := key{g.Texture, g.Blend, g.TwoSided, g.Unlit, g.Interior, g.UV, g.Color}
 		if _, ok := buckets[k]; !ok {
 			order = append(order, k)
 		}
@@ -211,7 +213,7 @@ func (m *Mesh) Consolidate() {
 				continue
 			}
 			b := buckets[k]
-			groups = append(groups, Group{Start: len(idx), Count: len(b), Texture: k.tex, Blend: k.blend, TwoSided: k.twoSided, Unlit: k.unlit, UV: k.uv, Color: k.color})
+			groups = append(groups, Group{Start: len(idx), Count: len(b), Texture: k.tex, Blend: k.blend, TwoSided: k.twoSided, Unlit: k.unlit, Interior: k.interior, UV: k.uv, Color: k.color})
 			idx = append(idx, b...)
 		}
 	}
