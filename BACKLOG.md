@@ -50,7 +50,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-126 **Area paste: mirror and height modes**: noggit's chunk mover also mirrors the copied chunks and lays the heights in as min, max, add or subtract over the target; Meld's paste has the quarter turn, offset and blend only · Source: loop: B-006 · L/S · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [x] B-128 **Area copy and paste carries the chunks' zones and flags**: the area clipboard copies heights, holes, paint, liquids and models, but not the zone, impassable flag or no-tuft cells of the chunks it covers · Source: loop: B-054 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-158 **Draw selection groups**: a selected group's box around all its members, and the Inspector saying a model is grouped, as Noggit Red draws its groups · Source: loop: B-138 · L/S
-- [ ] B-038 **Bounding box display**, one box per model · gap §4 · L/S
+- [x] B-038 **Bounding box display**, one box per model · gap §4 · L/S · done 2026-10-15 (PROGRESS.md)
 - [ ] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M
 - [x] B-141 **Snap selected to ground** (Page Down): set the selected roots' height offset to the ground · gap §4 · L/S · unverified whether a one-key drop is missing · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-142 **Object palette**: a saved list of favourite models to place from · gap §4 · L/M

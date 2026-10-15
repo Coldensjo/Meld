@@ -305,6 +305,8 @@ export function stepCameraSpeed(faster: boolean) {
 export const prefs = $state({
   /** Draw the terrain as a wireframe (for checking its triangles). */
   wireframe: false,
+  /** View › Bounding boxes: draw a box around every model (Noggit Red's model boxes). */
+  showBoxes: false,
   /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb). */
   climbView: false,
   /** The climb view's steepest walkable slope, in degrees (Noggit Red's default is 49). */

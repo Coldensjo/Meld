@@ -37,6 +37,7 @@ import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
+import { ModelBoxes } from '../world/ModelBoxes'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
@@ -179,6 +180,8 @@ export class Engine {
 
   private env: Environment
   private effects = new PropEffects()
+  /** View › Bounding boxes: a box around every model. */
+  private boxes = new ModelBoxes()
   /** The creatures' waypoint paths, for the active region. */
   readonly paths = new SpawnPaths()
   /** Current hour; advances on its own when the day cycle is on. */
@@ -277,6 +280,7 @@ export class Engine {
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.env = new Environment(this.scene)
     this.scene.add(this.effects.group)
+    this.scene.add(this.boxes.lines)
     this.scene.add(this.paths.group)
 
 
@@ -356,6 +360,7 @@ export class Engine {
     this.outline.dispose()
     this.env.dispose()
     this.effects.dispose()
+    this.boxes.dispose()
     this.paths.dispose()
     for (const d of this.documents) d.dispose()
     this.renderer.dispose()
@@ -679,6 +684,7 @@ export class Engine {
       selectObjects(this.objects, editor.selectedIds.filter((id) => !this.objects.isHidden(id)), editor.selected?.id)
     }
     this.objects.update()
+    this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightsVersion)
     // Lights first: culling keeps what can throw the shadowed lights' shadows.
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)

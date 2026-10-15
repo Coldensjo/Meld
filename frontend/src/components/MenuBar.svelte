@@ -222,6 +222,7 @@
         { kind: 'check', label: 'Fog', checked: prefs.fog, toggle: () => (prefs.fog = !prefs.fog) },
         { kind: 'check', label: 'Show grid', shortcut: 'G', checked: editor.grid, toggle: () => (editor.grid = !editor.grid) },
         { kind: 'check', label: 'Show chunk lines', checked: editor.chunkLines, toggle: () => (editor.chunkLines = !editor.chunkLines) },
+        { kind: 'check', label: 'Bounding boxes (one per model)', checked: prefs.showBoxes, toggle: () => (prefs.showBoxes = !prefs.showBoxes) },
         { kind: 'check', label: 'Climb (ground too steep to walk up)', shortcut: 'Shift+F2', checked: prefs.climbView, toggle: () => (prefs.climbView = !prefs.climbView) },
         ...radios(
           CLIMB_ANGLES.map((a): [string, number] => [`Steepest walkable slope ${a}°`, a]),
