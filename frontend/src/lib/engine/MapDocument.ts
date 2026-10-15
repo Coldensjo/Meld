@@ -1,6 +1,7 @@
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import { GroundEffectLayer } from '../world/GroundEffectLayer'
 import type { TextureEffects } from '../world/groundEffects'
+import type { TextureLooks } from '../world/textureLooks'
 import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
@@ -34,6 +35,8 @@ export interface DocMeta {
   roles: TextureRoles
   /** The map's own ground effect per texture path (editor.textureEffects), saved with the map. */
   textureEffects: TextureEffects
+  /** The map's own look flags per texture path (editor.textureLooks), saved with the map. */
+  textureLooks: TextureLooks
 }
 
 /** A saved camera view: where it looks at, and from what angle and distance. */
@@ -138,6 +141,7 @@ export class MapDocument {
       sculptPaintLayer: 0,
       roles: noRoles(),
       textureEffects: {},
+      textureLooks: {},
     }
   }
 

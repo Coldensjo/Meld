@@ -193,6 +193,7 @@ export namespace mapfile {
 	    // Go type: TextureRoles
 	    roles?: any;
 	    textureEffects?: Record<string, number>;
+	    textureLooks?: Record<string, number>;
 	    version?: number;
 	    heights: string;
 	    weights?: string;
@@ -225,6 +226,7 @@ export namespace mapfile {
 	        this.vmangos = this.convertValues(source["vmangos"], null);
 	        this.roles = this.convertValues(source["roles"], null);
 	        this.textureEffects = source["textureEffects"];
+	        this.textureLooks = source["textureLooks"];
 	        this.version = source["version"];
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];
@@ -687,6 +689,7 @@ export namespace vmangos {
 	    Textures: string[];
 	    Weights: string;
 	    Effects: number[];
+	    Flags: number[];
 	    NoEffect: number[];
 	
 	    static createFrom(source: any = {}) {
@@ -699,6 +702,7 @@ export namespace vmangos {
 	        this.Textures = source["Textures"];
 	        this.Weights = source["Weights"];
 	        this.Effects = source["Effects"];
+	        this.Flags = source["Flags"];
 	        this.NoEffect = source["NoEffect"];
 	    }
 	}
@@ -839,6 +843,7 @@ export namespace vmangos {
 	    textures: string[];
 	    weights: string;
 	    effects?: number[];
+	    flags?: number[];
 	    noEffect?: number[];
 	
 	    static createFrom(source: any = {}) {
@@ -851,6 +856,7 @@ export namespace vmangos {
 	        this.textures = source["textures"];
 	        this.weights = source["weights"];
 	        this.effects = source["effects"];
+	        this.flags = source["flags"];
 	        this.noEffect = source["noEffect"];
 	    }
 	}

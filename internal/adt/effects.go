@@ -41,6 +41,35 @@ func tileEffects(top *topLevel) map[string]uint32 {
 	return effects
 }
 
+// LayerLookFlags are the MCLY layer flags that change how a texture looks rather than how its alpha
+// is stored: the animation's turn (0x7, 45 degrees a step), its speed (0x38) and its switch (0x40),
+// overbright (0x80) and the cube map reflection (0x400).
+const LayerLookFlags = 0x7 | 0x38 | 0x40 | 0x80 | 0x400
+
+// tileLayerFlags gives the look flags each texture has in a tile, from the first of its layers that has
+// any, so a chunk rewritten with new paint keeps an animated or glowing texture as the client had it.
+func tileLayerFlags(top *topLevel) map[string]uint32 {
+	names := splitNames(top.mtex)
+	out := map[string]uint32{}
+	for _, m := range top.mcnks {
+		mcly, ok := subRegion(m, int(binary.LittleEndian.Uint32(m[0x1c:])))
+		if !ok {
+			continue
+		}
+		for o := 0; o+16 <= len(mcly); o += 16 {
+			id := int(binary.LittleEndian.Uint32(mcly[o:]))
+			if id >= len(names) {
+				continue
+			}
+			key := strings.ToLower(names[id])
+			if f := binary.LittleEndian.Uint32(mcly[o+4:]) & LayerLookFlags; f != 0 && out[key] == 0 {
+				out[key] = f
+			}
+		}
+	}
+	return out
+}
+
 // mcnkPredTex is where the chunk header keeps the predominant texture map: two bits per cell, 8x8
 // cells, the layer that weighs most in each, which the game grows that layer's effect on.
 const mcnkPredTex = 0x40

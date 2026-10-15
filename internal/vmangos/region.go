@@ -80,6 +80,8 @@ type RegionPaint struct {
 	Weights  string   `json:"weights"`
 	// Effects is the GroundEffectTexture ID per texture (0 for none, or the tile's own); optional.
 	Effects []uint32 `json:"effects,omitempty"`
+	// Flags is each texture's look flags (animation, overbright), or -1 to keep the tile's own; optional.
+	Flags []int `json:"flags,omitempty"`
 	// NoEffect is one entry per cell row, a bit per cell set where no ground effect doodads grow;
 	// optional, added to the tile's own bits.
 	NoEffect []int `json:"noEffect,omitempty"`
@@ -87,11 +89,15 @@ type RegionPaint struct {
 
 // chunkPaint is a chunk's layers from the bridge's textures, effects and weights, with the per-cell
 // predominant layer the game grows the effects on and the cells it grows none on.
-func chunkPaint(textures []string, effects []uint32, noEffect []int, weights []byte, perSide int) adt.ChunkPaint {
+func chunkPaint(textures []string, effects []uint32, flags []int, noEffect []int, weights []byte, perSide int) adt.ChunkPaint {
 	layers := adt.LayersFromWeights(textures, weights, perSide)
 	for k := range layers {
 		if k < len(effects) {
 			layers[k].Effect = effects[k]
+		}
+		if k < len(flags) && flags[k] >= 0 {
+			f := uint32(flags[k]) & adt.LayerLookFlags
+			layers[k].Flags = &f
 		}
 	}
 	paint := adt.ChunkPaint{Layers: layers, Predominant: adt.PredominantFromWeights(len(textures), weights, perSide)}
@@ -385,7 +391,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		gx, gy := p.Chunk%perRow, p.Chunk/perRow
 		k := (gy/ChunksPerTileSide)*e.Size + gx/ChunksPerTileSide
 		local := (gy%ChunksPerTileSide)*ChunksPerTileSide + gx%ChunksPerTileSide
-		tiles[k].change.Paint[local] = chunkPaint(p.Textures, p.Effects, p.NoEffect, weights, perSide)
+		tiles[k].change.Paint[local] = chunkPaint(p.Textures, p.Effects, p.Flags, p.NoEffect, weights, perSide)
 	}
 
 	for _, h := range e.Headers {

@@ -10,6 +10,7 @@
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
   import ZonesDialog from './ZonesDialog.svelte'
+  import TextureLooksDialog from './TextureLooksDialog.svelte'
   import HeightmapImportDialog from './HeightmapImportDialog.svelte'
   import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
   import { EquipmentFor } from '../../wailsjs/go/main/App'
@@ -346,6 +347,8 @@
   <GroundEffectsDialog onclose={close} />
 {:else if ui.dialog === 'zones'}
   <ZonesDialog onclose={close} />
+{:else if ui.dialog === 'looks'}
+  <TextureLooksDialog onclose={close} />
 {:else if ui.dialog === 'heightmap'}
   <HeightmapImportDialog onclose={close} />
 {:else if ui.dialog === 'watermap'}

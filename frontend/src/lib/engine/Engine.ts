@@ -26,6 +26,7 @@ import { dragFalloff, dragRadius, stepRadius } from '../tools/brushSize'
 import { NO_ROLE, guessRoles, validRoles, type TextureRoles } from '../terrain/roles'
 import { groundEffectTables } from '../wow/groundEffectTables'
 import { densityFactor, effectFor, type TextureEffects } from '../world/groundEffects'
+import { looksByIndex, type TextureLooks } from '../world/textureLooks'
 import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
@@ -124,6 +125,8 @@ export interface MapSnapshot {
   roles: TextureRoles | null
   /** The map's own ground effect per texture path. */
   textureEffects: TextureEffects
+  /** The map's own look flags (animation, overbright) per texture path. */
+  textureLooks: TextureLooks
   heights: Uint8Array
   /** Four weights per splat texel (format 2). */
   weights: Uint8Array
@@ -902,6 +905,7 @@ export class Engine {
       sculptPaintLayer: editor.sculptPaintLayer,
       roles: { ...editor.roles },
       textureEffects: { ...editor.textureEffects },
+      textureLooks: { ...editor.textureLooks },
       region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
@@ -946,6 +950,7 @@ export class Engine {
     editor.sculptPaintLayer = m.sculptPaintLayer
     editor.roles = { ...m.roles }
     editor.textureEffects = { ...m.textureEffects }
+    editor.textureLooks = { ...m.textureLooks }
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
@@ -1353,6 +1358,7 @@ export class Engine {
       chunkSlots: t.chunkSlots,
       palette: editor.palette,
       effects: editor.palette.map((p) => effectFor(p, editor.textureEffects, groundEffectTables())),
+      looks: looksByIndex(editor.palette, editor.textureLooks),
       noEffect: blockedCells(t, this.objects, new Uint8Array(t.size * t.size)),
       // A map saved before the file kept chunk data has none of its own, so the client's stays.
       headers: this.doc.chunkDataKnown ? { areaIds: t.areaIds, chunkFlags: t.chunkFlags } : undefined,
@@ -1595,6 +1601,7 @@ export class Engine {
       texScale: editor.texScale,
       roles: { ...editor.roles },
       textureEffects: { ...editor.textureEffects },
+      textureLooks: { ...editor.textureLooks },
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       weights: t.weights,
       chunkSlots: t.chunkSlots,
@@ -1671,6 +1678,7 @@ export class Engine {
       sculptPaintLayer: 0,
       roles: m.roles ? validRoles(m.roles, palette.length) : guessRoles(palette),
       textureEffects: { ...m.textureEffects },
+      textureLooks: { ...(m.textureLooks ?? {}) },
     }
     if (replace) {
       d.camera = replace.camera

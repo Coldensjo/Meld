@@ -20,8 +20,8 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 ## Terrain sculpting and painting
 
 - [x] B-004 **Separate Blur tool** · gap §1 · L/S · Smooth already covers most of it · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [ ] B-014 **Animated texture layers** with speed and direction (Noggit Red adds a rotation dial) · gap §2 · L/M
-- [ ] B-015 **Overbright** option · gap §2 · L/S · defined from Noggit Red: it sets the layer's glow flag in MCLY, next to the animation settings, so do it with B-014
+- [x] B-014 **Animated texture layers** with speed and direction (Noggit Red adds a rotation dial) · gap §2 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
+- [x] B-015 **Overbright** option · gap §2 · L/S · defined from Noggit Red: it sets the layer's glow flag in MCLY, next to the animation settings, so do it with B-014 · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-017 **Undockable quick texture palette** · gap §2 · L/M
 - [x] B-111 **Paint while sculpting, and texture roles**: Sculpt paints one texture or the map's rock and dirt by slope as it shapes the ground; roles are guessed from texture names and set in Map Properties · Source: owner · H/M · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)

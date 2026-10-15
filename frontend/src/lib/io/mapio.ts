@@ -33,6 +33,7 @@ import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
 import { grownBlock, type Side } from './regionGrow'
 import type { TextureEffects } from '../world/groundEffects'
+import type { TextureLooks } from '../world/textureLooks'
 import { CELL_SIZE } from '../terrain/Terrain'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { tilePaint } from './tileImport'
@@ -66,6 +67,7 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     texScale: s.texScale,
     roles: s.roles ?? undefined,
     textureEffects: Object.keys(s.textureEffects).length ? s.textureEffects : undefined,
+    textureLooks: Object.keys(s.textureLooks).length ? s.textureLooks : undefined,
     heights: bytesToBase64(s.heights),
     weights: bytesToBase64(s.weights),
     chunkSlots: bytesToBase64(s.chunkSlots),
@@ -101,6 +103,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
     texScale: m.texScale ?? 0,
     roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
     textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
+    textureLooks: { ...((m.textureLooks ?? {}) as TextureLooks) },
     heights: base64ToBytes(m.heights),
   }
   if (m.version === 1) {
@@ -372,7 +375,7 @@ function regionPaint(engine: Engine, size: number) {
   const block = (t: { X: number; Y: number }, chunk: number) => (t.Y * 16 + Math.floor(chunk / 16)) * perRow + t.X * 16 + (chunk % 16)
   return {
     paint: tiles.flatMap((t) =>
-      t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, noEffect: p.NoEffect ?? undefined })),
+      t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, flags: p.Flags, noEffect: p.NoEffect ?? undefined })),
     ),
     // The chunk headers, by block chunk; none for a map saved before it kept them.
     headers: tiles.flatMap((t) => (t.Headers ?? []).map((h) => ({ ...h, chunk: block(t, h.chunk) }))),

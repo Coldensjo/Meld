@@ -132,3 +132,55 @@ func TestRewriteNoEffectBitsReadBackAndKeepTheTilesOwn(t *testing.T) {
 		t.Fatalf("no-effect rows after a write without bits %v", got)
 	}
 }
+
+// TestRewriteLayerLookFlags writes an animated, overbright lava layer, checks the flags read back with
+// the alpha flag beside them, that a later write without flags keeps the tile's own, and that explicit
+// flags (0 included) replace them.
+func TestRewriteLayerLookFlags(t *testing.T) {
+	root := newTileRoot(32, 48)
+	alpha := make([]byte, 64*64)
+	for i := range alpha {
+		alpha[i] = 255
+	}
+	lava := `Tileset\Test\Lava.blp`
+	anim := uint32(0x40 | 0x18 | 0x2 | 0x80) // animated, speed 3, turned 90 degrees, overbright
+	layerFlags := func(data []byte) uint32 {
+		terrain, err := ParseTerrain(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tex, err := ParseTextures(data, false, terrain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tex.Chunks[5].Layers[1].Flags
+	}
+	out, err := Rewrite(root, Changes{TileX: 32, TileY: 48, Paint: map[int]ChunkPaint{
+		5: {Layers: []Layer{{Texture: `Tileset\Test\Rock.blp`}, {Texture: lava, Alpha: alpha, Flags: &anim}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := layerFlags(out); got != anim|layerUseAlpha {
+		t.Fatalf("lava layer flags %#x, want %#x", got, anim|layerUseAlpha)
+	}
+	keep, err := Rewrite(out, Changes{TileX: 32, TileY: 48, Paint: map[int]ChunkPaint{
+		5: {Layers: []Layer{{Texture: `Tileset\Test\Rock.blp`}, {Texture: lava, Alpha: alpha}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := layerFlags(keep); got != anim|layerUseAlpha {
+		t.Fatalf("a rewrite without flags lost the tile's own: %#x", got)
+	}
+	none := uint32(0)
+	cleared, err := Rewrite(out, Changes{TileX: 32, TileY: 48, Paint: map[int]ChunkPaint{
+		5: {Layers: []Layer{{Texture: `Tileset\Test\Rock.blp`}, {Texture: lava, Alpha: alpha, Flags: &none}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := layerFlags(cleared); got != layerUseAlpha {
+		t.Fatalf("explicit flags 0 left %#x", got)
+	}
+}

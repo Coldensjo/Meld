@@ -27,6 +27,9 @@ type Layer struct {
 	// Effect is the GroundEffectTexture ID the layer grows (grass tufts); 0 keeps the effect the
 	// tile's own layers of that texture had, if any.
 	Effect uint32
+	// Flags are the layer's look flags (LayerLookFlags: the animation's turn, speed and switch, and
+	// overbright); nil keeps what the tile's own layers of that texture had, if any.
+	Flags *uint32
 }
 
 // ChunkPaint is a chunk's painted layers, the base first, at most four in all.
@@ -219,6 +222,8 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 	// Ground effects by texture: a layer without one of its own keeps the effect its texture had
 	// in this tile.
 	effects := tileEffects(top)
+	// The same for the look flags (animation, overbright), which a rewritten chunk would otherwise lose.
+	looks := tileLayerFlags(top)
 
 	// Models: the kept ones keep their order and their names' indices, the added ones follow.
 	m2Names := newNameList(nameTable(top.mmdx, top.mmid))
@@ -331,7 +336,7 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 			return nil, fmt.Errorf("adt: chunk index %d,%d outside the tile", cx, cy)
 		}
 		idx := cy*ChunksPerTile + cx
-		data, err := rebuildChunk(m, idx, ch, texNames, effects, m2Map, wmoMap, &added[idx])
+		data, err := rebuildChunk(m, idx, ch, texNames, effects, looks, m2Map, wmoMap, &added[idx])
 		if err != nil {
 			return nil, fmt.Errorf("chunk %d,%d: %w", cx, cy, err)
 		}
@@ -446,7 +451,7 @@ func subRegion(m []byte, ofs int) ([]byte, bool) {
 
 // rebuildChunk writes one MCNK: its header with new offsets and counts, and its sub-chunks, kept
 // or rebuilt.
-func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map[string]uint32,
+func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, looks map[string]uint32,
 	m2Map, wmoMap map[int]int, added *struct{ m2, wmo []int }) ([]byte, error) {
 	if len(m) < mcnkHeaderLen {
 		return nil, errTruncated
@@ -503,6 +508,11 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects map
 					return nil, fmt.Errorf("layer %d alpha is %d bytes, want 4096", l, len(layer.Alpha))
 				}
 				mcal = append(mcal, encode4Bit(layer.Alpha)...)
+			}
+			if layer.Flags != nil {
+				f |= *layer.Flags & LayerLookFlags
+			} else {
+				f |= looks[strings.ToLower(layer.Texture)]
 			}
 			binary.LittleEndian.PutUint32(mcly[l*16+4:], f)
 			binary.LittleEndian.PutUint32(mcly[l*16+8:], alphaOfs)

@@ -104,6 +104,9 @@ type Header struct {
 	// TextureEffects is the ground effect (GroundEffectTexture ID) a texture grows, by texture path,
 	// where the map says so itself; other textures grow what the client's tiles give them. Optional.
 	TextureEffects map[string]uint32 `json:"textureEffects,omitempty"`
+	// TextureLooks is a texture's look flags (the MCLY animation and overbright bits), by texture path,
+	// where the map sets them; other textures keep what the client's tiles give them. Optional.
+	TextureLooks map[string]uint32 `json:"textureLooks,omitempty"`
 }
 
 // TextureRoles are palette indices for the textures sculpting paints by slope.

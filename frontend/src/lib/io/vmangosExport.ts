@@ -45,6 +45,8 @@ export interface ExportInput {
   palette: readonly string[]
   /** The ground effect (GroundEffectTexture ID, 0 for none) per palette index; optional. */
   effects?: readonly number[]
+  /** The look flags (world/textureLooks.ts) per palette index, -1 to keep the tile's own; optional. */
+  looks?: readonly number[]
   /** One byte per cell, set where no ground effect doodads grow (under buildings); optional. */
   noEffect?: Uint8Array
   /**
@@ -68,6 +70,8 @@ export interface PaintOut {
   Weights: string
   /** The ground effect per texture, in the same order (0 for none, which keeps the tile's own). */
   Effects: number[]
+  /** The look flags per texture, in the same order (-1 keeps the tile's own); only when the map sets one. */
+  Flags?: number[]
   /** The no-doodad bits, one per cell row with a bit per cell, where any is set (added to the tile's own). */
   NoEffect?: number[]
 }
@@ -185,6 +189,8 @@ export function mapToTiles(input: ExportInput): ExportOut {
             }
           }
           const out: PaintOut = { Chunk: cy * CHUNKS_PER_TILE + cx, Textures: names, Weights: toBase64(weights), Effects: effects }
+          const flags = used.map((k) => input.looks?.[input.chunkSlots[chunk * SLOTS + k]] ?? -1)
+          if (flags.some((f) => f >= 0)) out.Flags = flags
           const noEffect = input.noEffect ? chunkNoEffect(input.noEffect, input.size, gx, gz) : null
           if (noEffect) out.NoEffect = noEffect
           paint.push(out)

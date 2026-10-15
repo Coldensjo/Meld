@@ -350,3 +350,18 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   weight runs along x then z (a separable tent) instead of by the round distance, which is nearly the same
   blur and keeps big brushes fast. Noggit Red's Flatten/Blur raise-only and lower-only toggles are Meld's
   Only above/below cursor limits.
+
+### B-014 and B-015 Texture animation and overbright · Noggit Red, per texture
+- Chosen by the loop from Noggit Red (2026-10-15, B-014, B-015). Noggit Red's texture tool sets a layer's
+  MCLY animation flags (switch 0x40, speed in 0x38, turn in 0x7, in 45-degree steps) and its glow flag
+  (0x80) on the chunks it paints. These are 1.12 flags too: the client's Burning Steppes lava layers carry
+  0xf2 (scrolling, speed 6, turned 90 degrees, overbright).
+- **Ours**: the look is set per texture for the whole map (Edit › Texture Looks…, `editor.textureLooks`,
+  saved in the `.wmap` header's `textureLooks`, no format bump), as the ground effects are, rather than per
+  painted chunk, since a texture that scrolls in one chunk and not the next looks broken. A texture the map
+  doesn't set keeps what the client's tile gives it. The editor doesn't animate or brighten the textures
+  in its own view. Each change is an undo step.
+- Found on the way, and fixed with it: a region save that rewrote a painted chunk wrote each layer's flags
+  as "has alpha" alone, so the client's animated and overbright textures (lava, slime) lost both; now a
+  layer without the map's own look keeps the flags its texture has in the tile (`tileLayerFlags`), checked
+  against the client's Burning Steppes tiles.

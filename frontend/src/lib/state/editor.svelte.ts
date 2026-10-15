@@ -4,6 +4,7 @@ import type { FalloffCurve } from '../tools/brush'
 import type { DoodadBrush } from '../tools/doodadBrush'
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { TextureEffects } from '../world/groundEffects'
+import type { TextureLooks } from '../world/textureLooks'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { Bookmark } from '../engine/MapDocument'
 import type { vmangos } from '../../../wailsjs/go/models'
@@ -97,6 +98,8 @@ export const editor = $state({
   roles: noRoles() as TextureRoles,
   /** The map's own ground effect per texture path (world/groundEffects.ts), over what the client's tiles give. */
   textureEffects: {} as TextureEffects,
+  /** The map's own look flags (animation, overbright) per texture path (world/textureLooks.ts); saved with the map. */
+  textureLooks: {} as TextureLooks,
   /**
    * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the
    * cursor, rising at vertexAngle degrees (-89 to 89) toward vertexDir degrees (0 is +x, 90 is +z).
@@ -402,7 +405,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
+  dialog: null as 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */

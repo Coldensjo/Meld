@@ -20,6 +20,9 @@ Each entry says what it checks, how to run it, and the traps that cost time.
   Northshire (32,48) is a few yards off the client's WDL (the tile was edited after Blizzard built it), so
   don't use it for an exact comparison; Westfall (31,49) is exact. `BuildRegion` returns the WDL after the
   tiles, so a test that walks the files as tiles takes `files[:size*size]`.
+- `TestClientAnimatedLayersKept` (WOW_DIR) finds an animated layer in the client (Burning Steppes lava,
+  tile 33_44) and rewrites its chunk as a region save does: the layer must keep its MCLY look flags. It is
+  the check that a paint rewrite doesn't drop the client's animation or overbright.
 - `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
   checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the
   hole export's block mapping. Seeing a cut cave mouth in game is still a manual check.

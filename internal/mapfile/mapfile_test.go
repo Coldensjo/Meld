@@ -52,6 +52,7 @@ func sample(size int) *MapData {
 			TexScale: 4,
 			Roles:    &TextureRoles{Rock: 1, Dirt: -1},
 			TextureEffects: map[string]uint32{`Tileset\Elwynn\ElwynnGrassBase.blp`: 42},
+			TextureLooks:   map[string]uint32{`Tileset\Elwynn\ElwynnGrassBase.blp`: 0xd2},
 		},
 		Heights:    base64.StdEncoding.EncodeToString(h),
 		Weights:    base64.StdEncoding.EncodeToString(w),
@@ -86,6 +87,9 @@ func TestRoundTrip(t *testing.T) {
 	}
 	if len(got.Palette) != 2 || got.Palette[1] != m.Palette[1] || got.TexScale != 4 {
 		t.Fatalf("palette mismatch: %+v", got.Palette)
+	}
+	if got.TextureEffects[m.Palette[1]] != 42 || got.TextureLooks[m.Palette[1]] != 0xd2 {
+		t.Fatalf("texture effects %v and looks %v", got.TextureEffects, got.TextureLooks)
 	}
 	if len(got.Objects) != 2 || got.Objects[0].Type != "oak" || got.Objects[0].Scale != 1.2 || got.Objects[1].Parent != 1 || got.Objects[0].Group != 3 || got.Objects[1].Group != 0 {
 		t.Fatalf("objects mismatch: %+v", got.Objects)
