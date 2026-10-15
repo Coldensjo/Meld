@@ -106,7 +106,7 @@ them. Fixed-section numbers refer to noggit3-feature-gap.md.
 ## Tooling
 
 - [x] B-121 **Dev page must not write the user's preferences**: the dev browser page and the desktop window share config.json and each wrote all of it, so a test in the page overwrote the owner's doodad brushes; `?nosave` makes the page read-only (TESTS.md) · Source: loop: B-110 · H/S · done 2026-10-14
-- [ ] B-122 **Preferences written by two windows**: two app instances (or the dev page without `?nosave`) still overwrite each other's whole config.json; a merge on save, or a lock, would make it safe · Source: loop: B-121 · M/M
+- [x] B-122 **Preferences written by two windows**: two app instances (or the dev page without `?nosave`) still overwrite each other's whole config.json; a merge on save, or a lock, would make it safe · Source: loop: B-121 · M/M · done 2026-10-15 (PROGRESS.md): each save sends only the changed keys and Go merges them over the file
 
 
 ## Parked

@@ -296,8 +296,10 @@ cd frontend && pnpm build   # frontend only
   radio, header, separator). Add entries there, not ad-hoc buttons.
 - `prefs` (in `editor.svelte.ts`) holds user preferences. `App.svelte` applies them via
   `Engine.applyPrefs` and persists them through the `LoadPrefs`/`SavePrefs` bindings into
-  `config.json` (`internal/config`, opaque JSON). Add new prefs with a default value in `prefs`;
-  loading ignores unknown or mistyped keys.
+  `config.json` (`internal/config`, opaque JSON). A save sends only the keys that changed since the
+  last load or save (`prefs.ts`), and Go merges them over the file's current object
+  (`config.MergePrefs`), so two windows (or the dev page) don't wipe each other's settings. Add new
+  prefs with a default value in `prefs`; loading ignores unknown or mistyped keys.
 - Dialogs live in `components/AppDialogs.svelte` (state: `ui.dialog`) on top of
   `components/Modal.svelte`.
 

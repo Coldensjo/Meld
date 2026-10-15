@@ -86,3 +86,25 @@ func Save(c Config) error {
 	b, _ := json.MarshalIndent(c, "", "  ")
 	return os.WriteFile(p, b, 0o644)
 }
+
+// MergePrefs overlays the keys of patch (a JSON object of preference keys) onto existing (the
+// stored preferences object, or empty) and returns the merged object. Two windows share one
+// config file, and each saves only the preferences it changed, so one window's brushes are not
+// wiped by the other's save of its camera speed.
+func MergePrefs(existing, patch json.RawMessage) (json.RawMessage, error) {
+	merged := map[string]json.RawMessage{}
+	if len(existing) > 0 {
+		if err := json.Unmarshal(existing, &merged); err != nil {
+			// A file that isn't an object is replaced rather than kept.
+			merged = map[string]json.RawMessage{}
+		}
+	}
+	var changes map[string]json.RawMessage
+	if err := json.Unmarshal(patch, &changes); err != nil {
+		return nil, err
+	}
+	for k, v := range changes {
+		merged[k] = v
+	}
+	return json.Marshal(merged)
+}

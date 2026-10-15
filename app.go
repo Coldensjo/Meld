@@ -118,14 +118,17 @@ func (a *App) LoadPrefs() string {
 	return string(a.cfg.Prefs)
 }
 
-// SavePrefs stores the preferences JSON in the user config file.
+// SavePrefs stores preferences in the user config file: prefs is a JSON object of the keys that
+// changed, merged over the file's current preferences (read again, since another window or the
+// dev page may have written since), so two windows don't wipe each other's settings.
 func (a *App) SavePrefs(prefs string) error {
-	if !json.Valid([]byte(prefs)) {
-		return errors.New("invalid preferences JSON")
-	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	a.cfg.Prefs = json.RawMessage(prefs)
+	merged, err := config.MergePrefs(config.Load().Prefs, json.RawMessage(prefs))
+	if err != nil {
+		return fmt.Errorf("invalid preferences JSON: %w", err)
+	}
+	a.cfg.Prefs = merged
 	return config.Save(a.cfg)
 }
 

@@ -434,3 +434,11 @@ button and Help › Manual open the README on GitHub in the system browser (`Bro
 dev page uses `window.open`). In the dev page: `ed.ui.dialog = 'help'` shows it;
 `document.querySelector('[role=dialog]').textContent` holds "Getting started". The URL is
 `MANUAL_URL` in `AppDialogs.svelte`.
+
+## Preferences from two windows
+
+Checks: a save writes only the changed keys, merged into the file (`changedPrefs` in `prefsPatch.ts`,
+`tests/prefs.test.ts`; `config.MergePrefs` in `internal/config/config_test.go`). By hand: open the
+desktop app and a dev page without `?nosave`, add a doodad brush in the app, then turn the fog off
+in the page; the app's brush is still in `config.json` (the page sent only `fog`). The page's
+`baseline` is private to `prefs.ts`; a key that was never saved goes out on the first save.
