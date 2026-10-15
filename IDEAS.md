@@ -196,3 +196,13 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   a 1.12 building has no scale). **Ours** for how: the model's type changes in place, so it keeps its id,
   attachments and, in a region, its unique ID (the region save then rewrites that placement with the new
   model), where Noggit Red deletes the old instances and adds new ones. The owner can change this.
+
+### B-131 Image brushes · Noggit Red's sculpt mode, without its stamp mode
+- Chosen by the loop from Noggit Red (2026-10-15, B-131). Noggit Red's image mask
+  (`ui/tools/UiCommon/ImageMaskSelector.cpp`, `MapChunk::stamp`) lays a greyscale image from the user's
+  Samples folder over the brush's square, turned by a rotation (randomised after each stroke if asked),
+  and multiplies each vertex's brush weight by the grey under it. It has a Sculpt mode (the brush applies
+  as usual) and a Stamp mode (Shift+drag sideways grows one imprint from the stroke's original heights).
+- Meld does the Sculpt mode for Sculpt's shaping modes and Paint's texture painting, with the folder as a
+  preference and the image, Turn and Random turn in the options bar. The Stamp mode is left for B-132
+  (stamps, which needs approval). The images are the user's own, read at runtime, so nothing ships.

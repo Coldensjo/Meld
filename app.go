@@ -229,6 +229,32 @@ func (a *App) BrowseVmangosFolder() (string, error) {
 	})
 }
 
+// BrowseBrushImageFolder lets the user pick the folder of greyscale images that shape the image
+// brushes (Noggit Red's Samples folder). Returns "" if cancelled.
+func (a *App) BrowseBrushImageFolder(current string) (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            "Select the folder of brush images",
+		DefaultDirectory: current,
+	})
+}
+
+// ListBrushImages names the PNG and JPEG images in the brush image folder.
+func (a *App) ListBrushImages(dir string) ([]string, error) {
+	return heightmap.ListImages(dir)
+}
+
+// ReadBrushImage reads one image of the brush image folder as grey levels, at most 256 pixels a side.
+func (a *App) ReadBrushImage(dir, name string) (*heightmap.GreyView, error) {
+	if name != filepath.Base(name) {
+		return nil, errors.New("not an image of the brush folder")
+	}
+	g, err := heightmap.ReadGrey(filepath.Join(dir, name), 256)
+	if err != nil {
+		return nil, err
+	}
+	return g.View(), nil
+}
+
 // SetVmangosPath checks that path is a VMaNGOS server folder and remembers it. "" forgets it.
 func (a *App) SetVmangosPath(path string) error {
 	if path != "" {

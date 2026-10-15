@@ -130,6 +130,10 @@ cd frontend && pnpm build   # frontend only
     falloff, and the ring stays on the ground point it started on.
   - Terrain brush tools extend `BrushTool` and record undo through `TerrainStroke`, which stores only
     the dirty sub-rect.
+  - **Image brushes** (`tools/brushImage.ts`): a greyscale image from the user's folder
+    (`prefs.brushImageDir`, read by Go into grey levels) multiplies the brush weight inside
+    `forEachVertex`/`forEachTexel`. `BrushTool.tick` switches `brushImage.active` on only for tools
+    whose `imageShaped()` says so (Sculpt's shaping modes, Paint's texture brush), and off again after.
   - Sculpt's **painting while shaping** (`editor.sculptPaint`: 'off', 'texture' or 'slope') paints
     under the brush in the shaping modes as the ground moves, in the same stroke and undo step.
     'texture' paints `editor.sculptPaintLayer` (per map in `DocMeta`; a texture picked in the

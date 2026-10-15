@@ -3,11 +3,14 @@
 import {vmangos} from '../models';
 import {main} from '../models';
 import {mapfile} from '../models';
+import {heightmap} from '../models';
 import {wow} from '../models';
 
 export function ApplySpawnEdits(arg1:string,arg2:number,arg3:number,arg4:number,arg5:Array<vmangos.SpawnEdit>):Promise<vmangos.Result>;
 
 export function Areas():Promise<Array<vmangos.Area>>;
+
+export function BrowseBrushImageFolder(arg1:string):Promise<string>;
 
 export function BrowseVmangosFolder():Promise<string>;
 
@@ -28,6 +31,8 @@ export function GroundEffects():Promise<vmangos.GroundEffectTables>;
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
 export function LiquidTypes():Promise<Array<vmangos.LiquidTypeEntry>>;
+
+export function ListBrushImages(arg1:string):Promise<Array<string>>;
 
 export function ListCreatureTemplates():Promise<Array<vmangos.CreatureTemplate>>;
 
@@ -72,6 +77,8 @@ export function OpenTextDialog():Promise<string>;
 export function PublishVmangosMap(arg1:vmangos.MapSpec):Promise<void>;
 
 export function Quit():Promise<void>;
+
+export function ReadBrushImage(arg1:string,arg2:string):Promise<heightmap.GreyView>;
 
 export function ReadCreature(arg1:number):Promise<vmangos.CreatureRecord>;
 

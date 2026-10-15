@@ -10,6 +10,10 @@ export function Areas() {
   return window['go']['main']['App']['Areas']();
 }
 
+export function BrowseBrushImageFolder(arg1) {
+  return window['go']['main']['App']['BrowseBrushImageFolder'](arg1);
+}
+
 export function BrowseVmangosFolder() {
   return window['go']['main']['App']['BrowseVmangosFolder']();
 }
@@ -48,6 +52,10 @@ export function InstallMapPatch(arg1) {
 
 export function LiquidTypes() {
   return window['go']['main']['App']['LiquidTypes']();
+}
+
+export function ListBrushImages(arg1) {
+  return window['go']['main']['App']['ListBrushImages'](arg1);
 }
 
 export function ListCreatureTemplates() {
@@ -136,6 +144,10 @@ export function PublishVmangosMap(arg1) {
 
 export function Quit() {
   return window['go']['main']['App']['Quit']();
+}
+
+export function ReadBrushImage(arg1, arg2) {
+  return window['go']['main']['App']['ReadBrushImage'](arg1, arg2);
 }
 
 export function ReadCreature(arg1) {

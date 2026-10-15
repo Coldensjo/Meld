@@ -1,13 +1,14 @@
 <script lang="ts">
   import OptSlider from './OptSlider.svelte'
   import { TOOLS } from './Toolbar.svelte'
-  import { MAX_BRUSH_RADIUS, editor, prefs, stats, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
+  import { MAX_BRUSH_RADIUS, editor, prefs, setStatus, stats, ui, wow, type SculptMode } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { displayName } from '../lib/models/assets'
   import { FALLOFF_CURVES } from '../lib/tools/brush'
   import { LIQUID_TYPES } from '../lib/water/liquids'
   import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { areaName, loadAreas } from '../lib/wow/areas'
+  import { chooseBrushImageFolder, listBrushImages, useBrushImage } from '../lib/io/brushImages'
   import type { vmangos } from '../../wailsjs/go/models'
 
   const SCULPT_MODES: Array<{ id: SculptMode; name: string }> = [
@@ -71,6 +72,25 @@
     areaText = editor.mapDataArea ? `${areaName(editor.mapDataArea)} (${editor.mapDataArea})` : ''
   }
 
+  /** The brush image folder's images, read when the picker opens; and the picker's folder entry. */
+  let brushImages = $state<string[]>([])
+  const FOLDER = '<folder>'
+  async function refreshImages() {
+    brushImages = await listBrushImages()
+  }
+  async function pickImage(value: string) {
+    if (value === FOLDER) {
+      if (await chooseBrushImageFolder()) {
+        await refreshImages()
+        setStatus(brushImages.length ? `${brushImages.length} brush images in ${prefs.brushImageDir}.` : `No PNG or JPEG images in ${prefs.brushImageDir}.`, 5000)
+      }
+      // The select shows the image in use again.
+      brushImages = [...brushImages]
+      return
+    }
+    await useBrushImage(value)
+  }
+
   /** Opens the brush editor window, making a brush first when there is none. */
   function editBrush() {
     if (!activeDoodadBrush()) addDoodadBrush()
@@ -85,6 +105,27 @@
     e.preventDefault()
   }
 </script>
+
+{#snippet imageBrush()}
+  <select
+    class="curve"
+    value={editor.brushImage.name}
+    onfocus={refreshImages}
+    onchange={(e) => pickImage(e.currentTarget.value)}
+    title="Shape the brush with a greyscale image from your brush image folder: the stroke takes the image's light parts"
+    aria-label="Brush image"
+  >
+    <option value="">Image: none</option>
+    {#each brushImages as name (name)}
+      <option value={name}>Image: {name}</option>
+    {/each}
+    <option value={FOLDER}>Image folder…</option>
+  </select>
+  {#if editor.brushImage.name}
+    <OptSlider label="Turn" bind:value={editor.brushImage.rotation} min={0} max={360} step={1} digits={0} width={60} title="The image's rotation, in degrees" />
+    <label class="check" title="Turn the image to a new random rotation after each stroke"><input type="checkbox" bind:checked={editor.brushImage.random} /> Random turn</label>
+  {/if}
+{/snippet}
 
 {#snippet editLimit()}
   <select class="curve" bind:value={editor.sculptLimit} title="Only change ground above or below the height under the cursor" aria-label="Edit limit">
@@ -153,6 +194,7 @@
       <OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={70} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
     {:else}
       {@render editLimit()}
+      {@render imageBrush()}
       <select class="curve" bind:value={editor.sculptPaint} title="Also paint the ground the brush shapes: one texture, or the map's rock on the steep ground and its dirt on the slopes below it, as a raised hill was painted while it was raised" aria-label="Paint while sculpting">
         <option value="off">Paint: off</option>
         <option value="slope">Paint: rock and dirt by slope</option>
@@ -193,6 +235,9 @@
       {#if editor.swap.keep}
         <span class="dim">{editor.swap.from ? `Swapping ${texName(editor.swap.from)}` : 'The next stroke picks the texture to swap'}</span>
       {/if}
+    {/if}
+    {#if editor.tool === 'paint' && editor.paintMode === 'texture' && !editor.paintSpray}
+      {@render imageBrush()}
     {/if}
     <button class="chip" onclick={() => { ui.palette = 'textures'; prefs.browserCollapsed = false }} title="Active texture layer (pick textures in the asset browser below)">
       <span class="dim">Layer {editor.paintLayer + 1}:</span>

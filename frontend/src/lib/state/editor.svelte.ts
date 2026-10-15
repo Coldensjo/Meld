@@ -168,6 +168,12 @@ export const editor = $state({
   /** Dragging a model along the ground tilts it to the ground's slope; smooth blends the slope over a cell each way. */
   followGround: false,
   /**
+   * The image brush (Noggit Red's image mask): the name of an image in `prefs.brushImageDir` that shapes
+   * the Sculpt and Paint brushes ('' for none), its rotation in degrees, and whether each stroke turns
+   * it to a new random rotation when it ends.
+   */
+  brushImage: { name: '', rotation: 0, random: false },
+  /**
    * The Select tool's selection brush (Noggit Red's): a drag on the ground selects the models under the
    * brush instead of an area. Shift adds to the selection, Ctrl takes models out of it.
    */
@@ -352,6 +358,8 @@ export const prefs = $state({
   /** The doodad brushes (tools/doodadBrush.ts) and the name of the one the Doodad brush tool paints with. */
   doodadBrushes: [] as DoodadBrush[],
   doodadBrush: '',
+  /** The folder of the user's own greyscale images that shape the image brushes (editor.brushImage). */
+  brushImageDir: '',
   /** The tabs open at the last close, reopened at the next start (io/session.ts). */
   session: { tabs: [] as SessionTab[], active: 0 },
 })

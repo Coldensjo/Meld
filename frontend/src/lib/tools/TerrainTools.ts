@@ -9,6 +9,7 @@ import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushDist, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
 import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale } from './sculptShapes'
+import { brushImage, setBrushImageRotation } from './brushImage'
 import { CHUNK_CELLS, dominantTexel, findSlot, paletteIndex, replaceInChunk, swapTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
@@ -52,6 +53,7 @@ abstract class BrushTool implements Tool {
 
   onUp(ctx: ToolContext) {
     if (!this.stroke) return
+    if (this.imageShaped() && editor.brushImage.name && editor.brushImage.random) editor.brushImage.rotation = Math.floor(Math.random() * 360)
     const cmd = this.stroke.finish()
     this.stroke = null
     if (cmd) ctx.history.push(cmd)
@@ -69,7 +71,19 @@ abstract class BrushTool implements Tool {
     brushShape.square = editor.brush.shape === 'square'
     brushShape.curve = editor.brush.curve
     const [x, z] = brushCenter(hit.x, hit.z, this.radius(), ctx.terrain.cellSize, brushShape.square && editor.brush.snap)
-    this.apply(ctx, dt, this.center.set(x, hit.y, z))
+    // The brush image shapes this stroke only, and only in the tools that take one.
+    brushImage.active = this.imageShaped() && !!brushImage.data
+    if (brushImage.active) setBrushImageRotation(editor.brushImage.rotation)
+    try {
+      this.apply(ctx, dt, this.center.set(x, hit.y, z))
+    } finally {
+      brushImage.active = false
+    }
+  }
+
+  /** Whether the brush image shapes this tool's strokes (Sculpt's shaping modes and Paint's textures). */
+  protected imageShaped() {
+    return false
   }
 
   protected begin(_ctx: ToolContext, _hit: THREE.Vector3) {}
@@ -150,6 +164,9 @@ export class SculptTool extends BrushTool {
     return { heights: true, splat: editor.sculptPaint !== 'off' && SHAPING_MODES.has(editor.sculptMode) }
   }
   private slopeW = new Float32Array(2)
+  protected imageShaped() {
+    return SHAPING_MODES.has(editor.sculptMode)
+  }
   /** Hole mode works on the triangle under the cursor, not a brush footprint. */
   get usesBrush() {
     return editor.sculptMode !== 'hole'
@@ -566,6 +583,11 @@ export class PaintTool extends BrushTool {
 
   protected get records() {
     return editor.paintMode === 'mask' ? { mask: true } : { splat: true }
+  }
+
+  /** The brush image shapes painting (not the spray's dabs, the swap or the mask). */
+  protected imageShaped() {
+    return editor.paintMode === 'texture' && !editor.paintSpray
   }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {

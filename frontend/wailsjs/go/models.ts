@@ -25,6 +25,27 @@ export namespace adt {
 
 }
 
+export namespace heightmap {
+	
+	export class GreyView {
+	    w: number;
+	    h: number;
+	    pix: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GreyView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.w = source["w"];
+	        this.h = source["h"];
+	        this.pix = source["pix"];
+	    }
+	}
+
+}
+
 export namespace main {
 	
 	export class GameLoginInfo {

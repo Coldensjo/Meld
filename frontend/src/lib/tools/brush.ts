@@ -12,6 +12,7 @@ export interface Rect {
 
 export { brushShape, brushWeight, FALLOFF_CURVES, type FalloffCurve } from './falloff'
 import { brushShape, brushWeight } from './falloff'
+import { brushImage, imageWeight } from './brushImage'
 
 /** Normalised brush distance: circle (euclidean) or square (chebyshev). */
 export function brushDist(dx: number, dz: number, radius: number) {
@@ -29,7 +30,8 @@ export function brushCenter(x: number, z: number, radius: number, cellSize: numb
 }
 
 /**
- * Iterate heightmap vertices under a circular brush. Returns touched rect. A `stroke` that records
+ * Iterate heightmap vertices under a circular brush (shaped by the brush image while one is active,
+ * see brushImage.ts). Returns touched rect. A `stroke` that records
  * heights saves the rect's blocks first, so what `fn` writes can be undone.
  */
 export function forEachVertex(
@@ -51,8 +53,10 @@ export function forEachVertex(
   const V = terrain.verts
   for (let z = z0; z <= z1; z++) {
     for (let x = x0; x <= x1; x++) {
-      const d = brushDist(x * cs - cx, z * cs - cz, radius)
-      const w = brushWeight(d, falloff)
+      const dx = x * cs - cx
+      const dz = z * cs - cz
+      let w = brushWeight(brushDist(dx, dz, radius), falloff)
+      if (w > 0 && brushImage.active) w *= imageWeight(dx, dz, radius)
       if (w > 0) fn(z * V + x, w, x, z)
     }
   }
@@ -82,8 +86,10 @@ export function forEachTexel(
   stroke?.reserveTexels({ x0, z0, x1, z1 })
   for (let z = z0; z <= z1; z++) {
     for (let x = x0; x <= x1; x++) {
-      const d = brushDist((x + 0.5) * ts - cx, (z + 0.5) * ts - cz, radius)
-      const w = brushWeight(d, falloff)
+      const dx = (x + 0.5) * ts - cx
+      const dz = (z + 0.5) * ts - cz
+      let w = brushWeight(brushDist(dx, dz, radius), falloff)
+      if (w > 0 && brushImage.active) w *= imageWeight(dx, dz, radius)
       if (w > 0) fn(z * R + x, w)
     }
   }
