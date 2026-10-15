@@ -260,3 +260,9 @@ Recorded 2026-10-12. Source for noggit3 behaviour: commit 59e58add of wowdev/nog
   are dimmed. **Ours** for the place: a floating window opened from Edit › History, like the Inspector,
   since the owner keeps the dock to Layers alone (2026-10-15). Going to a step runs each step's own
   undo or redo, so it is no new edit of its own and the jump can be undone step by step.
+
+### Loop: lesser tasks when no big ones are left · owner decision 2026-10-15
+- Question: when every eligible backlog item is value L, should the loop stop or keep working?
+- Choice: **keep working on the value L items**, in the usual order (bugs, DESIGN.md priority, value,
+  then the smallest effort first), up to the run's cap. Items tagged `needs-approval` are still skipped.
+- Decided by the owner, 2026-10-15.
