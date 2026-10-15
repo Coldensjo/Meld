@@ -126,6 +126,7 @@
         { kind: 'action', label: 'Delete Selected Models', shortcut: 'Del', disabled: !editor.selectedIds.length, run: withEngine((e) => e.deleteSelected()) },
         { kind: 'action', label: 'Remove Duplicate Models', run: withEngine((e) => e.removeDuplicateModels()) },
         { kind: 'sep' },
+        { kind: 'action', label: editor.selection ? 'Remove Empty Texture Layers in Selection' : 'Remove Empty Texture Layers', run: withEngine((e) => e.removeEmptyLayers()) },
         { kind: 'action', label: 'Auto-paint Textures by Height and Slope', run: withEngine((e) => e.regenerateAutoPaint()) },
         { kind: 'action', label: 'Fill Mask with Paint Texture', disabled: !ui.maskActive, run: withEngine((e) => e.fillMask(editor.paintLayer)) },
         { kind: 'action', label: 'Replace Texture Everywhere…', run: () => (ui.dialog = 'textures') },

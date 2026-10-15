@@ -45,7 +45,7 @@ MH2O water, texture height mapping, WMO low-res models, map difficulties, skybox
 - **Overbright** option. *Defined from Noggit Red's source: it sets the layer's glow flag (`FLAG_GLOW` in MCLY) when Add anim is applied, next to the animation settings, so it belongs with animated layers (`texturing_tool::change_tex_flag`).* **(format-specific)**
 - **Brush hardness** **(Red)**: Paint's Hardness slider (0–1) sets the inner radius as a share of the radius (`Brush::setHardness`). Meld's Falloff slider is the same control.
 - **Ensure 4 texture layers** **(Red)**: Assist › Ensure 4 texture layers fills every chunk of a tile (or the map) up to four layers. *(format-specific: a modding aid; Meld's chunk slots don't need it.)*
-- **Cleanup empty texture chunks** **(Red)**: Assist › Loaded ADTs removes layers whose alpha is empty everywhere in a chunk. Meld's slot compaction (`acquireSlotCompacting`) frees an emptied slot only when a stroke needs it.
+- ~~**Cleanup empty texture chunks** **(Red)**: Assist › Loaded ADTs removes layers whose alpha is empty everywhere in a chunk. Meld's slot compaction (`acquireSlotCompacting`) frees an emptied slot only when a stroke needs it.~~ *Done: Edit › Remove Empty Texture Layers frees them across the map, or in the selected area, as one undo step (BACKLOG B-134).*
 
 ## 3. Water and liquids
 

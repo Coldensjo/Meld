@@ -445,3 +445,7 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-141 Snap selected to ground
 - Done: Checked first whether a one-key drop existed (it did not; Page Down lowers by a step) and Noggit Red's behaviour (IDEAS.md). Edit › Put Selected Models on the Ground (Ctrl+Page Down) sets every selected root model's height offset to 0, so it stands on the ground under its position, as one undo step (`Engine.snapSelectedToGround`, `groupTransformCommand`); attached models ride their parents and are left alone. Listed in Help.
 - Verified: make test passed (Go plus 211 of 211 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.
+
+## 2026-10-15 · B-134 Remove empty texture layers
+- Done: Edit › Remove Empty Texture Layers (… in Selection with an area selected) frees, in every chunk that has one, the texture layers whose weight is 0 on all of the chunk's texels, as Noggit Red's Assist › Loaded ADTs clean-up does, through the existing `compactChunk` (used layers move down so slot 0 stays the base; every texel keeps its blend). Only the chunks with an empty layer are touched (`hasEmptySlot`), as one undo step, and the status says how many layers went.
+- Verified: a new chunkPaint test for `hasEmptySlot`. make test passed (Go plus 212 of 212 frontend tests). make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in the app.

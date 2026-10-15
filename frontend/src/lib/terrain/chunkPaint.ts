@@ -164,6 +164,31 @@ export function compactChunk(side: number, res: number, slots: Uint8Array, weigh
   return true
 }
 
+/** Whether chunk c has a texture whose weight is 0 on every texel of the chunk (which compactChunk frees). */
+export function hasEmptySlot(side: number, res: number, slots: Uint8Array, weights: Uint8Array, c: number): boolean {
+  const per = res / side
+  const x0 = (c % side) * per
+  const z0 = Math.floor(c / side) * per
+  let empty = 0
+  let used = 0
+  for (let k = 0; k < SLOTS; k++) {
+    if (slots[c * SLOTS + k] === NO_TEXTURE) continue
+    let any = false
+    for (let z = z0; z < z0 + per && !any; z++) {
+      for (let x = x0; x < x0 + per; x++) {
+        if (weights[(z * res + x) * SLOTS + k] > 0) {
+          any = true
+          break
+        }
+      }
+    }
+    if (any) used++
+    else empty++
+  }
+  // A chunk with no used texture at all is left as it is, as compactChunk leaves it.
+  return empty > 0 && used > 0
+}
+
 /** Makes the four weights of a texel sum to 255, adjusting the largest one by any rounding error. */
 export function normalizeTexel(w: Uint8Array, base: number): void {
   let sum = 0

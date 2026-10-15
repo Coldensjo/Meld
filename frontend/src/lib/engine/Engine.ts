@@ -31,7 +31,7 @@ import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type 
 import { rotateClip } from '../world/clipRotate'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
-import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, convertGlobalLayers, findSlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, compactChunk, convertGlobalLayers, findSlot, hasEmptySlot, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { setMaxAnisotropy } from '../wow/api'
 import { animatedAssets, displayName, getAsset } from '../models/assets'
@@ -3002,6 +3002,29 @@ export class Engine {
       const slot = findSlot(t.chunkSlots, c, tex)
       if (slot >= 0) replaceInChunk(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, c, slot, index)
     })
+  }
+
+  /**
+   * Frees the texture layers whose weight is 0 everywhere in their chunk (Noggit Red's "remove unused
+   * textures"), in the selected area's chunks or across the map, as one undo step. Each chunk keeps
+   * its look; it only gets its free slots back for other textures.
+   */
+  removeEmptyLayers() {
+    const t = this.terrain
+    const side = t.paintChunksPerSide
+    const scope = editor.selection ? this.selectedChunks() : Array.from({ length: side * side }, (_, c) => c)
+    const chunks = scope.filter((c) => hasEmptySlot(side, t.splatRes, t.chunkSlots, t.weights, c))
+    if (!chunks.length) {
+      setStatus(`No empty texture layers ${editor.selection ? 'in the selected area' : 'on the map'}.`, 3000)
+      return
+    }
+    let layers = 0
+    this.editChunks(`Remove empty layers in ${chunks.length} chunk${chunks.length === 1 ? '' : 's'}`, chunks, (c) => {
+      for (let k = 0; k < SLOTS; k++) if (t.chunkSlots[c * SLOTS + k] !== NO_TEXTURE) layers++
+      compactChunk(side, t.splatRes, t.chunkSlots, t.weights, c)
+      for (let k = 0; k < SLOTS; k++) if (t.chunkSlots[c * SLOTS + k] !== NO_TEXTURE) layers--
+    })
+    setStatus(`Removed ${layers} empty texture layer${layers === 1 ? '' : 's'} in ${chunks.length} chunk${chunks.length === 1 ? '' : 's'}.`, 4000)
   }
 
   /** Removes palette texture `tex` from `chunks`: its layer there is empty afterwards (undoable). */

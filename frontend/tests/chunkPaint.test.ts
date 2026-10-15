@@ -22,6 +22,7 @@ import {
   replacePalette,
   clearPalette,
   compactChunk,
+  hasEmptySlot,
 } from '../src/lib/terrain/chunkPaint.ts'
 
 test('a chunk takes four textures and refuses a fifth', () => {
@@ -276,4 +277,16 @@ test('replacing a chunk texture renames its slot, or folds into one the chunk al
   replaceInChunk(1, 1, slots, weights, 0, 1, 5)
   assert.deepEqual([...slots], [5, NO_TEXTURE, NO_TEXTURE, NO_TEXTURE])
   assert.deepEqual([...weights], [255, 0, 0, 0])
+})
+
+test('hasEmptySlot finds a layer with no weight, and not a chunk that is all used or all empty', () => {
+  // One chunk of 2x2 texels: slot 0 everywhere, slot 1 named but never painted.
+  const slots = new Uint8Array([3, 5, NO_TEXTURE, NO_TEXTURE])
+  const weights = new Uint8Array(4 * SLOTS)
+  for (let i = 0; i < 4; i++) weights[i * SLOTS] = 255
+  assert.equal(hasEmptySlot(1, 2, slots, weights, 0), true)
+  weights[0 * SLOTS] = 200
+  weights[0 * SLOTS + 1] = 55
+  assert.equal(hasEmptySlot(1, 2, slots, weights, 0), false)
+  assert.equal(hasEmptySlot(1, 2, slots, new Uint8Array(4 * SLOTS), 0), false)
 })
