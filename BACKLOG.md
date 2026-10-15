@@ -22,8 +22,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-111 **Paint while sculpting, and texture roles**: Sculpt paints one texture or the map's rock and dirt by slope as it shapes the ground; roles are guessed from texture names and set in Map Properties · Source: owner · H/M · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-112 **Photoshop brush size controls**: [ ] and Ctrl+scroll in size bands, Shift+[ ] for falloff, Alt+right-drag on the spot · Source: owner · M/S · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [x] B-116 **Sculpt strength up to 10** · Source: owner · M/S · done 2026-10-15 (PROGRESS.md 2026-10-15 owner session)
-- [x] B-132 **Stamp tool with brush stacks**: one press applies a saved, reorderable stack of sculpt, flatten and paint brushes, each inheriting or overriding the radius, speed and rotation · gap §1 · L/L · builds on B-131 · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-162 **Preview texture looks in the editor**: scroll and brighten the textures a map sets to animate or glow (B-014), so the view matches the client · Source: loop: B-014 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Water
 
@@ -37,7 +35,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 
 ## Objects (props)
 
-- [x] B-040 **Helper models**: reference models as visual aids (Noggit Red's: cubes, discs and spheres of set sizes and a human-scale figure) · gap §4 · L/M · decided by the owner 2026-10-15 in IDEAS.md (editor-only primitives, never exported) · done 2026-10-15 (PROGRESS.md)
 - [x] B-110 **Doodad brush**: a brush of weighted models scattered like paint, with scale, sink, tilt and spacing per model, a full-screen editor with its own model picker, a hover preview that the press puts down (Ctrl+scroll spins it, Shift stacks), Ctrl erases, TOML import and export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 
 ## Map, client and server
@@ -48,11 +45,7 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [x] B-114 **Ground effects (grass tufts)**: the client's GroundEffectTexture and GroundEffectDoodad tables, the texture-to-effect pairs learned from its tiles, tufts drawn around the camera by the texture on top of each cell, a per-map effect choice per texture, and the effect per layer plus the predominant map written on export · Source: owner · H/L · done 2026-10-14 (PROGRESS.md 2026-10-15 owner session)
 - [ ] B-057 **Shadows editor** (baked shadows) · gap §5 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
 - [ ] B-129 **Write the client's minimap textures**: render each tile top-down into the client's `Textures\Minimap` BLPs (and md5translate.trs) on export, as Noggit Red's Minimap Editor does (with a resolution, what to draw, and model filters), so the in-game minimap shows the edited ground · Source: loop: B-059, gap §5 · L/L · a client write, checked against the client's own reader
-- [x] B-147 **More Map.dbc fields for a new map** (instance type, loading screen, area, corpse position, max players) and WMO-only maps, as Noggit Red's map creation wizard · gap §5 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-149 **Light editor**: edit the map's Light.dbc entries, their LightParams and colour bands by hour and weather, written to the DBCs · gap §11 · M/L · after B-084 · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
-- [x] B-163 **WMO-only maps**: a map made of one global WMO (the WDT's MPHD flag and MODF, no tiles), as Noggit Red's map wizard makes for dungeons · Source: loop: B-147 · L/M · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 - [ ] B-150 **Area trigger display and editor**: the map's AreaTrigger.dbc boxes and spheres, added, moved and resized · gap §11 · L/L · approved by the owner 2026-10-15, decided in IDEAS.md
-- [x] B-151 **New ground effect sets**, and applying an effect per zone, subzone or tile rather than per map · gap §11 · L/M · approved by the owner 2026-10-15, decided in IDEAS.md · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Navigation, view and display
 
@@ -66,7 +59,6 @@ them. Fixed-section numbers refer to noggit-red-feature-gap.md.
 - [ ] B-080 **Anti-aliasing, VSync, an FPS limit and full-screen** settings · gap §7 · L/S
 - [ ] B-081 **Flight bounds** display · gap §7 · L/S
 - [ ] B-082 **Light zone display** · gap §7 · L/M
-- [x] B-084 **Client lighting data** for the preview · gap §7 · L/L · approved by the owner 2026-10-15: read the client's Light, LightParams and LightIntBand tables so the editor's sky, fog and ambient follow the zone the camera is in · done 2026-10-15 (PROGRESS.md), decided in IDEAS.md
 
 ## Settings, UI and help
 

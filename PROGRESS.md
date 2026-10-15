@@ -593,3 +593,11 @@ Stopped runs use `## YYYY-MM-DD · stopped` and say why.
 ## 2026-10-15 · B-163 WMO-only maps
 - Done (IDEAS.md records the choice): Map Properties' Client map section has WMO-only ("the map is its first building"). Publishing such a map writes no tiles and no horizon: the WDT is the 1.12 client's WMO-only form (`BuildWMOOnlyWDT`: the MPHD's global-WMO flag, an empty tile table, the building's path in MWMO and one MODF placement with unique ID 0xFFFFFFFF), placing the map's first WMO where it stands, with its bounds read from the WMO and its doodad set (`MapSpec.Global`). A map flagged WMO-only without a building on it says so instead of publishing. The flag is kept with the map's info.
 - Verified: client tests (`TestClientWMOOnlyWDT`: Blackfathom Deeps' WDT rebuilt from its own placement is the client's file byte for byte; `TestExportWMOOnlyMap`: a map of Blackfathom's building exports a WDT with the flag, the building and real bounds, and no tiles or WDL). make test passed (Go plus 232 of 232 frontend tests); the WOW_DIR client tests passed. make check passed (0 errors, 0 warnings). make build-windows passed. make build-linux was not run (Windows host). Not checked in game: a WMO-only map was not entered.
+
+## 2026-10-15 · backlog tidy (9th run)
+- Removed the items finished in this run (B-040, B-162, B-132, B-084, B-149, B-147, B-151, B-163), as earlier tidies did; PROGRESS.md, IDEAS.md and noggit-red-feature-gap.md keep their record. No owner-written item was deleted.
+- No duplicates found. Nothing new fits Parked. New line from this run: B-163 (WMO-only maps, from B-147), done in the same run.
+
+## 2026-10-15 · stopped (9th run)
+- Stopped: 8 items were done in this run (B-040, B-162, B-132, B-084, B-149, B-147, B-151, B-163), which is the cap. The commits were not pushed, as LOOP.md says.
+- Next top item: the client round trip's remaining approved items, all L/L: B-129 (write the client's minimap textures), B-150 (area triggers), B-057 (baked shadows), B-026 (water layers); then the small view items (B-073, B-079, B-081, B-071, B-080) and B-082 (light zones on the minimap, which B-084's data now makes possible).
