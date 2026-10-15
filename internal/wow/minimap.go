@@ -1,7 +1,6 @@
 package wow
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,29 +55,28 @@ func (c *Client) minimapTable() (map[string][]MapTile, error) {
 	if c.minimap != nil {
 		return c.minimap, nil
 	}
-	raw, err := c.read(`textures\Minimap\md5translate.trs`)
+	raw, err := c.read(MinimapIndexPath)
 	if err != nil {
 		return nil, fmt.Errorf("minimap table: %w", err)
 	}
 	table := map[string][]MapTile{}
-	sc := bufio.NewScanner(bytes.NewReader(raw))
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		left, right, ok := strings.Cut(line, "\t")
-		if !ok {
-			continue
-		}
-		m := minimapLine.FindStringSubmatch(strings.TrimSpace(left))
+	ParseMinimapIndex(raw).Each(func(name, file string) {
+		m := minimapLine.FindStringSubmatch(name)
 		if m == nil {
-			continue
+			return
 		}
 		x, _ := strconv.Atoi(m[2])
 		y, _ := strconv.Atoi(m[3])
 		if x < 0 || y < 0 || x >= MapTilesPerSide || y >= MapTilesPerSide {
-			continue
+			return
 		}
 		key := strings.ToLower(m[1])
-		table[key] = append(table[key], MapTile{X: x, Y: y, File: `textures\Minimap\` + strings.TrimSpace(right)})
+		table[key] = append(table[key], MapTile{X: x, Y: y, File: `textures\Minimap\` + file})
+	})
+	for _, tiles := range table {
+		sort.Slice(tiles, func(i, j int) bool {
+			return tiles[i].Y < tiles[j].Y || tiles[i].Y == tiles[j].Y && tiles[i].X < tiles[j].X
+		})
 	}
 	c.minimap = table
 	return table, nil

@@ -40,6 +40,10 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk
   flags (0x8000 on some chunks), so compare a write against the same save without your change, not
   against the client's tile.
+- `TestClientMinimapIndex` (WOW_DIR) is the check for writing `md5translate.trs` (B-169, for #17): the
+  client's index parsed and written back by `MinimapIndex.Bytes` must be byte-identical (8401 rows under
+  235 `dir:` headers, empty headers for folders that hold only folders, everything ordered by upper-cased
+  name), and a stored tile's name must be the md5 of its BLP bytes.
 - `TestClientWDL` (WOW_DIR) is the check for the WDL write: Azeroth.wdl parsed and rebuilt must be
   byte-identical, and the outer horizon heights sampled from a client tile must equal the client's. Trap:
   Northshire (32,48) is a few yards off the client's WDL (the tile was edited after Blizzard built it), so
