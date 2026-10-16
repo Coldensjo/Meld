@@ -52,6 +52,7 @@
 		</label>
 	</div>
 	<p class="dim">Stamp presses each model's underside into the ground (a rock's base, a crater) and ignores the settings above but the ring.</p>
+	<p class="dim">The Place tool's Fit ground uses the settings above for each model it places.</p>
 	{#snippet actions()}
 		<button onclick={onclose}>Cancel</button>
 		<button onclick={() => run(true)}>Stamp shape</button>

@@ -6,6 +6,7 @@ import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { ObjectClip } from '../world/clipboard'
 import type { Command } from '../state/history'
+import type { FitOptions } from '../terrain/fitGround'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
 import { hasSkeleton, modelMesh } from '../world/Animator'
@@ -104,6 +105,8 @@ export class PlaceTool implements Tool {
     private hooks: {
       /** Spawns the creature or object template being placed (ui.placeCreature / ui.placeObject) at a point. */
       placeSpawn: (at: THREE.Vector3) => void
+      /** Fits the ground under the model `id` just placed (Fit ground, #207), already applied; null when nothing changed. */
+      fitGround: (id: number, fit: FitOptions) => Command | null
     },
   ) {
     this.ghost = new THREE.Mesh(new THREE.BufferGeometry())
@@ -252,7 +255,24 @@ export class PlaceTool implements Tool {
       rot: this.rot,
       scale: this.scale,
     })
-    ctx.history.push(addCommand(ctx.objects, [o], surf.parent !== null ? 'Place (attached)' : 'Place'))
+    const add = addCommand(ctx.objects, [o], surf.parent !== null ? 'Place (attached)' : 'Place')
+    // With Fit ground on, a model on open ground has the ground fitted under it in the same undo step.
+    const fit = prefs.placeFitGround && surf.parent === null ? this.hooks.fitGround(o.id, { ...prefs.fitGround }) : null
+    ctx.history.push(
+      fit
+        ? {
+            label: 'Place and fit ground',
+            undo: () => {
+              fit.undo()
+              add.undo()
+            },
+            redo: () => {
+              add.redo()
+              fit.redo()
+            },
+          }
+        : add,
+    )
     // The new object stays selected so it can be nudged/spun with the keys.
     selectObjects(ctx.objects, [o.id])
     this.reroll()

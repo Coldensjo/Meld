@@ -369,6 +369,10 @@
     {#if editor.followGround}
       <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
     {/if}
+    <label class="check" title="Fit the ground under each model placed on open ground to its floor, with the settings of Models › Fit Ground to Selected Models, in the same undo step"><input type="checkbox" bind:checked={prefs.placeFitGround} /> Fit ground</label>
+    {#if prefs.placeFitGround}
+      <button title="The fit's settings: margin under the floor, blend ring, raise or lower, holes" onclick={() => (ui.dialog = 'fitGround')}>Settings…</button>
+    {/if}
     <label class="check"><input type="checkbox" bind:checked={editor.placeScatter} /> Scatter</label>
     {#if ui.placeCreature || ui.placeObject}
       <span class="chip" title="The creature or object from the browser's spawn tabs that a click places (Esc stops)">

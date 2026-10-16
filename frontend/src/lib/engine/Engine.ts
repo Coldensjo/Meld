@@ -369,7 +369,7 @@ export class Engine {
   /** Scratch for the outline: one matrix per selected model, reused each frame. */
   private outlineTargets: OutlineTarget[] = []
   private outlineMatrices: THREE.Matrix4[] = []
-  private placeTool = new PlaceTool({ placeSpawn: (at) => this.placeSpawnAt(at) })
+  private placeTool = new PlaceTool({ placeSpawn: (at) => this.placeSpawnAt(at), fitGround: (id, fit) => this.fitGroundUnder(id, fit) })
   private doodadTool = new DoodadBrushTool()
   /** The looks of the spawn brush's templates (#171), by display and equipment; null while one is read. */
   private brushLooks = new Map<string, vmangos.LookResult | null>()
@@ -2725,6 +2725,29 @@ export class Engine {
       setStatus('Select one or more models first (Select tool).')
       return
     }
+    const { cmd, fitted, loading } = this.fitGroundCommand(ids, stamp, fit)
+    if (cmd) this.history.push(cmd)
+    const what = stamp ? 'Stamped' : 'Fitted the ground to'
+    if (fitted) setStatus(`${what} ${fitted} ${fitted === 1 ? 'model' : 'models'}.${loading ? ` ${loading} still loading, left out.` : ''}`, 5000)
+    else setStatus(loading ? 'The selected models are still loading; try again in a moment.' : 'Nothing to change: the ground already fits.', 5000)
+  }
+
+  /**
+   * The Place tool's Fit ground (#207): fits the ground under the model `id` just placed, with the Fit
+   * Ground dialog's settings, and returns the change for the tool to fold into the placement's undo step.
+   */
+  fitGroundUnder(id: number, fit: FitOptions): Command | null {
+    const { cmd, loading } = this.fitGroundCommand([id], false, fit)
+    if (loading) setStatus('The model is still loading, so the ground was not fitted under it. Models › Fit Ground to Selected Models fits it once it shows.', 5000)
+    return cmd
+  }
+
+  /**
+   * Fits (or with `stamp`, stamps) the ground to the models `ids` and returns the change as one
+   * command, already applied but not pushed, with how many models changed the ground and how many
+   * were left out because they are still loading. Shared by Fit Ground and the Place tool's Fit ground.
+   */
+  private fitGroundCommand(ids: number[], stamp: boolean, fit: FitOptions): { cmd: Command | null; fitted: number; loading: number } {
     const t = this.terrain
     const cs = t.cellSize
     const V = t.verts
@@ -2801,21 +2824,23 @@ export class Engine {
             moved.map((m) => m.after),
           )
         : null
-      this.history.push({
-        label: terrainCmd.label,
-        undo: () => {
-          moves?.undo()
-          terrainCmd.undo()
+      return {
+        cmd: {
+          label: terrainCmd.label,
+          undo: () => {
+            moves?.undo()
+            terrainCmd.undo()
+          },
+          redo: () => {
+            terrainCmd.redo()
+            moves?.redo()
+          },
         },
-        redo: () => {
-          terrainCmd.redo()
-          moves?.redo()
-        },
-      })
+        fitted,
+        loading,
+      }
     }
-    const what = stamp ? 'Stamped' : 'Fitted the ground to'
-    if (fitted) setStatus(`${what} ${fitted} ${fitted === 1 ? 'model' : 'models'}.${loading ? ` ${loading} still loading, left out.` : ''}`, 5000)
-    else setStatus(loading ? 'The selected models are still loading; try again in a moment.' : 'Nothing to change: the ground already fits.', 5000)
+    return { cmd: null, fitted, loading }
   }
 
   /** How many cells of the selected area are holes, for the options bar. */

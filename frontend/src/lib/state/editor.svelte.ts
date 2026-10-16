@@ -389,6 +389,8 @@ export const prefs = $state({
   pinnedMaps: [] as number[],
   /** Models › Fit Ground to Selection (#168): yards under the floor, the blend ring's width, which way the ground may move, cutting holes, and how far from the ground a floor counts. */
   fitGround: { margin: 0.2, falloff: 6, mode: 'both' as FitMode, holes: false, reach: 4 },
+  /** The Place tool's Fit ground (#207): a model placed on open ground has the ground fitted under it with `fitGround`'s settings. */
+  placeFitGround: false,
   /** Preferences › Autosave (#177): minutes between recovery copies of the maps with unsaved changes, 0 for none. */
   autosaveMinutes: 3,
   /** Preferences › Theme (#49): the editor's colours, or the desktop's light or dark setting. */

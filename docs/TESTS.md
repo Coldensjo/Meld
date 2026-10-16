@@ -822,6 +822,13 @@ imported from the page's `deps/three.js` URL).
   (whole 2x2 blocks). Stamp (`true` first) moves ~365 vertices.
 - The Redridge stable (780) has no floor of its own: its first up-facing face is the hayloft, 6 to 10
   yd up, which is why a floor only counts within `reach` of the ground. Fitting it changes nothing.
+- The Place tool's Fit ground (#207, `prefs.placeFitGround`): over CDP, load Northshire with tool
+  `place`, set `editor.prefab` to a building's type (the Westfall farm WMO stands in the region) and
+  wait until `getAsset(type).ready`, set `prefs.placeFitGround` (both through the page's own module
+  URLs), swap `e.ctx.surface` for one returning `{ point, parent: null }` at open ground (x 170, z 320)
+  and call `e.placeTool.onDown(e.ctx, point, new PointerEvent('pointerdown'))`. About 15 vertices move
+  (up to ~3.5 yd), `e.history.peek().label` is "Place and fit ground", and one `e.undo()` puts every
+  height back and removes the building. With the pref off nothing moves and the step is "Place".
 - Trap: after editing a module the page imported, Vite hot-updates it and the page then holds two
   copies of `editor.svelte.ts`: a selection made through the old one never reaches the Engine
   (nothing happens, and no status). Open a fresh tab after edits.
