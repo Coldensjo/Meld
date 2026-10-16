@@ -21,7 +21,7 @@
   const stack = $derived(activeBrushStack())
 
   const texName = (p: string) => (!p ? 'none' : p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
-  const MODE_NAMES: Record<string, string> = { raise: 'Raise', lower: 'Lower', smooth: 'Smooth', blur: 'Blur', flatten: 'Flatten', noise: 'Noise', mountain: 'Mountain', crevice: 'Crevice' }
+  const MODE_NAMES: Record<string, string> = { raise: 'Raise', lower: 'Lower', smooth: 'Smooth', blur: 'Blur', flatten: 'Flatten', noise: 'Noise', mountain: 'Mountain', crevice: 'Crevice', terrace: 'Terrace' }
 
   /** Changes the stack in place and hands prefs a new list, so the change is saved. */
   function change(fn: (s: BrushStack) => void) {

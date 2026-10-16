@@ -5,7 +5,7 @@
 import type { SculptMode } from '../state/editor.svelte'
 
 /** The sculpt modes a stack brush can have: the shaping ones (Vertex and Hole aren't brushes). */
-export const STACK_SCULPT_MODES: SculptMode[] = ['raise', 'lower', 'smooth', 'blur', 'flatten', 'noise', 'mountain', 'crevice']
+export const STACK_SCULPT_MODES: SculptMode[] = ['raise', 'lower', 'smooth', 'blur', 'flatten', 'noise', 'mountain', 'crevice', 'terrace']
 
 export interface StackItem {
   /** A sculpt brush (by `mode`) or a paint brush (with `texture`). */

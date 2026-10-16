@@ -21,6 +21,7 @@
     { id: 'noise', name: 'Noise', tip: 'Roughen the ground with random bumps' },
     { id: 'mountain', name: 'Mountain', tip: 'Build up a peak' },
     { id: 'crevice', name: 'Crevice', tip: 'Dig a trench and pile the ground onto its sides' },
+    { id: 'terrace', name: 'Terrace', tip: 'Step the ground into levels, for mesas, farmland and cliff levels (Shift+drag levels to the step under the first click)' },
     { id: 'vertex', name: 'Vertex', tip: 'Pick points of the ground with the brush, then raise or lower them together (Shift+drag), level them (Flatten) or tilt them onto a slope (Slope, Direction)' },
     { id: 'hole', name: 'Hole', tip: 'Cut holes in the ground, or fill them' },
   ]
@@ -178,6 +179,11 @@
     {/if}
     {#if editor.sculptMode === 'crevice'}
       <OptSlider label="Ridge" bind:value={editor.crevice.ridge} min={0} max={2} step={0.05} digits={2} width={60} title="How much of the dug ground is piled onto the sides: 1 keeps the volume, 0 only digs. Falloff sets how wide the ridges are." />
+    {/if}
+    {#if editor.sculptMode === 'terrace'}
+      <OptSlider label="Step" bind:value={editor.terrace.step} min={0.5} max={50} step={0.5} digits={1} width={60} title="Yards between the levels" />
+      <OptSlider label="Offset" bind:value={editor.terrace.offset} min={-50} max={50} step={0.1} digits={1} width={60} title="The height a level sits at, so the steps line up with the sea or a chosen height" />
+      <OptSlider label="Sharpness" bind:value={editor.terrace.sharpness} min={0} max={1} step={0.05} digits={2} width={60} title="How much of each step is flat: 1 flat levels with cliffs between them, 0 smooth stairs" />
     {/if}
     {#if editor.sculptMode === 'hole'}
       <div class="seg">

@@ -651,6 +651,23 @@ e.history.undo(); e.objects.objects.size            // 0
   and `onUp` with `__engine.ctx`.
 - Trap: an edit to a module the page imported reloads the page, so the region is gone; load the scene again.
 
+## Sculpt › Terrace (#166)
+
+Checks: the Terrace mode (`terraceHeight`/`terraceLevel` in `tools/sculptShapes.ts`, unit tests in
+`sculptShapes.test.ts`). In the dev page, drive the tool directly: `s = __engine.tools.sculpt`, set
+`editor.sculptMode`, `editor.brush` and `editor.terrace` through the loaded `editor.svelte.ts`, then
+`s.onDown(__engine.ctx, v, new PointerEvent('pointerdown'))`, `s.tick(ctx, 0.05, v)` a few dozen times
+and `s.onUp(...)`, with `v` a Vector3 on the ground (`__engine.controller.target.clone().set(...)`).
+Raise a hill (60 ticks, radius 40), then terrace it (step 6, sharpness 1, falloff 0, 80 ticks): every
+vertex near the centre lands on a multiple of 6, a `helper:post` added on the slope rides the new
+ground, and one undo restores the heights. With `{ shiftKey: true }` on the pointerdown, every vertex
+under the brush goes to the level under the first click.
+
+- Set `prefs.autosaveMinutes = 0` in a probe page that edits for minutes, or autosave (#177) leaves
+  recovery copies in the dev session for the next start to offer.
+- A probe edit that breaks a Svelte file's parse breaks the owner's own `wails dev` window too until
+  it is fixed: check `curl localhost:34115/src/components/<File>.svelte` gives 200 after editing.
+
 ## Fit ground to models and Stamp (#168)
 
 Checks: Models › Fit Ground to Selected Models… (`Engine.fitGroundToSelection`, the arithmetic in

@@ -23,7 +23,7 @@ export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' 
  */
 export type MapDataMode = 'area' | 'impassable' | 'noTufts' | 'shadow'
 export type ClearMode = 'models' | 'textures' | 'faint' | 'heights' | 'liquids' | 'holes'
-export type SculptMode = 'raise' | 'lower' | 'smooth' | 'blur' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'vertex' | 'hole'
+export type SculptMode = 'raise' | 'lower' | 'smooth' | 'blur' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'terrace' | 'vertex' | 'hole'
 /** Flatten target: the height under the first click, or the average height under the brush. */
 export type FlattenTarget = 'origin' | 'average'
 /** Flatten direction: move ground both ways, or only up or only down toward the target. */
@@ -85,6 +85,8 @@ export const editor = $state({
    * falloff band. `ridge` scales the pile: 1 keeps the dug volume, 0 only digs.
    */
   crevice: { ridge: 1 },
+  /** Sculpt › Terrace (#166): yards between the levels, the height a level sits at, and how much of a step is flat (1 cliffs, 0 smooth stairs). */
+  terrace: { step: 6, offset: 0, sharpness: 0.8 },
   /** Mountain: how much of the peak its ridges carve away (0 a smooth hill, 1 all ridges). */
   mountain: { ridges: 0.7 },
   sculptLimit: 'none' as SculptLimit,

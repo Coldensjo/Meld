@@ -43,7 +43,7 @@ import { VertexSelection, flattenVertices, moveVertices, orientVertices, type Ve
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushDist, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
-import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale } from './sculptShapes'
+import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale, terraceHeight, terraceLevel } from './sculptShapes'
 import { brushImage, setBrushImageRotation } from './brushImage'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, chunkOfTexel, dominantTexel, findSlot, paletteIndex, replaceInChunk, swapTexel, textureWeightTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
@@ -207,7 +207,7 @@ function vertexCommand(ctx: ToolContext, label: string, ids: number[], before: F
 const MAX_VERTEX_MARKERS = 65536
 
 /** The sculpt modes that shape the ground under the brush, and so paint it too with Paint texture on. */
-const SHAPING_MODES = new Set<SculptMode>(['raise', 'lower', 'smooth', 'blur', 'flatten', 'noise', 'mountain', 'crevice'])
+const SHAPING_MODES = new Set<SculptMode>(['raise', 'lower', 'smooth', 'blur', 'flatten', 'noise', 'mountain', 'crevice', 'terrace'])
 
 export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
@@ -232,6 +232,9 @@ export class SculptTool extends BrushTool {
   private walls = new HoleWalls()
   private wallsShown = false
   private flattenTarget = 0
+  /** Terrace with Shift: the level every vertex of the stroke goes to, the step under the first click; null without. */
+  private terraceSame: number | null = null
+  private terraceShift = false
   private scratch = new Float32Array(0)
 
   // Vertex mode: the selected vertices of `vselTerrain`, whether this stroke moves them (Shift) or
@@ -288,6 +291,7 @@ export class SculptTool extends BrushTool {
       return
     }
     const vertex = editor.sculptMode === 'vertex'
+    this.terraceShift = editor.sculptMode === 'terrace' && !!e?.shiftKey
     this.moving = vertex && !!e?.shiftKey
     this.deselecting = vertex && !!(e?.ctrlKey || e?.altKey)
     super.onDown(ctx, hit)
@@ -471,6 +475,8 @@ export class SculptTool extends BrushTool {
       : editor.flattenTarget === 'average'
         ? averageHeight(ctx.terrain, hit.x, hit.z, radius, falloff)
         : ctx.terrain.heightAt(hit.x, hit.z)
+    const tr = editor.terrace
+    this.terraceSame = this.terraceShift && tr.step > 0 ? terraceLevel(hit.y, tr.step, tr.offset) : null
     this.label = 'Sculpt: ' + editor.sculptMode
   }
 
@@ -519,6 +525,18 @@ export class SculptTool extends BrushTool {
           // Raise-only and lower-only leave ground on the far side of the target alone.
           if ((dir === 'raise' && d <= 0) || (dir === 'lower' && d >= 0)) return
           if (keeps(h[i], limit, cursorY)) h[i] += d * w * k
+        }, this.stroke)
+        break
+      }
+      case 'terrace': {
+        // Toward the step each vertex stands on (or, with Shift, the first click's), blended as Flatten blends.
+        const k = Math.min(1, rate * 8)
+        const { step, offset, sharpness } = editor.terrace
+        const same = this.terraceSame
+        rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w) => {
+          if (!keeps(h[i], limit, cursorY)) return
+          const target = same ?? terraceHeight(h[i], step, offset, sharpness)
+          h[i] += (target - h[i]) * w * k
         }, this.stroke)
         break
       }

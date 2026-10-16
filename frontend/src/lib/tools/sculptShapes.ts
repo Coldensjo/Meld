@@ -59,3 +59,24 @@ export function angledHeight(x: number, z: number, ox: number, oy: number, oz: n
   const d = (dir * Math.PI) / 180
   return oy + ((x - ox) * Math.cos(d) + (z - oz) * Math.sin(d)) * Math.tan(a)
 }
+
+/** The step a height stands on for the Terrace brush: the highest level `offset + n * step` at or below `h`. */
+export function terraceLevel(h: number, step: number, offset: number): number {
+  return offset + Math.floor((h - offset) / step) * step
+}
+
+/**
+ * The Terrace brush's target for a height `h` (#166): the step below it, flat over the step's first
+ * `sharpness` share, then rising to the next step over the rest, eased. Sharpness 1 gives flat steps
+ * with cliffs between them, 0 smooth stairs. A step of 0 or less leaves `h` as it is.
+ */
+export function terraceHeight(h: number, step: number, offset: number, sharpness: number): number {
+  if (!(step > 0)) return h
+  const level = terraceLevel(h, step, offset)
+  const edge = 1 - Math.min(1, Math.max(0, sharpness))
+  if (edge <= 0) return level
+  const f = (h - level) / step
+  const t = (f - (1 - edge)) / edge
+  if (t <= 0) return level
+  return level + step * t * t * (3 - 2 * t)
+}
