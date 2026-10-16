@@ -289,8 +289,9 @@ cd frontend && pnpm build   # frontend only
     doodad carries up to two groups (`Mesh.Room` has two a vertex). From inside, the open world shows only
     through the flood's exterior windows (#116, `CullView.gate`, `Terrain.gate`, the particles): a
     model, spawn, terrain chunk or emitter must meet a doorway's narrowed frustum, and a sealed room
-    shows none, as in the client; so a model placed inside a building (not one of its own doodads)
-    vanishes from inside. Spawns are left out of the gate while View › Creatures and objects through
+    shows none, as in the client. What stands in a room the flood reached passes anyway (#156,
+    `world/roomAdmit.ts`: its room by the camera's down-ray from its sphere's centre, cached per
+    position), so the creatures and models in the camera's room stay drawn. Spawns are left out of the gate while View › Creatures and objects through
     walls is on (`prefs.spawnsThroughWalls`, the default, #150). The liquids, the sea and the grass tufts are gated too (#119: `LiquidRenderer.gate`,
     `Water.gate`, `GroundEffectLayer.gate`, which packs from the last build's full set).
 - **UI layout** (Photoshop-like, `App.svelte`):

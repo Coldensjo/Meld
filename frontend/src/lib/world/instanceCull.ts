@@ -26,6 +26,8 @@ export interface CullView {
   gate?: THREE.Frustum[] | null
   /** The object the gate leaves alone: the building the camera is in, gated by its own groups. */
   gateExempt?: number
+  /** With a gate, also lets through what stands in a room the flood reached (`world/roomAdmit.ts`). */
+  gateAdmits?: ((s: THREE.Sphere) => boolean) | null
 }
 
 /** Whether a sphere passes the view's room gate (always, with no gate). */
@@ -33,7 +35,7 @@ export function throughGate(view: CullView, s: THREE.Sphere): boolean {
   const gate = view.gate
   if (!gate) return true
   for (let k = 0; k < gate.length; k++) if (gate[k].intersectsSphere(s)) return true
-  return false
+  return view.gateAdmits?.(s) ?? false
 }
 
 const sphere = new THREE.Sphere()

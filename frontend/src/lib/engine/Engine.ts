@@ -53,6 +53,7 @@ import { WmoRooms } from '../world/WmoRooms'
 import { GROUND_SNAP_REACH } from '../world/particles'
 import { RoomFlood } from '../world/wmoFlood'
 import { RoomFogFade } from '../world/wmoFog'
+import { RoomAdmit } from '../world/roomAdmit'
 import { addRoomGate, beginRoomGates, endRoomGates, ROOM_MAX_GATED, setRoomFog } from '../world/roomGate'
 import { toModel } from '../world/wmoRoom'
 import { ParticleLayer } from '../world/ParticleLayer'
@@ -224,6 +225,9 @@ export class Engine {
     this.terrain.contains(x, z) && !this.terrain.isHole(x, z) ? this.terrain.heightAt(x, z) : null
   /** The portal flood and room fog of the WMO the camera is in (`world/roomGate.ts`). */
   private roomFlood = new RoomFlood()
+  /** Lets through the gate what stands in a room the flood reached (#156). */
+  private roomAdmit = new RoomAdmit()
+  private roomAdmits = (s: THREE.Sphere) => this.roomAdmit.admits(s)
   private roomFog = new RoomFogFade()
   private roomClip = new THREE.Matrix4()
   private outsideFlood = new RoomFlood()
@@ -867,8 +871,10 @@ export class Engine {
       }
       v.gate = this.roomGate
       v.gateExempt = room.id
+      v.gateAdmits = this.roomAdmits
     } else {
       v.gate = null
+      v.gateAdmits = null
     }
     this.terrain.gate(v.gate)
     v.eye.copy(this.camera.position)
@@ -927,7 +933,7 @@ export class Engine {
     p.light.copy(tu.skyAmbient.value as THREE.Color).add(this.tmpColor.copy(tu.sunColor.value as THREE.Color).multiplyScalar(sun))
     p.light.setRGB(Math.min(1, p.light.r), Math.min(1, p.light.g), Math.min(1, p.light.b))
     // With animations off the tracks hold at the loop's start, as the bones do, but the particles still fly.
-    p.update(this.objects, this.doc.spawnLayer, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum, this.cullView.gate ?? null, this.rooms.current?.id ?? -1, this.prefs?.spawnsThroughWalls !== false)
+    p.update(this.objects, this.doc.spawnLayer, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum, this.cullView.gate ?? null, this.rooms.current?.id ?? -1, this.prefs?.spawnsThroughWalls !== false, this.cullView.gateAdmits ?? null)
   }
 
   private applyViewDistance() {
@@ -3750,6 +3756,7 @@ export class Engine {
         this.roomClip.copy(this.viewProj).multiply(r.matrix)
         const pvs = this.roomFlood.run(r.nav, r.seeds, r.eye, this.roomClip)
         addRoomGate(r.origin, pvs.visible, pvs.fog)
+        this.roomAdmit.set(r.nav, r.matrix, pvs.visible, this.roomGround)
       }
       // The other buildings in view are flooded from outside (#116): an interior shows only where a
       // doorway does.

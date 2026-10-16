@@ -913,6 +913,13 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
   (group 2) no window, so only the inn draws; from group 0 facing the door, one window and a few
   chunks. Set `prefs.cameraFollowGround = false` in the app's editor module (see the `?t=` trap)
   first: `controller.followGround` alone is reset from the prefs.
+- What stands in a reached room (#156): `tests/roomAdmit.test.ts`. Live: Azeroth 32_49 (scene
+  `{v:1,map:{region:{mapName:'Azeroth',x:32,y:49,size:1}}}`), the two-storey house with the children:
+  set `prefs.spawnsThroughWalls = false` in the app's editor module, `followGround` and `collision`
+  off, `e.setSceneView({ target: [67.3, 70.7, 306.3], distance: 2, yaw: 0, pitch: 0.1 })`, step
+  frames. The camera is in group 3 of WMO 1333, a sealed room (`e.cullView.gate.length` 0), and
+  `e.doc.spawnLayer.forEachDrawn` counts 10 (Cameron, John, Dana among them); with
+  `e.roomAdmit.admits = () => false` it counts 0.
 - Water and tufts (#119): with the inn placed in Durotar, outside it the region draws about 4400 tufts
   (sum of `mesh.count` over `__engine.doc.groundEffects.batches`) and 59 liquid blocks
   (`__engine.doc.liquidRenderer.blocks`, visible ones); in its sealed common room both drop to 0,
