@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { editor, stats, ui } from '../lib/state/editor.svelte'
+  import { editor, prefs, stats, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { shadeHeights } from '../lib/io/minimapImage'
 
@@ -68,6 +68,31 @@
     return { x, z, tipX: x + fx * len, tipZ: z + fz * len, size: Math.max(1.5, v.cells / 60) }
   })
 
+  // Light zones (#26): the map's Light.dbc lights, read when shown and when the map changes.
+  type Zone = { id: number; x: number; z: number; inner: number; outer: number; global: boolean }
+  let zones = $state<Zone[]>([])
+  let zonesFor = ''
+  $effect(() => {
+    const e = engineRef.current
+    const key = `${docKey()}`
+    if (!prefs.minimapLights || !ui.minimap || !e || key === zonesFor) return
+    zonesFor = key
+    e.lightZones()
+      .then((z) => (zones = z.filter((l) => !l.global)))
+      .catch(() => (zones = []))
+  })
+  /** What tells one open map from another, for re-reading the lights. */
+  const docKey = () => `${editor.regionMap}|${editor.regionBlock?.x}|${editor.regionBlock?.y}|${editor.mapName}`
+  /** The zones near the block, in cells. */
+  const zoneCircles = $derived.by(() => {
+    const v = stats.view
+    if (!v || !prefs.minimapLights) return []
+    const cs = v.world / Math.max(1, v.cells)
+    return zones
+      .filter((l) => l.x + l.outer > 0 && l.z + l.outer > 0 && l.x - l.outer < v.world && l.z - l.outer < v.world)
+      .map((l) => ({ id: l.id, x: l.x / cs, z: l.z / cs, inner: l.inner / cs, outer: l.outer / cs }))
+  })
+
   function jump(e: MouseEvent) {
     const v = stats.view
     const eng = engineRef.current
@@ -85,6 +110,7 @@
   <aside class="minimap" aria-label="Minimap">
     <header>
       <span>Minimap{editor.region ? ` · ${editor.region}` : ''}</span>
+      <label class="opt" title="The map's Light.dbc light zones: full inside the solid ring, fading out to the dashed one"><input type="checkbox" bind:checked={prefs.minimapLights} /> Light zones</label>
       <button class="close" onclick={() => (ui.minimap = false)} title="Close (M)" aria-label="Close the minimap">✕</button>
     </header>
     <button type="button" class="map" onclick={jump} title="Click to move the camera there" aria-label="The map: click to move the camera there">
@@ -100,6 +126,10 @@
             </svg>
           {/if}
           {#if grid}<path d={grid} class="tiles" />{/if}
+          {#each zoneCircles as z (z.id)}
+            <circle cx={z.x} cy={z.z} r={z.outer} class="light-outer"><title>Light {z.id}</title></circle>
+            <circle cx={z.x} cy={z.z} r={z.inner} class="light-inner" />
+          {/each}
           {#if marker}
             <line x1={marker.x} y1={marker.z} x2={marker.tipX} y2={marker.tipZ} class="facing" />
             <circle cx={marker.x} cy={marker.z} r={marker.size} class="camera" />
@@ -175,6 +205,27 @@
     fill: none;
     stroke: #ffb833;
     stroke-opacity: 0.8;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  .opt {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .light-outer {
+    fill: rgba(255, 210, 63, 0.08);
+    stroke: #ffd23f;
+    stroke-width: 0.6;
+    stroke-dasharray: 2 2;
+    vector-effect: non-scaling-stroke;
+  }
+  .light-inner {
+    fill: rgba(255, 210, 63, 0.14);
+    stroke: #ffd23f;
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
   }

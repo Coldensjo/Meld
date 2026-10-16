@@ -1085,6 +1085,26 @@ export class Engine {
     return serverSpot(c.target.clone().setY(c.target.y + PLAYER_LIFT), mapId, m.region?.x ?? 0, m.region?.y ?? 0, c.yaw)
   }
 
+  /** The open map's Light.dbc lights for the minimap's light zones (#26), read once per map ID. */
+  private zoneLights: { id: number; lights: Promise<{ x: number; z: number; inner: number; outer: number; global: boolean; id: number }[]> } | null = null
+
+  /**
+   * The open map's lights as circles in the open block's editor coordinates (a region's lights are
+   * in the whole map's frame, so its first tile is taken off), or none for a map without a client ID.
+   */
+  async lightZones(): Promise<{ id: number; x: number; z: number; inner: number; outer: number; global: boolean }[]> {
+    const m = this.doc.meta
+    if (!m.vmangos) await this.loadMapIds()
+    const id = this.openMapId()
+    if (id === null || (!m.vmangos && !m.region)) return []
+    if (this.zoneLights?.id !== id) {
+      this.zoneLights = { id, lights: MapLights(id).then((l) => (l?.lights ?? []).map((x) => ({ id: x.id, x: x.x, z: x.z, inner: x.inner, outer: x.outer, global: x.global }))).catch(() => []) }
+    }
+    const r = m.region
+    const dx = r ? r.x * TILE_YARDS : 0, dz = r ? r.y * TILE_YARDS : 0
+    return (await this.zoneLights.lights).map((l) => ({ ...l, x: l.x - dx, z: l.z - dz }))
+  }
+
   private mapIds: Map<string, number> | null = null
   /** The client's map list being read, once asked for. */
   private mapIdsLoading: Promise<void> | null = null

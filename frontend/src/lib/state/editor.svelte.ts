@@ -334,6 +334,8 @@ export const prefs = $state({
   climbView: false,
   /** View › Height contours (#22, Noggit Red's): dark lines along the ground every contourStep yards of height. */
   showContours: false,
+  /** The minimap window's Light zones (#26): the map's Light.dbc spheres, the radius each is full at and fades out by. */
+  minimapLights: false,
   contourStep: 4,
   /** The climb view's steepest walkable slope, in degrees (Noggit Red's default is 49). */
   climbAngle: 49,
