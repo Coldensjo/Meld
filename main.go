@@ -49,6 +49,7 @@ func main() {
 			},
 		},
 		BackgroundColour: &options.RGBA{R: 17, G: 19, B: 24, A: 1},
+		Logger:           newQuietLogger(),
 		OnStartup:        app.startup,
 		OnBeforeClose:    app.beforeClose,
 		Bind: []interface{}{
