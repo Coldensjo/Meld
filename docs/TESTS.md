@@ -1504,3 +1504,22 @@ cached from a lost one (thumbnails wait, Write Minimap Tiles refuses).
   Finding such an error: wrap the context's prototype methods, call `getError` after each and log the
   dozen calls before the first error; then list the program's active uniforms with their raw types
   (`0x8dc5` is `samplerCubeShadow`).
+
+## WMO culling by group (#198)
+Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view in the scene pass,
+and looks the same as drawn whole.
+- Unit: `frontend/tests/wmoGroupCull.test.ts` (runs by group, the view half, the camera check, the
+  group's range put back after the draw).
+- Dev page, Northshire scene (Azeroth 32_48, 1x1). Stormwind loads late on SwiftShader: poll the live
+  `__engine.objects.batches` (not one captured before `__loadScene` swapped the document) until the
+  entry whose key matches `stormwind.wmo` has a `cull` (the batch exists first with a placeholder).
+  The class is `found.cull.constructor`; set its `enabled` false to draw every WMO whole. Importing
+  `/src/lib/world/wmoGroupCull.ts` from a probe gives another module instance after an edit
+  (Vite's `?t=` URLs), so its switch does nothing.
+- Numbers on 2026-10-17, the scene's camera over the abbey, `measurePerf()`: the frame 2.07M triangles
+  with the cull, 3.43M without; stormwind.wmo 31k against 1.33M in "Most triangles" (that list counts
+  the scene pass, through the twin's `userData.drawnIndexCount`). Its group boxes put 77k of its
+  triangles in the view and 1.22M in the shadow cascades, which keep drawing it whole.
+- Same picture: `setSceneView({ target: [-300, 120, 250], yaw: 4.71, pitch: 0.25, distance: 500, hour: 13 })`
+  draws 55% of the city; with `enabled` off and on the shots differ in 0.14% of pixels (edges, swaying
+  trees).

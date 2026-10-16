@@ -9,6 +9,8 @@ import * as THREE from 'three'
 export interface CullView {
   /** An instance is drawn when any of these holds it: the camera's frustum and, with shadows, the shadow camera's. */
   frustums: THREE.Frustum[]
+  /** The camera `frustums[0]` belongs to, which a WMO culled by group culls its groups for (#198). */
+  camera?: THREE.Camera
   /** An instance is also drawn when it touches one of these: the reach of the shadowed point lights. */
   spheres?: THREE.Sphere[]
   /** The camera's position. */

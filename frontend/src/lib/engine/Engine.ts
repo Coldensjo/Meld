@@ -1003,6 +1003,7 @@ export class Engine {
     this.viewFrustum.setFromProjectionMatrix(this.viewProj)
     v.frustums.length = 0
     v.frustums.push(this.viewFrustum)
+    v.camera = this.camera
     for (const light of [this.env.key, this.env.far]) {
       if (!light.castShadow) continue
       light.updateMatrixWorld()

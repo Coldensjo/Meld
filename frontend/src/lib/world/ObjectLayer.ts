@@ -6,6 +6,7 @@ import type { Terrain } from '../terrain/Terrain'
 import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } from './instanceCull'
 import { cullForShadows } from './shadowReach'
+import { WmoGroupCull } from './wmoGroupCull'
 import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 
 export interface WorldObject {
@@ -48,6 +49,8 @@ interface Batch {
   /** Draws the instances small on screen with the model's LOD, when it has one (see models/lod.ts). */
   lod: THREE.InstancedMesh | null
   lodIds: number[]
+  /** A big WMO's culling by group for the scene pass (world/wmoGroupCull.ts), or null. */
+  cull: WmoGroupCull | null
   /** Indices into `all` of the instances drawn in full and with the LOD. */
   near: number[]
   far: number[]
@@ -346,9 +349,11 @@ export class ObjectLayer {
       const a = getAsset(type)
       const ids: number[] = []
       const lodIds: number[] = []
+      const cull = a.skeleton ? null : WmoGroupCull.of(a.geometry)
       b = {
-        mesh: this.makeMesh(type, a.geometry, 64, ids),
+        mesh: this.makeMesh(type, a.geometry, 64, ids, cull),
         ids,
+        cull,
         lod: a.lod ? this.makeMesh(type, a.lod, 64, lodIds) : null,
         lodIds,
         near: [],
@@ -376,16 +381,22 @@ export class ObjectLayer {
       m.dispose()
     }
     const a = getAsset(type)
-    b.mesh = this.makeMesh(type, a.geometry, capacity, b.ids)
+    b.cull = a.skeleton ? null : WmoGroupCull.of(a.geometry)
+    b.mesh = this.makeMesh(type, a.geometry, capacity, b.ids, b.cull)
     b.lod = a.lod ? this.makeMesh(type, a.lod, capacity, b.lodIds) : null
     this.group.add(b.mesh)
     if (b.lod) this.group.add(b.lod)
   }
 
   /** `ids` names the object drawn by each instance, as `cull` packs them. */
-  private makeMesh(type: string, geometry: THREE.BufferGeometry, capacity: number, ids: number[]) {
+  private makeMesh(type: string, geometry: THREE.BufferGeometry, capacity: number, ids: number[], cull: WmoGroupCull | null = null) {
     const a = getAsset(type)
-    const m = a.skeleton ? new SkinnedInstancedMesh(geometry, a.material, capacity, a.skeleton) : new THREE.InstancedMesh(geometry, a.material, capacity)
+    const m = a.skeleton ? new SkinnedInstancedMesh(geometry, a.material, capacity, a.skeleton) : new THREE.InstancedMesh(cull?.geometry ?? geometry, a.material, capacity)
+    if (cull) {
+      // The scene pass draws only the groups in view; the shadow passes keep the whole model.
+      m.onBeforeRender = (_r, _s, camera, _g, _m, group) => cull.before(camera, group as unknown as THREE.GeometryGroup | null)
+      m.onAfterRender = (_r, _s, camera, _g, _m, group) => cull.after(camera, group as unknown as THREE.GeometryGroup | null)
+    }
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     m.count = 0
     m.userData.type = type
@@ -463,6 +474,12 @@ export class ObjectLayer {
       if (!splitLod(view, b.spheres, b.packed, b.near, b.far, b.scratch, b.scratchFar) && !changed) continue
       this.pack(b, b.mesh, b.ids, b.near)
       this.pack(b, b.lod, b.lodIds, b.far)
+    }
+    // A big WMO drawn once is culled by group, every frame, as its groups' view changes with the camera.
+    for (const b of this.batches.values()) {
+      if (!b.cull) continue
+      const one = WmoGroupCull.enabled && b.mesh.count === 1 && view.camera && b.mesh.visible
+      b.cull.update(one ? view.camera! : null, view.frustums[0], b.mesh.instanceMatrix.array)
     }
   }
 

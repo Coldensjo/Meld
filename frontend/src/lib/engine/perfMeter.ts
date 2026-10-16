@@ -123,14 +123,16 @@ export interface ModelCost {
 interface DrawnMesh {
 	visible: boolean
 	count: number
-	geometry: { index: { count: number } | null; drawRange: { count: number }; attributes: { position?: { count: number } } }
+	geometry: { index: { count: number } | null; drawRange: { count: number }; attributes: { position?: { count: number } }; userData?: Record<string, unknown> }
 }
 
 /** The triangles an instanced mesh drew: its draw range (or whole index) times its instances. */
 export function meshTriangles(m: DrawnMesh): number {
 	if (!m.visible || m.count <= 0) return 0
 	const g = m.geometry
-	const all = g.index ? g.index.count : (g.attributes.position?.count ?? 0)
+	// A WMO culled by group (world/wmoGroupCull.ts) says how much of its index the scene pass draws.
+	const culled = g.userData?.drawnIndexCount as number | undefined
+	const all = culled ?? (g.index ? g.index.count : (g.attributes.position?.count ?? 0))
 	return Math.floor(Math.min(all, g.drawRange.count) / 3) * m.count
 }
 
