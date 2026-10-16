@@ -94,6 +94,8 @@ export class SpawnLayer {
   })
   private types = new Set<string>()
   private shown: Record<SpawnKind, boolean> = { monster: true, npc: true, object: true }
+  /** The world events whose spawns are drawn (`prefs.shownEvents`). */
+  private events = new Set<number>()
   /** Bumped whenever what is drawn changes (spawns, their loaded models or the kinds shown). */
   version = 0
 
@@ -133,6 +135,29 @@ export class SpawnLayer {
   setKinds(shown: Record<SpawnKind, boolean>) {
     this.shown = { ...shown }
     this.applyKinds()
+  }
+
+  /** Shows the spawns of the world events `ids` (and hides the ones they take away); the rest are left out. */
+  setEvents(ids: readonly number[]) {
+    if (ids.length === this.events.size && ids.every((id) => this.events.has(id))) return
+    this.events = new Set(ids)
+    this.rebuild()
+  }
+
+  /** Whether a spawn shows with the world events shown: one of its events is, and none that takes it away. */
+  eventShown(s: vmangos.WorldSpawn): boolean {
+    const ev = s.events
+    if (!ev?.length) return true
+    let during = false
+    let spawns = false
+    for (const e of ev) {
+      if (e < 0 && this.events.has(-e)) return false
+      if (e > 0) {
+        spawns = true
+        if (this.events.has(e)) during = true
+      }
+    }
+    return during || !spawns
   }
 
   private applyKinds() {
@@ -298,6 +323,8 @@ export class SpawnLayer {
     // Group the spawns by kind and model; a spawn with a ready model joins that model's batch.
     const batches = new Map<string, { kind: SpawnKind; type: string; items: vmangos.WorldSpawn[] }>()
     for (const s of this.spawns) {
+      // A spawn of a world event that isn't shown is left out of the batches, so nothing draws, picks or names it.
+      if (!this.eventShown(s)) continue
       const type = spawnType(s)
       const asset = type && isWowType(type) ? getAsset(type) : null
       const ready = asset?.ready === true

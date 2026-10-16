@@ -79,6 +79,10 @@ type WorldSpawn struct {
 	// creature that walks waypoints its template's (creature_movement_template, PathFromTemplate).
 	Waypoints        []Waypoint `json:"waypoints"`
 	PathFromTemplate bool       `json:"pathFromTemplate"`
+	// Events are the world events the spawn belongs to (game_event_creature, game_event_gameobject):
+	// a positive one spawns it only while that event runs, a negative one takes it away while event
+	// -n runs. None for an everyday spawn.
+	Events []int `json:"events"`
 }
 
 // Waypoint is a point of a creature's path, in the region's coordinates like its spawn: where it
@@ -180,6 +184,9 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 		out[i] = regionSpawn(s, x, y, tables, weapons[s.Equipment])
 	}
 	if err := readWaypoints(db, out, x, y); err != nil {
+		return nil, err
+	}
+	if err := readSpawnEvents(db, out); err != nil {
 		return nil, err
 	}
 	return out, nil

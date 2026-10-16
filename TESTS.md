@@ -948,3 +948,16 @@ In the dev page: `e.editPath('npc/<guid>')` (a key from `e.doc.spawnLayer.spawns
 `e.ndc` and `e.raycaster` adds a point, and the bar's buttons are plain DOM clicks
 (`[...document.querySelectorAll('.pathbar button')]`). A second press near the first point picks
 it instead of adding one (`ctx.paths.pickPoint`), so space test presses apart.
+
+## World event spawns (#143)
+
+Checks: spawns of a world event (`WorldSpawn.events`, from `game_event_creature`/`_gameobject`) are
+left out of `SpawnLayer`'s batches unless View › World events shows their event (`prefs.shownEvents`).
+- Go against the real database: Azeroth 32_49 (Goldshire) has spawns of events 2 (Winter Veil),
+  4 (Darkmoon Faire Elwynn), 12 and 28; 32_48 of 28 and 78. A throwaway test calling
+  `ReadSpawns("C:/WoW/vmangos", "C:/WoW/client/Data", "Azeroth", 32, 49, 1)` lists them.
+- Frontend in the dev page: set `events` on a few of `e.doc.spawnLayer.spawns`, call the layer's
+  `rebuild()`, then `setEvents([...])`, and count `batches[].all.length`: a positive event's spawn
+  shows only with it, a negative one leaves with it.
+- `wails dev` rebuilds the Go side when a Go file changes, so a new binding usually works in the
+  dev page after a reload; if it doesn't, see the stale `wailsjs` trap above.

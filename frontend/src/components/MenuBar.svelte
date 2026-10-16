@@ -7,7 +7,7 @@
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
   import { copyScene, copyTeleport, pasteScene } from '../lib/io/scene'
-  import { ClearThumbnailCache } from '../../wailsjs/go/main/App'
+  import { ClearThumbnailCache, GameEvents } from '../../wailsjs/go/main/App'
   import { quitNow } from '../lib/io/session'
   import { requestClose } from './DocTabs.svelte'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
@@ -28,6 +28,28 @@
 
   const withEngine = (fn: (e: NonNullable<typeof engineRef.current>) => unknown) => () => {
     if (engineRef.current) fn(engineRef.current)
+  }
+
+  // The world events' names (game_event), read once there are spawns to sort into them (#143).
+  let eventNames = $state<Map<number, string>>(new Map())
+  let eventsAsked = false
+  $effect(() => {
+    if (eventsAsked || !editor.spawns.some((s) => s.events?.length)) return
+    eventsAsked = true
+    GameEvents()
+      .then((list) => (eventNames = new Map((list ?? []).map((e) => [e.id, e.name]))))
+      .catch(() => (eventsAsked = false))
+  })
+  /** The events the open region's spawns belong to, with how many spawns each, by name. */
+  const regionEvents = $derived.by(() => {
+    const counts = new Map<number, number>()
+    for (const s of editor.spawns) for (const e of s.events ?? []) counts.set(Math.abs(e), (counts.get(Math.abs(e)) ?? 0) + 1)
+    return [...counts]
+      .map(([id, n]) => ({ id, n, name: eventNames.get(id) ?? `Event ${id}` }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  })
+  function toggleEvent(id: number) {
+    prefs.shownEvents = prefs.shownEvents.includes(id) ? prefs.shownEvents.filter((e) => e !== id) : [...prefs.shownEvents, id]
   }
 
   function exit() {
@@ -223,6 +245,13 @@
         { kind: 'check', label: 'Game objects', checked: prefs.showGameObjects, toggle: () => (prefs.showGameObjects = !prefs.showGameObjects) },
         { kind: 'check', label: 'All creature paths', checked: prefs.showAllPaths, toggle: () => (prefs.showAllPaths = !prefs.showAllPaths) },
         { kind: 'check', label: 'Names over creatures and objects', checked: prefs.spawnNames, toggle: () => (prefs.spawnNames = !prefs.spawnNames) },
+        ...(regionEvents.length
+          ? ([
+              { kind: 'header', label: 'World events (their spawns)' },
+              ...regionEvents.map((ev): Item => ({ kind: 'check', label: `${ev.name} (${ev.n})`, checked: prefs.shownEvents.includes(ev.id), toggle: () => toggleEvent(ev.id) })),
+              { kind: 'action', label: 'Hide every event', disabled: !prefs.shownEvents.length, run: () => (prefs.shownEvents = []) },
+            ] as Item[])
+          : []),
       ],
     },
     {

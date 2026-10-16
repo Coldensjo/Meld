@@ -340,6 +340,12 @@ export const prefs = $state({
   showMonsters: true,
   showNpcs: true,
   showGameObjects: true,
+  /**
+   * The world events (game_event IDs) whose spawns are shown (#143): a spawn of an event appears only
+   * while its event is shown, and one an event takes away leaves while it is. None by default, so a
+   * town shows its everyday spawns.
+   */
+  shownEvents: [] as number[],
   /** Draw every creature's waypoint path, not only the selected one's. */
   showAllPaths: false,
   /** Names over the creatures and game objects, with a creature's level and rank (#125). */

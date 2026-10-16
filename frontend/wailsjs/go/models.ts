@@ -605,6 +605,20 @@ export namespace vmangos {
 	        this.anim = source["anim"];
 	    }
 	}
+	export class GameEvent {
+	    id: number;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GameEvent(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	    }
+	}
 	export class GroundEffect {
 	    doodads: string[];
 	    slots: number[];
@@ -1363,6 +1377,7 @@ export namespace vmangos {
 	    wanderDistance: number;
 	    waypoints: Waypoint[];
 	    pathFromTemplate: boolean;
+	    events: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new WorldSpawn(source);
@@ -1402,6 +1417,7 @@ export namespace vmangos {
 	        this.wanderDistance = source["wanderDistance"];
 	        this.waypoints = this.convertValues(source["waypoints"], Waypoint);
 	        this.pathFromTemplate = source["pathFromTemplate"];
+	        this.events = source["events"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -503,6 +503,16 @@ func (a *App) EquipmentFor(items [3]int) (int, error) {
 	return vmangos.EquipmentFor(server, items)
 }
 
+// GameEvents lists the world database's events (holidays, the Darkmoon Faire, invasions), for showing
+// the spawns of each.
+func (a *App) GameEvents() ([]vmangos.GameEvent, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.GameEvents(server)
+}
+
 // SpawnEmotes lists the client's emotes, for picking a spawn's looping emote.
 func (a *App) SpawnEmotes() ([]vmangos.Emote, error) {
 	dataDir, err := a.clientDataDir()

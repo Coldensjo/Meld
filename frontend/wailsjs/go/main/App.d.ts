@@ -32,6 +32,8 @@ export function EquipmentItems(arg1:number):Promise<any>;
 
 export function GameClient():Promise<main.GameClientInfo>;
 
+export function GameEvents():Promise<Array<vmangos.GameEvent>>;
+
 export function GameLogin():Promise<main.GameLoginInfo>;
 
 export function GameWindow():Promise<main.GameWindowInfo>;

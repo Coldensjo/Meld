@@ -1201,11 +1201,12 @@ export class Engine {
     d.objects.group.visible = p.showObjects
     d.groundEffects.group.visible = p.showGroundEffects
     d.spawnLayer.setKinds({ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects })
+    d.spawnLayer.setEvents(p.shownEvents)
     this.spawnLabels.enabled = p.spawnNames
     // What a layer toggle hides can't stay selected, since it can't be clicked either (#135).
     if (!p.showObjects && editor.selectedIds.length) selectObjects(d.objects, [])
     const s = editor.selectedSpawn
-    if (s && !{ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects }[s.kind]) selectSpawn(null)
+    if (s && (!{ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects }[s.kind] || !d.spawnLayer.eventShown(s))) selectSpawn(null)
   }
 
   /** Give the active terrain the palette whenever the editor's palette changes. */

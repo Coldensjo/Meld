@@ -48,7 +48,7 @@ export class SpawnPaths {
     const sel = selectedKey ? layer.get(selectedKey) : undefined
     const others: number[] = []
     if (showAll) {
-      for (const s of layer.spawns) if (s !== sel && s.waypoints?.length) pushLoop(others, s)
+      for (const s of layer.spawns) if (s !== sel && s.waypoints?.length && layer.eventShown(s)) pushLoop(others, s)
     }
     setPositions(this.all.geometry, others)
     const mine: number[] = []

@@ -54,6 +54,10 @@ export function GameClient() {
   return window['go']['main']['App']['GameClient']();
 }
 
+export function GameEvents() {
+  return window['go']['main']['App']['GameEvents']();
+}
+
 export function GameLogin() {
   return window['go']['main']['App']['GameLogin']();
 }
