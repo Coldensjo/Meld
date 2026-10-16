@@ -107,14 +107,12 @@
 
 <div class="picker">
   <input type="search" placeholder="Search: a creature (Hogger), a model (wolf, kobold) or a display ID" bind:value={query} />
-  <div class="chips">
-    <button class:on={category === ''} onclick={() => (category = '')}>All <span>{all.length}</span></button>
-    {#each categories as [name, n] (name)}
-      <button class:on={category === name} onclick={() => (category = name)}>{name} <span>{n}</span></button>
-    {/each}
-  </div>
   <div class="row">
-    <select bind:value={family}>
+    <select bind:value={category} aria-label="Creature type">
+      <option value="">All types ({all.length})</option>
+      {#each categories as [name, n] (name)}<option value={name}>{name} ({n})</option>{/each}
+    </select>
+    <select bind:value={family} aria-label="Model">
       <option value="">All models ({families.length})</option>
       {#each families as [name, n] (name)}<option value={name}>{name} ({n})</option>{/each}
     </select>
@@ -167,26 +165,6 @@
   }
   input[type='search'] {
     width: 100%;
-  }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .chips button {
-    padding: 2px 8px;
-    font-size: 11px;
-    border-radius: 10px;
-  }
-  .chips button span {
-    color: var(--text-dim);
-  }
-  .chips button.on {
-    background: var(--accent);
-    color: #fff;
-  }
-  .chips button.on span {
-    color: rgba(255, 255, 255, 0.75);
   }
   .row {
     display: flex;
