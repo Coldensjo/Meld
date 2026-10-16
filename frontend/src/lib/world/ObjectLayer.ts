@@ -193,8 +193,30 @@ export class ObjectLayer {
     return out
   }
 
+  /** View › Layers › Doodads and Buildings off (#43): every m2: or wmo: object is left out. */
+  private hideDoodads = false
+  private hideBuildings = false
+
+  /** Shows or hides the doodads (m2:) and buildings (wmo:) as a kind; returns true when it changed. */
+  setKindsShown(doodads: boolean, buildings: boolean): boolean {
+    if (this.hideDoodads === !doodads && this.hideBuildings === !buildings) return false
+    this.hideDoodads = !doodads
+    this.hideBuildings = !buildings
+    this.markAllDirty()
+    return true
+  }
+
+  /** Whether View hides every object of `type`'s kind. */
+  kindHidden(type: string): boolean {
+    return (this.hideDoodads && type.startsWith('m2:')) || (this.hideBuildings && type.startsWith('wmo:'))
+  }
+
   /** Whether an object is left out of drawing and picking. */
   isHidden(id: number): boolean {
+    if (this.hideDoodads || this.hideBuildings) {
+      const o = this.objects.get(id)
+      if (o && this.kindHidden(o.type)) return true
+    }
     return !this.showHidden && this.hidden.has(id)
   }
 

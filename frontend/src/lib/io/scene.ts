@@ -26,6 +26,8 @@ const VIEW_PREFS = [
   'showTerrain',
   'showWater',
   'showObjects',
+  'showDoodads',
+  'showBuildings',
   'showMonsters',
   'showNpcs',
   'showGameObjects',

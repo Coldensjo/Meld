@@ -338,6 +338,9 @@ export const prefs = $state({
   showTerrain: true,
   showWater: true,
   showObjects: true,
+  /** View › Layers › Doodads (m2 models) and Buildings (wmo), each on its own under Objects (#43). */
+  showDoodads: true,
+  showBuildings: true,
   /** The creatures and game objects the world database places in a region, by kind. */
   showMonsters: true,
   showNpcs: true,
