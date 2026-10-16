@@ -624,10 +624,10 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
   under the slope), the one 6 units up a yellow one. The models may still be the purple
   placeholder boxes, which is enough for the colours.
 
-## Dock panels (Layers, Properties)
+## Dock panel (Layers) and the Inspector
 
-Checks: what the right-hand panels show for a map, a hovered chunk and a selection, without the
-mouse. In the dev page (`javascript_tool`), after the module imports from "Scripted brush strokes":
+Checks: what the Layers panel and the Inspector (the Properties fields, not a dock panel) show for a
+map, a hovered chunk and a selection, without the mouse. In the dev page (`javascript_tool`), after the module imports from "Scripted brush strokes":
 
 ```js
 e.newDocument(128, 'island', 3, 'Panels'); for (let i = 0; i < 5; i++) e.frame()
@@ -638,7 +638,8 @@ e.addObjects([{ type: 'm2:World\Azeroth\Elwynn\PassiveDoodads\Trees\ElwynnTree01
 ed.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()]); for (let i = 0; i < 3; i++) e.frame()
 ```
 
-- Then zoom the screenshot on the dock (x from about 1408 at a 1568-wide window).
+- Then zoom the screenshot on the dock (x from about 1408 at a 1568-wide window); the Inspector
+  floats over the viewport (`ui.inspector = true`).
 - The Layers panel's selection mode: `ed.selection = { x0: 20, z0: 8, x1: 44, z1: 24 }` (cells,
   so 8 chunks at 8 cells each); `e.selectedChunks()` lists them, and the panel's `.del` buttons and
   "Delete all" can be clicked from script. `e.chunkContents(c).length === 0` is an emptied chunk.

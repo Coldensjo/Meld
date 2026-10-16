@@ -106,28 +106,26 @@ In order. Each became a backlog item (B-164 onwards), now a GitHub issue with th
    first.
 3. **Port Benilla's exact client behaviour** where Meld approximates: see "Porting from Benilla" below
    (B-166 to B-176).
-4. **Optional: a "Play here" button (B-171).** Benilla takes `WOW_HOST`, the login and the data folder
-   from its environment; a server-side teleport of the logged-in character to the camera's spot (a GM
-   command over the world database or the server's console) would let an author jump into the spot
-   they are editing.
+4. **Play here (B-171), done:** Launch enters the world where the camera is (see "Entering where the
+   camera is" above), by writing the spot into the character's row while the server has it logged out.
 
 ## Porting from Benilla
 
 Benilla is MIT or Apache-2.0, which CLAUDE.md allows porting from (unlike Noggit, which is GPL), and it is
 written against reverse engineering of the real 1.12.1 client ([benilla-re](https://github.com/samwhosung/benilla-re)),
 citing the client's own function addresses in its comments. Porting it gives Meld the client's own rules
-instead of approximations. The owner wants these done first, in the order below, starting in a fresh
-session (decided 2026-10-15).
+instead of approximations. The owner chose the order below (2026-10-15); each row says where it stands.
 
 **How to port.** Benilla is Rust; Meld is Go (files, formats) and TypeScript (rendering, editing). Port the
 behaviour, not the code layout: read the Benilla module, then write it Meld's way, with Meld's tests. Keep
 Benilla's client address references in the comments where they explain a constant. Say in each commit
 message that it ports from Benilla (MIT/Apache) and which module. The clone is at
-`C:\WoW\benilla` (read only; `git pull` there to update). Benilla's paths below are under
+`C:\WoW\benilla`: read it, and keep our changes on its `local` branch (to update, `git pull` the upstream
+branch, then rebase `local` onto it; see `C:\WoW\CLAUDE.md`). Benilla's paths below are under
 `crates/`. Verify against the client the way the earlier items did (TESTS.md), and in Benilla itself where
 a change shows on screen (it reads the same install, so what Meld previews should match what Benilla draws).
 
-| Order | Item | Benilla source | Meld code it replaces or extends |
+| Order | Item | Benilla source | Meld code it replaced or extended (as it was before the port) |
 |---|---|---|---|
 | 1 | **B-172 Ground tufts as the client places them** (done 2026-10-15; their view-depth fade done as B-178, #10) | `benilla-formats/src/ground_effects.rs` (`scatter_ground_doodads`, `BlizzardRandomizer`, `FRILL_DENSITY`), `benilla-world/src/clutter.rs` (the 70 yd range) | `frontend/src/lib/world/groundEffects.ts` (`cellTufts`, `tuftsPerCell`, `hash01`), `world/GroundEffectLayer.ts` (`TUFT_RANGE`) |
 | 2 | **B-166 The client's sun, sky and fog** (done 2026-10-15; clouds done as B-179, #9) | `benilla-world/src/lighting/daynight.rs` (sun direction), `lighting/resolve.rs` (scene fog), `benilla-formats/src/light/atmosphere.rs` and `light/tables.rs` (band meanings), `benilla-world/src/shaders/sky.wgsl`, `sky.rs`, `clouds/` | `frontend/src/lib/wow/clientLight.ts`, `Engine.applyClientLight`, `engine/Environment.ts` (sun path, Preetham sky) |

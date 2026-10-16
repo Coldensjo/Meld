@@ -1,6 +1,6 @@
 # DESIGN.md: what Meld is for
 
-Status: **draft**, written from README.md, CLAUDE.md and noggit-red-feature-gap.md. Changes to this file
+Status: **draft**, written from README.md and CLAUDE.md. Changes to this file
 need the owner's approval. The loop in LOOP.md must not edit it.
 
 ## Goal
@@ -42,8 +42,9 @@ When two backlog items compete, the higher one wins.
 - macOS support (CLAUDE.md targets Windows and Linux).
 - Shipping prebuilt maps or any client-extracted content.
 - Anything only later clients have (the owner, 2026-10-15, #56): vertex colours (MCCV), 8-bit alpha
-  maps, MH2O water, texture height mapping, WMO low-res models, map difficulties, skyboxes and zone
-  lights. Meld targets the 1.12 client only.
+  maps, MH2O water, texture height mapping, WMO low-res models and map difficulties. Meld targets the
+  1.12 client only, so whatever the 1.12 client has is in scope, including its light, sky and zone
+  light data (Light.dbc and its band tables), which Client Lighting and the lights editor use.
 
 ## Definition of done
 
@@ -51,8 +52,8 @@ An item is done only when all of these hold:
 
 - It is implemented, and it is undoable if it edits a map.
 - `make test` and `make check` pass.
-- `make build-windows` passes. `make build-linux` passes on Linux. On a Windows host it cannot run,
-  so its issue's closing comment records that it was not run.
+- The build for the OS it was made on passes: `make build-windows` on Windows, `make build-linux` on
+  Linux. The other cannot run there, so its issue's closing comment records that it was not run.
 - Behaviour that shows on screen was checked in the app, or its issue's closing comment says it was not.
 - It has one commit with a one-sentence imperative message (CLAUDE.md), and it is logged on its issue, which is closed.
 

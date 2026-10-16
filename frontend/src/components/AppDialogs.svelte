@@ -1,6 +1,6 @@
 <script module lang="ts">
   /** The manual: the README of the project's repository, which Help › Manual opens in the browser. */
-  export const MANUAL_URL = 'https://github.com/Coldensjo/WorldEditor#readme'
+  export const MANUAL_URL = 'https://github.com/Coldensjo/Meld#readme'
 </script>
 
 <script lang="ts">

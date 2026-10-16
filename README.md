@@ -15,10 +15,13 @@ Built with **[Wails v2](https://wails.io)** (Go) + **Svelte 5** + **Three.js**. 
 | Select | `1` / `V` | Click a model to select it (`Shift`+click adds or removes one; `Alt`+click is the pipette: it picks the model to place, or the ground's texture to paint with); every selected model is outlined, and the Properties panel lists the selection. Drag a model to move the selection over the ground or onto buildings (it re-attaches to what it lands on; Properties › Detach frees it). Arrow keys nudge (camera-relative), `Alt+↑/↓` or `PgUp/PgDn` raise/lower, `Alt+←/→` or `R` spin, `Shift` for bigger steps, `Del` delete, `F` focus. `Ctrl+C` copies the selected models and `Ctrl+V` pastes copies under the cursor (a preview follows the mouse; click or `Enter` places them, in any map tab); `Ctrl+Shift+D` duplicates them in place. Drag on the ground to select an **area** and the models standing in it: **Cut hole** cuts the area out of the ground (for caves and cellars; **Fill hole** puts it back), `Ctrl+C` copies its terrain, holes, textures and objects, and `Ctrl+V` pastes into any open map: the paste follows the mouse, a click (or `Enter`) places it, `PgUp/PgDn` adjust its height, and `Esc` cancels. `Ctrl+A` / `Ctrl+D` select all / deselect. |
 | Sculpt | `2` | Raise, Lower, Smooth, Flatten, Noise, Mountain (ridged noise) brushes. |
 | Paint | `3` / `B` | **Paint mask** mode: brush a mask onto the ground (red overlay; `Alt` or Erase removes). Then click a texture in the palette to fill the whole mask with it, or use Fill mask / Invert / From selection / Clear. |
-| ↳ Paint texture | | Pick any WoW tileset texture in the palette and paint. Each map has 8 texture slots, assigned automatically. |
+| ↳ Paint texture | | Pick any WoW tileset texture in the palette and paint. Each paint chunk (8×8 cells) holds up to 4 textures, assigned automatically; the map's palette holds up to 255. |
 | Roads | `4` | Paints the selected texture with a hard edge and levels the ground across it. |
-| Water | `5` | Global water level. Dig lakes or raise shores relative to it. Animated water with shore foam and depth tint. |
+| Water | `5` | Paint lakes and rivers (liquid layers per chunk: water, ocean, magma, slime), and a map-wide sea with its own level. Dig lakes or raise shores relative to the sea. Animated water drawn as the client draws it. |
 | Place | `6` | Place the model selected in the palette. The selected prop shows a **ring** (drag to spin) and an **up/down arrow** (drag to raise/lower); hold `Shift` to snap. Its outline is **yellow**; the parts that are underground or inside another prop are drawn **red**. Props **attach** to whatever they're placed on: a building's floor or roof, another prop, or the ground. Attached props move along with their building, and ground props follow the terrain. `Ctrl`+scroll rotates the preview and `Alt`+scroll raises/lowers it before placing. The placed object stays selected, so the arrow keys and `R` adjust it right away. Click to place, `R` rotate, `Shift`+drag or "Scatter brush" to spray. |
+| Clear | `7` | Erase models, or paint in the brush: heights, liquids or holes. |
+| Doodad brush | `8` | Scatter a brush of weighted models over the ground; `Ctrl` erases them. |
+| Stamp | `0` | One stroke applies a stack of sculpt and paint brushes together. |
 | Map data | `9` | Paints the zone (AreaTable.dbc) each chunk belongs to, shown as a colour per zone; Set or Clear, `Alt`+click takes the zone under the cursor. The export writes it into the tiles' chunk headers. |
 
 ### Layout
@@ -34,9 +37,9 @@ The layout follows Photoshop:
 - **Document tabs** above the 3D view. Several maps can be open at once, each with its own undo
   history and camera. New Map and Open add a tab, Ctrl+Tab switches tabs, and Ctrl+W or the tab's
   ✕ closes one (it asks first if there are unsaved changes).
-- **Panel dock** on the right, with:
-  - **Layers**: the map's 8 texture slots, with coverage.
-  - **Properties**: the selected object's transform, or world settings.
+- **Panel dock** on the right, with **Layers**: the four texture layers of the paint chunk under the
+  cursor (or of the selected area).
+- **Inspector**: a floating window (`I`) with the selected model's placement numbers.
 
 Drag the dock's left edge to resize it, and click a panel's header (▾) to collapse it. Both are
 remembered.
@@ -63,25 +66,26 @@ client folder or its `Data` folder). The palette then shows:
   Rocks, Fences & Walls, Lights & Fire, Containers, Furniture & Decor and Ground Clutter.
 - **Models › Buildings**: every `.wmo`, in categories (Human, Orc & Horde, Night Elf, Dungeons &
   Caves…). Buildings include the furniture from their default doodad set.
-- **Textures**: every `Tileset\…\*.blp`, plus the map's 8 texture slots.
+- **Textures**: every `Tileset\…\*.blp`, plus the map's own palette.
+- **Creatures, NPCs and Objects**: the spawns of the VMaNGOS database, and **Sets**: your own named lists of models.
 
 Each tab has a zone filter and a search box. Thumbnails render as tiles scroll into view and
 are cached in your user cache folder, so they load instantly next time. Clicking a model selects
-the Place tool. Clicking a texture assigns it to a free slot and selects the Paint tool.
+the Place tool. Clicking a texture adds it to the map's palette and selects the Paint tool.
 
 Nothing is extracted into the project. Assets are decoded on demand by the Go backend from your
 local install, and never end up in the repository, the build or map files. Maps store only asset
 *paths*, so a map needs the same client to render. Without the client, placeholders are shown.
 
-Supported formats: MPQ v1/v2, BLP2 (palettized, DXT1/3/5, raw), M2 v256–263 (vanilla/TBC, static
-bind pose), WMO v17 (groups + default doodad set). Not yet supported: animations, particles,
-replaceable creature skins, WMO liquids.
+Supported formats: MPQ v1/v2, BLP2 (palettized, DXT1/3/5, raw), M2 v256–263 (vanilla/TBC) with
+bone animation, lights, particles, ribbons and texture animation, and WMO v17 (groups, doodad sets,
+portals and interior fog). Creatures are dressed from their displays, equipment and pose.
 
 Also included:
 
 - Round or **square** brushes; square brushes can snap to the grid for tile-aligned painting.
 
-- New-map generator: Flat, Rolling Hills, Mountains or Island, with sizes 128², 256² and 512², seeded.
+- New-world generator: Open sea, Island, Archipelago, Rolling hills, Lakeland, Highlands, Mountains or Flat land, from 1 to 6 tiles a side, seeded.
 - **Auto-paint** textures by height and slope, plus automatic rock on cliffs. New maps start with
   Elwynn tilesets.
 - Undo/redo for every edit (`Ctrl+Z`, `Ctrl+Y`).
@@ -102,25 +106,33 @@ Also included:
 
 ### Menus
 
-- **File**: New / Open / Save / Save As / Close Map, Exit
-- **Edit**: Undo / Redo, Copy / Paste, Select All / Deselect (asks first if there are unsaved changes).
+- **File**: New World / Open / Open Part of Azeroth, Save / Save As / Revert, Map Properties,
+  Compile Region to Client, Close Map, Exit.
+- **Edit**: Undo / Redo, History, Copy / Paste, Select All / Deselect, cut or fill holes in the area.
+- **Models**: duplicate, group, hide, delete, ground and replace the selected models; the Inspector.
+- **Terrain**: clean up the tile under the camera, auto-paint, replace a texture everywhere, climb view.
+- **World**: Doodad Brushes, Ground Effects, Texture Looks, Zones, Lights.
+- **Import/Export**: heightmaps, watermaps, normal maps, alphamaps, object lists, doodad brushes,
+  port coordinates, minimap image.
+- **View**: grid, chunk lines, far horizon, layers (terrain, water, objects, tufts, spawns), hide panels.
 - **Graphics**:
   - Render scale (50–150%) and view distance.
-  - **Time of day** (Dawn / Day / Dusk / Night) and an **animated day/night cycle**.
-  - **Shadows** (Off / Medium / High).
-  - Clouds, fog, water, automatic cliff rock, grid.
+  - **Particles**, prop animations, skipping models too small to see.
+- **Lighting**:
+  - **Time of day** and an **animated day/night cycle**, **Shadows** (Off / Medium / High).
+  - **Client Lighting** (the zone's own light, fog and water colours), clouds, fog, baked shadows.
   - The ☀/☾ button next to the menus switches between day and night.
-
   - **Prop lights & flames**: torches, braziers, campfires, lamps and candles get animated flames
-    and flickering light (up to 8 nearest lights). Buildings light up from their lanterns.
-  - **Prop animations**: props play their idle animation (windmills turn, flags wave…).
+    and flickering light (up to 8 nearest lights).
+- **Camera**: follow the ground, collision, top-down view, minimap window, speed, bookmarks.
+- **Game**: launch the 1.12 client or Benilla, Game Login.
+- **Preferences**: WoW client folder, VMaNGOS and Benilla folders, game client and window, thumbnail
+  cache, camera speed, mouse sensitivity, invert camera Y, tablet support.
+- **Help**: a help window (F1) with the tools, brushes, camera and view in short, the keyboard shortcuts, the manual (this README), the log and app info.
 
-  The sky is a physically based atmosphere with a sun disc, clouds, a moon with phases, stars
-  and the Milky Way. Lighting, fog and water colours follow the sun; at night the moon is the
-  light source and casts soft shadows.
-- **Preferences**: WoW client folder, clear thumbnail cache, camera speed, mouse sensitivity,
-  invert camera Y.
-- **Help**: a help window (F1) with the tools, brushes, camera and view in short, the keyboard shortcuts, the manual (this README) and app info.
+The sky is a physically based atmosphere (or the client's own sky with Client Lighting) with a sun
+disc, clouds, a moon with phases, stars and the Milky Way. At night the moon is the light source and
+casts soft shadows.
 
 Graphics and camera preferences are saved in the user config file
 (`~/.config/Meld/config.json` or `%AppData%\Meld\config.json`).
@@ -133,8 +145,8 @@ Graphics and camera preferences are saved in the user config file
 
 All platforms:
 
-- Go ≥ 1.23
-- Node.js ≥ 20 and **pnpm** (`npm i -g pnpm`)
+- Go ≥ 1.25
+- Node.js ≥ 22.18 and **pnpm** (`npm i -g pnpm`)
 - Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 - Check with `wails doctor`
 
@@ -169,7 +181,7 @@ On Windows, natively: `wails build`. To build an NSIS installer: `wails build -n
 ## Tests & checks
 
 ```bash
-make test    # Go unit tests (map format, MPQ hashing, BLP decoding)
+make test    # Go tests under internal/ and the frontend unit tests (node --test)
 make check   # go vet + svelte-check/tsc
 WOW_DIR=/path/to/WoW go test ./internal/wow/ -v   # integration test against a real 1.12 client
 ```
@@ -190,16 +202,21 @@ main.go, app.go        Wails entry + bound Go API (file dialogs, save/load)
 env_linux.go           Linux WebKitGTK workarounds
 internal/mapfile/      .wmap binary format (+ tests)
 internal/mpq/          Read-only MPQ reader (WoW 1.x archives)
-internal/wow/          BLP/M2/WMO decoders + /wow/* HTTP endpoints serving the local client
-internal/config/       Per-user settings (WoW client path)
+internal/wow/          BLP/M2/WMO decoders, creature looks, minimaps + /wow/* HTTP endpoints serving the local client
+internal/adt/          Reads and rewrites 1.12 tiles (terrain, textures, liquids, holes, ground effects)
+internal/vmangos/      Regions to and from the client, the world database, DBC tables, spawn SQL
+internal/game/         Closes and reopens Wow.exe or Benilla around an export
+internal/heightmap/    Heightmap PNGs
+internal/config/       Per-user settings (client, server and Benilla folders, preferences)
+benilla-launcher/      Meld's launcher for Benilla (BENILLA.md)
 frontend/src/
   App.svelte           Layout + global shortcuts
   components/          Svelte UI (menu, toolbar, tool panel, asset browser, status bar)
   lib/engine/          Renderer, render loop, camera, sky, noise
   lib/terrain/         Chunked heightmap terrain, splat shader, fallback colours
-  lib/water/           Water shader
-  lib/tools/           Editor tools (sculpt/paint/road/water/place/select) + brush/undo helpers
-  lib/models/          Procedural low-poly prefabs + thumbnails
+  lib/water/           Liquids, the sea and their shaders
+  lib/tools/           Editor tools (select/sculpt/paint/road/water/place/clear/doodad/stamp/map data) + brush helpers
+  lib/models/          Placeable model types (client models, helper shapes), LODs
   lib/world/           Instanced object layer
   lib/state/           Svelte rune state, undo history
   lib/io/              Bridge to Go (save/load), base64

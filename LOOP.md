@@ -133,8 +133,8 @@ a. Read the code it touches before changing it, and search the decisions about t
 b. Verify it:
    - `make test`
    - `make check`
-   - `make build-windows`
-   - `make build-linux`, only if this is Linux. On a Windows host it cannot run. Say so in the log.
+   - the build for the OS you run on: `make build-windows` on Windows, `make build-linux` on Linux.
+     The other cannot run here. Say so in the log.
 
    If a check fails, fix it. If it cannot be fixed in this run, do not commit the item. Comment on
    the issue that it was left unfinished and why, and move on.

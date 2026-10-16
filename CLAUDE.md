@@ -11,7 +11,8 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
 - Before committing, make sure the project still builds and the relevant checks pass:
   - `make check` (go vet + svelte-check/tsc)
   - `make test`
-  - `make build-linux` (and `make build-windows` for changes that could affect Windows)
+  - the build for the OS you are running on: `make build-windows` on Windows, `make build-linux` on
+    Linux. The other one cannot run here, so say so in the issue's closing comment.
 
   If they fail, fix the problem first, or tell the user rather than committing broken code.
 - Match the style of existing commit messages: one sentence in the imperative mood that says what
@@ -412,7 +413,8 @@ cd frontend && pnpm build   # frontend only
     and the "Replace Texture Everywhere" dialog are in the Terrain menu.
   - `editor.palette` is the map's list of textures (WoW tileset paths or `#rrggbb` colours, up to
     255). `Engine.useTexture(path)` adds one and makes it the paint texture.
-  - **Properties** (`PropertiesPanel.svelte`) is the inspector for what is selected: one model's
+  - **Properties** (`PropertiesPanel.svelte`) is no longer a dock panel: the floating Inspector shows
+    it. It is the inspector for what is selected: one model's
     placement as `PropField`s (type a number, or drag the label to scrub; live preview and one undo
     step on release) with Focus, Duplicate, Hide, Delete, Detach, Place more and Select all of
     these (`Engine.selectModelsOfType`); a mixed selection's models by kind (a click narrows the
@@ -660,8 +662,8 @@ cd frontend && pnpm build   # frontend only
 
 ## Conventions
 
-- TypeScript strict, no `any` in committed code. Prettier-ish style: 2 spaces, single quotes, no
-  semicolons.
+- TypeScript strict, no `any` in committed code. Prettier-ish style: tabs (`.editorconfig`), single
+  quotes, no semicolons. Older files still indent with 2 spaces; new and edited files use tabs.
 - Svelte 5 runes only (`$state`, `$derived`, `$props`, `onclick=`). No legacy `export let` or
   `on:click`.
 - UI styling: plain CSS with the tokens in `frontend/src/app.css` (dark editor theme). No UI
