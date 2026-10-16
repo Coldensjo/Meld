@@ -1,8 +1,10 @@
 // Run with: node --import ./tests/register.mjs --test tests/clipboard.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import * as THREE from 'three'
 import type { MapClip } from '../src/lib/world/clipboard.ts'
 import { mirrorClip, rotateClip } from '../src/lib/world/clipRotate.ts'
+import { placementEuler } from '../src/lib/world/placement.ts'
 import { pastedHeight } from '../src/lib/world/pasteHeight.ts'
 import { LiquidMap, copyLiquidCells, pasteLiquidCells, rotateLiquidClip, newLayer, LIQUID_CELLS } from '../src/lib/water/liquids.ts'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
@@ -91,6 +93,7 @@ test('a mirror flips every part of the clip across its middle and turns its mode
   const c = clip()
   c.objects[0].rotY = 0.3
   c.objects[0].tiltX = 0.1
+  c.objects[0].tiltZ = 0.2
   c.liquids = { w: 3, h: 2, cells: [{ x: 0, z: 1, id: 1, heights: [1, 2, 3, 4], depth: [0, 0, 0, 0] }] }
   const m = mirrorClip(c, 'x', 2)
   assert.equal(m.w, 3)
@@ -99,10 +102,16 @@ test('a mirror flips every part of the clip across its middle and turns its mode
   assert.equal(m.holes[1 * 3 + 0], 1)
   const T = SPLAT_PER_CELL
   assert.equal(m.weights[(0 * 3 * T + 10) * SLOTS], 255)
-  // The model at x 1 of a 6-wide clip stands at 5, facing pi - yaw, its forward tilt flipped.
+  // The model at x 1 of a 6-wide clip stands at 5, facing pi - yaw, leaning forward the same and
+  // rolling the other way, so its up axis is the original's mirrored.
   assert.equal(m.objects[0].x, 5)
   assert.ok(Math.abs(m.objects[0].rotY - (Math.PI - 0.3)) < 1e-9)
-  assert.equal(m.objects[0].tiltX, -0.1)
+  assert.equal(m.objects[0].tiltX, 0.1)
+  assert.equal(m.objects[0].tiltZ, -0.2)
+  const up = (o: { rotY: number; tiltX?: number; tiltZ?: number }) => new THREE.Vector3(0, 1, 0).applyEuler(placementEuler(new THREE.Euler(), o.rotY, o.tiltX, o.tiltZ))
+  const was = up(c.objects[0])
+  const now = up(m.objects[0])
+  assert.ok(now.distanceTo(new THREE.Vector3(-was.x, was.y, was.z)) < 1e-9)
   // The liquid cell (0, 1) lands at (2, 1) with its corners swapped east to west.
   assert.deepEqual(m.liquids!.cells[0], { x: 2, z: 1, id: 1, heights: [2, 1, 4, 3], depth: [0, 0, 0, 0] })
   // North to south: cell (2, 1) lands at (2, 0), the model at z 0.5 of a 4-deep clip at 3.5 facing -yaw.

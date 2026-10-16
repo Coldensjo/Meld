@@ -544,6 +544,18 @@ document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel', { deltaY:
 
 - The Options bar shows an Offset chip with Reset while the offset is not zero.
 
+## Placement tilt (the client's rotation order, #149)
+
+Checks: a placed model's tilt and roll match the client's. `world/placement.ts` (`placementEuler`) is the
+one place the rotation is built; `tests/placement.test.ts` pins it to the client's order, heading, then
+Rz(-first angle), then Rx(third angle), in the editor's frame. The references that agree: wowdev.wiki's
+ADT `createPlacementMatrix`, Noggit Red's `SceneObject::updateTransformMatrix` and VMaNGOS's vmap
+`ModelInstance` (`fromEulerAnglesZYX(y, x, z)` in WoW's z-up frame).
+- Trap: how well models sit on the terrain does not tell the conventions apart. Over the 898 tilted
+  models of Azeroth (37,25) 3x3, the mean gap between a model's base and the ground was the same for
+  both orders (Blizzard's tilts don't follow the slope), so judge a change here against the references,
+  or a screenshot from the game.
+
 ## Doodad brush (scatter models by weight)
 
 Checks: `DoodadBrushTool` places the brush's models under the brush in their weights' proportions,

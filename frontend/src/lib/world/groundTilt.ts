@@ -27,8 +27,8 @@ export function groundNormal(
 
 /**
  * The tilts (WorldObject.tiltX and tiltZ) that turn a model with turn `rotY` so its up axis points along
- * the unit normal (nx, ny, nz). The model's rotation is Ry(rotY) Rx(tiltX) Rz(tiltZ) (Euler order YXZ),
- * so the normal is first taken into the turned model's frame. Writes into `out` when given, so a
+ * the unit normal (nx, ny, nz). The model's rotation is the client's, Ry(rotY) Rz(-tiltX) Rx(tiltZ)
+ * (`placementEuler`), so the normal is first taken into the turned model's frame. Writes into `out` when given, so a
  * per-frame caller doesn't allocate.
  */
 export function tiltToNormal(
@@ -42,8 +42,8 @@ export function tiltToNormal(
   const s = Math.sin(rotY)
   const mx = nx * c - nz * s
   const mz = nx * s + nz * c
-  out.tiltX = Math.atan2(mz, ny)
-  out.tiltZ = Math.asin(Math.max(-1, Math.min(1, -mx)))
+  out.tiltX = Math.atan2(mx, ny)
+  out.tiltZ = Math.asin(Math.max(-1, Math.min(1, mz)))
   return out
 }
 

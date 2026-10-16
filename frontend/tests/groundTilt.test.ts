@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { groundNormal, groundSlopeDeg, tiltToNormal } from '../src/lib/world/groundTilt.ts'
+import { placementEuler } from '../src/lib/world/placement.ts'
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} vs ${b}`)
 
@@ -31,7 +32,7 @@ test('the tilts turn the model up axis onto the normal for any turn', () => {
     n.normalize()
     for (const rotY of [0, 0.7, -2.1, Math.PI]) {
       const { tiltX, tiltZ } = tiltToNormal(n.x, n.y, n.z, rotY)
-      const up = new THREE.Vector3(0, 1, 0).applyEuler(new THREE.Euler(tiltX, rotY, tiltZ, 'YXZ'))
+      const up = new THREE.Vector3(0, 1, 0).applyEuler(placementEuler(new THREE.Euler(), rotY, tiltX, tiltZ))
       near(up.x, n.x, 1e-5)
       near(up.y, n.y, 1e-5)
       near(up.z, n.z, 1e-5)

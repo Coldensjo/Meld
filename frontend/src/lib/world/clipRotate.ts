@@ -87,9 +87,10 @@ export function mirrorClip(clip: MapClip, axis: 'x' | 'z', cellSize: number): Ma
   const W = w * cellSize
   const H = h * cellSize
   const objects = clip.objects.map((o) => {
-    const tiltX = o.tiltX === undefined ? undefined : -o.tiltX
-    if (o.cparent !== undefined) return { ...o, z: -o.z, rotY: -o.rotY, tiltX }
-    return fx ? { ...o, x: W - o.x, rotY: Math.PI - o.rotY, tiltX } : { ...o, z: H - o.z, rotY: -o.rotY, tiltX }
+    // Mirrored, a model keeps its lean forward or back and rolls the other way.
+    const tiltZ = o.tiltZ === undefined ? undefined : -o.tiltZ
+    if (o.cparent !== undefined) return { ...o, z: -o.z, rotY: -o.rotY, tiltZ }
+    return fx ? { ...o, x: W - o.x, rotY: Math.PI - o.rotY, tiltZ } : { ...o, z: H - o.z, rotY: -o.rotY, tiltZ }
   })
   const out: MapClip = { w, h, heights, holes, weights, slots, palette: [...clip.palette], objects }
   if (clip.liquids) out.liquids = mirrorLiquidClip(clip.liquids, axis)

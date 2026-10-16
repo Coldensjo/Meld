@@ -272,7 +272,9 @@ cd frontend && pnpm build   # frontend only
     (`splitLod` in `instanceCull.ts`). The LOD shares the full model's bounds tree, so picking
     always hits the full model.
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
-    sculpting.
+    sculpting. A tilted one also has `tiltX`/`tiltZ`, the MDDF/MODF record's first and third angles,
+    turned in the client's order by `world/placement.ts` (`placementEuler`); build every model
+    rotation through it.
   - **WMO rooms** (#8, from Benilla's `wmo_portal`): `world/WmoRooms.ts` finds the room (group) of the
     placed WMO the camera is in with the client's down-ray (`wmoRoom.ts`, room data from `/wow/wmonav`),
     `wmoFlood.ts` runs the portal flood from it each frame and `wmoFog.ts` picks the room's MFOG fog

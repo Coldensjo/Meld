@@ -7,6 +7,7 @@ import { getAsset } from '../models/assets'
 import { hasSkeleton, modelMesh } from '../world/Animator'
 import { previewParticles } from '../world/ParticleLayer'
 import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
+import { placementEuler } from '../world/placement'
 import { MAX_ATTEMPTS, attemptRate, candidate, fits, fitsOn, newBrush, pickEntry, uniqueName, type DoodadBrush } from './doodadBrush'
 
 /** The brush the Doodad tool paints with: the preference's pick, else the first one; null with none made. */
@@ -263,9 +264,9 @@ export class DoodadBrushTool implements Tool {
       if (editor.followGround && parent === null) {
         groundNormal((px, pz) => t.heightAt(px, pz), x, z, t.cellSize, editor.followGroundSmooth, this.normal)
         tiltToNormal(this.normal.x, this.normal.y, this.normal.z, p.rotY, this.tilt)
-        g.rotation.set(this.tilt.tiltX, p.rotY, this.tilt.tiltZ, 'YXZ')
+        placementEuler(g.rotation, p.rotY, this.tilt.tiltX, this.tilt.tiltZ)
       } else {
-        g.rotation.set(p.tiltX, p.rotY, p.tiltZ, 'YXZ')
+        placementEuler(g.rotation, p.rotY, p.tiltX, p.tiltZ)
       }
       g.scale.setScalar(p.scale)
     }

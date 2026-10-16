@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { placementEuler } from './placement'
 import type { MeshBVH } from 'three-mesh-bvh'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
@@ -256,8 +257,8 @@ export class ObjectLayer {
   }
 
   private matrixAt(o: WorldObject, out: THREE.Matrix4, depth: number): THREE.Matrix4 {
-    // Tilt is applied in the model's own frame, then the turn about the world up.
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(o.tiltX ?? 0, o.rotY, o.tiltZ ?? 0, 'YXZ'))
+    // Tilt and roll are applied in the model's own frame, then the turn about the world up, as the client does.
+    const q = new THREE.Quaternion().setFromEuler(placementEuler(new THREE.Euler(), o.rotY, o.tiltX, o.tiltZ))
     const sc = new THREE.Vector3().setScalar(o.scale)
     const parent = this.parentOf(o, depth)
     if (!parent) {

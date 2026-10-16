@@ -13,6 +13,7 @@ import { previewParticles } from '../world/ParticleLayer'
 import { HoleWalls } from './HoleWalls'
 import { spawnKey } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
+import { placementEuler } from '../world/placement'
 import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
 
 function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
@@ -211,9 +212,9 @@ export class PlaceTool implements Tool {
       // On open ground with Follow ground rotation, the preview leans to the slope it will land on.
       if (editor.followGround && surf.parent === null) {
         this.groundTilt(ctx, p.x, p.z, this.rot, this.ghostTilt)
-        this.ghost.rotation.set(this.ghostTilt.tiltX, this.rot, this.ghostTilt.tiltZ, 'YXZ')
+        placementEuler(this.ghost.rotation, this.rot, this.ghostTilt.tiltX, this.ghostTilt.tiltZ)
       } else {
-        this.ghost.rotation.set(0, this.rot, 0, 'YXZ')
+        placementEuler(this.ghost.rotation, this.rot)
       }
       this.ghost.scale.setScalar(this.scale)
     }
@@ -452,14 +453,14 @@ export class SelectTool implements Tool {
           g.visible = false
           continue
         }
-        g.matrix.compose(this.ghostTmp.set(o.x, o.yOff, o.z), tmpQ.setFromEuler(tmpE.set(o.tiltX ?? 0, o.rotY, o.tiltZ ?? 0, 'YXZ')), tmpS.setScalar(o.scale))
+        g.matrix.compose(this.ghostTmp.set(o.x, o.yOff, o.z), tmpQ.setFromEuler(placementEuler(tmpE, o.rotY, o.tiltX, o.tiltZ)), tmpS.setScalar(o.scale))
         g.matrix.premultiply(p.matrix)
       } else {
         const x = at.x + o.x
         const z = at.z + o.z
         g.matrix.compose(
           this.ghostTmp.set(x, ctx.terrain.heightAt(x, z) + o.yOff, z),
-          tmpQ.setFromEuler(tmpE.set(o.tiltX ?? 0, o.rotY, o.tiltZ ?? 0, 'YXZ')),
+          tmpQ.setFromEuler(placementEuler(tmpE, o.rotY, o.tiltX, o.tiltZ)),
           tmpS.setScalar(o.scale),
         )
       }
