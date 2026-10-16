@@ -12,6 +12,8 @@ export function ApplySpawnEdits(arg1:string,arg2:number,arg3:number,arg4:number,
 
 export function AreaRows(arg1:number):Promise<Array<vmangos.AreaRow>>;
 
+export function AreaTriggers(arg1:number):Promise<main.AreaTriggerList>;
+
 export function Areas():Promise<Array<vmangos.Area>>;
 
 export function BrowseBenillaFolder():Promise<string>;
@@ -123,6 +125,8 @@ export function ReadVendor(arg1:number):Promise<vmangos.Vendor>;
 export function RegionHorizon(arg1:string,arg2:number,arg3:number,arg4:number):Promise<Array<vmangos.HorizonTile>>;
 
 export function RegionShadows(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionShadows>;
+
+export function SaveAreaTriggers(arg1:Array<vmangos.AreaTrigger>,arg2:Array<number>):Promise<main.AreaSaveResult>;
 
 export function SaveAreas(arg1:Array<vmangos.AreaRow>):Promise<main.AreaSaveResult>;
 

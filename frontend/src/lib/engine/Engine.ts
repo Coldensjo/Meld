@@ -59,6 +59,7 @@ import { toModel } from '../world/wmoRoom'
 import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
 import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
+import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import type { MapInfo } from './MapDocument'
@@ -72,7 +73,7 @@ import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
@@ -375,6 +376,7 @@ export class Engine {
     this.scene.add(this.clouds.mesh)
     this.scene.add(this.boxes.lines, this.groupBoxes.lines)
     this.scene.add(this.paths.group)
+    this.scene.add(this.triggerLayer.group)
 
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
@@ -466,6 +468,7 @@ export class Engine {
     this.groupBoxes.dispose()
     this.paths.dispose()
     for (const d of this.documents) d.dispose()
+    this.triggerLayer.dispose()
     this.renderer.dispose()
   }
 
@@ -797,6 +800,7 @@ export class Engine {
     }
     this.objects.update()
     this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightsVersion)
+    this.updateTriggers()
     this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightsVersion, ui.historyVersion)
     // Lights first: culling keeps what can throw the shadowed lights' shadows.
     this.effects.enabled = this.prefs?.propEffects !== false
@@ -997,6 +1001,67 @@ export class Engine {
   private moonOut = [0, 1, 0]
   private clientSky: ClientSky = { colors: this.lightOut.colors, skyAt: BAND.skyTop * 3, fogAt: BAND.fog * 3, sunAt: BAND.sun * 3, warp: 0, sunDir: this.celestialOut, moonDir: this.moonOut, sunScale: 1, starAlpha: 0 }
   /** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
+  /** The open map's area triggers (#141), drawn with View › Area triggers or while the Portals dialog edits them. */
+  readonly triggerLayer = new AreaTriggerLayer()
+  /** The document whose triggers were read from the client, and while it reads. */
+  private triggersFor = -1
+  private triggersLoading = false
+  /** Set while the Portals dialog draws its own (edited) list. */
+  private triggersEdited = false
+
+  /** Draws the Portals dialog's triggers, `selected` highlighted, until endTriggerEdit. */
+  showTriggers(list: readonly TriggerShape[], selected: number | null) {
+    this.triggersEdited = true
+    const r = this.doc.meta.region
+    this.triggerLayer.set(list, r?.x ?? 0, r?.y ?? 0, selected)
+  }
+
+  /** The Portals dialog closed: View › Area triggers reads the map's triggers again (they may have been saved). */
+  endTriggerEdit() {
+    this.triggersEdited = false
+    this.triggersFor = -1
+  }
+
+  /** Shows the triggers while asked for, reading the open map's once per document. */
+  private updateTriggers() {
+    const on = this.triggersEdited || this.prefs?.showAreaTriggers === true
+    this.triggerLayer.group.visible = on && !this.topDown
+    if (!on || this.triggersEdited || this.triggersLoading || this.triggersFor === this.doc.id) return
+    const id = this.openMapId()
+    if (id === null) return
+    const doc = this.doc
+    this.triggersLoading = true
+    AreaTriggers(id)
+      .then((r) => {
+        if (doc !== this.doc || this.triggersEdited) return
+        const reg = doc.meta.region
+        this.triggerLayer.set(r.triggers ?? [], reg?.x ?? 0, reg?.y ?? 0, null)
+      })
+      .catch(() => this.triggerLayer.set([], 0, 0, null))
+      .finally(() => {
+        this.triggersLoading = false
+        this.triggersFor = doc.id
+      })
+  }
+
+  /**
+   * Where the camera of open map `id` (a tab) is, in the server's coordinates: the active one's as
+   * Launch puts the character (playerSpot), another's at its saved camera target. Null for a map with
+   * no client map ID.
+   */
+  async spotOfDoc(id: number): Promise<ServerSpot | null> {
+    const d = this.documents.find((x) => x.id === id)
+    if (!d) return null
+    if (d === this.doc) return this.playerSpot()
+    const m = d.meta
+    if (!m.vmangos && !m.region) return null
+    if (!m.vmangos) await this.loadMapIds()
+    const mapId = m.vmangos ? m.vmangos.mapId : (this.mapIds?.get(m.region!.mapName.toLowerCase()) ?? 0)
+    const c = d.camera
+    if (!c) return null
+    return serverSpot(c.target.clone().setY(c.target.y + PLAYER_LIFT), mapId, m.region?.x ?? 0, m.region?.y ?? 0, c.yaw)
+  }
+
   private mapIds: Map<string, number> | null = null
   /** The client's map list being read, once asked for. */
   private mapIdsLoading: Promise<void> | null = null

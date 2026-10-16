@@ -1014,3 +1014,19 @@ it was; `select count(*) from npc_vendor where entry=805` is 0).
   `max(ID)` of npc_text first, save a greeting on 805, read it back with `ReadGossip(805)` (a new menu,
   shared by 1), then delete the rows above those maxima and set 805's `gossip_menu_id` and
   `npc_flags` back to 0.
+
+## Portals and area triggers (#141, #18)
+
+Checks: World › Portals and Area Triggers… lists the open map's AreaTrigger.dbc volumes with the
+server's names and teleports, draws them, and saves them to the client's patch and the world DB.
+- Unit: `internal/vmangos/areatrigger_test.go` (edit, add and remove rows; IDs above the server's;
+  the SQL). Against the client: `WOW_DIR=C:/WoW/client go test ./internal/vmangos/ -run TestClientAreaTriggers`
+  writes the client's own table back byte for byte and finds trigger 78 (the Deadmines entrance)
+  at about (-11208, 1675). The 1.12 layout (10 fields, 0x28 a row) is Benilla's `area_trigger.rs`.
+- Live: the scene `{v:1,map:{region:{mapName:'Azeroth',x:28,y:53,size:1}}}`, camera on
+  (-11208, 1675) in server coordinates (editor x = 32·533.33 − 1675 − 28·533.33, z = 32·533.33 +
+  11208 − 53·533.33), then `ui.dialog = 'portals'`: "Eastern Kingdoms: 133 triggers", first
+  "Deadmines - Entrance → 78", teleport to Deadmines (36) at level 10, and
+  `__engine.triggerLayer.group` visible with the picked sphere's 192 points.
+- Trap: a live Save writes Meld's patch-3.MPQ and closes the game and servers around it (as Zones
+  does); don't run it in a check unless the owner wants that. The Go tests cover the write.

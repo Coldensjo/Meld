@@ -904,6 +904,77 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow) (AreaSaveResult, error) {
 	return res, nil
 }
 
+// AreaTriggerList is a map's area triggers with the server's names and teleports, and the ID a new
+// trigger takes.
+type AreaTriggerList struct {
+	Triggers []vmangos.AreaTrigger `json:"triggers"`
+	NextID   uint32                `json:"nextId"`
+}
+
+// AreaTriggers lists the area triggers of map mapID from the client's AreaTrigger.dbc, with their
+// names and teleports from the world database when a server folder is set (the Portals dialog).
+func (a *App) AreaTriggers(mapID uint32) (AreaTriggerList, error) {
+	var res AreaTriggerList
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return res, err
+	}
+	dbc, err := vmangos.LoadAreaTriggerTable(dataDir)
+	if err != nil {
+		return res, err
+	}
+	if res.Triggers, err = vmangos.ReadAreaTriggers(dbc, mapID); err != nil {
+		return res, err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	var top uint32
+	if server != "" {
+		if top, err = vmangos.TriggerExtras(server, res.Triggers); err != nil {
+			return res, fmt.Errorf("world database: %w", err)
+		}
+	}
+	res.NextID, err = vmangos.NewAreaTriggerID(dbc, top)
+	return res, err
+}
+
+// SaveAreaTriggers writes the Portals dialog's changed triggers (rows) and removed ones (remove, by
+// ID) into the client's AreaTrigger.dbc in Meld's patch and into the world database's
+// areatrigger_template and areatrigger_teleport, which the server reads. The game and the servers
+// are closed around the patch write on Windows.
+func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (AreaSaveResult, error) {
+	var res AreaSaveResult
+	defer a.releaseClient()()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return res, err
+	}
+	dbc, err := vmangos.LoadAreaTriggerTable(dataDir)
+	if err != nil {
+		return res, err
+	}
+	out, err := vmangos.SetAreaTriggers(dbc, rows, remove)
+	if err != nil {
+		return res, err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if server != "" {
+		if err := vmangos.ApplySQL(server, vmangos.AreaTriggerSQL(rows, remove)); err != nil {
+			return res, fmt.Errorf("world database: %w", err)
+		}
+		res.Server = true
+	}
+	if !bytes.Equal(out, dbc) {
+		if res.Patch, err = a.installWithGameClosed(dataDir, []mpq.File{{Name: vmangos.AreaTriggerPath, Data: out}}); err != nil {
+			return res, err
+		}
+	}
+	return res, nil
+}
+
 // gameSession is the game and server a region export restarts, with the saved login.
 func (a *App) gameSession() (game.Session, error) {
 	root, err := a.clientRoot()

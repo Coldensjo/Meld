@@ -60,3 +60,8 @@ export function serverSpot(pos: { x: number; y: number; z: number }, mapId: numb
   const turn = 2 * Math.PI
   return { map: mapId, x: ZERO_POINT - z, y: ZERO_POINT - x, z: pos.y, o: ((yaw % turn) + turn) % turn }
 }
+
+/** The inverse of serverSpot's position: a point of the server's map in the editor's map of a block whose first tile is (tileX, tileY). */
+export function editorPoint(s: { x: number; y: number; z: number }, tileX = 0, tileY = 0): { x: number; y: number; z: number } {
+  return { x: ZERO_POINT - s.y - tileX * TILE_SIZE, y: s.z, z: ZERO_POINT - s.x - tileY * TILE_SIZE }
+}

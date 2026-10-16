@@ -9,6 +9,7 @@
   import GameLoginDialog from './GameLoginDialog.svelte'
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
+  import PortalsDialog from './PortalsDialog.svelte'
   import ZonesDialog from './ZonesDialog.svelte'
   import LightsDialog from './LightsDialog.svelte'
   import BrushStackDialog from './BrushStackDialog.svelte'
@@ -350,6 +351,8 @@
   <GroundEffectsDialog onclose={close} />
 {:else if ui.dialog === 'zones'}
   <ZonesDialog onclose={close} />
+{:else if ui.dialog === 'portals'}
+  <PortalsDialog onclose={close} />
 {:else if ui.dialog === 'lights'}
   <LightsDialog onclose={close} />
 {:else if ui.dialog === 'stack'}

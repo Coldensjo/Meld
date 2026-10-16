@@ -14,6 +14,10 @@ export function AreaRows(arg1) {
   return window['go']['main']['App']['AreaRows'](arg1);
 }
 
+export function AreaTriggers(arg1) {
+  return window['go']['main']['App']['AreaTriggers'](arg1);
+}
+
 export function Areas() {
   return window['go']['main']['App']['Areas']();
 }
@@ -236,6 +240,10 @@ export function RegionHorizon(arg1, arg2, arg3, arg4) {
 
 export function RegionShadows(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['RegionShadows'](arg1, arg2, arg3, arg4);
+}
+
+export function SaveAreaTriggers(arg1, arg2) {
+  return window['go']['main']['App']['SaveAreaTriggers'](arg1, arg2);
 }
 
 export function SaveAreas(arg1) {

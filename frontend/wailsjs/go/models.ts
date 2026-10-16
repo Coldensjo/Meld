@@ -62,6 +62,38 @@ export namespace main {
 	        this.server = source["server"];
 	    }
 	}
+	export class AreaTriggerList {
+	    triggers: vmangos.AreaTrigger[];
+	    nextId: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new AreaTriggerList(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.triggers = this.convertValues(source["triggers"], vmangos.AreaTrigger);
+	        this.nextId = source["nextId"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class GameClientInfo {
 	    client: string;
 	    benillaPath: string;
@@ -388,6 +420,82 @@ export namespace vmangos {
 	        this.ambientMul = source["ambientMul"];
 	        this.light = source["light"];
 	    }
+	}
+	export class TriggerTeleport {
+	    map: number;
+	    x: number;
+	    y: number;
+	    z: number;
+	    o: number;
+	    level: number;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TriggerTeleport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.map = source["map"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.o = source["o"];
+	        this.level = source["level"];
+	        this.message = source["message"];
+	    }
+	}
+	export class AreaTrigger {
+	    id: number;
+	    mapId: number;
+	    x: number;
+	    y: number;
+	    z: number;
+	    radius: number;
+	    boxX: number;
+	    boxY: number;
+	    boxZ: number;
+	    boxYaw: number;
+	    name: string;
+	    teleport?: TriggerTeleport;
+	
+	    static createFrom(source: any = {}) {
+	        return new AreaTrigger(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.mapId = source["mapId"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.radius = source["radius"];
+	        this.boxX = source["boxX"];
+	        this.boxY = source["boxY"];
+	        this.boxZ = source["boxZ"];
+	        this.boxYaw = source["boxYaw"];
+	        this.name = source["name"];
+	        this.teleport = this.convertValues(source["teleport"], TriggerTeleport);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class CharacterSpot {
 	    map: number;
@@ -1612,6 +1720,7 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	
 	
 	
 	
