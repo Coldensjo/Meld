@@ -4,6 +4,7 @@ import { getAsset, isWowType, onAssetLoaded } from '../models/assets'
 import { spawnType } from './spawnInfo'
 import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, type CullView } from './instanceCull'
+import { cullForShadows } from './shadowReach'
 
 /** The spawns of one kind and model, and what's needed to draw the ones in view. */
 interface SpawnBatch {
@@ -344,7 +345,7 @@ export class SpawnLayer {
       const material = ready ? asset.material : this.coneMaterials.get(b.kind)!
       const mesh =
         ready && asset.skeleton ? new SkinnedInstancedMesh(geometry, material, b.items.length, asset.skeleton) : new THREE.InstancedMesh(geometry, material, b.items.length)
-      mesh.frustumCulled = false
+      cullForShadows(mesh)
       mesh.castShadow = ready
       mesh.receiveShadow = ready
       const matrices = new Float32Array(b.items.length * 16)

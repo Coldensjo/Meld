@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { getAsset } from '../models/assets'
 import type { ObjectLayer } from './ObjectLayer'
+import { addShadowReach, clearShadowReach } from './shadowReach'
 
 /** Max simultaneous dynamic lights (nearest to the camera target win). */
 export const LIGHT_POOL = 8
@@ -278,6 +279,7 @@ export class PropEffects {
     this.assignSlots(this.enabled ? Math.min(LIGHT_POOL, this.order.length) : 0)
     for (const sp of this.shadowSpheres) this.sphereFree.push(sp)
     this.shadowSpheres.length = 0
+    clearShadowReach()
 
     // The one shadow map redrawn this frame: a new light's first, else an out-of-date one.
     if (redraw) for (let i = 0; i < SHADOW_LIGHTS; i++) if (this.stale[i] < 1) this.stale[i] = 1
@@ -317,6 +319,7 @@ export class PropEffects {
       l.position.copy(s.pos).add(this.tmpV.set(0, s.fire ? 0.3 : 0, 0))
       l.color.copy(s.color)
       l.distance = s.radius
+      if (l.castShadow) addShadowReach(l)
       l.intensity = s.intensity * s.radius * s.radius * 0.5 * flicker * strength
       // A shadowed light waits for its first map, rather than shining through walls with another's.
       if (i < SHADOW_LIGHTS && l.castShadow && this.stale[i] === 2) l.intensity = 0

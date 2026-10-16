@@ -4,6 +4,7 @@ import { getAsset, onAssetLoaded } from '../models/assets'
 import type { Terrain } from '../terrain/Terrain'
 import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } from './instanceCull'
+import { cullForShadows } from './shadowReach'
 
 export interface WorldObject {
   id: number
@@ -365,7 +366,8 @@ export class ObjectLayer {
     m.count = 0
     m.userData.type = type
     m.userData.ids = ids
-    m.frustumCulled = false
+    // Our own cull packs what is in view; three only culls it per point-light shadow face.
+    cullForShadows(m)
     m.castShadow = true
     m.receiveShadow = true
     return m

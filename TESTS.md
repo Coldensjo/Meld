@@ -776,6 +776,13 @@ target and facing. A click moves the camera there (`controller.focus`). In the d
   there, the far cascade about 5 ms. Before #129 a jump that brought three new shadowed lights took
   one ~225 ms frame (steady ~50 ms headless); now one cube map is drawn a frame (~115, 95, 95 ms) and
   a light waits dark for its first map.
+- A cube's draw calls (#133): model and spawn batches join a cube face only with a drawn instance in
+  the light's reach and the face (`world/shadowReach.ts`). Force `lights[0].shadow.needsUpdate` on
+  every other frame and compare `renderer.info.render.calls`: on the 3x3 block a cube adds about 43
+  calls (about 1400 with the batches' `intersectsFrustum` set to `() => true`, the old behaviour) and
+  about 1 ms. In T3 Code's preview tab (a real GPU, RTX 5080) the old cube was ~38 ms at the default
+  spot. Trap: a probe that runs many heavy `frame()` calls inside one evaluate can wedge that tab for
+  good; start it in a `setTimeout` that writes its result to `window`, then read it in a second call.
 
 ## Clear tool: height, liquids, holes
 
