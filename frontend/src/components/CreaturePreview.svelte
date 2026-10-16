@@ -124,6 +124,19 @@
       const r = Math.max(s.x, s.z) * 0.75 + 0.5
       ground.scale.setScalar(r)
       rings.scale.setScalar(r)
+      // The disc goes under the pose's lowest point over its first two seconds, not at the model's
+      // origin, which a pose can reach below or stand above, so the creature never sinks through it.
+      let floor = box.min.y
+      if (animation) {
+        const at = new THREE.Box3()
+        for (let ms = 250; ms <= 2000; ms += 250) {
+          animation.update(ms)
+          if (!animation.posedBounds(a.geometry, at).isEmpty()) floor = Math.min(floor, at.min.y * k)
+        }
+        animation.update(0)
+      }
+      ground.position.y = floor - 0.01
+      rings.position.y = floor - 0.005
       size = { h: s.y, tris: a.geometry.index ? a.geometry.index.count / 3 : 0 }
       if (reframe) {
         // Look a little above the box's middle (the box, not the ground: a model's origin need not be at its feet).
