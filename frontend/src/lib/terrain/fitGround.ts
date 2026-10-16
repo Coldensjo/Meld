@@ -1,9 +1,10 @@
 import { HOLE_BLOCK } from './holes'
 
-// Fit ground to a model (#168), the arithmetic: the ground of a window of the vertex grid is moved to
-// a target height under the vertices a model covers (its footprint), and blended back to the old
-// ground over a ring around it. The engine casts the rays that give the targets (the model's lowest
-// floor for Fit, its underside for Stamp) and records the edit.
+// Fit ground to a model (#168, #208), the arithmetic: under the vertices a model covers (its
+// footprint) the ground is lowered to just under the model's floor where it comes up through it, and
+// raised to the model's underside where it leaves a gap below it; the change is blended out over a
+// ring around it. The engine casts the rays that give the floor and underside heights (for Stamp,
+// both are the underside, so the ground takes its shape) and records the edit.
 
 export type FitMode = 'lower' | 'raise' | 'both'
 
@@ -19,7 +20,10 @@ export interface FitOptions {
 	 * entrance), in whole 2x2-cell blocks as the client keeps holes.
 	 */
 	holes: boolean
-	/** How far above or below the ground a model's floor may be to count (the engine's rays use it), in yards. */
+	/**
+	 * How far above the model's lowest floor a floor, and above its lowest underside an underside, may
+	 * be to count (the engine's rays use it), in yards: a hayloft or the eaves don't.
+	 */
 	reach: number
 }
 
@@ -32,26 +36,35 @@ export interface FitResult {
 	changed: boolean
 }
 
-const apply = (mode: FitMode, ground: number, target: number) =>
-	mode === 'lower' ? Math.min(ground, target) : mode === 'raise' ? Math.max(ground, target) : target
-
 /** 0 at the footprint to 1 at the ring's edge, eased. */
 const ease = (t: number) => t * t * (3 - 2 * t)
 
 /**
- * Fits the ground of a `w` by `h` vertex window to `floor` (one height a vertex, NaN where the model
- * doesn't cover it). The window's first vertex is (`ox`, `oz`) of the map, which places the hole
- * blocks on the map's grid. `cell` is the cell size in yards.
+ * Fits the ground of a `w` by `h` vertex window to a model: `floor` is its lowest floor over each
+ * vertex and `bottom` its underside (one height a vertex each, NaN where it has none). The ground
+ * goes down to `margin` under the floor where it stands above that, and up to the underside where it
+ * is below it, so it meets the model; ground in between (inside a foundation) stays. The window's
+ * first vertex is (`ox`, `oz`) of the map, which places the hole blocks on the map's grid. `cell` is
+ * the cell size in yards.
  */
-export function fitHeights(ground: Float32Array, floor: Float32Array, w: number, h: number, ox: number, oz: number, cell: number, o: FitOptions): FitResult {
+export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Float32Array, w: number, h: number, ox: number, oz: number, cell: number, o: FitOptions): FitResult {
 	const n = w * h
 	const out = ground.slice()
 	const cw = w - 1
 	const ch = h - 1
 	const holes = new Uint8Array(Math.max(0, cw * ch))
-	const target = new Float32Array(n)
-	for (let i = 0; i < n; i++) target[i] = floor[i] - o.margin
-	const covered = (i: number) => !Number.isNaN(floor[i])
+	// The change each covered vertex wants, within the mode.
+	const delta = new Float32Array(n)
+	const covered = (i: number) => !Number.isNaN(floor[i]) || !Number.isNaN(bottom[i])
+	for (let i = 0; i < n; i++) {
+		if (!covered(i)) continue
+		const g = ground[i]
+		const hi = Number.isNaN(floor[i]) ? Infinity : floor[i] - o.margin
+		const lo = Number.isNaN(bottom[i]) ? -Infinity : Math.min(bottom[i], hi)
+		if (g > hi && o.mode !== 'raise') delta[i] = hi - g
+		else if (g < lo && o.mode !== 'lower') delta[i] = lo - g
+	}
+	const hasFloor = (i: number) => !Number.isNaN(floor[i])
 
 	// Holes: a cell under the model whose ground comes above the floor, grown to its whole block.
 	const fixed = new Uint8Array(n)
@@ -61,7 +74,7 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, w: number,
 			for (let x = 0; x < cw; x++) {
 				const a = z * w + x
 				const corners = [a, a + 1, a + w, a + w + 1]
-				if (!corners.every(covered) || !corners.some((i) => ground[i] > floor[i])) continue
+				if (!corners.every(hasFloor) || !corners.some((i) => ground[i] > floor[i])) continue
 				const bx = Math.floor((ox + x) / HOLE_BLOCK) * HOLE_BLOCK - ox
 				const bz = Math.floor((oz + z) / HOLE_BLOCK) * HOLE_BLOCK - oz
 				for (let dz = 0; dz < HOLE_BLOCK; dz++) {
@@ -84,14 +97,14 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, w: number,
 		}
 	}
 
-	// The distance (yards) from each vertex to the nearest covered one, and that one's target: a
+	// The distance (yards) from each vertex to the nearest covered one, and that one's change: a
 	// two-pass chamfer over the window.
 	const dist = new Float32Array(n).fill(Infinity)
 	const near = new Float32Array(n)
 	for (let i = 0; i < n; i++) {
 		if (covered(i)) {
 			dist[i] = 0
-			near[i] = target[i]
+			near[i] = delta[i]
 		}
 	}
 	const diag = cell * Math.SQRT2
@@ -127,10 +140,9 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, w: number,
 	for (let i = 0; i < n; i++) {
 		if (fixed[i] || dist[i] === Infinity) continue
 		const g = ground[i]
-		const fit = apply(o.mode, g, near[i])
 		let v: number
-		if (dist[i] === 0) v = fit
-		else if (o.falloff > 0 && dist[i] < o.falloff) v = fit + (g - fit) * ease(dist[i] / o.falloff)
+		if (dist[i] === 0) v = g + near[i]
+		else if (o.falloff > 0 && dist[i] < o.falloff) v = g + near[i] * (1 - ease(dist[i] / o.falloff))
 		else continue
 		if (v !== g) {
 			out[i] = v

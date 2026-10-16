@@ -2772,22 +2772,40 @@ export class Engine {
       const h = z1 - z0 + 1
       const ground = new Float32Array(w * h)
       const floor = new Float32Array(w * h).fill(NaN)
-      const bottom = box.min.y - 1
+      const under = new Float32Array(w * h).fill(NaN)
+      const from = box.min.y - 1
+      let lowFloor = Infinity
+      let lowUnder = Infinity
       for (let z = 0; z < h; z++) {
         for (let x = 0; x < w; x++) {
           const vx = x0 + x
           const vz = z0 + z
-          const g = t.heights[vz * V + vx]
-          ground[z * w + x] = g
+          ground[z * w + x] = t.heights[vz * V + vx]
           const wx = vx * cs
           const wz = vz * cs
           if (wx < box.min.x || wx > box.max.x || wz < box.min.z || wz > box.max.z) continue
-          // A floor counts only near the ground: a stable without one would otherwise lift the
-          // ground to its hayloft.
-          floor[z * w + x] = stamp ? this.objects.surfaceAt(id, wx, wz, false, bottom) : this.objects.surfaceAt(id, wx, wz, true, bottom, g - fit.reach, g + fit.reach)
+          const u = this.objects.surfaceAt(id, wx, wz, false, from)
+          under[z * w + x] = u
+          if (u < lowUnder) lowUnder = u
+          if (stamp) continue
+          const f = this.objects.surfaceAt(id, wx, wz, true, from)
+          floor[z * w + x] = f
+          if (f < lowFloor) lowFloor = f
         }
       }
-      const r = fitHeights(ground, floor, w, h, x0, z0, cs, opts)
+      if (stamp) {
+        // Stamp: the ground takes the underside's shape, both ways.
+        floor.set(under)
+      } else {
+        // A floor or underside counts only near the model's lowest one (#208), whatever the ground
+        // does under it: a stable's hayloft and a roof's eaves are far above them, a floor raised on
+        // a foundation is not.
+        for (let i = 0; i < floor.length; i++) {
+          if (floor[i] > lowFloor + fit.reach) floor[i] = NaN
+          if (under[i] > lowUnder + fit.reach) under[i] = NaN
+        }
+      }
+      const r = fitHeights(ground, floor, under, w, h, x0, z0, cs, opts)
       if (!r.changed) continue
       fitted++
       // The models on the ground under this one would ride the ground: note where each stood.

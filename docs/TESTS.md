@@ -821,7 +821,15 @@ imported from the page's `deps/three.js` URL).
   move, and one undo restores both. Sunk 3 yd under the ground with `holes: true`, it cuts 128 cells
   (whole 2x2 blocks). Stamp (`true` first) moves ~365 vertices.
 - The Redridge stable (780) has no floor of its own: its first up-facing face is the hayloft, 6 to 10
-  yd up, which is why a floor only counts within `reach` of the ground. Fitting it changes nothing.
+  yd up, which is why a floor (and an underside) only counts within `reach` of the model's lowest
+  one (#208; before, within `reach` of the ground under each vertex). Fitting it raises 4 vertices at
+  its back by 1 to 3 yd and looks the same; nothing comes up to the hayloft.
+- A floor raised on a foundation (#208): the Elwynn farmhouse
+  (`wmo:World\\wmo\\Azeroth\\Buildings\\human_farm\\farm.wmo`) has its floor 4.1 yd above its origin,
+  so the old per-vertex rule found almost no floor and fitted nothing. Placed with Fit ground on the
+  8.5 yd slope at x 300, z 200 of Azeroth 32_48, about 34 vertices rise (up to 5.5 yd, the ground under
+  the floor inside the foundation) and undo/redo restore the heights exactly. To probe a building's
+  rays, `surfaceBox` then `surfaceAt(id, x, z, true|false, box.min.y - 1)` at each vertex of the box.
 - The Place tool's Fit ground (#207, `prefs.placeFitGround`): over CDP, load Northshire with tool
   `place`, set `editor.prefab` to a building's type (the Westfall farm WMO stands in the region) and
   wait until `getAsset(type).ready`, set `prefs.placeFitGround` (both through the page's own module

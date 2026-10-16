@@ -31,15 +31,15 @@
 <Modal title="Fit ground to selected models" width={420} {onclose}>
 	<p class="dim">
 		{editor.selectedIds.length}
-		{editor.selectedIds.length === 1 ? 'model' : 'models'} selected. The models stay where they are; the ground moves.
+		{editor.selectedIds.length === 1 ? 'model' : 'models'} selected. The models stay where they are; the ground moves down to under each floor where it comes through, and up to each underside where it leaves a gap.
 	</p>
 	<div class="grid">
 		<label for="fit-margin">Under the floor</label>
 		<span><input id="fit-margin" type="number" min="0" max="10" step="0.1" value={f.margin} onchange={(e) => (f.margin = clamp(num(e), 0, 10))} /> yd</span>
 		<label for="fit-falloff">Blend ring</label>
 		<span><input id="fit-falloff" type="number" min="0" max="64" step="1" value={f.falloff} onchange={(e) => (f.falloff = clamp(num(e), 0, 64))} /> yd</span>
-		<label for="fit-reach" title="A model's floor counts only this close to the ground, above or below it; elsewhere the ground stays (a stable without a floor keeps its ground, not its hayloft's height)">Floor within</label>
-		<span><input id="fit-reach" type="number" min="0.5" max="50" step="0.5" value={f.reach} onchange={(e) => (f.reach = clamp(num(e), 0.5, 50))} /> yd of the ground</span>
+		<label for="fit-reach" title="A floor counts only this far above the model's lowest floor, and an underside this far above its lowest underside, so a stable's hayloft or a roof's eaves don't pull the ground up">Floor within</label>
+		<span><input id="fit-reach" type="number" min="0.5" max="50" step="0.5" value={f.reach} onchange={(e) => (f.reach = clamp(num(e), 0.5, 50))} /> yd of its lowest</span>
 		<label for="fit-mode">Ground may</label>
 		<select id="fit-mode" value={f.mode} onchange={(e) => (f.mode = (e.target as HTMLSelectElement).value as FitMode)}>
 			{#each MODES as [v, label] (v)}
