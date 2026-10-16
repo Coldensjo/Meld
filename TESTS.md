@@ -249,6 +249,22 @@ e.terrain.heightAt(180, 300)                  // then screenshot
   touches 9 vertices instead of 69, `editor.brush.radius` stays 20 and the ring's
   `terrain.material.uniforms.brushRadius` reads 6.
 
+## Vertex mode undo and keys on a focused control (#127)
+
+Checks: Sculpt's Vertex edits undo, and Ctrl+Z reaches the map while an options-bar slider has the
+focus. On a flat new world (as in "Scripted brush strokes"), `ed.sculptMode = 'vertex'`, pick points
+with `onDown(e.ctx, at(100, 100), {})`, one `tick`, `onUp`; then `ed.vertexAngle = 30; e.frame()` tilts
+them (`heightAt(108, 100)` rises). Find the Slope slider
+(`[...document.querySelectorAll('label.opt input[type=range]')].find(r => r.closest('label').textContent.includes('Slope'))`),
+`focus()` it and dispatch `new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true })` on
+it: the height goes back and `e.history.position` drops by one. The same event on a focused text
+input must leave the history alone. A Shift move is `onDown(..., { shiftKey: true })`, then
+`onMove(e.ctx, null, { movementY: -10 })` a few times and `onUp`.
+- Trap: `e.history.peek()` is null whenever there are steps to redo, so after an undo read
+  `e.history.position`, not `peek()`.
+- Before #127 the App's key handler dropped every key aimed at an `INPUT` or `SELECT`, so after
+  dragging Slope or Direction (the mode's only edit besides Flatten) Ctrl+Z did nothing.
+
 ## Reproducing a user's view
 
 - A pasted `Meld scene {...}` line (Help > Copy Scene) loads with

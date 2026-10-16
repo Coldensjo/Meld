@@ -90,13 +90,30 @@
     if (e.key === 'Alt') e.preventDefault()
   }
 
+  /** Input types that take no typing: a key on them is not text editing. */
+  const NON_TEXT_INPUTS = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file', 'image'])
+
+  /** Whether a key's target is a text field, another form control, or neither. */
+  function formField(target: EventTarget | null): 'text' | 'control' | null {
+    const el = target as HTMLElement | null
+    if (!el || !el.tagName) return null
+    if (el.tagName === 'TEXTAREA' || el.isContentEditable) return 'text'
+    if (el.tagName === 'SELECT') return 'control'
+    if (el.tagName === 'INPUT') return NON_TEXT_INPUTS.has((el as HTMLInputElement).type) ? 'control' : 'text'
+    return null
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Alt') {
       e.preventDefault()
       return
     }
-    const el = e.target as HTMLElement | null
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return
+    // A text field keeps every key. A slider, select or checkbox keeps its own keys too, but
+    // Ctrl+Z and Ctrl+Y reach the map: such a control has no undo of its own, and after dragging an
+    // options-bar slider (Vertex mode's Slope) the focus stays on it (#127).
+    const field = formField(e.target)
+    if (field === 'text') return
+    if (field === 'control' && !((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'y'))) return
     const engine = engineRef.current
     if (!engine || ui.showNewDialog || ui.dialog) return
     const mod = e.ctrlKey || e.metaKey

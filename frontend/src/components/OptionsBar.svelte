@@ -12,17 +12,17 @@
   import { chooseBrushImageFolder, listBrushImages, useBrushImage } from '../lib/io/brushImages'
   import type { vmangos } from '../../wailsjs/go/models'
 
-  const SCULPT_MODES: Array<{ id: SculptMode; name: string }> = [
-    { id: 'raise', name: 'Raise' },
-    { id: 'lower', name: 'Lower' },
-    { id: 'smooth', name: 'Smooth' },
-    { id: 'blur', name: 'Blur' },
-    { id: 'flatten', name: 'Flatten' },
-    { id: 'noise', name: 'Noise' },
-    { id: 'mountain', name: 'Mountain' },
-    { id: 'crevice', name: 'Crevice' },
-    { id: 'vertex', name: 'Vertex' },
-    { id: 'hole', name: 'Hole' },
+  const SCULPT_MODES: Array<{ id: SculptMode; name: string; tip: string }> = [
+    { id: 'raise', name: 'Raise', tip: 'Lift the ground under the brush' },
+    { id: 'lower', name: 'Lower', tip: 'Sink the ground under the brush' },
+    { id: 'smooth', name: 'Smooth', tip: 'Even out bumps toward the ground around them' },
+    { id: 'blur', name: 'Blur', tip: 'Blur the heights under the brush, softening every edge' },
+    { id: 'flatten', name: 'Flatten', tip: 'Level the ground to one height (Alt+click locks the height)' },
+    { id: 'noise', name: 'Noise', tip: 'Roughen the ground with random bumps' },
+    { id: 'mountain', name: 'Mountain', tip: 'Build up a peak' },
+    { id: 'crevice', name: 'Crevice', tip: 'Dig a trench and pile the ground onto its sides' },
+    { id: 'vertex', name: 'Vertex', tip: 'Pick points of the ground with the brush, then raise or lower them together (Shift+drag), level them (Flatten) or tilt them onto a slope (Slope, Direction)' },
+    { id: 'hole', name: 'Hole', tip: 'Cut holes in the ground, or fill them' },
   ]
 
   const tool = $derived(TOOLS.find((t) => t.id === editor.tool)!)
@@ -149,7 +149,7 @@
   {#if editor.tool === 'sculpt'}
     <div class="seg">
       {#each SCULPT_MODES as m (m.id)}
-        <button class:active={editor.sculptMode === m.id} onclick={() => (editor.sculptMode = m.id)}>{m.name}</button>
+        <button class:active={editor.sculptMode === m.id} onclick={() => (editor.sculptMode = m.id)} title={m.tip}>{m.name}</button>
       {/each}
     </div>
     {#if editor.sculptMode === 'flatten'}
@@ -186,15 +186,20 @@
       </div>
       <span class="dim">2×2-cell blocks, as the game keeps holes · <kbd>Shift</kbd> does the other · select an area for whole-area holes</span>
     {:else if editor.sculptMode === 'vertex'}
-      <span class="chip" title="Drag to select vertices, Ctrl or Alt+drag to deselect, Shift+drag to move them up and down"><span class="dim">Selected:</span> {ui.vertexCount}</span>
-      <button disabled={!ui.vertexCount} onclick={() => engineRef.current?.vertexAction('flatten')} title="Level the selected vertices at their mean height">Flatten</button>
-      <button disabled={!ui.vertexCount} onclick={() => engineRef.current?.vertexAction('clear')}>Clear</button>
-      <select class="curve" bind:value={editor.vertexRef} title="Point the slope plane passes through" aria-label="Slope reference">
-        <option value="center">Through selection centre</option>
-        <option value="cursor">Through cursor</option>
-      </select>
-      <OptSlider label="Slope" bind:value={editor.vertexAngle} min={-89} max={89} step={1} digits={0} width={70} title="Angle of the plane the selection is laid on, in degrees" />
-      <OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={70} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
+      <span class="chip" style:flex-shrink="0" title="Drag to select vertices, Ctrl or Alt+drag to deselect, Shift+drag to move them up and down"><span class="dim">Selected:</span> {ui.vertexCount}</span>
+      {#if !ui.vertexCount}
+        <!-- Nothing picked yet: the controls below act on the picked points only, so the bar explains the mode instead. -->
+        <span class="dim">Drag to pick points of the ground, then move them together: <kbd>Shift</kbd>+drag, Flatten, Slope · <kbd>Ctrl</kbd>+drag drops</span>
+      {:else}
+        <button onclick={() => engineRef.current?.vertexAction('flatten')} title="Level the selected vertices at their mean height">Flatten</button>
+        <button onclick={() => engineRef.current?.vertexAction('clear')} title="Drop every picked point (the ground stays as it is)">Clear</button>
+        <select class="curve" bind:value={editor.vertexRef} title="Point the slope plane passes through" aria-label="Slope reference">
+          <option value="center">Through selection centre</option>
+          <option value="cursor">Through cursor</option>
+        </select>
+        <OptSlider label="Slope" bind:value={editor.vertexAngle} min={-89} max={89} step={1} digits={0} width={70} title="Angle of the plane the selection is laid on, in degrees" />
+        <OptSlider label="Direction" bind:value={editor.vertexDir} min={0} max={360} step={1} digits={0} width={70} title="Direction the slope rises toward, in degrees (Space: from the cursor toward the selection centre)" />
+      {/if}
     {:else}
       {@render editLimit()}
       {@render imageBrush()}
