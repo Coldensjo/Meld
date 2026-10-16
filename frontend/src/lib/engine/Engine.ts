@@ -2730,8 +2730,8 @@ export class Engine {
   }
 
   /**
-   * Models › Fit Ground to Selection (#168): moves the ground under each selected model to just under
-   * its lowest floor, blending back over a ring, and with Cut holes opens the ground where it stands
+   * Models › Fit Ground to Selection (#168, #210): levels the ground under each selected model to its
+   * base, its origin (never above just under its floor), blending back over a ring, and with Cut holes opens the ground where it stands
    * above an interior floor. With `stamp`, presses the models' undersides into the ground instead (a
    * rock's base, a crater), the Unity Mesh Stamp. The models keep their place in the world: a model on
    * the ground gets its `yOff` back for the ground that moved under it. One undo step.
@@ -2822,11 +2822,14 @@ export class Engine {
           if (under[i] > lowUnder + fit.reach) under[i] = NaN
         }
       }
-      const r = fitHeights(ground, floor, under, w, h, x0, z0, cs, opts)
+      // A fit levels the ground to the model's base, its origin, and keeps a cell's apron level around
+      // it (#210); a stamp takes the underside's shape and blends straight out.
+      const o = this.objects.objects.get(id)!
+      const base = stamp ? NaN : this.objects.worldPlacement(o).pos.y
+      const r = fitHeights(ground, floor, under, w, h, x0, z0, cs, opts, base, stamp ? 0 : cs)
       if (!r.changed) continue
       fitted++
       // The models on the ground under this one would ride the ground: note where each stood.
-      const o = this.objects.objects.get(id)!
       const before = o.parent === undefined ? t.heightAt(o.x, o.z) : 0
       const rect = { x0, z0, x1, z1 }
       stroke.reserveHeights(rect)

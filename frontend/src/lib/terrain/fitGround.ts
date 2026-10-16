@@ -1,10 +1,11 @@
 import { HOLE_BLOCK } from './holes'
 
-// Fit ground to a model (#168, #208), the arithmetic: under the vertices a model covers (its
-// footprint) the ground is lowered to just under the model's floor where it comes up through it, and
-// raised to the model's underside where it leaves a gap below it; the change is blended out over a
-// ring around it. The engine casts the rays that give the floor and underside heights (for Stamp,
-// both are the underside, so the ground takes its shape) and records the edit.
+// Fit ground to a model (#168, #208, #210), the arithmetic: under the vertices a model covers (its
+// footprint) the ground is levelled to the model's base (its origin, where a building meets the
+// ground), never above just under its floor, so a building stands on a flat bed as on a foundation; a
+// level apron and then a ring around it blend from that new height back to the ground's own. The engine
+// casts the rays that give the floor and underside heights (for Stamp, there is no base and both are
+// the underside, so the ground takes its shape) and records the edit.
 
 export type FitMode = 'lower' | 'raise' | 'both'
 
@@ -41,28 +42,31 @@ const ease = (t: number) => t * t * (3 - 2 * t)
 
 /**
  * Fits the ground of a `w` by `h` vertex window to a model: `floor` is its lowest floor over each
- * vertex and `bottom` its underside (one height a vertex each, NaN where it has none). The ground
- * goes down to `margin` under the floor where it stands above that, and up to the underside where it
- * is below it, so it meets the model; ground in between (inside a foundation) stays. The window's
- * first vertex is (`ox`, `oz`) of the map, which places the hole blocks on the map's grid. `cell` is
- * the cell size in yards.
+ * vertex and `bottom` its underside (one height a vertex each, NaN where it has none); the vertices
+ * with either are its footprint. The ground there goes to `level`, the model's base (or with NaN, to
+ * the underside), or to `margin` under the floor where that is lower, within the mode, so a building
+ * gets flat ground (#210): its rays alone can't give the base, as a foundation is hollow and its walls
+ * fall between the vertices. Around the footprint the ground stays at the
+ * nearest fitted height for `apron` yards, then eases back to its own over the rest of the falloff.
+ * The window's first vertex is (`ox`, `oz`) of the map, which places the hole blocks on the map's
+ * grid. `cell` is the cell size in yards.
  */
-export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Float32Array, w: number, h: number, ox: number, oz: number, cell: number, o: FitOptions): FitResult {
+export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Float32Array, w: number, h: number, ox: number, oz: number, cell: number, o: FitOptions, level = NaN, apron = 0): FitResult {
 	const n = w * h
 	const out = ground.slice()
 	const cw = w - 1
 	const ch = h - 1
 	const holes = new Uint8Array(Math.max(0, cw * ch))
-	// The change each covered vertex wants, within the mode.
-	const delta = new Float32Array(n)
+	// Within the mode, a height may only go down, only go up, or either way.
+	const allow = (g: number, v: number) => (o.mode === 'lower' ? Math.min(g, v) : o.mode === 'raise' ? Math.max(g, v) : v)
+	// The height each covered vertex goes to: the base or the underside, never above just under the floor.
+	const target = new Float32Array(n)
 	const covered = (i: number) => !Number.isNaN(floor[i]) || !Number.isNaN(bottom[i])
 	for (let i = 0; i < n; i++) {
 		if (!covered(i)) continue
-		const g = ground[i]
 		const hi = Number.isNaN(floor[i]) ? Infinity : floor[i] - o.margin
-		const lo = Number.isNaN(bottom[i]) ? -Infinity : Math.min(bottom[i], hi)
-		if (g > hi && o.mode !== 'raise') delta[i] = hi - g
-		else if (g < lo && o.mode !== 'lower') delta[i] = lo - g
+		const base = Number.isNaN(level) ? bottom[i] : level
+		target[i] = allow(ground[i], Number.isNaN(base) ? hi : Math.min(base, hi))
 	}
 	const hasFloor = (i: number) => !Number.isNaN(floor[i])
 
@@ -97,14 +101,14 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 		}
 	}
 
-	// The distance (yards) from each vertex to the nearest covered one, and that one's change: a
+	// The distance (yards) from each vertex to the nearest covered one, and that one's height: a
 	// two-pass chamfer over the window.
 	const dist = new Float32Array(n).fill(Infinity)
 	const near = new Float32Array(n)
 	for (let i = 0; i < n; i++) {
 		if (covered(i)) {
 			dist[i] = 0
-			near[i] = delta[i]
+			near[i] = target[i]
 		}
 	}
 	const diag = cell * Math.SQRT2
@@ -137,12 +141,16 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 		}
 	}
 
+	// The fitted height is the base the ring starts from (#210): level over the apron, then eased back.
+	const pad = Math.min(apron, o.falloff)
 	for (let i = 0; i < n; i++) {
 		if (fixed[i] || dist[i] === Infinity) continue
 		const g = ground[i]
+		const d = dist[i]
 		let v: number
-		if (dist[i] === 0) v = g + near[i]
-		else if (o.falloff > 0 && dist[i] < o.falloff) v = g + near[i] * (1 - ease(dist[i] / o.falloff))
+		if (d === 0) v = near[i]
+		else if (d <= pad) v = allow(g, near[i])
+		else if (d < o.falloff) v = allow(g, near[i] + (g - near[i]) * ease((d - pad) / (o.falloff - pad)))
 		else continue
 		if (v !== g) {
 			out[i] = v

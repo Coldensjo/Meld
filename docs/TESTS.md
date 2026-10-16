@@ -826,10 +826,15 @@ imported from the page's `deps/three.js` URL).
   its back by 1 to 3 yd and looks the same; nothing comes up to the hayloft.
 - A floor raised on a foundation (#208): the Elwynn farmhouse
   (`wmo:World\\wmo\\Azeroth\\Buildings\\human_farm\\farm.wmo`) has its floor 4.1 yd above its origin,
-  so the old per-vertex rule found almost no floor and fitted nothing. Placed with Fit ground on the
-  8.5 yd slope at x 300, z 200 of Azeroth 32_48, about 34 vertices rise (up to 5.5 yd, the ground under
-  the floor inside the foundation) and undo/redo restore the heights exactly. To probe a building's
-  rays, `surfaceBox` then `surfaceAt(id, x, z, true|false, box.min.y - 1)` at each vertex of the box.
+  so the old per-vertex rule found almost no floor and fitted nothing. To probe a building's rays,
+  `surfaceBox` then `surfaceAt(id, x, z, true|false, box.min.y - 1)` at each vertex of the box.
+- Levelling (#210): its foundation is hollow, so the rays find the floor (85.1) as its underside, 4 yd
+  above the stone base (80.94, its origin and `box.min.y`); only the porch steps reach lower. That is
+  why the fit levels to the model's origin, not to its rays. Added with `e.objects.add` at x 300, z 200
+  of Azeroth 32_48 (origin 80.94) and fitted with `fitGroundToSelection(false, { margin: 0.2, falloff: 6,
+  mode: 'both', holes: false, reach: 4 })`: the 19 vertices under it go from 79.9..84.3 to 80.94 each,
+  32 vertices move (up to 7.4 yd, the uphill ring), the house keeps its height, undo/redo restore the
+  heights exactly, and the screenshot shows the whole stone foundation on a level pad cut into the hill.
 - The Place tool's Fit ground (#207, `prefs.placeFitGround`): over CDP, load Northshire with tool
   `place`, set `editor.prefab` to a building's type (the Westfall farm WMO stands in the region) and
   wait until `getAsset(type).ready`, set `prefs.placeFitGround` (both through the page's own module

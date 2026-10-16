@@ -31,7 +31,7 @@
 <Modal title="Fit ground to selected models" width={420} {onclose}>
 	<p class="dim">
 		{editor.selectedIds.length}
-		{editor.selectedIds.length === 1 ? 'model' : 'models'} selected. The models stay where they are; the ground moves down to under each floor where it comes through, and up to each underside where it leaves a gap.
+		{editor.selectedIds.length === 1 ? 'model' : 'models'} selected. The models stay where they are; the ground under each is levelled to its base (never above its floor), as on a foundation, and blends back to the hill around it.
 	</p>
 	<div class="grid">
 		<label for="fit-margin">Under the floor</label>

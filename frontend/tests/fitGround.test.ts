@@ -58,17 +58,31 @@ test('with holes, ground above the floor is cut in whole blocks on the map grid,
 	assert.equal(at(r.heights, 2, 4), 10, 'and so does the hole\'s edge')
 })
 
-test('on a foundation over uneven ground, the ground rises to the underside, drops under the floor, and stays in between (#208)', () => {
-	// A house whose floor is 4 yd up on a foundation that reaches down to 10, over ground at 10 with a
-	// dip to 8 and a hump to 15 under it.
-	const { ground, floor, bottom } = scene(10, 14, 3, 7, 10)
+test('on a foundation over uneven ground, the ground is levelled to its base (#210)', () => {
+	// A house whose floor is 4 yd up on a hollow foundation (the rays find the floor as its underside)
+	// with its base at 10, over ground at 10 with a dip to 8 and humps to 12 and 15 under it.
+	const { ground, floor, bottom } = scene(10, 14, 3, 7)
 	ground[5 * W + 4] = 8
 	ground[5 * W + 6] = 15
 	ground[4 * W + 5] = 12
-	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts())
+	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts(), 10)
 	assert.equal(at(r.heights, 4, 5), 10, 'the dip comes up to the foundation')
-	assert.equal(at(r.heights, 6, 5), 13.5, 'the hump goes under the floor')
-	assert.equal(at(r.heights, 5, 4), 12, 'ground inside the foundation stays')
+	assert.equal(at(r.heights, 6, 5), 10, 'the hump goes down to it')
+	assert.equal(at(r.heights, 5, 4), 10, 'and so does ground inside the foundation')
 	assert.equal(at(r.heights, 1, 1), 10, 'flat ground already at the foundation stays')
-	assert.equal(fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ mode: 'lower' })).heights[5 * W + 4], 8, 'only lower leaves the dip')
+	const low = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ mode: 'lower' }), 10).heights
+	assert.equal(low[5 * W + 4], 8, 'only lower leaves the dip')
+	assert.equal(low[5 * W + 6], 10, 'and lowers the hump')
+})
+
+test('on a slope, the footprint and its apron are level, and the ring starts from the new height (#210)', () => {
+	// Ground rising 1 yd a vertex along x, a building based at 5 over vertices 3..7.
+	const { floor, bottom } = scene(0, 9, 3, 7)
+	const ground = new Float32Array(W * W)
+	for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) ground[z * W + x] = x
+	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ margin: 0.2, falloff: 3 }), 5, 1)
+	for (let x = 2; x <= 8; x++) assert.equal(at(r.heights, x, 5), 5, `vertex ${x} is level`)
+	const up = at(r.heights, 9, 5)
+	assert.ok(up > 5 && up < 9, `the ring climbs back to the hill: ${up}`)
+	assert.equal(at(r.heights, 10, 5), 10, 'beyond the falloff the ground is untouched')
 })
