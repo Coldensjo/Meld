@@ -625,7 +625,9 @@ cd frontend && pnpm build   # frontend only
   WMO files.
 - `wow.Client.Handler()` serves `/wow/{status,list,texture,model}`. The handler is mounted via
   Wails `AssetServer.Middleware` in `main.go`, so it works in dev and prod. Responses are binary:
-  - Textures: `"RGBA" w h pixels`.
+  - Textures: `"RGBA" w h pixels`; with `fmt=dxt` (#178) a DXT BLP comes as `"DXT1"`/`"DXT3"`/`"DXT5"`
+    w h, the mip count and each level's size and blocks (`Client.TextureDXT`), which `loadTexture`
+    uploads as a `CompressedTexture` where the renderer has S3TC with sRGB.
   - Meshes: `Mesh.Encode()` = JSON header + pos/normal/uv/[color]/u32 index.
 - **Never copy, bundle or commit Blizzard assets.** No extracted files in the repo, the binary or
   test fixtures. A `.wmap` file refers to the client's assets by path only (`m2:<path>` /

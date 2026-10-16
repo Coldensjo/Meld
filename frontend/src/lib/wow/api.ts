@@ -5,6 +5,7 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { hasBackend } from '../io/mapio'
 import { logFile, wow } from '../state/editor.svelte'
 import { beginLoad, endLoad } from './loadProgress'
+import { textureFrom } from './textureReply'
 
 // Client for the Go side's /wow/* endpoints, which read assets live from the
 // user's own WoW 1.x installation. Nothing is bundled with the app.
@@ -248,24 +249,32 @@ export async function fetchImage(path: string): Promise<RawImage> {
   return { width: dv.getUint32(4, true), height: dv.getUint32(8, true), pixels: new Uint8Array(buf, 12) }
 }
 
-const textureCache = new Map<string, Promise<THREE.DataTexture>>()
+const textureCache = new Map<string, Promise<THREE.Texture>>()
 let maxAnisotropy = 8
+let compressedTextures = false
 
 export function setMaxAnisotropy(n: number) {
   maxAnisotropy = n
 }
 
+/**
+ * Whether the renderer samples S3TC, with its sRGB forms (#178): then a DXT BLP goes to the GPU as the
+ * client stores it, its own mips included, at an eighth to a quarter of the RGBA's size.
+ */
+export function setCompressedTextures(on: boolean) {
+  compressedTextures = on
+}
+
 /** Load a BLP from the client as a mipmapped, repeating texture (cached). */
-export function loadTexture(path: string): Promise<THREE.DataTexture> {
+export function loadTexture(path: string): Promise<THREE.Texture> {
   const key = path.toLowerCase()
   let p = textureCache.get(key)
   if (!p) {
-    p = fetchImage(path).then((img) => {
-      const t = new THREE.DataTexture(img.pixels, img.width, img.height, THREE.RGBAFormat)
+    p = fetchBinary('texture', compressedTextures ? `${path}?fmt=dxt` : path).then((buf) => {
+      const t = textureFrom(buf)
       t.wrapS = t.wrapT = THREE.RepeatWrapping
       t.magFilter = THREE.LinearFilter
       t.minFilter = THREE.LinearMipmapLinearFilter
-      t.generateMipmaps = true
       t.anisotropy = Math.min(8, maxAnisotropy)
       t.colorSpace = THREE.SRGBColorSpace
       t.flipY = false // BLP rows are top-down, matching WoW UVs

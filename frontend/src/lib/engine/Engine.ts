@@ -56,7 +56,7 @@ import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, compactChunk, convertGlobalLayers, findSlot, hasEmptySlot, mergeDuplicateSlots, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette, resetTexel } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
-import { listAssets, setMaxAnisotropy } from '../wow/api'
+import { listAssets, setCompressedTextures, setMaxAnisotropy } from '../wow/api'
 import { runMapChecks } from '../check/run'
 import type { Finding } from '../check/findings'
 import type { EdgeSegment } from '../check/terrainChecks'
@@ -435,6 +435,11 @@ export class Engine {
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
     setMaxAnisotropy(aniso)
+    // The client's DXT textures go to the GPU compressed where it samples S3TC, sRGB included (#178);
+    // the dev page opened with `?nodxt` keeps them RGBA, to compare.
+    const ext = this.renderer.extensions
+    const noDxt = /[?&]nodxt(?:[&=]|$)/.test(location.search)
+    setCompressedTextures(!noDxt && ext.has('WEBGL_compressed_texture_s3tc') && ext.has('WEBGL_compressed_texture_s3tc_srgb'))
     // The camera rides on the water surface where the ground is submerged.
     this.controller = new CameraController(this.persp, canvas, (x, z) => {
       const h = this.terrain.heightAt(x, z)

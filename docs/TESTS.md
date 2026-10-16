@@ -1523,3 +1523,20 @@ and looks the same as drawn whole.
 - Same picture: `setSceneView({ target: [-300, 120, 250], yaw: 4.71, pitch: 0.25, distance: 500, hour: 13 })`
   draws 55% of the city; with `enabled` off and on the shots differ in 0.14% of pixels (edges, swaying
   trees).
+
+## Compressed client textures (DXT, #178)
+Checks: model, liquid and particle textures go to the GPU as the BLP's own DXT blocks and mips where
+the renderer has `WEBGL_compressed_texture_s3tc` and `..._s3tc_srgb`, and look as the RGBA path did.
+- Go: `TestDXTOf*` in `internal/wow/blpdxt_test.go`; with `WOW_DIR=C:/WoW/client`,
+  `TestClientTexturesAsDXT` samples the client's world, tileset, creature and XTextures BLPs: 965 of
+  1008 go as DXT (the rest are palettized or lack a full mip chain), 46 MB of blocks against 258 MB of
+  RGBA with mips, and every one's first level decodes to DecodeBLP's pixels byte for byte.
+- Endpoint: `curl "localhost:34115/wow/texture?path=tileset%5Celwynn%5Celwynngrassbase.blp&fmt=dxt"`
+  starts `DXT1` and is 43756 bytes against the RGBA reply's 262156.
+- Frontend: `frontend/tests/textureFrom.test.ts`. In the dev page, `?nosave&nodxt` keeps every texture
+  RGBA for comparison. Northshire on 2026-10-17 (headless Chrome, SwiftShader has both extensions):
+  618 model textures, 20.9 MB compressed (564 of them) against 123.4 MB all RGBA; the two shots differ
+  in 0.47% of pixels by more than 4%, in fine detail where the BLP's own mips replace the GPU's.
+  Sum a material's `map`: `mipmaps[i].data.length` for a `CompressedTexture`, w·h·4·4/3 for RGBA.
+- The terrain's tileset array (`terrain/paletteArray.ts`) and texture previews still read RGBA pixels
+  on the CPU (they resample), so they keep using `fetchImage`.

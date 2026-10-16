@@ -190,3 +190,55 @@ func decodeDXT(img *Image, data []byte, kind int) error {
 	}
 	return nil
 }
+
+// BLPDXT is a DXT BLP's own blocks, every mip level down to 1x1, for a GPU that samples S3TC itself.
+type BLPDXT struct {
+	// Kind is 1, 3 or 5 (DXT1, DXT3, DXT5), as DecodeBLP reads the header.
+	Kind int
+	W, H int
+	// Mips are the levels' blocks, the full size first.
+	Mips [][]byte
+}
+
+// DXTOf gives a BLP's DXT blocks as they are, or false for a BLP that isn't DXT, whose size isn't a
+// multiple of 4 or whose mip chain doesn't reach 1x1 (a compressed texture can't have its mips
+// made on the GPU, and an incomplete chain would sample black).
+func DXTOf(b []byte) (*BLPDXT, bool) {
+	if len(b) < 148 || string(b[:4]) != "BLP2" || b[8] != 2 || b[11] == 0 {
+		return nil, false
+	}
+	alphaDepth, alphaType := b[9], b[10]
+	w := int(binary.LittleEndian.Uint32(b[12:]))
+	h := int(binary.LittleEndian.Uint32(b[16:]))
+	if w <= 0 || h <= 0 || w > 4096 || h > 4096 || w%4 != 0 || h%4 != 0 {
+		return nil, false
+	}
+	// The same choice as DecodeBLP's, so the GPU decodes what the CPU did.
+	kind := 1
+	switch {
+	case alphaType == 7:
+		kind = 5
+	case alphaType == 1 && alphaDepth > 1, alphaDepth == 8:
+		kind = 3
+	}
+	blockSize := 16
+	if kind == 1 {
+		blockSize = 8
+	}
+	out := &BLPDXT{Kind: kind, W: w, H: h}
+	lw, lh := w, h
+	for level := 0; level < 16; level++ {
+		off := int(binary.LittleEndian.Uint32(b[20+4*level:]))
+		size := int(binary.LittleEndian.Uint32(b[84+4*level:]))
+		need := ((lw + 3) / 4) * ((lh + 3) / 4) * blockSize
+		if off <= 0 || size < need || off+need > len(b) {
+			return nil, false
+		}
+		out.Mips = append(out.Mips, b[off:off+need])
+		if lw == 1 && lh == 1 {
+			return out, true
+		}
+		lw, lh = max(1, lw/2), max(1, lh/2)
+	}
+	return nil, false
+}

@@ -192,6 +192,36 @@ func (c *Client) Texture(path string) ([]byte, error) {
 	})
 }
 
+// TextureDXT is a BLP as "DXT1", "DXT3" or "DXT5", width, height and the mip count, then each mip
+// level as its byte count and blocks, the full size first; or Texture's RGBA reply for a BLP that
+// DXTOf can't give whole.
+func (c *Client) TextureDXT(path string) ([]byte, error) {
+	return c.cached("dxt:"+strings.ToLower(path), func() ([]byte, error) {
+		raw, err := c.read(path)
+		if err != nil {
+			return nil, err
+		}
+		d, ok := DXTOf(raw)
+		if !ok {
+			return c.Texture(path)
+		}
+		n := 16
+		for _, m := range d.Mips {
+			n += 4 + len(m)
+		}
+		out := make([]byte, 16, n)
+		copy(out, []byte{'D', 'X', 'T', byte('0' + d.Kind)})
+		binary.LittleEndian.PutUint32(out[4:], uint32(d.W))
+		binary.LittleEndian.PutUint32(out[8:], uint32(d.H))
+		binary.LittleEndian.PutUint32(out[12:], uint32(len(d.Mips)))
+		for _, m := range d.Mips {
+			out = binary.LittleEndian.AppendUint32(out, uint32(len(m)))
+			out = append(out, m...)
+		}
+		return out, nil
+	})
+}
+
 // m2Mesh decodes an M2 dressed in look (nil for none), with the look's items attached. An item
 // that can't be read is left off.
 func (c *Client) m2Mesh(path string, look *Look) (*Mesh, error) {
@@ -440,6 +470,12 @@ func (c *Client) Handler() http.Handler {
 	mux.HandleFunc("/wow/status", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, c.Status()) })
 	mux.HandleFunc("/wow/list", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, c.List(r.URL.Query().Get("kind"))) })
 	mux.HandleFunc("/wow/texture", func(w http.ResponseWriter, r *http.Request) {
+		// fmt=dxt (#178): a DXT BLP's own blocks for a GPU with S3TC, else the RGBA reply.
+		if r.URL.Query().Get("fmt") == "dxt" {
+			b, err := c.TextureDXT(r.URL.Query().Get("path"))
+			blob(w, b, err)
+			return
+		}
 		b, err := c.Texture(r.URL.Query().Get("path"))
 		blob(w, b, err)
 	})
