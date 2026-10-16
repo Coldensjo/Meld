@@ -546,10 +546,15 @@ export class ObjectLayer {
 
   /** Returns the id of the object under the ray, or null. */
   pick(raycaster: THREE.Raycaster): number | null {
-    const hits = this.intersect(raycaster)
-    for (const h of hits) {
+    return this.pickHit(raycaster)?.id ?? null
+  }
+
+  /** The object under the ray and how far along the ray it was hit, or null. */
+  pickHit(raycaster: THREE.Raycaster): { id: number; distance: number } | null {
+    for (const h of this.intersect(raycaster)) {
       if (h.instanceId === undefined) continue
-      return (h.object.userData.ids as number[])[h.instanceId] ?? null
+      const id = (h.object.userData.ids as number[])[h.instanceId]
+      return id === undefined ? null : { id, distance: h.distance }
     }
     return null
   }

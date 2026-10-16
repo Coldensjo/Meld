@@ -174,10 +174,15 @@ export class SpawnLayer {
 
   /** The spawn under the ray, nearest first, among the kinds shown; null when none is. */
   pick(raycaster: THREE.Raycaster): vmangos.WorldSpawn | null {
+    return this.pickHit(raycaster)?.spawn ?? null
+  }
+
+  /** The spawn under the ray and how far along the ray it was hit, or null. */
+  pickHit(raycaster: THREE.Raycaster): { spawn: vmangos.WorldSpawn; distance: number } | null {
     const shown = this.batches.filter((b) => b.mesh.visible && b.mesh.count > 0)
     for (const h of raycaster.intersectObjects(shown.map((b) => b.mesh), false)) {
       const b = shown.find((x) => x.mesh === h.object)
-      if (b && h.instanceId !== undefined && h.instanceId < b.packed.length) return b.all[b.packed[h.instanceId]]
+      if (b && h.instanceId !== undefined && h.instanceId < b.packed.length) return { spawn: b.all[b.packed[h.instanceId]], distance: h.distance }
     }
     return null
   }

@@ -12,6 +12,7 @@ import { hasSkeleton, modelMesh } from '../world/Animator'
 import { previewParticles } from '../world/ParticleLayer'
 import { HoleWalls } from './HoleWalls'
 import { spawnKey } from '../world/SpawnLayer'
+import { pickNearest } from '../world/pickNearest'
 import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
 
 function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
@@ -477,7 +478,8 @@ export class SelectTool implements Tool {
     // A hole's edge or badge under the cursor comes before a model over it: the edge is lit up, so
     // the intent is clear, and the press moves the edge or cuts/fills a cell at it.
     if (this.walls.onDown(ctx)) return
-    const id = ctx.objects.pick(ctx.raycaster)
+    // The model or the spawn nearest along the click: a creature on a building's floor is the creature.
+    const { id, spawn } = pickNearest(ctx.objects, ctx.spawns, ctx.raycaster)
     if (id !== null) {
       this.pressObject(ctx, id, hit, e.shiftKey)
       return
@@ -490,9 +492,8 @@ export class SelectTool implements Tool {
       return
     }
     if (ui.pathEdit && editor.selectedSpawn && this.pressPath(ctx, spawnKey(editor.selectedSpawn))) return
-    // No model under the cursor: a creature or object of the region there is selected instead, and
-    // a drag moves it. The panel gets a copy, so its state never wraps the drawn spawn.
-    const spawn = ctx.spawns.pick(ctx.raycaster)
+    // A creature or object of the region (or nothing) is selected, and a drag moves it. The panel
+    // gets a copy, so its state never wraps the drawn spawn.
     selectSpawn(spawn)
     if (spawn) {
       if (editor.selectedIds.length) selectObjects(ctx.objects, [])

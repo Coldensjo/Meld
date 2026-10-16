@@ -68,6 +68,7 @@ import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
+import { pickNearest } from '../world/pickNearest'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
@@ -630,8 +631,7 @@ export class Engine {
         // Alt+click is the pipette: a model's type to place, or the ground's texture to paint with.
         if (e.altKey && (editor.tool === 'select' || editor.tool === 'place')) {
           this.raycaster.setFromCamera(this.ndc, this.camera)
-          const spawn = this.doc.spawnLayer.pick(this.raycaster)
-          const id = spawn ? null : this.objects.pick(this.raycaster)
+          const { spawn, id } = pickNearest(this.objects, this.doc.spawnLayer, this.raycaster)
           const o = id !== null ? this.objects.objects.get(id) : undefined
           if (spawn) void pickSpawn(spawn)
           else if (o) pickModel(o)
@@ -1437,7 +1437,7 @@ export class Engine {
     this.raycaster.setFromCamera(this.ndc, this.camera)
     const items: ContextItem[] = []
     let title = ''
-    const spawn = this.doc.spawnLayer.pick(this.raycaster)
+    const { spawn, id } = pickNearest(this.objects, this.doc.spawnLayer, this.raycaster)
     if (spawn) {
       if (editor.tool !== 'select') editor.tool = 'select'
       selectSpawn(spawn)
@@ -1450,7 +1450,6 @@ export class Engine {
       items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
       items.push({ separator: true }, { label: 'Delete spawn', shortcut: 'Del', danger: true, run: () => this.deleteSelectedSpawn() })
     } else {
-      const id = this.objects.pick(this.raycaster)
       const o = id !== null ? this.objects.objects.get(id) : undefined
       if (!o) return
       if (editor.tool !== 'select' && editor.tool !== 'place') editor.tool = 'select'
