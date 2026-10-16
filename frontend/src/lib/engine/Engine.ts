@@ -1442,7 +1442,7 @@ export class Engine {
       if (editor.tool !== 'select') editor.tool = 'select'
       selectSpawn(spawn)
       const key = spawnKey(spawn)
-      title = `${spawn.name} (${spawn.kind === 'object' ? 'object' : 'creature'} ${spawn.entry})`
+      title = `${spawn.name} (${spawn.kind === 'object' ? 'object' : 'creature'} ${spawn.entry}${spawn.model ? '' : ', invisible in the game'})`
       if (spawn.kind !== 'object') {
         items.push({ label: 'Edit creature…', run: () => (ui.creatureEditor = { key, entry: spawn.entry }) })
         items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })

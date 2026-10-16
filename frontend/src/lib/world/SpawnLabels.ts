@@ -44,8 +44,12 @@ function labelText(s: vmangos.WorldSpawn): string {
   return `${s.name}\n${s.subname}\n${levelLine(s)}`
 }
 
-/** "Level 60 Elite" for a creature (no rank word for a normal one); nothing for a game object. */
+/**
+ * "Level 60 Elite" for a creature (no rank word for a normal one); "Invisible in the game" for a
+ * spawn with no model (#140); nothing for any other game object.
+ */
 function levelLine(s: vmangos.WorldSpawn): string {
+  if (!s.model) return 'Invisible in the game'
   if (s.kind === 'object') return ''
   const lv = levelText(s.levelMin, s.levelMax)
   const rank = s.rank > 0 ? rankName(s.rank) : ''

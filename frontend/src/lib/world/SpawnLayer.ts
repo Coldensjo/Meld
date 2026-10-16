@@ -10,7 +10,7 @@ import { cullForShadows } from './shadowReach'
 interface SpawnBatch {
   mesh: THREE.InstancedMesh
   kind: SpawnKind
-  /** The spawn type every spawn of the batch has, or 'cone' for the markers. */
+  /** The spawn type every spawn of the batch has, or 'cone' and 'invisible' for the markers. */
   type: string
   ready: boolean
   all: vmangos.WorldSpawn[]
@@ -72,8 +72,10 @@ function spawnMatrix(s: vmangos.WorldSpawn, model: boolean, out: THREE.Matrix4) 
 /**
  * The creatures and game objects a region's world database places. Each spawn shows its client
  * model, one instanced mesh per model and kind, as objects are drawn. A spawn whose model is still
- * loading, or has none, shows a coloured cone at its spawn point instead, so nothing draws as the
- * loader's placeholder box.
+ * loading (or failed to load) shows a coloured cone at its spawn point instead, so nothing draws as
+ * the loader's placeholder box. A spawn with no model at all (a display of none, such as the damage
+ * trap in a campfire) is invisible in the game too, and shows as a small wireframe diamond, so a
+ * cone stands out as a model that hasn't come (#140).
  *
  * Spawns can be edited: `touch` keeps a spawn's database state before its first edit, so `edits`
  * can list what changed for the world database (see world/spawnEdits.ts).
@@ -89,6 +91,10 @@ export class SpawnLayer {
   private readonly cone = new THREE.ConeGeometry(1.2, 4, 6).translate(0, 2, 0)
   private readonly coneMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(
     KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k] })]),
+  )
+  private readonly invisible = new THREE.OctahedronGeometry(0.8).translate(0, 1, 0)
+  private readonly invisibleMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(
+    KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k], wireframe: true })]),
   )
   private readonly unsubscribe = onAssetLoaded((type) => {
     if (this.types.has(type)) this.rebuild()
@@ -329,20 +335,22 @@ export class SpawnLayer {
       const type = spawnType(s)
       const asset = type && isWowType(type) ? getAsset(type) : null
       const ready = asset?.ready === true
-      const key = ready ? `${s.kind}|${type}` : `${s.kind}|cone`
+      const marker = type === '' ? 'invisible' : 'cone'
+      const key = ready ? `${s.kind}|${type}` : `${s.kind}|${marker}`
       let b = batches.get(key)
       if (!b) {
-        b = { kind: s.kind as SpawnKind, type: ready ? type : 'cone', items: [] }
+        b = { kind: s.kind as SpawnKind, type: ready ? type : marker, items: [] }
         batches.set(key, b)
       }
       b.items.push(s)
     }
     const m = new THREE.Matrix4()
     for (const b of batches.values()) {
-      const asset = b.type !== 'cone' ? getAsset(b.type) : null
+      const invisible = b.type === 'invisible'
+      const asset = b.type !== 'cone' && !invisible ? getAsset(b.type) : null
       const ready = asset?.ready === true
-      const geometry = ready ? asset.geometry : this.cone
-      const material = ready ? asset.material : this.coneMaterials.get(b.kind)!
+      const geometry = ready ? asset.geometry : invisible ? this.invisible : this.cone
+      const material = ready ? asset.material : (invisible ? this.invisibleMaterials : this.coneMaterials).get(b.kind)!
       const mesh =
         ready && asset.skeleton ? new SkinnedInstancedMesh(geometry, material, b.items.length, asset.skeleton) : new THREE.InstancedMesh(geometry, material, b.items.length)
       cullForShadows(mesh)
@@ -380,5 +388,7 @@ export class SpawnLayer {
     this.clearMeshes()
     this.cone.dispose()
     for (const m of this.coneMaterials.values()) m.dispose()
+    this.invisible.dispose()
+    for (const m of this.invisibleMaterials.values()) m.dispose()
   }
 }
