@@ -7,6 +7,7 @@
   import { FALLOFF_CURVES } from '../lib/tools/brush'
   import { LIQUID_TYPES } from '../lib/water/liquids'
   import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
+  import { rulesEmpty } from '../lib/tools/doodadBrush'
   import { areaName, loadAreas } from '../lib/wow/areas'
   import { activeBrushStack } from '../lib/tools/StampTool'
   import { chooseBrushImageFolder, listBrushImages, useBrushImage } from '../lib/io/brushImages'
@@ -438,6 +439,7 @@
     </select>
     <OptSlider label="Max slope" bind:value={sb.maxSlope} min={0} max={90} step={1} digits={0} width={50} title="No creature on ground steeper than this many degrees (90 allows any)" />
     <label class="check" title="No creature in the sea or a painted liquid"><input type="checkbox" bind:checked={sb.avoidWater} /> Keep out of water</label>
+    <button class:active={!rulesEmpty(sb.rules)} onclick={() => (ui.dialog = 'spawnRules')} title="Only on or never on some textures, within a height range, off holes">Rules…</button>
     <span class="dim">drag to fill to the density · <kbd>Ctrl</kbd>+drag deletes the brush's creatures · File › Save Spawns to Database writes them</span>
     <div class="divider"></div>
   {:else if editor.tool === 'doodad'}

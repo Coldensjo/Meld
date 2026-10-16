@@ -666,6 +666,13 @@ target for 20 per 100×100 yd in a 40 yd circle), all at least 8 yd apart, each 
 template's levels, wander 5 and respawn 300, and 10 spawn edits. One undo removes them, and
 Ctrl+drag erases them as one step. `spawns.frame(ctx, point)` shows the planned ghosts; Models mode hides them.
 
+- Placement rules (#196, the options bar's Rules…, `SpawnRulesDialog.svelte` over the shared
+  `PlacementRulesForm.svelte`): probe `__engine.tools.doodad.spawns.groundAllows(__engine.ctx, x, z)`
+  over x 120 to 240, z 290 to 410 (step 3) and read each point's weights from `spawns.ground`
+  (`ToolGround`, after `ground.at(ctx, x, z)`). Without rules all 340 cobblestone points around the abbey
+  are allowed; with `prefs.spawnBrush.rules.onTextures = ['Tileset\\Elwynn\\ElwynnGrassBase.blp']` none
+  are, and all 594 grass points still are.
+
 - Trap: T3 Code's hidden preview throttles timers (once a second, slower after a while), so a probe
   that awaits many `setTimeout`s runs for minutes and every later evaluate queues behind it. Wait with
   `MessageChannel` turns that check `performance.now()` instead.

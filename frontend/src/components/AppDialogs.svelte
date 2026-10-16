@@ -14,6 +14,7 @@
   import LightsDialog from './LightsDialog.svelte'
   import BrushStackDialog from './BrushStackDialog.svelte'
   import TextureLooksDialog from './TextureLooksDialog.svelte'
+  import SpawnRulesDialog from './SpawnRulesDialog.svelte'
   import HeightmapImportDialog from './HeightmapImportDialog.svelte'
   import RecoveryDialog from './RecoveryDialog.svelte'
   import FitGroundDialog from './FitGroundDialog.svelte'
@@ -365,6 +366,8 @@
   <BrushStackDialog onclose={close} />
 {:else if ui.dialog === 'looks'}
   <TextureLooksDialog onclose={close} />
+{:else if ui.dialog === 'spawnRules'}
+  <SpawnRulesDialog onclose={close} />
 {:else if ui.dialog === 'heightmap'}
   <HeightmapImportDialog onclose={close} />
 {:else if ui.dialog === 'watermap'}

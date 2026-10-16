@@ -2,6 +2,7 @@
 // brush paints models. Its templates come with weights; the brush keeps the creatures under it at a
 // density and never closer to each other than its spacing, and gives each spawn the brush's level,
 // wander, movement and respawn. Kept free of three.js so it can be tested on its own.
+import type { PlacementRules } from './doodadBrush'
 
 /** A creature template in the brush, as the browser's Creatures tab gives it, with its weight. */
 export interface SpawnBrushEntry {
@@ -38,6 +39,8 @@ export interface SpawnBrush {
 	/** No creature on ground steeper than this (degrees; 90 allows any), nor in water with `avoidWater`. */
 	maxSlope: number
 	avoidWater: boolean
+	/** The doodad brush's placement rules (textures, height, holes) besides those two (#196); missing for anywhere. */
+	rules?: PlacementRules
 }
 
 export function newSpawnBrush(): SpawnBrush {

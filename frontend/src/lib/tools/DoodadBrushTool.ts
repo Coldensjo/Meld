@@ -9,41 +9,8 @@ import { previewParticles } from '../world/ParticleLayer'
 import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
 import { placementEuler } from '../world/placement'
 import { MAX_ATTEMPTS, SpacingGrid, attemptRate, candidate, fillAttempts, fits, fitsOn, newBrush, pickEntry, rulesAllow, uniqueName, type DoodadBrush, type GroundProbe } from './doodadBrush'
-import { textureWeightAt } from './TerrainTools'
-import type { Terrain } from '../terrain/Terrain'
+import { ToolGround } from './toolGround'
 import type { SpawnBrushTool } from './SpawnBrushTool'
-
-/** The ground at a point for the brush's placement rules; filled by `at`, reused for every check. */
-class ToolGround implements GroundProbe {
-  height = 0
-  sea: number | null = null
-  hole = false
-  liquid = false
-  private t: Terrain | null = null
-  private x = 0
-  private z = 0
-
-  at(ctx: ToolContext, x: number, z: number) {
-    const t = ctx.terrain
-    this.t = t
-    this.x = x
-    this.z = z
-    this.height = t.heightAt(x, z)
-    this.sea = editor.waterEnabled ? editor.waterLevel : null
-    this.hole = t.isHole(x, z)
-    this.liquid = ctx.liquids.covers(x, z, t.cellSize, this.height)
-  }
-
-  slope() {
-    const t = this.t!
-    return groundSlopeDeg((px, pz) => t.heightAt(px, pz), this.x, this.z, t.cellSize)
-  }
-
-  textureWeight(path: string) {
-    const i = editor.palette.indexOf(path)
-    return i < 0 ? 0 : textureWeightAt(this.t!, this.x, this.z, i)
-  }
-}
 
 /** The brush the Doodad tool paints with: the preference's pick, else the first one; null with none made. */
 export function activeDoodadBrush(): DoodadBrush | null {

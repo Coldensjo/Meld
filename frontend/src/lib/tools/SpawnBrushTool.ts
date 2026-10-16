@@ -9,6 +9,8 @@ import { spawnType } from '../world/spawnInfo'
 import { spawnAdd, spawnDelete } from '../world/spawnEdits'
 import { spawnKey, spawnOrientation } from '../world/SpawnLayer'
 import { groundSlopeDeg } from '../world/groundTilt'
+import { rulesAllow, rulesEmpty } from './doodadBrush'
+import { ToolGround } from './toolGround'
 import { brushLevels, facingTurn, pickSpawnEntry, spacedOut, targetCount, type SpawnBrush, type SpawnBrushEntry } from './spawnBrush'
 
 /** What the spawn brush needs from the Engine. */
@@ -239,6 +241,9 @@ export class SpawnBrushTool implements Tool {
 	}
 
 	/** Whether the brush's rules let a creature stand at (x, z): on the map, no hole, not too steep, and out of water if asked. */
+	/** The ground the placement rules look at, reused for every check. */
+	private ground = new ToolGround()
+
 	private groundAllows(ctx: ToolContext, x: number, z: number): boolean {
 		const t = ctx.terrain
 		const brush = this.brush
@@ -246,6 +251,10 @@ export class SpawnBrushTool implements Tool {
 		const g = t.heightAt(x, z)
 		if (brush.maxSlope < 90 && groundSlopeDeg((px, pz) => t.heightAt(px, pz), x, z, t.cellSize) > brush.maxSlope) return false
 		if (brush.avoidWater && ((editor.waterEnabled && g < editor.waterLevel) || ctx.liquids.covers(x, z, t.cellSize, g))) return false
+		if (brush.rules && !rulesEmpty(brush.rules)) {
+			this.ground.at(ctx, x, z)
+			if (!rulesAllow(brush.rules, this.ground)) return false
+		}
 		return true
 	}
 
