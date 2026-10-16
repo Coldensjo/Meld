@@ -176,6 +176,19 @@
         { kind: 'action', label: 'Replace Texture Everywhere…', run: () => (ui.dialog = 'textures') },
         { kind: 'sep' },
         { kind: 'check', label: 'Climb (ground too steep to walk up)', shortcut: 'Shift+F2', checked: prefs.climbView, toggle: () => (prefs.climbView = !prefs.climbView) },
+        { kind: 'check', label: 'Height contours', checked: prefs.showContours, toggle: () => (prefs.showContours = !prefs.showContours) },
+        ...radios(
+          [
+            ['Contours every 4 yards', 4],
+            ['Contours every 10 yards', 10],
+            ['Contours every 25 yards', 25],
+          ],
+          () => prefs.contourStep,
+          (v) => {
+            prefs.contourStep = v
+            prefs.showContours = true
+          },
+        ),
         ...radios(
           CLIMB_ANGLES.map((a): [string, number] => [`Steepest walkable slope ${a}°`, a]),
           () => prefs.climbAngle,

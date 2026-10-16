@@ -332,6 +332,9 @@ export const prefs = $state({
   showAreaTriggers: false,
   /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb; Meld's Terrain › Climb). */
   climbView: false,
+  /** View › Height contours (#22, Noggit Red's): dark lines along the ground every contourStep yards of height. */
+  showContours: false,
+  contourStep: 4,
   /** The climb view's steepest walkable slope, in degrees (Noggit Red's default is 49). */
   climbAngle: 49,
   /** Show each kind of layer; hiding one doesn't change the map. */

@@ -793,6 +793,7 @@ export class Engine {
     u.gridVisible.value = editor.grid ? 1 : 0
     u.unpaintable.value = this.prefs?.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
     u.climbCos.value = this.prefs?.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
+    u.contourStep.value = this.prefs?.showContours ? this.prefs.contourStep : 0
     u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
     this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
     this.terrain.setMapDataOverlay(editor.tool !== 'mapdata' ? 0 : editor.mapDataMode === 'area' ? 1 : editor.mapDataMode === 'impassable' ? 2 : 3)

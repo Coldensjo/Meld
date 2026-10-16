@@ -129,6 +129,8 @@ uniform float gridVisible;
 uniform float unpaintable;
 // The climb view: the cosine of the steepest walkable slope, or 0 for off.
 uniform float climbCos;
+// View › Height contours (#22): yards between contour lines, or 0 for off.
+uniform float contourStep;
 // The width of a paint chunk in world units for the chunk lines; 0 hides them.
 uniform float chunkLineWorld;
 // The paint chunk under the cursor as world x0, z0, x1, z1; tinted so the Layers panel's chunk is visible.
@@ -299,6 +301,14 @@ void main() {
     if (abs(face.y) < climbCos) lit.r = mix(lit.r, 1.0, 0.5);
   }
 
+  if (contourStep > 0.0) {
+    // Noggit Red's contours (terrain_frag.glsl, contour_alpha): the ground darkened along each
+    // height that is a multiple of the step, the line a screen pixel or so wide at any distance.
+    float f = abs(fract((vWorldPos.y + contourStep * 0.5) / contourStep) - 0.5);
+    float df = abs(fwidth(vWorldPos.y) / contourStep);
+    lit *= smoothstep(0.0, df, f);
+  }
+
   if (gridVisible > 0.5) {
     vec2 g = abs(fract(vWorldPos.xz / (cellSize * 4.0) - 0.5) - 0.5) / fwidth(vWorldPos.xz / (cellSize * 4.0));
     float line = 1.0 - min(min(g.x, g.y), 1.0);
@@ -433,6 +443,7 @@ export function createTerrainMaterial(
     brushImgRot: { value: new THREE.Vector2(1, 0) },
     gridVisible: { value: 0 },
     climbCos: { value: 0 },
+    contourStep: { value: 0 },
     unpaintable: { value: -1 },
     chunkLineWorld: { value: 0 },
     chunkHover: { value: new THREE.Vector4() },

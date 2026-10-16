@@ -20,6 +20,8 @@ const OLD_PREFIX = 'WorldEditor scene '
 const VIEW_PREFS = [
   'wireframe',
   'climbView',
+  'showContours',
+  'contourStep',
   'showBoxes',
   'clientLighting',
   'climbAngle',
