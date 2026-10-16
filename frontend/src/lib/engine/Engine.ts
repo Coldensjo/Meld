@@ -269,6 +269,11 @@ export class Engine {
   readonly paths = new SpawnPaths()
   /** Current hour; advances on its own when the day cycle is on. */
   private hour = 13
+
+  /** The hour the sky shows now, which the day cycle moves on without writing reactive state. */
+  currentHour(): number {
+    return this.hour
+  }
   private prefs: Prefs | null = null
   private tools: Record<ToolId, Tool>
   private activeToolId: ToolId | null = null

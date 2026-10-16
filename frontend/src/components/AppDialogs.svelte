@@ -141,6 +141,8 @@
         ['M', 'Minimap window: the map from above with the camera\'s spot; a click moves the camera there'],
         ['F', 'Focus selected object'],
         ['Shift+F2', 'Climb view on/off: ground too steep to walk up is tinted red (the slope is in the View menu)'],
+        ['N / Shift+N', 'Day cycle faster / slower (a day in 40, 20, 10, 5, 2 or 1 min; slower than 40 pauses it)'],
+        ['J', 'Pause / run the day cycle'],
       ],
     ],
     [

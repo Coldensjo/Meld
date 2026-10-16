@@ -196,6 +196,30 @@
       return
     }
 
+    // The day cycle's keys (#20), Noggit Red's N and J; its B (slower) is Paint here, so Shift+N.
+    if (key === 'n' || key === 'j') {
+      if (key === 'j') {
+        const on = !prefs.dayCycle
+        if (!on) prefs.timeOfDay = Math.round(engine.currentHour() * 100) / 100
+        prefs.dayCycle = on
+        setStatus(on ? `Day cycle running: a day in ${prefs.cycleMinutes} min (N faster, Shift+N slower).` : 'Day cycle paused (J runs it again).', 3000)
+      } else {
+        const step = stepCycle(prefs.dayCycle ? prefs.cycleMinutes : 0, !e.shiftKey)
+        if (step === 0) {
+          prefs.timeOfDay = Math.round(engine.currentHour() * 100) / 100
+          prefs.dayCycle = false
+          setStatus('Day cycle paused (N runs it again).', 3000)
+        } else {
+          if (!prefs.dayCycle) prefs.timeOfDay = Math.round(engine.currentHour() * 100) / 100
+          prefs.cycleMinutes = step
+          prefs.dayCycle = true
+          setStatus(`Day cycle: a day in ${step} min (N faster, Shift+N slower, J pauses).`, 3000)
+        }
+      }
+      e.preventDefault()
+      return
+    }
+
     const tool = TOOLS.find((t) => t.key === e.key || t.letter?.toLowerCase() === key)
     if (tool) editor.tool = tool.id
     else if (e.key === '[' || e.key === ']') engine.stepBrush(e.key === ']' ? 1 : -1)
@@ -216,6 +240,15 @@
     else if (key === 'm') ui.minimap = !ui.minimap
     else return
     e.preventDefault()
+  }
+
+  /** The day cycle's speeds, a day in so many minutes, slowest first; 0 is paused. */
+  const CYCLE_MINUTES = [40, 20, 10, 5, 2, 1]
+  /** The next speed faster or slower than a day in `minutes` (0 paused); slower than the slowest pauses. */
+  function stepCycle(minutes: number, faster: boolean): number {
+    if (minutes <= 0) return faster ? CYCLE_MINUTES[0] : 0
+    if (faster) return CYCLE_MINUTES.find((m) => m < minutes) ?? CYCLE_MINUTES[CYCLE_MINUTES.length - 1]
+    return [...CYCLE_MINUTES].reverse().find((m) => m > minutes) ?? 0
   }
 
   function onBeforeUnload(e: BeforeUnloadEvent) {
