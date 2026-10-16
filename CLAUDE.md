@@ -266,6 +266,11 @@ cd frontend && pnpm build   # frontend only
   and not-on textures, liquids, holes) and each model an `align` toward the slope; Terrain › Fill
   Selection / Fill Mask with Doodad Brush runs it over a whole area as one undo step
   (`DoodadBrushTool.fill`, spaced through a `SpacingGrid`).
+  Its Creatures mode (`editor.doodadMode`, #171) hands the input to the spawn brush
+  (`tools/SpawnBrushTool.ts`, `tools/spawnBrush.ts`, `prefs.spawnBrush`): creature templates with weights,
+  picked in the browser's Creatures tab, filled to a density (creatures per 100 by 100 yd) and spacing,
+  with the brush's level, wander, respawn and facing; the Engine supplies guids and looks
+  (`brushCreature`, `brushLook`). A stroke is one undo step of ordinary unsaved spawn edits.
 - **Attachments**: a `WorldObject` with `parent` is attached.
   - Its x/yOff/z/rotY/scale are local to the parent (`matrixOf` walks the chain). Roots use
     world x/z and yOff above the terrain.

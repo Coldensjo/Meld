@@ -46,6 +46,9 @@ import { layAlphamapChunk, textureWeights } from '../terrain/alphamap'
 import { lookOf, looksByIndex, type TextureLooks } from '../world/textureLooks'
 import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool, activeDoodadBrush } from '../tools/DoodadBrushTool'
+import { SpawnBrushTool } from '../tools/SpawnBrushTool'
+import { spawnType } from '../world/spawnInfo'
+import type { SpawnBrushEntry } from '../tools/spawnBrush'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import { turnObjectClip } from '../world/clipTurn'
 import { mirrorClip, rotateClip } from '../world/clipRotate'
@@ -360,6 +363,8 @@ export class Engine {
   private outlineMatrices: THREE.Matrix4[] = []
   private placeTool = new PlaceTool({ placeSpawn: (at) => this.placeSpawnAt(at) })
   private doodadTool = new DoodadBrushTool()
+  /** The looks of the spawn brush's templates (#171), by display and equipment; null while one is read. */
+  private brushLooks = new Map<string, vmangos.LookResult | null>()
   /** Accumulated Ctrl+wheel delta, so smooth trackpads rotate in steps too. */
   private wheelAcc = 0
   /** Which modifier the accumulated wheel delta belongs to, so a remainder never carries over to the other. */
@@ -431,6 +436,13 @@ export class Engine {
       commitPaste: () => this.commitPaste(),
       cancelPaste: () => this.cancelPaste(),
       placeSpawn: (at) => this.placeSpawnAt(at),
+    })
+    this.doodadTool.spawns = new SpawnBrushTool({
+      newCreature: (e, x, y, z, o) => this.brushCreature(e, x, y, z, o),
+      ghostType: (e) => {
+        const look = this.brushLook(e)
+        return look ? spawnType({ model: look.model, look: look.look, anim: look.anim }) : ''
+      },
     })
     this.tools = {
       select: this.selectTool,
@@ -1678,6 +1690,45 @@ export class Engine {
 
   /** The guid the next placed creature gets; 0 until the world database has been asked. */
   private nextCreatureGuid = 0
+  /** A read of the database's next creature guid is under way (for the spawn brush, which can't wait). */
+  private guidReading = false
+
+  /** The spawn brush's look for a template: its result, or null while it is read (asked for then). */
+  private brushLook(e: SpawnBrushEntry): vmangos.LookResult | null {
+    const key = `${e.display}|${e.equipment}`
+    if (this.brushLooks.has(key)) return this.brushLooks.get(key) ?? null
+    this.brushLooks.set(key, null)
+    SpawnLook(e.display, e.equipment, 0, 0, 1)
+      .then((look) => this.brushLooks.set(key, look))
+      .catch((err) => {
+        this.brushLooks.delete(key)
+        setStatus(`Could not dress ${e.name}: ${err}`, 6000)
+      })
+    return null
+  }
+
+  /**
+   * A new creature of a spawn brush template (#171), with the next free guid, as placeCreature gives
+   * one; null while its look or the database's next guid is still read.
+   */
+  private brushCreature(e: SpawnBrushEntry, x: number, y: number, z: number, orientation: number): vmangos.WorldSpawn | null {
+    const look = this.brushLook(e)
+    if (!this.nextCreatureGuid) {
+      if (!this.guidReading) {
+        this.guidReading = true
+        NextCreatureGUID()
+          .then((g) => (this.nextCreatureGuid = Math.max(this.nextCreatureGuid, g)))
+          .catch((err) => setStatus(`Could not read the next creature guid: ${err}`, 6000))
+          .finally(() => (this.guidReading = false))
+      }
+      return null
+    }
+    if (!look) return null
+    let guid = this.nextCreatureGuid
+    for (const doc of this.documents) for (const s of doc.spawnLayer.spawns) if (s.kind !== 'object') guid = Math.max(guid, s.guid + 1)
+    this.nextCreatureGuid = guid + 1
+    return newCreatureSpawn({ ...e, model: '', look: '', displayScale: 1 }, guid, x, y, z, orientation, look)
+  }
 
   /**
    * Spawns creature template `t` at `at` in the active region, facing the camera, as one undoable

@@ -53,6 +53,8 @@
   const holeMode = $derived(editor.tool === 'sculpt' && editor.sculptMode === 'hole')
   // The Map data tool marks whole chunks or cells under the brush, so only its size applies.
   const mapData = $derived(editor.tool === 'mapdata')
+  // The spawn brush (#171) takes only the brush's size.
+  const spawnBrushing = $derived(editor.tool === 'doodad' && editor.doodadMode === 'creatures')
 
   /** The client's zones for the Map data tool's picker, read when the tool is first opened. */
   let areas = $state<vmangos.Area[]>([])
@@ -402,6 +404,43 @@
     <span class="dim">The size and strength are the stack's: its brushes take them unless they have their own.</span>
     <div class="divider"></div>
   {:else if editor.tool === 'doodad'}
+    <div class="seg" title="Paint models with a doodad brush, or creatures with the spawn brush">
+      <button class:active={editor.doodadMode === 'models'} onclick={() => (editor.doodadMode = 'models')}>Models</button>
+      <button class:active={editor.doodadMode === 'creatures'} onclick={() => (editor.doodadMode = 'creatures')}>Creatures</button>
+    </div>
+  {/if}
+  {#if editor.tool === 'doodad' && editor.doodadMode === 'creatures'}
+    {@const sb = prefs.spawnBrush}
+    {#each sb.entries as e, i (e.entry)}
+      <span class="chip" title="{e.name} (entry {e.entry}): its weight among the brush's creatures">
+        {e.name}
+        <input class="weight" type="number" min="0" max="100" step="1" bind:value={e.weight} aria-label="Weight of {e.name}" />
+        <button class="x" onclick={() => (sb.entries = sb.entries.filter((_, j) => j !== i))} title="Take {e.name} out of the brush" aria-label="Remove {e.name}">×</button>
+      </span>
+    {:else}
+      <span class="dim">Pick creatures in the browser's Creatures tab below to put them in the brush.</span>
+    {/each}
+    <OptSlider label="Per 100×100 yd" bind:value={sb.density} min={1} max={60} step={1} digits={0} width={60} title="How many creatures the brush fills 100 by 100 yards of ground with" />
+    <OptSlider label="Spacing" bind:value={sb.spacing} min={0} max={40} step={0.5} digits={1} width={60} title="No two creatures closer than this many yards (social aggro)" />
+    <select class="curve" bind:value={sb.movement} title="How the creatures move" aria-label="Movement">
+      <option value="random">Wander</option>
+      <option value="stay">Stay</option>
+    </select>
+    {#if sb.movement === 'random'}
+      <OptSlider label="Radius" bind:value={sb.wander} min={0} max={40} step={0.5} digits={1} width={50} title="How far each creature wanders from its spawn point, in yards" />
+    {/if}
+    <OptSlider label="Respawn s" bind:value={sb.respawnSecs} min={10} max={3600} step={10} digits={0} width={60} title="Respawn time in seconds" />
+    <OptSlider label="Level" bind:value={sb.levelMin} min={0} max={63} step={1} digits={0} width={40} title="Lowest level, or 0 for the template's own range" />
+    <OptSlider label="to" bind:value={sb.levelMax} min={0} max={63} step={1} digits={0} width={40} title="Highest level, or 0 for the template's own range" />
+    <select class="curve" bind:value={sb.facing} title="Which way each creature faces" aria-label="Facing">
+      <option value="random">Face anywhere</option>
+      <option value="centre">Face the centre</option>
+    </select>
+    <OptSlider label="Max slope" bind:value={sb.maxSlope} min={0} max={90} step={1} digits={0} width={50} title="No creature on ground steeper than this many degrees (90 allows any)" />
+    <label class="check" title="No creature in the sea or a painted liquid"><input type="checkbox" bind:checked={sb.avoidWater} /> Keep out of water</label>
+    <span class="dim">drag to fill to the density · <kbd>Ctrl</kbd>+drag deletes the brush's creatures · File › Save Spawns to Database writes them</span>
+    <div class="divider"></div>
+  {:else if editor.tool === 'doodad'}
     <select class="curve" value={activeDoodadBrush()?.name ?? ''} onchange={(e) => (prefs.doodadBrush = (e.target as HTMLSelectElement).value)} disabled={!prefs.doodadBrushes.length} title="The brush to paint with" aria-label="Doodad brush">
       {#if !prefs.doodadBrushes.length}<option value="">No brushes yet</option>{/if}
       {#each prefs.doodadBrushes as b (b.name)}
@@ -512,10 +551,10 @@
     {#if !vertexMode}
       <OptSlider label="Size" bind:value={editor.brush.radius} min={1} max={MAX_BRUSH_RADIUS} step={0.5} digits={1} title="Brush radius ( [ / ] )" />
     {/if}
-    {#if !paintingWater && !mapData}
+    {#if !paintingWater && !mapData && !spawnBrushing}
       <OptSlider label="Strength" bind:value={editor.brush.strength} min={0.02} max={editor.tool === 'sculpt' ? 10 : 1} step={0.01} digits={2} title={vertexMode ? 'How fast Shift+drag moves the selected vertices' : editor.tool === 'sculpt' ? 'How fast the ground moves: up to ten times the normal speed, for big mountains' : undefined} />
     {/if}
-    {#if editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !vertexMode && !mapData}
+    {#if editor.tool !== 'road' && editor.tool !== 'place' && !paintingWater && !vertexMode && !mapData && !spawnBrushing}
       <OptSlider label="Falloff" bind:value={editor.brush.falloff} min={0} max={1} step={0.01} digits={2} />
       <select class="curve" bind:value={editor.brush.curve} title="How the brush weight falls off across the falloff band" aria-label="Falloff curve">
         {#each FALLOFF_CURVES as c (c.id)}
@@ -655,6 +694,11 @@
   }
   .dim {
     color: var(--text-dim);
+  }
+  .weight {
+    width: 38px;
+    padding: 0 3px;
+    font: 11px var(--mono);
   }
   .check {
     display: flex;

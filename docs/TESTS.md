@@ -654,6 +654,22 @@ e.history.undo(); e.objects.objects.size            // 0
   and `onUp` with `__engine.ctx`.
 - Trap: an edit to a module the page imported reloads the page, so the region is gone; load the scene again.
 
+## Spawn brush (the Doodad tool's Creatures mode, #171)
+
+Checks: `tools/SpawnBrushTool.ts` (unit tests of the arithmetic in `spawnBrush.test.ts`). In the dev page
+on Northshire (its 347 spawns come from the world database), set `prefs.spawnBrush` to
+`{ ...newSpawnBrush(), entries: [entryFrom(<Young Wolf's template>)], density: 20, spacing: 8 }` (the
+module URL from `SpawnBrushTool.ts`'s source), `editor.doodadMode = 'creatures'`, radius 40, and drive
+`__engine.tools.doodad` (`onDown`, `tick`, `onUp`) at x 300, z 300. The first stroke places nothing:
+it asks Go for the look and the next guid. Wait a couple of seconds and stroke again: 10 wolves (the
+target for 20 per 100×100 yd in a 40 yd circle), all at least 8 yd apart, each with its own guid, the
+template's levels, wander 5 and respawn 300, and 10 spawn edits. One undo removes them, and
+Ctrl+drag erases them as one step. `spawns.frame(ctx, point)` shows the planned ghosts; Models mode hides them.
+
+- Trap: T3 Code's hidden preview throttles timers (once a second, slower after a while), so a probe
+  that awaits many `setTimeout`s runs for minutes and every later evaluate queues behind it. Wait with
+  `MessageChannel` turns that check `performance.now()` instead.
+
 ## Prefabs (#170)
 
 Checks: `wow/prefabs.ts` (TOML, variation; `prefabs.test.ts`), `world/clipTurn.ts`, the Prefabs tab

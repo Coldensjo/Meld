@@ -11,6 +11,7 @@ import { placementEuler } from '../world/placement'
 import { MAX_ATTEMPTS, SpacingGrid, attemptRate, candidate, fillAttempts, fits, fitsOn, newBrush, pickEntry, rulesAllow, uniqueName, type DoodadBrush, type GroundProbe } from './doodadBrush'
 import { textureWeightAt } from './TerrainTools'
 import type { Terrain } from '../terrain/Terrain'
+import type { SpawnBrushTool } from './SpawnBrushTool'
 
 /** The ground at a point for the brush's placement rules; filled by `at`, reused for every check. */
 class ToolGround implements GroundProbe {
@@ -142,16 +143,26 @@ export class DoodadBrushTool implements Tool {
   private ghosts: THREE.Mesh[] = []
   private ghostGroup = new THREE.Group()
 
+  /** The spawn brush, which takes the tool's input in Creatures mode (`editor.doodadMode`, #171); set by the Engine. */
+  spawns: SpawnBrushTool | null = null
+
   constructor() {
     this.ghostGroup.renderOrder = 20
   }
 
+  /** Whether the spawn brush has the input now. */
+  private get creatures() {
+    return editor.doodadMode === 'creatures' && !!this.spawns
+  }
+
   activate(ctx: ToolContext) {
     ctx.scene.add(this.ghostGroup)
+    this.spawns?.activate(ctx)
   }
 
   deactivate(ctx: ToolContext) {
     ctx.scene.remove(this.ghostGroup)
+    this.spawns?.deactivate(ctx)
     this.plan = []
     this.planKey = ''
   }
@@ -173,6 +184,7 @@ export class DoodadBrushTool implements Tool {
   }
 
   onKey(_ctx: ToolContext, e: KeyboardEvent) {
+    if (this.creatures) return false
     if (e.key === 'r' || e.key === 'R') {
       this.spinPreview((e.shiftKey ? -1 : 1) * (Math.PI / 4))
       return true
@@ -182,7 +194,7 @@ export class DoodadBrushTool implements Tool {
 
   /** Whether the preview shows a model of `type`, for the engine to animate it as the placed copies will. */
   previewing(type: string): boolean {
-    if (this.placed || this.erased) return false
+    if (this.creatures || this.placed || this.erased) return false
     const brush = activeDoodadBrush()
     if (!brush) return false
     for (const p of this.plan) if (brush.entries[p.entry]?.type === type) return true
@@ -190,6 +202,10 @@ export class DoodadBrushTool implements Tool {
   }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
+    if (this.creatures) {
+      this.spawns!.onDown(ctx, hit, e)
+      return
+    }
     if (!hit) return
     const brush = activeDoodadBrush()
     if (!brush) {
@@ -223,6 +239,10 @@ export class DoodadBrushTool implements Tool {
   }
 
   tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
+    if (this.creatures) {
+      this.spawns!.tick(ctx, dt, hit)
+      return
+    }
     if (!hit) return
     const brush = activeDoodadBrush()
     if (!brush) return
@@ -231,6 +251,8 @@ export class DoodadBrushTool implements Tool {
   }
 
   onUp(ctx: ToolContext) {
+    // A stroke ends where it began, even if the mode was switched under it.
+    this.spawns?.onUp(ctx)
     const objects = this.objects
     if (objects && this.placed?.length) {
       const saved = this.placed.map((o) => ({ ...o }))
@@ -256,8 +278,10 @@ export class DoodadBrushTool implements Tool {
 
   /** Shows the planned placements as ghost models under the hovering brush. */
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    // Each mode shows only its own ghosts.
+    this.spawns?.frame(ctx, this.creatures ? hit : null)
     const brush = activeDoodadBrush()
-    const hovering = !!hit && !this.placed && !this.erased && !!brush && brush.entries.length > 0
+    const hovering = !this.creatures && !!hit && !this.placed && !this.erased && !!brush && brush.entries.length > 0
     if (!hovering) {
       for (const g of this.ghosts) g.visible = false
       return

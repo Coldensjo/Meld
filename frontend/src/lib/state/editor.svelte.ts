@@ -9,6 +9,7 @@ import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { MaskPick } from '../terrain/maskSelect'
+import { newSpawnBrush, type SpawnBrush } from '../tools/spawnBrush'
 import type { Bookmark } from '../engine/MapDocument'
 import type { BrowserView } from '../wow/browserViews'
 import type { ModelSet } from '../wow/modelSets'
@@ -228,6 +229,8 @@ export const editor = $state({
    * the Place tool does) when `onProps` is on. The brushes themselves are `prefs.doodadBrushes`.
    */
   doodad: { randomRot: true, avoidWater: true, maxSlope: 90, onProps: false },
+  /** The Doodad tool paints models (its doodad brushes) or creatures (the spawn brush, `prefs.spawnBrush`, #171). */
+  doodadMode: 'models' as 'models' | 'creatures',
   /** The primary selected object: the one the gizmo and the Properties panel work on. */
   selected: null as SelectedInfo | null,
   /** Every selected object (see lib/state/selection.ts). The primary is one of them when there is one. */
@@ -472,6 +475,8 @@ export const prefs = $state({
   modelSet: '',
   /** The doodad brushes (tools/doodadBrush.ts) and the name of the one the Doodad brush tool paints with. */
   doodadBrushes: [] as DoodadBrush[],
+  /** The Doodad tool's spawn brush (Creatures mode, #171): its creature templates with weights and its settings. */
+  spawnBrush: newSpawnBrush() as SpawnBrush,
   /** The Stamp tool's brush stacks (tools/brushStack.ts) and the name of the one it applies. */
   brushStacks: [] as BrushStack[],
   brushStack: '',

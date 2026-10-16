@@ -47,7 +47,8 @@
 
 <script lang="ts">
   import PaletteTile from './PaletteTile.svelte'
-  import { editor, prefs, ui } from '../lib/state/editor.svelte'
+  import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
+  import { entryFrom } from '../lib/tools/spawnBrush'
   import type { SearchItem } from '../lib/wow/search'
   import { onDestroy, tick, untrack } from 'svelte'
   import { readView, writeView, type BrowserView } from '../lib/wow/browserViews'
@@ -146,6 +147,15 @@
   const activeKey = $derived(ui.placeCreature ? creatureKey(ui.placeCreature) : ui.placeObject ? objectKey(ui.placeObject) : '')
 
   function pick(t: Tile) {
+    // The Doodad tool's Creatures mode: the creature joins the spawn brush (#171), or weighs more if it is in.
+    if (t.creature && editor.tool === 'doodad' && editor.doodadMode === 'creatures') {
+      const sb = prefs.spawnBrush
+      const had = sb.entries.find((e) => e.entry === t.creature!.entry)
+      if (had) had.weight += 1
+      else sb.entries = [...sb.entries, entryFrom(t.creature)]
+      setStatus(had ? `${t.name} weighs ${had.weight} in the spawn brush now.` : `${t.name} joins the spawn brush.`, 3000)
+      return
+    }
     if (t.creature) {
       ui.placeCreature = t.creature
       ui.placeObject = null
