@@ -988,3 +988,16 @@ left out of `SpawnLayer`'s batches unless View › World events shows their even
   shows only with it, a negative one leaves with it.
 - `wails dev` rebuilds the Go side when a Go file changes, so a new binding usually works in the
   dev page after a reload; if it doesn't, see the stale `wailsjs` trap above.
+
+## Creature editor: Shop tab (npc_vendor, #145)
+
+Checks: the Shop tab lists, adds, reorders and saves what a creature sells. Unit: `vendor_test.go`
+(the SQL, slots, duplicates). Live, in the dev page: `ui.creatureEditor = { key: null, entry: 66 }`
+(Tharynn Bouden, 17 items), click the Shop tab. To test a save without changing the user's world
+database for good, use a creature with no shop (805, Cameron): add an item, Save shop, read it back
+with `await window.go.main.App.ReadVendor(805)`, then remove it and save again (the table is back as
+it was; `select count(*) from npc_vendor where entry=805` is 0).
+- Trap: saving renumbers the slots 0..n in list order, so re-saving a real vendor's list as it was
+  can still change its `slot` values. Test saves on a creature with no shop.
+- Trap: the tab keeps its list while other tabs are shown (it stays mounted, hidden); its unsaved
+  edits count in the editor's "unsaved changes" bar.

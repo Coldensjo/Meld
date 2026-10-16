@@ -114,6 +114,8 @@ export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
 
+export function ReadVendor(arg1:number):Promise<vmangos.Vendor>;
+
 export function RegionHorizon(arg1:string,arg2:number,arg3:number,arg4:number):Promise<Array<vmangos.HorizonTile>>;
 
 export function RegionShadows(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionShadows>;
@@ -148,7 +150,11 @@ export function SaveTextDialog(arg1:string):Promise<string>;
 
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 
+export function SaveVendor(arg1:number,arg2:Array<vmangos.VendorItem>):Promise<string>;
+
 export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTemplate>>;
+
+export function SearchItems(arg1:string):Promise<Array<vmangos.ItemRef>>;
 
 export function SetBenillaPath(arg1:string):Promise<void>;
 

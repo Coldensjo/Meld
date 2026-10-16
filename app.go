@@ -588,6 +588,33 @@ func (a *App) SaveCreature(entry, patch int, values map[string]string) (string, 
 	return vmangos.SaveCreature(server, entry, patch, values)
 }
 
+// ReadVendor reads what a creature template sells (npc_vendor), for the creature editor's Shop tab.
+func (a *App) ReadVendor(entry int) (vmangos.Vendor, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.Vendor{}, err
+	}
+	return vmangos.ReadVendor(server, entry)
+}
+
+// SaveVendor replaces what a creature template sells with items, in order, and returns the SQL it ran.
+func (a *App) SaveVendor(entry int, items []vmangos.VendorItem) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SaveVendor(server, entry, items)
+}
+
+// SearchItems lists up to 100 item templates whose name has text in it (or whose entry it is).
+func (a *App) SearchItems(text string) ([]vmangos.ItemRef, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SearchItems(server, text, 100)
+}
+
 // CreateCreature adds a creature template named name, a copy of template base (or the defaults
 // for 0), and returns its entry.
 func (a *App) CreateCreature(base int, name string) (int, error) {

@@ -723,6 +723,22 @@ export namespace vmangos {
 	        this.heights = source["heights"];
 	    }
 	}
+	export class ItemRef {
+	    entry: number;
+	    name: string;
+	    quality: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ItemRef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.entry = source["entry"];
+	        this.name = source["name"];
+	        this.quality = source["quality"];
+	    }
+	}
 	
 	export class LightKey {
 	    t: number;
@@ -1476,6 +1492,65 @@ export namespace vmangos {
 	}
 	
 	
+	
+	export class VendorItem {
+	    item: number;
+	    name: string;
+	    quality: number;
+	    maxCount: number;
+	    incrTime: number;
+	    itemFlags: number;
+	    condition: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new VendorItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.item = source["item"];
+	        this.name = source["name"];
+	        this.quality = source["quality"];
+	        this.maxCount = source["maxCount"];
+	        this.incrTime = source["incrTime"];
+	        this.itemFlags = source["itemFlags"];
+	        this.condition = source["condition"];
+	    }
+	}
+	export class Vendor {
+	    items: VendorItem[];
+	    templateId: number;
+	    template: VendorItem[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Vendor(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], VendorItem);
+	        this.templateId = source["templateId"];
+	        this.template = this.convertValues(source["template"], VendorItem);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	
 	export class WeaponEntry {

@@ -8,6 +8,7 @@
   import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
   import CreaturePreview from './CreaturePreview.svelte'
   import DisplayPicker from './DisplayPicker.svelte'
+  import ShopTab from './ShopTab.svelte'
   import SpawnFields from './SpawnFields.svelte'
 
   // The creature editor: one creature full screen. The left shows it big and animated; the right
@@ -15,7 +16,7 @@
   // and its creature template, every column of creature_template, saved to the world database with
   // Save. A new creature starts here too, from scratch or as a copy.
 
-  type Tab = 'spawn' | 'creature' | 'looks'
+  type Tab = 'spawn' | 'creature' | 'looks' | 'shop'
 
   const target = $derived(ui.creatureEditor)
   /** The spawn the editor was opened from, as the panel's copy of it. */
@@ -30,6 +31,8 @@
   let saving = $state(false)
   let confirmClose = $state(false)
 
+  /** Unsaved edits in the Shop tab, which has its own Save. */
+  let shopDirty = $state(false)
   const changes = $derived(changedValues(values, saved))
   const changeCount = $derived(Object.keys(changes).length)
   const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name)) : [])
@@ -44,6 +47,7 @@
     if (id === loadedFor) return
     loadedFor = id
     tab = t.key ? 'spawn' : 'creature'
+    shopDirty = false
     if (t.entry > 0) copySource = null
     record = null
     error = ''
@@ -112,11 +116,17 @@
     if (m && !m.toLowerCase().endsWith('.wmo')) ModelAnimations(m).then((a) => (anims = a ?? [])).catch(() => (anims = []))
   })
 
+  const unsavedText = $derived(
+    [changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the creature` : '', shopDirty ? 'unsaved changes to the shop' : '']
+      .filter(Boolean)
+      .join(', and ') + '.',
+  )
+
   /** What to do once unsaved changes are discarded: close, unless something else asked first. */
   let afterDiscard: (() => void) | null = null
 
   function close(force = false) {
-    if (changeCount > 0 && !force) {
+    if ((changeCount > 0 || shopDirty) && !force) {
       afterDiscard = null
       confirmClose = true
       return
@@ -169,7 +179,7 @@
     if (target?.entry === 0) return
     copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
     const go = () => (ui.creatureEditor = { key: null, entry: 0 })
-    if (changeCount > 0) {
+    if (changeCount > 0 || shopDirty) {
       afterDiscard = go
       confirmClose = true
       return
@@ -259,7 +269,7 @@
     </header>
     {#if confirmClose}
       <div class="bar warn">
-        <span>{changeCount} unsaved {changeCount === 1 ? 'change' : 'changes'} to the creature.</span>
+        <span>{unsavedText}</span>
         <button onclick={() => (confirmClose = false)}>Keep editing</button>
         <button class="danger" onclick={discard}>Discard them</button>
       </div>
@@ -297,6 +307,7 @@
           {#if record}
             <button class:on={tab === 'creature'} onclick={() => (tab = 'creature')}>Creature</button>
             <button class:on={tab === 'looks'} onclick={() => (tab = 'looks')}>Looks</button>
+            <button class:on={tab === 'shop'} onclick={() => (tab = 'shop')}>Shop</button>
           {/if}
           <button class:on={target.entry === 0} onclick={startNew}>New creature</button>
         </nav>
@@ -316,6 +327,8 @@
           {:else if tab === 'spawn' && spawn}
             <SpawnFields s={spawn} />
             <p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (Spawns panel › Save to database). Edit the path in the world: close the editor, then Edit path.</p>
+          {:else if tab === 'shop'}
+            <!-- The Shop tab stays mounted below, so its unsaved list survives a tab switch. -->
           {:else if tab === 'looks' && record}
             <div class="slot">
               <span>A click sets</span>
@@ -336,6 +349,11 @@
             {/each}
           {:else if loading}
             <p class="dim">Loading the creature…</p>
+          {/if}
+          {#if record && target.entry > 0}
+            <div hidden={tab !== 'shop'}>
+              <ShopTab entry={record.entry} npcFlags={Number(values.npc_flags) || 0} onvendorflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x4, true))} bind:dirty={shopDirty} />
+            </div>
           {/if}
         </div>
       </section>

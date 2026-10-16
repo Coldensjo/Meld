@@ -218,6 +218,10 @@ export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
 }
 
+export function ReadVendor(arg1) {
+  return window['go']['main']['App']['ReadVendor'](arg1);
+}
+
 export function RegionHorizon(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['RegionHorizon'](arg1, arg2, arg3, arg4);
 }
@@ -286,8 +290,16 @@ export function SaveThumbnail(arg1, arg2) {
   return window['go']['main']['App']['SaveThumbnail'](arg1, arg2);
 }
 
+export function SaveVendor(arg1, arg2) {
+  return window['go']['main']['App']['SaveVendor'](arg1, arg2);
+}
+
 export function SearchCreatures(arg1) {
   return window['go']['main']['App']['SearchCreatures'](arg1);
+}
+
+export function SearchItems(arg1) {
+  return window['go']['main']['App']['SearchItems'](arg1);
 }
 
 export function SetBenillaPath(arg1) {
