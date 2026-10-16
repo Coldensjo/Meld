@@ -651,6 +651,25 @@ e.history.undo(); e.objects.objects.size            // 0
   and `onUp` with `__engine.ctx`.
 - Trap: an edit to a module the page imported reloads the page, so the region is gone; load the scene again.
 
+## Fit ground to models and Stamp (#168)
+
+Checks: Models › Fit Ground to Selected Models… (`Engine.fitGroundToSelection`, the arithmetic in
+`terrain/fitGround.ts`, unit tests in `fitGround.test.ts`). In the dev page on Northshire (Azeroth
+32_48, 1x1): Northshire Abbey is object 784 (its floor is 3.25 yd above the ground at its centre;
+`surfaceAt(784, o.x, o.z, true, box.min.y - 1)` after `surfaceBox(784, new THREE.Box3())`, with THREE
+imported from the page's `deps/three.js` URL).
+
+- Raise it 2 yd (`o.yOff += 2; e.objects.touch(784)`), select it with `selectObjects(e.objects, [784])`
+  and call `fitGroundToSelection(false, { margin: 0.2, falloff: 6, mode: 'both', holes: false, reach: 4 })`:
+  ~320 vertices go up (at most ~3.75 yd) in ~30 ms, the abbey's `worldPlacement(o).pos.y` doesn't
+  move, and one undo restores both. Sunk 3 yd under the ground with `holes: true`, it cuts 128 cells
+  (whole 2x2 blocks). Stamp (`true` first) moves ~365 vertices.
+- The Redridge stable (780) has no floor of its own: its first up-facing face is the hayloft, 6 to 10
+  yd up, which is why a floor only counts within `reach` of the ground. Fitting it changes nothing.
+- Trap: after editing a module the page imported, Vite hot-updates it and the page then holds two
+  copies of `editor.svelte.ts`: a selection made through the old one never reaches the Engine
+  (nothing happens, and no status). Open a fresh tab after edits.
+
 ## Selection outline colours (free, touching, buried)
 
 Checks: `SelectionOutline` and `Engine.touchesSomething`. In the dev page, with the `editor.svelte.ts`

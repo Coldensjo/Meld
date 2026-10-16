@@ -72,6 +72,7 @@ import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
 import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
+import { fitHeights, type FitOptions } from '../terrain/fitGround'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
@@ -2477,6 +2478,112 @@ export class Engine {
     if (cmd) this.history.push(cmd)
     this.refreshSelectionArea()
     setStatus(hole ? `Cut a hole of ${n} ${n === 1 ? 'cell' : 'cells'}. Fill hole puts the ground back; Ctrl+Z undoes.` : `Filled ${n} ${n === 1 ? 'cell' : 'cells'} of hole.`)
+  }
+
+  /**
+   * Models › Fit Ground to Selection (#168): moves the ground under each selected model to just under
+   * its lowest floor, blending back over a ring, and with Cut holes opens the ground where it stands
+   * above an interior floor. With `stamp`, presses the models' undersides into the ground instead (a
+   * rock's base, a crater), the Unity Mesh Stamp. The models keep their place in the world: a model on
+   * the ground gets its `yOff` back for the ground that moved under it. One undo step.
+   */
+  fitGroundToSelection(stamp: boolean, fit: FitOptions) {
+    const ids = editor.selectedIds.filter((id) => this.objects.objects.has(id))
+    if (!ids.length) {
+      setStatus('Select one or more models first (Select tool).')
+      return
+    }
+    const t = this.terrain
+    const cs = t.cellSize
+    const V = t.verts
+    const opts: FitOptions = stamp ? { ...fit, margin: 0, mode: 'both', holes: false } : fit
+    const resnap = (r: Rect) => this.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+    const stroke = new TerrainStroke(t, stamp ? 'Stamp model into ground' : 'Fit ground to model', { heights: true, holes: true }, resnap)
+    const box = new THREE.Box3()
+    const moved: Array<{ before: WorldObject; after: WorldObject }> = []
+    let fitted = 0
+    let loading = 0
+    for (const id of ids) {
+      if (!this.objects.surfaceBox(id, box)) {
+        loading++
+        continue
+      }
+      const x0 = Math.max(0, Math.floor((box.min.x - opts.falloff) / cs))
+      const z0 = Math.max(0, Math.floor((box.min.z - opts.falloff) / cs))
+      const x1 = Math.min(t.size, Math.ceil((box.max.x + opts.falloff) / cs))
+      const z1 = Math.min(t.size, Math.ceil((box.max.z + opts.falloff) / cs))
+      if (x1 <= x0 || z1 <= z0) continue
+      const w = x1 - x0 + 1
+      const h = z1 - z0 + 1
+      const ground = new Float32Array(w * h)
+      const floor = new Float32Array(w * h).fill(NaN)
+      const bottom = box.min.y - 1
+      for (let z = 0; z < h; z++) {
+        for (let x = 0; x < w; x++) {
+          const vx = x0 + x
+          const vz = z0 + z
+          const g = t.heights[vz * V + vx]
+          ground[z * w + x] = g
+          const wx = vx * cs
+          const wz = vz * cs
+          if (wx < box.min.x || wx > box.max.x || wz < box.min.z || wz > box.max.z) continue
+          // A floor counts only near the ground: a stable without one would otherwise lift the
+          // ground to its hayloft.
+          floor[z * w + x] = stamp ? this.objects.surfaceAt(id, wx, wz, false, bottom) : this.objects.surfaceAt(id, wx, wz, true, bottom, g - fit.reach, g + fit.reach)
+        }
+      }
+      const r = fitHeights(ground, floor, w, h, x0, z0, cs, opts)
+      if (!r.changed) continue
+      fitted++
+      // The models on the ground under this one would ride the ground: note where each stood.
+      const o = this.objects.objects.get(id)!
+      const before = o.parent === undefined ? t.heightAt(o.x, o.z) : 0
+      const rect = { x0, z0, x1, z1 }
+      stroke.reserveHeights(rect)
+      for (let z = 0; z < h; z++) t.heights.set(r.heights.subarray(z * w, z * w + w), (z0 + z) * V + x0)
+      stroke.touchHeights(rect)
+      t.markDirty(x0, z0, x1, z1)
+      if (r.holes.some((v) => v)) {
+        const cr = { x0, z0, x1: x1 - 1, z1: z1 - 1 }
+        stroke.reserveHoles(cr)
+        for (let z = 0; z < h - 1; z++) for (let x = 0; x < w - 1; x++) if (r.holes[z * (w - 1) + x]) t.holes[(z0 + z) * t.size + x0 + x] = 1
+        stroke.touchHoles(cr)
+      }
+      if (o.parent === undefined) {
+        const dy = before - t.heightAt(o.x, o.z)
+        if (dy !== 0) {
+          const prev = { ...o }
+          o.yOff += dy
+          this.objects.touch(o.id)
+          moved.push({ before: prev, after: { ...o } })
+        }
+      }
+    }
+    const terrainCmd = stroke.finish()
+    if (terrainCmd) {
+      resnap({ x0: 0, z0: 0, x1: t.size, z1: t.size })
+      const moves = moved.length
+        ? groupTransformCommand(
+            this.objects,
+            moved.map((m) => m.before),
+            moved.map((m) => m.after),
+          )
+        : null
+      this.history.push({
+        label: terrainCmd.label,
+        undo: () => {
+          moves?.undo()
+          terrainCmd.undo()
+        },
+        redo: () => {
+          terrainCmd.redo()
+          moves?.redo()
+        },
+      })
+    }
+    const what = stamp ? 'Stamped' : 'Fitted the ground to'
+    if (fitted) setStatus(`${what} ${fitted} ${fitted === 1 ? 'model' : 'models'}.${loading ? ` ${loading} still loading, left out.` : ''}`, 5000)
+    else setStatus(loading ? 'The selected models are still loading; try again in a moment.' : 'Nothing to change: the ground already fits.', 5000)
   }
 
   /** How many cells of the selected area are holes, for the options bar. */

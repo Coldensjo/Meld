@@ -2,6 +2,7 @@ import type { SessionTab } from '../io/session'
 import { LAYERS } from '../terrain/layers'
 import type { FalloffCurve } from '../tools/brush'
 import type { DoodadBrush } from '../tools/doodadBrush'
+import type { FitMode } from '../terrain/fitGround'
 import type { BrushStack } from '../tools/brushStack'
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
@@ -354,6 +355,8 @@ export const prefs = $state({
   fpsLimit: 0,
   /** The client maps pinned to the top of the Start dialog's map list (#47), by Map.dbc ID. */
   pinnedMaps: [] as number[],
+  /** Models › Fit Ground to Selection (#168): yards under the floor, the blend ring's width, which way the ground may move, cutting holes, and how far from the ground a floor counts. */
+  fitGround: { margin: 0.2, falloff: 6, mode: 'both' as FitMode, holes: false, reach: 4 },
   /** Preferences › Autosave (#177): minutes between recovery copies of the maps with unsaved changes, 0 for none. */
   autosaveMinutes: 3,
   /** Preferences › Theme (#49): the editor's colours, or the desktop's light or dark setting. */
@@ -480,7 +483,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | null,
+  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */

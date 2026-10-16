@@ -16,6 +16,7 @@
   import TextureLooksDialog from './TextureLooksDialog.svelte'
   import HeightmapImportDialog from './HeightmapImportDialog.svelte'
   import RecoveryDialog from './RecoveryDialog.svelte'
+  import FitGroundDialog from './FitGroundDialog.svelte'
   import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
   import { EquipmentFor } from '../../wailsjs/go/main/App'
   import { setStatus } from '../lib/state/editor.svelte'
@@ -385,6 +386,8 @@
   <GameLoginDialog />
 {:else if ui.dialog === 'recovery'}
   <RecoveryDialog onclose={close} />
+{:else if ui.dialog === 'fitGround'}
+  <FitGroundDialog onclose={close} />
 {/if}
 
 <style>

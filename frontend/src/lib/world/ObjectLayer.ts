@@ -523,6 +523,52 @@ export class ObjectLayer {
     return best < Infinity ? this.amongHit : null
   }
 
+  private surfM = new THREE.Matrix4()
+  private surfInv = new THREE.Matrix4()
+  private surfRay = new THREE.Ray()
+  private surfN = new THREE.Vector3()
+  private surfP = new THREE.Vector3()
+
+  /**
+   * The world box of model `id` (its bounds turned and scaled as placed), or null while it loads.
+   * Readies `surfaceAt` for that model.
+   */
+  surfaceBox(id: number, out: THREE.Box3): THREE.Box3 | null {
+    const o = this.objects.get(id)
+    if (!o) return null
+    const asset = getAsset(o.type)
+    if (!asset.ready || !asset.geometry.boundsTree) return null
+    this.matrixOf(o, this.surfM)
+    this.surfInv.copy(this.surfM).invert()
+    return out.copy(asset.bbox).applyMatrix4(this.surfM)
+  }
+
+  /**
+   * The height of model `id`'s surface over (x, z), along a vertical line through it (Fit ground to a
+   * model, #168): with `floor`, its lowest face that looks up, which a floor is (a foundation's
+   * underside looks down) between `lo` and `hi`; else its lowest face of any kind, its underside. NaN
+   * where it has none. Call `surfaceBox` for the model first.
+   */
+  surfaceAt(id: number, x: number, z: number, floor: boolean, bottom: number, lo = -Infinity, hi = Infinity): number {
+    const o = this.objects.get(id)
+    const tree = o ? (getAsset(o.type).geometry.boundsTree as MeshBVH | undefined) : undefined
+    if (!tree) return NaN
+    this.surfRay.origin.set(x, bottom, z)
+    this.surfRay.direction.set(0, 1, 0)
+    this.surfRay.applyMatrix4(this.surfInv)
+    let best = NaN
+    for (const hit of tree.raycast(this.surfRay, THREE.DoubleSide)) {
+      if (floor) {
+        if (!hit.face) continue
+        if (this.surfN.copy(hit.face.normal).transformDirection(this.surfM).y < 0.5) continue
+      }
+      const y = this.surfP.copy(hit.point).applyMatrix4(this.surfM).y
+      if (y < lo || y > hi) continue
+      if (Number.isNaN(best) || y < best) best = y
+    }
+    return best
+  }
+
   /** World yaw, accumulated through the parents, without allocating. */
   worldYaw(o: WorldObject): number {
     let rot = o.rotY
