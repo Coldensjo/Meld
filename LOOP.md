@@ -2,7 +2,7 @@
 
 Run this same prompt each time, for example with `/loop` or `claude -p "$(cat LOOP.md)"`.
 The backlog is the GitHub issues of `Coldensjo/Meld`, read and written with `gh` (logged in on this
-machine). The rest lives in DESIGN.md (goals, rules, priorities) and in the closed issues labelled `decision`
+machine). The rest lives in docs/DESIGN.md (goals, rules, priorities) and in the closed issues labelled `decision`
 (how finished features were decided), so each run starts fresh.
 
 ---
@@ -11,7 +11,7 @@ First pull, so the run starts from the remote's state: `git pull --rebase --auto
 tree may hold the owner's uncommitted changes, which `--autostash` puts back). If the pull fails or
 conflicts, stop the run and say so; do not work on a stale or half-rebased tree.
 
-Read CLAUDE.md and DESIGN.md. Do not edit DESIGN.md. Then read the backlog:
+Read CLAUDE.md and docs/DESIGN.md. Do not edit docs/DESIGN.md. Then read the backlog:
 
 ```
 gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title,labels,body
@@ -50,10 +50,10 @@ c. Rewrite it in the backlog's wording (CLAUDE.md, "Backlog: GitHub issues"): a 
    original text at the end of the body under `**Original text by the owner:**` as a quote, and do
    not narrow or widen the request. Where you are unsure what they meant, ask rather than choose.
 d. Add what the next agent needs as a `**Claude:** notes for the agent working on this.` comment:
-   the files and functions to read, the decisions that apply, how to verify it (a TESTS.md section,
+   the files and functions to read, the decisions that apply, how to verify it (a docs/TESTS.md section,
    a spot on the map, a client test) and the traps you know of.
 e. Label it: `value:` and `effort:` by your estimate, `source:owner`, one `area:`, and `bug` if it
-   is one. Add `needs-approval` for large, format-level or non-goal work (DESIGN.md), which pings the
+   is one. Add `needs-approval` for large, format-level or non-goal work (docs/DESIGN.md), which pings the
    owner. Keep any label the owner set themselves.
 f. If it cannot be worked without the owner (what they want is ambiguous, or it needs a choice the
    decisions, the comments and Noggit Red don't settle), ask as in *Asking the owner*: the comment
@@ -68,7 +68,7 @@ approves by commenting `approved` (any limits after it bind the work), and a wor
 `needs-approval`; if the label is still there under such a comment by the owner, the workflow didn't
 run, so remove the label yourself and treat the item as approved. The order:
 `bug` first; then `benilla-port`, lowest issue number first (the owner's order,
-#103); then the rest in DESIGN.md priority order, then value (H first), then effort (S first).
+#103); then the rest in docs/DESIGN.md priority order, then value (H first), then effort (S first).
 Prefer items that finish cleanly. Do up to **8 items per run**. Finish each item (steps 3 to 4) before
 you choose the next one. Before starting one, read it with its comments:
 `gh issue view <n> --repo Coldensjo/Meld --comments`.
@@ -121,14 +121,14 @@ blocked:
    owner can see it and change it. A decision that reaches beyond the one item (a rule for many items
    or for the loop) becomes its own issue labelled `decision`, closed once recorded and linked from
    this one; a change to the loop's own rules is the owner's to put in LOOP.md, so ask.
-4. Continue the item. Recording a decision is not a DESIGN.md change, so do not edit DESIGN.md. If the
+4. Continue the item. Recording a decision is not a docs/DESIGN.md change, so do not edit docs/DESIGN.md. If the
    decision would change a hard rule or a non-goal, ask the owner instead (see *Asking the owner*).
 
 **3. For each item, in order:**
 
 a. Read the code it touches before changing it, and search the decisions about the features it
    changes: `gh issue list --repo Coldensjo/Meld --state closed --label decision --search "<words>"`. Keep the change to that item. Follow the hard rules
-   in DESIGN.md, and every edit through `History`.
+   in docs/DESIGN.md, and every edit through `History`.
 
 b. Verify it:
    - `make test`
@@ -169,7 +169,7 @@ large, format-level or non-goal work; that label also pings the owner). Search t
 comment on an existing one instead of filing a duplicate. Do not implement it in this run.
 
 **5. Before stopping, tidy the backlog.** Close duplicates with `--reason "not planned"` and a comment
-`**Claude:** duplicate of #<m>`. Anything that no longer fits DESIGN.md gets the `parked` label and is
+`**Claude:** duplicate of #<m>`. Anything that no longer fits docs/DESIGN.md gets the `parked` label and is
 closed as not planned, with the reason in a comment. Never close an owner-filed issue except as a
 duplicate, and say so in the run log.
 

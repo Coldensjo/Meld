@@ -208,7 +208,7 @@ internal/vmangos/      Regions to and from the client, the world database, DBC t
 internal/game/         Closes and reopens Wow.exe or Benilla around an export
 internal/heightmap/    Heightmap PNGs
 internal/config/       Per-user settings (client, server and Benilla folders, preferences)
-benilla-launcher/      Meld's launcher for Benilla (BENILLA.md)
+benilla-launcher/      Meld's launcher for Benilla (docs/BENILLA.md)
 frontend/src/
   App.svelte           Layout + global shortcuts
   components/          Svelte UI (menu, toolbar, tool panel, asset browser, status bar)
