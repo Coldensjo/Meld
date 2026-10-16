@@ -7,6 +7,8 @@ import {mapfile} from '../models';
 import {heightmap} from '../models';
 import {wow} from '../models';
 
+export function AckClose():Promise<void>;
+
 export function AddGroundEffect(arg1:Array<string>,arg2:number,arg3:number):Promise<number>;
 
 export function ApplySpawnEdits(arg1:string,arg2:number,arg3:number,arg4:number,arg5:Array<vmangos.SpawnEdit>):Promise<vmangos.Result>;
@@ -194,6 +196,8 @@ export function SetGameClient(arg1:string):Promise<void>;
 export function SetGameLogin(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SetGameWindow(arg1:string,arg2:string):Promise<void>;
+
+export function SetUnsaved(arg1:boolean):Promise<void>;
 
 export function SetVmangosPath(arg1:string):Promise<void>;
 

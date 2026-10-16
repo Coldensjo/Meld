@@ -27,12 +27,13 @@
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
   import { LAYERS } from './lib/terrain/layers'
-  import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from './lib/state/editor.svelte'
+  import { docs, editor, prefs, setStatus, stepCameraSpeed, ui, wow } from './lib/state/editor.svelte'
   import { stepFalloff } from './lib/tools/brushSize'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveMinimapImage, saveOrPublish } from './lib/io/mapio'
   import { requestClose } from './components/DocTabs.svelte'
-  import { WindowSetTitle } from '../wailsjs/runtime/runtime'
+  import { EventsOn, WindowSetTitle } from '../wailsjs/runtime/runtime'
+  import { AckClose, SetUnsaved } from '../wailsjs/go/main/App'
   import { hasBackend } from './lib/io/mapio'
 
   let prefsLoaded = $state(false)
@@ -55,6 +56,20 @@
       stopSaving()
       stopAutosave()
     }
+  })
+
+  // Closing the window with unsaved maps asks first, as File › Quit does (#188): Go stops the close
+  // while any tab is dirty and sends app:close, which opens the same dialog.
+  const unsaved = $derived(editor.dirty || docs.tabs.some((t) => t.id !== docs.active && t.dirty))
+  $effect(() => {
+    if (hasBackend()) void SetUnsaved(unsaved)
+  })
+  onMount(() => {
+    if (!hasBackend()) return
+    return EventsOn('app:close', () => {
+      ui.dialog = 'quit'
+      void AckClose()
+    })
   })
 
   // Apply preferences to the engine whenever they change, and persist them.

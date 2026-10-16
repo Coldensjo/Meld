@@ -2,7 +2,7 @@ import { tick } from 'svelte'
 import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus, wow } from '../state/editor.svelte'
 import { fromMapData, hasBackend, openWowRegion } from './mapio'
-import { LoadMap, Quit } from '../../../wailsjs/go/main/App'
+import { LoadMap, Quit, SetUnsaved } from '../../../wailsjs/go/main/App'
 import { flushPrefs } from '../state/prefs'
 import { endAutosave } from './recovery'
 import { engineRef } from '../state/engineRef'
@@ -77,6 +77,8 @@ export async function quitNow() {
   if (engineRef.current) saveSession(engineRef.current)
   await flushPrefs()
   await endAutosave()
+  // The author chose to quit: closing the window must not ask again (#188).
+  await SetUnsaved(false)
   Quit()
 }
 

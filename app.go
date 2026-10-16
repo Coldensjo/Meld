@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"Meld/internal/config"
@@ -38,6 +39,10 @@ type App struct {
 
 	// rec holds the autosaved copies of dirty maps; nil if its folder couldn't be made.
 	rec *recovery.Store
+	// unsaved is whether an open map has unsaved changes (SetUnsaved).
+	unsaved atomic.Bool
+	// closeAsked is when a close was stopped and not yet answered (AckClose), in Unix ms; 0 for none.
+	closeAsked atomic.Int64
 }
 
 func NewApp() *App {
@@ -55,8 +60,45 @@ func (a *App) startup(ctx context.Context) {
 	}
 }
 
-// beforeClose remembers the window's size for the next start. It never stops the close.
+// SetUnsaved tells whether an open map has unsaved changes, so closing the window asks first.
+// File › Quit's own dialog clears it before quitting.
+func (a *App) SetUnsaved(unsaved bool) {
+	a.unsaved.Store(unsaved)
+}
+
+// beforeClose remembers the window's size for the next start. With an unsaved map it stops the close
+// and asks the frontend to show the "Unsaved changes" dialog, as File › Quit does (#188).
+// A frontend that hangs never answers, so a second close after closeAckWait without an answer
+// (AckClose) goes through; the autosaved copies then hold the unsaved maps.
 func (a *App) beforeClose(ctx context.Context) bool {
+	a.saveWindow(ctx)
+	if !a.stopClose(time.Now()) {
+		return false
+	}
+	runtime.EventsEmit(ctx, "app:close")
+	return true
+}
+
+// stopClose decides a close at now: stopped while a map is unsaved, unless an earlier stopped close
+// went unanswered for longer than closeAckWait.
+func (a *App) stopClose(now time.Time) bool {
+	if !a.unsaved.Load() {
+		return false
+	}
+	ms := now.UnixMilli()
+	asked := a.closeAsked.Swap(ms)
+	return asked == 0 || ms-asked <= closeAckWait.Milliseconds()
+}
+
+// closeAckWait is how long the frontend has to answer a close before a second one goes through.
+const closeAckWait = 2 * time.Second
+
+// AckClose tells that the frontend showed the "Unsaved changes" dialog for a close.
+func (a *App) AckClose() {
+	a.closeAsked.Store(0)
+}
+
+func (a *App) saveWindow(ctx context.Context) {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	w := &a.cfg.Window
@@ -74,7 +116,6 @@ func (a *App) beforeClose(ctx context.Context) bool {
 		c.Window = *w
 		return nil
 	})
-	return false
 }
 
 // WowStatus reports whether a WoW client is configured and loaded.

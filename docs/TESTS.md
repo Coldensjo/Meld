@@ -410,6 +410,21 @@ Go tests cover the alive file going stale). In the dev page:
   dialog's buttons does nothing in a hidden preview tab; click through `preview_evaluate`. Delete the
   probe copies afterwards, or the owner's next start offers them.
 
+## The desktop window itself (closing with unsaved maps, #188)
+
+Checks: what only the native window does (its ✕, Alt+F4), in the built `build/bin/Meld.exe`. WebView2's
+`--remote-debugging-port` through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` does not work (Wails sets
+its own browser arguments), so drive the window from PowerShell with user32 (`SetForegroundWindow`,
+`SetCursorPos`, `mouse_event`) and `SendKeys`, and look at screenshots (`Graphics.CopyFromScreen`):
+
+- Start it with `Start-Process -PassThru`, wait for `MainWindowHandle` and ~12 s for the session to
+  open, send `2` (Sculpt) and drag at the window's centre: the tab turns "Untitled *".
+- `$p.CloseMainWindow()` is the ✕: with a dirty map the process stays and "Unsaved changes" shows;
+  clicking Quit without saving (its screen position from the screenshot; the screenshot's pixels are
+  the screen's) ends the process with no second prompt.
+- Trap: this runs the owner's real app on their config; its session restore opens their tabs. Only
+  edit an untitled map, and quit without saving.
+
 ## Gear picker (a spawn's main hand, off hand and ranged items)
 
 Checks: `WeaponPicker.svelte` and the `ListWeapons` / `EquipmentFor` / `EquipmentItems` bindings. The
