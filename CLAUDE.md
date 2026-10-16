@@ -397,6 +397,11 @@ cd frontend && pnpm build   # frontend only
   - The **Sets** tab shows the author's model sets (`wow/modelSets.ts`, `prefs.modelSets`): named lists
     of doodads and buildings, made and filled through a tile's right-click menu (which also holds the
     favourite star), and imported or exported as TOML (`importModelSets`/`exportModelSet` in `mapio.ts`).
+  - The **Prefabs** tab (`PrefabBrowser.svelte`, #170) lists the TOML files of `prefs.prefabDir`
+    (`wow/prefabs.ts`: model clips by path, `ListPrefabs` binding); Models › Save Selection as Prefab
+    writes one, and a click places it as a model paste (`Engine.placeObjectClip`; R and Ctrl+scroll
+    turn a model paste, `world/clipTurn.ts`), varied when `prefs.prefabVary.on`. Its thumbnail draws
+    all its models (`registerPrefab`, keyed by a hash of the file).
   - Thumbnails (`lib/wow/thumbs.ts`) render lazily into a render target on the **main**
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading

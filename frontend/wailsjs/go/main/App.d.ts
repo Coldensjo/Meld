@@ -23,6 +23,8 @@ export function BrowseBenillaFolder():Promise<string>;
 
 export function BrowseBrushImageFolder(arg1:string):Promise<string>;
 
+export function BrowsePrefabFolder(arg1:string):Promise<string>;
+
 export function BrowseVmangosFolder():Promise<string>;
 
 export function BrowseWowFolder():Promise<string>;
@@ -68,6 +70,8 @@ export function ListCreatureTemplates():Promise<Array<vmangos.CreatureTemplate>>
 export function ListDisplays():Promise<Array<vmangos.DisplayEntry>>;
 
 export function ListObjectTemplates():Promise<Array<vmangos.ObjectTemplate>>;
+
+export function ListPrefabs(arg1:string):Promise<Array<main.PrefabFile>>;
 
 export function ListRecovery():Promise<Array<recovery.Info>>;
 
@@ -166,6 +170,8 @@ export function SaveMap(arg1:string,arg2:mapfile.MapData):Promise<void>;
 export function SaveMapDialog(arg1:string):Promise<string>;
 
 export function SaveModelSetDialog(arg1:string):Promise<string>;
+
+export function SavePrefabDialog(arg1:string,arg2:string):Promise<string>;
 
 export function SavePrefs(arg1:string):Promise<void>;
 

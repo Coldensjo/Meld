@@ -43,6 +43,7 @@ import { lookOf, looksByIndex, type TextureLooks } from '../world/textureLooks'
 import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool, activeDoodadBrush } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
+import { turnObjectClip } from '../world/clipTurn'
 import { mirrorClip, rotateClip } from '../world/clipRotate'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
@@ -439,7 +440,8 @@ export class Engine {
 
     // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
     this.controller.arrowsBlocked = () => this.canNudge() || (editor.tool === 'place' && !!editor.prefab && !editor.placeScatter)
-    this.controller.wheelBlocked = (e) => (editor.tool === 'place' && (e.ctrlKey || e.shiftKey)) || (editor.tool === 'doodad' && e.ctrlKey) || (this.brushSizable() && e.ctrlKey)
+    this.controller.wheelBlocked = (e) =>
+      (editor.tool === 'place' && (e.ctrlKey || e.shiftKey)) || (editor.tool === 'doodad' && e.ctrlKey) || (this.brushSizable() && e.ctrlKey) || (ui.pasting && this.lastCopied === 'objects' && e.ctrlKey)
     this.controller.rightBlocked = (e) => e.altKey && this.brushSizable()
     this.controller.onContextClick = (e) => this.openContextMenu(e)
     this.scene.add(this.gizmo.group)
@@ -634,7 +636,8 @@ export class Engine {
       (e) => {
         const doodads = editor.tool === 'doodad' && e.ctrlKey
         const sizing = this.brushSizable() && e.ctrlKey
-        if (!doodads && !sizing && (editor.tool !== 'place' || !(e.ctrlKey || e.shiftKey))) return
+        const turning = ui.pasting && this.lastCopied === 'objects' && e.ctrlKey
+        if (!doodads && !sizing && !turning && (editor.tool !== 'place' || !(e.ctrlKey || e.shiftKey))) return
         const mod = e.ctrlKey ? 'ctrl' : 'shift'
         if (mod !== this.wheelMod) {
           this.wheelMod = mod
@@ -646,7 +649,8 @@ export class Engine {
         while (Math.abs(this.wheelAcc) >= notch) {
           const dir = Math.sign(this.wheelAcc)
           this.wheelAcc -= dir * notch
-          if (sizing) this.stepBrush(-dir > 0 ? 1 : -1)
+          if (turning) this.turnPastedModels(-dir * THREE.MathUtils.degToRad(15))
+          else if (sizing) this.stepBrush(-dir > 0 ? 1 : -1)
           else if (doodads) this.doodadTool.spinPreview(-dir * THREE.MathUtils.degToRad(15))
           else if (e.ctrlKey) this.placeTool.rotatePreview(-dir * THREE.MathUtils.degToRad(15))
           else this.placeTool.scalePreview(-dir)
@@ -2620,6 +2624,29 @@ export class Engine {
     return true
   }
 
+  /** The selected models as a clip about their middle (Save Selection as Prefab, #170), or null with none. */
+  selectionClip(): ObjectClip | null {
+    const sel = selectedObjects(this.objects)
+    return sel.length ? copyObjects(this.terrain, this.objects, sel) : null
+  }
+
+  /**
+   * Puts `clip` on the clipboard and starts pasting it under the cursor, as Ctrl+V does with copied
+   * models: how a prefab is placed (#170). R and Ctrl+scroll turn it before the click.
+   */
+  placeObjectClip(clip: ObjectClip) {
+    this.objectClip = clip
+    this.lastCopied = 'objects'
+    ui.hasClip = true
+    this.startPaste()
+  }
+
+  /** Turns the models waiting to be pasted about their middle (R, Shift+R, Ctrl+scroll while pasting models). */
+  turnPastedModels(radians: number) {
+    if (!ui.pasting || this.lastCopied !== 'objects' || !this.objectClip) return
+    this.objectClip = turnObjectClip(this.objectClip, radians)
+  }
+
   /** Whether what Paste would place is models rather than an area. */
   pastingModels() {
     return this.lastCopied === 'objects'
@@ -3678,6 +3705,10 @@ export class Engine {
   handleSelectionKey(e: KeyboardEvent): boolean {
     if (ui.pasting && this.lastCopied === 'area' && (e.key === 'r' || e.key === 'R')) {
       this.rotateClip()
+      return true
+    }
+    if (ui.pasting && this.lastCopied === 'objects' && (e.key === 'r' || e.key === 'R')) {
+      this.turnPastedModels((e.shiftKey ? 1 : -1) * THREE.MathUtils.degToRad(45))
       return true
     }
     if (this.handleSpawnKey(e)) return true

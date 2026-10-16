@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 import { isHelper } from '../models/helpers'
 import { engineRef } from '../state/engineRef'
-import { buildWowAsset, getAsset, texturesReady, wowPath } from '../models/assets'
+import { buildWowAsset, getAsset, texturesReady, wowPath, type ModelAsset } from '../models/assets'
+import { placementEuler } from '../world/placement'
+import type { Prefab } from './prefabs'
 import { fetchMesh, texturePreview } from './api'
 import { SaveThumbnail } from '../../../wailsjs/go/main/App'
 import { bytesToBase64 } from '../io/base64'
@@ -59,20 +61,80 @@ function getRig() {
   return rig
 }
 
-async function renderModel(type: string): Promise<Blob> {
-  const engine = engineRef.current
-  if (!engine) throw new Error('renderer not ready')
+async function loadAsset(type: string): Promise<ModelAsset> {
   const asset = isHelper(type) ? getAsset(type) : buildWowAsset(await fetchMesh(wowPath(type)))
   await texturesReady(asset.material)
+  return asset
+}
 
-  const { scene, camera, target } = getRig()
+async function renderModel(type: string): Promise<Blob> {
+  const asset = await loadAsset(type)
   const mesh = new THREE.Mesh(asset.geometry, asset.material)
-  scene.add(mesh)
-  const s = asset.bbox.getBoundingSphere(new THREE.Sphere())
+  try {
+    return await capture(mesh, asset.bbox)
+  } finally {
+    if (!isHelper(type)) asset.geometry.dispose()
+  }
+}
+
+// Prefabs (#170) are drawn as all their models in one frame. The Prefabs tab registers each prefab
+// under a key made from its file's text, so an edited file gets a new thumbnail.
+const prefabs = new Map<string, Prefab>()
+
+/** Makes `key` ("prefab:<hash>") draw `p` when its thumbnail is asked for. */
+export function registerPrefab(key: string, p: Prefab) {
+  prefabs.set(key, p)
+}
+
+async function renderPrefab(p: Prefab): Promise<Blob> {
+  const assets = new Map<string, ModelAsset>()
+  for (const type of new Set(p.objects.map((o) => o.type))) assets.set(type, await loadAsset(type))
+  const group = new THREE.Group()
+  const world = new Map<number, THREE.Matrix4>()
+  const euler = new THREE.Euler()
+  const q = new THREE.Quaternion()
+  // Parents come first in a clip made by copyObjects; a few passes cover any order.
+  let pending = p.objects
+  for (let pass = 0; pass < 8 && pending.length; pass++) {
+    const next: typeof pending = []
+    for (const o of pending) {
+      const parent = o.cparent === undefined ? null : world.get(o.cparent)
+      if (o.cparent !== undefined && !parent) {
+        next.push(o)
+        continue
+      }
+      q.setFromEuler(placementEuler(euler, o.rotY, o.tiltX, o.tiltZ))
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(o.x, o.yOff, o.z), q, new THREE.Vector3(o.scale, o.scale, o.scale))
+      if (parent) m.premultiply(parent)
+      world.set(o.cid, m)
+      const asset = assets.get(o.type)!
+      const mesh = new THREE.Mesh(asset.geometry, asset.material)
+      mesh.matrixAutoUpdate = false
+      mesh.matrix.copy(m)
+      group.add(mesh)
+    }
+    if (next.length === pending.length) break
+    pending = next
+  }
+  group.updateMatrixWorld(true)
+  try {
+    return await capture(group, new THREE.Box3().setFromObject(group))
+  } finally {
+    for (const [type, a] of assets) if (!isHelper(type)) a.geometry.dispose()
+  }
+}
+
+/** Draws `object` (whose bounds are `bbox`) from the side its shape suits and gives the PNG. */
+async function capture(object: THREE.Object3D, bbox: THREE.Box3): Promise<Blob> {
+  const engine = engineRef.current
+  if (!engine) throw new Error('renderer not ready')
+  const { scene, camera, target } = getRig()
+  scene.add(object)
+  const s = bbox.getBoundingSphere(new THREE.Sphere())
   const r = Math.max(s.radius, 0.3)
   const d = (r / Math.sin(THREE.MathUtils.degToRad(15))) * 0.96
   // Tall things (trees, towers) are seen from lower down, flat things (rugs, platforms) from above.
-  const size = asset.bbox.getSize(new THREE.Vector3())
+  const size = bbox.getSize(new THREE.Vector3())
   const flat = Math.max(size.x, size.z)
   const dir = size.y > flat * 1.5 ? new THREE.Vector3(0.8, 0.3, 0.6) : size.y < flat * 0.3 ? new THREE.Vector3(0.5, 0.95, 0.4) : new THREE.Vector3(0.75, 0.5, 0.65)
   dir.normalize()
@@ -94,8 +156,7 @@ async function renderModel(type: string): Promise<Blob> {
   renderer.readRenderTargetPixels(target, 0, 0, px, px, buf)
   renderer.setRenderTarget(prevTarget)
   renderer.setClearAlpha(prevAlpha)
-  scene.remove(mesh)
-  asset.geometry.dispose()
+  scene.remove(object)
 
   // Flip (GL rows are bottom-up) and downsample for smooth edges.
   const big = document.createElement('canvas')
@@ -115,7 +176,9 @@ async function produce(key: string): Promise<string> {
   if (key.startsWith('tex:')) return texturePreview(key.slice(4), SIZE)
   const cached = await fromCache(key)
   if (cached) return cached
-  const blob = await renderModel(key)
+  const prefab = key.startsWith('prefab:') ? prefabs.get(key) : null
+  if (key.startsWith('prefab:') && !prefab) throw new Error('unknown prefab')
+  const blob = prefab ? await renderPrefab(prefab) : await renderModel(key)
   toCache(key, blob)
   return URL.createObjectURL(blob)
 }

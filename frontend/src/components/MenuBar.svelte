@@ -3,6 +3,7 @@
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
   import { chooseBenillaFolder, launchGame, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, exportRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish, writeMinimapTiles } from '../lib/io/mapio'
+  import { saveSelectionAsPrefab } from '../lib/io/prefabFiles'
   import { growableSides, type Side } from '../lib/io/regionGrow'
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
@@ -145,6 +146,7 @@
         { kind: 'action', label: 'Reset Rotation', shortcut: 'Ctrl+R', disabled: !editor.selectedIds.length, run: withEngine((e) => e.resetRotation()) },
         { kind: 'action', label: 'Put Selected Models on the Ground', shortcut: 'Ctrl+PgDn', disabled: !editor.selectedIds.length, run: withEngine((e) => e.snapSelectedToGround()) },
         { kind: 'action', label: 'Fit Ground to Selected Models…', disabled: !editor.selectedIds.length, run: () => (ui.dialog = 'fitGround') },
+        { kind: 'action', label: 'Save Selection as Prefab…', disabled: !editor.selectedIds.length || !hasBackend(), run: withEngine((e) => void saveSelectionAsPrefab(e)) },
         { kind: 'action', label: 'Replace with Copied Model', disabled: !editor.selectedIds.length, run: withEngine((e) => e.replaceSelectedWithCopied()) },
         { kind: 'action', label: 'Group Selected Models', shortcut: 'Ctrl+G', disabled: editor.selectedIds.length < 2, run: withEngine((e) => e.groupSelected()) },
         { kind: 'action', label: 'Ungroup Selected Models', shortcut: 'Ctrl+Shift+G', disabled: !editor.selectedIds.length, run: withEngine((e) => e.ungroupSelected()) },

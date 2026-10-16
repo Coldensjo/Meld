@@ -370,6 +370,70 @@ func (a *App) BrowseBrushImageFolder(current string) (string, error) {
 	})
 }
 
+// BrowsePrefabFolder lets the user pick the folder their prefabs are kept in (#170). Returns "" if cancelled.
+func (a *App) BrowsePrefabFolder(current string) (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            "Select the folder for prefabs",
+		DefaultDirectory: current,
+	})
+}
+
+// PrefabFile is one prefab of the prefab folder: its file name and its TOML.
+type PrefabFile struct {
+	Name string `json:"name"`
+	Text string `json:"text"`
+}
+
+// prefabMaxBytes skips files too big to be a prefab, so a stray file can't stall the list.
+const prefabMaxBytes = 1 << 20
+
+// ListPrefabs reads every .toml file of the prefab folder, sorted by name.
+func (a *App) ListPrefabs(dir string) ([]PrefabFile, error) {
+	if dir == "" {
+		return nil, nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var out []PrefabFile
+	for _, e := range entries {
+		if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), ".toml") {
+			continue
+		}
+		if info, err := e.Info(); err != nil || info.Size() > prefabMaxBytes {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		out = append(out, PrefabFile{Name: e.Name(), Text: string(b)})
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name) })
+	return out, nil
+}
+
+// SavePrefabDialog asks where to save a prefab, starting in the prefab folder. Returns "" if cancelled.
+func (a *App) SavePrefabDialog(dir, suggested string) (string, error) {
+	if suggested == "" {
+		suggested = "prefab"
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:            "Save Selection as Prefab",
+		DefaultDirectory: dir,
+		DefaultFilename:  suggested + ".toml",
+		Filters:          []runtime.FileFilter{{DisplayName: "Meld prefab (*.toml)", Pattern: "*.toml"}},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if !strings.EqualFold(filepath.Ext(path), ".toml") {
+		path += ".toml"
+	}
+	return path, nil
+}
+
 // ListBrushImages names the PNG and JPEG images in the brush image folder.
 func (a *App) ListBrushImages(dir string) ([]string, error) {
 	return heightmap.ListImages(dir)

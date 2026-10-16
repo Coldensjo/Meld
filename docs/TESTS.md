@@ -93,11 +93,14 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   - If `/wow/status` gives no response, the Go side of the user's `wails dev` has died (its Vite
     child lingers on port 5391 and blocks a new `wails dev`). Tell the user their dev session is
     gone before starting one.
-  - Vite's watcher misses files replaced by rename, such as by `sed -i` (and maybe Wails' binding
-    regeneration). Vite then serves the stale module and the page fails with "does not provide an
-    export named …". Edit with the Edit tool or an in-place write, and re-save a missed file in
-    place to fix it. Check what is served through the Wails proxy, `curl localhost:34115/<file>`:
-    Vite's own port moves (5173, 5174…), and an old dead Vite can linger on 5173.
+  - Vite's watcher misses files replaced by rename, such as by `sed -i` and Wails' binding
+    regeneration (`wails generate module`). Vite then serves the stale module and the page fails with
+    "does not provide an export named …". Edit with the Edit tool or an in-place write, and re-save a
+    missed file in place to fix it. Check what is served through the Wails proxy, `curl
+    localhost:34115/<file>`: Vite's own port moves (5173, 5174…), and an old dead Vite can linger on
+    5173. After a regeneration even an in-place re-save may not reach it (the watcher has lost the
+    file): move `wailsjs/go/main/App.js` out of the folder and copy it back a second later, which
+    Vite sees as a new file. The owner's own dev window is broken the same way until then.
   - `make build-windows` while `wails dev` runs is fine.
   - To call app modules (e.g. `selectSpawn`, `editor`) from `javascript_tool`, import the exact
     URL the page loaded (from `performance.getEntriesByType('resource')`, with its `?t=`). A bare
@@ -650,6 +653,20 @@ e.history.undo(); e.objects.objects.size            // 0
   brush") takes them all. A hand stroke still works through `__engine.doodadTool`'s `onDown`, `tick`
   and `onUp` with `__engine.ctx`.
 - Trap: an edit to a module the page imported reloads the page, so the region is gone; load the scene again.
+
+## Prefabs (#170)
+
+Checks: `wow/prefabs.ts` (TOML, variation; `prefabs.test.ts`), `world/clipTurn.ts`, the Prefabs tab
+(`PrefabBrowser.svelte`) and the multi-model thumbnail (`thumbs.ts` `renderPrefab`). In the dev page on
+Northshire: select a few models (`selectObjects(e.objects, ids)`), write `formatPrefab({ name, objects:
+e.selectionClip().objects })` into a scratch folder with `window.go.main.App.WriteTextFile`, set
+`prefs.prefabDir` to it and `prefs.browserKind = 'prefabs'`, bump `ui.prefabsVersion`: the tab lists it
+with its model count. The tile asks for its thumbnail only when on screen, which a hidden preview tab
+may not report: call `requestThumb(key, ...)` from `wow/thumbs.ts` after `registerPrefab`, then
+`curl "localhost:34115/wow/thumb?key=v2%7C<key, url-encoded>"` gives the PNG. Placing:
+`e.placeObjectClip(prefabClip(p, null))`, `e.turnPastedModels(-Math.PI / 2)`, set
+`e.selectTool.pasteWorld` to a Vector3 and `e.commitPaste()`: the models land turned about their
+middle, one undo step ("Paste 2 models").
 
 ## Sculpt › Terrace (#166)
 

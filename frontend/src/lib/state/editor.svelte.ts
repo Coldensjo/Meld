@@ -454,6 +454,10 @@ export const prefs = $state({
   doodadBrush: '',
   /** The folder of the user's own greyscale images that shape the image brushes (editor.brushImage). */
   brushImageDir: '',
+  /** The folder the author's prefabs are kept in (#170), listed by the asset browser's Prefabs tab. */
+  prefabDir: '',
+  /** How a placed prefab varies (#170): `on`, each root turned up to `turn` degrees, scaled by up to `scale`, dropped with the chance `drop`. */
+  prefabVary: { on: false, turn: 15, scale: 0.1, drop: 0 },
   /** The tabs open at the last close, reopened at the next start (io/session.ts). */
   session: { tabs: [] as SessionTab[], active: 0 },
 })
@@ -535,6 +539,8 @@ export const ui = $state({
   history: false,
   /** Bumped whenever the active map's undo stack changes or another map's becomes active, so the History window re-reads it. */
   historyVersion: 0,
+  /** Bumped when a prefab is saved, so the Prefabs tab reads its folder again. */
+  prefabsVersion: 0,
   /** The floating inspector over the viewport (components/Inspector.svelte): the selection's numbers and actions. I toggles it. */
   inspector: false,
   /** The floating Minimap window (M): the map from above with the camera's spot; a click moves the camera. */

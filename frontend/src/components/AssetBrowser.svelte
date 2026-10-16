@@ -16,10 +16,11 @@
   import { isModelKey, newSet, sameModel, validSets, withModel, withoutModel, type ModelSet } from '../lib/wow/modelSets'
   import { uniqueName } from '../lib/tools/doodadBrush'
   import { exportModelSet, hasBackend, importModelSets } from '../lib/io/mapio'
+  import PrefabBrowser from './PrefabBrowser.svelte'
   import { paletteIndex } from '../lib/terrain/chunkPaint'
 
   /** A tab: the client's files by kind, all of them, the world database's templates, or the author's sets. */
-  type Kind = AssetKind | 'all' | SpawnKind | 'sets'
+  type Kind = AssetKind | 'all' | SpawnKind | 'sets' | 'prefabs'
 
   // The asset browser: the panel along the bottom of the window where models and textures are found.
   // Search-first: one box over everything, facets to narrow, big tiles, and a live preview of the
@@ -34,6 +35,7 @@
     { id: 'object', label: 'Objects' },
     { id: 'all', label: 'All' },
     { id: 'sets', label: 'Sets' },
+    { id: 'prefabs', label: 'Prefabs' },
   ]
 
   /** The tab, kept in the preferences so a restart opens it again. */
@@ -41,7 +43,7 @@
   /** The spawn tabs list the world database's templates (SpawnBrowser), not the client's files. */
   const spawnKind = $derived(kind === 'creature' || kind === 'npc' || kind === 'object')
   /** The catalog's kind: the spawn tabs search nothing of the catalog. */
-  const catalogKind = $derived((spawnKind || kind === 'sets' ? 'all' : kind) as AssetKind | 'all')
+  const catalogKind = $derived((spawnKind || kind === 'sets' || kind === 'prefabs' ? 'all' : kind) as AssetKind | 'all')
   let spawnHover = $state<SearchItem | null>(null)
   // Each tab's search, category and zone live in the preferences (#123), so changing tab or
   // restarting finds them as they were left.
@@ -384,7 +386,7 @@
         <button class="tab" class:active={kind === k.id && !prefs.browserCollapsed} onclick={() => chooseKind(k.id)}>{k.label}</button>
       {/each}
     </div>
-    {#if !prefs.browserCollapsed && wow.loaded && !spawnKind}
+    {#if !prefs.browserCollapsed && wow.loaded && !spawnKind && kind !== 'prefabs'}
       <input
         class="search"
         type="text"
@@ -420,6 +422,8 @@
           <button class="active" onclick={chooseWowFolder}>Select WoW folder…</button>
         {/if}
       </div>
+    {:else if kind === 'prefabs'}
+      <PrefabBrowser {tile} />
     {:else if spawnKind}
       <div class="body spawn">
         <SpawnBrowser kind={kind as SpawnKind} onhover={(it) => (spawnHover = it)} />

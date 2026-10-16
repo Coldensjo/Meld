@@ -34,6 +34,10 @@ export function BrowseBrushImageFolder(arg1) {
   return window['go']['main']['App']['BrowseBrushImageFolder'](arg1);
 }
 
+export function BrowsePrefabFolder(arg1) {
+  return window['go']['main']['App']['BrowsePrefabFolder'](arg1);
+}
+
 export function BrowseVmangosFolder() {
   return window['go']['main']['App']['BrowseVmangosFolder']();
 }
@@ -124,6 +128,10 @@ export function ListDisplays() {
 
 export function ListObjectTemplates() {
   return window['go']['main']['App']['ListObjectTemplates']();
+}
+
+export function ListPrefabs(arg1) {
+  return window['go']['main']['App']['ListPrefabs'](arg1);
 }
 
 export function ListRecovery() {
@@ -320,6 +328,10 @@ export function SaveMapDialog(arg1) {
 
 export function SaveModelSetDialog(arg1) {
   return window['go']['main']['App']['SaveModelSetDialog'](arg1);
+}
+
+export function SavePrefabDialog(arg1, arg2) {
+  return window['go']['main']['App']['SavePrefabDialog'](arg1, arg2);
 }
 
 export function SavePrefs(arg1) {

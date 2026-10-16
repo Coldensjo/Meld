@@ -168,6 +168,20 @@ export namespace main {
 	        this.params = source["params"];
 	    }
 	}
+	export class PrefabFile {
+	    name: string;
+	    text: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PrefabFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.text = source["text"];
+	    }
+	}
 
 }
 
