@@ -44,13 +44,23 @@
     return p
   })
 
+  /**
+   * Where a click sent the camera, until the next stats refresh (2 Hz) reports it: the marker moves
+   * with the click rather than up to half a second later (#129).
+   */
+  let jumped = $state<{ x: number; z: number } | null>(null)
+  $effect(() => {
+    void stats.view
+    jumped = null
+  })
+
   /** The camera's spot and facing as a small arrow in cells. */
   const marker = $derived.by(() => {
     const v = stats.view
     if (!v) return null
     const cs = v.world / Math.max(1, v.cells)
-    const x = v.x / cs
-    const z = v.z / cs
+    const x = (jumped?.x ?? v.x) / cs
+    const z = (jumped?.z ?? v.z) / cs
     // Facing: the way the camera looks, in map cells (the yaw's forward is (-sin, -cos)).
     const fx = -Math.sin(v.yaw)
     const fz = -Math.cos(v.yaw)
@@ -67,6 +77,7 @@
     const x = ((e.clientX - r.left) / r.width) * v.world
     const z = ((e.clientY - r.top) / r.height) * v.world
     eng.controller.focus(x, z)
+    jumped = { x: eng.controller.target.x, z: eng.controller.target.z }
   }
 </script>
 

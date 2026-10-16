@@ -749,6 +749,16 @@ block), amber tile borders on a map bigger than a tile, and a white dot with a l
 target and facing. A click moves the camera there (`controller.focus`). In the dev page:
 `ed.ui.minimap = true`, then `ed.stats.view` fills within half a second and
 `document.querySelector('[aria-label="Minimap"] canvas').width` is the map's size in cells.
+- The marker moves on the click itself (#129), not at the next 2 Hz refresh: dispatch a `click` with
+  `clientX`/`clientY` on `.minimap .map`, wait one frame, and `.minimap circle`'s `cx`/`cy` have moved.
+- A jump's cost (#129): wrap `__engine.frame` to time each call, `controller.focus(x, z)` across a
+  3x3 block (`region: { mapName: 'Azeroth', x: 31, y: 48, size: 3 }`, cells 384, world 768), and read
+  the next five frames. Run Chrome on the GPU for this (`--use-angle=d3d11 --enable-gpu
+  --ignore-gpu-blocklist` instead of the swiftshader flags); swiftshader's times say nothing. Wrapping
+  `renderer.shadowMap.render` splits the shadow pass out: a point light's cube map is about 40 ms
+  there, the far cascade about 5 ms. Before #129 a jump that brought three new shadowed lights took
+  one ~225 ms frame (steady ~50 ms headless); now one cube map is drawn a frame (~115, 95, 95 ms) and
+  a light waits dark for its first map.
 
 ## Clear tool: height, liquids, holes
 

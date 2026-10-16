@@ -108,6 +108,14 @@ export class PropEffects {
   private dist = new Float32Array(0)
   /** The source each pooled light shows (-1 for none), kept across frames so shadows aren't redrawn. */
   private slots = new Int32Array(LIGHT_POOL).fill(-1)
+  /**
+   * Per shadowed light: 2 when it took a new source and has no map of it yet (it stays dark until
+   * the map is drawn), 1 when its map is out of date (the scene changed; it keeps lighting with the
+   * old one), 0 when its map is current. One map is redrawn a frame (#129): a cube map is six passes
+   * over everything in the light's reach, and a camera jump that brought three new lights redrew
+   * all three in one frame.
+   */
+  private stale = new Uint8Array(SHADOW_LIGHTS)
   private sceneVersion = -1
   private shadows = false
   /** The reach of the shadowed lights in use, for culling: what can throw their shadows must be drawn. */
@@ -271,6 +279,15 @@ export class PropEffects {
     for (const sp of this.shadowSpheres) this.sphereFree.push(sp)
     this.shadowSpheres.length = 0
 
+    // The one shadow map redrawn this frame: a new light's first, else an out-of-date one.
+    if (redraw) for (let i = 0; i < SHADOW_LIGHTS; i++) if (this.stale[i] < 1) this.stale[i] = 1
+    let next = -1
+    for (let i = 0; i < SHADOW_LIGHTS; i++) if (this.slots[i] >= 0 && this.stale[i] > (next < 0 ? 0 : this.stale[next])) next = i
+    if (next >= 0) {
+      this.stale[next] = 0
+      if (this.lights[next].castShadow) this.lights[next].shadow.needsUpdate = true
+    }
+
     // Lights read stronger at night; by day they're a subtle warm touch.
     const strength = 0.35 + 0.65 * night
     this.clientCount = 0
@@ -291,7 +308,6 @@ export class PropEffects {
         this.clientColor[k + 2] = s.raw[2]
       }
       if (l.castShadow) {
-        if (redraw) l.shadow.needsUpdate = true
         const sp = this.sphereFree.pop() ?? new THREE.Sphere()
         sp.center.copy(s.pos)
         sp.radius = s.radius
@@ -302,6 +318,8 @@ export class PropEffects {
       l.color.copy(s.color)
       l.distance = s.radius
       l.intensity = s.intensity * s.radius * s.radius * 0.5 * flicker * strength
+      // A shadowed light waits for its first map, rather than shining through walls with another's.
+      if (i < SHADOW_LIGHTS && l.castShadow && this.stale[i] === 2) l.intensity = 0
     }
   }
 
@@ -327,7 +345,7 @@ export class PropEffects {
       for (let i = 0; i < SHADOW_LIGHTS; i++) {
         if (slots[i] < 0) {
           slots[i] = s
-          this.lights[i].shadow.needsUpdate = true
+          this.stale[i] = 2
           break
         }
       }
