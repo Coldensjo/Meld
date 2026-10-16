@@ -939,3 +939,12 @@ fills in, and the export can be driven without its dialog:
 - Trap: after adding a Go binding, a dev page loaded before Wails regenerated `wailsjs` keeps importing
   a stale `App.js` (Vite pins its `?t=`), and the app fails to start with "does not provide an export
   named ...". Touching the file does not help; restart `make dev`.
+
+## Creature path editing on the map (#138)
+
+Checks: the right-click "Edit path" / "Give it a path" on a creature and the floating `PathEditBar`.
+In the dev page: `e.editPath('npc/<guid>')` (a key from `e.doc.spawnLayer.spawns`, `kind/guid`) shows
+`.pathbar`; a ground press through `e.selectTool.onDown(e.ctx, e.hit, ev)` / `onUp` after setting
+`e.ndc` and `e.raycaster` adds a point, and the bar's buttons are plain DOM clicks
+(`[...document.querySelectorAll('.pathbar button')]`). A second press near the first point picks
+it instead of adding one (`ctx.paths.pickPoint`), so space test presses apart.

@@ -153,7 +153,7 @@
       <p class="dim">No path. Edit the path and click the ground to give it one.</p>
     {/if}
     <div class="row-buttons">
-      <button class:active={ui.pathEdit} onclick={() => (ui.pathEdit = !ui.pathEdit)}>{ui.pathEdit ? 'Done' : 'Edit path'}</button>
+      <button class:active={ui.pathEdit} title="Edit the path on the map" onclick={() => (ui.pathEdit ? (ui.pathEdit = false) : engineRef.current?.editPath(spawnKey(s)))}>{ui.pathEdit ? 'Done' : 'Edit path on the map'}</button>
       <button disabled={!points.length} onclick={() => { edit({ waypoints: [] }, 'Clear path'); editor.selectedWaypoint = -1 }}>Clear path</button>
     </div>
     {#if ui.pathEdit}

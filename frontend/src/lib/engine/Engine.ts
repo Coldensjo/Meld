@@ -1442,7 +1442,10 @@ export class Engine {
       selectSpawn(spawn)
       const key = spawnKey(spawn)
       title = `${spawn.name} (${spawn.kind === 'object' ? 'object' : 'creature'} ${spawn.entry})`
-      if (spawn.kind !== 'object') items.push({ label: 'Edit creature…', run: () => (ui.creatureEditor = { key, entry: spawn.entry }) })
+      if (spawn.kind !== 'object') {
+        items.push({ label: 'Edit creature…', run: () => (ui.creatureEditor = { key, entry: spawn.entry }) })
+        items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })
+      }
       items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
       items.push({ separator: true }, { label: 'Delete spawn', shortcut: 'Del', danger: true, run: () => this.deleteSelectedSpawn() })
     } else {
@@ -1463,6 +1466,33 @@ export class Engine {
 
   focusSpawn(s: vmangos.WorldSpawn) {
     this.controller.focus(s.x, s.z, 40)
+  }
+
+  /**
+   * Starts editing creature `key`'s path on the map (#138): selects it in the Select tool, closes the
+   * creature editor that would cover the map, and picks the last point, so a click on the ground
+   * adds a point at the end. `PathEditBar` shows what can be done until Done or Esc.
+   */
+  editPath(key: string) {
+    const s = this.doc.spawnLayer.get(key)
+    if (!s || s.kind === 'object') return
+    if (editor.tool !== 'select') editor.tool = 'select'
+    selectSpawn(s)
+    ui.creatureEditor = null
+    editor.selectedWaypoint = (s.waypoints?.length ?? 0) - 1
+    ui.pathEdit = true
+  }
+
+  /** Deletes the picked point of the selected creature's path, as one undo step. */
+  deletePathPoint() {
+    const sel = editor.selectedSpawn
+    const i = editor.selectedWaypoint
+    if (!sel || i < 0) return
+    const s = this.doc.spawnLayer.get(spawnKey(sel))
+    if (!s?.waypoints?.[i]) return
+    const cmd = spawnChange(this.doc.spawnLayer, spawnKey(sel), { waypoints: withPoint(s.waypoints, i, null) }, `Delete path point (${sel.name})`)
+    if (cmd) this.history.push(cmd)
+    editor.selectedWaypoint = Math.min(i, s.waypoints.length - 1)
   }
 
   /** Moves the camera to a point of the active region, such as a waypoint. */
@@ -1628,13 +1658,8 @@ export class Engine {
         ui.pathEdit = false
         return true
       }
-      const i = editor.selectedWaypoint
-      if ((e.key === 'Delete' || e.key === 'Backspace') && i >= 0) {
-        const s = this.doc.spawnLayer.get(spawnKey(sel))
-        if (!s?.waypoints?.[i]) return true
-        const cmd = spawnChange(this.doc.spawnLayer, spawnKey(sel), { waypoints: withPoint(s.waypoints, i, null) }, `Delete path point (${sel.name})`)
-        if (cmd) this.history.push(cmd)
-        editor.selectedWaypoint = Math.min(i, s.waypoints.length - 1)
+      if ((e.key === 'Delete' || e.key === 'Backspace') && editor.selectedWaypoint >= 0) {
+        this.deletePathPoint()
         return true
       }
     }
