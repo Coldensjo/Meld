@@ -5,6 +5,8 @@
   import { helperGeometry, helperMaterial, isHelper } from '../lib/models/helpers'
   import { fetchMesh } from '../lib/wow/api'
   import { ModelAnimation, modelMesh } from '../lib/world/Animator'
+  import { ParticleLayer, PreviewSet } from '../lib/world/ParticleLayer'
+  import { prefs } from '../lib/state/editor.svelte'
   import { spawnType } from '../lib/world/spawnInfo'
 
   // A creature shown big and animated, as the creature editor sees it: the model dressed in its look
@@ -59,9 +61,21 @@
   const ground = new THREE.Mesh(new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x3a414c }))
   const rings = new THREE.PolarGridHelper(1, 8, 1, 48, 0x56606e, 0x4a525e)
   scene.add(ground, rings)
+  // The model's particles and ribbons (#200), in a layer of the preview's own, so the main scene's
+  // layer never draws this model; texture and colour animation run from the Engine's loop already.
+  const unplaced = new PreviewSet()
+  const particles = new ParticleLayer(unplaced)
+  particles.light.setRGB(0.95, 0.95, 0.95)
+  scene.add(particles.group)
+  const frustum = new THREE.Frustum()
+  const viewProj = new THREE.Matrix4()
+  let last = performance.now()
 
   function drop() {
-    if (mesh) pivot.remove(mesh)
+    if (mesh) {
+      pivot.remove(mesh)
+      unplaced.set(mesh, null)
+    }
     geometry?.dispose()
     mesh = null
     animation = null
@@ -80,10 +94,17 @@
       camera.updateProjectionMatrix()
     }
     if (spinning) yaw += 0.004
-    animation?.update(performance.now() - start)
+    const now = performance.now()
+    const dt = Math.min(0.1, (now - last) / 1000)
+    last = now
+    animation?.update(now - start)
     const cp = Math.cos(pitch)
     camera.position.set(target.x + Math.sin(yaw) * cp * distance, target.y + Math.sin(pitch) * distance, target.z + Math.cos(yaw) * cp * distance)
     camera.lookAt(target)
+    camera.updateMatrixWorld()
+    frustum.setFromProjectionMatrix(viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse))
+    particles.enabled = prefs.particles !== false
+    particles.update(null, null, dt, prefs.animations === false ? 0 : now - start, camera, frustum)
     renderer.render(scene, camera)
   }
 
@@ -121,6 +142,9 @@
       const k = scale > 0 ? scale : 1
       mesh.scale.setScalar(k)
       pivot.add(mesh)
+      // Emitters on a bone ride the preview's own pose.
+      if (animation) a.anim = animation
+      unplaced.set(mesh, a)
       // The box of the model as its pose places it (the bind-pose box can be far off), scaled.
       const box = a.bbox.clone()
       if (animation) {
@@ -178,6 +202,7 @@
     return () => {
       cancelAnimationFrame(raf)
       drop()
+      particles.dispose()
       ground.geometry.dispose()
       ;(ground.material as THREE.Material).dispose()
       rings.dispose()

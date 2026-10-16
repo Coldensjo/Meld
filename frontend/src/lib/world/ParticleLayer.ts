@@ -112,6 +112,16 @@ class Batch {
       blending: blend === 'add' ? THREE.AdditiveBlending : blended ? THREE.NormalBlending : THREE.NoBlending,
       side: THREE.DoubleSide,
     })
+    if (blend === 'add') {
+      // AdditiveBlending's colour factors, but the target's alpha left as it is: three's adds the
+      // particle's alpha, which over a transparent canvas (a preview window's, #200) composites the
+      // texture's black as opaque squares. The viewport's canvas is opaque, so it looks the same there.
+      this.material.blending = THREE.CustomBlending
+      this.material.blendSrc = THREE.SrcAlphaFactor
+      this.material.blendDst = THREE.OneFactor
+      this.material.blendSrcAlpha = THREE.ZeroFactor
+      this.material.blendDstAlpha = THREE.OneFactor
+    }
     // The light is shared by every batch, so it is set once a frame, not cloned per material.
     this.material.uniforms.light.value = light
     this.mesh = new THREE.Mesh(this.geometry, this.material)
@@ -182,17 +192,27 @@ class Batch {
 }
 
 /**
- * The tools' previews of models not yet placed (the Place tool's ghost, a paste's, the doodad brush's
- * plan), by mesh: their particles run too, following the mesh while it is shown in the scene.
+ * Models shown but not placed, by mesh: their particles run too, following the mesh while it is shown
+ * in a scene. The Engine's layer runs the shared set (the tools' previews: the Place tool's ghost, a
+ * paste's, the doodad brush's plan); a preview window runs a set of its own (#200).
  */
-const previews = new Map<THREE.Object3D, ModelAsset>()
-let previewsVersion = 0
+export class PreviewSet {
+  readonly meshes = new Map<THREE.Object3D, ModelAsset>()
+  version = 0
 
-/** Runs the particles of `asset` on the preview `mesh`; null stops them. */
+  /** Runs the particles of `asset` on `mesh`; null stops them. */
+  set(mesh: THREE.Object3D, asset: ModelAsset | null) {
+    if (asset && (asset.emitters.length || asset.ribbons.length)) this.meshes.set(mesh, asset)
+    else if (!this.meshes.delete(mesh)) return
+    this.version++
+  }
+}
+
+const previews = new PreviewSet()
+
+/** Runs the particles of `asset` on the tools' preview `mesh`; null stops them. */
 export function previewParticles(mesh: THREE.Object3D, asset: ModelAsset | null) {
-  if (asset && (asset.emitters.length || asset.ribbons.length)) previews.set(mesh, asset)
-  else if (!previews.delete(mesh)) return
-  previewsVersion++
+  previews.set(mesh, asset)
 }
 
 /** Whether `o` and its parents are visible and in a scene. */
@@ -325,7 +345,8 @@ export class ParticleLayer {
   private previewsVersion = -1
   private generation = 0
 
-  constructor() {
+  /** `unplaced` is the set of models whose particles it runs: the tools' previews by default. */
+  constructor(private readonly unplaced: PreviewSet = previews) {
     this.group.name = 'particles'
   }
 
@@ -369,18 +390,18 @@ export class ParticleLayer {
    * Every pool and trail and its key, after the objects or the spawns changed. One whose emitter
    * stays keeps its particles.
    */
-  private rebuild(layer: ObjectLayer, spawns: SpawnLayer | null) {
+  private rebuild(layer: ObjectLayer | null, spawns: SpawnLayer | null) {
     if (layer !== this.layer || spawns !== this.spawns) {
       this.clearLive()
       this.layer = layer
       this.spawns = spawns
     }
     const gen = ++this.generation
-    for (const o of layer.objects.values()) {
-      if (layer.isHidden(o.id)) continue
+    for (const o of layer?.objects.values() ?? []) {
+      if (layer!.isHidden(o.id)) continue
       const asset = getAsset(o.type)
       if (!asset.emitters.length && !asset.ribbons.length) continue
-      layer.matrixOf(o, m)
+      layer!.matrixOf(o, m)
       this.addModel(String(o.id), asset, gen)
     }
     spawns?.forEachModel((key, type, at) => {
@@ -389,7 +410,7 @@ export class ParticleLayer {
       m.copy(at)
       this.addModel(`s:${key}`, asset, gen)
     })
-    for (const [mesh, asset] of previews) {
+    for (const [mesh, asset] of this.unplaced.meshes) {
       this.following = mesh
       m.copy(mesh.matrixWorld)
       this.addModel(`p:${mesh.id}`, asset, gen)
@@ -431,7 +452,7 @@ export class ParticleLayer {
    * an emitter standing in a room the flood reached (#156).
    */
   update(
-    layer: ObjectLayer,
+    layer: ObjectLayer | null,
     spawns: SpawnLayer | null,
     dt: number,
     ms: number,
@@ -448,15 +469,15 @@ export class ParticleLayer {
     const spawnsVersion = spawns?.version ?? -1
     if (
       layer !== this.layer ||
-      layer.version !== this.version ||
+      (layer?.version ?? -1) !== this.version ||
       spawns !== this.spawns ||
       spawnsVersion !== this.spawnsVersion ||
-      previewsVersion !== this.previewsVersion
+      this.unplaced.version !== this.previewsVersion
     ) {
       this.rebuild(layer, spawns)
-      this.version = layer.version
+      this.version = layer?.version ?? -1
       this.spawnsVersion = spawnsVersion
-      this.previewsVersion = previewsVersion
+      this.previewsVersion = this.unplaced.version
     }
     camera.getWorldPosition(eye)
     right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()

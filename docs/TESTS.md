@@ -1553,3 +1553,17 @@ vendor list) has its inventory icon, and hovering one shows the game-style toolt
   on a `td.item` or a `.results button`, then read `.tip`'s text. Searching: set `input.search`'s value
   and dispatch `input` (bubbling); 100 results for "hammer", each with an icon.
 - Effects show as "Use: spell 433": the spell's own text needs Spell.dbc (#217).
+
+## Preview window: particles, ribbons and texture animation (#200)
+Checks: the preview window and the creature editor's preview (`CreaturePreview.svelte`) run the model's
+particles and ribbons in a `ParticleLayer` of their own (`new ParticleLayer(new PreviewSet())`, so the
+main layer never draws that model), and its texture and colour animation (run for every material by
+the Engine's loop).
+- Dev page: `ed.prefs.particles = true; ed.prefs.animations = true` (the owner's config has both off,
+  and `?nosave` keeps it so), then `ed.ui.modelPreview = { title: 'probe', type: 'm2:World\\Generic\\Human\\Passive Doodads\\Braziers\\StormwindBrazier01.m2', scale: 1 }`
+  and wait ~12 s: flames and sparks over the coals; `ed.prefs.particles = false` takes them away.
+  `ElwynnMediumWaterfall01.m2` shot twice a second apart differs in about 2% of pixels (the scrolling
+  texture), with its spray at the top. Write the step file with the Write tool (backslashes).
+- Trap: the preview's canvas is transparent (`alpha: true`). three's AdditiveBlending adds the
+  particle's alpha too, which composited the spark texture's black as opaque squares there; additive
+  batches now keep the target's alpha (CustomBlending, same colour factors).
