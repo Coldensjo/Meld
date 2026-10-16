@@ -1100,3 +1100,12 @@ export sends each chunk's MCSH as the client has it.
   ones have the flag. So Go always writes the map and sets the flag only when a bit is set.
 - Trap: an edit to a module the page imported reloads the dev page, so the open region is gone;
   load it again before the next probe.
+- With models (#163): `e.bakeShadows()` casts from the placed models too (`world/shadowCasters.ts`);
+  `e.bakeShadows(true)` is the ground only. Wait until `modelCasters(e.objects, size, cellSize).loading`
+  is 0 first (Northshire: 784 models). Northshire then gives 825391 shadowed texels in about 9 s,
+  run between turns (`bakeShadows` is async: start it in one probe, read the result in the next, as a
+  probe has 15 s). The client's own map has 512911; the ground alone 296654. A stub caster in
+  `tests/bakedShadowsBake.test.ts` checks the block logic.
+- Trap: T3 Code's preview tab is hidden, and Chrome throttles a hidden page's `setTimeout` to once a
+  second: a loop that yields with `setTimeout(0)` crawls there (the bake took over a minute). Yield
+  through a `MessageChannel` instead.

@@ -38,7 +38,22 @@ export function chunkShadowBits(shadow: Uint8Array, side: number, cx: number, cz
 }
 
 /** Cells a side of the blocks the bake skips over when its ray is above their highest ground. */
-const BLOCK = 4
+export const SHADOW_BLOCK = 4
+const BLOCK = SHADOW_BLOCK
+
+/**
+ * What else casts in a bake besides the ground (the placed models, world/shadowCasters.ts), sorted
+ * into the bake's blocks of SHADOW_BLOCK cells, `nb` a side.
+ */
+export interface ShadowCasters {
+  /** Raises `blockMax[k]` to the top of the casters over block k, so a ray only skips a block above them. */
+  raise(blockMax: Float32Array, nb: number): void
+  /**
+   * Whether the ray from (x, y, z) toward the sun (`dir`, unit length) meets a caster of block k.
+   * `ray` numbers the ray, so a caster over several blocks is tested once a ray.
+   */
+  hits(k: number, ray: number, x: number, y: number, z: number, dir: readonly number[]): boolean
+}
 
 /** A rect of shadow texels, inclusive. */
 export interface ShadowRect {
@@ -51,11 +66,19 @@ export interface ShadowRect {
 /**
  * Bakes the ground's shadows from the sun into `out` (a byte per texel, `size * SHADOW_PER_CELL` a
  * side, 255 in shadow) over the texels of `rect`: a texel is in shadow when the ground rises above the
- * line from it toward the sun. `sun` points toward the sun in editor space (y up). Only the ground
- * casts: models (trees, buildings) don't, while Blizzard's own maps often shadow under them too.
- * Returns how many texels changed.
+ * line from it toward the sun. `sun` points toward the sun in editor space (y up). The ground casts,
+ * and with `casters` the placed models too (#163), as Blizzard's own maps shadow under trees and
+ * buildings. Returns how many texels changed.
  */
-export function bakeShadows(heights: Float32Array, size: number, cellSize: number, sun: readonly number[], rect: ShadowRect, out: Uint8Array): number {
+export function bakeShadows(heights: Float32Array, size: number, cellSize: number, sun: readonly number[], rect: ShadowRect, out: Uint8Array, casters?: ShadowCasters): number {
+  return shadowBaker(heights, size, cellSize, sun, casters)(rect, out)
+}
+
+/**
+ * bakeShadows split in two: the setup (the blocks' highest ground and casters) once, then a function
+ * that bakes any rect, so a long bake can run a band of rows at a time.
+ */
+export function shadowBaker(heights: Float32Array, size: number, cellSize: number, sun: readonly number[], casters?: ShadowCasters): (rect: ShadowRect, out: Uint8Array) => number {
   const side = size * SHADOW_PER_CELL
   const verts = size + 1
   let top = -Infinity
@@ -84,6 +107,13 @@ export function bakeShadows(heights: Float32Array, size: number, cellSize: numbe
     }
   }
   const blockWorld = BLOCK * cellSize
+  if (casters) {
+    casters.raise(blockMax, nb)
+    for (let k = 0; k < blockMax.length; k++) if (blockMax[k] > top) top = blockMax[k]
+  }
+  const len = Math.hypot(sun[0], sun[1], sun[2]) || 1
+  const dir = [sun[0] / len, sun[1] / len, sun[2] / len]
+  let ray = 0
   const height = (x: number, z: number) => {
     const fx = x / cellSize
     const fz = z / cellSize
@@ -97,43 +127,59 @@ export function bakeShadows(heights: Float32Array, size: number, cellSize: numbe
     const e = heights[(z0 + 1) * verts + x0 + 1]
     return a + (b - a) * tx + (c - a) * tz + (a - b - c + e) * tx * tz
   }
-  let changed = 0
   const texel = cellSize / SHADOW_PER_CELL
-  for (let tz = rect.z0; tz <= rect.z1; tz++) {
-    for (let tx = rect.x0; tx <= rect.x1; tx++) {
-      let shadow = false
-      if (!lit) {
-        let x = (tx + 0.5) * texel
-        let z = (tz + 0.5) * texel
-        // A little above the ground, so a slope doesn't shadow itself.
-        let y = height(x, z) + 0.05
-        for (;;) {
-          let d = step
-          const bx = Math.min(nb - 1, Math.floor(x / blockWorld))
-          const bz = Math.min(nb - 1, Math.floor(z / blockWorld))
-          if (y > blockMax[bz * nb + bx]) {
-            // Above the whole block: on to where the ray leaves it.
-            const ex = ux > 0 ? ((bx + 1) * blockWorld - x) / ux : ux < 0 ? (bx * blockWorld - x) / ux : Infinity
-            const ez = uz > 0 ? ((bz + 1) * blockWorld - z) / uz : uz < 0 ? (bz * blockWorld - z) / uz : Infinity
-            d = Math.max(step, Math.min(ex, ez) + 1e-3)
-          }
-          x += ux * d
-          z += uz * d
-          y += slope * d
-          if (y > top || x < 0 || z < 0 || x > world || z > world) break
-          if (height(x, z) > y) {
-            shadow = true
-            break
+  return (rect, out) => {
+    let changed = 0
+    for (let tz = rect.z0; tz <= rect.z1; tz++) {
+      for (let tx = rect.x0; tx <= rect.x1; tx++) {
+        let shadow = false
+        if (!lit) {
+          let x = (tx + 0.5) * texel
+          let z = (tz + 0.5) * texel
+          // A little above the ground, so a slope doesn't shadow itself.
+          let y = height(x, z) + 0.05
+          const ox = x
+          const oy = y
+          const oz = z
+          let last = -1
+          ray++
+          for (;;) {
+            let d = step
+            const bx = Math.min(nb - 1, Math.floor(x / blockWorld))
+            const bz = Math.min(nb - 1, Math.floor(z / blockWorld))
+            const k = bz * nb + bx
+            if (casters && k !== last) {
+              last = k
+              // A ray entering a block above its casters stays above them: it only rises.
+              if (y <= blockMax[k] && casters.hits(k, ray, ox, oy, oz, dir)) {
+                shadow = true
+                break
+              }
+            }
+            if (y > blockMax[k]) {
+              // Above the whole block: on to where the ray leaves it.
+              const ex = ux > 0 ? ((bx + 1) * blockWorld - x) / ux : ux < 0 ? (bx * blockWorld - x) / ux : Infinity
+              const ez = uz > 0 ? ((bz + 1) * blockWorld - z) / uz : uz < 0 ? (bz * blockWorld - z) / uz : Infinity
+              d = Math.max(step, Math.min(ex, ez) + 1e-3)
+            }
+            x += ux * d
+            z += uz * d
+            y += slope * d
+            if (y > top || x < 0 || z < 0 || x > world || z > world) break
+            if (height(x, z) > y) {
+              shadow = true
+              break
+            }
           }
         }
-      }
-      const i = tz * side + tx
-      const v = shadow ? 255 : 0
-      if (out[i] !== v) {
-        out[i] = v
-        changed++
+        const i = tz * side + tx
+        const v = shadow ? 255 : 0
+        if (out[i] !== v) {
+          out[i] = v
+          changed++
+        }
       }
     }
+    return changed
   }
-  return changed
 }

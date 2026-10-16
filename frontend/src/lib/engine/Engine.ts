@@ -23,7 +23,8 @@ import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { ShadowStroke } from '../tools/shadowStroke'
-import { SHADOW_PER_CELL, bakeShadows, packShadowBits } from '../terrain/bakedShadows'
+import { modelCasters } from '../world/shadowCasters'
+import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
 import { SpawnLabels } from '../world/SpawnLabels'
@@ -3195,22 +3196,63 @@ export class Engine {
   }
 
   /**
-   * Terrain › Bake Shadows: works the baked shadows out from the ground, in the selected area or the
-   * whole map, for the client's lighting sun at the current hour (which never sets), as one undo step.
+   * Terrain › Bake Shadows: works the baked shadows out from the ground and, unless `groundOnly`, the
+   * placed models (#163), in the selected area or the whole map, for the client's lighting sun at the
+   * current hour (which never sets), as one undo step. Models make it slow (seconds a tile in a forest),
+   * so it runs a band of rows at a time between frames, with its progress in the status bar.
    */
-  bakeShadows() {
+  async bakeShadows(groundOnly = false) {
+    if (this.shadowBaking) {
+      setStatus('Shadows are still baking.')
+      return
+    }
     const t = this.terrain
     const r = this.shadowRect()
-    const stroke = new ShadowStroke(t, 'Bake shadows')
+    const stroke = new ShadowStroke(t, groundOnly ? 'Bake shadows from the ground' : 'Bake shadows')
     stroke.reserve(r)
     const sun = lightingSunDir(this.hour * 60, [0, 0, 0])
-    const n = bakeShadows(t.heights, t.size, t.cellSize, sun, r, t.ensureShadow())
+    const models = groundOnly ? null : modelCasters(this.objects, t.size, t.cellSize)
+    const bake = shadowBaker(t.heights, t.size, t.cellSize, sun, models?.casters)
+    const out = t.ensureShadow()
+    const where = editor.selection ? 'in the selected area' : 'over the map'
+    this.shadowBaking = true
+    let n = 0
+    try {
+      const band = { ...r }
+      let z = r.z0
+      while (z <= r.z1) {
+        const start = performance.now()
+        // About 30 ms of rows, then a turn for the editor.
+        while (z <= r.z1 && performance.now() - start < 30) {
+          band.z0 = z
+          band.z1 = Math.min(r.z1, z + 1)
+          n += bake(band, out)
+          z = band.z1 + 1
+        }
+        if (z <= r.z1) {
+          setStatus(`Baking shadows ${where}… ${Math.round(((z - r.z0) / (r.z1 - r.z0 + 1)) * 100)}%`, 2000)
+          // A message, not a timeout: a hidden window throttles timeouts to one a second.
+          await new Promise<void>((done) => {
+            const ch = new MessageChannel()
+            ch.port1.onmessage = () => done()
+            ch.port2.postMessage(0)
+          })
+        }
+      }
+    } finally {
+      this.shadowBaking = false
+    }
+    // The bake may have ended on another tab; its stroke belongs to the map it started on.
     stroke.touch(r)
     const cmd = stroke.finish()
-    if (cmd) this.history.push(cmd)
-    const where = editor.selection ? 'in the selected area' : 'over the map'
-    setStatus(n ? `Baked the shadows ${where}: ${n} texels changed. Lighting › Baked Shadows shows them.` : `The shadows ${where} were already so.`)
+    if (cmd) (this.documents.find((d) => d.terrain === t)?.history ?? this.history).push(cmd)
+    const from = models ? ` from the ground and ${models.count} models` : ' from the ground'
+    const waiting = models?.loading ? ` ${models.loading} models still loading cast nothing; bake again once they show.` : ''
+    setStatus((n ? `Baked the shadows ${where}${from}: ${n} texels changed.` : `The shadows ${where} were already so.`) + waiting, waiting ? 8000 : 4000)
   }
+
+  /** Whether a shadow bake is running (bakeShadows). */
+  private shadowBaking = false
 
   /** Terrain › Clear Shadows: lights every baked shadow texel in the selected area or the whole map, as one undo step. */
   clearShadows() {

@@ -177,6 +177,7 @@
         { kind: 'action', label: 'Replace Texture Everywhere…', run: () => (ui.dialog = 'textures') },
         { kind: 'sep' },
         { kind: 'action', label: editor.selection ? 'Bake Shadows in Selection' : 'Bake Shadows', run: withEngine((e) => e.bakeShadows()) },
+        { kind: 'action', label: editor.selection ? 'Bake Shadows from the Ground in Selection' : 'Bake Shadows from the Ground Only', run: withEngine((e) => e.bakeShadows(true)) },
         { kind: 'action', label: editor.selection ? 'Clear Shadows in Selection' : 'Clear Shadows', run: withEngine((e) => e.clearShadows()) },
         { kind: 'sep' },
         { kind: 'check', label: 'Climb (ground too steep to walk up)', shortcut: 'Shift+F2', checked: prefs.climbView, toggle: () => (prefs.climbView = !prefs.climbView) },
