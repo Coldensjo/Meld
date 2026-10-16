@@ -1043,3 +1043,12 @@ Stormwind Alliance-only), `TestParseClassLevelStats`.
   `ReadCreature(entry)` and delete it afterwards (`DELETE FROM creature_template WHERE entry = …`).
 - Trap: held items go through `EquipmentFor`, which may add a `creature_equip_template` row; leave
   the hands empty in a check, or delete that row too.
+
+## Name colours by reaction (#134)
+
+Checks: a creature's name over its head is red, yellow or green by how its faction treats the side
+picked under View (Alliance or Horde). Go: `TestReaction` (the two-way rule: a player's template is
+hostile to the monster group, so a kobold whose own template attacks no one is still hostile).
+Live on Northshire (Azeroth 32_48), `__engine.spawnLabels.nameColor(spawn)` for spawns found by name
+in `doc.spawnLayer.spawns`: Alliance: Northshire Guard and Deputy Willem green, Kobold Vermin red,
+Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.

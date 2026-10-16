@@ -365,6 +365,8 @@ export const prefs = $state({
   showAllPaths: false,
   /** Names over the creatures and game objects, with a creature's level and rank (#125). */
   spawnNames: true,
+  /** View › Names seen as Alliance or Horde (#134): a creature's name is red, yellow or green by how its faction treats that side. */
+  namesSide: 'alliance' as 'alliance' | 'horde',
   /**
    * Creatures and game objects stay drawn with the camera in a building, where the rest of the world
    * shows only through its doorways (#150).

@@ -75,7 +75,7 @@ import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
@@ -443,6 +443,10 @@ export class Engine {
     this.resizeObs.observe(container)
     this.spawnLabels = new SpawnLabels(container)
     this.spawnLabels.blocked = (to) => this.sightBlocked(to)
+    // The names take their colour from the faction's reaction (#134), once the client's tables are read.
+    Factions()
+      .then((list) => this.spawnLabels.setReactions(new Map((list ?? []).map((f) => [f.id, f]))))
+      .catch(() => {})
     this.resize()
     this.newDocument(256, 'ocean', 0)
   }
@@ -1298,6 +1302,7 @@ export class Engine {
     d.spawnLayer.setKinds({ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects })
     d.spawnLayer.setEvents(p.shownEvents)
     this.spawnLabels.enabled = p.spawnNames
+    this.spawnLabels.setSide(p.namesSide)
     // What a layer toggle hides can't stay selected, since it can't be clicked either (#135).
     if (!p.showObjects && editor.selectedIds.length) selectObjects(d.objects, [])
     else if (editor.selectedIds.some((id) => d.objects.isHidden(id))) selectObjects(d.objects, editor.selectedIds.filter((id) => !d.objects.isHidden(id)))

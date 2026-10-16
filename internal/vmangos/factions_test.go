@@ -22,6 +22,8 @@ func TestReaction(t *testing.T) {
 		{guard, human, "friendly"}, {guard, orc, "hostile"},
 		{critter, human, "neutral"},
 		{named, human, "hostile"}, // a named enemy wins over the friend group
+		{factionTemplate{id: 25, faction: 25, ours: 8, friends: [4]uint32{25}}, human, "hostile"}, // the player's side is hostile to monsters
+		{factionTemplate{id: 32, faction: 29, enemies: [4]uint32{28}}, human, "neutral"},
 	} {
 		if got := reaction(c.a, c.b); got != c.want {
 			t.Errorf("template %d to %d: %s, want %s", c.a.id, c.b.id, got, c.want)
@@ -48,7 +50,7 @@ func TestClientFactions(t *testing.T) {
 	for _, f := range list {
 		by[f.ID] = f
 	}
-	for id, want := range map[uint32][2]string{14: {"hostile", "hostile"}, 35: {"friendly", "friendly"}, 12: {"friendly", "hostile"}} {
+	for id, want := range map[uint32][2]string{14: {"hostile", "hostile"}, 35: {"friendly", "friendly"}, 12: {"friendly", "hostile"}, 25: {"hostile", "hostile"}, 31: {"neutral", "neutral"}} {
 		f := by[id]
 		if f.Alliance != want[0] || f.Horde != want[1] {
 			t.Errorf("template %d (%s): %s/%s, want %s/%s", id, f.Name, f.Alliance, f.Horde, want[0], want[1])

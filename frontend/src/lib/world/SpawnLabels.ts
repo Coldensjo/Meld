@@ -31,6 +31,8 @@ interface Label {
   spawn: vmangos.WorldSpawn | null
   /** What the label shows, to tell when a spawn's name or level changed. */
   text: string
+  /** The name's colour now. */
+  color: string
   /** The height the label stands at: the top of the spawn's model. */
   top: number
   opacity: number
@@ -56,8 +58,37 @@ function levelLine(s: vmangos.WorldSpawn): string {
   return [lv && `Level ${lv}`, rank].filter(Boolean).join(' ')
 }
 
+/** How a faction template treats each side's player (vmangos.FactionInfo). */
+export interface FactionReaction {
+  alliance: string
+  horde: string
+}
+
 export class SpawnLabels {
   enabled = true
+  /**
+   * The reactions by faction template and the side the names are seen from (#134): a creature's
+   * name is red, yellow or green by how its faction treats that side's player, as in the game.
+   * Without them (no client read yet) the name takes its kind's colour.
+   */
+  private reactions: Map<number, FactionReaction> | null = null
+  private side: 'alliance' | 'horde' = 'alliance'
+
+  setReactions(r: Map<number, FactionReaction>) {
+    this.reactions = r
+  }
+
+  setSide(side: 'alliance' | 'horde') {
+    this.side = side
+  }
+
+  /** A spawn's name colour: by its faction's reaction to the side for a creature, else by its kind. */
+  private nameColor(s: vmangos.WorldSpawn): string {
+    const r = s.kind === 'object' ? undefined : this.reactions?.get(s.faction)
+    const how = r ? r[this.side] : ''
+    const kind: SpawnKind = how === 'hostile' ? 'monster' : how === 'friendly' ? 'npc' : how === 'neutral' ? 'object' : (s.kind as SpawnKind)
+    return css(SPAWN_COLORS[kind] ?? 0xffffff)
+  }
   /** Whether the ground or a building stands between the camera and `to`; set by the Engine. */
   blocked: (to: THREE.Vector3) => boolean = () => false
   private root: HTMLDivElement
@@ -182,11 +213,15 @@ export class SpawnLabels {
   /** Writes a spawn's name, subname and level into its label, and finds the top of its model. */
   private fill(l: Label, s: vmangos.WorldSpawn, layer: SpawnLayer) {
     l.top = this.top(s, layer)
+    const color = this.nameColor(s)
+    if (color !== l.color) {
+      l.color = color
+      l.name.style.color = color
+    }
     const text = labelText(s)
     if (text === l.text) return
     l.text = text
     l.name.textContent = s.name
-    l.name.style.color = css(SPAWN_COLORS[s.kind as SpawnKind] ?? 0xffffff)
     l.sub.textContent = s.subname ? `<${s.subname}>` : ''
     l.sub.style.display = s.subname ? '' : 'none'
     const lv = levelLine(s)
@@ -214,7 +249,7 @@ export class SpawnLabels {
     level.style.fontSize = '11px'
     el.append(name, sub, level)
     this.root.appendChild(el)
-    const l: Label = { el, name, sub, level, spawn: null, text: '', top: 0, opacity: 1, shown: true }
+    const l: Label = { el, name, sub, level, spawn: null, text: '', color: '', top: 0, opacity: 1, shown: true }
     this.labels.push(l)
     return l
   }

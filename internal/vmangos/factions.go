@@ -53,17 +53,41 @@ func listed(list [4]uint32, faction uint32) bool {
 	return false
 }
 
-// reaction is how template a treats template b, as the 1.12 client and the server decide it: a named
-// enemy or friend faction first, then the groups.
+// hostileTo is VMaNGOS's FactionTemplateEntry::IsHostileTo: a named enemy or friend faction first,
+// then a's enemy groups against b's own.
+func hostileTo(a, b factionTemplate) bool {
+	if b.faction != 0 {
+		if listed(a.enemies, b.faction) {
+			return true
+		}
+		if listed(a.friends, b.faction) {
+			return false
+		}
+	}
+	return a.enemyGroup&b.ours != 0
+}
+
+// friendlyTo is VMaNGOS's FactionTemplateEntry::IsFriendlyTo.
+func friendlyTo(a, b factionTemplate) bool {
+	if b.faction != 0 {
+		if listed(a.enemies, b.faction) {
+			return false
+		}
+		if listed(a.friends, b.faction) {
+			return true
+		}
+	}
+	return a.friendGroup&b.ours != 0 || a.ours&b.friendGroup != 0
+}
+
+// reaction is how a creature of template a and a player of template b stand, as the client colours
+// a name: hostile when either side is hostile to the other (a player's template is hostile to the
+// monster group, so a kobold that attacks no one is still red), else friendly or neutral.
 func reaction(a, b factionTemplate) string {
 	switch {
-	case listed(a.enemies, b.faction):
+	case hostileTo(a, b) || hostileTo(b, a):
 		return "hostile"
-	case listed(a.friends, b.faction):
-		return "friendly"
-	case a.enemyGroup&b.ours != 0:
-		return "hostile"
-	case a.friendGroup&b.ours != 0 || a.ours&b.friendGroup != 0:
+	case friendlyTo(a, b):
 		return "friendly"
 	}
 	return "neutral"
