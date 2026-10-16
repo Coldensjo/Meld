@@ -545,9 +545,12 @@ export class Engine {
     this.penPressure = e.pointerType === 'pen' ? e.pressure : 1
     const r = this.canvas.getBoundingClientRect()
     this.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+    this.pointerMoved = true
   }
 
   private liquidHit = new THREE.Vector3()
+  /** The pointer moved since the last pick, for Camera › Locked cursor (#19). */
+  private pointerMoved = false
 
   private pick() {
     this.raycaster.setFromCamera(this.ndc, this.camera)
@@ -748,8 +751,12 @@ export class Engine {
     this.updateEnvironment(dt, time)
 
     if (this.sizeDrag) this.hit = this.hitVec.copy(this.sizeDrag.hit)
-    else if (this.pointerInside && !this.controller.isDragging) this.pick()
-    else if (!this.leftDown) this.hit = null
+    else if (this.pointerInside && !this.controller.isDragging) {
+      // Locked cursor (Noggit Red's): a brush's ground point stays put while the camera moves, and
+      // follows only the mouse. The other tools still pick under the cursor every frame.
+      if (!(this.prefs?.lockedCursor && this.activeTool?.usesBrush && this.hit && !this.pointerMoved)) this.pick()
+      this.pointerMoved = false
+    } else if (!this.leftDown) this.hit = null
     this.updatePipetteCursor()
 
     const tool = this.activeTool!

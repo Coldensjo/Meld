@@ -338,6 +338,8 @@ export const prefs = $state({
   showTerrain: true,
   showWater: true,
   showObjects: true,
+  /** Camera › Locked cursor (#19, Noggit Red's): a brush stays on its ground point while the camera moves; only the mouse moves it. */
+  lockedCursor: false,
   /** View › Layers › Doodads (m2 models) and Buildings (wmo), each on its own under Objects (#43). */
   showDoodads: true,
   showBuildings: true,
