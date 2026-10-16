@@ -633,6 +633,25 @@ func (a *App) SearchQuests(text string) ([]vmangos.QuestRef, error) {
 	return vmangos.SearchQuests(server, text, 100)
 }
 
+// ReadGossip reads what a creature template says when talked to (its gossip menu), for the Messages tab.
+func (a *App) ReadGossip(entry int) (vmangos.Gossip, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.Gossip{}, err
+	}
+	return vmangos.ReadGossip(server, entry)
+}
+
+// SaveGreeting sets what a creature template says when talked to, for a man and a woman player
+// (an empty female text uses the male one), and returns its gossip menu now.
+func (a *App) SaveGreeting(entry int, male, female string) (vmangos.GreetingSaved, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.GreetingSaved{}, err
+	}
+	return vmangos.SaveGreeting(server, entry, male, female)
+}
+
 // SearchItems lists up to 100 item templates whose name has text in it (or whose entry it is).
 func (a *App) SearchItems(text string) ([]vmangos.ItemRef, error) {
 	server, _, err := a.serverAndData()

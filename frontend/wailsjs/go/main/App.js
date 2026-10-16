@@ -214,6 +214,10 @@ export function ReadCreatureQuests(arg1) {
   return window['go']['main']['App']['ReadCreatureQuests'](arg1);
 }
 
+export function ReadGossip(arg1) {
+  return window['go']['main']['App']['ReadGossip'](arg1);
+}
+
 export function ReadHeightmap(arg1) {
   return window['go']['main']['App']['ReadHeightmap'](arg1);
 }
@@ -248,6 +252,10 @@ export function SaveCreature(arg1, arg2, arg3) {
 
 export function SaveCreatureQuests(arg1, arg2) {
   return window['go']['main']['App']['SaveCreatureQuests'](arg1, arg2);
+}
+
+export function SaveGreeting(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveGreeting'](arg1, arg2, arg3);
 }
 
 export function SaveHeightmapDialog(arg1) {

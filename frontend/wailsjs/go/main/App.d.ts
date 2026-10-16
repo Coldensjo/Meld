@@ -112,6 +112,8 @@ export function ReadCreature(arg1:number):Promise<vmangos.CreatureRecord>;
 
 export function ReadCreatureQuests(arg1:number):Promise<vmangos.CreatureQuests>;
 
+export function ReadGossip(arg1:number):Promise<vmangos.Gossip>;
+
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
@@ -129,6 +131,8 @@ export function SaveBrushDialog(arg1:string):Promise<string>;
 export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 
 export function SaveCreatureQuests(arg1:number,arg2:vmangos.CreatureQuests):Promise<string>;
+
+export function SaveGreeting(arg1:number,arg2:string,arg3:string):Promise<vmangos.GreetingSaved>;
 
 export function SaveHeightmapDialog(arg1:string):Promise<string>;
 

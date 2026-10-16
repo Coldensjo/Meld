@@ -671,6 +671,75 @@ export namespace vmangos {
 	        this.name = source["name"];
 	    }
 	}
+	export class GossipText {
+	    textId: number;
+	    condition: number;
+	    male: string;
+	    female: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GossipText(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.textId = source["textId"];
+	        this.condition = source["condition"];
+	        this.male = source["male"];
+	        this.female = source["female"];
+	    }
+	}
+	export class Gossip {
+	    menuId: number;
+	    shared: number;
+	    texts: GossipText[];
+	    options: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Gossip(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.menuId = source["menuId"];
+	        this.shared = source["shared"];
+	        this.texts = this.convertValues(source["texts"], GossipText);
+	        this.options = source["options"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class GreetingSaved {
+	    menuId: number;
+	    sql: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GreetingSaved(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.menuId = source["menuId"];
+	        this.sql = source["sql"];
+	    }
+	}
 	export class GroundEffect {
 	    doodads: string[];
 	    slots: number[];

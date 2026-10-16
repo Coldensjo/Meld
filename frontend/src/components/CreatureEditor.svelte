@@ -8,6 +8,7 @@
   import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
   import CreaturePreview from './CreaturePreview.svelte'
   import DisplayPicker from './DisplayPicker.svelte'
+  import MessagesTab from './MessagesTab.svelte'
   import QuestsTab from './QuestsTab.svelte'
   import ShopTab from './ShopTab.svelte'
   import SpawnFields from './SpawnFields.svelte'
@@ -17,7 +18,7 @@
   // and its creature template, every column of creature_template, saved to the world database with
   // Save. A new creature starts here too, from scratch or as a copy.
 
-  type Tab = 'spawn' | 'creature' | 'looks' | 'shop' | 'quests'
+  type Tab = 'spawn' | 'creature' | 'looks' | 'shop' | 'quests' | 'messages'
 
   const target = $derived(ui.creatureEditor)
   /** The spawn the editor was opened from, as the panel's copy of it. */
@@ -32,9 +33,11 @@
   let saving = $state(false)
   let confirmClose = $state(false)
 
-  /** Unsaved edits in the Shop and Quests tabs, which have their own Save. */
+  /** Unsaved edits in the Shop, Quests and Messages tabs, which have their own Save. */
   let shopDirty = $state(false)
   let questsDirty = $state(false)
+  let messagesDirty = $state(false)
+  const tabsDirty = $derived(shopDirty || questsDirty || messagesDirty)
   const changes = $derived(changedValues(values, saved))
   const changeCount = $derived(Object.keys(changes).length)
   const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name)) : [])
@@ -51,6 +54,7 @@
     tab = t.key ? 'spawn' : 'creature'
     shopDirty = false
     questsDirty = false
+    messagesDirty = false
     if (t.entry > 0) copySource = null
     record = null
     error = ''
@@ -120,7 +124,7 @@
   })
 
   const unsavedText = $derived(
-    [changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the creature` : '', shopDirty ? 'unsaved changes to the shop' : '', questsDirty ? 'unsaved changes to the quests' : '']
+    [changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the creature` : '', shopDirty ? 'unsaved changes to the shop' : '', questsDirty ? 'unsaved changes to the quests' : '', messagesDirty ? 'an unsaved greeting' : '']
       .filter(Boolean)
       .join(', ') + '.',
   )
@@ -129,7 +133,7 @@
   let afterDiscard: (() => void) | null = null
 
   function close(force = false) {
-    if ((changeCount > 0 || shopDirty || questsDirty) && !force) {
+    if ((changeCount > 0 || tabsDirty) && !force) {
       afterDiscard = null
       confirmClose = true
       return
@@ -164,6 +168,14 @@
     }
   }
 
+  /** The greeting was saved: the database now has the creature's gossip menu and Gossip flag. */
+  function greetingSaved(menuId: number) {
+    for (const v of [values, saved]) {
+      v.gossip_menu_id = String(menuId)
+      v.npc_flags = withBit(v.npc_flags ?? '0', 0x1, true)
+    }
+  }
+
   function place() {
     if (!record) return
     ui.placeCreature = creatureTemplateOf(record.entry, values)
@@ -182,7 +194,7 @@
     if (target?.entry === 0) return
     copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
     const go = () => (ui.creatureEditor = { key: null, entry: 0 })
-    if (changeCount > 0 || shopDirty || questsDirty) {
+    if (changeCount > 0 || tabsDirty) {
       afterDiscard = go
       confirmClose = true
       return
@@ -312,6 +324,7 @@
             <button class:on={tab === 'looks'} onclick={() => (tab = 'looks')}>Looks</button>
             <button class:on={tab === 'shop'} onclick={() => (tab = 'shop')}>Shop</button>
             <button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests</button>
+            <button class:on={tab === 'messages'} onclick={() => (tab = 'messages')}>Messages</button>
           {/if}
           <button class:on={target.entry === 0} onclick={startNew}>New creature</button>
         </nav>
@@ -331,8 +344,8 @@
           {:else if tab === 'spawn' && spawn}
             <SpawnFields s={spawn} />
             <p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (Spawns panel › Save to database). Edit the path in the world: close the editor, then Edit path.</p>
-          {:else if tab === 'shop' || tab === 'quests'}
-            <!-- The Shop and Quests tabs stay mounted below, so their unsaved lists survive a tab switch. -->
+          {:else if tab === 'shop' || tab === 'quests' || tab === 'messages'}
+            <!-- The Shop, Quests and Messages tabs stay mounted below, so their unsaved edits survive a tab switch. -->
           {:else if tab === 'looks' && record}
             <div class="slot">
               <span>A click sets</span>
@@ -360,6 +373,9 @@
             </div>
             <div hidden={tab !== 'quests'}>
               <QuestsTab entry={record.entry} npcFlags={Number(values.npc_flags) || 0} onquestflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x2, true))} bind:dirty={questsDirty} />
+            </div>
+            <div hidden={tab !== 'messages'}>
+              <MessagesTab entry={record.entry} onsaved={greetingSaved} bind:dirty={messagesDirty} />
             </div>
           {/if}
         </div>

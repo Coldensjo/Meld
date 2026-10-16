@@ -1008,3 +1008,9 @@ it was; `select count(*) from npc_vendor where entry=805` is 0).
   Vite keeps serving the old `wailsjs/go/main/App.js` without the new exports, even after an in-place
   rewrite. Deleting the file and copying it back (an add event for the watcher) fixed it; check with
   `curl localhost:34115/wailsjs/go/main/App.js | grep <NewBinding>`.
+- The Messages tab (the greeting: gossip_menu, npc_text, broadcast_text): 931 reads gossip menu 6944,
+  shared by 42 creatures ("Where would you like to fly to?", 2 options). A save adds rows to three
+  tables and changes `creature_template`, so note `max(entry)` of broadcast_text and gossip_menu and
+  `max(ID)` of npc_text first, save a greeting on 805, read it back with `ReadGossip(805)` (a new menu,
+  shared by 1), then delete the rows above those maxima and set 805's `gossip_menu_id` and
+  `npc_flags` back to 0.
