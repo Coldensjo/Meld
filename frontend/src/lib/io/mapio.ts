@@ -69,7 +69,10 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime'
 export const hasBackend = () => typeof (window as unknown as { go?: unknown }).go !== 'undefined'
 
 export function toMapData(s: MapSnapshot): mapfile.MapData {
-  return mapfile.MapData.createFrom({
+  // Not MapData.createFrom: Wails generates its embedded header's region, vmangos and roles with a null
+  // class, which throws "classs is not a constructor" for any map that has one. The binding only
+  // needs the fields, which it sends as JSON.
+  return Object.assign(new mapfile.MapData(), {
     name: s.name,
     size: s.size,
     cellSize: s.cellSize,
