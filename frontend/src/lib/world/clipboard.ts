@@ -6,6 +6,8 @@ import { TerrainStroke, type Rect } from '../tools/brush'
 import { LiquidStroke } from '../water/liquidStroke'
 import { ChunkDataStroke } from '../tools/chunkDataStroke'
 import { copyChunkData, pasteChunkData } from './clipChunkData'
+import { copyShadows, pasteShadows } from './clipShadows'
+import { ShadowStroke } from '../tools/shadowStroke'
 import { pastedHeight, type PasteHeightMode } from './pasteHeight'
 import { copyLiquidCells, pasteLiquidCells, type LiquidClip, type LiquidMap } from '../water/liquids'
 import {
@@ -47,6 +49,11 @@ export interface MapClip {
    * the cell's no-tuft byte (absent in a clip made before they were copied).
    */
   chunkData?: { areas: Uint32Array; flags: Uint8Array; noEffect: Uint8Array }
+  /**
+   * The baked shadows under the area, w*8 by h*8 texels (world/clipShadows.ts); absent when the map
+   * had none of its own, or in a clip made before they were copied.
+   */
+  shadows?: Uint8Array
 }
 
 export interface PasteOptions {
@@ -237,6 +244,8 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
   const inside = encodeObjects(terrain, objects, picked, ox, oz)
   const clip: MapClip = { w, h, heights, holes, weights, slots, palette: clipPalette, objects: inside, chunkData: copyChunkData(terrain, r) }
   if (liquids) clip.liquids = copyLiquidCells(liquids, r)
+  const shadows = copyShadows(terrain, r)
+  if (shadows) clip.shadows = shadows
   return clip
 }
 
@@ -274,6 +283,13 @@ export function pasteRegion(
     const cs = new ChunkDataStroke(terrain, 'Paste')
     pasteChunkData(terrain, clip, px, pz, cs)
     chunkCmd = cs.finish()
+  }
+  // The baked shadows come along with the ground too.
+  let shadowCmd: Command | null = null
+  if (opts.terrain && clip.shadows) {
+    const ss = new ShadowStroke(terrain, 'Paste')
+    pasteShadows(terrain, clip.shadows, clip.w, clip.h, px, pz, ss)
+    shadowCmd = ss.finish()
   }
   if (opts.terrain && liquids && clip.liquids) {
     const ls = new LiquidStroke(liquids, 'Paste')
@@ -419,7 +435,7 @@ export function pasteRegion(
   const added = opts.objects ? decodeObjects(terrain, objects, clip.objects, px * cs, pz * cs) : []
 
   const terrainCmd = stroke.finish()
-  if (!terrainCmd && !liquidCmd && !chunkCmd && !added.length && !paletteChanged) return null
+  if (!terrainCmd && !liquidCmd && !chunkCmd && !shadowCmd && !added.length && !paletteChanged) return null
   const saved = added.map((o) => ({ ...o }))
   return {
     label: 'Paste',
@@ -427,6 +443,7 @@ export function pasteRegion(
       terrainCmd?.undo()
       liquidCmd?.undo()
       chunkCmd?.undo()
+      shadowCmd?.undo()
       for (const o of saved) objects.remove(o.id)
       if (paletteChanged) setPalette(paletteBefore)
     },
@@ -434,6 +451,7 @@ export function pasteRegion(
       terrainCmd?.redo()
       liquidCmd?.redo()
       chunkCmd?.redo()
+      shadowCmd?.redo()
       for (const o of saved) objects.add({ ...o })
       if (paletteChanged) setPalette(palette)
     },

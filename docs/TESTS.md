@@ -843,6 +843,12 @@ sides. Unit tests: `tests/clipboard.test.ts` (`rotateClip`, `copyLiquidCells`, `
 `e.copySelection()`, `e.startPaste()`, `e.rotateClip()` then `e['clip'].w` is 8 and `.h` 16;
 `e.commitPaste()` with `e.tools.select.pasteAt = { x: 60, z: 60 }` set first; one Ctrl+Z undoes
 the ground, liquids and models together.
+- Baked shadows ride along (#162, `world/clipShadows.ts`, unit tests in `tests/clipShadows.test.ts`): on
+  Northshire, the same selection pasted at cell (60, 60) gives that area the source's 643 shadowed
+  texels exactly, and the undo gives back what was there.
+- Trap: a long `preview_evaluate` (over its 15 s limit) can leave T3 Code's preview tab wedged, so even
+  `1+1` times out after; open a new tab (`preview_open` with `reuseExistingTab: false`) and keep each
+  probe short (start the scene load in one call, wait for it in the next).
 - Trap: node's type stripping can't load `tools/brush.ts` (a constructor with parameter properties),
   so a unit test can't import `world/clipboard.ts` or anything else that pulls it in. Put what a
   test needs in its own module (`world/clipRotate.ts` is one) and import only that.
