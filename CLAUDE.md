@@ -17,7 +17,9 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
 - Match the style of existing commit messages: one sentence in the imperative mood that says what
   changed and why, e.g. "Save palette thumbnails through a Go binding instead of a POST, since
   WebKitGTK crashes on request bodies".
-- Commit to the current branch. Do not push unless the user asks.
+- Commit to the current branch. At the end of every session, pull and push: `git pull --rebase
+  --autostash`, then `git push`. Never force push. If the pull conflicts or the push is rejected,
+  abort the rebase, leave the commits local and tell the user.
 - When a commit finishes an issue, end the message with a blank line and `Closes #<n>` before the
   `Co-Authored-By` trailer.
 

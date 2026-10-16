@@ -175,8 +175,7 @@ duplicate, and say so in the run log.
 
 **6. Push.** After every run, even one that stopped early or did no items, pull and push so the
 remote has the run's commits: `git pull --rebase --autostash`, then `git push`. This is the owner's
-standing instruction for the loop and overrides CLAUDE.md's "do not push unless asked". Never force
-push. If the pull conflicts or the push is rejected, do not resolve it by guessing: abort the rebase
+standing rule for every session (CLAUDE.md, "Git workflow"). Never force push. If the pull conflicts or the push is rejected, do not resolve it by guessing: abort the rebase
 (`git rebase --abort`), leave the commits local, and say so in the report. Push only `main` of this
 repository, never `vmangos`, `noggit-red` or `benilla`.
 
