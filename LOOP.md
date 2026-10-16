@@ -7,6 +7,10 @@ machine). The rest lives in DESIGN.md (goals, rules, priorities) and in the clos
 
 ---
 
+First pull, so the run starts from the remote's state: `git pull --rebase --autostash` (the working
+tree may hold the owner's uncommitted changes, which `--autostash` puts back). If the pull fails or
+conflicts, stop the run and say so; do not work on a stale or half-rebased tree.
+
 Read CLAUDE.md and DESIGN.md. Do not edit DESIGN.md. Then read the backlog:
 
 ```
@@ -140,7 +144,7 @@ c. If the item changes what the app shows, check it in the app or say in the log
 d. Commit that item alone, following CLAUDE.md. Stage only the files you changed, by name. Never run
    `git add -A` or `git add .`. The working tree may hold the owner's uncommitted changes. Leave them
    unstaged. Regenerate wailsjs only if the item changed a bound Go method, and stage only the wailsjs
-   files that changed for that reason. Do not push. The message is one imperative sentence that says
+   files that changed for that reason. Do not push per item; the run pushes once, in step 6. The message is one imperative sentence that says
    what changed and why, then a blank line, `Closes #<n>`, and the `Co-Authored-By` trailer the
    harness gives for the model running the loop. Do not hard-code a model name here, and do not note
    in the log which model ran.
@@ -169,7 +173,14 @@ comment on an existing one instead of filing a duplicate. Do not implement it in
 closed as not planned, with the reason in a comment. Never close an owner-filed issue except as a
 duplicate, and say so in the run log.
 
-**6. Report.** Comment on the pinned Loop run log issue, and end the run with the same short summary:
+**6. Push.** After every run, even one that stopped early or did no items, pull and push so the
+remote has the run's commits: `git pull --rebase --autostash`, then `git push`. This is the owner's
+standing instruction for the loop and overrides CLAUDE.md's "do not push unless asked". Never force
+push. If the pull conflicts or the push is rejected, do not resolve it by guessing: abort the rebase
+(`git rebase --abort`), leave the commits local, and say so in the report. Push only `main` of this
+repository, never `vmangos`, `noggit-red` or `benilla`.
+
+**7. Report.** Comment on the pinned Loop run log issue, and end the run with the same short summary:
 items done with their issue numbers and commit hashes, items left unfinished and why, owner questions
-asked, which stop condition applied, and the next top item. Do not start work after the stop
+asked, which stop condition applied, whether the push went through, and the next top item. Do not start work after the stop
 condition applies.
