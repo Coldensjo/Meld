@@ -606,6 +606,33 @@ func (a *App) SaveVendor(entry int, items []vmangos.VendorItem) (string, error) 
 	return vmangos.SaveVendor(server, entry, items)
 }
 
+// ReadCreatureQuests reads the quests a creature template starts and ends, for the creature editor's Quests tab.
+func (a *App) ReadCreatureQuests(entry int) (vmangos.CreatureQuests, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.CreatureQuests{}, err
+	}
+	return vmangos.ReadCreatureQuests(server, entry)
+}
+
+// SaveCreatureQuests replaces the quests a creature template starts and ends, and returns the SQL it ran.
+func (a *App) SaveCreatureQuests(entry int, quests vmangos.CreatureQuests) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SaveCreatureQuests(server, entry, quests)
+}
+
+// SearchQuests lists up to 100 quests whose title has text in it (or whose entry it is).
+func (a *App) SearchQuests(text string) ([]vmangos.QuestRef, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SearchQuests(server, text, 100)
+}
+
 // SearchItems lists up to 100 item templates whose name has text in it (or whose entry it is).
 func (a *App) SearchItems(text string) ([]vmangos.ItemRef, error) {
 	server, _, err := a.serverAndData()

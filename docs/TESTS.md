@@ -1001,3 +1001,10 @@ it was; `select count(*) from npc_vendor where entry=805` is 0).
   can still change its `slot` values. Test saves on a creature with no shop.
 - Trap: the tab keeps its list while other tabs are shown (it stays mounted, hidden); its unsaved
   edits count in the editor's "unsaved changes" bar.
+- The Quests tab (creature_questrelation / creature_involvedrelation) the same way: entry 197 (Marshal
+  McBride) starts 10 and ends 4; test a save on 805 with Kobold Camp Cleanup (7) as start and end,
+  read back with `ReadCreatureQuests(805)`, remove both and save again.
+- Trap: after `wails generate module` the dev page can fail to mount (the body stays empty) because
+  Vite keeps serving the old `wailsjs/go/main/App.js` without the new exports, even after an in-place
+  rewrite. Deleting the file and copying it back (an add event for the watcher) fixed it; check with
+  `curl localhost:34115/wailsjs/go/main/App.js | grep <NewBinding>`.

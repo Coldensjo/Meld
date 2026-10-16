@@ -110,6 +110,8 @@ export function ReadBrushImage(arg1:string,arg2:string):Promise<heightmap.GreyVi
 
 export function ReadCreature(arg1:number):Promise<vmangos.CreatureRecord>;
 
+export function ReadCreatureQuests(arg1:number):Promise<vmangos.CreatureQuests>;
+
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
@@ -125,6 +127,8 @@ export function SaveAreas(arg1:Array<vmangos.AreaRow>):Promise<main.AreaSaveResu
 export function SaveBrushDialog(arg1:string):Promise<string>;
 
 export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
+
+export function SaveCreatureQuests(arg1:number,arg2:vmangos.CreatureQuests):Promise<string>;
 
 export function SaveHeightmapDialog(arg1:string):Promise<string>;
 
@@ -155,6 +159,8 @@ export function SaveVendor(arg1:number,arg2:Array<vmangos.VendorItem>):Promise<s
 export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTemplate>>;
 
 export function SearchItems(arg1:string):Promise<Array<vmangos.ItemRef>>;
+
+export function SearchQuests(arg1:string):Promise<Array<vmangos.QuestRef>>;
 
 export function SetBenillaPath(arg1:string):Promise<void>;
 

@@ -210,6 +210,10 @@ export function ReadCreature(arg1) {
   return window['go']['main']['App']['ReadCreature'](arg1);
 }
 
+export function ReadCreatureQuests(arg1) {
+  return window['go']['main']['App']['ReadCreatureQuests'](arg1);
+}
+
 export function ReadHeightmap(arg1) {
   return window['go']['main']['App']['ReadHeightmap'](arg1);
 }
@@ -240,6 +244,10 @@ export function SaveBrushDialog(arg1) {
 
 export function SaveCreature(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveCreature'](arg1, arg2, arg3);
+}
+
+export function SaveCreatureQuests(arg1, arg2) {
+  return window['go']['main']['App']['SaveCreatureQuests'](arg1, arg2);
 }
 
 export function SaveHeightmapDialog(arg1) {
@@ -300,6 +308,10 @@ export function SearchCreatures(arg1) {
 
 export function SearchItems(arg1) {
   return window['go']['main']['App']['SearchItems'](arg1);
+}
+
+export function SearchQuests(arg1) {
+  return window['go']['main']['App']['SearchQuests'](arg1);
 }
 
 export function SetBenillaPath(arg1) {
