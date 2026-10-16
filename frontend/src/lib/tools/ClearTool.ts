@@ -25,6 +25,13 @@ export class ClearTool implements Tool {
   /** The object layer the stroke started on: undo must restore that map, not whichever tab is active then. */
   private objects: ObjectLayer | null = null
   private cellRect: Rect = { x0: 0, z0: 0, x1: 0, z1: 0 }
+  /**
+   * In Models mode, the models a stroke at the cursor would remove, which the Engine marks red
+   * (#131). Found again only when the brush, its size or the models change.
+   */
+  readonly doomed: WorldObject[] = []
+  private doomedIds = new Set<number>()
+  private doomedAt = { x: NaN, z: NaN, r: 0, version: -1, layer: null as ObjectLayer | null }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null) {
     this.held = true
@@ -41,6 +48,34 @@ export class ClearTool implements Tool {
 
   tick(ctx: ToolContext, _dt: number, hit: THREE.Vector3 | null) {
     if (this.held) this.clear(ctx, hit)
+  }
+
+  frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    const at = this.doomedAt
+    if (editor.clearMode !== 'models' || !hit) {
+      this.doomed.length = 0
+      at.layer = null
+      return
+    }
+    const r = editor.brush.radius
+    const objects = ctx.objects
+    if (at.x === hit.x && at.z === hit.z && at.r === r && at.version === objects.version && at.layer === objects) return
+    at.x = hit.x
+    at.z = hit.z
+    at.r = r
+    at.version = objects.version
+    at.layer = objects
+    this.modelsIn(objects, hit, this.doomedIds)
+    this.doomed.length = 0
+    for (const id of this.doomedIds) {
+      const o = objects.objects.get(id)
+      if (o) this.doomed.push(o)
+    }
+  }
+
+  deactivate() {
+    this.doomed.length = 0
+    this.doomedAt.layer = null
   }
 
   onUp(ctx: ToolContext) {
@@ -172,18 +207,26 @@ export class ClearTool implements Tool {
     }
   }
 
-  private clearModels(ctx: ToolContext, hit: THREE.Vector3) {
+  /** Fills `out` with the root models whose ground point is in the brush at `hit`, and what hangs on them. */
+  private modelsIn(objects: ObjectLayer, hit: THREE.Vector3, out: Set<number>) {
+    out.clear()
     const r2 = editor.brush.radius * editor.brush.radius
-    const gone = new Set<number>()
-    for (const o of ctx.objects.objects.values()) {
+    for (const o of objects.objects.values()) {
       if (o.parent !== undefined) continue
-      const p = ctx.objects.worldPlacement(o).pos
-      const dx = p.x - hit.x
-      const dz = p.z - hit.z
+      // A root model's x and z are its world ground point.
+      const dx = o.x - hit.x
+      const dz = o.z - hit.z
       if (dx * dx + dz * dz > r2) continue
-      gone.add(o.id)
-      for (const kid of ctx.objects.descendantIds(o.id)) gone.add(kid)
+      out.add(o.id)
+      for (const kid of objects.descendantIds(o.id)) out.add(kid)
     }
+  }
+
+  private gone = new Set<number>()
+
+  private clearModels(ctx: ToolContext, hit: THREE.Vector3) {
+    const gone = this.gone
+    this.modelsIn(ctx.objects, hit, gone)
     for (const id of gone) {
       const o = ctx.objects.objects.get(id)
       if (!o) continue

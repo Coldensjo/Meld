@@ -782,6 +782,20 @@ e.terrain.heightAt(100, 100)                 // 0 on a hills map (was the hill's
   chunk's slot 1 to texture 1 at weight 8 (base 247) in `e.terrain.chunkSlots`/`weights`, then stroke
   Clear with `clearMode = 'faint'`, `clearThreshold = 10`: the base goes back to 255, the step is
   "Clear faint layers", and `e.history.undo()` brings the layer back.
+## Clear tool: the models a stroke would delete (#131)
+
+Checks: in Models mode the Clear tool marks, while it hovers, exactly the models a stroke there
+removes, with a red outline and a red tint (`Engine.doomOutline`, a `SelectionOutline` with one
+colour and `fill`). In the dev page (GPU Chrome, as in "Minimap window (M)"), load Azeroth 32_48 with
+`"tool":"clear"`, set `ed.clearMode = 'models'; ed.brush.radius = 18`, put `e.controller.target` on
+a root model (the nearest to x 150, z 300 is an Elwynn tree), then `e.ndc.set(0, 0);
+e.pointerInside = true` and step a few frames: `e.tools.clear.doomed` lists the tree and a bush.
+`onDown(e.ctx, e.hit.clone()); onUp(e.ctx)` removes those two and no other, `doomed` is empty after,
+and `e.undo()` brings them and their marks back.
+- The marks are found again only when the brush moves, its radius changes or a model is added or
+  removed (`ObjectLayer.version`); a model moved under a still brush is picked up on the next move.
+- The tint is drawn over the frame, so it shows through what stands in front of a marked model.
+
 ## Area paste: liquids and turning (chunk mover)
 
 Checks: Ctrl+C on a selected area copies its painted liquid cells too (the status says how many),

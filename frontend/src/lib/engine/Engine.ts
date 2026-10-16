@@ -109,6 +109,7 @@ export interface RegionObject {
 
 /** No overlap boxes, for a selection of several objects. */
 const NO_BOXES: THREE.Box3[] = []
+const NO_OBJECTS: readonly WorldObject[] = []
 
 /** How far above the ground the top-down view's camera stands: over any building or mountain a map holds. */
 const ORTHO_HEIGHT = 1500
@@ -287,6 +288,11 @@ export class Engine {
   private statTime = 0
   private resizeObs: ResizeObserver
   private outline = new SelectionOutline()
+  /** Red marks (outline and tint) on the models the Clear tool's brush would delete (#131). */
+  private doomOutline = new SelectionOutline({ color: new THREE.Color(1, 0.18, 0.15), fill: 0.32 })
+  private doomTargets: OutlineTarget[] = []
+  private doomMatrices: THREE.Matrix4[] = []
+  private clearTool = new ClearTool()
   private gizmo = new TransformGizmo()
   /** Active handle drag: which handle and the state when it started. */
   private gizmoDrag: {
@@ -403,7 +409,7 @@ export class Engine {
       road: new RoadTool(),
       water: new WaterTool(),
       place: this.placeTool,
-      clear: new ClearTool(),
+      clear: this.clearTool,
       doodad: this.doodadTool,
       stamp: new StampTool(),
       mapdata: new MapDataTool(),
@@ -440,6 +446,7 @@ export class Engine {
     this.resizeObs.disconnect()
     this.controller.dispose()
     this.outline.dispose()
+    this.doomOutline.dispose()
     this.env.dispose()
     this.horizon.dispose()
     this.effects.dispose()
@@ -459,6 +466,7 @@ export class Engine {
     this.renderer.setSize(w, h, false)
     const buf = this.renderer.getDrawingBufferSize(new THREE.Vector2())
     this.outline.setSize(buf.x, buf.y)
+    this.doomOutline.setSize(buf.x, buf.y)
     this.persp.aspect = w / h
     this.persp.updateProjectionMatrix()
   }
@@ -792,11 +800,13 @@ export class Engine {
     this.animateModels(time)
     this.updateParticles(dt, time)
     this.updateSelectionVisuals()
+    this.updateDoomVisuals()
     this.renderer.render(this.scene, this.camera)
     // The counters describe the last render call, so read the scene's before the outline passes.
     const calls = this.renderer.info.render.calls
     const triangles = this.renderer.info.render.triangles
     this.outline.render(this.renderer, this.camera)
+    this.doomOutline.render(this.renderer, this.camera)
 
     this.frames++
     if (time - this.statTime >= 0.5) {
@@ -2501,6 +2511,20 @@ export class Engine {
 
     // Last: overlappingBoxes reuses the scratch matrix/vectors used above.
     this.outline.setWarnBoxes(this.overlappingBoxes(o))
+  }
+
+  /** Marks the models the Clear tool's brush would delete, while it is the active tool. */
+  private updateDoomVisuals() {
+    const doomed = editor.tool === 'clear' ? this.clearTool.doomed : NO_OBJECTS
+    const targets = this.doomTargets
+    if (!doomed.length && !targets.length) return
+    targets.length = 0
+    for (let i = 0; i < doomed.length; i++) {
+      const m = (this.doomMatrices[i] ??= new THREE.Matrix4())
+      this.objects.matrixOf(doomed[i], m)
+      targets.push({ asset: getAsset(doomed[i].type), matrix: m, touching: false })
+    }
+    this.doomOutline.setTargets(targets)
   }
 
   /** Puts the gizmo at a multi-selection's pivot, the ring round the whole group and the arrow over its top. */

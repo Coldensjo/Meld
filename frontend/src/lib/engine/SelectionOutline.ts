@@ -50,7 +50,17 @@ export class SelectionOutline {
   private quadMat: THREE.ShaderMaterial
   private active = false
 
-  constructor() {
+  /**
+   * `color` draws every stroke in one colour (the free, touching and warning colours alike), and
+   * `fill` also tints the inside of the silhouette with it at that opacity: the Clear tool's marks
+   * on the models it would delete (#131).
+   */
+  constructor(opts: { color?: THREE.Color; fill?: number } = {}) {
+    if (opts.color) {
+      this.color.copy(opts.color)
+      this.touchColor.copy(opts.color)
+      this.warnColor.copy(opts.color)
+    }
     this.quadMat = new THREE.ShaderMaterial({
       uniforms: {
         mask: { value: this.maskRT.texture },
@@ -58,6 +68,7 @@ export class SelectionOutline {
         color: { value: this.color },
         touchColor: { value: this.touchColor },
         warnColor: { value: this.warnColor },
+        fill: { value: opts.fill ?? 0 },
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -68,9 +79,15 @@ export class SelectionOutline {
         uniform vec3 color;
         uniform vec3 touchColor;
         uniform vec3 warnColor;
+        uniform float fill;
         varying vec2 vUv;
         void main() {
           float c = texture2D(mask, vUv).r;
+          if (fill > 0.0 && c > 0.5) {
+            gl_FragColor = vec4(color, fill);
+            #include <colorspace_fragment>
+            return;
+          }
           float m = 0.0;
           float warn = 0.0;
           float touch = 0.0;
