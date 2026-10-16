@@ -66,6 +66,12 @@ function randomTilt(): { tiltX?: number; tiltZ?: number } {
   return { tiltX: (Math.random() * 2 - 1) * TILT_LIMIT, tiltZ: (Math.random() * 2 - 1) * TILT_LIMIT }
 }
 
+/**
+ * How far, in screen pixels, the pointer must move after a press on a model, spawn or path point
+ * before it drags, so a click or a double-click never shifts what it selects.
+ */
+const DRAG_PX = 4
+
 /** One Shift+scroll notch scales the placement preview by this much. */
 const SCALE_STEP = 1.1
 
@@ -357,6 +363,11 @@ export class SelectTool implements Tool {
   private spawnDrag: { key: string; dx: number; dz: number; before: SpawnFields; moved: boolean } | null = null
   /** Dragging point `i` of a creature's path (Path editing), with the path as it was. */
   private pointDrag: { key: string; i: number; before: vmangos.Waypoint[]; moved: boolean } | null = null
+  /** Where the press that may start a drag was, in client pixels; a drag waits for DRAG_PX from it. */
+  private pressX = 0
+  private pressY = 0
+  /** The pointer has moved DRAG_PX from the press, so a model, spawn or point under it drags. */
+  private pastThreshold = false
   /** The cell an area drag started at. */
   private rectStart: Cell | null = null
   /** Where a floating area paste would land (corner cell), updated every frame. */
@@ -456,6 +467,9 @@ export class SelectTool implements Tool {
   }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
+    this.pressX = e.clientX
+    this.pressY = e.clientY
+    this.pastThreshold = false
     if (ui.pasting) {
       this.hooks.commitPaste()
       return
@@ -608,10 +622,14 @@ export class SelectTool implements Tool {
     this.dragging = { lead: id, dx: w.pos.x - at.x, dz: w.pos.z - at.z, lift: Math.max(0, w.pos.y - at.y), startY: w.pos.y, exclude, moved: false, others, before }
   }
 
-  onMove(ctx: ToolContext, hit: THREE.Vector3 | null) {
+  onMove(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
     if (this.walls.active) {
       this.walls.onMove(ctx)
       return
+    }
+    if ((this.pointDrag || this.spawnDrag || this.dragging) && !this.pastThreshold) {
+      if (Math.hypot(e.clientX - this.pressX, e.clientY - this.pressY) < DRAG_PX) return
+      this.pastThreshold = true
     }
     const pd = this.pointDrag
     if (pd) {
