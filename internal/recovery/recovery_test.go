@@ -117,3 +117,43 @@ func TestIDsStayInTheFolder(t *testing.T) {
 		}
 	}
 }
+
+func TestEndedSessionStaysEnded(t *testing.T) {
+	s, _ := Open(t.TempDir())
+	s.Touch()
+	s.End()
+	// A heartbeat that fires after the quit must not mark the session running again.
+	s.Touch()
+	if _, err := os.Stat(s.alivePath(s.Session)); err == nil {
+		t.Fatal("alive file written after End")
+	}
+}
+
+func TestListDropsDeadSessionsWithoutCopies(t *testing.T) {
+	dir := t.TempDir()
+	dead, _ := Open(dir)
+	dead.Session = "dead"
+	dead.Touch()
+	kept, _ := Open(dir)
+	kept.Session = "kept"
+	kept.Touch()
+	if _, err := kept.Save(1, Info{Name: "A"}, small("A")); err != nil {
+		t.Fatal(err)
+	}
+	live, _ := Open(dir)
+	live.Session = "live"
+	live.Touch()
+	past := time.Now().Add(-2 * Stale)
+	os.Chtimes(dead.alivePath("dead"), past, past)
+	os.Chtimes(kept.alivePath("kept"), past, past)
+
+	cur, _ := Open(dir)
+	if l, _ := cur.List(); len(l) != 1 {
+		t.Fatalf("list: %+v", l)
+	}
+	for session, want := range map[string]bool{"dead": false, "kept": true, "live": true} {
+		if _, err := os.Stat(cur.alivePath(session)); (err == nil) != want {
+			t.Errorf("%s alive file there: %v, want %v", session, err == nil, want)
+		}
+	}
+}

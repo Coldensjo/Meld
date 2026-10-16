@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"Meld/internal/mapfile"
@@ -51,6 +52,10 @@ type Info struct {
 type Store struct {
 	Dir     string
 	Session string
+
+	// mu keeps a heartbeat from writing the alive file back after End removed it.
+	mu    sync.Mutex
+	ended bool
 }
 
 var idPattern = regexp.MustCompile(`^[0-9A-Za-z-]+_[0-9]+$`)
@@ -80,6 +85,11 @@ func (s *Store) alivePath(session string) string {
 
 // Touch marks the session as running.
 func (s *Store) Touch() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ended {
+		return nil
+	}
 	p := s.alivePath(s.Session)
 	now := time.Now()
 	if err := os.Chtimes(p, now, now); err == nil {
@@ -149,10 +159,35 @@ func (s *Store) DropSession() error {
 
 // End removes this session's alive file, leaving its copies for the next start to offer.
 func (s *Store) End() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ended = true
 	if err := os.Remove(s.alivePath(s.Session)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	return nil
+}
+
+// dropDeadSessions removes the stale alive files of sessions without copies: a session killed with
+// every map saved leaves only its alive file, which nothing else would ever remove.
+func (s *Store) dropDeadSessions(infos []Info, now time.Time) {
+	names, err := filepath.Glob(filepath.Join(s.Dir, "*.alive"))
+	if err != nil {
+		return
+	}
+	has := make(map[string]bool, len(infos))
+	for _, in := range infos {
+		has[in.Session] = true
+	}
+	for _, n := range names {
+		session := strings.TrimSuffix(filepath.Base(n), ".alive")
+		if session == s.Session || has[session] {
+			continue
+		}
+		if st, err := os.Stat(n); err == nil && now.Sub(st.ModTime()) >= Stale {
+			os.Remove(n)
+		}
+	}
 }
 
 // List gives the copies left by sessions that are no longer running, newest first.
@@ -162,6 +197,7 @@ func (s *Store) List() ([]Info, error) {
 		return nil, err
 	}
 	now := time.Now()
+	s.dropDeadSessions(infos, now)
 	out := infos[:0]
 	for _, in := range infos {
 		if in.Session == s.Session {
