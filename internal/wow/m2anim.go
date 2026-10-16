@@ -49,6 +49,8 @@ type Effect struct {
 const (
 	trackSize = 28
 	seqSize   = 68
+	// animClosed is AnimationData's "Closed", the idle of a shut chest, crate or door.
+	animClosed = 147
 )
 
 var fireWords = []string{"fire", "flame", "torch", "candle", "brazier", "ember", "lava", "campfire", "sconce", "lantern", "lamp"}
@@ -63,9 +65,27 @@ func hasAny(s string, words []string) bool {
 	return false
 }
 
+// pickSequence is the index of the sequence played for AnimationData ID animID among the nSeq
+// sequences at ofsSeq: its first, else Stand's, else Closed's, else the first sequence (-1 for none).
+func pickSequence(r reader, nSeq, ofsSeq, animID int) int {
+	for _, want := range []int{animID, 0, animClosed} {
+		for i := 0; i < nSeq; i++ {
+			if r.u16(ofsSeq+i*seqSize) == want {
+				return i
+			}
+		}
+	}
+	if nSeq > 0 {
+		return 0
+	}
+	return -1
+}
+
 // parseM2Extras reads bones/animation, lights, particle emitters (as flame anchors among the
 // effects, and as emitters for the frontend to simulate) and ribbons. The loop played is the
-// first sequence of AnimationData ID animID, else Stand, else the model's first sequence.
+// first sequence of AnimationData ID animID, else Stand, else Closed, else the model's first sequence.
+// Closed comes before the first sequence because a chest or crate with no Stand lists Open first,
+// and would otherwise open over and over where the game shows it shut.
 // vertMap maps output vertices to source vertex indices (the view's list). refs names each group's
 // texture transform, colour and transparency (-1 for none), whose animations for the same loop are
 // set on the group.
@@ -78,20 +98,11 @@ func parseM2Extras(r reader, version int, vertMap []int, textures []string, mode
 		return uint32(r.u32(ofsGlobal + i*4))
 	}
 
-	// The asked-for sequence, else "Stand" (id 0), else the first one.
+	// The asked-for sequence, else "Stand" (id 0), else "Closed", else the first one.
 	nSeq, ofsSeq, err := r.arr(0x1C, seqSize)
 	seqIdx, seqStart, seqEnd := -1, uint32(0), uint32(0)
 	if err == nil {
-		for _, want := range []int{animID, 0} {
-			for i := 0; i < nSeq && seqIdx < 0; i++ {
-				if r.u16(ofsSeq+i*seqSize) == want {
-					seqIdx = i
-				}
-			}
-		}
-		if seqIdx < 0 && nSeq > 0 {
-			seqIdx = 0
-		}
+		seqIdx = pickSequence(r, nSeq, ofsSeq, animID)
 		if seqIdx >= 0 {
 			seqStart = uint32(r.u32(ofsSeq + seqIdx*seqSize + 4))
 			seqEnd = uint32(r.u32(ofsSeq + seqIdx*seqSize + 8))
