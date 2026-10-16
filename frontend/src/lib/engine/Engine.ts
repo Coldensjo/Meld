@@ -1712,6 +1712,8 @@ export class Engine {
         items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })
       }
       items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
+      const type = spawnType(spawn)
+      if (type) items.push({ label: 'Preview', run: () => (ui.modelPreview = { title: spawn.name || `#${spawn.entry}`, type, scale: spawn.scale > 0 ? spawn.scale : 1 }) })
       items.push({ separator: true }, { label: 'Delete spawn', shortcut: 'Del', danger: true, run: () => this.deleteSelectedSpawn() })
     } else {
       const o = id !== null ? this.objects.objects.get(id) : undefined
@@ -1721,6 +1723,7 @@ export class Engine {
       const n = editor.selectedIds.length
       title = n > 1 ? `${n} models` : displayName(o.type)
       items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSelected() })
+      items.push({ label: 'Preview', run: () => (ui.modelPreview = { title: displayName(o.type), type: o.type, scale: o.scale }) })
       items.push({ label: 'Duplicate', shortcut: 'Ctrl+Shift+D', run: () => this.duplicateSelected() })
       items.push({ label: 'Place more of this', run: () => pickModel(o) })
       items.push({ separator: true }, { label: n > 1 ? 'Delete models' : 'Delete model', shortcut: 'Del', danger: true, run: () => this.deleteSelected() })

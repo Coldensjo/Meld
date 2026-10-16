@@ -945,6 +945,17 @@ the same scene, the report before and after.
 - The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
   draws them inside `renderer.render`, so without the wrap they would count as the scene.
 
+## Preview window (#197)
+
+Checks: the right-click menu's Preview (`ui.modelPreview`, `ModelPreviewWindow.svelte` over
+`CreaturePreview` with a `type` and `hq`). In the dev page on Northshire, project a model's position to
+the screen (`p.project(__engine.camera)`, then the canvas rect) and call
+`__engine.openContextMenu({ clientX, clientY })`: the menu lists Preview after Focus. Its window is
+`[role="dialog"][aria-label="Model preview"]` (not `aria-label` alone: the asset browser's small
+preview has the same label). nsabbey.wmo reads "89.0 yd tall · 35,413 triangles" (the full model) once
+loaded; a spawn's (`spawnType(s)`) shows it dressed. Esc closes it and the map's selection stays.
+The canvas only takes its size in a rAF frame, so a hidden page shows 300x150.
+
 ## Rotate around pivot point (group spins)
 
 Checks: with two or more models selected, R (and Alt+arrows) turn the group about the mean of its

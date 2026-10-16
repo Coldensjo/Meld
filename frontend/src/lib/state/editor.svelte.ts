@@ -558,6 +558,11 @@ export const ui = $state({
    * opened from (null for a template alone, such as a new creature).
    */
   creatureEditor: null as { key: string | null; entry: number } | null,
+  /**
+   * The large preview window (#197, the right-click menu's Preview): a model type (`m2:`, `wmo:` with
+   * its set, `helper:`, or a spawn's dressed type), its name and its scale; null while closed.
+   */
+  modelPreview: null as { title: string; type: string; scale: number } | null,
   /** Camera › Walk (#21): the FPS camera, 3 yd above the ground; off returns to the camera it started from. */
   walkCamera: false,
   /** The Creatures workspace (World › Creatures…, #132): find creatures and make a new one with the guide. */

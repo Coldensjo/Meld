@@ -178,6 +178,7 @@
   function tileMenu(e: MouseEvent, it: SearchItem) {
     const items: ContextItem[] = [{ label: isFavourite(it) ? 'Remove from Favourites' : 'Add to Favourites', run: () => toggleFavourite(it) }]
     if (isModelKey(it.key)) {
+      items.unshift({ label: 'Preview', run: () => (ui.modelPreview = { title: it.name, type: it.key, scale: 1 }) }, { separator: true })
       items.push({ separator: true })
       for (const set of sets) {
         const has = set.models.some((m) => sameModel(m, it.key))

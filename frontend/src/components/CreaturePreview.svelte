@@ -1,25 +1,31 @@
 <script lang="ts">
   import * as THREE from 'three'
   import { onMount } from 'svelte'
-  import { buildWowAsset, texturesReady } from '../lib/models/assets'
+  import { buildWowAsset, texturesReady, type ModelAsset } from '../lib/models/assets'
+  import { helperGeometry, helperMaterial, isHelper } from '../lib/models/helpers'
   import { fetchMesh } from '../lib/wow/api'
   import { ModelAnimation, modelMesh } from '../lib/world/Animator'
   import { spawnType } from '../lib/world/spawnInfo'
 
   // A creature shown big and animated, as the creature editor sees it: the model dressed in its look
-  // (see wow.Look) playing one of its animations. Drag turns it, the wheel zooms. It has its own
-  // renderer, so the main scene is untouched.
+  // (see wow.Look) playing one of its animations. Drag turns it, the wheel (or Ctrl+wheel) zooms. It
+  // has its own renderer, so the main scene is untouched. Given a `type` instead, it shows any placeable
+  // model (a doodad, a building with its doodad set, a helper shape) the same way (#197).
 
   interface Props {
     /** The client model path and its look query, as a spawn carries them. */
-    model: string
-    look: string
+    model?: string
+    look?: string
     /** The AnimationData ID to play; the model's Stand when it has no such loop. */
-    anim: number
-    /** The creature's size in the world (template scale times display scale). */
+    anim?: number
+    /** A model type (`m2:`, `wmo:`, `helper:`), shown instead of model, look and anim. */
+    type?: string
+    /** The creature's size in the world (template scale times display scale), or the model's scale. */
     scale: number
+    /** Render at the screen's full pixel ratio (the preview window), not the capped one. */
+    hq?: boolean
   }
-  let { model, look, anim, scale }: Props = $props()
+  let { model = '', look = '', anim = 0, type = '', scale, hq = false }: Props = $props()
 
   let canvas: HTMLCanvasElement | undefined = $state()
   let loading = $state(false)
@@ -81,32 +87,36 @@
     renderer.render(scene, camera)
   }
 
-  async function show(model: string, look: string, anim: number, scale: number) {
+  async function show(model: string, look: string, anim: number, given: string, scale: number) {
     const id = ++loadId
     failed = ''
-    if (!model) {
+    if (!model && !given) {
       drop()
       size = null
       failed = 'This display has no model.'
       return
     }
-    const type = spawnType({ model, look, anim })
+    const type = given || spawnType({ model, look, anim })
     loading = true
     try {
-      const m = await fetchMesh(type.slice(type.indexOf(':') + 1))
-      const a = buildWowAsset(m)
+      // A helper shape is generated here, with a geometry of its own since the preview disposes what it drew.
+      const helper = isHelper(type) ? helperGeometry(type) : null
+      helper?.computeBoundingBox()
+      const m = helper ? null : await fetchMesh(type.slice(type.indexOf(':') + 1))
+      const a: ModelAsset = helper ? { geometry: helper, material: helperMaterial(), bbox: helper.boundingBox!.clone(), ready: true, effects: [], emitters: [], ribbons: [] } : buildWowAsset(m!)
       await texturesReady(a.material)
       if (id !== loadId) {
         a.geometry.dispose()
         return
       }
       // Another creature (model or look) is framed whole; another animation of the same one keeps the view.
-      const reframe = !mesh || shownKey !== `${model}|${look}`
-      shownKey = `${model}|${look}`
+      const key = given || `${model}|${look}`
+      const reframe = !mesh || shownKey !== key
+      shownKey = key
       drop()
       geometry = a.geometry
       // The preview poses its own copy of the bones, so it never moves the scene's instances.
-      if (m.bones && m.boneIdx && m.boneW) animation = new ModelAnimation(a.geometry, m.bones, m.boneIdx, m.boneW)
+      if (m?.bones && m.boneIdx && m.boneW) animation = new ModelAnimation(a.geometry, m.bones, m.boneIdx, m.boneW)
       mesh = modelMesh(a.geometry, a.material, animation?.skeleton)
       const k = scale > 0 ? scale : 1
       mesh.scale.setScalar(k)
@@ -155,13 +165,13 @@
   }
 
   $effect(() => {
-    void show(model, look, anim, scale)
+    void show(model, look, anim, type, scale)
   })
 
   onMount(() => {
     if (canvas) {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+      renderer.setPixelRatio(hq ? window.devicePixelRatio : Math.min(window.devicePixelRatio, 1.5))
       renderer.outputColorSpace = THREE.SRGBColorSpace
     }
     raf = requestAnimationFrame(frame)
@@ -192,6 +202,7 @@
   }
   function wheel(e: WheelEvent) {
     e.preventDefault()
+    e.stopPropagation()
     distance *= e.deltaY > 0 ? 1.1 : 0.9
   }
 </script>

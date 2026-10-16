@@ -9,6 +9,7 @@
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
   import CreatureEditor from './components/CreatureEditor.svelte'
+  import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
   import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
   import Inspector from './components/Inspector.svelte'
@@ -159,6 +160,8 @@
     // Over the creature editor only undo and redo reach the map (its spawn edits are undo steps);
     // the brush editor takes every key (its own Esc closes it).
     if (ui.brushEditor) return
+    // The preview window (#197) takes every key; its Esc may have closed it before this runs.
+    if (ui.modelPreview || (e.key === 'Escape' && e.defaultPrevented)) return
     // Esc closes the inspector alone; the selection stays.
     if (e.key === 'Escape' && ui.inspector) {
       ui.inspector = false
@@ -332,6 +335,7 @@
 <MinimapWindow />
 <CreaturesWorkspace />
 <CreatureEditor />
+<ModelPreviewWindow />
 <DoodadBrushEditor />
 <AppDialogs />
 <ContextMenu />
