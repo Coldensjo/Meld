@@ -101,7 +101,11 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
     5173. After a regeneration even an in-place re-save may not reach it (the watcher has lost the
     file): move `wailsjs/go/main/App.js` out of the folder and copy it back a second later, which
     Vite sees as a new file. The owner's own dev window is broken the same way until then.
-  - `make build-windows` while `wails dev` runs is fine.
+  - `make build-windows` while `wails dev` runs is fine. Run it from Git Bash: from PowerShell, make
+    can't start the wails recipe ("CreateProcess sh.exe … wails" not found).
+  - After editing `lib/state/editor.svelte.ts` with the page open, HMR gives later modules a new
+    instance of it, so a probe's `editor`/`prefs` and the tools' can differ (a probe read 0 for every
+    texture weight). Reload the page and the scene before probing.
   - To call app modules (e.g. `selectSpawn`, `editor`) from `javascript_tool`, import the exact
     URL the page loaded (from `performance.getEntriesByType('resource')`, with its `?t=`). A bare
     path gives a second module instance with separate state.
