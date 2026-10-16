@@ -15,6 +15,8 @@ export class LiquidRenderer {
   private blocksPerSide: number
   private map: LiquidMap
   private cellSize: number
+  /** The only layer index drawn in each chunk, or -1 for all (`setLayer`). */
+  private only = -1
 
   constructor(map: LiquidMap, cellSize: number) {
     this.map = map
@@ -23,6 +25,16 @@ export class LiquidRenderer {
     this.group.name = 'liquids'
     // Drawn after the terrain and models, like the sea.
     this.group.renderOrder = 10
+  }
+
+  /**
+   * Draws only layer number `n` of each chunk (in the chunk's own order), or every layer for -1:
+   * Noggit Red's Current layer, while the Water tool has Show all layers off.
+   */
+  setLayer(n: number) {
+    if (n === this.only) return
+    this.only = n
+    this.rebuildAll()
   }
 
   /** Rebuilds the blocks whose chunks changed. Call once per frame. */
@@ -53,7 +65,10 @@ export class LiquidRenderer {
     let cells = 0
     for (let z = bz; z < Math.min(bz + BLOCK, map.side); z++) {
       for (let x = bx; x < Math.min(bx + BLOCK, map.side); x++) {
-        for (const l of map.layers(z * map.side + x)) {
+        const all = map.layers(z * map.side + x)
+        for (let n = 0; n < all.length; n++) {
+          if (this.only >= 0 && n !== this.only) continue
+          const l = all[n]
           layers++
           for (let i = 0; i < 64; i++) cells += l.cells[i]
         }
@@ -71,7 +86,10 @@ export class LiquidRenderer {
     let k = 0
     for (let z = bz; z < Math.min(bz + BLOCK, map.side); z++) {
       for (let x = bx; x < Math.min(bx + BLOCK, map.side); x++) {
-        for (const l of map.layers(z * map.side + x)) {
+        const all = map.layers(z * map.side + x)
+        for (let n = 0; n < all.length; n++) {
+          if (this.only >= 0 && n !== this.only) continue
+          const l = all[n]
           const kd = liquidType(l.id).kind
           wantLiquid(kd)
           const first = v

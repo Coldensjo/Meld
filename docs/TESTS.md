@@ -1052,3 +1052,13 @@ hostile to the monster group, so a kobold whose own template attacks no one is s
 Live on Northshire (Azeroth 32_48), `__engine.spawnLabels.nameColor(spawn)` for spawns found by name
 in `doc.spawnLayer.spawns`: Alliance: Northshire Guard and Deputy Willem green, Kobold Vermin red,
 Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.
+
+## Water layers (the Water tool's All layers / Layer, #14)
+
+Checks: with All layers off, the Water tool draws only layer number N of each chunk (as Noggit Red's
+Current layer does); other tools always draw every layer. In the dev page, import `editor` by the
+page's own URL (see above), put two layers in chunk 5 with `__engine.doc.liquids.set(5, [a, b])`
+(each `{ id, heights: Float32Array(81), depth: Float32Array(81), cells: Uint8Array(64).fill(1) }`),
+set `editor.tool = 'water'`, `editor.water.allLayers = false`, `editor.water.layer = 1`, call
+`__engine.frame()` and count the cells in `__engine.doc.liquidRenderer.group`'s meshes
+(`index.count / 6`): 64 rather than 128, and the mesh's `kind` attribute is the second layer's.

@@ -136,7 +136,8 @@ export const editor = $state({
    * removes liquid. With `lock`, the surface is at `lockPos` (Alt+click sets it), else at the cursor;
    * angled mode tilts it by `angle` degrees toward `orientation` degrees (0 is +x). The overrides let a
    * stroke reset the height of water already there and replace other liquids. `onLiquids` makes the
-   * cursor stop on liquid surfaces.
+   * cursor stop on liquid surfaces. With `allLayers` off, the Water tool draws only each chunk's
+   * layer number `layer` (counted from 0 in the chunk's own order), as Noggit Red's Current layer does.
    */
   water: {
     liquid: 1,
@@ -150,6 +151,8 @@ export const editor = $state({
     opacity: 'auto' as WaterOpacity,
     customOpacity: 0.0337,
     onLiquids: true,
+    allLayers: true,
+    layer: 0,
   },
   /** The sea: ocean at this level wherever the ground lies below it. */
   waterLevel: 0,

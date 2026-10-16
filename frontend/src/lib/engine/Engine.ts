@@ -809,6 +809,7 @@ export class Engine {
     u.waterEnabled.value = editor.waterEnabled ? 1 : 0
     this.water.level = editor.waterLevel
     this.water.visible = editor.waterEnabled && this.prefs?.showWater !== false
+    this.doc.liquidRenderer.setLayer(editor.tool === 'water' && !editor.water.allLayers ? Math.max(0, editor.water.layer | 0) : -1)
     this.doc.liquidRenderer.update()
     if (this.wowRevision !== wow.revision) {
       this.wowRevision = wow.revision

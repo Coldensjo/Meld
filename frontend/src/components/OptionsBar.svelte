@@ -292,6 +292,10 @@
         <OptSlider label="Factor" bind:value={editor.water.customOpacity} min={0} max={1} step={0.001} digits={3} width={60} title="Depth factor: (depth + 1) × factor is the opacity" />
       {/if}
       <label class="check" title="The brush stops on liquid surfaces (and the sea), not just the ground"><input type="checkbox" bind:checked={editor.water.onLiquids} /> On liquids</label>
+      <label class="check" title="Draw every liquid layer of each chunk; off, only the current layer, so one under another can be seen"><input type="checkbox" bind:checked={editor.water.allLayers} /> All layers</label>
+      {#if !editor.water.allLayers}
+        <label class="check" title="The layer drawn in each chunk, counted from 0 in the chunk's own order (a chunk holds a layer per liquid)">Layer <input class="num" type="number" min="0" max="7" step="1" bind:value={editor.water.layer} /></label>
+      {/if}
       <button onclick={() => engineRef.current?.cropWater()} title="Remove the liquid that lies under the ground, in the selected area or the whole map">Crop water</button>
       <button onclick={() => engineRef.current?.regenWaterOpacity()} title="Recompute the water's opacity from the ground, in the selected area or the whole map">Regen opacity</button>
       <span class="dim" title="Ctrl+click removes water. Alt+click locks the height at the cursor."><kbd>Ctrl</kbd> remove · <kbd>Alt</kbd> lock</span>
