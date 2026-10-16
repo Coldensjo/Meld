@@ -668,6 +668,16 @@ may not report: call `requestThumb(key, ...)` from `wow/thumbs.ts` after `regist
 `e.selectTool.pasteWorld` to a Vector3 and `e.commitPaste()`: the models land turned about their
 middle, one undo step ("Paste 2 models").
 
+Pasting onto a building (#191): Northshire Abbey is object 784 (x 179, z 364); a down-ray there
+(`e.objects.raycastAmong(new Ray(new V3(179, 10000, 364), new V3(0, -1, 0)), [784], 1)`, `Ray` from
+`e.ctx.raycaster.ray.constructor`) meets its roof at y 135, over ground at 80. Copy crate 285 and pine
+288 (`copyObjects` from the `world/clipboard.ts` URL the Engine imports), `e.placeObjectClip(clip)`,
+set `pasteWorld` to the roof point and `e.selectTool.pasteOnModel = true`, then `e.commitPaste()`:
+both come out with `parent` 784, at the roof's height under each (130.5 and 122.1, it slopes).
+`s.updateGhosts(e.ctx, clip, point)` with `pasteOnModel` on puts the ghosts' matrices (element 13) at
+the same heights. Probes that step 30 frames with 200 ms waits on Northshire take longer than the
+preview's 15 s limit; keep each evaluate short.
+
 ## Sculpt › Terrace (#166)
 
 Checks: the Terrace mode (`terraceHeight`/`terraceLevel` in `tools/sculptShapes.ts`, unit tests in

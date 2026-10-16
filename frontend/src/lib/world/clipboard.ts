@@ -11,6 +11,7 @@ import { ShadowStroke } from '../tools/shadowStroke'
 import { pastedHeight, type PasteHeightMode } from './pasteHeight'
 import { copyLiquidCells, pasteLiquidCells, type LiquidClip, type LiquidMap } from '../water/liquids'
 import { insideDistance } from '../terrain/areaShape'
+import { pasteLandings, type Landing } from './pasteLanding'
 import {
   CHUNK_CELLS,
   MAX_PALETTE,
@@ -112,9 +113,11 @@ function encodeObjects(terrain: Terrain, objects: ObjectLayer, picked: WorldObje
 
 /**
  * Adds the clip's objects with the anchor at world (ax, az), parents before children, and returns
- * them. A root that would land outside the map is left out, as is anything attached to it.
+ * them. A root that would land outside the map is left out, as is anything attached to it. With
+ * `landings`, a root that lands on a model is attached to it, its height above the ground now above
+ * that model's surface.
  */
-function decodeObjects(terrain: Terrain, objects: ObjectLayer, list: readonly ClipObject[], ax: number, az: number): WorldObject[] {
+function decodeObjects(terrain: Terrain, objects: ObjectLayer, list: readonly ClipObject[], ax: number, az: number, landings?: Map<number, Landing>): WorldObject[] {
   const added: WorldObject[] = []
   const idMap = new Map<number, number>()
   // Pasted models form groups of their own, apart from the ones they were copied from.
@@ -135,6 +138,8 @@ function decodeObjects(terrain: Terrain, objects: ObjectLayer, list: readonly Cl
         const z = o.z + az
         if (!terrain.contains(x, z)) continue
         const n = objects.add({ ...rest, x, z, group: group(rest.group) })
+        const land = landings?.get(cid)
+        if (land && land.parent !== null) objects.place(n, land.parent, { pos: new THREE.Vector3(x, land.y + rest.yOff, z), rot: rest.rotY, scale: rest.scale })
         idMap.set(cid, n.id)
         added.push(n)
       } else if (idMap.has(cparent)) {
@@ -167,11 +172,13 @@ export function copyObjects(terrain: Terrain, objects: ObjectLayer, picked: Worl
 }
 
 /**
- * Pastes an object clip with its anchor at world (x, z). Returns the new objects and one undoable
- * command, or null when nothing landed on the map.
+ * Pastes an object clip with its anchor at world (x, z). With `onModels` (the anchor is on a model,
+ * #191), each root stands on the model under it, attached to it. Returns the new objects and one
+ * undoable command, or null when nothing landed on the map.
  */
-export function pasteObjects(terrain: Terrain, objects: ObjectLayer, clip: ObjectClip, x: number, z: number): { added: WorldObject[]; cmd: Command } | null {
-  const added = decodeObjects(terrain, objects, clip.objects, x, z)
+export function pasteObjects(terrain: Terrain, objects: ObjectLayer, clip: ObjectClip, x: number, z: number, onModels = false): { added: WorldObject[]; cmd: Command } | null {
+  const landings = onModels ? pasteLandings(objects, terrain, clip.objects, x, z) : undefined
+  const added = decodeObjects(terrain, objects, clip.objects, x, z, landings)
   if (!added.length) return null
   const saved = added.map((o) => ({ ...o }))
   const label = saved.length === 1 ? 'Paste model' : `Paste ${saved.length} models`

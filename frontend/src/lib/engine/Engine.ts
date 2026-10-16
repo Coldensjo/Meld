@@ -2844,7 +2844,7 @@ export class Engine {
     if (this.lastCopied === 'objects') {
       const at = this.selectTool.pasteWorld
       if (!this.objectClip || !at) return
-      const r = pasteObjects(this.terrain, this.objects, this.objectClip, at.x, at.z)
+      const r = pasteObjects(this.terrain, this.objects, this.objectClip, at.x, at.z, this.selectTool.pasteOnModel)
       if (!r) {
         setStatus('Nothing landed on the map.')
         return

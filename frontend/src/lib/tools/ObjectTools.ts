@@ -14,6 +14,7 @@ import { HoleWalls } from './HoleWalls'
 import { areaCells, objectsInArea, setAreaCells } from '../state/areaSelection'
 import { rasterPolygon } from '../terrain/areaShape'
 import { combineMask, type MaskOp } from '../terrain/maskSelect'
+import { pasteLandings, type Landing } from '../world/pasteLanding'
 import { spawnKey } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { placementEuler } from '../world/placement'
@@ -387,6 +388,12 @@ export class SelectTool implements Tool {
   pasteAt: Cell | null = null
   /** Where a floating model paste would land (its anchor, on the surface under the cursor), updated every frame. */
   pasteWorld: THREE.Vector3 | null = null
+  /** The model paste's anchor is on a model, so its roots stand on the models under them (#191). */
+  pasteOnModel = false
+  /** The roots' landings for the ghosts, worked out again only when the anchor, the clip or the models change. */
+  private landings: Map<number, Landing> | null = null
+  private landingKey = ''
+  private landingClip: ObjectClip | null = null
   /** Previews of the models being pasted, one mesh per clip object, grown as needed. */
   private ghosts: THREE.Mesh[] = []
   private ghostGroup = new THREE.Group()
@@ -442,6 +449,16 @@ export class SelectTool implements Tool {
   /** Shows the clip's models at the anchor `at`, or hides the previews when there is no clip. */
   private updateGhosts(ctx: ToolContext, clip: ObjectClip | null, at: THREE.Vector3 | null) {
     const list = clip && at ? clip.objects : []
+    let landings: Map<number, Landing> | null = null
+    if (clip && at && this.pasteOnModel) {
+      const key = `${at.x.toFixed(2)},${at.z.toFixed(2)},${ctx.objects.version}`
+      if (key !== this.landingKey || clip !== this.landingClip || !this.landings) {
+        this.landingKey = key
+        this.landingClip = clip
+        this.landings = pasteLandings(ctx.objects, ctx.terrain, clip.objects, at.x, at.z)
+      }
+      landings = this.landings
+    }
     while (this.ghosts.length < list.length) {
       const m = new THREE.Mesh(new THREE.BufferGeometry())
       m.matrixAutoUpdate = false
@@ -476,8 +493,9 @@ export class SelectTool implements Tool {
       } else {
         const x = at.x + o.x
         const z = at.z + o.z
+        const base = landings?.get(o.cid)?.y ?? ctx.terrain.heightAt(x, z)
         g.matrix.compose(
-          this.ghostTmp.set(x, ctx.terrain.heightAt(x, z) + o.yOff, z),
+          this.ghostTmp.set(x, base + o.yOff, z),
           tmpQ.setFromEuler(placementEuler(tmpE, o.rotY, o.tiltX, o.tiltZ)),
           tmpS.setScalar(o.scale),
         )
@@ -906,6 +924,7 @@ export class SelectTool implements Tool {
       // Models paste onto the ground under the cursor (buildings included, since the ray stops there).
       const surf = hit ? ctx.surface() : null
       this.pasteWorld = surf ? surf.point : null
+      this.pasteOnModel = !!surf && surf.parent !== null
       this.updateGhosts(ctx, clip, this.pasteWorld)
       return
     }
