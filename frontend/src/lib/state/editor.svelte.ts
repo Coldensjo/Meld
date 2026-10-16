@@ -182,8 +182,9 @@ export const editor = $state({
   waterEnabled: true,
   /** Selected model type to place ("m2:<path>" / "wmo:<path>"), or ''. */
   prefab: '',
-  placeRandomRot: true,
-  placeRandomScale: true,
+  /** Placed models turned and sized at random; off at the start, so a model goes down as it is (#212). */
+  placeRandomRot: false,
+  placeRandomScale: false,
   /** Placed models tilt a little at random (up to 8 degrees each way) when on. */
   placeRandomTilt: false,
   placeScatter: false,
