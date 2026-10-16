@@ -289,7 +289,7 @@
   }
   .modes button.active {
     background: var(--panel-3);
-    color: #fff;
+    color: var(--text-strong);
   }
   .close {
     margin-left: auto;

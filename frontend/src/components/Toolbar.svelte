@@ -110,7 +110,7 @@
   }
   button.active {
     background: var(--panel-3);
-    color: #fff;
+    color: var(--text-strong);
   }
   .key {
     display: none;

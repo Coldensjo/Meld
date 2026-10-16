@@ -369,7 +369,7 @@
   }
   .kinds button.on {
     background: var(--panel-3);
-    color: #fff;
+    color: var(--text-strong);
   }
   .picker {
     flex: 1;

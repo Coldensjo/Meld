@@ -344,6 +344,8 @@ export const prefs = $state({
   fpsLimit: 0,
   /** The client maps pinned to the top of the Start dialog's map list (#47), by Map.dbc ID. */
   pinnedMaps: [] as number[],
+  /** Preferences › Theme (#49): the editor's colours, or the desktop's light or dark setting. */
+  theme: 'dark' as 'dark' | 'light' | 'system',
   /** Graphics › Anti-aliasing (#24), mirrored to localStorage by display.ts and applied at the next start. */
   antialias: true,
   /** View › Layers › Doodads (m2 models) and Buildings (wmo), each on its own under Objects (#43). */

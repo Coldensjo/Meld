@@ -70,6 +70,18 @@
     })
   })
 
+  // Preferences › Theme (#49): app.css's light tokens apply under data-theme="light"; System follows
+  // the desktop and changes with it.
+  $effect(() => {
+    const theme = prefs.theme
+    const media = window.matchMedia('(prefers-color-scheme: light)')
+    const apply = () => (document.documentElement.dataset.theme = theme === 'light' || (theme === 'system' && media.matches) ? 'light' : 'dark')
+    apply()
+    if (theme !== 'system') return
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  })
+
   // Window title and tab label follow the active map.
   $effect(() => {
     const title = `${editor.mapName}${editor.dirty ? ' *' : ''} — Meld`

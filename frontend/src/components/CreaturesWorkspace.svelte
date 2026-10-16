@@ -509,7 +509,7 @@
 		color: var(--text);
 	}
 	.steps li.on button {
-		color: #fff;
+		color: var(--text-strong);
 		background: var(--panel-3);
 	}
 	.page {
