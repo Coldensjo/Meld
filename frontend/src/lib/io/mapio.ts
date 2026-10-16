@@ -405,7 +405,7 @@ function regionPaint(engine: Engine, size: number) {
  * server to build from. Only the tiles that differ from the patch's copies are written.
  */
 export function exportRegion(engine: Engine) {
-  return guarded('Export region', async () => {
+  return guarded('Compile region', async () => {
     const region = engine.activeRegion()
     if (!region) {
       setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
@@ -429,7 +429,7 @@ export function exportRegion(engine: Engine) {
       }),
     )
     if (!res.patch) {
-      setStatus(`Nothing changed in ${region.mapName} ${region.x}_${region.y} since the last export, so the patch and the game were left alone.`, 6000)
+      setStatus(`Nothing changed in ${region.mapName} ${region.x}_${region.y} since the last compile, so the patch and the game were left alone.`, 6000)
       return
     }
     const server = await VmangosPath()

@@ -75,7 +75,7 @@
       [
         'Preferences › WoW client folder points Meld at your 1.12 client. Its doodads, buildings and tileset textures then fill the asset browser along the bottom; nothing is copied out of it.',
         'File › New World (Ctrl+N) makes a world of a few tiles from a preset, and File › Open Part of Azeroth opens a square of tiles of a continent with its ground, textures, models and water.',
-        'Save (Ctrl+S) writes a .wmap file; for a map made for the client it also offers Publish, which writes the tiles into the client and builds the server\'s files. A part of Azeroth goes back into its tiles with File › Export Region to Client.',
+        'Save (Ctrl+S) writes a .wmap file; for a map made for the client it also offers Publish, which writes the tiles into the client and builds the server\'s files. A part of Azeroth goes back into its tiles with File › Compile Region to Client.',
       ],
     ],
     [

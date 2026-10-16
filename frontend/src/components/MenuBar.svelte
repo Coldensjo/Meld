@@ -98,7 +98,7 @@
         { kind: 'action', label: 'Revert to Saved', disabled: !editor.filePath || ui.busy, run: withEngine(requestRevert) },
         { kind: 'action', label: 'Map Properties…', run: () => (ui.dialog = 'mapProps') },
         { kind: 'sep' },
-        { kind: 'action', label: 'Export Region to Client…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportRegion(e)) },
+        { kind: 'action', label: 'Compile Region to Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportRegion(e)) },
         ...(editor.regionBlock
           ? [
               { kind: 'header' as const, label: 'Grow region (save first; the map stays square)' },
