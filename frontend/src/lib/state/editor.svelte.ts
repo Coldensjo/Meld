@@ -400,6 +400,8 @@ export const prefs = $state({
   browserHeight: 300,
   browserCollapsed: false,
   browserTile: 112,
+  /** The toolbar's icon size in px (Preferences › Toolbar icons), from TOOLBAR_ICON_MIN to TOOLBAR_ICON_MAX (#128). */
+  toolbarIcon: 22,
   /** The asset browser's tab (a catalog kind, 'all' or a spawn kind) and where each tab was (wow/browserViews.ts). */
   browserKind: 'm2',
   browserViews: {} as Record<string, BrowserView>,

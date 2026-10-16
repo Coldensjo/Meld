@@ -13,13 +13,19 @@
     { id: 'stamp', name: 'Stamp: one stroke applies a stack of sculpt and paint brushes together (Edit stack in the options bar)', key: '0', icon: 'M7 3h10v5l-3 3v3h5v3H5v-3h5v-3L7 8zM4 21h16' },
     { id: 'mapdata', name: 'Map data: paint the zone each chunk belongs to (Alt+click picks the one under the cursor), mark chunks impassable, or cells that grow no grass tufts', key: '9', icon: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15' },
   ]
+
+  /** The toolbar's icon sizes, smallest and largest (#128); a button is the icon plus a 16px margin. */
+  export const TOOLBAR_ICON_MIN = 16
+  export const TOOLBAR_ICON_MAX = 44
 </script>
 
 <script lang="ts">
-  import { editor } from '../lib/state/editor.svelte'
+  import { editor, prefs } from '../lib/state/editor.svelte'
+
+  const icon = $derived(Math.min(TOOLBAR_ICON_MAX, Math.max(TOOLBAR_ICON_MIN, Number(prefs.toolbarIcon) || 22)))
 </script>
 
-<nav class="toolbar">
+<nav class="toolbar" style:--icon="{icon}px">
   {#each TOOLS as t (t.id)}
     <button
       class:active={editor.tool === t.id}
@@ -27,7 +33,7 @@
       aria-label={t.name}
       onclick={() => (editor.tool = t.id)}
     >
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+      <svg viewBox="0 0 24 24" width={icon} height={icon} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
         <path d={t.icon} />
       </svg>
       <span class="key">{t.key}</span>
@@ -42,12 +48,16 @@
     align-items: center;
     gap: 2px;
     padding: 6px 4px;
+    /* At the larger icon sizes the tools may not fit a short window. */
+    overflow-y: auto;
+    scrollbar-width: none;
     background: var(--panel);
     border-right: 1px solid var(--border);
   }
   button {
-    width: 38px;
-    height: 38px;
+    flex: none;
+    width: calc(var(--icon) + 16px);
+    height: calc(var(--icon) + 16px);
     padding: 0;
     display: grid;
     place-items: center;

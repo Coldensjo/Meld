@@ -12,6 +12,7 @@
   import { requestClose } from './DocTabs.svelte'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import { MANUAL_URL } from './AppDialogs.svelte'
+  import { TOOLBAR_ICON_MAX, TOOLBAR_ICON_MIN } from './Toolbar.svelte'
 
   /** Opens a web page in the user's browser (the desktop runtime's way, else the dev page's). */
   function openUrl(url: string) {
@@ -402,6 +403,18 @@
           ],
           () => prefs.mouseSensitivity,
           (v) => (prefs.mouseSensitivity = v),
+        ),
+        { kind: 'header', label: 'Toolbar icons' },
+        ...radios(
+          [
+            ['Small', TOOLBAR_ICON_MIN],
+            ['Normal', 22],
+            ['Large', 30],
+            ['Larger', 36],
+            ['Largest', TOOLBAR_ICON_MAX],
+          ],
+          () => prefs.toolbarIcon,
+          (v) => (prefs.toolbarIcon = v),
         ),
         { kind: 'sep' },
         { kind: 'check', label: 'Invert camera Y', checked: prefs.invertY, toggle: () => (prefs.invertY = !prefs.invertY) },
