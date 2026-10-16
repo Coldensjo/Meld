@@ -967,6 +967,12 @@ preview has the same label). nsabbey.wmo reads "89.0 yd tall · 35,413 triangles
 loaded; a spawn's (`spawnType(s)`) shows it dressed. Esc closes it and the map's selection stays.
 The canvas only takes its size in a rAF frame, so a hidden page shows 300x150.
 
+- WebGL contexts (#201): each preview has its own renderer. Open and close it 24 times
+  (`ui.modelPreview = { title: 'probe', type: 'helper:cube', scale: 1 }`, 250 ms, then `null`, 100 ms)
+  and read `__engine.renderer.getContext().isContextLost()` after each: it must stay false. Without
+  `forceContextLoss()` on close, the browser dropped the viewport's context on the 15th open (black
+  viewport). Works in headless Chrome over CDP.
+
 ## Rotate around pivot point (group spins)
 
 Checks: with two or more models selected, R (and Alt+arrows) turn the group about the mean of its

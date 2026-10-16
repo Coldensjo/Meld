@@ -181,6 +181,9 @@
       ground.geometry.dispose()
       ;(ground.material as THREE.Material).dispose()
       rings.dispose()
+      // dispose() keeps the WebGL context alive until garbage collection, and the browser drops the
+      // oldest context (the viewport's) past about 16 (#201): release this one now.
+      renderer?.forceContextLoss()
       renderer?.dispose()
       renderer = null
     }
