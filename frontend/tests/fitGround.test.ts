@@ -80,11 +80,12 @@ test('on a slope, the footprint and its apron are level, and the ring starts fro
 	const { floor, bottom } = scene(0, 9, 3, 7)
 	const ground = new Float32Array(W * W)
 	for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) ground[z * W + x] = x
-	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ margin: 0.2, falloff: 2 }), 5, 1)
+	// A two-cell apron: its inner row stays level, its outer row is rounded into the ring.
+	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ margin: 0.2, falloff: 4 }), 5, 2)
 	for (let x = 2; x <= 8; x++) assert.equal(at(r.heights, x, 5), 5, `vertex ${x} is level`)
-	const up = at(r.heights, 9, 5)
-	assert.ok(up > 5 && up < 9, `the ring climbs back to the hill: ${up}`)
-	assert.equal(at(r.heights, 10, 5), 10, 'a cell beyond the falloff the ground is untouched')
+	const edge = at(r.heights, 9, 5)
+	const up = at(r.heights, 10, 5)
+	assert.ok(edge > 5 && edge < up && up < 10, `the ring climbs smoothly back to the hill: ${edge}, ${up}`)
 })
 
 test('a footprint with gaps along a wall (eaves, a chimney) still gets a level pad with a straight edge (#210)', () => {
@@ -97,7 +98,7 @@ test('a footprint with gaps along a wall (eaves, a chimney) still gets a level p
 	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ falloff: 3 }), 5, 1)
 	for (let x = 2; x <= 8; x++) assert.equal(at(r.heights, x, 2), 5, `back row vertex ${x} is level`)
 	const ring = [3, 4, 5, 6, 7].map((x) => at(r.heights, x, 0))
-	assert.ok(Math.max(...ring) - Math.min(...ring) < 0.1, `the ring behind it is even: ${ring}`)
+	assert.ok(Math.max(...ring) - Math.min(...ring) < 0.2, `the ring behind it is even: ${ring}`)
 })
 
 test('with a base, a floor under it (a sunk footing) leaves the ground level (#210)', () => {

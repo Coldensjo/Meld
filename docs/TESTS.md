@@ -838,10 +838,11 @@ imported from the page's `deps/three.js` URL).
   Sunk 2 yd first (`yOff: -2`, as the Place tool's PgDn or the Inspector would), the ground levels at
   80.94 again, 2 yd above its origin (78.94), so that much of the stone stays underground, and its
   `yOff` stays -2, so fitting it again changes nothing.
-  The ring is smoothed (two 3x3 passes over it and one cell past it), so 54 vertices move; the height
-  along z 200 from x 300 east reads 80.9 on the pad, then climbs about 1 yd every 2 yd with no step at
-  the pad's edge (`t.heightAt(x, 200)` for x 300..330). A screenshot from 60 yd shows little; read the
-  profile.
+  Around the footprint's hull the ground stays level for an apron of two cells (`FIT_APRON_CELLS`),
+  then the ring (the dialog's falloff, beyond the apron) eases back, smoothed by four 3x3 passes over
+  the apron's outer row, the ring and a cell past it. The height above the pad along z 200 from x 300
+  east reads 0.0 to x 308, then 0.7, 1.6, 2.5, 3.4, 4.4 ... a climb of about 1 yd every 2 yd with no
+  step (`t.heightAt(x, 200)` for x 300..334). A screenshot from 60 yd shows little; read the profile.
 - Jagged edges (#210): the owner saw spikes of ground running out from a wall. The covered vertices
   along a wall come and go (the eaves are filtered by `reach`, the chimney and steps are not), and the
   ring rose from each gap. The fit now measures the ring from the footprint's convex hull

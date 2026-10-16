@@ -87,6 +87,7 @@ import { movableSelection, objectsInRect, selectObjects, selectedObjects, withGr
 import { meanPivot, turnAbout } from '../world/pivot'
 import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
 import { fitHeights, type FitOptions } from '../terrain/fitGround'
+
 import { nearScreenBox } from '../world/screenBox'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
@@ -96,6 +97,9 @@ import { SpawnPaths } from '../world/SpawnPaths'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
+
+/** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
+const FIT_APRON_CELLS = 2
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
 export interface RegionOpen {
@@ -2780,10 +2784,13 @@ export class Engine {
         loading++
         continue
       }
-      const x0 = Math.max(0, Math.floor((box.min.x - opts.falloff) / cs))
-      const z0 = Math.max(0, Math.floor((box.min.z - opts.falloff) / cs))
-      const x1 = Math.min(t.size, Math.ceil((box.max.x + opts.falloff) / cs))
-      const z1 = Math.min(t.size, Math.ceil((box.max.z + opts.falloff) / cs))
+      // The window reaches past the apron, the ring and the cell the smoothing takes beyond it.
+      const apron = stamp ? 0 : FIT_APRON_CELLS * cs
+      const reach = opts.falloff + apron + cs
+      const x0 = Math.max(0, Math.floor((box.min.x - reach) / cs))
+      const z0 = Math.max(0, Math.floor((box.min.z - reach) / cs))
+      const x1 = Math.min(t.size, Math.ceil((box.max.x + reach) / cs))
+      const z1 = Math.min(t.size, Math.ceil((box.max.z + reach) / cs))
       if (x1 <= x0 || z1 <= z0) continue
       const w = x1 - x0 + 1
       const h = z1 - z0 + 1
@@ -2822,14 +2829,14 @@ export class Engine {
           if (under[i] > lowUnder + fit.reach) under[i] = NaN
         }
       }
-      // A fit levels the ground to the model's base and keeps a cell's apron level around it (#210); a
+      // A fit levels the ground to the model's base and keeps an apron level around it (#210); a
       // stamp takes the underside's shape and blends straight out. The base is the origin, raised by
       // the depth a model on the ground was sunk to (a negative height, from the Place tool's PgDn or
       // the Inspector), so a farmhouse's stone footing sunk 2 yd stays 2 yd underground.
       const o = this.objects.objects.get(id)!
       const sunk = o.parent === undefined ? Math.max(0, -o.yOff) : 0
       const base = stamp ? NaN : this.objects.worldPlacement(o).pos.y + sunk
-      const r = fitHeights(ground, floor, under, w, h, x0, z0, cs, opts, base, stamp ? 0 : cs)
+      const r = fitHeights(ground, floor, under, w, h, x0, z0, cs, opts, base, apron)
       if (!r.changed) continue
       fitted++
       // The models on the ground under this one would ride the ground: note where each stood.

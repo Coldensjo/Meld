@@ -38,7 +38,7 @@ export interface FitResult {
 }
 
 /** How many times the ring is smoothed, which rounds its edges (#210). */
-const SMOOTH_PASSES = 2
+const SMOOTH_PASSES = 4
 
 /** 0 at the footprint to 1 at the ring's edge, eased. */
 const ease = (t: number) => t * t * (3 - 2 * t)
@@ -50,7 +50,7 @@ const ease = (t: number) => t * t * (3 - 2 * t)
  * the underside), or to `margin` under the floor where that is lower, within the mode, so a building
  * gets flat ground (#210): its rays alone can't give the base, as a foundation is hollow and its walls
  * fall between the vertices. Around the footprint the ground stays at the
- * nearest fitted height for `apron` yards, then eases back to its own over the rest of the falloff.
+ * nearest fitted height for `apron` yards, then eases back to its own over the falloff beyond that.
  * The window's first vertex is (`ox`, `oz`) of the map, which places the hole blocks on the map's
  * grid. `cell` is the cell size in yards.
  */
@@ -151,15 +151,17 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 	// drew spikes; the hull gives the pad straight edges and fills those gaps level.
 	if (!Number.isNaN(level)) hullDistance(covered, w, h, cell, dist)
 
-	// The fitted height is the base the ring starts from (#210): level over the apron, then eased back.
-	const pad = Math.min(apron, o.falloff)
+	// The fitted height is the base the ring starts from (#210): level over the apron, then eased back
+	// over the falloff beyond it. No ring, no apron either.
+	const pad = o.falloff > 0 ? apron : 0
+	const end = pad + o.falloff
 	for (let i = 0; i < n; i++) {
 		if (fixed[i] || dist[i] === Infinity) continue
 		const g = ground[i]
 		const d = dist[i]
 		let v: number
 		if (d <= pad) v = allow(g, near[i])
-		else if (d < o.falloff) v = allow(g, near[i] + (g - near[i]) * ease((d - pad) / (o.falloff - pad)))
+		else if (d < end) v = allow(g, near[i] + (g - near[i]) * ease((d - pad) / o.falloff))
 		else continue
 		if (v !== g) {
 			out[i] = v
@@ -168,10 +170,11 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 	}
 
 	// Round the ring's two creases, at the apron and at the hill, with a few 3x3 averaging passes over
-	// the ring and one cell past it; the footprint, the apron and a hole's edge stay as they are.
+	// the apron's outer row, the ring and one cell past it; the footprint, the rest of the apron and a
+	// hole's edge stay as they are.
 	if (o.falloff > 0) {
 		const ring = new Uint8Array(n)
-		for (let i = 0; i < n; i++) ring[i] = !fixed[i] && dist[i] > pad && dist[i] < o.falloff + cell ? 1 : 0
+		for (let i = 0; i < n; i++) ring[i] = !fixed[i] && dist[i] > Math.max(0, pad - cell) && dist[i] < end + cell ? 1 : 0
 		const prev = new Float32Array(n)
 		for (let pass = 0; pass < SMOOTH_PASSES; pass++) {
 			prev.set(out)
