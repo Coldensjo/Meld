@@ -1014,6 +1014,14 @@ it was; `select count(*) from npc_vendor where entry=805` is 0).
   `max(ID)` of npc_text first, save a greeting on 805, read it back with `ReadGossip(805)` (a new menu,
   shared by 1), then delete the rows above those maxima and set 805's `gossip_menu_id` and
   `npc_flags` back to 0.
+- Gossip options (#158, `SaveGossipOptions`): 805 needs a greeting first (that makes its menu). Save
+  two options on it and read them back; on 931 change option 1's text and save: it gets a copied menu
+  (shared by 1), option 0 keeps broadcast text 12271 by ID and option 1 has its own text with ID 0.
+  Clean up as above, plus `gossip_menu_option` rows of the new menus, and set 931's `gossip_menu_id`
+  back to 6944 (931 has two patch rows). 931 also lists one AI line ("On aggro · yells Guards! Help
+  me!") and warns that its quest option is hidden (it lacks the Quest giver flag).
+- Trap: GossipDef.h's comments give later clients' npc flag values (vendor 128, flight 8192); 1.12's
+  are in UnitDefines.h (vendor 4, flight 8), which the world database uses.
 
 ## Portals and area triggers (#141, #18)
 

@@ -23,15 +23,61 @@ type GossipText struct {
 	Female    string `json:"female"`
 }
 
+// GossipOption is one gossip_menu_option row: a line the player can pick. Text and BoxText are
+// what the server shows: the broadcast text when BroadcastText (BoxBroadcastText) names one, else
+// the row's own text. Action is option_id (GOSSIP_OPTION_* in VMaNGOS's GossipDef.h: 1 another
+// menu, 3 a vendor, 5 a trainer...) and NpcFlag npc_option_npcflag, the creature flag the option
+// needs to show; ActionMenu is the menu a gossip option opens (-1 closes the window), ActionPOI a
+// point of interest, ActionScript a gossip_scripts id. A coded box asks for a typed code, BoxMoney
+// is copper.
+type GossipOption struct {
+	ID               int    `json:"id"`
+	Icon             int    `json:"icon"`
+	Text             string `json:"text"`
+	BroadcastText    int    `json:"broadcastText"`
+	Action           int    `json:"action"`
+	NpcFlag          int    `json:"npcFlag"`
+	ActionMenu       int    `json:"actionMenu"`
+	ActionPOI        int    `json:"actionPoi"`
+	ActionScript     int    `json:"actionScript"`
+	BoxCoded         bool   `json:"boxCoded"`
+	BoxMoney         int    `json:"boxMoney"`
+	BoxText          string `json:"boxText"`
+	BoxBroadcastText int    `json:"boxBroadcastText"`
+	Condition        int    `json:"condition"`
+}
+
+// AILine is a line the creature says on its own: a talk command (SCRIPT_COMMAND_TALK) run by one of
+// its creature AI events. Event is creature_ai_events.event_type (EVENT_T_* in VMaNGOS's
+// CreatureEventAI.h: 4 aggro, 6 death...), Chance its event_chance, Chat broadcast_text.chat_type
+// (CHAT_TYPE_*: 0 say, 1 yell, 2 emote...).
+type AILine struct {
+	Event  int    `json:"event"`
+	Chance int    `json:"chance"`
+	Chat   int    `json:"chat"`
+	TextID int    `json:"textId"`
+	Text   string `json:"text"`
+}
+
 // Gossip is what a creature says when a player talks to it: its gossip menu (creature_template's
 // gossip_menu_id, 0 for none), how many creature templates share that menu, the menu's text rows
-// and the texts of its options (gossip_menu_option), which the editor lists but doesn't change.
+// and options (gossip_menu_option), the creature's npc_flags (an option shows only when they hold
+// its NpcFlag) and the lines its AI says on its own, which the editor lists but doesn't change.
 type Gossip struct {
-	MenuID  int          `json:"menuId"`
-	Shared  int          `json:"shared"`
-	Texts   []GossipText `json:"texts"`
-	Options []string     `json:"options"`
+	MenuID   int            `json:"menuId"`
+	Shared   int            `json:"shared"`
+	NpcFlags int            `json:"npcFlags"`
+	Texts    []GossipText   `json:"texts"`
+	Options  []GossipOption `json:"options"`
+	Lines    []AILine       `json:"lines"`
 }
+
+// maxGossipIcon and maxGossipAction are the last option_icon and option_id VMaNGOS knows
+// (GOSSIP_ICON_DOT_20, GOSSIP_OPTION_UNLEARNPETSKILLS).
+const (
+	maxGossipIcon   = 20
+	maxGossipAction = 17
+)
 
 // GreetingSaved is what SaveGreeting changed: the creature's gossip menu now, and the SQL it ran.
 type GreetingSaved struct {
@@ -53,11 +99,21 @@ func ReadGossip(serverRoot string, entry int) (Gossip, error) {
 
 func readGossip(db worldDB, entry int) (Gossip, error) {
 	var g Gossip
-	raw, err := runSQL(db, fmt.Sprintf("SELECT `gossip_menu_id` FROM `creature_template` WHERE `entry` = %d ORDER BY `patch` DESC LIMIT 1", entry))
+	raw, err := runSQL(db, fmt.Sprintf("SELECT `gossip_menu_id`, `npc_flags` FROM `creature_template` WHERE `entry` = %d ORDER BY `patch` DESC LIMIT 1", entry))
 	if err != nil {
 		return g, err
 	}
-	g.MenuID, _ = strconv.Atoi(strings.TrimSpace(string(raw)))
+	if f := strings.Fields(string(raw)); len(f) == 2 {
+		g.MenuID, _ = strconv.Atoi(f[0])
+		g.NpcFlags, _ = strconv.Atoi(f[1])
+	}
+	raw, err = runSQL(db, fmt.Sprintf("SELECT e.event_type, e.event_chance, b.chat_type, b.entry, COALESCE(b.male_text, '') FROM creature_ai_events e "+
+		"JOIN creature_ai_scripts s ON s.id IN (e.action1_script, e.action2_script, e.action3_script) AND s.command = 0 "+
+		"JOIN broadcast_text b ON b.entry IN (s.dataint, s.dataint2, s.dataint3, s.dataint4) WHERE e.creature_id = %d ORDER BY e.id, s.delay, b.entry", entry))
+	if err != nil {
+		return g, err
+	}
+	g.Lines = parseAILines(raw)
 	if g.MenuID <= 0 {
 		return g, nil
 	}
@@ -72,17 +128,52 @@ func readGossip(db worldDB, entry int) (Gossip, error) {
 		return g, err
 	}
 	g.Texts = parseGossipTexts(raw)
-	raw, err = runSQL(db, fmt.Sprintf("SELECT COALESCE(NULLIF(o.option_text, ''), b.male_text, '') FROM gossip_menu_option o "+
-		"LEFT JOIN broadcast_text b ON b.entry = o.option_broadcast_text WHERE o.menu_id = %d ORDER BY o.id", g.MenuID))
+	// The text the server shows: the broadcast text when the row names one that exists, else its own.
+	raw, err = runSQL(db, fmt.Sprintf("SELECT o.id, o.option_icon, IF(b.entry IS NULL, COALESCE(o.option_text, ''), COALESCE(b.male_text, '')), IF(b.entry IS NULL, 0, b.entry), "+
+		"o.option_id, o.npc_option_npcflag, o.action_menu_id, o.action_poi_id, o.action_script_id, o.box_coded, o.box_money, "+
+		"IF(x.entry IS NULL, COALESCE(o.box_text, ''), COALESCE(x.male_text, '')), IF(x.entry IS NULL, 0, x.entry), o.condition_id FROM gossip_menu_option o "+
+		"LEFT JOIN broadcast_text b ON o.option_broadcast_text <> 0 AND b.entry = o.option_broadcast_text "+
+		"LEFT JOIN broadcast_text x ON o.box_broadcast_text <> 0 AND x.entry = o.box_broadcast_text WHERE o.menu_id = %d ORDER BY o.id", g.MenuID))
 	if err != nil {
 		return g, err
 	}
+	g.Options = parseGossipOptions(raw)
+	return g, nil
+}
+
+// batchRows splits mariadb's batch output into rows of n tab-separated fields, skipping others.
+func batchRows(raw []byte, n int) [][]string {
+	var out [][]string
 	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
-		if line = strings.TrimRight(line, "\r"); line != "" {
-			g.Options = append(g.Options, unescapeBatch(line))
+		if f := strings.Split(strings.TrimRight(line, "\r"), "\t"); len(f) == n {
+			out = append(out, f)
 		}
 	}
-	return g, nil
+	return out
+}
+
+// parseGossipOptions reads readGossip's option rows.
+func parseGossipOptions(raw []byte) []GossipOption {
+	var out []GossipOption
+	for _, f := range batchRows(raw, 14) {
+		n := func(i int) int { v, _ := strconv.Atoi(f[i]); return v }
+		out = append(out, GossipOption{
+			ID: n(0), Icon: n(1), Text: unescapeBatch(f[2]), BroadcastText: n(3), Action: n(4), NpcFlag: n(5),
+			ActionMenu: n(6), ActionPOI: n(7), ActionScript: n(8), BoxCoded: n(9) != 0, BoxMoney: n(10),
+			BoxText: unescapeBatch(f[11]), BoxBroadcastText: n(12), Condition: n(13),
+		})
+	}
+	return out
+}
+
+// parseAILines reads readGossip's creature AI lines.
+func parseAILines(raw []byte) []AILine {
+	var out []AILine
+	for _, f := range batchRows(raw, 5) {
+		n := func(i int) int { v, _ := strconv.Atoi(f[i]); return v }
+		out = append(out, AILine{Event: n(0), Chance: n(1), Chat: n(2), TextID: n(3), Text: unescapeBatch(f[4])})
+	}
+	return out
 }
 
 // parseGossipTexts reads readGossip's text rows.
@@ -172,6 +263,123 @@ func SaveGreeting(serverRoot string, entry int, male, female string) (GreetingSa
 		}
 	}
 	sql := greetingSQL(entry, g, male, female)
+	if err := runScript(db, sql); err != nil {
+		return GreetingSaved{}, err
+	}
+	after, err := readGossip(db, entry)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	return GreetingSaved{MenuID: after.MenuID, SQL: sql}, nil
+}
+
+// checkGossipOptions checks options typed into the editor against gossip_menu_option's columns and
+// the icons and actions VMaNGOS knows.
+func checkGossipOptions(opts []GossipOption) error {
+	seen := map[int]bool{}
+	for _, o := range opts {
+		switch {
+		case o.ID < 0 || o.ID > maxGossipMenu:
+			return fmt.Errorf("option number %d is out of range (0 to %d)", o.ID, maxGossipMenu)
+		case seen[o.ID]:
+			return fmt.Errorf("two options are numbered %d", o.ID)
+		case strings.TrimSpace(o.Text) == "":
+			return fmt.Errorf("option %d has no text", o.ID)
+		case o.Icon < 0 || o.Icon > maxGossipIcon:
+			return fmt.Errorf("option %d: icon %d is not one the server knows (0 to %d)", o.ID, o.Icon, maxGossipIcon)
+		case o.Action < 0 || o.Action > maxGossipAction:
+			return fmt.Errorf("option %d: action %d is not one the server knows (0 to %d)", o.ID, o.Action, maxGossipAction)
+		case o.NpcFlag < 0 || int64(o.NpcFlag) > 0xFFFFFFFF:
+			return fmt.Errorf("option %d: the creature flag is out of range", o.ID)
+		case o.ActionMenu < -1 || o.ActionMenu > 8388607:
+			return fmt.Errorf("option %d: menu %d is out of range", o.ID, o.ActionMenu)
+		case o.ActionPOI < 0 || o.ActionPOI > 16777215 || o.ActionScript < 0 || o.ActionScript > 16777215 || o.Condition < 0 || o.Condition > 16777215:
+			return fmt.Errorf("option %d: a point of interest, script or condition is out of range", o.ID)
+		case o.BoxMoney < 0 || int64(o.BoxMoney) > 0xFFFFFFFF:
+			return fmt.Errorf("option %d: the box's cost is out of range", o.ID)
+		}
+		seen[o.ID] = true
+	}
+	return nil
+}
+
+// optionsSQL replaces the options of creature entry's gossip menu with opts. As greetingSQL does, it
+// never edits a broadcast_text: an option keeps its broadcast text only while its text is still the
+// one that broadcast text showed (shown, by broadcast ID), else the text goes into the option's own
+// option_text (box_text), which VMaNGOS shows when the broadcast ID is 0. A menu other creature
+// templates share is copied first (its text rows), so they keep their options. g is the creature's
+// gossip as readGossip read it, and must have a menu.
+func optionsSQL(entry int, g Gossip, opts []GossipOption, shown map[int]string) string {
+	var b strings.Builder
+	if g.Shared > 1 {
+		b.WriteString("SET @menu = (SELECT COALESCE(MAX(`entry`), 0) + 1 FROM `gossip_menu`);\n")
+		fmt.Fprintf(&b, "INSERT INTO `gossip_menu` (`entry`, `text_id`, `script_id`, `condition_id`) SELECT @menu, `text_id`, `script_id`, `condition_id` FROM `gossip_menu` WHERE `entry` = %d;\n", g.MenuID)
+		fmt.Fprintf(&b, "UPDATE `creature_template` SET `gossip_menu_id` = @menu WHERE `entry` = %d;\n", entry)
+	} else {
+		fmt.Fprintf(&b, "SET @menu = %d;\n", g.MenuID)
+		b.WriteString("DELETE FROM `gossip_menu_option` WHERE `menu_id` = @menu;\n")
+	}
+	// A broadcast text is kept as '' own text and its ID, an edited one as its own text and ID 0.
+	text := func(s string, id int) (string, int) {
+		if t, ok := shown[id]; id > 0 && ok && t == s {
+			return "''", id
+		}
+		return sqlQuote(s), 0
+	}
+	for _, o := range opts {
+		ot, ob := text(o.Text, o.BroadcastText)
+		bt, bb := text(o.BoxText, o.BoxBroadcastText)
+		coded := 0
+		if o.BoxCoded {
+			coded = 1
+		}
+		fmt.Fprintf(&b, "INSERT INTO `gossip_menu_option` (`menu_id`, `id`, `option_icon`, `option_text`, `option_broadcast_text`, `option_id`, `npc_option_npcflag`, `action_menu_id`, `action_poi_id`, `action_script_id`, `box_coded`, `box_money`, `box_text`, `box_broadcast_text`, `condition_id`) "+
+			"VALUES (@menu, %d, %d, %s, %d, %d, %d, %d, %d, %d, %d, %d, %s, %d, %d);\n",
+			o.ID, o.Icon, ot, ob, o.Action, o.NpcFlag, o.ActionMenu, o.ActionPOI, o.ActionScript, coded, o.BoxMoney, bt, bb, o.Condition)
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
+// SaveGossipOptions replaces the options of creature template entry's gossip menu (optionsSQL), and
+// returns its gossip menu now with the SQL it ran. A creature with no menu needs a greeting first.
+func SaveGossipOptions(serverRoot string, entry int, opts []GossipOption) (GreetingSaved, error) {
+	if err := checkGossipOptions(opts); err != nil {
+		return GreetingSaved{}, err
+	}
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return GreetingSaved{}, err
+	}
+	g, err := readGossip(db, entry)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	if g.MenuID <= 0 {
+		return GreetingSaved{}, fmt.Errorf("creature %d has no gossip menu yet: save a greeting first", entry)
+	}
+	if g.Shared > 1 {
+		raw, err := runSQL(db, "SELECT COALESCE(MAX(`entry`), 0) FROM `gossip_menu`")
+		if err != nil {
+			return GreetingSaved{}, err
+		}
+		if n, _ := strconv.Atoi(strings.TrimSpace(string(raw))); n >= maxGossipMenu {
+			return GreetingSaved{}, fmt.Errorf("the world database has no free gossip menu entry (the last is %d)", n)
+		}
+	}
+	// The texts the menu's broadcast texts showed, to tell a kept text from an edited one.
+	shown := map[int]string{}
+	for _, o := range g.Options {
+		if o.BroadcastText > 0 {
+			shown[o.BroadcastText] = o.Text
+		}
+		if o.BoxBroadcastText > 0 {
+			shown[o.BoxBroadcastText] = o.BoxText
+		}
+	}
+	sql := optionsSQL(entry, g, opts, shown)
 	if err := runScript(db, sql); err != nil {
 		return GreetingSaved{}, err
 	}

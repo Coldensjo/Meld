@@ -345,6 +345,26 @@ export namespace mapfile {
 
 export namespace vmangos {
 	
+	export class AILine {
+	    event: number;
+	    chance: number;
+	    chat: number;
+	    textId: number;
+	    text: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AILine(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.event = source["event"];
+	        this.chance = source["chance"];
+	        this.chat = source["chat"];
+	        this.textId = source["textId"];
+	        this.text = source["text"];
+	    }
+	}
 	export class AnimInfo {
 	    id: number;
 	    name: string;
@@ -817,6 +837,44 @@ export namespace vmangos {
 	        this.name = source["name"];
 	    }
 	}
+	export class GossipOption {
+	    id: number;
+	    icon: number;
+	    text: string;
+	    broadcastText: number;
+	    action: number;
+	    npcFlag: number;
+	    actionMenu: number;
+	    actionPoi: number;
+	    actionScript: number;
+	    boxCoded: boolean;
+	    boxMoney: number;
+	    boxText: string;
+	    boxBroadcastText: number;
+	    condition: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GossipOption(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.icon = source["icon"];
+	        this.text = source["text"];
+	        this.broadcastText = source["broadcastText"];
+	        this.action = source["action"];
+	        this.npcFlag = source["npcFlag"];
+	        this.actionMenu = source["actionMenu"];
+	        this.actionPoi = source["actionPoi"];
+	        this.actionScript = source["actionScript"];
+	        this.boxCoded = source["boxCoded"];
+	        this.boxMoney = source["boxMoney"];
+	        this.boxText = source["boxText"];
+	        this.boxBroadcastText = source["boxBroadcastText"];
+	        this.condition = source["condition"];
+	    }
+	}
 	export class GossipText {
 	    textId: number;
 	    condition: number;
@@ -838,8 +896,10 @@ export namespace vmangos {
 	export class Gossip {
 	    menuId: number;
 	    shared: number;
+	    npcFlags: number;
 	    texts: GossipText[];
-	    options: string[];
+	    options: GossipOption[];
+	    lines: AILine[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Gossip(source);
@@ -849,8 +909,10 @@ export namespace vmangos {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.menuId = source["menuId"];
 	        this.shared = source["shared"];
+	        this.npcFlags = source["npcFlags"];
 	        this.texts = this.convertValues(source["texts"], GossipText);
-	        this.options = source["options"];
+	        this.options = this.convertValues(source["options"], GossipOption);
+	        this.lines = this.convertValues(source["lines"], AILine);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -871,6 +933,7 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	
 	
 	export class GreetingSaved {
 	    menuId: number;

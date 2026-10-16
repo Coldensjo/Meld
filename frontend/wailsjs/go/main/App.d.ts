@@ -140,6 +140,8 @@ export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>
 
 export function SaveCreatureQuests(arg1:number,arg2:vmangos.CreatureQuests):Promise<string>;
 
+export function SaveGossipOptions(arg1:number,arg2:Array<vmangos.GossipOption>):Promise<vmangos.GreetingSaved>;
+
 export function SaveGreeting(arg1:number,arg2:string,arg3:string):Promise<vmangos.GreetingSaved>;
 
 export function SaveHeightmapDialog(arg1:string):Promise<string>;

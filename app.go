@@ -652,6 +652,16 @@ func (a *App) SaveGreeting(entry int, male, female string) (vmangos.GreetingSave
 	return vmangos.SaveGreeting(server, entry, male, female)
 }
 
+// SaveGossipOptions replaces the options (the lines a player can pick) of a creature template's
+// gossip menu, and returns its gossip menu now.
+func (a *App) SaveGossipOptions(entry int, options []vmangos.GossipOption) (vmangos.GreetingSaved, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.GreetingSaved{}, err
+	}
+	return vmangos.SaveGossipOptions(server, entry, options)
+}
+
 // Factions lists the client's faction templates with their names and how each treats an Alliance
 // and a Horde player, for the creature guide.
 func (a *App) Factions() ([]vmangos.FactionInfo, error) {
