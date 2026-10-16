@@ -76,10 +76,10 @@
   })
 
   // Pick a family in another category: the family filter only holds within its category.
-  $effect(() => {
-    void category
+  function pickCategory(e: Event) {
+    category = (e.target as HTMLSelectElement).value
     family = ''
-  })
+  }
 
   // The grid renders only the rows in view.
   const TILE = 104
@@ -100,6 +100,35 @@
     scrollTop = 0
   })
 
+  // Open on the creature's own display (#206): its type and model family picked and its tile in
+  // view, once the displays are read and again when another display slot is shown, but not after a
+  // pick here, which must leave the filters where the author put them.
+  let shown = -1
+  let picked = -1
+  $effect(() => {
+    const id = selected
+    if (!all.length || id === shown) return
+    shown = id
+    if (id === picked) return
+    const d = all.find((x) => x.id === id)
+    if (!d) return
+    category = categoryOf(d)
+    family = familyOf(d)
+    query = ''
+    // After the grid has laid out the narrowed list (and the scroll-to-top above has run).
+    requestAnimationFrame(() => {
+      const i = items.indexOf(d)
+      if (i < 0 || !scroller) return
+      const top = Math.max(0, Math.floor(i / cols) * rowH - (height - rowH) / 2)
+      scroller.scrollTo(0, top)
+      scrollTop = top
+    })
+  })
+  function pick(d: vmangos.DisplayEntry) {
+    picked = d.id
+    onpick(d)
+  }
+
   const label = (d: vmangos.DisplayEntry) => d.names?.[0] ?? familyOf(d)
   const title = (d: vmangos.DisplayEntry) =>
     `Display ${d.id}: ${familyOf(d)}${d.skin ? ` (${d.skin})` : ''}${d.uses ? `\nUsed by ${d.names.join(', ')}${d.uses > d.names.length ? ` and ${d.uses - d.names.length} more` : ''}` : '\nNo creature uses it'}`
@@ -108,7 +137,7 @@
 <div class="picker">
   <input type="search" placeholder="Search: a creature (Hogger), a model (wolf, kobold) or a display ID" bind:value={query} />
   <div class="row">
-    <select bind:value={category} aria-label="Creature type">
+    <select value={category} onchange={pickCategory} aria-label="Creature type">
       <option value="">All types ({all.length})</option>
       {#each categories as [name, n] (name)}<option value={name}>{name} ({n})</option>{/each}
     </select>
@@ -145,7 +174,7 @@
               size={TILE}
               active={d.id === selected}
               badge={String(d.id)}
-              onclick={() => onpick(d)}
+              onclick={() => pick(d)}
               onhover={(on) => onhover?.(on ? d : null)}
             />
           {/each}

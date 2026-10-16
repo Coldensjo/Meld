@@ -1276,6 +1276,16 @@ left out of `SpawnLayer`'s batches unless View › World events shows their even
 - `wails dev` rebuilds the Go side when a Go file changes, so a new binding usually works in the
   dev page after a reload; if it doesn't, see the stale `wailsjs` trap above.
 
+## Creature editor: Looks opens on the creature's display (#206)
+
+Checks: `DisplayPicker.svelte` picks the selected display's type and model family and scrolls its
+tile into view once the displays are read. In the dev page on Northshire, set
+`ui.creatureEditor = { key: spawnKey(s), entry: s.entry }` for a drawn creature, click the Looks button
+(retry until `.picker` exists: the record loads first), wait for
+`[aria-label="Creature displays"] .virtual`, then read the two `.picker select`s and the `.active`
+tile's rect against the grid's. A Northshire Guard opens on Humanoid / HumanMale, the wolves on
+Beast / Wolf, each with its tile in view. The first read of the displays takes several seconds.
+
 ## Creature editor: Shop tab (npc_vendor, #145)
 
 Checks: the Shop tab lists, adds, reorders and saves what a creature sells. Unit: `vendor_test.go`
