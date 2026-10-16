@@ -633,6 +633,10 @@ cd frontend && pnpm build   # frontend only
   Select tool adds points on the ground after `editor.selectedWaypoint`, drags them, and Delete
   removes one. Paths are replaced immutably (`withPoint`), so undo can keep the old array. A
   changed path is saved as the spawn's own `creature_movement` rows.
+- **Spawn names** (`world/SpawnLabels.ts`, View › Names over creatures and objects, `prefs.spawnNames`):
+  DOM labels over the canvas for the 48 nearest spawns the cull drew (`SpawnLayer.forEachDrawn`), with
+  the name in the kind's colour, the subname and a creature's level and rank, picked four times a second
+  and left out where the ground or a building hides them (`Engine.sightBlocked`, `ObjectLayer.wmoBlocks`).
 - **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
   by a click (no drag) on a creature in the Select tool (pref `creatureEditorOnClick`), the panel's
   Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with

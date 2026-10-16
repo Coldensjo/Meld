@@ -342,6 +342,8 @@ export const prefs = $state({
   showGameObjects: true,
   /** Draw every creature's waypoint path, not only the selected one's. */
   showAllPaths: false,
+  /** Names over the creatures and game objects, with a creature's level and rank (#125). */
+  spawnNames: true,
   /** A click on a creature in the Select tool opens it in the creature editor. */
   renderScale: 1,
   viewDistance: 1,

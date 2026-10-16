@@ -24,6 +24,7 @@ import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
+import { SpawnLabels } from '../world/SpawnLabels'
 import { MapDataTool } from '../tools/MapDataTool'
 import { areaName } from '../wow/areas'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
@@ -293,6 +294,7 @@ export class Engine {
   private doomTargets: OutlineTarget[] = []
   private doomMatrices: THREE.Matrix4[] = []
   private clearTool = new ClearTool()
+  private spawnLabels: SpawnLabels
   private gizmo = new TransformGizmo()
   /** Active handle drag: which handle and the state when it started. */
   private gizmoDrag: {
@@ -425,6 +427,8 @@ export class Engine {
     this.bindPointer()
     this.resizeObs = new ResizeObserver(() => this.resize())
     this.resizeObs.observe(container)
+    this.spawnLabels = new SpawnLabels(container)
+    this.spawnLabels.blocked = (to) => this.sightBlocked(to)
     this.resize()
     this.newDocument(256, 'ocean', 0)
   }
@@ -447,6 +451,7 @@ export class Engine {
     this.controller.dispose()
     this.outline.dispose()
     this.doomOutline.dispose()
+    this.spawnLabels.dispose()
     this.env.dispose()
     this.horizon.dispose()
     this.effects.dispose()
@@ -802,6 +807,7 @@ export class Engine {
     this.updateSelectionVisuals()
     this.updateDoomVisuals()
     this.renderer.render(this.scene, this.camera)
+    this.spawnLabels.update(this.doc.spawnLayer, this.camera, this.camera.position, this.container.clientWidth, this.container.clientHeight, dt)
     // The counters describe the last render call, so read the scene's before the outline passes.
     const calls = this.renderer.info.render.calls
     const triangles = this.renderer.info.render.triangles
@@ -1195,6 +1201,7 @@ export class Engine {
     d.objects.group.visible = p.showObjects
     d.groundEffects.group.visible = p.showGroundEffects
     d.spawnLayer.setKinds({ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects })
+    this.spawnLabels.enabled = p.spawnNames
   }
 
   /** Give the active terrain the palette whenever the editor's palette changes. */
@@ -2511,6 +2518,25 @@ export class Engine {
 
     // Last: overlappingBoxes reuses the scratch matrix/vectors used above.
     this.outline.setWarnBoxes(this.overlappingBoxes(o))
+  }
+
+  private sightRay = new THREE.Raycaster()
+  private sightDir = new THREE.Vector3()
+  private sightHit = new THREE.Vector3()
+
+  /** Whether the ground or a building stands between the camera and `to` (a spawn's name, #125). */
+  private sightBlocked(to: THREE.Vector3): boolean {
+    const eye = this.camera.position
+    const dir = this.sightDir.subVectors(to, eye)
+    const d = dir.length()
+    if (d < 1) return false
+    dir.divideScalar(d)
+    const ray = this.sightRay
+    ray.set(eye, dir)
+    ray.far = d - 0.5
+    if (this.terrain.raycast(ray.ray, this.sightHit, d - 0.5)) return true
+    // Buildings hide a name, as walls do in the game; trees and doodads don't.
+    return this.objects.wmoBlocks(ray)
   }
 
   /** Marks the models the Clear tool's brush would delete, while it is the active tool. */

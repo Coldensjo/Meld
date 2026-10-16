@@ -433,9 +433,10 @@ export class ObjectLayer {
   }
 
   /** Hits on the drawn instances, nearest first: one per instance, from its model's bounds tree. */
-  private intersect(raycaster: THREE.Raycaster): THREE.Intersection[] {
+  private intersect(raycaster: THREE.Raycaster, wmoOnly = false): THREE.Intersection[] {
     const meshes: THREE.Object3D[] = []
-    for (const b of this.batches.values()) {
+    for (const [type, b] of this.batches) {
+      if (wmoOnly && !type.startsWith('wmo:')) continue
       if (b.mesh.count > 0) meshes.push(b.mesh)
       // A LOD shares its model's bounds tree, so it picks the full model.
       if (b.lod && b.lod.count > 0) meshes.push(b.lod)
@@ -520,6 +521,15 @@ export class ObjectLayer {
       return { id, point: h.point.clone(), distance: h.distance }
     }
     return null
+  }
+
+  /**
+   * Whether a drawn building (WMO) meets the ray within its `far`: a sight-line test, cheap since a
+   * map has few buildings beside its many doodads.
+   */
+  wmoBlocks(raycaster: THREE.Raycaster): boolean {
+    for (const h of this.intersect(raycaster, true)) if (h.instanceId !== undefined) return true
+    return false
   }
 
   /** Returns the id of the object under the ray, or null. */

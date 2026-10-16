@@ -162,6 +162,17 @@ export class SpawnLayer {
     }
   }
 
+  /** Calls `fn` for each spawn the last cull drew: of a kind shown, in view and through a room's doorways. */
+  forEachDrawn(fn: (s: vmangos.WorldSpawn) => void) {
+    for (const b of this.batches) {
+      if (!b.mesh.visible) continue
+      for (let k = 0; k < b.mesh.count; k++) {
+        const j = b.packed[k]
+        if (j >= 0 && j < b.all.length) fn(b.all[j])
+      }
+    }
+  }
+
   /** Counts of the spawns drawn, by kind. */
   counts(): Record<SpawnKind, number> {
     const out: Record<SpawnKind, number> = { monster: 0, npc: 0, object: 0 }

@@ -465,6 +465,23 @@ const pip = await import('<PipetteTool.ts URL>'); await pip.pickSpawn(editor.spa
 - Traps: a creature tile's badge is its level; the title holds entry, level, rank and type. The
   lists are cached in Go per server and client, so a changed template needs a restart to show.
 
+## Names over spawns (#125)
+
+Checks: `world/SpawnLabels.ts` puts names over the nearest drawn spawns (View › Names over creatures
+and objects, `prefs.spawnNames`). In the dev page (GPU Chrome, as in "Minimap window (M)"), load
+Azeroth 32_48, wait for the spawns (`e.doc.spawnLayer.spawns.length` is 347 with the server's
+database up), then stand the camera at Deputy Willem:
+`e.controller.setView(s.x, s.y, s.z, e.controller.yaw, 0.3, 28)` with
+`s = e.doc.spawnLayer.spawns.find(x => x.name === 'Deputy Willem')`. After a second the visible
+`.spawn-labels > div` read "Deputy Willem | Level 18", "Janos Hammerknuckle | <Weaponsmith> | Level 5"
+and so on; those inside the abbey have none.
+- A name the ground or a building (WMO) hides is left out (`Engine.sightBlocked`, through
+  `ObjectLayer.wmoBlocks`): trees don't hide names. Wrap `e.spawnLabels.blocked` to count the tests;
+  one costs about 0.04 ms, up to 96 a pick, four picks a second.
+- Trap: a scene whose camera stands inside a building's wall (the abbey at `"target":[182,80,353]`,
+  pitch 0.35, distance 45 does) hides every name, correctly; check the camera first.
+- Setting `ed.prefs.spawnNames = false` from the page module hides them all.
+
 ## Thumbnail loading order (asset browser grids)
 
 Checks: `lib/wow/thumbQueue.ts` (the priority queue: tiles on screen nearest the grid's centre
