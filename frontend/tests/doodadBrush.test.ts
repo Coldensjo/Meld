@@ -1,7 +1,27 @@
 // Run with: node --import ./tests/register.mjs --test tests/doodadBrush.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { attemptRate, candidate, fits, fitsOn, formatBrush, newBrush, newEntry, parseBrush, pickEntry, uniqueName } from '../src/lib/tools/doodadBrush.ts'
+import {
+  MAX_FILL_ATTEMPTS,
+  SpacingGrid,
+  attemptRate,
+  candidate,
+  fillAttempts,
+  fits,
+  fitsOn,
+  formatBrush,
+  newBrush,
+  newEntry,
+  newRules,
+  parseBrush,
+  pickEntry,
+  rulesAllow,
+  rulesEmpty,
+  uniqueName,
+  type GroundProbe,
+} from '../src/lib/tools/doodadBrush.ts'
+import { NO_TEXTURE, SLOTS, textureWeightTexel } from '../src/lib/terrain/chunkPaint.ts'
+import { LiquidMap, newLayer } from '../src/lib/water/liquids.ts'
 
 const bush = () => {
   const b = newBrush('Bush')
@@ -118,4 +138,128 @@ test('a placement on a prop is spaced only against the models on that same prop'
   assert.equal(fitsOn(11, 10, 2, 1, on, 2, 9), true, 'nothing stands on prop 9')
   assert.equal(fitsOn(12.5, 10, 2, 1, on, 2, 7), true, 'a footprint away fits')
   assert.equal(fitsOn(12.5, 10, 2, 2, on, 2, 7), false, 'spacing 2 wants twice that')
+})
+
+const GRASS = 'Tileset\\Elwynn\\ElwynnGrassBase.blp'
+const ROAD = 'Tileset\\Elwynn\\ElwynnCobblestoneBase.blp'
+
+/** Flat grass at height 10, 5° of slope, no sea, no liquid, no hole; `over` replaces any of it. */
+const ground = (over: Partial<GroundProbe> = {}, weights: Record<string, number> = { [GRASS]: 1 }): GroundProbe => ({
+  height: 10,
+  sea: null,
+  hole: false,
+  liquid: false,
+  slope: () => 5,
+  textureWeight: (p) => weights[p] ?? 0,
+  ...over,
+})
+
+test('placement rules keep a brush to its slope, height, textures, water and holes', () => {
+  const r = newRules()
+  assert.ok(rulesAllow(r, ground()), 'the default rules allow plain ground')
+  assert.ok(!rulesAllow(r, ground({ hole: true })), 'but not a hole')
+  r.avoidHoles = false
+  assert.ok(rulesAllow(r, ground({ hole: true })))
+
+  r.slope = [0, 30]
+  assert.ok(!rulesAllow(r, ground({ slope: () => 40 })), 'a cliff is too steep')
+  r.slope = [20, 90]
+  assert.ok(!rulesAllow(r, ground()), 'flat ground is too flat for a cliff brush')
+  r.slope = [0, 90]
+
+  r.height = [0, 20]
+  assert.ok(rulesAllow(r, ground()))
+  r.aboveSea = true
+  assert.ok(!rulesAllow(r, ground({ sea: -15 })), '25 yd above the sea is out of 0..20')
+
+  r.height = null
+  r.avoidWater = true
+  assert.ok(!rulesAllow(r, ground({ liquid: true })), 'a painted lake')
+  assert.ok(!rulesAllow(r, ground({ sea: 12 })), 'under the sea')
+  assert.ok(rulesAllow(r, ground({ sea: 8 })), 'above it')
+
+  r.onTextures = [GRASS]
+  assert.ok(rulesAllow(r, ground()))
+  assert.ok(!rulesAllow(r, ground({}, { [GRASS]: 0.3, [ROAD]: 0.7 })), 'grass at 30% is under the 50% it needs')
+  r.textureMin = 0.25
+  assert.ok(rulesAllow(r, ground({}, { [GRASS]: 0.3, [ROAD]: 0.7 })))
+  r.offTextures = [ROAD]
+  assert.ok(!rulesAllow(r, ground({}, { [GRASS]: 0.3, [ROAD]: 0.7 })), 'never on the road')
+})
+
+test('the rules and each model\'s align round-trip through the brush file, and old files read without them', () => {
+  const b = bush()
+  b.entries[0].align = 0.5
+  b.rules = { ...newRules(), slope: [5, 35], height: [-2, 40], aboveSea: true, onTextures: [GRASS], offTextures: [ROAD], textureMin: 0.4, avoidWater: true, avoidHoles: false }
+  const text = formatBrush(b)
+  assert.match(text, /\[rules\]/)
+  assert.match(text, /on_textures = \['Tileset\\Elwynn\\ElwynnGrassBase\.blp'\]/)
+  const { brush, errors } = parseBrush(text)
+  assert.deepEqual(errors, [])
+  assert.deepEqual(brush, b)
+
+  const plain = bush()
+  assert.doesNotMatch(formatBrush(plain), /rules|align/, 'nothing written for a brush without rules')
+  assert.equal(parseBrush(formatBrush(plain)).brush?.rules, undefined)
+  assert.ok(rulesEmpty(newRules()) === false, 'the defaults avoid holes, so they are kept')
+  assert.ok(rulesEmpty({ ...newRules(), avoidHoles: false }))
+
+  const bad = parseBrush("name = 'x'\n[rules]\nslope = [10, 100]\navoid_water = 'yes'\n")
+  assert.equal(bad.errors.length, 2, bad.errors.join('; '))
+})
+
+test('the fill grid answers as fits does, looking only at neighbours', () => {
+  const g = new SpacingGrid(8)
+  const flat = new Float32Array(3 * 400)
+  let n = 0
+  let seed = 7
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  for (let i = 0; i < 400; i++) {
+    const x = rand() * 200 - 50
+    const z = rand() * 200 - 50
+    const s = 0.8 + rand() * 6
+    g.add(x, z, s)
+    flat.set([x, z, s], n * 3)
+    n++
+  }
+  for (let i = 0; i < 2000; i++) {
+    const x = rand() * 200 - 50
+    const z = rand() * 200 - 50
+    const s = 0.8 + rand() * 6
+    const sp = rand() * 2
+    assert.equal(g.fits(x, z, s, sp), fits(x, z, s, sp, flat, n), `at ${x}, ${z}`)
+  }
+})
+
+test('a fill makes as many attempts as holding the brush over the area for two seconds', () => {
+  const area = Math.PI * 100
+  assert.equal(fillAttempts(area, 1), Math.ceil(attemptRate(10, 1) * 2))
+  assert.equal(fillAttempts(1e9, 1), MAX_FILL_ATTEMPTS)
+  assert.equal(fillAttempts(area, 0), 0)
+})
+
+test('a texture\'s weight at a texel is read from its chunk\'s slot', () => {
+  // Two chunks a side of 4 texels: chunk 0 holds textures 3 and 5.
+  const side = 2
+  const res = 8
+  const slots = new Uint8Array(side * side * SLOTS).fill(NO_TEXTURE)
+  slots[0] = 3
+  slots[1] = 5
+  const weights = new Uint8Array(res * res * SLOTS)
+  weights[9 * SLOTS] = 51
+  weights[9 * SLOTS + 1] = 204
+  assert.equal(textureWeightTexel(side, res, slots, weights, 9, 5), 0.8)
+  assert.equal(textureWeightTexel(side, res, slots, weights, 9, 3), 0.2)
+  assert.equal(textureWeightTexel(side, res, slots, weights, 9, 4), 0, 'not in the chunk')
+})
+
+test('a liquid covers its painted cells where its surface is above the ground', () => {
+  const m = new LiquidMap(16)
+  const l = newLayer(1, 5)
+  l.cells[2 * 8 + 3] = 1
+  m.set(0, [l])
+  assert.ok(m.covers(3.5 * 2, 2.5 * 2, 2, 0), 'cell 3,2 of chunk 0')
+  assert.ok(!m.covers(3.5 * 2, 2.5 * 2, 2, 6), 'the ground is above the surface')
+  assert.ok(!m.covers(4.5 * 2, 2.5 * 2, 2, 0), 'the next cell is not painted')
+  assert.ok(!m.covers(-1, 0, 2, 0), 'off the map')
 })

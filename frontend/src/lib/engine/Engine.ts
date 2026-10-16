@@ -41,7 +41,7 @@ const plainScoped = (s: ScopedEffects): ScopedEffects => JSON.parse(JSON.stringi
 import { layAlphamapChunk, textureWeights } from '../terrain/alphamap'
 import { lookOf, looksByIndex, type TextureLooks } from '../world/textureLooks'
 import { blockedCells } from '../world/GroundEffectLayer'
-import { DoodadBrushTool } from '../tools/DoodadBrushTool'
+import { DoodadBrushTool, activeDoodadBrush } from '../tools/DoodadBrushTool'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import { mirrorClip, rotateClip } from '../world/clipRotate'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
@@ -2363,6 +2363,48 @@ export class Engine {
     const tex = editor.palette[layer] ?? ''
     const name = isColor(tex) ? tex : tex.slice(tex.lastIndexOf('\\') + 1).replace(/\.blp$/i, '')
     setStatus(refused ? `Filled the mask with ${name}, except where a chunk already has four textures.` : `Filled the mask with ${name}.`)
+  }
+
+  /**
+   * Terrain › Fill Selection / Fill Mask with Doodad Brush (#169): scatters the active doodad brush over
+   * the selected area, or over the paint mask (thinned by its value), as one undo step.
+   */
+  fillWithDoodadBrush(useMask: boolean) {
+    const brush = activeDoodadBrush()
+    if (!brush || !brush.entries.length) {
+      setStatus('Make a doodad brush with models first (Doodad tool › Edit brush).', 6000)
+      return
+    }
+    const t = this.terrain
+    let area = editor.selection
+    let mask: Uint8Array | null = null
+    if (useMask) {
+      const R = t.splatRes
+      const m = t.mask
+      let x0 = R, z0 = R, x1 = -1, z1 = -1
+      for (let z = 0; z < R; z++) {
+        for (let x = 0; x < R; x++) {
+          if (!m[z * R + x]) continue
+          if (x < x0) x0 = x
+          if (x > x1) x1 = x
+          if (z < z0) z0 = z
+          if (z > z1) z1 = z
+        }
+      }
+      if (x1 < 0) {
+        setStatus('The mask is empty. Paint a mask first (Paint tool › Mask).')
+        return
+      }
+      const tpc = R / t.size
+      area = { x0: Math.floor(x0 / tpc), z0: Math.floor(z0 / tpc), x1: Math.ceil((x1 + 1) / tpc), z1: Math.ceil((z1 + 1) / tpc) }
+      mask = m
+    }
+    if (!area) {
+      setStatus('Select an area first (Select tool, drag on the ground).')
+      return
+    }
+    const n = this.doodadTool.fill(this.ctx, brush, area, mask)
+    setStatus(n ? `Placed ${n} models of "${brush.name}".` : `"${brush.name}" found no room there: its rules or spacing ruled out every spot.`, 6000)
   }
 
   // ---------------------------------------------------------------- selected area / clipboard

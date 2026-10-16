@@ -639,6 +639,17 @@ e.history.undo(); e.objects.objects.size            // 0
   point falls on its roof come out with `parent` set to the WMO's id and `yOff` local to it; the ray
   skips what the stroke itself placed, so a brush never piles onto its own models. `fitsOn` (spacing
   per prop) is in `doodadBrush.test.ts`.
+- Placement rules and Fill (#169): `doodadBrush.test.ts` covers `rulesAllow`, the `[rules]` TOML,
+  `SpacingGrid` against `fits`, `textureWeightTexel` and `LiquidMap.covers`. In the dev page, on
+  Northshire (Azeroth 32_48, 1x1, which is 128 cells a side, so keep a selection under 128): set
+  `prefs.doodadBrushes` to a brush of `m2:world\azeroth\elwynn\passivedoodads\bush\elwynnbush09.mdx`
+  with `rules.onTextures = ['Tileset\Elwynn\ElwynnGrassBase.blp']` and
+  `offTextures = ['Tileset\Elwynn\ElwynnCobbleStoneBase.blp']`, `editor.selection = {x0: 20, z0: 20,
+  x1: 100, z1: 100}`, then `__engine.fillWithDoodadBrush(false)`: about 85 bushes in ~250 ms, every
+  one where `textureWeightAt` gives grass ≥ 0.5 and cobblestone < 0.5, and one undo ("Fill with doodad
+  brush") takes them all. A hand stroke still works through `__engine.doodadTool`'s `onDown`, `tick`
+  and `onUp` with `__engine.ctx`.
+- Trap: an edit to a module the page imported reloads the page, so the region is gone; load the scene again.
 
 ## Selection outline colours (free, touching, buried)
 

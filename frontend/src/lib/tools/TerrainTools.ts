@@ -45,7 +45,7 @@ import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushDist, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
 import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale } from './sculptShapes'
 import { brushImage, setBrushImageRotation } from './brushImage'
-import { CHUNK_CELLS, NO_TEXTURE, SLOTS, chunkOfTexel, dominantTexel, findSlot, paletteIndex, replaceInChunk, swapTexel } from '../terrain/chunkPaint'
+import { CHUNK_CELLS, NO_TEXTURE, SLOTS, chunkOfTexel, dominantTexel, findSlot, paletteIndex, replaceInChunk, swapTexel, textureWeightTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
 import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
@@ -59,6 +59,11 @@ const CHUNK_FULL = 'Not painted: that chunk already has four textures (the 1.12 
 /** The palette index of the texture with the most weight under world point (x, z), or -1 if none. */
 export function layerAt(t: Terrain, x: number, z: number): number {
   return dominantTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, texelAt(t, x, z))
+}
+
+/** The weight (0 to 1) of palette texture `tex` at (x, z). */
+export function textureWeightAt(t: Terrain, x: number, z: number, tex: number): number {
+  return textureWeightTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, texelAt(t, x, z), tex)
 }
 
 function texelAt(t: Terrain, x: number, z: number): number {

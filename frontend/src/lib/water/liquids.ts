@@ -212,6 +212,28 @@ export class LiquidMap {
     return out
   }
 
+  /**
+   * Whether a layer covers the cell at world (x, z) with its surface above `ground` there (a layer
+   * painted under the ground shows nothing). The surface is the cell's highest corner.
+   */
+  covers(x: number, z: number, cellSize: number, ground: number): boolean {
+    const gx = Math.floor(x / cellSize)
+    const gz = Math.floor(z / cellSize)
+    const n = this.side * LIQUID_CELLS
+    if (gx < 0 || gz < 0 || gx >= n || gz >= n) return false
+    const c = Math.floor(gz / LIQUID_CELLS) * this.side + Math.floor(gx / LIQUID_CELLS)
+    const lx = gx % LIQUID_CELLS
+    const lz = gz % LIQUID_CELLS
+    const row = LIQUID_CELLS + 1
+    for (const l of this.layers(c)) {
+      if (!l.cells[lz * LIQUID_CELLS + lx]) continue
+      const v = lz * row + lx
+      const top = Math.max(l.heights[v], l.heights[v + 1], l.heights[v + row], l.heights[v + row + 1])
+      if (top > ground) return true
+    }
+    return false
+  }
+
   /** Lowest and highest surface of chunk c (Infinity, -Infinity when it has none). */
   heightRange(c: number): [number, number] {
     return [this.bounds[c * 2], this.bounds[c * 2 + 1]]

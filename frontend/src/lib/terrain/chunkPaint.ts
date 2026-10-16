@@ -580,6 +580,13 @@ export function dominantTexel(side: number, res: number, slots: Uint8Array, weig
   return best
 }
 
+/** The weight (0 to 1) of palette texture `tex` at texel `pixel`; 0 where its chunk doesn't use it. */
+export function textureWeightTexel(side: number, res: number, slots: Uint8Array, weights: Uint8Array, pixel: number, tex: number): number {
+  const c = chunkOfTexel(side, res, pixel)
+  for (let k = 0; k < SLOTS; k++) if (slots[c * SLOTS + k] === tex) return weights[pixel * SLOTS + k] / 255
+  return 0
+}
+
 /** A texture in one chunk: its palette index, and the share of the chunk's paint it takes (0 to 1). */
 export interface ChunkTexture {
   slot: number

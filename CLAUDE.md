@@ -261,7 +261,11 @@ cd frontend && pnpm build   # frontend only
   index (`lib/wow/catalogIndex.ts`); while the tool is active, a model picked in the asset browser
   also joins the brush instead of being placed.
   Brush files are TOML (`formatBrush`/`parseBrush`, read with smol-toml), through Import/Export › Import /
-  Export Doodad Brush and the `SaveBrushDialog`/`OpenBrushDialog` bindings.
+  Export Doodad Brush and the `SaveBrushDialog`/`OpenBrushDialog` bindings. A brush may carry
+  placement rules (`PlacementRules`, `rulesAllow`, the TOML's `[rules]`: slope and height ranges, on
+  and not-on textures, liquids, holes) and each model an `align` toward the slope; Terrain › Fill
+  Selection / Fill Mask with Doodad Brush runs it over a whole area as one undo step
+  (`DoodadBrushTool.fill`, spaced through a `SpacingGrid`).
 - **Attachments**: a `WorldObject` with `parent` is attached.
   - Its x/yOff/z/rotY/scale are local to the parent (`matrixOf` walks the chain). Roots use
     world x/z and yOff above the terrain.

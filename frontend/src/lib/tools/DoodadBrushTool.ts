@@ -8,7 +8,41 @@ import { hasSkeleton, modelMesh } from '../world/Animator'
 import { previewParticles } from '../world/ParticleLayer'
 import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
 import { placementEuler } from '../world/placement'
-import { MAX_ATTEMPTS, attemptRate, candidate, fits, fitsOn, newBrush, pickEntry, uniqueName, type DoodadBrush } from './doodadBrush'
+import { MAX_ATTEMPTS, SpacingGrid, attemptRate, candidate, fillAttempts, fits, fitsOn, newBrush, pickEntry, rulesAllow, uniqueName, type DoodadBrush, type GroundProbe } from './doodadBrush'
+import { textureWeightAt } from './TerrainTools'
+import type { Terrain } from '../terrain/Terrain'
+
+/** The ground at a point for the brush's placement rules; filled by `at`, reused for every check. */
+class ToolGround implements GroundProbe {
+  height = 0
+  sea: number | null = null
+  hole = false
+  liquid = false
+  private t: Terrain | null = null
+  private x = 0
+  private z = 0
+
+  at(ctx: ToolContext, x: number, z: number) {
+    const t = ctx.terrain
+    this.t = t
+    this.x = x
+    this.z = z
+    this.height = t.heightAt(x, z)
+    this.sea = editor.waterEnabled ? editor.waterLevel : null
+    this.hole = t.isHole(x, z)
+    this.liquid = ctx.liquids.covers(x, z, t.cellSize, this.height)
+  }
+
+  slope() {
+    const t = this.t!
+    return groundSlopeDeg((px, pz) => t.heightAt(px, pz), this.x, this.z, t.cellSize)
+  }
+
+  textureWeight(path: string) {
+    const i = editor.palette.indexOf(path)
+    return i < 0 ? 0 : textureWeightAt(this.t!, this.x, this.z, i)
+  }
+}
 
 /** The brush the Doodad tool paints with: the preference's pick, else the first one; null with none made. */
 export function activeDoodadBrush(): DoodadBrush | null {
@@ -101,6 +135,10 @@ export class DoodadBrushTool implements Tool {
   private planKey = ''
   /** How far the plan has been spun (for the hint); a new plan starts afresh. */
   private spun = 0
+  /** The spacing check while a fill runs (`fill`), in place of `near`. */
+  private grid: SpacingGrid | null = null
+  /** The ground under a placement, as the brush's rules see it. */
+  private ground = new ToolGround()
   private ghosts: THREE.Mesh[] = []
   private ghostGroup = new THREE.Group()
 
@@ -197,7 +235,7 @@ export class DoodadBrushTool implements Tool {
     if (objects && this.placed?.length) {
       const saved = this.placed.map((o) => ({ ...o }))
       const cmd: Command = {
-        label: 'Doodad brush',
+        label: this.grid ? 'Fill with doodad brush' : 'Doodad brush',
         undo: () => saved.forEach((o) => objects.remove(o.id)),
         redo: () => saved.forEach((o) => objects.add({ ...o })),
       }
@@ -241,7 +279,7 @@ export class DoodadBrushTool implements Tool {
       const x = hit.x + p.dx
       const z = hit.z + p.dz
       const parent = this.propAt(ctx, x, z)
-      g.visible = parent !== null || this.groundAllows(ctx, x, z)
+      g.visible = parent !== null || this.groundAllows(ctx, brush, x, z)
       if (!g.visible) continue
       const y = parent !== null ? this.pos.y : t.heightAt(x, z)
       const e = brush.entries[p.entry]
@@ -261,13 +299,8 @@ export class DoodadBrushTool implements Tool {
         this.ghosts[i] = g
       }
       g.position.set(x, y + e.sink, z)
-      if (editor.followGround && parent === null) {
-        groundNormal((px, pz) => t.heightAt(px, pz), x, z, t.cellSize, editor.followGroundSmooth, this.normal)
-        tiltToNormal(this.normal.x, this.normal.y, this.normal.z, p.rotY, this.tilt)
-        placementEuler(g.rotation, p.rotY, this.tilt.tiltX, this.tilt.tiltZ)
-      } else {
-        placementEuler(g.rotation, p.rotY, p.tiltX, p.tiltZ)
-      }
+      if (parent === null && this.groundTilt(t, x, z, p, e.align)) placementEuler(g.rotation, p.rotY, this.tilt.tiltX, this.tilt.tiltZ)
+      else placementEuler(g.rotation, p.rotY, p.tiltX, p.tiltZ)
       g.scale.setScalar(p.scale)
     }
   }
@@ -276,7 +309,7 @@ export class DoodadBrushTool implements Tool {
   private ensurePlan(brush: DoodadBrush) {
     const { radius, strength, falloff, curve } = editor.brush
     let key = `${brush.name}|${brush.spacing}|${radius}|${strength}|${falloff}|${curve}|${editor.doodad.randomRot ? 1 : 0}`
-    for (const e of brush.entries) key += `|${e.type}|${e.weight}|${e.scaleMin}|${e.scaleMax}|${e.tilt}`
+    for (const e of brush.entries) key += `|${e.type}|${e.weight}|${e.scaleMin}|${e.scaleMax}|${e.tilt}|${e.align}`
     if (key === this.planKey) return
     this.planKey = key
     this.plan = []
@@ -297,14 +330,24 @@ export class DoodadBrushTool implements Tool {
   /** One placement drawn at random, relative to the brush centre; null when the falloff drops the point. */
   private roll(brush: DoodadBrush, radius: number, falloff: number, curve: typeof editor.brush.curve): Planned | null {
     if (!candidate(0, 0, radius, falloff, curve, Math.random, this.point)) return null
+    const p = this.draw(brush)
+    if (p) {
+      p.dx = this.point[0]
+      p.dz = this.point[1]
+    }
+    return p
+  }
+
+  /** One entry drawn by weight with its random scale, turn and tilt, at the brush centre; null for a brush without weight. */
+  private draw(brush: DoodadBrush): Planned | null {
     const i = pickEntry(brush, Math.random())
     if (i < 0) return null
     const e = brush.entries[i]
     const scale = e.scaleMin + Math.random() * (e.scaleMax - e.scaleMin)
     const lim = (e.tilt * Math.PI) / 180
     return {
-      dx: this.point[0],
-      dz: this.point[1],
+      dx: 0,
+      dz: 0,
       entry: i,
       scale,
       rotY: editor.doodad.randomRot ? Math.random() * Math.PI * 2 : 0,
@@ -388,14 +431,38 @@ export class DoodadBrushTool implements Tool {
     this.nearOnCount = m + 1
   }
 
-  /** Whether the ground at (x, z) takes a placement: on the map, no hole, above the sea and not too steep. */
-  private groundAllows(ctx: ToolContext, x: number, z: number): boolean {
+  /**
+   * Whether the ground at (x, z) takes a placement: on the map, no hole (unless the brush's rules
+   * allow one), above the sea and not too steep, and within the brush's placement rules.
+   */
+  private groundAllows(ctx: ToolContext, brush: DoodadBrush, x: number, z: number): boolean {
     const t = ctx.terrain
-    if (!t.contains(x, z) || t.isHole(x, z)) return false
+    if (!t.contains(x, z)) return false
+    const rules = brush.rules
+    if (t.isHole(x, z) && (rules?.avoidHoles ?? true)) return false
     const sea = editor.doodad.avoidWater && editor.waterEnabled ? editor.waterLevel : -Infinity
     if (t.heightAt(x, z) < sea) return false
     const max = editor.doodad.maxSlope
-    return max >= 90 || groundSlopeDeg((px, pz) => t.heightAt(px, pz), x, z, t.cellSize) <= max
+    if (max < 90 && groundSlopeDeg((px, pz) => t.heightAt(px, pz), x, z, t.cellSize) > max) return false
+    if (!rules) return true
+    this.ground.at(ctx, x, z)
+    return rulesAllow(rules, this.ground)
+  }
+
+  /**
+   * The tilt of a placement on the ground at (x, z), into `this.tilt`, when the ground sets it: Follow
+   * ground stands the model square to the ground, else the entry's `align` (0 to 1) leans it that far
+   * toward the slope on top of its own random tilt. Returns false when the ground has no say.
+   */
+  private groundTilt(t: ToolContext['terrain'], x: number, z: number, p: Planned, align: number | undefined): boolean {
+    const amount = editor.followGround ? 1 : (align ?? 0)
+    if (amount <= 0) return false
+    groundNormal((px, pz) => t.heightAt(px, pz), x, z, t.cellSize, editor.followGroundSmooth, this.normal)
+    tiltToNormal(this.normal.x, this.normal.y, this.normal.z, p.rotY, this.tilt)
+    if (editor.followGround) return true
+    this.tilt.tiltX = this.tilt.tiltX * amount + p.tiltX
+    this.tilt.tiltZ = this.tilt.tiltZ * amount + p.tiltZ
+    return true
   }
 
   /**
@@ -404,7 +471,8 @@ export class DoodadBrushTool implements Tool {
    * counts, so a brush doesn't pile onto its own models.
    */
   private propAt(ctx: ToolContext, x: number, z: number): number | null {
-    if (!editor.doodad.onProps) return null
+    // A fill (which sets `grid`) lands on the ground only.
+    if (!editor.doodad.onProps || this.grid) return null
     this.ensureProps(ctx, x, z)
     this.ray.ray.origin.set(x, RAY_TOP, z)
     this.ray.ray.direction.set(0, -1, 0)
@@ -486,12 +554,10 @@ export class DoodadBrushTool implements Tool {
       if (!this.stacking) this.pushNearOn(x, z, p.size, parent)
       return true
     }
-    if (!this.groundAllows(ctx, x, z)) return false
-    if (!this.stacking && !fits(x, z, p.size, brush.spacing, this.near, this.nearCount)) return false
+    if (!this.groundAllows(ctx, brush, x, z)) return false
+    if (!this.stacking && !(this.grid ? this.grid.fits(x, z, p.size, brush.spacing) : fits(x, z, p.size, brush.spacing, this.near, this.nearCount))) return false
     let tilt: { tiltX?: number; tiltZ?: number } = {}
-    if (editor.followGround) {
-      groundNormal((px, pz) => t.heightAt(px, pz), x, z, t.cellSize, editor.followGroundSmooth, this.normal)
-      tiltToNormal(this.normal.x, this.normal.y, this.normal.z, p.rotY, this.tilt)
+    if (this.groundTilt(t, x, z, p, e.align)) {
       tilt = { ...this.tilt }
     } else if (p.tiltX !== 0 || p.tiltZ !== 0) {
       tilt = { tiltX: p.tiltX, tiltZ: p.tiltZ }
@@ -499,8 +565,61 @@ export class DoodadBrushTool implements Tool {
     const o = ctx.objects.add({ type: e.type, x, z, yOff: e.sink, rotY: p.rotY, scale: p.scale, ...tilt })
     this.placed!.push(o)
     this.placedIds.add(o.id)
-    if (!this.stacking) this.pushNear(x, z, p.size)
+    if (this.grid) this.grid.add(x, z, p.size)
+    else if (!this.stacking) this.pushNear(x, z, p.size)
     return true
+  }
+
+  /**
+   * Terrain › Fill Selection / Fill Mask with Doodad Brush (#169): runs the brush over the whole area
+   * at once, as many attempts as holding the brush there at its strength would make, each point
+   * uniform in the area (with the mask, kept by the mask's value there), within the brush's rules and
+   * spacing. Lands on the ground only (not on props). One undo step. Returns how many were placed.
+   */
+  fill(ctx: ToolContext, brush: DoodadBrush, area: { x0: number; z0: number; x1: number; z1: number }, mask: Uint8Array | null): number {
+    if (!brush.entries.length) return 0
+    const t = ctx.terrain
+    const cs = t.cellSize
+    const wx0 = area.x0 * cs
+    const wz0 = area.z0 * cs
+    const w = (area.x1 - area.x0) * cs
+    const h = (area.z1 - area.z0) * cs
+    if (w <= 0 || h <= 0) return 0
+    const R = t.splatRes
+    const ts = t.worldSize / R
+    this.objects = ctx.objects
+    this.placed = []
+    this.placedIds.clear()
+    this.stacking = false
+    this.grid = new SpacingGrid()
+    // What already stands in or near the area keeps the new models away.
+    const pad = 8 * Math.max(1, brush.spacing)
+    for (const o of ctx.objects.objects.values()) {
+      if (o.parent !== undefined || o.x < wx0 - pad || o.z < wz0 - pad || o.x > wx0 + w + pad || o.z > wz0 + h + pad) continue
+      this.grid.add(o.x, o.z, this.footprint(o.type, o.scale))
+    }
+    try {
+      const at = new THREE.Vector3()
+      let attempts = fillAttempts(w * h, editor.brush.strength)
+      while (attempts-- > 0) {
+        const x = wx0 + Math.random() * w
+        const z = wz0 + Math.random() * h
+        if (mask) {
+          const tx = Math.min(R - 1, Math.floor(x / ts))
+          const tz = Math.min(R - 1, Math.floor(z / ts))
+          if (Math.random() * 255 >= mask[tz * R + tx]) continue
+        }
+        const p = this.draw(brush)
+        if (!p) continue
+        this.place(ctx, brush, at.set(x, 0, z), p)
+      }
+      const n = this.placed.length
+      this.onUp(ctx)
+      return n
+    } finally {
+      this.grid = null
+      this.placed = null
+    }
   }
 
   private scatter(ctx: ToolContext, hit: THREE.Vector3, brush: DoodadBrush, dt: number) {
