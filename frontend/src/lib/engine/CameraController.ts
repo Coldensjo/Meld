@@ -9,6 +9,10 @@ const WARP_LANDED = 40
 
 /** How far above the ground the flying camera stays with camera collision on, in yards (Noggit Red's 3). */
 const COLLIDE_HEIGHT = 3
+/** How far above the ground the walking (FPS) camera's eye is, in yards (Noggit Red's FPS camera: 3). */
+const WALK_HEIGHT = 3
+/** A walking character's run speed, in yards a second (the game's 7). */
+const WALK_SPEED = 7
 
 /**
  * The camera, in one of two modes.
@@ -46,6 +50,13 @@ export class CameraController {
    * do when following the ground.
    */
   topDown = false
+  /**
+   * Camera › Walk (#21, Noggit Red's FPS camera): first person with the eye WALK_HEIGHT above the
+   * ground, moving level at a run whichever way it looks, as a player walks the map. The camera it
+   * left is kept and comes back when the walk ends.
+   */
+  walk = false
+  private beforeWalk: { target: THREE.Vector3; yaw: number; pitch: number; distance: number; followGround: boolean } | null = null
   /** Flight speed multiplier set by the wheel. */
   private flyBoost = 1
   /** When this returns true the arrow keys are left to the editor (object nudging). */
@@ -119,6 +130,11 @@ export class CameraController {
 
   /** Switches ground following on or off without the view jumping. */
   setFollowGround(on: boolean) {
+    // While walking the setting is for the camera the walk returns to.
+    if (this.walk) {
+      if (this.beforeWalk) this.beforeWalk.followGround = on
+      return
+    }
     if (on === this.followGround) return
     this.followGround = on
     if (on) {
@@ -237,6 +253,31 @@ export class CameraController {
     this.keys.add(e.code)
   }
 
+  /** Starts or ends the walk; ending it puts back the camera the walk started from. */
+  setWalk(on: boolean) {
+    if (on === this.walk) return
+    if (on) {
+      this.beforeWalk = { target: this.target.clone(), yaw: this.yaw, pitch: this.pitch, distance: this.distance, followGround: this.followGround }
+      // The eye starts where the camera is (an orbit camera's eye is behind its target), looking level.
+      if (this.followGround) this.target.copy(this.camera.position)
+      this.followGround = false
+      this.pitch = Math.min(this.pitch, 0.3)
+      this.walk = true
+      this.target.y = this.ground(this.target.x, this.target.z) + WALK_HEIGHT
+      return
+    }
+    this.walk = false
+    const b = this.beforeWalk
+    this.beforeWalk = null
+    if (!b) return
+    this.target.copy(b.target)
+    this.yaw = b.yaw
+    this.pitch = b.pitch
+    this.distance = b.distance
+    this.followGround = b.followGround
+    this.smoothTargetY = b.target.y
+  }
+
   private clampTarget() {
     this.target.x = THREE.MathUtils.clamp(this.target.x, -this.bounds * 0.1, this.bounds * 1.1)
     this.target.z = THREE.MathUtils.clamp(this.target.z, -this.bounds * 0.1, this.bounds * 1.1)
@@ -261,7 +302,7 @@ export class CameraController {
     const fx = -Math.sin(this.yaw)
     const fz = -Math.cos(this.yaw)
     if (fwd || right) {
-      if (this.followGround || this.topDown) {
+      if (this.followGround || this.topDown || this.walk) {
         this.target.x += (fx * fwd - fz * right) * speed
         this.target.z += (fz * fwd + fx * right) * speed
       } else {
@@ -273,7 +314,9 @@ export class CameraController {
       }
       this.clampTarget()
     }
-    if (!this.followGround) {
+    if (this.walk) {
+      this.target.y = this.ground(this.target.x, this.target.z) + WALK_HEIGHT
+    } else if (!this.followGround) {
       if (k.has('Space')) this.target.y += speed
       if (k.has('KeyX') || k.has('KeyC')) this.target.y -= speed
       if (this.collision && !this.topDown) this.target.y = Math.max(this.target.y, this.ground(this.target.x, this.target.z) + COLLIDE_HEIGHT)
@@ -299,6 +342,7 @@ export class CameraController {
 
   /** Units per second for the keys: in orbit, slow close in and faster zoomed out; flying, a steady pace the wheel scales. */
   private moveSpeed(fast: number) {
+    if (this.walk) return WALK_SPEED * fast * this.speed
     if (this.followGround) return (6 + Math.min(this.distance, 300) * 0.4) * fast * this.speed
     return 72 * this.flyBoost * fast * this.speed
   }

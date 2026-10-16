@@ -756,6 +756,7 @@ export class Engine {
     const time = this.clock.elapsedTime
 
     this.syncTool()
+    this.controller.setWalk(ui.walkCamera && !this.topDown)
     this.controller.update(dt)
     this.updateTopDown()
     this.updateEnvironment(dt, time)

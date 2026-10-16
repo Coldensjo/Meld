@@ -379,6 +379,15 @@
         { kind: 'check', label: 'Follow the Ground', shortcut: 'T', checked: prefs.cameraFollowGround, toggle: () => (prefs.cameraFollowGround = !prefs.cameraFollowGround) },
         { kind: 'check', label: 'Camera Collision (stay 3 yards above the ground)', checked: prefs.cameraCollision, toggle: () => (prefs.cameraCollision = !prefs.cameraCollision) },
         { kind: 'check', label: 'Top-down View (2D)', shortcut: 'U', checked: ui.topDown, toggle: () => (ui.topDown = !ui.topDown) },
+        {
+          kind: 'check',
+          label: 'Walk (FPS camera, 3 yards above the ground)',
+          checked: ui.walkCamera,
+          toggle: () => {
+            ui.walkCamera = !ui.walkCamera
+            setStatus(ui.walkCamera ? 'Walking: W A S D move at a run (Shift faster), the mouse looks around. Camera › Walk again returns to your camera.' : 'Back to your camera.', 4000)
+          },
+        },
         { kind: 'check', label: 'Minimap Window', shortcut: 'M', checked: ui.minimap, toggle: () => (ui.minimap = !ui.minimap) },
         { kind: 'check', label: 'Locked Cursor (a brush stays put while the camera moves)', checked: prefs.lockedCursor, toggle: () => (prefs.lockedCursor = !prefs.lockedCursor) },
         { kind: 'sep' },
