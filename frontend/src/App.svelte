@@ -13,6 +13,7 @@
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
   import Inspector from './components/Inspector.svelte'
   import HistoryWindow from './components/HistoryWindow.svelte'
+  import CheckMapWindow from './components/CheckMapWindow.svelte'
   import TexturePaletteWindow from './components/TexturePaletteWindow.svelte'
   import MinimapWindow from './components/MinimapWindow.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
@@ -325,6 +326,7 @@
 
 <Inspector />
 <HistoryWindow />
+<CheckMapWindow />
 <TexturePaletteWindow />
 <MinimapWindow />
 <CreaturesWorkspace />

@@ -565,6 +565,8 @@ export const ui = $state({
   historyVersion: 0,
   /** Bumped when a prefab is saved, so the Prefabs tab reads its folder again. */
   prefabsVersion: 0,
+  /** The floating Check Map window (components/CheckMapWindow.svelte, #176): what may show wrong in the game. */
+  checkMap: false,
   /** The floating inspector over the viewport (components/Inspector.svelte): the selection's numbers and actions. I toggles it. */
   inspector: false,
   /** The floating Minimap window (M): the map from above with the camera's spot; a click moves the camera. */

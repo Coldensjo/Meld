@@ -744,6 +744,27 @@ the shape's rim keeps the map's heights). One undo restores every height.
   `drawImage`) shows the tint over exactly the shape's cells; the probe found no outline pixels for a
   plain rect either, so judge the marching ants by eye in the app.
 
+## Check Map (#176)
+
+Checks: File › Check Map… (`lib/check/`: pure checks in `models.ts`, `spawns.ts`, `terrainChecks.ts`,
+unit tests in `mapCheck.test.ts`; `run.ts` gathers the map and the probes; `Engine.checkMap`,
+`focusFinding`, `fixFinding`; the window is `CheckMapWindow.svelte`). In the dev page on Northshire
+(Azeroth 32_48, 1x1, with the server's 347 spawns), wait a few seconds for the models, then
+`await __engine.checkMap()`: about 55 ms, and the findings are md_spidermine buried (a dungeon WMO 91
+yd under the map), two bird01 high up (info), hidden water in chunk 5, 15 and one unused palette colour.
+A copy of a model added on top of itself (`e.objects.add({ ...o, id: undefined })`) shows as Duplicate
+models, `fixFinding` deletes the copy and crops the water, and each fix is one undo step. Push a spawn
+10 yd down (`spawn.y -= 10`) and `focusFinding` on its finding selects it and moves the camera there.
+`ui.checkMap = true` opens the window, which runs the checks itself.
+
+- The server's heights sit up to a yard or two off the editor's ground (bilinear in a cell, where the
+  client uses triangles), most on slopes: wolves on 24° to 35° slopes and a guard's path point 1.1 yd
+  "under" flat ground came up until the under-ground tests allowed 2 yd plus half a cell times the
+  slope. Don't tighten it without checking Northshire again.
+- The floor and wall probes go through `ObjectLayer.raycastAmong` (each model's own bounds tree), not
+  `raycastSurface`, whose instanced meshes hold only the instances in view: a check through them
+  misses everything off screen.
+
 ## Fit ground to models and Stamp (#168)
 
 Checks: Models › Fit Ground to Selected Models… (`Engine.fitGroundToSelection`, the arithmetic in

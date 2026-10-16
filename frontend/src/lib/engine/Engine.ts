@@ -53,7 +53,10 @@ import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, compactChunk, convertGlobalLayers, findSlot, hasEmptySlot, mergeDuplicateSlots, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette, resetTexel } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
-import { setMaxAnisotropy } from '../wow/api'
+import { listAssets, setMaxAnisotropy } from '../wow/api'
+import { runMapChecks } from '../check/run'
+import type { Finding } from '../check/findings'
+import { loadAreas } from '../wow/areas'
 import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
@@ -4276,6 +4279,81 @@ export class Engine {
     this.objects.place(o, null, this.objects.worldPlacement(o))
     this.history.push(transformCommand(this.objects, before, o))
     editor.selected = { ...o }
+  }
+
+  /**
+   * File › Check Map (#176): runs the map checks (lib/check) over the open map, with what runs now in
+   * the status bar. `unchecked` counts the models whose mesh hadn't loaded, which the height checks skip.
+   */
+  async checkMap(): Promise<{ findings: Finding[]; unchecked: number }> {
+    let knownTexture: ((p: string) => boolean) | null = null
+    let knownArea: ((id: number) => boolean) | null = null
+    // Only the desktop app reads the client (`window.go` is its bindings).
+    if ('go' in window) {
+      const [tex, areas] = await Promise.all([listAssets('tileset').catch(() => [] as string[]), loadAreas()])
+      if (tex.length) {
+        const set = new Set(tex.map((p) => p.toLowerCase()))
+        knownTexture = (p) => set.has(p.toLowerCase())
+      }
+      if (areas.length) {
+        const ids = new Set(areas.map((a) => a.id))
+        knownArea = (id) => ids.has(id)
+      }
+    }
+    const r = await runMapChecks({
+      terrain: this.terrain,
+      objects: this.objects,
+      spawns: this.doc.spawnLayer,
+      liquids: this.doc.liquids,
+      palette: editor.palette,
+      sea: editor.waterEnabled ? editor.waterLevel : null,
+      maxSlope: this.prefs?.climbAngle ?? 50,
+      knownTexture,
+      knownArea,
+      progress: (what) => setStatus(`Checking the map: ${what}…`, 0),
+    })
+    const n = r.findings.length
+    setStatus(n ? `The check found ${n} ${n === 1 ? 'thing' : 'things'} to look at.` : 'The check found nothing wrong.', 4000)
+    return r
+  }
+
+  /** Moves the camera to a Check Map finding and selects what it is about. */
+  focusFinding(f: Finding) {
+    if (!Number.isNaN(f.x)) this.controller.focus(f.x, f.z, 40)
+    const tg = f.target
+    if (tg.kind === 'models') {
+      const ids = tg.ids.filter((id) => this.objects.objects.has(id))
+      editor.tool = 'select'
+      selectObjects(this.objects, ids)
+    } else if (tg.kind === 'spawn') {
+      const s = this.doc.spawnLayer.get(tg.key)
+      if (!s) return
+      editor.tool = 'select'
+      selectObjects(this.objects, [])
+      selectSpawn(s)
+    }
+  }
+
+  /** Applies a Check Map finding's fix as one undo step: deletes the models, puts them on the ground, or crops the chunk's water. */
+  fixFinding(f: Finding) {
+    const tg = f.target
+    if ((f.fix === 'deleteModels' || f.fix === 'groundModels') && tg.kind === 'models') {
+      const ids = tg.ids.filter((id) => this.objects.objects.has(id))
+      if (!ids.length) return
+      selectObjects(this.objects, ids)
+      if (f.fix === 'deleteModels') this.deleteSelected()
+      else this.snapSelectedToGround()
+    } else if (f.fix === 'cropWater' && tg.kind === 'chunk') {
+      const side = this.doc.liquids.side
+      const cx = tg.chunk % side
+      const cz = Math.floor(tg.chunk / side)
+      const stroke = new LiquidStroke(this.doc.liquids, 'Crop water')
+      const r = { x0: cx * CHUNK_CELLS, z0: cz * CHUNK_CELLS, x1: cx * CHUNK_CELLS + CHUNK_CELLS - 1, z1: cz * CHUNK_CELLS + CHUNK_CELLS - 1 }
+      cropLiquids(this.doc.liquids, this.terrain, r, stroke.reserve)
+      const cmd = stroke.finish()
+      if (cmd) this.history.push(cmd)
+      setStatus(cmd ? 'Cropped the water under the ground in that chunk.' : 'There was no water under the ground to crop there.', 3000)
+    }
   }
 
   /** Moves the camera to the selection: its primary object, or the middle of the selected objects. */

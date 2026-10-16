@@ -101,6 +101,7 @@
         { kind: 'action', label: 'Revert to Saved', disabled: !editor.filePath || ui.busy, run: withEngine(requestRevert) },
         { kind: 'action', label: 'Map Properties…', run: () => (ui.dialog = 'mapProps') },
         { kind: 'sep' },
+        { kind: 'action', label: 'Check Map…', run: () => (ui.checkMap = true) },
         { kind: 'action', label: 'Compile Region to Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportRegion(e)) },
         ...(editor.regionBlock
           ? [
