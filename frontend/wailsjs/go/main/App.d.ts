@@ -202,6 +202,8 @@ export function WowStatus():Promise<wow.Status>;
 
 export function WriteHeightmap(arg1:string,arg2:number,arg3:Array<number>):Promise<void>;
 
+export function WriteMinimapTiles(arg1:string,arg2:Array<vmangos.MinimapTile>):Promise<string>;
+
 export function WriteNormalMap(arg1:string,arg2:number,arg3:string):Promise<void>;
 
 export function WritePNG(arg1:string,arg2:string):Promise<void>;

@@ -1109,3 +1109,26 @@ export sends each chunk's MCSH as the client has it.
 - Trap: T3 Code's preview tab is hidden, and Chrome throttles a hidden page's `setTimeout` to once a
   second: a loop that yields with `setTimeout(0)` crawls there (the bake took over a minute). Yield
   through a `MessageChannel` instead.
+
+## Minimap tiles for the client (B-129, #17)
+
+Checks: Import/Export › Write Minimap Tiles to the Client draws each tile from above and writes it
+into the client's minimap (BLP plus md5translate.trs in Meld's patch).
+- Go: `TestEncodeMinimapBLPReadsBack`; with `WOW_DIR=C:/WoW/client`, `TestClientMinimapReencoded`
+  (Northshire's own tile, decoded and written again: the header equals the client's byte for byte,
+  33940 bytes, BLP2 DXT1 one mip) and `TestMinimapFilesSetTheTiles` (index rows set, every other row
+  kept, identical tiles share one file, and a patch written to a temp folder reads back).
+- Render: on Northshire, `__engine.renderMinimapTile(0, 0, 'buildings')` gives 256x256 RGBA, row 0
+  north. Compare with the client's tile through `/wow/texture?path=textures\Minimap\ea283abc0bf9637c3fad5e840a65b38b.blp`
+  (Azeroth 32_48; the reply is "RGBA", width, height, then pixels from byte 12): the abbey and the
+  roads land in the same place, and the mean brightness is close (89 against 84). To look at both,
+  draw them on a canvas and save it with `go.main.App.SaveThumbnail(key, pngBase64)`, then read the
+  newest PNG under `%LOCALAPPDATA%\Meld\thumbs`.
+- The client's tiles show the buildings (WMOs) but not the trees, hence the default; their rock is
+  darker and more shaded than the editor's top-down light.
+- Not run against the real client in the loop: the write replaces that map's minimap tiles in the
+  owner's game.
+- Traps: a render target only gets three's tone mapping and sRGB output when it is the screen or an
+  XR target, so the shot's target is flagged `isXRRenderTarget`; and with `colorSpace` sRGB three
+  stores it as an sRGB texture, which encodes a second time (a pale picture), so its
+  `internalFormat` is `'RGBA8'`.

@@ -327,6 +327,8 @@ export const prefs = $state({
   clientLighting: false,
   /** Lighting › Baked Shadows: a region's ground darkened where the client's tiles bake shadow (MCSH), as the game draws it. */
   bakedShadows: true,
+  /** Import/Export › Minimap Tiles with All Models: the trees too, not only the buildings the client's own tiles show. */
+  minimapAllModels: false,
   /** View › Far Horizon: past an open region, the map's coarse WDL ground in the fog colour, as the client draws it. */
   showHorizon: true,
   /** View › Bounding boxes: draw a box around every model (Noggit Red's model boxes). */

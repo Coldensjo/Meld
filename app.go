@@ -791,6 +791,22 @@ func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) 
 	return res, err
 }
 
+// WriteMinimapTiles puts rendered tiles into the client's minimap for the map whose folder is mapDir
+// (B-129): their BLPs and the minimap index go into Meld's patch, with the game closed around it.
+// Returns the patch's path.
+func (a *App) WriteMinimapTiles(mapDir string, tiles []vmangos.MinimapTile) (string, error) {
+	defer a.releaseClient()()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return "", err
+	}
+	files, err := vmangos.MinimapFiles(dataDir, mapDir, tiles)
+	if err != nil {
+		return "", err
+	}
+	return a.installWithGameClosed(dataDir, files)
+}
+
 // installWithGameClosed writes files into the client's patch. On Windows the game and the servers
 // hold the patch open, so they are closed first and opened again afterwards.
 func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, error) {

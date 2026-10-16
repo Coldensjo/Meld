@@ -37,6 +37,7 @@ import {
   VmangosPath,
   WriteHeightmap,
   WriteNormalMap,
+  WriteMinimapTiles,
 } from '../../../wailsjs/go/main/App'
 import { mapfile } from '../../../wailsjs/go/models'
 import type { Engine, MapSnapshot } from '../engine/Engine'
@@ -660,6 +661,48 @@ export function importModelSets() {
  * Saves the map from above as a PNG: the ground shaded by height (or, for a part of Azeroth, the
  * client's overview of the block), with the tile borders, at a few pixels a cell for a small map.
  */
+/**
+ * Import/Export › Write Minimap Tiles to the Client (B-129): draws each tile of the map from above and
+ * puts it into the client's minimap, so the game's minimap and world map show the edited ground. A
+ * region's tiles keep their place in its map; a map made for the client's are under its folder. The
+ * buildings are drawn, not the trees (as the client's own tiles are), unless
+ * `prefs.minimapAllModels`. The game is closed around the write, as for any patch write.
+ */
+export function writeMinimapTiles(engine: Engine) {
+  return guarded('Write minimap', async () => {
+    const region = engine.activeRegion()
+    const ref = engine.activeVmangos()
+    const target = region ? { dir: region.mapName, x: region.x, y: region.y } : ref ? { dir: ref.dir, x: 0, y: 0 } : null
+    if (!target) {
+      setStatus('Only a part of Azeroth or a map made for the client has a minimap in the game.')
+      return
+    }
+    ui.busy = true
+    try {
+      // Placeholders would be drawn as boxes: wait for the meshes (a minute at most).
+      for (let i = 0; i < 240 && engine.modelsLoading(); i++) {
+        setStatus(`Waiting for ${engine.modelsLoading()} models to load…`, 1000)
+        await new Promise((done) => setTimeout(done, 250))
+      }
+      const n = engine.terrain.size / TILE_CELLS
+      const models = prefs.minimapAllModels ? 'all' : 'buildings'
+      const tiles = []
+      for (let tz = 0; tz < n; tz++) {
+        for (let tx = 0; tx < n; tx++) {
+          setStatus(`Drawing minimap tile ${tz * n + tx + 1} of ${n * n}…`, 0)
+          await new Promise((done) => setTimeout(done, 0))
+          tiles.push({ x: target.x + tx, y: target.y + tz, pixels: toBase64(engine.renderMinimapTile(tx, tz, models)) as unknown as number[] })
+        }
+      }
+      setStatus('Writing the minimap into the client…', 0)
+      const patch = await WriteMinimapTiles(target.dir, tiles)
+      setStatus(`Wrote ${tiles.length} minimap ${tiles.length === 1 ? 'tile' : 'tiles'} of ${target.dir} into ${patch}.`, 8000)
+    } finally {
+      ui.busy = false
+    }
+  })
+}
+
 export function saveMinimapImage(engine: Engine) {
   return guarded('Save minimap image', async () => {
     const t = engine.terrain

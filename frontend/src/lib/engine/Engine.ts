@@ -511,13 +511,28 @@ export class Engine {
    * Fog is off while it is on, since the camera stands far above the ground.
    */
   private updateTopDown() {
-    const on = ui.topDown
-    this.controller.topDown = on
+    const shot = this.minimapShot
+    const on = ui.topDown || !!shot
+    this.controller.topDown = ui.topDown
     if (on !== this.topDown) {
       this.topDown = on
       this.applyViewDistance()
     }
     if (!on) return
+    if (shot) {
+      // A minimap tile (renderMinimapTile): the tile exactly, north up, from above everything on it.
+      const o = this.ortho
+      o.left = -shot.half
+      o.right = shot.half
+      o.top = shot.half
+      o.bottom = -shot.half
+      o.updateProjectionMatrix()
+      o.up.set(0, 0, -1)
+      o.position.set(shot.cx, shot.top + ORTHO_HEIGHT, shot.cz)
+      o.lookAt(shot.cx, shot.top, shot.cz)
+      o.updateMatrixWorld()
+      return
+    }
     const c = this.controller
     const g = this.terrain.heightAt(c.target.x, c.target.z)
     const ground = editor.waterEnabled ? Math.max(g, editor.waterLevel) : g
@@ -3253,6 +3268,132 @@ export class Engine {
 
   /** Whether a shadow bake is running (bakeShadows). */
   private shadowBaking = false
+
+  /** The tile the top-down camera frames while renderMinimapTile draws it, or null. */
+  private minimapShot: { cx: number; cz: number; half: number; top: number } | null = null
+  private minimapTarget: THREE.WebGLRenderTarget | null = null
+
+  /** How many placed models still wait for their mesh (they draw as placeholders until then). */
+  modelsLoading(): number {
+    let n = 0
+    for (const o of this.objects.list()) if (!isHelper(o.type) && !getAsset(o.type).ready) n++
+    return n
+  }
+
+  /**
+   * Draws the map's tile (tx, tz) straight from above for the client's minimap (B-129): `side` pixels
+   * a side of RGBA, row 0 at the tile's north edge, column 0 at its west. The ground, the sea and the
+   * liquids, lit as the editor lights them, and `models`: none, the buildings (WMOs, as the client's
+   * own minimaps show them, without the trees) or all; no sky, fog, spawns, helpers or editing
+   * overlays. Drawn four times larger and averaged down, so edges don't shimmer.
+   */
+  renderMinimapTile(tx: number, tz: number, models: 'none' | 'buildings' | 'all', side = 256): Uint8Array {
+    const t = this.terrain
+    const tile = TILE_CELLS * t.cellSize
+    let top = editor.waterEnabled ? editor.waterLevel : -Infinity
+    for (let i = 0; i < t.heights.length; i++) if (t.heights[i] > top) top = t.heights[i]
+    // Models stand up to a few hundred yards above the ground; the camera is far above that.
+    this.minimapShot = { cx: (tx + 0.5) * tile, cz: (tz + 0.5) * tile, half: tile / 2, top: top + 400 }
+    const big = side * 4
+    // From that height the deepest ground may lie past the top-down view's far plane.
+    const far = this.ortho.far
+    this.ortho.far = ORTHO_HEIGHT + 400 + 20000
+    try {
+      this.frame()
+      const u = t.material.uniforms
+      const saved: Array<[THREE.IUniform, unknown]> = []
+      const set = (key: string, v: unknown) => {
+        const un = u[key]
+        if (!un) return
+        saved.push([un, typeof un.value === 'object' && un.value && 'clone' in un.value ? (un.value as THREE.Vector4).clone() : un.value])
+        if (un.value instanceof THREE.Vector4) un.value.set(0, 0, 0, 0)
+        else un.value = v
+      }
+      set('brushVisible', 0)
+      set('gridVisible', 0)
+      set('chunkLineWorld', 0)
+      set('contourStep', 0)
+      set('climbCos', 0)
+      set('selMode', 0)
+      set('mapDataMode', 0)
+      set('maskVisible', 0)
+      set('unpaintable', -1)
+      set('chunkHover', null)
+      const keep = new Set<THREE.Object3D>([t.group, this.water.mesh, this.water.floor, this.doc.liquidRenderer.group, this.effects.group])
+      if (models !== 'none') keep.add(this.objects.group)
+      const hidden: THREE.Object3D[] = []
+      if (models === 'buildings') {
+        for (const m of this.objects.group.children) {
+          if (!m.visible || String(m.userData.type ?? '').startsWith('wmo:')) continue
+          m.visible = false
+          hidden.push(m)
+        }
+      }
+      for (const c of this.scene.children) {
+        // Lights stay, so no shader is rebuilt for another light count.
+        if (!c.visible || keep.has(c) || (c as THREE.Light).isLight) continue
+        c.visible = false
+        hidden.push(c)
+      }
+      const background = this.scene.background
+      this.scene.background = new THREE.Color(0, 0, 0)
+      let rt = this.minimapTarget
+      if (!rt || rt.width !== big) {
+        rt?.dispose()
+        rt = this.minimapTarget = new THREE.WebGLRenderTarget(big, big, { samples: 0 })
+        rt.texture.colorSpace = THREE.SRGBColorSpace
+        // three tone maps and converts to sRGB only when drawing to the screen or to an XR target, and
+        // the minimap should look as the editor's view does. Stored as plain bytes, not as an sRGB
+        // texture, which would encode the shader's already encoded colours a second time.
+        ;(rt as THREE.WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = true
+        rt.texture.internalFormat = 'RGBA8'
+      }
+      const pix = new Uint8Array(big * big * 4)
+      const prev = this.renderer.getRenderTarget()
+      try {
+        this.renderer.setRenderTarget(rt)
+        this.renderer.clear()
+        this.renderer.render(this.scene, this.ortho)
+        this.renderer.readRenderTargetPixels(rt, 0, 0, big, big, pix)
+      } finally {
+        this.renderer.setRenderTarget(prev)
+        this.scene.background = background
+        for (const c of hidden) c.visible = true
+        for (const [un, v] of saved) {
+          if (un.value instanceof THREE.Vector4 && v instanceof THREE.Vector4) un.value.copy(v)
+          else un.value = v
+        }
+      }
+      // Averaged down 4x4, and turned upright: GL reads the bottom row first.
+      const out = new Uint8Array(side * side * 4)
+      for (let y = 0; y < side; y++) {
+        for (let x = 0; x < side; x++) {
+          let r = 0
+          let g = 0
+          let b = 0
+          for (let sy = 0; sy < 4; sy++) {
+            const row = big - 1 - (y * 4 + sy)
+            for (let sx = 0; sx < 4; sx++) {
+              const i = (row * big + x * 4 + sx) * 4
+              r += pix[i]
+              g += pix[i + 1]
+              b += pix[i + 2]
+            }
+          }
+          const o = (y * side + x) * 4
+          out[o] = r >> 4
+          out[o + 1] = g >> 4
+          out[o + 2] = b >> 4
+          out[o + 3] = 255
+        }
+      }
+      return out
+    } finally {
+      this.minimapShot = null
+      this.ortho.far = far
+      this.ortho.updateProjectionMatrix()
+    }
+  }
 
   /** Terrain › Clear Shadows: lights every baked shadow texel in the selected area or the whole map, as one undo step. */
   clearShadows() {

@@ -1451,6 +1451,22 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class MinimapTile {
+	    x: number;
+	    y: number;
+	    pixels: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new MinimapTile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.pixels = source["pixels"];
+	    }
+	}
 	
 	export class ObjectTemplate {
 	    entry: number;
