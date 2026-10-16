@@ -1942,6 +1942,15 @@ export class Engine {
     setStatus(`Water locked at height ${editor.water.lockPos.y.toFixed(2)}.`)
   }
 
+  /** For a free-form area, which chunks (8x8 cells, by index) hold a cell of it; undefined for a rect or none. */
+  private shapeChunks(): ((c: number) => boolean) | undefined {
+    const t = this.terrain
+    const shape = areaShape(t, t.size)
+    if (!shape) return undefined
+    const side = t.paintChunksPerSide
+    return (c) => chunkInShape(shape, t.size, c % side, Math.floor(c / side))
+  }
+
   /** The selected area's cells, or undefined for the whole map. */
   private selectionCells() {
     const s = editor.selection
@@ -1951,7 +1960,7 @@ export class Engine {
   /** noggit's Crop water: removes liquid cells that lie under the ground, in the selected area or the whole map. */
   cropWater() {
     const stroke = new LiquidStroke(this.doc.liquids, 'Crop water')
-    const n = cropLiquids(this.doc.liquids, this.terrain, this.selectionCells(), stroke.reserve).length
+    const n = cropLiquids(this.doc.liquids, this.terrain, this.selectionCells(), stroke.reserve, this.shapeChunks()).length
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
     setStatus(n ? `Cropped the water in ${n} chunks.` : 'No water lies under the ground there.')
@@ -1982,7 +1991,7 @@ export class Engine {
   regenWaterOpacity() {
     const stroke = new LiquidStroke(this.doc.liquids, 'Regenerate water opacity')
     const factor = editor.water.opacity === 'auto' ? null : waterOpacityFactor(editor.water.liquid)
-    const n = regenOpacity(this.doc.liquids, this.terrain, factor, this.selectionCells(), stroke.reserve).length
+    const n = regenOpacity(this.doc.liquids, this.terrain, factor, this.selectionCells(), stroke.reserve, this.shapeChunks()).length
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
     setStatus(n ? `Regenerated the opacity of the water in ${n} chunks.` : 'There is no water to regenerate.')
@@ -3488,6 +3497,10 @@ export class Engine {
     const bake = shadowBaker(t.heights, t.size, t.cellSize, sun, models?.casters)
     const out = t.ensureShadow()
     const where = editor.selection ? 'in the selected area' : 'over the map'
+    // A free-form area bakes its rect, then puts back the texels outside its cells.
+    const shape = areaShape(t, t.size)
+    const side = t.shadowSide
+    const kept = shape ? shadowTexels(out, side, r) : null
     this.shadowBaking = true
     let n = 0
     try {
@@ -3515,6 +3528,7 @@ export class Engine {
     } finally {
       this.shadowBaking = false
     }
+    if (shape && kept) n = restoreOutsideShape(out, side, r, kept, shape, t.size, SHADOW_PER_CELL)
     // The bake may have ended on another tab; its stroke belongs to the map it started on.
     stroke.touch(r)
     const cmd = stroke.finish()
@@ -3668,7 +3682,16 @@ export class Engine {
     const stroke = new ShadowStroke(t, `Clear shadows ${where}`)
     stroke.reserve(r)
     const data = t.shadow
-    for (let z = r.z0; z <= r.z1; z++) data.fill(0, z * t.shadowSide + r.x0, z * t.shadowSide + r.x1 + 1)
+    const shape = areaShape(t, t.size)
+    const n = SHADOW_PER_CELL
+    for (let z = r.z0; z <= r.z1; z++) {
+      if (!shape) {
+        data.fill(0, z * t.shadowSide + r.x0, z * t.shadowSide + r.x1 + 1)
+        continue
+      }
+      // A free-form area: only the texels of its cells.
+      for (let x = r.x0; x <= r.x1; x++) if (shape[Math.floor(z / n) * t.size + Math.floor(x / n)]) data[z * t.shadowSide + x] = 0
+    }
     stroke.touch(r)
     const cmd = stroke.finish()
     if (cmd) this.history.push(cmd)
@@ -4645,4 +4668,30 @@ function chunkInShape(shape: Uint8Array, size: number, cx: number, cz: number): 
     for (let x = cx * CHUNK_CELLS; x < Math.min(size, (cx + 1) * CHUNK_CELLS); x++) if (shape[z * size + x]) return true
   }
   return false
+}
+
+/** A copy of the shadow texels of the inclusive rect `r`, row by row. */
+function shadowTexels(data: Uint8Array, side: number, r: { x0: number; z0: number; x1: number; z1: number }): Uint8Array {
+  const w = r.x1 - r.x0 + 1
+  const out = new Uint8Array(w * (r.z1 - r.z0 + 1))
+  for (let z = r.z0; z <= r.z1; z++) out.set(data.subarray(z * side + r.x0, z * side + r.x1 + 1), (z - r.z0) * w)
+  return out
+}
+
+/**
+ * Puts back, from `kept` (shadowTexels' copy of `r`), every texel of `r` outside the cells of `shape`
+ * (`perCell` texels a cell side). Returns how many texels inside the shape differ from `kept`.
+ */
+function restoreOutsideShape(data: Uint8Array, side: number, r: { x0: number; z0: number; x1: number; z1: number }, kept: Uint8Array, shape: Uint8Array, size: number, perCell: number): number {
+  const w = r.x1 - r.x0 + 1
+  let changed = 0
+  for (let z = r.z0; z <= r.z1; z++) {
+    for (let x = r.x0; x <= r.x1; x++) {
+      const before = kept[(z - r.z0) * w + (x - r.x0)]
+      const i = z * side + x
+      if (!shape[Math.floor(z / perCell) * size + Math.floor(x / perCell)]) data[i] = before
+      else if (data[i] !== before) changed++
+    }
+  }
+  return changed
 }

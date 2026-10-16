@@ -728,6 +728,11 @@ them), `copySelection()` gives `__engine.clip.cells`, and a paste at `s.pasteAt 
 `commitPaste()` changes only vertices that touch a cell of the shape (with the default 2-cell blend,
 the shape's rim keeps the map's heights). One undo restores every height.
 
+- Shadows and water in a shape (#194): on Northshire with nothing selected, `await __engine.bakeShadows(true)`
+  shadows the ground around x 267, z 132 at noon. A lasso there, then `clearShadows()`, lights every
+  texel of its cells and none outside. Clear everything, close the lasso again and bake: about 25k
+  texels inside, 0 outside, and one undo leaves none. A spot without ground shadow at that hour bakes
+  nothing, and the stroke then drops the map's (empty) shadow layer, so `terrain.shadow` stays null.
 - Trap: `performance.getEntriesByType('resource')` stops at 250 entries, so on a page that loaded a
   region it may list an old `editor.svelte.ts?t=` and a probe then imports a second copy whose `editor`
   the Engine never reads (the selection seemed set, the shader saw none). Take the URL from a module's

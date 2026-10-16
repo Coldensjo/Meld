@@ -377,23 +377,26 @@ export function paintLiquid(map: LiquidMap, ground: LiquidGround, b: LiquidBrush
 }
 
 /** The chunks of a cell rect (inclusive), or every chunk. */
-function chunksOf(map: LiquidMap, rect?: { x0: number; z0: number; x1: number; z1: number }): number[] {
+function chunksOf(map: LiquidMap, rect?: { x0: number; z0: number; x1: number; z1: number }, keep?: (c: number) => boolean): number[] {
   const out: number[] = []
   const lo = (v: number) => Math.max(0, Math.floor(v / LIQUID_CELLS))
   const hi = (v: number) => Math.min(map.side - 1, Math.floor(v / LIQUID_CELLS))
   const [c0, r0, c1, r1] = rect ? [lo(rect.x0), lo(rect.z0), hi(rect.x1), hi(rect.z1)] : [0, 0, map.side - 1, map.side - 1]
-  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (map.layers(r * map.side + c).length) out.push(r * map.side + c)
+  for (let r = r0; r <= r1; r++) {
+    for (let c = c0; c <= c1; c++) if (map.layers(r * map.side + c).length && (!keep || keep(r * map.side + c))) out.push(r * map.side + c)
+  }
   return out
 }
 
 /**
  * noggit's Crop water: drops each cell whose four surface corners all lie below the ground, and a
- * layer whose top lies below the chunk's lowest ground. Works on the chunks a cell rect touches, or
- * the whole map. Returns the chunks it changed, after telling `reserve` each one first.
+ * layer whose top lies below the chunk's lowest ground. Works on the chunks a cell rect touches (those
+ * of them `keep` takes, for a free-form area), or the whole map. Returns the chunks it changed, after
+ * telling `reserve` each one first.
  */
-export function cropLiquids(map: LiquidMap, ground: LiquidGround, rect?: { x0: number; z0: number; x1: number; z1: number }, reserve?: (c: number) => void): number[] {
+export function cropLiquids(map: LiquidMap, ground: LiquidGround, rect?: { x0: number; z0: number; x1: number; z1: number }, reserve?: (c: number) => void, keep?: (c: number) => boolean): number[] {
   const changed: number[] = []
-  for (const c of chunksOf(map, rect)) {
+  for (const c of chunksOf(map, rect, keep)) {
     const o = chunkOrigin(map, ground, c)
     let minGround = Infinity
     for (let i = 0; i < NV; i++) minGround = Math.min(minGround, groundAt(ground, o.v, i % LIQUID_VERTS, Math.floor(i / LIQUID_VERTS)))
@@ -429,8 +432,8 @@ export function cropLiquids(map: LiquidMap, ground: LiquidGround, rect?: { x0: n
  * noggit's Regen ADT opacity: every vertex's depth again from the ground, at `factor`, or with Auto
  * (null), at each liquid's own factor. Works on a cell rect's chunks, or the whole map.
  */
-export function regenOpacity(map: LiquidMap, ground: LiquidGround, factor: number | null, rect?: { x0: number; z0: number; x1: number; z1: number }, reserve?: (c: number) => void): number[] {
-  const changed = chunksOf(map, rect)
+export function regenOpacity(map: LiquidMap, ground: LiquidGround, factor: number | null, rect?: { x0: number; z0: number; x1: number; z1: number }, reserve?: (c: number) => void, keep?: (c: number) => boolean): number[] {
+  const changed = chunksOf(map, rect, keep)
   for (const c of changed) {
     reserve?.(c)
     const o = chunkOrigin(map, ground, c)
