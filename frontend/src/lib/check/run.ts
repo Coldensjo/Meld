@@ -13,8 +13,8 @@ import { groundSlopeDeg } from '../world/groundTilt'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import type { Box, Finding } from './findings'
 import { checkDuplicateModels, checkModelHeights, type CheckModel } from './models'
-import { checkPaths, checkSpawns, type CheckSpawn, type SpawnProbes } from './spawns'
-import { checkHiddenWater, checkPalette, checkZones } from './terrainChecks'
+import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type CheckSpawn, type IdReport, type IdSpawn, type SpawnProbes } from './spawns'
+import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones, type EdgeSegment } from './terrainChecks'
 
 export interface CheckInput {
 	terrain: Terrain
@@ -30,9 +30,26 @@ export interface CheckInput {
 	knownTexture: ((path: string) => boolean) | null
 	/** Whether the client's AreaTable has an area; null when it isn't read. */
 	knownArea: ((id: number) => boolean) | null
+	/** The client's border rows of the tiles around a region; null for a map of its own or when unread. */
+	edges: EdgeSegment[] | null
+	/** Asks the world database what it has under the unsaved spawns' guids and entries; null without a server. */
+	spawnIds: ((q: SpawnIdQuery) => Promise<IdReport>) | null
 	/** Says what runs now, for the status bar. */
 	progress?: (what: string) => void
 }
+
+/** The guids of the created spawns and the entries of every unsaved one, by kind (Go's `vmangos.SpawnIDQuery`). */
+export interface SpawnIdQuery {
+	creatureGuids: number[]
+	objectGuids: number[]
+	creatureEntries: number[]
+	objectEntries: number[]
+}
+
+/** The six ways the inside test looks from a creature's chest. */
+const AROUND: ReadonlyArray<[number, number, number]> = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]]
+/** How many of them must meet the model from behind for the point to be inside it: a gap or two (a hollow log's ends) still counts. */
+const INSIDE_HITS = 5
 
 /** How deep a liquid must be over the ground for a creature on the bottom to be in deep water (yards). */
 const DEEP = 2
@@ -141,6 +158,52 @@ export async function runMapChecks(input: CheckInput): Promise<{ findings: Findi
 	progress?.('paths')
 	findings.push(...checkPaths(spawns, probes, t.cellSize))
 	await yieldTurn()
+
+	// Inside a solid model: from inside a closed mesh every way out meets a face from behind. Buildings
+	// are left out, as their rooms hold creatures, and so are models still loading.
+	progress?.('spawns inside models')
+	const inside = (x: number, y: number, z: number): string | null => {
+		for (const id of near(x, z, x, z)) {
+			if (wmos.has(id)) continue
+			const b = boxes.get(id)!
+			if (x < b.min[0] || x > b.max[0] || y < b.min[1] || y > b.max[1] || z < b.min[2] || z > b.max[2]) continue
+			let back = 0
+			for (const [dx, dy, dz] of AROUND) {
+				ray.origin.set(x, y, z)
+				ray.direction.set(dx, dy, dz)
+				if (objects.raycastModel(ray, id)?.back) back++
+			}
+			if (back >= INSIDE_HITS) return models.find((md) => md.id === id)?.name ?? 'a model'
+		}
+		return null
+	}
+	findings.push(...checkSpawnsInModels(spawns, inside))
+	await yieldTurn()
+
+	if (input.spawnIds) {
+		progress?.('spawn guids and entries')
+		const edits = input.spawns.edits().filter((e) => !e.deleted)
+		const ids: IdSpawn[] = edits.map((e) => ({ key: spawnKey(e.spawn), name: e.spawn.name || `#${e.spawn.entry}`, kind: e.spawn.kind, guid: e.spawn.guid, entry: e.spawn.entry, created: e.created, x: e.spawn.x, z: e.spawn.z }))
+		if (ids.length) {
+			const of = (obj: boolean) => ids.filter((s) => (s.kind === 'object') === obj)
+			try {
+				const report = await input.spawnIds({
+					creatureGuids: of(false).filter((s) => s.created).map((s) => s.guid),
+					objectGuids: of(true).filter((s) => s.created).map((s) => s.guid),
+					creatureEntries: of(false).map((s) => s.entry),
+					objectEntries: of(true).map((s) => s.entry),
+				})
+				findings.push(...checkSpawnIds(ids, report))
+			} catch (err) {
+				findings.push({ check: 'Spawn guids taken', severity: 'info', message: `The world database could not be asked about the unsaved spawns: ${err}`, x: NaN, z: NaN, target: { kind: 'none' } })
+			}
+		}
+	}
+
+	if (input.edges) {
+		progress?.('region edges')
+		findings.push(...checkRegionEdges(input.edges, t.heights, t.verts, t.cellSize))
+	}
 
 	progress?.('zones, textures and water')
 	const side = t.paintChunksPerSide

@@ -5,7 +5,7 @@ import type { Command } from '../state/history'
 import { MAX_BRUSH_RADIUS, docs, editor, setStatus, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
-import type { adt, vmangos } from '../../../wailsjs/go/models'
+import { type adt, vmangos } from '../../../wailsjs/go/models'
 import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid, type LiquidClipCell } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { resetLiquidFrames, setLiquidLight, updateLiquids } from '../water/liquidMaterial'
@@ -59,6 +59,7 @@ import { isColor } from '../terrain/paletteArray'
 import { listAssets, setMaxAnisotropy } from '../wow/api'
 import { runMapChecks } from '../check/run'
 import type { Finding } from '../check/findings'
+import type { EdgeSegment } from '../check/terrainChecks'
 import { loadAreas } from '../wow/areas'
 import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
@@ -92,7 +93,7 @@ import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 
 /** A block of the client's tiles, ready to open: its heights, paint and models in the editor's form. */
@@ -4445,6 +4446,10 @@ export class Engine {
         knownArea = (id) => ids.has(id)
       }
     }
+    // A region's edge against the client's tiles around it (#195).
+    const region = editor.regionBlock && editor.regionMap ? { map: editor.regionMap, ...editor.regionBlock } : null
+    let edges: EdgeSegment[] | null = null
+    if ('go' in window && region) edges = await RegionEdges(region.map, region.x, region.y, region.size).catch(() => null)
     const r = await runMapChecks({
       terrain: this.terrain,
       objects: this.objects,
@@ -4455,6 +4460,8 @@ export class Engine {
       maxSlope: this.prefs?.climbAngle ?? 50,
       knownTexture,
       knownArea,
+      edges,
+      spawnIds: 'go' in window && region ? (q) => CheckSpawnIDs(vmangos.SpawnIDQuery.createFrom(q)) : null,
       progress: (what) => setStatus(`Checking the map: ${what}…`, 0),
     })
     const n = r.findings.length

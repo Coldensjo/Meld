@@ -3,8 +3,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { MAX_PER_CHECK, capped, type Finding } from '../src/lib/check/findings.ts'
 import { checkDuplicateModels, checkModelHeights, type CheckModel } from '../src/lib/check/models.ts'
-import { checkPaths, checkSpawns, type SpawnProbes } from '../src/lib/check/spawns.ts'
-import { checkHiddenWater, checkPalette, checkZones } from '../src/lib/check/terrainChecks.ts'
+import { checkPaths, checkSpawnIds, checkSpawns, checkSpawnsInModels, type IdSpawn, type SpawnProbes } from '../src/lib/check/spawns.ts'
+import { checkHiddenWater, checkPalette, checkRegionEdges, checkZones } from '../src/lib/check/terrainChecks.ts'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
 
 const model = (id: number, over: Partial<CheckModel> = {}): CheckModel => ({ id, type: 'm2:crate', name: 'Crate', x: 10, z: 10, yOff: 0, rotY: 0, scale: 1, box: null, ...over })
@@ -128,4 +128,61 @@ test('a check lists at most MAX_PER_CHECK findings and counts the rest', () => {
 	const out = capped('x', many)
 	assert.equal(out.length, MAX_PER_CHECK + 1)
 	assert.equal(out[MAX_PER_CHECK].message, '…and 5 more like these.')
+})
+
+test('a creature shut inside a solid model is found, an object is not', () => {
+	const spawns = [
+		{ key: 'monster/1', name: 'Wolf', kind: 'monster', x: 5, y: 0, z: 5 },
+		{ key: 'object/2', name: 'Ore', kind: 'object', x: 5, y: 0, z: 5 },
+		{ key: 'monster/3', name: 'Bear', kind: 'monster', x: 50, y: 0, z: 50 },
+	]
+	const seen: number[] = []
+	const found = checkSpawnsInModels(spawns, (x, y) => {
+		seen.push(y)
+		return x < 10 ? 'Rock01' : null
+	})
+	assert.equal(found.length, 1)
+	assert.equal(found[0].target.kind === 'spawn' && found[0].target.key, 'monster/1')
+	assert.ok(found[0].message.includes('Rock01'))
+	assert.deepEqual(seen, [1, 1], 'looked at the chest, for creatures only')
+})
+
+test('a created spawn on a guid the database gave another entry would delete it', () => {
+	const s = (guid: number, entry: number, created: boolean, kind = 'monster'): IdSpawn => ({ key: `${kind}/${guid}`, name: `S${guid}`, kind, guid, entry, created, x: 0, z: 0 })
+	const found = checkSpawnIds([s(10, 299, true), s(11, 6, true), s(12, 6, false), s(13, 40, false), s(5, 77, true, 'object')], {
+		creatures: [{ guid: 10, entry: 1, map: 0 }, { guid: 11, entry: 6, map: 0 }],
+		objects: [{ guid: 5, entry: 9, map: 1 }],
+		missingCreatureEntries: [40],
+		missingObjectEntries: [],
+	})
+	const taken = found.filter((f) => f.check === 'Spawn guids taken')
+	assert.deepEqual(taken.map((f) => f.severity), ['error', 'info', 'error'])
+	assert.ok(taken[0].message.includes('creature 1 on map 0'))
+	const missing = found.filter((f) => f.check === 'Spawns without a template')
+	assert.equal(missing.length, 1)
+	assert.ok(missing[0].message.includes('entry 40'))
+})
+
+test('a region edge off the client tile next to it is a seam, a matching one is not', () => {
+	const V = 5
+	const heights = new Float32Array(V * V).fill(10)
+	heights[2] = 13 // the north row, vertex 2
+	heights[1 * V + V - 1] = 10.2 // the east column, vertex 1
+	const flat = new Array(V).fill(10)
+	const found = checkRegionEdges(
+		[
+			{ side: 'north', offset: 0, heights: flat },
+			{ side: 'east', offset: 0, heights: flat },
+			{ side: 'south', offset: 0, heights: flat },
+			{ side: 'west', offset: 0, heights: [10, 10, 10.04, 10, 10] },
+		],
+		heights,
+		V,
+		4,
+	)
+	assert.equal(found.length, 2)
+	assert.equal(found[0].severity, 'error')
+	assert.deepEqual([found[0].x, found[0].z], [8, 0])
+	assert.equal(found[1].severity, 'warning')
+	assert.deepEqual([found[1].x, found[1].z], [16, 4])
 })

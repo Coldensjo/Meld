@@ -95,3 +95,55 @@ export function checkHiddenWater(side: number, layers: (c: number) => readonly C
 	}
 	return capped('Hidden water', out)
 }
+
+/** A neighbouring tile's border row along the block, from Go's `vmangos.EdgeSegment`. */
+export interface EdgeSegment {
+	side: string
+	offset: number
+	heights: ArrayLike<number>
+}
+
+/** How far the block's edge may be off the neighbour's before the game shows a seam (yards). */
+const SEAM = 0.05
+/** A step this big is plain to see from far off (yards). */
+const SEAM_ERROR = 1
+
+/**
+ * The block's edge against the client's tiles around it (`segments`): the shared border vertices
+ * must hold the same height, or the game shows a crack or a step along the tile line. One finding
+ * per neighbouring tile, at its biggest step. `heights` is the block's grid, `verts` a side.
+ */
+export function checkRegionEdges(segments: readonly EdgeSegment[], heights: ArrayLike<number>, verts: number, cellSize: number): Finding[] {
+	const out: Finding[] = []
+	const last = verts - 1
+	for (const s of segments) {
+		let worst = 0
+		let at = -1
+		let count = 0
+		for (let k = 0; k < s.heights.length; k++) {
+			const v = s.offset + k
+			if (v > last) break
+			const i = s.side === 'north' ? v : s.side === 'south' ? last * verts + v : s.side === 'west' ? v * verts : v * verts + last
+			const d = Math.abs(heights[i] - s.heights[k])
+			if (d <= SEAM) continue
+			count++
+			if (d > worst) {
+				worst = d
+				at = v
+			}
+		}
+		if (at < 0) continue
+		const along = at * cellSize
+		const x = s.side === 'west' ? 0 : s.side === 'east' ? last * cellSize : along
+		const z = s.side === 'north' ? 0 : s.side === 'south' ? last * cellSize : along
+		out.push({
+			check: 'Region edge seams',
+			severity: worst > SEAM_ERROR ? 'error' : 'warning',
+			message: `The ${s.side} edge is off the client's next tile by up to ${worst.toFixed(2)} yd over ${count} ${count === 1 ? 'vertex' : 'vertices'}: the game shows a seam there. Grow the region over that tile to edit both sides.`,
+			x,
+			z,
+			target: { kind: 'none' },
+		})
+	}
+	return capped('Region edge seams', out)
+}

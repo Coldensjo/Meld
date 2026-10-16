@@ -777,6 +777,17 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   client uses triangles), most on slopes: wolves on 24° to 35° slopes and a guard's path point 1.1 yd
   "under" flat ground came up until the under-ground tests allowed 2 yd plus half a cell times the
   slope. Don't tighten it without checking Northshire again.
+- The checks of #195, on the same Northshire block: plant a created spawn on a guid the database
+  has (`e.doc.spawnLayer.add({ ...aCreature, guid: 1, entry: 299, waypoints: [] })`; guid 1 is entry
+  2843) for a Spawn guids taken error; put a creature at an `elwynncliffrock02` M2's origin plus 0.3 yd
+  for Spawns inside models; raise a border vertex (`e.terrain.heights[64] += 3`) for a Region edge seam
+  error. Unedited, the block's border matches the client's tiles exactly and none of its 347 spawns is
+  inside a model. With Preferences › Check the Map before Compile on, File › Compile Region to Client
+  then stops with "Compile stopped: … 2 errors" and opens the window, before anything is written.
+- The bindings alone: `await go.main.App.RegionEdges('Azeroth', 32, 48, 1)` (four 129-height rows)
+  and `await go.main.App.CheckSpawnIDs({ creatureGuids: [1], objectGuids: [], creatureEntries: [999999], objectEntries: [] })`.
+- The inside test casts six rays from the creature's chest and counts back faces (`raycastModel`): a
+  creature under a tree's canopy or beside a trunk meets front faces or nothing, so it isn't flagged.
 - The floor and wall probes go through `ObjectLayer.raycastAmong` (each model's own bounds tree), not
   `raycastSurface`, whose instanced meshes hold only the instances in view: a check through them
   misses everything off screen.

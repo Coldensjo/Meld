@@ -94,6 +94,70 @@ export function checkPaths(spawns: readonly CheckSpawn[], probes: SpawnProbes, c
 	return out
 }
 
+/**
+ * Creatures shut inside a model, a rock or a tree trunk: `inside` names the solid model (not a
+ * building, whose rooms are meant to hold creatures) around the creature's chest, or null.
+ */
+export function checkSpawnsInModels(spawns: readonly CheckSpawn[], inside: (x: number, y: number, z: number) => string | null): Finding[] {
+	const out: Finding[] = []
+	for (const s of spawns) {
+		if (s.kind === 'object') continue
+		const model = inside(s.x, s.y + CHEST, s.z)
+		if (model) out.push({ check: 'Spawns inside models', severity: 'warning', message: `${s.name} stands inside ${model}.`, x: s.x, z: s.z, target: { kind: 'spawn', key: s.key } })
+	}
+	return capped('Spawns inside models', out)
+}
+
+/** How far above its feet a creature's chest is, where the inside test looks (yards). */
+const CHEST = 1
+
+/** An unsaved spawn's ids, for `checkSpawnIds`. */
+export interface IdSpawn {
+	key: string
+	name: string
+	kind: string
+	guid: number
+	entry: number
+	/** Made in the editor: saved as a delete of its guid and an insert. */
+	created: boolean
+	x: number
+	z: number
+}
+
+/** What the world database has under the unsaved spawns' guids and entries (Go's `vmangos.SpawnIDReport`). */
+export interface IdReport {
+	creatures: ReadonlyArray<{ guid: number; entry: number; map: number }>
+	objects: ReadonlyArray<{ guid: number; entry: number; map: number }>
+	missingCreatureEntries: readonly number[]
+	missingObjectEntries: readonly number[]
+}
+
+/**
+ * Created spawns whose guid the database already uses: a save deletes that row first, so a row of
+ * another entry is another spawn that would be lost; one of the same entry is most likely this spawn's
+ * own earlier export. And spawns whose entry has no template, which the server leaves out.
+ */
+export function checkSpawnIds(spawns: readonly IdSpawn[], report: IdReport): Finding[] {
+	const rows = (kind: string) => new Map((kind === 'object' ? report.objects : report.creatures).map((r) => [r.guid, r]))
+	const creatures = rows('creature')
+	const objects = rows('object')
+	const missingC = new Set(report.missingCreatureEntries)
+	const missingO = new Set(report.missingObjectEntries)
+	const taken: Finding[] = []
+	const entries: Finding[] = []
+	for (const s of spawns) {
+		const obj = s.kind === 'object'
+		const label = obj ? `Object ${s.name}` : s.name
+		const at = { x: s.x, z: s.z, target: { kind: 'spawn' as const, key: s.key } }
+		const row = s.created ? (obj ? objects : creatures).get(s.guid) : undefined
+		if (row && row.entry !== s.entry)
+			taken.push({ check: 'Spawn guids taken', severity: 'error', message: `${label} has guid ${s.guid}, which the database gave to ${obj ? 'object' : 'creature'} ${row.entry} on map ${row.map} since: saving would delete that spawn. Place ${label} again for a new guid.`, ...at })
+		else if (row) taken.push({ check: 'Spawn guids taken', severity: 'info', message: `${label} is in the database under its guid ${s.guid} already, likely from an earlier export; saving replaces it.`, ...at })
+		if ((obj ? missingO : missingC).has(s.entry)) entries.push({ check: 'Spawns without a template', severity: 'error', message: `${label}'s entry ${s.entry} has no ${obj ? 'gameobject' : 'creature'}_template row, so the server won't spawn it.`, ...at })
+	}
+	return [...capped('Spawn guids taken', taken), ...capped('Spawns without a template', entries)]
+}
+
 /** Whether the straight stretch from a to b goes under the ground (by more than `underBy`) between its ends. */
 function segmentDips(a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }, probes: SpawnProbes, cellSize: number): boolean {
 	const len = Math.hypot(b.x - a.x, b.z - a.z)

@@ -535,6 +535,25 @@ export class ObjectLayer {
     return best < Infinity ? this.amongHit : null
   }
 
+  /**
+   * The first surface of model `id` along `ray`, and whether the ray meets it from behind (its face
+   * points along the ray), as it does from inside a closed mesh; null for a miss or a model still
+   * loading. The sign is the same in the model's space as in the world's, so it is taken there.
+   */
+  raycastModel(ray: THREE.Ray, id: number): { distance: number; back: boolean } | null {
+    const o = this.objects.get(id)
+    if (!o) return null
+    const asset = getAsset(o.type)
+    const tree = asset.ready ? (asset.geometry.boundsTree as MeshBVH | undefined) : undefined
+    if (!tree) return null
+    this.matrixOf(o, this.amongM)
+    const local = this.amongRay.copy(ray).applyMatrix4(this.amongInv.copy(this.amongM).invert())
+    const hit = tree.raycastFirst(local, THREE.DoubleSide)
+    if (!hit?.face) return null
+    const p = this.amongPoint.copy(hit.point).applyMatrix4(this.amongM)
+    return { distance: p.distanceTo(ray.origin), back: hit.face.normal.dot(local.direction) > 0 }
+  }
+
   private surfM = new THREE.Matrix4()
   private surfInv = new THREE.Matrix4()
   private surfRay = new THREE.Ray()

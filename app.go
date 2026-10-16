@@ -534,6 +534,16 @@ func (a *App) RegionHorizon(mapName string, x, y, size int) ([]vmangos.HorizonTi
 	return vmangos.ReadRegionHorizon(dataDir, mapName, x, y, size, 5)
 }
 
+// RegionEdges reads the client's border rows of the tiles around a region, for File › Check Map's
+// seam check (#195).
+func (a *App) RegionEdges(mapName string, x, y, size int) ([]vmangos.EdgeSegment, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadRegionEdges(dataDir, mapName, x, y, size)
+}
+
 // LiquidTypes lists the client's LiquidType.dbc rows: every liquid it knows, for the Water tool.
 func (a *App) LiquidTypes() ([]vmangos.LiquidTypeEntry, error) {
 	dataDir, err := a.clientDataDir()
@@ -754,6 +764,16 @@ func (a *App) NextCreatureGUID() (int, error) {
 		return 0, err
 	}
 	return vmangos.NextCreatureGUID(server)
+}
+
+// CheckSpawnIDs tells File › Check Map what the world database has under the unsaved spawns' guids
+// and entries (#195).
+func (a *App) CheckSpawnIDs(q vmangos.SpawnIDQuery) (vmangos.SpawnIDReport, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.SpawnIDReport{}, err
+	}
+	return vmangos.CheckSpawnIDs(server, q)
 }
 
 // ReadCreature reads a creature template's row (its newest patch) for the creature editor.

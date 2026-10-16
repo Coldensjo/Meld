@@ -453,6 +453,8 @@ export const prefs = $state({
   showGroundEffects: true,
   /** The Detail info readout in the viewport's corner: tile, chunk, cell, height, layers and liquids under the cursor. */
   detailInfo: false,
+  /** Run File › Check Map when Compile Region to Client starts, and stop it on an error finding (#195). */
+  checkBeforeCompile: false,
   /** View › Performance Overlay (#179): where the frame's time goes, by subsystem and GPU pass, in the viewport's corner. */
   perfOverlay: false,
   /** Every file read from the client (models, textures, lists) goes into the Log window too, with its time (noggit's "additional file loading log"). */

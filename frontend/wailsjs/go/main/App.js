@@ -46,6 +46,10 @@ export function BrowseWowFolder() {
   return window['go']['main']['App']['BrowseWowFolder']();
 }
 
+export function CheckSpawnIDs(arg1) {
+  return window['go']['main']['App']['CheckSpawnIDs'](arg1);
+}
+
 export function ClassLevelStats(arg1, arg2, arg3) {
   return window['go']['main']['App']['ClassLevelStats'](arg1, arg2, arg3);
 }
@@ -268,6 +272,10 @@ export function ReadTextFile(arg1) {
 
 export function ReadVendor(arg1) {
   return window['go']['main']['App']['ReadVendor'](arg1);
+}
+
+export function RegionEdges(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['RegionEdges'](arg1, arg2, arg3, arg4);
 }
 
 export function RegionHorizon(arg1, arg2, arg3, arg4) {

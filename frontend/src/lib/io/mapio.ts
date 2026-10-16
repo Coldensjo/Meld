@@ -419,6 +419,15 @@ export function exportRegion(engine: Engine) {
       setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
       return
     }
+    // Preferences › Check the Map before Compile (#195): errors stop the compile and open the list.
+    if (prefs.checkBeforeCompile) {
+      const errors = (await engine.checkMap()).findings.filter((f) => f.severity === 'error').length
+      if (errors) {
+        ui.checkMap = true
+        setStatus(`Compile stopped: the map check found ${errors} ${errors === 1 ? 'error' : 'errors'}. Fix them, or turn off Preferences › Check the Map before Compile.`, 10000)
+        return
+      }
+    }
     const water = engine.regionLiquids()
     const { paint, headers } = regionPaint(engine, region.size)
     const res = await SaveRegion(

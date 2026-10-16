@@ -29,6 +29,8 @@ export function BrowseVmangosFolder():Promise<string>;
 
 export function BrowseWowFolder():Promise<string>;
 
+export function CheckSpawnIDs(arg1:vmangos.SpawnIDQuery):Promise<vmangos.SpawnIDReport>;
+
 export function ClassLevelStats(arg1:number,arg2:number,arg3:number):Promise<Array<vmangos.ClassLevelStats>>;
 
 export function ClearThumbnailCache():Promise<void>;
@@ -140,6 +142,8 @@ export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 export function ReadTextFile(arg1:string):Promise<string>;
 
 export function ReadVendor(arg1:number):Promise<vmangos.Vendor>;
+
+export function RegionEdges(arg1:string,arg2:number,arg3:number,arg4:number):Promise<Array<vmangos.EdgeSegment>>;
 
 export function RegionHorizon(arg1:string,arg2:number,arg3:number,arg4:number):Promise<Array<vmangos.HorizonTile>>;
 
