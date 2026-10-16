@@ -290,6 +290,8 @@ export class SculptTool extends BrushTool {
       setStatus(`Flatten locked at height ${hit.y.toFixed(2)}. Every stroke now levels to it.`)
       return
     }
+    // Before the stroke is made (in super.onDown), which takes the label as it is then (#190).
+    this.label = 'Sculpt: ' + editor.sculptMode
     const vertex = editor.sculptMode === 'vertex'
     this.terraceShift = editor.sculptMode === 'terrace' && !!e?.shiftKey
     this.moving = vertex && !!e?.shiftKey
@@ -477,7 +479,6 @@ export class SculptTool extends BrushTool {
         : ctx.terrain.heightAt(hit.x, hit.z)
     const tr = editor.terrace
     this.terraceSame = this.terraceShift && tr.step > 0 ? terraceLevel(hit.y, tr.step, tr.offset) : null
-    this.label = 'Sculpt: ' + editor.sculptMode
   }
 
   protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {
