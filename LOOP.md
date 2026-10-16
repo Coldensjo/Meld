@@ -5,24 +5,47 @@ The backlog is the GitHub issues of `Coldensjo/Meld`, read and written with `gh`
 machine). The rest lives in DESIGN.md (goals, rules, priorities) and in the closed issues labelled `decision`
 (how finished features were decided), so each run starts fresh.
 
-**Two kinds of run** work the same backlog at the same time:
+**Two kinds of run** work the same backlog at the same time, and both claim the issue they work on
+(*Claims*), so neither starts what the other is doing. Find out which you are first: a session on
+the owner's Windows machine with `gh` is local; a claude.ai/code session in a Linux container (no
+`gh`, a branch named `claude/...` given by the harness) is cloud.
 
-- **Local**: a session on the owner's machine, on `main`. It has `gh`, the WoW client and Windows, so
-  it can check items in the app. It commits to `main`, goes through the cloud runs' pull requests
-  (step P) and pushes `main` at the end of the run (step 7).
-- **Cloud**: a claude.ai/code session in a container, on the branch the session was given. It has no
-  `gh` (use the GitHub tools it has for the same reads and writes), no WoW client and no Windows. It
-  never commits to `main`: each item becomes a pull request (step 3f), which a local run verifies and
-  merges.
+| | Local run | Cloud run |
+| --- | --- | --- |
+| Where | The owner's machine, on `main` | A container, on the branch it was given |
+| GitHub | `gh` | The GitHub tools of the session, for the same reads and writes as `gh` |
+| Checks | `make test`, `make check`, `make build-windows` | All four, after setup (*Cloud runs*) |
+| In the app | With the WoW client, the server and the game | Headless, no client: UI and an own map only |
+| Items | Any eligible item | Only items it can verify (*Cloud runs*) |
+| Result | A commit on `main`, issue closed | A pull request, issue left open |
+| Also | Verifies and merges the cloud pull requests (step P), pushes `main` (step 7) | One item a pull request (step 3f) |
 
-Both claim the issue they work on (*Claims*), so neither starts what the other is doing.
+**Cloud runs.** The container has no WoW client, no world database, no game and no owner at the
+keyboard, so a cloud run only does work it can show is right without them:
+
+- Setup, before choosing work: the steps of the TESTS.md entry *In a cloud session* (WebKitGTK
+  packages, the wails CLI, `pnpm install`). If setup fails, do triage and step 4 only, and say so in
+  the report.
+- Eligible: items whose change is checked by a unit test (Go under `internal/`, frontend logic under
+  `frontend/tests/`), by `make check`, or in the headless app on a map of its own (menus, dialogs,
+  options, sculpting and painting with colours, holes, water on the default ocean map, undo); and
+  issue work: triage (step 0), notes for the agent, duplicates.
+- Not eligible, leave them to a local run: items whose result can only be seen with the client's
+  assets (models, textures, WMOs, particles, client lighting, regions, spawns, the asset browser),
+  that touch the server, the database or the game, that need a check in the game, or that depend on
+  Windows (WebView2, file locking, paths). An item that is mostly logic with a small visible part may
+  be done if a unit test covers the logic; say in the pull request what the local run must look at
+  in the app.
+- Unless the owner is talking to you in the session, never wait for them: ask by comment and the
+  `owner-question` label (*Asking the owner*), and go on to another item.
+- Read the owner's paths in CLAUDE.md (`C:\WoW\...`) as facts about their machine, not this one.
 
 ---
 
 Read CLAUDE.md and DESIGN.md. Do not edit DESIGN.md. A local run first brings `main` up to date with
 what was merged on GitHub: `git pull --rebase --autostash origin main` (the autostash keeps the
-owner's uncommitted changes; if it or the rebase conflicts, stop the run and tell the owner). Then
-read the backlog:
+owner's uncommitted changes; if it or the rebase conflicts, stop the run and tell the owner). A
+cloud run does its setup (*Cloud runs*). Then read the backlog:
 
 ```
 gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title,labels,body
@@ -123,7 +146,7 @@ g. Comment `**Claude:** triaged.` with a line each on what you changed in the ti
 
 **1. Work through items until a stop condition applies.** Skip issues labelled `needs-approval`,
 `parked`, `owner-question` (but see *Asking the owner* for answered questions) or `claimed` (see
-*Claims*). A cloud run also skips items that can only be verified in the game or the app. The owner
+*Claims*). A cloud run also skips the items *Cloud runs* leaves to a local run. The owner
 approves by commenting `approved` (any limits after it bind the work), and a workflow then removes
 `needs-approval`; if the label is still there under such a comment by the owner, the workflow didn't
 run, so remove the label yourself and treat the item as approved. The order:
@@ -197,14 +220,16 @@ b. Verify it:
    - `make build-windows`
    - `make build-linux`, only if this is Linux. On a Windows host it cannot run. Say so in the log.
 
-   A cloud run runs what its container can and says which checks it could not run, and why, in the
-   pull request; the local run makes up the rest in step P.
+   A cloud run runs all four after its setup. As root it fails `TestLockedPatchIsRefusedUntouched`
+   (TESTS.md, *In a cloud session*); that failure is the container's, so say so in the pull request,
+   but any other failure is the item's. The local run runs the checks again in step P.
 
    If a check fails, fix it. If it cannot be fixed in this run, do not commit the item. Comment on
    the issue that it was left unfinished and why, and move on.
 
 c. If the item changes what the app shows, check it in the app or say in the log that you did not.
-   A cloud run cannot (no client); the local run does it in step P.
+   A cloud run checks what the headless app can show (TESTS.md, *In a cloud session*) and says in the
+   pull request what the local run must look at with the client in step P.
 
 d. Commit that item alone, following CLAUDE.md. Stage only the files you changed, by name. Never run
    `git add -A` or `git add .`. The working tree may hold the owner's uncommitted changes. Leave them
@@ -230,8 +255,8 @@ e. Close the issue with its log as the last comment: `gh issue comment <n> --rep
 f. **Cloud runs: open a pull request** instead of closing the issue. Start the item's branch from the
    latest `origin/main`, so the pull request carries this item alone in one commit (step d). Push it
    and open a pull request into `main`: the title is the commit's sentence, the body is `Closes #<n>`
-   and the three lines of step e (Verified saying which checks the container could not run, and
-   that it was not checked in the app). Label the pull request `cloud-pr` (create the label as for
+   and the three lines of step e (Verified saying what was checked in the headless app, and what
+   the local run must still look at with the client). Label the pull request `cloud-pr` (create the label as for
    `claimed` if it is missing). Comment on the issue `**Claude:** pull request #<pr> for this.` and
    leave the issue open and `claimed`; the local run merges it or sends it back (step P).
 

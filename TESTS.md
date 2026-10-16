@@ -145,6 +145,31 @@ in a loop and returns what it wants to report as JSON. The viewport of a 1400x90
     for the ground effect editor's Footsteps pick (B-175): it lists Dirt to None by name.
   - The user's prefs may have Prop animations off, which a probe should not take for a bug.
 
+## In a cloud session (claude.ai/code container)
+
+Checks: what a cloud loop run (LOOP.md) can verify. The container has Go, Node 22, pnpm, Chromium
+with Playwright and Xvfb, but no WoW client, no world database and no Windows. Found 2026-10-16.
+
+- Setup, once per session (none of it is in the image):
+  `apt-get update && apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev`
+  (the install fails with "no installation candidate" until the update has run),
+  `go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0` (the version in go.mod) and
+  `cd frontend && pnpm install --frozen-lockfile`.
+- Then all four checks run: `make test`, `make check`, `make build-windows` (no cgo, so no MinGW is
+  needed) and `make build-linux`.
+- Trap: the session runs as root, so `TestLockedPatchIsRefusedUntouched` (`internal/vmangos`) fails:
+  it stands in a read-only file for a patch the game holds open, and root writes it anyway. That
+  failure is the container's, not the change's; every other test must pass.
+- The app: `xvfb-run -a make dev` in the background, wait until `curl localhost:34115` gives 200, then
+  drive the page with Playwright's Chromium (`require('/opt/node22/lib/node_modules/playwright')` from
+  a CommonJS script in the scratchpad; an ES module import of `playwright` doesn't resolve), launched
+  with `--use-gl=swiftshader --enable-unsafe-swiftshader`. The page opens on the default ocean map
+  with the menus, tools, options bar and dialogs working, at about 1 FPS, so step frames with
+  `__engine.frame()` as in the headless Chrome entry above. With no client there are no models,
+  textures, regions, spawns, client lighting or asset browser contents. The page logs
+  `TypeError: Cannot read properties of null (reading 'nodes')` at start there; it is not yet known
+  whether a client is what's missing.
+
 ## Particles (M2 emitters, B-182)
 
 Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
