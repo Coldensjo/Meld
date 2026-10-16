@@ -79,7 +79,6 @@ func TestMinimapFilesSetTheTiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer arc.Close()
 	idx, err := arc.ReadFile(wow.MinimapIndexPath)
 	if err != nil {
 		t.Fatal(err)
@@ -95,5 +94,29 @@ func TestMinimapFilesSetTheTiles(t *testing.T) {
 	img, err := wow.DecodeBLP(blp)
 	if err != nil || img.W != MinimapSide {
 		t.Fatalf("tile %v, %v", img, err)
+	}
+	arc.Close()
+
+	// The same tiles drawn again with other pixels: the patch keeps the new BLP, not the old (#164).
+	for i := range px {
+		px[i] = byte(i * 13)
+	}
+	again, err := MinimapFiles(dataDir, "MeldTest", []MinimapTile{{X: 0, Y: 0, Pixels: px}, {X: 1, Y: 0, Pixels: px}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallPatch(out, again); err != nil {
+		t.Fatal(err)
+	}
+	arc2, err := mpq.Open(patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer arc2.Close()
+	if arc2.Has(`textures\Minimap\` + name) {
+		t.Fatal("the old tile stayed in the patch")
+	}
+	if !arc2.Has(again[0].Name) {
+		t.Fatal("the new tile is missing")
 	}
 }

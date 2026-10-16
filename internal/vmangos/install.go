@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 // PatchName is the client's patch archive that map edits go into. The VMaNGOS tools read
@@ -62,6 +63,7 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 		if keep, err = carryOver(target, files); err != nil {
 			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
 		}
+		keep = dropUnusedMinimaps(keep, files)
 	}
 	files = append(files, keep...)
 
@@ -104,6 +106,40 @@ func carryOver(path string, files []mpq.File) ([]mpq.File, error) {
 		out = append(out, mpq.File{Name: name, Data: data})
 	}
 	return out, nil
+}
+
+// dropUnusedMinimaps leaves out of the carried-over files the minimap tiles (textures\Minimap\*.blp)
+// that the patch's minimap index, the new one or the carried one, names in no row: a tile drawn again
+// is stored under the md5 of its new bytes, and its old file would otherwise stay in the patch (#164).
+// Without an index in the patch every file is kept.
+func dropUnusedMinimaps(keep, files []mpq.File) []mpq.File {
+	var index []byte
+	for _, list := range [][]mpq.File{files, keep} {
+		for _, f := range list {
+			if strings.EqualFold(f.Name, wow.MinimapIndexPath) {
+				index = f.Data
+				break
+			}
+		}
+		if index != nil {
+			break
+		}
+	}
+	if index == nil {
+		return keep
+	}
+	named := map[string]bool{}
+	wow.ParseMinimapIndex(index).Each(func(_, file string) { named[strings.ToUpper(file)] = true })
+	const dir = `TEXTURES\MINIMAP\`
+	out := keep[:0]
+	for _, f := range keep {
+		name := strings.ToUpper(strings.ReplaceAll(f.Name, "/", `\`))
+		if rest, ok := strings.CutPrefix(name, dir); ok && !strings.Contains(rest, `\`) && strings.HasSuffix(rest, ".BLP") && !named[rest] {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 // archiveOwner returns the marker of an archive Meld or Ironforge wrote, or "" for any other.
