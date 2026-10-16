@@ -880,6 +880,9 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
   fade). In its hall (group 2) the flood draws 2, 3, 5 and 10 looking along it and fewer facing a
   wall; in a closed bedroom (9) only 9. A WMO mesh must carry the `wmoRoom` attribute (Go's
   `"rooms":true` header); a page loaded before a Go change keeps the old assets, so reload it.
+- Trap: with View › Layers › Objects off (the owner's prefs may have it so) the probe finds no room
+  and `e.rooms.wmoIds` stays empty (#142); set `e.objects.group.visible = true` for the probe. Hiding
+  it again must drop the room and the gate (`e.cullView.gate` null, terrain chunks drawn).
 - Trap: the inn placed with `yOff: 0` on rough ground can have its floor under the terrain, and the
   probe's terrain race then reads outside; pick a floor above the ground.
 - The world through the windows (#116): `tests/instanceCull.test.ts` (a doorway, the exempt

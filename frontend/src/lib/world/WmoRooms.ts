@@ -74,7 +74,8 @@ export class WmoRooms {
   outside(objects: ObjectLayer, frustum: THREE.Frustum, eye: THREE.Vector3, max: number): readonly OutsideWmo[] {
     const found = this.found
     found.length = 0
-    if (objects !== this.layer) return found
+    // A hidden Objects layer (View › Layers) gates nothing.
+    if (objects !== this.layer || !objects.group.visible) return found
     for (const id of this.wmoIds) {
       if (id === this.current?.id) continue
       const o = objects.objects.get(id)
@@ -106,9 +107,15 @@ export class WmoRooms {
 
   /**
    * Runs the probe for an eye at `eye` (world space). `groundAt` gives the terrain's height under a
-   * point, or null where there is none (off the map, or a hole).
+   * point, or null where there is none (off the map, or a hole). While the Objects layer is hidden
+   * (View › Layers) the camera is in no room, so a building the author can't see never gates the view.
    */
   update(objects: ObjectLayer, eye: THREE.Vector3, groundAt: (x: number, z: number) => number | null) {
+    if (!objects.group.visible) {
+      this.current = null
+      this.lastEye.set(NaN, NaN, NaN) // look again once the layer is shown
+      return
+    }
     if (objects !== this.layer || objects.version !== this.objectsVersion) {
       this.layer = objects
       this.objectsVersion = objects.version
