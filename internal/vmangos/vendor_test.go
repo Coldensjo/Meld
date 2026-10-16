@@ -1,8 +1,11 @@
 package vmangos
 
 import (
+	"os"
 	"strings"
 	"testing"
+
+	"Meld/internal/wow"
 )
 
 func TestVendorSQLNumbersSlotsAndRefusesDuplicates(t *testing.T) {
@@ -29,8 +32,41 @@ func TestVendorSQLNumbersSlotsAndRefusesDuplicates(t *testing.T) {
 }
 
 func TestParseVendorItems(t *testing.T) {
-	got := parseVendorItems([]byte("159\tRefreshing Spring Water\t1\t0\t0\t0\t0\n2512\tRough Arrow\t1\t5\t900\t0\t0\n"))
-	if len(got) != 2 || got[0].Name != "Refreshing Spring Water" || got[1].MaxCount != 5 || got[1].IncrTime != 900 {
+	got := parseVendorItems([]byte("159\tRefreshing Spring Water\t1\t18084\t0\t0\t0\t0\n2512\tRough Arrow\t1\t5996\t5\t900\t0\t0\n"))
+	if len(got) != 2 || got[0].Name != "Refreshing Spring Water" || got[0].DisplayID != 18084 || got[1].MaxCount != 5 || got[1].IncrTime != 900 {
 		t.Fatalf("got %+v", got)
 	}
+}
+
+func TestParseItemRow(t *testing.T) {
+	names := []string{"entry", "name", "description", "armor"}
+	got, err := parseItemRow(names, []byte("2361\tBattleworn Hammer\t\t0\n"), 2361)
+	if err != nil || got["name"] != "Battleworn Hammer" || got["description"] != "" || got["armor"] != "0" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	if _, err := parseItemRow(names, []byte(""), 9); err == nil {
+		t.Fatal("no row should be an error")
+	}
+}
+
+// TestItemIconsFromClient checks the field layout against the client's own ItemDisplayInfo.dbc:
+// the Battleworn Hammer's display (8690) names an icon, and a display the client lacks is left out.
+// It needs WOW_DIR set.
+func TestItemIconsFromClient(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	icons, err := ItemIcons(dataDir, []int{8690, 99999999})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(icons) != 1 || !strings.HasPrefix(strings.ToLower(icons[8690]), "inv_") {
+		t.Fatalf("icons %v", icons)
+	}
+	t.Logf("display 8690: %s", icons[8690])
 }

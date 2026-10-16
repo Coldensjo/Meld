@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
+
+	"Meld/internal/mpq"
 )
 
 // NpcFlagVendor is creature_template.npc_flags' vendor bit (UNIT_NPC_FLAG_VENDOR in 1.12): without
@@ -17,6 +20,7 @@ type VendorItem struct {
 	Item      int    `json:"item"`
 	Name      string `json:"name"`
 	Quality   int    `json:"quality"`
+	DisplayID int    `json:"displayId"`
 	MaxCount  int    `json:"maxCount"`
 	IncrTime  int    `json:"incrTime"`
 	ItemFlags int    `json:"itemFlags"`
@@ -34,18 +38,19 @@ type Vendor struct {
 
 // ItemRef is an item template by entry, with its name and quality, for picking an item.
 type ItemRef struct {
-	Entry   int    `json:"entry"`
-	Name    string `json:"name"`
-	Quality int    `json:"quality"`
+	Entry     int    `json:"entry"`
+	Name      string `json:"name"`
+	Quality   int    `json:"quality"`
+	DisplayID int    `json:"displayId"`
 }
 
 // itemNamesJoin joins each row's item to the newest patch of its item_template row, as `it`.
-const itemNamesJoin = "LEFT JOIN (SELECT i.entry, i.name, i.quality FROM item_template i JOIN " +
+const itemNamesJoin = "LEFT JOIN (SELECT i.entry, i.name, i.quality, i.display_id FROM item_template i JOIN " +
 	"(SELECT entry, MAX(patch) AS patch FROM item_template GROUP BY entry) n ON n.entry = i.entry AND n.patch = i.patch) it ON it.entry = v.item"
 
 // vendorRowsSQL selects a vendor table's rows of entry, in slot order, with their item names.
 func vendorRowsSQL(table string, entry int) string {
-	return fmt.Sprintf("SELECT v.item, COALESCE(it.name, ''), COALESCE(it.quality, 0), v.maxcount, v.incrtime, v.itemflags, v.condition_id "+
+	return fmt.Sprintf("SELECT v.item, COALESCE(it.name, ''), COALESCE(it.quality, 0), COALESCE(it.display_id, 0), v.maxcount, v.incrtime, v.itemflags, v.condition_id "+
 		"FROM `%s` v %s WHERE v.entry = %d ORDER BY v.slot, v.item", table, itemNamesJoin, entry)
 }
 
@@ -54,14 +59,14 @@ func parseVendorItems(raw []byte) []VendorItem {
 	var items []VendorItem
 	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
 		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
-		if len(f) != 7 {
+		if len(f) != 8 {
 			continue
 		}
 		n := func(i int) int {
 			v, _ := strconv.Atoi(f[i])
 			return v
 		}
-		items = append(items, VendorItem{Item: n(0), Name: unescapeBatch(f[1]), Quality: n(2), MaxCount: n(3), IncrTime: n(4), ItemFlags: n(5), Condition: n(6)})
+		items = append(items, VendorItem{Item: n(0), Name: unescapeBatch(f[1]), Quality: n(2), DisplayID: n(3), MaxCount: n(4), IncrTime: n(5), ItemFlags: n(6), Condition: n(7)})
 	}
 	return items
 }
@@ -176,7 +181,7 @@ func SearchItems(serverRoot, text string, limit int) ([]ItemRef, error) {
 	if n, err := strconv.Atoi(text); err == nil {
 		match = fmt.Sprintf("(%s OR i.entry = %d)", match, n)
 	}
-	raw, err := runSQL(db, fmt.Sprintf("SELECT i.entry, i.name, i.quality FROM item_template i JOIN "+
+	raw, err := runSQL(db, fmt.Sprintf("SELECT i.entry, i.name, i.quality, i.display_id FROM item_template i JOIN "+
 		"(SELECT entry, MAX(patch) AS patch FROM item_template GROUP BY entry) n ON n.entry = i.entry AND n.patch = i.patch "+
 		"WHERE %s ORDER BY i.name, i.entry LIMIT %d", match, max(limit, 1)))
 	if err != nil {
@@ -185,12 +190,111 @@ func SearchItems(serverRoot, text string, limit int) ([]ItemRef, error) {
 	var out []ItemRef
 	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
 		f := strings.Split(strings.TrimRight(line, "\r"), "\t")
-		if len(f) != 3 {
+		if len(f) != 4 {
 			continue
 		}
 		e, _ := strconv.Atoi(f[0])
 		q, _ := strconv.Atoi(f[2])
-		out = append(out, ItemRef{Entry: e, Name: unescapeBatch(f[1]), Quality: q})
+		d, _ := strconv.Atoi(f[3])
+		out = append(out, ItemRef{Entry: e, Name: unescapeBatch(f[1]), Quality: q, DisplayID: d})
+	}
+	return out, nil
+}
+
+// ReadItem reads item template entry's newest patch row, every column by name (the columns differ
+// between VMaNGOS versions), for the Shop tab's tooltips.
+func ReadItem(serverRoot string, entry int) (map[string]string, error) {
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return nil, err
+	}
+	raw, err := runSQL(db, "SHOW COLUMNS FROM item_template")
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, line := range strings.Split(strings.TrimRight(string(raw), "\r\n"), "\n") {
+		if f := strings.Split(line, "\t"); len(f) > 0 && f[0] != "" {
+			names = append(names, f[0])
+		}
+	}
+	if len(names) == 0 {
+		return nil, fmt.Errorf("the world database has no item_template")
+	}
+	quoted := make([]string, len(names))
+	for i, n := range names {
+		quoted[i] = "`" + n + "`"
+	}
+	raw, err = runSQL(db, fmt.Sprintf("SELECT %s FROM item_template WHERE entry = %d ORDER BY patch DESC LIMIT 1", strings.Join(quoted, ", "), entry))
+	if err != nil {
+		return nil, err
+	}
+	return parseItemRow(names, raw, entry)
+}
+
+// parseItemRow reads ReadItem's row: the values in the columns' order, a tab between them.
+func parseItemRow(names []string, raw []byte, entry int) (map[string]string, error) {
+	// Only the line end: empty last columns leave trailing tabs that are fields.
+	line := strings.TrimRight(string(raw), "\r\n")
+	f := strings.Split(line, "\t")
+	if line == "" || len(f) != len(names) {
+		return nil, fmt.Errorf("the world database has no item %d", entry)
+	}
+	out := make(map[string]string, len(names))
+	for i, n := range names {
+		v := f[i]
+		if v == "NULL" {
+			v = ""
+		}
+		out[n] = unescapeBatch(v)
+	}
+	return out, nil
+}
+
+// itemIcons is ItemDisplayInfo.dbc's icon name by display, read once per client data folder.
+var itemIcons struct {
+	sync.Mutex
+	dir   string
+	icons map[int]string
+}
+
+// ItemIcons gives the inventory icon of each display (ItemDisplayInfo.dbc field 5, a name under
+// Interface\Icons), leaving out displays the client doesn't have or that have no icon.
+func ItemIcons(dataDir string, displays []int) (map[int]string, error) {
+	itemIcons.Lock()
+	defer itemIcons.Unlock()
+	if itemIcons.icons == nil || itemIcons.dir != dataDir {
+		set, err := mpq.OpenDataDir(dataDir)
+		if err != nil {
+			return nil, err
+		}
+		b, err := set.ReadFile(`DBFilesClient\ItemDisplayInfo.dbc`)
+		set.Close()
+		if err != nil {
+			return nil, err
+		}
+		t, err := parseDBC(b)
+		if err != nil {
+			return nil, err
+		}
+		icons := make(map[int]string, t.records)
+		if t.fields > 5 {
+			for r := 0; r < t.records; r++ {
+				if name := t.str(r, 5); name != "" {
+					icons[int(t.u32(r, 0))] = name
+				}
+			}
+		}
+		itemIcons.dir, itemIcons.icons = dataDir, icons
+	}
+	out := make(map[int]string, len(displays))
+	for _, d := range displays {
+		if name, ok := itemIcons.icons[d]; ok {
+			out[d] = name
+		}
 	}
 	return out, nil
 }

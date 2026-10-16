@@ -1540,3 +1540,16 @@ the renderer has `WEBGL_compressed_texture_s3tc` and `..._s3tc_srgb`, and look a
   Sum a material's `map`: `mipmaps[i].data.length` for a `CompressedTexture`, w·h·4·4/3 for RGBA.
 - The terrain's tileset array (`terrain/paletteArray.ts`) and texture previews still read RGBA pixels
   on the CPU (they resample), so they keep using `fetchImage`.
+
+## Shop tab: item icons and tooltips (#202)
+Checks: every item in the creature editor's Shop tab (the shop's list, the search results, the shared
+vendor list) has its inventory icon, and hovering one shows the game-style tooltip.
+- Go: `TestParseVendorItems`, `TestParseItemRow`; with `WOW_DIR=C:/WoW/client`,
+  `TestItemIconsFromClient` (display 8690, the Battleworn Hammer, is `INV_Hammer_15`).
+- Frontend: `frontend/tests/itemTooltip.test.ts` (lines for a weapon, armour with stats, a bag; money).
+- Dev page: `const ed = await import(<the editor.svelte.ts resource URL>); ed.ui.creatureEditor = { key: null, entry: 152 }`
+  (Brother Danil, Northshire's general supplies), click the button whose text is `Shop`, wait for
+  `td.item` (6 rows, 6 `img`). Hover: dispatch `new PointerEvent('pointerenter', { clientX, clientY })`
+  on a `td.item` or a `.results button`, then read `.tip`'s text. Searching: set `input.search`'s value
+  and dispatch `input` (bubbling); 100 results for "hammer", each with an icon.
+- Effects show as "Use: spell 433": the spell's own text needs Spell.dbc (#217).

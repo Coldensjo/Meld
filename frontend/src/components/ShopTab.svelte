@@ -2,6 +2,9 @@
 	import { ReadVendor, SaveVendor, SearchItems } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
+	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
+	import ItemIcon from './ItemIcon.svelte'
+	import ItemTooltip from './ItemTooltip.svelte'
 
 	// The creature editor's Shop tab (#145): what the creature sells, its npc_vendor rows, edited as a
 	// list and saved with Save shop, like the template (the world database keeps no undo).
@@ -9,7 +12,17 @@
 	/** npc_flags' vendor bit: without it the server opens no shop. */
 	const VENDOR_FLAG = 0x4
 	/** Item quality colours, as the game draws item names. */
-	const QUALITY = ['#9d9d9d', '#ffffff', '#1eff00', '#0070dd', '#a335ee', '#ff8000', '#e6cc80']
+	const QUALITY = QUALITY_COLORS
+
+	// The item under the pointer, for its tooltip (#202).
+	let hover = $state<{ entry: number; displayId: number; x: number; y: number } | null>(null)
+	function hoverItem(entry: number, displayId: number) {
+		return {
+			onpointerenter: (e: PointerEvent) => (hover = { entry, displayId, x: e.clientX, y: e.clientY }),
+			onpointermove: (e: PointerEvent) => hover && hover.entry === entry && ((hover.x = e.clientX), (hover.y = e.clientY)),
+			onpointerleave: () => hover?.entry === entry && (hover = null),
+		}
+	}
 
 	let {
 		entry,
@@ -119,7 +132,7 @@
 			setStatus(`${r.name} is already in the shop.`, 4000)
 			return
 		}
-		items = [...items, vmangos.VendorItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, maxCount: 0, incrTime: 0, itemFlags: 0, condition: 0 })]
+		items = [...items, vmangos.VendorItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, maxCount: 0, incrTime: 0, itemFlags: 0, condition: 0 })]
 	}
 </script>
 
@@ -150,7 +163,7 @@
 			<tbody>
 				{#each items as it, i (it.item)}
 					<tr>
-						<td><span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}</span></td>
+						<td class="item" {...hoverItem(it.item, it.displayId)}><ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}</span></td>
 						<td><input type="number" min="0" max="255" value={it.maxCount} oninput={(e) => (it.maxCount = num(e.currentTarget.value, 255))} /></td>
 						<td><input type="number" min="0" value={it.incrTime} disabled={it.maxCount === 0} oninput={(e) => (it.incrTime = num(e.currentTarget.value, 4294967295))} /></td>
 						<td class="row-actions">
@@ -171,8 +184,8 @@
 		<ul class="results">
 			{#each results as r (r.entry)}
 				<li>
-					<button disabled={items.some((i) => i.item === r.entry)} onclick={() => add(r)}>
-						<span style:color={QUALITY[r.quality] ?? QUALITY[1]}>{r.name}</span> <span class="dim">{r.entry}</span>
+					<button disabled={items.some((i) => i.item === r.entry)} onclick={() => add(r)} {...hoverItem(r.entry, r.displayId)}>
+						<ItemIcon displayId={r.displayId} /> <span style:color={QUALITY[r.quality] ?? QUALITY[1]}>{r.name}</span> <span class="dim">{r.entry}</span>
 					</button>
 				</li>
 			{/each}
@@ -186,10 +199,11 @@
 		<p class="dim">The template's shared list (npc_vendor_template); it is shared with other creatures, so it is shown, not edited, here.</p>
 		<ul class="shared">
 			{#each template as it (it.item)}
-				<li><span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}{it.maxCount ? ` · stock ${it.maxCount}` : ''}</span></li>
+				<li {...hoverItem(it.item, it.displayId)}><ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}{it.maxCount ? ` · stock ${it.maxCount}` : ''}</span></li>
 			{/each}
 		</ul>
 	{/if}
+	{#if hover}<ItemTooltip entry={hover.entry} displayId={hover.displayId} x={hover.x} y={hover.y} />{/if}
 </div>
 
 <style>

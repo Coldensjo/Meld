@@ -908,6 +908,24 @@ func (a *App) SearchItems(text string) ([]vmangos.ItemRef, error) {
 	return vmangos.SearchItems(server, text, 100)
 }
 
+// ReadItem reads an item template's row, every column by name, for the Shop tab's tooltips.
+func (a *App) ReadItem(entry int) (map[string]string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadItem(server, entry)
+}
+
+// ItemIcons gives the inventory icon (a name under Interface\Icons) of each item display.
+func (a *App) ItemIcons(displays []int) (map[int]string, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ItemIcons(dataDir, displays)
+}
+
 // CreateCreature adds a creature template named name, a copy of template base (or the defaults
 // for 0), and returns its entry.
 func (a *App) CreateCreature(base int, name string) (int, error) {

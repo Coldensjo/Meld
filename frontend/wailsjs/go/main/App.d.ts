@@ -59,6 +59,8 @@ export function GroundEffects():Promise<vmangos.GroundEffectTables>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
+export function ItemIcons(arg1:Array<number>):Promise<Record<number, string>>;
+
 export function LaunchGame():Promise<void>;
 
 export function LaunchGameAt(arg1:vmangos.CharacterSpot):Promise<string>;
@@ -138,6 +140,8 @@ export function ReadCreatureQuests(arg1:number):Promise<vmangos.CreatureQuests>;
 export function ReadGossip(arg1:number):Promise<vmangos.Gossip>;
 
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
+
+export function ReadItem(arg1:number):Promise<Record<string, string>>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
 

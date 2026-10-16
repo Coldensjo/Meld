@@ -1136,6 +1136,7 @@ export namespace vmangos {
 	    entry: number;
 	    name: string;
 	    quality: number;
+	    displayId: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ItemRef(source);
@@ -1146,6 +1147,7 @@ export namespace vmangos {
 	        this.entry = source["entry"];
 	        this.name = source["name"];
 	        this.quality = source["quality"];
+	        this.displayId = source["displayId"];
 	    }
 	}
 	
@@ -1994,6 +1996,7 @@ export namespace vmangos {
 	    item: number;
 	    name: string;
 	    quality: number;
+	    displayId: number;
 	    maxCount: number;
 	    incrTime: number;
 	    itemFlags: number;
@@ -2008,6 +2011,7 @@ export namespace vmangos {
 	        this.item = source["item"];
 	        this.name = source["name"];
 	        this.quality = source["quality"];
+	        this.displayId = source["displayId"];
 	        this.maxCount = source["maxCount"];
 	        this.incrTime = source["incrTime"];
 	        this.itemFlags = source["itemFlags"];

@@ -106,6 +106,10 @@ export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
 
+export function ItemIcons(arg1) {
+  return window['go']['main']['App']['ItemIcons'](arg1);
+}
+
 export function LaunchGame() {
   return window['go']['main']['App']['LaunchGame']();
 }
@@ -264,6 +268,10 @@ export function ReadGossip(arg1) {
 
 export function ReadHeightmap(arg1) {
   return window['go']['main']['App']['ReadHeightmap'](arg1);
+}
+
+export function ReadItem(arg1) {
+  return window['go']['main']['App']['ReadItem'](arg1);
 }
 
 export function ReadTextFile(arg1) {
