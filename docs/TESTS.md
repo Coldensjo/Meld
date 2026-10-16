@@ -838,6 +838,10 @@ imported from the page's `deps/three.js` URL).
   Sunk 2 yd first (`yOff: -2`, as the Place tool's PgDn or the Inspector would), the ground levels at
   80.94 again, 2 yd above its origin (78.94), so that much of the stone stays underground, and its
   `yOff` stays -2, so fitting it again changes nothing.
+  The ring is smoothed (two 3x3 passes over it and one cell past it), so 54 vertices move; the height
+  along z 200 from x 300 east reads 80.9 on the pad, then climbs about 1 yd every 2 yd with no step at
+  the pad's edge (`t.heightAt(x, 200)` for x 300..330). A screenshot from 60 yd shows little; read the
+  profile.
 - The Place tool's Fit ground (#207, `prefs.placeFitGround`): over CDP, load Northshire with tool
   `place`, set `editor.prefab` to a building's type (the Westfall farm WMO stands in the region) and
   wait until `getAsset(type).ready`, set `prefs.placeFitGround` (both through the page's own module

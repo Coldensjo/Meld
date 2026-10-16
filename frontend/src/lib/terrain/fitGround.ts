@@ -37,6 +37,9 @@ export interface FitResult {
 	changed: boolean
 }
 
+/** How many times the ring is smoothed, which rounds its edges (#210). */
+const SMOOTH_PASSES = 2
+
 /** 0 at the footprint to 1 at the ring's edge, eased. */
 const ease = (t: number) => t * t * (3 - 2 * t)
 
@@ -156,6 +159,33 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 			out[i] = v
 			changed = true
 		}
+	}
+
+	// Round the ring's two creases, at the apron and at the hill, with a few 3x3 averaging passes over
+	// the ring and one cell past it; the footprint, the apron and a hole's edge stay as they are.
+	if (o.falloff > 0) {
+		const ring = new Uint8Array(n)
+		for (let i = 0; i < n; i++) ring[i] = !fixed[i] && dist[i] > pad && dist[i] < o.falloff + cell ? 1 : 0
+		const prev = new Float32Array(n)
+		for (let pass = 0; pass < SMOOTH_PASSES; pass++) {
+			prev.set(out)
+			for (let z = 0; z < h; z++) {
+				for (let x = 0; x < w; x++) {
+					const i = z * w + x
+					if (!ring[i]) continue
+					let sum = 0
+					let k = 0
+					for (let dz = Math.max(0, z - 1); dz <= Math.min(h - 1, z + 1); dz++) {
+						for (let dx = Math.max(0, x - 1); dx <= Math.min(w - 1, x + 1); dx++) {
+							sum += prev[dz * w + dx]
+							k++
+						}
+					}
+					out[i] = allow(ground[i], sum / k)
+				}
+			}
+		}
+		for (let i = 0; i < n && !changed; i++) if (out[i] !== ground[i]) changed = true
 	}
 	return { heights: out, holes, changed }
 }

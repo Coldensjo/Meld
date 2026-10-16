@@ -25,14 +25,14 @@ const at = (a: Float32Array, x: number, z: number) => a[z * W + x]
 
 test('the ground goes just under the floor and blends back over the ring', () => {
 	const { ground, floor, bottom } = scene(10, 14, 4, 6)
-	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts())
+	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ falloff: 3 }))
 	assert.ok(r.changed)
 	assert.equal(at(r.heights, 5, 5), 13.5, 'under the floor by the margin')
 	assert.equal(at(r.heights, 4, 4), 13.5)
 	const ring1 = at(r.heights, 3, 5)
 	const ring2 = at(r.heights, 2, 5)
 	assert.ok(ring1 < 13.5 && ring1 > ring2 && ring2 > 10, `the ring falls away: ${ring1}, ${ring2}`)
-	assert.equal(at(r.heights, 0, 5), 10, 'beyond the falloff the ground is untouched')
+	assert.equal(at(r.heights, 0, 5), 10, 'a cell beyond the falloff (where the smoothing ends) the ground is untouched')
 	assert.equal(at(r.holes, 0, 0), 0)
 })
 
@@ -80,9 +80,9 @@ test('on a slope, the footprint and its apron are level, and the ring starts fro
 	const { floor, bottom } = scene(0, 9, 3, 7)
 	const ground = new Float32Array(W * W)
 	for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) ground[z * W + x] = x
-	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ margin: 0.2, falloff: 3 }), 5, 1)
+	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ margin: 0.2, falloff: 2 }), 5, 1)
 	for (let x = 2; x <= 8; x++) assert.equal(at(r.heights, x, 5), 5, `vertex ${x} is level`)
 	const up = at(r.heights, 9, 5)
 	assert.ok(up > 5 && up < 9, `the ring climbs back to the hill: ${up}`)
-	assert.equal(at(r.heights, 10, 5), 10, 'beyond the falloff the ground is untouched')
+	assert.equal(at(r.heights, 10, 5), 10, 'a cell beyond the falloff the ground is untouched')
 })
