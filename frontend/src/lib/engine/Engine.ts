@@ -878,7 +878,12 @@ export class Engine {
     v.cutoffPx = this.prefs?.cullSmallModels === false ? 0 : SMALL_MODEL_PX
     v.lodPx = LOD_PX
     this.objects.cull(v)
+    // Spawns show through a room's walls by preference (#150): the camera often sits inside a building
+    // while the author works on the creatures around it.
+    const gate = v.gate
+    if (this.prefs?.spawnsThroughWalls !== false) v.gate = null
     this.doc.spawnLayer.cull(v)
+    v.gate = gate
     this.updateGroundEffects()
     // The water and the tufts show through a room's doorways only, as the rest of the world (#119).
     this.doc.groundEffects.gate(v.gate ?? null)
@@ -922,7 +927,7 @@ export class Engine {
     p.light.copy(tu.skyAmbient.value as THREE.Color).add(this.tmpColor.copy(tu.sunColor.value as THREE.Color).multiplyScalar(sun))
     p.light.setRGB(Math.min(1, p.light.r), Math.min(1, p.light.g), Math.min(1, p.light.b))
     // With animations off the tracks hold at the loop's start, as the bones do, but the particles still fly.
-    p.update(this.objects, this.doc.spawnLayer, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum, this.cullView.gate ?? null, this.rooms.current?.id ?? -1)
+    p.update(this.objects, this.doc.spawnLayer, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum, this.cullView.gate ?? null, this.rooms.current?.id ?? -1, this.prefs?.spawnsThroughWalls !== false)
   }
 
   private applyViewDistance() {

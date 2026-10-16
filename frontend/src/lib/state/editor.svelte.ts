@@ -350,6 +350,11 @@ export const prefs = $state({
   showAllPaths: false,
   /** Names over the creatures and game objects, with a creature's level and rank (#125). */
   spawnNames: true,
+  /**
+   * Creatures and game objects stay drawn with the camera in a building, where the rest of the world
+   * shows only through its doorways (#150).
+   */
+  spawnsThroughWalls: true,
   /** A click on a creature in the Select tool opens it in the creature editor. */
   renderScale: 1,
   viewDistance: 1,

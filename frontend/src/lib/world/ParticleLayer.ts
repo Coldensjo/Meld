@@ -426,7 +426,8 @@ export class ParticleLayer {
   /** Advances and draws the particles: dt seconds have passed and the models' clock reads `ms`. */
   /**
    * `gate`, with the camera in a WMO room, are its doorways' frustums: an emitter outside them all is
-   * frozen and hidden, except those of the building itself, the object `gateExempt`.
+   * frozen and hidden, except those of the building itself, the object `gateExempt`, and with
+   * `spawnsUngated` those of the spawns, which are drawn through walls then.
    */
   update(
     layer: ObjectLayer,
@@ -437,6 +438,7 @@ export class ParticleLayer {
     frustum: THREE.Frustum,
     gate: THREE.Frustum[] | null = null,
     gateExempt = -1,
+    spawnsUngated = false,
   ) {
     const exempt = `${gateExempt}:`
     this.group.visible = this.enabled
@@ -471,7 +473,7 @@ export class ParticleLayer {
       origin.setFromMatrixPosition(m)
       const d = origin.distanceTo(eye)
       if (d > RANGE || !frustum.intersectsSphere(sphere.set(origin, REACH))) continue
-      if (gate && !key.startsWith(exempt) && !meetsAny(gate, sphere)) continue
+      if (gate && !key.startsWith(exempt) && !(spawnsUngated && key.startsWith('s:')) && !meetsAny(gate, sphere)) continue
       const b = l.batch
       const pool = l.pool
       if (pool) {
