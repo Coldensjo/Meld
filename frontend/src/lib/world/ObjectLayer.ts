@@ -196,6 +196,14 @@ export class ObjectLayer {
     return !this.showHidden && this.hidden.has(id)
   }
 
+  /**
+   * Whether a tool may pick, select or remove an object: it is drawn, and so is the layer (View ›
+   * Layers › Objects). What View hides is click-through (#135).
+   */
+  pickable(id: number): boolean {
+    return this.group.visible && !this.isHidden(id)
+  }
+
   setHidden(id: number, hide: boolean) {
     const o = this.objects.get(id)
     if (!o || this.hidden.has(id) === hide) return
@@ -434,6 +442,8 @@ export class ObjectLayer {
 
   /** Hits on the drawn instances, nearest first: one per instance, from its model's bounds tree. */
   private intersect(raycaster: THREE.Raycaster, wmoOnly = false): THREE.Intersection[] {
+    // A hidden layer is click-through, and blocks no sight line either.
+    if (!this.group.visible) return []
     const meshes: THREE.Object3D[] = []
     for (const [type, b] of this.batches) {
       if (wmoOnly && !type.startsWith('wmo:')) continue
@@ -466,7 +476,7 @@ export class ObjectLayer {
     let best = Infinity
     for (let i = 0; i < count; i++) {
       const id = ids[i]
-      if (exclude?.has(id) || this.isHidden(id)) continue
+      if (exclude?.has(id) || !this.pickable(id)) continue
       const o = this.objects.get(id)
       if (!o) continue
       const asset = getAsset(o.type)

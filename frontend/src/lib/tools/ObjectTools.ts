@@ -526,7 +526,7 @@ export class SelectTool implements Tool {
     const r2 = editor.brush.radius * editor.brush.radius
     let changed = b.ids.size === 0 && editor.selectedIds.length > 0
     for (const o of ctx.objects.objects.values()) {
-      if (ctx.objects.isHidden(o.id)) continue
+      if (!ctx.objects.pickable(o.id)) continue
       let x = o.x
       let z = o.z
       if (o.parent !== undefined) {

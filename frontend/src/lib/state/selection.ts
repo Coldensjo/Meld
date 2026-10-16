@@ -66,7 +66,7 @@ export function objectsInRect(objects: ObjectLayer, cellSize: number, r: { x0: n
   const z1 = r.z1 * cellSize
   const out: WorldObject[] = []
   for (const o of objects.objects.values()) {
-    if (objects.isHidden(o.id)) continue
+    if (!objects.pickable(o.id)) continue
     const p = objects.worldPosition(o, tmp)
     if (p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1) out.push(o)
   }

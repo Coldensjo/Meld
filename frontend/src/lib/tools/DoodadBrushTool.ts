@@ -521,7 +521,7 @@ export class DoodadBrushTool implements Tool {
     const r2 = editor.brush.radius * editor.brush.radius
     const gone = new Set<number>()
     for (const o of ctx.objects.objects.values()) {
-      if (o.parent !== undefined || !types.has(o.type)) continue
+      if (o.parent !== undefined || !types.has(o.type) || !ctx.objects.pickable(o.id)) continue
       const dx = o.x - hit.x
       const dz = o.z - hit.z
       if (dx * dx + dz * dz > r2) continue

@@ -1202,6 +1202,10 @@ export class Engine {
     d.groundEffects.group.visible = p.showGroundEffects
     d.spawnLayer.setKinds({ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects })
     this.spawnLabels.enabled = p.spawnNames
+    // What a layer toggle hides can't stay selected, since it can't be clicked either (#135).
+    if (!p.showObjects && editor.selectedIds.length) selectObjects(d.objects, [])
+    const s = editor.selectedSpawn
+    if (s && !{ monster: p.showMonsters, npc: p.showNpcs, object: p.showGameObjects }[s.kind]) selectSpawn(null)
   }
 
   /** Give the active terrain the palette whenever the editor's palette changes. */
@@ -2203,7 +2207,7 @@ export class Engine {
    */
   selectModelsOfType(type: string, within = false) {
     const pool = within ? selectedObjects(this.objects) : [...this.objects.objects.values()]
-    const ids = pool.filter((o) => o.type === type && !this.objects.isHidden(o.id)).map((o) => o.id)
+    const ids = pool.filter((o) => o.type === type && this.objects.pickable(o.id)).map((o) => o.id)
     selectObjects(this.objects, ids)
     const name = displayName(type)
     setStatus(ids.length === 1 ? `Selected the one ${name}.` : `Selected ${ids.length} × ${name}.`)

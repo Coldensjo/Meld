@@ -212,7 +212,7 @@ export class ClearTool implements Tool {
     out.clear()
     const r2 = editor.brush.radius * editor.brush.radius
     for (const o of objects.objects.values()) {
-      if (o.parent !== undefined) continue
+      if (o.parent !== undefined || !objects.pickable(o.id)) continue
       // A root model's x and z are its world ground point.
       const dx = o.x - hit.x
       const dz = o.z - hit.z
