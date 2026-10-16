@@ -2822,10 +2822,13 @@ export class Engine {
           if (under[i] > lowUnder + fit.reach) under[i] = NaN
         }
       }
-      // A fit levels the ground to the model's base, its origin, and keeps a cell's apron level around
-      // it (#210); a stamp takes the underside's shape and blends straight out.
+      // A fit levels the ground to the model's base and keeps a cell's apron level around it (#210); a
+      // stamp takes the underside's shape and blends straight out. The base is the origin, raised by
+      // the depth a model on the ground was sunk to (a negative height, from the Place tool's PgDn or
+      // the Inspector), so a farmhouse's stone footing sunk 2 yd stays 2 yd underground.
       const o = this.objects.objects.get(id)!
-      const base = stamp ? NaN : this.objects.worldPlacement(o).pos.y
+      const sunk = o.parent === undefined ? Math.max(0, -o.yOff) : 0
+      const base = stamp ? NaN : this.objects.worldPlacement(o).pos.y + sunk
       const r = fitHeights(ground, floor, under, w, h, x0, z0, cs, opts, base, stamp ? 0 : cs)
       if (!r.changed) continue
       fitted++

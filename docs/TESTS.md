@@ -835,6 +835,9 @@ imported from the page's `deps/three.js` URL).
   mode: 'both', holes: false, reach: 4 })`: the 19 vertices under it go from 79.9..84.3 to 80.94 each,
   32 vertices move (up to 7.4 yd, the uphill ring), the house keeps its height, undo/redo restore the
   heights exactly, and the screenshot shows the whole stone foundation on a level pad cut into the hill.
+  Sunk 2 yd first (`yOff: -2`, as the Place tool's PgDn or the Inspector would), the ground levels at
+  80.94 again, 2 yd above its origin (78.94), so that much of the stone stays underground, and its
+  `yOff` stays -2, so fitting it again changes nothing.
 - The Place tool's Fit ground (#207, `prefs.placeFitGround`): over CDP, load Northshire with tool
   `place`, set `editor.prefab` to a building's type (the Westfall farm WMO stands in the region) and
   wait until `getAsset(type).ready`, set `prefs.placeFitGround` (both through the page's own module
