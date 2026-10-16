@@ -842,6 +842,12 @@ imported from the page's `deps/three.js` URL).
   along z 200 from x 300 east reads 80.9 on the pad, then climbs about 1 yd every 2 yd with no step at
   the pad's edge (`t.heightAt(x, 200)` for x 300..330). A screenshot from 60 yd shows little; read the
   profile.
+- Jagged edges (#210): the owner saw spikes of ground running out from a wall. The covered vertices
+  along a wall come and go (the eaves are filtered by `reach`, the chimney and steps are not), and the
+  ring rose from each gap. The fit now measures the ring from the footprint's convex hull
+  (`hullDistance`). To see a footprint, print each vertex's height minus the pad's in a grid around the
+  model ('.' for level) after the fit; the unit test "a footprint with gaps along a wall" is the case
+  in small. View the farmhouse's chimney side with `e.controller.setView(300, base, 200, Math.PI, 0.6, 30)`.
 - The Place tool's Fit ground (#207, `prefs.placeFitGround`): over CDP, load Northshire with tool
   `place`, set `editor.prefab` to a building's type (the Westfall farm WMO stands in the region) and
   wait until `getAsset(type).ready`, set `prefs.placeFitGround` (both through the page's own module

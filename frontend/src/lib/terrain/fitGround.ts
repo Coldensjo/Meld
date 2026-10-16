@@ -67,7 +67,9 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 	const covered = (i: number) => !Number.isNaN(floor[i]) || !Number.isNaN(bottom[i])
 	for (let i = 0; i < n; i++) {
 		if (!covered(i)) continue
-		const hi = Number.isNaN(floor[i]) ? Infinity : floor[i] - o.margin
+		// With a base, a floor under it is underground (a sunk footing, a cellar) and leaves the ground
+		// level; holes still open over it.
+		const hi = Number.isNaN(floor[i]) || floor[i] < level ? Infinity : floor[i] - o.margin
 		const base = Number.isNaN(level) ? bottom[i] : level
 		target[i] = allow(ground[i], Number.isNaN(base) ? hi : Math.min(base, hi))
 	}
@@ -144,6 +146,11 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 		}
 	}
 
+	// With a base, the distance is to the footprint's convex hull instead (#210): the covered vertices
+	// along a wall come and go (under the eaves, a chimney, steps), and the ring rising from each gap
+	// drew spikes; the hull gives the pad straight edges and fills those gaps level.
+	if (!Number.isNaN(level)) hullDistance(covered, w, h, cell, dist)
+
 	// The fitted height is the base the ring starts from (#210): level over the apron, then eased back.
 	const pad = Math.min(apron, o.falloff)
 	for (let i = 0; i < n; i++) {
@@ -151,8 +158,7 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 		const g = ground[i]
 		const d = dist[i]
 		let v: number
-		if (d === 0) v = near[i]
-		else if (d <= pad) v = allow(g, near[i])
+		if (d <= pad) v = allow(g, near[i])
 		else if (d < o.falloff) v = allow(g, near[i] + (g - near[i]) * ease((d - pad) / (o.falloff - pad)))
 		else continue
 		if (v !== g) {
@@ -188,4 +194,49 @@ export function fitHeights(ground: Float32Array, floor: Float32Array, bottom: Fl
 		for (let i = 0; i < n && !changed; i++) if (out[i] !== ground[i]) changed = true
 	}
 	return { heights: out, holes, changed }
+}
+
+/**
+ * Sets `dist` (yards) to each vertex's distance from the convex hull of the vertices `covered` says
+ * are, 0 inside it; leaves it alone when nothing is covered.
+ */
+function hullDistance(covered: (i: number) => boolean, w: number, h: number, cell: number, dist: Float32Array) {
+	const pts: Array<[number, number]> = []
+	for (let z = 0; z < h; z++) for (let x = 0; x < w; x++) if (covered(z * w + x)) pts.push([x, z])
+	if (!pts.length) return
+	// Andrew's monotone chain, counter-clockwise, collinear points dropped.
+	pts.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+	const cross = (o: [number, number], a: [number, number], b: [number, number]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+	const lower: Array<[number, number]> = []
+	for (const p of pts) {
+		while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop()
+		lower.push(p)
+	}
+	const upper: Array<[number, number]> = []
+	for (let k = pts.length - 1; k >= 0; k--) {
+		const p = pts[k]
+		while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop()
+		upper.push(p)
+	}
+	const hull = lower.slice(0, -1).concat(upper.slice(0, -1))
+	if (!hull.length) hull.push(pts[0])
+	const m = hull.length
+	for (let z = 0; z < h; z++) {
+		for (let x = 0; x < w; x++) {
+			// Inside when on the left of every edge (counter-clockwise); a point or a segment has no inside.
+			let inside = m >= 3
+			let best = Infinity
+			for (let k = 0; k < m; k++) {
+				const a = hull[k]
+				const b = hull[(k + 1) % m]
+				if (m >= 3 && cross(a, b, [x, z]) < 0) inside = false
+				const ex = b[0] - a[0]
+				const ez = b[1] - a[1]
+				const len = ex * ex + ez * ez
+				const t = len > 0 ? Math.max(0, Math.min(1, ((x - a[0]) * ex + (z - a[1]) * ez) / len)) : 0
+				best = Math.min(best, Math.hypot(x - a[0] - t * ex, z - a[1] - t * ez))
+			}
+			dist[z * w + x] = inside ? 0 : best * cell
+		}
+	}
 }

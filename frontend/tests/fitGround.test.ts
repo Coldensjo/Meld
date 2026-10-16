@@ -86,3 +86,24 @@ test('on a slope, the footprint and its apron are level, and the ring starts fro
 	assert.ok(up > 5 && up < 9, `the ring climbs back to the hill: ${up}`)
 	assert.equal(at(r.heights, 10, 5), 10, 'a cell beyond the falloff the ground is untouched')
 })
+
+test('a footprint with gaps along a wall (eaves, a chimney) still gets a level pad with a straight edge (#210)', () => {
+	// A building based at 5 over vertices 2..8 on rising ground, with every other vertex of its back
+	// row (z 2) uncovered, as under the eaves.
+	const { floor, bottom } = scene(0, 9, 2, 8)
+	for (let x = 3; x <= 7; x += 2) floor[2 * W + x] = bottom[2 * W + x] = NaN
+	const ground = new Float32Array(W * W)
+	for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) ground[z * W + x] = 10 - z
+	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts({ falloff: 3 }), 5, 1)
+	for (let x = 2; x <= 8; x++) assert.equal(at(r.heights, x, 2), 5, `back row vertex ${x} is level`)
+	const ring = [3, 4, 5, 6, 7].map((x) => at(r.heights, x, 0))
+	assert.ok(Math.max(...ring) - Math.min(...ring) < 0.1, `the ring behind it is even: ${ring}`)
+})
+
+test('with a base, a floor under it (a sunk footing) leaves the ground level (#210)', () => {
+	const { ground, floor, bottom } = scene(10, 14, 3, 7)
+	floor[5 * W + 5] = 8
+	const r = fitHeights(ground, floor, bottom, W, W, 0, 0, 1, opts(), 10)
+	assert.equal(at(r.heights, 5, 5), 10)
+	assert.equal(r.changed, false)
+})
