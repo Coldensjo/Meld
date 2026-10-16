@@ -139,7 +139,7 @@
 {/snippet}
 
 <div class="options" onwheel={scrollSideways}>
-  <div class="tool" title={tool.name}>
+  <div class="tool" title="{tool.name}: {tool.desc}">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
       <path d={tool.icon} />
     </svg>
