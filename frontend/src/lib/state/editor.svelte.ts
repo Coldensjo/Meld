@@ -340,6 +340,10 @@ export const prefs = $state({
   showObjects: true,
   /** Camera › Locked cursor (#19, Noggit Red's): a brush stays on its ground point while the camera moves; only the mouse moves it. */
   lockedCursor: false,
+  /** Graphics › FPS limit (#24): frames a second at most, 0 for the screen's rate. */
+  fpsLimit: 0,
+  /** Graphics › Anti-aliasing (#24), mirrored to localStorage by display.ts and applied at the next start. */
+  antialias: true,
   /** View › Layers › Doodads (m2 models) and Buildings (wmo), each on its own under Objects (#43). */
   showDoodads: true,
   showBuildings: true,

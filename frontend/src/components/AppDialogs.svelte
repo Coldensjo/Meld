@@ -115,6 +115,7 @@
         ['Ctrl+W', 'Close map tab'],
         ['Ctrl+Tab / Ctrl+Shift+Tab', 'Next / previous map tab'],
         ['Tab', 'Hide / show the panels (the menu bar stays)'],
+        ['F11', 'Full screen on / off'],
         ['Ctrl+Shift+S', 'Save as'],
         ['Ctrl+Shift+P', 'Save the minimap as an image'],
         ['Ctrl+R', 'Stand the selected models upright (their tilt goes, their heading stays)'],

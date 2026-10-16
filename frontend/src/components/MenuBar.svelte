@@ -11,6 +11,7 @@
   import { quitNow } from '../lib/io/session'
   import { requestClose } from './DocTabs.svelte'
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
+  import { rememberAntialias, toggleFullScreen } from '../lib/engine/display'
   import { MANUAL_URL } from './AppDialogs.svelte'
   import { TOOLBAR_ICON_MAX, TOOLBAR_ICON_MIN } from './Toolbar.svelte'
 
@@ -289,6 +290,29 @@
         { kind: 'check', label: 'Particles', checked: prefs.particles, toggle: () => (prefs.particles = !prefs.particles) },
         { kind: 'check', label: 'Prop animations', checked: prefs.animations, toggle: () => (prefs.animations = !prefs.animations) },
         { kind: 'check', label: 'Skip models too small to see', checked: prefs.cullSmallModels, toggle: () => (prefs.cullSmallModels = !prefs.cullSmallModels) },
+        {
+          kind: 'check',
+          label: 'Anti-aliasing (after a restart)',
+          checked: prefs.antialias,
+          toggle: () => {
+            prefs.antialias = !prefs.antialias
+            rememberAntialias(prefs.antialias)
+            setStatus('Anti-aliasing changes the next time Meld starts.', 4000)
+          },
+        },
+        { kind: 'header', label: 'FPS limit' },
+        ...radios(
+          [
+            ["None (the screen's rate)", 0],
+            ['30', 30],
+            ['60', 60],
+            ['120', 120],
+          ],
+          () => prefs.fpsLimit,
+          (v) => (prefs.fpsLimit = v),
+        ),
+        { kind: 'sep' },
+        { kind: 'action', label: 'Full Screen', shortcut: 'F11', run: () => void toggleFullScreen() },
       ],
     },
     {

@@ -22,6 +22,7 @@
   import { copyTeleport } from './lib/io/scene'
   import { onMount } from 'svelte'
   import { refreshGameClient } from './lib/io/mapio'
+  import { toggleFullScreen } from './lib/engine/display'
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
   import { LAYERS } from './lib/terrain/layers'
@@ -140,6 +141,11 @@
 
     if (e.key === 'F1') {
       ui.dialog = 'help'
+      e.preventDefault()
+      return
+    }
+    if (e.key === 'F11' && !mod) {
+      void toggleFullScreen()
       e.preventDefault()
       return
     }

@@ -60,6 +60,8 @@ import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
 import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
+import { antialiasAtStart } from './display'
+import { frameDue } from './frameLimit'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import type { MapInfo } from './MapDocument'
@@ -365,7 +367,7 @@ export class Engine {
     private canvas: HTMLCanvasElement,
     private container: HTMLElement,
   ) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: antialiasAtStart(), powerPreference: 'high-performance' })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.renderer.toneMapping = THREE.NoToneMapping
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -449,11 +451,15 @@ export class Engine {
 
   start() {
     this.clock.start()
-    const loop = () => {
+    let last = -Infinity
+    const loop = (now: number) => {
       this.raf = requestAnimationFrame(loop)
+      // Graphics › FPS limit (#24): a frame waits for its interval; the clock's delta covers the skipped ones.
+      if (!frameDue(now, last, this.prefs?.fpsLimit ?? 0)) return
+      last = now
       this.frame()
     }
-    loop()
+    loop(performance.now())
   }
 
   dispose() {
