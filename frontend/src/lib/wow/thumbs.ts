@@ -128,6 +128,8 @@ async function renderPrefab(p: Prefab): Promise<Blob> {
 async function capture(object: THREE.Object3D, bbox: THREE.Box3): Promise<Blob> {
   const engine = engineRef.current
   if (!engine) throw new Error('renderer not ready')
+  // While the viewport's context is lost (#209) a render gives blank pixels, which would be cached.
+  await engine.contextReady()
   const { scene, camera, target } = getRig()
   scene.add(object)
   const s = bbox.getBoundingSphere(new THREE.Sphere())
@@ -157,6 +159,7 @@ async function capture(object: THREE.Object3D, bbox: THREE.Box3): Promise<Blob> 
   renderer.setRenderTarget(prevTarget)
   renderer.setClearAlpha(prevAlpha)
   scene.remove(object)
+  if (renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context')
 
   // Flip (GL rows are bottom-up) and downsample for smooth edges.
   const big = document.createElement('canvas')

@@ -606,6 +606,15 @@ export class Terrain {
   shadowVersion = 0
   private shadowUploaded = false
 
+  /**
+   * After the WebGL context came back (#209): three uploads every texture again by itself, so a row
+   * update made while it was gone must not narrow that upload to the row.
+   */
+  contextRestored() {
+    this.bakedTex?.clearUpdateRanges()
+    this.shadowUploaded = false
+  }
+
   /** Uploads the shadow texel rows z0 to z1 (inclusive) after they were written. */
   touchShadow(z0: number, z1: number) {
     const t = this.bakedTex

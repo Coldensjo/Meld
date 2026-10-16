@@ -329,7 +329,14 @@ export class Engine {
   private statTime = 0
   /** View › Performance Overlay (#179): the frame's CPU time by subsystem, and its GPU passes. */
   private readonly meter = new PerfMeter()
-  private readonly gpu: GpuTimer
+  private gpu: GpuTimer
+  /**
+   * Whether the browser took the viewport's WebGL context away (#209: a driver reset, the GPU process
+   * restarting, too many contexts). The frame loop idles and the offscreen renders wait or refuse
+   * until it is restored; three re-uploads geometry, textures and programs then by itself.
+   */
+  contextLost = false
+  private contextWaiters: Array<() => void> = []
   /** Help › Copy Performance Report waiting for the next window, with the overlay off. */
   private perfWaiters: Array<(r: PerfReport) => void> = []
   private resizeObs: ResizeObserver
@@ -411,6 +418,10 @@ export class Engine {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.gpu = new GpuTimer(this.renderer.getContext())
+    // three's own listeners (added in its constructor, so run first) keep the context restorable and
+    // rebuild its state; these pause the editor around it.
+    canvas.addEventListener('webglcontextlost', () => this.onContextLost(), { signal: this.abort.signal })
+    canvas.addEventListener('webglcontextrestored', () => this.onContextRestored(), { signal: this.abort.signal })
     this.timeShadowMaps()
     this.env = new Environment(this.scene)
     this.scene.add(this.horizon.mesh)
@@ -505,9 +516,37 @@ export class Engine {
       // Graphics › FPS limit (#24): a frame waits for its interval; the clock's delta covers the skipped ones.
       if (!frameDue(now, last, this.prefs?.fpsLimit ?? 0)) return
       last = now
-      this.frame()
+      if (!this.contextLost) this.frame()
     }
     loop(performance.now())
+  }
+
+  private onContextLost() {
+    this.contextLost = true
+    setStatus('The graphics card dropped the viewport (a driver reset or too many 3D views). Waiting for it to come back…', 0)
+  }
+
+  /** Redraws what is drawn once and kept: the shadow maps, and the GPU timer's queries on the new context. */
+  private onContextRestored() {
+    this.contextLost = false
+    // The old timer's queries died with the context, so it is dropped rather than disposed.
+    this.gpu = new GpuTimer(this.renderer.getContext())
+    // Every shadow map is redrawn at once: a point light's cube map that has no texture on the new
+    // context fails every draw that samples it (GL_INVALID_OPERATION), and the light pool redraws only
+    // one a frame, and never a light no source holds.
+    this.scene.traverse((o) => {
+      if ((o as THREE.Light).isLight && o.castShadow) (o as THREE.PointLight).shadow.needsUpdate = true
+    })
+    for (const d of this.documents) d.terrain.contextRestored()
+    this.clock.getDelta()
+    setStatus('The viewport is back.', 4000)
+    for (const w of this.contextWaiters.splice(0)) w()
+  }
+
+  /** Resolves once the viewport has a WebGL context, at once unless it is lost. */
+  contextReady(): Promise<void> {
+    if (!this.contextLost) return Promise.resolve()
+    return new Promise((res) => this.contextWaiters.push(res))
   }
 
   dispose() {
@@ -3785,6 +3824,8 @@ export class Engine {
    * overlays. Drawn four times larger and averaged down, so edges don't shimmer.
    */
   renderMinimapTile(tx: number, tz: number, models: 'none' | 'buildings' | 'all', side = 256): Uint8Array {
+    // Without a context (#209) the shot would be black, and it is written into the client.
+    if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
     const t = this.terrain
     const tile = TILE_CELLS * t.cellSize
     let top = editor.waterEnabled ? editor.waterLevel : -Infinity
@@ -3852,6 +3893,7 @@ export class Engine {
         this.renderer.clear()
         this.renderer.render(this.scene, this.ortho)
         this.renderer.readRenderTargetPixels(rt, 0, 0, big, big, pix)
+        if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
       } finally {
         this.renderer.setRenderTarget(prev)
         this.scene.background = background

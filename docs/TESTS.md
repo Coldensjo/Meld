@@ -1487,3 +1487,20 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   the folder's former place (`C:\Servers\Software\vmangos`), so it can't be reused.
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
+
+## Losing and restoring the viewport's WebGL context (#209)
+Checks: the viewport comes back after the browser drops its WebGL context, and nothing is drawn or
+cached from a lost one (thumbnails wait, Write Minimap Tiles refuses).
+- In the dev page (headless Chrome over CDP works, see above): `const x = __engine.renderer.getContext().getExtension('WEBGL_lose_context'); x.loseContext()`,
+  wait ~500 ms: `__engine.contextLost` is true, the status bar says the graphics card dropped the
+  viewport, and `__engine.renderMinimapTile(0, 0, 'none', 16)` throws. Then `x.restoreContext()`, wait
+  ~1.5 s and step `__engine.frame()` a few times: the status says the viewport is back, the shot looks
+  as before, and `gl.getError()` stays 0 after each frame. Compare the mean of a small
+  `renderMinimapTile` before and after (78.1 against 78.5 on a Stranglethorn region, 2026-10-16).
+- Trap: three rebuilds its state and re-uploads geometry and textures by itself on restore, but a
+  shadow map exists on the new context only once redrawn. A point light's cube map that has none makes
+  every draw sampling `pointShadowMap` fail with GL_INVALID_OPERATION (1282): the ground turns flat and
+  the models vanish. `onContextRestored` sets `shadow.needsUpdate` on every casting light for that.
+  Finding such an error: wrap the context's prototype methods, call `getError` after each and log the
+  dozen calls before the first error; then list the program's active uniforms with their raw types
+  (`0x8dc5` is `samplerCubeShadow`).
