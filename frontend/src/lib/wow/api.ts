@@ -4,6 +4,7 @@ import { setLiquidTypes } from '../water/liquids'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { hasBackend } from '../io/mapio'
 import { logFile, wow } from '../state/editor.svelte'
+import { beginLoad, endLoad } from './loadProgress'
 
 // Client for the Go side's /wow/* endpoints, which read assets live from the
 // user's own WoW 1.x installation. Nothing is bundled with the app.
@@ -215,13 +216,16 @@ const url = (endpoint: string, path: string) => {
 
 async function fetchBinary(endpoint: string, path: string): Promise<ArrayBuffer> {
   const t0 = performance.now()
+  beginLoad(endpoint, path, t0)
   try {
     const r = await fetch(url(endpoint, path))
     if (!r.ok) throw new Error(`${path}: ${(await r.text()).trim() || r.status}`)
     const buf = await r.arrayBuffer()
+    endLoad(false)
     logFile(endpoint, path, performance.now() - t0)
     return buf
   } catch (err) {
+    endLoad(true)
     logFile(endpoint, path, performance.now() - t0, err)
     throw err
   }

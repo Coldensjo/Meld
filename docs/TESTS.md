@@ -964,6 +964,16 @@ the same scene, the report before and after.
 - The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
   draws them inside `renderer.render`, so without the wrap they would count as the scene.
 
+## Loading bar (#159)
+
+Checks: `lib/wow/loadProgress.ts` (counters, unit test `loadProgress.test.ts`) fed by `fetchBinary`
+in `wow/api.ts`, drawn by `LoadingBar.svelte` (`[aria-label="Loading from the client"]`, label in
+`.label`) after a batch has run 400 ms. In the dev page over CDP: start `__loadScene` without awaiting
+it, sample the label every 200 ms while stepping `__engine.frame()`: it reads like "Loading 96 / 236 ·
+Textures · G_BARREL01.BLP", and is gone within ~200 ms of the reads ending. One `fetchImage` while
+idle must never show it. Trap: on a second run the reads come from cache and each batch ends before
+400 ms, so the bar rightly never shows; use a region not opened in that browser profile yet.
+
 ## Graphics › Quality presets (#203)
 
 Checks: `lib/state/graphicsPresets.ts` (unit test `graphicsPresets.test.ts`: each preset is found

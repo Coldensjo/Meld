@@ -5,6 +5,7 @@
   import DocTabs from './DocTabs.svelte'
   import PathEditBar from './PathEditBar.svelte'
   import PerfOverlay from './PerfOverlay.svelte'
+  import LoadingBar from './LoadingBar.svelte'
   import { prefs, setStatus, stats, ui } from '../lib/state/editor.svelte'
 
   let container: HTMLDivElement
@@ -36,6 +37,7 @@
     <canvas bind:this={canvas} tabindex="-1"></canvas>
     {#if error}<div class="error">{error}</div>{/if}
     <PathEditBar />
+    <LoadingBar />
     {#if prefs.perfOverlay}<PerfOverlay />{/if}
     {#if ui.viewportHint}{#key ui.viewportHintSeq}<div class="hint">{ui.viewportHint}</div>{/key}{/if}
     {#if prefs.detailInfo && stats.detail}
