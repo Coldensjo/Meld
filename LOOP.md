@@ -5,16 +5,78 @@ The backlog is the GitHub issues of `Coldensjo/Meld`, read and written with `gh`
 machine). The rest lives in DESIGN.md (goals, rules, priorities) and in the closed issues labelled `decision`
 (how finished features were decided), so each run starts fresh.
 
+**Two kinds of run** work the same backlog at the same time:
+
+- **Local**: a session on the owner's machine, on `main`. It has `gh`, the WoW client and Windows, so
+  it can check items in the app. It commits to `main`, goes through the cloud runs' pull requests
+  (step P) and pushes `main` at the end of the run (step 7).
+- **Cloud**: a claude.ai/code session in a container, on the branch the session was given. It has no
+  `gh` (use the GitHub tools it has for the same reads and writes), no WoW client and no Windows. It
+  never commits to `main`: each item becomes a pull request (step 3f), which a local run verifies and
+  merges.
+
+Both claim the issue they work on (*Claims*), so neither starts what the other is doing.
+
 ---
 
-Read CLAUDE.md and DESIGN.md. Do not edit DESIGN.md. Then read the backlog:
+Read CLAUDE.md and DESIGN.md. Do not edit DESIGN.md. A local run first brings `main` up to date with
+what was merged on GitHub: `git pull --rebase --autostash origin main` (the autostash keeps the
+owner's uncommitted changes; if it or the rebase conflicts, stop the run and tell the owner). Then
+read the backlog:
 
 ```
 gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title,labels,body
 ```
 
-and the last comment of the pinned **Loop run log** issue (label `loop-log`). If `gh` fails (no
-network, logged out), stop the run and say so; do not fall back to the frozen files.
+and the last comment of the pinned **Loop run log** issue (label `loop-log`). If `gh` (or, in a
+cloud run, the GitHub tools) fails (no network, logged out), stop the run and say so; do not fall
+back to the frozen files.
+
+**Claims.** An issue labelled `claimed` is being worked on by another run: skip it. To take an item,
+just before reading its code:
+
+1. Read it again with its comments. If it has gained `claimed` since you chose it, choose another.
+2. Add the label `claimed` (create it once with `gh label create claimed --repo Coldensjo/Meld
+   --color FBCA04 --description "A loop run is working on this"` if it is missing) and comment
+   `**Claude:** claimed by the local loop` or `**Claude:** claimed by a cloud session, branch
+   <branch>`, with the UTC time.
+3. Read the comments once more. If another run's claim comment came before yours, delete your
+   comment, leave the label to it and choose another item.
+
+A claim ends when the item does: remove `claimed` when you close the issue, leave it unfinished, or
+ask the owner about it. A cloud item keeps its claim while its pull request is open; the local run
+that merges or closes the pull request removes it (step P). A claim more than 24 hours old with no
+commit, pull request or comment since is stale: comment `**Claude:** taking over a stale claim.` and
+claim it as yours.
+
+**P. Pull requests (local runs only), before triage.** Go through the open pull requests of the
+cloud runs:
+
+```
+gh pr list --repo Coldensjo/Meld --state open --label cloud-pr --json number,title,headRefName,body
+```
+
+Do them all, oldest first; they don't count toward the run's cap. For each:
+
+a. Read it with its comments (`gh pr view <n> --repo Coldensjo/Meld --comments`) and its diff, and
+   the issue it closes. Review the diff against CLAUDE.md, DESIGN.md and the issue as you would your
+   own work (step 3a).
+b. Check it out (`gh pr checkout <n>`; the owner's uncommitted changes stay as they are, or stash
+   them with a message and pop them after) and run the checks of step 3b, all four on Linux, the
+   three that run on Windows. If the item changes what the app shows, check it in the app (step 3c).
+   If the pull request conflicts with `main`, merge `main` into its branch and resolve it, as long
+   as the resolution is plain; a resolution that would change what the item does counts as a
+   failure.
+c. If it passes, merge it, keeping the cloud run's one commit as it is:
+   `gh pr merge <n> --repo Coldensjo/Meld --rebase --delete-branch` (after a merge of `main` into the
+   branch, use `--squash` with the commit's message as `--subject` and `--body`). Go back to `main`
+   and `git pull --rebase --autostash origin main`. Comment on the issue `**Claude:** merged in
+   <short-hash> from #<pr>.` with the step 3e lines (Verified: the checks the local run made, and
+   whether it was checked in the app), remove `claimed`, and close the issue if the merge didn't.
+d. If it fails, or the review finds it wrong, do not fix it here. Comment on the pull request what
+   failed and why, close it without deleting its branch, and comment on the issue `**Claude:** left
+   unfinished: ...` with what failed and the branch the work is on, so the next run can start from
+   it. Remove `claimed`, so any run may take the item again. Go back to `main`.
 
 **Comments.** Every comment the loop (or any Claude session) writes starts with `**Claude:**`. A
 comment by `Coldensjo` that doesn't start so is the owner's, and is an instruction for that item: it
@@ -31,7 +93,8 @@ has `source:owner` and no comment starting `**Claude:**`, which this lists:
 gh issue list --repo Coldensjo/Meld --state open --label source:owner --limit 300 --json number,comments --jq '.[] | select(all(.comments[]; .body | startswith("**Claude:**") | not)) | .number'
 ```
 
-Triage each one before choosing work, and
+Triage each one before choosing work, skipping one that is `claimed` and claiming the others for
+the triage (*Claims*; remove the claim when the triage is done), and
 the issue is eligible for this run afterwards. Triage doesn't count toward the run's cap. For each:
 
 a. Read it with its comments, and search for a duplicate (`gh issue list --search`, open and
@@ -59,14 +122,16 @@ g. Comment `**Claude:** triaged.` with a line each on what you changed in the ti
    labels and why, and any question asked. Mention the triaged issues in the run log.
 
 **1. Work through items until a stop condition applies.** Skip issues labelled `needs-approval`,
-`parked` or `owner-question` (but see *Asking the owner* for answered questions). The owner
+`parked`, `owner-question` (but see *Asking the owner* for answered questions) or `claimed` (see
+*Claims*). A cloud run also skips items that can only be verified in the game or the app. The owner
 approves by commenting `approved` (any limits after it bind the work), and a workflow then removes
 `needs-approval`; if the label is still there under such a comment by the owner, the workflow didn't
 run, so remove the label yourself and treat the item as approved. The order:
 `bug` first; then `benilla-port`, lowest issue number first (the owner's order,
 #103); then the rest in DESIGN.md priority order, then value (H first), then effort (S first).
-Prefer items that finish cleanly. Do up to **8 items per run**. Finish each item (steps 3 to 4) before
-you choose the next one. Before starting one, read it with its comments:
+Prefer items that finish cleanly. Do up to **8 items per run**; a cloud run that can push to only
+one branch does **1 item per run**, since each item is its own pull request. Finish each item
+(steps 3 to 4) before you choose the next one. Before starting one, read it with its comments:
 `gh issue view <n> --repo Coldensjo/Meld --comments`.
 
 **2. Stop conditions.** Stop when any of these holds:
@@ -132,10 +197,14 @@ b. Verify it:
    - `make build-windows`
    - `make build-linux`, only if this is Linux. On a Windows host it cannot run. Say so in the log.
 
+   A cloud run runs what its container can and says which checks it could not run, and why, in the
+   pull request; the local run makes up the rest in step P.
+
    If a check fails, fix it. If it cannot be fixed in this run, do not commit the item. Comment on
    the issue that it was left unfinished and why, and move on.
 
 c. If the item changes what the app shows, check it in the app or say in the log that you did not.
+   A cloud run cannot (no client); the local run does it in step P.
 
 d. Commit that item alone, following CLAUDE.md. Stage only the files you changed, by name. Never run
    `git add -A` or `git add .`. The working tree may hold the owner's uncommitted changes. Leave them
@@ -156,6 +225,16 @@ e. Close the issue with its log as the last comment: `gh issue comment <n> --rep
    - Left: follow-ups as new issues (#n), or "none".
    ```
 
+   Remove `claimed` from the issue. A cloud run does step f instead of this one.
+
+f. **Cloud runs: open a pull request** instead of closing the issue. Start the item's branch from the
+   latest `origin/main`, so the pull request carries this item alone in one commit (step d). Push it
+   and open a pull request into `main`: the title is the commit's sentence, the body is `Closes #<n>`
+   and the three lines of step e (Verified saying which checks the container could not run, and
+   that it was not checked in the app). Label the pull request `cloud-pr` (create the label as for
+   `claimed` if it is missing). Comment on the issue `**Claude:** pull request #<pr> for this.` and
+   leave the issue open and `claimed`; the local run merges it or sends it back (step P).
+
 **4. Log new ideas, do not build them.** Anything you notice that is not the current item becomes a
 new issue: a short title, a body that says what and why, `Found while working on #<n>.`, a
 `**Claude:** notes for the agent working on this.` comment (the code to read, the decisions that
@@ -170,6 +249,12 @@ closed as not planned, with the reason in a comment. Never close an owner-filed 
 duplicate, and say so in the run log.
 
 **6. Report.** Comment on the pinned Loop run log issue, and end the run with the same short summary:
-items done with their issue numbers and commit hashes, items left unfinished and why, owner questions
-asked, which stop condition applied, and the next top item. Do not start work after the stop
-condition applies.
+whether it was a local or a cloud run, items done with their issue numbers and commit hashes (a
+cloud run: the pull requests opened), pull requests merged or sent back (step P), items left
+unfinished and why, owner questions asked, which stop condition applied, and the next top item. Do
+not start work after the stop condition applies.
+
+**7. Push (local runs only).** Last, `git pull --rebase --autostash origin main`, run `make test` if
+the rebase brought in anything, and `git push origin main`, so the cloud runs start from the current
+code. Never force-push. If the rebase conflicts or the tests fail, do not push: stop and tell the
+owner.

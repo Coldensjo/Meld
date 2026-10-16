@@ -17,7 +17,8 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
 - Match the style of existing commit messages: one sentence in the imperative mood that says what
   changed and why, e.g. "Save palette thumbnails through a Go binding instead of a POST, since
   WebKitGTK crashes on request bodies".
-- Commit to the current branch. Do not push unless the user asks.
+- Commit to the current branch. Do not push unless the user asks, or LOOP.md says to (a local loop
+  run pushes `main` at its end; a cloud run pushes its branch and opens a pull request).
 - When a commit finishes an issue, end the message with a blank line and `Closes #<n>` before the
   `Co-Authored-By` trailer.
 
