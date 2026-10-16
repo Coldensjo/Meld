@@ -672,6 +672,16 @@ func (a *App) ClassLevelStats(class, from, to int) ([]vmangos.ClassLevelStats, e
 	return vmangos.ReadClassLevelStats(server, class, from, to)
 }
 
+// ZoneSounds names the client's zone music, intro music, ambience and sound preference rows, each
+// with a file to play, for the zone editor (#31).
+func (a *App) ZoneSounds() (vmangos.ZoneSoundTables, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.ZoneSoundTables{}, err
+	}
+	return vmangos.ZoneSounds(dataDir)
+}
+
 // SearchItems lists up to 100 item templates whose name has text in it (or whose entry it is).
 func (a *App) SearchItems(text string) ([]vmangos.ItemRef, error) {
 	server, _, err := a.serverAndData()

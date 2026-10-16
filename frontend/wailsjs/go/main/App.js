@@ -401,3 +401,7 @@ export function WritePNG(arg1, arg2) {
 export function WriteTextFile(arg1, arg2) {
   return window['go']['main']['App']['WriteTextFile'](arg1, arg2);
 }
+
+export function ZoneSounds() {
+  return window['go']['main']['App']['ZoneSounds']();
+}

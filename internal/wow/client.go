@@ -483,6 +483,24 @@ func (c *Client) Handler() http.Handler {
 		b, err := c.Model(r.URL.Query().Get("path"), ParseLook(r.URL.Query()))
 		blob(w, b, err)
 	})
+	// A sound file of the client, as it is, for the zone editor's play buttons (#31). Only WAV and MP3
+	// under Sound\, which the WebView plays itself.
+	mux.HandleFunc("/wow/sound", func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Query().Get("path")
+		low := strings.ToLower(p)
+		kind := map[bool]string{true: "audio/mpeg", false: "audio/wav"}[strings.HasSuffix(low, ".mp3")]
+		if !strings.HasPrefix(low, `sound\`) || !(strings.HasSuffix(low, ".mp3") || strings.HasSuffix(low, ".wav")) {
+			http.Error(w, "not a sound file", http.StatusBadRequest)
+			return
+		}
+		b, err := c.read(p)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", kind)
+		w.Write(b)
+	})
 	// A WMO's room data (groups, portals, collision faces, fogs) for the camera's room probe.
 	mux.HandleFunc("/wow/wmonav", func(w http.ResponseWriter, r *http.Request) {
 		b, err := c.WMONav(r.URL.Query().Get("path"))

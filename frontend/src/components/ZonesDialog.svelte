@@ -1,6 +1,6 @@
 <script lang="ts">
   import Modal from './Modal.svelte'
-  import { AreaRows, MapEntries, NewAreaRow, SaveAreas } from '../../wailsjs/go/main/App'
+  import { AreaRows, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds } from '../../wailsjs/go/main/App'
   import { vmangos } from '../../wailsjs/go/models'
   import { setStatus } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
@@ -48,6 +48,41 @@
     }
   }
   void init()
+
+  // The sound and light fields by name (#31): the client's tables, read once, and the map's lights.
+  let sounds = $state<vmangos.ZoneSoundTables | null>(null)
+  let lights = $state<vmangos.MapLight[]>([])
+  ZoneSounds()
+    .then((z) => (sounds = z))
+    .catch(() => (sounds = null))
+  $effect(() => {
+    const id = mapId
+    if (id === null) return
+    MapLights(id)
+      .then((l) => (lights = l?.lights ?? []))
+      .catch(() => (lights = []))
+  })
+  const lightName = (l: vmangos.MapLight) => (l.global ? `${l.id} · the map's own` : `${l.id} · at ${Math.round(l.x)}, ${Math.round(l.z)} (${Math.round(l.outer)} yd)`)
+
+  /** The sound playing from a Play button, stopped by the next one or by closing. */
+  let audio: HTMLAudioElement | null = null
+  let playing = $state('')
+  function play(file: string) {
+    audio?.pause()
+    if (!file || playing === file) {
+      playing = ''
+      return
+    }
+    audio = new Audio(`/wow/sound?path=${encodeURIComponent(file)}`)
+    audio.onended = () => (playing = '')
+    audio.onerror = () => {
+      playing = ''
+      error = `The client's ${file} could not be played.`
+    }
+    playing = file
+    void audio.play().catch(() => (playing = ''))
+  }
+  $effect(() => () => audio?.pause())
 
   async function load() {
     if (mapId === null) return
@@ -110,6 +145,7 @@
   }
 
   function close() {
+    audio?.pause()
     if (dirty.length && !confirm('Close without saving the zone changes?')) return
     onclose()
   }
@@ -171,22 +207,26 @@
         <label class="k" for="zone-liquid">Liquid type</label>
         <input id="zone-liquid" type="number" min="0" value={row.liquid} oninput={(e) => edit('liquid', num(e))} title="A LiquidType.dbc ID; 0 for the default" />
         <label class="k" for="zone-music">Zone music</label>
-        <input id="zone-music" type="number" min="0" value={row.music} oninput={(e) => edit('music', num(e))} title="A ZoneMusic.dbc ID" />
+        {@render soundPick('zone-music', 'music', sounds?.music, 'A ZoneMusic.dbc row')}
         <label class="k" for="zone-intro">Intro music</label>
-        <input id="zone-intro" type="number" min="0" value={row.introMusic} oninput={(e) => edit('introMusic', num(e))} title="A ZoneIntroMusicTable.dbc ID" />
+        {@render soundPick('zone-intro', 'introMusic', sounds?.intro, 'A ZoneIntroMusicTable.dbc row')}
         <label class="k" for="zone-ambience">Ambience</label>
-        <input id="zone-ambience" type="number" min="0" value={row.ambience} oninput={(e) => edit('ambience', num(e))} title="A SoundAmbience.dbc ID (day and night sounds)" />
+        {@render soundPick('zone-ambience', 'ambience', sounds?.ambience, 'A SoundAmbience.dbc row: its day and night sounds (Play plays the day one)')}
         <label class="k" for="zone-sound">Sound preferences</label>
         <span class="pair">
-          <input id="zone-sound" type="number" min="0" value={row.soundPref} oninput={(e) => edit('soundPref', num(e))} title="SoundProviderPreferences.dbc ID" />
-          <input type="number" min="0" value={row.soundSwim} oninput={(e) => edit('soundSwim', num(e))} title="Underwater: SoundProviderPreferences.dbc ID" aria-label="Underwater sound preferences" />
+          {@render soundPick('zone-sound', 'soundPref', sounds?.prefs, 'SoundProviderPreferences.dbc: how sound carries here')}
+          {@render soundPick('zone-sound-swim', 'soundSwim', sounds?.prefs, 'Underwater: SoundProviderPreferences.dbc')}
         </span>
         <label class="k" for="zone-elev">Min. elevation</label>
         <input id="zone-elev" type="number" step="any" value={row.minElevation} oninput={(e) => edit('minElevation', num(e))} />
         <label class="k" for="zone-ambient">Ambient multiplier</label>
         <input id="zone-ambient" type="number" step="any" value={row.ambientMul} oninput={(e) => edit('ambientMul', num(e))} />
         <label class="k" for="zone-light">Light</label>
-        <input id="zone-light" type="number" min="0" value={row.light} oninput={(e) => edit('light', num(e))} title="A Light.dbc ID; 0 for the map's" />
+        <select id="zone-light" value={row.light} onchange={(e) => edit('light', Number((e.target as HTMLSelectElement).value))} title="A Light.dbc row of this map; none for the map's">
+          <option value={0}>None (the map's)</option>
+          {#each lights as l (l.id)}<option value={l.id}>{lightName(l)}</option>{/each}
+          {#if row.light && !lights.some((l) => l.id === row.light)}<option value={row.light}>{row.light}</option>{/if}
+        </select>
         <span class="k">ID / exploration bit</span>
         <span class="dim">{row.id} / {row.areaBit}</span>
       </div>
@@ -199,7 +239,39 @@
   {/snippet}
 </Modal>
 
+{#snippet soundPick(id: string, key: 'music' | 'introMusic' | 'ambience' | 'soundPref' | 'soundSwim', options: vmangos.SoundOption[] | undefined, title: string)}
+  {@const value = row ? row[key] : 0}
+  {@const file = options?.find((o) => o.id === value)?.file ?? ''}
+  <span class="pick">
+    {#if options}
+      <select {id} {value} {title} onchange={(e) => edit(key, Number((e.target as HTMLSelectElement).value))}>
+        <option value={0}>None</option>
+        {#each options as o (o.id)}<option value={o.id}>{o.name || `#${o.id}`} ({o.id})</option>{/each}
+        {#if value && !options.some((o) => o.id === value)}<option {value}>{value}</option>{/if}
+      </select>
+    {:else}
+      <input {id} type="number" min="0" {value} {title} oninput={(e) => edit(key, num(e))} />
+    {/if}
+    {#if key !== 'soundPref' && key !== 'soundSwim'}
+      <button class="play" disabled={!file} onclick={() => play(file)} title={file ? `Play ${file}` : 'Nothing to play'}>{playing && playing === file ? '■' : '▶'}</button>
+    {/if}
+  </span>
+{/snippet}
+
 <style>
+  .pick {
+    display: flex;
+    gap: 4px;
+    min-width: 0;
+  }
+  .pick select,
+  .pick input {
+    flex: 1;
+    min-width: 0;
+  }
+  .play {
+    padding: 2px 8px;
+  }
   .error {
     color: var(--danger);
     margin: 0 0 8px;
