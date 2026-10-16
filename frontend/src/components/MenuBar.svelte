@@ -15,6 +15,7 @@
   import { rememberAntialias, toggleFullScreen } from '../lib/engine/display'
   import { MANUAL_URL } from './AppDialogs.svelte'
   import { TOOLBAR_ICON_MAX, TOOLBAR_ICON_MIN } from './Toolbar.svelte'
+  import { GRAPHICS_PRESETS, applyPreset, presetOf } from '../lib/state/graphicsPresets'
 
   /** Opens a web page in the user's browser (the desktop runtime's way, else the dev page's). */
   function openUrl(url: string) {
@@ -81,6 +82,9 @@
   const CLIMB_ANGLES = [40, 45, 49, 55, 60]
   // The game window sizes Preferences › Game Window offers (gxResolution).
   const GAME_RESOLUTIONS = ['1280x720', '1600x900', '1920x1080', '2560x1440']
+
+  // The Graphics › Quality preset all of whose values the prefs hold now, or null (#203).
+  const graphicsPreset = $derived(presetOf(prefs))
 
   const radios = <T,>(options: Array<[string, T]>, get: () => T, set: (v: T) => void): Item[] =>
     options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
@@ -310,6 +314,12 @@
     {
       name: 'Graphics',
       items: [
+        { kind: 'header', label: graphicsPreset ? 'Quality' : 'Quality (custom)' },
+        ...radios(
+          GRAPHICS_PRESETS.map((g) => [g.name, g.name] as [string, string | null]),
+          () => graphicsPreset,
+          (v) => v && applyPreset(prefs, v),
+        ),
         { kind: 'header', label: 'Render scale' },
         ...radios(
           [

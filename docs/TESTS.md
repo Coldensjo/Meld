@@ -964,6 +964,16 @@ the same scene, the report before and after.
 - The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
   draws them inside `renderer.render`, so without the wrap they would count as the scene.
 
+## Graphics › Quality presets (#203)
+
+Checks: `lib/state/graphicsPresets.ts` (unit test `graphicsPresets.test.ts`: each preset is found
+again after it is applied, one change makes it Custom). In the dev page, `applyPreset(prefs, 'Low')`
+through the page's own module URLs, step a few frames, and read `__engine.prefs` (renderScale 0.5,
+shadows off, particles off) and `__engine.renderer.getPixelRatio()` (0.5). Click the menu bar's
+Graphics button and read the `aria-checked="true"` items: the preset's name is checked and the header
+reads Quality; after one setting changes it reads "Quality (custom)" with no preset checked. Use
+`?nosave`: a preset writes ten prefs at once.
+
 ## Right-click near the selected creature (#205)
 
 Checks: `Engine.openContextMenu` falls back to the selected spawn when the click hits nothing within
