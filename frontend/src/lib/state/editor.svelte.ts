@@ -11,6 +11,7 @@ import type { PasteHeightMode } from '../world/pasteHeight'
 import type { MaskPick } from '../terrain/maskSelect'
 import { newSpawnBrush, type SpawnBrush } from '../tools/spawnBrush'
 import type { Bookmark } from '../engine/MapDocument'
+import type { PerfReport } from '../engine/perfMeter'
 import type { BrowserView } from '../wow/browserViews'
 import type { ModelSet } from '../wow/modelSets'
 import type { vmangos } from '../../../wailsjs/go/models'
@@ -320,6 +321,8 @@ export const stats = $state({
   hoverArea: '',
   /** Where the camera is for the Minimap window, while it is open: the target, its yaw, and the map's size in cells and yards. */
   view: null as { x: number; z: number; yaw: number; cells: number; world: number } | null,
+  /** The performance overlay's numbers (#179), refreshed once a second while it is on. */
+  perf: null as PerfReport | null,
 })
 
 /** Open map tabs (the active tab's live name/dirty come from `editor`). */
@@ -450,6 +453,8 @@ export const prefs = $state({
   showGroundEffects: true,
   /** The Detail info readout in the viewport's corner: tile, chunk, cell, height, layers and liquids under the cursor. */
   detailInfo: false,
+  /** View › Performance Overlay (#179): where the frame's time goes, by subsystem and GPU pass, in the viewport's corner. */
+  perfOverlay: false,
   /** Every file read from the client (models, textures, lists) goes into the Log window too, with its time (noggit's "additional file loading log"). */
   logFileLoading: false,
   /** How many cells of a chunk grow tufts: the client's Ground Clutter stops Low, Medium and High, 16, 32 and 48 (`frillDensity` in world/groundEffects.ts). */

@@ -1,5 +1,6 @@
 import { tick } from 'svelte'
 import type { Engine } from '../engine/Engine'
+import { formatReport } from '../engine/perfMeter'
 import { editor, prefs, setStatus, ui, type Prefs, type ToolId } from '../state/editor.svelte'
 import { engineRef } from '../state/engineRef'
 import { selectObjects } from '../state/selection'
@@ -119,6 +120,24 @@ export async function copyScene(engine: Engine) {
   }
 }
 
+/**
+ * Help › Copy Performance Report (#179): the next second's numbers of the performance overlay, measured
+ * even with it off, and the scene line, so a slow spot can be pasted into an issue and opened again.
+ */
+export async function copyPerfReport(engine: Engine) {
+  setStatus('Measuring the frame for a second…')
+  try {
+    const report = formatReport(await engine.measurePerf())
+    let scene = ''
+    if (hasBackend()) scene = await sceneText(engine).catch(() => '')
+    const text = scene ? `${report}\n\n${scene}` : report
+    if (hasBackend()) await ClipboardSetText(text)
+    else await navigator.clipboard.writeText(text)
+    setStatus('Copied the performance report' + (scene ? ' and the scene.' : '.'), 6000)
+  } catch (err) {
+    setStatus(`Copying the performance report failed: ${err}`, 8000)
+  }
+}
 
 /** Opens the scene's map (or switches to its tab) and restores everything else the scene holds. */
 export async function loadScene(engine: Engine, text: string) {

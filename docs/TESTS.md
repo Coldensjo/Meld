@@ -903,6 +903,26 @@ chunk. In the dev page: `ed.prefs.detailInfo = true`, move the mouse over the gr
 `ed.stats.detail` (refreshed at 2 Hz with the other stats; null off the map). The readout is
 `[data-ui="DetailInfo"]`.
 
+## Measuring performance (the overlay, #179)
+
+Checks: where a frame's time goes, before and after a performance change. View › Performance overlay
+(Ctrl+Shift+M) shows, averaged over a second, the CPU time of each `Engine.frame()` section
+(`CPU_SECTIONS` in `engine/perfMeter.ts`, booked by `meter.mark` after each subsystem), the GPU time of
+the shadow maps, the scene and the outlines (`engine/gpuTimer.ts`, timer queries; n/a where the browser
+has none), the draw counts and the five model types drawing the most triangles. Help › Copy Performance
+Report puts the same numbers and the scene line on the clipboard. Use it as the measure for perf work:
+the same scene, the report before and after.
+
+- From a probe, without the pref: `let r; __engine.measurePerf().then((x) => (r = x))`, then step
+  `__engine.frame()` with `MessageChannel` waits for a bit over a second of wall time until `r` is set.
+  The hidden preview throttles rAF, so a probe must drive the frames itself, and the numbers are then
+  the probe's frame rate, not the window's.
+- Northshire (Azeroth 32_48, 1x1, the camera over the abbey) in the dev page on 2026-10-16: about
+  16 ms of CPU a frame, 9 of it three's render submit and 3.5 the shadow maps; GPU 10 ms scene,
+  3.5 ms shadows; 2000 draw calls, 3.6M triangles, and stormwind.wmo alone 1.3M of them.
+- The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
+  draws them inside `renderer.render`, so without the wrap they would count as the scene.
+
 ## Rotate around pivot point (group spins)
 
 Checks: with two or more models selected, R (and Alt+arrows) turn the group about the mean of its

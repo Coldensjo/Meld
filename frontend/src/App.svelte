@@ -216,6 +216,7 @@
       else if (key === 'd') engine.deselect()
       else if (key === 's') saveOrPublish(engine, e.shiftKey)
       else if (key === 'p' && e.shiftKey) saveMinimapImage(engine)
+      else if (key === 'm' && e.shiftKey) prefs.perfOverlay = !prefs.perfOverlay
       else if (key === 'r' && !e.shiftKey) engine.resetRotation()
       else if (key === 'g') e.shiftKey ? engine.ungroupSelected() : engine.groupSelected()
       else if (key === 'w') requestClose(engine.activeDocumentId())

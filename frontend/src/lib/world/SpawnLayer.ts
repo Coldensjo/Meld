@@ -5,6 +5,7 @@ import { spawnType } from './spawnInfo'
 import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, type CullView } from './instanceCull'
 import { cullForShadows } from './shadowReach'
+import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 
 /** The spawns of one kind and model, and what's needed to draw the ones in view. */
 interface SpawnBatch {
@@ -185,6 +186,12 @@ export class SpawnLayer {
       if (b && h.instanceId !== undefined && h.instanceId < b.packed.length) return { spawn: b.all[b.packed[h.instanceId]], distance: h.distance }
     }
     return null
+  }
+
+  /** What each spawn type drew in the last cull, and how many instanced meshes there are (#179). */
+  drawnCosts(out: ModelCost[]): number {
+    for (const b of this.batches) out.push({ type: b.type, triangles: meshTriangles(b.mesh), instances: b.mesh.visible ? b.mesh.count : 0 })
+    return this.batches.length
   }
 
   /** Draws only the spawns in `view`, packed to the front of each batch's instance buffer. Call once per frame. */

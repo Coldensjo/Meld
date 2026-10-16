@@ -7,7 +7,7 @@
   import { growableSides, type Side } from '../lib/io/regionGrow'
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
-  import { copyScene, copyTeleport, pasteScene } from '../lib/io/scene'
+  import { copyPerfReport, copyScene, copyTeleport, pasteScene } from '../lib/io/scene'
   import { ClearThumbnailCache, GameEvents } from '../../wailsjs/go/main/App'
   import { quitNow } from '../lib/io/session'
   import { requestClose } from './DocTabs.svelte'
@@ -265,6 +265,7 @@
         { kind: 'check', label: 'Bounding boxes (one per model)', checked: prefs.showBoxes, toggle: () => (prefs.showBoxes = !prefs.showBoxes) },
         { kind: 'check', label: 'Area triggers (portals)', checked: prefs.showAreaTriggers, toggle: () => (prefs.showAreaTriggers = !prefs.showAreaTriggers) },
         { kind: 'check', label: 'Detail info (the ground under the cursor)', checked: prefs.detailInfo, toggle: () => (prefs.detailInfo = !prefs.detailInfo) },
+        { kind: 'check', label: 'Performance overlay (where the frame time goes)', shortcut: 'Ctrl+Shift+M', checked: prefs.perfOverlay, toggle: () => (prefs.perfOverlay = !prefs.perfOverlay) },
         { kind: 'check', label: 'Wireframe', checked: prefs.wireframe, toggle: () => (prefs.wireframe = !prefs.wireframe) },
         { kind: 'check', label: 'Hide panels', shortcut: 'Tab', checked: ui.hidePanels, toggle: () => (ui.hidePanels = !ui.hidePanels) },
         { kind: 'header', label: 'Layers' },
@@ -537,6 +538,7 @@
         { kind: 'sep' },
         { kind: 'action', label: 'Copy Scene', disabled: !hasBackend() || ui.busy, run: withEngine(copyScene) },
         { kind: 'action', label: 'Load Scene from Clipboard', disabled: !hasBackend() || ui.busy, run: withEngine(pasteScene) },
+        { kind: 'action', label: 'Copy Performance Report', run: withEngine(copyPerfReport) },
         { kind: 'sep' },
         { kind: 'action', label: 'About Meld…', run: () => (ui.dialog = 'about') },
       ],

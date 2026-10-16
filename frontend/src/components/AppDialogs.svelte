@@ -120,6 +120,7 @@
         ['F11', 'Full screen on / off'],
         ['Ctrl+Shift+S', 'Save as'],
         ['Ctrl+Shift+P', 'Save the minimap as an image'],
+    ['Ctrl+Shift+M', 'Performance overlay on / off: where the frame time goes'],
         ['Ctrl+R', 'Stand the selected models upright (their tilt goes, their heading stays)'],
         ['Ctrl+G / Ctrl+Shift+G', 'Group the selected models, so a click selects them all / ungroup them'],
         ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'],

@@ -6,6 +6,7 @@ import type { Terrain } from '../terrain/Terrain'
 import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } from './instanceCull'
 import { cullForShadows } from './shadowReach'
+import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 
 export interface WorldObject {
   id: number
@@ -400,6 +401,17 @@ export class ObjectLayer {
   hasVisible(type: string): boolean {
     const b = this.batches.get(type)
     return !!b && (b.mesh.count > 0 || (b.lod?.count ?? 0) > 0)
+  }
+
+  /** What each model type drew in the last cull, full meshes and LODs, and how many instanced meshes there are (#179). */
+  drawnCosts(out: ModelCost[]): number {
+    let meshes = 0
+    for (const [type, b] of this.batches) {
+      meshes += b.lod ? 2 : 1
+      out.push({ type, triangles: meshTriangles(b.mesh), instances: b.mesh.visible ? b.mesh.count : 0 })
+      if (b.lod) out.push({ type, triangles: meshTriangles(b.lod), instances: b.lod.visible ? b.lod.count : 0 })
+    }
+    return meshes
   }
 
   /**

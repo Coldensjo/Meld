@@ -76,6 +76,8 @@ import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
 import { antialiasAtStart } from './display'
 import { frameDue } from './frameLimit'
+import { GPU_PASSES, PerfMeter, SECTION, topModels, type ModelCost, type PerfReport } from './perfMeter'
+import { GpuTimer } from './gpuTimer'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import type { MapInfo } from './MapDocument'
@@ -317,6 +319,11 @@ export class Engine {
   private raf = 0
   private frames = 0
   private statTime = 0
+  /** View › Performance Overlay (#179): the frame's CPU time by subsystem, and its GPU passes. */
+  private readonly meter = new PerfMeter()
+  private readonly gpu: GpuTimer
+  /** Help › Copy Performance Report waiting for the next window, with the overlay off. */
+  private perfWaiters: Array<(r: PerfReport) => void> = []
   private resizeObs: ResizeObserver
   private outline = new SelectionOutline()
   /** Red marks (outline and tint) on the models the Clear tool's brush would delete (#131). */
@@ -395,6 +402,8 @@ export class Engine {
     this.scene.background = new THREE.Color()
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
+    this.gpu = new GpuTimer(this.renderer.getContext())
+    this.timeShadowMaps()
     this.env = new Environment(this.scene)
     this.scene.add(this.horizon.mesh)
     this.scene.add(this.effects.group)
@@ -511,6 +520,7 @@ export class Engine {
     this.paths.dispose()
     for (const d of this.documents) d.dispose()
     this.triggerLayer.dispose()
+    this.gpu.dispose()
     this.renderer.dispose()
   }
 
@@ -798,12 +808,19 @@ export class Engine {
   private frame() {
     const dt = Math.min(this.clock.getDelta(), 0.1)
     const time = this.clock.elapsedTime
+    const m = this.meter
+    m.setOn(!!this.prefs?.perfOverlay || this.perfWaiters.length > 0)
+    // The overlay starts on "Measuring…" the next time, not on old numbers.
+    if (!this.prefs?.perfOverlay && stats.perf) stats.perf = null
+    m.begin()
+    if (m.on) this.gpu.poll()
 
     this.syncTool()
     this.controller.setWalk(ui.walkCamera && !this.topDown)
     this.controller.update(dt)
     this.updateTopDown()
     this.updateEnvironment(dt, time)
+    m.mark(SECTION['Camera and sky'])
 
     if (this.sizeDrag) this.hit = this.hitVec.copy(this.sizeDrag.hit)
     else if (this.pointerInside && !this.controller.isDragging) {
@@ -813,11 +830,13 @@ export class Engine {
       this.pointerMoved = false
     } else if (!this.leftDown) this.hit = null
     this.updatePipetteCursor()
+    m.mark(SECTION.Picking)
 
     const tool = this.activeTool!
     if (this.leftDown) tool.tick?.(this.ctx, dt, this.hit)
     this.placeTool.hidePreview = this.altHeld
     tool.frame?.(this.ctx, this.hit)
+    m.mark(SECTION.Tool)
 
     this.syncPalette()
     const u = this.terrain.material.uniforms
@@ -862,8 +881,10 @@ export class Engine {
     }
     const ring = editor.tool === 'water' && editor.waterMode === 'paint' && this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z, radius: editor.brush.radius } : null
     updateLiquids(time * 1000, this.hour, wow.loaded, ring, this.env.state.keyDir)
+    m.mark(SECTION['Uniforms and water'])
 
     this.terrain.update(this.renderer)
+    m.mark(SECTION.Terrain)
     // A hidden object can't stay selected once hidden objects stop being drawn.
     if (this.objects.setShowHidden(ui.showHiddenModels) && editor.selectedIds.some((id) => this.objects.isHidden(id))) {
       selectObjects(this.objects, editor.selectedIds.filter((id) => !this.objects.isHidden(id)), editor.selected?.id)
@@ -872,25 +893,39 @@ export class Engine {
     this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightsVersion)
     this.updateTriggers()
     this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightsVersion, ui.historyVersion)
+    m.mark(SECTION.Objects)
     // Lights first: culling keeps what can throw the shadowed lights' shadows.
     this.effects.enabled = this.prefs?.propEffects !== false
     this.effects.particles = this.prefs?.particles !== false
     this.effects.update(this.objects, time, this.controller.target, this.env.state.night, this.terrain.heightsVersion)
     this.updateClientPoints()
+    m.mark(SECTION['Lights and flames'])
     this.rooms.update(this.objects, this.camera.position, this.roomGround)
     this.updateRoomGate(dt)
+    m.mark(SECTION['WMO rooms'])
     this.cullInstances()
+    m.mark(SECTION.Culling)
     this.animateModels(time)
+    m.mark(SECTION.Animation)
     this.updateParticles(dt, time)
+    m.mark(SECTION.Particles)
     this.updateSelectionVisuals()
     this.updateDoomVisuals()
+    m.mark(SECTION['Selection visuals'])
+    if (m.on) this.gpu.begin(1)
     this.renderer.render(this.scene, this.camera)
+    m.mark(SECTION['Render (CPU)'])
     this.spawnLabels.update(this.doc.spawnLayer, this.camera, this.camera.position, this.container.clientWidth, this.container.clientHeight, dt)
+    m.mark(SECTION['Spawn labels'])
     // The counters describe the last render call, so read the scene's before the outline passes.
     const calls = this.renderer.info.render.calls
     const triangles = this.renderer.info.render.triangles
+    if (m.on) this.gpu.begin(2)
     this.outline.render(this.renderer, this.camera)
     this.doomOutline.render(this.renderer, this.camera)
+    if (m.on) this.gpu.endFrame()
+    m.mark(SECTION.Outlines)
+    if (m.end()) this.publishPerf(calls, triangles)
 
     this.frames++
     if (time - this.statTime >= 0.5) {
@@ -964,7 +999,9 @@ export class Engine {
     if (this.prefs?.spawnsThroughWalls !== false) v.gate = null
     this.doc.spawnLayer.cull(v)
     v.gate = gate
+    this.meter.mark(SECTION.Culling)
     this.updateGroundEffects()
+    this.meter.mark(SECTION['Ground effects'])
     // The water and the tufts show through a room's doorways only, as the rest of the world (#119).
     this.doc.groundEffects.gate(v.gate ?? null)
     this.doc.liquidRenderer.gate(v.gate ?? null)
@@ -1051,8 +1088,65 @@ export class Engine {
     if (editor.waterEnabled) floor.color.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
     else floor.color.setRGB(0.05 * light, 0.042 * light, 0.035 * light)
 
+    this.meter.mark(SECTION['Camera and sky'])
     if (env.key.castShadow) this.fitShadows()
     else env.aimKey(this.camera.position)
+    this.meter.mark(SECTION['Shadow fit'])
+  }
+
+  /**
+   * Times the shadow maps apart from the scene for the performance overlay: three renders them inside
+   * `renderer.render`, so its shadow map's `render` is wrapped to book its CPU time to Shadow maps and
+   * its GPU time to the Shadow maps pass, going back to the pass that was running after.
+   */
+  private timeShadowMaps() {
+    const sm = this.renderer.shadowMap
+    const render = sm.render.bind(sm)
+    sm.render = (lights, scene, camera) => {
+      if (!this.meter.on) return render(lights, scene, camera)
+      const timing = this.gpu.active
+      const pass = this.gpu.pass
+      this.meter.mark(SECTION['Render (CPU)'])
+      if (timing) this.gpu.begin(0)
+      render(lights, scene, camera)
+      if (timing) this.gpu.begin(pass)
+      this.meter.mark(SECTION['Shadow maps (CPU)'])
+    }
+  }
+
+  /** The window's numbers into `stats.perf`, once a second, and to whoever waits for a report. */
+  private publishPerf(calls: number, triangles: number) {
+    const w = this.meter.take()
+    const costs: ModelCost[] = []
+    const meshes = this.objects.drawnCosts(costs) + this.doc.spawnLayer.drawnCosts(costs)
+    const info = this.renderer.info
+    const heap = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory
+    const r: PerfReport = {
+      ...w,
+      gpu: this.gpu.take(),
+      calls,
+      triangles,
+      geometries: info.memory.geometries,
+      textures: info.memory.textures,
+      programs: info.programs?.length ?? 0,
+      instancedMeshes: meshes,
+      heapMB: heap ? heap.usedJSHeapSize / 1048576 : null,
+      models: topModels(costs, 5),
+    }
+    if (this.prefs?.perfOverlay) stats.perf = r
+    const waiters = this.perfWaiters
+    this.perfWaiters = []
+    for (const f of waiters) f(r)
+  }
+
+  /** The next second's performance numbers (Help › Copy Performance Report), measured even with the overlay off. */
+  measurePerf(): Promise<PerfReport> {
+    return new Promise((resolve) => this.perfWaiters.push(resolve))
+  }
+
+  /** Whether this browser times the GPU passes (the overlay shows n/a otherwise). */
+  get gpuTimed() {
+    return this.gpu.supported
   }
 
   /** Lighting › Client Lighting: the client's lights of the open map, which map they are, and the light at the camera. */
