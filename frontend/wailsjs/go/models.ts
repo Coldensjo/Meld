@@ -284,6 +284,7 @@ export namespace mapfile {
 	    areaIds?: string;
 	    chunkFlags?: string;
 	    noEffect?: string;
+	    shadows?: string;
 	    splatA?: string;
 	    splatB?: string;
 	
@@ -318,6 +319,7 @@ export namespace mapfile {
 	        this.areaIds = source["areaIds"];
 	        this.chunkFlags = source["chunkFlags"];
 	        this.noEffect = source["noEffect"];
+	        this.shadows = source["shadows"];
 	        this.splatA = source["splatA"];
 	        this.splatB = source["splatB"];
 	    }
@@ -1023,6 +1025,7 @@ export namespace vmangos {
 	    impassable: boolean;
 	    noEffect?: number[];
 	    holes?: number[];
+	    shadow?: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new HeaderSpec(source);
@@ -1035,6 +1038,7 @@ export namespace vmangos {
 	        this.impassable = source["impassable"];
 	        this.noEffect = source["noEffect"];
 	        this.holes = source["holes"];
+	        this.shadow = source["shadow"];
 	    }
 	}
 	export class HorizonTile {

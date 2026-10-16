@@ -47,13 +47,15 @@ type TileSpec struct {
 // RegionEdit), its AreaTable.dbc ID (0 keeps the chunk's own) and whether it is impassable.
 // NoEffect, one entry per cell row with a bit per cell, replaces the chunk's noEffectDoodad bits;
 // empty keeps them (with a PaintSpec's added). Holes, in the same form, replaces the chunk's holes,
-// each 2x2-cell block a hole when any of its cells is; empty keeps them.
+// each 2x2-cell block a hole when any of its cells is; empty keeps them. Shadow (base64 in JSON),
+// adt.ShadowBytes long, replaces the chunk's baked shadow map; empty keeps it.
 type HeaderSpec struct {
 	Chunk      int    `json:"chunk"`
 	AreaID     uint32 `json:"areaId"`
 	Impassable bool   `json:"impassable"`
 	NoEffect   []int  `json:"noEffect,omitempty"`
 	Holes      []int  `json:"holes,omitempty"`
+	Shadow     []byte `json:"shadow,omitempty"`
 }
 
 // chunkHeader is the adt form of a HeaderSpec.
@@ -72,6 +74,9 @@ func (h HeaderSpec) chunkHeader() adt.ChunkHeader {
 		}
 		bits := adt.HoleBits(rows)
 		ch.Holes = &bits
+	}
+	if len(h.Shadow) == adt.ShadowBytes {
+		ch.Shadow = h.Shadow
 	}
 	return ch
 }

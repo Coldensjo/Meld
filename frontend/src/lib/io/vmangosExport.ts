@@ -2,6 +2,7 @@ import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../terrain/chunk
 import { liquidsToAdt, type AdtLiquid, type LiquidMap } from '../water/liquids'
 import { chunkNoEffect } from '../world/groundEffects'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
+import { SHADOW_PER_CELL, chunkShadowBits } from '../terrain/bakedShadows'
 
 /** A palette entry that's a colour rather than a texture. */
 const isColor = (entry: string) => /^#[0-9a-fA-F]{6}$/.test(entry)
@@ -61,6 +62,11 @@ export interface ExportInput {
   headers?: { areaIds: Uint32Array; chunkFlags: Uint8Array }
   /** One byte per cell, non-zero where the ground is a hole; sent in the headers, so only with them. */
   holes?: Uint8Array
+  /**
+   * The baked shadows, a byte per texel (terrain/bakedShadows.ts, `size * SHADOW_PER_CELL` a side);
+   * sent in the headers, so only with them. Without, the tiles keep their own.
+   */
+  shadows?: Uint8Array
   objects: readonly ExportObject[]
   /** Whether the map has water, and the level it's at in yards. */
   waterEnabled: boolean
@@ -92,6 +98,8 @@ export interface HeaderOut {
   noEffect?: number[]
   /** The hole cells, a bit per cell in each row; Go turns them into the client's 2x2-cell blocks. */
   holes?: number[]
+  /** The chunk's baked shadow map in the client's form (512 bytes, base64); replaces the tile's own. */
+  shadow?: string
 }
 
 export interface ObjectOut {
@@ -217,6 +225,7 @@ export function mapToTiles(input: ExportInput): ExportOut {
             const header: HeaderOut = { chunk: cy * CHUNKS_PER_TILE + cx, areaId: h.areaIds[chunk], impassable: (h.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0 }
             if (input.noEffect) header.noEffect = chunkNoEffect(input.noEffect, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
             if (input.holes) header.holes = chunkNoEffect(input.holes, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
+            if (input.shadows) header.shadow = toBase64(chunkShadowBits(input.shadows, input.size * SHADOW_PER_CELL, gx, gz))
             tile.Headers.push(header)
           }
         }

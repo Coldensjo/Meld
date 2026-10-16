@@ -18,6 +18,35 @@ type ChunkHeader struct {
 	// Holes, when set, replaces the chunk's holes: the 1.12 4x4 bitmap, bit row*4+col for the 2x2-cell
 	// block (col, row). See HoleBits.
 	Holes *uint16
+	// Shadow, when set, replaces the chunk's baked shadow map (MCSH): ShadowBytes bytes, laid out as
+	// Chunk.Shadow. See shadowPiece.
+	Shadow []byte
+}
+
+// ShadowBytes is the size of a chunk's baked shadow map: 64x64 bits.
+const ShadowBytes = ShadowSize * ShadowSize / 8
+
+// mcnkFlagShadow is the header flag that says the chunk has a baked shadow map, and mcnkShadowSize
+// where the header keeps that map's size.
+const (
+	mcnkFlagShadow = 0x1
+	mcnkShadowSize = 0x30
+)
+
+// shadowPiece is the MCSH payload to write for a chunk's new shadow map, and its header flags. The
+// client's own tiles give every chunk a 512-byte MCSH, even an empty one, and every chunk with a
+// shadow bit set has the shadow flag (0x1), while many empty ones have it too (a survey of every
+// tile of Azeroth, Kalimdor, the Deadmines and Warsong Gulch). So the map is always written; a bit
+// set sets the flag, and an empty map leaves the flag as the chunk had it.
+func shadowPiece(shadow []byte, flags uint32) ([]byte, uint32) {
+	out := make([]byte, ShadowBytes)
+	copy(out, shadow)
+	for _, b := range out {
+		if b != 0 {
+			return out, flags | mcnkFlagShadow
+		}
+	}
+	return out, flags
 }
 
 // mcnkHoles is where a 1.12 chunk header keeps its 4x4 hole bitmap.

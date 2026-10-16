@@ -97,3 +97,40 @@ func TestRewriteHolesReadBack(t *testing.T) {
 		t.Fatal("another chunk got holes")
 	}
 }
+
+func TestRewriteShadowReadsBack(t *testing.T) {
+	root := newTileRoot(32, 48)
+	shadow := make([]byte, ShadowBytes)
+	shadow[0], shadow[ShadowBytes-1] = 0x81, 0x40
+	out, err := Rewrite(root, Changes{TileX: 32, TileY: 48, Headers: map[int]ChunkHeader{
+		5: {Shadow: shadow},
+		6: {Shadow: make([]byte, ShadowBytes)},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	terrain, err := ParseTerrain(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := terrain.Chunks
+	if string(c[5].Shadow) != string(shadow) || c[5].Flags&mcnkFlagShadow == 0 {
+		t.Fatalf("chunk 5: flags %#x, shadow read back %v", c[5].Flags, c[5].Shadow != nil)
+	}
+	// An empty map is still written, as the client's tiles have it, and leaves the flag alone.
+	if len(c[6].Shadow) != ShadowBytes || c[6].Flags != c[4].Flags {
+		t.Fatalf("chunk 6: flags %#x vs %#x, %d bytes", c[6].Flags, c[4].Flags, len(c[6].Shadow))
+	}
+	if c[5].Heights != c[4].Heights {
+		t.Fatal("heights changed")
+	}
+
+	// A second rewrite keeps the written map, and a new one replaces it.
+	again, err := Rewrite(out, Changes{TileX: 32, TileY: 48, Headers: map[int]ChunkHeader{5: {}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if terrain, err = ParseTerrain(again); err != nil || string(terrain.Chunks[5].Shadow) != string(shadow) {
+		t.Fatalf("not kept: %v", err)
+	}
+}

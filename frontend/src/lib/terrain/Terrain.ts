@@ -8,7 +8,7 @@ import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRole
 import { holeTriangle, triangleIsHole, writeCellIndex } from './holes'
 import { DirtyRegion, uploadRect, type DirtyRect } from './dirtyRect'
 import { CHUNK_IMPASSABLE, areaColor } from './chunkFlags'
-import { unpackShadowBits } from './bakedShadows'
+import { SHADOW_PER_CELL, unpackShadowBits } from './bakedShadows'
 
 export type { DirtyRect } from './dirtyRect'
 
@@ -75,8 +75,16 @@ export class Terrain {
   /** Paint mask (0-255 per splat texel); texture fills apply to it. Not saved. */
   readonly mask: Uint8Array
   readonly maskTex: THREE.DataTexture
-  /** The client's baked shadows of a region, drawn as the client draws them; null without. Read from the client, not saved. */
+  /** The baked shadows' texture, over `shadow`'s bytes; null without. */
   private bakedTex: THREE.DataTexture | null = null
+  /**
+   * The baked shadows (MCSH), a byte per texel (255 in shadow), `shadowSide` texels a side; null while
+   * the map has none of its own (a region then keeps the client's). Read from a region or the map
+   * file, baked or painted (B-057), saved in the map file and sent on export. Write it through
+   * `ensureShadow` and report the rows with `touchShadow`.
+   */
+  shadow: Uint8Array | null = null
+  readonly shadowSide: number
   /** Whether the Engine has asked the client for this terrain's baked shadows (once per terrain). */
   bakedRequested = false
   /** Bumped whenever the mask is marked dirty, so a scan of it can be skipped when nothing changed. */
@@ -119,6 +127,7 @@ export class Terrain {
     this.heights = new Float32Array(this.verts * this.verts)
     this.holes = new Uint8Array(size * size)
     this.noEffect = new Uint8Array(size * size)
+    this.shadowSide = size * SHADOW_PER_CELL
     this.areaIds = new Uint32Array(this.paintChunksPerSide * this.paintChunksPerSide)
     this.chunkFlags = new Uint8Array(this.paintChunksPerSide * this.paintChunksPerSide)
     this.weights = new Uint8Array(this.splatRes * this.splatRes * SLOTS)
@@ -558,18 +567,53 @@ export class Terrain {
     this.markSplatDirty()
   }
 
-  /** Sets the baked shadows from their bits (`side` texels a side, see terrain/bakedShadows.ts); null clears them. */
+  /**
+   * Sets the baked shadows from their bits (`side` texels a side, see terrain/bakedShadows.ts), which
+   * must be this terrain's `shadowSide`; null drops them (the map then has none of its own).
+   */
   setBakedShadows(bits: Uint8Array | null, side: number) {
+    if (bits && side !== this.shadowSide) throw new Error(`baked shadows are ${side} texels a side, want ${this.shadowSide}`)
+    this.setShadow(bits ? unpackShadowBits(bits, side) : null)
+  }
+
+  /** Sets the baked shadows to `bytes` (a byte per texel, kept), or none. */
+  setShadow(bytes: Uint8Array | null) {
     this.bakedTex?.dispose()
     this.bakedTex = null
-    if (bits) {
-      const t = new THREE.DataTexture(unpackShadowBits(bits, side), side, side, THREE.RedFormat, THREE.UnsignedByteType)
+    this.shadow = bytes
+    if (bytes) {
+      const side = this.shadowSide
+      const t = new THREE.DataTexture(bytes, side, side, THREE.RedFormat, THREE.UnsignedByteType)
       t.magFilter = t.minFilter = THREE.LinearFilter
       t.generateMipmaps = false
       t.needsUpdate = true
+      // Until three has uploaded it whole, a row update must not narrow that first upload.
+      this.shadowUploaded = false
+      t.onUpdate = () => (this.shadowUploaded = true)
       this.bakedTex = t
     }
     this.material.uniforms.bakedShadowTex.value = this.bakedTex
+    this.shadowVersion++
+  }
+
+  /** The baked shadows to write into, made all lit first when the map has none. */
+  ensureShadow(): Uint8Array {
+    if (!this.shadow) this.setShadow(new Uint8Array(this.shadowSide * this.shadowSide))
+    return this.shadow!
+  }
+
+  /** Bumped by every change of the baked shadows. */
+  shadowVersion = 0
+  private shadowUploaded = false
+
+  /** Uploads the shadow texel rows z0 to z1 (inclusive) after they were written. */
+  touchShadow(z0: number, z1: number) {
+    const t = this.bakedTex
+    if (!t) return
+    const side = this.shadowSide
+    if (this.shadowUploaded) t.addUpdateRange(z0 * side, (z1 - z0 + 1) * side)
+    t.needsUpdate = true
+    this.shadowVersion++
   }
 
   /** Draws the baked shadows (when the terrain has any) or not. */

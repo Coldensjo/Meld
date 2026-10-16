@@ -4,6 +4,8 @@ import { editor, setStatus } from '../state/editor.svelte'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE, squaresUnder, type GridRect } from '../terrain/chunkFlags'
 import { ChunkDataStroke } from './chunkDataStroke'
+import { ShadowStroke } from './shadowStroke'
+import { SHADOW_PER_CELL } from '../terrain/bakedShadows'
 import { areaName } from '../wow/areas'
 
 /**
@@ -12,11 +14,14 @@ import { areaName } from '../wow/areas'
  * in Area mode the zone (AreaTable.dbc ID), which Clear sets back to none, and in Impassable mode the
  * impassable flag, which Clear takes off. No tufts works on cells instead: it marks the cells under
  * the brush as growing no ground effect doodads (as the client's roads are), and Clear lets them grow
- * again. Alt+click picks the zone under the cursor. A stroke is one undo step.
+ * again. Shadow paints the baked shadows (MCSH) under the brush at their own resolution, 8 texels a
+ * cell, and Clear lights them (B-057). Alt+click picks the zone under the cursor. A stroke is one undo
+ * step.
  */
 export class MapDataTool implements Tool {
   readonly usesBrush = true
   private stroke: ChunkDataStroke | null = null
+  private shadows: ShadowStroke | null = null
   private rect: GridRect = { x0: 0, z0: 0, x1: 0, z1: 0 }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
@@ -28,21 +33,24 @@ export class MapDataTool implements Tool {
       setStatus('Pick a zone in the options bar first, or Alt+click a chunk to take its zone.')
       return
     }
-    this.stroke = new ChunkDataStroke(ctx.terrain, this.label())
+    if (editor.mapDataMode === 'shadow') this.shadows = new ShadowStroke(ctx.terrain, this.label())
+    else this.stroke = new ChunkDataStroke(ctx.terrain, this.label())
     this.apply(ctx, hit)
   }
 
   tick(ctx: ToolContext, _dt: number, hit: THREE.Vector3 | null) {
-    if (this.stroke) this.apply(ctx, hit)
+    if (this.stroke || this.shadows) this.apply(ctx, hit)
   }
 
   onUp(ctx: ToolContext) {
-    const cmd = this.stroke?.finish() ?? null
+    const cmd = this.stroke?.finish() ?? this.shadows?.finish() ?? null
     this.stroke = null
+    this.shadows = null
     if (cmd) ctx.history.push(cmd)
   }
 
   private label() {
+    if (editor.mapDataMode === 'shadow') return editor.mapDataClear ? 'Light shadows' : 'Paint shadows'
     if (editor.mapDataMode === 'impassable') return editor.mapDataClear ? 'Make passable' : 'Mark impassable'
     if (editor.mapDataMode === 'noTufts') return editor.mapDataClear ? 'Grow tufts' : 'No tufts'
     return editor.mapDataClear ? 'Clear zone' : `Paint zone ${areaName(editor.mapDataArea)}`
@@ -73,6 +81,10 @@ export class MapDataTool implements Tool {
     const side = t.paintChunksPerSide
     const step = CHUNK_CELLS * t.cellSize
     const radius = editor.brush.radius
+    if (editor.mapDataMode === 'shadow') {
+      if (this.shadows) this.paintShadow(t, hit, radius, this.shadows)
+      return
+    }
     if (editor.mapDataMode === 'noTufts') {
       const cs = t.cellSize
       const n = t.size
@@ -108,5 +120,35 @@ export class MapDataTool implements Tool {
       })
     }
     if (changed) t.touchChunkData()
+  }
+
+  /** Shadows (or lights, with Clear) the shadow texels whose centres are in the brush circle. */
+  private paintShadow(t: ToolContext['terrain'], hit: THREE.Vector3, radius: number, stroke: ShadowStroke) {
+    const tex = t.cellSize / SHADOW_PER_CELL
+    const side = t.shadowSide
+    // A brush smaller than a texel still paints the texel under the cursor.
+    const r = Math.max(radius, tex * 0.5)
+    const b = this.rect
+    b.x0 = Math.max(0, Math.floor((hit.x - r) / tex))
+    b.z0 = Math.max(0, Math.floor((hit.z - r) / tex))
+    b.x1 = Math.min(side - 1, Math.floor((hit.x + r) / tex))
+    b.z1 = Math.min(side - 1, Math.floor((hit.z + r) / tex))
+    if (b.x1 < b.x0 || b.z1 < b.z0) return
+    stroke.reserve(b)
+    const data = t.ensureShadow()
+    const v = editor.mapDataClear ? 0 : 255
+    const r2 = r * r
+    let changed = false
+    for (let z = b.z0; z <= b.z1; z++) {
+      const dz = (z + 0.5) * tex - hit.z
+      for (let x = b.x0; x <= b.x1; x++) {
+        const dx = (x + 0.5) * tex - hit.x
+        const i = z * side + x
+        if (dx * dx + dz * dz > r2 || data[i] === v) continue
+        data[i] = v
+        changed = true
+      }
+    }
+    if (changed) stroke.touch(b)
   }
 }

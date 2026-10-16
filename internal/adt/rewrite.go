@@ -585,8 +585,13 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 			writeNoEffect(header, paint.NoEffect)
 		}
 	}
+	var shadow []byte
 	if h, ok := ch.Headers[idx]; ok {
 		flags = h.apply(header, flags)
+		if h.Shadow != nil {
+			shadow, flags = shadowPiece(h.Shadow, flags)
+			binary.LittleEndian.PutUint32(header[mcnkShadowSize:], ShadowBytes)
+		}
 	}
 	binary.LittleEndian.PutUint32(header[0:], flags)
 	binary.LittleEndian.PutUint32(header[mcnkLayers:], nLayers)
@@ -633,6 +638,10 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 	for _, id := range []string{"MCSH", "MCSE", "MCLQ"} {
 		if id == "MCLQ" && replace {
 			continue // replaced by the liquids above
+		}
+		if id == "MCSH" && shadow != nil {
+			add("MCSH", shadow, false)
+			continue
 		}
 		if r, ok := raw[id]; ok {
 			add(id, r, true)

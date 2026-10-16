@@ -97,6 +97,7 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     areaIds: s.chunkData ? bytesToBase64(u32Bytes(s.chunkData.areaIds)) : undefined,
     chunkFlags: s.chunkData ? bytesToBase64(s.chunkData.chunkFlags) : undefined,
     noEffect: s.chunkData ? bytesToBase64(s.chunkData.noEffect) : undefined,
+    shadows: s.shadows ? bytesToBase64(s.shadows) : undefined,
   })
 }
 
@@ -137,6 +138,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
       holes: new Uint8Array(0),
       liquids: null,
       chunkData: null,
+      shadows: null,
       legacy: { layerTextures: m.layerTextures ?? [], splatA: base64ToBytes(m.splatA ?? ''), splatB: base64ToBytes(m.splatB ?? '') },
     }
   }
@@ -153,6 +155,8 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
       (m.version ?? 0) >= 5
         ? { areaIds: bytesU32(base64ToBytes(m.areaIds ?? '')), chunkFlags: base64ToBytes(m.chunkFlags ?? ''), noEffect: base64ToBytes(m.noEffect ?? '') }
         : null,
+    // Format 6 keeps the baked shadows; empty means the map holds none of its own.
+    shadows: m.shadows ? base64ToBytes(m.shadows) : null,
   }
 }
 

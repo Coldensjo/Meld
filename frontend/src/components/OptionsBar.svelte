@@ -490,6 +490,7 @@
       <option value="area">Zone</option>
       <option value="impassable">Impassable</option>
       <option value="noTufts">No tufts</option>
+      <option value="shadow">Shadow</option>
     </select>
     <div
       class="seg"
@@ -497,7 +498,9 @@
         ? 'Set the zone under the brush, or clear it'
         : editor.mapDataMode === 'impassable'
           ? 'Mark the chunks under the brush impassable, or make them passable again'
-          : 'Mark the cells under the brush as growing no tufts, or let them grow again'}
+          : editor.mapDataMode === 'shadow'
+            ? 'Paint baked shadow under the brush, or light it again'
+            : 'Mark the cells under the brush as growing no tufts, or let them grow again'}
     >
       <button class:active={!editor.mapDataClear} onclick={() => (editor.mapDataClear = false)}>Set</button>
       <button class:active={editor.mapDataClear} onclick={() => (editor.mapDataClear = true)}>Clear</button>
@@ -520,6 +523,8 @@
       <span class="dim">{stats.hoverArea ? `Under the cursor: ${stats.hoverArea}` : 'Under the cursor: no zone'}</span>
     {:else if editor.mapDataMode === 'impassable'}
       <span class="dim">Impassable chunks are hatched red. The export sets the flag (0x2) in their chunk headers.</span>
+    {:else if editor.mapDataMode === 'shadow'}
+      <span class="dim">The baked shadows (the ground's darker patches in the game) are tinted violet, 8 texels a cell. Terrain › Bake Shadows works them out from the ground.</span>
     {:else}
       <span class="dim">Cells that grow no grass tufts are hatched orange, as the game leaves roads bare.</span>
     {/if}

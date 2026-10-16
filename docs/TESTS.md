@@ -1070,3 +1070,27 @@ page's own URL (see above), put two layers in chunk 5 with `__engine.doc.liquids
 set `editor.tool = 'water'`, `editor.water.allLayers = false`, `editor.water.layer = 1`, call
 `__engine.frame()` and count the cells in `__engine.doc.liquidRenderer.group`'s meshes
 (`index.count / 6`): 64 rather than 128, and the mesh's `kind` attribute is the second layer's.
+
+## Baked shadows: bake, paint, save and export (B-057, #16)
+
+Checks: a region's client shadows become the map's, the Map data tool's Shadow mode paints them,
+Terrain › Bake Shadows and Clear Shadows work with undo, the map file keeps them (version 6) and the
+export sends each chunk's MCSH as the client has it.
+- Go: `TestRewriteShadowReadsBack` (a synthetic tile) and, with `WOW_DIR=C:/WoW/client`,
+  `TestRewriteClientShadowsUnchanged` (Northshire's 256 chunks sent their own maps back read back with
+  the same bytes and flags), plus `TestReadsVersion5WithoutShadows` and `TestNoShadowsStayNone` in mapfile.
+- Dev page: open Northshire with `__loadScene('Meld scene ' + JSON.stringify({v:1, map:{region:{mapName:'Azeroth',x:32,y:48,size:1}}}))`
+  (`v: 1` is required) and drive `__engine.frame()` until `__engine.terrain.shadow` is set: 512911 of
+  its 1048576 texels are in shadow. `e.bakeShadows()` takes about 0.7 s and leaves 296654 (only the
+  ground casts; Blizzard's maps also shadow under trees), and `e.history.undo()` gives back the
+  client's exactly. The brush: `editor.tool = 'mapdata'`, `editor.mapDataMode = 'shadow'`,
+  `e.tools.mapdata.onDown(e.ctx, {x, y: 0, z}, {altKey: false})` then `onUp(e.ctx)`.
+- Save round trip: `go.main.App.SaveMap(path, toMapData(e.snapshot()))` then `LoadMap(path)` gives
+  version 6 and the same bits; `e.openDocument(fromMapData(raw), path)` opens it with the file's
+  shadows (`terrain.bakedRequested` true, the client's are not read). `mapToTiles(e.exportInput())`
+  headers' `shadow` matches the `RegionShadows` bits byte for byte.
+- Survey (2026-10-16, every tile of Azeroth, Kalimdor, the Deadmines and Warsong Gulch): every chunk
+  has a 512-byte MCSH, even an empty one; no chunk has shadow bits without flag 0x1, but many empty
+  ones have the flag. So Go always writes the map and sets the flag only when a bit is set.
+- Trap: an edit to a module the page imported reloads the dev page, so the open region is gone;
+  load it again before the next probe.

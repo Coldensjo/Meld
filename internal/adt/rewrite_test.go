@@ -294,3 +294,32 @@ func TestRewriteOffsetsPointAtChunks(t *testing.T) {
 		}
 	}
 }
+
+// TestRewriteClientShadowsUnchanged sends every chunk of a client tile its own baked shadows back:
+// the tile reads back with the same maps and the same header flags.
+func TestRewriteClientShadowsUnchanged(t *testing.T) {
+	root := realTile(t)
+	before, err := ParseTerrain(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headers := map[int]ChunkHeader{}
+	for i, c := range before.Chunks {
+		h := ChunkHeader{AreaID: c.AreaID, Impassable: c.Impassable(), Shadow: c.Shadow}
+		headers[i] = h
+	}
+	out, err := Rewrite(root, Changes{TileX: 32, TileY: 48, Headers: headers})
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := ParseTerrain(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range before.Chunks {
+		b, a := before.Chunks[i], after.Chunks[i]
+		if !bytes.Equal(a.Shadow, b.Shadow) || a.Flags != b.Flags {
+			t.Fatalf("chunk %d: flags %#x -> %#x, shadow equal %v", i, b.Flags, a.Flags, bytes.Equal(a.Shadow, b.Shadow))
+		}
+	}
+}

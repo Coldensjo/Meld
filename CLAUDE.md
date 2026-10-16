@@ -142,12 +142,12 @@ cd frontend && pnpm build   # frontend only
   No editing logic goes in Go: it never decides what a brush does. It parses, converts and writes
   formats the frontend should not have to know, and anything that must read the client's archives.
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
-  float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect). Blobs cross the
-  bridge as base64 strings. If you change the format, bump `Version` and update the tests. Older
-  versions stay readable (a version 4 map has no chunk data, a version 3 map no liquids blob, a
-  version 2 map no holes blob either).
+  float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect + shadows). Blobs
+  cross the bridge as base64 strings. If you change the format, bump `Version` and update the tests.
+  Older versions stay readable (a version 5 map has no shadows, a version 4 map no chunk data, a
+  version 3 map no liquids blob, a version 2 map no holes blob either).
 - **Map data** (`terrain/chunkFlags.ts`, `tools/MapDataTool.ts`, tool `mapdata`, key 9): what a
-  chunk's MCNK header says besides its ground, by mode (`editor.mapDataMode`: zone, impassable, no tufts per cell). `Terrain.areaIds` is an AreaTable.dbc ID per paint
+  chunk's MCNK header says besides its ground, by mode (`editor.mapDataMode`: zone, impassable, no tufts per cell, baked shadow per texel). `Terrain.areaIds` is an AreaTable.dbc ID per paint
   chunk (the `Areas` binding lists them, `wow/areas.ts` names them) and `Terrain.chunkFlags` a byte
   per chunk (`CHUNK_IMPASSABLE`); both and `Terrain.noEffect` are read from a region, saved in the
   map file (version 5) and painted by the tool through `ChunkDataStroke` (one undo step a stroke).
@@ -181,12 +181,17 @@ cd frontend && pnpm build   # frontend only
     1.12 tile keeps a chunk's holes in a 4x4 bitmap; the export sends each chunk's hole cells in its
     `HeaderSpec.Holes` and Go writes the bitmap at MCNK 0x3C (`adt.HoleBits`: a block with any hole
     cell is a hole).
-- **Baked shadows** (Lighting › Baked Shadows, `prefs.bakedShadows`, B-173): a region's chunks carry the
-  client's baked shadow maps (MCSH, 64x64 bits a chunk, read by `adt` into `Chunk.Shadow`). The
+- **Baked shadows** (Lighting › Baked Shadows, `prefs.bakedShadows`, B-173, B-057): a region's chunks carry
+  the client's baked shadow maps (MCSH, 64x64 bits a chunk, read by `adt` into `Chunk.Shadow`). The
   `RegionShadows` binding stitches them for the open block, the Engine reads them once per terrain
-  (`updateBakedShadows`) and `Terrain.setBakedShadows` uploads them as `bakedShadowTex`; the terrain
-  shader keeps 70% of the light in shadow, as the client does (`terrain/bakedShadows.ts`). They are
-  read from the client, never saved with the map, and a region save keeps the client's MCSH.
+  (`updateBakedShadows`) into `Terrain.shadow` (a byte per texel, 8 a cell, `shadowSide` a side,
+  uploaded as `bakedShadowTex`, rows at a time through `touchShadow`); the terrain shader keeps 70% of
+  the light in shadow, as the client does (`terrain/bakedShadows.ts`). They are the map's from then on:
+  painted by the Map data tool's Shadow mode, baked from the ground for the client's lighting sun
+  (Terrain › Bake Shadows, `bakeShadows`) or cleared, each through `ShadowStroke`; saved in the map
+  file (version 6, a bit a texel) and sent on export as each chunk's `HeaderSpec.Shadow`, which Go
+  writes as a 512-byte MCSH (`adt.shadowPiece`). A map with none of its own (`Terrain.shadow` null)
+  sends none, so a region keeps the client's.
 - **Far horizon** (View › Far Horizon, `prefs.showHorizon`, B-167): around an open region, the map's
   WDL tiles within five tiles (`RegionHorizon` binding, `vmangos.ReadRegionHorizon`), meshed as the
   client meshes them (`world/horizonMesh.ts`: chunk corners and centres, four triangles a chunk) and

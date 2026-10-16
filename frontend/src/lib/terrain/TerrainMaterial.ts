@@ -350,11 +350,14 @@ void main() {
       lit = mix(lit, cd.rgb, dot(cd.rgb, vec3(1.0)) > 0.0 ? 0.4 : 0.0);
     } else if (mapDataMode < 2.5) {
       lit = mix(lit, vec3(0.9, 0.1, 0.1), cd.a > 0.5 ? 0.25 + 0.25 * stripes : 0.0);
-    } else {
+    } else if (mapDataMode < 3.5) {
       float cells = worldSize / cellSize;
       vec2 cell = clamp(floor(vWorldPos.xz / cellSize), 0.0, cells - 1.0);
       float n = texture2D(noEffectTex, (cell + 0.5) / cells).r;
       lit = mix(lit, vec3(1.0, 0.6, 0.1), n > 0.002 ? 0.25 + 0.2 * stripes : 0.0);
+    } else if (bakedShadowOn > 0.5) {
+      // Shadow mode: the baked shadows tinted violet, so the painted texels read at a glance.
+      lit = mix(lit, vec3(0.35, 0.2, 0.85), 0.45 * texture2D(bakedShadowTex, suv).r);
     }
   }
 

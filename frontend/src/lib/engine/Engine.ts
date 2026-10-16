@@ -22,6 +22,8 @@ import { BrushTool, PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFact
 import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
+import { ShadowStroke } from '../tools/shadowStroke'
+import { SHADOW_PER_CELL, bakeShadows, packShadowBits } from '../terrain/bakedShadows'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
 import { ClearTool } from '../tools/ClearTool'
 import { SpawnLabels } from '../world/SpawnLabels'
@@ -179,6 +181,8 @@ export interface MapSnapshot {
    * null for an older map, which has none.
    */
   chunkData: { areaIds: Uint32Array; chunkFlags: Uint8Array; noEffect: Uint8Array } | null
+  /** The baked shadows' bits (format 6, terrain/bakedShadows.ts); null when the map has none of its own. */
+  shadows: Uint8Array | null
   /** Format 1 maps only, converted on open: the eight global layers and their splats. */
   legacy?: { layerTextures: string[]; splatA: Uint8Array; splatB: Uint8Array }
 }
@@ -797,7 +801,8 @@ export class Engine {
     u.contourStep.value = this.prefs?.showContours ? this.prefs.contourStep : 0
     u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
     this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
-    this.terrain.setMapDataOverlay(editor.tool !== 'mapdata' ? 0 : editor.mapDataMode === 'area' ? 1 : editor.mapDataMode === 'impassable' ? 2 : 3)
+    const md = editor.mapDataMode
+    this.terrain.setMapDataOverlay(editor.tool !== 'mapdata' ? 0 : md === 'area' ? 1 : md === 'impassable' ? 2 : md === 'noTufts' ? 3 : 4)
     // Strong red while editing the mask; faint while painting so results stay visible.
     const painting = editor.tool === 'paint' || editor.tool === 'road'
     u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
@@ -1887,6 +1892,8 @@ export class Engine {
       // A map saved before the file kept chunk data has none of its own, so the client's stays.
       headers: this.doc.chunkDataKnown ? { areaIds: t.areaIds, chunkFlags: t.chunkFlags } : undefined,
       holes: t.holes,
+      // Sent with the headers only: a map that has none of its own keeps the client's.
+      shadows: t.shadow ?? undefined,
       objects,
       waterEnabled: editor.waterEnabled,
       waterLevel: editor.waterLevel,
@@ -2133,6 +2140,7 @@ export class Engine {
       holes: t.holes,
       liquids: encodeLiquids(this.doc.liquids),
       chunkData: { areaIds: t.areaIds, chunkFlags: t.chunkFlags, noEffect: t.noEffect },
+      shadows: t.shadow ? packShadowBits(t.shadow) : null,
     }
   }
 
@@ -2181,6 +2189,15 @@ export class Engine {
       t.noEffect.set(c.noEffect)
     }
     d.chunkDataKnown = m.chunkData !== null
+    if (m.shadows) {
+      if (m.shadows.length !== (t.shadowSide * t.shadowSide) / 8) {
+        d.dispose()
+        throw new Error('shadow data size mismatch')
+      }
+      t.setBakedShadows(m.shadows, t.shadowSide)
+      // The map's own: the client's are not read over them.
+      t.bakedRequested = true
+    }
     t.markAllDirty()
     const region: RegionRef | null = m.region ? { ...m.region, uids: new Map() } : null
     for (const o of m.objects) {
@@ -3151,21 +3168,70 @@ export class Engine {
   }
 
   /**
-   * Lighting › Baked Shadows: reads the open region's baked shadows (MCSH) from the client once per terrain
-   * and shows or hides them. A map of its own has none; they are not saved with the map.
+   * Lighting › Baked Shadows shows or hides the baked shadows (MCSH); the Map data tool's Shadow mode
+   * shows them too. A region whose map holds none of its own reads the client's once per terrain, and
+   * they become the map's (saved with it and sent on export, B-057), unless the author painted some first.
    */
   private updateBakedShadows() {
     const t = this.terrain
-    const on = !!this.prefs?.bakedShadows
-    t.showBakedShadows(on)
+    t.showBakedShadows(!!this.prefs?.bakedShadows || (editor.tool === 'mapdata' && editor.mapDataMode === 'shadow'))
     const region = this.doc.meta.region
-    if (!on || t.bakedRequested || !region || !wow.loaded) return
+    if (t.bakedRequested || !region || !wow.loaded) return
     t.bakedRequested = true
     RegionShadows(region.mapName, region.x, region.y, region.size)
       .then((s) => {
-        if (s?.bits) t.setBakedShadows(base64ToBytes(s.bits), s.side)
+        if (s?.bits && !t.shadow) t.setBakedShadows(base64ToBytes(s.bits), s.side)
       })
       .catch((err) => console.warn('baked shadows not read', err))
+  }
+
+  /** The selected area as shadow texels (inclusive), or the whole map. */
+  private shadowRect() {
+    const t = this.terrain
+    const s = editor.selection
+    const n = SHADOW_PER_CELL
+    if (s && s.x1 > s.x0 && s.z1 > s.z0) return { x0: s.x0 * n, z0: s.z0 * n, x1: s.x1 * n - 1, z1: s.z1 * n - 1 }
+    return { x0: 0, z0: 0, x1: t.shadowSide - 1, z1: t.shadowSide - 1 }
+  }
+
+  /**
+   * Terrain › Bake Shadows: works the baked shadows out from the ground, in the selected area or the
+   * whole map, for the client's lighting sun at the current hour (which never sets), as one undo step.
+   */
+  bakeShadows() {
+    const t = this.terrain
+    const r = this.shadowRect()
+    const stroke = new ShadowStroke(t, 'Bake shadows')
+    stroke.reserve(r)
+    const sun = lightingSunDir(this.hour * 60, [0, 0, 0])
+    const n = bakeShadows(t.heights, t.size, t.cellSize, sun, r, t.ensureShadow())
+    stroke.touch(r)
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    const where = editor.selection ? 'in the selected area' : 'over the map'
+    setStatus(n ? `Baked the shadows ${where}: ${n} texels changed. Lighting › Baked Shadows shows them.` : `The shadows ${where} were already so.`)
+  }
+
+  /** Terrain › Clear Shadows: lights every baked shadow texel in the selected area or the whole map, as one undo step. */
+  clearShadows() {
+    this.clearShadowRect(this.shadowRect(), editor.selection ? 'in the selected area' : 'over the map')
+  }
+
+  /** Lights the baked shadow texels of a rect (inclusive), as one undo step; `where` names it in the status. */
+  private clearShadowRect(r: { x0: number; z0: number; x1: number; z1: number }, where: string) {
+    const t = this.terrain
+    if (!t.shadow) {
+      setStatus('The map has no baked shadows.')
+      return
+    }
+    const stroke = new ShadowStroke(t, `Clear shadows ${where}`)
+    stroke.reserve(r)
+    const data = t.shadow
+    for (let z = r.z0; z <= r.z1; z++) data.fill(0, z * t.shadowSide + r.x0, z * t.shadowSide + r.x1 + 1)
+    stroke.touch(r)
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    setStatus(cmd ? `Cleared the baked shadows ${where}.` : `There were no baked shadows ${where}.`)
   }
 
   /** Keeps the grass tufts around the camera current (see GroundEffectLayer). */
@@ -3452,7 +3518,7 @@ export class Engine {
     return [lo, hi]
   }
 
-  cleanUpTile(what: 'height' | 'textures' | 'setBase' | 'textureDuplicates' | 'models' | 'duplicateModels') {
+  cleanUpTile(what: 'height' | 'textures' | 'setBase' | 'textureDuplicates' | 'models' | 'duplicateModels' | 'shadows') {
     const t = this.terrain
     const tile = this.tileUnderCamera()
     if (!tile) {
@@ -3462,6 +3528,12 @@ export class Engine {
     const { tx, tz, name } = tile
     const x0 = tx * TILE_CELLS * t.cellSize, z0 = tz * TILE_CELLS * t.cellSize
     const x1 = x0 + TILE_CELLS * t.cellSize, z1 = z0 + TILE_CELLS * t.cellSize
+    if (what === 'shadows') {
+      // Noggit Red's Clear shadows (Assist › Clean up): the tile's baked shadows, all lit.
+      const n = TILE_CELLS * SHADOW_PER_CELL
+      this.clearShadowRect({ x0: tx * n, z0: tz * n, x1: (tx + 1) * n - 1, z1: (tz + 1) * n - 1 }, `on ${name}`)
+      return
+    }
     if (what === 'models' || what === 'duplicateModels') {
       const roots = [...this.objects.objects.values()].filter((o) => o.parent === undefined && o.x >= x0 && o.x < x1 && o.z >= z0 && o.z < z1)
       let gone: WorldObject[]

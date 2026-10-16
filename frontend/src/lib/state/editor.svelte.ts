@@ -20,7 +20,7 @@ export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' 
  * What the Map data tool paints into the chunk headers: the zone (an AreaTable.dbc ID), the
  * impassable flag, or the cells that grow no ground effect doodads.
  */
-export type MapDataMode = 'area' | 'impassable' | 'noTufts'
+export type MapDataMode = 'area' | 'impassable' | 'noTufts' | 'shadow'
 export type ClearMode = 'models' | 'textures' | 'faint' | 'heights' | 'liquids' | 'holes'
 export type SculptMode = 'raise' | 'lower' | 'smooth' | 'blur' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'vertex' | 'hole'
 /** Flatten target: the height under the first click, or the average height under the brush. */

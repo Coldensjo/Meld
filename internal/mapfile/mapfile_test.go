@@ -43,6 +43,9 @@ func sample(size int) *MapData {
 	flags[2] = ChunkImpassable
 	noEffect := make([]byte, size*size)
 	noEffect[2*size+5] = 1
+	// One texel in shadow at each end of the shadow map.
+	shadows := make([]byte, size*ShadowTexels*size*ShadowTexels/8)
+	shadows[0], shadows[len(shadows)-1] = 1, 0x80
 	return &MapData{
 		Header: Header{
 			Name: "test", Size: size, CellSize: 4, SplatRes: res,
@@ -63,6 +66,7 @@ func sample(size int) *MapData {
 		AreaIDs:    base64.StdEncoding.EncodeToString(areas),
 		ChunkFlags: base64.StdEncoding.EncodeToString(flags),
 		NoEffect:   base64.StdEncoding.EncodeToString(noEffect),
+		Shadows:    base64.StdEncoding.EncodeToString(shadows),
 	}
 }
 
@@ -80,7 +84,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("version = %d, want %d", got.Version, Version)
 	}
 	if got.Heights != m.Heights || got.Weights != m.Weights || got.ChunkSlots != m.ChunkSlots || got.Holes != m.Holes || got.Liquids != m.Liquids ||
-		got.AreaIDs != m.AreaIDs || got.ChunkFlags != m.ChunkFlags || got.NoEffect != m.NoEffect {
+		got.AreaIDs != m.AreaIDs || got.ChunkFlags != m.ChunkFlags || got.NoEffect != m.NoEffect || got.Shadows != m.Shadows {
 		t.Fatal("blob mismatch")
 	}
 	if got.Name != "test" || got.WaterLevel != 1.5 || !got.WaterEnabled || got.CellSize != 4 {
@@ -176,6 +180,11 @@ func writeOld(t *testing.T, m *MapData, version uint32) []byte {
 		gz.Write(n[:])
 		gz.Write(liquids)
 	}
+	if version >= 5 {
+		gz.Write(dec(m.AreaIDs))
+		gz.Write(dec(m.ChunkFlags))
+		gz.Write(dec(m.NoEffect))
+	}
 	gz.Close()
 	return buf.Bytes()
 }
@@ -210,6 +219,35 @@ func TestReadsVersion4WithoutChunkData(t *testing.T) {
 	}
 	if m.Version != 4 || m.Liquids == "" || m.AreaIDs != "" || m.ChunkFlags != "" || m.NoEffect != "" {
 		t.Fatalf("version 4 fields: version %d, areas %q", m.Version, m.AreaIDs)
+	}
+}
+
+// A version 5 map has chunk data but no shadows blob, and opens with no shadows of its own.
+func TestReadsVersion5WithoutShadows(t *testing.T) {
+	m, err := Read(bytes.NewReader(writeOld(t, sample(32), 5)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Version != 5 || m.Shadows != "" || m.NoEffect == "" {
+		t.Fatalf("version 5 fields: version %d, shadows %d bytes", m.Version, len(m.Shadows))
+	}
+}
+
+// A map with no shadows of its own keeps none: an empty blob, read back empty.
+func TestNoShadowsStayNone(t *testing.T) {
+	m := sample(32)
+	m.Shadows = ""
+	var buf bytes.Buffer
+	if err := Write(&buf, m); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(&buf)
+	if err != nil || got.Shadows != "" {
+		t.Fatalf("shadows %d bytes, %v", len(got.Shadows), err)
+	}
+	m.Shadows = base64.StdEncoding.EncodeToString(make([]byte, 7))
+	if err := Write(&buf, m); err == nil {
+		t.Fatal("a shadows blob of the wrong size was written")
 	}
 }
 

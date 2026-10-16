@@ -15,12 +15,18 @@
 //	areaIds    []byte   (Size/8)^2 uint32: each chunk's AreaTable.dbc ID, 0 for none (version 5)
 //	chunkFlags []byte   (Size/8)^2 bytes: each chunk's flags, bit 0 impassable (version 5)
 //	noEffect   []byte   Size^2 bytes: 1 where a cell grows no ground effect doodads (version 5)
+//	shadowLen  uint32   length of the shadows blob: 0, or ShadowBytes (version 6)
+//	shadows    []byte   the baked terrain shadows, a bit per shadow texel (version 6)
+//
+// The baked shadows (each chunk's MCSH, kept at its resolution) have ShadowTexels texels a cell, so
+// Size*ShadowTexels a side; texel i (row-major) is bit i&7 of byte i>>3. An empty blob means the map
+// holds none of its own: a region keeps the client's.
 //
 // A liquid layer (noggit3's liquid_layer) is: uint32 chunk index (8x8-cell chunks, row-major),
 // uint8 liquid type (LiquidType.dbc: 1 water, 2 ocean, 3 magma, 4 slime), uint64 cell mask (bit
 // z*8+x), 81 float32 surface heights and 81 depth bytes, each 9x9 row-major.
 //
-// Version 4 has no area IDs, chunk flags or no-effect cells: such a map opens with none, and says so
+// Version 5 has no shadows blob: such a map opens with none of its own. Version 4 has no area IDs, chunk flags or no-effect cells: such a map opens with none, and says so
 // (Version < 5), so a region's export can keep the client's own. Version 3 has no liquids: such a map opens with none. Version 2 has no holes blob either.
 //
 // Version 1 stored eight global paint layers instead, as splatA and splatB (SplatRes^2 * 4 bytes
@@ -44,8 +50,10 @@ import (
 
 const (
 	Magic = "WMAP"
-	// Version is the format written. Versions 1 to 4 are still read.
-	Version = 5
+	// Version is the format written. Versions 1 to 5 are still read.
+	Version = 6
+	// ShadowTexels is the baked shadow map's texels per cell side (64 a chunk, as MCSH has them).
+	ShadowTexels = 8
 	// LiquidRecordSize is the bytes of one liquid layer in the liquids blob.
 	LiquidRecordSize = 4 + 1 + 8 + 81*4 + 81
 	// ChunkCells is the size of a paint chunk in cells. A map's size is a multiple of it.
@@ -137,6 +145,8 @@ type MapData struct {
 	AreaIDs    string `json:"areaIds,omitempty"`
 	ChunkFlags string `json:"chunkFlags,omitempty"`
 	NoEffect   string `json:"noEffect,omitempty"`
+	// Shadows is the baked shadows' bits (version 6, ShadowBytes); empty means none of the map's own.
+	Shadows string `json:"shadows,omitempty"`
 	SplatA     string `json:"splatA,omitempty"` // base64 RGBA8, version 1
 	SplatB     string `json:"splatB,omitempty"` // base64 RGBA8, version 1
 }
@@ -173,6 +183,12 @@ func (h *Header) chunkBytes() int {
 
 // holeBytes is the size of a per-cell blob: the holes, or the no-effect cells.
 func (h *Header) holeBytes() int { return h.Size * h.Size }
+
+// ShadowBytes is the size of the baked shadows' bits: a bit per texel, ShadowTexels a cell side.
+func (h *Header) ShadowBytes() int {
+	side := h.Size * ShadowTexels
+	return side * side / 8
+}
 
 // chunkCount is the number of paint chunks.
 func (h *Header) chunkCount() int {
@@ -260,6 +276,16 @@ func Write(w io.Writer, m *MapData) error {
 		return err
 	}
 	blobs = append(blobs, tail...)
+	shadows, err := base64.StdEncoding.DecodeString(m.Shadows)
+	if err != nil {
+		return fmt.Errorf("shadows: %w", err)
+	}
+	if len(shadows) != 0 && len(shadows) != m.ShadowBytes() {
+		return fmt.Errorf("shadows: %d bytes, want %d", len(shadows), m.ShadowBytes())
+	}
+	var shadowLen [4]byte
+	binary.LittleEndian.PutUint32(shadowLen[:], uint32(len(shadows)))
+	blobs = append(blobs, shadowLen[:], shadows)
 
 	hdr, err := json.Marshal(&m.Header)
 	if err != nil {
@@ -288,7 +314,7 @@ func Write(w io.Writer, m *MapData) error {
 	return gz.Close()
 }
 
-// Read decodes a map from r. Versions 1 to 5 are all accepted.
+// Read decodes a map from r. Versions 1 to 6 are all accepted.
 func Read(r io.Reader) (*MapData, error) {
 	gz, err := gzip.NewReader(bufio.NewReader(r))
 	if err != nil {
@@ -383,6 +409,21 @@ func Read(r io.Reader) (*MapData, error) {
 			}
 			if m.NoEffect, err = read(m.holeBytes()); err != nil {
 				return nil, fmt.Errorf("noEffect: %w", err)
+			}
+		}
+		if v >= 6 {
+			var n [4]byte
+			if _, err := io.ReadFull(gz, n[:]); err != nil {
+				return nil, fmt.Errorf("shadows: %w", err)
+			}
+			switch size := int(binary.LittleEndian.Uint32(n[:])); size {
+			case 0:
+			case m.ShadowBytes():
+				if m.Shadows, err = read(size); err != nil {
+					return nil, fmt.Errorf("shadows: %w", err)
+				}
+			default:
+				return nil, fmt.Errorf("shadows: %d bytes, want %d", size, m.ShadowBytes())
 			}
 		}
 	}
