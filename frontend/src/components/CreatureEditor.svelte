@@ -333,6 +333,7 @@
           {#if target.entry === 0}
             <div class="new">
               <p>Make a creature of your own for the world database. It gets the first free entry; edit it, save it, and place it.</p>
+              <p class="dim">Or let the guide take you through it step by step: <button onclick={() => { ui.creatureEditor = null; loadedFor = ''; ui.creatures = true }}>Open the creature guide</button></p>
               <label>Name <input type="text" maxlength="100" placeholder="Name" bind:value={newName} /></label>
               {#if copySource}
                 <label class="check"><input type="checkbox" bind:checked={copyThis} /> Copy {copySource.name} (its looks, stats, loot and AI)</label>

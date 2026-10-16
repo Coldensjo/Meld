@@ -24,6 +24,8 @@ export function BrowseVmangosFolder():Promise<string>;
 
 export function BrowseWowFolder():Promise<string>;
 
+export function ClassLevelStats(arg1:number,arg2:number,arg3:number):Promise<Array<vmangos.ClassLevelStats>>;
+
 export function ClearThumbnailCache():Promise<void>;
 
 export function CreateCreature(arg1:number,arg2:string):Promise<number>;
@@ -31,6 +33,8 @@ export function CreateCreature(arg1:number,arg2:string):Promise<number>;
 export function EquipmentFor(arg1:any):Promise<number>;
 
 export function EquipmentItems(arg1:number):Promise<any>;
+
+export function Factions():Promise<Array<vmangos.FactionInfo>>;
 
 export function GameClient():Promise<main.GameClientInfo>;
 

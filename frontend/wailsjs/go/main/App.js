@@ -38,6 +38,10 @@ export function BrowseWowFolder() {
   return window['go']['main']['App']['BrowseWowFolder']();
 }
 
+export function ClassLevelStats(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ClassLevelStats'](arg1, arg2, arg3);
+}
+
 export function ClearThumbnailCache() {
   return window['go']['main']['App']['ClearThumbnailCache']();
 }
@@ -52,6 +56,10 @@ export function EquipmentFor(arg1) {
 
 export function EquipmentItems(arg1) {
   return window['go']['main']['App']['EquipmentItems'](arg1);
+}
+
+export function Factions() {
+  return window['go']['main']['App']['Factions']();
 }
 
 export function GameClient() {

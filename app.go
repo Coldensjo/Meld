@@ -652,6 +652,26 @@ func (a *App) SaveGreeting(entry int, male, female string) (vmangos.GreetingSave
 	return vmangos.SaveGreeting(server, entry, male, female)
 }
 
+// Factions lists the client's faction templates with their names and how each treats an Alliance
+// and a Horde player, for the creature guide.
+func (a *App) Factions() ([]vmangos.FactionInfo, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.Factions(dataDir)
+}
+
+// ClassLevelStats reads what the server gives a creature of a unit class at each level from from to
+// to (creature_classlevelstats), for the creature guide's stats step.
+func (a *App) ClassLevelStats(class, from, to int) ([]vmangos.ClassLevelStats, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadClassLevelStats(server, class, from, to)
+}
+
 // SearchItems lists up to 100 item templates whose name has text in it (or whose entry it is).
 func (a *App) SearchItems(text string) ([]vmangos.ItemRef, error) {
 	server, _, err := a.serverAndData()

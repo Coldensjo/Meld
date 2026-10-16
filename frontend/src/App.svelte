@@ -9,6 +9,7 @@
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
   import CreatureEditor from './components/CreatureEditor.svelte'
+  import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
   import Inspector from './components/Inspector.svelte'
   import HistoryWindow from './components/HistoryWindow.svelte'
@@ -253,6 +254,7 @@
 <HistoryWindow />
 <TexturePaletteWindow />
 <MinimapWindow />
+<CreaturesWorkspace />
 <CreatureEditor />
 <DoodadBrushEditor />
 <AppDialogs />

@@ -486,6 +486,8 @@ export const ui = $state({
    * opened from (null for a template alone, such as a new creature).
    */
   creatureEditor: null as { key: string | null; entry: number } | null,
+  /** The Creatures workspace (World › Creatures…, #132): find creatures and make a new one with the guide. */
+  creatures: false,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
   /** The game Meld closes and opens around an export (Game › Game Client): Wow.exe or Benilla. */

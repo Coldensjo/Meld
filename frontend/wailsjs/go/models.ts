@@ -575,6 +575,26 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class ClassLevelStats {
+	    level: number;
+	    health: number;
+	    mana: number;
+	    meleeDamage: number;
+	    armor: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ClassLevelStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.level = source["level"];
+	        this.health = source["health"];
+	        this.mana = source["mana"];
+	        this.meleeDamage = source["meleeDamage"];
+	        this.armor = source["armor"];
+	    }
+	}
 	export class QuestRef {
 	    quest: number;
 	    title: string;
@@ -763,6 +783,24 @@ export namespace vmangos {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.anim = source["anim"];
+	    }
+	}
+	export class FactionInfo {
+	    id: number;
+	    name: string;
+	    alliance: string;
+	    horde: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FactionInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.alliance = source["alliance"];
+	        this.horde = source["horde"];
 	    }
 	}
 	export class GameEvent {
