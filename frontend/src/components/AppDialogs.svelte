@@ -308,7 +308,7 @@
   </Modal>
 {:else if ui.dialog === 'publish'}
   <Modal title="Publish to the server" width={400} onclose={close}>
-    <p>Publishing rebuilds this map for the server and the client. It writes the map into your WoW client's patch, then stops the world server, extracts the map again (several minutes), and starts the server.</p>
+    <p>Publishing rebuilds this map for the server and the client. It writes the map into your WoW client's patch, then stops the world server, extracts this map again (well under a minute), and starts the server.</p>
     <p class="warn">Players on the server will be disconnected. Close World of Warcraft first, or it can't update its patch.</p>
     {#snippet actions()}
       <button onclick={close}>Cancel</button>

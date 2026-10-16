@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"Meld/internal/mpq"
 )
 
 // fakeRunner records the programs a publish runs, and fails the one named in failAt.
@@ -46,7 +48,7 @@ func TestPublishServerRunsStepsInOrder(t *testing.T) {
 	f := &fakeRunner{}
 	p := PublishPlan{ClientRoot: client, ServerRoot: server, Mariadb: "mariadb", Run: f}
 	spec := MapSpec{Dir: "MyMap", MapID: 1900}
-	if err := publishServer(p, filepath.Join(client, "Data"), spec, func(string) {}); err != nil {
+	if err := publishServer(p, filepath.Join(client, "Data"), spec, nil, func(string) {}); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"mariadb", "taskkill", "MapExtractor.exe", "VMapExtractor.exe", "VMapAssembler.exe", "START"}
@@ -67,7 +69,7 @@ func TestPublishServerStopsBeforeStartingOnFailure(t *testing.T) {
 	server := serverFolder(t)
 	f := &fakeRunner{failAt: "MapExtractor"}
 	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
-	err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), MapSpec{Dir: "MyMap", MapID: 1900}, func(string) {})
+	err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), MapSpec{Dir: "MyMap", MapID: 1900}, nil, func(string) {})
 	if err == nil || !strings.Contains(err.Error(), "map extraction") {
 		t.Fatalf("err = %v", err)
 	}
@@ -75,6 +77,92 @@ func TestPublishServerStopsBeforeStartingOnFailure(t *testing.T) {
 		if strings.HasPrefix(c, "START") {
 			t.Fatal("the world server was started after a failed extraction")
 		}
+	}
+}
+
+// callOf is the recorded call that runs the program named, or "".
+func callOf(calls []string, name string) string {
+	for _, c := range calls {
+		if strings.Contains(c, name) {
+			return c
+		}
+	}
+	return ""
+}
+
+func TestPublishServerExtractsEveryMapWithoutWholeVmaps(t *testing.T) {
+	server := serverFolder(t)
+	f := &fakeRunner{}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
+	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), MapSpec{Dir: "MyMap", MapID: 1900}, []string{"1_2"}, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"MapExtractor.exe", "VMapExtractor.exe"} {
+		if c := callOf(f.calls, name); c == "" || strings.Contains(c, " -m ") {
+			t.Fatalf("%s call = %q, want one with no map filter", name, c)
+		}
+	}
+}
+
+func TestPublishServerExtractsOnlyTheMap(t *testing.T) {
+	server := serverFolder(t)
+	data := filepath.Join(server, "data")
+	os.MkdirAll(filepath.Join(data, "vmaps"), 0o755)
+	os.MkdirAll(filepath.Join(data, "maps"), 0o755)
+	keep := []string{"vmaps/temp_gameobject_models", "vmaps/000.vmtree", "vmaps/000_32_48.vmtile", "vmaps/Anvil.m2", "maps/0004832.map"}
+	gone := []string{"vmaps/1900.vmtree", "vmaps/1900_01_02.vmtile"}
+	for _, n := range append(append([]string{"maps/1900" + "0201.map"}, keep...), gone...) {
+		os.WriteFile(filepath.Join(data, filepath.FromSlash(n)), []byte("x"), 0o644)
+	}
+
+	f := &fakeRunner{}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
+	spec := MapSpec{Dir: "MyMap", MapID: 1900}
+	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), spec, []string{"1_2", "3_4"}, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	if c := callOf(f.calls, "MapExtractor.exe"); !strings.HasSuffix(c, "-m 1900 -t 1_2,3_4") {
+		t.Fatalf("map extractor call = %q", c)
+	}
+	if c := callOf(f.calls, "VMapExtractor.exe"); !strings.HasSuffix(c, "-m 1900") {
+		t.Fatalf("vmap extractor call = %q", c)
+	}
+	for _, n := range append(keep, "maps/1900"+"0201.map") {
+		if _, err := os.Stat(filepath.Join(data, filepath.FromSlash(n))); err != nil {
+			t.Fatalf("%s was removed", n)
+		}
+	}
+	for _, n := range gone {
+		if _, err := os.Stat(filepath.Join(data, filepath.FromSlash(n))); err == nil {
+			t.Fatalf("%s was kept", n)
+		}
+	}
+
+	// With no tiles given, the whole map is extracted, its old tile files removed first.
+	f.calls = nil
+	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), spec, nil, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	if c := callOf(f.calls, "MapExtractor.exe"); !strings.HasSuffix(c, "-m 1900") {
+		t.Fatalf("map extractor call = %q", c)
+	}
+	if _, err := os.Stat(filepath.Join(data, "maps", "1900"+"0201.map")); err == nil {
+		t.Fatal("the map's old tile file was kept")
+	}
+	if _, err := os.Stat(filepath.Join(data, "maps", "0004832.map")); err != nil {
+		t.Fatal("another map's tile file was removed")
+	}
+}
+
+func TestChangedTiles(t *testing.T) {
+	m := MapSpec{Dir: "MyMap", Tiles: []TileSpec{{X: 1, Y: 2}, {X: 3, Y: 4}}}
+	files := []mpq.File{{Name: `World\Maps\MyMap\MyMap_3_4.adt`}, {Name: `World\Maps\MyMap\MyMap.wdl`}}
+	tiles, layout := changedTiles(m, files)
+	if len(tiles) != 1 || tiles[0] != "3_4" || layout {
+		t.Fatalf("tiles %q, layout %v", tiles, layout)
+	}
+	if _, layout = changedTiles(m, append(files, mpq.File{Name: `World\Maps\MyMap\MyMap.wdt`})); !layout {
+		t.Fatal("a written WDT is not a layout change")
 	}
 }
 

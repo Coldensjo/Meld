@@ -1462,3 +1462,28 @@ into the client's minimap (BLP plus md5translate.trs in Meld's patch).
   XR target, so the shot's target is flagged `isXRRenderTarget`; and with `colorSpace` sRGB three
   stores it as an sRGB texture, which encodes a second time (a pale picture), so its
   `internalFormat` is `'RGBA8'`.
+
+## Server map extraction for one map (Publish, #174)
+Checks: Publish runs the VMaNGOS extractors on the published map only: MapExtractor with `-m <id>`
+(and `-t x_y,...` for the tiles the export wrote, when the server was current before it), VMapExtractor
+with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.vmtile` files.
+- Go: `TestPublishServerExtractsOnlyTheMap` (the arguments, the map's old vmtree/vmtile and tile files
+  removed, other maps' kept), `TestPublishServerExtractsEveryMapWithoutWholeVmaps` (no
+  `vmaps\temp_gameobject_models` means vmaps were never built whole, so every map is extracted) and
+  `TestChangedTiles`.
+- Extractors by hand, without touching the server: run them in an empty scratch folder (VMapExtractor
+  writes `.\Buildings` in the working folder and refuses a folder that already holds `Buildings\dir_bin`):
+  `MapExtractor.exe -i C:\WoW\client -o . -e 1 -m 0 -t 32_48,33_48,32_49,33_49 --silent`, then
+  `VMapExtractor.exe -l -d C:\WoW\client\Data -m 0 --silent`, then `VMapAssembler.exe Buildings vmaps --silent`.
+  Compare with a full run in another folder (no `-m`): the `maps` files, `000.vmtree`, every
+  `000_*.vmtile` and every model file came out byte for byte the same on 2026-10-16.
+- Timings then (Azeroth 2x2 around Northshire against every map): maps 0 s against 14 s, vmap extract
+  19 s against 51 s, assemble 9 s against 20 s.
+- The extractors' sources are on vmangos's `local` branch (`contrib/extractor/System.cpp`,
+  `contrib/vmap_extractor/vmapextract/vmapexport.cpp`). Rebuild them with
+  `cmake -S . -B build/extractors -G "Visual Studio 17 2022" -A x64 -DBUILD_EXTRACTORS=ON -DUSE_SCRIPTS=OFF -DBUILD_FOR_HOST_CPU=OFF -DENABLE_CPPTRACE=OFF`
+  and `cmake --build build/extractors --config Release --target MapExtractor VMapExtractor`; the exes land
+  in `vmangos\bin\Release`, to be copied into `run\Extractors`. The old `vmangos\build` cache points at
+  the folder's former place (`C:\Servers\Software\vmangos`), so it can't be reused.
+- Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
+  "map extraction".

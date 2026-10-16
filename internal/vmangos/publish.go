@@ -116,11 +116,14 @@ func Publish(p PublishPlan, spec MapSpec, log func(string)) error {
 	}
 
 	log("Writing the map into the client's patch…")
+	// Whether the server had the patch's last state, before this export writes a newer one: only then
+	// are the tiles this export leaves alone current on the server.
+	current := serverMapsCurrent(p.ServerRoot, spec.MapID, filepath.Join(clientData, PatchName))
 	res, err := ExportMap(clientData, clientData, p.ServerRoot, spec)
 	if err != nil {
 		return err
 	}
-	if res.Patch == "" && serverMapsCurrent(p.ServerRoot, spec.MapID, filepath.Join(clientData, PatchName)) {
+	if res.Patch == "" && current {
 		log("Nothing changed since the last publish, and the server's map data is newer than the patch: the server was left running.")
 		return nil
 	}
@@ -128,7 +131,28 @@ func Publish(p PublishPlan, spec MapSpec, log func(string)) error {
 		log(fmt.Sprintf("Wrote %d of %d tiles to %s (the rest were unchanged)", res.Changed, res.Tiles, filepath.Base(res.Patch)))
 	}
 
-	return publishServer(p, clientData, spec, log)
+	var tiles []string
+	if current && !res.Layout {
+		tiles = res.ChangedTiles
+	}
+	return publishServer(p, clientData, spec, tiles, log)
+}
+
+// isMapTile reports whether a data/maps file name is one of the map's tiles: the map ID in three
+// digits, the tile's y and x in two each, then ".map".
+func isMapTile(name string, mapID uint32) bool {
+	prefix := fmt.Sprintf("%03d", mapID)
+	return len(name) == len(prefix)+8 && strings.HasPrefix(name, prefix) && strings.HasSuffix(name, ".map")
+}
+
+// removeFiles deletes the files of dir whose names match.
+func removeFiles(dir string, match func(name string) bool) {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if !e.IsDir() && match(e.Name()) {
+			_ = os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
 }
 
 // serverMapsCurrent reports whether the server has extracted map data for the map since the patch was
@@ -138,14 +162,12 @@ func serverMapsCurrent(serverRoot string, mapID uint32, patch string) bool {
 	if err != nil {
 		return false
 	}
-	prefix := fmt.Sprintf("%03d", mapID)
 	entries, err := os.ReadDir(filepath.Join(serverRoot, "data", "maps"))
 	if err != nil {
 		return false
 	}
 	for _, e := range entries {
-		name := e.Name()
-		if len(name) != len(prefix)+8 || !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, ".map") {
+		if !isMapTile(e.Name(), mapID) {
 			continue
 		}
 		if fi, err := e.Info(); err == nil && fi.ModTime().After(info.ModTime()) {
@@ -156,8 +178,11 @@ func serverMapsCurrent(serverRoot string, mapID uint32, patch string) bool {
 }
 
 // publishServer does the server's share of a publish, once the map is in the client's patch: the world
-// database, the map data extracted again, and the world server restarted.
-func publishServer(p PublishPlan, clientData string, spec MapSpec, log func(string)) error {
+// database, the map data extracted again, and the world server restarted. Only the map's own data is
+// extracted (#174): its ground (just tiles, named "x_y", when given; else all of it, with the old tile
+// files removed first, as the map may have lost some) and its buildings. A server whose vmaps were never
+// built whole (no game object model list) gets every map extracted instead, as update-maps.bat does.
+func publishServer(p PublishPlan, clientData string, spec MapSpec, tiles []string, log func(string)) error {
 	db, err := worldDatabase(p.ServerRoot)
 	if err != nil {
 		return err
@@ -177,19 +202,45 @@ func publishServer(p PublishPlan, clientData string, spec MapSpec, log func(stri
 
 	extractors := filepath.Join(p.ServerRoot, "run", "Extractors")
 	data := filepath.Join(p.ServerRoot, "data")
-	log("Extracting the map from the client (this takes several minutes)…")
-	if err := p.Run.Run(data, filepath.Join(extractors, "MapExtractor.exe"),
-		[]string{"-i", p.ClientRoot, "-o", data, "-e", "1", "--silent"}, log); err != nil {
+	vmaps := filepath.Join(data, "vmaps")
+	id := strconv.FormatUint(uint64(spec.MapID), 10)
+	_, err = os.Stat(filepath.Join(vmaps, "temp_gameobject_models"))
+	whole := err != nil
+
+	mapArgs := []string{"-i", p.ClientRoot, "-o", data, "-e", "1", "--silent"}
+	switch {
+	case whole:
+		log("Extracting every map from the client, as the server's collision data was never built whole…")
+	case len(tiles) > 0:
+		log(fmt.Sprintf("Extracting %d of the map's tiles from the client…", len(tiles)))
+		mapArgs = append(mapArgs, "-m", id, "-t", strings.Join(tiles, ","))
+	default:
+		log("Extracting the map from the client…")
+		removeFiles(filepath.Join(data, "maps"), func(name string) bool { return isMapTile(name, spec.MapID) })
+		mapArgs = append(mapArgs, "-m", id)
+	}
+	if err := p.Run.Run(data, filepath.Join(extractors, "MapExtractor.exe"), mapArgs, log); err != nil {
 		return fmt.Errorf("map extraction: %w", err)
 	}
 	log("Extracting collision data…")
 	_ = os.RemoveAll(filepath.Join(data, "Buildings"))
-	if err := p.Run.Run(data, filepath.Join(extractors, "VMapExtractor.exe"),
-		[]string{"-l", "-d", clientData, "--silent"}, log); err != nil {
+	vmapArgs := []string{"-l", "-d", clientData, "--silent"}
+	if !whole {
+		vmapArgs = append(vmapArgs, "-m", id)
+	}
+	if err := p.Run.Run(data, filepath.Join(extractors, "VMapExtractor.exe"), vmapArgs, log); err != nil {
 		return fmt.Errorf("collision extraction: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Join(data, "vmaps"), 0o755); err != nil {
+	if err := os.MkdirAll(vmaps, 0o755); err != nil {
 		return err
+	}
+	if !whole {
+		// The assembler writes the map's tree and a file per tile with buildings, so the old ones go
+		// first: a tile whose buildings were all removed would keep its old file.
+		tree := fmt.Sprintf("%03d", spec.MapID)
+		removeFiles(vmaps, func(name string) bool {
+			return name == tree+".vmtree" || strings.HasPrefix(name, tree+"_") && strings.HasSuffix(name, ".vmtile")
+		})
 	}
 	if err := p.Run.Run(data, filepath.Join(extractors, "VMapAssembler.exe"),
 		[]string{"Buildings", "vmaps"}, log); err != nil {

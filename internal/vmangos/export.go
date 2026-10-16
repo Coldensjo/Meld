@@ -125,6 +125,10 @@ type ExportResult struct {
 	// and were written. With nothing changed at all, Patch is empty and the patch was left alone.
 	Tiles   int
 	Changed int
+	// ChangedTiles names the written tiles as "x_y", as the map extractor's -t takes them, and Layout
+	// says the WDT was written too, so the map's set of tiles may have changed.
+	ChangedTiles []string
+	Layout       bool
 }
 
 // ExportMap writes a map's tiles, WDT, WDL (its far horizon) and Map.dbc row into the client's patch
@@ -231,6 +235,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		return res, err
 	}
 	res.Changed = countTiles(files)
+	res.ChangedTiles, res.Layout = changedTiles(m, files)
 	if len(files) > 0 {
 		if res.Patch, err = InstallPatch(patchDir, files); err != nil {
 			return res, err
@@ -243,6 +248,25 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		}
 	}
 	return res, nil
+}
+
+// changedTiles names the map's tiles among the files as "x_y", and says whether its WDT is among them.
+func changedTiles(m MapSpec, files []mpq.File) ([]string, bool) {
+	written := map[string]bool{}
+	layout := false
+	for _, f := range files {
+		written[strings.ToLower(f.Name)] = true
+		if strings.EqualFold(filepath.Ext(f.Name), ".wdt") {
+			layout = true
+		}
+	}
+	var tiles []string
+	for _, t := range m.Tiles {
+		if written[strings.ToLower(adt.TilePath(m.Dir, t.X, t.Y, ""))] {
+			tiles = append(tiles, fmt.Sprintf("%d_%d", t.X, t.Y))
+		}
+	}
+	return tiles, layout
 }
 
 // buildTile writes one tile: its ground, paint and models.
