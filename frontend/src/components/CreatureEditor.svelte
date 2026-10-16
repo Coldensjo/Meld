@@ -291,7 +291,7 @@
         </div>
       </section>
 
-      <section class="right" class:wide={tab === 'looks' && !!record && target.entry !== 0}>
+      <section class="right">
         <nav class="tabs">
           {#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
           {#if record}
@@ -458,14 +458,14 @@
     gap: 6px;
   }
   .right {
+    /* One width on every tab, so the preview beside it never moves. */
+    flex: none;
     width: min(560px, 45vw);
+    min-width: 0;
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--border);
     background: var(--panel);
-  }
-  .right.wide {
-    width: min(860px, 62vw);
   }
   .slot {
     display: flex;
