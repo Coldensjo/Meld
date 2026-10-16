@@ -37,7 +37,7 @@
   const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
   const usesBrush = $derived(
     editor.tool === 'sculpt' ||
-      editor.tool === 'paint' ||
+      (editor.tool === 'paint' && !(editor.paintMode === 'mask' && editor.maskSelect.by !== 'brush')) ||
       editor.tool === 'road' ||
       editor.tool === 'water' ||
       editor.tool === 'clear' ||
@@ -102,6 +102,18 @@
   }
 
   /** The bar never shows a scrollbar; the wheel scrolls it sideways when it holds more than fits. */
+  /** The Modify mask drop-down: runs the picked change and shows the prompt again. */
+  function modifyMask(e: Event) {
+    const sel = e.target as HTMLSelectElement
+    const how = sel.value
+    sel.value = ''
+    const engine = engineRef.current
+    if (!engine) return
+    if (how === 'grow' || how === 'shrink' || how === 'feather') engine.modifyMask(how)
+    else if (how === 'invert') engine.invertMask()
+    else if (how === 'clear') engine.clearMask()
+  }
+
   function scrollSideways(e: WheelEvent) {
     const el = e.currentTarget as HTMLElement
     if (el.scrollWidth <= el.clientWidth || e.deltaX !== 0) return
@@ -252,6 +264,38 @@
       {#if editor.swap.keep}
         <span class="dim">{editor.swap.from ? `Swapping ${texName(editor.swap.from)}` : 'The next stroke picks the texture to swap'}</span>
       {/if}
+    {/if}
+    {#if editor.tool === 'paint' && editor.paintMode === 'mask'}
+      {@const ms = editor.maskSelect}
+      <select class="curve" bind:value={ms.by} title="Paint the mask with the brush, or click a spot to select by what is there (Shift+click adds, Alt+click takes away)" aria-label="Select by">
+        <option value="brush">Brush</option>
+        <option value="texture">Select by texture</option>
+        <option value="height">Select by height</option>
+        <option value="slope">Select by slope</option>
+        <option value="water">Select by water</option>
+      </select>
+      {#if ms.by === 'texture'}
+        <OptSlider label="Min weight" bind:value={ms.minWeight} min={0} max={1} step={0.05} digits={2} width={60} title="Take the texels where the texture under the click weighs at least this much (0 to 1)" />
+      {:else if ms.by === 'height'}
+        <OptSlider label="± yd" bind:value={ms.height} min={0} max={100} step={0.5} digits={1} width={60} title="Take the ground within this many yards above or below the click" />
+      {:else if ms.by === 'slope'}
+        <OptSlider label="Slope from" bind:value={ms.slopeMin} min={0} max={90} step={1} digits={0} width={60} title="Take the ground at least this steep, in degrees" />
+        <OptSlider label="to" bind:value={ms.slopeMax} min={0} max={90} step={1} digits={0} width={60} title="and at most this steep, in degrees" />
+      {/if}
+      {#if ms.by !== 'brush'}
+        <label class="check" title="Only what is joined to the click; off, everything on the map that matches"><input type="checkbox" bind:checked={ms.contiguous} /> Contiguous</label>
+        <OptSlider label="Feather" bind:value={ms.feather} min={0} max={20} step={0.5} digits={1} width={60} title="Soften the selection's edge over this many yards" />
+      {/if}
+      <div class="divider"></div>
+      <select class="curve" value="" onchange={modifyMask} title="Change the whole mask (also in the Terrain menu)" aria-label="Modify mask">
+        <option value="" disabled>Modify mask…</option>
+        <option value="grow" disabled={!ui.maskActive}>Grow by {ms.step} yd</option>
+        <option value="shrink" disabled={!ui.maskActive}>Shrink by {ms.step} yd</option>
+        <option value="feather" disabled={!ui.maskActive}>Feather over {ms.step} yd</option>
+        <option value="invert">Invert</option>
+        <option value="clear" disabled={!ui.maskActive}>Clear</option>
+      </select>
+      <OptSlider label="By" bind:value={ms.step} min={0.5} max={32} step={0.5} digits={1} width={50} title="How many yards Grow, Shrink and Feather change the mask by" />
     {/if}
     {#if editor.tool === 'paint' && editor.paintMode === 'texture' && !editor.paintSpray}
       {@render imageBrush()}

@@ -22,6 +22,7 @@ import { BrushTool, PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFact
 import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
+import { editWholeMask, modifyMask } from '../tools/maskWand'
 import { ShadowStroke } from '../tools/shadowStroke'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
@@ -2300,15 +2301,17 @@ export class Engine {
 
   /** Run `fn` on the mask and record it as one undo step. */
   private editMask(label: string, fn: (m: Uint8Array) => void) {
-    const t = this.terrain
-    const R = t.splatRes
-    const stroke = new TerrainStroke(t, label, { mask: true })
-    stroke.reserveMask({ x0: 0, z0: 0, x1: R - 1, z1: R - 1 })
-    fn(t.mask)
-    stroke.touchMask({ x0: 0, z0: 0, x1: R - 1, z1: R - 1 })
-    t.markMaskDirty()
-    const cmd = stroke.finish()
-    if (cmd) this.history.push(cmd)
+    editWholeMask(this.terrain, this.history, label, fn)
+    this.refreshMaskState()
+  }
+
+  /** Mask › Grow, Shrink or Feather Mask by the options bar's step (#183). */
+  modifyMask(how: 'grow' | 'shrink' | 'feather') {
+    if (!ui.maskActive) {
+      setStatus('The mask is empty. Paint a mask first (Paint tool › Mask).')
+      return
+    }
+    modifyMask(this.terrain, this.history, how)
     this.refreshMaskState()
   }
 

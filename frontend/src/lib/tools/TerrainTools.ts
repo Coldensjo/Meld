@@ -45,6 +45,7 @@ import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushDist, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
 import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale, terraceHeight, terraceLevel } from './sculptShapes'
 import { brushImage, setBrushImageRotation } from './brushImage'
+import { wandClick } from './maskWand'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, chunkOfTexel, dominantTexel, findSlot, paletteIndex, replaceInChunk, swapTexel, textureWeightTexel } from '../terrain/chunkPaint'
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
@@ -693,7 +694,21 @@ export class PaintTool extends BrushTool {
     return editor.paintMode === 'texture' && !editor.paintSpray
   }
 
+  /** Mask mode's wand (Select by other than Brush) clicks a spot instead of brushing, so no ring. */
+  private get wand() {
+    return editor.paintMode === 'mask' && editor.maskSelect.by !== 'brush'
+  }
+
+  get usesBrush() {
+    return !this.wand
+  }
+
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
+    if (this.wand) {
+      // Shift adds to the mask, Alt (or Erase) takes away, a plain click replaces it.
+      if (hit) wandClick(ctx.terrain, ctx.liquids, ctx.history, hit, e?.shiftKey ? 'add' : e?.altKey || editor.maskErase ? 'subtract' : 'replace')
+      return
+    }
     this.label = editor.paintMode === 'mask' ? 'Mask' : editor.paintMode === 'swap' ? 'Swap' : 'Paint'
     this.erasing = editor.maskErase || !!e?.altKey
     const t = ctx.terrain

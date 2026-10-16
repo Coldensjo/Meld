@@ -8,6 +8,7 @@ import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import type { PasteHeightMode } from '../world/pasteHeight'
+import type { MaskPick } from '../terrain/maskSelect'
 import type { Bookmark } from '../engine/MapDocument'
 import type { BrowserView } from '../wow/browserViews'
 import type { ModelSet } from '../wow/modelSets'
@@ -128,6 +129,23 @@ export const editor = $state({
    */
   swap: { keep: false, from: '', scope: 'brush' as 'brush' | 'chunk' | 'tile' },
   maskErase: false,
+  /**
+   * Paint › Mask's Select by (#183): a click with `by` other than 'brush' is the magic wand. It takes the
+   * texels whose texture under the click weighs at least `minWeight`, whose height is within `height`
+   * yards of the click's, whose slope is `slopeMin` to `slopeMax` degrees, or that are under a liquid or
+   * the sea; only those joined to the click with `contiguous`. `feather` softens the new edge (yards).
+   * `step` is how far Grow, Shrink and Feather Mask go (yards).
+   */
+  maskSelect: {
+    by: 'brush' as MaskPick,
+    contiguous: true,
+    minWeight: 0.5,
+    height: 2,
+    slopeMin: 30,
+    slopeMax: 90,
+    feather: 0,
+    step: 2,
+  },
   /** Paint mode sprays random dabs over the brush instead of painting it solid (T toggles). */
   paintSpray: false,
   /** Spray: dab Size (1 to 40), Pressure as the dab density (0 to 10), and Inner radius, which also paints the brush's solid centre. */

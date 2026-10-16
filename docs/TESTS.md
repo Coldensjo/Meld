@@ -685,6 +685,25 @@ under the brush goes to the level under the first click.
 - A probe edit that breaks a Svelte file's parse breaks the owner's own `wails dev` window too until
   it is fixed: check `curl localhost:34115/src/components/<File>.svelte` gives 200 after editing.
 
+## Mask wand, Grow, Shrink and Feather (#183)
+
+Checks: Paint › Mask's Select by (`editor.maskSelect`, `tools/maskWand.ts`; the texel arithmetic is
+`terrain/maskSelect.ts`, unit tests in `maskSelect.test.ts`). In the dev page, on Northshire (Azeroth
+32_48, 1x1, `splatRes` 512), set `editor.tool = 'paint'`, `editor.paintMode = 'mask'` and
+`editor.maskSelect.by`, then click with `p = __engine.tools.paint`:
+`p.onDown(__engine.ctx, v, new PointerEvent('pointerdown', { shiftKey }))` and `p.onUp(__engine.ctx)`,
+with `v` on the ground at x 150, z 300. Count the mask's texels at 128 or more. Texture, contiguous:
+about 52k texels; with `contiguous = false`, 83k; slope 30° to 90° over the whole map, added with
+Shift, about 137k in 45 ms. Each click is one undo step named after the pick ("Add to mask by slope"),
+and `__engine.modifyMask('grow' | 'shrink' | 'feather')` runs in under 20 ms.
+
+- The options bar's Modify mask drop-down listens through Svelte 5's delegated `change`: a probe must
+  dispatch `new Event('change', { bubbles: true })`, or nothing happens.
+- A seed that doesn't match (a flat spot for slope 30° and up, dry ground for water) takes nothing with
+  Contiguous on. That is right, not a bug: the status bar says "Nothing to select".
+- T3 Code's preview can't take a screenshot while its pane is hidden. Read the options bar's DOM
+  (`[data-ui="OptionsBar"]`, its `scrollWidth`) instead.
+
 ## Fit ground to models and Stamp (#168)
 
 Checks: Models › Fit Ground to Selected Models… (`Engine.fitGroundToSelection`, the arithmetic in
