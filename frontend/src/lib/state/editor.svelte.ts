@@ -342,6 +342,8 @@ export const prefs = $state({
   lockedCursor: false,
   /** Graphics › FPS limit (#24): frames a second at most, 0 for the screen's rate. */
   fpsLimit: 0,
+  /** The client maps pinned to the top of the Start dialog's map list (#47), by Map.dbc ID. */
+  pinnedMaps: [] as number[],
   /** Graphics › Anti-aliasing (#24), mirrored to localStorage by display.ts and applied at the next start. */
   antialias: true,
   /** View › Layers › Doodads (m2 models) and Buildings (wmo), each on its own under Objects (#43). */

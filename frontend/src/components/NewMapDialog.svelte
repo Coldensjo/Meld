@@ -1,7 +1,7 @@
 <script lang="ts">
   import MapPicker from './MapPicker.svelte'
   import type { Block } from './TileMinimap.svelte'
-  import { editor, ui, wow } from '../lib/state/editor.svelte'
+  import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
   import { defaultLayerTextures } from '../lib/wow/defaults'
   import { LAYERS } from '../lib/terrain/layers'
   import { PRESETS, drawPresetPreview, type PresetId } from '../lib/terrain/presets'
@@ -70,6 +70,29 @@
   $effect(() => {
     if (!continent && continents.length) continent = continents[0]
   })
+
+  // The map list (#47, Noggit Red's): every Map.dbc map, found by name, folder or ID, narrowed to a
+  // kind, the pinned ones (prefs.pinnedMaps) first, then the continents with zones, then the rest.
+  /** Map.dbc's instance type, by its value. */
+  const MAP_TYPES = ['Continent', 'Dungeon', 'Raid', 'Battleground']
+  let mapQuery = $state('')
+  let mapType = $state(-1)
+  const pinned = $derived(new Set(prefs.pinnedMaps))
+  const listedMaps = $derived.by(() => {
+    const q = mapQuery.trim().toLowerCase()
+    const rank = (m: vmangos.MapEntry) => (pinned.has(m.ID) ? 0 : continents.includes(m) ? 1 : 2)
+    return maps
+      .filter((m) => (mapType < 0 || m.Type === mapType) && (!q || m.Name.toLowerCase().includes(q) || m.Dir.toLowerCase().includes(q) || String(m.ID) === q))
+      .sort((a, b) => rank(a) - rank(b) || a.Type - b.Type || a.ID - b.ID)
+  })
+  function togglePin(id: number) {
+    prefs.pinnedMaps = pinned.has(id) ? prefs.pinnedMaps.filter((x) => x !== id) : [...prefs.pinnedMaps, id]
+  }
+  function pickMap(m: vmangos.MapEntry) {
+    continent = m
+    block = null
+    focus = null
+  }
   const continentZones = $derived(continent ? zones.filter((z) => z.MapID === continent!.ID) : [])
 
   // --- a part of a continent ----------------------------------------------------------------------
@@ -178,9 +201,21 @@
           <p class="dim">Select your WoW 1.12 folder first (Preferences › Select WoW Client Folder…) to open a part of its world.</p>
         {:else}
           <div class="side">
-            <div class="continents">
-              {#each continents as c (c.ID)}
-                <button class:active={continent?.ID === c.ID} onclick={() => { continent = c; block = null; focus = null }}>{c.Name || c.Dir}</button>
+            <div class="mapfind">
+              <input type="search" placeholder="Find a map…" bind:value={mapQuery} />
+              <select bind:value={mapType} aria-label="Kind of map">
+                <option value={-1}>All</option>
+                {#each MAP_TYPES as t, i (t)}<option value={i}>{t}s</option>{/each}
+              </select>
+            </div>
+            <div class="maplist">
+              {#each listedMaps as m (m.ID)}
+                <div class="maprow" class:active={continent?.ID === m.ID}>
+                  <button class="pin" class:on={pinned.has(m.ID)} onclick={() => togglePin(m.ID)} title={pinned.has(m.ID) ? 'Unpin' : 'Pin to the top'}>{pinned.has(m.ID) ? '★' : '☆'}</button>
+                  <button class="mapname" onclick={() => pickMap(m)} title="{m.Dir} ({m.ID})">{m.Name || m.Dir} <span class="dim">{MAP_TYPES[m.Type] ?? `type ${m.Type}`} · {m.ID}</span></button>
+                </div>
+              {:else}
+                <p class="dim">No map matches.</p>
               {/each}
             </div>
             <input type="text" placeholder="Find a zone…" bind:value={zoneFilter} />
@@ -388,13 +423,50 @@
     width: 220px;
     flex: none;
   }
-  .continents {
+  .mapfind {
     display: flex;
     gap: 4px;
   }
-  .continents button {
+  .mapfind input {
     flex: 1;
-    padding: 4px;
+    min-width: 0;
+  }
+  .maplist {
+    display: flex;
+    flex-direction: column;
+    max-height: 190px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .maprow {
+    display: flex;
+    align-items: center;
+  }
+  .maprow.active {
+    background: var(--panel-3);
+  }
+  .maprow button {
+    border: none;
+    background: transparent;
+    padding: 3px 4px;
+  }
+  .mapname {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mapname .dim {
+    font-size: 11px;
+  }
+  .pin {
+    color: var(--text-dim);
+  }
+  .pin.on {
+    color: #ffd23f;
   }
   .zones {
     display: flex;
