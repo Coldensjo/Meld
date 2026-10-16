@@ -957,6 +957,10 @@ func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.Sp
 	if err != nil {
 		return vmangos.Result{}, err
 	}
+	// A new spawn whose guid another spawn took since must not replace that spawn (#199).
+	if err := vmangos.CheckCreatedGUIDs(server, edits); err != nil {
+		return vmangos.Result{}, err
+	}
 	res, err := vmangos.SpawnSQL(server, mapName, x, y, size, edits, time.Now())
 	if err != nil {
 		return res, err

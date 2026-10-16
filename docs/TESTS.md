@@ -786,6 +786,10 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   then stops with "Compile stopped: … 2 errors" and opens the window, before anything is written.
 - The bindings alone: `await go.main.App.RegionEdges('Azeroth', 32, 48, 1)` (four 129-height rows)
   and `await go.main.App.CheckSpawnIDs({ creatureGuids: [1], objectGuids: [], creatureEntries: [999999], objectEntries: [] })`.
+- A save of such a planted spawn is refused (#199): `VMANGOS_DIR=/c/WoW/vmangos go test
+  ./internal/vmangos/ -run TestCreatedGUIDLive -v` checks the pre-check and that the SQL alone fails on
+  the key, leaving guid 1 as it was. Don't test it by saving from the page: a dev window still running
+  an older Go build would delete guid 1's creature.
 - The inside test casts six rays from the creature's chest and counts back faces (`raycastModel`): a
   creature under a tree's canopy or beside a trunk meets front faces or nothing, so it isn't flagged.
 - The floor and wall probes go through `ObjectLayer.raycastAmong` (each model's own bounds tree), not

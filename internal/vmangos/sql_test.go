@@ -35,6 +35,7 @@ func TestExportAddChangeDelete(t *testing.T) {
 	for _, want := range []string{
 		"UPDATE `creature` SET `map` = 0, `position_x` = 10.5,",
 		"`spawntimesecsmin` = 120, `spawntimesecsmax` = 180, `wander_distance` = 0, `movement_type` = 0 WHERE `guid` = 42;",
+		"DELETE FROM `gameobject` WHERE `guid` = 900000 AND `id` = 7;", // its own earlier export only (#199)
 		"INSERT INTO `gameobject` (`guid`, `id`, `map`",
 		"VALUES (900000, 7, 1, 4, 5, 6, 1.570796,",
 		"DELETE FROM `creature` WHERE `guid` = 43;",

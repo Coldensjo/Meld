@@ -210,7 +210,9 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 		lo, hi := respawn(s)
 		if e.Created {
 			out = append(out, "-- Add "+name)
-			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d;", table, s.GUID))
+			// Only a row of this entry goes, the spawn's own earlier export: a guid the database gave
+			// another spawn since makes the INSERT fail on the key instead of deleting that spawn (#199).
+			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d AND `id` = %d;", table, s.GUID, s.Entry))
 			if s.Kind == Creature {
 				out = append(out, fmt.Sprintf("INSERT INTO `creature` (`guid`, `id`, `map`, `position_x`, `position_y`, `position_z`, `orientation`, "+
 					"`spawntimesecsmin`, `spawntimesecsmax`, `wander_distance`, `health_percent`, `mana_percent`, `movement_type`, `spawn_flags`, "+

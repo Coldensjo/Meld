@@ -165,3 +165,57 @@ func CheckSpawnIDs(serverRoot string, q SpawnIDQuery) (SpawnIDReport, error) {
 	}
 	return r, nil
 }
+
+// guidCollisions names the created spawns of edits whose guid the report shows under another
+// entry: saving them would meet another spawn's row.
+func guidCollisions(edits []SpawnEdit, r SpawnIDReport) []string {
+	held := map[bool]map[int]GUIDRow{false: {}, true: {}}
+	for _, row := range r.Creatures {
+		held[false][row.GUID] = row
+	}
+	for _, row := range r.Objects {
+		held[true][row.GUID] = row
+	}
+	var out []string
+	for _, e := range edits {
+		if !e.Created || e.Deleted {
+			continue
+		}
+		obj := e.Spawn.Kind == KindObject
+		if row, ok := held[obj][e.Spawn.GUID]; ok && row.Entry != e.Spawn.Entry {
+			kind := "creature"
+			if obj {
+				kind = "object"
+			}
+			out = append(out, fmt.Sprintf("%s (guid %d, now %s %d's)", e.Spawn.Name, e.Spawn.GUID, kind, row.Entry))
+		}
+	}
+	return out
+}
+
+// CheckCreatedGUIDs refuses edits whose created spawns have guids the database has given other
+// spawns since the editor picked them (#199), naming them, so the save changes nothing.
+func CheckCreatedGUIDs(serverRoot string, edits []SpawnEdit) error {
+	var q SpawnIDQuery
+	for _, e := range edits {
+		if !e.Created || e.Deleted {
+			continue
+		}
+		if e.Spawn.Kind == KindObject {
+			q.ObjectGUIDs = append(q.ObjectGUIDs, e.Spawn.GUID)
+		} else {
+			q.CreatureGUIDs = append(q.CreatureGUIDs, e.Spawn.GUID)
+		}
+	}
+	if len(q.CreatureGUIDs)+len(q.ObjectGUIDs) == 0 {
+		return nil
+	}
+	r, err := CheckSpawnIDs(serverRoot, q)
+	if err != nil {
+		return err
+	}
+	if taken := guidCollisions(edits, r); len(taken) > 0 {
+		return fmt.Errorf("nothing was saved: the database gave the guids of these new spawns to other spawns since they were placed, and saving would replace those: %s. Delete them and place them again for new guids", strings.Join(taken, ", "))
+	}
+	return nil
+}
