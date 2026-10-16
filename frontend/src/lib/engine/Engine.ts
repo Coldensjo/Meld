@@ -87,6 +87,7 @@ import { movableSelection, objectsInRect, selectObjects, selectedObjects, withGr
 import { meanPivot, turnAbout } from '../world/pivot'
 import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
 import { fitHeights, type FitOptions } from '../terrain/fitGround'
+import { nearScreenBox } from '../world/screenBox'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
@@ -146,6 +147,8 @@ const NO_SEEDS = { inGroup: null, across: null } as const
 const PLAYER_PROBE = 3
 /** How far above the ground a launched character is put, in yards, so it never starts inside the surface. */
 const PLAYER_LIFT = 0.5
+/** How far, in screen pixels, around the selected spawn's box a right-click still opens its menu (#205). */
+const CONTEXT_MARGIN = 24
 
 /** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
 const TILE_CELLS = 128
@@ -1701,7 +1704,10 @@ export class Engine {
     this.raycaster.setFromCamera(this.ndc, this.camera)
     const items: ContextItem[] = []
     let title = ''
-    const { spawn, id } = pickNearest(this.objects, this.doc.spawnLayer, this.raycaster)
+    const picked = pickNearest(this.objects, this.doc.spawnLayer, this.raycaster)
+    const id = picked.id
+    // A click that hits nothing near the selected creature or object still opens its menu (#205).
+    const spawn = picked.spawn ?? (id === null ? this.selectedSpawnNear(e) : null)
     if (spawn) {
       if (editor.tool !== 'select') editor.tool = 'select'
       selectSpawn(spawn)
@@ -1730,6 +1736,17 @@ export class Engine {
     }
     ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
   }
+
+  /** The selected spawn when (clientX, clientY) is within CONTEXT_MARGIN px of it on the screen, else null. */
+  private selectedSpawnNear(e: { clientX: number; clientY: number }): vmangos.WorldSpawn | null {
+    const sel = editor.selectedSpawn
+    if (!sel) return null
+    const s = this.doc.spawnLayer.get(spawnKey(sel))
+    if (!s || !this.doc.spawnLayer.boundsOf(s, this.nearBox)) return null
+    const r = this.canvas.getBoundingClientRect()
+    return nearScreenBox(this.nearBox, this.camera, r.width, r.height, e.clientX - r.left, e.clientY - r.top, CONTEXT_MARGIN) ? s : null
+  }
+  private nearBox = new THREE.Box3()
 
   focusSpawn(s: vmangos.WorldSpawn) {
     this.controller.focus(s.x, s.z, 40)

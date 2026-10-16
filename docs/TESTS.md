@@ -964,6 +964,16 @@ the same scene, the report before and after.
 - The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
   draws them inside `renderer.render`, so without the wrap they would count as the scene.
 
+## Right-click near the selected creature (#205)
+
+Checks: `Engine.openContextMenu` falls back to the selected spawn when the click hits nothing within
+`CONTEXT_MARGIN` (24) px of its screen box (`world/screenBox.ts`, unit test `screenBox.test.ts`). In the
+dev page on Northshire, hide every placed model first (the abbey fills the view and takes the clicks:
+`for (const id of e.objects.objects.keys()) e.objects.hidden.add(id); e.objects.markAllDirty()`), take
+creatures from `e.doc.spawnLayer.forEachDrawn`, project `boundsOf(s, box)`'s corners, `selectSpawn(s)`
+and call `e.openContextMenu({ clientX, clientY, pointerType: 'mouse', pressure: 0 })` 15 px right of the
+box: `ui.contextMenu.title` is the creature's; 200 px right: no menu.
+
 ## Preview window (#197)
 
 Checks: the right-click menu's Preview (`ui.modelPreview`, `ModelPreviewWindow.svelte` over
