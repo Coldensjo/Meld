@@ -217,7 +217,8 @@
       {#if loading}<span>Loading…</span>{/if}
       {#if failed}<span class="warn">{failed}</span>{/if}
     </div>
-    <label class="spin"><input type="checkbox" bind:checked={spinning} /> Turn</label>
+    <!-- The press must not reach the view: its pointer capture would take the click from the check (#204). -->
+    <label class="spin" onpointerdown={(e) => e.stopPropagation()}><input type="checkbox" bind:checked={spinning} /> Turn</label>
   </div>
   {#if size}
     <p class="dim">{size.h.toFixed(1)} yd tall · {size.tris.toLocaleString()} triangles · drag to turn, scroll to zoom</p>
