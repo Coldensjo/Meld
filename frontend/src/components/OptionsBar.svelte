@@ -449,7 +449,9 @@
     {:else}
       {@const count = editor.selectedIds.length}
       <div class="seg" title="What a drag on the ground selects">
-        <button class:active={!editor.selectBrush} onclick={() => (editor.selectBrush = false)} title="Drag a rectangle: the area and the models in it">Area</button>
+        <button class:active={!editor.selectBrush && editor.selectShape === 'rect'} onclick={() => { editor.selectBrush = false; editor.selectShape = 'rect' }} title="Drag a rectangle: the area and the models in it (L cycles the shapes)">Area</button>
+        <button class:active={!editor.selectBrush && editor.selectShape === 'lasso'} onclick={() => { editor.selectBrush = false; editor.selectShape = 'lasso' }} title="Draw the area freehand; Shift adds to it, Ctrl takes from it (L cycles the shapes)">Lasso</button>
+        <button class:active={!editor.selectBrush && editor.selectShape === 'polygon'} onclick={() => { editor.selectBrush = false; editor.selectShape = 'polygon' }} title="Click the area's corners; Enter or a click on the first corner closes it. Shift adds, Ctrl takes away (L cycles the shapes)">Polygon</button>
         <button class:active={editor.selectBrush} onclick={() => (editor.selectBrush = true)} title="Brush over the models to select them: Shift adds to the selection, Ctrl takes models out">Brush</button>
       </div>
       {#if editor.selectBrush}

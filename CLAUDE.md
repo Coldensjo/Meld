@@ -575,6 +575,11 @@ cd frontend && pnpm build   # frontend only
   - A drag on the ground selects an **area**, `editor.selection` in cell/vertex coordinates, and
     with it every model standing in it. The terrain shader draws the area (`selRect`/`selMode`,
     marching ants). `Engine.setHoleInSelection` cuts or fills holes in it.
+  - The lasso and polygon (`editor.selectShape`, L cycles, #183) make a free-form area: its cells are
+    kept in `state/areaSelection.ts` (`setAreaCells`, `areaShape`) with `editor.selection` as their
+    bounds, and count only while that rect and map are unchanged, so code that sets a plain rect needs
+    no change. Cut hole, mask, the Layers chunk list, copy/paste (`MapClip.cells`), the doodad fill and
+    Grow/Shrink Selected Area follow the shape; the shader draws it from a cell texture (`selMode` 3).
   - `editor.selectedIds` holds every selected object and `editor.selected` the primary one (the
     gizmo and the Properties sliders work on it). Change them through `lib/state/selection.ts`
     (`selectObjects`), never by hand. Delete, hide, nudge and focus act on the whole selection.

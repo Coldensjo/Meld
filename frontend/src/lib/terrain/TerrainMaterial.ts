@@ -147,6 +147,8 @@ uniform float mapDataMode;
 uniform sampler2D chunkDataTex;
 uniform sampler2D noEffectTex;
 uniform vec4 selRect;
+// A free-form area (selMode 3): a byte per cell of the map, set inside (#183).
+uniform sampler2D selTex;
 uniform float selMode;
 uniform float selTime;
 varying vec3 vWorldPos;
@@ -369,6 +371,18 @@ void main() {
     float inside = step(lo.x, p.x) * step(p.x, hi.x) * step(lo.y, p.y) * step(p.y, hi.y);
     float edge = min(min(p.x - lo.x, hi.x - p.x), min(p.y - lo.y, hi.y - p.y));
     float w = max(0.18, fwidth(p.x) * 1.5);
+    if (selMode > 2.5 && inside > 0.5) {
+      // A shape: its cells, outlined where a neighbouring cell is not in it.
+      float n = worldSize / cellSize;
+      vec2 c = floor(p / cellSize);
+      inside = texture2D(selTex, (c + 0.5) / n).r > 0.5 ? 1.0 : 0.0;
+      vec2 f = p - c * cellSize;
+      edge = 1e6;
+      if (c.x < 0.5 || texture2D(selTex, (c + vec2(-0.5, 0.5)) / n).r < 0.5) edge = min(edge, f.x);
+      if (c.x > n - 1.5 || texture2D(selTex, (c + vec2(1.5, 0.5)) / n).r < 0.5) edge = min(edge, cellSize - f.x);
+      if (c.y < 0.5 || texture2D(selTex, (c + vec2(0.5, -0.5)) / n).r < 0.5) edge = min(edge, f.y);
+      if (c.y > n - 1.5 || texture2D(selTex, (c + vec2(0.5, 1.5)) / n).r < 0.5) edge = min(edge, cellSize - f.y);
+    }
     float outline = inside * (1.0 - step(w, edge));
     float ants = step(0.5, fract((p.x + p.y) * 0.25 - selTime * 0.8));
     vec3 tint = selMode > 1.5 ? vec3(0.15, 0.5, 0.95) : vec3(0.6, 0.75, 1.0);
@@ -459,6 +473,7 @@ export function createTerrainMaterial(
     chunkDataTex: { value: null },
     noEffectTex: { value: null },
     selRect: { value: new THREE.Vector4() },
+    selTex: { value: null },
     selMode: { value: 0 },
     selTime: { value: 0 },
   }

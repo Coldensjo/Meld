@@ -44,6 +44,8 @@ export function copyChunkData(terrain: ChunkDataTerrain, r: Rect): NonNullable<M
  * cell under that centre.
  */
 export function pasteChunkData(terrain: ChunkDataTerrain, clip: MapClip, px: number, pz: number, stroke: ChunkDataStroke) {
+  // A free-form clip (#183) lays only its shape's cells, and a chunk's zone and flags where its middle is in it.
+  const inside = clip.cells
   const data = clip.chunkData
   if (!data) return
   const size = terrain.size
@@ -55,7 +57,10 @@ export function pasteChunkData(terrain: ChunkDataTerrain, clip: MapClip, px: num
   const r = { x0, z0, x1, z1 }
   stroke.reserveCells(r)
   for (let z = z0; z <= z1; z++) {
-    for (let x = x0; x <= x1; x++) terrain.noEffect[z * size + x] = data.noEffect[(z - pz) * clip.w + (x - px)]
+    for (let x = x0; x <= x1; x++) {
+      const i = (z - pz) * clip.w + (x - px)
+      if (!inside || inside[i]) terrain.noEffect[z * size + x] = data.noEffect[i]
+    }
   }
   stroke.touchCells(r)
   const side = terrain.paintChunksPerSide
@@ -65,6 +70,7 @@ export function pasteChunkData(terrain: ChunkDataTerrain, clip: MapClip, px: num
       const mx = cx * CHUNK_CELLS + half - px
       const mz = cz * CHUNK_CELLS + half - pz
       if (mx < 0 || mz < 0 || mx >= clip.w || mz >= clip.h) continue
+      if (inside && !inside[mz * clip.w + mx]) continue
       const chunk = chunkOf(cx, cz, side)
       const area = data.areas[mz * clip.w + mx]
       if (area) terrain.areaIds[chunk] = area

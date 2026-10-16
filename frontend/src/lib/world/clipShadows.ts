@@ -38,8 +38,9 @@ export function copyShadows(terrain: ShadowTerrain, r: Rect): Uint8Array | undef
 /**
  * Lays `shadows` (a w by h cell clip's, as copyShadows gives them) onto the paste at cell (px, pz),
  * clipped to the map, through `writer`. A map without shadows of its own gets them, lit elsewhere.
+ * With `inside` (w by h cells, 1 in), only the texels of those cells.
  */
-export function pasteShadows(terrain: ShadowTerrain, shadows: Uint8Array, w: number, h: number, px: number, pz: number, writer: ShadowWriter) {
+export function pasteShadows(terrain: ShadowTerrain, shadows: Uint8Array, w: number, h: number, px: number, pz: number, writer: ShadowWriter, inside?: Uint8Array) {
 	const n = SHADOW_PER_CELL
 	const side = terrain.shadowSide
 	const tw = w * n
@@ -54,7 +55,13 @@ export function pasteShadows(terrain: ShadowTerrain, shadows: Uint8Array, w: num
 	const dst = terrain.ensureShadow()
 	for (let z = r.z0; z <= r.z1; z++) {
 		const from = (z - pz * n) * tw + (r.x0 - px * n)
-		dst.set(shadows.subarray(from, from + r.x1 - r.x0 + 1), z * side + r.x0)
+		if (!inside) {
+			dst.set(shadows.subarray(from, from + r.x1 - r.x0 + 1), z * side + r.x0)
+			continue
+		}
+		// A free-form clip (#183): only the texels of its cells.
+		const row = Math.floor((z - pz * n) / n) * w
+		for (let x = r.x0; x <= r.x1; x++) if (inside[row + Math.floor((x - px * n) / n)]) dst[z * side + x] = shadows[from + x - r.x0]
 	}
 	writer.touch(r)
 }

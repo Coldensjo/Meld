@@ -661,8 +661,9 @@ export function layLiquidCells(map: LiquidMap, cells: readonly LiquidClipCell[],
  * Pastes a liquid clip with its corner at cell (px, pz): the cells of the pasted rect lose the liquid
  * they had, then the clip's cells are laid in, a layer per liquid ID in each chunk. `reserve` is
  * told each chunk before it changes (for undo). Returns the chunks changed.
+ * With `inside` (clip.w by clip.h, 1 in), only the cells of that shape are laid or cleared.
  */
-export function pasteLiquidCells(map: LiquidMap, clip: LiquidClip, px: number, pz: number, reserve?: (c: number) => void): number[] {
+export function pasteLiquidCells(map: LiquidMap, clip: LiquidClip, px: number, pz: number, reserve?: (c: number) => void, inside?: Uint8Array): number[] {
   const side = map.side
   const n = side * LIQUID_CELLS
   // The chunks the pasted rect touches, with their cloned layers to work on.
@@ -678,6 +679,8 @@ export function pasteLiquidCells(map: LiquidMap, clip: LiquidClip, px: number, p
   }
   for (let z = 0; z < clip.h; z++) {
     for (let x = 0; x < clip.w; x++) {
+      // A free-form clip (#183) leaves the cells outside its shape as they are.
+      if (inside && !inside[z * clip.w + x]) continue
       const c = chunkAt(px + x, pz + z)
       if (c === null) continue
       const i = ((pz + z) % LIQUID_CELLS) * LIQUID_CELLS + ((px + x) % LIQUID_CELLS)

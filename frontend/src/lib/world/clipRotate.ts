@@ -4,6 +4,7 @@ import type { MapClip } from './clipboard'
 import { SLOTS, SPLAT_PER_CELL } from '../terrain/chunkPaint'
 import { mirrorLiquidClip, rotateLiquidClip } from '../water/liquids'
 import { mirrorShadows, rotateShadows } from './clipShadows'
+import { mirrorCells, rotateCells } from '../terrain/areaShape'
 
 /**
  * The clip turned a quarter turn clockwise seen from above (the turn a model's yaw makes for +90°):
@@ -50,6 +51,7 @@ export function rotateClip(clip: MapClip, cellSize: number): MapClip {
     out.chunkData = { areas: turn(d.areas, new Uint32Array(d.areas.length)), flags: turn(d.flags, new Uint8Array(d.flags.length)), noEffect: turn(d.noEffect, new Uint8Array(d.noEffect.length)) }
   }
   if (clip.shadows) out.shadows = rotateShadows(clip.shadows, w, h)
+  if (clip.cells) out.cells = rotateCells(clip.cells, w, h)
   return out
 }
 
@@ -102,5 +104,6 @@ export function mirrorClip(clip: MapClip, axis: 'x' | 'z', cellSize: number): Ma
     out.chunkData = { areas: cells(d.areas, new Uint32Array(d.areas.length)), flags: cells(d.flags, new Uint8Array(d.flags.length)), noEffect: cells(d.noEffect, new Uint8Array(d.noEffect.length)) }
   }
   if (clip.shadows) out.shadows = mirrorShadows(clip.shadows, w, h, axis)
+  if (clip.cells) out.cells = mirrorCells(clip.cells, w, h, axis)
   return out
 }

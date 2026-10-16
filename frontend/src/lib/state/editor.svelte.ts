@@ -211,6 +211,12 @@ export const editor = $state({
    * brush instead of an area. Shift adds to the selection, Ctrl takes models out of it.
    */
   selectBrush: false,
+  /**
+   * The shape a drag on the ground selects in the Select tool (#183; L cycles): a rect, a lasso drawn
+   * freehand, or a polygon clicked point by point (Enter or a click on the first point closes it).
+   * Shift adds to the area, Ctrl takes away from it.
+   */
+  selectShape: 'rect' as 'rect' | 'lasso' | 'polygon',
   followGroundSmooth: true,
   /** Extra height above the surface for new placements (PgUp / PgDn in the Place tool). */
   placeHeight: 0,

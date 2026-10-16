@@ -23,6 +23,9 @@ import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { editWholeMask, modifyMask } from '../tools/maskWand'
+import { areaCells, areaShape, objectsInArea, setAreaCells } from '../state/areaSelection'
+import { INSIDE, cellsInRect } from '../terrain/areaShape'
+import { growMask, shrinkMask } from '../terrain/maskSelect'
 import { ShadowStroke } from '../tools/shadowStroke'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
@@ -71,7 +74,7 @@ import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
 import type { MapInfo } from './MapDocument'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
-import { movableSelection, objectsInRect, selectObjects, selectedObjects } from '../state/selection'
+import { movableSelection, objectsInRect, selectObjects, selectedObjects, withGroups } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
 import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
 import { fitHeights, type FitOptions } from '../terrain/fitGround'
@@ -2330,9 +2333,13 @@ export class Engine {
     const s = editor.selection
     if (!s) return
     const R = this.terrain.splatRes
-    const tpc = R / this.terrain.size
+    const size = this.terrain.size
+    const tpc = R / size
+    const shape = areaShape(this.terrain, size)
     this.editMask('Mask selection', (m) => {
-      for (let z = s.z0 * tpc; z < s.z1 * tpc; z++) for (let x = s.x0 * tpc; x < s.x1 * tpc; x++) m[z * R + x] = 255
+      for (let z = s.z0 * tpc; z < s.z1 * tpc; z++) {
+        for (let x = s.x0 * tpc; x < s.x1 * tpc; x++) if (!shape || shape[Math.floor(z / tpc) * size + Math.floor(x / tpc)]) m[z * R + x] = 255
+      }
     })
   }
 
@@ -2411,6 +2418,16 @@ export class Engine {
       setStatus('Select an area first (Select tool, drag on the ground).')
       return
     }
+    const shape = useMask ? null : areaShape(t, t.size)
+    if (shape) {
+      // A free-form area fills its own cells: a mask of them, full inside.
+      const R = t.splatRes
+      const tpc = R / t.size
+      mask = new Uint8Array(R * R)
+      for (let z = area.z0 * tpc; z < area.z1 * tpc; z++) {
+        for (let x = area.x0 * tpc; x < area.x1 * tpc; x++) if (shape[Math.floor(z / tpc) * t.size + Math.floor(x / tpc)]) mask[z * R + x] = 255
+      }
+    }
     const n = this.doodadTool.fill(this.ctx, brush, area, mask)
     setStatus(n ? `Placed ${n} models of "${brush.name}".` : `"${brush.name}" found no room there: its rules or spacing ruled out every spot.`, 6000)
   }
@@ -2428,10 +2445,56 @@ export class Engine {
     } else if (editor.selection) {
       const s = editor.selection
       u.selRect.value.set(s.x0 * cs, s.z0 * cs, s.x1 * cs, s.z1 * cs)
-      u.selMode.value = 1
+      const cells = areaShape(this.terrain, this.terrain.size)
+      if (cells) {
+        u.selTex.value = this.areaTexture(cells, this.terrain.size)
+        u.selMode.value = 3
+      } else u.selMode.value = 1
     } else {
       u.selMode.value = 0
     }
+  }
+
+  private areaTex: THREE.DataTexture | null = null
+
+  /** The free-form area's cells as the terrain shader's texture, swapped only when the shape changes. */
+  private areaTexture(cells: Uint8Array, size: number): THREE.DataTexture {
+    let tex = this.areaTex
+    if (tex && tex.image.width !== size) {
+      tex.dispose()
+      tex = null
+    }
+    if (!tex) {
+      tex = new THREE.DataTexture(cells, size, size, THREE.RedFormat, THREE.UnsignedByteType)
+      tex.magFilter = tex.minFilter = THREE.NearestFilter
+      tex.generateMipmaps = false
+      tex.needsUpdate = true
+      this.areaTex = tex
+    } else if (tex.image.data !== cells) {
+      tex.image.data = cells
+      tex.needsUpdate = true
+    }
+    return tex
+  }
+
+  /**
+   * Edit › Grow / Shrink Selection (#183): widens or narrows the selected area by `cells` cells, which
+   * makes a rect a shape with rounded corners. The models in it are selected again.
+   */
+  resizeSelection(cells: number) {
+    const t = this.terrain
+    const size = t.size
+    const cur = areaCells(t, size)
+    if (!cur) {
+      setStatus('Select an area first: drag on the ground with the Select tool (V).')
+      return
+    }
+    const next = cur.slice()
+    if (cells > 0) growMask(next, size, cells)
+    else shrinkMask(next, size, -cells)
+    const r = setAreaCells(t, size, next)
+    selectObjects(this.objects, r ? withGroups(this.objects, objectsInArea(this.objects, t, size, t.cellSize).map((o) => o.id)) : [])
+    setStatus(r ? `${cells > 0 ? 'Grew' : 'Shrank'} the area to ${r.x1 - r.x0} × ${r.z1 - r.z0} cells.` : 'The area shrank to nothing.')
   }
 
   /** Selects the whole map and every object in it. */
@@ -2474,7 +2537,8 @@ export class Engine {
     // Whole 2x2-cell blocks, as the client keeps holes: the area grows out to the blocks it touches.
     const r = snapToBlocks({ x0: s.x0, z0: s.z0, x1: s.x1 - 1, z1: s.z1 - 1 }, t.size)
     stroke.reserveHoles(r)
-    const n = fillHoles(t.holes, t.size, r.x0, r.z0, r.x1 + 1, r.z1 + 1, hole ? 1 : 0)
+    const shape = areaShape(t, t.size)
+    const n = shape ? fillShapeHoles(t.holes, t.size, shape, r, hole ? 1 : 0) : fillHoles(t.holes, t.size, r.x0, r.z0, r.x1 + 1, r.z1 + 1, hole ? 1 : 0)
     if (!n) {
       setStatus(hole ? 'That area is already a hole.' : 'There is no hole in that area.')
       return
@@ -2596,7 +2660,13 @@ export class Engine {
   /** How many cells of the selected area are holes, for the options bar. */
   holesInSelection(): number {
     const s = editor.selection
-    return s ? countHoles(this.terrain.holes, this.terrain.size, s.x0, s.z0, s.x1, s.z1) : 0
+    if (!s) return 0
+    const t = this.terrain
+    const shape = areaShape(t, t.size)
+    if (!shape) return countHoles(t.holes, t.size, s.x0, s.z0, s.x1, s.z1)
+    let n = 0
+    for (let z = s.z0; z < s.z1; z++) for (let x = s.x0; x < s.x1; x++) if (shape[z * t.size + x] && t.holes[z * t.size + x]) n++
+    return n
   }
 
   /** Copy the selected area (terrain, holes, textures, objects) to the clipboard. */
@@ -2619,7 +2689,8 @@ export class Engine {
       setStatus('Nothing selected. Click a model, or drag on the ground with the Select tool (V) to select part of the map first.')
       return false
     }
-    this.clip = copyRegion(this.terrain, this.objects, s, editor.palette, this.doc.liquids)
+    const shape = areaShape(this.terrain, this.terrain.size)
+    this.clip = copyRegion(this.terrain, this.objects, s, editor.palette, this.doc.liquids, shape ? cellsInRect(shape, this.terrain.size, s) : undefined)
     this.lastCopied = 'area'
     ui.hasClip = true
     const liquid = this.clip.liquids?.cells.length ? `, ${this.clip.liquids.cells.length} liquid cells` : ''
@@ -4371,7 +4442,10 @@ export class Engine {
     const cx1 = Math.min(side - 1, Math.floor((s.x1 - 1) / CHUNK_CELLS))
     const cz1 = Math.min(side - 1, Math.floor((s.z1 - 1) / CHUNK_CELLS))
     const out: number[] = []
-    for (let cz = cz0; cz <= cz1; cz++) for (let cx = cx0; cx <= cx1; cx++) out.push(cz * side + cx)
+    const shape = areaShape(this.terrain, this.terrain.size)
+    for (let cz = cz0; cz <= cz1; cz++) {
+      for (let cx = cx0; cx <= cx1; cx++) if (!shape || chunkInShape(shape, this.terrain.size, cx, cz)) out.push(cz * side + cx)
+    }
     return out
   }
 
@@ -4543,4 +4617,32 @@ export class Engine {
     }
     this.history.push({ label: 'Auto paint', undo: () => apply(before), redo: () => apply(after) })
   }
+}
+
+/** Sets (`value` 1) or clears the holes of every 2x2 block of `r` (inclusive) that has a cell of `shape`. Returns the cells changed. */
+function fillShapeHoles(holes: Uint8Array, size: number, shape: Uint8Array, r: { x0: number; z0: number; x1: number; z1: number }, value: 0 | 1): number {
+  let n = 0
+  for (let bz = r.z0; bz <= r.z1; bz += 2) {
+    for (let bx = r.x0; bx <= r.x1; bx += 2) {
+      let any = false
+      for (let z = bz; z < Math.min(size, bz + 2) && !any; z++) for (let x = bx; x < Math.min(size, bx + 2); x++) if (shape[z * size + x] === INSIDE) any = true
+      if (!any) continue
+      for (let z = bz; z < Math.min(size, bz + 2); z++) {
+        for (let x = bx; x < Math.min(size, bx + 2); x++) {
+          if (holes[z * size + x] === value) continue
+          holes[z * size + x] = value
+          n++
+        }
+      }
+    }
+  }
+  return n
+}
+
+/** Whether paint chunk (cx, cz) has a cell of `shape`. */
+function chunkInShape(shape: Uint8Array, size: number, cx: number, cz: number): boolean {
+  for (let z = cz * CHUNK_CELLS; z < Math.min(size, (cz + 1) * CHUNK_CELLS); z++) {
+    for (let x = cx * CHUNK_CELLS; x < Math.min(size, (cx + 1) * CHUNK_CELLS); x++) if (shape[z * size + x]) return true
+  }
+  return false
 }

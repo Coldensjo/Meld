@@ -134,6 +134,8 @@
         { kind: 'sep' },
         { kind: 'action', label: 'Select All', shortcut: 'Ctrl+A', run: withEngine((e) => { e.selectAll(); editor.tool = 'select' }) },
         { kind: 'action', label: 'Deselect', shortcut: 'Ctrl+D', disabled: !editor.selection && !editor.selectedIds.length, run: withEngine((e) => e.deselect()) },
+        { kind: 'action', label: 'Grow Selected Area by 1 Cell', disabled: !editor.selection, run: withEngine((e) => e.resizeSelection(1)) },
+        { kind: 'action', label: 'Shrink Selected Area by 1 Cell', disabled: !editor.selection, run: withEngine((e) => e.resizeSelection(-1)) },
         { kind: 'sep' },
         { kind: 'action', label: 'Cut Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(true)) },
         { kind: 'action', label: 'Fill Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(false)) },

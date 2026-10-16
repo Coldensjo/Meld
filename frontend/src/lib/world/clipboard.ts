@@ -10,6 +10,7 @@ import { copyShadows, pasteShadows } from './clipShadows'
 import { ShadowStroke } from '../tools/shadowStroke'
 import { pastedHeight, type PasteHeightMode } from './pasteHeight'
 import { copyLiquidCells, pasteLiquidCells, type LiquidClip, type LiquidMap } from '../water/liquids'
+import { insideDistance } from '../terrain/areaShape'
 import {
   CHUNK_CELLS,
   MAX_PALETTE,
@@ -54,6 +55,11 @@ export interface MapClip {
    * had none of its own, or in a clip made before they were copied.
    */
   shadows?: Uint8Array
+  /**
+   * A free-form area's shape (#183): w*h cells, 1 where the area is. A paste lays only these cells (and
+   * the corners of their ground) and fades from the shape's edge; absent, the whole rect.
+   */
+  cells?: Uint8Array
 }
 
 export interface PasteOptions {
@@ -185,8 +191,12 @@ const MISSING = '#808080'
 /** Splat texels per paint chunk along one side. */
 const TEXELS_PER_CHUNK = CHUNK_CELLS * SPLAT_PER_CELL
 
-/** Copy the cell rect (inclusive vertex corners x0..x1, z0..z1), with its painted liquid when `liquids` is given. */
-export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, palette: readonly string[], liquids?: LiquidMap): MapClip {
+/**
+ * Copy the cell rect (inclusive vertex corners x0..x1, z0..z1), with its painted liquid when `liquids` is
+ * given. With `inside` (the rect's cells, 1 in), the clip is that shape: only the models and liquid on its
+ * cells come along, and a paste lays only them.
+ */
+export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, palette: readonly string[], liquids?: LiquidMap, inside?: Uint8Array): MapClip {
   const w = r.x1 - r.x0
   const h = r.z1 - r.z0
   const V = terrain.verts
@@ -239,11 +249,18 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
   const tmp = new THREE.Vector3()
   const picked = objects.list().filter((o) => {
     const p = objects.worldPosition(o, tmp)
-    return p.x >= ox && p.x <= r.x1 * cs && p.z >= oz && p.z <= r.z1 * cs
+    if (!(p.x >= ox && p.x <= r.x1 * cs && p.z >= oz && p.z <= r.z1 * cs)) return false
+    if (!inside) return true
+    const cx = Math.min(w - 1, Math.floor((p.x - ox) / cs))
+    const cz = Math.min(h - 1, Math.floor((p.z - oz) / cs))
+    return !!inside[cz * w + cx]
   })
-  const inside = encodeObjects(terrain, objects, picked, ox, oz)
-  const clip: MapClip = { w, h, heights, holes, weights, slots, palette: clipPalette, objects: inside, chunkData: copyChunkData(terrain, r) }
-  if (liquids) clip.liquids = copyLiquidCells(liquids, r)
+  const clip: MapClip = { w, h, heights, holes, weights, slots, palette: clipPalette, objects: encodeObjects(terrain, objects, picked, ox, oz), chunkData: copyChunkData(terrain, r) }
+  if (inside) clip.cells = inside
+  if (liquids) {
+    clip.liquids = copyLiquidCells(liquids, r)
+    if (inside) clip.liquids.cells = clip.liquids.cells.filter((c) => inside[c.z * w + c.x])
+  }
   const shadows = copyShadows(terrain, r)
   if (shadows) clip.shadows = shadows
   return clip
@@ -288,16 +305,32 @@ export function pasteRegion(
   let shadowCmd: Command | null = null
   if (opts.terrain && clip.shadows) {
     const ss = new ShadowStroke(terrain, 'Paste')
-    pasteShadows(terrain, clip.shadows, clip.w, clip.h, px, pz, ss)
+    pasteShadows(terrain, clip.shadows, clip.w, clip.h, px, pz, ss, clip.cells)
     shadowCmd = ss.finish()
   }
   if (opts.terrain && liquids && clip.liquids) {
     const ls = new LiquidStroke(liquids, 'Paste')
-    pasteLiquidCells(liquids, clip.liquids, px, pz, ls.reserve)
+    pasteLiquidCells(liquids, clip.liquids, px, pz, ls.reserve, clip.cells)
     liquidCmd = ls.finish()
   }
   const V = terrain.verts
   const size = terrain.size
+  // A free-form clip: how far each of its cells is from the shape's edge, which the blend fades over.
+  const shape = clip.cells
+  const dist = shape ? insideDistance(shape, clip.w, clip.h) : null
+  /** For a free-form clip, a corner's distance from the shape's edge: -1 when no cell of the shape touches it. */
+  const cornerDist = (cx: number, cz: number) => {
+    let d = -1
+    for (let dz = -1; dz <= 0; dz++) {
+      for (let dx = -1; dx <= 0; dx++) {
+        const x = cx + dx
+        const z = cz + dz
+        if (x < 0 || z < 0 || x >= clip.w || z >= clip.h || !shape![z * clip.w + x]) continue
+        d = Math.max(d, dist![z * clip.w + x] - 0.5)
+      }
+    }
+    return d
+  }
 
   if (opts.terrain) {
     const x0 = Math.max(0, px)
@@ -313,7 +346,11 @@ export function pasteRegion(
         for (let x = x0; x <= x1; x++) {
           const cx = x - px
           const cz = z - pz
-          const d = Math.min(cx, cz, clip.w - cx, clip.h - cz)
+          let d = Math.min(cx, cz, clip.w - cx, clip.h - cz)
+          if (shape) {
+            d = cornerDist(cx, cz)
+            if (d < 0) continue
+          }
           const f = fade(d, opts.blend)
           const i = z * V + x
           const target = pastedHeight(mode, terrain.heights[i], clip.heights[cz * (clip.w + 1) + cx], clipLow, opts.heightOffset)
@@ -330,7 +367,10 @@ export function pasteRegion(
       if (cx1 >= x0 && cz1 >= z0) {
         stroke.reserveHoles({ x0, z0, x1: cx1, z1: cz1 })
         for (let z = z0; z <= cz1; z++) {
-          for (let x = x0; x <= cx1; x++) terrain.holes[z * size + x] = clip.holes[(z - pz) * clip.w + (x - px)]
+          for (let x = x0; x <= cx1; x++) {
+            const i = (z - pz) * clip.w + (x - px)
+            if (!shape || shape[i]) terrain.holes[z * size + x] = clip.holes[i]
+          }
         }
         stroke.touchHoles({ x0, z0, x1: cx1, z1: cz1 })
       }
@@ -369,7 +409,12 @@ export function pasteRegion(
       for (let x = 0; x < tw; x++) {
         const gx = tx0 + x
         if (gx < 0 || gx >= R) continue
-        const d = Math.min(x + 0.5, z + 0.5, tw - x - 0.5, th - z - 0.5) / T
+        let d = Math.min(x + 0.5, z + 0.5, tw - x - 0.5, th - z - 0.5) / T
+        if (shape) {
+          const cell = Math.floor(z / T) * clip.w + Math.floor(x / T)
+          if (!shape[cell]) continue
+          d = dist![cell]
+        }
         const f = fade(d, opts.blend)
         const texel = gz * R + gx
         const chunk = chunkOf(Math.floor(gx / TEXELS_PER_CHUNK), Math.floor(gz / TEXELS_PER_CHUNK), side)

@@ -11,6 +11,9 @@ import { groundNormal, tiltToNormal } from '../world/groundTilt'
 import { hasSkeleton, modelMesh } from '../world/Animator'
 import { previewParticles } from '../world/ParticleLayer'
 import { HoleWalls } from './HoleWalls'
+import { areaCells, objectsInArea, setAreaCells } from '../state/areaSelection'
+import { rasterPolygon } from '../terrain/areaShape'
+import { combineMask, type MaskOp } from '../terrain/maskSelect'
 import { spawnKey } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { placementEuler } from '../world/placement'
@@ -372,6 +375,14 @@ export class SelectTool implements Tool {
   private pastThreshold = false
   /** The cell an area drag started at. */
   private rectStart: Cell | null = null
+  /**
+   * A lasso being dragged or a polygon being clicked (#183): its points (world x, z pairs), and whether
+   * it adds to the area or takes from it.
+   */
+  private outline: { pts: number[]; op: MaskOp; polygon: boolean } | null = null
+  /** The outline drawn over the ground while it is made, closed back to its start. */
+  private outlineLine = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffe36b, depthTest: false, transparent: true }))
+  private outlinePos = new Float32Array(0)
   /** Where a floating area paste would land (corner cell), updated every frame. */
   pasteAt: Cell | null = null
   /** Where a floating model paste would land (its anchor, on the surface under the cursor), updated every frame. */
@@ -394,6 +405,9 @@ export class SelectTool implements Tool {
     },
   ) {
     this.ghostGroup.renderOrder = 20
+    this.outlineLine.renderOrder = 30
+    this.outlineLine.frustumCulled = false
+    this.outlineLine.visible = false
   }
 
   /** The holes' edges as handles: drag one to move it, + and − for single cells. */
@@ -401,6 +415,7 @@ export class SelectTool implements Tool {
 
   activate(ctx: ToolContext) {
     ctx.scene.add(this.ghostGroup)
+    ctx.scene.add(this.outlineLine)
     this.walls.attach(ctx.scene)
   }
 
@@ -416,7 +431,10 @@ export class SelectTool implements Tool {
   deactivate(ctx: ToolContext) {
     this.rectStart = null
     this.dragging = null
+    this.outline = null
+    this.outlineLine.visible = false
     ctx.scene.remove(this.ghostGroup)
+    ctx.scene.remove(this.outlineLine)
     this.walls.detach(ctx.scene)
     if (ui.pasting) this.hooks.cancelPaste()
   }
@@ -479,6 +497,12 @@ export class SelectTool implements Tool {
     // A hole's edge or badge under the cursor comes before a model over it: the edge is lit up, so
     // the intent is clear, and the press moves the edge or cuts/fills a cell at it.
     if (this.walls.onDown(ctx)) return
+    // While a polygon is open, every click is its next corner, on a model as anywhere else.
+    if (this.outline?.polygon) {
+      const at = this.groundPoint(ctx, hit)
+      if (at) this.pressOutline(ctx, at, e)
+      return
+    }
     // The model or the spawn nearest along the click: a creature on a building's floor is the creature.
     const { id, spawn } = pickNearest(ctx.objects, ctx.spawns, ctx.raycaster)
     if (id !== null) {
@@ -511,12 +535,87 @@ export class SelectTool implements Tool {
       this.brushAt(ctx, at)
       return
     }
+    if (editor.selectShape !== 'rect') {
+      this.pressOutline(ctx, at, e)
+      return
+    }
     if (!e.shiftKey) selectObjects(ctx.objects, [])
     this.rectStart = this.cell(ctx, at)
     editor.selection = { x0: this.rectStart.x, z0: this.rectStart.z, x1: this.rectStart.x, z1: this.rectStart.z }
   }
 
   private solidHit = new THREE.Vector3()
+
+  /**
+   * A press on the ground with the lasso or polygon: starts the outline, or for a polygon adds a point
+   * and closes it on a double-click or a click near its first point.
+   */
+  private pressOutline(ctx: ToolContext, at: THREE.Vector3, e: PointerEvent) {
+    const o = this.outline
+    if (o?.polygon) {
+      const p = o.pts
+      const near = ctx.terrain.cellSize * 1.5
+      const dx = at.x - p[0]
+      const dz = at.z - p[1]
+      if (e.detail >= 2 || (p.length >= 6 && dx * dx + dz * dz <= near * near)) this.closeOutline(ctx)
+      else p.push(at.x, at.z)
+      return
+    }
+    const op: MaskOp = e.shiftKey ? 'add' : e.ctrlKey ? 'subtract' : 'replace'
+    this.outline = { pts: [at.x, at.z], op, polygon: editor.selectShape === 'polygon' }
+    if (this.outline.polygon) setStatus('Click the corners. Enter or a click on the first corner closes the polygon; Backspace drops the last corner, Esc cancels.', 6000)
+  }
+
+  /** Turns the outline into the selected area (added or taken away by its op), with the models in it. */
+  private closeOutline(ctx: ToolContext) {
+    const o = this.outline
+    this.outline = null
+    if (!o) return
+    const t = ctx.terrain
+    const size = t.size
+    const drawn = new Uint8Array(size * size)
+    rasterPolygon(o.pts, t.cellSize, size, drawn)
+    const before = editor.selectedIds
+    const prev = o.op === 'replace' ? null : areaCells(t, size)
+    let cells = drawn
+    if (prev) {
+      cells = prev.slice()
+      combineMask(cells, drawn, o.op)
+    } else if (o.op === 'subtract') cells = new Uint8Array(size * size)
+    const r = setAreaCells(t, size, cells)
+    const inside = r ? withGroups(ctx.objects, objectsInArea(ctx.objects, t, size, t.cellSize).map((m) => m.id)) : []
+    // Shift keeps the models selected before; Ctrl drops those no longer in the area.
+    const ids = o.op === 'add' ? [...before, ...inside] : o.op === 'subtract' ? before.filter((id) => inside.includes(id)) : inside
+    selectObjects(ctx.objects, ids)
+    let count = 0
+    for (let i = 0; i < cells.length; i++) if (cells[i]) count++
+    const m = editor.selectedIds.length
+    setStatus(r ? `Selected ${count} cells (${r.x1 - r.x0} × ${r.z1 - r.z0} around) with ${m} ${m === 1 ? 'object' : 'objects'}.` : 'The area is empty.')
+  }
+
+  /** Draws the outline being made, a polygon's last side following the cursor. */
+  private drawOutline(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    const o = this.outline
+    this.outlineLine.visible = !!o
+    if (!o) return
+    const t = ctx.terrain
+    const n = o.pts.length / 2
+    const count = n + (o.polygon && hit ? 1 : 0)
+    if (this.outlinePos.length < count * 3) {
+      this.outlinePos = new Float32Array(Math.max(64, count * 6))
+      this.outlineLine.geometry.setAttribute('position', new THREE.BufferAttribute(this.outlinePos, 3))
+    }
+    const pos = this.outlinePos
+    for (let i = 0; i < count; i++) {
+      const x = i < n ? o.pts[i * 2] : hit!.x
+      const z = i < n ? o.pts[i * 2 + 1] : hit!.z
+      pos[i * 3] = x
+      pos[i * 3 + 1] = t.heightAt(x, z) + 0.3
+      pos[i * 3 + 2] = z
+    }
+    this.outlineLine.geometry.getAttribute('position').needsUpdate = true
+    this.outlineLine.geometry.setDrawRange(0, count)
+  }
 
   /**
    * The selection brush at `at`: every drawn model whose place is within the brush radius joins the
@@ -667,6 +766,16 @@ export class SelectTool implements Tool {
       if (at) this.brushAt(ctx, at)
       return
     }
+    if (this.outline && !this.outline.polygon) {
+      const at = this.groundPoint(ctx, hit)
+      if (!at) return
+      const p = this.outline.pts
+      const dx = at.x - p[p.length - 2]
+      const dz = at.z - p[p.length - 1]
+      const step = ctx.terrain.cellSize * 0.5
+      if (dx * dx + dz * dz >= step * step) p.push(at.x, at.z)
+      return
+    }
     if (this.rectStart) {
       const at = this.groundPoint(ctx, hit)
       if (!at) return
@@ -761,6 +870,10 @@ export class SelectTool implements Tool {
       ctx.history.push({ label: `Move ${s.name}`, undo: () => applySpawn(layer, sd.key, sd.before), redo: () => applySpawn(layer, sd.key, after) })
       return
     }
+    if (this.outline && !this.outline.polygon) {
+      this.closeOutline(ctx)
+      return
+    }
     if (this.rectStart) {
       this.rectStart = null
       const s = editor.selection
@@ -787,6 +900,7 @@ export class SelectTool implements Tool {
 
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
     this.walls.frame(ctx)
+    this.drawOutline(ctx, hit)
     const clip = ui.pasting ? this.hooks.objectClip() : null
     if (clip) {
       // Models paste onto the ground under the cursor (buildings included, since the ray stops there).
@@ -809,6 +923,22 @@ export class SelectTool implements Tool {
       else if (e.key === 'PageUp') editor.paste.heightOffset += e.shiftKey ? 5 : 1
       else if (e.key === 'PageDown') editor.paste.heightOffset -= e.shiftKey ? 5 : 1
       else return false
+      return true
+    }
+    if (this.outline?.polygon) {
+      if (e.key === 'Enter') this.closeOutline(ctx)
+      else if (e.key === 'Escape') this.outline = null
+      else if (e.key === 'Backspace') {
+        this.outline.pts.length -= 2
+        if (!this.outline.pts.length) this.outline = null
+      } else return false
+      return true
+    }
+    if ((e.key === 'l' || e.key === 'L') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const order = ['rect', 'lasso', 'polygon'] as const
+      editor.selectShape = order[(order.indexOf(editor.selectShape) + 1) % order.length]
+      editor.selectBrush = false
+      setStatus(`Select: ${editor.selectShape === 'rect' ? 'rectangle' : editor.selectShape} (L cycles).`, 2000)
       return true
     }
     if (e.key === 'Escape' && (editor.selection || editor.selectedIds.length)) {

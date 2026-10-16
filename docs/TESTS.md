@@ -704,6 +704,31 @@ and `__engine.modifyMask('grow' | 'shrink' | 'feather')` runs in under 20 ms.
 - T3 Code's preview can't take a screenshot while its pane is hidden. Read the options bar's DOM
   (`[data-ui="OptionsBar"]`, its `scrollWidth`) instead.
 
+## Lasso and polygon areas (#183)
+
+Checks: free-form areas (`terrain/areaShape.ts`, `state/areaSelection.ts`; unit tests in
+`areaShape.test.ts`: the raster, bounds, edge distance, a clip's cells turning with it, a liquid paste
+inside a shape). In the dev page on Northshire, skip the pointer and close an outline directly:
+`s = __engine.tools.select; s.outline = { pts, op: 'replace' | 'add' | 'subtract', polygon: false };
+s.closeOutline(__engine.ctx)`, with `pts` a ring of world x, z pairs around (150, 300). Then
+`editor.selection` is the bounds, `terrain.material.uniforms.selMode` is 3 after a frame, and
+`setHoleInSelection`, `holesInSelection`, `maskFromSelection`, `selectedChunks` and
+`resizeSelection(±1)` follow the cells. Copy and paste: clear the selected models first (Copy prefers
+them), `copySelection()` gives `__engine.clip.cells`, and a paste at `s.pasteAt = { x: 60, z: 30 }` with
+`commitPaste()` changes only vertices that touch a cell of the shape (with the default 2-cell blend,
+the shape's rim keeps the map's heights). One undo restores every height.
+
+- Trap: `performance.getEntriesByType('resource')` stops at 250 entries, so on a page that loaded a
+  region it may list an old `editor.svelte.ts?t=` and a probe then imports a second copy whose `editor`
+  the Engine never reads (the selection seemed set, the shader saw none). Take the URL from a module's
+  own source instead: `(await (await fetch('/src/lib/engine/Engine.ts?t=…')).text()).match(/from "([^"]*editor\.svelte\.ts[^"]*)"/)`.
+- Trap: a probe that awaits `requestAnimationFrame`, or moves the camera through `setSceneView` and
+  then awaits timers, wedged T3 Code's hidden preview tab twice (every later evaluate timed out). Step
+  with `__engine.frame()` and set `controller.target`, `pitch`, `distance` and `yaw` directly.
+- Comparing two renders (`selMode` forced to 0, then back, `renderer.render` and a 2D canvas
+  `drawImage`) shows the tint over exactly the shape's cells; the probe found no outline pixels for a
+  plain rect either, so judge the marching ants by eye in the app.
+
 ## Fit ground to models and Stamp (#168)
 
 Checks: Models › Fit Ground to Selected Models… (`Engine.fitGroundToSelection`, the arithmetic in

@@ -58,8 +58,11 @@ export function movableSelection(objects: ObjectLayer): WorldObject[] {
 
 const tmp = new THREE.Vector3()
 
-/** The objects whose world position lies in the cell rect (corners x0..x1, z0..z1), hidden ones left out. */
-export function objectsInRect(objects: ObjectLayer, cellSize: number, r: { x0: number; z0: number; x1: number; z1: number }): WorldObject[] {
+/**
+ * The objects whose world position lies in the cell rect (corners x0..x1, z0..z1), and for which
+ * `inside` holds when given (a free-form area's cells), hidden ones left out.
+ */
+export function objectsInRect(objects: ObjectLayer, cellSize: number, r: { x0: number; z0: number; x1: number; z1: number }, inside?: (x: number, z: number) => boolean): WorldObject[] {
   const x0 = r.x0 * cellSize
   const z0 = r.z0 * cellSize
   const x1 = r.x1 * cellSize
@@ -68,7 +71,7 @@ export function objectsInRect(objects: ObjectLayer, cellSize: number, r: { x0: n
   for (const o of objects.objects.values()) {
     if (!objects.pickable(o.id)) continue
     const p = objects.worldPosition(o, tmp)
-    if (p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1) out.push(o)
+    if (p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1 && (!inside || inside(p.x, p.z))) out.push(o)
   }
   return out
 }
