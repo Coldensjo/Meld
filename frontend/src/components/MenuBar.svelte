@@ -416,7 +416,7 @@
         { kind: 'action', label: 'Help…', shortcut: 'F1', run: () => (ui.dialog = 'help') },
         { kind: 'action', label: 'Log…', run: () => (ui.dialog = 'log') },
         { kind: 'action', label: 'Keyboard Shortcuts…', run: () => (ui.dialog = 'shortcuts') },
-        { kind: 'action', label: 'Manual (README on GitHub)', run: () => openUrl(MANUAL_URL) },
+        { kind: 'action', label: 'Manual (on GitHub)', run: () => openUrl(MANUAL_URL) },
         { kind: 'sep' },
         { kind: 'action', label: 'Copy Scene', disabled: !hasBackend() || ui.busy, run: withEngine(copyScene) },
         { kind: 'action', label: 'Load Scene from Clipboard', disabled: !hasBackend() || ui.busy, run: withEngine(pasteScene) },

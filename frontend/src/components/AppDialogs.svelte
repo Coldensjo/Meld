@@ -1,6 +1,6 @@
 <script module lang="ts">
-  /** The manual: the README of the project's repository, which Help › Manual opens in the browser. */
-  export const MANUAL_URL = 'https://github.com/Coldensjo/Meld#readme'
+  /** The manual (docs/MANUAL.md in the project's repository), which Help › Manual opens in the browser. */
+  export const MANUAL_URL = 'https://github.com/Coldensjo/Meld/blob/main/docs/MANUAL.md'
 </script>
 
 <script lang="ts">
@@ -207,7 +207,7 @@
         <p class="help">{text}</p>
       {/each}
     {/each}
-    <p class="dim">The manual is the project's README, with every tool, menu and format in full.</p>
+    <p class="dim">The manual has every tool, menu and format in full.</p>
     {#snippet actions()}
       <button onclick={() => (hasBackend() ? BrowserOpenURL(MANUAL_URL) : window.open(MANUAL_URL, '_blank', 'noopener'))}>Open the manual</button>
       <button onclick={() => (ui.dialog = 'shortcuts')}>Keyboard shortcuts</button>

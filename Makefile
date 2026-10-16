@@ -1,5 +1,5 @@
 # Convenience targets (Linux/macOS/Git-Bash). On Windows without make, run the
-# commands directly — see README.md.
+# commands directly — see README.md and docs/MANUAL.md.
 
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
