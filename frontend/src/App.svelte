@@ -19,6 +19,7 @@
   import ContextMenu from './components/ContextMenu.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { restoreSession, saveSession, startSessionSaving } from './lib/io/session'
+  import { offerRecovery, startAutosave } from './lib/io/recovery'
   import { copyTeleport } from './lib/io/scene'
   import { onMount } from 'svelte'
   import { refreshGameClient } from './lib/io/mapio'
@@ -41,13 +42,19 @@
     const prefsReady = loadPrefs().finally(() => (prefsLoaded = true))
     // With the preferences and the client's status known, open what was open at the last close.
     let stopSaving = () => {}
+    let stopAutosave = () => {}
     Promise.all([wowReady, prefsReady]).then(async () => {
       const engine = engineRef.current
       if (!engine) return
       await restoreSession(engine).catch((e) => console.warn('could not restore the session', e))
       stopSaving = startSessionSaving(engine)
+      stopAutosave = startAutosave(engine)
+      void offerRecovery()
     })
-    return () => stopSaving()
+    return () => {
+      stopSaving()
+      stopAutosave()
+    }
   })
 
   // Apply preferences to the engine whenever they change, and persist them.

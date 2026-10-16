@@ -345,6 +345,35 @@ export namespace mapfile {
 
 }
 
+export namespace recovery {
+	
+	export class Info {
+	    id: string;
+	    session: string;
+	    name: string;
+	    file: string;
+	    region: string;
+	    saved: number;
+	    fileTime: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Info(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.session = source["session"];
+	        this.name = source["name"];
+	        this.file = source["file"];
+	        this.region = source["region"];
+	        this.saved = source["saved"];
+	        this.fileTime = source["fileTime"];
+	    }
+	}
+
+}
+
 export namespace vmangos {
 	
 	export class AILine {

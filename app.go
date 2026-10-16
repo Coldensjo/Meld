@@ -20,6 +20,7 @@ import (
 	"Meld/internal/heightmap"
 	"Meld/internal/mapfile"
 	"Meld/internal/mpq"
+	"Meld/internal/recovery"
 	"Meld/internal/vmangos"
 	"Meld/internal/wow"
 
@@ -34,6 +35,9 @@ type App struct {
 
 	cfgMu sync.Mutex // bound methods run concurrently
 	cfg   config.Config
+
+	// rec holds the autosaved copies of dirty maps; nil if its folder couldn't be made.
+	rec *recovery.Store
 }
 
 func NewApp() *App {
@@ -42,6 +46,7 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.startRecovery()
 	if a.cfg.WowPath != "" {
 		go func() {
 			a.wow.Open(a.cfg.WowPath)
@@ -193,6 +198,83 @@ func (a *App) LoadMap(path string) (*mapfile.MapData, error) {
 	}
 	runtime.WindowSetTitle(a.ctx, "Meld — "+filepath.Base(path))
 	return m, nil
+}
+
+// startRecovery opens the recovery folder and keeps this session marked as running while it runs.
+func (a *App) startRecovery() {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return
+	}
+	rec, err := recovery.Open(filepath.Join(base, "Meld", "recovery"))
+	if err != nil {
+		return
+	}
+	a.rec = rec
+	rec.Touch()
+	go func() {
+		t := time.NewTicker(recovery.Heartbeat)
+		defer t.Stop()
+		for {
+			select {
+			case <-a.ctx.Done():
+				return
+			case <-t.C:
+				rec.Touch()
+			}
+		}
+	}()
+}
+
+// shutdown ends the session; its copies stay unless the editor quit through Quit, which drops them
+// first (EndRecovery), so closing the window on unsaved maps still leaves them to recover.
+func (a *App) shutdown(ctx context.Context) {
+	if a.rec != nil {
+		a.rec.End()
+	}
+}
+
+var errNoRecovery = errors.New("no recovery folder")
+
+// SaveRecovery writes the autosaved copy of open map doc (a tab's id) and returns its info.
+func (a *App) SaveRecovery(doc int, info recovery.Info, data mapfile.MapData) (recovery.Info, error) {
+	if a.rec == nil {
+		return info, errNoRecovery
+	}
+	return a.rec.Save(doc, info, &data)
+}
+
+// DropRecovery removes an autosaved copy: its map was saved, closed or recovered, or the author
+// discarded it.
+func (a *App) DropRecovery(id string) error {
+	if a.rec == nil {
+		return errNoRecovery
+	}
+	return a.rec.Drop(id)
+}
+
+// ListRecovery names the autosaved copies that earlier sessions left behind without quitting cleanly.
+func (a *App) ListRecovery() ([]recovery.Info, error) {
+	if a.rec == nil {
+		return nil, nil
+	}
+	return a.rec.List()
+}
+
+// LoadRecovery reads an autosaved copy's map. Unlike LoadMap it leaves the window title alone.
+func (a *App) LoadRecovery(id string) (*mapfile.MapData, error) {
+	if a.rec == nil {
+		return nil, errNoRecovery
+	}
+	return a.rec.Load(id)
+}
+
+// EndRecovery drops this session's copies: the author quit, having saved or discarded every map.
+func (a *App) EndRecovery() error {
+	if a.rec == nil {
+		return nil
+	}
+	return a.rec.DropSession()
 }
 
 // sceneKeep is how many scene map copies SaveSceneMap keeps; older ones are removed.

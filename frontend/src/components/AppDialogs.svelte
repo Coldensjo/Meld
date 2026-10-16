@@ -15,6 +15,7 @@
   import BrushStackDialog from './BrushStackDialog.svelte'
   import TextureLooksDialog from './TextureLooksDialog.svelte'
   import HeightmapImportDialog from './HeightmapImportDialog.svelte'
+  import RecoveryDialog from './RecoveryDialog.svelte'
   import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
   import { EquipmentFor } from '../../wailsjs/go/main/App'
   import { setStatus } from '../lib/state/editor.svelte'
@@ -382,6 +383,8 @@
   </Modal>
 {:else if ui.dialog === 'gameLogin'}
   <GameLoginDialog />
+{:else if ui.dialog === 'recovery'}
+  <RecoveryDialog onclose={close} />
 {/if}
 
 <style>

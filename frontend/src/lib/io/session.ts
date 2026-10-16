@@ -4,6 +4,7 @@ import { editor, prefs, setStatus, wow } from '../state/editor.svelte'
 import { fromMapData, hasBackend, openWowRegion } from './mapio'
 import { LoadMap, Quit } from '../../../wailsjs/go/main/App'
 import { flushPrefs } from '../state/prefs'
+import { endAutosave } from './recovery'
 import { engineRef } from '../state/engineRef'
 
 // The session is what the editor had open when it was last closed: every tab that is a saved map
@@ -75,6 +76,7 @@ export async function quitNow() {
   if (!hasBackend()) return
   if (engineRef.current) saveSession(engineRef.current)
   await flushPrefs()
+  await endAutosave()
   Quit()
 }
 

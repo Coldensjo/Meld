@@ -48,7 +48,7 @@ export class History {
       this.times.shift()
     }
     this.index = this.stack.length
-    this.sink.dirty()
+    this.changed()
     this.sync()
   }
 
@@ -62,7 +62,7 @@ export class History {
     if (this.index === 0 || this.index !== this.stack.length) return this.push(cmd)
     this.stack[this.index - 1] = cmd
     this.times[this.index - 1] = Date.now()
-    this.sink.dirty()
+    this.changed()
     this.sync()
   }
 
@@ -70,7 +70,7 @@ export class History {
     if (this.index === 0) return null
     const cmd = this.stack[--this.index]
     cmd.undo()
-    this.sink.dirty()
+    this.changed()
     this.sync()
     return cmd
   }
@@ -79,7 +79,7 @@ export class History {
     if (this.index >= this.stack.length) return null
     const cmd = this.stack[this.index++]
     cmd.redo()
-    this.sink.dirty()
+    this.changed()
     this.sync()
     return cmd
   }
@@ -110,7 +110,7 @@ export class History {
     if (target === this.index) return false
     while (this.index > target) this.stack[--this.index].undo()
     while (this.index < target) this.stack[this.index++].redo()
-    this.sink.dirty()
+    this.changed()
     this.sync()
     return true
   }
@@ -118,6 +118,14 @@ export class History {
   /** Re-publish undo/redo availability (after switching documents). */
   refresh() {
     this.sync()
+  }
+
+  /** Counts the map's changes (a step pushed, replaced, undone or redone), so autosave can tell it changed since its last copy. */
+  changes = 0
+
+  private changed() {
+    this.changes++
+    this.sink.dirty()
   }
 
   private sync() {

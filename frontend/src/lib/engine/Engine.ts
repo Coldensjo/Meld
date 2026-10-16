@@ -2131,30 +2131,38 @@ export class Engine {
   }
 
   snapshot(): MapSnapshot {
-    const t = this.terrain
+    return this.snapshotOf(this.doc)
+  }
+
+  /** The map of any open tab, as `snapshot` gives the active one's (autosave copies every dirty tab). */
+  snapshotOf(d: MapDocument): MapSnapshot {
+    const t = d.terrain
+    // The active tab's settings live in `editor`, the others' in their stashed meta.
+    const m = d === this.doc ? editor : d.meta
+    const region = d.meta.region
     return {
-      name: editor.mapName,
+      name: m.mapName,
       size: t.size,
       cellSize: t.cellSize,
       splatRes: t.splatRes,
-      waterLevel: editor.waterLevel,
-      waterEnabled: editor.waterEnabled,
-      objects: this.objects.list().map((o) => {
-        const uid = this.doc.meta.region?.uids.get(o.id)
+      waterLevel: m.waterLevel,
+      waterEnabled: m.waterEnabled,
+      objects: d.objects.list().map((o) => {
+        const uid = region?.uids.get(o.id)
         return uid ? { ...o, uid } : { ...o }
       }),
-      region: this.doc.meta.region ? { mapName: this.doc.meta.region.mapName, x: this.doc.meta.region.x, y: this.doc.meta.region.y, size: this.doc.meta.region.size } : null,
-      vmangos: this.doc.meta.vmangos,
-      palette: [...editor.palette],
-      roles: { ...editor.roles },
-      textureEffects: { ...editor.textureEffects },
-      textureLooks: { ...editor.textureLooks },
-      scopedEffects: structuredClone(plainScoped(editor.scopedEffects)),
+      region: region ? { mapName: region.mapName, x: region.x, y: region.y, size: region.size } : null,
+      vmangos: d.meta.vmangos,
+      palette: [...m.palette],
+      roles: { ...m.roles },
+      textureEffects: { ...m.textureEffects },
+      textureLooks: { ...m.textureLooks },
+      scopedEffects: structuredClone(plainScoped(m.scopedEffects ?? noScopedEffects())),
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       weights: t.weights,
       chunkSlots: t.chunkSlots,
       holes: t.holes,
-      liquids: encodeLiquids(this.doc.liquids),
+      liquids: encodeLiquids(d.liquids),
       chunkData: { areaIds: t.areaIds, chunkFlags: t.chunkFlags, noEffect: t.noEffect },
       shadows: t.shadow ? packShadowBits(t.shadow) : null,
     }

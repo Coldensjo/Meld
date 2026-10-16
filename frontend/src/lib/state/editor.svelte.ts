@@ -354,6 +354,8 @@ export const prefs = $state({
   fpsLimit: 0,
   /** The client maps pinned to the top of the Start dialog's map list (#47), by Map.dbc ID. */
   pinnedMaps: [] as number[],
+  /** Preferences › Autosave (#177): minutes between recovery copies of the maps with unsaved changes, 0 for none. */
+  autosaveMinutes: 3,
   /** Preferences › Theme (#49): the editor's colours, or the desktop's light or dark setting. */
   theme: 'dark' as 'dark' | 'light' | 'system',
   /** Graphics › Anti-aliasing (#24), mirrored to localStorage by display.ts and applied at the next start. */
@@ -478,7 +480,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | null,
+  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */

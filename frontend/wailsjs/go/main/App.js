@@ -50,6 +50,14 @@ export function CreateCreature(arg1, arg2) {
   return window['go']['main']['App']['CreateCreature'](arg1, arg2);
 }
 
+export function DropRecovery(arg1) {
+  return window['go']['main']['App']['DropRecovery'](arg1);
+}
+
+export function EndRecovery() {
+  return window['go']['main']['App']['EndRecovery']();
+}
+
 export function EquipmentFor(arg1) {
   return window['go']['main']['App']['EquipmentFor'](arg1);
 }
@@ -114,6 +122,10 @@ export function ListObjectTemplates() {
   return window['go']['main']['App']['ListObjectTemplates']();
 }
 
+export function ListRecovery() {
+  return window['go']['main']['App']['ListRecovery']();
+}
+
 export function ListWeapons() {
   return window['go']['main']['App']['ListWeapons']();
 }
@@ -124,6 +136,10 @@ export function LoadMap(arg1) {
 
 export function LoadPrefs() {
   return window['go']['main']['App']['LoadPrefs']();
+}
+
+export function LoadRecovery(arg1) {
+  return window['go']['main']['App']['LoadRecovery'](arg1);
 }
 
 export function LoadRegion(arg1, arg2, arg3, arg4) {
@@ -304,6 +320,10 @@ export function SaveModelSetDialog(arg1) {
 
 export function SavePrefs(arg1) {
   return window['go']['main']['App']['SavePrefs'](arg1);
+}
+
+export function SaveRecovery(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveRecovery'](arg1, arg2, arg3);
 }
 
 export function SaveRegion(arg1) {

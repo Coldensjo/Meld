@@ -52,6 +52,7 @@ func main() {
 		Logger:           newQuietLogger(),
 		OnStartup:        app.startup,
 		OnBeforeClose:    app.beforeClose,
+		OnShutdown:       app.shutdown,
 		Bind: []interface{}{
 			app,
 		},

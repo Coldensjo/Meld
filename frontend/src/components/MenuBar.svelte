@@ -451,6 +451,17 @@
         { kind: 'action', label: wow.loaded ? 'Change WoW Client Folder…' : 'Select WoW Client Folder…', disabled: !hasBackend(), run: chooseWowFolder },
         { kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
         { kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
+        { kind: 'header', label: 'Autosave unsaved maps' },
+        ...radios(
+          [
+            ['Every minute', 1],
+            ['Every 3 minutes', 3],
+            ['Every 10 minutes', 10],
+            ['Off', 0],
+          ],
+          () => prefs.autosaveMinutes,
+          (v) => (prefs.autosaveMinutes = v),
+        ),
         { kind: 'header', label: 'Theme' },
         ...radios<typeof prefs.theme>(
           [

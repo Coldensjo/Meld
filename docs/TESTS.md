@@ -392,6 +392,24 @@ location.reload()                                  // then, after ~6 s: editor.r
 - The dev page writes the real config.json, so the user's own app will also open that region next.
   The target's y differs a little after a restore because the camera target rides on the ground.
 
+## Autosave and recovery (#177)
+
+Checks: `lib/io/recovery.ts` copies dirty tabs into `%LOCALAPPDATA%\Meld\recovery` (Linux
+`~/.cache/Meld/recovery`), and the next start offers copies whose session is gone (`internal/recovery`,
+Go tests cover the alive file going stale). In the dev page:
+
+- Set `prefs.autosaveMinutes = 0.05` (from the loaded `editor.svelte.ts` URL), push an edit with a
+  real change (`h[1000] += 7` plus `__engine.history.push({label, undo, redo})`), and within ~20 s
+  `<session>_<doc>.wmap` and `.json` appear beside `<session>.alive`.
+- A crash without killing `wails dev` (it may be the owner's): copy the pair under another session name
+  (`20261016-000000-aaaaaa_7`, with `id` and `session` changed in the JSON) and open a new page. The
+  Recover dialog lists only that one; Recover opens it dirty (height -5 at index 1000 of a fresh ocean
+  map) and drops the copy.
+- Traps: the page's session is the Go process's, so a page reload never offers its own copies, and two
+  dev pages on one `wails dev` share the session (their doc ids can collide). `preview_click` on the
+  dialog's buttons does nothing in a hidden preview tab; click through `preview_evaluate`. Delete the
+  probe copies afterwards, or the owner's next start offers them.
+
 ## Gear picker (a spawn's main hand, off hand and ranged items)
 
 Checks: `WeaponPicker.svelte` and the `ListWeapons` / `EquipmentFor` / `EquipmentItems` bindings. The
