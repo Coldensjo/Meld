@@ -271,6 +271,26 @@ in a loop and returns what it wants to report as JSON. The viewport of a 1400x90
   the user's config.
 - Hold F8 in the app to name the component under the cursor (`DebugOverlay.svelte`).
 
+## Staging only your lines of a file that holds someone else's edits (#266)
+
+`git add -p` is interactive and not available in the agent shells. When the owner has uncommitted
+edits in a file you also changed, stage only your hunks with a patch (checked in a scratch repo):
+
+```bash
+git diff -U0 -- <path> > all.patch       # every change in the file, the owner's and yours
+# edit all.patch: delete the owner's @@ hunks, keep the header and your hunks
+git apply --cached --unidiff-zero all.patch
+git diff --cached                        # must show only your lines
+```
+
+- `-U0` makes each change its own hunk, so they can be cut apart; `--unidiff-zero` is what lets
+  `git apply` take a patch without context lines.
+- Do not build the blob by hand with `git hash-object -w <tmp>` + `git update-index --cacheinfo`
+  unless you add `--no-filters`: the filters normalise line endings and staged the owner's change
+  too (#259).
+- Commit the index with plain `git commit` (`git commit <path>` would take the whole file), then
+  check `git status`: the owner's hunks must still show as unstaged.
+
 ## Measuring performance (the overlay, #179)
 
 Checks: where a frame's time goes, before and after a performance change. View › Performance overlay
