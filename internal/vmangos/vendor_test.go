@@ -70,3 +70,24 @@ func TestItemIconsFromClient(t *testing.T) {
 	}
 	t.Logf("display 8690: %s", icons[8690])
 }
+
+// TestSpellTextsFromClient checks Spell.dbc's field layout against the client's own text: spell 433
+// (the Tough Hunk of Bread's) restores health over its duration. It needs WOW_DIR set.
+func TestSpellTextsFromClient(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	texts, err := SpellTexts(dataDir, []int{433, 7597, 99999999})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("433: %q  7597: %q", texts[433], texts[7597])
+	if len(texts) < 1 || strings.Contains(texts[433], "$") || !strings.Contains(texts[433], "Restores 61 health over 18 sec") {
+		t.Fatalf("texts %v", texts)
+	}
+}

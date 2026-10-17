@@ -1018,6 +1018,15 @@ func (a *App) ItemIcons(displays []int) (map[int]string, error) {
 	return vmangos.ItemIcons(dataDir, displays)
 }
 
+// SpellTexts gives the description of each spell, its $ tokens filled in, for the Shop tab's tooltips.
+func (a *App) SpellTexts(ids []int) (map[int]string, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SpellTexts(dataDir, ids)
+}
+
 // CreateCreature adds a creature template named name, a copy of template base (or the defaults
 // for 0), and returns its entry.
 func (a *App) CreateCreature(base int, name string) (int, error) {

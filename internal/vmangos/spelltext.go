@@ -1,0 +1,202 @@
+package vmangos
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+
+	"Meld/internal/mpq"
+)
+
+// Spell.dbc field indexes of 1.12.1 (173 fields): the indexes are those of MaNGOS's SpellEntry, and
+// TestSpellTextsFromClient checks them against the client's own rows.
+const (
+	spellFProcChance  = 25
+	spellFProcCharges = 26
+	spellFDuration    = 30
+	spellFEffectDie   = 64 // three fields: EffectDieSides
+	spellFEffectDice  = 67 // EffectBaseDice
+	spellFEffectBase  = 76 // EffectBasePoints
+	spellFAmplitude   = 94 // EffectAuraPeriod
+	spellFChain       = 100
+	spellFDescription = 138 // enUS; the other locales and a flags field follow
+	spellFStack       = 39
+)
+
+// spellData is what spell descriptions are filled in from, read once per client data folder.
+var spellData struct {
+	sync.Mutex
+	dir       string
+	spells    *dbcTable
+	durations map[uint32]int // SpellDuration.dbc: ID -> milliseconds, -1 for until cancelled
+}
+
+func loadSpellData(dataDir string) error {
+	if spellData.spells != nil && spellData.dir == dataDir {
+		return nil
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return err
+	}
+	defer set.Close()
+	sb, err := set.ReadFile(`DBFilesClient\Spell.dbc`)
+	if err != nil {
+		return err
+	}
+	spells, err := parseDBC(sb)
+	if err != nil {
+		return err
+	}
+	if spells.fields <= spellFDescription {
+		return fmt.Errorf("Spell.dbc has %d fields, not the 1.12 layout", spells.fields)
+	}
+	durations := map[uint32]int{}
+	if db, err := set.ReadFile(`DBFilesClient\SpellDuration.dbc`); err == nil {
+		if dt, err := parseDBC(db); err == nil && dt.fields > 1 {
+			for r := 0; r < dt.records; r++ {
+				durations[dt.u32(r, 0)] = int(int32(dt.u32(r, 1)))
+			}
+		}
+	}
+	spellData.dir, spellData.spells, spellData.durations = dataDir, spells, durations
+	return nil
+}
+
+// SpellTexts gives the description of each spell as the tooltip shows it, its tokens filled in from
+// the spell's own values, leaving out spells the client doesn't have or that have no description.
+func SpellTexts(dataDir string, ids []int) (map[int]string, error) {
+	spellData.Lock()
+	defer spellData.Unlock()
+	if err := loadSpellData(dataDir); err != nil {
+		return nil, err
+	}
+	out := make(map[int]string, len(ids))
+	for _, id := range ids {
+		r, ok := spellData.spells.row(uint32(id))
+		if !ok {
+			continue
+		}
+		if d := spellData.spells.str(r, spellFDescription); d != "" {
+			out[id] = expandSpellText(d, spellData.spells, r, spellData.durations)
+		}
+	}
+	return out, nil
+}
+
+func spellDuration(ms int) string {
+	switch {
+	case ms < 0:
+		return "until cancelled"
+	case ms < 60000:
+		return fmt.Sprintf("%g sec", float64(ms)/1000)
+	case ms < 3600000:
+		return fmt.Sprintf("%g min", float64(ms)/60000)
+	}
+	return fmt.Sprintf("%g hour", float64(ms)/3600000)
+}
+
+// expandSpellText fills in a description's $ tokens: $s/$m/$M (effect values), $o (the total over
+// a periodic effect), $t (its period), $d (duration), $h (proc chance), $n (charges), $u (stack),
+// $x (chain targets) and $l singular:plural; tokens it doesn't know stay as written.
+func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) string {
+	i32 := func(base, k int) int { return int(int32(t.u32(r, base+k))) }
+	lo := func(k int) int { return i32(spellFEffectBase, k) + max(i32(spellFEffectDice, k), 1) }
+	hi := func(k int) int { return i32(spellFEffectBase, k) + i32(spellFEffectDie, k) }
+	duration := durations[t.u32(r, spellFDuration)]
+	abs := func(v int) int {
+		if v < 0 {
+			return -v
+		}
+		return v
+	}
+	var b strings.Builder
+	last := 0 // the last number written, for $l
+	for i := 0; i < len(desc); i++ {
+		c := desc[i]
+		if c != '$' || i+1 >= len(desc) {
+			b.WriteByte(c)
+			continue
+		}
+		j := i + 1
+		if desc[j] == 'l' {
+			// $lsingular:plural;
+			end := strings.IndexByte(desc[j:], ';')
+			parts := strings.SplitN(desc[j+1:max(j+1, j+end)], ":", 2)
+			if end > 0 && len(parts) == 2 {
+				if last == 1 {
+					b.WriteString(parts[0])
+				} else {
+					b.WriteString(parts[1])
+				}
+				i = j + end
+				continue
+			}
+		}
+		tok := desc[j]
+		if !strings.ContainsRune("sSmMoOtTdDhHnNuUxX", rune(tok)) {
+			b.WriteByte(c)
+			continue
+		}
+		k := j + 1
+		num := 0
+		for k < len(desc) && desc[k] >= '0' && desc[k] <= '9' && k < j+2 {
+			num = int(desc[k] - '0')
+			k++
+		}
+		e := num - 1
+		if e < 0 || e > 2 {
+			e = 0
+		}
+		var text string
+		var n int
+		isNum := true
+		switch tok {
+		case 's', 'S', 'm':
+			n = abs(lo(e))
+			text = strconv.Itoa(n)
+			if hi(e) > lo(e) && tok != 'm' {
+				text = fmt.Sprintf("%d to %d", abs(lo(e)), abs(hi(e)))
+			}
+		case 'M':
+			n = abs(hi(e))
+			text = strconv.Itoa(n)
+		case 'o', 'O':
+			// An aura with no period of its own (the food and drink regeneration) counts
+			// every 5 seconds: spell 433's 17 over 18 sec shows as 61, as the game says.
+			period := i32(spellFAmplitude, e)
+			if period <= 0 {
+				period = 5000
+			}
+			n = abs(lo(e))
+			if duration > 0 {
+				n = n * duration / period
+			}
+			text = strconv.Itoa(n)
+		case 't', 'T':
+			n = i32(spellFAmplitude, e) / 1000
+			text = strconv.Itoa(n)
+		case 'd', 'D':
+			text, isNum = spellDuration(duration), false
+		case 'h', 'H':
+			n = int(t.u32(r, spellFProcChance))
+			text = strconv.Itoa(n)
+		case 'n', 'N':
+			n = int(t.u32(r, spellFProcCharges))
+			text = strconv.Itoa(n)
+		case 'u', 'U':
+			n = int(t.u32(r, spellFStack))
+			text = strconv.Itoa(n)
+		case 'x', 'X':
+			n = i32(spellFChain, e)
+			text = strconv.Itoa(n)
+		}
+		if isNum {
+			last = n
+		}
+		b.WriteString(text)
+		i = k - 1
+	}
+	return b.String()
+}

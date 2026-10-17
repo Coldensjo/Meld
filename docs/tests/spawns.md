@@ -240,4 +240,4 @@ vendor list) has its inventory icon, and hovering one shows the game-style toolt
   `td.item` (6 rows, 6 `img`). Hover: dispatch `new PointerEvent('pointerenter', { clientX, clientY })`
   on a `td.item` or a `.results button`, then read `.tip`'s text. Searching: set `input.search`'s value
   and dispatch `input` (bubbling); 100 results for "hammer", each with an icon.
-- Effects show as "Use: spell 433": the spell's own text needs Spell.dbc (#217).
+- Effects show the spell's own text (#217): Tough Hunk of Bread (4540, spell 433) reads "Use: Restores 61 health over 18 sec.  Must remain seated while eating." Go: with `WOW_DIR=C:/WoW/client`, `TestSpellTextsFromClient` checks Spell.dbc's field layout (description at field 138). Trap: an aura with no period of its own counts every 5 sec for `$o1` (17 per tick over 18 sec is 61).

@@ -241,6 +241,8 @@ export function SpawnEmotes():Promise<Array<vmangos.Emote>>;
 
 export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:number):Promise<vmangos.LookResult>;
 
+export function SpellTexts(arg1:Array<number>):Promise<Record<number, string>>;
+
 export function UpdateRegionServer(arg1:number,arg2:Array<string>):Promise<void>;
 
 export function VmangosPath():Promise<string>;

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { itemRow } from '../lib/wow/items'
+	import { itemRow, itemSpellTexts } from '../lib/wow/items'
 	import { tooltipLines, type TooltipLine } from '../lib/wow/itemTooltip'
 	import ItemIcon from './ItemIcon.svelte'
 
@@ -14,7 +14,10 @@
 		lines = []
 		error = ''
 		itemRow(e)
-			.then((row) => e === entry && (lines = tooltipLines(row)))
+			.then(async (row) => {
+				const spells = await itemSpellTexts(row)
+				if (e === entry) lines = tooltipLines(row, spells)
+			})
 			.catch((err) => e === entry && (error = String(err)))
 	})
 

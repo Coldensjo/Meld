@@ -1,6 +1,6 @@
 // An item's tooltip as the 1.12 client draws it, from the server's item_template row (#202): the name
 // in its quality's colour, binding, slot and type, damage and speed, armour, stats, resistances,
-// durability, required level, the effects' spells and the sell price. The row comes by column name
+// durability, required level, the effects' spell texts (Spell.dbc, #217; "spell 433" where the client has none) and the sell price. The row comes by column name
 // (`ReadItem`), so a column a VMaNGOS version lacks is just left out.
 
 /** Item quality colours, as the game draws item names. */
@@ -104,7 +104,7 @@ export function money(copper: number): string {
 }
 
 /** The tooltip of an item_template row (column → value). */
-export function tooltipLines(row: Record<string, string>): TooltipLine[] {
+export function tooltipLines(row: Record<string, string>, spells: Record<number, string> = {}): TooltipLine[] {
 	const n = (col: string) => {
 		const v = Number(row[col])
 		return Number.isFinite(v) ? v : 0
@@ -158,7 +158,7 @@ export function tooltipLines(row: Record<string, string>): TooltipLine[] {
 		const spell = n(`spellid_${i}`)
 		if (spell <= 0) continue
 		const trigger = TRIGGERS[n(`spelltrigger_${i}`)] ?? 'Use'
-		out.push({ left: `${trigger}: spell ${spell}`, color: GREEN })
+		out.push({ left: `${trigger}: ${spells[spell] ?? `spell ${spell}`}`, color: GREEN })
 	}
 	if (row.description) out.push({ left: `"${row.description}"`, color: YELLOW })
 	const item = n('item_level')

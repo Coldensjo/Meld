@@ -1,4 +1,4 @@
-import { ItemIcons, ReadItem } from '../../../wailsjs/go/main/App'
+import { ItemIcons, ReadItem, SpellTexts } from '../../../wailsjs/go/main/App'
 import { texturePreview } from './api'
 
 // Items for the Shop tab (#202): each display's inventory icon from the client (ItemDisplayInfo.dbc,
@@ -45,4 +45,15 @@ export function itemRow(entry: number): Promise<Record<string, string>> {
 		rows.set(entry, p)
 	}
 	return p
+}
+
+/** The descriptions of an item row's effect spells by spell ID (Spell.dbc, #217); {} when the client can't say. */
+export async function itemSpellTexts(row: Record<string, string>): Promise<Record<number, string>> {
+	const ids: number[] = []
+	for (let i = 1; i <= 5; i++) {
+		const id = Number(row[`spellid_${i}`])
+		if (id > 0) ids.push(id)
+	}
+	if (!ids.length) return {}
+	return (await SpellTexts(ids).catch(() => null)) ?? {}
 }

@@ -34,3 +34,9 @@ test('a bag says its slots, and a row without a name still gets a title', () => 
 	assert.equal(tooltipLines({ name: 'Small Pouch', inventory_type: '18', class: '1', container_slots: '6' })[1].left, '6 Slot Bag')
 	assert.equal(tooltipLines({ entry: '42' })[0].left, 'Item 42')
 })
+
+test("an effect shows its spell's text when given, and the spell's ID when not", () => {
+	const row = { name: 'Bread', spellid_1: '433', spelltrigger_1: '0', spellid_2: '99', spelltrigger_2: '1' }
+	const text = tooltipLines(row, { 433: 'Restores 61 health over 18 sec.' }).map((l) => l.left)
+	assert.deepEqual(text, ['Bread', 'Use: Restores 61 health over 18 sec.', 'Equip: spell 99'])
+})

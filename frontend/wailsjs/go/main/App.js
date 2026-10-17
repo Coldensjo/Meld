@@ -470,6 +470,10 @@ export function SpawnLook(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SpawnLook'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function SpellTexts(arg1) {
+  return window['go']['main']['App']['SpellTexts'](arg1);
+}
+
 export function UpdateRegionServer(arg1, arg2) {
   return window['go']['main']['App']['UpdateRegionServer'](arg1, arg2);
 }
