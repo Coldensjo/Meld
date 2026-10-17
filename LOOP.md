@@ -30,19 +30,22 @@ decision, neither the issue's comments nor a `decision` issue record one, and No
 settle it (*Unknown meaning*), the owner is asked (*Asking the owner*).
 
 **Asking the owner.**
-- In an interactive session, the coordinator asks; a worker never does (it cannot reach the owner).
-  The worker stops and returns its questions in its report (*Worker report*). The coordinator enters
-  plan mode (`EnterPlanMode`) and asks with `AskUserQuestion`: one question per open decision, with
-  the options, the recommendation first and marked "(Recommended)", and the trade-off of each in its
-  description. It records each answer as a comment on the issue: `**Claude:** decided by the owner
-  <date>`, the question and the choice, leaves plan mode with `ExitPlanMode`, and has the item
-  continued (*Coordinator*, step 3).
-- Otherwise (a non-interactive `claude -p` run, or no answer), the worker comments the questions on
-  the issue, starting `**Claude:** @Coldensjo`, each with its options, its recommendation and the
-  trade-offs, then adds the `owner-question` label, and stops the item. The label is what notifies the
-  owner: `.github/workflows/ping-owner.yml` mentions them as `github-actions[bot]`, since a mention
-  from their own login (which `gh` uses) is silent. The same goes for an item only the owner can do,
-  such as a check in the game.
+- Questions go through the issues only, never the chat, even when the owner started the run in a
+  session: the owner runs the loop and leaves (overnight), answers in the morning, and a question
+  in the chat would stall the run until then (the owner's choice, 2026-10-17).
+- The one who hits the question (a worker, or the coordinator while triaging) comments it on the
+  issue, starting `**Claude:** @Coldensjo`: each question with its options, the recommendation first,
+  and the trade-off of each, written so the owner can answer with a word or a letter. Then it adds the
+  `owner-question` label and stops that item; the run goes on with the next one. The label is what
+  notifies the owner: `.github/workflows/ping-owner.yml` mentions them as `github-actions[bot]`, since
+  a mention from their own login (which `gh` uses) is silent. The same goes for an item only the
+  owner can do, such as a check in the game.
+- Ask before changing code where you can. If a worker already changed files, it doesn't leave them in
+  the working tree (the next worker would trip over them): it stashes them,
+  `git stash push -m "loop #<n>" -- <files>`, and says so in the question comment, so the worker that
+  continues the item after the answer starts with `git stash list` and `git stash pop` of that entry.
+- The answer is picked up at the start of the next run (*Coordinator*, step 1), and the item is
+  eligible again with the answer recorded as a decision comment.
 
 **Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from the
 issue and its comments, the `decision` issues or the code, check Noggit Red before you decide it is
@@ -148,8 +151,7 @@ gh issue list --repo Coldensjo/Meld --state open --label source:owner --limit 30
 
 Triage each one before choosing work; the issue is eligible for this run afterwards. Triage doesn't
 count toward the run's cap. When more than two need it, hand them to one worker-style subagent
-with the steps below, which returns a line per issue and the questions it couldn't settle; ask
-those as in *Asking the owner*. For each:
+with the steps below, which asks on the issues itself (step f) and returns a line per issue. For each:
 
 a. Read it with its comments, and search for a duplicate (`gh issue list --search`, open and
    closed) and for the `decision` issues it touches. If it duplicates an open issue, comment
@@ -202,22 +204,16 @@ c. Start its worker with the Agent tool (a general-purpose subagent, in the fore
    ```
    You are the Meld loop's worker for issue #<n> of Coldensjo/Meld. Read LOOP.md in the repository
    root, then follow its "Shared rules" and "Worker" sections for this one issue only.
-   Session: <interactive | non-interactive>.
    Picked because: <the rule and what it went ahead of>.
-   <Only when continuing an item: Owner's answers: <each question and the choice>, recorded on the issue.
-   Left uncommitted by the last worker: <its Uncommitted line>.>
    End with the report in LOOP.md's "Worker report" format and nothing else.
    ```
 
-   Put nothing else about the item in the prompt; the worker reads the issue itself.
-d. Act on its report:
-   - `done`: note the commit for the run log.
-   - `needs-owner` (interactive only): ask the questions as in *Asking the owner*, record the
-     answers, and continue the item: send the answers to the same worker (`SendMessage` to its ID)
-     where you can, else start a new worker with the answers in its prompt.
-   - `unfinished` or `asked-owner`: note why for the run log.
-e. Remove `in-progress` unless the item is being continued
-   (`gh issue edit <n> --repo Coldensjo/Meld --remove-label in-progress`), then pick the next item.
+   Put nothing else about the item in the prompt; the worker reads the issue itself (the owner's
+   answers and any stashed work are recorded there).
+d. Act on its report: `done`, note the commit for the run log; `unfinished` or `asked-owner`, note
+   why. Never ask the owner in the chat (*Asking the owner*).
+e. Remove `in-progress` (`gh issue edit <n> --repo Coldensjo/Meld --remove-label in-progress`), then
+   pick the next item.
 
 If a worker fails without a report (it crashed or ran out of room), read the issue's last comments
 and `git log -1`: if it committed and closed the issue, count it done; otherwise comment
@@ -284,9 +280,9 @@ b. Read the code it touches before changing it, and search the decisions about t
    When finding something means sweeping many files (every caller of a function, every place a
    format field is read), hand the sweep to an Explore subagent where your tools allow and keep only
    its answer, rather than reading the files into your own context.
-   Where it needs the owner, see *Asking the owner*: in an interactive session, stop and report
-   `needs-owner`; otherwise comment, label and report `asked-owner`. Ask before changing code where
-   you can; if you already changed files, leave them uncommitted and list them in the report.
+   Where it needs the owner, ask on the issue as in *Asking the owner* (stashing any changed files),
+   stop the item and report `asked-owner`. Before starting, look for work an earlier worker stashed
+   for this issue (`git stash list`, an entry named `loop #<n>`, also named in its comments) and pop it.
 
 c. Verify it. While you work, run only the tests that touch the change
    (`cd frontend && node --import ./tests/register.mjs --test tests/<name>.test.ts`, `go test
@@ -298,8 +294,9 @@ c. Verify it. While you work, run only the tests that touch the change
      build-linux` on Linux. The other cannot run here. Say so in the closing comment.
    - the probes that touch the change, again.
 
-   If a check fails, fix it. If it cannot be fixed, do not commit. Comment on the issue what failed,
-   why, what you tried and where the work stands (`**Claude:** left unfinished: ...`), so the next
+   If a check fails, fix it. If it cannot be fixed, do not commit. Stash the changed files
+   (`git stash push -m "loop #<n>" -- <files>`), comment on the issue what failed, why, what you
+   tried, where the work stands and the stash entry (`**Claude:** left unfinished: ...`), so the next
    worker doesn't start over, and report `unfinished`.
 
 d. If the item changes what the app shows or does, check it in the app or say in the closing comment
@@ -333,20 +330,17 @@ f. Close the issue with its log as the last comment: `gh issue comment <n> --rep
 
 g. File what you noticed along the way as *New issues*; do not build it. Then go through your
    friction notes and file or comment them as in *Friction*, whatever the item's outcome (an
-   unfinished or `needs-owner` item has often hit the most).
+   unfinished or `asked-owner` item has often hit the most).
 
 ### Worker report
 
 Your last message is only this, so the coordinator's context stays small:
 
 ```
-#<n> <done <short-hash> | unfinished | needs-owner | asked-owner>
+#<n> <done <short-hash> | unfinished | asked-owner>
 Done: <one line, or "nothing">
 Verified: <the checks and the app check, one line>
 New issues: <#m, ... or "none">
-Why not done: <for unfinished or asked-owner: one line>
-Questions: <for needs-owner only: each question with its options, your recommendation first and
-the trade-off of each>
-Uncommitted: <for needs-owner or unfinished: the files you changed and left, or "none">
+Why not done: <for unfinished or asked-owner: one line, and the stash entry if any>
 Friction: <#m filed, #k seen again, ... with a few words each, or "none">
 ```
