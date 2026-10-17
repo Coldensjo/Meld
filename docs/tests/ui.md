@@ -133,6 +133,9 @@ In the dev page: `ed.ui.hidePanels = true`, then `document.querySelector('canvas
 grows and `document.querySelector('[data-ui="Toolbar"]')` is null. A key event
 (`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))`) does the
 same unless an input has focus; Ctrl+Tab still cycles the map tabs.
+Probe: `pnpm probe hide-panels` (canvas fills the window below the menu bar, returns on the second Tab).
+Trap: `.centre` must stay in grid column 2 of `.main`; alone in the auto first column it shrank to its
+content (145 px wide, #248).
 
 ## Help window
 

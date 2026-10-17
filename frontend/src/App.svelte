@@ -362,6 +362,8 @@
     min-height: 0;
   }
   .centre {
+    /* Always the middle column: with the toolbar and dock hidden it would else fall into the first (auto) one. */
+    grid-column: 2;
     display: flex;
     flex-direction: column;
     min-width: 0;
