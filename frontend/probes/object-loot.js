@@ -18,6 +18,9 @@ const other = se.newObjectSpawn(generic, 990002, 120, 50, 100, 0)
 const layer = e.activeDocument().spawnLayer
 layer.set([chest, other])
 se.syncSpawnUi(layer, true)
+// The waits give 120 s: in the headless page one frame stalls for 20 to 35 s when the first item
+// icon appears (SwiftShader, #233), which ate the whole of a 30 s wait (#236).
+const WAIT = 120_000
 
 const root = () => document.querySelector('[aria-label="Game object editor"]')
 const loot = () => root()?.querySelector('.loot')
@@ -31,34 +34,34 @@ async function openContents(s) {
 	se.selectSpawn(s)
 	ui.objectEditor = { key: spawnKey(s), entry: s.entry }
 	await P.frames(1)
-	await P.until(() => typeName().includes(`spawn ${s.guid} ·`) && button(root()?.querySelector('nav.tabs'), 'Contents'), 30_000, 'the editor')
+	await P.until(() => typeName().includes(`spawn ${s.guid} ·`) && button(root()?.querySelector('nav.tabs'), 'Contents'), WAIT, 'the editor')
 	button(root().querySelector('nav.tabs'), 'Contents').click()
 	await P.frames(1)
 }
 
 await openContents(chest)
-await P.until(() => loot()?.querySelectorAll('tbody tr').length > 0, 30_000, 'the contents')
+await P.until(() => loot()?.querySelectorAll('tbody tr').length > 0, WAIT, 'the contents')
 const read = { heading: heading(), rows: loot().querySelectorAll('tbody tr').length, list: listName() }
 const users = [...loot().querySelectorAll('.users li')].map((li) => li.textContent.replace(/\s+/g, ' ').trim())
 
 // A copy of its own: a new list with the same rows, not saved yet.
 button(loot().querySelector('.warn'), 'Give').click()
-await P.until(() => !loot().querySelector('.warn') && listName() !== read.list, 30_000, 'the copy')
+await P.until(() => !loot().querySelector('.warn') && listName() !== read.list, WAIT, 'the copy')
 const copied = { list: listName(), heading: heading(), save: saveLabel() }
 button(actions(), 'Revert').click()
-await P.until(() => listName() === read.list && loot().querySelector('.warn'), 30_000, 'the revert of the copy')
+await P.until(() => listName() === read.list && loot().querySelector('.warn'), WAIT, 'the revert of the copy')
 
 // Adding an item through the search.
 const search = [...loot().querySelectorAll('input.search')].find((i) => i.placeholder === 'Item name or entry')
 search.value = '2589' // Linen Cloth by entry: one result, so one icon (each takes about 0.3 s in the headless page)
 search.dispatchEvent(new Event('input', { bubbles: true }))
-await P.until(() => loot().querySelector('.results button:not(:disabled)'), 30_000, 'the item search')
+await P.until(() => loot().querySelector('.results button:not(:disabled)'), WAIT, 'the item search')
 const added = loot().querySelector('.results button:not(:disabled)').textContent.replace(/\s+/g, ' ').trim()
 loot().querySelector('.results button:not(:disabled)').click()
 await P.frames(1)
 const afterAdd = { heading: heading(), save: saveLabel() }
 button(actions(), 'Revert').click()
-await P.until(() => heading() === read.heading && saveLabel() === 'Saved', 30_000, 'the revert of the item')
+await P.until(() => heading() === read.heading && saveLabel() === 'Saved', WAIT, 'the revert of the item')
 
 // The spawn's respawn time, from the Contents tab: an undo step.
 const respawn = [...loot().querySelectorAll('label.inline')].find((l) => l.textContent.includes('This spawn respawns'))?.querySelector('input')
@@ -72,13 +75,13 @@ const respawnUndone = layer.get(spawnKey(chest)).respawnSecs
 
 // Make it a chest: a generic object (type 5) becomes a chest with a new, empty list.
 await openContents(other)
-await P.until(() => button(loot(), 'Make it a chest'), 30_000, 'the Make it a chest button')
+await P.until(() => button(loot(), 'Make it a chest'), WAIT, 'the Make it a chest button')
 const wasType = typeName()
 button(loot(), 'Make it a chest').click()
-await P.until(() => /Chest$/.test(typeName()) && loot().textContent.includes('Nothing yet'), 30_000, 'the chest')
+await P.until(() => /Chest$/.test(typeName()) && loot().textContent.includes('Nothing yet'), WAIT, 'the chest')
 const made = { type: typeName(), list: listName(), empty: loot().textContent.includes('Nothing yet'), save: saveLabel() }
 button(actions(), 'Revert').click()
-await P.until(() => typeName() === wasType && button(loot(), 'Make it a chest'), 30_000, 'the revert of the chest')
+await P.until(() => typeName() === wasType && button(loot(), 'Make it a chest'), WAIT, 'the revert of the chest')
 ui.objectEditor = null
 
 return {

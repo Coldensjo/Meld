@@ -64,7 +64,9 @@ spawn's respawn time. Unit: `internal/vmangos/loot_test.go` (the SQL, refused ro
 The probe `object-loot` does it all without writing: the Truesilver Deposit (2047) holds loot list
 5045 (4 rows), shared with 150081 and 123309; a copy, an added Linen Cloth (searched as `2589`) and
 Make it a chest on a generic object each show in Save's count and go with Revert. It takes about
-75 s, nearly all SwiftShader (the preview's shaders and skinning, and item icons).
+75 to 150 s, nearly all SwiftShader (the preview's shaders and skinning, and item icons). Trap: one
+frame stalls for 20 to 35 s when the first item icon appears (the item search), so its waits give
+120 s each; with 30 s it failed every time (#236).
 
 - Saving, by hand: make a throwaway object (`CreateObject(0, 'Probe chest 220')`, entry 182122 on
   this database), spawn it on a flat map, Make it a chest, add 2589, Save; `ReadObject` then has
