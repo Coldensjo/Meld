@@ -150,7 +150,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 - `make dev` must be running (the runner says so if it isn't; start it in the background from Git
   Bash and wait until `curl localhost:34115/wow/status` answers). Keep it running across items.
 - `cd frontend && pnpm probe <name...>` runs those probes, `pnpm probe --all` (or `make probe`)
-  runs every one, `pnpm probe --list` names them, `--shot <dir>` saves a screenshot each and
+  runs every one, `pnpm probe --list` names them, `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
   stalls in one run). Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without

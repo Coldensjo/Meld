@@ -277,7 +277,7 @@ nothing written unchanged, a doodad set written, a move refused).
 - Trap: in this client every instance with ADT tiles also has minimap images except Ahn'Qiraj's
   column 26; most dungeons and raids are WMO-only, which is why the owner saw "No minimap" (#222).
 - Trap: the probe opens the Stockade, not Molten Core, whose building SwiftShader draws slowly.
-- Trap: a probe's `--shot` capture comes after the probe and the app's loop is stopped, so it shows
-  a stale frame; look at a building with `P.save(await P.shot(), name)` after `P.settle()`.
+- Trap: the runner steps one frame before its `--shot` capture (#274), but a model still loading may
+  be missing from it; look at a building with `P.save(await P.shot(), name)` after `P.settle()`.
 - Trap: a dungeon's WMO groups are all interior, so before #271 the outside flood drew none of the
   building from outside (only its doodads' flames); inside a room it draws as usual.

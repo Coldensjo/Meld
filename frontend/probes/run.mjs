@@ -222,6 +222,20 @@ async function main() {
 		const saved = (await evaluate('(() => { const s = window.__probeShots ?? []; window.__probeShots = []; return s })()').catch(() => null)) ?? []
 		if (shotDir) {
 			mkdirSync(shotDir, { recursive: true })
+			// lib.js stops the app's loop, so the canvas holds the probe's last stepped frame: draw one more
+			// (and wait for the GPU) so the capture shows the state the probe ended in (#274).
+			await evaluate(`(async () => {
+				const e = window.__engine
+				if (!e) return
+				e.frame()
+				const gl = e.renderer.getContext()
+				const sync = gl.isContextLost() ? null : gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
+				if (!sync) return
+				gl.flush()
+				const end = performance.now() + 30000
+				while (!gl.isContextLost() && gl.getSyncParameter(sync, gl.SYNC_STATUS) !== gl.SIGNALED && performance.now() < end) await new Promise((r) => setTimeout(r, 1))
+				gl.deleteSync(sync)
+			})()`).catch(() => null)
 			const shot = await send('Page.captureScreenshot', { format: 'png' })
 			if (shot.result?.data) writeFileSync(join(shotDir, p.name + '.png'), Buffer.from(shot.result.data, 'base64'))
 			// Pictures the probe saved with P.save.
