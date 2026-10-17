@@ -79,6 +79,30 @@ but only with a figure behind it in the issue: a measurement on the benchmark sc
 frame, about 77k of them in view"). Without one, label it by its other merits and say in the notes
 what to measure.
 
+**Friction.** The loop improves its own way of working through the backlog too. While you work,
+notice what slows you down or makes the work less effective, and write it down as it happens (a
+line in your notes: what, and roughly what it cost), but **finish the item anyway**; never stop or
+change course to fix your own tooling mid-item. Afterwards, file each one that cost real time (a
+few minutes or more, a dead end, a retry) or will clearly recur. Examples:
+- A check you had to write by hand that should be a probe, a probe that is missing a helper, or a
+  test that is slow or flaky.
+- Something you had to rediscover that a doc (CLAUDE.md, `docs/architecture/`, `docs/tests/`) should
+  have told you, or a doc that was wrong.
+- A tool, permission or access you lacked (a command that was blocked, a server or file you could
+  not reach, a check only the owner can do).
+- A rule in LOOP.md or CLAUDE.md that cost effort for no gain, or an item that was too big or too
+  vague to work as written.
+
+Search first: `gh issue list --repo Coldensjo/Meld --state all --label friction --search "<words>"`.
+If it exists, comment `**Claude:** seen again while working on #<n>: <what it cost this time>` (a
+recurring one is worth more: raise its `value:` when it has been seen three times). Otherwise file it
+as in *New issues*, labelled `friction` and `source:loop` with an `area:` (`area:tooling` for the
+tools, tests and docs), titled as the change that would remove it, with what happened, what it cost,
+and the fix you suggest. Fix a small doc gap (a wrong or missing line in a doc you just used) in the
+item's own commit instead of filing it. A change to LOOP.md or CLAUDE.md's rules, and any new access
+or permission, is the owner's: add `needs-approval`. Don't file vague discomfort ("the codebase is
+big"); file what someone could act on.
+
 ---
 
 ## Coordinator
@@ -231,7 +255,8 @@ repository, never `vmangos`, `noggit-red` or `benilla`.
 same short summary: items done with their issue numbers and commit hashes, each with why it was
 picked (the rule of step 3 that put it first and what it went ahead of, e.g. "bug" or "value:H
 effort:S, ahead of #120 value:H effort:M"), items left unfinished and why, owner questions asked,
-new issues the workers filed, which stop condition applied, whether the push went through, and the
+new issues the workers filed, the friction they reported (and any of your own: a worker prompt that
+missed something, a report that wasn't enough to act on), which stop condition applied, whether the push went through, and the
 next top item. Do not start work after the stop condition applies.
 
 Each run log holds **20 runs** (one comment each). When the current one already has 20 run comments,
@@ -306,7 +331,9 @@ f. Close the issue with its log as the last comment: `gh issue comment <n> --rep
    For an optimization, Verified also gives the benchmark numbers before and after: `pnpm probe
    bench` on the commit before yours and on yours (docs/TESTS.md, "Measuring performance").
 
-g. File what you noticed along the way as *New issues*; do not build it.
+g. File what you noticed along the way as *New issues*; do not build it. Then go through your
+   friction notes and file or comment them as in *Friction*, whatever the item's outcome (an
+   unfinished or `needs-owner` item has often hit the most).
 
 ### Worker report
 
@@ -321,4 +348,5 @@ Why not done: <for unfinished or asked-owner: one line>
 Questions: <for needs-owner only: each question with its options, your recommendation first and
 the trade-off of each>
 Uncommitted: <for needs-owner or unfinished: the files you changed and left, or "none">
+Friction: <#m filed, #k seen again, ... with a few words each, or "none">
 ```
