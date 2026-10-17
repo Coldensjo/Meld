@@ -18,6 +18,21 @@ where it really stood (the zone too, which only the server sets).
   killed client (`taskkill /F`) leaves the character in for two minutes (ForceLogoutDelay).
 - Trap: without `WOW_REALM` Benilla stops at the realm list, so `WOW_CHAR` never applies.
 
+## Play here: move the character in the world (#13)
+
+Checks: Game › Play Here moves the Game Login's character, in the world, to the spot Launch would
+use, without closing the game. Unit tests: `internal/vmangos/soap_test.go` (mangosd.conf's SOAP
+settings, the SOAP envelope, a fault and a refused login against an `httptest` server, the
+`game_tele` SQL and the two commands). Live: needs `SOAP.Enabled = 1` in mangosd.conf and a world
+server restart (the owner's call; it is off on this machine), then the character in the world and
+Play here at open ground, inside a building and on another map; the character must stand there.
+Without the game, the console can be driven alone: `curl -u <account>:<password> -d @envelope.xml
+http://127.0.0.1:7878/` with the envelope in `soap.go` and the command `server info`.
+- Trap: the world server reads `game_tele` only at start, so the row is useless until `reload
+  game_tele`. `tele name` matches names by substring when no name is exact, so keep `meld_here` unique.
+- Trap: the SOAP account needs GM level 3 (`realmd.account.gmlevel`); a lower one gets HTTP 403.
+- Trap: the key is `SOAP.Enabled`, though mangosd.conf's comment block calls it `SOAP.Enable`.
+
 ## Benilla launcher: nothing on screen until the world (benilla-launcher)
 
 Checks: started by Meld with a login and a character, `meld-benilla.exe` shows no console and no

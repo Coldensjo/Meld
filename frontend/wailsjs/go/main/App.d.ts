@@ -141,6 +141,8 @@ export function OpenTextDialog():Promise<string>;
 
 export function PlanQuestDelete(arg1:number):Promise<vmangos.QuestDeletePlan>;
 
+export function PlayHere(arg1:vmangos.CharacterSpot):Promise<string>;
+
 export function PublishVmangosMap(arg1:vmangos.MapSpec):Promise<void>;
 
 export function QuestTables():Promise<vmangos.QuestTables>;

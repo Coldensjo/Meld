@@ -24,6 +24,7 @@ import {
   SetBenillaPath,
   LaunchGame,
   LaunchGameAt,
+  PlayHere,
   OpenMapDialog,
   PublishVmangosMap,
   ReadHeightmap,
@@ -910,6 +911,26 @@ export async function launchGame(engine: Engine | null) {
     setStatus(placed ? `Starting ${game} with ${placed} where the camera is…` : `Starting ${game}…`, 5000)
   } catch (e) {
     setStatus(`The game didn't start: ${e}`, 8000)
+  }
+}
+
+/**
+ * Play here: moves the Game Login's character, in the world now, to where the camera is, through the
+ * running world server, without closing the game. When it can't, the status bar says why and points
+ * to Launch.
+ */
+export async function playHere(engine: Engine | null) {
+  if (!hasBackend() || !engine) return
+  try {
+    const spot = await engine.playerSpot()
+    if (!spot) {
+      setStatus('Play here: the camera is not over a map that is in the client.', 6000)
+      return
+    }
+    const moved = await PlayHere(vmangos.CharacterSpot.createFrom(spot))
+    setStatus(`Moved ${moved} to where the camera is.`, 4000)
+  } catch (e) {
+    setStatus(`Play here didn't move the character: ${e}. Game › Launch puts it there by restarting the game.`, 12000)
   }
 }
 

@@ -147,6 +147,8 @@ cd frontend && pnpm build   # frontend only
     puts the Game Login's character where the camera is: `Engine.playerSpot` finds the ground or
     model below the camera in the server's coordinates (`io/portCoords.ts` `serverSpot`), and
     `vmangos.PlaceCharacter` writes it into the character's row once the server has logged it out.
+    Play here (`PlayHere`) moves a character already in the world to that spot without closing the
+    game: `vmangos.TeleportCharacter` sends `.tele name` through the world server's SOAP console.
 
   No editing logic goes in Go: it never decides what a brush does. It parses, converts and writes
   formats the frontend should not have to know, and anything that must read the client's archives.

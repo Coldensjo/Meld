@@ -413,6 +413,7 @@ the same scene, the report before and after.
 ### Export, the client and the game (`docs/tests/client.md`)
 
 - Launch where the camera is (character placement)
+- Play here: move the character in the world (#13)
 - Benilla launcher: nothing on screen until the world (benilla-launcher)
 - The game's template cache after an editor's Save (#234)
 - Minimap tiles for the client (B-129, #17)

@@ -1781,6 +1781,30 @@ func (a *App) LaunchGameAt(spot vmangos.CharacterSpot) (string, error) {
 	return character, sess.StartGame()
 }
 
+// PlayHere moves the Game Login's character, in the world now, to spot (where the editor's camera is)
+// through the running world server's SOAP console, without closing the game. It returns the character
+// moved, or an error that says why it can't (no character or server set, the world server not running,
+// SOAP off, the character not in the world), so the editor can point to Launch instead.
+func (a *App) PlayHere(spot vmangos.CharacterSpot) (string, error) {
+	sess, err := a.gameSession()
+	if err != nil {
+		return "", err
+	}
+	character := sess.Login.Character
+	switch {
+	case character == "":
+		return "", errors.New("Game Login has no character to move")
+	case sess.ServerRoot == "":
+		return "", errors.New("no VMaNGOS server folder is set")
+	case !sess.WorldRunning():
+		return "", errors.New("the world server isn't running")
+	}
+	if err := vmangos.TeleportCharacter(sess.ServerRoot, sess.Login.Account, sess.Login.Password, character, spot); err != nil {
+		return "", err
+	}
+	return character, nil
+}
+
 // GameLoginInfo is the saved game login. The password itself never goes to the frontend.
 type GameLoginInfo struct {
 	Account     string `json:"account"`

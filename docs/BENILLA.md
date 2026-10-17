@@ -68,6 +68,13 @@ that should open straight in the world is a feature on top of Benilla, not in it
   database (`internal/vmangos/character.go`). It works for Wow.exe too, which still stops at
   character select. Checked on 2026-10-15: Sizaro moved from Tanaris to Northshire Abbey and
   entered the world there, in Elwynn Forest.
+- **Play here** (Game › Play Here): with the game running and the Game Login's character in the
+  world, moves it to the same spot without closing anything. Meld writes the spot into a row of its
+  own in the world database's `game_tele` (named `meld_here`), then sends `reload game_tele` and
+  `tele name <character> meld_here` through the world server's SOAP console, logged in as the Game
+  Login's account, which needs GM level 3 (`internal/vmangos/soap.go`). SOAP is off by default:
+  `SOAP.Enabled = 1` in `vmangos\run\mangosd.conf` and a world server restart turn it on; until then,
+  and when the character isn't in the world, Play here says so and points to Launch.
 - **Preferences › Launch Benilla** opens it on demand.
 - **Template caches**: like the 1.12 client's `WDB\creaturecache.wdb`, Benilla keeps the creature
   templates it was told across sessions, in `benilla-config\cache\<realm>.tsv` (game objects only for
@@ -111,7 +118,8 @@ In order. Each became a backlog item (B-164 onwards), now a GitHub issue with th
 3. **Port Benilla's exact client behaviour** where Meld approximates: see "Porting from Benilla" below
    (B-166 to B-176).
 4. **Play here (B-171), done:** Launch enters the world where the camera is (see "Entering where the
-   camera is" above), by writing the spot into the character's row while the server has it logged out.
+   camera is" above), by writing the spot into the character's row while the server has it logged out;
+   Play here moves a character already in the world, through the server's SOAP console (#13).
 
 ## Porting from Benilla
 

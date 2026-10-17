@@ -270,6 +270,10 @@ export function PlanQuestDelete(arg1) {
   return window['go']['main']['App']['PlanQuestDelete'](arg1);
 }
 
+export function PlayHere(arg1) {
+  return window['go']['main']['App']['PlayHere'](arg1);
+}
+
 export function PublishVmangosMap(arg1) {
   return window['go']['main']['App']['PublishVmangosMap'](arg1);
 }
