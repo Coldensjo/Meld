@@ -218,10 +218,14 @@ async function main() {
 			out = { ...(await runOnce(p)), refreshedWailsjs: true }
 		}
 		out.seconds = Math.round((Date.now() - t0) / 100) / 10
+		// Taken after every probe, so a later probe never writes this one's pictures.
+		const saved = (await evaluate('(() => { const s = window.__probeShots ?? []; window.__probeShots = []; return s })()').catch(() => null)) ?? []
 		if (shotDir) {
 			mkdirSync(shotDir, { recursive: true })
 			const shot = await send('Page.captureScreenshot', { format: 'png' })
 			if (shot.result?.data) writeFileSync(join(shotDir, p.name + '.png'), Buffer.from(shot.result.data, 'base64'))
+			// Pictures the probe saved with P.save.
+			for (const sh of saved) writeFileSync(join(shotDir, `${p.name}-${sh.name}.png`), Buffer.from(sh.data, 'base64'))
 		}
 		if (!out.ok) failed++
 		console.log(JSON.stringify(out))

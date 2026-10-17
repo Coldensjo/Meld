@@ -176,6 +176,35 @@ const P = {
 		return { w, h, px, lit: lit / (w * h) }
 	},
 
+	/**
+	 * Saves a shot as a PNG: `pnpm probe <name> --shot <dir>` writes it to `<dir>/<probe>-<name>.png`
+	 * (without `--shot` it is dropped). The image goes through `window.__probeShots`, which the runner
+	 * empties, so its pixels stay out of the probe's printed result. `region` crops (as for `P.diff`).
+	 */
+	save(img, name, region) {
+		const { x0, x1, y0, y1 } = P.rect(img, region)
+		const w = x1 - x0
+		const h = y1 - y0
+		const out = new ImageData(w, h)
+		// readPixels' row 0 is the bottom: write the rows flipped.
+		for (let y = 0; y < h; y++) {
+			const src = ((y1 - 1 - y) * img.w + x0) * 4
+			out.data.set(img.px.subarray(src, src + w * 4), y * w * 4)
+		}
+		const c = document.createElement('canvas')
+		c.width = w
+		c.height = h
+		c.getContext('2d').putImageData(out, 0, 0)
+		;(window.__probeShots ??= []).push({ name, data: c.toDataURL('image/png').split(',')[1] })
+	},
+
+	/** Hides (or with `false` shows) the panels, so the viewport fills the window (what Tab does), and steps frames for the resize. */
+	async fullView(on = true) {
+		const { ui } = await P.state()
+		ui.hidePanels = on
+		await P.frames(3)
+	},
+
 	/** The pixel rows and columns of `region` ({ x0, x1, y0, y1 } as shares of the image, y0 = 0 the top; default all). */
 	rect(img, region) {
 		const r = region ?? {}
