@@ -53,7 +53,8 @@ d. Add what the next agent needs as a `**Claude:** notes for the agent working o
    the files and functions to read, the decisions that apply, how to verify it (a docs/TESTS.md section,
    a spot on the map, a client test) and the traps you know of.
 e. Label it: `value:` and `effort:` by your estimate, `source:owner`, one `area:`, and `bug` if it
-   is one. Add `needs-approval` for large, format-level or non-goal work (docs/DESIGN.md), which pings the
+   is one. An issue with the potential for a large optimization (a big gain in frame time, memory,
+   load time or draw calls) gets the highest value, `value:H`, whatever its effort. Add `needs-approval` for large, format-level or non-goal work (docs/DESIGN.md), which pings the
    owner. Keep any label the owner set themselves.
 f. If it cannot be worked without the owner (what they want is ambiguous, or it needs a choice the
    decisions, the comments and Noggit Red don't settle), ask as in *Asking the owner*: the comment
@@ -165,7 +166,8 @@ new issue: a short title, a body that says what and why, `Found while working on
 `**Claude:** notes for the agent working on this.` comment (the code to read, the decisions that
 apply, how to verify it, the traps you know of; CLAUDE.md, "Backlog: GitHub issues"), and the
 labels `source:loop`, `value:`, `effort:`, an `area:` (and `bug` for a bug, `needs-approval` for
-large, format-level or non-goal work; that label also pings the owner). Search the open issues first (`gh issue list --search`) and
+large, format-level or non-goal work; that label also pings the owner). As in triage, an issue
+with the potential for a large optimization gets `value:H`. Search the open issues first (`gh issue list --search`) and
 comment on an existing one instead of filing a duplicate. Do not implement it in this run.
 
 **5. Before stopping, tidy the backlog.** Close duplicates with `--reason "not planned"` and a comment
