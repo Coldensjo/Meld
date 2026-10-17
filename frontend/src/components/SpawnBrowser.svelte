@@ -21,6 +21,10 @@
     }
     return objectsPromise
   }
+  /** Reads the object templates again next time, after one was saved or made (the Go side forgets its list too). */
+  export function forgetObjectTemplates() {
+    objectsPromise = null
+  }
 
   /** The browser's spawn tabs: monsters, NPCs (creatures with npc flags) and game objects. */
   export type SpawnKind = 'creature' | 'npc' | 'object'

@@ -3,7 +3,7 @@
   import { engineRef } from '../lib/state/engineRef'
   import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
-  import { changedValues, fieldGroups, withBit, type CreatureField } from '../lib/world/creatureFields'
+  import { changedValues, fieldGroups, withBit } from '../lib/world/creatureFields'
   import { creatureTemplateOf } from '../lib/world/spawnEdits'
   import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
   import CreaturePreview from './CreaturePreview.svelte'
@@ -12,6 +12,7 @@
   import QuestsTab from './QuestsTab.svelte'
   import ShopTab from './ShopTab.svelte'
   import SpawnFields from './SpawnFields.svelte'
+  import TemplateFields from './TemplateFields.svelte'
 
   // The creature editor: one creature full screen. The left shows it big and animated; the right
   // edits the spawn it was opened from (each change an undo step, saved with the region's spawns)
@@ -25,7 +26,7 @@
   const spawn = $derived(target?.key && editor.selectedSpawn ? editor.selectedSpawn : null)
 
   let tab = $state<Tab>('creature')
-  let record = $state<vmangos.CreatureRecord | null>(null)
+  let record = $state<vmangos.TemplateRecord | null>(null)
   let values = $state<Record<string, string>>({})
   let saved = $state<Record<string, string>>({})
   let error = $state('')
@@ -231,11 +232,8 @@
     values.display_total_probability = String(total)
   }
 
-  function fieldValue(f: CreatureField): string {
-    return values[f.col] ?? ''
-  }
-  function setField(f: CreatureField, v: string) {
-    values[f.col] = v
+  function setField(col: string, v: string) {
+    values[col] = v
   }
 
   function onKey(e: KeyboardEvent) {
@@ -358,12 +356,12 @@
             <DisplayPicker selected={Number(values[`display_id${slot}`]) || 0} onpick={useDisplay} onhover={(d) => (hoveredDisplay = d)} />
             <h3>Displays</h3>
             {#each groups.filter((g) => g.title === 'Looks') as g (g.title)}
-              {@render group(g.fields)}
+              <TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} />
             {/each}
           {:else if record}
             {#each groups.filter((g) => g.title !== 'Looks') as g (g.title)}
               <h3>{g.title}</h3>
-              {@render group(g.fields)}
+              <TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} />
             {/each}
           {:else if loading}
             <p class="dim">Loading the creature…</p>
@@ -384,45 +382,6 @@
     </div>
   </div>
 {/if}
-
-{#snippet group(fields: CreatureField[])}
-  <div class="grid">
-    {#each fields as f (f.col)}
-      {@const c = columnKind.get(f.col)}
-      {@const changed = changes[f.col] !== undefined}
-      {#if f.flags}
-        <fieldset class="wide" class:changed>
-          <legend>{f.label}</legend>
-          {#each f.flags as [bit, name] (bit)}
-            <label class="check"><input type="checkbox" checked={((Number(fieldValue(f)) || 0) & bit) !== 0} onchange={(e) => setField(f, withBit(fieldValue(f), bit, (e.currentTarget as HTMLInputElement).checked))} /> {name}</label>
-          {/each}
-        </fieldset>
-      {:else if f.bool}
-        <label class="check" class:changed title={f.hint}><input type="checkbox" checked={fieldValue(f) !== '0' && fieldValue(f) !== ''} onchange={(e) => setField(f, (e.currentTarget as HTMLInputElement).checked ? '1' : '0')} /> {f.label}</label>
-      {:else if f.options}
-        <label class:changed title={f.hint}
-          >{f.label}
-          <select value={fieldValue(f)} onchange={(e) => setField(f, (e.currentTarget as HTMLSelectElement).value)}>
-            {#if !f.options.some(([v]) => String(v) === fieldValue(f))}<option value={fieldValue(f)}>{fieldValue(f)}</option>{/if}
-            {#each f.options as [v, name] (v)}<option value={String(v)}>{name}</option>{/each}
-          </select></label
-        >
-      {:else}
-        <label class:changed class:wide={c?.kind === 'text' && (c.maxLen === 0 || c.maxLen > 64)} title={f.hint}
-          >{f.label}
-          <input
-            type={c?.kind === 'text' ? 'text' : 'number'}
-            step={c?.kind === 'float' ? 'any' : '1'}
-            min={c?.kind === 'uint' ? '0' : undefined}
-            maxlength={c?.kind === 'text' && c.maxLen ? c.maxLen : undefined}
-            value={fieldValue(f)}
-            oninput={(e) => setField(f, (e.currentTarget as HTMLInputElement).value)}
-          /></label
-        >
-      {/if}
-    {/each}
-  </div>
-{/snippet}
 
 <style>
   .editor {
@@ -546,59 +505,10 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px 10px;
-    font-size: 12px;
-  }
-  .grid label {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    color: var(--text-dim);
-    min-width: 0;
-  }
-  .grid input,
-  .grid select {
-    width: 100%;
-    min-width: 0;
-  }
-  .grid .wide {
-    grid-column: 1 / -1;
-  }
-  .grid input[type='checkbox'] {
-    width: auto;
-    flex: none;
-    margin: 0;
-  }
-  .grid label.check,
   .new label.check {
     flex-direction: row;
     align-items: center;
     gap: 6px;
-  }
-  fieldset {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px 10px;
-    margin: 0;
-    padding: 6px 8px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-  }
-  legend {
-    color: var(--text-dim);
-    padding: 0 4px;
-  }
-  .changed,
-  .changed input,
-  .changed select {
-    color: var(--accent);
-  }
-  .changed input,
-  .changed select {
-    border-color: var(--accent);
   }
   .new {
     display: flex;

@@ -95,7 +95,7 @@ import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 
 /** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
@@ -1772,6 +1772,8 @@ export class Engine {
       if (spawn.kind !== 'object') {
         items.push({ label: 'Edit creature…', run: () => (ui.creatureEditor = { key, entry: spawn.entry }) })
         items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })
+      } else {
+        items.push({ label: 'Edit object…', run: () => (ui.objectEditor = { key, entry: spawn.entry }) })
       }
       items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
       const type = spawnType(spawn)
@@ -1998,6 +2000,33 @@ export class Engine {
         touched = true
       }
       if (touched && d === this.doc) syncSpawnUi(layer, true)
+    }
+  }
+
+  /**
+   * Brings the spawns of game object template `entry` in every open region up to date after the
+   * template was saved (`was` its values before): name, type, and the model and size of its display.
+   * As with applyCreatureTemplate, the database has this already, so it is no edit and no undo step.
+   */
+  async applyObjectTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
+    const n = (v: Record<string, string>, col: string) => Number(v[col]) || 0
+    const display = n(now, 'displayId')
+    const vals: Partial<vmangos.WorldSpawn> = { name: now.name ?? '', type: n(now, 'type'), display, scale: n(now, 'size') || 1 }
+    if (display !== n(was, 'displayId')) {
+      try {
+        vals.model = await ObjectModel(display)
+      } catch (err) {
+        console.warn('object model not read', err)
+      }
+    }
+    for (const d of this.documents) {
+      let touched = false
+      for (const s of d.spawnLayer.spawns.slice()) {
+        if (s.kind !== 'object' || s.entry !== entry) continue
+        d.spawnLayer.rebase(s, vals)
+        touched = true
+      }
+      if (touched && d === this.doc) syncSpawnUi(d.spawnLayer, true)
     }
   }
 

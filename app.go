@@ -747,6 +747,45 @@ func (a *App) ListObjectTemplates() ([]vmangos.ObjectTemplate, error) {
 	return vmangos.ListObjectTemplates(server, dataDir)
 }
 
+// ReadObject reads a game object template's row (its newest patch) for the game object editor.
+func (a *App) ReadObject(entry int) (vmangos.TemplateRecord, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.TemplateRecord{}, err
+	}
+	return vmangos.ReadObject(server, entry)
+}
+
+// SaveObject writes a game object template's changed values (by column) into the world database
+// and returns the SQL it ran.
+func (a *App) SaveObject(entry, patch int, values map[string]string) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SaveObject(server, entry, patch, values)
+}
+
+// CreateObject adds a game object template named name, a copy of template base (or a generic
+// object for 0), and returns its entry.
+func (a *App) CreateObject(base int, name string) (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.CreateObject(server, base, name)
+}
+
+// ObjectModel is the client model a game object display shows ("" for none), for a spawn whose
+// template's display changed.
+func (a *App) ObjectModel(display int) (string, error) {
+	_, dataDir, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.ObjectModel(dataDir, display)
+}
+
 // NextObjectGUID is the first free game object guid of the world database, for placed objects.
 func (a *App) NextObjectGUID() (int, error) {
 	server, _, err := a.serverAndData()
@@ -777,10 +816,10 @@ func (a *App) CheckSpawnIDs(q vmangos.SpawnIDQuery) (vmangos.SpawnIDReport, erro
 }
 
 // ReadCreature reads a creature template's row (its newest patch) for the creature editor.
-func (a *App) ReadCreature(entry int) (vmangos.CreatureRecord, error) {
+func (a *App) ReadCreature(entry int) (vmangos.TemplateRecord, error) {
 	server, _, err := a.serverAndData()
 	if err != nil {
-		return vmangos.CreatureRecord{}, err
+		return vmangos.TemplateRecord{}, err
 	}
 	return vmangos.ReadCreature(server, entry)
 }

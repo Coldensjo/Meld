@@ -1,6 +1,6 @@
 # The WoW client and spawns
 
-Reading the client's assets, and the server's creatures and objects: looks, editing, paths, names and the creature editor.
+Reading the client's assets, and the server's creatures and objects: looks, editing, paths, pools, names and the creature and game object editors.
 
 - The asset source is the user's **local** WoW 1.12 client. `internal/mpq` reads the archives
   (our own reader; `Gophercraft/mpq` is GPL, so don't add it). `internal/wow` decodes BLP, M2 and
@@ -41,9 +41,16 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   spawn's database state before its first edit, so `edits()` lists what changed; the Spawns panel
   saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
   one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. A
-  changed display, equipment or pose is re-dressed by `SpawnLook` in Go. `editor.selectedSpawn`
+  changed display, equipment or pose is re-dressed by `SpawnLook` in Go. A game object's entry can
+  change (#136, `objectEntryFields`: entry, name, type, display, model and the template's size as
+  its scale); the SQL then writes `gameobject.id`. `editor.selectedSpawn`
   is always a copy (`cloneSpawn`), never the drawn spawn, since Svelte's proxy would not see edits
   to it. Select spawns through `selectSpawn`.
+- **Pools** (`internal/vmangos/pools.go`): `ReadSpawns` gives each spawn its pool by guid
+  (`pool_creature`, `pool_gameobject`, with `pool_template`'s limit and description: `Pool`,
+  `PoolLimit`, `PoolName`). The veins that share a spot are one pool with a limit of 1, the server
+  spawning one of them at a time. `SpawnFields` lists the region's other spawns of the pool, a click
+  selecting one. Pools by entry (`pool_gameobject_template`) and mother pools (`pool_pool`) are not read.
 - **Waypoints**: `WorldSpawn.waypoints` is a creature's main path (`creature_movement`,
   `path_id` 0), or its template's (`creature_movement_template`, `pathFromTemplate`) when it walks
   waypoints without its own. `world/SpawnPaths.ts` draws the selected creature's path (and all
@@ -56,8 +63,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the name in the kind's colour, the subname and a creature's level and rank, picked four times a second
   and left out where the ground or a building hides them (`Engine.sightBlocked`, `ObjectLayer.wmoBlocks`).
 - **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
-  by a click (no drag) on a creature in the Select tool (pref `creatureEditorOnClick`), the panel's
-  Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
+  by the right-click menu's Edit creature, the panel's Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
   any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, shared with
   the Spawns panel; undo steps), Creature (every `creature_template` column: Go reads the columns
   and their types from the table and validates each value, `creatureFields.ts` only labels and
@@ -68,5 +74,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   (`CreateCreature`: the first free entry, from scratch or a copy). Template edits are a form
   saved with Save (`SaveCreature`, the newest patch row), not undo steps;
   `Engine.applyCreatureTemplate` then brings that creature's spawns up to date through
-  `SpawnLayer.rebase`, which changes their saved state too.
+  `SpawnLayer.rebase`, which changes their saved state too. A template's columns are drawn by
+  `TemplateFields.svelte`, shared with the game object editor.
+- **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
+  editor's counterpart, opened by the right-click menu's Edit object or the panel's Open editor.
+  Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
+  category such as Ore, whose click turns the spawn into that object as an undo step, then
+  `SpawnFields`), Object (every `gameobject_template` column through the same Go code as creatures,
+  `ReadObject`/`SaveObject`; `objectFields.ts` names data0 to data23 by the object's type, after
+  mangos' GameObjectInfo), and New object (`CreateObject`). The Object tab follows the spawn's entry
+  (an entry change or its undo). Save calls `Engine.applyObjectTemplate` (name, type, model through
+  `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.

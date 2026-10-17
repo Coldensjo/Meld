@@ -39,6 +39,23 @@ const pip = await import('<PipetteTool.ts URL>'); await pip.pickSpawn(editor.spa
 - Traps: a creature tile's badge is its level; the title holds entry, level, rank and type. The
   lists are cached in Go per server and client, so a changed template needs a restart to show.
 
+## Game object editor: turning a spawn into another object, pools (#136)
+
+Checks: `ObjectEditor.svelte`'s Which object list, `objectEntryFields`, the `gameobject.id` the SQL
+writes, and the pool rows in `SpawnFields`. The probe `object-entry` does it on a flat map with two
+veins of one pool laid down by hand (Small Thorium Vein 324 and Truesilver Deposit 2047, as guids
+23510 and 23539 are in Silithus): the list opens on Ore, a click on the Truesilver row changes the
+spawn (name, model; `SpawnEditSQL` sets the row's `id` to 2047), undo turns it back and the
+editor's title follows. It needs the world database up, and takes about 6 s.
+
+- In the real world: pool 22973 is the stack at server (-6420.68, 717.69) on map 1 (Silithus).
+- The Object tab, New object and Save write to the world database: make a copy of 324, change its
+  size, save, then check the spawn's scale and delete the row (`DELETE FROM gameobject_template WHERE
+  entry = …`); the next free entry was 182122 on this database.
+- Traps: `layer.get(key)` is the drawn spawn itself, which an undo changes in place; copy it before
+  comparing. After adding a binding while `make dev` runs, the page may fail with "does not provide
+  an export named …" (the stale `wailsjs` trap in docs/TESTS.md).
+
 ## Names over spawns (#125)
 
 Checks: `world/SpawnLabels.ts` puts names over the nearest drawn spawns (View › Names over creatures

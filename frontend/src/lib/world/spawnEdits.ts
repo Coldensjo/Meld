@@ -9,6 +9,9 @@ import { cloneSpawn, spawnKey, type SpawnLayer } from './SpawnLayer'
 export type SpawnFields = Partial<
   Pick<
     vmangos.WorldSpawn,
+    | 'entry'
+    | 'name'
+    | 'type'
     | 'x'
     | 'y'
     | 'z'
@@ -207,7 +210,14 @@ export function creatureTemplateOf(entry: number, v: Record<string, string>): vm
 /** A new path point at a place: no facing, no wait, no wander, no script. */
 export const newWaypoint = (x: number, y: number, z: number): vmangos.Waypoint => ({ x, y, z, orientation: 0, waitMs: 0, wanderDistance: 0, scriptId: 0 })
 
-/** Adds a spawn now, as one undoable command. */
+/**
+ * The fields that turn a game object spawn into template `t` (#136): its entry, name and type, and
+ * the model and size of the new template's display. The server takes the size from the template.
+ */
+export function objectEntryFields(t: vmangos.ObjectTemplate): SpawnFields {
+  return { entry: t.entry, name: t.name, type: t.type, display: t.display, model: t.model, scale: t.size || 1 }
+}
+
 /** A game object spawn of template `t` at a point, as the Place tool makes it. */
 export function newObjectSpawn(t: vmangos.ObjectTemplate, guid: number, x: number, y: number, z: number, orientation: number): vmangos.WorldSpawn {
   return models.WorldSpawn.createFrom({
@@ -246,6 +256,7 @@ export function newObjectSpawn(t: vmangos.ObjectTemplate, guid: number, x: numbe
   })
 }
 
+/** Adds a spawn now, as one undoable command. */
 export function spawnAdd(layer: SpawnLayer, s: vmangos.WorldSpawn, label: string): Command {
   addTo(layer, s)
   return { label, undo: () => removeFrom(layer, s), redo: () => addTo(layer, s) }

@@ -62,6 +62,10 @@ export function CreateCreature(arg1, arg2) {
   return window['go']['main']['App']['CreateCreature'](arg1, arg2);
 }
 
+export function CreateObject(arg1, arg2) {
+  return window['go']['main']['App']['CreateObject'](arg1, arg2);
+}
+
 export function DropRecovery(arg1) {
   return window['go']['main']['App']['DropRecovery'](arg1);
 }
@@ -218,6 +222,10 @@ export function NextObjectGUID() {
   return window['go']['main']['App']['NextObjectGUID']();
 }
 
+export function ObjectModel(arg1) {
+  return window['go']['main']['App']['ObjectModel'](arg1);
+}
+
 export function OpenBrushDialog() {
   return window['go']['main']['App']['OpenBrushDialog']();
 }
@@ -276,6 +284,10 @@ export function ReadImageFile(arg1) {
 
 export function ReadItem(arg1) {
   return window['go']['main']['App']['ReadItem'](arg1);
+}
+
+export function ReadObject(arg1) {
+  return window['go']['main']['App']['ReadObject'](arg1);
 }
 
 export function ReadTextFile(arg1) {
@@ -352,6 +364,10 @@ export function SaveMapDialog(arg1) {
 
 export function SaveModelSetDialog(arg1) {
   return window['go']['main']['App']['SaveModelSetDialog'](arg1);
+}
+
+export function SaveObject(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveObject'](arg1, arg2, arg3);
 }
 
 export function SavePrefabDialog(arg1, arg2) {

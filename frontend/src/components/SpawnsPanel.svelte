@@ -165,7 +165,7 @@
 
       <SpawnFields {s} />
       <div class="row-buttons">
-        <button class="active" disabled={!creature} onclick={() => (ui.creatureEditor = { key: spawnKey(s), entry: s.entry })}>Open editor…</button>
+        <button class="active" onclick={() => (creature ? (ui.creatureEditor = { key: spawnKey(s), entry: s.entry }) : (ui.objectEditor = { key: spawnKey(s), entry: s.entry }))}>Open editor…</button>
         <button onclick={() => engineRef.current?.focusSpawn(s)}>Focus</button>
         <button class="danger" onclick={() => engineRef.current?.deleteSelectedSpawn()}>Delete</button>
       </div>

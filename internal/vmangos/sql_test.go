@@ -35,7 +35,7 @@ func TestExportAddChangeDelete(t *testing.T) {
 	for _, want := range []string{
 		"UPDATE `creature` SET `map` = 0, `position_x` = 10.5,",
 		"`spawntimesecsmin` = 120, `spawntimesecsmax` = 180, `wander_distance` = 0, `movement_type` = 0 WHERE `guid` = 42;",
-		"DELETE FROM `gameobject` WHERE `guid` = 900000 AND `id` = 7;", // its own earlier export only (#199)
+		"DELETE FROM `gameobject` WHERE `guid` = 900000 AND `id` IN (7);", // its own earlier export only (#199)
 		"INSERT INTO `gameobject` (`guid`, `id`, `map`",
 		"VALUES (900000, 7, 1, 4, 5, 6, 1.570796,",
 		"DELETE FROM `creature` WHERE `guid` = 43;",
@@ -126,5 +126,26 @@ func TestExportWritesAChangedPath(t *testing.T) {
 	res = ExportSQL([]Edit{{Spawn: cleared, Original: &orig}}, fixedTime)
 	if !strings.Contains(res.SQL, "DELETE FROM `creature_movement` WHERE `id` = 9 AND `path_id` = 0;") || strings.Contains(res.SQL, "INSERT INTO `creature_movement`") {
 		t.Fatalf("a cleared path is deleted:\n%s", res.SQL)
+	}
+}
+
+func TestExportChangesAnObjectsEntry(t *testing.T) {
+	// A Small Thorium Vein turned into a Truesilver Deposit (#136): the row's id changes, and the new
+	// template's size is not reported as a scale VMaNGOS can't take.
+	orig := Spawn{Kind: GameObject, GUID: 23510, Entry: 324, Name: "Small Thorium Vein", Map: 1, X: 1, Y: 2, Z: 3, Scale: 0.5}
+	now := orig
+	now.Entry, now.Name, now.Scale = 2047, "Truesilver Deposit", 1
+	res := ExportSQL([]Edit{{Spawn: now, Original: &orig}}, fixedTime)
+	if !strings.Contains(res.SQL, "UPDATE `gameobject` SET `id` = 2047, `map` = 1,") || !strings.HasSuffix(strings.TrimSpace(res.SQL), "WHERE `guid` = 23510;") {
+		t.Fatalf("the entry is not written:\n%s", res.SQL)
+	}
+	if len(res.Skipped) != 0 {
+		t.Fatalf("skipped = %q", res.Skipped)
+	}
+	// An object placed in the editor, exported, then turned into another: its earlier row goes too.
+	res = ExportSQL([]Edit{{Spawn: now, Original: &orig, Created: true}}, fixedTime)
+	if !strings.Contains(res.SQL, "DELETE FROM `gameobject` WHERE `guid` = 23510 AND `id` IN (324, 2047);") ||
+		!strings.Contains(res.SQL, "VALUES (23510, 2047, 1,") {
+		t.Fatalf("created object of another entry:\n%s", res.SQL)
 	}
 }

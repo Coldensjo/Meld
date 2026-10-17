@@ -142,6 +142,22 @@ func ListObjectTemplates(serverRoot, dataDir string) ([]ObjectTemplate, error) {
 	return out, nil
 }
 
+// forgetObjectTemplates drops the cached game object lists, after a template was saved or made.
+func forgetObjectTemplates() {
+	templatesMu.Lock()
+	defer templatesMu.Unlock()
+	clear(objectsCache)
+}
+
+// ObjectModel is the client model of game object display display ("" for none or an unknown one).
+func ObjectModel(dataDir string, display int) (string, error) {
+	tables, err := cachedModelTables(dataDir)
+	if err != nil {
+		return "", err
+	}
+	return tables.objectModel(uint32(max(display, 0))), nil
+}
+
 // NextObjectGUID is the first game object guid above every one the world database has.
 func NextObjectGUID(serverRoot string) (int, error) {
 	db, err := worldDatabase(serverRoot)

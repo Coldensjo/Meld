@@ -23,7 +23,7 @@ export const CREATURE_TYPES = [
 export const RANKS = ['Normal', 'Elite', 'Rare elite', 'Boss', 'Rare']
 
 // Indexed by game object type: GAMEOBJECT_TYPE_* in GameObjectDefines.h.
-const OBJECT_TYPES = [
+export const OBJECT_TYPES = [
   'Door',
   'Button',
   'Quest giver',

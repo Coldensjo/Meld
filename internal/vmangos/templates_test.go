@@ -41,7 +41,7 @@ func TestParseColumns(t *testing.T) {
 
 func TestCreatureUpdateSQL(t *testing.T) {
 	cols := parseColumns([]byte(showColumns))
-	sql, err := creatureUpdateSQL(cols, 42, 3, map[string]string{"name": `Bob's \ Wolf`, "subname": "", "faction": "14", "speed_walk": "1.25", "holy_res": "-5"})
+	sql, err := templateUpdateSQL(creatureTable, cols, 42, 3, map[string]string{"name": `Bob's \ Wolf`, "subname": "", "faction": "14", "speed_walk": "1.25", "holy_res": "-5"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,11 +58,11 @@ func TestCreatureUpdateSQL(t *testing.T) {
 		{"entry": "1"},
 		{"no_such": "1"},
 	} {
-		if _, err := creatureUpdateSQL(cols, 42, 0, bad); err == nil {
+		if _, err := templateUpdateSQL(creatureTable, cols, 42, 0, bad); err == nil {
 			t.Errorf("%v must be refused", bad)
 		}
 	}
-	if sql, err := creatureUpdateSQL(cols, 42, 0, nil); err != nil || sql != "" {
+	if sql, err := templateUpdateSQL(creatureTable, cols, 42, 0, nil); err != nil || sql != "" {
 		t.Fatalf("no change, no SQL: %q %v", sql, err)
 	}
 }
@@ -90,6 +90,36 @@ func TestCreateCreatureSQL(t *testing.T) {
 		}
 	}
 	if _, err := createCreatureSQL(cols, 1, 0, strings.Repeat("x", 101)); err == nil {
+		t.Fatal("a name over 100 characters must be refused")
+	}
+}
+
+func TestObjectTemplateSQL(t *testing.T) {
+	cols := parseColumns([]byte("entry\tmediumint(8) unsigned\tNO\tPRI\t0\t\npatch\ttinyint(3) unsigned\tNO\tPRI\t0\t\n" +
+		"type\ttinyint(3) unsigned\tNO\t\t0\t\ndisplayId\tmediumint(8) unsigned\tNO\t\t0\t\nname\tvarchar(100)\tNO\t\t\t\n" +
+		"size\tfloat\tNO\t\t1\t\ndata0\tint(10)\tNO\t\t0\t\n"))
+	sql, err := templateUpdateSQL(objectTable, cols, 324, 0, map[string]string{"size": "0.75", "data0": "-1", "name": "Vein"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sql != "UPDATE `gameobject_template` SET `data0` = -1, `name` = 'Vein', `size` = 0.75 WHERE `entry` = 324 AND `patch` = 0;" {
+		t.Fatalf("update: %s", sql)
+	}
+	if _, err := templateUpdateSQL(objectTable, cols, 324, 0, map[string]string{"type": "-3"}); err == nil {
+		t.Fatal("a negative type must be refused")
+	}
+	sql, err = createObjectSQL(cols, 180000, 0, "Crate")
+	if err != nil || sql != "INSERT INTO `gameobject_template` (`entry`, `patch`, `type`, `displayId`, `name`, `size`) VALUES (180000, 0, 5, 0, 'Crate', 1);" {
+		t.Fatalf("from scratch: %s %v", sql, err)
+	}
+	sql, err = createObjectSQL(cols, 180000, 324, "My vein")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(sql, "INSERT INTO `gameobject_template` (`entry`, `patch`, `type`, `displayId`, `name`, `size`, `data0`) SELECT 180000, 0, t.`type`, t.`displayId`, 'My vein', t.`size`, t.`data0` FROM `gameobject_template` t WHERE t.`entry` = 324") {
+		t.Fatalf("copy: %s", sql)
+	}
+	if _, err := createObjectSQL(cols, 1, 0, strings.Repeat("x", 101)); err == nil {
 		t.Fatal("a name over 100 characters must be refused")
 	}
 }

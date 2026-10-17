@@ -37,6 +37,8 @@ export function ClearThumbnailCache():Promise<void>;
 
 export function CreateCreature(arg1:number,arg2:string):Promise<number>;
 
+export function CreateObject(arg1:number,arg2:string):Promise<number>;
+
 export function DropRecovery(arg1:string):Promise<void>;
 
 export function EndRecovery():Promise<void>;
@@ -115,6 +117,8 @@ export function NextCreatureGUID():Promise<number>;
 
 export function NextObjectGUID():Promise<number>;
 
+export function ObjectModel(arg1:number):Promise<string>;
+
 export function OpenBrushDialog():Promise<Array<string>>;
 
 export function OpenHeightmapDialog():Promise<string>;
@@ -133,7 +137,7 @@ export function Quit():Promise<void>;
 
 export function ReadBrushImage(arg1:string,arg2:string):Promise<heightmap.GreyView>;
 
-export function ReadCreature(arg1:number):Promise<vmangos.CreatureRecord>;
+export function ReadCreature(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadCreatureQuests(arg1:number):Promise<vmangos.CreatureQuests>;
 
@@ -144,6 +148,8 @@ export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 export function ReadImageFile(arg1:string):Promise<string>;
 
 export function ReadItem(arg1:number):Promise<Record<string, string>>;
+
+export function ReadObject(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
 
@@ -182,6 +188,8 @@ export function SaveMap(arg1:string,arg2:mapfile.MapData):Promise<void>;
 export function SaveMapDialog(arg1:string):Promise<string>;
 
 export function SaveModelSetDialog(arg1:string):Promise<string>;
+
+export function SaveObject(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 
 export function SavePrefabDialog(arg1:string,arg2:string):Promise<string>;
 

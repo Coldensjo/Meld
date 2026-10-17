@@ -13,8 +13,9 @@ import (
 	"Meld/internal/wow"
 )
 
-// TemplateColumn is a column of creature_template: its name, and the kind of value it holds
-// ("int", "uint", "float" or "text"), whether it may be NULL, and for text its length (0 for TEXT).
+// TemplateColumn is a column of a template table (creature_template, gameobject_template): its name,
+// and the kind of value it holds ("int", "uint", "float" or "text"), whether it may be NULL, and for
+// text its length (0 for TEXT).
 type TemplateColumn struct {
 	Name     string `json:"name"`
 	Kind     string `json:"kind"`
@@ -22,9 +23,15 @@ type TemplateColumn struct {
 	MaxLen   int    `json:"maxLen"`
 }
 
-// CreatureRecord is a creature template's row: every column but entry and patch, as text the way
-// mariadb prints them ("" for NULL in a nullable column).
-type CreatureRecord struct {
+// The template tables the editors read and write.
+const (
+	creatureTable = "creature_template"
+	objectTable   = "gameobject_template"
+)
+
+// TemplateRecord is a creature or game object template's row: every column but entry and patch, as
+// text the way mariadb prints them ("" for NULL in a nullable column).
+type TemplateRecord struct {
 	Entry   int               `json:"entry"`
 	Patch   int               `json:"patch"`
 	Columns []TemplateColumn  `json:"columns"`
@@ -61,15 +68,15 @@ func parseColumns(raw []byte) []TemplateColumn {
 	return out
 }
 
-// templateColumns reads creature_template's columns from the database.
-func templateColumns(db worldDB) ([]TemplateColumn, error) {
-	raw, err := runSQL(db, "SHOW COLUMNS FROM creature_template")
+// templateColumns reads a template table's columns from the database.
+func templateColumns(db worldDB, table string) ([]TemplateColumn, error) {
+	raw, err := runSQL(db, "SHOW COLUMNS FROM "+table)
 	if err != nil {
 		return nil, err
 	}
 	cols := parseColumns(raw)
 	if len(cols) == 0 {
-		return nil, errors.New("creature_template has no columns")
+		return nil, errors.New(table + " has no columns")
 	}
 	return cols, nil
 }
@@ -134,35 +141,42 @@ func sqlValue(c TemplateColumn, v string) (string, error) {
 	return sqlQuote(v), nil
 }
 
-// ReadCreature reads creature template entry: its newest patch's row.
-func ReadCreature(serverRoot string, entry int) (CreatureRecord, error) {
+// openWorld opens the server's world database, starting it when it is down.
+func openWorld(serverRoot string) (worldDB, error) {
 	db, err := worldDatabase(serverRoot)
 	if err != nil {
-		return CreatureRecord{}, err
+		return worldDB{}, err
 	}
-	if err := ensureDatabase(db, serverRoot); err != nil {
-		return CreatureRecord{}, err
-	}
-	cols, err := templateColumns(db)
+	return db, ensureDatabase(db, serverRoot)
+}
+
+// readTemplate reads template entry of table (its newest patch's row); what names the kind in the
+// error for a missing entry ("creature", "game object").
+func readTemplate(serverRoot, table, what string, entry int) (TemplateRecord, error) {
+	db, err := openWorld(serverRoot)
 	if err != nil {
-		return CreatureRecord{}, err
+		return TemplateRecord{}, err
+	}
+	cols, err := templateColumns(db, table)
+	if err != nil {
+		return TemplateRecord{}, err
 	}
 	names := make([]string, len(cols))
 	for i, c := range cols {
 		names[i] = "`" + c.Name + "`"
 	}
-	raw, err := runSQL(db, fmt.Sprintf("SELECT `patch`, %s FROM creature_template WHERE entry = %d ORDER BY patch DESC LIMIT 1",
-		strings.Join(names, ", "), entry))
+	raw, err := runSQL(db, fmt.Sprintf("SELECT `patch`, %s FROM %s WHERE entry = %d ORDER BY patch DESC LIMIT 1",
+		strings.Join(names, ", "), table, entry))
 	if err != nil {
-		return CreatureRecord{}, err
+		return TemplateRecord{}, err
 	}
 	// Only the line end: empty last columns leave trailing tabs that are fields.
 	line := strings.TrimRight(string(raw), "\r\n")
 	f := strings.Split(line, "\t")
 	if line == "" || len(f) != len(cols)+1 {
-		return CreatureRecord{}, fmt.Errorf("the world database has no creature %d", entry)
+		return TemplateRecord{}, fmt.Errorf("the world database has no %s %d", what, entry)
 	}
-	rec := CreatureRecord{Entry: entry, Columns: cols, Values: make(map[string]string, len(cols))}
+	rec := TemplateRecord{Entry: entry, Columns: cols, Values: make(map[string]string, len(cols))}
 	rec.Patch, _ = strconv.Atoi(f[0])
 	for i, c := range cols {
 		v := f[i+1]
@@ -174,8 +188,19 @@ func ReadCreature(serverRoot string, entry int) (CreatureRecord, error) {
 	return rec, nil
 }
 
-// creatureUpdateSQL is the UPDATE that writes values (by column) into template entry's patch row.
-func creatureUpdateSQL(cols []TemplateColumn, entry, patch int, values map[string]string) (string, error) {
+// ReadCreature reads creature template entry: its newest patch's row.
+func ReadCreature(serverRoot string, entry int) (TemplateRecord, error) {
+	return readTemplate(serverRoot, creatureTable, "creature", entry)
+}
+
+// ReadObject reads game object template entry: its newest patch's row.
+func ReadObject(serverRoot string, entry int) (TemplateRecord, error) {
+	return readTemplate(serverRoot, objectTable, "game object", entry)
+}
+
+// templateUpdateSQL is the UPDATE that writes values (by column) into template entry's patch row of
+// table.
+func templateUpdateSQL(table string, cols []TemplateColumn, entry, patch int, values map[string]string) (string, error) {
 	byName := make(map[string]TemplateColumn, len(cols))
 	for _, c := range cols {
 		byName[c.Name] = c
@@ -189,7 +214,7 @@ func creatureUpdateSQL(cols []TemplateColumn, entry, patch int, values map[strin
 	for _, k := range keys {
 		c, ok := byName[k]
 		if !ok {
-			return "", fmt.Errorf("creature_template has no column %q", k)
+			return "", fmt.Errorf("%s has no column %q", table, k)
 		}
 		v, err := sqlValue(c, values[k])
 		if err != nil {
@@ -200,20 +225,17 @@ func creatureUpdateSQL(cols []TemplateColumn, entry, patch int, values map[strin
 	if len(sets) == 0 {
 		return "", nil
 	}
-	return fmt.Sprintf("UPDATE `creature_template` SET %s WHERE `entry` = %d AND `patch` = %d;", strings.Join(sets, ", "), entry, patch), nil
+	return fmt.Sprintf("UPDATE `%s` SET %s WHERE `entry` = %d AND `patch` = %d;", table, strings.Join(sets, ", "), entry, patch), nil
 }
 
 // SaveCreature writes changed template values (by column) into creature template entry's row of
 // patch patch, and returns the SQL it ran.
 func SaveCreature(serverRoot string, entry, patch int, values map[string]string) (string, error) {
-	db, err := worldDatabase(serverRoot)
+	db, err := openWorld(serverRoot)
 	if err != nil {
 		return "", err
 	}
-	if err := ensureDatabase(db, serverRoot); err != nil {
-		return "", err
-	}
-	cols, err := templateColumns(db)
+	cols, err := templateColumns(db, creatureTable)
 	if err != nil {
 		return "", err
 	}
@@ -222,11 +244,34 @@ func SaveCreature(serverRoot string, entry, patch int, values map[string]string)
 			return "", err
 		}
 	}
-	sql, err := creatureUpdateSQL(cols, entry, patch, values)
+	sql, err := templateUpdateSQL(creatureTable, cols, entry, patch, values)
 	if err != nil || sql == "" {
 		return sql, err
 	}
 	return sql, runScript(db, sql)
+}
+
+// SaveObject writes changed template values (by column) into game object template entry's row of
+// patch patch, and returns the SQL it ran. The Objects list is read again next time it is asked
+// for, so the change shows there.
+func SaveObject(serverRoot string, entry, patch int, values map[string]string) (string, error) {
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return "", err
+	}
+	cols, err := templateColumns(db, objectTable)
+	if err != nil {
+		return "", err
+	}
+	sql, err := templateUpdateSQL(objectTable, cols, entry, patch, values)
+	if err != nil || sql == "" {
+		return sql, err
+	}
+	if err := runScript(db, sql); err != nil {
+		return "", err
+	}
+	forgetObjectTemplates()
+	return sql, nil
 }
 
 // checkUnitClass refuses a creature class the server has no creature_classlevelstats rows for:
@@ -251,23 +296,18 @@ func unitClassAllowed(v string, classes []string) error {
 		v, strings.Join(classes, ", "))
 }
 
-// CreateCreature adds a creature template named name under the first free entry and returns the
-// entry. It copies template base (its newest patch) when base is not 0, else it starts from the
-// table's defaults: level 1, a warrior (class 1: the server has no stats for class 0, the column's
-// default), hostile to everyone (faction 14), no display.
-func CreateCreature(serverRoot string, base int, name string) (int, error) {
+// createTemplate adds a template named name to table under its first free entry and returns the
+// entry; build makes the INSERT from the table's columns and that entry.
+func createTemplate(serverRoot, table, what, name string, build func(cols []TemplateColumn, entry int, name string) (string, error)) (int, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return 0, errors.New("a new creature needs a name")
+		return 0, errors.New("a new " + what + " needs a name")
 	}
-	db, err := worldDatabase(serverRoot)
+	db, err := openWorld(serverRoot)
 	if err != nil {
 		return 0, err
 	}
-	if err := ensureDatabase(db, serverRoot); err != nil {
-		return 0, err
-	}
-	raw, err := runSQL(db, "SELECT COALESCE(MAX(entry), 0) + 1 FROM creature_template")
+	raw, err := runSQL(db, "SELECT COALESCE(MAX(entry), 0) + 1 FROM "+table)
 	if err != nil {
 		return 0, err
 	}
@@ -275,28 +315,43 @@ func CreateCreature(serverRoot string, base int, name string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	cols, err := templateColumns(db)
+	cols, err := templateColumns(db, table)
 	if err != nil {
 		return 0, err
 	}
-	sql, err := createCreatureSQL(cols, entry, base, name)
+	sql, err := build(cols, entry, name)
 	if err != nil {
 		return 0, err
 	}
 	return entry, runScript(db, sql)
 }
 
-// createCreatureSQL is the INSERT that makes creature template entry named name, a copy of base's
-// newest patch row or (base 0) the table's defaults.
-func createCreatureSQL(cols []TemplateColumn, entry, base int, name string) (string, error) {
-	nameCol, _ := sqlValue(TemplateColumn{Name: "name", Kind: "text", MaxLen: 100}, name)
-	if len(name) > 100 {
-		return "", errors.New("the name is longer than 100 characters")
+// CreateCreature adds a creature template named name under the first free entry and returns the
+// entry. It copies template base (its newest patch) when base is not 0, else it starts from the
+// table's defaults: level 1, a warrior (class 1: the server has no stats for class 0, the column's
+// default), hostile to everyone (faction 14), no display.
+func CreateCreature(serverRoot string, base int, name string) (int, error) {
+	return createTemplate(serverRoot, creatureTable, "creature", name, func(cols []TemplateColumn, entry int, name string) (string, error) {
+		return createCreatureSQL(cols, entry, base, name)
+	})
+}
+
+// CreateObject adds a game object template named name under the first free entry and returns the
+// entry. It copies template base (its newest patch) when base is not 0, else it starts from the
+// table's defaults: a generic object (type 5) of size 1 with no display.
+func CreateObject(serverRoot string, base int, name string) (int, error) {
+	entry, err := createTemplate(serverRoot, objectTable, "game object", name, func(cols []TemplateColumn, entry int, name string) (string, error) {
+		return createObjectSQL(cols, entry, base, name)
+	})
+	if err == nil {
+		forgetObjectTemplates()
 	}
-	if base == 0 {
-		return fmt.Sprintf("INSERT INTO `creature_template` (`entry`, `patch`, `name`, `level_min`, `level_max`, `unit_class`, `faction`, "+
-			"`display_scale1`, `display_probability1`, `display_total_probability`) VALUES (%d, 0, %s, 1, 1, 1, 14, 1, 100, 100);", entry, nameCol), nil
-	}
+	return entry, err
+}
+
+// copyTemplateSQL is the INSERT that makes template entry of table, named name, a copy of base's
+// newest patch row.
+func copyTemplateSQL(table string, cols []TemplateColumn, entry, base int, nameCol string) string {
 	names := []string{"`entry`", "`patch`"}
 	sel := []string{strconv.Itoa(entry), "0"}
 	for _, c := range cols {
@@ -307,8 +362,44 @@ func createCreatureSQL(cols []TemplateColumn, entry, base int, name string) (str
 			sel = append(sel, "t.`"+c.Name+"`")
 		}
 	}
-	return fmt.Sprintf("INSERT INTO `creature_template` (%s) SELECT %s FROM `creature_template` t WHERE t.`entry` = %d "+
-		"ORDER BY t.`patch` DESC LIMIT 1;", strings.Join(names, ", "), strings.Join(sel, ", "), base), nil
+	return fmt.Sprintf("INSERT INTO `%s` (%s) SELECT %s FROM `%s` t WHERE t.`entry` = %d "+
+		"ORDER BY t.`patch` DESC LIMIT 1;", table, strings.Join(names, ", "), strings.Join(sel, ", "), table, base)
+}
+
+// templateName is a new template's name as SQL, refused past 100 characters (both tables' limit).
+func templateName(name string) (string, error) {
+	if len(name) > 100 {
+		return "", errors.New("the name is longer than 100 characters")
+	}
+	return sqlValue(TemplateColumn{Name: "name", Kind: "text", MaxLen: 100}, name)
+}
+
+// createCreatureSQL is the INSERT that makes creature template entry named name, a copy of base's
+// newest patch row or (base 0) the table's defaults.
+func createCreatureSQL(cols []TemplateColumn, entry, base int, name string) (string, error) {
+	nameCol, err := templateName(name)
+	if err != nil {
+		return "", err
+	}
+	if base == 0 {
+		return fmt.Sprintf("INSERT INTO `creature_template` (`entry`, `patch`, `name`, `level_min`, `level_max`, `unit_class`, `faction`, "+
+			"`display_scale1`, `display_probability1`, `display_total_probability`) VALUES (%d, 0, %s, 1, 1, 1, 14, 1, 100, 100);", entry, nameCol), nil
+	}
+	return copyTemplateSQL(creatureTable, cols, entry, base, nameCol), nil
+}
+
+// createObjectSQL is the INSERT that makes game object template entry named name, a copy of base's
+// newest patch row or (base 0) a generic object of size 1.
+func createObjectSQL(cols []TemplateColumn, entry, base int, name string) (string, error) {
+	nameCol, err := templateName(name)
+	if err != nil {
+		return "", err
+	}
+	if base == 0 {
+		return fmt.Sprintf("INSERT INTO `gameobject_template` (`entry`, `patch`, `type`, `displayId`, `name`, `size`) VALUES (%d, 0, 5, 0, %s, 1);",
+			entry, nameCol), nil
+	}
+	return copyTemplateSQL(objectTable, cols, entry, base, nameCol), nil
 }
 
 // DisplayEntry is a creature display as the creature editor's display picker shows it: the model,

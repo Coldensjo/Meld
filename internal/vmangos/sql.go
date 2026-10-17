@@ -203,7 +203,10 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 			continue
 		}
 
-		if e.Original != nil && math.Abs(e.Original.Scale-s.Scale) > 1e-3 {
+		// A game object turned into another object takes the new template's size, which isn't the
+		// author's own scale.
+		entryChanged := e.Original != nil && e.Original.Entry != s.Entry
+		if e.Original != nil && !entryChanged && math.Abs(e.Original.Scale-s.Scale) > 1e-3 {
 			res.Skipped = append(res.Skipped, fmt.Sprintf("%s: its scale (%s); VMaNGOS takes scale from the template", name, num(s.Scale)))
 		}
 		q := quaternion(s)
@@ -212,7 +215,12 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 			out = append(out, "-- Add "+name)
 			// Only a row of this entry goes, the spawn's own earlier export: a guid the database gave
 			// another spawn since makes the INSERT fail on the key instead of deleting that spawn (#199).
-			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d AND `id` = %d;", table, s.GUID, s.Entry))
+			// An object turned into another since that export was exported under the entry it was placed as.
+			ids := strconv.Itoa(s.Entry)
+			if entryChanged {
+				ids = fmt.Sprintf("%d, %d", e.Original.Entry, s.Entry)
+			}
+			out = append(out, fmt.Sprintf("DELETE FROM `%s` WHERE `guid` = %d AND `id` IN (%s);", table, s.GUID, ids))
 			if s.Kind == Creature {
 				out = append(out, fmt.Sprintf("INSERT INTO `creature` (`guid`, `id`, `map`, `position_x`, `position_y`, `position_z`, `orientation`, "+
 					"`spawntimesecsmin`, `spawntimesecsmax`, `wander_distance`, `health_percent`, `mana_percent`, `movement_type`, `spawn_flags`, "+
@@ -232,10 +240,11 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 					"`orientation` = %s, `spawntimesecsmin` = %d, `spawntimesecsmax` = %d, `wander_distance` = %s, `movement_type` = %d WHERE `guid` = %d;",
 					s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), lo, hi, num(s.WanderDistance), s.MovementType, s.GUID))
 			} else {
-				out = append(out, fmt.Sprintf("UPDATE `gameobject` SET `map` = %d, `position_x` = %s, `position_y` = %s, `position_z` = %s, "+
+				// The entry too: a game object can be turned into another (#136).
+				out = append(out, fmt.Sprintf("UPDATE `gameobject` SET `id` = %d, `map` = %d, `position_x` = %s, `position_y` = %s, `position_z` = %s, "+
 					"`orientation` = %s, `rotation0` = %s, `rotation1` = %s, `rotation2` = %s, `rotation3` = %s, `spawntimesecsmin` = %d, "+
 					"`spawntimesecsmax` = %d WHERE `guid` = %d;",
-					s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), num(q[0]), num(q[1]), num(q[2]), num(q[3]), lo, hi, s.GUID))
+					s.Entry, s.Map, num(s.X), num(s.Y), num(s.Z), num(s.O), num(q[0]), num(q[1]), num(q[2]), num(q[3]), lo, hi, s.GUID))
 			}
 			res.Changed++
 		}

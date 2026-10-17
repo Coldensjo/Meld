@@ -136,11 +136,11 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
   },
 ]
 
-/** The groups for a table's columns: the known ones, then every other column under Other. */
-export function fieldGroups(columns: string[]): CreatureFieldGroup[] {
+/** The groups for a table's columns: the known ones (`listed`, the creature's by default), then every other column under Other. */
+export function fieldGroups(columns: string[], listed: CreatureFieldGroup[] = CREATURE_FIELD_GROUPS): CreatureFieldGroup[] {
   const have = new Set(columns)
-  const groups = CREATURE_FIELD_GROUPS.map((g) => ({ ...g, fields: g.fields.filter((f) => have.has(f.col)) })).filter((g) => g.fields.length)
-  const known = new Set(CREATURE_FIELD_GROUPS.flatMap((g) => g.fields.map((f) => f.col)))
+  const groups = listed.map((g) => ({ ...g, fields: g.fields.filter((f) => have.has(f.col)) })).filter((g) => g.fields.length)
+  const known = new Set(listed.flatMap((g) => g.fields.map((f) => f.col)))
   const other = columns.filter((c) => !known.has(c)).map((c) => ({ col: c, label: c.replace(/_/g, ' ') }))
   if (other.length) groups.push({ title: 'Other', fields: other })
   return groups

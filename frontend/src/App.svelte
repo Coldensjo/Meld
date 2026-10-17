@@ -9,6 +9,7 @@
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
   import CreatureEditor from './components/CreatureEditor.svelte'
+  import ObjectEditor from './components/ObjectEditor.svelte'
   import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
   import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
@@ -168,7 +169,7 @@
       e.preventDefault()
       return
     }
-    if (ui.creatureEditor) {
+    if (ui.creatureEditor || ui.objectEditor) {
       if (mod && (key === 'z' || key === 'y')) {
         const c = key === 'y' || e.shiftKey ? engine.redo() : engine.undo()
         if (c) setStatus(`${key === 'y' || e.shiftKey ? 'Redo' : 'Undo'}: ${c.label}`)
@@ -335,6 +336,7 @@
 <MinimapWindow />
 <CreaturesWorkspace />
 <CreatureEditor />
+<ObjectEditor />
 <ModelPreviewWindow />
 <DoodadBrushEditor />
 <AppDialogs />

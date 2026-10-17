@@ -83,6 +83,12 @@ type WorldSpawn struct {
 	// a positive one spawns it only while that event runs, a negative one takes it away while event
 	// -n runs. None for an everyday spawn.
 	Events []int `json:"events"`
+	// Pool is the spawn pool the spawn belongs to (pool_creature, pool_gameobject; 0 for none): the
+	// server spawns at most PoolLimit of the pool's members at a time (0 for all of them), such as one
+	// of the veins that share a spot. PoolName is the pool's description.
+	Pool      int    `json:"pool"`
+	PoolLimit int    `json:"poolLimit"`
+	PoolName  string `json:"poolName"`
 }
 
 // Waypoint is a point of a creature's path, in the region's coordinates like its spawn: where it
@@ -187,6 +193,9 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 		return nil, err
 	}
 	if err := readSpawnEvents(db, out); err != nil {
+		return nil, err
+	}
+	if err := readSpawnPools(db, out); err != nil {
 		return nil, err
 	}
 	return out, nil

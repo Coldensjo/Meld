@@ -744,60 +744,6 @@ export namespace vmangos {
 		    return a;
 		}
 	}
-	export class TemplateColumn {
-	    name: string;
-	    kind: string;
-	    nullable: boolean;
-	    maxLen: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new TemplateColumn(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.kind = source["kind"];
-	        this.nullable = source["nullable"];
-	        this.maxLen = source["maxLen"];
-	    }
-	}
-	export class CreatureRecord {
-	    entry: number;
-	    patch: number;
-	    columns: TemplateColumn[];
-	    values: Record<string, string>;
-	
-	    static createFrom(source: any = {}) {
-	        return new CreatureRecord(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.entry = source["entry"];
-	        this.patch = source["patch"];
-	        this.columns = this.convertValues(source["columns"], TemplateColumn);
-	        this.values = source["values"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 	export class CreatureTemplate {
 	    entry: number;
 	    name: string;
@@ -1876,6 +1822,9 @@ export namespace vmangos {
 	    waypoints: Waypoint[];
 	    pathFromTemplate: boolean;
 	    events: number[];
+	    pool: number;
+	    poolLimit: number;
+	    poolName: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorldSpawn(source);
@@ -1916,6 +1865,9 @@ export namespace vmangos {
 	        this.waypoints = this.convertValues(source["waypoints"], Waypoint);
 	        this.pathFromTemplate = source["pathFromTemplate"];
 	        this.events = source["events"];
+	        this.pool = source["pool"];
+	        this.poolLimit = source["poolLimit"];
+	        this.poolName = source["poolName"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2026,7 +1978,60 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class TemplateColumn {
+	    name: string;
+	    kind: string;
+	    nullable: boolean;
+	    maxLen: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new TemplateColumn(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.kind = source["kind"];
+	        this.nullable = source["nullable"];
+	        this.maxLen = source["maxLen"];
+	    }
+	}
+	export class TemplateRecord {
+	    entry: number;
+	    patch: number;
+	    columns: TemplateColumn[];
+	    values: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new TemplateRecord(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.entry = source["entry"];
+	        this.patch = source["patch"];
+	        this.columns = this.convertValues(source["columns"], TemplateColumn);
+	        this.values = source["values"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	
 	
