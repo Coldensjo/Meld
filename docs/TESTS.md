@@ -143,7 +143,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
 - The probes on 2026-10-17: `smoke` (the benchmark scene draws, no errors), `bench` (its numbers),
   `undo-sculpt` and `undo-holes` (an edit and its undo on a flat map), `wmo-cull` (#198's Stormwind
-  cull). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
+  cull, in the scene pass and the near shadow cascade, #215). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
   that the probe exists.
 
 ## The live app without Claude in Chrome (headless Chrome over CDP)
@@ -230,10 +230,11 @@ the same scene, the report before and after.
   before and after. A change that a different spot shows better (a big city, a dense forest) may use
   one, but give its scene line beside the numbers.
 
-  Baseline, `pnpm probe bench` on 2026-10-17 (SwiftShader, so GPU n/a and CPU ms only compare
-  between probe runs on this machine): 1996 draw calls, 2,052,549 triangles, 168 geometries, 724
-  textures, 329 MB heap; the most triangles: a Defias HumanMale (54k), Wolf (42k), nsabbey.wmo
-  (33k), stormwind.wmo (31k). Update this when a commit moves it on purpose.
+  Baseline, `pnpm probe bench` on 2026-10-17 after #215 (SwiftShader, so GPU n/a and CPU ms only
+  compare between probe runs on this machine): 1996 draw calls, 697,402 triangles (2,052,549 before
+  #215 culled Stormwind's groups in the near shadow cascade), 168 geometries, 719 textures, 325 MB
+  heap; the most triangles: a Defias HumanMale (54k), Wolf (42k), nsabbey.wmo (35k), stormwind.wmo
+  (33k). Update this when a commit moves it on purpose.
 
 ## Index of feature checks
 
@@ -250,7 +251,7 @@ the same scene, the report before and after.
 - The camera's WMO room (down-ray probe, #8)
 - Client Lighting's ground: per-vertex light and the sheen (#111)
 - Losing and restoring the viewport's WebGL context (#209)
-- WMO culling by group (#198)
+- WMO culling by group (#198, #215)
 - Compressed client textures (DXT, #178)
 - Preview window: particles, ribbons and texture animation (#200)
 

@@ -241,9 +241,10 @@ cached from a lost one (thumbnails wait, Write Minimap Tiles refuses).
   dozen calls before the first error; then list the program's active uniforms with their raw types
   (`0x8dc5` is `samplerCubeShadow`).
 
-## WMO culling by group (#198)
-Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view in the scene pass,
-and looks the same as drawn whole.
+## WMO culling by group (#198, #215)
+Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view or the near shadow
+cascade in the scene pass and the near cascade's shadow pass, and looks the same as drawn whole.
+- Probe: `pnpm probe wmo-cull` (the frame's and the shadow maps' triangles, the cull on and off).
 - Unit: `frontend/tests/wmoGroupCull.test.ts` (runs by group, the view half, the camera check, the
   group's range put back after the draw).
 - Dev page, Northshire scene (Azeroth 32_48, 1x1). Stormwind loads late on SwiftShader: poll the live
@@ -254,11 +255,16 @@ and looks the same as drawn whole.
   (Vite's `?t=` URLs), so its switch does nothing.
 - Numbers on 2026-10-17, the scene's camera over the abbey, `measurePerf()`: the frame 2.07M triangles
   with the cull, 3.43M without; stormwind.wmo 31k against 1.33M in "Most triangles" (that list counts
-  the scene pass, through the twin's `userData.drawnIndexCount`). Its group boxes put 77k of its
-  triangles in the view and 1.22M in the shadow cascades, which keep drawing it whole.
+  the scene pass, through the twin's `userData.drawnIndexCount`). Its group boxes put 31k of its
+  triangles in the view, 2k in the near cascade and 1.2M in the far one (redrawn only when its fit
+  changes). Since #215 the near cascade draws the culled half too: the frame 697k triangles, the shadow
+  maps 344k of them (1.70M with the cull off). Count the shadow maps' triangles by wrapping
+  `__engine.renderer.shadowMap.render` and reading `renderer.info.render.triangles` around it.
 - Same picture: `setSceneView({ target: [-300, 120, 250], yaw: 4.71, pitch: 0.25, distance: 500, hour: 13 })`
   draws 55% of the city; with `enabled` off and on the shots differ in 0.14% of pixels (edges, swaying
-  trees).
+  trees). There the near cascade holds 786k of the city's triangles and the view 767k (1.0M in the
+  culled half); on 2026-10-17 (#215) the canvas read back with `toDataURL` right after `frame()`
+  differed in no pixel with the cull on and off.
 
 ## Compressed client textures (DXT, #178)
 Checks: model, liquid and particle textures go to the GPU as the BLP's own DXT blocks and mips where

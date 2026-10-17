@@ -6,9 +6,13 @@ import { ROOM_ATTRIBUTE } from './roomGate'
 // Northshire, Stormwind's 1.3M triangles, though its groups in view hold 77k. The batch mesh of a WMO
 // with groups draws a twin of the model's geometry instead: the same vertex buffers, and an index whose
 // first half is the model's (each material's triangles sorted by WMO group, so a group is one run) and
-// whose second half holds, per material, the runs of the groups whose boxes meet the camera's frustum.
-// The scene pass draws the second half (onBeforeRender points each material's draw at it); the shadow
-// passes draw the first, as their casters reach well past the view. Only a batch with a single drawn
+// whose second half holds, per material, the runs of the groups whose boxes meet the camera's frustum
+// or the near shadow cascade's. The scene pass and the near cascade draw the second half
+// (onBeforeRender and onBeforeShadow point each material's draw at it); the far cascade and the point
+// lights' cubes draw the first. The near cascade is redrawn every frame, and from Northshire its box
+// holds 2k of Stormwind's 1.33M triangles, while the far one holds 1.2M and is redrawn only when its
+// fit changes (#215). The cascade sits mostly in the view, so sharing the view half costs the scene
+// pass little and needs no third half (16 MB for Stormwind). Only a batch with a single drawn
 // instance is culled, as one index can't suit two placements; the model's own geometry, its bounds
 // tree and the picking it serves are left alone.
 
@@ -40,10 +44,12 @@ export class WmoGroupCull {
 	private readonly groupIndex = new Map<object, number>()
 	private readonly visible: Uint8Array
 	private readonly half: number
-	/** The camera the view half was culled for; any other draws the full half. */
+	/** The camera the view half was culled for, and the near cascade's; any other draws the full half. */
 	private camera: THREE.Camera | null = null
+	private shadowCamera: THREE.Camera | null = null
 	private saved = { start: 0, count: 0 }
 	private readonly frustum = new THREE.Frustum()
+	private readonly shadowFrustum = new THREE.Frustum()
 	private readonly inverse = new THREE.Matrix4()
 	private readonly matrix = new THREE.Matrix4()
 
@@ -130,11 +136,13 @@ export class WmoGroupCull {
 
 	/**
 	 * Culls the groups for one instance placed by `matrix` (world from model) against `frustum`, the
-	 * view of `camera`, and rewrites the view half when the groups in view changed. `null` stops it:
+	 * view of `camera`, and `shadowFrustum`, the near shadow cascade's of `shadowCamera` (null without
+	 * shadows), and rewrites the view half when the groups in either changed. A null `camera` stops it:
 	 * every pass draws the full half again.
 	 */
-	update(camera: THREE.Camera | null, frustum: THREE.Frustum, matrix: ArrayLike<number>) {
+	update(camera: THREE.Camera | null, frustum: THREE.Frustum, matrix: ArrayLike<number>, shadowCamera: THREE.Camera | null = null, shadowFrustum: THREE.Frustum | null = null) {
 		this.camera = camera
+		this.shadowCamera = camera && shadowFrustum ? shadowCamera : null
 		if (!camera) {
 			this.geometry.userData.drawnIndexCount = this.half
 			return
@@ -143,10 +151,12 @@ export class WmoGroupCull {
 		this.inverse.copy(this.matrix).invert()
 		const f = this.frustum.copy(frustum)
 		for (const plane of f.planes) plane.applyMatrix4(this.inverse)
+		const s = this.shadowCamera ? this.shadowFrustum.copy(shadowFrustum!) : null
+		if (s) for (const plane of s.planes) plane.applyMatrix4(this.inverse)
 		let changed = false
 		for (let i = 0; i < this.boxes.length; i++) {
 			const box = this.boxes[i]
-			const v = !box.isEmpty() && f.intersectsBox(box) ? 1 : 0
+			const v = !box.isEmpty() && (f.intersectsBox(box) || (s !== null && s.intersectsBox(box))) ? 1 : 0
 			if (v !== this.visible[i]) {
 				this.visible[i] = v
 				changed = true
@@ -156,7 +166,7 @@ export class WmoGroupCull {
 		else this.geometry.userData.drawnIndexCount = this.drawn
 	}
 
-	/** Indices the scene pass draws, for the performance overlay; -1 before the first cull. */
+	/** Indices the scene pass (and the near cascade) draws, for the performance overlay; -1 before the first cull. */
 	drawn = -1
 
 	private compact() {
@@ -183,9 +193,17 @@ export class WmoGroupCull {
 		this.geometry.userData.drawnIndexCount = total
 	}
 
-	/** Points a material's draw at the view half, for the culled camera's scene pass only. */
+	/** Whether `camera` (the scene pass's, or a shadow pass's own) draws the view half. */
+	private draws(camera: THREE.Camera) {
+		return this.drawn >= 0 && this.camera !== null && (camera === this.camera || camera === this.shadowCamera)
+	}
+
+	/**
+	 * Points a material's draw at the view half, for the culled camera's scene pass and the near
+	 * cascade's shadow pass only (pass the shadow camera from `onBeforeShadow`, not the view camera).
+	 */
 	before(camera: THREE.Camera, group: { start: number; count: number } | null) {
-		if (!group || camera !== this.camera || this.drawn < 0) return
+		if (!group || !this.draws(camera)) return
 		const k = this.groupIndex.get(group)
 		if (k === undefined) return
 		this.saved.start = group.start
@@ -195,7 +213,7 @@ export class WmoGroupCull {
 	}
 
 	after(camera: THREE.Camera, group: { start: number; count: number } | null) {
-		if (!group || camera !== this.camera || this.drawn < 0) return
+		if (!group || !this.draws(camera)) return
 		if (this.groupIndex.get(group) === undefined) return
 		group.start = this.saved.start
 		group.count = this.saved.count

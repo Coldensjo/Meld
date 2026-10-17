@@ -106,3 +106,28 @@ test('only the culled camera draws the view half, and the group is put back afte
 	assert.deepEqual({ start: grp.start, count: grp.count }, c.fullRange(1), 'with the cull stopped, the view camera draws it all too')
 	assert.equal(c.geometry.userData.drawnIndexCount, 18)
 })
+
+test('the near shadow cascade adds its groups to the view half and draws it; other shadow cameras draw it all', () => {
+	const c = WmoGroupCull.of(model(), 0, 2)!
+	const { cam, f } = view(-10, 50)
+	const near = view(250, 350)
+	c.update(cam, f, identity, near.cam, near.f)
+	assert.deepEqual(groupsIn(c, c.viewRange(0)), [0, 1], 'group 1 in view and the loose triangle')
+	assert.deepEqual(groupsIn(c, c.viewRange(1)), [1, 4], 'group 1 in view, group 4 (x 300) in the cascade')
+	const grp = c.geometry.groups[1]
+	c.before(near.cam, grp)
+	assert.deepEqual({ start: grp.start, count: grp.count }, c.viewRange(1), 'the near cascade draws the view half')
+	c.after(near.cam, grp)
+	assert.deepEqual({ start: grp.start, count: grp.count }, c.fullRange(1))
+	const far = new THREE.OrthographicCamera()
+	c.before(far, grp)
+	assert.deepEqual({ start: grp.start, count: grp.count }, c.fullRange(1), 'the far cascade draws the whole model')
+	c.after(far, grp)
+
+	// Without shadows the cascade's groups leave the view half, and its camera draws the whole model.
+	c.update(cam, f, identity, near.cam, null)
+	assert.deepEqual(groupsIn(c, c.viewRange(1)), [1])
+	c.before(near.cam, grp)
+	assert.deepEqual({ start: grp.start, count: grp.count }, c.fullRange(1))
+	c.after(near.cam, grp)
+})

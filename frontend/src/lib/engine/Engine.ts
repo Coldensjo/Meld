@@ -1009,11 +1009,18 @@ export class Engine {
     v.frustums.length = 0
     v.frustums.push(this.viewFrustum)
     v.camera = this.camera
+    v.shadowCamera = null
+    v.shadowFrustum = null
     for (const light of [this.env.key, this.env.far]) {
       if (!light.castShadow) continue
       light.updateMatrixWorld()
       light.shadow.updateMatrices(light)
       v.frustums.push(light.shadow.getFrustum())
+    }
+    // The near cascade (the key light's own map) is redrawn every frame, so a big WMO culls its groups for it too.
+    if (this.env.key.castShadow) {
+      v.shadowCamera = this.env.key.shadow.camera
+      v.shadowFrustum = this.env.key.shadow.getFrustum()
     }
     v.spheres = this.effects.shadowSpheres
     // In a WMO room the open world shows only through its doorways (#116): each window the portal

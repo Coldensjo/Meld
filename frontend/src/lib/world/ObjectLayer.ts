@@ -393,9 +393,12 @@ export class ObjectLayer {
     const a = getAsset(type)
     const m = a.skeleton ? new SkinnedInstancedMesh(geometry, a.material, capacity, a.skeleton) : new THREE.InstancedMesh(cull?.geometry ?? geometry, a.material, capacity)
     if (cull) {
-      // The scene pass draws only the groups in view; the shadow passes keep the whole model.
+      // The scene pass and the near shadow cascade draw only the groups in their frustums; the far
+      // cascade and the point lights keep the whole model. A shadow pass is told apart by its own camera.
       m.onBeforeRender = (_r, _s, camera, _g, _m, group) => cull.before(camera, group as unknown as THREE.GeometryGroup | null)
       m.onAfterRender = (_r, _s, camera, _g, _m, group) => cull.after(camera, group as unknown as THREE.GeometryGroup | null)
+      m.onBeforeShadow = (_r, _s, _c, shadowCamera, _g, _m, group) => cull.before(shadowCamera, group as unknown as THREE.GeometryGroup | null)
+      m.onAfterShadow = (_r, _s, _c, shadowCamera, _g, _m, group) => cull.after(shadowCamera, group as unknown as THREE.GeometryGroup | null)
     }
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     m.count = 0
@@ -479,7 +482,7 @@ export class ObjectLayer {
     for (const b of this.batches.values()) {
       if (!b.cull) continue
       const one = WmoGroupCull.enabled && b.mesh.count === 1 && view.camera && b.mesh.visible
-      b.cull.update(one ? view.camera! : null, view.frustums[0], b.mesh.instanceMatrix.array)
+      b.cull.update(one ? view.camera! : null, view.frustums[0], b.mesh.instanceMatrix.array, view.shadowCamera ?? null, view.shadowFrustum ?? null)
     }
   }
 

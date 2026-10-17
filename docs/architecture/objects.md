@@ -20,10 +20,14 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     (`splitLod` in `instanceCull.ts`). The LOD shares the full model's bounds tree, so picking
     always hits the full model.
   - A big WMO (20k triangles and 4 groups or more) drawn once is culled by group for the scene pass
-    (#198, `world/wmoGroupCull.ts`): its batch mesh draws a twin of the model's geometry (the same
-    vertex buffers, an index of the model's triangles sorted by WMO group, then a half rewritten with
-    the runs of the groups whose boxes meet the camera's frustum), and `onBeforeRender` points each
-    material's draw at that half for the view camera only, so the shadow passes keep the whole model.
+    and the near shadow cascade (#198, #215, `world/wmoGroupCull.ts`): its batch mesh draws a twin of
+    the model's geometry (the same vertex buffers, an index of the model's triangles sorted by WMO
+    group, then a half rewritten with the runs of the groups whose boxes meet the camera's frustum or
+    the near cascade's, `CullView.shadowFrustum`). `onBeforeRender` points each material's draw at that
+    half for the view camera, and `onBeforeShadow` for the near cascade's shadow camera (told apart by
+    its `shadowCamera` argument; its `camera` is the view's). The far cascade, redrawn only when its fit
+    changes, and the point lights' cubes keep the whole model. The near cascade lies mostly in view, so
+    the two share one half instead of a third (16 MB for Stormwind).
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
     sculpting. A tilted one also has `tiltX`/`tiltZ`, the MDDF/MODF record's first and third angles,
     turned in the client's order by `world/placement.ts` (`placementEuler`); build every model
