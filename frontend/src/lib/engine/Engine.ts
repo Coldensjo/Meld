@@ -1869,7 +1869,7 @@ export class Engine {
     if (this.prefs) this.applyLayerVisibility(this.prefs)
   }
 
-  /** Records why a region's spawns could not be read, so the Spawns panel can say so and offer a retry. */
+  /** Records why a region's spawns could not be read, so the UI can say so and offer a retry. */
   setSpawnsError(d: MapDocument, message: string) {
     d.spawnsError = message
     if (d === this.doc) editor.spawnsError = message

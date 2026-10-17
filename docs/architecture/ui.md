@@ -46,7 +46,7 @@ The window layout, the asset browser and the dock panels and floating windows.
   floating **Inspector** (`components/Inspector.svelte`, `ui.inspector`, the I key, Esc closes it);
   growing a region and saving or exporting spawns are File menu actions (shown for a region), with
   the unsaved spawn count as a chip in the status bar; the region's facts are in Map Properties.
-  `MinimapPanel` and `SpawnsPanel` are no longer mounted (the owner wants no spawn list).
+  `MinimapPanel` is no longer mounted, and `SpawnsPanel` was deleted (the owner wants no spawn list; #263).
   - **History** (`components/HistoryWindow.svelte`, `ui.history`, Edit › History) is a floating window
     like the Inspector, not a dock panel: the active map's undo stack (`History.steps`), where a click
     calls `Engine.goToHistory` (undo or redo to that step). It re-reads the stack when

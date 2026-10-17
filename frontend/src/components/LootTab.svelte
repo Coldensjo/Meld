@@ -332,7 +332,7 @@
 			</label>
 			<p class="dim">The respawn time is the spawn's own (gameobject.spawntimesecsmin/max): an undo step, saved with the region's spawns.</p>
 		{:else}
-			<p class="dim">Each spawn has its own respawn time: open the editor from a spawn (or use the Spawns panel) to set it.</p>
+			<p class="dim">Each spawn has its own respawn time: open the editor from a spawn (or use the Inspector) to set it.</p>
 		{/if}
 	{/if}
 	{#if hover}<ItemTooltip entry={hover.entry} displayId={hover.displayId} x={hover.x} y={hover.y} />{/if}

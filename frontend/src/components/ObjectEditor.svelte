@@ -399,7 +399,7 @@
 						{#if matches.length > LIMIT}<p class="dim">Showing {LIMIT} of {matches.length}. Narrow the search to see the rest.</p>{/if}
 						<h3>This spawn</h3>
 						<SpawnFields s={spawn} />
-						<p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (Spawns panel › Save to database).</p>
+						<p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (File › Save Spawns to Database…).</p>
 					{:else if tab === 'contents'}
 						<!-- The Contents tab stays mounted below, so its unsaved rows survive a tab switch. -->
 					{:else if record}

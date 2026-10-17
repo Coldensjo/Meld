@@ -11,7 +11,7 @@
   import PoolFields from './PoolFields.svelte'
 
   // The fields of one spawn the editor changes: placement, respawn time, pool, movement, formation,
-  // path, look and pose. The Spawns panel and the creature editor both show them; every change is one
+  // path, look and pose. The creature editor and the game object editor show them; every change is one
   // undo step.
 
   interface Props {

@@ -1,4 +1,4 @@
-// New creature opens the guide (#260): the editor's New creature tab and the Spawns panel's New creature… button close the editor and open the creature guide on step 1; the editor's Copy this creature asks for a name. Nothing is written to the database.
+// New creature opens the guide (#260): the editor's New creature tab closes the editor and open the creature guide on step 1; the editor's Copy this creature asks for a name. Nothing is written to the database.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

@@ -117,7 +117,7 @@ export class MapDocument {
   /** The grass tufts and flowers the game grows on the ground's textures. */
   readonly groundEffects: GroundEffectLayer
   readonly spawnLayer = new SpawnLayer()
-  /** Why the region's spawns could not be read, for the Spawns panel; '' when they loaded or were not asked for. */
+  /** Why the region's spawns could not be read, for the UI; '' when they loaded or were not asked for. */
   spawnsError = ''
   /** The map's painted liquids (lakes, rivers, lava…), per chunk, as noggit edits them. */
   readonly liquids: LiquidMap

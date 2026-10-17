@@ -72,7 +72,7 @@ export async function withLook(s: vmangos.WorldSpawn, vals: SpawnFields): Promis
   return { ...vals, model: l.model, look: l.look, anim: l.anim, displayScale: l.displayScale, scale: templateScale * (l.displayScale || 1) }
 }
 
-/** Writes field values into the spawn with `key`, redraws it and updates the Spawns panel. */
+/** Writes field values into the spawn with `key`, redraws it and updates the Inspector. */
 export function applySpawn(layer: SpawnLayer, key: string, vals: SpawnFields) {
   const s = layer.get(key)
   if (!s) return
@@ -97,7 +97,7 @@ export function selectSpawn(s: vmangos.WorldSpawn | null) {
 }
 
 /**
- * Brings the Spawns panel up to date with the layer: the selected spawn's details (a copy, since
+ * Brings the spawn state up to date with the layer: the selected spawn's details (a copy, since
  * the panel's reactive state must not wrap the drawn spawns) and the count of unsaved edits.
  */
 export function syncSpawnUi(layer: SpawnLayer, listChanged = false) {

@@ -268,9 +268,9 @@ export const editor = $state({
   regionBlock: null as { x: number; y: number; size: number } | null,
   /** The continent the open region is a part of (its folder name), or ''. */
   regionMap: '',
-  /** The creatures and game objects of the open region, for the Spawns panel. */
+  /** The creatures and game objects of the open region. */
   spawns: [] as vmangos.WorldSpawn[],
-  /** The spawn picked in the viewport or the Spawns panel, shown in the panel's details. */
+  /** The spawn picked in the viewport, shown in the Inspector and the editors. */
   selectedSpawn: null as vmangos.WorldSpawn | null,
   /** The picked point of the selected creature's path, or -1. */
   selectedWaypoint: -1,
@@ -425,7 +425,7 @@ export const prefs = $state({
   shownEvents: [] as number[],
   /** Draw every creature's waypoint path, not only the selected one's. */
   showAllPaths: false,
-  /** View › Spawn pools (#172): a ring in its pool's colour round every pooled spawn, and the region's pools listed in the Spawns panel. */
+  /** View › Spawn pools (#172): a ring in its pool's colour round every pooled spawn, and the region's pools drawn in the viewport legend. */
   showPools: false,
   /** Names over the creatures and game objects, with a creature's level and rank (#125). */
   spawnNames: true,

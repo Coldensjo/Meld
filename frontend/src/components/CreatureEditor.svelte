@@ -350,7 +350,7 @@
         <div class="scroll">
           {#if tab === 'spawn' && spawn}
             <SpawnFields s={spawn} />
-            <p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (Spawns panel › Save to database). Edit the path in the world: close the editor, then Edit path.</p>
+            <p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (File › Save Spawns to Database…). Edit the path in the world: close the editor, then Edit path.</p>
           {:else if tab === 'spells' || tab === 'shop' || tab === 'quests' || tab === 'messages'}
             <!-- The Spells, Shop, Quests and Messages tabs stay mounted below, so their unsaved edits survive a tab switch. -->
           {:else if tab === 'looks' && record}

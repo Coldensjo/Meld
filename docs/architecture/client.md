@@ -39,8 +39,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   carries them.
 - **Spawn editing** (`world/spawnEdits.ts`): spawns are edited in place in the `SpawnLayer`
   (keyed `kind/guid`), and every change is a `History` command. `SpawnLayer.touch` keeps a
-  spawn's database state before its first edit, so `edits()` lists what changed; the Spawns panel
-  saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
+  spawn's database state before its first edit, so `edits()` lists what changed; File › Save Spawns to
+  Database… saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
   one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. A
   changed display, equipment or pose is re-dressed by `SpawnLook` in Go. A game object's entry can
   change (#136, `objectEntryFields`: entry, name, type, display, model and the template's size as
@@ -107,14 +107,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the name in the kind's colour, the subname and a creature's level and rank, picked four times a second
   and left out where the ground or a building hides them (`Engine.sightBlocked`, `ObjectLayer.wmoBlocks`).
 - **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
-  by the right-click menu's Edit creature, the panel's Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
-  any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, shared with
-  the Spawns panel; undo steps), Creature (every `creature_template` column: Go reads the columns
+  by the right-click menu's Edit creature, the Inspector's Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
+  any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, also shown in
+  the game object editor; undo steps), Creature (every `creature_template` column: Go reads the columns
   and their types from the table and validates each value, `creatureFields.ts` only labels and
   groups them, and unknown columns land under Other), Looks (`DisplayPicker.svelte`: every display
   from `ListDisplays`, dressed and cached in Go, with the creature type and names of the templates
   using it, shown as asset-browser thumbnails in a virtualised grid with type chips, a model filter
-  and search; hovering previews). New creature (this tab and the Spawns panel's button) opens
+  and search; hovering previews). New creature (this tab; World › Creatures… opens the same guide) opens
   the guide of `CreaturesWorkspace` (#260); Copy this creature in the header asks for a name and
   makes a copy (`CreateCreature`: the first free entry). Template edits are a form
   saved with Save (`SaveCreature`, the newest patch row), not undo steps;
@@ -135,7 +135,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   Like the Shop, a form with its own Save and Revert, not undo steps; the editor's `spell_list_id`
   follows the save. A list a script switches to (`creature_ai_scripts`) is not counted as shared.
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
-  editor's counterpart, opened by the right-click menu's Edit object or the panel's Open editor.
+  editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor.
   Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
   category such as Ore, whose click turns the spawn into that object as an undo step, then
   `SpawnFields`), Object (every `gameobject_template` column through the same Go code as creatures,
