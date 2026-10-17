@@ -314,13 +314,18 @@ export function loadTexture(path: string): Promise<THREE.Texture> {
   return p
 }
 
-/** Small data-URL preview of a texture for UI lists. */
+/**
+ * Small data-URL preview of a texture for UI lists. Both canvases are CPU-backed
+ * (`willReadFrequently`): a GPU-backed one makes `toDataURL` wait for the GPU process, which in the
+ * headless probe page (SwiftShader) took about 1 s an icon behind the viewport's frames, and only
+ * 6 ms on the CPU (#233). The image is the same to within resampling (a mean of 2 levels in 255).
+ */
 export async function texturePreview(path: string, size = 64): Promise<string> {
   const img = await fetchImage(path)
   const src = document.createElement('canvas')
   src.width = img.width
   src.height = img.height
-  const ctx = src.getContext('2d')!
+  const ctx = src.getContext('2d', { willReadFrequently: true })!
   const data = new ImageData(img.width, img.height)
   data.data.set(img.pixels)
   // Previews ignore alpha (tilesets often store specular there).
@@ -328,7 +333,7 @@ export async function texturePreview(path: string, size = 64): Promise<string> {
   ctx.putImageData(data, 0, 0)
   const out = document.createElement('canvas')
   out.width = out.height = size
-  out.getContext('2d')!.drawImage(src, 0, 0, size, size)
+  out.getContext('2d', { willReadFrequently: true })!.drawImage(src, 0, 0, size, size)
   return out.toDataURL('image/jpeg', 0.85)
 }
 
