@@ -117,6 +117,8 @@ export function NextCreatureGUID():Promise<number>;
 
 export function NextObjectGUID():Promise<number>;
 
+export function NextObjectLoot():Promise<number>;
+
 export function ObjectModel(arg1:number):Promise<string>;
 
 export function OpenBrushDialog():Promise<Array<string>>;
@@ -150,6 +152,8 @@ export function ReadImageFile(arg1:string):Promise<string>;
 export function ReadItem(arg1:number):Promise<Record<string, string>>;
 
 export function ReadObject(arg1:number):Promise<vmangos.TemplateRecord>;
+
+export function ReadObjectLoot(arg1:number,arg2:number):Promise<vmangos.ObjectLoot>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
 
@@ -190,6 +194,8 @@ export function SaveMapDialog(arg1:string):Promise<string>;
 export function SaveModelSetDialog(arg1:string):Promise<string>;
 
 export function SaveObject(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
+
+export function SaveObjectLoot(arg1:number,arg2:Array<vmangos.LootItem>):Promise<string>;
 
 export function SavePrefabDialog(arg1:string,arg2:string):Promise<string>;
 

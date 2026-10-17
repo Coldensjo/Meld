@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { CreateObject, ObjectModel, ReadObject, SaveObject } from '../../wailsjs/go/main/App'
+	import { CreateObject, NextObjectLoot, ObjectModel, ReadObject, SaveObject } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { changedValues, fieldGroups } from '../lib/world/creatureFields'
 	import { objectFieldGroups } from '../lib/world/objectFields'
@@ -9,6 +9,7 @@
 	import { objectTypeName, spawnType } from '../lib/world/spawnInfo'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import CreaturePreview from './CreaturePreview.svelte'
+	import LootTab from './LootTab.svelte'
 	import { forgetObjectTemplates, loadObjectTemplates, objectCategory } from './SpawnBrowser.svelte'
 	import SpawnFields from './SpawnFields.svelte'
 	import TemplateFields from './TemplateFields.svelte'
@@ -17,9 +18,10 @@
 	// creatures. The left shows its model; the right edits the spawn it was opened from (its place,
 	// respawn time, and which object it is: a vein can become another vein, each change an undo step
 	// saved with the region's spawns) and its template, every column of gameobject_template, saved to
-	// the world database with Save. A new object starts here too, from scratch or as a copy.
+	// the world database with Save. A new object starts here too, from scratch or as a copy. Contents
+	// (#220) edits what a chest holds, its loot list, saved with the same Save.
 
-	type Tab = 'spawn' | 'object' | 'new'
+	type Tab = 'spawn' | 'object' | 'contents' | 'new'
 
 	const target = $derived(ui.objectEditor)
 	/** The spawn the editor was opened from, as the panel's copy of it. */
@@ -33,9 +35,13 @@
 	let loading = $state(false)
 	let saving = $state(false)
 	let confirmClose = $state(false)
+	let lootDirty = $state(false)
+	let lootTab = $state<LootTab | null>(null)
 
 	const changes = $derived(changedValues(values, saved))
 	const changeCount = $derived(Object.keys(changes).length)
+	/** Anything unsaved: the template's values or the contents. */
+	const unsaved = $derived(changeCount > 0 || lootDirty)
 	const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name), objectFieldGroups(Number(values.type) || 0)) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
@@ -56,6 +62,7 @@
 		saved = {}
 		error = ''
 		confirmClose = false
+		lootDirty = false
 		if (t.entry > 0) void load(t.entry)
 	})
 
@@ -82,7 +89,7 @@
 		const s = spawn
 		if (!t || !s || t.entry === 0 || s.entry === t.entry) return
 		const follow = () => (ui.objectEditor = { key: t.key, entry: s.entry })
-		if (changeCount === 0) {
+		if (!unsaved) {
 			follow()
 			return
 		}
@@ -117,13 +124,17 @@
 						: null,
 	)
 
-	const unsavedText = $derived(`${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object.`)
+	const unsavedText = $derived(
+		[changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object` : '', lootDirty ? 'unsaved changes to the contents' : '']
+			.filter(Boolean)
+			.join(', ') + '.',
+	)
 
 	/** What to do once unsaved changes are discarded: close, unless something else asked first. */
 	let afterDiscard: (() => void) | null = null
 
 	function close(force = false) {
-		if (changeCount > 0 && !force) {
+		if (unsaved && !force) {
 			afterDiscard = null
 			confirmClose = true
 			return
@@ -134,7 +145,7 @@
 	}
 
 	function discard() {
-		values = { ...saved }
+		revert()
 		confirmClose = false
 		const then = afterDiscard
 		afterDiscard = null
@@ -142,21 +153,52 @@
 		else close(true)
 	}
 
+	/** Drops the unsaved template values and contents. */
+	function revert() {
+		values = { ...saved }
+		lootTab?.revert()
+	}
+
+	// Save writes the template first, so a chest points at its loot list before the list is written.
 	async function save() {
-		if (!record || changeCount === 0) return
+		if (!record || !unsaved) return
 		saving = true
 		error = ''
 		try {
-			const before = { ...saved }
-			await SaveObject(record.entry, record.patch, changes)
-			saved = { ...values }
-			forgetObjectTemplates()
-			await engineRef.current?.applyObjectTemplate(record.entry, values, before)
-			setStatus(`Saved ${values.name} (entry ${record.entry}) to the world database. Restart the world server to see it in the game.`, 10000)
+			if (changeCount > 0) {
+				const before = { ...saved }
+				await SaveObject(record.entry, record.patch, changes)
+				saved = { ...values }
+				forgetObjectTemplates()
+				await engineRef.current?.applyObjectTemplate(record.entry, values, before)
+			}
+			const rows = (await lootTab?.save()) ?? -1
+			const what = rows >= 0 ? ` and its contents (${rows} ${rows === 1 ? 'row' : 'rows'})` : ''
+			setStatus(`Saved ${values.name} (entry ${record.entry})${what} to the world database. Restart the world server to see it in the game.`, 10000)
 		} catch (err) {
 			error = String(err)
 		} finally {
 			saving = false
+		}
+	}
+
+	/**
+	 * Makes the object a chest (Contents' Make it a chest): type 3 with a new, empty loot list, the lock
+	 * of an ordinary chest such as the Solid Chest (57: Open and Treasure, so anyone opens it with the
+	 * Opening cast), taken when looted so the spawn's respawn time brings it back. The other data
+	 * columns meant something else for the old type, so they are cleared. Saved with Save.
+	 */
+	async function makeChest() {
+		if (!record) return
+		try {
+			const loot = await NextObjectLoot()
+			const v = { ...values }
+			for (const c of record.columns) if (/^data\d+$/.test(c.name)) v[c.name] = '0'
+			Object.assign(v, { type: '3', data0: '57', data1: String(loot), data3: '1' })
+			values = v
+			setStatus(`${values.name} is a chest now, with loot list ${loot}: add what it holds, then Save.`, 8000)
+		} catch (err) {
+			error = String(err)
 		}
 	}
 
@@ -217,7 +259,7 @@
 		if (target?.entry === 0) return
 		copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
 		const go = () => (ui.objectEditor = { key: null, entry: 0 })
-		if (changeCount > 0) {
+		if (unsaved) {
 			afterDiscard = go
 			confirmClose = true
 			return
@@ -277,9 +319,9 @@
 			<div class="actions">
 				{#if record}
 					<button disabled={saving} onclick={place} title="Place this object in the region">Place in world</button>
-					<button disabled={changeCount === 0 || saving} onclick={() => (values = { ...saved })}>Revert</button>
-					<button class="active" disabled={changeCount === 0 || saving} onclick={save}>
-						{saving ? 'Saving…' : changeCount ? `Save object (${changeCount})` : 'Saved'}
+					<button disabled={!unsaved || saving} onclick={revert}>Revert</button>
+					<button class="active" disabled={!unsaved || saving} onclick={save}>
+						{saving ? 'Saving…' : unsaved ? `Save object (${changeCount + (lootDirty ? 1 : 0)})` : 'Saved'}
 					</button>
 				{/if}
 				<button onclick={() => close()} title="Close (Esc)">Close</button>
@@ -312,6 +354,7 @@
 				<nav class="tabs">
 					{#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
 					{#if record}<button class:on={tab === 'object'} onclick={() => (tab = 'object')}>Object</button>{/if}
+					{#if record}<button class:on={tab === 'contents'} onclick={() => (tab = 'contents')}>Contents</button>{/if}
 					<button class:on={target.entry === 0} onclick={startNew}>New object</button>
 				</nav>
 
@@ -356,6 +399,8 @@
 						<h3>This spawn</h3>
 						<SpawnFields s={spawn} />
 						<p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (Spawns panel › Save to database).</p>
+					{:else if tab === 'contents'}
+						<!-- The Contents tab stays mounted below, so its unsaved rows survive a tab switch. -->
 					{:else if record}
 						{#each groups as g (g.title)}
 							<h3>{g.title}</h3>
@@ -363,6 +408,24 @@
 						{/each}
 					{:else if loading}
 						<p class="dim">Loading the object…</p>
+					{/if}
+					{#if record && target.entry > 0}
+						<div hidden={tab !== 'contents'}>
+							<LootTab
+								bind:this={lootTab}
+								bind:dirty={lootDirty}
+								entry={record.entry}
+								name={values.name || saved.name || 'This object'}
+								type={Number(values.type) || 0}
+								loot={Number(values.data1) || 0}
+								consumed={(Number(values.data3) || 0) !== 0}
+								restock={Number(values.data2) || 0}
+								{spawn}
+								onmakechest={makeChest}
+								onsetloot={(id) => (values.data1 = String(id))}
+								onset={(col, v) => (values[col] = v)}
+							/>
+						</div>
 					{/if}
 				</div>
 			</section>

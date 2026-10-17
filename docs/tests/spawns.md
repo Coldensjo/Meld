@@ -56,6 +56,29 @@ editor's title follows. It needs the world database up, and takes about 6 s.
   comparing. After adding a binding while `make dev` runs, the page may fail with "does not provide
   an export named …" (the stale `wailsjs` trap in docs/TESTS.md).
 
+## Game object editor: Contents, Make it a chest, respawn (#220)
+
+Checks: the Contents tab (`LootTab.svelte`) reads a chest's loot list with the other objects that
+hold it, gives an object a copy of its own, adds items, makes another type a chest, and edits the
+spawn's respawn time. Unit: `internal/vmangos/loot_test.go` (the SQL, refused rows, the parsers).
+The probe `object-loot` does it all without writing: the Truesilver Deposit (2047) holds loot list
+5045 (4 rows), shared with 150081 and 123309; a copy, an added Linen Cloth (searched as `2589`) and
+Make it a chest on a generic object each show in Save's count and go with Revert. It takes about
+75 s, nearly all SwiftShader (the preview's shaders and skinning, and item icons).
+
+- Saving, by hand: make a throwaway object (`CreateObject(0, 'Probe chest 220')`, entry 182122 on
+  this database), spawn it on a flat map, Make it a chest, add 2589, Save; `ReadObject` then has
+  type 3, data0 57, data1 18151 (the next free loot id), data3 1, and `ReadObjectLoot` the row.
+  Clean up: `DELETE FROM gameobject_template WHERE entry >= 182122 AND name LIKE 'Probe chest%'`
+  and `DELETE FROM gameobject_loot_template WHERE entry >= 18151`.
+- The biggest shared list is 2283 (1074 rows, the Solid Chest 2855 and six other chests); the tab
+  draws the first 150 rows until Show all.
+- Traps: each item icon (`texturePreview`'s `toDataURL`) takes about 0.3 s in the headless page, so
+  a probe on list 2283 spends about 40 s on icons; and opening the editor on another object can stall
+  the headless page for about 36 s in one task (the preview's WebGL: shader compiles, bone uniforms).
+  A save can take longer than 30 s there. The probe opens the editor from spawns it lays down, as
+  `object-entry` does.
+
 ## Tilted game objects (#229)
 
 Checks: a game object's tilt (`gameobject.rotation0..3`) is read into `WorldSpawn.tilt`, drawn

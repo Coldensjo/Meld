@@ -90,4 +90,16 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   mangos' GameObjectInfo), and New object (`CreateObject`). The Object tab follows the spawn's entry
   (an entry change or its undo). Save calls `Engine.applyObjectTemplate` (name, type, model through
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
+- **Contents** (`components/LootTab.svelte`, #220): the game object editor's tab for what a chest
+  (type 3; veins and herbs are chests) or fishing hole (25) holds: the `gameobject_loot_template`
+  rows of the list its `data1` names (`internal/vmangos/loot.go`: `ReadObjectLoot`, `SaveObjectLoot`,
+  `NextObjectLoot`), with item search, icons and tooltips as in the Shop tab. It names the other
+  templates holding the same list, with their spawn counts, and gives this object a copy of its own
+  on asking (a new loot id, the rows kept). Make it a chest turns another type into a chest: type 3,
+  lock 57 (Open and Treasure, an ordinary chest's), taken when looted (`data3`), a new empty list,
+  the other data columns cleared. Like the template, the rows are a form: the editor's one Save
+  writes the template first and then the rows (delete and insert, `lootSQL`); Revert reads them
+  again. Respawn time is the spawn's own (`gameobject.spawntimesecsmin/max`), so the tab edits it
+  through `editSpawn` as an undo step, as `SpawnFields` does; the template's restock time (`data2`)
+  only counts for a chest that isn't taken when looted.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.

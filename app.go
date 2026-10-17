@@ -776,6 +776,34 @@ func (a *App) CreateObject(base int, name string) (int, error) {
 	return vmangos.CreateObject(server, base, name)
 }
 
+// ReadObjectLoot reads what game object template entry holds when its loot list is loot: the rows,
+// the other objects holding the same list and entry's spawn count, for the Contents tab.
+func (a *App) ReadObjectLoot(entry, loot int) (vmangos.ObjectLoot, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.ObjectLoot{}, err
+	}
+	return vmangos.ReadObjectLoot(server, entry, loot)
+}
+
+// SaveObjectLoot replaces game object loot list loot's rows with items and returns the SQL it ran.
+func (a *App) SaveObjectLoot(loot int, items []vmangos.LootItem) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SaveObjectLoot(server, loot, items)
+}
+
+// NextObjectLoot is the first loot id no game object uses yet.
+func (a *App) NextObjectLoot() (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.NextObjectLoot(server)
+}
+
 // ObjectModel is the client model a game object display shows ("" for none), for a spawn whose
 // template's display changed.
 func (a *App) ObjectModel(display int) (string, error) {

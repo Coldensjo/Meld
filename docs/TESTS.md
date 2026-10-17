@@ -146,7 +146,9 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   cull, in the scene pass and the near shadow cascade, #215), `terrain-dxt` (#216's DXT3 tileset
   array draws the ground as the RGBA one does), `object-entry` (#136, a game object spawn turned into
   another in the game object editor, and undone), `object-tilt` (#229, the Sunken Chest drawn tilted
-  and its rotation kept by a move's SQL). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
+  and its rotation kept by a move's SQL), `object-loot` (#220, a vein's shared loot list in the game
+  object editor's Contents tab, a copy of its own, an added item, Make it a chest and the respawn time,
+  nothing written). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
   that the probe exists.
 
 ## The live app without Claude in Chrome (headless Chrome over CDP)
@@ -317,6 +319,7 @@ the same scene, the report before and after.
 - Gear picker (a spawn's main hand, off hand and ranged items)
 - Spawn tabs of the asset browser (Creatures, NPCs, Objects)
 - Game object editor: turning a spawn into another object, pools (#136)
+- Game object editor: Contents, Make it a chest, respawn (#220)
 - Tilted game objects (#229)
 - Names over spawns (#125)
 - Right-click near the selected creature (#205)

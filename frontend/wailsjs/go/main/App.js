@@ -222,6 +222,10 @@ export function NextObjectGUID() {
   return window['go']['main']['App']['NextObjectGUID']();
 }
 
+export function NextObjectLoot() {
+  return window['go']['main']['App']['NextObjectLoot']();
+}
+
 export function ObjectModel(arg1) {
   return window['go']['main']['App']['ObjectModel'](arg1);
 }
@@ -288,6 +292,10 @@ export function ReadItem(arg1) {
 
 export function ReadObject(arg1) {
   return window['go']['main']['App']['ReadObject'](arg1);
+}
+
+export function ReadObjectLoot(arg1, arg2) {
+  return window['go']['main']['App']['ReadObjectLoot'](arg1, arg2);
 }
 
 export function ReadTextFile(arg1) {
@@ -368,6 +376,10 @@ export function SaveModelSetDialog(arg1) {
 
 export function SaveObject(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveObject'](arg1, arg2, arg3);
+}
+
+export function SaveObjectLoot(arg1, arg2) {
+  return window['go']['main']['App']['SaveObjectLoot'](arg1, arg2);
 }
 
 export function SavePrefabDialog(arg1, arg2) {
