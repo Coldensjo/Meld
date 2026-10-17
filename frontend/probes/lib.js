@@ -11,6 +11,8 @@ const P = {
 	/** An app module by path, through the URL the page loaded it from (a bare path gives a second copy). */
 	async app(path) {
 		const url = performance.getEntriesByType('resource').map((r) => r.name).find((n) => n.includes(path))
+		// A full resource buffer (250 entries by default; the runner raises it) drops the app's own URL.
+		if (!url && performance.getEntriesByType('resource').length >= 250) throw new Error(`P.app: ${path} is not among the page's resource entries, which may be truncated`)
 		return import(url ?? path)
 	},
 

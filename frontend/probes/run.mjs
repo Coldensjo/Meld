@@ -125,6 +125,10 @@ async function main() {
 	}
 
 	await send('Runtime.enable')
+	// The page keeps only 250 resource entries by default, which the app's modules fill, and P.app (lib.js)
+	// reads the module URLs from them; raise the limit before the page's scripts run.
+	await send('Page.enable')
+	await send('Page.addScriptToEvaluateOnNewDocument', { source: 'performance.setResourceTimingBufferSize(100000)' })
 	const lib = readFileSync(join(here, 'lib.js'), 'utf8')
 	let failed = 0
 	for (const name of run) {

@@ -195,6 +195,10 @@ in a loop and returns what it wants to report as JSON. The viewport of a 1400x90
   app's has a `?t=` hot-reload query), and writing to it changes nothing. Import the app's own URL:
   `performance.getEntriesByType('resource').map(r => r.name).find(n => n.includes('/src/lib/state/editor.svelte.ts'))`.
   The same holds for any module a probe imports.
+  `P.app(path)` does this. The page's resource buffer holds 250 entries by default, which the app's
+  modules fill, so the runner raises it (`performance.setResourceTimingBufferSize`, before the page's
+  scripts); without that `P.app` fell back to the bare path and a second copy (#223). In a page you
+  drive by hand, call `performance.setResourceTimingBufferSize(100000)` and reload.
 
 ## Reproducing a user's view
 
