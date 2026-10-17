@@ -2074,6 +2074,8 @@ export namespace vmangos {
 	    changedTiles: string[];
 	    mapId: number;
 	    tilesCurrent: boolean;
+	    building: boolean;
+	    wdt: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionResult(source);
@@ -2087,6 +2089,8 @@ export namespace vmangos {
 	        this.changedTiles = source["changedTiles"];
 	        this.mapId = source["mapId"];
 	        this.tilesCurrent = source["tilesCurrent"];
+	        this.building = source["building"];
+	        this.wdt = source["wdt"];
 	    }
 	}
 	export class RegionShadows {
@@ -2112,6 +2116,8 @@ export namespace vmangos {
 	    chunks: ChunkView[];
 	    objects: ObjectView[];
 	    liquids: adt.Liquid[];
+	    wmoOnly: boolean;
+	    bounds?: number[];
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionView(source);
@@ -2127,6 +2133,8 @@ export namespace vmangos {
 	        this.chunks = this.convertValues(source["chunks"], ChunkView);
 	        this.objects = this.convertValues(source["objects"], ObjectView);
 	        this.liquids = this.convertValues(source["liquids"], adt.Liquid);
+	        this.wmoOnly = source["wmoOnly"];
+	        this.bounds = source["bounds"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

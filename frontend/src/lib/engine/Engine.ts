@@ -3,7 +3,7 @@ import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
 import { MAX_BRUSH_RADIUS, docs, editor, setStatus, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
-import { MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
+import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import { type adt, vmangos } from '../../../wailsjs/go/models'
 import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid, type LiquidClipCell } from '../water/liquids'
@@ -128,6 +128,12 @@ export interface RegionOpen {
   objects: RegionObject[]
   /** The client's water, as the region's chunks hold it. */
   liquids: adt.Liquid[]
+  /**
+   * A WMO-only map (#271): one building and no tiles. The heights are flat ground under it, which is
+   * hidden, `objects` is the building, and `bounds` its box (lowest corner, then highest).
+   */
+  wmoOnly?: boolean
+  bounds?: number[]
 }
 
 /** A model of a region: its file ID (0 when it's new), type, and world placement. */
@@ -1640,7 +1646,8 @@ export class Engine {
   private applyLayerVisibility(p: Prefs) {
     const d = this.doc
     if (!d) return
-    d.terrain.group.visible = p.showTerrain
+    // A single building's map has no ground in the client, only the flat stand-in under it (#271).
+    d.terrain.group.visible = p.showTerrain && !d.meta.region?.wmoOnly
     d.terrain.material.wireframe = p.wireframe
     d.water.mesh.visible = p.showWater && editor.waterEnabled
     d.liquidRenderer.group.visible = p.showWater
@@ -1834,6 +1841,7 @@ export class Engine {
     d.meta.roles = guessRoles(r.palette)
     liquidsFromAdt(d.liquids, r.liquids)
     const region: RegionRef = { mapName: r.mapName, x: r.x, y: r.y, size: r.size, uids: new Map() }
+    if (r.wmoOnly) region.wmoOnly = true
     d.meta.region = region
     for (const o of r.objects) {
       const placed = d.objects.add({
@@ -1851,6 +1859,12 @@ export class Engine {
     // The client's water is in the liquid layers, so a block has no sea of its own.
     d.meta.waterEnabled = false
     this.addDocument(d)
+    // A single building opens with the camera looking at it from outside, over its middle.
+    const b = r.bounds
+    if (r.wmoOnly && b?.length === 6) {
+      const radius = Math.hypot(b[3] - b[0], b[5] - b[2]) / 2
+      this.controller.focus((b[0] + b[3]) / 2, (b[2] + b[5]) / 2, Math.min(this.controller.maxDistance, Math.max(60, radius * 1.2)))
+    }
     return d
   }
 
@@ -2758,6 +2772,8 @@ export class Engine {
     }
     t.markAllDirty()
     const region: RegionRef | null = m.region ? { ...m.region, uids: new Map() } : null
+    // A single building's map keeps no flag of its own in the file; its building's unique ID tells it.
+    if (region && m.objects.some((o) => o.uid === GLOBAL_UID)) region.wmoOnly = true
     for (const o of m.objects) {
       const { uid, ...rest } = o
       const placed = d.objects.add(rest)
@@ -2800,6 +2816,8 @@ export class Engine {
   }
 
   private terrainPointUnderRay(): THREE.Vector3 | null {
+    // A single building's ground is a hidden stand-in: models and spawns go on the building (#271).
+    if (this.doc.meta.region?.wmoOnly) return null
     const p = new THREE.Vector3()
     return this.terrain.raycast(this.raycaster.ray, p) ? p : null
   }
@@ -5169,6 +5187,14 @@ export class Engine {
     }
   }
 
+  /** The object id of the active map's building when the map is a single building (WMO-only, #271), else null. */
+  private wmoOnlyBuilding(): number | null {
+    const region = this.doc.meta.region
+    if (!region?.wmoOnly) return null
+    for (const [id, uid] of region.uids) if (uid === GLOBAL_UID) return id
+    return null
+  }
+
   /**
    * Runs the portal flood of the WMO the camera is in and hands the gate its groups, and fades the
    * room's fog in or out over the scene's.
@@ -5188,7 +5214,7 @@ export class Engine {
       }
       // The other buildings in view are flooded from outside (#116): an interior shows only where a
       // doorway does.
-      for (const w of this.rooms.outside(this.objects, this.viewFrustum, this.camera.position, ROOM_MAX_GATED - 1)) {
+      for (const w of this.rooms.outside(this.objects, this.viewFrustum, this.camera.position, ROOM_MAX_GATED - 1, this.wmoOnlyBuilding())) {
         this.roomEyeLocal.copy(this.camera.position).applyMatrix4(this.roomInv.copy(w.matrix).invert())
         toModel(this.roomEyeLocal, this.roomEyeModel)
         this.roomClip.copy(this.viewProj).multiply(w.matrix)

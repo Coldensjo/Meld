@@ -87,6 +87,8 @@ export function ListRecovery():Promise<Array<recovery.Info>>;
 
 export function ListWeapons():Promise<Array<vmangos.WeaponEntry>>;
 
+export function LoadBuildingMap(arg1:string):Promise<vmangos.RegionView>;
+
 export function LoadMap(arg1:string):Promise<mapfile.MapData>;
 
 export function LoadPrefs():Promise<string>;

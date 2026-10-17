@@ -162,6 +162,10 @@ export function ListWeapons() {
   return window['go']['main']['App']['ListWeapons']();
 }
 
+export function LoadBuildingMap(arg1) {
+  return window['go']['main']['App']['LoadBuildingMap'](arg1);
+}
+
 export function LoadMap(arg1) {
   return window['go']['main']['App']['LoadMap'](arg1);
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"math"
 	"os"
+	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
@@ -112,5 +113,101 @@ func TestExportWMOOnlyMap(t *testing.T) {
 	}
 	if flags&1 == 0 || mwmo != name || hi[0]-lo[0] < 50 || lo[0] > 100 || hi[0] < 100 {
 		t.Fatalf("WDT flags %#x, building %q, bounds %v to %v", flags, mwmo, lo, hi)
+	}
+}
+
+// wdtTemplate is a bare 1.12 WDT header: MVER and an MPHD of zeroes.
+func wdtTemplate() []byte {
+	var b []byte
+	b = append(b, 'R', 'E', 'V', 'M', 4, 0, 0, 0, 18, 0, 0, 0)
+	b = append(b, 'D', 'H', 'P', 'M', 32, 0, 0, 0)
+	return append(b, make([]byte, 32)...)
+}
+
+// TestParseGlobalWMO reads back the building BuildWMOOnlyWDT places, and finds none in a map of tiles.
+func TestParseGlobalWMO(t *testing.T) {
+	want := GlobalWMO{Name: `World\wmo\Dungeon\Test\Test.wmo`, Rotation: [3]float32{0, 180, 0},
+		Min: [3]float32{-150, -35, -200}, Max: [3]float32{150, 15, 8}, DoodadSet: 2}
+	b, err := BuildWMOOnlyWDT(wdtTemplate(), want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := wmoOnlyBuilding(b)
+	if !ok || got != want {
+		t.Fatalf("read %+v (%v), want %+v", got, ok, want)
+	}
+	tiles, err := BuildWDT(wdtTemplate(), func(x, y int) bool { return x == 3 && y == 4 })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !wdtHasTiles(tiles) || wdtHasTiles(b) {
+		t.Fatal("wdtHasTiles is wrong")
+	}
+	if _, ok := wmoOnlyBuilding(tiles); ok {
+		t.Fatal("a map of tiles read as a single building")
+	}
+}
+
+// TestGlobalBlock picks the tiles round a building at the map's middle: the Stockade's bounds lie
+// either side of tile 32's corner, so the block is tiles 31 and 32 each way.
+func TestGlobalBlock(t *testing.T) {
+	x, y, size := GlobalBlock(GlobalWMO{Min: [3]float32{-151.8, -35.7, -197.3}, Max: [3]float32{150.3, 15.2, 8.1}})
+	if x != 31 || y != 31 || size != 2 {
+		t.Fatalf("block %d,%d size %d, want 31,31 size 2", x, y, size)
+	}
+	// Molten Core lies east and north of the middle: three tiles across, so the block is square at 3.
+	x, y, size = GlobalBlock(GlobalWMO{Min: [3]float32{271.3, -233.5, -1333.1}, Max: [3]float32{1255, 72.9, -489.9}})
+	if x != 32 || y != 29 || size != 3 {
+		t.Fatalf("block %d,%d size %d, want 32,29 size 3", x, y, size)
+	}
+}
+
+// TestClientWMOOnlyRegion opens the Stormwind Stockade (a WMO-only map) as a region and saves it back:
+// unchanged it writes nothing, a new doodad set writes the WDT with it, and moving the building or
+// adding a model is refused. It needs WOW_DIR.
+func TestClientWMOOnlyRegion(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := ReadWMOOnlyRegion(dataDir, "StormwindJail")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.WMOOnly || v.X != 31 || v.Y != 31 || v.Size != 2 || len(v.Objects) != 1 || v.Objects[0].UID != GlobalUID {
+		t.Fatalf("region %d,%d size %d, WMO-only %v, objects %+v", v.X, v.Y, v.Size, v.WMOOnly, v.Objects)
+	}
+	b := v.Objects[0]
+	// The building's origin is the map's middle: tile 32's corner, one tile into the block.
+	if math.Abs(float64(b.X)-533.33) > 0.1 || math.Abs(float64(b.Z)-533.33) > 0.1 || v.Heights[0] >= -35 {
+		t.Fatalf("building at %v,%v, ground at %v", b.X, b.Z, v.Heights[0])
+	}
+	edit := func(objects ...ObjectView) RegionEdit {
+		return RegionEdit{MapName: v.MapName, X: v.X, Y: v.Y, Size: v.Size, Heights: v.Heights, Objects: objects}
+	}
+	files, res, err := RegionChanges(dataDir, edit(b))
+	if err != nil || len(files) != 0 || !res.Building || res.Tiles != 0 {
+		t.Fatalf("unchanged: %d files, %+v, %v", len(files), res, err)
+	}
+	withSet := b
+	withSet.Type += "?set=1"
+	files, err = BuildRegion(dataDir, edit(withSet))
+	if err != nil || len(files) != 1 || !strings.HasSuffix(files[0].Name, ".wdt") {
+		t.Fatalf("new doodad set: %d files, %v", len(files), err)
+	}
+	if w, ok := wmoOnlyBuilding(files[0].Data); !ok || w.DoodadSet != 1 || w.Position != [3]float32{} {
+		t.Fatalf("new doodad set wrote %+v", w)
+	}
+	moved := b
+	moved.X += 5
+	if _, err := BuildRegion(dataDir, edit(moved)); err == nil {
+		t.Fatal("moving the building was not refused")
+	}
+	if _, err := BuildRegion(dataDir, edit(b, ObjectView{Type: `m2:World\Generic\Tree.m2`, Scale: 1})); err == nil {
+		t.Fatal("a model besides the building was not refused")
 	}
 }

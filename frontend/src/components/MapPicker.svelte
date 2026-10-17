@@ -203,7 +203,7 @@
 		{#if !loaded && !failed}<p class="note">Stitching the map from the client's minimap…</p>{/if}
 		{#if failed}
 			<p class="note">
-				{#if tileCount === 0}{map} has no terrain tiles: it is a single building (WMO) with no ground, which can't be opened as a map yet.{:else}No overview of {map} in the client.{/if}
+				{#if tileCount === 0}{map} has no terrain tiles: it is a single building (WMO) with no ground. Open opens the building, with its creatures and objects.{:else}No overview of {map} in the client.{/if}
 			</p>
 		{/if}
 	</div>
@@ -211,7 +211,7 @@
 		{#if block}
 			Tiles {block.x}–{block.x + block.size - 1} × {block.y}–{block.y + block.size - 1} ({block.size}×{block.size}, {Math.round(block.size * 533.3)} yards across).
 			{#if gaps}<span class="warn">{gaps} of them {gaps === 1 ? 'has' : 'have'} no ground in the client (the empty squares); pick a block on the map's tiles to open it.</span>{/if}
-		{:else}
+		{:else if tileCount !== 0}
 			Drag on the map to pick a square of up to {maxSize}×{maxSize} tiles. Scroll to zoom, right-drag to pan.
 		{/if}
 	</p>

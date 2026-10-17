@@ -1,4 +1,4 @@
-// Opening an instance from the Start dialog's "Part of Azeroth" (#222): the Deadmines (an instance with ADT tiles) gets a block picked on its tiles and Open enabled, Molten Core (one WMO, no tiles) says it can't be opened and keeps Open greyed, and opening 2x2 tiles of the Deadmines reads its ground into a tab (it replaces the page's untouched start map).
+// Opening an instance from the Start dialog's "Part of Azeroth" (#222, #271): the Deadmines (an instance with ADT tiles) gets a block picked on its tiles and Open enabled, Molten Core (one WMO, no tiles) says it is a single building with Open enabled, opening 2x2 tiles of the Deadmines reads its ground into a tab (it replaces the page's untouched start map), and opening the Stockade (a single building) shows the building as the tab's one model, drawn from outside, with the ground hidden, the camera on it and its creatures inside its box.
 const { ui, editor } = await P.state()
 ui.newMapMode = 'open'
 ui.showNewDialog = true
@@ -21,7 +21,7 @@ const moltenNote = await P.until(() => {
 	const n = [...document.querySelectorAll('.wrap .note')].map((x) => x.textContent.trim()).find((t) => t.includes('no terrain tiles'))
 	return n ?? null
 }, 30000, "Molten Core's no-tiles note")
-const moltenDisabled = openButton().disabled
+const moltenEnabled = !openButton().disabled
 await pick('DeadminesInstance')
 await P.until(() => !openButton().disabled || null, 30000, 'Open enabled again')
 // The picked block is 6x6 tiles, which SwiftShader takes minutes to draw; open 2x2 of it the way Open does.
@@ -35,6 +35,46 @@ for (const h of t.heights) {
 	lo = Math.min(lo, h)
 	hi = Math.max(hi, h)
 }
-const out = { deadmines, overview: img.naturalWidth, moltenNote: moltenNote.slice(0, 60), moltenDisabled, relief: +(hi - lo).toFixed(1) }
-out.ok = out.overview > 0 && moltenDisabled && out.relief > 1
+const relief = +(hi - lo).toFixed(1)
+// The Stockade, not Molten Core: a small building, which SwiftShader draws in seconds.
+const { openWowBuilding } = await P.app('/src/lib/io/mapio.ts')
+openWowBuilding(P.e, 'StormwindJail')
+await P.until(() => editor.regionMap === 'StormwindJail' || null, 60000, "the Stockade's tab")
+const region = P.e.activeRegion()
+const objects = [...P.e.objects.objects.values()].map((o) => o.type)
+const target = P.e.controller.target
+const stockade = {
+	block: `${region.x},${region.y} ${region.size}`,
+	wmoOnly: !!region.wmoOnly,
+	objects,
+	groundShown: P.e.terrain.group.visible,
+	// The building's middle is about 533 yards in (tile 32's corner) and 95 north of it.
+	camera: [Math.round(target.x), Math.round(target.z)],
+}
+// The building draws from outside, though a dungeon's groups are all interior (no exterior to
+// flood from): the view differs from the same view with the objects hidden.
+await P.settle()
+const withBuilding = await P.shot()
+P.e.objects.group.visible = false
+const without = await P.shot()
+P.e.objects.group.visible = true
+stockade.drawn = +P.diff(withBuilding, without).off.toFixed(3)
+// Its creatures, when the world database runs: they stand inside the building's box (the WDT's
+// building sits at the world's origin, the map's middle; wmoonly.go).
+await P.until(() => editor.spawns.length > 0 || editor.spawnsError || null, 30000, "the Stockade's spawns").catch(() => null)
+const inside = editor.spawns.filter((s) => s.x > 370 && s.x < 690 && s.z > 330 && s.z < 545).length
+stockade.spawns = `${inside} of ${editor.spawns.length} inside${editor.spawnsError ? ` (${editor.spawnsError})` : ''}`
+const out = { deadmines, overview: img.naturalWidth, moltenNote: moltenNote.slice(0, 60), moltenEnabled, relief, stockade }
+out.ok =
+	out.overview > 0 &&
+	moltenEnabled &&
+	relief > 1 &&
+	stockade.wmoOnly &&
+	objects.length === 1 &&
+	/stormwindjail\.wmo$/i.test(objects[0]) &&
+	!stockade.groundShown &&
+	stockade.drawn > 0.02 &&
+	inside === editor.spawns.length &&
+	Math.abs(target.x - 533) < 400 &&
+	Math.abs(target.z - 440) < 400
 return out

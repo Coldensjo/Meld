@@ -39,7 +39,8 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     group (`wmoRoom` attribute, Go's `Mesh.Room`), and the instance at the room's origin hides the
     groups the flood didn't reach and fogs the reached interiors with the room fog. The 15 nearest
     other WMOs with portals in view are flooded from outside (`WmoRooms.outside`, every exterior group
-    a root), each in its own row of the gate's mask, so an interior shows only through a doorway; a
+    a root, but never a WMO-only map's building, whose groups are all interior and which then draws
+    whole from outside, #271), each in its own row of the gate's mask, so an interior shows only through a doorway; a
     doodad carries up to two groups (`Mesh.Room` has two a vertex). From inside, the open world shows only
     through the flood's exterior windows (#116, `CullView.gate`, `Terrain.gate`, the particles): a
     model, spawn, terrain chunk or emitter must meet a doorway's narrowed frustum, and a sealed room

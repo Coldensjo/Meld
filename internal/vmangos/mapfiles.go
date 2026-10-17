@@ -198,6 +198,49 @@ type GlobalWMO struct {
 	DoodadSet uint16
 }
 
+// GlobalUID is the unique ID a WMO-only map's WDT gives its building's placement, in the client's
+// files and in BuildWMOOnlyWDT's.
+const GlobalUID = 0xffffffff
+
+// ParseGlobalWMO reads a WMO-only map's building from its WDT: ok when MPHD has the global-WMO flag
+// (0x1) and MWMO and MODF name and place a building. Such a map has no tiles (#271).
+func ParseGlobalWMO(wdt []byte) (w GlobalWMO, ok bool) {
+	var flagged, named, placed bool
+	for o := 0; o+8 <= len(wdt); {
+		id := string([]byte{wdt[o+3], wdt[o+2], wdt[o+1], wdt[o]})
+		size := int(binary.LittleEndian.Uint32(wdt[o+4:]))
+		if size < 0 || o+8+size > len(wdt) {
+			break
+		}
+		p := wdt[o+8 : o+8+size]
+		switch id {
+		case "MPHD":
+			flagged = len(p) >= 4 && binary.LittleEndian.Uint32(p)&1 != 0
+		case "MWMO":
+			if end := strings.IndexByte(string(p), 0); end >= 0 {
+				p = p[:end]
+			}
+			w.Name = string(p)
+			named = w.Name != ""
+		case "MODF":
+			if len(p) < 64 {
+				break
+			}
+			get3 := func(at int) (v [3]float32) {
+				for k := 0; k < 3; k++ {
+					v[k] = math.Float32frombits(binary.LittleEndian.Uint32(p[at+4*k:]))
+				}
+				return
+			}
+			w.Position, w.Rotation, w.Min, w.Max = get3(8), get3(20), get3(32), get3(44)
+			w.DoodadSet = binary.LittleEndian.Uint16(p[58:])
+			placed = true
+		}
+		o += 8 + size
+	}
+	return w, flagged && named && placed
+}
+
 // BuildWMOOnlyWDT returns the WDT of a map that is one building and no tiles, as the 1.12 client's
 // own (Blackfathom Deeps, the Stormwind Stockade): the template's MPHD with flag 0x1 (a global WMO), an
 // empty tile table, the WMO's name in MWMO and its placement in MODF with unique ID 0xFFFFFFFF.

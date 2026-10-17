@@ -69,15 +69,17 @@ export class WmoRooms {
   /**
    * The nearest `max` placed WMOs with a portal graph that meet `frustum` within OUTSIDE_RANGE of
    * `eye`, other than the one the camera is in; one whose room data is still loading is left out
-   * (and starts loading). The list and its entries are reused by the next call.
+   * (and starts loading). `whole`, a WMO-only map's building (#271), is left out too, so it is drawn
+   * whole from outside: a dungeon's groups are all interior, and with no exterior to flood from it
+   * would not show at all. The list and its entries are reused by the next call.
    */
-  outside(objects: ObjectLayer, frustum: THREE.Frustum, eye: THREE.Vector3, max: number): readonly OutsideWmo[] {
+  outside(objects: ObjectLayer, frustum: THREE.Frustum, eye: THREE.Vector3, max: number, whole: number | null = null): readonly OutsideWmo[] {
     const found = this.found
     found.length = 0
     // A hidden Objects layer (View › Layers) gates nothing.
     if (objects !== this.layer || !objects.group.visible) return found
     for (const id of this.wmoIds) {
-      if (id === this.current?.id) continue
+      if (id === this.current?.id || id === whole) continue
       const o = objects.objects.get(id)
       if (!o || objects.isHidden(id)) continue
       const asset = getAsset(o.type)

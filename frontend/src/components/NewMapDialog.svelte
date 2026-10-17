@@ -6,7 +6,7 @@
 	import { LAYERS } from '../lib/terrain/layers'
 	import { PRESETS, drawPresetPreview, type PresetId } from '../lib/terrain/presets'
 	import { engineRef } from '../lib/state/engineRef'
-	import { hasBackend, openWowRegion } from '../lib/io/mapio'
+	import { hasBackend, openWowBuilding, openWowRegion } from '../lib/io/mapio'
 	import { MapEntries, MapZones } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 
@@ -126,11 +126,16 @@
 		close()
 	}
 
+	/** A map the picker found no tiles for is a single building (WMO-only, #271), which opens whole. */
+	const building = $derived(tileCount === 0)
+	const canOpen = $derived(!!continent && (building || (!!block && gaps === 0)))
+
 	function open() {
 		const e = engineRef.current
-		if (!e || !continent || !block || gaps > 0 || tileCount === 0) return
+		if (!e || !continent || !canOpen) return
 		close()
-		openWowRegion(e, continent.Dir, block.x, block.y, block.size)
+		if (building) openWowBuilding(e, continent.Dir)
+		else if (block) openWowRegion(e, continent.Dir, block.x, block.y, block.size)
 	}
 </script>
 
@@ -237,9 +242,13 @@
 				{/if}
 			</div>
 			<footer>
-				<span class="dim grow">The ground, textures and models of those tiles open in a new tab. Saving writes them back to the client.</span>
+				<span class="dim grow"
+					>{building
+						? 'The building and its creatures and objects open in a new tab. Saving writes its doodad set back to the client.'
+						: 'The ground, textures and models of those tiles open in a new tab. Saving writes them back to the client.'}</span
+				>
 				<button onclick={close}>Cancel</button>
-				<button class="active" disabled={!block || !continent || gaps > 0 || tileCount === 0} onclick={open}>Open</button>
+				<button class="active" disabled={!canOpen} onclick={open}>Open</button>
 			</footer>
 		{/if}
 	</div>

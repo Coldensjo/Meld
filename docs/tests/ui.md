@@ -259,16 +259,25 @@ target and facing. A click moves the camera there (`controller.focus`). In the d
   spot. Trap: a probe that runs many heavy `frame()` calls inside one evaluate can wedge that tab for
   good; start it in a `setTimeout` that writes its result to `window`, then read it in a second call.
 
-## Start dialog: opening an instance (#222, probe `instance-open`)
+## Start dialog: opening an instance (#222, #271, probe `instance-open`)
 
 Checks: in the Start dialog's "Part of Azeroth", an instance's tiles come from its WDT (`/wow/tiles`),
 the picker selects the biggest square wholly on them and Open is enabled; a WMO-only instance (Molten
-Core) says it has no terrain tiles and keeps Open greyed; the block opens. Run `pnpm probe
+Core) says it is a single building and enables Open; the block opens; the Stockade opens as a single
+building (#271): one model, the ground hidden, the building drawn from outside (a picture against
+the same view with the objects hidden) and its creatures inside its box. Run `pnpm probe
 instance-open` (about 5 s). By hand: `curl "localhost:34115/wow/tiles?map=AhnQiraj"` lists tiles with
 `"File":""` (no minimap image, column 26), which `/wow/overview` draws shaded from their heights.
-Go: `WOW_DIR=C:/WoW/client go test ./internal/wow/ -run RealInstanceTiles`.
+Go: `WOW_DIR=C:/WoW/client go test ./internal/wow/ -run RealInstanceTiles` and
+`WOW_DIR=C:/WoW/client go test ./internal/vmangos/ -run WMOOnly` (the Stockade read and saved back:
+nothing written unchanged, a doodad set written, a move refused).
 - Trap: the probe opens 2x2 tiles, not the picked 6x6 block, which SwiftShader takes minutes to draw.
 - Trap: opening a region replaces the page's untouched start map, so the tab count stays 1; wait on
   `editor.regionMap` instead.
 - Trap: in this client every instance with ADT tiles also has minimap images except Ahn'Qiraj's
   column 26; most dungeons and raids are WMO-only, which is why the owner saw "No minimap" (#222).
+- Trap: the probe opens the Stockade, not Molten Core, whose building SwiftShader draws slowly.
+- Trap: a probe's `--shot` capture comes after the probe and the app's loop is stopped, so it shows
+  a stale frame; look at a building with `P.save(await P.shot(), name)` after `P.settle()`.
+- Trap: a dungeon's WMO groups are all interior, so before #271 the outside flood drew none of the
+  building from outside (only its doodads' flames); inside a room it draws as usual.

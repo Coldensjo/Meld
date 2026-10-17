@@ -515,6 +515,16 @@ func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, e
 	return vmangos.ReadRegion(dataDir, mapName, x, y, size)
 }
 
+// LoadBuildingMap reads a WMO-only map (a dungeon that is one building and no terrain tiles) as the
+// region over the tiles its building covers, with the building as its one model (#271).
+func (a *App) LoadBuildingMap(mapName string) (*vmangos.RegionView, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadWMOOnlyRegion(dataDir, mapName)
+}
+
 // RegionShadows reads the baked terrain shadows (MCSH) of a square block of 1.12 map tiles from the
 // client, for the editor to draw as the client does.
 func (a *App) RegionShadows(mapName string, x, y, size int) (*vmangos.RegionShadows, error) {

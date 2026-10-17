@@ -141,8 +141,20 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   a tile with no minimap image is drawn from its ADT's heights (`drawTileRelief`), and a block that
   takes in a tile with no ADT can't be opened (`lib/io/mapTiles.ts`: the picker's `gaps`). On an
   instance (any map but a continent) the picker selects the biggest square wholly on its tiles
-  (`fullBlock`, #222). A WMO-only instance (one global building, no ADTs: Molten Core, Scholomance)
-  has no tiles, and the picker says it can't be opened yet.
+  (`fullBlock`, #222). A WMO-only instance (one global building, no ADTs: Molten Core, the Stockade,
+  Scholomance) has no tiles; the picker says it is a single building and Open opens it whole
+  (`openWowBuilding`, binding `LoadBuildingMap`, `internal/vmangos/wmoonly.go`, #271). It is a
+  region over the tiles the building's WDT bounds cover (`GlobalBlock`), so spawns load and save by
+  block as on any map; `RegionView.wmoOnly` gives flat ground under the building, which the editor
+  hides (`RegionRef.wmoOnly`: the terrain group is hidden and `terrainPointUnderRay` finds no ground,
+  so tools land on the building), and the building as the one model, unique ID `GLOBAL_UID`
+  (0xFFFFFFFF, how a saved `.wmap` is known as one: the format has no flag). The WDT's position is
+  the tile files' frame less ZeroPoint on X and Z (every client WDT has 0,0,0, the world's origin,
+  where the server's creatures stand). Saving (`BuildRegion` → `buildWMOOnly`) writes only the WDT,
+  and only when the building's model or doodad set changed; moving, turning or scaling it, or any
+  other model on the map, is refused, since a building off 0 would be placed differently by the
+  client and the server's vmap extractor. `WmoRooms.outside` leaves the building out of the outside
+  flood (its groups are all interior), so it draws whole from outside.
 - **Zones** (`components/ZonesDialog.svelte`, World › Zones…, `ui.dialog = 'zones'`): a map's AreaTable.dbc
   rows (`vmangos/areatable.go`: `ReadAreaRows`, `NewAreaRow`, `SetAreaRows`; bindings `AreaRows`,
   `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (the game closed around it) and

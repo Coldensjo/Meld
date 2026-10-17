@@ -4,6 +4,7 @@ import {
   SaveSQLDialog,
   SpawnEditSQL,
   LoadMap,
+  LoadBuildingMap,
   LoadRegion,
   LoadSpawns,
   OpenBrushDialog,
@@ -295,68 +296,83 @@ export function exportSpawnSql(engine: Engine) {
 
 /** Opens a square block of the client's tiles in a new tab (or switches to it if it's open). */
 export function openWowRegion(engine: Engine, mapName: string, x: number, y: number, size: number) {
-  return guarded('Open region', async () => {
-    const view = await LoadRegion(mapName, x, y, size)
-    const paint = tilePaint(
-      view.chunks.map((c) => ({
-        indexX: c.indexX,
-        indexY: c.indexY,
-        layers: (c.layers ?? []).map((l) => ({ texture: l.texture, alpha: l.alpha ? base64ToBytes(l.alpha) : undefined })),
-      })),
-      TILE_CHUNKS * size,
-    )
-    // The client's holes (cave mouths) and no-doodad cells: each chunk gives a byte per cell row, a
-    // bit per cell.
-    const cells = TILE_CHUNKS * size * CHUNK_CELLS
-    const holes = new Uint8Array(cells * cells)
-    const noEffect = new Uint8Array(cells * cells)
-    const unpack = (c: { indexX: number; indexY: number }, rows: number[] | undefined, out: Uint8Array) => {
-      if (!rows) return
-      for (let row = 0; row < CHUNK_CELLS; row++) {
-        const bits = rows[row] ?? 0
-        if (!bits) continue
-        for (let col = 0; col < CHUNK_CELLS; col++) {
-          if (bits & (1 << col)) out[(c.indexY * CHUNK_CELLS + row) * cells + c.indexX * CHUNK_CELLS + col] = 1
-        }
+  return guarded('Open region', async () => openRegionView(engine, await LoadRegion(mapName, x, y, size)))
+}
+
+/**
+ * Opens a WMO-only map (a dungeon that is one building and no terrain tiles) in a new tab: the tiles
+ * its building covers, with the building as the one model and the ground hidden (#271).
+ */
+export function openWowBuilding(engine: Engine, mapName: string) {
+  return guarded('Open building', async () => openRegionView(engine, await LoadBuildingMap(mapName)))
+}
+
+/** Opens a block read from the client (LoadRegion, LoadBuildingMap) in a new tab, then its spawns. */
+async function openRegionView(engine: Engine, view: vmangos.RegionView) {
+  const { mapName, x, y, size } = view
+  const paint = tilePaint(
+    view.chunks.map((c) => ({
+      indexX: c.indexX,
+      indexY: c.indexY,
+      layers: (c.layers ?? []).map((l) => ({ texture: l.texture, alpha: l.alpha ? base64ToBytes(l.alpha) : undefined })),
+    })),
+    TILE_CHUNKS * size,
+  )
+  // The client's holes (cave mouths) and no-doodad cells: each chunk gives a byte per cell row, a
+  // bit per cell.
+  const cells = TILE_CHUNKS * size * CHUNK_CELLS
+  const holes = new Uint8Array(cells * cells)
+  const noEffect = new Uint8Array(cells * cells)
+  const unpack = (c: { indexX: number; indexY: number }, rows: number[] | undefined, out: Uint8Array) => {
+    if (!rows) return
+    for (let row = 0; row < CHUNK_CELLS; row++) {
+      const bits = rows[row] ?? 0
+      if (!bits) continue
+      for (let col = 0; col < CHUNK_CELLS; col++) {
+        if (bits & (1 << col)) out[(c.indexY * CHUNK_CELLS + row) * cells + c.indexX * CHUNK_CELLS + col] = 1
       }
     }
-    const side = TILE_CHUNKS * size
-    const areaIds = new Uint32Array(side * side)
-    const chunkFlags = new Uint8Array(side * side)
-    for (const c of view.chunks) {
-      unpack(c, c.holes, holes)
-      unpack(c, c.noEffect, noEffect)
-      areaIds[c.indexY * side + c.indexX] = c.areaId
-      if (c.impassable) chunkFlags[c.indexY * side + c.indexX] = CHUNK_IMPASSABLE
-    }
-    const t0 = performance.now()
-    const d = engine.openRegion({
-      mapName,
-      x,
-      y,
-      size,
-      heights: Float32Array.from(view.heights),
-      weights: paint.weights,
-      chunkSlots: paint.chunkSlots,
-      holes,
-      noEffect,
-      areaIds,
-      chunkFlags,
-      palette: paint.palette,
-      objects: view.objects,
-      liquids: view.liquids,
-    })
-    if (!d) {
-      setStatus(`${mapName} ${x}_${y} ${size}×${size} is already open.`)
-      return
-    }
-    const notes = paint.dropped ? [`${paint.dropped} extra layers left out (a chunk takes four)`] : []
-    setStatus(
-      `Opened ${mapName} ${x}_${y}, ${size}×${size} tiles, with ${view.objects.length} models (${Math.round(performance.now() - t0)} ms)${notes.length ? '. ' + notes.join('; ') : ''}`,
-      8000,
-    )
-    void loadSpawns(engine, d, mapName, x, y, size)
+  }
+  const side = TILE_CHUNKS * size
+  const areaIds = new Uint32Array(side * side)
+  const chunkFlags = new Uint8Array(side * side)
+  for (const c of view.chunks) {
+    unpack(c, c.holes, holes)
+    unpack(c, c.noEffect, noEffect)
+    areaIds[c.indexY * side + c.indexX] = c.areaId
+    if (c.impassable) chunkFlags[c.indexY * side + c.indexX] = CHUNK_IMPASSABLE
+  }
+  const t0 = performance.now()
+  const d = engine.openRegion({
+    mapName,
+    x,
+    y,
+    size,
+    heights: Float32Array.from(view.heights),
+    weights: paint.weights,
+    chunkSlots: paint.chunkSlots,
+    holes,
+    noEffect,
+    areaIds,
+    chunkFlags,
+    palette: paint.palette,
+    objects: view.objects,
+    liquids: view.liquids,
+    wmoOnly: view.wmoOnly,
+    bounds: view.bounds,
   })
+  if (!d) {
+    setStatus(`${mapName} ${x}_${y} ${size}×${size} is already open.`)
+    return
+  }
+  const notes = paint.dropped ? [`${paint.dropped} extra layers left out (a chunk takes four)`] : []
+  setStatus(
+    view.wmoOnly
+      ? `Opened ${mapName}, a single building with no ground (${Math.round(performance.now() - t0)} ms). Its spawns can be edited; the building can take another doodad set, but not move.`
+      : `Opened ${mapName} ${x}_${y}, ${size}×${size} tiles, with ${view.objects.length} models (${Math.round(performance.now() - t0)} ms)${notes.length ? '. ' + notes.join('; ') : ''}`,
+    8000,
+  )
+  void loadSpawns(engine, d, mapName, x, y, size)
 }
 
 /**
@@ -453,7 +469,9 @@ export function exportRegion(engine: Engine) {
     }
     const server = await VmangosPath()
     const unchanged = res.tiles - res.changed
-    const wrote = `Wrote ${res.changed} of ${res.tiles} tiles of ${region.mapName} ${region.x}_${region.y} to ${res.patch}${unchanged ? ` (${unchanged} unchanged)` : ''}.`
+    const wrote = res.building
+      ? `Wrote ${region.mapName}'s building (its WDT) to ${res.patch}.`
+      : `Wrote ${res.changed} of ${res.tiles} tiles of ${region.mapName} ${region.x}_${region.y} to ${res.patch}${unchanged ? ` (${unchanged} unchanged)` : ''}.`
     if (!server) {
       setStatus(wrote, 10000)
       return

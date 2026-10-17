@@ -87,7 +87,15 @@ export interface RegionRef {
   y: number
   size: number
   uids: Map<number, number>
+  /**
+   * The map is a single building with no tiles (a WMO-only dungeon, #271): the terrain is a hidden
+   * stand-in, and a save writes only the building's WDT.
+   */
+  wmoOnly?: boolean
 }
+
+/** The unique ID a WMO-only map's WDT gives its building (vmangos.GlobalUID). */
+export const GLOBAL_UID = 0xffffffff
 
 /** The region's tile range, for example "Azeroth tiles 32–35 × 48–51 (4×4)". */
 export function regionLabel(r: RegionRef): string {

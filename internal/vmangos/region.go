@@ -33,6 +33,12 @@ type RegionView struct {
 	Objects []ObjectView `json:"objects"`
 	// Liquids index across the whole block, like Chunks.
 	Liquids []adt.Liquid `json:"liquids"`
+	// WMOOnly says the map is one building with no tiles (wmoonly.go): Heights are flat ground under
+	// it, which the editor hides, and Objects is the building, its UID GlobalUID.
+	WMOOnly bool `json:"wmoOnly"`
+	// Bounds, for a WMO-only map, is the building's box in the block's coordinates as the WDT gives it:
+	// its lowest corner, then its highest.
+	Bounds []float32 `json:"bounds,omitempty"`
 }
 
 // ObjectView is a placed model in the block's coordinates. UID is the file's unique ID, or 0 for
@@ -147,6 +153,10 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 	// Empty, not nil, so a block with no models or no liquid (Naxxramas has none) sends [] and not null.
 	view := &RegionView{MapName: mapName, X: x, Y: y, Size: size, Heights: make([]float32, side*side),
 		Chunks: []ChunkView{}, Objects: []ObjectView{}, Liquids: []adt.Liquid{}}
+	if w, ok := wmoOnlyBuilding(wdt); ok {
+		wmoOnlyView(view, w)
+		return view, nil
+	}
 	for j := 0; j < size; j++ {
 		for i := 0; i < size; i++ {
 			tx, ty := x+i, y+j
@@ -302,6 +312,12 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		return nil, err
 	}
 	defer set.Close()
+	// A WMO-only map is checked against its WDT as the client has it now, as ReadRegion read it.
+	if wdt, err := set.ReadFile(fmt.Sprintf(`World\Maps\%s\%s.wdt`, e.MapName, e.MapName)); err == nil {
+		if w, ok := wmoOnlyBuilding(wdt); ok {
+			return buildWMOOnly(set, e, wdt, w)
+		}
+	}
 
 	type tileEdit struct {
 		name   string
@@ -537,6 +553,11 @@ type RegionResult struct {
 	ChangedTiles []string `json:"changedTiles"`
 	MapID        int      `json:"mapId"`
 	TilesCurrent bool     `json:"tilesCurrent"`
+	// Building says the map is a single building (WMO-only, #271): it has no tiles, so Tiles is 0, and
+	// its WDT, which places the building, is the one file a save can write.
+	Building bool `json:"building"`
+	// WDT says the map's WDT was among the files written.
+	WDT bool `json:"wdt"`
 }
 
 // ClientMapID is the ID of a continent the client holds, by its folder name; ok is false for others.
@@ -575,6 +596,14 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 		return nil, res, err
 	}
 	res.Changed = countTiles(changed)
+	if countTiles(files) == 0 {
+		res.Building, res.Tiles = true, 0
+	}
+	for _, f := range changed {
+		if strings.EqualFold(filepath.Ext(f.Name), ".wdt") {
+			res.WDT = true
+		}
+	}
 	res.MapID = -1
 	if id, ok := ClientMapID(e.MapName); ok {
 		res.MapID = int(id)
