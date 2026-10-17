@@ -258,7 +258,7 @@
         return
       }
       e.preventDefault()
-      if (confirmClose) confirmClose = false
+      if (confirmClose && (changeCount > 0 || tabsDirty)) confirmClose = false
       else close()
     }
   }
@@ -292,7 +292,7 @@
         <button onclick={() => close()} title="Close (Esc)">Close</button>
       </div>
     </header>
-    {#if confirmClose}
+    {#if confirmClose && (changeCount > 0 || tabsDirty)}
       <div class="bar warn">
         <span>{unsavedText}</span>
         <button onclick={() => (confirmClose = false)}>Keep editing</button>

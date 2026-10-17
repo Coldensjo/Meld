@@ -79,8 +79,16 @@ const wasType = typeName()
 button(loot(), 'Make it a chest').click()
 await P.until(() => /Chest$/.test(typeName()) && loot().textContent.includes('Nothing yet'), WAIT, 'the chest')
 const made = { type: typeName(), list: listName(), empty: loot().textContent.includes('Nothing yet'), save: saveLabel() }
+// Close with the chest unsaved asks; Revert leaves nothing to discard, so the bar goes and Esc closes (#265).
+button(actions(), 'Close').click()
+await P.until(() => root()?.querySelector('.bar.warn'), WAIT, 'the unsaved bar')
 button(actions(), 'Revert').click()
 await P.until(() => typeName() === wasType && button(loot(), 'Make it a chest'), WAIT, 'the revert of the chest')
+await P.frames(2)
+const barAfterRevert = !!root()?.querySelector('.bar.warn')
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+await P.frames(2)
+const closedByEsc = !root()
 ui.objectEditor = null
 
 return {
@@ -98,6 +106,8 @@ return {
 		respawnEdit.min === 900 &&
 		respawnEdit.max >= 900 &&
 		respawnUndone === chest.respawnSecs &&
+		!barAfterRevert &&
+		closedByEsc &&
 		made.empty &&
 		/^Save object \(\d+\)$/.test(made.save) &&
 		/Generic/.test(wasType),
@@ -111,4 +121,6 @@ return {
 	generic: generic.entry,
 	wasType,
 	made,
+	barAfterRevert,
+	closedByEsc,
 }

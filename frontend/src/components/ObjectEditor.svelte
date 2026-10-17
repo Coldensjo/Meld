@@ -296,7 +296,7 @@
 				return
 			}
 			e.preventDefault()
-			if (confirmClose) confirmClose = false
+			if (confirmClose && unsaved) confirmClose = false
 			else close()
 		}
 	}
@@ -328,7 +328,7 @@
 				<button onclick={() => close()} title="Close (Esc)">Close</button>
 			</div>
 		</header>
-		{#if confirmClose}
+		{#if confirmClose && unsaved}
 			<div class="bar warn">
 				<span>{unsavedText}</span>
 				<button onclick={() => (confirmClose = false)}>Keep editing</button>
