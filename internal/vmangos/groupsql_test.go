@@ -77,11 +77,56 @@ func TestPoolSQL(t *testing.T) {
 	}
 }
 
+// A pool put into a master pool gets its pool_pool row once, however many of its spawns changed; one
+// taken out loses it; a master pool's new limit is written to its template; a pool can't be its own
+// master; an unchanged pool writes nothing of its master.
+func TestMotherPoolSQL(t *testing.T) {
+	vein := Spawn{Kind: GameObject, GUID: 5, Entry: 324, Pool: 9000, PoolLimit: 1, PoolName: "New vein"}
+	joined := vein
+	joined.MotherPool, joined.MotherLimit = 1100, 15
+	other := vein
+	other.GUID = 6
+	otherJoined := other
+	otherJoined.MotherPool, otherJoined.MotherLimit = 1100, 15
+	member := Spawn{Kind: GameObject, GUID: 7, Entry: 324, Pool: 1200, PoolLimit: 1, MotherPool: 1101, MotherLimit: 10}
+	left := member
+	left.MotherPool, left.MotherLimit = 0, 0
+	kept := Spawn{Kind: GameObject, GUID: 8, Entry: 324, Pool: 1300, PoolLimit: 1, MotherPool: 1102, MotherLimit: 5}
+	raised := kept
+	raised.MotherLimit = 6
+	self := Spawn{Kind: GameObject, GUID: 9, Entry: 324, Pool: 1400, PoolLimit: 1}
+	selfJoined := self
+	selfJoined.MotherPool = 1400
+	res := ExportSQL([]Edit{
+		{Spawn: joined, Original: &vein},
+		{Spawn: otherJoined, Original: &other},
+		{Spawn: left, Original: &member},
+		{Spawn: raised, Original: &kept},
+		{Spawn: selfJoined, Original: &self},
+	}, time.Unix(0, 0))
+	for _, want := range []string{
+		"INSERT INTO `pool_pool` (`pool_id`, `mother_pool`, `chance`, `description`) VALUES (9000, 1100, 0, 'New vein') ON DUPLICATE KEY UPDATE `mother_pool` = VALUES(`mother_pool`);",
+		"DELETE FROM `pool_pool` WHERE `pool_id` = 1200;",
+		"UPDATE `pool_template` SET `max_limit` = 6 WHERE `entry` = 1102;",
+	} {
+		if !strings.Contains(res.SQL, want) {
+			t.Errorf("SQL lacks %q:\n%s", want, res.SQL)
+		}
+	}
+	if strings.Count(res.SQL, "INSERT INTO `pool_pool`") != 1 || strings.Contains(res.SQL, "`pool_id` = 1300") || strings.Contains(res.SQL, "(1400, 1400") || strings.Contains(res.SQL, "`entry` = 1400;") {
+		t.Errorf("pool_pool rows:\n%s", res.SQL)
+	}
+	if len(res.Skipped) != 1 || !strings.Contains(res.Skipped[0], "Pool 1400") {
+		t.Errorf("skipped %q", res.Skipped)
+	}
+}
+
 // serverSpawn carries the formation and the pool; an object has no formation.
 func TestServerSpawnGroups(t *testing.T) {
-	w := WorldSpawn{Kind: KindMonster, GUID: 3, Leader: 2, FollowDist: 4, FollowAngle: 1.5, GroupFlags: 3, Pool: 9, PoolLimit: 1, PoolName: "p", PoolChance: 50}
+	w := WorldSpawn{Kind: KindMonster, GUID: 3, Leader: 2, FollowDist: 4, FollowAngle: 1.5, GroupFlags: 3, Pool: 9, PoolLimit: 1, PoolName: "p", PoolChance: 50, MotherPool: 11, MotherLimit: 4}
 	s := serverSpawn(w, 0, 0, 0)
-	if s.Leader != 2 || s.FollowDist != 4 || s.FollowAngle != 1.5 || s.GroupFlags != 3 || s.Pool != 9 || s.PoolLimit != 1 || s.PoolName != "p" || s.PoolChance != 50 {
+	if s.Leader != 2 || s.FollowDist != 4 || s.FollowAngle != 1.5 || s.GroupFlags != 3 || s.Pool != 9 || s.PoolLimit != 1 || s.PoolName != "p" || s.PoolChance != 50 ||
+		s.MotherPool != 11 || s.MotherLimit != 4 {
 		t.Fatalf("%+v", s)
 	}
 	w.Kind = KindObject

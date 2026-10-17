@@ -58,6 +58,8 @@ type Spawn struct {
 	Pool, PoolLimit int
 	PoolName        string
 	PoolChance      float64
+	// The mother pool the spawn's pool belongs to (pool_pool; 0 for none) and its limit.
+	MotherPool, MotherLimit int
 }
 
 // PathPoint is a waypoint in the server's coordinates: where, the facing there (0 none), the wait
@@ -212,6 +214,9 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 	var res Result
 	poolRows := map[int]Spawn{}
 	var poolOrder []int
+	// The pools whose mother pool changed, and the mother pools whose limit did.
+	motherRows, motherLimits := map[int]Spawn{}, map[int]int{}
+	var motherOrder, limitOrder []int
 	for _, e := range sorted {
 		s := e.Spawn
 		name := label(s)
@@ -333,6 +338,18 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 			}
 			poolRows[s.Pool] = s
 		}
+		if skipped == "" && s.Pool != 0 && (e.Original == nil || e.Original.MotherPool != s.MotherPool) {
+			if _, seen := motherRows[s.Pool]; !seen {
+				motherOrder = append(motherOrder, s.Pool)
+			}
+			motherRows[s.Pool] = s
+		}
+		if s.MotherPool != 0 && s.MotherPool != s.Pool && (e.Original == nil || e.Original.MotherPool != s.MotherPool || e.Original.MotherLimit != s.MotherLimit) {
+			if _, seen := motherLimits[s.MotherPool]; !seen {
+				limitOrder = append(limitOrder, s.MotherPool)
+			}
+			motherLimits[s.MotherPool] = s.MotherLimit
+		}
 	}
 
 	// The pools made or changed: a new one gets its pool_template row, and every one its limit and
@@ -344,6 +361,23 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 		out = append(out, fmt.Sprintf("INSERT INTO `pool_template` (`entry`, `max_limit`, `description`) SELECT %d, %d, %s FROM DUAL "+
 			"WHERE NOT EXISTS (SELECT 1 FROM `pool_template` WHERE `entry` = %d);", p, max(s.PoolLimit, 0), desc, p))
 		out = append(out, fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d, `description` = %s WHERE `entry` = %d;", max(s.PoolLimit, 0), desc, p))
+	}
+
+	// The pools put into a mother pool or taken out of one (pool_pool), then the mother pools'
+	// limits. A pool of the region keeps its pool_pool row's chance and description.
+	for _, p := range motherOrder {
+		lines, skipped := motherSQL(motherRows[p])
+		out = append(out, lines...)
+		if skipped != "" {
+			res.Skipped = append(res.Skipped, fmt.Sprintf("Pool %d: %s", p, skipped))
+		}
+	}
+	for _, m := range limitOrder {
+		if m < 1 || m > MaxPoolEntry {
+			continue
+		}
+		out = append(out, fmt.Sprintf("-- Master pool %d", m))
+		out = append(out, fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d WHERE `entry` = %d;", max(motherLimits[m], 0), m))
 	}
 
 	header := []string{

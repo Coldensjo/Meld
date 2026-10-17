@@ -131,7 +131,11 @@ world database up): it reads Elwynn's patrols (tile 30, 48) and Redridge's maste
 through `LoadSpawns`, then on a flat map builds a formation (a real click in the viewport through
 `P.click` at a creature's projected position, then `e.pickSpawn`), checks the slots and lines
 (`e.links`), moves a follower by its fields, makes a pool (a real `NextPoolEntry`) and adds a vein,
-reads the SQL from `SpawnEditSQL` and undoes all five steps. Nothing is written.
+puts the new pool into the master pool of a Redridge vein spot (a copy of the spot, by `pickSpawn` in
+`joinMother` mode) and raises that master pool's limit (#261), reads the SQL from `SpawnEditSQL`
+(`pool_pool` and the mother's `pool_template` limit among it) and undoes all seven steps. Nothing is
+written. `TestMotherPoolSQL` checks the `pool_pool` SQL; it was also run on temporary copies of
+`pool_pool` and `pool_template` in the `mysql` schema (MyISAM, so no rollback would undo it).
 
 - Places in the world: tile 39, 30 (Hinterlands) has walking formations of Verdantine Boughguards
   (flags 11, slots 4 yd at 135° and 225°) and the Golden Sansam pool (7 of 18); tile 34, 46 (Burning

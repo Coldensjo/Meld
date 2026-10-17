@@ -55,6 +55,8 @@ func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
 		PoolLimit:      w.PoolLimit,
 		PoolName:       w.PoolName,
 		PoolChance:     float64(w.PoolChance),
+		MotherPool:     w.MotherPool,
+		MotherLimit:    w.MotherLimit,
 	}
 	if w.Kind == KindObject {
 		s.Leader, s.FollowDist, s.FollowAngle, s.GroupFlags = 0, 0, 0, 0

@@ -67,8 +67,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   holds creatures or game objects, not both. The pool's limit and description ride on every member
   (a change is one step over the region's members, `poolSettingChanges`). The SQL (`poolSQL`) writes
   a changed membership as an upsert of the member row (or its delete) and a new or changed pool as
-  `pool_template` rows (insert if missing, then update every patch row). Mother pools are read only;
-  pools by entry (`pool_gameobject_template`) are not read. View › Spawn pools (`prefs.showPools`)
+  `pool_template` rows (insert if missing, then update every patch row). A pool joins a mother pool
+  by a pick (Join a master pool, `ui.spawnPick` mode `joinMother`: the clicked spawn's pool's mother,
+  `joinMotherChanges`) and leaves it (`leaveMotherChanges`); the mother's fields ride on every spawn of
+  its pools in the region, as the pool's limit does (`MotherSize` counts pools), and its limit is
+  edited the same way (`motherLimitChanges`). The SQL (`motherSQL`, #261) upserts the pool's
+  `pool_pool` row (chance 0; a pool can't be its own mother) or deletes it, and writes a changed
+  mother limit to its `pool_template` rows. Pools by entry (`pool_gameobject_template`) are not read. View › Spawn pools (`prefs.showPools`)
   draws a ring and a post round every pooled spawn in its top pool's colour (the mother pool's, else
   its own; `poolHue`, `world/SpawnLinks.ts`) and `PoolLegend.svelte` lists the region's pools with
   "limit of size".

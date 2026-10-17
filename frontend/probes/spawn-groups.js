@@ -1,4 +1,4 @@
-// Formations and spawn pools (#172): the server's are read with their slots, limits and mother pools; a formation and a pool built by clicks on the map draw their lines and rings, write creature_groups and pool rows in the SQL, a dragged follower takes its slot, and undo takes it all back.
+// Formations and spawn pools (#172): the server's are read with their slots, limits and mother pools; a formation and a pool built by clicks on the map draw their lines and rings, write creature_groups and pool rows in the SQL, a dragged follower takes its slot, a new pool joins a master pool and its limit changes (pool_pool, #261), and undo takes it all back.
 const e = P.e
 const { editor, prefs, ui } = await P.state()
 const se = await P.app('/src/lib/world/spawnEdits.ts')
@@ -26,8 +26,12 @@ const a = se.newCreatureSpawn(t(38, 'Defias Thug'), 9_000_002, 100, 0, 103, 0, l
 const b = se.newCreatureSpawn(t(38, 'Defias Thug'), 9_000_003, 97, 0, 100, 0, look)
 const vein = se.newObjectSpawn({ entry: 1731, name: 'Copper Vein', type: 3, display: 0, model: '', size: 1 }, 9_000_101, 120, 0, 100, 0)
 const other = se.newObjectSpawn({ entry: 1731, name: 'Copper Vein', type: 3, display: 0, model: '', size: 1 }, 9_000_102, 140, 0, 100, 0)
+// A vein spot of Redridge's master pool, for the new pool to join (#261).
+const m = redridge.find((s) => s.kind === 'object' && s.motherPool && s.motherLimit > 0) ?? { pool: 1, poolLimit: 1, poolName: '', motherPool: 0, motherLimit: 0, motherSize: 0, motherName: '' }
+const spot = se.newObjectSpawn({ entry: 1731, name: 'Copper Vein', type: 3, display: 0, model: '', size: 1 }, 9_000_103, 160, 0, 100, 0)
+Object.assign(spot, { pool: m.pool, poolLimit: m.poolLimit, poolName: m.poolName, motherPool: m.motherPool, motherLimit: m.motherLimit, motherSize: m.motherSize, motherName: m.motherName })
 const layer = e.activeDocument().spawnLayer
-layer.set([leader, a, b, vein, other])
+layer.set([leader, a, b, vein, other, spot])
 se.syncSpawnUi(layer, true)
 e.focusPoint(100, 100)
 await P.frames(2)
@@ -70,17 +74,32 @@ const pool = {
 }
 prefs.showPools = false
 
+// The new pool joins the spot's master pool by a pick, then the master pool's limit goes up by one.
+e.startSpawnPick(spawnKey(vein), 'joinMother')
+await P.frames(1)
+const motherBar = document.querySelector('.pickbar')?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+e.pickSpawn(spot)
+const mother = {
+	picking: ui.spawnPick,
+	joined: vein.motherPool === m.motherPool && other.motherPool === m.motherPool && vein.motherSize === m.motherSize + 1 && spot.motherSize === m.motherSize + 1,
+}
+const { motherLimitChanges } = await P.app('/src/lib/world/pools.ts')
+e.changeSpawns(motherLimitChanges(layer.spawns, vein, m.motherLimit + 1), 'Master pool limit')
+mother.limit = vein.motherLimit === m.motherLimit + 1 && spot.motherLimit === m.motherLimit + 1
+
 const sql = (await App.SpawnEditSQL('Azeroth', 32, 48, 1, layer.edits())).sql
 const wrote = {
 	groups: (sql.match(/REPLACE INTO `creature_groups`/g) ?? []).length,
 	poolRows: (sql.match(/INSERT INTO `pool_gameobject`/g) ?? []).length,
 	template: sql.includes(`INSERT INTO \`pool_template\` (\`entry\`, \`max_limit\`, \`description\`) SELECT ${vein.pool}, 1,`),
+	poolPool: sql.includes(`INSERT INTO \`pool_pool\` (\`pool_id\`, \`mother_pool\`, \`chance\`, \`description\`) VALUES (${vein.pool}, ${m.motherPool}, 0,`),
+	motherLimit: sql.includes(`UPDATE \`pool_template\` SET \`max_limit\` = ${m.motherLimit + 1} WHERE \`entry\` = ${m.motherPool};`),
 }
-// Five steps: two joins, the move, the new pool and the second vein.
+// Seven steps: two joins, the move, the new pool, the second vein, the master pool and its limit.
 let steps = 0
 while (layer.edits().length && steps < 10 && e.undo()) steps++
 await P.frames(1)
-const after = { edits: layer.edits().length, leader: leader.leader, a: a.leader, pool: vein.pool }
+const after = { edits: layer.edits().length, leader: leader.leader, a: a.leader, pool: vein.pool, mother: vein.motherPool }
 e.activeDocument().spawnLayer.set([])
 se.syncSpawnUi(layer, true)
 return {
@@ -104,13 +123,21 @@ return {
 		wrote.groups === 3 &&
 		wrote.poolRows === 2 &&
 		wrote.template &&
+		motherBar.includes('joins a master pool') &&
+		mother.picking === null &&
+		mother.joined &&
+		mother.limit &&
+		wrote.poolPool &&
+		wrote.motherLimit &&
 		after.edits === 0 &&
 		after.leader === 0 &&
 		after.a === 0 &&
 		after.pool === 0 &&
-		steps === 5,
+		after.mother === 0 &&
+		steps === 7,
 	read,
 	bar,
+	mother,
 	clicked,
 	formation,
 	moved,

@@ -577,9 +577,10 @@ export const ui = $state({
    * Clicks on spawns in the Select tool build the selected spawn's formation or pool (#172) instead
    * of selecting: `lead` makes each clicked creature follow it (or leave, if it does), `follow` makes
    * it follow the clicked one's leader, `pool` puts each clicked spawn into its pool (or takes it
-   * out), and `joinPool` puts it into the clicked one's pool. `key` is the selected spawn's.
+   * out), `joinPool` puts it into the clicked one's pool, and `joinMother` puts its pool into the
+   * clicked one's mother pool (#261). `key` is the selected spawn's.
    */
-  spawnPick: null as { mode: 'lead' | 'follow' | 'pool' | 'joinPool'; key: string } | null,
+  spawnPick: null as { mode: 'lead' | 'follow' | 'pool' | 'joinPool' | 'joinMother'; key: string } | null,
   /**
    * The creature editor, full screen: the creature template `entry`, and the spawn `key` it was
    * opened from (null for a template alone, such as a new creature).

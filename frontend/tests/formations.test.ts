@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { vmangos } from '../wailsjs/go/models'
 import { disbandChanges, FORMATION_DEFAULT, joinChanges, leaveChanges, slotAt, slotFieldsAt, slotPosition } from '../src/lib/world/formations.ts'
-import { chanceProblem, joinPoolChanges, poolLegend, poolRule, poolSize } from '../src/lib/world/pools.ts'
+import { chanceProblem, joinMotherChanges, joinPoolChanges, leaveMotherChanges, motherLimitChanges, poolLegend, poolRule, poolSize } from '../src/lib/world/pools.ts'
 
 const spawn = (o: Partial<vmangos.WorldSpawn>): vmangos.WorldSpawn =>
 	({ kind: 'monster', guid: 1, name: 'x', x: 0, y: 0, z: 0, orientation: 0, scale: 1, leader: 0, followDist: 0, followAngle: 0, groupFlags: 0, pool: 0, poolLimit: 0, poolName: '', poolChance: 0, poolElsewhere: 0, motherPool: 0, motherLimit: 0, motherSize: 0, motherName: '', ...o }) as vmangos.WorldSpawn
@@ -110,5 +110,31 @@ test('the legend lists a mother pool once for all its spots, with its limit and 
 			[1080, true, 15, 113, 3],
 			[5, false, 1, 2, 1],
 		],
+	)
+})
+
+test('a pool joins a master pool with all its spawns, and leaves it again', () => {
+	const spot = (guid: number, pool: number) => spawn({ guid, kind: 'object', pool, poolLimit: 1, motherPool: 1080, motherLimit: 15, motherSize: 113, motherName: 'Tin' })
+	const a = spot(1, 100)
+	const b = spot(2, 101)
+	const n1 = spawn({ guid: 3, kind: 'object', pool: 9000, poolLimit: 1 })
+	const n2 = spawn({ guid: 4, kind: 'object', pool: 9000, poolLimit: 1 })
+	const all = [a, b, n1, n2]
+	const c = joinMotherChanges(all, a, n1)
+	assert.ok(Array.isArray(c))
+	const by = new Map(c.map((x) => [x.key, x.vals]))
+	assert.deepEqual(by.get('object/3'), { motherPool: 1080, motherLimit: 15, motherName: 'Tin', motherSize: 114 })
+	assert.equal(by.get('object/4')?.motherPool, 1080)
+	assert.deepEqual(by.get('object/1'), { motherSize: 114 })
+	assert.equal(typeof joinMotherChanges(all, n1, a), 'string', 'a pool with no master pool has none to join')
+	assert.equal(typeof joinMotherChanges(all, b, a), 'string', 'already in it')
+	assert.equal(typeof joinMotherChanges(all, a, spawn({ guid: 5, kind: 'object' })), 'string', 'a spawn in no pool')
+	const out = new Map(leaveMotherChanges(all, a).map((x) => [x.key, x.vals]))
+	assert.equal(out.get('object/1')?.motherPool, 0)
+	assert.deepEqual(out.get('object/2'), { motherSize: 112 })
+	assert.equal(out.has('object/3'), false)
+	assert.deepEqual(
+		motherLimitChanges(all, a, 20).map((x) => x.key),
+		['object/1', 'object/2'],
 	)
 })

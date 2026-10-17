@@ -5,8 +5,8 @@ import type { SpawnFields } from './spawnEdits'
 // Spawn pools (pool_template, pool_creature, pool_gameobject, #172): "spawn N of these M". A pool
 // spawns at most its limit of its members at a time, such as one of the veins that share a spot; a
 // pool may itself belong to a mother pool (pool_pool), such as a zone's master pool of vein spots,
-// which fills at most its own limit of them. The editor makes and changes pools of spawns; mother
-// pools are read only.
+// which fills at most its own limit of them. The editor makes and changes pools of spawns, puts a
+// pool into a mother pool or takes it out (#261), and changes a mother pool's limit.
 
 /** The fields of a spawn in no pool. */
 export const NO_POOL: SpawnFields = { pool: 0, poolLimit: 0, poolName: '', poolChance: 0, poolElsewhere: 0, motherPool: 0, motherLimit: 0, motherSize: 0, motherName: '' }
@@ -78,6 +78,50 @@ export const leavePoolChanges = (s: vmangos.WorldSpawn): SpawnChange[] => [{ key
 /** The changes that give `s`'s pool a new limit or description: every member of the region carries them. */
 export function poolSettingChanges(spawns: readonly vmangos.WorldSpawn[], s: vmangos.WorldSpawn, vals: { poolLimit?: number; poolName?: string }): SpawnChange[] {
 	return poolMembers(spawns, s.pool, s).map((o) => ({ key: keyOf(o), vals: { ...vals } }))
+}
+
+/** The spawns of `spawns` whose pool belongs to mother pool `mother`. */
+const motherMembers = (spawns: readonly vmangos.WorldSpawn[], mother: number) => (mother ? spawns.filter((o) => o.pool && o.motherPool === mother) : [])
+
+/**
+ * The changes that put `s`'s pool into the mother pool of `target` (pool_pool): every spawn of the
+ * pool in the region takes the mother's entry, limit and description, and every spawn of the mother's
+ * pools counts one pool more. A reason instead when it can't join.
+ */
+export function joinMotherChanges(spawns: readonly vmangos.WorldSpawn[], target: vmangos.WorldSpawn, s: vmangos.WorldSpawn): SpawnChange[] | string {
+	if (!s.pool) return `${s.name} is in no pool.`
+	if (!target.pool || !target.motherPool) return `${target.name}'s pool is in no master pool.`
+	if (s.motherPool === target.motherPool) return `Pool ${s.pool} is in that master pool already.`
+	if (target.motherPool === s.pool) return `Pool ${s.pool} can't be its own master pool.`
+	const size = target.motherSize + 1
+	const vals = { motherPool: target.motherPool, motherLimit: target.motherLimit, motherName: target.motherName, motherSize: size }
+	return [
+		...poolMembers(spawns, s.pool, s).map((o) => ({ key: keyOf(o), vals: { ...vals } })),
+		...motherMembers(spawns, target.motherPool).map((o) => ({ key: keyOf(o), vals: { motherSize: size } })),
+		...(s.motherPool ? motherCount(spawns, s, -1) : []),
+	]
+}
+
+/** The changes that give the other pools of `s`'s mother pool a count of pools `delta` more. */
+function motherCount(spawns: readonly vmangos.WorldSpawn[], s: vmangos.WorldSpawn, delta: number): SpawnChange[] {
+	const size = Math.max(0, s.motherSize + delta)
+	return motherMembers(spawns, s.motherPool)
+		.filter((o) => o.pool !== s.pool || isObject(o) !== isObject(s))
+		.map((o) => ({ key: keyOf(o), vals: { motherSize: size } }))
+}
+
+/** The changes that take `s`'s pool out of its mother pool: its spawns lose the mother, the mother's other pools count one fewer. */
+export function leaveMotherChanges(spawns: readonly vmangos.WorldSpawn[], s: vmangos.WorldSpawn): SpawnChange[] {
+	if (!s.pool || !s.motherPool) return []
+	return [
+		...poolMembers(spawns, s.pool, s).map((o) => ({ key: keyOf(o), vals: { motherPool: 0, motherLimit: 0, motherName: '', motherSize: 0 } })),
+		...motherCount(spawns, s, -1),
+	]
+}
+
+/** The changes that give `s`'s mother pool a new limit: every spawn of its pools in the region carries it. */
+export function motherLimitChanges(spawns: readonly vmangos.WorldSpawn[], s: vmangos.WorldSpawn, limit: number): SpawnChange[] {
+	return motherMembers(spawns, s.motherPool).map((o) => ({ key: keyOf(o), vals: { motherLimit: limit } }))
 }
 
 /**

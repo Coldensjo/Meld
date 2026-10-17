@@ -227,3 +227,21 @@ func poolSQL(s Spawn, orig *Spawn, table string) ([]string, string) {
 	return []string{fmt.Sprintf("INSERT INTO `%s` (`guid`, `pool_entry`, `chance`, `description`) VALUES (%d, %d, %s, %s) "+
 		"ON DUPLICATE KEY UPDATE `pool_entry` = VALUES(`pool_entry`), `chance` = VALUES(`chance`);", link, s.GUID, s.Pool, num(chance), sqlQuote(poolDescription(s)))}, ""
 }
+
+// motherSQL is the SQL that puts spawn s's pool into its mother pool (pool_pool), or takes it out of
+// the one it had when s has none. The reason is given instead for a mother the database can't hold
+// or that is the pool itself (the server skips a pool that holds itself).
+func motherSQL(s Spawn) ([]string, string) {
+	head := fmt.Sprintf("-- Master pool of pool %d", s.Pool)
+	if s.MotherPool == 0 {
+		return []string{head, fmt.Sprintf("DELETE FROM `pool_pool` WHERE `pool_id` = %d;", s.Pool)}, ""
+	}
+	if s.MotherPool < 0 || s.MotherPool > MaxPoolEntry {
+		return nil, fmt.Sprintf("its master pool %d, which the database can't hold (1 to %d)", s.MotherPool, MaxPoolEntry)
+	}
+	if s.MotherPool == s.Pool {
+		return nil, "its master pool is the pool itself"
+	}
+	return []string{head, fmt.Sprintf("INSERT INTO `pool_pool` (`pool_id`, `mother_pool`, `chance`, `description`) VALUES (%d, %d, 0, %s) "+
+		"ON DUPLICATE KEY UPDATE `mother_pool` = VALUES(`mother_pool`);", s.Pool, s.MotherPool, sqlQuote(poolDescription(s)))}, ""
+}

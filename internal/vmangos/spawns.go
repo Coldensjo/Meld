@@ -101,7 +101,7 @@ type WorldSpawn struct {
 	PoolElsewhere int     `json:"poolElsewhere"`
 	// MotherPool is the pool the spawn's pool belongs to (pool_pool; 0 for none), such as a zone's
 	// master pool of vein spots: the server fills at most MotherLimit of its MotherSize pools at a
-	// time. MotherName is its description. Read only.
+	// time. MotherName is its description.
 	MotherPool  int    `json:"motherPool"`
 	MotherLimit int    `json:"motherLimit"`
 	MotherSize  int    `json:"motherSize"`

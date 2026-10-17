@@ -10,7 +10,7 @@
 	const mode = $derived(ui.spawnPick?.mode)
 	const count = $derived(!s ? 0 : mode === 'lead' ? followersOf(editor.spawns, s.guid).length : mode === 'pool' ? poolMates(editor.spawns, s).length + 1 : 0)
 	const title = $derived(
-		!s ? '' : mode === 'lead' ? `Formation of ${s.name}` : mode === 'follow' ? `${s.name} follows…` : mode === 'pool' ? `Pool ${s.pool} of ${s.name}` : `${s.name} joins a pool…`,
+		!s ? '' : mode === 'lead' ? `Formation of ${s.name}` : mode === 'follow' ? `${s.name} follows…` : mode === 'pool' ? `Pool ${s.pool} of ${s.name}` : mode === 'joinMother' ? `Pool ${s.pool} joins a master pool…` : `${s.name} joins a pool…`,
 	)
 	const what = $derived(
 		mode === 'lead'
@@ -19,7 +19,9 @@
 				? 'Click the creature to follow, or any creature of its formation.'
 				: mode === 'pool'
 					? `Click a ${s?.kind === 'object' ? 'game object' : 'creature'} to put it into the pool; click a member to take it out.`
-					: 'Click a spawn of the pool to join.',
+					: mode === 'joinMother'
+						? 'Click a spawn whose pool is in the master pool to join, such as another vein of the zone.'
+						: 'Click a spawn of the pool to join.',
 	)
 	const tally = $derived(mode === 'lead' ? (count === 1 ? '1 follower' : `${count} followers`) : mode === 'pool' ? `${count} in this region` : '')
 </script>
@@ -32,7 +34,7 @@
 		</div>
 		<p class="dim">{what} Each click is an undo step; Esc stops.</p>
 		<div class="buttons">
-			<button class="done" onclick={() => (ui.spawnPick = null)}>{mode === 'follow' || mode === 'joinPool' ? 'Cancel' : 'Done'}</button>
+			<button class="done" onclick={() => (ui.spawnPick = null)}>{mode === 'follow' || mode === 'joinPool' || mode === 'joinMother' ? 'Cancel' : 'Done'}</button>
 		</div>
 	</div>
 {/if}

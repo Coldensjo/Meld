@@ -100,7 +100,7 @@ import { pickNearest } from '../world/pickNearest'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { SpawnLinks } from '../world/SpawnLinks'
 import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
-import { joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
+import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
@@ -1956,7 +1956,7 @@ export class Engine {
    * then follow `ui.spawnPick`'s mode (see `pickSpawn`) until Done or Esc. `SpawnPickBar` says what a
    * click does.
    */
-  startSpawnPick(key: string, mode: 'lead' | 'follow' | 'pool' | 'joinPool') {
+  startSpawnPick(key: string, mode: 'lead' | 'follow' | 'pool' | 'joinPool' | 'joinMother') {
     const s = this.doc.spawnLayer.get(key)
     if (!s || ((mode === 'lead' || mode === 'follow') && s.kind === 'object')) return
     if (editor.tool !== 'select') editor.tool = 'select'
@@ -1970,7 +1970,8 @@ export class Engine {
    * A click on spawn `o` while `ui.spawnPick` is on, as one undo step: in `lead`, `o` follows the
    * picked creature (or leaves, when it does already); in `follow`, the picked creature follows `o`'s
    * leader (or `o`) and the picking ends; in `pool`, `o` joins the picked spawn's pool (or leaves it);
-   * in `joinPool`, the picked spawn joins `o`'s pool and the picking ends.
+   * in `joinPool`, the picked spawn joins `o`'s pool and the picking ends; in `joinMother`, the picked
+   * spawn's pool joins `o`'s pool's mother pool (#261) and the picking ends.
    */
   pickSpawn(o: vmangos.WorldSpawn) {
     const pick = ui.spawnPick
@@ -2020,6 +2021,12 @@ export class Engine {
         if (o.guid === s.guid && o.kind === s.kind) return
         changes = joinPoolChanges(o, s)
         label = `Join pool (${s.name})`
+        done = true
+        break
+      case 'joinMother':
+        if (o.guid === s.guid && o.kind === s.kind) return
+        changes = joinMotherChanges(layer.spawns, o, s)
+        label = `Join master pool ${o.motherPool} (pool ${s.pool})`
         done = true
         break
     }
