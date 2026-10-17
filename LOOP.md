@@ -304,7 +304,7 @@ You do one issue, given in your prompt, and then report. Do not pick another ite
 push, do not write to the run log, and do not change the issue's `in-progress` label; the
 coordinator does those. CLAUDE.md applies in full.
 
-a. Read the issue with its comments: `gh issue view <n> --repo Coldensjo/Meld --comments`. If it was
+a. Read the issue with its comments: `gh issue view <n> --repo Coldensjo/Meld --json title,body,labels,comments` (the plain `--comments` form prints nothing in the agent shells). If it was
    left unfinished before, start from where its comments say it stands.
 
 b. Read the code it touches before changing it, and search the decisions about the features it

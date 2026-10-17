@@ -42,7 +42,7 @@ in the git history (`git show b47706b:PROGRESS.md`).
   comments), how to verify it (the test entry in `docs/tests/`, listed in docs/TESTS.md; a client test, a spot on the map) and the traps
   you know of. While working on an issue, comment anything a later session would otherwise have to
   rediscover: a dead end, a finding about the client's format, where a half-done item stands.
-- **Before working on an issue**, read it with its comments (`gh issue view <n> --comments`).
+- **Before working on an issue**, read it with its comments (`gh issue view <n> --json title,body,labels,comments`; the plain `--comments` form prints nothing in the agent shells).
 - **Comments**: start every comment you write with `**Claude:**`. A comment by the owner (author
   `Coldensjo`, not starting with `**Claude:**`) is an instruction for that item; comments by
   `github-actions` are only pings. A decision about an item (the user's answer, or a choice you made
