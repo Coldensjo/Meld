@@ -69,6 +69,10 @@ that should open straight in the world is a feature on top of Benilla, not in it
   character select. Checked on 2026-10-15: Sizaro moved from Tanaris to Northshire Abbey and
   entered the world there, in Elwynn Forest.
 - **Preferences › Launch Benilla** opens it on demand.
+- **Template caches**: like the 1.12 client's `WDB\creaturecache.wdb`, Benilla keeps the creature
+  templates it was told across sessions, in `benilla-config\cache\<realm>.tsv` (game objects only for
+  the session). After a creature editor Save, Meld drops that creature's line before it next starts
+  the game (`internal/game/cache.go`), so the game asks the server again.
 - **Preferences › Game window**: the game's own setting, Windowed or Fullscreen, at a size (1280×720
   to 2560×1440). Each time Meld starts the game it writes the 1.12 client's `gxWindow`, `gxMaximize`
   and `gxResolution` into the game's own settings (Benilla's `benilla-config\config.toml` `[cvars]`,

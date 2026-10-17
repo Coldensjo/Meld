@@ -90,6 +90,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   mangos' GameObjectInfo), and New object (`CreateObject`). The Object tab follows the spawn's entry
   (an entry change or its undo). Save calls `Engine.applyObjectTemplate` (name, type, model through
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
+- **The game's template cache** (#234): the 1.12 client asks for a template once and keeps it across
+  sessions in `WDB\creaturecache.wdb` / `gameobjectcache.wdb`, never asking again. `SaveCreature` and
+  `SaveObject` mark the entry in `App.stale` (`game.Stale`, `internal/game/cache.go`), which takes its
+  records out of those files (and Benilla's name cache) while the game is closed: at once when it
+  is, else in `Session.Start` before Meld starts the game.
 - **Contents** (`components/LootTab.svelte`, #220): the game object editor's tab for what a chest
   (type 3; veins and herbs are chests) or fishing hole (25) holds: the `gameobject_loot_template`
   rows of the list its `data1` names (`internal/vmangos/loot.go`: `ReadObjectLoot`, `SaveObjectLoot`,

@@ -161,7 +161,7 @@
       await SaveCreature(record.entry, record.patch, changes)
       saved = { ...values }
       await engineRef.current?.applyCreatureTemplate(record.entry, values, before)
-      setStatus(`Saved ${values.name} (entry ${record.entry}) to the world database. Restart the world server to see it in the game.`, 10000)
+      setStatus(`Saved ${values.name} (entry ${record.entry}) to the world database. Restart the world server and the game to see it in the game.`, 10000)
     } catch (err) {
       error = String(err)
     } finally {

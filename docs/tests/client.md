@@ -35,6 +35,21 @@ must never appear. Its log is `C:\WoW\benilla\benilla-config\meld-benilla.log`, 
   the foreground only from a real click.
 - Trap: a running launcher locks `meld-benilla.exe`, so a rebuild fails with "access denied".
 
+## The game's template cache after an editor's Save (#234)
+
+Checks: a creature or game object template saved in its editor is taken out of the game's caches
+(`WDB\creaturecache.wdb`, `WDB\gameobjectcache.wdb`, Benilla's `benilla-config\cache\<realm>.tsv`
+`C` lines) at once when the game is closed, else when Meld next starts the game. Unit tests:
+`internal/game/cache_test.go`. Against the real files, compare the caches with the database: parse
+each WDB file (a 20-byte header, then entry, size and data records, ended by 8 zero bytes; a game
+object's data starts type, display id, four names; a creature's starts four names) and select the
+same entries' `name`, `type`, `displayId` from the newest patch row of the template table. In the
+game: rename an object, Save with the game closed, start it from Meld and look at the object.
+- Trap: the game writes its caches back as it exits, so pruning while it runs is undone. That is
+  why a Save with the game open waits for Meld's next start (`Session.Start`). A game started
+  outside Meld after such a Save still shows the old template; the entries are kept in memory only,
+  so closing Meld first loses them too.
+
 ## Minimap tiles for the client (B-129, #17)
 
 Checks: Import/Export › Write Minimap Tiles to the Client draws each tile from above and writes it

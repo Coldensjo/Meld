@@ -372,6 +372,7 @@ the same scene, the report before and after.
 
 - Launch where the camera is (character placement)
 - Benilla launcher: nothing on screen until the world (benilla-launcher)
+- The game's template cache after an editor's Save (#234)
 - Minimap tiles for the client (B-129, #17)
 - Server map extraction for one map (Publish, #174)
 - World map of a zone (World › World Map, #181)

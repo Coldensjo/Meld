@@ -174,7 +174,7 @@
 			}
 			const rows = (await lootTab?.save()) ?? -1
 			const what = rows >= 0 ? ` and its contents (${rows} ${rows === 1 ? 'row' : 'rows'})` : ''
-			setStatus(`Saved ${values.name} (entry ${record.entry})${what} to the world database. Restart the world server to see it in the game.`, 10000)
+			setStatus(`Saved ${values.name} (entry ${record.entry})${what} to the world database. Restart the world server and the game to see it in the game.`, 10000)
 		} catch (err) {
 			error = String(err)
 		} finally {

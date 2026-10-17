@@ -43,6 +43,8 @@ type App struct {
 	unsaved atomic.Bool
 	// closeAsked is when a close was stopped and not yet answered (AckClose), in Unix ms; 0 for none.
 	closeAsked atomic.Int64
+	// stale holds the templates saved since the game's caches were last cleared of them (game.Stale).
+	stale game.Stale
 }
 
 func NewApp() *App {
@@ -763,7 +765,12 @@ func (a *App) SaveObject(entry, patch int, values map[string]string) (string, er
 	if err != nil {
 		return "", err
 	}
-	return vmangos.SaveObject(server, entry, patch, values)
+	sql, err := vmangos.SaveObject(server, entry, patch, values)
+	if err == nil {
+		a.stale.AddObject(uint32(entry))
+		a.forgetStale()
+	}
+	return sql, err
 }
 
 // CreateObject adds a game object template named name, a copy of template base (or a generic
@@ -859,7 +866,25 @@ func (a *App) SaveCreature(entry, patch int, values map[string]string) (string, 
 	if err != nil {
 		return "", err
 	}
-	return vmangos.SaveCreature(server, entry, patch, values)
+	sql, err := vmangos.SaveCreature(server, entry, patch, values)
+	if err == nil {
+		a.stale.AddCreature(uint32(entry))
+		a.forgetStale()
+	}
+	return sql, err
+}
+
+// forgetStale takes the saved templates out of the game's caches now when the game is closed, so a
+// game started outside Meld asks the server for them too. With the game open it waits: the game
+// writes its caches as it exits, and the next start from Meld clears them (game.Session.Start).
+func (a *App) forgetStale() {
+	sess, err := a.gameSession()
+	if err != nil || sess.GameRunning() {
+		return
+	}
+	if err := sess.ForgetStale(); err != nil {
+		runtime.LogWarning(a.ctx, "The game's cache of changed templates wasn't cleared: "+err.Error())
+	}
 }
 
 // ReadVendor reads what a creature template sells (npc_vendor), for the creature editor's Shop tab.
@@ -1426,6 +1451,7 @@ func (a *App) gameSession() (game.Session, error) {
 		Login:      a.cfg.Login,
 		Run:        vmangos.OSRunner{},
 		Log:        func(msg string) { runtime.LogInfo(a.ctx, msg) },
+		Stale:      &a.stale,
 	}
 	if a.cfg.GameClient == "benilla" && a.cfg.BenillaPath != "" {
 		s.Benilla = a.cfg.BenillaPath

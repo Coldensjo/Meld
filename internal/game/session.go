@@ -58,6 +58,9 @@ type Session struct {
 	// Realm is the realm Benilla picks after logging in (WOW_REALM), so it doesn't stop at the realm
 	// list. Empty leaves the pick to Benilla (the realm it was last on).
 	Realm string
+	// Stale, when set, holds the templates the editors changed; Start takes them out of the game's
+	// caches before it opens the game, so the game asks the server for them again (cache.go).
+	Stale *Stale
 }
 
 // BenillaExe is the program Meld starts from a Benilla folder: Meld's launcher when it's built there
@@ -152,6 +155,9 @@ func (s Session) Start(c Closed) error {
 		if err := s.applyWindow(); err != nil {
 			s.log("The game's window setting wasn't written: " + err.Error())
 		}
+		if err := s.ForgetStale(); err != nil {
+			s.log("The game's cache of changed templates wasn't cleared: " + err.Error())
+		}
 	}
 	if c.Game && s.Benilla != "" {
 		s.log("Starting Benilla…")
@@ -226,6 +232,25 @@ func (s Session) closeGame() (bool, error) {
 		closed = true
 	}
 	return closed, nil
+}
+
+// GameRunning reports whether the session's game is running.
+func (s Session) GameRunning() bool {
+	for _, image := range s.games() {
+		if s.Run.Running(image) {
+			return true
+		}
+	}
+	return false
+}
+
+// ForgetStale takes the templates in s.Stale out of the game's caches. The game must be closed.
+func (s Session) ForgetStale() error {
+	if s.Stale == nil || s.Stale.Empty() {
+		return nil
+	}
+	s.log("Clearing the game's cache of the changed templates…")
+	return s.Stale.Forget(s.ClientRoot, s.Benilla)
 }
 
 // WorldRunning reports whether the world server is running.
