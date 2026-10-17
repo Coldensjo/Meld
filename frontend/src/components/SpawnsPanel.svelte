@@ -112,7 +112,7 @@
       {#if ui.placeCreature}
         <p class="dim hint">Placing {ui.placeCreature.name}: click the ground (Shift+click for more, Esc stops).</p>
       {/if}
-      <button class="new-creature" onclick={() => (ui.creatureEditor = { key: null, entry: 0 })}>New creature…</button>
+      <button class="new-creature" onclick={() => (ui.creatures = true)}>New creature…</button>
     </details>
     <div class="toggles">
       <label><input type="checkbox" bind:checked={prefs.showMonsters} /> Monsters <span class="count">{counts.monster}</span></label>

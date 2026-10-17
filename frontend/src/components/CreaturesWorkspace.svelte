@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ClassLevelStats, CreateCreature, EquipmentFor, Factions, ReadCreature, SaveCreature, SearchCreatures, SpawnLook } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
+	import { untrack } from 'svelte'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { CREATURE_TYPES, levelText, NPC_FLAGS, RANKS } from '../lib/world/spawnInfo'
@@ -64,6 +65,11 @@
 		if (step > 0 && !made && draft.name && !confirm('Leave the guide? The creature is not made yet.')) return
 		ui.creatures = false
 	}
+
+	// Opening the guide after a creature was made starts a new one on step 1; a draft still in progress is kept.
+	$effect(() => {
+		if (ui.creatures && untrack(() => made)) untrack(restart)
+	})
 
 	function restart() {
 		draft = fresh()

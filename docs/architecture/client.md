@@ -76,8 +76,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   groups them, and unknown columns land under Other), Looks (`DisplayPicker.svelte`: every display
   from `ListDisplays`, dressed and cached in Go, with the creature type and names of the templates
   using it, shown as asset-browser thumbnails in a virtualised grid with type chips, a model filter
-  and search; hovering previews), and New creature
-  (`CreateCreature`: the first free entry, from scratch or a copy). Template edits are a form
+  and search; hovering previews). New creature (this tab and the Spawns panel's button) opens
+  the guide of `CreaturesWorkspace` (#260); Copy this creature in the header asks for a name and
+  makes a copy (`CreateCreature`: the first free entry). Template edits are a form
   saved with Save (`SaveCreature`, the newest patch row), not undo steps;
   `Engine.applyCreatureTemplate` then brings that creature's spawns up to date through
   `SpawnLayer.rebase`, which changes their saved state too. A template's columns are drawn by

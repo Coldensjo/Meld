@@ -59,10 +59,10 @@
     shopDirty = false
     questsDirty = false
     messagesDirty = false
-    if (t.entry > 0) copySource = null
     record = null
     error = ''
     confirmClose = false
+    copying = false
     if (t.entry > 0) void load(t.entry)
   })
 
@@ -103,7 +103,7 @@
   let hoveredDisplay = $state<vmangos.DisplayEntry | null>(null)
   const usingSpawn = $derived(tab === 'spawn' && spawn !== null)
   const preview = $derived(
-    !target || target.entry === 0
+    !target || target.entry <= 0
       ? null
       : tab === 'looks' && hoveredDisplay
       ? { model: hoveredDisplay.model, look: hoveredDisplay.look, anim: 0, scale: hoveredDisplay.scale }
@@ -194,15 +194,13 @@
     setStatus(`Click the ground to place ${values.name}. Shift+click places more; Esc stops.`, 10000)
   }
 
-  // A new creature: from scratch or as a copy of the one that was open.
-  let newName = $state('')
-  let copyThis = $state(true)
-  let creating = $state(false)
-  let copySource = $state<{ entry: number; name: string } | null>(null)
+  // A new creature opens the guide (CreaturesWorkspace); a copy of the open creature is made here.
   function startNew() {
-    if (target?.entry === 0) return
-    copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
-    const go = () => (ui.creatureEditor = { key: null, entry: 0 })
+    const go = () => {
+      ui.creatureEditor = null
+      loadedFor = ''
+      ui.creatures = true
+    }
     if (changeCount > 0 || tabsDirty) {
       afterDiscard = go
       confirmClose = true
@@ -210,17 +208,23 @@
     }
     go()
   }
-  async function create() {
-    const name = newName.trim()
-    if (!name) return
+  let copying = $state(false)
+  let copyName = $state('')
+  let creating = $state(false)
+  function startCopy() {
+    copyName = `${saved.name ?? ''} (copy)`
+    copying = true
+  }
+  async function copyCreature() {
+    const name = copyName.trim()
+    if (!name || !record) return
     creating = true
     error = ''
     try {
-      const base = copyThis && copySource ? copySource.entry : 0
-      const entry = await CreateCreature(base, name)
-      newName = ''
+      const entry = await CreateCreature(record.entry, name)
+      copying = false
       ui.creatureEditor = { key: null, entry }
-      setStatus(`Made creature ${entry}, ${name}. Edit it, save, then place it.`, 8000)
+      setStatus(`Copied to creature ${entry}, ${name}. Edit it, save, then place it.`, 8000)
     } catch (err) {
       error = String(err)
     } finally {
@@ -273,13 +277,12 @@
               · level {levelText(Number(values.level_min), Number(values.level_max))} · {rankName(Number(values.rank))}{npcRoles(Number(values.npc_flags)) ? ` · ${npcRoles(Number(values.npc_flags))}` : ''}
             {/if}
           </span>
-        {:else}
-          <h2>New creature</h2>
         {/if}
       </div>
       <div class="actions">
         {#if record}
           <button disabled={!record || saving} onclick={place} title="Place this creature in the region">Place in world</button>
+          <button disabled={!record || saving || copying} onclick={startCopy} title="Make a new creature with this one's looks, stats, loot and AI">Copy this creature</button>
           <button disabled={changeCount === 0 || saving} onclick={() => (values = { ...saved })}>Revert</button>
           <button class="active" disabled={changeCount === 0 || saving} onclick={save}>
             {saving ? 'Saving…' : changeCount ? `Save creature (${changeCount})` : 'Saved'}
@@ -295,6 +298,13 @@
         <button class="danger" onclick={discard}>Discard them</button>
       </div>
     {/if}
+    {#if copying}
+      <div class="bar warn">
+        <input type="text" maxlength="100" placeholder="Name of the copy" bind:value={copyName} onkeydown={(e) => e.key === 'Enter' && copyCreature()} />
+        <button class="active" disabled={!copyName.trim() || creating} onclick={copyCreature}>{creating ? 'Copying…' : 'Make copy'}</button>
+        <button onclick={() => (copying = false)}>Cancel</button>
+      </div>
+    {/if}
     {#if error}<div class="bar error">{error}</div>{/if}
 
     <div class="body">
@@ -302,7 +312,7 @@
         {#if preview}
           <CreaturePreview model={preview.model} look={preview.look} anim={anim ?? preview.anim} scale={preview.scale} />
         {:else}
-          <div class="empty dim">{loading ? 'Loading…' : target.entry > 0 ? 'No display to show yet: pick one under Looks.' : 'Name the new creature on the right.'}</div>
+          <div class="empty dim">{loading ? 'Loading…' : 'No display to show yet: pick one under Looks.'}</div>
         {/if}
         <div class="under">
           <label
@@ -333,23 +343,11 @@
             <button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests</button>
             <button class:on={tab === 'messages'} onclick={() => (tab = 'messages')}>Messages</button>
           {/if}
-          <button class:on={target.entry === 0} onclick={startNew}>New creature</button>
+          <button onclick={startNew} title="Open the creature guide">New creature</button>
         </nav>
 
         <div class="scroll">
-          {#if target.entry === 0}
-            <div class="new">
-              <p>Make a creature of your own for the world database. It gets the first free entry; edit it, save it, and place it.</p>
-              <p class="dim">Or let the guide take you through it step by step: <button onclick={() => { ui.creatureEditor = null; loadedFor = ''; ui.creatures = true }}>Open the creature guide</button></p>
-              <label>Name <input type="text" maxlength="100" placeholder="Name" bind:value={newName} /></label>
-              {#if copySource}
-                <label class="check"><input type="checkbox" bind:checked={copyThis} /> Copy {copySource.name} (its looks, stats, loot and AI)</label>
-              {:else}
-                <p class="dim">It starts at level 1, hostile, with no display: pick one under Looks once it's made. To start from an existing creature, open that one and choose New creature there.</p>
-              {/if}
-              <button class="active" disabled={!newName.trim() || creating} onclick={create}>{creating ? 'Making…' : 'Make creature'}</button>
-            </div>
-          {:else if tab === 'spawn' && spawn}
+          {#if tab === 'spawn' && spawn}
             <SpawnFields s={spawn} />
             <p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (Spawns panel › Save to database). Edit the path in the world: close the editor, then Edit path.</p>
           {:else if tab === 'spells' || tab === 'shop' || tab === 'quests' || tab === 'messages'}
@@ -516,25 +514,6 @@
     color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-  }
-  .new label.check {
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-  }
-  .new {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    font-size: 13px;
-  }
-  .new label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .new p {
-    margin: 0;
   }
   .dim {
     color: var(--text-dim);
