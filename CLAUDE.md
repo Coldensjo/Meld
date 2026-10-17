@@ -98,6 +98,8 @@ make build-linux     # wails build -tags webkit2_41  → build/bin/Meld
 make build-windows   # wails build -platform windows/amd64 → build/bin/Meld.exe
 make test            # go test ./internal/... + frontend unit tests (node --test, needs Node 22.18+)
 make check           # go vet + (cd frontend && pnpm check)
+make probe           # every live-app probe (frontend/probes) against the running `make dev`
+cd frontend && pnpm probe <name...>   # chosen probes; --list names them (docs/TESTS.md, "Probes")
 cd frontend && pnpm build   # frontend only
 ```
 
@@ -111,8 +113,10 @@ cd frontend && pnpm build   # frontend only
 ## Testing notes (docs/TESTS.md)
 
 - Before working out how to test or verify a change, read `docs/TESTS.md`. It holds the general
-  methods (unit tests, the dev page in headless Chrome or Claude in Chrome, scenes, measuring
-  performance) and an index of the checks for each feature, which live in `docs/tests/<area>.md`.
+  methods (unit tests, the probes, the dev page in headless Chrome or Claude in Chrome, scenes,
+  measuring performance) and an index of the checks for each feature, which live in
+  `docs/tests/<area>.md`. A check in the live app worth repeating becomes a probe
+  (`frontend/probes/<name>.js`, run with `pnpm probe <name>`) rather than a paragraph.
 - When you find a good way to test something (a command, a scene or spot on the map, a
   `javascript_tool` probe, a fixture), or a trap that cost you time while testing, add it to the
   area's file under `docs/tests/` (a general method goes in `docs/TESTS.md` itself), and add its

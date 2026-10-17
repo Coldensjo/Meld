@@ -4,7 +4,7 @@
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test check clean
+.PHONY: dev build build-linux build-windows test check probe clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -25,6 +25,10 @@ test:
 check:
 	go vet ./internal/...
 	cd frontend && pnpm check
+
+# Every probe in frontend/probes against the running `make dev` (docs/TESTS.md, "Probes").
+probe:
+	cd frontend && pnpm probe --all
 
 clean:
 	rm -rf build/bin frontend/dist

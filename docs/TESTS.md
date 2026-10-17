@@ -120,9 +120,37 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   back to PCF), shadow maps are depth textures, and inside `#pragma unroll_loop` only
   `UNROLLED_LOOP_INDEX` and `[ i ]` are substituted.
 
+## Probes (`pnpm probe`): checks in the live app you can rerun
+
+Checks: a feature still works in the real app against the client's assets, in one command, with
+a few lines of JSON as the result. **Reach for a probe first**: run the existing ones that touch your
+change, and write a new probe instead of an ad-hoc CDP script when the check is worth repeating.
+
+- `make dev` must be running (the runner says so if it isn't; start it in the background from Git
+  Bash and wait until `curl localhost:34115/wow/status` answers). Keep it running across items.
+- `cd frontend && pnpm probe <name...>` runs those probes, `pnpm probe --all` (or `make probe`)
+  runs every one, `pnpm probe --list` names them, `--shot <dir>` saves a screenshot each. Each probe
+  gets a fresh page (`?nosave`, so the owner's config is safe) in a headless Chrome on SwiftShader.
+  It prints one JSON line a probe and exits 1 if any failed. A page error also fails the probe (the
+  error of Wails' `ipc.js`, which a plain browser page always throws, is left out).
+- A probe is `frontend/probes/<name>.js`: the body of an async function run in the page, whose first
+  line is a `//` comment saying what it checks (`--list` shows it). It returns an object; `ok: false`
+  or a throw fails it. `P` (`probes/lib.js`) is in scope: `P.e` (the Engine), `P.scene(line or
+  object)`, `P.BENCH` (the benchmark scene), `P.settle()` (frames until the client reads stop),
+  `P.frames(n)`, `P.until(fn)`, `P.perf()` (`measurePerf` with frames stepped), `P.state()` (the
+  app's own `editor`/`prefs`/`ui`), `P.app(path)` (any app module, the page's own instance) and
+  `P.glError()`. A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
+  4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
+- The probes on 2026-10-17: `smoke` (the benchmark scene draws, no errors), `bench` (its numbers),
+  `undo-sculpt` and `undo-holes` (an edit and its undo on a flat map), `wmo-cull` (#198's Stormwind
+  cull). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
+  that the probe exists.
+
 ## The live app without Claude in Chrome (headless Chrome over CDP)
 
-Checks: the same as above, when the Chrome extension isn't connected (a `claude -p` loop run). Start
+Checks: the same as above, when the Chrome extension isn't connected (a `claude -p` loop run). The
+probes above are this route packaged; use the raw route below for a one-off look (a screenshot
+sequence, a question no probe asks). Start
 `make dev` in the background, wait until `curl localhost:34115/wow/status` answers, then drive a
 headless Chrome over the DevTools protocol from a scratch folder (not the repo):
 `uv run -q --with websocket-client python -u cdp.py "http://localhost:34115/?nosave" shot step1.js step2.js`.
@@ -190,8 +218,9 @@ the same scene, the report before and after.
 - The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
   draws them inside `renderer.render`, so without the wrap they would count as the scene.
 - **The benchmark scene.** Optimization issues and their done comments measure on this one scene, so
-  their numbers compare. Load it with `__loadScene`, wait until the models stop loading (the
-  `objects.batches` count holds still), then take `measurePerf()` as above:
+  their numbers compare. `cd frontend && pnpm probe bench` loads it, waits for the client reads to
+  stop and prints the numbers. By hand: load it with `__loadScene`, wait until the models stop
+  loading, then take `measurePerf()` as above:
 
   ```
   Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":32,"y":48,"size":1}},"view":{"target":[182,30,353],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}
@@ -199,8 +228,12 @@ the same scene, the report before and after.
 
   Give the frame's CPU ms, GPU ms (where the browser has timer queries), draw calls and triangles,
   before and after. A change that a different spot shows better (a big city, a dense forest) may use
-  one, but give its scene line beside the numbers. The figures above came from a similar view over
-  the abbey, not this exact line; the first item measured on it records its baseline here.
+  one, but give its scene line beside the numbers.
+
+  Baseline, `pnpm probe bench` on 2026-10-17 (SwiftShader, so GPU n/a and CPU ms only compare
+  between probe runs on this machine): 1996 draw calls, 2,052,549 triangles, 168 geometries, 724
+  textures, 329 MB heap; the most triangles: a Defias HumanMale (54k), Wolf (42k), nsabbey.wmo
+  (33k), stormwind.wmo (31k). Update this when a commit moves it on purpose.
 
 ## Index of feature checks
 
