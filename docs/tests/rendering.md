@@ -214,7 +214,8 @@ vertex, and adds the sheen times the layers' `_s` mask (`paletteArray.ts` puts e
 in the palette layer's alpha, 0 without one). In the dev page, load a region with
 `"prefs":{"clientLighting":true}` in the scene, step frames, then read
 `__engine.terrain.material.uniforms.clientLit.value` (1) and the masks from `__engine.terrain.palette.data`
-(layer i's alpha bytes at `i * 256 * 256 * 4 + 3`, every fourth). Durotar's textures all have masks
+(with `?nodxt`, RGBA: layer i's alpha bytes at `i * 256 * 256 * 4 + 3`, every fourth; else DXT3, #216:
+layer i from `i * 65536`, the first 8 bytes of each 16-byte block its 16 alphas, 4 bits each). Durotar's textures all have masks
 (Black.blp none). With Client Lighting off `clientLit` is 0 and the ground is drawn as before.
 - Point lights (#117): M2 lights carry `raw` (colour times intensity) in the model's effects; models
   with them include `World\Azeroth\Elwynn\PassiveDoodads\Campfire\ElwynnCampfire.m2` (raw about
@@ -280,8 +281,32 @@ the renderer has `WEBGL_compressed_texture_s3tc` and `..._s3tc_srgb`, and look a
   618 model textures, 20.9 MB compressed (564 of them) against 123.4 MB all RGBA; the two shots differ
   in 0.47% of pixels by more than 4%, in fine detail where the BLP's own mips replace the GPU's.
   Sum a material's `map`: `mipmaps[i].data.length` for a `CompressedTexture`, w·h·4·4/3 for RGBA.
-- The terrain's tileset array (`terrain/paletteArray.ts`) and texture previews still read RGBA pixels
-  on the CPU (they resample), so they keep using `fetchImage`.
+- Texture previews still read RGBA pixels on the CPU, so they keep using `fetchImage`. The terrain's
+  tileset array went DXT3 in #216 (next entry).
+
+## The terrain's tileset array as DXT3 (#216)
+Checks: where `compressedTexturesOn()`, `terrain/paletteArray.ts` builds the palette as a DXT3
+`CompressedArrayTexture` (64 KB a layer against RGBA's 256 KB) from the BLPs' own blocks
+(`paletteBlocks.ts`), and the ground looks as with the RGBA array, sheen included.
+- Unit: `frontend/tests/paletteBlocks.test.ts`, against a reference decoder in the test: a 256²
+  four-colour DXT1 is copied block for block; 128², 64x32 and 8² DXT1 and 128² DXT3 resample block by
+  block to exactly the nearest resample of their pixels; DXT3 blocks with colour0 <= colour1 are
+  flipped so DXT1 and DXT3 decodes agree; three-colour DXT1 blocks stay exact with only the ends used;
+  the `_s` alpha resamples exactly.
+- Probe: `pnpm probe terrain-dxt` (about 100 s) loads the benchmark scene, builds an RGBA
+  `PaletteArray` of the same entries beside it, and draws the ground alone with each, under the
+  editor's lighting and under Client Lighting (the sheen): on 2026-10-17, 0.03% of pixels differed by
+  more than 4% (mean max-channel difference 0.67 of 255), 0.5 MB against 2 MB for the 8 layers. The
+  same check on Stranglethorn (`Azeroth` 32_57): 14 layers, 0% over 4%.
+- Over the whole client, a node script with the dev server (not kept): of 621 tilesets, 616 are
+  power-of-two DXT up to 256² and go by blocks; against the reference decode of their blocks the
+  layers differ by 0.011 of 255 on average, worst `Tileset\Hyjal\AlphaHyjalGrassLeaf.blp` (1.7 mean;
+  its three-colour blocks use black). 413 have a DXT3 256² `_s` twin, whose alpha goes over exactly.
+  About 0.7 ms a layer to build. The other 5 (RGBA BLPs) are encoded from their pixels.
+- Trap: `?nodxt` is how to see the RGBA array in the dev page; a probe can build one with
+  `new PaletteArray(() => {}, false)` instead, as `terrain-dxt` does, to compare in one page.
+- Trap: the bench probe's `frameMs` on SwiftShader averages one or two frame intervals and jumped
+  between 14 and 72 ms from run to run with no code change; compare `cpuMs` and the counts.
 
 ## Preview window: particles, ribbons and texture animation (#200)
 Checks: the preview window and the creature editor's preview (`CreaturePreview.svelte`) run the model's

@@ -143,7 +143,8 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
 - The probes on 2026-10-17: `smoke` (the benchmark scene draws, no errors), `bench` (its numbers),
   `undo-sculpt` and `undo-holes` (an edit and its undo on a flat map), `wmo-cull` (#198's Stormwind
-  cull, in the scene pass and the near shadow cascade, #215). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
+  cull, in the scene pass and the near shadow cascade, #215), `terrain-dxt` (#216's DXT3 tileset
+  array draws the ground as the RGBA one does). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
   that the probe exists.
 
 ## The live app without Claude in Chrome (headless Chrome over CDP)
@@ -253,6 +254,7 @@ the same scene, the report before and after.
 - Losing and restoring the viewport's WebGL context (#209)
 - WMO culling by group (#198, #215)
 - Compressed client textures (DXT, #178)
+- The terrain's tileset array as DXT3 (#216)
 - Preview window: particles, ribbons and texture animation (#200)
 
 ### Terrain, water and map data (`docs/tests/terrain.md`)

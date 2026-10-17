@@ -167,7 +167,7 @@ const vec2 SCROLL[8] = vec2[8](vec2(0.0, 1.0), vec2(-1.0, 1.0), vec2(-1.0, 0.0),
 
 // A texture the map scrolls moves a repeat every 1.6 s at speed 7, slower in proportion below, as
 // Noggit Red draws it; an overbright one is drawn brighter.
-// The alpha is the layer's sheen mask (paletteArray.ts).
+// The alpha is the layer's sheen mask (paletteArray.ts): 8 bits in the RGBA array, 4 in the DXT3 one.
 vec4 tap(float layer, vec2 uv) {
   vec4 look = floor(texture2D(lookTex, vec2((layer + 0.5) / 256.0, 0.5)) * 255.0 + 0.5);
   if (look.r > 0.5) uv += SCROLL[int(look.g) & 7] * fract(lookTime * (look.r - 1.0) / (7.0 * 1.6));
@@ -414,7 +414,7 @@ void main() {
 `
 
 export function createTerrainMaterial(
-  palette: THREE.DataArrayTexture,
+  palette: THREE.Texture,
   slots: THREE.Texture,
   weights: THREE.Texture,
   worldSize: number,

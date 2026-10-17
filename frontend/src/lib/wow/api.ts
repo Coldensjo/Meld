@@ -265,6 +265,16 @@ export function setCompressedTextures(on: boolean) {
   compressedTextures = on
 }
 
+/** Whether DXT textures go to the GPU compressed (`setCompressedTextures`). */
+export function compressedTexturesOn(): boolean {
+  return compressedTextures
+}
+
+/** A BLP as the texture endpoint's DXT reply: its own blocks where it is DXT, else RGBA (`textureReply.ts`). */
+export function fetchTextureDXT(path: string): Promise<ArrayBuffer> {
+  return fetchBinary('texture', `${path}?fmt=dxt`)
+}
+
 /** Load a BLP from the client as a mipmapped, repeating texture (cached). */
 export function loadTexture(path: string): Promise<THREE.Texture> {
   const key = path.toLowerCase()

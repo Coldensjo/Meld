@@ -51,6 +51,14 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   -1), which the tools report in the status bar (`CHUNK_FULL`). Only Swap mode and the Layers
   panel's Replace put a texture into a full chunk (`acquireSlotReplacing`, which evicts the weakest
   or the swapped-out one). Stroke undo covers whole chunks (`settleSlots`).
+- **The palette's textures** (`terrain/paletteArray.ts`): one array texture the shader samples as
+  `palette`, a 256x256 layer per palette entry, no mips, the alpha the entry's sheen mask (the `_s`
+  twin's alpha). Where the renderer samples S3TC (`compressedTexturesOn`, #178) it is DXT3, 64 KB a
+  layer (#216): `paletteBlocks.ts` takes the base BLP's colour blocks and the `_s` twin's alpha blocks
+  as they are, resamples a smaller power-of-two tileset block by block (exact), refits DXT1's
+  three-colour blocks into the four colours DXT3 has, and encodes only what isn't such a DXT (RGBA
+  BLPs, colour entries). Otherwise (`?nodxt`) it is RGBA, 256 KB a layer. A texture that arrives
+  re-uploads its own layer (`addLayerUpdate`), not the array.
 
 - **Map data** (`terrain/chunkFlags.ts`, `tools/MapDataTool.ts`, tool `mapdata`, key 9): what a
   chunk's MCNK header says besides its ground, by mode (`editor.mapDataMode`: zone, impassable, no tufts per cell, baked shadow per texel). `Terrain.areaIds` is an AreaTable.dbc ID per paint
