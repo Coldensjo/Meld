@@ -281,7 +281,8 @@ cascade in the scene pass and the near cascade's shadow pass, and looks the same
 - Trap: "Most triangles by model" (`measurePerf().models`) keeps only the top five models, so the
   culled city falls off it when few of its groups are in view and a lookup there reads 0. On
   2026-10-17 (#252) the probe's view held none of the city's groups (not the 31k above; the
-  viewport's shape follows the owner's layout prefs) and the near cascade 2,336 triangles. The probe counts the batch's own
+  viewport's shape followed the owner's layout prefs, which the probe page has ignored since #253:
+  the frame is 743,861 triangles with the cull, 3.55M without, stormwind.wmo 754 in view) and the near cascade 2,336 triangles. The probe counts the batch's own
   mesh (`meshTriangles` from `engine/perfMeter.ts`) instead.
 - Same picture: `setSceneView({ target: [-300, 120, 250], yaw: 4.71, pitch: 0.25, distance: 500, hour: 13 })`
   draws 55% of the city; with `enabled` off and on the shots differ in 0.14% of pixels (edges, swaying

@@ -13,6 +13,13 @@ import { changedPrefs } from './prefsPatch'
  */
 const readOnly = typeof location !== 'undefined' && /[?&]nosave(?:[&=]|$)/.test(location.search)
 
+/**
+ * The probes' page (`?defaults`) skips loading the file, so every preference keeps its default and a
+ * probe doesn't depend on the owner's time of day, shadows, fog or panel sizes (#253). Used with
+ * `?nosave`, so the defaults are never written either.
+ */
+const useDefaults = typeof location !== 'undefined' && /[?&]defaults(?:[&=]|$)/.test(location.search)
+
 function canSave() {
   return hasBackend() && !readOnly
 }
@@ -26,7 +33,7 @@ function canSave() {
 const baseline = new Map<string, string>()
 
 export async function loadPrefs() {
-  if (!hasBackend()) return
+  if (!hasBackend() || useDefaults) return
   try {
     const raw = await LoadPrefs()
     if (!raw) return

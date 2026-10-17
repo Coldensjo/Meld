@@ -91,6 +91,8 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   With `?nosave` the page never writes the file (`lib/state/prefs.ts`). Add `&nosession` for a page
   that starts on a blank map instead of reopening the owner's last session (`lib/io/session.ts`);
   use it only with `nosave`, since the page would otherwise save its blank session over theirs.
+  Add `&defaults` to skip loading config.json's preferences, so the page runs on the defaults (time of
+  day, shadows, fog, panel sizes) and not the owner's; the probes' page has it (#253).
 - Open a known spot with a scene: `{map:{region:{mapName:'Azeroth',x:32,y:48,size:1}}}` opens
   Northshire (the abbey is at about world x 182, z 353; the valley is dense canopy, so most ground
   is in tree shadow).
@@ -142,7 +144,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 - `cd frontend && pnpm probe <name...>` runs those probes, `pnpm probe --all` (or `make probe`)
   runs every one, `pnpm probe --list` names them, `--shot <dir>` saves a screenshot each and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
-  stalls in one run). Each probe gets a fresh page (`?nosave&nosession`: the owner's config is safe,
+  stalls in one run). Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without
   `nosession` a region from the session finished opening after the probe's `newDocument`, took the
   active tab, and its spawns, read seconds later, replaced the probe's (#250: `object-entry` and
@@ -285,7 +287,9 @@ the same scene, the report before and after.
   compare between probe runs on this machine): 1996 draw calls, 697,402 triangles (2,052,549 before
   #215 culled Stormwind's groups in the near shadow cascade), 168 geometries, 719 textures, 325 MB
   heap; the most triangles: a Defias HumanMale (54k), Wolf (42k), nsabbey.wmo (35k), stormwind.wmo
-  (33k). Update this when a commit moves it on purpose.
+  (33k). Since #253 the probe page runs on default prefs, so the numbers hold on any machine: on
+  2026-10-17, 2001 draw calls, 743,861 triangles, 177 geometries, 670 textures, 332 MB heap; the most
+  triangles: HumanMale (54k), Wolf (44k), Kobold (29k), nsabbey.wmo (25k). Update this when a commit moves it on purpose.
 
 ## Index of feature checks
 
