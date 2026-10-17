@@ -11,7 +11,7 @@
 // A probe is `probes/<name>.js`: the body of an async function run in the page, with `P` (lib.js)
 // in scope. It returns an object; `ok: false` (or a throw) fails it, and the runner exits 1.
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -74,6 +74,24 @@ function findChrome() {
 	return c.find((p) => p && existsSync(p)) ?? fail('no Chrome found; set CHROME to its path')
 }
 
+/** Other probe runs still alive (their node runner or headless Chrome), as 'pid: name' lines. A forgotten run doubles the load and skews every timing (#257). */
+function otherRuns() {
+	const lines = []
+	try {
+		if (process.platform === 'win32') {
+			const ps = `Get-CimInstance Win32_Process -Filter "Name='node.exe' OR Name='chrome.exe' OR Name='msedge.exe'" | Where-Object { $_.CommandLine -match 'meld-probe-|probes.run.mjs' } | ForEach-Object { "$($_.ProcessId): $($_.Name)" }`
+			const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8', timeout: 15000 })
+			lines.push(...(r.stdout ?? '').split(/\r?\n/))
+		} else {
+			const r = spawnSync('ps', ['-eo', 'pid,comm,args'], { encoding: 'utf8', timeout: 15000 })
+			for (const l of (r.stdout ?? '').split('\n')) {
+				if (/meld-probe-|probes\/run\.mjs/.test(l) && !/^\s*\d+\s+(ps|sh|bash)\s/.test(l)) lines.push(l.trim().replace(/^(\d+)\s+(\S+).*/, '$1: $2'))
+			}
+		}
+	} catch { /* listing is best effort */ }
+	return lines.map((l) => l.trim()).filter((l) => l && !l.startsWith(`${process.pid}:`))
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function main() {
@@ -82,6 +100,12 @@ async function main() {
 		if (!s.ok) throw new Error(String(s.status))
 	} catch (err) {
 		fail(`the dev server doesn't answer at ${PAGE} (${err.message}); start \`make dev\` first`)
+	}
+
+	const others = otherRuns()
+	if (others.length) {
+		console.error('probe: warning: another probe run seems alive, which skews timings (stop it with Stop-Process -Id <pid> on Windows, kill <pid> on Linux):')
+		for (const o of others) console.error(`  ${o}`)
 	}
 
 	const profile = join(tmpdir(), `meld-probe-${PORT}`)

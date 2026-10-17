@@ -155,6 +155,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   slash is a path, from where you typed it) runs a probe file from anywhere, with `P` in scope.
   `frontend/probes/scratch/` is git-ignored: put diagnostics and throwaway views there, so they never
   land in a commit or in `--all`.
+- Trap: a probe run that outlives its shell (a background `--all` stopped at its time limit) keeps running with its Chrome and doubles SwiftShader's load, so every timing is wrong (#257: a 2 s fence that is 0.6 s alone). The runner now lists other live runs at start (`probe: warning: another probe run seems alive`, with pids). Stop one with `Stop-Process -Id <pid>` (Windows; `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ? CommandLine -match 'probes.run.mjs'` finds it) or `kill <pid>` (Linux).
 - Trap: don't run `make build-windows` (or `wails generate module`) while probes run. The build
   regenerates `wailsjs`, Vite hot-reloads the page in the middle of a probe and it fails on a page
   error from `App.svelte?t=…` at `@vite/client`. Run the build before or after.
