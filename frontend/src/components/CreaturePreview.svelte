@@ -49,6 +49,8 @@
   let shownKey = ''
   let spinning = $state(false)
   let raf = 0
+  /** The context is lost (a driver reset, #213): the frame skips its work until three has restored it. */
+  let contextLost = false
   let loadId = 0
   const start = performance.now()
 
@@ -84,7 +86,7 @@
 
   function frame() {
     raf = requestAnimationFrame(frame)
-    if (!renderer || !canvas) return
+    if (!renderer || contextLost || !canvas) return
     const w = canvas.clientWidth
     const h = canvas.clientHeight
     if (!w || !h) return
@@ -192,15 +194,23 @@
     void show(model, look, anim, type, scale)
   })
 
+  const listeners = new AbortController()
   onMount(() => {
     if (canvas) {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
       renderer.setPixelRatio(hq ? window.devicePixelRatio : Math.min(window.devicePixelRatio, 1.5))
       renderer.outputColorSpace = THREE.SRGBColorSpace
+      // three rebuilds its state and uploads the geometry and textures again on a restore by itself
+      // (it cancels the loss event's default for that), and these views keep no shadow maps or other
+      // drawn-once targets, so the frame need only wait. A closed view's released context (below) is
+      // never restored, since nothing calls restoreContext on it.
+      canvas.addEventListener('webglcontextlost', () => (contextLost = true), { signal: listeners.signal })
+      canvas.addEventListener('webglcontextrestored', () => (contextLost = false), { signal: listeners.signal })
     }
     raf = requestAnimationFrame(frame)
     return () => {
       cancelAnimationFrame(raf)
+      listeners.abort()
       drop()
       particles.dispose()
       ground.geometry.dispose()

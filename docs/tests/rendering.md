@@ -242,6 +242,23 @@ cached from a lost one (thumbnails wait, Write Minimap Tiles refuses).
   dozen calls before the first error; then list the program's active uniforms with their raw types
   (`0x8dc5` is `samplerCubeShadow`).
 
+## Losing and restoring the previews' WebGL contexts (#213)
+Checks: the asset browser's preview (`AssetPreview.svelte`) and the Preview window
+(`CreaturePreview.svelte`, which the creature and object editors use too) draw their model again after
+their own context is lost and restored, with no WebGL errors, and a closed Preview's released context
+(#201) stays lost.
+- Probe: `pnpm probe preview-context` (about 2.5 minutes: the previews' own rAF is throttled in the
+  headless page, so it waits for their draws rather than stepping frames). It hovers a palette tile,
+  then opens `ui.modelPreview` on a model of the scene with particles (the Northshire waterfall).
+- How: `canvas.getContext('webgl2')` on the preview's canvas returns its live context; wrap its
+  `drawElements` to count draws, call `getError` after each and `readPixels` in a microtask after the
+  first (the same task, before the buffer is cleared) for the drawn share. Then
+  `getExtension('WEBGL_lose_context')`'s `loseContext()` and `restoreContext()`.
+- Trap: three restores these by itself (it rebuilds its state and re-uploads geometry and textures);
+  the previews only skip their frame while lost. The probe passed before that change too. `getError`
+  returns CONTEXT_LOST_WEBGL (0x9242) once after a loss, which is not a draw's error: read it off
+  before counting.
+
 ## WMO culling by group (#198, #215)
 Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view or the near shadow
 cascade in the scene pass and the near cascade's shadow pass, and looks the same as drawn whole.

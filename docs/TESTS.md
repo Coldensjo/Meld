@@ -291,6 +291,7 @@ the same scene, the report before and after.
 - The camera's WMO room (down-ray probe, #8)
 - Client Lighting's ground: per-vertex light and the sheen (#111)
 - Losing and restoring the viewport's WebGL context (#209)
+- Losing and restoring the previews' WebGL contexts (#213)
 - WMO culling by group (#198, #215)
 - Compressed client textures (DXT, #178)
 - The terrain's tileset array as DXT3 (#216)

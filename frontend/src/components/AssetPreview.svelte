@@ -33,6 +33,8 @@
   let center = new THREE.Vector3()
   let spinning = true
   let raf = 0
+  /** The context is lost (a driver reset, #213): the frame skips its work until three has restored it. */
+  let contextLost = false
   let loadId = 0
 
   scene.add(pivot)
@@ -52,7 +54,7 @@
 
   function frame() {
     raf = requestAnimationFrame(frame)
-    if (!renderer || !canvas || !mesh) return
+    if (!renderer || contextLost || !canvas || !mesh) return
     const w = canvas.clientWidth
     const h = canvas.clientHeight
     if (!w || !h) return
@@ -118,15 +120,23 @@
   /** The path without a look query (a weapon's texture), which is noise to a reader. */
   const shownPath = $derived(item ? item.path.split('?')[0] : '')
 
+  const listeners = new AbortController()
   onMount(() => {
     if (canvas) {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
       renderer.outputColorSpace = THREE.SRGBColorSpace
+      // three rebuilds its state and uploads the geometry and textures again on a restore by itself
+      // (it cancels the loss event's default for that), and these views keep no shadow maps or other
+      // drawn-once targets, so the frame need only wait. A closed view's released context (below) is
+      // never restored, since nothing calls restoreContext on it.
+      canvas.addEventListener('webglcontextlost', () => (contextLost = true), { signal: listeners.signal })
+      canvas.addEventListener('webglcontextrestored', () => (contextLost = false), { signal: listeners.signal })
     }
     raf = requestAnimationFrame(frame)
     return () => {
       cancelAnimationFrame(raf)
+      listeners.abort()
       dropMesh()
       // dispose() keeps the WebGL context alive until garbage collection, and the browser drops the
       // oldest context (the viewport's) past about 16 (#201): release this one now.
