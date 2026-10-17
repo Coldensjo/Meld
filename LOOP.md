@@ -17,8 +17,15 @@ Read CLAUDE.md and docs/DESIGN.md. Do not edit docs/DESIGN.md. Then read the bac
 gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title,labels,body
 ```
 
-and the last comment of the pinned **Loop run log** issue (label `loop-log`). If `gh` fails (no
-network, logged out), stop the run and say so; do not fall back to the frozen files.
+and the last comment of the current run log: the open, pinned issue labelled `loop-log`, titled
+**Loop run log #N** (see step 7 for starting the next one). If `gh` fails (no network, logged out),
+stop the run and say so; do not fall back to the frozen files.
+
+**Items in progress.** The issue a run is working on carries the `in-progress` label: add it when you
+pick the item (step 1), before reading its code, and remove it when you close the issue, leave it
+unfinished, or change your mind about it. Only one loop runs at a time, so an open issue that still
+has the label at the start of a run was left by a run that ended mid-item: remove the label, read
+its comments for where it stands, and treat it as eligible like any other.
 
 **Comments.** Every comment the loop (or any Claude session) writes starts with `**Claude:**`. A
 comment by `Coldensjo` that doesn't start so is the owner's, and is an instruction for that item: it
@@ -50,11 +57,15 @@ c. Rewrite it in the backlog's wording (CLAUDE.md, "Backlog: GitHub issues"): a 
    original text at the end of the body under `**Original text by the owner:**` as a quote, and do
    not narrow or widen the request. Where you are unsure what they meant, ask rather than choose.
 d. Add what the next agent needs as a `**Claude:** notes for the agent working on this.` comment:
-   the files and functions to read, the decisions that apply, how to verify it (a docs/TESTS.md section,
+   the files and functions to read, the decisions that apply, how to verify it (an entry in `docs/tests/`, listed in docs/TESTS.md;
    a spot on the map, a client test) and the traps you know of.
 e. Label it: `value:` and `effort:` by your estimate, `source:owner`, one `area:`, and `bug` if it
    is one. An issue with the potential for a large optimization (a big gain in frame time, memory,
-   load time or draw calls) gets the highest value, `value:H`, whatever its effort. Add `needs-approval` for large, format-level or non-goal work (docs/DESIGN.md), which pings the
+   load time or draw calls) gets the highest value, `value:H`, whatever its effort, but only with a
+   figure behind it in the issue: a measurement on the benchmark scene (docs/TESTS.md, "Measuring
+   performance") or an estimate with its working (e.g. "stormwind.wmo draws 1.3M triangles a frame,
+   about 77k of them in view"). Without one, label it by its other merits and say in the notes what
+   to measure. Add `needs-approval` for large, format-level or non-goal work (docs/DESIGN.md), which pings the
    owner. Keep any label the owner set themselves.
 f. If it cannot be worked without the owner (what they want is ambiguous, or it needs a choice the
    decisions, the comments and Noggit Red don't settle), ask as in *Asking the owner*: the comment
@@ -72,7 +83,10 @@ run, so remove the label yourself and treat the item as approved. The order:
 #103); then the rest in docs/DESIGN.md priority order, then value (H first), then effort (S first).
 Prefer items that finish cleanly. Do up to **8 items per run**. Finish each item (steps 3 to 4) before
 you choose the next one. Before starting one, read it with its comments:
-`gh issue view <n> --repo Coldensjo/Meld --comments`.
+`gh issue view <n> --repo Coldensjo/Meld --comments`, then mark it `in-progress`
+(`gh issue edit <n> --repo Coldensjo/Meld --add-label in-progress`; see *Items in progress*). Note
+the rule above that put it first (bug, benilla-port, the DESIGN.md priority, value or effort, or the
+owner's request) and what it went ahead of, for the report in step 7.
 
 **2. Stop conditions.** Stop when any of these holds:
 - 8 items are done in this run.
@@ -128,7 +142,9 @@ blocked:
 **3. For each item, in order:**
 
 a. Read the code it touches before changing it, and search the decisions about the features it
-   changes: `gh issue list --repo Coldensjo/Meld --state closed --label decision --search "<words>"`. Keep the change to that item. Follow the hard rules
+   changes: `gh issue list --repo Coldensjo/Meld --state closed --label decision --search "<words>"`.
+   Read the docs for the area (CLAUDE.md, "Architecture docs", and the area's checks in the index of
+   docs/TESTS.md), and update them in the item's commit where it changes what they say. Keep the change to that item. Follow the hard rules
    in docs/DESIGN.md, and every edit through `History`.
 
 b. Verify it:
@@ -161,13 +177,16 @@ e. Close the issue with its log as the last comment: `gh issue comment <n> --rep
    - Left: follow-ups as new issues (#n), or "none".
    ```
 
+   For an optimization, Verified also gives the benchmark numbers before and after (docs/TESTS.md,
+   "Measuring performance"). Remove the `in-progress` label when you close the issue.
+
 **4. Log new ideas, do not build them.** Anything you notice that is not the current item becomes a
 new issue: a short title, a body that says what and why, `Found while working on #<n>.`, a
 `**Claude:** notes for the agent working on this.` comment (the code to read, the decisions that
 apply, how to verify it, the traps you know of; CLAUDE.md, "Backlog: GitHub issues"), and the
 labels `source:loop`, `value:`, `effort:`, an `area:` (and `bug` for a bug, `needs-approval` for
 large, format-level or non-goal work; that label also pings the owner). As in triage, an issue
-with the potential for a large optimization gets `value:H`. Search the open issues first (`gh issue list --search`) and
+with the potential for a large optimization gets `value:H`, with the figure behind it. Search the open issues first (`gh issue list --search`) and
 comment on an existing one instead of filing a duplicate. Do not implement it in this run.
 
 **5. Before stopping, tidy the backlog.** Close duplicates with `--reason "not planned"` and a comment
@@ -181,7 +200,15 @@ standing rule for every session (CLAUDE.md, "Git workflow"). Never force push. I
 (`git rebase --abort`), leave the commits local, and say so in the report. Push only `main` of this
 repository, never `vmangos`, `noggit-red` or `benilla`.
 
-**7. Report.** Comment on the pinned Loop run log issue, and end the run with the same short summary:
-items done with their issue numbers and commit hashes, items left unfinished and why, owner questions
-asked, which stop condition applied, whether the push went through, and the next top item. Do not start work after the stop
-condition applies.
+**7. Report.** Comment on the current run log (the open `loop-log` issue), and end the run with the
+same short summary: items done with their issue numbers and commit hashes, each with why it was
+picked (the rule of step 1 that put it first and what it went ahead of, e.g. "bug" or "value:H
+effort:S, ahead of #120 value:H effort:M"), items left unfinished and why, owner questions asked,
+which stop condition applied, whether the push went through, and the next top item. Do not start
+work after the stop condition applies.
+
+Each run log holds **20 runs** (one comment each). When the current one already has 20 run comments,
+start the next before posting: create `Loop run log #<N+1>` with the label `loop-log` and a body
+that copies the old one's first paragraph and adds `Continues #<old>.`, pin it (`gh issue pin`),
+post the run's comment there, then comment `**Claude:** continued in #<new>.` on the old one, unpin
+it (`gh issue unpin`) and close it.
