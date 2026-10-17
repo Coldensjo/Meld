@@ -371,7 +371,7 @@
   }
   .cols {
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 240px minmax(0, 1fr);
     gap: 12px;
     min-height: 0;
   }
@@ -418,7 +418,7 @@
   }
   .form {
     display: grid;
-    grid-template-columns: 130px 1fr;
+    grid-template-columns: 130px minmax(0, 1fr);
     gap: 6px 8px;
     align-items: center;
     align-content: start;
@@ -431,10 +431,16 @@
     display: flex;
     gap: 6px;
   }
+  .form select,
+  .form input:not([type='range']) {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
   .weather {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: 130px repeat(4, 1fr);
+    grid-template-columns: 130px repeat(4, minmax(0, 1fr));
     gap: 4px 8px;
     align-items: center;
   }
