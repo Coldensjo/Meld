@@ -23,6 +23,7 @@ test:
 	cd frontend && pnpm test
 
 check:
+	@test -z "$$(gofmt -l internal *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal *.go; exit 1; }
 	go vet ./internal/...
 	cd frontend && pnpm check
 
