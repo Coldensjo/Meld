@@ -22,7 +22,7 @@
   import DebugOverlay from './components/DebugOverlay.svelte'
   import ContextMenu from './components/ContextMenu.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
-  import { restoreSession, saveSession, startSessionSaving } from './lib/io/session'
+  import { restoreSession, saveSession, skipRestore, startSessionSaving } from './lib/io/session'
   import { offerRecovery, startAutosave } from './lib/io/recovery'
   import { copyTeleport } from './lib/io/scene'
   import { onMount } from 'svelte'
@@ -54,7 +54,8 @@
       await restoreSession(engine).catch((e) => console.warn('could not restore the session', e))
       stopSaving = startSessionSaving(engine)
       stopAutosave = startAutosave(engine)
-      void offerRecovery()
+      // The probes' page (?nosession) must not meet the owner's recovery dialog over its screenshots (#262).
+      if (!skipRestore) void offerRecovery()
     })
     return () => {
       stopSaving()

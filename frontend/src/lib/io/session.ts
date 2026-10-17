@@ -93,7 +93,7 @@ export function startSessionSaving(engine: Engine) {
  * session: a region the restore opens takes the active tab a probe has just made, and its spawns,
  * read seconds later, land in it (#250).
  */
-const skipRestore = typeof location !== 'undefined' && /[?&]nosession(?:[&=]|$)/.test(location.search)
+export const skipRestore = typeof location !== 'undefined' && /[?&]nosession(?:[&=]|$)/.test(location.search)
 
 /**
  * Opens the last session's tabs again and puts their cameras back. Region tabs need the client,

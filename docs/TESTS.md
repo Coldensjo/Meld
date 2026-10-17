@@ -90,7 +90,7 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   folded, a brush made), so a page without the flag overwrites what the user set in the window.
   With `?nosave` the page never writes the file (`lib/state/prefs.ts`). Add `&nosession` for a page
   that starts on a blank map instead of reopening the owner's last session (`lib/io/session.ts`);
-  use it only with `nosave`, since the page would otherwise save its blank session over theirs.
+  use it only with `nosave`, since the page would otherwise save its blank session over theirs. It also skips the Recover dialog, so `--shot` screenshots are not covered by the owner's recovery copies (#262).
   Add `&defaults` to skip loading config.json's preferences, so the page runs on the defaults (time of
   day, shadows, fog, panel sizes) and not the owner's; the probes' page has it (#253).
 - Open a known spot with a scene: `{map:{region:{mapName:'Azeroth',x:32,y:48,size:1}}}` opens
