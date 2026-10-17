@@ -140,11 +140,24 @@ content (145 px wide, #248).
 ## Tool hints
 Checks: each tool's help sentence shows in the status bar's left slot and not in the options bar; a
 status message (`setStatus`) takes the slot and the hint returns after it.
-Probe: `pnpm probe tool-hints` (eight tools and modes, and a message). It reports how far each bar
-overflows (`over`) without judging it: Water, Hole and the doodad brush still overflow at 1400 px
-because of their controls.
+Probe: `pnpm probe tool-hints` (eight tools and modes, and a message). It reports how many controls
+each bar puts under More (`hidden`) without judging it.
 Trap: the slot is one line with an ellipsis, so a long hint is cut off at narrow widths; hovering
 it shows the whole text.
+
+Trap: the ground effects' count ("Ground effects: N effects") lands in the slot a moment after the
+page opens, so a probe that reads the hint sets `setStatus('Ready')` and looks again.
+
+## Options bar overflow (More, #254)
+Checks: at 1400 px the options bar stays one 34 px row; the brush's Size and Strength sit on it next to
+the tool's modes; the controls that don't fit wrap below and are clipped, and a More (n) button at the
+right opens the bar over the viewport with all of them; Esc, a click elsewhere or another tool closes
+it; Tab onto a clipped control opens it.
+Probe: `pnpm probe options-more` (Hole, Raise, Terrace, Water, both doodad modes, Paint and Place).
+`--shot <dir>` leaves the Water bar open in the picture.
+Trap: a headless page has no window focus (`document.hasFocus()` is false), so `el.focus()` fires no
+`focusin`; the probe dispatches it. Focus also scrolls the clipped bar to the control, which the bar
+undoes (`scrollTop = 0`) before it decides the control is clipped.
 
 ## Help window
 

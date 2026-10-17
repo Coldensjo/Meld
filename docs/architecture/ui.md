@@ -6,7 +6,10 @@ The window layout, the asset browser and the dock panels and floating windows.
   - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
   - Main row: `Toolbar` | centre column | `Dock`. The centre column is the `Viewport` (with the
     document tab) over the `AssetBrowser`, which has its own area along the bottom.
-  - Per-tool settings go in `OptionsBar` (use `OptSlider`). It holds controls only: a sentence of
+  - Per-tool settings go in `OptionsBar` (use `OptSlider`). The bar is one row: its controls wrap
+    and the rows below the first are clipped until its More (n) button opens the bar over the
+    viewport (#254), so put a tool's most used controls first; the brush's Size and Strength
+    (`sizeStrength`) follow right after a tool's modes. It holds controls only: a sentence of
     help for the tool goes in `ToolHint.svelte` (a branch per tool and mode, with `<kbd>` markup),
     which `StatusBar` shows in its message slot while `ui.status` is 'Ready'; a status message takes
     the slot for its few seconds. Labels that name a control (`Texture:`, `Selected:`) stay in the bar.

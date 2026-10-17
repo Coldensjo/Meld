@@ -107,7 +107,7 @@ and `__engine.modifyMask('grow' | 'shrink' | 'feather')` runs in under 20 ms.
 - A seed that doesn't match (a flat spot for slope 30° and up, dry ground for water) takes nothing with
   Contiguous on. That is right, not a bug: the status bar says "Nothing to select".
 - T3 Code's preview can't take a screenshot while its pane is hidden. Read the options bar's DOM
-  (`[data-ui="OptionsBar"]`, its `scrollWidth`) instead.
+  (`[data-ui="OptionsBar"]`; the controls that wrap under More, #254, sit more than 20 px below the top of its `.options`) instead.
 
 ## Lasso and polygon areas (#183)
 
