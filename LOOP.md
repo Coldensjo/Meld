@@ -1,40 +1,115 @@
 # LOOP.md: the repeated prompt
 
-Run this same prompt each time, for example with `/loop` or `claude -p "$(cat LOOP.md)"`.
+Run this same prompt each time: tag it in a session, use `/loop`, or `claude -p "$(cat LOOP.md)"`.
 The backlog is the GitHub issues of `Coldensjo/Meld`, read and written with `gh` (logged in on this
 machine). The rest lives in docs/DESIGN.md (goals, rules, priorities) and in the closed issues labelled `decision`
 (how finished features were decided), so each run starts fresh.
 
+**How a run works.** The session given this prompt is the **coordinator**. It pulls, triages, reads
+the backlog, picks the items one at a time and writes the run log, but it does not work on items
+itself. Each item goes to a **worker**: a subagent started fresh for that one item, which reads the
+code, changes it, verifies, commits and closes the issue, then returns a short report. The coordinator
+keeps only those reports, so its context stays small however many items the run does, and each item
+starts clean. The coordinator follows *Shared rules* and *Coordinator*; a worker follows *Shared
+rules* and *Worker*.
+
 ---
 
-First pull, so the run starts from the remote's state: `git pull --rebase --autostash` (the working
-tree may hold the owner's uncommitted changes, which `--autostash` puts back). If the pull fails or
-conflicts, stop the run and say so; do not work on a stale or half-rebased tree.
-
-Read CLAUDE.md and docs/DESIGN.md. Do not edit docs/DESIGN.md. Then read the backlog:
-
-```
-gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title,labels,body
-```
-
-and the last comment of the current run log: the open, pinned issue labelled `loop-log`, titled
-**Loop run log #N** (see step 7 for starting the next one). If `gh` fails (no network, logged out),
-stop the run and say so; do not fall back to the frozen files.
-
-**Items in progress.** The issue a run is working on carries the `in-progress` label: add it when you
-pick the item (step 1), before reading its code, and remove it when you close the issue, leave it
-unfinished, or change your mind about it. Only one loop runs at a time, so an open issue that still
-has the label at the start of a run was left by a run that ended mid-item: remove the label, read
-its comments for where it stands, and treat it as eligible like any other.
+## Shared rules
 
 **Comments.** Every comment the loop (or any Claude session) writes starts with `**Claude:**`. A
 comment by `Coldensjo` that doesn't start so is the owner's, and is an instruction for that item: it
-ranks above the issue's body and above any `decision` issue. Comments by `github-actions` are only pings (below).
+ranks above the issue's body and above any `decision` issue. Comments by `github-actions` are only pings.
 The `**Claude:** notes for the agent` comment on an issue is where earlier sessions left what you need
 to know (code, decisions, how to verify, traps); read it before starting. Write each comment or issue body to a temp file and pass it
 with `--body-file`, so backticks and backslashes survive the shell.
 
-**0. Triage.** An open issue the owner wrote by hand is a backlog item like any other, but it is in
+**Decisions.** Where a comment on the issue or a `decision` issue records a decision, follow it; do
+not reopen it. Do not guess at behaviour the owner has not defined: if an item needs the owner's
+decision, neither the issue's comments nor a `decision` issue record one, and Noggit Red does not
+settle it (*Unknown meaning*), the owner is asked (*Asking the owner*).
+
+**Asking the owner.**
+- In an interactive session, the coordinator asks; a worker never does (it cannot reach the owner).
+  The worker stops and returns its questions in its report (*Worker report*). The coordinator enters
+  plan mode (`EnterPlanMode`) and asks with `AskUserQuestion`: one question per open decision, with
+  the options, the recommendation first and marked "(Recommended)", and the trade-off of each in its
+  description. It records each answer as a comment on the issue: `**Claude:** decided by the owner
+  <date>`, the question and the choice, leaves plan mode with `ExitPlanMode`, and has the item
+  continued (*Coordinator*, step 3).
+- Otherwise (a non-interactive `claude -p` run, or no answer), the worker comments the questions on
+  the issue, starting `**Claude:** @Coldensjo`, each with its options, its recommendation and the
+  trade-offs, then adds the `owner-question` label, and stops the item. The label is what notifies the
+  owner: `.github/workflows/ping-owner.yml` mentions them as `github-actions[bot]`, since a mention
+  from their own login (which `gh` uses) is silent. The same goes for an item only the owner can do,
+  such as a check in the game.
+
+**Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from the
+issue and its comments, the `decision` issues or the code, check Noggit Red before you decide it is
+blocked:
+
+1. Find the behaviour in Noggit Red source. Clone it once, shallow, into the scratchpad, never
+   into the repo: `git clone --depth 1 https://gitlab.com/prophecy-rp/noggit-red.git <scratchpad>/noggit-red`
+   (reuse a clone already there). Look in `src/noggit/` (the UI is in `src/noggit/ui/`). If the clone
+   fails, use WebFetch on `https://gitlab.com/prophecy-rp/noggit-red`. If neither works, leave the
+   item with a comment saying so. Noggit Red targets later clients as well as 1.12, so check that a
+   file-format behaviour holds for 1.12 tiles before you follow it.
+2. Pick the behaviour. The default is Noggit Red's. Keep our current behaviour instead only when ours
+   is clearly better, and say why.
+3. Record the decision as a comment on the issue: the term, the Noggit Red file and function it came
+   from, the choice (Noggit Red or ours), the reason, and "chosen by the loop from Noggit Red", so the
+   owner can see it and change it. A decision that reaches beyond the one item (a rule for many items
+   or for the loop) becomes its own issue labelled `decision`, closed once recorded and linked from
+   this one; a change to the loop's own rules is the owner's to put in LOOP.md, so ask.
+4. Continue the item. Recording a decision is not a docs/DESIGN.md change, so do not edit docs/DESIGN.md. If the
+   decision would change a hard rule or a non-goal, ask the owner instead (*Asking the owner*).
+
+**New issues.** Anything you notice that is not the current item becomes a new issue, not work in
+this run: a short title, a body that says what and why, `Found while working on #<n>.`, a
+`**Claude:** notes for the agent working on this.` comment (the code to read, the decisions that
+apply, how to verify it, the traps you know of; CLAUDE.md, "Backlog: GitHub issues"), and the
+labels `source:loop`, `value:`, `effort:`, an `area:` (and `bug` for a bug, `needs-approval` for
+large, format-level or non-goal work; that label also pings the owner). Search the open issues
+first (`gh issue list --search`) and comment on an existing one instead of filing a duplicate.
+
+**Value of an optimization.** An issue with the potential for a large optimization (a big gain in
+frame time, memory, load time or draw calls) gets the highest value, `value:H`, whatever its effort,
+but only with a figure behind it in the issue: a measurement on the benchmark scene (docs/TESTS.md,
+"Measuring performance") or an estimate with its working (e.g. "stormwind.wmo draws 1.3M triangles a
+frame, about 77k of them in view"). Without one, label it by its other merits and say in the notes
+what to measure.
+
+---
+
+## Coordinator
+
+The coordinator never reads or changes the code for an item, runs its checks or commits it; that is
+the worker's. It reads the backlog by labels and titles, and an issue's full text only to triage it
+or to choose between items.
+
+**1. Start.** Pull, so the run starts from the remote's state: `git pull --rebase --autostash` (the
+working tree may hold the owner's uncommitted changes, which `--autostash` puts back). If the pull
+fails or conflicts, stop the run and say so; do not work on a stale or half-rebased tree. Read
+docs/DESIGN.md (do not edit it), then the backlog:
+
+```
+gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,title,labels
+```
+
+and the last comment of the current run log: the open, pinned issue labelled `loop-log`, titled
+**Loop run log #N** (step 7). If `gh` fails (no network, logged out), stop the run and say so; do
+not fall back to the frozen files.
+
+Then:
+- **Answered questions.** For each `owner-question` issue where the owner has commented since the
+  question, remove the label, record their answer as a decision comment, and treat the item as
+  eligible again.
+- **Items in progress.** The issue a worker is on carries the `in-progress` label (step 3). Only one
+  loop runs at a time, so an open issue that still has it now was left by a run that ended mid-item:
+  remove the label and treat the issue as eligible; its worker will read the comments for where it
+  stands.
+
+**2. Triage.** An open issue the owner wrote by hand is a backlog item like any other, but it is in
 their words and the next agent starts cold. Such an issue has no `value:` or `effort:` label, or it
 has `source:owner` and no comment starting `**Claude:**`, which this lists:
 
@@ -42,8 +117,10 @@ has `source:owner` and no comment starting `**Claude:**`, which this lists:
 gh issue list --repo Coldensjo/Meld --state open --label source:owner --limit 300 --json number,comments --jq '.[] | select(all(.comments[]; .body | startswith("**Claude:**") | not)) | .number'
 ```
 
-Triage each one before choosing work, and
-the issue is eligible for this run afterwards. Triage doesn't count toward the run's cap. For each:
+Triage each one before choosing work; the issue is eligible for this run afterwards. Triage doesn't
+count toward the run's cap. When more than two need it, hand them to one worker-style subagent
+with the steps below, which returns a line per issue and the questions it couldn't settle; ask
+those as in *Asking the owner*. For each:
 
 a. Read it with its comments, and search for a duplicate (`gh issue list --search`, open and
    closed) and for the `decision` issues it touches. If it duplicates an open issue, comment
@@ -57,116 +134,131 @@ c. Rewrite it in the backlog's wording (CLAUDE.md, "Backlog: GitHub issues"): a 
    original text at the end of the body under `**Original text by the owner:**` as a quote, and do
    not narrow or widen the request. Where you are unsure what they meant, ask rather than choose.
 d. Add what the next agent needs as a `**Claude:** notes for the agent working on this.` comment:
-   the files and functions to read, the decisions that apply, how to verify it (an entry in `docs/tests/`, listed in docs/TESTS.md;
-   a spot on the map, a client test) and the traps you know of.
-e. Label it: `value:` and `effort:` by your estimate, `source:owner`, one `area:`, and `bug` if it
-   is one. An issue with the potential for a large optimization (a big gain in frame time, memory,
-   load time or draw calls) gets the highest value, `value:H`, whatever its effort, but only with a
-   figure behind it in the issue: a measurement on the benchmark scene (docs/TESTS.md, "Measuring
-   performance") or an estimate with its working (e.g. "stormwind.wmo draws 1.3M triangles a frame,
-   about 77k of them in view"). Without one, label it by its other merits and say in the notes what
-   to measure. Add `needs-approval` for large, format-level or non-goal work (docs/DESIGN.md), which pings the
-   owner. Keep any label the owner set themselves.
+   the files and functions to read, the decisions that apply, how to verify it (an entry in
+   `docs/tests/`, listed in docs/TESTS.md; a spot on the map, a client test) and the traps you know of.
+e. Label it: `value:` and `effort:` by your estimate (*Value of an optimization*), `source:owner`,
+   one `area:`, and `bug` if it is one. Add `needs-approval` for large, format-level or non-goal work
+   (docs/DESIGN.md), which pings the owner. Keep any label the owner set themselves.
 f. If it cannot be worked without the owner (what they want is ambiguous, or it needs a choice the
-   decisions, the comments and Noggit Red don't settle), ask as in *Asking the owner*: the comment
-   starting `**Claude:** @Coldensjo` with the options and your recommendation, then the
-   `owner-question` label, so the owner is pinged.
+   decisions, the comments and Noggit Red don't settle), ask as in *Asking the owner*.
 g. Comment `**Claude:** triaged.` with a line each on what you changed in the title and body, the
    labels and why, and any question asked. Mention the triaged issues in the run log.
 
-**1. Work through items until a stop condition applies.** Skip issues labelled `needs-approval`,
-`parked` or `owner-question` (but see *Asking the owner* for answered questions). The owner
-approves by commenting `approved` (any limits after it bind the work), and a workflow then removes
-`needs-approval`; if the label is still there under such a comment by the owner, the workflow didn't
-run, so remove the label yourself and treat the item as approved. The order:
-`bug` first; then `benilla-port`, lowest issue number first (the owner's order,
-#103); then the rest in docs/DESIGN.md priority order, then value (H first), then effort (S first).
-Prefer items that finish cleanly. Do up to **8 items per run**. Finish each item (steps 3 to 4) before
-you choose the next one. Before starting one, read it with its comments:
-`gh issue view <n> --repo Coldensjo/Meld --comments`, then mark it `in-progress`
-(`gh issue edit <n> --repo Coldensjo/Meld --add-label in-progress`; see *Items in progress*). Note
-the rule above that put it first (bug, benilla-port, the DESIGN.md priority, value or effort, or the
-owner's request) and what it went ahead of, for the report in step 7.
+**3. Hand out items one at a time until a stop condition applies.** Skip issues labelled
+`needs-approval`, `parked` or `owner-question`. The owner approves by commenting `approved` (any
+limits after it bind the work), and a workflow then removes `needs-approval`; if the label is still
+there under such a comment by the owner, the workflow didn't run, so remove the label yourself and
+treat the item as approved. The order: `bug` first; then `benilla-port`, lowest issue number first
+(the owner's order, #103); then the rest in docs/DESIGN.md priority order, then value (H first),
+then effort (S first). Prefer items that finish cleanly. Do up to **8 items per run**.
 
-**2. Stop conditions.** Stop when any of these holds:
+For each item:
+
+a. Note the rule above that put it first (bug, benilla-port, the DESIGN.md priority, value or
+   effort, or the owner's request) and what it went ahead of, for the run log.
+b. Mark it: `gh issue edit <n> --repo Coldensjo/Meld --add-label in-progress`.
+c. Start its worker with the Agent tool (a general-purpose subagent, in the foreground, since the
+   next step needs its report) and this prompt, filled in:
+
+   ```
+   You are the Meld loop's worker for issue #<n> of Coldensjo/Meld. Read LOOP.md in the repository
+   root, then follow its "Shared rules" and "Worker" sections for this one issue only.
+   Session: <interactive | non-interactive>.
+   Picked because: <the rule and what it went ahead of>.
+   <Only when continuing an item: Owner's answers: <each question and the choice>, recorded on the issue.
+   Left uncommitted by the last worker: <its Uncommitted line>.>
+   End with the report in LOOP.md's "Worker report" format and nothing else.
+   ```
+
+   Put nothing else about the item in the prompt; the worker reads the issue itself.
+d. Act on its report:
+   - `done`: note the commit for the run log.
+   - `needs-owner` (interactive only): ask the questions as in *Asking the owner*, record the
+     answers, and continue the item: send the answers to the same worker (`SendMessage` to its ID)
+     where you can, else start a new worker with the answers in its prompt.
+   - `unfinished` or `asked-owner`: note why for the run log.
+e. Remove `in-progress` unless the item is being continued
+   (`gh issue edit <n> --repo Coldensjo/Meld --remove-label in-progress`), then pick the next item.
+
+If a worker fails without a report (it crashed or ran out of room), read the issue's last comments
+and `git log -1`: if it committed and closed the issue, count it done; otherwise comment
+`**Claude:** left unfinished: the worker stopped without reporting` with what the log and the
+working tree show, remove `in-progress`, and go on.
+
+**4. Stop conditions.** Stop when any of these holds:
 - 8 items are done in this run.
 - Nothing eligible is left. When no value H or M item is eligible, go on with value L items, as
   the owner decided 2026-10-15 (#80); do not stop only because the rest are value L.
-- The context is getting full. Stop after the item in progress, not in the middle of it.
+- The coordinator's own context is getting full. Stop after the item in progress, not in the middle of it.
 
 Do not invent work.
 
-**Blocked items.** If a check fails and cannot be fixed, comment on the issue what failed, why, what
-you tried and where the work stands (`**Claude:** left unfinished: ...`), so the next run doesn't
-start over, leave it open, and go on to the next item. Where a comment on
-the issue or a `decision` issue records a decision, follow it; do not reopen it. Do not guess at behaviour the
-owner has not defined: if an item needs the owner's decision, neither the issue's comments nor
-a `decision` issue record one, and Noggit Red does not settle it (see below), ask the owner.
+**5. Tidy the backlog.** Close duplicates with `--reason "not planned"` and a comment
+`**Claude:** duplicate of #<m>`. Anything that no longer fits docs/DESIGN.md gets the `parked` label and is
+closed as not planned, with the reason in a comment. Never close an owner-filed issue except as a
+duplicate, and say so in the run log.
 
-**Asking the owner.**
-- In an interactive session: enter plan mode (`EnterPlanMode`), then ask with `AskUserQuestion`: one
-  question per open decision, with the options you see, your recommendation first and marked
-  "(Recommended)", and the trade-off of each in its description. Record each answer as a comment on
-  the issue: `**Claude:** decided by the owner <date>`, the question and the choice. Leave plan mode
-  with `ExitPlanMode`, giving the plan for that item, and continue the item once it is approved.
-- Otherwise (a non-interactive `claude -p` run, or no answer): comment the questions on the issue,
-  starting `**Claude:** @Coldensjo`, each with its options, your recommendation and the trade-offs,
-  then add the `owner-question` label, and go on to the next item. The label is what notifies the
-  owner: `.github/workflows/ping-owner.yml` mentions them as `github-actions[bot]`, since a mention
-  from their own login (which `gh` uses) is silent. Do the same for an item only the owner can do,
-  such as a check in the game.
-- At the start of each run, look at the `owner-question` issues. Where the owner has commented since
-  the question, remove the label, record their answer as a decision comment, and treat the item as
-  eligible again.
+**6. Push.** After every run, even one that stopped early or did no items, pull and push so the
+remote has the run's commits: `git pull --rebase --autostash`, then `git push`. This is the owner's
+standing rule for every session (CLAUDE.md, "Git workflow"). Workers never push. Never force push. If the pull conflicts or the push is rejected, do not resolve it by guessing: abort the rebase
+(`git rebase --abort`), leave the commits local, and say so in the report. Push only `main` of this
+repository, never `vmangos`, `noggit-red` or `benilla`.
 
-**Unknown meaning.** If an item uses a term or describes a behaviour you cannot pin down from the
-issue and its comments, the `decision` issues or the code, check Noggit Red before you decide it is
-blocked:
+**7. Report.** Comment on the current run log (the open `loop-log` issue), and end the run with the
+same short summary: items done with their issue numbers and commit hashes, each with why it was
+picked (the rule of step 3 that put it first and what it went ahead of, e.g. "bug" or "value:H
+effort:S, ahead of #120 value:H effort:M"), items left unfinished and why, owner questions asked,
+new issues the workers filed, which stop condition applied, whether the push went through, and the
+next top item. Do not start work after the stop condition applies.
 
-1. Find the behaviour in Noggit Red source. Clone it once per run, shallow, into the scratchpad, never
-   into the repo: `git clone --depth 1 https://gitlab.com/prophecy-rp/noggit-red.git <scratchpad>/noggit-red`.
-   Look in `src/noggit/` (the UI is in `src/noggit/ui/`). If the clone fails, use WebFetch on
-   `https://gitlab.com/prophecy-rp/noggit-red`. If neither works, leave the item with a comment
-   saying so. Noggit Red targets later clients as well as 1.12, so check that a file-format behaviour
-   holds for 1.12 tiles before you follow it.
-2. Pick the behaviour. The default is Noggit Red's. Keep our current behaviour instead only when ours
-   is clearly better, and say why.
-3. Record the decision as a comment on the issue: the term, the Noggit Red file and function it came
-   from, the choice (Noggit Red or ours), the reason, and "chosen by the loop from Noggit Red", so the
-   owner can see it and change it. A decision that reaches beyond the one item (a rule for many items
-   or for the loop) becomes its own issue labelled `decision`, closed once recorded and linked from
-   this one; a change to the loop's own rules is the owner's to put in LOOP.md, so ask.
-4. Continue the item. Recording a decision is not a docs/DESIGN.md change, so do not edit docs/DESIGN.md. If the
-   decision would change a hard rule or a non-goal, ask the owner instead (see *Asking the owner*).
+Each run log holds **20 runs** (one comment each). When the current one already has 20 run comments,
+start the next before posting: create `Loop run log #<N+1>` with the label `loop-log` and a body
+that copies the old one's first paragraph and adds `Continues #<old>.`, pin it (`gh issue pin`),
+post the run's comment there, then comment `**Claude:** continued in #<new>.` on the old one, unpin
+it (`gh issue unpin`) and close it.
 
-**3. For each item, in order:**
+---
 
-a. Read the code it touches before changing it, and search the decisions about the features it
+## Worker
+
+You do one issue, given in your prompt, and then report. Do not pick another item, do not pull or
+push, do not write to the run log, and do not change the issue's `in-progress` label; the
+coordinator does those. CLAUDE.md applies in full.
+
+a. Read the issue with its comments: `gh issue view <n> --repo Coldensjo/Meld --comments`. If it was
+   left unfinished before, start from where its comments say it stands.
+
+b. Read the code it touches before changing it, and search the decisions about the features it
    changes: `gh issue list --repo Coldensjo/Meld --state closed --label decision --search "<words>"`.
    Read the docs for the area (CLAUDE.md, "Architecture docs", and the area's checks in the index of
-   docs/TESTS.md), and update them in the item's commit where it changes what they say. Keep the change to that item. Follow the hard rules
-   in docs/DESIGN.md, and every edit through `History`.
+   docs/TESTS.md), and update them in the item's commit where it changes what they say. Keep the
+   change to that item. Follow the hard rules in docs/DESIGN.md, and every edit through `History`.
+   Where it needs the owner, see *Asking the owner*: in an interactive session, stop and report
+   `needs-owner`; otherwise comment, label and report `asked-owner`. Ask before changing code where
+   you can; if you already changed files, leave them uncommitted and list them in the report.
 
-b. Verify it:
+c. Verify it:
    - `make test`
    - `make check`
    - the build for the OS you run on: `make build-windows` on Windows, `make build-linux` on Linux.
-     The other cannot run here. Say so in the log.
+     The other cannot run here. Say so in the closing comment.
 
-   If a check fails, fix it. If it cannot be fixed in this run, do not commit the item. Comment on
-   the issue that it was left unfinished and why, and move on.
+   If a check fails, fix it. If it cannot be fixed, do not commit. Comment on the issue what failed,
+   why, what you tried and where the work stands (`**Claude:** left unfinished: ...`), so the next
+   worker doesn't start over, and report `unfinished`.
 
-c. If the item changes what the app shows, check it in the app or say in the log that you did not.
+d. If the item changes what the app shows, check it in the app (docs/TESTS.md) or say in the closing
+   comment that you did not.
 
-d. Commit that item alone, following CLAUDE.md. Stage only the files you changed, by name. Never run
+e. Commit that item alone, following CLAUDE.md. Stage only the files you changed, by name. Never run
    `git add -A` or `git add .`. The working tree may hold the owner's uncommitted changes. Leave them
    unstaged. Regenerate wailsjs only if the item changed a bound Go method, and stage only the wailsjs
-   files that changed for that reason. Do not push per item; the run pushes once, in step 6. The message is one imperative sentence that says
+   files that changed for that reason. The message is one imperative sentence that says
    what changed and why, then a blank line, `Closes #<n>`, and the `Co-Authored-By` trailer the
    harness gives for the model running the loop. Do not hard-code a model name here, and do not note
    in the log which model ran.
 
-e. Close the issue with its log as the last comment: `gh issue comment <n> --repo Coldensjo/Meld
+f. Close the issue with its log as the last comment: `gh issue comment <n> --repo Coldensjo/Meld
    --body-file <file>`, then `gh issue close <n> --repo Coldensjo/Meld`. The comment is:
 
    ```
@@ -178,37 +270,21 @@ e. Close the issue with its log as the last comment: `gh issue comment <n> --rep
    ```
 
    For an optimization, Verified also gives the benchmark numbers before and after (docs/TESTS.md,
-   "Measuring performance"). Remove the `in-progress` label when you close the issue.
+   "Measuring performance").
 
-**4. Log new ideas, do not build them.** Anything you notice that is not the current item becomes a
-new issue: a short title, a body that says what and why, `Found while working on #<n>.`, a
-`**Claude:** notes for the agent working on this.` comment (the code to read, the decisions that
-apply, how to verify it, the traps you know of; CLAUDE.md, "Backlog: GitHub issues"), and the
-labels `source:loop`, `value:`, `effort:`, an `area:` (and `bug` for a bug, `needs-approval` for
-large, format-level or non-goal work; that label also pings the owner). As in triage, an issue
-with the potential for a large optimization gets `value:H`, with the figure behind it. Search the open issues first (`gh issue list --search`) and
-comment on an existing one instead of filing a duplicate. Do not implement it in this run.
+g. File what you noticed along the way as *New issues*; do not build it.
 
-**5. Before stopping, tidy the backlog.** Close duplicates with `--reason "not planned"` and a comment
-`**Claude:** duplicate of #<m>`. Anything that no longer fits docs/DESIGN.md gets the `parked` label and is
-closed as not planned, with the reason in a comment. Never close an owner-filed issue except as a
-duplicate, and say so in the run log.
+### Worker report
 
-**6. Push.** After every run, even one that stopped early or did no items, pull and push so the
-remote has the run's commits: `git pull --rebase --autostash`, then `git push`. This is the owner's
-standing rule for every session (CLAUDE.md, "Git workflow"). Never force push. If the pull conflicts or the push is rejected, do not resolve it by guessing: abort the rebase
-(`git rebase --abort`), leave the commits local, and say so in the report. Push only `main` of this
-repository, never `vmangos`, `noggit-red` or `benilla`.
+Your last message is only this, so the coordinator's context stays small:
 
-**7. Report.** Comment on the current run log (the open `loop-log` issue), and end the run with the
-same short summary: items done with their issue numbers and commit hashes, each with why it was
-picked (the rule of step 1 that put it first and what it went ahead of, e.g. "bug" or "value:H
-effort:S, ahead of #120 value:H effort:M"), items left unfinished and why, owner questions asked,
-which stop condition applied, whether the push went through, and the next top item. Do not start
-work after the stop condition applies.
-
-Each run log holds **20 runs** (one comment each). When the current one already has 20 run comments,
-start the next before posting: create `Loop run log #<N+1>` with the label `loop-log` and a body
-that copies the old one's first paragraph and adds `Continues #<old>.`, pin it (`gh issue pin`),
-post the run's comment there, then comment `**Claude:** continued in #<new>.` on the old one, unpin
-it (`gh issue unpin`) and close it.
+```
+#<n> <done <short-hash> | unfinished | needs-owner | asked-owner>
+Done: <one line, or "nothing">
+Verified: <the checks and the app check, one line>
+New issues: <#m, ... or "none">
+Why not done: <for unfinished or asked-owner: one line>
+Questions: <for needs-owner only: each question with its options, your recommendation first and
+the trade-off of each>
+Uncommitted: <for needs-owner or unfinished: the files you changed and left, or "none">
+```
