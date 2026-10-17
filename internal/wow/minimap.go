@@ -14,13 +14,16 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"Meld/internal/adt"
 )
 
 // The client's minimap: one 256x256 BLP per tile under textures\Minimap, named by hash, with
 // textures\Minimap\md5translate.trs mapping "<Map>\map<x>_<y>.blp" to the hashed file. The editor
 // stitches a whole map into one overview image so a region can be picked by eye.
 
-// MapTile is a tile of a map that has a minimap image, and so exists.
+// MapTile is a tile of a map. File is its minimap image, empty for a tile that has an ADT but no
+// minimap (every tile of a 1.12 instance).
 type MapTile struct {
 	X, Y int
 	File string
@@ -82,26 +85,81 @@ func (c *Client) minimapTable() (map[string][]MapTile, error) {
 	return table, nil
 }
 
+// MapTiles lists the tiles of mapName that exist: those its WDT's MAIN table marks as having an ADT,
+// each with its minimap image where the client has one. Instances have no minimap at all, so the
+// WDT is what says where their ground is (#222). Without a WDT it falls back to the minimap's list.
+// A WMO-only map (one global building, no ADTs) has none.
+func (c *Client) MapTiles(mapName string) ([]MapTile, error) {
+	mini, err := c.MinimapTiles(mapName)
+	if err != nil {
+		mini = nil
+	}
+	wdt, err := c.read(fmt.Sprintf(`World\Maps\%s\%s.wdt`, mapName, mapName))
+	if err != nil {
+		if mini == nil {
+			return []MapTile{}, nil
+		}
+		return mini, nil
+	}
+	files := make(map[[2]int]string, len(mini))
+	for _, t := range mini {
+		files[[2]int{t.X, t.Y}] = t.File
+	}
+	tiles := []MapTile{}
+	for _, xy := range WDTTiles(wdt) {
+		tiles = append(tiles, MapTile{X: xy[0], Y: xy[1], File: files[xy]})
+	}
+	return tiles, nil
+}
+
+// WDTTiles reads a WDT's MAIN table: the (x, y) of each tile flagged as having an ADT, row by row.
+// MAIN holds 64x64 entries of 8 bytes, x + 64*y, whose first word has bit 0 set for a tile.
+func WDTTiles(wdt []byte) [][2]int {
+	out := [][2]int{}
+	for off := 0; off+8 <= len(wdt); {
+		id := string([]byte{wdt[off+3], wdt[off+2], wdt[off+1], wdt[off]})
+		size := int(uint32(wdt[off+4]) | uint32(wdt[off+5])<<8 | uint32(wdt[off+6])<<16 | uint32(wdt[off+7])<<24)
+		body := off + 8
+		if size < 0 || body+size > len(wdt) {
+			break
+		}
+		if id == "MAIN" {
+			n := MapTilesPerSide * MapTilesPerSide
+			for i := 0; i < n && body+i*8+4 <= body+size; i++ {
+				if wdt[body+i*8]&1 != 0 {
+					out = append(out, [2]int{i % MapTilesPerSide, i / MapTilesPerSide})
+				}
+			}
+			break
+		}
+		off = body + size
+	}
+	return out
+}
+
 // MapOverview returns a PNG of the whole map: 64x64 tiles of OverviewTilePx pixels each, from the
-// client's minimap images, transparent where a tile doesn't exist. It is built once and kept in the
-// user's cache folder.
+// client's minimap images, transparent where a tile doesn't exist. A tile with no minimap image
+// (all of an instance's) is drawn from its ADT's heights instead, shaded by slope, so an instance's
+// ground can still be picked by eye. It is built once and kept in the user's cache folder.
 func (c *Client) MapOverview(mapName string) ([]byte, error) {
 	if mapName == "" || strings.ContainsAny(mapName, `\/`) {
 		return nil, errors.New("bad map name")
 	}
-	path, err := c.cachePath("overview", mapName)
+	// "overview2" since tiles without a minimap image are drawn from their heights (#222): an older
+	// cached overview left them out.
+	path, err := c.cachePath("overview2", mapName)
 	if err != nil {
 		return nil, err
 	}
 	if b, err := os.ReadFile(path); err == nil {
 		return b, nil
 	}
-	tiles, err := c.MinimapTiles(mapName)
+	tiles, err := c.MapTiles(mapName)
 	if err != nil {
 		return nil, err
 	}
 	if len(tiles) == 0 {
-		return nil, fmt.Errorf("%s has no minimap tiles", mapName)
+		return nil, fmt.Errorf("%s has no terrain tiles", mapName)
 	}
 	side := MapTilesPerSide * OverviewTilePx
 	out := image.NewNRGBA(image.Rect(0, 0, side, side))
@@ -113,6 +171,10 @@ func (c *Client) MapOverview(mapName string) ([]byte, error) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
+			if t.File == "" {
+				c.drawTileRelief(out, mapName, t)
+				return
+			}
 			raw, err := c.read(t.File)
 			if err != nil {
 				return
@@ -156,6 +218,53 @@ func (c *Client) MapOverview(mapName string) ([]byte, error) {
 		_ = os.WriteFile(path, buf.Bytes(), 0o644)
 	}
 	return buf.Bytes(), nil
+}
+
+// drawTileRelief draws a tile without a minimap image from its ADT: each overview pixel takes the
+// height sample under it, lit from the north-west by the slope, so ridges, walls and pits show.
+// A tile it cannot read is drawn flat grey, so it still shows as there.
+func (c *Client) drawTileRelief(out *image.NRGBA, mapName string, t MapTile) {
+	const side = adt.ChunksPerTile * adt.CellsPerChunk // 128 cells, 129 outer samples a side
+	flat := color.NRGBA{90, 96, 104, 255}
+	var h []float32
+	if raw, err := c.read(adt.TilePath(mapName, t.X, t.Y, "")); err == nil {
+		if ter, err := adt.ParseTerrain(raw); err == nil {
+			h = make([]float32, (side+1)*(side+1))
+			for _, ch := range ter.Chunks {
+				// The 9x9 outer samples sit at even rows of the 17 interleaved rows (9 + 8).
+				for r := 0; r <= adt.CellsPerChunk; r++ {
+					for q := 0; q <= adt.CellsPerChunk; q++ {
+						x := ch.IndexX*adt.CellsPerChunk + q
+						y := ch.IndexY*adt.CellsPerChunk + r
+						h[y*(side+1)+x] = ch.Heights[r*17+q]
+					}
+				}
+			}
+		}
+	}
+	at := func(x, y int) float32 {
+		x = min(max(x, 0), side)
+		y = min(max(y, 0), side)
+		return h[y*(side+1)+x]
+	}
+	for py := 0; py < OverviewTilePx; py++ {
+		for px := 0; px < OverviewTilePx; px++ {
+			col := flat
+			if h != nil {
+				x := px * side / OverviewTilePx
+				y := py * side / OverviewTilePx
+				step := side / OverviewTilePx
+				// A cell is 533.33/128 yards; the slope over one overview pixel, lit from the north-west.
+				dx := at(x+step, y) - at(x-step, y)
+				dy := at(x, y+step) - at(x, y-step)
+				run := float32(2*step) * float32(adt.TileSize) / side
+				light := 0.6 - 0.9*(dx+dy)/run
+				light = min(max(light, 0.15), 1)
+				col = color.NRGBA{uint8(140 * light), uint8(150 * light), uint8(130 * light), 255}
+			}
+			out.SetNRGBA(t.X*OverviewTilePx+px, t.Y*OverviewTilePx+py, col)
+		}
+	}
 }
 
 // cachePath is a file in the per-client cache folder, under `kind`, for `key`.

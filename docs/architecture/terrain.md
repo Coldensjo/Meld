@@ -136,7 +136,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   bounded by sea); the cards are drawn by `drawPresetPreview`. "Part of Azeroth" picks a square of
   tiles on `MapPicker.svelte`, a continent overview stitched by the Go side from the client's
   minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
-  the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps.
+  the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps. The
+  tiles that exist come from the map's WDT, not the minimap (`MapTiles`, `WDTTiles`, `/wow/tiles`):
+  a tile with no minimap image is drawn from its ADT's heights (`drawTileRelief`), and a block that
+  takes in a tile with no ADT can't be opened (`lib/io/mapTiles.ts`: the picker's `gaps`). On an
+  instance (any map but a continent) the picker selects the biggest square wholly on its tiles
+  (`fullBlock`, #222). A WMO-only instance (one global building, no ADTs: Molten Core, Scholomance)
+  has no tiles, and the picker says it can't be opened yet.
 - **Zones** (`components/ZonesDialog.svelte`, World › Zones…, `ui.dialog = 'zones'`): a map's AreaTable.dbc
   rows (`vmangos/areatable.go`: `ReadAreaRows`, `NewAreaRow`, `SetAreaRows`; bindings `AreaRows`,
   `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (the game closed around it) and

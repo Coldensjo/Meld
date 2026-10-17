@@ -496,7 +496,8 @@ func (c *Client) Handler() http.Handler {
 		w.Header().Set("Content-Type", "image/png")
 		w.Write(b)
 	})
-	// The map overview for picking a region: a PNG stitched from the client's minimap.
+	// The map overview for picking a region: a PNG stitched from the client's minimap, with tiles that
+	// have no minimap image (an instance's) drawn from their heights. /wow/tiles lists the tiles that exist.
 	mux.HandleFunc("/wow/overview", func(w http.ResponseWriter, r *http.Request) {
 		b, err := c.MapOverview(r.URL.Query().Get("map"))
 		if err != nil {
@@ -507,7 +508,7 @@ func (c *Client) Handler() http.Handler {
 		w.Write(b)
 	})
 	mux.HandleFunc("/wow/tiles", func(w http.ResponseWriter, r *http.Request) {
-		tiles, err := c.MinimapTiles(r.URL.Query().Get("map"))
+		tiles, err := c.MapTiles(r.URL.Query().Get("map"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

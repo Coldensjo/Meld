@@ -4,11 +4,20 @@ import (
 	"encoding/binary"
 	"math"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"Meld/internal/mpq"
-	"Meld/internal/wow"
 )
+
+// resolveDataDir is the client's Data folder, or dir itself when it has none. Not wow.ResolveDataDir,
+// since wow imports this package.
+func resolveDataDir(dir string) (string, error) {
+	if st, err := os.Stat(filepath.Join(dir, "Data")); err == nil && st.IsDir() {
+		return filepath.Join(dir, "Data"), nil
+	}
+	return dir, nil
+}
 
 // chunkBytes frames a payload as an IFF chunk, with its id stored byte-reversed as on disk.
 func chunkBytes(id string, payload []byte) []byte {
@@ -129,7 +138,7 @@ func TestTileIntegration(t *testing.T) {
 	if dir == "" {
 		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
 	}
-	dataDir, err := wow.ResolveDataDir(dir)
+	dataDir, err := resolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +240,7 @@ func TestWriteHeightsIntegration(t *testing.T) {
 	if dir == "" {
 		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
 	}
-	dataDir, err := wow.ResolveDataDir(dir)
+	dataDir, err := resolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +309,7 @@ func TestNormalsMatchFile(t *testing.T) {
 	if dir == "" {
 		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
 	}
-	dataDir, err := wow.ResolveDataDir(dir)
+	dataDir, err := resolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
