@@ -63,7 +63,10 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `TestClientLightsWriteBack` (WOW_DIR) is the check for the light editor's writes: Azeroth's lights and
   params written back must leave LightParams and both band tables byte-identical. Trap: the client's unused
   band key slots hold 0xcccccccc (uninitialised memory in Blizzard's tool), so a writer that zeroes them
-  isn't byte-identical; `WriteLights` starts each band row from the client's own.
+  isn't byte-identical; `WriteLights` starts each band row from the client's own. Second trap: params 8
+  and 499 list some band keys out of time order (499's colour band 9: 2640, 2520, 0, 1440), which the
+  client walks as a cycle in file order, so `WriteLights` passes an unchanged band through instead of
+  checking its order (#275).
 - `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
   checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the
   hole export's block mapping. Seeing a cut cave mouth in game is still a manual check.

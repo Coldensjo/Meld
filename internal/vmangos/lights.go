@@ -208,7 +208,7 @@ func lightTablePath(name string) string { return `DBFilesClient\` + name + `.dbc
 // replaced by its ID or added (a global light keeps its position at 0,0,0), a params row keeps its sky
 // box and cloud fields (a new one takes the first row's) and gets its glow and water alphas, and each
 // of its 18 colour and 6 float bands is written whole. A band holds at most 16 keys, in time order
-// within the day (0 to 2879 half-minutes).
+// within the day (0 to 2879 half-minutes), unless it is sent back as the client already has it.
 func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 	var out [4][]byte
 	pt, err := parseDBC(tables[1])
@@ -260,9 +260,17 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 			}
 			// An existing row keeps what its unused key slots hold (the client's are 0xcccccccc).
 			row := make([]uint32, 34)
-			if r, ok := t.row(id); ok {
+			r, had := t.row(id)
+			if had {
 				for f := range row {
 					row[f] = t.u32(r, f)
+				}
+				// A band sent back as the client has it is written as it is: a few of the client's
+				// own bands (params 8 and 499) list their keys out of time order, which the client
+				// walks as a cycle in file order (Benilla's light/tables.rs, segment), so they must
+				// neither be refused nor sorted.
+				if bandUnchanged(row, keys, float) {
+					return row, nil
 				}
 			}
 			row[0], row[1] = id, uint32(len(keys))
@@ -306,6 +314,24 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 		}
 	}
 	return out, nil
+}
+
+// bandUnchanged tells whether keys are what a band's row (34 fields: ID, count, 16 times, 16 values)
+// already holds, value bits and all.
+func bandUnchanged(row []uint32, keys []LightKey, float bool) bool {
+	if row[1] != uint32(len(keys)) {
+		return false
+	}
+	for k, key := range keys {
+		v := uint32(key.V)
+		if float {
+			v = f32bits(float32(key.V))
+		}
+		if row[2+k] != uint32(key.T) || row[18+k] != v {
+			return false
+		}
+	}
+	return true
 }
 
 // NewLightIDs gives the IDs a new light and its params row take: past every light and params row in

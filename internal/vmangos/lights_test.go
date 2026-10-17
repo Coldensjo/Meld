@@ -80,7 +80,8 @@ func TestClientMapLights(t *testing.T) {
 }
 
 // TestClientLightsWriteBack writes Azeroth's own lights and params back unchanged (the params and band
-// tables come out byte-identical; the lights within a float's rounding), then moves a light, edits a band
+// tables come out byte-identical, the bands with keys out of time order too; the lights within a float's
+// rounding), then moves a light, edits a band
 // key and adds a light with its own params, and reads them back. It needs WOW_DIR.
 func TestClientLightsWriteBack(t *testing.T) {
 	dir := os.Getenv("WOW_DIR")
@@ -99,9 +100,22 @@ func TestClientLightsWriteBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Params 499 lists some band keys out of time order (#275), which must go back as they are.
 	var params []LightParamSet
+	unordered := 0
 	for _, p := range az.Params {
 		params = append(params, p)
+		for _, b := range append(append([][]LightKey(nil), p.Colors...), p.Floats...) {
+			for k := 1; k < len(b); k++ {
+				if b[k].T <= b[k-1].T {
+					unordered++
+					break
+				}
+			}
+		}
+	}
+	if unordered == 0 {
+		t.Fatal("no band of Azeroth's keeps its keys out of time order, so the write-back no longer covers one")
 	}
 	same, err := WriteLights(tables, LightsEdit{MapID: 0, Lights: az.Lights, Params: params})
 	if err != nil {
