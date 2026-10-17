@@ -554,6 +554,10 @@ export function WriteHeightmap(arg1, arg2, arg3) {
   return window['go']['main']['App']['WriteHeightmap'](arg1, arg2, arg3);
 }
 
+export function WriteLoadingScreen(arg1) {
+  return window['go']['main']['App']['WriteLoadingScreen'](arg1);
+}
+
 export function WriteMinimapTiles(arg1, arg2) {
   return window['go']['main']['App']['WriteMinimapTiles'](arg1, arg2);
 }

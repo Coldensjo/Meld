@@ -168,6 +168,38 @@ export namespace main {
 	        this.params = source["params"];
 	    }
 	}
+	export class LoadingScreenResult {
+	    row: vmangos.LoadingScreen;
+	    patch: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LoadingScreenResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.row = this.convertValues(source["row"], vmangos.LoadingScreen);
+	        this.patch = source["patch"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class PrefabFile {
 	    name: string;
 	    text: string;
@@ -1380,6 +1412,7 @@ export namespace vmangos {
 	export class LoadingScreen {
 	    id: number;
 	    name: string;
+	    path: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LoadingScreen(source);
@@ -1389,6 +1422,23 @@ export namespace vmangos {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
+	        this.path = source["path"];
+	    }
+	}
+	export class LoadingScreenSpec {
+	    mapId: number;
+	    dir: string;
+	    pixels: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LoadingScreenSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mapId = source["mapId"];
+	        this.dir = source["dir"];
+	        this.pixels = source["pixels"];
 	    }
 	}
 	export class LookResult {

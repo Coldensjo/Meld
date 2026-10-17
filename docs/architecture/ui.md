@@ -75,6 +75,13 @@ The window layout, the asset browser and the dock panels and floating windows.
     'mapProps'`) holds the map's facts and the world settings (sea on/off, sea level, steep
     slopes as rock). The sea level is one height for the whole map and is read-only for a part
     of Azeroth, which keeps the client's ocean. Lakes and rivers are the Water tool's Paint mode.
+    A map made for the client also has its Map.dbc and map_template facts here (`MapInfo`, written
+    on publish). Its loading screen is one of the client's or, through Picture… (#218), a PNG of the
+    author's: `WriteLoadingScreen` (`vmangos/loadingscreen.go`) writes it at once as a 512x512 DXT1
+    BLP at `Interface\Glues\LoadingScreens\LoadScreenMeld<Dir>.blp`, a LoadingScreens.dbc row of its
+    own (found again by that path) and the map's Map.dbc field 38 when the client has the row, and the
+    dialog chooses the row in `MapInfo` so a later publish keeps it. The preview draws the chosen
+    picture 4:3, as the game stretches its square pictures over the screen.
     Put any new per-map setting in this dialog, not in a panel or the Graphics menu.
   - Alt+click is the pipette (`tools/PipetteTool.ts`): in Select and Place it picks the model
     under the cursor as the one to place, or the ground's texture; in Paint and Road, the texture.

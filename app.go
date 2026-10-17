@@ -1449,6 +1449,29 @@ func (a *App) LoadingScreens() ([]vmangos.LoadingScreen, error) {
 	return vmangos.LoadLoadingScreens(dataDir)
 }
 
+// LoadingScreenResult is what Write Loading Screen wrote: the LoadingScreens.dbc row and the patch.
+type LoadingScreenResult struct {
+	Row   vmangos.LoadingScreen `json:"row"`
+	Patch string                `json:"patch"`
+}
+
+// WriteLoadingScreen writes a map's own loading screen into the client's patch (#218): the picture as
+// a BLP, its LoadingScreens.dbc row and, when the client has the map already, its Map.dbc row pointing
+// at it, with the game closed around it.
+func (a *App) WriteLoadingScreen(spec vmangos.LoadingScreenSpec) (LoadingScreenResult, error) {
+	defer a.releaseClient()()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return LoadingScreenResult{}, err
+	}
+	files, row, err := vmangos.LoadingScreenFiles(dataDir, spec)
+	if err != nil {
+		return LoadingScreenResult{}, err
+	}
+	patch, err := a.installWithGameClosed(dataDir, files)
+	return LoadingScreenResult{Row: row, Patch: patch}, err
+}
+
 // AreaRows lists a map's zones and subzones from the client's AreaTable.dbc, for the zone editor.
 func (a *App) AreaRows(mapID uint32) ([]vmangos.AreaRow, error) {
 	dataDir, err := a.clientDataDir()

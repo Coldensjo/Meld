@@ -118,6 +118,22 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
 
+## A map's own loading screen (Map Properties › Picture…, #218)
+Checks: a PNG becomes a map's loading screen: the BLP, its LoadingScreens.dbc row and the map's
+Map.dbc row pointing at it.
+- The client's own (surveyed 2026-10-17): LoadingScreens.dbc has 40 rows of 3 fields (ID, name, path);
+  all 39 pictures are BLP2 DXT1 512x512 with alpha depth 0, some with mips (175948 bytes) and some
+  without (132244 bytes, which `EncodeMinimapBLP` writes byte for byte in size). Map.dbc field 38 is
+  the row (Deadmines 36 shows 142).
+- Go: `TestSetLoadingScreenRowAddsAndReplaces`, `TestLoadingScreenNameKeepsToTheFolder`,
+  `TestSetMapLoadingScreen`; with `WOW_DIR=C:/WoW/client`, `TestLoadingScreenFromClient` reads the
+  Deadmines' picture, writes it again as map 36's own (row 206, within 0.1 a channel), the client's
+  rows unchanged and Map.dbc's row 36 pointing at it.
+- Probe `loading-screen`: a map made for the client (the probe sets `doc.meta.vmangos`) lists the
+  41 choices, previews the Deadmines' picture and shows Picture…; it doesn't press it, which writes
+  the owner's patch.
+- In the game: not checked by the loop; the owner's check is the picture on entering the map.
+
 ## World map of a zone (World › World Map, #181)
 Checks: a zone's map for the game's World Map (M): the WorldMapArea.dbc row and the twelve 256x256
 tiles of the 1002x668 picture at `Interface\WorldMap\<Name>\<Name>1..12.blp`.
