@@ -124,8 +124,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   cleared comes off); an older one only as `PaintSpec.NoEffect`, which Go ORs into the chunk's own. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
   the client's Ground Clutter stop (`frillDensity` 16, 32, 48 cells a chunk). A GroundEffectTexture
   slot names a GroundEffectDoodad by its internal ID (field 1), not its row ID.
-- **Growing a region**: the Map panel's `TileMinimap` shows a plus on each side of the open block
-  (`onextend`); `extendRegion` in `mapio.ts` opens the block one tile bigger that way
+- **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
+  `extendRegion` in `mapio.ts` (`TileMinimap`'s plus buttons, `onextend`, are no longer mounted), which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south
   unless the map ends there), closes the old tab and keeps the camera's view. It refuses a dirty map,
   since the bigger block is read from the client.
