@@ -11,51 +11,26 @@ ref.set([...pal.entries])
 await P.settle()
 await P.frames(2)
 
-// Draw the scene once with each array and read the pixels back in the same task (no
-// preserveDrawingBuffer needed), with nothing else changed between the two.
-const gl = e.renderer.getContext()
-const w = gl.drawingBufferWidth
-const h = gl.drawingBufferHeight
+// Draw the scene once with each array and read the pixels back (P.shot), with nothing else changed
+// between the two.
 const u = e.terrain.material.uniforms.palette
-const shot = (tex) => {
-	u.value = tex
-	e.renderer.render(e.scene, e.camera)
-	const px = new Uint8Array(w * h * 4)
-	gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px)
-	return px
-}
+const shot = (tex) =>
+	P.shot(() => {
+		u.value = tex
+		e.renderer.render(e.scene, e.camera)
+	})
 /** Pixels whose largest channel differs by more than 10 (4%), and the mean of that difference. */
-const compare = (a, b) => {
-	let off = 0
-	let sum = 0
-	for (let i = 0; i < a.length; i += 4) {
-		let d = 0
-		for (let c = 0; c < 3; c++) d = Math.max(d, Math.abs(a[i + c] - b[i + c]))
-		if (d > 10) off++
-		sum += d
-	}
-	return { off: off / (a.length / 4), mean: sum / (a.length / 4) }
-}
-/** The mean difference between horizontal neighbours in the far (upper) half: how busy the distant ground is. */
-const busy = (a) => {
-	let sum = 0
-	let n = 0
-	for (let y = h >> 1; y < h; y++)
-		for (let x = 1; x < w; x++) {
-			const i = (y * w + x) * 4
-			for (let c = 0; c < 3; c++) sum += Math.abs(a[i + c] - a[i + c - 4])
-			n += 3
-		}
-	return sum / n
-}
+const compare = (a, b) => P.diff(a, b, 10)
+/** How busy the distant ground is: the far (upper) half of the picture. */
+const busy = (a) => P.busy(a, { y0: 0, y1: 0.5 })
 // Every array's min filter at once, re-uploaded: level 0 alone (LinearFilter) or the mips.
-const filter = (f) => {
+const filter = async (f) => {
 	for (const t of [pal.texture, ref.texture]) {
 		t.minFilter = f
 		t.needsUpdate = true
 	}
-	shot(pal.texture)
-	shot(ref.texture)
+	await shot(pal.texture)
+	await shot(ref.texture)
 }
 // The ground alone (the abbey would hide most of it), lit as the editor lights it and as the client
 // does, whose terrain specular reads the sheen masks in the layers' alpha. At level 0 the two arrays
@@ -71,21 +46,20 @@ let busyLevel0 = 0
 for (const client of [false, true]) {
 	prefs.clientLighting = client
 	await P.frames(3)
-	const hidden = e.scene.children.filter((c) => c.visible && c !== e.terrain.group && !c.isLight)
-	for (const c of hidden) c.visible = false
-	const a = shot(pal.texture)
-	const m = compare(a, shot(ref.texture))
-	mipped.off += m.off / 2
-	mipped.mean += m.mean / 2
-	busyMipped += busy(a) / 2
-	filter(1006) // THREE.LinearFilter
-	const a0 = shot(pal.texture)
-	const l = compare(a0, shot(ref.texture))
-	level0.off += l.off / 2
-	level0.mean += l.mean / 2
-	busyLevel0 += busy(a0) / 2
-	filter(mipFilter)
-	for (const c of hidden) c.visible = true
+	await P.only(e.terrain.group, async () => {
+		const a = await shot(pal.texture)
+		const m = compare(a, await shot(ref.texture))
+		mipped.off += m.off / 2
+		mipped.mean += m.mean / 2
+		busyMipped += busy(a) / 2
+		await filter(1006) // THREE.LinearFilter
+		const a0 = await shot(pal.texture)
+		const l = compare(a0, await shot(ref.texture))
+		level0.off += l.off / 2
+		level0.mean += l.mean / 2
+		busyLevel0 += busy(a0) / 2
+		await filter(mipFilter)
+	})
 	u.value = pal.texture
 }
 prefs.clientLighting = lighting

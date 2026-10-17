@@ -308,7 +308,8 @@ Checks: where `compressedTexturesOn()`, `terrain/paletteArray.ts` builds the pal
 - Trap: `?nodxt` is how to see the RGBA array in the dev page; a probe can build one with
   `new PaletteArray(() => {}, false)` instead, as `terrain-dxt` does, to compare in one page.
 - Trap: the bench probe's `frameMs` on SwiftShader averages one or two frame intervals and jumped
-  between 14 and 72 ms from run to run with no code change; compare `cpuMs` and the counts.
+  between 14 and 72 ms from run to run with no code change; compare `cpuMs` and the counts. Since
+  #226 the probe prints it as null on so few frames.
 
 ## The tileset array's mips (#225)
 Checks: the palette array is mipmapped (trilinear, anisotropy as the models' textures), so distant

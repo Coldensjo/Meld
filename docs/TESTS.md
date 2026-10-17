@@ -81,6 +81,10 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
 
 - `make dev` (`wails dev`) serves the app at http://localhost:34115. The page exposes
   `window.__engine` (the Engine), `window.__loadScene(text)` and `window.__sceneText()`.
+- From a script (Python especially), call the dev server at `http://127.0.0.1:34115`, not
+  `localhost`: Python on Windows tries `::1` first and spends seconds on each request (a survey of
+  621 tilesets hit a 10-minute timeout that `127.0.0.1` finished in under a minute, #227). curl,
+  browsers and Node's fetch don't show it.
 - **Always open the page as http://localhost:34115/?nosave.** The page and the user's desktop window
   share config.json and each writes all of its preferences on any change (a tab opened, a panel
   folded, a brush made), so a page without the flag overwrites what the user set in the window.
@@ -129,17 +133,42 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 - `make dev` must be running (the runner says so if it isn't; start it in the background from Git
   Bash and wait until `curl localhost:34115/wow/status` answers). Keep it running across items.
 - `cd frontend && pnpm probe <name...>` runs those probes, `pnpm probe --all` (or `make probe`)
-  runs every one, `pnpm probe --list` names them, `--shot <dir>` saves a screenshot each. Each probe
-  gets a fresh page (`?nosave`, so the owner's config is safe) in a headless Chrome on SwiftShader.
-  It prints one JSON line a probe and exits 1 if any failed. A page error also fails the probe (the
-  error of Wails' `ipc.js`, which a plain browser page always throws, is left out).
+  runs every one, `pnpm probe --list` names them, `--shot <dir>` saves a screenshot each and
+  `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
+  stalls in one run). Each probe gets a fresh page (`?nosave`, so the owner's config is safe) in a
+  headless Chrome on SwiftShader. It prints one JSON line a probe and exits 1 if any failed. A page
+  error also fails the probe (the error of Wails' `ipc.js`, which a plain browser page always throws,
+  is left out).
+- **One-off checks**: `pnpm probe probes/scratch/<x>.js` (any argument ending in `.js` or holding a
+  slash is a path, from where you typed it) runs a probe file from anywhere, with `P` in scope.
+  `frontend/probes/scratch/` is git-ignored: put diagnostics and throwaway views there, so they never
+  land in a commit or in `--all`.
+- Trap: don't run `make build-windows` (or `wails generate module`) while probes run. The build
+  regenerates `wailsjs`, Vite hot-reloads the page in the middle of a probe and it fails on a page
+  error from `App.svelte?t=…` at `@vite/client`. Run the build before or after.
+- After a new Go binding, the page can fail on a stale `wailsjs` App.js (the trap above); the runner
+  sees "does not provide an export named", moves App.js out and back so Vite reloads it, and runs the
+  probe once more (`refreshedWailsjs: true` in its line).
 - A probe is `frontend/probes/<name>.js`: the body of an async function run in the page, whose first
   line is a `//` comment saying what it checks (`--list` shows it). It returns an object; `ok: false`
-  or a throw fails it. `P` (`probes/lib.js`) is in scope: `P.e` (the Engine), `P.scene(line or
-  object)`, `P.BENCH` (the benchmark scene), `P.settle()` (frames until the client reads stop),
-  `P.frames(n)`, `P.until(fn)`, `P.perf()` (`measurePerf` with frames stepped), `P.state()` (the
-  app's own `editor`/`prefs`/`ui`), `P.app(path)` (any app module, the page's own instance) and
-  `P.glError()`. A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
+  or a throw fails it. `P` (`probes/lib.js`) is in scope:
+  - `P.e` (the Engine), `P.scene(line or object)`, `P.BENCH` (the benchmark scene), `P.settle()`
+    (frames until the client reads stop), `P.frames(n)`, `P.until(fn, ms, what)`, `P.perf()`
+    (`measurePerf` with frames stepped), `P.state()` (the app's own `editor`/`prefs`/`ui`),
+    `P.app(path)` (any app module, the page's own instance) and `P.glError()`.
+  - Pictures: `P.shot(draw?)` steps a frame (or runs `draw`) and reads the canvas back in the same
+    task, `{ w, h, px, lit }` (`lit`, the share of pixels not black, so a blank read can't pass as
+    "the same"); `P.diff(a, b, threshold, region)` gives the share of pixels that differ (`off`) and
+    the mean difference; `P.busy(img, region)` how busy a picture is (neighbour differences: shimmer,
+    noise); a region is `{ x0, x1, y0, y1 }` as shares of the picture, y0 = 0 the top.
+    `P.only(object, fn)` runs `fn` with the rest of the scene hidden. For "looks the same with the
+    switch on and off", take two shots with the switch unchanged as the noise floor (swaying trees,
+    particles); `wmo-cull` and `terrain-dxt` do this.
+  - A timeout in `P.until` or `P.settle` names the longest frame and the longest wait between frames
+    during the wait (`P.stalls`): one headless frame can stall 20 to 40 s (#233), which otherwise looks
+    like a broken feature.
+
+  A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
 - The probes on 2026-10-17: `smoke` (the benchmark scene draws, no errors), `bench` (its numbers),
   `undo-sculpt` and `undo-holes` (an edit and its undo on a flat map), `wmo-cull` (#198's Stormwind
@@ -236,7 +265,9 @@ the same scene, the report before and after.
   ```
 
   Give the frame's CPU ms, GPU ms (where the browser has timer queries), draw calls and triangles,
-  before and after. A change that a different spot shows better (a big city, a dense forest) may use
+  before and after. Not `frameMs` on SwiftShader: a frame takes most of the one-second window, so it
+  averages one or two intervals and swung 14 to 72 ms between identical runs (#226); the probe prints
+  it as null unless the window held more than 10 frames. A change that a different spot shows better (a big city, a dense forest) may use
   one, but give its scene line beside the numbers.
 
   Baseline, `pnpm probe bench` on 2026-10-17 after #215 (SwiftShader, so GPU n/a and CPU ms only
