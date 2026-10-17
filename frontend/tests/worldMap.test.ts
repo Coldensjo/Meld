@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/worldMap.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { artName, boxRect, extentToRect, feather, fitAspect, intersect, mapLook, paste, pixelBox, rectToExtent, WORLD_MAP_H, WORLD_MAP_W, zoneBounds } from '../src/lib/io/worldMap.ts'
+import { areasUnder, artName, boxRect, drawOverlays, explored, extentToRect, feather, fitAspect, intersect, mapLook, overlayName, paste, pixelBox, rectToExtent, WORLD_MAP_H, WORLD_MAP_W, zoneBounds, type OverlayPiece } from '../src/lib/io/worldMap.ts'
 
 const near = (a: number, b: number, eps = 0.01) => assert.ok(Math.abs(a - b) < eps, `${a} is not ${b}`)
 
@@ -93,4 +93,79 @@ test('feather blends a piece into what is under it along its inner edges only', 
 	assert.equal(at(10), 200)
 	assert.ok(at(19) > 0 && at(19) < 40, `the inner edge is mostly what was there: ${at(19)}`)
 	assert.equal(at(25), 0, 'outside the piece is untouched')
+})
+
+// A 40x30 picture of a 4x4-chunk map of 10-yard chunks, a pixel a yard: zone 12, with subzone 87 on
+// chunk (1, 1) and subzone 9 on chunk (2, 1); area 500 is another zone's.
+const OW = 40
+const OH = 30
+const whole = { x0: 0, z0: 0, x1: 40, z1: 30 }
+const ids = new Array(16).fill(12)
+ids[1 * 4 + 1] = 87
+ids[1 * 4 + 2] = 9
+const parents: Record<number, number> = { 87: 12, 9: 12, 500: 1 }
+const names: Record<number, string> = { 87: 'Goldshire', 9: 'Northshire Valley' }
+const green = (w: number, h: number) => {
+	const px = new Uint8Array(w * h * 4)
+	for (let i = 0; i < w * h; i++) px.set([40, 160, 40, 255], i * 4)
+	return px
+}
+
+test('each subzone painted in a zone drawn whole gets its overlay, and the base leaves it out', () => {
+	const box = { u0: 0, v0: 0, u1: OW, v1: OH }
+	const under = areasUnder(ids, 4, 10, whole, box, OW, OH)
+	assert.equal(under[15 * OW + 15], 87)
+	assert.equal(areasUnder(ids, 4, 10, { x0: -20, z0: 0, x1: 20, z1: 30 }, box, OW, OH)[5 * OW + 5], 0, 'a pixel off the map has no area')
+	const { overlays, base } = drawOverlays({ look: green(OW, OH), box, under, zoneId: 12, parentOf: (id) => parents[id], nameOf: (id) => names[id], overlays: [], band: 0, w: OW, h: OH })
+	assert.deepEqual(
+		overlays.map((o) => [o.id, o.areas, o.name, o.changed]),
+		[
+			[0, [9], 'NORTHSHIREVALLEY', true],
+			[0, [87], 'GOLDSHIRE', true],
+		],
+	)
+	const gold = overlays[1]
+	assert.ok(gold.box.u0 < 10 && gold.box.u0 >= 1 && gold.box.u1 > 20 && gold.box.u1 <= 29, `Goldshire's box ${JSON.stringify(gold.box)} is its chunk with a soft edge`)
+	const alpha = (o: OverlayPiece, x: number, y: number) => o.pixels![((y - o.box.v0) * (o.box.u1 - o.box.u0) + x - o.box.u0) * 4 + 3]
+	assert.equal(alpha(gold, 15, 15), 255, 'whole over its chunk')
+	assert.ok(alpha(gold, gold.box.u0, 15) < 64, 'soft at its edge')
+	assert.ok(gold.hit.left >= 4 && gold.hit.left < 10 && gold.hit.right <= 26 && gold.hit.top >= 4 && gold.hit.bottom <= 26, `hit ${JSON.stringify(gold.hit)}`)
+	// The base: parchment where the subzones are, the zone's own ground drawn.
+	assert.ok(base[(15 * OW + 15) * 4 + 1] < 200 && base[(15 * OW + 15) * 4] > 150, 'the subzone is parchment in the base')
+	assert.equal(base[(29 * OW + 1) * 4 + 1], 160, 'the zone itself is drawn in the base')
+	// Explored, the subzone shows again.
+	assert.equal(explored(base, overlays, OW)[(15 * OW + 15) * 4 + 1], 160)
+	assert.equal(overlayName('Goldshire', new Set(['GOLDSHIRE', 'GOLDSHIRE2'])), 'GOLDSHIRE3')
+})
+
+test('an overlay redrawn in part keeps its art outside the box, and others are left alone', () => {
+	const red = new Uint8Array(8 * 8 * 4)
+	for (let i = 0; i < 64; i++) red.set([200, 20, 20, 255], i * 4)
+	const old: OverlayPiece = { id: 122, areas: [87], name: 'GOLDSHIRE', box: { u0: 0, v0: 0, u1: 8, v1: 8 }, hit: { top: 0, left: 0, bottom: 8, right: 8 }, pixels: red, changed: false }
+	const other: OverlayPiece = { id: 140, areas: [500], name: 'ELSEWHERE', box: { u0: 30, v0: 0, u1: 40, v1: 5 }, hit: { top: 0, left: 30, bottom: 5, right: 40 }, pixels: null, changed: false }
+	const box = { u0: 10, v0: 0, u1: OW, v1: OH }
+	const under = areasUnder(ids, 4, 10, whole, box, OW, OH)
+	const { overlays } = drawOverlays({ look: green(30, OH), box, under, zoneId: 12, parentOf: (id) => parents[id], nameOf: (id) => names[id], overlays: [old, other], band: 4, w: OW, h: OH })
+	const gold = overlays.find((o) => o.id === 122)!
+	assert.ok(gold.changed && gold.box.u0 === 0 && gold.box.v0 === 0 && gold.box.u1 > 20, `Goldshire grew to ${JSON.stringify(gold.box)}`)
+	const at = (x: number, y: number) => Array.from(gold.pixels!.subarray(((y - gold.box.v0) * (gold.box.u1 - gold.box.u0) + x - gold.box.u0) * 4, ((y - gold.box.v0) * (gold.box.u1 - gold.box.u0) + x - gold.box.u0) * 4 + 4))
+	assert.deepEqual(at(3, 3), [200, 20, 20, 255], 'its old art outside the box is kept')
+	assert.deepEqual(at(17, 15), [40, 160, 40, 255], 'its chunk inside the box is the new drawing')
+	assert.deepEqual(overlays.find((o) => o.id === 140), other, 'an overlay of areas not painted is left as it is')
+	assert.ok(overlays.some((o) => o.id === 0 && o.areas[0] === 9), 'Northshire got a new overlay')
+})
+
+test('a subzone no overlay names is drawn into the overlay whose art covers it', () => {
+	// Goldshire's art covers both its chunk and Northshire's, as Elwynn's Northshire piece covers Echo Ridge Mine.
+	const art = new Uint8Array(20 * 10 * 4)
+	for (let i = 0; i < 200; i++) art.set([200, 20, 20, 255], i * 4)
+	const old: OverlayPiece = { id: 122, areas: [87], name: 'GOLDSHIRE', box: { u0: 10, v0: 10, u1: 30, v1: 20 }, hit: { top: 10, left: 10, bottom: 20, right: 30 }, pixels: art, changed: false }
+	const box = { u0: 0, v0: 0, u1: OW, v1: OH }
+	const under = areasUnder(ids, 4, 10, whole, box, OW, OH)
+	const { overlays, base } = drawOverlays({ look: green(OW, OH), box, under, zoneId: 12, parentOf: (id) => parents[id], nameOf: (id) => names[id], overlays: [old], band: 0, w: OW, h: OH })
+	assert.equal(overlays.length, 1, 'no new overlay for Northshire')
+	const gold = overlays[0]
+	assert.deepEqual(gold.areas, [87], 'Northshire does not join the areas that reveal it')
+	assert.equal(gold.pixels![((25 - gold.box.v0 - 10) * (gold.box.u1 - gold.box.u0) + 25 - gold.box.u0) * 4 + 3], 255, 'Northshire is drawn into it')
+	assert.ok(base[(15 * OW + 25) * 4 + 1] < 200, 'and left out of the base')
 })

@@ -98,11 +98,11 @@ func TestWorldMapFromClient(t *testing.T) {
 	if len(view.Pixels) != WorldMapWidth*WorldMapHeight*4 {
 		t.Fatalf("Elwynn's picture is %d bytes", len(view.Pixels))
 	}
-	files, row, err := WorldMapFiles(dataDir, WorldMapSpec{Row: *view.Row, Pixels: view.Pixels})
+	files, row, _, err := WorldMapFiles(dataDir, WorldMapSpec{Row: *view.Row, Pixels: view.Pixels, Overlays: keepOverlays(view.Overlays)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 13 || row.ID != 30 {
+	if len(files) != 14 || row.ID != 30 {
 		t.Fatalf("%d files, row %+v", len(files), row)
 	}
 	if files[0].Name != `Interface\WorldMap\Elwynn\Elwynn1.blp` || !strings.HasSuffix(files[11].Name, `Elwynn12.blp`) {

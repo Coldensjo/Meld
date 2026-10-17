@@ -142,3 +142,94 @@ func unpack565(c uint16) [3]float64 {
 	r, g, b := rgb565(c)
 	return [3]float64{float64(r), float64(g), float64(b)}
 }
+
+// EncodeOverlayBLP writes a w by h RGBA image with alpha as the client's world map overlays are stored
+// (#219): BLP2, type 1, DXT3 (alpha depth 8, alpha type 1) with a full mip chain down to 1x1 and a
+// zeroed palette, so a 256x256 piece is 88580 bytes like Elwynn's Goldshire1.blp. w and h must be
+// powers of two (the overlay tiles are 256, or the power of two past the piece's last column or row).
+func EncodeOverlayBLP(rgba []byte, w, h int) ([]byte, error) {
+	if w <= 0 || h <= 0 || w&(w-1) != 0 || h&(h-1) != 0 || w > 4096 || h > 4096 {
+		return nil, errors.New("blp: the size must be a power of two")
+	}
+	if len(rgba) != w*h*4 {
+		return nil, errors.New("blp: the pixels don't match the size")
+	}
+	w0, h0 := w, h
+	var mips [][]byte
+	for {
+		mips = append(mips, EncodeDXT3(rgba, w, h))
+		if (w == 1 && h == 1) || len(mips) == 16 {
+			break
+		}
+		rgba, w, h = halve(rgba, w, h)
+	}
+	out := make([]byte, blpHeaderLen+1024)
+	copy(out, "BLP2")
+	binary.LittleEndian.PutUint32(out[4:], 1)
+	out[8] = 2  // compression: DXT
+	out[9] = 8  // alpha depth 8
+	out[10] = 1 // alpha type 1: DXT3
+	out[11] = 1 // mips
+	binary.LittleEndian.PutUint32(out[12:], uint32(w0))
+	binary.LittleEndian.PutUint32(out[16:], uint32(h0))
+	for i, m := range mips {
+		binary.LittleEndian.PutUint32(out[20+i*4:], uint32(len(out)))
+		binary.LittleEndian.PutUint32(out[20+64+i*4:], uint32(len(m)))
+		out = append(out, m...)
+	}
+	return out, nil
+}
+
+// halve is a w by h RGBA image at half the size each way (not below 1), each pixel the mean of the
+// ones it covers, colour weighted by alpha so transparent pixels don't bleed into the edges.
+func halve(rgba []byte, w, h int) ([]byte, int, int) {
+	nw, nh := max(1, w/2), max(1, h/2)
+	out := make([]byte, nw*nh*4)
+	for y := 0; y < nh; y++ {
+		for x := 0; x < nw; x++ {
+			var c [3]float64
+			var a, n float64
+			for dy := 0; dy < h/nh; dy++ {
+				for dx := 0; dx < w/nw; dx++ {
+					i := ((y*h/nh+dy)*w + x*w/nw + dx) * 4
+					wa := float64(rgba[i+3]) + 1
+					for k := 0; k < 3; k++ {
+						c[k] += float64(rgba[i+k]) * wa
+					}
+					a += wa
+					n++
+				}
+			}
+			o := (y*nw + x) * 4
+			for k := 0; k < 3; k++ {
+				out[o+k] = byte(math.Round(c[k] / a))
+			}
+			out[o+3] = byte(math.Round((a - n) / n))
+		}
+	}
+	return out, nw, nh
+}
+
+// EncodeDXT3 compresses a w by h RGBA image into DXT3 blocks: four bits of alpha a pixel, then a DXT1
+// colour block. A size not a multiple of 4 (the small mips) repeats its edge pixels into the block.
+func EncodeDXT3(rgba []byte, w, h int) []byte {
+	out := make([]byte, 0, ((w+3)/4)*((h+3)/4)*16)
+	var block [16][3]float64
+	var alpha [8]byte
+	for by := 0; by < h; by += 4 {
+		for bx := 0; bx < w; bx += 4 {
+			alpha = [8]byte{}
+			for y := 0; y < 4; y++ {
+				for x := 0; x < 4; x++ {
+					i := (min(by+y, h-1)*w + min(bx+x, w-1)) * 4
+					block[y*4+x] = [3]float64{float64(rgba[i]), float64(rgba[i+1]), float64(rgba[i+2])}
+					a := (uint16(rgba[i+3])*15 + 127) / 255
+					alpha[(y*4+x)/2] |= byte(a) << (4 * ((y*4 + x) % 2))
+				}
+			}
+			out = append(out, alpha[:]...)
+			out = append(out, dxt1Block(&block)...)
+		}
+	}
+	return out
+}

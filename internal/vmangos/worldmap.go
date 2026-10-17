@@ -40,18 +40,22 @@ type WorldMapRow struct {
 	Bottom float32 `json:"bottom"`
 }
 
-// WorldMapView is a zone's world map as the client has it: its row, and its art stitched into
-// WorldMapWidth x WorldMapHeight RGBA (nil when a tile is missing). Row is nil for a zone with no map.
+// WorldMapView is a zone's world map as the client has it: its row, its art stitched into
+// WorldMapWidth x WorldMapHeight RGBA (nil when a tile is missing), and its exploration overlays with
+// their pictures (worldmapoverlay.go). Row is nil for a zone with no map.
 type WorldMapView struct {
-	Row    *WorldMapRow `json:"row"`
-	Pixels []byte       `json:"pixels"`
+	Row      *WorldMapRow      `json:"row"`
+	Pixels   []byte            `json:"pixels"`
+	Overlays []WorldMapOverlay `json:"overlays"`
 }
 
-// WorldMapSpec is what Write World Map puts into the client: the row (ID 0 for a new one) and the
-// picture, WorldMapWidth x WorldMapHeight RGBA, row 0 at the north edge.
+// WorldMapSpec is what Write World Map puts into the client: the row (ID 0 for a new one), the
+// picture, WorldMapWidth x WorldMapHeight RGBA, row 0 at the north edge, and the zone's overlays, all
+// of them: the zone's rows not listed are dropped.
 type WorldMapSpec struct {
-	Row    WorldMapRow `json:"row"`
-	Pixels []byte      `json:"pixels"`
+	Row      WorldMapRow       `json:"row"`
+	Pixels   []byte            `json:"pixels"`
+	Overlays []WorldMapOverlay `json:"overlays"`
 }
 
 // worldMapName is a folder name the art may have: the client builds paths from it.
@@ -166,6 +170,14 @@ func ReadWorldMap(dataDir string, mapID, areaID uint32) (*WorldMapView, error) {
 		return &WorldMapView{}, err
 	}
 	view := &WorldMapView{Row: row}
+	if odbc, err := set.ReadFile(`DBFilesClient\WorldMapOverlay.dbc`); err == nil {
+		if view.Overlays, err = WorldMapOverlays(odbc, row.ID); err != nil {
+			return nil, err
+		}
+		for i := range view.Overlays {
+			view.Overlays[i].Pixels = readWorldOverlayPixels(set, row.Name, view.Overlays[i])
+		}
+	}
 	pix := make([]byte, WorldMapWidth*WorldMapHeight*4)
 	for i := 0; i < worldMapCols*worldMapRows; i++ {
 		raw, err := set.ReadFile(worldMapTilePath(row.Name, i+1))
@@ -188,25 +200,46 @@ func ReadWorldMap(dataDir string, mapID, areaID uint32) (*WorldMapView, error) {
 
 // WorldMapFiles are the patch files of a zone's world map: the twelve tiles, the picture's edge
 // pixels repeated past it (the frame crops them, and a black edge would show in the filtered seams),
-// and WorldMapArea.dbc read from the client with the row set. It returns the row as written.
-func WorldMapFiles(dataDir string, s WorldMapSpec) ([]mpq.File, WorldMapRow, error) {
+// WorldMapArea.dbc read from the client with the row set, the tiles of the overlays that come with a
+// picture, and WorldMapOverlay.dbc with the zone's overlay rows replaced. It returns the row and the
+// overlays as written.
+func WorldMapFiles(dataDir string, s WorldMapSpec) ([]mpq.File, WorldMapRow, []WorldMapOverlay, error) {
 	if len(s.Pixels) != WorldMapWidth*WorldMapHeight*4 {
-		return nil, s.Row, fmt.Errorf("the world map picture is %d bytes, want %d", len(s.Pixels), WorldMapWidth*WorldMapHeight*4)
+		return nil, s.Row, nil, fmt.Errorf("the world map picture is %d bytes, want %d", len(s.Pixels), WorldMapWidth*WorldMapHeight*4)
 	}
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
-		return nil, s.Row, err
+		return nil, s.Row, nil, err
 	}
 	dbc, err := set.ReadFile(`DBFilesClient\WorldMapArea.dbc`)
+	if err != nil {
+		set.Close()
+		return nil, s.Row, nil, err
+	}
+	odbc, err := set.ReadFile(`DBFilesClient\WorldMapOverlay.dbc`)
 	set.Close()
 	if err != nil {
-		return nil, s.Row, err
+		return nil, s.Row, nil, err
 	}
 	dbc, row, err := SetWorldMapRow(dbc, s.Row)
 	if err != nil {
-		return nil, s.Row, err
+		return nil, s.Row, nil, err
+	}
+	odbc, overlays, err := SetWorldMapOverlays(odbc, row.ID, s.Overlays)
+	if err != nil {
+		return nil, row, nil, err
 	}
 	var files []mpq.File
+	for _, o := range s.Overlays {
+		if o.Pixels == nil {
+			continue
+		}
+		of, err := worldOverlayFiles(row.Name, o)
+		if err != nil {
+			return nil, row, nil, err
+		}
+		files = append(files, of...)
+	}
 	tile := make([]byte, worldMapTile*worldMapTile*4)
 	for i := 0; i < worldMapCols*worldMapRows; i++ {
 		ox, oy := (i%worldMapCols)*worldMapTile, (i/worldMapCols)*worldMapTile
@@ -219,9 +252,10 @@ func WorldMapFiles(dataDir string, s WorldMapSpec) ([]mpq.File, WorldMapRow, err
 		}
 		blp, err := wow.EncodeMinimapBLP(tile, worldMapTile, worldMapTile)
 		if err != nil {
-			return nil, row, err
+			return nil, row, nil, err
 		}
 		files = append(files, mpq.File{Name: worldMapTilePath(row.Name, i+1), Data: blp})
 	}
-	return append(files, mpq.File{Name: `DBFilesClient\WorldMapArea.dbc`, Data: dbc}), row, nil
+	files = append(files, mpq.File{Name: `DBFilesClient\WorldMapArea.dbc`, Data: dbc}, mpq.File{Name: `DBFilesClient\WorldMapOverlay.dbc`, Data: odbc})
+	return files, row, overlays, nil
 }

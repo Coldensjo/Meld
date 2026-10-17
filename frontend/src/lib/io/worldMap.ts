@@ -185,3 +185,291 @@ export function artName(zone: string): string {
 	const s = zone.replace(/[^A-Za-z0-9]+/g, '')
 	return /^[A-Za-z]/.test(s) ? s.slice(0, 48) : `Zone${s}`.slice(0, 48)
 }
+
+/** A box of the picture in whole pixels, u1 and v1 past its last column and row. */
+export interface PixelBox {
+	u0: number
+	v0: number
+	u1: number
+	v1: number
+}
+
+/**
+ * A zone's exploration overlay (#219): a WorldMapOverlay.dbc row and its picture, which the game draws
+ * over the base art once the player has explored one of `areas` (up to four AreaTable IDs). `box` is
+ * where it sits in the picture, `hit` its hit rectangle (picture pixels), `pixels` its RGBA (the box's
+ * size; null when the client's art could not be read), `changed` whether it is to be written (an
+ * unchanged one keeps the client's art). `id` 0 is a new row.
+ */
+export interface OverlayPiece {
+	id: number
+	areas: number[]
+	name: string
+	box: PixelBox
+	hit: { top: number; left: number; bottom: number; right: number }
+	pixels: Uint8Array | null
+	changed: boolean
+}
+
+/** The soft edge of an overlay, in picture pixels: its alpha fades out over about this much. */
+const OVERLAY_SOFT = 8
+
+/** Two passes of a box blur of radius r over a w by h channel, in place. */
+function blurChannel(a: Float32Array, w: number, h: number, r: number) {
+	const tmp = new Float32Array(a.length)
+	const n = 2 * r + 1
+	for (let pass = 0; pass < 2; pass++) {
+		for (let y = 0; y < h; y++) {
+			const row = y * w
+			let s = 0
+			for (let x = -r; x <= r; x++) s += a[row + Math.min(w - 1, Math.max(0, x))]
+			for (let x = 0; x < w; x++) {
+				tmp[row + x] = s / n
+				s += a[row + Math.min(w - 1, x + r + 1)] - a[row + Math.max(0, x - r)]
+			}
+		}
+		for (let x = 0; x < w; x++) {
+			let s = 0
+			for (let y = -r; y <= r; y++) s += tmp[Math.min(h - 1, Math.max(0, y)) * w + x]
+			for (let y = 0; y < h; y++) {
+				a[y * w + x] = s / n
+				s += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x]
+			}
+		}
+	}
+}
+
+/**
+ * The area of the paint chunk under each pixel of `box` (picture pixels of `whole`, w by h), 0 off the
+ * map: what the overlays' masks are cut from.
+ */
+export function areasUnder(areaIds: ArrayLike<number>, perSide: number, chunkYards: number, whole: EditorRect, box: PixelBox, w = WORLD_MAP_W, h = WORLD_MAP_H): Uint32Array {
+	const bw = box.u1 - box.u0
+	const bh = box.v1 - box.v0
+	const out = new Uint32Array(bw * bh)
+	for (let y = 0; y < bh; y++) {
+		const z = whole.z0 + ((box.v0 + y + 0.5) / h) * (whole.z1 - whole.z0)
+		const cz = Math.floor(z / chunkYards)
+		if (cz < 0 || cz >= perSide) continue
+		for (let x = 0; x < bw; x++) {
+			const xx = whole.x0 + ((box.u0 + x + 0.5) / w) * (whole.x1 - whole.x0)
+			const cx = Math.floor(xx / chunkYards)
+			if (cx >= 0 && cx < perSide) out[y * bw + x] = areaIds[cz * perSide + cx]
+		}
+	}
+	return out
+}
+
+/**
+ * The soft mask (0..1) of the pixels whose area is one of `ids`, from areasUnder's grid (bw by bh):
+ * whole over the areas' chunks, fading out over about `soft` pixels past them.
+ */
+export function areaMask(under: Uint32Array, bw: number, bh: number, ids: ReadonlySet<number>, soft = OVERLAY_SOFT): Float32Array {
+	const m = new Float32Array(bw * bh)
+	for (let i = 0; i < under.length; i++) if (ids.has(under[i])) m[i] = 1
+	// Grown by half the soft edge first, so the blur after it leaves the inside whole.
+	const r = Math.max(1, Math.round(soft / 4))
+	blurChannel(m, bw, bh, r)
+	for (let i = 0; i < m.length; i++) m[i] = m[i] > 0.001 ? 1 : 0
+	blurChannel(m, bw, bh, r)
+	return m
+}
+
+/**
+ * The look with the masked parts left out, faded to plain parchment (a trace of the ground's light and
+ * shade kept, so it reads as paper): the base art under a zone's overlays, as the client's is.
+ */
+export function blankOut(look: Uint8Array, mask: Float32Array): Uint8Array {
+	const out = look.slice()
+	for (let i = 0; i < mask.length; i++) {
+		const k = mask[i]
+		if (k <= 0) continue
+		const o = i * 4
+		const shade = (0.3 * look[o] + 0.59 * look[o + 1] + 0.11 * look[o + 2] - 128) * 0.12
+		for (let c = 0; c < 3; c++) out[o + c] = Math.round(look[o + c] + (Math.max(0, Math.min(255, PARCHMENT[c] + shade)) - look[o + c]) * k)
+	}
+	return out
+}
+
+/** A name for a new overlay's art from its area's name, not one of `taken` (upper case, as the client's). */
+export function overlayName(area: string, taken: ReadonlySet<string>): string {
+	const base = artName(area).toUpperCase().slice(0, 44)
+	let name = base
+	for (let i = 2; taken.has(name); i++) name = `${base}${i}`
+	return name
+}
+
+/** The bounds of the pixels of a w by h RGBA picture whose alpha is at least `min`, or null. */
+function alphaBounds(px: Uint8Array, w: number, h: number, min: number): PixelBox | null {
+	let u0 = Infinity
+	let v0 = Infinity
+	let u1 = -Infinity
+	let v1 = -Infinity
+	for (let y = 0; y < h; y++) {
+		for (let x = 0; x < w; x++) {
+			if (px[(y * w + x) * 4 + 3] < min) continue
+			u0 = Math.min(u0, x)
+			v0 = Math.min(v0, y)
+			u1 = Math.max(u1, x + 1)
+			v1 = Math.max(v1, y + 1)
+		}
+	}
+	return u0 === Infinity ? null : { u0, v0, u1, v1 }
+}
+
+/**
+ * The overlays after a zone is drawn (`look`, the part of the picture in `box`, already in the map's
+ * look; `under`, areasUnder of the box): every subzone of `zoneId` painted in the part (an area whose
+ * parent is the zone) is drawn into the overlay that names it, else the one whose art covers most of
+ * it (half or more), else a new one; an overlay's alpha is its subzones' chunks with a soft edge. The part of an overlay outside the box is kept, and the new drawing
+ * fades into it over `band` pixels along the box's edges inside the picture (0 for a zone drawn
+ * whole). Overlays of areas not painted in the part are left as they are. Returns the overlays and
+ * `base`, the look with the redrawn overlays' areas left out (blankOut).
+ */
+export function drawOverlays(opts: {
+	look: Uint8Array
+	box: PixelBox
+	under: Uint32Array
+	zoneId: number
+	parentOf: (id: number) => number | undefined
+	nameOf: (id: number) => string
+	overlays: readonly OverlayPiece[]
+	band: number
+	w?: number
+	h?: number
+}): { overlays: OverlayPiece[]; base: Uint8Array } {
+	const { look, box, under, zoneId, parentOf, nameOf, band } = opts
+	const W = opts.w ?? WORLD_MAP_W
+	const H = opts.h ?? WORLD_MAP_H
+	const bw = box.u1 - box.u0
+	const bh = box.v1 - box.v0
+	const painted = new Set<number>()
+	for (const a of under) if (a && a !== zoneId && parentOf(a) === zoneId) painted.add(a)
+	const overlays = opts.overlays.map((o) => ({ ...o }))
+	const taken = new Set(overlays.map((o) => o.name.toUpperCase()))
+	// A subzone no overlay names, which an overlay's art already mostly covers (Echo Ridge Mine inside
+	// Elwynn's Northshire Valley piece), is drawn into that one, as the client's maps do; otherwise it
+	// gets its own.
+	const joined = new Map<number, Set<number>>()
+	const n0 = overlays.length
+	for (const a of [...painted].sort((x, y) => x - y)) {
+		if (overlays.some((o) => o.areas.includes(a))) continue
+		let count = 0
+		for (const v of under) if (v === a) count++
+		let best = -1
+		let bestCover = 0
+		for (let n = 0; n < n0; n++) {
+			const o = overlays[n]
+			if (!o.pixels) continue
+			const ow = o.box.u1 - o.box.u0
+			let cover = 0
+			for (let y = Math.max(box.v0, o.box.v0); y < Math.min(box.v1, o.box.v1); y++) {
+				for (let x = Math.max(box.u0, o.box.u0); x < Math.min(box.u1, o.box.u1); x++) {
+					if (under[(y - box.v0) * bw + x - box.u0] === a) cover += o.pixels[((y - o.box.v0) * ow + x - o.box.u0) * 4 + 3] / 255
+				}
+			}
+			if (cover > bestCover) {
+				best = n
+				bestCover = cover
+			}
+		}
+		if (best >= 0 && bestCover >= count / 2) {
+			joined.set(best, (joined.get(best) ?? new Set()).add(a))
+			continue
+		}
+		const name = overlayName(nameOf(a), taken)
+		taken.add(name)
+		overlays.push({ id: 0, areas: [a], name, box: { u0: 0, v0: 0, u1: 0, v1: 0 }, hit: { top: 0, left: 0, bottom: 0, right: 0 }, pixels: null, changed: true })
+	}
+	// How much of the new drawing a pixel of the box takes: all of it inside, fading over the band at
+	// the box's edges inside the picture, so an overlay's old art outside the box joins it.
+	const weight = (x: number, y: number) => {
+		if (band <= 0) return 1
+		let d = Infinity
+		if (box.u0 > 0) d = Math.min(d, x)
+		if (box.v0 > 0) d = Math.min(d, y)
+		if (box.u1 < W) d = Math.min(d, bw - 1 - x)
+		if (box.v1 < H) d = Math.min(d, bh - 1 - y)
+		return d >= band ? 1 : (d + 0.5) / band
+	}
+	const all = new Float32Array(bw * bh)
+	for (let n = 0; n < overlays.length; n++) {
+		const o = overlays[n]
+		const more = joined.get(n)
+		if (!more && !o.areas.some((a) => painted.has(a))) continue
+		const m = areaMask(under, bw, bh, new Set([...o.areas, ...(more ?? [])]))
+		for (let i = 0; i < m.length; i++) all[i] = Math.max(all[i], m[i])
+		// The overlay's new box: its old one and the box's part where the mask shows.
+		const had = o.pixels && o.box.u1 > o.box.u0 ? o.box : null
+		const u = had ? { ...had } : { u0: Infinity, v0: Infinity, u1: -Infinity, v1: -Infinity }
+		for (let y = 0; y < bh; y++) {
+			for (let x = 0; x < bw; x++) {
+				if (m[y * bw + x] <= 0) continue
+				u.u0 = Math.min(u.u0, box.u0 + x)
+				u.v0 = Math.min(u.v0, box.v0 + y)
+				u.u1 = Math.max(u.u1, box.u0 + x + 1)
+				u.v1 = Math.max(u.v1, box.v0 + y + 1)
+			}
+		}
+		if (u.u0 === Infinity) continue
+		const uw = u.u1 - u.u0
+		const uh = u.v1 - u.v0
+		const px = new Uint8Array(uw * uh * 4)
+		if (had && o.pixels) {
+			const hw = had.u1 - had.u0
+			for (let y = 0; y < had.v1 - had.v0; y++) px.set(o.pixels.subarray(y * hw * 4, (y + 1) * hw * 4), ((had.v0 - u.v0 + y) * uw + had.u0 - u.u0) * 4)
+		}
+		// The new drawing over the old, alpha-weighted so the old's hidden colour doesn't bleed in.
+		for (let y = Math.max(0, u.v0 - box.v0); y < Math.min(bh, u.v1 - box.v0); y++) {
+			for (let x = Math.max(0, u.u0 - box.u0); x < Math.min(bw, u.u1 - box.u0); x++) {
+				const a = weight(x, y)
+				const s = (y * bw + x) * 4
+				const d = ((box.v0 + y - u.v0) * uw + box.u0 + x - u.u0) * 4
+				const oldA = (px[d + 3] / 255) * (1 - a)
+				const newA = m[y * bw + x] * a
+				const outA = oldA + newA
+				for (let c = 0; c < 3; c++) px[d + c] = outA > 0 ? Math.round((px[d + c] * oldA + look[s + c] * newA) / outA) : look[s + c]
+				px[d + 3] = Math.round(Math.min(1, outA) * 255)
+			}
+		}
+		// Trimmed to what shows; its hit rectangle the part that is half there or more.
+		const t = alphaBounds(px, uw, uh, 1)
+		if (!t) {
+			overlays[n] = { ...o, pixels: null, box: { u0: 0, v0: 0, u1: 0, v1: 0 }, changed: true }
+			continue
+		}
+		const tw = t.u1 - t.u0
+		const th = t.v1 - t.v0
+		const trimmed = new Uint8Array(tw * th * 4)
+		for (let y = 0; y < th; y++) trimmed.set(px.subarray(((t.v0 + y) * uw + t.u0) * 4, ((t.v0 + y) * uw + t.u1) * 4), y * tw * 4)
+		const half = alphaBounds(px, uw, uh, 128) ?? t
+		overlays[n] = {
+			...o,
+			box: { u0: u.u0 + t.u0, v0: u.v0 + t.v0, u1: u.u0 + t.u1, v1: u.v0 + t.v1 },
+			hit: { top: u.v0 + half.v0, left: u.u0 + half.u0, bottom: u.v0 + half.v1, right: u.u0 + half.u1 },
+			pixels: trimmed,
+			changed: true,
+		}
+	}
+	// A new overlay that came out empty is dropped; a client's that did is dropped from the table too.
+	return { overlays: overlays.filter((o) => o.pixels || (o.id && !o.changed)), base: blankOut(look, all) }
+}
+
+/** The picture as a player who has explored everything sees it: the overlays drawn over the base. */
+export function explored(base: Uint8Array, overlays: readonly OverlayPiece[], w = WORLD_MAP_W): Uint8Array {
+	const out = base.slice()
+	for (const o of overlays) {
+		if (!o.pixels) continue
+		const ow = o.box.u1 - o.box.u0
+		for (let y = 0; y < o.box.v1 - o.box.v0; y++) {
+			for (let x = 0; x < ow; x++) {
+				const s = (y * ow + x) * 4
+				const a = o.pixels[s + 3] / 255
+				if (!a) continue
+				const d = ((o.box.v0 + y) * w + o.box.u0 + x) * 4
+				for (let c = 0; c < 3; c++) out[d + c] = Math.round(out[d + c] + (o.pixels[s + c] - out[d + c]) * a)
+			}
+		}
+	}
+	return out
+}

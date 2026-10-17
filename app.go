@@ -1341,26 +1341,29 @@ func (a *App) ReadWorldMap(mapID, areaID uint32) (*vmangos.WorldMapView, error) 
 	return vmangos.ReadWorldMap(dataDir, mapID, areaID)
 }
 
-// WorldMapResult is what Write World Map wrote: the row (with its ID) and the patch.
+// WorldMapResult is what Write World Map wrote: the row (with its ID), the overlays (with theirs,
+// without pictures) and the patch.
 type WorldMapResult struct {
-	Row   vmangos.WorldMapRow `json:"row"`
-	Patch string              `json:"patch"`
+	Row      vmangos.WorldMapRow       `json:"row"`
+	Overlays []vmangos.WorldMapOverlay `json:"overlays"`
+	Patch    string                    `json:"patch"`
 }
 
-// WriteWorldMap writes a zone's world map into the client's patch: its twelve art tiles and its
-// WorldMapArea.dbc row, with the game closed around it.
+// WriteWorldMap writes a zone's world map into the client's patch: its twelve art tiles, its
+// WorldMapArea.dbc row and its exploration overlays (WorldMapOverlay.dbc rows and their art, #219),
+// with the game closed around it.
 func (a *App) WriteWorldMap(spec vmangos.WorldMapSpec) (WorldMapResult, error) {
 	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return WorldMapResult{}, err
 	}
-	files, row, err := vmangos.WorldMapFiles(dataDir, spec)
+	files, row, overlays, err := vmangos.WorldMapFiles(dataDir, spec)
 	if err != nil {
 		return WorldMapResult{}, err
 	}
 	patch, err := a.installWithGameClosed(dataDir, files)
-	return WorldMapResult{Row: row, Patch: patch}, err
+	return WorldMapResult{Row: row, Overlays: overlays, Patch: patch}, err
 }
 
 // ReadImageFile returns a PNG file's bytes as base64, for the frontend to decode (a picture to import).

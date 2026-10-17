@@ -8,13 +8,15 @@
 	import { base64ToBytes, bytesToBase64 } from '../lib/io/base64'
 	import { loadAreas } from '../lib/wow/areas'
 	import { CHUNK_CELLS } from '../lib/terrain/chunkPaint'
-	import { artName, boxRect, extentToRect, feather, fitAspect, intersect, mapLook, paste, pixelBox, rectToExtent, WORLD_MAP_H, WORLD_MAP_W, zoneBounds, type EditorRect } from '../lib/io/worldMap'
+	import { areasUnder, artName, boxRect, drawOverlays, explored, extentToRect, feather, fitAspect, intersect, mapLook, paste, pixelBox, rectToExtent, WORLD_MAP_H, WORLD_MAP_W, zoneBounds, type EditorRect, type OverlayPiece } from '../lib/io/worldMap'
 
 	// World › World Map (#181): a zone's map for the game's World Map (M). Generate draws the zone from
 	// straight above in the client's map look; a zone the client already maps (a part of Azeroth) keeps
 	// its rectangle and art, with the open block drawn over its part. Import takes a picture painted
 	// elsewhere (Export gives the render to paint over). Write to Client puts the twelve tiles and the
-	// WorldMapArea.dbc row into Meld's patch. A form written with its button, not an undo step.
+	// WorldMapArea.dbc row into Meld's patch. With Overlays on (#219), each subzone painted in the drawn
+	// part gets its exploration overlay (WorldMapOverlay.dbc and its art), and the base art leaves it
+	// out as parchment, as the client's maps do. A form written with its button, not an undo step.
 
 	let { onclose }: { onclose: () => void } = $props()
 
@@ -36,6 +38,12 @@
 	/** The picture to write, WORLD_MAP_W by WORLD_MAP_H RGBA; the client's art until Generate or Import. */
 	let pixels = $state<Uint8Array | null>(null)
 	let models = $state<'buildings' | 'all' | 'none'>('buildings')
+	/** The zone's exploration overlays: the client's, and those Generate drew. */
+	let overlays = $state<OverlayPiece[]>([])
+	/** Whether Generate draws a subzone into its overlay (and leaves it out of the base art). */
+	let explore = $state(true)
+	/** Whether the preview shows the overlays over the base, as a player who has explored it all. */
+	let showExplored = $state(true)
 	let canvas = $state<HTMLCanvasElement>()
 
 	async function init() {
@@ -92,6 +100,7 @@
 		error = ''
 		pixels = null
 		existing = null
+		overlays = []
 		try {
 			const view = await ReadWorldMap(mapId!, id)
 			const e = engineRef.current!
@@ -100,6 +109,15 @@
 				name = view.row.name
 				rect = extentToRect(view.row, tileX, tileY)
 				if (view.pixels) pixels = base64ToBytes(view.pixels as unknown as string)
+				overlays = (view.overlays ?? []).map((o) => ({
+					id: o.id,
+					areas: o.areas ?? [],
+					name: o.name,
+					box: { u0: o.offsetX, v0: o.offsetY, u1: o.offsetX + o.width, v1: o.offsetY + o.height },
+					hit: { top: o.hitTop, left: o.hitLeft, bottom: o.hitBottom, right: o.hitRight },
+					pixels: o.pixels ? base64ToBytes(o.pixels as unknown as string) : null,
+					changed: false,
+				}))
 			} else {
 				name = artName(zones.find((z) => z.id === id)?.name ?? `Zone${id}`)
 				const t = e.terrain
@@ -112,7 +130,7 @@
 	}
 
 	$effect(() => {
-		const px = pixels
+		const px = pixels && showExplored && overlays.length ? explored(pixels, overlays) : pixels
 		if (!canvas) return
 		const ctx = canvas.getContext('2d')!
 		ctx.fillStyle = '#c9b68c'
@@ -152,7 +170,24 @@
 			const at = boxRect(rect, box)
 			const shot = e.renderTopDown(at.x0, at.z0, at.x1, at.z1, models, w, h)
 			const edges = { left: box.u0 === 0, top: box.v0 === 0, right: box.u1 === WORLD_MAP_W, bottom: box.v1 === WORLD_MAP_H }
-			const look = mapLook(shot, w, h, base ? { left: false, top: false, right: false, bottom: false } : edges)
+			let look = mapLook(shot, w, h, base ? { left: false, top: false, right: false, bottom: false } : edges)
+			if (explore) {
+				const t = e.terrain
+				const areas = await loadAreas()
+				const byId = new Map(areas.map((a) => [a.id, a]))
+				const drawn = drawOverlays({
+					look,
+					box,
+					under: areasUnder(t.areaIds, t.paintChunksPerSide, CHUNK_CELLS * t.cellSize, rect, box),
+					zoneId,
+					parentOf: (id) => byId.get(id)?.parent,
+					nameOf: (id) => byId.get(id)?.name ?? `Area${id}`,
+					overlays,
+					band: base ? 16 : 0,
+				})
+				look = drawn.base
+				overlays = drawn.overlays
+			}
 			const out = base ?? new Uint8Array(WORLD_MAP_W * WORLD_MAP_H * 4)
 			if (base) feather(out, WORLD_MAP_W, WORLD_MAP_H, look, w, h, box.u0, box.v0)
 			else paste(out, WORLD_MAP_W, look, w, h, box.u0, box.v0)
@@ -208,9 +243,27 @@
 		try {
 			const ext = rectToExtent(rect, tileX, tileY)
 			const row = vmangos.WorldMapRow.createFrom({ id: existing?.id ?? 0, mapId, areaId: zoneId, name, ...ext })
-			const res = await WriteWorldMap(vmangos.WorldMapSpec.createFrom({ row, pixels: bytesToBase64(pixels) as unknown as number[] }))
+			const pieces = overlays.map((o) =>
+				vmangos.WorldMapOverlay.createFrom({
+					id: o.id,
+					areas: o.areas,
+					name: o.name,
+					width: o.box.u1 - o.box.u0,
+					height: o.box.v1 - o.box.v0,
+					offsetX: o.box.u0,
+					offsetY: o.box.v0,
+					hitTop: o.hit.top,
+					hitLeft: o.hit.left,
+					hitBottom: o.hit.bottom,
+					hitRight: o.hit.right,
+					// An unchanged overlay keeps the client's art.
+					pixels: o.changed && o.pixels ? (bytesToBase64(o.pixels) as unknown as number[]) : null,
+				}),
+			)
+			const res = await WriteWorldMap(vmangos.WorldMapSpec.createFrom({ row, pixels: bytesToBase64(pixels) as unknown as number[], overlays: pieces }))
 			existing = res.row
-			setStatus(`Wrote the world map of ${name} (WorldMapArea row ${res.row.id}) into ${res.patch}. In the game, M shows it in the zone.`, 10000)
+			overlays = overlays.map((o, i) => ({ ...o, id: res.overlays?.[i]?.id ?? o.id }))
+			setStatus(`Wrote the world map of ${name} (WorldMapArea row ${res.row.id}, ${overlays.length} overlays) into ${res.patch}. In the game, M shows it in the zone.`, 10000)
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -218,6 +271,10 @@
 		}
 	}
 
+	const overlayCount = $derived.by(() => {
+		const redrawn = overlays.filter((o) => o.changed).length
+		return `${overlays.length} overlay${overlays.length === 1 ? '' : 's'}${redrawn ? `, ${redrawn} drawn` : ''}`
+	})
 	const size = $derived(rect ? `${Math.round(rect.x1 - rect.x0)} × ${Math.round(rect.z1 - rect.z0)} yd` : '')
 </script>
 
@@ -241,6 +298,12 @@
 				<option value="all">All models</option>
 				<option value="none">Ground only</option>
 			</select>
+			<span class="k">Overlays</span>
+			<span class="row">
+				<label title="Generate draws each subzone painted in the zone into its exploration overlay (WorldMapOverlay.dbc), revealed in the game as the player explores it, and leaves it out of the base art"><input type="checkbox" bind:checked={explore} disabled={busy} /> One per subzone</label>
+				<label title="Show the overlays over the base, as a player who has explored the whole zone sees it"><input type="checkbox" bind:checked={showExplored} /> Preview explored</label>
+				<span class="dim">{overlayCount}</span>
+			</span>
 		</div>
 		<canvas bind:this={canvas} width={WORLD_MAP_W / 2} height={WORLD_MAP_H / 2}></canvas>
 		<p class="dim">
@@ -249,6 +312,7 @@
 			{:else}
 				Generate draws the zone from above in the map's parchment look; or paint one from the export and import it.
 			{/if}
+			{#if explore}A subzone (World › Zones) shows once the player has explored it; Import replaces only the base art.{/if}
 			Write to Client puts it into Meld's patch with the game closed.
 		</p>
 	{/if}
@@ -271,6 +335,11 @@
 	}
 	.k {
 		color: var(--text-dim);
+	}
+	.row {
+		display: flex;
+		gap: 12px;
+		align-items: center;
 	}
 	canvas {
 		display: block;

@@ -134,20 +134,34 @@ Map.dbc row pointing at it.
   the owner's patch.
 - In the game: not checked by the loop; the owner's check is the picture on entering the map.
 
-## World map of a zone (World › World Map, #181)
+## World map of a zone (World › World Map, #181; exploration overlays, #219)
 Checks: a zone's map for the game's World Map (M): the WorldMapArea.dbc row and the twelve 256x256
-tiles of the 1002x668 picture at `Interface\WorldMap\<Name>\<Name>1..12.blp`.
+tiles of the 1002x668 picture at `Interface\WorldMap\<Name>\<Name>1..12.blp`, and its exploration
+overlays: WorldMapOverlay.dbc rows (17 fields: ID, the WorldMapArea row, four AreaTable IDs, two
+unused, the texture name, width, height, offset x and y, hit rectangle top, left, bottom, right, in
+picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3 with mips, cut into
+256 tiles with the last column and row the power of two past what is left (WorldMapFrame.lua).
+- Go: `TestSetWorldMapOverlaysReplacesTheZones`, `TestWorldOverlayFilesCutAsTheClient`,
+  `wow.TestEncodeOverlayBLPReadsBack`; with `WOW_DIR=C:/WoW/client`, `TestWorldMapOverlaysFromClient`
+  reads Elwynn's twelve (Goldshire: row 122, area 87, 240x220 at 250, 270, hit 400 370 465 455) and
+  writes Goldshire back through `WorldMapFiles`, the other rows kept.
 - Go: `TestSetWorldMapRowAddsAndReplaces`, `TestSetWorldMapRowRefusesBadRows`; with
   `WOW_DIR=C:/WoW/client`, `TestWorldMapFromClient` reads Elwynn (row 30, map 0, area 12, Left 1535.4,
   Right -1935.4, Top -7939.6, Bottom -10254.2; its art DXT1 256x256), writes it again through
   `WorldMapFiles` (tiles within 0.04 a channel of the picture) and finds the row unchanged.
 - Frontend: `frontend/tests/worldMap.test.ts` (Elwynn's extent on its tiles 29.1..35.6 by 46.9..51.2
-  and back through a region's first tile; zone bounds and the 3:2 fit; pixel boxes; the look; feather).
+  and back through a region's first tile; zone bounds and the 3:2 fit; pixel boxes; the look; feather;
+  the overlays: a subzone's own piece with a soft edge and parchment under it in the base, a piece
+  redrawn in part keeping its art outside the block, a subzone drawn into the piece whose art covers it).
+- Probe `world-map`: on Northshire, Elwynn's twelve overlays listed and previewed over the base, and
+  Generate redraws Northshire Valley's ("12 overlays, 1 drawn": Echo Ridge Mine and Northshire
+  Vineyards, which no overlay names, go into Northshire's piece, whose art covers them). To see the
+  preview, copy the probe into `probes/scratch/`, return `canvas.toDataURL()` and decode it.
 - Dev page, Northshire (Azeroth 32_48): wait for the models, then `ed.ui.dialog = 'worldMap'`. The zone
   list is Elwynn Forest (12), "3471 × 2315 yd · the client's (row 30)", the canvas shows the client's
-  base art (mostly parchment: the explored areas are WorldMapOverlay pieces the game draws over it).
+  base art with its overlays over it (Preview explored; off, the base alone is mostly parchment).
   Click the dialog's `Generate` button: the open tile is drawn just north of the map's middle, where
-  Northshire Valley is, feathered into the art. Write to Client is not run from the loop (it writes
+  Northshire Valley is, into Northshire's overlay (with Overlays off, feathered into the base art). Write to Client is not run from the loop (it writes
   the owner's patch); `TestWorldMapFromClient` covers the files it writes.
 - In the game: not checked by the loop. A zone of a new map needs its AreaTable row (World › Zones)
   painted on its chunks; whether 1.12's World Map opens a zone of a map that isn't a continent

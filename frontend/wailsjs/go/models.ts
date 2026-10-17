@@ -216,6 +216,7 @@ export namespace main {
 	}
 	export class WorldMapResult {
 	    row: vmangos.WorldMapRow;
+	    overlays: vmangos.WorldMapOverlay[];
 	    patch: string;
 	
 	    static createFrom(source: any = {}) {
@@ -225,6 +226,7 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.row = this.convertValues(source["row"], vmangos.WorldMapRow);
+	        this.overlays = this.convertValues(source["overlays"], vmangos.WorldMapOverlay);
 	        this.patch = source["patch"];
 	    }
 	
@@ -2598,6 +2600,40 @@ export namespace vmangos {
 	        this.texture = source["texture"];
 	    }
 	}
+	export class WorldMapOverlay {
+	    id: number;
+	    areas: number[];
+	    name: string;
+	    width: number;
+	    height: number;
+	    offsetX: number;
+	    offsetY: number;
+	    hitTop: number;
+	    hitLeft: number;
+	    hitBottom: number;
+	    hitRight: number;
+	    pixels: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new WorldMapOverlay(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.areas = source["areas"];
+	        this.name = source["name"];
+	        this.width = source["width"];
+	        this.height = source["height"];
+	        this.offsetX = source["offsetX"];
+	        this.offsetY = source["offsetY"];
+	        this.hitTop = source["hitTop"];
+	        this.hitLeft = source["hitLeft"];
+	        this.hitBottom = source["hitBottom"];
+	        this.hitRight = source["hitRight"];
+	        this.pixels = source["pixels"];
+	    }
+	}
 	export class WorldMapRow {
 	    id: number;
 	    mapId: number;
@@ -2627,6 +2663,7 @@ export namespace vmangos {
 	export class WorldMapSpec {
 	    row: WorldMapRow;
 	    pixels: number[];
+	    overlays: WorldMapOverlay[];
 	
 	    static createFrom(source: any = {}) {
 	        return new WorldMapSpec(source);
@@ -2636,6 +2673,7 @@ export namespace vmangos {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.row = this.convertValues(source["row"], WorldMapRow);
 	        this.pixels = source["pixels"];
+	        this.overlays = this.convertValues(source["overlays"], WorldMapOverlay);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2659,6 +2697,7 @@ export namespace vmangos {
 	export class WorldMapView {
 	    row?: WorldMapRow;
 	    pixels: number[];
+	    overlays: WorldMapOverlay[];
 	
 	    static createFrom(source: any = {}) {
 	        return new WorldMapView(source);
@@ -2668,6 +2707,7 @@ export namespace vmangos {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.row = this.convertValues(source["row"], WorldMapRow);
 	        this.pixels = source["pixels"];
+	        this.overlays = this.convertValues(source["overlays"], WorldMapOverlay);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

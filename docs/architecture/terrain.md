@@ -169,4 +169,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   minimap's shot, any size), `io/worldMap.ts` gives the rectangle (the client's WorldMapArea row, or the
   zone's chunks grown to 3:2), the parchment look and the feathered paste over a zone the client already
   maps; Go (`vmangos/worldmap.go`, `WriteWorldMap`) cuts the 1002x668 picture into twelve DXT1 tiles and
-  sets the WorldMapArea.dbc row, written into Meld's patch with the game closed.
+  sets the WorldMapArea.dbc row, written into Meld's patch with the game closed. Exploration overlays
+  (#219, Overlays: one per subzone): `io/worldMap.ts` `drawOverlays` draws each subzone painted in the
+  drawn part (an area whose parent is the zone) into the overlay naming it, else the one whose art
+  covers half of it or more (as Elwynn's Northshire piece holds Echo Ridge Mine), else a new one; its
+  alpha is the chunks' mask with a soft edge, the art outside the drawn block is kept, and the base
+  art leaves those subzones out as parchment (`blankOut`). Go (`vmangos/worldmapoverlay.go`) reads the
+  client's overlays with their art, replaces the zone's WorldMapOverlay.dbc rows (an unchanged one
+  keeps the client's art) and writes the changed pieces as DXT3 tiles with mips
+  (`wow.EncodeOverlayBLP`). The game shows a piece once the player has explored one of its areas (the
+  AreaTable exploration bit, World › Zones).
