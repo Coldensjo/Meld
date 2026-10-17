@@ -274,6 +274,10 @@ export function ReadCreatureQuests(arg1) {
   return window['go']['main']['App']['ReadCreatureQuests'](arg1);
 }
 
+export function ReadCreatureSpells(arg1) {
+  return window['go']['main']['App']['ReadCreatureSpells'](arg1);
+}
+
 export function ReadGossip(arg1) {
   return window['go']['main']['App']['ReadGossip'](arg1);
 }
@@ -340,6 +344,10 @@ export function SaveCreature(arg1, arg2, arg3) {
 
 export function SaveCreatureQuests(arg1, arg2) {
   return window['go']['main']['App']['SaveCreatureQuests'](arg1, arg2);
+}
+
+export function SaveCreatureSpells(arg1, arg2) {
+  return window['go']['main']['App']['SaveCreatureSpells'](arg1, arg2);
 }
 
 export function SaveGossipOptions(arg1, arg2) {
@@ -430,6 +438,10 @@ export function SearchQuests(arg1) {
   return window['go']['main']['App']['SearchQuests'](arg1);
 }
 
+export function SearchSpells(arg1) {
+  return window['go']['main']['App']['SearchSpells'](arg1);
+}
+
 export function SetBenillaPath(arg1) {
   return window['go']['main']['App']['SetBenillaPath'](arg1);
 }
@@ -468,6 +480,10 @@ export function SpawnEmotes() {
 
 export function SpawnLook(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SpawnLook'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function SpellRefs(arg1) {
+  return window['go']['main']['App']['SpellRefs'](arg1);
 }
 
 export function SpellTexts(arg1) {

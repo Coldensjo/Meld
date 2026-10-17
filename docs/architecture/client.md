@@ -82,6 +82,19 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `Engine.applyCreatureTemplate` then brings that creature's spawns up to date through
   `SpawnLayer.rebase`, which changes their saved state too. A template's columns are drawn by
   `TemplateFields.svelte`, shared with the game object editor.
+- **Spells** (`components/SpellsTab.svelte`, #243): the creature editor's tab for what the creature
+  casts in combat, the eight slots of the `creature_spells` row its `spell_list_id` names
+  (`internal/vmangos/creaturespells.go`: `ReadCreatureSpells`, `SaveCreatureSpells`), each with its
+  chance, target (`lib/wow/creatureSpellNames.ts`, VMaNGOS's `TARGET_T_*` and `CF_*`), first and
+  repeat delays in seconds and cast flags; `scriptId` and unknown targets are kept as read. Spells
+  are found by name or ID in the client's Spell.dbc (`SearchSpells`, `SpellRefs` in `spelltext.go`:
+  name, rank, SpellIcon.dbc's icon and the description with its tokens filled in; `lib/wow/spells.ts`
+  caches them). Save checks each spell against the server's `spell_template` and writes the whole
+  row (`creatureSpellsSQL`): a list other templates share is never edited, the creature gets a new
+  one (`freeSpellList`: entry*10 to entry*10+9 as VMaNGOS numbers them, else one past the highest),
+  as does a creature with none; an emptied list deletes its own row and sets `spell_list_id` to 0.
+  Like the Shop, a form with its own Save and Revert, not undo steps; the editor's `spell_list_id`
+  follows the save. A list a script switches to (`creature_ai_scripts`) is not counted as shared.
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
   editor's counterpart, opened by the right-click menu's Edit object or the panel's Open editor.
   Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's

@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +23,9 @@ const (
 	spellFChain       = 100
 	spellFDescription = 138 // enUS; the other locales and a flags field follow
 	spellFStack       = 39
+	spellFIcon        = 117 // SpellIconID
+	spellFName        = 120 // enUS
+	spellFRank        = 129 // enUS
 )
 
 // spellData is what spell descriptions are filled in from, read once per client data folder.
@@ -29,7 +33,8 @@ var spellData struct {
 	sync.Mutex
 	dir       string
 	spells    *dbcTable
-	durations map[uint32]int // SpellDuration.dbc: ID -> milliseconds, -1 for until cancelled
+	durations map[uint32]int    // SpellDuration.dbc: ID -> milliseconds, -1 for until cancelled
+	icons     map[uint32]string // SpellIcon.dbc: ID -> texture path, without .blp
 }
 
 func loadSpellData(dataDir string) error {
@@ -60,7 +65,17 @@ func loadSpellData(dataDir string) error {
 			}
 		}
 	}
-	spellData.dir, spellData.spells, spellData.durations = dataDir, spells, durations
+	icons := map[uint32]string{}
+	if ib, err := set.ReadFile(`DBFilesClient\SpellIcon.dbc`); err == nil {
+		if it, err := parseDBC(ib); err == nil && it.fields > 1 {
+			for r := 0; r < it.records; r++ {
+				if p := it.str(r, 1); p != "" {
+					icons[it.u32(r, 0)] = p
+				}
+			}
+		}
+	}
+	spellData.dir, spellData.spells, spellData.durations, spellData.icons = dataDir, spells, durations, icons
 	return nil
 }
 
@@ -199,4 +214,107 @@ func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) 
 		i = k - 1
 	}
 	return b.String()
+}
+
+// SpellRef is a client spell as the creature editor's Spells tab lists it: its name and rank, its
+// icon (a texture path without .blp, "" when it has none) and its description, tokens filled in.
+type SpellRef struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Rank string `json:"rank"`
+	Icon string `json:"icon"`
+	Text string `json:"text"`
+}
+
+// spellRef reads row r of Spell.dbc; spellData must be loaded and locked.
+func spellRef(r int) SpellRef {
+	t := spellData.spells
+	ref := SpellRef{ID: int(t.u32(r, 0)), Name: t.str(r, spellFName), Rank: t.str(r, spellFRank), Icon: spellData.icons[t.u32(r, spellFIcon)]}
+	if d := t.str(r, spellFDescription); d != "" {
+		ref.Text = expandSpellText(d, t, r, spellData.durations)
+	}
+	return ref
+}
+
+// SpellRefs gives each spell the client has, by ID.
+func SpellRefs(dataDir string, ids []int) (map[int]SpellRef, error) {
+	spellData.Lock()
+	defer spellData.Unlock()
+	if err := loadSpellData(dataDir); err != nil {
+		return nil, err
+	}
+	out := make(map[int]SpellRef, len(ids))
+	for _, id := range ids {
+		if r, ok := spellData.spells.row(uint32(id)); ok {
+			out[id] = spellRef(r)
+		}
+	}
+	return out, nil
+}
+
+// SearchSpells lists the client's spells whose name has text in it (any case), or whose ID is text,
+// at most limit of them: the ID first, then names equal to text, then names starting with it, then
+// the rest, each by name, rank and ID.
+func SearchSpells(dataDir, text string, limit int) ([]SpellRef, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, nil
+	}
+	spellData.Lock()
+	defer spellData.Unlock()
+	if err := loadSpellData(dataDir); err != nil {
+		return nil, err
+	}
+	t := spellData.spells
+	want := strings.ToLower(text)
+	type hit struct {
+		r, kind int
+		name    string
+	}
+	var hits []hit
+	id, idErr := strconv.Atoi(text)
+	for r := 0; r < t.records; r++ {
+		name := t.str(r, spellFName)
+		if idErr == nil && int(t.u32(r, 0)) == id {
+			hits = append(hits, hit{r, 0, name})
+			continue
+		}
+		if name == "" {
+			continue
+		}
+		low := strings.ToLower(name)
+		switch {
+		case low == want:
+			hits = append(hits, hit{r, 1, name})
+		case strings.HasPrefix(low, want):
+			hits = append(hits, hit{r, 2, name})
+		case strings.Contains(low, want):
+			hits = append(hits, hit{r, 3, name})
+		}
+	}
+	sort.Slice(hits, func(i, j int) bool {
+		a, b := hits[i], hits[j]
+		if a.kind != b.kind {
+			return a.kind < b.kind
+		}
+		if a.name != b.name {
+			return a.name < b.name
+		}
+		// Rank 2 before Rank 10.
+		if ra, rb := t.str(a.r, spellFRank), t.str(b.r, spellFRank); ra != rb {
+			if len(ra) != len(rb) {
+				return len(ra) < len(rb)
+			}
+			return ra < rb
+		}
+		return t.u32(a.r, 0) < t.u32(b.r, 0)
+	})
+	if len(hits) > max(limit, 1) {
+		hits = hits[:max(limit, 1)]
+	}
+	out := make([]SpellRef, len(hits))
+	for i, h := range hits {
+		out[i] = spellRef(h.r)
+	}
+	return out, nil
 }

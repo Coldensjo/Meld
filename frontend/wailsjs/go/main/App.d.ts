@@ -143,6 +143,8 @@ export function ReadCreature(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadCreatureQuests(arg1:number):Promise<vmangos.CreatureQuests>;
 
+export function ReadCreatureSpells(arg1:number):Promise<vmangos.CreatureSpells>;
+
 export function ReadGossip(arg1:number):Promise<vmangos.Gossip>;
 
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
@@ -176,6 +178,8 @@ export function SaveBrushDialog(arg1:string):Promise<string>;
 export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 
 export function SaveCreatureQuests(arg1:number,arg2:vmangos.CreatureQuests):Promise<string>;
+
+export function SaveCreatureSpells(arg1:number,arg2:Array<vmangos.CreatureSpell>):Promise<vmangos.CreatureSpellsSaved>;
 
 export function SaveGossipOptions(arg1:number,arg2:Array<vmangos.GossipOption>):Promise<vmangos.GreetingSaved>;
 
@@ -221,6 +225,8 @@ export function SearchItems(arg1:string):Promise<Array<vmangos.ItemRef>>;
 
 export function SearchQuests(arg1:string):Promise<Array<vmangos.QuestRef>>;
 
+export function SearchSpells(arg1:string):Promise<Array<vmangos.SpellRef>>;
+
 export function SetBenillaPath(arg1:string):Promise<void>;
 
 export function SetGameClient(arg1:string):Promise<void>;
@@ -240,6 +246,8 @@ export function SpawnEditSQL(arg1:string,arg2:number,arg3:number,arg4:number,arg
 export function SpawnEmotes():Promise<Array<vmangos.Emote>>;
 
 export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:number):Promise<vmangos.LookResult>;
+
+export function SpellRefs(arg1:Array<number>):Promise<Record<number, vmangos.SpellRef>>;
 
 export function SpellTexts(arg1:Array<number>):Promise<Record<number, string>>;
 

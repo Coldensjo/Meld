@@ -190,7 +190,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   another in the game object editor, and undone), `object-tilt` (#229, the Sunken Chest drawn tilted
   and its rotation kept by a move's SQL), `object-loot` (#220, a vein's shared loot list in the game
   object editor's Contents tab, a copy of its own, an added item, Make it a chest and the respawn time,
-  nothing written), `walkable` (#175, the navmesh view's tiles, a path round holes, a WMO's floors), `erode` (#165, the Erode brush and the area pass on a Mountains map, with undo), `weather` (#185, rain, snow and a sandstorm with the storm light, and the Zones dialog's weather sliders), `zones-fit` (#247, the Zones dialog has no horizontal scrollbar). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
+  nothing written), `walkable` (#175, the navmesh view's tiles, a path round holes, a WMO's floors), `erode` (#165, the Erode brush and the area pass on a Mountains map, with undo), `weather` (#185, rain, snow and a sandstorm with the storm light, and the Zones dialog's weather sliders), `zones-fit` (#247, the Zones dialog has no horizontal scrollbar), `creature-spells` (#243, the creature editor's Spells tab: a creature's list with names, icons and text, a search and add, Revert; nothing written). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
   that the probe exists.
 
 ## The live app without Claude in Chrome (headless Chrome over CDP)
@@ -384,6 +384,7 @@ the same scene, the report before and after.
 - World event spawns (#143)
 - Creature editor: Looks opens on the creature's display (#206)
 - Creature editor: Shop tab (npc_vendor, #145)
+- Creature editor: Spells tab (creature_spells, #243)
 - Portals and area triggers (#141, #18)
 - Creatures workspace and the new-creature guide (#132)
 - Name colours by reaction (#134)

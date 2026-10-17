@@ -230,6 +230,24 @@ Live on Northshire (Azeroth 32_48), `__engine.spawnLabels.nameColor(spawn)` for 
 in `doc.spawnLayer.spawns`: Alliance: Northshire Guard and Deputy Willem green, Kobold Vermin red,
 Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.
 
+## Creature editor: Spells tab (creature_spells, #243)
+
+Checks: the Spells tab lists a creature's spell list with the client's names, icons and text, finds
+spells by name or ID, and adds, reorders and saves them. Probe: `pnpm probe creature-spells`
+(Scarlet Commander Mograine, 3976, list 39760: Crusader Strike and Hammer of Justice; a Fireball
+search and add, the unsaved bar, Revert; nothing written; 2 to 7 minutes in the headless page,
+nearly all of it the first icons' stall, #233). Unit: `creaturespells_test.go` (the SQL for an own,
+a shared, a new and an emptied list, the checks, the free list number) and, with `WOW_DIR` set,
+`TestSpellRefsFromClient` (Spell.dbc's name, rank and icon fields).
+- To test a save without changing the world database for good, use a creature with no list (805,
+  Cameron): add a spell, Save spells, read it back with
+  `await window.go.main.App.ReadCreatureSpells(805)` (list 8050), then remove it and save again (the
+  row is deleted and `spell_list_id` is 0 again).
+- A shared list: 35020 is used by 4 templates (`select entry from creature_template where
+  spell_list_id = 35020`); a save on one of them gives it a new list and leaves 35020 alone.
+- Trap: the world database's `creature_template` here has no `spell_id1..4` columns, so there are no
+  legacy spell fields to show; `creatureFields.ts` labels only the ones present.
+
 ## Shop tab: item icons and tooltips (#202)
 Checks: every item in the creature editor's Shop tab (the shop's list, the search results, the shared
 vendor list) has its inventory icon, and hovering one shows the game-style tooltip.

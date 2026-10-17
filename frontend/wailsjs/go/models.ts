@@ -776,6 +776,88 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class CreatureSpell {
+	    spell: number;
+	    probability: number;
+	    castTarget: number;
+	    targetParam1: number;
+	    targetParam2: number;
+	    castFlags: number;
+	    initialMin: number;
+	    initialMax: number;
+	    repeatMin: number;
+	    repeatMax: number;
+	    scriptId: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreatureSpell(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.spell = source["spell"];
+	        this.probability = source["probability"];
+	        this.castTarget = source["castTarget"];
+	        this.targetParam1 = source["targetParam1"];
+	        this.targetParam2 = source["targetParam2"];
+	        this.castFlags = source["castFlags"];
+	        this.initialMin = source["initialMin"];
+	        this.initialMax = source["initialMax"];
+	        this.repeatMin = source["repeatMin"];
+	        this.repeatMax = source["repeatMax"];
+	        this.scriptId = source["scriptId"];
+	    }
+	}
+	export class CreatureSpells {
+	    listId: number;
+	    name: string;
+	    shared: number;
+	    spells: CreatureSpell[];
+	
+	    static createFrom(source: any = {}) {
+	        return new CreatureSpells(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.listId = source["listId"];
+	        this.name = source["name"];
+	        this.shared = source["shared"];
+	        this.spells = this.convertValues(source["spells"], CreatureSpell);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class CreatureSpellsSaved {
+	    listId: number;
+	    sql: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreatureSpellsSaved(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.listId = source["listId"];
+	        this.sql = source["sql"];
+	    }
+	}
 	export class CreatureTemplate {
 	    entry: number;
 	    name: string;
@@ -2095,6 +2177,26 @@ export namespace vmangos {
 		    }
 		    return a;
 		}
+	}
+	export class SpellRef {
+	    id: number;
+	    name: string;
+	    rank: string;
+	    icon: string;
+	    text: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpellRef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.rank = source["rank"];
+	        this.icon = source["icon"];
+	        this.text = source["text"];
+	    }
 	}
 	export class TemplateColumn {
 	    name: string;

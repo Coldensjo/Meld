@@ -1027,6 +1027,44 @@ func (a *App) SpellTexts(ids []int) (map[int]string, error) {
 	return vmangos.SpellTexts(dataDir, ids)
 }
 
+// SearchSpells lists the client's spells by name or ID, with their rank, icon and text, for the
+// creature editor's Spells tab.
+func (a *App) SearchSpells(text string) ([]vmangos.SpellRef, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SearchSpells(dataDir, text, 80)
+}
+
+// SpellRefs gives each of the client's spells by ID, with its rank, icon and text.
+func (a *App) SpellRefs(ids []int) (map[int]vmangos.SpellRef, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SpellRefs(dataDir, ids)
+}
+
+// ReadCreatureSpells reads a creature template's spell list (creature_spells), for the Spells tab.
+func (a *App) ReadCreatureSpells(entry int) (vmangos.CreatureSpells, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.CreatureSpells{}, err
+	}
+	return vmangos.ReadCreatureSpells(server, entry)
+}
+
+// SaveCreatureSpells sets a creature template's spell list to spells, in order, and returns its
+// spell_list_id now with the SQL it ran.
+func (a *App) SaveCreatureSpells(entry int, spells []vmangos.CreatureSpell) (vmangos.CreatureSpellsSaved, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.CreatureSpellsSaved{}, err
+	}
+	return vmangos.SaveCreatureSpells(server, entry, spells)
+}
+
 // CreateCreature adds a creature template named name, a copy of template base (or the defaults
 // for 0), and returns its entry.
 func (a *App) CreateCreature(base int, name string) (int, error) {

@@ -12,6 +12,7 @@
   import QuestsTab from './QuestsTab.svelte'
   import ShopTab from './ShopTab.svelte'
   import SpawnFields from './SpawnFields.svelte'
+  import SpellsTab from './SpellsTab.svelte'
   import TemplateFields from './TemplateFields.svelte'
 
   // The creature editor: one creature full screen. The left shows it big and animated; the right
@@ -19,7 +20,7 @@
   // and its creature template, every column of creature_template, saved to the world database with
   // Save. A new creature starts here too, from scratch or as a copy.
 
-  type Tab = 'spawn' | 'creature' | 'looks' | 'shop' | 'quests' | 'messages'
+  type Tab = 'spawn' | 'creature' | 'looks' | 'spells' | 'shop' | 'quests' | 'messages'
 
   const target = $derived(ui.creatureEditor)
   /** The spawn the editor was opened from, as the panel's copy of it. */
@@ -34,11 +35,12 @@
   let saving = $state(false)
   let confirmClose = $state(false)
 
-  /** Unsaved edits in the Shop, Quests and Messages tabs, which have their own Save. */
+  /** Unsaved edits in the Spells, Shop, Quests and Messages tabs, which have their own Save. */
+  let spellsDirty = $state(false)
   let shopDirty = $state(false)
   let questsDirty = $state(false)
   let messagesDirty = $state(false)
-  const tabsDirty = $derived(shopDirty || questsDirty || messagesDirty)
+  const tabsDirty = $derived(spellsDirty || shopDirty || questsDirty || messagesDirty)
   const changes = $derived(changedValues(values, saved))
   const changeCount = $derived(Object.keys(changes).length)
   const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name)) : [])
@@ -53,6 +55,7 @@
     if (id === loadedFor) return
     loadedFor = id
     tab = t.key ? 'spawn' : 'creature'
+    spellsDirty = false
     shopDirty = false
     questsDirty = false
     messagesDirty = false
@@ -125,7 +128,7 @@
   })
 
   const unsavedText = $derived(
-    [changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the creature` : '', shopDirty ? 'unsaved changes to the shop' : '', questsDirty ? 'unsaved changes to the quests' : '', messagesDirty ? 'an unsaved greeting' : '']
+    [changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the creature` : '', spellsDirty ? 'unsaved changes to the spells' : '', shopDirty ? 'unsaved changes to the shop' : '', questsDirty ? 'unsaved changes to the quests' : '', messagesDirty ? 'an unsaved greeting' : '']
       .filter(Boolean)
       .join(', ') + '.',
   )
@@ -175,6 +178,11 @@
       v.gossip_menu_id = String(menuId)
       v.npc_flags = withBit(v.npc_flags ?? '0', 0x1, true)
     }
+  }
+
+  /** The spells were saved: the database now has the creature's spell list (0 for none). */
+  function spellsSaved(listId: number) {
+    for (const v of [values, saved]) v.spell_list_id = String(listId)
   }
 
   function place() {
@@ -320,6 +328,7 @@
           {#if record}
             <button class:on={tab === 'creature'} onclick={() => (tab = 'creature')}>Creature</button>
             <button class:on={tab === 'looks'} onclick={() => (tab = 'looks')}>Looks</button>
+            <button class:on={tab === 'spells'} onclick={() => (tab = 'spells')}>Spells</button>
             <button class:on={tab === 'shop'} onclick={() => (tab = 'shop')}>Shop</button>
             <button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests</button>
             <button class:on={tab === 'messages'} onclick={() => (tab = 'messages')}>Messages</button>
@@ -343,8 +352,8 @@
           {:else if tab === 'spawn' && spawn}
             <SpawnFields s={spawn} />
             <p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (Spawns panel › Save to database). Edit the path in the world: close the editor, then Edit path.</p>
-          {:else if tab === 'shop' || tab === 'quests' || tab === 'messages'}
-            <!-- The Shop, Quests and Messages tabs stay mounted below, so their unsaved edits survive a tab switch. -->
+          {:else if tab === 'spells' || tab === 'shop' || tab === 'quests' || tab === 'messages'}
+            <!-- The Spells, Shop, Quests and Messages tabs stay mounted below, so their unsaved edits survive a tab switch. -->
           {:else if tab === 'looks' && record}
             <div class="slot">
               <span>A click sets</span>
@@ -367,6 +376,9 @@
             <p class="dim">Loading the creature…</p>
           {/if}
           {#if record && target.entry > 0}
+            <div hidden={tab !== 'spells'}>
+              <SpellsTab entry={record.entry} onsaved={spellsSaved} bind:dirty={spellsDirty} />
+            </div>
             <div hidden={tab !== 'shop'}>
               <ShopTab entry={record.entry} npcFlags={Number(values.npc_flags) || 0} onvendorflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x4, true))} bind:dirty={shopDirty} />
             </div>

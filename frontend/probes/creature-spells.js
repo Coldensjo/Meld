@@ -1,0 +1,46 @@
+// The creature editor's Spells tab (#243): Scarlet Commander Mograine (3976) shows list 39760's two spells with names, icons and text from the client, a search finds Fireball, adding it is an unsaved edit that Save counts and Revert undoes; nothing is written to the database.
+const { ui } = await P.state()
+P.e.newDocument(256, 'flat', 0, 'Probe')
+await P.frames(1)
+// The headless page stalls for up to 75 s between frames while the preview first draws the model
+// and the icons appear (#233), which ate a 120 s wait once.
+const WAIT = 300_000
+const root = () => document.querySelector('[aria-label="Creature editor"]')
+const tab = () => root()?.querySelector('.spells')
+const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))
+const names = () => [...(tab()?.querySelectorAll('.list > li .name') ?? [])].map((n) => n.textContent.replace(/\s+/g, ' ').trim())
+ui.creatureEditor = { key: null, entry: 3976 }
+await P.frames(1)
+await P.until(() => button(root()?.querySelector('nav.tabs'), 'Spells'), WAIT, 'the editor')
+button(root().querySelector('nav.tabs'), 'Spells').click()
+await P.frames(1)
+await P.until(() => names().length === 2 && names().every((n) => !n.startsWith('…')), WAIT, 'the list')
+const listed = names()
+await P.until(() => tab().querySelectorAll('.list > li .title img').length === 2, WAIT, 'the icons')
+const texts = [...tab().querySelectorAll('.list > li .text')].map((t) => t.textContent)
+const listLine = tab().querySelector('.head + p')?.textContent ?? ''
+const search = tab().querySelector('input[type=search]')
+search.value = 'fireball'
+search.dispatchEvent(new Event('input', { bubbles: true }))
+await P.until(() => tab().querySelectorAll('.results li').length > 0, WAIT, 'the search')
+const first = tab().querySelector('.results li button')
+const found = first.textContent.replace(/\s+/g, ' ').trim()
+first.click()
+await P.frames(2)
+const afterAdd = names()
+const saveText = button(tab().querySelector('.head'), 'Save')?.textContent.trim()
+const close = root().querySelector('header .actions button:last-child')
+close.click()
+await P.frames(2)
+const warned = root()?.querySelector('.bar.warn')?.textContent ?? ''
+button(tab().querySelector('.head'), 'Revert').click()
+await P.until(() => names().length === 2, WAIT, 'the revert')
+await P.frames(2)
+const reverted = button(tab().querySelector('.head'), 'Saved') !== undefined
+ui.creatureEditor = null
+await P.frames(1)
+const ok =
+	listed[0].startsWith('Crusader Strike') && listed[1].startsWith('Hammer of Justice') && texts.length === 2 && texts.every((t) => t && !t.includes('$')) &&
+	listLine.includes('39760') && found.startsWith('Fireball') && afterAdd.length === 3 && afterAdd[2].startsWith('Fireball') &&
+	saveText === 'Save spells' && warned.includes('unsaved changes to the spells') && reverted
+return { ok, listed, texts, listLine, found, afterAdd, saveText, warned, reverted }
