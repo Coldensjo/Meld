@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { withBit, type CreatureField } from '../lib/world/creatureFields'
+	import AuraField from './AuraField.svelte'
 	import RefField from './RefField.svelte'
 
 	// A group of a template's columns as the creature and game object editors show them: a checkbox
@@ -32,6 +33,8 @@
 		{@const changed = changes[f.col] !== undefined}
 		{#if f.ref}
 			<RefField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} />
+		{:else if f.spells}
+			<AuraField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} />
 		{:else if f.long}
 			<label class="wide" class:changed title={tip(f)}
 				>{f.label}

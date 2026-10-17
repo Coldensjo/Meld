@@ -302,6 +302,8 @@ a shared, a new and an emptied list, the checks, the free list number) and, with
 - Trap: the world database's `creature_template` here has no `spell_id1..4` columns, so there are no
   legacy spell fields to show; `creatureFields.ts` labels only the ones present.
 
+The Creature tab's spell columns (#255): `auras` lists each spell's icon and name under its text (`AuraField.svelte`), `spawn_spell_id` and `totem_spell_id` are RefFields. Probe: `pnpm probe creature-spell-fields` (creature 215 has aura 6408, 2887 has spawn spell 10389).
+
 ## Shop tab: item icons and tooltips (#202)
 Checks: every item in the creature editor's Shop tab (the shop's list, the search results, the shared
 vendor list) has its inventory icon, and hovering one shows the game-style tooltip.

@@ -17,6 +17,8 @@ export interface CreatureField {
   hint?: string
   /** A number that names a thing: a picker that shows its name (components/RefField.svelte). */
   ref?: RefKind
+  /** Spell IDs separated by spaces: the text, and each spell's icon and name below it (AuraField.svelte). */
+  spells?: boolean
   /** Text of several lines (a text area). */
   long?: boolean
   /** The whole row of the grid. */
@@ -123,9 +125,9 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
       { col: 'script_name', label: 'Script' },
       { col: 'spell_list_id', label: 'Spell list' },
       { col: 'pet_spell_list_id', label: 'Pet spell list' },
-      { col: 'spawn_spell_id', label: 'Spawn spell' },
-      { col: 'totem_spell_id', label: 'Totem spell' },
-      { col: 'auras', label: 'Auras', hint: 'Spell IDs, separated by spaces' },
+      { col: 'spawn_spell_id', label: 'Spawn spell', ref: 'spell' },
+      { col: 'totem_spell_id', label: 'Totem spell', ref: 'spell' },
+      { col: 'auras', label: 'Auras', hint: 'Spell IDs, separated by spaces', spells: true, wide: true },
     ],
   },
   {
