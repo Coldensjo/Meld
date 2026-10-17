@@ -64,9 +64,7 @@ spawn's respawn time. Unit: `internal/vmangos/loot_test.go` (the SQL, refused ro
 The probe `object-loot` does it all without writing: the Truesilver Deposit (2047) holds loot list
 5045 (4 rows), shared with 150081 and 123309; a copy, an added Linen Cloth (searched as `2589`) and
 Make it a chest on a generic object each show in Save's count and go with Revert. It takes about
-75 to 150 s, nearly all SwiftShader (the preview's shaders and skinning, and item icons). Trap: one
-frame stalls for 20 to 35 s when the first item icon appears (the item search), so its waits give
-120 s each; with 30 s it failed every time (#236).
+30 s; it took 75 to 260 s, in stalls of 20 to 45 s, until `P.frames` waited for the GPU (#233).
 
 - Saving, by hand: make a throwaway object (`CreateObject(0, 'Probe chest 220')`, entry 182122 on
   this database), spawn it on a flat map, Make it a chest, add 2589, Save; `ReadObject` then has
@@ -75,11 +73,10 @@ frame stalls for 20 to 35 s when the first item icon appears (the item search), 
   and `DELETE FROM gameobject_loot_template WHERE entry >= 18151`.
 - The biggest shared list is 2283 (1074 rows, the Solid Chest 2855 and six other chests); the tab
   draws the first 150 rows until Show all.
-- Traps: each item icon (`texturePreview`'s `toDataURL`) takes about 0.3 s in the headless page, so
-  a probe on list 2283 spends about 40 s on icons; and opening the editor on another object can stall
-  the headless page for about 36 s in one task (the preview's WebGL: shader compiles, bone uniforms).
-  A save can take longer than 30 s there. The probe opens the editor from spawns it lays down, as
-  `object-entry` does.
+- Traps: a save can take longer than 30 s in the headless page. The probe opens the editor from
+  spawns it lays down, as `object-entry` does. An item icon (`texturePreview`) takes about 6 ms
+  there on its CPU-backed canvas; on a GPU-backed one `toDataURL` waited for the viewport's frames,
+  about 1 s an icon (#233).
 
 ## Tilted game objects (#229)
 
@@ -235,8 +232,8 @@ Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.
 Checks: the Spells tab lists a creature's spell list with the client's names, icons and text, finds
 spells by name or ID, and adds, reorders and saves them. Probe: `pnpm probe creature-spells`
 (Scarlet Commander Mograine, 3976, list 39760: Crusader Strike and Hammer of Justice; a Fireball
-search and add, the unsaved bar, Revert; nothing written; 2 to 7 minutes in the headless page,
-nearly all of it the first icons' stall, #233). Unit: `creaturespells_test.go` (the SQL for an own,
+search and add, the unsaved bar, Revert; nothing written; about 25 s in the headless page, 2 to 7
+minutes before `P.frames` waited for the GPU, #233). Unit: `creaturespells_test.go` (the SQL for an own,
 a shared, a new and an emptied list, the checks, the free list number) and, with `WOW_DIR` set,
 `TestSpellRefsFromClient` (Spell.dbc's name, rank and icon fields).
 - To test a save without changing the world database for good, use a creature with no list (805,

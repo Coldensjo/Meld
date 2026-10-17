@@ -12,14 +12,13 @@ const templates = await loadObjectTemplates()
 const vein = templates.find((t) => t.entry === 2047)
 const generic = templates.find((t) => t.type === 5 && t.model && t.name)
 if (!vein || !generic) return { ok: false, why: 'the world database lacks the Truesilver Deposit (2047) or a generic object' }
-// Opened from spawns: an editor opened from a template alone stalls the headless page for about 36 s.
+// Opened from spawns, as object-entry does.
 const chest = se.newObjectSpawn(vein, 990001, 100, 50, 100, 0)
 const other = se.newObjectSpawn(generic, 990002, 120, 50, 100, 0)
 const layer = e.activeDocument().spawnLayer
 layer.set([chest, other])
 se.syncSpawnUi(layer, true)
-// The waits give 120 s: in the headless page one frame stalls for 20 to 35 s when the first item
-// icon appears (SwiftShader, #233), which ate the whole of a 30 s wait (#236).
+// The waits give 120 s, room for a slow database; the whole probe takes about 30 s.
 const WAIT = 120_000
 
 const root = () => document.querySelector('[aria-label="Game object editor"]')

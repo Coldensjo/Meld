@@ -33,8 +33,8 @@ const P = {
 
 	/**
 	 * The longest `frame()` and the longest wait between frames since `resetStalls`, and when the frame
-	 * came (ms after the reset). A timeout names them, since one headless frame can stall 20 to 40 s
-	 * (#233) and look like a broken feature (#237).
+	 * came (ms after the reset). A timeout names them, so a stall doesn't look like a broken feature
+	 * (#237); `frames` waiting for the GPU keeps them short (#233).
 	 */
 	stalls: { frame: 0, frameAt: 0, tick: 0, since: 0 },
 
@@ -83,7 +83,13 @@ const P = {
 		await P.frames(1)
 	},
 
-	/** Steps the app `n` frames (the headless page's rAF is throttled, so probes drive frames). */
+	/**
+	 * Steps the app `n` frames (probes drive frames rather than wait on rAF), each one waiting until
+	 * the GPU has drawn it. Without that wait nothing holds the probe back: `until` stepped frames as
+	 * fast as the page's tasks ran while it waited on a binding, SwiftShader fell tens of seconds
+	 * behind, and the next call that reads from the GPU (a shader's info log, `toDataURL`, a uniform
+	 * upload) stalled 20 to 45 s while the backlog drew (#233).
+	 */
 	async frames(n = 1) {
 		const s = P.stalls
 		for (let i = 0; i < n; i++) {
@@ -97,7 +103,24 @@ const P = {
 				s.frame = t2 - t1
 				s.frameAt = t1 - s.since
 			}
+			await P.drawn()
 		}
+	},
+
+	/**
+	 * Resolves once the viewport's GPU has finished what it was given so far (a WebGL2 fence): at once
+	 * if the context is lost, and after 30 s at most.
+	 */
+	async drawn() {
+		const gl = window.__engine.renderer.getContext()
+		const sync = gl.isContextLost() ? null : gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
+		if (!sync) return
+		gl.flush()
+		// A fence's status changes only between tasks. A millisecond's timer, not P.tick: spinning on
+		// ticks keeps a core busy that SwiftShader would draw with.
+		const end = performance.now() + 30_000
+		while (!gl.isContextLost() && gl.getSyncParameter(sync, gl.SYNC_STATUS) !== gl.SIGNALED && performance.now() < end) await new Promise((r) => setTimeout(r, 1))
+		gl.deleteSync(sync)
 	},
 
 	/** Steps frames until `fn()` is truthy, and returns it; throws after `timeout` ms, naming the longest stall. */
@@ -228,3 +251,8 @@ const P = {
 		return n
 	},
 }
+
+// The probes drive the frames (P.frames), so the app's own loop is stopped: on SwiftShader it kept
+// about 14 cores drawing frames nobody looked at, and every probe frame waited behind them (#233).
+// The previews' own loops (CreaturePreview) still run.
+window.__engine.stopLoop()

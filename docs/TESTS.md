@@ -178,8 +178,18 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     particles); `wmo-cull` and `terrain-dxt` do this.
   - Viewport input: `P.click(x, y, opts, frames)` moves, presses and releases the pointer on the canvas and steps a frame; `P.drag([x, y], [x, y], steps, opts)` strokes; `x`, `y` are shares of the viewport, y = 0 the top, `opts` the event's `button`, `altKey`, `ctrlKey`, `shiftKey`. Setting `e.ndc` does not do this: the handlers overwrite it from the event. The status bar and tool state are read after the helper returns (its frame lets the handlers' messages land); `walkable` uses it.
   - A timeout in `P.until` or `P.settle` names the longest frame and the longest wait between frames
-    during the wait (`P.stalls`): one headless frame can stall 20 to 40 s (#233), which otherwise looks
-    like a broken feature.
+    during the wait (`P.stalls`), so a stall doesn't look like a broken feature.
+  - `P.frames` waits after each frame until the GPU has drawn it (`P.drawn`, a WebGL2 fence). Without
+    the wait, `P.until` stepped frames as fast as the page's tasks ran while a binding answered,
+    SwiftShader fell tens of seconds behind, and the next call that reads from the GPU (a shader's
+    info log, `toDataURL`, a uniform upload) stalled 20 to 45 s (#233). A probe that steps frames
+    itself goes through `P.frames`, never a loop of `engine.frame()`. Trap: such a stall shows in
+    `--profile` under whatever GL call came next, not under what queued the work.
+  - `lib.js` stops the app's own frame loop (`Engine.stopLoop`) before the probe runs, since the
+    probe drives the frames: on SwiftShader the loop kept about 14 cores drawing, and each probe
+    frame waited behind it (a frame of the start map, 2 s with it, 0.3 to 0.6 s without). Something
+    a probe waits on must come from a frame it steps (`P.frames`, `P.until`, `P.settle`), never
+    from the loop. The previews' own loops (`CreaturePreview`) still run.
 
   A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.

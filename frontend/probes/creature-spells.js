@@ -2,8 +2,7 @@
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
-// The headless page stalls for up to 75 s between frames while the preview first draws the model
-// and the icons appear (#233), which ate a 120 s wait once.
+// The waits give room for a slow database; the whole probe takes about 25 s.
 const WAIT = 300_000
 const root = () => document.querySelector('[aria-label="Creature editor"]')
 const tab = () => root()?.querySelector('.spells')

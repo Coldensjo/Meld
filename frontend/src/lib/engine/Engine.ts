@@ -534,6 +534,11 @@ export class Engine {
     loop(performance.now())
   }
 
+  /** Stops the loop `start` began; `frame()` still draws when called. The probes' page drives its own frames (#233). */
+  stopLoop() {
+    cancelAnimationFrame(this.raf)
+  }
+
   private onContextLost() {
     this.contextLost = true
     setStatus('The graphics card dropped the viewport (a driver reset or too many 3D views). Waiting for it to come back…', 0)
