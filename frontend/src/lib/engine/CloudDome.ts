@@ -85,9 +85,9 @@ export class CloudDome {
   /**
    * Per frame while the client's sky shows: advances the clouds by dt seconds under `light` at game
    * `minute`, toward the sun or the moon (`sunDir`, `moonDir`, the client's visible bodies), around
-   * the camera at `eye`. `on` is Lighting › Clouds.
+   * the camera at `eye`. `on` is Lighting › Clouds; `storm` the weather's storm blend (0 clear).
    */
-  update(dt: number, light: LightAt, minute: number, sunDir: ArrayLike<number>, moonDir: ArrayLike<number>, eye: THREE.Vector3, on: boolean) {
+  update(dt: number, light: LightAt, minute: number, sunDir: ArrayLike<number>, moonDir: ArrayLike<number>, eye: THREE.Vector3, on: boolean, storm = 0) {
     this.mesh.visible = on
     if (!on) return
     this.mesh.position.copy(eye)
@@ -105,6 +105,7 @@ export class CloudDome {
     f.base = this.base
     f.glowDir = cloudGlowIsSun(minute) ? sunDir : moonDir
     f.glowTrack = cloudGlowTrack(minute)
+    f.storm = storm
     const density = light.floats[CLOUD_DENSITY]
     let changed: boolean
     if (!this.primed) {

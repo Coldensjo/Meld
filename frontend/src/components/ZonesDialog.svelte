@@ -1,6 +1,6 @@
 <script lang="ts">
   import Modal from './Modal.svelte'
-  import { AreaRows, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds } from '../../wailsjs/go/main/App'
+  import { AreaRows, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds, ZoneWeather } from '../../wailsjs/go/main/App'
   import { vmangos } from '../../wailsjs/go/models'
   import { setStatus } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
@@ -62,6 +62,44 @@
       .then((l) => (lights = l?.lights ?? []))
       .catch(() => (lights = []))
   })
+  // The zones' weather (#185): the server's game_weather rows by zone, read once; a zone without one
+  // has no weather. Edited weather is saved with the zone rows, into the server only.
+  let weather = $state<Record<number, vmangos.ZoneWeather>>({})
+  let weatherServer = $state(false)
+  /** The zones whose weather changed since the last load, which Save writes. */
+  let weatherDirty = $state<number[]>([])
+  ZoneWeather()
+    .then((w) => {
+      weatherServer = w.server
+      weather = Object.fromEntries((w.zones ?? []).map((z) => [z.zone, z]))
+    })
+    .catch((err) => (error = `The server's weather could not be read: ${err}`))
+  const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter']
+  type WeatherKind = 'rain' | 'snow' | 'storm'
+  const KINDS: Array<[WeatherKind, string]> = [
+    ['rain', 'Rain'],
+    ['snow', 'Snow'],
+    ['storm', 'Storm'],
+  ]
+  /** The zone whose weather the picked row has: a subzone has its zone's. */
+  const weatherZone = $derived(row ? (row.parent && rows.some((z) => z.id === row.parent) ? row.parent : row.id) : 0)
+  function chance(zone: number, kind: WeatherKind, season: number): number {
+    return weather[zone]?.[kind][season] ?? 0
+  }
+  function setChance(kind: WeatherKind, season: number, v: number) {
+    const zone = weatherZone
+    if (!zone) return
+    // A plain object, which the state proxies (a class instance it would not).
+    weather[zone] ??= { zone, rain: [0, 0, 0, 0], snow: [0, 0, 0, 0], storm: [0, 0, 0, 0] }
+    const w = weather[zone]
+    w[kind][season] = Math.max(0, Math.min(100, Math.round(v)))
+    if (!weatherDirty.includes(zone)) weatherDirty = [...weatherDirty, zone]
+  }
+  /** What the server leaves fine in a season: it draws 1 to 100 against rain, then snow, then storm. */
+  const fine = (zone: number, season: number) => Math.max(0, 100 - chance(zone, 'rain', season) - chance(zone, 'snow', season) - chance(zone, 'storm', season))
+  /** The rows and zones' weathers Save writes. */
+  const unsaved = $derived(new Set([...dirty, ...weatherDirty]).size)
+
   const lightName = (l: vmangos.MapLight) => (l.global ? `${l.id} · the map's own` : `${l.id} · at ${Math.round(l.x)}, ${Math.round(l.z)} (${Math.round(l.outer)} yd)`)
 
   /** The sound playing from a Play button, stopped by the next one or by closing. */
@@ -128,15 +166,23 @@
 
   async function save() {
     const changed = rows.filter((r) => dirty.includes(r.id))
-    if (!changed.length) return
+    const weathers = weatherDirty.map((z) => weather[z]).filter(Boolean)
+    if (!changed.length && !weathers.length) return
     saving = true
     error = ''
     try {
-      const res = await SaveAreas(changed.map((r) => vmangos.AreaRow.createFrom(r)))
+      const res = await SaveAreas(
+        changed.map((r) => vmangos.AreaRow.createFrom(r)),
+        weathers.map((w) => vmangos.ZoneWeather.createFrom(w)),
+      )
       dirty = []
-      await reloadAreas()
-      const where = [res.patch ? 'the client' : '', res.server ? "the server's area_template" : ''].filter(Boolean).join(' and ')
-      setStatus(`Saved ${changed.length} zone${changed.length === 1 ? '' : 's'} to ${where || 'nowhere new (nothing differed)'}.${res.server ? '' : ' Set the VMaNGOS server folder for the server to know them.'}`, 8000)
+      weatherDirty = []
+      if (changed.length) await reloadAreas()
+      const tables = [changed.length ? 'area_template' : '', weathers.length ? 'game_weather' : ''].filter(Boolean).join(' and ')
+      const where = [res.patch ? 'the client' : '', res.server ? `the server's ${tables}` : ''].filter(Boolean).join(' and ')
+      const what = [changed.length ? `${changed.length} zone${changed.length === 1 ? '' : 's'}` : '', weathers.length ? `the weather of ${weathers.length} zone${weathers.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')
+      const after = !res.server ? ' Set the VMaNGOS server folder for the server to know them.' : weathers.length ? ' The world server reads the weather when it starts, or on .reload game_weather in the game.' : ''
+      setStatus(`Saved ${what} to ${where || 'nowhere new (nothing differed)'}.${after}`, 10000)
     } catch (err) {
       error = String(err)
     } finally {
@@ -146,7 +192,7 @@
 
   function close() {
     audio?.pause()
-    if (dirty.length && !confirm('Close without saving the zone changes?')) return
+    if (unsaved && !confirm('Close without saving the zone changes?')) return
     onclose()
   }
 
@@ -229,15 +275,49 @@
         </select>
         <span class="k">ID / exploration bit</span>
         <span class="dim">{row.id} / {row.areaBit}</span>
+        {@render weatherForm()}
       </div>
     {/if}
   </div>
   <p class="dim">Save writes the changed zones into the client's AreaTable.dbc (Meld's patch; the game restarts to read it) and the server's area_template. Paint a zone onto the ground with the Map data tool.</p>
   {#snippet actions()}
     <button onclick={close}>Close</button>
-    <button class="active" onclick={() => void save()} disabled={!dirty.length || saving}>{saving ? 'Saving…' : `Save${dirty.length ? ` (${dirty.length})` : ''}`}</button>
+    <button class="active" onclick={() => void save()} disabled={!unsaved || saving}>{saving ? 'Saving…' : `Save${unsaved ? ` (${unsaved})` : ''}`}</button>
   {/snippet}
 </Modal>
+
+{#snippet weatherForm()}
+  {@const zone = weatherZone}
+  <span class="k">Weather</span>
+  <span class="dim">
+    {#if !weatherServer}
+      The weather is the server's (game_weather): set the VMaNGOS server folder to edit it.
+    {:else if zone !== row?.id}
+      A subzone has its zone's weather: that of {rows.find((z) => z.id === zone)?.name ?? zone}, below.
+    {:else if !weather[zone]}
+      None: this zone has no game_weather row. Give it a chance below.
+    {:else}
+      The chance (%) of each kind when the server changes the weather, by season. Lighting › Weather Preview shows how it looks.
+    {/if}
+  </span>
+  {#if weatherServer}
+    <div class="weather" data-zone={zone}>
+      <span></span>
+      {#each SEASONS as s (s)}<span class="k season">{s}</span>{/each}
+      {#each KINDS as [kind, label] (kind)}
+        <span class="k">{label}</span>
+        {#each SEASONS as s, i (s)}
+          <label class="chance" title={`${label} in ${s.toLowerCase()}: ${chance(zone, kind, i)}%`}>
+            <input type="range" min="0" max="100" step="1" aria-label={`${label} chance in ${s.toLowerCase()}`} value={chance(zone, kind, i)} oninput={(e) => setChance(kind, i, num(e))} />
+            <span class="pct">{chance(zone, kind, i)}</span>
+          </label>
+        {/each}
+      {/each}
+      <span class="k" title="What is left of 100 after rain, snow and storm">Fine</span>
+      {#each SEASONS as s, i (s)}<span class="dim pct">{fine(zone, i)}</span>{/each}
+    </div>
+  {/if}
+{/snippet}
 
 {#snippet soundPick(id: string, key: 'music' | 'introMusic' | 'ambience' | 'soundPref' | 'soundSwim', options: vmangos.SoundOption[] | undefined, title: string)}
   {@const value = row ? row[key] : 0}
@@ -350,6 +430,32 @@
   .pair {
     display: flex;
     gap: 6px;
+  }
+  .weather {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 130px repeat(4, 1fr);
+    gap: 4px 8px;
+    align-items: center;
+  }
+  .season {
+    text-align: center;
+  }
+  .chance {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    min-width: 0;
+  }
+  .chance input {
+    flex: 1;
+    min-width: 0;
+  }
+  .pct {
+    font-family: var(--mono);
+    font-size: 10px;
+    min-width: 2.5ch;
+    text-align: right;
   }
   .pair input {
     flex: 1;

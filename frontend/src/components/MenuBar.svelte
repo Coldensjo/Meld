@@ -409,6 +409,30 @@
         { kind: 'check', label: 'Prop lights & flames', checked: prefs.propEffects, toggle: () => (prefs.propEffects = !prefs.propEffects) },
         { kind: 'check', label: 'Clouds', checked: prefs.clouds, toggle: () => (prefs.clouds = !prefs.clouds) },
         { kind: 'check', label: 'Fog', checked: prefs.fog, toggle: () => (prefs.fog = !prefs.fog) },
+        // The client's weather around the camera (#185); its storm light needs Client Lighting.
+        { kind: 'header', label: 'Weather preview' },
+        ...radios(
+          [
+            ['Clear', 'clear'],
+            ['Rain', 'rain'],
+            ['Snow', 'snow'],
+            ['Sandstorm', 'sand'],
+          ],
+          () => ui.weather,
+          (v) => {
+            ui.weather = v as typeof ui.weather
+            if (v !== 'clear' && !prefs.clientLighting) setStatus("Weather preview: the drops show now; turn on Lighting › Client Lighting for the zone's storm light and fog too.", 6000)
+          },
+        ),
+        ...radios(
+          [
+            ['Light', 'light'],
+            ['Medium', 'medium'],
+            ['Heavy', 'heavy'],
+          ],
+          () => ui.weatherGrade,
+          (v) => (ui.weatherGrade = v as typeof ui.weatherGrade),
+        ),
       ],
     },
     {

@@ -74,6 +74,8 @@ import { addRoomGate, beginRoomGates, endRoomGates, ROOM_MAX_GATED, setRoomFog }
 import { toModel } from '../world/wmoRoom'
 import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
+import { stormBlend, WEATHER_GRADE } from '../wow/weather'
+import { WeatherLayer } from '../world/WeatherLayer'
 import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
 import { antialiasAtStart } from './display'
@@ -292,6 +294,8 @@ export class Engine {
   /** The time the clouds last moved, to advance them by. */
   private cloudsAt = 0
   private tmpColor = new THREE.Color()
+  /** Lighting › Weather Preview's drops around the camera. */
+  private weather = new WeatherLayer()
   /** View › Bounding boxes: a box around every model. */
   private boxes = new ModelBoxes()
   /** The box around each selection group a selected model is in. */
@@ -430,6 +434,7 @@ export class Engine {
     this.scene.add(this.effects.group)
     this.scene.add(this.particles.group)
     this.scene.add(this.clouds.mesh)
+    this.scene.add(this.weather.group)
     this.scene.add(this.boxes.lines, this.groupBoxes.lines)
     this.scene.add(this.paths.group)
     this.scene.add(this.triggerLayer.group)
@@ -570,6 +575,7 @@ export class Engine {
     this.effects.dispose()
     this.particles.dispose()
     this.clouds.dispose()
+    this.weather.dispose()
     this.boxes.dispose()
     this.groupBoxes.dispose()
     this.paths.dispose()
@@ -1148,6 +1154,7 @@ export class Engine {
     this.applyClientLight(time)
     ;(this.scene.background as THREE.Color).copy(s.horizon)
     if (fog) fog.color.copy(s.horizon)
+    this.updateWeather(time)
     this.horizon.update(this.doc.id, this.doc.meta.region, !!this.prefs?.showHorizon && wow.loaded && !this.topDown, s.horizon)
 
     const tu = this.terrain.material.uniforms
@@ -1494,7 +1501,8 @@ export class Engine {
     const region = this.doc.meta.region
     const x = cam.x + (region ? region.x * TILE_YARDS : 0)
     const z = cam.z + (region ? region.y * TILE_YARDS : 0)
-    if (!lights || !lightAt(lights, x, cam.y, z, this.hour, this.lightOut)) {
+    const grade = WEATHER_GRADE[ui.weatherGrade]
+    if (!lights || !lightAt(lights, x, cam.y, z, this.hour, this.lightOut, stormBlend(ui.weather, grade))) {
       setLiquidLight(null)
       this.env.setClientSky(null, time)
       this.clouds.hide()
@@ -1521,7 +1529,7 @@ export class Engine {
     this.env.setClientSky(sky, time)
     const dt = Math.min(0.1, Math.max(0, time - this.cloudsAt))
     this.cloudsAt = time
-    this.clouds.update(dt, this.lightOut, minute, this.celestialOut, this.moonOut, this.camera.position, this.prefs?.clouds !== false && !this.topDown)
+    this.clouds.update(dt, this.lightOut, minute, this.celestialOut, this.moonOut, this.camera.position, this.prefs?.clouds !== false && !this.topDown, stormBlend(ui.weather, grade))
     s.keyColor.setRGB(c[BAND.diffuse * 3], c[BAND.diffuse * 3 + 1], c[BAND.diffuse * 3 + 2], THREE.SRGBColorSpace)
     s.skyAmbient.setRGB(c[BAND.ambient * 3], c[BAND.ambient * 3 + 1], c[BAND.ambient * 3 + 2], THREE.SRGBColorSpace)
     s.groundAmbient.copy(s.skyAmbient).multiplyScalar(0.5)
@@ -1535,6 +1543,17 @@ export class Engine {
     ;(tu.clientAmbient.value as THREE.Vector3).fromArray(c, BAND.ambient * 3)
     ;(tu.clientDiffuse.value as THREE.Vector3).fromArray(c, BAND.diffuse * 3)
     ;(tu.clientSpecular.value as THREE.Vector3).fromArray(c, BAND.sun * 3)
+  }
+
+  /**
+   * Lighting › Weather Preview: the drops and mist around the camera, the mist in the fog's colour.
+   * Hidden in the top-down view and with the camera in a building, as the client draws no weather
+   * indoors. The storm light is applyClientLight's.
+   */
+  private updateWeather(time: number) {
+    const kind = ui.weather
+    const show = kind !== 'clear' && !this.topDown && !this.rooms.current
+    this.weather.update(kind, WEATHER_GRADE[ui.weatherGrade], this.camera.position, time, this.env.state.horizon, this.renderer.domElement.height, show)
   }
 
   /**

@@ -35,6 +35,10 @@ func TestClientMapLights(t *testing.T) {
 	if global == nil || global.ID != 1 || global.Params[0] != 12 {
 		t.Fatalf("Azeroth's global light = %+v", global)
 	}
+	// The storm params (slot 2), which Weather Preview blends over the clear ones, are read too.
+	if storm, ok := az.Params[global.Params[2]]; global.Params[2] == 0 || !ok || len(storm.Colors) != LightBands {
+		t.Fatalf("Azeroth's storm params %d were not read", global.Params[2])
+	}
 	p := az.Params[12]
 	if len(p.Colors) != LightBands || len(p.Colors[14]) == 0 || p.Colors[14][0].V != 0x213e2f {
 		t.Fatalf("params 12 ocean band = %v", p.Colors)

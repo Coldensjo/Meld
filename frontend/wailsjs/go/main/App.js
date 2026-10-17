@@ -326,8 +326,8 @@ export function SaveAreaTriggers(arg1, arg2) {
   return window['go']['main']['App']['SaveAreaTriggers'](arg1, arg2);
 }
 
-export function SaveAreas(arg1) {
-  return window['go']['main']['App']['SaveAreas'](arg1);
+export function SaveAreas(arg1, arg2) {
+  return window['go']['main']['App']['SaveAreas'](arg1, arg2);
 }
 
 export function SaveBrushDialog(arg1) {
@@ -516,4 +516,8 @@ export function WriteWorldMap(arg1) {
 
 export function ZoneSounds() {
   return window['go']['main']['App']['ZoneSounds']();
+}
+
+export function ZoneWeather() {
+  return window['go']['main']['App']['ZoneWeather']();
 }

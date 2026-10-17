@@ -141,7 +141,11 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   rows (`vmangos/areatable.go`: `ReadAreaRows`, `NewAreaRow`, `SetAreaRows`; bindings `AreaRows`,
   `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (the game closed around it) and
   the rows into the world database's `area_template`, which is where VMaNGOS reads areas from (not the
-  DBC). A form saved with Save, not undo steps, like creature templates.
+  DBC). A form saved with Save, not undo steps, like creature templates. A zone's Weather (#185) is its
+  `game_weather` row (`vmangos/weather.go`, `ZoneWeather` binding): the chance of rain, snow and storm
+  in each season as sliders, a subzone showing its zone's; Save sends the changed zones' weather with
+  the rows (`SaveAreas`' second argument), and a zone with no chance left loses its row. The server
+  reads the table at start or on `.reload game_weather`.
 - **World map** (`components/WorldMapDialog.svelte`, World › World Map…, `ui.dialog = 'worldMap'`, #181): a
   zone's map for the game's M key. `Engine.renderTopDown` draws the zone's rectangle from above (the
   minimap's shot, any size), `io/worldMap.ts` gives the rectangle (the client's WorldMapArea row, or the

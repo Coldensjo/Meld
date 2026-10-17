@@ -43,5 +43,18 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   bands 10 to 12 with a glow toward the sun or moon, a quarter redrawn ten times a second) on
   `engine/CloudDome.ts`, a dome from the zenith to the eye-level rim drawn right after the sky, while
   Lighting › Clouds is on.
+- **Weather preview** (Lighting › Weather Preview, #185; `ui.weather` and `ui.weatherGrade`, not saved):
+  the client's rain, snow or sandstorm at a light, medium or heavy grade (the middles of VMaNGOS's
+  bands, `wow/weather.ts`). Two halves, both from Benilla's port of the client's weather: the storm
+  light, where `lightAt` blends each light's storm params (Light.dbc slot 2, which `lights.go` reads
+  beside the clear ones; a light without them keeps its clear ones) over the clear ones by the storm
+  blend, full from a quarter grade up, so the fog closes in (a storm's negative fog share) and the
+  clouds darken (`CloudDome.update`'s `storm`); it needs Client Lighting. And the drops,
+  `world/WeatherLayer.ts`: rain as Mod2x streak triangles, snow as white point sprites, and the mist
+  puffs (all a sandstorm has) in the fog's colour, each placed in the vertex shader from its seed and
+  the clock and wrapped into a box around the eye, so nothing runs per drop on the CPU. A part is built
+  the first time its weather shows; clear weather, the top-down view and the camera in a WMO room hide
+  the group. Ground splashes and the wind are left out. Which weather a zone gets is the server's
+  `game_weather` (the Zones dialog, docs/architecture/terrain.md).
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
   cycling, so it doesn't write reactive state every frame.

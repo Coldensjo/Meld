@@ -141,18 +141,16 @@ func ReadMapLights(light, params, intBand, floatBand []byte, mapID uint32) (*Map
 		}
 		return keys
 	}
-	for _, l := range out.Lights {
-		// The preview shows clear weather, so only each light's first params row is read.
-		id := l.Params[0]
+	readParams := func(id uint32) {
 		if id == 0 {
-			continue
+			return
 		}
 		if _, done := out.Params[id]; done {
-			continue
+			return
 		}
 		r, ok := pt.row(id)
 		if !ok {
-			continue
+			return
 		}
 		p := LightParamSet{
 			ID: id, HighlightSky: pt.u32(r, 1) != 0, Glow: pt.f32(r, 4),
@@ -166,6 +164,12 @@ func ReadMapLights(light, params, intBand, floatBand []byte, mapID uint32) (*Map
 			p.Floats = append(p.Floats, bands(ft, id*LightFloats-(LightFloats-1)+uint32(i), true))
 		}
 		out.Params[id] = p
+	}
+	for _, l := range out.Lights {
+		// The preview reads each light's clear-weather params and its storm ones, which the client
+		// blends over them in rain, snow and sandstorms (Lighting › Weather Preview, #185).
+		readParams(l.Params[0])
+		readParams(l.Params[2])
 	}
 	return out, nil
 }

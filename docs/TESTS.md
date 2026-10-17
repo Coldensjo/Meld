@@ -178,7 +178,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   another in the game object editor, and undone), `object-tilt` (#229, the Sunken Chest drawn tilted
   and its rotation kept by a move's SQL), `object-loot` (#220, a vein's shared loot list in the game
   object editor's Contents tab, a copy of its own, an added item, Make it a chest and the respawn time,
-  nothing written), `walkable` (#175, the navmesh view's tiles, a path round holes, a WMO's floors), `erode` (#165, the Erode brush and the area pass on a Mountains map, with undo). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
+  nothing written), `walkable` (#175, the navmesh view's tiles, a path round holes, a WMO's floors), `erode` (#165, the Erode brush and the area pass on a Mountains map, with undo), `weather` (#185, rain, snow and a sandstorm with the storm light, and the Zones dialog's weather sliders). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
   that the probe exists.
 
 ## The live app without Claude in Chrome (headless Chrome over CDP)
@@ -298,6 +298,7 @@ the same scene, the report before and after.
 - The terrain's tileset array as DXT3 (#216)
 - The tileset array's mips (#225)
 - Preview window: particles, ribbons and texture animation (#200)
+- Weather preview and zone weather (#185)
 
 ### Terrain, water and map data (`docs/tests/terrain.md`)
 

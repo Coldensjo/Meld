@@ -81,3 +81,30 @@ test("a light's highlightSky blends like its colours", () => {
   lightAt(set, 80, 0, 0, 12, out)
   assert.equal(out.highlightSky, 0.5)
 })
+
+test("the storm blends a light's storm params over its clear ones, and a light without any keeps its clear ones", () => {
+  const colors = (v: number) => Array.from({ length: 18 }, () => [{ t: 0, v }])
+  const set: ClientLights = {
+    lights: [
+      { x: 0, y: 0, z: 0, inner: 0, outer: 0, global: true, params: [1, 0, 3, 0, 0] },
+      { x: 100, y: 0, z: 0, inner: 10, outer: 30, global: false, params: [2, 0, 0, 0, 0] },
+    ],
+    params: {
+      1: { waterAlpha: [0.5, 1], oceanAlpha: [0.75, 1], colors: colors(0x000000), floats: [[{ t: 0, v: 0.25 }]] },
+      2: { waterAlpha: [0.5, 1], oceanAlpha: [0.75, 1], colors: colors(0x0000ff), floats: [] },
+      3: { waterAlpha: [0.5, 1], oceanAlpha: [0.75, 1], colors: colors(0xff0000), floats: [[{ t: 0, v: -0.5 }]] },
+    },
+  }
+  const out = newLightAt()
+  lightAt(set, 500, 0, 500, 12, out, 0)
+  assert.equal(out.colors[BAND.fog * 3], 0)
+  lightAt(set, 500, 0, 500, 12, out, 1)
+  assert.equal(out.colors[BAND.fog * 3], 1)
+  assert.equal(out.floats[0], -0.5)
+  lightAt(set, 500, 0, 500, 12, out, 0.5)
+  assert.ok(Math.abs(out.colors[BAND.fog * 3] - 0.5) < 1e-6)
+  // Inside the local light, which has no storm params: its clear blue stays in the storm.
+  lightAt(set, 100, 0, 0, 12, out, 1)
+  assert.equal(out.colors[BAND.fog * 3 + 2], 1)
+  assert.equal(out.colors[BAND.fog * 3], 0)
+})

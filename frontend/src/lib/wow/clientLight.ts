@@ -132,9 +132,15 @@ const scratch = newLightAt()
 const nearLights: ClientLight[] = []
 const nearDist: number[] = []
 
-/** One light's own values at `t` into `out`. Returns false when it has no clear-weather params. */
-function lightValues(set: ClientLights, l: ClientLight, t: number, out: LightAt): boolean {
-  const p = set.params[l.params[0]]
+/** Light.dbc's params slots: clear weather, and the storm the client blends over it in rain, snow and sandstorms. */
+export const SLOT = { clear: 0, storm: 2 } as const
+
+/**
+ * One light's own values at `t` into `out`, from its params in `slot` (a light without storm params
+ * keeps its clear ones). Returns false when it has no clear-weather params either.
+ */
+function lightValues(set: ClientLights, l: ClientLight, t: number, out: LightAt, slot: number): boolean {
+  const p = set.params[l.params[slot]] ?? set.params[l.params[0]]
   if (!p) return false
   for (let i = 0; i < 18; i++) bandColor(p.colors[i] ?? [], t, out.colors, i * 3)
   for (let i = 0; i < 6; i++) out.floats[i] = bandFloat(p.floats[i] ?? [], t)
@@ -153,16 +159,35 @@ export function lightWeight(l: ClientLight, d: number): number {
   return l.outer > l.inner ? (l.outer - d) / (l.outer - l.inner) : 1
 }
 
+const stormOut = newLightAt()
+
 /**
  * The light at (x, y, z) (yards, in the tiles' placement frame) and `hour`, into `out`: the global light,
- * with every local light that reaches the spot blended over it, the farthest first. Returns false when
- * the map has no global light to start from.
+ * with every local light that reaches the spot blended over it, the farthest first. `storm` (0 to 1) is
+ * how far the storm params are blended over the clear ones, as the client does in bad weather (its
+ * storm blend, Benilla's `weather::storm_blend`: full from a quarter of the weather's grade up).
+ * Returns false when the map has no global light to start from.
  */
-export function lightAt(set: ClientLights, x: number, y: number, z: number, hour: number, out: LightAt): boolean {
+export function lightAt(set: ClientLights, x: number, y: number, z: number, hour: number, out: LightAt, storm = 0): boolean {
   const t = ((((hour % 24) + 24) % 24) * DAY) / 24
+  if (!blendAt(set, x, y, z, t, out, SLOT.clear)) return false
+  if (storm <= 0 || !blendAt(set, x, y, z, t, stormOut, SLOT.storm)) return true
+  const w = Math.min(1, storm)
+  for (let i = 0; i < out.colors.length; i++) out.colors[i] += (stormOut.colors[i] - out.colors[i]) * w
+  for (let i = 0; i < 6; i++) out.floats[i] += (stormOut.floats[i] - out.floats[i]) * w
+  for (let i = 0; i < 2; i++) {
+    out.waterAlpha[i] += (stormOut.waterAlpha[i] - out.waterAlpha[i]) * w
+    out.oceanAlpha[i] += (stormOut.oceanAlpha[i] - out.oceanAlpha[i]) * w
+  }
+  out.highlightSky += (stormOut.highlightSky - out.highlightSky) * w
+  return true
+}
+
+/** lightAt for one params slot at `t` (half-minutes). */
+function blendAt(set: ClientLights, x: number, y: number, z: number, t: number, out: LightAt, slot: number): boolean {
   let global: ClientLight | null = null
   for (const l of set.lights) if (l.global) global = l
-  if (!global || !lightValues(set, global, t, out)) return false
+  if (!global || !lightValues(set, global, t, out, slot)) return false
   // The local lights that reach the spot, kept sorted farthest first as they are found.
   let n = 0
   for (const l of set.lights) {
@@ -181,7 +206,7 @@ export function lightAt(set: ClientLights, x: number, y: number, z: number, hour
   for (let k = 0; k < n; k++) {
     const l = nearLights[k]
     const w = lightWeight(l, nearDist[k])
-    if (w <= 0 || !lightValues(set, l, t, scratch)) continue
+    if (w <= 0 || !lightValues(set, l, t, scratch, slot)) continue
     for (let i = 0; i < out.colors.length; i++) out.colors[i] += (scratch.colors[i] - out.colors[i]) * w
     for (let i = 0; i < 6; i++) out.floats[i] += (scratch.floats[i] - out.floats[i]) * w
     for (let i = 0; i < 2; i++) {

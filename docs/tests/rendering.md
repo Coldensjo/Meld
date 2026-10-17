@@ -365,3 +365,21 @@ the Engine's loop).
 - Trap: the preview's canvas is transparent (`alpha: true`). three's AdditiveBlending adds the
   particle's alpha too, which composited the spark texture's black as opaque squares there; additive
   batches now keep the target's alpha (CustomBlending, same colour factors).
+
+## Weather preview and zone weather (#185)
+
+Checks: Lighting › Weather Preview (`world/WeatherLayer.ts`, `wow/weather.ts`, the storm blend in
+`wow/clientLight.ts`) and the Zones dialog's Weather section (`vmangos/weather.go`). Unit tests:
+`tests/weather.test.ts` (grades, storm blend, drop and mist counts), `tests/clientLight.test.ts` (the
+storm params over the clear ones), `go test ./internal/vmangos/ -run 'Weather|ClientMapLights'`
+(game_weather read and written; with `WOW_DIR` Azeroth's storm params are read).
+- Probe: `pnpm probe weather` (about 40 s) on a hills map, Client Lighting on, the camera low: each
+  weather's part draws once its texture loads, the storm light closes the fog (Azeroth's global storm
+  fog starts at -139 yd) and the drops change the picture over the storm light alone; clear hides the
+  group and the fog goes back; then the Zones dialog shows Elwynn Forest's 12 sliders with the stock
+  database's 20% spring and 15% summer rain, and a slider moved makes Save (1). Nothing is saved.
+- Trap: the probe page's viewport is about 1068 x 260, so flakes are a third of their size (they are
+  sized in pixels of an 800 px tall screen) and faint; look at snow in the real window. Mist is in the
+  fog's own colour, so with the camera high over fogged ground it is invisible; the probe lowers it.
+- In the game: Save a chance, `.reload game_weather` (or restart the world server), then a GM's
+  `.wchange <type> <grade>` (1 rain, 2 snow, 3 storm) forces the weather to compare with the preview.

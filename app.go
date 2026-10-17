@@ -1340,10 +1340,30 @@ type AreaSaveResult struct {
 	Server bool   `json:"server"`
 }
 
+// ZoneWeatherList is every zone's weather from the world database's game_weather, and whether a
+// server folder is set to read it from (without one, Zones is empty and the weather can't be edited).
+type ZoneWeatherList struct {
+	Server bool                  `json:"server"`
+	Zones  []vmangos.ZoneWeather `json:"zones"`
+}
+
+// ZoneWeather reads every zone's weather chances for the zone editor (#185).
+func (a *App) ZoneWeather() (ZoneWeatherList, error) {
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if server == "" {
+		return ZoneWeatherList{}, nil
+	}
+	zones, err := vmangos.ReadWeather(server)
+	return ZoneWeatherList{Server: true, Zones: zones}, err
+}
+
 // SaveAreas writes the zone editor's rows into the client's AreaTable.dbc (in Meld's patch) and,
 // with a server folder set, into the world database's area_template, which the server reads areas
-// from. The game and the servers are closed around the patch write on Windows.
-func (a *App) SaveAreas(rows []vmangos.AreaRow) (AreaSaveResult, error) {
+// from, with the zones' weather into game_weather. The game and the servers are closed around the
+// patch write on Windows.
+func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
@@ -1358,16 +1378,23 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow) (AreaSaveResult, error) {
 	if err != nil {
 		return res, err
 	}
+	weatherSQL, err := vmangos.WeatherSQL(weather)
+	if err != nil {
+		return res, err
+	}
 	a.cfgMu.Lock()
 	server := a.cfg.VmangosPath
 	a.cfgMu.Unlock()
+	if server == "" && len(weather) > 0 {
+		return res, errors.New("the weather is the server's: set the VMaNGOS server folder first")
+	}
 	if server != "" {
-		if err := vmangos.ApplySQL(server, vmangos.AreaSQL(rows)); err != nil {
+		if err := vmangos.ApplySQL(server, vmangos.AreaSQL(rows)+weatherSQL); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
 		}
 		res.Server = true
 	}
-	if !bytes.Equal(out, dbc) {
+	if len(rows) > 0 && !bytes.Equal(out, dbc) {
 		if res.Patch, err = a.installWithGameClosed(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}); err != nil {
 			return res, err
 		}

@@ -169,7 +169,7 @@ export function RegionShadows(arg1:string,arg2:number,arg3:number,arg4:number):P
 
 export function SaveAreaTriggers(arg1:Array<vmangos.AreaTrigger>,arg2:Array<number>):Promise<main.AreaSaveResult>;
 
-export function SaveAreas(arg1:Array<vmangos.AreaRow>):Promise<main.AreaSaveResult>;
+export function SaveAreas(arg1:Array<vmangos.AreaRow>,arg2:Array<vmangos.ZoneWeather>):Promise<main.AreaSaveResult>;
 
 export function SaveBrushDialog(arg1:string):Promise<string>;
 
@@ -264,3 +264,5 @@ export function WriteTextFile(arg1:string,arg2:string):Promise<void>;
 export function WriteWorldMap(arg1:vmangos.WorldMapSpec):Promise<main.WorldMapResult>;
 
 export function ZoneSounds():Promise<vmangos.ZoneSoundTables>;
+
+export function ZoneWeather():Promise<main.ZoneWeatherList>;

@@ -587,6 +587,12 @@ export const ui = $state({
   modelPreview: null as { title: string; type: string; scale: number } | null,
   /** Camera › Walk (#21): the FPS camera, 3 yd above the ground; off returns to the camera it started from. */
   walkCamera: false,
+  /**
+   * Lighting › Weather Preview (#185): the client's rain, snow or sandstorm around the camera at a
+   * grade, with the storm light under Client Lighting (world/weather.ts). Not saved: the app starts clear.
+   */
+  weather: 'clear' as 'clear' | 'rain' | 'snow' | 'sand',
+  weatherGrade: 'medium' as 'light' | 'medium' | 'heavy',
   /** The Creatures workspace (World › Creatures…, #132): find creatures and make a new one with the guide. */
   creatures: false,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
