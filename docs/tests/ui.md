@@ -137,6 +137,15 @@ Probe: `pnpm probe hide-panels` (canvas fills the window below the menu bar, ret
 Trap: `.centre` must stay in grid column 2 of `.main`; alone in the auto first column it shrank to its
 content (145 px wide, #248).
 
+## Tool hints
+Checks: each tool's help sentence shows in the status bar's left slot and not in the options bar; a
+status message (`setStatus`) takes the slot and the hint returns after it.
+Probe: `pnpm probe tool-hints` (eight tools and modes, and a message). It reports how far each bar
+overflows (`over`) without judging it: Water, Hole and the doodad brush still overflow at 1400 px
+because of their controls.
+Trap: the slot is one line with an ellipsis, so a long hint is cut off at narrow widths; hovering
+it shows the whole text.
+
 ## Help window
 
 Checks: Help › Help… (or F1 anywhere but in an input) opens the Help dialog; its Open the manual

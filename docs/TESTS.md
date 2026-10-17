@@ -181,7 +181,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 
   A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
-- The probes on 2026-10-17: `hide-panels` (#248, Tab gives the viewport the whole window), `smoke` (the benchmark scene draws, no errors), `bench` (its numbers),
+- The probes on 2026-10-17: `tool-hints` (#238, tool hints in the status bar, not the options bar), `hide-panels` (#248, Tab gives the viewport the whole window), `smoke` (the benchmark scene draws, no errors), `bench` (its numbers),
   `undo-sculpt` and `undo-holes` (an edit and its undo on a flat map), `wmo-cull` (#198's Stormwind
   cull, in the scene pass and the near shadow cascade, #215), `terrain-dxt` (#216's DXT3 tileset
   array draws the ground as the RGBA one does, and #225's mips smooth the distant ground), `object-entry` (#136, a game object spawn turned into
@@ -356,6 +356,7 @@ the same scene, the report before and after.
 - Menu heights (#122)
 - Dock panel (Layers) and the Inspector
 - Hide panels (Tab)
+- Tool hints
 - Help window
 - Preferences from two windows
 - Detail info readout

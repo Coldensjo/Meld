@@ -6,7 +6,10 @@ The window layout, the asset browser and the dock panels and floating windows.
   - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
   - Main row: `Toolbar` | centre column | `Dock`. The centre column is the `Viewport` (with the
     document tab) over the `AssetBrowser`, which has its own area along the bottom.
-  - Per-tool settings go in `OptionsBar` (use `OptSlider`).
+  - Per-tool settings go in `OptionsBar` (use `OptSlider`). It holds controls only: a sentence of
+    help for the tool goes in `ToolHint.svelte` (a branch per tool and mode, with `<kbd>` markup),
+    which `StatusBar` shows in its message slot while `ui.status` is 'Ready'; a status message takes
+    the slot for its few seconds. Labels that name a control (`Texture:`, `Selected:`) stay in the bar.
   - Contextual editing goes in dock panels (`DockPanel` wrapper: tabs + collapse). Dock width
     and collapsed panels are stored in `prefs`.
   - Theme tokens are in `app.css` (neutral greys, blue `--accent`).

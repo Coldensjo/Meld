@@ -182,7 +182,6 @@
       <label class="check" title="Level every stroke to the locked height instead of the height where it starts; Alt+click locks the point under the cursor"><input type="checkbox" bind:checked={editor.flattenLock.on} /> Lock</label>
       {#if editor.flattenLock.on}
         <label class="check" title="The locked height, in yards">H <input class="num" type="number" step="0.1" bind:value={editor.flattenLock.y} /></label>
-        <span class="dim"><kbd>Alt</kbd>+click locks</span>
       {/if}
       <label class="check" title="Level to a plane through the stroke's start (or the locked point) instead of one height"><input type="checkbox" bind:checked={editor.flattenAngled.on} /> Angled</label>
       {#if editor.flattenAngled.on}
@@ -216,13 +215,10 @@
         <button class:active={!editor.holeFill} onclick={() => (editor.holeFill = false)} title="Click or drag over the ground to cut it out, a 2×2-cell block at a time (the client keeps holes in such blocks)">Cut</button>
         <button class:active={editor.holeFill} onclick={() => (editor.holeFill = true)} title="Click or drag over a hole to put the ground back, a 2×2-cell block at a time">Fill</button>
       </div>
-      <span class="dim">2×2-cell blocks, as the game keeps holes · <kbd>Shift</kbd> does the other · select an area for whole-area holes</span>
     {:else if editor.sculptMode === 'vertex'}
       <span class="chip" style:flex-shrink="0" title="Drag to select vertices, Ctrl or Alt+drag to deselect, Shift+drag to move them up and down"><span class="dim">Selected:</span> {ui.vertexCount}</span>
-      {#if !ui.vertexCount}
-        <!-- Nothing picked yet: the controls below act on the picked points only, so the bar explains the mode instead. -->
-        <span class="dim">Drag to pick points of the ground, then move them together: <kbd>Shift</kbd>+drag, Flatten, Slope · <kbd>Ctrl</kbd>+drag drops</span>
-      {:else}
+      <!-- Nothing picked yet: the controls act on the picked points only, so they wait; the status bar explains the mode (ToolHint). -->
+      {#if ui.vertexCount}
         <button onclick={() => engineRef.current?.vertexAction('flatten')} title="Level the selected vertices at their mean height">Flatten</button>
         <button onclick={() => engineRef.current?.vertexAction('clear')} title="Drop every picked point (the ground stays as it is)">Clear</button>
         <select class="curve" bind:value={editor.vertexRef} title="Point the slope plane passes through" aria-label="Slope reference">
@@ -275,9 +271,6 @@
       <label class="check" title="Keep swapping the texture the first stroke swapped, instead of the one under each stroke's start">
         <input type="checkbox" bind:checked={editor.swap.keep} onchange={() => (editor.swap.from = '')} /> Keep
       </label>
-      {#if editor.swap.keep}
-        <span class="dim">{editor.swap.from ? `Swapping ${texName(editor.swap.from)}` : 'The next stroke picks the texture to swap'}</span>
-      {/if}
     {/if}
     {#if editor.tool === 'paint' && editor.paintMode === 'mask'}
       {@const ms = editor.maskSelect}
@@ -362,7 +355,6 @@
       {/if}
       <button onclick={() => engineRef.current?.cropWater()} title="Remove the liquid that lies under the ground, in the selected area or the whole map">Crop water</button>
       <button onclick={() => engineRef.current?.regenWaterOpacity()} title="Recompute the water's opacity from the ground, in the selected area or the whole map">Regen opacity</button>
-      <span class="dim" title="Ctrl+click removes water. Alt+click locks the height at the cursor."><kbd>Ctrl</kbd> remove · <kbd>Alt</kbd> lock</span>
     {:else}
       <span class="chip" title="The map's sea level, set in File > Map Properties"><span class="dim">Sea level:</span> {editor.waterEnabled ? editor.waterLevel.toFixed(1) : 'off'}</span>
       {@render editLimit()}
@@ -403,10 +395,6 @@
       </span>
       <button onclick={() => (editor.placeOffset = { x: 0, z: 0 })}>Reset</button>
     {/if}
-    <span class="dim"><kbd>Ctrl</kbd>+scroll rotate · <kbd>Shift</kbd>+scroll scale · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>←↑↓→</kbd> offset from the cursor · <kbd>R</kbd> spin · props attach to what they're placed on</span>
-    {#if editor.selected}
-      <span class="dim">Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect</span>
-    {/if}
     <div class="divider"></div>
   {:else if editor.tool === 'stamp'}
     <select class="curve" value={activeBrushStack()?.name ?? ''} onchange={(e) => (prefs.brushStack = (e.target as HTMLSelectElement).value)} disabled={!prefs.brushStacks.length} title="The brush stack a stroke applies" aria-label="Brush stack">
@@ -417,7 +405,6 @@
     </select>
     <button onclick={() => (ui.dialog = 'stack')} title="Edit the stack's brushes: their order, modes, textures and what they take from the stack">{activeBrushStack() ? 'Edit stack…' : 'New stack…'}</button>
     <OptSlider label="Turn" bind:value={editor.brushImage.rotation} min={0} max={360} step={1} digits={0} width={60} title="The stack's turn for the image brush, which its brushes take unless they have their own" />
-    <span class="dim">The size and strength are the stack's: its brushes take them unless they have their own.</span>
     <div class="divider"></div>
   {:else if editor.tool === 'doodad'}
     <div class="seg" title="Paint models with a doodad brush, or creatures with the spawn brush">
@@ -433,8 +420,6 @@
         <input class="weight" type="number" min="0" max="100" step="1" bind:value={e.weight} aria-label="Weight of {e.name}" />
         <button class="x" onclick={() => (sb.entries = sb.entries.filter((_, j) => j !== i))} title="Take {e.name} out of the brush" aria-label="Remove {e.name}">×</button>
       </span>
-    {:else}
-      <span class="dim">Pick creatures in the browser's Creatures tab below to put them in the brush.</span>
     {/each}
     <OptSlider label="Per 100×100 yd" bind:value={sb.density} min={1} max={60} step={1} digits={0} width={60} title="How many creatures the brush fills 100 by 100 yards of ground with" />
     <OptSlider label="Spacing" bind:value={sb.spacing} min={0} max={40} step={0.5} digits={1} width={60} title="No two creatures closer than this many yards (social aggro)" />
@@ -455,7 +440,6 @@
     <OptSlider label="Max slope" bind:value={sb.maxSlope} min={0} max={90} step={1} digits={0} width={50} title="No creature on ground steeper than this many degrees (90 allows any)" />
     <label class="check" title="No creature in the sea or a painted liquid"><input type="checkbox" bind:checked={sb.avoidWater} /> Keep out of water</label>
     <button class:active={!rulesEmpty(sb.rules)} onclick={() => (ui.dialog = 'spawnRules')} title="Only on or never on some textures, within a height range, off holes">Rules…</button>
-    <span class="dim">drag to fill to the density · <kbd>Ctrl</kbd>+drag deletes the brush's creatures · File › Save Spawns to Database writes them</span>
     <div class="divider"></div>
   {:else if editor.tool === 'doodad'}
     <select class="curve" value={activeDoodadBrush()?.name ?? ''} onchange={(e) => (prefs.doodadBrush = (e.target as HTMLSelectElement).value)} disabled={!prefs.doodadBrushes.length} title="The brush to paint with" aria-label="Doodad brush">
@@ -475,13 +459,11 @@
     <label class="check" title="Put nothing on ground under the sea level"><input type="checkbox" bind:checked={editor.doodad.avoidWater} /> Keep out of the sea</label>
     <OptSlider label="Max slope" bind:value={editor.doodad.maxSlope} min={0} max={90} step={1} digits={0} width={60} title="Put nothing on ground steeper than this many degrees (90 allows any slope)" />
     <label class="check" title="Let placements land on props under the brush, attached to them as the Place tool attaches (a model on a prop keeps its random tilt)"><input type="checkbox" bind:checked={editor.doodad.onProps} /> On props</label>
-    <span class="dim">drag to scatter · <kbd>Ctrl</kbd>+scroll / <kbd>R</kbd> spin the preview · <kbd>Shift</kbd> ignores the spacing so models stack · <kbd>Ctrl</kbd>+drag erases the brush's models · a model picked in the browser below joins the brush</span>
     <div class="divider"></div>
   {:else if editor.tool === 'select'}
     {#if ui.pasting}
       {#if engineRef.current?.pastingModels()}
         <span class="chip"><span class="dim">Pasting models</span></span>
-        <span class="dim">Click where the copies should stand.</span>
       {:else}
         <span class="chip"><span class="dim">Pasting</span></span>
         <label class="check"><input type="checkbox" bind:checked={editor.paste.terrain} /> Terrain</label>
@@ -546,11 +528,6 @@
       <label class="check" title="Tilt a model to the ground's slope while dragging it along the ground"><input type="checkbox" bind:checked={editor.followGround} /> Follow ground rotation</label>
       {#if editor.followGround}
         <label class="check" title="Use the slope averaged over the neighbouring cells, not the slope right under the model"><input type="checkbox" bind:checked={editor.followGroundSmooth} /> Smooth</label>
-      {/if}
-      {#if count}
-        <span class="dim"><kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>Alt+←→</kbd>/<kbd>R</kbd> spin · <kbd>Shift</kbd> bigger steps · drag to move · handles: ring spins, arrow raises, knob resizes</span>
-      {:else}
-        <span class="dim">Click a model to select it (<kbd>Shift</kbd> adds). Drag on the ground to select an area and the models in it. <kbd>Alt</kbd>+click picks a model or texture.</span>
       {/if}
     {/if}
   {/if}
@@ -628,13 +605,6 @@
           <option value="{areaName(a.id)} ({a.id})"></option>
         {/each}
       </datalist>
-      <span class="dim">{stats.hoverArea ? `Under the cursor: ${stats.hoverArea}` : 'Under the cursor: no zone'}</span>
-    {:else if editor.mapDataMode === 'impassable'}
-      <span class="dim">Impassable chunks are hatched red. The export sets the flag (0x2) in their chunk headers.</span>
-    {:else if editor.mapDataMode === 'shadow'}
-      <span class="dim">The baked shadows (the ground's darker patches in the game) are tinted violet, 8 texels a cell. Terrain › Bake Shadows works them out from the ground.</span>
-    {:else}
-      <span class="dim">Cells that grow no grass tufts are hatched orange, as the game leaves roads bare.</span>
     {/if}
   {/if}
   {#if editor.tool === 'paint' && editor.paintMode === 'texture'}
