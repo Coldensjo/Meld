@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CreateQuest, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
+	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { changedValues } from '../lib/world/creatureFields'
@@ -27,6 +27,9 @@
 	let confirmClose = $state(false)
 	let giversDirty = $state(false)
 	let giversTab = $state<QuestGiversTab | null>(null)
+	/** What deleting the open quest removes, while its confirmation is up. */
+	let plan = $state<vmangos.QuestDeletePlan | null>(null)
+	let deleting = $state(false)
 
 	const changes = $derived(changedValues(values, saved))
 	const changeCount = $derived(Object.keys(changes).length)
@@ -52,6 +55,7 @@
 		saved = {}
 		error = ''
 		confirmClose = false
+		plan = null
 		giversDirty = false
 		if (t.entry > 0) void load(t.entry)
 	})
@@ -145,6 +149,40 @@
 			if (t) tab = t
 		} finally {
 			saving = false
+		}
+	}
+
+	// Delete: read what goes (rows of each table, quests that name this one, characters that have
+	// it), ask, then remove it; nothing is written before the confirmation.
+	async function askDelete() {
+		if (!record) return
+		error = ''
+		note = ''
+		try {
+			plan = await PlanQuestDelete(record.entry)
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	async function confirmDelete() {
+		if (!record || !plan) return
+		const entry = record.entry
+		const title = plan.title || `quest ${entry}`
+		deleting = true
+		error = ''
+		try {
+			await DeleteQuest(entry)
+			forgetName('quest', entry)
+			plan = null
+			ui.questsVersion++
+			ui.questEditor = { entry: 0 }
+			note = `Deleted quest ${entry}, ${title}, from the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to drop it.`
+			setStatus(note, 10000)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			deleting = false
 		}
 	}
 
@@ -257,9 +295,31 @@
 						{saving ? 'Saving…' : unsaved ? `Save quest (${changeCount + (giversDirty ? 1 : 0)})` : 'Saved'}
 					</button>
 				{/if}
+				{#if record}
+					<button class="danger" disabled={saving || deleting} onclick={askDelete} title="Remove this quest from the world database">Delete quest…</button>
+				{/if}
 				<button onclick={() => close()} title="Close (Esc)">Close</button>
 			</div>
 		</header>
+		{#if plan && record}
+			<div class="bar warn delete">
+				<div class="what">
+					<strong>Delete {plan.title || 'quest'} (quest {record.entry}) from the world database?</strong>
+					<span>Removes {plan.rows.map((r) => `${r.count} ${r.count === 1 ? 'row' : 'rows'} of ${r.table}`).join(', ')}.</span>
+					{#if plan.links.length}
+						<span>Quests that name it lose that link (set to 0): {plan.links.map((l) => `${l.title || 'quest'} (${l.quest}: ${l.columns.join(', ')})`).join('; ')}.</span>
+					{/if}
+					{#if plan.characters > 0}
+						<span>{plan.characters} {plan.characters === 1 ? 'character has' : 'characters have'} it in the log or done: the server drops it from the log at their next login. Their rows are not touched.</span>
+					{:else if plan.characters < 0}
+						<span>The characters database could not be read, so characters that have it are not counted.</span>
+					{/if}
+					<span>Unsaved changes to this quest are lost. This cannot be undone.</span>
+				</div>
+				<button onclick={() => (plan = null)}>Keep it</button>
+				<button class="danger" disabled={deleting} onclick={confirmDelete}>{deleting ? 'Deleting…' : 'Delete quest'}</button>
+			</div>
+		{/if}
 		{#if confirmClose && unsaved}
 			<div class="bar warn">
 				<span>Unsaved changes to {[changeCount ? 'the quest' : '', giversDirty ? 'its givers' : ''].filter(Boolean).join(' and ')}.</span>
@@ -378,6 +438,12 @@
 	}
 	.bar.warn span {
 		flex: 1;
+	}
+	.bar.delete .what {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 	}
 	.bar.error {
 		color: var(--danger);

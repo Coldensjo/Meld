@@ -227,3 +227,27 @@ func TestQuestsLive(t *testing.T) {
 		t.Fatalf("quest 7 as it is: %v", err)
 	}
 }
+
+func TestDeleteQuestSQL(t *testing.T) {
+	sql := deleteQuestSQL(77)
+	for _, want := range []string{
+		"DELETE FROM `quest_start_scripts` WHERE `id` <> 0 AND `id` IN (SELECT `StartScript` FROM `quest_template` WHERE `entry` = 77) AND `id` NOT IN (SELECT `StartScript` FROM `quest_template` WHERE `entry` <> 77);",
+		"DELETE FROM `quest_end_scripts`",
+		"DELETE FROM `creature_questrelation` WHERE `quest` = 77;",
+		"DELETE FROM `creature_involvedrelation` WHERE `quest` = 77;",
+		"DELETE FROM `gameobject_questrelation` WHERE `quest` = 77;",
+		"DELETE FROM `gameobject_involvedrelation` WHERE `quest` = 77;",
+		"DELETE FROM `locales_quest` WHERE `entry` = 77;",
+		"DELETE FROM `quest_template` WHERE `entry` = 77;",
+		"UPDATE `quest_template` SET `PrevQuestId` = 0 WHERE `PrevQuestId` IN (77, -77) AND `entry` <> 77;",
+		"UPDATE `quest_template` SET `BreadcrumbForQuestId` = 0 WHERE",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Errorf("missing %q in\n%s", want, sql)
+		}
+	}
+	// The scripts go before the template they are found through.
+	if strings.Index(sql, "quest_start_scripts") > strings.Index(sql, "DELETE FROM `quest_template`") {
+		t.Error("scripts must be deleted before the quest_template rows")
+	}
+}

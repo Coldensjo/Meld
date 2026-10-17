@@ -70,6 +70,10 @@ export function CreateQuest(arg1, arg2) {
   return window['go']['main']['App']['CreateQuest'](arg1, arg2);
 }
 
+export function DeleteQuest(arg1) {
+  return window['go']['main']['App']['DeleteQuest'](arg1);
+}
+
 export function DropRecovery(arg1) {
   return window['go']['main']['App']['DropRecovery'](arg1);
 }
@@ -260,6 +264,10 @@ export function OpenModelSetDialog() {
 
 export function OpenTextDialog() {
   return window['go']['main']['App']['OpenTextDialog']();
+}
+
+export function PlanQuestDelete(arg1) {
+  return window['go']['main']['App']['PlanQuestDelete'](arg1);
 }
 
 export function PublishVmangosMap(arg1) {

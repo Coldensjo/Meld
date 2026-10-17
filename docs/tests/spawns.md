@@ -266,6 +266,10 @@ writes `quest_template` and the four relation tables only on Save, after Go's ch
   `DELETE FROM quest_template WHERE entry > <the max before>`, the same on `creature_questrelation`
   and `creature_involvedrelation` by `quest`, and `UPDATE creature_template SET npc_flags = 0 WHERE
   entry = 805` (both of its patch rows).
+- Delete (#264): `TestDeleteQuestSQL` checks the SQL. Live, make a scratch quest (`CreateQuest(0,
+  'x')`), add a `creature_questrelation` row and a `PrevQuestId = -<entry>` on another quest, then
+  `PlanQuestDelete(entry)` lists both and `DeleteQuest(entry)` clears them (put the other quest's
+  `PrevQuestId` back by hand, as the delete zeroes it). The header's Delete quest… shows the plan.
 - In the game (the owner): `.reload all_quest` as a GM (or restart mangosd), talk to the giver,
   accept, complete and hand in the quest.
 - Trap: quests are keyed by (entry, patch); the editor writes the newest patch row it read, and a

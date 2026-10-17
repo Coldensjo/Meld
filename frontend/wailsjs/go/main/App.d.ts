@@ -41,6 +41,8 @@ export function CreateObject(arg1:number,arg2:string):Promise<number>;
 
 export function CreateQuest(arg1:number,arg2:string):Promise<number>;
 
+export function DeleteQuest(arg1:number):Promise<string>;
+
 export function DropRecovery(arg1:string):Promise<void>;
 
 export function EndRecovery():Promise<void>;
@@ -136,6 +138,8 @@ export function OpenMapDialog():Promise<string>;
 export function OpenModelSetDialog():Promise<Array<string>>;
 
 export function OpenTextDialog():Promise<string>;
+
+export function PlanQuestDelete(arg1:number):Promise<vmangos.QuestDeletePlan>;
 
 export function PublishVmangosMap(arg1:vmangos.MapSpec):Promise<void>;
 

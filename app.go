@@ -976,6 +976,29 @@ func (a *App) CreateQuest(base int, title string) (int, error) {
 	return vmangos.CreateQuest(server, base, title)
 }
 
+// PlanQuestDelete lists what deleting quest entry removes and leaves dangling, changing nothing.
+func (a *App) PlanQuestDelete(entry int) (vmangos.QuestDeletePlan, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.QuestDeletePlan{}, err
+	}
+	return vmangos.PlanQuestDelete(server, entry)
+}
+
+// DeleteQuest removes quest entry and its relation, script and translation rows, and returns the SQL.
+func (a *App) DeleteQuest(entry int) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	sql, err := vmangos.DeleteQuest(server, entry)
+	if err == nil {
+		a.stale.AddQuest(uint32(entry))
+		a.forgetStale()
+	}
+	return sql, err
+}
+
 // ReadQuestGivers reads the creatures and game objects that start and end a quest.
 func (a *App) ReadQuestGivers(entry int) (vmangos.QuestGivers, error) {
 	server, _, err := a.serverAndData()

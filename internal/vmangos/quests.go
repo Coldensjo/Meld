@@ -780,3 +780,128 @@ func questDBCNames(dataDir, kind string) (map[int]string, error) {
 	}
 	return names, nil
 }
+
+// questLinkColumns are the quest_template columns that name another quest: a positive value is that
+// quest's entry, a negative one (in PrevQuestId) the same quest "must be active".
+var questLinkColumns = []string{"PrevQuestId", "NextQuestId", "NextQuestInChain", "BreadcrumbForQuestId"}
+
+// questDeleteRows are the rows a quest owns, by table and the WHERE that finds them. A script chain
+// goes only when no other quest uses its id.
+func questDeleteRows(quest int) []struct{ table, where string } {
+	script := func(col string) string {
+		return fmt.Sprintf("`id` <> 0 AND `id` IN (SELECT `%[1]s` FROM `quest_template` WHERE `entry` = %[2]d) AND `id` NOT IN (SELECT `%[1]s` FROM `quest_template` WHERE `entry` <> %[2]d)", col, quest)
+	}
+	rows := []struct{ table, where string }{
+		{"quest_start_scripts", script("StartScript")},
+		{"quest_end_scripts", script("CompleteScript")},
+	}
+	for _, t := range questGiverTables {
+		rows = append(rows, struct{ table, where string }{t.table, fmt.Sprintf("`quest` = %d", quest)})
+	}
+	return append(rows,
+		struct{ table, where string }{"game_event_quest", fmt.Sprintf("`quest` = %d", quest)},
+		struct{ table, where string }{"locales_quest", fmt.Sprintf("`entry` = %d", quest)},
+		struct{ table, where string }{"quest_template", fmt.Sprintf("`entry` = %d", quest)})
+}
+
+// deleteQuestSQL deletes quest's rows (questDeleteRows, scripts first, as they are found through the
+// template) and clears the links other quests have to it.
+func deleteQuestSQL(quest int) string {
+	var b strings.Builder
+	for _, r := range questDeleteRows(quest) {
+		fmt.Fprintf(&b, "DELETE FROM `%s` WHERE %s;\n", r.table, r.where)
+	}
+	for _, c := range questLinkColumns {
+		fmt.Fprintf(&b, "UPDATE `quest_template` SET `%[1]s` = 0 WHERE `%[1]s` IN (%[2]d, -%[2]d) AND `entry` <> %[2]d;\n", c, quest)
+	}
+	return strings.TrimSuffix(b.String(), "\n")
+}
+
+// QuestDeleteCount is how many rows of a table deleting a quest removes.
+type QuestDeleteCount struct {
+	Table string `json:"table"`
+	Count int    `json:"count"`
+}
+
+// QuestLink is a quest that names the quest being deleted, and the columns it names it in.
+type QuestLink struct {
+	Quest   int      `json:"quest"`
+	Title   string   `json:"title"`
+	Columns []string `json:"columns"`
+}
+
+// QuestDeletePlan is what deleting a quest removes and leaves dangling, for the confirmation.
+type QuestDeletePlan struct {
+	Title string `json:"title"`
+	// Rows has the tables that hold rows of the quest (empty ones left out).
+	Rows []QuestDeleteCount `json:"rows"`
+	// Links are the other quests that name it; deleting clears those columns to 0.
+	Links []QuestLink `json:"links"`
+	// Characters is how many characters have it in their log or done; -1 when the characters
+	// database could not be read.
+	Characters int `json:"characters"`
+}
+
+// PlanQuestDelete reads what DeleteQuest would remove, changing nothing.
+func PlanQuestDelete(serverRoot string, entry int) (QuestDeletePlan, error) {
+	plan := QuestDeletePlan{Rows: []QuestDeleteCount{}, Links: []QuestLink{}, Characters: -1}
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return plan, err
+	}
+	rec, err := ReadQuest(serverRoot, entry)
+	if err != nil {
+		return plan, err
+	}
+	plan.Title = rec.Values["Title"]
+	for _, r := range questDeleteRows(entry) {
+		raw, err := runSQL(db, fmt.Sprintf("SELECT COUNT(*) FROM `%s` WHERE %s", r.table, r.where))
+		if err != nil {
+			return plan, err
+		}
+		if n, _ := strconv.Atoi(strings.TrimSpace(string(raw))); n > 0 {
+			plan.Rows = append(plan.Rows, QuestDeleteCount{r.table, n})
+		}
+	}
+	var parts []string
+	for _, c := range questLinkColumns {
+		parts = append(parts, fmt.Sprintf("SELECT q.`entry`, '%[1]s', COALESCE((SELECT t.`Title` FROM `quest_template` t WHERE t.`entry` = q.`entry` ORDER BY t.`patch` DESC LIMIT 1), '') "+
+			"FROM `quest_template` q WHERE q.`%[1]s` IN (%[2]d, -%[2]d) AND q.`entry` <> %[2]d", c, entry))
+	}
+	raw, err := runSQL(db, strings.Join(parts, " UNION ")+" ORDER BY 1")
+	if err != nil {
+		return plan, err
+	}
+	for _, f := range tsvRows(raw, 3) {
+		q, _ := strconv.Atoi(f[0])
+		if n := len(plan.Links); n > 0 && plan.Links[n-1].Quest == q {
+			plan.Links[n-1].Columns = append(plan.Links[n-1].Columns, f[1])
+			continue
+		}
+		plan.Links = append(plan.Links, QuestLink{Quest: q, Title: unescapeBatch(f[2]), Columns: []string{f[1]}})
+	}
+	if cdb, err := confDatabase(serverRoot, "CharacterDatabase.Info"); err == nil {
+		if raw, err := runSQL(cdb, fmt.Sprintf("SELECT COUNT(DISTINCT guid) FROM character_queststatus WHERE quest = %d", entry)); err == nil {
+			if n, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil {
+				plan.Characters = n
+			}
+		}
+	}
+	return plan, nil
+}
+
+// DeleteQuest removes quest entry from the world database (every patch row, its givers, scripts,
+// event links and translations) and clears the links other quests have to it, and returns the SQL.
+func DeleteQuest(serverRoot string, entry int) (string, error) {
+	db, err := openWorld(serverRoot)
+	if err != nil {
+		return "", err
+	}
+	if have, err := knownEntries(db, questTable, []int{entry}); err != nil {
+		return "", err
+	} else if !have[entry] {
+		return "", fmt.Errorf("the world database has no quest %d", entry)
+	}
+	sql := deleteQuestSQL(entry)
+	return sql, runScript(db, sql)
+}
