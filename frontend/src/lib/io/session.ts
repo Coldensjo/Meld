@@ -89,11 +89,18 @@ export function startSessionSaving(engine: Engine) {
 }
 
 /**
+ * A page opened with `?nosession` (the probes' page) starts on a blank map instead of the last
+ * session: a region the restore opens takes the active tab a probe has just made, and its spawns,
+ * read seconds later, land in it (#250).
+ */
+const skipRestore = typeof location !== 'undefined' && /[?&]nosession(?:[&=]|$)/.test(location.search)
+
+/**
  * Opens the last session's tabs again and puts their cameras back. Region tabs need the client,
  * so they wait for it to load; without one they are skipped. The active tab ends up on top.
  */
 export async function restoreSession(engine: Engine): Promise<void> {
-  if (!hasBackend()) return
+  if (!hasBackend() || skipRestore) return
   const s = prefs.session
   if (!s.tabs.length) return
   lastSaved = JSON.stringify(s)

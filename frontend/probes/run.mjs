@@ -18,7 +18,8 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave'
+// `nosession`: a fresh blank map, not the owner's last session (a restored region takes the probe's tab, #250).
+const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession'
 const PORT = 9333 + Math.floor(Math.random() * 500)
 const TIMEOUT = Number(process.env.PROBE_TIMEOUT ?? 600) * 1000
 // pnpm runs the script in frontend/; a path is meant from where the command was typed.
