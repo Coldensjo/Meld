@@ -119,6 +119,33 @@ func facing(o float64) [4]float64 {
 	return [4]float64{0, 0, math.Sin(o / 2), math.Cos(o / 2)}
 }
 
+// mulQuat is the Hamilton product a*b of quaternions (x, y, z, w): b's turn, then a's.
+func mulQuat(a, b [4]float64) [4]float64 {
+	return [4]float64{
+		a[3]*b[0] + a[0]*b[3] + a[1]*b[2] - a[2]*b[1],
+		a[3]*b[1] - a[0]*b[2] + a[1]*b[3] + a[2]*b[0],
+		a[3]*b[2] + a[0]*b[1] - a[1]*b[0] + a[2]*b[3],
+		a[3]*b[3] - a[0]*b[0] - a[1]*b[1] - a[2]*b[2],
+	}
+}
+
+// tiltOf is a game object's rotation q relative to its facing o (WorldSpawn.Tilt): q turned back
+// about Z by o. It is nil for an object that only turns about Z (q's x and y zero), whose rotation
+// the facing gives.
+func tiltOf(o float64, q [4]float64) []float64 {
+	if math.Abs(q[0]) < 1e-6 && math.Abs(q[1]) < 1e-6 {
+		return nil
+	}
+	t := mulQuat(facing(-o), q)
+	return t[:]
+}
+
+// tilted is the rotation of a game object with tilt t (WorldSpawn.Tilt) facing o: the tilt turned
+// about Z by o, which gives back the database's quaternion while the facing is unchanged.
+func tilted(o float64, t []float64) [4]float64 {
+	return mulQuat(facing(o), [4]float64{t[0], t[1], t[2], t[3]})
+}
+
 // quaternion is the spawn's rotation, or its facing when it has none.
 func quaternion(s Spawn) [4]float64 {
 	if s.Rotation != nil {

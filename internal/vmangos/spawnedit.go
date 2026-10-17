@@ -50,6 +50,11 @@ func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
 	}
 	if w.Kind == KindObject {
 		s.Kind = GameObject
+		// A tilted object keeps its tilt, turned by any change of facing (#229).
+		if len(w.Tilt) == 4 {
+			q := tilted(s.O, w.Tilt)
+			s.Rotation = &q
+		}
 	}
 	for _, p := range w.Waypoints {
 		s.Path = append(s.Path, PathPoint{

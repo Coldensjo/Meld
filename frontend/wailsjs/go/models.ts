@@ -1804,6 +1804,7 @@ export namespace vmangos {
 	    y: number;
 	    z: number;
 	    orientation: number;
+	    tilt: number[];
 	    respawnSecs: number;
 	    respawnMaxSecs: number;
 	    display: number;
@@ -1847,6 +1848,7 @@ export namespace vmangos {
 	        this.y = source["y"];
 	        this.z = source["z"];
 	        this.orientation = source["orientation"];
+	        this.tilt = source["tilt"];
 	        this.respawnSecs = source["respawnSecs"];
 	        this.respawnMaxSecs = source["respawnMaxSecs"];
 	        this.display = source["display"];

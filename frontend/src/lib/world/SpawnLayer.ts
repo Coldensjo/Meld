@@ -6,6 +6,7 @@ import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, type CullView } from './instanceCull'
 import { cullForShadows } from './shadowReach'
 import { meshTriangles, type ModelCost } from '../engine/perfMeter'
+import { spawnQuaternion } from './spawnTilt'
 
 /** The spawns of one kind and model, and what's needed to draw the ones in view. */
 interface SpawnBatch {
@@ -59,13 +60,13 @@ export function spawnOrientation(rotY: number): number {
 const tmpQ = new THREE.Quaternion()
 const tmpScale = new THREE.Vector3()
 const tmpPos = new THREE.Vector3()
-const UP = new THREE.Vector3(0, 1, 0)
 const eachM = new THREE.Matrix4()
 
-/** A spawn's instance matrix: a model turns to the spawn's facing and takes its size; a cone points up. */
+/** A spawn's instance matrix: a model turns to the spawn's rotation and takes its size; a cone points up. */
 function spawnMatrix(s: vmangos.WorldSpawn, model: boolean, out: THREE.Matrix4) {
   tmpPos.set(s.x, s.y, s.z)
-  tmpQ.setFromAxisAngle(UP, model ? spawnRotation(s.orientation) : 0)
+  if (model) spawnQuaternion(s, tmpQ)
+  else tmpQ.identity()
   const k = model && s.scale > 0 ? s.scale : 1
   return out.compose(tmpPos, tmpQ, tmpScale.set(k, k, k))
 }

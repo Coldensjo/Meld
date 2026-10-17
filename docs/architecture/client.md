@@ -43,7 +43,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. A
   changed display, equipment or pose is re-dressed by `SpawnLook` in Go. A game object's entry can
   change (#136, `objectEntryFields`: entry, name, type, display, model and the template's size as
-  its scale); the SQL then writes `gameobject.id`. `editor.selectedSpawn`
+  its scale); the SQL then writes `gameobject.id`. A tilted game object (`gameobject.rotation0` or
+  `rotation1` not 0, #229) carries `tilt`, its quaternion relative to its facing (`tiltOf` in
+  `vmangos/sql.go`): `serverSpawn` turns it about Z by the facing again, so the SQL writes the
+  database's rotation back unchanged unless the facing changed, and `spawnQuaternion`
+  (`world/spawnTilt.ts`) draws it tilted. An object that only turns has none and is written as
+  `facing(O)`. `editor.selectedSpawn`
   is always a copy (`cloneSpawn`), never the drawn spawn, since Svelte's proxy would not see edits
   to it. Select spawns through `selectSpawn`.
 - **Pools** (`internal/vmangos/pools.go`): `ReadSpawns` gives each spawn its pool by guid

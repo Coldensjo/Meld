@@ -45,6 +45,11 @@ type WorldSpawn struct {
 	Y           float32 `json:"y"`
 	Z           float32 `json:"z"`
 	Orientation float32 `json:"orientation"`
+	// Tilt is a tilted game object's rotation relative to its facing: the quaternion (x, y, z, w, in
+	// the server's axes) that gameobject.rotation0..3 is once turned about Z by Orientation, so a
+	// change of facing turns the object as it stands (#229). Empty for an object that only turns
+	// (rotation0 and rotation1 zero) and for a creature.
+	Tilt []float64 `json:"tilt"`
 	// RespawnSecs and RespawnMaxSecs are the respawn time's range in seconds.
 	RespawnSecs    int `json:"respawnSecs"`
 	RespawnMaxSecs int `json:"respawnMaxSecs"`
@@ -151,13 +156,14 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 		WHEN t.display_id3 <> 0 THEN t.display_scale3 ELSE t.display_scale4 END,
 		COALESCE(a.display_id, 0), IF(a.equipment_id IS NULL OR a.equipment_id < 0, t.equipment_id, a.equipment_id),
 		COALESCE(a.stand_state, 0), COALESCE(a.emote_state, 0), COALESCE(a.sheath_state, 1),
-		c.movement_type, c.wander_distance, c.spawntimesecsmax
+		c.movement_type, c.wander_distance, c.spawntimesecsmax, 0, 0, 0, 0
 		FROM creature c JOIN creature_template t ON t.entry = c.id
 		AND t.patch = (SELECT MAX(patch) FROM creature_template WHERE entry = c.id)
 		LEFT JOIN creature_addon a ON a.guid = c.guid AND a.patch = (SELECT MAX(patch) FROM creature_addon WHERE guid = c.guid)
 		WHERE %s`, bounds)
 	objects := fmt.Sprintf(`SELECT g.guid, g.id, gt.name, '', 0, 0, 0, 0, 0, gt.type, g.position_x, g.position_y, g.position_z,
-		g.orientation, g.spawntimesecsmin, gt.displayId, gt.size, 0, 0, 0, 0, 0, 0, 0, g.spawntimesecsmax
+		g.orientation, g.spawntimesecsmin, gt.displayId, gt.size, 0, 0, 0, 0, 0, 0, 0, g.spawntimesecsmax,
+		g.rotation0, g.rotation1, g.rotation2, g.rotation3
 		FROM gameobject g JOIN gameobject_template gt ON gt.entry = g.id
 		AND gt.patch = (SELECT MAX(patch) FROM gameobject_template WHERE entry = g.id)
 		WHERE %s`, gBounds)
@@ -433,13 +439,13 @@ type spawnRow struct {
 }
 
 // spawnColumns is the width of a spawn query's rows (see parseSpawnRows).
-const spawnColumns = 25
+const spawnColumns = 29
 
 // parseSpawnRows reads the tab-separated rows of a spawn query. The columns are: guid, entry,
 // name, subname, level_min, level_max, faction, npc_flags, rank, type, x, y, z, orientation,
 // respawn seconds, display ID, scale, then for a creature (zeros for an object) its own display,
-// equipment, stand state, emote state, sheath state, movement type and wander distance, and last
-// the most respawn seconds.
+// equipment, stand state, emote state, sheath state, movement type and wander distance, then the
+// most respawn seconds, and last for an object (zeros for a creature) its rotation quaternion.
 func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 	var out []spawnRow
 	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
@@ -473,9 +479,18 @@ func parseSpawnRows(raw []byte, kind string) ([]spawnRow, error) {
 			*p = float32(v)
 		}
 		r.display, r.addonDisplay = uint32(max(display, 0)), uint32(max(addonDisplay, 0))
+		var q [4]float64
+		for i := range q {
+			v, err := strconv.ParseFloat(f[25+i], 64)
+			if err != nil {
+				return nil, fmt.Errorf("spawn row: column %d: %w", 25+i, err)
+			}
+			q[i] = v
+		}
 		switch {
 		case kind == "object":
 			r.Kind = KindObject
+			r.Tilt = tiltOf(float64(r.Orientation), q)
 		case r.NPCFlags != 0:
 			r.Kind = KindNPC
 		default:

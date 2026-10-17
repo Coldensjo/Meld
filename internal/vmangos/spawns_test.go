@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"encoding/json"
 	"math"
 	"net/url"
 	"os"
@@ -12,9 +13,9 @@ import (
 )
 
 func TestParseSpawnRows(t *testing.T) {
-	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\t1.25\t0\t7\t1\t233\t1\t1\t5.5\t420\n" +
-		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\t1\t99\t0\t0\t0\t1\t2\t0\t600\r\n" +
-		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\t1\t0\t0\t0\t0\t0\t0\t0\t180\n")
+	raw := []byte("123\t45\tWolf\t\t1\t2\t14\t0\t0\t1\t-100.5\t-200\t30\t1.5\t300\t880\t1.25\t0\t7\t1\t233\t1\t1\t5.5\t420\t0\t0\t0\t0\n" +
+		"124\t46\tInnkeeper\tInn\t10\t10\t12\t128\t0\t7\t-50\t-60\t31\t0\t600\t0\t1\t99\t0\t0\t0\t1\t2\t0\t600\t0\t0\t0\t0\r\n" +
+		"125\t47\tChest\t\t0\t0\t0\t0\t0\t3\t10\t20\t5\t0\t120\t0\t1\t0\t0\t0\t0\t0\t0\t0\t180\t0\t0\t0.5\t0.866025\n")
 	rows, err := parseSpawnRows(raw, "creature")
 	if err != nil {
 		t.Fatal(err)
@@ -38,6 +39,52 @@ func TestParseSpawnRows(t *testing.T) {
 	}
 	if objs[2].Kind != KindObject {
 		t.Fatalf("an object row must be an object, got %q", objs[2].Kind)
+	}
+	if objs[2].Tilt != nil || rows[0].Tilt != nil {
+		t.Fatalf("an object that only turns, and a creature, have no tilt: %v %v", objs[2].Tilt, rows[0].Tilt)
+	}
+}
+
+// A tilted game object (#229), the Sunken Chest of guid 42485: its tilt is read, and written back
+// unchanged while its facing is, or turned about Z by the change of facing.
+func TestTiltedObjectKeepsItsTilt(t *testing.T) {
+	raw := []byte("42485\t32\tSunken Chest\t\t0\t0\t0\t0\t0\t3\t-9366.48\t-2472.26\t17.0271\t-2.28118\t300\t0\t1\t0\t0\t0\t0\t0\t0\t0\t300" +
+		"\t-0.118706\t-0.071149\t0.899253\t-0.414959\n")
+	rows, err := parseSpawnRows(raw, "object")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows[0].Tilt) != 4 {
+		t.Fatalf("a tilted object must have a tilt, got %v", rows[0].Tilt)
+	}
+	// The spawn goes to the editor and back as JSON.
+	b, err := json.Marshal(regionSpawn(rows[0], 32, 48, nil, [3]heldItem{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w WorldSpawn
+	if err := json.Unmarshal(b, &w); err != nil {
+		t.Fatal(err)
+	}
+	orig := serverSpawn(w, 0, 32, 48)
+	now := orig
+	now.X += 2
+	res := ExportSQL([]Edit{{Spawn: now, Original: &orig}}, fixedTime)
+	if !strings.Contains(res.SQL, "`rotation0` = -0.118706, `rotation1` = -0.071149, `rotation2` = 0.899253, `rotation3` = -0.414959,") {
+		t.Fatalf("a moved tilted object must keep its rotation:\n%s", res.SQL)
+	}
+	// Turned by a quarter: the whole rotation turns about Z, so the tilt's size stays and the
+	// quaternion is the old one turned.
+	w.Orientation += math.Pi / 2
+	q := *serverSpawn(w, 0, 32, 48).Rotation
+	want := mulQuat(facing(float64(w.Orientation)-orig.O), *orig.Rotation)
+	for i := range q {
+		if math.Abs(q[i]-want[i]) > 1e-6 {
+			t.Fatalf("turned rotation %v, want %v", q, want)
+		}
+	}
+	if math.Abs(math.Hypot(q[0], q[1])-math.Hypot(-0.118706, -0.071149)) > 1e-6 {
+		t.Fatalf("turning about Z changed the tilt: %v", q)
 	}
 }
 

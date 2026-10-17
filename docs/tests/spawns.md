@@ -56,6 +56,23 @@ editor's title follows. It needs the world database up, and takes about 6 s.
   comparing. After adding a binding while `make dev` runs, the page may fail with "does not provide
   an export named …" (the stale `wailsjs` trap in docs/TESTS.md).
 
+## Tilted game objects (#229)
+
+Checks: a game object's tilt (`gameobject.rotation0..3`) is read into `WorldSpawn.tilt`, drawn
+(`spawnQuaternion`) and written back. Unit tests: `TestTiltedObjectKeepsItsTilt` in
+`internal/vmangos/spawns_test.go` (read, JSON round trip, a move keeps the four values, a turn
+turns them about Z) and `frontend/tests/spawnTilt.test.ts` (the drawn rotation turns each model
+axis where the server's quaternion does). The probe `object-tilt` loads the real Sunken Chest
+(guid 42485, Azeroth tile (36, 49), tilted about 16 degrees) onto a flat map, checks its drawn up
+axis against the quaternion and that a move's SQL keeps `rotation0..3`. It needs the world database
+up, and takes about 6 s.
+
+- About 1400 of the 56644 objects on this database are tilted:
+  `SELECT COUNT(*) FROM gameobject WHERE rotation0 <> 0 OR rotation1 <> 0`.
+- Traps: Go reads the orientation as a float32 and the tilt is relative to that value, so the round
+  trip is exact; computing a tilt from the float64 orientation would drift the sixth decimal.
+  508 objects have rotation 0, 0, 0, 0; they count as untilted and are written as `facing(O)`.
+
 ## Names over spawns (#125)
 
 Checks: `world/SpawnLabels.ts` puts names over the nearest drawn spawns (View › Names over creatures
