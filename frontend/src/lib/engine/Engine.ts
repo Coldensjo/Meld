@@ -767,7 +767,11 @@ export class Engine {
           if (s) this.navPathPoint(s.point)
           return
         }
-        c.setPointerCapture(e.pointerId)
+        try {
+          c.setPointerCapture(e.pointerId)
+        } catch {
+          // A synthetic event (the probes' P.click) has no pointer to capture.
+        }
         if (this.startGizmoDrag()) return
         // Alt+click is the pipette: a model's type to place, or the ground's texture to paint with.
         if (e.altKey && (editor.tool === 'select' || editor.tool === 'place')) {

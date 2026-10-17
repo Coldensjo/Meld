@@ -35,13 +35,7 @@ const straight = path(at(-30, 0), at(30, 0))
 // View › Test a Path through the viewport: two clicks on the ground, the walk in the status bar.
 const { ui } = await P.state()
 e.startPathTest()
-const rect = e.renderer.domElement.getBoundingClientRect()
-for (const dx of [-80, 80]) {
-	const at = { clientX: rect.left + rect.width / 2 + dx, clientY: rect.top + rect.height * 0.6, button: 0, pointerId: 1, bubbles: true }
-	e.renderer.domElement.dispatchEvent(new PointerEvent('pointerdown', at))
-	e.renderer.domElement.dispatchEvent(new PointerEvent('pointerup', at))
-	await P.frames(1)
-}
+for (const dx of [-80, 80]) await P.click(0.5 + dx / e.renderer.domElement.clientWidth, 0.6)
 const clicked = ui.status
 
 // A line of holes 80 yd long across the way: the path goes round one of its ends.

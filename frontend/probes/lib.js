@@ -51,6 +51,38 @@ const P = {
 		return `longest frame ${sec(s.frame)} at ${sec(s.frameAt)}, longest wait between frames ${sec(s.tick)}`
 	},
 
+	/** A pointer event on the viewport canvas at (`x`, `y`) as shares of it (y = 0 the top), with `opts` (`button`, `altKey`, `ctrlKey`, `shiftKey`, `buttons`). */
+	pointer(type, x, y, opts = {}) {
+		const c = window.__engine.renderer.domElement
+		const r = c.getBoundingClientRect()
+		c.dispatchEvent(new PointerEvent(type, { clientX: r.left + x * r.width, clientY: r.top + y * r.height, button: 0, pointerId: 1, bubbles: true, ...opts }))
+	},
+
+	/**
+	 * Clicks the viewport at (`x`, `y`), shares of it with y = 0 the top (like `P.rect`): a move, a
+	 * pointerdown and a pointerup, then `frames` frames so the handlers' messages have landed.
+	 */
+	async click(x, y, opts = {}, frames = 1) {
+		P.pointer('pointermove', x, y, opts)
+		P.pointer('pointerdown', x, y, opts)
+		P.pointer('pointerup', x, y, opts)
+		await P.frames(frames)
+	},
+
+	/** Drags the viewport from `from` to `to` (each `[x, y]` as for `click`) in `steps` moves, a frame after each. */
+	async drag(from, to, steps = 8, opts = {}) {
+		P.pointer('pointermove', from[0], from[1], opts)
+		P.pointer('pointerdown', from[0], from[1], opts)
+		await P.frames(1)
+		for (let i = 1; i <= steps; i++) {
+			const t = i / steps
+			P.pointer('pointermove', from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, { buttons: 1, ...opts })
+			await P.frames(1)
+		}
+		P.pointer('pointerup', to[0], to[1], opts)
+		await P.frames(1)
+	},
+
 	/** Steps the app `n` frames (the headless page's rAF is throttled, so probes drive frames). */
 	async frames(n = 1) {
 		const s = P.stalls

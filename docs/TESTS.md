@@ -164,6 +164,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     `P.only(object, fn)` runs `fn` with the rest of the scene hidden. For "looks the same with the
     switch on and off", take two shots with the switch unchanged as the noise floor (swaying trees,
     particles); `wmo-cull` and `terrain-dxt` do this.
+  - Viewport input: `P.click(x, y, opts, frames)` moves, presses and releases the pointer on the canvas and steps a frame; `P.drag([x, y], [x, y], steps, opts)` strokes; `x`, `y` are shares of the viewport, y = 0 the top, `opts` the event's `button`, `altKey`, `ctrlKey`, `shiftKey`. Setting `e.ndc` does not do this: the handlers overwrite it from the event. The status bar and tool state are read after the helper returns (its frame lets the handlers' messages land); `walkable` uses it.
   - A timeout in `P.until` or `P.settle` names the longest frame and the longest wait between frames
     during the wait (`P.stalls`): one headless frame can stall 20 to 40 s (#233), which otherwise looks
     like a broken feature.
