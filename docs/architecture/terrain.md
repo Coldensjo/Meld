@@ -174,7 +174,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   drawn part (an area whose parent is the zone) into the overlay naming it, else the one whose art
   covers half of it or more (as Elwynn's Northshire piece holds Echo Ridge Mine), else a new one; its
   alpha is the chunks' mask with a soft edge, the art outside the drawn block is kept, and the base
-  art leaves those subzones out as parchment (`blankOut`). Go (`vmangos/worldmapoverlay.go`) reads the
+  art leaves those subzones out as parchment (`blankOut`). A piece none of whose subzones is painted
+  in the block any more is cleared over the block's chunks of other areas (fading over the band at the
+  block's edges, #278), and dropped from the table when nothing of it is left; a neighbour whose art
+  only spills over that band (Stormwind's and Goldshire's beside Northshire) keeps the client's. Go (`vmangos/worldmapoverlay.go`) reads the
   client's overlays with their art, replaces the zone's WorldMapOverlay.dbc rows (an unchanged one
   keeps the client's art) and writes the changed pieces as DXT3 tiles with mips
   (`wow.EncodeOverlayBLP`). The game shows a piece once the player has explored one of its areas (the

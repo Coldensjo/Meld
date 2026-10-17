@@ -155,6 +155,31 @@ test('an overlay redrawn in part keeps its art outside the box, and others are l
 	assert.ok(overlays.some((o) => o.id === 0 && o.areas[0] === 9), 'Northshire got a new overlay')
 })
 
+test('an overlay whose subzone is no longer painted in the box is cleared there, dropped when nothing is left, and one that only spills over the edge left alone', () => {
+	const red = (w: number, h: number) => {
+		const px = new Uint8Array(w * h * 4)
+		for (let i = 0; i < w * h; i++) px.set([200, 20, 20, 255], i * 4)
+		return px
+	}
+	// Area 300's piece reaches into the box, 301's lies inside it; neither is painted in the block any more.
+	const gone: OverlayPiece = { id: 150, areas: [300], name: 'GONE', box: { u0: 0, v0: 0, u1: 20, v1: 8 }, hit: { top: 0, left: 0, bottom: 8, right: 20 }, pixels: red(20, 8), changed: false }
+	const inside: OverlayPiece = { id: 151, areas: [301], name: 'INSIDE', box: { u0: 30, v0: 22, u1: 38, v1: 28 }, hit: { top: 22, left: 30, bottom: 28, right: 38 }, pixels: red(8, 6), changed: false }
+	// 302's soft edge only spills over the band at the box's edge, as a neighbour's does.
+	const spill: OverlayPiece = { id: 152, areas: [302], name: 'SPILL', box: { u0: 6, v0: 20, u1: 12, v1: 28 }, hit: { top: 20, left: 6, bottom: 28, right: 12 }, pixels: red(6, 8), changed: false }
+	const box = { u0: 10, v0: 0, u1: OW, v1: OH }
+	const under = areasUnder(ids, 4, 10, whole, box, OW, OH)
+	const { overlays } = drawOverlays({ look: green(30, OH), box, under, zoneId: 12, parentOf: (id) => parents[id] ?? 12, nameOf: (id) => names[id] ?? `Area${id}`, overlays: [gone, inside, spill], band: 4, w: OW, h: OH })
+	const g = overlays.find((o) => o.id === 150)!
+	assert.ok(g.changed, 'the piece is written again')
+	const alpha = (x: number, y: number) => g.pixels![((y - g.box.v0) * (g.box.u1 - g.box.u0) + x - g.box.u0) * 4 + 3]
+	assert.equal(alpha(3, 3), 255, 'its art outside the box is kept')
+	assert.ok(alpha(10, 3) > 0 && alpha(10, 3) < 255, 'it fades over the band at the box edge')
+	assert.ok(g.box.u1 <= 14, `cleared inside the box past the band: ${JSON.stringify(g.box)}`)
+	assert.ok(g.hit.right <= 14, `its hit rectangle shrank: ${JSON.stringify(g.hit)}`)
+	assert.equal(overlays.find((o) => o.id === 151), undefined, 'a piece left with nothing is dropped')
+	assert.deepEqual(overlays.find((o) => o.id === 152), spill, 'a piece that only spills over the band keeps the client art')
+})
+
 test('a subzone no overlay names is drawn into the overlay whose art covers it', () => {
 	// Goldshire's art covers both its chunk and Northshire's, as Elwynn's Northshire piece covers Echo Ridge Mine.
 	const art = new Uint8Array(20 * 10 * 4)

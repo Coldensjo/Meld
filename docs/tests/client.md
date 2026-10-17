@@ -152,10 +152,13 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
 - Frontend: `frontend/tests/worldMap.test.ts` (Elwynn's extent on its tiles 29.1..35.6 by 46.9..51.2
   and back through a region's first tile; zone bounds and the 3:2 fit; pixel boxes; the look; feather;
   the overlays: a subzone's own piece with a soft edge and parchment under it in the base, a piece
-  redrawn in part keeping its art outside the block, a subzone drawn into the piece whose art covers it).
+  redrawn in part keeping its art outside the block, a subzone drawn into the piece whose art covers it,
+  a piece whose subzone is no longer painted in the block cleared there or dropped, #278).
 - Probe `world-map`: on Northshire, Elwynn's twelve overlays listed and previewed over the base, and
   Generate redraws Northshire Valley's ("12 overlays, 1 drawn": Echo Ridge Mine and Northshire
-  Vineyards, which no overlay names, go into Northshire's piece, whose art covers them). To see the
+  Vineyards, which no overlay names, go into Northshire's piece, whose art covers them). More than 1
+  drawn means a neighbour was rewritten: Stormwind's, Goldshire's, Tower of Azora's and Stonecairn
+  Lake's soft edges spill over the block's band, which #278's clearing must leave alone. To see the
   preview, copy the probe into `probes/scratch/`, return `canvas.toDataURL()` and decode it.
 - Dev page, Northshire (Azeroth 32_48): wait for the models, then `ed.ui.dialog = 'worldMap'`. The zone
   list is Elwynn Forest (12), "3471 × 2315 yd · the client's (row 30)", the canvas shows the client's

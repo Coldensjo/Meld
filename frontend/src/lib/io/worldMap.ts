@@ -318,12 +318,35 @@ function alphaBounds(px: Uint8Array, w: number, h: number, min: number): PixelBo
 }
 
 /**
+ * The overlay `o` with `px` (uw by uh, at u0, v0 in the picture) as its art, trimmed to what shows, its
+ * hit rectangle the part that is half there or more; with no art when nothing shows.
+ */
+function trimmed(o: OverlayPiece, px: Uint8Array, u0: number, v0: number, uw: number, uh: number): OverlayPiece {
+	const t = alphaBounds(px, uw, uh, 1)
+	if (!t) return { ...o, pixels: null, box: { u0: 0, v0: 0, u1: 0, v1: 0 }, changed: true }
+	const tw = t.u1 - t.u0
+	const th = t.v1 - t.v0
+	const out = new Uint8Array(tw * th * 4)
+	for (let y = 0; y < th; y++) out.set(px.subarray(((t.v0 + y) * uw + t.u0) * 4, ((t.v0 + y) * uw + t.u1) * 4), y * tw * 4)
+	const half = alphaBounds(px, uw, uh, 128) ?? t
+	return {
+		...o,
+		box: { u0: u0 + t.u0, v0: v0 + t.v0, u1: u0 + t.u1, v1: v0 + t.v1 },
+		hit: { top: v0 + half.v0, left: u0 + half.u0, bottom: v0 + half.v1, right: u0 + half.u1 },
+		pixels: out,
+		changed: true,
+	}
+}
+
+/**
  * The overlays after a zone is drawn (`look`, the part of the picture in `box`, already in the map's
  * look; `under`, areasUnder of the box): every subzone of `zoneId` painted in the part (an area whose
  * parent is the zone) is drawn into the overlay that names it, else the one whose art covers most of
  * it (half or more), else a new one; an overlay's alpha is its subzones' chunks with a soft edge. The part of an overlay outside the box is kept, and the new drawing
  * fades into it over `band` pixels along the box's edges inside the picture (0 for a zone drawn
- * whole). Overlays of areas not painted in the part are left as they are. Returns the overlays and
+ * whole). An overlay none of whose areas is painted in the part keeps its art, except over the part's
+ * chunks of other areas, where it is cleared (fading over the band), so a subzone repainted away no
+ * longer shows there; one left with nothing is dropped. Returns the overlays and
  * `base`, the look with the redrawn overlays' areas left out (blankOut).
  */
 export function drawOverlays(opts: {
@@ -396,7 +419,34 @@ export function drawOverlays(opts: {
 	for (let n = 0; n < overlays.length; n++) {
 		const o = overlays[n]
 		const more = joined.get(n)
-		if (!more && !o.areas.some((a) => painted.has(a))) continue
+		if (!more && !o.areas.some((a) => painted.has(a))) {
+			// Its subzones aren't painted in the box: its old art is cleared over the block's chunks of
+			// other areas (#278), fading over the band like a redrawn one, and kept where the chunk is
+			// still one of its own or off the block, so its soft edge past the box stays. Only when its
+			// art shows (half there or more) past the band: a neighbour whose soft edge just spills over
+			// the block's edge (Goldshire's, Stormwind's beside Northshire) keeps the client's art.
+			if (!o.pixels || o.box.u1 <= box.u0 || o.box.u0 >= box.u1 || o.box.v1 <= box.v0 || o.box.v0 >= box.v1) continue
+			const ow = o.box.u1 - o.box.u0
+			const oh = o.box.v1 - o.box.v0
+			const px = o.pixels.slice()
+			let deep = false
+			let cleared = false
+			for (let y = Math.max(box.v0, o.box.v0); y < Math.min(box.v1, o.box.v1); y++) {
+				for (let x = Math.max(box.u0, o.box.u0); x < Math.min(box.u1, o.box.u1); x++) {
+					const a = under[(y - box.v0) * bw + x - box.u0]
+					if (!a || o.areas.includes(a)) continue
+					const d = ((y - o.box.v0) * ow + x - o.box.u0) * 4 + 3
+					const wt = weight(x - box.u0, y - box.v0)
+					if (wt >= 1 && px[d] >= 128) deep = true
+					const k = Math.round(px[d] * (1 - wt))
+					if (k === px[d]) continue
+					px[d] = k
+					cleared = true
+				}
+			}
+			if (deep && cleared) overlays[n] = trimmed(o, px, o.box.u0, o.box.v0, ow, oh)
+			continue
+		}
 		const m = areaMask(under, bw, bh, new Set([...o.areas, ...(more ?? [])]))
 		for (let i = 0; i < m.length; i++) all[i] = Math.max(all[i], m[i])
 		// The overlay's new box: its old one and the box's part where the mask shows.
@@ -432,24 +482,7 @@ export function drawOverlays(opts: {
 				px[d + 3] = Math.round(Math.min(1, outA) * 255)
 			}
 		}
-		// Trimmed to what shows; its hit rectangle the part that is half there or more.
-		const t = alphaBounds(px, uw, uh, 1)
-		if (!t) {
-			overlays[n] = { ...o, pixels: null, box: { u0: 0, v0: 0, u1: 0, v1: 0 }, changed: true }
-			continue
-		}
-		const tw = t.u1 - t.u0
-		const th = t.v1 - t.v0
-		const trimmed = new Uint8Array(tw * th * 4)
-		for (let y = 0; y < th; y++) trimmed.set(px.subarray(((t.v0 + y) * uw + t.u0) * 4, ((t.v0 + y) * uw + t.u1) * 4), y * tw * 4)
-		const half = alphaBounds(px, uw, uh, 128) ?? t
-		overlays[n] = {
-			...o,
-			box: { u0: u.u0 + t.u0, v0: u.v0 + t.v0, u1: u.u0 + t.u1, v1: u.v0 + t.v1 },
-			hit: { top: u.v0 + half.v0, left: u.u0 + half.u0, bottom: u.v0 + half.v1, right: u.u0 + half.u1 },
-			pixels: trimmed,
-			changed: true,
-		}
+		overlays[n] = trimmed(o, px, u.u0, u.v0, uw, uh)
 	}
 	// A new overlay that came out empty is dropped; a client's that did is dropped from the table too.
 	return { overlays: overlays.filter((o) => o.pixels || (o.id && !o.changed)), base: blankOut(look, all) }
