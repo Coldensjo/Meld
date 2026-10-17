@@ -104,6 +104,11 @@ Then:
 - **Answered questions.** For each `owner-question` issue where the owner has commented since the
   question, remove the label, record their answer as a decision comment, and treat the item as
   eligible again.
+- **The dev server.** Workers check their changes in the live app through the probes (docs/TESTS.md,
+  "Probes"), which need `make dev`. If `curl -s localhost:34115/wow/status` doesn't answer, start
+  `make dev` in the background from Git Bash and wait until it does (see the dead-session trap in
+  docs/TESTS.md first: the owner's own session may be half dead). Leave it running for the whole
+  run; workers reuse it and never start their own.
 - **Items in progress.** The issue a worker is on carries the `in-progress` label (step 3). Only one
   loop runs at a time, so an open issue that still has it now was left by a run that ended mid-item:
   remove the label and treat the issue as eligible; its worker will read the comments for where it
@@ -158,7 +163,17 @@ a. Note the rule above that put it first (bug, benilla-port, the DESIGN.md prior
    effort, or the owner's request) and what it went ahead of, for the run log.
 b. Mark it: `gh issue edit <n> --repo Coldensjo/Meld --add-label in-progress`.
 c. Start its worker with the Agent tool (a general-purpose subagent, in the foreground, since the
-   next step needs its report) and this prompt, filled in:
+   next step needs its report), with the model and effort the item needs, so the strongest setting
+   goes where it pays:
+   - `model: sonnet`: `effort:S` items that aren't rendering, file-format or export work
+     (`area:view`, or a body about shaders, the `.wmap` format or the files Meld writes into the
+     client), and items that only change docs. The triage subagent (step 2) runs this way too.
+   - No `model` (the run's own) and no `effort`: `effort:M` items, and `effort:S` ones the line
+     above leaves out.
+   - No `model`, `effort: high`: `effort:L` items, rendering and file-format work, and any item a
+     cheaper worker left `unfinished` (retry it once at once, this way, before going on).
+
+   The prompt, filled in:
 
    ```
    You are the Meld loop's worker for issue #<n> of Coldensjo/Meld. Read LOOP.md in the repository
@@ -198,7 +213,15 @@ Do not invent work.
 closed as not planned, with the reason in a comment. Never close an owner-filed issue except as a
 duplicate, and say so in the run log.
 
-**6. Push.** After every run, even one that stopped early or did no items, pull and push so the
+**6. Check the run as a whole, then push.** When the run committed anything, run every probe
+(`make probe`, a few minutes): it catches what an item broke in another item's feature, which its
+own checks don't look at. If one fails, find the commit that broke it (the probe's subject against
+the run's commits; rerun it with that commit reverted in the working tree if unsure, then restore
+it). File the failure as a `bug` issue and hand it to a worker like any item. If it
+cannot be fixed in this run, revert the commit (`git revert`, a new commit, never a reset), reopen
+its issue with a comment saying what the probe showed, and say so in the report.
+
+Then, after every run, even one that stopped early or did no items, pull and push so the
 remote has the run's commits: `git pull --rebase --autostash`, then `git push`. This is the owner's
 standing rule for every session (CLAUDE.md, "Git workflow"). Workers never push. Never force push. If the pull conflicts or the push is rejected, do not resolve it by guessing: abort the rebase
 (`git rebase --abort`), leave the commits local, and say so in the report. Push only `main` of this
@@ -233,22 +256,32 @@ b. Read the code it touches before changing it, and search the decisions about t
    Read the docs for the area (CLAUDE.md, "Architecture docs", and the area's checks in the index of
    docs/TESTS.md), and update them in the item's commit where it changes what they say. Keep the
    change to that item. Follow the hard rules in docs/DESIGN.md, and every edit through `History`.
+   When finding something means sweeping many files (every caller of a function, every place a
+   format field is read), hand the sweep to an Explore subagent where your tools allow and keep only
+   its answer, rather than reading the files into your own context.
    Where it needs the owner, see *Asking the owner*: in an interactive session, stop and report
    `needs-owner`; otherwise comment, label and report `asked-owner`. Ask before changing code where
    you can; if you already changed files, leave them uncommitted and list them in the report.
 
-c. Verify it:
+c. Verify it. While you work, run only the tests that touch the change
+   (`cd frontend && node --import ./tests/register.mjs --test tests/<name>.test.ts`, `go test
+   ./internal/<pkg>/`) and the probes that touch it (`cd frontend && pnpm probe --list`, then
+   `pnpm probe <name...>`; the coordinator keeps `make dev` running). Before committing, run all of:
    - `make test`
    - `make check`
-   - the build for the OS you run on: `make build-windows` on Windows, `make build-linux` on Linux.
-     The other cannot run here. Say so in the closing comment.
+   - the build for the OS you run on: `make build-windows` on Windows (from Git Bash), `make
+     build-linux` on Linux. The other cannot run here. Say so in the closing comment.
+   - the probes that touch the change, again.
 
    If a check fails, fix it. If it cannot be fixed, do not commit. Comment on the issue what failed,
    why, what you tried and where the work stands (`**Claude:** left unfinished: ...`), so the next
    worker doesn't start over, and report `unfinished`.
 
-d. If the item changes what the app shows, check it in the app (docs/TESTS.md) or say in the closing
-   comment that you did not.
+d. If the item changes what the app shows or does, check it in the app or say in the closing comment
+   that you did not. Where the check is worth repeating, write it as a probe
+   (`frontend/probes/<name>.js`, docs/TESTS.md, "Probes") and commit it with the item, so later runs
+   rerun it in step 6; otherwise use the routes in docs/TESTS.md. Name the probes you ran in the
+   closing comment.
 
 e. Commit that item alone, following CLAUDE.md. Stage only the files you changed, by name. Never run
    `git add -A` or `git add .`. The working tree may hold the owner's uncommitted changes. Leave them
@@ -265,12 +298,13 @@ f. Close the issue with its log as the last comment: `gh issue comment <n> --rep
    **Claude:** done in <short-hash>.
    - Done: what changed, in one or two lines.
    - Verified: which checks ran and passed (make test, make check, make build-windows,
-     make build-linux), and anything not run with the reason; whether it was checked in the app.
+     make build-linux, the probes by name), and anything not run with the reason; whether it was
+     checked in the app.
    - Left: follow-ups as new issues (#n), or "none".
    ```
 
-   For an optimization, Verified also gives the benchmark numbers before and after (docs/TESTS.md,
-   "Measuring performance").
+   For an optimization, Verified also gives the benchmark numbers before and after: `pnpm probe
+   bench` on the commit before yours and on yours (docs/TESTS.md, "Measuring performance").
 
 g. File what you noticed along the way as *New issues*; do not build it.
 
