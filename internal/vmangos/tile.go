@@ -159,12 +159,19 @@ func PatchTileHeights(root []byte, outer []float32) ([]byte, error) {
 	return adt.WriteHeights(root, terrain)
 }
 
-// BaseTileRoot returns a tile's file as the game shipped it, without patch archives' changes.
+// BaseTileRoot returns a tile's file as the client has it without Meld's patch (Blizzard's patch.MPQ
+// and patch-2.MPQ still apply), the file a save rebuilds from.
 func BaseTileRoot(dataDir, mapName string, x, y int) ([]byte, error) {
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
 		return nil, err
 	}
 	defer set.Close()
-	return set.ReadBaseFile(adt.TilePath(mapName, x, y, ""))
+	return readUnpatched(set, adt.TilePath(mapName, x, y, ""))
+}
+
+// readUnpatched reads name from the client's archives as if Meld's patch weren't there: the game's
+// files with Blizzard's own patches applied, without Meld's earlier exports (#273).
+func readUnpatched(set *mpq.Set, name string) ([]byte, error) {
+	return set.ReadFileExcept(name, PatchName)
 }

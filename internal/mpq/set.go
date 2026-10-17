@@ -79,15 +79,19 @@ func (s *Set) ReadFile(name string) ([]byte, error) {
 	return nil, ErrNotFound
 }
 
-// ReadBaseFile reads name from the highest-priority archive that isn't a patch, so it returns the
-// file as the game shipped it, without the changes patch archives make to it.
-func (s *Set) ReadBaseFile(name string) ([]byte, error) {
+// ReadFileExcept reads name as ReadFile does but as if the archive whose file name is skip (any case)
+// weren't there, so a caller can read the client's files without one patch's changes and keep the
+// others' (Blizzard's patch.MPQ and patch-2.MPQ update tiles too).
+func (s *Set) ReadFileExcept(name, skip string) ([]byte, error) {
 	for i := len(s.archives) - 1; i >= 0; i-- {
 		a := s.archives[i]
-		if strings.HasPrefix(strings.ToLower(filepath.Base(a.Path)), "patch") {
+		if strings.EqualFold(filepath.Base(a.Path), skip) {
 			continue
 		}
-		if _, ok := a.find(name); ok {
+		if b, ok := a.find(name); ok {
+			if b.flags&flagDeleted != 0 {
+				return nil, ErrNotFound
+			}
 			return a.ReadFile(name)
 		}
 	}

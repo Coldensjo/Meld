@@ -70,6 +70,11 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `TestRegionWithoutLiquids` (WOW_DIR) opens Naxxramas (map 533, folder `Stratholme Raid`) at 38_25, a
   block with no liquid, and checks the view sends `[]`, not `null` (#120). Naxxramas has tiles only at
   37..42 by 24..27; anywhere else on that map the tile read fails with "mpq: file not found".
+- `TestBaseTileRootKeepsBlizzardPatches` and `TestRegionSaveKeepsBlizzardPatch` (WOW_DIR) are the
+  checks that a save rebuilds a tile from the client without Meld's patch-3 only (#273): Azeroth_31_29
+  is in terrain.MPQ and in Blizzard's patch-2.MPQ, which moved three of its height samples, so the tile
+  read and a save with nothing edited must match patch-2's copy. Trap: the save's model count matches
+  either way (models the editor doesn't show are dropped), so compare the heights, not the models.
 - Trying SQL against the world database (`mysql -uroot -P3307 -h127.0.0.1 mangos`): its tables are
   MyISAM, so `START TRANSACTION ... ROLLBACK` does not undo an INSERT. Use an entry nothing uses and
   delete the row yourself afterwards. A template whose `unit_class` has no `creature_classlevelstats`

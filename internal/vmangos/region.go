@@ -332,9 +332,10 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 			k := j*e.Size + i
 			tx, ty := e.X+i, e.Y+j
 			name := adt.TilePath(e.MapName, tx, ty, "")
-			// The save starts from each tile as the game shipped it: the editor already holds the whole
-			// block's heights, paint and models, so earlier patch edits are rebuilt from the original.
-			root, err := set.ReadBaseFile(name)
+			// The save starts from each tile as the client has it without Meld's patch (Blizzard's patches
+			// still apply): the editor already holds the whole block's heights, paint and models, so earlier
+			// exports are rebuilt from the original. A tile only Meld's patch has (one it made) starts from that.
+			root, err := readUnpatched(set, name)
 			if err != nil {
 				root, err = set.ReadFile(name)
 			}
