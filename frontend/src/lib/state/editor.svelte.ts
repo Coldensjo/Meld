@@ -458,6 +458,8 @@ export const prefs = $state({
   detailInfo: false,
   /** Run File › Check Map when Compile Region to Client starts, and stop it on an error finding (#195). */
   checkBeforeCompile: false,
+  /** Rebuild the server's map data for the compiled tiles after Compile Region to Client, when a VMaNGOS folder is set (#211). It restarts the world server. */
+  updateServerAfterCompile: true,
   /** View › Performance Overlay (#179): where the frame's time goes, by subsystem and GPU pass, in the viewport's corner. */
   perfOverlay: false,
   /** Every file read from the client (models, textures, lists) goes into the Log window too, with its time (noggit's "additional file loading log"). */

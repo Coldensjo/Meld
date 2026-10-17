@@ -550,3 +550,21 @@ func TestRegionLiquidsUnchanged(t *testing.T) {
 		t.Fatalf("a partial save with no layers changed %d chunks", len(ch.Liquids))
 	}
 }
+
+func TestFileTileName(t *testing.T) {
+	for in, want := range map[string]string{
+		`World\Maps\Azeroth\Azeroth_32_48.adt`: "32_48",
+		`World\Maps\Azeroth\Azeroth.wdt`:       "",
+		`World\Maps\Azeroth\Azeroth.wdl`:       "",
+	} {
+		if got := fileTileName(in); got != want {
+			t.Errorf("fileTileName(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if id, ok := ClientMapID("kalimdor"); !ok || id != 1 {
+		t.Errorf("ClientMapID(kalimdor) = %d, %v", id, ok)
+	}
+	if _, ok := ClientMapID("MyMap"); ok {
+		t.Error("ClientMapID(MyMap) found a map")
+	}
+}

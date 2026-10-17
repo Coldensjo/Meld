@@ -33,6 +33,7 @@ import {
   SaveMap,
   SaveMapDialog,
   SaveRegion,
+  UpdateRegionServer,
   SetVmangosPath,
   VmangosPath,
   WriteHeightmap,
@@ -450,9 +451,45 @@ export function exportRegion(engine: Engine) {
       return
     }
     const server = await VmangosPath()
-    const next = server ? ` Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.` : ''
     const unchanged = res.tiles - res.changed
-    setStatus(`Wrote ${res.changed} of ${res.tiles} tiles of ${region.mapName} ${region.x}_${region.y} to ${res.patch}${unchanged ? ` (${unchanged} unchanged)` : ''}.${next}`, 10000)
+    const wrote = `Wrote ${res.changed} of ${res.tiles} tiles of ${region.mapName} ${region.x}_${region.y} to ${res.patch}${unchanged ? ` (${unchanged} unchanged)` : ''}.`
+    if (!server) {
+      setStatus(wrote, 10000)
+      return
+    }
+    // Only a continent of the client has map data to rebuild this way, and only when a tile changed.
+    if (!prefs.updateServerAfterCompile || res.mapId < 0 || !res.changedTiles?.length) {
+      setStatus(`${wrote} Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.`, 10000)
+      return
+    }
+    if (serverMapsRunning) {
+      setStatus(`${wrote} The server's map data is still being rebuilt from the last compile: compile again when it is done.`, 10000)
+      return
+    }
+    listenToServerMaps()
+    serverMapsRunning = true
+    try {
+      // The tiles alone only when the server's data matched the patch before; else the whole map.
+      await UpdateRegionServer(res.mapId, res.tilesCurrent ? res.changedTiles : [])
+      setStatus(`${wrote} Rebuilding the server's map data…`, 0)
+    } catch (e) {
+      serverMapsRunning = false
+      setStatus(`${wrote} The server's map data was not rebuilt: ${e}`, 10000)
+    }
+  })
+}
+
+let listeningServerMaps = false
+let serverMapsRunning = false
+
+/** Routes progress from the background server map update to the status bar, once. */
+function listenToServerMaps() {
+  if (listeningServerMaps) return
+  listeningServerMaps = true
+  EventsOn('servermaps:log', (line: string) => setStatus(line, 0))
+  EventsOn('servermaps:done', (msg: string) => {
+    serverMapsRunning = false
+    setStatus(msg ? `Server map update failed: ${msg}` : "The server's map data is rebuilt and the world server is running again.", msg ? 0 : 10000)
   })
 }
 

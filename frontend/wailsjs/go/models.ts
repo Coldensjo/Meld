@@ -1706,6 +1706,9 @@ export namespace vmangos {
 	    patch: string;
 	    tiles: number;
 	    changed: number;
+	    changedTiles: string[];
+	    mapId: number;
+	    tilesCurrent: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionResult(source);
@@ -1716,6 +1719,9 @@ export namespace vmangos {
 	        this.patch = source["patch"];
 	        this.tiles = source["tiles"];
 	        this.changed = source["changed"];
+	        this.changedTiles = source["changedTiles"];
+	        this.mapId = source["mapId"];
+	        this.tilesCurrent = source["tilesCurrent"];
 	    }
 	}
 	export class RegionShadows {

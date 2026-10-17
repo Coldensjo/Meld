@@ -80,6 +80,11 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   and `cmake --build build/extractors --config Release --target MapExtractor VMapExtractor`; the exes land
   in `vmangos\bin\Release`, to be copied into `run\Extractors`. The old `vmangos\build` cache points at
   the folder's former place (`C:\Servers\Software\vmangos`), so it can't be reused.
+- Compile Region to Client (#211) reuses it: `SaveRegion` returns `changedTiles`, `mapId` (0 Azeroth, 1 Kalimdor) and
+  `tilesCurrent`, and with Preferences › Update the Server Maps after Compile on (default) and a VMaNGOS folder set,
+  `exportRegion` calls `UpdateRegionServer`, which runs `vmangos.UpdateServerMaps` (the publish without the database
+  step) in the background and reports through `servermaps:log`/`servermaps:done`. It stops and restarts mangosd, so
+  not for the loop to try against the live server. Go: `TestFileTileName`.
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
 

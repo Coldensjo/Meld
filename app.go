@@ -1016,8 +1016,49 @@ func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) 
 	if err != nil || len(files) == 0 {
 		return res, err
 	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if server != "" && res.MapID >= 0 {
+		// Before the write, as it makes the patch newer than the server's map data.
+		res.TilesCurrent = vmangos.ServerMapsCurrent(server, uint32(res.MapID), dataDir)
+	}
 	res.Patch, err = a.installWithGameClosed(dataDir, files)
 	return res, err
+}
+
+// UpdateRegionServer rebuilds the server's map data for a continent after SaveRegion wrote tiles of it:
+// only those tiles (RegionResult.ChangedTiles) when the server's data matched the patch before, else the
+// whole map (#211). The world server stops and starts around it. It runs in the background: progress
+// arrives as "servermaps:log" events and "servermaps:done" carries an error message, or nothing.
+func (a *App) UpdateRegionServer(mapID int, tiles []string) error {
+	clientDir, err := a.clientRoot()
+	if err != nil {
+		return err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if server == "" {
+		return errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
+	}
+	if mapID < 0 {
+		return errors.New("only a continent of the client updates this way")
+	}
+	if err := vmangos.CheckServer(server); err != nil {
+		return err
+	}
+	go func() {
+		defer a.releaseClient()()
+		logf := func(line string) { runtime.EventsEmit(a.ctx, "servermaps:log", line) }
+		msg := ""
+		plan := vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}
+		if err := vmangos.UpdateServerMaps(plan, filepath.Join(clientDir, "Data"), uint32(mapID), tiles, logf); err != nil {
+			msg = err.Error()
+		}
+		runtime.EventsEmit(a.ctx, "servermaps:done", msg)
+	}()
+	return nil
 }
 
 // WriteMinimapTiles puts rendered tiles into the client's minimap for the map whose folder is mapDir

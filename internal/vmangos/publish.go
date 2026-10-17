@@ -177,6 +177,11 @@ func serverMapsCurrent(serverRoot string, mapID uint32, patch string) bool {
 	return false
 }
 
+// ServerMapsCurrent is serverMapsCurrent for the patch in the client's Data folder.
+func ServerMapsCurrent(serverRoot string, mapID uint32, clientData string) bool {
+	return serverMapsCurrent(serverRoot, mapID, filepath.Join(clientData, PatchName))
+}
+
 // publishServer does the server's share of a publish, once the map is in the client's patch: the world
 // database, the map data extracted again, and the world server restarted. Only the map's own data is
 // extracted (#174): its ground (just tiles, named "x_y", when given; else all of it, with the old tile
@@ -196,6 +201,17 @@ func publishServer(p PublishPlan, clientData string, spec MapSpec, tiles []strin
 		return fmt.Errorf("world database: %w", err)
 	}
 
+	return UpdateServerMaps(p, clientData, spec.MapID, tiles, log)
+}
+
+// UpdateServerMaps rebuilds the server's map data for one map from the client's patch and restarts the
+// world server around it, the share of a publish that follows the database (and all a compiled region
+// of a continent needs, #211). Tiles are as publishServer's: "x_y" names, or none for the whole map.
+func UpdateServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []string, log func(string)) error {
+	if p.Run == nil {
+		p.Run = OSRunner{}
+	}
+	spec := MapSpec{MapID: mapID}
 	log("Stopping the world server…")
 	_ = p.Run.Run(p.ServerRoot, "taskkill", []string{"/IM", "mangosd.exe"}, nil)
 	time.Sleep(3 * time.Second)
@@ -204,7 +220,7 @@ func publishServer(p PublishPlan, clientData string, spec MapSpec, tiles []strin
 	data := filepath.Join(p.ServerRoot, "data")
 	vmaps := filepath.Join(data, "vmaps")
 	id := strconv.FormatUint(uint64(spec.MapID), 10)
-	_, err = os.Stat(filepath.Join(vmaps, "temp_gameobject_models"))
+	_, err := os.Stat(filepath.Join(vmaps, "temp_gameobject_models"))
 	whole := err != nil
 
 	mapArgs := []string{"-i", p.ClientRoot, "-o", data, "-e", "1", "--silent"}

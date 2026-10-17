@@ -480,6 +480,7 @@
         { kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
         { kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
         { kind: 'check', label: 'Check the Map before Compile (stop on errors)', checked: prefs.checkBeforeCompile, toggle: () => (prefs.checkBeforeCompile = !prefs.checkBeforeCompile) },
+        { kind: 'check', label: 'Update the Server Maps after Compile', checked: prefs.updateServerAfterCompile, toggle: () => (prefs.updateServerAfterCompile = !prefs.updateServerAfterCompile) },
         { kind: 'header', label: 'Autosave unsaved maps' },
         ...radios(
           [

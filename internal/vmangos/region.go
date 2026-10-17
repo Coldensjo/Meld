@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
+	"path/filepath"
+	"strings"
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
@@ -529,6 +531,36 @@ type RegionResult struct {
 	Patch   string `json:"patch"`
 	Tiles   int    `json:"tiles"`
 	Changed int    `json:"changed"`
+	// ChangedTiles names the written tiles as "x_y", as the map extractor's -t takes them, and MapID is
+	// the client map they belong to (0 Azeroth, 1 Kalimdor; -1 for any other). TilesCurrent says the
+	// server's map data matched the patch before this write, so only those tiles need extracting again.
+	ChangedTiles []string `json:"changedTiles"`
+	MapID        int      `json:"mapId"`
+	TilesCurrent bool     `json:"tilesCurrent"`
+}
+
+// ClientMapID is the ID of a continent the client holds, by its folder name; ok is false for others.
+func ClientMapID(name string) (uint32, bool) {
+	switch strings.ToLower(name) {
+	case "azeroth":
+		return 0, true
+	case "kalimdor":
+		return 1, true
+	}
+	return 0, false
+}
+
+// fileTileName names a map tile file ("World\Maps\Azeroth\Azeroth_32_48.adt") as "32_48", or "" for
+// another file.
+func fileTileName(name string) string {
+	if !strings.EqualFold(filepath.Ext(name), ".adt") {
+		return ""
+	}
+	parts := strings.Split(strings.TrimSuffix(filepath.Base(strings.ReplaceAll(name, `\`, "/")), filepath.Ext(name)), "_")
+	if len(parts) < 3 {
+		return ""
+	}
+	return parts[len(parts)-2] + "_" + parts[len(parts)-1]
 }
 
 // RegionChanges builds the edited block's files and keeps those that differ from the patch's copies.
@@ -543,6 +575,15 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 		return nil, res, err
 	}
 	res.Changed = countTiles(changed)
+	res.MapID = -1
+	if id, ok := ClientMapID(e.MapName); ok {
+		res.MapID = int(id)
+	}
+	for _, f := range changed {
+		if t := fileTileName(f.Name); t != "" {
+			res.ChangedTiles = append(res.ChangedTiles, t)
+		}
+	}
 	return changed, res, nil
 }
 
