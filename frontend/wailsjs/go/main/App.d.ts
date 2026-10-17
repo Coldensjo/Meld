@@ -141,11 +141,15 @@ export function ReadGossip(arg1:number):Promise<vmangos.Gossip>;
 
 export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 
+export function ReadImageFile(arg1:string):Promise<string>;
+
 export function ReadItem(arg1:number):Promise<Record<string, string>>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
 
 export function ReadVendor(arg1:number):Promise<vmangos.Vendor>;
+
+export function ReadWorldMap(arg1:number,arg2:number):Promise<vmangos.WorldMapView>;
 
 export function RegionEdges(arg1:string,arg2:number,arg3:number,arg4:number):Promise<Array<vmangos.EdgeSegment>>;
 
@@ -238,5 +242,7 @@ export function WriteNormalMap(arg1:string,arg2:number,arg3:string):Promise<void
 export function WritePNG(arg1:string,arg2:string):Promise<void>;
 
 export function WriteTextFile(arg1:string,arg2:string):Promise<void>;
+
+export function WriteWorldMap(arg1:vmangos.WorldMapSpec):Promise<main.WorldMapResult>;
 
 export function ZoneSounds():Promise<vmangos.ZoneSoundTables>;

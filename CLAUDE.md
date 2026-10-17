@@ -360,6 +360,12 @@ cd frontend && pnpm build   # frontend only
   `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (the game closed around it) and
   the rows into the world database's `area_template`, which is where VMaNGOS reads areas from (not the
   DBC). A form saved with Save, not undo steps, like creature templates.
+- **World map** (`components/WorldMapDialog.svelte`, World › World Map…, `ui.dialog = 'worldMap'`, #181): a
+  zone's map for the game's M key. `Engine.renderTopDown` draws the zone's rectangle from above (the
+  minimap's shot, any size), `io/worldMap.ts` gives the rectangle (the client's WorldMapArea row, or the
+  zone's chunks grown to 3:2), the parchment look and the feathered paste over a zone the client already
+  maps; Go (`vmangos/worldmap.go`, `WriteWorldMap`) cuts the 1002x668 picture into twelve DXT1 tiles and
+  sets the WorldMapArea.dbc row, written into Meld's patch with the game closed.
 - **Ground effects (grass tufts)**: the game grows detail doodads on each cell by the texture on top of
   it: a texture layer's GroundEffectTexture ID names up to four `World\NoDXT\Detail` models and a
   density, and the chunk's predominant-texture map picks the layer per cell. Go

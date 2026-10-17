@@ -182,6 +182,38 @@ export namespace main {
 	        this.text = source["text"];
 	    }
 	}
+	export class WorldMapResult {
+	    row: vmangos.WorldMapRow;
+	    patch: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorldMapResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.row = this.convertValues(source["row"], vmangos.WorldMapRow);
+	        this.patch = source["patch"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 
 }
 
@@ -2081,6 +2113,96 @@ export namespace vmangos {
 	        this.model = source["model"];
 	        this.texture = source["texture"];
 	    }
+	}
+	export class WorldMapRow {
+	    id: number;
+	    mapId: number;
+	    areaId: number;
+	    name: string;
+	    left: number;
+	    right: number;
+	    top: number;
+	    bottom: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorldMapRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.mapId = source["mapId"];
+	        this.areaId = source["areaId"];
+	        this.name = source["name"];
+	        this.left = source["left"];
+	        this.right = source["right"];
+	        this.top = source["top"];
+	        this.bottom = source["bottom"];
+	    }
+	}
+	export class WorldMapSpec {
+	    row: WorldMapRow;
+	    pixels: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new WorldMapSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.row = this.convertValues(source["row"], WorldMapRow);
+	        this.pixels = source["pixels"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class WorldMapView {
+	    row?: WorldMapRow;
+	    pixels: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new WorldMapView(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.row = this.convertValues(source["row"], WorldMapRow);
+	        this.pixels = source["pixels"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	
 	export class Zone {

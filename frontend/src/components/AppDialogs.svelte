@@ -11,6 +11,7 @@
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
   import PortalsDialog from './PortalsDialog.svelte'
   import ZonesDialog from './ZonesDialog.svelte'
+  import WorldMapDialog from './WorldMapDialog.svelte'
   import LightsDialog from './LightsDialog.svelte'
   import BrushStackDialog from './BrushStackDialog.svelte'
   import TextureLooksDialog from './TextureLooksDialog.svelte'
@@ -358,6 +359,8 @@
   <GroundEffectsDialog onclose={close} />
 {:else if ui.dialog === 'zones'}
   <ZonesDialog onclose={close} />
+{:else if ui.dialog === 'worldMap'}
+  <WorldMapDialog onclose={close} />
 {:else if ui.dialog === 'portals'}
   <PortalsDialog onclose={close} />
 {:else if ui.dialog === 'lights'}

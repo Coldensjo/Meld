@@ -1036,6 +1036,50 @@ func (a *App) WriteMinimapTiles(mapDir string, tiles []vmangos.MinimapTile) (str
 	return a.installWithGameClosed(dataDir, files)
 }
 
+// ReadWorldMap reads the client's world map of a zone (WorldMapArea.dbc's row of the map and area, and
+// its art), for World › World Map (#181); a view without a row when the zone has none.
+func (a *App) ReadWorldMap(mapID, areaID uint32) (*vmangos.WorldMapView, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadWorldMap(dataDir, mapID, areaID)
+}
+
+// WorldMapResult is what Write World Map wrote: the row (with its ID) and the patch.
+type WorldMapResult struct {
+	Row   vmangos.WorldMapRow `json:"row"`
+	Patch string              `json:"patch"`
+}
+
+// WriteWorldMap writes a zone's world map into the client's patch: its twelve art tiles and its
+// WorldMapArea.dbc row, with the game closed around it.
+func (a *App) WriteWorldMap(spec vmangos.WorldMapSpec) (WorldMapResult, error) {
+	defer a.releaseClient()()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return WorldMapResult{}, err
+	}
+	files, row, err := vmangos.WorldMapFiles(dataDir, spec)
+	if err != nil {
+		return WorldMapResult{}, err
+	}
+	patch, err := a.installWithGameClosed(dataDir, files)
+	return WorldMapResult{Row: row, Patch: patch}, err
+}
+
+// ReadImageFile returns a PNG file's bytes as base64, for the frontend to decode (a picture to import).
+func (a *App) ReadImageFile(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	if !bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n")) {
+		return "", errors.New("not a PNG image")
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
 // installWithGameClosed writes files into the client's patch. On Windows the game and the servers
 // hold the patch open, so they are closed first and opened again afterwards.
 func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, error) {

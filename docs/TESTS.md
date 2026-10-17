@@ -1567,3 +1567,22 @@ the Engine's loop).
 - Trap: the preview's canvas is transparent (`alpha: true`). three's AdditiveBlending adds the
   particle's alpha too, which composited the spark texture's black as opaque squares there; additive
   batches now keep the target's alpha (CustomBlending, same colour factors).
+
+## World map of a zone (World › World Map, #181)
+Checks: a zone's map for the game's World Map (M): the WorldMapArea.dbc row and the twelve 256x256
+tiles of the 1002x668 picture at `Interface\WorldMap\<Name>\<Name>1..12.blp`.
+- Go: `TestSetWorldMapRowAddsAndReplaces`, `TestSetWorldMapRowRefusesBadRows`; with
+  `WOW_DIR=C:/WoW/client`, `TestWorldMapFromClient` reads Elwynn (row 30, map 0, area 12, Left 1535.4,
+  Right -1935.4, Top -7939.6, Bottom -10254.2; its art DXT1 256x256), writes it again through
+  `WorldMapFiles` (tiles within 0.04 a channel of the picture) and finds the row unchanged.
+- Frontend: `frontend/tests/worldMap.test.ts` (Elwynn's extent on its tiles 29.1..35.6 by 46.9..51.2
+  and back through a region's first tile; zone bounds and the 3:2 fit; pixel boxes; the look; feather).
+- Dev page, Northshire (Azeroth 32_48): wait for the models, then `ed.ui.dialog = 'worldMap'`. The zone
+  list is Elwynn Forest (12), "3471 × 2315 yd · the client's (row 30)", the canvas shows the client's
+  base art (mostly parchment: the explored areas are WorldMapOverlay pieces the game draws over it).
+  Click the dialog's `Generate` button: the open tile is drawn just north of the map's middle, where
+  Northshire Valley is, feathered into the art. Write to Client is not run from the loop (it writes
+  the owner's patch); `TestWorldMapFromClient` covers the files it writes.
+- In the game: not checked by the loop. A zone of a new map needs its AreaTable row (World › Zones)
+  painted on its chunks; whether 1.12's World Map opens a zone of a map that isn't a continent
+  (WorldMapContinent.dbc lists only Kalimdor and Azeroth) is for the owner to check.

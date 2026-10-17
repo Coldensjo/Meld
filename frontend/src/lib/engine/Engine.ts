@@ -606,10 +606,10 @@ export class Engine {
     if (shot) {
       // A minimap tile (renderMinimapTile): the tile exactly, north up, from above everything on it.
       const o = this.ortho
-      o.left = -shot.half
-      o.right = shot.half
-      o.top = shot.half
-      o.bottom = -shot.half
+      o.left = -shot.halfX
+      o.right = shot.halfX
+      o.top = shot.halfZ
+      o.bottom = -shot.halfZ
       o.updateProjectionMatrix()
       o.up.set(0, 0, -1)
       o.position.set(shot.cx, shot.top + ORTHO_HEIGHT, shot.cz)
@@ -3811,8 +3811,8 @@ export class Engine {
   /** Whether a shadow bake is running (bakeShadows). */
   private shadowBaking = false
 
-  /** The tile the top-down camera frames while renderMinimapTile draws it, or null. */
-  private minimapShot: { cx: number; cz: number; half: number; top: number } | null = null
+  /** The rectangle the top-down camera frames while renderTopDown draws it, or null. */
+  private minimapShot: { cx: number; cz: number; halfX: number; halfZ: number; top: number } | null = null
   private minimapTarget: THREE.WebGLRenderTarget | null = null
 
   /** How many placed models still wait for their mesh (they draw as placeholders until then). */
@@ -3830,15 +3830,27 @@ export class Engine {
    * overlays. Drawn four times larger and averaged down, so edges don't shimmer.
    */
   renderMinimapTile(tx: number, tz: number, models: 'none' | 'buildings' | 'all', side = 256): Uint8Array {
+    const tile = TILE_CELLS * this.terrain.cellSize
+    return this.renderTopDown(tx * tile, tz * tile, (tx + 1) * tile, (tz + 1) * tile, models, side, side)
+  }
+
+  /**
+   * Draws the rectangle x0..x1, z0..z1 of the map (editor yards) straight from above, as
+   * renderMinimapTile does a tile: `w` by `h` pixels of RGBA, row 0 at the north (z0) edge, column 0 at
+   * the west (x0). Drawn up to four times larger (as the GPU's largest target allows) and averaged down.
+   * The world map (#181) draws a zone this way.
+   */
+  renderTopDown(x0: number, z0: number, x1: number, z1: number, models: 'none' | 'buildings' | 'all', w: number, h: number): Uint8Array {
     // Without a context (#209) the shot would be black, and it is written into the client.
     if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
     const t = this.terrain
-    const tile = TILE_CELLS * t.cellSize
     let top = editor.waterEnabled ? editor.waterLevel : -Infinity
     for (let i = 0; i < t.heights.length; i++) if (t.heights[i] > top) top = t.heights[i]
     // Models stand up to a few hundred yards above the ground; the camera is far above that.
-    this.minimapShot = { cx: (tx + 0.5) * tile, cz: (tz + 0.5) * tile, half: tile / 2, top: top + 400 }
-    const big = side * 4
+    this.minimapShot = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, halfX: (x1 - x0) / 2, halfZ: (z1 - z0) / 2, top: top + 400 }
+    const ss = Math.max(1, Math.min(4, Math.floor(this.renderer.capabilities.maxTextureSize / Math.max(w, h))))
+    const bigW = w * ss
+    const bigH = h * ss
     // From that height the deepest ground may lie past the top-down view's far plane.
     const far = this.ortho.far
     this.ortho.far = ORTHO_HEIGHT + 400 + 20000
@@ -3882,9 +3894,9 @@ export class Engine {
       const background = this.scene.background
       this.scene.background = new THREE.Color(0, 0, 0)
       let rt = this.minimapTarget
-      if (!rt || rt.width !== big) {
+      if (!rt || rt.width !== bigW || rt.height !== bigH) {
         rt?.dispose()
-        rt = this.minimapTarget = new THREE.WebGLRenderTarget(big, big, { samples: 0 })
+        rt = this.minimapTarget = new THREE.WebGLRenderTarget(bigW, bigH, { samples: 0 })
         rt.texture.colorSpace = THREE.SRGBColorSpace
         // three tone maps and converts to sRGB only when drawing to the screen or to an XR target, and
         // the minimap should look as the editor's view does. Stored as plain bytes, not as an sRGB
@@ -3892,13 +3904,13 @@ export class Engine {
         ;(rt as THREE.WebGLRenderTarget & { isXRRenderTarget: boolean }).isXRRenderTarget = true
         rt.texture.internalFormat = 'RGBA8'
       }
-      const pix = new Uint8Array(big * big * 4)
+      const pix = new Uint8Array(bigW * bigH * 4)
       const prev = this.renderer.getRenderTarget()
       try {
         this.renderer.setRenderTarget(rt)
         this.renderer.clear()
         this.renderer.render(this.scene, this.ortho)
-        this.renderer.readRenderTargetPixels(rt, 0, 0, big, big, pix)
+        this.renderer.readRenderTargetPixels(rt, 0, 0, bigW, bigH, pix)
         if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
       } finally {
         this.renderer.setRenderTarget(prev)
@@ -3909,26 +3921,27 @@ export class Engine {
           else un.value = v
         }
       }
-      // Averaged down 4x4, and turned upright: GL reads the bottom row first.
-      const out = new Uint8Array(side * side * 4)
-      for (let y = 0; y < side; y++) {
-        for (let x = 0; x < side; x++) {
+      // Averaged down ss by ss, and turned upright: GL reads the bottom row first.
+      const out = new Uint8Array(w * h * 4)
+      const n = ss * ss
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
           let r = 0
           let g = 0
           let b = 0
-          for (let sy = 0; sy < 4; sy++) {
-            const row = big - 1 - (y * 4 + sy)
-            for (let sx = 0; sx < 4; sx++) {
-              const i = (row * big + x * 4 + sx) * 4
+          for (let sy = 0; sy < ss; sy++) {
+            const row = bigH - 1 - (y * ss + sy)
+            for (let sx = 0; sx < ss; sx++) {
+              const i = (row * bigW + x * ss + sx) * 4
               r += pix[i]
               g += pix[i + 1]
               b += pix[i + 2]
             }
           }
-          const o = (y * side + x) * 4
-          out[o] = r >> 4
-          out[o + 1] = g >> 4
-          out[o + 2] = b >> 4
+          const o = (y * w + x) * 4
+          out[o] = Math.floor(r / n)
+          out[o + 1] = Math.floor(g / n)
+          out[o + 2] = Math.floor(b / n)
           out[o + 3] = 255
         }
       }

@@ -270,6 +270,10 @@ export function ReadHeightmap(arg1) {
   return window['go']['main']['App']['ReadHeightmap'](arg1);
 }
 
+export function ReadImageFile(arg1) {
+  return window['go']['main']['App']['ReadImageFile'](arg1);
+}
+
 export function ReadItem(arg1) {
   return window['go']['main']['App']['ReadItem'](arg1);
 }
@@ -280,6 +284,10 @@ export function ReadTextFile(arg1) {
 
 export function ReadVendor(arg1) {
   return window['go']['main']['App']['ReadVendor'](arg1);
+}
+
+export function ReadWorldMap(arg1, arg2) {
+  return window['go']['main']['App']['ReadWorldMap'](arg1, arg2);
 }
 
 export function RegionEdges(arg1, arg2, arg3, arg4) {
@@ -464,6 +472,10 @@ export function WritePNG(arg1, arg2) {
 
 export function WriteTextFile(arg1, arg2) {
   return window['go']['main']['App']['WriteTextFile'](arg1, arg2);
+}
+
+export function WriteWorldMap(arg1) {
+  return window['go']['main']['App']['WriteWorldMap'](arg1);
 }
 
 export function ZoneSounds() {
