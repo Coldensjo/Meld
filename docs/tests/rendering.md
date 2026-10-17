@@ -282,7 +282,7 @@ cascade in the scene pass and the near cascade's shadow pass, and looks the same
   culled city falls off it when few of its groups are in view and a lookup there reads 0. On
   2026-10-17 (#252) the probe's view held none of the city's groups (not the 31k above; the
   viewport's shape followed the owner's layout prefs, which the probe page has ignored since #253:
-  the frame is 743,861 triangles with the cull, 3.55M without, stormwind.wmo 754 in view) and the near cascade 2,336 triangles. The probe counts the batch's own
+  then, with the flying camera on the ground, the frame was 743,861 triangles with the cull; since #256 the scene orbits again: 2,574,272 with the cull, 5.30M without, stormwind.wmo 31,139 in view) and the near cascade 2,336 triangles. The probe counts the batch's own
   mesh (`meshTriangles` from `engine/perfMeter.ts`) instead.
 - Same picture: `setSceneView({ target: [-300, 120, 250], yaw: 4.71, pitch: 0.25, distance: 500, hour: 13 })`
   draws 55% of the city; with `enabled` off and on the shots differ in 0.14% of pixels (edges, swaying

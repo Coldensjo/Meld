@@ -1,6 +1,8 @@
 // View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, and turning the view off frees it all.
 const e = P.e
 const { prefs } = await P.state()
+// Orbit the map's centre: the default flying camera sits 250 yd up and Test a Path's clicks land past the built tiles (#256).
+prefs.cameraFollowGround = true
 e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const nav = e.nav

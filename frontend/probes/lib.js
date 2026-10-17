@@ -5,8 +5,12 @@ const P = {
 		return window.__engine
 	},
 
-	/** The benchmark scene (docs/TESTS.md, "Measuring performance"): Northshire, over the abbey. */
-	BENCH: 'Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":32,"y":48,"size":1}},"view":{"target":[182,30,353],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}',
+	/**
+	 * The benchmark scene (docs/TESTS.md, "Measuring performance"): Northshire, over the abbey. Its view is
+	 * an orbit 60 yd out, so it turns Follow the Ground on: with the default flying camera the target is
+	 * the camera itself, down on the ground (#256).
+	 */
+	BENCH: 'Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":32,"y":48,"size":1}},"view":{"target":[182,30,353],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{"cameraFollowGround":true},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}',
 
 	/** An app module by path, through the URL the page loaded it from (a bare path gives a second copy). */
 	async app(path) {

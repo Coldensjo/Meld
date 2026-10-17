@@ -297,9 +297,15 @@ the same scene, the report before and after.
   compare between probe runs on this machine): 1996 draw calls, 697,402 triangles (2,052,549 before
   #215 culled Stormwind's groups in the near shadow cascade), 168 geometries, 719 textures, 325 MB
   heap; the most triangles: a Defias HumanMale (54k), Wolf (42k), nsabbey.wmo (35k), stormwind.wmo
-  (33k). Since #253 the probe page runs on default prefs, so the numbers hold on any machine: on
-  2026-10-17, 2001 draw calls, 743,861 triangles, 177 geometries, 670 textures, 332 MB heap; the most
-  triangles: HumanMale (54k), Wolf (44k), Kobold (29k), nsabbey.wmo (25k). Update this when a commit moves it on purpose.
+  (33k). Since #253 the probe page runs on default prefs, so the numbers hold on any machine. Since
+  #256 the scene turns Follow the Ground on (`P.BENCH`): the default flying camera took the view's
+  target as the camera's own spot, down on the ground by the abbey (2001 calls, 743,861 triangles, and
+  `terrain-dxt` read a flat far half). On 2026-10-17 after #256: 3015 draw calls, 2,574,488 triangles,
+  185 geometries, 688 textures, 305 MB heap; the most triangles: HumanMale (54k), Wolf (44k),
+  nsabbey.wmo (35k), stormwind.wmo (31k). Update this when a commit moves it on purpose.
+- Trap: a scene's `view` means an orbit (target, distance) only with Follow the Ground on; with the
+  default flying camera the target is where the camera stands. A hand-written scene or a probe that
+  places the camera by target and distance must set `cameraFollowGround: true` (#256).
 
 ## Index of feature checks
 

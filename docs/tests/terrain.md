@@ -348,7 +348,8 @@ creature's way round obstacles.
   `TestClientCollision` (three hulls wound outward by signed volume, Goldshire inn's floors facing up).
 - Probe: `pnpm probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
   round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, and the view
-  off freeing every tile.
+  off freeing every tile. It turns Follow the Ground on first: with the default flying camera the new
+  map's view starts 250 yd up and Test a Path's clicks land 345 yd out, past the built tiles (#256).
 - In the benchmark scene (Northshire Abbey) the 177 tiles take 3.4 ms each on average, 41 ms at worst
   (the abbey's tiles); on SwiftShader the whole build takes about 70 s of frames, so wait on
   `e.nav.counts` (`done === total`, `loading === 0`, `!settling`), never on a fixed number of frames.
