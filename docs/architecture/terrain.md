@@ -74,6 +74,25 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   (`adt/header.go`); a map saved before version 5 (`MapDocument.chunkDataKnown` false) sends none,
   so a region keeps the client's.
 
+- **Walkable ground** (#175): Terrain › Climb (`prefs.climbView`, Shift+F2) tints each triangle
+  steeper than `prefs.climbAngle` in the terrain shader (`climbCos`). View › Walkable ground
+  (`prefs.navView`) draws the navmesh VMaNGOS's MoveMapGenerator would build, around the camera's
+  target (`world/nav/`):
+  - `navBuild.ts` runs Recast per 21.3 yd tile through recast-navigation-js (MIT, WASM, imported on
+    first use by `loadRecast`) with TileWorker.cpp's settings (`vmangosSettings`: 0.2667 yd voxels,
+    80 a tile, agent 1.5 yd tall and 0.2 wide on maps 0 and 1, climb 1.8) and its areas: ground up to
+    52°, steep slope (creatures only, `NAV_STEEP`) up to 75° on the terrain and 61° on models.
+    Left out: liquids, the server's 1.2 yd terrain-to-model step limit, gameobjects.
+  - `navGeometry.ts` gathers a tile's triangles: the terrain's cells (holes left out through
+    `writeCellIndex`) and the placed models' collision faces (`/wow/collision`: an M2's hull, a WMO's
+    walking faces and its doodads' hulls), dropping model faces below the ground as the server does.
+  - `NavPreview.ts` keeps the tiles within `RANGE` (160 yd), builds the nearest first within 6 ms a
+    frame, and builds them again 400 ms after the terrain's height or holes, the objects or the
+    loaded collision stop changing. `Engine.updateNav` calls it only while the view is on and
+    `clear()`s it (frees the WASM navmesh) when it goes off. View › Test a Path arms `Engine.navPick`:
+    the next two clicks are a creature's path (`NavPreview.pathPoint`, Detour's `computePath`),
+    drawn as a line, its length in the status bar.
+
 - **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
   target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides
   the map edge.

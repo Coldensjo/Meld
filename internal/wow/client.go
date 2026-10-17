@@ -542,6 +542,11 @@ func (c *Client) Handler() http.Handler {
 		b, err := c.WMONav(r.URL.Query().Get("path"))
 		blob(w, b, err)
 	})
+	// A model's collision faces for the walkable-ground preview (#175); a WMO's with its doodad set.
+	mux.HandleFunc("/wow/collision", func(w http.ResponseWriter, r *http.Request) {
+		b, err := c.Collision(r.URL.Query().Get("path"), ParseLook(r.URL.Query()).Set)
+		blob(w, b, err)
+	})
 	return mux
 }
 

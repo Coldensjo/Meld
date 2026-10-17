@@ -177,7 +177,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   another in the game object editor, and undone), `object-tilt` (#229, the Sunken Chest drawn tilted
   and its rotation kept by a move's SQL), `object-loot` (#220, a vein's shared loot list in the game
   object editor's Contents tab, a copy of its own, an added item, Make it a chest and the respawn time,
-  nothing written). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
+  nothing written), `walkable` (#175, the navmesh view's tiles, a path round holes, a WMO's floors). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
   that the probe exists.
 
 ## The live app without Claude in Chrome (headless Chrome over CDP)
@@ -313,6 +313,7 @@ the same scene, the report before and after.
 - Heightmap import on a tile, Auto heights and the normal map (#44)
 - Water layers (the Water tool's All layers / Layer, #14)
 - Baked shadows: bake, paint, save and export (B-057, #16)
+- Walkable ground: the navmesh view and the path test (#175)
 
 ### Tools and placing models (`docs/tests/tools.md`)
 

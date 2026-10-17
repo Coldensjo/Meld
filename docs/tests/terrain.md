@@ -321,3 +321,21 @@ export sends each chunk's MCSH as the client has it.
 - Trap: T3 Code's preview tab is hidden, and Chrome throttles a hidden page's `setTimeout` to once a
   second: a loop that yields with `setTimeout(0)` crawls there (the bake took over a minute). Yield
   through a `MessageChannel` instead.
+
+## Walkable ground: the navmesh view and the path test (#175)
+
+Checks: View › Walkable ground builds the server's navmesh around the camera's target from the
+terrain and the placed models' collision, rebuilds it after an edit, and View › Test a Path finds a
+creature's way round obstacles.
+- Unit: `tests/navmesh.test.ts` (slope areas, the tile gatherer, a navmesh round a wall with the real
+  WASM in node, a few ms a tile). Go: `TestM2HullFaces`, and with `WOW_DIR=C:/WoW/client`
+  `TestClientCollision` (three hulls wound outward by signed volume, Goldshire inn's floors facing up).
+- Probe: `pnpm probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
+  round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, and the view
+  off freeing every tile.
+- In the benchmark scene (Northshire Abbey) the 177 tiles take 3.4 ms each on average, 41 ms at worst
+  (the abbey's tiles); on SwiftShader the whole build takes about 70 s of frames, so wait on
+  `e.nav.counts` (`done === total`, `loading === 0`, `!settling`), never on a fixed number of frames.
+- Traps: a change (sculpt, a model loading or moving) holds the build until 400 ms pass without one,
+  so while models stream in after a region opens nothing builds; the roofs get navmesh too, as on the
+  server (they are walkable, only unreachable).

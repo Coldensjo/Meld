@@ -5,7 +5,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - The asset source is the user's **local** WoW 1.12 client. `internal/mpq` reads the archives
   (our own reader; `Gophercraft/mpq` is GPL, so don't add it). `internal/wow` decodes BLP, M2 and
   WMO files.
-- `wow.Client.Handler()` serves `/wow/{status,list,texture,model}`. The handler is mounted via
+- `wow.Client.Handler()` serves `/wow/{status,list,texture,model}` (and `wmonav`, a WMO's room data,
+  and `collision`, a model's collision faces for the walkable-ground view, `wow/collision.go`). The handler is mounted via
   Wails `AssetServer.Middleware` in `main.go`, so it works in dev and prod. Responses are binary:
   - Textures: `"RGBA" w h pixels`; with `fmt=dxt` (#178) a DXT BLP comes as `"DXT1"`/`"DXT3"`/`"DXT5"`
     w h, the mip count and each level's size and blocks (`Client.TextureDXT`), which `loadTexture`

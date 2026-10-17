@@ -237,6 +237,17 @@ export function fetchWmoNav(path: string): Promise<ArrayBuffer> {
   return fetchBinary('wmonav', path)
 }
 
+/**
+ * A model's collision faces for the walkable-ground preview (#175), nine floats a triangle in the
+ * model's frame: an M2's hull, a WMO's walking faces and its doodads' hulls. `path` may carry a
+ * WMO's `?set=<n>` as a model type does.
+ */
+export async function fetchCollision(path: string): Promise<Float32Array> {
+  const buf = await fetchBinary('collision', path)
+  const n = new DataView(buf).getUint32(0, true)
+  return new Float32Array(buf, 4, n * 9)
+}
+
 export interface RawImage {
   width: number
   height: number

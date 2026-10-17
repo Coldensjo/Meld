@@ -371,6 +371,11 @@ export const prefs = $state({
   showAreaTriggers: false,
   /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb; Meld's Terrain › Climb). */
   climbView: false,
+  /**
+   * View › Walkable ground (#175): the navmesh the server's MoveMapGenerator would build, drawn over
+   * the ground around the camera (world/nav/NavPreview.ts).
+   */
+  navView: false,
   /** View › Height contours (#22, Noggit Red's): dark lines along the ground every contourStep yards of height. */
   showContours: false,
   /** The minimap window's Light zones (#26): the map's Light.dbc spheres, the radius each is full at and fades out by. */

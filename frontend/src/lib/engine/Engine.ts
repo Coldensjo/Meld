@@ -81,6 +81,7 @@ import { GPU_PASSES, PerfMeter, SECTION, topModels, type ModelCost, type PerfRep
 import { GpuTimer } from './gpuTimer'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
+import { NavPreview, RANGE as NAV_RANGE, type PathResult } from '../world/nav/NavPreview'
 import type { MapInfo } from './MapDocument'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects, withGroups } from '../state/selection'
@@ -431,6 +432,7 @@ export class Engine {
     this.scene.add(this.boxes.lines, this.groupBoxes.lines)
     this.scene.add(this.paths.group)
     this.scene.add(this.triggerLayer.group)
+    this.scene.add(this.nav.group)
 
 
     const aniso = this.renderer.capabilities.getMaxAnisotropy()
@@ -572,6 +574,7 @@ export class Engine {
     this.paths.dispose()
     for (const d of this.documents) d.dispose()
     this.triggerLayer.dispose()
+    this.nav.dispose()
     this.gpu.dispose()
     this.renderer.dispose()
   }
@@ -757,6 +760,12 @@ export class Engine {
           return
         }
         if (e.button !== 0) return
+        // The path test (View › Test a Path) takes the clicks before any tool.
+        if (this.navPick) {
+          const s = this.surfaceHit()
+          if (s) this.navPathPoint(s.point)
+          return
+        }
         c.setPointerCapture(e.pointerId)
         if (this.startGizmoDrag()) return
         // Alt+click is the pipette: a model's type to place, or the ground's texture to paint with.
@@ -909,6 +918,7 @@ export class Engine {
     u.gridVisible.value = editor.grid ? 1 : 0
     u.unpaintable.value = this.prefs?.showUnpaintable && editor.tool === 'paint' && editor.paintMode === 'texture' ? editor.paintLayer : -1
     u.climbCos.value = this.prefs?.climbView ? Math.cos((this.prefs.climbAngle * Math.PI) / 180) : 0
+    this.updateNav()
     u.contourStep.value = this.prefs?.showContours ? this.prefs.contourStep : 0
     u.chunkLineWorld.value = editor.chunkLines ? CHUNK_CELLS * this.terrain.cellSize : 0
     this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
@@ -1227,6 +1237,75 @@ export class Engine {
   /** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
   /** The open map's area triggers (#141), drawn with View › Area triggers or while the Portals dialog edits them. */
   readonly triggerLayer = new AreaTriggerLayer()
+
+  // ---------------------------------------------------------------- walkable ground (#175)
+
+  /** View › Walkable ground: the server's navmesh around the camera, built while the view is on. */
+  readonly nav = new NavPreview()
+  private navOn = false
+  /** View › Test a Path is waiting for its clicks. */
+  private navPick = false
+  private navStatusAt = 0
+  /** The progress line last shown while building, '' when none is up. */
+  private navStatus = ''
+
+  /** Builds the walkable-ground view's tiles while it is on, and frees them when it goes off. */
+  private updateNav() {
+    if (!this.prefs?.navView) {
+      if (this.navOn) {
+        this.navOn = false
+        this.navPick = false
+        this.navStatus = ''
+        this.nav.clear()
+      }
+      return
+    }
+    this.navOn = true
+    const now = performance.now()
+    const id = this.openMapId()
+    this.nav.group.visible = !this.topDown
+    this.nav.update(this.terrain, this.objects, this.controller.target, id === null || id <= 1, now)
+    if (now - this.navStatusAt < 500 || this.navPick) return
+    this.navStatusAt = now
+    const c = this.nav.counts
+    const busy = c.loading > 0 || c.done < c.total
+    // While building, its progress; once done, a line on what the colours mean (and nothing more, so a
+    // path test's result stays).
+    if (!busy && (c.settling || !this.navStatus)) return
+    const text = !busy
+      ? `Walkable ground: the navmesh within ${NAV_RANGE} yd. Green is ground, orange slopes only creatures take.`
+      : c.loading
+        ? "Walkable ground: loading the models' collision…"
+        : `Walkable ground: building the navmesh, ${c.done} of ${c.total} tiles…`
+    this.navStatus = busy ? text : ''
+    setStatus(text, busy ? 0 : 5000)
+  }
+
+  /** View › Test a Path: the next two clicks in the viewport are the path's start and end. */
+  startPathTest() {
+    this.navPick = true
+    this.navStatus = '' // no build line over the test's own
+    this.nav.clearPath()
+    setStatus('Path test: click where the path starts (Esc to stop).', 0)
+  }
+
+  private navPathPoint(p: THREE.Vector3) {
+    const r: PathResult = this.nav.pathPoint(p)
+    if (r.kind === 'start') {
+      setStatus('Path test: now click where it ends.', 0)
+      return
+    }
+    this.navPick = false
+    const msg =
+      r.kind === 'path'
+        ? `A creature walks ${Math.round(r.yards)} yd from there to there (${Math.round(r.straight)} yd as the crow flies).`
+        : r.kind === 'short'
+          ? `A creature can't reach that point: its path ends ${r.short.toFixed(1)} yd short, after ${Math.round(r.yards)} yd.`
+          : r.reason === 'unreached'
+            ? "A creature can't walk from there to there: the two points aren't connected."
+            : `There is no walkable ground at the ${r.reason === 'start' ? 'start' : 'end'} (or its tile isn't built yet).`
+    setStatus(msg, 8000)
+  }
   /** The document whose triggers were read from the client, and while it reads. */
   private triggersFor = -1
   private triggersLoading = false
@@ -4122,6 +4201,12 @@ export class Engine {
 
   /** Keys for the selected object. Returns true if handled. */
   handleSelectionKey(e: KeyboardEvent): boolean {
+    if (this.navPick && e.key === 'Escape') {
+      this.navPick = false
+      this.nav.clearPath()
+      setStatus('Stopped the path test.', 2000)
+      return true
+    }
     if (ui.pasting && this.lastCopied === 'area' && (e.key === 'r' || e.key === 'R')) {
       this.rotateClip()
       return true
