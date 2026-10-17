@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Eroder, talusSlope } from '../src/lib/terrain/erosion.ts'
-import { areaVertexWeights, erodePatch } from '../src/lib/terrain/erodeArea.ts'
+import { areaVertexWeights, erodePatch, settledMask, SETTLED_FULL } from '../src/lib/terrain/erodeArea.ts'
 import { INSIDE } from '../src/lib/terrain/areaShape.ts'
 
 /** A cone `top` cell units high and `r` cells wide in the middle of an n by n patch, with a few bumps so drops find their own ways. */
@@ -129,4 +129,35 @@ test('the area pass reports its progress to the end, and a cancel stops it at on
 	})
 	assert.equal(done, false)
 	assert.equal(turns, 1)
+})
+
+test('the settled mask is set at a cone\'s foot, empty on its peak, and only over the rect', async () => {
+	const n = 64
+	const hs = cone(n, 30, 24)
+	const before = hs.slice()
+	await erodePatch(hs, n, n, null, { density: 1, passes: 3, talus: 40, seed: 1 }, () => {}, () => false, 1000, () => Promise.resolve())
+	const gain = new Float32Array(n * n)
+	for (let i = 0; i < gain.length; i++) gain[i] = hs[i] - before[i]
+	// The patch sits at vertex (10, 20) of a map 100 cells a side, 4 texels a cell.
+	const per = 4
+	const res = 100 * per
+	const mask = new Uint8Array(res * res).fill(7)
+	const set = settledMask(gain, n, n, 10, 20, per, SETTLED_FULL, mask, res)
+	assert.ok(set > 0)
+	const texel = (vx: number, vz: number) => mask[((20 + vz) * per) * res + (10 + vx) * per]
+	assert.equal(texel(n / 2, n / 2), 0)
+	// Somewhere on the ring past the cone's foot, ground settled.
+	let foot = 0
+	for (let a = 0; a < 64; a++) {
+		const r = 24 + 2
+		foot = Math.max(foot, texel(Math.round(n / 2 + Math.cos(a) * r), Math.round(n / 2 + Math.sin(a) * r)))
+	}
+	assert.ok(foot > 0, `foot ${foot}`)
+	// Texels outside the rect's cells keep what they held.
+	for (let tz = 0; tz < res; tz++) {
+		for (let tx = 0; tx < res; tx++) {
+			const inside = tx >= 10 * per && tx < (10 + n - 1) * per && tz >= 20 * per && tz < (20 + n - 1) * per
+			if (!inside) assert.equal(mask[tz * res + tx], 7)
+		}
+	}
 })

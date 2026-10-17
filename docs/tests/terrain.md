@@ -82,12 +82,18 @@ Checks: the Erode brush (water and thermal) and the area pass. The droplet and t
 cancel stops at the next turn). In the live app, `pnpm probe erode`: on a Mountains map (256, seed 3)
 a water and a thermal stroke at the steepest spot change only vertices inside the brush and undo and
 redo exactly, and `Engine.erodeArea` over a 60-cell square changes only its inner vertices, reports
-progress to 1, undoes as "Erode selection", and a cancelled run changes nothing.
+progress to 1, undoes as "Erode selection", and a cancelled run changes nothing. With `mask: true`
+(#242) the mask holds texels only inside the square, a texel set far outside is cleared, `ui.maskActive`
+turns on, and one undo restores the mask and the heights; `settledMask` has its own unit test (set at a
+cone's foot, empty on its peak, nothing outside the rect written).
 
 - To see it, a scratch probe can `e.controller.setView(x, y, z, 0.8, 0.7, 380)` over the highest peak
   and run `pnpm probe <file> --shot <dir>` with and without `erodeArea` (density 1, 5 passes): the peak
   comes out lower and gullied. The 256 Mountains preset is only about 60 yd high, so a stroke there is
   stronger than on a client continent.
+- To see the mask, a scratch probe can draw the area's heights and `t.mask` side by side into a
+  `{ w, h, px }` picture and `P.save` it (spot (68, 52) of that map): the mask lies in the low ground
+  beside the ridge, about 45% of the square's texels, a sixth of them full.
 - One drop a cell moves up to about 40% of a small steep cone's height (the unit test's bound is half); the dialog defaults to 0.5.
 
 ## Mask wand, Grow, Shrink and Feather (#183)

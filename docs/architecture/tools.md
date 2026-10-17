@@ -34,6 +34,9 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     (`Engine.erodeArea`, `ErodeDialog.svelte`) runs drops and thermal passes over the selected area
     (vertices whose cells are all in it, `terrain/erodeArea.ts`) or the whole map, a 30 ms slice at a
     time between frames with a progress bar and Cancel, then writes the result as one undo step.
+    Its "Mask where sediment settled" option (#242, `editor.erode.mask`) replaces the paint mask, in
+    the same step, with each vertex's rise (dropped sediment and slid scree, bilinear to the mask's
+    texels, full at `SETTLED_FULL` = 1 yd; `settledMask`), so Fill Mask lays dirt or gravel there.
   - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
   - **Every edit must be undoable** through `History`.
 - **Stamp** (`tools/StampTool.ts`, tool `stamp`, key 0) applies a brush stack (`tools/brushStack.ts`,

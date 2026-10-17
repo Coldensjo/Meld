@@ -27,7 +27,7 @@
 		cancelled = false
 		share = 0
 		try {
-			const done = await e.erodeArea({ density: o.density, passes: o.passes, talus: o.talus, seed: o.seed }, (f) => (share = f), () => cancelled)
+			const done = await e.erodeArea({ density: o.density, passes: o.passes, talus: o.talus, seed: o.seed, mask: o.mask }, (f) => (share = f), () => cancelled)
 			if (done) onclose()
 		} finally {
 			running = false
@@ -53,6 +53,11 @@
 		<span><input id="erode-talus" type="number" min="5" max="80" step="1" value={o.talus} disabled={running} onchange={(e) => (o.talus = clamp(num(e), 5, 80))} /> °</span>
 		<label for="erode-seed" title="Where the drops start; the same seed erodes the same ground the same way">Seed</label>
 		<span><input id="erode-seed" type="number" min="1" step="1" value={o.seed} disabled={running} onchange={(e) => (o.seed = Math.max(1, Math.round(clamp(num(e), 1, 2 ** 31))))} /></span>
+		<span></span>
+		<label class="check" title="Replace the paint mask with where the drops left their load and loose ground slid to, full where a yard or more settled; then Paint › Fill Mask with Paint Texture lays dirt or gravel there">
+			<input type="checkbox" checked={o.mask} disabled={running} onchange={(e) => (o.mask = (e.target as HTMLInputElement).checked)} />
+			Mask where sediment settled
+		</label>
 	</div>
 	{#if running}
 		<div class="bar" role="progressbar" aria-label="Eroding" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)}>
@@ -76,6 +81,11 @@
 	}
 	.grid input[type='number'] {
 		width: 64px;
+	}
+	.check {
+		display: flex;
+		align-items: center;
+		gap: 6px;
 	}
 	.dim {
 		color: var(--text-dim);

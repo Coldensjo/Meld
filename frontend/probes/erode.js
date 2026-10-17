@@ -1,4 +1,4 @@
-// Sculpt › Erode (water and thermal strokes) and Terrain › Erode over a selected area on a Mountains map change the heights only where they may, and undo and redo each exactly.
+// Sculpt › Erode (water and thermal strokes) and Terrain › Erode over a selected area on a Mountains map change the heights only where they may, and undo and redo each exactly; with the mask option the paint mask holds where the ground settled, only in the area, and undoes with the heights.
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'mountains', 3, 'Probe')
@@ -91,12 +91,44 @@ const areaUndone = diff(before, t.heights)
 // A cancelled run leaves the ground as it was.
 const cancelled = await e.erodeArea({ density: 2, passes: 0, talus: 40, seed: 2 }, () => {}, () => true)
 const afterCancel = diff(before, t.heights)
+// With "Mask where sediment settled" (#242): the mask replaces a texel set far outside, holds texels only inside the area, and undo restores both.
+const R = t.splatRes
+const per = R / t.size
+const far = (sel.z0 - 10) * per * R + (sel.x0 - 10) * per
+t.mask.fill(0)
+t.mask[far] = 200
+t.markMaskDirty()
+const maskBefore = Uint8Array.from(t.mask)
+await e.erodeArea({ density: 0.5, passes: 3, talus: 40, seed: 1, mask: true }, () => {}, () => false)
+await P.frames(1)
+let maskSet = 0
+let maskOutside = 0
+let maskFull = 0
+const levels = [0, 0, 0, 0]
+for (let i = 0; i < t.mask.length; i++) {
+	const m = t.mask[i]
+	if (!m) continue
+	maskSet++
+	if (m === 255) maskFull++
+	levels[Math.min(3, m >> 6)]++
+	const tx = i % R
+	const tz = Math.floor(i / R)
+	if (tx < sel.x0 * per || tz < sel.z0 * per || tx >= sel.x1 * per || tz >= sel.z1 * per) maskOutside++
+}
+const maskActive = (await P.state()).ui.maskActive
+const farLeft = t.mask[far]
+const heightsMoved = diff(before, t.heights)
+e.history.undo()
+await P.frames(1)
+const mask = { set: maskSet, full: maskFull, levels, outside: maskOutside, farLeft, active: maskActive, heightsMoved, maskUndone: diff(maskBefore, t.mask), heightsUndone: diff(before, t.heights) }
+t.mask.fill(0)
+t.markMaskDirty()
 editor.selection = null
-const area = { finished, progress: last, changed: areaChanged, outside: outsideArea, undone: areaUndone, label: areaLabel, cancelled, afterCancel }
+const area = { finished, progress: last, changed: areaChanged, outside: outsideArea, undone: areaUndone, label: areaLabel, cancelled, afterCancel, mask }
 
 const good = (s) => s.changed > 20 && s.outside === 0 && s.undone === 0 && s.redone === 0
 return {
-	ok: good(water) && good(thermal) && finished && last === 1 && areaChanged > 500 && outsideArea === 0 && areaUndone === 0 && cancelled === false && afterCancel === 0,
+	ok: good(water) && good(thermal) && finished && last === 1 && areaChanged > 500 && outsideArea === 0 && areaUndone === 0 && cancelled === false && afterCancel === 0 && mask.set > 100 && mask.outside === 0 && mask.farLeft === 0 && mask.active && mask.heightsMoved > 500 && mask.maskUndone === 0 && mask.heightsUndone === 0,
 	spot: { x: sx, z: sz, steepest: +steepest.toFixed(1) },
 	water,
 	thermal,

@@ -27,7 +27,7 @@ import { areaCells, areaShape, objectsInArea, setAreaCells } from '../state/area
 import { INSIDE, cellsInRect } from '../terrain/areaShape'
 import { growMask, shrinkMask } from '../terrain/maskSelect'
 import { ShadowStroke } from '../tools/shadowStroke'
-import { areaVertexWeights, erodePatch, type ErodeSettings } from '../terrain/erodeArea'
+import { areaVertexWeights, erodePatch, settledMask, SETTLED_FULL, type ErodeSettings } from '../terrain/erodeArea'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
@@ -4131,8 +4131,9 @@ export class Engine {
    * Terrain › Erode (#165): water drops and then thermal passes (terrain/erodeArea.ts) over the selected
    * area or the whole map, as one undo step. It works on a copy of the heights a slice at a time between
    * frames, reporting the share done to `progress`, and leaves the ground as it was when `cancelled`
-   * says so; the dialog that runs it stays up meanwhile, so nothing else edits the map. Returns whether
-   * it ran to the end.
+   * says so; the dialog that runs it stays up meanwhile, so nothing else edits the map. With `o.mask`
+   * the paint mask becomes where the ground settled (#242), in the same undo step. Returns whether it
+   * ran to the end.
    */
   async erodeArea(o: ErodeSettings, progress: (f: number) => void, cancelled: () => boolean): Promise<boolean> {
     if (this.eroding) {
@@ -4164,15 +4165,18 @@ export class Engine {
       return false
     }
     const resnap = (q: Rect) => this.objects.markRegionDirty(q.x0 * cs, q.z0 * cs, q.x1 * cs, q.z1 * cs)
-    const stroke = new TerrainStroke(t, s ? 'Erode selection' : 'Erode map', { heights: true }, resnap)
+    const stroke = new TerrainStroke(t, s ? 'Erode selection' : 'Erode map', { heights: true, mask: o.mask }, resnap)
     stroke.reserveHeights(r)
     let most = 0
+    // With the mask (#242), each vertex's rise in yards: where the drops left their load and scree slid to.
+    const gain = o.mask ? work : null
     for (let z = 0; z < h; z++) {
       for (let x = 0; x < w; x++) {
         const k = z * w + x
-        if (!weights[k]) continue
         const i = (r.z0 + z) * V + r.x0 + x
-        const d = work[k] * cs - t.heights[i]
+        const d = weights[k] ? work[k] * cs - t.heights[i] : 0
+        if (gain) gain[k] = d
+        if (!d) continue
         if (Math.abs(d) > most) most = Math.abs(d)
         t.heights[i] += d
       }
@@ -4180,9 +4184,22 @@ export class Engine {
     t.markDirty(r.x0, r.z0, r.x1, r.z1)
     stroke.touchHeights(r)
     objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+    let settled = 0
+    if (gain) {
+      // The sediment map takes the mask's place, so Fill Mask lays a texture only where the ground settled.
+      const R = t.splatRes
+      const all = { x0: 0, z0: 0, x1: R - 1, z1: R - 1 }
+      stroke.reserveMask(all)
+      t.mask.fill(0)
+      settled = settledMask(gain, w, h, r.x0, r.z0, R / t.size, SETTLED_FULL, t.mask, R)
+      stroke.touchMask(all)
+      t.markMaskDirty()
+    }
     const cmd = stroke.finish()
     if (cmd) (this.documents.find((d) => d.terrain === t)?.history ?? this.history).push(cmd)
-    setStatus(`Eroded the ground ${where}: up to ${most.toFixed(1)} yd moved.`, 4000)
+    if (gain) this.refreshMaskState()
+    const masked = !gain ? '' : settled ? `; the mask holds where it settled (Paint › Fill Mask with Paint Texture lays a texture there)` : '; nothing settled enough to mask'
+    setStatus(`Eroded the ground ${where}: up to ${most.toFixed(1)} yd moved${masked}.`, gain ? 8000 : 4000)
     return true
   }
 

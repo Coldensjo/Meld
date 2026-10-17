@@ -96,9 +96,10 @@ export const editor = $state({
    * Sculpt › Erode and Terrain › Erode (#165, terrain/erosion.ts). The brush runs water drops
    * ('hydraulic', which carve gullies and leave fans at their feet) or lets the ground slide where it
    * is steeper than `talus` degrees ('thermal'). Erode over an area runs `density` drops a cell, then
-   * `passes` thermal passes at `talus`, from the random `seed`.
+   * `passes` thermal passes at `talus`, from the random `seed`; with `mask` it then puts where the
+   * ground settled into the paint mask (#242).
    */
-  erode: { kind: 'hydraulic' as 'hydraulic' | 'thermal', talus: 40, density: 0.5, passes: 5, seed: 1 },
+  erode: { kind: 'hydraulic' as 'hydraulic' | 'thermal', talus: 40, density: 0.5, passes: 5, seed: 1, mask: false },
   sculptLimit: 'none' as SculptLimit,
   /**
    * Sculpting also paints under the brush: 'texture' paints `sculptPaintLayer` (a palette index, per

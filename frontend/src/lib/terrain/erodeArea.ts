@@ -14,6 +14,39 @@ export interface ErodeSettings {
 	/** The slope in degrees steeper than which thermal erosion moves ground. */
 	talus: number
 	seed: number
+	/** Puts where the ground settled into the paint mask, in place of what it held (#242). */
+	mask?: boolean
+}
+
+/** Yards of settled ground that make a full mask texel (#242); less makes a fainter one. */
+export const SETTLED_FULL = 1
+
+/**
+ * Writes into the paint mask `out` (`res` texels a side, `per` texels a cell) how much ground settled
+ * over the vertex rect at (`x0`, `z0`), `w` by `h`: `gain` is each vertex's rise in yards (0 where it
+ * may not change), bilinear between the vertices, and a texel is full (255) at `full` yards or more.
+ * Only the texels of the rect's cells are written; returns how many came out above 0.
+ */
+export function settledMask(gain: Float32Array, w: number, h: number, x0: number, z0: number, per: number, full: number, out: Uint8Array, res: number): number {
+	const scale = 255 / full
+	const up = (i: number) => (gain[i] > 0 ? gain[i] : 0)
+	let n = 0
+	for (let tz = z0 * per; tz < (z0 + h - 1) * per; tz++) {
+		const fz = (tz + 0.5) / per - z0
+		const iz = Math.floor(fz)
+		const v = fz - iz
+		for (let tx = x0 * per; tx < (x0 + w - 1) * per; tx++) {
+			const fx = (tx + 0.5) / per - x0
+			const ix = Math.floor(fx)
+			const u = fx - ix
+			const i = iz * w + ix
+			const g = up(i) * (1 - u) * (1 - v) + up(i + 1) * u * (1 - v) + up(i + w) * (1 - u) * v + up(i + w + 1) * u * v
+			const m = Math.min(255, Math.round(g * scale))
+			out[tz * res + tx] = m
+			if (m) n++
+		}
+	}
+	return n
 }
 
 /** An inclusive vertex rect. */
