@@ -15,7 +15,22 @@ export interface CreatureField {
   /** A 0/1 checkbox. */
   bool?: boolean
   hint?: string
+  /** A number that names a thing: a picker that shows its name (components/RefField.svelte). */
+  ref?: RefKind
+  /** Text of several lines (a text area). */
+  long?: boolean
+  /** The whole row of the grid. */
+  wide?: boolean
+  /** What the value comes to, beside the label (such as copper as gold and silver). */
+  note?: (value: string) => string
 }
+
+/**
+ * What a reference column names: an item, a creature (positive) or game object (negative), a spell,
+ * a quest (by its absolute value), a faction (Faction.dbc), a zone (positive) or quest sort
+ * (negative), a skill or an emote.
+ */
+export type RefKind = 'item' | 'creature or object' | 'spell' | 'quest' | 'faction' | 'zone or sort' | 'skill' | 'emote'
 
 export interface CreatureFieldGroup {
   title: string

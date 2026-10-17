@@ -66,6 +66,10 @@ export function CreateObject(arg1, arg2) {
   return window['go']['main']['App']['CreateObject'](arg1, arg2);
 }
 
+export function CreateQuest(arg1, arg2) {
+  return window['go']['main']['App']['CreateQuest'](arg1, arg2);
+}
+
 export function DropRecovery(arg1) {
   return window['go']['main']['App']['DropRecovery'](arg1);
 }
@@ -262,6 +266,10 @@ export function PublishVmangosMap(arg1) {
   return window['go']['main']['App']['PublishVmangosMap'](arg1);
 }
 
+export function QuestTables() {
+  return window['go']['main']['App']['QuestTables']();
+}
+
 export function Quit() {
   return window['go']['main']['App']['Quit']();
 }
@@ -304,6 +312,14 @@ export function ReadObject(arg1) {
 
 export function ReadObjectLoot(arg1, arg2) {
   return window['go']['main']['App']['ReadObjectLoot'](arg1, arg2);
+}
+
+export function ReadQuest(arg1) {
+  return window['go']['main']['App']['ReadQuest'](arg1);
+}
+
+export function ReadQuestGivers(arg1) {
+  return window['go']['main']['App']['ReadQuestGivers'](arg1);
 }
 
 export function ReadTextFile(arg1) {
@@ -402,6 +418,14 @@ export function SavePrefs(arg1) {
   return window['go']['main']['App']['SavePrefs'](arg1);
 }
 
+export function SaveQuest(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveQuest'](arg1, arg2, arg3);
+}
+
+export function SaveQuestGivers(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveQuestGivers'](arg1, arg2, arg3);
+}
+
 export function SaveRecovery(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveRecovery'](arg1, arg2, arg3);
 }
@@ -492,6 +516,10 @@ export function SpellRefs(arg1) {
 
 export function SpellTexts(arg1) {
   return window['go']['main']['App']['SpellTexts'](arg1);
+}
+
+export function TemplateNames(arg1, arg2) {
+  return window['go']['main']['App']['TemplateNames'](arg1, arg2);
 }
 
 export function UpdateRegionServer(arg1, arg2) {

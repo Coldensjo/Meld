@@ -249,7 +249,8 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if (!target) return
+    // The quest editor over it takes its own Esc.
+    if (!target || ui.questEditor) return
     if (e.key === 'Escape') {
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
@@ -381,7 +382,7 @@
               <ShopTab entry={record.entry} npcFlags={Number(values.npc_flags) || 0} onvendorflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x4, true))} bind:dirty={shopDirty} />
             </div>
             <div hidden={tab !== 'quests'}>
-              <QuestsTab entry={record.entry} npcFlags={Number(values.npc_flags) || 0} onquestflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x2, true))} bind:dirty={questsDirty} />
+              <QuestsTab entry={record.entry} name={saved.name || values.name || ''} npcFlags={Number(values.npc_flags) || 0} onquestflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x2, true))} bind:dirty={questsDirty} />
             </div>
             <div hidden={tab !== 'messages'}>
               <MessagesTab entry={record.entry} onsaved={greetingSaved} bind:dirty={messagesDirty} />

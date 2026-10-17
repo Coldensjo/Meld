@@ -20,24 +20,29 @@ import (
 // and type in the game, so Stale remembers the entries saved and Forget takes them out of the
 // caches while the game is closed; the client then asks the server for them again.
 //
+// Quests are cached the same way, in WDB\questcache.wdb (their texts, objectives and rewards), so a
+// quest the quest editor saved is taken out of it too (#259).
+//
 // Benilla keeps the creature half in benilla-config/cache/<realm>.tsv (game objects only for the
 // session), so its lines for those creatures go too.
 
 const (
 	creatureCache = "creaturecache.wdb"
 	objectCache   = "gameobjectcache.wdb"
+	questCache    = "questcache.wdb"
 	// wdbHeader is the size of a WDB file's header: FourCC, build, locale, record size, version.
 	wdbHeader = 20
 	// benillaCacheTag starts the first line of Benilla's name cache files.
 	benillaCacheTag = "benilla-namecache"
 )
 
-// Stale is the creature and game object templates saved since the game's caches were last cleaned.
-// It's safe to use from several goroutines.
+// Stale is the creature and game object templates and the quests saved since the game's caches were
+// last cleaned. It's safe to use from several goroutines.
 type Stale struct {
 	mu        sync.Mutex
 	creatures map[uint32]bool
 	objects   map[uint32]bool
+	quests    map[uint32]bool
 }
 
 // AddCreature marks a creature template as changed.
@@ -45,6 +50,9 @@ func (s *Stale) AddCreature(entry uint32) { s.add(&s.creatures, entry) }
 
 // AddObject marks a game object template as changed.
 func (s *Stale) AddObject(entry uint32) { s.add(&s.objects, entry) }
+
+// AddQuest marks a quest as changed.
+func (s *Stale) AddQuest(entry uint32) { s.add(&s.quests, entry) }
 
 func (s *Stale) add(set *map[uint32]bool, entry uint32) {
 	s.mu.Lock()
@@ -59,7 +67,7 @@ func (s *Stale) add(set *map[uint32]bool, entry uint32) {
 func (s *Stale) Empty() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return len(s.creatures) == 0 && len(s.objects) == 0
+	return len(s.creatures) == 0 && len(s.objects) == 0 && len(s.quests) == 0
 }
 
 // Forget takes the changed templates out of the game's caches: the client's WDB files in clientRoot
@@ -68,13 +76,14 @@ func (s *Stale) Empty() bool {
 func (s *Stale) Forget(clientRoot, benilla string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.creatures) == 0 && len(s.objects) == 0 {
+	if len(s.creatures) == 0 && len(s.objects) == 0 && len(s.quests) == 0 {
 		return nil
 	}
 	wdb := filepath.Join(clientRoot, "WDB")
 	errs := []error{
 		pruneWDB(filepath.Join(wdb, creatureCache), s.creatures),
 		pruneWDB(filepath.Join(wdb, objectCache), s.objects),
+		pruneWDB(filepath.Join(wdb, questCache), s.quests),
 	}
 	if benilla != "" {
 		errs = append(errs, pruneBenilla(filepath.Join(benilla, "benilla-config", "cache"), s.creatures))
@@ -82,7 +91,7 @@ func (s *Stale) Forget(clientRoot, benilla string) error {
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	s.creatures, s.objects = nil, nil
+	s.creatures, s.objects, s.quests = nil, nil, nil
 	return nil
 }
 

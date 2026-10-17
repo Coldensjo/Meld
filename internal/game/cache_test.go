@@ -31,6 +31,7 @@ func TestForgetPrunesTheClientCaches(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(wdb, creatureCache), wdbFile("BOMW", 6, 240, 16244), 0o644)
 	os.WriteFile(filepath.Join(wdb, objectCache), wdbFile("BOGW", 1630, 175656), 0o644)
+	os.WriteFile(filepath.Join(wdb, questCache), wdbFile("BOQW", 7, 9666), 0o644)
 	other := wdbFile("BDIW", 240)
 	os.WriteFile(filepath.Join(wdb, "itemcache.wdb"), other, 0o644)
 
@@ -38,6 +39,7 @@ func TestForgetPrunesTheClientCaches(t *testing.T) {
 	s.AddCreature(240)
 	s.AddObject(175656)
 	s.AddObject(99) // not cached
+	s.AddQuest(9666)
 	if err := s.Forget(root, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -56,6 +58,7 @@ func TestForgetPrunesTheClientCaches(t *testing.T) {
 	}
 	check(creatureCache, wdbFile("BOMW", 6, 16244))
 	check(objectCache, wdbFile("BOGW", 1630))
+	check(questCache, wdbFile("BOQW", 7))
 	check("itemcache.wdb", other)
 }
 

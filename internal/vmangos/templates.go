@@ -13,14 +13,43 @@ import (
 	"Meld/internal/wow"
 )
 
-// TemplateColumn is a column of a template table (creature_template, gameobject_template): its name,
-// and the kind of value it holds ("int", "uint", "float" or "text"), whether it may be NULL, and for
-// text its length (0 for TEXT).
+// TemplateColumn is a column of a template table (creature_template, gameobject_template,
+// quest_template): its name, and the kind of value it holds ("int", "uint", "float" or "text"),
+// whether it may be NULL, for text its length (0 for TEXT), and for a whole number the least and
+// most it holds (both 0 for other kinds).
 type TemplateColumn struct {
 	Name     string `json:"name"`
 	Kind     string `json:"kind"`
 	Nullable bool   `json:"nullable"`
 	MaxLen   int    `json:"maxLen"`
+	Min      int64  `json:"min"`
+	Max      int64  `json:"max"`
+}
+
+// intRange is the least and most an integer column type holds (t lower case, such as
+// "smallint(5) unsigned").
+func intRange(t string) (int64, int64) {
+	bits := 32
+	switch {
+	case strings.HasPrefix(t, "tinyint"):
+		bits = 8
+	case strings.HasPrefix(t, "smallint"):
+		bits = 16
+	case strings.HasPrefix(t, "mediumint"):
+		bits = 24
+	case strings.HasPrefix(t, "bigint"):
+		bits = 64
+	}
+	if strings.Contains(t, "unsigned") {
+		if bits == 64 {
+			return 0, math.MaxInt64
+		}
+		return 0, 1<<bits - 1
+	}
+	if bits == 64 {
+		return math.MinInt64, math.MaxInt64
+	}
+	return -(1 << (bits - 1)), 1<<(bits-1) - 1
 }
 
 // The template tables the editors read and write.
@@ -55,6 +84,7 @@ func parseColumns(raw []byte) []TemplateColumn {
 			if strings.Contains(t, "unsigned") {
 				c.Kind = "uint"
 			}
+			c.Min, c.Max = intRange(t)
 		case strings.HasPrefix(t, "float"), strings.HasPrefix(t, "double"), strings.HasPrefix(t, "decimal"):
 			c.Kind = "float"
 		default:
@@ -126,6 +156,9 @@ func sqlValue(c TemplateColumn, v string) (string, error) {
 		}
 		if c.Kind == "uint" && n < 0 {
 			return "", fmt.Errorf("%s can't be negative", c.Name)
+		}
+		if (c.Min != 0 || c.Max != 0) && (n < c.Min || n > c.Max) {
+			return "", fmt.Errorf("%s must be from %d to %d, not %d", c.Name, c.Min, c.Max, n)
 		}
 		return strconv.FormatInt(n, 10), nil
 	case "float":
@@ -349,15 +382,15 @@ func CreateObject(serverRoot string, base int, name string) (int, error) {
 	return entry, err
 }
 
-// copyTemplateSQL is the INSERT that makes template entry of table, named name, a copy of base's
-// newest patch row.
-func copyTemplateSQL(table string, cols []TemplateColumn, entry, base int, nameCol string) string {
+// copyTemplateSQL is the INSERT that makes template entry of table a copy of base's newest patch
+// row, with nameSQL (an SQL value) in its column nameField.
+func copyTemplateSQL(table string, cols []TemplateColumn, entry, base int, nameField, nameSQL string) string {
 	names := []string{"`entry`", "`patch`"}
 	sel := []string{strconv.Itoa(entry), "0"}
 	for _, c := range cols {
 		names = append(names, "`"+c.Name+"`")
-		if c.Name == "name" {
-			sel = append(sel, nameCol)
+		if c.Name == nameField {
+			sel = append(sel, nameSQL)
 		} else {
 			sel = append(sel, "t.`"+c.Name+"`")
 		}
@@ -385,7 +418,7 @@ func createCreatureSQL(cols []TemplateColumn, entry, base int, name string) (str
 		return fmt.Sprintf("INSERT INTO `creature_template` (`entry`, `patch`, `name`, `level_min`, `level_max`, `unit_class`, `faction`, "+
 			"`display_scale1`, `display_probability1`, `display_total_probability`) VALUES (%d, 0, %s, 1, 1, 1, 14, 1, 100, 100);", entry, nameCol), nil
 	}
-	return copyTemplateSQL(creatureTable, cols, entry, base, nameCol), nil
+	return copyTemplateSQL(creatureTable, cols, entry, base, "name", nameCol), nil
 }
 
 // createObjectSQL is the INSERT that makes game object template entry named name, a copy of base's
@@ -399,7 +432,7 @@ func createObjectSQL(cols []TemplateColumn, entry, base int, name string) (strin
 		return fmt.Sprintf("INSERT INTO `gameobject_template` (`entry`, `patch`, `type`, `displayId`, `name`, `size`) VALUES (%d, 0, 5, 0, %s, 1);",
 			entry, nameCol), nil
 	}
-	return copyTemplateSQL(objectTable, cols, entry, base, nameCol), nil
+	return copyTemplateSQL(objectTable, cols, entry, base, "name", nameCol), nil
 }
 
 // DisplayEntry is a creature display as the creature editor's display picker shows it: the model,

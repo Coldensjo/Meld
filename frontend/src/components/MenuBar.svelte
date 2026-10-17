@@ -235,6 +235,7 @@
         { kind: 'action', label: 'Ground Effects (Grass Tufts)…', run: () => (ui.dialog = 'effects') },
         { kind: 'action', label: 'Texture Looks (Scrolling, Overbright)…', run: () => (ui.dialog = 'looks') },
         { kind: 'action', label: 'Creatures…', disabled: !hasBackend(), run: () => (ui.creatures = true) },
+        { kind: 'action', label: 'Quests…', disabled: !hasBackend(), run: () => (ui.questEditor = { entry: 0 }) },
         { kind: 'action', label: 'Zones…', disabled: !hasBackend(), run: () => (ui.dialog = 'zones') },
         { kind: 'action', label: 'World Map…', disabled: !hasBackend(), run: () => (ui.dialog = 'worldMap') },
         { kind: 'action', label: 'Portals and Area Triggers…', disabled: !hasBackend(), run: () => (ui.dialog = 'portals') },

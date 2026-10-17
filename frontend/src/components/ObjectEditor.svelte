@@ -287,7 +287,8 @@
 	}
 
 	function onKey(e: KeyboardEvent) {
-		if (!target) return
+		// The quest editor over it takes its own Esc.
+		if (!target || ui.questEditor) return
 		if (e.key === 'Escape') {
 			const el = e.target as HTMLElement | null
 			if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {

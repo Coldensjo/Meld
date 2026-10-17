@@ -1,20 +1,22 @@
 <script lang="ts">
 	import { ReadCreatureQuests, SaveCreatureQuests, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
-	import { setStatus } from '../lib/state/editor.svelte'
+	import { setStatus, ui } from '../lib/state/editor.svelte'
 
 	// The creature editor's Quests tab (#145): the quests the creature starts (creature_questrelation)
-	// and ends (creature_involvedrelation), edited as two lists and saved with Save quests.
+	// and ends (creature_involvedrelation), edited as two lists and saved with Save quests. Edit opens
+	// a quest in the quest editor (#259), and New quest makes one this creature gives and takes in.
 
 	/** npc_flags' quest giver bit: without it the creature offers and takes no quests. */
 	const QUEST_GIVER_FLAG = 0x2
 
 	let {
 		entry,
+		name,
 		npcFlags,
 		onquestflag,
 		dirty = $bindable(false),
-	}: { entry: number; npcFlags: number; onquestflag: () => void; dirty?: boolean } = $props()
+	}: { entry: number; name: string; npcFlags: number; onquestflag: () => void; dirty?: boolean } = $props()
 
 	type List = 'starts' | 'ends'
 	let quests = $state<{ starts: vmangos.QuestRef[]; ends: vmangos.QuestRef[] }>({ starts: [], ends: [] })
@@ -34,6 +36,26 @@
 		loadedFor = entry
 		void load()
 	})
+
+	// The quest editor saved (a title, or this creature's quests from the quest's side): read the
+	// lists again, unless they hold edits of their own.
+	let version = ui.questsVersion
+	$effect(() => {
+		const v = ui.questsVersion
+		if (v === version) return
+		version = v
+		if (!dirty) void load()
+	})
+
+	const giver = () => ({ kind: 'creature' as const, id: entry, name, ready: (npcFlags & QUEST_GIVER_FLAG) !== 0 })
+
+	function edit(quest: number) {
+		ui.questEditor = { entry: quest, giver: giver() }
+	}
+
+	function newQuest() {
+		ui.questEditor = { entry: -1, giver: giver() }
+	}
 
 	async function load() {
 		loading = true
@@ -126,6 +148,7 @@
 						<span class="lvl">[{r.level}]</span>
 						<span class="name">{r.title || '(unknown quest)'}</span>
 						<span class="dim">{r.quest}{r.patchMin > 0 || r.patchMax < 10 ? ` · patches ${r.patchMin}–${r.patchMax}` : ''}</span>
+						<button title="Open in the quest editor" onclick={() => edit(r.quest)}>Edit</button>
 						<button title="Remove" onclick={() => remove(list as List, i)}>✕</button>
 					</li>
 				{/each}
@@ -134,7 +157,10 @@
 	{/each}
 
 	<h3>Add quests</h3>
-	<input class="search" type="search" placeholder="Quest title or entry" bind:value={query} />
+	<span class="add">
+		<input class="search" type="search" placeholder="Quest title or entry" bind:value={query} />
+		<button onclick={newQuest} title="Make a quest in the quest editor that this creature gives and takes in">New quest…</button>
+	</span>
 	{#if searching && !results.length}<p class="dim">Searching…</p>{/if}
 	{#if results.length}
 		<ul class="list results">
@@ -214,7 +240,12 @@
 		max-height: 260px;
 		overflow-y: auto;
 	}
+	.add {
+		display: flex;
+		gap: 6px;
+	}
 	.search {
-		width: 100%;
+		flex: 1;
+		min-width: 0;
 	}
 </style>

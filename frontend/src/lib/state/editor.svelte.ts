@@ -604,6 +604,14 @@ export const ui = $state({
   weatherGrade: 'medium' as 'light' | 'medium' | 'heavy',
   /** The Creatures workspace (World › Creatures…, #132): find creatures and make a new one with the guide. */
   creatures: false,
+  /**
+   * The quest editor, full screen (#259, World › Quests…): the quest `entry` open, 0 for none (find
+   * one), -1 for a new quest; `giver`, the creature or object it was opened for (the creature
+   * editor's Quests tab), which a new quest is given and taken in by.
+   */
+  questEditor: null as { entry: number; giver?: { kind: 'creature' | 'object'; id: number; name: string; ready: boolean } } | null,
+  /** Bumped when the quest editor saves, so the creature editor's Quests tab reads its quests again. */
+  questsVersion: 0,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
   /** The game Meld closes and opens around an export (Game › Game Client): Wow.exe or Benilla. */

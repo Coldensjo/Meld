@@ -39,6 +39,8 @@ export function CreateCreature(arg1:number,arg2:string):Promise<number>;
 
 export function CreateObject(arg1:number,arg2:string):Promise<number>;
 
+export function CreateQuest(arg1:number,arg2:string):Promise<number>;
+
 export function DropRecovery(arg1:string):Promise<void>;
 
 export function EndRecovery():Promise<void>;
@@ -137,6 +139,8 @@ export function OpenTextDialog():Promise<string>;
 
 export function PublishVmangosMap(arg1:vmangos.MapSpec):Promise<void>;
 
+export function QuestTables():Promise<vmangos.QuestTables>;
+
 export function Quit():Promise<void>;
 
 export function ReadBrushImage(arg1:string,arg2:string):Promise<heightmap.GreyView>;
@@ -158,6 +162,10 @@ export function ReadItem(arg1:number):Promise<Record<string, string>>;
 export function ReadObject(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadObjectLoot(arg1:number,arg2:number):Promise<vmangos.ObjectLoot>;
+
+export function ReadQuest(arg1:number):Promise<vmangos.TemplateRecord>;
+
+export function ReadQuestGivers(arg1:number):Promise<vmangos.QuestGivers>;
 
 export function ReadTextFile(arg1:string):Promise<string>;
 
@@ -207,6 +215,10 @@ export function SavePrefabDialog(arg1:string,arg2:string):Promise<string>;
 
 export function SavePrefs(arg1:string):Promise<void>;
 
+export function SaveQuest(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
+
+export function SaveQuestGivers(arg1:number,arg2:vmangos.QuestGivers,arg3:Array<number>):Promise<string>;
+
 export function SaveRecovery(arg1:number,arg2:recovery.Info,arg3:mapfile.MapData):Promise<recovery.Info>;
 
 export function SaveRegion(arg1:vmangos.RegionEdit):Promise<vmangos.RegionResult>;
@@ -252,6 +264,8 @@ export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:n
 export function SpellRefs(arg1:Array<number>):Promise<Record<number, vmangos.SpellRef>>;
 
 export function SpellTexts(arg1:Array<number>):Promise<Record<number, string>>;
+
+export function TemplateNames(arg1:string,arg2:Array<number>):Promise<Record<number, vmangos.NamedRef>>;
 
 export function UpdateRegionServer(arg1:number,arg2:Array<string>):Promise<void>;
 

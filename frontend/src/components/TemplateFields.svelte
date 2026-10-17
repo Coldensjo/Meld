@@ -1,10 +1,13 @@
 <script lang="ts">
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { withBit, type CreatureField } from '../lib/world/creatureFields'
+	import RefField from './RefField.svelte'
 
 	// A group of a template's columns as the creature and game object editors show them: a checkbox
-	// list for flags, a checkbox for a 0/1 column, a select where the numbers have names, else a text or
-	// number input by the column's kind. A changed column shows in the accent colour.
+	// list for flags, a checkbox for a 0/1 column, a select where the numbers have names, a picker for a
+	// number that names a thing (RefField), a text area for long text, else a text or number input by
+	// the column's kind, held to the column's range. A changed column shows in the accent colour, and
+	// each label's tooltip names its column.
 
 	interface Props {
 		fields: CreatureField[]
@@ -18,23 +21,33 @@
 	let { fields, values, columns, changes, onset }: Props = $props()
 
 	const value = (f: CreatureField) => values[f.col] ?? ''
+	const tip = (f: CreatureField) => (f.hint ? `${f.hint} (${f.col})` : f.col)
+	/** A whole number column's range for the input, when it has one. */
+	const range = (c: vmangos.TemplateColumn | undefined) => (c && (c.min !== 0 || c.max !== 0) ? { min: String(c.min), max: String(c.max) } : { min: c?.kind === 'uint' ? '0' : undefined, max: undefined })
 </script>
 
 <div class="grid">
 	{#each fields as f (f.col)}
 		{@const c = columns.get(f.col)}
 		{@const changed = changes[f.col] !== undefined}
-		{#if f.flags}
-			<fieldset class="wide" class:changed>
+		{#if f.ref}
+			<RefField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} />
+		{:else if f.long}
+			<label class="wide" class:changed title={tip(f)}
+				>{f.label}
+				<textarea rows="4" value={value(f)} oninput={(e) => onset(f.col, (e.currentTarget as HTMLTextAreaElement).value)}></textarea></label
+			>
+		{:else if f.flags}
+			<fieldset class="wide" class:changed title={f.col}>
 				<legend>{f.label}</legend>
 				{#each f.flags as [bit, name] (bit)}
 					<label class="check"><input type="checkbox" checked={((Number(value(f)) || 0) & bit) !== 0} onchange={(e) => onset(f.col, withBit(value(f), bit, (e.currentTarget as HTMLInputElement).checked))} /> {name}</label>
 				{/each}
 			</fieldset>
 		{:else if f.bool}
-			<label class="check" class:changed title={f.hint}><input type="checkbox" checked={value(f) !== '0' && value(f) !== ''} onchange={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).checked ? '1' : '0')} /> {f.label}</label>
+			<label class="check" class:changed title={tip(f)}><input type="checkbox" checked={value(f) !== '0' && value(f) !== ''} onchange={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).checked ? '1' : '0')} /> {f.label}</label>
 		{:else if f.options}
-			<label class:changed title={f.hint}
+			<label class:changed title={tip(f)}
 				>{f.label}
 				<select value={value(f)} onchange={(e) => onset(f.col, (e.currentTarget as HTMLSelectElement).value)}>
 					{#if !f.options.some(([v]) => String(v) === value(f))}<option value={value(f)}>{value(f)}</option>{/if}
@@ -42,12 +55,13 @@
 				</select></label
 			>
 		{:else}
-			<label class:changed class:wide={c?.kind === 'text' && (c.maxLen === 0 || c.maxLen > 64)} title={f.hint}
-				>{f.label}
+			<label class:changed class:wide={f.wide || (c?.kind === 'text' && (c.maxLen === 0 || c.maxLen > 64))} title={tip(f)}
+				><span>{f.label}{#if f.note && f.note(value(f))}<span class="note">· {f.note(value(f))}</span>{/if}</span>
 				<input
 					type={c?.kind === 'text' ? 'text' : 'number'}
 					step={c?.kind === 'float' ? 'any' : '1'}
-					min={c?.kind === 'uint' ? '0' : undefined}
+					min={range(c).min}
+					max={range(c).max}
 					maxlength={c?.kind === 'text' && c.maxLen ? c.maxLen : undefined}
 					value={value(f)}
 					oninput={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).value)}
@@ -72,12 +86,22 @@
 		min-width: 0;
 	}
 	.grid input,
-	.grid select {
+	.grid select,
+	.grid textarea {
 		width: 100%;
 		min-width: 0;
 	}
 	.grid .wide {
 		grid-column: 1 / -1;
+	}
+	.grid textarea {
+		resize: vertical;
+		font: inherit;
+		color: var(--text);
+	}
+	.note {
+		margin-left: 4px;
+		color: var(--text);
 	}
 	.grid input[type='checkbox'] {
 		width: auto;
@@ -104,11 +128,13 @@
 	}
 	.changed,
 	.changed input,
-	.changed select {
+	.changed select,
+	.changed textarea {
 		color: var(--accent);
 	}
 	.changed input,
-	.changed select {
+	.changed select,
+	.changed textarea {
 		border-color: var(--accent);
 	}
 </style>

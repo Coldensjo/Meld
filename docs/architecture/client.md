@@ -143,11 +143,38 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   mangos' GameObjectInfo), and New object (`CreateObject`). The Object tab follows the spawn's entry
   (an entry change or its undo). Save calls `Engine.applyObjectTemplate` (name, type, model through
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
+- **Quest editor** (`components/QuestEditor.svelte`, `ui.questEditor`, #259): full screen (over the
+  creature editor, z-index 160; the creature and object editors ignore Esc while it is open), opened
+  by World › Quests… (`entry: 0`, find one), a quest's Edit in the creature editor's Quests tab, or
+  that tab's New quest… (`entry: -1`, with the creature as `giver`). The left finds quests
+  (`SearchQuests`); New quest makes a blank level 1 quest or a copy of the open one without its
+  givers (`CreateQuest` in `internal/vmangos/quests.go`: patch 0, the first entry past
+  `quest_template` and the four relation tables, so an orphan relation row can't offer it), and
+  for a giver also saves it as the starter and ender (`SaveQuestGivers`). Every `quest_template`
+  column goes through the template path (`ReadQuest`, `templateUpdateSQL`; `parseColumns` gives
+  whole numbers their type's range, which `sqlValue` enforces for every template editor), laid out
+  on tabs by `world/questFields.ts` (Quest, Objectives, Rewards, Requirements, Emotes and map, then
+  Other for unlisted columns). A column that names something is a `ref` field
+  (`components/RefField.svelte`): its number, the name (`lib/wow/refNames.ts`: `TemplateNames` in
+  batches for items, creatures, objects and quests; `SpellRefs`; `QuestTables` for Faction.dbc,
+  SkillLine.dbc and QuestSort.dbc; `Areas`; `SpawnEmotes`) and Find. `ReqCreatureOrGOId` is a
+  creature when positive and an object when negative, `ZoneOrSort` a zone or (negative) a quest sort.
+  `SaveQuest` holds the row to `questRules` (after the server's `ObjectMgr::LoadQuests`: Method,
+  SpecialFlags, a thing with its count, a reputation with its faction, no gap in the reward choices,
+  which crashes the 1.12.1 client) and checks that what each changed reference names exists (the
+  world database for templates and `spell_template`, the client for the rest); only the rules whose
+  columns changed run, so an old quest's own problems don't block an unrelated edit. The Givers tab
+  (`components/QuestGiversTab.svelte`) lists `creature_questrelation`, `gameobject_questrelation`
+  and the two `*_involvedrelation` tables for the quest (`ReadQuestGivers`, with spawn counts), and
+  gives a creature without the Quest giver flag that flag on Save unless its box is cleared. The one
+  Save writes the row first, then the givers; `ui.questsVersion` then makes the creature editor's
+  Quests tab read its lists again. The server reads quests at start or on `.reload all_quest`.
 - **The game's template cache** (#234): the 1.12 client asks for a template once and keeps it across
   sessions in `WDB\creaturecache.wdb` / `gameobjectcache.wdb`, never asking again. `SaveCreature` and
   `SaveObject` mark the entry in `App.stale` (`game.Stale`, `internal/game/cache.go`), which takes its
   records out of those files (and Benilla's name cache) while the game is closed: at once when it
-  is, else in `Session.Start` before Meld starts the game.
+  is, else in `Session.Start` before Meld starts the game. `SaveQuest` does the same for
+  `WDB\questcache.wdb` (#259).
 - **Contents** (`components/LootTab.svelte`, #220): the game object editor's tab for what a chest
   (type 3; veins and herbs are chests) or fishing hole (25) holds: the `gameobject_loot_template`
   rows of the list its `data1` names (`internal/vmangos/loot.go`: `ReadObjectLoot`, `SaveObjectLoot`,

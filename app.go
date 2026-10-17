@@ -942,6 +942,78 @@ func (a *App) SearchQuests(text string) ([]vmangos.QuestRef, error) {
 	return vmangos.SearchQuests(server, text, 100)
 }
 
+// ReadQuest reads a quest's quest_template row (its newest patch) for the quest editor (#259).
+func (a *App) ReadQuest(entry int) (vmangos.TemplateRecord, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.TemplateRecord{}, err
+	}
+	return vmangos.ReadQuest(server, entry)
+}
+
+// SaveQuest writes a quest's changed values (by column) into the world database once they pass the
+// server's rules and what they name exists, and returns the SQL it ran.
+func (a *App) SaveQuest(entry, patch int, values map[string]string) (string, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	sql, err := vmangos.SaveQuest(server, dataDir, entry, patch, values)
+	if err == nil {
+		a.stale.AddQuest(uint32(entry))
+		a.forgetStale()
+	}
+	return sql, err
+}
+
+// CreateQuest adds a quest titled title, a copy of quest base (or a blank level 1 quest for 0), and
+// returns its entry.
+func (a *App) CreateQuest(base int, title string) (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.CreateQuest(server, base, title)
+}
+
+// ReadQuestGivers reads the creatures and game objects that start and end a quest.
+func (a *App) ReadQuestGivers(entry int) (vmangos.QuestGivers, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.QuestGivers{}, err
+	}
+	return vmangos.ReadQuestGivers(server, entry)
+}
+
+// SaveQuestGivers replaces the creatures and game objects that start and end a quest, gives the
+// creatures in flag the Quest giver flag, and returns the SQL it ran.
+func (a *App) SaveQuestGivers(entry int, givers vmangos.QuestGivers, flag []int) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SaveQuestGivers(server, entry, givers, flag)
+}
+
+// TemplateNames names item, creature, object or quest templates (kind) by entry, for the quest
+// editor's references.
+func (a *App) TemplateNames(kind string, ids []int) (map[int]vmangos.NamedRef, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.TemplateNames(server, kind, ids)
+}
+
+// QuestTables lists the client's quest sorts, skills and reputation factions, for the quest editor.
+func (a *App) QuestTables() (vmangos.QuestTables, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.QuestTables{}, err
+	}
+	return vmangos.LoadQuestTables(dataDir)
+}
+
 // ReadGossip reads what a creature template says when talked to (its gossip menu), for the Messages tab.
 func (a *App) ReadGossip(entry int) (vmangos.Gossip, error) {
 	server, _, err := a.serverAndData()

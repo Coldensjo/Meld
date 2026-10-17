@@ -244,6 +244,33 @@ Stormwind Alliance-only), `TestParseClassLevelStats`.
 - Trap: held items go through `EquipmentFor`, which may add a `creature_equip_template` row; leave
   the hands empty in a check, or delete that row too.
 
+## Quest editor (#259)
+
+Checks: World › Quests… finds and opens a quest, names every number that stands for something, and
+writes `quest_template` and the four relation tables only on Save, after Go's checks.
+- Probe `quest-editor` (about 12 s; nothing written): Wolves Across the Border (33) shows Northshire
+  Valley, Tough Wolf Meat (750), the choices Soft Fur-lined Shoes and Wolfskin Bracers, Stormwind
+  and the quest before it (Eagan Peltskinner, 5261), started and ended by Eagan Peltskinner (196);
+  a level of 300 and item 16000000 are refused (the second jumps to the Objectives tab); Revert;
+  then Edit in 196's Quests tab opens the quest over the creature editor, and Esc closes only the
+  quest editor.
+- Unit: `quests_test.go` (`checkQuest`'s rules on a fake lookup, `createQuestSQL`, the givers' SQL
+  and the names' SQL). With `VMANGOS_DIR` and `WOW_DIR`, `TestQuestsLive` reads quest 7 (Kobold Camp
+  Cleanup: 10 Kobold Vermin, given by Marshal McBride, 197) and the client's QuestSort (61 Warlock),
+  SkillLine (164 Blacksmithing) and Faction (72 Stormwind) tables.
+- A write, by hand in the dev page (a scratch probe): `ui.questEditor = { entry: -1, giver: { kind:
+  'creature', id: 805, name: 'Cameron', ready: false } }`, a title, Make quest, then a level, a
+  Details text with a line break, Target 1 = 6 with a count of 3, Save. Read it back with
+  `ReadQuest(entry)`, `ReadQuestGivers(entry)` and `ReadCreatureQuests(805)` (805 has the Quest giver
+  flag now), and copy it with `CreateQuest(entry, '…')` (the copy has no givers). Clean up:
+  `DELETE FROM quest_template WHERE entry > <the max before>`, the same on `creature_questrelation`
+  and `creature_involvedrelation` by `quest`, and `UPDATE creature_template SET npc_flags = 0 WHERE
+  entry = 805` (both of its patch rows).
+- In the game (the owner): `.reload all_quest` as a GM (or restart mangosd), talk to the giver,
+  accept, complete and hand in the quest.
+- Trap: quests are keyed by (entry, patch); the editor writes the newest patch row it read, and a
+  new quest is patch 0, which every server patch loads.
+
 ## Name colours by reaction (#134)
 
 Checks: a creature's name over its head is red, yellow or green by how its faction treats the side

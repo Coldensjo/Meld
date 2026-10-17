@@ -24,8 +24,8 @@ func TestParseColumns(t *testing.T) {
 	want := []TemplateColumn{
 		{Name: "name", Kind: "text", MaxLen: 100},
 		{Name: "subname", Kind: "text", Nullable: true, MaxLen: 100},
-		{Name: "faction", Kind: "uint"},
-		{Name: "holy_res", Kind: "int"},
+		{Name: "faction", Kind: "uint", Max: 65535},
+		{Name: "holy_res", Kind: "int", Min: -32768, Max: 32767},
 		{Name: "speed_walk", Kind: "float"},
 		{Name: "auras", Kind: "text", Nullable: true},
 	}
@@ -53,6 +53,8 @@ func TestCreatureUpdateSQL(t *testing.T) {
 	for _, bad := range []map[string]string{
 		{"faction": "-1"},
 		{"faction": "1.5"},
+		{"faction": "65536"},
+		{"holy_res": "-32769"},
 		{"speed_walk": "fast"},
 		{"name": strings.Repeat("x", 101)},
 		{"entry": "1"},
