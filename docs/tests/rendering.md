@@ -213,8 +213,8 @@ Checks: under Lighting › Client Lighting the terrain shader takes the light's 
 vertex, and adds the sheen times the layers' `_s` mask (`paletteArray.ts` puts each `_s` twin's alpha
 in the palette layer's alpha, 0 without one). In the dev page, load a region with
 `"prefs":{"clientLighting":true}` in the scene, step frames, then read
-`__engine.terrain.material.uniforms.clientLit.value` (1) and the masks from `__engine.terrain.palette.data`
-(with `?nodxt`, RGBA: layer i's alpha bytes at `i * 256 * 256 * 4 + 3`, every fourth; else DXT3, #216:
+`__engine.terrain.material.uniforms.clientLit.value` (1) and the masks from `__engine.terrain.palette.levels[0]`
+(level 0 of every layer, #225; with `?nodxt`, RGBA: layer i's alpha bytes at `i * 256 * 256 * 4 + 3`, every fourth; else DXT3, #216:
 layer i from `i * 65536`, the first 8 bytes of each 16-byte block its 16 alphas, 4 bits each). Durotar's textures all have masks
 (Black.blp none). With Client Lighting off `clientLit` is 0 and the ground is drawn as before.
 - Point lights (#117): M2 lights carry `raw` (colour times intensity) in the model's effects; models
@@ -297,7 +297,9 @@ Checks: where `compressedTexturesOn()`, `terrain/paletteArray.ts` builds the pal
   `PaletteArray` of the same entries beside it, and draws the ground alone with each, under the
   editor's lighting and under Client Lighting (the sheen): on 2026-10-17, 0.03% of pixels differed by
   more than 4% (mean max-channel difference 0.67 of 255), 0.5 MB against 2 MB for the 8 layers. The
-  same check on Stranglethorn (`Azeroth` 32_57): 14 layers, 0% over 4%.
+  same check on Stranglethorn (`Azeroth` 32_57): 14 layers, 0% over 4%. Since the array has mips
+  (#225, next entry) the probe makes this comparison with both arrays at level 0 (`LinearFilter`,
+  re-uploaded), as `level0Over4pc`.
 - Over the whole client, a node script with the dev server (not kept): of 621 tilesets, 616 are
   power-of-two DXT up to 256² and go by blocks; against the reference decode of their blocks the
   layers differ by 0.011 of 255 on average, worst `Tileset\Hyjal\AlphaHyjalGrassLeaf.blp` (1.7 mean;
@@ -307,6 +309,30 @@ Checks: where `compressedTexturesOn()`, `terrain/paletteArray.ts` builds the pal
   `new PaletteArray(() => {}, false)` instead, as `terrain-dxt` does, to compare in one page.
 - Trap: the bench probe's `frameMs` on SwiftShader averages one or two frame intervals and jumped
   between 14 and 72 ms from run to run with no code change; compare `cpuMs` and the counts.
+
+## The tileset array's mips (#225)
+Checks: the palette array is mipmapped (trilinear, anisotropy as the models' textures), so distant
+ground doesn't shimmer. The DXT3 array carries every level, 256² to 1x1 (about 85 KB a layer), from
+the BLPs' own mips: level k from the source level whose larger side is 256 >> k, a smaller tileset's
+level 0 filling the larger levels; encoded layers (RGBA BLPs, colour entries) get a box filter. The
+RGBA array (`?nodxt`) has the GPU make its mips (`generateMipmaps`). The shader samples the palette
+with `textureGrad`, the derivatives taken at the top of `main`, since `blend` and the rock read it
+inside branches.
+- Unit: `frontend/tests/paletteBlocks.test.ts`: a reply's levels are read (and one cut short refused);
+  a 256² chain's levels are copied block for block, colour and `_s` alpha; 128², 64x32 and 128x256
+  chains give each level exactly the nearest resample of the right source level (levels below 4x4
+  one block); an encoded layer's levels are the box mean; a colour layer is one block at every level.
+- Probe: `pnpm probe terrain-dxt` also checks there are 9 levels, that the mipped DXT3 and RGBA draws
+  stay close (`mippedMeanDiff` under 8), and that the far half of the view is calmer with mips than at
+  level 0 (`farBusy*`, the mean difference between neighbouring pixels). On 2026-10-17: level 0 0.03%
+  over 4%; mipped 10.7% over 4%, mean 5.0; far ground 4.7 mipped against 16.4 at level 0; 0.7 MB
+  against 2.7 MB (the RGBA array's GPU mips included) for 8 layers.
+- Trap: the mipped draws differ more than level 0 does because the mips differ: the DXT3 array has the
+  BLPs' own (which the client draws), the RGBA one the GPU's box filter, which averages sRGB textures
+  in linear light (its draw about 1.4 of 255 brighter). Don't chase that as a bug.
+- Seeing it: a low view over open ground, e.g. the benchmark scene with
+  `"target":[300,20,300],"yaw":2.4,"pitch":0.18,"distance":40`; set the palette texture's
+  `minFilter = 1006` (`LinearFilter`) and `needsUpdate = true` to see the old shimmer.
 
 ## Preview window: particles, ribbons and texture animation (#200)
 Checks: the preview window and the creature editor's preview (`CreaturePreview.svelte`) run the model's

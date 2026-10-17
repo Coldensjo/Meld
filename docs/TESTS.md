@@ -144,7 +144,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 - The probes on 2026-10-17: `smoke` (the benchmark scene draws, no errors), `bench` (its numbers),
   `undo-sculpt` and `undo-holes` (an edit and its undo on a flat map), `wmo-cull` (#198's Stormwind
   cull, in the scene pass and the near shadow cascade, #215), `terrain-dxt` (#216's DXT3 tileset
-  array draws the ground as the RGBA one does), `object-entry` (#136, a game object spawn turned into
+  array draws the ground as the RGBA one does, and #225's mips smooth the distant ground), `object-entry` (#136, a game object spawn turned into
   another in the game object editor, and undone), `object-tilt` (#229, the Sunken Chest drawn tilted
   and its rotation kept by a move's SQL), `object-loot` (#220, a vein's shared loot list in the game
   object editor's Contents tab, a copy of its own, an added item, Make it a chest and the respawn time,
@@ -263,6 +263,7 @@ the same scene, the report before and after.
 - WMO culling by group (#198, #215)
 - Compressed client textures (DXT, #178)
 - The terrain's tileset array as DXT3 (#216)
+- The tileset array's mips (#225)
 - Preview window: particles, ribbons and texture animation (#200)
 
 ### Terrain, water and map data (`docs/tests/terrain.md`)

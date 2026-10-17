@@ -1,16 +1,19 @@
 import * as THREE from 'three'
-import { compressedTexturesOn, fetchImage, fetchTextureDXT, type RawImage } from '../wow/api'
+import { compressedTexturesOn, fetchImage, fetchTextureDXT, textureAnisotropy, type RawImage } from '../wow/api'
 import { applySheen, sheenPath } from './sheen'
 import {
 	LAYER_BYTES,
+	LEVEL_BYTES,
+	LEVEL_OFFSET,
+	LEVEL_SIDE,
 	RES,
 	blockResamplable,
-	dxtLevel,
-	encodeAlpha,
-	encodeColour,
+	chainAlpha,
+	chainColour,
+	dxtLevels,
+	encodeAlphaChain,
+	encodeColourChain,
 	solidLayer,
-	writeAlpha,
-	writeColour,
 } from './paletteBlocks'
 
 // The map's texture palette as one array texture: layer i is palette entry i. Each entry is a WoW
@@ -19,9 +22,11 @@ import {
 // mask: the alpha of the texture's `_s` twin (`Foo_s.blp`), which the client's terrain specular
 // reads (Benilla's terrain.rs), or 0 for a texture without one.
 //
-// Where the renderer samples S3TC (`compressedTexturesOn`, #178) the array is DXT3, 64 KB a layer,
-// built mostly from the BLPs' own blocks (paletteBlocks.ts, #216); otherwise (`?nodxt`) it is RGBA,
-// 256 KB a layer. Either way it has no mips, and a texture that arrives re-uploads its layer alone.
+// Where the renderer samples S3TC (`compressedTexturesOn`, #178) the array is DXT3, about 85 KB a
+// layer, built mostly from the BLPs' own blocks and their own mips (paletteBlocks.ts, #216, #225);
+// otherwise (`?nodxt`) it is RGBA, 256 KB a layer and a third more for the mips the GPU makes.
+// Either way it is mipmapped, trilinear and anisotropic as the models' textures are, so distant
+// ground doesn't shimmer, and a texture that arrives re-uploads its layer alone (every level).
 
 export const PALETTE_RES = RES
 
@@ -79,32 +84,41 @@ function rgbaReply(buf: ArrayBuffer): Uint8Array {
 const resampled = (img: RawImage) => resample(img.pixels, img.width, img.height)
 
 /**
- * The DXT3 layer of a tileset from its DXT replies (`sheen` null without an `_s` twin): its colour
- * blocks and the twin's alpha blocks, resampled block by block, or encoded from RGBA pixels where a
- * reply isn't a DXT `blockResamplable` allows.
+ * The DXT3 layer of a tileset, every level, from its DXT replies (`sheen` null without an `_s`
+ * twin): its colour blocks and the twin's alpha blocks with their own mips, resampled block by
+ * block, or encoded from RGBA pixels where a reply isn't a DXT `blockResamplable` allows.
  */
 export async function blockLayer(path: string, base: ArrayBuffer, sheen: ArrayBuffer | null): Promise<Uint8Array> {
 	const out = new Uint8Array(LAYER_BYTES)
-	const l = dxtLevel(base)
-	if (l && blockResamplable(l)) writeColour(out, l)
-	else encodeColour(out, l ? resampled(await fetchImage(path)) : rgbaReply(base))
+	const l = dxtLevels(base)
+	if (l && blockResamplable(l)) chainColour(out, l)
+	else encodeColourChain(out, l ? resampled(await fetchImage(path)) : rgbaReply(base))
 	if (sheen) {
-		const s = dxtLevel(sheen)
-		if (s && s.kind === 3 && blockResamplable(s)) writeAlpha(out, s)
-		else encodeAlpha(out, s ? resampled(await fetchImage(sheenPath(path))) : rgbaReply(sheen))
+		const s = dxtLevels(sheen)
+		if (s && s[0].kind === 3 && blockResamplable(s)) chainAlpha(out, s)
+		else encodeAlphaChain(out, s ? resampled(await fetchImage(sheenPath(path))) : rgbaReply(sheen))
 	}
 	return out
 }
 
+/** The level layout of an RGBA layer: the one level three uploads (the GPU makes the rest). */
+const RGBA_LEVEL = [PALETTE_RES * PALETTE_RES * 4]
+/** Bytes of an RGBA layer on the GPU with the mips it makes. */
+const RGBA_GPU_BYTES = LEVEL_SIDE.reduce((a, s) => a + s * s * 4, 0)
+
 export class PaletteArray {
 	/** The array texture the terrain shader samples. Replaced when the palette outgrows it. */
 	texture: THREE.DataArrayTexture | THREE.CompressedArrayTexture
-	private data: Uint8Array
+	/** Each uploaded level's bytes, every layer: DXT3 levels 0 to LEVELS - 1, or the one RGBA level. */
+	private levels: Uint8Array[] = []
 	private paths: string[] = []
-	/** Each entry's layer bytes loaded so far (RGBA or DXT3), by entry. */
+	/** Each entry's layer bytes loaded so far (RGBA level 0, or DXT3 every level), by entry. */
 	private loaded = new Map<string, Uint8Array>()
 	private loading = new Set<string>()
-	private readonly layerBytes: number
+	/** A layer's bytes in each uploaded level. */
+	private readonly levelBytes: readonly number[]
+	/** Where each level starts in a layer's bytes. */
+	private readonly levelOffset: readonly number[]
 	/** The bytes of a layer with no texture yet: grey, no sheen. */
 	private readonly blank: Uint8Array
 	/** Until the texture's first upload, which sends every layer; after it, a write sends its layer alone. */
@@ -118,9 +132,9 @@ export class PaletteArray {
 		private onReplace: (t: THREE.Texture) => void,
 		private readonly compressed = compressedTexturesOn(),
 	) {
-		this.layerBytes = compressed ? LAYER_BYTES : PALETTE_RES * PALETTE_RES * 4
+		this.levelBytes = compressed ? LEVEL_BYTES : RGBA_LEVEL
+		this.levelOffset = compressed ? LEVEL_OFFSET : [0]
 		this.blank = compressed ? solidLayer(128, 128, 128) : solid('#808080')
-		this.data = new Uint8Array(0)
 		this.texture = this.make(8)
 	}
 
@@ -128,9 +142,10 @@ export class PaletteArray {
 		return this.paths
 	}
 
-	/** Bytes the array takes on the GPU. */
+	/** Bytes the array takes on the GPU, mips included. */
 	get bytes(): number {
-		return this.data.length
+		const depth = this.texture.image.depth
+		return this.compressed ? depth * LAYER_BYTES : depth * RGBA_GPU_BYTES
 	}
 
 	/** Sets the palette. Entries keep their index; a new entry's texture loads in the background. */
@@ -147,22 +162,25 @@ export class PaletteArray {
 	}
 
 	private make(depth: number): THREE.DataArrayTexture | THREE.CompressedArrayTexture {
-		this.data = new Uint8Array(this.layerBytes * depth)
-		for (let i = 0; i < depth; i++) this.data.set(this.blank, i * this.layerBytes)
+		this.levels = this.levelBytes.map((n) => new Uint8Array(n * depth))
+		for (let i = 0; i < depth; i++) this.put(i, this.blank)
 		const t = this.compressed
 			? new THREE.CompressedArrayTexture(
-					// three's typings want ImageData-shaped mips; a compressed level is its blocks and size.
-					[{ data: this.data, width: PALETTE_RES, height: PALETTE_RES }] as unknown as ImageData[],
+					// three's typings want ImageData-shaped mips; a compressed level is its blocks and size,
+					// every layer's in one array, which addLayerUpdate slices per layer.
+					this.levels.map((data, k) => ({ data, width: LEVEL_SIDE[k], height: LEVEL_SIDE[k] })) as unknown as ImageData[],
 					PALETTE_RES,
 					PALETTE_RES,
 					depth,
 					THREE.RGBA_S3TC_DXT3_Format,
 				)
-			: new THREE.DataArrayTexture(this.data, PALETTE_RES, PALETTE_RES, depth)
+			: new THREE.DataArrayTexture(this.levels[0], PALETTE_RES, PALETTE_RES, depth)
 		t.wrapS = t.wrapT = THREE.RepeatWrapping
 		t.magFilter = THREE.LinearFilter
-		t.minFilter = THREE.LinearFilter
-		t.generateMipmaps = false
+		t.minFilter = THREE.LinearMipmapLinearFilter
+		t.anisotropy = textureAnisotropy()
+		// The RGBA array's mips are made on the GPU after each upload; the DXT3 one brings its own.
+		t.generateMipmaps = !this.compressed
 		t.colorSpace = THREE.SRGBColorSpace
 		t.needsUpdate = true
 		this.whole = true
@@ -178,9 +196,18 @@ export class PaletteArray {
 		return t
 	}
 
+	/** Copies a layer's bytes into each level. */
+	private put(layer: number, px: Uint8Array) {
+		this.levels.forEach((l, k) => {
+			const n = this.levelBytes[k]
+			const o = this.levelOffset[k]
+			l.set(px.subarray(o, o + n), layer * n)
+		})
+	}
+
 	private write(layer: number, px: Uint8Array) {
 		if (layer >= this.texture.image.depth) return
-		this.data.set(px, layer * this.layerBytes)
+		this.put(layer, px)
 		if (!this.whole) this.texture.addLayerUpdate(layer)
 	}
 

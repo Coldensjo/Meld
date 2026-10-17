@@ -257,6 +257,11 @@ export function setMaxAnisotropy(n: number) {
   maxAnisotropy = n
 }
 
+/** The anisotropy the client's textures are sampled with: the GPU's most, up to 8. */
+export function textureAnisotropy(): number {
+  return Math.min(8, maxAnisotropy)
+}
+
 /**
  * Whether the renderer samples S3TC, with its sRGB forms (#178): then a DXT BLP goes to the GPU as the
  * client stores it, its own mips included, at an eighth to a quarter of the RGBA's size.
@@ -285,7 +290,7 @@ export function loadTexture(path: string): Promise<THREE.Texture> {
       t.wrapS = t.wrapT = THREE.RepeatWrapping
       t.magFilter = THREE.LinearFilter
       t.minFilter = THREE.LinearMipmapLinearFilter
-      t.anisotropy = Math.min(8, maxAnisotropy)
+      t.anisotropy = textureAnisotropy()
       t.colorSpace = THREE.SRGBColorSpace
       t.flipY = false // BLP rows are top-down, matching WoW UVs
       t.needsUpdate = true

@@ -168,21 +168,24 @@ const vec2 SCROLL[8] = vec2[8](vec2(0.0, 1.0), vec2(-1.0, 1.0), vec2(-1.0, 0.0),
 // A texture the map scrolls moves a repeat every 1.6 s at speed 7, slower in proportion below, as
 // Noggit Red draws it; an overbright one is drawn brighter.
 // The alpha is the layer's sheen mask (paletteArray.ts): 8 bits in the RGBA array, 4 in the DXT3 one.
-vec4 tap(float layer, vec2 uv) {
+// The palette is mipmapped (#225) and sampled inside branches, where implicit derivatives are
+// undefined, so every palette read takes its uv's derivatives from the top of main (textureGrad).
+// The scroll's offset is the same over the draw, so it leaves them as they are.
+vec4 tap(float layer, vec2 uv, vec2 dx, vec2 dy) {
   vec4 look = floor(texture2D(lookTex, vec2((layer + 0.5) / 256.0, 0.5)) * 255.0 + 0.5);
   if (look.r > 0.5) uv += SCROLL[int(look.g) & 7] * fract(lookTime * (look.r - 1.0) / (7.0 * 1.6));
-  vec4 c = texture(palette, vec3(uv, layer));
+  vec4 c = textureGrad(palette, vec3(uv, layer), dx, dy);
   return look.b > 127.5 ? vec4(c.rgb * 1.5, c.a) : c;
 }
 
 // Blends the chunk's four textures, and their sheen masks, by this texel's weights. Slot ids are
 // 0-255 with 255 empty.
-vec4 blend(vec4 ids, vec4 w, vec2 tuv) {
+vec4 blend(vec4 ids, vec4 w, vec2 tuv, vec2 dx, vec2 dy) {
   vec4 c = vec4(0.0);
-  if (w.r > 0.004 && ids.r < 254.5) c += tap(ids.r, tuv) * w.r;
-  if (w.g > 0.004 && ids.g < 254.5) c += tap(ids.g, tuv) * w.g;
-  if (w.b > 0.004 && ids.b < 254.5) c += tap(ids.b, tuv) * w.b;
-  if (w.a > 0.004 && ids.a < 254.5) c += tap(ids.a, tuv) * w.a;
+  if (w.r > 0.004 && ids.r < 254.5) c += tap(ids.r, tuv, dx, dy) * w.r;
+  if (w.g > 0.004 && ids.g < 254.5) c += tap(ids.g, tuv, dx, dy) * w.g;
+  if (w.b > 0.004 && ids.b < 254.5) c += tap(ids.b, tuv, dx, dy) * w.b;
+  if (w.a > 0.004 && ids.a < 254.5) c += tap(ids.a, tuv, dx, dy) * w.a;
   return c;
 }
 
@@ -193,6 +196,10 @@ void main() {
   // One repeat a cell, eight a chunk, as the client tiles its ground textures (Benilla's
   // TERRAIN_LAYER_TILES, terrain.rs; MIT/Apache-2.0): fixed, not a setting.
   vec2 tuv = vWorldPos.xz / cellSize;
+  // The palette's uvs (tuv and the rock's triplanar ones) are all the world position over cellSize,
+  // so one pair of derivatives serves them all, taken here outside any branch.
+  vec3 pdx = dFdx(vWorldPos) / cellSize;
+  vec3 pdy = dFdy(vWorldPos) / cellSize;
   vec2 cell = floor(vWorldPos.xz / chunkWorld);
   vec4 ids = floor(texture2D(slotTex, (cell + 0.5) / chunksSide) * 255.0 + 0.5);
   // Bilinear within the chunk, as the game filters its alpha maps. The four weights name this chunk's
@@ -212,7 +219,7 @@ void main() {
     f.y);
   float total = max(dot(w, vec4(1.0)), 0.0001);
 
-  vec4 layers = blend(ids, w, tuv) / total;
+  vec4 layers = blend(ids, w, tuv, pdx.xz, pdy.xz) / total;
   vec3 col = layers.rgb;
   float sheen = layers.a;
 
@@ -221,11 +228,11 @@ void main() {
   float rockW = smoothstep(0.32, 0.55, slope) * cliffAuto;
   if (rockW > 0.001) {
     vec3 w3 = abs(n); w3 /= (w3.x + w3.y + w3.z);
-    vec3 rx = texture(palette, vec3(vWorldPos.zy / cellSize, rockLayer)).rgb;
-    vec4 ryA = texture(palette, vec3(tuv, rockLayer));
+    vec3 rx = textureGrad(palette, vec3(vWorldPos.zy / cellSize, rockLayer), pdx.zy, pdy.zy).rgb;
+    vec4 ryA = textureGrad(palette, vec3(tuv, rockLayer), pdx.xz, pdy.xz);
     vec3 ry = ryA.rgb;
     sheen = mix(sheen, ryA.a, rockW);
-    vec3 rz = texture(palette, vec3(vWorldPos.xy / cellSize, rockLayer)).rgb;
+    vec3 rz = textureGrad(palette, vec3(vWorldPos.xy / cellSize, rockLayer), pdx.xy, pdy.xy).rgb;
     col = mix(col, rx * w3.x + ry * w3.y + rz * w3.z, rockW);
   }
 

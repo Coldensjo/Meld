@@ -1,18 +1,33 @@
-// The tileset array's layers as DXT3 blocks (#216), for a renderer that samples S3TC: 64 KB a layer
-// against the RGBA layer's 256 KB. DXT3 holds the colour as DXT1 does and the sheen mask as an
+// The tileset array's layers as DXT3 blocks (#216), for a renderer that samples S3TC: 85 KB a layer
+// with its mips against the RGBA layer's 341 KB. DXT3 holds the colour as DXT1 does and the sheen mask as an
 // explicit 4-bit alpha, which is what the client's `_s` twins are, so most layers are copied from the
 // BLPs' own blocks: the base texture's colour blocks and the `_s` twin's alpha blocks. A tileset
 // smaller than PALETTE_RES is nearest-resampled block by block, exactly, since every output block
 // then reads one source block. Only what isn't a power-of-two DXT up to PALETTE_RES (an RGBA BLP,
 // a colour entry) is encoded here, and DXT1 blocks in the three-colour mode, which DXT3 lacks, are
 // refitted (0.6% of the client's tileset blocks).
+//
+// A layer holds the whole mip chain, RES² down to 1x1 (#225), so distant ground doesn't shimmer:
+// the BLPs' own levels, level k of the layer from the source level whose larger side is RES >> k
+// (a smaller tileset's level 0 stands in for the layer's larger levels), and for an encoded layer a
+// box filter of its pixels. A level below 4x4 is one block, its texels past the level's side unused.
 
 export const RES = 256
-const SIDE = RES / 4
-/** Bytes of one DXT3 layer: 16 a block. */
-export const LAYER_BYTES = SIDE * SIDE * 16
+/** Levels a layer has: RES² down to 1x1. */
+export const LEVELS = Math.log2(RES) + 1
+/** The side of each level in texels. */
+export const LEVEL_SIDE = Array.from({ length: LEVELS }, (_, k) => RES >> k)
+/** Bytes of each level of a DXT3 layer: 16 a block. */
+export const LEVEL_BYTES = LEVEL_SIDE.map((s) => Math.max(1, s >> 2) ** 2 * 16)
+/** Where each level starts in a layer's bytes. */
+export const LEVEL_OFFSET = LEVEL_BYTES.map((_, k) => LEVEL_BYTES.slice(0, k).reduce((a, b) => a + b, 0))
+/** Bytes of one DXT3 layer, every level: about 85 KB. */
+export const LAYER_BYTES = LEVEL_BYTES.reduce((a, b) => a + b, 0)
 
-/** The first level of a DXT reply from the texture endpoint (`Client.TextureDXT`). */
+/** Level k of a layer's bytes. */
+export const levelOf = (layer: Uint8Array, k: number) => layer.subarray(LEVEL_OFFSET[k], LEVEL_OFFSET[k] + LEVEL_BYTES[k])
+
+/** A level of a DXT reply from the texture endpoint (`Client.TextureDXT`). */
 export interface DxtLevel {
 	kind: 1 | 3 | 5
 	width: number
@@ -20,21 +35,93 @@ export interface DxtLevel {
 	data: Uint8Array
 }
 
-/** The first level of a texture reply, or null for an RGBA one (magic "RGBA" or anything not DXT). */
-export function dxtLevel(buf: ArrayBuffer): DxtLevel | null {
+/**
+ * The levels of a texture reply, the full size first, or null for an RGBA one (magic "RGBA" or
+ * anything not DXT) or one cut short.
+ */
+export function dxtLevels(buf: ArrayBuffer): DxtLevel[] | null {
 	const dv = new DataView(buf)
 	if (buf.byteLength < 20 || dv.getUint8(0) !== 68 || dv.getUint8(1) !== 88 || dv.getUint8(2) !== 84) return null
-	const k = dv.getUint8(3) - 48
-	if (k !== 1 && k !== 3 && k !== 5) return null
-	if (dv.getUint32(12, true) < 1) return null
-	return { kind: k, width: dv.getUint32(4, true), height: dv.getUint32(8, true), data: new Uint8Array(buf, 20, dv.getUint32(16, true)) }
+	const kind = dv.getUint8(3) - 48
+	if (kind !== 1 && kind !== 3 && kind !== 5) return null
+	const count = dv.getUint32(12, true)
+	if (count < 1) return null
+	let w = dv.getUint32(4, true)
+	let h = dv.getUint32(8, true)
+	let o = 16
+	const out: DxtLevel[] = []
+	for (let i = 0; i < count; i++) {
+		if (o + 4 > buf.byteLength) return null
+		const n = dv.getUint32(o, true)
+		if (o + 4 + n > buf.byteLength) return null
+		out.push({ kind, width: w, height: h, data: new Uint8Array(buf, o + 4, n) })
+		o += 4 + n
+		w = Math.max(1, w >> 1)
+		h = Math.max(1, h >> 1)
+	}
+	return out
 }
 
 const pow2 = (n: number) => n > 0 && (n & (n - 1)) === 0
 
-/** Whether a level is resampled to RES block by block: power-of-two sides, none above RES. */
-export function blockResamplable(l: DxtLevel): boolean {
-	return pow2(l.width) && pow2(l.height) && l.width <= RES && l.height <= RES
+/**
+ * Whether a reply's levels make the layer's chain block by block: power-of-two sides, none above
+ * RES, and every level down to 1x1 (`DXTOf` sends no other).
+ */
+export function blockResamplable(ls: DxtLevel[]): boolean {
+	const l = ls[0]
+	if (!pow2(l.width) || !pow2(l.height) || l.width > RES || l.height > RES) return false
+	return ls.length >= Math.log2(Math.max(l.width, l.height)) + 1
+}
+
+/** The source of the layer's level k: the level whose larger side is RES >> k, or the first. */
+function sourceLevel(ls: DxtLevel[], k: number): DxtLevel {
+	const shift = Math.log2(RES / Math.max(ls[0].width, ls[0].height))
+	return ls[Math.max(0, k - shift)]
+}
+
+/** Writes the colour half of every level of a layer from a reply `blockResamplable` allows. */
+export function chainColour(layer: Uint8Array, ls: DxtLevel[]) {
+	for (let k = 0; k < LEVELS; k++) writeColour(levelOf(layer, k), sourceLevel(ls, k), LEVEL_SIDE[k])
+}
+
+/** Writes the alpha half of every level of a layer from a DXT3 reply `blockResamplable` allows. */
+export function chainAlpha(layer: Uint8Array, ls: DxtLevel[]) {
+	for (let k = 0; k < LEVELS; k++) writeAlpha(levelOf(layer, k), sourceLevel(ls, k), LEVEL_SIDE[k])
+}
+
+/**
+ * The mip chain of RES² RGBA pixels, level 0 the pixels themselves: each level the 2x2 box mean of
+ * the one above, in the texture's own (sRGB) values, as the BLPs' levels are.
+ */
+export function rgbaChain(px: Uint8Array): Uint8Array[] {
+	const out = [px]
+	for (let k = 1; k < LEVELS; k++) {
+		const src = out[k - 1]
+		const ss = LEVEL_SIDE[k - 1]
+		const s = LEVEL_SIDE[k]
+		const dst = new Uint8Array(s * s * 4)
+		for (let y = 0; y < s; y++)
+			for (let x = 0; x < s; x++) {
+				const a = (y * 2 * ss + x * 2) * 4
+				const b = a + ss * 4
+				const d = (y * s + x) * 4
+				for (let c = 0; c < 4; c++) dst[d + c] = (src[a + c] + src[a + 4 + c] + src[b + c] + src[b + 4 + c] + 2) >> 2
+			}
+		out.push(dst)
+	}
+	return out
+}
+
+/** Writes the colour half of every level of a layer from RES² RGBA pixels. */
+export function encodeColourChain(layer: Uint8Array, px: Uint8Array) {
+	rgbaChain(px).forEach((l, k) => encodeColour(levelOf(layer, k), l, LEVEL_SIDE[k]))
+}
+
+/** Writes the alpha half of every level of a layer from the alpha of RES² RGBA pixels, or 0 for none. */
+export function encodeAlphaChain(layer: Uint8Array, px: Uint8Array | null) {
+	const ls = px ? rgbaChain(px) : null
+	for (let k = 0; k < LEVELS; k++) encodeAlpha(levelOf(layer, k), ls ? ls[k] : null, LEVEL_SIDE[k])
 }
 
 const rd16 = (b: Uint8Array, o: number) => b[o] | (b[o + 1] << 8)
@@ -52,19 +139,20 @@ function wr32(b: Uint8Array, o: number, v: number) {
 
 /**
  * The source texel index (0-15 within its block) of each of an output block's 16 texels, and the
- * source block's byte offset, for output block (bx, by): the nearest resample `resample` in
- * paletteArray.ts does, source x = floor(x * w / RES).
+ * source block's byte offset, for output block (bx, by) of a level `side` texels across: the nearest
+ * resample `resample` in paletteArray.ts does, source x = floor(x * w / side). The source is no
+ * larger than the level, so each output block reads one source block.
  */
-function sourceOf(l: DxtLevel, bx: number, by: number, step: number, map: Uint8Array): number {
+function sourceOf(l: DxtLevel, side: number, bx: number, by: number, step: number, map: Uint8Array): number {
 	const w = l.width
 	const h = l.height
 	const perRow = Math.max(1, (w + 3) >> 2)
-	const sx0 = (bx * 4 * w) / RES
-	const sy0 = (by * 4 * h) / RES
+	const sx0 = (bx * 4 * w) / side
+	const sy0 = (by * 4 * h) / side
 	for (let j = 0; j < 4; j++) {
-		const sy = Math.floor(((by * 4 + j) * h) / RES)
+		const sy = Math.floor(((by * 4 + j) * h) / side)
 		for (let i = 0; i < 4; i++) {
-			const sx = Math.floor(((bx * 4 + i) * w) / RES)
+			const sx = Math.floor(((bx * 4 + i) * w) / side)
 			map[j * 4 + i] = (sy & 3) * 4 + (sx & 3)
 		}
 	}
@@ -75,16 +163,18 @@ const texMap = new Uint8Array(16)
 const rgb = new Uint8Array(48)
 
 /**
- * Writes the colour half (bytes 8-15) of each of `out`'s blocks from a level that
- * `blockResamplable` allows. Every block is left in the four-colour mode with colour0 > colour1, or
- * one colour with every index 0, so it decodes the same whichever mode the GPU reads DXT3 in.
+ * Writes the colour half (bytes 8-15) of each of `out`'s blocks, a level `side` texels across, from
+ * a power-of-two source level no larger. Every block is left in the four-colour mode with colour0 >
+ * colour1, or one colour with every index 0, so it decodes the same whichever mode the GPU reads
+ * DXT3 in.
  */
-export function writeColour(out: Uint8Array, l: DxtLevel) {
+export function writeColour(out: Uint8Array, l: DxtLevel, side = RES) {
 	const step = l.kind === 1 ? 8 : 16
 	const off = l.kind === 1 ? 0 : 8
-	for (let by = 0; by < SIDE; by++) {
-		for (let bx = 0; bx < SIDE; bx++) {
-			const s = sourceOf(l, bx, by, step, texMap) + off
+	const n = Math.max(1, side >> 2)
+	for (let by = 0; by < n; by++) {
+		for (let bx = 0; bx < n; bx++) {
+			const s = sourceOf(l, side, bx, by, step, texMap) + off
 			const c0 = rd16(l.data, s)
 			const c1 = rd16(l.data, s + 2)
 			const idx = rd32(l.data, s + 4)
@@ -95,7 +185,7 @@ export function writeColour(out: Uint8Array, l: DxtLevel) {
 				ni |= v << (t * 2)
 				used |= 1 << v
 			}
-			const o = (by * SIDE + bx) * 16 + 8
+			const o = (by * n + bx) * 16 + 8
 			if (l.kind === 1 && c0 <= c1 && used & 12) {
 				// Three-colour mode with the midpoint or black in use: decode and fit four colours.
 				decodeThree(c0, c1, ni >>> 0, rgb)
@@ -123,12 +213,16 @@ function putFour(out: Uint8Array, o: number, c0: number, c1: number, idx: number
 	wr32(out, o + 4, idx)
 }
 
-/** Writes the alpha half (bytes 0-7) of each of `out`'s blocks from a DXT3 level's explicit alpha. */
-export function writeAlpha(out: Uint8Array, l: DxtLevel) {
-	for (let by = 0; by < SIDE; by++) {
-		for (let bx = 0; bx < SIDE; bx++) {
-			const s = sourceOf(l, bx, by, 16, texMap)
-			const o = (by * SIDE + bx) * 16
+/**
+ * Writes the alpha half (bytes 0-7) of each of `out`'s blocks, a level `side` texels across, from a
+ * DXT3 level's explicit alpha.
+ */
+export function writeAlpha(out: Uint8Array, l: DxtLevel, side = RES) {
+	const n = Math.max(1, side >> 2)
+	for (let by = 0; by < n; by++) {
+		for (let bx = 0; bx < n; bx++) {
+			const s = sourceOf(l, side, bx, by, 16, texMap)
+			const o = (by * n + bx) * 16
 			for (let t = 0; t < 16; t += 2) {
 				const a = (l.data[s + (texMap[t] >> 1)] >> ((texMap[t] & 1) * 4)) & 15
 				const b = (l.data[s + (texMap[t + 1] >> 1)] >> ((texMap[t + 1] & 1) * 4)) & 15
@@ -138,18 +232,27 @@ export function writeAlpha(out: Uint8Array, l: DxtLevel) {
 	}
 }
 
-/** Writes the alpha half of each block from the alpha of RES² RGBA pixels, or 0 for none. */
-export function encodeAlpha(out: Uint8Array, px: Uint8Array | null) {
-	for (let by = 0; by < SIDE; by++) {
-		for (let bx = 0; bx < SIDE; bx++) {
-			const o = (by * SIDE + bx) * 16
+/**
+ * The byte offset of texel t of block (bx, by) in `side`² RGBA pixels, a texel past the side (in a
+ * level below 4x4) reading the last one.
+ */
+function texel(side: number, bx: number, by: number, t: number): number {
+	const x = Math.min(side - 1, bx * 4 + (t & 3))
+	const y = Math.min(side - 1, by * 4 + (t >> 2))
+	return (y * side + x) * 4
+}
+
+/**
+ * Writes the alpha half of each block of a level `side` texels across from the alpha of its RGBA
+ * pixels, or 0 for none.
+ */
+export function encodeAlpha(out: Uint8Array, px: Uint8Array | null, side = RES) {
+	const n = Math.max(1, side >> 2)
+	for (let by = 0; by < n; by++) {
+		for (let bx = 0; bx < n; bx++) {
+			const o = (by * n + bx) * 16
 			for (let t = 0; t < 16; t += 2) {
-				if (!px) {
-					out[o + (t >> 1)] = 0
-					continue
-				}
-				const p = ((by * 4 + (t >> 2)) * RES + bx * 4 + (t & 3)) * 4 + 3
-				out[o + (t >> 1)] = four(px[p]) | (four(px[p + 4]) << 4)
+				out[o + (t >> 1)] = px ? four(px[texel(side, bx, by, t) + 3]) | (four(px[texel(side, bx, by, t + 1) + 3]) << 4) : 0
 			}
 		}
 	}
@@ -157,22 +260,23 @@ export function encodeAlpha(out: Uint8Array, px: Uint8Array | null) {
 
 const four = (a: number) => Math.round((a * 15) / 255)
 
-/** Writes the colour half of each block from RES² RGBA pixels. */
-export function encodeColour(out: Uint8Array, px: Uint8Array) {
-	for (let by = 0; by < SIDE; by++) {
-		for (let bx = 0; bx < SIDE; bx++) {
+/** Writes the colour half of each block of a level `side` texels across from its RGBA pixels. */
+export function encodeColour(out: Uint8Array, px: Uint8Array, side = RES) {
+	const n = Math.max(1, side >> 2)
+	for (let by = 0; by < n; by++) {
+		for (let bx = 0; bx < n; bx++) {
 			for (let t = 0; t < 16; t++) {
-				const p = ((by * 4 + (t >> 2)) * RES + bx * 4 + (t & 3)) * 4
+				const p = texel(side, bx, by, t)
 				rgb[t * 3] = px[p]
 				rgb[t * 3 + 1] = px[p + 1]
 				rgb[t * 3 + 2] = px[p + 2]
 			}
-			encodeBlock(rgb, out, (by * SIDE + bx) * 16 + 8)
+			encodeBlock(rgb, out, (by * n + bx) * 16 + 8)
 		}
 	}
 }
 
-/** A layer of one colour, as near as a block gets it, `alpha` (0-15) in every texel's alpha. */
+/** A layer of one colour, every level, as near as a block gets it, `alpha` (0-15) in every texel's alpha. */
 export function solidLayer(r: number, g: number, b: number, alpha = 0): Uint8Array {
 	const out = new Uint8Array(LAYER_BYTES)
 	for (let t = 0; t < 16; t++) rgb.set([r, g, b], t * 3)
