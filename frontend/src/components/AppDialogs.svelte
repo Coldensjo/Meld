@@ -19,6 +19,7 @@
   import HeightmapImportDialog from './HeightmapImportDialog.svelte'
   import RecoveryDialog from './RecoveryDialog.svelte'
   import FitGroundDialog from './FitGroundDialog.svelte'
+  import ErodeDialog from './ErodeDialog.svelte'
   import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
   import { EquipmentFor } from '../../wailsjs/go/main/App'
   import { setStatus } from '../lib/state/editor.svelte'
@@ -87,7 +88,7 @@
       'Tools (keys 1 to 9)',
       [
         'Select (1): click a model, Shift+click adds one, drag moves the selection; drag on the ground to select an area and the models in it. Alt+click is the pipette. I opens the Inspector with the placement numbers.',
-        'Sculpt (2): raise, lower, smooth, flatten, noise, mountain, crevice, terrace (levels of a set step; Shift+drag keeps the level of the first click), vertex and hole modes. Painting while shaping paints a texture, or rock and dirt by slope, under the brush as the ground moves.',
+        'Sculpt (2): raise, lower, smooth, flatten, noise, mountain, crevice, terrace (levels of a set step; Shift+drag keeps the level of the first click), erode (water carving gullies, or thermal sliding off slopes steeper than the talus angle; Terrain › Erode does a whole area), vertex and hole modes. Painting while shaping paints a texture, or rock and dirt by slope, under the brush as the ground moves.',
         'Paint (3): paints the texture picked in the browser; a chunk of 8x8 cells takes four textures, and the Layers panel shows the ones under the cursor. Mask mode marks ground to fill with one texture.',
         'Roads (4) paint a hard-edged texture and level the ground across it. Water (5) paints lakes and rivers by liquid type, or shapes the sea\'s shore; the sea level is in Map Properties.',
         'Place (6) puts down the model picked in the browser, onto the ground or onto a building. Clear (7) wipes textures or models under the brush. Doodad brush (8) scatters a brush of weighted models like paint; World › Doodad Brushes makes brushes. Map data (9) paints the zone each chunk belongs to, which the export writes into the tiles; Alt+click takes the zone of the chunk under the cursor.',
@@ -395,6 +396,8 @@
   <RecoveryDialog onclose={close} />
 {:else if ui.dialog === 'fitGround'}
   <FitGroundDialog onclose={close} />
+{:else if ui.dialog === 'erode'}
+  <ErodeDialog onclose={close} />
 {/if}
 
 <style>

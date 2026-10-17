@@ -26,7 +26,7 @@ export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' 
  */
 export type MapDataMode = 'area' | 'impassable' | 'noTufts' | 'shadow'
 export type ClearMode = 'models' | 'textures' | 'faint' | 'heights' | 'liquids' | 'holes'
-export type SculptMode = 'raise' | 'lower' | 'smooth' | 'blur' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'terrace' | 'vertex' | 'hole'
+export type SculptMode = 'raise' | 'lower' | 'smooth' | 'blur' | 'flatten' | 'noise' | 'mountain' | 'crevice' | 'terrace' | 'erode' | 'vertex' | 'hole'
 /** Flatten target: the height under the first click, or the average height under the brush. */
 export type FlattenTarget = 'origin' | 'average'
 /** Flatten direction: move ground both ways, or only up or only down toward the target. */
@@ -92,6 +92,13 @@ export const editor = $state({
   terrace: { step: 6, offset: 0, sharpness: 0.8 },
   /** Mountain: how much of the peak its ridges carve away (0 a smooth hill, 1 all ridges). */
   mountain: { ridges: 0.7 },
+  /**
+   * Sculpt › Erode and Terrain › Erode (#165, terrain/erosion.ts). The brush runs water drops
+   * ('hydraulic', which carve gullies and leave fans at their feet) or lets the ground slide where it
+   * is steeper than `talus` degrees ('thermal'). Erode over an area runs `density` drops a cell, then
+   * `passes` thermal passes at `talus`, from the random `seed`.
+   */
+  erode: { kind: 'hydraulic' as 'hydraulic' | 'thermal', talus: 40, density: 0.5, passes: 5, seed: 1 },
   sculptLimit: 'none' as SculptLimit,
   /**
    * Sculpting also paints under the brush: 'texture' paints `sculptPaintLayer` (a palette index, per
@@ -535,7 +542,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | 'spawnRules' | 'worldMap' | null,
+  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | 'spawnRules' | 'worldMap' | 'erode' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */

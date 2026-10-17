@@ -27,6 +27,7 @@ import { areaCells, areaShape, objectsInArea, setAreaCells } from '../state/area
 import { INSIDE, cellsInRect } from '../terrain/areaShape'
 import { growMask, shrinkMask } from '../terrain/maskSelect'
 import { ShadowStroke } from '../tools/shadowStroke'
+import { areaVertexWeights, erodePatch, type ErodeSettings } from '../terrain/erodeArea'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
 import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
@@ -3925,6 +3926,68 @@ export class Engine {
 
   /** Whether a shadow bake is running (bakeShadows). */
   private shadowBaking = false
+
+  /**
+   * Terrain › Erode (#165): water drops and then thermal passes (terrain/erodeArea.ts) over the selected
+   * area or the whole map, as one undo step. It works on a copy of the heights a slice at a time between
+   * frames, reporting the share done to `progress`, and leaves the ground as it was when `cancelled`
+   * says so; the dialog that runs it stays up meanwhile, so nothing else edits the map. Returns whether
+   * it ran to the end.
+   */
+  async erodeArea(o: ErodeSettings, progress: (f: number) => void, cancelled: () => boolean): Promise<boolean> {
+    if (this.eroding) {
+      setStatus('The ground is still eroding.')
+      return false
+    }
+    const t = this.terrain
+    const objects = this.objects
+    const s = editor.selection
+    const r = s && s.x1 > s.x0 && s.z1 > s.z0 ? { x0: s.x0, z0: s.z0, x1: s.x1, z1: s.z1 } : { x0: 0, z0: 0, x1: t.size, z1: t.size }
+    const where = s ? 'in the selected area' : 'over the map'
+    const w = r.x1 - r.x0 + 1
+    const h = r.z1 - r.z0 + 1
+    const V = t.verts
+    const cs = t.cellSize
+    const weights = new Float32Array(w * h)
+    areaVertexWeights(s ? areaCells(t, t.size) : null, t.size, r, weights)
+    const work = new Float32Array(w * h)
+    for (let z = 0; z < h; z++) for (let x = 0; x < w; x++) work[z * w + x] = t.heights[(r.z0 + z) * V + r.x0 + x] / cs
+    this.eroding = true
+    let finished = false
+    try {
+      finished = await erodePatch(work, w, h, weights, o, progress, cancelled)
+    } finally {
+      this.eroding = false
+    }
+    if (!finished) {
+      setStatus(`Erosion cancelled; the ground ${where} is as it was.`)
+      return false
+    }
+    const resnap = (q: Rect) => this.objects.markRegionDirty(q.x0 * cs, q.z0 * cs, q.x1 * cs, q.z1 * cs)
+    const stroke = new TerrainStroke(t, s ? 'Erode selection' : 'Erode map', { heights: true }, resnap)
+    stroke.reserveHeights(r)
+    let most = 0
+    for (let z = 0; z < h; z++) {
+      for (let x = 0; x < w; x++) {
+        const k = z * w + x
+        if (!weights[k]) continue
+        const i = (r.z0 + z) * V + r.x0 + x
+        const d = work[k] * cs - t.heights[i]
+        if (Math.abs(d) > most) most = Math.abs(d)
+        t.heights[i] += d
+      }
+    }
+    t.markDirty(r.x0, r.z0, r.x1, r.z1)
+    stroke.touchHeights(r)
+    objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+    const cmd = stroke.finish()
+    if (cmd) (this.documents.find((d) => d.terrain === t)?.history ?? this.history).push(cmd)
+    setStatus(`Eroded the ground ${where}: up to ${most.toFixed(1)} yd moved.`, 4000)
+    return true
+  }
+
+  /** Whether Terrain › Erode is running (erodeArea). */
+  private eroding = false
 
   /** The rectangle the top-down camera frames while renderTopDown draws it, or null. */
   private minimapShot: { cx: number; cz: number; halfX: number; halfZ: number; top: number } | null = null

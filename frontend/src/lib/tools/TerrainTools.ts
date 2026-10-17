@@ -43,6 +43,7 @@ import { VertexSelection, flattenVertices, moveVertices, orientVertices, type Ve
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke, brushCenter, brushDist, brushShape, forEachTexel, forEachVertex, paintPixel, type Rect } from './brush'
+import { Eroder, talusSlope } from '../terrain/erosion'
 import { angledHeight, creviceDig, creviceRidge, mountainHeight, ridgeScale, terraceHeight, terraceLevel } from './sculptShapes'
 import { brushImage, setBrushImageRotation } from './brushImage'
 import { wandClick } from './maskWand'
@@ -172,6 +173,10 @@ const RAISE_RATE = 18 // world units per second at strength 1
 const MOUNTAIN_RATE = RAISE_RATE * 4
 /** Crevice digs at this rate (the ridges rise with what was dug); faster than Raise since a dragged brush passes each spot briefly. */
 const CREVICE_RATE = RAISE_RATE * 2
+/** Erode's water drops a cell of the brush a second at strength 1. */
+const DROPS_RATE = 0.5
+/** Erode's thermal mode: passes' worth a second at strength 1. */
+const THERMAL_RATE = 8
 
 /** Weighted mean height under the brush: the flatten target when it averages. */
 function averageHeight(t: Terrain, x: number, z: number, radius: number, falloff: number): number {
@@ -208,7 +213,7 @@ function vertexCommand(ctx: ToolContext, label: string, ids: number[], before: F
 const MAX_VERTEX_MARKERS = 65536
 
 /** The sculpt modes that shape the ground under the brush, and so paint it too with Paint texture on. */
-const SHAPING_MODES = new Set<SculptMode>(['raise', 'lower', 'smooth', 'blur', 'flatten', 'noise', 'mountain', 'crevice', 'terrace'])
+const SHAPING_MODES = new Set<SculptMode>(['raise', 'lower', 'smooth', 'blur', 'flatten', 'noise', 'mountain', 'crevice', 'terrace', 'erode'])
 
 export class SculptTool extends BrushTool {
   protected label = 'Sculpt'
@@ -237,6 +242,12 @@ export class SculptTool extends BrushTool {
   private terraceSame: number | null = null
   private terraceShift = false
   private scratch = new Float32Array(0)
+  /** Erode: the drops and slides, the brush's patch in cell units, its heights before and its weights, and the drops owed. */
+  private eroder = new Eroder()
+  private erodeWork = new Float32Array(0)
+  private erodeBefore = new Float32Array(0)
+  private erodeMask = new Float32Array(0)
+  private dropsOwed = 0
 
   // Vertex mode: the selected vertices of `vselTerrain`, whether this stroke moves them (Shift) or
   // deselects (Ctrl or Alt), the last cursor point, and the slope last applied.
@@ -478,6 +489,9 @@ export class SculptTool extends BrushTool {
       : editor.flattenTarget === 'average'
         ? averageHeight(ctx.terrain, hit.x, hit.z, radius, falloff)
         : ctx.terrain.heightAt(hit.x, hit.z)
+    // Each stroke starts the drops from the same seed, so the same stroke erodes the same way.
+    this.eroder.seed(editor.erode.seed)
+    this.dropsOwed = 0
     const tr = editor.terrace
     this.terraceSame = this.terraceShift && tr.step > 0 ? terraceLevel(hit.y, tr.step, tr.offset) : null
   }
@@ -631,6 +645,9 @@ export class SculptTool extends BrushTool {
         }, this.stroke)
         break
       }
+      case 'erode':
+        rect = this.erode(ctx, hit, radius, falloff, rate, limit, cursorY)
+        break
     }
     this.heightsChanged(ctx, rect)
 
@@ -676,6 +693,64 @@ export class SculptTool extends BrushTool {
       if (refused) setStatus(CHUNK_FULL, 3000)
       this.splatChanged(ctx, sr)
     }
+  }
+
+  /**
+   * Sculpt › Erode (#165): copies the heights under the brush into a patch, runs water drops started
+   * under the brush (or one thermal slide) over it (terrain/erosion.ts), and blends the change back by
+   * the brush's weight, so the falloff, the brush image and the edit limit apply as in the other modes
+   * and nothing outside the brush (which undo saved) changes. A drop that runs off the patch is gone.
+   */
+  private erode(ctx: ToolContext, hit: THREE.Vector3, radius: number, falloff: number, rate: number, limit: SculptLimit, cursorY: number): Rect | null {
+    const t = ctx.terrain
+    const h = t.heights
+    const cs = t.cellSize
+    const V = t.verts
+    const x0 = Math.max(0, Math.floor((hit.x - radius) / cs))
+    const z0 = Math.max(0, Math.floor((hit.z - radius) / cs))
+    const x1 = Math.min(t.size, Math.ceil((hit.x + radius) / cs))
+    const z1 = Math.min(t.size, Math.ceil((hit.z + radius) / cs))
+    const w = x1 - x0 + 1
+    const ph = z1 - z0 + 1
+    if (w < 3 || ph < 3) return null
+    const n = w * ph
+    if (this.erodeMask.length < n) {
+      this.erodeMask = new Float32Array(n)
+      this.erodeWork = new Float32Array(n)
+      this.erodeBefore = new Float32Array(n)
+    }
+    const mask = this.erodeMask
+    const work = this.erodeWork
+    const before = this.erodeBefore
+    const thermal = editor.erode.kind === 'thermal'
+    let drops = 0
+    if (!thermal) {
+      this.dropsOwed += rate * DROPS_RATE * Math.PI * (radius / cs) ** 2
+      drops = Math.floor(this.dropsOwed)
+      this.dropsOwed -= drops
+      if (!drops) return null
+    }
+    mask.fill(0, 0, n)
+    const r = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, wt, x, z) => {
+      if (keeps(h[i], limit, cursorY)) mask[(z - z0) * w + x - x0] = wt
+    }, this.stroke)
+    if (!r) return null
+    for (let z = 0; z < ph; z++) {
+      for (let x = 0; x < w; x++) {
+        const v = h[(z0 + z) * V + x0 + x]
+        before[z * w + x] = v
+        work[z * w + x] = v / cs
+      }
+    }
+    if (thermal) this.eroder.thermal(work, w, ph, talusSlope(editor.erode.talus), Math.min(1, rate * THERMAL_RATE))
+    else this.eroder.droplets(work, w, ph, drops, mask)
+    for (let z = 0; z < ph; z++) {
+      for (let x = 0; x < w; x++) {
+        const k = z * w + x
+        if (mask[k] > 0) h[(z0 + z) * V + x0 + x] = before[k] + (work[k] * cs - before[k]) * mask[k]
+      }
+    }
+    return r
   }
 }
 

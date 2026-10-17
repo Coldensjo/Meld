@@ -25,6 +25,15 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     `slopePaint.rockDeg` and the dirt on the moderate slopes below it (`slopeWeights`), which is how
     Blizzard's zones are painted (rock mountains rimmed with dirt over a grass base). The roles are
     set in Map Properties, and the preview-only cliff rock in the shader uses the rock role too.
+  - Sculpt's **Erode** mode (#165, `SculptTool.erode`) copies the heights under the brush into a
+    patch in cell units, runs `terrain/erosion.ts` over it (`Eroder`: water drops after Sebastian
+    Lague's droplet model, `editor.erode.kind` 'hydraulic', strength in drops a cell a second; or one
+    thermal slide past `editor.erode.talus`), and blends the change back by the brush weight, so the
+    falloff, the brush image and the edit limit apply and nothing outside the brush's reserved rect
+    changes. Each stroke reseeds the drops from `editor.erode.seed`. Terrain › Erode
+    (`Engine.erodeArea`, `ErodeDialog.svelte`) runs drops and thermal passes over the selected area
+    (vertices whose cells are all in it, `terrain/erodeArea.ts`) or the whole map, a 30 ms slice at a
+    time between frames with a progress bar and Cancel, then writes the result as one undo step.
   - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
   - **Every edit must be undoable** through `History`.
 - **Stamp** (`tools/StampTool.ts`, tool `stamp`, key 0) applies a brush stack (`tools/brushStack.ts`,

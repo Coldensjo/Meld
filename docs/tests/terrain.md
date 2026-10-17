@@ -74,6 +74,22 @@ under the brush goes to the level under the first click.
 - A probe edit that breaks a Svelte file's parse breaks the owner's own `wails dev` window too until
   it is fixed: check `curl localhost:34115/src/components/<File>.svelte` gives 200 after editing.
 
+## Sculpt › Erode and Terrain › Erode (#165)
+
+Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are
+`terrain/erosion.ts` and the sliced area run `terrain/erodeArea.ts`, unit tests in `erosion.test.ts`
+(same seed, same result; flat ground untouched; thermal keeps the volume and ends at the talus slope;
+cancel stops at the next turn). In the live app, `pnpm probe erode`: on a Mountains map (256, seed 3)
+a water and a thermal stroke at the steepest spot change only vertices inside the brush and undo and
+redo exactly, and `Engine.erodeArea` over a 60-cell square changes only its inner vertices, reports
+progress to 1, undoes as "Erode selection", and a cancelled run changes nothing.
+
+- To see it, a scratch probe can `e.controller.setView(x, y, z, 0.8, 0.7, 380)` over the highest peak
+  and run `pnpm probe <file> --shot <dir>` with and without `erodeArea` (density 1, 5 passes): the peak
+  comes out lower and gullied. The 256 Mountains preset is only about 60 yd high, so a stroke there is
+  stronger than on a client continent.
+- One drop a cell moves up to about 40% of a small steep cone's height (the unit test's bound is half); the dialog defaults to 0.5.
+
 ## Mask wand, Grow, Shrink and Feather (#183)
 
 Checks: Paint › Mask's Select by (`editor.maskSelect`, `tools/maskWand.ts`; the texel arithmetic is

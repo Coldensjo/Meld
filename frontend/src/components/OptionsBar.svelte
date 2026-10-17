@@ -23,6 +23,7 @@
     { id: 'mountain', name: 'Mountain', tip: 'Build up a peak' },
     { id: 'crevice', name: 'Crevice', tip: 'Dig a trench and pile the ground onto its sides' },
     { id: 'terrace', name: 'Terrace', tip: 'Step the ground into levels, for mesas, farmland and cliff levels (Shift+drag levels to the step under the first click)' },
+    { id: 'erode', name: 'Erode', tip: 'Wear the ground down as water and loose rock do: water carves gullies and leaves fans of sediment below them; thermal lets ground slide off slopes steeper than the talus angle' },
     { id: 'vertex', name: 'Vertex', tip: 'Pick points of the ground with the brush, then raise or lower them together (Shift+drag), level them (Flatten) or tilt them onto a slope (Slope, Direction)' },
     { id: 'hole', name: 'Hole', tip: 'Cut holes in the ground, or fill them' },
   ]
@@ -194,6 +195,16 @@
     {/if}
     {#if editor.sculptMode === 'crevice'}
       <OptSlider label="Ridge" bind:value={editor.crevice.ridge} min={0} max={2} step={0.05} digits={2} width={60} title="How much of the dug ground is piled onto the sides: 1 keeps the volume, 0 only digs. Falloff sets how wide the ridges are." />
+    {/if}
+    {#if editor.sculptMode === 'erode'}
+      <div class="seg">
+        <button class:active={editor.erode.kind === 'hydraulic'} onclick={() => (editor.erode.kind = 'hydraulic')} title="Water drops run downhill from under the brush, carving gullies and leaving their load where they slow down. Strength sets how many drops a second.">Water</button>
+        <button class:active={editor.erode.kind === 'thermal'} onclick={() => (editor.erode.kind = 'thermal')} title="Ground slides off wherever it is steeper than the talus angle, as scree does, which also takes the spikes off noise. Strength sets how fast.">Thermal</button>
+      </div>
+      {#if editor.erode.kind === 'thermal'}
+        <OptSlider label="Talus" bind:value={editor.erode.talus} min={5} max={80} step={1} digits={0} width={60} title="The steepest slope, in degrees, that loose ground holds; steeper ground slides down" />
+      {/if}
+      <button onclick={() => (ui.dialog = 'erode')} title="Erode the selected area, or the whole map, at once (Terrain › Erode)">Area…</button>
     {/if}
     {#if editor.sculptMode === 'terrace'}
       <OptSlider label="Step" bind:value={editor.terrace.step} min={0.5} max={50} step={0.5} digits={1} width={60} title="Yards between the levels" />
