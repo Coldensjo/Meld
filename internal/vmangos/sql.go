@@ -48,6 +48,16 @@ type Spawn struct {
 	StandState, EmoteState, SheathState int
 	// Path is the creature's waypoints (creature_movement), in point order.
 	Path []PathPoint
+	// The creature's formation (creature_groups): its leader's guid (its own for a leader, 0 for
+	// none), its slot's distance and angle from the leader's facing in radians, and its flags.
+	Leader                  int
+	FollowDist, FollowAngle float64
+	GroupFlags              int
+	// The spawn's pool (pool_creature, pool_gameobject; 0 for none), its chance in it in percent,
+	// and the pool's limit and description (pool_template).
+	Pool, PoolLimit int
+	PoolName        string
+	PoolChance      float64
 }
 
 // PathPoint is a waypoint in the server's coordinates: where, the facing there (0 none), the wait
@@ -200,6 +210,8 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 
 	var out []string
 	var res Result
+	poolRows := map[int]Spawn{}
+	var poolOrder []int
 	for _, e := range sorted {
 		s := e.Spawn
 		name := label(s)
@@ -225,6 +237,8 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 			if s.Kind == Creature {
 				out = append(out, fmt.Sprintf("DELETE FROM `creature_movement` WHERE `id` = %d;", s.GUID))
 				out = append(out, fmt.Sprintf("DELETE FROM `creature_linking` WHERE `guid` = %d OR `master_guid` = %d;", s.GUID, s.GUID))
+				// A deleted leader takes its formation with it, as the server drops a group without one.
+				out = append(out, fmt.Sprintf("DELETE FROM `creature_groups` WHERE `member_guid` = %d OR `leader_guid` = %d;", s.GUID, s.GUID))
 			}
 			res.Deleted++
 			continue
@@ -304,7 +318,32 @@ func ExportSQL(edits []Edit, now time.Time) Result {
 					"WHERE NOT EXISTS (SELECT 1 FROM `creature_addon` WHERE `guid` = %d);", s.GUID, s.GUID))
 				out = append(out, fmt.Sprintf("UPDATE `creature_addon` SET %s WHERE `guid` = %d;", strings.Join(cols, ", "), s.GUID))
 			}
+			out = append(out, formationSQL(s, e.Original)...)
 		}
+
+		// The pool membership, when it changed, and the pool's own row when the spawn's pool or the
+		// pool's limit or description did.
+		lines, skipped := poolSQL(s, e.Original, table)
+		out = append(out, lines...)
+		if skipped != "" {
+			res.Skipped = append(res.Skipped, name+": "+skipped)
+		} else if s.Pool != 0 && (e.Original == nil || e.Original.Pool != s.Pool || e.Original.PoolLimit != s.PoolLimit || e.Original.PoolName != s.PoolName) {
+			if _, seen := poolRows[s.Pool]; !seen {
+				poolOrder = append(poolOrder, s.Pool)
+			}
+			poolRows[s.Pool] = s
+		}
+	}
+
+	// The pools made or changed: a new one gets its pool_template row, and every one its limit and
+	// description (on each patch row it has).
+	for _, p := range poolOrder {
+		s := poolRows[p]
+		desc := sqlQuote(poolDescription(s))
+		out = append(out, fmt.Sprintf("-- Pool %d", p))
+		out = append(out, fmt.Sprintf("INSERT INTO `pool_template` (`entry`, `max_limit`, `description`) SELECT %d, %d, %s FROM DUAL "+
+			"WHERE NOT EXISTS (SELECT 1 FROM `pool_template` WHERE `entry` = %d);", p, max(s.PoolLimit, 0), desc, p))
+		out = append(out, fmt.Sprintf("UPDATE `pool_template` SET `max_limit` = %d, `description` = %s WHERE `entry` = %d;", max(s.PoolLimit, 0), desc, p))
 	}
 
 	header := []string{

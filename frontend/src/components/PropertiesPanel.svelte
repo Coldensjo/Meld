@@ -7,9 +7,13 @@
   import { WMODoodadSets } from '../../wailsjs/go/main/App'
   import { hasBackend } from '../lib/io/mapio'
   import type { WorldObject } from '../lib/world/ObjectLayer'
+  import { spawnKey } from '../lib/world/SpawnLayer'
+  import FormationFields from './FormationFields.svelte'
+  import PoolFields from './PoolFields.svelte'
 
   // What is selected, and everything about it: one model's placement as numbers and actions, a
-  // mixed selection's models by kind, the selected ground area, or the map when nothing is.
+  // mixed selection's models by kind, the selected ground area, a creature's or game object's pool
+  // and formation (#172), or the map when nothing is.
 
   // Live preview while scrubbing a field; one undo step on release.
   let before: WorldObject | undefined
@@ -209,6 +213,15 @@
       <button onclick={() => e?.deselect()}>Deselect</button>
     </div>
     <p class="dim">Drag on the ground to select another area. Models standing in it are selected too.</p>
+  {:else if editor.selectedSpawn}
+    {@const s = editor.selectedSpawn}
+    <div class="title"><span class="name">{s.name}</span><span class="id">{s.kind === 'object' ? 'object' : 'creature'} {s.entry} · spawn {s.guid}</span></div>
+    <PoolFields {s} />
+    {#if s.kind !== 'object'}<FormationFields {s} />{/if}
+    <div class="actions">
+      <button onclick={() => (s.kind === 'object' ? (ui.objectEditor = { key: spawnKey(s), entry: s.entry }) : (ui.creatureEditor = { key: spawnKey(s), entry: s.entry }))}>Open editor…</button>
+      <button onclick={() => e?.focusSpawn(s)}>Focus <kbd>F</kbd></button>
+    </div>
   {:else}
     <p class="dim">Select a model with the Select tool (<kbd>V</kbd>) to see its placement here, or drag on the ground to select an area.</p>
     <p class="dim">The map's size, sea and world settings are in File › Map Properties.</p>

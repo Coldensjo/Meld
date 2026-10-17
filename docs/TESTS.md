@@ -200,7 +200,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   another in the game object editor, and undone), `object-tilt` (#229, the Sunken Chest drawn tilted
   and its rotation kept by a move's SQL), `object-loot` (#220, a vein's shared loot list in the game
   object editor's Contents tab, a copy of its own, an added item, Make it a chest and the respawn time,
-  nothing written), `walkable` (#175, the navmesh view's tiles, a path round holes, a WMO's floors), `erode` (#165, the Erode brush and the area pass on a Mountains map, with undo), `weather` (#185, rain, snow and a sandstorm with the storm light, and the Zones dialog's weather sliders), `zones-fit` (#247, the Zones dialog has no horizontal scrollbar), `creature-spells` (#243, the creature editor's Spells tab: a creature's list with names, icons and text, a search and add, Revert; nothing written). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
+  nothing written), `walkable` (#175, the navmesh view's tiles, a path round holes, a WMO's floors), `erode` (#165, the Erode brush and the area pass on a Mountains map, with undo), `weather` (#185, rain, snow and a sandstorm with the storm light, and the Zones dialog's weather sliders), `zones-fit` (#247, the Zones dialog has no horizontal scrollbar), `creature-spells` (#243, the creature editor's Spells tab: a creature's list with names, icons and text, a search and add, Revert; nothing written), `spawn-groups` (#172, formations and pools read, built by clicks, written as SQL and undone; nothing written). Port a recipe from `docs/tests/` into a probe when you next use it, and say in its entry
   that the probe exists.
 
 ## The live app without Claude in Chrome (headless Chrome over CDP)
@@ -396,6 +396,7 @@ the same scene, the report before and after.
 - Tilted game objects (#229)
 - Names over spawns (#125)
 - Right-click near the selected creature (#205)
+- Formations and spawn pools (#172)
 - Creature path editing on the map (#138)
 - World event spawns (#143)
 - Creature editor: Looks opens on the creature's display (#206)

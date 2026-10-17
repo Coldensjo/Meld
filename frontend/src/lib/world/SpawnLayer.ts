@@ -63,7 +63,7 @@ const tmpPos = new THREE.Vector3()
 const eachM = new THREE.Matrix4()
 
 /** A spawn's instance matrix: a model turns to the spawn's rotation and takes its size; a cone points up. */
-function spawnMatrix(s: vmangos.WorldSpawn, model: boolean, out: THREE.Matrix4) {
+export function spawnMatrix(s: vmangos.WorldSpawn, model: boolean, out: THREE.Matrix4) {
   tmpPos.set(s.x, s.y, s.z)
   if (model) spawnQuaternion(s, tmpQ)
   else tmpQ.identity()

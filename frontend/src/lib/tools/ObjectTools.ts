@@ -20,6 +20,7 @@ import { spawnKey } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { placementEuler } from '../world/placement'
 import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
+import { slotFieldsAt } from '../world/formations'
 
 function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
   const saved = added.map((o) => ({ ...o }))
@@ -429,6 +430,8 @@ export class SelectTool implements Tool {
       /** Spawns the creature or object template being placed at a point (see Engine.placeSpawnAt). */
       placeSpawn: (at: THREE.Vector3) => void
       cancelPaste: () => void
+      /** A click on a spawn while a formation or pool is built (`ui.spawnPick`, see Engine.pickSpawn). */
+      pickSpawn: (s: vmangos.WorldSpawn) => void
     },
   ) {
     this.ghostGroup.renderOrder = 20
@@ -555,13 +558,25 @@ export class SelectTool implements Tool {
       return
     }
     if (ui.pathEdit && editor.selectedSpawn && this.pressPath(ctx, spawnKey(editor.selectedSpawn))) return
+    // While a formation or pool is built, a click on a spawn adds it (or takes it out) instead of selecting it.
+    if (ui.spawnPick) {
+      if (spawn) this.hooks.pickSpawn(spawn)
+      return
+    }
     // A creature or object of the region (or nothing) is selected, and a drag moves it. The panel
     // gets a copy, so its state never wraps the drawn spawn.
     selectSpawn(spawn)
     if (spawn) {
       if (editor.selectedIds.length) selectObjects(ctx.objects, [])
       const at = ctx.surface()?.point ?? hit
-      if (at) this.spawnDrag = { key: spawnKey(spawn), dx: spawn.x - at.x, dz: spawn.z - at.z, before: { x: spawn.x, y: spawn.y, z: spawn.z }, moved: false }
+      if (at)
+        this.spawnDrag = {
+          key: spawnKey(spawn),
+          dx: spawn.x - at.x,
+          dz: spawn.z - at.z,
+          before: { x: spawn.x, y: spawn.y, z: spawn.z, followDist: spawn.followDist, followAngle: spawn.followAngle },
+          moved: false,
+        }
       return
     }
     const at = this.groundPoint(ctx, hit)
@@ -903,7 +918,10 @@ export class SelectTool implements Tool {
       // A click (no drag) only selects; the creature editor opens from the right-click menu.
       if (!sd.moved) return
       const layer = ctx.spawns
-      const after: SpawnFields = { x: s.x, y: s.y, z: s.z }
+      // A follower dragged takes its slot where it was dropped (#172).
+      const slot = slotFieldsAt(layer.spawns, s, s.x, s.z)
+      if (slot) Object.assign(s, slot)
+      const after: SpawnFields = { x: s.x, y: s.y, z: s.z, followDist: s.followDist, followAngle: s.followAngle }
       syncSpawnUi(layer)
       ctx.history.push({ label: `Move ${s.name}`, undo: () => applySpawn(layer, sd.key, sd.before), redo: () => applySpawn(layer, sd.key, after) })
       return

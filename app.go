@@ -830,6 +830,16 @@ func (a *App) NextObjectGUID() (int, error) {
 	return vmangos.NextObjectGUID(server)
 }
 
+// NextPoolEntry is the first spawn pool entry the world database doesn't use yet, for a pool made
+// in the editor.
+func (a *App) NextPoolEntry() (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.NextPoolEntry(server)
+}
+
 // NextCreatureGUID is the first creature guid the world database doesn't use yet, for creatures
 // placed in the editor.
 func (a *App) NextCreatureGUID() (int, error) {

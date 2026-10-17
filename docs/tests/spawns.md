@@ -122,6 +122,31 @@ creatures from `e.doc.spawnLayer.forEachDrawn`, project `boundsOf(s, box)`'s cor
 and call `e.openContextMenu({ clientX, clientY, pointerType: 'mouse', pressure: 0 })` 15 px right of the
 box: `ui.contextMenu.title` is the creature's; 200 px right: no menu.
 
+## Formations and spawn pools (#172)
+
+Checks: `readFormations` and `readSpawnPools` (`go test ./internal/vmangos/ -run "Formation|Pool"`,
+canned rows), `formationSQL` and `poolSQL` (`groupsql_test.go`), the slot maths and the pool rules
+(`frontend/tests/formations.test.ts`), and in the app the probe `spawn-groups` (about 8 s, needs the
+world database up): it reads Elwynn's patrols (tile 30, 48) and Redridge's master pools (36, 48)
+through `LoadSpawns`, then on a flat map builds a formation (a real click in the viewport through
+`P.click` at a creature's projected position, then `e.pickSpawn`), checks the slots and lines
+(`e.links`), moves a follower by its fields, makes a pool (a real `NextPoolEntry`) and adds a vein,
+reads the SQL from `SpawnEditSQL` and undoes all five steps. Nothing is written.
+
+- Places in the world: tile 39, 30 (Hinterlands) has walking formations of Verdantine Boughguards
+  (flags 11, slots 4 yd at 135° and 225°) and the Golden Sansam pool (7 of 18); tile 34, 46 (Burning
+  Steppes) has groups with no walk flag (slots of 0 yd); tile 30, 48 (Stormwind) has the orphans'
+  group of Miss Danna. `pool_pool` has master pools of up to 113 spots (Ashenvale tin and silver).
+- To look: `pnpm probe probes/scratch/<x>.js --shot <dir>` after `P.scene` of the region,
+  `selectSpawn`, `P.e.controller.focus(x, z, 15)` and `prefs.spawnNames = false` (the names hide the
+  thin lines); set `ui.dialog = null`, since the probe page may open Recover unsaved maps over the
+  view. The pool outline only shows round members drawn with their model.
+- Traps: in the rows checked (Stranglethorn's groups of leaders 51403, 51424 and 51427) the slots lie
+  on the far side of the leader from where the members were spawned (the angle is about π off the
+  spawn positions). The editor draws the server's formula, so a slot away from its member is the
+  data, shown by the faint line, not a bug in `slotPosition`. `History.peek()` is null once an
+  undo has run (it only sees the top of a stack with nothing to redo), so undo a known number of steps.
+
 ## Creature path editing on the map (#138)
 
 Checks: the right-click "Edit path" / "Give it a path" on a creature and the floating `PathEditBar`.

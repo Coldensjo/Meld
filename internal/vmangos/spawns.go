@@ -94,6 +94,26 @@ type WorldSpawn struct {
 	Pool      int    `json:"pool"`
 	PoolLimit int    `json:"poolLimit"`
 	PoolName  string `json:"poolName"`
+	// PoolChance is the spawn's chance in its pool in percent (0: the members without one share
+	// what the others leave). PoolElsewhere counts the pool's members the database has outside the
+	// region.
+	PoolChance    float32 `json:"poolChance"`
+	PoolElsewhere int     `json:"poolElsewhere"`
+	// MotherPool is the pool the spawn's pool belongs to (pool_pool; 0 for none), such as a zone's
+	// master pool of vein spots: the server fills at most MotherLimit of its MotherSize pools at a
+	// time. MotherName is its description. Read only.
+	MotherPool  int    `json:"motherPool"`
+	MotherLimit int    `json:"motherLimit"`
+	MotherSize  int    `json:"motherSize"`
+	MotherName  string `json:"motherName"`
+	// Leader is the creature's formation leader (creature_groups; 0 for none, its own guid for a
+	// leader). A member walks in its slot: FollowDist yards from the leader at FollowAngle radians
+	// from the leader's facing (counter-clockwise seen from above, as the server's angles). GroupFlags
+	// are its row's flags (FormationMove, FormationAggro, ...). Zero for an object.
+	Leader      int     `json:"leader"`
+	FollowDist  float32 `json:"followDist"`
+	FollowAngle float32 `json:"followAngle"`
+	GroupFlags  int     `json:"groupFlags"`
 }
 
 // Waypoint is a point of a creature's path, in the region's coordinates like its spawn: where it
@@ -202,6 +222,9 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 		return nil, err
 	}
 	if err := readSpawnPools(db, out); err != nil {
+		return nil, err
+	}
+	if err := readFormations(db, out); err != nil {
 		return nil, err
 	}
 	return out, nil

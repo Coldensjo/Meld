@@ -425,6 +425,8 @@ export const prefs = $state({
   shownEvents: [] as number[],
   /** Draw every creature's waypoint path, not only the selected one's. */
   showAllPaths: false,
+  /** View › Spawn pools (#172): a ring in its pool's colour round every pooled spawn, and the region's pools listed in the Spawns panel. */
+  showPools: false,
   /** Names over the creatures and game objects, with a creature's level and rank (#125). */
   spawnNames: true,
   /** View › Names seen as Alliance or Horde (#134): a creature's name is red, yellow or green by how its faction treats that side. */
@@ -570,6 +572,13 @@ export const ui = $state({
   spawnChanges: 0,
   /** Clicks in the Select tool edit the selected creature's path: add, pick and drag its points. */
   pathEdit: false,
+  /**
+   * Clicks on spawns in the Select tool build the selected spawn's formation or pool (#172) instead
+   * of selecting: `lead` makes each clicked creature follow it (or leave, if it does), `follow` makes
+   * it follow the clicked one's leader, `pool` puts each clicked spawn into its pool (or takes it
+   * out), and `joinPool` puts it into the clicked one's pool. `key` is the selected spawn's.
+   */
+  spawnPick: null as { mode: 'lead' | 'follow' | 'pool' | 'joinPool'; key: string } | null,
   /**
    * The creature editor, full screen: the creature template `entry`, and the spawn `key` it was
    * opened from (null for a template alone, such as a new creature).

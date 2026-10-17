@@ -95,11 +95,14 @@ import { fitHeights, type FitOptions } from '../terrain/fitGround'
 import { nearScreenBox } from '../world/screenBox'
 import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
-import { spawnKey, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
+import { spawnKey, spawnMatrix, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { SpawnPaths } from '../world/SpawnPaths'
-import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { SpawnLinks } from '../world/SpawnLinks'
+import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
+import { joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
+import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
+import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 
 /** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
@@ -302,6 +305,13 @@ export class Engine {
   private groupBoxes = new GroupBoxes()
   /** The creatures' waypoint paths, for the active region. */
   readonly paths = new SpawnPaths()
+  /** The selected creature's formation and, with View › Spawn pools, the pooled spawns' rings (#172). */
+  readonly links = new SpawnLinks()
+  /** The other spawns of the selected spawn's pool, outlined in the pool colour (#172). */
+  private poolOutline = new SelectionOutline({ color: new THREE.Color(0.3, 0.75, 1) })
+  private poolTargets: OutlineTarget[] = []
+  private poolMatrices: THREE.Matrix4[] = []
+  private poolBuiltFor: { layer: unknown; version: number; sel: unknown } = { layer: null, version: -1, sel: null }
   /** Current hour; advances on its own when the day cycle is on. */
   private hour = 13
 
@@ -437,6 +447,7 @@ export class Engine {
     this.scene.add(this.weather.group)
     this.scene.add(this.boxes.lines, this.groupBoxes.lines)
     this.scene.add(this.paths.group)
+    this.scene.add(this.links.group)
     this.scene.add(this.triggerLayer.group)
     this.scene.add(this.nav.group)
 
@@ -477,6 +488,7 @@ export class Engine {
       commitPaste: () => this.commitPaste(),
       cancelPaste: () => this.cancelPaste(),
       placeSpawn: (at) => this.placeSpawnAt(at),
+      pickSpawn: (o) => this.pickSpawn(o),
     })
     this.doodadTool.spawns = new SpawnBrushTool({
       newCreature: (e, x, y, z, o) => this.brushCreature(e, x, y, z, o),
@@ -584,6 +596,8 @@ export class Engine {
     this.boxes.dispose()
     this.groupBoxes.dispose()
     this.paths.dispose()
+    this.links.dispose()
+    this.poolOutline.dispose()
     for (const d of this.documents) d.dispose()
     this.triggerLayer.dispose()
     this.nav.dispose()
@@ -599,6 +613,7 @@ export class Engine {
     const buf = this.renderer.getDrawingBufferSize(new THREE.Vector2())
     this.outline.setSize(buf.x, buf.y)
     this.doomOutline.setSize(buf.x, buf.y)
+    this.poolOutline.setSize(buf.x, buf.y)
     this.persp.aspect = w / h
     this.persp.updateProjectionMatrix()
   }
@@ -989,6 +1004,7 @@ export class Engine {
     m.mark(SECTION.Particles)
     this.updateSelectionVisuals()
     this.updateDoomVisuals()
+    this.updatePoolVisuals()
     m.mark(SECTION['Selection visuals'])
     if (m.on) this.gpu.begin(1)
     this.renderer.render(this.scene, this.camera)
@@ -1001,6 +1017,7 @@ export class Engine {
     if (m.on) this.gpu.begin(2)
     this.outline.render(this.renderer, this.camera)
     this.doomOutline.render(this.renderer, this.camera)
+    this.poolOutline.render(this.renderer, this.camera)
     if (m.on) this.gpu.endFrame()
     m.mark(SECTION.Outlines)
     if (m.end()) this.publishPerf(calls, triangles)
@@ -1095,6 +1112,7 @@ export class Engine {
     this.updateBakedShadows()
     const sel = editor.selectedSpawn
     this.paths.update(this.doc.spawnLayer, sel ? spawnKey(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
+    this.links.update(this.doc.spawnLayer, sel, !!this.prefs?.showPools)
   }
 
   /**
@@ -1933,6 +1951,129 @@ export class Engine {
     ui.pathEdit = true
   }
 
+  /**
+   * Starts building the selected spawn `key`'s formation or pool on the map (#172): clicks on spawns
+   * then follow `ui.spawnPick`'s mode (see `pickSpawn`) until Done or Esc. `SpawnPickBar` says what a
+   * click does.
+   */
+  startSpawnPick(key: string, mode: 'lead' | 'follow' | 'pool' | 'joinPool') {
+    const s = this.doc.spawnLayer.get(key)
+    if (!s || ((mode === 'lead' || mode === 'follow') && s.kind === 'object')) return
+    if (editor.tool !== 'select') editor.tool = 'select'
+    selectSpawn(s)
+    ui.creatureEditor = ui.objectEditor = null
+    ui.pathEdit = false
+    ui.spawnPick = { mode, key }
+  }
+
+  /**
+   * A click on spawn `o` while `ui.spawnPick` is on, as one undo step: in `lead`, `o` follows the
+   * picked creature (or leaves, when it does already); in `follow`, the picked creature follows `o`'s
+   * leader (or `o`) and the picking ends; in `pool`, `o` joins the picked spawn's pool (or leaves it);
+   * in `joinPool`, the picked spawn joins `o`'s pool and the picking ends.
+   */
+  pickSpawn(o: vmangos.WorldSpawn) {
+    const pick = ui.spawnPick
+    const layer = this.doc.spawnLayer
+    const s = pick ? layer.get(pick.key) : undefined
+    if (!pick || !s) {
+      ui.spawnPick = null
+      return
+    }
+    let changes: SpawnChange[] | string = []
+    let label = ''
+    let done = false
+    switch (pick.mode) {
+      case 'lead':
+        if (o.guid === s.guid && o.kind === s.kind) return
+        if (o.kind !== 'object' && o.leader === s.guid && o.guid !== s.guid) {
+          changes = leaveChanges(layer.spawns, o)
+          label = `Leave formation (${o.name})`
+        } else {
+          changes = joinChanges(layer.spawns, s, o)
+          label = `Join formation (${o.name})`
+        }
+        break
+      case 'follow': {
+        if (o.guid === s.guid && o.kind === s.kind) return
+        const leader = follows(o) ? creatureOf(layer.spawns, o.leader) : o
+        if (!leader) {
+          setStatus(`${o.name}'s leader is not in this region.`, 4000)
+          return
+        }
+        changes = leader.guid === s.guid ? `${s.name} can't follow its own follower.` : joinChanges(layer.spawns, leader, s)
+        label = `Follow ${leader.name} (${s.name})`
+        done = true
+        break
+      }
+      case 'pool':
+        if (o.guid === s.guid && o.kind === s.kind) return
+        if (o.pool === s.pool && (o.kind === 'object') === (s.kind === 'object')) {
+          changes = leavePoolChanges(o)
+          label = `Leave pool (${o.name})`
+        } else {
+          changes = joinPoolChanges(s, o)
+          label = `Join pool (${o.name})`
+        }
+        break
+      case 'joinPool':
+        if (o.guid === s.guid && o.kind === s.kind) return
+        changes = joinPoolChanges(o, s)
+        label = `Join pool (${s.name})`
+        done = true
+        break
+    }
+    if (typeof changes === 'string') {
+      setStatus(changes, 5000)
+      return
+    }
+    const cmd = spawnsChange(layer, changes, label)
+    if (cmd) this.history.push(cmd)
+    if (done) ui.spawnPick = null
+  }
+
+  /** Changes several spawns of the active region (`formations.ts`, `pools.ts` changes) as one undo step. */
+  changeSpawns(changes: readonly SpawnChange[], label: string) {
+    const cmd = spawnsChange(this.doc.spawnLayer, changes, label)
+    if (cmd) this.history.push(cmd)
+  }
+
+  /**
+   * Puts spawn `key` into a new pool of its own (#172), with a limit of 1 and the pool entry after
+   * every one the world database and the open regions use, then starts adding spawns to it.
+   */
+  async makePool(key: string) {
+    const d = this.doc
+    const s = d.spawnLayer.get(key)
+    if (!s) return
+    try {
+      let entry = await NextPoolEntry()
+      for (const doc of this.documents) for (const o of doc.spawnLayer.spawns) entry = Math.max(entry, o.pool + 1)
+      if (entry > 65535) throw new Error('every pool entry up to 65535 is taken')
+      const cmd = spawnsChange(d.spawnLayer, [{ key, vals: newPoolFields(entry, `${s.name} (Meld)`) }], `Make pool (${s.name})`)
+      if (cmd) d.history.push(cmd)
+      if (d === this.doc) this.startSpawnPick(key, 'pool')
+    } catch (err) {
+      setStatus(`Could not make a pool: ${err}`, 8000)
+    }
+  }
+
+  /**
+   * Gives follower `key` the slot `dist` yards from its leader at `angle` radians from the leader's
+   * facing, and moves it there, onto the ground, as one undo step.
+   */
+  setFormationSlot(key: string, dist: number, angle: number) {
+    const layer = this.doc.spawnLayer
+    const s = layer.get(key)
+    const leader = s && follows(s) ? creatureOf(layer.spawns, s.leader) : undefined
+    if (!s || !leader) return
+    const p = slotPosition(leader, Math.max(0, dist), angle, { x: 0, z: 0 })
+    const vals: SpawnFields = { followDist: Math.max(0, dist), followAngle: angle }
+    if (this.terrain.contains(p.x, p.z)) Object.assign(vals, { x: p.x, z: p.z, y: this.terrain.heightAt(p.x, p.z) })
+    const cmd = spawnChange(layer, key, vals, `Formation slot (${s.name})`)
+    if (cmd) this.history.push(cmd)
+  }
+
   /** Deletes the picked point of the selected creature's path, as one undo step. */
   deletePathPoint() {
     const sel = editor.selectedSpawn
@@ -1965,6 +2106,8 @@ export class Engine {
       setStatus(`Could not dress the spawn: ${err}`, 8000)
       return
     }
+    // A follower moved takes its slot where it stands now (#172).
+    if (vals.x !== undefined || vals.z !== undefined) Object.assign(full, slotFieldsAt(d.spawnLayer.spawns, s, vals.x ?? s.x, vals.z ?? s.z))
     const cmd = spawnChange(d.spawnLayer, key, full, label)
     if (cmd) d.history.push(cmd)
   }
@@ -2169,6 +2312,10 @@ export class Engine {
     }
     const sel = editor.selectedSpawn
     if (!sel || editor.selectedIds.length > 0 || editor.tool !== 'select') return false
+    if (ui.spawnPick && e.key === 'Escape') {
+      ui.spawnPick = null
+      return true
+    }
     if (ui.pathEdit) {
       if (e.key === 'Escape') {
         ui.pathEdit = false
@@ -3418,6 +3565,31 @@ export class Engine {
       targets.push({ asset: getAsset(doomed[i].type), matrix: m, touching: false })
     }
     this.doomOutline.setTargets(targets)
+  }
+
+  /**
+   * Outlines the other spawns of the selected spawn's pool (#172), those drawn with their model. Built
+   * again only when the spawns or the selection change.
+   */
+  private updatePoolVisuals() {
+    const layer = this.doc.spawnLayer
+    const sel = editor.selectedSpawn
+    const b = this.poolBuiltFor
+    if (b.layer === layer && b.version === layer.version && b.sel === sel) return
+    b.layer = layer
+    b.version = layer.version
+    b.sel = sel
+    const targets = this.poolTargets
+    targets.length = 0
+    const mates = sel?.pool ? poolMates(layer.spawns, sel) : []
+    for (const s of mates) {
+      const type = spawnType(s)
+      const asset = type ? getAsset(type) : null
+      if (!asset?.ready || !layer.eventShown(s)) continue
+      const m = (this.poolMatrices[targets.length] ??= new THREE.Matrix4())
+      targets.push({ asset, matrix: spawnMatrix(s, true, m), touching: false })
+    }
+    this.poolOutline.setTargets(targets)
   }
 
   /** Puts the gizmo at a multi-selection's pivot, the ring round the whole group and the arrow over its top. */

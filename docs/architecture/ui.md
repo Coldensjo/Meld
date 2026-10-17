@@ -68,8 +68,9 @@ The window layout, the asset browser and the dock panels and floating windows.
     placement as `PropField`s (type a number, or drag the label to scrub; live preview and one undo
     step on release) with Focus, Duplicate, Hide, Delete, Detach, Place more and Select all of
     these (`Engine.selectModelsOfType`); a mixed selection's models by kind (a click narrows the
-    selection to that kind); or the selected area (size, holes, cut/fill, copy, mask). With
-    nothing selected it only shows a hint.
+    selection to that kind); the selected area (size, holes, cut/fill, copy, mask); or, with a
+    creature or game object of the region selected, its pool and formation (`PoolFields`,
+    `FormationFields`, #172; client.md). With nothing selected it only shows a hint.
   - **Map Properties** (`MapPropertiesDialog.svelte`, File > Map Properties…, `ui.dialog =
     'mapProps'`) holds the map's facts and the world settings (sea on/off, sea level, steep
     slopes as rock). The sea level is one height for the whole map and is read-only for a part

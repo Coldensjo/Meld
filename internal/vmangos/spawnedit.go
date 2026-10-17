@@ -47,6 +47,17 @@ func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
 		StandState:     w.StandState,
 		EmoteState:     w.EmoteState,
 		SheathState:    w.SheathState,
+		Leader:         w.Leader,
+		FollowDist:     float64(w.FollowDist),
+		FollowAngle:    float64(w.FollowAngle),
+		GroupFlags:     w.GroupFlags,
+		Pool:           w.Pool,
+		PoolLimit:      w.PoolLimit,
+		PoolName:       w.PoolName,
+		PoolChance:     float64(w.PoolChance),
+	}
+	if w.Kind == KindObject {
+		s.Leader, s.FollowDist, s.FollowAngle, s.GroupFlags = 0, 0, 0, 0
 	}
 	if w.Kind == KindObject {
 		s.Kind = GameObject

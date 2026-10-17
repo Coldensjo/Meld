@@ -52,11 +52,49 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `facing(O)`. `editor.selectedSpawn`
   is always a copy (`cloneSpawn`), never the drawn spawn, since Svelte's proxy would not see edits
   to it. Select spawns through `selectSpawn`.
-- **Pools** (`internal/vmangos/pools.go`): `ReadSpawns` gives each spawn its pool by guid
-  (`pool_creature`, `pool_gameobject`, with `pool_template`'s limit and description: `Pool`,
-  `PoolLimit`, `PoolName`). The veins that share a spot are one pool with a limit of 1, the server
-  spawning one of them at a time. `SpawnFields` lists the region's other spawns of the pool, a click
-  selecting one. Pools by entry (`pool_gameobject_template`) and mother pools (`pool_pool`) are not read.
+- **Pools** (`internal/vmangos/pools.go`, `world/pools.ts`, #136, #172): `ReadSpawns` gives each
+  spawn its pool by guid (`pool_creature`, `pool_gameobject`, with `pool_template`'s limit and
+  description: `Pool`, `PoolLimit`, `PoolName`), its chance in it (`PoolChance`), the pool's members
+  outside the region (`PoolElsewhere`) and the pool's mother pool (`pool_pool`: `MotherPool`,
+  `MotherLimit`, `MotherSize` pools, `MotherName`), such as a zone's master pool of vein spots. The
+  veins that share a spot are one pool with a limit of 1, the server spawning one of them at a time.
+  `PoolFields` (in `SpawnFields` and the Inspector) says what the server spawns, edits the limit,
+  description and the spawn's chance, warns where VMaNGOS would reject the chances (`chanceProblem`,
+  `PoolGroup::CheckValidity`), and lists the region's other members, which `Engine.updatePoolVisuals`
+  outlines in cyan (`poolOutline`, a third `SelectionOutline`). Make pool takes the next entry
+  (`NextPoolEntry`, above every one the database and the open regions use; entries stop at 65535) with
+  a limit of 1; Join a pool and Add spawns on the map pick spawns (`ui.spawnPick`, below). A pool
+  holds creatures or game objects, not both. The pool's limit and description ride on every member
+  (a change is one step over the region's members, `poolSettingChanges`). The SQL (`poolSQL`) writes
+  a changed membership as an upsert of the member row (or its delete) and a new or changed pool as
+  `pool_template` rows (insert if missing, then update every patch row). Mother pools are read only;
+  pools by entry (`pool_gameobject_template`) are not read. View › Spawn pools (`prefs.showPools`)
+  draws a ring and a post round every pooled spawn in its top pool's colour (the mother pool's, else
+  its own; `poolHue`, `world/SpawnLinks.ts`) and `PoolLegend.svelte` lists the region's pools with
+  "limit of size".
+- **Formations** (`internal/vmangos/formations.go`, `world/formations.ts`, #172): `creature_groups`
+  rows give a member `Leader`, its slot (`FollowDist` yards at `FollowAngle` radians from the
+  leader's facing, counter-clockwise from above) and `GroupFlags` (VMaNGOS's `OptionFlags`, ORed into
+  the group's options); a leader gets its own guid as `Leader`, whether or not it has its own row.
+  The server puts a member at leader + (cos, sin)(angle + facing) × dist in its axes
+  (`CreatureGroupMember::ComputeRelativePosition`), which is `slotPosition` in a region's. With a
+  creature of a formation selected, `SpawnLinks` draws a line from the leader to each slot, a marker
+  on it and a faint line on to the member when it stands elsewhere (a group without the walk flag has
+  no slots: its lines go to the members). `FormationFields` lists the group and its flags; Lead a
+  formation and Add followers on the map make each clicked creature follow in a slot where it stands
+  (`joinChanges`), Follow another joins the clicked creature's leader, and a follower dragged (or moved
+  by its fields, `slotFieldsAt` in the Select tool and `Engine.editSpawn`) takes its slot where it is
+  dropped; the slot's own fields move it into the slot (`Engine.setFormationSlot`). Formations don't
+  nest: a follower can't lead, and a leader with followers can't join another. The last follower
+  leaving, Disband, and deleting the leader (`spawnDelete`) end the formation. The SQL
+  (`formationSQL`) replaces a changed member's row, deletes a leaver's, deletes every row of a leader
+  that stops leading, and a deleted creature's rows as member and leader.
+- **Picking spawns on the map** (`ui.spawnPick`, `Engine.startSpawnPick`, `Engine.pickSpawn`): like
+  path editing, the Select tool's click on a spawn goes to `pickSpawn` instead of selecting
+  (`ObjectTools` hook), each click one undo step through `spawnsChange` (several spawns, one
+  command); `SpawnPickBar.svelte` says what a click does, Esc or Done stops, and selecting another
+  spawn ends it. There is no multi-spawn selection: building a formation or pool by clicks stands in
+  for "select several, then Make".
 - **Waypoints**: `WorldSpawn.waypoints` is a creature's main path (`creature_movement`,
   `path_id` 0), or its template's (`creature_movement_template`, `pathFromTemplate`) when it walks
   waypoints without its own. `world/SpawnPaths.ts` draws the selected creature's path (and all

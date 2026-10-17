@@ -119,6 +119,8 @@ export function NextObjectGUID():Promise<number>;
 
 export function NextObjectLoot():Promise<number>;
 
+export function NextPoolEntry():Promise<number>;
+
 export function ObjectModel(arg1:number):Promise<string>;
 
 export function OpenBrushDialog():Promise<Array<string>>;

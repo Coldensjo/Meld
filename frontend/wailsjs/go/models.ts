@@ -2024,6 +2024,16 @@ export namespace vmangos {
 	    pool: number;
 	    poolLimit: number;
 	    poolName: string;
+	    poolChance: number;
+	    poolElsewhere: number;
+	    motherPool: number;
+	    motherLimit: number;
+	    motherSize: number;
+	    motherName: string;
+	    leader: number;
+	    followDist: number;
+	    followAngle: number;
+	    groupFlags: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorldSpawn(source);
@@ -2068,6 +2078,16 @@ export namespace vmangos {
 	        this.pool = source["pool"];
 	        this.poolLimit = source["poolLimit"];
 	        this.poolName = source["poolName"];
+	        this.poolChance = source["poolChance"];
+	        this.poolElsewhere = source["poolElsewhere"];
+	        this.motherPool = source["motherPool"];
+	        this.motherLimit = source["motherLimit"];
+	        this.motherSize = source["motherSize"];
+	        this.motherName = source["motherName"];
+	        this.leader = source["leader"];
+	        this.followDist = source["followDist"];
+	        this.followAngle = source["followAngle"];
+	        this.groupFlags = source["groupFlags"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

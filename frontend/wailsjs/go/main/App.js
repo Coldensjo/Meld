@@ -226,6 +226,10 @@ export function NextObjectLoot() {
   return window['go']['main']['App']['NextObjectLoot']();
 }
 
+export function NextPoolEntry() {
+  return window['go']['main']['App']['NextPoolEntry']();
+}
+
 export function ObjectModel(arg1) {
   return window['go']['main']['App']['ObjectModel'](arg1);
 }

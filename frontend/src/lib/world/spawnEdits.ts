@@ -4,6 +4,7 @@ import { SpawnLook } from '../../../wailsjs/go/main/App'
 import type { Command } from '../state/history'
 import { editor, ui } from '../state/editor.svelte'
 import { cloneSpawn, spawnKey, type SpawnLayer } from './SpawnLayer'
+import { followersOf, leads, NO_FORMATION, type SpawnChange } from './formations'
 
 /** The fields of a spawn the editor changes. */
 export type SpawnFields = Partial<
@@ -32,6 +33,19 @@ export type SpawnFields = Partial<
     | 'scale'
     | 'displayScale'
     | 'waypoints'
+    | 'leader'
+    | 'followDist'
+    | 'followAngle'
+    | 'groupFlags'
+    | 'pool'
+    | 'poolLimit'
+    | 'poolName'
+    | 'poolChance'
+    | 'poolElsewhere'
+    | 'motherPool'
+    | 'motherLimit'
+    | 'motherSize'
+    | 'motherName'
   >
 >
 
@@ -78,6 +92,7 @@ export function selectSpawn(s: vmangos.WorldSpawn | null) {
   if ((s ? spawnKey(s) : null) !== before) {
     editor.selectedWaypoint = -1
     ui.pathEdit = false
+    ui.spawnPick = null
   }
 }
 
@@ -90,7 +105,10 @@ export function syncSpawnUi(layer: SpawnLayer, listChanged = false) {
   if (sel) {
     const s = layer.get(spawnKey(sel))
     editor.selectedSpawn = s ? cloneSpawn(s) : null
-    if (!s) ui.pathEdit = false
+    if (!s) {
+      ui.pathEdit = false
+      ui.spawnPick = null
+    }
     if (editor.selectedWaypoint >= (s?.waypoints?.length ?? 0)) editor.selectedWaypoint = -1
   }
   if (listChanged) editor.spawns = layer.spawns.slice()
@@ -101,6 +119,28 @@ function pick(s: vmangos.WorldSpawn, keys: string[]): SpawnFields {
   const out: Record<string, unknown> = {}
   for (const k of keys) out[k] = s[k as keyof vmangos.WorldSpawn]
   return out as SpawnFields
+}
+
+/**
+ * Changes several spawns' fields now, as one undoable command (a formation or a pool made or
+ * changed). Spawns no longer in the layer are left out; null when none is.
+ */
+export function spawnsChange(layer: SpawnLayer, changes: readonly SpawnChange[], label: string): Command | null {
+  const list = changes.filter((c) => layer.get(c.key))
+  if (!list.length) return null
+  const before = list.map((c) => ({ key: c.key, vals: pick(layer.get(c.key)!, Object.keys(c.vals)) }))
+  const apply = (l: readonly SpawnChange[]) => {
+    for (const c of l) {
+      const s = layer.get(c.key)
+      if (!s) continue
+      layer.touch(s)
+      Object.assign(s, c.vals)
+      layer.refresh(s)
+    }
+    syncSpawnUi(layer)
+  }
+  apply(list)
+  return { label, undo: () => apply(before.slice().reverse()), redo: () => apply(list) }
 }
 
 /** Changes a spawn's fields now, as one undoable command (`vals` with its look already resolved). */
@@ -131,6 +171,9 @@ export function withPoint(points: vmangos.Waypoint[], i: number, p: vmangos.Wayp
   else out[i] = p
   return out
 }
+
+/** A new spawn's formation and pool: none. */
+const NO_GROUPS = { leader: 0, followDist: 0, followAngle: 0, groupFlags: 0, pool: 0, poolLimit: 0, poolName: '', poolChance: 0, poolElsewhere: 0, motherPool: 0, motherLimit: 0, motherSize: 0, motherName: '' }
 
 /**
  * A new spawn of creature template `t` at a place, with guid `guid`, facing `orientation`, dressed
@@ -170,6 +213,7 @@ export function newCreatureSpawn(t: vmangos.CreatureTemplate, guid: number, x: n
     wanderDistance: 0,
     waypoints: [],
     pathFromTemplate: false,
+    ...NO_GROUPS,
   })
 }
 
@@ -253,6 +297,7 @@ export function newObjectSpawn(t: vmangos.ObjectTemplate, guid: number, x: numbe
     wanderDistance: 0,
     waypoints: [],
     pathFromTemplate: false,
+    ...NO_GROUPS,
   })
 }
 
@@ -262,10 +307,25 @@ export function spawnAdd(layer: SpawnLayer, s: vmangos.WorldSpawn, label: string
   return { label, undo: () => removeFrom(layer, s), redo: () => addTo(layer, s) }
 }
 
-/** Deletes a spawn now, as one undoable command. */
+/**
+ * Deletes a spawn now, as one undoable command. A deleted formation leader's followers in the region
+ * leave the formation with it, as the server drops a group without its leader.
+ */
 export function spawnDelete(layer: SpawnLayer, key: string, label: string): Command | null {
   const s = layer.get(key)
   if (!s) return null
+  const orphans = leads(s) ? followersOf(layer.spawns, s.guid).map((f) => ({ key: spawnKey(f), vals: { ...NO_FORMATION } })) : []
+  const ungroup = orphans.length ? spawnsChange(layer, orphans, label) : null
   removeFrom(layer, s)
-  return { label, undo: () => addTo(layer, s), redo: () => removeFrom(layer, s) }
+  return {
+    label,
+    undo: () => {
+      addTo(layer, s)
+      ungroup?.undo()
+    },
+    redo: () => {
+      ungroup?.redo()
+      removeFrom(layer, s)
+    },
+  }
 }

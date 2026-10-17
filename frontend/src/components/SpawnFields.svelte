@@ -2,14 +2,17 @@
   import { editor, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
   import { orientationDegrees } from '../lib/world/spawnInfo'
-  import { MOVEMENT_TYPES, SHEATH_STATES, STAND_STATES, selectSpawn, withPoint, type SpawnFields } from '../lib/world/spawnEdits'
+  import { MOVEMENT_TYPES, SHEATH_STATES, STAND_STATES, withPoint, type SpawnFields } from '../lib/world/spawnEdits'
   import { spawnKey } from '../lib/world/SpawnLayer'
   import { SpawnEmotes } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
   import { loadWeapons, SLOTS } from './WeaponPicker.svelte'
+  import FormationFields from './FormationFields.svelte'
+  import PoolFields from './PoolFields.svelte'
 
-  // The fields of one spawn the editor changes: placement, respawn time, movement, path, look and
-  // pose. The Spawns panel and the creature editor both show them; every change is one undo step.
+  // The fields of one spawn the editor changes: placement, respawn time, pool, movement, formation,
+  // path, look and pose. The Spawns panel and the creature editor both show them; every change is one
+  // undo step.
 
   interface Props {
     s: vmangos.WorldSpawn
@@ -66,21 +69,6 @@
   }
   const selectNum = (e: Event) => Number((e.currentTarget as HTMLSelectElement).value)
 
-  // The other spawns of the region in this spawn's pool (#136), such as the veins that share its spot
-  // and take turns: the server spawns at most `poolLimit` of the pool's members at a time.
-  const poolMates = $derived(s.pool ? editor.spawns.filter((o) => o.pool === s.pool && (o.kind === 'object') === (s.kind === 'object') && o.guid !== s.guid) : [])
-  const sameSpot = (o: vmangos.WorldSpawn) => Math.hypot(o.x - s.x, o.z - s.z) < 1
-  const poolRule = (limit: number) => (limit === 0 ? 'all of its spawns' : limit === 1 ? 'one of its spawns at a time' : `${limit} of its spawns at a time`)
-
-  /** Selects another spawn of the pool; an editor open on this spawn moves to it. */
-  function pickSpawn(o: vmangos.WorldSpawn) {
-    const drawn = engineRef.current?.activeDocument().spawnLayer.get(spawnKey(o))
-    if (!drawn) return
-    selectSpawn(drawn)
-    const key = spawnKey(drawn)
-    if (ui.objectEditor?.key) ui.objectEditor = { key, entry: drawn.entry }
-    if (ui.creatureEditor?.key) ui.creatureEditor = { key, entry: drawn.entry }
-  }
 </script>
 
 <div class="spawn-fields">
@@ -105,24 +93,7 @@
     <label>to s <input type="number" min="0" step="10" value={s.respawnMaxSecs} onchange={(e) => { const v = int(e); if (v !== null) edit({ respawnMaxSecs: Math.max(s.respawnSecs, v) }, 'Respawn time') }} /></label>
   </div>
 
-  {#if s.pool}
-    <h4>Pool</h4>
-    <p class="dim">Pool {s.pool}{s.poolName ? `, ${s.poolName}` : ''}: the server spawns {poolRule(s.poolLimit)}.</p>
-    {#if poolMates.length}
-      <ul class="points">
-        {#each poolMates as o (o.guid)}
-          <li>
-            <button class="row" title="Select spawn {o.guid}" onclick={() => pickSpawn(o)}>
-              <span class="name">{o.name}</span>
-              <span class="dim">{sameSpot(o) ? 'same spot' : `${Math.round(Math.hypot(o.x - s.x, o.z - s.z))} yd away`}</span>
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {:else}
-      <p class="dim">No other spawn of the pool is in this region.</p>
-    {/if}
-  {/if}
+  <PoolFields {s} />
 
   {#if creature}
     <h4>Movement</h4>
@@ -138,6 +109,8 @@
         <input type="number" min="0" step="1" disabled={s.movementType !== 1} value={s.wanderDistance} onchange={(e) => { const v = num(e); if (v !== null) edit({ wanderDistance: Math.max(0, v) }, 'Wander distance') }} /></label
       >
     </div>
+
+    <FormationFields {s} />
 
     {@const points = s.waypoints ?? []}
     <h4>Path</h4>
