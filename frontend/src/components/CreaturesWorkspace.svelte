@@ -582,6 +582,9 @@
 		display: flex;
 		gap: 16px;
 		min-height: 520px;
+		/* The page is a scrolling flex column: without this the row shrank to 520px and the pickers spilled over what follows. */
+		flex: none;
+		align-items: flex-start;
 	}
 	.pick {
 		flex: 1;
@@ -592,6 +595,12 @@
 	}
 	.show {
 		width: 360px;
+		height: 520px;
+		flex: none;
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--bg, transparent);
 		display: flex;
 		flex-direction: column;
 		gap: 8px;

@@ -217,6 +217,7 @@ Stormwind Alliance-only), `TestParseClassLevelStats`.
   click a display tile, then step 4 shows level 10 at 594 health, 30 damage, 492 armour (warrior:
   198, 15.2 and 492 from `creature_classlevelstats`). Make creature writes one row; check it with
   `ReadCreature(entry)` and delete it afterwards (`DELETE FROM creature_template WHERE entry = …`).
+- Probe `creature-looks` (#221): opens the guide to step 3 and checks the preview stays in view while the page scrolls past the pickers (it is sticky; the row once shrank to 520px and the pickers spilled over it).
 - Trap: held items go through `EquipmentFor`, which may add a `creature_equip_template` row; leave
   the hands empty in a check, or delete that row too.
 
