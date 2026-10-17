@@ -34,7 +34,8 @@ in the git history (`git show b47706b:PROGRESS.md`).
   first (`gh issue list --search`) and comment on an existing issue rather than filing a duplicate.
   Don't build it unasked. Label it `value:H|M|L`, `effort:S|M|L`, one `area:` label, a `source:`
   label (`owner` if the user asked for it, `loop` if you found it while working on another issue,
-  `gap` for a Noggit Red feature Meld lacks; those issues are the gap list), and `bug` or `needs-approval` where they apply.
+  `gap` for a Noggit Red feature Meld lacks; those issues are the gap list; `external` for an issue
+  someone other than the owner opened, which always needs the owner's approval), and `bug` or `needs-approval` where they apply.
 - **Write issues for the next agent.** It starts cold, so the issue must hold what it needs: what and
   why, then a `**Claude:** notes for the agent working on this.` comment (or a section in the body)
   with the code to read (files and functions), the decisions that apply (`decision` issues, earlier
