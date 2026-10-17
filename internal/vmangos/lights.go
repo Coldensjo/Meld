@@ -265,11 +265,17 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 				for f := range row {
 					row[f] = t.u32(r, f)
 				}
-				// A band sent back as the client has it is written as it is: a few of the client's
-				// own bands (params 8 and 499) list their keys out of time order, which the client
-				// walks as a cycle in file order (Benilla's light/tables.rs, segment), so they must
-				// neither be refused nor sorted.
-				if bandUnchanged(row, keys, float) {
+				// A band whose times are sent back as the client has them keeps them as they are, with
+				// only the changed values written: a few of the client's own bands (params 8 and 499)
+				// list their keys out of time order, which the client walks as a cycle in file order
+				// (Benilla's light/tables.rs, segment), so they must neither be refused nor sorted,
+				// and recolouring one of their keys must not reorder them (#276).
+				if sameBandTimes(row, keys) {
+					for k, key := range keys {
+						if row[18+k] != bandValue(key, float, false) {
+							row[18+k] = bandValue(key, float, true)
+						}
+					}
 					return row, nil
 				}
 			}
@@ -281,11 +287,7 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 				}
 				last = key.T
 				row[2+k] = uint32(key.T)
-				if float {
-					row[18+k] = f32bits(float32(key.V))
-				} else {
-					row[18+k] = uint32(key.V) & 0xffffff
-				}
+				row[18+k] = bandValue(key, float, true)
 			}
 			return row, nil
 		}
@@ -316,22 +318,30 @@ func WriteLights(tables [4][]byte, e LightsEdit) ([4][]byte, error) {
 	return out, nil
 }
 
-// bandUnchanged tells whether keys are what a band's row (34 fields: ID, count, 16 times, 16 values)
-// already holds, value bits and all.
-func bandUnchanged(row []uint32, keys []LightKey, float bool) bool {
+// sameBandTimes tells whether keys have the times a band's row (34 fields: ID, count, 16 times,
+// 16 values) already holds, in the same order.
+func sameBandTimes(row []uint32, keys []LightKey) bool {
 	if row[1] != uint32(len(keys)) {
 		return false
 	}
 	for k, key := range keys {
-		v := uint32(key.V)
-		if float {
-			v = f32bits(float32(key.V))
-		}
-		if row[2+k] != uint32(key.T) || row[18+k] != v {
+		if row[2+k] != uint32(key.T) {
 			return false
 		}
 	}
 	return true
+}
+
+// bandValue is a key's value as a band row holds it. Unmasked, a colour keeps the bits it was read
+// with, so a value sent back unchanged compares equal to the row's and the row's own bits are kept.
+func bandValue(key LightKey, float, masked bool) uint32 {
+	if float {
+		return f32bits(float32(key.V))
+	}
+	if masked {
+		return uint32(key.V) & 0xffffff
+	}
+	return uint32(key.V)
 }
 
 // NewLightIDs gives the IDs a new light and its params row take: past every light and params row in

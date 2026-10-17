@@ -65,8 +65,10 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   band key slots hold 0xcccccccc (uninitialised memory in Blizzard's tool), so a writer that zeroes them
   isn't byte-identical; `WriteLights` starts each band row from the client's own. Second trap: params 8
   and 499 list some band keys out of time order (499's colour band 9: 2640, 2520, 0, 1440), which the
-  client walks as a cycle in file order, so `WriteLights` passes an unchanged band through instead of
-  checking its order (#275).
+  client walks as a cycle in file order, so `WriteLights` passes a band whose times are unchanged through,
+  writing only its changed values, instead of checking its order (#275), and the Lights dialog sorts a
+  band only when a key's time changes, so recolouring a key of 499's band 9 keeps its order (#276; the
+  test recolours one).
 - `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
   checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the
   hole export's block mapping. Seeing a cut cave mouth in game is still a manual check.

@@ -82,7 +82,8 @@ func TestClientMapLights(t *testing.T) {
 // TestClientLightsWriteBack writes Azeroth's own lights and params back unchanged (the params and band
 // tables come out byte-identical, the bands with keys out of time order too; the lights within a float's
 // rounding), then moves a light, edits a band
-// key and adds a light with its own params, and reads them back. It needs WOW_DIR.
+// key, adds a light with its own params and recolours a band out of time order, and reads them back.
+// It needs WOW_DIR.
 func TestClientLightsWriteBack(t *testing.T) {
 	dir := os.Getenv("WOW_DIR")
 	if dir == "" {
@@ -174,6 +175,46 @@ func TestClientLightsWriteBack(t *testing.T) {
 	fog := back.Params[local.Params[0]].Colors[7]
 	if found != 2 || len(fog) != 2 || fog[1].V != 0xff8040 || len(back.Params[pid].Colors[14]) == 0 {
 		t.Fatalf("after the edit: %d lights found, fog %v, new params %v", found, fog, back.Params[pid].Colors[14])
+	}
+
+	// Recolour one key of a colour band whose keys are out of time order: it keeps its stored order (#276).
+	var up LightParamSet
+	ub := -1
+	for _, q := range az.Params {
+		for i, b := range q.Colors {
+			for k := 1; k < len(b) && ub < 0; k++ {
+				if b[k].T <= b[k-1].T {
+					up, ub = q, i
+				}
+			}
+		}
+		if ub >= 0 {
+			break
+		}
+	}
+	if ub < 0 {
+		t.Fatal("no colour band of Azeroth's keeps its keys out of time order")
+	}
+	want := append([]LightKey(nil), up.Colors[ub]...)
+	want[0].V = 0x123456
+	up.Colors = append([][]LightKey(nil), up.Colors...)
+	up.Colors[ub] = want
+	rec, err := WriteLights(tables, LightsEdit{MapID: 0, Params: []LightParamSet{up}})
+	if err != nil {
+		t.Fatalf("recolouring a band out of time order: %v", err)
+	}
+	recBack, err := ReadMapLights(rec[0], rec[1], rec[2], rec[3], 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := recBack.Params[up.ID].Colors[ub]
+	if len(got) != len(want) {
+		t.Fatalf("recoloured band %d of params %d: %v, want %v", ub, up.ID, got, want)
+	}
+	for k := range want {
+		if got[k].T != want[k].T || got[k].V != want[k].V {
+			t.Fatalf("recoloured band %d of params %d: %v, want %v", ub, up.ID, got, want)
+		}
 	}
 	if _, err := WriteLights(tables, LightsEdit{MapID: 0, Params: []LightParamSet{{ID: 12, Colors: make([][]LightKey, LightBands), Floats: [][]LightKey{{{T: 100}, {T: 50}}, nil, nil, nil, nil, nil}}}}); err == nil {
 		t.Fatal("band keys out of order were accepted")

@@ -154,7 +154,9 @@
     editParams((p) => {
       const keys = p.colors[band].map((x) => ({ ...x }))
       Object.assign(keys[k], patch)
-      keys.sort((a, b) => a.t - b.t)
+      // Only a new time reorders the band: a few of the client's bands keep their keys out of time
+      // order, walked as a cycle in stored order, so recolouring a key must keep that order (#276).
+      if (patch.t !== undefined) keys.sort((a, b) => a.t - b.t)
       p.colors[band] = keys as vmangos.LightKey[]
     })
   }
