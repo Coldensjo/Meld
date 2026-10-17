@@ -94,6 +94,11 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
 - Open a known spot with a scene: `{map:{region:{mapName:'Azeroth',x:32,y:48,size:1}}}` opens
   Northshire (the abbey is at about world x 182, z 353; the valley is dense canopy, so most ground
   is in tree shadow).
+- The page runs on the owner's own preferences, which a scene's empty `prefs` leaves alone: the
+  shadow quality, the fog, the asset browser's height (and so the viewport's shape, which changes what
+  the camera sees). Loading a scene sets the time of day to its hour (#252; before, `applyPrefs` put the
+  owner's `timeOfDay` back on the next pref change, and the bench showed night). A bare
+  `setSceneView({ hour })` still lasts only until a pref changes; set `prefs.timeOfDay` with it.
 - Traps:
   - Tabs opened by the Chrome extension are usually `document.hidden`, so the rAF loop stops (the
     frame counter is stuck and loads hang). Drive frames with `__engine.frame()` from

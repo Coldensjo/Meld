@@ -278,6 +278,11 @@ cascade in the scene pass and the near cascade's shadow pass, and looks the same
   changes). Since #215 the near cascade draws the culled half too: the frame 697k triangles, the shadow
   maps 344k of them (1.70M with the cull off). Count the shadow maps' triangles by wrapping
   `__engine.renderer.shadowMap.render` and reading `renderer.info.render.triangles` around it.
+- Trap: "Most triangles by model" (`measurePerf().models`) keeps only the top five models, so the
+  culled city falls off it when few of its groups are in view and a lookup there reads 0. On
+  2026-10-17 (#252) the probe's view held none of the city's groups (not the 31k above; the
+  viewport's shape follows the owner's layout prefs) and the near cascade 2,336 triangles. The probe counts the batch's own
+  mesh (`meshTriangles` from `engine/perfMeter.ts`) instead.
 - Same picture: `setSceneView({ target: [-300, 120, 250], yaw: 4.71, pitch: 0.25, distance: 500, hour: 13 })`
   draws 55% of the city; with `enabled` off and on the shots differ in 0.14% of pixels (edges, swaying
   trees). There the near cascade holds 786k of the city's triangles and the view 767k (1.0M in the

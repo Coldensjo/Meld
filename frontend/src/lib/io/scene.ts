@@ -156,6 +156,9 @@ export async function loadScene(engine: Engine, text: string) {
   }
 
   for (const k of VIEW_PREFS) if (k in scene.prefs) (prefs as Record<string, unknown>)[k] = scene.prefs[k]
+  // The view's hour is the time of day too: applyPrefs puts timeOfDay back on the engine whenever any
+  // pref changes, so a scene without it in its prefs (the probes' P.BENCH) would show the viewer's hour.
+  if (!prefs.dayCycle) prefs.timeOfDay = Math.round(scene.view.hour * 100) / 100
   editor.tool = scene.tool
   // Let the prefs effect run (it applies them to the engine, follow-ground included) before the view is set.
   await tick()

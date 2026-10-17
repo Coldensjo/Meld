@@ -14,10 +14,13 @@ sm.render = function (...args) {
 	render.apply(this, args)
 	shadow = info.triangles - t
 }
+// The city's own count, from its batch: the report lists only the top five models, and the culled city
+// (2k triangles at 13:00) falls off it, which read as 0 (#252).
+const { meshTriangles } = await P.app('/src/lib/engine/perfMeter.ts')
 const storm = async () => {
 	await P.frames(3)
 	const r = await P.perf()
-	return { frame: r.triangles, shadow, stormwind: r.models.find((m) => m.type.includes('stormwind.wmo'))?.triangles ?? 0 }
+	return { frame: r.triangles, shadow, stormwind: meshTriangles(batch[1].mesh) }
 }
 let on, off, look
 try {
