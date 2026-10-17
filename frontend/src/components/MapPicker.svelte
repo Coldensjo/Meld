@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Block } from './TileMinimap.svelte'
+  import type { TileBlock as Block } from '../lib/io/regionGrow'
 
   // A continent seen from above, stitched from the client's minimap, on which a square of tiles is
   // picked by dragging. Scroll zooms around the cursor and a right or middle drag pans, so a small

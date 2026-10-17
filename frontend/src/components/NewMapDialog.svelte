@@ -1,6 +1,6 @@
 <script lang="ts">
   import MapPicker from './MapPicker.svelte'
-  import type { Block } from './TileMinimap.svelte'
+  import type { TileBlock as Block } from '../lib/io/regionGrow'
   import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
   import { defaultLayerTextures } from '../lib/wow/defaults'
   import { LAYERS } from '../lib/terrain/layers'
