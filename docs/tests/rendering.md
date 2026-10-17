@@ -1,0 +1,292 @@
+# Rendering
+
+Shaders, lighting, particles, culling, textures and how things look. The general methods these entries use (the dev page in headless
+Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that first.
+
+## Particles (M2 emitters, B-182)
+
+Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
+- `go test ./internal/wow -run Emitter` (and `TestClientEmitters` with `WOW_DIR`: Elwynn's tall
+  waterfall has one lit alpha emitter with flags 0x2, BloodSpurt.m2 four, FlameStrike_Area.m2 four
+  spline emitters, `FreestandingTorch01.m2` two additive flames on a 4x4 flipbook) and
+  `tests/particles.test.ts` (kernels, ramps, integrator, quad writer, after Benilla's own tests).
+- In the app (the CDP route in `docs/TESTS.md`), place `World\Generic\PassiveDoodads\Lights\FreestandingTorch01.m2`
+  and `World\Azeroth\Elwynn\PassiveDoodads\Waterfall\ElwynnTallWaterfall01.m2` (yOff -70: its emitter
+  is 94 yd up) on cleared ground. `__engine.particles.live` maps `<objectId>:<emitter>` to a pool
+  (`pool.count` live particles); `__engine.particles.batches` holds the draws (`floats / 36` quads).
+  The torch burns with the flipbook flame and the waterfall throws a lit white spray (about 100
+  particles).
+- Trap: an emitter out of view or beyond `RANGE` (300 yd) is frozen, so a pool with `acc` 0 and no
+  particles is usually just off screen.
+- Ribbons (B-183): `TestParseRibbonRecord`, `TestClientRibbons` (Holy Smite's two slash ribbons, the
+  Caverns of Time energy trail) and `tests/ribbons.test.ts`. In the app a ribbon needs a moving bone,
+  so load the scene with `"prefs":{"animations":true}` (the owner's own prefs have animations off).
+  `World\Dungeon\CavernsOfTime\PassiveDoodads\EnergyTrails\EnergyTrailHourglass.m2` placed on
+  cleared ground sweeps two blue strips 60 to 160 yd up across the sky; from `distance: 260` both
+  trails hold about 95 edges (`__engine.particles.live.get('<id>:r0').trail.count`). Its bones are
+  linearly keyed, 9 keys in 16.7 s, so the strips run straight between keys, as the client draws them.
+- Spawns (#110): a spawn's pools and trails are keyed `s:<kind>/<guid>:<emitter>` (`:r<n>` for a
+  ribbon). The Durotar region Kalimdor 41_33 (2x2) has 50 of them; its Copper Vein `object/112723`
+  has four additive glow emitters with 5 or 6 particles each once the camera is near it. A hidden
+  spawn kind (the Spawns filter) drops its spawns' particles.
+- Previews (#110): the tools register their ghost meshes (`previewParticles`), keyed `p:<mesh id>`.
+  With the Place tool on `FreestandingTorch01.m2` and the pointer over the ground the ghost burns
+  (`p:<id>:0` about 18 particles); switching tools takes its quads out of the batch at once.
+- Ground snap (flag 0x2000, #110): `tests/particles.test.ts`; in the app, place
+  `World\ENVIRONMENT\DOODAD\GENERALDOODADS\ElementalRifts\AirRift.m2` with `yOff: 3`: its first
+  emitter (flags 0x3009, flat shockwave rings) births on the ground (ground height plus the birth
+  size, about 0.5), not at the model's base. The fire and water rifts, `UndercityMonsterBirth.m2`,
+  `G_GhostTrap.m2` and `G_ScourgeRuneCircleCrystal.m2` use the flag too.
+- Sorting (#118): an alpha batch (`__engine.particles.batches`, key `<texture>|alpha|...`) uploads its
+  quads back to front from the camera each frame. With Elwynn's tall waterfall placed as above, walk
+  each batch's `data` (36 floats a quad; the centre is the mean of floats 0..2 and 18..20) and check
+  the distances to `__engine.camera.position` never grow.
+- Trap: a page that hot-reloads between two edits of the same feature can run one module old and
+  one new; reload it by hand before checking.
+- Trap: in the dev page, `await import('/src/lib/state/editor.svelte.ts')` can load a second copy of
+  the module (the app's has a `?t=` hot-reload query), and writing `editor.tool` there changes
+  nothing. Import the app's own URL:
+  `performance.getEntriesByType('resource').map(r => r.name).find(n => n.includes('/src/lib/state/editor.svelte.ts'))`.
+
+## Ground effects (grass tufts)
+
+Checks: the tables load (`groundEffectTables()` in `wow/groundEffectTables.ts`), the tufts build
+around the camera (`GroundEffectLayer`) and the export carries effects. Unit tests:
+`tests/groundEffects.test.ts` and `go test ./internal/adt/` (`effects_test.go`). In the dev page:
+
+```js
+const g = await import('<the loaded wow/groundEffectTables.ts URL>')
+await g.loadGroundEffectTables()        // the first time for a client scans every tile: a minute or two
+g.groundEffectTables().textures['tileset\elwynn\elwynngrassbase.blp']   // an effect id
+// With Northshire open and the camera on the ground: a few frames, then
+__engine.tuftCount()                    // thousands
+__engine.exportInput().effects          // the effect per palette index
+```
+
+- The first load of a client is slow (it reads every ADT of every map); the status bar counts the
+  tiles. Afterwards it comes from `<user cache>/Meld/groundeffects/`.
+- Tufts only appear for textures the client's tiles use, or ones given an effect in World › Ground
+  Effects…; a new world painted with the default tilesets grows Elwynn's grass.
+- The detail models load like any other; the layer draws a model once it is ready, so the first
+  build after opening shows fewer tufts for a moment.
+- Which model a GroundEffectTexture slot names: `TestClientGroundEffectModels` (WOW_DIR) counts the
+  effects whose models come from more than one zone (the file name's three-letter prefix). Keyed by
+  GroundEffectDoodad's internal ID (field 1), as the client does, 29 do; keyed by the row ID (field 0,
+  mostly one more), 264. The trap: the IDs look alike and both keyings resolve most slots, so a wrong
+  one still shows plausible grass. An empty slot is 0xFFFFFFFF; 0 is ElwFlo01.
+- The fade (B-178): `tests/groundEffects.test.ts` pins Benilla's landmarks (plateau to 52.64 yd, cut-out
+  at 61.11, zero at 69.86). In the app (CDP route), Northshire's meadow at x 150, z 300 with the map's
+  objects hidden, `yaw: 2.2, pitch: 0.1, distance: 4`: the grass thins away toward the hills instead
+  of ending at a ring. `__engine.doc.groundEffects.reach` is the build radius; the headless viewport
+  is 1068x285 (aspect 3.75), which makes it about 133 yd and the tuft count about four times a 70 yd
+  ring's, so count tufts in a normal window when judging the cost.
+
+## Water look (the client's combine, B-174)
+
+Checks: `water/liquidMaterial.ts` against the client's look. Northshire's stream in Azeroth 32_48 is
+river water up to depth byte 79: with the CDP route (`docs/TESTS.md`) load the region, then
+`e.setSceneView({ target: [340, 70.2, 283], yaw: 2.4, pitch: 0.35, distance: 45, hour: 13 })`. It
+should be teal with white ripple glints, as in the game; the old noggit-style shader drew it a flat
+olive. `__engine.doc.liquids.layers(c)` lists a chunk's layers (id, `depth` 0 to 1 per vertex) to find
+water elsewhere. For a before and after, `git stash push` the changed files, shoot, and `git stash
+pop`: the dev page reloads them.
+
+## Client clouds (B-179)
+
+Checks: `wow/clouds.ts` and `engine/CloudDome.ts`. `tests/clouds.test.ts` ports Benilla's kernel tests
+(clear at density 0, overcast mean above 200 at 1, scattered at 0.6, the glow only brightening, the
+quarter-tile scroll). In the app (CDP route) load a scene with `"prefs":{"clientLighting":true,"clouds":true}`,
+hide the map's objects, then `setSceneView({ target: [150, 80, 300], yaw: 2.2, pitch: 0.08, distance:
+120, hour: 13 })` in Azeroth 32_48: soft cloud banks over the client sky. `__engine.clouds.kernel.tile`
+is the coverage (Elwynn's light gives density 0.5, about 60% of the cells covered). The camera can't
+look up (it rides the ground), so the clouds show low over the horizon, where the dome's cap is.
+
+## Liquid types from the client
+
+Checks: the Water tool's liquid list is the client's LiquidType.dbc (`LiquidTypes` binding,
+`setLiquidTypes` in `water/liquids.ts`), so it holds the base four plus rows such as 21 "Naxxramas -
+Slime". `go test ./internal/vmangos/ -run TestLoadLiquidTypesFromClient` with `WOW_DIR` set reads
+the real table; `tests/liquidTypes.test.ts` covers the mapping. In the dev page the Water tool's
+select lists five liquids once the client is loaded, and a layer painted with 21 exports as slime
+(`liquidsToAdt` gives type 4) while the `.wmap` keeps 21.
+
+## Selection outline colours (free, touching, buried)
+
+Checks: `SelectionOutline` and `Engine.touchesSomething`. In the dev page, with the `editor.svelte.ts`
+and `selection.ts` module URLs from "Scripted brush strokes":
+
+```js
+e.newDocument(128, 'island', 3, 'Outline'); for (let i = 0; i < 5; i++) e.frame()
+const type = 'm2:World\Azeroth\Elwynn\PassiveDoodads\Trees\ElwynnTree01.m2'
+e.addObjects([{ type, x: 128, z: 128, yOff: 0, rotY: 0, scale: 1 }, { type, x: 140, z: 128, yOff: 6, rotY: 0, scale: 1 }])
+ed.editor.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()])
+e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (let i = 0; i < 10; i++) e.frame()
+```
+
+- Screenshot and zoom on the two: the one on the ground has a green stroke (red along any part
+  under the slope), the one 6 units up a yellow one. The models may still be the purple
+  placeholder boxes, which is enough for the colours.
+
+## Ground effects: no-doodad cells and density
+
+Checks: tufts stay off the cells under buildings and off the client's own `noEffectDoodad` cells,
+and the export writes those cells. Unit tests: `groundEffects.test.ts` (`coverCells`,
+`chunkNoEffect`, `frillDensity`), `vmangosExport.test.ts` (the row bits
+per chunk) and Go `TestRewriteNoEffectBitsReadBackAndKeepTheTilesOwn` (written bits read back by
+`ParseTerrain`, ORed with the tile's own). In the dev page, on a region:
+
+```js
+const e = window.__engine
+e.terrain.noEffect.reduce((a, b) => a + b, 0)        // the client's no-doodad cells (roads, buildings)
+e.tuftCount()                                       // falls when a WMO is placed over grass
+e.exportInput().noEffect.reduce((a, b) => a + b, 0) // client cells plus the cells under root WMOs
+```
+
+- A WMO whose bottom floats more than 4 yards above the ground (a bridge) bares nothing.
+- The density is View › Sparse / Normal / Full tufts; the layer rebuilds within a quarter second.
+- The scatter itself (`scatterChunk`, `BlizzardRandomizer`) is tested against vectors printed by
+  Benilla's own Rust (`ground_effects.rs`): copy `GROUND_EFFECT_NOISE`, `BlizzardRandomizer` and the
+  pass loop into a scratch `.rs` with a `main` that prints them, and build it with
+  `rustc -O --edition 2021` (rustup's toolchain, `~/.cargo/bin`); no cargo project is needed. The
+  JS values match Rust's f32 ones to 1e-6, not exactly, since JS works in doubles.
+
+## Graphics › Quality presets (#203)
+
+Checks: `lib/state/graphicsPresets.ts` (unit test `graphicsPresets.test.ts`: each preset is found
+again after it is applied, one change makes it Custom). In the dev page, `applyPreset(prefs, 'Low')`
+through the page's own module URLs, step a few frames, and read `__engine.prefs` (renderScale 0.5,
+shadows off, particles off) and `__engine.renderer.getPixelRatio()` (0.5). Click the menu bar's
+Graphics button and read the `aria-checked="true"` items: the preset's name is checked and the header
+reads Quality; after one setting changes it reads "Quality (custom)" with no preset checked. Use
+`?nosave`: a preset writes ten prefs at once.
+
+## The camera's WMO room (down-ray probe, #8)
+
+Checks: which group of a placed WMO the camera is in (`world/wmoRoom.ts`, Benilla's `seed.rs`), shown
+as "Camera in" in Detail info. Unit cases are Benilla's own (`tests/wmoRoom.test.ts`); the client data
+is `TestClientWMONav` (WOW_DIR, the Goldshire inn: 12 groups, 10 portals, 2 fogs). Live, in the dev
+page: `const nav = e.rooms.navs.get('<lowercased wmo path>')` once the camera has been inside the WMO's
+box, take a flat face of `nav.walk[g]` (nine floats a triangle, WoW axes), lift it 1.7 yd, take it to
+editor space as `(x, z, -y)` and through `e.objects.matrixOf(o, m)`, then put the camera there:
+`c = e.controller; c.followGround = false; c.collision = false; c.target.copy(p)`, and step `e.frame()`.
+`e.rooms.current.group` and the readout should name group g. Above the roof the probe meets the
+exterior shell (MOGP 0x8) and reads outside, as the client does.
+- Trap: the controller's target rides the ground, which is often under a building's floor; turn
+  `followGround` off first, or the camera ends up below the floor and reads outside.
+- The portal flood and room fog on top of it (`world/wmoFlood.ts`, `wmoFog.ts`, `roomGate.ts`):
+  `tests/wmoFlood.test.ts` builds rooms and doorways and a three camera, and holds Benilla's fog cases.
+  Live: place the Goldshire inn (`e.objects.add({ type: 'wmo:World\\wmo\\Azeroth\\Buildings\\GoldshireInn\\GoldshireInn.wmo', ... })`
+  on open ground), put the camera on a floor of group g as above, step frames, then read
+  `e.roomFlood.visible` / `.fog` (per group, the first `nav.groups.length`) and `e.roomFog.t` (the 4 s
+  fade). In its hall (group 2) the flood draws 2, 3, 5 and 10 looking along it and fewer facing a
+  wall; in a closed bedroom (9) only 9. A WMO mesh must carry the `wmoRoom` attribute (Go's
+  `"rooms":true` header); a page loaded before a Go change keeps the old assets, so reload it.
+- Trap: with View › Layers › Objects off (the owner's prefs may have it so) the probe finds no room
+  and `e.rooms.wmoIds` stays empty (#142); set `e.objects.group.visible = true` for the probe. Hiding
+  it again must drop the room and the gate (`e.cullView.gate` null, terrain chunks drawn).
+- Trap: the inn placed with `yOff: 0` on rough ground can have its floor under the terrain, and the
+  probe's terrain race then reads outside; pick a floor above the ground.
+- The world through the windows (#116): `tests/instanceCull.test.ts` (a doorway, the exempt
+  building, a sealed room). Live, after the steps above: `__engine.roomFlood.exteriorWindows` (four
+  NDC numbers a window), `__engine.cullView.gate` (their frustums), the drawn instances (sum of
+  `mesh.count` over `__engine.objects.batches`) and `__engine.terrain.chunks.filter(c => c.visible)`.
+  In the Goldshire inn only portal 0 (group 0 to the porch, group 11) leads out: from the hall
+  (group 2) no window, so only the inn draws; from group 0 facing the door, one window and a few
+  chunks. Set `prefs.cameraFollowGround = false` in the app's editor module (see the `?t=` trap)
+  first: `controller.followGround` alone is reset from the prefs.
+- What stands in a reached room (#156): `tests/roomAdmit.test.ts`. Live: Azeroth 32_49 (scene
+  `{v:1,map:{region:{mapName:'Azeroth',x:32,y:49,size:1}}}`), the two-storey house with the children:
+  set `prefs.spawnsThroughWalls = false` in the app's editor module, `followGround` and `collision`
+  off, `e.setSceneView({ target: [67.3, 70.7, 306.3], distance: 2, yaw: 0, pitch: 0.1 })`, step
+  frames. The camera is in group 3 of WMO 1333, a sealed room (`e.cullView.gate.length` 0), and
+  `e.doc.spawnLayer.forEachDrawn` counts 10 (Cameron, John, Dana among them); with
+  `e.roomAdmit.admits = () => false` it counts 0.
+- Water and tufts (#119): with the inn placed in Durotar, outside it the region draws about 4400 tufts
+  (sum of `mesh.count` over `__engine.doc.groundEffects.batches`) and 59 liquid blocks
+  (`__engine.doc.liquidRenderer.blocks`, visible ones); in its sealed common room both drop to 0,
+  and they come back on leaving.
+
+## Client Lighting's ground: per-vertex light and the sheen (#111)
+
+Checks: under Lighting › Client Lighting the terrain shader takes the light's rows in gamma space
+(`clientAmbient`, `clientDiffuse`, `clientSpecular` = rows 1, 0 and 9), sums and clamps them per
+vertex, and adds the sheen times the layers' `_s` mask (`paletteArray.ts` puts each `_s` twin's alpha
+in the palette layer's alpha, 0 without one). In the dev page, load a region with
+`"prefs":{"clientLighting":true}` in the scene, step frames, then read
+`__engine.terrain.material.uniforms.clientLit.value` (1) and the masks from `__engine.terrain.palette.data`
+(layer i's alpha bytes at `i * 256 * 256 * 4 + 3`, every fourth). Durotar's textures all have masks
+(Black.blp none). With Client Lighting off `clientLit` is 0 and the ground is drawn as before.
+- Point lights (#117): M2 lights carry `raw` (colour times intensity) in the model's effects; models
+  with them include `World\Azeroth\Elwynn\PassiveDoodads\Campfire\ElwynnCampfire.m2` (raw about
+  0.71, 0.2, 0), `StonePyre.m2`, `DwarvenBrazier01.m2` and the human guard towers. Torches such as
+  `FreestandingTorch01.m2` have only flame anchors from their emitters, so no raw light. Under Client
+  Lighting, place one and read `__engine.terrain.material.uniforms.clientPointCount` and
+  `clientPointColor`. Trap: a sharp line across the ground near a light is usually two chunks'
+  textures; compare with `clientPointCount` held at 0 before blaming the light sum.
+
+## Losing and restoring the viewport's WebGL context (#209)
+Checks: the viewport comes back after the browser drops its WebGL context, and nothing is drawn or
+cached from a lost one (thumbnails wait, Write Minimap Tiles refuses).
+- In the dev page (headless Chrome over CDP works, `docs/TESTS.md`): `const x = __engine.renderer.getContext().getExtension('WEBGL_lose_context'); x.loseContext()`,
+  wait ~500 ms: `__engine.contextLost` is true, the status bar says the graphics card dropped the
+  viewport, and `__engine.renderMinimapTile(0, 0, 'none', 16)` throws. Then `x.restoreContext()`, wait
+  ~1.5 s and step `__engine.frame()` a few times: the status says the viewport is back, the shot looks
+  as before, and `gl.getError()` stays 0 after each frame. Compare the mean of a small
+  `renderMinimapTile` before and after (78.1 against 78.5 on a Stranglethorn region, 2026-10-16).
+- Trap: three rebuilds its state and re-uploads geometry and textures by itself on restore, but a
+  shadow map exists on the new context only once redrawn. A point light's cube map that has none makes
+  every draw sampling `pointShadowMap` fail with GL_INVALID_OPERATION (1282): the ground turns flat and
+  the models vanish. `onContextRestored` sets `shadow.needsUpdate` on every casting light for that.
+  Finding such an error: wrap the context's prototype methods, call `getError` after each and log the
+  dozen calls before the first error; then list the program's active uniforms with their raw types
+  (`0x8dc5` is `samplerCubeShadow`).
+
+## WMO culling by group (#198)
+Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view in the scene pass,
+and looks the same as drawn whole.
+- Unit: `frontend/tests/wmoGroupCull.test.ts` (runs by group, the view half, the camera check, the
+  group's range put back after the draw).
+- Dev page, Northshire scene (Azeroth 32_48, 1x1). Stormwind loads late on SwiftShader: poll the live
+  `__engine.objects.batches` (not one captured before `__loadScene` swapped the document) until the
+  entry whose key matches `stormwind.wmo` has a `cull` (the batch exists first with a placeholder).
+  The class is `found.cull.constructor`; set its `enabled` false to draw every WMO whole. Importing
+  `/src/lib/world/wmoGroupCull.ts` from a probe gives another module instance after an edit
+  (Vite's `?t=` URLs), so its switch does nothing.
+- Numbers on 2026-10-17, the scene's camera over the abbey, `measurePerf()`: the frame 2.07M triangles
+  with the cull, 3.43M without; stormwind.wmo 31k against 1.33M in "Most triangles" (that list counts
+  the scene pass, through the twin's `userData.drawnIndexCount`). Its group boxes put 77k of its
+  triangles in the view and 1.22M in the shadow cascades, which keep drawing it whole.
+- Same picture: `setSceneView({ target: [-300, 120, 250], yaw: 4.71, pitch: 0.25, distance: 500, hour: 13 })`
+  draws 55% of the city; with `enabled` off and on the shots differ in 0.14% of pixels (edges, swaying
+  trees).
+
+## Compressed client textures (DXT, #178)
+Checks: model, liquid and particle textures go to the GPU as the BLP's own DXT blocks and mips where
+the renderer has `WEBGL_compressed_texture_s3tc` and `..._s3tc_srgb`, and look as the RGBA path did.
+- Go: `TestDXTOf*` in `internal/wow/blpdxt_test.go`; with `WOW_DIR=C:/WoW/client`,
+  `TestClientTexturesAsDXT` samples the client's world, tileset, creature and XTextures BLPs: 965 of
+  1008 go as DXT (the rest are palettized or lack a full mip chain), 46 MB of blocks against 258 MB of
+  RGBA with mips, and every one's first level decodes to DecodeBLP's pixels byte for byte.
+- Endpoint: `curl "localhost:34115/wow/texture?path=tileset%5Celwynn%5Celwynngrassbase.blp&fmt=dxt"`
+  starts `DXT1` and is 43756 bytes against the RGBA reply's 262156.
+- Frontend: `frontend/tests/textureFrom.test.ts`. In the dev page, `?nosave&nodxt` keeps every texture
+  RGBA for comparison. Northshire on 2026-10-17 (headless Chrome, SwiftShader has both extensions):
+  618 model textures, 20.9 MB compressed (564 of them) against 123.4 MB all RGBA; the two shots differ
+  in 0.47% of pixels by more than 4%, in fine detail where the BLP's own mips replace the GPU's.
+  Sum a material's `map`: `mipmaps[i].data.length` for a `CompressedTexture`, w·h·4·4/3 for RGBA.
+- The terrain's tileset array (`terrain/paletteArray.ts`) and texture previews still read RGBA pixels
+  on the CPU (they resample), so they keep using `fetchImage`.
+
+## Preview window: particles, ribbons and texture animation (#200)
+Checks: the preview window and the creature editor's preview (`CreaturePreview.svelte`) run the model's
+particles and ribbons in a `ParticleLayer` of their own (`new ParticleLayer(new PreviewSet())`, so the
+main layer never draws that model), and its texture and colour animation (run for every material by
+the Engine's loop).
+- Dev page: `ed.prefs.particles = true; ed.prefs.animations = true` (the owner's config has both off,
+  and `?nosave` keeps it so), then `ed.ui.modelPreview = { title: 'probe', type: 'm2:World\\Generic\\Human\\Passive Doodads\\Braziers\\StormwindBrazier01.m2', scale: 1 }`
+  and wait ~12 s: flames and sparks over the coals; `ed.prefs.particles = false` takes them away.
+  `ElwynnMediumWaterfall01.m2` shot twice a second apart differs in about 2% of pixels (the scrolling
+  texture), with its spray at the top. Write the step file with the Write tool (backslashes).
+- Trap: the preview's canvas is transparent (`alpha: true`). three's AdditiveBlending adds the
+  particle's alpha too, which composited the spark texture's black as opaque squares there; additive
+  batches now keep the target's alpha (CustomBlending, same colour factors).

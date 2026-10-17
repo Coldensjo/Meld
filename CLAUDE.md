@@ -38,7 +38,7 @@ in the git history (`git show b47706b:PROGRESS.md`).
 - **Write issues for the next agent.** It starts cold, so the issue must hold what it needs: what and
   why, then a `**Claude:** notes for the agent working on this.` comment (or a section in the body)
   with the code to read (files and functions), the decisions that apply (`decision` issues, earlier
-  comments), how to verify it (the docs/TESTS.md section, a client test, a spot on the map) and the traps
+  comments), how to verify it (the test entry in `docs/tests/`, listed in docs/TESTS.md; a client test, a spot on the map) and the traps
   you know of. While working on an issue, comment anything a later session would otherwise have to
   rediscover: a dead end, a finding about the client's format, where a half-done item stands.
 - **Before working on an issue**, read it with its comments (`gh issue view <n> --comments`).
@@ -110,13 +110,15 @@ cd frontend && pnpm build   # frontend only
 
 ## Testing notes (docs/TESTS.md)
 
-- Before working out how to test or verify a change, read `docs/TESTS.md`. It collects the ways of
-  testing this app that are known to work, so you don't have to rediscover them.
+- Before working out how to test or verify a change, read `docs/TESTS.md`. It holds the general
+  methods (unit tests, the dev page in headless Chrome or Claude in Chrome, scenes, measuring
+  performance) and an index of the checks for each feature, which live in `docs/tests/<area>.md`.
 - When you find a good way to test something (a command, a scene or spot on the map, a
-  `javascript_tool` probe, a fixture), or a trap that cost you time while testing, add it to
-  `docs/TESTS.md` in the same commit as the work, or in its own commit. Say what it checks, how to run
-  it, and what to watch out for. Update an entry that turns out to be wrong instead of adding a
-  second one.
+  `javascript_tool` probe, a fixture), or a trap that cost you time while testing, add it to the
+  area's file under `docs/tests/` (a general method goes in `docs/TESTS.md` itself), and add its
+  heading to the index in `docs/TESTS.md`, in the same commit as the work or in its own commit. Say
+  what it checks, how to run it, and what to watch out for. Update an entry that turns out to be
+  wrong instead of adding a second one.
 
 ## Architecture
 
@@ -141,20 +143,7 @@ cd frontend && pnpm build   # frontend only
 
   No editing logic goes in Go: it never decides what a brush does. It parses, converts and writes
   formats the frontend should not have to know, and anything that must read the client's archives.
-- `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
-  float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect + shadows). Blobs
-  cross the bridge as base64 strings. If you change the format, bump `Version` and update the tests.
-  Older versions stay readable (a version 5 map has no shadows, a version 4 map no chunk data, a
-  version 3 map no liquids blob, a version 2 map no holes blob either).
-- **Map data** (`terrain/chunkFlags.ts`, `tools/MapDataTool.ts`, tool `mapdata`, key 9): what a
-  chunk's MCNK header says besides its ground, by mode (`editor.mapDataMode`: zone, impassable, no tufts per cell, baked shadow per texel). `Terrain.areaIds` is an AreaTable.dbc ID per paint
-  chunk (the `Areas` binding lists them, `wow/areas.ts` names them) and `Terrain.chunkFlags` a byte
-  per chunk (`CHUNK_IMPASSABLE`); both and `Terrain.noEffect` are read from a region, saved in the
-  map file (version 5) and painted by the tool through `ChunkDataStroke` (one undo step a stroke).
-  The tool draws its overlay through `Terrain.setMapDataOverlay`. The export sends every chunk's
-  `HeaderSpec` (`TileSpec.Headers`, `RegionEdit.Headers`) and Go sets the area ID and the 0x2 flag
-  (`adt/header.go`); a map saved before version 5 (`MapDocument.chunkDataKnown` false) sends none,
-  so a region keeps the client's.
+
 - **Engine** (`frontend/src/lib/engine/Engine.ts`) owns the renderer, scene, camera and rAF loop.
   Svelte talks to it through `engineRef.current` methods.
 - **Documents** (`lib/engine/MapDocument.ts`):
@@ -169,295 +158,39 @@ cd frontend && pnpm build   # frontend only
 - **State**: `lib/state/editor.svelte.ts` holds Svelte 5 runes (`editor`, `stats`, `ui`). The engine
   *reads* `editor.*` each frame. **Never write per-frame data into reactive state.** `stats` is
   throttled to 2 Hz for this reason.
-- **Terrain** (`lib/terrain/Terrain.ts`):
-  - Heights are a `Float32Array` of `(size+1)^2` vertices; `CELL_SIZE` = 2 world units.
-  - The mesh is split into 32×32-cell chunks. Edits call `markDirty(rect)`, and `update()` rewrites
-    only the touched chunks.
-  - Picking ray-marches the heightmap (`raycast`). Don't use triangle raycasts on the terrain.
-  - **Holes**: `Terrain.holes` is one byte per cell (`terrain/holes.ts`). A hole cell gets no
-    triangles (`writeChunk` rebuilds the chunk's index and draw range) and the ray passes through it.
-    Holes are edited through `TerrainStroke({ holes: true })`, copied with the clipboard and saved in
-    the map file. Every hole edit works on whole 2x2-cell blocks (`HOLE_BLOCK`, `snapToBlocks`), as the
-    1.12 tile keeps a chunk's holes in a 4x4 bitmap; the export sends each chunk's hole cells in its
-    `HeaderSpec.Holes` and Go writes the bitmap at MCNK 0x3C (`adt.HoleBits`: a block with any hole
-    cell is a hole).
-- **Baked shadows** (Lighting › Baked Shadows, `prefs.bakedShadows`, B-173, B-057): a region's chunks carry
-  the client's baked shadow maps (MCSH, 64x64 bits a chunk, read by `adt` into `Chunk.Shadow`). The
-  `RegionShadows` binding stitches them for the open block, the Engine reads them once per terrain
-  (`updateBakedShadows`) into `Terrain.shadow` (a byte per texel, 8 a cell, `shadowSide` a side,
-  uploaded as `bakedShadowTex`, rows at a time through `touchShadow`); the terrain shader keeps 70% of
-  the light in shadow, as the client does (`terrain/bakedShadows.ts`). They are the map's from then on:
-  painted by the Map data tool's Shadow mode, baked from the ground for the client's lighting sun
-  (Terrain › Bake Shadows, `bakeShadows`) or cleared, each through `ShadowStroke`; saved in the map
-  file (version 6, a bit a texel) and sent on export as each chunk's `HeaderSpec.Shadow`, which Go
-  writes as a 512-byte MCSH (`adt.shadowPiece`). A map with none of its own (`Terrain.shadow` null)
-  sends none, so a region keeps the client's.
-- **Far horizon** (View › Far Horizon, `prefs.showHorizon`, B-167): around an open region, the map's
-  WDL tiles within five tiles (`RegionHorizon` binding, `vmangos.ReadRegionHorizon`), meshed as the
-  client meshes them (`world/horizonMesh.ts`: chunk corners and centres, four triangles a chunk) and
-  drawn by `world/HorizonLayer.ts` unlit in the horizon/fog colour, a silhouette as in the game. Read
-  from the client once per document; a map of its own has none.
-- **Paint mask**:
-  - `Terrain.mask` holds one byte per splat texel, uploaded as `maskTex` and drawn as a red
-    overlay. It isn't saved to the map file.
-  - Mask strokes go through `TerrainStroke({ mask: true })`.
-  - `Engine.fillMask(layer)` paints a layer over the mask, weighted by mask value.
-  - With a mask present, picking a texture in the palette fills it.
-  - `ui.maskActive` is refreshed after strokes, undo/redo and tab switches.
-- **Splat** (`lib/terrain/chunkPaint.ts`, 1.12 style): the map is cut into paint chunks of 8x8 cells,
-  and each chunk holds at most `SLOTS` (4) textures. `Terrain.chunkSlots` names a chunk's textures
-  (palette indices) and `Terrain.weights` holds four weights per splat texel, always summing to 255.
-  `paintPixel` (`tools/brush.ts`) acquires a slot for the brush texture: it compacts slots a stroke
-  emptied, and a chunk that is still full refuses the fifth texture (`acquireSlotCompacting` returns
-  -1), which the tools report in the status bar (`CHUNK_FULL`). Only Swap mode and the Layers
-  panel's Replace put a texture into a full chunk (`acquireSlotReplacing`, which evicts the weakest
-  or the swapped-out one). Stroke undo covers whole chunks (`settleSlots`).
-- **Shaders** are custom `ShaderMaterial`s (terrain, water, sky). They include three's fog,
-  tonemapping and colorspace chunks. Prop lighting (Hemisphere + Directional, intensities ×π) is
-  tuned to match the terrain shader's uniforms. Change both together.
-- **Tools** implement `Tool` (`lib/tools/Tool.ts`):
-  - LMB goes to the active tool; RMB and MMB belong to the camera.
-  - `tick(dt)` runs every frame while the button is held, so scale effects by `dt`.
-  - Brush size follows Photoshop (`tools/brushSize.ts`): `[` `]` and Ctrl+scroll step the radius
-    through size bands (`stepRadius`, via `Engine.stepBrush`), Shift+`[` `]` step the falloff, and
-    Alt+right-drag (`Engine.sizeDrag`, which the camera leaves alone through `rightBlocked`) sizes
-    the brush on the spot: sideways doubles the radius every `DRAG_DOUBLE` px, up and down set the
-    falloff, and the ring stays on the ground point it started on.
-  - Terrain brush tools extend `BrushTool` and record undo through `TerrainStroke`, which stores only
-    the dirty sub-rect.
-  - **Image brushes** (`tools/brushImage.ts`): a greyscale image from the user's folder
-    (`prefs.brushImageDir`, read by Go into grey levels) multiplies the brush weight inside
-    `forEachVertex`/`forEachTexel`. `BrushTool.tick` switches `brushImage.active` on only for tools
-    whose `imageShaped()` says so (Sculpt's shaping modes, Paint's texture brush), and off again after.
-  - Sculpt's **painting while shaping** (`editor.sculptPaint`: 'off', 'texture' or 'slope') paints
-    under the brush in the shaping modes as the ground moves, in the same stroke and undo step.
-    'texture' paints `editor.sculptPaintLayer` (per map in `DocMeta`; a texture picked in the
-    browser while it is on becomes that layer instead of switching to Paint). 'slope' paints the
-    map's **texture roles** (`terrain/roles.ts`, `editor.roles`, per map, saved in the map file's
-    `roles` header field, guessed from the texture names of a map without one): the rock from
-    `slopePaint.rockDeg` and the dirt on the moderate slopes below it (`slopeWeights`), which is how
-    Blizzard's zones are painted (rock mountains rimmed with dirt over a grass base). The roles are
-    set in Map Properties, and the preview-only cliff rock in the shader uses the rock role too.
-  - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
-  - **Every edit must be undoable** through `History`.
-- **Stamp** (`tools/StampTool.ts`, tool `stamp`, key 0) applies a brush stack (`tools/brushStack.ts`,
-  `prefs.brushStacks`, edited in `BrushStackDialog.svelte`): each brush of the stack runs a pooled Sculpt or
-  Paint tool on one shared `TerrainStroke` (`useStroke`/`releaseStroke`), one undo step a stroke. The brush
-  tools in `TerrainTools.ts` read their settings from a module binding named `editor`, which
-  `withSettings` points at a brush's own copy of the editor state for the call, so a stack never writes
-  the reactive editor each frame; keep new settings reads in that module going through it.
-- **Doodad brush** (`tools/DoodadBrushTool.ts`, tool `doodad`, key 8) scatters models the way Paint
-  lays down textures. A brush (`tools/doodadBrush.ts`, `DoodadBrush`) is a named list of models with
-  a weight, scale range, sink and tilt each, plus a spacing (a multiple of the models' footprints).
-  Each attempt draws a point in the brush circle, keeps it with the falloff's weight (`candidate`),
-  picks an entry by weight (`pickEntry`) and drops it when another root model stands too close
-  (`fits`); the rate scales with strength and brush area (`attemptRate`). While the brush hovers, the
-  next placements are drawn ahead (`plan`, redrawn when the brush or its settings change) and shown
-  as ghost meshes (none for a model still loading); Ctrl+scroll or R spins the plan about the brush,
-  and the press puts it down first. Shift ignores the spacing so models stack;
-  Ctrl+drag erases the brush's models. A stroke is one undo step. Brushes are `prefs.doodadBrushes` (the pick is
-  `prefs.doodadBrush`), edited in the brush editor (`DoodadBrushEditor.svelte`, `ui.brushEditor`), a
-  full-screen window like the creature editor with its own model picker over the shared catalog
-  index (`lib/wow/catalogIndex.ts`); while the tool is active, a model picked in the asset browser
-  also joins the brush instead of being placed.
-  Brush files are TOML (`formatBrush`/`parseBrush`, read with smol-toml), through Import/Export › Import /
-  Export Doodad Brush and the `SaveBrushDialog`/`OpenBrushDialog` bindings. A brush may carry
-  placement rules (`PlacementRules`, `rulesAllow`, the TOML's `[rules]`: slope and height ranges, on
-  and not-on textures, liquids, holes) and each model an `align` toward the slope; Terrain › Fill
-  Selection / Fill Mask with Doodad Brush runs it over a whole area as one undo step
-  (`DoodadBrushTool.fill`, spaced through a `SpacingGrid`).
-  Its Creatures mode (`editor.doodadMode`, #171) hands the input to the spawn brush
-  (`tools/SpawnBrushTool.ts`, `tools/spawnBrush.ts`, `prefs.spawnBrush`): creature templates with weights,
-  picked in the browser's Creatures tab, filled to a density (creatures per 100 by 100 yd) and spacing,
-  with the brush's level, wander, respawn and facing; the Engine supplies guids and looks
-  (`brushCreature`, `brushLook`). A stroke is one undo step of ordinary unsaved spawn edits.
-- **Attachments**: a `WorldObject` with `parent` is attached.
-  - Its x/yOff/z/rotY/scale are local to the parent (`matrixOf` walks the chain). Roots use
-    world x/z and yOff above the terrain.
-  - Always move objects through `ObjectLayer.place(o, parentId, worldPlacement)`, which converts
-    to the parent's local space, plus `worldPlacement()`. Never write world values into an
-    attached object's fields.
-  - Placement and dragging use `ToolContext.surface()`: the nearest terrain or object hit.
-  - Ids and parents are saved in map files and preserved by copy/paste.
-- **Objects** (`lib/world/ObjectLayer.ts`):
-  - One `InstancedMesh` per model type, so draw calls scale with the number of types, not
-    instances.
-  - Each loaded model gets a three-mesh-bvh bounds tree (`world/bvh.ts`), which `pick` and
-    `raycastSurface` cast through.
-  - Each loaded model may also get a meshoptimizer LOD (`models/lod.ts`): a second index over the
-    same vertices, drawn by a second InstancedMesh for instances under `LOD_PX` on screen
-    (`splitLod` in `instanceCull.ts`). The LOD shares the full model's bounds tree, so picking
-    always hits the full model.
-  - A big WMO (20k triangles and 4 groups or more) drawn once is culled by group for the scene pass
-    (#198, `world/wmoGroupCull.ts`): its batch mesh draws a twin of the model's geometry (the same
-    vertex buffers, an index of the model's triangles sorted by WMO group, then a half rewritten with
-    the runs of the groups whose boxes meet the camera's frustum), and `onBeforeRender` points each
-    material's draw at that half for the view camera only, so the shadow passes keep the whole model.
-  - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
-    sculpting. A tilted one also has `tiltX`/`tiltZ`, the MDDF/MODF record's first and third angles,
-    turned in the client's order by `world/placement.ts` (`placementEuler`); build every model
-    rotation through it.
-  - **WMO rooms** (#8, from Benilla's `wmo_portal`): `world/WmoRooms.ts` finds the room (group) of the
-    placed WMO the camera is in with the client's down-ray (`wmoRoom.ts`, room data from `/wow/wmonav`),
-    `wmoFlood.ts` runs the portal flood from it each frame and `wmoFog.ts` picks the room's MFOG fog
-    and its 4 s fade. `roomGate.ts` applies both in the shared WMO materials: WMO vertices carry their
-    group (`wmoRoom` attribute, Go's `Mesh.Room`), and the instance at the room's origin hides the
-    groups the flood didn't reach and fogs the reached interiors with the room fog. The 15 nearest
-    other WMOs with portals in view are flooded from outside (`WmoRooms.outside`, every exterior group
-    a root), each in its own row of the gate's mask, so an interior shows only through a doorway; a
-    doodad carries up to two groups (`Mesh.Room` has two a vertex). From inside, the open world shows only
-    through the flood's exterior windows (#116, `CullView.gate`, `Terrain.gate`, the particles): a
-    model, spawn, terrain chunk or emitter must meet a doorway's narrowed frustum, and a sealed room
-    shows none, as in the client. What stands in a room the flood reached passes anyway (#156,
-    `world/roomAdmit.ts`: its room by the camera's down-ray from its sphere's centre, cached per
-    position), so the creatures and models in the camera's room stay drawn. Spawns are left out of the gate while View › Creatures and objects through
-    walls is on (`prefs.spawnsThroughWalls`, the default, #150). The liquids, the sea and the grass tufts are gated too (#119: `LiquidRenderer.gate`,
-    `Water.gate`, `GroundEffectLayer.gate`, which packs from the last build's full set).
-- **UI layout** (Photoshop-like, `App.svelte`):
-  - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
-  - Main row: `Toolbar` | centre column | `Dock`. The centre column is the `Viewport` (with the
-    document tab) over the `AssetBrowser`, which has its own area along the bottom.
-  - Per-tool settings go in `OptionsBar` (use `OptSlider`).
-  - Contextual editing goes in dock panels (`DockPanel` wrapper: tabs + collapse). Dock width
-    and collapsed panels are stored in `prefs`.
-  - Theme tokens are in `app.css` (neutral greys, blue `--accent`).
-- **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
-  target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides
-  the map edge.
-- **Water** follows noggit3 (`lib/water/`):
-  - `liquids.ts`: a `LiquidMap` per document holds liquid layers per 8x8-cell chunk (an MCNK). A
-    layer has a LiquidType.dbc ID (1 water, 2 ocean, 3 magma, 4 slime are the base rows; the
-    client's own table, read by the `LiquidTypes` binding into `LIQUID_TYPES` through
-    `setLiquidTypes`, adds rows such as Naxxramas's slime, each drawn as its kind), 9x9 surface
-    heights, 9x9 depths (0..1) and an 8x8 cell mask. A tile stores a chunk's liquid by kind, so
-    the export writes the base row of the layer's kind (`tileLiquidType`); the `.wmap` keeps the ID. `paintLiquid`, `cropLiquids` and `regenOpacity` port
-    noggit's `liquid_chunk`/`liquid_layer` logic. Edits go through `LiquidStroke` for undo.
-  - The Water tool's Paint mode is noggit's water brush (`editor.water`: lock, angled mode,
-    overrides, opacity mode, cursor on liquids). Dig lake and Raise shore shape the ground around
-    the sea.
-  - The sea (`editor.waterEnabled`/`waterLevel`, `Water.ts`) is a map-wide ocean plane. Its shader
-    reads the ground's depth from `Terrain.heightTexture()`. The export writes it as ocean in the
-    cells that no painted layer covers.
-  - `liquidMaterial.ts` draws both as the client's `ocean0_s` program does (B-174, Benilla's
-    `liquid.wgsl`): in gamma space, the lit depth swatch (the light's shallow and deep colours and
-    alphas in the client's 64 byte rows, the ocean's last row darker and opaque; a river's depth
-    reaches the deep row at byte 42, the ocean's at 255) plus the animated `XTextures` frame (24 a
-    second) plus `(sun sheen + 0.25) · frame alpha`, the ripple. The light is the client's where the
-    camera is (Client Lighting) or Azeroth's default (LightParams 12: bands 0, 1, 9 and 14 to 17 by
-    hour). Magma and slime are their frame, opaque and unlit.
-  - Go: `adt.Liquid` is one layer. `ParseLiquids` reads every MCLQ layer, and `Changes.Liquids`
-    rewrites chunks in the client's flag order (`internal/adt/water.go`). A region save only
-    rewrites chunks whose liquids differ from the client's.
-- **Start dialog** (`components/NewMapDialog.svelte`, `ui.showNewDialog` + `ui.newMapMode`): every
-  map is for the 1.12 client (folder + map ID). "New world" picks a size in tiles and a preset from
-  `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands, so a world is
-  bounded by sea); the cards are drawn by `drawPresetPreview`. "Part of Azeroth" picks a square of
-  tiles on `MapPicker.svelte`, a continent overview stitched by the Go side from the client's
-  minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
-  the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps.
-- **Zones** (`components/ZonesDialog.svelte`, World › Zones…, `ui.dialog = 'zones'`): a map's AreaTable.dbc
-  rows (`vmangos/areatable.go`: `ReadAreaRows`, `NewAreaRow`, `SetAreaRows`; bindings `AreaRows`,
-  `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (the game closed around it) and
-  the rows into the world database's `area_template`, which is where VMaNGOS reads areas from (not the
-  DBC). A form saved with Save, not undo steps, like creature templates.
-- **World map** (`components/WorldMapDialog.svelte`, World › World Map…, `ui.dialog = 'worldMap'`, #181): a
-  zone's map for the game's M key. `Engine.renderTopDown` draws the zone's rectangle from above (the
-  minimap's shot, any size), `io/worldMap.ts` gives the rectangle (the client's WorldMapArea row, or the
-  zone's chunks grown to 3:2), the parchment look and the feathered paste over a zone the client already
-  maps; Go (`vmangos/worldmap.go`, `WriteWorldMap`) cuts the 1002x668 picture into twelve DXT1 tiles and
-  sets the WorldMapArea.dbc row, written into Meld's patch with the game closed.
-- **Ground effects (grass tufts)**: the game grows detail doodads on each cell by the texture on top of
-  it: a texture layer's GroundEffectTexture ID names up to four `World\NoDXT\Detail` models and a
-  density, and the chunk's predominant-texture map picks the layer per cell. Go
-  (`internal/vmangos/groundeffects.go`, `GroundEffects` binding) reads the two DBCs and learns which
-  effect each tileset texture carries from the client's own tiles (a vote over every layer; cached in
-  the user's cache dir, progress on "effects:log"). The frontend keeps the tables in
-  `wow/groundEffectTables.ts`; `world/groundEffects.ts` is the arithmetic (`effectFor`,
-  `cellTexture`, and `scatterChunk`, the client's own scatter ported from Benilla: Blizzard's
-  randomizer seeded by the chunk's place in the client's map, `frill` cells drawn with repeats, the
-  effect's density in each, slot (n + turn) & 3 of the row's four `slots`) and
-  `world/GroundEffectLayer.ts` draws the tufts as one InstancedMesh per model, through tuft twins of
-  the models' materials that fade them out by view depth as the client does (B-178, `tuftFade`: a
-  ramp from 52.5 to 70 yd multiplied into the alpha, cut out at 128/255, so grass is gone by 61.1 yd).
-  It builds them within `reach` of the camera (`tuftReach`: that depth out to the view's side edge,
-  set by the Engine from the camera), rebuilt when the camera moves half a chunk or
-  `Terrain.heightVersion`/`paintVersion` change (View › Ground effects, `prefs.showGroundEffects`).
-  A map's own effect per texture (`editor.textureEffects`, World › Ground Effects…, saved as the map
-  file's `textureEffects`) overrides the learned one. The export sends the effect per layer
-  (`PaintSpec.Effects`) and Go writes it into MCLY and the per-cell predominant map into the MCNK
-  header (`adt/effects.go`), so the client grows the same tufts. The header's `noEffectDoodad` bits
-  (no tufts under a building or a road) are read from a region into `Terrain.noEffect` (kept in
-  the map file since version 5) and, with the cells under the map's root WMOs (`blockedCells` in
-  `GroundEffectLayer.ts`), skipped when drawing and sent on export. A map that holds its chunk data
-  sends them as `HeaderSpec.NoEffect`, which replaces the chunk's bits (so a cell the Map data tool
-  cleared comes off); an older one only as `PaintSpec.NoEffect`, which Go ORs into the chunk's own. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
-  the client's Ground Clutter stop (`frillDensity` 16, 32, 48 cells a chunk). A GroundEffectTexture
-  slot names a GroundEffectDoodad by its internal ID (field 1), not its row ID.
-- **Growing a region**: the Map panel's `TileMinimap` shows a plus on each side of the open block
-  (`onextend`); `extendRegion` in `mapio.ts` opens the block one tile bigger that way
-  (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south
-  unless the map ends there), closes the old tab and keeps the camera's view. It refuses a dirty map,
-  since the bigger block is read from the client.
-- **Asset browser** (`components/AssetBrowser.svelte`, along the bottom of the window):
-  - Search-first: `lib/wow/search.ts` tokenises every path (folder segments, file-name words,
-    camel-case) and scores a query against them, with a synonym table (`SYNONYMS`) mapping the
-    words an author types to the client's words. Kind tabs (Doodads, Buildings, Textures, All), a
-    zone select and category facets narrow the results. Ctrl+F focuses the search.
-  - Categories and zones come from path keywords in `lib/wow/catalog.ts`; tune the regex rules
-    there.
-  - The grid is virtualised (only the rows in view are rendered), so there is no result cap.
-    `AssetPreview.svelte` shows the hovered (else picked) item live in its own small renderer.
-  - `ui.palette` follows the tool (textures while painting) and the browser follows it. Its
-    height, collapsed state, tile size and recent picks are `prefs`, and so are the tab
-    (`browserKind`) and each tab's search, zone, category and scroll (`browserViews`, `wow/browserViews.ts`).
-  - The **Sets** tab shows the author's model sets (`wow/modelSets.ts`, `prefs.modelSets`): named lists
-    of doodads and buildings, made and filled through a tile's right-click menu (which also holds the
-    favourite star), and imported or exported as TOML (`importModelSets`/`exportModelSet` in `mapio.ts`).
-  - The **Prefabs** tab (`PrefabBrowser.svelte`, #170) lists the TOML files of `prefs.prefabDir`
-    (`wow/prefabs.ts`: model clips by path, `ListPrefabs` binding); Models › Save Selection as Prefab
-    writes one, and a click places it as a model paste (`Engine.placeObjectClip`; R and Ctrl+scroll
-    turn a model paste, `world/clipTurn.ts`), varied when `prefs.prefabVary.on`. Its thumbnail draws
-    all its models (`registerPrefab`, keyed by a hash of the file).
-  - Thumbnails (`lib/wow/thumbs.ts`) render lazily into a render target on the **main**
-    renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
-  - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading
-    them. Use bindings for uploads.
-- **Dock panels** (`components/Dock.svelte`): only Layers is shown, at the owner's request
-  (2026-10-15). What the dropped panels did lives elsewhere now: `PropertiesPanel` is shown by the
-  floating **Inspector** (`components/Inspector.svelte`, `ui.inspector`, the I key, Esc closes it);
-  growing a region and saving or exporting spawns are File menu actions (shown for a region), with
-  the unsaved spawn count as a chip in the status bar; the region's facts are in Map Properties.
-  `MinimapPanel` and `SpawnsPanel` are no longer mounted (the owner wants no spawn list).
-  - **History** (`components/HistoryWindow.svelte`, `ui.history`, Edit › History) is a floating window
-    like the Inspector, not a dock panel: the active map's undo stack (`History.steps`), where a click
-    calls `Engine.goToHistory` (undo or redo to that step). It re-reads the stack when
-    `ui.historyVersion`, bumped by every `History` change and tab switch, moves.
-  - **Layers** (`LayersPanel.svelte`) is only the four texture layers of the paint chunk under the
-    cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in the terrain
-    shader), an unused slot shown as an empty layer. With an area selected it is instead about every
-    chunk the area touches (`Engine.selectedChunks`), listing their textures together
-    (`chunksContents`) with a Delete all. Replace on a layer sets `ui.replaceSlot` (`chunks` + `tex`);
-    the next pick in the asset browser goes to `Engine.replaceTextureInChunks`. Delete (✕) is
-    `deleteTextureInChunks` (`removeSlot` in `chunkPaint.ts`: the layer's weight goes to each texel's
-    strongest other texture; a chunk whose last texture goes is empty, drawn black and exported
-    with no layers). All are one undo step. Nothing else goes in this panel. Auto-paint, Fill mask
-    and the "Replace Texture Everywhere" dialog are in the Terrain menu.
-  - `editor.palette` is the map's list of textures (WoW tileset paths or `#rrggbb` colours, up to
-    255). `Engine.useTexture(path)` adds one and makes it the paint texture.
-  - **Properties** (`PropertiesPanel.svelte`) is no longer a dock panel: the floating Inspector shows
-    it. It is the inspector for what is selected: one model's
-    placement as `PropField`s (type a number, or drag the label to scrub; live preview and one undo
-    step on release) with Focus, Duplicate, Hide, Delete, Detach, Place more and Select all of
-    these (`Engine.selectModelsOfType`); a mixed selection's models by kind (a click narrows the
-    selection to that kind); or the selected area (size, holes, cut/fill, copy, mask). With
-    nothing selected it only shows a hint.
-  - **Map Properties** (`MapPropertiesDialog.svelte`, File > Map Properties…, `ui.dialog =
-    'mapProps'`) holds the map's facts and the world settings (sea on/off, sea level, steep
-    slopes as rock). The sea level is one height for the whole map and is read-only for a part
-    of Azeroth, which keeps the client's ocean. Lakes and rivers are the Water tool's Paint mode.
-    Put any new per-map setting in this dialog, not in a panel or the Graphics menu.
-  - Alt+click is the pipette (`tools/PipetteTool.ts`): in Select and Place it picks the model
-    under the cursor as the one to place, or the ground's texture; in Paint and Road, the texture.
+
+## Architecture docs
+
+The architecture lives in `docs/architecture/`, one file an area. **Before changing code in an area,
+read its doc**; when a change alters what a doc says (a new feature, a moved function, a new rule),
+update the doc in the same commit. A new area gets its own file and a line here.
+
+| Doc | What it covers |
+|---|---|
+| `docs/architecture/terrain.md` | The `.wmap` format, heights, holes, splat paint and the paint mask, map data (zones, flags), baked shadows, the far horizon, ground effects, growing a region, the start dialog, zones and the world map |
+| `docs/architecture/tools.md` | The `Tool` interface, brush size and image brushes, Sculpt's painting, Stamp and brush stacks, the doodad and spawn brushes, the Select tool, the clipboard and nudging, the selection outline and gizmo |
+| `docs/architecture/objects.md` | Attachments, `ObjectLayer` (instancing, BVH picking, LOD, WMO group culling, WMO rooms and the portal gate), prop animation, lights, flames, particles, ribbons and texture animation |
+| `docs/architecture/water.md` | Liquid layers, the water brush, the sea, the liquid shader and MCLQ export |
+| `docs/architecture/lighting.md` | Shaders, the sky and time of day, shadow cascades, client lighting and clouds |
+| `docs/architecture/ui.md` | The window layout, the asset browser (search, tabs, sets, prefabs, thumbnails), the dock, the Inspector, History and Map Properties |
+| `docs/architecture/client.md` | The `/wow/*` endpoints, coordinates, the asset registry, WMO doodad sets, and spawns: looks, editing, waypoints, names and the creature editor |
+
+## Rules that cut across the code
+
+These are repeated from the docs above, since breaking one breaks things far from where you work.
+
+- **Every edit must be undoable** through `History`. Undo closures write per-map state through
+  `editor` at call time, never through captured arrays, because tab switches replace those arrays.
+- **Never write per-frame data into reactive state** (`editor`, `stats`, `ui`).
+- Avoid per-frame allocations in hot paths (brush loops, `frame()`). Reuse vectors and buffers.
+- **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading them.
+  Use bindings for uploads.
+- Move objects only through `ObjectLayer.place(o, parentId, worldPlacement)`; never write world values
+  into an attached object's fields. Build every model rotation through `placementEuler`.
+- Terrain picking ray-marches the heightmap (`Terrain.raycast`). Don't use triangle raycasts on it.
+- Prop lighting is tuned to the terrain shader's uniforms: change both together. The key light must
+  stay directional light 0.
+- Change `.wmap` only by bumping `Version`, keeping older versions readable and updating the tests.
 
 ## Debugging the UI
 
@@ -487,215 +220,13 @@ cd frontend && pnpm build   # frontend only
 - Dialogs live in `components/AppDialogs.svelte` (state: `ui.dialog`) on top of
   `components/Modal.svelte`.
 
-## Sky, time of day & shadows
-
-- `lib/engine/Environment.ts` owns the sky dome, hemisphere light and the single
-  shadow-casting key `DirectionalLight` (sun by day, moon by night).
-  - The sky dome is three's Preetham `Sky` shader, patched with our ACES tone mapping, stars,
-    Milky Way and moon.
-  - `update(hour)` computes the sun/moon directions and all lighting colours (`state`).
-- `Engine.updateEnvironment` pushes `state` into the terrain and water uniforms, fog and
-  background every frame. Change lighting there, not in individual shaders.
-- **Shadow cascades** (`engine/shadowCascades.ts`): the key light's shadow has two maps. The
-  near one is the key light's own (sharp, fitted around the ground point the camera looks at);
-  the far one belongs to `Environment.far`, a black `DirectionalLight` that lights nothing and
-  only carries the coarse map for the distance. `cascadeShadow(light)` in GLSL reads the near map
-  where it reaches and blends into the far one at its edge. The terrain shader calls it as
-  `keyShadow()`, and `patchCascadeShadows` makes every Lambert prop material do the same through
-  `onBeforeCompile`. The key light must stay directional light 0.
-- `Engine.fitShadows` fits both cascades each frame (`Environment.fitCascade` snaps each to its
-  texels and sets its depth range and biases in world units from the texel size). The near map is
-  redrawn every frame, the far one only when its fit or the scene (objects, heights, spawns)
-  changed. Both cascade frustums feed instance culling, so what is off screen still casts.
-- Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
-  surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun
-  for the shadows to read.
-- **Client lighting** (Lighting › Client Lighting, `prefs.clientLighting`): Go reads a map's Light, LightParams,
-  LightIntBand and LightFloatBand rows (`vmangos/lights.go`, `MapLights` binding; 1.12 layouts, positions
-  in 1/36 yard, band times in half-minutes); `wow/clientLight.ts` blends the global light with the local
-  lights reaching the camera, as Noggit Red's Skies and the client do (bands walked as a cycle in stored
-  order, as the client walks them), and `Engine.applyClientLight` puts the sun, sky ambient, horizon/fog
-  and water colours over the Environment's each frame. From Benilla's port of the client: the sun's
-  direction is DayNight's (`wow/dayNight.ts`: it never sets, 20° to 37° up in the north-west, so night is
-  only its colours), the scene fog ends at the light's fog end (or the far clip) and starts at its share
-  of that, and the sky dome is the client's (`Environment.setClientSky`: the five sky bands on the
-  client's ring elevations, the fog colour at the horizon, the dawn and dusk warp where LightParams'
-  highlightSky says so, drawn raw), with the visible sun, moon and stars on the client's tables.
-  Its clouds (B-179, Benilla's `clouds/`) are `wow/clouds.ts` (`CloudKernel`: the client's 128² tile of
-  four octaves of scrolling value noise, thresholded by the light's float band 3, coloured from colour
-  bands 10 to 12 with a glow toward the sun or moon, a quarter redrawn ten times a second) on
-  `engine/CloudDome.ts`, a dome from the zenith to the eye-level rim drawn right after the sky, while
-  Lighting › Clouds is on.
-- Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
-  cycling, so it doesn't write reactive state every frame.
-
-## Prop animation, lights & flames
-
-- Go side (`internal/wow/m2anim.go`): `parseM2Extras` reads the following, all converted to
-  editor space and sent in the mesh header (`bones`, `effects`) plus per-vertex bone data after
-  the indices:
-  - Bones with keyframes for the "Stand" loop (or a global sequence).
-  - Lights: 212 bytes each in vanilla.
-  - Particle emitters: **504 bytes in vanilla**. Their positions are flame anchors (a fire effect,
-    for the lights) when the texture or model name looks like fire, and each is also sent whole as
-    an `Emitter` (`internal/wow/particles.go`, header `emitters`, below).
-  - WMOs add their doodads' effects, emitters, ribbons and their own MOLT lights.
-- **Particles** (B-182, ported from Benilla's `particles/`): `parseEmitters` reads each record (rate,
-  gate and nine parameter tracks baked for the loop by `bakeTrack`, the client's key-window rule, not
-  `readTrack`'s; over-life ramps, flipbook, twinkle, spin, tail, spline points) with a `Frame` from
-  spawn space (WoW axes, before the client's 90° turn about +Z) to model space, moved with a WMO's
-  doodad placement. `world/particles.ts` is the simulation (`ParticlePool`: spawn kernels, integrator,
-  quad writer; world-space particles stay where born, flag 0x10 ones ride the emitter) and
-  `world/ParticleLayer.ts` runs a pool per emitter of each placed object within `RANGE` and in view,
-  frozen otherwise, and draws one dynamic mesh per texture, blend, lighting and fog. Graphics › Particles
-  (`prefs.particles`); with it on, `PropEffects` draws no procedural flame on a model that has
-  emitters (its fire effects only light). With animations off the tracks hold at time 0 but the
-  particles still fly. Spawns and the tools' previews run particles too (#110); a geometry emitter draws each particle as its model (`ModelCloud`, tumbling), a recursion emitter drives up to four child emitters of another model at its particles, and alpha draws are sorted back to front (#118). In 1.12's world models the geometry and recursion emitters are silent in the idle loop the editor plays.
-- **Ribbons** (B-183, Benilla's `ribbons.rs`): `parseRibbons` (`internal/wow/ribbons.go`, header
-  `ribbons`) reads the 0xDC records the same way (colour, alpha, heights and gate baked by
-  `bakeTrack`, which takes n components). `world/ribbons.ts` (`RibbonTrail`) lays edges spanning the
-  frame's +Y behind the point at `edgesPerSecond`, keeps each `edgeLifetime` in world space, raises
-  them by gravity and draws the strip back from the point; `ParticleLayer` runs a trail per ribbon
-  of each placed object beside the pools and in the same batches (unlit). A ribbon on a still bone
-  draws nothing, as in the client, so with Prop animations off every ribbon is dark.
-- Texture animation (B-168): each M2 batch's texture transform (header 0x74, lookup 0xAC, the batch's
-  combo at +22) is read for the same loop as the bones into `Group.UV` (`UVAnim`: translation, raw
-  quaternion, scaling; `Consolidate` keeps such groups apart). The frontend gives an animated group a
-  material of its own with a copy of its texture (`assets.ts`, one GPU texture still) and sets the
-  copy's matrix each frame from the client's law (`world/uvAnim.ts`, `updateUVAnimations`, called from
-  `Engine.animateModels`): waterfalls and lava scroll as in the game. A batch's colour (0x54, by its
-  colour index) and transparency weight (0x64 through 0xA4) work the same way (B-181, `Group.Color`,
-  `ColorAnim`): Go drops a batch whose alpha times weight is a constant 0 or less (the client never
-  draws it), and the frontend tints the group's own material and sets its opacity, hiding it at 0
-  (`updateMaterialAnimations`).
-- `world/Animator.ts` (`ModelAnimation`) CPU-skins the shared geometry per model type. All
-  instances animate in sync. The Engine drives `animatedAssets` each frame.
-- `world/PropEffects.ts` draws the flames (instanced upright billboards with a procedural fire
-  shader) and assigns a pool of `LIGHT_POOL` (8) `PointLight`s to the nearest light sources,
-  with flicker.
-  - A prop's coincident light and flames merge into one light.
-  - The nearest `SHADOW_LIGHTS` (3) cast cube shadows (even with the Shadows pref off) so they don't shine through walls. Their maps
-    redraw only when a light gets another source or the objects or terrain change, and culling keeps
-    every model within their reach (`CullView.spheres`). The terrain shader applies them per light
-    and reads the sun's shadow alone (`keyShadow`), not `getShadowMask`.
-  - Lights inside a WMO's interior groups (`Effect.Interior`) get flames but no light: interiors are
-    lit by their baked colours, so such a light would only show through the walls.
-  - The terrain shader adds the point lights with three's falloff.
-  - `ObjectLayer.version` tells it when to rebuild.
-
-## Selection, clipboard & nudging
-
-- **Select tool** (`tools/ObjectTools.ts`, `SelectTool`) does both kinds of selection:
-  - A click on a model selects it, Shift+click adds or removes one, and a drag moves the whole
-    selection (the clicked model leads, the others keep their offsets).
-  - A drag on the ground selects an **area**, `editor.selection` in cell/vertex coordinates, and
-    with it every model standing in it. The terrain shader draws the area (`selRect`/`selMode`,
-    marching ants). `Engine.setHoleInSelection` cuts or fills holes in it.
-  - The lasso and polygon (`editor.selectShape`, L cycles, #183) make a free-form area: its cells are
-    kept in `state/areaSelection.ts` (`setAreaCells`, `areaShape`) with `editor.selection` as their
-    bounds, and count only while that rect and map are unchanged, so code that sets a plain rect needs
-    no change. Cut hole, mask, the Layers chunk list, copy/paste (`MapClip.cells`), the doodad fill and
-    Grow/Shrink Selected Area follow the shape; the shader draws it from a cell texture (`selMode` 3).
-  - `editor.selectedIds` holds every selected object and `editor.selected` the primary one (the
-    gizmo and the Properties sliders work on it). Change them through `lib/state/selection.ts`
-    (`selectObjects`), never by hand. Delete, hide, nudge and focus act on the whole selection.
-- **Clipboard** (`world/clipboard.ts`): `copyRegion` captures heights, holes, splat texels plus the
-  source slot texture paths, and objects relative to the corner. `pasteRegion` remaps texture
-  slots onto the target map and returns one undo command. `copyObjects`/`pasteObjects` copy
-  models alone, relative to their mean position; Ctrl+C copies the selected models when there
-  are any, else the area, and Paste places whichever was copied last (the Select tool draws
-  ghost meshes for a model paste). `Engine.duplicateSelected` is copy + paste in place.
-  - The clip lives on the Engine, not on a document, so it can be pasted into other tabs.
-  - Undo closures must write per-map state through `editor` at call time, never through
-    captured arrays, because tab switches replace those arrays.
-- **Selected-prop visuals**:
-  - `SelectionOutline` draws a screen-space silhouette stroke. The mask uses the model's
-    alpha cut-outs, so leaves outline correctly. The stroke is yellow around a model that touches
-    nothing and green around one that does (`OutlineTarget.touching`, from
-    `Engine.touchesSomething`: attached to a parent, its lowest point on or under the ground across
-    its footprint, or another prop's box meeting its own), so an author sees when a model is
-    attached. The mask's B channel carries it per model.
-  - `TransformGizmo` provides a ring (spin) and an up/down arrow (height). Gizmo drags are
-    handled in `Engine` before tools get the pointer, and each drag is one undo step.
-  - Red parts of the outline are decided per pixel in the mask shader: below the terrain (from
-    a heightmap texture) or inside an overlapping prop's box (`Engine.overlappingBoxes`, up to
-    8). The edge pass colours the stroke from the neighbouring mask pixels.
-- **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
-  the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
-  moving. Bursts of nudges merge into one undo step via `History.replaceTop`.
-
 ## WoW client assets
 
-- The asset source is the user's **local** WoW 1.12 client. `internal/mpq` reads the archives
-  (our own reader; `Gophercraft/mpq` is GPL, so don't add it). `internal/wow` decodes BLP, M2 and
-  WMO files.
-- `wow.Client.Handler()` serves `/wow/{status,list,texture,model}`. The handler is mounted via
-  Wails `AssetServer.Middleware` in `main.go`, so it works in dev and prod. Responses are binary:
-  - Textures: `"RGBA" w h pixels`; with `fmt=dxt` (#178) a DXT BLP comes as `"DXT1"`/`"DXT3"`/`"DXT5"`
-    w h, the mip count and each level's size and blocks (`Client.TextureDXT`), which `loadTexture`
-    uploads as a `CompressedTexture` where the renderer has S3TC with sRGB.
-  - Meshes: `Mesh.Encode()` = JSON header + pos/normal/uv/[color]/u32 index.
 - **Never copy, bundle or commit Blizzard assets.** No extracted files in the repo, the binary or
   test fixtures. A `.wmap` file refers to the client's assets by path only (`m2:<path>` /
   `wmo:<path>` object types and the texture `palette`), never by content. What Meld writes *into*
   the client (tiles, the map table, spawn SQL) goes to the user's own client and server folders and
   is never checked in.
-- The client path is persisted by `internal/config` (`os.UserConfigDir()/Meld/config.json`).
-- Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so
-  triangle winding is unchanged. 1 world unit ≈ 1 yard.
-- Frontend: `lib/models/assets.ts` is the registry for all placeable types.
-  - `getAsset(type)` returns the asset immediately, or a placeholder while a WoW model loads.
-  - `onAssetLoaded` lets `ObjectLayer` and the place-tool ghost swap the placeholder for the real
-    mesh.
-  - WoW meshes are one geometry with groups plus a material array, which keeps it at one
-    `InstancedMesh` per type.
-  - A placed WMO's doodad set rides in its type, `wmo:<path>?set=<n>` (`models/wmoSet.ts`): the model
-    endpoint bakes set 0 and that set (`WMORoot.DoodadsOf`), and the export writes it as the MODF doodad
-    set (`vmangos/modeltype.go`). A bare `wmo:` type in a region keeps the client's set on save. A WMO group flagged interior (`Group.Interior`, from MOGP flag
-    0x2000) gets an unlit `MeshBasicMaterial` lit by its baked MOCV vertex colours, as in the game,
-    so the sun, sky and shadows never reach the inside of a cave or building.
-- **Spawn looks** (`internal/vmangos/looks.go`, `internal/wow/look.go`): a creature spawn's
-  display is resolved in Go into a `wow.Look`: textures per replaceable M2 texture type (bake,
-  hair, fur, creature skins), the character geosets shown (hair, facial hair, gear from
-  ItemDisplayInfo, hidden under a helmet by HelmetGeosetVisData's race masks), item models at
-  attachment points (helm, shoulders, weapons by sheath state) and the pose's animation
-  (creature_addon stand state or emote, via Emotes.dbc). It travels as the model endpoint's query
-  (`spawnType` in `world/spawnInfo.ts`), so each look is one cached mesh and one InstancedMesh.
-  Items are welded on in Go (`Mesh.Attach`) and bound to the attachment's bone, so GPU skinning
-  carries them.
-- **Spawn editing** (`world/spawnEdits.ts`): spawns are edited in place in the `SpawnLayer`
-  (keyed `kind/guid`), and every change is a `History` command. `SpawnLayer.touch` keeps a
-  spawn's database state before its first edit, so `edits()` lists what changed; the Spawns panel
-  saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
-  one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. A
-  changed display, equipment or pose is re-dressed by `SpawnLook` in Go. `editor.selectedSpawn`
-  is always a copy (`cloneSpawn`), never the drawn spawn, since Svelte's proxy would not see edits
-  to it. Select spawns through `selectSpawn`.
-- **Waypoints**: `WorldSpawn.waypoints` is a creature's main path (`creature_movement`,
-  `path_id` 0), or its template's (`creature_movement_template`, `pathFromTemplate`) when it walks
-  waypoints without its own. `world/SpawnPaths.ts` draws the selected creature's path (and all
-  paths with View › All creature paths) with pickable point markers. With `ui.pathEdit` on, the
-  Select tool adds points on the ground after `editor.selectedWaypoint`, drags them, and Delete
-  removes one. Paths are replaced immutably (`withPoint`), so undo can keep the old array. A
-  changed path is saved as the spawn's own `creature_movement` rows.
-- **Spawn names** (`world/SpawnLabels.ts`, View › Names over creatures and objects, `prefs.spawnNames`):
-  DOM labels over the canvas for the 48 nearest spawns the cull drew (`SpawnLayer.forEachDrawn`), with
-  the name in the kind's colour, the subname and a creature's level and rank, picked four times a second
-  and left out where the ground or a building hides them (`Engine.sightBlocked`, `ObjectLayer.wmoBlocks`).
-- **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
-  by a click (no drag) on a creature in the Select tool (pref `creatureEditorOnClick`), the panel's
-  Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
-  any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, shared with
-  the Spawns panel; undo steps), Creature (every `creature_template` column: Go reads the columns
-  and their types from the table and validates each value, `creatureFields.ts` only labels and
-  groups them, and unknown columns land under Other), Looks (`DisplayPicker.svelte`: every display
-  from `ListDisplays`, dressed and cached in Go, with the creature type and names of the templates
-  using it, shown as asset-browser thumbnails in a virtualised grid with type chips, a model filter
-  and search; hovering previews), and New creature
-  (`CreateCreature`: the first free entry, from scratch or a copy). Template edits are a form
-  saved with Save (`SaveCreature`, the newest patch row), not undo steps;
-  `Engine.applyCreatureTemplate` then brings that creature's spawns up to date through
-  `SpawnLayer.rebase`, which changes their saved state too.
 - Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 
 ## Conventions

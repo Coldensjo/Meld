@@ -28,6 +28,7 @@ On first start, pick your WoW 1.12 client folder in Preferences.
 - [Manual](docs/MANUAL.md): every tool, menu, shortcut and format (also Help › Manual in the app).
 - [Benilla](docs/BENILLA.md): using the open-source Benilla client as Meld's game client.
 - [Testing](docs/TESTS.md): how to test and verify changes.
+- [Architecture](docs/architecture/): how the code is laid out, one file an area (indexed in CLAUDE.md).
 - [Design](docs/DESIGN.md): goals, rules and priorities.
 
 ## Credits

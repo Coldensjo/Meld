@@ -1,0 +1,184 @@
+# Creatures, objects and the server database
+
+Spawns, the creature editor, paths, vendors and portals. The general methods these entries use (the dev page in headless
+Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that first.
+
+## Gear picker (a spawn's main hand, off hand and ranged items)
+
+Checks: `WeaponPicker.svelte` and the `ListWeapons` / `EquipmentFor` / `EquipmentItems` bindings. The
+world database must be up (the picker reads item_template and writes creature_equip_template).
+
+```js
+const ed = await import('<editor.svelte.ts URL>'), se = await import('<spawnEdits.ts URL>')
+const layer = __engine.activeDocument().spawnLayer; const s = layer.get('monster/106001')   // a Southsea Pirate
+ed.editor.tool = 'select'; se.selectSpawn(s)
+ed.ui.weaponPick = { key: 'monster/106001', slot: 1 }; ed.ui.dialog = 'weapon'   // 0 main hand, 1 off hand, 2 ranged
+// then click a tile (or document.querySelector('[data-ui="WeaponPicker"] .tile').click())
+layer.get('monster/106001').equipment, .equipItems, decodeURIComponent(look).match(/att=1:[^&]*/)
+await window.go.main.App.EquipmentFor([14643, 1897, 0])   // finds or makes a template; run twice, same id
+```
+
+- Traps: thumbnails only render while frames run (`__engine.frame()` in a loop with short
+  waits). `EquipmentFor` writes a creature_equip_template row for a new item combination, after
+  the highest entry (987002 on this database): delete it again after a test, with its items in
+  the WHERE clause. `editor.spawns` is a snapshot; read the layer's spawn for the edited state.
+
+## Spawn tabs of the asset browser (Creatures, NPCs, Objects)
+
+Checks: `SpawnBrowser.svelte` and the `ListCreatureTemplates` / `ListObjectTemplates` bindings (the
+world database must be up). In the dev page:
+
+```js
+[...document.querySelectorAll('[data-ui="AssetBrowser"] .tab')].find(b => b.textContent.trim() === 'Creatures').click()
+// drive frames for the thumbnails; then search, e.g. 'hogger', and read the tiles
+const sb = document.querySelector('[data-ui="SpawnBrowser"]'); sb.querySelector('.tile').click()   // ui.placeCreature, tool 'place'
+e.tools.place.onDown(e.ctx, hit, {})      // spawns it at `hit`; e.history.peek().label is 'Add Hogger'; e.undo() removes it
+const pip = await import('<PipetteTool.ts URL>'); await pip.pickSpawn(editor.spawns[0])   // the pipette on a spawn
+```
+
+- Traps: a creature tile's badge is its level; the title holds entry, level, rank and type. The
+  lists are cached in Go per server and client, so a changed template needs a restart to show.
+
+## Names over spawns (#125)
+
+Checks: `world/SpawnLabels.ts` puts names over the nearest drawn spawns (View › Names over creatures
+and objects, `prefs.spawnNames`). In the dev page (GPU Chrome, as in "Minimap window (M)"), load
+Azeroth 32_48, wait for the spawns (`e.doc.spawnLayer.spawns.length` is 347 with the server's
+database up), then stand the camera at Deputy Willem:
+`e.controller.setView(s.x, s.y, s.z, e.controller.yaw, 0.3, 28)` with
+`s = e.doc.spawnLayer.spawns.find(x => x.name === 'Deputy Willem')`. After a second the visible
+`.spawn-labels > div` read "Deputy Willem | Level 18", "Janos Hammerknuckle | <Weaponsmith> | Level 5"
+and so on; those inside the abbey have none.
+- A name the ground or a building (WMO) hides is left out (`Engine.sightBlocked`, through
+  `ObjectLayer.wmoBlocks`): trees don't hide names. Wrap `e.spawnLabels.blocked` to count the tests;
+  one costs about 0.04 ms, up to 96 a pick, four picks a second.
+- Trap: a scene whose camera stands inside a building's wall (the abbey at `"target":[182,80,353]`,
+  pitch 0.35, distance 45 does) hides every name, correctly; check the camera first.
+- Setting `ed.prefs.spawnNames = false` from the page module hides them all.
+
+## Right-click near the selected creature (#205)
+
+Checks: `Engine.openContextMenu` falls back to the selected spawn when the click hits nothing within
+`CONTEXT_MARGIN` (24) px of its screen box (`world/screenBox.ts`, unit test `screenBox.test.ts`). In the
+dev page on Northshire, hide every placed model first (the abbey fills the view and takes the clicks:
+`for (const id of e.objects.objects.keys()) e.objects.hidden.add(id); e.objects.markAllDirty()`), take
+creatures from `e.doc.spawnLayer.forEachDrawn`, project `boundsOf(s, box)`'s corners, `selectSpawn(s)`
+and call `e.openContextMenu({ clientX, clientY, pointerType: 'mouse', pressure: 0 })` 15 px right of the
+box: `ui.contextMenu.title` is the creature's; 200 px right: no menu.
+
+## Creature path editing on the map (#138)
+
+Checks: the right-click "Edit path" / "Give it a path" on a creature and the floating `PathEditBar`.
+In the dev page: `e.editPath('npc/<guid>')` (a key from `e.doc.spawnLayer.spawns`, `kind/guid`) shows
+`.pathbar`; a ground press through `e.selectTool.onDown(e.ctx, e.hit, ev)` / `onUp` after setting
+`e.ndc` and `e.raycaster` adds a point, and the bar's buttons are plain DOM clicks
+(`[...document.querySelectorAll('.pathbar button')]`). A second press near the first point picks
+it instead of adding one (`ctx.paths.pickPoint`), so space test presses apart.
+
+## World event spawns (#143)
+
+Checks: spawns of a world event (`WorldSpawn.events`, from `game_event_creature`/`_gameobject`) are
+left out of `SpawnLayer`'s batches unless View › World events shows their event (`prefs.shownEvents`).
+- Go against the real database: Azeroth 32_49 (Goldshire) has spawns of events 2 (Winter Veil),
+  4 (Darkmoon Faire Elwynn), 12 and 28; 32_48 of 28 and 78. A throwaway test calling
+  `ReadSpawns("C:/WoW/vmangos", "C:/WoW/client/Data", "Azeroth", 32, 49, 1)` lists them.
+- Frontend in the dev page: set `events` on a few of `e.doc.spawnLayer.spawns`, call the layer's
+  `rebuild()`, then `setEvents([...])`, and count `batches[].all.length`: a positive event's spawn
+  shows only with it, a negative one leaves with it.
+- `wails dev` rebuilds the Go side when a Go file changes, so a new binding usually works in the
+  dev page after a reload; if it doesn't, see the stale `wailsjs` trap in `docs/TESTS.md`.
+
+## Creature editor: Looks opens on the creature's display (#206)
+
+Checks: `DisplayPicker.svelte` picks the selected display's type and model family and scrolls its
+tile into view once the displays are read. In the dev page on Northshire, set
+`ui.creatureEditor = { key: spawnKey(s), entry: s.entry }` for a drawn creature, click the Looks button
+(retry until `.picker` exists: the record loads first), wait for
+`[aria-label="Creature displays"] .virtual`, then read the two `.picker select`s and the `.active`
+tile's rect against the grid's. A Northshire Guard opens on Humanoid / HumanMale, the wolves on
+Beast / Wolf, each with its tile in view. The first read of the displays takes several seconds.
+
+## Creature editor: Shop tab (npc_vendor, #145)
+
+Checks: the Shop tab lists, adds, reorders and saves what a creature sells. Unit: `vendor_test.go`
+(the SQL, slots, duplicates). Live, in the dev page: `ui.creatureEditor = { key: null, entry: 66 }`
+(Tharynn Bouden, 17 items), click the Shop tab. To test a save without changing the user's world
+database for good, use a creature with no shop (805, Cameron): add an item, Save shop, read it back
+with `await window.go.main.App.ReadVendor(805)`, then remove it and save again (the table is back as
+it was; `select count(*) from npc_vendor where entry=805` is 0).
+- Trap: saving renumbers the slots 0..n in list order, so re-saving a real vendor's list as it was
+  can still change its `slot` values. Test saves on a creature with no shop.
+- Trap: the tab keeps its list while other tabs are shown (it stays mounted, hidden); its unsaved
+  edits count in the editor's "unsaved changes" bar.
+- The Quests tab (creature_questrelation / creature_involvedrelation) the same way: entry 197 (Marshal
+  McBride) starts 10 and ends 4; test a save on 805 with Kobold Camp Cleanup (7) as start and end,
+  read back with `ReadCreatureQuests(805)`, remove both and save again.
+- Trap: after `wails generate module` the dev page can fail to mount (the body stays empty) because
+  Vite keeps serving the old `wailsjs/go/main/App.js` without the new exports, even after an in-place
+  rewrite. Deleting the file and copying it back (an add event for the watcher) fixed it; check with
+  `curl localhost:34115/wailsjs/go/main/App.js | grep <NewBinding>`.
+- The Messages tab (the greeting: gossip_menu, npc_text, broadcast_text): 931 reads gossip menu 6944,
+  shared by 42 creatures ("Where would you like to fly to?", 2 options). A save adds rows to three
+  tables and changes `creature_template`, so note `max(entry)` of broadcast_text and gossip_menu and
+  `max(ID)` of npc_text first, save a greeting on 805, read it back with `ReadGossip(805)` (a new menu,
+  shared by 1), then delete the rows above those maxima and set 805's `gossip_menu_id` and
+  `npc_flags` back to 0.
+- Gossip options (#158, `SaveGossipOptions`): 805 needs a greeting first (that makes its menu). Save
+  two options on it and read them back; on 931 change option 1's text and save: it gets a copied menu
+  (shared by 1), option 0 keeps broadcast text 12271 by ID and option 1 has its own text with ID 0.
+  Clean up as above, plus `gossip_menu_option` rows of the new menus, and set 931's `gossip_menu_id`
+  back to 6944 (931 has two patch rows). 931 also lists one AI line ("On aggro · yells Guards! Help
+  me!") and warns that its quest option is hidden (it lacks the Quest giver flag).
+- Trap: GossipDef.h's comments give later clients' npc flag values (vendor 128, flight 8192); 1.12's
+  are in UnitDefines.h (vendor 4, flight 8), which the world database uses.
+
+## Portals and area triggers (#141, #18)
+
+Checks: World › Portals and Area Triggers… lists the open map's AreaTrigger.dbc volumes with the
+server's names and teleports, draws them, and saves them to the client's patch and the world DB.
+- Unit: `internal/vmangos/areatrigger_test.go` (edit, add and remove rows; IDs above the server's;
+  the SQL). Against the client: `WOW_DIR=C:/WoW/client go test ./internal/vmangos/ -run TestClientAreaTriggers`
+  writes the client's own table back byte for byte and finds trigger 78 (the Deadmines entrance)
+  at about (-11208, 1675). The 1.12 layout (10 fields, 0x28 a row) is Benilla's `area_trigger.rs`.
+- Live: the scene `{v:1,map:{region:{mapName:'Azeroth',x:28,y:53,size:1}}}`, camera on
+  (-11208, 1675) in server coordinates (editor x = 32·533.33 − 1675 − 28·533.33, z = 32·533.33 +
+  11208 − 53·533.33), then `ui.dialog = 'portals'`: "Eastern Kingdoms: 133 triggers", first
+  "Deadmines - Entrance → 78", teleport to Deadmines (36) at level 10, and
+  `__engine.triggerLayer.group` visible with the picked sphere's 192 points.
+- Trap: a live Save writes Meld's patch-3.MPQ and closes the game and servers around it (as Zones
+  does); don't run it in a check unless the owner wants that. The Go tests cover the write.
+
+## Creatures workspace and the new-creature guide (#132)
+
+Checks: World › Creatures… (`ui.creatures = true`): the search opens a creature in the editor, and
+the guide's four steps make a working `creature_template` row. Unit: `factions_test.go` (reactions;
+with `WOW_DIR`, the client's FactionTemplate.dbc: 14 hostile to both, 35 friendly to both, 12
+Stormwind Alliance-only), `TestParseClassLevelStats`.
+- Live: name it, level 10 to 12, rank Elite (multipliers 3, 2, 1), side Alliance (Stormwind, 11),
+  click a display tile, then step 4 shows level 10 at 594 health, 30 damage, 492 armour (warrior:
+  198, 15.2 and 492 from `creature_classlevelstats`). Make creature writes one row; check it with
+  `ReadCreature(entry)` and delete it afterwards (`DELETE FROM creature_template WHERE entry = …`).
+- Trap: held items go through `EquipmentFor`, which may add a `creature_equip_template` row; leave
+  the hands empty in a check, or delete that row too.
+
+## Name colours by reaction (#134)
+
+Checks: a creature's name over its head is red, yellow or green by how its faction treats the side
+picked under View (Alliance or Horde). Go: `TestReaction` (the two-way rule: a player's template is
+hostile to the monster group, so a kobold whose own template attacks no one is still hostile).
+Live on Northshire (Azeroth 32_48), `__engine.spawnLabels.nameColor(spawn)` for spawns found by name
+in `doc.spawnLayer.spawns`: Alliance: Northshire Guard and Deputy Willem green, Kobold Vermin red,
+Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.
+
+## Shop tab: item icons and tooltips (#202)
+Checks: every item in the creature editor's Shop tab (the shop's list, the search results, the shared
+vendor list) has its inventory icon, and hovering one shows the game-style tooltip.
+- Go: `TestParseVendorItems`, `TestParseItemRow`; with `WOW_DIR=C:/WoW/client`,
+  `TestItemIconsFromClient` (display 8690, the Battleworn Hammer, is `INV_Hammer_15`).
+- Frontend: `frontend/tests/itemTooltip.test.ts` (lines for a weapon, armour with stats, a bag; money).
+- Dev page: `const ed = await import(<the editor.svelte.ts resource URL>); ed.ui.creatureEditor = { key: null, entry: 152 }`
+  (Brother Danil, Northshire's general supplies), click the button whose text is `Shop`, wait for
+  `td.item` (6 rows, 6 `img`). Hover: dispatch `new PointerEvent('pointerenter', { clientX, clientY })`
+  on a `td.item` or a `.results button`, then read `.tip`'s text. Searching: set `input.search`'s value
+  and dispatch `input` (bubbling); 100 results for "hammer", each with an icon.
+- Effects show as "Use: spell 433": the spell's own text needs Spell.dbc (#217).
