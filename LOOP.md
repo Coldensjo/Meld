@@ -131,6 +131,18 @@ Then:
 - **Answered questions.** For each `owner-question` issue where the owner has commented since the
   question, remove the label, record their answer as a decision comment, and treat the item as
   eligible again.
+- **Approval limits.** The pick order (step 3) reads labels, not comments, so a limit in an approval
+  must become a label or it is missed (#228: #182, approved "for the backburner", was picked first).
+  List the owner's approvals since the last run log comment (`<since>` is its date):
+
+  ```
+  gh issue list --repo Coldensjo/Meld --state open --search "commenter:Coldensjo updated:>=<since>" --limit 100 --json number,comments --jq '.[] | {n: .number, a: [.comments[] | select(.author.login == "Coldensjo" and (.body | ascii_downcase | ltrimstr(" ") | startswith("approved")) and .createdAt >= "<since>") | .body]} | select(.a | length > 0)'
+  ```
+
+  For each with words after `approved`: a limit on *when* (later, low priority, "for the
+  backburner", "when nothing else is left") becomes the `backburner` label; a limit on *what* or
+  *how* (scope, a choice) becomes a decision comment on the issue, which the worker reads. Say which
+  in the run log.
 - **The dev server.** Workers check their changes in the live app through the probes (docs/TESTS.md,
   "Probes"), which need `make dev`. If `curl -s localhost:34115/wow/status` doesn't answer, start
   `make dev` in the background from Git Bash and wait until it does (see the dead-session trap in
@@ -176,7 +188,8 @@ g. Comment `**Claude:** triaged.` with a line each on what you changed in the ti
    labels and why, and any question asked. Mention the triaged issues in the run log.
 
 **3. Hand out items one at a time until a stop condition applies.** Skip issues labelled
-`needs-approval`, `parked` or `owner-question`. The owner approves by commenting `approved` (any
+`needs-approval`, `parked` or `owner-question`, and leave `backburner` ones until nothing else is
+eligible (step 4). The owner approves by commenting `approved` (any
 limits after it bind the work), and a workflow then removes `needs-approval`; if the label is still
 there under such a comment by the owner, the workflow didn't run, so remove the label yourself and
 treat the item as approved. The order: `bug` first; then `benilla-port`, lowest issue number first
@@ -223,7 +236,8 @@ working tree show, remove `in-progress`, and go on.
 **4. Stop conditions.** Stop when any of these holds:
 - 8 items are done in this run.
 - Nothing eligible is left. When no value H or M item is eligible, go on with value L items, as
-  the owner decided 2026-10-15 (#80); do not stop only because the rest are value L.
+  the owner decided 2026-10-15 (#80); do not stop only because the rest are value L. When those run
+  out too, go on with `backburner` items, in the same order, before stopping.
 - The coordinator's own context is getting full. Stop after the item in progress, not in the middle of it.
 
 Do not invent work.
