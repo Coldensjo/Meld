@@ -56,6 +56,13 @@ const m = walls.minus.position; ray.origin.set(m.x, m.y + 30, m.z); walls.frame(
 - Traps: a badge click changes the walls, so re-hover before the next one (the wall may have moved
   a cell). The session restore opens the user's own map: undo every test edit (`e.undo()`) before
   leaving.
+- The fade (#249): the ribbons fade out with the camera's distance (`WALL_FADE_NEAR`/`WALL_FADE_FAR`
+  in `terrain/holes.ts`, 90 to 150 yd) and show round the cursor's ground point at any distance
+  (`revealRadius`). Unit test: `wallFade` in `tests/holeWalls.test.ts`. Probe: `hole-walls-fade`
+  draws `walls.group` alone with its own square camera, near a hole and 900 yd out with the cursor
+  away from it and on it, and compares each against the same view with the ribbons hidden. Trap: the
+  ribbons draw with depthTest off, so with the whole scene drawn a far wall would show through the
+  ground; draw the group alone, and hide the hover ribbon, glow and badges (they don't fade).
 
 ## Sculpt › Terrace (#166)
 

@@ -1,7 +1,7 @@
 // Run with: node --import ./tests/register.mjs --test tests/holeWalls.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { bandOf, findWalls } from '../src/lib/terrain/holes.ts'
+import { WALL_FADE_FAR, WALL_FADE_NEAR, bandOf, findWalls, revealRadius, wallFade } from '../src/lib/terrain/holes.ts'
 
 test('a square hole has four walls, one per side', () => {
   const size = 8
@@ -42,4 +42,21 @@ test('the band across a wall goes into the ground outward and into the hole inwa
   assert.deepEqual(bandOf(n, 1, true, 8), { x0: 3, z0: 1, x1: 5, z1: 1 })
   assert.deepEqual(bandOf(n, 3, true, 8), { x0: 3, z0: 0, x1: 5, z1: 1 })
   assert.equal(bandOf(n, 0, true, 8), null)
+})
+
+test('the walls fade out with the camera distance, but show round the cursor at any distance (#249)', () => {
+  const r = revealRadius(1000)
+  assert.equal(r, 120)
+  assert.equal(revealRadius(10), 16)
+  // Near the camera: whole, wherever the cursor is.
+  assert.equal(wallFade(WALL_FADE_NEAR - 1, null, r), 1)
+  assert.equal(wallFade(20, 5000, r), 1)
+  // Across the map: gone, unless the cursor points near the wall.
+  assert.equal(wallFade(WALL_FADE_FAR + 1, null, r), 0)
+  assert.equal(wallFade(1000, 5000, r), 0)
+  assert.equal(wallFade(1000, r * 0.5, r), 1)
+  assert.equal(wallFade(1000, r * 1.5, r), 0)
+  // In between, a smooth fade.
+  const mid = wallFade((WALL_FADE_NEAR + WALL_FADE_FAR) / 2, null, r)
+  assert.ok(mid > 0.4 && mid < 0.6, String(mid))
 })

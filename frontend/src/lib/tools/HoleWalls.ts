@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
-import { HOLE_BLOCK, HOLE_CELL, HOLE_NONE, bandOf, findWalls, snapToBlocks, type CellRect, type Wall } from '../terrain/holes'
+import { HOLE_BLOCK, HOLE_CELL, HOLE_NONE, WALL_FADE_FAR, WALL_FADE_NEAR, bandOf, findWalls, revealRadius, snapToBlocks, type CellRect, type Wall } from '../terrain/holes'
 
 /** A wall's band grown to whole hole blocks. */
 const snapBand = (r: CellRect | null, size: number) => (r ? snapToBlocks(r, size) : null)
@@ -27,6 +27,15 @@ const LIFT = 0.12
 const LINE = 0.0022
 const HOVER_LINE = 0.0045
 const GLOW = 0.014
+// The ribbons' fade (holes.ts, wallFade), per fragment.
+const FADE_VERTEX = /* glsl */ `#include <project_vertex>
+  vWallWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;`
+const FADE_FRAGMENT = /* glsl */ `{
+    float wallFar = 1.0 - smoothstep(${WALL_FADE_NEAR.toFixed(1)}, ${WALL_FADE_FAR.toFixed(1)}, distance(vWallWorld, cameraPosition));
+    float wallNear = wallCursor.w > 0.0 ? 1.0 - smoothstep(wallCursor.w, wallCursor.w * 1.5, distance(vWallWorld.xz, wallCursor.xz)) : 0.0;
+    diffuseColor.a *= max(wallFar, wallNear);
+  }
+  #include <alphatest_fragment>`
 
 function badgeTexture(glyph: string, color: string): THREE.CanvasTexture {
   const c = document.createElement('canvas')
@@ -71,11 +80,20 @@ export class HoleWalls {
   private ground = new THREE.Vector3()
   private hasGround = false
   private drag: { wall: Wall; stroke: TerrainStroke; orig: Uint8Array; moved: number; rect: Rect | null } | null = null
+  /** The ribbons' fade uniform: the cursor's ground point (x, z) and its reveal radius (w, 0 with no ground under the cursor). */
+  private readonly cursor = { value: new THREE.Vector4() }
 
   constructor() {
     const mat = (color: number, opacity: number) =>
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
-    this.ribbons = new THREE.Mesh(new THREE.BufferGeometry(), mat(0xf2f5fa, 0.6))
+    const ribbonMat = mat(0xf2f5fa, 0.6)
+    ribbonMat.onBeforeCompile = (shader) => {
+      shader.uniforms.wallCursor = this.cursor
+      shader.vertexShader = 'varying vec3 vWallWorld;\n' + shader.vertexShader.replace('#include <project_vertex>', FADE_VERTEX)
+      shader.fragmentShader = 'varying vec3 vWallWorld;\nuniform vec4 wallCursor;\n' + shader.fragmentShader.replace('#include <alphatest_fragment>', FADE_FRAGMENT)
+    }
+    ribbonMat.customProgramCacheKey = () => 'holeWallFade'
+    this.ribbons = new THREE.Mesh(new THREE.BufferGeometry(), ribbonMat)
     this.hoverRibbon = new THREE.Mesh(new THREE.BufferGeometry(), mat(0x4b9cf5, 1))
     this.hoverGlow = new THREE.Mesh(new THREE.BufferGeometry(), mat(0x4b9cf5, 0.22))
     this.hoverRibbon.visible = this.hoverGlow.visible = false
@@ -112,6 +130,8 @@ export class HoleWalls {
     // Widths follow the camera's distance to the ground under the cursor (else to where it looks).
     const cam = ctx.raycaster.camera
     if (cam) this.dist = this.hasGround ? cam.position.distanceTo(this.ground) : Math.max(5, Math.abs(cam.position.y) * 2)
+    if (this.hasGround) this.cursor.value.set(this.ground.x, this.ground.y, this.ground.z, revealRadius(this.dist))
+    else this.cursor.value.w = 0
     const key = Math.round(Math.log(this.dist) * 3)
     if (this.builtTerrain !== t || this.builtVersion !== t.holesVersion || key !== this.widthKey) {
       this.widthKey = key

@@ -157,6 +157,36 @@ export function findWalls(holes: Uint8Array, size: number): Wall[] {
   return walls
 }
 
+/**
+ * The walls fade out with the camera's distance (world units), so a hole's edges don't show from
+ * across the map (#249; tools/HoleWalls.ts draws them): drawn whole up to WALL_FADE_NEAR, gone past
+ * WALL_FADE_FAR. Near the cursor they show at any distance (within `revealRadius` of where it meets
+ * the ground), so a far hole's walls can still be found and grabbed by pointing at it.
+ */
+export const WALL_FADE_NEAR = 90
+export const WALL_FADE_FAR = 150
+
+/** How far round the cursor's ground point (world units) the walls show whatever the camera's distance, for a cursor `dist` from the camera. */
+export function revealRadius(dist: number): number {
+  return Math.max(16, dist * 0.12)
+}
+
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
+  return t * t * (3 - 2 * t)
+}
+
+/**
+ * A wall's opacity factor at a point `camDist` from the camera and `cursorDist` (on the ground plane)
+ * from the cursor's ground point, or `cursorDist` null with no ground under the cursor. The ribbon
+ * shader does the same per fragment.
+ */
+export function wallFade(camDist: number, cursorDist: number | null, radius: number): number {
+  const far = 1 - smooth(WALL_FADE_NEAR, WALL_FADE_FAR, camDist)
+  const near = cursorDist === null ? 0 : 1 - smooth(radius, radius * 1.5, cursorDist)
+  return Math.max(far, near)
+}
+
 /** A rect of cells, inclusive. */
 export interface CellRect {
   x0: number
