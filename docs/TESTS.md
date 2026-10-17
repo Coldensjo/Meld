@@ -147,8 +147,10 @@ Checks: a feature still works in the real app against the client's assets, in on
 a few lines of JSON as the result. **Reach for a probe first**: run the existing ones that touch your
 change, and write a new probe instead of an ad-hoc CDP script when the check is worth repeating.
 
-- `make dev` must be running (the runner says so if it isn't; start it in the background from Git
-  Bash and wait until `curl localhost:34115/wow/status` answers). Keep it running across items.
+- `make dev` should be running. The runner checks `/wow/status` and the page itself (a dead Vite
+  leaves `/wow/status` answering while the page is a 502); if either fails it starts `make dev`
+  detached (log: `meld-dev.log` in the temp folder) and waits up to 10 minutes, a few minutes in
+  practice. It stays up for the next run; with `MELD_URL` set it never starts one. Keep it running across items.
 - `cd frontend && pnpm probe <name...>` runs those probes, `pnpm probe --all` (or `make probe`)
   runs every one, `pnpm probe --list` names them, `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's

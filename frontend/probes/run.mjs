@@ -12,7 +12,7 @@
 // in scope. It returns an object; `ok: false` (or a throw) fails it, and the runner exits 1.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -94,13 +94,37 @@ function otherRuns() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function main() {
+/** Whether the dev server answers: the Go side (/wow/status) and the page through Vite (a dead Vite makes the Wails proxy answer 502, #258). Returns '' or the reason. */
+async function devDown() {
 	try {
 		const s = await fetch(new URL('/wow/status', PAGE), { signal: AbortSignal.timeout(5000) })
-		if (!s.ok) throw new Error(String(s.status))
+		if (!s.ok) return `/wow/status answered ${s.status}`
+		const p = await fetch(new URL('/', PAGE), { signal: AbortSignal.timeout(10000) })
+		if (!p.ok) return `the page answered ${p.status}`
 	} catch (err) {
-		fail(`the dev server doesn't answer at ${PAGE} (${err.message}); start \`make dev\` first`)
+		return err.message
 	}
+	return ''
+}
+
+/** Starts `make dev` detached (it outlives this run, for the next one) when the server is down, and waits for it. Only for the default local URL. */
+async function ensureDev() {
+	const why = await devDown()
+	if (!why) return
+	if (process.env.MELD_URL) fail(`the dev server doesn't answer at ${PAGE} (${why})`)
+	const log = join(tmpdir(), 'meld-dev.log')
+	console.error(`probe: the dev server is down (${why}); starting \`make dev\` (log ${log}), which takes a few minutes`)
+	const out = openSync(log, 'w')
+	spawn('make', ['dev'], { cwd: join(here, '..', '..'), detached: true, stdio: ['ignore', out, out], shell: process.platform === 'win32' }).unref()
+	for (let i = 0; i < 120; i++) {
+		await sleep(5000)
+		if (!(await devDown())) return
+	}
+	fail(`the dev server did not come up in 10 minutes (see ${log})`)
+}
+
+async function main() {
+	await ensureDev()
 
 	const others = otherRuns()
 	if (others.length) {
