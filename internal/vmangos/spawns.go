@@ -71,7 +71,7 @@ type WorldSpawn struct {
 	// The creature's spawn settings: its equipment (creature_equip_template; 0 none), stand state,
 	// looping emote and sheath state (creature_addon, else the defaults), and how it moves
 	// (MovementType: 0 idle, 1 random within WanderDistance, 2 waypoints). Zero for an object.
-	Equipment      int     `json:"equipment"`
+	Equipment int `json:"equipment"`
 	// EquipItems are the equipment's items (item_template entries): main hand, off hand, ranged;
 	// 0 for an empty slot.
 	EquipItems     [3]int  `json:"equipItems"`
@@ -281,10 +281,10 @@ func parseWaypoints(raw []byte, x, y int) map[int][]Waypoint {
 			continue
 		}
 		out[owner] = append(out[owner], Waypoint{
-			X:           float32(zp - v[1] - float64(x)*t),
-			Z:           float32(zp - v[0] - float64(y)*t),
-			Y:           float32(v[2]),
-			Orientation: float32(v[3]),
+			X:              float32(zp - v[1] - float64(x)*t),
+			Z:              float32(zp - v[0] - float64(y)*t),
+			Y:              float32(v[2]),
+			Orientation:    float32(v[3]),
 			WaitMs:         wait,
 			WanderDistance: float32(wander),
 			ScriptID:       script,

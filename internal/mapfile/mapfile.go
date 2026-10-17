@@ -147,8 +147,8 @@ type MapData struct {
 	NoEffect   string `json:"noEffect,omitempty"`
 	// Shadows is the baked shadows' bits (version 6, ShadowBytes); empty means none of the map's own.
 	Shadows string `json:"shadows,omitempty"`
-	SplatA     string `json:"splatA,omitempty"` // base64 RGBA8, version 1
-	SplatB     string `json:"splatB,omitempty"` // base64 RGBA8, version 1
+	SplatA  string `json:"splatA,omitempty"` // base64 RGBA8, version 1
+	SplatB  string `json:"splatB,omitempty"` // base64 RGBA8, version 1
 }
 
 func (h *Header) validate() error {

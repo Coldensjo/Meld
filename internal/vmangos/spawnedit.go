@@ -58,10 +58,10 @@ func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
 	}
 	for _, p := range w.Waypoints {
 		s.Path = append(s.Path, PathPoint{
-			X:        zp - float64(p.Z) - float64(y)*t,
-			Y:        zp - float64(p.X) - float64(x)*t,
-			Z:        float64(p.Y),
-			O:        float64(p.Orientation),
+			X:              zp - float64(p.Z) - float64(y)*t,
+			Y:              zp - float64(p.X) - float64(x)*t,
+			Z:              float64(p.Y),
+			O:              float64(p.Orientation),
 			WaitMs:         p.WaitMs,
 			WanderDistance: float64(p.WanderDistance),
 			ScriptID:       p.ScriptID,
