@@ -94,9 +94,16 @@ func TestClientCollision(t *testing.T) {
 		t.Logf("%s: %d triangles, volume %.2f yd³", p, n, signedVolume(f)/6)
 	}
 
-	inn, err := c.wmoCollision(`World\wmo\Azeroth\Buildings\GoldshireInn\GoldshireInn.wmo`, 0)
+	inn, groups, err := c.wmoCollision(`World\wmo\Azeroth\Buildings\GoldshireInn\GoldshireInn.wmo`, 0)
 	if err != nil {
 		t.Fatal(err)
+	}
+	sum := 0
+	for _, n := range groups {
+		sum += int(n)
+	}
+	if sum != len(inn)/9 || len(groups) < 2 {
+		t.Fatalf("the inn's %d groups hold %d triangles of %d", len(groups), sum, len(inn)/9)
 	}
 	up := 0
 	for i := 0; i+8 < len(inn); i += 9 {

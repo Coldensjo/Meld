@@ -67,19 +67,31 @@ test('a triangle is ground to 52°, steep to the terrain or model limit, and not
 	assert.equal(out[0], 0)
 })
 
-test('the gatherer takes the ground under the box, leaves holes out and drops faces below the ground', () => {
+test('the gatherer takes the ground under the box, leaves holes out, cuts the ground out of a crate and drops faces under the map', () => {
 	const g = flat(16)
 	g.holes[2 * 16 + 2] = 1
 	const gather = new TileGatherer()
-	const cave = placeFaces(box(1, 2, 1, 3, 4, 3), new THREE.Matrix4().elements) // under the ground at 10
+	const sunk = placeFaces(box(5, 2, 5, 7, 4, 7), new THREE.Matrix4().elements) // wholly under the ground at 10
 	const crate = placeFaces(box(1, 9, 1, 3, 12, 3), new THREE.Matrix4().elements)
-	const t = gather.gather(g, [cave, crate], 0, 0, 3 * CELL - 0.01, 3 * CELL - 0.01, groundAt(g))
-	// 3x3 cells, one a hole: 8 cells of two triangles.
-	assert.equal(t.modelFrom, 16)
-	// The cave box is gone; the crate's 12 faces stay, but its bottom corners lie below the ground
-	// only along the bottom face (the sides reach above it).
-	assert.ok(t.triCount - t.modelFrom >= 10 && t.triCount - t.modelFrom <= 12, `models gave ${t.triCount - t.modelFrom} faces`)
-	assert.equal(t.minY, 9)
+	const t = gather.gather(g, [sunk, crate], 0, 0, 3 * CELL - 0.01, 3 * CELL - 0.01, groundAt(g))
+	// 3x3 cells, one a hole: 8 cells of four triangles about their middles. The crate stands in the
+	// first cell over its middle, so each of that cell's triangles is cut back to the crate's walls
+	// and gains the two triangles (both ways up) that close the cut: 8 more.
+	assert.equal(t.modelFrom, 40)
+	for (let i = 0; i < t.modelFrom; i++) {
+		let x = 0, z = 0
+		for (let k = 0; k < 3; k++) {
+			x += t.pos[t.idx[i * 3 + k] * 3] / 3
+			z += t.pos[t.idx[i * 3 + k] * 3 + 2] / 3
+		}
+		assert.ok(!(x > 1 && x < 3 && z > 1 && z < 3), `ground triangle ${i} lies inside the crate`)
+	}
+	// Under the map is a face whose corners lie 0.2 yd or more under the ground with an upward face
+	// nearest over them: inside a solid. The crate's bottom goes (its top is over it) and its sides,
+	// which reach over the ground, stay: 10 faces. The sunk box keeps only its top, which nothing
+	// lies over: 2 faces, the lowest corners.
+	assert.equal(t.triCount - t.modelFrom, 12)
+	assert.equal(t.minY, 4)
 	assert.equal(t.maxY, 12)
 })
 
@@ -97,6 +109,8 @@ test("a half-cell hole leaves out the same world triangle whatever the tile's fi
 			for (let k = 0; k < 3; k++) {
 				const v = t.idx[i * 3 + k] * 3
 				const cx = Math.round(t.pos[v] / CELL), cz = Math.round(t.pos[v + 2] / CELL)
+				// A solid cell's triangles meet at its middle, off the grid.
+				if (Math.abs(t.pos[v] / CELL - cx) > 1e-3 || Math.abs(t.pos[v + 2] / CELL - cz) > 1e-3) inCell = false
 				if (cx < 4 || cx > 5 || cz < 3 || cz > 4) inCell = false
 				key.push(`${cx},${cz}`)
 			}

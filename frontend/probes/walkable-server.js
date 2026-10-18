@@ -1,4 +1,4 @@
-// View › Server's mmaps (#240) in the benchmark scene (Azeroth 32_48, Northshire Abbey): the walkable-ground view reads the server's own movement maps for the client tiles around the target (needs the VMaNGOS folder set and its data/mmaps built for map 0), draws them on the ground in the editor's frame, a path test walks over them, the same path over the browser's own build comes out about as long, and turning the view off frees it all.
+// View › Server's mmaps (#240) in the benchmark scene (Azeroth 32_48, Northshire Abbey): the walkable-ground view reads the server's own movement maps for the client tiles around the target (needs the VMaNGOS folder set and its data/mmaps built for map 0), draws them on the ground in the editor's frame, path tests walk over them, the same four paths round and through the abbey over the browser's own build come out within 12% as long (#282), and turning the view off frees it all.
 const e = P.e
 const { prefs } = await P.state()
 await P.scene(P.BENCH)
@@ -22,11 +22,13 @@ const path = (a, b) => {
 	nav.pathPoint(a)
 	return nav.pathPoint(b)
 }
-// Open ground south-west of the abbey, where both navmeshes walk it straight (44.8 yd). Nearer the
-// abbey they part: from (-40, 20) to (10, 45) the browser's build stops 46 yd short where the server's
-// walks 67 yd (#282).
+// Open ground south-west of the abbey, where both navmeshes walk it straight (44.8 yd).
 const from = at(-60, 60)
 const to = at(-20, 80)
+// Round and through the abbey, where the browser's build once walked the crawlspace under its floor
+// (#282): from the west door's steps out to the graveyard, south to north and west to east.
+const pairs = [[at(-40, 20), at(10, 45)], [at(0, -30), at(0, 30)], [at(-30, 0), at(30, 0)], [from, to]]
+const walks = () => pairs.map(([a, b]) => path(a, b))
 
 prefs.navView = true
 prefs.navServer = true
@@ -53,13 +55,16 @@ nav.group.traverse((m) => {
 		best = Math.min(best, Math.abs(v.y - e.terrain.heightAt(v.x, v.z)))
 	}
 })
-const walk = path(from, to)
+const serverWalks = walks()
+const walk = serverWalks[3]
 
 // The same walk over the browser's build of the same ground.
 prefs.navServer = false
 await P.frames(2)
 const own = await loaded("the browser's tiles")
-const ownWalk = path(from, to)
+const ownWalks = walks()
+const ownWalk = ownWalks[3]
+const agree = serverWalks.map((w, i) => w.kind === 'path' && ownWalks[i].kind === 'path' && Math.abs(w.yards - ownWalks[i].yards) <= 0.12 * w.yards)
 
 prefs.navView = false
 await P.frames(3)
@@ -74,6 +79,7 @@ const ok =
 	best < 1.5 &&
 	walk.kind === 'path' &&
 	ownWalk.kind === 'path' &&
-	Math.abs(walk.yards - ownWalk.yards) < 0.2 * ownWalk.yards &&
+	agree.every(Boolean) &&
 	freed
-return { ok, tiles: server.total, missing: server.missing, loadMs, error, tris, nearVerts: near, groundGap: Math.round(best * 100) / 100, walk, ownTiles: own.total, ownWalk, freed }
+const yards = (ws) => ws.map((w) => (w.kind === 'path' ? Math.round(w.yards * 10) / 10 : w.kind))
+return { ok, tiles: server.total, missing: server.missing, loadMs, error, tris, nearVerts: near, groundGap: Math.round(best * 100) / 100, serverYards: yards(serverWalks), ownTiles: own.total, ownYards: yards(ownWalks), agree, freed }

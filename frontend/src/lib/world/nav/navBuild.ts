@@ -162,6 +162,12 @@ export interface TileInput {
 	modelFrom: number
 	minY: number
 	maxY: number
+	/**
+	 * The heights the voxels span, the server's for the client tile (`adtHeightSpan`): the first
+	 * voxel starts at `floorY`. Without them, a yard under `minY` and over `maxY`.
+	 */
+	floorY?: number
+	ceilY?: number
 	liquidPos?: Float32Array
 	liquidVertCount?: number
 	liquidIdx?: Int32Array
@@ -210,6 +216,10 @@ export class TileBuilder {
 	private tris: RecastModule.IntArray
 	private areas: RecastModule.UnsignedCharArray
 	private areaBuf = new Uint8Array(0)
+	private order = new Uint32Array(0)
+	private keys = new Float32Array(0)
+	private sortedIdx = new Int32Array(0)
+	private sortedAreas = new Uint8Array(0)
 	private r: Recast
 	readonly s: NavSettings
 
@@ -233,8 +243,10 @@ export class TileBuilder {
 		const lt = input.liquidTriCount ?? 0
 
 		const border = s.borderSize * s.cs
-		const bmin: [number, number, number] = [tx * s.tileYards - border, input.minY - 1, tz * s.tileYards - border]
-		const bmax: [number, number, number] = [(tx + 1) * s.tileYards + border, input.maxY + 1, (tz + 1) * s.tileYards + border]
+		const floorY = Math.min(input.floorY ?? input.minY - 1, input.minY)
+		const ceilY = Math.max(input.ceilY ?? input.maxY + 1, input.maxY)
+		const bmin: [number, number, number] = [tx * s.tileYards - border, floorY, tz * s.tileYards - border]
+		const bmax: [number, number, number] = [(tx + 1) * s.tileYards + border, ceilY, (tz + 1) * s.tileYards + border]
 		const side = s.tileCells + s.borderSize * 2
 		const ctx = this.ctx
 		const hf = r.allocHeightfield()
@@ -254,9 +266,11 @@ export class TileBuilder {
 				if (!r.rasterizeTriangles(ctx, this.verts, input.liquidVertCount!, this.tris, this.areas, lt, lhf, 0)) return null
 			}
 			this.verts.copy(input.pos.subarray(0, input.vertCount * 3))
-			this.tris.copy(input.idx.subarray(0, input.triCount * 3))
-			this.areas.copy(areaBuf)
-			// No merging of areas across heights: a span takes its top surface's area, as the server rasterizes.
+			this.sortByHeight(input, areaBuf)
+			this.tris.copy(this.sortedIdx.subarray(0, input.triCount * 3))
+			this.areas.copy(this.sortedAreas.subarray(0, input.triCount))
+			// No merging of areas across heights: where a triangle's span overlaps one already there, the
+			// higher top keeps its area, or the larger area where a lower triangle reaches into it.
 			if (!r.rasterizeTriangles(ctx, this.verts, input.vertCount, this.tris, this.areas, input.triCount, hf, 0)) return null
 			r.filterLowHangingWalkableObstacles(ctx, s.walkableClimb, hf)
 			const spans = heightfieldSpans(r, hf)
@@ -301,6 +315,37 @@ export class TileBuilder {
 			if (cset) r.freeContourSet(cset)
 			if (pmesh) r.freePolyMesh(pmesh)
 			if (dmesh) r.freePolyMeshDetail(dmesh)
+		}
+	}
+
+	/**
+	 * The triangles in the order the server rasterizes them (SortAndRasterizeTriangles, VMaNGOS #2197):
+	 * by their first corner's height, highest first, ties in input order. A span's area depends on it,
+	 * since a lower triangle reaching into a span takes the larger of the two areas.
+	 */
+	private sortByHeight(input: TileInput, areas: Uint8Array) {
+		const n = input.triCount
+		const { pos, idx } = input
+		if (this.order.length < n) {
+			this.order = new Uint32Array(n * 2)
+			this.keys = new Float32Array(n * 2)
+			this.sortedIdx = new Int32Array(n * 6)
+			this.sortedAreas = new Uint8Array(n * 2)
+		}
+		const order = this.order.subarray(0, n)
+		const keys = this.keys
+		for (let t = 0; t < n; t++) {
+			order[t] = t
+			keys[t] = pos[idx[t * 3] * 3 + 1]
+		}
+		order.sort((a, b) => keys[b] - keys[a] || a - b)
+		const out = this.sortedIdx
+		for (let k = 0; k < n; k++) {
+			const t = order[k]
+			out[k * 3] = idx[t * 3]
+			out[k * 3 + 1] = idx[t * 3 + 1]
+			out[k * 3 + 2] = idx[t * 3 + 2]
+			this.sortedAreas[k] = areas[t]
 		}
 	}
 

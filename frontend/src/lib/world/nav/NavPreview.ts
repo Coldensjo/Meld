@@ -30,7 +30,7 @@ import {
 	type NavSettings,
 	type Recast,
 } from './navBuild'
-import { TileGatherer, placeFaces, type PlacedCollision } from './navGeometry'
+import { TileGatherer, adtHeightSpan, placeFaces, type PlacedCollision } from './navGeometry'
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
 
@@ -141,11 +141,14 @@ export class NavPreview {
 	private tiles = new Map<number, NavTile>()
 	private queue: NavTile[] = []
 	/** Collision faces by model type: null while loading or when the model has none. */
-	private collisions = new Map<string, Float32Array | null>()
+	private collisions = new Map<string, { tris: Float32Array; groups: Uint32Array } | null>()
 	private pending = 0
 	private loaded = 0
 	private placed = new Map<number, Placed>()
 	private placedList: PlacedCollision[] = []
+	/** Each client tile's height span (adtHeightSpan) by tile, for the current build. */
+	private spans = new Map<number, [number, number]>()
+	private deep = (gx: number, gz: number) => this.liquids.deep(gx, gz)
 	private signature = ''
 	private sea: number | null = null
 	private changedAt = 0
@@ -178,9 +181,10 @@ export class NavPreview {
 	private serverPending = 0
 	/** Why a server tile failed, for the status bar; '' when none has. */
 	serverError = ''
+	/** The ground's height at a point, holes or not (the server's TerrainBuilder::getHeight), null off the map. */
 	private groundAt = (x: number, z: number): number | null => {
 		const t = this.terrain!
-		return !t.contains(x, z) || t.isHole(x, z) ? null : t.heightAt(x, z)
+		return t.contains(x, z) ? t.heightAt(x, z) : null
 	}
 
 	constructor() {
@@ -254,6 +258,7 @@ export class NavPreview {
 			this.dirty = false
 			this.refreshModels(focus)
 			this.liquids.reset(this.liquidMap, terrain, this.sea)
+			this.spans.clear()
 			this.stamp++
 			this.queue.length = 0
 			for (const t of this.tiles.values()) this.queue.push(t)
@@ -313,6 +318,7 @@ export class NavPreview {
 		this.group.remove(this.serverGroup)
 		this.server = null
 		this.queue.length = 0
+		this.spans.clear()
 		this.clearPath()
 		this.query?.destroy()
 		this.nav?.destroy()
@@ -326,27 +332,30 @@ export class NavPreview {
 	/** The placed models' faces in world space: reused where an object's type and matrix are unchanged. */
 	private refreshModels(focus: THREE.Vector3) {
 		const objects = this.objects!
+		const side = Math.max(1, Math.round(this.terrain!.worldSize / ADT_YARDS))
 		const keep = new Set<number>()
 		for (const o of objects.objects.values()) {
 			if (isHelper(o.type) || objects.isHidden(o.id)) continue
 			if (!o.type.startsWith('m2:') && !o.type.startsWith('wmo:')) continue
 			objects.matrixOf(o, this.m)
 			const e = this.m.elements
-			if (Math.hypot(e[12] - focus.x, e[14] - focus.z) > MODEL_REACH) continue
+			// A model also counts wherever it sets a built client tile's height span (adtHeightSpan),
+			// as Stormwind's WMO does for Northshire's tile from 720 yd away.
+			if (Math.hypot(e[12] - focus.x, e[14] - focus.z) > MODEL_REACH && tileDistance(clampTile(e[12], side), clampTile(e[14], side), focus.x, focus.z) > KEEP) continue
 			const local = this.collision(o.type)
-			if (!local || local.length === 0) continue
+			if (!local || local.tris.length === 0) continue
 			keep.add(o.id)
 			const old = this.placed.get(o.id)
 			if (old && old.type === o.type && sameMatrix(old.matrix, e)) continue
-			this.placed.set(o.id, { type: o.type, matrix: new Float32Array(e), faces: placeFaces(local, e) })
+			this.placed.set(o.id, { type: o.type, matrix: new Float32Array(e), faces: placeFaces(local.tris, e, local.groups) })
 		}
 		for (const id of this.placed.keys()) if (!keep.has(id)) this.placed.delete(id)
 		this.placedList.length = 0
 		for (const p of this.placed.values()) this.placedList.push(p.faces)
 	}
 
-	/** A model type's collision faces, fetched on first ask (null until they arrive). */
-	private collision(type: string): Float32Array | null {
+	/** A model type's collision faces and their groups, fetched on first ask (null until they arrive). */
+	private collision(type: string): { tris: Float32Array; groups: Uint32Array } | null {
 		const got = this.collisions.get(type)
 		if (got !== undefined) return got
 		this.collisions.set(type, null)
@@ -404,6 +413,16 @@ export class NavPreview {
 		const x1 = (tile.tx + 1) * s.tileYards + border
 		const z1 = (tile.tz + 1) * s.tileYards + border
 		const input = this.gather.gather(this.terrain!, this.placedList, x0, z0, x1, z1, this.groundAt, this.liquids)
+		const per = Math.round(ADT_YARDS / s.tileYards)
+		const ax = Math.floor(tile.tx / per)
+		const az = Math.floor(tile.tz / per)
+		let span = this.spans.get(az * 64 + ax)
+		if (!span) {
+			span = adtHeightSpan(this.terrain!, this.placedList, ax, az, ADT_YARDS, this.deep, [0, 0])
+			this.spans.set(az * 64 + ax, span)
+		}
+		input.floorY = span[0]
+		input.ceilY = span[1]
 		const built = this.builder!.build(input, tile.tx, tile.tz)
 		tile.stamp = this.stamp
 		if (tile.ref) nav.removeTile(tile.ref)
@@ -650,6 +669,11 @@ export class NavPreview {
 function sameSource(a: ServerSource | null, b: ServerSource | null): boolean {
 	if (!a || !b) return a === b
 	return a.mapId === b.mapId && a.tileX === b.tileX && a.tileY === b.tileY
+}
+
+/** The client tile of the block a coordinate falls in, clamped to the block's `side` tiles. */
+function clampTile(p: number, side: number): number {
+	return Math.max(0, Math.min(side - 1, Math.floor(p / ADT_YARDS)))
 }
 
 /** How far a point of the map (x, z from the map's corner) is from client tile (ax, ay), 0 inside it. */

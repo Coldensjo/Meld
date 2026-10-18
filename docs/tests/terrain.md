@@ -360,19 +360,23 @@ creature's way round obstacles.
   WASM in node, a few ms a tile; #239: the span layout `navFilters.ts` reads, a 1.5 yd model fence
   gone round while the same step in the terrain is climbed, a river only a swimmer crosses beside a
   ford a walker wades, a deep ocean chunk with no navmesh, and the sea's cells). Go: `TestM2HullFaces`, and with `WOW_DIR=C:/WoW/client`
-  `TestClientCollision` (three hulls wound outward by signed volume, Goldshire inn's floors facing up).
+  `TestClientCollision` (three hulls wound outward by signed volume, Goldshire inn's floors facing up,
+  its groups' triangle counts adding up to its faces).
 - Probe: `pnpm probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
   round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, a river 2 yd
   deep across the map drawn blue and crossed only as a swimmer (`kind: 'swim'`, #239), and the view
   off freeing every tile. It turns Follow the Ground on first: with the default flying camera the new
   map's view starts 250 yd up and Test a Path's clicks land 345 yd out, past the built tiles (#256).
 - In the benchmark scene (Northshire Abbey) the 177 tiles take 3.4 ms each on average, 41 ms at worst
-  (the abbey's tiles); on SwiftShader the whole build takes about 70 s of frames, so wait on
+  (the abbey's tiles); cutting the ground under models (#282) took the average from 2.7 to 3.9 ms in
+  one headless run (`nav.buildTile` over `nav.tiles` in a probe times them alone); on SwiftShader the whole build takes about 70 s of frames, so wait on
   `e.nav.counts` (`done === total`, `loading === 0`, `!settling`), never on a fixed number of frames.
 - Server mode (#240, View › Server's mmaps): `pnpm probe walkable-server` (about 45 s) in the
   benchmark scene reads the server's tile 32_48 (one tile within 160 yd of the target, about 39k
   triangles, 2 s), checks the drawn vertices lie on the ground (within 1.5 yd, 0.8 at the probe's spot: a wrong
-  transform puts them a mirror away), walks a 44.8 yd path over it and the same path over the browser's build, and the
+  transform puts them a mirror away), walks four paths round and through the abbey over it and over
+  the browser's build, which must come out within 12% (server 67.1, 75.4, 183.2 and 44.8 yd; the
+  browser's 72.7, 82.5, 186.9 and 44.7 after #282), and the
   view off frees it. It needs the VMaNGOS folder set and its `data/mmaps` built for map 0 (470 tiles
   on this machine). Unit: `tests/navServer.test.ts` (the frame round trip against `serverSpot`, the
   flags' colours, a built tile's surface read back from its bytes and a copy of them pathing in a
@@ -380,6 +384,15 @@ creature's way round obstacles.
   `VMANGOS_DIR=C:/WoW/vmangos` `TestServerNavTiles` (every map 0 tile converts). Check one tile by
   hand with `curl -s -o t.bin -w "%{http_code} %{size_download}" "localhost:34115/wow/navtile?map=0&x=32&y=48"`
   (200, about 2 MB; 404 where the server has none).
+- Comparing the two builds at a spot (#282): `nav.query.findNearestPoly(nav.toNav(p), { halfExtents })`
+  in each mode tells which surface a point snaps to (the server's frame back to the editor's through
+  `nav.serverGroup.matrix`): a point at ground height under a floor snapping 2 yd lower in one build
+  is ground the other doesn't have. To see under roofs, set `e.renderer.localClippingEnabled` and a
+  clipping plane (`{ normal: new Vector3(0, -1, 0), constant: <height> }`) on the materials in
+  `nav.group`, then shoot with `P.only(nav.group, ...)` from straight above (`pitch: 1.5`). The
+  server's tile header holds its height span (`bmin`/`bmax` at bytes 72 to 96 of the Detour data,
+  after `/wow/navtile`'s 20-byte prefix), which `NavPreview`'s `spans` should match: 28.846 for
+  32_48. A gap a hair over 1.5 yd flips with the voxels' origin, so check that first.
 - Trap: Recast lifts the detail mesh's copy of a polygon's corners by one voxel height
   (rcBuildPolyMeshDetail), and Detour's tile keeps the unlifted ones, so a tile's surface read from
   its bytes sits up to 0.25 yd below the `BuiltTile.tris` of the same build.

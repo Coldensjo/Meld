@@ -94,9 +94,23 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     covering the most cells, each vertex the highest surface, the editor's sea as ocean where the
     export writes it, and a chunk with dark water (ocean as deep as a depth byte goes, the export's
     fatigue flag) dropped from the navmesh, ground and all, as the server's builder does.
-  - `navGeometry.ts` gathers a tile's triangles: the terrain's cells (holes left out through
-    `writeCellIndex`) and the placed models' collision faces (`/wow/collision`: an M2's hull, a WMO's
-    walking faces and its doodads' hulls), dropping model faces below the ground as the server does.
+  - `navGeometry.ts` gathers a tile's triangles: the terrain's cells, four triangles about each
+    cell's middle as the server's map has them (the middle at the corners' mean, which is what the
+    export writes; a half-cell hole keeps its other triangle as `writeCellIndex` draws it), and the
+    placed models' collision faces (`/wow/collision`: an M2's hull, a WMO's walking faces and its
+    doodads' hulls, with each group's triangle count). It cuts them as TerrainBuilder::loadVMap does
+    (#282): ground whose nearest face above, in one of a model's groups, is an upward one within 5 yd
+    lies under the model, and a triangle a yard or more under it goes (one with some corners under is
+    cut back to where it meets the model), so the crawlspace under Northshire Abbey's floor is no
+    ground; a model face goes when its corners lie 0.2 yd or more below the ground and inside a solid
+    (`IsUnderMap`). `adtHeightSpan` gives each client tile the heights the server voxelizes it
+    between (the lowest and highest vertex of its ground and of every model the tile places, which
+    for Northshire is Stormwind's WMO 720 yd off), since where the voxels' steps fall decides whether
+    a gap a hair over the agent's 1.5 yd is walkable; `TileBuilder` takes it as `floorY`, and
+    rasterizes the triangles highest first as the server does (SortAndRasterizeTriangles), since a
+    lower triangle reaching into a span takes the larger area. What still parts the two: the client's
+    own inner heights (the editor keeps only the corners) and knife-edge cases at the server's 1.0
+    and 1.5 yd thresholds; and Detour's paths over the server's larger tiles come out a few % apart.
   - `NavPreview.ts` keeps the tiles within `RANGE` (160 yd), builds the nearest first within 6 ms a
     frame, and builds them again 400 ms after the terrain's height or holes, the objects, the
     loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. `Engine.updateNav` calls it only while the view is on and

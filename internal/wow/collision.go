@@ -49,44 +49,51 @@ func m2HullFaces(b []byte) ([]float32, error) {
 }
 
 // Collision returns a model's collision faces for the /wow/collision endpoint: a u32 triangle
-// count, then nine float32 a triangle (editor space, the model's own frame). set is a WMO
-// placement's doodad set, as for Model.
+// count, nine float32 a triangle (editor space, the model's own frame), then a u32 group count and
+// each group's triangle count. The groups are the pieces the server's vmaps keep apart, each a
+// GroupModel its mmap builder asks whether ground lies under it (#282): an M2's hull is one, a
+// WMO's groups and its doodads' hulls one each. set is a WMO placement's doodad set, as for Model.
 func (c *Client) Collision(path string, set int) ([]byte, error) {
 	key := fmt.Sprintf("col:%s|%d", strings.ToLower(path), set)
 	return c.cached(key, func() ([]byte, error) {
 		var faces []float32
+		var groups []uint32
 		var err error
 		if strings.HasSuffix(strings.ToLower(path), ".wmo") {
-			faces, err = c.wmoCollision(path, set)
+			faces, groups, err = c.wmoCollision(path, set)
 		} else {
 			var raw []byte
 			if raw, err = c.readM2(path); err == nil {
 				faces, err = m2HullFaces(raw)
+				groups = []uint32{uint32(len(faces) / 9)}
 			}
 		}
 		if err != nil {
 			return nil, err
 		}
-		return encodeFaces(faces), nil
+		return encodeFaces(faces, groups), nil
 	})
 }
 
-func encodeFaces(faces []float32) []byte {
+func encodeFaces(faces []float32, groups []uint32) []byte {
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.LittleEndian, uint32(len(faces)/9))
 	binary.Write(&buf, binary.LittleEndian, faces)
+	binary.Write(&buf, binary.LittleEndian, uint32(len(groups)))
+	binary.Write(&buf, binary.LittleEndian, groups)
 	return buf.Bytes()
 }
 
-// wmoCollision gathers a WMO's walking faces and its shown doodads' hulls in editor space.
-func (c *Client) wmoCollision(path string, set int) ([]float32, error) {
+// wmoCollision gathers a WMO's walking faces and its shown doodads' hulls in editor space, with
+// the triangle count of each group and each doodad that brings any.
+func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error) {
 	raw, err := c.read(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	root, err := ParseWMORoot(raw)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	groups := make([][]byte, root.NumGroups)
 	for i := range groups {
@@ -94,14 +101,19 @@ func (c *Client) wmoCollision(path string, set int) ([]float32, error) {
 	}
 	nav, err := ParseWMONav(raw, groups)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var faces []float32
+	var counts []uint32
 	for _, g := range nav.walk {
+		if len(g) < 9 {
+			continue
+		}
 		for i := 0; i+2 < len(g); i += 3 {
 			x, y, z := toEditor(g[i], g[i+1], g[i+2])
 			faces = append(faces, x, y, z)
 		}
+		counts = append(counts, uint32(len(g)/9))
 	}
 	hulls := map[string][]float32{}
 	for _, di := range root.DoodadIndicesOf(set) {
@@ -120,6 +132,7 @@ func (c *Client) wmoCollision(path string, set int) ([]float32, error) {
 		m := &Mesh{Pos: append([]float32(nil), hull...), Normal: make([]float32, len(hull))}
 		m.TransformWoW(d.Pos, d.Rot, d.Scale)
 		faces = append(faces, m.Pos...)
+		counts = append(counts, uint32(len(m.Pos)/9))
 	}
-	return faces, nil
+	return faces, counts, nil
 }
