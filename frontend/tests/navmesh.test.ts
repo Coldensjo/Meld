@@ -19,6 +19,7 @@ import {
 } from '../src/lib/world/nav/navBuild.ts'
 import { TileGatherer, placeFaces, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
 import { NavLiquids } from '../src/lib/world/nav/navLiquids.ts'
+import { HOLE_FIRST } from '../src/lib/terrain/holes.ts'
 import { columnSpans, heightfieldSpans } from '../src/lib/world/nav/navFilters.ts'
 import { LIQUID_OCEAN, LIQUID_WATER, LiquidMap, newLayer } from '../src/lib/water/liquids.ts'
 
@@ -80,6 +81,35 @@ test('the gatherer takes the ground under the box, leaves holes out and drops fa
 	assert.ok(t.triCount - t.modelFrom >= 10 && t.triCount - t.modelFrom <= 12, `models gave ${t.triCount - t.modelFrom} faces`)
 	assert.equal(t.minY, 9)
 	assert.equal(t.maxY, 12)
+})
+
+test("a half-cell hole leaves out the same world triangle whatever the tile's first cell", () => {
+	const g = flat(16)
+	g.holes[3 * 16 + 4] = HOLE_FIRST // x+z odd: the first triangle holds the cell's (0,0) corner
+	const gather = new TileGatherer()
+	// The cell's three corners of each triangle the gatherer kept, as world-space keys.
+	const triangles = (x0: number, z0: number): Set<string> => {
+		const t = gather.gather(g, [], x0 * CELL + 0.01, z0 * CELL + 0.01, 6 * CELL - 0.01, 6 * CELL - 0.01, groundAt(g))
+		const out = new Set<string>()
+		for (let i = 0; i < t.modelFrom; i++) {
+			const key: string[] = []
+			let inCell = true
+			for (let k = 0; k < 3; k++) {
+				const v = t.idx[i * 3 + k] * 3
+				const cx = Math.round(t.pos[v] / CELL), cz = Math.round(t.pos[v + 2] / CELL)
+				if (cx < 4 || cx > 5 || cz < 3 || cz > 4) inCell = false
+				key.push(`${cx},${cz}`)
+			}
+			if (inCell) out.add(key.sort().join(' '))
+		}
+		return out
+	}
+	const even = triangles(2, 2) // first cell x+z even
+	const odd = triangles(3, 2) // first cell x+z odd
+	assert.equal(even.size, 1)
+	assert.deepEqual([...odd], [...even])
+	// The kept triangle is the second one, without the (0,0) corner.
+	assert.deepEqual([...even], ['4,4 5,3 5,4'])
 })
 
 test('a mirrored placement winds the faces back outward', () => {

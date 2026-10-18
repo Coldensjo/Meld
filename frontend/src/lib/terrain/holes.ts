@@ -37,7 +37,9 @@ export function withTriangle(v: number, tri: 1 | 2, hole: boolean): number {
  * Writes the triangle indices of a render chunk into `idx`, leaving out the cells that are holes, and
  * returns how many indices were written. The chunk is `cells` x `cellsZ` cells starting at map cell
  * (ox, oz), with `vx` vertices a row; `holes` is the map's hole byte per cell, `size` cells a side.
- * Diagonals alternate per cell so the surface doesn't look combed.
+ * Diagonals alternate per cell so the surface doesn't look combed, by the map cell's own x+z (not
+ * the chunk's), so every caller (the terrain's chunks, the navmesh's tiles) cuts a half-cell hole
+ * out of the same triangle whatever its origin.
  */
 export function writeCellIndex(
   idx: Uint32Array,
@@ -50,6 +52,7 @@ export function writeCellIndex(
   size: number,
 ): number {
   let k = 0
+  const parity = (ox + oz) & 1
   for (let z = 0; z < cellsZ; z++) {
     for (let x = 0; x < cells; x++) {
       const v = holes[(oz + z) * size + ox + x]
@@ -60,7 +63,7 @@ export function writeCellIndex(
       const d = c + 1
       const first = v !== HOLE_FIRST
       const second = v !== HOLE_SECOND
-      if ((x + z) & 1) {
+      if ((x + z + parity) & 1) {
         if (first) { idx[k++] = a; idx[k++] = c; idx[k++] = b }
         if (second) { idx[k++] = b; idx[k++] = c; idx[k++] = d }
       } else {
