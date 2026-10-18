@@ -134,8 +134,15 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
   `ColorAnim`): Go drops a batch whose alpha times weight is a constant 0 or less (the client never
   draws it), and the frontend tints the group's own material and sets its opacity, hiding it at 0
   (`updateMaterialAnimations`).
-- `world/Animator.ts` (`ModelAnimation`) CPU-skins the shared geometry per model type. All
-  instances animate in sync. The Engine drives `animatedAssets` each frame.
+- `world/Animator.ts` (`ModelAnimation`) poses the bones on the CPU per model type, and the shader
+  skins the shared geometry from its skeleton's bone texture. All instances animate in sync. The
+  Engine (`animateModels`) poses each frame only the types in `animatedAssets` that are drawn: a placed
+  object or spawn the cull kept (`ObjectLayer.hasVisible`, `SpawnLayer.drawsType`; the cull keeps
+  what is in a shadow camera's frustum too), or a placement, brush or paste preview (#328). A bone
+  whose tracks hold one value, under parents that don't move either, keeps its first pose's matrix,
+  and a model with no moving bone is posed once. The skeleton is a `PosedSkeleton`: its bones are
+  already in model space, so its `update` (three calls it once a frame per skeleton drawn) skips
+  three's multiply by the identity inverses and uploads the bone texture only after a new pose.
 - `world/PropEffects.ts` draws the flames (instanced upright billboards with a procedural fire
   shader) and assigns a pool of `LIGHT_POOL` (8) `PointLight`s to the nearest light sources,
   with flicker.

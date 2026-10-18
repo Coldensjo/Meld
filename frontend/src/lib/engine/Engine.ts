@@ -1208,9 +1208,10 @@ export class Engine {
   }
 
   /**
-   * Plays the idle animations of the model types in view: those with a placed or spawned instance on
-   * the active map, the placement preview, and (while pasting) the paste's previews. Skinning runs on
-   * the CPU per model type, so types loaded for other tabs or nothing at all cost nothing.
+   * Plays the idle animations of the model types in view: those with a placed or spawned instance the
+   * cull drew (in the camera's or a shadow camera's frustum), the placement and brush previews, and
+   * (while pasting) the paste's previews. Posing runs on the CPU per model type, so types off screen,
+   * loaded for other tabs or drawn nowhere cost nothing; one coming into view is posed on that frame (#328).
    */
   private animateModels(time: number) {
     // With animations off, a model still holds the first frame of its idle (or posed) loop rather
@@ -1226,7 +1227,7 @@ export class Engine {
 		if (updateMaterialAnimations(ms)) this.nearPosed = true
     for (const [type, a] of animatedAssets) {
       if (still && a.anim!.posedAt === 0) continue
-		if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.hasType(type)) {
+		if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.drawsType(type)) {
 			a.anim!.update(ms)
 			if (a.skeleton && castsNear(a.skeleton)) this.nearPosed = true
 		}

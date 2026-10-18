@@ -69,14 +69,14 @@ export function sampleTrack(tr: AnimTrack, ms: number, n: number, out: number[])
     return
   }
   const t = ms % tr.loop
-  // The first key later than t; none means t is at or past the last key.
-  let hi = times.length
-  for (let i = 0; i < times.length; i++) {
-    if (times[i] > t) {
-      hi = i
-      break
-    }
-  }
+	// The first key later than t, by binary search (#328); none means t is at or past the last key.
+	let low = 0
+	let hi = times.length
+	while (low < hi) {
+		const mid = (low + hi) >> 1
+		if (times[mid] > t) hi = mid
+		else low = mid + 1
+	}
   if (hi === times.length) {
     for (let k = 0; k < n; k++) out[k] = v[(hi - 1) * n + k]
     return

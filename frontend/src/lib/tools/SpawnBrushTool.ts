@@ -56,6 +56,8 @@ export class SpawnBrushTool implements Tool {
 	private planKey = ''
 	private ghosts: THREE.Mesh[] = []
 	private ghostGroup = new THREE.Group()
+	/** The model types of the ghosts shown now, which the Engine poses (#328). */
+	private ghostTypes = new Set<string>()
 	private ray = new THREE.Raycaster()
 
 	constructor(private hooks: SpawnBrushHooks) {
@@ -68,8 +70,14 @@ export class SpawnBrushTool implements Tool {
 
 	deactivate(ctx: ToolContext) {
 		ctx.scene.remove(this.ghostGroup)
+		this.ghostTypes.clear()
 		this.plan = []
 		this.planKey = ''
+	}
+
+	/** Whether a ghost of model `type` shows under the brush, so its idle plays though no spawn of it is in view. */
+	previewing(type: string): boolean {
+		return this.ghostTypes.has(type)
 	}
 
 	private get brush(): SpawnBrush {
@@ -134,6 +142,7 @@ export class SpawnBrushTool implements Tool {
 	/** Shows the next creatures the press would put down, under the hovering brush. */
 	frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
 		const brush = this.brush
+		this.ghostTypes.clear()
 		if (!hit || this.cmds || !brush.entries.length) {
 			for (const g of this.ghosts) g.visible = false
 			return
@@ -163,6 +172,7 @@ export class SpawnBrushTool implements Tool {
 				this.ghosts[i] = g
 			}
 			g.visible = true
+			this.ghostTypes.add(type)
 			g.position.set(x, y, z)
 			g.rotation.set(0, p.turn, 0)
 		}

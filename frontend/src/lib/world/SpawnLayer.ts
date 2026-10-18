@@ -176,6 +176,17 @@ export class SpawnLayer {
     return this.types.has(type)
   }
 
+	/** The model types the last cull drew (of a kind shown, with a spawn in view). */
+	private drawn = new Set<string>()
+
+	/**
+	 * Whether the last cull drew a spawn of model `type`. The cull keeps what lies in a shadow camera's
+	 * frustum too, so a spawn just off screen that throws a shadow into view counts (#328).
+	 */
+	drawsType(type: string): boolean {
+		return this.drawn.has(type)
+	}
+
   /** Shows the kinds that are `true` and hides the rest; the choice holds across rebuilds. */
   setKinds(shown: Record<SpawnKind, boolean>) {
     this.shown = { ...shown }
@@ -233,17 +244,20 @@ export class SpawnLayer {
   }
 
   /** Draws only the spawns in `view`, packed to the front of each batch's instance buffer. Call once per frame. */
-  cull(view: CullView) {
-    for (const b of this.batches) {
-      if (!cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch) && !b.dirty) continue
-      b.dirty = false
-      packMatrices(b.matrices, b.packed, b.mesh.instanceMatrix.array as Float32Array)
-      b.mesh.count = b.packed.length
-      b.mesh.visible = this.shown[b.kind] && b.mesh.count > 0
-      b.mesh.instanceMatrix.needsUpdate = true
-      b.mesh.computeBoundingSphere()
-    }
-  }
+	cull(view: CullView) {
+		this.drawn.clear()
+		for (const b of this.batches) {
+			if (cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch) || b.dirty) {
+				b.dirty = false
+				packMatrices(b.matrices, b.packed, b.mesh.instanceMatrix.array as Float32Array)
+				b.mesh.count = b.packed.length
+				b.mesh.visible = this.shown[b.kind] && b.mesh.count > 0
+				b.mesh.instanceMatrix.needsUpdate = true
+				b.mesh.computeBoundingSphere()
+			}
+			if (b.mesh.visible && b.ready) this.drawn.add(b.type)
+		}
+	}
 
   /** Calls `fn` for each spawn the last cull drew: of a kind shown, in view and through a room's doorways. */
   forEachDrawn(fn: (s: vmangos.WorldSpawn) => void) {

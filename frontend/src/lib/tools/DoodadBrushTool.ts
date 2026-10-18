@@ -161,7 +161,8 @@ export class DoodadBrushTool implements Tool {
 
   /** Whether the preview shows a model of `type`, for the engine to animate it as the placed copies will. */
   previewing(type: string): boolean {
-    if (this.creatures || this.placed || this.erased) return false
+		if (this.creatures) return this.spawns?.previewing(type) ?? false
+    if (this.placed || this.erased) return false
     const brush = activeDoodadBrush()
     if (!brush) return false
     for (const p of this.plan) if (brush.entries[p.entry]?.type === type) return true

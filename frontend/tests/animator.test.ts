@@ -74,3 +74,65 @@ test('a stepped bone track holds its last key until the loop ends', () => {
   a.skeleton.update()
   near(a.skeleton.boneMatrices.subarray(12, 15), [4, 0, 0], 'the second key holds')
 })
+
+test('a bone turns and scales about its pivot under its parent, as T(pivot) · TRS · T(-pivot) (#328)', () => {
+	const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 3)
+	const bones: AnimBone[] = [
+		{ parent: -1, pivot: [1, 2, 3], tr: { t: [0, 1000], v: [0, 0, 0, 4, 0, 2], loop: 1000 } },
+		{ parent: 0, pivot: [-2, 5, 1], rot: { t: [0, 1000], v: [0, 0, 0, 1, q.x, q.y, q.z, q.w], loop: 1000 }, sc: { t: [0], v: [2, 1, 0.5], loop: 0 } },
+		// Still, under a moving parent: it follows the parent each pose.
+		{ parent: 1, pivot: [0, 1, 0], tr: { t: [0], v: [0, 3, 0], loop: 1000 } },
+	]
+	const a = new ModelAnimation(geometry(1), bones, new Uint8Array([0, 0, 0, 0]), new Uint8Array([255, 0, 0, 0]))
+	const expect = (bone: AnimBone, tr: number[], rot: THREE.Quaternion, sc: number[]) => {
+		const p = bone.pivot
+		return new THREE.Matrix4()
+			.makeTranslation(p[0], p[1], p[2])
+			.multiply(new THREE.Matrix4().compose(new THREE.Vector3(...tr), rot, new THREE.Vector3(...sc)))
+			.multiply(new THREE.Matrix4().makeTranslation(-p[0], -p[1], -p[2]))
+	}
+	for (const ms of [250, 1500]) {
+		a.update(ms)
+		const f = (ms % 1000) / 1000
+		const m0 = expect(bones[0], [4 * f, 0, 2 * f], new THREE.Quaternion(), [1, 1, 1])
+		const m1 = m0.clone().multiply(expect(bones[1], [0, 0, 0], new THREE.Quaternion(q.x * f, q.y * f, q.z * f, 1 + (q.w - 1) * f).normalize(), [2, 1, 0.5]))
+		const m2 = m1.clone().multiply(expect(bones[2], [0, 3, 0], new THREE.Quaternion(), [1, 1, 1]))
+		near(a.boneMatrix(0)!.elements, m0.elements, `bone 0 at ${ms}`)
+		near(a.boneMatrix(1)!.elements, m1.elements, `bone 1 at ${ms}`)
+		near(a.boneMatrix(2)!.elements, m2.elements, `bone 2 at ${ms}`)
+	}
+})
+
+test('the skeleton copies the bones and uploads its texture only after a new pose (#328)', () => {
+	const bones: AnimBone[] = [{ parent: -1, pivot: [0, 0, 0], tr: { t: [0, 1000], v: [0, 0, 0, 10, 0, 0], loop: 1000 } }]
+	const a = new ModelAnimation(geometry(1), bones, new Uint8Array([0, 0, 0, 0]), new Uint8Array([255, 0, 0, 0]))
+	a.skeleton.computeBoneTexture()
+	const tex = a.skeleton.boneTexture!
+	a.update(500)
+	const v0 = tex.version
+	a.skeleton.update()
+	assert.ok(tex.version > v0, 'a new pose uploads')
+	near(a.skeleton.boneMatrices!.subarray(12, 15), [5, 0, 0], 'into the texture\'s own array')
+	const v1 = tex.version
+	a.skeleton.update()
+	assert.equal(tex.version, v1, 'no pose since, no upload')
+	a.update(250)
+	a.skeleton.update()
+	assert.ok(tex.version > v1, 'the next pose uploads')
+	near(a.skeleton.boneMatrices!.subarray(12, 15), [2.5, 0, 0])
+})
+
+test('a model whose bones never move is posed once, at its first frame (#328)', () => {
+	const bones: AnimBone[] = [
+		{ parent: -1, pivot: [0, 0, 0], tr: { t: [0], v: [3, 0, 0], loop: 1000 } },
+		{ parent: 0, pivot: [0, 0, 0], tr: { t: [0, 500], v: [0, 1, 0, 0, 9, 0], loop: 0 } },
+	]
+	const a = new ModelAnimation(geometry(1), bones, new Uint8Array([0, 0, 0, 0]), new Uint8Array([255, 0, 0, 0]))
+	a.update(0)
+	a.skeleton.update()
+	near(a.boneMatrix(1)!.elements.slice(12, 15), [3, 1, 0], 'a track with no loop holds its first key')
+	a.boneMatrix(1)!.elements[12] = 99
+	a.update(400)
+	assert.equal(a.boneMatrix(1)!.elements[12], 99, 'not posed again')
+	assert.equal(a.posedAt, 400)
+})

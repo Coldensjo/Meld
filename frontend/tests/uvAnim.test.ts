@@ -58,3 +58,14 @@ test('a stepped track holds its last key from that key to the loop end', () => {
   sampleTrack({ ...tr, step: false }, 700, 1, out)
   assert.equal(out[0], 2, 'a lerped one too')
 })
+
+test('a track of many keys finds the keys either side of the time, and wraps with the loop (#328)', () => {
+	const t = [0, 100, 200, 300, 400, 500, 600, 700]
+	const tr = { t, v: t.map((x) => x * 2), loop: 800 }
+	const out = [0]
+	for (const ms of [0, 50, 100, 150, 399, 650, 700, 750, 850, 1650]) {
+		sampleTrack(tr, ms, 1, out)
+		const at = ms % 800
+		assert.ok(Math.abs(out[0] - Math.min(at, 700) * 2) < 1e-9, `at ${ms}: ${out[0]}`)
+	}
+})
