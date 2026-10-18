@@ -157,7 +157,10 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   runs every one, `bun run probe --list` names them, `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
   stalls in one run), each followed by `<=` and its heaviest caller chain up to the first Meld `src/` frame, with that
-  chain's share of its self time (so three's `intersectTriangle` shows which Meld code raycast). Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
+  chain's share of its self time (so three's `intersectTriangle` shows which Meld code raycast). `PROFILE_TOP=<n>`
+  prints `n` functions instead: a benchmark map's top 12 are all its loading and the fence waits of `P.frames`,
+  and a frame's own work (three's `setProgram`, `ParticleLayer.update`) starts below them. To weight a profile to
+  frames, step many after the map settles (the 2026-10-18 sweep stepped 40 turning the camera, then 40 still). Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without
   `nosession` a region from the session finished opening after the probe's `newDocument`, took the
   active tab, and its spawns, read seconds later, replaced the probe's (#250: `object-entry` and

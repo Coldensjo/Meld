@@ -298,7 +298,7 @@ async function main() {
 }
 
 /**
- * The 12 functions with the most CPU time in a CPU profile (Profiler.stop), by self time and with
+ * The 12 functions (`PROFILE_TOP` to change it) with the most CPU time in a CPU profile (Profiler.stop), by self time and with
  * their total (self plus callees), as "self ms / total ms name url:line <= caller < caller (share)", the
  * caller chain being the heaviest one up to the first frame in src/ (#298). Found #233's stalls in one run.
  */
@@ -339,7 +339,7 @@ function topFunctions(profile) {
 	return [...fns.entries()]
 		.filter(([k]) => !k.startsWith('(root)') && !k.startsWith('(program)') && !k.startsWith('(idle)'))
 		.sort((a, b) => b[1].self - a[1].self)
-		.slice(0, 12)
+		.slice(0, Number(process.env.PROFILE_TOP) || 12)
 		.map(([k, f]) => {
 			// The heaviest caller chain, with the share of the function's self time it carries.
 			const [chain, ms] = [...f.chains.entries()].sort((a, b) => b[1] - a[1])[0]
