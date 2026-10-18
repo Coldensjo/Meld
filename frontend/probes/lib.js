@@ -130,10 +130,14 @@ const P = {
 	/** Steps frames until `fn()` is truthy, and returns it; throws after `timeout` ms, naming the longest stall. */
 	async until(fn, timeout = 300_000, what = 'the condition') {
 		P.resetStalls()
+		window.__probeStep = `P.until: ${what}`
 		const end = performance.now() + timeout
 		for (;;) {
 			const v = fn()
-			if (v) return v
+			if (v) {
+				window.__probeStep = null
+				return v
+			}
 			if (performance.now() > end) throw new Error(`timed out waiting for ${what} (${P.stallText()})`)
 			await P.frames(1)
 		}
@@ -150,8 +154,12 @@ const P = {
 			await P.frames(1)
 			readLoad(b)
 			const now = performance.now()
+			window.__probeStep = `P.settle: ${b.done} of ${b.started} client reads done, last ${b.kind} ${b.path}`
 			if (b.started !== b.done) quietSince = now
-			else if (now - quietSince > quietMs) return
+			else if (now - quietSince > quietMs) {
+				window.__probeStep = null
+				return
+			}
 			if (now > end) throw new Error(`timed out waiting for loads to finish (${b.done} of ${b.started} done, last ${b.kind} ${b.path}; ${P.stallText()})`)
 		}
 	},

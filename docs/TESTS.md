@@ -162,6 +162,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   `object-loot` timed out once the owner's session held a region). It prints one JSON line a probe and exits 1 if any failed. A page
   error also fails the probe (the error of Wails' `ipc.js`, which a plain browser page always throws,
   is left out).
+- **A hung or throwing probe names its place** (#301): a probe running over 5 minutes (`PROBE_TIMEOUT`, seconds) is stopped with `timed out after N s` and `step`, the `P.until` it waited in (its `what`) or the `P.settle` with its client reads pending (`window.__probeStep`); a throw prints `line`, `<file>:<line>:<col>` of the probe body where it stopped. Give every `P.until` a `what`.
 - **One-off checks**: `bun run probe probes/scratch/<x>.js` (any argument ending in `.js` or holding a
   slash is a path, from where you typed it) runs a probe file from anywhere, with `P` in scope.
   `frontend/probes/scratch/` is git-ignored: put diagnostics and throwaway views there, so they never

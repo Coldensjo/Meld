@@ -21,7 +21,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 // `nosession`: a fresh blank map, not the owner's last session (a restored region takes the probe's tab, #250); `defaults`: every preference at its default, not the owner's (#253).
 const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession&defaults'
 const PORT = 9333 + Math.floor(Math.random() * 500)
-const TIMEOUT = Number(process.env.PROBE_TIMEOUT ?? 600) * 1000
+// A probe that runs longer is stopped and reports the step it was waiting on (#301); PROBE_TIMEOUT (seconds) changes the limit.
+const TIMEOUT = Number(process.env.PROBE_TIMEOUT ?? 300) * 1000
 // `bun run` starts the script in frontend/ and doesn't set INIT_CWD; a path is meant from there, or from where `bun probes/run.mjs` was typed.
 const CWD = process.env.INIT_CWD ?? process.cwd()
 const APP_JS = join(here, '..', 'wailsjs', 'go', 'main', 'App.js')
@@ -185,7 +186,10 @@ async function main() {
 		if (res.timedOut) throw new Error(`timed out after ${timeout / 1000} s`)
 		if (res.error) throw new Error(res.error.message)
 		const r = res.result
-		if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description?.split('\n')[0] ?? r.exceptionDetails.text)
+		if (r.exceptionDetails) {
+			const description = r.exceptionDetails.exception?.description
+			throw Object.assign(new Error(description?.split('\n')[0] ?? r.exceptionDetails.text), { description })
+		}
 		return r.result.value
 	}
 
@@ -201,6 +205,7 @@ async function main() {
 		pageErrors.length = 0
 		let out
 		let prof = null
+		let bodyStart = Infinity
 		try {
 			await send('Page.navigate', { url: PAGE })
 			await evaluate(`(async () => { for (let i = 0; i < 600; i++) { if (window.__engine && window.__loadScene) return; await new Promise((r) => setTimeout(r, 100)) } throw new Error('the page never set up __engine') })()`, 90_000)
@@ -210,14 +215,26 @@ async function main() {
 				await send('Profiler.setSamplingInterval', { interval: 500 })
 				await send('Profiler.start')
 			}
+			const prefix = `(async () => {\n${lib}\n;return await (async () => {\n`
+			bodyStart = prefix.split('\n').length
 			try {
-				const value = await evaluate(`(async () => {\n${lib}\n;return await (async () => {\n${body}\n})()\n})()`)
+				const value = await evaluate(`${prefix}${body}\n})()\n})()`)
 				out = { probe: name, ok: value?.ok !== false, ...value }
 			} finally {
 				if (profiling) prof = (await send('Profiler.stop')).result?.profile
 			}
 		} catch (err) {
 			out = { probe: name, ok: false, error: err.message }
+			// Where it stopped: the step a wait (P.until, P.settle) was in, and for a throw the first
+			// stack line inside the probe's own body, as a line of the probe file.
+			const step = await evaluate('window.__probeStep ?? null', 5000).catch(() => null)
+			if (step) out.step = step
+			for (const m of (err.description ?? '').matchAll(/<anonymous>:(\d+):(\d+)/g)) {
+				if (Number(m[1]) >= bodyStart) {
+					out.line = `${basename(file)}:${Number(m[1]) - bodyStart + 1}:${m[2]}`
+					break
+				}
+			}
 		}
 		if (prof) out.profile = topFunctions(prof)
 		if (pageErrors.length) {
