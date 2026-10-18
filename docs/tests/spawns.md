@@ -141,7 +141,7 @@ written. `TestMotherPoolSQL` checks the `pool_pool` SQL; it was also run on temp
   (flags 11, slots 4 yd at 135° and 225°) and the Golden Sansam pool (7 of 18); tile 34, 46 (Burning
   Steppes) has groups with no walk flag (slots of 0 yd); tile 30, 48 (Stormwind) has the orphans'
   group of Miss Danna. `pool_pool` has master pools of up to 113 spots (Ashenvale tin and silver).
-- To look: `pnpm probe probes/scratch/<x>.js --shot <dir>` after `P.scene` of the region,
+- To look: `bun run probe probes/scratch/<x>.js --shot <dir>` after `P.scene` of the region,
   `selectSpawn`, `P.e.controller.focus(x, z, 15)` and `prefs.spawnNames = false` (the names hide the
   thin lines); set `ui.dialog = null`, since the probe page may open Recover unsaved maps over the
   view. The pool outline only shows round members drawn with their model.
@@ -291,7 +291,7 @@ Young Wolf and Rabbit yellow; Horde: the guard and Willem red too.
 ## Creature editor: Spells tab (creature_spells, #243)
 
 Checks: the Spells tab lists a creature's spell list with the client's names, icons and text, finds
-spells by name or ID, and adds, reorders and saves them. Probe: `pnpm probe creature-spells`
+spells by name or ID, and adds, reorders and saves them. Probe: `bun run probe creature-spells`
 (Scarlet Commander Mograine, 3976, list 39760: Crusader Strike and Hammer of Justice; a Fireball
 search and add, the unsaved bar, Revert; nothing written; about 25 s in the headless page, 2 to 7
 minutes before `P.frames` waited for the GPU, #233). Unit: `creaturespells_test.go` (the SQL for an own,
@@ -306,7 +306,7 @@ a shared, a new and an emptied list, the checks, the free list number) and, with
 - Trap: the world database's `creature_template` here has no `spell_id1..4` columns, so there are no
   legacy spell fields to show; `creatureFields.ts` labels only the ones present.
 
-The Creature tab's spell columns (#255): `auras` lists each spell's icon and name under its text (`AuraField.svelte`), `spawn_spell_id` and `totem_spell_id` are RefFields. Probe: `pnpm probe creature-spell-fields` (creature 215 has aura 6408, 2887 has spawn spell 10389).
+The Creature tab's spell columns (#255): `auras` lists each spell's icon and name under its text (`AuraField.svelte`), `spawn_spell_id` and `totem_spell_id` are RefFields. Probe: `bun run probe creature-spell-fields` (creature 215 has aura 6408, 2887 has spawn spell 10389).
 
 ## Shop tab: item icons and tooltips (#202)
 Checks: every item in the creature editor's Shop tab (the shop's list, the search results, the shared

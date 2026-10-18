@@ -142,7 +142,7 @@ Graphics and camera preferences are saved in the user config file
 All platforms:
 
 - Go ≥ 1.25
-- Node.js ≥ 22.18 and **pnpm** (`npm i -g pnpm`)
+- Bun ≥ 1.4 (bun.sh); it runs the frontend tooling, so Node.js isn't needed
 - Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 - Check with `wails doctor`
 

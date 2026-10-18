@@ -247,7 +247,7 @@ Checks: the asset browser's preview (`AssetPreview.svelte`) and the Preview wind
 (`CreaturePreview.svelte`, which the creature and object editors use too) draw their model again after
 their own context is lost and restored, with no WebGL errors, and a closed Preview's released context
 (#201) stays lost.
-- Probe: `pnpm probe preview-context` (about 2.5 minutes: the previews' own rAF is throttled in the
+- Probe: `bun run probe preview-context` (about 2.5 minutes: the previews' own rAF is throttled in the
   headless page, so it waits for their draws rather than stepping frames). It hovers a palette tile,
   then opens `ui.modelPreview` on a model of the scene with particles (the Northshire waterfall).
 - How: `canvas.getContext('webgl2')` on the preview's canvas returns its live context; wrap its
@@ -262,7 +262,7 @@ their own context is lost and restored, with no WebGL errors, and a closed Previ
 ## WMO culling by group (#198, #215)
 Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view or the near shadow
 cascade in the scene pass and the near cascade's shadow pass, and looks the same as drawn whole.
-- Probe: `pnpm probe wmo-cull` (the frame's and the shadow maps' triangles, the cull on and off).
+- Probe: `bun run probe wmo-cull` (the frame's and the shadow maps' triangles, the cull on and off).
 - Unit: `frontend/tests/wmoGroupCull.test.ts` (runs by group, the view half, the camera check, the
   group's range put back after the draw).
 - Dev page, Northshire scene (Azeroth 32_48, 1x1). Stormwind loads late on SwiftShader: poll the live
@@ -316,7 +316,7 @@ Checks: where `compressedTexturesOn()`, `terrain/paletteArray.ts` builds the pal
   block to exactly the nearest resample of their pixels; DXT3 blocks with colour0 <= colour1 are
   flipped so DXT1 and DXT3 decodes agree; three-colour DXT1 blocks stay exact with only the ends used;
   the `_s` alpha resamples exactly.
-- Probe: `pnpm probe terrain-dxt` (about 100 s) loads the benchmark scene, builds an RGBA
+- Probe: `bun run probe terrain-dxt` (about 100 s) loads the benchmark scene, builds an RGBA
   `PaletteArray` of the same entries beside it, and draws the ground alone with each, under the
   editor's lighting and under Client Lighting (the sheen): on 2026-10-17, 0.03% of pixels differed by
   more than 4% (mean max-channel difference 0.67 of 255), 0.5 MB against 2 MB for the 8 layers. The
@@ -346,7 +346,7 @@ inside branches.
   a 256² chain's levels are copied block for block, colour and `_s` alpha; 128², 64x32 and 128x256
   chains give each level exactly the nearest resample of the right source level (levels below 4x4
   one block); an encoded layer's levels are the box mean; a colour layer is one block at every level.
-- Probe: `pnpm probe terrain-dxt` also checks there are 9 levels, that the mipped DXT3 and RGBA draws
+- Probe: `bun run probe terrain-dxt` also checks there are 9 levels, that the mipped DXT3 and RGBA draws
   stay close (`mippedMeanDiff` under 8), and that the far half of the view is calmer with mips than at
   level 0 (`farBusy*`, the mean difference between neighbouring pixels). On 2026-10-17: level 0 0.03%
   over 4%; mipped 10.7% over 4%, mean 5.0; far ground 4.7 mipped against 16.4 at level 0; 0.7 MB
@@ -379,7 +379,7 @@ Checks: Lighting › Weather Preview (`world/WeatherLayer.ts`, `wow/weather.ts`,
 `tests/weather.test.ts` (grades, storm blend, drop and mist counts), `tests/clientLight.test.ts` (the
 storm params over the clear ones), `go test ./internal/vmangos/ -run 'Weather|ClientMapLights'`
 (game_weather read and written; with `WOW_DIR` Azeroth's storm params are read).
-- Probe: `pnpm probe weather` (about 40 s) on a hills map, Client Lighting on, the camera low: each
+- Probe: `bun run probe weather` (about 40 s) on a hills map, Client Lighting on, the camera low: each
   weather's part draws once its texture loads, the storm light closes the fog (Azeroth's global storm
   fog starts at -139 yd) and the drops change the picture over the storm light alone; clear hides the
   group and the fog goes back; then the Zones dialog shows Elwynn Forest's 12 sliders with the stock

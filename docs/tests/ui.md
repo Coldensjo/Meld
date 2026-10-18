@@ -133,14 +133,14 @@ In the dev page: `ed.ui.hidePanels = true`, then `document.querySelector('canvas
 grows and `document.querySelector('[data-ui="Toolbar"]')` is null. A key event
 (`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))`) does the
 same unless an input has focus; Ctrl+Tab still cycles the map tabs.
-Probe: `pnpm probe hide-panels` (canvas fills the window below the menu bar, returns on the second Tab).
+Probe: `bun run probe hide-panels` (canvas fills the window below the menu bar, returns on the second Tab).
 Trap: `.centre` must stay in grid column 2 of `.main`; alone in the auto first column it shrank to its
 content (145 px wide, #248).
 
 ## Tool hints
 Checks: each tool's help sentence shows in the status bar's left slot and not in the options bar; a
 status message (`setStatus`) takes the slot and the hint returns after it.
-Probe: `pnpm probe tool-hints` (eight tools and modes, and a message). It reports how many controls
+Probe: `bun run probe tool-hints` (eight tools and modes, and a message). It reports how many controls
 each bar puts under More (`hidden`) without judging it.
 Trap: the slot is one line with an ellipsis, so a long hint is cut off at narrow widths; hovering
 it shows the whole text.
@@ -153,7 +153,7 @@ Checks: at 1400 px the options bar stays one 34 px row; the brush's Size and Str
 the tool's modes; the controls that don't fit wrap below and are clipped, and a More (n) button at the
 right opens the bar over the viewport with all of them; Esc, a click elsewhere or another tool closes
 it; Tab onto a clipped control opens it.
-Probe: `pnpm probe options-more` (Hole, Raise, Terrace, Water, both doodad modes, Paint and Place).
+Probe: `bun run probe options-more` (Hole, Raise, Terrace, Water, both doodad modes, Paint and Place).
 `--shot <dir>` leaves the Water bar open in the picture.
 Trap: a headless page has no window focus (`document.hasFocus()` is false), so `el.focus()` fires no
 `focusin`; the probe dispatches it. Focus also scrolls the clipped bar to the control, which the bar
@@ -265,7 +265,7 @@ Checks: in the Start dialog's "Part of Azeroth", an instance's tiles come from i
 the picker selects the biggest square wholly on them and Open is enabled; a WMO-only instance (Molten
 Core) says it is a single building and enables Open; the block opens; the Stockade opens as a single
 building (#271): one model, the ground hidden, the building drawn from outside (a picture against
-the same view with the objects hidden) and its creatures inside its box. Run `pnpm probe
+the same view with the objects hidden) and its creatures inside its box. Run `bun run probe
 instance-open` (about 5 s). By hand: `curl "localhost:34115/wow/tiles?map=AhnQiraj"` lists tiles with
 `"File":""` (no minimap image, column 26), which `/wow/overview` draws shaded from their heights.
 Go: `WOW_DIR=C:/WoW/client go test ./internal/wow/ -run RealInstanceTiles` and

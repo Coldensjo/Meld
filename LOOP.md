@@ -321,8 +321,8 @@ b. Read the code it touches before changing it, and search the decisions about t
 
 c. Verify it. While you work, run only the tests that touch the change
    (`cd frontend && node --import ./tests/register.mjs --test tests/<name>.test.ts`, `go test
-   ./internal/<pkg>/`) and the probes that touch it (`cd frontend && pnpm probe --list`, then
-   `pnpm probe <name...>`; the coordinator keeps `make dev` running). Before committing, run all of:
+   ./internal/<pkg>/`) and the probes that touch it (`cd frontend && bun run probe --list`, then
+   `bun run probe <name...>`; the coordinator keeps `make dev` running). Before committing, run all of:
    - `make test`
    - `make check`
    - the build for the OS you run on: `make build-windows` on Windows (from Git Bash), `make
@@ -360,7 +360,7 @@ f. Close the issue with its log as the last comment: `gh issue comment <n> --rep
    - Left: follow-ups as new issues (#n), or "none".
    ```
 
-   For an optimization, Verified also gives the benchmark numbers before and after: `pnpm probe
+   For an optimization, Verified also gives the benchmark numbers before and after: `bun run probe
    bench` on the commit before yours and on yours (docs/TESTS.md, "Measuring performance").
 
 g. File what you noticed along the way as *New issues*; do not build it. Then go through your

@@ -177,7 +177,7 @@ const P = {
 	},
 
 	/**
-	 * Saves a shot as a PNG: `pnpm probe <name> --shot <dir>` writes it to `<dir>/<probe>-<name>.png`
+	 * Saves a shot as a PNG: `bun run probe <name> --shot <dir>` writes it to `<dir>/<probe>-<name>.png`
 	 * (without `--shot` it is dropped). The image goes through `window.__probeShots`, which the runner
 	 * empties, so its pixels stay out of the probe's printed result. `region` crops (as for `P.diff`).
 	 */

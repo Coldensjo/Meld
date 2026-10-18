@@ -20,16 +20,16 @@ build-windows:
 
 test:
 	go test ./internal/...
-	cd frontend && pnpm test
+	cd frontend && bun run test
 
 check:
 	@test -z "$$(gofmt -l internal *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal *.go; exit 1; }
 	go vet ./internal/...
-	cd frontend && pnpm check
+	cd frontend && bun run check
 
 # Every probe in frontend/probes against the running `make dev` (docs/TESTS.md, "Probes").
 probe:
-	cd frontend && pnpm probe --all
+	cd frontend && bun run probe --all
 
 clean:
 	rm -rf build/bin frontend/dist

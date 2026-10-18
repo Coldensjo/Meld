@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "dev": "bun --bun vite",
+    "build": "bun --bun vite build",
+    "preview": "bun --bun vite preview",
+    "check": "bun --bun svelte-check --tsconfig ./tsconfig.app.json && bun --bun tsc -p tsconfig.node.json",
     "test": "bun test ./tests",
     "probe": "bun probes/run.mjs"
   },

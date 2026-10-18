@@ -142,7 +142,7 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
   back to PCF), shadow maps are depth textures, and inside `#pragma unroll_loop` only
   `UNROLLED_LOOP_INDEX` and `[ i ]` are substituted.
 
-## Probes (`pnpm probe`): checks in the live app you can rerun
+## Probes (`bun run probe`): checks in the live app you can rerun
 
 Checks: a feature still works in the real app against the client's assets, in one command, with
 a few lines of JSON as the result. **Reach for a probe first**: run the existing ones that touch your
@@ -152,8 +152,8 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   leaves `/wow/status` answering while the page is a 502); if either fails it starts `make dev`
   detached (log: `meld-dev.log` in the temp folder) and waits up to 10 minutes, a few minutes in
   practice. It stays up for the next run; with `MELD_URL` set it never starts one. Keep it running across items.
-- `cd frontend && pnpm probe <name...>` runs those probes, `pnpm probe --all` (or `make probe`)
-  runs every one, `pnpm probe --list` names them, `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
+- `cd frontend && bun run probe <name...>` runs those probes, `bun run probe --all` (or `make probe`)
+  runs every one, `bun run probe --list` names them, `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
   stalls in one run). Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without
@@ -162,11 +162,11 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   `object-loot` timed out once the owner's session held a region). It prints one JSON line a probe and exits 1 if any failed. A page
   error also fails the probe (the error of Wails' `ipc.js`, which a plain browser page always throws,
   is left out).
-- **One-off checks**: `pnpm probe probes/scratch/<x>.js` (any argument ending in `.js` or holding a
+- **One-off checks**: `bun run probe probes/scratch/<x>.js` (any argument ending in `.js` or holding a
   slash is a path, from where you typed it) runs a probe file from anywhere, with `P` in scope.
   `frontend/probes/scratch/` is git-ignored: put diagnostics and throwaway views there, so they never
   land in a commit or in `--all`.
-- Trap: a probe run that outlives its shell (a background `--all` stopped at its time limit) keeps running with its Chrome and doubles SwiftShader's load, so every timing is wrong (#257: a 2 s fence that is 0.6 s alone). The runner now lists other live runs at start (`probe: warning: another probe run seems alive`, with pids). Stop one with `Stop-Process -Id <pid>` (Windows; `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ? CommandLine -match 'probes.run.mjs'` finds it) or `kill <pid>` (Linux).
+- Trap: a probe run that outlives its shell (a background `--all` stopped at its time limit) keeps running with its Chrome and doubles SwiftShader's load, so every timing is wrong (#257: a 2 s fence that is 0.6 s alone). The runner now lists other live runs at start (`probe: warning: another probe run seems alive`, with pids). Stop one with `Stop-Process -Id <pid>` (Windows; `Get-CimInstance Win32_Process -Filter "Name='bun.exe'" | ? CommandLine -match 'probes.run.mjs'` finds it) or `kill <pid>` (Linux).
 - Trap: don't run `make build-windows` (or `wails generate module`) while probes run. The build
   regenerates `wailsjs`, Vite hot-reloads the page in the middle of a probe and it fails on a page
   error from `App.svelte?t=…` at `@vite/client`. Run the build before or after.
@@ -188,7 +188,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     `P.only(object, fn)` runs `fn` with the rest of the scene hidden. For "looks the same with the
     switch on and off", take two shots with the switch unchanged as the noise floor (swaying trees,
     particles); `wmo-cull` and `terrain-dxt` do this.
-  - Looking at a picture: `P.save(img, name, region?)` keeps a shot as a PNG, which `pnpm probe <probe> --shot <dir>` writes to `<dir>/<probe>-<name>.png` (the page's own `--shot` capture is `<probe>.png`; without `--shot` the saved pictures are dropped, and their pixels stay out of the printed result). `P.fullView()` hides the panels (Tab) so the viewport fills the window, about 1384 x 745 instead of 1017 x 387 under the asset browser, which matters for pixel-sized effects such as snow; call it before `P.shot`.
+  - Looking at a picture: `P.save(img, name, region?)` keeps a shot as a PNG, which `bun run probe <probe> --shot <dir>` writes to `<dir>/<probe>-<name>.png` (the page's own `--shot` capture is `<probe>.png`; without `--shot` the saved pictures are dropped, and their pixels stay out of the printed result). `P.fullView()` hides the panels (Tab) so the viewport fills the window, about 1384 x 745 instead of 1017 x 387 under the asset browser, which matters for pixel-sized effects such as snow; call it before `P.shot`.
   - Viewport input: `P.click(x, y, opts, frames)` moves, presses and releases the pointer on the canvas and steps a frame; `P.drag([x, y], [x, y], steps, opts)` strokes; `x`, `y` are shares of the viewport, y = 0 the top, `opts` the event's `button`, `altKey`, `ctrlKey`, `shiftKey`. Setting `e.ndc` does not do this: the handlers overwrite it from the event. The status bar and tool state are read after the helper returns (its frame lets the handlers' messages land); `walkable` uses it.
   - A timeout in `P.until` or `P.settle` names the longest frame and the longest wait between frames
     during the wait (`P.stalls`), so a stall doesn't look like a broken feature.
@@ -312,7 +312,7 @@ the same scene, the report before and after.
 - The shadow maps are timed by wrapping `renderer.shadowMap.render` (`Engine.timeShadowMaps`): three
   draws them inside `renderer.render`, so without the wrap they would count as the scene.
 - **The benchmark scene.** Optimization issues and their done comments measure on this one scene, so
-  their numbers compare. `cd frontend && pnpm probe bench` loads it, waits for the client reads to
+  their numbers compare. `cd frontend && bun run probe bench` loads it, waits for the client reads to
   stop and prints the numbers. By hand: load it with `__loadScene`, wait until the models stop
   loading, then take `measurePerf()` as above:
 
@@ -326,7 +326,7 @@ the same scene, the report before and after.
   it as null unless the window held more than 10 frames. A change that a different spot shows better (a big city, a dense forest) may use
   one, but give its scene line beside the numbers.
 
-  Baseline, `pnpm probe bench` on 2026-10-17 after #215 (SwiftShader, so GPU n/a and CPU ms only
+  Baseline, `bun run probe bench` on 2026-10-17 after #215 (SwiftShader, so GPU n/a and CPU ms only
   compare between probe runs on this machine): 1996 draw calls, 697,402 triangles (2,052,549 before
   #215 culled Stormwind's groups in the near shadow cascade), 168 geometries, 719 textures, 325 MB
   heap; the most triangles: a Defias HumanMale (54k), Wolf (42k), nsabbey.wmo (35k), stormwind.wmo

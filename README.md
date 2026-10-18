@@ -9,7 +9,7 @@ Built with [Wails v2](https://wails.io) (Go), Svelte 5 and Three.js.
 
 ## Getting started
 
-You need Go 1.25+, Node.js 22.18+ with pnpm, and the Wails CLI
+You need Go 1.25+, Bun (bun.sh), and the Wails CLI
 (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`; check with `wails doctor`). Linux also
 needs `gtk3` and `webkit2gtk-4.1`; Windows needs the WebView2 runtime (already on Windows 10/11).
 

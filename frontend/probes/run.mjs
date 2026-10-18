@@ -1,12 +1,12 @@
 // The probe runner (docs/TESTS.md, "Probes"): runs named checks in the dev page over a headless
 // Chrome and prints one JSON line a probe. Needs `make dev` running (http://localhost:34115).
 //
-//   pnpm probe smoke undo-sculpt      run these probes
-//   pnpm probe probes/scratch/x.js    run a probe file from any path (one-off checks; probes/scratch is git-ignored)
-//   pnpm probe --all                  every probe in this folder
-//   pnpm probe bench --shot out       also save a screenshot a probe as out/<name>.png
-//   pnpm probe bench --profile        also print the probe's top functions by CPU time
-//   pnpm probe --list                 list the probes with their first comment line
+//   bun run probe smoke undo-sculpt      run these probes
+//   bun run probe probes/scratch/x.js    run a probe file from any path (one-off checks; probes/scratch is git-ignored)
+//   bun run probe --all                  every probe in this folder
+//   bun run probe bench --shot out       also save a screenshot a probe as out/<name>.png
+//   bun run probe bench --profile        also print the probe's top functions by CPU time
+//   bun run probe --list                 list the probes with their first comment line
 //
 // A probe is `probes/<name>.js`: the body of an async function run in the page, with `P` (lib.js)
 // in scope. It returns an object; `ok: false` (or a throw) fails it, and the runner exits 1.
@@ -22,7 +22,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession&defaults'
 const PORT = 9333 + Math.floor(Math.random() * 500)
 const TIMEOUT = Number(process.env.PROBE_TIMEOUT ?? 600) * 1000
-// pnpm runs the script in frontend/; a path is meant from where the command was typed.
+// `bun run` starts the script in frontend/ and doesn't set INIT_CWD; a path is meant from there, or from where `bun probes/run.mjs` was typed.
 const CWD = process.env.INIT_CWD ?? process.cwd()
 const APP_JS = join(here, '..', 'wailsjs', 'go', 'main', 'App.js')
 
@@ -42,7 +42,7 @@ if (names[0] === '--list' || names.length === 0) {
 		const first = readFileSync(join(here, n + '.js'), 'utf8').split('\n')[0].replace(/^\/\/\s*/, '')
 		console.log(`${n.padEnd(20)} ${first}`)
 	}
-	if (names.length === 0) console.log('\nUsage: pnpm probe <name or path.js...> | --all [--shot <dir>] [--profile]')
+	if (names.length === 0) console.log('\nUsage: bun run probe <name or path.js...> | --all [--shot <dir>] [--profile]')
 	process.exit(0)
 }
 /** A probe by name (in this folder) or by path (ends in .js or has a slash), as { name, file }. */
@@ -52,7 +52,7 @@ const probeFile = (arg) => {
 		if (!existsSync(file)) fail(`no probe file ${file}`)
 		return { name: basename(file, '.js'), file }
 	}
-	if (!all.includes(arg)) fail(`no probe named ${arg} (pnpm probe --list)`)
+	if (!all.includes(arg)) fail(`no probe named ${arg} (bun run probe --list)`)
 	return { name: arg, file: join(here, arg + '.js') }
 }
 const run = (names[0] === '--all' ? all : names).map(probeFile)

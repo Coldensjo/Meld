@@ -86,7 +86,7 @@ under the brush goes to the level under the first click.
 Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are
 `terrain/erosion.ts` and the sliced area run `terrain/erodeArea.ts`, unit tests in `erosion.test.ts`
 (same seed, same result; flat ground untouched; thermal keeps the volume and ends at the talus slope;
-cancel stops at the next turn). In the live app, `pnpm probe erode`: on a Mountains map (256, seed 3)
+cancel stops at the next turn). In the live app, `bun run probe erode`: on a Mountains map (256, seed 3)
 a water and a thermal stroke at the steepest spot change only vertices inside the brush and undo and
 redo exactly, and `Engine.erodeArea` over a 60-cell square changes only its inner vertices, reports
 progress to 1, undoes as "Erode selection", and a cancelled run changes nothing. With `mask: true`
@@ -95,7 +95,7 @@ turns on, and one undo restores the mask and the heights; `settledMask` has its 
 cone's foot, empty on its peak, nothing outside the rect written).
 
 - To see it, a scratch probe can `e.controller.setView(x, y, z, 0.8, 0.7, 380)` over the highest peak
-  and run `pnpm probe <file> --shot <dir>` with and without `erodeArea` (density 1, 5 passes): the peak
+  and run `bun run probe <file> --shot <dir>` with and without `erodeArea` (density 1, 5 passes): the peak
   comes out lower and gullied. The 256 Mountains preset is only about 60 yd high, so a stroke there is
   stronger than on a client continent.
 - To see the mask, a scratch probe can draw the area's heights and `t.mask` side by side into a
@@ -362,7 +362,7 @@ creature's way round obstacles.
   ford a walker wades, a deep ocean chunk with no navmesh, and the sea's cells). Go: `TestM2HullFaces`, and with `WOW_DIR=C:/WoW/client`
   `TestClientCollision` (three hulls wound outward by signed volume, Goldshire inn's floors facing up,
   its groups' triangle counts adding up to its faces).
-- Probe: `pnpm probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
+- Probe: `bun run probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
   round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, a river 2 yd
   deep across the map drawn blue and crossed only as a swimmer (`kind: 'swim'`, #239), and the view
   off freeing every tile. It turns Follow the Ground on first: with the default flying camera the new
@@ -371,7 +371,7 @@ creature's way round obstacles.
   (the abbey's tiles); cutting the ground under models (#282) took the average from 2.7 to 3.9 ms in
   one headless run (`nav.buildTile` over `nav.tiles` in a probe times them alone); on SwiftShader the whole build takes about 70 s of frames, so wait on
   `e.nav.counts` (`done === total`, `loading === 0`, `!settling`), never on a fixed number of frames.
-- Server mode (#240, View › Server's mmaps): `pnpm probe walkable-server` (about 45 s) in the
+- Server mode (#240, View › Server's mmaps): `bun run probe walkable-server` (about 45 s) in the
   benchmark scene reads the server's tile 32_48 (one tile within 160 yd of the target, about 39k
   triangles, 2 s), checks the drawn vertices lie on the ground (within 1.5 yd, 0.8 at the probe's spot: a wrong
   transform puts them a mirror away), walks four paths round and through the abbey over it and over

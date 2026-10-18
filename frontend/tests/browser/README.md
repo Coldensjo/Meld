@@ -1,10 +1,10 @@
 # Browser checks
 
 These run the terrain renderer and paint rules in a real browser, since the shader needs WebGL.
-They're not part of `pnpm check`; run them after changing the terrain, paint or palette code.
+They're not part of `bun run check`; run them after changing the terrain, paint or palette code.
 
 ```
-pnpm exec vite --port 5199 --strictPort     # serve the frontend (leave it running)
+bun --bun vite --port 5199 --strictPort     # serve the frontend (leave it running)
 chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader \
   --dump-dom http://localhost:5199/tests/browser/terrain.html
 chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swiftshader \

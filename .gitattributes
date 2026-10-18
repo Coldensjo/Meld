@@ -1,4 +1,4 @@
-# The repo is LF throughout, and the tools that write files (Wails, pnpm, the editor) write LF, so
+# The repo is LF throughout, and the tools that write files (Wails, Bun, the editor) write LF, so
 # git must not convert to CRLF on checkout (core.autocrlf), or generated files show as modified.
 * text=auto eol=lf
 *.png binary
