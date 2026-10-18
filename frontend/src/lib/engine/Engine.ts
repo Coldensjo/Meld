@@ -65,6 +65,7 @@ import { loadAreas } from '../wow/areas'
 import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
+import { setNearCascade } from '../world/shadowReach'
 import { WmoRooms } from '../world/WmoRooms'
 import { GROUND_SNAP_REACH } from '../world/particles'
 import { RoomFlood, SKY_GROUP } from '../world/wmoFlood'
@@ -1153,6 +1154,8 @@ export class Engine {
       v.shadowCamera = this.env.key.shadow.camera
       v.shadowFrustum = this.env.key.shadow.getFrustum()
     }
+		// The near pass draws a batch only with a drawn instance in its box (#325).
+		setNearCascade(v.shadowFrustum)
     v.spheres = this.effects.shadowSpheres
     // In a WMO room the open world shows only through its doorways (#116): each window the portal
     // flood left is the view narrowed to its rect, and a sealed room has none.

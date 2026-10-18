@@ -350,7 +350,9 @@ the same scene, the report before and after.
   target as the camera's own spot, down on the ground by the abbey (2001 calls, 743,861 triangles, and
   `terrain-dxt` read a flat far half). On 2026-10-17 after #256: 3015 draw calls, 2,574,488 triangles,
   185 geometries, 688 textures, 305 MB heap; the most triangles: HumanMale (54k), Wolf (44k),
-  nsabbey.wmo (35k), stormwind.wmo (31k). Update this when a commit moves it on purpose.
+  nsabbey.wmo (35k), stormwind.wmo (31k). On 2026-10-18 after #325 (a batch joins the near shadow
+  cascade only with a drawn instance in its box): 1287 draw calls, 679,161 triangles (2026 and 853,913
+  before it), 173 geometries, 722 textures, 314 MB heap. Update this when a commit moves it on purpose.
 - **Benchmark maps** (#322): generated maps that each stress one system, for performance work the
   Northshire scene can't show (how a cost grows with how much there is of something).
   `lib/bench/benchMaps.ts` builds them (`buildBenchMap(engine, kind, count?, seed?)`, `BENCH_MAPS` has
@@ -387,19 +389,21 @@ the same scene, the report before and after.
     | Map | CPU ms | Calls | Triangles | Geometries | Textures | Heap MB | Load s |
     |---|---|---|---|---|---|---|---|
     | objects-same | 1.5 | 108 | 1,435,230 | 150 | 21 | 88 | 9.1 |
-    | objects-mixed | 21.6 | 1,731 | 1,172,753 | 642 | 736 | 149 | 8.2 |
+    | objects-mixed | 17.3 | 1,610 | 1,114,050 | 642 | 736 | 149 | 8.2 |
     | wmo | 14.5 | 2,241 | 1,631,680 | 416 | 533 | 184 | 11.3 |
     | wmo at 4x (476 buildings, 8x8 tiles) | 19.9 | 3,159 | 5,057,184 | 1,138 | 537 | 288 | 34.6 |
     | lights | 5.1 | 209 | 405,020 | 188 | 80 | 96 | 5.9 |
     | creatures | 9.7 | 476 | 2,868,838 | 211 | 208 | 124 | 6.5 |
     | terrain | 2.2 | 254 | 485,501 | 341 | 20 | 147 | 15.0 |
     | water | 1.5 | 166 | 319,204 | 212 | 50 | 94 | 4.4 |
-    | everything | 21.3 | 2,723 | 1,511,302 | 839 | 938 | 207 | 18.0 |
+    | everything | 19.7 | 1,895 | 1,232,645 | 839 | 938 | 207 | 18.0 |
 
     What they show at once: CPU time follows draw calls (objects-mixed, wmo, everything), not
     triangles (objects-same draws 1.4M triangles in 108 calls for 1.5 ms). Update the table when a
     commit moves a number on purpose. The everything row is the median of five runs after #323 (which
-    hid the empty instanced meshes).
+    hid the empty instanced meshes). The everything and objects-mixed rows are the mean of two runs
+    after #325 (a batch joins the near shadow cascade only with a drawn instance in its box: everything
+    2,725 calls and 21.1 ms before); the other rows' calls predate it and drop too.
   - Trap: one `measurePerf()` window holds only two or three SwiftShader frames, so its `cpuMs` swings
     ±3 ms between identical runs (perf-everything gave 18.8 to 29.5 on one tree). Since #337 `P.perf()`
     takes 5 windows (`PERF_WINDOWS=n` in the environment, or `P.perf(n)`) and the probes' lines give

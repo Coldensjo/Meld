@@ -1,4 +1,5 @@
 // Stormwind, drawn once in the benchmark scene, is culled by WMO group (#198) in the scene pass and the near shadow cascade (#215): far fewer triangles than drawn whole, and the same picture.
+// At the benchmark view the city is outside the near cascade's box, which since #325 leaves it out of that pass whole, so the near cascade's group cull is measured over the city.
 await P.scene(P.BENCH)
 await P.settle()
 const batch = await P.until(() => [...P.e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
@@ -22,7 +23,7 @@ const storm = async () => {
 	const r = await P.perf(1)
 	return { frame: r.triangles, shadow, stormwind: meshTriangles(batch[1].mesh) }
 }
-let on, off, look
+let on, off, cityOn, cityOff, look
 try {
 	on = await storm()
 	WmoGroupCull.enabled = false
@@ -32,6 +33,10 @@ try {
 	// swaying trees): two culled shots give the noise floor.
 	P.e.setSceneView({ target: [-300, 120, 250], yaw: 4.71, pitch: 0.25, distance: 500, hour: 13 })
 	await P.settle()
+	cityOn = await storm()
+	WmoGroupCull.enabled = false
+	cityOff = await storm()
+	WmoGroupCull.enabled = true
 	await P.frames(3)
 	const a = await P.shot()
 	const b = await P.shot()
@@ -46,10 +51,11 @@ try {
 	sm.render = render
 }
 return {
-	// The near cascade holds about 2k of the city's 1.33M triangles; the far one is redrawn only when its fit changes.
-	ok: on.stormwind > 0 && on.stormwind * 4 < off.stormwind && off.shadow - on.shadow > 1_000_000 && look.ok,
+	// Over the city the near cascade draws about 390k fewer triangles with the cull; the far one is redrawn only when its fit changes.
+	ok: on.stormwind > 0 && on.stormwind * 4 < off.stormwind && on.shadow <= off.shadow && cityOff.shadow - cityOn.shadow > 200_000 && look.ok,
 	culled: on,
 	whole: off,
+	city: { culled: cityOn, whole: cityOff },
 	look,
 	batch: batch[0].split(/[\\/]/).pop(),
 }

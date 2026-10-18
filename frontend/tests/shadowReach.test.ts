@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { addShadowReach, clearShadowReach, instancesMeet } from '../src/lib/world/shadowReach.ts'
+import { addShadowReach, clearShadowReach, instancesMeet, setNearCascade } from '../src/lib/world/shadowReach.ts'
 
 /** An InstancedMesh of unit boxes drawing one instance at each of `at`. */
 function batch(...at: Array<[number, number, number]>): THREE.InstancedMesh {
@@ -46,4 +46,24 @@ test('only the instances drawn count, and any other frustum keeps every batch', 
   assert.equal(instancesMeet(b, new THREE.Frustum()), true)
   clearShadowReach()
   assert.equal(instancesMeet(b, l.shadow.getFrustum()), true, 'a light no longer registered culls nothing')
+})
+
+test('the near cascade draws a batch only with a drawn instance in its box', () => {
+	clearShadowReach()
+	const cam = new THREE.OrthographicCamera(-50, 50, 50, -50, 0, 200)
+	cam.position.set(0, 100, 0)
+	cam.lookAt(0, 0, 0)
+	cam.updateMatrixWorld()
+	const near = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse))
+	assert.equal(instancesMeet(batch([300, 0, 0]), near), true, 'not registered: kept')
+	setNearCascade(near)
+	assert.equal(instancesMeet(batch([300, 0, 0]), near), false, 'outside the box')
+	assert.equal(instancesMeet(batch([300, 0, 0], [10, 0, 10]), near), true, 'one instance is enough')
+	assert.equal(instancesMeet(batch([50.4, 0, 0]), near), true, 'a box overlapping the edge counts')
+	const b = batch([300, 0, 0], [10, 0, 10])
+	b.count = 1
+	assert.equal(instancesMeet(b, near), false, 'only the drawn instances count')
+	assert.equal(instancesMeet(b, new THREE.Frustum()), true, 'another frustum keeps it')
+	setNearCascade(null)
+	assert.equal(instancesMeet(b, near), true, 'without shadows nothing is culled')
 })

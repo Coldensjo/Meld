@@ -263,6 +263,10 @@ their own context is lost and restored, with no WebGL errors, and a closed Previ
 Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view or the near shadow
 cascade in the scene pass and the near cascade's shadow pass, and looks the same as drawn whole.
 - Probe: `bun run probe wmo-cull` (the frame's and the shadow maps' triangles, the cull on and off).
+  Since #325 a batch joins the near cascade only with a drawn instance in its box, and at the
+  benchmark view the city is outside it, so there the shadow maps draw the same with the cull on and
+  off (1,897,522 triangles on 2026-10-18). The probe compares the near cascade's triangles over the
+  city instead (the view below): 2,381,640 culled against 2,773,074 whole.
 - Unit: `frontend/tests/wmoGroupCull.test.ts` (runs by group, the view half, the camera check, the
   group's range put back after the draw).
 - Dev page, Northshire scene (Azeroth 32_48, 1x1). Stormwind loads late on SwiftShader: poll the live

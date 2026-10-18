@@ -268,6 +268,13 @@ target and facing. A click moves the camera there (`controller.focus`). In the d
   about 1 ms. In T3 Code's preview tab (a real GPU, RTX 5080) the old cube was ~38 ms at the default
   spot. Trap: a probe that runs many heavy `frame()` calls inside one evaluate can wedge that tab for
   good; start it in a `setTimeout` that writes its result to `window`, then read it in a second call.
+- The near cascade's draw calls (#325): a model or spawn batch joins the sun's near shadow pass only
+  with a drawn instance in the cascade's box (`setNearCascade`, `world/shadowReach.ts`). Unit test
+  `tests/shadowReach.test.ts`; in the app, `bun run probe perf-everything` (about 830 fewer calls than
+  before, 2725 to 1895). To A/B it in one page, wrap every scene InstancedMesh that has its own
+  `intersectsFrustum` as `(f) => f === __engine.env.key.shadow.getFrustum() ? true : old(f)` (the old
+  behaviour) and alternate with the original, `P.frames(3)` and `P.perf(1)` each. Look at the near
+  shadows (Help › Benchmark maps) for casters missing at the near box's edge.
 
 ## Start dialog: opening an instance (#222, #271, probe `instance-open`)
 

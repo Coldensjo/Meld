@@ -15,7 +15,12 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     instances.
   - A mesh with nothing packed (`count` 0) is hidden (`pack`, and `SpawnLayer.cull` with the spawn
     kinds shown): three would still set up each of its groups in every pass, since `cullForShadows`
-    passes every frustum but a point light's (#323). So `visible` on a batch mesh means "drawn now".
+    passes every frustum but a point light's and the near cascade's (#323).
+  - Our own cull packs what any frustum needs, so three culls a batch mesh only per shadow pass
+    (`world/shadowReach.ts`, `cullForShadows`): a point light's cube face draws it when one of its
+    packed instances meets the light's reach and the face (#133), and the sun's near cascade (redrawn
+    every frame, registered by `Engine.cullInstances` through `setNearCascade`) when one meets the
+    cascade's box (#325). The camera and the far cascade keep every packed batch. So `visible` on a batch mesh means "drawn now".
   - Each loaded model gets a three-mesh-bvh bounds tree (`world/bvh.ts`), which `pick` and
     `raycastSurface` cast through.
   - Each loaded model may also get a meshoptimizer LOD (`models/lod.ts`): a second index over the
