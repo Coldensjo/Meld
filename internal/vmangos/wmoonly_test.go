@@ -190,7 +190,7 @@ func TestClientWMOOnlyRegion(t *testing.T) {
 		return RegionEdit{MapName: v.MapName, X: v.X, Y: v.Y, Size: v.Size, Heights: v.Heights, Objects: objects}
 	}
 	files, res, err := RegionChanges(dataDir, edit(b))
-	if err != nil || len(files) != 0 || !res.Building || res.Tiles != 0 {
+	if err != nil || len(files) != 0 || !res.Building || res.Tiles != 0 || res.Files != 0 {
 		t.Fatalf("unchanged: %d files, %+v, %v", len(files), res, err)
 	}
 	withSet := b
@@ -201,6 +201,10 @@ func TestClientWMOOnlyRegion(t *testing.T) {
 	}
 	if w, ok := wmoOnlyBuilding(files[0].Data); !ok || w.DoodadSet != 1 || w.Position != [3]float32{} {
 		t.Fatalf("new doodad set wrote %+v", w)
+	}
+	// What Launch and Compile to Server ask (RegionPending): the one file the client lacks.
+	if _, res, err = RegionChanges(dataDir, edit(withSet)); err != nil || res.Files != 1 || !res.WDT {
+		t.Fatalf("new doodad set pending: %+v, %v", res, err)
 	}
 	moved := b
 	moved.X += 5

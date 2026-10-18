@@ -177,6 +177,25 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south
   unless the map ends there), closes the old tab and keeps the camera's view. It refuses a dirty map,
   since the bigger block is read from the client.
+- **Compiling a region** (#214): File › Compile to Client, Compile to Server and Compile All call
+  `compileRegion` in `mapio.ts` with `'client'`, `'server'` or `'all'`. Client builds the active tab's
+  `RegionEdit` (`regionEdit`: heights, models, paint and chunk headers, liquids) and `SaveRegion`
+  writes the tiles that differ from the patch's copies; Server rebuilds the server's map data of the
+  region's tiles from the patch (`UpdateRegionServer`), and refuses while the region has edits the
+  patch lacks; All does both, the server only for the tiles the client compile wrote. Spawns are not
+  compiled: they go to the database through Save Spawns. Compile works on the active tab only; with
+  nothing changed it names the other region tabs edited since their last compile.
+- **Uncompiled edits**: `MapDocument.compiled` is the fingerprint (`Engine.regionKey`,
+  `io/regionKey.ts`) of what Compile writes, taken when the region is opened from the client and after
+  each compile, with the history's change count then. `regionUncompiled` compares the active region's
+  against it (the count alone says "unchanged" without hashing; a spawn step changes the count but not
+  the key); a region opened from a file has no key, so the Go side's `RegionPending` builds it and
+  compares with the patch (it counts a tile the client has never had compiled as changed, since the
+  builder orders an MCNK's subchunks its own way). Launch (`launchGame`) opens the Compile and Launch
+  dialog (`ui.dialog = 'compileBeforeLaunch'`) when it is true; Play Here says so in its status line.
+  `regionKey` hashes the document's own arrays and settings, not `exportInput`, whose building
+  footprints in `noEffect` change as models load: a new compile input must be added to it, or Launch
+  misses its edits.
 
 - **Start dialog** (`components/NewMapDialog.svelte`, `ui.showNewDialog` + `ui.newMapMode`): every
   map is for the 1.12 client (folder + map ID). "New world" picks a size in tiles and a preset from

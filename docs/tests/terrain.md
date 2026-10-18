@@ -174,8 +174,8 @@ models, `fixFinding` deletes the copy and crops the water, and each fix is one u
   2843) for a Spawn guids taken error; put a creature at an `elwynncliffrock02` M2's origin plus 0.3 yd
   for Spawns inside models; raise a border vertex (`e.terrain.heights[64] += 3`) for a Region edge seam
   error. Unedited, the block's border matches the client's tiles exactly and none of its 347 spawns is
-  inside a model. With Preferences › Check the Map before Compile on, File › Compile Region to Client
-  then stops with "Compile stopped: … 2 errors" and opens the window, before anything is written.
+  inside a model. With Preferences › Check the Map before Compile on, File › Compile to Client
+  (or Compile All) then stops with "Compile stopped: … 2 errors" and opens the window, before anything is written.
 - The bindings alone: `await go.main.App.RegionEdges('Azeroth', 32, 48, 1)` (four 129-height rows)
   and `await go.main.App.CheckSpawnIDs({ creatureGuids: [1], objectGuids: [], creatureEntries: [999999], objectEntries: [] })`.
 - A save of such a planted spawn is refused (#199): `VMANGOS_DIR=/c/WoW/vmangos go test

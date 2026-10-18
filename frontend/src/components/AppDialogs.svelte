@@ -25,7 +25,7 @@
   import { setStatus } from '../lib/state/editor.svelte'
   import { appLog, clearLog, docs, editor, prefs, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { hasBackend, openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
+  import { compileAndLaunch, hasBackend, launchGame, openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
 
   /** Keeps the Log window scrolled to its newest line while it is open. */
   function stickToEnd(el: HTMLElement) {
@@ -81,7 +81,7 @@
       [
         'Preferences › WoW client folder points Meld at your 1.12 client. Its doodads, buildings and tileset textures then fill the asset browser along the bottom; nothing is copied out of it.',
         'File › New World (Ctrl+N) makes a world of a few tiles from a preset, and File › Open Part of Azeroth opens a square of tiles of a continent with its ground, textures, models and water.',
-        'Save (Ctrl+S) writes a .wmap file; for a map made for the client it also offers Publish, which writes the tiles into the client and builds the server\'s files. A part of Azeroth goes back into its tiles with File › Compile Region to Client.',
+        'Save (Ctrl+S) writes a .wmap file; for a map made for the client it also offers Publish, which writes the tiles into the client and builds the server\'s files. A part of Azeroth goes back into the game with File › Compile to Client (its tiles in the client\'s patch), Compile to Server (the server\'s map data, built from those tiles) or Compile All (both); Launch asks first when the open region has edits the client lacks.',
       ],
     ],
     [
@@ -305,6 +305,28 @@
           close()
           if (e) saveSpawns(e)
         }}>Save</button
+      >
+    {/snippet}
+  </Modal>
+{:else if ui.dialog === 'compileBeforeLaunch'}
+  <Modal title="Edits not in the game yet" width={420} onclose={close}>
+    <p>{ui.uncompiledRegion} has edits to its ground, textures, models or water that the client doesn't have yet, so the game would show it as it was.</p>
+    <p class="dim">Compile and Launch writes them into the client's tiles first (File › Compile to Client). The server's map data is left as it is: File › Compile to Server rebuilds it.</p>
+    {#snippet actions()}
+      <button onclick={close}>Cancel</button>
+      <button
+        onclick={() => {
+          close()
+          void launchGame(engineRef.current, { anyway: true })
+        }}>Launch Anyway</button
+      >
+      <button
+        class="active"
+        onclick={() => {
+          const e = engineRef.current
+          close()
+          if (e) void compileAndLaunch(e)
+        }}>Compile and Launch</button
       >
     {/snippet}
   </Modal>

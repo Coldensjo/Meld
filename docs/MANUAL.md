@@ -101,7 +101,9 @@ Also included:
 ### Menus
 
 - **File**: New World / Open / Open Part of Azeroth, Save / Save As / Revert, Map Properties,
-  Compile Region to Client, Close Map, Exit.
+  Compile to Client / Compile to Server / Compile All, Close Map, Exit. Compile to Client writes the
+  open region into the client's tiles, Compile to Server rebuilds the server's map data from those
+  tiles, and Compile All does both. Launch asks first when the open region has edits the client lacks.
 - **Edit**: Undo / Redo, History, Copy / Paste, Select All / Deselect, cut or fill holes in the area.
 - **Models**: duplicate, group, hide, delete, ground and replace the selected models; the Inspector.
 - **Terrain**: clean up the tile under the camera, auto-paint, replace a texture everywhere, climb view.

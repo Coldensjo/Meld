@@ -1342,6 +1342,19 @@ func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) 
 	return res, err
 }
 
+// RegionPending builds an edited block as SaveRegion would and says what differs from the client's
+// patch (RegionResult.Files, Changed), without writing anything or closing the game: Launch asks it
+// whether the open region has edits the client lacks (#214), and Compile to Server whether the patch
+// it builds from is current.
+func (a *App) RegionPending(edit vmangos.RegionEdit) (vmangos.RegionResult, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.RegionResult{}, err
+	}
+	_, res, err := vmangos.RegionChanges(dataDir, edit)
+	return res, err
+}
+
 // UpdateRegionServer rebuilds the server's map data for a continent after SaveRegion wrote tiles of it:
 // only those tiles (RegionResult.ChangedTiles) when the server's data matched the patch before, else the
 // whole map (#211). The world server stops and starts around it. It runs in the background: progress

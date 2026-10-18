@@ -189,6 +189,8 @@ export function RegionEdges(arg1:string,arg2:number,arg3:number,arg4:number):Pro
 
 export function RegionHorizon(arg1:string,arg2:number,arg3:number,arg4:number):Promise<Array<vmangos.HorizonTile>>;
 
+export function RegionPending(arg1:vmangos.RegionEdit):Promise<vmangos.RegionResult>;
+
 export function RegionShadows(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionShadows>;
 
 export function SaveAreaTriggers(arg1:Array<vmangos.AreaTrigger>,arg2:Array<number>):Promise<main.AreaSaveResult>;

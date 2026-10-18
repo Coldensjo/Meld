@@ -476,10 +476,8 @@ export const prefs = $state({
   showGroundEffects: true,
   /** The Detail info readout in the viewport's corner: tile, chunk, cell, height, layers and liquids under the cursor. */
   detailInfo: false,
-  /** Run File › Check Map when Compile Region to Client starts, and stop it on an error finding (#195). */
+  /** Run File › Check Map when Compile to Client or Compile All starts, and stop it on an error finding (#195). */
   checkBeforeCompile: false,
-  /** Rebuild the server's map data for the compiled tiles after Compile Region to Client, when a VMaNGOS folder is set (#211). It restarts the world server. */
-  updateServerAfterCompile: true,
   /** View › Performance Overlay (#179): where the frame's time goes, by subsystem and GPU pass, in the viewport's corner. */
   perfOverlay: false,
   /** Every file read from the client (models, textures, lists) goes into the Log window too, with its time (noggit's "additional file loading log"). */
@@ -550,7 +548,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | 'spawnRules' | 'worldMap' | 'erode' | null,
+  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | 'spawnRules' | 'worldMap' | 'erode' | 'compileBeforeLaunch' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */
@@ -578,6 +576,8 @@ export const ui = $state({
   hiddenModels: 0,
   /** How many of the active region's spawns were changed, added or deleted since they were saved. */
   spawnChanges: 0,
+  /** The region Launch found with edits the client lacks, for its Compile and Launch dialog (#214); '' for none. */
+  uncompiledRegion: '',
   /** Clicks in the Select tool edit the selected creature's path: add, pick and drag its points. */
   pathEdit: false,
   /**

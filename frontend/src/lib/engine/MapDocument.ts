@@ -142,6 +142,12 @@ export class MapDocument {
    */
   chunkDataKnown = true
   readonly history = new History()
+  /**
+   * What the client was last known to hold of this region (#214): the compile fingerprint
+   * (`Engine.regionKey`) when it was opened from the client or last compiled, and the history's
+   * change count then. A null key is unknown, as for a region opened from a file.
+   */
+  compiled: { key: string | null; changes: number } = { key: null, changes: -1 }
   /** The palette the terrain's shader was last given, as one string, to tell when it changes. */
   paletteKey = ''
   meta: DocMeta

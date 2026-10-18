@@ -2078,6 +2078,7 @@ export namespace vmangos {
 	    tilesCurrent: boolean;
 	    building: boolean;
 	    wdt: boolean;
+	    files: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionResult(source);
@@ -2093,6 +2094,7 @@ export namespace vmangos {
 	        this.tilesCurrent = source["tilesCurrent"];
 	        this.building = source["building"];
 	        this.wdt = source["wdt"];
+	        this.files = source["files"];
 	    }
 	}
 	export class RegionShadows {

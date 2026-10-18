@@ -110,13 +110,29 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   and `cmake --build build/extractors --config Release --target MapExtractor VMapExtractor`; the exes land
   in `vmangos\bin\Release`, to be copied into `run\Extractors`. The old `vmangos\build` cache points at
   the folder's former place (`C:\Servers\Software\vmangos`), so it can't be reused.
-- Compile Region to Client (#211) reuses it: `SaveRegion` returns `changedTiles`, `mapId` (0 Azeroth, 1 Kalimdor) and
-  `tilesCurrent`, and with Preferences › Update the Server Maps after Compile on (default) and a VMaNGOS folder set,
-  `exportRegion` calls `UpdateRegionServer`, which runs `vmangos.UpdateServerMaps` (the publish without the database
+- Compile All and Compile to Server (#211, #214) reuse it: `SaveRegion` returns `changedTiles`, `mapId` (0 Azeroth, 1 Kalimdor) and
+  `tilesCurrent`, and with a VMaNGOS folder set `compileRegion` calls `UpdateRegionServer` (Compile to Server with the
+  region's own tiles), which runs `vmangos.UpdateServerMaps` (the publish without the database
   step) in the background and reports through `servermaps:log`/`servermaps:done`. It stops and restarts mangosd, so
   not for the loop to try against the live server. Go: `TestFileTileName`.
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
+
+## Compile to Client, Server, All and Launch's check for uncompiled edits (#214)
+Checks: the File menu's three compile entries, and that Launch asks before starting the game while the
+open region has edits the client lacks, and only then.
+- Probe `compile-launch` (`bun run probe compile-launch`, about 5 s): opens Azeroth 31_50, checks the menu,
+  that the region counts as compiled as it opens, that a history step changing no compile input (as a
+  spawn edit is) keeps it so, that a raised vertex makes it uncompiled and its undo compiled again, that
+  Launch then opens the Compile and Launch dialog without starting anything, and that the Go side's
+  `RegionPending` (used for a region opened from a file) finds the raised tile.
+- It never compiles: Compile to Client writes the owner's `patch-3.MPQ` (closing the game), and Compile
+  to Server or All restart mangosd. Check those by hand, with the owner's go-ahead: after Compile to
+  Client the patch's time changes and `ReadRegion` of the tile gives the edited heights.
+- Trap: an unedited block built by `BuildRegion` is not byte-equal to a tile the client has never had
+  compiled (the builder orders an MCNK's subchunks its own way), so `RegionPending` says "changed" for
+  any such tile. That's why Launch trusts the fingerprint and asks Go only when there is none.
+- `go test ./internal/vmangos/ -run TestRegionPending` (with `WOW_DIR`): a raised vertex makes the tile differ.
 
 ## A map's own loading screen (Map Properties › Picture…, #218)
 Checks: a PNG becomes a map's loading screen: the BLP, its LoadingScreens.dbc row and the map's

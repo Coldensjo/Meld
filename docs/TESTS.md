@@ -467,5 +467,6 @@ the same scene, the report before and after.
 - The game's template cache after an editor's Save (#234)
 - Minimap tiles for the client (B-129, #17)
 - Server map extraction for one map (Publish, #174)
+- Compile to Client, Server, All and Launch's check for uncompiled edits (#214; probe `compile-launch`)
 - A map's own loading screen (Map Properties › Picture…, #218)
 - World map of a zone (World › World Map, #181; exploration overlays, #219)

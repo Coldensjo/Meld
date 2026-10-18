@@ -106,6 +106,7 @@ import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, po
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { AreaTriggers, CheckSpawnIDs, ObjectTeleport, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
+import { contentKey } from '../io/regionKey'
 
 /** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
 const FIT_APRON_CELLS = 2
@@ -1983,6 +1984,8 @@ export class Engine {
     // The client's water is in the liquid layers, so a block has no sea of its own.
     d.meta.waterEnabled = false
     this.addDocument(d)
+    // Read from the client, so the client holds it as it opens: Launch compares later states with this.
+    d.compiled = { key: this.regionKey(), changes: d.history.changes }
     // A single building opens with the camera looking at it from outside, over its middle.
     const b = r.bounds
     if (r.wmoOnly && b?.length === 6) {
@@ -2700,6 +2703,36 @@ export class Engine {
   /** The client region the active map came from, or null. */
   activeRegion(): RegionRef | null {
     return this.doc.meta.region
+  }
+
+  /**
+   * A fingerprint of what Compile writes for the active region (io/regionKey.ts): its ground, paint,
+   * chunk data, models and liquids, taken from the document's own arrays rather than the export, whose
+   * building footprints change as models load. Spawns are left out: they go to the database. Anything
+   * new that `exportInput` or the region save sends must be added here too, or Launch misses its edits.
+   */
+  regionKey(): string {
+    const d = this.doc
+    const t = d.terrain
+    const settings = [editor.palette, editor.textureEffects, editor.textureLooks, editor.scopedEffects, d.chunkDataKnown, d.liquidsKnown]
+    return contentKey([
+      t.heights,
+      t.weights,
+      t.chunkSlots,
+      t.holes,
+      t.noEffect,
+      t.areaIds,
+      t.chunkFlags,
+      t.shadow,
+      JSON.stringify(settings),
+      JSON.stringify(this.regionObjects()),
+      JSON.stringify(liquidsToAdt(d.liquids)),
+    ])
+  }
+
+  /** The other open regions edited since they were opened or last compiled (any step, spawns too), by tab name. */
+  otherEditedRegions(): string[] {
+    return this.documents.filter((d) => d !== this.doc && d.meta.region && d.history.changes !== d.compiled.changes).map((d) => d.meta.mapName)
   }
 
   /** The active region's models in world coordinates, with the file ID each came from (0 if new). */

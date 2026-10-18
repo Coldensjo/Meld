@@ -2,7 +2,7 @@
   import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
   import type { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
-  import { chooseBenillaFolder, launchGame, playHere, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, exportRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish, writeMinimapTiles } from '../lib/io/mapio'
+  import { chooseBenillaFolder, launchGame, playHere, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, compileRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish, writeMinimapTiles } from '../lib/io/mapio'
   import { saveSelectionAsPrefab } from '../lib/io/prefabFiles'
   import { growableSides, type Side } from '../lib/io/regionGrow'
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
@@ -106,7 +106,10 @@
         { kind: 'action', label: 'Map Properties…', run: () => (ui.dialog = 'mapProps') },
         { kind: 'sep' },
         { kind: 'action', label: 'Check Map…', run: () => (ui.checkMap = true) },
-        { kind: 'action', label: 'Compile Region to Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportRegion(e)) },
+        // The open region into the game (#214): the client's tiles, the server's map data built from them, or both.
+        { kind: 'action', label: 'Compile to Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'client')) },
+        { kind: 'action', label: 'Compile to Server', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'server')) },
+        { kind: 'action', label: 'Compile All', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'all')) },
         ...(editor.regionBlock
           ? [
               { kind: 'header' as const, label: 'Grow region (save first; the map stays square)' },
@@ -518,7 +521,6 @@
         { kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
         { kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
         { kind: 'check', label: 'Check the Map before Compile (stop on errors)', checked: prefs.checkBeforeCompile, toggle: () => (prefs.checkBeforeCompile = !prefs.checkBeforeCompile) },
-        { kind: 'check', label: 'Update the Server Maps after Compile', checked: prefs.updateServerAfterCompile, toggle: () => (prefs.updateServerAfterCompile = !prefs.updateServerAfterCompile) },
         { kind: 'header', label: 'Autosave unsaved maps' },
         ...radios(
           [

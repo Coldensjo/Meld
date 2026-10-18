@@ -94,6 +94,32 @@ func TestNewObjectGoesToItsTile(t *testing.T) {
 	}
 }
 
+// TestRegionPending is what Launch asks before it starts the game for a region opened from a file
+// (#214): one raised vertex makes its tile differ from the client's. (An unedited block can differ too,
+// when the client has never had the tile compiled, since the builder orders an MCNK's subchunks its own
+// way; TestClientWMOOnlyRegion has the unchanged case.) It needs WOW_DIR.
+func TestRegionPending(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := ReadRegion(dataDir, "Azeroth", 29, 51, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects}
+	edit.Heights = append([]float32(nil), view.Heights...)
+	edit.Heights[len(edit.Heights)/2] += 5
+	_, res, err := RegionChanges(dataDir, edit)
+	if err != nil || res.Files < 1 || res.Changed != 1 || len(res.ChangedTiles) != 1 || res.ChangedTiles[0] != "29_51" || res.MapID != 0 {
+		t.Fatalf("raised: %+v, %v", res, err)
+	}
+}
+
 // TestRegionNoEditRoundTrip reads a real region of the client and writes it back unedited. The
 // placements and heights must come out as they went in. It needs WOW_DIR set to the client.
 func TestRegionNoEditRoundTrip(t *testing.T) {

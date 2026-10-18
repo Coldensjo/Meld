@@ -559,6 +559,9 @@ type RegionResult struct {
 	Building bool `json:"building"`
 	// WDT says the map's WDT was among the files written.
 	WDT bool `json:"wdt"`
+	// Files is how many of the block's files (tiles, WDL, WDT) differ from the patch's copies: 0 means
+	// the client already has the block as the editor holds it.
+	Files int `json:"files"`
 }
 
 // ClientMapID is the ID of a continent the client holds, by its folder name; ok is false for others.
@@ -597,6 +600,7 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 		return nil, res, err
 	}
 	res.Changed = countTiles(changed)
+	res.Files = len(changed)
 	if countTiles(files) == 0 {
 		res.Building, res.Tiles = true, 0
 	}

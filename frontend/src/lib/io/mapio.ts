@@ -35,6 +35,7 @@ import {
   WritePNG,
   SaveMap,
   SaveMapDialog,
+  RegionPending,
   SaveRegion,
   UpdateRegionServer,
   SetVmangosPath,
@@ -474,15 +475,77 @@ function regionPaint(engine: Engine, size: number) {
   }
 }
 
+/** What Compile writes the region to: the client's patch, the server's map data, or both (#214). */
+export type CompileTarget = 'client' | 'server' | 'all'
+
+/** A region as the compile names and builds it. */
+type RegionBlock = { mapName: string; x: number; y: number; size: number }
+
+/** The active region's edit as the region save takes it. */
+function regionEdit(engine: Engine, region: RegionBlock) {
+  const water = engine.regionLiquids()
+  const { paint, headers } = regionPaint(engine, region.size)
+  return vmangos.RegionEdit.createFrom({
+    mapName: region.mapName,
+    x: region.x,
+    y: region.y,
+    size: region.size,
+    heights: Array.from(engine.outerHeights()),
+    objects: engine.regionObjects(),
+    paint,
+    headers,
+    hasLiquids: true,
+    liquids: water.liquids,
+    partialLiquids: water.partial,
+  })
+}
+
+/** The region's name in the status lines: "Azeroth 32_59". */
+const regionName = (r: RegionBlock) => `${r.mapName} ${r.x}_${r.y}`
+
 /**
- * Writes the active region back into the client's patch, into the tiles it was opened from, for the
- * server to build from. Only the tiles that differ from the patch's copies are written.
+ * Whether the active region has edits the client's patch lacks (ground, paint, models, water; not
+ * spawns): its fingerprint against the one taken when it was opened or last compiled, or, for a
+ * region opened from a file, which has none, the Go side's build against the patch.
  */
-export function exportRegion(engine: Engine) {
+export async function regionUncompiled(engine: Engine): Promise<boolean> {
+  const region = engine.activeRegion()
+  if (!region) return false
+  const d = engine.activeDocument()
+  if (d.compiled.key !== null) return d.history.changes !== d.compiled.changes && engine.regionKey() !== d.compiled.key
+  return (await RegionPending(regionEdit(engine, region))).files > 0
+}
+
+/** The client's continents, whose server map data Compile to Server rebuilds: their map IDs. */
+function continentId(mapName: string) {
+  const name = mapName.toLowerCase()
+  return name === 'azeroth' ? 0 : name === 'kalimdor' ? 1 : -1
+}
+
+/** A note on the spawn edits not yet in the world database, for the server's status lines. */
+function spawnNote() {
+  const n = ui.spawnChanges
+  return n ? ` ${n} spawn ${n === 1 ? 'edit is' : 'edits are'} not in the world database yet: File › Save Spawns to Database.` : ''
+}
+
+/**
+ * File › Compile to Client, Compile to Server and Compile All for the active region (#214):
+ * - client writes it back into the client's patch, into the tiles it was opened from; only the tiles
+ *   that differ from the patch's copies are written.
+ * - server rebuilds the server's map data of the region's tiles from the client's patch, once it is
+ *   sure the patch holds the region's edits, since the server is built from it.
+ * - all does both, the server only for the tiles the client compile wrote.
+ */
+export function compileRegion(engine: Engine, target: CompileTarget) {
   return guarded('Compile region', async () => {
     const region = engine.activeRegion()
     if (!region) {
       setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
+      return
+    }
+    const name = regionName(region)
+    if (target === 'server') {
+      await compileServer(engine, region, name)
       return
     }
     // Preferences › Check the Map before Compile (#195): errors stop the compile and open the list.
@@ -494,56 +557,79 @@ export function exportRegion(engine: Engine) {
         return
       }
     }
-    const water = engine.regionLiquids()
-    const { paint, headers } = regionPaint(engine, region.size)
-    const res = await SaveRegion(
-      vmangos.RegionEdit.createFrom({
-        mapName: region.mapName,
-        x: region.x,
-        y: region.y,
-        size: region.size,
-        heights: Array.from(engine.outerHeights()),
-        objects: engine.regionObjects(),
-        paint,
-        headers,
-        hasLiquids: true,
-        liquids: water.liquids,
-        partialLiquids: water.partial,
-      }),
-    )
+    const d = engine.activeDocument()
+    const compiled = { key: engine.regionKey(), changes: d.history.changes }
+    const res = await SaveRegion(regionEdit(engine, region))
+    // The patch now holds what the map held when the compile started.
+    d.compiled = compiled
+    const server = await VmangosPath()
     if (!res.patch) {
-      setStatus(`Nothing changed in ${region.mapName} ${region.x}_${region.y} since the last compile, so the patch and the game were left alone.`, 6000)
+      // Compile works on the open tab: another region with edits says where they are.
+      const others = engine.otherEditedRegions()
+      const elsewhere = others.length ? ` ${others.join(', ')} ${others.length === 1 ? 'was' : 'were'} edited since the last compile: Compile works on the open tab, so switch to it.` : ''
+      const rebuild = target === 'all' && server && res.mapId >= 0 ? " Compile to Server rebuilds the server's map data of the region anyway." : ''
+      setStatus(`Nothing changed in ${name} since the last compile, so the patch and the game were left alone.${elsewhere}${rebuild}`, 10000)
       return
     }
-    const server = await VmangosPath()
     const unchanged = res.tiles - res.changed
     const wrote = res.building
       ? `Wrote ${region.mapName}'s building (its WDT) to ${res.patch}.`
-      : `Wrote ${res.changed} of ${res.tiles} tiles of ${region.mapName} ${region.x}_${region.y} to ${res.patch}${unchanged ? ` (${unchanged} unchanged)` : ''}.`
-    if (!server) {
-      setStatus(wrote, 10000)
-      return
-    }
+      : `Wrote ${res.changed} of ${res.tiles} tiles of ${name} to the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}.`
     // Only a continent of the client has map data to rebuild this way, and only when a tile changed.
-    if (!prefs.updateServerAfterCompile || res.mapId < 0 || !res.changedTiles?.length) {
-      setStatus(`${wrote} Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.`, 10000)
+    const rebuildable = !!server && res.mapId >= 0 && !!res.changedTiles?.length
+    if (target === 'client') {
+      setStatus(rebuildable ? `${wrote} The server's map data still has the old ground: Compile to Server rebuilds it.` : wrote, 10000)
       return
     }
-    if (serverMapsRunning) {
-      setStatus(`${wrote} The server's map data is still being rebuilt from the last compile: compile again when it is done.`, 10000)
+    if (!server) {
+      setStatus(`${wrote} No VMaNGOS server folder is set (Game menu), so the server was left alone.`, 10000)
       return
     }
-    listenToServerMaps()
-    serverMapsRunning = true
-    try {
-      // The tiles alone only when the server's data matched the patch before; else the whole map.
-      await UpdateRegionServer(res.mapId, res.tilesCurrent ? res.changedTiles : [])
-      setStatus(`${wrote} Rebuilding the server's map data…`, 0)
-    } catch (e) {
-      serverMapsRunning = false
-      setStatus(`${wrote} The server's map data was not rebuilt: ${e}`, 10000)
+    if (!rebuildable) {
+      const hint = res.mapId < 0 ? ` Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.` : ''
+      setStatus(`${wrote}${hint}${spawnNote()}`, 10000)
+      return
     }
+    // The tiles alone only when the server's data matched the patch before; else the whole map.
+    await rebuildServerMaps(res.mapId, res.tilesCurrent ? res.changedTiles : [], wrote)
   })
+}
+
+/** Compile to Server: the region's tiles rebuilt from the client's patch, which must hold its edits. */
+async function compileServer(engine: Engine, region: RegionBlock, name: string) {
+  const mapId = continentId(region.mapName)
+  if (mapId < 0) {
+    setStatus(`Only Azeroth's and Kalimdor's map data is rebuilt this way. ${region.mapName}'s comes from update-maps.bat in the scripts folder beside the server.`, 10000)
+    return
+  }
+  if (!(await VmangosPath())) {
+    setStatus('Set the VMaNGOS server folder first (Game menu), then Compile to Server.', 8000)
+    return
+  }
+  if (await regionUncompiled(engine)) {
+    setStatus(`${name} has edits the client doesn't have yet, and the server's map data is built from the client's tiles: Compile All writes both.`, 10000)
+    return
+  }
+  const tiles: string[] = []
+  for (let j = 0; j < region.size; j++) for (let i = 0; i < region.size; i++) tiles.push(`${region.x + i}_${region.y + j}`)
+  await rebuildServerMaps(mapId, tiles, `Rebuilding the server's map data of ${name} from the client's tiles.`)
+}
+
+/** Starts the rebuild of the server's map data of `tiles` ("x_y"; none for the whole map) in the background. */
+async function rebuildServerMaps(mapId: number, tiles: string[], lead: string) {
+  if (serverMapsRunning) {
+    setStatus(`${lead} The server's map data is still being rebuilt from the last compile: Compile to Server again when it is done.`, 10000)
+    return
+  }
+  listenToServerMaps()
+  serverMapsRunning = true
+  try {
+    await UpdateRegionServer(mapId, tiles)
+    setStatus(`${lead} Rebuilding the server's map data…${spawnNote()}`, 0)
+  } catch (e) {
+    serverMapsRunning = false
+    setStatus(`${lead} The server's map data was not rebuilt: ${e}`, 10000)
+  }
 }
 
 let listeningServerMaps = false
@@ -961,9 +1047,14 @@ export async function chooseBenillaFolder() {
  * Opens the chosen game client now, logged in with the saved Game Login. With a saved character, it
  * enters the world where the camera is, when the open map is in the client.
  */
-export async function launchGame(engine: Engine | null) {
+export async function launchGame(engine: Engine | null, opts: { anyway?: boolean } = {}) {
   if (!hasBackend()) return
   const game = ui.gameClient === 'benilla' ? 'Benilla' : 'World of Warcraft'
+  // The game shows the client's tiles: an open region with edits they lack asks first (#214).
+  if (engine && !opts.anyway && (await uncompiledName(engine))) {
+    ui.dialog = 'compileBeforeLaunch'
+    return
+  }
   try {
     const spot = engine ? await engine.playerSpot() : null
     if (!spot) {
@@ -981,6 +1072,29 @@ export async function launchGame(engine: Engine | null) {
 }
 
 /**
+ * The active region's name when it has edits the client lacks (`regionUncompiled`), else ''; kept in
+ * `ui.uncompiledRegion` for the launch dialog. A failed check (no client folder) doesn't stop a launch.
+ */
+async function uncompiledName(engine: Engine): Promise<string> {
+  const region = engine.activeRegion()
+  let stale = false
+  try {
+    stale = !!region && (await regionUncompiled(engine))
+  } catch (e) {
+    console.warn('compile check failed', e)
+  }
+  ui.uncompiledRegion = stale && region ? regionName(region) : ''
+  return ui.uncompiledRegion
+}
+
+/** The launch dialog's Compile and Launch: Compile to Client, then the launch once the client has the edits. */
+export async function compileAndLaunch(engine: Engine) {
+  await compileRegion(engine, 'client')
+  if (await uncompiledName(engine)) return
+  await launchGame(engine, { anyway: true })
+}
+
+/**
  * Play here: moves the Game Login's character, in the world now, to where the camera is, through the
  * running world server, without closing the game. When it can't, the status bar says why and points
  * to Launch.
@@ -994,7 +1108,8 @@ export async function playHere(engine: Engine | null) {
       return
     }
     const moved = await PlayHere(vmangos.CharacterSpot.createFrom(spot))
-    setStatus(`Moved ${moved} to where the camera is.`, 4000)
+    const stale = await uncompiledName(engine)
+    setStatus(stale ? `Moved ${moved} to where the camera is. The game shows ${stale} without its latest edits: File › Compile to Client writes them (it restarts the game).` : `Moved ${moved} to where the camera is.`, stale ? 12000 : 4000)
   } catch (e) {
     setStatus(`Play here didn't move the character: ${e}. Game › Launch puts it there by restarting the game.`, 12000)
   }
