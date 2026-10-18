@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/regionGrow.test.ts
+// Run with: bun test tests/regionGrow.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { growableSides, grownBlock } from '../src/lib/io/regionGrow.ts'

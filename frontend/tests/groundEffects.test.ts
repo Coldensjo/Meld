@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/groundEffects.test.ts
+// Run with: bun test tests/groundEffects.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { BlizzardRandomizer, cellPredominant, cellTexture, chunkSeed, chunkNoEffect, coverCells, effectAt, effectFor, frillDensity, hasScopedEffects, noScopedEffects, knownEffects, scatterChunk, tuftFade, tuftReach, TUFT_CUT_DEPTH, type GroundEffect, type GroundEffectTables, type Tuft } from '../src/lib/world/groundEffects.ts'

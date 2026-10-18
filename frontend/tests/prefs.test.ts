@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/prefs.test.ts
+// Run with: bun test tests/prefs.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { changedPrefs } from '../src/lib/state/prefsPatch.ts'

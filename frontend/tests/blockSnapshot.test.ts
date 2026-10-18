@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/blockSnapshot.test.ts
+// Run with: bun test tests/blockSnapshot.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { BlockSnapshot } from '../src/lib/tools/blockSnapshot.ts'

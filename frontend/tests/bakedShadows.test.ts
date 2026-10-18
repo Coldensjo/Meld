@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/bakedShadows.test.ts
+// Run with: bun test tests/bakedShadows.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { unpackShadowBits } from '../src/lib/terrain/bakedShadows.ts'

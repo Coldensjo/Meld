@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/wmoRoom.test.ts
+// Run with: bun test tests/wmoRoom.test.ts
 // The cases are Benilla's own for `down_ray_pick` (wmo_portal/seed.rs).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

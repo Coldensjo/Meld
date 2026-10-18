@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/brushSize.test.ts
+// Run with: bun test tests/brushSize.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { dragFalloff, dragRadius, stepFalloff, stepRadius } from '../src/lib/tools/brushSize.ts'

@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/watermapImport.test.ts
+// Run with: bun test tests/watermapImport.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { watermapCells } from '../src/lib/io/watermapImport.ts'

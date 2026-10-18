@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/browserViews.test.ts
+// Run with: bun test tests/browserViews.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readView, writeView } from '../src/lib/wow/browserViews.ts'

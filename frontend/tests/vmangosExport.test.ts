@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/vmangosExport.test.ts
+// Run with: bun test tests/vmangosExport.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'

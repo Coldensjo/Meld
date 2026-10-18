@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/chunkDataStroke.test.ts
+// Run with: bun test tests/chunkDataStroke.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ChunkDataStroke } from '../src/lib/tools/chunkDataStroke.ts'

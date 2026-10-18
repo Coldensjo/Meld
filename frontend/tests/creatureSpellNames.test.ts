@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/creatureSpellNames.test.ts
+// Run with: bun test tests/creatureSpellNames.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CAST_FLAGS, CAST_TARGETS, castTarget, spellLabel } from '../src/lib/wow/creatureSpellNames.ts'

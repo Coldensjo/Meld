@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/roles.test.ts
+// Run with: bun test tests/roles.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { guessRoles, slopeDegrees, slopeWeights, validRoles } from '../src/lib/terrain/roles.ts'

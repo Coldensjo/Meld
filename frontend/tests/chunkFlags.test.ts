@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/chunkFlags.test.ts
+// Run with: bun test tests/chunkFlags.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CHUNK_IMPASSABLE, areaColor, forEachSquare, squaresUnder, type GridRect } from '../src/lib/terrain/chunkFlags.ts'

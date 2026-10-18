@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/clouds.test.ts
+// Run with: bun test tests/clouds.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CloudKernel, COLS, domeMesh, projectCells, type CloudFrame } from '../src/lib/wow/clouds.ts'

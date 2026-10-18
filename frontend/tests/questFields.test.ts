@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/questFields.test.ts
+// Run with: bun test tests/questFields.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { moneyText, questTabs, tabOfColumn } from '../src/lib/world/questFields.ts'

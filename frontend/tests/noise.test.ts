@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/noise.test.ts
+// Run with: bun test tests/noise.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { fbm, noise, ridged } from '../src/lib/engine/noise.ts'

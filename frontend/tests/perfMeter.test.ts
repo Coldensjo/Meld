@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/perfMeter.test.ts
+// Run with: bun test tests/perfMeter.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CPU_SECTIONS, PerfMeter, SECTION, formatReport, meshTriangles, topModels, type PerfReport } from '../src/lib/engine/perfMeter.ts'

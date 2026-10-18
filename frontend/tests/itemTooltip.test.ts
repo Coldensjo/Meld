@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/itemTooltip.test.ts
+// Run with: bun test tests/itemTooltip.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { money, tooltipLines } from '../src/lib/wow/itemTooltip.ts'

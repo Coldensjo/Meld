@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/clipChunkData.test.ts
+// Run with: bun test tests/clipChunkData.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { copyChunkData, pasteChunkData } from '../src/lib/world/clipChunkData.ts'

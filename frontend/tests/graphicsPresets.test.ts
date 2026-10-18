@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/graphicsPresets.test.ts
+// Run with: bun test tests/graphicsPresets.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { GRAPHICS_PRESETS, applyPreset, presetOf, type GraphicsValues } from '../src/lib/state/graphicsPresets.ts'

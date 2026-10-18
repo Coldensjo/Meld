@@ -99,7 +99,7 @@ Meld's config (`%APPDATA%\Meld\config.json`) holds absolute paths (`wowPath`, `v
 make dev             # wails dev -tags webkit2_41 (hot reload; browser debug at http://localhost:34115)
 make build-linux     # wails build -tags webkit2_41  → build/bin/Meld
 make build-windows   # wails build -platform windows/amd64 → build/bin/Meld.exe
-make test            # go test ./internal/... + frontend unit tests (node --test, needs Node 22.18+)
+make test            # go test ./internal/... + frontend unit tests (`bun test`)
 make check           # go vet + (cd frontend && pnpm check)
 make probe           # every live-app probe (frontend/probes) against the running `make dev`
 cd frontend && pnpm probe <name...>   # chosen probes; --list names them (docs/TESTS.md, "Probes")

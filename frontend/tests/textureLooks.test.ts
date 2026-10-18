@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/textureLooks.test.ts
+// Run with: bun test tests/textureLooks.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { lookFlags, lookOf, looksByIndex } from '../src/lib/world/textureLooks.ts'

@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/gossipNames.test.ts
+// Run with: bun test tests/gossipNames.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { GOSSIP_ACTIONS, GOSSIP_ICONS, nameOf, nextOptionId } from '../src/lib/wow/gossipNames.ts'

@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/holeWalls.test.ts
+// Run with: bun test tests/holeWalls.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { WALL_FADE_FAR, WALL_FADE_NEAR, bandOf, findWalls, revealRadius, wallFade } from '../src/lib/terrain/holes.ts'

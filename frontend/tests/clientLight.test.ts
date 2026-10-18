@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/clientLight.test.ts
+// Run with: bun test tests/clientLight.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { BAND, bandColor, bandFloat, lightAt, lightWeight, newLightAt, sceneFog, type ClientLights } from '../src/lib/wow/clientLight.ts'

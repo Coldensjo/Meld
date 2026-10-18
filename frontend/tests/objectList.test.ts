@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/objectList.test.ts
+// Run with: bun test tests/objectList.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { formatObjectList, parseObjectList } from '../src/lib/world/objectList.ts'

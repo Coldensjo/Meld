@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/maskSelect.test.ts
+// Run with: bun test tests/maskSelect.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { combineMask, featherMask, growMask, shrinkMask, wandSelect } from '../src/lib/terrain/maskSelect.ts'

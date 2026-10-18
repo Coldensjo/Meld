@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/clipShadows.test.ts
+// Run with: bun test tests/clipShadows.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { copyShadows, mirrorShadows, pasteShadows, rotateShadows, type ShadowTerrain } from '../src/lib/world/clipShadows.ts'

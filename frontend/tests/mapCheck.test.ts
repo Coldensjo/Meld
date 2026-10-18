@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/mapCheck.test.ts
+// Run with: bun test tests/mapCheck.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { MAX_PER_CHECK, capped, type Finding } from '../src/lib/check/findings.ts'

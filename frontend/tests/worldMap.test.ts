@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/worldMap.test.ts
+// Run with: bun test tests/worldMap.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { areasUnder, artName, boxRect, drawOverlays, explored, extentToRect, feather, fitAspect, intersect, mapLook, overlayName, paste, pixelBox, rectToExtent, WORLD_MAP_H, WORLD_MAP_W, zoneBounds, type OverlayPiece } from '../src/lib/io/worldMap.ts'

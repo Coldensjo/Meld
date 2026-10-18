@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/weather.test.ts
+// Run with: bun test tests/weather.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { effectDensity, stormBlend, WEATHER_GRADE, weatherCounts } from '../src/lib/wow/weather.ts'

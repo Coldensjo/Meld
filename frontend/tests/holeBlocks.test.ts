@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/holeBlocks.test.ts
+// Run with: bun test tests/holeBlocks.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { snapToBlocks } from '../src/lib/terrain/holes.ts'

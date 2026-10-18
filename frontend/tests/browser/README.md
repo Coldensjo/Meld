@@ -21,8 +21,8 @@ chrome --headless=new --no-sandbox --use-angle=swiftshader --enable-unsafe-swift
   needs a TileView as JSON at http://127.0.0.1:5210/tile.json (or `?url=`). Make that file yourself
   from `vmangos.ReadTile`, outside the repo: game data isn't committed. It should print `ALL_PASSED`.
 
-The pure rules have Node tests too. Node needs the hook that resolves the app's extensionless imports:
+The pure rules have Bun tests too:
 
 ```
-node --import ./tests/register.mjs --test tests/chunkPaint.test.ts tests/tileImport.test.ts
+bun test tests/chunkPaint.test.ts tests/tileImport.test.ts
 ```

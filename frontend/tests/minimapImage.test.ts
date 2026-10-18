@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/minimapImage.test.ts
+// Run with: bun test tests/minimapImage.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { minimapScale, shadeHeights } from '../src/lib/io/minimapImage.ts'

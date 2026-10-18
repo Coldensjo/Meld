@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/holes.test.ts
+// Run with: bun test tests/holes.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { HOLE_CELL, HOLE_FIRST, HOLE_NONE, HOLE_SECOND, countHoles, fillHoles, holeTriangle, triangleIsHole, withTriangle, writeCellIndex } from '../src/lib/terrain/holes.ts'

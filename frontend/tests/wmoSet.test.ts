@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/wmoSet.test.ts
+// Run with: bun test tests/wmoSet.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { baseType, doodadSetOf, withDoodadSet } from '../src/lib/models/wmoSet.ts'

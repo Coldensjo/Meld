@@ -12,7 +12,7 @@ Each entry says what it checks, how to run it, and the traps that cost time.
 ## Compiling a shader without the app (headless Chrome)
 
 Checks: that a `ShaderMaterial` compiles and draws what it should, when Claude in Chrome isn't there.
-Get the material's sources through the real module in node (`node --import ./tests/register.mjs x.ts`
+Get the material's sources through the real module in Bun (`bun x.ts`
 from `frontend/`; a script outside `frontend/` must import three and the module by absolute `file:///`
 URLs, or 'three' doesn't resolve) and write them to JSON. In a scratch folder (not the repo), with
 copies of `three.module.js` and `three.core.js`, a page builds the material, renders it with
@@ -36,12 +36,11 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 
 ## Unit and integration tests
 
-- `make test` runs `go test ./internal/...` and the frontend unit tests (`node --test`, Node 22.18+).
+- `make test` runs `go test ./internal/...` and the frontend unit tests (`bun test ./tests`).
 - `make check` runs go vet and svelte-check/tsc.
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit,
   replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
-  runes state. Trap: `node --test` strips types only, so a module a test loads can't use TypeScript
-  parameter properties (`constructor(private x: T)`) or import a `.svelte.ts` runes module.
+  runes state. Trap: a test can't import a `.svelte.ts` runes module, since Bun doesn't run the Svelte compiler on it.
 - WoW client integration tests: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 - The same `WOW_DIR` runs the client checks in `internal/vmangos` (region round trips, the chunk
   header write `TestRegionHeadersWritten`, `TestReadAreasFromClient`). On the owner's machine the

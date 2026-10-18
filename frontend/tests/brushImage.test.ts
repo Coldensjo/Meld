@@ -1,4 +1,4 @@
-// Run with: node --import ./tests/register.mjs --test tests/brushImage.test.ts
+// Run with: bun test tests/brushImage.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { brushImage, imageWeight, setBrushImage, setBrushImageRotation } from '../src/lib/tools/brushImage.ts'
