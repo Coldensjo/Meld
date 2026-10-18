@@ -418,6 +418,17 @@ the same scene, the report before and after.
     page: a scratch probe (`bun run probe <path.js>`) that builds the map with `P.benchMap`, then
     alternates the two states with `P.frames(3)` and `P.perf(1)` each, eight times each, and compares
     the means (#323: 19.6 ms against 22.5).
+  - Trap: the first probe run after an edit to served source (`make dev` hot-reloads it) can load the
+    map cold: on the everything map it ended with 117 shader programs instead of 72 (models drawn
+    before their textures, so three made each program twice) and waited 15 to 18 s on program links in
+    its first frames instead of about 1.2 s, and every run first after an edit did so in #327. For a
+    load or first-view measure (worst frame, `loadMs`, `renderer.info.programs.length`), run once to
+    warm up and compare the runs after it.
+  - Trap: the probes' Chrome has no `KHR_parallel_shader_compile`, and on SwiftShader a new program's
+    cost lands in the frame that first draws it whether or not it was compiled ahead
+    (`renderer.compileAsync`), so a probe can't show what compiling ahead gains on a real GPU (#327).
+    To see where programs cost, wrap `getProgramInfoLog`, `getShaderInfoLog`, `getProgramParameter`
+    and `getShaderParameter` on the context with timers and time each `frame()`.
   - Trap: a probe run that outlives the dev server fails every probe after it with "the page never set
     up __engine"; rerun those, and the runner starts `make dev` again.
   - **The rule for using them**: a change measured as faster on a stress map is kept only if
