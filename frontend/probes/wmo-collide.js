@@ -1,7 +1,8 @@
 // Camera collision with a WMO's walls (#305): with View › Camera Collision on, the flying camera flown
 // at a wall of Stormwind's Trade District room (group 49), 13 yd in one frame (through the wall, as a
 // fast flight would), stops the near plane's corner reach off it, still in the room, and the near plane
-// stays at 0.5 yd (docs/tests/rendering.md). With collision off it flies through, as the author needs to enter buildings.
+// stays at 0.5 yd (docs/tests/rendering.md). The clamp keeps it 3 yd over the street's floor, not over the
+// terrain (#310), so the start eye is not lifted and the eye comes down to the street. With collision off it flies through, as the author needs to enter buildings.
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e
@@ -34,22 +35,38 @@ const fly = async (collision) => {
 	const start = spot.clone().addScaledVector(dir, -3).applyMatrix4(m)
 	e.setSceneView({ target: start.toArray(), yaw: 2, pitch: 0.1, distance: 0.5, hour: 13 })
 	await P.frames(3)
+	// How far the clamp lifted the start eye (#310: the terrain lies under the street, so it lifted it 1.8 yd), and its height over the floor.
+	const lift = +(e.camera.position.y - start.y).toFixed(2)
+	const overFloor = +(e.camera.position.y - rooms.floorAt(e.objects, e.camera.position)).toFixed(2)
 	c.target.copy(start).addScaledVector(dirWorld, 13)
 	await P.frames(3)
 	const eye = e.camera.position
 	const room = rooms.current ? `${rooms.current.group} ${rooms.current.nav.groups[rooms.current.group].name}` : null
 	// How far on the room's side of the wall the eye is (yd); negative is through it.
 	const side = -eye.clone().sub(wallWorld).dot(dirWorld)
-	return { room, side: +side.toFixed(2), wallDist: +rooms.wallDist.toFixed(2), near: +e.persp.near.toFixed(3) }
+	return { room, lift, overFloor, side: +side.toFixed(2), wallDist: +rooms.wallDist.toFixed(2), near: +e.persp.near.toFixed(3) }
 }
 const on = await fly(true)
+// Down towards the street from the start (#310): the eye stops 3 yd over the street's floor, not over
+// the terrain, which runs 3 yd above the street here.
+const down = async () => {
+	const start = spot.clone().addScaledVector(dir, -3).applyMatrix4(m)
+	e.setSceneView({ target: start.toArray(), yaw: 2, pitch: 0.1, distance: 0.5, hour: 13 })
+	await P.frames(3)
+	c.target.y -= 4
+	await P.frames(3)
+	const eye = e.camera.position
+	return { room: rooms.current?.group ?? null, overFloor: +(eye.y - rooms.floorAt(e.objects, eye)).toFixed(2), overTerrain: +(eye.y - e.terrain.heightAt(eye.x, eye.z)).toFixed(2) }
+}
+const low = await down()
 const off = await fly(false)
 prefs.cameraCollision = before.collision
 prefs.cameraFollowGround = before.follow
 await P.frames(2)
 return {
-	ok: on.room === '49 Trade District' && on.side > 0.6 && on.wallDist > 0.6 && on.near === 0.5 && off.side < -5,
+	ok: on.room === '49 Trade District' && on.lift === 0 && low.room === 49 && Math.abs(low.overFloor - 3) < 0.05 && on.side > 0.6 && on.wallDist > 0.6 && on.near === 0.5 && off.side < -5,
 	on,
+	low,
 	off,
 	glErrors: P.glError(),
 }

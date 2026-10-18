@@ -200,6 +200,58 @@ function dominantAxes(nx: number, ny: number, nz: number): [number, number] {
   return [0, 1]
 }
 
+/** Leg A's answer, reused by every call: the highest walking face's height and its group (-1 for none). */
+const legA = { z: -Infinity, group: -1 }
+
+/** Finds the highest walking face at or below the eye (model space, WoW axes) into `out`. */
+function walkLeg(nav: WmoNav, ex: number, ey: number, ez: number, out: { z: number; group: number }) {
+	const groups = nav.groups
+	let bestZ = -Infinity
+	let best = -1
+	for (let gi = 0; gi < groups.length; gi++) {
+		const g = groups[gi]
+		if (ex < g.min[0] || ex > g.max[0] || ey < g.min[1] || ey > g.max[1] || g.min[2] > ez) continue
+		const tris = nav.walk[gi]
+		const grid = nav.walkGrids?.[gi]
+		if (!grid) {
+			for (let o = 0; o + 9 <= tris.length; o += 9) {
+				const z = triangleZAt(tris, o, ex, ey)
+				if (z <= ez && z > bestZ) {
+					bestZ = z
+					best = gi
+				}
+			}
+			continue
+		}
+		// The column's cell and the spanning faces, merged in ascending order.
+		const cx = Math.floor((ex - grid.minX) * grid.inv), cy = Math.floor((ey - grid.minY) * grid.inv)
+		const inGrid = cx >= 0 && cy >= 0 && cx < grid.nx && cy < grid.ny
+		let a = inGrid ? grid.starts[cy * grid.nx + cx] : 0
+		const aEnd = inGrid ? grid.starts[cy * grid.nx + cx + 1] : 0
+		let b = 0
+		const sp = grid.spanning
+		while (a < aEnd || b < sp.length) {
+			const f = b >= sp.length || (a < aEnd && grid.items[a] < sp[b]) ? grid.items[a++] : sp[b++]
+			const z = triangleZAt(tris, f * 9, ex, ey)
+			if (z <= ez && z > bestZ) {
+				bestZ = z
+				best = gi
+			}
+		}
+	}
+	out.z = bestZ
+	out.group = best
+}
+
+/**
+ * The height (model space) of the highest walking face of `nav` at or below the eye, the floor a
+ * player would stand on there, or -Infinity where there is none (#310).
+ */
+export function walkFloorZ(nav: WmoNav, ex: number, ey: number, ez: number): number {
+	walkLeg(nav, ex, ey, ez, legA)
+	return legA.z
+}
+
 /** The probe's verdict: the eye's group and, when a portal won, the group across it; null outside. */
 export interface RoomSeeds {
   inGroup: number | null
@@ -216,38 +268,9 @@ export function downRayPick(nav: WmoNav, ex: number, ey: number, ez: number, ter
   const outside: RoomSeeds = { inGroup: null, across: null }
 
   // Leg A: the highest walking face at or below the eye.
-  let bestZ = -Infinity
-  let best = -1
-  for (let gi = 0; gi < groups.length; gi++) {
-    if (!inColumn(groups[gi])) continue
-    const tris = nav.walk[gi]
-    const grid = nav.walkGrids?.[gi]
-    if (!grid) {
-      for (let o = 0; o + 9 <= tris.length; o += 9) {
-        const z = triangleZAt(tris, o, ex, ey)
-        if (z <= ez && z > bestZ) {
-          bestZ = z
-          best = gi
-        }
-      }
-      continue
-    }
-    // The column's cell and the spanning faces, merged in ascending order.
-    const cx = Math.floor((ex - grid.minX) * grid.inv), cy = Math.floor((ey - grid.minY) * grid.inv)
-    const inGrid = cx >= 0 && cy >= 0 && cx < grid.nx && cy < grid.ny
-    let a = inGrid ? grid.starts[cy * grid.nx + cx] : 0
-    const aEnd = inGrid ? grid.starts[cy * grid.nx + cx + 1] : 0
-    let b = 0
-    const sp = grid.spanning
-    while (a < aEnd || b < sp.length) {
-      const f = b >= sp.length || (a < aEnd && grid.items[a] < sp[b]) ? grid.items[a++] : sp[b++]
-      const z = triangleZAt(tris, f * 9, ex, ey)
-      if (z <= ez && z > bestZ) {
-        bestZ = z
-        best = gi
-      }
-    }
-  }
+  walkLeg(nav, ex, ey, ez, legA)
+  let bestZ = legA.z
+  let best = legA.group
 
   // Leg B: the portal crossings, racing the face hit.
   let across = -1

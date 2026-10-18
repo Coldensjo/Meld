@@ -2,7 +2,7 @@
 // The cases are Benilla's own for `down_ray_pick` (wmo_portal/seed.rs).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildColumnGrid, collideSphere, downRayPick, EXTERIOR, nearestFaceDist, triangleDistSq, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
+import { buildColumnGrid, collideSphere, downRayPick, walkFloorZ, EXTERIOR, nearestFaceDist, triangleDistSq, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
 
 type Tri = number[] // nine floats
 
@@ -45,6 +45,15 @@ test('the walking leg has no orientation filter, and an exterior group is outsid
   const steep = [[-1, -1, 0, 1, -1, 0, 0, 1, 20]]
   assert.equal(pick(nav([group(0, [-10, -10, 0], [10, 10, 120])], [steep]), [0, 0, 30]).inGroup, 0)
   assert.equal(pick(nav([group(EXTERIOR, [-30, -30, 0], [30, 30, 100])], [quad(0, 30)]), [0, 0, 5]).inGroup, null)
+})
+
+test('the floor under the eye is the highest walking face at or below it, whatever the group (#310)', () => {
+	const n = nav([group(EXTERIOR, [-30, -30, 0], [30, 30, 100]), group(0, [-5, -5, 10], [5, 5, 16])], [quad(0, 30), quad(10, 5)])
+	assert.equal(walkFloorZ(n, 0, 0, 12), 10)
+	assert.equal(walkFloorZ(n, 0, 0, 9), 0)
+	assert.equal(walkFloorZ(n, 20, 20, 50), 0, 'an exterior floor counts')
+	assert.equal(walkFloorZ(n, 0, 0, -1), -Infinity, 'under every floor')
+	assert.equal(walkFloorZ(n, 40, 0, 5), -Infinity, 'off the floors')
 })
 
 /** The Goldshire stairs: group 0 the stairwell (floor z 0), group 1 the taproom over its floor-hole portal at z 10. */

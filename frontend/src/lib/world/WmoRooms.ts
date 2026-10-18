@@ -5,7 +5,7 @@ import { fetchWmoNav } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
 import { EXTERIOR_LIT } from './wmoFlood'
 import { selectWmoFog, type FogTarget } from './wmoFog'
-import { collideSphere, decodeWmoNav, downRayPick, EXTERIOR, nearestFaceDist, toModel, type RoomSeeds, type WmoNav } from './wmoRoom'
+import { collideSphere, decodeWmoNav, downRayPick, EXTERIOR, nearestFaceDist, toModel, walkFloorZ, type RoomSeeds, type WmoNav } from './wmoRoom'
 
 /** The WMO room the camera is in. */
 export interface CameraRoom {
@@ -258,6 +258,36 @@ export class WmoRooms {
 			// Back from WoW axes to the local frame, then to the world.
 			to.set(end[0], end[2], -end[1]).applyMatrix4(this.m)
 		}
+	}
+
+	/**
+	 * The world height of the highest WMO floor (a walking face) at or below `eye`, or -Infinity where
+	 * no placed WMO has one (#310). Camera collision keeps the flying camera above it as it does above
+	 * the terrain, since under a city the terrain lies below the streets. A WMO still loading, hidden,
+	 * or on a hidden Objects layer has no floor. Uses the WMO list of the last `update`, for the same layer.
+	 */
+	floorAt(objects: ObjectLayer, eye: THREE.Vector3): number {
+		let best = -Infinity
+		if (objects !== this.layer || !objects.group.visible) return best
+		for (const id of this.wmoIds) {
+			const o = objects.objects.get(id)
+			if (!o || objects.isHidden(id)) continue
+			const asset = getAsset(o.type)
+			if (!asset.ready) continue
+			objects.matrixOf(o, this.m)
+			this.inv.copy(this.m).invert()
+			const l = this.local.copy(eye).applyMatrix4(this.inv)
+			const bb = asset.bbox
+			if (l.x < bb.min.x || l.x > bb.max.x || l.z < bb.min.z || l.z > bb.max.z || l.y < bb.min.y) continue
+			const nav = this.nav(baseType(o.type).slice('wmo:'.length))
+			if (!nav) continue
+			const [ex, ey, ez] = toModel(l, this.eyeModel)
+			const z = walkFloorZ(nav, ex, ey, ez)
+			if (z === -Infinity) continue
+			const y = l.set(ex, z, -ey).applyMatrix4(this.m).y
+			if (y > best) best = y
+		}
+		return best
 	}
 
   /** The room data of a WMO, or null while it loads (or when it failed). */

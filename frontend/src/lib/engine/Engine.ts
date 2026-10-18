@@ -479,6 +479,14 @@ export class Engine {
     // Camera collision keeps the eye off the WMOs' faces by the near plane's reach to a corner, so no
     // wall is ever clipped away (#305).
     this.controller.collideWalls = (from, to) => this.rooms.collide(this.objects, from, to, NEAR * this.cornerFactor())
+    // In a WMO's room (last frame's probe) it stays above the WMO's floor instead of the terrain, which
+    // in Stormwind runs both above and below the streets; elsewhere above the higher of the two, so a
+    // roof is a floor too (#310). After a jump (a scene, a teleport) the probe runs for the new eye first.
+    this.controller.collisionFloor = (at, ground, jumped) => {
+      if (jumped) this.rooms.update(this.objects, at, this.roomGround)
+      const floor = this.rooms.floorAt(this.objects, at)
+      return this.rooms.current && floor > -Infinity ? floor : Math.max(ground, floor)
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this

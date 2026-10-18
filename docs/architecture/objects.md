@@ -66,8 +66,13 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     each nearby WMO's model space: the path is swept against the collision faces (`sweepFaces`, so a
     fast flight can't tunnel through a thin wall), stops the near plane's corner reach (0.5 yd times
     `Engine.cornerFactor`) off a face and slides along it, then is pushed out of any face it ended
-    nearer to. It runs after the 3 yd terrain clamp, which can put the eye in a city's ceiling. A
+    nearer to. It runs after the 3 yd floor clamp, which in a low room can put the eye in a ceiling. A
     teleport, a mode change or a tab switch (`CameraController.jump`) is not collided.
+    The clamp keeps the eye 3 yd above the floor the `collisionFloor` hook gives (#310): in a WMO's
+    room (`WmoRooms.current`; after a jump the probe runs for the new eye first) the highest walking
+    face at or below the eye (`WmoRooms.floorAt`, `wmoRoom.ts` `walkFloorZ`, Leg A of the down-ray),
+    not the terrain, which in Stormwind runs yards above and below the streets; elsewhere the higher
+    of the terrain and a WMO floor, so a roof is a floor too. The Walk camera still stands on the terrain.
     Without it a wall closer than the near plane (0.5 yd) would be clipped away and, gated, show the sky.
     `WmoRooms.wallDist` is the eye's distance to the nearest collision face of any WMO within 2 yd
     (`wmoRoom.ts` `nearestFaceDist`, through the column index), and `Engine.updateNear` pulls the near

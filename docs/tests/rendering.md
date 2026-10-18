@@ -468,8 +468,10 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   and the near plane at 0.5 yd; off, it ends 9.5 yd past the wall in SI:7 (group 111).
 - Unit test: `bun test tests/wmoRoom.test.ts` ("a sphere moved into a wall ..."): stop, slide, floor,
   push-out and a free move on a toy room, with and without the column index.
-- Trap: the 3 yd terrain clamp knows nothing of WMOs, and under Stormwind it lifts the eye to 5.6 yd
-  over the Trade District's street (the terrain is 1.2 yd under wmo-over's `wall` eye), into the
-  room's sloping ceiling; collision runs after the clamp, so the eye ends under the ceiling instead
-  (the probe's move slides down it and stops 2.8 yd short of the wall). A view set by `setSceneView`
+- The clamp (#310): the probe's `low` step lowers the eye 4 yd from its start and checks it stops 3 yd
+  over the Trade District street's floor (`WmoRooms.floorAt`), in room 49, below the terrain there; `on.lift`
+  checks the start eye set by `setSceneView` is not lifted.
+- Trap: the terrain under Stormwind runs yards above and below the streets (3 yd over the street at the
+  probe's start, 7.5 yd under it 14 yd away), so a check of the camera's height there must measure from
+  `rooms.floorAt`, not `terrain.heightAt`. A view set by `setSceneView`
   or `focus` is a jump and is not collided, so an eye placed inside a wall stays there until it moves.

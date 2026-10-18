@@ -41,7 +41,8 @@ export class CameraController {
   followGround = false
   /**
    * Camera collision (Noggit Red's): the flying camera stays at least COLLIDE_HEIGHT above the ground
-   * (or the water over it), so it can't sink into a hill, and off the WMOs' walls (`collideWalls`);
+   * (or the water over it), or in a WMO above its floor (`collisionFloor`), so it can't sink into a hill
+   * or a street, and off the WMOs' walls (`collideWalls`);
    * off, it enters caves and cellars and flies through walls.
    */
   collision = false
@@ -50,6 +51,14 @@ export class CameraController {
    * the Engine's hook moves `to`, where the eye is going from `from` this frame, to where it stops.
    */
   collideWalls: ((from: THREE.Vector3, to: THREE.Vector3) => void) | null = null
+	/**
+	 * With `collision` on, the floor the flying camera stays COLLIDE_HEIGHT above at `at`, given the
+	 * ground's height there (#310): the Engine's hook puts a WMO's floor in place of the terrain while the
+	 * eye is in one of its rooms, since in a city the terrain runs above and below the streets. `jumped`
+	 * says the eye came there by a jump, so what the Engine knew of its room is out of date.
+	 */
+	collisionFloor: ((at: THREE.Vector3, ground: number, jumped: boolean) => number) | null = null
+	private floorProbe = new THREE.Vector3()
   /** Where the eye was after the last `update`, and whether it has jumped since (a teleport, a mode change), which is no move to collide. */
   private settled = new THREE.Vector3()
   private jumped = true
@@ -338,9 +347,15 @@ export class CameraController {
       if (k.has('Space')) this.target.y += speed
       if (k.has('KeyX') || k.has('KeyC')) this.target.y -= speed
       if (this.collision && !this.topDown) {
-        this.target.y = Math.max(this.target.y, this.ground(this.target.x, this.target.z) + COLLIDE_HEIGHT)
-        // After the ground clamp, which knows nothing of the WMOs: under a city the terrain + 3 yd can
-        // lie in a wall or a ceiling, and the walls win.
+        let floor = this.ground(this.target.x, this.target.z)
+        if (this.collisionFloor) {
+          // From the higher of where the eye was and where it goes, so a fast drop through a floor still finds it.
+          const p = this.floorProbe.copy(this.target)
+          if (!this.jumped) p.y = Math.max(p.y, this.settled.y)
+          floor = this.collisionFloor(p, floor, this.jumped)
+        }
+        this.target.y = Math.max(this.target.y, floor + COLLIDE_HEIGHT)
+        // After the floor clamp: in a low room the floor + 3 yd can lie in a wall or a ceiling, and the walls win.
         if (this.collideWalls && !this.jumped && !this.target.equals(this.settled)) this.collideWalls(this.settled, this.target)
       }
     }
