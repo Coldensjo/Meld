@@ -59,12 +59,20 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     above the whole building) the WMO goes in `WmoRooms.over` and is drawn whole, since the client's
     camera never goes there and its flood then left holes: Stormwind's streets are lit interiors (0x40)
     a few yards tall, reached from outside only through one exterior shell.
-    The client's camera also collides with a WMO and stays off its walls; Meld's flying camera does
-    not, so a wall closer than the near plane (0.5 yd) would be clipped away and, gated, show the sky.
+    The client's camera also collides with a WMO and stays off its walls. Meld's flying camera does
+    so only with View › Camera Collision on (#305; off, the author flies through walls into buildings):
+    each frame `CameraController.update` hands the move from the last settled eye to the new target
+    to `Engine`'s `collideWalls` hook, `WmoRooms.collide`, which runs `wmoRoom.ts` `collideSphere` in
+    each nearby WMO's model space: the path is swept against the collision faces (`sweepFaces`, so a
+    fast flight can't tunnel through a thin wall), stops the near plane's corner reach (0.5 yd times
+    `Engine.cornerFactor`) off a face and slides along it, then is pushed out of any face it ended
+    nearer to. It runs after the 3 yd terrain clamp, which can put the eye in a city's ceiling. A
+    teleport, a mode change or a tab switch (`CameraController.jump`) is not collided.
+    Without it a wall closer than the near plane (0.5 yd) would be clipped away and, gated, show the sky.
     `WmoRooms.wallDist` is the eye's distance to the nearest collision face of any WMO within 2 yd
     (`wmoRoom.ts` `nearestFaceDist`, through the column index), and `Engine.updateNear` pulls the near
     plane in to that distance over the frustum's corner factor (down to 0.05 yd) while it is that
-    close (#304). An eye inside a wall's thickness still sees past it; only collision would stop that.
+    close (#304). An eye inside a wall's thickness still sees past it; collision keeps it from getting there.
 
 ## Prop animation, lights & flames
 

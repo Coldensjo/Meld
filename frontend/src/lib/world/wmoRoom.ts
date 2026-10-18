@@ -312,7 +312,13 @@ export function downRayPick(nav: WmoNav, ex: number, ey: number, ez: number, ter
   return { inGroup: best, across: across < 0 ? null : across }
 }
 
-/** The squared distance from (px, py, pz) to the triangle at `t[o..o+9]` (Ericson's closest point, 5.1.5). */
+/** The point on the face that the last `triangleDistSq` found nearest. */
+const closest = new Float64Array(3)
+
+/**
+ * The squared distance from (px, py, pz) to the triangle at `t[o..o+9]` (Ericson's closest point,
+ * 5.1.5). The nearest point itself is left in `closest`.
+ */
 export function triangleDistSq(t: ArrayLike<number>, o: number, px: number, py: number, pz: number): number {
 	const ax = t[o], ay = t[o + 1], az = t[o + 2]
 	const abx = t[o + 3] - ax, aby = t[o + 4] - ay, abz = t[o + 5] - az
@@ -358,6 +364,9 @@ export function triangleDistSq(t: ArrayLike<number>, o: number, px: number, py: 
 			}
 		}
 	}
+	closest[0] = qx
+	closest[1] = qy
+	closest[2] = qz
 	const dx = px - qx, dy = py - qy, dz = pz - qz
 	return dx * dx + dy * dy + dz * dz
 }
@@ -368,8 +377,9 @@ export function triangleDistSq(t: ArrayLike<number>, o: number, px: number, py: 
  * the groups whose box comes within `reach` are searched, and through a group's column index only
  * the cells within `reach` of the eye's column. The Engine pulls the near plane in by it (#304).
  */
-export function nearestFaceDist(nav: WmoNav, ex: number, ey: number, ez: number, reach: number): number {
-	let best = reach * reach
+export function nearestFaceDist(nav: WmoNav, ex: number, ey: number, ez: number, reach: number, out?: number[]): number {
+	best = reach * reach
+	bestOut = out ?? null
 	const groups = nav.groups
 	for (let gi = 0; gi < groups.length; gi++) {
 		const g = groups[gi]
@@ -379,8 +389,7 @@ export function nearestFaceDist(nav: WmoNav, ex: number, ey: number, ez: number,
 			const grid = k === 0 ? nav.walkGrids?.[gi] : null
 			if (!grid) {
 				for (let o = 0; o + 9 <= tris.length; o += 9) {
-					const d = triangleDistSq(tris, o, ex, ey, ez)
-					if (d < best) best = d
+					keepNearest(triangleDistSq(tris, o, ex, ey, ez))
 				}
 				continue
 			}
@@ -391,18 +400,186 @@ export function nearestFaceDist(nav: WmoNav, ex: number, ey: number, ez: number,
 				for (let cx = x0; cx <= x1; cx++) {
 					const c = cy * grid.nx + cx
 					for (let i = grid.starts[c]; i < grid.starts[c + 1]; i++) {
-						const d = triangleDistSq(tris, grid.items[i] * 9, ex, ey, ez)
-						if (d < best) best = d
+						keepNearest(triangleDistSq(tris, grid.items[i] * 9, ex, ey, ez))
 					}
 				}
 			}
 			for (let i = 0; i < grid.spanning.length; i++) {
-				const d = triangleDistSq(tris, grid.spanning[i] * 9, ex, ey, ez)
-				if (d < best) best = d
+				keepNearest(triangleDistSq(tris, grid.spanning[i] * 9, ex, ey, ez))
 			}
 		}
 	}
+	bestOut = null
 	return best < reach * reach ? Math.sqrt(best) : Infinity
+}
+
+/** `nearestFaceDist`'s running minimum, and where it copies the nearest point (or null). */
+let best = 0
+let bestOut: number[] | null = null
+
+function keepNearest(d: number) {
+	if (d >= best) return
+	best = d
+	if (bestOut) {
+		bestOut[0] = closest[0]
+		bestOut[1] = closest[1]
+		bestOut[2] = closest[2]
+	}
+}
+
+/**
+ * The fraction (0..1) along the segment from `a` to `b` at which it first crosses one of the WMO's
+ * collision faces (the walking faces and the camera-only ones), or Infinity where it crosses none.
+ * `normal` gets that face's unit normal, turned to face `a`. Only the groups whose box meets the
+ * segment's are searched, and through a group's column index only the cells under the segment.
+ */
+export function sweepFaces(nav: WmoNav, a: ArrayLike<number>, b: ArrayLike<number>, normal: number[]): number {
+	const ax = a[0], ay = a[1], az = a[2]
+	const dx = b[0] - ax, dy = b[1] - ay, dz = b[2] - az
+	const minX = Math.min(ax, b[0]), maxX = Math.max(ax, b[0])
+	const minY = Math.min(ay, b[1]), maxY = Math.max(ay, b[1])
+	const minZ = Math.min(az, b[2]), maxZ = Math.max(az, b[2])
+	let hit = Infinity
+	let hitTris: ArrayLike<number> | null = null
+	let hitO = 0
+	const groups = nav.groups
+	for (let gi = 0; gi < groups.length; gi++) {
+		const g = groups[gi]
+		if (maxX < g.min[0] || minX > g.max[0] || maxY < g.min[1] || minY > g.max[1] || maxZ < g.min[2] || minZ > g.max[2]) continue
+		for (let k = 0; k < 2; k++) {
+			const tris = k === 0 ? nav.walk[gi] : nav.camera[gi]
+			const grid = k === 0 ? nav.walkGrids?.[gi] : null
+			if (!grid) {
+				for (let o = 0; o + 9 <= tris.length; o += 9) {
+					const t = segmentTriangle(tris, o, ax, ay, az, dx, dy, dz)
+					if (t < hit) {
+						hit = t
+						hitTris = tris
+						hitO = o
+					}
+				}
+				continue
+			}
+			const x0 = Math.max(0, Math.floor((minX - grid.minX) * grid.inv)), x1 = Math.min(grid.nx - 1, Math.floor((maxX - grid.minX) * grid.inv))
+			const y0 = Math.max(0, Math.floor((minY - grid.minY) * grid.inv)), y1 = Math.min(grid.ny - 1, Math.floor((maxY - grid.minY) * grid.inv))
+			for (let cy = y0; cy <= y1; cy++) {
+				for (let cx = x0; cx <= x1; cx++) {
+					const c = cy * grid.nx + cx
+					for (let i = grid.starts[c]; i < grid.starts[c + 1]; i++) {
+						const o = grid.items[i] * 9
+						const t = segmentTriangle(tris, o, ax, ay, az, dx, dy, dz)
+						if (t < hit) {
+							hit = t
+							hitTris = tris
+							hitO = o
+						}
+					}
+				}
+			}
+			for (let i = 0; i < grid.spanning.length; i++) {
+				const o = grid.spanning[i] * 9
+				const t = segmentTriangle(tris, o, ax, ay, az, dx, dy, dz)
+				if (t < hit) {
+					hit = t
+					hitTris = tris
+					hitO = o
+				}
+			}
+		}
+	}
+	if (!hitTris) return Infinity
+	const t = hitTris, o = hitO
+	const e1x = t[o + 3] - t[o], e1y = t[o + 4] - t[o + 1], e1z = t[o + 5] - t[o + 2]
+	const e2x = t[o + 6] - t[o], e2y = t[o + 7] - t[o + 1], e2z = t[o + 8] - t[o + 2]
+	let nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x
+	const len = Math.hypot(nx, ny, nz)
+	const s = nx * dx + ny * dy + nz * dz > 0 ? -1 / len : 1 / len
+	nx *= s
+	ny *= s
+	nz *= s
+	normal[0] = nx
+	normal[1] = ny
+	normal[2] = nz
+	return hit
+}
+
+/**
+ * Where the segment from (ax, ay, az) along (dx, dy, dz) crosses the triangle at `t[o..o+9]`, as a
+ * fraction of it (0..1), either side of the face; Infinity where it misses (Möller and Trumbore).
+ */
+function segmentTriangle(t: ArrayLike<number>, o: number, ax: number, ay: number, az: number, dx: number, dy: number, dz: number): number {
+	const vx = t[o], vy = t[o + 1], vz = t[o + 2]
+	const e1x = t[o + 3] - vx, e1y = t[o + 4] - vy, e1z = t[o + 5] - vz
+	const e2x = t[o + 6] - vx, e2y = t[o + 7] - vy, e2z = t[o + 8] - vz
+	const px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x
+	const det = e1x * px + e1y * py + e1z * pz
+	if (Math.abs(det) < 1e-12) return Infinity
+	const inv = 1 / det
+	const sx = ax - vx, sy = ay - vy, sz = az - vz
+	const u = (sx * px + sy * py + sz * pz) * inv
+	if (u < 0 || u > 1) return Infinity
+	const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x
+	const v = (dx * qx + dy * qy + dz * qz) * inv
+	if (v < 0 || u + v > 1) return Infinity
+	const h = (e2x * qx + e2y * qy + e2z * qz) * inv
+	return h >= 0 && h <= 1 ? h : Infinity
+}
+
+const hitNormal = [0, 0, 0]
+const nearPoint = [0, 0, 0]
+const sweepFrom = [0, 0, 0]
+
+/**
+ * Moves a sphere of radius `r` from `a` towards `b` against the WMO's collision faces, as the
+ * client's camera collides (#305), leaving where it stops in `b`. The path is swept, so a fast
+ * move never passes through a thin wall in one step: at a face the sphere stops `r` off it and
+ * slides along it with the rest of the move (twice at most, for a corner). Then it is pushed out
+ * to `r` from any face it ended nearer to. Returns whether `b` changed. All in model space.
+ */
+export function collideSphere(nav: WmoNav, a: ArrayLike<number>, b: number[], r: number): boolean {
+	let moved = false
+	sweepFrom[0] = a[0]
+	sweepFrom[1] = a[1]
+	sweepFrom[2] = a[2]
+	for (let pass = 0; pass < 3; pass++) {
+		const t = sweepFaces(nav, sweepFrom, b, hitNormal)
+		if (t === Infinity) break
+		moved = true
+		const nx = hitNormal[0], ny = hitNormal[1], nz = hitNormal[2]
+		// Stop r off the face, on the side the move came from.
+		const sx = sweepFrom[0] + (b[0] - sweepFrom[0]) * t + nx * r
+		const sy = sweepFrom[1] + (b[1] - sweepFrom[1]) * t + ny * r
+		const sz = sweepFrom[2] + (b[2] - sweepFrom[2]) * t + nz * r
+		if (pass === 2) {
+			b[0] = sx
+			b[1] = sy
+			b[2] = sz
+			break
+		}
+		// The rest of the move, less its part into the face: a slide along it.
+		let rx = b[0] - sx, ry = b[1] - sy, rz = b[2] - sz
+		const into = rx * nx + ry * ny + rz * nz
+		rx -= nx * into
+		ry -= ny * into
+		rz -= nz * into
+		sweepFrom[0] = sx
+		sweepFrom[1] = sy
+		sweepFrom[2] = sz
+		b[0] = sx + rx
+		b[1] = sy + ry
+		b[2] = sz + rz
+	}
+	for (let i = 0; i < 3; i++) {
+		const d = nearestFaceDist(nav, b[0], b[1], b[2], r, nearPoint)
+		// On a face exactly, there is no side to push to.
+		if (d === Infinity || d < 1e-6) break
+		const k = (r - d) / d + 1e-4
+		b[0] += (b[0] - nearPoint[0]) * k
+		b[1] += (b[1] - nearPoint[1]) * k
+		b[2] += (b[2] - nearPoint[2]) * k
+		moved = true
+	}
+	return moved
 }
 
 /** Takes an editor-space point, already in the model's local frame, to WoW axes: (x, -z, y). */

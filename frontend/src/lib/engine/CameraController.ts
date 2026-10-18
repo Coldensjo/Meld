@@ -41,9 +41,18 @@ export class CameraController {
   followGround = false
   /**
    * Camera collision (Noggit Red's): the flying camera stays at least COLLIDE_HEIGHT above the ground
-   * (or the water over it), so it can't sink into a hill; off, it enters caves and cellars.
+   * (or the water over it), so it can't sink into a hill, and off the WMOs' walls (`collideWalls`);
+   * off, it enters caves and cellars and flies through walls.
    */
   collision = false
+  /**
+   * With `collision` on, the flying camera also keeps off the placed WMOs' walls and floors (#305):
+   * the Engine's hook moves `to`, where the eye is going from `from` this frame, to where it stops.
+   */
+  collideWalls: ((from: THREE.Vector3, to: THREE.Vector3) => void) | null = null
+  /** Where the eye was after the last `update`, and whether it has jumped since (a teleport, a mode change), which is no move to collide. */
+  private settled = new THREE.Vector3()
+  private jumped = true
   /**
    * The Engine draws the top-down 2D view (U) from above `target` with its own camera; here it only
    * means the wheel zooms (`distance`), and the keys and a middle drag pan across the ground, as they
@@ -107,6 +116,7 @@ export class CameraController {
     if (distance) this.distance = distance
     this.target.set(x, this.ground(x, z), z)
     this.smoothTargetY = this.target.y
+    this.jumped = true
     if (!this.followGround) {
       this.pitch = Math.max(this.pitch, 0.3)
       this.target.add(this.viewOffset(this.distance))
@@ -120,6 +130,12 @@ export class CameraController {
     this.yaw = yaw
     this.pitch = pitch
     this.distance = distance
+    this.jumped = true
+  }
+
+  /** Marks the target as set from outside (a tab switch), so the next update doesn't collide the move there. */
+  jump() {
+    this.jumped = true
   }
 
   /** The offset from a looked-at point back to the camera, `dist` away along the view direction. */
@@ -137,6 +153,7 @@ export class CameraController {
     }
     if (on === this.followGround) return
     this.followGround = on
+    this.jumped = true
     if (on) {
       // The camera stays put; the orbit target is the ground in front of it, as far as it was looking.
       this.pitch = Math.max(this.pitch, 0.08)
@@ -256,6 +273,7 @@ export class CameraController {
   /** Starts or ends the walk; ending it puts back the camera the walk started from. */
   setWalk(on: boolean) {
     if (on === this.walk) return
+    this.jumped = true
     if (on) {
       this.beforeWalk = { target: this.target.clone(), yaw: this.yaw, pitch: this.pitch, distance: this.distance, followGround: this.followGround }
       // The eye starts where the camera is (an orbit camera's eye is behind its target), looking level.
@@ -319,8 +337,15 @@ export class CameraController {
     } else if (!this.followGround) {
       if (k.has('Space')) this.target.y += speed
       if (k.has('KeyX') || k.has('KeyC')) this.target.y -= speed
-      if (this.collision && !this.topDown) this.target.y = Math.max(this.target.y, this.ground(this.target.x, this.target.z) + COLLIDE_HEIGHT)
+      if (this.collision && !this.topDown) {
+        this.target.y = Math.max(this.target.y, this.ground(this.target.x, this.target.z) + COLLIDE_HEIGHT)
+        // After the ground clamp, which knows nothing of the WMOs: under a city the terrain + 3 yd can
+        // lie in a wall or a ceiling, and the walls win.
+        if (this.collideWalls && !this.jumped && !this.target.equals(this.settled)) this.collideWalls(this.settled, this.target)
+      }
     }
+    this.settled.copy(this.target)
+    this.jumped = false
 
     const pos = this.camera.position
     if (this.followGround) {

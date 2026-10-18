@@ -5,7 +5,7 @@ import { fetchWmoNav } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
 import { EXTERIOR_LIT } from './wmoFlood'
 import { selectWmoFog, type FogTarget } from './wmoFog'
-import { decodeWmoNav, downRayPick, EXTERIOR, nearestFaceDist, toModel, type RoomSeeds, type WmoNav } from './wmoRoom'
+import { collideSphere, decodeWmoNav, downRayPick, EXTERIOR, nearestFaceDist, toModel, type RoomSeeds, type WmoNav } from './wmoRoom'
 
 /** The WMO room the camera is in. */
 export interface CameraRoom {
@@ -86,6 +86,9 @@ export class WmoRooms {
   private pool: OutsideWmo[] = []
   private found: OutsideWmo[] = []
   private box = new THREE.Box3()
+  private fromModel: [number, number, number] = [0, 0, 0]
+  private toModelPt: [number, number, number] = [0, 0, 0]
+  private fromLocal = new THREE.Vector3()
 
   /**
    * The nearest `max` placed WMOs with a portal graph that meet `frustum` within OUTSIDE_RANGE of
@@ -223,6 +226,39 @@ export class WmoRooms {
       }
     }
   }
+
+	/**
+	 * Camera collision with the placed WMOs (#305): moves `to`, where the flying camera's eye is going
+	 * from `from` (world space), so that it stops `radius` yd off every WMO's collision faces and slides
+	 * along them (`wmoRoom.ts` `collideSphere`), as the client's camera never stands in a wall. A WMO
+	 * still loading, hidden, or on a hidden Objects layer doesn't stop it. Uses the WMO list of the last
+	 * `update`, for the same layer.
+	 */
+	collide(objects: ObjectLayer, from: THREE.Vector3, to: THREE.Vector3, radius: number) {
+		if (objects !== this.layer || !objects.group.visible) return
+		for (const id of this.wmoIds) {
+			const o = objects.objects.get(id)
+			if (!o || objects.isHidden(id)) continue
+			const asset = getAsset(o.type)
+			if (!asset.ready) continue
+			objects.matrixOf(o, this.m)
+			this.inv.copy(this.m).invert()
+			const scale = this.m.getMaxScaleOnAxis()
+			const r = radius / scale
+			const a = this.fromLocal.copy(from).applyMatrix4(this.inv)
+			const b = this.local.copy(to).applyMatrix4(this.inv)
+			const bb = asset.bbox
+			if (Math.max(a.x, b.x) < bb.min.x - r || Math.min(a.x, b.x) > bb.max.x + r) continue
+			if (Math.max(a.y, b.y) < bb.min.y - r || Math.min(a.y, b.y) > bb.max.y + r) continue
+			if (Math.max(a.z, b.z) < bb.min.z - r || Math.min(a.z, b.z) > bb.max.z + r) continue
+			const nav = this.nav(baseType(o.type).slice('wmo:'.length))
+			if (!nav) continue
+			const end = toModel(b, this.toModelPt)
+			if (!collideSphere(nav, toModel(a, this.fromModel), end, r)) continue
+			// Back from WoW axes to the local frame, then to the world.
+			to.set(end[0], end[2], -end[1]).applyMatrix4(this.m)
+		}
+	}
 
   /** The room data of a WMO, or null while it loads (or when it failed). */
   private nav(path: string): WmoNav | null {

@@ -476,6 +476,9 @@ export class Engine {
       const h = this.terrain.heightAt(x, z)
       return editor.waterEnabled ? Math.max(h, editor.waterLevel) : h
     })
+    // Camera collision keeps the eye off the WMOs' faces by the near plane's reach to a corner, so no
+    // wall is ever clipped away (#305).
+    this.controller.collideWalls = (from, to) => this.rooms.collide(this.objects, from, to, NEAR * this.cornerFactor())
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this
@@ -1204,14 +1207,20 @@ export class Engine {
    * wall is not clipped away: with the room gate on, the flood rightly draws nothing behind a wall
    * with no portal, so the clipped part showed the sky. Every point in the view frustum at depth z
    * lies within z·k of the eye, so a near plane at the wall's distance over k clips none of it. The
-   * client never meets this, as its camera collides with the WMO. Far off, the closer plane costs
-   * depth precision, so it is used only while a wall is that close.
+   * client never meets this, as its camera collides with the WMO, and nor does Meld's with Camera
+   * collision on (#305, `cameraRadius`). Far off, the closer plane costs depth precision, so it is used
+   * only while a wall is that close.
    */
-  private updateNear() {
+  /** How much further than its depth a point in the view frustum can lie from the eye: at a corner of the near plane. */
+  private cornerFactor() {
     const p = this.persp
     const t = Math.tan(THREE.MathUtils.degToRad(p.fov) / 2)
-    const k = Math.sqrt(1 + t * t * (1 + p.aspect * p.aspect))
-    const near = THREE.MathUtils.clamp(this.rooms.wallDist / k, NEAR_MIN, NEAR)
+    return Math.sqrt(1 + t * t * (1 + p.aspect * p.aspect))
+  }
+
+  private updateNear() {
+    const p = this.persp
+    const near = THREE.MathUtils.clamp(this.rooms.wallDist / this.cornerFactor(), NEAR_MIN, NEAR)
     if (Math.abs(near - p.near) < 1e-3) return
     p.near = near
     p.updateProjectionMatrix()
@@ -1845,6 +1854,7 @@ export class Engine {
     if (this.prefs) this.applyLayerVisibility(this.prefs)
     if (d.camera) {
       this.controller.target.copy(d.camera.target)
+      this.controller.jump()
       this.controller.yaw = d.camera.yaw
       this.controller.pitch = d.camera.pitch
       this.controller.distance = d.camera.distance

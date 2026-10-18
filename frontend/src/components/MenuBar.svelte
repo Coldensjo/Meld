@@ -449,7 +449,7 @@
       items: [
         { kind: 'action', label: 'Turn Around (180°)', run: withEngine((e) => e.turnCameraAround()) },
         { kind: 'check', label: 'Follow the Ground', shortcut: 'T', checked: prefs.cameraFollowGround, toggle: () => (prefs.cameraFollowGround = !prefs.cameraFollowGround) },
-        { kind: 'check', label: 'Camera Collision (stay 3 yards above the ground)', checked: prefs.cameraCollision, toggle: () => (prefs.cameraCollision = !prefs.cameraCollision) },
+        { kind: 'check', label: 'Camera Collision (stay 3 yards above the ground and off walls)', checked: prefs.cameraCollision, toggle: () => (prefs.cameraCollision = !prefs.cameraCollision) },
         { kind: 'check', label: 'Top-down View (2D)', shortcut: 'U', checked: ui.topDown, toggle: () => (ui.topDown = !ui.topDown) },
         {
           kind: 'check',

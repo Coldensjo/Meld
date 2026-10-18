@@ -456,3 +456,20 @@ The client keeps its camera near the player, so its flood never meets this; Meld
   the jamb, gated or not, whatever the near plane (37% off at 0.05 yd). Keep compared views out of the
   walls. A wall that is not a collision face (`/wow/wmonav`'s walk and camera faces) is not measured
   either.
+
+## Camera collision keeps the flying camera off a WMO's walls (#305)
+
+Checks: with View › Camera Collision on, `WmoRooms.collide` (`wmoRoom.ts` `collideSphere`) stops the
+flying camera the near plane's corner reach (about 0.9 yd at a wide window) off a WMO's collision
+faces, however far it moves in a frame, and slides it along them; with it off the camera flies through.
+- Probe: `bun run probe wmo-collide` (about 20 s with the scene loaded): from 3 yd inside Stormwind's
+  Trade District room (group 49) the target is moved 13 yd at the room's south wall in one frame,
+  through it. On, the eye ends in room 49, on the room's side, `rooms.wallDist` at least the radius
+  and the near plane at 0.5 yd; off, it ends 9.5 yd past the wall in SI:7 (group 111).
+- Unit test: `bun test tests/wmoRoom.test.ts` ("a sphere moved into a wall ..."): stop, slide, floor,
+  push-out and a free move on a toy room, with and without the column index.
+- Trap: the 3 yd terrain clamp knows nothing of WMOs, and under Stormwind it lifts the eye to 5.6 yd
+  over the Trade District's street (the terrain is 1.2 yd under wmo-over's `wall` eye), into the
+  room's sloping ceiling; collision runs after the clamp, so the eye ends under the ceiling instead
+  (the probe's move slides down it and stops 2.8 yd short of the wall). A view set by `setSceneView`
+  or `focus` is a jump and is not collided, so an eye placed inside a wall stays there until it moves.

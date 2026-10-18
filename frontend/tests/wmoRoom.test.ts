@@ -2,7 +2,7 @@
 // The cases are Benilla's own for `down_ray_pick` (wmo_portal/seed.rs).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildColumnGrid, downRayPick, EXTERIOR, nearestFaceDist, triangleDistSq, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
+import { buildColumnGrid, collideSphere, downRayPick, EXTERIOR, nearestFaceDist, triangleDistSq, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
 
 type Tri = number[] // nine floats
 
@@ -186,5 +186,41 @@ test('the nearest face is found within reach, walls and camera faces included, a
 		assert.equal(nearestFaceDist(n, 5, 3, 2.5, 2), Infinity, 'nothing within reach')
 		assert.equal(nearestFaceDist(n, 30, 3, 2, 2), Infinity, 'outside the group box')
 		assert.ok(Math.abs(nearestFaceDist(n, 11, 3, 2, 2) - 1) < 1e-6, 'from outside the box, within reach')
+	}
+})
+
+test('a sphere moved into a wall stops its radius off it and slides along, however fast, and is pushed out of one it ends near', () => {
+	// The room of the test above: a floor indexed by columns, a wall at x = 10 facing the room.
+	const floor: Tri[] = []
+	for (let ix = 0; ix < 10; ix++)
+		for (let iy = 0; iy < 10; iy++) floor.push([ix, iy, 0, ix + 1, iy, 0, ix + 1, iy + 1, 0], [ix, iy, 0, ix + 1, iy + 1, 0, ix, iy + 1, 0])
+	const wall: Tri[] = [
+		[10, 0, 0, 10, 10, 0, 10, 10, 5],
+		[10, 0, 0, 10, 10, 5, 10, 0, 5],
+	]
+	const linear = nav([group(0, [0, 0, 0], [10, 10, 5])], [[...floor, ...wall]])
+	const indexed = { ...linear, walkGrids: linear.walk.map(buildColumnGrid) }
+	const close = (a: number[], b: number[], what: string) => assert.ok(a.every((v, i) => Math.abs(v - b[i]) < 1e-3), `${what}: ${a}`)
+	for (const n of [linear, indexed]) {
+		// Straight at the wall, far past it in one step (a thin wall, a fast flight).
+		let b = [500, 3, 2]
+		assert.ok(collideSphere(n, [5, 3, 2], b, 0.75))
+		close(b, [9.25, 3, 2], 'stopped short of the wall')
+		// At a slant: it keeps the move along the wall.
+		b = [12, 7, 2]
+		collideSphere(n, [8, 3, 2], b, 0.75)
+		close(b, [9.25, 7, 2], 'slid along the wall')
+		// Down at the floor.
+		b = [3, 3, -4]
+		collideSphere(n, [3, 3, 2], b, 0.75)
+		close(b, [3, 3, 0.75], 'stopped over the floor')
+		// A move that ends near the wall without crossing it is pushed out to the radius.
+		b = [9.6, 3, 2]
+		assert.ok(collideSphere(n, [8, 3, 2], b, 0.75))
+		assert.ok(Math.abs(b[0] - 9.25) < 1e-3 && b[1] === 3 && b[2] === 2, `pushed out: ${b}`)
+		// Nothing in the way: unchanged.
+		b = [6, 4, 3]
+		assert.equal(collideSphere(n, [4, 4, 3], b, 0.75), false)
+		close(b, [6, 4, 3], 'free')
 	}
 })
