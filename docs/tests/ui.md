@@ -205,6 +205,9 @@ preview has the same label). nsabbey.wmo reads "89.0 yd tall · 35,413 triangles
 loaded; a spawn's (`spawnType(s)`) shows it dressed. Esc closes it and the map's selection stays.
 The canvas only takes its size in a rAF frame, so a hidden page shows 300x150.
 
+The same menu ends with Unselect (#288) before Delete: it clears the selection (for a spawn, the selected spawn too).
+
+
 - WebGL contexts (#201): each preview has its own renderer. Open and close it 24 times
   (`ui.modelPreview = { title: 'probe', type: 'helper:cube', scale: 1 }`, 250 ms, then `null`, 100 ms)
   and read `__engine.renderer.getContext().isContextLost()` after each: it must stay false. Without
