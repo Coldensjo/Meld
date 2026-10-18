@@ -246,6 +246,7 @@ server's names and teleports, draws them, and saves them to the client's patch a
   portals to test by hand: `SELECT entry, type, name FROM gameobject_template WHERE type IN (10, 22)`
   joined to `gameobject` (the city portals are summoned by mages, not spawned; Inner Maraudon's
   178404 and the Naxxramas portals are).
+- Left click (#307): with the Select tool and the triggers drawn, a click (not a drag) on a trigger selects it (`ui.pickedTrigger`, which the Portals dialog follows and sets), a click away lets go; the probe covers it.
 - Trap: the default camera flies, so its target is the camera itself: a probe that sets the view on
   a trigger's centre puts the camera inside it, and a trigger the camera is inside is never picked.
   Place the camera outside it (the probe backs off radius + 4 yd). Cameras that follow the ground

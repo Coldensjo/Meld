@@ -2,7 +2,8 @@
 	import Modal from './Modal.svelte'
 	import { AreaTriggers, MapEntries, SaveAreaTriggers } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
-	import { docs, setStatus } from '../lib/state/editor.svelte'
+	import { untrack } from 'svelte'
+	import { docs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/mapio'
 	import { editorPoint, type ServerSpot } from '../lib/io/portCoords'
@@ -79,6 +80,15 @@
 	$effect(() => {
 		const list = $state.snapshot(triggers)
 		engineRef.current?.showTriggers(list, picked)
+	})
+
+	// A trigger picked in the viewport is picked here, and the other way round (#307).
+	$effect(() => {
+		const p = ui.pickedTrigger
+		if (p !== null && p !== untrack(() => picked) && untrack(() => triggers).some((x) => x.id === p)) picked = p
+	})
+	$effect(() => {
+		ui.pickedTrigger = picked
 	})
 
 	function touch(id: number) {

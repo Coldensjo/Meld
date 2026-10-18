@@ -557,6 +557,8 @@ export const ui = $state({
   topDown: false,
   /** The viewport's right-click menu: where it opens (CSS pixels) and what it offers; null when closed. */
   contextMenu: null as { x: number; y: number; title?: string; items: ContextItem[] } | null,
+  /** The area trigger (ID) picked in the viewport or the Portals dialog (#307); each follows the other. */
+  pickedTrigger: null as number | null,
   /** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */
   weaponPick: null as { key: string; slot: number } | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */

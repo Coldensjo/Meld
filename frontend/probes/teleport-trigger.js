@@ -21,6 +21,22 @@ try {
 		titles.push(ui.contextMenu?.title ?? '')
 		if (ui.contextMenu?.title.startsWith('Area trigger')) menu = ui.contextMenu
 	}
+	// A left click (#307): with the Select tool it picks the trigger and the Portals dialog follows; a click away lets go.
+	layer.select(null)
+	ui.pickedTrigger = null
+	ui.contextMenu = null
+	const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+	const cv = P.e.renderer.domElement
+	const clickAt = (x, y) => {
+		const o = { clientX: x, clientY: y, button: 0, pointerId: 1, bubbles: true }
+		cv.dispatchEvent(new PointerEvent('pointerdown', o))
+		cv.dispatchEvent(new PointerEvent('pointerup', o))
+	}
+	clickAt(cx, cy)
+	const leftSelected = layer.selected === 78 && ui.pickedTrigger === 78
+	clickAt(r.left + 5, r.top + 5)
+	const leftCleared = layer.selected === null && ui.pickedTrigger === null
+	P.e.selectTrigger(78)
 	const title = menu?.title ?? ''
 	const item = menu?.items.find((i) => i.label === 'Teleport to destination')
 	const selected = layer.selected
@@ -35,8 +51,8 @@ try {
 	const camOff = Math.hypot(tg.x - at.x, tg.z - at.z)
 	// A spellcaster portal, through the binding.
 	const portal = await window.go.main.App.ObjectTeleport(176296)
-	const ok = title.startsWith('Area trigger 78') && selected === 78 && dest.map === 36 && camOff < 1 && portal?.map === 0 && Math.abs(portal.x + 9003.46) < 1
-	return { ok, title, selected, region: `${region.mapName} ${region.x}_${region.y} ${region.size}`, dest, camOff: +camOff.toFixed(2), portal }
+	const ok = title.startsWith('Area trigger 78') && selected === 78 && dest.map === 36 && camOff < 1 && leftSelected && leftCleared && portal?.map === 0 && Math.abs(portal.x + 9003.46) < 1
+	return { ok, leftSelected, leftCleared, title, selected, region: `${region.mapName} ${region.x}_${region.y} ${region.size}`, dest, camOff: +camOff.toFixed(2), portal }
 } finally {
 	prefs.showAreaTriggers = before
 }

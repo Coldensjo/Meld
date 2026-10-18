@@ -832,6 +832,7 @@ export class Engine {
           return
         }
         this.leftDown = true
+        this.trigDown = editor.tool === 'select' ? { id: this.triggerUnderPointer(), x: e.clientX, y: e.clientY } : null
         this.pick()
         this.activeTool?.onDown?.(this.ctx, this.hit, e)
       },
@@ -884,9 +885,43 @@ export class Engine {
         this.pick()
         this.activeTool?.onUp?.(this.ctx, this.hit, e)
         if (editor.tool === 'paint') this.refreshMaskState()
+        this.finishTriggerClick(e)
       },
       sig,
     )
+  }
+
+  /** The Select tool's press: the trigger under it (null when none) and where, to tell a click from a drag (#307). */
+  private trigDown: { id: number | null; x: number; y: number } | null = null
+
+  /** The area trigger a ray from the pointer picks while they are drawn, by the right-click's rule (#307). */
+  private triggerUnderPointer(): number | null {
+    const layer = this.triggerLayer
+    if (!layer.group.visible) return null
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    const ray = this.raycaster.ray
+    const trig = pickTrigger(layer.triggers, ray.origin, ray.direction, layer.tileX, layer.tileY)
+    if (!trig) return null
+    const picked = pickNearest(this.objects, this.doc.spawnLayer, this.raycaster)
+    return triggerWins(trig, picked.spawn ? 'spawn' : picked.id !== null ? 'model' : null, picked.distance) ? trig.trigger.id : null
+  }
+
+  /** Selects an area trigger (null for none) in the layer and for the Portals dialog, which follows ui.pickedTrigger. */
+  selectTrigger(id: number | null) {
+    this.triggerLayer.select(id)
+    ui.pickedTrigger = id
+  }
+
+  /** A Select-tool click that did not drag picks the trigger under it, or lets go of the picked one. */
+  private finishTriggerClick(e: PointerEvent) {
+    const d = this.trigDown
+    this.trigDown = null
+    if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4 || !this.triggerLayer.group.visible) return
+    if (d.id !== null) {
+      selectObjects(this.objects, [])
+      selectSpawn(null)
+    }
+    if (d.id !== this.triggerLayer.selected) this.selectTrigger(d.id)
   }
 
   /** Forward a key to the active tool. Returns true if handled. */
@@ -1412,6 +1447,7 @@ export class Engine {
   endTriggerEdit() {
     this.triggersEdited = false
     this.triggersFor = -1
+    ui.pickedTrigger = null
   }
 
   /** Shows the triggers while asked for, reading the open map's once per document. */
@@ -1761,6 +1797,8 @@ export class Engine {
 
   /** Make `d` the edited/rendered document. `stash` saves the current one first. */
   private activate(d: MapDocument, stash = true) {
+    this.triggerLayer.select(null)
+    ui.pickedTrigger = null
     // The chunk under the cursor on one map means nothing on another.
     editor.hoverChunk = -1
     ui.replaceSlot = null
@@ -1957,7 +1995,7 @@ export class Engine {
     const trig = layer.group.visible ? pickTrigger(layer.triggers, ray.origin, ray.direction, layer.tileX, layer.tileY) : null
     if (trig && triggerWins(trig, picked.spawn ? 'spawn' : picked.id !== null ? 'model' : null, picked.distance)) {
       const t = trig.trigger
-      layer.select(t.id)
+      this.selectTrigger(t.id)
       const dest = t.teleport
       title = `Area trigger ${t.id}${t.name ? `: ${t.name}` : ''}`
       const what = title
@@ -1965,11 +2003,11 @@ export class Engine {
       else title += ' (teleports no one)'
       const at = editorPoint(t, layer.tileX, layer.tileY)
       items.push({ label: 'Focus', run: () => this.controller.focus(at.x, at.z, Math.max(20, t.radius * 4, t.boxX * 2)) })
-      items.push({ label: 'Unselect', run: () => layer.select(null) })
+      items.push({ label: 'Unselect', run: () => this.selectTrigger(null) })
       ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
       return
     }
-    if (layer.selected !== null) layer.select(null)
+    if (layer.selected !== null) this.selectTrigger(null)
     const id = picked.id
     // A click that hits nothing near the selected creature or object still opens its menu (#205).
     const spawn = picked.spawn ?? (id === null ? this.selectedSpawnNear(e) : null)

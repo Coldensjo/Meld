@@ -153,6 +153,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   to a tab whose map and block hold the spot, else open the map (`blockAround`: up to 3x3 tiles
   round it, or `LoadBuildingMap` for a map with no tiles), then `Engine.viewSpot`. It moves Meld's
   view, not the game's character (Play here does that).
+  A Select-tool left click that does not drag picks a trigger by the same rule (`Engine.triggerUnderPointer`,
+  `finishTriggerClick`), and `ui.pickedTrigger` is the pick the Portals dialog follows and sets (#307).
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
   editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor.
   Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
