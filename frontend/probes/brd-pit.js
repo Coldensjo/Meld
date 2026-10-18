@@ -24,6 +24,15 @@ try {
 } finally {
 	objects.visible = true
 }
+// P.whoDrew names what drew the centre pixel: with the models it is not the plane; without them it is.
+const drawn = await P.whoDrew(0.5, 0.5)
+objects.visible = false
+let drawnBare
+try {
+	drawnBare = await P.whoDrew(0.5, 0.5)
+} finally {
+	objects.visible = true
+}
 // What the arena's centre holds: the dungeon (busy, unlike the flat plane) or the plane.
 const d = P.diff(a, bare, undefined, centre)
 const out = {
@@ -32,8 +41,10 @@ const out = {
 	centreDiffers: +(d.off * 100).toFixed(1) + '%',
 	busy: +P.busy(a, centre).toFixed(4),
 	busyBare: +P.busy(bare, centre).toFixed(4),
+	drawn: drawn?.chain,
+	drawnBare: drawnBare,
 }
 // Before the fix the centre was the plane: 0% differed and it was as flat as the bare view. The arena is
 // dark too, so some of its pixels match the plane; its stones make it busy.
-out.ok = e.camera.position.y > floorY && d.off > 0.5 && out.busy > 3 * out.busyBare && a.lit > 0.5
+out.ok = e.camera.position.y > floorY && d.off > 0.5 && out.busy > 3 * out.busyBare && a.lit > 0.5 && drawn && drawn.name !== 'seafloor' && drawnBare?.name === 'seafloor'
 return out

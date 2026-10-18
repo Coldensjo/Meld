@@ -189,6 +189,14 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     switch on and off", take two shots with the switch unchanged as the noise floor (swaying trees,
     particles); `wmo-cull` and `terrain-dxt` do this.
   - Looking at a picture: `P.save(img, name, region?)` keeps a shot as a PNG, which `bun run probe <probe> --shot <dir>` writes to `<dir>/<probe>-<name>.png` (the page's own `--shot` capture is `<probe>.png`; without `--shot` the saved pictures are dropped, and their pixels stay out of the printed result). `P.fullView()` hides the panels (Tab) so the viewport fills the window, about 1384 x 745 instead of 1017 x 387 under the asset browser, which matters for pixel-sized effects such as snow; call it before `P.shot`.
+  - Which object drew a pixel: `P.whoDrew(x, y)` (shares of the viewport, y = 0 the top; default the centre) renders one
+    extra frame in which every mesh ends in a flat colour for its index, and returns `{ name, type, chain, batch, material }`
+    of the mesh at that pixel, or null for the background (#299). Each mesh gets a material inheriting from the real one,
+    so shaders' vertex work, depth state and discards are as drawn; blending is off and fragments under alpha 0.1 are
+    dropped (a soft particle does not cover what is behind it). Points, lines and sprites are hidden for the pass, and
+    the selection outline is not drawn. `batch` is the object layer's key for an instanced model. Name a mesh
+    (`mesh.name = ...`) in the engine to make its answer readable; `brd-pit` checks it against the #289 floor plane.
+    A pixel on an antialiased edge reports a neighbour (`near: true`).
   - Viewport input: `P.click(x, y, opts, frames)` moves, presses and releases the pointer on the canvas and steps a frame; `P.drag([x, y], [x, y], steps, opts)` strokes; `x`, `y` are shares of the viewport, y = 0 the top, `opts` the event's `button`, `altKey`, `ctrlKey`, `shiftKey`. Setting `e.ndc` does not do this: the handlers overwrite it from the event. The status bar and tool state are read after the helper returns (its frame lets the handlers' messages land); `walkable` uses it.
   - A timeout in `P.until` or `P.settle` names the longest frame and the longest wait between frames
     during the wait (`P.stalls`), so a stall doesn't look like a broken feature.

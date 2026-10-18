@@ -263,6 +263,119 @@ const P = {
 		}
 	},
 
+	/**
+	 * Names the scene object that drew a pixel (#299). `x`, `y` are shares of the viewport, y = 0 the top
+	 * (as for `P.click`; default the centre). Steps a normal frame, then renders the scene once more with
+	 * every drawable's fragment shader ending in a flat colour that encodes the mesh's index (the
+	 * materials keep their own vertex shaders, depth state and discards, so geometry and alpha tests are
+	 * as drawn; blending is off, and a fragment the material draws with alpha under 0.1 is dropped, so a soft particle does not hide what is behind it). Returns `{ name, type, chain, batch, layer, material, id, near }` or
+	 * `null` when nothing drew there (the background); `near` is true when the pixel itself was an
+	 * antialiased edge and a neighbour's colour was used. Everything is put back in a `finally`. Points,
+	 * lines and sprites are hidden for the pass.
+	 */
+	async whoDrew(x = 0.5, y = 0.5) {
+		await P.frames(1)
+		const e = window.__engine
+		const Color = e.env.state.horizon.constructor
+		const meshes = []
+		const hidden = []
+		e.scene.traverse((o) => {
+			if (!o.visible) return
+			if (o.isMesh) meshes.push(o)
+			else if (o.isPoints || o.isLine || o.isSprite) hidden.push(o)
+		})
+		const batchKeys = new Map()
+		for (const [key, b] of e.objects.batches ?? []) for (const m of [b.mesh, b.lod, b.liquid]) if (m) batchKeys.set(m, key)
+		const swapped = []
+		const chainOf = (o) => {
+			const parts = []
+			for (let p = o; p; p = p.parent) parts.push(p.name || p.type)
+			return parts.join(' < ')
+		}
+		let ids
+		try {
+			// Every mesh draws with its own material that inherits from the real one (so uniforms, textures,
+			// depth state and the engine's later changes are still the real material's), with a fragment
+			// shader that ends in the mesh's flat colour. A shared material would not do: three uploads a
+			// built-in material's uniforms only when the material changes between draws.
+			let nextMatId = 1e9
+			ids = meshes.map((o, i) => {
+				const id = i + 1
+				const rgb = [(id & 255) / 255, ((id >> 8) & 255) / 255, ((id >> 16) & 255) / 255]
+				const derive = (m) => {
+					const d = Object.create(m)
+					Object.defineProperty(d, 'id', { value: nextMatId++ })
+					const uWho = { value: rgb }
+					if (m.isShaderMaterial) d.uniforms = Object.assign(Object.create(m.uniforms), { uWho })
+					d.onBeforeCompile = (shader, renderer) => {
+						m.onBeforeCompile.call(d, shader, renderer)
+						shader.uniforms.uWho = uWho
+						const fs = shader.fragmentShader
+						const end = fs.lastIndexOf('}')
+						shader.fragmentShader = `uniform vec3 uWho;
+${fs.slice(0, end)}
+	if (gl_FragColor.a < 0.1) discard;
+	gl_FragColor = vec4(uWho, 1.0);
+}${fs.slice(end + 1)}`
+					}
+					d.customProgramCacheKey = () => m.customProgramCacheKey.call(m) + '|who'
+					d.blending = 0
+					d.version = 1
+					return d
+				}
+				swapped.push({ o, material: o.material })
+				o.material = Array.isArray(o.material) ? o.material.map(derive) : derive(o.material)
+				return o
+			})
+			for (const o of hidden) o.visible = false
+			const bg = e.scene.background
+			const fog = e.scene.fog
+			e.scene.background = new Color(0, 0, 0)
+			e.scene.fog = null
+			let img
+			try {
+				img = await P.shot(() => e.renderer.render(e.scene, e.camera))
+			} finally {
+				e.scene.background = bg
+				e.scene.fog = fog
+			}
+			const px = Math.min(img.w - 1, Math.floor(x * img.w))
+			const py = Math.min(img.h - 1, Math.floor((1 - y) * img.h))
+			const at = (cx, cy) => {
+				if (cx < 0 || cy < 0 || cx >= img.w || cy >= img.h) return 0
+				const i = (cy * img.w + cx) * 4
+				return img.px[i] | (img.px[i + 1] << 8) | (img.px[i + 2] << 16)
+			}
+			let id = at(px, py)
+			let near = false
+			if (!id || id > ids.length) {
+				id = 0
+				for (let r = 1; r <= 2 && !id; r++)
+					for (let dy = -r; dy <= r && !id; dy++)
+						for (let dx = -r; dx <= r && !id; dx++) {
+							const c = at(px + dx, py + dy)
+							if (c && c <= ids.length) id = c
+						}
+				near = id > 0
+			}
+			if (!id) return null
+			const o = ids[id - 1]
+			const mat = Array.isArray(o.material) ? o.material[0] : o.material
+			return {
+				name: o.name || '(unnamed)',
+				type: o.type,
+				chain: chainOf(o),
+				batch: batchKeys.get(o) ?? null,
+				material: `${mat.type}${mat.name ? ' ' + mat.name : ''}`,
+				id,
+				near,
+			}
+		} finally {
+			for (const s of swapped) s.o.material = s.material
+			for (const o of hidden) o.visible = true
+		}
+	},
+
 	/** `measurePerf()` while stepping frames (it reports after a second of frames). */
 	async perf() {
 		let r = null
