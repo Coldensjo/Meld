@@ -154,12 +154,21 @@ export function spawnChange(layer: SpawnLayer, key: string, vals: SpawnFields, l
 
 function addTo(layer: SpawnLayer, s: vmangos.WorldSpawn) {
   layer.add(s)
-  syncSpawnUi(layer, true)
+  if (!layer.batching) syncSpawnUi(layer, true)
 }
 
 function removeFrom(layer: SpawnLayer, s: vmangos.WorldSpawn) {
   if (editor.selectedSpawn && spawnKey(editor.selectedSpawn) === spawnKey(s)) selectSpawn(null)
   layer.remove(s)
+  if (!layer.batching) syncSpawnUi(layer, true)
+}
+
+/**
+ * Runs `fn`, whose spawn adds and deletes (a stroke's undo or redo, many commands in a row) redraw the
+ * layer and refresh the spawn state once at the end instead of after each (#193).
+ */
+export function spawnsBatch(layer: SpawnLayer, fn: () => void) {
+  layer.batch(fn)
   syncSpawnUi(layer, true)
 }
 

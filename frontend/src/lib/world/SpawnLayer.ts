@@ -125,6 +125,42 @@ export class SpawnLayer {
     this.rebuild()
   }
 
+  /** How many `batch` calls are running, and whether one of their changes still needs the layer redrawn. */
+  private holds = 0
+  private stale = false
+
+  /** Whether a `batch` is running, which redraws the layer once at its end rather than after each change. */
+  get batching(): boolean {
+    return this.holds > 0
+  }
+
+  /**
+   * Runs `fn`, whose adds and removes redraw the layer once afterwards instead of each time: a redraw
+   * walks every spawn, so undoing a stroke of N spawns took N redraws (#193).
+   */
+  batch(fn: () => void) {
+    this.holds++
+    try {
+      fn()
+    } finally {
+      if (--this.holds === 0 && this.stale) {
+        this.stale = false
+        this.retype()
+        this.rebuild()
+      }
+    }
+  }
+
+  /** Redraws the layer after the spawns changed, or marks it to be at the end of the running `batch`. */
+  private redraw() {
+    if (this.holds > 0) {
+      this.stale = true
+      return
+    }
+    this.retype()
+    this.rebuild()
+  }
+
   private retype() {
     this.types = new Set(this.spawns.map((s) => spawnType(s)).filter((t) => t !== ''))
     for (const t of this.types) getAsset(t)
@@ -261,8 +297,7 @@ export class SpawnLayer {
   refresh(s: vmangos.WorldSpawn) {
     const at = this.where.get(s)
     if (!at || at.type !== spawnType(s)) {
-      this.retype()
-      this.rebuild()
+      this.redraw()
       return
     }
     const m = spawnMatrix(s, at.batch.ready, new THREE.Matrix4())
@@ -298,8 +333,7 @@ export class SpawnLayer {
       this.created.add(key)
       this.originals.set(key, cloneSpawn(s))
     }
-    this.retype()
-    this.rebuild()
+    this.redraw()
   }
 
   /** Removes a spawn; one the database has is deleted from it on save. */
@@ -310,8 +344,7 @@ export class SpawnLayer {
     this.spawns.splice(i, 1)
     this.keys.delete(key)
     if (!this.created.has(key)) this.deleted.set(key, this.originals.get(key) ?? cloneSpawn(s))
-    this.retype()
-    this.rebuild()
+    this.redraw()
   }
 
   /** The edits to tell the world database of: changed, added and deleted spawns. */

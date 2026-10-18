@@ -203,6 +203,8 @@ target for 20 per 100×100 yd in a 40 yd circle), all at least 8 yd apart, each 
 template's levels, wander 5 and respawn 300, and 10 spawn edits. One undo removes them, and
 Ctrl+drag erases them as one step. `spawns.frame(ctx, point)` shows the planned ghosts; Models mode hides them.
 
+Undo speed (#193): undoing a stroke must not redraw the spawn layer once a creature (`SpawnLayer.redraw` walks every spawn), so the stroke's undo and redo run in `spawnsBatch`. The probe `undo-spawns` pushes such a step on Elwynn's 1.3k spawns and counts `layer.version` bumps (2, not 60). Timings of `Engine.undo` for sculpt, paint, water and the Doodad brush on Northshire (8k models) were under 1 ms each in Chromium, with no frame spike after, so a slow Ctrl+Z is not in those.
+
 - Placement rules (#196, the options bar's Rules…, `SpawnRulesDialog.svelte` over the shared
   `PlacementRulesForm.svelte`): probe `__engine.tools.doodad.spawns.groundAllows(__engine.ctx, x, z)`
   over x 120 to 240, z 290 to 410 (step 3) and read each point's weights from `spawns.ground`

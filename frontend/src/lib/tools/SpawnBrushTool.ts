@@ -6,7 +6,7 @@ import type { Command } from '../state/history'
 import { getAsset } from '../models/assets'
 import { hasSkeleton, modelMesh } from '../world/Animator'
 import { spawnType } from '../world/spawnInfo'
-import { spawnAdd, spawnDelete } from '../world/spawnEdits'
+import { spawnAdd, spawnDelete, spawnsBatch } from '../world/spawnEdits'
 import { spawnKey, spawnOrientation } from '../world/SpawnLayer'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { rulesAllow, rulesEmpty } from './doodadBrush'
@@ -121,12 +121,12 @@ export class SpawnBrushTool implements Tool {
 		const label = this.erasing ? `Erase ${n} creature${n === 1 ? '' : 's'}` : `Spawn brush (${n} creature${n === 1 ? '' : 's'})`
 		ctx.history.push({
 			label,
-			undo: () => {
+			undo: () => spawnsBatch(ctx.spawns, () => {
 				for (let i = cmds.length - 1; i >= 0; i--) cmds[i].undo()
-			},
-			redo: () => {
+			}),
+			redo: () => spawnsBatch(ctx.spawns, () => {
 				for (const c of cmds) c.redo()
-			},
+			}),
 		})
 		setStatus(`${label}. Save them with File › Save Spawns.`, 4000)
 	}
