@@ -40,7 +40,9 @@ in the git history (`git show b47706b:PROGRESS.md`).
   why, then a `**Claude:** notes for the agent working on this.` comment (or a section in the body)
   with the code to read (files and functions), the decisions that apply (`decision` issues, earlier
   comments), how to verify it (the test entry in `docs/tests/`, listed in docs/TESTS.md; a client test, a spot on the map) and the traps
-  you know of. While working on an issue, comment anything a later session would otherwise have to
+  you know of. Give a view to reproduce as a scene line (`window.__sceneText()` or Help > Copy Scene,
+  `Meld scene {...}`, loaded with `P.scene(line)`), never as camera numbers copied by hand: the line
+  holds the target and the prefs that move the camera (Follow the Ground), which the numbers lose. While working on an issue, comment anything a later session would otherwise have to
   rediscover: a dead end, a finding about the client's format, where a half-done item stands.
 - **Before working on an issue**, read it with its comments (`gh issue view <n> --json title,body,labels,comments`; the plain `--comments` form prints nothing in the agent shells).
 - **Comments**: start every comment you write with `**Claude:**`. A comment by the owner (author

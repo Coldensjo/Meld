@@ -73,7 +73,8 @@ blocked:
 **New issues.** Anything you notice that is not the current item becomes a new issue, not work in
 this run: a short title, a body that says what and why, `Found while working on #<n>.`, a
 `**Claude:** notes for the agent working on this.` comment (the code to read, the decisions that
-apply, how to verify it, the traps you know of; CLAUDE.md, "Backlog: GitHub issues"), and the
+apply, how to verify it, the traps you know of; CLAUDE.md, "Backlog: GitHub issues"; a view to
+reproduce goes in as a scene line, not hand-copied camera numbers), and the
 labels `source:loop`, `value:`, `effort:`, an `area:` (and `bug` for a bug, `needs-approval` for
 large, format-level or non-goal work; that label also pings the owner). Search the open issues
 first (`gh issue list --search`) and comment on an existing one instead of filing a duplicate.
