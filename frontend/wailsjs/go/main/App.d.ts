@@ -245,6 +245,8 @@ export function SaveSQLDialog(arg1:string):Promise<string>;
 
 export function SaveSceneMap(arg1:mapfile.MapData):Promise<string>;
 
+export function SaveTaxi(arg1:vmangos.TaxiEdit):Promise<main.AreaSaveResult>;
+
 export function SaveTextDialog(arg1:string):Promise<string>;
 
 export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
@@ -284,6 +286,8 @@ export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:n
 export function SpellRefs(arg1:Array<number>):Promise<Record<number, vmangos.SpellRef>>;
 
 export function SpellTexts(arg1:Array<number>):Promise<Record<number, string>>;
+
+export function TaxiNetwork(arg1:number):Promise<vmangos.TaxiNetwork>;
 
 export function TemplateNames(arg1:string,arg2:Array<number>):Promise<Record<number, vmangos.NamedRef>>;
 

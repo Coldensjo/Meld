@@ -377,6 +377,8 @@ export const prefs = $state({
   showBoxes: false,
   /** View › Area triggers: draw the map's AreaTrigger.dbc volumes (dungeon portals and the like, #141). */
   showAreaTriggers: false,
+  /** View › Flight paths: draw the map's flight stops and the routes from them (TaxiNodes.dbc and TaxiPath.dbc, #180). */
+  showFlightPaths: false,
   /** The climb view: tint the ground too steep for a character to walk up (Noggit Red's View › Climb; Meld's Terrain › Climb). */
   climbView: false,
   /**
@@ -557,6 +559,10 @@ export const ui = $state({
   contextMenu: null as { x: number; y: number; title?: string; items: ContextItem[] } | null,
   /** The area trigger (ID) picked in the viewport or the Portals dialog (#307); each follows the other. */
   pickedTrigger: null as number | null,
+  /** World › Flight Paths: the window that edits the open map's flight stops and routes (#180). */
+  flightPaths: false,
+  /** A route's fly-along preview is moving the camera (Engine.flyTaxi); Esc or Stop ends it. */
+  taxiFlying: false,
   /** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */
   weaponPick: null as { key: string; slot: number } | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */

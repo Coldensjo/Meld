@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -354,28 +353,5 @@ func objectIn(tileX, tileY int, o ObjectSpec) (adt.Object, error) {
 // installServerMapTable copies the map table into the server's data, keeping the first copy it
 // replaces as a backup.
 func installServerMapTable(serverDir string, dbc []byte) (string, error) {
-	if err := CheckServer(serverDir); err != nil {
-		return "", err
-	}
-	dir := filepath.Join(serverDir, "data", "5875", "dbc")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	target := filepath.Join(dir, "Map.dbc")
-	if err := checkFree(target); err != nil {
-		return "", err
-	}
-	if _, err := os.Stat(target); err == nil {
-		if err := backup(target, target+BackupSuffix); err != nil {
-			return "", err
-		}
-	}
-	tmp := target + ".tmp"
-	if err := os.WriteFile(tmp, dbc, 0o644); err != nil {
-		return "", err
-	}
-	if err := replaceFile(tmp, target); err != nil {
-		return "", err
-	}
-	return target, nil
+	return installServerDBC(serverDir, "Map.dbc", dbc)
 }

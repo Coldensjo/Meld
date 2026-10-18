@@ -78,6 +78,8 @@ import { stormBlend, WEATHER_GRADE } from '../wow/weather'
 import { WeatherLayer, type SplashGround } from '../world/WeatherLayer'
 import { editorPoint, serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
+import { TaxiLayer, type TaxiHooks, type TaxiPick, type TaxiRouteShape, type TaxiStopShape } from '../world/TaxiLayer'
+import { airPoint, flightAt, segmentLengths, type Vec3 } from '../world/taxiRoute'
 import { antialiasAtStart } from './display'
 import { frameDue } from './frameLimit'
 import { GPU_PASSES, PerfMeter, SECTION, topModels, type ModelCost, type PerfReport } from './perfMeter'
@@ -104,7 +106,7 @@ import { SpawnLinks } from '../world/SpawnLinks'
 import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
 import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, CheckSpawnIDs, ObjectTeleport, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, ObjectTeleport, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 import { contentKey } from '../io/regionKey'
 
@@ -473,6 +475,7 @@ export class Engine {
     this.scene.add(this.paths.group)
     this.scene.add(this.links.group)
     this.scene.add(this.triggerLayer.group)
+    this.scene.add(this.taxiLayer.group)
     this.scene.add(this.nav.group)
 
 
@@ -635,6 +638,7 @@ export class Engine {
     this.poolOutline.dispose()
     for (const d of this.documents) d.dispose()
     this.triggerLayer.dispose()
+    this.taxiLayer.dispose()
     this.nav.dispose()
     this.gpu.dispose()
     this.renderer.dispose()
@@ -833,6 +837,8 @@ export class Engine {
         } catch {
           // A synthetic event (the probes' P.click) has no pointer to capture.
         }
+        // The Flight Paths window takes a click on a stop or a route point, or one that draws a point.
+        if (this.taxiPress(e)) return
         if (this.startGizmoDrag()) return
         // Alt+click is the pipette: a model's type to place, or the ground's texture to paint with.
         if (e.altKey && (editor.tool === 'select' || editor.tool === 'place')) {
@@ -878,6 +884,10 @@ export class Engine {
           this.updateGizmoDrag(e.shiftKey)
           return
         }
+        if (this.taxiDrag) {
+          this.moveTaxiDrag()
+          return
+        }
         if (this.gizmo.visible && !this.leftDown && !this.controller.isDragging) {
           this.raycaster.setFromCamera(this.ndc, this.camera)
           const h = this.gizmo.pick(this.raycaster)
@@ -900,6 +910,10 @@ export class Engine {
         }
         if (e.button === 0 && this.gizmoDrag) {
           this.endGizmoDrag()
+          return
+        }
+        if (e.button === 0 && this.taxiDrag) {
+          this.endTaxiDrag()
           return
         }
         if (e.button !== 0 || !this.leftDown) return
@@ -980,6 +994,7 @@ export class Engine {
     this.syncTool()
     this.controller.setWalk(ui.walkCamera && !this.topDown)
     this.controller.update(dt)
+    if (this.taxiFlight) this.updateTaxiFlight()
     this.updateTopDown()
     this.updateEnvironment(dt, time)
     m.mark(SECTION['Camera and sky'])
@@ -1055,6 +1070,7 @@ export class Engine {
     this.objects.update()
     this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightsVersion)
     this.updateTriggers()
+    this.updateTaxi()
     this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightsVersion, ui.historyVersion)
     m.mark(SECTION.Objects)
     // Lights first: culling keeps what can throw the shadowed lights' shadows.
@@ -1367,6 +1383,211 @@ export class Engine {
   /** Map.dbc IDs by folder name (lower case), read once, to find a region's map. */
   /** The open map's area triggers (#141), drawn with View › Area triggers or while the Portals dialog edits them. */
   readonly triggerLayer = new AreaTriggerLayer()
+
+	// ---------------------------------------------------------------- flight paths (#180)
+
+	/** The open map's flight stops and routes, drawn with View › Flight paths or while the Flight Paths window edits them. */
+	readonly taxiLayer = new TaxiLayer()
+	/** The document whose stops were read from the client, and while it reads. */
+	private taxiFor = -1
+	private taxiLoading = false
+	/** The Flight Paths window's hooks while it draws its own (edited) stops and routes. */
+	private taxiEdit: TaxiHooks | null = null
+	/** A press on a stop or a route point that may become a drag: what, and (for a point) the plane it moves on and the press's offset from it. */
+	private taxiDrag:
+		| { kind: 'stop'; id: number; moved: boolean }
+		| { kind: 'point'; route: number; index: number; height: boolean; plane: THREE.Plane; offset: THREE.Vector3; moved: boolean }
+		| null = null
+	/** A route's fly-along preview: its curve (editor points), segment lengths, start time, and the view and ground following to go back to. */
+	private taxiFlight: { pts: Vec3[]; lengths: number[]; start: number; view: ReturnType<Engine['sceneView']>; follow: boolean } | null = null
+	private taxiAt = { x: 0, y: 0, z: 0 }
+	private taxiAhead = { x: 0, y: 0, z: 0 }
+	private taxiBehind = { x: 0, y: 0, z: 0 }
+
+	/** The ground's height under an editor point of the open map, NaN off it (or in a building-only map). */
+	private readonly taxiGround = (x: number, z: number) =>
+		!this.doc.meta.region?.wmoOnly && this.terrain.contains(x, z) ? this.terrain.heightAt(x, z) : NaN
+
+	/** Draws the Flight Paths window's stops and routes (server coordinates), `pick` highlighted, and lets `hooks` take its clicks until endTaxiEdit. */
+	showTaxi(stops: TaxiStopShape[], routes: TaxiRouteShape[], pick: TaxiPick, hooks: TaxiHooks) {
+		this.taxiEdit = hooks
+		const r = this.doc.meta.region
+		this.taxiLayer.set(stops, routes, r?.x ?? 0, r?.y ?? 0, pick, this.taxiGround)
+	}
+
+	/** The Flight Paths window closed: View › Flight paths reads the map's stops again (they may have been saved). */
+	endTaxiEdit() {
+		this.taxiEdit = null
+		this.taxiDrag = null
+		this.taxiFor = -1
+		this.stopTaxiFlight()
+	}
+
+	/** Shows the stops and routes while asked for, reading the open map's once per document. */
+	private updateTaxi() {
+		const on = this.taxiEdit !== null || this.prefs?.showFlightPaths === true
+		this.taxiLayer.group.visible = on && !this.topDown
+		if (!on || this.taxiEdit || this.taxiLoading || this.taxiFor === this.doc.id) return
+		const id = this.openMapId()
+		if (id === null) return
+		const doc = this.doc
+		this.taxiLoading = true
+		TaxiNetwork(id)
+			.then((n) => {
+				if (doc !== this.doc || this.taxiEdit) return
+				const reg = doc.meta.region
+				this.taxiLayer.set(n.nodes ?? [], n.routes ?? [], reg?.x ?? 0, reg?.y ?? 0, { stop: null, route: null, point: -1 }, this.taxiGround)
+			})
+			.catch(() => this.taxiLayer.set([], [], 0, 0, { stop: null, route: null, point: -1 }, this.taxiGround))
+			.finally(() => {
+				this.taxiLoading = false
+				this.taxiFor = doc.id
+			})
+	}
+
+	/** An editor point in the server's coordinates of the block the stops are drawn in. */
+	private taxiServer(p: Vec3): Vec3 {
+		const L = this.taxiLayer
+		const s = serverSpot(p, 0, L.tileX, L.tileY)
+		return { x: s.x, y: s.y, z: s.z }
+	}
+
+	/**
+	 * A left press while the Flight Paths window is open: on a point of the picked route it picks the
+	 * point and may drag it (level, or with Shift up and down); on a stop it picks the stop and may drag
+	 * it over the ground; elsewhere, while the window draws, it adds a point after the picked one, at
+	 * that one's height (`airPoint`), and may drag it. Returns false when the press is the tool's.
+	 */
+	private taxiPress(e: PointerEvent): boolean {
+		const hooks = this.taxiEdit
+		const L = this.taxiLayer
+		if (!hooks || !L.group.visible) return false
+		this.raycaster.setFromCamera(this.ndc, this.camera)
+		const route = L.routes.find((r) => r.id === L.pick.route)
+		const index = route ? L.pickPoint(this.raycaster) : -1
+		if (route && index >= 0) {
+			L.pick = { ...L.pick, point: index }
+			L.drawPicked()
+			hooks.pick(L.pick)
+			this.startPointDrag(route.id, index, e.shiftKey)
+			return true
+		}
+		const stop = L.pickStop(this.raycaster)
+		if (stop !== null) {
+			L.pick = { ...L.pick, stop, point: -1 }
+			L.drawStops()
+			L.drawPicked()
+			hooks.pick(L.pick)
+			this.taxiDrag = { kind: 'stop', id: stop, moved: false }
+			return true
+		}
+		if (!route || !hooks.drawing() || !route.points.length) return false
+		const after = L.pick.point >= 0 && L.pick.point < route.points.length ? L.pick.point : route.points.length - 1
+		const height = L.editor(route.points[after]).y
+		const ground = this.surfaceHit()?.point ?? null
+		this.raycaster.setFromCamera(this.ndc, this.camera)
+		const at = airPoint(this.raycaster.ray.origin, this.raycaster.ray.direction, height, ground)
+		if (!at) return true
+		const s = this.taxiServer(at)
+		route.points.splice(after + 1, 0, { ...route.points[after], x: s.x, y: s.y, z: s.z })
+		L.pick = { ...L.pick, point: after + 1 }
+		L.drawPicked()
+		hooks.added(route.id, after + 1, s)
+		this.startPointDrag(route.id, after + 1, false)
+		return true
+	}
+
+	/** Starts dragging point `index` of route `route`: on its level plane, or with `height` up and down on an upright one facing the camera. */
+	private startPointDrag(route: number, index: number, height: boolean) {
+		const L = this.taxiLayer
+		const r = L.routes.find((x) => x.id === route)
+		if (!r) return
+		const p = L.editor(r.points[index])
+		const at = new THREE.Vector3(p.x, p.y, p.z)
+		const plane = new THREE.Plane()
+		if (height) {
+			const n = this.camera.getWorldDirection(new THREE.Vector3()).setY(0)
+			if (n.lengthSq() < 1e-6) n.set(0, 0, 1)
+			plane.setFromNormalAndCoplanarPoint(n.normalize(), at)
+		} else plane.set(new THREE.Vector3(0, 1, 0), -p.y)
+		this.raycaster.setFromCamera(this.ndc, this.camera)
+		const hit = new THREE.Vector3()
+		const offset = this.raycaster.ray.intersectPlane(plane, hit) ? at.sub(hit) : new THREE.Vector3()
+		this.taxiDrag = { kind: 'point', route, index, height, plane, offset, moved: false }
+	}
+
+	/** Moves what the press took to under the cursor: the layer's copy, which the window hears of on release. */
+	private moveTaxiDrag() {
+		const d = this.taxiDrag
+		const L = this.taxiLayer
+		if (!d) return
+		if (d.kind === 'stop') {
+			const s = L.stops.find((x) => x.id === d.id)
+			const hit = this.surfaceHit()
+			if (!s || !hit) return
+			Object.assign(s, this.taxiServer(hit.point))
+			d.moved = true
+			L.drawStops()
+			return
+		}
+		const p = L.routes.find((x) => x.id === d.route)?.points[d.index]
+		this.raycaster.setFromCamera(this.ndc, this.camera)
+		if (!p || !this.raycaster.ray.intersectPlane(d.plane, this.dragPoint)) return
+		const e = L.editor(p)
+		const to = this.dragPoint.add(d.offset)
+		Object.assign(p, this.taxiServer(d.height ? { x: e.x, y: to.y, z: e.z } : { x: to.x, y: e.y, z: to.z }))
+		d.moved = true
+		L.drawPicked()
+	}
+
+	/** A drag ended: the window takes where the stop or point went, as one edit. */
+	private endTaxiDrag() {
+		const d = this.taxiDrag
+		this.taxiDrag = null
+		const L = this.taxiLayer
+		if (!d?.moved || !this.taxiEdit) return
+		if (d.kind === 'stop') {
+			const s = L.stops.find((x) => x.id === d.id)
+			if (s) this.taxiEdit.moved('stop', d.id, -1, { x: s.x, y: s.y, z: s.z })
+			return
+		}
+		const p = L.routes.find((x) => x.id === d.route)?.points[d.index]
+		if (p) this.taxiEdit.moved('point', d.route, d.index, { x: p.x, y: p.y, z: p.z })
+	}
+
+	/** Flies the camera along a route's points (server coordinates) at a flight's speed, then puts the view back; Esc or stopTaxiFlight ends it early. */
+	flyTaxi(points: readonly Vec3[]) {
+		const L = this.taxiLayer
+		const pts = points.map((p) => L.editor(p))
+		if (pts.length < 2) return
+		this.stopTaxiFlight()
+		const follow = this.controller.followGround
+		this.controller.setFollowGround(false)
+		this.taxiFlight = { pts, lengths: segmentLengths(pts), start: this.clock.elapsedTime, view: this.sceneView(), follow }
+		ui.taxiFlying = true
+	}
+
+	/** Ends a fly-along preview and puts the camera back where it was. */
+	stopTaxiFlight() {
+		const f = this.taxiFlight
+		if (!f) return
+		this.taxiFlight = null
+		ui.taxiFlying = false
+		this.controller.setFollowGround(f.follow)
+		this.setSceneView({ ...f.view, hour: this.hour })
+	}
+
+	/** A chase view of the flight: from the rider's point a moment ago, 3 yd up, towards where it will be. */
+	private updateTaxiFlight() {
+		const f = this.taxiFlight!
+		const t = this.clock.elapsedTime - f.start
+		const flying = flightAt(f.pts, f.lengths, t, this.taxiAt)
+		flightAt(f.pts, f.lengths, t + 0.8, this.taxiAhead)
+		flightAt(f.pts, f.lengths, Math.max(0, t - 0.35), this.taxiBehind)
+		this.persp.position.set(this.taxiBehind.x, this.taxiBehind.y + 3, this.taxiBehind.z)
+		this.persp.lookAt(this.taxiAhead.x, this.taxiAhead.y + 1.5, this.taxiAhead.z)
+		if (!flying) this.stopTaxiFlight()
+	}
 
   // ---------------------------------------------------------------- walkable ground (#175)
 

@@ -155,6 +155,26 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   view, not the game's character (Play here does that).
   A Select-tool left click that does not drag picks a trigger by the same rule (`Engine.triggerUnderPointer`,
   `finishTriggerClick`), and `ui.pickedTrigger` is the pick the Portals dialog follows and sets (#307).
+- **Flight paths** (#180): `internal/vmangos/taxi.go` reads and writes the client's three taxi tables
+  (`LoadTaxiTables`, `ReadTaxiNetwork`, `SetTaxi`; 1.12 layouts: TaxiNodes 16 fields with the Horde
+  mount at 14 and the Alliance one at 15, TaxiPath 4, TaxiPathNode 9). VMaNGOS reads the stops from
+  the world database's `taxi_nodes` (the row of the highest build up to 5875; `TaxiSQL` writes 5875)
+  and the routes and their points from its own `data/5875/dbc` copies of TaxiPath.dbc and
+  TaxiPathNode.dbc (`InstallServerTaxi`), so `App.SaveTaxi` writes all three: SQL first, then the
+  patch and the server's tables inside one closed-game window (`installClosed`), so the restarted
+  server reads them. A stop's ID is 1 to 256 (the client's taxi mask); a route's points are rewritten
+  whole, reusing its old point IDs. `components/FlightPathsWindow.svelte` (World › Flight Paths,
+  `ui.flightPaths`) is a floating window, not a dialog, so the map stays in reach, and a form saved
+  with Save, not undo steps (as Zones and Portals, decision #83). It hands its stops and routes to
+  `Engine.showTaxi` with `TaxiHooks`; `world/TaxiLayer.ts` draws them (also for View › Flight paths,
+  `prefs.showFlightPaths`) and picks markers, and `Engine.taxiPress` takes a left press before the
+  tool: a stop's marker drags over the ground, the picked route's points drag level (Shift: up and
+  down), and with Draw points a click adds a point after the picked one at its height
+  (`taxiRoute.ts` `airPoint`). A drag moves the layer's copy and the window hears of it once, on
+  release. `taxiRoute.ts` is the server's curve (uniform Catmull-Rom with the ends doubled, timed at
+  32 yd/s segment by segment); the layer colours it red where it runs under the ground, and
+  `Engine.flyTaxi` rides the camera along it (`ui.taxiFlying`, Esc stops). Make flight master sets
+  npc_flags 8 on the selected creature's template through `SaveCreature`.
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
   editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor.
   Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's

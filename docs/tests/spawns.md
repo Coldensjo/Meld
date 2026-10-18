@@ -222,6 +222,31 @@ it was; `select count(*) from npc_vendor where entry=805` is 0).
 - Trap: GossipDef.h's comments give later clients' npc flag values (vendor 128, flight 8192); 1.12's
   are in UnitDefines.h (vendor 4, flight 8), which the world database uses.
 
+## Flight paths (#180)
+
+Checks: World › Flight Paths lists the open map's stops (TaxiNodes.dbc) and their routes (TaxiPath.dbc
+through TaxiPathNode.dbc's points), draws them, edits them on the map and saves them to the client's
+patch, the server's `data/5875/dbc` and `taxi_nodes`.
+- Unit: `internal/vmangos/taxi_test.go` (read a map's network, unchanged write identical, edit, add and
+  remove stops and routes, point IDs reused, the refusals, the SQL); `tests/taxiRoute.test.ts` (the
+  curve through every point, the 32 yd/s timing, a new route's shape, where a drawn point goes, the
+  red under the ground). Against the client: `WOW_DIR=C:/WoW/client go test ./internal/vmangos/ -run
+  TestClientTaxi` writes the three tables back byte for byte and finds Stormwind's stop 2 with the
+  gryphon (Eastern Kingdoms: 43 stops, 132 routes; next stop 88, next route 501).
+- Live: probe `flight-paths` (Azeroth 36_49, Lakeshire is stop 5, its first listed route is 8 to
+  Stormwind, 23 points, about 1 min 46 s). It sets `window.confirm` to say yes, since Close asks about
+  unsaved changes.
+- In the game (the owner's check): save a stop and a route, talk to a creature made flight master next
+  to the stop (the server picks the stop nearest the flight master for the player's side, at any
+  distance), learn the stop, and fly. A stop needs a route that starts there, or VMaNGOS leaves it
+  out of its taxi mask (`sTaxiNodesMask`) and no flight master offers it. The server reads `taxi_nodes` and the route tables only at
+  start; Save restarts it on Windows when the patch changes.
+- Trap: a live Save writes Meld's patch-3.MPQ and the server's taxi tables (keeping `.before-meld`
+  copies) and closes the game and servers around it; don't run it in a check unless the owner wants
+  that. The Go tests cover the write.
+- Trap: the client's own data has odd stops: Northshire Abbey (1) and Programmer Isle (3) carry a
+  Riding Horse (308) in the Horde slot, so they draw red; that's the table, not a bug.
+
 ## Portals and area triggers (#141, #18)
 
 Checks: World › Portals and Area Triggers… lists the open map's AreaTrigger.dbc volumes with the

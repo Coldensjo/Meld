@@ -478,6 +478,10 @@ export function SaveSceneMap(arg1) {
   return window['go']['main']['App']['SaveSceneMap'](arg1);
 }
 
+export function SaveTaxi(arg1) {
+  return window['go']['main']['App']['SaveTaxi'](arg1);
+}
+
 export function SaveTextDialog(arg1) {
   return window['go']['main']['App']['SaveTextDialog'](arg1);
 }
@@ -556,6 +560,10 @@ export function SpellRefs(arg1) {
 
 export function SpellTexts(arg1) {
   return window['go']['main']['App']['SpellTexts'](arg1);
+}
+
+export function TaxiNetwork(arg1) {
+  return window['go']['main']['App']['TaxiNetwork'](arg1);
 }
 
 export function TemplateNames(arg1, arg2) {

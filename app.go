@@ -1486,8 +1486,21 @@ func (a *App) ReadImageFile(path string) (string, error) {
 // installWithGameClosed writes files into the client's patch. On Windows the game and the servers
 // hold the patch open, so they are closed first and opened again afterwards.
 func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, error) {
+	return a.installClosed(dataDir, files, nil)
+}
+
+// installClosed is installWithGameClosed that also runs also (when set) after the patch is written,
+// before the game and servers start again: a write into the server's data the restarted server reads.
+func (a *App) installClosed(dataDir string, files []mpq.File, also func() error) (string, error) {
+	run := func() (string, error) {
+		patch, err := vmangos.InstallPatch(dataDir, files)
+		if err == nil && also != nil {
+			err = also()
+		}
+		return patch, err
+	}
 	if goruntime.GOOS != "windows" {
-		return vmangos.InstallPatch(dataDir, files)
+		return run()
 	}
 	sess, err := a.gameSession()
 	if err != nil {
@@ -1498,7 +1511,7 @@ func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, e
 		// Open what did close again, and leave the patch alone.
 		return "", errors.Join(err, sess.Start(closed))
 	}
-	patch, err := vmangos.InstallPatch(dataDir, files)
+	patch, err := run()
 	if restart := sess.Start(closed); restart != nil {
 		err = errors.Join(err, restart)
 	}
@@ -1755,6 +1768,83 @@ func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (Are
 		}
 	}
 	return res, nil
+}
+
+// TaxiNetwork lists map mapID's flight stops and the routes from or to them from the client's taxi
+// tables, with the IDs a new stop (above the world database's taxi_nodes too, when a server folder
+// is set) and route take, for the Flight Paths window (#180).
+func (a *App) TaxiNetwork(mapID uint32) (vmangos.TaxiNetwork, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.TaxiNetwork{}, err
+	}
+	tt, err := vmangos.LoadTaxiTables(dataDir)
+	if err != nil {
+		return vmangos.TaxiNetwork{}, err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	var top uint32
+	if server != "" {
+		if top, err = vmangos.ServerTaxiMax(server); err != nil {
+			return vmangos.TaxiNetwork{}, fmt.Errorf("world database: %w", err)
+		}
+	}
+	return vmangos.ReadTaxiNetwork(tt, mapID, top)
+}
+
+// SaveTaxi writes the Flight Paths window's changed and removed stops and routes into the client's
+// three taxi tables (Meld's patch) and, with a server folder set, the stops into the world database's
+// taxi_nodes and the route tables into the server's data, which it reads at start. The game and the
+// servers are closed around the writes on Windows, so the servers start again with the new routes.
+func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
+	var res AreaSaveResult
+	defer a.releaseClient()()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return res, err
+	}
+	tt, err := vmangos.LoadTaxiTables(dataDir)
+	if err != nil {
+		return res, err
+	}
+	out, err := vmangos.SetTaxi(tt, edit.Nodes, edit.RemoveNodes, edit.Routes, edit.RemoveRoutes)
+	if err != nil {
+		return res, err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	if server != "" {
+		if err := vmangos.ApplySQL(server, vmangos.TaxiSQL(edit.Nodes, edit.RemoveNodes, edit.RemoveRoutes)); err != nil {
+			return res, fmt.Errorf("world database: %w", err)
+		}
+	}
+	var files []mpq.File
+	for _, f := range []struct {
+		name     string
+		old, new []byte
+	}{{vmangos.TaxiNodesPath, tt.Nodes, out.Nodes}, {vmangos.TaxiPathPath, tt.Paths, out.Paths}, {vmangos.TaxiPathNodePath, tt.Points, out.Points}} {
+		if !bytes.Equal(f.old, f.new) {
+			files = append(files, mpq.File{Name: f.name, Data: f.new})
+		}
+	}
+	serverTables := func() error {
+		if server == "" {
+			return nil
+		}
+		if _, err := vmangos.InstallServerTaxi(server, out); err != nil {
+			return fmt.Errorf("server data: %w", err)
+		}
+		res.Server = true
+		return nil
+	}
+	if len(files) == 0 {
+		return res, serverTables()
+	}
+	res.Patch, err = a.installClosed(dataDir, files, serverTables)
+	return res, err
 }
 
 // gameSession is the game and server a region export restarts, with the saved login.
