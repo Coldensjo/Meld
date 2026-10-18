@@ -862,6 +862,16 @@ func (a *App) ObjectModel(display int) (string, error) {
 	return vmangos.ObjectModel(dataDir, display)
 }
 
+// ObjectTeleport is where game object template entry sends a player (a spellcaster portal's or a
+// goober's spell_target_position), nil when it sends them nowhere (#306).
+func (a *App) ObjectTeleport(entry int) (*vmangos.TriggerTeleport, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ObjectTeleport(server, entry)
+}
+
 // NextObjectGUID is the first free game object guid of the world database, for placed objects.
 func (a *App) NextObjectGUID() (int, error) {
 	server, _, err := a.serverAndData()

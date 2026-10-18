@@ -7,6 +7,8 @@ import type { SpawnLayer } from './SpawnLayer'
 export interface PointerPick {
   spawn: vmangos.WorldSpawn | null
   id: number | null
+  /** How far along the ray the picked one was met; Infinity for neither. */
+  distance: number
 }
 
 /**
@@ -16,6 +18,6 @@ export interface PointerPick {
 export function pickNearest(objects: ObjectLayer, spawns: SpawnLayer, raycaster: THREE.Raycaster): PointerPick {
   const s = spawns.pickHit(raycaster)
   const o = objects.pickHit(raycaster)
-  if (s && (!o || s.distance <= o.distance)) return { spawn: s.spawn, id: null }
-  return { spawn: null, id: o ? o.id : null }
+  if (s && (!o || s.distance <= o.distance)) return { spawn: s.spawn, id: null, distance: s.distance }
+  return { spawn: null, id: o ? o.id : null, distance: o ? o.distance : Infinity }
 }

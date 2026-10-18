@@ -7,6 +7,7 @@ import {
   LoadBuildingMap,
   LoadRegion,
   LoadSpawns,
+  MapEntries,
   OpenBrushDialog,
   OpenModelSetDialog,
   OpenTextDialog,
@@ -59,6 +60,9 @@ import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { TILE_CELLS, mapToTiles, type ExportObject } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords } from './portCoords'
+import { tileKey } from './mapTiles'
+import { blockAround, blockHolds, spotTile } from '../world/teleport'
+import type { TriggerDestination } from '../world/areaTriggers'
 import { minimapScale, shadeHeights } from './minimapImage'
 import { isHelper } from '../models/helpers'
 import { defaultMapInfo, type MapInfo } from '../engine/MapDocument'
@@ -305,6 +309,50 @@ export function openWowRegion(engine: Engine, mapName: string, x: number, y: num
  */
 export function openWowBuilding(engine: Engine, mapName: string) {
   return guarded('Open building', async () => openRegionView(engine, await LoadBuildingMap(mapName)))
+}
+
+/** The side of the block Teleport to destination opens around a spot, in tiles. */
+const TELEPORT_BLOCK = 3
+
+/**
+ * Teleport to destination (#306): shows server spot `dest` (an area trigger's or a portal's target,
+ * `what` naming it in the status) in the editor. A tab whose map and block hold it is switched to;
+ * otherwise the destination map opens in a new tab, as a block of up to TELEPORT_BLOCK tiles a side
+ * around it, or whole for a map that is one building. Then the camera goes to the spot.
+ */
+export function teleportTo(engine: Engine, dest: TriggerDestination, what: string) {
+  return guarded('Teleport', async () => {
+    const map = (await MapEntries()).find((m) => m.ID === dest.map)
+    if (!map) {
+      setStatus(`${what} leads to map ${dest.map}, which the client's Map.dbc does not have.`, 8000)
+      return
+    }
+    const tile = spotTile(dest)
+    const dir = map.Dir.toLowerCase()
+    const holds = (d: MapDocument) => {
+      const r = d.meta.region
+      if (r) return r.mapName.toLowerCase() === dir && (!!r.wmoOnly || blockHolds(r, tile))
+      return d.meta.vmangos?.mapId === dest.map
+    }
+    const open = engine.documents.find(holds)
+    if (open) engine.switchDocument(open.id)
+    else {
+      const res = await fetch(`/wow/tiles?map=${encodeURIComponent(map.Dir)}`)
+      const tiles = res.ok ? ((await res.json()) as Array<{ X: number; Y: number }> | null) ?? [] : []
+      if (!tiles.length) await openRegionView(engine, await LoadBuildingMap(map.Dir))
+      else {
+        const block = blockAround(tile, new Set(tiles.map((t) => tileKey(t.X, t.Y))), TELEPORT_BLOCK)
+        if (!block) {
+          setStatus(`${what} leads to ${map.Name} tile ${tile.x}_${tile.y}, which has no terrain in the client.`, 8000)
+          return
+        }
+        await openRegionView(engine, await LoadRegion(map.Dir, block.x, block.y, block.size))
+      }
+      if (!engine.documents.some((d) => d.id === engine.activeDocumentId() && holds(d))) return
+    }
+    engine.viewSpot(dest)
+    setStatus(`${what}: arrived in ${map.Name} at (${dest.x.toFixed(1)}, ${dest.y.toFixed(1)}, ${dest.z.toFixed(1)}).`, 6000)
+  })
 }
 
 /** Opens a block read from the client (LoadRegion, LoadBuildingMap) in a new tab, then its spawns. */

@@ -237,6 +237,19 @@ server's names and teleports, draws them, and saves them to the client's patch a
   `__engine.triggerLayer.group` visible with the picked sphere's 192 points.
 - Trap: a live Save writes Meld's patch-3.MPQ and closes the game and servers around it (as Zones
   does); don't run it in a check unless the owner wants that. The Go tests cover the write.
+- Teleport to destination (#306): probe `teleport-trigger`. With View › Area triggers on, a
+  right-click on trigger 78 selects it (`__engine.triggerLayer.selected`) and its menu's Teleport to
+  destination opens `DeadminesInstance 31_31 3` with the camera on the areatrigger_teleport spot
+  (-14.6, -385.5, 62.5); `ObjectTeleport(176296)` (Portal to Stormwind, type 22) gives
+  (-9003.5, 870.0) on map 0. Unit: `tests/teleport.test.ts` (ray against spheres and turned boxes,
+  which hit wins, the block opened round a spot), `internal/vmangos/teleport_test.go`. Spawned
+  portals to test by hand: `SELECT entry, type, name FROM gameobject_template WHERE type IN (10, 22)`
+  joined to `gameobject` (the city portals are summoned by mages, not spawned; Inner Maraudon's
+  178404 and the Naxxramas portals are).
+- Trap: the default camera flies, so its target is the camera itself: a probe that sets the view on
+  a trigger's centre puts the camera inside it, and a trigger the camera is inside is never picked.
+  Place the camera outside it (the probe backs off radius + 4 yd). Cameras that follow the ground
+  lift the target onto the terrain over the Deadmines' cave, 25 yd above the trigger.
 
 ## Creatures workspace and the new-creature guide (#132)
 

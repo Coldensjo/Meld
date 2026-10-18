@@ -129,6 +129,8 @@ export function NextPoolEntry():Promise<number>;
 
 export function ObjectModel(arg1:number):Promise<string>;
 
+export function ObjectTeleport(arg1:number):Promise<vmangos.TriggerTeleport>;
+
 export function OpenBrushDialog():Promise<Array<string>>;
 
 export function OpenHeightmapDialog():Promise<string>;

@@ -76,7 +76,7 @@ import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
 import { stormBlend, WEATHER_GRADE } from '../wow/weather'
 import { WeatherLayer } from '../world/WeatherLayer'
-import { serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
+import { editorPoint, serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
 import { antialiasAtStart } from './display'
 import { frameDue } from './frameLimit'
@@ -97,12 +97,14 @@ import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnMatrix, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
+import { pickTrigger, triggerWins } from '../world/teleport'
+import { teleportTo } from '../io/mapio'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { SpawnLinks } from '../world/SpawnLinks'
 import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
 import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, CheckSpawnIDs, ObjectTeleport, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 
 /** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
@@ -1949,6 +1951,25 @@ export class Engine {
     const items: ContextItem[] = []
     let title = ''
     const picked = pickNearest(this.objects, this.doc.spawnLayer, this.raycaster)
+    // An area trigger, while they are drawn (#306): picked over a building it stands in.
+    const ray = this.raycaster.ray
+    const layer = this.triggerLayer
+    const trig = layer.group.visible ? pickTrigger(layer.triggers, ray.origin, ray.direction, layer.tileX, layer.tileY) : null
+    if (trig && triggerWins(trig, picked.spawn ? 'spawn' : picked.id !== null ? 'model' : null, picked.distance)) {
+      const t = trig.trigger
+      layer.select(t.id)
+      const dest = t.teleport
+      title = `Area trigger ${t.id}${t.name ? `: ${t.name}` : ''}`
+      const what = title
+      if (dest) items.push({ label: 'Teleport to destination', run: () => void teleportTo(this, dest, what) })
+      else title += ' (teleports no one)'
+      const at = editorPoint(t, layer.tileX, layer.tileY)
+      items.push({ label: 'Focus', run: () => this.controller.focus(at.x, at.z, Math.max(20, t.radius * 4, t.boxX * 2)) })
+      items.push({ label: 'Unselect', run: () => layer.select(null) })
+      ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
+      return
+    }
+    if (layer.selected !== null) layer.select(null)
     const id = picked.id
     // A click that hits nothing near the selected creature or object still opens its menu (#205).
     const spawn = picked.spawn ?? (id === null ? this.selectedSpawnNear(e) : null)
@@ -1962,6 +1983,8 @@ export class Engine {
         items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })
       } else {
         items.push({ label: 'Edit object…', run: () => (ui.objectEditor = { key, entry: spawn.entry }) })
+        // A spellcaster portal or a goober casts a spell that may teleport (#306).
+        if (spawn.type === 22 || spawn.type === 10) items.push({ label: 'Teleport to destination', run: () => void this.teleportByObject(spawn) })
       }
       items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
       const type = spawnType(spawn)
@@ -1983,6 +2006,29 @@ export class Engine {
       items.push({ separator: true }, { label: n > 1 ? 'Delete models' : 'Delete model', shortcut: 'Del', danger: true, run: () => this.deleteSelected() })
     }
     ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
+  }
+
+  /** Follows game object `spawn`'s teleport spell (its template's spell_target_position), if it has one. */
+  private async teleportByObject(spawn: vmangos.WorldSpawn) {
+    const what = spawn.name || `Object ${spawn.entry}`
+    try {
+      const dest = await ObjectTeleport(spawn.entry)
+      if (dest) await teleportTo(this, dest, what)
+      else setStatus(`${what} casts no spell with a destination (spell_target_position), so it teleports no one.`, 6000)
+    } catch (err) {
+      setStatus(`Reading where ${what} leads failed: ${err}`, 8000)
+    }
+  }
+
+  /**
+   * Puts the camera at server spot `dest` in the active tab's coordinates, looking the way it faces
+   * from a little behind, as a player arriving there would (Teleport to destination, #306).
+   */
+  viewSpot(dest: { x: number; y: number; z: number; o: number }) {
+    const r = this.doc.meta.region
+    const p = editorPoint(dest, r?.x ?? 0, r?.y ?? 0)
+    // A player's eye height above the spot: where the flying camera sits, and what an orbit looks at.
+    this.controller.setView(p.x, p.y + 1.7, p.z, dest.o, 0.3, 12)
   }
 
   /** The selected spawn when (clientX, clientY) is within CONTEXT_MARGIN px of it on the screen, else null. */

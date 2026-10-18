@@ -1,5 +1,5 @@
 /** A WoW 1.12 ADT tile is 533 1/3 yards across. */
-const TILE_SIZE = 533 + 1 / 3
+export const TILE_SIZE = 533 + 1 / 3
 
 /** The zero point the 1.12 client measures positions from (internal/adt ZeroPoint). */
 const ZERO_POINT = 32 * TILE_SIZE

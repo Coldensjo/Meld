@@ -1,0 +1,42 @@
+// Teleport to destination (#306): with View › Area triggers on, a right-click on the Deadmines entrance (trigger 78) on Azeroth selects it and offers "Teleport to destination", which opens the Deadmines (map 36) in a new tab with the camera at the trigger's areatrigger_teleport spot; and a spellcaster portal (Portal to Stormwind, 176296) reads its spell's destination in Stormwind.
+const { ui, editor, prefs } = await P.state()
+const before = prefs.showAreaTriggers
+prefs.showAreaTriggers = true
+try {
+	await P.scene({ v: 1, map: { region: { mapName: 'Azeroth', x: 28, y: 53, size: 1 } }, view: { target: [0, 0, 0], yaw: 0, pitch: 0.3, distance: 30, hour: 13 }, prefs: { cameraFollowGround: false }, tool: 'select', selectedIds: [], selected: null, area: null, viewport: [1000, 600] })
+	const layer = P.e.triggerLayer
+	const t = await P.until(() => layer.triggers.find((x) => x.id === 78) ?? null, 60_000, 'trigger 78 read')
+	const { editorPoint } = await P.app('/src/lib/io/portCoords.ts')
+	const c = editorPoint(t, 28, 53)
+	// The entrance is a cave in a building's rock: look at it from the side the rock leaves open.
+	const r = P.e.renderer.domElement.getBoundingClientRect()
+	const titles = []
+	let menu = null
+	for (let k = 0; k < 8 && !menu; k++) {
+		// The flying camera is where its target is: put it a little outside the sphere, looking at its centre.
+		const yaw = (k * Math.PI) / 4, pitch = 0.2, back = t.radius + 4
+		P.e.controller.setView(c.x + Math.sin(yaw) * Math.cos(pitch) * back, c.y + Math.sin(pitch) * back, c.z + Math.cos(yaw) * Math.cos(pitch) * back, yaw, pitch, 1)
+		await P.frames(2)
+		P.e.openContextMenu(new PointerEvent('pointerup', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 2 }))
+		titles.push(ui.contextMenu?.title ?? '')
+		if (ui.contextMenu?.title.startsWith('Area trigger')) menu = ui.contextMenu
+	}
+	const title = menu?.title ?? ''
+	const item = menu?.items.find((i) => i.label === 'Teleport to destination')
+	const selected = layer.selected
+	ui.contextMenu = null
+	if (!item) return { ok: false, titles, radius: t.radius, why: 'no Teleport to destination item' }
+	item.run()
+	await P.until(() => (editor.regionMap === 'DeadminesInstance' && !ui.busy) || null, 120_000, "the Deadmines' tab")
+	const region = P.e.doc.meta.region
+	const dest = t.teleport
+	const at = editorPoint(dest, region.x, region.y)
+	const tg = P.e.controller.target
+	const camOff = Math.hypot(tg.x - at.x, tg.z - at.z)
+	// A spellcaster portal, through the binding.
+	const portal = await window.go.main.App.ObjectTeleport(176296)
+	const ok = title.startsWith('Area trigger 78') && selected === 78 && dest.map === 36 && camOff < 1 && portal?.map === 0 && Math.abs(portal.x + 9003.46) < 1
+	return { ok, title, selected, region: `${region.mapName} ${region.x}_${region.y} ${region.size}`, dest, camOff: +camOff.toFixed(2), portal }
+} finally {
+	prefs.showAreaTriggers = before
+}

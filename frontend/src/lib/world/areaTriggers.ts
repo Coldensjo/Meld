@@ -16,6 +16,19 @@ export interface TriggerShape {
 	boxY: number
 	boxZ: number
 	boxYaw: number
+	/** The server's name for it, when read from the world database. */
+	name?: string
+	/** Where it sends a player (vmangos.TriggerTeleport), when it does. */
+	teleport?: TriggerDestination | null
+}
+
+/** A teleport's destination in the server's coordinates: the map, position and facing. */
+export interface TriggerDestination {
+	map: number
+	x: number
+	y: number
+	z: number
+	o: number
 }
 
 /** Segments a circle of a sphere is drawn with. */
@@ -64,6 +77,11 @@ export class AreaTriggerLayer {
 	readonly group = new THREE.Group()
 	private all: THREE.LineSegments
 	private picked: THREE.LineSegments
+	/** What set last drew, so a click can be tested against it and the selection redrawn. */
+	triggers: readonly TriggerShape[] = []
+	tileX = 0
+	tileY = 0
+	selected: number | null = null
 
 	constructor() {
 		this.all = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xc77dff, transparent: true, opacity: 0.8, fog: false }))
@@ -75,6 +93,10 @@ export class AreaTriggerLayer {
 
 	/** Draws `triggers` (server coordinates) in the block whose first tile is (tileX, tileY), `selected` highlighted. */
 	set(triggers: readonly TriggerShape[], tileX: number, tileY: number, selected: number | null) {
+		this.triggers = triggers
+		this.tileX = tileX
+		this.tileY = tileY
+		this.selected = selected
 		const rest: number[] = []
 		const sel: number[] = []
 		for (const t of triggers) triggerLines(t, tileX, tileY, t.id === selected ? sel : rest)
@@ -82,6 +104,11 @@ export class AreaTriggerLayer {
 		this.all.geometry = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(rest, 3))
 		this.picked.geometry.dispose()
 		this.picked.geometry = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(sel, 3))
+	}
+
+	/** Highlights trigger `id` (null for none) among the ones drawn. */
+	select(id: number | null) {
+		if (id !== this.selected) this.set(this.triggers, this.tileX, this.tileY, id)
 	}
 
 	dispose() {

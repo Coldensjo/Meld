@@ -141,6 +141,18 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   as does a creature with none; an emptied list deletes its own row and sets `spell_list_id` to 0.
   Like the Shop, a form with its own Save and Revert, not undo steps; the editor's `spell_list_id`
   follows the save. A list a script switches to (`creature_ai_scripts`) is not counted as shared.
+- **Area triggers and teleporters** (#141, #306): `world/areaTriggers.ts` `AreaTriggerLayer` draws the
+  open map's AreaTrigger.dbc volumes (`AreaTriggers` binding, with the world database's names and
+  `areatrigger_teleport` rows) while View › Area triggers is on or the Portals dialog edits them, and
+  keeps what it drew, so `Engine.openContextMenu` can pick a trigger with `world/teleport.ts`
+  `pickTrigger` (only while drawn; one the camera is inside is skipped). `triggerWins` settles it
+  against `pickNearest`'s hit: a placed model wins only in front of the trigger (a dungeon portal
+  stands in its building), a spawn inside it too. The menu's Teleport to destination, and the same
+  item on a type 22 (spellcaster) or type 10 (goober) object spawn (`ObjectTeleport`: the template's
+  data0 or data10 spell, then its `spell_target_position`), call `io/mapio.ts` `teleportTo`: switch
+  to a tab whose map and block hold the spot, else open the map (`blockAround`: up to 3x3 tiles
+  round it, or `LoadBuildingMap` for a map with no tiles), then `Engine.viewSpot`. It moves Meld's
+  view, not the game's character (Play here does that).
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
   editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor.
   Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's

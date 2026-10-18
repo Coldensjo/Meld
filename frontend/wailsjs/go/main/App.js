@@ -246,6 +246,10 @@ export function ObjectModel(arg1) {
   return window['go']['main']['App']['ObjectModel'](arg1);
 }
 
+export function ObjectTeleport(arg1) {
+  return window['go']['main']['App']['ObjectTeleport'](arg1);
+}
+
 export function OpenBrushDialog() {
   return window['go']['main']['App']['OpenBrushDialog']();
 }
