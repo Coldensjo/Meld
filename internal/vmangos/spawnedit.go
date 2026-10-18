@@ -112,6 +112,7 @@ var runScript = func(db worldDB, script string) error {
 	args := db.args("")
 	args = args[:len(args)-2] // no -e: the script comes on stdin
 	cmd := exec.Command("mariadb", args...)
+	hideConsole(cmd)
 	cmd.Stdin = strings.NewReader("START TRANSACTION;\n" + script + "\nCOMMIT;\n")
 	var errOut bytes.Buffer
 	cmd.Stderr = &errOut

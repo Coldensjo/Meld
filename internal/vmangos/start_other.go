@@ -46,5 +46,8 @@ var (
 	held   []*os.File
 )
 
+// hideConsole does nothing here: only Windows opens a console window for a console program.
+func hideConsole(*exec.Cmd) {}
+
 // allowForeground does nothing here: only Windows keeps a program from bringing its window to the front.
 func allowForeground(int) {}

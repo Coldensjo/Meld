@@ -37,6 +37,16 @@ func startProgramEnv(dir, name string, args, env []string) error {
 	return nil
 }
 
+// createNoWindow is the CREATE_NO_WINDOW process creation flag.
+const createNoWindow = 0x08000000
+
+// hideConsole keeps a console program run for its output (mariadb, tasklist, the extractors) from
+// opening a console window: the editor has no console to share, so Windows gives each one its own,
+// and a map's spawn queries flashed a row of them.
+func hideConsole(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
+}
+
 // allowSetForegroundWindow is user32's AllowSetForegroundWindow.
 var allowSetForegroundWindow = syscall.NewLazyDLL("user32.dll").NewProc("AllowSetForegroundWindow")
 

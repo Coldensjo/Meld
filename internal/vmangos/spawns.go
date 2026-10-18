@@ -134,6 +134,7 @@ type Waypoint struct {
 var runSQL = func(db worldDB, sql string) ([]byte, error) {
 	args := append([]string{"-B", "-N"}, db.args(sql)...)
 	cmd := exec.Command("mariadb", args...)
+	hideConsole(cmd)
 	var out, errOut bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errOut
 	if err := cmd.Run(); err != nil {

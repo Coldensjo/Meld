@@ -26,13 +26,16 @@ type OSRunner struct{}
 
 // Running asks Windows' task list for the image name.
 func (OSRunner) Running(image string) bool {
-	out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq "+image, "/NH").Output()
+	cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq "+image, "/NH")
+	hideConsole(cmd)
+	out, err := cmd.Output()
 	return err == nil && strings.Contains(strings.ToLower(string(out)), strings.ToLower(image))
 }
 
 func (OSRunner) Run(dir, name string, args []string, log func(string)) error {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
+	hideConsole(cmd)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
