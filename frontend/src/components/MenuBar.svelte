@@ -615,7 +615,7 @@
 <svelte:window onpointerdown={onWindowPointer} onkeydown={(e) => open && e.key === 'Escape' && (open = null)} onblur={() => (open = null)} />
 
 <header class="menubar" bind:this={bar}>
-  <span class="brand">⛰ Meld</span>
+  <span class="brand">Meld</span>
   <nav class="menus">
     {#each menus as m (m.name)}
       <div class="menu">
