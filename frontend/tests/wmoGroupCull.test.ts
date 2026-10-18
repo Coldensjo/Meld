@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { WmoGroupCull } from '../src/lib/world/wmoGroupCull.ts'
+import { buildBoundsTree } from '../src/lib/world/bvh.ts'
 
 /**
  * A model of one triangle per WMO group, side by side along x (group g at x = 100 g), plus one triangle
@@ -130,4 +131,22 @@ test('the near shadow cascade adds its groups to the view half and draws it; oth
 	c.before(near.cam, grp)
 	assert.deepEqual({ start: grp.start, count: grp.count }, c.fullRange(1))
 	c.after(near.cam, grp)
+})
+
+test("the batch mesh drawing the twin picks through the model's bounds tree (#286)", () => {
+	const m = model()
+	buildBoundsTree(m)
+	const c = WmoGroupCull.of(m, 0, 2)!
+	assert.equal(c.geometry.boundsTree, m.boundsTree, 'the twin shares the tree, so a ray never walks every triangle')
+	const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+	const mesh = new THREE.InstancedMesh(c.geometry, [mat, mat], 1)
+	mesh.setMatrixAt(0, new THREE.Matrix4())
+	mesh.computeBoundingSphere()
+	mesh.updateMatrixWorld()
+	const ray = new THREE.Raycaster(new THREE.Vector3(100.2, 0.2, 10), new THREE.Vector3(0, 0, -1))
+	ray.firstHitOnly = true
+	const hits = ray.intersectObject(mesh, false)
+	assert.equal(hits.length, 1)
+	assert.ok(Math.abs(hits[0].distance - 10) < 1e-6, 'the hit is on group 2, at x 100')
+	assert.equal(hits[0].instanceId, 0)
 })

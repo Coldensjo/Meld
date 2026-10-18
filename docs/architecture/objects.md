@@ -27,7 +27,9 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     half for the view camera, and `onBeforeShadow` for the near cascade's shadow camera (told apart by
     its `shadowCamera` argument; its `camera` is the view's). The far cascade, redrawn only when its fit
     changes, and the point lights' cubes keep the whole model. The near cascade lies mostly in view, so
-    the two share one half instead of a third (16 MB for Stormwind).
+    the two share one half instead of a third (16 MB for Stormwind). The twin shares the model's bounds
+    tree, as the LOD does, since picking and the names' sight lines raycast the batch mesh: without it a
+    ray walked every triangle, over a second for Blackrock Depths (#286, probe `brd-fly`).
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
     sculpting. A tilted one also has `tiltX`/`tiltZ`, the MDDF/MODF record's first and third angles,
     turned in the client's order by `world/placement.ts` (`placementEuler`); build every model

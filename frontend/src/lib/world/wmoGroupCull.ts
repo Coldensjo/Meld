@@ -66,6 +66,10 @@ export class WmoGroupCull {
 		g.setIndex(new THREE.BufferAttribute(index, 1))
 		g.boundingBox = source.boundingBox?.clone() ?? null
 		g.boundingSphere = source.boundingSphere?.clone() ?? null
+		// The batch mesh is raycast through the geometry it draws, this twin: without the model's bounds
+		// tree every pick and sight line walked all of its triangles, over a second a ray in Blackrock
+		// Depths (#286). The tree tests the model's own index, which holds the same triangles.
+		g.boundsTree = source.boundsTree
 		this.runs = []
 		this.full = []
 		this.view = []

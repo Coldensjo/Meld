@@ -108,6 +108,11 @@ and so on; those inside the abbey have none.
 - A name the ground or a building (WMO) hides is left out (`Engine.sightBlocked`, through
   `ObjectLayer.wmoBlocks`): trees don't hide names. Wrap `e.spawnLabels.blocked` to count the tests;
   one costs about 0.04 ms, up to 96 a pick, four picks a second.
+- Probe `brd-fly` (#286) flies 40 frames through Blackrock Depths with the names on and times the
+  sight tests (0.08 ms each) and the longest frame (under 100 ms on SwiftShader). Trap: a big WMO's
+  batch mesh draws its group cull's twin geometry (#198), and a ray through a geometry without a bounds
+  tree falls back to three's brute-force raycast: 33 ms a test there, frames of 1.2 to 2.4 s every
+  second or third frame, which looked like stutter from the creatures (hiding them hid their names).
 - Trap: a scene whose camera stands inside a building's wall (the abbey at `"target":[182,80,353]`,
   pitch 0.35, distance 45 does) hides every name, correctly; check the camera first.
 - Setting `ed.prefs.spawnNames = false` from the page module hides them all.
