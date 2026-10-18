@@ -357,15 +357,19 @@ Checks: View › Walkable ground builds the server's navmesh around the camera's
 terrain and the placed models' collision, rebuilds it after an edit, and View › Test a Path finds a
 creature's way round obstacles.
 - Unit: `tests/navmesh.test.ts` (slope areas, the tile gatherer, a navmesh round a wall with the real
-  WASM in node, a few ms a tile). Go: `TestM2HullFaces`, and with `WOW_DIR=C:/WoW/client`
+  WASM in node, a few ms a tile; #239: the span layout `navFilters.ts` reads, a 1.5 yd model fence
+  gone round while the same step in the terrain is climbed, a river only a swimmer crosses beside a
+  ford a walker wades, a deep ocean chunk with no navmesh, and the sea's cells). Go: `TestM2HullFaces`, and with `WOW_DIR=C:/WoW/client`
   `TestClientCollision` (three hulls wound outward by signed volume, Goldshire inn's floors facing up).
 - Probe: `pnpm probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
-  round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, and the view
+  round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, a river 2 yd
+  deep across the map drawn blue and crossed only as a swimmer (`kind: 'swim'`, #239), and the view
   off freeing every tile. It turns Follow the Ground on first: with the default flying camera the new
   map's view starts 250 yd up and Test a Path's clicks land 345 yd out, past the built tiles (#256).
 - In the benchmark scene (Northshire Abbey) the 177 tiles take 3.4 ms each on average, 41 ms at worst
   (the abbey's tiles); on SwiftShader the whole build takes about 70 s of frames, so wait on
   `e.nav.counts` (`done === total`, `loading === 0`, `!settling`), never on a fixed number of frames.
-- Traps: a change (sculpt, a model loading or moving) holds the build until 400 ms pass without one,
+- Traps: `nav.group` also holds the path test's line and markers, which have no colour attribute;
+  a change (sculpt, a model loading or moving, a liquid edit) holds the build until 400 ms pass without one,
   so while models stream in after a region opens nothing builds; the roofs get navmesh too, as on the
   server (they are walkable, only unreachable).

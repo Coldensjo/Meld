@@ -1305,7 +1305,7 @@ export class Engine {
     const now = performance.now()
     const id = this.openMapId()
     this.nav.group.visible = !this.topDown
-    this.nav.update(this.terrain, this.objects, this.controller.target, id === null || id <= 1, now)
+    this.nav.update(this.terrain, this.objects, this.doc.liquids, editor.waterEnabled ? editor.waterLevel : null, this.controller.target, id === null || id <= 1, now)
     if (now - this.navStatusAt < 500 || this.navPick) return
     this.navStatusAt = now
     const c = this.nav.counts
@@ -1314,7 +1314,7 @@ export class Engine {
     // path test's result stays).
     if (!busy && (c.settling || !this.navStatus)) return
     const text = !busy
-      ? `Walkable ground: the navmesh within ${NAV_RANGE} yd. Green is ground, orange slopes only creatures take.`
+      ? `Walkable ground: the navmesh within ${NAV_RANGE} yd. Green is ground, orange slopes only creatures take, cyan shallow water, blue water only swimmers cross, red magma, yellow slime.`
       : c.loading
         ? "Walkable ground: loading the models' collision…"
         : `Walkable ground: building the navmesh, ${c.done} of ${c.total} tiles…`
@@ -1340,7 +1340,9 @@ export class Engine {
     const msg =
       r.kind === 'path'
         ? `A creature walks ${Math.round(r.yards)} yd from there to there (${Math.round(r.straight)} yd as the crow flies).`
-        : r.kind === 'short'
+        : r.kind === 'swim'
+          ? `Only a creature that swims gets from there to there, in ${Math.round(r.yards)} yd (${Math.round(r.straight)} yd as the crow flies); one that can't swim stops at deep water.`
+          : r.kind === 'short'
           ? `A creature can't reach that point: its path ends ${r.short.toFixed(1)} yd short, after ${Math.round(r.yards)} yd.`
           : r.reason === 'unreached'
             ? "A creature can't walk from there to there: the two points aren't connected."

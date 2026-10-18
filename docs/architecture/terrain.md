@@ -82,16 +82,28 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     first use by `loadRecast`) with TileWorker.cpp's settings (`vmangosSettings`: 0.2667 yd voxels,
     80 a tile, agent 1.5 yd tall and 0.2 wide on maps 0 and 1, climb 1.8) and its areas: ground up to
     52°, steep slope (creatures only, `NAV_STEEP`) up to 75° on the terrain and 61° on models.
-    Left out: liquids, the server's 1.2 yd terrain-to-model step limit, gameobjects.
+    Model faces carry model areas until the server's own ledge filter has read them
+    (`navFilters.ts`: 1.2 yd where terrain meets a model, so a fence can't be stepped over, 1.8 on the
+    terrain), and are folded back after. The liquids go into a second heightfield, which turns the
+    ground under them into swim area (`AREA_WATER`, flag `NAV_WATER`) where the surface is 0.75 yd or
+    more above it, the shallow transition (`NAV_GROUND | NAV_WATER`) where less, or magma and slime.
+    recast-navigation-js can't set a span's area, so `navFilters.ts` reads and writes the spans in
+    the WASM heap (the layout is checked against the API, and in `tests/navmesh.test.ts`).
+    Left out: gameobjects and the liquids inside WMOs.
+  - `navLiquids.ts` is the liquid as the server's map file has it, per chunk: the type of the layer
+    covering the most cells, each vertex the highest surface, the editor's sea as ocean where the
+    export writes it, and a chunk with dark water (ocean as deep as a depth byte goes, the export's
+    fatigue flag) dropped from the navmesh, ground and all, as the server's builder does.
   - `navGeometry.ts` gathers a tile's triangles: the terrain's cells (holes left out through
     `writeCellIndex`) and the placed models' collision faces (`/wow/collision`: an M2's hull, a WMO's
     walking faces and its doodads' hulls), dropping model faces below the ground as the server does.
   - `NavPreview.ts` keeps the tiles within `RANGE` (160 yd), builds the nearest first within 6 ms a
-    frame, and builds them again 400 ms after the terrain's height or holes, the objects or the
-    loaded collision stop changing. `Engine.updateNav` calls it only while the view is on and
+    frame, and builds them again 400 ms after the terrain's height or holes, the objects, the
+    loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. `Engine.updateNav` calls it only while the view is on and
     `clear()`s it (frees the WASM navmesh) when it goes off. View › Test a Path arms `Engine.navPick`:
     the next two clicks are a creature's path (`NavPreview.pathPoint`, Detour's `computePath`),
-    drawn as a line, its length in the status bar.
+    drawn as a line, its length in the status bar: a walking creature's (`NAV_GROUND`, the server's
+    `PathInfo::createFilter`), or where only a swimming one gets there, that one's, said so.
 
 - **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
   target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides

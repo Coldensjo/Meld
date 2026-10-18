@@ -150,6 +150,8 @@ export class LiquidMap {
   private bounds: Float32Array
   /** Chunks changed since the renderer last looked. */
   readonly dirty = new Set<number>()
+  /** Counts changes, for readers that rebuild on any (the walkable-ground view). */
+  version = 0
 
   constructor(cells: number) {
     this.side = cells / LIQUID_CELLS
@@ -171,6 +173,7 @@ export class LiquidMap {
   /** Marks chunk c changed. */
   touch(c: number) {
     this.dirty.add(c)
+    this.version++
     let lo = Infinity
     let hi = -Infinity
     for (const l of this.layers(c)) {

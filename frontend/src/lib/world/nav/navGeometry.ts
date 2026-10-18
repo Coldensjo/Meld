@@ -2,10 +2,12 @@
 // the tile's box, holes left out as the ground draws them (holes.ts), and the collision faces of the
 // placed models that reach into it. A model face below the ground at all three of its corners is
 // left out, as VMaNGOS's builder drops the "under map" ones, so a cellar under the terrain doesn't
-// count as walkable ground above.
+// count as walkable ground above. The liquids over the cells (navLiquids.ts) come as triangles of
+// their own, an area each; a cell in a deep chunk brings neither ground nor liquid.
 
 import { writeCellIndex } from '../../terrain/holes'
 import type { TileInput } from './navBuild'
+import type { NavLiquids } from './navLiquids'
 
 /** The ground's fields a tile reads: a Terrain has them. */
 export interface NavGround {
@@ -66,10 +68,17 @@ export class TileGatherer {
 	private tc = 0
 	private minY = Infinity
 	private maxY = -Infinity
+	private lpos = new Float32Array(3 * 256)
+	private lidx = new Int32Array(3 * 256)
+	private lareas = new Uint8Array(256)
+	private lvc = 0
+	private ltc = 0
+	private corner = new Float32Array(4)
 
 	/**
 	 * The triangles over the box [x0, x1] × [z0, z1]: the ground's, then the models'. `groundAt` is
-	 * the ground's height at a point, or null where there is none (a hole, off the map).
+	 * the ground's height at a point, or null where there is none (a hole, off the map). `liquids`,
+	 * when given, adds the liquid surfaces and leaves out the deep chunks.
 	 */
 	gather(
 		ground: NavGround,
@@ -79,17 +88,31 @@ export class TileGatherer {
 		x1: number,
 		z1: number,
 		groundAt: (x: number, z: number) => number | null,
+		liquids?: NavLiquids,
 	): TileInput {
-		this.vc = this.tc = 0
+		this.vc = this.tc = this.lvc = this.ltc = 0
 		this.minY = Infinity
 		this.maxY = -Infinity
-		this.addGround(ground, x0, z0, x1, z1)
+		this.addGround(ground, x0, z0, x1, z1, liquids)
 		const modelFrom = this.tc
 		for (const m of models) {
 			if (m.max[0] < x0 || m.min[0] > x1 || m.max[2] < z0 || m.min[2] > z1) continue
 			this.addModel(m.tris, x0, z0, x1, z1, groundAt)
 		}
-		return { pos: this.pos, vertCount: this.vc, idx: this.idx, triCount: this.tc, modelFrom, minY: this.minY, maxY: this.maxY }
+		return {
+			pos: this.pos,
+			vertCount: this.vc,
+			idx: this.idx,
+			triCount: this.tc,
+			modelFrom,
+			minY: this.minY,
+			maxY: this.maxY,
+			liquidPos: this.lpos,
+			liquidVertCount: this.lvc,
+			liquidIdx: this.lidx,
+			liquidAreas: this.lareas,
+			liquidTriCount: this.ltc,
+		}
 	}
 
 	private reserve(verts: number, tris: number) {
@@ -115,7 +138,7 @@ export class TileGatherer {
 		return this.vc++
 	}
 
-	private addGround(g: NavGround, x0: number, z0: number, x1: number, z1: number) {
+	private addGround(g: NavGround, x0: number, z0: number, x1: number, z1: number, liquids?: NavLiquids) {
 		const cs = g.cellSize
 		const cx0 = Math.max(0, Math.floor(x0 / cs))
 		const cz0 = Math.max(0, Math.floor(z0 / cs))
@@ -136,8 +159,73 @@ export class TileGatherer {
 		}
 		if (this.cellIdx.length < cells * cellsZ * 6) this.cellIdx = new Uint32Array(cells * cellsZ * 6)
 		const n = writeCellIndex(this.cellIdx, cells, cellsZ, vx, cx0, cz0, g.holes, g.size)
-		for (let i = 0; i < n; i++) this.idx[this.tc * 3 + i] = base + this.cellIdx[i]
-		this.tc += n / 3
+		if (!liquids) {
+			for (let i = 0; i < n; i++) this.idx[this.tc * 3 + i] = base + this.cellIdx[i]
+			this.tc += n / 3
+			return
+		}
+		const ci = this.cellIdx
+		for (let i = 0; i < n; i += 3) {
+			// The triangle's cell: its corners' mean lies inside it.
+			const a = ci[i], b = ci[i + 1], c = ci[i + 2]
+			const x = Math.floor(((a % vx) + (b % vx) + (c % vx)) / 3)
+			const z = Math.floor((Math.floor(a / vx) + Math.floor(b / vx) + Math.floor(c / vx)) / 3)
+			if (liquids.deep(cx0 + x, cz0 + z)) continue
+			const o = this.tc * 3
+			this.idx[o] = base + a
+			this.idx[o + 1] = base + b
+			this.idx[o + 2] = base + c
+			this.tc++
+		}
+		for (let z = cz0; z <= cz1; z++) for (let x = cx0; x <= cx1; x++) this.addLiquid(g, x, z, liquids)
+	}
+
+	/**
+	 * Cell (gx, gz)'s liquid as two triangles, each left out when the cell's ground lies wholly above
+	 * it (TerrainBuilder: "liquid under the terrain").
+	 */
+	private addLiquid(g: NavGround, gx: number, gz: number, liquids: NavLiquids) {
+		const h = this.corner
+		const area = liquids.cell(gx, gz, h)
+		if (!area) return
+		const i = gz * g.verts + gx
+		const ground = Math.min(g.heights[i], g.heights[i + 1], g.heights[i + g.verts], g.heights[i + g.verts + 1])
+		const first = Math.max(h[0], h[2], h[1]) >= ground
+		const second = Math.max(h[1], h[2], h[3]) >= ground
+		if (!first && !second) return
+		if ((this.lvc + 4) * 3 > this.lpos.length) {
+			const p = new Float32Array(this.lpos.length * 2)
+			p.set(this.lpos)
+			this.lpos = p
+		}
+		if (this.ltc + 2 > this.lareas.length) {
+			const q = new Int32Array(this.lidx.length * 2)
+			q.set(this.lidx)
+			this.lidx = q
+			const r = new Uint8Array(this.lareas.length * 2)
+			r.set(this.lareas)
+			this.lareas = r
+		}
+		const cs = g.cellSize
+		const v = this.lvc
+		for (let k = 0; k < 4; k++) {
+			const o = (v + k) * 3
+			this.lpos[o] = (gx + (k & 1)) * cs
+			this.lpos[o + 1] = h[k]
+			this.lpos[o + 2] = (gz + (k >> 1)) * cs
+			if (h[k] < this.minY) this.minY = h[k]
+			if (h[k] > this.maxY) this.maxY = h[k]
+		}
+		this.lvc += 4
+		const tri = (a: number, b: number, c: number) => {
+			const o = this.ltc * 3
+			this.lidx[o] = v + a
+			this.lidx[o + 1] = v + b
+			this.lidx[o + 2] = v + c
+			this.lareas[this.ltc++] = area
+		}
+		if (first) tri(0, 2, 1)
+		if (second) tri(1, 2, 3)
 	}
 
 	private addModel(t: Float32Array, x0: number, z0: number, x1: number, z1: number, groundAt: (x: number, z: number) => number | null) {

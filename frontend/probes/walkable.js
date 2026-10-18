@@ -1,4 +1,4 @@
-// View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, and turning the view off frees it all.
+// View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, a river 2 yd deep across the map is swim area only a swimmer crosses (#239), and turning the view off frees it all.
 const e = P.e
 const { prefs } = await P.state()
 // Orbit the map's centre: the default flying camera sits 250 yd up and Test a Path's clicks land past the built tiles (#256).
@@ -64,6 +64,27 @@ for (const m of nav.group.children) {
 	}
 }
 
+// A river 2 yd deep down one chunk row 50 yd south of the target, across the whole map (#239): swim
+// area (blue), which a walking creature can't cross and a swimming one can.
+const liquids = e.doc.liquids
+const chunkCells = 8
+const row = Math.floor((t.z - 50) / (chunkCells * cs))
+for (let c = 0; c < liquids.side; c++) {
+	const layer = { id: 1, heights: new Float32Array(81).fill(ground + 2), depth: new Float32Array(81).fill(1), cells: new Uint8Array(64).fill(1) }
+	liquids.set(row * liquids.side + c, [layer])
+}
+await P.frames(2)
+await built('the tiles after the river')
+let blue = 0
+for (const m of nav.group.children) {
+	if (!m.isMesh) continue
+	const col = m.geometry.attributes.color?.array
+	if (!col) continue // the path's markers
+	for (let i = 0; i < col.length; i += 3) if (col[i + 2] > 0.7 && col[i] < 0.3) blue++
+}
+const riverZ = (row + 0.5) * chunkCells * cs
+const across = path(at(0, riverZ - t.z + 30), at(0, riverZ - t.z - 30))
+
 prefs.navView = false
 await P.frames(3)
 const freed = nav.group.children.length === 0 && nav.counts.total === 0
@@ -77,5 +98,7 @@ const ok =
 	around.kind === 'path' &&
 	around.yards > 70 &&
 	high > 0 &&
+	blue > 0 &&
+	across.kind === 'swim' &&
 	freed
-return { ok, tiles: first.total, buildMs, tris, straight, clicked, around, innFloorVerts: high, freed }
+return { ok, tiles: first.total, buildMs, tris, straight, clicked, around, innFloorVerts: high, riverVerts: blue, across, freed }

@@ -5,13 +5,30 @@
 // off: the Engine calls `update` only while it is on, and `clear` frees the WASM side when it goes off.
 
 import * as THREE from 'three'
-import type { NavMesh, NavMeshQuery } from 'recast-navigation'
+import type { NavMesh, NavMeshQuery, Vector3 } from 'recast-navigation'
 import { fetchCollision } from '../../wow/api'
 import { isHelper } from '../../models/helpers'
 import type { ObjectLayer } from '../ObjectLayer'
 import type { Terrain } from '../../terrain/Terrain'
-import { AREA_STEEP, TileBuilder, loadRecast, vmangosSettings, type NavSettings, type Recast } from './navBuild'
+import type { LiquidMap } from '../../water/liquids'
+import {
+	AREA_MAGMA,
+	AREA_SLIME,
+	AREA_STEEP,
+	AREA_WATER,
+	AREA_WATER_TRANSITION,
+	NAV_GROUND,
+	NAV_MAGMA,
+	NAV_SLIME,
+	NAV_WATER,
+	TileBuilder,
+	loadRecast,
+	vmangosSettings,
+	type NavSettings,
+	type Recast,
+} from './navBuild'
 import { TileGatherer, placeFaces, type PlacedCollision } from './navGeometry'
+import { NavLiquids } from './navLiquids'
 
 /** How far around the camera's target tiles are built (yd), and how far they are kept. */
 export const RANGE = 160
@@ -32,6 +49,27 @@ const MAX_POLYS = 4096
 
 const GROUND_COLOR = new THREE.Color(0.15, 0.85, 0.35)
 const STEEP_COLOR = new THREE.Color(1, 0.55, 0.1)
+const SHALLOW_COLOR = new THREE.Color(0.2, 0.85, 0.85)
+const WATER_COLOR = new THREE.Color(0.2, 0.45, 1)
+const MAGMA_COLOR = new THREE.Color(0.95, 0.15, 0.1)
+const SLIME_COLOR = new THREE.Color(0.75, 0.9, 0.1)
+
+function areaColor(area: number): THREE.Color {
+	switch (area) {
+		case AREA_STEEP:
+			return STEEP_COLOR
+		case AREA_WATER_TRANSITION:
+			return SHALLOW_COLOR
+		case AREA_WATER:
+			return WATER_COLOR
+		case AREA_MAGMA:
+			return MAGMA_COLOR
+		case AREA_SLIME:
+			return SLIME_COLOR
+		default:
+			return GROUND_COLOR
+	}
+}
 
 interface NavTile {
 	tx: number
@@ -53,6 +91,8 @@ interface Placed {
 export type PathResult =
 	| { kind: 'start' }
 	| { kind: 'path'; yards: number; straight: number }
+	/** Only a creature that swims gets there; one that can't stops at deep water. */
+	| { kind: 'swim'; yards: number; straight: number }
 	| { kind: 'short'; yards: number; short: number }
 	| { kind: 'none'; reason: 'start' | 'end' | 'unreached' }
 
@@ -67,6 +107,8 @@ export class NavPreview {
 	private query: NavMeshQuery | null = null
 	private terrain: Terrain | null = null
 	private objects: ObjectLayer | null = null
+	private liquidMap: LiquidMap | null = null
+	private liquids = new NavLiquids()
 	private continent = true
 	private tiles = new Map<number, NavTile>()
 	private queue: NavTile[] = []
@@ -77,6 +119,7 @@ export class NavPreview {
 	private placed = new Map<number, Placed>()
 	private placedList: PlacedCollision[] = []
 	private signature = ''
+	private sea: number | null = null
 	private changedAt = 0
 	private dirty = false
 	private stamp = 0
@@ -118,10 +161,11 @@ export class NavPreview {
 	}
 
 	/**
-	 * Builds what the view needs around `focus` this frame. `continent` picks the server's settings for
-	 * maps 0 and 1. A new terrain or object layer (another tab) starts over.
+	 * Builds what the view needs around `focus` this frame, with the map's `liquids` and the sea at
+	 * `sea` yards (null for none). `continent` picks the server's settings for maps 0 and 1. A new
+	 * terrain or object layer (another tab) starts over.
 	 */
-	update(terrain: Terrain, objects: ObjectLayer, focus: THREE.Vector3, continent: boolean, now: number) {
+	update(terrain: Terrain, objects: ObjectLayer, liquids: LiquidMap, sea: number | null, focus: THREE.Vector3, continent: boolean, now: number) {
 		if (!this.r) {
 			if (!this.loading) {
 				this.loading = true
@@ -138,16 +182,19 @@ export class NavPreview {
 			this.continent = continent
 			this.start()
 		}
-		const sig = `${terrain.heightVersion}|${terrain.holesVersion}|${objects.version}|${this.loaded}`
+		const sig = `${terrain.heightVersion}|${terrain.holesVersion}|${objects.version}|${this.loaded}|${liquids.version}|${sea}`
 		if (sig !== this.signature) {
 			this.signature = sig
 			this.changedAt = now
 			this.dirty = true
 		}
+		this.liquidMap = liquids
+		this.sea = sea
 		// The first build doesn't wait for the models to settle.
 		if (this.dirty && (this.stamp === 0 || now - this.changedAt > QUIET_MS)) {
 			this.dirty = false
 			this.refreshModels(focus)
+			this.liquids.reset(this.liquidMap, terrain, this.sea)
 			this.stamp++
 			this.queue.length = 0
 			for (const t of this.tiles.values()) this.queue.push(t)
@@ -165,6 +212,7 @@ export class NavPreview {
 		this.reset()
 		this.terrain = null
 		this.objects = null
+		this.liquidMap = null
 		this.placed.clear()
 		this.placedList.length = 0
 		this.signature = ''
@@ -280,7 +328,7 @@ export class NavPreview {
 		const z0 = tile.tz * s.tileYards - border
 		const x1 = (tile.tx + 1) * s.tileYards + border
 		const z1 = (tile.tz + 1) * s.tileYards + border
-		const input = this.gather.gather(this.terrain!, this.placedList, x0, z0, x1, z1, this.groundAt)
+		const input = this.gather.gather(this.terrain!, this.placedList, x0, z0, x1, z1, this.groundAt, this.liquids)
 		const built = this.builder!.build(input, tile.tx, tile.tz)
 		tile.stamp = this.stamp
 		if (tile.ref) nav.removeTile(tile.ref)
@@ -297,7 +345,7 @@ export class NavPreview {
 		const col = new Float32Array(n * 9)
 		const c = new THREE.Color()
 		for (let k = 0; k < n; k++) {
-			c.copy(built.areas[k] === AREA_STEEP ? STEEP_COLOR : GROUND_COLOR)
+			c.copy(areaColor(built.areas[k]))
 			// Each polygon a shade apart, so their edges read.
 			c.multiplyScalar(0.8 + 0.2 * (((built.polys[k] * 2654435761) >>> 28) / 15))
 			for (let v = 0; v < 3; v++) {
@@ -330,7 +378,9 @@ export class NavPreview {
 
 	/**
 	 * The path test: the first point is the start, the second the end, and the path a creature
-	 * would take between them is drawn (steep slopes allowed, as for the server's creatures).
+	 * would take between them is drawn (steep slopes allowed, as for the server's creatures): one that
+	 * walks (PathInfo::createFilter's NAV_GROUND, which shallow water has too), or where that one
+	 * can't get there, one that also swims (creatures take magma and slime as well).
 	 */
 	pathPoint(p: THREE.Vector3): PathResult {
 		if (!this.pathStart || this.pathDone) {
@@ -348,8 +398,17 @@ export class NavPreview {
 		if (!a.success || !a.nearestRef) return { kind: 'none', reason: 'start' }
 		const b = q.findNearestPoly(p, { halfExtents: PICK_EXTENTS })
 		if (!b.success || !b.nearestRef) return { kind: 'none', reason: 'end' }
-		const res = q.computePath(a.nearestPoint, b.nearestPoint, { halfExtents: PICK_EXTENTS, maxPathPolys: 2048, maxStraightPathPoints: 512 })
-		if (!res.success || res.path.length < 2) return { kind: 'none', reason: 'unreached' }
+		const walker = this.creaturePath(a.nearestPoint, b.nearestPoint, NAV_GROUND)
+		let res = walker
+		let swims = false
+		if (!walker.reaches) {
+			const swimmer = this.creaturePath(a.nearestPoint, b.nearestPoint, NAV_GROUND | NAV_WATER | NAV_MAGMA | NAV_SLIME)
+			if (swimmer.reaches) {
+				res = swimmer
+				swims = true
+			}
+		}
+		if (!res.path) return { kind: 'none', reason: 'unreached' }
 		const pts = res.path.map((v) => new THREE.Vector3(v.x, v.y + 0.3, v.z))
 		const line = new THREE.Line(
 			new THREE.BufferGeometry().setFromPoints(pts),
@@ -360,10 +419,21 @@ export class NavPreview {
 		this.group.add(line)
 		let yards = 0
 		for (let i = 1; i < pts.length; i++) yards += pts[i].distanceTo(pts[i - 1])
+		if (!res.reaches) return { kind: 'short', yards, short: res.short }
+		return { kind: swims ? 'swim' : 'path', yards, straight: start.distanceTo(p) }
+	}
+
+	/** The path for a creature that may cross polygons with any of `include`'s flags, and how far short it stops. */
+	private creaturePath(from: Vector3, to: Vector3, include: number) {
+		const r = this.r!
+		const filter = new r.QueryFilter()
+		filter.includeFlags = include
+		const res = this.query!.computePath(from, to, { filter, halfExtents: PICK_EXTENTS, maxPathPolys: 2048, maxStraightPathPoints: 512 })
+		r.Raw.destroy(filter.raw)
+		if (!res.success || res.path.length < 2) return { path: null, reaches: false, short: Infinity }
 		const end = res.path[res.path.length - 1]
-		const short = Math.hypot(end.x - b.nearestPoint.x, end.y - b.nearestPoint.y, end.z - b.nearestPoint.z)
-		if (short > 0.5) return { kind: 'short', yards, short }
-		return { kind: 'path', yards, straight: start.distanceTo(p) }
+		const short = Math.hypot(end.x - to.x, end.y - to.y, end.z - to.z)
+		return { path: res.path, reaches: short <= 0.5, short }
 	}
 
 	/** Whether the path test has its start and waits for the end. */
