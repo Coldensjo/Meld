@@ -13,13 +13,10 @@ try {
 	const titles = []
 	let menu = null
 	for (let k = 0; k < 8 && !menu; k++) {
-		// The flying camera is where its target is: put it a little outside the sphere, looking at its centre.
-		const yaw = (k * Math.PI) / 4, pitch = 0.2, back = t.radius + 4
-		P.e.controller.setView(c.x + Math.sin(yaw) * Math.cos(pitch) * back, c.y + Math.sin(pitch) * back, c.z + Math.cos(yaw) * Math.cos(pitch) * back, yaw, pitch, 1)
-		await P.frames(2)
-		P.e.openContextMenu(new PointerEvent('pointerup', { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 2 }))
-		titles.push(ui.contextMenu?.title ?? '')
-		if (ui.contextMenu?.title.startsWith('Area trigger')) menu = ui.contextMenu
+		await P.lookAt(c, { yaw: (k * Math.PI) / 4, pitch: 0.2, back: t.radius + 4 })
+		const m = await P.contextMenu()
+		titles.push(m?.title ?? '')
+		if (m?.title.startsWith('Area trigger')) menu = m
 	}
 	// A left click (#307): with the Select tool it picks the trigger and the Portals dialog follows; a click away lets go.
 	layer.select(null)

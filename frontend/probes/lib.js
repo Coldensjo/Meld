@@ -20,10 +20,36 @@ const P = {
 		return import(url ?? path)
 	},
 
-	/** Loads a scene: a `Meld scene {...}` line, or its object. */
+	/** Loads a scene: a `Meld scene {...}` line, or its object. Its view is a flying camera unless the scene sets `cameraFollowGround` (see `lookAt`). */
 	async scene(s) {
 		await window.__loadScene(typeof s === 'string' ? s : 'Meld scene ' + JSON.stringify(s))
 		await P.frames(2)
+	},
+
+	/**
+	 * Puts the camera `back` yards from the editor point `at` ({ x, y, z }) looking at it, whatever the
+	 * Follow the Ground pref. The camera flies there: a flying camera is where its target is, so a view
+	 * "on" a point would put the camera inside it, and a following one lifts the target onto the
+	 * terrain, above a cave (#309). `yaw` is the direction the camera sits in (0 = +z of the point).
+	 */
+	async lookAt(at, { yaw = 0, pitch = 0.2, back = 10 } = {}) {
+		const c = window.__engine.controller
+		c.setFollowGround(false)
+		const cp = Math.cos(pitch)
+		c.setView(at.x + Math.sin(yaw) * cp * back, at.y + Math.sin(pitch) * back, at.z + Math.cos(yaw) * cp * back, yaw, pitch, 1)
+		await P.frames(2)
+	},
+
+	/**
+	 * Right-clicks the viewport at (`x`, `y`), shares of it with y = 0 the top (default the centre),
+	 * through `Engine.openContextMenu` (private), and returns `ui.contextMenu` (null: no menu).
+	 */
+	async contextMenu(x = 0.5, y = 0.5) {
+		const e = window.__engine
+		const r = e.renderer.domElement.getBoundingClientRect()
+		e.openContextMenu(new PointerEvent('pointerup', { clientX: r.left + x * r.width, clientY: r.top + y * r.height, button: 2 }))
+		const { ui } = await P.state()
+		return ui.contextMenu
 	},
 
 	/** A macrotask without setTimeout's throttling in a hidden page. */
