@@ -152,30 +152,51 @@ export function loadAsset(type: string): Promise<ModelAsset> {
 const materialCache = new Map<string, THREE.Material>()
 
 /** The textures that move (M2 texture transforms): each animated group's own copy of its texture, and its animation. */
-const uvAnimated: Array<{ texture: THREE.Texture; spec: UVAnimSpec }> = []
+const uvAnimated: Array<{ texture: THREE.Texture; spec: UVAnimSpec; cutout: boolean }> = []
 /** The materials whose colour or transparency changes (M2 colours and weights), with their colour before the tint. */
 const colorAnimated: Array<{ material: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial; base: THREE.Color; spec: ColorAnimSpec }> = []
 const uvRows = [0, 0, 0, 0, 0, 0]
 const rgba = [1, 1, 1, 1]
+let animatedAt = -1
+/** How many textures have been bound to model materials, so a shadow map drawn before one arrived is redrawn. */
+let texturesBound = 0
 
-/** Tints `m` from its `base` colour and sets its opacity, as the client draws an M2 colour; at 0 or less it is not drawn. */
-function applyColor(m: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial, base: THREE.Color, c: number[]) {
+/** Bumped each time a model material gets its texture (an alpha-tested one casts a different shadow with it). */
+export function texturesBoundCount(): number {
+	return texturesBound
+}
+
+/**
+ * Tints `m` from its `base` colour and sets its opacity, as the client draws an M2 colour; at 0 or less
+ * it is not drawn. Returns whether it was shown or hidden by this.
+ */
+function applyColor(m: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial, base: THREE.Color, c: number[]): boolean {
   // The client tints in its own (sRGB) colour space; a product there is the product of the linear values.
   m.color.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace).multiply(base)
   m.opacity = Math.min(1, Math.max(0, c[3]))
-  m.visible = c[3] > 0
+  const shown = c[3] > 0
+  if (m.visible === shown) return false
+  m.visible = shown
+  return true
 }
 
 /**
  * Moves every animated texture and colour to time `ms`, as the client does (world/uvAnim.ts). All
- * instances of a model share the material, so they move in sync, as the bones do.
+ * instances of a model share the material, so they move in sync, as the bones do. Returns whether a
+ * shadow changed with them: a material shown or hidden, or a moving texture on an alpha-tested one
+ * (whose cut-out shape the shadow maps take).
  */
-export function updateMaterialAnimations(ms: number) {
+export function updateMaterialAnimations(ms: number): boolean {
+	const moved = ms !== animatedAt
+	animatedAt = ms
+	let shadows = false
   for (const a of uvAnimated) {
     const m = uvMatrix(a.spec, ms, uvRows)
     a.texture.matrix.set(m[0], m[1], m[2], m[3], m[4], m[5], 0, 0, 1)
+		if (moved && a.cutout) shadows = true
   }
-  for (const a of colorAnimated) applyColor(a.material, a.base, colorAt(a.spec, ms, rgba))
+  for (const a of colorAnimated) if (applyColor(a.material, a.base, colorAt(a.spec, ms, rgba))) shadows = true
+	return shadows
 }
 
 function wowMaterial(g: MeshGroup, vertexColors: boolean, rooms: boolean): THREE.Material {
@@ -240,10 +261,11 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean, rooms: boolean): THREE
             // A copy shares the image (three keeps one GPU texture for both) but has its own matrix.
             t = t.clone()
             t.matrixAutoUpdate = false
-            uvAnimated.push({ texture: t, spec: g.uv as UVAnimSpec })
+            uvAnimated.push({ texture: t, spec: g.uv as UVAnimSpec, cutout: mat.alphaTest > 0 })
           }
           mat.map = t
           mat.needsUpdate = true
+					texturesBound++
         })
         .catch(() => mat.color.set(0x9a9a9a))
     : Promise.resolve()

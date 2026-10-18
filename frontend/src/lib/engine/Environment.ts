@@ -285,6 +285,10 @@ interface Cascade {
 /** How far above or below the focus the shadow camera's depth range reaches: mountains and towers. */
 const HEIGHT_SLACK = 1000
 
+/** `Environment.updateShadow`'s bits: the near cascade's fit changed, the far one's did. */
+export const SHADOW_NEAR = 1
+export const SHADOW_FAR = 2
+
 export class Environment {
   readonly sky: THREE.Mesh
   readonly hemi: THREE.HemisphereLight
@@ -316,7 +320,8 @@ export class Environment {
     this.hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, Math.PI)
     this.key = new THREE.DirectionalLight(0xffffff, Math.PI)
     this.far = new THREE.DirectionalLight(0x000000, 0)
-    // The far map is redrawn only when its fit or the scene changes (Engine.updateEnvironment).
+    // Each map is redrawn only when its fit or what it shows changes (Engine.markShadows, #326).
+    this.key.shadow.autoUpdate = false
     this.far.shadow.autoUpdate = false
     this.key.shadow.radius = 1.5
     this.far.shadow.radius = 1
@@ -407,12 +412,13 @@ export class Environment {
 
   /**
    * Fits the two shadow cascades: the near one (half-size `nearExtent`) around `nearCenter`, the far
-   * one (half-size `farExtent`) around `farCenter`, each snapped to its own texels. Returns whether
-   * the far cascade's fit changed, so its map is redrawn.
+   * one (half-size `farExtent`) around `farCenter`, each snapped to its own texels. Returns which fits
+   * changed, so their maps are redrawn: SHADOW_NEAR and SHADOW_FAR as bits.
    */
-  updateShadow(nearCenter: THREE.Vector3, nearExtent: number, farCenter: THREE.Vector3, farExtent: number): boolean {
-    this.fitCascade(this.cascades[0], nearCenter, nearExtent)
-    return this.fitCascade(this.cascades[1], farCenter, farExtent)
+  updateShadow(nearCenter: THREE.Vector3, nearExtent: number, farCenter: THREE.Vector3, farExtent: number): number {
+		const near = this.fitCascade(this.cascades[0], nearCenter, nearExtent)
+		const far = this.fitCascade(this.cascades[1], farCenter, farExtent)
+		return (near ? SHADOW_NEAR : 0) | (far ? SHADOW_FAR : 0)
   }
 
   /**
@@ -488,7 +494,10 @@ export class Environment {
         c.extent = 0 // refit: the biases depend on the texel size
       }
     })
-    if (on) this.far.shadow.needsUpdate = true
+    if (on) {
+			this.key.shadow.needsUpdate = true
+			this.far.shadow.needsUpdate = true
+		}
   }
 
   dispose() {

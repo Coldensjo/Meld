@@ -21,9 +21,16 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   `keyShadow()`, and `patchCascadeShadows` makes every Lambert prop material do the same through
   `onBeforeCompile`. The key light must stay directional light 0.
 - `Engine.fitShadows` fits both cascades each frame (`Environment.fitCascade` snaps each to its
-  texels and sets its depth range and biases in world units from the texel size). The near map is
-  redrawn every frame, the far one only when its fit or the scene (objects, heights, spawns)
-  changed. Both cascade frustums feed instance culling, so what is off screen still casts.
+  texels and sets its depth range and biases in world units from the texel size). Both maps are
+  kept between frames (`autoUpdate` off); `Engine.markShadows`, just before the render, redraws the
+  far one when its fit, the scene (objects, heights, holes, spawns, a model texture bound:
+  `shadowSceneChanged`) or a preference changed, and the near one on those, when the camera moved
+  (culling, LODs and the room gate follow it), or when a model drawn in its box was posed
+  (`shadowReach.castsNear`: the near pass notes the skeletons it draws) or an animated material
+  showed, hid or moved an alpha-tested texture (`updateMaterialAnimations`' result). A still view
+  redraws neither (#326). Something new that casts must bump one of those keys or its shadow goes
+  stale; the `shadow-redraw` probe checks the edits. Both cascade frustums feed instance culling,
+  so what is off screen still casts.
 - Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
   surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun
   for the shadows to read.

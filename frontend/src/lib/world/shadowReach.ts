@@ -6,14 +6,17 @@ import * as THREE from 'three'
  * - A point light's cube: about 9500 draw calls a cube on a 3x3 block. The shadowed lights register
  *   their cube's frustum (three updates the one frustum for each face in turn) with their reach; a
  *   batch then joins a face only when one of the instances it draws meets both.
- * - The sun's near cascade, redrawn every frame though its box is at most 500 yd across: the Engine
- *   registers its frustum each frame, and a batch joins it only when one of its drawn instances
- *   meets it.
+ * - The sun's near cascade, whose box is at most 500 yd across: the Engine registers its frustum each
+ *   frame, and a batch joins it only when one of its drawn instances meets it. The batches that join
+ *   it with a skeleton are noted, so the Engine redraws that map (only on a change, #326) when one of
+ *   them is posed.
  * Any other frustum (the camera's, the far cascade's) keeps every batch.
  */
 const reaches = new Map<THREE.Frustum, THREE.Sphere>()
 const spheres: THREE.Sphere[] = []
 let nearCascade: THREE.Frustum | null = null
+/** The skeletons of the batches drawn into the near cascade's map when it was last drawn. */
+const nearSkeletons = new Set<THREE.Skeleton>()
 
 /** Forgets the lights registered last frame; call before registering this frame's. */
 export function clearShadowReach() {
@@ -32,6 +35,16 @@ export function addShadowReach(light: THREE.PointLight) {
 /** Registers the sun's near cascade frustum (three updates that one object in place), or null without shadows. */
 export function setNearCascade(frustum: THREE.Frustum | null) {
 	nearCascade = frustum
+}
+
+/** Forgets the near cascade's animated casters; call when its map is about to be redrawn, which notes them again. */
+export function clearNearCasters() {
+	nearSkeletons.clear()
+}
+
+/** Whether the near cascade's map, as last drawn, holds a model skinned with `skeleton`. */
+export function castsNear(skeleton: THREE.Skeleton): boolean {
+	return nearSkeletons.has(skeleton)
 }
 
 const test = new THREE.Sphere()
@@ -69,7 +82,11 @@ export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum)
 		}
 		test.center.set(x, y, z)
 		test.radius = r
-		if (frustum.intersectsSphere(test)) return true
+		if (frustum.intersectsSphere(test)) {
+			const skeleton = (mesh as { skeleton?: THREE.Skeleton }).skeleton
+			if (skeleton && frustum === nearCascade) nearSkeletons.add(skeleton)
+			return true
+		}
 	}
 	return false
 }

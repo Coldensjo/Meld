@@ -14,7 +14,7 @@ import { celestialSunDir, lightingSunDir, moonDir, skyWarp, starAlpha, sunDiscSc
 import { TILE_YARDS } from '../terrain/Terrain'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
-import { Environment, type ClientSky } from './Environment'
+import { Environment, SHADOW_FAR, SHADOW_NEAR, type ClientSky } from './Environment'
 import { HorizonLayer } from '../world/HorizonLayer'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
@@ -62,10 +62,10 @@ import { runMapChecks } from '../check/run'
 import type { Finding } from '../check/findings'
 import type { EdgeSegment } from '../check/terrainChecks'
 import { loadAreas } from '../wow/areas'
-import { animatedAssets, displayName, getAsset, updateMaterialAnimations } from '../models/assets'
+import { animatedAssets, displayName, getAsset, texturesBoundCount, updateMaterialAnimations } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
-import { setNearCascade } from '../world/shadowReach'
+import { castsNear, clearNearCasters, setNearCascade } from '../world/shadowReach'
 import { WmoRooms } from '../world/WmoRooms'
 import { GROUND_SNAP_REACH } from '../world/particles'
 import { RoomFlood, SKY_GROUP } from '../world/wmoFlood'
@@ -1095,6 +1095,7 @@ export class Engine {
     this.updateDoomVisuals()
     this.updatePoolVisuals()
     m.mark(SECTION['Selection visuals'])
+		this.markShadows()
     if (m.on) this.gpu.begin(1)
     this.renderer.render(this.scene, this.camera)
     m.mark(SECTION['Render (CPU)'])
@@ -1149,7 +1150,7 @@ export class Engine {
       light.shadow.updateMatrices(light)
       v.frustums.push(light.shadow.getFrustum())
     }
-    // The near cascade (the key light's own map) is redrawn every frame, so a big WMO culls its groups for it too.
+    // The near cascade (the key light's own map) is redrawn on most changes, so a big WMO culls its groups for it too.
     if (this.env.key.castShadow) {
       v.shadowCamera = this.env.key.shadow.camera
       v.shadowFrustum = this.env.key.shadow.getFrustum()
@@ -1221,10 +1222,14 @@ export class Engine {
     const spawns = this.doc.spawnLayer
     // Moving textures (waterfalls, lava) and changing colours (glows, shimmers) follow the same clock;
     // with animations off they hold still.
-    updateMaterialAnimations(ms)
+		// A pose or material change that a model in the near cascade's box shows redraws that map (#326).
+		if (updateMaterialAnimations(ms)) this.nearPosed = true
     for (const [type, a] of animatedAssets) {
       if (still && a.anim!.posedAt === 0) continue
-      if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.hasType(type)) a.anim!.update(ms)
+		if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.hasType(type)) {
+			a.anim!.update(ms)
+			if (a.skeleton && castsNear(a.skeleton)) this.nearPosed = true
+		}
     }
   }
 
@@ -1932,7 +1937,7 @@ export class Engine {
   /**
    * Fits the shadow cascades to the view: the sharp near one around where the camera looks (the
    * ground point ahead, kept within its own reach of the camera), the far one around the distance.
-   * The far map is redrawn only when its fit or the scene changes, as it covers everything in reach.
+   * Which fits changed is kept for `markShadows`.
    */
   private fitShadows() {
     const env = this.env
@@ -1945,26 +1950,75 @@ export class Engine {
     const farExtent = THREE.MathUtils.clamp(dist * 6, 800, 2500)
     const nearCenter = this.shadowNear.copy(eye).addScaledVector(fwd, Math.min(dist, nearExtent))
     const farCenter = this.shadowFar.copy(eye).addScaledVector(fwd, Math.min(dist, farExtent * 0.6))
-    const moved = env.updateShadow(nearCenter, nearExtent, farCenter, farExtent)
-    const objects = this.objects
-    const scene = `${objects.version}/${this.terrain.heightsVersion}/${this.doc.spawnLayer.version}`
-    if (moved || objects !== this.shadowObjects || scene !== this.shadowScene) {
-      env.far.shadow.needsUpdate = true
-      this.shadowObjects = objects
-      this.shadowScene = scene
-    }
+		this.shadowFits |= env.updateShadow(nearCenter, nearExtent, farCenter, farExtent)
   }
+
+	/**
+	 * Says which shadow maps to redraw this frame, just before it is drawn (#326). Both are kept between
+	 * frames: the far one is redrawn when its fit, the scene or a preference changes (a layer shown or
+	 * hidden, the wireframe); the near one, which also follows the camera (culling, LODs and the room
+	 * gate pick what it draws) and moving models, on the same changes, when the camera moves, or when a
+	 * model drawn in its box is posed or an animated material shows or hides. A still view with nothing
+	 * moving in the near box redraws neither.
+	 */
+	private markShadows() {
+		const env = this.env
+		const fits = this.shadowFits
+		const posed = this.nearPosed
+		this.shadowFits = 0
+		this.nearPosed = false
+		if (!env.key.castShadow) return
+		const scene = this.shadowSceneChanged()
+		if (scene || this.prefsChanged || fits & SHADOW_FAR) env.far.shadow.needsUpdate = true
+		const view = !this.viewProj.equals(this.shadowViewProj)
+		if (view) this.shadowViewProj.copy(this.viewProj)
+		if (scene || view || posed || this.prefsChanged || fits & SHADOW_NEAR) {
+			env.key.shadow.needsUpdate = true
+			// The redraw notes the posed models it draws again.
+			clearNearCasters()
+		}
+		this.prefsChanged = false
+	}
+
+	/** Whether what casts a shadow changed since the last call: the placed objects, the ground, the spawns or a model's texture. */
+	private shadowSceneChanged(): boolean {
+		const k = this.shadowKey
+		const t = this.terrain
+		const objects = this.objects
+		const v0 = objects.version
+		const v1 = t.heightsVersion
+		const v2 = t.holesVersion
+		const v3 = this.doc.spawnLayer.version
+		const v4 = texturesBoundCount()
+		if (objects === this.shadowObjects && k[0] === v0 && k[1] === v1 && k[2] === v2 && k[3] === v3 && k[4] === v4) return false
+		this.shadowObjects = objects
+		k[0] = v0
+		k[1] = v1
+		k[2] = v2
+		k[3] = v3
+		k[4] = v4
+		return true
+	}
   private shadowFwd = new THREE.Vector3()
   private shadowRay = new THREE.Ray()
   private shadowFocus = new THREE.Vector3()
   private shadowNear = new THREE.Vector3()
   private shadowFar = new THREE.Vector3()
   private shadowObjects: ObjectLayer | null = null
-  private shadowScene = ''
+	private shadowKey = [-1, -1, -1, -1, -1]
+	/** The fits `fitShadows` changed since the last `markShadows` (SHADOW_NEAR, SHADOW_FAR bits). */
+	private shadowFits = 0
+	/** A model posed or a material animated this frame shows in the near cascade's map. */
+	private nearPosed = false
+	/** The camera's view-projection when the near map was last checked. */
+	private shadowViewProj = new THREE.Matrix4()
+	/** Preferences were applied since the last frame (layers, wireframe, culling: what the near map draws). */
+	private prefsChanged = true
 
   /** Apply user preferences (graphics + camera). Cheap; safe to call often. */
   applyPrefs(p: Prefs) {
     this.prefs = p
+		this.prefsChanged = true
     if (!p.dayCycle) this.hour = p.timeOfDay
     this.env.setClouds(p.clouds)
     this.env.setShadows(p.shadows)
