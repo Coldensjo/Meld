@@ -75,7 +75,9 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     of the terrain and a WMO floor, so a roof is a floor too. The Walk camera stands on the same floor
     (#312, `CameraController.walkFloor`), searched from `WALK_STEP` (2 yd) above the floor it stood on,
     so stairs are climbed and a roof or bridge above is walked under; a jump into the walk searches
-    from the eye. Walk does not collide with walls.
+    from the eye. Walk always stops at the WMOs' walls (#313), whatever Camera Collision says, as the
+    client's player does: its move is swept level at the eye through `collideWalls` (only x/z kept), and
+    the sphere's reach down to `WALK_STEP` over the floor stops a wall too high to step over.
     Without it a wall closer than the near plane (0.5 yd) would be clipped away and, gated, show the sky.
     `WmoRooms.wallDist` is the eye's distance to the nearest collision face of any WMO within 2 yd
     (`wmoRoom.ts` `nearestFaceDist`, through the column index), and `Engine.updateNear` pulls the near

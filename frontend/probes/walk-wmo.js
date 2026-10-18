@@ -2,7 +2,8 @@
 // walker stands 3 yd over the street's floor (`rooms.floorAt`), not over the terrain, which there runs
 // level with the eye; walked 20 yd each way along the street (through groups 49, 48 and 50) it stays
 // 3 yd over the floor in every room, while its height over the terrain swings from -0.5 to 8.7 yd
-// (docs/tests/rendering.md). Where it leaves the rooms it stands on the terrain.
+// (docs/tests/rendering.md). Where it leaves the rooms it stands on the terrain. Walked at the room's
+// south wall it stops off it, still in room 49 (#313).
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e
@@ -57,6 +58,22 @@ for (const sign of [1, -1]) {
 	c.target.z = o.z
 	await P.frames(2)
 }
+// At the room's south wall (#313): 6 yd towards it from 3 yd back, a 0.5 yd step a frame, the walker
+// stops off the wall (the near plane's corner reach, about 0.9 yd) and stays in room 49; on the old
+// code it walks through onto the floor beyond.
+const wo = c.target.clone()
+for (let i = 1; i <= 12; i++) {
+	c.target.x = wo.x + dirWorld.x * i * 0.5
+	c.target.z = wo.z + dirWorld.z * i * 0.5
+	await P.frames(1)
+}
+await P.frames(2)
+const atWall = {
+	room: rooms.current?.group ?? null,
+	// How far on the room's side of the wall the eye is (yd); negative is through it.
+	side: +(-e.camera.position.clone().sub(wallWorld).dot(dirWorld)).toFixed(2),
+	overFloor: sample().overFloor,
+}
 ui.walkCamera = before.walk
 prefs.cameraFollowGround = before.follow
 await P.frames(2)
@@ -64,8 +81,9 @@ const inRoom = walk.filter((s) => s.room !== null)
 const off = inRoom.map((s) => Math.abs(s.overFloor - 3))
 const terrain = walk.map((s) => s.overTerrain)
 return {
-	ok: first.room === 49 && Math.abs(first.overFloor - 3) < 0.05 && first.overTerrain < 1 && inRoom.length >= 40 && Math.max(...off) < 0.05,
+	ok: first.room === 49 && Math.abs(first.overFloor - 3) < 0.05 && first.overTerrain < 1 && inRoom.length >= 40 && Math.max(...off) < 0.05 && atWall.room === 49 && atWall.side > 0.5 && Math.abs(atWall.overFloor - 3) < 0.05,
 	first,
+	atWall,
 	inRoom: inRoom.length,
 	worstOverFloor: +Math.max(...off).toFixed(2),
 	overTerrain: [Math.min(...terrain), Math.max(...terrain)],

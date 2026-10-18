@@ -52,8 +52,9 @@ export class CameraController {
    */
   collision = false
   /**
-   * With `collision` on, the flying camera also keeps off the placed WMOs' walls and floors (#305):
-   * the Engine's hook moves `to`, where the eye is going from `from` this frame, to where it stops.
+   * With `collision` on, the flying camera also keeps off the placed WMOs' walls and floors (#305),
+   * and the walker always stops at their walls (#313): the Engine's hook moves `to`, where the eye is
+   * going from `from` this frame, to where it stops.
    */
   collideWalls: ((from: THREE.Vector3, to: THREE.Vector3) => void) | null = null
 	/**
@@ -64,6 +65,7 @@ export class CameraController {
 	 */
 	collisionFloor: ((at: THREE.Vector3, ground: number, jumped: boolean) => number) | null = null
 	private floorProbe = new THREE.Vector3()
+	private wallProbe = new THREE.Vector3()
   /** Where the eye was after the last `update`, and whether it has jumped since (a teleport, a mode change), which is no move to collide. */
   private settled = new THREE.Vector3()
   private jumped = true
@@ -75,7 +77,8 @@ export class CameraController {
   topDown = false
   /**
    * Camera › Walk (#21, Noggit Red's FPS camera): first person with the eye WALK_HEIGHT above the
-   * ground, moving level at a run whichever way it looks, as a player walks the map. The camera it
+   * ground, moving level at a run whichever way it looks, as a player walks the map, stopped by
+   * the WMOs' walls (`collideWalls`, whatever `collision` says). The camera it
    * left is kept and comes back when the walk ends.
    */
   walk = false
@@ -348,6 +351,15 @@ export class CameraController {
       this.clampTarget()
     }
     if (this.walk) {
+			// The walker stops at a WMO's walls as the client's player does (#313), always, as it always stands on
+			// the WMOs' floors: the move is swept level at the eye, whose sphere reaches down to WALK_STEP over the
+			// floor, so a wall too high to step over stops it and a kerb or stair doesn't. A jump isn't collided.
+			if (this.collideWalls && !this.jumped && (this.target.x !== this.settled.x || this.target.z !== this.settled.z)) {
+				const to = this.wallProbe.set(this.target.x, this.settled.y, this.target.z)
+				this.collideWalls(this.settled, to)
+				this.target.x = to.x
+				this.target.z = to.z
+			}
       // From a step above the floor it stood on, or from the eye after a jump.
       const from = this.jumped ? this.target.y : this.settled.y - WALK_HEIGHT + WALK_STEP
       this.target.y = this.walkFloor(from, this.jumped) + WALK_HEIGHT

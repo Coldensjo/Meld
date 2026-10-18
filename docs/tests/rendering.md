@@ -479,4 +479,6 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   scene) starts the walk 1 yd over the probe's start and walks 20 yd each way along the street, one
   frame a 0.5 yd step: in rooms 49, 48 and 50 the eye stays 3 yd over `rooms.floorAt` while its height
   over the terrain runs from -0.5 to 8.7 yd. On the old code (eye 3 yd over the terrain) it is 3.5 yd
-  off. Trap: starting the walk 6 yd up lands on the top of a wall by the street, a walking face too.
+  off. Then (#313) it walks 6 yd at the room's south wall from 3 yd back: it stops 0.89 yd off it, in
+  room 49 (`atWall`); on the old code it ends 2.5 yd through it, in 111 SI:7. With the walls the street
+  walk stays in the rooms (80 samples, 47 before). Trap: starting the walk 6 yd up lands on the top of a wall by the street, a walking face too.
