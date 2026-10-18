@@ -11,6 +11,8 @@ export function AckClose():Promise<void>;
 
 export function AddGroundEffect(arg1:Array<string>,arg2:number,arg3:number):Promise<number>;
 
+export function AppendLog(arg1:Array<string>):Promise<void>;
+
 export function ApplySpawnEdits(arg1:string,arg2:number,arg3:number,arg4:number,arg5:Array<vmangos.SpawnEdit>):Promise<vmangos.Result>;
 
 export function AreaRows(arg1:number):Promise<Array<vmangos.AreaRow>>;
@@ -256,6 +258,8 @@ export function SearchItems(arg1:string):Promise<Array<vmangos.ItemRef>>;
 export function SearchQuests(arg1:string):Promise<Array<vmangos.QuestRef>>;
 
 export function SearchSpells(arg1:string):Promise<Array<vmangos.SpellRef>>;
+
+export function SessionLog():Promise<string>;
 
 export function SetBenillaPath(arg1:string):Promise<void>;
 

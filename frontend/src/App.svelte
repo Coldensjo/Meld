@@ -24,6 +24,7 @@
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { restoreSession, saveSession, skipRestore, startSessionSaving } from './lib/io/session'
   import { offerRecovery, startAutosave } from './lib/io/recovery'
+  import { startSessionLog } from './lib/io/sessionLog'
   import { copyTeleport } from './lib/io/scene'
   import { onMount } from 'svelte'
   import { refreshGameClient } from './lib/io/mapio'
@@ -42,6 +43,7 @@
 
   let prefsLoaded = $state(false)
   onMount(() => {
+    const stopLogFile = startSessionLog()
     void refreshGameClient()
     const wowReady = initWow().catch((e) => console.warn('WoW client init failed', e))
     const prefsReady = loadPrefs().finally(() => (prefsLoaded = true))
@@ -60,6 +62,7 @@
     return () => {
       stopSaving()
       stopAutosave()
+      stopLogFile()
     }
   })
 

@@ -24,6 +24,7 @@ import (
 	"Meld/internal/mapfile"
 	"Meld/internal/mpq"
 	"Meld/internal/recovery"
+	"Meld/internal/sessionlog"
 	"Meld/internal/vmangos"
 	"Meld/internal/wow"
 
@@ -41,6 +42,8 @@ type App struct {
 
 	// rec holds the autosaved copies of dirty maps; nil if its folder couldn't be made.
 	rec *recovery.Store
+	// slog is this session's log file in the user cache; nil if its folder couldn't be made.
+	slog *sessionlog.Log
 	// unsaved is whether an open map has unsaved changes (SetUnsaved).
 	unsaved atomic.Bool
 	// closeAsked is when a close was stopped and not yet answered (AckClose), in Unix ms; 0 for none.
@@ -56,6 +59,7 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.startRecovery()
+	a.startSessionLog()
 	if a.cfg.WowPath != "" {
 		go func() {
 			a.wow.Open(a.cfg.WowPath)
@@ -269,6 +273,33 @@ func (a *App) startRecovery() {
 			}
 		}
 	}()
+}
+
+// startSessionLog opens this session's log file in the user cache (#319).
+func (a *App) startSessionLog() {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return
+	}
+	if l, err := sessionlog.Open(filepath.Join(base, "Meld", "logs")); err == nil {
+		a.slog = l
+	}
+}
+
+// AppendLog adds the Log window's new lines to the session's log file, which outlives Meld.
+func (a *App) AppendLog(lines []string) error {
+	if a.slog == nil {
+		return nil
+	}
+	return a.slog.Append(lines)
+}
+
+// SessionLog gives what the session's log file holds so far.
+func (a *App) SessionLog() (string, error) {
+	if a.slog == nil {
+		return "", errors.New("no log folder")
+	}
+	return a.slog.Read()
 }
 
 // shutdown ends the session; its copies stay unless the editor quit through Quit, which drops them
@@ -1739,8 +1770,13 @@ func (a *App) gameSession() (game.Session, error) {
 		ServerRoot: a.cfg.VmangosPath,
 		Login:      a.cfg.Login,
 		Run:        vmangos.OSRunner{},
-		Log:        func(msg string) { runtime.LogInfo(a.ctx, msg) },
-		Stale:      &a.stale,
+		Log: func(msg string) {
+			runtime.LogInfo(a.ctx, msg)
+			if a.slog != nil {
+				a.slog.Append([]string{time.Now().Format("15:04:05") + " " + msg})
+			}
+		},
+		Stale: &a.stale,
 	}
 	if a.cfg.GameClient == "benilla" && a.cfg.BenillaPath != "" {
 		s.Benilla = a.cfg.BenillaPath

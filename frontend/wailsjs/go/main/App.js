@@ -10,6 +10,10 @@ export function AddGroundEffect(arg1, arg2, arg3) {
   return window['go']['main']['App']['AddGroundEffect'](arg1, arg2, arg3);
 }
 
+export function AppendLog(arg1) {
+  return window['go']['main']['App']['AppendLog'](arg1);
+}
+
 export function ApplySpawnEdits(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ApplySpawnEdits'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -500,6 +504,10 @@ export function SearchQuests(arg1) {
 
 export function SearchSpells(arg1) {
   return window['go']['main']['App']['SearchSpells'](arg1);
+}
+
+export function SessionLog() {
+  return window['go']['main']['App']['SessionLog']();
 }
 
 export function SetBenillaPath(arg1) {

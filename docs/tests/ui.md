@@ -235,6 +235,13 @@ and with Preferences › Log file loading (`prefs.logFileLoading`) every client 
 `model` and `texture` lines; `ed.ui.dialog = 'log'` opens the window, which stays scrolled to
 the newest line. Copy puts the whole log on the clipboard.
 
+The same lines go to a file, one a session, in `<user cache>/Meld/logs/<start time>.log` (#319;
+`internal/sessionlog`, the last 10 kept; on Windows `%LOCALAPPDATA%\Meld\logs`), batched once a
+second through the `AppendLog` binding (`io/sessionLog.ts`), with the Go side's game session lines.
+It is the first thing to read for a bug report, as the Log window is gone once Meld closes. Probe
+`session-log` logs lines, clears the window and reads them back through `SessionLog`. The running
+`make dev` must have rebuilt its Go side first (a stale binary answers `null`).
+
 ## Minimap window (M)
 
 Checks: M (or Camera › Minimap Window) opens a floating map at the top left: the heights drawn grey

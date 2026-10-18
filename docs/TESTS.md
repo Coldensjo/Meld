@@ -433,7 +433,7 @@ the same scene, the report before and after.
 - Loading bar (#159)
 - Preview window (#197)
 - Top-down view (U)
-- Log window
+- Log window (and the session log file, #319, probe `session-log`)
 - Minimap window (M)
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
 
