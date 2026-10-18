@@ -121,7 +121,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   groups them, and unknown columns land under Other), Looks (`DisplayPicker.svelte`: every display
   from `ListDisplays`, dressed and cached in Go, with the creature type and names of the templates
   using it, shown as asset-browser thumbnails in a virtualised grid with type chips, a model filter
-  and search; hovering previews). New creature (this tab; World › Creatures… opens the same guide) opens
+  and search; hovering previews). New creature (this tab; Tools › Creatures… opens the same guide) opens
   the guide of `CreaturesWorkspace` (#260); Copy this creature in the header asks for a name and
   makes a copy (`CreateCreature`: the first free entry). Template edits are a form
   saved with Save (`SaveCreature`, the newest patch row), not undo steps;
@@ -152,7 +152,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
 - **Quest editor** (`components/QuestEditor.svelte`, `ui.questEditor`, #259): full screen (over the
   creature editor, z-index 160; the creature and object editors ignore Esc while it is open), opened
-  by World › Quests… (`entry: 0`, find one), a quest's Edit in the creature or game object editor's
+  by Tools › Quests… (`entry: 0`, find one), a quest's Edit in the creature or game object editor's
   Quests tab, or that tab's New quest… (`entry: -1`, with the creature or object as `giver`). The left finds quests
   (`SearchQuests`); New quest makes a blank level 1 quest or a copy of the open one without its
   givers (`CreateQuest` in `internal/vmangos/quests.go`: patch 0, the first entry past

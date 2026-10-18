@@ -240,7 +240,7 @@ server's names and teleports, draws them, and saves them to the client's patch a
 
 ## Creatures workspace and the new-creature guide (#132)
 
-Checks: World › Creatures… (`ui.creatures = true`): the search opens a creature in the editor, and
+Checks: Tools › Creatures… (`ui.creatures = true`): the search opens a creature in the editor, and
 the guide's four steps make a working `creature_template` row. Unit: `factions_test.go` (reactions;
 with `WOW_DIR`, the client's FactionTemplate.dbc: 14 hostile to both, 35 friendly to both, 12
 Stormwind Alliance-only), `TestParseClassLevelStats`.
@@ -255,7 +255,7 @@ Stormwind Alliance-only), `TestParseClassLevelStats`.
 
 ## Quest editor (#259)
 
-Checks: World › Quests… finds and opens a quest, names every number that stands for something, and
+Checks: Tools › Quests… finds and opens a quest, names every number that stands for something, and
 writes `quest_template` and the four relation tables only on Save, after Go's checks.
 - Probe `quest-editor` (about 12 s; nothing written): Wolves Across the Border (33) shows Northshire
   Valley, Tough Wolf Meat (750), the choices Soft Fur-lined Shoes and Wolfskin Bracers, Stormwind

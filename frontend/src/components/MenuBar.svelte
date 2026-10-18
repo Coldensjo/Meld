@@ -229,13 +229,19 @@
       ],
     },
     {
+      name: 'Tools',
+      items: [
+				{ kind: 'action', label: 'Creatures…', disabled: !hasBackend(), run: () => (ui.creatures = true) },
+				{ kind: 'action', label: 'Game Objects…', disabled: !hasBackend(), run: () => (ui.objectEditor = { key: null, entry: 0 }) },
+				{ kind: 'action', label: 'Quests…', disabled: !hasBackend(), run: () => (ui.questEditor = { entry: 0 }) },
+      ],
+    },
+    {
       name: 'World',
       items: [
         { kind: 'action', label: 'Doodad Brushes…', run: () => (ui.brushEditor = true) },
         { kind: 'action', label: 'Ground Effects (Grass Tufts)…', run: () => (ui.dialog = 'effects') },
         { kind: 'action', label: 'Texture Looks (Scrolling, Overbright)…', run: () => (ui.dialog = 'looks') },
-        { kind: 'action', label: 'Creatures…', disabled: !hasBackend(), run: () => (ui.creatures = true) },
-        { kind: 'action', label: 'Quests…', disabled: !hasBackend(), run: () => (ui.questEditor = { entry: 0 }) },
         { kind: 'action', label: 'Zones…', disabled: !hasBackend(), run: () => (ui.dialog = 'zones') },
         { kind: 'action', label: 'World Map…', disabled: !hasBackend(), run: () => (ui.dialog = 'worldMap') },
         { kind: 'action', label: 'Portals and Area Triggers…', disabled: !hasBackend(), run: () => (ui.dialog = 'portals') },
