@@ -223,7 +223,9 @@ async function main() {
 				await send('Profiler.start')
 			}
 			// PERF_WINDOWS (the number of measurePerf windows P.perf averages, #337) reaches the page this way.
-			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify({ PERF_WINDOWS: process.env.PERF_WINDOWS })};\n${lib}\n;return await (async () => {\n`
+			// Every PROBE_* variable too (#347), read in a probe as P.env('NAME', fallback) for PROBE_NAME.
+			const probeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => k === 'PERF_WINDOWS' || k.startsWith('PROBE_')))
+			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify(probeEnv)};\n${lib}\n;return await (async () => {\n`
 			bodyStart = prefix.split('\n').length
 			try {
 				const value = await evaluate(`${prefix}${body}\n})()\n})()`)

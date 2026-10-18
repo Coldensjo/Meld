@@ -425,6 +425,11 @@ the same scene, the report before and after.
     is a real gain even when the total sits inside the spread; #323: 19.6 ms against 22.5; #325:
     Shadow maps (CPU) 5.0 to 2.3). Sixteen windows after the everything map's 100 s build take 360 s:
     run it with `PROBE_TIMEOUT=900`. Check the helper on a no-op switch: the means agree within the spreads.
+    Take its map and prefs from the command line (#347): every `PROBE_*` variable reaches the page, and
+    `P.env('MAP', 'creatures')` reads `PROBE_MAP` (a number or boolean fallback converts the value), so one
+    scratch probe serves every map: `PROBE_MAP=everything PROBE_TIMEOUT=900 bun run probe path.js`. A
+    variable without the `PROBE_` prefix never arrives (`AB_MAP=x` reads as the fallback); print what
+    `P.env` returned in the probe's result.
   - Trap: the first probe run after an edit to served source (`make dev` hot-reloads it) can load the
     map cold: on the everything map it ended with 117 shader programs instead of 72 (models drawn
     before their textures, so three made each program twice) and waited 15 to 18 s on program links in

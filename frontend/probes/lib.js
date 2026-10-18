@@ -411,6 +411,24 @@ ${fs.slice(0, end)}
 	},
 
 	/**
+	 * A parameter from the command line (#347): `P.env('MAP', 'creatures')` reads the environment variable
+	 * `PROBE_MAP` the run was started with (`PROBE_MAP=everything bun run probe ab.js`), as a string, or
+	 * `fallback` when it is unset. When `fallback` is a number or boolean the value is converted to that
+	 * type. Print what it returned in the probe's result, so a mistyped name shows.
+	 */
+	env(name, fallback) {
+		const v = window.__probeEnv?.['PROBE_' + name]
+		if (v === undefined || v === '') return fallback
+		if (typeof fallback === 'number') {
+			const n = Number(v)
+			if (Number.isNaN(n)) throw new Error(`PROBE_${name}=${v} is not a number`)
+			return n
+		}
+		if (typeof fallback === 'boolean') return !['0', 'false', 'off', 'no'].includes(v.toLowerCase())
+		return v
+	},
+
+	/**
 	 * `measurePerf()` while stepping frames (it reports after a second of frames), `windows` times
 	 * (default 5, or `PERF_WINDOWS` from the environment; #337). One window holds two or three
 	 * SwiftShader frames and its cpuMs swings by +-3 ms, so the report returned is the last window's with
