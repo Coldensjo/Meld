@@ -8,6 +8,7 @@
   import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { chooseWowFolder } from '../lib/wow/api'
   import { copyPerfReport, copyScene, copyTeleport, pasteScene } from '../lib/io/scene'
+  import { BENCH_MAPS, BENCH_SCALES, openBenchMap } from '../lib/bench/benchMaps'
   import { ClearThumbnailCache, GameEvents } from '../../wailsjs/go/main/App'
   import { quitNow } from '../lib/io/session'
   import { requestClose } from './DocTabs.svelte'
@@ -594,6 +595,14 @@
         { kind: 'action', label: 'Copy Scene', disabled: !hasBackend() || ui.busy, run: withEngine(copyScene) },
         { kind: 'action', label: 'Load Scene from Clipboard', disabled: !hasBackend() || ui.busy, run: withEngine(pasteScene) },
         { kind: 'action', label: 'Copy Performance Report', run: withEngine(copyPerfReport) },
+        { kind: 'header', label: 'Benchmark maps' },
+        ...BENCH_MAPS.map((m) => ({ kind: 'action' as const, label: m.label, disabled: !hasBackend() || ui.busy, run: withEngine((e) => openBenchMap(e, m.kind, prefs.benchScale)) })),
+        { kind: 'header', label: 'Benchmark map size' },
+        ...radios(
+          [...BENCH_SCALES],
+          () => prefs.benchScale,
+          (v) => (prefs.benchScale = v),
+        ),
         { kind: 'sep' },
         { kind: 'action', label: 'About Meld…', run: () => (ui.dialog = 'about') },
       ],

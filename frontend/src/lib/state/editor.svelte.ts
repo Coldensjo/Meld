@@ -406,6 +406,8 @@ export const prefs = $state({
   lockedCursor: false,
   /** Graphics › FPS limit (#24): frames a second at most, 0 for the screen's rate. */
   fpsLimit: 0,
+  /** Help › Benchmark maps' size (#322): how many times its default count a benchmark map places (BENCH_SCALES). */
+  benchScale: 1,
   /** The client maps pinned to the top of the Start dialog's map list (#47), by Map.dbc ID. */
   pinnedMaps: [] as number[],
   /** Models › Fit Ground to Selection (#168): yards under the floor, the blend ring's width, which way the ground may move, cutting holes, and how far from the ground a floor counts. */

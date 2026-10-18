@@ -56,7 +56,14 @@ const probeFile = (arg) => {
 	if (!all.includes(arg)) fail(`no probe named ${arg} (bun run probe --list)`)
 	return { name: arg, file: join(here, arg + '.js') }
 }
-const run = (names[0] === '--all' ? all : names).map(probeFile)
+// A name ending in * runs every probe whose name starts with the rest (`perf-*`: every benchmark map, #322).
+const expand = (n) => {
+	if (!n.endsWith('*')) return [n]
+	const found = all.filter((a) => a.startsWith(n.slice(0, -1)))
+	if (!found.length) fail(`no probe matches ${n} (bun run probe --list)`)
+	return found
+}
+const run = (names[0] === '--all' ? all : names.flatMap(expand)).map(probeFile)
 
 function fail(msg) {
 	console.error(`probe: ${msg}`)

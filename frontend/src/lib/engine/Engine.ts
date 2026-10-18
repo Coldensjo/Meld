@@ -2126,14 +2126,18 @@ export class Engine {
     if (old) this.closeDocument(old.id)
   }
 
-  /** Create a new map in its own tab. */
-  newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled') {
+  /**
+   * Create a new map in its own tab. `setup` fills it before the tab opens (the benchmark maps, #322),
+   * since opening copies its `meta` into `editor`.
+   */
+  newDocument(size: number, kind: GenerateKind, seed: number, name = 'Untitled', setup?: (d: MapDocument) => void) {
     const d = new MapDocument(size, this.uniqueName(name))
     d.terrain.generate(kind, seed)
     const preset = presetById(kind)
     d.meta.waterLevel = preset.waterLevel
     d.meta.waterEnabled = preset.water
     d.terrain.autoPaint(d.meta.waterLevel, d.meta.waterEnabled)
+    setup?.(d)
     d.meta.roles = guessRoles(d.meta.palette)
     this.documents.push(d)
     this.activate(d)

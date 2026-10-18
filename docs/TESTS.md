@@ -218,7 +218,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 
   A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
-- The probes on 2026-10-17: `tool-hints` (#238, tool hints in the status bar, not the options bar), `hide-panels` (#248, Tab gives the viewport the whole window), `options-more` (#254, the options bar keeps one row and More shows the rest), `smoke` (the benchmark scene draws, no errors), `bench` (its numbers),
+- The probes on 2026-10-17: `tool-hints` (#238, tool hints in the status bar, not the options bar), `hide-panels` (#248, Tab gives the viewport the whole window), `options-more` (#254, the options bar keeps one row and More shows the rest), `smoke` (the benchmark scene draws, no errors), `bench` (its numbers), `perf-*` (#322, each benchmark map's numbers, below),
   `undo-sculpt` and `undo-holes` (an edit and its undo on a flat map), `undo-spawns` (#193, undoing a Spawn brush stroke of 60 creatures redraws the spawn layer once; needs the world database), `wmo-cull` (#198's Stormwind
   cull, in the scene pass and the near shadow cascade, #215), `terrain-dxt` (#216's DXT3 tileset
   array draws the ground as the RGBA one does, and #225's mips smooth the distant ground), `object-entry` (#136, a game object spawn turned into
@@ -348,6 +348,59 @@ the same scene, the report before and after.
   `terrain-dxt` read a flat far half). On 2026-10-17 after #256: 3015 draw calls, 2,574,488 triangles,
   185 geometries, 688 textures, 305 MB heap; the most triangles: HumanMale (54k), Wolf (44k),
   nsabbey.wmo (35k), stormwind.wmo (31k). Update this when a commit moves it on purpose.
+- **Benchmark maps** (#322): generated maps that each stress one system, for performance work the
+  Northshire scene can't show (how a cost grows with how much there is of something).
+  `lib/bench/benchMaps.ts` builds them (`buildBenchMap(engine, kind, count?, seed?)`, `BENCH_MAPS` has
+  each kind's default count, size, terrain and hour): the same kind, count and seed always give the same
+  map, with models picked from the client by path (`listAssets`), so nothing of Blizzard's is in the repo.
+  - Kinds (the object, light and creature maps on flat 2x2 tiles, so nothing stands in the sea):
+    `objects-same` (5000 copies of one tree: instancing), `objects-mixed` (3000 doodads of 400
+    models, Teldrassil's world tree left out, as it hid the view: draw calls, loading), `wmo` (a grid of 120 buildings less the camera's clearing: groups,
+    portals, doodad sets), `lights` (600 braziers, campfires and lamps at midnight: the light pool,
+    flames, particles), `creatures` (2000 creatures of 60 displays: skinning), `terrain` (4x4 tiles of
+    mountains with the sea off, four tilesets blended on every chunk, holes), `water` (water, ocean, magma and slime on 70% of the
+    chunks, half of them two layers deep, and the sea) and `everything` (a moderate mix on 4x4 tiles).
+  - `cd frontend && bun run probe 'perf-*'` measures all of them, each on a fresh page (one probe file a
+    map, `perf-<kind>.js`, all through `P.benchMap(kind, count?)` in `lib.js`); `bun run probe
+    perf-lights` one. A name ending in `*` runs every probe it starts. The line adds `buildMs` (making
+    the map) and `loadMs` (that plus the client reads) to `bench`'s numbers. Give it a longer
+    `PROBE_TIMEOUT` (900) when raising a count.
+  - Help › Benchmark maps opens each in the window, on the real GPU (the probes run on SwiftShader), at
+    its hour; Help › Copy Performance Report then measures it. The tab saves as any map.
+  - Sizes: Help › Benchmark map size (`prefs.benchScale`, `BENCH_SCALES`) multiplies the default counts
+    by 1, 4 or 16; the buildings, terrain and water maps grow their side by the square root instead,
+    up to 1024 cells (8x8 tiles). In a probe, `P.benchMap(kind, undefined, 4)`.
+  - Trap: the window can't draw faster than the screen (Graphics › FPS limit's None is the screen's
+    rate), so on a fast GPU the normal maps all show the screen's 240 FPS and say nothing. Read the
+    report's CPU and GPU ms a frame instead, which don't stop at the screen's rate, or take a larger size.
+  - The creatures are spawns made in the tab (`Engine.setSpawns`), dressed from the client's displays
+    (`ListDisplays`, which needs no database). Nothing reads or writes the world database, and a
+    benchmark map's spawns must never be saved to it.
+  - The camera stands over a corner, a fifth of the way in, looking over the middle (`benchView`);
+    nothing is placed within 60 yd of that spot, or the view would be inside a tree.
+  - Baseline, `bun run probe 'perf-*'` on 2026-10-18 (SwiftShader; CPU ms, calls, triangles,
+    geometries and textures compare between runs on one machine; `loadMs` is mostly the client reads):
+
+    | Map | CPU ms | Calls | Triangles | Geometries | Textures | Heap MB | Load s |
+    |---|---|---|---|---|---|---|---|
+    | objects-same | 1.5 | 108 | 1,435,230 | 150 | 21 | 88 | 9.1 |
+    | objects-mixed | 21.6 | 1,731 | 1,172,753 | 642 | 736 | 149 | 8.2 |
+    | wmo | 14.5 | 2,241 | 1,631,680 | 416 | 533 | 184 | 11.3 |
+    | wmo at 4x (476 buildings, 8x8 tiles) | 19.9 | 3,159 | 5,057,184 | 1,138 | 537 | 288 | 34.6 |
+    | lights | 5.1 | 209 | 405,020 | 188 | 80 | 96 | 5.9 |
+    | creatures | 9.7 | 476 | 2,868,838 | 211 | 208 | 124 | 6.5 |
+    | terrain | 2.2 | 254 | 485,501 | 341 | 20 | 147 | 15.0 |
+    | water | 1.5 | 166 | 319,204 | 212 | 50 | 94 | 4.4 |
+    | everything | 26.2 | 2,808 | 1,517,996 | 844 | 946 | 207 | 17.5 |
+
+    What they show at once: CPU time follows draw calls (objects-mixed, wmo, everything), not
+    triangles (objects-same draws 1.4M triangles in 108 calls for 1.5 ms). Update the table when a
+    commit moves a number on purpose.
+  - Trap: a probe run that outlives the dev server fails every probe after it with "the page never set
+    up __engine"; rerun those, and the runner starts `make dev` again.
+  - **The rule for using them**: a change measured as faster on a stress map is kept only if
+    `perf-everything` and `bench` (Northshire) are not slower. Give the stress map's numbers and those
+    two, before and after, in the done comment.
 - Trap: a scene's `view` means an orbit (target, distance) only with Follow the Ground on; with the
   default flying camera the target is where the camera stands. A hand-written scene or a probe that
   places the camera by target and distance must set `cameraFollowGround: true` (#256).

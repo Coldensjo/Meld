@@ -418,6 +418,61 @@ ${fs.slice(0, end)}
 		return r
 	},
 
+	/**
+	 * A `perf()` report as a probe's line: what compares between runs. frameMs is the mean interval
+	 * between frame starts over the one-second window; on SwiftShader a frame takes most of a second, so
+	 * the window holds one or two intervals and the figure swings 5x between identical runs (#226): it is
+	 * given only when the window held ten or more.
+	 */
+	perfSummary(r) {
+		const round = (v) => Math.round(v * 100) / 100
+		return {
+			frameMs: r.frames > 10 ? round(r.frameMs) : null,
+			frames: r.frames,
+			cpuMs: round(r.cpuMs),
+			gpuMs: r.gpu ? round(r.gpu.reduce((a, b) => a + b, 0)) : null,
+			calls: r.calls,
+			triangles: r.triangles,
+			geometries: r.geometries,
+			textures: r.textures,
+			heapMB: r.heapMB,
+			topModels: r.models.slice(0, 5).map((m) => `${m.type.split('?')[0].split(/[\\/]/).pop()} ${m.triangles}`),
+		}
+	},
+
+	/**
+	 * Builds benchmark map `kind` (lib/bench/benchMaps.ts, #322) with `count` of its main thing (its
+	 * default times `scale` when left out, as Help › Benchmark map size does), sets its hour, flies the camera to its view, waits for the client reads
+	 * to stop and measures it. `buildMs` is the map's build, `loadMs` that plus its models' loading.
+	 */
+	async benchMap(kind, count, scale = 1) {
+		const { buildBenchMap, benchView, benchMap } = await P.app('/src/lib/bench/benchMaps.ts')
+		const { prefs } = await P.state()
+		const m = benchMap(kind)
+		prefs.dayCycle = false
+		prefs.timeOfDay = m.hour
+		const t0 = performance.now()
+		const d = await buildBenchMap(P.e, kind, count, 1, scale)
+		const buildMs = Math.round(performance.now() - t0)
+		benchView(P.e, kind)
+		await P.frames(2)
+		await P.settle()
+		const loadMs = Math.round(performance.now() - t0)
+		await P.frames(5)
+		const r = await P.perf()
+		return {
+			map: kind,
+			stresses: m.stresses,
+			count: count ?? Math.round(m.count * scale),
+			size: d.terrain.size,
+			objects: d.objects.objects.size,
+			spawns: d.spawnLayer.spawns.length,
+			buildMs,
+			loadMs,
+			...P.perfSummary(r),
+		}
+	},
+
 	/** The editor state module (`editor`, `prefs`, `ui`), the app's own instance. */
 	async state() {
 		return P.app('/src/lib/state/editor.svelte.ts')
