@@ -6,7 +6,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   (our own reader; `Gophercraft/mpq` is GPL, so don't add it). `internal/wow` decodes BLP, M2 and
   WMO files.
 - `wow.Client.Handler()` serves `/wow/{status,list,texture,model}` (and `wmonav`, a WMO's room data,
-  and `collision`, a model's collision faces for the walkable-ground view, `wow/collision.go`; `main.go`
+  and `collision`, a model's collision faces and a WMO's liquids for the walkable-ground view, `wow/collision.go`; `main.go`
   routes `/wow/navtile`, a tile of the server's movement maps, to `App.serveNavTile`, as it needs the
   VMaNGOS folder, see terrain.md's walkable ground). The handler is mounted via
   Wails `AssetServer.Middleware` in `main.go`, so it works in dev and prod. Responses are binary:

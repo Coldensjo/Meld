@@ -89,7 +89,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     more above it, the shallow transition (`NAV_GROUND | NAV_WATER`) where less, or magma and slime.
     recast-navigation-js can't set a span's area, so `navFilters.ts` reads and writes the spans in
     the WASM heap (the layout is checked against the API, and in `tests/navmesh.test.ts`).
-    Left out: gameobjects and the liquids inside WMOs.
+    Left out: gameobjects.
   - `navLiquids.ts` is the liquid as the server's map file has it, per chunk: the type of the layer
     covering the most cells, each vertex the highest surface, the editor's sea as ocean where the
     export writes it, and a chunk with dark water (ocean as deep as a depth byte goes, the export's
@@ -100,7 +100,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     placed models' collision faces (`/wow/collision`: an M2's hull, a WMO's faces and doodads as the
     server's vmap extractor takes them (#283: COLLISION faces and RENDER ones without DETAIL, no
     unreachable or antiportal groups, and only the doodads of the placement's own set, not set 0
-    with it, that a kept group references), with each group's triangle count). It cuts them as TerrainBuilder::loadVMap does
+    with it, that a kept group references), with each group's triangle count, and a WMO's
+    liquids). A WMO's liquids (#281) are every wet tile of a kept group's MLIQ, with the type the vmap
+    extractor writes (`serverLiquidType`, a LiquidType ID). The builder takes those as they are, no
+    test against the ground, and picks the area by the type's low two bits (`liquidTypeArea`), so a
+    WMO's magma is slime, its ocean magma and its slime water, as in the server's mmaps (Ironforge's
+    forge). Their grids' vertices, dry ones too, count in the model's box and so in the tile's height
+    span. The faces are cut as TerrainBuilder::loadVMap does
     (#282): ground whose nearest face above, in one of a model's groups, is an upward one within 5 yd
     lies under the model, and a triangle a yard or more under it goes (one with some corners under is
     cut back to where it meets the model), so the crawlspace under Northshire Abbey's floor is no

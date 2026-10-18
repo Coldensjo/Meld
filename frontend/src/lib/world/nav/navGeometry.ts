@@ -13,10 +13,12 @@
 //   face is an upward one: inside a solid, such as a hull's bottom sunk into the ground. A cellar's
 //   floor, with its ceiling (a downward face) over it, stays.
 // The liquids over the cells (navLiquids.ts) come as triangles of their own, an area each; a cell in
-// a deep chunk brings neither ground nor liquid.
+// a deep chunk brings neither ground nor liquid. So do the liquids inside the WMOs (#281), as the
+// builder takes them from the vmaps (TerrainBuilder::loadVMap): every wet tile of a kept group's
+// MLIQ, with no test against the ground, its area by the type's low two bits (liquidTypeArea).
 
 import { HOLE_CELL, HOLE_FIRST, HOLE_NONE } from '../../terrain/holes'
-import type { TileInput } from './navBuild'
+import { AREA_MAGMA, AREA_SLIME, AREA_WATER, type TileInput } from './navBuild'
 import type { NavLiquids } from './navLiquids'
 
 /** The ground's fields a tile reads: a Terrain has them. */
@@ -29,9 +31,28 @@ export interface NavGround {
 }
 
 /**
+ * A WMO's liquids in its own frame, as /wow/collision sends them (#281): every vertex of its groups'
+ * MLIQ grids, three indices a wet tile's triangle, and each triangle's liquid type, a LiquidType.dbc
+ * ID as the vmap extractor writes it.
+ */
+export interface ModelLiquid {
+	verts: Float32Array
+	idx: Uint32Array
+	types: Uint32Array
+}
+
+/** A placed WMO's liquids: its grids' vertices in world space, three indices a triangle, an area each. */
+export interface PlacedLiquid {
+	verts: Float32Array
+	idx: Uint32Array
+	areas: Uint8Array
+}
+
+/**
  * A placed model's collision faces in world space, nine floats a triangle, their box, the placement's
  * x and z, and how many triangles each of its groups holds in turn (the server's GroupModels: an M2's
- * hull is one, a WMO's groups and doodads one each).
+ * hull is one, a WMO's groups and doodads one each). A WMO's liquids come too; the box holds their
+ * vertices, dry ones as well, as the server's height span does.
  */
 export interface PlacedCollision {
 	tris: Float32Array
@@ -39,30 +60,61 @@ export interface PlacedCollision {
 	max: [number, number, number]
 	origin: [number, number]
 	groups: Uint32Array
+	liquid?: PlacedLiquid | null
 }
 
 /**
- * The faces of `local` (nine floats a triangle, the model's frame) moved by the column-major matrix
- * `m`, in `groups` (one group of them all when not given).
+ * The navmesh area of a WMO liquid of vmap type `t`, as the mmap builder picks it: by the type's low
+ * two bits, water for 0 and 1, magma for 2 and slime for 3. The extractor writes LiquidType.dbc IDs
+ * (water 1, ocean 2, magma 3, slime 4), so the server's mmaps hold a WMO's ocean as magma, its magma
+ * as slime and its slime as water (Ironforge's forge lava is slime in its tile), and so does this.
  */
-export function placeFaces(local: Float32Array, m: ArrayLike<number>, groups?: Uint32Array): PlacedCollision {
-	const tris = new Float32Array(local.length)
-	const min: [number, number, number] = [Infinity, Infinity, Infinity]
-	const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
+export function liquidTypeArea(t: number): number {
+	switch (t & 3) {
+		case 2:
+			return AREA_MAGMA
+		case 3:
+			return AREA_SLIME
+		default:
+			return AREA_WATER
+	}
+}
+
+/** Moves the points of `local` by the column-major matrix `m` into `out`, growing the box [min, max]. */
+function movePoints(local: Float32Array, m: ArrayLike<number>, out: Float32Array, min: number[], max: number[]) {
 	for (let i = 0; i < local.length; i += 3) {
 		const x = local[i], y = local[i + 1], z = local[i + 2]
 		const wx = m[0] * x + m[4] * y + m[8] * z + m[12]
 		const wy = m[1] * x + m[5] * y + m[9] * z + m[13]
 		const wz = m[2] * x + m[6] * y + m[10] * z + m[14]
-		tris[i] = wx
-		tris[i + 1] = wy
-		tris[i + 2] = wz
+		out[i] = wx
+		out[i + 1] = wy
+		out[i + 2] = wz
 		if (wx < min[0]) min[0] = wx
 		if (wy < min[1]) min[1] = wy
 		if (wz < min[2]) min[2] = wz
 		if (wx > max[0]) max[0] = wx
 		if (wy > max[1]) max[1] = wy
 		if (wz > max[2]) max[2] = wz
+	}
+}
+
+/**
+ * The faces of `local` (nine floats a triangle, the model's frame) moved by the column-major matrix
+ * `m`, in `groups` (one group of them all when not given), with the model's `liquid` when it has one.
+ */
+export function placeFaces(local: Float32Array, m: ArrayLike<number>, groups?: Uint32Array, liquid?: ModelLiquid | null): PlacedCollision {
+	const tris = new Float32Array(local.length)
+	const min: [number, number, number] = [Infinity, Infinity, Infinity]
+	const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
+	movePoints(local, m, tris, min, max)
+	let placedLiquid: PlacedLiquid | null = null
+	if (liquid && liquid.types.length > 0) {
+		const verts = new Float32Array(liquid.verts.length)
+		movePoints(liquid.verts, m, verts, min, max)
+		const areas = new Uint8Array(liquid.types.length)
+		for (let t = 0; t < areas.length; t++) areas[t] = liquidTypeArea(liquid.types[t])
+		placedLiquid = { verts, idx: liquid.idx, areas }
 	}
 	// A mirrored placement (a negative scale) turns the faces inside out: wind them back.
 	const det = m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2])
@@ -75,7 +127,7 @@ export function placeFaces(local: Float32Array, m: ArrayLike<number>, groups?: U
 			}
 		}
 	}
-	return { tris, min, max, origin: [m[12], m[14]], groups: groups ?? Uint32Array.of(local.length / 9) }
+	return { tris, min, max, origin: [m[12], m[14]], groups: groups ?? Uint32Array.of(local.length / 9), liquid: placedLiquid }
 }
 
 /**
@@ -182,6 +234,7 @@ export class TileGatherer {
 		for (const m of models) {
 			if (m.max[0] < x0 || m.min[0] > x1 || m.max[2] < z0 || m.min[2] > z1) continue
 			this.addModel(m.tris, x0, z0, x1, z1, groundAt)
+			if (m.liquid) this.addModelLiquid(m.liquid, x0, z0, x1, z1)
 		}
 		return {
 			pos: this.pos,
@@ -294,19 +347,7 @@ export class TileGatherer {
 		const first = Math.max(h[0], h[2], h[1]) >= ground
 		const second = Math.max(h[1], h[2], h[3]) >= ground
 		if (!first && !second) return
-		if ((this.lvc + 4) * 3 > this.lpos.length) {
-			const p = new Float32Array(this.lpos.length * 2)
-			p.set(this.lpos)
-			this.lpos = p
-		}
-		if (this.ltc + 2 > this.lareas.length) {
-			const q = new Int32Array(this.lidx.length * 2)
-			q.set(this.lidx)
-			this.lidx = q
-			const r = new Uint8Array(this.lareas.length * 2)
-			r.set(this.lareas)
-			this.lareas = r
-		}
+		this.reserveLiquid(4, 2)
 		const cs = g.cellSize
 		const v = this.lvc
 		for (let k = 0; k < 4; k++) {
@@ -327,6 +368,49 @@ export class TileGatherer {
 		}
 		if (first) tri(0, 2, 1)
 		if (second) tri(1, 2, 3)
+	}
+
+	private reserveLiquid(verts: number, tris: number) {
+		if ((this.lvc + verts) * 3 > this.lpos.length) {
+			const p = new Float32Array(Math.max(this.lpos.length * 2, (this.lvc + verts) * 3))
+			p.set(this.lpos.subarray(0, this.lvc * 3))
+			this.lpos = p
+		}
+		if (this.ltc + tris > this.lareas.length) {
+			const n = Math.max(this.lareas.length * 2, this.ltc + tris)
+			const q = new Int32Array(n * 3)
+			q.set(this.lidx.subarray(0, this.ltc * 3))
+			this.lidx = q
+			const r = new Uint8Array(n)
+			r.set(this.lareas.subarray(0, this.ltc))
+			this.lareas = r
+		}
+	}
+
+	/** A WMO's liquid triangles over the box, three corners of their own each, after the map's liquids. */
+	private addModelLiquid(l: PlacedLiquid, x0: number, z0: number, x1: number, z1: number) {
+		const p = l.verts
+		const n = l.areas.length
+		for (let t = 0; t < n; t++) {
+			const a = l.idx[t * 3] * 3, b = l.idx[t * 3 + 1] * 3, c = l.idx[t * 3 + 2] * 3
+			if (Math.max(p[a], p[b], p[c]) < x0 || Math.min(p[a], p[b], p[c]) > x1) continue
+			if (Math.max(p[a + 2], p[b + 2], p[c + 2]) < z0 || Math.min(p[a + 2], p[b + 2], p[c + 2]) > z1) continue
+			this.reserveLiquid(3, 1)
+			const v = this.lvc
+			for (let k = 0; k < 3; k++) {
+				const s = l.idx[t * 3 + k] * 3
+				const o = (v + k) * 3
+				const y = p[s + 1]
+				this.lpos[o] = p[s]
+				this.lpos[o + 1] = y
+				this.lpos[o + 2] = p[s + 2]
+				this.lidx[this.ltc * 3 + k] = v + k
+				if (y < this.minY) this.minY = y
+				if (y > this.maxY) this.maxY = y
+			}
+			this.lvc += 3
+			this.lareas[this.ltc++] = l.areas[t]
+		}
 	}
 
 	private addModel(t: Float32Array, x0: number, z0: number, x1: number, z1: number, groundAt: (x: number, z: number) => number | null) {

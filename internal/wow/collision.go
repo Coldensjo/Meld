@@ -53,50 +53,144 @@ func m2HullFaces(b []byte) ([]float32, error) {
 // count, nine float32 a triangle (editor space, the model's own frame), then a u32 group count and
 // each group's triangle count. The groups are the pieces the server's vmaps keep apart, each a
 // GroupModel its mmap builder asks whether ground lies under it (#282): an M2's hull is one, a
-// WMO's groups and its doodads' hulls one each. set is a WMO placement's doodad set, as for Model.
+// WMO's groups and its doodads' hulls one each. Then the liquids inside a WMO (#281; none for an
+// M2): a u32 vertex count and three float32 a vertex, a u32 triangle count, three u32 vertex
+// indices a triangle, and each triangle's liquid type (u32, collisionLiquids). set is a WMO
+// placement's doodad set, as for Model.
 func (c *Client) Collision(path string, set int) ([]byte, error) {
 	key := fmt.Sprintf("col:%s|%d", strings.ToLower(path), set)
 	return c.cached(key, func() ([]byte, error) {
-		var faces []float32
-		var groups []uint32
+		var col collision
 		var err error
 		if strings.HasSuffix(strings.ToLower(path), ".wmo") {
-			faces, groups, err = c.wmoCollision(path, set)
+			col, err = c.wmoCollision(path, set)
 		} else {
 			var raw []byte
 			if raw, err = c.readM2(path); err == nil {
-				faces, err = m2HullFaces(raw)
-				groups = []uint32{uint32(len(faces) / 9)}
+				col.faces, err = m2HullFaces(raw)
+				col.groups = []uint32{uint32(len(col.faces) / 9)}
 			}
 		}
 		if err != nil {
 			return nil, err
 		}
-		return encodeFaces(faces, groups), nil
+		return col.encode(), nil
 	})
 }
 
-func encodeFaces(faces []float32, groups []uint32) []byte {
+// collision is what Collision sends: the faces with each group's triangle count, and the liquids.
+type collision struct {
+	faces  []float32
+	groups []uint32
+	liquid collisionLiquids
+}
+
+// collisionLiquids are a WMO's liquids as the server's vmaps hold them: every vertex of each kept
+// group's MLIQ grid at its own height (a dry tile's too, since the mmap builder's height span counts
+// them), in editor space; two triangles a wet tile (its nibble not 0xf); and each triangle's liquid
+// type as the vmap extractor writes it (serverLiquidType), which the navmesh turns into an area.
+type collisionLiquids struct {
+	verts []float32
+	tris  []uint32
+	types []uint32
+}
+
+func (col *collision) encode() []byte {
 	var buf bytes.Buffer
-	binary.Write(&buf, binary.LittleEndian, uint32(len(faces)/9))
-	binary.Write(&buf, binary.LittleEndian, faces)
-	binary.Write(&buf, binary.LittleEndian, uint32(len(groups)))
-	binary.Write(&buf, binary.LittleEndian, groups)
+	le := binary.LittleEndian
+	binary.Write(&buf, le, uint32(len(col.faces)/9))
+	binary.Write(&buf, le, col.faces)
+	binary.Write(&buf, le, uint32(len(col.groups)))
+	binary.Write(&buf, le, col.groups)
+	l := &col.liquid
+	binary.Write(&buf, le, uint32(len(l.verts)/3))
+	binary.Write(&buf, le, l.verts)
+	binary.Write(&buf, le, uint32(len(l.types)))
+	binary.Write(&buf, le, l.tris)
+	binary.Write(&buf, le, l.types)
 	return buf.Bytes()
+}
+
+// serverLiquidType is the liquid type the vmap extractor gives a group's MLIQ
+// (WMOGroup::ConvertToVMAPGroupWmo), a LiquidType.dbc ID: the group's groupLiquid (plus one, unless
+// the root's flags have 4; 0xf is none), else the first wet tile's nibble plus one; then by that
+// ID's low bits water (1, or 2 in a group with flag 0x80000), ocean (2), magma (3) or slime (4).
+// The extractor makes Naxxramas's slime 21, which the navmesh takes as water as it does 4.
+func serverLiquidType(groupLiquid, groupFlags, rootFlags int, tiles []byte) int {
+	t := groupLiquid
+	if rootFlags&4 == 0 {
+		if groupLiquid == noGroupLiquid {
+			t = 0
+		} else {
+			t = groupLiquid + 1
+		}
+	}
+	if t == 0 {
+		for _, f := range tiles {
+			if f&0xf != 0xf {
+				t = int(f&0xf) + 1
+				break
+			}
+		}
+	}
+	if t > 0 && t < 21 {
+		switch (t - 1) & 3 {
+		case 0:
+			t = 1
+			if groupFlags&0x80000 != 0 {
+				t = 2
+			}
+		case 1:
+			t = 2
+		case 2:
+			t = 3
+		case 3:
+			t = 4
+		}
+	}
+	return t
+}
+
+// add appends a group's liquid l, of the extractor's type t.
+func (o *collisionLiquids) add(l *WMOLiquid, t int) {
+	xv, yv, xt, yt := l.XVerts, l.YVerts, l.XTiles, l.YTiles
+	if xt+1 != xv || yt+1 != yv || len(l.Heights) < xv*yv || len(l.Tiles) < xt*yt {
+		return
+	}
+	base := uint32(len(o.verts) / 3)
+	for j := 0; j < yv; j++ {
+		for i := 0; i < xv; i++ {
+			x, y, z := toEditor(l.Base[0]+float32(i)*mliqStep, l.Base[1]+float32(j)*mliqStep, l.Heights[j*xv+i])
+			o.verts = append(o.verts, x, y, z)
+		}
+	}
+	for ty := 0; ty < yt; ty++ {
+		for tx := 0; tx < xt; tx++ {
+			if l.Tiles[ty*xt+tx]&0xf == 0xf {
+				continue
+			}
+			tl := base + uint32(ty*xv+tx)
+			bl := tl + uint32(xv)
+			o.tris = append(o.tris, tl, bl, bl+1, tl, bl+1, tl+1)
+			o.types = append(o.types, uint32(t), uint32(t))
+		}
+	}
 }
 
 // wmoCollision gathers a WMO's collision faces and its doodads' hulls in editor space as the
 // server's vmap extractor does, with the triangle count of each group and each doodad that brings
-// any. The doodads are those of the placement's set alone (Doodad::ExtractSet), not set 0 with it
-// as the client draws them, and only those a kept group's MODR names (ExtractSingleWmo).
-func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error) {
+// any, and the liquids of the groups it keeps. The doodads are those of the placement's set alone
+// (Doodad::ExtractSet), not set 0 with it as the client draws them, and only those a kept group's
+// MODR names (ExtractSingleWmo).
+func (c *Client) wmoCollision(path string, set int) (collision, error) {
+	var col collision
 	raw, err := c.read(path)
 	if err != nil {
-		return nil, nil, err
+		return col, err
 	}
 	root, err := ParseWMORoot(raw)
 	if err != nil {
-		return nil, nil, err
+		return col, err
 	}
 	groups := make([][]byte, root.NumGroups)
 	for i := range groups {
@@ -104,7 +198,7 @@ func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error)
 	}
 	nav, err := ParseWMONav(raw, groups)
 	if err != nil {
-		return nil, nil, err
+		return col, err
 	}
 	var faces []float32
 	var counts []uint32
@@ -116,6 +210,9 @@ func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error)
 		if gi < len(groups) && groups[gi] != nil {
 			for _, d := range GroupDoodadRefs(groups[gi]) {
 				referenced[d] = true
+			}
+			if l, gl, flags := GroupLiquid(groups[gi]); l != nil {
+				col.liquid.add(l, serverLiquidType(gl, flags, root.Flags, l.Tiles))
 			}
 		}
 		if len(g) < 9 {
@@ -129,7 +226,8 @@ func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error)
 	}
 	hulls := map[string][]float32{}
 	if set < 0 || set >= len(root.Sets) {
-		return faces, counts, nil
+		col.faces, col.groups = faces, counts
+		return col, nil
 	}
 	s := root.Sets[set]
 	for di := s.Start; di < s.Start+s.Count && di < len(root.AllDoodads); di++ {
@@ -153,5 +251,6 @@ func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error)
 		faces = append(faces, m.Pos...)
 		counts = append(counts, uint32(len(m.Pos)/9))
 	}
-	return faces, counts, nil
+	col.faces, col.groups = faces, counts
+	return col, nil
 }

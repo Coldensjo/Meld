@@ -31,8 +31,10 @@ func chunks(b []byte) []chunk {
 type WMORoot struct {
 	Materials []WMOMaterial
 	NumGroups int
-	Doodads   []WMODoodad // default doodad set only
-	Lights    []Effect    // MOLT lights, editor space
+	// Flags are MOHD's flags; 4 means the groups' groupLiquid is a LiquidType ID already.
+	Flags   int
+	Doodads []WMODoodad // default doodad set only
+	Lights  []Effect    // MOLT lights, editor space
 	// Sets are the doodad sets (MODS): set 0 is the global set, always shown; a placement adds one more.
 	Sets []WMODoodadSet
 	// AllDoodads are every MODD entry, by index (an entry without a model is empty).
@@ -127,6 +129,9 @@ func ParseWMORoot(b []byte) (*WMORoot, error) {
 		case "MOHD":
 			if len(c.data) >= 8 {
 				root.NumGroups = reader{c.data}.u32(4)
+			}
+			if len(c.data) >= 64 {
+				root.Flags = reader{c.data}.u32(60)
 			}
 		case "MOTX":
 			motx = c.data

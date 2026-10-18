@@ -257,16 +257,28 @@ export function fetchWmoNav(path: string): Promise<ArrayBuffer> {
  * A model's collision faces for the walkable-ground preview (#175), nine floats a triangle in the
  * model's frame: an M2's hull, a WMO's collision faces and its doodads' hulls as the server's vmap
  * extractor takes them (#283); and each group's triangle count in turn (the hull, each WMO group
- * and each doodad; #282). `path` may carry a WMO's `?set=<n>` as a model type does.
+ * and each doodad; #282). A WMO's liquids come with them (#281): every vertex of its kept groups'
+ * MLIQ grids, three indices a wet tile's triangle, and each triangle's liquid type as the server's
+ * vmaps hold it (null for none). `path` may carry a WMO's `?set=<n>` as a model type does.
  */
-export async function fetchCollision(path: string): Promise<{ tris: Float32Array; groups: Uint32Array }> {
+export async function fetchCollision(path: string): Promise<{
+	tris: Float32Array
+	groups: Uint32Array
+	liquid: { verts: Float32Array; idx: Uint32Array; types: Uint32Array } | null
+}> {
 	const buf = await fetchBinary('collision', path)
 	const v = new DataView(buf)
 	const n = v.getUint32(0, true)
-	const at = 4 + n * 36
+	let at = 4 + n * 36
 	const groups = new Uint32Array(v.getUint32(at, true))
 	for (let g = 0; g < groups.length; g++) groups[g] = v.getUint32(at + 4 + g * 4, true)
-	return { tris: new Float32Array(buf, 4, n * 9), groups }
+	at += 4 + groups.length * 4
+	const nv = v.getUint32(at, true)
+	const nt = v.getUint32(at + 4 + nv * 12, true)
+	const verts = new Float32Array(buf, at + 4, nv * 3)
+	const idx = new Uint32Array(buf, at + 8 + nv * 12, nt * 3)
+	const types = new Uint32Array(buf, at + 8 + nv * 12 + nt * 12, nt)
+	return { tris: new Float32Array(buf, 4, n * 9), groups, liquid: nt > 0 ? { verts, idx, types } : null }
 }
 
 /**

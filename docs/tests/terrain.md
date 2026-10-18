@@ -359,9 +359,20 @@ creature's way round obstacles.
 - Unit: `tests/navmesh.test.ts` (slope areas, the tile gatherer, a navmesh round a wall with the real
   WASM in node, a few ms a tile; #239: the span layout `navFilters.ts` reads, a 1.5 yd model fence
   gone round while the same step in the terrain is climbed, a river only a swimmer crosses beside a
-  ford a walker wades, a deep ocean chunk with no navmesh, and the sea's cells). Go: `TestM2HullFaces`, and with `WOW_DIR=C:/WoW/client`
+  ford a walker wades, a deep ocean chunk with no navmesh, and the sea's cells; #281: a WMO's pool
+  over its floor crossed only as a swimmer, and its type's low bits picking the area). Go:
+  `TestM2HullFaces`, `TestServerLiquidType`, `TestCollisionLiquidGrid`, and with `WOW_DIR=C:/WoW/client`
   `TestClientCollision` (three hulls wound outward by signed volume, Goldshire inn's floors facing up,
-  its groups' triangle counts adding up to its faces).
+  its groups' triangle counts adding up to its faces, Ironforge's lava of type 3 and Stormwind's
+  canals of type 1).
+- WMO liquids (#281): `bun run probe walkable-wmo-liquid` (about 30 s) opens Ironforge (Azeroth
+  33_41) with the target on the Great Forge and measures the slime-coloured navmesh within 60 yd in
+  the browser's build and in the server's mmaps: 3475 and 3357 yd² when written, none before #281.
+  It is slime, not magma, in both: the mmap builder reads the vmaps' LiquidType ID by its low two
+  bits (`liquidTypeArea`), and the server's tiles show the same (a count of polygon areas over
+  `data/mmaps` finds slime in Ironforge's tiles 33_41 and 34_41, files `0004133.mmtile` and `0004134.mmtile`, where no slime
+  is). Needs the VMaNGOS folder's `data/mmaps`. The lava's centroid in that block is about
+  (478, 431, 56); the WMO reaches into tile 34_41.
 - Probe: `bun run probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
   round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, a river 2 yd
   deep across the map drawn blue and crossed only as a swimmer (`kind: 'swim'`, #239), and the view

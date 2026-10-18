@@ -5,6 +5,8 @@ import * as THREE from 'three'
 import {
 	AREA_GROUND,
 	AREA_GROUND_MODEL,
+	AREA_MAGMA,
+	AREA_SLIME,
 	AREA_STEEP,
 	AREA_STEEP_MODEL,
 	AREA_WATER,
@@ -17,7 +19,7 @@ import {
 	vmangosSettings,
 	type TileInput,
 } from '../src/lib/world/nav/navBuild.ts'
-import { TileGatherer, placeFaces, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
+import { TileGatherer, liquidTypeArea, placeFaces, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
 import { NavLiquids } from '../src/lib/world/nav/navLiquids.ts'
 import { HOLE_FIRST } from '../src/lib/terrain/holes.ts'
 import { columnSpans, heightfieldSpans } from '../src/lib/world/nav/navFilters.ts'
@@ -329,4 +331,39 @@ test("the sea is ocean over the cells whose ground lies below it, where no paint
 	assert.deepEqual([...h], [12, 12, 12, 12])
 	assert.equal(liquids.cell(10, 3, h), 0, 'sea over ground above it')
 	assert.equal(liquids.deep(3, 3), false)
+})
+
+test("a WMO's liquid over its floor is swim area, its type's low bits picking the area as the server's mmaps do", async () => {
+	// A slab 2 yd over the ground, x 20..110, with a pool 2.5 yd deep across it at x 50..70, and a dry
+	// grid vertex far below, which the model's box (the server's height span) still takes in.
+	const g = flat(32)
+	const slab = box(20, 9, 15, 110, 12, 115)
+	const pool = (type: number) => ({
+		verts: new Float32Array([50, 14.5, 10, 70, 14.5, 10, 50, 14.5, 120, 70, 14.5, 120, 60, -40, 60]),
+		idx: new Uint32Array([0, 2, 3, 0, 3, 1]),
+		types: new Uint32Array([type, type]),
+	})
+	const placed = placeFaces(slab, new THREE.Matrix4().elements, undefined, pool(1))
+	assert.equal(placed.min[1], -40, 'the dry liquid vertex is out of the box')
+	assert.deepEqual([...placed.liquid!.areas], [AREA_WATER, AREA_WATER])
+	const input = new TileGatherer().gather(g, [placed], 40, 40, 80, 80, groundAt(g))
+	assert.equal(input.liquidTriCount, 2)
+	assert.equal(input.maxY, 14.5)
+
+	const built = await buildNav(g, [placed])
+	assert.ok((built.areas.get(AREA_WATER) ?? 0) > 0, 'no swim area over the floor')
+	const west = { x: 35, y: 12, z: 60 }
+	const east = { x: 95, y: 12, z: 60 }
+	const walk = built.path(west, east, NAV_GROUND)
+	assert.ok(!walk.success || walk.short > 5, 'a walker crossed the pool')
+	const swim = built.path(west, east, NAV_GROUND | NAV_WATER)
+	assert.ok(swim.success && swim.short < 0.5, 'a swimmer could not cross the pool')
+	built.done()
+
+	// Magma (LiquidType 3) comes out as slime, ocean (2) as magma and slime (4) as water.
+	assert.deepEqual([3, 2, 4, 21].map(liquidTypeArea), [AREA_SLIME, AREA_MAGMA, AREA_WATER, AREA_WATER])
+	const lava = await buildNav(g, [placeFaces(slab, new THREE.Matrix4().elements, undefined, pool(3))])
+	assert.ok((lava.areas.get(AREA_SLIME) ?? 0) > 0, 'no slime area over the floor')
+	assert.equal(lava.areas.get(AREA_WATER) ?? 0, 0)
+	lava.done()
 })

@@ -30,7 +30,7 @@ import {
 	type NavSettings,
 	type Recast,
 } from './navBuild'
-import { TileGatherer, adtHeightSpan, placeFaces, type PlacedCollision } from './navGeometry'
+import { TileGatherer, adtHeightSpan, placeFaces, type ModelLiquid, type PlacedCollision } from './navGeometry'
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
 
@@ -109,6 +109,12 @@ export interface ServerSource {
 	tileY: number
 }
 
+interface ModelCollision {
+	tris: Float32Array
+	groups: Uint32Array
+	liquid: ModelLiquid | null
+}
+
 interface Placed {
 	type: string
 	matrix: Float32Array
@@ -140,8 +146,8 @@ export class NavPreview {
 	private continent = true
 	private tiles = new Map<number, NavTile>()
 	private queue: NavTile[] = []
-	/** Collision faces by model type: null while loading or when the model has none. */
-	private collisions = new Map<string, { tris: Float32Array; groups: Uint32Array } | null>()
+	/** Collision faces (and a WMO's liquids) by model type: null while loading or when the model has none. */
+	private collisions = new Map<string, ModelCollision | null>()
 	private pending = 0
 	private loaded = 0
 	private placed = new Map<number, Placed>()
@@ -347,15 +353,15 @@ export class NavPreview {
 			keep.add(o.id)
 			const old = this.placed.get(o.id)
 			if (old && old.type === o.type && sameMatrix(old.matrix, e)) continue
-			this.placed.set(o.id, { type: o.type, matrix: new Float32Array(e), faces: placeFaces(local.tris, e, local.groups) })
+			this.placed.set(o.id, { type: o.type, matrix: new Float32Array(e), faces: placeFaces(local.tris, e, local.groups, local.liquid) })
 		}
 		for (const id of this.placed.keys()) if (!keep.has(id)) this.placed.delete(id)
 		this.placedList.length = 0
 		for (const p of this.placed.values()) this.placedList.push(p.faces)
 	}
 
-	/** A model type's collision faces and their groups, fetched on first ask (null until they arrive). */
-	private collision(type: string): { tris: Float32Array; groups: Uint32Array } | null {
+	/** A model type's collision faces, their groups and its liquids, fetched on first ask (null until they arrive). */
+	private collision(type: string): ModelCollision | null {
 		const got = this.collisions.get(type)
 		if (got !== undefined) return got
 		this.collisions.set(type, null)
