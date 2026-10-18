@@ -292,7 +292,8 @@ async function main() {
 
 /**
  * The 12 functions with the most CPU time in a CPU profile (Profiler.stop), by self time and with
- * their total (self plus callees), as "self ms / total ms name url:line". Found #233's stalls in one run.
+ * their total (self plus callees), as "self ms / total ms name url:line <= caller < caller (share)", the
+ * caller chain being the heaviest one up to the first frame in src/ (#298). Found #233's stalls in one run.
  */
 function topFunctions(profile) {
 	const byId = new Map(profile.nodes.map((n) => [n.id, { node: n, self: 0, parent: null }]))
@@ -300,14 +301,28 @@ function topFunctions(profile) {
 	for (let i = 0; i < profile.samples.length; i++) byId.get(profile.samples[i]).self += (profile.timeDeltas[i] ?? 0) / 1000
 	// Sum by function (name and place), self and total; a recursive function's total counts once a stack.
 	const fns = new Map()
+	const fname = (n) => n.callFrame.functionName || '(anonymous)'
+	const inSrc = (n) => n.callFrame.url.includes('/src/')
 	const key = (n) => `${n.callFrame.functionName || '(anonymous)'} ${n.callFrame.url.split('/').pop().split('?')[0]}:${n.callFrame.lineNumber + 1}`
 	for (const e of byId.values()) {
 		if (!e.self) continue
+		// The callers of this sample's function, up to the first frame in Meld's src/ (or six frames).
+		const chain = []
+		for (let a = e.parent; a && chain.length < 6; a = a.parent) {
+			const nm = fname(a.node)
+			if (nm.startsWith('(')) break
+			chain.push(nm)
+			if (inSrc(a.node)) break
+		}
+		const chainKey = chain.join(' < ')
 		const seen = new Set()
 		for (let a = e, first = true; a; a = a.parent, first = false) {
 			const k = key(a.node)
-			const f = fns.get(k) ?? fns.set(k, { self: 0, total: 0 }).get(k)
-			if (first) f.self += e.self
+			const f = fns.get(k) ?? fns.set(k, { self: 0, total: 0, chains: new Map() }).get(k)
+			if (first) {
+				f.self += e.self
+				f.chains.set(chainKey, (f.chains.get(chainKey) ?? 0) + e.self)
+			}
 			if (!seen.has(k)) {
 				f.total += e.self
 				seen.add(k)
@@ -318,7 +333,12 @@ function topFunctions(profile) {
 		.filter(([k]) => !k.startsWith('(root)') && !k.startsWith('(program)') && !k.startsWith('(idle)'))
 		.sort((a, b) => b[1].self - a[1].self)
 		.slice(0, 12)
-		.map(([k, f]) => `${f.self.toFixed(0)} / ${f.total.toFixed(0)} ms ${k}`)
+		.map(([k, f]) => {
+			// The heaviest caller chain, with the share of the function's self time it carries.
+			const [chain, ms] = [...f.chains.entries()].sort((a, b) => b[1] - a[1])[0]
+			const via = chain ? ` <= ${chain} (${((ms / f.self) * 100).toFixed(0)}%)` : ''
+			return `${f.self.toFixed(0)} / ${f.total.toFixed(0)} ms ${k}${via}`
+		})
 }
 
 main().catch((err) => fail(err.stack ?? String(err)))

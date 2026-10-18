@@ -155,7 +155,8 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 - `cd frontend && bun run probe <name...>` runs those probes, `bun run probe --all` (or `make probe`)
   runs every one, `bun run probe --list` names them, `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
-  stalls in one run). Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
+  stalls in one run), each followed by `<=` and its heaviest caller chain up to the first Meld `src/` frame, with that
+  chain's share of its self time (so three's `intersectTriangle` shows which Meld code raycast). Each probe gets a fresh page (`?nosave&nosession&defaults`: the owner's config is safe and not read,
   and the page doesn't reopen their last session) in a headless Chrome on SwiftShader. Without
   `nosession` a region from the session finished opening after the probe's `newDocument`, took the
   active tab, and its spawns, read seconds later, replaced the probe's (#250: `object-entry` and
