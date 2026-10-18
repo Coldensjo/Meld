@@ -158,3 +158,29 @@ func TestClientWMONav(t *testing.T) {
 		}
 	}
 }
+
+// TestServerCollision checks the vmap extractor's rules for which faces and groups collide (#283).
+func TestServerCollision(t *testing.T) {
+	for _, c := range []struct {
+		f    byte
+		want bool
+	}{
+		{0, false}, {mopyRender, true}, {mopyRender | mopyDetail, false}, {mopyCollision, true},
+		{mopyCollision | mopyDetail, true}, {mopyNoCamCollide, false},
+	} {
+		if serverCollides(c.f) != c.want {
+			t.Errorf("MOPY %#x: collides %v, want %v", c.f, !c.want, c.want)
+		}
+	}
+	for _, c := range []struct {
+		g    WMONavGroup
+		want bool
+	}{
+		{WMONavGroup{Flags: 0x2000}, false}, {WMONavGroup{Flags: mogpUnreachable}, true},
+		{WMONavGroup{Flags: mogpAntiportal}, true}, {WMONavGroup{Name: "antiportal"}, true},
+	} {
+		if c.g.serverSkips() != c.want {
+			t.Errorf("group %+v: skipped %v, want %v", c.g, !c.want, c.want)
+		}
+	}
+}

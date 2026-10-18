@@ -14,10 +14,19 @@ import (
 // MIT/Apache-2.0). Everything stays in the WMO's model space with WoW axes (Z up), so the probe's
 // arithmetic is the client's; the frontend moves the eye into it.
 
-// MOPY face flags the collision gathers read: walking skips DETAIL faces, the camera NOCAMCOLLIDE ones.
+// MOPY face flags the collision gathers read: walking skips DETAIL faces, the camera NOCAMCOLLIDE
+// ones, and the server's collision keeps COLLISION faces and RENDER ones without DETAIL.
 const (
 	mopyNoCamCollide = 0x02
 	mopyDetail       = 0x04
+	mopyCollision    = 0x08
+	mopyRender       = 0x20
+)
+
+// MOGP flags of the groups the server's vmap extractor leaves out (WMOGroup::ShouldSkip).
+const (
+	mogpUnreachable = 0x80
+	mogpAntiportal  = 0x4000000
 )
 
 // WMONavGroup is one group's header data: MOGP flags, the root's MOGI box, its slice of the portal
@@ -71,8 +80,9 @@ type WMONav struct {
 	Portals     []WMOPortal    `json:"portals"`
 	Refs        []WMOPortalRef `json:"refs"`
 	Fogs        []WMOFog       `json:"fogs"`
-	// walk and camera are each group's faces, nine floats a triangle.
-	walk, camera [][]float32
+	// walk and camera are each group's faces, nine floats a triangle; collide is the faces the
+	// server's vmap extractor keeps (serverCollides).
+	walk, camera, collide [][]float32
 }
 
 // ParseWMONav reads a root file's portals, group boxes and fogs, and each group file's header and
@@ -146,6 +156,7 @@ func ParseWMONav(root []byte, groups [][]byte) (*WMONav, error) {
 	}
 	nav.walk = make([][]float32, len(nav.Groups))
 	nav.camera = make([][]float32, len(nav.Groups))
+	nav.collide = make([][]float32, len(nav.Groups))
 	for i := range nav.Groups {
 		if i >= len(groups) || groups[i] == nil {
 			continue
@@ -172,23 +183,35 @@ func ParseWMONav(root []byte, groups [][]byte) (*WMONav, error) {
 			}
 		}
 		// Walking faces: all but DETAIL. Camera-only faces: DETAIL without NOCAMCOLLIDE.
-		nav.walk[i] = groupFaces(movi, movt, mopy, mopyDetail, 0)
-		nav.camera[i] = groupFaces(movi, movt, mopy, mopyNoCamCollide, mopyDetail)
+		nav.walk[i] = groupFaces(movi, movt, mopy, func(f byte) bool { return f&mopyDetail == 0 })
+		nav.camera[i] = groupFaces(movi, movt, mopy, func(f byte) bool { return f&mopyNoCamCollide == 0 && f&mopyDetail != 0 })
+		nav.collide[i] = groupFaces(movi, movt, mopy, serverCollides)
 		g.Walk, g.Camera = len(nav.walk[i])/9, len(nav.camera[i])/9
 	}
 	return nav, nil
 }
 
-// groupFaces gathers the triangles whose MOPY flags miss skip and carry all of require, nine
-// floats each (WoW axes).
-func groupFaces(movi, movt, mopy []byte, skip, require byte) []float32 {
+// serverCollides is the vmap extractor's test of a face's MOPY flags (ConvertToVMAPGroupWmo):
+// COLLISION, or RENDER without DETAIL.
+func serverCollides(f byte) bool {
+	return f&mopyCollision != 0 || (f&mopyRender != 0 && f&mopyDetail == 0)
+}
+
+// serverSkips tells whether the server's vmap extractor leaves group g out (WMOGroup::ShouldSkip):
+// an unreachable or antiportal group, or one named "antiportal".
+func (g *WMONavGroup) serverSkips() bool {
+	return g.Flags&(mogpUnreachable|mogpAntiportal) != 0 || g.Name == "antiportal"
+}
+
+// groupFaces gathers the triangles whose MOPY flags keep accepts, nine floats each (WoW axes).
+func groupFaces(movi, movt, mopy []byte, keep func(byte) bool) []float32 {
 	nv := len(movt) / 12
 	nTri := min(len(movi)/6, len(mopy)/2)
 	ri, rv := reader{movi}, reader{movt}
 	out := []float32{}
 	for t := 0; t < nTri; t++ {
 		f := mopy[t*2]
-		if f&skip != 0 || f&require != require {
+		if !keep(f) {
 			continue
 		}
 		a, b, c := ri.u16(t*6), ri.u16(t*6+2), ri.u16(t*6+4)

@@ -255,9 +255,9 @@ export function fetchWmoNav(path: string): Promise<ArrayBuffer> {
 
 /**
  * A model's collision faces for the walkable-ground preview (#175), nine floats a triangle in the
- * model's frame: an M2's hull, a WMO's walking faces and its doodads' hulls; and each group's
- * triangle count in turn (the hull, each WMO group and each doodad; #282). `path` may carry a
- * WMO's `?set=<n>` as a model type does.
+ * model's frame: an M2's hull, a WMO's collision faces and its doodads' hulls as the server's vmap
+ * extractor takes them (#283); and each group's triangle count in turn (the hull, each WMO group
+ * and each doodad; #282). `path` may carry a WMO's `?set=<n>` as a model type does.
  */
 export async function fetchCollision(path: string): Promise<{ tris: Float32Array; groups: Uint32Array }> {
 	const buf = await fetchBinary('collision', path)

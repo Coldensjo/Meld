@@ -11,8 +11,9 @@ import (
 // The collision a placed model brings to the walkable-ground preview (View › Walkable ground, #175):
 // the faces the server's movement maps are built from. An M2's is its collision hull, the MD20
 // header's bounding vertices (0xF4) and triangles (0xEC), far smaller than the render mesh and
-// without the leaves and grass that have none; a WMO's is every group's walking faces (all but
-// DETAIL, as wmonav.go gathers them) and the hulls of the doodads its placement shows. Ported from
+// without the leaves and grass that have none; a WMO's is what VMaNGOS's vmap extractor takes
+// (#283): each kept group's collision faces (serverCollides, serverSkips in wmonav.go) and the hulls
+// of the doodads in the placement's own set that a kept group references. Ported from
 // Benilla's collision.rs (MIT/Apache-2.0). Everything is in editor space (Y up), each triangle
 // wound so its normal points out of the solid, as the render meshes are.
 
@@ -84,8 +85,10 @@ func encodeFaces(faces []float32, groups []uint32) []byte {
 	return buf.Bytes()
 }
 
-// wmoCollision gathers a WMO's walking faces and its shown doodads' hulls in editor space, with
-// the triangle count of each group and each doodad that brings any.
+// wmoCollision gathers a WMO's collision faces and its doodads' hulls in editor space as the
+// server's vmap extractor does, with the triangle count of each group and each doodad that brings
+// any. The doodads are those of the placement's set alone (Doodad::ExtractSet), not set 0 with it
+// as the client draws them, and only those a kept group's MODR names (ExtractSingleWmo).
 func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error) {
 	raw, err := c.read(path)
 	if err != nil {
@@ -105,7 +108,16 @@ func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error)
 	}
 	var faces []float32
 	var counts []uint32
-	for _, g := range nav.walk {
+	referenced := map[int]bool{}
+	for gi, g := range nav.collide {
+		if nav.Groups[gi].serverSkips() {
+			continue
+		}
+		if gi < len(groups) && groups[gi] != nil {
+			for _, d := range GroupDoodadRefs(groups[gi]) {
+				referenced[d] = true
+			}
+		}
 		if len(g) < 9 {
 			continue
 		}
@@ -116,8 +128,15 @@ func (c *Client) wmoCollision(path string, set int) ([]float32, []uint32, error)
 		counts = append(counts, uint32(len(g)/9))
 	}
 	hulls := map[string][]float32{}
-	for _, di := range root.DoodadIndicesOf(set) {
+	if set < 0 || set >= len(root.Sets) {
+		return faces, counts, nil
+	}
+	s := root.Sets[set]
+	for di := s.Start; di < s.Start+s.Count && di < len(root.AllDoodads); di++ {
 		d := root.AllDoodads[di]
+		if !referenced[di] || d.Model == "" {
+			continue
+		}
 		key := strings.ToLower(d.Model)
 		hull, ok := hulls[key]
 		if !ok {

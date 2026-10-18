@@ -97,8 +97,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   - `navGeometry.ts` gathers a tile's triangles: the terrain's cells, four triangles about each
     cell's middle as the server's map has them (the middle at the corners' mean, which is what the
     export writes; a half-cell hole keeps its other triangle as `writeCellIndex` draws it), and the
-    placed models' collision faces (`/wow/collision`: an M2's hull, a WMO's walking faces and its
-    doodads' hulls, with each group's triangle count). It cuts them as TerrainBuilder::loadVMap does
+    placed models' collision faces (`/wow/collision`: an M2's hull, a WMO's faces and doodads as the
+    server's vmap extractor takes them (#283: COLLISION faces and RENDER ones without DETAIL, no
+    unreachable or antiportal groups, and only the doodads of the placement's own set, not set 0
+    with it, that a kept group references), with each group's triangle count). It cuts them as TerrainBuilder::loadVMap does
     (#282): ground whose nearest face above, in one of a model's groups, is an upward one within 5 yd
     lies under the model, and a triangle a yard or more under it goes (one with some corners under is
     cut back to where it meets the model), so the crawlspace under Northshire Abbey's floor is no
