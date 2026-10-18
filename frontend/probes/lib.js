@@ -460,6 +460,60 @@ ${fs.slice(0, end)}
 	},
 
 	/**
+	 * A/Bs a run-time switch in one page (#341). `set(on)` puts the app in state `on` (true or false;
+	 * await it if it is async); the two states alternate `n` times (default 8), each with `P.frames(3)`
+	 * to settle and one `P.perf(1)` window. Returns `{ off, on, delta }`: per state the CPU `mean`,
+	 * `min` and `max` ms, the mean `calls` and `triangles`, and `sections`, the mean ms of each
+	 * `CPU_SECTIONS` entry by name (the section timings are the clear signal for a change smaller than
+	 * the frame's spread); `delta` is on minus off for the CPU mean and each section, and `overlap` names
+	 * the measures whose [min, max] ranges overlap. Leaves the switch off. Needs the map built first.
+	 * Sixteen windows after the everything map's 100 s build outrun the default 300 s limit: run it with
+	 * `PROBE_TIMEOUT=900`. `opts.sections` limits the sections reported (names or substrings).
+	 */
+	async ab(set, n = 8, opts = {}) {
+		const { CPU_SECTIONS } = await P.app('/src/lib/engine/perfMeter.ts')
+		const want = opts.sections
+		const names = CPU_SECTIONS.filter((s) => !want || want.some((w) => s.includes(w)))
+		const runs = { off: [], on: [] }
+		try {
+			for (let i = 0; i < n; i++) {
+				for (const on of i % 2 ? [true, false] : [false, true]) {
+					await set(on)
+					await P.frames(3)
+					runs[on ? 'on' : 'off'].push(await P.perf(1))
+				}
+			}
+		} finally {
+			await set(false)
+		}
+		const round = (v) => Math.round(v * 100) / 100
+		const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length
+		const stat = (rs) => {
+			const cpu = rs.map((r) => r.cpuMs)
+			const sections = {}
+			const ranges = {}
+			for (const name of names) {
+				const v = rs.map((r) => r.sections[CPU_SECTIONS.indexOf(name)])
+				sections[name] = round(mean(v))
+				ranges[name] = [Math.min(...v), Math.max(...v)]
+			}
+			return {
+				mean: round(mean(cpu)), min: round(Math.min(...cpu)), max: round(Math.max(...cpu)),
+				calls: Math.round(mean(rs.map((r) => r.calls))), triangles: Math.round(mean(rs.map((r) => r.triangles))),
+				sections, ranges: { cpu: [Math.min(...cpu), Math.max(...cpu)], ...ranges },
+			}
+		}
+		const off = stat(runs.off)
+		const on = stat(runs.on)
+		const delta = { cpu: round(on.mean - off.mean) }
+		for (const name of names) delta[name] = round(on.sections[name] - off.sections[name])
+		const overlap = Object.keys(on.ranges).filter((k) => on.ranges[k][0] <= off.ranges[k][1] && off.ranges[k][0] <= on.ranges[k][1])
+		delete off.ranges
+		delete on.ranges
+		return { off, on, delta, overlap }
+	},
+
+	/**
 	 * Builds benchmark map `kind` (lib/bench/benchMaps.ts, #322) with `count` of its main thing (its
 	 * default times `scale` when left out, as Help › Benchmark map size does), sets its hour, flies the camera to its view, waits for the client reads
 	 * to stop and measures it. `buildMs` is the map's build, `loadMs` that plus its models' loading.

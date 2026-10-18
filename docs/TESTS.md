@@ -419,8 +419,12 @@ the same scene, the report before and after.
     of about 2.5 ms. Call a change real only when the means differ by more than the spreads; a gain of
     about 3 ms (15%) is at the edge, so for a change that can be switched at run time A/B it in one
     page: a scratch probe (`bun run probe <path.js>`) that builds the map with `P.benchMap`, then
-    alternates the two states with `P.frames(3)` and `P.perf(1)` each, eight times each, and compares
-    the means (#323: 19.6 ms against 22.5).
+    calls `P.ab(on => { ...switch... })` (#341), which alternates the two states eight times each and
+    returns each state's CPU mean, min and max, calls, triangles and mean ms per CPU section, the
+    difference, and `overlap`, the measures whose ranges overlap (a section that moves without overlap
+    is a real gain even when the total sits inside the spread; #323: 19.6 ms against 22.5; #325:
+    Shadow maps (CPU) 5.0 to 2.3). Sixteen windows after the everything map's 100 s build take 360 s:
+    run it with `PROBE_TIMEOUT=900`. Check the helper on a no-op switch: the means agree within the spreads.
   - Trap: the first probe run after an edit to served source (`make dev` hot-reloads it) can load the
     map cold: on the everything map it ended with 117 shader programs instead of 72 (models drawn
     before their textures, so three made each program twice) and waited 15 to 18 s on program links in
