@@ -330,7 +330,7 @@ c. Verify it. While you work, run only the tests that touch the change
    `bun run probe <name...>`; the coordinator keeps `make dev` running). Before committing, run all of:
    - `make test`
    - `make check`
-   - the build for the OS you run on: `make build-windows` on Windows (from Git Bash), `make
+   - the build for the OS you run on: `make build-windows` on Windows, `make
      build-linux` on Linux. The other cannot run here. Say so in the closing comment.
    - the probes that touch the change, again.
 

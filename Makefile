@@ -1,6 +1,13 @@
 # Convenience targets (Linux/macOS/Git-Bash). On Windows without make, run the
 # commands directly — see README.md and docs/MANUAL.md.
 
+# On Windows, run the recipes through Git for Windows' sh, so they also work
+# when make is started from PowerShell or cmd (which have no sh on the PATH).
+ifeq ($(OS),Windows_NT)
+GIT_SH ?= C:/Program Files/Git/usr/bin/sh.exe
+SHELL := $(GIT_SH)
+endif
+
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
