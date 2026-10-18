@@ -410,11 +410,24 @@ ${fs.slice(0, end)}
 		}
 	},
 
-	/** `measurePerf()` while stepping frames (it reports after a second of frames). */
-	async perf() {
+	/**
+	 * `measurePerf()` while stepping frames (it reports after a second of frames), `windows` times
+	 * (default 5, or `PERF_WINDOWS` from the environment; #337). One window holds two or three
+	 * SwiftShader frames and its cpuMs swings by +-3 ms, so the report returned is the last window's with
+	 * `cpuSamples`, the cpuMs of every window, for `perfSummary` to average.
+	 */
+	async perf(windows) {
+		const n = Math.max(1, Math.round(windows ?? Number(window.__probeEnv?.PERF_WINDOWS) ?? 5) || 5)
+		const samples = []
 		let r = null
-		window.__engine.measurePerf().then((x) => (r = x))
-		await P.until(() => r, 120_000, 'the performance report')
+		for (let i = 0; i < n; i++) {
+			r = null
+			window.__engine.measurePerf().then((x) => (r = x))
+			await P.until(() => r, 120_000, 'the performance report')
+			samples.push(r.cpuMs)
+			if (i < n - 1) await P.frames(2)
+		}
+		r.cpuSamples = samples
 		return r
 	},
 
@@ -422,11 +435,17 @@ ${fs.slice(0, end)}
 	 * A `perf()` report as a probe's line: what compares between runs. frameMs is the mean interval
 	 * between frame starts over the one-second window; on SwiftShader a frame takes most of a second, so
 	 * the window holds one or two intervals and the figure swings 5x between identical runs (#226): it is
-	 * given only when the window held ten or more.
+	 * given only when the window held ten or more. cpuMeanMs is the mean of the `perf()` windows with
+	 * cpuMinMs to cpuMaxMs as its spread: a change shows when the means differ by more than the spreads (#337).
 	 */
 	perfSummary(r) {
 		const round = (v) => Math.round(v * 100) / 100
+		const s = r.cpuSamples ?? [r.cpuMs]
 		return {
+			cpuMeanMs: round(s.reduce((a, b) => a + b, 0) / s.length),
+			cpuMinMs: round(Math.min(...s)),
+			cpuMaxMs: round(Math.max(...s)),
+			windows: s.length,
 			frameMs: r.frames > 10 ? round(r.frameMs) : null,
 			frames: r.frames,
 			cpuMs: round(r.cpuMs),

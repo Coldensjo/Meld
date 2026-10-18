@@ -222,7 +222,8 @@ async function main() {
 				await send('Profiler.setSamplingInterval', { interval: 500 })
 				await send('Profiler.start')
 			}
-			const prefix = `(async () => {\n${lib}\n;return await (async () => {\n`
+			// PERF_WINDOWS (the number of measurePerf windows P.perf averages, #337) reaches the page this way.
+			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify({ PERF_WINDOWS: process.env.PERF_WINDOWS })};\n${lib}\n;return await (async () => {\n`
 			bodyStart = prefix.split('\n').length
 			try {
 				const value = await evaluate(`${prefix}${body}\n})()\n})()`)

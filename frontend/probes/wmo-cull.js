@@ -19,7 +19,7 @@ sm.render = function (...args) {
 const { meshTriangles } = await P.app('/src/lib/engine/perfMeter.ts')
 const storm = async () => {
 	await P.frames(3)
-	const r = await P.perf()
+	const r = await P.perf(1)
 	return { frame: r.triangles, shadow, stormwind: meshTriangles(batch[1].mesh) }
 }
 let on, off, look

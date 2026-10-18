@@ -400,13 +400,16 @@ the same scene, the report before and after.
     triangles (objects-same draws 1.4M triangles in 108 calls for 1.5 ms). Update the table when a
     commit moves a number on purpose. The everything row is the median of five runs after #323 (which
     hid the empty instanced meshes).
-  - Trap: one probe run's `cpuMs` averages the two or three frames SwiftShader draws in the one-second
-    window, so it swings ±3 ms between identical runs (perf-everything gave 18.8 to 29.5 on one tree).
-    A gain under about 15% doesn't show in two runs. To measure a change that can be switched at run
-    time, A/B it in one page instead: a scratch probe (`bun run probe <path.js>`) that builds the map
-    with `P.benchMap`, then alternates the two states, `P.frames(3)` and `P.perf()` each, eight times
-    each, and compares the means. #323 measured hiding the empty meshes so: 19.6 ms against 22.5,
-    where five plain runs a tree could not tell the two apart.
+  - Trap: one `measurePerf()` window holds only two or three SwiftShader frames, so its `cpuMs` swings
+    ±3 ms between identical runs (perf-everything gave 18.8 to 29.5 on one tree). Since #337 `P.perf()`
+    takes 5 windows (`PERF_WINDOWS=n` in the environment, or `P.perf(n)`) and the probes' lines give
+    `cpuMeanMs` with `cpuMinMs` to `cpuMaxMs` beside it (`cpuMs` is the last window's). A run costs
+    about 5 s a window more. Three runs of perf-everything gave means 21.3, 20.4 and 20.4 with spreads
+    of about 2.5 ms. Call a change real only when the means differ by more than the spreads; a gain of
+    about 3 ms (15%) is at the edge, so for a change that can be switched at run time A/B it in one
+    page: a scratch probe (`bun run probe <path.js>`) that builds the map with `P.benchMap`, then
+    alternates the two states with `P.frames(3)` and `P.perf(1)` each, eight times each, and compares
+    the means (#323: 19.6 ms against 22.5).
   - Trap: a probe run that outlives the dev server fails every probe after it with "the page never set
     up __engine"; rerun those, and the runner starts `make dev` again.
   - **The rule for using them**: a change measured as faster on a stress map is kept only if
