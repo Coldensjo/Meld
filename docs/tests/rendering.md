@@ -446,9 +446,13 @@ The client keeps its camera near the player, so its flood never meets this; Meld
   the target; with it off the flying camera sits at the target (set it through the app's `prefs`, then
   step two frames before `setSceneView`, or the view keeps the old camera). The canal water animates,
   so the two-shot noise over it is about 1%.
-- Trap (#302): keep a gated view's eye more than the near plane (0.5 yd, `Engine.persp`) from the
-  room's walls when comparing it with the gate off. A wall that close is clipped away, so the gate-off
-  picture shows what lies behind it (in #302 the street and the bank, 55% of the picture off) while
-  the flood, rightly, does not reach past a wall with no portal and draws sky there. A view placed at a
-  walking face's centroid can land so: #302's Trade District face lay 0.43 yd from group 49's south
-  wall and exactly on its doorways' plane. 0.3 yd further from the wall the two pictures match.
+- The probe's last view (#304) stands 0.47 yd from group 49's south wall, closer than the near plane
+  (0.5 yd, `Engine.persp`), looking along it: `Engine.updateNear` pulls the near plane in (to about
+  0.32 yd there, `wall.near`) so the wall is not clipped away, and the gated picture matches the
+  gate-off one. Before, the clipped wall showed the sky gated and the street behind it ungated (55% of
+  the picture off).
+- Trap (#302): an eye inside a wall's thickness (on a doorway's plane beside its portal, as a view
+  placed at a walking face's centroid can land; #302's face at model x = -50.1358) still looks past
+  the jamb, gated or not, whatever the near plane (37% off at 0.05 yd). Keep compared views out of the
+  walls. A wall that is not a collision face (`/wow/wmonav`'s walk and camera faces) is not measured
+  either.

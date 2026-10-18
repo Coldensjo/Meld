@@ -156,6 +156,10 @@ const NO_OBJECTS: readonly WorldObject[] = []
 /** How far above the ground the top-down view's camera stands: over any building or mountain a map holds. */
 const ORTHO_HEIGHT = 1500
 
+/** The 3D camera's near plane (yd), and how far in it is pulled for a WMO wall closer than it reaches (#304). */
+const NEAR = 0.5
+const NEAR_MIN = 0.05
+
 /** Straight down, for finding the ground below a point. */
 const DOWN = new THREE.Vector3(0, -1, 0)
 /** The portal flood's seeds for a building the camera is not in: its outside leg. */
@@ -435,7 +439,7 @@ export class Engine {
     this.renderer.toneMapping = THREE.NoToneMapping
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
 
-    this.persp = new THREE.PerspectiveCamera(55, 1, 0.5, 5000)
+    this.persp = new THREE.PerspectiveCamera(55, 1, NEAR, 5000)
     this.scene.background = new THREE.Color()
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
@@ -1000,6 +1004,7 @@ export class Engine {
     this.updateClientPoints()
     m.mark(SECTION['Lights and flames'])
     this.rooms.update(this.objects, this.camera.position, this.roomGround)
+    this.updateNear()
     this.updateRoomGate(dt)
     m.mark(SECTION['WMO rooms'])
     this.cullInstances()
@@ -1155,6 +1160,24 @@ export class Engine {
     p.light.setRGB(Math.min(1, p.light.r), Math.min(1, p.light.g), Math.min(1, p.light.b))
     // With animations off the tracks hold at the loop's start, as the bones do, but the particles still fly.
     p.update(this.objects, this.doc.spawnLayer, dt, this.prefs?.animations === false ? 0 : time * 1000, this.camera, this.viewFrustum, this.cullView.gate ?? null, this.rooms.current?.id ?? -1, this.prefs?.spawnsThroughWalls !== false, this.cullView.gateAdmits ?? null)
+  }
+
+  /**
+   * Pulls the near plane in while the eye is closer to a WMO's wall than it reaches (#304), so the
+   * wall is not clipped away: with the room gate on, the flood rightly draws nothing behind a wall
+   * with no portal, so the clipped part showed the sky. Every point in the view frustum at depth z
+   * lies within z·k of the eye, so a near plane at the wall's distance over k clips none of it. The
+   * client never meets this, as its camera collides with the WMO. Far off, the closer plane costs
+   * depth precision, so it is used only while a wall is that close.
+   */
+  private updateNear() {
+    const p = this.persp
+    const t = Math.tan(THREE.MathUtils.degToRad(p.fov) / 2)
+    const k = Math.sqrt(1 + t * t * (1 + p.aspect * p.aspect))
+    const near = THREE.MathUtils.clamp(this.rooms.wallDist / k, NEAR_MIN, NEAR)
+    if (Math.abs(near - p.near) < 1e-3) return
+    p.near = near
+    p.updateProjectionMatrix()
   }
 
   private applyViewDistance() {

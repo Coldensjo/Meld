@@ -5,7 +5,7 @@ import { fetchWmoNav } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
 import { EXTERIOR_LIT } from './wmoFlood'
 import { selectWmoFog, type FogTarget } from './wmoFog'
-import { decodeWmoNav, downRayPick, EXTERIOR, toModel, type RoomSeeds, type WmoNav } from './wmoRoom'
+import { decodeWmoNav, downRayPick, EXTERIOR, nearestFaceDist, toModel, type RoomSeeds, type WmoNav } from './wmoRoom'
 
 /** The WMO room the camera is in. */
 export interface CameraRoom {
@@ -31,6 +31,11 @@ export interface CameraRoom {
 const MOVE_EPS = 0.01
 /** How far (yd) from the camera a building is flooded from outside. */
 const OUTSIDE_RANGE = 400
+/**
+ * How far (yd) from the eye a WMO's faces are looked for (`wallDist`): beyond the near plane's reach
+ * (0.5 yd straight ahead, about 0.8 yd to a corner of a wide view), with room to spare.
+ */
+export const WALL_REACH = 2
 
 /** A placed WMO with portals in view that the camera is not in, flooded from outside. */
 export interface OutsideWmo {
@@ -60,6 +65,12 @@ export class WmoRooms {
    * `outside` as a WMO-only building is.
    */
   readonly over: number[] = []
+  /**
+   * The distance (yd) from the eye to the nearest collision face of any placed WMO, or Infinity when
+   * none lies within WALL_REACH. The Engine pulls the near plane in by it (#304), so a wall the flying
+   * camera is closer to than 0.5 yd is not clipped away to show the sky or the street behind it.
+   */
+  wallDist = Infinity
   private navs = new Map<string, WmoNav | null>()
   private wmoIds: number[] = []
   private layer: ObjectLayer | null = null
@@ -128,6 +139,7 @@ export class WmoRooms {
     if (!objects.group.visible) {
       this.current = null
       this.over.length = 0
+      this.wallDist = Infinity
       this.lastEye.set(NaN, NaN, NaN) // look again once the layer is shown
       return
     }
@@ -143,6 +155,7 @@ export class WmoRooms {
     this.seenLoaded = this.loaded
     this.current = null
     this.over.length = 0
+    this.wallDist = Infinity
     const ground = groundAt(eye.x, eye.z)
     for (const id of this.wmoIds) {
       const o = objects.objects.get(id)
@@ -156,10 +169,20 @@ export class WmoRooms {
       this.inv.copy(this.m).invert()
       this.local.copy(eye).applyMatrix4(this.inv)
       const b = asset.bbox
-      // Over the footprint, not below the building (the editor's local frame is Y up).
       const l = this.local
-      if (l.x < b.min.x || l.x > b.max.x || l.z < b.min.z || l.z > b.max.z || l.y < b.min.y) continue
       const path = baseType(o.type).slice('wmo:'.length)
+      // Within WALL_REACH of the building's box: how near its walls the eye is.
+      const scale = this.m.getMaxScaleOnAxis()
+      const r = WALL_REACH / scale
+      if (l.x >= b.min.x - r && l.x <= b.max.x + r && l.y >= b.min.y - r && l.y <= b.max.y + r && l.z >= b.min.z - r && l.z <= b.max.z + r) {
+        const nav = this.nav(path)
+        if (nav) {
+          const [ex, ey, ez] = toModel(l, this.eyeModel)
+          this.wallDist = Math.min(this.wallDist, nearestFaceDist(nav, ex, ey, ez, r) * scale)
+        }
+      }
+      // Over the footprint, not below the building (the editor's local frame is Y up).
+      if (l.x < b.min.x || l.x > b.max.x || l.z < b.min.z || l.z > b.max.z || l.y < b.min.y) continue
       const nav = this.nav(path)
       if (!nav) continue
       if (this.current || l.y > b.max.y) {

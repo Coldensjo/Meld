@@ -312,6 +312,99 @@ export function downRayPick(nav: WmoNav, ex: number, ey: number, ez: number, ter
   return { inGroup: best, across: across < 0 ? null : across }
 }
 
+/** The squared distance from (px, py, pz) to the triangle at `t[o..o+9]` (Ericson's closest point, 5.1.5). */
+export function triangleDistSq(t: ArrayLike<number>, o: number, px: number, py: number, pz: number): number {
+	const ax = t[o], ay = t[o + 1], az = t[o + 2]
+	const abx = t[o + 3] - ax, aby = t[o + 4] - ay, abz = t[o + 5] - az
+	const acx = t[o + 6] - ax, acy = t[o + 7] - ay, acz = t[o + 8] - az
+	const apx = px - ax, apy = py - ay, apz = pz - az
+	const d1 = abx * apx + aby * apy + abz * apz
+	const d2 = acx * apx + acy * apy + acz * apz
+	let qx: number, qy: number, qz: number
+	if (d1 <= 0 && d2 <= 0) {
+		qx = ax; qy = ay; qz = az
+	} else {
+		const bpx = px - t[o + 3], bpy = py - t[o + 4], bpz = pz - t[o + 5]
+		const d3 = abx * bpx + aby * bpy + abz * bpz
+		const d4 = acx * bpx + acy * bpy + acz * bpz
+		const cpx = px - t[o + 6], cpy = py - t[o + 7], cpz = pz - t[o + 8]
+		const d5 = abx * cpx + aby * cpy + abz * cpz
+		const d6 = acx * cpx + acy * cpy + acz * cpz
+		const vc = d1 * d4 - d3 * d2
+		const vb = d5 * d2 - d1 * d6
+		const va = d3 * d6 - d5 * d4
+		if (d3 >= 0 && d4 <= d3) {
+			qx = t[o + 3]; qy = t[o + 4]; qz = t[o + 5]
+		} else if (d6 >= 0 && d5 <= d6) {
+			qx = t[o + 6]; qy = t[o + 7]; qz = t[o + 8]
+		} else if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+			const v = d1 / (d1 - d3)
+			qx = ax + abx * v; qy = ay + aby * v; qz = az + abz * v
+		} else if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+			const w = d2 / (d2 - d6)
+			qx = ax + acx * w; qy = ay + acy * w; qz = az + acz * w
+		} else if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+			const w = (d4 - d3) / (d4 - d3 + (d5 - d6))
+			const bx = t[o + 3], by = t[o + 4], bz = t[o + 5]
+			qx = bx + (t[o + 6] - bx) * w; qy = by + (t[o + 7] - by) * w; qz = bz + (t[o + 8] - bz) * w
+		} else {
+			const sum = va + vb + vc
+			// A degenerate face (no area): its first corner stands for it.
+			if (!(Math.abs(sum) > 1e-12)) {
+				qx = ax; qy = ay; qz = az
+			} else {
+				const v = vb / sum, w = vc / sum
+				qx = ax + abx * v + acx * w; qy = ay + aby * v + acy * w; qz = az + abz * v + acz * w
+			}
+		}
+	}
+	const dx = px - qx, dy = py - qy, dz = pz - qz
+	return dx * dx + dy * dy + dz * dz
+}
+
+/**
+ * The distance (model units) from the eye to the nearest of the WMO's collision faces (the walking
+ * faces and the camera-only ones, walls included), or Infinity when none lies within `reach`. Only
+ * the groups whose box comes within `reach` are searched, and through a group's column index only
+ * the cells within `reach` of the eye's column. The Engine pulls the near plane in by it (#304).
+ */
+export function nearestFaceDist(nav: WmoNav, ex: number, ey: number, ez: number, reach: number): number {
+	let best = reach * reach
+	const groups = nav.groups
+	for (let gi = 0; gi < groups.length; gi++) {
+		const g = groups[gi]
+		if (ex < g.min[0] - reach || ex > g.max[0] + reach || ey < g.min[1] - reach || ey > g.max[1] + reach || ez < g.min[2] - reach || ez > g.max[2] + reach) continue
+		for (let k = 0; k < 2; k++) {
+			const tris = k === 0 ? nav.walk[gi] : nav.camera[gi]
+			const grid = k === 0 ? nav.walkGrids?.[gi] : null
+			if (!grid) {
+				for (let o = 0; o + 9 <= tris.length; o += 9) {
+					const d = triangleDistSq(tris, o, ex, ey, ez)
+					if (d < best) best = d
+				}
+				continue
+			}
+			const x0 = Math.max(0, Math.floor((ex - reach - grid.minX) * grid.inv)), x1 = Math.min(grid.nx - 1, Math.floor((ex + reach - grid.minX) * grid.inv))
+			const y0 = Math.max(0, Math.floor((ey - reach - grid.minY) * grid.inv)), y1 = Math.min(grid.ny - 1, Math.floor((ey + reach - grid.minY) * grid.inv))
+			// A face in several cells is measured once a cell; the minimum is the same.
+			for (let cy = y0; cy <= y1; cy++) {
+				for (let cx = x0; cx <= x1; cx++) {
+					const c = cy * grid.nx + cx
+					for (let i = grid.starts[c]; i < grid.starts[c + 1]; i++) {
+						const d = triangleDistSq(tris, grid.items[i] * 9, ex, ey, ez)
+						if (d < best) best = d
+					}
+				}
+			}
+			for (let i = 0; i < grid.spanning.length; i++) {
+				const d = triangleDistSq(tris, grid.spanning[i] * 9, ex, ey, ez)
+				if (d < best) best = d
+			}
+		}
+	}
+	return best < reach * reach ? Math.sqrt(best) : Infinity
+}
+
 /** Takes an editor-space point, already in the model's local frame, to WoW axes: (x, -z, y). */
 export function toModel(local: THREE.Vector3, out: [number, number, number]): [number, number, number] {
   out[0] = local.x

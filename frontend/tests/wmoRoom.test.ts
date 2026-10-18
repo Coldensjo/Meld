@@ -2,7 +2,7 @@
 // The cases are Benilla's own for `down_ray_pick` (wmo_portal/seed.rs).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildColumnGrid, downRayPick, EXTERIOR, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
+import { buildColumnGrid, downRayPick, EXTERIOR, nearestFaceDist, triangleDistSq, triangleZAt, type WmoNav, type WmoNavGroup, type WmoPortalRef } from '../src/lib/world/wmoRoom.ts'
 
 type Tri = number[] // nine floats
 
@@ -149,4 +149,42 @@ test('the column index never changes a pick', () => {
         if (a.inGroup !== null) hits++
       }
   assert.ok(hits > 1000, `the sweep lands on the storeys: ${hits}`)
+})
+
+test('the distance to a face is to its nearest point: inside, along an edge or at a corner', () => {
+	const t = [0, 0, 0, 4, 0, 0, 0, 4, 0]
+	const near = (p: number[], want: number) => assert.ok(Math.abs(Math.sqrt(triangleDistSq(t, 0, p[0], p[1], p[2])) - want) < 1e-9, `${p}`)
+	near([1, 1, 0.3], 0.3)
+	near([1, 1, -2], 2)
+	near([2, -1, 0], 1)
+	near([-3, -4, 0], 5)
+	near([5, 0, 0], 1)
+	near([3, 3, 0], Math.SQRT2)
+	near([0, 6, 1], Math.sqrt(5))
+})
+
+test('the nearest face is found within reach, walls and camera faces included, and the index changes nothing', () => {
+	// A room: a floor tiled finely enough to be indexed, a wall at x = 10 and a camera-only beam.
+	const floor: Tri[] = []
+	for (let ix = 0; ix < 10; ix++)
+		for (let iy = 0; iy < 10; iy++) {
+			const x = ix, y = iy
+			floor.push([x, y, 0, x + 1, y, 0, x + 1, y + 1, 0], [x, y, 0, x + 1, y + 1, 0, x, y + 1, 0])
+		}
+	const wall: Tri[] = [
+		[10, 0, 0, 10, 10, 0, 10, 10, 5],
+		[10, 0, 0, 10, 10, 5, 10, 0, 5],
+	]
+	const beam: Tri[] = [[0, 5, 4, 10, 5, 4, 5, 5.5, 4]]
+	const linear = nav([group(0, [0, 0, 0], [10, 10, 5])], [[...floor, ...wall]], { camera: [beam] })
+	const indexed = { ...linear, walkGrids: linear.walk.map(buildColumnGrid) }
+	assert.ok(indexed.walkGrids[0], 'the floor is indexed')
+	for (const n of [linear, indexed]) {
+		assert.ok(Math.abs(nearestFaceDist(n, 9.6, 3, 2, 2) - 0.4) < 1e-6, 'the wall')
+		assert.ok(Math.abs(nearestFaceDist(n, 2, 3, 0.3, 2) - 0.3) < 1e-6, 'the floor')
+		assert.ok(Math.abs(nearestFaceDist(n, 3, 5.2, 3.5, 2) - 0.5) < 1e-6, 'the camera-only beam')
+		assert.equal(nearestFaceDist(n, 5, 3, 2.5, 2), Infinity, 'nothing within reach')
+		assert.equal(nearestFaceDist(n, 30, 3, 2, 2), Infinity, 'outside the group box')
+		assert.ok(Math.abs(nearestFaceDist(n, 11, 3, 2, 2) - 1) < 1e-6, 'from outside the box, within reach')
+	}
 })
