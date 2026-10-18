@@ -176,7 +176,12 @@ gh issue list --repo Coldensjo/Meld --state open --limit 300 --json number,autho
 Triage each one before choosing work; an owner's issue is eligible for this run afterwards, an
 external one only once the owner has approved it (step e). Triage doesn't
 count toward the run's cap. When more than two need it, hand them to one worker-style subagent
-with the steps below, which asks on the issues itself (step f) and returns a line per issue. For each:
+with the steps below, which asks on the issues itself (step f) and returns a line per issue.
+
+Issues filed through the forms in `.github/ISSUE_TEMPLATE/` (`bug.yml`, `feature.yml`) already hold
+what steps a to e need: the one-sentence summary (the title), the steps or the reason (the body),
+where (the area, and the F8 label or a Copy Scene line), and how much it hurts (the `value:`
+estimate). A blank issue is still allowed, so the owner's one-liners stay valid. For each:
 
 a. Read it with its comments, and search for a duplicate (`gh issue list --search`, open and
    closed) and for the `decision` issues it touches. If it duplicates an open issue, comment
