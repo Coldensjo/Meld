@@ -132,8 +132,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     server last built them: until Compile rebuilds them (#173), an edited tile shows the old ground.
 
 - **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
-  target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides
-  the map edge.
+  target rides on `max(ground, water)`. `Water.floor` is a dark plane 40 yd below the water that hides
+  the map edge and fills a hole in the ground. It is a backdrop (renderOrder -0.25, after the sky and
+  the clouds, no depth write), so models below it, such as a dungeon's lower halls, still draw over it
+  (#289).
 
 - **Ground effects (grass tufts)**: the game grows detail doodads on each cell by the texture on top of
   it: a texture layer's GroundEffectTexture ID names up to four `World\NoDXT\Detail` models and a

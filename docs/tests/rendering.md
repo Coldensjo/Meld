@@ -389,3 +389,20 @@ storm params over the clear ones), `go test ./internal/vmangos/ -run 'Weather|Cl
   fog's own colour, so with the camera high over fogged ground it is invisible; the probe lowers it.
 - In the game: Save a chance, `.reload game_weather` (or restart the world server), then a GM's
   `.wchange <type> <grade>` (1 rain, 2 snow, 3 storm) forces the weather to compare with the preview.
+
+## The floor plane under the map is a backdrop (#289)
+
+Checks: `Water.floor`, the dark plane 40 yd under the sea level, fills only what nothing else covers:
+a model below it (Blackrock Depths' lower halls, under a map whose sea level is 0) draws over it, and a
+hole in the ground still shows its dark earth, not the sky dome.
+- Probe: `bun run probe brd-pit` (about 15 s): opens Blackrock Depths from the client, looks down into
+  the Ring of Law from the stands (the owner's scene), and compares the arena's centre with the same view
+  with the models hidden. Before the fix the centre was the plane (0% differed, as flat as the bare
+  view); after it 77% differ and the centre is ten times as busy (the arena's stones). The arena is dark
+  too, so don't expect every pixel to differ.
+- How it was found: toggling the gate (`e.rooms.current = null`, `e.rooms.outside = () => []`), the
+  group cull (`WmoGroupCull.enabled`), double-sided and plain materials on the batch changed nothing,
+  and View › Buildings off turned the whole view the disc's colour: the colour was the plane's (`(0.05,
+  0.042, 0.035)`, the sea off). A flat grey area where models should be: hide `e.water.floor` first.
+- Hole: a flat map with a hole cut (`setHoleInSelection`), seen from above, shows the dark earth
+  through it as before. The sea (an archipelago map) looks the same before and after.
