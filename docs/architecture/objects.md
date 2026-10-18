@@ -19,6 +19,9 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     same vertices, drawn by a second InstancedMesh for instances under `LOD_PX` on screen
     (`splitLod` in `instanceCull.ts`). The LOD shares the full model's bounds tree, so picking
     always hits the full model.
+  - A WMO with liquids (MLIQ, #287) has a third InstancedMesh in its batch, `liquid`, packed with
+    every instance in view (`docs/architecture/water.md`, "A WMO's liquids"); `intersect` leaves it
+    out, so its lava and water are never picked.
   - A big WMO (20k triangles and 4 groups or more) drawn once is culled by group for the scene pass
     and the near shadow cascade (#198, #215, `world/wmoGroupCull.ts`): its batch mesh draws a twin of
     the model's geometry (the same vertex buffers, an index of the model's triangles sorted by WMO

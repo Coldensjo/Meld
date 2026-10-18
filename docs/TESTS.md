@@ -363,6 +363,7 @@ the same scene, the report before and after.
 - Preview window: particles, ribbons and texture animation (#200)
 - Weather preview and zone weather (#185)
 - The floor plane under the map is a backdrop (#289)
+- A WMO's liquids: Blackrock Depths' lava (#287)
 
 ### Terrain, water and map data (`docs/tests/terrain.md`)
 

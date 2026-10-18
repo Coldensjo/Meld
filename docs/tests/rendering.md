@@ -406,3 +406,22 @@ hole in the ground still shows its dark earth, not the sky dome.
   0.042, 0.035)`, the sea off). A flat grey area where models should be: hide `e.water.floor` first.
 - Hole: a flat map with a hole cut (`setHoleInSelection`), seen from above, shows the dark earth
   through it as before. The sea (an archipelago map) looks the same before and after.
+
+## A WMO's liquids: Blackrock Depths' lava (#287)
+
+Checks: a WMO group's MLIQ (`internal/wow/wmoliquid.go`) reaches the frontend after the mesh
+(`Mesh.Liquid`, `fetchMesh`'s `liquid`) and `ObjectLayer` draws it, instanced with the WMO, with
+`wmoLiquidMaterial` (the liquid shader under `WMO`, with the room gate).
+- Go: `go test ./internal/wow/ -run Liquid` (synthetic group files: holes, the class and path,
+  groupLiquid's override, the fill height, the encoding).
+- Probe: `bun run probe wmo-liquid` (about 15 s): opens Blackrock Depths, puts the camera 10 yd over a
+  vertex of the lower instance's lava (23k triangles, 6 groups, magma type 6, which scrolls) and compares
+  the view with the liquids' material hidden: 99% of the lower middle differs and it is orange (about
+  rgb 174, 21, 0).
+- Exterior water: Stormwind's canals (22 groups, river, exterior path) are in the benchmark scene
+  (`P.scene(P.BENCH)`): take a vertex of the Stormwind batch's `liquid` geometry through
+  `b.matrices` and look down from 8 yd over it; the water is a translucent green over the canal floor.
+- Traps: the camera exactly at the lava's height sees the surface edge on and nothing changes; a red
+  surface there is the cavern's floor under the lava, not the liquid. Importing `liquidMaterial.ts`
+  from `models/assets.ts` loops back through `TerrainMaterial` → `PropEffects` and the page dies on
+  `TILE_YARDS before initialization`, so ObjectLayer asks for the frames (`wantLiquid`).

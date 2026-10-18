@@ -102,6 +102,9 @@ type WMOMaterial struct {
 	Blend    int
 	TwoSided bool
 	Unlit    bool
+	// Diffuse is MOMT's diffColor (+0x1C, BGRA on disk) as RGB: the body colour of an interior pool
+	// whose MLIQ names this material.
+	Diffuse [3]byte
 }
 
 type WMODoodad struct {
@@ -136,6 +139,7 @@ func ParseWMORoot(b []byte) (*WMORoot, error) {
 					Blend:    r.u32(o + 8),
 					TwoSided: flags&0x04 != 0,
 					Unlit:    flags&0x01 != 0,
+					Diffuse:  [3]byte{c.data[o+0x1E], c.data[o+0x1D], c.data[o+0x1C]},
 				})
 			}
 		case "MODN":

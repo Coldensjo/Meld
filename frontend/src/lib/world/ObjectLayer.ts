@@ -8,6 +8,8 @@ import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } fr
 import { cullForShadows } from './shadowReach'
 import { WmoGroupCull } from './wmoGroupCull'
 import { meshTriangles, type ModelCost } from '../engine/perfMeter'
+import { wantLiquid, wmoLiquidMaterial } from '../water/liquidMaterial'
+import type { LiquidClass } from '../water/liquids'
 
 export interface WorldObject {
   id: number
@@ -49,6 +51,12 @@ interface Batch {
   /** Draws the instances small on screen with the model's LOD, when it has one (see models/lod.ts). */
   lod: THREE.InstancedMesh | null
   lodIds: number[]
+  /**
+   * A WMO's lava and water (#287): the instances in view, as `mesh` and `lod` hold them together,
+   * drawn with the liquid shader. Not picked and casting no shadow, as the client's liquids.
+   */
+  liquid: THREE.InstancedMesh | null
+  liquidIds: number[]
   /** A big WMO's culling by group for the scene pass (world/wmoGroupCull.ts), or null. */
   cull: WmoGroupCull | null
   /** Indices into `all` of the instances drawn in full and with the LOD. */
@@ -349,6 +357,7 @@ export class ObjectLayer {
       const a = getAsset(type)
       const ids: number[] = []
       const lodIds: number[] = []
+      const liquidIds: number[] = []
       const cull = a.skeleton ? null : WmoGroupCull.of(a.geometry)
       b = {
         mesh: this.makeMesh(type, a.geometry, 64, ids, cull),
@@ -356,6 +365,8 @@ export class ObjectLayer {
         cull,
         lod: a.lod ? this.makeMesh(type, a.lod, 64, lodIds) : null,
         lodIds,
+        liquid: a.liquid ? this.makeLiquidMesh(type, a.liquid, 64, liquidIds) : null,
+        liquidIds,
         near: [],
         far: [],
         all: [],
@@ -369,13 +380,14 @@ export class ObjectLayer {
       this.batches.set(type, b)
       this.group.add(b.mesh)
       if (b.lod) this.group.add(b.lod)
+      if (b.liquid) this.group.add(b.liquid)
     }
     return b
   }
 
   /** Replaces a batch's meshes, for a model that loaded or more instances than they hold. */
   private setMeshes(b: Batch, type: string, capacity: number) {
-    for (const m of [b.mesh, b.lod]) {
+    for (const m of [b.mesh, b.lod, b.liquid]) {
       if (!m) continue
       this.group.remove(m)
       m.dispose()
@@ -384,8 +396,23 @@ export class ObjectLayer {
     b.cull = a.skeleton ? null : WmoGroupCull.of(a.geometry)
     b.mesh = this.makeMesh(type, a.geometry, capacity, b.ids, b.cull)
     b.lod = a.lod ? this.makeMesh(type, a.lod, capacity, b.lodIds) : null
+    b.liquid = a.liquid ? this.makeLiquidMesh(type, a.liquid, capacity, b.liquidIds) : null
     this.group.add(b.mesh)
     if (b.lod) this.group.add(b.lod)
+    if (b.liquid) this.group.add(b.liquid)
+  }
+
+  /** A WMO's liquids for `capacity` instances: drawn after the models, like the map's liquids. */
+  private makeLiquidMesh(type: string, geometry: THREE.BufferGeometry, capacity: number, ids: number[]) {
+    for (const k of (geometry.userData.liquidKinds ?? []) as LiquidClass[]) wantLiquid(k)
+    const m = new THREE.InstancedMesh(geometry, wmoLiquidMaterial(), capacity)
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    m.count = 0
+    m.userData.type = type
+    m.userData.ids = ids
+    m.renderOrder = 10
+    m.name = 'wmo-liquid'
+    return m
   }
 
   /** `ids` names the object drawn by each instance, as `cull` packs them. */
@@ -421,9 +448,10 @@ export class ObjectLayer {
   drawnCosts(out: ModelCost[]): number {
     let meshes = 0
     for (const [type, b] of this.batches) {
-      meshes += b.lod ? 2 : 1
+      meshes += 1 + (b.lod ? 1 : 0) + (b.liquid ? 1 : 0)
       out.push({ type, triangles: meshTriangles(b.mesh), instances: b.mesh.visible ? b.mesh.count : 0 })
       if (b.lod) out.push({ type, triangles: meshTriangles(b.lod), instances: b.lod.visible ? b.lod.count : 0 })
+      if (b.liquid) out.push({ type, triangles: meshTriangles(b.liquid), instances: wmoLiquidMaterial().visible ? b.liquid.count : 0 })
     }
     return meshes
   }
@@ -469,6 +497,7 @@ export class ObjectLayer {
     for (const b of this.batches.values()) {
       const exempt = view.gate && view.gateExempt !== undefined ? b.all.indexOf(view.gateExempt) : -1
       const changed = cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch, exempt)
+      if (changed && b.liquid) this.pack(b, b.liquid, b.liquidIds, b.packed)
       if (!b.lod) {
         if (changed) this.pack(b, b.mesh, b.ids, b.packed)
         continue
@@ -688,6 +717,7 @@ export class ObjectLayer {
     for (const b of this.batches.values()) {
       b.mesh.dispose()
       b.lod?.dispose()
+      b.liquid?.dispose()
     }
     this.batches.clear()
     this.group.clear()

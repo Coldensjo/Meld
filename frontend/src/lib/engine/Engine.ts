@@ -8,7 +8,7 @@ import type { ExportInput } from '../io/vmangosExport'
 import { type adt, vmangos } from '../../../wailsjs/go/models'
 import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid, type LiquidClipCell } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
-import { resetLiquidFrames, setLiquidLight, updateLiquids } from '../water/liquidMaterial'
+import { resetLiquidFrames, setLiquidLight, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
 import { BAND, lightAt, newLightAt, sceneFog, type ClientLights } from '../wow/clientLight'
 import { celestialSunDir, lightingSunDir, moonDir, skyWarp, starAlpha, sunDiscScale } from '../wow/dayNight'
 import { TILE_YARDS } from '../terrain/Terrain'
@@ -1674,6 +1674,8 @@ export class Engine {
     d.terrain.material.wireframe = p.wireframe
     d.water.mesh.visible = p.showWater && editor.waterEnabled
     d.liquidRenderer.group.visible = p.showWater
+    // The WMOs' liquids (#287) share one material.
+    wmoLiquidMaterial().visible = p.showWater
     d.objects.group.visible = p.showObjects
     d.objects.setKindsShown(p.showDoodads, p.showBuildings)
     d.groundEffects.group.visible = p.showGroundEffects

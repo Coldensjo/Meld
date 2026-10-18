@@ -75,6 +75,8 @@ type Mesh struct {
 	// has the groups whose MODR names it, two at most (one named by more has none, so it always
 	// draws). Empty for an M2.
 	Room []uint16
+	// Liquid is a WMO's liquid surfaces (its groups' MLIQ), nil for none.
+	Liquid *LiquidMesh
 	// points are an M2's attachment points by ID, for the items a look attaches. Not encoded.
 	points map[int]attachPoint
 }
@@ -180,6 +182,12 @@ func (m *Mesh) Append(o *Mesh) {
 	m.Effects = append(m.Effects, o.Effects...)
 	m.Emitters = append(m.Emitters, o.Emitters...)
 	m.Ribbons = append(m.Ribbons, o.Ribbons...)
+	if o.Liquid != nil {
+		if m.Liquid == nil {
+			m.Liquid = &LiquidMesh{}
+		}
+		m.Liquid.Append(o.Liquid)
+	}
 }
 
 func whiteColors(n int) []byte {
@@ -246,10 +254,14 @@ type meshHeader struct {
 	Ribbons  []Ribbon  `json:"ribbons,omitempty"`
 	// Rooms says each vertex's two WMO groups (Mesh.Room) follow the rest.
 	Rooms bool `json:"rooms,omitempty"`
+	// LiquidVerts and LiquidIndices size the liquid surfaces (Mesh.Liquid), which follow last.
+	LiquidVerts   int `json:"liquidVerts,omitempty"`
+	LiquidIndices int `json:"liquidIndices,omitempty"`
 }
 
 // Encode serialises the mesh for the frontend:
 // u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32) | [boneIdx u8x4 | boneW u8x4] | [room u16x2]
+// | [liquid pos | liquid uv | liquid info u8x4 | liquid body u8x4 | liquid room u16x2 | liquid index(u32)]
 func (m *Mesh) Encode() []byte {
 	n := m.vertCount()
 	mn := [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
@@ -273,6 +285,10 @@ func (m *Mesh) Encode() []byte {
 		h.Bones = m.Anim.Bones
 	}
 	h.Rooms = len(m.Room) == 2*n && n > 0
+	lq := m.Liquid
+	if lq != nil && len(lq.Index) > 0 {
+		h.LiquidVerts, h.LiquidIndices = lq.vertCount(), len(lq.Index)
+	}
 	hdr, _ := json.Marshal(h)
 	for len(hdr)%4 != 0 {
 		hdr = append(hdr, ' ')
@@ -294,6 +310,14 @@ func (m *Mesh) Encode() []byte {
 	}
 	if h.Rooms {
 		binary.Write(&buf, binary.LittleEndian, m.Room)
+	}
+	if h.LiquidVerts > 0 {
+		binary.Write(&buf, binary.LittleEndian, lq.Pos)
+		binary.Write(&buf, binary.LittleEndian, lq.UV)
+		buf.Write(lq.Info)
+		buf.Write(lq.Body)
+		binary.Write(&buf, binary.LittleEndian, lq.Room)
+		binary.Write(&buf, binary.LittleEndian, lq.Index)
 	}
 	return buf.Bytes()
 }

@@ -3,6 +3,7 @@ import { BAND, type LightAt } from '../wow/clientLight'
 import { loadTexture } from '../wow/api'
 import { LIQUID_TYPES, OCEAN_OPACITY, type LiquidClass } from './liquids'
 import { TILE_YARDS } from '../terrain/Terrain'
+import { patchRoomGate } from '../world/roomGate'
 
 // How liquids draw, as the client draws a tile's water (B-174, Benilla's liquid.wgsl and liquid.rs,
 // MIT/Apache, after the client's ocean0_s pixel program): a depth swatch between the light's
@@ -12,6 +13,13 @@ import { TILE_YARDS } from '../terrain/Terrain'
 // of white. The swatch's alpha is the water's opacity. Magma and slime are just their frame, opaque
 // and unlit. The colours are the client light where the camera is (Lighting › Client Lighting) or else
 // Azeroth's default light (Light.dbc 1: LightParams 12), by time of day.
+//
+// A WMO's liquids (its groups' MLIQ, #287) draw with the same shader under WMO, as the client's WMO
+// kernels do (Benilla's liquid.wgsl): magma and slime their frame, scrolling for type 6 and 7 (the lava
+// of Blackrock Depths); an interior pool unlit, its material's diffuse colour plus the frame; an
+// exterior one (Stormwind's canals) the lit deep river colour plus the frame and the sun's sheen. Their
+// opacity is the vertex's byte between the light's shallow and deep alphas. They are instanced with
+// their WMO (ObjectLayer) and carry its room gate.
 
 /** The client flips a liquid's frames 24 times a second (0x68aac0). */
 const FRAME_RATE = 24
@@ -53,15 +61,37 @@ function bandColor(band: Band, hour: number, out: THREE.Vector3) {
 }
 
 const vertex = /* glsl */ `
+#include <common>
 #include <fog_pars_vertex>
-attribute float depth;
-attribute float kind;
 varying vec3 vWorldPos;
 varying float vDepth;
 varying float vKind;
+#ifdef WMO
+attribute vec4 liquid;
+attribute vec4 body;
+varying vec2 vUv;
+varying float vPath;
+varying float vScroll;
+varying vec3 vBody;
+#else
+attribute float depth;
+attribute float kind;
+#endif
 void main() {
+#ifdef WMO
+  vec4 lp = vec4(position, 1.0);
+#ifdef USE_INSTANCING
+  lp = instanceMatrix * lp;
+#endif
+  vec4 wp = modelMatrix * lp;
+  vUv = uv;
+  vKind = liquid.x;
+  vPath = liquid.y;
+  vScroll = liquid.z;
+  vDepth = liquid.w / 255.0;
+  vBody = body.rgb;
+#else
   vec4 wp = modelMatrix * vec4(position, 1.0);
-  vWorldPos = wp.xyz;
 #ifdef SEA
   vDepth = 0.0;
   vKind = 1.0;
@@ -69,6 +99,8 @@ void main() {
   vDepth = depth;
   vKind = kind;
 #endif
+#endif
+  vWorldPos = wp.xyz;
   vec4 mvPosition = viewMatrix * wp;
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
@@ -95,6 +127,13 @@ uniform float uvScale;
 uniform vec3 cursorPos;
 uniform float cursorRadius;
 uniform vec3 cursorColor;
+uniform float liquidTime;
+#ifdef WMO
+varying vec2 vUv;
+varying float vPath;
+varying float vScroll;
+varying vec3 vBody;
+#endif
 #ifdef SEA
 uniform sampler2D groundTex;
 uniform float groundCell;
@@ -138,6 +177,36 @@ vec4 swatch(vec3 light, vec3 dark, vec2 alphas, float v, bool ocean) {
 }
 
 void main() {
+#ifdef WMO
+  // A WMO's liquid, by its kind and the path the client draws its group's liquid with.
+  vec3 col;
+  float alpha;
+  int k = int(vKind + 0.5);
+  if (k >= 2) {
+    // Types 6 and 7 scroll v by a tenth a second, wrapping every 10 s (the client's 0x6b68f0).
+    vec2 uv = vec2(vUv.x, vUv.y + vScroll * fract(liquidTime / 10.0));
+    col = k == 2 ? texture2D(magmaTex, uv).rgb : texture2D(slimeTex, uv).rgb;
+    alpha = 1.0;
+  } else {
+    bool ocean = k == 1;
+    vec4 frame = ocean ? texture2D(oceanTex, vUv) : texture2D(riverTex, vUv);
+    vec3 detail = pow(frame.rgb, vec3(1.0 / 2.2));
+    vec2 alphas = ocean ? oceanAlpha : riverAlpha;
+    float a = mix(alphas.x, alphas.y, vDepth);
+    if (vPath > 1.5) {
+      // Interior (0x6b6420): unlit, the material's diffuse colour plus the frame, the ripple adding to the opacity.
+      col = pow(clamp(vBody + detail, 0.0, 1.0), vec3(2.2));
+      alpha = clamp(a + frame.a, 0.0, 1.0);
+    } else {
+      // Exterior (0x6b6630, MapObjExtWater0): the lit deep colour plus the frame and the sun's sheen.
+      vec3 deep = ocean ? oceanDark : riverDark;
+      vec3 h = normalize(sunDir + normalize(cameraPosition - vWorldPos));
+      vec3 sheen = sheenColor * pow(max(h.y, 0.0), ${WATER_SHININESS}.0);
+      col = pow(clamp(waterLit * deep + detail + sheen * frame.a, 0.0, 1.0), vec3(2.2));
+      alpha = a;
+    }
+  }
+#else
   vec2 uv = vWorldPos.xz * uvScale;
   float depth = vDepth;
 #ifdef SEA
@@ -169,6 +238,7 @@ void main() {
     col = mix(cursorColor, col, ring);
     alpha = mix(1.0, alpha, ring);
   }
+#endif
   gl_FragColor = vec4(col, alpha);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -202,6 +272,8 @@ const shared = {
   cursorPos: { value: new THREE.Vector3() },
   cursorRadius: { value: 0 },
   cursorColor: { value: new THREE.Color(1, 1, 1) },
+  /** Seconds, for the scrolling WMO magma and slime. */
+  liquidTime: { value: 0 },
 }
 
 /** A liquid's frames: loaded once the client is there, each frame a texture as the client has it. */
@@ -246,6 +318,7 @@ const diffuse = new THREE.Vector3()
 export function updateLiquids(ms: number, hour: number, clientReady: boolean, cursor: { x: number; y: number; z: number; radius: number } | null, sun: THREE.Vector3) {
   if (clientReady) for (const k of wanted) requestFrames(k)
   const f = Math.floor((ms * FRAME_RATE) / 1000)
+  shared.liquidTime.value = ms / 1000
   for (const k of KINDS) {
     const list = frames[k]
     shared[`${k}Tex`].value = list.length ? list[f % list.length] : blank
@@ -313,6 +386,26 @@ export function liquidLayerMaterial(): THREE.ShaderMaterial {
     })
   }
   return layerMaterial
+}
+
+/** The material WMO liquids draw with: one for every WMO, instanced, with the room gate. */
+let wmoMaterial: THREE.ShaderMaterial | null = null
+
+export function wmoLiquidMaterial(): THREE.ShaderMaterial {
+  if (!wmoMaterial) {
+    wmoMaterial = new THREE.ShaderMaterial({
+      defines: { WMO: '' },
+      uniforms: { ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog), ...shared },
+      vertexShader: vertex,
+      fragmentShader: fragment,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      fog: true,
+    })
+    patchRoomGate(wmoMaterial)
+  }
+  return wmoMaterial
 }
 
 /**

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { fetchMesh, loadTexture, type MeshEffect, type MeshEmitter, type MeshGroup, type MeshRibbon, type WowMesh } from '../wow/api'
+import { fetchMesh, loadTexture, type MeshEffect, type MeshEmitter, type MeshGroup, type MeshRibbon, type WowLiquid, type WowMesh } from '../wow/api'
 import { colorAt, colorFades, colorIsStatic, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../world/uvAnim'
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
@@ -7,6 +7,7 @@ import { patchRoomGate, ROOM_ATTRIBUTE } from '../world/roomGate'
 import { buildBoundsTree } from '../world/bvh'
 import { buildLod } from './lod'
 import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
+import type { LiquidClass } from '../water/liquids'
 
 /**
  * A placeable model: one geometry (with groups) and one material per group.
@@ -31,6 +32,11 @@ export interface ModelAsset {
   ribbons: MeshRibbon[]
   /** A simplified model for instances far away, sharing the geometry's vertices (see lod.ts). */
   lod?: THREE.BufferGeometry
+  /**
+   * A WMO's lava and water (its groups' MLIQ, #287), drawn by ObjectLayer with `wmoLiquidMaterial`
+   * as a mesh of its own: never picked and casting no shadow.
+   */
+  liquid?: THREE.BufferGeometry
 }
 
 export type ModelKind = 'm2' | 'wmo'
@@ -245,6 +251,29 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean, rooms: boolean): THREE
   return m
 }
 
+const LIQUID_CLASSES: LiquidClass[] = ['river', 'ocean', 'magma', 'slime']
+
+/**
+ * A WMO's liquid surfaces as a geometry for `wmoLiquidMaterial`, the kinds it holds in
+ * `userData.liquidKinds` (whose frames ObjectLayer asks for: importing the material here would loop
+ * back through the terrain).
+ */
+function liquidGeometry(l: WowLiquid): THREE.BufferGeometry {
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.BufferAttribute(l.positions, 3))
+  g.setAttribute('uv', new THREE.BufferAttribute(l.uvs, 2))
+  g.setAttribute('liquid', new THREE.BufferAttribute(l.info, 4))
+  g.setAttribute('body', new THREE.BufferAttribute(l.body, 4, true))
+  g.setAttribute(ROOM_ATTRIBUTE, new THREE.BufferAttribute(l.rooms, 2))
+  g.setIndex(new THREE.BufferAttribute(l.indices, 1))
+  g.computeBoundingBox()
+  g.computeBoundingSphere()
+  const kinds = new Set<LiquidClass>()
+  for (let i = 0; i < l.info.length; i += 4) if (LIQUID_CLASSES[l.info[i]]) kinds.add(LIQUID_CLASSES[l.info[i]])
+  g.userData.liquidKinds = [...kinds]
+  return g
+}
+
 /** Resolves when every texture used by the given material(s) has loaded. */
 export function texturesReady(material: THREE.Material | THREE.Material[]): Promise<unknown> {
   const list = Array.isArray(material) ? material : [material]
@@ -278,6 +307,7 @@ export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
   const bbox = new THREE.Box3(new THREE.Vector3(b[0], b[1], b[2]), new THREE.Vector3(b[3], b[4], b[5]))
   geo.boundingBox = bbox.clone()
   const asset: ModelAsset = { geometry: geo, material: materials, bbox, ready: true, effects: m.effects, emitters: m.emitters, ribbons: m.ribbons }
+  if (m.liquid && m.liquid.indices.length) asset.liquid = liquidGeometry(m.liquid)
   if (animateAs !== undefined && m.bones && m.boneIdx && m.boneW) {
     asset.anim = new ModelAnimation(geo, m.bones, m.boneIdx, m.boneW)
     asset.skeleton = asset.anim.skeleton

@@ -309,6 +309,15 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 		for _, d := range GroupDoodadRefs(gb) {
 			doodadRoom[d] = append(doodadRoom[d], uint16(i+1))
 		}
+		// The group's lava or water, which no group geometry stands for.
+		if l, gl, flags := GroupLiquid(gb); l != nil {
+			if lm := LiquidSurface(l, gl, flags, i+1, root.Materials); lm != nil {
+				if m.Liquid == nil {
+					m.Liquid = &LiquidMesh{}
+				}
+				m.Liquid.Append(lm)
+			}
+		}
 		g, err := ParseWMOGroup(gb, root.Materials)
 		if err != nil {
 			continue

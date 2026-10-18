@@ -23,6 +23,20 @@ Liquids, the sea and how both are drawn and exported.
     second) plus `(sun sheen + 0.25) · frame alpha`, the ripple. The light is the client's where the
     camera is (Client Lighting) or Azeroth's default (LightParams 12: bands 0, 1, 9 and 14 to 17 by
     hour). Magma and slime are their frame, opaque and unlit.
+  - **A WMO's liquids** (#287, Benilla's `wmo_group_liquid_mesh` and `liquid.wgsl`, MIT/Apache): Go
+    reads each group's MLIQ (`internal/wow/wmoliquid.go`: `GroupLiquid`, `LiquidSurface`): two
+    triangles a tile whose nibble isn't 0xf, one class for the surface (MOGP groupLiquid at 0x34, or
+    else the first wet tile's nibble: 0, 4, 8 water, 1 ocean, 2, 6 magma, 3, 7 slime), the path by
+    the group's flags (`& 0x48` exterior, else interior), types 6 and 7 scrolling, and an interior
+    pool's body colour from its MOMT diffColor. `wmoMesh` sends them after the mesh (`Mesh.Liquid`,
+    model space, each vertex tagged with its group for the room gate). The frontend builds
+    `ModelAsset.liquid`, and `ObjectLayer` draws it per batch as a third InstancedMesh beside the
+    model and its LOD, packed with the instances in view, with `wmoLiquidMaterial` (the liquid shader
+    under `WMO`, patched with the room gate): magma and slime their frame; an interior pool the body
+    colour plus the frame, unlit; an exterior one (Stormwind's canals) the lit deep river colour plus
+    the frame and the sheen; the opacity the vertex's byte between the light's shallow and deep
+    alphas. It casts no shadow, is never picked, follows View › Water, and is never exported (the WMO
+    is the client's).
   - Go: `adt.Liquid` is one layer. `ParseLiquids` reads every MCLQ layer, and `Changes.Liquids`
     rewrites chunks in the client's flag order (`internal/adt/water.go`). A region save only
     rewrites chunks whose liquids differ from the client's.

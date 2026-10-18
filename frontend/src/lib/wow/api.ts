@@ -140,6 +140,22 @@ export interface WowMesh {
   ribbons: MeshRibbon[]
   /** Two a vertex: a WMO vertex's groups plus one (0 for none), for the room gate (`world/roomGate.ts`). */
   rooms?: Uint16Array
+  /** A WMO's liquid surfaces (its groups' MLIQ, Go's `LiquidMesh`), drawn by the liquid shader. */
+  liquid?: WowLiquid
+}
+
+/** A WMO's lava and water, in model space. */
+export interface WowLiquid {
+  positions: Float32Array
+  /** One texture repeat a grid cell. */
+  uvs: Float32Array
+  /** Four a vertex: the class (`KIND_INDEX`), the path (1 exterior, 2 interior), 1 for a scrolling magma or slime, the opacity byte. */
+  info: Uint8Array
+  /** An interior pool's body colour, rgba a vertex. */
+  body: Uint8Array
+  /** Two a vertex: the WMO group plus one, as `rooms`. */
+  rooms: Uint16Array
+  indices: Uint32Array
 }
 
 type StatusLike = { path: string; loaded: boolean; error: string; files: number; archives: number }
@@ -369,6 +385,8 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
     emitters?: MeshEmitter[]
     ribbons?: MeshRibbon[]
     rooms?: boolean
+    liquidVerts?: number
+    liquidIndices?: number
   }
   let o = 4 + hdrLen
   const take = <T>(ctor: new (b: ArrayBuffer, o: number, n: number) => T, n: number, bytes: number) => {
@@ -388,5 +406,16 @@ export async function fetchMesh(path: string): Promise<WowMesh> {
     mesh.boneW = take(Uint8Array, hdr.verts * 4, 1)
   }
   if (hdr.rooms) mesh.rooms = take(Uint16Array, hdr.verts * 2, 2)
+  const lv = hdr.liquidVerts ?? 0
+  if (lv > 0) {
+    mesh.liquid = {
+      positions: take(Float32Array, lv * 3, 4),
+      uvs: take(Float32Array, lv * 2, 4),
+      info: take(Uint8Array, lv * 4, 1),
+      body: take(Uint8Array, lv * 4, 1),
+      rooms: take(Uint16Array, lv * 2, 2),
+      indices: take(Uint32Array, hdr.liquidIndices ?? 0, 4),
+    }
+  }
   return mesh
 }
