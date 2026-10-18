@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -353,6 +355,35 @@ func (a *App) VmangosPath() string {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
 	return a.cfg.VmangosPath
+}
+
+// serveNavTile serves /wow/navtile?map=&x=&y= (#240): a tile of the server's movement maps for the
+// walkable-ground view's server mode (vmangos.NavTile), 404 when the server has none there and 412
+// when no VMaNGOS folder is set. Unexported, so Wails doesn't bind it.
+func (a *App) serveNavTile(w http.ResponseWriter, r *http.Request) {
+	server := a.VmangosPath()
+	if server == "" {
+		http.Error(w, "no VMaNGOS folder is set", http.StatusPreconditionFailed)
+		return
+	}
+	q := r.URL.Query()
+	num := func(k string) int {
+		n, err := strconv.Atoi(q.Get(k))
+		if err != nil {
+			return -1
+		}
+		return n
+	}
+	b, err := vmangos.NavTile(server, num("map"), num("x"), num("y"))
+	switch {
+	case vmangos.IsNotExist(err):
+		http.Error(w, "the server has no movement map there", http.StatusNotFound)
+	case err != nil:
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+	default:
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Write(b)
+	}
 }
 
 // BrowseVmangosFolder lets the user pick a VMaNGOS server folder. Returns "" if cancelled.

@@ -22,6 +22,7 @@ const VIEW_PREFS = [
   'wireframe',
   'climbView',
   'navView',
+  'navServer',
   'showContours',
   'contourStep',
   'showBoxes',

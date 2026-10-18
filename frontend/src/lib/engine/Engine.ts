@@ -84,7 +84,7 @@ import { GPU_PASSES, PerfMeter, SECTION, topModels, type ModelCost, type PerfRep
 import { GpuTimer } from './gpuTimer'
 import { GroupBoxes, ModelBoxes } from '../world/ModelBoxes'
 import { isHelper } from '../models/helpers'
-import { NavPreview, RANGE as NAV_RANGE, type PathResult } from '../world/nav/NavPreview'
+import { NavPreview, RANGE as NAV_RANGE, type PathResult, type ServerSource } from '../world/nav/NavPreview'
 import type { MapInfo } from './MapDocument'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
 import { movableSelection, objectsInRect, selectObjects, selectedObjects, withGroups } from '../state/selection'
@@ -1289,6 +1289,8 @@ export class Engine {
   private navStatusAt = 0
   /** The progress line last shown while building, '' when none is up. */
   private navStatus = ''
+  /** View › Server's mmaps (#240): the open map the server's tiles are read for, reused each frame. */
+  private navSource: ServerSource = { mapId: 0, tileX: 0, tileY: 0 }
 
   /** Builds the walkable-ground view's tiles while it is on, and frees them when it goes off. */
   private updateNav() {
@@ -1305,7 +1307,17 @@ export class Engine {
     const now = performance.now()
     const id = this.openMapId()
     this.nav.group.visible = !this.topDown
-    this.nav.update(this.terrain, this.objects, this.doc.liquids, editor.waterEnabled ? editor.waterLevel : null, this.controller.target, id === null || id <= 1, now)
+    let source: ServerSource | null = null
+    if (this.prefs.navServer) {
+      // The map's ID is still being read: wait for it rather than build the browser's tiles first.
+      if (id === null) return
+      const r = this.doc.meta.region
+      source = this.navSource
+      source.mapId = id
+      source.tileX = r?.x ?? 0
+      source.tileY = r?.y ?? 0
+    }
+    this.nav.update(this.terrain, this.objects, this.doc.liquids, editor.waterEnabled ? editor.waterLevel : null, this.controller.target, id === null || id <= 1, now, source)
     if (now - this.navStatusAt < 500 || this.navPick) return
     this.navStatusAt = now
     const c = this.nav.counts
@@ -1313,8 +1325,17 @@ export class Engine {
     // While building, its progress; once done, a line on what the colours mean (and nothing more, so a
     // path test's result stays).
     if (!busy && (c.settling || !this.navStatus)) return
-    const text = !busy
-      ? `Walkable ground: the navmesh within ${NAV_RANGE} yd. Green is ground, orange slopes only creatures take, cyan shallow water, blue water only swimmers cross, red magma, yellow slime.`
+    const colours = 'Green is ground, orange slopes only creatures take, cyan shallow water, blue water only swimmers cross, red magma, yellow slime.'
+    const text = this.nav.serverMode
+      ? this.nav.serverError
+        ? `Walkable ground: the server's movement maps didn't load: ${this.nav.serverError}`
+        : busy
+          ? `Walkable ground: reading the server's movement maps, ${c.done} of ${c.total} tiles…`
+          : c.missing === c.total
+            ? "Walkable ground: the server has no movement maps (mmaps) here. Build them with VMaNGOS's MoveMapGenerator."
+            : `Walkable ground: the server's own navmesh (its mmaps) within ${NAV_RANGE} yd${c.missing ? `, ${c.missing} of ${c.total} tiles have none` : ''}. A tile edited since they were built shows the old ground. ${colours}`
+      : !busy
+      ? `Walkable ground: the navmesh within ${NAV_RANGE} yd. ${colours}`
       : c.loading
         ? "Walkable ground: loading the models' collision…"
         : `Walkable ground: building the navmesh, ${c.done} of ${c.total} tiles…`

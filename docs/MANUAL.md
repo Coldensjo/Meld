@@ -108,7 +108,7 @@ Also included:
 - **World**: Doodad Brushes, Ground Effects, Texture Looks, Zones, Lights.
 - **Import/Export**: heightmaps, watermaps, normal maps, alphamaps, object lists, doodad brushes,
   port coordinates, minimap image.
-- **View**: grid, chunk lines, far horizon, walkable ground (the server's navmesh) and a path test, layers (terrain, water, objects, tufts, spawns), hide panels.
+- **View**: grid, chunk lines, far horizon, walkable ground (the server's navmesh, built by Meld or read from the server's own mmaps) and a path test, layers (terrain, water, objects, tufts, spawns), hide panels.
 - **Graphics**:
   - Render scale (50–150%) and view distance.
   - **Particles**, prop animations, skipping models too small to see.

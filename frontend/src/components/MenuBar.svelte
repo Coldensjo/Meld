@@ -273,6 +273,7 @@
         { kind: 'check', label: 'Bounding boxes (one per model)', checked: prefs.showBoxes, toggle: () => (prefs.showBoxes = !prefs.showBoxes) },
         { kind: 'check', label: 'Area triggers (portals)', checked: prefs.showAreaTriggers, toggle: () => (prefs.showAreaTriggers = !prefs.showAreaTriggers) },
         { kind: 'check', label: 'Walkable ground (the server\'s navmesh)', checked: prefs.navView, toggle: () => (prefs.navView = !prefs.navView) },
+        { kind: 'check', label: "Server's mmaps (its own navmesh, for a compiled region)", checked: prefs.navView && prefs.navServer, toggle: () => { prefs.navServer = !(prefs.navView && prefs.navServer); if (prefs.navServer) prefs.navView = true } },
         { kind: 'action', label: 'Test a Path (click two points)', run: withEngine((e) => { prefs.navView = true; e.startPathTest() }) },
         { kind: 'check', label: 'Detail info (the ground under the cursor)', checked: prefs.detailInfo, toggle: () => (prefs.detailInfo = !prefs.detailInfo) },
         { kind: 'check', label: 'Performance overlay (where the frame time goes)', shortcut: 'Ctrl+Shift+M', checked: prefs.perfOverlay, toggle: () => (prefs.perfOverlay = !prefs.perfOverlay) },

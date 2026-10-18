@@ -351,7 +351,7 @@ export sends each chunk's MCSH as the client has it.
   second: a loop that yields with `setTimeout(0)` crawls there (the bake took over a minute). Yield
   through a `MessageChannel` instead.
 
-## Walkable ground: the navmesh view and the path test (#175)
+## Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
 
 Checks: View › Walkable ground builds the server's navmesh around the camera's target from the
 terrain and the placed models' collision, rebuilds it after an edit, and View › Test a Path finds a
@@ -369,6 +369,20 @@ creature's way round obstacles.
 - In the benchmark scene (Northshire Abbey) the 177 tiles take 3.4 ms each on average, 41 ms at worst
   (the abbey's tiles); on SwiftShader the whole build takes about 70 s of frames, so wait on
   `e.nav.counts` (`done === total`, `loading === 0`, `!settling`), never on a fixed number of frames.
+- Server mode (#240, View › Server's mmaps): `pnpm probe walkable-server` (about 45 s) in the
+  benchmark scene reads the server's tile 32_48 (one tile within 160 yd of the target, about 39k
+  triangles, 2 s), checks the drawn vertices lie on the ground (within 1.5 yd, 0.8 at the probe's spot: a wrong
+  transform puts them a mirror away), walks a 44.8 yd path over it and the same path over the browser's build, and the
+  view off frees it. It needs the VMaNGOS folder set and its `data/mmaps` built for map 0 (470 tiles
+  on this machine). Unit: `tests/navServer.test.ts` (the frame round trip against `serverSpot`, the
+  flags' colours, a built tile's surface read back from its bytes and a copy of them pathing in a
+  navmesh). Go: `TestDetourTile32ShrinksTheLinks`, `TestNavTileReadsTheFiles`, and with
+  `VMANGOS_DIR=C:/WoW/vmangos` `TestServerNavTiles` (every map 0 tile converts). Check one tile by
+  hand with `curl -s -o t.bin -w "%{http_code} %{size_download}" "localhost:34115/wow/navtile?map=0&x=32&y=48"`
+  (200, about 2 MB; 404 where the server has none).
+- Trap: Recast lifts the detail mesh's copy of a polygon's corners by one voxel height
+  (rcBuildPolyMeshDetail), and Detour's tile keeps the unlifted ones, so a tile's surface read from
+  its bytes sits up to 0.25 yd below the `BuiltTile.tris` of the same build.
 - Traps: `nav.group` also holds the path test's line and markers, which have no colour attribute;
   a change (sculpt, a model loading or moving, a liquid edit) holds the build until 400 ms pass without one,
   so while models stream in after a region opens nothing builds; the roofs get navmesh too, as on the

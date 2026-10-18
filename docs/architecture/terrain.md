@@ -104,6 +104,18 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     the next two clicks are a creature's path (`NavPreview.pathPoint`, Detour's `computePath`),
     drawn as a line, its length in the status bar: a walking creature's (`NAV_GROUND`, the server's
     `PathInfo::createFilter`), or where only a swimming one gets there, that one's, said so.
+  - View › Server's mmaps (`prefs.navServer`, #240) shows the navmesh the world server loads instead,
+    for comparing the two: `Engine.updateNav` hands `NavPreview.update` the open map's ID and first
+    client tile (`ServerSource`), and the view asks `/wow/navtile` (`App.serveNavTile`, routed in
+    `main.go`; `vmangos.NavTile` in `internal/vmangos/mmaps.go`) for each client tile within `RANGE`
+    of the target, nothing built. Go reads `data/mmaps/MMMYYXX.mmtile` (row before column) and the
+    map's `.mmap` origin, and narrows the tile's link block from the server's 64-bit polygon refs
+    (`DT_POLYREF64`, 16-byte `dtLink`s) to the WASM's 32-bit ones (12 bytes), the only difference.
+    `navServer.ts` reads the tile's detail surface for drawing (colours by the polygons' flags) and
+    `navPoint` turns the editor's points into the server's Detour frame and back (WoW's y, height,
+    x: a half turn about the up axis); the tiles' meshes sit in a group with that transform, and the
+    navmesh takes the server's origin with 64 tiles of up to 32,768 polygons. The tiles are as the
+    server last built them: until Compile rebuilds them (#173), an edited tile shows the old ground.
 
 - **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
   target rides on `max(ground, water)`. `Water.floor` is a dark plane below the water that hides

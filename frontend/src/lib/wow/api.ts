@@ -248,6 +248,18 @@ export async function fetchCollision(path: string): Promise<Float32Array> {
   return new Float32Array(buf, 4, n * 9)
 }
 
+/**
+ * Client tile (x, y) of the server's movement maps for map `mapId` (#240, `vmangos.NavTile`): the
+ * map's navmesh origin and tile size, then the tile's Detour data (world/nav/navServer.ts reads it).
+ * Null when the server has no tile there; throws when no VMaNGOS folder is set or the file is bad.
+ */
+export async function fetchNavTile(mapId: number, x: number, y: number): Promise<ArrayBuffer | null> {
+  const r = await fetch(`/wow/navtile?map=${mapId}&x=${x}&y=${y}`)
+  if (r.status === 404) return null
+  if (!r.ok) throw new Error((await r.text()).trim() || `${r.status}`)
+  return r.arrayBuffer()
+}
+
 export interface RawImage {
   width: number
   height: number

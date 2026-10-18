@@ -40,6 +40,10 @@ func main() {
 			Middleware: func(next http.Handler) http.Handler {
 				wowHandler := app.wow.Handler()
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/wow/navtile" {
+						app.serveNavTile(w, r)
+						return
+					}
 					if strings.HasPrefix(r.URL.Path, "/wow/") {
 						wowHandler.ServeHTTP(w, r)
 						return
