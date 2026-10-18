@@ -133,7 +133,14 @@ not fall back to the frozen files.
 Then:
 - **Answered questions.** For each `owner-question` issue where the owner has commented since the
   question, remove the label, record their answer as a decision comment, and treat the item as
-  eligible again.
+  eligible again. Find them with this, which lists the issues whose last comment (ignoring
+  `github-actions` pings) is by `Coldensjo` and doesn't start with `**Claude:**`. The question may
+  sit inside a `**Claude:** triaged.` comment rather than a `**Claude:** @Coldensjo` one, so do not
+  look for the latter (#277):
+
+  ```
+  gh issue list --repo Coldensjo/Meld --state open --label owner-question --limit 100 --json number,comments --jq '.[] | select((.comments | map(select(.author.login != "github-actions")) | last) as $c | $c.author.login == "Coldensjo" and ($c.body | startswith("**Claude:**") | not)) | .number'
+  ```
 - **Approval limits.** The pick order (step 3) reads labels, not comments, so a limit in an approval
   must become a label or it is missed (#228: #182, approved "for the backburner", was picked first).
   List the owner's approvals since the last run log comment (`<since>` is its date):
