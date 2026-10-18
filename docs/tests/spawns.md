@@ -284,6 +284,26 @@ writes `quest_template` and the four relation tables only on Save, after Go's ch
 - Trap: quests are keyed by (entry, patch); the editor writes the newest patch row it read, and a
   new quest is patch 0, which every server patch loads.
 
+## Game object quests (#293)
+
+Checks: the game object editor's Quests tab reads and edits `gameobject_questrelation` and
+`gameobject_involvedrelation`, and an object that is not a Quest giver (type 2) gets no new quests,
+there or in the quest editor's Givers tab.
+- Probe `object-quests` (about 13 s; nothing written): the Wanted Poster (68) starts Wanted: "Hogger"
+  (176); an added quest is an unsaved edit (`Quests (1)`) that Revert drops; Edit opens the quest
+  over the object editor and Esc closes only the quest editor; the Solid Chest (2855, type 3) shows
+  the refusal with its search and New quest disabled, the Givers tab disables its Starts and Ends,
+  and `SaveObjectQuests` and `SaveQuestGivers` both refuse it.
+- Unit: `questrel_test.go` (`checkObjectQuests`, `checkGiverObjects`: a non-giver keeps or drops the
+  rows it already has but gets no new one).
+- A write, by hand (a scratch probe): `SaveObjectQuests(68, { starts: [176, 7], ends: [7] })`, read
+  back with `ReadObjectQuests(68)` and `ReadQuestGivers(7)` (the poster shows as a ready object
+  giver), then save the lists read before to put it back.
+- In the game (the owner): restart mangosd, the poster in Goldshire shows the quest marker and offers
+  the quest.
+- Trap: the object editor's header reads the old object for a frame after `ui.objectEditor` changes;
+  a probe waits for `entry <n>` in the header before clicking its tabs.
+
 ## Name colours by reaction (#134)
 
 Checks: a creature's name over its head is red, yellow or green by how its faction treats the side

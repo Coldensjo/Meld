@@ -155,7 +155,7 @@ export function ReadBrushImage(arg1:string,arg2:string):Promise<heightmap.GreyVi
 
 export function ReadCreature(arg1:number):Promise<vmangos.TemplateRecord>;
 
-export function ReadCreatureQuests(arg1:number):Promise<vmangos.CreatureQuests>;
+export function ReadCreatureQuests(arg1:number):Promise<vmangos.QuestLists>;
 
 export function ReadCreatureSpells(arg1:number):Promise<vmangos.CreatureSpells>;
 
@@ -170,6 +170,8 @@ export function ReadItem(arg1:number):Promise<Record<string, string>>;
 export function ReadObject(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadObjectLoot(arg1:number,arg2:number):Promise<vmangos.ObjectLoot>;
+
+export function ReadObjectQuests(arg1:number):Promise<vmangos.QuestLists>;
 
 export function ReadQuest(arg1:number):Promise<vmangos.TemplateRecord>;
 
@@ -195,7 +197,7 @@ export function SaveBrushDialog(arg1:string):Promise<string>;
 
 export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 
-export function SaveCreatureQuests(arg1:number,arg2:vmangos.CreatureQuests):Promise<string>;
+export function SaveCreatureQuests(arg1:number,arg2:vmangos.QuestLists):Promise<string>;
 
 export function SaveCreatureSpells(arg1:number,arg2:Array<vmangos.CreatureSpell>):Promise<vmangos.CreatureSpellsSaved>;
 
@@ -218,6 +220,8 @@ export function SaveModelSetDialog(arg1:string):Promise<string>;
 export function SaveObject(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 
 export function SaveObjectLoot(arg1:number,arg2:Array<vmangos.LootItem>):Promise<string>;
+
+export function SaveObjectQuests(arg1:number,arg2:vmangos.QuestLists):Promise<string>;
 
 export function SavePrefabDialog(arg1:string,arg2:string):Promise<string>;
 

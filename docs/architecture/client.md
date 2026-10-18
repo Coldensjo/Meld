@@ -152,8 +152,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
 - **Quest editor** (`components/QuestEditor.svelte`, `ui.questEditor`, #259): full screen (over the
   creature editor, z-index 160; the creature and object editors ignore Esc while it is open), opened
-  by World › Quests… (`entry: 0`, find one), a quest's Edit in the creature editor's Quests tab, or
-  that tab's New quest… (`entry: -1`, with the creature as `giver`). The left finds quests
+  by World › Quests… (`entry: 0`, find one), a quest's Edit in the creature or game object editor's
+  Quests tab, or that tab's New quest… (`entry: -1`, with the creature or object as `giver`). The left finds quests
   (`SearchQuests`); New quest makes a blank level 1 quest or a copy of the open one without its
   givers (`CreateQuest` in `internal/vmangos/quests.go`: patch 0, the first entry past
   `quest_template` and the four relation tables, so an orphan relation row can't offer it), and
@@ -173,9 +173,18 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   columns changed run, so an old quest's own problems don't block an unrelated edit. The Givers tab
   (`components/QuestGiversTab.svelte`) lists `creature_questrelation`, `gameobject_questrelation`
   and the two `*_involvedrelation` tables for the quest (`ReadQuestGivers`, with spawn counts), and
-  gives a creature without the Quest giver flag that flag on Save unless its box is cleared. The one
-  Save writes the row first, then the givers; `ui.questsVersion` then makes the creature editor's
-  Quests tab read its lists again. The server reads quests at start or on `.reload all_quest`.
+  gives a creature without the Quest giver flag that flag on Save unless its box is cleared. A game
+  object must be of the Quest giver type (2; the server ignores the rows of any other type): another
+  is refused, in the tab and in Go (`checkGiverObjects`), unless the quest already had it, and Meld
+  never changes an object's type for the author (#293's decision). The one Save writes the row
+  first, then the givers; `ui.questsVersion` then makes the creature and object editors' Quests tabs
+  read their lists again.
+- **Quests tab** (`components/QuestsTab.svelte`, #145, #293): the creature editor's and the game
+  object editor's (`kind`), the quests the template starts and ends from its own side
+  (`ReadCreatureQuests`/`SaveCreatureQuests`, `ReadObjectQuests`/`SaveObjectQuests` in
+  `internal/vmangos/questrel.go`), a form with its own Save quests apart from the template's Save. A
+  creature without the Quest giver flag is warned, with a button setting the flag; an object that is
+  not a Quest giver (by its saved type) gets no new quests (`checkObjectQuests`) and says why. The server reads quests at start or on `.reload all_quest`.
 - **The game's template cache** (#234): the 1.12 client asks for a template once and keeps it across
   sessions in `WDB\creaturecache.wdb` / `gameobjectcache.wdb`, never asking again. `SaveCreature` and
   `SaveObject` mark the entry in `App.stale` (`game.Stale`, `internal/game/cache.go`), which takes its

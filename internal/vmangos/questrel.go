@@ -20,9 +20,9 @@ type QuestRef struct {
 	PatchMax int    `json:"patchMax"`
 }
 
-// CreatureQuests is what a creature does with quests: the ones it starts (creature_questrelation)
-// and the ones it ends (creature_involvedrelation).
-type CreatureQuests struct {
+// QuestLists is what a creature or game object template does with quests: the ones it starts (the
+// questrelation table of its kind) and the ones it ends (the involvedrelation table).
+type QuestLists struct {
 	Starts []QuestRef `json:"starts"`
 	Ends   []QuestRef `json:"ends"`
 }
@@ -62,21 +62,38 @@ func parseQuestRefs(raw []byte) []QuestRef {
 }
 
 // ReadCreatureQuests reads the quests creature template entry starts and ends.
-func ReadCreatureQuests(serverRoot string, entry int) (CreatureQuests, error) {
-	db, err := worldDatabase(serverRoot)
+func ReadCreatureQuests(serverRoot string, entry int) (QuestLists, error) {
+	return readQuestRelations(serverRoot, "creature", entry)
+}
+
+// ReadObjectQuests reads the quests game object template entry starts and ends.
+func ReadObjectQuests(serverRoot string, entry int) (QuestLists, error) {
+	return readQuestRelations(serverRoot, "object", entry)
+}
+
+// relationTables are kind's ("creature" or "object") relation tables: the one for the quests it
+// starts and the one for those it ends.
+func relationTables(kind string) (starts, ends string) {
+	if kind == "object" {
+		return "gameobject_questrelation", "gameobject_involvedrelation"
+	}
+	return "creature_questrelation", "creature_involvedrelation"
+}
+
+// readQuestRelations reads the quests kind's template entry starts and ends.
+func readQuestRelations(serverRoot, kind string, entry int) (QuestLists, error) {
+	db, err := openWorld(serverRoot)
 	if err != nil {
-		return CreatureQuests{}, err
+		return QuestLists{}, err
 	}
-	if err := ensureDatabase(db, serverRoot); err != nil {
-		return CreatureQuests{}, err
-	}
-	var q CreatureQuests
-	raw, err := runSQL(db, questRelationSQL("creature_questrelation", entry))
+	starts, ends := relationTables(kind)
+	var q QuestLists
+	raw, err := runSQL(db, questRelationSQL(starts, entry))
 	if err != nil {
 		return q, err
 	}
 	q.Starts = parseQuestRefs(raw)
-	raw, err = runSQL(db, questRelationSQL("creature_involvedrelation", entry))
+	raw, err = runSQL(db, questRelationSQL(ends, entry))
 	if err != nil {
 		return q, err
 	}
@@ -84,14 +101,15 @@ func ReadCreatureQuests(serverRoot string, entry int) (CreatureQuests, error) {
 	return q, nil
 }
 
-// questRelationsSQL replaces creature entry's rows in both relation tables with q's. A quest
+// questRelationsSQL replaces kind's template entry's rows in both relation tables with q's. A quest
 // listed twice in one list is refused, as each table's key is (id, quest).
-func questRelationsSQL(entry int, q CreatureQuests) (string, error) {
+func questRelationsSQL(kind string, entry int, q QuestLists) (string, error) {
+	starts, ends := relationTables(kind)
 	var b strings.Builder
 	for _, t := range []struct {
 		table string
 		list  []QuestRef
-	}{{"creature_questrelation", q.Starts}, {"creature_involvedrelation", q.Ends}} {
+	}{{starts, q.Starts}, {ends, q.Ends}} {
 		if b.Len() > 0 {
 			b.WriteString("\n")
 		}
@@ -116,12 +134,21 @@ func questRelationsSQL(entry int, q CreatureQuests) (string, error) {
 
 // SaveCreatureQuests replaces the quests creature template entry starts and ends with q's, and
 // returns the SQL it ran. Every quest must exist in quest_template.
-func SaveCreatureQuests(serverRoot string, entry int, q CreatureQuests) (string, error) {
-	db, err := worldDatabase(serverRoot)
+func SaveCreatureQuests(serverRoot string, entry int, q QuestLists) (string, error) {
+	return saveQuestRelations(serverRoot, "creature", entry, q)
+}
+
+// SaveObjectQuests replaces the quests game object template entry starts and ends with q's, and
+// returns the SQL it ran. Every quest must exist in quest_template, and an object that is not of the
+// quest giver type is refused any quest it does not already have (#293: the server ignores its
+// rows, and Meld never changes the object's type for the author).
+func SaveObjectQuests(serverRoot string, entry int, q QuestLists) (string, error) {
+	return saveQuestRelations(serverRoot, "object", entry, q)
+}
+
+func saveQuestRelations(serverRoot, kind string, entry int, q QuestLists) (string, error) {
+	db, err := openWorld(serverRoot)
 	if err != nil {
-		return "", err
-	}
-	if err := ensureDatabase(db, serverRoot); err != nil {
 		return "", err
 	}
 	var ids []string
@@ -143,11 +170,77 @@ func SaveCreatureQuests(serverRoot string, entry int, q CreatureQuests) (string,
 			}
 		}
 	}
-	sql, err := questRelationsSQL(entry, q)
+	if kind == "object" {
+		types, err := objectTypes(db, []int{entry})
+		if err != nil {
+			return "", err
+		}
+		if t, ok := types[entry]; !ok {
+			return "", fmt.Errorf("the world database has no game object %d", entry)
+		} else if t != objectTypeQuestGiver {
+			had, err := readQuestRelations(serverRoot, kind, entry)
+			if err != nil {
+				return "", err
+			}
+			if err := checkObjectQuests(entry, t, had, q); err != nil {
+				return "", err
+			}
+		}
+	}
+	sql, err := questRelationsSQL(kind, entry, q)
 	if err != nil {
 		return "", err
 	}
 	return sql, runScript(db, sql)
+}
+
+// notQuestGiver is the refusal for game object id of type t, which cannot offer or take quests.
+func notQuestGiver(id, t int) error {
+	return fmt.Errorf("game object %d is of type %d, not a Quest giver (type %d), and the server ignores the quests of any other type: make it a Quest giver under Object in the game object editor first, or pick another object",
+		id, t, objectTypeQuestGiver)
+}
+
+// checkObjectQuests refuses lists that give object id, of type t (not a quest giver), a quest in
+// either list that had does not already hold there. Rows it already has may stay or go.
+func checkObjectQuests(id, t int, had, q QuestLists) error {
+	for _, l := range []struct{ had, now []QuestRef }{{had.Starts, q.Starts}, {had.Ends, q.Ends}} {
+		old := map[int]bool{}
+		for _, r := range l.had {
+			old[r.Quest] = true
+		}
+		for _, r := range l.now {
+			if !old[r.Quest] {
+				return notQuestGiver(id, t)
+			}
+		}
+	}
+	return nil
+}
+
+// objectTypes reads the type of each game object template of ids, from its newest patch's row.
+// An entry the table lacks is left out.
+func objectTypes(db worldDB, ids []int) (map[int]int, error) {
+	out := map[int]int{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	list := make([]string, len(ids))
+	for i, id := range ids {
+		list[i] = strconv.Itoa(id)
+	}
+	raw, err := runSQL(db, fmt.Sprintf("SELECT t.entry, t.type FROM `%s` t WHERE t.entry IN (%s) AND "+
+		"t.patch = (SELECT MAX(patch) FROM `%s` WHERE entry = t.entry)", objectTable, strings.Join(list, ","), objectTable))
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range tsvRows(raw, 2) {
+		e, err1 := strconv.Atoi(f[0])
+		t, err2 := strconv.Atoi(f[1])
+		if err1 == nil && err2 == nil {
+			out[e] = t
+		}
+	}
+	return out, nil
 }
 
 // SearchQuests lists the quests whose title has text in it, or whose entry is text, by title, at

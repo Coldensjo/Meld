@@ -10,6 +10,7 @@
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import LootTab from './LootTab.svelte'
+	import QuestsTab from './QuestsTab.svelte'
 	import { forgetObjectTemplates, loadObjectTemplates, objectCategory } from './SpawnBrowser.svelte'
 	import SpawnFields from './SpawnFields.svelte'
 	import TemplateFields from './TemplateFields.svelte'
@@ -19,9 +20,14 @@
 	// respawn time, and which object it is: a vein can become another vein, each change an undo step
 	// saved with the region's spawns) and its template, every column of gameobject_template, saved to
 	// the world database with Save. A new object starts here too, from scratch or as a copy. Contents
-	// (#220) edits what a chest holds, its loot list, saved with the same Save.
+	// (#220) edits what a chest holds, its loot list, saved with the same Save. Quests (#293) edits the
+	// quests the object offers and takes in, saved apart with its own Save quests, as the creature
+	// editor's tab does; only a Quest giver object (type 2) gets new ones.
 
-	type Tab = 'spawn' | 'object' | 'contents' | 'new'
+	type Tab = 'spawn' | 'object' | 'contents' | 'quests' | 'new'
+
+	/** GAMEOBJECT_TYPE_QUESTGIVER: the one object type the server lets offer and take quests. */
+	const QUEST_GIVER_TYPE = 2
 
 	const target = $derived(ui.objectEditor)
 	/** The spawn the editor was opened from, as the panel's copy of it. */
@@ -37,11 +43,15 @@
 	let confirmClose = $state(false)
 	let lootDirty = $state(false)
 	let lootTab = $state<LootTab | null>(null)
+	let questsDirty = $state(false)
+	let questsTab = $state<QuestsTab | null>(null)
 
 	const changes = $derived(changedValues(values, saved))
 	const changeCount = $derived(Object.keys(changes).length)
-	/** Anything unsaved: the template's values or the contents. */
+	/** Anything unsaved that Save object writes: the template's values or the contents. */
 	const unsaved = $derived(changeCount > 0 || lootDirty)
+	/** Anything unsaved at all, the quests (saved apart) too: what closing asks about. */
+	const anyUnsaved = $derived(unsaved || questsDirty)
 	const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name), objectFieldGroups(Number(values.type) || 0)) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
@@ -63,6 +73,7 @@
 		error = ''
 		confirmClose = false
 		lootDirty = false
+		questsDirty = false
 		if (t.entry > 0) void load(t.entry)
 	})
 
@@ -89,7 +100,7 @@
 		const s = spawn
 		if (!t || !s || t.entry === 0 || s.entry === t.entry) return
 		const follow = () => (ui.objectEditor = { key: t.key, entry: s.entry })
-		if (!unsaved) {
+		if (!anyUnsaved) {
 			follow()
 			return
 		}
@@ -125,7 +136,11 @@
 	)
 
 	const unsavedText = $derived(
-		[changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object` : '', lootDirty ? 'unsaved changes to the contents' : '']
+		[
+			changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object` : '',
+			lootDirty ? 'unsaved changes to the contents' : '',
+			questsDirty ? 'unsaved changes to the quests' : '',
+		]
 			.filter(Boolean)
 			.join(', ') + '.',
 	)
@@ -134,7 +149,7 @@
 	let afterDiscard: (() => void) | null = null
 
 	function close(force = false) {
-		if (unsaved && !force) {
+		if (anyUnsaved && !force) {
 			afterDiscard = null
 			confirmClose = true
 			return
@@ -146,6 +161,7 @@
 
 	function discard() {
 		revert()
+		questsTab?.revert()
 		confirmClose = false
 		const then = afterDiscard
 		afterDiscard = null
@@ -259,7 +275,7 @@
 		if (target?.entry === 0) return
 		copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
 		const go = () => (ui.objectEditor = { key: null, entry: 0 })
-		if (unsaved) {
+		if (anyUnsaved) {
 			afterDiscard = go
 			confirmClose = true
 			return
@@ -296,7 +312,7 @@
 				return
 			}
 			e.preventDefault()
-			if (confirmClose && unsaved) confirmClose = false
+			if (confirmClose && anyUnsaved) confirmClose = false
 			else close()
 		}
 	}
@@ -328,7 +344,7 @@
 				<button onclick={() => close()} title="Close (Esc)">Close</button>
 			</div>
 		</header>
-		{#if confirmClose && unsaved}
+		{#if confirmClose && anyUnsaved}
 			<div class="bar warn">
 				<span>{unsavedText}</span>
 				<button onclick={() => (confirmClose = false)}>Keep editing</button>
@@ -356,6 +372,7 @@
 					{#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
 					{#if record}<button class:on={tab === 'object'} onclick={() => (tab = 'object')}>Object</button>{/if}
 					{#if record}<button class:on={tab === 'contents'} onclick={() => (tab = 'contents')}>Contents</button>{/if}
+					{#if record}<button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests{questsDirty ? ' (1)' : ''}</button>{/if}
 					<button class:on={target.entry === 0} onclick={startNew}>New object</button>
 				</nav>
 
@@ -400,8 +417,8 @@
 						<h3>This spawn</h3>
 						<SpawnFields s={spawn} />
 						<p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (File › Save Spawns to Database…).</p>
-					{:else if tab === 'contents'}
-						<!-- The Contents tab stays mounted below, so its unsaved rows survive a tab switch. -->
+					{:else if tab === 'contents' || tab === 'quests'}
+						<!-- The Contents and Quests tabs stay mounted below, so their unsaved rows survive a tab switch. -->
 					{:else if record}
 						{#each groups as g (g.title)}
 							<h3>{g.title}</h3>
@@ -425,6 +442,16 @@
 								onmakechest={makeChest}
 								onsetloot={(id) => (values.data1 = String(id))}
 								onset={(col, v) => (values[col] = v)}
+							/>
+						</div>
+						<div hidden={tab !== 'quests'}>
+							<QuestsTab
+								bind:this={questsTab}
+								bind:dirty={questsDirty}
+								kind="object"
+								entry={record.entry}
+								name={saved.name || values.name || ''}
+								ready={Number(saved.type) === QUEST_GIVER_TYPE}
 							/>
 						</div>
 					{/if}

@@ -330,6 +330,10 @@ export function ReadObjectLoot(arg1, arg2) {
   return window['go']['main']['App']['ReadObjectLoot'](arg1, arg2);
 }
 
+export function ReadObjectQuests(arg1) {
+  return window['go']['main']['App']['ReadObjectQuests'](arg1);
+}
+
 export function ReadQuest(arg1) {
   return window['go']['main']['App']['ReadQuest'](arg1);
 }
@@ -424,6 +428,10 @@ export function SaveObject(arg1, arg2, arg3) {
 
 export function SaveObjectLoot(arg1, arg2) {
   return window['go']['main']['App']['SaveObjectLoot'](arg1, arg2);
+}
+
+export function SaveObjectQuests(arg1, arg2) {
+  return window['go']['main']['App']['SaveObjectQuests'](arg1, arg2);
 }
 
 export function SavePrefabDialog(arg1, arg2) {

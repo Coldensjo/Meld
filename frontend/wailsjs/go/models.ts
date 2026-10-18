@@ -758,58 +758,6 @@ export namespace vmangos {
 	        this.armor = source["armor"];
 	    }
 	}
-	export class QuestRef {
-	    quest: number;
-	    title: string;
-	    level: number;
-	    patchMin: number;
-	    patchMax: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new QuestRef(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.quest = source["quest"];
-	        this.title = source["title"];
-	        this.level = source["level"];
-	        this.patchMin = source["patchMin"];
-	        this.patchMax = source["patchMax"];
-	    }
-	}
-	export class CreatureQuests {
-	    starts: QuestRef[];
-	    ends: QuestRef[];
-	
-	    static createFrom(source: any = {}) {
-	        return new CreatureQuests(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.starts = this.convertValues(source["starts"], QuestRef);
-	        this.ends = this.convertValues(source["ends"], QuestRef);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 	export class CreatureSpell {
 	    spell: number;
 	    probability: number;
@@ -1961,6 +1909,58 @@ export namespace vmangos {
 		}
 	}
 	
+	export class QuestRef {
+	    quest: number;
+	    title: string;
+	    level: number;
+	    patchMin: number;
+	    patchMax: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new QuestRef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.quest = source["quest"];
+	        this.title = source["title"];
+	        this.level = source["level"];
+	        this.patchMin = source["patchMin"];
+	        this.patchMax = source["patchMax"];
+	    }
+	}
+	export class QuestLists {
+	    starts: QuestRef[];
+	    ends: QuestRef[];
+	
+	    static createFrom(source: any = {}) {
+	        return new QuestLists(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.starts = this.convertValues(source["starts"], QuestRef);
+	        this.ends = this.convertValues(source["ends"], QuestRef);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	export class QuestTables {
 	    sorts: NamedID[];

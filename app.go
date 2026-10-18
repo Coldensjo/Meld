@@ -957,21 +957,41 @@ func (a *App) SaveVendor(entry int, items []vmangos.VendorItem) (string, error) 
 }
 
 // ReadCreatureQuests reads the quests a creature template starts and ends, for the creature editor's Quests tab.
-func (a *App) ReadCreatureQuests(entry int) (vmangos.CreatureQuests, error) {
+func (a *App) ReadCreatureQuests(entry int) (vmangos.QuestLists, error) {
 	server, _, err := a.serverAndData()
 	if err != nil {
-		return vmangos.CreatureQuests{}, err
+		return vmangos.QuestLists{}, err
 	}
 	return vmangos.ReadCreatureQuests(server, entry)
 }
 
 // SaveCreatureQuests replaces the quests a creature template starts and ends, and returns the SQL it ran.
-func (a *App) SaveCreatureQuests(entry int, quests vmangos.CreatureQuests) (string, error) {
+func (a *App) SaveCreatureQuests(entry int, quests vmangos.QuestLists) (string, error) {
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return "", err
 	}
 	return vmangos.SaveCreatureQuests(server, entry, quests)
+}
+
+// ReadObjectQuests reads the quests a game object template starts and ends, for the game object
+// editor's Quests tab.
+func (a *App) ReadObjectQuests(entry int) (vmangos.QuestLists, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.QuestLists{}, err
+	}
+	return vmangos.ReadObjectQuests(server, entry)
+}
+
+// SaveObjectQuests replaces the quests a game object template starts and ends, and returns the SQL
+// it ran. An object that is not of the quest giver type is refused new quests.
+func (a *App) SaveObjectQuests(entry int, quests vmangos.QuestLists) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	return vmangos.SaveObjectQuests(server, entry, quests)
 }
 
 // SearchQuests lists up to 100 quests whose title has text in it (or whose entry it is).

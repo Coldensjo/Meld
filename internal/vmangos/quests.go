@@ -580,7 +580,40 @@ func SaveQuestGivers(serverRoot string, entry int, g QuestGivers, flag []int) (s
 			}
 		}
 	}
+	if len(ids["object"]) > 0 {
+		types, err := objectTypes(db, ids["object"])
+		if err != nil {
+			return "", err
+		}
+		had, err := ReadQuestGivers(serverRoot, entry)
+		if err != nil {
+			return "", err
+		}
+		if err := checkGiverObjects(had, g, types); err != nil {
+			return "", err
+		}
+	}
 	return sql, runScript(db, sql)
+}
+
+// checkGiverObjects refuses g when it adds a game object whose type (in types) is not quest giver to
+// a list that had does not already hold it in (#293: the server ignores such rows, and Meld never
+// changes the object's type for the author). Rows the quest already has may stay or go.
+func checkGiverObjects(had, g QuestGivers, types map[int]int) error {
+	for _, l := range []struct{ had, now []QuestGiver }{{had.Starts, g.Starts}, {had.Ends, g.Ends}} {
+		old := map[int]bool{}
+		for _, r := range l.had {
+			if r.Kind == "object" {
+				old[r.ID] = true
+			}
+		}
+		for _, r := range l.now {
+			if t := types[r.ID]; r.Kind == "object" && t != objectTypeQuestGiver && !old[r.ID] {
+				return notQuestGiver(r.ID, t)
+			}
+		}
+	}
+	return nil
 }
 
 // NamedRef is a template a quest names, as the quest editor shows it: its name, and for an item its

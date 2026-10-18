@@ -7,7 +7,9 @@
 	// The quest editor's Givers tab (#259): the creatures and game objects that start the quest
 	// (creature_questrelation, gameobject_questrelation) and end it (the involvedrelation tables), seen
 	// from the quest's side, saved with the quest's Save. A creature offers no quest without the Quest
-	// giver flag: one that lacks it gets it on Save unless its box is cleared.
+	// giver flag: one that lacks it gets it on Save unless its box is cleared. A game object must be a
+	// Quest giver (type 2) to be added: Meld never changes its type for the author (#293's decision),
+	// so another object is refused, saying why (Go refuses it too).
 
 	let { entry, dirty = $bindable(false) }: { entry: number; dirty?: boolean } = $props()
 
@@ -68,8 +70,17 @@
 		givers[list] = givers[list].filter((_, k) => k !== i)
 	}
 
+	/** An object that can't be added: not a Quest giver, so the server would ignore it. */
+	const refused = (g: vmangos.QuestGiver) => g.kind === 'object' && !g.ready
+	const refusedText = 'Not a Quest giver object (type 2), so the server ignores its quests: set its Type to Quest giver in the game object editor first'
+
 	function add(list: List, g: vmangos.QuestGiver) {
 		if (givers[list].some((r) => id(r) === id(g))) return
+		if (refused(g)) {
+			error = `${g.name} (object ${g.id}): ${refusedText}.`
+			return
+		}
+		error = ''
 		givers[list] = [...givers[list], vmangos.QuestGiver.createFrom({ ...g, patchMin: 0, patchMax: 10 })]
 	}
 
@@ -148,7 +159,7 @@
 									><input type="checkbox" checked={flag[g.id] !== false} onchange={(e) => (flag[g.id] = e.currentTarget.checked)} /> No Quest giver flag, so it offers and takes no quests: give it the flag on Save</label
 								>
 							{:else}
-								<span>Not a quest giver object (type 2), so it offers no quests: change its type in the game object editor.</span>
+								<span>Not a quest giver object (type 2), so the server ignores it here: change its type in the game object editor, or remove it.</span>
 							{/if}
 						</li>
 					{/if}
@@ -161,8 +172,8 @@
 	{#if selected}
 		<p class="sel">
 			Selected on the map: <b>{selected.name}</b> <span class="dim">({what(selected)} {selected.id})</span>
-			<button disabled={givers.starts.some((r) => id(r) === id(selected))} onclick={() => add('starts', selected)}>Starts</button>
-			<button disabled={givers.ends.some((r) => id(r) === id(selected))} onclick={() => add('ends', selected)}>Ends</button>
+			<button disabled={refused(selected) || givers.starts.some((r) => id(r) === id(selected))} title={refused(selected) ? refusedText : ''} onclick={() => add('starts', selected)}>Starts</button>
+			<button disabled={refused(selected) || givers.ends.some((r) => id(r) === id(selected))} title={refused(selected) ? refusedText : ''} onclick={() => add('ends', selected)}>Ends</button>
 		</p>
 	{/if}
 	<span class="search">
@@ -176,9 +187,9 @@
 			{#each results as r (id(r))}
 				<li>
 					<span class="name">{r.name}</span>
-					<span class="dim">{r.id}{r.ready ? '' : r.kind === 'creature' ? ' · no Quest giver flag' : ' · not a quest giver'}</span>
-					<button disabled={givers.starts.some((q) => id(q) === id(r))} onclick={() => add('starts', r)}>Starts</button>
-					<button disabled={givers.ends.some((q) => id(q) === id(r))} onclick={() => add('ends', r)}>Ends</button>
+					<span class="dim">{r.id}{r.ready ? '' : r.kind === 'creature' ? ' · no Quest giver flag' : ' · not a quest giver (type 2), so it cannot be added'}</span>
+					<button disabled={refused(r) || givers.starts.some((q) => id(q) === id(r))} title={refused(r) ? refusedText : ''} onclick={() => add('starts', r)}>Starts</button>
+					<button disabled={refused(r) || givers.ends.some((q) => id(q) === id(r))} title={refused(r) ? refusedText : ''} onclick={() => add('ends', r)}>Ends</button>
 				</li>
 			{/each}
 		</ul>
