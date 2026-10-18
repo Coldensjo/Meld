@@ -50,6 +50,16 @@ export interface OutsideWmo {
  */
 export class WmoRooms {
   current: CameraRoom | null = null
+  /**
+   * The placed WMOs the camera is over rather than in (#300): the eye is above the building's
+   * footprint but in none of its rooms, either because the down-ray found none or because the eye
+   * is above the top of the room it found. The client's camera stays near the player, inside a room
+   * or beside the building; Meld's flying camera goes over it, where the client's flood (from a
+   * room far below, or from outside through the exterior groups, which in Stormwind are one shell
+   * around streets that are lit interiors) left holes to the sky. They are drawn whole, left out of
+   * `outside` as a WMO-only building is.
+   */
+  readonly over: number[] = []
   private navs = new Map<string, WmoNav | null>()
   private wmoIds: number[] = []
   private layer: ObjectLayer | null = null
@@ -71,7 +81,8 @@ export class WmoRooms {
    * `eye`, other than the one the camera is in; one whose room data is still loading is left out
    * (and starts loading). `whole`, a WMO-only map's building (#271), is left out too, so it is drawn
    * whole from outside: a dungeon's groups are all interior, and with no exterior to flood from it
-   * would not show at all. The list and its entries are reused by the next call.
+   * would not show at all; so are the WMOs the camera is `over`. The list and its entries are reused
+   * by the next call.
    */
   outside(objects: ObjectLayer, frustum: THREE.Frustum, eye: THREE.Vector3, max: number, whole: number | null = null): readonly OutsideWmo[] {
     const found = this.found
@@ -79,7 +90,7 @@ export class WmoRooms {
     // A hidden Objects layer (View › Layers) gates nothing.
     if (objects !== this.layer || !objects.group.visible) return found
     for (const id of this.wmoIds) {
-      if (id === this.current?.id || id === whole) continue
+      if (id === this.current?.id || id === whole || this.over.includes(id)) continue
       const o = objects.objects.get(id)
       if (!o || objects.isHidden(id)) continue
       const asset = getAsset(o.type)
@@ -108,13 +119,15 @@ export class WmoRooms {
   }
 
   /**
-   * Runs the probe for an eye at `eye` (world space). `groundAt` gives the terrain's height under a
-   * point, or null where there is none (off the map, or a hole). While the Objects layer is hidden
-   * (View › Layers) the camera is in no room, so a building the author can't see never gates the view.
+   * Runs the probe for an eye at `eye` (world space), finding `current` and `over`. `groundAt`
+   * gives the terrain's height under a point, or null where there is none (off the map, or a hole).
+   * While the Objects layer is hidden (View › Layers) the camera is in no room, so a building the
+   * author can't see never gates the view.
    */
   update(objects: ObjectLayer, eye: THREE.Vector3, groundAt: (x: number, z: number) => number | null) {
     if (!objects.group.visible) {
       this.current = null
+      this.over.length = 0
       this.lastEye.set(NaN, NaN, NaN) // look again once the layer is shown
       return
     }
@@ -129,6 +142,7 @@ export class WmoRooms {
     this.lastEye.copy(eye)
     this.seenLoaded = this.loaded
     this.current = null
+    this.over.length = 0
     const ground = groundAt(eye.x, eye.z)
     for (const id of this.wmoIds) {
       const o = objects.objects.get(id)
@@ -141,10 +155,17 @@ export class WmoRooms {
       objects.matrixOf(o, this.m)
       this.inv.copy(this.m).invert()
       this.local.copy(eye).applyMatrix4(this.inv)
-      if (!asset.bbox.containsPoint(this.local)) continue
+      const b = asset.bbox
+      // Over the footprint, not below the building (the editor's local frame is Y up).
+      const l = this.local
+      if (l.x < b.min.x || l.x > b.max.x || l.z < b.min.z || l.z > b.max.z || l.y < b.min.y) continue
       const path = baseType(o.type).slice('wmo:'.length)
       const nav = this.nav(path)
       if (!nav) continue
+      if (this.current || l.y > b.max.y) {
+        this.over.push(id)
+        continue
+      }
       toModel(this.local, this.eyeModel)
       let groundZ: number | null = null
       if (ground !== null) {
@@ -153,7 +174,10 @@ export class WmoRooms {
       }
       const [ex, ey, ez] = this.eyeModel
       const seeds = downRayPick(nav, ex, ey, ez, groundZ)
-      if (seeds.inGroup === null) continue
+      if (seeds.inGroup === null || ez > nav.groups[seeds.inGroup].max[2]) {
+        this.over.push(id)
+        continue
+      }
       // The fog comes from the first of the camera's groups that is a true interior (no 0x48).
       let fog: FogTarget | null = null
       for (const g of [seeds.inGroup, seeds.across]) {
@@ -174,7 +198,6 @@ export class WmoRooms {
         origin: new THREE.Vector3().setFromMatrixPosition(matrix),
         fog,
       }
-      return
     }
   }
 

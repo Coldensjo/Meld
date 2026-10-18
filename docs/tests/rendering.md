@@ -425,3 +425,22 @@ Checks: a WMO group's MLIQ (`internal/wow/wmoliquid.go`) reaches the frontend af
   surface there is the cavern's floor under the lava, not the liquid. Importing `liquidMaterial.ts`
   from `models/assets.ts` loops back through `TerrainMaterial` → `PropEffects` and the page dies on
   `TILE_YARDS before initialization`, so ObjectLayer asks for the frames (`wantLiquid`).
+
+## A camera over a building is in none of its rooms (#300)
+
+Checks: `WmoRooms.update` counts the eye in a room only when the down-ray's room box holds it; an eye
+over the building's footprint otherwise (no room found, above the top of the room found, or above the
+whole building) puts the WMO in `e.rooms.over`, which is drawn whole and left out of the outside flood.
+The client keeps its camera near the player, so its flood never meets this; Meld's flying camera does.
+- Probe: `bun run probe wmo-over` (about 35 s): the benchmark scene's Stormwind from 52 yd over the
+  canals (the issue's view: before the fix the Command Center's floor 70 yd below claimed the eye and
+  the walls had holes to the sky) and from 250 yd over the city (before, the outside flood from the
+  city's one exterior shell drew almost nothing), each compared with the gate off (within the two-shot
+  noise), and 2.5 yd over a floor of The Canals, still in that room (group 7).
+- Why Stormwind: 305 of its 306 groups lack MOGP 0x8; its streets are lit interiors (0x40, box tops
+  only 5 to 7 yd over the street) reached from outside only through one shell (group 46, `thief01`).
+  Flooding from a street group with the eye 12 yd up hid the street itself and everything round it.
+- Traps: the benchmark scene turns Follow the Ground on, which orbits the camera at `distance` from
+  the target; with it off the flying camera sits at the target (set it through the app's `prefs`, then
+  step two frames before `setSceneView`, or the view keeps the old camera). The canal water animates,
+  so the two-shot noise over it is about 1%.

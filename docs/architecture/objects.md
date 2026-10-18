@@ -45,7 +45,7 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     groups the flood didn't reach and fogs the reached interiors with the room fog. The 15 nearest
     other WMOs with portals in view are flooded from outside (`WmoRooms.outside`, every exterior group
     a root, but never a WMO-only map's building, whose groups are all interior and which then draws
-    whole from outside, #271), each in its own row of the gate's mask, so an interior shows only through a doorway; a
+    whole from outside, #271, nor one the camera is over, below), each in its own row of the gate's mask, so an interior shows only through a doorway; a
     doodad carries up to two groups (`Mesh.Room` has two a vertex). From inside, the open world shows only
     through the flood's exterior windows (#116, `CullView.gate`, `Terrain.gate`, the particles): a
     model, spawn, terrain chunk or emitter must meet a doorway's narrowed frustum, and a sealed room
@@ -54,6 +54,11 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     position), so the creatures and models in the camera's room stay drawn. Spawns are left out of the gate while View › Creatures and objects through
     walls is on (`prefs.spawnsThroughWalls`, the default, #150). The liquids, the sea and the grass tufts are gated too (#119: `LiquidRenderer.gate`,
     `Water.gate`, `GroundEffectLayer.gate`, which packs from the last build's full set).
+    Meld's own departure from the client (#300): the eye is in a room only inside the box of the room
+    the down-ray finds. Over a building's footprint otherwise (no room found, above that room's box, or
+    above the whole building) the WMO goes in `WmoRooms.over` and is drawn whole, since the client's
+    camera never goes there and its flood then left holes: Stormwind's streets are lit interiors (0x40)
+    a few yards tall, reached from outside only through one exterior shell.
 
 ## Prop animation, lights & flames
 

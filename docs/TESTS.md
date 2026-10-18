@@ -364,6 +364,7 @@ the same scene, the report before and after.
 - Weather preview and zone weather (#185)
 - The floor plane under the map is a backdrop (#289)
 - A WMO's liquids: Blackrock Depths' lava (#287)
+- A camera over a building is in none of its rooms (#300)
 
 ### Terrain, water and map data (`docs/tests/terrain.md`)
 
