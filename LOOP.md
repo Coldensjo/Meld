@@ -333,7 +333,7 @@ b. Read the code it touches before changing it, and search the decisions about t
    for this issue (`git stash list`, an entry named `loop #<n>`, also named in its comments) and pop it.
 
 c. Verify it. While you work, run only the tests that touch the change
-   (`cd frontend && node --import ./tests/register.mjs --test tests/<name>.test.ts`, `go test
+   (`cd frontend && bun test tests/<name>.test.ts`, `go test
    ./internal/<pkg>/`) and the probes that touch it (`cd frontend && bun run probe --list`, then
    `bun run probe <name...>`; the coordinator keeps `make dev` running). Before committing, run all of:
    - `make test`
