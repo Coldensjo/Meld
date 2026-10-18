@@ -72,7 +72,10 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     room (`WmoRooms.current`; after a jump the probe runs for the new eye first) the highest walking
     face at or below the eye (`WmoRooms.floorAt`, `wmoRoom.ts` `walkFloorZ`, Leg A of the down-ray),
     not the terrain, which in Stormwind runs yards above and below the streets; elsewhere the higher
-    of the terrain and a WMO floor, so a roof is a floor too. The Walk camera still stands on the terrain.
+    of the terrain and a WMO floor, so a roof is a floor too. The Walk camera stands on the same floor
+    (#312, `CameraController.walkFloor`), searched from `WALK_STEP` (2 yd) above the floor it stood on,
+    so stairs are climbed and a roof or bridge above is walked under; a jump into the walk searches
+    from the eye. Walk does not collide with walls.
     Without it a wall closer than the near plane (0.5 yd) would be clipped away and, gated, show the sky.
     `WmoRooms.wallDist` is the eye's distance to the nearest collision face of any WMO within 2 yd
     (`wmoRoom.ts` `nearestFaceDist`, through the column index), and `Engine.updateNear` pulls the near
