@@ -50,7 +50,8 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   beside the clear ones; a light without them keeps its clear ones) over the clear ones by the storm
   blend, full from a quarter grade up, so the fog closes in (a storm's negative fog share) and the
   clouds darken (`CloudDome.update`'s `storm`); it needs Client Lighting. And the drops,
-  `world/WeatherLayer.ts`: rain as Mod2x streak triangles, snow as white point sprites, and the mist
+  `world/WeatherLayer.ts`: rain as Mod2x streak triangles (the head on `RainDrop01.blp`'s bottom
+  rows, v = 1, where its streak is wide and bright; the tip on its top, v = 0), snow as white point sprites, and the mist
   puffs (all a sandstorm has) in the fog's colour, each placed in the vertex shader from its seed and
   the clock and wrapped into a box around the eye, so nothing runs per drop on the CPU. A part is built
   the first time its weather shows; clear weather and the top-down view hide the group. Three more

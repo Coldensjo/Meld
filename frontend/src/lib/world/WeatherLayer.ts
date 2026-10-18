@@ -60,7 +60,8 @@ bool gated() {
 
 // Rain: a streak triangle a drop, its base 0.1 yd across at the head and its tip 2 yd back along the
 // fall, at a fixed size, the tip tipped into the wind by `tilt`; fades out from 70 to 75 yd (the
-// client's forced fog).
+// client's forced fog). RainDrop01.blp holds the streak point up, its wide bright end at the bottom
+// rows, so the head takes v = 1 and the tip v = 0, as Benilla's `push_streaks` maps it (#314).
 const rainVertex = /* glsl */ `
 ${wrapChunk}
 uniform float density;
@@ -83,7 +84,7 @@ void main() {
 	vec3 back = -normalize(vel);
 	vec3 right = normalize(cross(back, normalize(eye - head)));
 	vec3 pos = corner < 0.5 ? head - right * 0.05 : corner < 1.5 ? head + right * 0.05 : head + tilt * back * 2.0;
-	vUv = corner < 0.5 ? vec2(0.0, 0.0) : corner < 1.5 ? vec2(1.0, 0.0) : vec2(0.5, 1.0);
+	vUv = corner < 0.5 ? vec2(0.0, 1.0) : corner < 1.5 ? vec2(1.0, 1.0) : vec2(0.5, 0.0);
 	vFade = edge * (1.0 - smoothstep(70.0, 75.0, length(p)));
 	gl_Position = projectionMatrix * viewMatrix * vec4(pos, 1.0);
 }
