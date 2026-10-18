@@ -206,7 +206,8 @@ export class SpawnLayer {
   }
 
   private applyKinds() {
-    for (const b of this.batches) b.mesh.visible = this.shown[b.kind]
+    // An empty mesh is hidden too: three would still set up each of its groups in every pass (#323).
+    for (const b of this.batches) b.mesh.visible = this.shown[b.kind] && b.mesh.count > 0
     this.version++
   }
 
@@ -238,6 +239,7 @@ export class SpawnLayer {
       b.dirty = false
       packMatrices(b.matrices, b.packed, b.mesh.instanceMatrix.array as Float32Array)
       b.mesh.count = b.packed.length
+      b.mesh.visible = this.shown[b.kind] && b.mesh.count > 0
       b.mesh.instanceMatrix.needsUpdate = true
       b.mesh.computeBoundingSphere()
     }

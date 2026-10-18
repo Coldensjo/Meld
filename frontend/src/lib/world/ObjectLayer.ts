@@ -408,6 +408,7 @@ export class ObjectLayer {
     const m = new THREE.InstancedMesh(geometry, wmoLiquidMaterial(), capacity)
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     m.count = 0
+    m.visible = false
     m.userData.type = type
     m.userData.ids = ids
     m.renderOrder = 10
@@ -429,6 +430,8 @@ export class ObjectLayer {
     }
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     m.count = 0
+    // Shown by `pack` once it holds an instance.
+    m.visible = false
     m.userData.type = type
     m.userData.ids = ids
     // Our own cull packs what is in view; three only culls it per point-light shadow face.
@@ -521,6 +524,8 @@ export class ObjectLayer {
     ids.length = which.length
     for (let k = 0; k < which.length; k++) ids[k] = b.all[which[k]]
     mesh.count = which.length
+    // An empty mesh is hidden: three would still set up each of its groups in every pass (#323).
+    mesh.visible = which.length > 0
     mesh.instanceMatrix.needsUpdate = true
     // Picking tests the mesh's sphere first, so it must cover the instances drawn.
     mesh.computeBoundingSphere()

@@ -13,6 +13,9 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
 - **Objects** (`lib/world/ObjectLayer.ts`):
   - One `InstancedMesh` per model type, so draw calls scale with the number of types, not
     instances.
+  - A mesh with nothing packed (`count` 0) is hidden (`pack`, and `SpawnLayer.cull` with the spawn
+    kinds shown): three would still set up each of its groups in every pass, since `cullForShadows`
+    passes every frustum but a point light's (#323). So `visible` on a batch mesh means "drawn now".
   - Each loaded model gets a three-mesh-bvh bounds tree (`world/bvh.ts`), which `pick` and
     `raycastSurface` cast through.
   - Each loaded model may also get a meshoptimizer LOD (`models/lod.ts`): a second index over the
