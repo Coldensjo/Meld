@@ -175,8 +175,11 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `mapio.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south
-  unless the map ends there), closes the old tab and keeps the camera's view. It refuses a dirty map,
-  since the bigger block is read from the client.
+  unless the map ends there), closes the old tab and keeps the camera's view. Since the bigger block
+  is read from the client and its spawns from the world database, it refuses while the region has
+  edits the client lacks (`regionUncompiled`, below; Save only writes the `.wmap`) or spawn edits not
+  saved (`ui.spawnChanges`), and names Compile to Client or Save Spawns to Database (#318). A map
+  that is only dirty otherwise grows: what Compile writes is in the client.
 - **Compiling a region** (#214): File › Compile to Client, Compile to Server and Compile All call
   `compileRegion` in `mapio.ts` with `'client'`, `'server'` or `'all'`. Client builds the active tab's
   `RegionEdit` (`regionEdit`: heights, models, paint and chunk headers, liquids) and `SaveRegion`

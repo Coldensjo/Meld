@@ -3,7 +3,9 @@
 // Compile Region to Client), Preferences no longer has Update the Server Maps after Compile; the region
 // as opened counts as compiled, a history step that changes no compile input (as a spawn edit is)
 // doesn't change that, a raised vertex does and its undo takes it back; Launch with the raised vertex
-// opens the Compile and Launch dialog instead of starting the game; and for a region with no
+// opens the Compile and Launch dialog instead of starting the game; growing the region (#318) with the
+// raised vertex, or with a spawn edit counted, is refused with a status line that names Compile to
+// Client or Save Spawns and keeps the tab; and for a region with no
 // fingerprint (opened from a file) the Go side's RegionPending finds the raised tile. It never
 // compiles: that would write the owner's patch.
 const { ui, editor } = await P.state()
@@ -42,7 +44,16 @@ await mapio.launchGame(P.e)
 const dialog = ui.dialog
 const named = ui.uncompiledRegion
 ui.dialog = null
+// Growing asks for a compile, not a save, and keeps the tab (#318).
+const tabId = P.e.activeDocumentId()
+await mapio.extendRegion(P.e, 'e')
+const growRaised = { status: ui.status, kept: P.e.activeDocumentId() === tabId, size: P.e.activeRegion()?.size }
 P.e.undo()
+const spawnCount = ui.spawnChanges
+ui.spawnChanges = 1
+await mapio.extendRegion(P.e, 'e')
+const growSpawn = { status: ui.status, kept: P.e.activeDocumentId() === tabId, size: P.e.activeRegion()?.size }
+ui.spawnChanges = spawnCount
 const afterUndo = await mapio.regionUncompiled(P.e)
 const restored = P.e.outerHeights().every((h, i) => h === before[i])
 // No fingerprint, as for a region opened from a file: the Go side compares the build with the patch.
@@ -53,7 +64,7 @@ const pendingRaised = await mapio.regionUncompiled(P.e)
 d.compiled = key
 P.e.undo()
 
-const out = { menu, opened, afterStep, afterRaise, dialog, named, afterUndo, restored, pendingRaised }
+const out = { menu, opened, afterStep, afterRaise, dialog, named, growRaised, growSpawn, afterUndo, restored, pendingRaised }
 out.ok =
 	menu.compile.join('|') === 'Compile to Client|Compile to Server|Compile All' &&
 	!menu.oldEntry &&
@@ -63,6 +74,14 @@ out.ok =
 	afterRaise === true &&
 	dialog === 'compileBeforeLaunch' &&
 	named === 'Azeroth 31_50' &&
+	growRaised.kept &&
+	growRaised.size === 1 &&
+	growRaised.status.includes('Compile to Client') &&
+	!growRaised.status.includes('Save Spawns') &&
+	growSpawn.kept &&
+	growSpawn.size === 1 &&
+	growSpawn.status.includes('Save Spawns to Database') &&
+	!growSpawn.status.includes('Compile to Client') &&
 	afterUndo === false &&
 	restored &&
 	pendingRaised === true

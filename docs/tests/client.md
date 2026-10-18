@@ -124,7 +124,9 @@ open region has edits the client lacks, and only then.
 - Probe `compile-launch` (`bun run probe compile-launch`, about 5 s): opens Azeroth 31_50, checks the menu,
   that the region counts as compiled as it opens, that a history step changing no compile input (as a
   spawn edit is) keeps it so, that a raised vertex makes it uncompiled and its undo compiled again, that
-  Launch then opens the Compile and Launch dialog without starting anything, and that the Go side's
+  Launch then opens the Compile and Launch dialog without starting anything, that growing the region
+  (`extendRegion`, #318) with the raised vertex or with a spawn edit counted is refused with a status
+  line naming Compile to Client or Save Spawns and keeps the 1×1 tab, and that the Go side's
   `RegionPending` (used for a region opened from a file) finds the raised tile.
 - It never compiles: Compile to Client writes the owner's `patch-3.MPQ` (closing the game), and Compile
   to Server or All restart mangosd. Check those by hand, with the owner's go-ahead: after Compile to

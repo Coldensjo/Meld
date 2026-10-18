@@ -15,7 +15,9 @@ await m.extendRegion(window.__engine, 'e')    // opens 2×2 at the same origin, 
 ed.editor.regionBlock, ed.docs.tabs.length    // {x: 32, y: 48, size: 2}, the tab count unchanged
 ```
 
-- A dirty region is refused with a status message (save first). The buttons are `.plus` in the Map
+- A region with uncompiled edits or unsaved spawn edits is refused with a status line naming
+  Compile to Client or Save Spawns to Database, and keeps its tab: the `compile-launch` probe checks
+  both without compiling. The buttons are `.plus` in the Map
   panel; they are missing on a side where the map ends or when the region is 16 tiles.
 - Opening a region takes a few seconds; `ui.busy` is true meanwhile, and the Map panel ignores a
   second plus until it is done.

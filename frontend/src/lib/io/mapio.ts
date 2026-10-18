@@ -426,18 +426,24 @@ async function openRegionView(engine: Engine, view: vmangos.RegionView) {
 
 /**
  * Opens the active region one tile bigger on `side` (the Map panel's plus), in the old tab's place,
- * with the camera where it was. The block stays square (see regionGrow.ts). Unsaved changes would
- * be lost in the reload, so the map must be saved first: saving writes the tiles to the client,
- * which the bigger block is then read from.
+ * with the camera where it was. The block stays square (see regionGrow.ts). The bigger block is read
+ * from the client's tiles and the old tab closes, so the region's edits must be in the client first
+ * (Compile to Client; Save only writes the .wmap) and its spawn edits in the world database (#318).
  */
-export function extendRegion(engine: Engine, side: Side) {
+export async function extendRegion(engine: Engine, side: Side) {
   const block = editor.regionBlock
   const mapName = editor.regionMap
   if (!block || !mapName) return
   const grown = grownBlock(block, side)
   if (!grown) return
-  if (editor.dirty) {
-    setStatus('Save the map first (Ctrl+S writes its tiles to the client), then add the next tiles.', 8000)
+  const uncompiled = await regionUncompiled(engine)
+  const spawns = ui.spawnChanges
+  if (uncompiled || spawns) {
+    const need = [
+      uncompiled ? 'its ground, paint, model or water edits to the client (File › Compile to Client)' : '',
+      spawns ? `its ${spawns} spawn ${spawns === 1 ? 'edit' : 'edits'} to the world database (File › Save Spawns to Database)` : '',
+    ].filter(Boolean)
+    setStatus(`The bigger block is read from the client and the server, so write ${need.join(' and ')} first, then add the next tiles.`, 10000)
     return
   }
   const oldId = engine.activeDocumentId()
