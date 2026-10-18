@@ -249,6 +249,9 @@ These are repeated from the docs above, since breaking one breaks things far fro
 - UI styling: plain CSS with the tokens in `frontend/src/app.css` (dark editor theme). No UI
   framework dependency.
 - Avoid per-frame allocations in hot paths (brush loops, `frame()`). Reuse vectors and buffers.
+- In agent shells, write source, edit scripts and any text with backticks, mixed quotes or backslashes
+  (client paths) with the Write and Edit tools, never a Bash heredoc: it fails to parse or halves the
+  backslashes (short heredocs, such as a commit message, are fine).
 - The app ships asset-free. All models and textures come from the user's own WoW install at
   runtime; there are no built-in prefabs. The one exception is the helper shapes (`models/helpers.ts`,
   types `helper:*`, the owner's decision): generated cubes, discs, spheres and a human-height post,
