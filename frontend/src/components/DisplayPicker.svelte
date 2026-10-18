@@ -189,8 +189,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-height: 0;
-    flex: 1;
+    flex: none;
   }
   input[type='search'] {
     width: 100%;
@@ -205,7 +204,7 @@
     min-width: 0;
   }
   .grid-wrap {
-    height: min(58vh, 640px);
+    max-height: min(58vh, 640px);
     flex: none;
     overflow-y: auto;
     border: 1px solid var(--border);
