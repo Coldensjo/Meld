@@ -53,7 +53,10 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     `world/roomAdmit.ts`: its room by the camera's down-ray from its sphere's centre, cached per
     position), so the creatures and models in the camera's room stay drawn. Spawns are left out of the gate while View › Creatures and objects through
     walls is on (`prefs.spawnsThroughWalls`, the default, #150). The liquids, the sea and the grass tufts are gated too (#119: `LiquidRenderer.gate`,
-    `Water.gate`, `GroundEffectLayer.gate`, which packs from the last build's full set).
+    `Water.gate`, `GroundEffectLayer.gate`, which packs from the last build's full set). The weather
+    preview has its own windows (#244, `RoomFlood.skyWindows`): the doorways onto any group with 0x8,
+    0x40 or 0x100 (`SKY_GROUP`, the client's weather flag), since Stormwind's shops open onto streets
+    lit as outdoors (0x40), which leave no exterior window.
     Meld's own departure from the client (#300): the eye is in a room only inside the box of the room
     the down-ray finds. Over a building's footprint otherwise (no room found, above that room's box, or
     above the whole building) the WMO goes in `WmoRooms.over` and is drawn whole, since the client's

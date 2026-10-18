@@ -53,8 +53,27 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   `world/WeatherLayer.ts`: rain as Mod2x streak triangles, snow as white point sprites, and the mist
   puffs (all a sandstorm has) in the fog's colour, each placed in the vertex shader from its seed and
   the clock and wrapped into a box around the eye, so nothing runs per drop on the CPU. A part is built
-  the first time its weather shows; clear weather, the top-down view and the camera in a WMO room hide
-  the group. Ground splashes and the wind are left out. Which weather a zone gets is the server's
-  `game_weather` (the Zones dialog, docs/architecture/terrain.md).
+  the first time its weather shows; clear weather and the top-down view hide the group. Three more
+  parts of the client's rain (#244, Benilla's `precip`):
+  - **Splashes**, rain's 0.25 s patters on the 4 x 4 atlas `RainDropSplash01.blp`: the wrapped box has
+    no landing, so they are a field of their own, 64 yd square round the eye, filled at the rate the
+    box's drops land on that much ground (`wow/weather.ts` `splashRate`), a ring of slots the CPU
+    fills a few dozen a frame (`WeatherLayer.updateSplashes`). Each lands on the higher of the terrain
+    and the models' surface on its 1.04 yd cell (the client's grid), which the Engine's `splashGround`
+    raycasts from 30 yd over the eye, cached per cell and only 4 cells a frame (about 0.25 ms each in
+    the bench scene); a cell not probed yet takes the terrain alone, so over Stormwind's holed ground
+    the splashes fill in over the first seconds.
+  - **Wind**: the camera's own planar velocity over 149 ms (`WeatherWind`). It leads each box by 1.75 x
+    itself, held to 0.3 of the box's width (Meld's camera flies far faster than a player runs), and
+    tips the streaks' tails into it, up to 45 degrees at 30 yd/s. The client's slab tilt is not ported
+    (the wrapped box is full everywhere, so a moving camera meets drops anyway), nor the mist's yaw by
+    the wind's heading (it turns each new puff, and wrapped puffs have no birth).
+  - **Rooms**: in a WMO group open to the sky (0x8, 0x40 or 0x100, as Stormwind's streets) the
+    weather shows whole; in a true interior only through the doorways onto one (the flood's
+    `skyWindows`, a fragment clip on up to 4 NDC rects, `WeatherLayer.gate`, set after
+    `updateRoomGate` so it is this frame's), and a room with none in view hides it, as the client hides
+    it when no such group is visible. The clip stands in for the client's drops landing on the roof.
+  Which weather a zone gets is the server's `game_weather` (the Zones dialog,
+  docs/architecture/terrain.md).
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
   cycling, so it doesn't write reactive state every frame.

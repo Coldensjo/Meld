@@ -67,7 +67,7 @@ import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { WmoRooms } from '../world/WmoRooms'
 import { GROUND_SNAP_REACH } from '../world/particles'
-import { RoomFlood } from '../world/wmoFlood'
+import { RoomFlood, SKY_GROUP } from '../world/wmoFlood'
 import { RoomFogFade } from '../world/wmoFog'
 import { RoomAdmit } from '../world/roomAdmit'
 import { addRoomGate, beginRoomGates, endRoomGates, ROOM_MAX_GATED, setRoomFog } from '../world/roomGate'
@@ -75,7 +75,7 @@ import { toModel } from '../world/wmoRoom'
 import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
 import { stormBlend, WEATHER_GRADE } from '../wow/weather'
-import { WeatherLayer } from '../world/WeatherLayer'
+import { WeatherLayer, type SplashGround } from '../world/WeatherLayer'
 import { editorPoint, serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
 import { antialiasAtStart } from './display'
@@ -311,6 +311,17 @@ export class Engine {
   private tmpColor = new THREE.Color()
   /** Lighting › Weather Preview's drops around the camera. */
   private weather = new WeatherLayer()
+  /** Where the rain's splashes land: the terrain, and the models' surfaces from a height down. */
+  private splashRay = new THREE.Raycaster()
+  private splashGround: SplashGround = {
+    terrain: (x, z) => (this.terrain.contains(x, z) && !this.terrain.isHole(x, z) ? this.terrain.heightAt(x, z) : -Infinity),
+    models: (x, fromY, z) => {
+      this.splashRay.set(this.snapHit.set(x, fromY, z), DOWN)
+      this.splashRay.far = 250
+      return this.objects.raycastSurface(this.splashRay)?.point.y ?? -Infinity
+    },
+    source: () => this.objects,
+  }
   /** View › Bounding boxes: a box around every model. */
   private boxes = new ModelBoxes()
   /** The box around each selection group a selected model is in. */
@@ -1060,6 +1071,7 @@ export class Engine {
     this.animateModels(time)
     m.mark(SECTION.Animation)
     this.updateParticles(dt, time)
+    this.updateWeather(time)
     m.mark(SECTION.Particles)
     this.updateSelectionVisuals()
     this.updateDoomVisuals()
@@ -1260,7 +1272,6 @@ export class Engine {
     this.applyClientLight(time)
     ;(this.scene.background as THREE.Color).copy(s.horizon)
     if (fog) fog.color.copy(s.horizon)
-    this.updateWeather(time)
     this.horizon.update(this.doc.id, this.doc.meta.region, !!this.prefs?.showHorizon && wow.loaded && !this.topDown, s.horizon)
 
     const tu = this.terrain.material.uniforms
@@ -1676,14 +1687,21 @@ export class Engine {
   }
 
   /**
-   * Lighting › Weather Preview: the drops and mist around the camera, the mist in the fog's colour.
-   * Hidden in the top-down view and with the camera in a building, as the client draws no weather
-   * indoors. The storm light is applyClientLight's.
+   * Lighting › Weather Preview: the drops, splashes and mist around the camera, the mist in the fog's
+   * colour. Hidden in the top-down view. With the camera in a WMO room it shows as the client's does
+   * (#244): whole in a group open to the sky (0x8, 0x40 or 0x100, as Stormwind's streets), and from a
+   * true interior only through the doorways onto one, the portal flood's sky windows (so it runs after
+   * updateRoomGate, on this frame's windows); a room with none in view hides it. The storm light is
+   * applyClientLight's.
    */
   private updateWeather(time: number) {
     const kind = ui.weather
-    const show = kind !== 'clear' && !this.topDown && !this.rooms.current
-    this.weather.update(kind, WEATHER_GRADE[ui.weatherGrade], this.camera.position, time, this.env.state.horizon, this.renderer.domElement.height, show)
+    const show = kind !== 'clear' && !this.topDown
+    const r = this.rooms.current
+    const open = !r || this.topDown || (r.nav.groups[r.group]?.flags ?? 0) & SKY_GROUP || (r.across !== null && (r.nav.groups[r.across]?.flags ?? 0) & SKY_GROUP)
+    this.weather.gate(open ? null : this.roomFlood.skyWindows)
+    const c = this.renderer.domElement
+    this.weather.update(kind, WEATHER_GRADE[ui.weatherGrade], this.camera.position, time, this.env.state.horizon, c.width, c.height, this.splashGround, show)
   }
 
   /**

@@ -372,7 +372,7 @@ the Engine's loop).
   particle's alpha too, which composited the spark texture's black as opaque squares there; additive
   batches now keep the target's alpha (CustomBlending, same colour factors).
 
-## Weather preview and zone weather (#185)
+## Weather preview and zone weather (#185); splashes, wind and doorways (#244)
 
 Checks: Lighting › Weather Preview (`world/WeatherLayer.ts`, `wow/weather.ts`, the storm blend in
 `wow/clientLight.ts`) and the Zones dialog's Weather section (`vmangos/weather.go`). Unit tests:
@@ -389,6 +389,19 @@ storm params over the clear ones), `go test ./internal/vmangos/ -run 'Weather|Cl
   fog's own colour, so with the camera high over fogged ground it is invisible; the probe lowers it.
 - In the game: Save a chance, `.reload game_weather` (or restart the world server), then a GM's
   `.wchange <type> <grade>` (1 rain, 2 snow, 3 storm) forces the weather to compare with the preview.
+- Splashes, wind and doorways (#244): `bun run probe weather-wind` (about 40 s) on the bench scene:
+  heavy rain's splashes land on open ground west of Stormwind (this frame's, all on the terrain or a
+  model, none under it, and they change pixels), a camera stepped 2 yd a frame along +X leads the
+  rain's box along +X and tips the streaks' tails that way, and both settle when it stops; the rain
+  shows whole on the Trade District's street (group 49, 0x40) with splashes on Stormwind's models,
+  and from SI:7 (group 113) only while its door is in view, where the same frame with and without
+  the weather differs in the doorway and not on the wall. Unit tests: `tests/weather.test.ts` (the
+  wind's window, lead and tilt, the splash rate), `tests/wmoFlood.test.ts` (a doorway onto a 0x40
+  street is a sky window, not an exterior one).
+- Trap: the probe's frames are about 0.3 s apart, longer than a splash lives, so only the frame's own
+  splashes are alive (compare births as `Math.fround(clock)`, the attribute is float32). Splashes are
+  tiny (1/6 yd, the shape a third of that) and faint (Mod2x on a grey atlas): at heavy rain about 0.2
+  live a square yard, so a view looking down from 2 yd shows few or none; look along the ground.
 
 ## The floor plane under the map is a backdrop (#289)
 

@@ -15,6 +15,8 @@
 //   interiors only (no 0x8 or 0x40 on the way, nor on it).
 //
 // The windows of the building the camera is in gate the open world (Engine.cullInstances, #116).
+// Its sky windows, the doorways onto any group open to the sky (0x8, 0x40 or 0x100), gate the
+// weather (Engine.updateWeather, #244): the client's weather flag is any such group in view.
 // The epsilons are the client's: the side test at exactly 0, the rect collapse at 0.001, the w clamp.
 
 import * as THREE from 'three'
@@ -24,6 +26,8 @@ import { EXTERIOR, type RoomSeeds, type WmoNav } from './wmoRoom'
 export const EXTERIOR_LIT = 0x40
 /** MOGP 0x10000: drawn in the third pass against the whole view. */
 export const CALLBACK_PASS = 0x10000
+/** The flags of a group the client's weather shows in (`0x6b42d9`, Benilla's `exterior_visible`). */
+export const SKY_GROUP = 0x148
 const DEPTH_CAP = 10
 const MAX_ITERS = 1 << 16
 const RECT_EPS = 0.001
@@ -46,9 +50,18 @@ export class RoomFlood {
   private visible = new Uint8Array(0)
   private fog = new Uint8Array(0)
   private pushed = new Uint8Array(0)
+  private pushedSky = new Uint8Array(0)
   /** The walk's stack, eight numbers a step: group, came-from, rect x0 y0 x1 y1, depth and chain. */
   private stack: number[] = []
   private windows: number[] = []
+  private sky: number[] = []
+  /**
+   * The last run's doorways onto a group open to the sky (SKY_GROUP), as `exteriorWindows`, recorded
+   * on the inside leg only: where the weather shows from a true interior.
+   */
+  get skyWindows(): readonly number[] {
+    return this.sky
+  }
   /**
    * The last run's deferred exterior windows, four numbers (NDC x0 y0 x1 y1) each: the doorways the
    * open world may be seen through. Empty for a sealed room, or when the run had no seed.
@@ -75,16 +88,21 @@ export class RoomFlood {
       this.visible = new Uint8Array(n)
       this.fog = new Uint8Array(n)
     }
-    if (this.pushed.length < nav.portals.length) this.pushed = new Uint8Array(nav.portals.length)
+    if (this.pushed.length < nav.portals.length) {
+      this.pushed = new Uint8Array(nav.portals.length)
+      this.pushedSky = new Uint8Array(nav.portals.length)
+    }
     this.visible.fill(0)
     this.fog.fill(0)
     this.pushed.fill(0)
+    this.pushedSky.fill(0)
     this.nav = nav
     this.eye = eye
     this.iters = 0
     for (let i = 0; i < 16; i++) this.m[i] = clipFromLocal.elements[i]
     const out: RoomPvs = { visible: this.visible.subarray(0, n), fog: this.fog.subarray(0, n) }
     this.windows.length = 0
+    this.sky.length = 0
     this.stack.length = 0
     let insideLeg = false
     if (seeds.inGroup !== null) {
@@ -167,6 +185,10 @@ export class RoomFlood {
         if (recordWindows && to < groups.length && groups[to].flags & EXTERIOR && !this.pushed[ref.portal]) {
           this.pushed[ref.portal] = 1
           this.windows.push(ix0, iy0, ix1, iy1)
+        }
+        if (recordWindows && to < groups.length && groups[to].flags & SKY_GROUP && !this.pushedSky[ref.portal]) {
+          this.pushedSky[ref.portal] = 1
+          this.sky.push(ix0, iy0, ix1, iy1)
         }
         this.push(stack, to, g, ix0, iy0, ix1, iy1, depth + 1, chainOn)
       }

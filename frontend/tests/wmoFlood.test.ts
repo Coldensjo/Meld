@@ -138,3 +138,22 @@ test('from outside, an interior shows only through a doorway in view, and takes 
   assert.equal(away.visible[0], 0, 'the doorway behind the camera')
   assert.equal(away.visible[1], 1, 'the shell is always a root')
 })
+
+test("a doorway onto a street lit as outdoors is a sky window for the weather, though not the open world's window (#244)", () => {
+  const f = new RoomFlood()
+  // Stormwind's shops open onto streets flagged 0x40, not 0x8: no exterior window, but a sky window.
+  f.run(hall(EXTERIOR_LIT), seeds, EYE, clip([-5, 2, 0], [5, 2, 0]))
+  assert.equal(f.exteriorWindows.length, 0)
+  assert.equal(f.skyWindows.length, 4)
+  const [x0, y0, x1, y1] = f.skyWindows
+  assert.ok(x0 > -1 && x1 < 1 && y0 > -1 && y1 < 1 && x1 > x0 && y1 > y0, 'the doorway, not the whole screen')
+  // A true interior beyond is no window; a doorway behind the camera is none either.
+  f.run(hall(0), seeds, EYE, clip([-5, 2, 0], [5, 2, 0]))
+  assert.equal(f.skyWindows.length, 0)
+  f.run(hall(EXTERIOR_LIT), seeds, EYE, clip([-5, 2, 0], [-15, 2, 0]))
+  assert.equal(f.skyWindows.length, 0)
+  // An exterior doorway is both.
+  f.run(hall(EXTERIOR), seeds, EYE, clip([-5, 2, 0], [5, 2, 0]))
+  assert.equal(f.exteriorWindows.length, 4)
+  assert.equal(f.skyWindows.length, 4)
+})
