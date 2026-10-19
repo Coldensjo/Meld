@@ -163,7 +163,8 @@ const MATERIALS: Array<[number, string]> = [[-1, 'Consumable'], ...named(['Not s
 const SCHOOLS = named(['Physical', 'Holy', 'Fire', 'Nature', 'Frost', 'Shadow', 'Arcane'])
 
 const STAT_TYPES: Array<[number, string]> = [
-	[0, 'Mana'],
+	// 0 is also an empty slot's type: it counts only with an amount.
+	[0, 'Mana (none at amount 0)'],
 	[1, 'Health'],
 	[3, 'Agility'],
 	[4, 'Strength'],
@@ -281,6 +282,8 @@ function itemTabList(cls: number): QuestTab[] {
 			groups: [
 				{
 					title: 'Stats',
+					// One stat a row: its type beside its amount.
+					columns: 2,
 					fields: n(10, (i) => [
 						{ col: `stat_type${i}`, label: `Stat ${i}`, options: STAT_TYPES },
 						{ col: `stat_value${i}`, label: `Stat ${i} amount` },

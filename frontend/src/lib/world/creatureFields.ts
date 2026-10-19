@@ -37,6 +37,8 @@ export type RefKind = 'item' | 'creature or object' | 'spell' | 'quest' | 'facti
 export interface CreatureFieldGroup {
   title: string
   fields: CreatureField[]
+  /** The grid's columns, 3 when absent (2 for pairs, such as an item's stat and its amount). */
+  columns?: number
 }
 
 const named = (names: string[], from = 0): Array<[number, string]> => names.map((n, i) => [i + from, n] as [number, string]).filter(([, n]) => n !== '')

@@ -18,8 +18,10 @@
 		/** The changed columns' values. */
 		changes: Record<string, string>
 		onset: (col: string, value: string) => void
+		/** The grid's columns (3). */
+		cols?: number
 	}
-	let { fields, values, columns, changes, onset }: Props = $props()
+	let { fields, values, columns, changes, onset, cols = 3 }: Props = $props()
 
 	const value = (f: CreatureField) => values[f.col] ?? ''
 	const tip = (f: CreatureField) => (f.hint ? `${f.hint} (${f.col})` : f.col)
@@ -27,7 +29,7 @@
 	const range = (c: vmangos.TemplateColumn | undefined) => (c && (c.min !== 0 || c.max !== 0) ? { min: String(c.min), max: String(c.max) } : { min: c?.kind === 'uint' ? '0' : undefined, max: undefined })
 </script>
 
-<div class="grid">
+<div class="grid" style:grid-template-columns="repeat({cols}, 1fr)">
 	{#each fields as f (f.col)}
 		{@const c = columns.get(f.col)}
 		{@const changed = changes[f.col] !== undefined}
