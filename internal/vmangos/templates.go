@@ -234,6 +234,12 @@ func ReadObject(serverRoot string, entry int) (TemplateRecord, error) {
 // templateUpdateSQL is the UPDATE that writes values (by column) into template entry's patch row of
 // table.
 func templateUpdateSQL(table string, cols []TemplateColumn, entry, patch int, values map[string]string) (string, error) {
+	return keyedUpdateSQL(table, "patch", cols, entry, patch, values)
+}
+
+// keyedUpdateSQL is templateUpdateSQL for a table whose second key column is key (spell_template's
+// build) rather than patch.
+func keyedUpdateSQL(table, key string, cols []TemplateColumn, entry, patch int, values map[string]string) (string, error) {
 	byName := make(map[string]TemplateColumn, len(cols))
 	for _, c := range cols {
 		byName[c.Name] = c
@@ -258,7 +264,7 @@ func templateUpdateSQL(table string, cols []TemplateColumn, entry, patch int, va
 	if len(sets) == 0 {
 		return "", nil
 	}
-	return fmt.Sprintf("UPDATE `%s` SET %s WHERE `entry` = %d AND `patch` = %d;", table, strings.Join(sets, ", "), entry, patch), nil
+	return fmt.Sprintf("UPDATE `%s` SET %s WHERE `entry` = %d AND `%s` = %d;", table, strings.Join(sets, ", "), entry, key, patch), nil
 }
 
 // SaveCreature writes changed template values (by column) into creature template entry's row of

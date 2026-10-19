@@ -634,6 +634,8 @@ export const ui = $state({
    * -1 for a new item.
    */
   itemEditor: null as { entry: number } | null,
+  /** The spell editor (#294, Tools › Spells…): the spell open (0 for none yet, -1 while making one). */
+  spellEditor: null as { entry: number } | null,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
   /** The game Meld closes and opens around an export (Game › Game Client): Wow.exe or Benilla. */

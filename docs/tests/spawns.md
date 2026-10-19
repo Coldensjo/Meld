@@ -437,3 +437,39 @@ Import or New item.
   paints it into the skin texture, which Meld doesn't composite.
 - Trap: `item_template` is keyed by (entry, patch); the editor writes the newest patch row it read,
   and a new item is patch 0. `other_team_entry` defaults to 1 in VMaNGOS, which names no item.
+
+## Spell editor (#294)
+
+Checks: Tools › Spells… finds and opens a spell, shows its tooltip, effects and visual as the game
+would (following the unsaved values), and writes `spell_template` and Spell.dbc (SpellIcon.dbc for a
+new icon) in Meld's patch only on Save or New spell.
+- Probe `spell-editor` (about 11 s; nothing written): Fireball's result right-clicked copies
+  `.cast 133`; Fireball (133) reads Fireball | Rank 1, 30 Mana | 35 yd range, 1.5 sec cast and its
+  description with 14 to 22 and 2 over 4 sec filled in; its effects read Damage 14 to 22 · Enemy target
+  and Apply aura: Periodic damage; its visual (67) is named by Firebolt and others; a typed name and
+  base points 99 give 100 to 108 in the tooltip; a cost of 99999999999 is refused and jumps to the
+  Spell tab; Change icon… previews the hovered icon (the bar keeps naming the current one) and marks
+  a picked one Set on Save; Take the visual of Frost Nova changes the visual; Revert; New spell offers
+  a copy of Fireball under its name.
+- The column map: with `WOW_DIR` and `VMANGOS_DIR`, `TestSpellColumnsMatchClient` writes every
+  server row as Spell.dbc fields and compares them with the client's (22357 spells in both on
+  2026-10-19, each mapped field the same in at least 95%; the locale masks, `nameFlags` and the rest,
+  matched in only the 1003 build-5875 rows, so they stay the client's). `TestPlanSpellLive` plans a copy
+  of Fireball and a save with base points 99 and a new icon against the real client and database,
+  and reads the planned Spell.dbc back: the copy's name in every locale, Fireball's rank, icon,
+  visual and filled-in text, the new SpellIcon row, and every other spell's row unchanged. Neither
+  writes anything.
+- Unit: `spells_test.go` (`putRecord`, `spellIconRow`, `spellClientRow` with a float, a negative and
+  a 64-bit value, the build-keyed UPDATE) and `frontend/tests/spellFields.test.ts` (the description's
+  tokens, the tooltip's cost, range, cast and cooldown, an effect's line, the tabs).
+- A write was not run on 2026-10-19: it changes the owner's world database and client patch and
+  closes the game and servers on Windows. To try it: open Fireball, New spell, name it, change its
+  base points and icon, Save; `ReadSpell` reads it back and `SearchSpells` finds it (the client's
+  Spell.dbc through the patch). In the game: `.learn <id>` or `.cast <id>` as a GM; the tooltip shows
+  the text and icon. Clean up with `DELETE FROM spell_template WHERE entry = <id>` (the patch's row
+  stays until the patch is rebuilt).
+- Trap: the server reads `spell_template` at start, or on `.reload spell_template` (developer
+  security level); Save restarts mangosd only when it closed it, so a server Meld didn't close needs
+  that command or a restart. The client reads the patch only when it starts.
+- Trap: in a heredoc or sed, `Interface\Icons` and regexes lose their backslashes; edit them with
+  the Edit tool (a probe's `\w` became `w` that way).

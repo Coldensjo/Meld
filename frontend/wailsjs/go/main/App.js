@@ -78,6 +78,10 @@ export function CreateQuest(arg1, arg2) {
   return window['go']['main']['App']['CreateQuest'](arg1, arg2);
 }
 
+export function CreateSpell(arg1, arg2) {
+  return window['go']['main']['App']['CreateSpell'](arg1, arg2);
+}
+
 export function DeleteQuest(arg1) {
   return window['go']['main']['App']['DeleteQuest'](arg1);
 }
@@ -390,6 +394,10 @@ export function ReadQuestGivers(arg1) {
   return window['go']['main']['App']['ReadQuestGivers'](arg1);
 }
 
+export function ReadSpell(arg1) {
+  return window['go']['main']['App']['ReadSpell'](arg1);
+}
+
 export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
 }
@@ -522,6 +530,10 @@ export function SaveSceneMap(arg1) {
   return window['go']['main']['App']['SaveSceneMap'](arg1);
 }
 
+export function SaveSpell(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveSpell'](arg1, arg2, arg3, arg4);
+}
+
 export function SaveTaxi(arg1) {
   return window['go']['main']['App']['SaveTaxi'](arg1);
 }
@@ -602,8 +614,16 @@ export function SpellRefs(arg1) {
   return window['go']['main']['App']['SpellRefs'](arg1);
 }
 
+export function SpellTables() {
+  return window['go']['main']['App']['SpellTables']();
+}
+
 export function SpellTexts(arg1) {
   return window['go']['main']['App']['SpellTexts'](arg1);
+}
+
+export function SpellsWithVisual(arg1) {
+  return window['go']['main']['App']['SpellsWithVisual'](arg1);
 }
 
 export function TaxiNetwork(arg1) {

@@ -45,6 +45,8 @@ export function CreateObject(arg1:number,arg2:string):Promise<number>;
 
 export function CreateQuest(arg1:number,arg2:string):Promise<number>;
 
+export function CreateSpell(arg1:number,arg2:string):Promise<number>;
+
 export function DeleteQuest(arg1:number):Promise<string>;
 
 export function DropRecovery(arg1:string):Promise<void>;
@@ -201,6 +203,8 @@ export function ReadQuest(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadQuestGivers(arg1:number):Promise<vmangos.QuestGivers>;
 
+export function ReadSpell(arg1:number):Promise<vmangos.SpellRecord>;
+
 export function ReadTextFile(arg1:string):Promise<string>;
 
 export function ReadVendor(arg1:number):Promise<vmangos.Vendor>;
@@ -267,6 +271,8 @@ export function SaveSQLDialog(arg1:string):Promise<string>;
 
 export function SaveSceneMap(arg1:mapfile.MapData):Promise<string>;
 
+export function SaveSpell(arg1:number,arg2:number,arg3:Record<string, string>,arg4:string):Promise<main.SpellSaved>;
+
 export function SaveTaxi(arg1:vmangos.TaxiEdit):Promise<main.AreaSaveResult>;
 
 export function SaveTextDialog(arg1:string):Promise<string>;
@@ -307,7 +313,11 @@ export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:n
 
 export function SpellRefs(arg1:Array<number>):Promise<Record<number, vmangos.SpellRef>>;
 
+export function SpellTables():Promise<vmangos.SpellTables>;
+
 export function SpellTexts(arg1:Array<number>):Promise<Record<number, string>>;
+
+export function SpellsWithVisual(arg1:number):Promise<Array<vmangos.SpellRef>>;
 
 export function TaxiNetwork(arg1:number):Promise<vmangos.TaxiNetwork>;
 

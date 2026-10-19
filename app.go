@@ -1398,6 +1398,88 @@ func (a *App) SpellRefs(ids []int) (map[int]vmangos.SpellRef, error) {
 	return vmangos.SpellRefs(dataDir, ids)
 }
 
+// ReadSpell reads a spell's spell_template row (the build the server uses), for the spell editor (#294).
+func (a *App) ReadSpell(entry int) (vmangos.SpellRecord, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return vmangos.SpellRecord{}, err
+	}
+	return vmangos.ReadSpell(server, dataDir, entry)
+}
+
+// SpellSaved is what SaveSpell wrote: the SQL it ran, the icon it added to SpellIcon.dbc ("" for
+// none) and the patch it wrote Spell.dbc into.
+type SpellSaved struct {
+	SQL       string `json:"sql"`
+	IconAdded string `json:"iconAdded"`
+	Patch     string `json:"patch"`
+}
+
+// SaveSpell writes a spell's changed values (by column) and icon (a name under Interface\Icons, ""
+// to keep its own) into its spell_template row, then its whole row into Spell.dbc in Meld's patch,
+// with the game and servers closed around it on Windows, so the server and the client agree on it.
+func (a *App) SaveSpell(entry, build int, values map[string]string, icon string) (SpellSaved, error) {
+	defer a.releaseClient()()
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return SpellSaved{}, err
+	}
+	plan, err := vmangos.PlanSpellSave(server, dataDir, entry, build, values, icon)
+	if err != nil {
+		return SpellSaved{}, err
+	}
+	if err := vmangos.SaveSpellSQL(server, plan.SQL); err != nil {
+		return SpellSaved{}, err
+	}
+	patch, err := a.installWithGameClosed(dataDir, plan.Files)
+	vmangos.ForgetSpells()
+	if err != nil {
+		return SpellSaved{}, fmt.Errorf("the spell is saved in the world database, but writing it into the client's patch failed (Save again to retry): %w", err)
+	}
+	return SpellSaved{SQL: plan.SQL, IconAdded: plan.IconAdded, Patch: patch}, nil
+}
+
+// CreateSpell adds a spell named name, a copy of spell base, to the world database and the client's
+// Spell.dbc (in Meld's patch), and returns its entry.
+func (a *App) CreateSpell(base int, name string) (int, error) {
+	defer a.releaseClient()()
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	plan, err := vmangos.PlanCreateSpell(server, dataDir, base, name)
+	if err != nil {
+		return 0, err
+	}
+	if err := vmangos.SaveSpellSQL(server, plan.SQL); err != nil {
+		return 0, err
+	}
+	_, err = a.installWithGameClosed(dataDir, []mpq.File{plan.File})
+	vmangos.ForgetSpells()
+	if err != nil {
+		return plan.Entry, fmt.Errorf("spell %d is made in the world database, but writing it into the client's patch failed (Save it to retry): %w", plan.Entry, err)
+	}
+	return plan.Entry, nil
+}
+
+// SpellTables lists the client's cast times, durations, ranges and radii, for the spell editor's selects.
+func (a *App) SpellTables() (vmangos.SpellTables, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.SpellTables{}, err
+	}
+	return vmangos.ReadSpellTables(dataDir)
+}
+
+// SpellsWithVisual names a few of the client's spells that use a spell visual, for the spell editor.
+func (a *App) SpellsWithVisual(visual int) ([]vmangos.SpellRef, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SpellsWithVisual(dataDir, visual, 5)
+}
+
 // ReadCreatureSpells reads a creature template's spell list (creature_spells), for the Spells tab.
 func (a *App) ReadCreatureSpells(entry int) (vmangos.CreatureSpells, error) {
 	server, _, err := a.serverAndData()

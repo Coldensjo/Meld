@@ -14,6 +14,7 @@
   import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
   import QuestEditor from './components/QuestEditor.svelte'
   import ItemEditor from './components/ItemEditor.svelte'
+  import SpellEditor from './components/SpellEditor.svelte'
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
   import Inspector from './components/Inspector.svelte'
   import HistoryWindow from './components/HistoryWindow.svelte'
@@ -176,8 +177,8 @@
       e.preventDefault()
       return
     }
-    // The quest and item editors have no undo steps of their own (their Save writes the database), and no key reaches the map.
-    if (ui.questEditor || ui.itemEditor) return
+    // The quest, item and spell editors have no undo steps of their own (their Save writes the database), and no key reaches the map.
+    if (ui.questEditor || ui.itemEditor || ui.spellEditor) return
     if (ui.creatureEditor || ui.objectEditor) {
       if (mod && (key === 'z' || key === 'y')) {
         const c = key === 'y' || e.shiftKey ? engine.redo() : engine.undo()
@@ -349,6 +350,7 @@
 <ObjectEditor />
 <QuestEditor />
 <ItemEditor />
+<SpellEditor />
 <ModelPreviewWindow />
 <DoodadBrushEditor />
 <AppDialogs />

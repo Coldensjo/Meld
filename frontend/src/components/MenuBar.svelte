@@ -239,6 +239,7 @@
 				{ kind: 'action', label: 'Game Objects…', disabled: !hasBackend(), run: () => (ui.objectEditor = { key: null, entry: 0 }) },
 				{ kind: 'action', label: 'Quests…', disabled: !hasBackend(), run: () => (ui.questEditor = { entry: 0 }) },
 				{ kind: 'action', label: 'Items…', disabled: !hasBackend(), run: () => (ui.itemEditor = { entry: 0 }) },
+				{ kind: 'action', label: 'Spells…', disabled: !hasBackend(), run: () => (ui.spellEditor = { entry: 0 }) },
       ],
     },
     {

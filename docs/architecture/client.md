@@ -252,6 +252,33 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   existing ones) and writes it on confirmation (`ImportItems`, each value checked by `sqlValue`).
   Save and Import mark the items stale (`game.Stale.AddItem`), so the client's `itemcache.wdb` and
   `itemnamecache.wdb` drop them, and forget the session's rows and names (`forgetItemRow`, `forgetName`).
+- **Spell editor** (`components/SpellEditor.svelte`, `ui.spellEditor`, #294): full screen (z-index 165),
+  opened by Tools › Spells… (`entry: 0`, find one; `-1`, a new spell). A spell lives in two places:
+  the server reads `spell_template` (VMaNGOS keeps no Spell.dbc; a row per entry and client build,
+  the newest build up to 5875 used, `spellBuild`), the client draws it from Spell.dbc. The left
+  searches the client's spells (`SearchSpells`); a result's right-click copies `.cast <id>` or
+  `.learn <id>`. `ReadSpell` (`internal/vmangos/spells.go`) reads the row the server uses, every
+  column, laid out by `world/spellFields.ts` on tabs (Spell: text, casting, levels, rules; Effect 1-3;
+  Other), with the effects, auras and targets named from VMaNGOS' `SpellDefines.h` and
+  `SpellAuraDefines.h` and the cast time, duration, range and radius indexes from the client's
+  tables (`ReadSpellTables`, `spelltables.go`). The right shows the icon (Change icon… turns the
+  middle into `ItemLookPicker`'s icon grid, `iconsFirst="spells"`; the picked name waits for Save),
+  the tooltip (`spellTooltip`: name and rank, cost and range, cast time and cooldown, the description
+  with `expandSpellText`, the TypeScript twin of Go's), the effects in a line each and the visual
+  (`spellVisual1`, typed or taken from a searched spell's `SpellRef.Visual`, its other users named by
+  `SpellsWithVisual`). `SaveSpell` (`app.go`) plans first (`PlanSpellSave`: the UPDATE by entry and
+  build, a picked icon's SpellIcon.dbc row found or added by `spellIconRow`, then the whole row as it
+  will be written into Spell.dbc by `spellClientRow` over the client's record), runs the SQL, then
+  writes the tables into Meld's patch with `installWithGameClosed`, so the server (restarted by it,
+  or at its next start) and the client agree; `ForgetSpells` drops the Go caches. `spellDBCColumns`
+  maps the 173 fields to columns: strings take all 8 locales, `spellFamilyFlags` two fields, the
+  locale masks stay the client's (the server's are older builds'), and the server's own columns
+  (`effectBonusCoefficient1-3`, `minTargetLevel`, `customFlags`, `script_name`) have none;
+  `TestSpellColumnsMatchClient` checks it against every spell both have. New spell copies the open
+  spell (`PlanCreateSpell`: the first entry neither side uses, its build kept, `script_name` cleared),
+  writing the row and its Spell.dbc record at once; there is no blank spell, as effects, targets and
+  visual only work together. `putRecord` (`dbc.go`) replaces or adds a record and appends its
+  strings, leaving every other row's.
 - **Quests tab** (`components/QuestsTab.svelte`, #145, #293): the creature editor's and the game
   object editor's (`kind`), the quests the template starts and ends from its own side
   (`ReadCreatureQuests`/`SaveCreatureQuests`, `ReadObjectQuests`/`SaveObjectQuests` in

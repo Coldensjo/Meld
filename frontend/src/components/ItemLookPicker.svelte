@@ -16,11 +16,7 @@
 
 	function loadIcons(): Promise<string[]> {
 		if (!icons) {
-			// Item icons (INV_…) first, then the spells' and abilities'.
-			icons = ListItemIcons().then((d) => {
-				const inv = (d ?? []).filter((n) => /^inv_/i.test(n))
-				return [...inv, ...(d ?? []).filter((n) => !/^inv_/i.test(n))]
-			})
+			icons = ListItemIcons().then((d) => d ?? [])
 			icons.catch(() => (icons = null))
 		}
 		return icons
@@ -41,7 +37,8 @@
 	// the creature editor's display picker: looks are the client's item displays, a rendered tile of
 	// the model (the icon for a display without one, such as body armour), the ones that fit the
 	// item's slot first; icons are every icon of the client. Only the rows in view are drawn. Hovering
-	// a tile previews it, a click picks it, a double click picks it and applies it.
+	// a tile previews it, a click picks it, a double click picks it and applies it. The spell editor
+	// (#294) uses the icons too, with the spells' and abilities' first rather than the items' (INV_…).
 
 	interface Props {
 		mode: 'looks' | 'icons'
@@ -54,8 +51,10 @@
 		onapply: (v: number | string) => void
 		/** The tile under the pointer (null when it leaves the grid). */
 		onhover: (v: number | string | null) => void
+		/** Which icons come first: the items' (INV_…) or the rest, the spells' and abilities'. */
+		iconsFirst?: 'items' | 'spells'
 	}
-	let { mode, kind, selected, onpick, onapply, onhover }: Props = $props()
+	let { mode, kind, selected, onpick, onapply, onhover, iconsFirst = 'items' }: Props = $props()
 
 	const KINDS: Array<[string, string]> = [
 		['weapon', 'Weapons'],
@@ -106,7 +105,9 @@
 	})
 	const iconMatches = $derived.by(() => {
 		const q = query.trim().toLowerCase().replace(/\s+/g, '_')
-		return q ? iconList.filter((i) => i.toLowerCase().includes(q)) : iconList
+		const list = q ? iconList.filter((i) => i.toLowerCase().includes(q)) : iconList
+		const inv = (n: string) => /^inv_/i.test(n) === (iconsFirst === 'items')
+		return [...list.filter(inv), ...list.filter((n) => !inv(n))]
 	})
 	const count = $derived(mode === 'looks' ? looks.length : iconMatches.length)
 	const kindName = (k: string) => KINDS.find(([v]) => v === k)?.[1] ?? k

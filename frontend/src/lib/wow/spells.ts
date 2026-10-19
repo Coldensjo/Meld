@@ -33,6 +33,11 @@ export function spellRef(id: number): Promise<vmangos.SpellRef | null> {
 	return p
 }
 
+/** Forgets a spell, after the spell editor (#294) changed it, so it is read again. */
+export function forgetSpell(id: number) {
+	refs.delete(id)
+}
+
 /** Remembers spells a search found, so the list shows them without asking again. */
 export function rememberSpells(list: vmangos.SpellRef[]) {
 	for (const r of list) if (!refs.has(r.id)) refs.set(r.id, Promise.resolve(r))

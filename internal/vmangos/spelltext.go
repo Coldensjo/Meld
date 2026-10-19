@@ -24,6 +24,7 @@ const (
 	spellFDescription = 138 // enUS; the other locales and a flags field follow
 	spellFStack       = 39
 	spellFIcon        = 117 // SpellIconID
+	spellFVisual      = 115 // SpellVisual
 	spellFName        = 120 // enUS
 	spellFRank        = 129 // enUS
 )
@@ -217,19 +218,21 @@ func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) 
 }
 
 // SpellRef is a client spell as the creature editor's Spells tab lists it: its name and rank, its
-// icon (a texture path without .blp, "" when it has none) and its description, tokens filled in.
+// icon (a texture path without .blp, "" when it has none), its description, tokens filled in, and
+// its visual (SpellVisual.dbc ID, for the spell editor's Take the visual of).
 type SpellRef struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-	Rank string `json:"rank"`
-	Icon string `json:"icon"`
-	Text string `json:"text"`
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Rank   string `json:"rank"`
+	Icon   string `json:"icon"`
+	Text   string `json:"text"`
+	Visual int    `json:"visual"`
 }
 
 // spellRef reads row r of Spell.dbc; spellData must be loaded and locked.
 func spellRef(r int) SpellRef {
 	t := spellData.spells
-	ref := SpellRef{ID: int(t.u32(r, 0)), Name: t.str(r, spellFName), Rank: t.str(r, spellFRank), Icon: spellData.icons[t.u32(r, spellFIcon)]}
+	ref := SpellRef{ID: int(t.u32(r, 0)), Name: t.str(r, spellFName), Rank: t.str(r, spellFRank), Icon: spellData.icons[t.u32(r, spellFIcon)], Visual: int(t.u32(r, spellFVisual))}
 	if d := t.str(r, spellFDescription); d != "" {
 		ref.Text = expandSpellText(d, t, r, spellData.durations)
 	}
