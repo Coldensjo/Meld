@@ -226,6 +226,8 @@ function shown(o: THREE.Object3D): boolean {
 
 /** One emitter or ribbon of one placed model, spawn or preview. */
 interface Live {
+  /** Its key in `ParticleLayer.live`: the owner (object id, `s:` spawn, `p:` preview) and the emitter. */
+  key: string
   pool: ParticlePool | null
   trail: RibbonTrail | null
   /** The bone it rides, or -1. */
@@ -243,6 +245,25 @@ interface Live {
   childBatches: Batch[]
   /** A geometry emitter's models, made once its model has loaded. */
   models: ModelCloud | null
+  /**
+   * How far from the object's origin the emitter's origin can be, in yards (`reachOf`, grown by any
+   * offset seen), so an object farther than `RANGE` plus this is rejected before its bone math.
+   */
+  reach: number
+}
+
+const corner = new THREE.Vector3()
+
+/**
+ * How far from the object's origin (`inst`) an emitter at `frame` can stand: its rest offset plus the
+ * model's bounding diameter (a bone turning about a pivot inside the box), scaled with the object.
+ */
+function reachOf(asset: ModelAsset, frame: THREE.Matrix4, inst: THREE.Matrix4): number {
+  const b = asset.bbox
+  const r = b.isEmpty()
+    ? 0
+    : corner.set(Math.max(-b.min.x, b.max.x), Math.max(-b.min.y, b.max.y), Math.max(-b.min.z, b.max.z)).length()
+  return (corner.setFromMatrixPosition(frame).length() + 2 * r) * inst.getMaxScaleOnAxis()
 }
 
 /** The most model particles one emitter draws, as Benilla caps them. */
@@ -337,6 +358,8 @@ export class ParticleLayer {
   /** The scene light lit particles take, set by the Engine each frame. */
   readonly light = new THREE.Color(1, 1, 1)
   private live = new Map<string, Live>()
+  /** `live`'s entries as an array, for the frame's walk; remade by `rebuild`. */
+  private list: Live[] = []
   private batches = new Map<string, Batch>()
   private layer: ObjectLayer | null = null
   private version = -1
@@ -354,6 +377,7 @@ export class ParticleLayer {
   private clearLive() {
     for (const l of this.live.values()) l.models?.dispose()
     this.live.clear()
+    this.list.length = 0
   }
 
   /** The draw for a look, made on first use. */
@@ -375,12 +399,13 @@ export class ParticleLayer {
     l.asset = asset
     l.inst.copy(m)
     l.seen = gen
+    l.reach = reachOf(asset, l.frame, m)
     return true
   }
 
-  private add(key: string, l: Omit<Live, 'inst' | 'seen' | 'follow' | 'childBatches' | 'models'>, gen: number) {
+  private add(key: string, l: Omit<Live, 'key' | 'inst' | 'seen' | 'follow' | 'childBatches' | 'models' | 'reach'>, gen: number) {
     const childBatches = (l.pool?.children ?? []).map((c) => this.batchFor({ texture: c.def.texture, blend: blendOf(c.def), lit: litOf(c.def), fog: fogOf(c.def) }))
-    this.live.set(key, { ...l, inst: m.clone(), seen: gen, follow: this.following, childBatches, models: null })
+    this.live.set(key, { ...l, key, inst: m.clone(), seen: gen, follow: this.following, childBatches, models: null, reach: reachOf(l.asset, l.frame, m) })
   }
 
   /** The preview mesh the pools being made follow, while `rebuild` walks the previews. */
@@ -421,6 +446,7 @@ export class ParticleLayer {
       l.models?.dispose()
       this.live.delete(key)
     }
+    this.list = [...this.live.values()]
   }
 
   /** The pools and trails of one model drawn at `m`, its owner named by `owner`. */
@@ -483,20 +509,42 @@ export class ParticleLayer {
     right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
     up.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
     for (const b of this.batches.values()) b.floats = 0
-    for (const l of this.live.values()) if (l.models) l.models.mesh.visible = false
-    for (const [key, l] of this.live) {
+    const list = this.list
+    for (let i = 0; i < list.length; i++) {
+      const models = list[i].models
+      if (models) models.mesh.visible = false
+    }
+    const ex = eye.x
+    const ey = eye.y
+    const ez = eye.z
+    for (let i = 0; i < list.length; i++) {
+      const l = list[i]
+      const at = l.inst.elements
       if (l.follow) {
         if (!shown(l.follow)) continue
         l.follow.updateWorldMatrix(true, false)
         l.inst.copy(l.follow.matrixWorld)
+      } else {
+        // Out of range whatever its bone does: skipped on the object's origin, before the bone math (#330).
+        const dx = at[12] - ex
+        const dy = at[13] - ey
+        const dz = at[14] - ez
+        const far = RANGE + l.reach
+        if (dx * dx + dy * dy + dz * dz > far * far) continue
       }
       const bone = l.bone >= 0 ? l.asset.anim?.boneMatrix(l.bone) : null
       m.multiplyMatrices(l.inst, bone ?? l.frame)
       if (bone) m.multiply(l.frame)
       origin.setFromMatrixPosition(m)
+      // A bone that carries the emitter farther than its reach widens it, so the test above stays safe.
+      const ox = origin.x - at[12]
+      const oy = origin.y - at[13]
+      const oz = origin.z - at[14]
+      const off = ox * ox + oy * oy + oz * oz
+      if (off > l.reach * l.reach) l.reach = Math.sqrt(off)
       const d = origin.distanceTo(eye)
       if (d > RANGE || !frustum.intersectsSphere(sphere.set(origin, REACH))) continue
-      if (gate && !key.startsWith(exempt) && !(spawnsUngated && key.startsWith('s:')) && !meetsAny(gate, sphere) && !gateAdmits?.(sphere)) continue
+      if (gate && !l.key.startsWith(exempt) && !(spawnsUngated && l.key.startsWith('s:')) && !meetsAny(gate, sphere) && !gateAdmits?.(sphere)) continue
       const b = l.batch
       const pool = l.pool
       if (pool) {

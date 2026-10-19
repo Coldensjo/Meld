@@ -18,6 +18,11 @@ Checks: `world/particles.ts` and `ParticleLayer.ts` against the client's models.
   particles).
 - Trap: an emitter out of view or beyond `RANGE` (300 yd) is frozen, so a pool with `acc` 0 and no
   particles is usually just off screen.
+- The far-emitter pre-test (#330): `bun run probe particles-reach` checks that skipping an emitter on
+  its object's origin (beyond `RANGE` plus `reach`) runs the same pools and trails as the exact test
+  alone (every `reach` set to `Infinity`), on the benchmark scene from four views;
+  `PROBE_MAP=lights` or `PROBE_MAP=everything PROBE_SCALE=4 PROBE_TIMEOUT=900` runs it on a benchmark
+  map. On the 4x everything map 665 of 5919 emitters pass the pre-test and 453 stand within range.
 - Ribbons (B-183): `TestParseRibbonRecord`, `TestClientRibbons` (Holy Smite's two slash ribbons, the
   Caverns of Time energy trail) and `tests/ribbons.test.ts`. In the app a ribbon needs a moving bone,
   so load the scene with `"prefs":{"animations":true}` (the owner's own prefs have animations off).
