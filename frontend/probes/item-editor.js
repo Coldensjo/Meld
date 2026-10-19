@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25) and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, Save refuses a level past 255 and shows the tab it is on, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, Save refuses a level past 255 and shows the tab it is on, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -28,6 +28,15 @@ await P.until(() => root(), WAIT, 'the editor')
 type(root().querySelector('aside input[type=search]'), 'Worn Shortsword')
 await P.until(() => button(root().querySelector('[aria-label="Items found"]'), ''), WAIT, 'the search')
 const hit = [...root().querySelectorAll('[aria-label="Items found"] button')].find((b) => b.textContent.includes('Worn Shortsword'))
+// Right-click: the menu over the editor copies the GM command that gives the item.
+hit.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 160 }))
+await P.frames(1)
+const menu = { title: ui.contextMenu?.title, items: ui.contextMenu?.items.map((i) => i.label) ?? [], shown: !!document.querySelector('.menu[role=menu]') }
+;[...document.querySelectorAll('.menu[role=menu] button')].find((b) => b.textContent.startsWith('Copy')).click()
+await P.until(() => root().querySelector('.bar.ok, .bar.error'), WAIT, 'the copy')
+menu.note = root().querySelector('.bar.ok, .bar.error').textContent.trim()
+menu.clipboard = await window.runtime.ClipboardGetText().catch((e) => `(${e})`)
+menu.closed = !ui.contextMenu && !!root()
 hit.click()
 await P.until(() => tooltip().length > 2 && look().startsWith('Held'), WAIT, 'the tooltip and the held sword')
 const title = root().querySelector('h2').textContent.trim()
@@ -115,6 +124,11 @@ ui.itemEditor = null
 await P.frames(1)
 
 const ok =
+	menu.title === 'Worn Shortsword' &&
+	menu.items.join('|') === 'Open|Copy .additem 25 to the clipboard' &&
+	menu.shown && menu.closed &&
+	menu.note.startsWith('Copied .additem 25: paste it') &&
+	menu.clipboard === '.additem 25' &&
 	title === 'Worn Shortsword' &&
 	tip[0] === 'Worn Shortsword' &&
 	tip.includes('Main Hand | Sword') &&
@@ -144,4 +158,4 @@ const ok =
 	iconPick.pending.startsWith('Icon INV_Axe_01') &&
 	iconPick.save === 'Save item (3)' &&
 	iconPick.escClosed
-return { ok, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+return { ok, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }

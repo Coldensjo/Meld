@@ -390,7 +390,10 @@ vendor list) has its inventory icon, and hovering one shows the game-style toolt
 Checks: Tools › Items… finds and opens an item, shows its tooltip as the game does (following the
 unsaved values) and the item held or worn by a character, and writes `item_template` only on Save,
 Import or New item.
-- Probe `item-editor` (about 10 s; nothing written): the Worn Shortsword (25) reads Main Hand | Sword,
+- Probe `item-editor` (about 10 s; nothing written): the Worn Shortsword's search result
+  right-clicked shows Open and Copy .additem 25, and the copy puts `.additem 25` on the clipboard
+  (read back with `window.runtime.ClipboardGetText()`, the Wails runtime, which works on the dev
+  page; the probe overwrites the system clipboard); the Worn Shortsword (25) reads Main Hand | Sword,
   1 - 3 Damage | Speed 1.90 and its damage per second, is held in hand and shown alone; a typed name,
   quality and damage change the tooltip; a chest slot gives the armour note; a level of 300 is
   refused and jumps to Requirements; Change look… replaces the field tabs with the item large

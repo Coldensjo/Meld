@@ -215,7 +215,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   read their lists again.
 - **Item editor** (`components/ItemEditor.svelte`, `ui.itemEditor`, #353): full screen (z-index 165),
   opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
-  (`SearchItems`); New item makes a common junk item or a copy of the open one (`CreateItem` in
+  (`SearchItems`); a result's right-click opens `ui.contextMenu` (z-index 180, over the editor, whose
+  Esc then leaves it to the menu) with Open and Copy `.additem <entry>`, the GM command that gives the
+  item to the player selected or to yourself (`ClipboardSetText`); New item makes a common junk item or a copy of the open one (`CreateItem` in
   `internal/vmangos/items.go`, patch 0, the first entry past the table's). Every `item_template`
   column goes through the template path (`ReadItemTemplate`, `SaveItem`, `templateUpdateSQL`), laid
   out on tabs by `world/itemFields.ts` (Item, Combat, Stats, Effects, Requirements, More, then Other),

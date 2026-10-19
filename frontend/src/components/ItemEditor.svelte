@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { CreateItem, ExportItems, ImportItems, ItemIconDisplay, ItemModelLook, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
+	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
+	import { hasBackend } from '../lib/io/mapio'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { changedValues } from '../lib/world/creatureFields'
 	import { HELD_TYPES, itemTabs, slotKind } from '../lib/world/itemFields'
@@ -408,8 +410,39 @@
 		return `${now} Hover an icon below to see it, click one, then Change icon. The model stays.`
 	})
 
+	/** The GM command that gives an item: `.additem` puts it in the bags of the player selected, or your own. */
+	const addItemCommand = (entry: number) => `.additem ${entry}`
+
+	async function copyCommand(i: vmangos.ItemRef) {
+		const command = addItemCommand(i.entry)
+		error = ''
+		try {
+			if (hasBackend()) await ClipboardSetText(command)
+			else await navigator.clipboard.writeText(command)
+			note = `Copied ${command}: paste it in the game's chat as a GM to get ${i.name || `item ${i.entry}`} (or give it to the player you have selected). A new or changed item needs the world server restarted first.`
+			setStatus(`Copied ${command}.`, 6000)
+		} catch (err) {
+			error = `Copying the command failed: ${err}`
+		}
+	}
+
+	/** A search result's right-click menu: open it, or copy the command that gives it in the game. */
+	function resultMenu(e: MouseEvent, i: vmangos.ItemRef) {
+		e.preventDefault()
+		ui.contextMenu = {
+			x: e.clientX,
+			y: e.clientY,
+			title: i.name || `Item ${i.entry}`,
+			items: [
+				{ label: 'Open', run: () => open(i.entry) },
+				{ label: `Copy ${addItemCommand(i.entry)} to the clipboard`, run: () => void copyCommand(i) },
+			],
+		}
+	}
+
 	function onKey(e: KeyboardEvent) {
-		if (!target || e.key !== 'Escape') return
+		// The right-click menu over the editor takes its own Esc.
+		if (!target || e.key !== 'Escape' || ui.contextMenu) return
 		const el = e.target as HTMLElement | null
 		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
 			el.blur()
@@ -486,7 +519,7 @@
 				<ul class="found" aria-label="Items found">
 					{#each found as i (i.entry)}
 						<li>
-							<button class:on={i.entry === target.entry} onclick={() => open(i.entry)}>
+							<button class:on={i.entry === target.entry} onclick={() => open(i.entry)} oncontextmenu={(e) => resultMenu(e, i)} title="Right-click to copy the command that gives it in the game">
 								<ItemIcon displayId={i.displayId} />
 								<span class="name" style:color={i.entry === target.entry ? undefined : QUALITY_COLORS[i.quality]}>{i.name || '(no name)'}</span>
 								<span class="dim">{i.entry}</span>
