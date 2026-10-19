@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25) and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, Save refuses a level past 255 and shows the tab it is on, Revert drops the edits, and Take the look of… gives it the Battleworn Hammer's display, held; nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25) and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, Save refuses a level past 255 and shows the tab it is on, Revert drops the edits, the Looks picker finds the Battleworn Hammer's display, previews it on hover and gives it, held, and the Icons picker marks an icon to be made on Save; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -70,13 +70,26 @@ const reverted = button(root().querySelector('header .actions'), 'Saved') !== un
 // The look of another item: the Battleworn Hammer's (2361) display, held as a two-hand mace.
 await openTab('Item')
 choose(field('Slot'), '17')
-button(root().querySelector('.display'), 'Take the look of').click()
-await P.frames(1)
-type(root().querySelector('.lookpick input'), 'Battleworn Hammer')
-await P.until(() => root().querySelector('.lookpick button'), WAIT, 'the look search')
-root().querySelector('.lookpick button').click()
+const picker = () => root().querySelector('.look .picker')
+type(picker().querySelector('input[type=search]'), 'Battleworn Hammer')
+await P.until(() => picker().querySelector('[aria-label="Looks"] .tile'), WAIT, 'the looks')
+const tiles = picker().querySelectorAll('[aria-label="Looks"] .tile').length
+const tile = picker().querySelector('[aria-label="Looks"] .tile')
+const tileTitle = tile.title
+// Hovering previews it, a click picks it.
+tile.dispatchEvent(new MouseEvent('mouseenter'))
+await P.until(() => look().startsWith('Held'), WAIT, 'the hovered look')
+tile.click()
 await P.until(() => look().startsWith('Held') && root().querySelector('.display input').value !== '1542', WAIT, 'the hammer held')
-const taken = { display: root().querySelector('.display input').value, look: look() }
+const taken = { display: root().querySelector('.display input').value, look: look(), tiles, tileTitle }
+// An icon for the model: unsaved until Save, which would make the display.
+button(picker().querySelector('.seg'), 'Icons').click()
+await P.frames(1)
+type(picker().querySelector('input[type=search]'), 'INV_Axe_01')
+await P.until(() => picker().querySelector('[aria-label="Icons"] .tile'), WAIT, 'the icons')
+picker().querySelector('[aria-label="Icons"] .tile').click()
+await P.frames(2)
+const iconPick = { pending: root().querySelector('.display .pending')?.textContent.trim() ?? '', save: button(root().querySelector('header .actions'), 'Save')?.textContent.trim() }
 button(root().querySelector('header .actions'), 'Revert').click()
 await P.frames(2)
 const stored = await window.go.main.App.ReadItemTemplate(25)
@@ -103,5 +116,9 @@ const ok =
 	stored.values.name === 'Worn Shortsword' &&
 	stored.values.required_level === '1' &&
 	taken.display === '8690' &&
-	taken.look.startsWith('Held in hand')
-return { ok, taken, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+	taken.look.startsWith('Held in hand') &&
+	taken.tiles >= 1 &&
+	taken.tileTitle.includes('Battleworn Hammer') &&
+	iconPick.pending === 'icon INV_Axe_01, made on Save' &&
+	iconPick.save === 'Save item (3)'
+return { ok, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }

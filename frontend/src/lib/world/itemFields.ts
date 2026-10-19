@@ -389,3 +389,17 @@ export function itemTabs(columns: string[], cls: number): QuestTab[] {
 
 /** Inventory types a hand holds (one-hand, two-hand, main hand, off hand, shield, held in off hand, ranged, thrown). */
 export const HELD_TYPES = new Set([13, 14, 15, 17, 21, 22, 23, 25, 26])
+
+/** Where an item of inventory type `inv` goes, as the look picker groups the client's displays (Go's invKind). */
+export function slotKind(inv: number): string {
+	if ([13, 17, 21, 22].includes(inv)) return 'weapon'
+	if (inv === 14) return 'shield'
+	if (inv === 23) return 'held'
+	if ([15, 25, 26].includes(inv)) return 'ranged'
+	if (inv === 1) return 'head'
+	if (inv === 3) return 'shoulder'
+	if (inv === 16) return 'back'
+	if ([4, 5, 6, 7, 8, 9, 10, 19, 20].includes(inv)) return 'body'
+	if ([2, 11, 12].includes(inv)) return 'jewelry'
+	return 'other'
+}

@@ -30,10 +30,28 @@ export function itemIcon(displayId: number): Promise<string | null> {
 	if (!p) {
 		const name = new Promise<string | null>((done) => pending.set(displayId, done))
 		if (!flush) flush = window.setTimeout(flushIcons, 0)
-		p = name.then((n) => (n ? texturePreview(`Interface\\Icons\\${n}.blp`, 36).catch(() => null) : null))
+		p = name.then((n) => (n ? iconImage(n) : null))
 		icons.set(displayId, p)
 	}
 	return p
+}
+
+const named = new Map<string, Promise<string | null>>()
+
+/** An image URL of the icon named `name` (under Interface\Icons), or null when the client has none. */
+export function iconImage(name: string): Promise<string | null> {
+	const key = name.toLowerCase()
+	let p = named.get(key)
+	if (!p) {
+		p = texturePreview(`Interface\\Icons\\${name}.blp`, 36).catch(() => null)
+		named.set(key, p)
+	}
+	return p
+}
+
+/** Forgets every display's icon, after the client's displays changed (a display was added). */
+export function forgetItemIcons() {
+	icons.clear()
 }
 
 const rows = new Map<number, Promise<Record<string, string>>>()

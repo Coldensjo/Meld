@@ -1206,6 +1206,42 @@ export namespace vmangos {
 	        this.heights = source["heights"];
 	    }
 	}
+	export class IconDisplay {
+	    id: number;
+	    added: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new IconDisplay(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.added = source["added"];
+	    }
+	}
+	export class ItemDisplayEntry {
+	    id: number;
+	    icon: string;
+	    model: string;
+	    kind: string;
+	    uses: number;
+	    names: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ItemDisplayEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.icon = source["icon"];
+	        this.model = source["model"];
+	        this.kind = source["kind"];
+	        this.uses = source["uses"];
+	        this.names = source["names"];
+	    }
+	}
 	export class ItemImportRow {
 	    entry: number;
 	    patch: number;

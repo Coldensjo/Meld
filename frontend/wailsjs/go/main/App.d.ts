@@ -73,6 +73,8 @@ export function ImportItems(arg1:string):Promise<Array<number>>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
+export function ItemIconDisplay(arg1:number,arg2:string):Promise<vmangos.IconDisplay>;
+
 export function ItemIcons(arg1:Array<number>):Promise<Record<number, string>>;
 
 export function ItemModelLook(arg1:number,arg2:number,arg3:number,arg4:number):Promise<vmangos.ItemLook>;
@@ -88,6 +90,10 @@ export function ListBrushImages(arg1:string):Promise<Array<string>>;
 export function ListCreatureTemplates():Promise<Array<vmangos.CreatureTemplate>>;
 
 export function ListDisplays():Promise<Array<vmangos.DisplayEntry>>;
+
+export function ListItemDisplays():Promise<Array<vmangos.ItemDisplayEntry>>;
+
+export function ListItemIcons():Promise<Array<string>>;
 
 export function ListObjectTemplates():Promise<Array<vmangos.ObjectTemplate>>;
 

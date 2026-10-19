@@ -227,8 +227,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   tab's `ItemTooltip`) is `tooltipLines` over the unsaved values, so it follows every change;
   `itemTooltip.ts` follows the order of the client's tooltip builder as Benilla documents it
   (`benilla-ui/src/script/tooltip_item/render.rs`), and `items.ts` `itemTooltipNames` names the
-  effects' spells and the required skill, spell and faction. The look is `display_id`, typed or taken
-  from another item (Take the look of…); Meld doesn't make displays (that is client DBC writing).
+  effects' spells and the required skill, spell and faction. The look is `display_id`, typed or picked
+  in `components/ItemLookPicker.svelte`: Looks is every row of the client's ItemDisplayInfo.dbc as an
+  icon tile (`ListItemDisplays` in `internal/vmangos/itemlooks.go`, with the items using each and a
+  kind from their slots, or from the model's name for an unused one), filtered to the item's slot
+  (`itemFields.ts` `slotKind`, Go's `invKind`); the tile under the pointer is previewed, a click picks
+  it. Icons is every `Interface\Icons` file the client lists (`ListItemIcons`), item icons first. A
+  picked icon waits for Save, where `ItemIconDisplay` finds the display that pairs the item's model
+  and everything else with that icon, or adds one (a copy of the item's display with the new icon,
+  the next ID) to ItemDisplayInfo.dbc in Meld's patch (`installWithGameClosed`), then
+  `ForgetItemDisplays` drops the Go caches built from that table. Item tiles load their icons only
+  once on screen (`ItemIcon` `lazy`).
   Export writes the item's every patch row to an SQL script of `REPLACE INTO item_template` with
   named columns (`ExportItems`); Import reads one back without running it (`sqlparse.go`
   `parseInserts`: only `INSERT`/`REPLACE INTO item_template` rows, other statements counted and

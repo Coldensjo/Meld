@@ -134,6 +134,10 @@ export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
 
+export function ItemIconDisplay(arg1, arg2) {
+  return window['go']['main']['App']['ItemIconDisplay'](arg1, arg2);
+}
+
 export function ItemIcons(arg1) {
   return window['go']['main']['App']['ItemIcons'](arg1);
 }
@@ -164,6 +168,14 @@ export function ListCreatureTemplates() {
 
 export function ListDisplays() {
   return window['go']['main']['App']['ListDisplays']();
+}
+
+export function ListItemDisplays() {
+  return window['go']['main']['App']['ListItemDisplays']();
+}
+
+export function ListItemIcons() {
+  return window['go']['main']['App']['ListItemIcons']();
 }
 
 export function ListObjectTemplates() {

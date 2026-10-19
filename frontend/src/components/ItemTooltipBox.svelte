@@ -3,8 +3,9 @@
 	import ItemIcon from './ItemIcon.svelte'
 
 	// An item's tooltip as the game draws it (#202): the icon and the lines, in the game's dark box.
-	// The Shop tab's ItemTooltip puts it beside the pointer; the item editor (#353) shows it in place.
-	let { lines, displayId, error = '' }: { lines: TooltipLine[]; displayId: number; error?: string } = $props()
+	// The Shop tab's ItemTooltip puts it beside the pointer; the item editor (#353) shows it in place,
+	// with the icon picked but not yet saved (`icon`).
+	let { lines, displayId, icon = '', error = '' }: { lines: TooltipLine[]; displayId: number; icon?: string; error?: string } = $props()
 </script>
 
 <div class="box">
@@ -14,7 +15,7 @@
 		<p class="dim">Reading the item…</p>
 	{:else}
 		<div class="head">
-			<ItemIcon {displayId} size={36} />
+			<ItemIcon {displayId} {icon} size={36} />
 			<div class="lines">
 				{#each lines as l, i (i)}
 					<div class="line" class:title={l.title} class:extra={l.extra} style:color={l.color}>

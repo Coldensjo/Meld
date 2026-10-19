@@ -1,23 +1,25 @@
 <script lang="ts">
-	import { CreateItem, ExportItems, ImportItems, ItemModelLook, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
+	import { CreateItem, ExportItems, ImportItems, ItemIconDisplay, ItemModelLook, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { changedValues } from '../lib/world/creatureFields'
-	import { HELD_TYPES, itemTabs } from '../lib/world/itemFields'
+	import { HELD_TYPES, itemTabs, slotKind } from '../lib/world/itemFields'
 	import { tabOfColumn } from '../lib/world/questFields'
-	import { forgetItemRow, itemTooltipNames } from '../lib/wow/items'
+	import { forgetItemIcons, forgetItemRow, itemTooltipNames } from '../lib/wow/items'
 	import { QUALITY_COLORS, tooltipLines, type TooltipNames } from '../lib/wow/itemTooltip'
 	import { forgetName } from '../lib/wow/refNames'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import ItemIcon from './ItemIcon.svelte'
+	import ItemLookPicker, { forgetLooks } from './ItemLookPicker.svelte'
 	import ItemTooltipBox from './ItemTooltipBox.svelte'
 	import TemplateFields from './TemplateFields.svelte'
 
 	// The item editor (#353, Tools › Items…): find an item or make one (blank, or a copy of the open
 	// one), edit every column of its item_template row on tabs, and see it as the game shows it: its
 	// tooltip, which follows every change before it is saved, and the item in a character's hand (or on
-	// its head or shoulders), or alone. Its look is one of the client's item displays, taken from
-	// another item or typed. Save writes the row to the world database; Export writes items to an SQL
+	// its head or shoulders), or alone. Its look is one of the client's item displays, picked from a
+	// grid of their icons (hovering one previews it) or typed, and its icon can be picked apart from
+	// the model: Save then makes the display that pairs them. Save writes the row to the world database; Export writes items to an SQL
 	// script, and Import reads one back. The server reads items when it starts.
 
 	const target = $derived(ui.itemEditor)
@@ -31,10 +33,14 @@
 	let loading = $state(false)
 	let saving = $state(false)
 	let confirmClose = $state(false)
+	// The look: a display picked from the client's (a click; the one under the pointer is previewed),
+	// or an icon for the item's model, which Save turns into a display.
+	let pendingIcon = $state('')
+	let hovered = $state<number | null>(null)
 
 	const changes = $derived(changedValues(values, saved))
 	const changeCount = $derived(Object.keys(changes).length)
-	const unsaved = $derived(changeCount > 0)
+	const unsaved = $derived(changeCount > 0 || pendingIcon !== '')
 	const tabs = $derived(record ? itemTabs(record.columns.map((c) => c.name), Number(values.class) || 0) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 	/** How many changes each tab holds, for its label. */
@@ -53,6 +59,8 @@
 		record = null
 		values = {}
 		saved = {}
+		pendingIcon = ''
+		hovered = null
 		error = ''
 		confirmClose = false
 		if (t.entry > 0) void load(t.entry)
@@ -109,6 +117,7 @@
 
 	function revert() {
 		values = { ...saved }
+		pendingIcon = ''
 	}
 
 	function open(entry: number) {
@@ -136,11 +145,23 @@
 		error = ''
 		note = ''
 		try {
+			// A picked icon first becomes a display: the client's that pairs it with the model, or a new one in Meld's patch.
+			let added = ''
+			if (pendingIcon) {
+				const d = await ItemIconDisplay(display, pendingIcon)
+				if (d.added) {
+					forgetItemIcons()
+					added = ` Added display ${d.id} (${pendingIcon} on its model) to the client's patch.`
+				}
+				values.display_id = String(d.id)
+				pendingIcon = ''
+			}
 			const n = changeCount
-			await SaveItem(record.entry, record.patch, changes)
+			if (n > 0) await SaveItem(record.entry, record.patch, changes)
 			saved = { ...values }
 			forgetItems([record.entry])
-			note = `Saved ${n} ${n === 1 ? 'value' : 'values'} of ${values.name} (item ${record.entry}) to the world database. ${RESTART}`
+			forgetLooks()
+			note = `Saved ${n} ${n === 1 ? 'value' : 'values'} of ${values.name} (item ${record.entry}) to the world database.${added} ${RESTART}`
 			setStatus(note, 10000)
 		} catch (err) {
 			error = String(err)
@@ -209,7 +230,7 @@
 			searchVersion++
 			ui.itemEditor = { entry }
 			tab = 'item'
-			note = `Made item ${entry}, ${name}. Fill it in and save.${base ? '' : ' Give it a look with Take the look of…, on the right.'}`
+			note = `Made item ${entry}, ${name}. Fill it in and save.${base ? '' : ' Pick its look on the right.'}`
 			setStatus(note, 8000)
 		} catch (err) {
 			error = String(err)
@@ -290,15 +311,17 @@
 	let alone = $state(false)
 	let look = $state<vmangos.ItemLook | null>(null)
 	const display = $derived(Number(values.display_id) || 0)
+	/** The display the preview shows: the look under the pointer in the picker, else the item's. */
+	const shown = $derived(hovered ?? display)
 	const invType = $derived(Number(values.inventory_type) || 0)
 	$effect(() => {
-		const key = `${display}|${invType}|${race}|${sex}`
+		const key = `${shown}|${invType}|${race}|${sex}`
 		if (!record) {
 			look = null
 			return
 		}
-		ItemModelLook(display, invType, race, sex)
-			.then((l) => key === `${display}|${invType}|${race}|${sex}` && (look = l))
+		ItemModelLook(shown, invType, race, sex)
+			.then((l) => key === `${shown}|${invType}|${race}|${sex}` && (look = l))
 			.catch((err) => (error = String(err)))
 	})
 	/** Slots whose armour the game paints onto the body (shirt, chest, waist, legs, feet, wrists, hands, back, tabard, robe). */
@@ -313,7 +336,7 @@
 	})
 	const previewText = $derived.by(() => {
 		if (!record || !look) return ''
-		if (!display) return 'It has no display: no icon and no model. Take the look of another item below.'
+		if (!shown) return 'It has no display: no icon and no model. Pick a look below.'
 		const raceName = RACES.find(([r]) => r === race)?.[1] ?? ''
 		if (look.shown && !alone) return `${invType === 1 || invType === 3 ? 'Worn' : 'Held'} ${where}, on ${/^[AEIOU]/.test(raceName) ? 'an' : 'a'} ${raceName} ${sex ? 'woman' : 'man'}.`
 		if (look.item) return 'The model alone, as the game draws it held or worn.'
@@ -335,28 +358,10 @@
 	})
 	const lines = $derived(record ? tooltipLines({ ...values, entry: String(record.entry) }, names) : [])
 
-	// Take the look of another item: its display_id.
-	let lookOpen = $state(false)
-	let lookQuery = $state('')
-	let lookFound = $state<vmangos.ItemRef[]>([])
-	let lookTimer = 0
-	$effect(() => {
-		const q = lookQuery.trim()
-		clearTimeout(lookTimer)
-		if (!q) {
-			lookFound = []
-			return
-		}
-		lookTimer = window.setTimeout(() => {
-			SearchItems(q)
-				.then((r) => q === lookQuery.trim() && (lookFound = (r ?? []).filter((i) => i.displayId > 0)))
-				.catch((err) => (error = String(err)))
-		}, 250)
-	})
-	function takeLook(i: vmangos.ItemRef) {
-		values.display_id = String(i.displayId)
-		lookOpen = false
-		lookQuery = ''
+	/** Picks a display from the client's: its model and icon both. */
+	function pickLook(id: number) {
+		values.display_id = String(id)
+		pendingIcon = ''
 	}
 
 	function onKey(e: KeyboardEvent) {
@@ -395,7 +400,7 @@
 					<button onclick={exportItem} title="Write this item to an SQL script">Export…</button>
 					<button disabled={!unsaved || saving} onclick={revert}>Revert</button>
 					<button class="active" disabled={!unsaved || saving} onclick={save}>
-						{saving ? 'Saving…' : unsaved ? `Save item (${changeCount})` : 'Saved'}
+						{saving ? 'Saving…' : unsaved ? `Save item (${changeCount + (pendingIcon ? 1 : 0)})` : 'Saved'}
 					</button>
 				{/if}
 				<button onclick={() => close()} title="Close (Esc)">Close</button>
@@ -421,7 +426,7 @@
 		{/if}
 		{#if confirmClose && unsaved}
 			<div class="bar warn">
-				<span>{changeCount} unsaved {changeCount === 1 ? 'change' : 'changes'} to the item.</span>
+				<span>{changeCount + (pendingIcon ? 1 : 0)} unsaved {changeCount + (pendingIcon ? 1 : 0) === 1 ? 'change' : 'changes'} to the item.</span>
 				<button onclick={() => (confirmClose = false)}>Keep editing</button>
 				<button class="danger" onclick={discard}>Discard them</button>
 			</div>
@@ -511,33 +516,16 @@
 						{/if}
 					</div>
 					<p class="dim">{previewText}</p>
-					<div class="display" class:changed={changes.display_id !== undefined}>
-						<ItemIcon displayId={display} size={24} />
+					<div class="display" class:changed={changes.display_id !== undefined || pendingIcon !== ''}>
+						<ItemIcon displayId={display} icon={pendingIcon} size={24} />
 						<label title="ItemDisplayInfo.dbc ID: the item's model and icon (display_id)"
 							>Display <input type="number" min="0" value={values.display_id ?? ''} oninput={(e) => (values.display_id = (e.currentTarget as HTMLInputElement).value)} /></label
 						>
-						<button onclick={() => (lookOpen = !lookOpen)}>Take the look of…</button>
+						{#if pendingIcon}<span class="pending">icon {pendingIcon}, made on Save</span>{/if}
 					</div>
-					{#if lookOpen}
-						<div class="lookpick">
-							<input type="search" placeholder="Another item's name or entry" bind:value={lookQuery} aria-label="Find an item to take the look of" />
-							<ul class="found small">
-								{#each lookFound.slice(0, 40) as i (i.entry)}
-									<li>
-										<button onclick={() => takeLook(i)} title="Display {i.displayId}">
-											<ItemIcon displayId={i.displayId} />
-											<span class="name" style:color={QUALITY_COLORS[i.quality]}>{i.name}</span>
-											<span class="dim">{i.displayId}</span>
-										</button>
-									</li>
-								{:else}
-									<li class="dim">{lookQuery.trim() ? 'No item with a look matches.' : 'Type the name of an item whose look you want.'}</li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
+					<ItemLookPicker kind={slotKind(invType)} {display} icon={pendingIcon} onlook={pickLook} onicon={(name) => (pendingIcon = name)} onhover={(d) => (hovered = d)} />
 					<h3>Tooltip</h3>
-					<div class="tooltip"><ItemTooltipBox {lines} displayId={display} /></div>
+					<div class="tooltip"><ItemTooltipBox {lines} displayId={display} icon={pendingIcon} /></div>
 				</section>
 			{/if}
 		</div>
@@ -622,11 +610,6 @@
 		overflow-y: auto;
 		flex: 1;
 		font-size: 12px;
-	}
-	.found.small {
-		flex: none;
-		max-height: 220px;
-		border: 1px solid var(--border);
 	}
 	.found button {
 		width: 100%;
@@ -779,10 +762,8 @@
 		color: var(--accent);
 		border-color: var(--accent);
 	}
-	.lookpick {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
+	.pending {
+		color: var(--accent);
 	}
 	.tooltip {
 		display: flex;

@@ -82,11 +82,13 @@ func createItemSQL(cols []TemplateColumn, entry, base int, name string) (string,
 	return copyTemplateSQL(itemTable, cols, entry, base, "name", nameSQL), nil
 }
 
-// forgetWeapons drops the cached lists of held items, after an item was saved, made or imported.
+// forgetWeapons drops the cached lists of held items and the displays' uses, after an item was
+// saved, made or imported.
 func forgetWeapons() {
 	weaponsMu.Lock()
-	defer weaponsMu.Unlock()
 	clear(weaponsCache)
+	weaponsMu.Unlock()
+	forgetItemDisplayUses()
 }
 
 // keyColumns are item_template's key columns as TemplateColumns, for checking an imported row.

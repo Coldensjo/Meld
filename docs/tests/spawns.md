@@ -393,8 +393,19 @@ Import or New item.
 - Probe `item-editor` (about 10 s; nothing written): the Worn Shortsword (25) reads Main Hand | Sword,
   1 - 3 Damage | Speed 1.90 and its damage per second, is held in hand and shown alone; a typed name,
   quality and damage change the tooltip; a chest slot gives the armour note; a level of 300 is
-  refused and jumps to Requirements; Take the look of… the Battleworn Hammer gives display 8690,
-  held; Revert.
+  refused and jumps to Requirements; the Looks picker's search for the Battleworn Hammer finds
+  display 8690, whose tile previews it on hover and gives it on a click, held; the Icons picker marks
+  INV_Axe_01 to be made on Save (Save item (3)); Revert.
+- Picker pictures: `probes/scratch/item-picker.js` (git-ignored: opens `ui.itemEditor` on
+  `PROBE_ITEM`, waits for `.picker [aria-label="Looks"] .tile`, with `PROBE_TAB=icons` clicks Icons)
+  with `--shot`. 240 of 3687 weapon looks for the Worn Shortsword, 42 icons loaded on screen.
+- A new display: `TestItemIconDisplay` (an icon a display already has, one another display pairs
+  with the same model, a new row past the last ID, an icon alone); with `WOW_DIR`,
+  `TestItemLooksLive` (29604 displays, 2684 icons, the Battleworn Hammer's 8690 a weapon with
+  INV_Hammer_15). Writing one into the real patch was not run on 2026-10-19: it changes the owner's
+  client (a row it keeps), and closes the game and servers on Windows. To try it: pick an icon, Save,
+  then `ListItemDisplays` has the new ID and the item's tooltip shows the icon; in the game the
+  item shows it once the game restarts.
 - Pictures: `bun run probe probes/scratch/item-look.js --shot <dir>` with `PROBE_ITEM=<entry>` (and
   `PROBE_RACE=1..8`) leaves the editor open on an item (the scratch file is git-ignored; it is the
   four lines that set `ui.itemEditor = { entry }` and wait for `.tooltip .line`). Seen on 2026-10-19:
