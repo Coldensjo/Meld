@@ -2566,6 +2566,7 @@ export namespace vmangos {
 	    id: number;
 	    label: string;
 	    value: number;
+	    scaled: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new SpellOption(source);
@@ -2576,6 +2577,7 @@ export namespace vmangos {
 	        this.id = source["id"];
 	        this.label = source["label"];
 	        this.value = source["value"];
+	        this.scaled = source["scaled"];
 	    }
 	}
 	export class TemplateColumn {
@@ -2660,6 +2662,24 @@ export namespace vmangos {
 	        this.icon = source["icon"];
 	        this.text = source["text"];
 	        this.visual = source["visual"];
+	    }
+	}
+	export class SpellStarter {
+	    id: string;
+	    name: string;
+	    text: string;
+	    like: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpellStarter(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.text = source["text"];
+	        this.like = source["like"];
 	    }
 	}
 	export class SpellTables {

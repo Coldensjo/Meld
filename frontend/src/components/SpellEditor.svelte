@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CreateSpell, ReadSpell, SaveSpell, SearchSpells, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
+	import { CreateSpell, ReadSpell, SaveSpell, SearchSpells, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/mapio'
@@ -195,10 +195,14 @@
 		}, 250)
 	})
 
-	// A new spell: a copy of the one open.
+	// A new spell: from a starter Meld fills in (#360), or a copy of the one open.
+	const COPY = 'copy'
 	let newName = $state('')
 	let creating = $state(false)
 	let copySource = $state<{ entry: number; name: string } | null>(null)
+	let starters = $state<vmangos.SpellStarter[]>([])
+	/** A starter's ID, or COPY. */
+	let start = $state('')
 	const isNew = $derived(target?.entry === -1)
 
 	function startNew() {
@@ -206,23 +210,32 @@
 		leave(() => {
 			copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
 			newName = copySource ? copySource.name : ''
+			start = copySource ? COPY : ''
 			note = ''
 			ui.spellEditor = { entry: -1 }
+			if (!starters.length)
+				SpellStarters().then((s) => {
+					starters = s ?? []
+					if (!start && starters.length) start = starters[0].id
+				})
+			else if (!start) start = starters[0].id
 		})
 	}
 
 	async function create() {
 		const name = newName.trim()
-		if (!name || !copySource) return
+		const copy = start === COPY ? copySource : null
+		if (!name || !start) return
 		creating = true
 		error = ''
 		try {
-			const entry = await CreateSpell(copySource.entry, name)
+			const entry = await CreateSpell(copy?.entry ?? 0, copy ? '' : start, name)
+			const from = copy ? `a copy of ${copy.name}` : `from the ${starters.find((s) => s.id === start)?.name ?? start} starter`
 			newName = ''
 			searchVersion++
 			ui.spellEditor = { entry }
 			tab = 'spell'
-			note = `Made spell ${entry}, ${name}, a copy of ${copySource.name}, in the world database and the client's Spell.dbc. Change it and save.`
+			note = `Made spell ${entry}, ${name}, ${from}, in the world database and the client's Spell.dbc. Change it and save.`
 			setStatus(note, 8000)
 		} catch (err) {
 			error = String(err)
@@ -390,13 +403,25 @@
 			<section class="main">
 				{#if target.entry === -1}
 					<div class="new-form">
-						{#if copySource}
-							<p>Make a spell of your own as a copy of {copySource.name} (spell {copySource.entry}): its effects, look and text, under the first free spell ID. It is written to the world database and the client's Spell.dbc at once (the game and servers close and reopen around it); change it and save.</p>
-							<label>Name <input type="text" maxlength="256" placeholder="Name" bind:value={newName} onkeydown={(e) => e.key === 'Enter' && create()} /></label>
-							<button class="active" disabled={!newName.trim() || creating} onclick={create}>{creating ? 'Making…' : 'Make spell'}</button>
-						{:else}
-							<p>A new spell starts as a copy of another, as its effects, targets and visual only work together. Find the spell closest to the one you want on the left (Fireball for a bolt, Renew for a heal over time, Frost Nova for an area around the caster), open it, then choose New spell there.</p>
-						{/if}
+						<p>Make a spell of your own under the first free spell ID. Start from a kind of spell Meld fills in, or from a copy of the spell that was open. It is written to the world database and the client's Spell.dbc at once (the game and servers close and reopen around it); change it and save.</p>
+						<fieldset class="starts" aria-label="Start from">
+							{#each starters as s (s.id)}
+								<label class="start" class:on={start === s.id}>
+									<input type="radio" name="spell-start" value={s.id} bind:group={start} />
+									<span><strong>{s.name}</strong> <span class="dim">{s.text} Looks like {s.like}.</span></span>
+								</label>
+							{/each}
+							{#if copySource}
+								<label class="start" class:on={start === COPY}>
+									<input type="radio" name="spell-start" value={COPY} bind:group={start} />
+									<span><strong>Copy of {copySource.name}</strong> <span class="dim">Spell {copySource.entry}: its effects, look and text.</span></span>
+								</label>
+							{:else}
+								<p class="dim">To copy an existing spell instead, open it on the left, then choose New spell there.</p>
+							{/if}
+						</fieldset>
+						<label>Name <input type="text" maxlength="256" placeholder="Name" bind:value={newName} onkeydown={(e) => e.key === 'Enter' && create()} /></label>
+						<button class="active" disabled={!newName.trim() || !start || creating} onclick={create}>{creating ? 'Making…' : 'Make spell'}</button>
 					</div>
 				{:else if target.entry === 0}
 					<div class="empty dim">Find a spell on the left, or open one and make a new spell from it.</div>
@@ -684,6 +709,26 @@
 	}
 	.new-form p {
 		margin: 0;
+	}
+	.starts {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		margin: 0;
+		padding: 0;
+		border: none;
+	}
+	.new-form label.start {
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 8px;
+		padding: 6px 8px;
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		cursor: pointer;
+	}
+	.new-form label.start.on {
+		border-color: var(--accent);
 	}
 	.look {
 		flex: none;

@@ -1439,15 +1439,15 @@ func (a *App) SaveSpell(entry, build int, values map[string]string, icon string)
 	return SpellSaved{SQL: plan.SQL, IconAdded: plan.IconAdded, Patch: patch}, nil
 }
 
-// CreateSpell adds a spell named name, a copy of spell base, to the world database and the client's
-// Spell.dbc (in Meld's patch), and returns its entry.
-func (a *App) CreateSpell(base int, name string) (int, error) {
+// CreateSpell adds a spell named name, a copy of spell base (or, for base 0, made from the starter of
+// that ID), to the world database and the client's Spell.dbc (in Meld's patch), and returns its entry.
+func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 	defer a.releaseClient()()
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return 0, err
 	}
-	plan, err := vmangos.PlanCreateSpell(server, dataDir, base, name)
+	plan, err := vmangos.PlanCreateSpell(server, dataDir, base, starter, name)
 	if err != nil {
 		return 0, err
 	}
@@ -1460,6 +1460,11 @@ func (a *App) CreateSpell(base int, name string) (int, error) {
 		return plan.Entry, fmt.Errorf("spell %d is made in the world database, but writing it into the client's patch failed (Save it to retry): %w", plan.Entry, err)
 	}
 	return plan.Entry, nil
+}
+
+// SpellStarters lists the kinds of spell New spell can start from without copying another (#360).
+func (a *App) SpellStarters() []vmangos.SpellStarter {
+	return vmangos.SpellStarters()
 }
 
 // SpellTables lists the client's cast times, durations, ranges and radii, for the spell editor's selects.

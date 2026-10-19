@@ -78,8 +78,8 @@ export function CreateQuest(arg1, arg2) {
   return window['go']['main']['App']['CreateQuest'](arg1, arg2);
 }
 
-export function CreateSpell(arg1, arg2) {
-  return window['go']['main']['App']['CreateSpell'](arg1, arg2);
+export function CreateSpell(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateSpell'](arg1, arg2, arg3);
 }
 
 export function DeleteQuest(arg1) {
@@ -612,6 +612,10 @@ export function SpawnLook(arg1, arg2, arg3, arg4, arg5) {
 
 export function SpellRefs(arg1) {
   return window['go']['main']['App']['SpellRefs'](arg1);
+}
+
+export function SpellStarters() {
+  return window['go']['main']['App']['SpellStarters']();
 }
 
 export function SpellTables() {

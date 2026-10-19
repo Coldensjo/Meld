@@ -17,6 +17,8 @@ type SpellOption struct {
 	ID    int     `json:"id"`
 	Label string  `json:"label"`
 	Value float64 `json:"value"`
+	// Scaled says the time grows with the caster's level.
+	Scaled bool `json:"scaled"`
 }
 
 // SpellTables are the client's tables a spell's index columns name: castingTimeIndex
@@ -80,7 +82,7 @@ func ReadSpellTables(dataDir string) (SpellTables, error) {
 		if ms > 0 {
 			label = fmt.Sprintf("%g sec", float64(ms)/1000)
 		}
-		return SpellOption{Label: label, Value: float64(ms)}
+		return SpellOption{Label: label, Value: float64(ms), Scaled: t.u32(r, 2) != 0}
 	}); err != nil {
 		return SpellTables{}, err
 	}
@@ -94,7 +96,7 @@ func ReadSpellTables(dataDir string) (SpellTables, error) {
 		if per := int(int32(t.u32(r, 2))); per != 0 {
 			label += fmt.Sprintf(" (+%g sec a level, up to %s)", float64(per)/1000, spellDuration(int(int32(t.u32(r, 3)))))
 		}
-		return SpellOption{Label: label, Value: float64(ms)}
+		return SpellOption{Label: label, Value: float64(ms), Scaled: t.u32(r, 2) != 0}
 	}); err != nil {
 		return SpellTables{}, err
 	}

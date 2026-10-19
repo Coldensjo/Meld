@@ -222,7 +222,7 @@ func TestPlanSpellLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	made, err := PlanCreateSpell(server, dataDir, 133, "Meld Bolt")
+	made, err := PlanCreateSpell(server, dataDir, 133, "", "Meld Bolt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,4 +300,56 @@ func mustClientFile(t *testing.T, dataDir, name string) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+// TestSpellStartersLive plans a spell from every starter against the real client and world database
+// and reads the planned Spell.dbc row back as the tooltips do; each INSERT runs into a temporary copy
+// of spell_template, so nothing is written. It needs WOW_DIR and VMANGOS_DIR.
+func TestSpellStartersLive(t *testing.T) {
+	dir, server := os.Getenv("WOW_DIR"), os.Getenv("VMANGOS_DIR")
+	if dir == "" || server == "" {
+		t.Skip("WOW_DIR or VMANGOS_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := openWorld(server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tables, err := ReadSpellTables(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	durations := map[uint32]int{}
+	for _, d := range tables.Durations {
+		durations[uint32(d.ID)] = int(d.Value)
+	}
+	for _, s := range SpellStarters() {
+		made, err := PlanCreateSpell(server, dataDir, 0, s.ID, "Meld "+s.Name)
+		if err != nil {
+			t.Fatalf("%s: %v", s.ID, err)
+		}
+		tb, err := parseDBC(made.File.Data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, ok := tb.row(uint32(made.Entry))
+		if !ok {
+			t.Fatalf("%s: no row %d", s.ID, made.Entry)
+		}
+		text := expandSpellText(tb.str(r, spellFDescription), tb, r, durations)
+		t.Logf("%s: %d %q icon %d visual %d range %d cast %d: %s", s.ID, made.Entry, tb.str(r, spellFName), tb.u32(r, spellFIcon), tb.u32(r, spellFVisual),
+			tb.u32(r, 36), tb.u32(r, 18), text)
+		if tb.str(r, spellFName) != "Meld "+s.Name || strings.Contains(text, "$") || tb.u32(r, spellFVisual) == 0 || tb.u32(r, spellFIcon) <= 1 ||
+			tb.u32(r, 36) == 0 || tb.u32(r, 18) == 0 || tb.u32(r, 61) == 0 || tb.u32(r, 128) == 0 {
+			t.Errorf("%s: the row is incomplete", s.ID)
+		}
+		script := "CREATE TEMPORARY TABLE `meld_try` LIKE `spell_template`;\n" + strings.Replace(made.SQL, "`spell_template`", "`meld_try`", 1) +
+			"\nSELECT COUNT(*) FROM `meld_try`;"
+		if err := runScript(db, script); err != nil {
+			t.Errorf("%s: the INSERT fails: %v\n%s", s.ID, err, made.SQL)
+		}
+	}
 }

@@ -45,7 +45,7 @@ export function CreateObject(arg1:number,arg2:string):Promise<number>;
 
 export function CreateQuest(arg1:number,arg2:string):Promise<number>;
 
-export function CreateSpell(arg1:number,arg2:string):Promise<number>;
+export function CreateSpell(arg1:number,arg2:string,arg3:string):Promise<number>;
 
 export function DeleteQuest(arg1:number):Promise<string>;
 
@@ -312,6 +312,8 @@ export function SpawnEmotes():Promise<Array<vmangos.Emote>>;
 export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:number):Promise<vmangos.LookResult>;
 
 export function SpellRefs(arg1:Array<number>):Promise<Record<number, vmangos.SpellRef>>;
+
+export function SpellStarters():Promise<Array<vmangos.SpellStarter>>;
 
 export function SpellTables():Promise<vmangos.SpellTables>;
 

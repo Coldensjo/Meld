@@ -25,6 +25,7 @@ const (
 	spellFStack       = 39
 	spellFIcon        = 117 // SpellIconID
 	spellFVisual      = 115 // SpellVisual
+	spellFRadius      = 88  // EffectRadiusIndex
 	spellFName        = 120 // enUS
 	spellFRank        = 129 // enUS
 )
@@ -34,8 +35,9 @@ var spellData struct {
 	sync.Mutex
 	dir       string
 	spells    *dbcTable
-	durations map[uint32]int    // SpellDuration.dbc: ID -> milliseconds, -1 for until cancelled
-	icons     map[uint32]string // SpellIcon.dbc: ID -> texture path, without .blp
+	durations map[uint32]int     // SpellDuration.dbc: ID -> milliseconds, -1 for until cancelled
+	icons     map[uint32]string  // SpellIcon.dbc: ID -> texture path, without .blp
+	radii     map[uint32]float32 // SpellRadius.dbc: ID -> yards
 }
 
 func loadSpellData(dataDir string) error {
@@ -76,7 +78,15 @@ func loadSpellData(dataDir string) error {
 			}
 		}
 	}
-	spellData.dir, spellData.spells, spellData.durations, spellData.icons = dataDir, spells, durations, icons
+	radii := map[uint32]float32{}
+	if rb, err := set.ReadFile(`DBFilesClient\SpellRadius.dbc`); err == nil {
+		if rt, err := parseDBC(rb); err == nil && rt.fields > 1 {
+			for r := 0; r < rt.records; r++ {
+				radii[rt.u32(r, 0)] = rt.f32(r, 1)
+			}
+		}
+	}
+	spellData.dir, spellData.spells, spellData.durations, spellData.icons, spellData.radii = dataDir, spells, durations, icons, radii
 	return nil
 }
 
@@ -115,7 +125,8 @@ func spellDuration(ms int) string {
 
 // expandSpellText fills in a description's $ tokens: $s/$m/$M (effect values), $o (the total over
 // a periodic effect), $t (its period), $d (duration), $h (proc chance), $n (charges), $u (stack),
-// $x (chain targets) and $l singular:plural; tokens it doesn't know stay as written.
+// $x (chain targets), $a (radius, when spellData's radii are read) and $l singular:plural; tokens it
+// doesn't know stay as written.
 func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) string {
 	i32 := func(base, k int) int { return int(int32(t.u32(r, base+k))) }
 	lo := func(k int) int { return i32(spellFEffectBase, k) + max(i32(spellFEffectDice, k), 1) }
@@ -151,7 +162,7 @@ func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) 
 			}
 		}
 		tok := desc[j]
-		if !strings.ContainsRune("sSmMoOtTdDhHnNuUxX", rune(tok)) {
+		if !strings.ContainsRune("sSmMoOtTdDhHnNuUxXaA", rune(tok)) {
 			b.WriteByte(c)
 			continue
 		}
@@ -204,6 +215,15 @@ func expandSpellText(desc string, t *dbcTable, r int, durations map[uint32]int) 
 		case 'u', 'U':
 			n = int(t.u32(r, spellFStack))
 			text = strconv.Itoa(n)
+		case 'a', 'A':
+			yd, ok := spellData.radii[t.u32(r, spellFRadius+e)]
+			if !ok {
+				b.WriteString(desc[i:k])
+				i = k - 1
+				continue
+			}
+			n = int(yd)
+			text = strconv.FormatFloat(float64(yd), 'f', -1, 32)
 		case 'x', 'X':
 			n = i32(spellFChain, e)
 			text = strconv.Itoa(n)

@@ -274,10 +274,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   maps the 173 fields to columns: strings take all 8 locales, `spellFamilyFlags` two fields, the
   locale masks stay the client's (the server's are older builds'), and the server's own columns
   (`effectBonusCoefficient1-3`, `minTargetLevel`, `customFlags`, `script_name`) have none;
-  `TestSpellColumnsMatchClient` checks it against every spell both have. New spell copies the open
-  spell (`PlanCreateSpell`: the first entry neither side uses, its build kept, `script_name` cleared),
-  writing the row and its Spell.dbc record at once; there is no blank spell, as effects, targets and
-  visual only work together. `putRecord` (`dbc.go`) replaces or adds a record and appends its
+  `TestSpellColumnsMatchClient` checks it against every spell both have. New spell (`PlanCreateSpell`,
+  the first entry neither side uses, the row and its Spell.dbc record written at once) copies the
+  open spell (its build kept, `script_name` cleared) or starts from a starter (#360,
+  `spellstarters.go`): Bolt, Instant strike, Heal, Damage over time, Buff or Area damage, every column
+  filled in by `starterValues` (the columns' zeros, -1 for the spell power coefficients, the parts
+  every spell shares, the starter's own values), its cast time, range, duration and radius rows
+  picked by value from the client's tables (`pickOption`, never a scaled row; an index of 0 has no
+  row, and some VMaNGOS code reads a range row without a check), its visual and icon those of a
+  client spell of its kind found by name (`spellLook`), and the client record's locale masks the
+  commonest of the client's (`commonSpellFields`). There is no all-zero spell: it would have no
+  effect, target or range row. `putRecord` (`dbc.go`) replaces or adds a record and appends its
   strings, leaving every other row's.
 - **Quests tab** (`components/QuestsTab.svelte`, #145, #293): the creature editor's and the game
   object editor's (`kind`), the quests the template starts and ends from its own side

@@ -450,7 +450,15 @@ new icon) in Meld's patch only on Save or New spell.
   base points 99 give 100 to 108 in the tooltip; a cost of 99999999999 is refused and jumps to the
   Spell tab; Change icon… previews the hovered icon (the bar keeps naming the current one) and marks
   a picked one Set on Save; Take the visual of Frost Nova changes the visual; Revert; New spell offers
-  a copy of Fireball under its name.
+  the six starters and Copy of Fireball, the copy picked, under its name.
+- Starters (#360): with `WOW_DIR` and `VMANGOS_DIR`, `TestSpellStartersLive` plans a spell from each
+  starter and reads its planned Spell.dbc row back (name, a visual, an icon other than Temp, a range
+  and cast time row, an effect, the locale mask, the text filled in, such as "Causes 50 Shadow
+  damage over 15 sec." and "within 10 yards"), and runs each INSERT into a temporary copy of
+  `spell_template` (`CREATE TEMPORARY TABLE ... LIKE`; the table is MyISAM, so a transaction can't
+  be rolled back), so nothing is written.
+- Trap: a starter's look comes from the lowest-ID client spell of its name with a visual; some early
+  rows of a name have the Temp icon (1), as Lesser Heal's did, so `spellLook` also skips icon 1.
 - The column map: with `WOW_DIR` and `VMANGOS_DIR`, `TestSpellColumnsMatchClient` writes every
   server row as Spell.dbc fields and compares them with the client's (22357 spells in both on
   2026-10-19, each mapped field the same in at least 95%; the locale masks, `nameFlags` and the rest,

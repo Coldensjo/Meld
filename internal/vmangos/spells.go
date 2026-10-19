@@ -247,12 +247,34 @@ func spellClientFile(dbc []byte, entry, from int, cols []TemplateColumn, values 
 		base = t.record(r)
 	} else if r, ok := t.row(uint32(from)); ok && from > 0 {
 		base = t.record(r)
+	} else {
+		base = commonSpellFields(t)
 	}
 	rec, strs, err := spellClientRow(entry, cols, values, base, t.fields)
 	if err != nil {
 		return nil, err
 	}
 	return putRecord(dbc, rec, strs)
+}
+
+// commonSpellFields is a record of zeros but for the fields no column holds (the locale masks), which
+// get the value most of the client's spells have there.
+func commonSpellFields(t *dbcTable) []uint32 {
+	rec := make([]uint32, t.fields)
+	for f, name := range spellDBCColumns {
+		if name != "" || f >= t.fields {
+			continue
+		}
+		count := map[uint32]int{}
+		for r := 0; r < t.records; r++ {
+			v := t.u32(r, f)
+			count[v]++
+			if count[v] > count[rec[f]] {
+				rec[f] = v
+			}
+		}
+	}
+	return rec
 }
 
 // spellIconRow is the SpellIcon.dbc ID of an icon (a name under Interface\Icons): the client's row
@@ -380,16 +402,17 @@ type SpellCreate struct {
 	File  mpq.File
 }
 
-// PlanCreateSpell works out a spell named name, a copy of spell base (the row the server uses),
-// under the first entry neither the world database nor the client uses, without writing anything.
-// The copy loses its script_name: a server script written for base would run for it.
-func PlanCreateSpell(serverRoot, dataDir string, base int, name string) (SpellCreate, error) {
+// PlanCreateSpell works out a spell named name under the first entry neither the world database nor
+// the client uses, without writing anything: a copy of spell base (the row the server uses) when base
+// is not 0, else made from the starter of that ID (#360). A copy loses its script_name: a server
+// script written for base would run for it.
+func PlanCreateSpell(serverRoot, dataDir string, base int, starter, name string) (SpellCreate, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return SpellCreate{}, errors.New("a new spell needs a name")
 	}
-	if base <= 0 {
-		return SpellCreate{}, errors.New("a new spell starts as a copy of another: open the spell to start from")
+	if base <= 0 && starter == "" {
+		return SpellCreate{}, errors.New("a new spell starts from a starter or as a copy of another")
 	}
 	db, err := openWorld(serverRoot)
 	if err != nil {
@@ -409,9 +432,29 @@ func PlanCreateSpell(serverRoot, dataDir string, base int, name string) (SpellCr
 	if err != nil {
 		return SpellCreate{}, err
 	}
-	build, row, err := readSpellRow(db, cols, base)
-	if err != nil {
-		return SpellCreate{}, err
+	build, row := spellBuild, map[string]string(nil)
+	if base > 0 {
+		if build, row, err = readSpellRow(db, cols, base); err != nil {
+			return SpellCreate{}, err
+		}
+	} else {
+		tables, err := ReadSpellTables(dataDir)
+		if err != nil {
+			return SpellCreate{}, err
+		}
+		like := ""
+		for _, s := range spellStarters {
+			if s.ID == starter {
+				like = s.Like
+			}
+		}
+		visual, icon, err := spellLook(dataDir, like)
+		if err != nil {
+			return SpellCreate{}, err
+		}
+		if row, err = starterValues(cols, starter, tables, visual, icon); err != nil {
+			return SpellCreate{}, err
+		}
 	}
 	raw, err := runSQL(db, "SELECT COALESCE(MAX(`entry`), 0) FROM `spell_template`")
 	if err != nil {
@@ -437,6 +480,17 @@ func PlanCreateSpell(serverRoot, dataDir string, base int, name string) (SpellCr
 		return SpellCreate{}, fmt.Errorf("no spell entry is free below %d", math.MaxUint16+1)
 	}
 	row["name"] = name
+	if base <= 0 {
+		sql, err := insertSpellSQL(cols, entry, build, row)
+		if err != nil {
+			return SpellCreate{}, err
+		}
+		out, err := spellClientFile(sb, entry, 0, cols, row)
+		if err != nil {
+			return SpellCreate{}, err
+		}
+		return SpellCreate{Entry: entry, SQL: sql, File: mpq.File{Name: SpellPath, Data: out}}, nil
+	}
 	names := []string{"`entry`", "`build`"}
 	sel := []string{strconv.Itoa(entry), strconv.Itoa(build)}
 	for _, c := range cols {
@@ -458,6 +512,26 @@ func PlanCreateSpell(serverRoot, dataDir string, base int, name string) (SpellCr
 		return SpellCreate{}, err
 	}
 	return SpellCreate{Entry: entry, SQL: sql, File: mpq.File{Name: SpellPath, Data: out}}, nil
+}
+
+// insertSpellSQL is the INSERT of spell entry's row of build with every column's value from values
+// (each checked by sqlValue; a column values lacks gets the table's default).
+func insertSpellSQL(cols []TemplateColumn, entry, build int, values map[string]string) (string, error) {
+	names := []string{"`entry`", "`build`"}
+	vals := []string{strconv.Itoa(entry), strconv.Itoa(build)}
+	for _, c := range cols {
+		v, ok := values[c.Name]
+		if !ok {
+			continue
+		}
+		q, err := sqlValue(c, v)
+		if err != nil {
+			return "", err
+		}
+		names = append(names, "`"+c.Name+"`")
+		vals = append(vals, q)
+	}
+	return fmt.Sprintf("INSERT INTO `spell_template` (%s) VALUES (%s);", strings.Join(names, ", "), strings.Join(vals, ", ")), nil
 }
 
 // ForgetSpells drops what was read of the client's spell tables, after Meld's patch changed them.

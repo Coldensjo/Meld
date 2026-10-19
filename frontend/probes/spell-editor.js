@@ -1,4 +1,4 @@
-// The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, Save refuses a cost past an unsigned int and jumps to its tab, Change icon… previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, and New spell offers a copy of the open spell; nothing written.
+// The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, Save refuses a cost past an unsigned int and jumps to its tab, Change icon… previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -82,11 +82,12 @@ button(actions(), 'Revert').click()
 await P.frames(2)
 const reverted = !!button(actions(), 'Saved') && tooltip()[0] === tip[0] && root().querySelector('.visual input').value === visualBefore
 
-// New spell: a copy of the open one.
+// New spell: the starters (#360) and a copy of the open one, picked.
 button(root().querySelector('aside'), 'New spell').click()
-await P.frames(1)
-const newForm = root().querySelector('.new-form p')?.textContent.trim() ?? ''
-const newName = root().querySelector('.new-form input')?.value
+await P.until(() => root().querySelectorAll('.new-form label.start').length > 1, WAIT, 'the starters')
+const starts = [...root().querySelectorAll('.new-form label.start strong')].map((s) => s.textContent.trim())
+const startOn = root().querySelector('.new-form label.start.on strong')?.textContent.trim()
+const newName = root().querySelector('.new-form input[type=text]')?.value
 ui.spellEditor = null
 await P.frames(1)
 
@@ -109,6 +110,8 @@ const ok =
 	visualAfter !== visualBefore &&
 	/\(\d\)/.test(saveText) &&
 	reverted &&
-	/copy of Fireball/.test(newForm) &&
+	starts.length === 7 &&
+	starts[0] === 'Bolt' &&
+	startOn === 'Copy of Fireball' &&
 	newName === 'Fireball'
-return { ok, menu, title, tip, fx, visualText, summary, edited, error, jumped, firstIcon, hovering, picked, visualBefore, visualAfter, saveText, reverted, newForm: newForm.slice(0, 80), newName }
+return { ok, menu, title, tip, fx, visualText, summary, edited, error, jumped, firstIcon, hovering, picked, visualBefore, visualAfter, saveText, reverted, starts, startOn, newName }
