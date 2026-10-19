@@ -166,6 +166,8 @@ export function fieldGroups(columns: string[], listed: CreatureFieldGroup[] = CR
 /** A value with bit `bit` set or cleared, as text (the editor holds values as the database prints them). */
 export function withBit(value: string, bit: number, on: boolean): string {
   const n = Number(value) || 0
+  // A negative mask (an item's allowable_class -1, every class) stays signed, as its column is.
+  if (n < 0) return String(on ? n | bit : n & ~bit)
   return String(on ? (n | bit) >>> 0 : (n & ~bit) >>> 0)
 }
 

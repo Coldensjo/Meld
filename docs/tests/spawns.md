@@ -384,3 +384,36 @@ vendor list) has its inventory icon, and hovering one shows the game-style toolt
   on a `td.item` or a `.results button`, then read `.tip`'s text. Searching: set `input.search`'s value
   and dispatch `input` (bubbling); 100 results for "hammer", each with an icon.
 - Effects show the spell's own text (#217): Tough Hunk of Bread (4540, spell 433) reads "Use: Restores 61 health over 18 sec.  Must remain seated while eating." Go: with `WOW_DIR=C:/WoW/client`, `TestSpellTextsFromClient` checks Spell.dbc's field layout (description at field 138). Trap: an aura with no period of its own counts every 5 sec for `$o1` (17 per tick over 18 sec is 61).
+
+## Item editor (#353)
+
+Checks: Tools › Items… finds and opens an item, shows its tooltip as the game does (following the
+unsaved values) and the item held or worn by a character, and writes `item_template` only on Save,
+Import or New item.
+- Probe `item-editor` (about 10 s; nothing written): the Worn Shortsword (25) reads Main Hand | Sword,
+  1 - 3 Damage | Speed 1.90 and its damage per second, is held in hand and shown alone; a typed name,
+  quality and damage change the tooltip; a chest slot gives the armour note; a level of 300 is
+  refused and jumps to Requirements; Take the look of… the Battleworn Hammer gives display 8690,
+  held; Revert.
+- Pictures: `bun run probe probes/scratch/item-look.js --shot <dir>` with `PROBE_ITEM=<entry>` (and
+  `PROBE_RACE=1..8`) leaves the editor open on an item (the scratch file is git-ignored; it is the
+  four lines that set `ui.itemEditor = { entry }` and wait for `.tooltip .line`). Seen on 2026-10-19:
+  the Battleworn Hammer (2361) in a human's hand, the Skullsplitter Helm (1624) on an orc's head, the
+  Fire Hardened Buckler (1276) on the shield arm.
+- Unit: `items_test.go` (`parseInserts` on comments, quoting and other statements; `planImport` with
+  a column the server lacks and rows without a column list; an exported row read back; `createItemSQL`)
+  and `frontend/tests/itemTooltip.test.ts` (the client's stat and resistance order, all resistances in
+  one line, the biased damage rounding, a gun's type alone, ammunition, classes and requirements).
+  With `VMANGOS_DIR` and `WOW_DIR`, `TestItemsLive` reads item 25, exports 25 and 2092 and plans the
+  script back (both rows exist, nothing unknown), and dresses a human holding the sword.
+- A write, by a scratch Go test (not kept): `CreateItem(dir, 25, "x")`, `SaveItem` a level and a
+  description with a quote and a line break, `ExportItems`, rename in the script, `PlanItemImport`
+  (the row exists) and `ImportItems`, then `ReadItemTemplate` has the new name, the level, the text
+  and the copied display. Clean up with `DELETE FROM item_template WHERE entry > <the max before>`.
+- In the game (the owner): restart mangosd (it reads items at start), start the game from Meld,
+  `.additem <entry>` as a GM and hover it.
+- Trap: the stand-in character is the humanoid NPC display of that race and sex that wears the least
+  (`standIn`), so it has the baked clothes of that NPC; body armour isn't drawn on it, since the game
+  paints it into the skin texture, which Meld doesn't composite.
+- Trap: `item_template` is keyed by (entry, patch); the editor writes the newest patch row it read,
+  and a new item is patch 0. `other_team_entry` defaults to 1 in VMaNGOS, which names no item.

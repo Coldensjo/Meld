@@ -39,6 +39,8 @@ export function ClearThumbnailCache():Promise<void>;
 
 export function CreateCreature(arg1:number,arg2:string):Promise<number>;
 
+export function CreateItem(arg1:number,arg2:string):Promise<number>;
+
 export function CreateObject(arg1:number,arg2:string):Promise<number>;
 
 export function CreateQuest(arg1:number,arg2:string):Promise<number>;
@@ -53,6 +55,8 @@ export function EquipmentFor(arg1:any):Promise<number>;
 
 export function EquipmentItems(arg1:number):Promise<any>;
 
+export function ExportItems(arg1:Array<number>,arg2:string):Promise<string>;
+
 export function Factions():Promise<Array<vmangos.FactionInfo>>;
 
 export function GameClient():Promise<main.GameClientInfo>;
@@ -65,9 +69,13 @@ export function GameWindow():Promise<main.GameWindowInfo>;
 
 export function GroundEffects():Promise<vmangos.GroundEffectTables>;
 
+export function ImportItems(arg1:string):Promise<Array<number>>;
+
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
 export function ItemIcons(arg1:Array<number>):Promise<Record<number, string>>;
+
+export function ItemModelLook(arg1:number,arg2:number,arg3:number,arg4:number):Promise<vmangos.ItemLook>;
 
 export function LaunchGame():Promise<void>;
 
@@ -139,11 +147,15 @@ export function OpenHeightmapDialog():Promise<string>;
 
 export function OpenImageDialog(arg1:string):Promise<string>;
 
+export function OpenItemsDialog():Promise<string>;
+
 export function OpenMapDialog():Promise<string>;
 
 export function OpenModelSetDialog():Promise<Array<string>>;
 
 export function OpenTextDialog():Promise<string>;
+
+export function PlanItemImport(arg1:string):Promise<vmangos.ItemImport>;
 
 export function PlanQuestDelete(arg1:number):Promise<vmangos.QuestDeletePlan>;
 
@@ -170,6 +182,8 @@ export function ReadHeightmap(arg1:string):Promise<main.HeightmapData>;
 export function ReadImageFile(arg1:string):Promise<string>;
 
 export function ReadItem(arg1:number):Promise<Record<string, string>>;
+
+export function ReadItemTemplate(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadObject(arg1:number):Promise<vmangos.TemplateRecord>;
 
@@ -214,6 +228,8 @@ export function SaveGreeting(arg1:number,arg2:string,arg3:string):Promise<vmango
 export function SaveHeightmapDialog(arg1:string):Promise<string>;
 
 export function SaveImageDialog(arg1:string,arg2:string):Promise<string>;
+
+export function SaveItem(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 
 export function SaveLights(arg1:vmangos.LightsEdit):Promise<string>;
 

@@ -60,6 +60,10 @@ each WDB file (a 20-byte header, then entry, size and data records, ended by 8 z
 object's data starts type, display id, four names; a creature's starts four names) and select the
 same entries' `name`, `type`, `displayId` from the newest patch row of the template table. In the
 game: rename an object, Save with the game closed, start it from Meld and look at the object.
+- Items (#353): the item editor's Save and Import take the items out of `WDB\itemcache.wdb` (the whole
+  template, 513-byte records here) and `WDB\itemnamecache.wdb` (the name), both keyed by the item's
+  entry like the others (`TestForgetPrunesTheClientCaches`). In the game: rename an item you carry,
+  Save with the game closed, restart the world server, start the game from Meld and hover the item.
 - Trap: the game writes its caches back as it exits, so pruning while it runs is undone. That is
   why a Save with the game open waits for Meld's next start (`Session.Start`). A game started
   outside Meld after such a Save still shows the old template; the entries are kept in memory only,

@@ -213,6 +213,29 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   never changes an object's type for the author (#293's decision). The one Save writes the row
   first, then the givers; `ui.questsVersion` then makes the creature and object editors' Quests tabs
   read their lists again.
+- **Item editor** (`components/ItemEditor.svelte`, `ui.itemEditor`, #353): full screen (z-index 165),
+  opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
+  (`SearchItems`); New item makes a common junk item or a copy of the open one (`CreateItem` in
+  `internal/vmangos/items.go`, patch 0, the first entry past the table's). Every `item_template`
+  column goes through the template path (`ReadItemTemplate`, `SaveItem`, `templateUpdateSQL`), laid
+  out on tabs by `world/itemFields.ts` (Item, Combat, Stats, Effects, Requirements, More, then Other),
+  whose subclass names follow the class. The right shows the item: `ItemModelLook` dresses a stand-in
+  character of the chosen race and sex (`standIn`: the humanoid NPC display that wears the least)
+  holding the item as `holdWeapons` holds a creature's (`gear`), or wearing a helm or shoulders as
+  `dressCharacter` does, and gives the item's model alone; body armour has no model (the game paints
+  it into the skin). Below it the tooltip (`components/ItemTooltipBox.svelte`, shared with the Shop
+  tab's `ItemTooltip`) is `tooltipLines` over the unsaved values, so it follows every change;
+  `itemTooltip.ts` follows the order of the client's tooltip builder as Benilla documents it
+  (`benilla-ui/src/script/tooltip_item/render.rs`), and `items.ts` `itemTooltipNames` names the
+  effects' spells and the required skill, spell and faction. The look is `display_id`, typed or taken
+  from another item (Take the look of…); Meld doesn't make displays (that is client DBC writing).
+  Export writes the item's every patch row to an SQL script of `REPLACE INTO item_template` with
+  named columns (`ExportItems`); Import reads one back without running it (`sqlparse.go`
+  `parseInserts`: only `INSERT`/`REPLACE INTO item_template` rows, other statements counted and
+  skipped, columns the server lacks dropped), shows the plan (`PlanItemImport`: which rows replace
+  existing ones) and writes it on confirmation (`ImportItems`, each value checked by `sqlValue`).
+  Save and Import mark the items stale (`game.Stale.AddItem`), so the client's `itemcache.wdb` and
+  `itemnamecache.wdb` drop them, and forget the session's rows and names (`forgetItemRow`, `forgetName`).
 - **Quests tab** (`components/QuestsTab.svelte`, #145, #293): the creature editor's and the game
   object editor's (`kind`), the quests the template starts and ends from its own side
   (`ReadCreatureQuests`/`SaveCreatureQuests`, `ReadObjectQuests`/`SaveObjectQuests` in

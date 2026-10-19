@@ -66,6 +66,10 @@ export function CreateCreature(arg1, arg2) {
   return window['go']['main']['App']['CreateCreature'](arg1, arg2);
 }
 
+export function CreateItem(arg1, arg2) {
+  return window['go']['main']['App']['CreateItem'](arg1, arg2);
+}
+
 export function CreateObject(arg1, arg2) {
   return window['go']['main']['App']['CreateObject'](arg1, arg2);
 }
@@ -94,6 +98,10 @@ export function EquipmentItems(arg1) {
   return window['go']['main']['App']['EquipmentItems'](arg1);
 }
 
+export function ExportItems(arg1, arg2) {
+  return window['go']['main']['App']['ExportItems'](arg1, arg2);
+}
+
 export function Factions() {
   return window['go']['main']['App']['Factions']();
 }
@@ -118,12 +126,20 @@ export function GroundEffects() {
   return window['go']['main']['App']['GroundEffects']();
 }
 
+export function ImportItems(arg1) {
+  return window['go']['main']['App']['ImportItems'](arg1);
+}
+
 export function InstallMapPatch(arg1) {
   return window['go']['main']['App']['InstallMapPatch'](arg1);
 }
 
 export function ItemIcons(arg1) {
   return window['go']['main']['App']['ItemIcons'](arg1);
+}
+
+export function ItemModelLook(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ItemModelLook'](arg1, arg2, arg3, arg4);
 }
 
 export function LaunchGame() {
@@ -266,6 +282,10 @@ export function OpenImageDialog(arg1) {
   return window['go']['main']['App']['OpenImageDialog'](arg1);
 }
 
+export function OpenItemsDialog() {
+  return window['go']['main']['App']['OpenItemsDialog']();
+}
+
 export function OpenMapDialog() {
   return window['go']['main']['App']['OpenMapDialog']();
 }
@@ -276,6 +296,10 @@ export function OpenModelSetDialog() {
 
 export function OpenTextDialog() {
   return window['go']['main']['App']['OpenTextDialog']();
+}
+
+export function PlanItemImport(arg1) {
+  return window['go']['main']['App']['PlanItemImport'](arg1);
 }
 
 export function PlanQuestDelete(arg1) {
@@ -328,6 +352,10 @@ export function ReadImageFile(arg1) {
 
 export function ReadItem(arg1) {
   return window['go']['main']['App']['ReadItem'](arg1);
+}
+
+export function ReadItemTemplate(arg1) {
+  return window['go']['main']['App']['ReadItemTemplate'](arg1);
 }
 
 export function ReadObject(arg1) {
@@ -416,6 +444,10 @@ export function SaveHeightmapDialog(arg1) {
 
 export function SaveImageDialog(arg1, arg2) {
   return window['go']['main']['App']['SaveImageDialog'](arg1, arg2);
+}
+
+export function SaveItem(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveItem'](arg1, arg2, arg3);
 }
 
 export function SaveLights(arg1) {

@@ -1225,6 +1225,109 @@ func (a *App) ItemIcons(displays []int) (map[int]string, error) {
 	return vmangos.ItemIcons(dataDir, displays)
 }
 
+// ReadItemTemplate reads an item template's row (its newest patch) for the item editor (#353).
+func (a *App) ReadItemTemplate(entry int) (vmangos.TemplateRecord, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.TemplateRecord{}, err
+	}
+	return vmangos.ReadItemTemplate(server, entry)
+}
+
+// SaveItem writes an item template's changed values (by column) into the world database and
+// returns the SQL it ran.
+func (a *App) SaveItem(entry, patch int, values map[string]string) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	sql, err := vmangos.SaveItem(server, entry, patch, values)
+	if err == nil {
+		a.stale.AddItem(uint32(entry))
+		a.forgetStale()
+	}
+	return sql, err
+}
+
+// CreateItem adds an item named name, a copy of item base (or a plain junk item for 0), and returns
+// its entry.
+func (a *App) CreateItem(base int, name string) (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.CreateItem(server, base, name)
+}
+
+// ItemModelLook is an item display on a character of race and sex (0 male, 1 female) as an item of
+// inventory type invType is held or worn, and the item's model alone.
+func (a *App) ItemModelLook(display, invType, race, sex int) (vmangos.ItemLook, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.ItemLook{}, err
+	}
+	return vmangos.ItemModelLook(dataDir, display, invType, race, sex)
+}
+
+var sqlFilters = []runtime.FileFilter{{DisplayName: "SQL script (*.sql)", Pattern: "*.sql"}}
+
+// ExportItems asks where to save an SQL script of items and writes their item_template rows there.
+// Returns the path, or "" if cancelled.
+func (a *App) ExportItems(entries []int, suggested string) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	script, err := vmangos.ExportItems(server, entries)
+	if err != nil {
+		return "", err
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "Export Items", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(script), 0o644)
+}
+
+// OpenItemsDialog asks for an SQL script of items to import. Returns "" if cancelled.
+func (a *App) OpenItemsDialog() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Import Items", Filters: sqlFilters})
+}
+
+// PlanItemImport says what importing the items of the SQL script at path would write.
+func (a *App) PlanItemImport(path string) (vmangos.ItemImport, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return vmangos.ItemImport{}, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.ItemImport{}, err
+	}
+	return vmangos.PlanItemImport(server, string(b))
+}
+
+// ImportItems writes the items of the SQL script at path into the world database and returns their
+// entries.
+func (a *App) ImportItems(path string) ([]int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := vmangos.ImportItems(server, string(b))
+	if err == nil {
+		for _, e := range entries {
+			a.stale.AddItem(uint32(e))
+		}
+		a.forgetStale()
+	}
+	return entries, err
+}
+
 // SpellTexts gives the description of each spell, its $ tokens filled in, for the Shop tab's tooltips.
 func (a *App) SpellTexts(ids []int) (map[int]string, error) {
 	dataDir, err := a.clientDataDir()
