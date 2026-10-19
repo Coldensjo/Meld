@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CreateSpell, ReadSpell, SaveSpell, SearchSpells, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
+	import { CreateSpell, ReadSpell, ReadSpellVisual, SaveSpell, SearchSpells, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/mapio'
@@ -11,6 +11,7 @@
 	import { forgetSpell, rememberSpells } from '../lib/wow/spells'
 	import ItemLookPicker from './ItemLookPicker.svelte'
 	import SpellIcon from './SpellIcon.svelte'
+	import SpellVisualComposer, { STAGES, loadVisualEffects, stageEffects } from './SpellVisualComposer.svelte'
 	import TemplateFields from './TemplateFields.svelte'
 
 	// The spell editor (#294, Tools › Spells…): find a spell or make one as a copy of the open one, edit
@@ -33,6 +34,10 @@
 	let confirmClose = $state(false)
 	/** An icon picked (a name under Interface\Icons), which Save turns into the spell's SpellIcon row. */
 	let pendingIcon = $state('')
+	/** A visual from the composer (#361), which Save turns into the spell's visual (new kits and a new visual when it is new). */
+	let pendingVisual = $state<vmangos.VisualDesign | null>(null)
+	/** The composer's working copy while it is open. */
+	let composing = $state<vmangos.VisualDesign | null>(null)
 	let changing = $state(false)
 	let candidate = $state<string | null>(null)
 	let hoverPick = $state<string | null>(null)
@@ -44,7 +49,7 @@
 	})
 
 	const changes = $derived(changedValues(values, saved))
-	const changeCount = $derived(Object.keys(changes).length + (pendingIcon ? 1 : 0))
+	const changeCount = $derived(Object.keys(changes).length + (pendingIcon ? 1 : 0) + (pendingVisual ? 1 : 0))
 	const unsaved = $derived(changeCount > 0)
 	const tabs = $derived(record ? spellTabs(record.columns.map((c) => c.name), tables) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
@@ -64,6 +69,8 @@
 		values = {}
 		saved = {}
 		pendingIcon = ''
+		pendingVisual = null
+		composing = null
 		changing = false
 		error = ''
 		confirmClose = false
@@ -120,6 +127,7 @@
 	function revert() {
 		values = { ...saved }
 		pendingIcon = ''
+		pendingVisual = null
 	}
 
 	function open(entry: number) {
@@ -146,11 +154,14 @@
 		note = ''
 		try {
 			const n = changeCount
-			const r = await SaveSpell(record.entry, record.build, changes, pendingIcon)
+			const r = await SaveSpell(record.entry, record.build, changes, pendingIcon, pendingVisual as vmangos.VisualDesign)
 			pendingIcon = ''
+			pendingVisual = null
+			values.spellVisual1 = String(r.visual)
 			saved = { ...values }
 			forget(record.entry)
-			const added = r.iconAdded ? ` Added the icon ${r.iconAdded} to SpellIcon.dbc.` : ''
+			let added = r.iconAdded ? ` Added the icon ${r.iconAdded} to SpellIcon.dbc.` : ''
+			if (r.visualAdded) added += ` Added visual ${r.visual} to SpellVisual.dbc (and its new stages to SpellVisualKit.dbc).`
 			note = `Saved ${n} ${n === 1 ? 'change' : 'changes'} to ${values.name} (spell ${record.entry}) in the world database and in the client's Spell.dbc.${added} ${RESTART}`
 			setStatus(note, 10000)
 			// Read it again for its icon's texture and that the client has it now.
@@ -296,7 +307,38 @@
 		}, 250)
 	})
 
+	/** Opens the composer on the visual waiting for Save, else the spell's own. */
+	async function compose() {
+		error = ''
+		try {
+			const d = pendingVisual ?? (await ReadSpellVisual(visual))
+			composing = $state.snapshot(d) as vmangos.VisualDesign
+			changing = false
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	function applyComposed(d: vmangos.VisualDesign) {
+		pendingVisual = $state.snapshot(d) as vmangos.VisualDesign
+		composing = null
+	}
+
+	// Names of the effects, for the waiting visual's summary.
+	let effectNames = $state(new Map<number, string>())
+	$effect(() => {
+		if (pendingVisual && !effectNames.size) void loadVisualEffects().then((l) => (effectNames = new Map(l.map((e) => [e.id, e.name]))))
+	})
+	const pendingSummary = $derived(
+		pendingVisual
+			? STAGES.map((s) => [s.name, stageEffects(pendingVisual!, s.key)] as const)
+					.filter(([, fx]) => fx.length)
+					.map(([name, fx]) => `${name}: ${fx.map((e) => effectNames.get(e) ?? e).join(', ')}`)
+			: [],
+	)
+
 	function takeVisual(s: vmangos.SpellRef) {
+		pendingVisual = null
 		values.spellVisual1 = String(s.visual)
 		visualQuery = ''
 	}
@@ -339,7 +381,8 @@
 			return
 		}
 		e.preventDefault()
-		if (changing) changing = false
+		if (composing) composing = null
+		else if (changing) changing = false
 		else if (confirmClose && unsaved) confirmClose = false
 		else close()
 	}
@@ -425,6 +468,8 @@
 					</div>
 				{:else if target.entry === 0}
 					<div class="empty dim">Find a spell on the left, or open one and make a new spell from it.</div>
+				{:else if composing && record}
+					<SpellVisualComposer bind:design={composing} onapply={applyComposed} oncancel={() => (composing = null)} />
 				{:else if changing && record}
 					<div class="change" aria-label="Change icon">
 						<div class="change-bar">
@@ -497,12 +542,30 @@
 						{#if !effects.some(Boolean)}<li class="dim">No effects: it does nothing.</li>{/if}
 					</ul>
 					<h3>Visual</h3>
-					<div class="visual" class:changed={changes.spellVisual1 !== undefined}>
+					<div class="visual" class:changed={changes.spellVisual1 !== undefined || pendingVisual !== null}>
 						<label title="SpellVisual.dbc ID: the casting, missile and impact effects the game draws (spellVisual1)"
-							>Visual <input type="number" min="0" value={values.spellVisual1 ?? ''} oninput={(e) => (values.spellVisual1 = (e.currentTarget as HTMLInputElement).value)} /></label
+							>Visual <input
+								type="number"
+								min="0"
+								value={values.spellVisual1 ?? ''}
+								oninput={(e) => {
+									values.spellVisual1 = (e.currentTarget as HTMLInputElement).value
+									pendingVisual = null
+								}}
+							/></label
 						>
-						<span class="dim">{visual ? (visualUsers.length ? `as ${visualUsers.map((s) => s.name).join(', ')}` : 'no other spell uses it') : 'none: nothing is drawn'}</span>
+						{#if pendingVisual}
+							<span class="dim">composed: set on Save</span>
+						{:else}
+							<span class="dim">{visual ? (visualUsers.length ? `as ${visualUsers.map((s) => s.name).join(', ')}` : 'no other spell uses it') : 'none: nothing is drawn'}</span>
+						{/if}
+						<button class:active={composing !== null} onclick={compose} title="Put a visual together from the client's stages and effect models">Compose…</button>
 					</div>
+					{#if pendingVisual}
+						<ul class="composed">
+							{#each pendingSummary as line (line)}<li>{line}</li>{:else}<li class="dim">No stages: nothing is drawn.</li>{/each}
+						</ul>
+					{/if}
 					<input type="search" placeholder="Take the visual of a spell: Fireball, Frost Nova…" bind:value={visualQuery} aria-label="Take the visual of a spell" />
 					{#if visualHits.length}
 						<ul class="found hits">
@@ -813,6 +876,12 @@
 	}
 	.visual input {
 		width: 80px;
+	}
+	.composed {
+		margin: 0;
+		padding-left: 16px;
+		font-size: 12px;
+		color: var(--accent);
 	}
 	.visual.changed input {
 		color: var(--accent);

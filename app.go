@@ -1408,23 +1408,27 @@ func (a *App) ReadSpell(entry int) (vmangos.SpellRecord, error) {
 }
 
 // SpellSaved is what SaveSpell wrote: the SQL it ran, the icon it added to SpellIcon.dbc ("" for
-// none) and the patch it wrote Spell.dbc into.
+// none), the spell's visual and whether the composer's was added as new rows, and the patch it wrote
+// Spell.dbc into.
 type SpellSaved struct {
-	SQL       string `json:"sql"`
-	IconAdded string `json:"iconAdded"`
-	Patch     string `json:"patch"`
+	SQL         string `json:"sql"`
+	IconAdded   string `json:"iconAdded"`
+	Visual      int    `json:"visual"`
+	VisualAdded bool   `json:"visualAdded"`
+	Patch       string `json:"patch"`
 }
 
-// SaveSpell writes a spell's changed values (by column) and icon (a name under Interface\Icons, ""
-// to keep its own) into its spell_template row, then its whole row into Spell.dbc in Meld's patch,
-// with the game and servers closed around it on Windows, so the server and the client agree on it.
-func (a *App) SaveSpell(entry, build int, values map[string]string, icon string) (SpellSaved, error) {
+// SaveSpell writes a spell's changed values (by column), icon (a name under Interface\Icons, "" to
+// keep its own) and visual (the composer's design, nil to keep it) into its spell_template row, then
+// its whole row into Spell.dbc in Meld's patch (with the icon's and the visual's new rows), with the
+// game and servers closed around it on Windows, so the server and the client agree.
+func (a *App) SaveSpell(entry, build int, values map[string]string, icon string, visual *vmangos.VisualDesign) (SpellSaved, error) {
 	defer a.releaseClient()()
 	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return SpellSaved{}, err
 	}
-	plan, err := vmangos.PlanSpellSave(server, dataDir, entry, build, values, icon)
+	plan, err := vmangos.PlanSpellSave(server, dataDir, entry, build, values, icon, visual)
 	if err != nil {
 		return SpellSaved{}, err
 	}
@@ -1436,7 +1440,7 @@ func (a *App) SaveSpell(entry, build int, values map[string]string, icon string)
 	if err != nil {
 		return SpellSaved{}, fmt.Errorf("the spell is saved in the world database, but writing it into the client's patch failed (Save again to retry): %w", err)
 	}
-	return SpellSaved{SQL: plan.SQL, IconAdded: plan.IconAdded, Patch: patch}, nil
+	return SpellSaved{SQL: plan.SQL, IconAdded: plan.IconAdded, Visual: plan.Visual, VisualAdded: plan.VisualAdded, Patch: patch}, nil
 }
 
 // CreateSpell adds a spell named name, a copy of spell base (or, for base 0, made from the starter of
@@ -1460,6 +1464,24 @@ func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 		return plan.Entry, fmt.Errorf("spell %d is made in the world database, but writing it into the client's patch failed (Save it to retry): %w", plan.Entry, err)
 	}
 	return plan.Entry, nil
+}
+
+// ReadSpellVisual reads a client spell visual as the composer edits it (#361).
+func (a *App) ReadSpellVisual(id int) (vmangos.VisualDesign, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.VisualDesign{}, err
+	}
+	return vmangos.ReadSpellVisual(dataDir, id)
+}
+
+// ListVisualEffects lists the client's spell effect models, for the composer's pickers.
+func (a *App) ListVisualEffects() ([]vmangos.VisualEffect, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ListVisualEffects(dataDir)
 }
 
 // SpellStarters lists the kinds of spell New spell can start from without copying another (#360).

@@ -244,7 +244,7 @@ func TestPlanSpellLive(t *testing.T) {
 		t.Fatalf("the copy's SQL: %s", made.SQL)
 	}
 
-	saved, err := PlanSpellSave(server, dataDir, 133, 5875, map[string]string{"effectBasePoints1": "99"}, "INV_Misc_Gem_Variety_01")
+	saved, err := PlanSpellSave(server, dataDir, 133, 5875, map[string]string{"effectBasePoints1": "99"}, "INV_Misc_Gem_Variety_01", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

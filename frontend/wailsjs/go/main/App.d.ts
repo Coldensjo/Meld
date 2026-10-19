@@ -103,6 +103,8 @@ export function ListPrefabs(arg1:string):Promise<Array<main.PrefabFile>>;
 
 export function ListRecovery():Promise<Array<recovery.Info>>;
 
+export function ListVisualEffects():Promise<Array<vmangos.VisualEffect>>;
+
 export function ListWeapons():Promise<Array<vmangos.WeaponEntry>>;
 
 export function LoadBuildingMap(arg1:string):Promise<vmangos.RegionView>;
@@ -205,6 +207,8 @@ export function ReadQuestGivers(arg1:number):Promise<vmangos.QuestGivers>;
 
 export function ReadSpell(arg1:number):Promise<vmangos.SpellRecord>;
 
+export function ReadSpellVisual(arg1:number):Promise<vmangos.VisualDesign>;
+
 export function ReadTextFile(arg1:string):Promise<string>;
 
 export function ReadVendor(arg1:number):Promise<vmangos.Vendor>;
@@ -271,7 +275,7 @@ export function SaveSQLDialog(arg1:string):Promise<string>;
 
 export function SaveSceneMap(arg1:mapfile.MapData):Promise<string>;
 
-export function SaveSpell(arg1:number,arg2:number,arg3:Record<string, string>,arg4:string):Promise<main.SpellSaved>;
+export function SaveSpell(arg1:number,arg2:number,arg3:Record<string, string>,arg4:string,arg5:vmangos.VisualDesign):Promise<main.SpellSaved>;
 
 export function SaveTaxi(arg1:vmangos.TaxiEdit):Promise<main.AreaSaveResult>;
 

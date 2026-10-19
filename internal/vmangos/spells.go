@@ -307,6 +307,10 @@ type SpellSave struct {
 	SQL       string
 	Files     []mpq.File
 	IconAdded string
+	// VisualAdded says the composer's visual was new rows, not one the client had.
+	VisualAdded bool
+	// Visual is the spell's visual as saved.
+	Visual int
 }
 
 // checkIconName refuses what can't be a name under Interface\Icons.
@@ -318,8 +322,9 @@ func checkIconName(icon string) error {
 }
 
 // PlanSpellSave works out saving changed values (by column) into spell entry's row of build build,
-// and icon (a name under Interface\Icons, "" to keep the spell's), without writing anything.
-func PlanSpellSave(serverRoot, dataDir string, entry, build int, values map[string]string, icon string) (SpellSave, error) {
+// icon (a name under Interface\Icons, "" to keep the spell's) and visual (a design from the composer,
+// #361; nil to keep spellVisual1 as values have it), without writing anything.
+func PlanSpellSave(serverRoot, dataDir string, entry, build int, values map[string]string, icon string, visual *VisualDesign) (SpellSave, error) {
 	db, err := openWorld(serverRoot)
 	if err != nil {
 		return SpellSave{}, err
@@ -359,6 +364,15 @@ func PlanSpellSave(serverRoot, dataDir string, entry, build int, values map[stri
 		}
 		changes["spellIconId"] = strconv.Itoa(id)
 	}
+	if visual != nil {
+		id, files, err := planSpellVisualFiles(set, *visual)
+		if err != nil {
+			return SpellSave{}, err
+		}
+		save.Files = append(save.Files, files...)
+		save.VisualAdded = len(files) > 0
+		changes["spellVisual1"] = strconv.Itoa(id)
+	}
 	if save.SQL, err = keyedUpdateSQL(spellTable, "build", cols, entry, build, changes); err != nil {
 		return SpellSave{}, err
 	}
@@ -379,6 +393,7 @@ func PlanSpellSave(serverRoot, dataDir string, entry, build int, values map[stri
 		return SpellSave{}, err
 	}
 	save.Files = append(save.Files, mpq.File{Name: SpellPath, Data: out})
+	save.Visual, _ = strconv.Atoi(row["spellVisual1"])
 	return save, nil
 }
 

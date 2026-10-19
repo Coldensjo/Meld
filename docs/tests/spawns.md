@@ -457,6 +457,27 @@ new icon) in Meld's patch only on Save or New spell.
   damage over 15 sec." and "within 10 yards"), and runs each INSERT into a temporary copy of
   `spell_template` (`CREATE TEMPORARY TABLE ... LIKE`; the table is MyISAM, so a transaction can't
   be rolled back), so nothing is written.
+- Visual composer (#361), probe `spell-visual` (nothing written): Blizzard (10)'s Compose… lists its
+  stages with names (Area: Blizzard Impact Base, a channel); Rain of Fire's area taken by the stage's
+  spell search makes the lava blizzard (Area: Rain Of Fire Impact Base), whose model plays in the
+  preview (`RainOfFire_Impact_Base.m2`); a hovered effect model previews and a clicked one goes on
+  the Cast stage's left hand; Use this visual leaves "composed: set on Save" with a stage summary and
+  Save spell (1); Esc leaves a reopened composer; Revert.
+- Visual tables: `TestPlanVisual` (unchanged gives the same ID and no files; an added area a new
+  visual only; a changed attachment point a new kit copying its animation; an effect on an empty
+  stage a new kit of that stage's kind; nothing at all no visual). With `WOW_DIR`,
+  `TestSpellVisualsLive` checks the layouts on the client's rows (4460 of 4461 stage fields name a
+  kit, 455 of 460 missile and area fields and 1887 of 1890 attachment points name an effect model on
+  2026-10-19) and plans the lava blizzard: Blizzard's visual 259 with Rain of Fire's (329) area
+  fields 11 to 13, one new SpellVisual row, no new kit.
+- Trap: SpellVisual's field 9 (the attachment a missile flies to) is set on most visuals, with a
+  missile or not (1459 of 2165), so a visual without a missile keeps it; clearing it changed
+  Blizzard's row in the first plan.
+- Trap: many spells share a name. "Rain of Fire" finds 19, and the first Rank 1 (3354) is a helper
+  with no area; the warlock's is 5740 (visual 329). The composer shows each hit's ID and refuses to
+  take an empty stage rather than clearing it (the probe checks the refusal).
+- In the game (the owner): a spell saved with a composed visual, then cast; the stages should play
+  as in the composer. Not run on 2026-10-19.
 - Trap: a starter's look comes from the lowest-ID client spell of its name with a visual; some early
   rows of a name have the Temp icon (1), as Lesser Heal's did, so `spellLook` also skips icon 1.
 - The column map: with `WOW_DIR` and `VMANGOS_DIR`, `TestSpellColumnsMatchClient` writes every

@@ -217,6 +217,8 @@ export namespace main {
 	export class SpellSaved {
 	    sql: string;
 	    iconAdded: string;
+	    visual: number;
+	    visualAdded: boolean;
 	    patch: string;
 	
 	    static createFrom(source: any = {}) {
@@ -227,6 +229,8 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.sql = source["sql"];
 	        this.iconAdded = source["iconAdded"];
+	        this.visual = source["visual"];
+	        this.visualAdded = source["visualAdded"];
 	        this.patch = source["patch"];
 	    }
 	}
@@ -2978,6 +2982,77 @@ export namespace vmangos {
 		    }
 		    return a;
 		}
+	}
+	
+	export class VisualKit {
+	    id: number;
+	    effects: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new VisualKit(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.effects = source["effects"];
+	    }
+	}
+	export class VisualDesign {
+	    id: number;
+	    stages: VisualKit[];
+	    missile: number;
+	    missileFrom: number;
+	    area: number;
+	    areaFrom: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new VisualDesign(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.stages = this.convertValues(source["stages"], VisualKit);
+	        this.missile = source["missile"];
+	        this.missileFrom = source["missileFrom"];
+	        this.area = source["area"];
+	        this.areaFrom = source["areaFrom"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class VisualEffect {
+	    id: number;
+	    name: string;
+	    model: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VisualEffect(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.model = source["model"];
+	    }
 	}
 	
 	

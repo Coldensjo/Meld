@@ -194,6 +194,10 @@ export function ListRecovery() {
   return window['go']['main']['App']['ListRecovery']();
 }
 
+export function ListVisualEffects() {
+  return window['go']['main']['App']['ListVisualEffects']();
+}
+
 export function ListWeapons() {
   return window['go']['main']['App']['ListWeapons']();
 }
@@ -398,6 +402,10 @@ export function ReadSpell(arg1) {
   return window['go']['main']['App']['ReadSpell'](arg1);
 }
 
+export function ReadSpellVisual(arg1) {
+  return window['go']['main']['App']['ReadSpellVisual'](arg1);
+}
+
 export function ReadTextFile(arg1) {
   return window['go']['main']['App']['ReadTextFile'](arg1);
 }
@@ -530,8 +538,8 @@ export function SaveSceneMap(arg1) {
   return window['go']['main']['App']['SaveSceneMap'](arg1);
 }
 
-export function SaveSpell(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['SaveSpell'](arg1, arg2, arg3, arg4);
+export function SaveSpell(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SaveSpell'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function SaveTaxi(arg1) {

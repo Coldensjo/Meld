@@ -266,7 +266,21 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the tooltip (`spellTooltip`: name and rank, cost and range, cast time and cooldown, the description
   with `expandSpellText`, the TypeScript twin of Go's), the effects in a line each and the visual
   (`spellVisual1`, typed or taken from a searched spell's `SpellRef.Visual`, its other users named by
-  `SpellsWithVisual`). `SaveSpell` (`app.go`) plans first (`PlanSpellSave`: the UPDATE by entry and
+  `SpellsWithVisual`), or composed (#361, `components/SpellVisualComposer.svelte`, Compose… turning
+  the middle into the composer as Change icon… does): the stages of a cast (precast, cast, channel,
+  missile, impact, state, area), each taken from any spell (`ReadSpellVisual` gives a visual as a
+  `VisualDesign`: each stage's kit and the effect on its ten attachment points, the missile's and the
+  area's effect and the visual each came from) or changed one attachment point at a time from the
+  client's effect models (`ListVisualEffects`: SpellVisualEffectName.dbc rows whose .m2 the client has),
+  the hovered or picked model playing in a `CreaturePreview` (`m2:` type, with its particles). Use this
+  visual leaves the design waiting (`pendingVisual`) for Save, where `planVisual`
+  (`internal/vmangos/spellvisuals.go`) keeps a stage's kit when its effects are unchanged, else adds
+  a kit (a copy of its own, or for an empty stage a new one of that stage's kind and animation), and
+  keeps the visual when nothing changed, else reuses a client visual with the same fields, else adds
+  one (a copy of the visual it was read from with the stages, missile and area set; a missile or area
+  taken from another visual brings its path, attachment and sound). Rows other spells use are never
+  changed. The layouts (SpellVisual 16 fields, SpellVisualKit 35, SpellVisualEffectName 5) are in the
+  file's comment; `TestSpellVisualsLive` checks them against the client. `SaveSpell` (`app.go`) plans first (`PlanSpellSave`: the UPDATE by entry and
   build, a picked icon's SpellIcon.dbc row found or added by `spellIconRow`, then the whole row as it
   will be written into Spell.dbc by `spellClientRow` over the client's record), runs the SQL, then
   writes the tables into Meld's patch with `installWithGameClosed`, so the server (restarted by it,
