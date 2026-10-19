@@ -36,7 +36,10 @@
 	// The look: a display picked from the client's (a click; the one under the pointer is previewed),
 	// or an icon for the item's model, which Save turns into a display.
 	let pendingIcon = $state('')
-	let hovered = $state<number | null>(null)
+	/** Change look or Change icon, taking over the middle: the grid's pick and the tile under the pointer. */
+	let changing = $state<'' | 'look' | 'icon'>('')
+	let candidate = $state<number | string | null>(null)
+	let hoverPick = $state<number | string | null>(null)
 
 	const changes = $derived(changedValues(values, saved))
 	const changeCount = $derived(Object.keys(changes).length)
@@ -60,7 +63,7 @@
 		values = {}
 		saved = {}
 		pendingIcon = ''
-		hovered = null
+		changing = ''
 		error = ''
 		confirmClose = false
 		if (t.entry > 0) void load(t.entry)
@@ -312,7 +315,9 @@
 	let look = $state<vmangos.ItemLook | null>(null)
 	const display = $derived(Number(values.display_id) || 0)
 	/** The display the preview shows: the look under the pointer in the picker, else the item's. */
-	const shown = $derived(hovered ?? display)
+	const shown = $derived(changing === 'look' ? Number(hoverPick ?? candidate ?? display) || 0 : display)
+	/** The icon the tooltip shows: the one under the pointer or picked while changing it, else the one waiting for Save. */
+	const iconShown = $derived(changing === 'icon' ? String(hoverPick ?? candidate ?? pendingIcon) : pendingIcon)
 	const invType = $derived(Number(values.inventory_type) || 0)
 	$effect(() => {
 		const key = `${shown}|${invType}|${race}|${sex}`
@@ -364,6 +369,45 @@
 		pendingIcon = ''
 	}
 
+	/** Whether the item was shown alone before Change look, which shows it alone (the item itself, large). */
+	let aloneBefore = false
+
+	function startChange(what: 'look' | 'icon') {
+		if (what === 'look' && changing !== 'look') {
+			aloneBefore = alone
+			alone = true
+		} else if (what === 'icon' && changing === 'look') alone = aloneBefore
+		changing = what
+		candidate = null
+		hoverPick = null
+	}
+
+	function endChange() {
+		if (changing === 'look') alone = aloneBefore
+		changing = ''
+	}
+
+	/** Applies the look or icon picked (or `v`, a double click's) and goes back to the item. */
+	function applyChange(v: number | string | null = candidate) {
+		if (v === null) return
+		if (changing === 'look') pickLook(Number(v))
+		else if (changing === 'icon') pendingIcon = String(v)
+		endChange()
+	}
+
+	const changeText = $derived.by(() => {
+		if (changing === 'look') {
+			const now = `Now display ${display || 'none'}.`
+			if (hoverPick !== null && hoverPick !== candidate) return `${now} Showing display ${hoverPick}.`
+			if (candidate !== null) return `${now} Picked display ${candidate}: Change look applies it.`
+			return `${now} Hover a look below to see it, click one, then Change look.`
+		}
+		const now = pendingIcon ? `Now ${pendingIcon} (made on Save).` : "Now the look's own icon."
+		if (hoverPick !== null && hoverPick !== candidate) return `${now} Showing ${hoverPick}.`
+		if (candidate !== null) return `${now} Picked ${candidate}: Change icon applies it, keeping the model.`
+		return `${now} Hover an icon below to see it, click one, then Change icon. The model stays.`
+	})
+
 	function onKey(e: KeyboardEvent) {
 		if (!target || e.key !== 'Escape') return
 		const el = e.target as HTMLElement | null
@@ -372,7 +416,8 @@
 			return
 		}
 		e.preventDefault()
-		if (plan) plan = null
+		if (changing) endChange()
+		else if (plan) plan = null
 		else if (confirmClose && unsaved) confirmClose = false
 		else close()
 	}
@@ -468,6 +513,37 @@
 					</div>
 				{:else if target.entry === 0}
 					<div class="empty dim">Find an item on the left, make a new one, or import some.</div>
+				{:else if changing && record}
+					<div class="change" aria-label={changing === 'look' ? 'Change look' : 'Change icon'}>
+						<div class="change-bar">
+							<div class="what">
+								<strong>{changing === 'look' ? 'Change look' : 'Change icon'}</strong>
+								<span class="dim">{changeText}</span>
+							</div>
+							<button onclick={endChange} title="Back to the item (Esc)">Cancel</button>
+							<button class="active" disabled={candidate === null} onclick={() => applyChange()}>{changing === 'look' ? 'Change look' : 'Change icon'}</button>
+						</div>
+						<div class="stage">
+							{#if changing === 'look'}
+								{@render modelView(true)}
+							{:else}
+								<div class="icon-stage">
+									<ItemIcon displayId={iconShown ? 0 : display} icon={iconShown} size={128} />
+									<ItemTooltipBox {lines} displayId={display} icon={iconShown} />
+								</div>
+							{/if}
+						</div>
+						<div class="grid-area">
+							<ItemLookPicker
+								mode={changing === 'look' ? 'looks' : 'icons'}
+								kind={slotKind(invType)}
+								selected={candidate ?? (changing === 'look' ? display : pendingIcon)}
+								onpick={(v) => (candidate = v)}
+								onapply={applyChange}
+								onhover={(v) => (hoverPick = v)}
+							/>
+						</div>
+					</div>
 				{:else}
 					<nav class="tabs">
 						{#each tabs as t (t.id)}
@@ -493,44 +569,52 @@
 
 			{#if record && target.entry > 0}
 				<section class="look" aria-label="How the item looks">
-					<div class="model">
-						{#if preview}
-							<CreaturePreview model={preview.model} look={preview.look} scale={preview.scale} />
-						{:else}
-							<div class="empty dim">{look ? 'Nothing to show.' : 'Loading…'}</div>
-						{/if}
-					</div>
-					<div class="controls">
-						<div class="seg" role="group" aria-label="Show">
-							<button class:on={!alone} onclick={() => (alone = false)}>On a character</button>
-							<button class:on={alone} onclick={() => (alone = true)}>Item alone</button>
-						</div>
-						{#if !alone}
-							<select bind:value={race} aria-label="Race">
-								{#each RACES as [id, name] (id)}<option value={id}>{name}</option>{/each}
-							</select>
-							<select bind:value={sex} aria-label="Sex">
-								<option value={0}>Male</option>
-								<option value={1}>Female</option>
-							</select>
-						{/if}
-					</div>
-					<p class="dim">{previewText}</p>
+					{#if !changing}{@render modelView(false)}{/if}
 					<div class="display" class:changed={changes.display_id !== undefined || pendingIcon !== ''}>
-						<ItemIcon displayId={display} icon={pendingIcon} size={24} />
+						<ItemIcon displayId={changing === 'look' ? shown : display} icon={iconShown} size={24} />
 						<label title="ItemDisplayInfo.dbc ID: the item's model and icon (display_id)"
 							>Display <input type="number" min="0" value={values.display_id ?? ''} oninput={(e) => (values.display_id = (e.currentTarget as HTMLInputElement).value)} /></label
 						>
-						{#if pendingIcon}<span class="pending">icon {pendingIcon}, made on Save</span>{/if}
 					</div>
-					<ItemLookPicker kind={slotKind(invType)} {display} icon={pendingIcon} onlook={pickLook} onicon={(name) => (pendingIcon = name)} onhover={(d) => (hovered = d)} />
+					<div class="change-buttons">
+						<button class:active={changing === 'look'} onclick={() => startChange('look')} title="Pick another of the client's looks: its model and icon">Change look…</button>
+						<button class:active={changing === 'icon'} onclick={() => startChange('icon')} title="Pick another icon, keeping the model">Change icon…</button>
+					</div>
+					{#if pendingIcon}<p class="pending">Icon {pendingIcon}: Save makes the look that pairs it with this model.</p>{/if}
 					<h3>Tooltip</h3>
-					<div class="tooltip"><ItemTooltipBox {lines} displayId={display} icon={pendingIcon} /></div>
+					<div class="tooltip"><ItemTooltipBox {lines} displayId={changing === 'look' ? shown : display} icon={iconShown} /></div>
 				</section>
 			{/if}
 		</div>
 	</div>
 {/if}
+
+
+{#snippet modelView(big: boolean)}
+	<div class="model" class:big>
+		{#if preview}
+			<CreaturePreview model={preview.model} look={preview.look} scale={preview.scale} />
+		{:else}
+			<div class="empty dim">{look ? 'Nothing to show.' : 'Loading…'}</div>
+		{/if}
+	</div>
+	<div class="controls">
+		<div class="seg" role="group" aria-label="Show">
+			<button class:on={!alone} onclick={() => (alone = false)}>On a character</button>
+			<button class:on={alone} onclick={() => (alone = true)}>Item alone</button>
+		</div>
+		{#if !alone}
+			<select bind:value={race} aria-label="Race">
+				{#each RACES as [id, name] (id)}<option value={id}>{name}</option>{/each}
+			</select>
+			<select bind:value={sex} aria-label="Sex">
+				<option value={0}>Male</option>
+				<option value={1}>Female</option>
+			</select>
+		{/if}
+	</div>
+	<p class="dim preview-text">{previewText}</p>
+{/snippet}
 
 <style>
 	.editor {
@@ -764,6 +848,62 @@
 	}
 	.pending {
 		color: var(--accent);
+		font-size: 12px;
+		margin: 0;
+	}
+	.change-buttons {
+		display: flex;
+		gap: 6px;
+	}
+	.change-buttons button {
+		flex: 1;
+	}
+	.change {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 12px 16px;
+	}
+	.change-bar {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.change-bar .what {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.stage {
+		flex: 1 1 50%;
+		min-height: 200px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.model.big {
+		flex: 1;
+		height: auto;
+		min-height: 0;
+	}
+	.icon-stage {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 24px;
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		background: #1a1d24;
+	}
+	.grid-area {
+		flex: 1 1 40%;
+		min-height: 180px;
+		display: flex;
 	}
 	.tooltip {
 		display: flex;

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"Meld/internal/mpq"
+	"Meld/internal/wow"
 )
 
 // The item editor's look pickers (#353): every item display of the client (ItemDisplayInfo.dbc) with
@@ -44,6 +45,10 @@ type ItemDisplayEntry struct {
 	Kind  string   `json:"kind"`
 	Uses  int      `json:"uses"`
 	Names []string `json:"names"`
+	// Path and Skin are the model's client path where its kind keeps it (a helm as a human man's)
+	// and the look query that skins it, for a thumbnail; "" for a display without a model.
+	Path string `json:"path"`
+	Skin string `json:"skin"`
 }
 
 var (
@@ -181,10 +186,37 @@ func listItemDisplays(t *dbcTable, rows [][]string) []ItemDisplayEntry {
 		} else {
 			e.Kind = modelKind(e.Model, bodyTextures)
 		}
+		e.Path, e.Skin = displayModel(e.Kind, t.str(r, idModel), t.str(r, idTexture))
 		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
+}
+
+// displayModel is the client path of a display's model by where it goes, and the look query that
+// skins it. A helm is the human man's of its models; body armour and the rest have no model to show.
+func displayModel(kind, name, texture string) (string, string) {
+	if name == "" {
+		return "", ""
+	}
+	dir := weaponItems
+	switch kind {
+	case "shield":
+		dir = shieldItems
+	case "shoulder":
+		dir = shoulderItems
+	case "head":
+		dir = headItems
+		name = trimModelExt(name[strings.LastIndex(name, `\`)+1:]) + "_HuM.mdx"
+	case "weapon", "ranged", "held":
+	default:
+		return "", ""
+	}
+	model, tex := itemPaths(name, dir, texture)
+	if tex == "" {
+		return model, ""
+	}
+	return model, wow.Look{Textures: map[int]string{wow.TexItem: tex}}.Query()
 }
 
 // ListItemIcons lists the icons the client has (the names under Interface\Icons, without the

@@ -393,12 +393,18 @@ Import or New item.
 - Probe `item-editor` (about 10 s; nothing written): the Worn Shortsword (25) reads Main Hand | Sword,
   1 - 3 Damage | Speed 1.90 and its damage per second, is held in hand and shown alone; a typed name,
   quality and damage change the tooltip; a chest slot gives the armour note; a level of 300 is
-  refused and jumps to Requirements; the Looks picker's search for the Battleworn Hammer finds
-  display 8690, whose tile previews it on hover and gives it on a click, held; the Icons picker marks
-  INV_Axe_01 to be made on Save (Save item (3)); Revert.
-- Picker pictures: `probes/scratch/item-picker.js` (git-ignored: opens `ui.itemEditor` on
-  `PROBE_ITEM`, waits for `.picker [aria-label="Looks"] .tile`, with `PROBE_TAB=icons` clicks Icons)
-  with `--shot`. 240 of 3687 weapon looks for the Worn Shortsword, 42 icons loaded on screen.
+  refused and jumps to Requirements; Change look… replaces the field tabs with the item large
+  over the looks; the search for the Battleworn Hammer finds display 8690, whose tile previews it on
+  hover (the item's display_id unchanged), is picked by a click and applied by Change look, back on
+  the fields, held; Change icon… marks INV_Axe_01 to be made on Save (Save item (3)), and Esc leaves a
+  second Change icon view; Revert.
+- Trap: in the Icons grid the tile is `.icon-btn`; `.icon` is the ItemIcon span inside it. A probe's
+  synthetic hover must bubble (`pointerover` with `bubbles: true`), or the look tiles' `pointerenter`
+  for PaletteTile.
+- Picker pictures: `probes/scratch/item-change.js` (git-ignored: opens `ui.itemEditor` on
+  `PROBE_ITEM`, clicks Change look… or, with `PROBE_TAB=icons`, Change icon…, and hovers tile
+  `PROBE_HOVER`) with `--shot`. Seen on 2026-10-19: 3687 weapon looks for the Worn Shortsword, a
+  hovered axe alone in the middle; the Icons view with a hovered icon large beside the tooltip.
 - A new display: `TestItemIconDisplay` (an icon a display already has, one another display pairs
   with the same model, a new row past the last ID, an icon alone); with `WOW_DIR`,
   `TestItemLooksLive` (29604 displays, 2684 icons, the Battleworn Hammer's 8690 a weapon with

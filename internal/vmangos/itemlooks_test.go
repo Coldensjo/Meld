@@ -29,6 +29,12 @@ func TestListItemDisplays(t *testing.T) {
 	if sword.Kind != "weapon" || sword.Uses != 3 || sword.Model != "Sword_1H_A" || sword.Icon != "INV_Sword_04" || strings.Join(sword.Names, ",") != "Blade,Edge,Cutter" {
 		t.Errorf("sword %+v", sword)
 	}
+	if sword.Path != `Item\ObjectComponents\Weapon\Sword_1H_A.mdx` || !strings.Contains(sword.Skin, "SwordSkin.blp") {
+		t.Errorf("sword's model %q %q", sword.Path, sword.Skin)
+	}
+	if helm.Path != `Item\ObjectComponents\Head\Helm_Plate_A_HuM.mdx` || robe.Path != "" {
+		t.Errorf("helm %q, robe %q", helm.Path, robe.Path)
+	}
 	if robe.Kind != "body" || helm.Kind != "head" || helm.Uses != 0 || got[1].Kind != "weapon" {
 		t.Errorf("robe %+v, helm %+v, unused sword %+v", robe, helm, got[1])
 	}

@@ -26,8 +26,10 @@
 		const name = icon
 		url = null
 		if (lazy && !seen) return
-		if (name) void iconImage(name).then((u) => name === icon && (url = u))
-		else if (id > 0) void itemIcon(id).then((u) => id === displayId && !icon && (url = u))
+		// The client's icons are 64 px: a small square takes them at 36, a large one whole.
+		const px = size > 40 ? 64 : 36
+		if (name) void iconImage(name, px).then((u) => name === icon && (url = u))
+		else if (id > 0) void itemIcon(id, px).then((u) => id === displayId && !icon && (url = u))
 	})
 </script>
 

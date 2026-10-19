@@ -6,6 +6,7 @@ import { refName } from './refNames'
 // Items for the Shop tab (#202): each display's inventory icon from the client (ItemDisplayInfo.dbc,
 // then Interface\Icons), and each item's item_template row for its tooltip, both read once a session.
 
+/** Each display's icon name, asked for once. */
 const icons = new Map<number, Promise<string | null>>()
 const pending = new Map<number, (name: string | null) => void>()
 let flush = 0
@@ -24,26 +25,25 @@ function flushIcons() {
 		})
 }
 
-/** An image URL of a display's inventory icon, or null when the client has none. */
-export function itemIcon(displayId: number): Promise<string | null> {
+/** An image URL of a display's inventory icon at `px` pixels, or null when the client has none. */
+export function itemIcon(displayId: number, px = 36): Promise<string | null> {
 	let p = icons.get(displayId)
 	if (!p) {
-		const name = new Promise<string | null>((done) => pending.set(displayId, done))
+		p = new Promise<string | null>((done) => pending.set(displayId, done))
 		if (!flush) flush = window.setTimeout(flushIcons, 0)
-		p = name.then((n) => (n ? iconImage(n) : null))
 		icons.set(displayId, p)
 	}
-	return p
+	return p.then((n) => (n ? iconImage(n, px) : null))
 }
 
 const named = new Map<string, Promise<string | null>>()
 
-/** An image URL of the icon named `name` (under Interface\Icons), or null when the client has none. */
-export function iconImage(name: string): Promise<string | null> {
-	const key = name.toLowerCase()
+/** An image URL of the icon named `name` (under Interface\Icons) at `px` pixels, or null when the client has none. */
+export function iconImage(name: string, px = 36): Promise<string | null> {
+	const key = `${name.toLowerCase()}|${px}`
 	let p = named.get(key)
 	if (!p) {
-		p = texturePreview(`Interface\\Icons\\${name}.blp`, 36).catch(() => null)
+		p = texturePreview(`Interface\\Icons\\${name}.blp`, px).catch(() => null)
 		named.set(key, p)
 	}
 	return p

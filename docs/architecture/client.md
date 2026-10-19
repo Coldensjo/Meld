@@ -228,12 +228,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `itemTooltip.ts` follows the order of the client's tooltip builder as Benilla documents it
   (`benilla-ui/src/script/tooltip_item/render.rs`), and `items.ts` `itemTooltipNames` names the
   effects' spells and the required skill, spell and faction. The look is `display_id`, typed or picked
-  in `components/ItemLookPicker.svelte`: Looks is every row of the client's ItemDisplayInfo.dbc as an
-  icon tile (`ListItemDisplays` in `internal/vmangos/itemlooks.go`, with the items using each and a
-  kind from their slots, or from the model's name for an unused one), filtered to the item's slot
-  (`itemFields.ts` `slotKind`, Go's `invKind`); the tile under the pointer is previewed, a click picks
-  it. Icons is every `Interface\Icons` file the client lists (`ListItemIcons`), item icons first. A
-  picked icon waits for Save, where `ItemIconDisplay` finds the display that pairs the item's model
+  with the right pane's Change look… and Change icon…, which turn the middle (in place of the field
+  tabs, `changing`) into the item large over a grid (`components/ItemLookPicker.svelte`, virtualised
+  as the creature editor's `DisplayPicker`): hovering a tile previews it there and in the tooltip, a
+  click picks it, the bar's Change look or Change icon (or a double click) applies it and goes back,
+  Cancel or Esc goes back without it. Change look shows the item alone (the stand-in again when
+  leaving). Looks is every row of the client's ItemDisplayInfo.dbc (`ListItemDisplays` in
+  `internal/vmangos/itemlooks.go`, with the items using each and a kind from their slots, or from the
+  model's name for an unused one, and the model's path and skin, `displayModel`, for a rendered
+  `PaletteTile`; a display without a model, such as body armour, is its icon), filtered to the item's
+  slot (`itemFields.ts` `slotKind`, Go's `invKind`). Icons is every `Interface\Icons` file the client
+  lists (`ListItemIcons`), item icons first. A picked icon waits for Save, where `ItemIconDisplay` finds the display that pairs the item's model
   and everything else with that icon, or adds one (a copy of the item's display with the new icon,
   the next ID) to ItemDisplayInfo.dbc in Meld's patch (`installWithGameClosed`), then
   `ForgetItemDisplays` drops the Go caches built from that table. Item tiles load their icons only

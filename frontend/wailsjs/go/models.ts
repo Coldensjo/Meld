@@ -1227,6 +1227,8 @@ export namespace vmangos {
 	    kind: string;
 	    uses: number;
 	    names: string[];
+	    path: string;
+	    skin: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ItemDisplayEntry(source);
@@ -1240,6 +1242,8 @@ export namespace vmangos {
 	        this.kind = source["kind"];
 	        this.uses = source["uses"];
 	        this.names = source["names"];
+	        this.path = source["path"];
+	        this.skin = source["skin"];
 	    }
 	}
 	export class ItemImportRow {
