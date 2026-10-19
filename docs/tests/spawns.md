@@ -390,7 +390,9 @@ vendor list) has its inventory icon, and hovering one shows the game-style toolt
 Checks: Tools › Items… finds and opens an item, shows its tooltip as the game does (following the
 unsaved values) and the item held or worn by a character, and writes `item_template` only on Save,
 Import or New item.
-- Probe `item-editor` (about 10 s; nothing written): the Worn Shortsword's search result
+- Probe `item-editor` (about 10 s; nothing written): the Stats tab holds one stat a row, and
+  Equip bonuses adds Healing +22 (spell 9408) into effect slot 1 as Equip, read in the tooltip as
+  "Equip: Increases healing done by spells and effects by up to 22.", then Remove; the Worn Shortsword's search result
   right-clicked shows Open and Copy .additem 25, and the copy puts `.additem 25` on the clipboard
   (read back with `window.runtime.ClipboardGetText()`, the Wails runtime, which works on the dev
   page; the probe overwrites the system clipboard); the Worn Shortsword (25) reads Main Hand | Sword,
@@ -408,6 +410,12 @@ Import or New item.
   `PROBE_ITEM`, clicks Change look… or, with `PROBE_TAB=icons`, Change icon…, and hovers tile
   `PROBE_HOVER`) with `--shot`. Seen on 2026-10-19: 3687 weapon looks for the Worn Shortsword, a
   hovered axe alone in the middle; the Icons view with a hovered icon large beside the tooltip.
+- Equip bonuses: `TestEquipBonuses` (a used spell wins an amount, two auras only as a pair, a
+  talent and an old spell left out). Live on 2026-10-20: 20 bonuses, such as Healing 52 amounts 2 to
+  300, Spell damage and healing 61 (1 to 150), Attack power 48, Mana every 5 sec 16; picture with
+  `probes/scratch/item-stats.js` (git-ignored: Stats, Spell damage and healing +12 and crit +1%
+  added, unsaved). Trap: a slot found by a reactive "first free" must be read once before writing
+  it, or the trigger lands in the next slot (the first try wrote "Use:" for an Equip).
 - A new display: `TestItemIconDisplay` (an icon a display already has, one another display pairs
   with the same model, a new row past the last ID, an icon alone); with `WOW_DIR`,
   `TestItemLooksLive` (29604 displays, 2684 icons, the Battleworn Hammer's 8690 a weapon with

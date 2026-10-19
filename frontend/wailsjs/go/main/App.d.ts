@@ -53,6 +53,8 @@ export function DropRecovery(arg1:string):Promise<void>;
 
 export function EndRecovery():Promise<void>;
 
+export function EquipBonuses():Promise<Array<vmangos.EquipBonusKind>>;
+
 export function EquipmentFor(arg1:any):Promise<number>;
 
 export function EquipmentItems(arg1:number):Promise<any>;

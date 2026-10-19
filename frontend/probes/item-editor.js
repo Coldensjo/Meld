@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, Save refuses a level past 255 and shows the tab it is on, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -76,6 +76,27 @@ button(root().querySelector('header .actions'), 'Revert').click()
 await P.frames(2)
 const reverted = button(root().querySelector('header .actions'), 'Saved') !== undefined && tooltip()[0] === tip[0]
 
+// Stats: one stat a row (its type beside its amount), and an Equip bonus put into a free effect slot.
+await openTab('Stats')
+const top = (label) => field(label)?.getBoundingClientRect().top ?? -1
+const stats = { row1: top('Stat 1') === top('Stat 1 amount'), row2: top('Stat 2') > top('Stat 1 amount') && top('Stat 2') === top('Stat 2 amount') }
+const bonuses = () => root().querySelector('.bonuses')
+await P.until(() => bonuses()?.querySelector('select[aria-label=Amount] option'), WAIT, 'the equip bonuses')
+choose(bonuses().querySelector('select[aria-label=Bonus]'), 'healing')
+await P.frames(1)
+const amount = [...bonuses().querySelectorAll('select[aria-label=Amount] option')].find((o) => o.textContent === '+22')
+choose(bonuses().querySelector('select[aria-label=Amount]'), amount.value)
+button(bonuses(), 'Add bonus').click()
+await P.until(() => tooltip().some((l) => l.startsWith('Equip: Increases healing')), WAIT, 'the bonus in the tooltip')
+stats.tooltip = tooltip().find((l) => l.startsWith('Equip:'))
+stats.listed = bonuses().querySelector('[aria-label="Equip effects"] li')?.textContent.replace(/\s+/g, ' ').trim()
+stats.save = button(root().querySelector('header .actions'), 'Save')?.textContent.trim()
+button(root().querySelector('[aria-label="Equip effects"]'), 'Remove').click()
+await P.frames(2)
+stats.removed = !tooltip().some((l) => l.startsWith('Equip:'))
+button(root().querySelector('header .actions'), 'Revert').click()
+await P.frames(2)
+
 // The look of another item: the Battleworn Hammer's (2361) display, held as a two-hand mace.
 await openTab('Item')
 choose(field('Slot'), '17')
@@ -124,6 +145,11 @@ ui.itemEditor = null
 await P.frames(1)
 
 const ok =
+	stats.row1 && stats.row2 &&
+	stats.tooltip === 'Equip: Increases healing done by spells and effects by up to 22.' &&
+	stats.listed.includes('Healing +22') &&
+	stats.save === 'Save item (2)' &&
+	stats.removed &&
 	menu.title === 'Worn Shortsword' &&
 	menu.items.join('|') === 'Open|Copy .additem 25 to the clipboard' &&
 	menu.shown && menu.closed &&
@@ -158,4 +184,4 @@ const ok =
 	iconPick.pending.startsWith('Icon INV_Axe_01') &&
 	iconPick.save === 'Save item (3)' &&
 	iconPick.escClosed
-return { ok, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+return { ok, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }

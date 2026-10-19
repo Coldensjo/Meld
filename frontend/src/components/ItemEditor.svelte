@@ -11,6 +11,7 @@
 	import { QUALITY_COLORS, tooltipLines, type TooltipNames } from '../lib/wow/itemTooltip'
 	import { forgetName } from '../lib/wow/refNames'
 	import CreaturePreview from './CreaturePreview.svelte'
+	import EquipBonuses from './EquipBonuses.svelte'
 	import ItemIcon from './ItemIcon.svelte'
 	import ItemLookPicker, { forgetLooks } from './ItemLookPicker.svelte'
 	import ItemTooltipBox from './ItemTooltipBox.svelte'
@@ -591,8 +592,12 @@
 								{#if t.id === tab}
 									{#each t.groups as g (g.title)}
 										<h3>{g.title}</h3>
-										<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={(col, v) => (values[col] = v)} />
+										<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} cols={g.columns} onset={(col, v) => (values[col] = v)} />
 									{/each}
+									{#if t.id === 'stats'}
+										<h3>Equip bonuses</h3>
+										<EquipBonuses {values} texts={names.spells ?? {}} onset={(col, v) => (values[col] = v)} />
+									{/if}
 								{/if}
 							{/each}
 						{/if}

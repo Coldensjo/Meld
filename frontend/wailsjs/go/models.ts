@@ -960,6 +960,57 @@ export namespace vmangos {
 	        this.anim = source["anim"];
 	    }
 	}
+	export class EquipBonusSpell {
+	    spell: number;
+	    amount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new EquipBonusSpell(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.spell = source["spell"];
+	        this.amount = source["amount"];
+	    }
+	}
+	export class EquipBonusKind {
+	    id: string;
+	    name: string;
+	    unit: string;
+	    amounts: EquipBonusSpell[];
+	
+	    static createFrom(source: any = {}) {
+	        return new EquipBonusKind(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.unit = source["unit"];
+	        this.amounts = this.convertValues(source["amounts"], EquipBonusSpell);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class FactionInfo {
 	    id: number;
 	    name: string;

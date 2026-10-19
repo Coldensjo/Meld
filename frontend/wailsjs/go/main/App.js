@@ -94,6 +94,10 @@ export function EndRecovery() {
   return window['go']['main']['App']['EndRecovery']();
 }
 
+export function EquipBonuses() {
+  return window['go']['main']['App']['EquipBonuses']();
+}
+
 export function EquipmentFor(arg1) {
   return window['go']['main']['App']['EquipmentFor'](arg1);
 }

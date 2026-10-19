@@ -221,7 +221,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `internal/vmangos/items.go`, patch 0, the first entry past the table's). Every `item_template`
   column goes through the template path (`ReadItemTemplate`, `SaveItem`, `templateUpdateSQL`), laid
   out on tabs by `world/itemFields.ts` (Item, Combat, Stats, Effects, Requirements, More, then Other),
-  whose subclass names follow the class. The right shows the item: `ItemModelLook` dresses a stand-in
+  whose subclass names follow the class; a group may set its grid's `columns` (Stats: 2, a stat's
+  type beside its amount). The ten stat slots hold only 1.12's ITEM_MOD types (mana, health, the five
+  attributes), so the Stats tab's Equip bonuses (`components/EquipBonuses.svelte`) give the rest
+  (healing, spell damage, crit, hit, dodge, attack power, mana per 5…) as an Equip effect in a free
+  `spellid_N` slot: `EquipBonuses` in `internal/vmangos/equipbonus.go` lists, per bonus, the
+  client's item bonus spells by amount (passive, the generic icon 1, one aura, or two of the same
+  amount for damage and healing (13 and 135) and attack power (99 and 124); the spells the world
+  database's items already use win an amount). The right shows the item: `ItemModelLook` dresses a stand-in
   character of the chosen race and sex (`standIn`: the humanoid NPC display that wears the least)
   holding the item as `holdWeapons` holds a creature's (`gear`), or wearing a helm or shoulders as
   `dressCharacter` does, and gives the item's model alone; body armour has no model (the game paints

@@ -1311,6 +1311,19 @@ func (a *App) ItemIconDisplay(display int, icon string) (vmangos.IconDisplay, er
 	return vmangos.IconDisplay{ID: id, Added: true}, nil
 }
 
+// EquipBonuses lists the bonuses an item's Equip effect can give (healing, spell damage, crit…) with
+// the client's spell for each amount, for the item editor's Stats tab.
+func (a *App) EquipBonuses() ([]vmangos.EquipBonusKind, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	return vmangos.EquipBonuses(server, dataDir)
+}
+
 var sqlFilters = []runtime.FileFilter{{DisplayName: "SQL script (*.sql)", Pattern: "*.sql"}}
 
 // ExportItems asks where to save an SQL script of items and writes their item_template rows there.
