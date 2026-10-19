@@ -71,7 +71,17 @@ interface Batch {
   scratch: number[]
   scratchFar: number[]
   dirty: boolean
+	/** The ids of every object of the type, hidden or not, so `update` reads only its own (#329). */
+	members: Set<number>
 }
+
+// Scratch for `matrixAt`, which runs for every instance a rebuild places (#329). A parent's matrix
+// at depth d goes in `parentM[d]`, so the recursion never overwrites one still in use.
+const mEuler = new THREE.Euler()
+const mQuat = new THREE.Quaternion()
+const mScale = new THREE.Vector3()
+const mPos = new THREE.Vector3()
+const parentM = Array.from({ length: MAX_DEPTH + 1 }, () => new THREE.Matrix4())
 
 /**
  * All placed props. One InstancedMesh per model type keeps draw calls at
@@ -89,6 +99,13 @@ export class ObjectLayer {
   /** Draw hidden objects anyway, so they can be picked and shown again. */
   private showHidden = false
   private batches = new Map<string, Batch>()
+	/**
+	 * The ids attached to each object, by parent id, and the parent each id was filed under (#329), so
+	 * `markTree` finds an object's children without walking every object. Kept by `add`, `remove`,
+	 * `clear` and `touch`: every change to an object's `parent` is followed by one of them.
+	 */
+	private kids = new Map<number, Set<number>>()
+	private filedParent = new Map<number, number>()
   private nextId = 1
   /** The next unused selection group number. */
   private nextGroup = 1
@@ -121,8 +138,11 @@ export class ObjectLayer {
     if (!obj.group) delete obj.group
     else this.nextGroup = Math.max(this.nextGroup, obj.group + 1)
     this.nextId = Math.max(this.nextId, obj.id + 1)
+		const prev = this.objects.get(obj.id)
+		if (prev) this.leaveBatch(prev)
     this.objects.set(obj.id, obj)
-    this.batch(obj.type).dirty = true
+		this.joinBatch(obj)
+		this.file(obj)
     this.version++
     return obj
   }
@@ -132,10 +152,43 @@ export class ObjectLayer {
     if (!o) return
     this.objects.delete(id)
     this.hidden.delete(id)
-    this.batch(o.type).dirty = true
+		this.leaveBatch(o)
+		this.unfile(id)
     this.version++
     return o
   }
+
+	private joinBatch(o: WorldObject) {
+		const b = this.batch(o.type)
+		b.members.add(o.id)
+		b.dirty = true
+	}
+
+	private leaveBatch(o: WorldObject) {
+		const b = this.batches.get(o.type)
+		if (b?.members.delete(o.id)) b.dirty = true
+	}
+
+	/** Files an object under its parent in `kids`, moving it from the one it was filed under. */
+	private file(o: WorldObject) {
+		const was = this.filedParent.get(o.id)
+		if (was === o.parent) return
+		if (was !== undefined) this.unfile(o.id)
+		if (o.parent === undefined) return
+		let ks = this.kids.get(o.parent)
+		if (!ks) this.kids.set(o.parent, (ks = new Set()))
+		ks.add(o.id)
+		this.filedParent.set(o.id, o.parent)
+	}
+
+	private unfile(id: number) {
+		const was = this.filedParent.get(id)
+		if (was === undefined) return
+		this.filedParent.delete(id)
+		const ks = this.kids.get(was)
+		ks?.delete(id)
+		if (ks && !ks.size) this.kids.delete(was)
+	}
 
   /**
    * Changes an object's model, keeping its id, placement and attachments: it leaves its old type's
@@ -144,8 +197,9 @@ export class ObjectLayer {
   setType(id: number, type: string) {
     const o = this.objects.get(id)
     if (!o || o.type === type) return
-    this.batch(o.type).dirty = true
+		this.leaveBatch(o)
     o.type = type
+		this.joinBatch(o)
     this.markTree(o, 0)
     this.version++
   }
@@ -153,7 +207,15 @@ export class ObjectLayer {
   /** Call after mutating an object's fields. Attached children follow. */
   touch(id: number) {
     const o = this.objects.get(id)
-    if (o) this.markTree(o, 0)
+		if (o) {
+			// The fields may have been written over from a snapshot (undo): its parent, or its type.
+			this.file(o)
+			if (!this.batch(o.type).members.has(o.id)) {
+				for (const b of this.batches.values()) if (b.members.delete(o.id)) b.dirty = true
+				this.joinBatch(o)
+			}
+			this.markTree(o, 0)
+		}
     this.version++
   }
 
@@ -161,7 +223,12 @@ export class ObjectLayer {
   private markTree(o: WorldObject, depth: number) {
     this.batch(o.type).dirty = true
     if (depth >= MAX_DEPTH) return
-    for (const c of this.objects.values()) if (c.parent === o.id) this.markTree(c, depth + 1)
+		const ks = this.kids.get(o.id)
+		if (!ks) return
+		for (const id of ks) {
+			const c = this.objects.get(id)
+			if (c && c.parent === o.id) this.markTree(c, depth + 1)
+		}
   }
 
   childrenOf(id: number): WorldObject[] {
@@ -266,6 +333,9 @@ export class ObjectLayer {
   clear() {
     this.objects.clear()
     this.hidden.clear()
+		for (const b of this.batches.values()) b.members.clear()
+		this.kids.clear()
+		this.filedParent.clear()
     this.markAllDirty()
   }
 
@@ -291,15 +361,14 @@ export class ObjectLayer {
   }
 
   private matrixAt(o: WorldObject, out: THREE.Matrix4, depth: number): THREE.Matrix4 {
-    // Tilt and roll are applied in the model's own frame, then the turn about the world up, as the client does.
-    const q = new THREE.Quaternion().setFromEuler(placementEuler(new THREE.Euler(), o.rotY, o.tiltX, o.tiltZ))
-    const sc = new THREE.Vector3().setScalar(o.scale)
-    const parent = this.parentOf(o, depth)
-    if (!parent) {
-      return out.compose(new THREE.Vector3(o.x, this.terrain.heightAt(o.x, o.z) + o.yOff, o.z), q, sc)
-    }
-    out.compose(new THREE.Vector3(o.x, o.yOff, o.z), q, sc)
-    return out.premultiply(this.matrixAt(parent, new THREE.Matrix4(), depth + 1))
+		// Tilt and roll are applied in the model's own frame, then the turn about the world up, as the client does.
+		// The scratch is used up by `compose` before the recursion reuses it.
+		mQuat.setFromEuler(placementEuler(mEuler, o.rotY, o.tiltX, o.tiltZ))
+		mScale.setScalar(o.scale)
+		const parent = this.parentOf(o, depth)
+		if (!parent) return out.compose(mPos.set(o.x, this.terrain.heightAt(o.x, o.z) + o.yOff, o.z), mQuat, mScale)
+		out.compose(mPos.set(o.x, o.yOff, o.z), mQuat, mScale)
+		return out.premultiply(this.matrixAt(parent, parentM[depth + 1], depth + 1))
   }
 
   /** World transform of an object (follows its parent chain). */
@@ -376,6 +445,7 @@ export class ObjectLayer {
         scratch: [],
         scratchFar: [],
         dirty: true,
+				members: new Set(),
       }
       this.batches.set(type, b)
       this.group.add(b.mesh)
@@ -468,7 +538,7 @@ export class ObjectLayer {
       if (!b.dirty) continue
       b.dirty = false
       b.all.length = 0
-      for (const o of this.objects.values()) if (o.type === type && !this.isHidden(o.id)) b.all.push(o.id)
+			for (const id of b.members) if (!this.isHidden(id)) b.all.push(id)
       const n = b.all.length
       if (n > b.mesh.instanceMatrix.count) {
         let cap = b.mesh.instanceMatrix.count

@@ -45,6 +45,15 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     sculpting. A tilted one also has `tiltX`/`tiltZ`, the MDDF/MODF record's first and third angles,
     turned in the client's order by `world/placement.ts` (`placementEuler`); build every model
     rotation through it.
+  - A batch is rebuilt (`update`) only when dirty: an object of its type was added, removed, changed
+    type, hidden or touched, or its model loaded. Each batch keeps the ids of its type (`members`),
+    and the layer keeps each object's children (`kids`, filed by `add`, `remove` and `touch`, since
+    every change to `parent` is followed by one of them), so a rebuild and `markTree` (a touch, a
+    sculpt stamp's `markRegionDirty`) never walk every object (#329). `matrixAt` builds the matrices
+    in module scratch, a parent's in `parentM[depth]`.
+  - `SpawnLayer` notes the creature models that load and its next `cull` redraws only the batches they
+    change (`regroup`): the model's own and the marker cones holding a spawn of it. A change to the
+    spawns themselves (`set`, `add`, `remove`, the events shown) still rebuilds every batch (#329).
   - **WMO rooms** (#8, from Benilla's `wmo_portal`): `world/WmoRooms.ts` finds the room (group) of the
     placed WMO the camera is in with the client's down-ray (`wmoRoom.ts`, room data from `/wow/wmonav`),
     `wmoFlood.ts` runs the portal flood from it each frame and `wmoFog.ts` picks the room's MFOG fog

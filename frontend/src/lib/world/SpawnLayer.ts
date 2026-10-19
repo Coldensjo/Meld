@@ -61,6 +61,7 @@ const tmpQ = new THREE.Quaternion()
 const tmpScale = new THREE.Vector3()
 const tmpPos = new THREE.Vector3()
 const eachM = new THREE.Matrix4()
+const buildM = new THREE.Matrix4()
 
 /** A spawn's instance matrix: a model turns to the spawn's rotation and takes its size; a cone points up. */
 export function spawnMatrix(s: vmangos.WorldSpawn, model: boolean, out: THREE.Matrix4) {
@@ -98,9 +99,13 @@ export class SpawnLayer {
   private readonly invisibleMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(
     KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k], wireframe: true })]),
   )
-  private readonly unsubscribe = onAssetLoaded((type) => {
-    if (this.types.has(type)) this.rebuild()
-  })
+	// A model that loads is noted, and the next cull redraws only the batches it changes (`regroup`):
+	// a map's models load in bursts, and each used to rebuild every batch (#329).
+	private readonly unsubscribe = onAssetLoaded((type) => {
+		if (this.types.has(type)) this.loaded.add(type)
+	})
+	/** Model types that loaded since the last cull or rebuild. */
+	private loaded = new Set<string>()
   private types = new Set<string>()
   private shown: Record<SpawnKind, boolean> = { monster: true, npc: true, object: true }
   /** The world events whose spawns are drawn (`prefs.shownEvents`). */
@@ -245,6 +250,7 @@ export class SpawnLayer {
 
   /** Draws only the spawns in `view`, packed to the front of each batch's instance buffer. Call once per frame. */
 	cull(view: CullView) {
+		if (this.loaded.size) this.regroup()
 		this.drawn.clear()
 		for (const b of this.batches) {
 			if (cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch) || b.dirty) {
@@ -389,9 +395,47 @@ export class SpawnLayer {
   private rebuild() {
     this.version++
     this.clearMeshes()
+		this.loaded.clear()
+		this.build(this.spawns)
+		this.applyKinds()
+	}
+
+	/**
+	 * Redraws the batches the models in `loaded` change: their own (a model loaded again) and the
+	 * markers that hold a spawn of one, whose spawns are grouped again. The rest are kept as they are.
+	 */
+	private regroup() {
+		const loaded = this.loaded
+		const redo = new Set<SpawnBatch>()
+		for (const b of this.batches) {
+			if (loaded.has(b.type)) redo.add(b)
+			else if (!b.ready && b.type === 'cone') {
+				for (const s of b.all) {
+					if (loaded.has(this.where.get(s)?.type ?? '')) {
+						redo.add(b)
+						break
+					}
+				}
+			}
+		}
+		loaded.clear()
+		if (!redo.size) return
+		const spawns: vmangos.WorldSpawn[] = []
+		for (const b of redo) {
+			for (const s of b.all) spawns.push(s)
+			this.group.remove(b.mesh)
+			b.mesh.dispose()
+		}
+		this.batches = this.batches.filter((b) => !redo.has(b))
+		this.build(spawns)
+		this.applyKinds()
+	}
+
+	/** Groups `spawns` (none of them in a batch) into new batches by kind and model, and adds them. */
+	private build(spawns: vmangos.WorldSpawn[]) {
     // Group the spawns by kind and model; a spawn with a ready model joins that model's batch.
-    const batches = new Map<string, { kind: SpawnKind; type: string; items: vmangos.WorldSpawn[] }>()
-    for (const s of this.spawns) {
+		const batches = new Map<string, { kind: SpawnKind; type: string; items: vmangos.WorldSpawn[]; types: string[] }>()
+		for (const s of spawns) {
       // A spawn of a world event that isn't shown is left out of the batches, so nothing draws, picks or names it.
       if (!this.eventShown(s)) continue
       const type = spawnType(s)
@@ -401,12 +445,13 @@ export class SpawnLayer {
       const key = ready ? `${s.kind}|${type}` : `${s.kind}|${marker}`
       let b = batches.get(key)
       if (!b) {
-        b = { kind: s.kind as SpawnKind, type: ready ? type : marker, items: [] }
+				b = { kind: s.kind as SpawnKind, type: ready ? type : marker, items: [], types: [] }
         batches.set(key, b)
       }
       b.items.push(s)
+			b.types.push(type)
     }
-    const m = new THREE.Matrix4()
+		const m = buildM
     for (const b of batches.values()) {
       const invisible = b.type === 'invisible'
       const asset = b.type !== 'cone' && !invisible ? getAsset(b.type) : null
@@ -425,14 +470,13 @@ export class SpawnLayer {
         spawnMatrix(s, ready, m)
         m.toArray(matrices, i * 16)
         instanceSphere(geometry, m, spheres, i * 4)
-        this.where.set(s, { batch, i, type: spawnType(s) })
+				this.where.set(s, { batch, i, type: b.types[i] })
       })
       // Nothing is drawn until the first cull packs the spawns in view.
       mesh.count = 0
       this.batches.push(batch)
       this.group.add(mesh)
     }
-    this.applyKinds()
   }
 
   private clearMeshes() {
