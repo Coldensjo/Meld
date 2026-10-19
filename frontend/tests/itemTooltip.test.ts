@@ -37,6 +37,40 @@ test('a bag says its slots, and a row without a name still gets a title', () => 
 
 test("an effect shows its spell's text when given, and the spell's ID when not", () => {
 	const row = { name: 'Bread', spellid_1: '433', spelltrigger_1: '0', spellid_2: '99', spelltrigger_2: '1' }
-	const text = tooltipLines(row, { 433: 'Restores 61 health over 18 sec.' }).map((l) => l.left)
+	const text = tooltipLines(row, { spells: { 433: 'Restores 61 health over 18 sec.' } }).map((l) => l.left)
 	assert.deepEqual(text, ['Bread', 'Use: Restores 61 health over 18 sec.', 'Equip: spell 99'])
+})
+
+test("stats and resistances follow the client's order, and six equal resistances are one line", () => {
+	const row = { name: 'Ring', inventory_type: '11', class: '4', subclass: '0', stat_type1: '5', stat_value1: '3', stat_type2: '4', stat_value2: '2', holy_res: '4', arcane_res: '1', fire_res: '2' }
+	assert.deepEqual(
+		tooltipLines(row).map((l) => l.left),
+		// Strength before Intellect; Arcane first, and Holy alone never shows; Miscellaneous armour has no type.
+		['Ring', 'Finger', '+2 Strength', '+3 Intellect', '+1 Arcane Resistance', '+2 Fire Resistance'],
+	)
+	const all = { name: 'Cloak', holy_res: '5', fire_res: '5', nature_res: '5', frost_res: '5', shadow_res: '5', arcane_res: '5' }
+	assert.deepEqual(tooltipLines(all).map((l) => l.left), ['Cloak', '+5 to All Resistances'])
+})
+
+test("a gun shows only its type, damage rounds as the client's does, and ammunition adds damage per second", () => {
+	const gun = tooltipLines({ name: 'Gun', inventory_type: '26', class: '2', subclass: '3', dmg_min1: '38.7', dmg_max1: '85.7', delay: '3000' })
+	assert.deepEqual(gun.map((l) => (l.right ? `${l.left} | ${l.right}` : l.left)), ['Gun', 'Gun', '38 - 86 Damage | Speed 3.00', '(20.7 damage per second)'])
+	const arrow = tooltipLines({ name: 'Arrow', inventory_type: '24', class: '6', subclass: '2', dmg_min1: '1', dmg_max1: '2' })
+	assert.deepEqual(arrow.map((l) => (l.right ? `${l.left} | ${l.right}` : l.left)), ['Arrow', 'Projectile | Arrow', 'Adds 1.5 damage per second'])
+})
+
+test('who may use an item, its requirements by name, uniqueness, quest binding and charges show', () => {
+	const row = { name: 'Totem', bonding: '4', max_count: '2', allowable_class: '64', allowable_race: '-1', required_skill: '164', required_skill_rank: '50', required_reputation_faction: '72', required_reputation_rank: '5', spellcharges_1: '3', page_text: '1' }
+	assert.deepEqual(tooltipLines(row, { skill: 'Blacksmithing', faction: 'Stormwind' }).map((l) => l.left), [
+		'Totem',
+		'Quest Item',
+		'Unique (2)',
+		'Classes: Shaman',
+		'Requires Blacksmithing (50)',
+		'Requires Stormwind - Honored',
+		'3 Charges',
+		'<Right Click to Read>',
+	])
+	// A requirement whose name isn't known yet is left out, as the client leaves out an unresolved line.
+	assert.ok(!tooltipLines(row).some((l) => l.left.startsWith('Requires')))
 })

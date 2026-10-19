@@ -1,5 +1,7 @@
 import { ItemIcons, ReadItem, SpellTexts } from '../../../wailsjs/go/main/App'
 import { texturePreview } from './api'
+import type { TooltipNames } from './itemTooltip'
+import { refName } from './refNames'
 
 // Items for the Shop tab (#202): each display's inventory icon from the client (ItemDisplayInfo.dbc,
 // then Interface\Icons), and each item's item_template row for its tooltip, both read once a session.
@@ -47,6 +49,11 @@ export function itemRow(entry: number): Promise<Record<string, string>> {
 	return p
 }
 
+/** Drops an item's row, after the item editor saved it, so its next tooltip reads it again. */
+export function forgetItemRow(entry: number) {
+	rows.delete(entry)
+}
+
 /** The descriptions of an item row's effect spells by spell ID (Spell.dbc, #217); {} when the client can't say. */
 export async function itemSpellTexts(row: Record<string, string>): Promise<Record<number, string>> {
 	const ids: number[] = []
@@ -56,4 +63,19 @@ export async function itemSpellTexts(row: Record<string, string>): Promise<Recor
 	}
 	if (!ids.length) return {}
 	return (await SpellTexts(ids).catch(() => null)) ?? {}
+}
+
+/** The names an item row's tooltip shows: its effects' texts, and the skill, spell and faction it requires. */
+export async function itemTooltipNames(row: Record<string, string>): Promise<TooltipNames> {
+	const name = async (kind: 'skill' | 'spell' | 'faction', col: string) => {
+		const id = Number(row[col])
+		return id > 0 ? ((await refName(kind, id))?.name ?? undefined) : undefined
+	}
+	const [spells, skill, spell, faction] = await Promise.all([
+		itemSpellTexts(row),
+		name('skill', 'required_skill'),
+		name('spell', 'required_spell'),
+		name('faction', 'required_reputation_faction'),
+	])
+	return { spells, skill, spell, faction }
 }
