@@ -406,7 +406,13 @@ Checks: every item in the creature editor's Shop tab (the shop's list, the searc
 vendor list) has its inventory icon, and hovering one shows the game-style tooltip.
 - Go: `TestParseVendorItems`, `TestParseItemRow`; with `WOW_DIR=C:/WoW/client`,
   `TestItemIconsFromClient` (display 8690, the Battleworn Hammer, is `INV_Hammer_15`).
-- Frontend: `frontend/tests/itemTooltip.test.ts` (lines for a weapon, armour with stats, a bag; money).
+- Frontend: `frontend/tests/itemTooltip.test.ts` (lines for a weapon, armour with stats, a bag; money;
+  #355, a set piece's set block).
+- Item sets (#355): `TestParseItemSetSkipsEmptySlots`; with `WOW_DIR=C:/WoW/client`,
+  `TestItemSetsFromClient` (Defias Leather, 161: five pieces, bonuses at 2 to 5). The `item-editor`
+  probe opens the Blackened Defias Belt (10403) and reads `Defias Leather (0/5)`, five members and the
+  `(2) Set: ` bonuses. Trap: the probe's `tooltip()` helper trims each span, so the members' two-space
+  indent is read from the spans themselves.
 - Dev page: `const ed = await import(<the editor.svelte.ts resource URL>); ed.ui.creatureEditor = { key: null, entry: 152 }`
   (Brother Danil, Northshire's general supplies), click the button whose text is `Shop`, wait for
   `td.item` (6 rows, 6 `img`). Hover: dispatch `new PointerEvent('pointerenter', { clientX, clientY })`

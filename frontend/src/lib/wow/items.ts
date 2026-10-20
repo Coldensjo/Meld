@@ -1,6 +1,6 @@
-import { ItemIcons, ReadItem, SpellTexts } from '../../../wailsjs/go/main/App'
+import { ItemIcons, ItemSets, ReadItem, SpellTexts } from '../../../wailsjs/go/main/App'
 import { texturePreview } from './api'
-import type { TooltipNames } from './itemTooltip'
+import type { TooltipNames, TooltipSet } from './itemTooltip'
 import { refName } from './refNames'
 
 // Items for the Shop tab (#202): each display's inventory icon from the client (ItemDisplayInfo.dbc,
@@ -89,17 +89,47 @@ export async function itemSpellTexts(row: Record<string, string>): Promise<Recor
 	return (await SpellTexts(ids).catch(() => null)) ?? {}
 }
 
-/** The names an item row's tooltip shows: its effects' texts, and the skill, spell and faction it requires. */
+const sets = new Map<number, Promise<TooltipSet | undefined>>()
+
+/** Item set `id` (ItemSet.dbc) with its members' names and its bonuses' texts, read once a session (#355); undefined when the client has none. */
+export function itemSet(id: number): Promise<TooltipSet | undefined> {
+	let p = sets.get(id)
+	if (!p) {
+		p = (async () => {
+			const [set] = (await ItemSets([id]).catch(() => null)) ?? []
+			if (!set) return undefined
+			const spells = set.bonuses.map((b) => b.spell)
+			const [members, texts, skill] = await Promise.all([
+				Promise.all(set.items.map(async (item) => (await refName('item', item))?.name ?? undefined)),
+				spells.length ? SpellTexts(spells).catch(() => null) : null,
+				set.requiredSkill > 0 ? refName('skill', set.requiredSkill) : null,
+			])
+			return {
+				name: set.name,
+				members,
+				bonuses: set.bonuses.map((b) => ({ threshold: b.threshold, text: texts?.[b.spell] ?? `spell ${b.spell}` })),
+				skill: skill?.name ?? undefined,
+				skillRank: set.requiredSkillRank,
+			}
+		})()
+		sets.set(id, p)
+	}
+	return p
+}
+
+/** The names an item row's tooltip shows: its effects' texts, the skill, spell and faction it requires, and its set. */
 export async function itemTooltipNames(row: Record<string, string>): Promise<TooltipNames> {
 	const name = async (kind: 'skill' | 'spell' | 'faction', col: string) => {
 		const id = Number(row[col])
 		return id > 0 ? ((await refName(kind, id))?.name ?? undefined) : undefined
 	}
-	const [spells, skill, spell, faction] = await Promise.all([
+	const setId = Number(row.set_id)
+	const [spells, skill, spell, faction, set] = await Promise.all([
 		itemSpellTexts(row),
 		name('skill', 'required_skill'),
 		name('spell', 'required_spell'),
 		name('faction', 'required_reputation_faction'),
+		setId > 0 ? itemSet(setId) : undefined,
 	])
-	return { spells, skill, spell, faction }
+	return { spells, skill, spell, faction, set }
 }

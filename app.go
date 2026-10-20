@@ -1250,6 +1250,15 @@ func (a *App) ItemIcons(displays []int) (map[int]string, error) {
 	return vmangos.ItemIcons(dataDir, displays)
 }
 
+// ItemSets gives the client's item sets (ItemSet.dbc) of the given IDs, for the tooltips' set block (#355).
+func (a *App) ItemSets(ids []int) ([]vmangos.ItemSet, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ItemSets(dataDir, ids)
+}
+
 // ReadItemTemplate reads an item template's row (its newest patch) for the item editor (#353).
 func (a *App) ReadItemTemplate(entry int) (vmangos.TemplateRecord, error) {
 	server, _, err := a.serverAndData()

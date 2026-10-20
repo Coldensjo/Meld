@@ -3,8 +3,8 @@
 // (crates/benilla-ui/src/script/tooltip_item/render.rs, ported, not copied): the name in its
 // quality's colour, binding, uniqueness, the slot and type, damage and speed, armour, stats in the
 // client's order, resistances, durability, who may use it, its requirements, the effects' spell texts
-// (Spell.dbc, #217; "spell 433" where the client has none), charges, the description and the
-// right-click line. The item level and sell price, which the 1.12 tooltip doesn't show, follow as
+// (Spell.dbc, #217; "spell 433" where the client has none), charges, the set block (#355), the
+// description and the right-click line. The item level and sell price, which the 1.12 tooltip doesn't show, follow as
 // Meld's own dim lines. The row comes by column name (`ReadItem`), so a column a VMaNGOS version
 // lacks is just left out.
 
@@ -33,11 +33,28 @@ export interface TooltipNames {
 	spell?: string
 	/** required_reputation_faction's name (Faction.dbc). */
 	faction?: string
+	/** set_id's set (ItemSet.dbc, #355), with its members' names and its bonuses' texts. */
+	set?: TooltipSet
+}
+
+/** An item set as its tooltip block shows it. */
+export interface TooltipSet {
+	name: string
+	/** The members' names in the client's order; a member without a name has no line but still counts. */
+	members: Array<string | undefined>
+	/** The bonuses: how many members each needs, and its spell's text. */
+	bonuses: Array<{ threshold: number; text: string }>
+	/** The required skill's name and rank; no line without a name. */
+	skill?: string
+	skillRank?: number
 }
 
 const GREEN = '#00ff00'
 const GOLD = '#ffd200'
 const DIM = '#808080'
+const GRAY = '#808080'
+/** A blank line; a no-break space, so it keeps its height. */
+const BLANK = ' '
 
 /** inventory_type's slot names (INVTYPE_*); 24 to 27 have none in the 1.12 client, so a gun shows only its type. */
 const SLOTS: Record<number, string> = {
@@ -252,6 +269,18 @@ export function tooltipLines(row: Record<string, string>, known: TooltipNames = 
 	}
 	const charges = n('spellcharges_1')
 	if (charges > 0) out.push({ left: `${charges} ${charges === 1 ? 'Charge' : 'Charges'}` })
+	// The set block, as the client's: a blank line, the gold "name (worn/total)", the set's skill, each
+	// member indented two spaces, a blank line, then the bonuses by count. Nothing is worn in an editor,
+	// so the members and the bonuses are gray and every bonus shows its count (ITEM_SET_BONUS_GRAY).
+	const set = n('set_id') > 0 ? known.set : undefined
+	if (set) {
+		out.push({ left: BLANK, color: GOLD })
+		out.push({ left: `${set.name} (0/${set.members.length})`, color: GOLD })
+		if (set.skill) out.push({ left: set.skillRank ? `Requires ${set.skill} (${set.skillRank})` : `Requires ${set.skill}` })
+		for (const m of set.members) if (m) out.push({ left: `  ${m}`, color: GRAY })
+		out.push({ left: BLANK, color: GOLD })
+		for (const b of [...set.bonuses].sort((a, b) => a.threshold - b.threshold)) out.push({ left: `(${b.threshold}) Set: ${b.text}`, color: GRAY })
+	}
 	if (row.description) out.push({ left: `"${row.description}"`, color: GOLD })
 	if (flags & 0x4 && !n('lock_id')) out.push({ left: '<Right Click to Open>', color: GREEN })
 	else if (n('page_text') > 0) out.push({ left: '<Right Click to Read>', color: GREEN })

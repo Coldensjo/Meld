@@ -182,6 +182,10 @@ export function ItemModelLook(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ItemModelLook'](arg1, arg2, arg3, arg4);
 }
 
+export function ItemSets(arg1) {
+  return window['go']['main']['App']['ItemSets'](arg1);
+}
+
 export function LaunchGame() {
   return window['go']['main']['App']['LaunchGame']();
 }

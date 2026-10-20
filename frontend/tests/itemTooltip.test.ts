@@ -74,3 +74,37 @@ test('who may use an item, its requirements by name, uniqueness, quest binding a
 	// A requirement whose name isn't known yet is left out, as the client leaves out an unresolved line.
 	assert.ok(!tooltipLines(row).some((l) => l.left.startsWith('Requires')))
 })
+
+test("a set piece shows its set: the gold name with nothing worn, the members gray and indented, the bonuses by count", () => {
+	const set = {
+		name: 'Defias Leather',
+		members: ['Blackened Defias Armor', undefined, 'Blackened Defias Belt'],
+		bonuses: [
+			{ threshold: 5, text: '+15 Attack Power.' },
+			{ threshold: 2, text: '+10 Armor.' },
+		],
+		skill: 'Leatherworking',
+		skillRank: 200,
+	}
+	const row = { name: 'Blackened Defias Belt', set_id: '161', spellcharges_1: '1', description: 'Dark.' }
+	const lines = tooltipLines(row, { set })
+	assert.deepEqual(lines.map((l) => l.left), [
+		'Blackened Defias Belt',
+		'1 Charge',
+		' ',
+		'Defias Leather (0/3)',
+		'Requires Leatherworking (200)',
+		'  Blackened Defias Armor',
+		'  Blackened Defias Belt',
+		' ',
+		'(2) Set: +10 Armor.',
+		'(5) Set: +15 Attack Power.',
+		'"Dark."',
+	])
+	assert.equal(lines[3].color, '#ffd200')
+	assert.equal(lines[5].color, '#808080')
+	assert.equal(lines[8].color, '#808080')
+	// No set_id, or a set the client doesn't have: no block.
+	assert.equal(tooltipLines({ name: 'X' }, { set }).length, 1)
+	assert.equal(tooltipLines({ name: 'X', set_id: '161' }).length, 1)
+})

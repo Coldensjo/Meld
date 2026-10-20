@@ -56,6 +56,10 @@
 		gap: 12px;
 		overflow-wrap: anywhere;
 	}
+	/* Kept as written: a set member's two-space indent (#355). */
+	.line span {
+		white-space: pre-wrap;
+	}
 	.title {
 		font-size: 13px;
 		font-weight: 600;

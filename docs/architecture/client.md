@@ -274,7 +274,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   tab's `ItemTooltip`) is `tooltipLines` over the unsaved values, so it follows every change;
   `itemTooltip.ts` follows the order of the client's tooltip builder as Benilla documents it
   (`benilla-ui/src/script/tooltip_item/render.rs`), and `items.ts` `itemTooltipNames` names the
-  effects' spells and the required skill, spell and faction. The look is `display_id`, typed or picked
+  effects' spells and the required skill, spell and faction, and `itemSet` reads `set_id`'s set
+  (`ItemSets`, `internal/vmangos/itemsets.go` over ItemSet.dbc; #355) with its members' names and
+  its bonus spells' texts, which `tooltipLines` puts after the charges as the client's set block (all
+  gray, since nothing is worn in an editor). The look is `display_id`, typed or picked
   with the right pane's Change look… and Change icon…, which turn the middle (in place of the field
   tabs, `changing`) into the item large over a grid (`components/ItemLookPicker.svelte`, virtualised
   as the creature editor's `DisplayPicker`): hovering a tile previews it there and in the tooltip, a

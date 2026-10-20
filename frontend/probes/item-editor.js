@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view, and a set piece (Blackened Defias Belt) shows its set's name, members and bonuses (#355); nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -196,6 +196,22 @@ const stored = await window.go.main.App.ReadItemTemplate(25)
 ui.itemEditor = null
 await P.frames(1)
 
+// A set piece (#355): Blackened Defias Belt (10403), of Defias Leather (161), shows the set's gold
+// name with nothing worn, its five members and its bonuses by count.
+ui.itemEditor = { entry: 10403 }
+await P.until(() => root(), WAIT, 'the editor again')
+await P.until(() => tooltip().some((l) => l.startsWith('Defias Leather (')) && tooltip().some((l) => l.startsWith('(2) Set: ')), WAIT, 'the set block')
+const setTip = tooltip()
+const setBlock = {
+	header: setTip.find((l) => l.startsWith('Defias Leather (')),
+	// The tooltip helper trims, so the members' two-space indent is read from the lines themselves.
+	members: [...root().querySelectorAll('.tooltip .line span')].filter((s) => s.textContent.startsWith('  ')).length,
+	bonuses: setTip.filter((l) => /^\(\d\) Set: /.test(l)),
+	headerColor: [...root().querySelectorAll('.tooltip .line')].find((l) => l.textContent.startsWith('Defias Leather ('))?.style.color ?? '',
+}
+ui.itemEditor = null
+await P.frames(1)
+
 const ok =
 	/^Bow · Ranged \(bow\) \(\d+\)$/.test(kind.bow) &&
 	kind.text.startsWith("It gets what most of the world database's bow · ranged (bow) items have") &&
@@ -247,5 +263,10 @@ const ok =
 	taken.back &&
 	iconPick.pending.startsWith('Icon INV_Axe_01') &&
 	iconPick.save === 'Save item (3)' &&
-	iconPick.escClosed
-return { ok, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+	iconPick.escClosed &&
+	setBlock.header === 'Defias Leather (0/5)' &&
+	setBlock.members === 5 &&
+	setBlock.bonuses.length >= 2 &&
+	setBlock.bonuses[0].startsWith('(2) Set: ') && !setBlock.bonuses.some((l) => l.includes('spell ')) &&
+	setBlock.headerColor === 'rgb(255, 210, 0)'
+return { ok, setBlock, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
