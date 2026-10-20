@@ -12,6 +12,17 @@ const P = {
 	 */
 	BENCH: 'Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":32,"y":48,"size":1}},"view":{"target":[182,30,353],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{"cameraFollowGround":true},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}',
 
+	/** The open dialog with this accessible name: `aria-label`, or the text of its `aria-labelledby` heading (Modal, #369). Null when none. */
+	dialog(name) {
+		return (
+			[...document.querySelectorAll('[role=dialog]')].find((d) => {
+				if (d.getAttribute('aria-label') === name) return true
+				const id = d.getAttribute('aria-labelledby')
+				return !!id && document.getElementById(id)?.textContent.trim() === name
+			}) ?? null
+		)
+	},
+
 	/** An app module by path, through the URL the page loaded it from (a bare path gives a second copy). */
 	async app(path) {
 		const url = performance.getEntriesByType('resource').map((r) => r.name).find((n) => n.includes(path))

@@ -51,7 +51,7 @@ out.glError = P.glError()
 
 // The Zones dialog: Elwynn Forest (12) rains 20% in spring and 15% in summer in the stock database.
 ui.dialog = 'zones'
-const elwynn = await P.until(() => [...document.querySelectorAll('[aria-label="Zones"] button')].find((b) => b.textContent.startsWith('Elwynn Forest')), 30000, 'Elwynn Forest in the zone list')
+const elwynn = await P.until(() => [...(P.dialog('Zones')?.querySelectorAll('button') ?? [])].find((b) => b.textContent.startsWith('Elwynn Forest')), 30000, 'Elwynn Forest in the zone list')
 elwynn.click()
 const spring = await P.until(() => document.querySelector('.weather[data-zone="12"] input[aria-label="Rain chance in spring"]'), 30000, "Elwynn's weather sliders")
 const summer = document.querySelector('.weather[data-zone="12"] input[aria-label="Rain chance in summer"]')

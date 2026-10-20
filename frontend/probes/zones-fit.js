@@ -3,11 +3,11 @@ const e = P.e
 const { ui } = await P.state()
 e.newDocument(256, 'hills', 1, 'Probe')
 ui.dialog = 'zones'
-const elwynn = await P.until(() => [...document.querySelectorAll('[aria-label="Zones"] button')].find((b) => b.textContent.startsWith('Elwynn Forest')), 30000, 'Elwynn Forest in the zone list')
+const elwynn = await P.until(() => [...(P.dialog('Zones')?.querySelectorAll('button') ?? [])].find((b) => b.textContent.startsWith('Elwynn Forest')), 30000, 'Elwynn Forest in the zone list')
 elwynn.click()
 await P.until(() => document.querySelector('.weather[data-zone="12"] input[type=range]'), 30000, "Elwynn's weather sliders")
 await P.frames(2)
-const dialog = document.querySelector('[role=dialog][aria-label=Zones]')
+const dialog = P.dialog('Zones')
 const body = dialog.querySelector('.body') ?? dialog
 const d = dialog.getBoundingClientRect()
 const wide = [...body.querySelectorAll('*')].filter((el) => el.getBoundingClientRect().right > d.right + 0.5).map((el) => el.tagName + '.' + el.className + '#' + el.id)
