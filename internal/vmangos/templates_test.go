@@ -205,3 +205,18 @@ func TestDisplayUses(t *testing.T) {
 		t.Fatalf("list %+v", list)
 	}
 }
+
+func TestObjectDisplays(t *testing.T) {
+	m := &modelTables{objectDisplay: testDBC(t, 2,
+		[]any{31, `World\Generic\Ore\Thorium.mdx`},
+		[]any{7, `World\Generic\Chests\Chest01.mdx`},
+		[]any{8, ""},
+	)}
+	list := listObjectDisplays(m, map[int]*displayUse{31: {types: map[int]int{3: 2, 25: 1}, names: []string{"Vein b", "Vein a", "Vein c"}}})
+	if len(list) != 2 || list[0].ID != 7 || list[0].Uses != 0 || list[0].Model != `World\Generic\Chests\Chest01.mdx` {
+		t.Fatalf("list %+v", list)
+	}
+	if v := list[1]; v.ID != 31 || v.Type != 3 || v.Uses != 3 || strings.Join(v.Names, ",") != "Vein a,Vein b,Vein c" || v.Scale != 1 {
+		t.Fatalf("vein %+v", v)
+	}
+}

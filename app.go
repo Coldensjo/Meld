@@ -1705,6 +1705,19 @@ func (a *App) ListDisplays() ([]vmangos.DisplayEntry, error) {
 	return vmangos.ListDisplays(server, dataDir)
 }
 
+// ListObjectDisplays lists every game object display with a model and the objects that use it, for
+// the game object editor's display picker. The world database is optional, as for ListDisplays.
+func (a *App) ListObjectDisplays() ([]vmangos.DisplayEntry, error) {
+	a.cfgMu.Lock()
+	server := a.cfg.VmangosPath
+	a.cfgMu.Unlock()
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ListObjectDisplays(server, dataDir)
+}
+
 // ModelAnimations lists the animations an M2 model has, for the creature editor's preview.
 func (a *App) ModelAnimations(model string) ([]vmangos.AnimInfo, error) {
 	dataDir, err := a.clientDataDir()

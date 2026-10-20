@@ -210,7 +210,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   category such as Ore, whose click turns the spawn into that object as an undo step, then
   `SpawnFields`), Object (every `gameobject_template` column through the same Go code as creatures,
   `ReadObject`/`SaveObject`; `objectFields.ts` names data0 to data23 by the object's type, after
-  mangos' GameObjectInfo), and New object (`CreateObject`). The Object tab follows the spawn's entry
+  mangos' GameObjectInfo), Display (#230: `DisplayPicker` with `kind="object"`, every
+  GameObjectDisplayInfo row with a model from `ListObjectDisplays`, cached in Go with the object type
+  and names of the templates using it, families by the model's folder; a click sets `displayId`,
+  hovering previews it; the Go and frontend lists are forgotten on Save and New object, as their uses
+  change), and New object (`CreateObject`). The Object tab follows the spawn's entry
   (an entry change or its undo). Save calls `Engine.applyObjectTemplate` (name, type, model through
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
 - **Quest editor** (`components/QuestEditor.svelte`, `ui.questEditor`, #259): full screen (over the

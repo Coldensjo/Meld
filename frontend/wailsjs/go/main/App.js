@@ -222,6 +222,10 @@ export function ListItemKinds() {
   return window['go']['main']['App']['ListItemKinds']();
 }
 
+export function ListObjectDisplays() {
+  return window['go']['main']['App']['ListObjectDisplays']();
+}
+
 export function ListObjectTemplates() {
   return window['go']['main']['App']['ListObjectTemplates']();
 }

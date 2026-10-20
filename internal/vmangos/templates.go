@@ -443,7 +443,8 @@ func createObjectSQL(cols []TemplateColumn, entry, base int, name string) (strin
 
 // DisplayEntry is a creature display as the creature editor's display picker shows it: the model,
 // the look it dresses the model in (wow.Look's query), its scale, and the creatures of the world
-// database that use it.
+// database that use it. ListObjectDisplays gives game object displays in it too, with Type a game
+// object type and no look or skin.
 type DisplayEntry struct {
 	ID    int     `json:"id"`
 	Model string  `json:"model"`
@@ -528,6 +529,26 @@ func parseDisplayUses(raw []byte) map[int]*displayUse {
 	return out
 }
 
+// setUses fills in what the templates using the display have in common (u nil for none): their
+// count, their most common type and the first three names.
+func (e *DisplayEntry) setUses(u *displayUse) {
+	if u == nil {
+		return
+	}
+	e.Uses = len(u.names)
+	best := -1
+	for typ, n := range u.types {
+		if n > best || (n == best && typ < e.Type) {
+			e.Type, best = typ, n
+		}
+	}
+	sort.Strings(u.names)
+	e.Names = u.names
+	if len(e.Names) > 3 {
+		e.Names = e.Names[:3]
+	}
+}
+
 // listDisplays makes the display list from the client's tables and the templates' uses, by ID.
 func listDisplays(tables *modelTables, uses map[int]*displayUse) []DisplayEntry {
 	t := tables.creatureDisplay
@@ -542,20 +563,72 @@ func listDisplays(tables *modelTables, uses map[int]*displayUse) []DisplayEntry 
 		if e.Humanoid {
 			e.Skin = ""
 		}
-		if u := uses[id]; u != nil {
-			e.Uses = len(u.names)
-			best := -1
-			for typ, n := range u.types {
-				if n > best || (n == best && typ < e.Type) {
-					e.Type, best = typ, n
-				}
-			}
-			sort.Strings(u.names)
-			e.Names = u.names
-			if len(e.Names) > 3 {
-				e.Names = e.Names[:3]
+		e.setUses(uses[id])
+		out = append(out, e)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+var (
+	objectDisplaysMu    sync.Mutex
+	objectDisplaysCache = map[string][]DisplayEntry{}
+)
+
+// ListObjectDisplays lists every game object display with a model, for the game object editor's
+// display picker, as DisplayEntry rows: Type is the game object type most templates using it have,
+// and Look, Skin and Humanoid stay empty. The world database is optional, as for ListDisplays. The
+// list is made once per client and server, and again after a game object template is saved or made
+// (forgetObjectTemplates), since that changes which objects use each display.
+func ListObjectDisplays(serverRoot, dataDir string) ([]DisplayEntry, error) {
+	key := dataDir + "|" + serverRoot
+	objectDisplaysMu.Lock()
+	defer objectDisplaysMu.Unlock()
+	if d, ok := objectDisplaysCache[key]; ok {
+		return d, nil
+	}
+	tables, err := cachedModelTables(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	uses := map[int]*displayUse{}
+	if serverRoot != "" {
+		if db, err := worldDatabase(serverRoot); err == nil && ensureDatabase(db, serverRoot) == nil {
+			if raw, err := runSQL(db, objectDisplayUsesSQL); err == nil {
+				uses = parseDisplayUses(raw)
 			}
 		}
+	}
+	out := listObjectDisplays(tables, uses)
+	objectDisplaysCache[key] = out
+	return out, nil
+}
+
+// forgetObjectDisplays drops the cached game object display lists.
+func forgetObjectDisplays() {
+	objectDisplaysMu.Lock()
+	defer objectDisplaysMu.Unlock()
+	clear(objectDisplaysCache)
+}
+
+// objectDisplayUsesSQL lists each game object template's display with its type and name, newest
+// patch, in displayUsesSQL's columns.
+const objectDisplayUsesSQL = `SELECT t.displayId, t.type, t.name FROM gameobject_template t
+	WHERE t.patch = (SELECT MAX(patch) FROM gameobject_template WHERE entry = t.entry) AND t.displayId <> 0`
+
+// listObjectDisplays makes the game object display list from GameObjectDisplayInfo and the
+// templates' uses, by ID.
+func listObjectDisplays(tables *modelTables, uses map[int]*displayUse) []DisplayEntry {
+	t := tables.objectDisplay
+	out := make([]DisplayEntry, 0, t.records)
+	for r := 0; r < t.records; r++ {
+		id := int(t.u32(r, 0))
+		model := t.str(r, 1)
+		if id == 0 || model == "" {
+			continue
+		}
+		e := DisplayEntry{ID: id, Model: model, Scale: 1}
+		e.setUses(uses[id])
 		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })

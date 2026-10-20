@@ -87,6 +87,21 @@ Make it a chest on a generic object each show in Save's count and go with Revert
   there on its CPU-backed canvas; on a GPU-backed one `toDataURL` waited for the viewport's frames,
   about 1 s an icon (#233).
 
+## Game object editor: Display, picking a display from thumbnails (#230)
+
+Checks: the Display tab (`DisplayPicker.svelte` with `kind="object"`, `ListObjectDisplays`) lists
+GameObjectDisplayInfo's displays with a model (1622 on this client) as thumbnails, opens on the
+template's own display marked, in its object type (the Small Thorium Vein, 324: display 3951, Chest),
+previews a hovered tile on the left, and a click sets `displayId` as one unsaved change that Revert
+drops. The probe `object-display` does it in about 6 s, writing nothing; it needs the client, and the
+world database for the types and names (without it every display is Unused). Unit:
+`TestObjectDisplays` in `internal/vmangos/templates_test.go`.
+
+- By hand: pick another display, Save object, and the spawns of that entry change model
+  (`Engine.applyObjectTemplate`); set it back after.
+- The folder filter groups by the model's folder (TradeskillNodes, Chests), since most object
+  models are used by one display each, so a file-name family would be one tile a family.
+
 ## Tilted game objects (#229)
 
 Checks: a game object's tilt (`gameobject.rotation0..3`) is read into `WorldSpawn.tilt`, drawn

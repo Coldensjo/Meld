@@ -117,6 +117,8 @@ export function ListItemIcons():Promise<Array<string>>;
 
 export function ListItemKinds():Promise<Array<vmangos.ItemKind>>;
 
+export function ListObjectDisplays():Promise<Array<vmangos.DisplayEntry>>;
+
 export function ListObjectTemplates():Promise<Array<vmangos.ObjectTemplate>>;
 
 export function ListPrefabs(arg1:string):Promise<Array<main.PrefabFile>>;

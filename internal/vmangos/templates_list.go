@@ -147,6 +147,7 @@ func forgetObjectTemplates() {
 	templatesMu.Lock()
 	defer templatesMu.Unlock()
 	clear(objectsCache)
+	forgetObjectDisplays()
 }
 
 // ObjectModel is the client model of game object display display ("" for none or an unknown one).

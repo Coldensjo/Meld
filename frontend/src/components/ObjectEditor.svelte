@@ -11,6 +11,7 @@
 	import { objectTypeName, spawnType } from '../lib/world/spawnInfo'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import CreaturePreview from './CreaturePreview.svelte'
+	import DisplayPicker, { forgetObjectDisplays } from './DisplayPicker.svelte'
 	import LootTab from './LootTab.svelte'
 	import QuestsTab from './QuestsTab.svelte'
 	import { forgetObjectTemplates, loadObjectTemplates, objectCategory } from './SpawnBrowser.svelte'
@@ -26,9 +27,10 @@
 	// quests the object offers and takes in, saved apart with its own Save quests, as the creature
 	// editor's tab does; only a Quest giver object (type 2) gets new ones. Find object (#351), the tab
 	// Tools › Game Objects… opens on, lists every object template with no spawn selected, and a click
-	// opens that object to edit.
+	// opens that object to edit. Display (#230) picks the template's display from thumbnails, as the
+	// creature editor's Looks tab does; hovering a tile shows it big on the left.
 
-	type Tab = 'spawn' | 'object' | 'contents' | 'quests' | 'find' | 'new'
+	type Tab = 'spawn' | 'object' | 'display' | 'contents' | 'quests' | 'find' | 'new'
 
 	/** GAMEOBJECT_TYPE_QUESTGIVER: the one object type the server lets offer and take quests. */
 	const QUEST_GIVER_TYPE = 2
@@ -133,13 +135,17 @@
 
 	/** The object under the pointer in the Change object list, shown big until the pointer leaves. */
 	let hovered = $state<vmangos.ObjectTemplate | null>(null)
+	/** The display under the pointer in the Display tab's picker. */
+	let hoveredDisplay = $state<vmangos.DisplayEntry | null>(null)
 	const usingSpawn = $derived(tab === 'spawn' && spawn !== null)
 	const preview = $derived(
 		!target
 			? null
 			: hovered
 				? { model: hovered.model, scale: hovered.size || 1, what: `${hovered.name} (entry ${hovered.entry})` }
-				: target.entry === 0
+				: tab === 'display' && hoveredDisplay
+					? { model: hoveredDisplay.model, scale: Number(values.size) || 1, what: `display ${hoveredDisplay.id}` }
+					: target.entry === 0
 					? null
 					: usingSpawn && spawn
 					? { model: spawn.model, scale: spawn.scale, what: 'this spawn as placed' }
@@ -170,6 +176,7 @@
 		ui.objectEditor = null
 		loadedFor = ''
 		hovered = null
+		hoveredDisplay = null
 	}
 
 	function discard() {
@@ -200,6 +207,7 @@
 				await SaveObject(record.entry, record.patch, changes)
 				saved = { ...values }
 				forgetObjectTemplates()
+				forgetObjectDisplays()
 				await engineRef.current?.applyObjectTemplate(record.entry, values, before)
 			}
 			const rows = (await lootTab?.save()) ?? -1
@@ -331,6 +339,7 @@
 			const entry = await CreateObject(base, name)
 			newName = ''
 			forgetObjectTemplates()
+			forgetObjectDisplays()
 			templates = []
 			ui.objectEditor = { key: null, entry }
 			setStatus(`Made game object ${entry}, ${name}. Edit it, save, then place it.`, 8000)
@@ -414,6 +423,7 @@
 					{#if !spawn}<button class:on={tab === 'find'} onclick={() => (tab = 'find')}>Find object</button>{/if}
 					{#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
 					{#if record}<button class:on={tab === 'object'} onclick={() => (tab = 'object')}>Object</button>{/if}
+					{#if record}<button class:on={tab === 'display'} onclick={() => (tab = 'display')}>Display</button>{/if}
 					{#if record}<button class:on={tab === 'contents'} onclick={() => (tab = 'contents')}>Contents</button>{/if}
 					{#if record}<button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests{questsDirty ? ' (1)' : ''}</button>{/if}
 					<button class:on={tab === 'new'} onclick={startNew}>New object</button>
@@ -483,6 +493,12 @@
 						<h3>This spawn</h3>
 						<SpawnFields s={spawn} />
 						<p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (File › Save Spawns to Database…).</p>
+					{:else if tab === 'display' && record}
+						<p class="dim">
+							{Number(values.displayId) > 0 ? `Now display ${values.displayId}${templateModel ? `: ${templateModel}` : ', which has no model'}.` : 'No display yet: it is invisible in the game.'}
+							A click sets it, saved with Save object. Hover a tile to see it big on the left.
+						</p>
+						<DisplayPicker kind="object" selected={Number(values.displayId) || 0} onpick={(d) => (values.displayId = String(d.id))} onhover={(d) => (hoveredDisplay = d)} />
 					{:else if tab === 'contents' || tab === 'quests'}
 						<!-- The Contents and Quests tabs stay mounted below, so their unsaved rows survive a tab switch. -->
 					{:else if record}
