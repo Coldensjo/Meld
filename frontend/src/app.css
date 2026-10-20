@@ -146,3 +146,23 @@ kbd {
   background: var(--panel-3);
   border-radius: 4px;
 }
+
+/* Keyboard focus (#374): one visible ring for every control; a mouse click shows none. */
+:focus-visible {
+	outline: 2px solid var(--accent-2);
+	outline-offset: 1px;
+}
+:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* Reduced motion (#374): UI animations and transitions end at once. The 3D scene is the content. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
