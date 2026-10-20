@@ -1,4 +1,4 @@
-// The Path tool (#167, tool `path`, key K): roads and rivers drawn along an editable spline, as Unreal's
+// The Path tool (#167, tool `path`, key K): roads, rivers and fences drawn along an editable spline, as Unreal's
 // landscape splines. A click drops a control point on the ground (into the picked path, or a new one),
 // a drag moves a point over the ground and Shift+drag raises or lowers it; Apply bakes the path into
 // the map as one undo step, and applying it again first takes back what its last apply wrote. The
@@ -10,7 +10,8 @@ import type { Terrain } from '../terrain/Terrain'
 import { editor, setStatus } from '../state/editor.svelte'
 import { paletteIndex } from '../terrain/chunkPaint'
 import { copyPaths, nearestSegment, newPath, samplePath, type MapPath, type PathPoint } from '../terrain/paths'
-import { applyPath } from './pathApply'
+import { applyPath, type FencePiece } from './pathApply'
+import { displayName, loadAsset } from '../models/assets'
 
 /** How far above the ground the curves and markers are drawn. */
 const LIFT = 0.3
@@ -66,7 +67,7 @@ class PathView {
 			const sm = samplePath(p.points, DRAW_STEP)
 			const out = p.id === id ? mine : other
 			for (let i = 1; i < sm.n; i++) out.push(sm.x[i - 1], sm.y[i - 1] + LIFT, sm.z[i - 1], sm.x[i], sm.y[i] + LIFT, sm.z[i])
-			if (p.id === id && sm.n > 1) {
+			if (p.id === id && sm.n > 1 && p.kind !== 'fence') {
 				// The width, draped over the ground as it is now.
 				const half = p.width / 2
 				for (const side of [-1, 1]) {
@@ -137,7 +138,7 @@ function setPositions(g: THREE.BufferGeometry, v: number[]) {
 }
 
 /** The fields of a path the options bar sets. */
-export type PathField = 'kind' | 'name' | 'width' | 'falloff' | 'grade' | 'texture' | 'edge' | 'depth' | 'liquid'
+export type PathField = 'kind' | 'name' | 'width' | 'falloff' | 'grade' | 'texture' | 'edge' | 'depth' | 'liquid' | 'model' | 'spacing' | 'turn'
 
 export class PathTool implements Tool {
 	readonly usesBrush = false
@@ -195,6 +196,7 @@ export class PathTool implements Tool {
 			const q = p?.points[picked.index]
 			if (!q) return
 			editor.pathId = picked.id
+			editor.pathKind = p?.kind ?? editor.pathKind
 			editor.pathPoint = picked.index
 			this.drag = { ...picked, before: copyPaths(editor.paths), height: e.shiftKey, offset: q.y - ctx.terrain.heightAt(q.x, q.z), moved: false, label: e.shiftKey ? 'Raise path point' : 'Move path point' }
 			return
@@ -261,7 +263,7 @@ export class PathTool implements Tool {
 			return true
 		}
 		if (e.key === 'Enter') {
-			this.apply(ctx)
+			void this.apply(ctx)
 			return true
 		}
 		return false
@@ -270,6 +272,7 @@ export class PathTool implements Tool {
 	/** Picks path `id` (-1 for none, so the next click starts a new path). */
 	pick(id: number) {
 		editor.pathId = id
+		editor.pathKind = this.current()?.kind ?? editor.pathKind
 		editor.pathPoint = -1
 		this.fieldRun = null
 	}
@@ -332,12 +335,27 @@ export class PathTool implements Tool {
 	 * taken back first (the ground and paint it covered return to what they were before it), so moving
 	 * a path and applying it again moves the road rather than leaving the old one behind.
 	 */
-	apply(ctx: ToolContext) {
-		const path = this.current()
-		if (!path) {
+	async apply(ctx: ToolContext) {
+		const picked = this.current()
+		if (!picked) {
 			setStatus('Pick a path first: click one of its points, or the ground to start one.', 3000)
 			return
 		}
+		// A fence's model is measured first: its long side is laid along the curve.
+		let piece: FencePiece | undefined
+		if (picked.kind === 'fence' && picked.model) {
+			const t = ctx.terrain
+			try {
+				const size = (await loadAsset(picked.model)).bbox.getSize(new THREE.Vector3())
+				piece = { length: Math.max(size.x, size.z), alongZ: size.z > size.x }
+			} catch {
+				setStatus(`Could not read ${displayName(picked.model)} to measure it.`, 5000)
+				return
+			}
+			// The map or the path may have changed while the model was read.
+			if (ctx.terrain !== t || !this.current()) return
+		}
+		const path = this.current()!
 		const applied = this.appliedOf(ctx.terrain)
 		const prev = applied.get(path.id)
 		const again = !!prev?.live
@@ -346,7 +364,7 @@ export class PathTool implements Tool {
 			prev.live = false
 		}
 		const tex = path.texture ? paletteIndex(editor.palette, path.texture) : -1
-		const res = applyPath({ terrain: ctx.terrain, objects: ctx.objects, liquids: ctx.liquids }, path, tex)
+		const res = applyPath({ terrain: ctx.terrain, objects: ctx.objects, liquids: ctx.liquids }, path, tex, piece)
 		setStatus(res.message, 5000)
 		if (!res.cmd) {
 			if (prev && again) {

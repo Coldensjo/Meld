@@ -211,6 +211,16 @@
       }
       return
     }
+    // In the Path tool the pick is the picked path's fence model, and the tool stays (#167).
+    if (editor.tool === 'path') {
+      const engine = engineRef.current
+      if (!engine || editor.pathId < 0) setStatus('Pick a path first: the model is the one a fence stands along it.', 4000)
+      else {
+        engine.path((t, c) => t.setField(c, 'model', it.key))
+        if (editor.pathKind !== 'fence') setStatus(`${it.name} is the path's model: switch it to Fence to stand it along the path.`, 5000)
+      }
+      return
+    }
     editor.prefab = it.key
     // A model replaces whatever creature or object template the Place tool was putting down.
     ui.placeCreature = ui.placeObject = null

@@ -480,6 +480,9 @@ export namespace mapfile {
 	    texture: string;
 	    depth: number;
 	    liquid: number;
+	    model?: string;
+	    spacing: number;
+	    turn: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new MapPath(source);
@@ -498,6 +501,9 @@ export namespace mapfile {
 	        this.texture = source["texture"];
 	        this.depth = source["depth"];
 	        this.liquid = source["liquid"];
+	        this.model = source["model"];
+	        this.spacing = source["spacing"];
+	        this.turn = source["turn"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

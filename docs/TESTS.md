@@ -538,6 +538,7 @@ the same scene, the report before and after.
 - Clear tool: the models a stroke would delete (#131)
 - Paths: roads along a curve (#167, probe `path-road`)
 - Paths: rivers (#167, probe `path-river`)
+- Paths: fences (#167, probe `path-fence`)
 
 ### UI and the window (`docs/tests/ui.md`)
 

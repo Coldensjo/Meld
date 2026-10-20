@@ -7,7 +7,7 @@ import type { ObjectLayer } from '../world/ObjectLayer'
 import type { Command } from '../state/history'
 import { compactChunk, SLOTS } from '../terrain/chunkPaint'
 import { paintPixel } from './brush'
-import { PATH_KINDS, crossWeight, downhill, limitGrade, pathField, riverBed, samplePath, type MapPath, type PathSamples } from '../terrain/paths'
+import { PATH_KINDS, crossWeight, downhill, fencePieces, limitGrade, pathField, riverBed, samplePath, type MapPath, type PathSamples } from '../terrain/paths'
 import { LIQUID_CELLS, LIQUID_VERTS, autoOpacity, cloneLayer, newLayer, type LiquidLayer, type LiquidMap } from '../water/liquids'
 import { LiquidStroke } from '../water/liquidStroke'
 
@@ -154,15 +154,22 @@ export interface PathTargets {
 
 type Part = { undo(): void; redo(): void }
 
+/** A fence's model as the apply needs it: its length along the curve, and whether that is its local Z. */
+export interface FencePiece {
+	length: number
+	alongZ: boolean
+}
+
 /**
- * Applies `path` by its kind, with its texture at palette index `tex` (-1 for none). The map is
- * written straight away; the result's command undoes it.
+ * Applies `path` by its kind, with its texture at palette index `tex` (-1 for none) and a fence's
+ * model measured in `piece`. The map is written straight away; the result's command undoes it.
  */
-export function applyPath(m: PathTargets, path: MapPath, tex: number): PathApplied {
+export function applyPath(m: PathTargets, path: MapPath, tex: number, piece?: FencePiece): PathApplied {
 	const kind = PATH_KINDS.find((k) => k.id === path.kind)?.name ?? 'Path'
 	if (path.points.length < 2) return { cmd: null, message: `A ${kind.toLowerCase()} needs two points at least: click the ground to add them.` }
 	const t = m.terrain
 	const sm = samplePath(path.points, SAMPLE_STEP)
+	if (path.kind === 'fence') return placeFence(m.objects, sm, path, piece)
 	const parts: Part[] = []
 	const heights = new HeightEdit(t)
 	let note = ''
@@ -186,6 +193,29 @@ export function applyPath(m: PathTargets, path: MapPath, tex: number): PathAppli
 			: `${kind} applied: ${Math.round(sm.length)} yd.`
 	return { cmd: combine(`Apply ${path.name}`, parts), message: message + note }
 }
+
+/**
+ * A fence: the path's model stood on the ground in the middle of each span along the curve, turned
+ * along it (`fencePieces`), spans of the spacing or of the model's own length.
+ */
+function placeFence(objects: ObjectLayer, sm: PathSamples, path: MapPath, piece?: FencePiece): PathApplied {
+	if (!path.model) return { cmd: null, message: `Pick the fence's model first: click one in the asset browser while the path is picked.` }
+	const span = path.spacing > 0 ? path.spacing : (piece?.length ?? 0)
+	if (span < 0.25) return { cmd: null, message: `The fence's model has no length to lay end to end: set a Spacing.` }
+	const pieces = fencePieces(sm, span, !!piece?.alongZ, path.turn)
+	if (pieces.length > MAX_FENCE_MODELS) return { cmd: null, message: `That would stand ${pieces.length} models: more than ${MAX_FENCE_MODELS}. Raise the spacing or shorten the path.` }
+	const added = pieces.map((p) => objects.add({ type: path.model, x: p.x, z: p.z, yOff: 0, rotY: p.rotY, scale: 1 }))
+	const saved = added.map((o) => ({ ...o }))
+	const cmd: Command = {
+		label: `Apply ${path.name}`,
+		undo: () => saved.forEach((o) => objects.remove(o.id)),
+		redo: () => saved.forEach((o) => objects.add({ ...o })),
+	}
+	return { cmd, message: `Fence applied: ${added.length} models over ${Math.round(sm.length)} yd.` }
+}
+
+/** The most models one fence apply stands, so a tiny spacing over a long curve can't hang the editor. */
+const MAX_FENCE_MODELS = 5000
 
 /** A road: the ground within half the width takes the curve's (graded) height, blending back over the falloff. */
 function levelRoad(t: Terrain, sm: PathSamples, path: MapPath, heights: HeightEdit) {

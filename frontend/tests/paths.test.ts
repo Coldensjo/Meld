@@ -1,7 +1,7 @@
 // Run with: bun test tests/paths.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { RIVER_BANK, copyPaths, crossWeight, downhill, limitGrade, riverBed, nearestSegment, newPath, pathField, readPaths, samplePath, type MapPath } from '../src/lib/terrain/paths.ts'
+import { RIVER_BANK, copyPaths, crossWeight, downhill, fencePieces, limitGrade, riverBed, nearestSegment, newPath, pathField, readPaths, samplePath, type MapPath } from '../src/lib/terrain/paths.ts'
 import { applyPath } from '../src/lib/tools/pathApply.ts'
 import { LiquidMap } from '../src/lib/water/liquids.ts'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
@@ -198,4 +198,49 @@ test('a river carves its bed and fills it with its liquid, whose surface slopes 
 	assert.ok(t.heights.every((v) => v === 10))
 	res.cmd!.redo()
 	assert.ok(!liquids.empty)
+})
+
+test('fence pieces split the curve into equal spans near the model length, each turned along its span', () => {
+	const sm = samplePath([{ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 31 }], 0.5)
+	const pieces = fencePieces(sm, 4, false, 0)
+	assert.equal(pieces.length, 8)
+	assert.ok(Math.abs(pieces[0].z - 31 / 16) < 1e-3 && Math.abs(pieces[0].x) < 1e-6)
+	// Along +z: a turn that takes the model's +X there, (cos r, -sin r) = (0, 1).
+	assert.ok(Math.abs(Math.cos(pieces[0].rotY)) < 1e-6 && Math.abs(-Math.sin(pieces[0].rotY) - 1) < 1e-6)
+	const z = fencePieces(sm, 4, true, 0)
+	assert.ok(Math.abs(z[0].rotY - pieces[0].rotY - Math.PI / 2) < 1e-6, 'a model long in Z turns a quarter more')
+	const turned = fencePieces(sm, 4, false, 90)
+	assert.ok(Math.abs(turned[0].rotY - pieces[0].rotY - Math.PI / 2) < 1e-6)
+	assert.deepEqual(fencePieces(sm, 0, false, 0), [])
+})
+
+test('a fence stands its model along the path, one undo step removing them all', () => {
+	const t = fakeTerrain(64, 10)
+	const placed = new Map<number, { id: number; type: string; x: number; z: number; rotY: number }>()
+	let next = 1
+	const layer = {
+		add(o: { id?: number; type: string; x: number; z: number; rotY: number }) {
+			const p = { ...o, id: o.id ?? next++ }
+			placed.set(p.id, p)
+			return p
+		},
+		remove(id: number) {
+			placed.delete(id)
+		},
+		markRegionDirty() {},
+	} as unknown as ObjectLayer
+	const f = road([[10, 10, 20], [70, 10, 20]], { kind: 'fence', model: 'm2:fence.m2', spacing: 0 })
+	const res = applyPath({ terrain: t as unknown as Terrain, objects: layer, liquids: new LiquidMap(64) }, f, -1, { length: 6, alongZ: false })
+	assert.ok(res.cmd)
+	assert.equal(placed.size, 10)
+	assert.ok([...placed.values()].every((o) => o.type === 'm2:fence.m2' && Math.abs(o.z - 20) < 1e-3 && Math.abs(o.rotY) < 1e-6))
+	assert.ok(t.heights.every((v) => v === 10), 'the ground stays')
+	res.cmd!.undo()
+	assert.equal(placed.size, 0)
+	res.cmd!.redo()
+	assert.equal(placed.size, 10)
+	const none = applyPath({ terrain: t as unknown as Terrain, objects: layer, liquids: new LiquidMap(64) }, { ...f, model: '' }, -1)
+	assert.equal(none.cmd, null)
+	const spaced = applyPath({ terrain: t as unknown as Terrain, objects: layer, liquids: new LiquidMap(64) }, { ...f, spacing: 20 }, -1)
+	assert.ok(spaced.message.includes('3 models'))
 })

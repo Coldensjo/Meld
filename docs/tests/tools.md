@@ -320,3 +320,14 @@ back. `bun run probe path-river`; `--shot <dir>` saves `path-river-applied.png`,
 angle. `frontend/tests/paths.test.ts` covers `downhill`, `riverBed` and a river's apply and undo.
 - The probe adds the points through `PathTool.onDown` with hits it makes, aiming the raycaster away
   from the dots first (the press picks a dot it hits rather than adding a point).
+
+## Paths: fences (#167, probe `path-fence`)
+
+Checks: a Fence path with Duskwood's fence segment stands the model end to end along the curve
+(25 over about 112 yd, 4.48 yd apart, the model's own length), each turned along the run, a wider
+spacing applied again replaces them (6 at 20 yd) rather than adding, and undo brings the first set
+back and then removes it. `bun run probe path-fence` (needs the client); `--shot <dir>` saves
+`path-fence-applied.png`. `frontend/tests/paths.test.ts` covers `fencePieces` (spans, the turn, a
+model long in Z) and a fence's apply and undo on stand-in layers.
+- The model is measured from its loaded bounds (`loadAsset`) before the apply, so `PathTool.apply`
+  is async for a fence; the probe awaits `e.path((t, c) => t.apply(c))`.

@@ -406,7 +406,15 @@
 				<button class:active={(pickedPath?.kind ?? editor.pathKind) === k.id} onclick={() => pickKind(k.id)} title={k.tip}>{k.name}</button>
 			{/each}
 		</div>
-		{#if pickedPath}
+		{#if pickedPath?.kind === 'fence'}
+			{@const pp = pickedPath}
+			<button class="chip" onclick={() => { ui.palette = 'models'; prefs.browserCollapsed = false }} title="The model stood along the path: click one in the asset browser below while the path is picked">
+				<span class="dim">Model:</span>
+				{pp.model ? displayName(pp.model) : 'pick one below'}
+			</button>
+			<OptSlider label="Spacing" bind:value={() => pp.spacing, (v) => setPath('spacing', v)} min={0} max={60} step={0.25} digits={2} width={60} title="Yards from one model to the next; 0 lays them end to end at the model's own length" />
+			<OptSlider label="Turn" bind:value={() => pp.turn, (v) => setPath('turn', v)} min={0} max={360} step={15} digits={0} width={60} title="Degrees each model is turned past following the curve (its long side is laid along it)" />
+		{:else if pickedPath}
 			{@const pp = pickedPath}
 			<OptSlider label="Width" bind:value={() => pp.width, (v) => setPath('width', v)} min={1} max={60} step={0.5} digits={1} width={70} title="The full width that is levelled and painted, in yards" />
 			<OptSlider label="Falloff" bind:value={() => pp.falloff, (v) => setPath('falloff', v)} min={0} max={40} step={0.5} digits={1} width={60} title="The yards beyond each side over which the ground blends back into what was there" />
@@ -433,6 +441,8 @@
 			{#if pp.width < NARROW_WIDTH}
 				<span class="warn" title="The ground has a vertex every 2 yards, so a road narrower than two cells comes out jagged">Narrower than {NARROW_WIDTH} yd: jagged</span>
 			{/if}
+		{/if}
+		{#if pickedPath}
 			<button onclick={() => engineRef.current?.path((t, c) => t.apply(c))} title="Bake the path into the map as one undo step; applying it again first takes back its last apply (Enter)">Apply</button>
 			<button onclick={() => engineRef.current?.path((t, c) => t.deletePoint(c))} disabled={editor.pathPoint < 0} title="Delete the picked point (Delete)">Delete point</button>
 			<button onclick={() => engineRef.current?.path((t, c) => t.deletePath(c))} title="Delete the path; what it applied stays in the map">Delete path</button>

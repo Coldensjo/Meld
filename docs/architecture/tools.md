@@ -71,9 +71,9 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   with the brush's level, wander, respawn and facing; the Engine supplies guids and looks
   (`brushCreature`, `brushLook`). A stroke is one undo step of ordinary unsaved spawn edits.
 
-- **Paths** (`tools/PathTool.ts`, tool `path`, key K, #167): roads and rivers drawn along a spline,
+- **Paths** (`tools/PathTool.ts`, tool `path`, key K, #167): roads, rivers and fences drawn along a spline,
   as Unreal's landscape splines. A path (`terrain/paths.ts`, `MapPath`) is control points plus its settings
-  (kind, width, falloff, max grade in percent, texture, paint edge, a river's depth and liquid), kept per map in `editor.paths`
+  (kind, width, falloff, max grade in percent, texture, paint edge, a river's depth and liquid, a fence's model, spacing and turn), kept per map in `editor.paths`
   (`DocMeta.paths`, the map file's `paths` header) and picked by `editor.pathId`/`pathPoint`. A click
   on the ground adds a point to the picked path (on the curve's width it inserts one; with no path
   picked it starts one), a drag moves a point keeping its height above the ground, Shift+drag raises
@@ -86,7 +86,10 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   `applyPath`) levels a road's vertices with a cosine falloff (`crossWeight`), or carves a river's
   bed (`riverBed`: `depth` below the surface in the middle, `RIVER_BANK` above it at the sides) under
   a surface made to run downhill from the higher end (`downhill`) and fills it with the liquid
-  (`fillRiver`, water.md), then paints the texels; it records only what it touched (heights per vertex, paint per chunk), since a diagonal road's rect
+  (`fillRiver`, water.md), then paints the texels, or stands a fence's model in the middle of each
+  equal span along the curve (`fencePieces`: spans of the spacing, or of the model's longer side,
+  which `PathTool.apply` measures from the loaded model first; turned along the span's chord, a
+  quarter more for a model long in Z) through `ObjectLayer.add`; it records only what it touched (heights per vertex, paint per chunk), since a diagonal road's rect
   would hold most of a region's paint. Applying again first undoes the path's last apply while it is
   live (`PathTool.applies`, per terrain, not saved), inside the new undo step, so undoing that step
   puts the old apply back; what was painted or sculpted in the chunks it covered since is lost there.

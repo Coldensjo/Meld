@@ -1,15 +1,16 @@
-// Paths (#167): roads and rivers drawn along an editable spline, as Unreal's landscape splines. A path is a list
+// Paths (#167): roads, rivers and fences drawn along an editable spline, as Unreal's landscape splines. A path is a list
 // of control points the author drops and drags on the ground, and settings saying what it does when
 // applied. This module holds the record, the curve through the points (sampled by arc length) and the
 // distance field around it that the apply (tools/pathApply.ts) works from. It keeps no editor state.
 import * as THREE from 'three'
 
 /** What a path does when it is applied. */
-export type PathKind = 'road' | 'river'
+export type PathKind = 'road' | 'river' | 'fence'
 
 export const PATH_KINDS: ReadonlyArray<{ id: PathKind; name: string; tip: string }> = [
 	{ id: 'road', name: 'Road', tip: 'Level the ground across the width, at the curve\'s height and grade, and paint a texture along it' },
 	{ id: 'river', name: 'River', tip: 'Carve a bed across the width and fill it with a liquid whose surface runs downhill along the curve' },
+	{ id: 'fence', name: 'Fence', tip: 'Stand a model end to end along the curve, each turned along it: fences, walls, palisades, lamp posts' },
 ]
 
 /** A control point on the ground, in world units. */
@@ -40,6 +41,12 @@ export interface MapPath {
 	depth: number
 	/** A river's liquid (LiquidType.dbc ID: 1 water, 2 ocean, 3 magma, 4 slime). */
 	liquid: number
+	/** A fence's model (an object type, `m2:` or `wmo:` and its client path); '' for none yet. */
+	model: string
+	/** Yards from one fence model to the next; 0 lays them end to end at the model's own length. */
+	spacing: number
+	/** Degrees each fence model is turned past following the curve (its long side is laid along it). */
+	turn: number
 }
 
 /** Below this width, in yards, a road is narrower than two cells and looks jagged (1.12 has a cell every 2 yd). */
@@ -52,6 +59,9 @@ export const PATH_DEFAULTS: Omit<MapPath, 'id' | 'name' | 'kind' | 'points' | 't
 	edge: 1,
 	depth: 3,
 	liquid: 1,
+	model: '',
+	spacing: 0,
+	turn: 0,
 }
 
 /** A new path of `kind`, with the defaults and no points; `id` and `name` from the paths already there. */
@@ -103,6 +113,9 @@ export function readPaths(v: unknown): MapPath[] {
 			edge: num('edge', PATH_DEFAULTS.edge, 0, 50),
 			depth: num('depth', PATH_DEFAULTS.depth, 0, 100),
 			liquid: Math.round(num('liquid', PATH_DEFAULTS.liquid, 1, 1e6)),
+			model: typeof o.model === 'string' ? o.model : '',
+			spacing: num('spacing', PATH_DEFAULTS.spacing, 0, 500),
+			turn: num('turn', PATH_DEFAULTS.turn, -360, 360),
 		})
 	}
 	return out
@@ -278,6 +291,39 @@ export function pathField(sm: PathSamples, spacing: number, offset: number, reac
 	}
 	for (let i = 0; i < dist.length; i++) if (dist[i] !== Infinity) dist[i] = Math.sqrt(dist[i])
 	return { x0, z0, w, h, dist, height, along }
+}
+
+/** A model laid along a path: where it stands and its turn about the vertical (an object's `rotY`). */
+export interface PathPiece {
+	x: number
+	z: number
+	rotY: number
+}
+
+/**
+ * Where a fence's models stand: the curve cut into equal spans as near `span` yards long as fits a
+ * whole number of them, a model in the middle of each, turned along the span's chord. A model's
+ * local +X follows the curve, or its +Z when `alongZ` (a model longer that way), then `turnDeg` more.
+ */
+export function fencePieces(sm: PathSamples, span: number, alongZ: boolean, turnDeg: number): PathPiece[] {
+	if (sm.n < 2 || span <= 0 || sm.length <= 0) return []
+	const count = Math.max(1, Math.round(sm.length / span))
+	const at = (s: number) => {
+		const f = Math.min(sm.n - 1, Math.max(0, (s / sm.length) * (sm.n - 1)))
+		const i = Math.min(sm.n - 2, Math.floor(f))
+		const t = f - i
+		return { x: sm.x[i] + (sm.x[i + 1] - sm.x[i]) * t, z: sm.z[i] + (sm.z[i + 1] - sm.z[i]) * t }
+	}
+	const turn = (turnDeg * Math.PI) / 180 + (alongZ ? Math.PI / 2 : 0)
+	const out: PathPiece[] = []
+	for (let k = 0; k < count; k++) {
+		const a = at((k * sm.length) / count)
+		const b = at(((k + 1) * sm.length) / count)
+		const m = at(((k + 0.5) * sm.length) / count)
+		// A three.js turn of r about +Y takes +X to (cos r, -sin r) in x, z.
+		out.push({ x: m.x, z: m.z, rotY: Math.atan2(-(b.z - a.z), b.x - a.x) + turn })
+	}
+	return out
 }
 
 /**
