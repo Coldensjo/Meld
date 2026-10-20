@@ -537,6 +537,7 @@ the same scene, the report before and after.
 - Mouse-move snap (Follow cursor, Snap models to the ground)
 - Clear tool: the models a stroke would delete (#131)
 - Paths: roads along a curve (#167, probe `path-road`)
+- Paths: rivers (#167, probe `path-river`)
 
 ### UI and the window (`docs/tests/ui.md`)
 

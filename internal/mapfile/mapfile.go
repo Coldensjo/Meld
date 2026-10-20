@@ -121,7 +121,7 @@ type Header struct {
 	// Reference is the author's reference image laid over the map (#184): its path, never its
 	// pixels, and where it lies. Optional; older readers ignore it.
 	Reference *ReferenceImage `json:"reference,omitempty"`
-	// Paths are the roads drawn along a curve with the Path tool (#167), kept so they can be moved and
+	// Paths are the roads and rivers drawn along a curve with the Path tool (#167), kept so they can be moved and
 	// applied again; what an apply wrote is in the heights and paint. Never exported. Optional; older
 	// readers ignore it.
 	Paths []MapPath `json:"paths,omitempty"`
@@ -150,6 +150,10 @@ type MapPath struct {
 	Grade float64 `json:"grade"`
 	// Texture is the palette texture painted along it; "" for none.
 	Texture string `json:"texture"`
+	// Depth is how deep a river's bed is carved below its surface, yards, and Liquid its liquid
+	// (LiquidType.dbc ID).
+	Depth  float64 `json:"depth"`
+	Liquid int     `json:"liquid"`
 }
 
 // ReferenceImage is a picture the author traces the map from (View › Reference Image): a file of

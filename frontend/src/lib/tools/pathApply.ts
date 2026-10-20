@@ -7,7 +7,9 @@ import type { ObjectLayer } from '../world/ObjectLayer'
 import type { Command } from '../state/history'
 import { compactChunk, SLOTS } from '../terrain/chunkPaint'
 import { paintPixel } from './brush'
-import { crossWeight, limitGrade, pathField, samplePath, type MapPath } from '../terrain/paths'
+import { PATH_KINDS, crossWeight, downhill, limitGrade, pathField, riverBed, samplePath, type MapPath, type PathSamples } from '../terrain/paths'
+import { LIQUID_CELLS, LIQUID_VERTS, autoOpacity, cloneLayer, newLayer, type LiquidLayer, type LiquidMap } from '../water/liquids'
+import { LiquidStroke } from '../water/liquidStroke'
 
 /** The heights a path changed, vertex by vertex, before and after. */
 class HeightEdit {
@@ -143,64 +145,175 @@ export interface PathApplied {
 	message: string
 }
 
+/** The maps an apply writes into. */
+export interface PathTargets {
+	terrain: Terrain
+	objects: ObjectLayer
+	liquids: LiquidMap
+}
+
+type Part = { undo(): void; redo(): void }
+
 /**
- * Applies a road: the ground within half the width takes the curve's height (graded), blending back
- * over the falloff with a cosine, and the texture (palette index `tex`, -1 for none) is painted over
- * the width, fading over the edge. The ground is written straight away; the result undoes it.
+ * Applies `path` by its kind, with its texture at palette index `tex` (-1 for none). The map is
+ * written straight away; the result's command undoes it.
  */
-export function applyRoad(t: Terrain, objects: ObjectLayer, path: MapPath, tex: number): PathApplied {
-	if (path.points.length < 2) return { cmd: null, message: 'A road needs two points at least: click the ground to add them.' }
+export function applyPath(m: PathTargets, path: MapPath, tex: number): PathApplied {
+	const kind = PATH_KINDS.find((k) => k.id === path.kind)?.name ?? 'Path'
+	if (path.points.length < 2) return { cmd: null, message: `A ${kind.toLowerCase()} needs two points at least: click the ground to add them.` }
+	const t = m.terrain
 	const sm = samplePath(path.points, SAMPLE_STEP)
-	limitGrade(sm, path.grade)
-	const half = path.width / 2
+	const parts: Part[] = []
 	const heights = new HeightEdit(t)
-	const cs = t.cellSize
-	const field = pathField(sm, cs, 0, half + path.falloff, t.size)
-	if (field) {
-		const V = t.verts
-		const h = t.heights
-		for (let j = 0; j < field.h; j++) {
-			for (let i = 0; i < field.w; i++) {
-				const k = j * field.w + i
-				const w = crossWeight(field.dist[k], half, path.falloff)
-				if (w <= 0) continue
-				const v = (field.z0 + j) * V + field.x0 + i
-				heights.reserve(v)
-				h[v] += (field.height[k] - h[v]) * w
-			}
-		}
+	let note = ''
+	if (path.kind === 'river') {
+		downhill(sm)
+		carveRiver(t, sm, path, heights)
+		const liquid = fillRiver(m, sm, path)
+		if (liquid.cmd) parts.push(liquid.cmd)
+		if (!liquid.cells) note = ' It holds no liquid: the curve is narrower than a cell.'
+	} else {
+		limitGrade(sm, path.grade)
+		levelRoad(t, sm, path, heights)
 	}
 	const paint = new PaintEdit(t)
-	let refused = 0
-	if (tex >= 0) {
-		const R = t.splatRes
-		const ts = t.worldSize / R
-		const edge = Math.max(path.edge, 0)
-		// A hard edge still blends across one texel, so it isn't stair-stepped.
-		const fade = Math.max(edge, ts)
-		const tf = pathField(sm, ts, ts / 2, half + fade, R - 1)
-		if (tf) {
-			for (let j = 0; j < tf.h; j++) {
-				for (let i = 0; i < tf.w; i++) {
-					const k = j * tf.w + i
-					const d = tf.dist[k]
-					const w = edge > 0 ? crossWeight(d, half, edge) : Math.min(1, Math.max(0, (half + ts / 2 - d) / ts))
-					if (w <= 0) continue
-					const x = tf.x0 + i
-					const z = tf.z0 + j
-					paint.reserveTexel(x, z)
-					if (!paintPixel(t, z * R + x, tex, w)) refused++
-				}
-			}
+	const refused = tex >= 0 ? paintAlong(t, sm, path, tex, paint) : 0
+	parts.unshift(...[heights.finish(m.objects), paint.finish()].filter((p): p is Part => !!p))
+	const message = refused
+		? `${kind} applied, but part of its paint was refused: those chunks already hold four other textures (the 1.12 limit).`
+		: tex < 0 && path.texture
+			? `${kind} applied without its paint: pick its texture in the asset browser first, so the map has it.`
+			: `${kind} applied: ${Math.round(sm.length)} yd.`
+	return { cmd: combine(`Apply ${path.name}`, parts), message: message + note }
+}
+
+/** A road: the ground within half the width takes the curve's (graded) height, blending back over the falloff. */
+function levelRoad(t: Terrain, sm: PathSamples, path: MapPath, heights: HeightEdit) {
+	const half = path.width / 2
+	const field = pathField(sm, t.cellSize, 0, half + path.falloff, t.size)
+	if (!field) return
+	const V = t.verts
+	const h = t.heights
+	for (let j = 0; j < field.h; j++) {
+		for (let i = 0; i < field.w; i++) {
+			const k = j * field.w + i
+			const w = crossWeight(field.dist[k], half, path.falloff)
+			if (w <= 0) continue
+			const v = (field.z0 + j) * V + field.x0 + i
+			heights.reserve(v)
+			h[v] += (field.height[k] - h[v]) * w
 		}
 	}
-	const parts = [heights.finish(objects), paint.finish()].filter((p): p is { undo(): void; redo(): void } => !!p)
-	const message = refused
-		? `Road applied, but part of its paint was refused: those chunks already hold four other textures (the 1.12 limit).`
-		: tex < 0 && path.texture
-			? 'Road applied without its paint: pick its texture in the asset browser first, so the map has it.'
-			: `Road applied: ${Math.round(sm.length)} yd.`
-	return { cmd: combine(`Apply ${path.name}`, parts), message }
+}
+
+/**
+ * A river's bed: within half the width the ground takes `riverBed`'s profile under the curve's
+ * (downhill) surface, `depth` deep in the middle and a little above the surface at the banks, and
+ * beyond them it blends back over the falloff from the bank's height.
+ */
+function carveRiver(t: Terrain, sm: PathSamples, path: MapPath, heights: HeightEdit) {
+	const half = path.width / 2
+	const field = pathField(sm, t.cellSize, 0, half + path.falloff, t.size)
+	if (!field) return
+	const V = t.verts
+	const h = t.heights
+	for (let j = 0; j < field.h; j++) {
+		for (let i = 0; i < field.w; i++) {
+			const k = j * field.w + i
+			const d = field.dist[k]
+			const w = crossWeight(d, half, path.falloff)
+			if (w <= 0) continue
+			const v = (field.z0 + j) * V + field.x0 + i
+			heights.reserve(v)
+			h[v] += (riverBed(d, half, field.height[k], path.depth) - h[v]) * w
+		}
+	}
+}
+
+/**
+ * Fills a river with its liquid: every cell whose centre is within half the width gets a layer of the
+ * path's liquid (the chunk's other liquids leave that cell), its four corners at the surface of the
+ * curve's nearest point. Neighbouring chunks take the same height at a shared corner, so the surface
+ * slopes down the river without steps. Returns the undo of what changed and the cells covered.
+ */
+function fillRiver(m: PathTargets, sm: PathSamples, path: MapPath): { cmd: Command | null; cells: number } {
+	const t = m.terrain
+	const cs = t.cellSize
+	const half = path.width / 2
+	const cells = pathField(sm, cs, cs / 2, half, t.size - 1)
+	// The surface at every corner of those cells, from the curve's height nearest the corner.
+	const corners = pathField(sm, cs, 0, half + cs * 1.5, t.size)
+	if (!cells || !corners) return { cmd: null, cells: 0 }
+	const map = m.liquids
+	const stroke = new LiquidStroke(map, 'river')
+	const work = new Map<number, LiquidLayer[]>()
+	const factor = autoOpacity(path.liquid)
+	const V = t.verts
+	let covered = 0
+	for (let j = 0; j < cells.h; j++) {
+		for (let i = 0; i < cells.w; i++) {
+			if (cells.dist[j * cells.w + i] > half) continue
+			const gx = cells.x0 + i
+			const gz = cells.z0 + j
+			const c = Math.floor(gz / LIQUID_CELLS) * map.side + Math.floor(gx / LIQUID_CELLS)
+			let layers = work.get(c)
+			if (!layers) {
+				stroke.reserve(c)
+				layers = map.layers(c).map(cloneLayer)
+				work.set(c, layers)
+			}
+			let layer = layers.find((l) => l.id === path.liquid)
+			if (!layer) {
+				layer = newLayer(path.liquid, 0)
+				layers.push(layer)
+			}
+			const lx = gx % LIQUID_CELLS
+			const lz = gz % LIQUID_CELLS
+			for (const l of layers) l.cells[lz * LIQUID_CELLS + lx] = l === layer ? 1 : 0
+			for (let dz = 0; dz <= 1; dz++) {
+				for (let dx = 0; dx <= 1; dx++) {
+					const vx = gx + dx
+					const vz = gz + dz
+					const k = (vz - corners.z0) * corners.w + (vx - corners.x0)
+					const surface = corners.height[k]
+					const n = (lz + dz) * LIQUID_VERTS + lx + dx
+					layer.heights[n] = surface
+					// The colour and opacity follow the depth over the carved ground (the water brush's rule).
+					layer.depth[n] = Math.min(1, Math.max(0, (surface - t.heights[vz * V + vx] + 1) * factor))
+				}
+			}
+			covered++
+		}
+	}
+	for (const [c, layers] of work) map.set(c, layers)
+	const cmd = stroke.finish()
+	return { cmd, cells: covered }
+}
+
+/**
+ * Paints palette texture `tex` over the width, fading over the path's edge (a hard edge still blends
+ * across one texel, so it isn't stair-stepped). Returns the texels a full chunk refused.
+ */
+function paintAlong(t: Terrain, sm: PathSamples, path: MapPath, tex: number, paint: PaintEdit): number {
+	const half = path.width / 2
+	const R = t.splatRes
+	const ts = t.worldSize / R
+	const edge = Math.max(path.edge, 0)
+	const tf = pathField(sm, ts, ts / 2, half + Math.max(edge, ts), R - 1)
+	if (!tf) return 0
+	let refused = 0
+	for (let j = 0; j < tf.h; j++) {
+		for (let i = 0; i < tf.w; i++) {
+			const d = tf.dist[j * tf.w + i]
+			const w = edge > 0 ? crossWeight(d, half, edge) : Math.min(1, Math.max(0, (half + ts / 2 - d) / ts))
+			if (w <= 0) continue
+			const x = tf.x0 + i
+			const z = tf.z0 + j
+			paint.reserveTexel(x, z)
+			if (!paintPixel(t, z * R + x, tex, w)) refused++
+		}
+	}
+	return refused
 }
 
 /** One command doing `parts` in order, undoing them in reverse. */

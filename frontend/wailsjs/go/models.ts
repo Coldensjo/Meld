@@ -478,6 +478,8 @@ export namespace mapfile {
 	    edge: number;
 	    grade: number;
 	    texture: string;
+	    depth: number;
+	    liquid: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new MapPath(source);
@@ -494,6 +496,8 @@ export namespace mapfile {
 	        this.edge = source["edge"];
 	        this.grade = source["grade"];
 	        this.texture = source["texture"];
+	        this.depth = source["depth"];
+	        this.liquid = source["liquid"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

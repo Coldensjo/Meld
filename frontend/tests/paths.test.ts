@@ -1,8 +1,9 @@
 // Run with: bun test tests/paths.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { copyPaths, crossWeight, limitGrade, nearestSegment, newPath, pathField, readPaths, samplePath, type MapPath } from '../src/lib/terrain/paths.ts'
-import { applyRoad } from '../src/lib/tools/pathApply.ts'
+import { RIVER_BANK, copyPaths, crossWeight, downhill, limitGrade, riverBed, nearestSegment, newPath, pathField, readPaths, samplePath, type MapPath } from '../src/lib/terrain/paths.ts'
+import { applyPath } from '../src/lib/tools/pathApply.ts'
+import { LiquidMap } from '../src/lib/water/liquids.ts'
 import { NO_TEXTURE, SLOTS } from '../src/lib/terrain/chunkPaint.ts'
 import type { Terrain } from '../src/lib/terrain/Terrain.ts'
 import type { ObjectLayer } from '../src/lib/world/ObjectLayer.ts'
@@ -115,7 +116,7 @@ test('paths read back from a file get defaults and unique ids, and bad entries g
 test('a road levels the ground to its height across the width and blends back over the falloff', () => {
 	const t = fakeTerrain(64, 10)
 	const r = road([[20, 30, 60], [100, 30, 60]], { width: 8, falloff: 4 })
-	const res = applyRoad(t as unknown as Terrain, objects, r, -1)
+	const res = applyPath({ terrain: t as unknown as Terrain, objects, liquids: new LiquidMap(t.size) }, r, -1)
 	assert.ok(res.cmd)
 	const at = (x: number, z: number) => t.heights[(z / 2) * t.verts + x / 2]
 	assert.ok(Math.abs(at(60, 60) - 30) < 1e-3, 'centre at the road height')
@@ -134,7 +135,7 @@ test('a road paints its texture over the width, and undo takes the paint back', 
 	const before = t.weights.slice()
 	const slotsBefore = t.chunkSlots.slice()
 	const r = road([[20, 10, 60], [100, 10, 60]], { width: 8, edge: 0 })
-	const res = applyRoad(t as unknown as Terrain, objects, r, 3)
+	const res = applyPath({ terrain: t as unknown as Terrain, objects, liquids: new LiquidMap(t.size) }, r, 3)
 	const R = t.splatRes
 	const texel = (x: number, z: number) => (Math.floor(z / 0.5) * R + Math.floor(x / 0.5)) * SLOTS
 	const chunk = (x: number, z: number) => Math.floor(z / 16) * t.paintChunksPerSide + Math.floor(x / 16)
@@ -151,6 +152,50 @@ test('a road paints its texture over the width, and undo takes the paint back', 
 
 test('a road needs two points', () => {
 	const t = fakeTerrain(16)
-	const res = applyRoad(t as unknown as Terrain, objects, road([[4, 1, 4]]), -1)
+	const res = applyPath({ terrain: t as unknown as Terrain, objects, liquids: new LiquidMap(t.size) }, road([[4, 1, 4]]), -1)
 	assert.equal(res.cmd, null)
+})
+
+test('a river surface only runs downhill, from whichever end is higher', () => {
+	const sm = samplePath([{ x: 0, y: 10, z: 0 }, { x: 50, y: 14, z: 0 }, { x: 100, y: 2, z: 0 }], 1)
+	downhill(sm)
+	for (let i = 1; i < sm.n; i++) assert.ok(sm.y[i] <= sm.y[i - 1] + 1e-6)
+	assert.equal(sm.y[0], 10)
+	const up = samplePath([{ x: 0, y: 2, z: 0 }, { x: 100, y: 9, z: 0 }], 1)
+	downhill(up)
+	for (let i = 1; i < up.n; i++) assert.ok(up.y[i] >= up.y[i - 1] - 1e-6)
+})
+
+test('the river bed is the depth below the surface in the middle and a bank above it at the sides', () => {
+	assert.ok(Math.abs(riverBed(0, 6, 20, 3) - 17) < 1e-9)
+	assert.ok(Math.abs(riverBed(6, 6, 20, 3) - (20 + RIVER_BANK)) < 1e-9)
+	assert.ok(riverBed(3, 6, 20, 3) > 17 && riverBed(3, 6, 20, 3) < 20)
+})
+
+test('a river carves its bed and fills it with its liquid, whose surface slopes down the curve, and undo takes both back', () => {
+	const t = fakeTerrain(64, 10)
+	const liquids = new LiquidMap(64)
+	const r = road([[10, 9, 60], [118, 5, 60]], { kind: 'river', width: 12, falloff: 4, depth: 3, liquid: 1 })
+	const res = applyPath({ terrain: t as unknown as Terrain, objects, liquids }, r, -1)
+	assert.ok(res.cmd)
+	const at = (x: number, z: number) => t.heights[(z / 2) * t.verts + x / 2]
+	assert.ok(Math.abs(at(64, 60) - (7 - 3)) < 0.1, `bed ${at(64, 60)}`)
+	assert.equal(at(64, 80), 10, 'untouched beyond the falloff')
+	// The cell at (64, 60): chunk 2,1 of the 4x4 chunks (16 yd each), local cell 0, 6.
+	const surfaceAt = (x: number, z: number) => {
+		const gx = Math.floor(x / 2), gz = Math.floor(z / 2)
+		const c = Math.floor(gz / 8) * liquids.side + Math.floor(gx / 8)
+		const l = liquids.layers(c).find((q) => q.cells[(gz % 8) * 8 + (gx % 8)])
+		return l ? l.heights[(gz % 8) * 9 + (gx % 8)] : null
+	}
+	const upstream = surfaceAt(20, 60)
+	const down = surfaceAt(100, 60)
+	assert.ok(upstream !== null && down !== null, 'liquid along the river')
+	assert.ok(upstream! > down!, 'downhill')
+	assert.equal(surfaceAt(64, 76), null, 'none beyond the width')
+	res.cmd!.undo()
+	assert.ok(liquids.empty)
+	assert.ok(t.heights.every((v) => v === 10))
+	res.cmd!.redo()
+	assert.ok(!liquids.empty)
 })

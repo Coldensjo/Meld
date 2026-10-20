@@ -310,3 +310,13 @@ seen from above with its dots and width lines.
   plain object standing in for `Terrain`.
 - The probe aims the clicks by projecting world points through `e.camera` (`Vector3.project`), and
   passes `movementY` in the drag's event options, which a synthetic `PointerEvent` otherwise leaves 0.
+
+## Paths: rivers (#167, probe `path-river`)
+
+Checks: a River path's Apply carves the bed under the curve, fills the cells within half its width
+with the liquid, the surface higher at the raised upstream end than downstream (it only runs
+downhill), leaves the ground beyond the falloff alone, and one undo takes the liquid and the bed
+back. `bun run probe path-river`; `--shot <dir>` saves `path-river-applied.png`, the river seen at an
+angle. `frontend/tests/paths.test.ts` covers `downhill`, `riverBed` and a river's apply and undo.
+- The probe adds the points through `PathTool.onDown` with hits it makes, aiming the raycaster away
+  from the dots first (the press picks a dot it hits rather than adding a point).

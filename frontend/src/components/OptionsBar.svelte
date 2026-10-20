@@ -12,7 +12,7 @@
 	import { activeBrushStack } from '../lib/tools/StampTool'
 	import { chooseBrushImageFolder, listBrushImages, useBrushImage } from '../lib/io/brushImages'
 	import type { vmangos } from '../../wailsjs/go/models'
-	import { NARROW_WIDTH, type MapPath } from '../lib/terrain/paths'
+	import { NARROW_WIDTH, PATH_KINDS, type MapPath, type PathKind } from '../lib/terrain/paths'
 	import type { PathField } from '../lib/tools/PathTool'
 
 	const SCULPT_MODES: Array<{ id: SculptMode; name: string; tip: string }> = [
@@ -107,6 +107,11 @@
 	const pickedPath = $derived(editor.paths.find((p) => p.id === editor.pathId))
 	function setPath<K extends PathField>(key: K, value: MapPath[K]) {
 		engineRef.current?.path((t, c) => t.setField(c, key, value))
+	}
+	/** The kind of the next new path, and of the picked one. */
+	function pickKind(kind: PathKind) {
+		editor.pathKind = kind
+		if (pickedPath) setPath('kind', kind)
 	}
 
 	/** Opens the brush editor window, making a brush first when there is none. */
@@ -396,12 +401,26 @@
 				<option value={p.id}>{p.name} ({p.points.length} points)</option>
 			{/each}
 		</select>
+		<div class="seg" title="What the path does when applied">
+			{#each PATH_KINDS as k (k.id)}
+				<button class:active={(pickedPath?.kind ?? editor.pathKind) === k.id} onclick={() => pickKind(k.id)} title={k.tip}>{k.name}</button>
+			{/each}
+		</div>
 		{#if pickedPath}
 			{@const pp = pickedPath}
 			<OptSlider label="Width" bind:value={() => pp.width, (v) => setPath('width', v)} min={1} max={60} step={0.5} digits={1} width={70} title="The full width that is levelled and painted, in yards" />
 			<OptSlider label="Falloff" bind:value={() => pp.falloff, (v) => setPath('falloff', v)} min={0} max={40} step={0.5} digits={1} width={60} title="The yards beyond each side over which the ground blends back into what was there" />
-			<OptSlider label="Max grade %" bind:value={() => pp.grade, (v) => setPath('grade', v)} min={0} max={100} step={1} digits={0} width={60} title="The steepest the road may climb along its length, in percent (10 rises 10 yd over 100); 0 follows the points' heights" />
-			<select class="curve" value={pp.texture} onchange={(e) => setPath('texture', e.currentTarget.value)} title="The texture painted along the road: one of the map's textures (pick more in the asset browser)" aria-label="Path texture">
+			{#if pp.kind === 'river'}
+				<OptSlider label="Depth" bind:value={() => pp.depth, (v) => setPath('depth', v)} min={0} max={30} step={0.25} digits={2} width={60} title="How deep the bed is carved below the surface in the middle, in yards; the surface runs downhill from the higher end" />
+				<select class="curve" value={pp.liquid} onchange={(e) => setPath('liquid', Number(e.currentTarget.value))} title="The liquid that fills the river (the client's LiquidType)" aria-label="River liquid">
+					{#each liquidList as l (l.id)}
+						<option value={l.id}>{l.name}</option>
+					{/each}
+				</select>
+			{:else}
+				<OptSlider label="Max grade %" bind:value={() => pp.grade, (v) => setPath('grade', v)} min={0} max={100} step={1} digits={0} width={60} title="The steepest the road may climb along its length, in percent (10 rises 10 yd over 100); 0 follows the points' heights" />
+			{/if}
+			<select class="curve" value={pp.texture} onchange={(e) => setPath('texture', e.currentTarget.value)} title="The texture painted along the path (a road's surface, a river's bed): one of the map's textures (pick more in the asset browser)" aria-label="Path texture">
 				<option value="">Paint: none</option>
 				{#each editor.palette as tex (tex)}
 					<option value={tex}>Paint: {texName(tex)}</option>

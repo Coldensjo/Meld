@@ -1,4 +1,4 @@
-// The Path tool (#167, tool `path`, key K): roads drawn along an editable spline, as Unreal's
+// The Path tool (#167, tool `path`, key K): roads and rivers drawn along an editable spline, as Unreal's
 // landscape splines. A click drops a control point on the ground (into the picked path, or a new one),
 // a drag moves a point over the ground and Shift+drag raises or lowers it; Apply bakes the path into
 // the map as one undo step, and applying it again first takes back what its last apply wrote. The
@@ -10,7 +10,7 @@ import type { Terrain } from '../terrain/Terrain'
 import { editor, setStatus } from '../state/editor.svelte'
 import { paletteIndex } from '../terrain/chunkPaint'
 import { copyPaths, nearestSegment, newPath, samplePath, type MapPath, type PathPoint } from '../terrain/paths'
-import { applyRoad } from './pathApply'
+import { applyPath } from './pathApply'
 
 /** How far above the ground the curves and markers are drawn. */
 const LIFT = 0.3
@@ -137,7 +137,7 @@ function setPositions(g: THREE.BufferGeometry, v: number[]) {
 }
 
 /** The fields of a path the options bar sets. */
-export type PathField = 'kind' | 'name' | 'width' | 'falloff' | 'grade' | 'texture' | 'edge'
+export type PathField = 'kind' | 'name' | 'width' | 'falloff' | 'grade' | 'texture' | 'edge' | 'depth' | 'liquid'
 
 export class PathTool implements Tool {
 	readonly usesBrush = false
@@ -346,7 +346,7 @@ export class PathTool implements Tool {
 			prev.live = false
 		}
 		const tex = path.texture ? paletteIndex(editor.palette, path.texture) : -1
-		const res = applyRoad(ctx.terrain, ctx.objects, path, tex)
+		const res = applyPath({ terrain: ctx.terrain, objects: ctx.objects, liquids: ctx.liquids }, path, tex)
 		setStatus(res.message, 5000)
 		if (!res.cmd) {
 			if (prev && again) {

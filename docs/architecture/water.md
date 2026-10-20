@@ -13,6 +13,10 @@ Liquids, the sea and how both are drawn and exported.
   - The Water tool's Paint mode is noggit's water brush (`editor.water`: lock, angled mode,
     overrides, opacity mode, cursor on liquids). Dig lake and Raise shore shape the ground around
     the sea.
+  - A River path (the Path tool, #167, `tools/pathApply.ts` `fillRiver`) writes layers too: every
+    cell whose centre is within half its width gets the path's liquid (the chunk's other layers
+    leave the cell), each corner at the curve's nearest surface height, so the surface slopes down
+    the river within and across chunks, and the depth from the carved bed by the brush's rule.
   - The sea (`editor.waterEnabled`/`waterLevel`, `Water.ts`) is a map-wide ocean plane. Its shader
     reads the ground's depth from `Terrain.heightTexture()`. The export writes it as ocean in the
     cells that no painted layer covers.

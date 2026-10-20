@@ -1,14 +1,15 @@
-// Paths (#167): roads drawn along an editable spline, as Unreal's landscape splines. A path is a list
+// Paths (#167): roads and rivers drawn along an editable spline, as Unreal's landscape splines. A path is a list
 // of control points the author drops and drags on the ground, and settings saying what it does when
 // applied. This module holds the record, the curve through the points (sampled by arc length) and the
 // distance field around it that the apply (tools/pathApply.ts) works from. It keeps no editor state.
 import * as THREE from 'three'
 
 /** What a path does when it is applied. */
-export type PathKind = 'road'
+export type PathKind = 'road' | 'river'
 
 export const PATH_KINDS: ReadonlyArray<{ id: PathKind; name: string; tip: string }> = [
 	{ id: 'road', name: 'Road', tip: 'Level the ground across the width, at the curve\'s height and grade, and paint a texture along it' },
+	{ id: 'river', name: 'River', tip: 'Carve a bed across the width and fill it with a liquid whose surface runs downhill along the curve' },
 ]
 
 /** A control point on the ground, in world units. */
@@ -35,6 +36,10 @@ export interface MapPath {
 	texture: string
 	/** Yards over which the paint fades at each side; 0 is a hard edge. */
 	edge: number
+	/** A river's bed: how deep below its surface the middle is carved, yards. */
+	depth: number
+	/** A river's liquid (LiquidType.dbc ID: 1 water, 2 ocean, 3 magma, 4 slime). */
+	liquid: number
 }
 
 /** Below this width, in yards, a road is narrower than two cells and looks jagged (1.12 has a cell every 2 yd). */
@@ -45,6 +50,8 @@ export const PATH_DEFAULTS: Omit<MapPath, 'id' | 'name' | 'kind' | 'points' | 't
 	falloff: 4,
 	grade: 0,
 	edge: 1,
+	depth: 3,
+	liquid: 1,
 }
 
 /** A new path of `kind`, with the defaults and no points; `id` and `name` from the paths already there. */
@@ -94,6 +101,8 @@ export function readPaths(v: unknown): MapPath[] {
 			grade: num('grade', PATH_DEFAULTS.grade, 0, 1000),
 			texture: typeof o.texture === 'string' ? o.texture : '',
 			edge: num('edge', PATH_DEFAULTS.edge, 0, 50),
+			depth: num('depth', PATH_DEFAULTS.depth, 0, 100),
+			liquid: Math.round(num('liquid', PATH_DEFAULTS.liquid, 1, 1e6)),
 		})
 	}
 	return out
@@ -162,6 +171,29 @@ export function limitGrade(sm: PathSamples, percent: number) {
 		const d = g * (sm.s[i + 1] - sm.s[i])
 		y[i] = Math.min(y[i + 1] + d, Math.max(y[i + 1] - d, y[i]))
 	}
+}
+
+/**
+ * Makes the samples' heights never rise from the curve's higher end to its lower one, as a river's
+ * surface runs downhill: each takes the lowest height between it and the higher end.
+ */
+export function downhill(sm: PathSamples) {
+	if (sm.n < 2) return
+	const y = sm.y
+	if (y[sm.n - 1] > y[0]) for (let i = sm.n - 2; i >= 0; i--) y[i] = Math.min(y[i], y[i + 1])
+	else for (let i = 1; i < sm.n; i++) y[i] = Math.min(y[i], y[i - 1])
+}
+
+/** How far above a river's surface its banks are left, so the shore is dry ground, yards. */
+export const RIVER_BANK = 0.5
+
+/**
+ * The ground height a river's bed takes `d` yards from its middle, where the surface is at `surface`:
+ * `depth` below it in the middle, rising as a cosine to RIVER_BANK above it at half the width.
+ */
+export function riverBed(d: number, half: number, surface: number, depth: number): number {
+	const u = Math.min(1, d / half)
+	return surface + RIVER_BANK - (depth + RIVER_BANK) * 0.5 * (1 + Math.cos(Math.PI * u))
 }
 
 /**
