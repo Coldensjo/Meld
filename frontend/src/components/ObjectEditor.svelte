@@ -22,9 +22,11 @@
 	// the world database with Save. A new object starts here too, from scratch or as a copy. Contents
 	// (#220) edits what a chest holds, its loot list, saved with the same Save. Quests (#293) edits the
 	// quests the object offers and takes in, saved apart with its own Save quests, as the creature
-	// editor's tab does; only a Quest giver object (type 2) gets new ones.
+	// editor's tab does; only a Quest giver object (type 2) gets new ones. Find object (#351), the tab
+	// Tools › Game Objects… opens on, lists every object template with no spawn selected, and a click
+	// opens that object to edit.
 
-	type Tab = 'spawn' | 'object' | 'contents' | 'quests' | 'new'
+	type Tab = 'spawn' | 'object' | 'contents' | 'quests' | 'find' | 'new'
 
 	/** GAMEOBJECT_TYPE_QUESTGIVER: the one object type the server lets offer and take quests. */
 	const QUEST_GIVER_TYPE = 2
@@ -64,8 +66,15 @@
 		if (id === loadedFor) return
 		const sameSpawn = loadedFor !== '' && loadedFor.startsWith(`${t.key}|`) && t.key !== null
 		loadedFor = id
-		if (t.entry === 0) tab = 'new'
-		else if (!sameSpawn) tab = t.key ? 'spawn' : 'object'
+		if (t.entry === 0) {
+			tab = wantNew ? 'new' : 'find'
+			// Opened from the Tools menu: the search starts over, on every category.
+			if (!wantNew) {
+				category = ''
+				query = ''
+			}
+		} else if (!sameSpawn) tab = t.key ? 'spawn' : 'object'
+		wantNew = false
 		if (t.entry > 0) copySource = null
 		record = null
 		values = {}
@@ -124,11 +133,13 @@
 	let hovered = $state<vmangos.ObjectTemplate | null>(null)
 	const usingSpawn = $derived(tab === 'spawn' && spawn !== null)
 	const preview = $derived(
-		!target || target.entry === 0
+		!target
 			? null
 			: hovered
 				? { model: hovered.model, scale: hovered.size || 1, what: `${hovered.name} (entry ${hovered.entry})` }
-				: usingSpawn && spawn
+				: target.entry === 0
+					? null
+					: usingSpawn && spawn
 					? { model: spawn.model, scale: spawn.scale, what: 'this spawn as placed' }
 					: record
 						? { model: templateModel, scale: Number(values.size) || 1, what: "the object template's display" }
@@ -238,7 +249,7 @@
 	let category = $state('')
 	let query = $state('')
 	$effect(() => {
-		if (tab !== 'spawn' || templates.length) return
+		if ((tab !== 'spawn' && tab !== 'find') || templates.length) return
 		loadObjectTemplates()
 			.then((list) => (templates = list))
 			.catch((err) => (templatesError = String(err)))
@@ -259,6 +270,22 @@
 		return templates.filter((t) => (category === '' || objectCategory(t) === category) && (q === '' || t.name.toLowerCase().includes(q) || String(t.entry) === q))
 	})
 
+	/** Find object's click: opens that object on its Object tab, once unsaved changes are dealt with. */
+	function openObject(t: vmangos.ObjectTemplate) {
+		hovered = null
+		if (target?.entry === t.entry) {
+			tab = 'object'
+			return
+		}
+		const go = () => (ui.objectEditor = { key: null, entry: t.entry })
+		if (anyUnsaved) {
+			afterDiscard = go
+			confirmClose = true
+			return
+		}
+		go()
+	}
+
 	function changeTo(t: vmangos.ObjectTemplate) {
 		const s = spawn
 		if (!s || t.entry === s.entry) return
@@ -271,10 +298,18 @@
 	let copyThis = $state(true)
 	let creating = $state(false)
 	let copySource = $state<{ entry: number; name: string } | null>(null)
+	/** Set just before New object opens the editor on entry 0, which otherwise opens on Find object. */
+	let wantNew = false
 	function startNew() {
-		if (target?.entry === 0) return
+		if (target?.entry === 0) {
+			tab = 'new'
+			return
+		}
 		copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
-		const go = () => (ui.objectEditor = { key: null, entry: 0 })
+		const go = () => {
+			wantNew = true
+			ui.objectEditor = { key: null, entry: 0 }
+		}
 		if (anyUnsaved) {
 			afterDiscard = go
 			confirmClose = true
@@ -329,8 +364,11 @@
 					<span class="dim">
 						entry {target.entry}{spawn ? ` · spawn ${spawn.guid}` : ''}{record ? ` · ${objectTypeName(Number(values.type) || 0)}` : ''}
 					</span>
-				{:else}
+				{:else if tab === 'new'}
 					<h2>New game object</h2>
+				{:else}
+					<h2>Game objects</h2>
+					<span class="dim">Find one to edit, or make a new one</span>
 				{/if}
 			</div>
 			<div class="actions">
@@ -359,7 +397,7 @@
 					<CreaturePreview type={spawnType({ model: preview.model })} scale={preview.scale} />
 				{:else}
 					<div class="empty dim">
-						{loading ? 'Loading…' : target.entry === 0 ? 'Name the new object on the right.' : preview ? 'Its display has no model: it is invisible in the game.' : ''}
+						{loading ? 'Loading…' : target.entry === 0 ? (tab === 'new' ? 'Name the new object on the right.' : 'Point at an object in the list to see it here.') : preview ? 'Its display has no model: it is invisible in the game.' : ''}
 					</div>
 				{/if}
 				<div class="under">
@@ -369,15 +407,16 @@
 
 			<section class="right">
 				<nav class="tabs">
+					{#if !spawn}<button class:on={tab === 'find'} onclick={() => (tab = 'find')}>Find object</button>{/if}
 					{#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
 					{#if record}<button class:on={tab === 'object'} onclick={() => (tab = 'object')}>Object</button>{/if}
 					{#if record}<button class:on={tab === 'contents'} onclick={() => (tab = 'contents')}>Contents</button>{/if}
 					{#if record}<button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests{questsDirty ? ' (1)' : ''}</button>{/if}
-					<button class:on={target.entry === 0} onclick={startNew}>New object</button>
+					<button class:on={tab === 'new'} onclick={startNew}>New object</button>
 				</nav>
 
 				<div class="scroll">
-					{#if target.entry === 0}
+					{#if tab === 'new' && target.entry === 0}
 						<div class="new">
 							<p>Make a game object of your own for the world database. It gets the first free entry; edit it, save it, and place it.</p>
 							<label>Name <input type="text" maxlength="100" placeholder="Name" bind:value={newName} /></label>
@@ -388,6 +427,29 @@
 							{/if}
 							<button class="active" disabled={!newName.trim() || creating} onclick={create}>{creating ? 'Making…' : 'Make object'}</button>
 						</div>
+					{:else if tab === 'find' && !spawn}
+						<p class="dim">Every game object in the world database. Pick one to open it and edit its template, contents and quests.</p>
+						<div class="pick">
+							<select bind:value={category} aria-label="Category">
+								<option value="">Every category</option>
+								{#each categories as c (c)}<option value={c}>{c}</option>{/each}
+							</select>
+							<input type="search" placeholder="Search by name or entry" bind:value={query} />
+						</div>
+						{#if templatesError}<p class="error">{templatesError}</p>{/if}
+						<ul class="list tall" aria-label="Game objects" onmouseleave={() => (hovered = null)}>
+							{#each matches.slice(0, LIMIT) as t (t.entry)}
+								<li>
+									<button class="row" class:active={t.entry === target.entry} title="Entry {t.entry}" onclick={() => openObject(t)} onmouseenter={() => (hovered = t)}>
+										<span class="name">{t.name}</span>
+										<span class="dim">{objectCategory(t)} · {t.entry}{t.model ? '' : ' · no model'}</span>
+									</button>
+								</li>
+							{:else}
+								<li class="dim">{templates.length ? 'Nothing matches.' : 'Reading the objects…'}</li>
+							{/each}
+						</ul>
+						{#if matches.length > LIMIT}<p class="dim">Showing {LIMIT} of {matches.length}. Narrow the search to see the rest.</p>{/if}
 					{:else if tab === 'spawn' && spawn}
 						<h3>Which object</h3>
 						<p class="dim">
@@ -586,6 +648,11 @@
 		flex: none;
 		overflow-y: auto;
 		border: 1px solid var(--border);
+	}
+	.list.tall {
+		max-height: none;
+		flex: 1;
+		min-height: 120px;
 	}
 	.row {
 		width: 100%;

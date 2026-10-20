@@ -56,6 +56,15 @@ editor's title follows. It needs the world database up, and takes about 6 s.
   comparing. After adding a binding while `make dev` runs, the page may fail with "does not provide
   an export named …" (the stale `wailsjs` trap in docs/TESTS.md).
 
+## Game object editor: Find object, with no spawn (#351)
+
+Checks: Tools › Game Objects… opens the editor on Find object (tabs Find object and New object), the
+search finds by name (Small Thorium, entry 324) and by entry (1731, Copper Vein), a click opens the
+object on its Object tab with Find object kept as a tab (its search kept, the open object marked),
+and New object still shows its form. The probe `object-find` runs it in about 6 s on a flat map; it
+needs the world database and writes nothing. It sets `ui.objectEditor = { key: null, entry: 0 }`
+as the menu does (there is no probe helper that clicks a menu entry).
+
 ## Game object editor: Contents, Make it a chest, respawn (#220)
 
 Checks: the Contents tab (`LootTab.svelte`) reads a chest's loot list with the other objects that

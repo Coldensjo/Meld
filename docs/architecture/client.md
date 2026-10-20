@@ -189,8 +189,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `Engine.flyTaxi` rides the camera along it (`ui.taxiFlying`, Esc stops). Make flight master sets
   npc_flags 8 on the selected creature's template through `SaveCreature`.
 - **Game object editor** (`components/ObjectEditor.svelte`, `ui.objectEditor`, #136): the creature
-  editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor.
-  Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
+  editor's counterpart, opened by the right-click menu's Edit object or the Inspector's Open editor,
+  or by Tools › Game Objects… (`entry: 0`, no spawn), which opens on Find object (#351): the same
+  template list and search as This spawn, shown whenever no spawn is selected, whose click opens that
+  object (`{ key: null, entry }`) on its Object tab. New object on `entry: 0` sets `wantNew`, so the
+  editor opens on its form instead. Tabs: This spawn (a list of the object templates, `loadObjectTemplates`, opened on the spawn's
   category such as Ore, whose click turns the spawn into that object as an undo step, then
   `SpawnFields`), Object (every `gameobject_template` column through the same Go code as creatures,
   `ReadObject`/`SaveObject`; `objectFields.ts` names data0 to data23 by the object's type, after
