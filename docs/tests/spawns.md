@@ -361,6 +361,12 @@ search and add, the unsaved bar, Revert; nothing written; about 25 s in the head
 minutes before `P.frames` waited for the GPU, #233). Unit: `creaturespells_test.go` (the SQL for an own,
 a shared, a new and an emptied list, the checks, the free list number) and, with `WOW_DIR` set,
 `TestSpellRefsFromClient` (Spell.dbc's name, rank and icon fields).
+- The Add spells list (#340) browses by category and school: the probe checks the creature
+  abilities list at once (200 rows, "Showing 200 of ..."), Mage: Fire (`skill:8`) holds Fire Blast,
+  the Frost school empties it, and the search narrows inside it. Unit: `spelllist_test.go`
+  (`TestSpellNoise`; with `WOW_DIR`, `TestListSpellsFromClient`: SkillLine, SkillLineAbility and
+  SkillRaceClassInfo layouts, the category names and counts, school and ID lookups). Trap: the chosen
+  category and school are kept in a module variable while the app runs, so a probe sets both first.
 - To test a save without changing the world database for good, use a creature with no list (805,
   Cameron): add a spell, Save spells, read it back with
   `await window.go.main.App.ReadCreatureSpells(805)` (list 8050), then remove it and save again (the

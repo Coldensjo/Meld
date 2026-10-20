@@ -2,7 +2,6 @@ package vmangos
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -288,56 +287,13 @@ func SearchSpells(dataDir, text string, limit int) ([]SpellRef, error) {
 	if err := loadSpellData(dataDir); err != nil {
 		return nil, err
 	}
-	t := spellData.spells
-	want := strings.ToLower(text)
-	type hit struct {
-		r, kind int
-		name    string
-	}
-	var hits []hit
-	id, idErr := strconv.Atoi(text)
-	for r := 0; r < t.records; r++ {
-		name := t.str(r, spellFName)
-		if idErr == nil && int(t.u32(r, 0)) == id {
-			hits = append(hits, hit{r, 0, name})
-			continue
-		}
-		if name == "" {
-			continue
-		}
-		low := strings.ToLower(name)
-		switch {
-		case low == want:
-			hits = append(hits, hit{r, 1, name})
-		case strings.HasPrefix(low, want):
-			hits = append(hits, hit{r, 2, name})
-		case strings.Contains(low, want):
-			hits = append(hits, hit{r, 3, name})
-		}
-	}
-	sort.Slice(hits, func(i, j int) bool {
-		a, b := hits[i], hits[j]
-		if a.kind != b.kind {
-			return a.kind < b.kind
-		}
-		if a.name != b.name {
-			return a.name < b.name
-		}
-		// Rank 2 before Rank 10.
-		if ra, rb := t.str(a.r, spellFRank), t.str(b.r, spellFRank); ra != rb {
-			if len(ra) != len(rb) {
-				return len(ra) < len(rb)
-			}
-			return ra < rb
-		}
-		return t.u32(a.r, 0) < t.u32(b.r, 0)
-	})
+	hits := matchSpells(spellData.spells, text, func(int, bool) bool { return true })
 	if len(hits) > max(limit, 1) {
 		hits = hits[:max(limit, 1)]
 	}
 	out := make([]SpellRef, len(hits))
-	for i, h := range hits {
-		out[i] = spellRef(h.r)
+	for i, r := range hits {
+		out[i] = spellRef(r)
 	}
 	return out, nil
 }

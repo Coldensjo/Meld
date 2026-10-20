@@ -1,9 +1,14 @@
+<script lang="ts" module>
+	/** The category and school last browsed, kept while the app runs. */
+	const browse = { category: 'npc', school: -1 }
+</script>
+
 <script lang="ts">
-	import { ReadCreatureSpells, SaveCreatureSpells, SearchSpells } from '../../wailsjs/go/main/App'
+	import { ListSpells, ReadCreatureSpells, SaveCreatureSpells } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { CAST_FLAGS, CAST_TARGETS, castTarget, spellLabel } from '../lib/wow/creatureSpellNames'
-	import { rememberSpells, spellRef } from '../lib/wow/spells'
+	import { SPELL_SCHOOLS, rememberSpells, spellCategories, spellRef } from '../lib/wow/spells'
 	import SpellIcon from './SpellIcon.svelte'
 
 	// The creature editor's Spells tab (#243): the spells the creature casts in combat, its
@@ -138,30 +143,72 @@
 
 	const flagCount = (f: number) => CAST_FLAGS.filter((c) => f & c.bit).length
 
-	// Adding: a search over the client's spells by name or ID.
+	// Adding (#340): the client's spells in a category (the creature abilities, a class's skill line,
+	// a pet's, a profession's...) and a school, listed at once, a page at a time, and narrowed by a
+	// name or ID.
+	const PAGE = 200
+	let categories = $state<vmangos.SpellCategory[]>([])
+	let category = $state(browse.category)
+	let school = $state(browse.school)
 	let query = $state('')
+	let limit = $state(PAGE)
 	let results = $state<vmangos.SpellRef[]>([])
+	let total = $state(0)
 	let searching = $state(false)
 	let timer = 0
-	$effect(() => {
-		const q = query.trim()
-		clearTimeout(timer)
-		if (!q) {
-			results = []
-			return
+	let asking = 0
+
+	void spellCategories()
+		.then((c) => (categories = c))
+		.catch((err) => (error = String(err)))
+
+	/** The category groups in their order, the ungrouped ones (creature abilities, all) first. */
+	const groups = $derived.by(() => {
+		const out: { group: string; list: vmangos.SpellCategory[] }[] = []
+		for (const c of categories) {
+			const last = out[out.length - 1]
+			if (last && last.group === c.group) last.list.push(c)
+			else out.push({ group: c.group, list: [c] })
 		}
-		timer = window.setTimeout(async () => {
-			searching = true
-			try {
-				const r = (await SearchSpells(q)) ?? []
-				rememberSpells(r)
-				if (q === query.trim()) results = r
-			} catch (err) {
-				error = String(err)
-			} finally {
-				searching = false
-			}
-		}, 250)
+		return out
+	})
+
+	// A new category, school or search starts at the first page again.
+	$effect(() => {
+		void category
+		void school
+		void query
+		limit = PAGE
+	})
+
+	$effect(() => {
+		const c = category,
+			sc = school,
+			q = query.trim(),
+			n = limit
+		browse.category = c
+		browse.school = sc
+		clearTimeout(timer)
+		const ask = ++asking
+		timer = window.setTimeout(
+			async () => {
+				searching = true
+				try {
+					const r = await ListSpells(c, sc, q, n)
+					const list = r.spells ?? []
+					rememberSpells(list)
+					if (ask === asking) {
+						results = list
+						total = r.total
+					}
+				} catch (err) {
+					error = String(err)
+				} finally {
+					if (ask === asking) searching = false
+				}
+			},
+			q ? 250 : 0,
+		)
 	})
 
 	function add(r: vmangos.SpellRef) {
@@ -260,9 +307,31 @@
 	{/if}
 
 	<h3>Add spells</h3>
-	<input class="search" type="search" placeholder="Spell name or ID" bind:value={query} />
-	{#if searching && !results.length}<p class="dim">Searching…</p>{/if}
+	<div class="browse">
+		<select class="category" title="Which spells to list" bind:value={category}>
+			{#if !categories.length}<option value={category}>{category === 'npc' ? 'Creature abilities' : 'Loading…'}</option>{/if}
+			{#each groups as g (g.group)}
+				{#if g.group}
+					<optgroup label={g.group}>
+						{#each g.list as c (c.key)}<option value={c.key}>{c.name} ({c.count})</option>{/each}
+					</optgroup>
+				{:else}
+					{#each g.list as c (c.key)}<option value={c.key}>{c.name} ({c.count})</option>{/each}
+				{/if}
+			{/each}
+		</select>
+		<select class="school" title="The spell's school" bind:value={school}>
+			<option value={-1}>Any school</option>
+			{#each SPELL_SCHOOLS as s, i (i)}<option value={i}>{s}</option>{/each}
+		</select>
+	</div>
+	<input class="search" type="search" placeholder="Narrow by name or ID" bind:value={query} />
+	{#if searching && !results.length}<p class="dim">Listing the spells…</p>{/if}
 	{#if results.length}
+		<p class="dim count">
+			{total === results.length ? `${total} ${total === 1 ? 'spell' : 'spells'}.` : `Showing ${results.length} of ${total}. Narrow the search to see the rest.`}
+			{#if total > results.length}<button onclick={() => (limit += PAGE)}>Show {Math.min(PAGE, total - results.length)} more</button>{/if}
+		</p>
 		<ul class="results">
 			{#each results as r (r.id)}
 				<li>
@@ -276,8 +345,8 @@
 				</li>
 			{/each}
 		</ul>
-	{:else if query.trim() && !searching}
-		<p class="dim">No spell matches.</p>
+	{:else if !searching}
+		<p class="dim">{query.trim() ? 'No spell in this category matches. An ID is found in any category.' : 'No spells in this category.'}</p>
 	{/if}
 </div>
 
@@ -400,6 +469,22 @@
 	}
 	.search {
 		width: 100%;
+	}
+	.browse {
+		display: flex;
+		gap: 6px;
+	}
+	.browse .category {
+		flex: 1;
+		min-width: 0;
+	}
+	.count {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.count button {
+		padding: 1px 6px;
 	}
 	.results {
 		list-style: none;

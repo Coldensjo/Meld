@@ -1,4 +1,4 @@
-import { SpellRefs } from '../../../wailsjs/go/main/App'
+import { SpellCategories, SpellRefs } from '../../../wailsjs/go/main/App'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { texturePreview } from './api'
 
@@ -42,6 +42,22 @@ export function forgetSpell(id: number) {
 export function rememberSpells(list: vmangos.SpellRef[]) {
 	for (const r of list) if (!refs.has(r.id)) refs.set(r.id, Promise.resolve(r))
 }
+
+let categories: Promise<vmangos.SpellCategory[]> | null = null
+
+/** The categories the Spells tab browses spells by (#340), read once a session. */
+export function spellCategories(): Promise<vmangos.SpellCategory[]> {
+	categories ??= SpellCategories()
+		.then((c) => c ?? [])
+		.catch((err) => {
+			categories = null
+			throw err
+		})
+	return categories
+}
+
+/** Spell.dbc's schools by number, for the Spells tab's school filter (#340). */
+export const SPELL_SCHOOLS = ['Physical', 'Holy', 'Fire', 'Nature', 'Frost', 'Shadow', 'Arcane']
 
 const icons = new Map<string, Promise<string | null>>()
 

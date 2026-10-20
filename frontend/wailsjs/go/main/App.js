@@ -206,6 +206,10 @@ export function ListRecovery() {
   return window['go']['main']['App']['ListRecovery']();
 }
 
+export function ListSpells(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ListSpells'](arg1, arg2, arg3, arg4);
+}
+
 export function ListVisualEffects() {
   return window['go']['main']['App']['ListVisualEffects']();
 }
@@ -628,6 +632,10 @@ export function SpawnEmotes() {
 
 export function SpawnLook(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SpawnLook'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function SpellCategories() {
+  return window['go']['main']['App']['SpellCategories']();
 }
 
 export function SpellRefs(arg1) {

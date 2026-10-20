@@ -1426,6 +1426,26 @@ func (a *App) SearchSpells(text string) ([]vmangos.SpellRef, error) {
 	return vmangos.SearchSpells(dataDir, text, 80)
 }
 
+// SpellCategories lists the categories the creature editor's Spells tab browses the client's
+// spells by (#340): the creature abilities, all spells, and the class, pet and profession skill lines.
+func (a *App) SpellCategories() ([]vmangos.SpellCategory, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SpellCategories(dataDir)
+}
+
+// ListSpells lists the client's spells in a category and school (-1 any), narrowed by a name or ID,
+// at most limit of them with the count that matched, for the creature editor's Spells tab (#340).
+func (a *App) ListSpells(category string, school int, text string, limit int) (vmangos.SpellList, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.SpellList{}, err
+	}
+	return vmangos.ListSpells(dataDir, category, school, text, min(max(limit, 1), 2000))
+}
+
 // SpellRefs gives each of the client's spells by ID, with its rank, icon and text.
 func (a *App) SpellRefs(ids []int) (map[int]vmangos.SpellRef, error) {
 	dataDir, err := a.clientDataDir()

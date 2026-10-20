@@ -143,7 +143,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   repeat delays in seconds and cast flags; `scriptId` and unknown targets are kept as read. Spells
   are found by name or ID in the client's Spell.dbc (`SearchSpells`, `SpellRefs` in `spelltext.go`:
   name, rank, SpellIcon.dbc's icon and the description with its tokens filled in; `lib/wow/spells.ts`
-  caches them). Save checks each spell against the server's `spell_template` and writes the whole
+  caches them). The Add spells list (#340) shows a category's spells at once, 200 a page with Show
+  more, narrowed by a school and the search (`ListSpells`, `SpellCategories` in `spelllist.go`):
+  the creature abilities (spells in no `SkillLineAbility.dbc` row, the default), all spells, and each
+  class skill line (named with its class from `SkillRaceClassInfo.dbc`, "Mage: Fire"), pet, profession
+  and secondary skill line. Unnamed and leftover spells (test, OLD, zz, DND: `spellNoise`) are left
+  out except by ID. Save checks each spell against the server's `spell_template` and writes the whole
   row (`creatureSpellsSQL`): a list other templates share is never edited, the creature gets a new
   one (`freeSpellList`: entry*10 to entry*10+9 as VMaNGOS numbers them, else one past the highest),
   as does a creature with none; an emptied list deletes its own row and sets `spell_list_id` to 0.

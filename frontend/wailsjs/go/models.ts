@@ -2637,6 +2637,78 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class SpellCategory {
+	    key: string;
+	    name: string;
+	    group: string;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpellCategory(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.name = source["name"];
+	        this.group = source["group"];
+	        this.count = source["count"];
+	    }
+	}
+	export class SpellRef {
+	    id: number;
+	    name: string;
+	    rank: string;
+	    icon: string;
+	    text: string;
+	    visual: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpellRef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.rank = source["rank"];
+	        this.icon = source["icon"];
+	        this.text = source["text"];
+	        this.visual = source["visual"];
+	    }
+	}
+	export class SpellList {
+	    spells: SpellRef[];
+	    total: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpellList(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.spells = this.convertValues(source["spells"], SpellRef);
+	        this.total = source["total"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class SpellOption {
 	    id: number;
 	    label: string;
@@ -2717,28 +2789,7 @@ export namespace vmangos {
 		    return a;
 		}
 	}
-	export class SpellRef {
-	    id: number;
-	    name: string;
-	    rank: string;
-	    icon: string;
-	    text: string;
-	    visual: number;
 	
-	    static createFrom(source: any = {}) {
-	        return new SpellRef(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.rank = source["rank"];
-	        this.icon = source["icon"];
-	        this.text = source["text"];
-	        this.visual = source["visual"];
-	    }
-	}
 	export class SpellStarter {
 	    id: string;
 	    name: string;

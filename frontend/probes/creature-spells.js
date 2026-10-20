@@ -1,4 +1,4 @@
-// The creature editor's Spells tab (#243): Scarlet Commander Mograine (3976) shows list 39760's two spells with names, icons and text from the client, a search finds Fireball, adding it is an unsaved edit that Save counts and Revert undoes; nothing is written to the database.
+// The creature editor's Spells tab (#243): Scarlet Commander Mograine (3976) shows list 39760's two spells with names, icons and text from the client, the Add spells list shows the creature abilities without typing, the Mage: Fire category lists Fire Blast, the Frost school empties it, a search in it finds Fireball, adding it is an unsaved edit that Save counts and Revert undoes; nothing is written to the database.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -18,10 +18,29 @@ const listed = names()
 await P.until(() => tab().querySelectorAll('.list > li .title img').length === 2, WAIT, 'the icons')
 const texts = [...tab().querySelectorAll('.list > li .text')].map((t) => t.textContent)
 const listLine = tab().querySelector('.head + p')?.textContent ?? ''
+const rows = () => [...(tab()?.querySelectorAll('.results li') ?? [])].map((li) => li.textContent.replace(/\s+/g, ' ').trim())
+const pick = (sel, value) => {
+	const el = tab().querySelector(sel)
+	el.value = String(value)
+	el.dispatchEvent(new Event('change', { bubbles: true }))
+}
+await P.until(() => tab().querySelectorAll('select.category optgroup').length > 0, WAIT, 'the categories')
+pick('select.category', 'npc')
+pick('select.school', -1)
+await P.until(() => rows().length > 0 && /of \d+/.test(tab().querySelector('.count')?.textContent ?? ''), WAIT, 'the creature abilities')
+const npcCount = tab().querySelector('.count').textContent.replace(/\s+/g, ' ').trim()
+const npcRows = rows().length
+pick('select.category', 'skill:8')
+await P.until(() => rows().some((r) => r.startsWith('Fire Blast')), WAIT, 'the Fire list')
+const fireRows = rows().length
+pick('select.school', 4)
+await P.until(() => tab().querySelector('.results') === null, WAIT, 'the Frost school')
+pick('select.school', -1)
+await P.until(() => rows().length === fireRows, WAIT, 'any school again')
 const search = tab().querySelector('input[type=search]')
 search.value = 'fireball'
 search.dispatchEvent(new Event('input', { bubbles: true }))
-await P.until(() => tab().querySelectorAll('.results li').length > 0, WAIT, 'the search')
+await P.until(() => rows().length > 0 && rows().length < fireRows && rows()[0].startsWith('Fireball'), WAIT, 'the search')
 const first = tab().querySelector('.results li button')
 const found = first.textContent.replace(/\s+/g, ' ').trim()
 first.click()
@@ -40,6 +59,6 @@ ui.creatureEditor = null
 await P.frames(1)
 const ok =
 	listed[0].startsWith('Crusader Strike') && listed[1].startsWith('Hammer of Justice') && texts.length === 2 && texts.every((t) => t && !t.includes('$')) &&
-	listLine.includes('39760') && found.startsWith('Fireball') && afterAdd.length === 3 && afterAdd[2].startsWith('Fireball') &&
+	listLine.includes('39760') && npcRows === 200 && npcCount.startsWith('Showing 200 of') && fireRows > 50 && found.startsWith('Fireball') && afterAdd.length === 3 && afterAdd[2].startsWith('Fireball') &&
 	saveText === 'Save spells' && warned.includes('unsaved changes to the spells') && reverted
-return { ok, listed, texts, listLine, found, afterAdd, saveText, warned, reverted }
+return { ok, npcRows, npcCount, fireRows, listed, texts, listLine, found, afterAdd, saveText, warned, reverted }

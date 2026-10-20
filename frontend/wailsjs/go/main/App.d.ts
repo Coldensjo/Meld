@@ -109,6 +109,8 @@ export function ListPrefabs(arg1:string):Promise<Array<main.PrefabFile>>;
 
 export function ListRecovery():Promise<Array<recovery.Info>>;
 
+export function ListSpells(arg1:string,arg2:number,arg3:string,arg4:number):Promise<vmangos.SpellList>;
+
 export function ListVisualEffects():Promise<Array<vmangos.VisualEffect>>;
 
 export function ListWeapons():Promise<Array<vmangos.WeaponEntry>>;
@@ -320,6 +322,8 @@ export function SpawnEditSQL(arg1:string,arg2:number,arg3:number,arg4:number,arg
 export function SpawnEmotes():Promise<Array<vmangos.Emote>>;
 
 export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:number):Promise<vmangos.LookResult>;
+
+export function SpellCategories():Promise<Array<vmangos.SpellCategory>>;
 
 export function SpellRefs(arg1:Array<number>):Promise<Record<number, vmangos.SpellRef>>;
 
