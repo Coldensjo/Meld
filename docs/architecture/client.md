@@ -279,6 +279,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the next ID) to ItemDisplayInfo.dbc in Meld's patch (`installWithGameClosed`), then
   `ForgetItemDisplays` drops the Go caches built from that table. Item tiles load their icons only
   once on screen (`ItemIcon` `lazy`).
+  The icon grid (here and in the spell editor) has Import PNG… and Export … as PNG… (#364,
+  `app_icons.go`, `internal/vmangos/icons.go`, `internal/wow/icon.go`). Import takes square PNG files,
+  each named after its file (letters, digits, `_` and `-`, spaces as `_`), scaled to 64x64 by area
+  (`resample`) and written as most of the client's icons are, DXT3 with mips (`EncodeOverlayBLP`), to
+  `Interface\Icons\<name>.blp` in Meld's patch through `saveClientFiles` (at once, or once the game has
+  closed, #365); a name the client has outside Meld's patch is refused, one Meld added before is
+  replaced. A waiting icon is listed (`ListItemIcons` adds the pending files) and previewed: the asset
+  server reads waiting `Interface\Icons` files first (`wow.Client.SetOverlay`, `vmangos.PendingIcon`).
+  The imported icon is picked; a spell or item that takes it adds its SpellIcon.dbc or
+  ItemDisplayInfo.dbc row on Save as for any icon. Export saves the icons the grid shows (all, or the
+  search's matches) as `<name>.png` in a folder (`ExportIcons`, alpha kept).
   Export writes the item's every patch row to an SQL script of `REPLACE INTO item_template` with
   named columns (`ExportItems`); Import reads one back without running it (`sqlparse.go`
   `parseInserts`: only `INSERT`/`REPLACE INTO item_template` rows, other statements counted and

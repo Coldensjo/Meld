@@ -70,3 +70,9 @@ export function spellIcon(path: string): Promise<string | null> {
 	}
 	return p
 }
+
+/** Forgets the images of the icons named `names` (under Interface\Icons), after they were added or drawn again (#364). */
+export function forgetSpellIcons(names: string[]) {
+	const drop = new Set(names.map((n) => `interface\\icons\\${n}`.toLowerCase()))
+	for (const key of [...icons.keys()]) if (drop.has(key.toLowerCase())) icons.delete(key)
+}

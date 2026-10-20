@@ -110,6 +110,14 @@ export function EquipmentItems(arg1) {
   return window['go']['main']['App']['EquipmentItems'](arg1);
 }
 
+export function ExportIcons(arg1, arg2) {
+  return window['go']['main']['App']['ExportIcons'](arg1, arg2);
+}
+
+export function ExportIconsDialog() {
+  return window['go']['main']['App']['ExportIconsDialog']();
+}
+
 export function ExportItems(arg1, arg2) {
   return window['go']['main']['App']['ExportItems'](arg1, arg2);
 }
@@ -136,6 +144,10 @@ export function GameWindow() {
 
 export function GroundEffects() {
   return window['go']['main']['App']['GroundEffects']();
+}
+
+export function ImportIcons(arg1) {
+  return window['go']['main']['App']['ImportIcons'](arg1);
 }
 
 export function ImportItems(arg1) {
@@ -312,6 +324,10 @@ export function OpenBrushDialog() {
 
 export function OpenHeightmapDialog() {
   return window['go']['main']['App']['OpenHeightmapDialog']();
+}
+
+export function OpenIconsDialog() {
+  return window['go']['main']['App']['OpenIconsDialog']();
 }
 
 export function OpenImageDialog(arg1) {

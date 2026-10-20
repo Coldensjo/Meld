@@ -154,6 +154,36 @@ export namespace main {
 	        this.heights = source["heights"];
 	    }
 	}
+	export class IconsExported {
+	    written: number;
+	    failed: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new IconsExported(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.written = source["written"];
+	        this.failed = source["failed"];
+	    }
+	}
+	export class IconsImported {
+	    names: string[];
+	    refused: string[];
+	    waiting: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new IconsImported(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.names = source["names"];
+	        this.refused = source["refused"];
+	        this.waiting = source["waiting"];
+	    }
+	}
 	export class LightIDs {
 	    light: number;
 	    params: number;

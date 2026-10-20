@@ -61,6 +61,10 @@ export function EquipmentFor(arg1:any):Promise<number>;
 
 export function EquipmentItems(arg1:number):Promise<any>;
 
+export function ExportIcons(arg1:Array<string>,arg2:string):Promise<main.IconsExported>;
+
+export function ExportIconsDialog():Promise<string>;
+
 export function ExportItems(arg1:Array<number>,arg2:string):Promise<string>;
 
 export function Factions():Promise<Array<vmangos.FactionInfo>>;
@@ -74,6 +78,8 @@ export function GameLogin():Promise<main.GameLoginInfo>;
 export function GameWindow():Promise<main.GameWindowInfo>;
 
 export function GroundEffects():Promise<vmangos.GroundEffectTables>;
+
+export function ImportIcons(arg1:Array<string>):Promise<main.IconsImported>;
 
 export function ImportItems(arg1:string):Promise<Array<number>>;
 
@@ -162,6 +168,8 @@ export function ObjectTeleport(arg1:number):Promise<vmangos.TriggerTeleport>;
 export function OpenBrushDialog():Promise<Array<string>>;
 
 export function OpenHeightmapDialog():Promise<string>;
+
+export function OpenIconsDialog():Promise<Array<string>>;
 
 export function OpenImageDialog(arg1:string):Promise<string>;
 

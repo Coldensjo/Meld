@@ -205,3 +205,29 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
 - In the game: not checked by the loop. A zone of a new map needs its AreaTable row (World › Zones)
   painted on its chunks; whether 1.12's World Map opens a zone of a map that isn't a continent
   (WorldMapContinent.dbc lists only Kalimdor and Azeroth) is for the owner to check.
+
+## Icons from PNG files and back (#364, probe `icons`)
+Checks: Import PNG… in the spell and item editors' icon grid adds square PNG files to the client as
+`Interface\Icons\<file name>.blp` in Meld's patch, and Export … as PNG… saves the icons the grid shows
+as `<name>.png` files.
+- The client's own (surveyed 2026-10-20): 2684 icons, every one 64x64; 1474 DXT3 with mips (alpha
+  depth 8, type 1, what `IconFromPNG` writes), 689 DXT1, 512 DXT1 with 1-bit alpha, 9 palettized.
+- Go: `wow.TestIconFromPNG` (64, 128 and 40 px PNGs made in the test come back as 64x64 DXT3 with a
+  full mip chain, colours and a transparent corner kept, and out again as a PNG),
+  `TestIconFromPNGRefuses` (not square, not a PNG); `vmangos.TestIconName`, `TestPlanIconImport` (a
+  temporary client: the client's own name refused in any case, one Meld added replaced, a name given
+  twice and a bad PNG refused; installed, the list has it and the export writes it, a missing name and
+  `..\up` reported), `TestPendingIcons` (an icon waiting for the game to close is listed, previewed
+  through `PendingIcon` and exported).
+- Probe `icons` (nothing written): Fireball's Change icon… shows Import PNG… and Export all as PNG…;
+  searching Spell_Fire_FlameBolt leaves one icon and Export 1 as PNG…; `ImportIcons` with a missing
+  file refuses it under its name (`Probe_Icon`, from "Probe Icon.png") and `ExportIcons` refuses a
+  missing folder. It never imports: an import writes the owner's patch, and an icon can't be taken out
+  of it again from Meld.
+- Export of every icon, by a scratch probe calling `ExportIcons(await ListItemIcons(), <a temp
+  folder>)`: 2684 written in 5.3 s on 2026-10-20, none failed.
+- In the game (the owner): an imported icon set on a spell (Save) or an item (Change icon…, Save)
+  shows on the action bar or in the bags after the game restarts. Not checked by the loop.
+- Trap: the import refuses a PNG named as one of the client's icons (rename the file); the client
+  caches nothing by icon name across a restart, but Meld's own previews do (`forgetIconImages`,
+  `forgetSpellIcons` drop them after an import).

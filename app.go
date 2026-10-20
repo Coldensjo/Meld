@@ -55,7 +55,10 @@ type App struct {
 }
 
 func NewApp() *App {
-	return &App{wow: wow.NewClient(), cfg: config.Load()}
+	a := &App{wow: wow.NewClient(), cfg: config.Load()}
+	// The asset server previews an icon added while the game ran before the patch has it (#364).
+	a.wow.SetOverlay(a.clientOverlay)
+	return a
 }
 
 func (a *App) startup(ctx context.Context) {

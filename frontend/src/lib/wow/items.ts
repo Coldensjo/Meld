@@ -49,6 +49,12 @@ export function iconImage(name: string, px = 36): Promise<string | null> {
 	return p
 }
 
+/** Forgets the images of the icons named `names`, after they were added or drawn again (#364). */
+export function forgetIconImages(names: string[]) {
+	const drop = new Set(names.map((n) => n.toLowerCase()))
+	for (const key of [...named.keys()]) if (drop.has(key.slice(0, key.lastIndexOf('|')))) named.delete(key)
+}
+
 /** Forgets every display's icon, after the client's displays changed (a display was added). */
 export function forgetItemIcons() {
 	icons.clear()

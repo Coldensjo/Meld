@@ -33,6 +33,17 @@ type Client struct {
 	// The minimap table (see minimap.go), parsed on first use.
 	minimapMu sync.Mutex
 	minimap   map[string][]MapTile
+
+	// overlay, when set, reads a file the archives don't have yet ahead of them (SetOverlay).
+	overlay func(path string) ([]byte, bool)
+}
+
+// SetOverlay has the client read a file through over first, when over has it: the client files
+// waiting for the game to close (an icon added while it ran, #364), which the patch has only later.
+func (c *Client) SetOverlay(over func(path string) ([]byte, bool)) {
+	c.mu.Lock()
+	c.overlay = over
+	c.mu.Unlock()
 }
 
 const cacheLimit = 512 << 20
@@ -116,10 +127,15 @@ func (c *Client) Status() Status {
 
 func (c *Client) read(path string) ([]byte, error) {
 	c.mu.RLock()
-	set := c.set
+	set, over := c.set, c.overlay
 	c.mu.RUnlock()
 	if set == nil {
 		return nil, errors.New("no WoW client loaded")
+	}
+	if over != nil {
+		if b, ok := over(path); ok {
+			return b, nil
+		}
 	}
 	return set.ReadFile(path)
 }

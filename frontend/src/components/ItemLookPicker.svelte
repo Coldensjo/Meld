@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { ListItemDisplays, ListItemIcons } from '../../wailsjs/go/main/App'
+	import { ExportIcons, ExportIconsDialog, ImportIcons, ListItemDisplays, ListItemIcons, OpenIconsDialog } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 
 	// The lists are read once a session; forgetLooks drops the displays after one was added.
@@ -26,9 +26,16 @@
 	export function forgetLooks() {
 		displays = null
 	}
+
+	/** Drops the icon list, after icons were added (#364). */
+	export function forgetIcons() {
+		icons = null
+	}
 </script>
 
 <script lang="ts">
+	import { forgetIconImages } from '../lib/wow/items'
+	import { forgetSpellIcons } from '../lib/wow/spells'
 	import { SHOOTS_LIKE } from '../lib/world/itemFields'
 	import { spawnType } from '../lib/world/spawnInfo'
 	import ItemIcon from './ItemIcon.svelte'
@@ -40,6 +47,8 @@
 	// item's slot first; icons are every icon of the client. Only the rows in view are drawn. Hovering
 	// a tile previews it, a click picks it, a double click picks it and applies it. The spell editor
 	// (#294) uses the icons too, with the spells' and abilities' first rather than the items' (INV_…).
+	// Under the icons, Import PNG… adds PNG files to the client as icons and picks the first, and
+	// Export saves the icons the search shows as PNG files in a folder (#364).
 
 	interface Props {
 		mode: 'looks' | 'icons'
@@ -82,6 +91,9 @@
 	let iconList = $state<string[]>([])
 	let error = $state('')
 	let loading = $state(true)
+	/** What the last import or export did. */
+	let note = $state('')
+	let busy = $state(false)
 
 	$effect(() => {
 		loading = true
@@ -141,6 +153,55 @@
 		scrollTop = 0
 	})
 
+	const plural = (n: number, one: string) => `${n.toLocaleString()} ${one}${n === 1 ? '' : 's'}`
+
+	async function importIcons() {
+		const paths = await OpenIconsDialog().catch((e) => ((error = String(e)), null))
+		if (!paths?.length) return
+		busy = true
+		error = note = ''
+		try {
+			const r = await ImportIcons(paths)
+			const names = r.names ?? []
+			const parts: string[] = []
+			if (names.length) {
+				forgetIcons()
+				forgetIconImages(names)
+				forgetSpellIcons(names)
+				iconList = await loadIcons()
+				query = names.length === 1 ? names[0] : ''
+				onpick(names[0])
+				const it = names.length === 1 ? 'it' : 'them'
+				const when = r.waiting ? ` Meld's patch takes ${it} once the game has closed;` : ''
+				parts.push(`Added ${names.join(', ')} to the client's icons.${when} ${r.waiting ? 'the' : 'The'} game shows ${it} from its next start.`)
+			}
+			if (r.refused?.length) parts.push(`Not added: ${r.refused.join('; ')}.`)
+			note = parts.join(' ')
+		} catch (e) {
+			error = String(e)
+		} finally {
+			busy = false
+		}
+	}
+
+	async function exportIcons() {
+		const names = iconMatches
+		if (!names.length) return
+		const dir = await ExportIconsDialog().catch((e) => ((error = String(e)), ''))
+		if (!dir) return
+		busy = true
+		error = note = ''
+		try {
+			const r = await ExportIcons(names, dir)
+			const failed = r.failed ?? []
+			note = `Saved ${plural(r.written, 'icon')} as PNG in ${dir}.${failed.length ? ` Not read: ${failed.slice(0, 5).join(', ')}${failed.length > 5 ? ` and ${failed.length - 5} more` : ''}.` : ''}`
+		} catch (e) {
+			error = String(e)
+		} finally {
+			busy = false
+		}
+	}
+
 	const label = (d: vmangos.ItemDisplayEntry) => d.names?.[0] ?? (d.model || d.icon)
 	const title = (d: vmangos.ItemDisplayEntry) =>
 		`Display ${d.id}${d.model ? `: ${d.model}` : ''} · ${d.icon || 'no icon'}${d.shoots >= 0 && SHOOTS_LIKE[d.shoots] ? `\nShoots like ${SHOOTS_LIKE[d.shoots]}` : ''}${d.uses ? `\nUsed by ${d.names.join(', ')}${d.uses > d.names.length ? ` and ${d.uses - d.names.length} more` : ''}` : '\nNo item uses it'}`
@@ -163,8 +224,13 @@
 			</select>
 		{/if}
 		<span class="dim">{count.toLocaleString()} {mode}</span>
+		{#if mode === 'icons'}
+			<button disabled={busy} onclick={importIcons} title="Add PNG files to the client as icons, each named after its file (square; scaled to 64x64)">Import PNG…</button>
+			<button disabled={busy || !count} onclick={exportIcons} title="Save the icons shown (all of them, or the search's matches) as PNG files in a folder">Export {count === iconList.length ? 'all' : count.toLocaleString()} as PNG…</button>
+		{/if}
 	</div>
 	{#if error}<p class="error">{error}</p>{/if}
+	{#if note}<p class="note">{note}</p>{/if}
 	<div
 		class="grid-wrap"
 		role="listbox"
@@ -320,5 +386,13 @@
 	.error {
 		color: var(--danger);
 		margin: 0;
+	}
+	.note {
+		color: var(--text-dim);
+		margin: 0;
+	}
+	.row button {
+		flex: none;
+		white-space: nowrap;
 	}
 </style>
