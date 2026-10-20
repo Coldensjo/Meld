@@ -23,6 +23,9 @@ import { StampTool } from '../tools/StampTool'
 import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { editWholeMask, modifyMask } from '../tools/maskWand'
+import { ChunkDataStroke } from '../tools/chunkDataStroke'
+import { areasFromImage, colourIndices, copyReference, dragCorner, dragTurn, fitPlace, heightsFromImage, maskFromImage, refHit, sameReference, texturesFromImage, type RefColour, type RefHeightMode, type ReferenceImage, type ReferencePlace } from '../terrain/referenceImage'
+import { readReferenceFile, type LoadedReference } from '../io/referenceLoad'
 import { areaCells, areaShape, objectsInArea, setAreaCells } from '../state/areaSelection'
 import { INSIDE, cellsInRect } from '../terrain/areaShape'
 import { growMask, shrinkMask } from '../terrain/maskSelect'
@@ -218,6 +221,8 @@ export interface MapSnapshot {
   textureLooks: TextureLooks
   /** The map's ground effect choices per zone and per tile. */
   scopedEffects: ScopedEffects
+  /** The map's reference image (terrain/referenceImage.ts): its path and where it lies; null for none. */
+  reference: ReferenceImage | null
   heights: Uint8Array
   /** Four weights per splat texel (format 2). */
   weights: Uint8Array
@@ -900,6 +905,8 @@ export class Engine {
         }
         // The Flight Paths window takes a click on a stop or a route point, or one that draws a point.
         if (this.taxiPress(e)) return
+        // While the reference image is being placed, the top-down view's presses drag it (#184).
+        if (this.referencePress(e)) return
         if (this.startGizmoDrag()) return
         // Alt+click is the pipette: a model's type to place, or the ground's texture to paint with.
         if (e.altKey && (editor.tool === 'select' || editor.tool === 'place')) {
@@ -949,6 +956,11 @@ export class Engine {
           this.moveTaxiDrag()
           return
         }
+        if (this.refDrag) {
+          this.moveReferenceDrag(e)
+          return
+        }
+        this.referenceHover()
         if (this.gizmo.visible && !this.leftDown && !this.controller.isDragging) {
           this.raycaster.setFromCamera(this.ndc, this.camera)
           const h = this.gizmo.pick(this.raycaster)
@@ -975,6 +987,10 @@ export class Engine {
         }
         if (e.button === 0 && this.taxiDrag) {
           this.endTaxiDrag()
+          return
+        }
+        if (e.button === 0 && this.refDrag) {
+          this.endReferenceDrag()
           return
         }
         if (e.button !== 0 || !this.leftDown) return
@@ -1106,6 +1122,7 @@ export class Engine {
     const painting = editor.tool === 'paint' || editor.tool === 'road'
     u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0
     this.updateSelectionUniforms(time)
+    this.updateReference()
     // The preview's rock on steep slopes is the map's rock role (the palette's slot 3 without one).
     u.cliffAuto.value = editor.autoCliff ? 1 : 0
     u.rockLayer.value = editor.roles.rock === NO_ROLE ? 3 : editor.roles.rock
@@ -2201,6 +2218,7 @@ export class Engine {
       textureEffects: { ...editor.textureEffects },
       textureLooks: { ...editor.textureLooks },
       scopedEffects: structuredClone(plainScoped(editor.scopedEffects)),
+      reference: copyReference(editor.reference),
       region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
@@ -2248,6 +2266,10 @@ export class Engine {
     editor.textureEffects = { ...m.textureEffects }
     editor.textureLooks = { ...m.textureLooks }
     editor.scopedEffects = structuredClone(m.scopedEffects ?? noScopedEffects())
+    editor.reference = copyReference(m.reference)
+    ui.referenceUrl = d.referenceImage?.url ?? ''
+    ui.referenceVersion++
+    this.refDrag = null
     editor.mapSize = d.terrain.size
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
@@ -3320,6 +3342,7 @@ export class Engine {
       textureEffects: { ...m.textureEffects },
       textureLooks: { ...m.textureLooks },
       scopedEffects: structuredClone(plainScoped(m.scopedEffects ?? noScopedEffects())),
+      reference: copyReference(m.reference),
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       weights: t.weights,
       chunkSlots: t.chunkSlots,
@@ -3409,12 +3432,252 @@ export class Engine {
       textureEffects: { ...m.textureEffects },
       textureLooks: { ...(m.textureLooks ?? {}) },
       scopedEffects: structuredClone(m.scopedEffects ?? noScopedEffects()),
+      reference: copyReference(m.reference),
     }
+    // The image is the author's file, read again each time the map opens.
+    if (m.reference) void this.loadReferenceImage(m.reference.path, d)
     if (replace) {
       d.camera = replace.camera
       d.meta.bookmarks = [...replace.meta.bookmarks]
     }
     this.addDocument(d, replace)
+  }
+
+  // ---------------------------------------------------------------- reference image (#184)
+
+  /** The reference image's drag in the top-down view: what it holds, where it started and the record before. */
+  private refDrag: { kind: number | 'move' | 'turn'; x0: number; z0: number; before: ReferenceImage } | null = null
+  private refCursor = ''
+  private refV = new THREE.Vector3()
+
+  /** The active map's reference image as read (pixels and texture), or null. */
+  get referenceImage(): LoadedReference | null {
+    return this.doc.referenceImage
+  }
+
+  /**
+   * Reads the image at `path` for document `d` (the active one by default), unless it holds it
+   * already. A failed read leaves the map's record as it is and says so. Returns whether it is there.
+   */
+  async loadReferenceImage(path: string, d: MapDocument = this.doc): Promise<boolean> {
+    if (d.referenceImage?.path === path) return true
+    try {
+      const img = await readReferenceFile(path)
+      if (!this.documents.includes(d)) {
+        img.dispose()
+        return false
+      }
+      this.useReferenceImage(img, d)
+      return true
+    } catch (err) {
+      setStatus(`Reference image ${path} not read: ${err}`, 8000)
+      return false
+    }
+  }
+
+  /** Makes `img` document `d`'s reference pixels, freeing the ones it had. */
+  useReferenceImage(img: LoadedReference, d: MapDocument = this.doc) {
+    if (d.referenceImage && d.referenceImage !== img) d.referenceImage.dispose()
+    d.referenceImage = img
+    if (d !== this.doc) return
+    ui.referenceUrl = img.url
+    ui.referenceVersion++
+  }
+
+  /**
+   * Sets the active map's reference record (null removes it) as one undo step named `label`, from
+   * `before` (the record now, unless an interaction already changed it live). Nothing is recorded
+   * when it ends as it began.
+   */
+  setReference(next: ReferenceImage | null, label: string, before: ReferenceImage | null = copyReference(editor.reference)) {
+    const after = copyReference(next)
+    this.applyReference(after)
+    if (sameReference(before, after)) return
+    this.history.push({ label, undo: () => this.applyReference(before), redo: () => this.applyReference(after) })
+  }
+
+  /** Puts a record into `editor`, reading its image when the map doesn't hold that one. */
+  private applyReference(r: ReferenceImage | null) {
+    editor.reference = copyReference(r)
+    if (r && this.doc.referenceImage?.path !== r.path) void this.loadReferenceImage(r.path)
+  }
+
+  /** The record that lays `img` over the whole map, more than half seen. */
+  referenceFor(img: LoadedReference): ReferenceImage {
+    const place = fitPlace(img.pixels.w, img.pixels.h, this.terrain.worldSize)
+    return { path: img.path, mode: 'ground', opacity: 0.6, shown: true, ...place }
+  }
+
+  /**
+   * Where the screen overlay lies on the ground in the top-down view: the image fitted inside the
+   * viewport (as the overlay's object-fit: contain draws it), its centre and edges unprojected through
+   * the top-down camera. Null outside the top-down view.
+   */
+  referenceFromScreen(): ReferencePlace | null {
+    const img = this.doc.referenceImage
+    if (!img || !this.topDown) return null
+    const cw = Math.max(1, this.container.clientWidth)
+    const ch = Math.max(1, this.container.clientHeight)
+    const s = Math.min(cw / img.pixels.w, ch / img.pixels.h)
+    // The drawn image's half size as shares of the viewport's half size (NDC).
+    const hx = (img.pixels.w * s) / cw
+    const hy = (img.pixels.h * s) / ch
+    const at = (x: number, y: number): [number, number] => {
+      this.refV.set(x, y, 0).unproject(this.ortho)
+      return [this.refV.x, this.refV.z]
+    }
+    const [cx, cz] = at(0, 0)
+    const [rx, rz] = at(hx, 0)
+    // NDC's y runs up the screen, the image's rows down it.
+    const [bx, bz] = at(0, -hy)
+    return { x: cx, z: cz, w: 2 * Math.hypot(rx - cx, rz - cz), h: 2 * Math.hypot(bx - cx, bz - cz), turn: Math.atan2(rz - cz, rx - cx) }
+  }
+
+  /** The corner handles' half size while placing, in world units: about 7 pixels of the top-down view. */
+  private refHandle(): number {
+    return (7 * 2 * this.ortho.top) / Math.max(1, this.container.clientHeight)
+  }
+
+  /** Whether the reference image is being placed in the view now. */
+  private referencePlacing(): boolean {
+    const r = editor.reference
+    return ui.referenceAdjust && this.topDown && !this.minimapShot && !!r && r.mode === 'ground'
+  }
+
+  /** Drapes the active map's reference image, or not, each frame. */
+  private updateReference() {
+    const r = editor.reference
+    const img = this.doc.referenceImage
+    const show = !!r && r.mode === 'ground' && !this.minimapShot && r.shown && !!img && img.path === r.path
+    const placing = this.referencePlacing()
+    this.terrain.setReference(show ? img!.texture : null, show ? r!.opacity : 0, show || placing ? r : null, placing ? this.refHandle() : 0)
+  }
+
+  /** The ground point under the pointer in the top-down view (straight down, so any height will do). */
+  private topDownPoint(): [number, number] {
+    this.refV.set(this.ndc.x, this.ndc.y, 0).unproject(this.ortho)
+    return [this.refV.x, this.refV.z]
+  }
+
+  /**
+   * A left press while the reference image is being placed: a corner scales it (Shift frees its
+   * shape), the image moves, Ctrl+drag turns it. Every press is taken, so no tool acts meanwhile.
+   */
+  private referencePress(e: PointerEvent): boolean {
+    if (!this.referencePlacing()) return false
+    const r = editor.reference!
+    const [x, z] = this.topDownPoint()
+    const hit = refHit(r, x, z, this.refHandle() * 1.5)
+    if (hit === null) return true
+    this.refDrag = { kind: e.ctrlKey ? 'turn' : hit === 'inside' ? 'move' : hit, x0: x, z0: z, before: { ...r } }
+    return true
+  }
+
+  private moveReferenceDrag(e: PointerEvent) {
+    const d = this.refDrag!
+    const r = editor.reference
+    if (!r || !this.topDown) {
+      this.refDrag = null
+      return
+    }
+    const [x, z] = this.topDownPoint()
+    const b = d.before
+    const p: ReferencePlace =
+      d.kind === 'move' ? { x: b.x + x - d.x0, z: b.z + z - d.z0, w: b.w, h: b.h, turn: b.turn } : d.kind === 'turn' ? dragTurn(b, d.x0, d.z0, x, z) : dragCorner(b, d.kind, x, z, !e.shiftKey)
+    r.x = p.x
+    r.z = p.z
+    r.w = p.w
+    r.h = p.h
+    r.turn = p.turn
+  }
+
+  private endReferenceDrag() {
+    const d = this.refDrag
+    this.refDrag = null
+    if (d) this.setReference(editor.reference, d.kind === 'move' ? 'Move reference image' : d.kind === 'turn' ? 'Turn reference image' : 'Scale reference image', d.before)
+  }
+
+  /** The cursor over the image while placing it: a corner, the image, or the default. */
+  private referenceHover() {
+    let cursor = ''
+    if (this.referencePlacing()) {
+      const [x, z] = this.topDownPoint()
+      const hit = refHit(editor.reference!, x, z, this.refHandle() * 1.5)
+      cursor = hit === null ? '' : hit === 'inside' ? 'move' : 'nwse-resize'
+    }
+    if (cursor === this.refCursor) return
+    this.refCursor = cursor
+    this.canvas.style.cursor = cursor
+  }
+
+  /** The image and its record when both are there for a conversion, or null after saying why. */
+  private referenceSource(): { img: LoadedReference; place: ReferenceImage } | null {
+    const r = editor.reference
+    const img = this.doc.referenceImage
+    if (!r || !img || img.path !== r.path) {
+      setStatus('Choose a reference image first (View › Reference Image).', 4000)
+      return null
+    }
+    return { img, place: r }
+  }
+
+  /** Reference image › Heights: its brightness from `min` (black) to `max` (white), set on the ground under it or added to it, one undo step. */
+  referenceToHeights(min: number, max: number, mode: RefHeightMode) {
+    const src = this.referenceSource()
+    if (!src) return
+    const t = this.terrain
+    const { next, count } = heightsFromImage(t.heights, t.verts, t.cellSize, src.img.pixels, src.place, min, max, mode)
+    if (!count) {
+      setStatus('The reference image lies off the map, so no height changed.', 4000)
+      return
+    }
+    this.setHeights(next, 'Reference image to heights')
+    setStatus(`Set ${count} vertices from the reference image's brightness. Undo reverts it.`, 5000)
+  }
+
+  /** Reference image › Zones: each chunk under a colour with a zone takes that zone (most of it wins), one undo step. */
+  referenceToZones(colours: RefColour[], areaOf: number[], tolerance: number) {
+    const src = this.referenceSource()
+    if (!src) return
+    const t = this.terrain
+    const stroke = new ChunkDataStroke(t, 'Reference image to zones')
+    const n = areasFromImage(t.areaIds, t.paintChunksPerSide, CHUNK_CELLS * t.cellSize, colourIndices(src.img.pixels, colours, tolerance), src.img.pixels, src.place, areaOf)
+    t.touchChunkData()
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    setStatus(n ? `Set the zone of ${n} chunks from the reference image. Undo reverts it.` : 'No chunk changed: give a colour a zone, or move the image over the map.', 5000)
+  }
+
+  /** Reference image › Textures: the texels under a colour with a texture are painted with it alone, one undo step. */
+  referenceToTextures(colours: RefColour[], layerOf: number[], tolerance: number) {
+    const src = this.referenceSource()
+    if (!src) return
+    const t = this.terrain
+    const R = t.splatRes
+    const stroke = new TerrainStroke(t, 'Reference image to textures', { splat: true })
+    stroke.reserveSplat({ x0: 0, z0: 0, x1: R - 1, z1: R - 1 })
+    const r = texturesFromImage(t.weights, t.chunkSlots, R, t.paintChunksPerSide, t.worldSize / R, colourIndices(src.img.pixels, colours, tolerance), src.img.pixels, src.place, layerOf)
+    if (r.rect) {
+      stroke.touchSplat(r.rect)
+      t.markSplatDirty(r.rect)
+    }
+    const cmd = stroke.finish()
+    if (cmd) this.history.push(cmd)
+    const refused = r.refused ? `; ${r.refused} texels kept theirs, where a chunk had no slot left for another texture` : ''
+    setStatus(r.painted ? `Painted ${r.painted} texels from the reference image${refused}. Undo reverts it.` : 'Nothing painted: give a colour a texture, or move the image over the map.', 6000)
+  }
+
+  /** Reference image › Mask: the texels under the chosen colours are added to the paint mask, one undo step. */
+  referenceToMask(colours: RefColour[], chosen: boolean[], tolerance: number) {
+    const src = this.referenceSource()
+    if (!src) return
+    const t = this.terrain
+    const idx = colourIndices(src.img.pixels, colours, tolerance)
+    let count = 0
+    this.editMask('Reference image to mask', (m) => {
+      count = maskFromImage(m, t.splatRes, t.worldSize / t.splatRes, idx, src.img.pixels, src.place, chosen).count
+    })
+    setStatus(count ? `Added ${count} texels to the mask from the reference image.` : 'Nothing masked: tick a colour, or move the image over the map.', 5000)
   }
 
   // ---------------------------------------------------------------- surfaces
@@ -4909,6 +5172,8 @@ export class Engine {
       set('maskVisible', 0)
       set('unpaintable', -1)
       set('chunkHover', null)
+      set('refOpacity', 0)
+      set('refEdit', 0)
       const keep = new Set<THREE.Object3D>([t.group, this.water.mesh, this.water.floor, this.doc.liquidRenderer.group, this.effects.group])
       if (models !== 'none') keep.add(this.objects.group)
       const hidden: THREE.Object3D[] = []
@@ -5120,6 +5385,11 @@ export class Engine {
 
   /** Keys for the selected object. Returns true if handled. */
   handleSelectionKey(e: KeyboardEvent): boolean {
+    if (ui.referenceAdjust && e.key === 'Escape') {
+      ui.referenceAdjust = false
+      setStatus('Stopped placing the reference image.', 2000)
+      return true
+    }
     if (this.navPick && e.key === 'Escape') {
       this.navPick = false
       this.nav.clearPath()

@@ -118,6 +118,26 @@ type Header struct {
 	// ID) or one tile of the map ("x,y"), over the map's own. Optional.
 	ZoneEffects map[string]map[string]uint32 `json:"zoneEffects,omitempty"`
 	TileEffects map[string]map[string]uint32 `json:"tileEffects,omitempty"`
+	// Reference is the author's reference image laid over the map (#184): its path, never its
+	// pixels, and where it lies. Optional; older readers ignore it.
+	Reference *ReferenceImage `json:"reference,omitempty"`
+}
+
+// ReferenceImage is a picture the author traces the map from (View › Reference Image): a file of
+// theirs, kept by path, draped over the ground or shown over the top-down view.
+type ReferenceImage struct {
+	Path string `json:"path"`
+	// Mode is "ground" (draped over the terrain) or "screen" (over the top-down view, fixed to it).
+	Mode    string  `json:"mode"`
+	Opacity float64 `json:"opacity"`
+	Shown   bool    `json:"shown"`
+	// X and Z are the image's centre on the ground, W and H its size there, in world units, and
+	// Turn its turn about the centre in radians.
+	X    float64 `json:"x"`
+	Z    float64 `json:"z"`
+	W    float64 `json:"w"`
+	H    float64 `json:"h"`
+	Turn float64 `json:"turn"`
 }
 
 // TextureRoles are palette indices for the textures sculpting paints by slope.

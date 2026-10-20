@@ -2608,6 +2608,39 @@ func (a *App) OpenImageDialog(title string) (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: title, Filters: imageFilters})
 }
 
+var referenceFilters = []runtime.FileFilter{{DisplayName: "Image (*.png, *.jpg)", Pattern: "*.png;*.jpg;*.jpeg"}}
+
+// OpenReferenceImageDialog asks for the reference image to lay over the map (View › Reference
+// Image, #184). Returns "" if cancelled.
+func (a *App) OpenReferenceImageDialog() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Reference Image", Filters: referenceFilters})
+}
+
+// referenceMaxBytes skips a file too big to be a reference image, so a stray pick can't stall the bridge.
+const referenceMaxBytes = 64 << 20
+
+// ReadReferenceImage returns a PNG or JPEG file's bytes as base64, for the page to decode itself
+// (in colour, at its own size); the map keeps only the path.
+func (a *App) ReadReferenceImage(path string) (string, error) {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".png", ".jpg", ".jpeg":
+	default:
+		return "", errors.New("a reference image is a PNG or JPEG file")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if info.Size() > referenceMaxBytes {
+		return "", fmt.Errorf("%s is %d MB, more than a reference image may be (%d MB)", filepath.Base(path), info.Size()>>20, referenceMaxBytes>>20)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
 // OpenHeightmapDialog asks for a heightmap image to import. Returns "" if cancelled.
 func (a *App) OpenHeightmapDialog() (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{

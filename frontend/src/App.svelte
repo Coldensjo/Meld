@@ -23,6 +23,7 @@
   import CheckMapWindow from './components/CheckMapWindow.svelte'
   import TexturePaletteWindow from './components/TexturePaletteWindow.svelte'
   import MinimapWindow from './components/MinimapWindow.svelte'
+  import ReferenceWindow from './components/ReferenceWindow.svelte'
   import DebugOverlay from './components/DebugOverlay.svelte'
   import ContextMenu from './components/ContextMenu.svelte'
   import { loadPrefs, savePrefs } from './lib/state/prefs'
@@ -373,6 +374,7 @@
 <CheckMapWindow />
 <TexturePaletteWindow />
 <MinimapWindow />
+{#if ui.referenceWindow}<ReferenceWindow />{/if}
 <CreaturesWorkspace />
 <CreatureEditor />
 <ObjectEditor />

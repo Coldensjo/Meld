@@ -57,6 +57,7 @@ func sample(size int) *MapData {
 			TextureLooks:   map[string]uint32{`Tileset\Elwynn\ElwynnGrassBase.blp`: 0xd2},
 			ZoneEffects:    map[string]map[string]uint32{"12": {`Tileset\Elwynn\ElwynnGrassBase.blp`: 7}},
 			TileEffects:    map[string]map[string]uint32{"1,2": {`Tileset\Elwynn\ElwynnGrassBase.blp`: 9}},
+			Reference:      &ReferenceImage{Path: `C:\plans\zone.png`, Mode: "ground", Opacity: 0.6, Shown: true, X: 64, Z: 48, W: 128, H: 96, Turn: 0.25},
 		},
 		Heights:    base64.StdEncoding.EncodeToString(h),
 		Weights:    base64.StdEncoding.EncodeToString(w),
@@ -98,6 +99,9 @@ func TestRoundTrip(t *testing.T) {
 	}
 	if got.TextureEffects[m.Palette[1]] != 42 || got.TextureLooks[m.Palette[1]] != 0xd2 {
 		t.Fatalf("texture effects %v and looks %v", got.TextureEffects, got.TextureLooks)
+	}
+	if r := got.Reference; r == nil || *r != *m.Reference {
+		t.Fatalf("reference image %+v, want %+v", got.Reference, m.Reference)
 	}
 	if len(got.Objects) != 2 || got.Objects[0].Type != "oak" || got.Objects[0].Scale != 1.2 || got.Objects[1].Parent != 1 || got.Objects[0].Group != 3 || got.Objects[1].Group != 0 {
 		t.Fatalf("objects mismatch: %+v", got.Objects)

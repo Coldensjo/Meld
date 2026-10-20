@@ -71,6 +71,7 @@ import { defaultMapInfo, type MapInfo } from '../engine/MapDocument'
 import { watermapCells } from './watermapImport'
 import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, importHeightsOnTile, type HeightmapMode } from './heightmapImport'
 import { normalMapPixels, toBase64 } from './normalMap'
+import { readReference } from '../terrain/referenceImage'
 import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
@@ -99,6 +100,7 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
     textureLooks: Object.keys(s.textureLooks).length ? s.textureLooks : undefined,
     zoneEffects: Object.keys(s.scopedEffects.zones).length ? s.scopedEffects.zones : undefined,
     tileEffects: Object.keys(s.scopedEffects.tiles).length ? s.scopedEffects.tiles : undefined,
+    reference: s.reference ? Object.assign(new mapfile.ReferenceImage(), s.reference) : undefined,
     heights: bytesToBase64(s.heights),
     weights: bytesToBase64(s.weights),
     chunkSlots: bytesToBase64(s.chunkSlots),
@@ -136,6 +138,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
     textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
     textureLooks: { ...((m.textureLooks ?? {}) as TextureLooks) },
     scopedEffects: { zones: (m.zoneEffects ?? {}) as ScopedEffects['zones'], tiles: (m.tileEffects ?? {}) as ScopedEffects['tiles'] },
+    reference: readReference(m.reference),
     heights: base64ToBytes(m.heights),
   }
   if (m.version === 1) {

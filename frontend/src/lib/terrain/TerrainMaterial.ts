@@ -151,6 +151,17 @@ uniform vec4 selRect;
 uniform sampler2D selTex;
 uniform float selMode;
 uniform float selTime;
+// The reference image (View › Reference Image, terrain/referenceImage.ts): its picture, drawn at
+// refOpacity (0 off) over the rectangle centred on refCentre, refHalf its half width and height,
+// turned by refRot (cos, sin); refEdit is the corner handles' half size while it is being placed (0
+// for no outline). It is the sixteenth sampler with the shadow maps, WebGL2's least guaranteed:
+// another overlay must share a texture with one of these.
+uniform sampler2D refTex;
+uniform float refOpacity;
+uniform vec2 refCentre;
+uniform vec2 refHalf;
+uniform vec2 refRot;
+uniform float refEdit;
 varying vec3 vWorldPos;
 varying vec3 vNormal;
 
@@ -370,6 +381,27 @@ void main() {
     }
   }
 
+  if (refOpacity > 0.0 || refEdit > 0.0) {
+    // The image's own frame (refUV): x along its width, y down its height, row 0 at the top. Flat,
+    // over the lit ground, so its colours read as drawn.
+    vec2 o = vWorldPos.xz - refCentre;
+    vec2 l = vec2(o.x * refRot.x + o.y * refRot.y, -o.x * refRot.y + o.y * refRot.x);
+    vec2 ruv = l / (2.0 * refHalf) + 0.5;
+    if (refOpacity > 0.0 && ruv.x >= 0.0 && ruv.y >= 0.0 && ruv.x <= 1.0 && ruv.y <= 1.0) {
+      vec4 rc = texture2D(refTex, ruv);
+      lit = mix(lit, rc.rgb, rc.a * refOpacity);
+    }
+    if (refEdit > 0.0) {
+      // Placing it: its outline and a square at each corner, in amber.
+      float px = max(fwidth(vWorldPos.x), fwidth(vWorldPos.z));
+      vec2 d = abs(l) - refHalf;
+      float line = 1.0 - smoothstep(px, 2.0 * px, abs(max(d.x, d.y)));
+      vec2 cd = abs(d);
+      float handle = max(cd.x, cd.y) <= refEdit ? 1.0 : 0.0;
+      lit = mix(lit, vec3(1.0, 0.8, 0.15), max(line, handle * 0.85));
+    }
+  }
+
   if (selMode > 0.5) {
     // Marching-ants outline around the selected area / floating paste.
     vec2 p = vWorldPos.xz;
@@ -483,6 +515,12 @@ export function createTerrainMaterial(
     selTex: { value: null },
     selMode: { value: 0 },
     selTime: { value: 0 },
+    refTex: { value: null },
+    refOpacity: { value: 0 },
+    refCentre: { value: new THREE.Vector2() },
+    refHalf: { value: new THREE.Vector2(1, 1) },
+    refRot: { value: new THREE.Vector2(1, 0) },
+    refEdit: { value: 0 },
   }
   return new THREE.ShaderMaterial({
     // Double-sided, so going under the surface shows a ceiling rather than the world from below.

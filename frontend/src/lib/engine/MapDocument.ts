@@ -2,6 +2,8 @@ import { noRoles, type TextureRoles } from '../terrain/roles'
 import { GroundEffectLayer } from '../world/GroundEffectLayer'
 import { noScopedEffects, type ScopedEffects, type TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
+import type { ReferenceImage } from '../terrain/referenceImage'
+import type { LoadedReference } from '../io/referenceLoad'
 import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
@@ -38,6 +40,8 @@ export interface DocMeta {
   textureLooks: TextureLooks
   /** The map's ground effect choices per zone and per tile (editor.scopedEffects), saved with the map. */
   scopedEffects: ScopedEffects
+  /** The map's reference image record (editor.reference), saved with the map. */
+  reference: ReferenceImage | null
 }
 
 /** A saved camera view: where it looks at, and from what angle and distance. */
@@ -152,6 +156,8 @@ export class MapDocument {
   paletteKey = ''
   meta: DocMeta
   camera: DocCamera | null = null
+  /** The reference image's pixels and texture, read from `meta.reference`'s path (io/referenceLoad.ts); null until read. */
+  referenceImage: LoadedReference | null = null
 
   constructor(size: number, name: string, cellSize = CELL_SIZE) {
     this.terrain = new Terrain(size, cellSize)
@@ -176,6 +182,7 @@ export class MapDocument {
       textureEffects: {},
       textureLooks: {},
       scopedEffects: noScopedEffects(),
+      reference: null,
     }
   }
 
@@ -191,5 +198,7 @@ export class MapDocument {
     this.objects.dispose()
     this.spawnLayer.dispose()
     this.liquidRenderer.dispose()
+    this.referenceImage?.dispose()
+    this.referenceImage = null
   }
 }

@@ -7,6 +7,7 @@ import type { BrushStack } from '../tools/brushStack'
 import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
+import type { ReferenceImage } from '../terrain/referenceImage'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { MaskPick } from '../terrain/maskSelect'
 import { newSpawnBrush, type SpawnBrush } from '../tools/spawnBrush'
@@ -119,6 +120,8 @@ export const editor = $state({
   textureLooks: {} as TextureLooks,
   /** The map's ground effect choices per zone and per tile (world/groundEffects.ts); saved with the map. */
   scopedEffects: { zones: {}, tiles: {} } as ScopedEffects,
+  /** The map's reference image (terrain/referenceImage.ts, View › Reference Image): its path and where it lies; saved with the map. */
+  reference: null as ReferenceImage | null,
   /**
    * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the
    * cursor, rising at vertexAngle degrees (-89 to 89) toward vertexDir degrees (0 is +x, 90 is +z).
@@ -559,6 +562,14 @@ export const ui = $state({
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */
   topDown: false,
+  /** View › Reference Image: the window that lays the author's plan over the map (#184). */
+  referenceWindow: false,
+  /** The reference image's corners are dragged in the top-down view (Engine.referencePress). */
+  referenceAdjust: false,
+  /** The active map's reference image as a blob URL, for the top-down view's screen overlay; '' for none. */
+  referenceUrl: '',
+  /** Bumped when the active map's reference image is read or the tab changes, for the window that shows its colours. */
+  referenceVersion: 0,
   /** The viewport's right-click menu: where it opens (CSS pixels) and what it offers; null when closed. */
   contextMenu: null as { x: number; y: number; title?: string; items: ContextItem[] } | null,
   /** The area trigger (ID) picked in the viewport or the Portals dialog (#307); each follows the other. */

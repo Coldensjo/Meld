@@ -399,6 +399,34 @@ export namespace main {
 
 export namespace mapfile {
 	
+	export class ReferenceImage {
+	    path: string;
+	    mode: string;
+	    opacity: number;
+	    shown: boolean;
+	    x: number;
+	    z: number;
+	    w: number;
+	    h: number;
+	    turn: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ReferenceImage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.mode = source["mode"];
+	        this.opacity = source["opacity"];
+	        this.shown = source["shown"];
+	        this.x = source["x"];
+	        this.z = source["z"];
+	        this.w = source["w"];
+	        this.h = source["h"];
+	        this.turn = source["turn"];
+	    }
+	}
 	export class TextureRoles {
 	    rock: number;
 	    dirt: number;
@@ -501,6 +529,8 @@ export namespace mapfile {
 	    textureLooks?: Record<string, number>;
 	    zoneEffects?: Record<string, any>;
 	    tileEffects?: Record<string, any>;
+	    // Go type: ReferenceImage
+	    reference?: any;
 	    version?: number;
 	    heights: string;
 	    weights?: string;
@@ -536,6 +566,7 @@ export namespace mapfile {
 	        this.textureLooks = source["textureLooks"];
 	        this.zoneEffects = source["zoneEffects"];
 	        this.tileEffects = source["tileEffects"];
+	        this.reference = this.convertValues(source["reference"], null);
 	        this.version = source["version"];
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];

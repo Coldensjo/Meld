@@ -639,6 +639,22 @@ export class Terrain {
     this.shadowVersion++
   }
 
+  /**
+   * Drapes the reference image (terrain/referenceImage.ts) over the ground: `tex` at `opacity` (0 or
+   * no texture hides it) over `place`, with corner handles `edit` world units across while it is
+   * being placed (0 for none). Cheap to call every frame; the texture is the document's, not disposed here.
+   */
+  setReference(tex: THREE.Texture | null, opacity: number, place: { x: number; z: number; w: number; h: number; turn: number } | null, edit: number) {
+    const u = this.material.uniforms
+    u.refTex.value = tex
+    u.refOpacity.value = tex && place ? opacity : 0
+    u.refEdit.value = place ? edit : 0
+    if (!place) return
+    u.refCentre.value.set(place.x, place.z)
+    u.refHalf.value.set(place.w / 2, place.h / 2)
+    u.refRot.value.set(Math.cos(place.turn), Math.sin(place.turn))
+  }
+
   /** Draws the baked shadows (when the terrain has any) or not. */
   showBakedShadows(on: boolean) {
     this.material.uniforms.bakedShadowOn.value = on && this.bakedTex ? 1 : 0

@@ -362,6 +362,10 @@ export function OpenModelSetDialog() {
   return window['go']['main']['App']['OpenModelSetDialog']();
 }
 
+export function OpenReferenceImageDialog() {
+  return window['go']['main']['App']['OpenReferenceImageDialog']();
+}
+
 export function OpenSpellsDialog() {
   return window['go']['main']['App']['OpenSpellsDialog']();
 }
@@ -452,6 +456,10 @@ export function ReadQuest(arg1) {
 
 export function ReadQuestGivers(arg1) {
   return window['go']['main']['App']['ReadQuestGivers'](arg1);
+}
+
+export function ReadReferenceImage(arg1) {
+  return window['go']['main']['App']['ReadReferenceImage'](arg1);
 }
 
 export function ReadSpell(arg1) {

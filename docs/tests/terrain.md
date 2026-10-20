@@ -310,6 +310,23 @@ fills in, and the export can be driven without its dialog:
   a stale `App.js` (Vite pins its `?t=`), and the app fails to start with "does not provide an export
   named ...". Touching the file does not help; restart `make dev`.
 
+## Reference image (View › Reference Image, #184)
+
+Checks: `tests/referenceImage.test.ts` (the image's frame and corners, a corner drag keeping the
+opposite one, the dominant colours skipping an antialiased edge, brightness to heights, the zone vote,
+the mask, textures keeping the slots other texels use and refusing a colour with no slot) and
+`internal/mapfile`'s round trip (the header's `reference`). Live: probe `reference-image` (a red and
+blue plan made in the page on a flat map, through `referenceFrom` instead of the file dialog: drawn
+over the ground in the top-down view, the screen overlay and Lay on the ground as shown's place, a drag
+with Place by dragging, zones, heights, textures and the mask each undone, the save data's record, and
+Remove undone).
+- Trap: the file dialog can't be driven from a probe; make the picture in the page
+  (`referenceFrom(path, canvas, w, h)`, `/src/lib/io/referenceLoad.ts`) and hand it to
+  `e.useReferenceImage` before `e.setReference(e.referenceFor(img), ...)`. A record whose path the
+  document doesn't hold makes the Engine read that path through the binding.
+- Trap: the terrain shader holds 16 samplers with the two sun and three lamp shadow maps (WebGL2's
+  least guaranteed, and ANGLE's on Windows); a new overlay texture has to share one.
+
 ## Water layers (the Water tool's All layers / Layer, #14)
 
 Checks: with All layers off, the Water tool draws only layer number N of each chunk (as Noggit Red's

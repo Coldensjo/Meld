@@ -8,7 +8,7 @@
   import PoolLegend from './PoolLegend.svelte'
   import PerfOverlay from './PerfOverlay.svelte'
   import LoadingBar from './LoadingBar.svelte'
-  import { prefs, setStatus, stats, ui } from '../lib/state/editor.svelte'
+  import { editor, prefs, setStatus, stats, ui } from '../lib/state/editor.svelte'
 
   let container: HTMLDivElement
   let canvas: HTMLCanvasElement
@@ -37,6 +37,10 @@
   <DocTabs />
   <div class="viewport" bind:this={container}>
     <canvas bind:this={canvas} tabindex="-1"></canvas>
+    {#if ui.topDown && editor.reference?.mode === 'screen' && editor.reference.shown && ui.referenceUrl}
+      <!-- The reference image over the top-down view, fixed to the screen like tracing paper (#184). -->
+      <img class="reference" src={ui.referenceUrl} alt="" style:opacity={editor.reference.opacity} data-ui="ReferenceOverlay" />
+    {/if}
     {#if error}<div class="error">{error}</div>{/if}
     <PathEditBar />
     <SpawnPickBar />
@@ -93,6 +97,16 @@
     height: 100%;
     outline: none;
     touch-action: none;
+  }
+  /* The reference image over the top-down view: fitted whole, the pointer goes through it. */
+  .reference {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
   }
   /* A short-lived notice near the top of the view (e.g. the placement scale). The pointer goes through it. */
   .hint {

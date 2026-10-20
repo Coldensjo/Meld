@@ -187,6 +187,8 @@ export function OpenMapDialog():Promise<string>;
 
 export function OpenModelSetDialog():Promise<Array<string>>;
 
+export function OpenReferenceImageDialog():Promise<string>;
+
 export function OpenSpellsDialog():Promise<string>;
 
 export function OpenTextDialog():Promise<string>;
@@ -232,6 +234,8 @@ export function ReadObjectQuests(arg1:number):Promise<vmangos.QuestLists>;
 export function ReadQuest(arg1:number):Promise<vmangos.TemplateRecord>;
 
 export function ReadQuestGivers(arg1:number):Promise<vmangos.QuestGivers>;
+
+export function ReadReferenceImage(arg1:string):Promise<string>;
 
 export function ReadSpell(arg1:number):Promise<vmangos.SpellRecord>;
 

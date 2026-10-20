@@ -153,6 +153,28 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     navmesh takes the server's origin with 64 tiles of up to 32,768 polygons. The tiles are as the
     server last built them: until Compile rebuilds them (#173), an edited tile shows the old ground.
 
+- **Reference image** (View › Reference Image, `components/ReferenceWindow.svelte`, `ui.referenceWindow`,
+  #184): the author's own plan of a zone, a PNG or JPEG of theirs. The map file keeps only its path and
+  where it lies (`Header.Reference`, `mapfile.ReferenceImage`: an optional header field, no version
+  bump; `editor.reference`, per map in `DocMeta.reference`, an undo step for every change through
+  `Engine.setReference`). `ReadReferenceImage` returns the file's bytes and the page decodes them
+  (`io/referenceLoad.ts`, at most `REF_MAX_SIDE` 2048 a side) into the pixels the conversions read and
+  a texture, held by the document (`MapDocument.referenceImage`, read again when the map opens). On
+  the ground the terrain shader drapes it (`refTex` and its place, set each frame by
+  `Engine.updateReference` through `Terrain.setReference`; it is the shader's sixteenth sampler with
+  the shadow maps, WebGL2's least guaranteed); over the view it is an `<img>` over the top-down view
+  in `Viewport.svelte`, which Lay on the ground as shown turns into a ground place
+  (`Engine.referenceFromScreen`). With Place by dragging (`ui.referenceAdjust`) the top-down view's
+  presses go to `Engine.referencePress`: the image moves, a corner scales it from the opposite one
+  (Shift frees its shape), Ctrl+drag turns it. `terrain/referenceImage.ts` is the arithmetic: the
+  image's frame (`refUV`, row 0 toward -z), the drags, its flat colours (`dominantColours`, 5-bit
+  buckets merged within 40 RGB) and the conversions, each one undo step in the Engine
+  (`referenceToHeights`, `referenceToZones`, `referenceToTextures`, `referenceToMask`): brightness to
+  heights under the image (set or add), a zone per colour by a 4x4 vote a chunk, a palette texture per
+  colour painted alone (`texturesFromImage`: a chunk keeps the slots its other texels use and a colour
+  with no slot left keeps its old paint), and colours into the mask. Transparent pixels and colours
+  further than the Colour match from a listed one are left alone.
+
 - **Default map** is `'ocean'`: a flat seabed at `OCEAN_FLOOR` (-12), with water at 0. The camera
   target rides on `max(ground, water)`. `Water.floor` is a dark plane 40 yd below the water that hides
   the map edge and fills a hole in the ground. It is a backdrop (renderOrder -0.25, after the sky and
