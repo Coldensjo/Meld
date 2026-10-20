@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -57,11 +57,19 @@ await P.frames(2)
 const edited = tooltip()
 const nameColor = root().querySelector('.tooltip .line.title')?.style.color ?? ''
 
-// A chest piece: the character stands in, without the item on its body.
+// A chest piece: the sword's look paints nothing on the body; the Robes of Arcana's (12695) is
+// painted onto the character's skin (#356). The sword's look is typed back after.
 await openTab('Item')
 choose(field('Slot'), '5')
-await P.until(() => look().startsWith('Armour'), WAIT, 'the chest note')
+await P.until(() => look().startsWith('Its display has nothing'), WAIT, 'the chest note')
 const chest = look()
+const displayInput = root().querySelector('.display input')
+const swordLook = displayInput.value
+type(displayInput, '12695')
+await P.until(() => look().startsWith('Worn on the body'), WAIT, 'the robe on the body')
+const robe = look()
+type(displayInput, swordLook)
+await P.until(() => look().startsWith('Its display has nothing'), WAIT, 'the sword look back')
 
 // A level past a tinyint's 255: refused before anything is written, on its tab.
 await openTab('Requirements')
@@ -220,7 +228,8 @@ const ok =
 	edited[0] === 'Probe Blade' &&
 	edited.some((l) => / - 10 Damage/.test(l)) &&
 	nameColor === 'rgb(0, 112, 221)' &&
-	chest.startsWith('Armour') &&
+	chest.startsWith('Its display has nothing') &&
+	robe.startsWith('Worn on the body, on a') &&
 	saveText === 'Save item (5)' &&
 	error.includes('required_level must be from 0 to 255') &&
 	jumped.startsWith('Requirements') &&
@@ -239,4 +248,4 @@ const ok =
 	iconPick.pending.startsWith('Icon INV_Axe_01') &&
 	iconPick.save === 'Save item (3)' &&
 	iconPick.escClosed
-return { ok, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+return { ok, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }

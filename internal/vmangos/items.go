@@ -390,9 +390,8 @@ type ItemLook struct {
 	Model string  `json:"model"`
 	Look  string  `json:"look"`
 	Scale float32 `json:"scale"`
-	// Shown says the character shows the item: held in a hand or on the shield arm, or worn on the
-	// head or shoulders. Armour for the rest of the body is painted onto the character's skin by
-	// the game, which Meld doesn't do.
+	// Shown says the character shows the item: held in a hand or on the shield arm, worn on the head
+	// or shoulders, painted onto the body (#356) or hung on the back as a cloak.
 	Shown bool `json:"shown"`
 	// Item and ItemLook are the item's own model and the look that skins it.
 	Item     string `json:"item"`
@@ -409,7 +408,36 @@ const (
 	invOffHand   = 22
 	invHoldable  = 23
 	invRangedRgt = 26
+	invCloak     = 16
 )
+
+// wearSlotOf is the wear slot an item of inventory type t goes in (shirt, chest and robe, waist,
+// legs, feet, wrists, hands, tabard, head, shoulders), -1 for one held or not worn.
+func wearSlotOf(t int) int {
+	switch t {
+	case invHead:
+		return wearHelm
+	case invShoulder:
+		return wearShoulder
+	case 4:
+		return wearShirt
+	case 5, 20:
+		return wearChest
+	case 6:
+		return wearBelt
+	case 7:
+		return wearLegs
+	case 8:
+		return wearBoots
+	case 9:
+		return wearWrist
+	case 10:
+		return wearGloves
+	case 19:
+		return wearTabard
+	}
+	return -1
+}
 
 // ItemModelLook is an item display shown as inventory type invType has it: on a character of race
 // and sex (0 male, 1 female), and alone.
@@ -435,26 +463,22 @@ func (m *modelTables) itemModelLook(display uint32, invType, race, sex int) Item
 		g.weapons[2] = it
 		g.sheath = sheathRanged
 	}
-	look := m.creatureLook(stand, g)
-	out.Model, out.Scale = look.model, look.scale
+	var worn [wearSlots]int
+	for i := range worn {
+		worn[i] = -1
+	}
+	cloak := -1
 	row, ok := m.item(display)
 	if ok && row >= 0 {
-		switch invType {
-		case invHead:
-			if name, prefix := m.itemDisplay.str(row, 1), m.racePrefix(race); name != "" && prefix != "" {
-				gender := "M"
-				if sex == 1 {
-					gender = "F"
-				}
-				look.dropAttached(wow.AttachHelm)
-				look.attach(wow.AttachHelm, headItems+trimModelExt(name)+"_"+prefix+gender+".mdx", headItems, m.itemDisplay.str(row, 3))
-			}
-		case invShoulder:
-			look.dropAttached(wow.AttachShoulderLeft)
-			look.dropAttached(wow.AttachShoulderRight)
-			look.attach(wow.AttachShoulderLeft, m.itemDisplay.str(row, 1), shoulderItems, m.itemDisplay.str(row, 3))
-			look.attach(wow.AttachShoulderRight, m.itemDisplay.str(row, 2), shoulderItems, m.itemDisplay.str(row, 4))
+		if slot := wearSlotOf(invType); slot >= 0 {
+			worn[slot] = row
+		} else if invType == invCloak {
+			cloak = row
 		}
+	}
+	look := m.plainLook(stand, worn, cloak, g)
+	out.Model, out.Scale = look.model, look.scale
+	if ok && row >= 0 {
 		// The item alone: the model the character holds or wears.
 		for _, a := range look.look.Attach {
 			if a.Model == "" || !m.itemAttachment(a, row) {
@@ -468,8 +492,38 @@ func (m *modelTables) itemModelLook(display uint32, invType, race, sex int) Item
 				}
 			}
 		}
+		out.Shown = out.Shown || m.paintsBody(row, wearSlotOf(invType), sex == 1) ||
+			cloak >= 0 && m.itemDisplay.str(cloak, idTexture) != ""
 	}
 	out.Look = look.look.Query()
+	return out
+}
+
+// paintsBody says the display row, worn in slot, has a body texture the client has for its slot.
+func (m *modelTables) paintsBody(row, slot int, female bool) bool {
+	if slot < 0 {
+		return false
+	}
+	for i, b := range bodyTextureRegions {
+		if 14+i < m.itemDisplay.fields && slotPaints(slot, b.region) && m.componentTexture(b.dir, m.itemDisplay.str(row, 14+i), female) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// plainLook is the creature display of a character dressed in worn and cloak alone (see dress), in
+// its own skin, face and hair with no baked texture, holding g's weapons: the item editor's
+// stand-in, which shows the item and nothing the NPC wears.
+func (m *modelTables) plainLook(display uint32, worn [wearSlots]int, cloak int, g gear) creatureDisplay {
+	out := m.creatureLook(display, gear{stand: g.stand, emote: g.emote})
+	if r, ok := m.creatureDisplay.row(display); ok && display != 0 && m.creatureExtra != nil && m.creatureExtra.fields > 18 {
+		if er, ok := m.creatureExtra.row(m.creatureDisplay.u32(r, 3)); ok {
+			out.look.Textures, out.look.Attach, out.look.Geosets = nil, nil, nil
+			m.dress(&out, er, worn, cloak, "")
+		}
+	}
+	m.holdWeapons(&out, g)
 	return out
 }
 
@@ -487,21 +541,10 @@ func (m *modelTables) itemAttachment(a wow.Attachment, row int) bool {
 	return false
 }
 
-// dropAttached removes what the look holds at point.
-func (d *creatureDisplay) dropAttached(point int) {
-	kept := d.look.Attach[:0]
-	for _, a := range d.look.Attach {
-		if a.Point != point {
-			kept = append(kept, a)
-		}
-	}
-	d.look.Attach = kept
-}
-
-// standIn is a creature display of a plain character of race and sex for the item editor to dress:
-// the humanoid display (CreatureDisplayInfoExtra: 1 race, 2 sex, 8-17 worn items, 18 the baked
-// skin) that wears the fewest items, one with a baked skin first, the lowest ID of those. 0 when
-// the client has none.
+// standIn is a creature display of a plain character of race and sex for the item editor to dress
+// (plainLook, which keeps only its skin, face and hair): the humanoid display
+// (CreatureDisplayInfoExtra: 1 race, 2 sex, 8-17 worn items, 18 the baked skin) that wears the
+// fewest items, one with a baked skin first, the lowest ID of those. 0 when the client has none.
 func (m *modelTables) standIn(race, sex int) uint32 {
 	if m == nil || m.creatureExtra == nil || m.creatureExtra.fields <= 18 {
 		return 0

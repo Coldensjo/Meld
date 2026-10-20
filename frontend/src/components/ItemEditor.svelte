@@ -21,7 +21,7 @@
 	// The item editor (#353, Tools › Items…): find an item or make one (blank, or a copy of the open
 	// one), edit every column of its item_template row on tabs, and see it as the game shows it: its
 	// tooltip, which follows every change before it is saved, and the item in a character's hand (or on
-	// its head or shoulders), or alone. Its look is one of the client's item displays, picked from a
+	// its head or shoulders, painted onto its body, or on its back as a cloak, #356), or alone. Its look is one of the client's item displays, picked from a
 	// grid of their icons (hovering one previews it) or typed, and its icon can be picked apart from
 	// the model: Save then makes the display that pairs them. Save writes the row to the world database; Export writes items to an SQL
 	// script, and Import reads one back. The server reads items when it starts.
@@ -392,10 +392,27 @@
 			.then((l) => key === `${shown}|${invType}|${race}|${sex}` && (look = l))
 			.catch((err) => (error = String(err)))
 	})
-	/** Slots whose armour the game paints onto the body (shirt, chest, waist, legs, feet, wrists, hands, back, tabard, robe). */
+	/**
+	 * Slots whose armour the game paints onto the body (shirt, chest, waist, legs, feet, wrists, hands,
+	 * tabard, robe) or hangs on the back (a cloak): no model of its own, so it shows only on the character.
+	 */
 	const BODY_TYPES = new Set([4, 5, 6, 7, 8, 9, 10, 16, 19, 20])
 	const where = $derived(
-		HELD_TYPES.has(invType) ? (invType === 14 ? 'on the shield arm' : invType === 15 || invType === 25 || invType === 26 ? 'drawn, as a ranged weapon is held' : 'in hand') : invType === 1 ? 'on the head' : invType === 3 ? 'on the shoulders' : '',
+		HELD_TYPES.has(invType)
+			? invType === 14
+				? 'on the shield arm'
+				: invType === 15 || invType === 25 || invType === 26
+					? 'drawn, as a ranged weapon is held'
+					: 'in hand'
+			: invType === 1
+				? 'on the head'
+				: invType === 3
+					? 'on the shoulders'
+					: invType === 16
+						? 'on the back'
+						: BODY_TYPES.has(invType)
+							? 'on the body'
+							: '',
 	)
 	const preview = $derived.by(() => {
 		if (!look) return null
@@ -406,10 +423,11 @@
 		if (!record || !look) return ''
 		if (!shown) return 'It has no display: no icon and no model. Pick a look below.'
 		const raceName = RACES.find(([r]) => r === race)?.[1] ?? ''
-		if (look.shown && !alone) return `${invType === 1 || invType === 3 ? 'Worn' : 'Held'} ${where}, on ${/^[AEIOU]/.test(raceName) ? 'an' : 'a'} ${raceName} ${sex ? 'woman' : 'man'}.`
+		if (look.shown && !alone) return `${HELD_TYPES.has(invType) ? 'Held' : 'Worn'} ${where}, on ${/^[AEIOU]/.test(raceName) ? 'an' : 'a'} ${raceName} ${sex ? 'woman' : 'man'}.`
 		if (look.item) return 'The model alone, as the game draws it held or worn.'
+		if (BODY_TYPES.has(invType))
+			return alone ? 'It has no model of its own: the game paints it onto the character, shown On a character.' : 'Its display has nothing the game would paint on this slot: only its icon and tooltip.'
 		if (where) return 'Its display has no model the game would show.'
-		if (BODY_TYPES.has(invType)) return "Armour for the body is painted onto the character's skin in the game, which Meld doesn't show: only its icon and tooltip here."
 		if (invType > 0) return "The game doesn't show it on a character: only its icon and tooltip."
 		return 'It has no model of its own: in the game it is only its icon.'
 	})
@@ -433,13 +451,16 @@
 		pendingVisual = -1
 	}
 
-	/** Whether the item was shown alone before Change look, which shows it alone (the item itself, large). */
+	/**
+	 * Whether the item was shown alone before Change look, which shows it alone (the item itself, large);
+	 * body armour, which has no model, stays on the character.
+	 */
 	let aloneBefore = false
 
 	function startChange(what: 'look' | 'icon') {
 		if (what === 'look' && changing !== 'look') {
 			aloneBefore = alone
-			alone = true
+			alone = !BODY_TYPES.has(invType)
 		} else if (what === 'icon' && changing === 'look') alone = aloneBefore
 		changing = what
 		candidate = null

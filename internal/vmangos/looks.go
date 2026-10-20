@@ -14,6 +14,9 @@ type modelTables struct {
 	creatureDisplay, creatureModelData, objectDisplay *dbcTable
 	// The rest are optional: a client without one shows less of a humanoid's look.
 	creatureExtra, itemDisplay, hairGeosets, facialHair, sections, races, helmVis, emotes *dbcTable
+	// components are the body textures of items the client has (Item\TextureComponents\...), by
+	// their lower-case paths; nil when the archives list none.
+	components map[string]bool
 }
 
 // bakedTextures is the client folder of the body textures baked for humanoid NPCs.
@@ -25,6 +28,9 @@ const (
 	shoulderItems = `Item\ObjectComponents\Shoulder\`
 	weaponItems   = `Item\ObjectComponents\Weapon\`
 	shieldItems   = `Item\ObjectComponents\Shield\`
+	capeItems     = `Item\ObjectComponents\Cape\`
+	// componentTextures is the folder of the items' body textures, lower case.
+	componentTextures = `item\texturecomponents\`
 )
 
 // loadModelTables reads the model tables from the client's data folder.
@@ -50,6 +56,14 @@ func loadModelTables(dataDir string) (*modelTables, error) {
 	}
 	if m.objectDisplay, err = read("GameObjectDisplayInfo.dbc"); err != nil {
 		return nil, err
+	}
+	for _, f := range set.List() {
+		if l := strings.ToLower(f); strings.HasPrefix(l, componentTextures) {
+			if m.components == nil {
+				m.components = map[string]bool{}
+			}
+			m.components[l] = true
+		}
 	}
 	for _, t := range []struct {
 		p    **dbcTable
@@ -201,18 +215,37 @@ const (
 // 5 hair style, 6 hair colour, 7 facial hair, 8-17 the worn items' displays (see wearHelm..), 18
 // the baked body texture, which already has the face, skin and clothes painted on.
 func (m *modelTables) dressCharacter(out *creatureDisplay, er int) {
+	var worn [wearSlots]int
+	for i := range worn {
+		worn[i] = -1
+		if row, ok := m.item(m.creatureExtra.u32(er, 8+i)); ok {
+			worn[i] = row
+		}
+	}
+	m.dress(out, er, worn, -1, m.creatureExtra.str(er, 18))
+}
+
+// dress dresses a character model as the CreatureDisplayInfoExtra row er's race, sex, skin, face and
+// hair, in worn (an ItemDisplayInfo row per wear slot, -1 for none) and the cloak of ItemDisplayInfo
+// row cloak (-1 for none). bake is the baked body texture, "" for none: then the body texture is
+// built as the game builds a player's (bodyLayers).
+func (m *modelTables) dress(out *creatureDisplay, er int, worn [wearSlots]int, cloak int, bake string) {
 	x := m.creatureExtra
 	race, sex := int(x.u32(er, 1)), x.u32(er, 2)
 	female := sex == 1
 	skin, hairStyle, hairColor, facial := x.u32(er, 3), x.u32(er, 5), x.u32(er, 6), x.u32(er, 7)
 
-	if bake := x.str(er, 18); bake != "" {
+	if bake != "" {
 		out.setTexture(wow.TexBody, bakedTextures+bake)
 	}
 	// CharSections: 1 race, 2 sex, 3 section (0 skin, 3 hair), 4 variation, 5 colour, 6-8 textures.
 	if row, ok := m.section(uint32(race), sex, 0, 0, skin); ok {
 		if _, baked := out.look.Textures[wow.TexBody]; !baked {
-			out.setTexture(wow.TexBody, m.sections.str(row, 6))
+			body := m.sections.str(row, 6)
+			if layers := m.bodyLayers(er, worn); body != "" && len(layers) > 0 {
+				body = wow.ComposedTexture(append([]wow.SkinLayer{{Region: wow.RegionBase, Path: body}}, layers...))
+			}
+			out.setTexture(wow.TexBody, body)
 		}
 		if fur := m.sections.str(row, 7); fur != "" {
 			out.setTexture(wow.TexFur, fur)
@@ -252,13 +285,6 @@ func (m *modelTables) dressCharacter(out *creatureDisplay, er int) {
 		}
 	}
 
-	var worn [wearSlots]int
-	for i := range worn {
-		worn[i] = -1
-		if row, ok := m.item(x.u32(er, 8+i)); ok {
-			worn[i] = row
-		}
-	}
 	// ItemDisplayInfo (23 fields in 1.12): 1-2 models, 3-4 their textures, 5 the icon, 6-8 the
 	// geoset groups, 9 flags, 10 spell visual, 11 group sound, 12-13 the helmet's HelmetGeosetVisData
 	// for a male and a female wearer, 14-21 the body-region textures.
@@ -288,7 +314,8 @@ func (m *modelTables) dressCharacter(out *creatureDisplay, er int) {
 	if v := group(wearLegs, 2); v > 0 {
 		geo[geoRobe] = 1301 + v
 	}
-	if v := group(wearBoots, 0); v > 0 {
+	// A robe hides the boots' shaft (WoW Model Viewer's WoWItem, CS_BOOTS).
+	if v := group(wearBoots, 0); v > 0 && !m.robed(worn) {
 		geo[geoBoots] = 501 + v
 	}
 	if v := group(wearGloves, 0); v > 0 {
@@ -296,6 +323,14 @@ func (m *modelTables) dressCharacter(out *creatureDisplay, er int) {
 	}
 	if worn[wearTabard] >= 0 {
 		geo[geoTabard] = 1201 + max(1, group(wearTabard, 0))
+	}
+	// A cloak is the back's geoset 1501 plus its first group, skinned with its texture (field 3,
+	// in the Cape folder) in the model's cape slot (texture type 2).
+	if cloak >= 0 {
+		geo[geoCloak] = 1501 + int(m.itemDisplay.u32(cloak, 6))
+		if tex := m.itemDisplay.str(cloak, 3); tex != "" {
+			out.setTexture(wow.TexItem, capeItems+tex+".blp")
+		}
 	}
 
 	if row := worn[wearHelm]; row >= 0 {

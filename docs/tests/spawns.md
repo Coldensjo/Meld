@@ -473,9 +473,18 @@ Import or New item.
   and the copied display. Clean up with `DELETE FROM item_template WHERE entry > <the max before>`.
 - In the game (the owner): restart mangosd (it reads items at start), start the game from Meld,
   `.additem <entry>` as a GM and hover it.
-- Trap: the stand-in character is the humanoid NPC display of that race and sex that wears the least
-  (`standIn`), so it has the baked clothes of that NPC; body armour isn't drawn on it, since the game
-  paints it into the skin texture, which Meld doesn't composite.
+- Body armour (#356): `TestItemLookPaintsBodyArmour` (the stand-in's face and underwear and a
+  robe's textures over the skin, a hand texture its slot doesn't paint and a `_F` texture on a man
+  left out, the robe's skirt, a cloak's geoset and cape texture), `TestComposedTextureRoundTrip` and
+  `TestPaintRegion` in `internal/wow`; with `WOW_DIR` and `VMANGOS_DIR`, `TestItemsLive` paints the
+  Robes of Arcana's look (12695). Probe `item-editor` types 12695 on a chest piece and waits for
+  "Worn on the body". Pictures with `probes/scratch/item-look.js` (above): seen on 2026-10-20 the
+  Robes of Arcana (5770), Judgement Breastplate (16958), Crimson Silk Cloak (7056, on the back) and
+  Recruit's Boots (40) on a human man. To see a composed texture flat, fetch
+  `/wow/texture?path=compose%3A0%3D<skin>%7C<region>%3D<path>` from the dev server (RGBA reply).
+- Trap: the stand-in is the humanoid NPC display of that race and sex that wears the least
+  (`standIn`), but only its skin, face and hair are kept (`plainLook`): its baked texture and clothes
+  would cover the item.
 - Trap: `item_template` is keyed by (entry, patch); the editor writes the newest patch row it read,
   and a new item is patch 0. `other_team_entry` defaults to 1 in VMaNGOS, which names no item.
 

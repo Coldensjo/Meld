@@ -581,7 +581,7 @@ the same scene, the report before and after.
 - Game object quests (#293)
 - Name colours by reaction (#134)
 - Shop tab: item icons and tooltips (#202)
-- Item editor (#353, probe `item-editor`)
+- Item editor (#353; body armour #356; probe `item-editor`)
 - Spell editor (#294, probe `spell-editor`; #361 visual composer, probe `spell-visual`)
 
 ### Export, the client and the game (`docs/tests/client.md`)

@@ -165,4 +165,8 @@ func TestItemsLive(t *testing.T) {
 	if look, _ := ItemModelLook(dataDir, d, 5, 2, 1); look.Shown || !strings.Contains(look.Model, `Character\Orc\Female`) {
 		t.Fatalf("worn look %+v", look)
 	}
+	// The Robes of Arcana's look (12695) painted onto a human's body (#356).
+	if look, _ := ItemModelLook(dataDir, 12695, 20, 1, 0); !look.Shown || !strings.Contains(look.Look, "Robe_B_02Blue_Chest_TU_M.blp") {
+		t.Fatalf("robe look %+v", look)
+	}
 }

@@ -188,9 +188,17 @@ func (c *Client) cached(key string, build func() ([]byte, error)) ([]byte, error
 	return b, nil
 }
 
-// Texture returns "RGBA" + u32 w + u32 h + pixels.
+// Texture returns "RGBA" + u32 w + u32 h + pixels, for a client file or a composed body texture
+// (ComposedTexture).
 func (c *Client) Texture(path string) ([]byte, error) {
 	return c.cached("tex:"+strings.ToLower(path), func() ([]byte, error) {
+		if layers, ok := parseComposed(path); ok {
+			img, err := c.composeTexture(layers)
+			if err != nil {
+				return nil, err
+			}
+			return encodeImage(img), nil
+		}
 		raw, err := c.read(path)
 		if err != nil {
 			return nil, err
@@ -199,19 +207,17 @@ func (c *Client) Texture(path string) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		out := make([]byte, 12+len(img.Pix))
-		copy(out, "RGBA")
-		binary.LittleEndian.PutUint32(out[4:], uint32(img.W))
-		binary.LittleEndian.PutUint32(out[8:], uint32(img.H))
-		copy(out[12:], img.Pix)
-		return out, nil
+		return encodeImage(img), nil
 	})
 }
 
 // TextureDXT is a BLP as "DXT1", "DXT3" or "DXT5", width, height and the mip count, then each mip
 // level as its byte count and blocks, the full size first; or Texture's RGBA reply for a BLP that
-// DXTOf can't give whole.
+// DXTOf can't give whole, or a composed one.
 func (c *Client) TextureDXT(path string) ([]byte, error) {
+	if _, ok := parseComposed(path); ok {
+		return c.Texture(path)
+	}
 	return c.cached("dxt:"+strings.ToLower(path), func() ([]byte, error) {
 		raw, err := c.read(path)
 		if err != nil {

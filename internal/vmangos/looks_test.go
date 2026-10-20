@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"encoding/binary"
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -198,5 +199,57 @@ func TestReadEquipment(t *testing.T) {
 	}
 	if want := [3]heldItem{{1001, 500, 13}, {}, {1003, 502, invRanged}}; got[8] != want {
 		t.Fatalf("equipment 8: %+v, want %+v", got[8], want)
+	}
+}
+
+// TestItemLookPaintsBodyArmour dresses the item editor's stand-in in body armour (#356): its own
+// face and underwear and the item's body textures over its skin, the NPC's bake and clothes left
+// off, a robe's skirt, and a cloak on the back.
+func TestItemLookPaintsBodyArmour(t *testing.T) {
+	m := humanTables(t)
+	m.sections = testDBC(t, 10,
+		[]any{1, 1, 0, 0, 0, 0, "Skin.blp", "", ""},
+		[]any{2, 1, 0, 1, 0, 0, "FaceLower.blp", "FaceUpper.blp", ""},
+		[]any{3, 1, 0, 4, 0, 0, "Pelvis.blp", "", ""})
+	// 110: a robe naming a hand texture its slot doesn't paint; 111: a cloak of variant 2.
+	m.itemDisplay = testDBC(t, 23,
+		[]any{110, "", "", "", "", "", 1, 0, 1, 0, 0, 0, 0, 0, "Robe_AU", "", "Robe_HA", "Robe_TU", "", "Robe_LU"},
+		[]any{111, "", "", "Cape_A", "", "", 2})
+	m.components = map[string]bool{}
+	for _, p := range []string{`ArmUpperTexture\Robe_AU_U`, `HandTexture\Robe_HA_U`, `TorsoUpperTexture\Robe_TU_M`, `TorsoUpperTexture\Robe_TU_U`, `LegUpperTexture\Robe_LU_F`} {
+		m.components[strings.ToLower(`Item\TextureComponents\`+p+".blp")] = true
+	}
+	look := func(display uint32, invType int) wow.Look {
+		l := m.itemModelLook(display, invType, 1, 0)
+		if !l.Shown {
+			t.Fatalf("display %d isn't shown: %+v", display, l)
+		}
+		q, err := url.ParseQuery(l.Look)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return wow.ParseLook(q)
+	}
+	robe := look(110, 20)
+	want := wow.ComposedTexture([]wow.SkinLayer{
+		{Region: wow.RegionBase, Path: "Skin.blp"},
+		{Region: wow.RegionFaceLower, Path: "FaceLower.blp"},
+		{Region: wow.RegionFaceUpper, Path: "FaceUpper.blp"},
+		{Region: wow.RegionLegUpper, Path: "Pelvis.blp"},
+		{Region: wow.RegionArmUpper, Path: `Item\TextureComponents\ArmUpperTexture\Robe_AU_U.blp`},
+		{Region: wow.RegionTorsoUpper, Path: `Item\TextureComponents\TorsoUpperTexture\Robe_TU_M.blp`},
+	})
+	if got := robe.Textures[wow.TexBody]; got != want {
+		t.Fatalf("body texture\n%s\nwant\n%s", got, want)
+	}
+	if !slices.Contains(robe.Geosets, 1302) || len(robe.Attach) != 0 {
+		t.Fatalf("the robe's skirt and nothing of the NPC's: %+v", robe)
+	}
+	cloak := look(111, invCloak)
+	if cloak.Textures[wow.TexItem] != capeItems+"Cape_A.blp" || !slices.Contains(cloak.Geosets, 1503) || slices.Contains(cloak.Geosets, 1501) {
+		t.Fatalf("cloak look %+v", cloak)
+	}
+	if m.itemModelLook(111, 5, 1, 0).Shown {
+		t.Fatal("a display without body textures shows nothing as a chest piece")
 	}
 }

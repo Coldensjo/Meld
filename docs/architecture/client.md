@@ -250,10 +250,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   client's item bonus spells by amount (passive, the generic icon 1, one aura, or two of the same
   amount for damage and healing (13 and 135) and attack power (99 and 124); the spells the world
   database's items already use win an amount). The right shows the item: `ItemModelLook` dresses a stand-in
-  character of the chosen race and sex (`standIn`: the humanoid NPC display that wears the least)
-  holding the item as `holdWeapons` holds a creature's (`gear`), or wearing a helm or shoulders as
-  `dressCharacter` does, and gives the item's model alone; body armour has no model (the game paints
-  it into the skin). Below it the tooltip (`components/ItemTooltipBox.svelte`, shared with the Shop
+  character of the chosen race and sex (`standIn`: the humanoid NPC display that wears the least;
+  `plainLook` keeps only its skin, face and hair, without its bake or clothes) holding the item as
+  `holdWeapons` holds a creature's (`gear`), or wearing it as `dress` does (a helm, shoulders, body
+  armour or a cloak), and gives the item's model alone. Body armour has no model: the game paints it
+  into the body texture, and so does Meld (#356, `internal/vmangos/bodyskin.go`): a character without
+  a baked texture gets `bodyLayers` (face, underwear, facial hair and scalp from CharSections, then
+  each worn item's ItemDisplayInfo fields 14-21 from `Item\TextureComponents\<Region>Texture\`,
+  `_M`/`_F` before `_U`, in WoW Model Viewer's slot order and regions per slot), named as one texture
+  path, `wow.ComposedTexture` (`compose:<region>=<path>|...`), which `/wow/texture` draws
+  (`internal/wow/charskin.go`, the 256x256 layout's regions). A cloak is geoset 1501 plus its first
+  group with its texture (field 3, `Item\ObjectComponents\Cape\`) in texture slot 2. Below it the tooltip (`components/ItemTooltipBox.svelte`, shared with the Shop
   tab's `ItemTooltip`) is `tooltipLines` over the unsaved values, so it follows every change;
   `itemTooltip.ts` follows the order of the client's tooltip builder as Benilla documents it
   (`benilla-ui/src/script/tooltip_item/render.rs`), and `items.ts` `itemTooltipNames` names the
