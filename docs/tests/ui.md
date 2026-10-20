@@ -292,6 +292,12 @@ target and facing. A click moves the camera there (`controller.focus`). In the d
   a map whose models have moving cut-out textures (waterfalls, leaves) redrew the near map every frame
   until those materials were marked as movers too; count the frames whose `near.needsUpdate` is set
   (wrap `markShadows`) against `posedShadows.passes` to see which kind of redraw a map gets.
+- The near map's lookup under a turning sun (#366, probe `shadow-sun-drift`): between redraws (the
+  sun held within 0.1°, #324) `near.matrix` must stay the one the map was drawn with, though the key
+  light follows the live sun. The probe steps `e.hour` by 0.0005 a frame with the clock frozen and
+  compares the matrix after each held frame with the one after the last redraw. Trap: a pixel diff
+  barely sees the slide (a few texels at the box's edge, mean 0.07 against 0.03 for the lighting's
+  own turn), so compare the matrix.
 
 ## Start dialog: opening an instance (#222, #271, probe `instance-open`)
 

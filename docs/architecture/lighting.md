@@ -51,7 +51,9 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   (`DIR_COS`): a fit keeps its fitted direction and so its texel grid, so the day cycle's sun redraws
   the maps about every 0.1° rather than every frame. The key light's own position follows the live
   direction for the lighting; three updates a shadow matrix only when it redraws that map, so a map
-  and its lookup always agree. Keep the near box inside the far one (the 90% bound) if either
+  and its lookup always agree. `Engine.cullInstances` calls `shadow.updateMatrices` every frame for
+  the cull's frustums, so it puts `shadow.matrix` back afterwards (#366); anything else that updates
+  a shadow's matrices outside its draw must do the same, or the shadows slide under the day cycle. Keep the near box inside the far one (the 90% bound) if either
   cascade's sizes change: `cascadeShadow` blends into the far map at the near map's edge.
 - Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
   surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun

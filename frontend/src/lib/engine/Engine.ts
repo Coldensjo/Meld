@@ -1153,8 +1153,14 @@ export class Engine {
     for (const light of [this.env.key, this.env.far]) {
       if (!light.castShadow) continue
       light.updateMatrixWorld()
-      light.shadow.updateMatrices(light)
-      v.frustums.push(light.shadow.getFrustum())
+			// The cull wants the frustum of the live light, but the lookup matrix must stay the one its map
+			// was drawn with (#366): the light follows the sun's live direction between redraws, and three
+			// sets the matrix again only when it redraws the map.
+			const shadow = light.shadow
+			this.drawnShadowMatrix.copy(shadow.matrix)
+			shadow.updateMatrices(light)
+			shadow.matrix.copy(this.drawnShadowMatrix)
+      v.frustums.push(shadow.getFrustum())
     }
     // The near cascade (the key light's own map) is redrawn on most changes, so a big WMO culls its groups for it too.
     if (this.env.key.castShadow) {
@@ -2008,6 +2014,8 @@ export class Engine {
 		k[4] = v4
 		return true
 	}
+	/** Scratch for `cullInstances`, which keeps a shadow's lookup matrix across its frustum update. */
+	private drawnShadowMatrix = new THREE.Matrix4()
   private shadowFwd = new THREE.Vector3()
   private shadowRay = new THREE.Ray()
   private shadowFocus = new THREE.Vector3()
