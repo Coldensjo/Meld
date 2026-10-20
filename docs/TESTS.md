@@ -580,7 +580,7 @@ the same scene, the report before and after.
 - Creature editor: Looks opens on the creature's display (#206)
 - Creature editor: Shop tab (npc_vendor, #145)
 - Creature editor: Spells tab (creature_spells, #243)
-- Portals and area triggers (#141, #18; Teleport to destination #306, probe `teleport-trigger`)
+- Portals and area triggers (#141, #18; Teleport to destination #306, spawn teleports #308, probe `teleport-trigger`)
 - Flight paths (#180, probe `flight-paths`)
 - Creatures workspace and the new-creature guide (#132)
 - Quest editor (#259)

@@ -1,4 +1,4 @@
-// Teleport to destination (#306): with View › Area triggers on, a right-click on the Deadmines entrance (trigger 78) on Azeroth selects it and offers "Teleport to destination", which opens the Deadmines (map 36) in a new tab with the camera at the trigger's areatrigger_teleport spot; and a spellcaster portal (Portal to Stormwind, 176296) reads its spell's destination in Stormwind.
+// Teleport to destination (#306): with View › Area triggers on, a right-click on the Deadmines entrance (trigger 78) on Azeroth selects it and offers "Teleport to destination", which opens the Deadmines (map 36) in a new tab with the camera at the trigger's areatrigger_teleport spot; a spellcaster portal (Portal to Stormwind, 176296) reads its spell's destination in Stormwind; and a creature's gossip teleport (Lothos Riftwaker, 14387, to Molten Core) becomes a Teleport item in its menu (#308).
 const { ui, editor, prefs } = await P.state()
 const before = prefs.showAreaTriggers
 prefs.showAreaTriggers = true
@@ -47,9 +47,17 @@ try {
 	const tg = P.e.controller.target
 	const camOff = Math.hypot(tg.x - at.x, tg.z - at.z)
 	// A spellcaster portal, through the binding.
-	const portal = await window.go.main.App.ObjectTeleport(176296)
-	const ok = title.startsWith('Area trigger 78') && selected === 78 && dest.map === 36 && camOff < 1 && leftSelected && leftCleared && portal?.map === 0 && Math.abs(portal.x + 9003.46) < 1
-	return { ok, leftSelected, leftCleared, title, selected, region: `${region.mapName} ${region.x}_${region.y} ${region.size}`, dest, camOff: +camOff.toFixed(2), portal }
+	const portal = (await window.go.main.App.SpawnTeleports('object', 176296, 0))?.[0]?.dest
+	// A gossip teleport (#308): the items join a spawn's open menu above Focus when the database answers.
+	const lothos = { kind: 'creature', entry: 14387, guid: 0, name: 'Lothos Riftwaker' }
+	const seq = ++P.e.menuSeq
+	ui.contextMenu = { x: 10, y: 10, title: 'Lothos', items: [{ label: 'Edit creature…' }, { label: 'Focus' }] }
+	await P.e.addSpawnTeleports(lothos, seq, 'Lothos')
+	const lothosItems = ui.contextMenu?.items.map((i) => i.label) ?? []
+	ui.contextMenu = null
+	const gossip = lothosItems[1] === 'Teleport: Gossip: Transport me to the Molten Core, Lothos.' && lothosItems[2] === 'Focus'
+	const ok = title.startsWith('Area trigger 78') && selected === 78 && dest.map === 36 && camOff < 1 && leftSelected && leftCleared && portal?.map === 0 && Math.abs(portal.x + 9003.46) < 1 && gossip
+	return { ok, leftSelected, leftCleared, title, selected, region: `${region.mapName} ${region.x}_${region.y} ${region.size}`, dest, camOff: +camOff.toFixed(2), portal, lothosItems }
 } finally {
 	prefs.showAreaTriggers = before
 }

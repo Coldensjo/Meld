@@ -160,9 +160,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   keeps what it drew, so `Engine.openContextMenu` can pick a trigger with `world/teleport.ts`
   `pickTrigger` (only while drawn; one the camera is inside is skipped). `triggerWins` settles it
   against `pickNearest`'s hit: a placed model wins only in front of the trigger (a dungeon portal
-  stands in its building), a spawn inside it too. The menu's Teleport to destination, and the same
-  item on a type 22 (spellcaster) or type 10 (goober) object spawn (`ObjectTeleport`: the template's
-  data0 or data10 spell, then its `spell_target_position`), call `io/mapio.ts` `teleportTo`: switch
+  stands in its building), a spawn inside it too. The menu's Teleport to destination, and a
+  spawn's Teleport items, call `io/mapio.ts` `teleportTo`. A spawn's items (#308) join its open menu
+  above Focus when `SpawnTeleports` answers (`Engine.addSpawnTeleports`; `menuSeq` and the title
+  drop an answer whose menu is gone): `internal/vmangos/teleport.go` gathers in one query every
+  destination of a spell with a teleport effect (5) and a `spell_target_position` row, and every
+  `TELEPORT_TO` (script command 6; a creature's own scripts with map 0 stay on its spawn's map) and
+  cast of such a spell (command 15) in the scripts the spawn runs: its gossip menus and the menus
+  they open (`gossip_scripts`), the quests it starts and ends, a creature's spell list, AI events
+  and waypoints, an object's spell (spellcaster data0, goober data10), use (`gameobject_scripts`,
+  by guid) and event (`event_scripts`). C++ scripts and scripts started by other scripts are out of
+  reach. `teleportTo`: switch
   to a tab whose map and block hold the spot, else open the map (`blockAround`: up to 3x3 tiles
   round it, or `LoadBuildingMap` for a map with no tiles), then `Engine.viewSpot`. It moves Meld's
   view, not the game's character (Play here does that).

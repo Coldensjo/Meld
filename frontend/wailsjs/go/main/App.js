@@ -326,10 +326,6 @@ export function ObjectModel(arg1) {
   return window['go']['main']['App']['ObjectModel'](arg1);
 }
 
-export function ObjectTeleport(arg1) {
-  return window['go']['main']['App']['ObjectTeleport'](arg1);
-}
-
 export function OpenBrushDialog() {
   return window['go']['main']['App']['OpenBrushDialog']();
 }
@@ -676,6 +672,10 @@ export function SpawnEmotes() {
 
 export function SpawnLook(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['SpawnLook'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function SpawnTeleports(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SpawnTeleports'](arg1, arg2, arg3);
 }
 
 export function SpellCategories() {

@@ -169,8 +169,6 @@ export function NextPoolEntry():Promise<number>;
 
 export function ObjectModel(arg1:number):Promise<string>;
 
-export function ObjectTeleport(arg1:number):Promise<vmangos.TriggerTeleport>;
-
 export function OpenBrushDialog():Promise<Array<string>>;
 
 export function OpenHeightmapDialog():Promise<string>;
@@ -344,6 +342,8 @@ export function SpawnEditSQL(arg1:string,arg2:number,arg3:number,arg4:number,arg
 export function SpawnEmotes():Promise<Array<vmangos.Emote>>;
 
 export function SpawnLook(arg1:number,arg2:number,arg3:number,arg4:number,arg5:number):Promise<vmangos.LookResult>;
+
+export function SpawnTeleports(arg1:string,arg2:number,arg3:number):Promise<Array<vmangos.SpawnTeleport>>;
 
 export function SpellCategories():Promise<Array<vmangos.SpellCategory>>;
 

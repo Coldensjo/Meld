@@ -108,10 +108,13 @@ import { SpawnLinks } from '../world/SpawnLinks'
 import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
 import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, ObjectTeleport, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionInner, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionInner, RegionShadows, SpawnLook, SpawnTeleports } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 import { contentKey } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
+
+/** The most Teleport items a spawn's menu lists (#308); a boss with many blink spots would fill the screen. */
+const MAX_TELEPORT_ITEMS = 10
 
 /** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
 const FIT_APRON_CELLS = 2
@@ -2367,6 +2370,7 @@ export class Engine {
    */
   private openContextMenu(e: PointerEvent) {
     ui.contextMenu = null
+    const seq = ++this.menuSeq
     this.updatePointer(e)
     this.raycaster.setFromCamera(this.ndc, this.camera)
     const items: ContextItem[] = []
@@ -2404,8 +2408,6 @@ export class Engine {
         items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })
       } else {
         items.push({ label: 'Edit object…', run: () => (ui.objectEditor = { key, entry: spawn.entry }) })
-        // A spellcaster portal or a goober casts a spell that may teleport (#306).
-        if (spawn.type === 22 || spawn.type === 10) items.push({ label: 'Teleport to destination', run: () => void this.teleportByObject(spawn) })
       }
       items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
       const type = spawnType(spawn)
@@ -2427,18 +2429,39 @@ export class Engine {
       items.push({ separator: true }, { label: n > 1 ? 'Delete models' : 'Delete model', shortcut: 'Del', danger: true, run: () => this.deleteSelected() })
     }
     ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
+    if (spawn) void this.addSpawnTeleports(spawn, seq, title)
   }
 
-  /** Follows game object `spawn`'s teleport spell (its template's spell_target_position), if it has one. */
-  private async teleportByObject(spawn: vmangos.WorldSpawn) {
-    const what = spawn.name || `Object ${spawn.entry}`
+  /** Counts the viewport menus opened, so an answer that comes back late finds whether its menu is still up. */
+  private menuSeq = 0
+
+  /**
+   * Adds a spawn's Teleport items to its open menu once the world database answers (#306, #308): one
+   * a destination its gossip, spells and scripts lead to (`SpawnTeleports`), above Focus. Nothing is
+   * added when it teleports no one, or when the menu was closed or replaced meanwhile.
+   */
+  private async addSpawnTeleports(spawn: vmangos.WorldSpawn, seq: number, title: string) {
+    let found: vmangos.SpawnTeleport[]
     try {
-      const dest = await ObjectTeleport(spawn.entry)
-      if (dest) await teleportTo(this, dest, what)
-      else setStatus(`${what} casts no spell with a destination (spell_target_position), so it teleports no one.`, 6000)
-    } catch (err) {
-      setStatus(`Reading where ${what} leads failed: ${err}`, 8000)
+      found = (await SpawnTeleports(spawn.kind === 'object' ? 'object' : 'creature', spawn.entry, spawn.guid)) ?? []
+    } catch {
+      return
     }
+    const menu = ui.contextMenu
+    if (!found.length || seq !== this.menuSeq || !menu || menu.title !== title) return
+    const what = spawn.name || `#${spawn.entry}`
+    const total = new Map<string, number>()
+    for (const t of found) total.set(t.label, (total.get(t.label) ?? 0) + 1)
+    const seen = new Map<string, number>()
+    const items: ContextItem[] = found.slice(0, MAX_TELEPORT_ITEMS).map((t) => {
+      const n = (seen.get(t.label) ?? 0) + 1
+      seen.set(t.label, n)
+      // A creature that blinks between several spots under one name: number them.
+      const label = (total.get(t.label) ?? 0) > 1 ? `${t.label} (${n})` : t.label
+      return { label: `Teleport: ${label}`, run: () => void teleportTo(this, t.dest, `${what}, ${label}`) }
+    })
+    const at = menu.items.findIndex((i) => i.label === 'Focus')
+    ui.contextMenu = { ...menu, items: [...menu.items.slice(0, at), ...items, ...menu.items.slice(at)] }
   }
 
   /**

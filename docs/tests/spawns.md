@@ -274,9 +274,18 @@ server's names and teleports, draws them, and saves them to the client's patch a
 - Teleport to destination (#306): probe `teleport-trigger`. With View › Area triggers on, a
   right-click on trigger 78 selects it (`__engine.triggerLayer.selected`) and its menu's Teleport to
   destination opens `DeadminesInstance 31_31 3` with the camera on the areatrigger_teleport spot
-  (-14.6, -385.5, 62.5); `ObjectTeleport(176296)` (Portal to Stormwind, type 22) gives
-  (-9003.5, 870.0) on map 0. Unit: `tests/teleport.test.ts` (ray against spheres and turned boxes,
-  which hit wins, the block opened round a spot), `internal/vmangos/teleport_test.go`. Spawned
+  (-14.6, -385.5, 62.5); `SpawnTeleports('object', 176296, 0)` (Portal to Stormwind, type 22)
+  gives (-9003.5, 870.0) on map 0, and Lothos Riftwaker's (creature 14387) gossip teleport becomes
+  the item `Teleport: Gossip: Transport me to the Molten Core, Lothos.` above Focus (#308; the probe
+  calls `Engine.addSpawnTeleports` on a menu it opens). Unit: `tests/teleport.test.ts` (ray against
+  spheres and turned boxes, which hit wins, the block opened round a spot),
+  `internal/vmangos/teleport_test.go`. Other spawns with teleports, for a check by hand: Unstable
+  Rift Crystal (object 180601, gossip to Molten Core), Morridune (creature 6729, gossip to
+  Darnassus), Johnny McWeaksauce (16999, Naxxramas), Archmage Arugal (4275, three Shadow Port spots
+  from AI scripts), Magistrate Barthilas (10435, a waypoint script with map 0, shown on Stratholme's
+  map 329). Trap: a new Go binding needs the Go side of `wails dev` rebuilt; when it isn't, stub the
+  binding in the page (`window.go.main.App.X = async () => ...`, restored in a `finally`) to check
+  the frontend, and run the SQL itself against the database. Spawned
   portals to test by hand: `SELECT entry, type, name FROM gameobject_template WHERE type IN (10, 22)`
   joined to `gameobject` (the city portals are summoned by mages, not spawned; Inner Maraudon's
   178404 and the Naxxramas portals are).

@@ -918,14 +918,14 @@ func (a *App) ObjectModel(display int) (string, error) {
 	return vmangos.ObjectModel(dataDir, display)
 }
 
-// ObjectTeleport is where game object template entry sends a player (a spellcaster portal's or a
-// goober's spell_target_position), nil when it sends them nowhere (#306).
-func (a *App) ObjectTeleport(entry int) (*vmangos.TriggerTeleport, error) {
+// SpawnTeleports lists where a creature (kind "creature") or game object (kind "object") spawn sends
+// a player or moves itself: its gossip, the spells it casts and the scripts it runs (#306, #308).
+func (a *App) SpawnTeleports(kind string, entry, guid int) ([]vmangos.SpawnTeleport, error) {
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return nil, err
 	}
-	return vmangos.ObjectTeleport(server, entry)
+	return vmangos.SpawnTeleports(server, kind, entry, guid)
 }
 
 // NextObjectGUID is the first free game object guid of the world database, for placed objects.
