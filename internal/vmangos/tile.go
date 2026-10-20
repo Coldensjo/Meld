@@ -126,8 +126,15 @@ func rowBits(rows [adt.CellsPerChunk]uint8) []int {
 	return nil
 }
 
+// SculptedEps is how far (in yards) a cell's corner must move from the client's tile for the cell to
+// count as sculpted, above float noise (#380).
+const SculptedEps = 1e-3
+
 // PatchTileHeights returns root with its outer heights replaced by outer (LatticeSize squared,
-// as TileView has them). Shared edge samples are written into both chunks that hold them.
+// as TileView has them). Shared edge samples are written into both chunks that hold them. A cell
+// whose corners all keep the client's heights keeps its inner sample (the client's detail at the
+// cell's middle); a sculpted one, any corner moved by more than SculptedEps, has it at the corners'
+// mean, as the editor shows the cell (#380).
 func PatchTileHeights(root []byte, outer []float32) ([]byte, error) {
 	if len(outer) != LatticeSize*LatticeSize {
 		return nil, fmt.Errorf("vmangos: %d heights for a tile, want %d", len(outer), LatticeSize*LatticeSize)
@@ -138,8 +145,9 @@ func PatchTileHeights(root []byte, outer []float32) ([]byte, error) {
 	}
 	for i := range terrain.Chunks {
 		c := &terrain.Chunks[i]
-		// The change at each outer sample. The inner samples sit between four outer ones, so each
-		// moves by the average change of those four; an unedited tile keeps its detail exactly.
+		// The change at each outer sample. The inner samples sit between four outer ones: an
+		// untouched cell's moves by the (float noise) average change of those four, so an unedited
+		// tile keeps its detail exactly, and a sculpted cell's goes to the four's mean.
 		var delta [adt.CellsPerChunk + 1][adt.CellsPerChunk + 1]float32
 		for r := 0; r <= adt.CellsPerChunk; r++ {
 			for col := 0; col <= adt.CellsPerChunk; col++ {
@@ -151,13 +159,21 @@ func PatchTileHeights(root []byte, outer []float32) ([]byte, error) {
 		}
 		for r := 0; r < adt.CellsPerChunk; r++ {
 			for col := 0; col < adt.CellsPerChunk; col++ {
-				avg := (delta[r][col] + delta[r][col+1] + delta[r+1][col] + delta[r+1][col+1]) / 4
-				c.Heights[r*17+9+col] += avg
+				d0, d1, d2, d3 := delta[r][col], delta[r][col+1], delta[r+1][col], delta[r+1][col+1]
+				if sculpted(d0) || sculpted(d1) || sculpted(d2) || sculpted(d3) {
+					h := &c.Heights
+					c.Heights[r*17+9+col] = (h[r*17+col] + h[r*17+col+1] + h[(r+1)*17+col] + h[(r+1)*17+col+1]) / 4
+					continue
+				}
+				c.Heights[r*17+9+col] += (d0 + d1 + d2 + d3) / 4
 			}
 		}
 	}
 	return adt.WriteHeights(root, terrain)
 }
+
+// sculpted says a corner's change d moves it off the client's height (#380).
+func sculpted(d float32) bool { return d > SculptedEps || d < -SculptedEps }
 
 // BaseTileRoot returns a tile's file as the client has it without Meld's patch (Blizzard's patch.MPQ
 // and patch-2.MPQ still apply), the file a save rebuilds from.

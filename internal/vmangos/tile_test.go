@@ -160,8 +160,10 @@ func TestRegionSaveKeepsBlizzardPatch(t *testing.T) {
 	}
 }
 
-// Raising the outer samples must raise the inner samples inside them too; leaving the inner ones
-// alone made a sculpted surface jagged. It needs WOW_DIR set to the client.
+// Raising the outer samples must move the inner samples inside them too; leaving the inner ones
+// alone made a sculpted surface jagged. A sculpted cell's middle goes to its corners' mean, as the
+// editor shows it (#380), even where the client's tile lifts it a few yards off that mean. It needs
+// WOW_DIR set to the client.
 func TestPatchMovesInnerSamples(t *testing.T) {
 	dir := os.Getenv("WOW_DIR")
 	if dir == "" {
@@ -187,7 +189,63 @@ func TestPatchMovesInnerSamples(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	before, err := adt.ParseTerrain(root)
+	after, err := adt.ParseTerrain(patched)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for c := range after.Chunks {
+		h := after.Chunks[c].Heights
+		for r := 0; r < adt.CellsPerChunk; r++ {
+			for col := 0; col < adt.CellsPerChunk; col++ {
+				mean := (h[r*17+col] + h[r*17+col+1] + h[(r+1)*17+col] + h[(r+1)*17+col+1]) / 4
+				if d := h[r*17+9+col] - mean; math.Abs(float64(d)) > 1e-3 {
+					t.Fatalf("chunk %d inner %d,%d is %v off its corners' mean", c, r, col, d)
+				}
+			}
+		}
+	}
+}
+
+// A sculpted cell's inner sample goes to its corners' mean, and a cell whose corners all keep the
+// client's heights keeps the client's own middle, bump and all (#380).
+func TestPatchSculptedCellsTakeTheMean(t *testing.T) {
+	outer := make([]float32, LatticeSize*LatticeSize)
+	for i := range outer {
+		outer[i] = 10
+	}
+	built, err := adt.BuildTile(outer, adt.Changes{TileX: 32, TileY: 48})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The client's detail: every cell's middle 3 yd over its corners.
+	terrain, err := adt.ParseTerrain(built)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for c := range terrain.Chunks {
+		for r := 0; r < adt.CellsPerChunk; r++ {
+			for col := 0; col < adt.CellsPerChunk; col++ {
+				terrain.Chunks[c].Heights[r*17+9+col] += 3
+			}
+		}
+	}
+	root, err := adt.WriteHeights(built, terrain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	same, err := PatchTileHeights(root, outer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(same, root) {
+		t.Fatal("unchanged heights changed the tile")
+	}
+
+	// Lower one corner: the four cells around it are sculpted, the rest are not.
+	const gr, gc = 20, 30
+	edited := append([]float32(nil), outer...)
+	edited[gr*LatticeSize+gc] = 6
+	patched, err := PatchTileHeights(root, edited)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,14 +253,23 @@ func TestPatchMovesInnerSamples(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for c := range before.Chunks {
-		for r := 0; r < adt.CellsPerChunk; r++ {
-			for col := 0; col < adt.CellsPerChunk; col++ {
-				d := after.Chunks[c].Heights[r*17+9+col] - before.Chunks[c].Heights[r*17+9+col]
-				if math.Abs(float64(d)-4) > 1e-3 {
-					t.Fatalf("chunk %d inner %d,%d moved by %v, want 4", c, r, col, d)
-				}
+	inner := func(cellR, cellC int) float32 {
+		for _, c := range after.Chunks {
+			if c.IndexX == cellC/adt.CellsPerChunk && c.IndexY == cellR/adt.CellsPerChunk {
+				return c.Heights[(cellR%adt.CellsPerChunk)*17+9+cellC%adt.CellsPerChunk]
 			}
+		}
+		t.Fatalf("no chunk holds cell %d,%d", cellR, cellC)
+		return 0
+	}
+	for _, cell := range [][2]int{{gr - 1, gc - 1}, {gr - 1, gc}, {gr, gc - 1}, {gr, gc}} {
+		if got := inner(cell[0], cell[1]); math.Abs(float64(got-9)) > 1e-5 {
+			t.Fatalf("sculpted cell %v has its middle at %v, want the corners' mean 9", cell, got)
+		}
+	}
+	for _, cell := range [][2]int{{gr - 2, gc}, {gr + 1, gc + 1}, {0, 0}} {
+		if got := inner(cell[0], cell[1]); math.Abs(float64(got-13)) > 1e-5 {
+			t.Fatalf("untouched cell %v has its middle at %v, want the client's 13", cell, got)
 		}
 	}
 }

@@ -2307,6 +2307,7 @@ export namespace vmangos {
 	export class RegionInner {
 	    side: number;
 	    lifts: string;
+	    base: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionInner(source);
@@ -2316,6 +2317,7 @@ export namespace vmangos {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.side = source["side"];
 	        this.lifts = source["lifts"];
+	        this.base = source["base"];
 	    }
 	}
 	

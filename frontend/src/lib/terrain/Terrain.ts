@@ -91,11 +91,13 @@ export class Terrain {
    * How far each cell's middle (its MCVT inner height) lies above its four corners' mean in the
    * client's tile, a float a cell, `size` a row; null for a map of its own or until read. The grid
    * keeps only the corners, so this is the walkable-ground view's alone (#284): the server's ground
-   * has four triangles a cell about that middle, which the export moves by the corners' mean change,
-   * so a cell's middle is its corners' mean plus this, sculpted or not. Read from the client once per
-   * terrain (`Engine.updateInnerLift`), never saved.
+   * has four triangles a cell about that middle, which the export keeps while the cell's corners keep
+   * the client's heights (`innerBase`) and puts at the corners' mean once one has moved (#380). Read
+   * from the client once per terrain (`Engine.updateInnerLift`), never saved.
    */
   innerLift: Float32Array | null = null
+  /** The client's corner heights `innerLift` is over (`heights`' layout), to tell a sculpted cell. */
+  innerBase: Float32Array | null = null
   /** Whether the Engine has asked the client for `innerLift`, and whether the answer is still on its way. */
   innerRequested = false
   innerPending = false

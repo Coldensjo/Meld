@@ -19,7 +19,7 @@ import {
 	vmangosSettings,
 	type TileInput,
 } from '../src/lib/world/nav/navBuild.ts'
-import { TileGatherer, adtHeightSpan, liquidTypeArea, placeFaces, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
+import { TileGatherer, adtHeightSpan, cellLift, liquidTypeArea, placeFaces, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
 import { NavLiquids } from '../src/lib/world/nav/navLiquids.ts'
 import { HOLE_FIRST } from '../src/lib/terrain/holes.ts'
 import { columnSpans, heightfieldSpans } from '../src/lib/world/nav/navFilters.ts'
@@ -119,6 +119,24 @@ test("a region's cell middle sits at the corners' mean plus the client's inner l
 	g.innerLift = null
 	const flatTile = new TileGatherer().gather(g, [], 0, 0, 3 * CELL - 0.01, 3 * CELL - 0.01, groundAt(g))
 	assert.equal(flatTile.maxY, 10)
+})
+
+test("a sculpted cell's middle sits at its corners' mean, as the export writes it (#380)", () => {
+	const g = flat(16)
+	g.innerLift = new Float32Array(16 * 16).fill(2)
+	g.innerBase = g.heights.slice()
+	assert.equal(cellLift(g, 5, 5), 2)
+	// Lower the corner shared by cells (4..5, 4..5): those four lose the client's lift, their neighbours keep it.
+	g.heights[5 * g.verts + 5] = 6
+	for (const [x, z] of [[4, 4], [5, 4], [4, 5], [5, 5]]) assert.equal(cellLift(g, x, z), 0)
+	for (const [x, z] of [[3, 5], [6, 5], [5, 3], [5, 6], [0, 0]]) assert.equal(cellLift(g, x, z), 2)
+	// Float noise is not a sculpt.
+	g.heights[5 * g.verts + 5] = 10 + 1e-4
+	assert.equal(cellLift(g, 5, 5), 2)
+	// Without the base heights, every cell keeps its lift.
+	g.heights[5 * g.verts + 5] = 6
+	g.innerBase = null
+	assert.equal(cellLift(g, 5, 5), 2)
 })
 
 test("a half-cell hole leaves out the same world triangle whatever the tile's first cell", () => {

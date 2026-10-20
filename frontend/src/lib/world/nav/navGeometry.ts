@@ -1,6 +1,6 @@
 // What one navmesh tile is built from (View › Walkable ground, #175): the terrain's triangles under
 // the tile's box, four a cell about its middle as the server's map has them (a region's middle at the
-// client's inner height, Terrain.innerLift, #284; a half-cell hole keeps its other triangle as the
+// client's inner height until the cell is sculpted, cellLift, #284, #380; a half-cell hole keeps its other triangle as the
 // ground draws it, holes.ts), and the collision faces of the placed
 // models that reach into it, cut as VMaNGOS's builder cuts them (TerrainBuilder::loadVMap,
 // TileWorker::buildMoveMapTile; #282):
@@ -34,6 +34,35 @@ export interface NavGround {
 	 * heights, Terrain.innerLift, #284), `size` a row; null where every middle is the mean.
 	 */
 	innerLift?: Float32Array | null
+	/** The client's corner heights those lifts are over, `heights`' layout (Terrain.innerBase, #380). */
+	innerBase?: Float32Array | null
+}
+
+/** How far a corner must move off the client's height for its cells to count as sculpted, in yards (vmangos.SculptedEps). */
+const SCULPTED_EPS = 1e-3
+
+/**
+ * How far cell (gx, gz)'s middle lies above its corners' mean in the exported tile: the client's lift
+ * while all four corners keep the client's heights, 0 once one has moved, since the export puts a
+ * sculpted cell's middle at its corners' mean (PatchTileHeights, #380).
+ */
+export function cellLift(g: NavGround, gx: number, gz: number): number {
+	const lift = g.innerLift
+	if (!lift) return 0
+	const base = g.innerBase
+	if (base) {
+		const h = g.heights
+		const i = gz * g.verts + gx
+		const j = i + g.verts
+		if (
+			Math.abs(h[i] - base[i]) > SCULPTED_EPS ||
+			Math.abs(h[i + 1] - base[i + 1]) > SCULPTED_EPS ||
+			Math.abs(h[j] - base[j]) > SCULPTED_EPS ||
+			Math.abs(h[j + 1] - base[j + 1]) > SCULPTED_EPS
+		)
+			return 0
+	}
+	return lift[gz * g.size + gx]
 }
 
 /**
@@ -165,14 +194,14 @@ export function adtHeightSpan(
 	const z0 = Math.max(0, az * per - 1), z1 = Math.min(ground.size - 1, (az + 1) * per)
 	const h = ground.heights
 	const v = ground.verts
-	const lift = ground.innerLift
+	const lifted = !!ground.innerLift
 	for (let gz = z0; gz <= z1; gz++) {
 		for (let gx = x0; gx <= x1; gx++) {
 			if (ground.holes[gz * ground.size + gx] === HOLE_CELL || deep?.(gx, gz)) continue
 			const i = gz * v + gx
 			const a = h[i], b = h[i + 1], c = h[i + v], d = h[i + v + 1]
 			// The cell's middle counts too, as the inner sample does on the server.
-			const m = lift ? (a + b + c + d) / 4 + lift[gz * ground.size + gx] : a
+			const m = lifted ? (a + b + c + d) / 4 + cellLift(ground, gx, gz) : a
 			lo = Math.min(lo, a, b, c, d, m)
 			hi = Math.max(hi, a, b, c, d, m)
 		}
@@ -323,9 +352,10 @@ export class TileGatherer {
 				if (v === HOLE_NONE) {
 					// Four triangles about the cell's middle, as the server's map has the client's inner
 					// height there: the corners' mean, lifted as far as the client's tile has it over
-					// its own corners' mean, which is what the export writes (PatchTileHeights, #284).
+					// its own corners' mean while the cell is unsculpted, which is what the export
+					// writes (PatchTileHeights, #284, #380).
 					const p = this.pos
-					const lift = g.innerLift ? g.innerLift[gz * g.size + gx] : 0
+					const lift = cellLift(g, gx, gz)
 					const m = this.vertex((gx + 0.5) * cs, (p[a * 3 + 1] + p[b * 3 + 1] + p[c * 3 + 1] + p[d * 3 + 1]) / 4 + lift, (gz + 0.5) * cs)
 					tri(a, c, m)
 					tri(c, d, m)

@@ -407,10 +407,14 @@ creature's way round obstacles.
   server's tile header holds its height span (`bmin`/`bmax` at bytes 72 to 96 of the Detour data,
   after `/wow/navtile`'s 20-byte prefix), which `NavPreview`'s `spans` should match: 28.846 for
   32_48. A gap a hair over 1.5 yd flips with the voxels' origin, so check that first.
-- Inner heights (#284): Go `TestInnerLifts`, and with `WOW_DIR=C:/WoW/client` `TestClientRegionInner`
-  (each lift of Azeroth 32_48 puts its cell's corners' mean back on the client's inner sample; the
-  largest is about 4 yd); unit: `tests/navmesh.test.ts` (a lifted middle in the gathered ground and the
-  tile's span). In the app, with the view on in the benchmark scene, `e.terrain.innerLift` is a float a
+- Inner heights (#284, #380): Go `TestInnerLifts` and `TestPatchSculptedCellsTakeTheMean` (a
+  synthetic tile: an unedited tile stays byte-identical, the four cells about a lowered corner get
+  their corners' mean, the rest keep the tile's middles), and with `WOW_DIR=C:/WoW/client`
+  `TestClientRegionInner` (each lift of Azeroth 32_48 puts its cell's corners' mean back on the
+  client's inner sample, the largest is about 4 yd, and `Base` is the tile's corners) and
+  `TestPatchMovesInnerSamples` (a uniform +4 raise leaves every middle at its corners' mean); unit:
+  `tests/navmesh.test.ts` (a lifted middle in the gathered ground and the tile's span; `cellLift` is 0
+  for a cell with a corner off `innerBase`). In the app, with the view on in the benchmark scene, `e.terrain.innerLift` is a float a
   cell (16384 for one tile) once `innerPending` is false; a probe that turns the view on and reads the
   ground at once must wait for that, as `NavPreview` does.
 - Trap: Recast lifts the detail mesh's copy of a polygon's corners by one voxel height

@@ -1708,8 +1708,10 @@ export class Engine {
     t.innerPending = true
     RegionInner(region.mapName, region.x, region.y, region.size)
       .then((r) => {
-        if (r?.lifts && r.side === t.size) {
+        if (r?.lifts && r.base && r.side === t.size) {
           const b = base64ToBytes(r.lifts)
+          const c = base64ToBytes(r.base)
+          t.innerBase = new Float32Array(c.buffer, c.byteOffset, c.byteLength / 4)
           t.innerLift = new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4)
         }
       })

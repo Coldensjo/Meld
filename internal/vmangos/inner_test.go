@@ -76,6 +76,20 @@ func TestClientRegionInner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Base is the tile's own corners, the heights the export compares the editor's with (#380).
+	bb, err := base64.StdEncoding.DecodeString(in.Base)
+	if err != nil || len(bb) != 4*LatticeSize*LatticeSize {
+		t.Fatalf("%d bytes of base heights (%v)", len(bb), err)
+	}
+	lattice, err := tileLattice(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, v := range lattice {
+		if got := math.Float32frombits(binary.LittleEndian.Uint32(bb[4*k:])); got != v {
+			t.Fatalf("base height %d is %v, want %v", k, got, v)
+		}
+	}
 	var most float64
 	for _, c := range terrain.Chunks {
 		for r := 0; r < adt.CellsPerChunk; r++ {

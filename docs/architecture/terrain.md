@@ -122,13 +122,17 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   - **Inner heights** (#284): the grid keeps only a cell's corners, but the client's tile has a height
     at each cell's middle too (MCVT's 8x8 inner samples, up to 4 yd off the corners' mean in
     Northshire's tile, 1.5 yd near the abbey), and the server builds its four triangles about it. The
-    export moves an inner sample by the mean change of its four corners (`PatchTileHeights`), so a
-    cell's middle is its corners' mean plus the client's own lift over its corners' mean, sculpted or
-    not. `RegionInner` (`vmangos.ReadRegionInner`, from the tiles a save starts from) sends those lifts,
-    a float a cell; `Engine.updateInnerLift` reads them once per terrain into `Terrain.innerLift` the
-    first time the view builds a region, the build waits for them (`innerPending`), and
-    `TileGatherer.addGround` and `adtHeightSpan` add them. They are not saved: a map of its own has
-    none (its export writes the mean), and a region's come from the client each session.
+    export (`PatchTileHeights`) keeps a cell's inner sample while its four corners keep the client's
+    heights, and puts it at the corners' mean, what the editor shows, once any corner has moved by
+    more than `SculptedEps` (1e-3 yd; #380), so a flattened area loses the client's bumps. So an
+    unsculpted cell's middle is its corners' mean plus the client's lift over that mean, and a
+    sculpted one's is the mean. `RegionInner` (`vmangos.ReadRegionInner`, from the tiles a save starts
+    from) sends those lifts, a float a cell, and the client's corner heights they are over;
+    `Engine.updateInnerLift` reads them once per terrain into `Terrain.innerLift` and
+    `Terrain.innerBase` the first time the view builds a region, the build waits for them
+    (`innerPending`), and `TileGatherer.addGround` and `adtHeightSpan` add each cell's `cellLift` (0
+    where a corner is off `innerBase`, as the export decides). They are not saved: a map of its own
+    has none (its export writes the mean), and a region's come from the client each session.
   - `NavPreview.ts` keeps the tiles within `RANGE` (160 yd), builds the nearest first within 6 ms a
     frame, and builds them again 400 ms after the terrain's height or holes, the objects, the
     loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. `Engine.updateNav` calls it only while the view is on and
