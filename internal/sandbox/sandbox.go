@@ -14,7 +14,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 )
 
 // Patch is the archive Meld writes, the one the copy holds a copy of rather than a link to (as
@@ -46,7 +48,7 @@ func Prepare(realData, root string) (string, error) {
 		if _, ok := real[strings.ToLower(name)]; ok && !strings.EqualFold(name, Patch) {
 			continue
 		}
-		if err := os.RemoveAll(filepath.Join(data, name)); err != nil {
+		if err := retry(func() error { return os.RemoveAll(filepath.Join(data, name)) }); err != nil {
 			return "", err
 		}
 	}
@@ -93,12 +95,12 @@ func link(src, dst string) error {
 		if os.SameFile(si, di) {
 			return nil
 		}
-		if err := os.Remove(dst); err != nil {
+		if err := retry(func() error { return os.Remove(dst) }); err != nil {
 			return err
 		}
 	} else if _, lerr := os.Lstat(dst); lerr == nil {
 		// A symbolic link whose file is gone.
-		if err := os.Remove(dst); err != nil {
+		if err := retry(func() error { return os.Remove(dst) }); err != nil {
 			return err
 		}
 	}
@@ -133,7 +135,28 @@ func copyFile(src, dst string) error {
 		os.Remove(tmp)
 		return err
 	}
-	return os.Rename(tmp, dst)
+	return retry(func() error { return os.Rename(tmp, dst) })
+}
+
+// Retry settings for retry: on Windows a virus scanner or the search indexer may hold a file it has
+// just seen written for a moment (#384).
+var (
+	retryTries = 10
+	retryWait  = 300 * time.Millisecond
+)
+
+// retry runs op, and on Windows runs it again, up to retryTries times retryWait apart, while it
+// fails because another process holds the file. Elsewhere it runs op once.
+func retry(op func() error) error {
+	err := op()
+	if runtime.GOOS != "windows" {
+		return err
+	}
+	for i := 1; err != nil && !errors.Is(err, os.ErrNotExist) && i < retryTries; i++ {
+		time.Sleep(retryWait)
+		err = op()
+	}
+	return err
 }
 
 // check makes sure the copy's patch is a file of its own, so writing it can't change the real one.

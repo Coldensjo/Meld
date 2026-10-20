@@ -1,9 +1,12 @@
 package sandbox
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 )
 
 func write(t *testing.T, path, data string) {
@@ -100,5 +103,31 @@ func TestPrepareNoArchives(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := Prepare(dir, filepath.Join(dir, "sandbox")); err == nil {
 		t.Fatal("a folder without archives was taken")
+	}
+}
+
+// A failure that goes away on its own is retried on Windows and returned at once elsewhere (#384).
+func TestRetry(t *testing.T) {
+	oldWait := retryWait
+	retryWait = time.Millisecond
+	defer func() { retryWait = oldWait }()
+	calls := 0
+	err := retry(func() error {
+		calls++
+		if calls < 3 {
+			return errors.New("in use")
+		}
+		return nil
+	})
+	if runtime.GOOS == "windows" {
+		if err != nil || calls != 3 {
+			t.Fatalf("err %v after %d calls, want success after 3", err, calls)
+		}
+	} else if err == nil || calls != 1 {
+		t.Fatalf("err %v after %d calls, want the first failure", err, calls)
+	}
+	calls = 0
+	if err := retry(func() error { calls++; return os.ErrNotExist }); err == nil || calls != 1 {
+		t.Fatalf("a missing file was retried %d times", calls)
 	}
 }
