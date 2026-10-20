@@ -418,7 +418,7 @@ the same scene, the report before and after.
   - Trap: one `measurePerf()` window holds only two or three SwiftShader frames, so its `cpuMs` swings
     ±3 ms between identical runs (perf-everything gave 18.8 to 29.5 on one tree). Since #337 `P.perf()`
     takes 5 windows (`PERF_WINDOWS=n` in the environment, or `P.perf(n)`) and the probes' lines give
-    `cpuMeanMs` with `cpuMinMs` to `cpuMaxMs` beside it (`cpuMs` is the last window's). A run costs
+    `cpuMeanMs` with `cpuMinMs` to `cpuMaxMs` beside it (`cpuMs` is the last window's). `sections` gives the mean ms of each CPU section over the same windows, and `PROBE_SCALE=4` sets a benchmark map's size (the line prints `scale`): `PROBE_SCALE=4 PROBE_TIMEOUT=900 bun run probe perf-everything` (#349). A run costs
     about 5 s a window more. Three runs of perf-everything gave means 21.3, 20.4 and 20.4 with spreads
     of about 2.5 ms. Call a change real only when the means differ by more than the spreads; a gain of
     about 3 ms (15%) is at the edge, so for a change that can be switched at run time A/B it in one

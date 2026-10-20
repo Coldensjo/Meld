@@ -432,20 +432,26 @@ ${fs.slice(0, end)}
 	 * `measurePerf()` while stepping frames (it reports after a second of frames), `windows` times
 	 * (default 5, or `PERF_WINDOWS` from the environment; #337). One window holds two or three
 	 * SwiftShader frames and its cpuMs swings by +-3 ms, so the report returned is the last window's with
-	 * `cpuSamples`, the cpuMs of every window, for `perfSummary` to average.
+	 * `cpuSamples`, the cpuMs of every window, and `sectionNames` / `sectionReports`, the CPU section
+	 * names and every window's section ms, for `perfSummary` to average.
 	 */
 	async perf(windows) {
 		const n = Math.max(1, Math.round(windows ?? Number(window.__probeEnv?.PERF_WINDOWS) ?? 5) || 5)
+		const { CPU_SECTIONS } = await P.app('/src/lib/engine/perfMeter.ts')
 		const samples = []
+		const reports = []
 		let r = null
 		for (let i = 0; i < n; i++) {
 			r = null
 			window.__engine.measurePerf().then((x) => (r = x))
 			await P.until(() => r, 120_000, 'the performance report')
 			samples.push(r.cpuMs)
+			reports.push(r.sections)
 			if (i < n - 1) await P.frames(2)
 		}
 		r.cpuSamples = samples
+		r.sectionNames = CPU_SECTIONS
+		r.sectionReports = reports
 		return r
 	},
 
@@ -455,15 +461,22 @@ ${fs.slice(0, end)}
 	 * the window holds one or two intervals and the figure swings 5x between identical runs (#226): it is
 	 * given only when the window held ten or more. cpuMeanMs is the mean of the `perf()` windows with
 	 * cpuMinMs to cpuMaxMs as its spread: a change shows when the means differ by more than the spreads (#337).
+	 * `sections` is the mean ms of each CPU section over the same windows, so a section an issue names reads off the line (#349).
 	 */
 	perfSummary(r) {
 		const round = (v) => Math.round(v * 100) / 100
 		const s = r.cpuSamples ?? [r.cpuMs]
+		const sections = {}
+		r.sectionNames?.forEach((name, i) => {
+			const v = r.sectionReports.map((x) => x[i])
+			sections[name] = round(v.reduce((a, b) => a + b, 0) / v.length)
+		})
 		return {
 			cpuMeanMs: round(s.reduce((a, b) => a + b, 0) / s.length),
 			cpuMinMs: round(Math.min(...s)),
 			cpuMaxMs: round(Math.max(...s)),
 			windows: s.length,
+			sections,
 			frameMs: r.frames > 10 ? round(r.frameMs) : null,
 			frames: r.frames,
 			cpuMs: round(r.cpuMs),
@@ -647,10 +660,10 @@ ${fs.slice(0, end)}
 
 	/**
 	 * Builds benchmark map `kind` (lib/bench/benchMaps.ts, #322) with `count` of its main thing (its
-	 * default times `scale` when left out, as Help › Benchmark map size does), sets its hour, flies the camera to its view, waits for the client reads
+	 * default times `scale`, `PROBE_SCALE` from the environment when left out (#349), as Help › Benchmark map size does), sets its hour, flies the camera to its view, waits for the client reads
 	 * to stop and measures it. `buildMs` is the map's build, `loadMs` that plus its models' loading.
 	 */
-	async benchMap(kind, count, scale = 1) {
+	async benchMap(kind, count, scale = P.env('SCALE', 1)) {
 		const { buildBenchMap, benchView, benchMap } = await P.app('/src/lib/bench/benchMaps.ts')
 		const { prefs } = await P.state()
 		const m = benchMap(kind)
@@ -668,6 +681,7 @@ ${fs.slice(0, end)}
 		return {
 			map: kind,
 			stresses: m.stresses,
+			scale,
 			count: count ?? Math.round(m.count * scale),
 			size: d.terrain.size,
 			objects: d.objects.objects.size,
