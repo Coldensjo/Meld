@@ -31,5 +31,21 @@ results.tipGoneOnBlur = !document.querySelector('.tip[role="tooltip"]')
 const tabs = document.querySelectorAll('.kinds [role="tab"]')
 results.assetTabs = tabs.length > 0 && [...tabs].every((t) => t.hasAttribute('aria-selected'))
 results.facetsPressed = [...document.querySelectorAll('.facet')].every((f) => f.hasAttribute('aria-pressed'))
-results.noBareListbox = ![...document.querySelectorAll('[role="listbox"]')].some((l) => l.querySelector('button.tile') && !l.querySelector('[role="option"]'))
-return { ok: Object.values(results).every(Boolean), results, first, second }
+const bare = () => [...document.querySelectorAll('[role="listbox"]')].some((l) => l.querySelector('button.tile') && !l.querySelector('[role="option"]'))
+// Every browser tab (models, prefabs, the spawn templates) has valid grids: no bare listbox, and its tiles carry aria-pressed.
+let bareSeen = bare()
+let tilesPressed = true
+let gridsSeen = 0
+for (const t of tabs) {
+	t.click()
+	await new Promise((r) => setTimeout(r, 600))
+	bareSeen = bareSeen || bare()
+	for (const g of document.querySelectorAll('.grid-wrap')) {
+		const tiles = g.querySelectorAll('button.tile')
+		if (tiles.length) gridsSeen++
+		if ([...tiles].some((b) => !b.hasAttribute('aria-pressed'))) tilesPressed = false
+	}
+}
+results.noBareListbox = !bareSeen
+results.gridTilesPressed = tilesPressed
+return { ok: Object.values(results).every(Boolean), results, gridsSeen, first, second }

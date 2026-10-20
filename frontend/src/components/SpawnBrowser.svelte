@@ -256,12 +256,12 @@
   </div>
   <div class="body">
     <nav class="facets">
-      <button class="facet" class:active={!category} onclick={() => setView({ category: '' })}>All <span>{all.length.toLocaleString()}</span></button>
+      <button class="facet" aria-pressed={!category} class:active={!category} onclick={() => setView({ category: '' })}>All <span>{all.length.toLocaleString()}</span></button>
       {#each categories as [name, n] (name)}
-        <button class="facet" class:active={category === name} onclick={() => setView({ category: category === name ? '' : name })}>{name} <span>{n.toLocaleString()}</span></button>
+        <button class="facet" aria-pressed={category === name} class:active={category === name} onclick={() => setView({ category: category === name ? '' : name })}>{name} <span>{n.toLocaleString()}</span></button>
       {/each}
     </nav>
-    <div class="grid-wrap" role="listbox" aria-label="Templates" tabindex="-1" bind:this={scroller} bind:clientWidth={width} bind:clientHeight={height} onscroll={onScroll} onpointerleave={() => onhover(null)}>
+    <div class="grid-wrap" role="group" aria-label="Templates" tabindex="-1" bind:this={scroller} bind:clientWidth={width} bind:clientHeight={height} onscroll={onScroll} onpointerleave={() => onhover(null)}>
       {#if error}
         <p class="hint error">{error}</p>
       {:else if loading}

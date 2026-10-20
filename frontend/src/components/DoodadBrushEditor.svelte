@@ -209,17 +209,17 @@
         {:else}
           <div class="picker">
             <nav class="facets">
-              <button class="facet" class:active={!category} onclick={() => (category = '')}>
+              <button class="facet" aria-pressed={!category} class:active={!category} onclick={() => (category = '')}>
                 All <span>{result.categories.reduce((n, c) => n + c.count, 0).toLocaleString()}</span>
               </button>
               {#each result.categories as c (c.name)}
-                <button class="facet" class:active={category === c.name} onclick={() => (category = category === c.name ? '' : c.name)}>
+                <button class="facet" aria-pressed={category === c.name} class:active={category === c.name} onclick={() => (category = category === c.name ? '' : c.name)}>
                   {c.name} <span>{c.count.toLocaleString()}</span>
                 </button>
               {/each}
             </nav>
             <!-- A tile only sets the hover; leaving the grid clears it (no gap between two tiles). -->
-            <div class="grid-wrap" role="listbox" tabindex="-1" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)} onpointerleave={() => (hovered = null)}>
+            <div class="grid-wrap" role="group" aria-label="Models" tabindex="-1" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)} onpointerleave={() => (hovered = null)}>
               {#if loadingList}
                 <p class="hint">Reading the client's file list…</p>
               {:else if !items.length}

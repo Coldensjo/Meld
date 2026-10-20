@@ -390,7 +390,7 @@ Checks: Preferences › Interface size zooms the whole UI and everything still l
 
 Checks: the toolbar's tool buttons carry `aria-pressed` (exactly one true, moving with `editor.tool`), the
 asset browser's kind tabs are `role="tab"` with `aria-selected`, its facets carry `aria-pressed`, and no
-`role="listbox"` holds plain tile buttons. `bun run probe aria-state`.
+`role="listbox"` holds plain tile buttons; clicking through every kind tab (models, prefabs, spawn templates) it checks the grids are `role="group"` with `aria-pressed` tiles (#379). The doodad brush editor (a dialog) is not opened by the probe. `bun run probe aria-state`.
 - Trap: the tool tip opens on keyboard focus only (`:focus-visible`), which a script's `focus()` does not
   trigger in the dev page and a synthetic Tab keydown cannot fake (Tab toggles the panels). Press Tab in the
   dev page by hand to see the tip; the probe only checks that a blur hides it.

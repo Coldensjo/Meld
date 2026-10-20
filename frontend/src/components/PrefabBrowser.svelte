@@ -66,7 +66,7 @@
 
 <div class="body">
 	<!-- A tile only sets the hover; leaving the grid clears it (no gap between two tiles). -->
-	<div class="grid-wrap" role="listbox" tabindex="-1" onpointerleave={() => (hovered = null)}>
+	<div class="grid-wrap" role="group" aria-label="Prefabs" tabindex="-1" onpointerleave={() => (hovered = null)}>
 		<div class="bar">
 			<input class="search" placeholder="Search prefabs…" bind:value={query} aria-label="Search prefabs" />
 			<span class="dim folder" title={prefs.prefabDir}>{prefs.prefabDir || 'No prefab folder yet'}</span>
