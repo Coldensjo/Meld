@@ -145,17 +145,17 @@ uniform float maskVisible;
 // The Map data overlay: 0 off, 1 zones, 2 impassable, 3 no tufts (see Terrain.setMapDataOverlay).
 uniform float mapDataMode;
 uniform sampler2D chunkDataTex;
-uniform sampler2D noEffectTex;
+// A texel per cell of the map (Terrain.cellTex), two overlays in one sampler (#394): red the cells
+// that grow no tufts (Map data's mode 3), green a free-form area (selMode 3), set inside (#183).
+uniform sampler2D cellTex;
 uniform vec4 selRect;
-// A free-form area (selMode 3): a byte per cell of the map, set inside (#183).
-uniform sampler2D selTex;
 uniform float selMode;
 uniform float selTime;
 // The reference image (View › Reference Image, terrain/referenceImage.ts): its picture, drawn at
 // refOpacity (0 off) over the rectangle centred on refCentre, refHalf its half width and height,
 // turned by refRot (cos, sin); refEdit is the corner handles' half size while it is being placed (0
-// for no outline). It is the sixteenth sampler with the shadow maps, WebGL2's least guaranteed:
-// another overlay must share a texture with one of these.
+// for no outline). With the shadow maps the shader samples 15 textures, and WebGL2 guarantees only
+// 16 (ANGLE on Windows gives no more): an overlay past the next must share a texture, as cellTex does.
 uniform sampler2D refTex;
 uniform float refOpacity;
 uniform vec2 refCentre;
@@ -373,7 +373,7 @@ void main() {
     } else if (mapDataMode < 3.5) {
       float cells = worldSize / cellSize;
       vec2 cell = clamp(floor(vWorldPos.xz / cellSize), 0.0, cells - 1.0);
-      float n = texture2D(noEffectTex, (cell + 0.5) / cells).r;
+      float n = texture2D(cellTex, (cell + 0.5) / cells).r;
       lit = mix(lit, vec3(1.0, 0.6, 0.1), n > 0.002 ? 0.25 + 0.2 * stripes : 0.0);
     } else if (bakedShadowOn > 0.5) {
       // Shadow mode: the baked shadows tinted violet, so the painted texels read at a glance.
@@ -414,13 +414,13 @@ void main() {
       // A shape: its cells, outlined where a neighbouring cell is not in it.
       float n = worldSize / cellSize;
       vec2 c = floor(p / cellSize);
-      inside = texture2D(selTex, (c + 0.5) / n).r > 0.5 ? 1.0 : 0.0;
+      inside = texture2D(cellTex, (c + 0.5) / n).g > 0.5 ? 1.0 : 0.0;
       vec2 f = p - c * cellSize;
       edge = 1e6;
-      if (c.x < 0.5 || texture2D(selTex, (c + vec2(-0.5, 0.5)) / n).r < 0.5) edge = min(edge, f.x);
-      if (c.x > n - 1.5 || texture2D(selTex, (c + vec2(1.5, 0.5)) / n).r < 0.5) edge = min(edge, cellSize - f.x);
-      if (c.y < 0.5 || texture2D(selTex, (c + vec2(0.5, -0.5)) / n).r < 0.5) edge = min(edge, f.y);
-      if (c.y > n - 1.5 || texture2D(selTex, (c + vec2(0.5, 1.5)) / n).r < 0.5) edge = min(edge, cellSize - f.y);
+      if (c.x < 0.5 || texture2D(cellTex, (c + vec2(-0.5, 0.5)) / n).g < 0.5) edge = min(edge, f.x);
+      if (c.x > n - 1.5 || texture2D(cellTex, (c + vec2(1.5, 0.5)) / n).g < 0.5) edge = min(edge, cellSize - f.x);
+      if (c.y < 0.5 || texture2D(cellTex, (c + vec2(0.5, -0.5)) / n).g < 0.5) edge = min(edge, f.y);
+      if (c.y > n - 1.5 || texture2D(cellTex, (c + vec2(0.5, 1.5)) / n).g < 0.5) edge = min(edge, cellSize - f.y);
     }
     float outline = inside * (1.0 - step(w, edge));
     float ants = step(0.5, fract((p.x + p.y) * 0.25 - selTime * 0.8));
@@ -510,9 +510,8 @@ export function createTerrainMaterial(
     maskVisible: { value: 0 },
     mapDataMode: { value: 0 },
     chunkDataTex: { value: null },
-    noEffectTex: { value: null },
     selRect: { value: new THREE.Vector4() },
-    selTex: { value: null },
+    cellTex: { value: null },
     selMode: { value: 0 },
     selTime: { value: 0 },
     refTex: { value: null },

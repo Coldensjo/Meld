@@ -69,7 +69,9 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   chunk (the `Areas` binding lists them, `wow/areas.ts` names them) and `Terrain.chunkFlags` a byte
   per chunk (`CHUNK_IMPASSABLE`); both and `Terrain.noEffect` are read from a region, saved in the
   map file (version 5) and painted by the tool through `ChunkDataStroke` (one undo step a stroke).
-  The tool draws its overlay through `Terrain.setMapDataOverlay`. The export sends every chunk's
+  The tool draws its overlay through `Terrain.setMapDataOverlay`: a texel per chunk (`chunkDataTex`)
+  and the no-tufts cells in the red of `Terrain.cellTex`, a texel per cell whose green is the selected
+  area's shape (`Terrain.setAreaShape`), shared so the shader spends one sampler on both (#394). The export sends every chunk's
   `HeaderSpec` (`TileSpec.Headers`, `RegionEdit.Headers`) and Go sets the area ID and the 0x2 flag
   (`adt/header.go`); a map saved before version 5 (`MapDocument.chunkDataKnown` false) sends none,
   so a region keeps the client's.
@@ -161,8 +163,9 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   (`io/referenceLoad.ts`, at most `REF_MAX_SIDE` 2048 a side) into the pixels the conversions read and
   a texture, held by the document (`MapDocument.referenceImage`, read again when the map opens). On
   the ground the terrain shader drapes it (`refTex` and its place, set each frame by
-  `Engine.updateReference` through `Terrain.setReference`; it is the shader's sixteenth sampler with
-  the shadow maps, WebGL2's least guaranteed); over the view it is an `<img>` over the top-down view
+  `Engine.updateReference` through `Terrain.setReference`; with it and the shadow maps the shader
+  samples 15 textures, one under WebGL2's least guaranteed 16, which ANGLE gives WebView2 on Windows;
+  the probe `terrain-cell-tex` counts them); over the view it is an `<img>` over the top-down view
   in `Viewport.svelte`, which Lay on the ground as shown turns into a ground place
   (`Engine.referenceFromScreen`). With Place by dragging (`ui.referenceAdjust`) the top-down view's
   presses go to `Engine.referencePress`: the image moves, a corner scales it from the opposite one

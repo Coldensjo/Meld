@@ -3867,34 +3867,12 @@ export class Engine {
       u.selRect.value.set(s.x0 * cs, s.z0 * cs, s.x1 * cs, s.z1 * cs)
       const cells = areaShape(this.terrain, this.terrain.size)
       if (cells) {
-        u.selTex.value = this.areaTexture(cells, this.terrain.size)
+        this.terrain.setAreaShape(cells)
         u.selMode.value = 3
       } else u.selMode.value = 1
     } else {
       u.selMode.value = 0
     }
-  }
-
-  private areaTex: THREE.DataTexture | null = null
-
-  /** The free-form area's cells as the terrain shader's texture, swapped only when the shape changes. */
-  private areaTexture(cells: Uint8Array, size: number): THREE.DataTexture {
-    let tex = this.areaTex
-    if (tex && tex.image.width !== size) {
-      tex.dispose()
-      tex = null
-    }
-    if (!tex) {
-      tex = new THREE.DataTexture(cells, size, size, THREE.RedFormat, THREE.UnsignedByteType)
-      tex.magFilter = tex.minFilter = THREE.NearestFilter
-      tex.generateMipmaps = false
-      tex.needsUpdate = true
-      this.areaTex = tex
-    } else if (tex.image.data !== cells) {
-      tex.image.data = cells
-      tex.needsUpdate = true
-    }
-    return tex
   }
 
   /**

@@ -58,11 +58,17 @@ export class Terrain {
   chunkDataVersion = 0
   /**
    * The Map data tool's overlay, made on first use: a texel per chunk (its zone's colour, and the
-   * impassable flag in alpha) and a texel per cell (the no-effect cells). Uploaded whole by `update`
-   * after an edit; both are small next to the paint.
+   * impassable flag in alpha) and a texel per cell (the no-effect cells, in `cellTex`'s red). Uploaded
+   * whole by `update` after an edit; both are small next to the paint.
    */
   private chunkDataTex: THREE.DataTexture | null = null
-  private noEffectTex: THREE.DataTexture | null = null
+  /**
+   * A texel per cell, made on first use, shared so the shader spends one sampler on both (#394): red
+   * is `noEffect` for the Map data overlay, green the selected area's shape (`setAreaShape`).
+   */
+  private cellTex: THREE.DataTexture | null = null
+  /** The shape last written into `cellTex`'s green, so an unchanged one isn't copied again. */
+  private areaCells: Uint8Array | null = null
   private chunkDataDirty = false
   /** SLOTS weights per splat texel, for the chunk's slots; each texel sums to 255. */
   readonly weights: Uint8Array
@@ -381,14 +387,18 @@ export class Terrain {
       this.uploadRegion(renderer, this.maskDirty, this.maskSrc, this.maskTex)
       this.maskDirty.clear()
     }
-    if (this.chunkDataDirty && this.chunkDataTex && this.noEffectTex) {
+    if (this.chunkDataDirty && this.chunkDataTex) {
       const px = this.chunkDataTex.image.data as Uint8Array
       for (let c = 0; c < this.areaIds.length; c++) {
         areaColor(this.areaIds[c], px, c * 4)
         px[c * 4 + 3] = this.chunkFlags[c] & CHUNK_IMPASSABLE ? 255 : 0
       }
       this.chunkDataTex.needsUpdate = true
-      this.noEffectTex.needsUpdate = true
+      const tex = this.cellTexture()
+      const cells = tex.image.data as Uint8Array
+      const ne = this.noEffect
+      for (let i = 0; i < ne.length; i++) cells[i * 2] = ne[i]
+      tex.needsUpdate = true
       this.chunkDataDirty = false
     }
     if (this.splatDirty.dirty) {
@@ -416,14 +426,37 @@ export class Terrain {
     if (!mode || this.chunkDataTex) return
     const side = this.paintChunksPerSide
     this.chunkDataTex = new THREE.DataTexture(new Uint8Array(side * side * 4), side, side, THREE.RGBAFormat)
-    this.noEffectTex = new THREE.DataTexture(this.noEffect, this.size, this.size, THREE.RedFormat, THREE.UnsignedByteType)
-    for (const t of [this.chunkDataTex, this.noEffectTex]) {
+    this.chunkDataTex.magFilter = this.chunkDataTex.minFilter = THREE.NearestFilter
+    this.chunkDataTex.generateMipmaps = false
+    u.chunkDataTex.value = this.chunkDataTex
+    this.chunkDataDirty = true
+  }
+
+  /** `cellTex`, made the first time the overlay or a shaped area needs it. */
+  private cellTexture(): THREE.DataTexture {
+    if (!this.cellTex) {
+      const t = new THREE.DataTexture(new Uint8Array(this.size * this.size * 2), this.size, this.size, THREE.RGFormat, THREE.UnsignedByteType)
       t.magFilter = t.minFilter = THREE.NearestFilter
       t.generateMipmaps = false
+      t.needsUpdate = true
+      this.cellTex = t
+      this.material.uniforms.cellTex.value = t
     }
-    u.chunkDataTex.value = this.chunkDataTex
-    u.noEffectTex.value = this.noEffectTex
-    this.chunkDataDirty = true
+    return this.cellTex
+  }
+
+  /**
+   * The selected area's shape (a byte per cell, INSIDE where selected; `areaSelection.areaShape`) for
+   * the shader's outline (selMode 3). Copied into `cellTex`'s green only when it is another array, as
+   * a new shape always is. Cheap to call every frame.
+   */
+  setAreaShape(cells: Uint8Array) {
+    if (cells === this.areaCells) return
+    this.areaCells = cells
+    const tex = this.cellTexture()
+    const px = tex.image.data as Uint8Array
+    for (let i = 0; i < cells.length; i++) px[i * 2 + 1] = cells[i]
+    tex.needsUpdate = true
   }
 
   /** The heights as a float texture, one texel a vertex, kept up to date by `update`. */
@@ -673,7 +706,7 @@ export class Terrain {
     this.heightTex?.dispose()
     this.heightSrc?.dispose()
     this.chunkDataTex?.dispose()
-    this.noEffectTex?.dispose()
+    this.cellTex?.dispose()
   }
 }
 

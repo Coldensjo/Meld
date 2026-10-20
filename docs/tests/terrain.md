@@ -153,6 +153,12 @@ the shape's rim keeps the map's heights). One undo restores every height.
 - Comparing two renders (`selMode` forced to 0, then back, `renderer.render` and a 2D canvas
   `drawImage`) shows the tint over exactly the shape's cells; the probe found no outline pixels for a
   plain rect either, so judge the marching ants by eye in the app.
+- The probe `terrain-cell-tex` (#394) checks that a shape's tint covers its cells and not the rest of its
+  rect, top-down on a flat map, together with the Map data tool's no-tufts overlay, which shares the
+  shape's texture (`Terrain.cellTex`: red no tufts, green the shape): each drawn, and neither clobbered
+  when the other changes. It also counts the terrain program's own samplers (10, plus 5 shadow maps at
+  most: under WebGL2's guaranteed 16), so a new overlay sampler that would stop the ground drawing on
+  Windows fails it. SwiftShader in the probes has 32 units, so only this count shows that limit.
 
 ## Check Map (#176)
 
