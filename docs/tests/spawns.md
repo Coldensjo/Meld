@@ -196,6 +196,9 @@ tile into view once the displays are read. In the dev page on Northshire, set
 `[aria-label="Creature displays"] .virtual`, then read the two `.picker select`s and the `.active`
 tile's rect against the grid's. A Northshire Guard opens on Humanoid / HumanMale, the wolves on
 Beast / Wolf, each with its tile in view. The first read of the displays takes several seconds.
+The tiles grow to fill the row (#389): `bun run probe display-tiles` reads the guide's picker (same component)
+and checks the last tile of a row ends within 4 px of the grid's inner edge, 104 to 140 px wide. The editor's
+560 px panel should show 4 tiles of about 126 px.
 
 ## Creature editor: Shop tab (npc_vendor, #145)
 

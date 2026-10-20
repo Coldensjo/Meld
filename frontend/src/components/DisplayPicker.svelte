@@ -82,14 +82,19 @@
   }
 
   // The grid renders only the rows in view.
+  // TILE is the smallest tile; the columns that fit at that size are kept and the tiles grow to fill
+  // the row (#389), up to MAX_TILE.
   const TILE = 104
+  const MAX_TILE = 140
   const GAP = 6
-  const rowH = TILE + 22 + GAP
+  const PAD = 12
   let width = $state(0)
   let height = $state(0)
   let scrollTop = $state(0)
   let scroller: HTMLDivElement | undefined = $state()
-  const cols = $derived(Math.max(1, Math.floor((width - GAP) / (TILE + GAP))))
+  const cols = $derived(Math.max(1, Math.floor((width - PAD + GAP) / (TILE + GAP))))
+  const tile = $derived(Math.min(MAX_TILE, Math.max(TILE, Math.floor((width - PAD - (cols - 1) * GAP) / cols))))
+  const rowH = $derived(tile + 22 + GAP)
   const rows = $derived(Math.ceil(items.length / cols))
   const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
   const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
@@ -165,13 +170,13 @@
       <p class="dim">No display matches.</p>
     {:else}
       <div class="virtual" style:height="{rows * rowH}px">
-        <div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
+        <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
           {#each visible as d (d.id)}
             <PaletteTile
               thumbKey={spawnType({ model: d.model, look: d.look })}
               label={label(d)}
               title={title(d)}
-              size={TILE}
+              size={tile}
               active={d.id === selected}
               badge={String(d.id)}
               onclick={() => pick(d)}
