@@ -25,6 +25,27 @@ export namespace adt {
 
 }
 
+export namespace config {
+	
+	export class Project {
+	    name: string;
+	    path: string;
+	    clientPath: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Project(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.clientPath = source["clientPath"];
+	    }
+	}
+
+}
+
 export namespace heightmap {
 	
 	export class GreyView {
@@ -275,6 +296,38 @@ export namespace main {
 	        this.name = source["name"];
 	        this.text = source["text"];
 	    }
+	}
+	export class ProjectList {
+	    current?: config.Project;
+	    recent: config.Project[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectList(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.current = this.convertValues(source["current"], config.Project);
+	        this.recent = this.convertValues(source["recent"], config.Project);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class SandboxEnded {
 	    wasOn: boolean;

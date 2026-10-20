@@ -36,6 +36,18 @@ The window layout, the asset browser and the dock panels and floating windows.
     `var(--vh)` from `app.css`. The 3D canvas and the preview canvases multiply their pixel ratio
     by the zoom, so they keep one buffer pixel per screen pixel.
 
+- **Projects** (#48, Noggit Red's; File › Project…, `components/ProjectDialog.svelte`,
+  `lib/io/project.ts`, `app_project.go`, `internal/config/project.go`): a project is a folder for the
+  user's maps of it and the client folder it edits. Meld still opens straight into a map; only the
+  Start dialog's Part of Azeroth asks for a project first (the owner's limit on the approval), and a
+  new world needs none. Opening one (`OpenProject`) loads its client first (the client folder in
+  Preferences becomes it), then writes `meld-project.json` (name and client) into the folder, so the
+  folder picked again finds its client (`ProjectInFolder`), and puts it at the front of the config's
+  recent list (`Projects`, ten kept, `ProjectPath` the open one). The Open and Save map dialogs
+  start in the project's folder. Changing the client in Preferences changes the open project's client
+  too (`projectClientChanged`). The File menu lists four recent projects to switch to; `ui.project`
+  and `ui.recentProjects` mirror the config. Nothing else is per project yet (the server folder, the
+  login and the prefs stay global).
 - **Asset browser** (`components/AssetBrowser.svelte`, along the bottom of the window):
   - Search-first: `lib/wow/search.ts` tokenises every path (folder segments, file-name words,
     camel-case) and scores a query against them, with a synonym table (`SYNONYMS`) mapping the

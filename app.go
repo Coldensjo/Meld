@@ -168,6 +168,8 @@ func (a *App) SetWowPath(path string) (wow.Status, error) {
 	a.cfg.WowPath = path
 	if err := config.Update(func(c *config.Config) error {
 		c.WowPath = path
+		projectClientChanged(c, path)
+		a.cfg.Projects, a.cfg.ProjectPath = c.Projects, c.ProjectPath
 		return nil
 	}); err != nil {
 		return st, err
@@ -226,9 +228,10 @@ func (a *App) SaveMapDialog(suggested string) (string, error) {
 		suggested = "untitled"
 	}
 	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "Save Map",
-		DefaultFilename: suggested + ".wmap",
-		Filters:         mapFilters,
+		Title:            "Save Map",
+		DefaultDirectory: a.projectDir(),
+		DefaultFilename:  suggested + ".wmap",
+		Filters:          mapFilters,
 	})
 	if err != nil || path == "" {
 		return "", err
@@ -242,8 +245,9 @@ func (a *App) SaveMapDialog(suggested string) (string, error) {
 // OpenMapDialog asks for a map to open. Returns "" if cancelled.
 func (a *App) OpenMapDialog() (string, error) {
 	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title:   "Open Map",
-		Filters: mapFilters,
+		Title:            "Open Map",
+		DefaultDirectory: a.projectDir(),
+		Filters:          mapFilters,
 	})
 }
 

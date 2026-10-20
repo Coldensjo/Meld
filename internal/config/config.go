@@ -29,6 +29,10 @@ type Config struct {
 	// "windowed" or "fullscreen", at GameResolution ("1280x720"). See game.Window.
 	GameWindow     string `json:"gameWindow,omitempty"`
 	GameResolution string `json:"gameResolution,omitempty"`
+	// ProjectPath is the open project's folder (project.go), "" for none; Projects is the recent
+	// list, newest first, the open one included.
+	ProjectPath string    `json:"projectPath,omitempty"`
+	Projects    []Project `json:"projects,omitempty"`
 }
 
 // Window is the main window's last size (unmaximised) and whether it was maximised.

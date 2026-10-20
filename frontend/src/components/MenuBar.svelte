@@ -7,6 +7,8 @@
 	import { growableSides, type Side } from '../lib/io/regionGrow'
 	import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
 	import { chooseWowFolder } from '../lib/wow/api'
+	import { openProject } from '../lib/io/project'
+	import type { ProjectInfo } from '../lib/state/editor.svelte'
 	import { copyPerfReport, copyScene, copyTeleport, pasteScene } from '../lib/io/scene'
 	import { BENCH_MAPS, BENCH_SCALES, openBenchMap } from '../lib/bench/benchMaps'
 	import { ClearThumbnailCache, GameEvents } from '../../wailsjs/go/main/App'
@@ -25,6 +27,15 @@
 	function openUrl(url: string) {
 		if (hasBackend()) BrowserOpenURL(url)
 		else window.open(url, '_blank', 'noopener')
+	}
+
+	/** Opens a recent project from the File menu; one that no longer opens shows the Project dialog with why. */
+	async function switchProject(p: ProjectInfo) {
+		const err = await openProject(p.name, p.path, p.clientPath)
+		if (err) {
+			setStatus(`Project ${p.name} didn't open: ${err}`, 8000)
+			ui.dialog = 'project'
+		}
 	}
 
 	type Item =
@@ -103,6 +114,13 @@
 				{ kind: 'action', label: 'New World…', shortcut: 'Ctrl+N', run: () => { ui.newMapMode = 'new'; ui.showNewDialog = true } },
 				{ kind: 'action', label: 'Open…', shortcut: 'Ctrl+O', disabled: ui.busy, run: withEngine(openMap) },
 				{ kind: 'action', label: 'Open Part of Azeroth…', disabled: !hasBackend() || ui.busy, run: () => { ui.newMapMode = 'open'; ui.showNewDialog = true } },
+				{ kind: 'sep' },
+				// Projects (#48): a project folder and the client it edits, with the recent ones to switch to.
+				{ kind: 'action', label: ui.project ? `Project: ${ui.project.name}…` : 'Project…', disabled: !hasBackend(), run: () => (ui.dialog = 'project') },
+				...ui.recentProjects
+					.filter((p) => p.path !== ui.project?.path)
+					.slice(0, 4)
+					.map((p) => ({ kind: 'action' as const, label: `Open Project ${p.name}`, disabled: !hasBackend() || ui.busy, run: () => switchProject(p) })),
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveOrPublish(e)) },
 				{ kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },

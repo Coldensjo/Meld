@@ -133,7 +133,7 @@
 
 	function open() {
 		const e = engineRef.current
-		if (!e || !continent || !canOpen) return
+		if (!e || !continent || !canOpen || !ui.project) return
 		close()
 		if (building) openWowBuilding(e, continent.Dir)
 		else if (block) openWowRegion(e, continent.Dir, block.x, block.y, block.size)
@@ -206,8 +206,14 @@
 			</footer>
 		{:else}
 			<div class="body open">
-				{#if !wow.loaded}
-					<p class="dim">Select your WoW 1.12 folder first (Preferences › Select WoW Client Folder…) to open a part of its world.</p>
+				{#if !ui.project}
+					<!-- The owner's limit on #48: a new world goes straight in, editing the client's own maps needs a project. -->
+					<div class="needproject">
+						<p>Opening a part of Azeroth edits the client's own maps, so it needs a project: a project folder for your maps of it and the WoW 1.12 client folder.</p>
+						<button class="active" onclick={() => (ui.dialog = 'project')}>Choose a Project…</button>
+					</div>
+				{:else if !wow.loaded}
+					<p class="dim">The project's client isn't loaded{wow.error ? `: ${wow.error}` : ''}. Choose its client folder in File › Project….</p>
 				{:else}
 					<div class="side">
 						<div class="mapfind">
@@ -249,7 +255,7 @@
 						: 'The ground, textures and models of those tiles open in a new tab. Saving writes them back to the client.'}</span
 				>
 				<button onclick={close}>Cancel</button>
-				<button class="active" disabled={!canOpen} onclick={open}>Open</button>
+				<button class="active" disabled={!canOpen || !ui.project} onclick={open}>Open</button>
 			</footer>
 		{/if}
 	</div>
@@ -320,6 +326,16 @@
 	.body.open {
 		flex-direction: row;
 		gap: 14px;
+	}
+	.needproject {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 10px;
+		max-width: 520px;
+	}
+	.needproject p {
+		margin: 0;
 	}
 	.dim {
 		margin: 0;

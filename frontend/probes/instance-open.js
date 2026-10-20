@@ -1,7 +1,14 @@
-// Opening an instance from the Start dialog's "Part of Azeroth" (#222, #271): the Deadmines (an instance with ADT tiles) gets a block picked on its tiles and Open enabled, Molten Core (one WMO, no tiles) says it is a single building with Open enabled, opening 2x2 tiles of the Deadmines reads its ground into a tab (it replaces the page's untouched start map), and opening the Stockade (a single building) shows the building as the tab's one model, drawn from outside, with the ground hidden, the camera on it and its creatures inside its box.
+// Opening an instance from the Start dialog's "Part of Azeroth" (#222, #271): with no project open it asks for one (#48); the Deadmines (an instance with ADT tiles) gets a block picked on its tiles and Open enabled, Molten Core (one WMO, no tiles) says it is a single building with Open enabled, opening 2x2 tiles of the Deadmines reads its ground into a tab (it replaces the page's untouched start map), and opening the Stockade (a single building) shows the building as the tab's one model, drawn from outside, with the ground hidden, the camera on it and its creatures inside its box.
 const { ui, editor } = await P.state()
+// Without a project the page asks for one (#48, the owner's limit: editing the client's maps needs a
+// project folder and a client folder); the probe then lends the page a project of its own in the
+// state only, so the owner's config keeps theirs.
+const hadProject = ui.project
+ui.project = null
 ui.newMapMode = 'open'
 ui.showNewDialog = true
+const asksProject = !!(await P.until(() => [...document.querySelectorAll('.needproject button')].find((b) => b.textContent.includes('Choose a Project')) || null, 10000, 'the ask for a project'))
+ui.project = hadProject ?? { name: 'probe', path: '', clientPath: '' }
 const openButton = () => [...document.querySelectorAll('.dialog footer button')].find((b) => b.textContent.trim() === 'Open')
 const pick = async (dir) => {
 	const row = await P.until(() => [...document.querySelectorAll('.mapname')].find((b) => (b.getAttribute('title') || '').startsWith(`${dir} (`)), 30000, `${dir} in the map list`)
@@ -64,8 +71,10 @@ stockade.drawn = +P.diff(withBuilding, without).off.toFixed(3)
 await P.until(() => editor.spawns.length > 0 || editor.spawnsError || null, 30000, "the Stockade's spawns").catch(() => null)
 const inside = editor.spawns.filter((s) => s.x > 370 && s.x < 690 && s.z > 330 && s.z < 545).length
 stockade.spawns = `${inside} of ${editor.spawns.length} inside${editor.spawnsError ? ` (${editor.spawnsError})` : ''}`
-const out = { deadmines, overview: img.naturalWidth, moltenNote: moltenNote.slice(0, 60), moltenEnabled, relief, stockade }
+ui.project = hadProject
+const out = { asksProject, deadmines, overview: img.naturalWidth, moltenNote: moltenNote.slice(0, 60), moltenEnabled, relief, stockade }
 out.ok =
+	asksProject &&
 	out.overview > 0 &&
 	moltenEnabled &&
 	relief > 1 &&

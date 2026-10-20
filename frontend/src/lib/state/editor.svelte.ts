@@ -541,6 +541,13 @@ export interface ContextItem {
   run?: () => void
 }
 
+/** A project (#48): its name, its folder and the client folder it edits. */
+export interface ProjectInfo {
+  name: string
+  path: string
+  clientPath: string
+}
+
 export const ui = $state({
   status: 'Ready',
   /** A short-lived notice drawn big over the viewport (e.g. the placement scale while Shift+scrolling); '' when none. */
@@ -552,12 +559,16 @@ export const ui = $state({
   showNewDialog: false,
   /** Which page the Start dialog shows: a new world, or a part of a continent. */
   newMapMode: 'new' as 'new' | 'open',
+  /** The open project (a project folder and the client it edits, #48), null for none; opening a part of Azeroth needs one. */
+  project: null as ProjectInfo | null,
+  /** The recent projects, newest first, the open one included. */
+  recentProjects: [] as ProjectInfo[],
   /** A copied map region is available / being placed. */
   hasClip: false,
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | 'spawnRules' | 'worldMap' | 'erode' | 'compileBeforeLaunch' | null,
+  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | 'spawnRules' | 'worldMap' | 'erode' | 'compileBeforeLaunch' | 'project' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */

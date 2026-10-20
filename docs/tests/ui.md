@@ -308,9 +308,22 @@ target and facing. A click moves the camera there (`controller.focus`). In the d
   barely sees the slide (a few texels at the box's edge, mean 0.07 against 0.03 for the lighting's
   own turn), so compare the matrix.
 
+## Projects (#48)
+
+Checks: File › Project… opens a project folder with its client; the folder gets `meld-project.json`,
+the config (`%APPDATA%\Meld\config.json`) gets `projectPath` and the project at the front of
+`projects`, the File menu lists the other recent ones, and the Open and Save map dialogs start in the
+folder. Go: `go test ./internal/config/` (the recent list and the project file). The Start dialog's
+ask for a project is in the probe `instance-open`. By hand in the app: open a project on a scratch
+folder, pick the folder again in the dialog (its name and client fill in), switch to another from the
+File menu, and Close Project.
+- Trap: opening a project changes the owner's real config (the client folder and the recent list), so
+  a probe must not call `OpenProject`; set `ui.project` in the page instead, as `instance-open` does.
+
 ## Start dialog: opening an instance (#222, #271, probe `instance-open`)
 
-Checks: in the Start dialog's "Part of Azeroth", an instance's tiles come from its WDT (`/wow/tiles`),
+Checks: with no project open the Start dialog's "Part of Azeroth" asks for one (#48; the probe then
+lends the page a project in `ui.project` only, so the owner's config keeps theirs); in it, an instance's tiles come from its WDT (`/wow/tiles`),
 the picker selects the biggest square wholly on them and Open is enabled; a WMO-only instance (Molten
 Core) says it is a single building and enables Open; the block opens; the Stockade opens as a single
 building (#271): one model, the ground hidden, the building drawn from outside (a picture against

@@ -42,6 +42,10 @@ export function BrowsePrefabFolder(arg1) {
   return window['go']['main']['App']['BrowsePrefabFolder'](arg1);
 }
 
+export function BrowseProjectFolder() {
+  return window['go']['main']['App']['BrowseProjectFolder']();
+}
+
 export function BrowseVmangosFolder() {
   return window['go']['main']['App']['BrowseVmangosFolder']();
 }
@@ -60,6 +64,10 @@ export function ClassLevelStats(arg1, arg2, arg3) {
 
 export function ClearThumbnailCache() {
   return window['go']['main']['App']['ClearThumbnailCache']();
+}
+
+export function CloseProject() {
+  return window['go']['main']['App']['CloseProject']();
 }
 
 export function CreateCreature(arg1, arg2) {
@@ -136,6 +144,10 @@ export function ExportSpells(arg1, arg2) {
 
 export function Factions() {
   return window['go']['main']['App']['Factions']();
+}
+
+export function ForgetProject(arg1) {
+  return window['go']['main']['App']['ForgetProject'](arg1);
 }
 
 export function GameClient() {
@@ -366,6 +378,10 @@ export function OpenModelSetDialog() {
   return window['go']['main']['App']['OpenModelSetDialog']();
 }
 
+export function OpenProject(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OpenProject'](arg1, arg2, arg3);
+}
+
 export function OpenReferenceImageDialog() {
   return window['go']['main']['App']['OpenReferenceImageDialog']();
 }
@@ -392,6 +408,14 @@ export function PlanSpellImport(arg1) {
 
 export function PlayHere(arg1) {
   return window['go']['main']['App']['PlayHere'](arg1);
+}
+
+export function ProjectInFolder(arg1) {
+  return window['go']['main']['App']['ProjectInFolder'](arg1);
+}
+
+export function Projects() {
+  return window['go']['main']['App']['Projects']();
 }
 
 export function PublishVmangosMap(arg1) {

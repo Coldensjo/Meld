@@ -7,6 +7,7 @@
   import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
   import Modal from './Modal.svelte'
   import GameLoginDialog from './GameLoginDialog.svelte'
+  import ProjectDialog from './ProjectDialog.svelte'
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
   import PortalsDialog from './PortalsDialog.svelte'
@@ -421,6 +422,8 @@
   <FitGroundDialog onclose={close} />
 {:else if ui.dialog === 'erode'}
   <ErodeDialog onclose={close} />
+{:else if ui.dialog === 'project'}
+  <ProjectDialog onclose={close} />
 {/if}
 
 <style>

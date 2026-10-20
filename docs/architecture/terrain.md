@@ -246,7 +246,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   map is for the 1.12 client (folder + map ID). "New world" picks a size in tiles and a preset from
   `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands, so a world is
   bounded by sea); the cards are drawn by `drawPresetPreview`. "Part of Azeroth" picks a square of
-  tiles on `MapPicker.svelte`, a continent overview stitched by the Go side from the client's
+  tiles on `MapPicker.svelte` (only with a project open, #48: it asks for one first), a continent overview stitched by the Go side from the client's
   minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
   the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps. The
   tiles that exist come from the map's WDT, not the minimap (`MapTiles`, `WDTTiles`, `/wow/tiles`):

@@ -49,7 +49,9 @@ has two pages:
 - **Part of Azeroth**: pick a continent, then drag a square of up to 8×8 tiles on a map stitched
   from the client's own minimap (scroll to zoom, right-drag to pan), or click a zone in the list to
   jump there. The tiles' ground, textures and models open in a new tab, and saving writes them
-  back to the client.
+  back to the client. This page needs a **project** (File › Project…): a project folder, where
+  your maps of it go (the Open and Save dialogs start there), and the WoW 1.12 client folder it
+  edits. File › Project… also lists the recent projects, and the File menu switches between them.
 
 ### Asset browser (Models / Textures panel)
 
@@ -100,7 +102,7 @@ Also included:
 
 ### Menus
 
-- **File**: New World / Open / Open Part of Azeroth, Save / Save As / Revert, Map Properties,
+- **File**: New World / Open / Open Part of Azeroth, Project… and the recent projects, Save / Save As / Revert, Map Properties,
   Compile to Client / Compile to Server / Compile All, Close Map, Exit. Compile to Client writes the
   open region into the client's tiles, Compile to Server rebuilds the server's map data from those
   tiles, and Compile All does both. Compile to Server and Compile All also save the region's

@@ -160,7 +160,7 @@ export interface WowLiquid {
 
 type StatusLike = { path: string; loaded: boolean; error: string; files: number; archives: number }
 
-function applyStatus(s: StatusLike) {
+export function applyStatus(s: StatusLike) {
   wow.path = s.path
   wow.loaded = s.loaded
   wow.error = s.error

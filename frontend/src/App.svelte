@@ -46,11 +46,13 @@
   import { EventsOn, WindowSetTitle } from '../wailsjs/runtime/runtime'
   import { AckClose, SetUnsaved } from '../wailsjs/go/main/App'
   import { hasBackend } from './lib/io/mapio'
+  import { refreshProjects } from './lib/io/project'
 
   let prefsLoaded = $state(false)
   onMount(() => {
     const stopLogFile = startSessionLog()
     void refreshGameClient()
+    void refreshProjects()
     const wowReady = initWow().catch((e) => console.warn('WoW client init failed', e))
     const prefsReady = loadPrefs().finally(() => (prefsLoaded = true))
     // With the preferences and the client's status known, open what was open at the last close.

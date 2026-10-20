@@ -4,8 +4,9 @@ import {vmangos} from '../models';
 import {main} from '../models';
 import {recovery} from '../models';
 import {mapfile} from '../models';
-import {heightmap} from '../models';
 import {wow} from '../models';
+import {config} from '../models';
+import {heightmap} from '../models';
 
 export function AckClose():Promise<void>;
 
@@ -27,6 +28,8 @@ export function BrowseBrushImageFolder(arg1:string):Promise<string>;
 
 export function BrowsePrefabFolder(arg1:string):Promise<string>;
 
+export function BrowseProjectFolder():Promise<string>;
+
 export function BrowseVmangosFolder():Promise<string>;
 
 export function BrowseWowFolder():Promise<string>;
@@ -36,6 +39,8 @@ export function CheckSpawnIDs(arg1:vmangos.SpawnIDQuery):Promise<vmangos.SpawnID
 export function ClassLevelStats(arg1:number,arg2:number,arg3:number):Promise<Array<vmangos.ClassLevelStats>>;
 
 export function ClearThumbnailCache():Promise<void>;
+
+export function CloseProject():Promise<void>;
 
 export function CreateCreature(arg1:number,arg2:string):Promise<number>;
 
@@ -74,6 +79,8 @@ export function ExportItems(arg1:Array<number>,arg2:string):Promise<string>;
 export function ExportSpells(arg1:Array<number>,arg2:string):Promise<string>;
 
 export function Factions():Promise<Array<vmangos.FactionInfo>>;
+
+export function ForgetProject(arg1:string):Promise<void>;
 
 export function GameClient():Promise<main.GameClientInfo>;
 
@@ -189,6 +196,8 @@ export function OpenMapDialog():Promise<string>;
 
 export function OpenModelSetDialog():Promise<Array<string>>;
 
+export function OpenProject(arg1:string,arg2:string,arg3:string):Promise<wow.Status>;
+
 export function OpenReferenceImageDialog():Promise<string>;
 
 export function OpenSpellsDialog():Promise<string>;
@@ -202,6 +211,10 @@ export function PlanQuestDelete(arg1:number):Promise<vmangos.QuestDeletePlan>;
 export function PlanSpellImport(arg1:string):Promise<vmangos.SpellImport>;
 
 export function PlayHere(arg1:vmangos.CharacterSpot):Promise<string>;
+
+export function ProjectInFolder(arg1:string):Promise<config.Project>;
+
+export function Projects():Promise<main.ProjectList>;
 
 export function PublishVmangosMap(arg1:vmangos.MapSpec):Promise<void>;
 

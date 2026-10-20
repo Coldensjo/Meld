@@ -560,6 +560,7 @@ the same scene, the report before and after.
 - Top-down view (U)
 - Log window (and the session log file, #319, probe `session-log`)
 - Minimap window (M)
+- Projects (#48)
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
 - Accessibility (#354)
 - Dialog focus (#369, probe `dialog-focus`)
