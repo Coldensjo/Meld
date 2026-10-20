@@ -300,9 +300,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   changed. The layouts (SpellVisual 16 fields, SpellVisualKit 35, SpellVisualEffectName 5) are in the
   file's comment; `TestSpellVisualsLive` checks them against the client. `SaveSpell` (`app.go`) plans first (`PlanSpellSave`: the UPDATE by entry and
   build, a picked icon's SpellIcon.dbc row found or added by `spellIconRow`, then the whole row as it
-  will be written into Spell.dbc by `spellClientRow` over the client's record), runs the SQL, then
-  writes the tables into Meld's patch with `installWithGameClosed`, so the server (restarted by it,
-  or at its next start) and the client agree; `ForgetSpells` drops the Go caches. `spellDBCColumns`
+  will be written into Spell.dbc by `spellClientRow` over the client's record), runs the SQL, has the
+  running world server `.reload spell_template` through its SOAP console when it's on
+  (`reloadSpells`, `vmangos.ReloadSpells`; else the server reads it at its next start), then writes
+  the tables without closing anything (#365, `app_pending.go` `saveClientFiles`): into Meld's patch at
+  once when the game isn't running, else into the waiting files in the user's cache
+  (`internal/vmangos/pending.go`), which a watcher (`watchPending`, also started at Meld's start)
+  writes once the game has closed, and which any patch write that closes the game (`installClosed`)
+  takes along. Meld's own reads of the client's tables (`readOverlay`, through `readClientFile`,
+  `loadSpellData` and the visual tables) see the waiting files first, so the editor shows the saved
+  spell and the next save builds on it. The game reads Spell.dbc only at start, so it has the spell
+  the next time it starts. `ForgetSpells` drops the Go caches. `spellDBCColumns`
   maps the 173 fields to columns: strings take all 8 locales, `spellFamilyFlags` two fields, the
   locale masks stay the client's (the server's are older builds'), and the server's own columns
   (`effectBonusCoefficient1-3`, `minTargetLevel`, `customFlags`, `script_name`) have none;

@@ -188,3 +188,24 @@ func teleSQL(s CharacterSpot) string {
 		"SELECT COALESCE(MAX(id), 0) + 1, %s, %s, %s, %s, %d, %s FROM game_tele;",
 		sqlQuote(teleName), num(s.X), num(s.Y), num(s.Z), num(s.O), s.Map, sqlQuote(teleName))
 }
+
+// ErrSoapOff says the world server's SOAP console is off in mangosd.conf.
+var ErrSoapOff = errors.New("the world server's SOAP console is off (SOAP.Enabled in mangosd.conf)")
+
+// ReloadSpells has the running world server read spell_template again (`.reload spell_template`,
+// which needs GM level 5) through its SOAP console, logged in as account, so a saved spell works
+// without restarting it.
+func ReloadSpells(serverRoot, account, password string) error {
+	if strings.TrimSpace(account) == "" {
+		return errors.New("Game Login has no account to send the command with")
+	}
+	soap, err := confSoap(serverRoot)
+	if err != nil {
+		return err
+	}
+	if !soap.enabled {
+		return ErrSoapOff
+	}
+	_, err = soapCommand(soap, account, password, "reload spell_template")
+	return err
+}

@@ -313,14 +313,15 @@ func iconNames(files []string) []string {
 	return out
 }
 
-// readClientFile reads a file of the client as the game sees it, Meld's patch included.
+// readClientFile reads a file of the client as the game sees it, Meld's patch and the files waiting
+// for the game to close (readOverlay) included.
 func readClientFile(dataDir, name string) ([]byte, error) {
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
 		return nil, err
 	}
 	defer set.Close()
-	return set.ReadFile(name)
+	return readOverlay(set, dataDir, name)
 }
 
 // IconDisplay is the display ItemDisplayVariant settled on, and whether it was added to the patch.

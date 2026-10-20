@@ -350,7 +350,7 @@ func PlanSpellSave(serverRoot, dataDir string, entry, build int, values map[stri
 		if err := checkIconName(icon); err != nil {
 			return SpellSave{}, err
 		}
-		ib, err := set.ReadFile(SpellIconPath)
+		ib, err := readOverlay(set, dataDir, SpellIconPath)
 		if err != nil {
 			return SpellSave{}, err
 		}
@@ -365,7 +365,7 @@ func PlanSpellSave(serverRoot, dataDir string, entry, build int, values map[stri
 		changes["spellIconId"] = strconv.Itoa(id)
 	}
 	if visual != nil {
-		id, files, err := planSpellVisualFiles(set, *visual)
+		id, files, err := planSpellVisualFiles(set, dataDir, *visual)
 		if err != nil {
 			return SpellSave{}, err
 		}
@@ -384,7 +384,7 @@ func PlanSpellSave(serverRoot, dataDir string, entry, build int, values map[stri
 	for k, v := range changes {
 		row[k] = strings.TrimSpace(v)
 	}
-	sb, err := set.ReadFile(SpellPath)
+	sb, err := readOverlay(set, dataDir, SpellPath)
 	if err != nil {
 		return SpellSave{}, err
 	}

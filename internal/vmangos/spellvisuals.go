@@ -138,13 +138,13 @@ func listVisualEffects(t *dbcTable, have map[string]bool) []VisualEffect {
 	return out
 }
 
-// readVisualTables reads SpellVisual.dbc and SpellVisualKit.dbc as the client has them.
-func readVisualTables(set *mpq.Set) ([]byte, []byte, error) {
-	vb, err := set.ReadFile(SpellVisualPath)
+// readVisualTables reads SpellVisual.dbc and SpellVisualKit.dbc as the client will have them (readOverlay).
+func readVisualTables(set *mpq.Set, dataDir string) ([]byte, []byte, error) {
+	vb, err := readOverlay(set, dataDir, SpellVisualPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	kb, err := set.ReadFile(SpellVisualKitPath)
+	kb, err := readOverlay(set, dataDir, SpellVisualKitPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -209,7 +209,7 @@ func ReadSpellVisual(dataDir string, id int) (VisualDesign, error) {
 		return VisualDesign{}, err
 	}
 	defer set.Close()
-	vb, kb, err := readVisualTables(set)
+	vb, kb, err := readVisualTables(set, dataDir)
 	if err != nil {
 		return VisualDesign{}, err
 	}
@@ -377,8 +377,8 @@ func planVisual(vdbc, kdbc []byte, d VisualDesign) (int, []byte, []byte, error) 
 
 // planSpellVisualFiles plans design d in the client's tables and returns the visual's ID and the
 // files to write into the patch.
-func planSpellVisualFiles(set *mpq.Set, d VisualDesign) (int, []mpq.File, error) {
-	vb, kb, err := readVisualTables(set)
+func planSpellVisualFiles(set *mpq.Set, dataDir string, d VisualDesign) (int, []mpq.File, error) {
+	vb, kb, err := readVisualTables(set, dataDir)
 	if err != nil {
 		return 0, nil, err
 	}

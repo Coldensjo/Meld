@@ -517,14 +517,20 @@ new icon) in Meld's patch only on Save or New spell.
 - Unit: `spells_test.go` (`putRecord`, `spellIconRow`, `spellClientRow` with a float, a negative and
   a 64-bit value, the build-keyed UPDATE) and `frontend/tests/spellFields.test.ts` (the description's
   tokens, the tooltip's cost, range, cast and cooldown, an effect's line, the tabs).
-- A write was not run on 2026-10-19: it changes the owner's world database and client patch and
-  closes the game and servers on Windows. To try it: open Fireball, New spell, name it, change its
+- Waiting client files (#365): `TestPendingFiles` (a later save replaces a file of its name, another
+  client's folder is apart, a file given with the patch write replaces a waiting one, clearing keeps
+  a file saved again meanwhile) and `TestReloadSpells` (nothing sent with SOAP off; `reload
+  spell_template` with it on). With `WOW_DIR` and `VMANGOS_DIR`, `TestPendingSpellLive` queues a new
+  spell's planned Spell.dbc in a temporary folder and finds it through `SpellRefs` and `SearchSpells`.
+  The watcher and a Save while the game runs were not run: they write the owner's patch.
+- A write was not run on 2026-10-19: it changes the owner's world database and client patch. To try it: open Fireball, New spell, name it, change its
   base points and icon, Save; `ReadSpell` reads it back and `SearchSpells` finds it (the client's
   Spell.dbc through the patch). In the game: `.learn <id>` or `.cast <id>` as a GM; the tooltip shows
   the text and icon. Clean up with `DELETE FROM spell_template WHERE entry = <id>` (the patch's row
   stays until the patch is rebuilt).
-- Trap: the server reads `spell_template` at start, or on `.reload spell_template` (developer
-  security level); Save restarts mangosd only when it closed it, so a server Meld didn't close needs
-  that command or a restart. The client reads the patch only when it starts.
+- Trap: the server reads `spell_template` at start, or on `.reload spell_template` (GM level 5),
+  which Save sends through the SOAP console; with `SOAP.Enabled = 0` in mangosd.conf (this machine on
+  2026-10-20) it can't, and a saved spell reaches the server at its next start. The game reads the
+  patch only when it starts, and a file saved while it runs waits until it has closed.
 - Trap: in a heredoc or sed, `Interface\Icons` and regexes lose their backslashes; edit them with
   the Edit tool (a probe's `\w` became `w` that way).

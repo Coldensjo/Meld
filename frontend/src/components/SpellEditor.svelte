@@ -145,7 +145,6 @@
 		searchVersion++
 	}
 
-	const RESTART = 'The world server reads spells and the game reads the patch when they start: Meld restarted the ones it had to close.'
 
 	async function save() {
 		if (!record || !unsaved) return
@@ -162,7 +161,7 @@
 			forget(record.entry)
 			let added = r.iconAdded ? ` Added the icon ${r.iconAdded} to SpellIcon.dbc.` : ''
 			if (r.visualAdded) added += ` Added visual ${r.visual} to SpellVisual.dbc (and its new stages to SpellVisualKit.dbc).`
-			note = `Saved ${n} ${n === 1 ? 'change' : 'changes'} to ${values.name} (spell ${record.entry}) in the world database and in the client's Spell.dbc.${added} ${RESTART}`
+			note = `Saved ${n} ${n === 1 ? 'change' : 'changes'} to ${values.name} (spell ${record.entry}) .${added}`
 			setStatus(note, 10000)
 			// Read it again for its icon's texture and that the client has it now.
 			loadedFor = 0
@@ -246,7 +245,7 @@
 			searchVersion++
 			ui.spellEditor = { entry }
 			tab = 'spell'
-			note = `Made spell ${entry}, ${name}, ${from}, in the world database and the client's Spell.dbc. Change it and save.`
+			note = `Made spell ${entry}, ${name}, ${from}. Change it and save.`
 			setStatus(note, 8000)
 		} catch (err) {
 			error = String(err)
@@ -407,7 +406,7 @@
 			<div class="actions">
 				{#if record}
 					<button disabled={!unsaved || saving} onclick={revert}>Revert</button>
-					<button class="active" disabled={!unsaved || saving} onclick={save} title="Write it to the world database and the client's Spell.dbc (closes and reopens the game and servers)">
+					<button class="active" disabled={!unsaved || saving} onclick={save} title="Write it to the world database and the client's Spell.dbc">
 						{saving ? 'Saving…' : unsaved ? `Save spell (${changeCount})` : 'Saved'}
 					</button>
 				{/if}
@@ -446,7 +445,7 @@
 			<section class="main">
 				{#if target.entry === -1}
 					<div class="new-form">
-						<p>Make a spell of your own under the first free spell ID. Start from a kind of spell Meld fills in, or from a copy of the spell that was open. It is written to the world database and the client's Spell.dbc at once (the game and servers close and reopen around it); change it and save.</p>
+						<p>Make a spell of your own under the first free spell ID. Start from a kind of spell Meld fills in, or from a copy of the spell that was open. Change it and save.</p>
 						<fieldset class="starts" aria-label="Start from">
 							{#each starters as s (s.id)}
 								<label class="start" class:on={start === s.id}>

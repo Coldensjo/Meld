@@ -97,7 +97,7 @@ func TestSpellVisualsLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer set.Close()
-	vb, kb, err := readVisualTables(set)
+	vb, kb, err := readVisualTables(set, dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestSpellVisualsLive(t *testing.T) {
 		t.Fatal("Blizzard or Rain of Fire has no area effect or channel")
 	}
 	d.Area, d.AreaFrom = fire.Area, fire.AreaFrom
-	id, files, err := planSpellVisualFiles(set, d)
+	id, files, err := planSpellVisualFiles(set, dataDir, d)
 	if err != nil || len(files) != 1 || files[0].Name != SpellVisualPath {
 		t.Fatalf("lava blizzard: %d, %d files, %v", id, len(files), err)
 	}

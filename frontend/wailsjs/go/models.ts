@@ -219,7 +219,6 @@ export namespace main {
 	    iconAdded: string;
 	    visual: number;
 	    visualAdded: boolean;
-	    patch: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SpellSaved(source);
@@ -231,7 +230,6 @@ export namespace main {
 	        this.iconAdded = source["iconAdded"];
 	        this.visual = source["visual"];
 	        this.visualAdded = source["visualAdded"];
-	        this.patch = source["patch"];
 	    }
 	}
 	export class WorldMapResult {

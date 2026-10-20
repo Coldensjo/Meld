@@ -49,7 +49,7 @@ func loadSpellData(dataDir string) error {
 		return err
 	}
 	defer set.Close()
-	sb, err := set.ReadFile(`DBFilesClient\Spell.dbc`)
+	sb, err := readOverlay(set, dataDir, SpellPath)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func loadSpellData(dataDir string) error {
 		}
 	}
 	icons := map[uint32]string{}
-	if ib, err := set.ReadFile(`DBFilesClient\SpellIcon.dbc`); err == nil {
+	if ib, err := readOverlay(set, dataDir, SpellIconPath); err == nil {
 		if it, err := parseDBC(ib); err == nil && it.fields > 1 {
 			for r := 0; r < it.records; r++ {
 				if p := it.str(r, 1); p != "" {

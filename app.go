@@ -50,6 +50,8 @@ type App struct {
 	closeAsked atomic.Int64
 	// stale holds the templates saved since the game's caches were last cleared of them (game.Stale).
 	stale game.Stale
+	// pendingWatch is whether the watcher of the client files waiting for the game to close runs.
+	pendingWatch atomic.Bool
 }
 
 func NewApp() *App {
@@ -60,6 +62,8 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.startRecovery()
 	a.startSessionLog()
+	// Client files saved while the game ran last time go into the patch once it isn't running.
+	a.watchPending()
 	if a.cfg.WowPath != "" {
 		go func() {
 			a.wow.Open(a.cfg.WowPath)
@@ -1441,20 +1445,19 @@ func (a *App) ReadSpell(entry int) (vmangos.SpellRecord, error) {
 }
 
 // SpellSaved is what SaveSpell wrote: the SQL it ran, the icon it added to SpellIcon.dbc ("" for
-// none), the spell's visual and whether the composer's was added as new rows, and the patch it wrote
-// Spell.dbc into.
+// none), and the spell's visual and whether the composer's was added as new rows.
 type SpellSaved struct {
 	SQL         string `json:"sql"`
 	IconAdded   string `json:"iconAdded"`
 	Visual      int    `json:"visual"`
 	VisualAdded bool   `json:"visualAdded"`
-	Patch       string `json:"patch"`
 }
 
 // SaveSpell writes a spell's changed values (by column), icon (a name under Interface\Icons, "" to
-// keep its own) and visual (the composer's design, nil to keep it) into its spell_template row, then
-// its whole row into Spell.dbc in Meld's patch (with the icon's and the visual's new rows), with the
-// game and servers closed around it on Windows, so the server and the client agree.
+// keep its own) and visual (the composer's design, nil to keep it) into its spell_template row and has
+// the running world server reload its spells, then writes its whole row into Spell.dbc in Meld's patch
+// (with the icon's and the visual's new rows) without closing anything: at once, or once the game has
+// closed when it runs (#365), so the game has it the next time it starts.
 func (a *App) SaveSpell(entry, build int, values map[string]string, icon string, visual *vmangos.VisualDesign) (SpellSaved, error) {
 	defer a.releaseClient()()
 	server, dataDir, err := a.serverAndData()
@@ -1468,16 +1471,18 @@ func (a *App) SaveSpell(entry, build int, values map[string]string, icon string,
 	if err := vmangos.SaveSpellSQL(server, plan.SQL); err != nil {
 		return SpellSaved{}, err
 	}
-	patch, err := a.installWithGameClosed(dataDir, plan.Files)
+	a.reloadSpells(server)
+	err = a.saveClientFiles(dataDir, plan.Files)
 	vmangos.ForgetSpells()
 	if err != nil {
 		return SpellSaved{}, fmt.Errorf("the spell is saved in the world database, but writing it into the client's patch failed (Save again to retry): %w", err)
 	}
-	return SpellSaved{SQL: plan.SQL, IconAdded: plan.IconAdded, Visual: plan.Visual, VisualAdded: plan.VisualAdded, Patch: patch}, nil
+	return SpellSaved{SQL: plan.SQL, IconAdded: plan.IconAdded, Visual: plan.Visual, VisualAdded: plan.VisualAdded}, nil
 }
 
 // CreateSpell adds a spell named name, a copy of spell base (or, for base 0, made from the starter of
-// that ID), to the world database and the client's Spell.dbc (in Meld's patch), and returns its entry.
+// that ID), to the world database and the client's Spell.dbc (in Meld's patch, written as SaveSpell
+// writes it, without closing anything), and returns its entry.
 func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 	defer a.releaseClient()()
 	server, dataDir, err := a.serverAndData()
@@ -1491,7 +1496,8 @@ func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 	if err := vmangos.SaveSpellSQL(server, plan.SQL); err != nil {
 		return 0, err
 	}
-	_, err = a.installWithGameClosed(dataDir, []mpq.File{plan.File})
+	a.reloadSpells(server)
+	err = a.saveClientFiles(dataDir, []mpq.File{plan.File})
 	vmangos.ForgetSpells()
 	if err != nil {
 		return plan.Entry, fmt.Errorf("spell %d is made in the world database, but writing it into the client's patch failed (Save it to retry): %w", plan.Entry, err)
@@ -1780,7 +1786,16 @@ func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, e
 // before the game and servers start again: a write into the server's data the restarted server reads.
 func (a *App) installClosed(dataDir string, files []mpq.File, also func() error) (string, error) {
 	run := func() (string, error) {
-		patch, err := vmangos.InstallPatch(dataDir, files)
+		// The client files waiting for the game to close (#365) go along.
+		pending, err := vmangos.PendingFiles(dataDir)
+		if err != nil {
+			return "", err
+		}
+		patch, err := vmangos.InstallPatch(dataDir, vmangos.WithPending(pending, files))
+		if err == nil && len(pending) > 0 {
+			err = vmangos.ClearPending(dataDir, pending)
+			vmangos.ForgetSpells()
+		}
 		if err == nil && also != nil {
 			err = also()
 		}
