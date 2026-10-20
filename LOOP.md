@@ -235,9 +235,14 @@ For each item:
 a. Note the rule above that put it first (bug, benilla-port, the DESIGN.md priority, value or
    effort, or the owner's request) and what it went ahead of, for the run log.
 b. Mark it: `gh issue edit <n> --repo Coldensjo/Meld --add-label in-progress`.
-c. Start its worker with the Agent tool (a general-purpose subagent, in the foreground, since the
-   next step needs its report), with the model and effort the item needs, so the strongest setting
-   goes where it pays:
+c. Say one line in the run's output naming the issue by number and title (`Starting #374: Add a
+   visible focus ring and a reduced-motion rule to app.css`), then start its worker with the Agent
+   tool (a general-purpose subagent, in the foreground, since the next step needs its report), with
+   the model and effort the item needs, so the strongest setting goes where it pays. The Agent
+   call's `description` names the issue too (a few words, e.g. `#374 focus ring and reduced
+   motion`), so whoever watches the run sees what each worker is doing without opening the issue.
+   The same goes for the triage subagent of step 2 (`Triage #381, #383`, with the titles in the line
+   before it).
    - `model: sonnet`: `effort:S` items that aren't rendering, file-format or export work
      (`area:view`, or a body about shaders, the `.wmap` format or the files Meld writes into the
      client), and items that only change docs. The triage subagent (step 2) runs this way too.
@@ -249,14 +254,15 @@ c. Start its worker with the Agent tool (a general-purpose subagent, in the fore
    The prompt, filled in:
 
    ```
-   You are the Meld loop's worker for issue #<n> of Coldensjo/Meld. Read LOOP.md in the repository
-   root, then follow its "Shared rules" and "Worker" sections for this one issue only.
+   You are the Meld loop's worker for issue #<n> of Coldensjo/Meld ("<the issue's title>"). Read
+   LOOP.md in the repository root, then follow its "Shared rules" and "Worker" sections for this
+   one issue only.
    Picked because: <the rule and what it went ahead of>.
    End with the report in LOOP.md's "Worker report" format and nothing else.
    ```
 
-   Put nothing else about the item in the prompt; the worker reads the issue itself (the owner's
-   answers and any stashed work are recorded there).
+   Put nothing else about the item in the prompt besides the title; the worker reads the issue itself
+   (the owner's answers and any stashed work are recorded there).
 d. Act on its report: `done`, note the commit for the run log; `unfinished` or `asked-owner`, note
    why. Never ask the owner in the chat (*Asking the owner*).
 e. Remove `in-progress` (`gh issue edit <n> --repo Coldensjo/Meld --remove-label in-progress`), then
