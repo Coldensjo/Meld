@@ -20,7 +20,7 @@ func itemDisplayDBC(t *testing.T) *dbcTable {
 }
 
 func TestListItemDisplays(t *testing.T) {
-	rows := [][]string{{"7", "13", "Blade"}, {"7", "21", "Edge"}, {"7", "13", "Cutter"}, {"9", "20", "Robe"}}
+	rows := [][]string{{"7", "13", "Blade", "2", "7"}, {"7", "21", "Edge", "2", "7"}, {"7", "13", "Cutter", "2", "7"}, {"9", "20", "Robe", "4", "1"}}
 	got := listItemDisplays(itemDisplayDBC(t), rows)
 	if len(got) != 4 {
 		t.Fatalf("%d displays", len(got))
@@ -44,12 +44,12 @@ func TestItemIconDisplay(t *testing.T) {
 	tab := itemDisplayDBC(t)
 	// Its own icon, and an icon another display already pairs with the same sword: nothing to write.
 	for icon, want := range map[string]int{"INV_Sword_04": 7, "inv_sword_05": 8} {
-		if id, dbc, err := itemIconDisplay(tab.data, 7, icon); err != nil || id != want || dbc != nil {
+		if id, dbc, err := itemDisplayVariant(tab.data, 7, icon, -1); err != nil || id != want || dbc != nil {
 			t.Errorf("%s: %d %v %v", icon, id, dbc != nil, err)
 		}
 	}
 	// A new pairing: a row past the last, a copy of the sword with the new icon.
-	id, dbc, err := itemIconDisplay(tab.data, 7, "INV_Axe_01")
+	id, dbc, err := itemDisplayVariant(tab.data, 7, "INV_Axe_01", -1)
 	if err != nil || id != 11 || dbc == nil {
 		t.Fatalf("%d %v", id, err)
 	}
@@ -65,7 +65,7 @@ func TestItemIconDisplay(t *testing.T) {
 		t.Error("the sword's own row changed")
 	}
 	// No display: a row with the icon alone.
-	id, dbc, _ = itemIconDisplay(tab.data, 0, "INV_Misc_Gem_01")
+	id, dbc, _ = itemDisplayVariant(tab.data, 0, "INV_Misc_Gem_01", -1)
 	out, _ = parseDBC(dbc)
 	if r, ok := out.row(uint32(id)); !ok || id != 11 || out.str(r, idModel) != "" || out.str(r, idIcon) != "INV_Misc_Gem_01" {
 		t.Fatalf("an icon alone: %d", id)
@@ -106,7 +106,36 @@ func TestItemLooksLive(t *testing.T) {
 		}
 	}
 	t.Logf("%d displays %v, %d icons", len(displays), kinds, len(icons))
-	if id, dbc, err := ItemIconDisplay(dataDir, 8690, "INV_Hammer_15"); err != nil || id != 8690 || dbc != nil {
+	if id, dbc, err := ItemDisplayVariant(dataDir, 8690, "INV_Hammer_15", -1); err != nil || id != 8690 || dbc != nil {
 		t.Errorf("own icon: %d %v", id, err)
+	}
+}
+
+// A look's shot visual: what the items using it are, and a variant that fires like another weapon.
+func TestShotVisuals(t *testing.T) {
+	// 20 a bow (visual 5), 21 a crossbow (743), 22 a bow model with the crossbow's visual that no item uses.
+	tab := testDBC(t, itemDisplayFields,
+		[]any{20, "Bow_A.mdx", "", "BowSkin", "", "INV_Weapon_Bow_05", 0, 0, 0, 0, 5},
+		[]any{21, "Bow_2H_Crossbow_A.mdx", "", "XbowSkin", "", "INV_Weapon_Crossbow_01", 0, 0, 0, 0, 743},
+		[]any{22, "Bow_A.mdx", "", "XbowSkin", "", "INV_Weapon_Bow_09", 0, 0, 0, 0, 743},
+	)
+	rows := [][]string{{"20", "15", "Shortbow", "2", "2"}, {"21", "26", "Crossbow", "2", "18"}}
+	got := listItemDisplays(tab, rows)
+	if got[0].Shoots != 2 || got[1].Shoots != 18 || got[2].Shoots != 18 || got[2].Visual != 743 {
+		t.Fatalf("shoots %d %d %d", got[0].Shoots, got[1].Shoots, got[2].Shoots)
+	}
+	// Display 22 made to shoot like a bow: a new row, the same model, texture and icon, visual 5.
+	id, dbc, err := itemDisplayVariant(tab.data, 22, "", 5)
+	if err != nil || id != 23 || dbc == nil {
+		t.Fatalf("%d %v", id, err)
+	}
+	out, _ := parseDBC(dbc)
+	r, _ := out.row(23)
+	if out.u32(r, idVisual) != 5 || out.str(r, idIcon) != "INV_Weapon_Bow_09" || out.str(r, idTexture) != "XbowSkin" {
+		t.Fatalf("variant: visual %d icon %q texture %q", out.u32(r, idVisual), out.str(r, idIcon), out.str(r, idTexture))
+	}
+	// The bow already shoots like one: itself, nothing written.
+	if id, dbc, _ := itemDisplayVariant(tab.data, 20, "", 5); id != 20 || dbc != nil {
+		t.Errorf("bow: %d %v", id, dbc != nil)
 	}
 }

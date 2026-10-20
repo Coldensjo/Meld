@@ -247,8 +247,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   model's name for an unused one, and the model's path and skin, `displayModel`, for a rendered
   `PaletteTile`; a display without a model, such as body armour, is its icon), filtered to the item's
   slot (`itemFields.ts` `slotKind`, Go's `invKind`). Icons is every `Interface\Icons` file the client
-  lists (`ListItemIcons`), item icons first. A picked icon waits for Save, where `ItemIconDisplay` finds the display that pairs the item's model
-  and everything else with that icon, or adds one (a copy of the item's display with the new icon,
+  lists (`ListItemIcons`), item icons first. A ranged weapon's basic shot fires as its display's
+  shot visual (ItemDisplayInfo field 10, which the game takes for Auto Shot: 5 a bow's, 743 a
+  crossbow's, 224 a gun's), so each listed look has `visual` and `shoots`, the weapon subclass most of
+  the database's items with that visual are (`shotSubclasses`); for a ranged item Fits it shows only
+  looks that shoot like its subclass, and the right pane warns when the item's look shoots like
+  another (Blizzard's display 35578 is a bow model with the crossbow's visual) with Make it shoot like
+  a bow, a shot visual that waits for Save with the icon. A picked icon waits for Save, where `ItemDisplayVariant` finds the display that pairs the item's model
+  and everything else with that icon and shot visual, or adds one (a copy of the item's display with the new icon,
   the next ID) to ItemDisplayInfo.dbc in Meld's patch (`installWithGameClosed`), then
   `ForgetItemDisplays` drops the Go caches built from that table. Item tiles load their icons only
   once on screen (`ItemIcon` `lazy`).

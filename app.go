@@ -1291,16 +1291,16 @@ func (a *App) ListItemIcons() ([]string, error) {
 	return vmangos.ListItemIcons(dataDir)
 }
 
-// ItemIconDisplay is the item display showing display's model with icon. When the client has none,
-// it is added to ItemDisplayInfo.dbc in Meld's patch (the game and servers closed around it on
-// Windows); added says so.
-func (a *App) ItemIconDisplay(display int, icon string) (vmangos.IconDisplay, error) {
+// ItemDisplayVariant is the item display showing display's model with icon ("" keeps its own) and
+// shot visual (-1 keeps its own). When the client has none, it is added to ItemDisplayInfo.dbc in
+// Meld's patch (the game and servers closed around it on Windows); added says so.
+func (a *App) ItemDisplayVariant(display int, icon string, visual int) (vmangos.IconDisplay, error) {
 	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return vmangos.IconDisplay{}, err
 	}
-	id, dbc, err := vmangos.ItemIconDisplay(dataDir, display, icon)
+	id, dbc, err := vmangos.ItemDisplayVariant(dataDir, display, icon, visual)
 	if err != nil || dbc == nil {
 		return vmangos.IconDisplay{ID: id}, err
 	}

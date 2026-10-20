@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { CreateItem, ExportItems, ImportItems, ItemIconDisplay, ItemModelLook, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
+	import { CreateItem, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/mapio'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { changedValues } from '../lib/world/creatureFields'
-	import { HELD_TYPES, itemTabs, slotKind } from '../lib/world/itemFields'
+	import { HELD_TYPES, itemTabs, SHOOTS_LIKE, slotKind } from '../lib/world/itemFields'
 	import { tabOfColumn } from '../lib/world/questFields'
 	import { forgetItemIcons, forgetItemRow, itemTooltipNames } from '../lib/wow/items'
 	import { QUALITY_COLORS, tooltipLines, type TooltipNames } from '../lib/wow/itemTooltip'
@@ -13,7 +13,7 @@
 	import CreaturePreview from './CreaturePreview.svelte'
 	import EquipBonuses from './EquipBonuses.svelte'
 	import ItemIcon from './ItemIcon.svelte'
-	import ItemLookPicker, { forgetLooks } from './ItemLookPicker.svelte'
+	import ItemLookPicker, { forgetLooks, loadItemDisplays } from './ItemLookPicker.svelte'
 	import ItemTooltipBox from './ItemTooltipBox.svelte'
 	import TemplateFields from './TemplateFields.svelte'
 
@@ -39,6 +39,8 @@
 	// The look: a display picked from the client's (a click; the one under the pointer is previewed),
 	// or an icon for the item's model, which Save turns into a display.
 	let pendingIcon = $state('')
+	/** A shot visual for the look, waiting for Save like the icon (-1 for none): Make it shoot like a bow. */
+	let pendingVisual = $state(-1)
 	/** Change look or Change icon, taking over the middle: the grid's pick and the tile under the pointer. */
 	let changing = $state<'' | 'look' | 'icon'>('')
 	let candidate = $state<number | string | null>(null)
@@ -46,7 +48,9 @@
 
 	const changes = $derived(changedValues(values, saved))
 	const changeCount = $derived(Object.keys(changes).length)
-	const unsaved = $derived(changeCount > 0 || pendingIcon !== '')
+	/** The look's changes waiting for Save, made into a display then: a picked icon, a shot visual. */
+	const lookChanges = $derived((pendingIcon ? 1 : 0) + (pendingVisual >= 0 ? 1 : 0))
+	const unsaved = $derived(changeCount > 0 || lookChanges > 0)
 	const tabs = $derived(record ? itemTabs(record.columns.map((c) => c.name), Number(values.class) || 0) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 	/** How many changes each tab holds, for its label. */
@@ -66,6 +70,7 @@
 		values = {}
 		saved = {}
 		pendingIcon = ''
+		pendingVisual = -1
 		changing = ''
 		error = ''
 		confirmClose = false
@@ -124,6 +129,7 @@
 	function revert() {
 		values = { ...saved }
 		pendingIcon = ''
+		pendingVisual = -1
 	}
 
 	function open(entry: number) {
@@ -153,14 +159,16 @@
 		try {
 			// A picked icon first becomes a display: the client's that pairs it with the model, or a new one in Meld's patch.
 			let added = ''
-			if (pendingIcon) {
-				const d = await ItemIconDisplay(display, pendingIcon)
+			if (lookChanges) {
+				const d = await ItemDisplayVariant(display, pendingIcon, pendingVisual)
 				if (d.added) {
 					forgetItemIcons()
-					added = ` Added display ${d.id} (${pendingIcon} on its model) to the client's patch.`
+					const what = [pendingIcon, pendingVisual >= 0 ? `shooting like ${SHOOTS_LIKE[subclass] ?? 'its weapon'}` : ''].filter(Boolean).join(', ')
+					added = ` Added display ${d.id} (its model with ${what}) to the client's patch.`
 				}
 				values.display_id = String(d.id)
 				pendingIcon = ''
+				pendingVisual = -1
 			}
 			const n = changeCount
 			if (n > 0) await SaveItem(record.entry, record.patch, changes)
@@ -317,6 +325,22 @@
 	let alone = $state(false)
 	let look = $state<vmangos.ItemLook | null>(null)
 	const display = $derived(Number(values.display_id) || 0)
+	/** A ranged weapon's subclass (2 bow, 3 gun, 18 crossbow…), else -1: what its look should shoot like. */
+	const subclass = $derived(Number(values.class) === 2 && SHOOTS_LIKE[Number(values.subclass)] ? Number(values.subclass) : -1)
+	// The client's looks, for what the item's own shoots like.
+	let displayList = $state<vmangos.ItemDisplayEntry[]>([])
+	$effect(() => {
+		if (subclass >= 0 && !displayList.length) void loadItemDisplays().then((d) => (displayList = d), () => {})
+	})
+	const lookInfo = $derived(displayList.find((d) => d.id === display))
+	/** The look fires like another weapon than the item is, and no shot visual is waiting for Save. */
+	const shotMismatch = $derived(subclass >= 0 && pendingVisual < 0 && !!lookInfo && lookInfo.shoots >= 0 && lookInfo.shoots !== subclass)
+	/** The shot visual most of the client's looks of the item's subclass have (5 for bows). */
+	const shotVisual = $derived.by(() => {
+		const n = new Map<number, number>()
+		for (const d of displayList) if (d.shoots === subclass && d.visual) n.set(d.visual, (n.get(d.visual) ?? 0) + 1)
+		return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] ?? -1
+	})
 	/** The display the preview shows: the look under the pointer in the picker, else the item's. */
 	const shown = $derived(changing === 'look' ? Number(hoverPick ?? candidate ?? display) || 0 : display)
 	/** The icon the tooltip shows: the one under the pointer or picked while changing it, else the one waiting for Save. */
@@ -370,6 +394,7 @@
 	function pickLook(id: number) {
 		values.display_id = String(id)
 		pendingIcon = ''
+		pendingVisual = -1
 	}
 
 	/** Whether the item was shown alone before Change look, which shows it alone (the item itself, large). */
@@ -479,7 +504,7 @@
 					<button onclick={exportItem} title="Write this item to an SQL script">Export…</button>
 					<button disabled={!unsaved || saving} onclick={revert}>Revert</button>
 					<button class="active" disabled={!unsaved || saving} onclick={save}>
-						{saving ? 'Saving…' : unsaved ? `Save item (${changeCount + (pendingIcon ? 1 : 0)})` : 'Saved'}
+						{saving ? 'Saving…' : unsaved ? `Save item (${changeCount + lookChanges})` : 'Saved'}
 					</button>
 				{/if}
 				<button onclick={() => close()} title="Close (Esc)">Close</button>
@@ -505,7 +530,7 @@
 		{/if}
 		{#if confirmClose && unsaved}
 			<div class="bar warn">
-				<span>{changeCount + (pendingIcon ? 1 : 0)} unsaved {changeCount + (pendingIcon ? 1 : 0) === 1 ? 'change' : 'changes'} to the item.</span>
+				<span>{changeCount + lookChanges} unsaved {changeCount + lookChanges === 1 ? 'change' : 'changes'} to the item.</span>
 				<button onclick={() => (confirmClose = false)}>Keep editing</button>
 				<button class="danger" onclick={discard}>Discard them</button>
 			</div>
@@ -571,6 +596,7 @@
 							<ItemLookPicker
 								mode={changing === 'look' ? 'looks' : 'icons'}
 								kind={slotKind(invType)}
+								shoots={subclass}
 								selected={candidate ?? (changing === 'look' ? display : pendingIcon)}
 								onpick={(v) => (candidate = v)}
 								onapply={applyChange}
@@ -619,6 +645,14 @@
 						<button class:active={changing === 'icon'} onclick={() => startChange('icon')} title="Pick another icon, keeping the model">Change icon…</button>
 					</div>
 					{#if pendingIcon}<p class="pending">Icon {pendingIcon}: Save makes the look that pairs it with this model.</p>{/if}
+					{#if shotMismatch && lookInfo}
+						<div class="shot-warn">
+							<span>This look shoots like {SHOOTS_LIKE[lookInfo.shoots]} (its shot visual {lookInfo.visual}), so the game fires {SHOOTS_LIKE[subclass]} on it like one.</span>
+							<button disabled={shotVisual < 0} onclick={() => (pendingVisual = shotVisual)}>Make it shoot like {SHOOTS_LIKE[subclass]}</button>
+						</div>
+					{:else if pendingVisual >= 0}
+						<p class="pending">Save makes the look shoot like {SHOOTS_LIKE[subclass]} (shot visual {pendingVisual}), keeping its model, texture and icon.</p>
+					{/if}
 					<h3>Tooltip</h3>
 					<div class="tooltip"><ItemTooltipBox {lines} displayId={changing === 'look' ? shown : display} icon={iconShown} /></div>
 				</section>
@@ -883,6 +917,16 @@
 	.display.changed input {
 		color: var(--accent);
 		border-color: var(--accent);
+	}
+	.shot-warn {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 6px 8px;
+		border: 1px solid #c9a227;
+		border-radius: 4px;
+		color: #e8c95a;
+		font-size: 12px;
 	}
 	.pending {
 		color: var(--accent);

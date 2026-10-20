@@ -77,7 +77,7 @@ export function ImportItems(arg1:string):Promise<Array<number>>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
-export function ItemIconDisplay(arg1:number,arg2:string):Promise<vmangos.IconDisplay>;
+export function ItemDisplayVariant(arg1:number,arg2:string,arg3:number):Promise<vmangos.IconDisplay>;
 
 export function ItemIcons(arg1:Array<number>):Promise<Record<number, string>>;
 

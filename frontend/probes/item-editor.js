@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -140,11 +140,39 @@ await P.frames(1)
 iconPick.escClosed = !change() && !!root()
 button(root().querySelector('header .actions'), 'Revert').click()
 await P.frames(2)
+
+// A bow on display 35578, Blizzard's bow model with the crossbow's shot visual (743): the editor says
+// it fires like a crossbow and offers the bow's visual; Change look's Fits it then lists bow shooters only.
+await openTab('Item')
+choose(field('Slot'), '15')
+choose(field('Subclass'), '2')
+type(root().querySelector('.display input'), '35578')
+await P.until(() => root().querySelector('.shot-warn'), WAIT, 'the shot warning')
+const shot = { warn: root().querySelector('.shot-warn span').textContent.trim() }
+button(root().querySelector('.shot-warn'), 'Make it shoot like a bow').click()
+await P.frames(1)
+shot.pending = root().querySelector('.look .pending')?.textContent.trim() ?? ''
+shot.save = button(root().querySelector('header .actions'), 'Save')?.textContent.trim()
+changeButton('Change look').click()
+await P.until(() => picker()?.querySelector('[aria-label="Looks"] .cell button'), WAIT, 'the bow looks')
+shot.fits = picker().querySelector('select[aria-label="Which looks"] option').textContent
+shot.titles = [...picker().querySelectorAll('[aria-label="Looks"] .cell button')].slice(0, 12).map((b) => b.title)
+window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+await P.frames(1)
+button(root().querySelector('header .actions'), 'Revert').click()
+await P.frames(2)
+shot.reverted = !root().querySelector('.shot-warn') && !root().querySelector('.look .pending')
 const stored = await window.go.main.App.ReadItemTemplate(25)
 ui.itemEditor = null
 await P.frames(1)
 
 const ok =
+	shot.warn.startsWith('This look shoots like a crossbow (its shot visual 743), so the game fires a bow on it like one.') &&
+	shot.pending.startsWith('Save makes the look shoot like a bow (shot visual 5)') &&
+	shot.save === 'Save item (4)' &&
+	shot.fits === 'Fits it: shoots like a bow' &&
+	shot.titles.length > 0 && shot.titles.every((t) => t.includes('Shoots like a bow')) &&
+	shot.reverted &&
 	stats.row1 && stats.row2 &&
 	stats.tooltip === 'Equip: Increases healing done by spells and effects by up to 22.' &&
 	stats.listed.includes('Healing +22') &&
@@ -184,4 +212,4 @@ const ok =
 	iconPick.pending.startsWith('Icon INV_Axe_01') &&
 	iconPick.save === 'Save item (3)' &&
 	iconPick.escClosed
-return { ok, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+return { ok, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }

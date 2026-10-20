@@ -29,7 +29,13 @@ const (
 	idModel2          = 2
 	idTexture         = 3
 	idIcon            = 5
+	// idVisual is the SpellVisual a basic shot of the item plays (the bow's, the crossbow's, the
+	// gun's fire clip and missile), which the game takes from the ranged weapon's display.
+	idVisual = 10
 )
+
+// rangedSubclasses are the weapon subclasses a basic shot fires from: bow, gun, thrown, crossbow, wand.
+var rangedSubclasses = map[int]bool{2: true, 3: true, 16: true, 18: true, 19: true}
 
 // itemDisplayStrings are ItemDisplayInfo's string fields.
 var itemDisplayStrings = map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true, 14: true, 15: true, 16: true, 17: true, 18: true, 19: true, 20: true, 21: true}
@@ -49,6 +55,11 @@ type ItemDisplayEntry struct {
 	// and the look query that skins it, for a thumbnail; "" for a display without a model.
 	Path string `json:"path"`
 	Skin string `json:"skin"`
+	// Visual is the display's shot visual (field 10), and Shoots the weapon subclass whose items'
+	// displays mostly have that visual (2 bow, 3 gun, 16 thrown, 18 crossbow, 19 wand), -1 for none:
+	// a bow on a display that shoots like a crossbow is fired like one in the game.
+	Visual int `json:"visual"`
+	Shoots int `json:"shoots"`
 }
 
 var (
@@ -130,10 +141,10 @@ func ListItemDisplays(serverRoot, dataDir string) ([]ItemDisplayEntry, error) {
 	var rows [][]string
 	if serverRoot != "" {
 		if db, err := worldDatabase(serverRoot); err == nil && ensureDatabase(db, serverRoot) == nil {
-			raw, err := runSQL(db, "SELECT i.display_id, i.inventory_type, i.name FROM item_template i "+
+			raw, err := runSQL(db, "SELECT i.display_id, i.inventory_type, i.name, i.class, i.subclass FROM item_template i "+
 				"WHERE i.display_id <> 0 AND i.patch = (SELECT MAX(patch) FROM item_template WHERE entry = i.entry) ORDER BY i.name")
 			if err == nil {
-				rows = tsvRows(raw, 3)
+				rows = tsvRows(raw, 5)
 			}
 		}
 	}
@@ -143,8 +154,9 @@ func ListItemDisplays(serverRoot, dataDir string) ([]ItemDisplayEntry, error) {
 }
 
 // listItemDisplays makes the display list from the table and the items' rows (display, inventory
-// type, name, by name), by ID.
+// type, name, class, subclass, by name), by ID.
 func listItemDisplays(t *dbcTable, rows [][]string) []ItemDisplayEntry {
+	shoots := shotSubclasses(t, rows)
 	type use struct {
 		kinds map[string]int
 		names []string
@@ -166,7 +178,13 @@ func listItemDisplays(t *dbcTable, rows [][]string) []ItemDisplayEntry {
 	}
 	out := make([]ItemDisplayEntry, 0, t.records)
 	for r := 0; r < t.records; r++ {
-		e := ItemDisplayEntry{ID: int(t.u32(r, 0)), Icon: t.str(r, idIcon), Model: trimModelExt(t.str(r, idModel))}
+		e := ItemDisplayEntry{ID: int(t.u32(r, 0)), Icon: t.str(r, idIcon), Model: trimModelExt(t.str(r, idModel)), Shoots: -1}
+		if t.fields > idVisual {
+			e.Visual = int(t.u32(r, idVisual))
+			if sub, ok := shoots[e.Visual]; ok && e.Visual != 0 {
+				e.Shoots = sub
+			}
+		}
 		bodyTextures := false
 		for f := 14; f <= 21 && f < t.fields; f++ {
 			bodyTextures = bodyTextures || t.str(r, f) != ""
@@ -190,6 +208,41 @@ func listItemDisplays(t *dbcTable, rows [][]string) []ItemDisplayEntry {
 		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+// shotSubclasses gives each shot visual the ranged weapon subclass whose items' displays have it
+// most, from the world database's items (rows as listItemDisplays reads them).
+func shotSubclasses(t *dbcTable, rows [][]string) map[int]int {
+	votes := map[int]map[int]int{}
+	for _, f := range rows {
+		if len(f) < 5 || f[3] != "2" {
+			continue
+		}
+		d, err1 := strconv.Atoi(f[0])
+		sub, err2 := strconv.Atoi(f[4])
+		if err1 != nil || err2 != nil || !rangedSubclasses[sub] {
+			continue
+		}
+		r, ok := t.row(uint32(d))
+		if !ok || t.fields <= idVisual {
+			continue
+		}
+		v := int(t.u32(r, idVisual))
+		if votes[v] == nil {
+			votes[v] = map[int]int{}
+		}
+		votes[v][sub]++
+	}
+	out := map[int]int{}
+	for v, by := range votes {
+		best := -1
+		for sub, n := range by {
+			if n > best || (n == best && sub < out[v]) {
+				out[v], best = sub, n
+			}
+		}
+	}
 	return out
 }
 
@@ -270,43 +323,56 @@ func readClientFile(dataDir, name string) ([]byte, error) {
 	return set.ReadFile(name)
 }
 
-// IconDisplay is the display ItemIconDisplay settled on, and whether it was added to the patch.
+// IconDisplay is the display ItemDisplayVariant settled on, and whether it was added to the patch.
 type IconDisplay struct {
 	ID    int  `json:"id"`
 	Added bool `json:"added"`
 }
 
-// ItemIconDisplay is the display that shows display's model with icon: display itself when its
-// icon is that already, else a display that pairs the same model, textures and the rest with that
-// icon, else a new one. For a new one it also returns ItemDisplayInfo.dbc with the row added, for
-// the caller to write into the patch; nil when nothing is to be written.
-func ItemIconDisplay(dataDir string, display int, icon string) (int, []byte, error) {
+// ItemDisplayVariant is the display that shows display's model with icon ("" keeps its own) and
+// shot visual visual (-1 keeps its own): display itself when it has them already, else a display that
+// pairs the same model, textures and the rest with them, else a new one. For a new one it also
+// returns ItemDisplayInfo.dbc with the row added, for the caller to write into the patch; nil when
+// nothing is to be written.
+func ItemDisplayVariant(dataDir string, display int, icon string, visual int) (int, []byte, error) {
 	icon = strings.TrimSpace(icon)
-	if icon == "" || strings.ContainsAny(icon, "\x00\\/") {
+	if strings.ContainsAny(icon, "\x00\\/") {
 		return 0, nil, fmt.Errorf("%q is not an icon name", icon)
 	}
 	b, err := readClientFile(dataDir, ItemDisplayPath)
 	if err != nil {
 		return 0, nil, err
 	}
-	return itemIconDisplay(b, uint32(max(display, 0)), icon)
+	return itemDisplayVariant(b, uint32(max(display, 0)), icon, visual)
 }
 
-func itemIconDisplay(dbc []byte, display uint32, icon string) (int, []byte, error) {
+func itemDisplayVariant(dbc []byte, display uint32, icon string, visual int) (int, []byte, error) {
 	t, err := parseDBC(dbc)
 	if err != nil {
 		return 0, nil, err
 	}
-	if t.fields < idIcon+1 || t.recSize != t.fields*4 {
+	if t.fields <= idVisual || t.recSize != t.fields*4 {
 		return 0, nil, errors.New("ItemDisplayInfo.dbc is not a table of 32-bit fields")
 	}
 	base, hasBase := t.row(display)
+	if icon == "" && hasBase {
+		icon = t.str(base, idIcon)
+	}
+	if icon == "" {
+		return 0, nil, errors.New("a look without a display needs an icon")
+	}
+	wantVisual := uint32(0)
+	if visual >= 0 {
+		wantVisual = uint32(visual)
+	} else if hasBase {
+		wantVisual = t.u32(base, idVisual)
+	}
 	same := func(r int) bool {
-		if !strings.EqualFold(t.str(r, idIcon), icon) {
+		if !strings.EqualFold(t.str(r, idIcon), icon) || t.u32(r, idVisual) != wantVisual {
 			return false
 		}
 		for f := 1; f < t.fields; f++ {
-			if f == idIcon {
+			if f == idIcon || f == idVisual {
 				continue
 			}
 			if itemDisplayStrings[f] {
@@ -329,8 +395,8 @@ func itemIconDisplay(dbc []byte, display uint32, icon string) (int, []byte, erro
 		}
 		maxID = max(maxID, t.u32(r, 0))
 	}
-	// A new row: the base's fields (its string offsets stay valid, the block is kept), the new ID and
-	// the icon's name added to the string block.
+	// A new row: the base's fields (its string offsets stay valid, the block is kept), the new ID,
+	// the visual, and the icon's name added to the string block.
 	rec := make([]byte, t.recSize)
 	if hasBase {
 		copy(rec, t.data[20+base*t.recSize:20+(base+1)*t.recSize])
@@ -341,6 +407,7 @@ func itemIconDisplay(dbc []byte, display uint32, icon string) (int, []byte, erro
 	}
 	id := maxID + 1
 	binary.LittleEndian.PutUint32(rec[0:], id)
+	binary.LittleEndian.PutUint32(rec[idVisual*4:], wantVisual)
 	binary.LittleEndian.PutUint32(rec[idIcon*4:], uint32(len(strs)))
 	strs = append(append(strs, icon...), 0)
 	out := make([]byte, 0, len(dbc)+len(rec)+len(icon)+1)

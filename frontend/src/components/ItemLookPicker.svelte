@@ -29,6 +29,7 @@
 </script>
 
 <script lang="ts">
+	import { SHOOTS_LIKE } from '../lib/world/itemFields'
 	import { spawnType } from '../lib/world/spawnInfo'
 	import ItemIcon from './ItemIcon.svelte'
 	import PaletteTile from './PaletteTile.svelte'
@@ -53,8 +54,13 @@
 		onhover: (v: number | string | null) => void
 		/** Which icons come first: the items' (INV_…) or the rest, the spells' and abilities'. */
 		iconsFirst?: 'items' | 'spells'
+		/**
+		 * A ranged weapon's subclass (2 bow, 3 gun, 18 crossbow…), or -1: Fits it then shows only
+		 * the looks that shoot like it, since the game fires the weapon as its look's shot visual says.
+		 */
+		shoots?: number
 	}
-	let { mode, kind, selected, onpick, onapply, onhover, iconsFirst = 'items' }: Props = $props()
+	let { mode, kind, selected, onpick, onapply, onhover, iconsFirst = 'items', shoots = -1 }: Props = $props()
 
 	const KINDS: Array<[string, string]> = [
 		['weapon', 'Weapons'],
@@ -96,6 +102,7 @@
 		const out = list.filter((d) => {
 			if (Number.isInteger(n) && n > 0) return d.id === n
 			if (want && d.kind !== want) return false
+			if (filter === 'fits' && shoots >= 0 && d.shoots !== shoots) return false
 			if (!words.length) return true
 			const text = `${d.id} ${d.model} ${d.icon} ${d.names?.join(' ') ?? ''}`.toLowerCase()
 			return words.every((w) => text.includes(w))
@@ -110,7 +117,7 @@
 		return [...list.filter(inv), ...list.filter((n) => !inv(n))]
 	})
 	const count = $derived(mode === 'looks' ? looks.length : iconMatches.length)
-	const kindName = (k: string) => KINDS.find(([v]) => v === k)?.[1] ?? k
+	const kindName = (k: string) => (k === 'ranged' && shoots >= 0 && SHOOTS_LIKE[shoots] ? `shoots like ${SHOOTS_LIKE[shoots]}` : (KINDS.find(([v]) => v === k)?.[1] ?? k))
 
 	// The grid draws only the rows in view.
 	const TILE = $derived(mode === 'looks' ? 96 : 44)
@@ -136,7 +143,7 @@
 
 	const label = (d: vmangos.ItemDisplayEntry) => d.names?.[0] ?? (d.model || d.icon)
 	const title = (d: vmangos.ItemDisplayEntry) =>
-		`Display ${d.id}${d.model ? `: ${d.model}` : ''} · ${d.icon || 'no icon'}${d.uses ? `\nUsed by ${d.names.join(', ')}${d.uses > d.names.length ? ` and ${d.uses - d.names.length} more` : ''}` : '\nNo item uses it'}`
+		`Display ${d.id}${d.model ? `: ${d.model}` : ''} · ${d.icon || 'no icon'}${d.shoots >= 0 && SHOOTS_LIKE[d.shoots] ? `\nShoots like ${SHOOTS_LIKE[d.shoots]}` : ''}${d.uses ? `\nUsed by ${d.names.join(', ')}${d.uses > d.names.length ? ` and ${d.uses - d.names.length} more` : ''}` : '\nNo item uses it'}`
 	const same = (a: number | string, b: number | string) => (typeof a === 'string' && typeof b === 'string' ? a.toLowerCase() === b.toLowerCase() : a === b)
 </script>
 

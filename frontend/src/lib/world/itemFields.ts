@@ -393,6 +393,9 @@ export function itemTabs(columns: string[], cls: number): QuestTab[] {
 /** Inventory types a hand holds (one-hand, two-hand, main hand, off hand, shield, held in off hand, ranged, thrown). */
 export const HELD_TYPES = new Set([13, 14, 15, 17, 21, 22, 23, 25, 26])
 
+/** The ranged weapon subclasses by what a basic shot fires like (ItemDisplayEntry.shoots). */
+export const SHOOTS_LIKE: Record<number, string> = { 2: 'a bow', 3: 'a gun', 16: 'a thrown weapon', 18: 'a crossbow', 19: 'a wand' }
+
 /** Where an item of inventory type `inv` goes, as the look picker groups the client's displays (Go's invKind). */
 export function slotKind(inv: number): string {
 	if ([13, 17, 21, 22].includes(inv)) return 'weapon'

@@ -403,6 +403,14 @@ Import or New item.
   hover (the item's display_id unchanged), is picked by a click and applied by Change look, back on
   the fields, held; Change icon… marks INV_Axe_01 to be made on Save (Save item (3)), and Esc leaves a
   second Change icon view; Revert.
+- Shot visuals: the probe makes the Worn Shortsword a bow (slot 15, subclass 2) on display 35578
+  and reads "This look shoots like a crossbow (its shot visual 743)…", Make it shoot like a bow
+  (visual 5, Save item (4)), and Change look's "Fits it: shoots like a bow" with bow shooters only.
+  `TestShotVisuals` checks the subclass vote and a variant with the bow's visual. Found on
+  2026-10-20: an owner-made bow on display 38287 (a copy of 35578 with another icon) fired like a
+  crossbow in Benilla while the Worn Shortbow didn't; Benilla takes a basic shot's fire clip from the
+  ranged weapon's display visual (`weapon_src.caster` in `creature_anim/spell_visual.rs`), as the
+  client does. Live counts: 166 bow displays use visual 5, 30 crossbow 743, 140 gun 224.
 - Trap: in the Icons grid the tile is `.icon-btn`; `.icon` is the ItemIcon span inside it. A probe's
   synthetic hover must bubble (`pointerover` with `bubbles: true`), or the look tiles' `pointerenter`
   for PaletteTile.
