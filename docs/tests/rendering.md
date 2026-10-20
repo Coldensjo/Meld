@@ -267,11 +267,17 @@ their own context is lost and restored, with no WebGL errors, and a closed Previ
 ## WMO culling by group (#198, #215)
 Checks: a big WMO drawn once (Stormwind) draws only its groups in the camera's view or the near shadow
 cascade in the scene pass and the near cascade's shadow pass, and looks the same as drawn whole.
-- Probe: `bun run probe wmo-cull` (the frame's and the shadow maps' triangles, the cull on and off).
+- Probe: `bun run probe wmo-cull` (the frame's and the near shadow cascade's triangles, the cull on and off).
   Since #325 a batch joins the near cascade only with a drawn instance in its box, and at the
-  benchmark view the city is outside it, so there the shadow maps draw the same with the cull on and
-  off (1,897,522 triangles on 2026-10-18). The probe compares the near cascade's triangles over the
-  city instead (the view below): 2,381,640 culled against 2,773,074 whole.
+  benchmark view the city is outside it, so there the near map draws the same with the cull on and
+  off (173,167 triangles on 2026-10-20). The probe compares the near cascade's triangles over the
+  city instead (the view below): 940,398 culled against 1,331,832 whole.
+- Trap (#392): count the near map on a frame that redraws it alone. The shadow maps are kept between
+  frames, and the far map, which draws the city whole either way, is redrawn whenever the scene
+  changes, which goes on after `P.settle` (the spawn layer's version still ticks as spawns arrive). A
+  read of "the last frame's shadow triangles" then caught a far redraw on one side only (1.9M culled
+  against 173k whole). The probe sets `env.key.shadow.needsUpdate` and skips any frame where
+  `env.far.shadow.needsUpdate` was also set.
 - Unit: `frontend/tests/wmoGroupCull.test.ts` (runs by group, the view half, the camera check, the
   group's range put back after the draw).
 - Dev page, Northshire scene (Azeroth 32_48, 1x1). Stormwind loads late on SwiftShader: poll the live

@@ -5,15 +5,20 @@ await P.settle()
 const batch = await P.until(() => [...P.e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
 // The class the batch was made with: an import gives another module instance after an edit (Vite's `?t=` URLs).
 const WmoGroupCull = batch[1].cull.constructor
-// The triangles the shadow maps drew in the last frame: three draws them inside renderer.render.
+// The triangles the near cascade drew in its last redraw on its own: three draws the shadow maps inside
+// renderer.render. A frame that also redrew the far map doesn't count: it draws the city whole with the
+// cull on or off, and it is redrawn whenever the scene changes, as when a spawn's model arrives after the
+// settle (#392: the culled read caught such a frame, 1.9M against the whole read's 173k).
 const sm = P.e.renderer.shadowMap
 const render = sm.render
-let shadow = 0
+const { key, far } = P.e.env
+let shadow = -1
 sm.render = function (...args) {
 	const info = P.e.renderer.info.render
 	const t = info.triangles
+	const nearOnly = key.shadow.needsUpdate && !far.shadow.needsUpdate
 	render.apply(this, args)
-	shadow = info.triangles - t
+	if (nearOnly) shadow = info.triangles - t
 }
 // The city's own count, from its batch: the report lists only the top five models, and the culled city
 // (2k triangles at 13:00) falls off it, which read as 0 (#252).
@@ -21,6 +26,12 @@ const { meshTriangles } = await P.app('/src/lib/engine/perfMeter.ts')
 const storm = async () => {
 	await P.frames(3)
 	const r = await P.perf(1)
+	// The near map is kept while nothing changes, so it is asked for again until a frame redraws it alone.
+	shadow = -1
+	await P.until(() => {
+		key.shadow.needsUpdate = true
+		return shadow >= 0
+	}, 30_000, 'a redraw of the near shadow map alone')
 	return { frame: r.triangles, shadow, stormwind: meshTriangles(batch[1].mesh) }
 }
 let on, off, cityOn, cityOff, look
