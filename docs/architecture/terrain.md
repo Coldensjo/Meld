@@ -185,8 +185,11 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `RegionEdit` (`regionEdit`: heights, models, paint and chunk headers, liquids) and `SaveRegion`
   writes the tiles that differ from the patch's copies; Server rebuilds the server's map data of the
   region's tiles from the patch (`UpdateRegionServer`), and refuses while the region has edits the
-  patch lacks; All does both, the server only for the tiles the client compile wrote. Spawns are not
-  compiled: they go to the database through Save Spawns. Compile works on the active tab only; with
+  patch lacks; All does both, the server only for the tiles the client compile wrote. Server and All
+  also write the region's spawn edits into the world database (#342, `compileSpawns`, the same
+  `writeSpawns` as Save Spawns, which stays for spawn-only changes) before the rebuild, whose restart of
+  the world server reads them; a failed spawn write is reported and leaves the server alone, while
+  All's client tiles are still written. Compile to Client never touches the database. Compile works on the active tab only; with
   nothing changed it names the other region tabs edited since their last compile.
 - **Uncompiled edits**: `MapDocument.compiled` is the fingerprint (`Engine.regionKey`,
   `io/regionKey.ts`) of what Compile writes, taken when the region is opened from the client and after

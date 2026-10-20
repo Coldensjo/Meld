@@ -580,5 +580,6 @@ the same scene, the report before and after.
 - Minimap tiles for the client (B-129, #17)
 - Server map extraction for one map (Publish, #174)
 - Compile to Client, Server, All and Launch's check for uncompiled edits (#214; probe `compile-launch`)
+- Compile to Server and Compile All save the spawn edits (#342; probe `compile-spawns`)
 - A map's own loading screen (Map Properties › Picture…, #218)
 - World map of a zone (World › World Map, #181; exploration overlays, #219)

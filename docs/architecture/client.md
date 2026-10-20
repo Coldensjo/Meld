@@ -50,7 +50,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - **Spawn editing** (`world/spawnEdits.ts`): spawns are edited in place in the `SpawnLayer`
   (keyed `kind/guid`), and every change is a `History` command. `SpawnLayer.touch` keeps a
   spawn's database state before its first edit, so `edits()` lists what changed; File › Save Spawns to
-  Database… saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
+  Database… (and Compile to Server and Compile All, #342) saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
   one transaction, a copy kept in `<user cache>/Meld/spawn-sql`) or exports the SQL. A
   changed display, equipment or pose is re-dressed by `SpawnLook` in Go. A game object's entry can
   change (#136, `objectEntryFields`: entry, name, type, display, model and the template's size as

@@ -122,6 +122,20 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
 
+## Compile to Server and Compile All save the spawn edits (#342)
+Checks: Compile to Server and Compile All write the region's spawn edits into the world database
+before the server rebuild, a failed write stops the rebuild, and Compile to Client never writes them.
+- Probe `compile-spawns` (`bun run probe compile-spawns`, about 8 s): opens Azeroth 31_50 and swaps the
+  bindings the compile calls (`VmangosPath`, `SaveRegion`, `ApplySpawnEdits`, `UpdateRegionServer` on
+  `window.go.main.App`) and `Engine.spawnEdits` for stand-ins that record the call order, so it writes
+  nothing and never restarts mangosd. The wailsjs wrappers look the binding up at call time, which is
+  what makes the swap work; restore them in a `finally`.
+- Trap: the rebuild flag (`serverMapsRunning`) stays set until Go sends `servermaps:done`, so a second
+  compile in the same page says "still being rebuilt" and skips `UpdateRegionServer`. The probe sends
+  the event itself (`window.runtime.EventsEmit('servermaps:done', '')`) after each compile.
+- Against the live database, by hand with the owner's go-ahead (it restarts mangosd): move a spawn,
+  Compile to Server, read the row back with mariadb (port 3307), then move it back and compile again.
+
 ## Compile to Client, Server, All and Launch's check for uncompiled edits (#214)
 Checks: the File menu's three compile entries, and that Launch asks before starting the game while the
 open region has edits the client lacks, and only then.

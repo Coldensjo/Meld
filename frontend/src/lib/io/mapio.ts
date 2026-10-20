@@ -274,16 +274,49 @@ export function reloadSpawns(engine: Engine) {
  * restarted to show them.
  */
 export function saveSpawns(engine: Engine) {
-  return guarded('Save spawns', async () => {
-    const b = editor.regionBlock
-    const edits = engine.spawnEdits()
-    if (!b || !editor.regionMap || edits.length === 0) return
-    const res = await ApplySpawnEdits(editor.regionMap, b.x, b.y, b.size, edits)
-    engine.markSpawnsSaved()
-    const skipped = res.skipped?.length ? ` Not written: ${res.skipped.join('; ')}.` : ''
-    setStatus(`Saved spawns to the world database: ${res.added} added, ${res.changed} changed, ${res.deleted} deleted. Restart the world server to see them.${skipped}`, 12000)
-  })
+	return guarded('Save spawns', async () => {
+		const saved = await writeSpawns(engine)
+		if (saved) setStatus(`${saved} Restart the world server to see them.`, 12000)
+	})
 }
+
+/**
+ * Writes the active region's spawn edits into the world database, unguarded, for Save Spawns and the
+ * compile (#342). Returns the status sentence, or '' when there was nothing to write; throws when the
+ * write failed.
+ */
+async function writeSpawns(engine: Engine): Promise<string> {
+	const b = editor.regionBlock
+	const edits = engine.spawnEdits()
+	if (!b || !editor.regionMap || edits.length === 0) return ''
+	const res = await ApplySpawnEdits(editor.regionMap, b.x, b.y, b.size, edits)
+	engine.markSpawnsSaved()
+	const skipped = res.skipped?.length ? ` Not written: ${res.skipped.join('; ')}.` : ''
+	return `Saved spawns to the world database: ${res.added} added, ${res.changed} changed, ${res.deleted} deleted.${skipped}`
+}
+
+/** What the compile's spawn write did: its status note, whether it wrote any, and whether it failed. */
+type CompileSpawns = { note: string; saved: boolean; failed: boolean }
+
+const noSpawns: CompileSpawns = { note: '', saved: false, failed: false }
+
+/**
+ * Compile to Server and Compile All save the region's spawn edits with the ground (#342). A failure is
+ * reported, not thrown, so the client's tiles still compile; the caller then leaves the server alone
+ * rather than restarting it with half the edits.
+ */
+async function compileSpawns(engine: Engine): Promise<CompileSpawns> {
+	try {
+		const saved = await writeSpawns(engine)
+		return saved ? { note: ` ${saved}`, saved: true, failed: false } : noSpawns
+	} catch (err) {
+		console.error(err)
+		return { note: ` The spawn edits were not saved to the world database (${err}), so the server was left alone.`, saved: false, failed: true }
+	}
+}
+
+/** The restart hint after spawns were saved with no server rebuild (which restarts the world server). */
+const restartNote = (s: CompileSpawns) => (s.saved ? ' Restart the world server to see the spawns.' : '')
 
 /** Saves the active region's spawn edits as an SQL script for the world database, without running it. */
 export function exportSpawnSql(engine: Engine) {
@@ -528,7 +561,7 @@ function continentId(mapName: string) {
   return name === 'azeroth' ? 0 : name === 'kalimdor' ? 1 : -1
 }
 
-/** A note on the spawn edits not yet in the world database, for the server's status lines. */
+/** A note on the spawn edits not yet in the world database, for a compile that can't save them. */
 function spawnNote() {
   const n = ui.spawnChanges
   return n ? ` ${n} spawn ${n === 1 ? 'edit is' : 'edits are'} not in the world database yet: File › Save Spawns to Database.` : ''
@@ -541,6 +574,8 @@ function spawnNote() {
  * - server rebuilds the server's map data of the region's tiles from the client's patch, once it is
  *   sure the patch holds the region's edits, since the server is built from it.
  * - all does both, the server only for the tiles the client compile wrote.
+ * Server and all also save the region's spawn edits into the world database (#342), before the
+ * rebuild, whose restart of the world server then reads them.
  */
 export function compileRegion(engine: Engine, target: CompileTarget) {
   return guarded('Compile region', async () => {
@@ -569,12 +604,14 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
     // The patch now holds what the map held when the compile started.
     d.compiled = compiled
     const server = await VmangosPath()
+    // The spawns need the server folder (it holds the database's settings); without one they wait.
+    const spawns = target === 'all' && server ? await compileSpawns(engine) : noSpawns
     if (!res.patch) {
       // Compile works on the open tab: another region with edits says where they are.
       const others = engine.otherEditedRegions()
       const elsewhere = others.length ? ` ${others.join(', ')} ${others.length === 1 ? 'was' : 'were'} edited since the last compile: Compile works on the open tab, so switch to it.` : ''
       const rebuild = target === 'all' && server && res.mapId >= 0 ? " Compile to Server rebuilds the server's map data of the region anyway." : ''
-      setStatus(`Nothing changed in ${name} since the last compile, so the patch and the game were left alone.${elsewhere}${rebuild}`, 10000)
+      setStatus(`Nothing changed in ${name} since the last compile, so the patch and the game were left alone.${elsewhere}${spawns.note}${restartNote(spawns)}${rebuild}`, 10000)
       return
     }
     const unchanged = res.tiles - res.changed
@@ -588,37 +625,40 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
       return
     }
     if (!server) {
-      setStatus(`${wrote} No VMaNGOS server folder is set (Game menu), so the server was left alone.`, 10000)
+      setStatus(`${wrote} No VMaNGOS server folder is set (Game menu), so the server was left alone.${spawnNote()}`, 10000)
       return
     }
-    if (!rebuildable) {
-      const hint = res.mapId < 0 ? ` Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.` : ''
-      setStatus(`${wrote}${hint}${spawnNote()}`, 10000)
+    if (!rebuildable || spawns.failed) {
+      const hint = res.mapId < 0 && !spawns.failed ? ` Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.` : ''
+      setStatus(`${wrote}${spawns.note}${restartNote(spawns)}${hint}`, 12000)
       return
     }
     // The tiles alone only when the server's data matched the patch before; else the whole map.
-    await rebuildServerMaps(res.mapId, res.tilesCurrent ? res.changedTiles : [], wrote)
+    await rebuildServerMaps(res.mapId, res.tilesCurrent ? res.changedTiles : [], `${wrote}${spawns.note}`)
   })
 }
 
 /** Compile to Server: the region's tiles rebuilt from the client's patch, which must hold its edits. */
 async function compileServer(engine: Engine, region: RegionBlock, name: string) {
-  const mapId = continentId(region.mapName)
-  if (mapId < 0) {
-    setStatus(`Only Azeroth's and Kalimdor's map data is rebuilt this way. ${region.mapName}'s comes from update-maps.bat in the scripts folder beside the server.`, 10000)
-    return
-  }
-  if (!(await VmangosPath())) {
-    setStatus('Set the VMaNGOS server folder first (Game menu), then Compile to Server.', 8000)
-    return
-  }
-  if (await regionUncompiled(engine)) {
-    setStatus(`${name} has edits the client doesn't have yet, and the server's map data is built from the client's tiles: Compile All writes both.`, 10000)
-    return
-  }
-  const tiles: string[] = []
-  for (let j = 0; j < region.size; j++) for (let i = 0; i < region.size; i++) tiles.push(`${region.x + i}_${region.y + j}`)
-  await rebuildServerMaps(mapId, tiles, `Rebuilding the server's map data of ${name} from the client's tiles.`)
+	if (!(await VmangosPath())) {
+		setStatus('Set the VMaNGOS server folder first (Game menu), then Compile to Server.', 8000)
+		return
+	}
+	if (await regionUncompiled(engine)) {
+		setStatus(`${name} has edits the client doesn't have yet, and the server's map data is built from the client's tiles: Compile All writes both.`, 10000)
+		return
+	}
+	// The spawns go first, so the world server the rebuild restarts reads them (#342).
+	const spawns = await compileSpawns(engine)
+	const mapId = continentId(region.mapName)
+	if (mapId < 0 || spawns.failed) {
+		const only = mapId < 0 && !spawns.failed ? ` Only Azeroth's and Kalimdor's map data is rebuilt this way. ${region.mapName}'s comes from update-maps.bat in the scripts folder beside the server.` : ''
+		setStatus(`${spawns.note}${restartNote(spawns)}${only}`.trimStart(), 12000)
+		return
+	}
+	const tiles: string[] = []
+	for (let j = 0; j < region.size; j++) for (let i = 0; i < region.size; i++) tiles.push(`${region.x + i}_${region.y + j}`)
+	await rebuildServerMaps(mapId, tiles, `${spawns.note} Rebuilding the server's map data of ${name} from the client's tiles.`.trimStart())
 }
 
 /** Starts the rebuild of the server's map data of `tiles` ("x_y"; none for the whole map) in the background. */
@@ -631,7 +671,7 @@ async function rebuildServerMaps(mapId: number, tiles: string[], lead: string) {
   serverMapsRunning = true
   try {
     await UpdateRegionServer(mapId, tiles)
-    setStatus(`${lead} Rebuilding the server's map data…${spawnNote()}`, 0)
+    setStatus(`${lead} Rebuilding the server's map data…`, 0)
   } catch (e) {
     serverMapsRunning = false
     setStatus(`${lead} The server's map data was not rebuilt: ${e}`, 10000)
