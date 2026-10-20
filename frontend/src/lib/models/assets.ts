@@ -5,6 +5,7 @@ import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
 import { patchRoomGate, ROOM_ATTRIBUTE } from '../world/roomGate'
 import { buildBoundsTree } from '../world/bvh'
+import { markShadowMoving } from '../world/shadowReach'
 import { buildLod } from './lod'
 import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
 import type { LiquidClass } from '../water/liquids'
@@ -254,6 +255,9 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean, rooms: boolean): THREE
     applyColor(tinted, base, colorAt(g.color, 0, rgba))
     if (!colorIsStatic(g.color)) colorAnimated.push({ material: tinted, base, spec: g.color })
   }
+	// A moving cut-out or a colour that can fade out changes the shadow as it animates: the near shadow
+	// map draws batches with one apart from the still ones (#346).
+	if ((moving && params.alphaTest) || (g.color && !colorIsStatic(g.color) && colorFades(g.color))) markShadowMoving(m)
   // Cast shadows from both faces: three's default casts from the back faces only, and a building's
   // single-sided walls then let the sun through onto the walls behind them.
   m.shadowSide = THREE.DoubleSide

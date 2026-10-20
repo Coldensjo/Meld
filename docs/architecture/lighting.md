@@ -24,13 +24,25 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   texels and sets its depth range and biases in world units from the texel size). Both maps are
   kept between frames (`autoUpdate` off); `Engine.markShadows`, just before the render, redraws the
   far one when its fit, the scene (objects, heights, holes, spawns, a model texture bound:
-  `shadowSceneChanged`) or a preference changed, and the near one on those, when the camera moved
-  (culling, LODs and the room gate follow it), or when a model drawn in its box was posed
-  (`shadowReach.castsNear`: the near pass notes the skeletons it draws) or an animated material
-  showed, hid or moved an alpha-tested texture (`updateMaterialAnimations`' result). A still view
-  redraws neither (#326). Something new that casts must bump one of those keys or its shadow goes
-  stale; the `shadow-redraw` probe checks the edits. Both cascade frustums feed instance culling,
-  so what is off screen still casts.
+  `shadowSceneChanged`) or a preference changed, and the near one on those and when the camera moved
+  (culling, LODs and the room gate follow it). A still view redraws neither (#326). Something new
+  that casts must bump one of those keys or its shadow goes stale; the `shadow-redraw` probe checks
+  the edits. Both cascade frustums feed instance culling, so what is off screen still casts.
+- **Moving casters** (#346, `engine/posedShadows.ts`): a batch whose shadow changes from frame to
+  frame is a mover: a skinned one, or one with a material whose shadow moves (`markShadowMoving`, set
+  in `wowMaterial`: a moving texture on a cut-out, or an animated colour that can fade out). Movers
+  are on `POSED_LAYER` as well as the default layer (`cullForShadows`), and the near pass notes the
+  ones in its box (`shadowReach.castsNear`, `materialsNear`). When the only change in the near map is
+  a pose or such a material (`Engine.animateModels` sets `nearPosed`; `markShadows` hands it to
+  `PosedShadows.poses`), the map isn't redrawn in full: the first such frame draws it with the still
+  casters only (`setNearStill`: the movers keep out but are noted) and copies its depth aside
+  (`copyTextureToTexture`, a depth blit); every one after copies it back. Each then draws the movers
+  on top with three's own shadow pass, through a camera that sees only `POSED_LAYER`, with
+  `renderer.clear` skipped, and with the light's matrices as they were for the still pass (the key
+  light's position follows the live sun, but the map and its lookup must agree). A full redraw (the
+  key light's `needsUpdate`) drops the copy. A material whose shadow moves must be marked before a
+  batch is made with it, or the batch is drawn as still and its shadow goes stale; the
+  `shadow-poses` probe checks that the split view matches a full redraw.
 - The fits hold where a refit would redraw a map for little gain (#324). The far fit holds
   (`Environment.holdsFar`) until the wanted centre or half-size has drifted a quarter (`FAR_HOLD`) of
   the held half-size, the light has turned, or the near box would reach past 90% of the held far box,

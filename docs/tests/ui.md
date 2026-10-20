@@ -285,6 +285,13 @@ target and facing. A click moves the camera there (`controller.focus`). In the d
   `intersectsFrustum` as `(f) => f === __engine.env.key.shadow.getFrustum() ? true : old(f)` (the old
   behaviour) and alternate with the original, `P.frames(3)` and `P.perf(1)` each. Look at the near
   shadows (Help › Benchmark maps) for casters missing at the near box's edge.
+- The moving casters' pass (#346, probe `shadow-poses`): with Prop animations on, a still view draws
+  only the posed models and moving cut-outs into the near map, over a copy of the rest. A/B it in one
+  page with `P.ab((on) => { __engine.posedShadows.enabled = on }, 6, { sections: ['Shadow', 'Render'] })`
+  after `P.benchMap('objects-mixed')` (off redraws the whole near map on such frames, as before). Trap:
+  a map whose models have moving cut-out textures (waterfalls, leaves) redrew the near map every frame
+  until those materials were marked as movers too; count the frames whose `near.needsUpdate` is set
+  (wrap `markShadows`) against `posedShadows.passes` to see which kind of redraw a map gets.
 
 ## Start dialog: opening an instance (#222, #271, probe `instance-open`)
 

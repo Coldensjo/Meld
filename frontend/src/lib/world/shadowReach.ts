@@ -8,8 +8,10 @@ import * as THREE from 'three'
  *   batch then joins a face only when one of the instances it draws meets both.
  * - The sun's near cascade, whose box is at most 500 yd across: the Engine registers its frustum each
  *   frame, and a batch joins it only when one of its drawn instances meets it. The batches that join
- *   it with a skeleton are noted, so the Engine redraws that map (only on a change, #326) when one of
- *   them is posed.
+ *   it and move (a skeleton, or a material whose shadow moves: `markShadowMoving`) are noted, so the
+ *   Engine redraws them into that map (only on a change, #326) when one is posed or its material
+ *   moves. While the near map's still casters are drawn apart from those (#346, `setNearStill`), the
+ *   moving batches keep out of it but are still noted.
  * Any other frustum (the camera's, the far cascade's) keeps every batch.
  */
 const reaches = new Map<THREE.Frustum, THREE.Sphere>()
@@ -17,6 +19,30 @@ const spheres: THREE.Sphere[] = []
 let nearCascade: THREE.Frustum | null = null
 /** The skeletons of the batches drawn into the near cascade's map when it was last drawn. */
 const nearSkeletons = new Set<THREE.Skeleton>()
+/** A batch with a moving material was drawn into the near cascade's map when it was last drawn. */
+let nearMaterials = false
+/** The near map is being drawn with its still casters only (`PosedShadows`). */
+let nearStill = false
+/** The materials whose shadow changes as they animate (`markShadowMoving`). */
+const movingMaterials = new WeakSet<THREE.Material>()
+/** How a batch's shadow moves: MOVES_POSE with a skeleton, MOVES_MATERIAL with a moving material. */
+const movers = new WeakMap<THREE.InstancedMesh, number>()
+const MOVES_POSE = 1
+const MOVES_MATERIAL = 2
+
+/**
+ * The layer the moving batches are on as well as the default one: a shadow pass through a camera
+ * that sees only this layer draws only them (`PosedShadows`, #346).
+ */
+export const POSED_LAYER = 31
+
+/**
+ * Notes that `material`'s shadow changes as it animates: a moving texture on a cut-out, or a colour
+ * that can fade out (a hidden material casts nothing). Call before a batch is made with it.
+ */
+export function markShadowMoving(material: THREE.Material) {
+	movingMaterials.add(material)
+}
 
 /** Forgets the lights registered last frame; call before registering this frame's. */
 export function clearShadowReach() {
@@ -37,14 +63,25 @@ export function setNearCascade(frustum: THREE.Frustum | null) {
 	nearCascade = frustum
 }
 
+/** While on, the near cascade's pass leaves out the moving batches, still noting those in its box. */
+export function setNearStill(on: boolean) {
+	nearStill = on
+}
+
 /** Forgets the near cascade's animated casters; call when its map is about to be redrawn, which notes them again. */
 export function clearNearCasters() {
 	nearSkeletons.clear()
+	nearMaterials = false
 }
 
 /** Whether the near cascade's map, as last drawn, holds a model skinned with `skeleton`. */
 export function castsNear(skeleton: THREE.Skeleton): boolean {
 	return nearSkeletons.has(skeleton)
+}
+
+/** Whether the near cascade's map, as last drawn, holds a batch with a moving material. */
+export function materialsNear(): boolean {
+	return nearMaterials
 }
 
 const test = new THREE.Sphere()
@@ -83,9 +120,12 @@ export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum)
 		test.center.set(x, y, z)
 		test.radius = r
 		if (frustum.intersectsSphere(test)) {
-			const skeleton = (mesh as { skeleton?: THREE.Skeleton }).skeleton
-			if (skeleton && frustum === nearCascade) nearSkeletons.add(skeleton)
-			return true
+			if (frustum !== nearCascade) return true
+			const moves = movers.get(mesh)
+			if (!moves) return true
+			if (moves & MOVES_POSE) nearSkeletons.add((mesh as unknown as { skeleton: THREE.Skeleton }).skeleton)
+			if (moves & MOVES_MATERIAL) nearMaterials = true
+			return !nearStill
 		}
 	}
 	return false
@@ -94,5 +134,12 @@ export function instancesMeet(mesh: THREE.InstancedMesh, frustum: THREE.Frustum)
 /** Lets three cull `mesh` per shadow pass through `instancesMeet`; it is still drawn wherever else three draws it. */
 export function cullForShadows(mesh: THREE.InstancedMesh) {
 	mesh.frustumCulled = true
+	const m = mesh.material
+	const pose = (mesh as { skeleton?: THREE.Skeleton }).skeleton ? MOVES_POSE : 0
+	const material = (Array.isArray(m) ? m.some((x) => movingMaterials.has(x)) : movingMaterials.has(m)) ? MOVES_MATERIAL : 0
+	if (pose | material) {
+		movers.set(mesh, pose | material)
+		mesh.layers.enable(POSED_LAYER)
+	}
 	mesh.intersectsFrustum = (frustum: THREE.Frustum) => instancesMeet(mesh, frustum)
 }

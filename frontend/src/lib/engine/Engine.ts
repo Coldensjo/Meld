@@ -65,7 +65,8 @@ import { loadAreas } from '../wow/areas'
 import { animatedAssets, displayName, getAsset, texturesBoundCount, updateMaterialAnimations } from '../models/assets'
 import { withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
-import { castsNear, clearNearCasters, setNearCascade } from '../world/shadowReach'
+import { castsNear, clearNearCasters, materialsNear, setNearCascade } from '../world/shadowReach'
+import { PosedShadows } from './posedShadows'
 import { WmoRooms } from '../world/WmoRooms'
 import { GROUND_SNAP_REACH } from '../world/particles'
 import { RoomFlood, SKY_GROUP } from '../world/wmoFlood'
@@ -271,6 +272,8 @@ export class Engine {
   }
 
   private env: Environment
+	/** Redraws only the posed models into the near shadow map when nothing else in it changed (#346). */
+	private posedShadows: PosedShadows
   private effects = new PropEffects()
   /** The WMO room the camera is in (`world/wmoRoom.ts`). */
   private rooms = new WmoRooms()
@@ -465,8 +468,10 @@ export class Engine {
     // rebuild its state; these pause the editor around it.
     canvas.addEventListener('webglcontextlost', () => this.onContextLost(), { signal: this.abort.signal })
     canvas.addEventListener('webglcontextrestored', () => this.onContextRestored(), { signal: this.abort.signal })
-    this.timeShadowMaps()
     this.env = new Environment(this.scene)
+		this.posedShadows = new PosedShadows(this.renderer, this.env.key)
+		// After PosedShadows, so the timing wraps its passes and copies too.
+		this.timeShadowMaps()
     this.scene.add(this.horizon.mesh)
     this.scene.add(this.effects.group)
     this.scene.add(this.particles.group)
@@ -627,6 +632,7 @@ export class Engine {
     this.doomOutline.dispose()
     this.spawnLabels.dispose()
     this.env.dispose()
+		this.posedShadows.dispose()
     this.horizon.dispose()
     this.effects.dispose()
     this.particles.dispose()
@@ -1223,8 +1229,9 @@ export class Engine {
     const spawns = this.doc.spawnLayer
     // Moving textures (waterfalls, lava) and changing colours (glows, shimmers) follow the same clock;
     // with animations off they hold still.
-		// A pose or material change that a model in the near cascade's box shows redraws that map (#326).
-		if (updateMaterialAnimations(ms)) this.nearPosed = true
+		// A pose, or a moving material whose shadow changed, of a model in the near cascade's box redraws
+		// the moving models into that map (#326, #346).
+		if (updateMaterialAnimations(ms) && materialsNear()) this.nearPosed = true
     for (const [type, a] of animatedAssets) {
       if (still && a.anim!.posedAt === 0) continue
 		if (ui.pasting || type === prefab || (doodads && this.doodadTool.previewing(type)) || this.objects.hasVisible(type) || spawns.drawsType(type)) {
@@ -1958,9 +1965,10 @@ export class Engine {
 	 * Says which shadow maps to redraw this frame, just before it is drawn (#326). Both are kept between
 	 * frames: the far one is redrawn when its fit, the scene or a preference changes (a layer shown or
 	 * hidden, the wireframe); the near one, which also follows the camera (culling, LODs and the room
-	 * gate pick what it draws) and moving models, on the same changes, when the camera moves, or when a
-	 * model drawn in its box is posed or an animated material shows or hides. A still view with nothing
-	 * moving in the near box redraws neither.
+	 * gate pick what it draws) and moving models, on the same changes and when the camera moves. When
+	 * the only change is a pose or a moving material (a cut-out's texture, a fade) of a model drawn in
+	 * its box, only the moving models are drawn again, over a copy of the rest (`PosedShadows`, #346). A
+	 * still view with nothing moving in the near box redraws neither.
 	 */
 	private markShadows() {
 		const env = this.env
@@ -1973,11 +1981,11 @@ export class Engine {
 		if (scene || this.prefsChanged || fits & SHADOW_FAR) env.far.shadow.needsUpdate = true
 		const view = !this.viewProj.equals(this.shadowViewProj)
 		if (view) this.shadowViewProj.copy(this.viewProj)
-		if (scene || view || posed || this.prefsChanged || fits & SHADOW_NEAR) {
+		if (scene || view || this.prefsChanged || fits & SHADOW_NEAR) {
 			env.key.shadow.needsUpdate = true
 			// The redraw notes the posed models it draws again.
 			clearNearCasters()
-		}
+		} else if (posed) this.posedShadows.poses = true
 		this.prefsChanged = false
 	}
 
@@ -2009,7 +2017,7 @@ export class Engine {
 	private shadowKey = [-1, -1, -1, -1, -1]
 	/** The fits `fitShadows` changed since the last `markShadows` (SHADOW_NEAR, SHADOW_FAR bits). */
 	private shadowFits = 0
-	/** A model posed or a material animated this frame shows in the near cascade's map. */
+	/** A model posed, or a moving material changed, this frame shows in the near cascade's map. */
 	private nearPosed = false
 	/** The camera's view-projection when the near map was last checked. */
 	private shadowViewProj = new THREE.Matrix4()

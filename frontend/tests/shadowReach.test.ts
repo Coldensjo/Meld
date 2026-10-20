@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { addShadowReach, clearShadowReach, instancesMeet, setNearCascade } from '../src/lib/world/shadowReach.ts'
+import { addShadowReach, castsNear, clearNearCasters, clearShadowReach, cullForShadows, instancesMeet, markShadowMoving, materialsNear, POSED_LAYER, setNearCascade, setNearStill } from '../src/lib/world/shadowReach.ts'
 
 /** An InstancedMesh of unit boxes drawing one instance at each of `at`. */
 function batch(...at: Array<[number, number, number]>): THREE.InstancedMesh {
@@ -66,4 +66,41 @@ test('the near cascade draws a batch only with a drawn instance in its box', () 
 	assert.equal(instancesMeet(b, new THREE.Frustum()), true, 'another frustum keeps it')
 	setNearCascade(null)
 	assert.equal(instancesMeet(b, near), true, 'without shadows nothing is culled')
+})
+
+test('a moving batch in the near box is noted, keeps out of the still pass and is on the posed layer', () => {
+	clearShadowReach()
+	const cam = new THREE.OrthographicCamera(-50, 50, 50, -50, 0, 200)
+	cam.position.set(0, 100, 0)
+	cam.lookAt(0, 0, 0)
+	cam.updateMatrixWorld()
+	const near = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse))
+	setNearCascade(near)
+	clearNearCasters()
+	const skeleton = new THREE.Skeleton([])
+	const posed = Object.assign(batch([10, 0, 10]), { skeleton })
+	cullForShadows(posed)
+	const fading = new THREE.MeshBasicMaterial()
+	markShadowMoving(fading)
+	const faded = batch([0, 0, 0])
+	faded.material = [new THREE.MeshBasicMaterial(), fading]
+	cullForShadows(faded)
+	const still = batch([0, 0, 0])
+	cullForShadows(still)
+	const only = new THREE.Layers()
+	only.set(POSED_LAYER)
+	assert.equal(posed.layers.test(only) && faded.layers.test(only), true, 'moving batches are on the posed layer')
+	assert.equal(still.layers.test(only), false, 'a still batch is not')
+	assert.equal(posed.layers.test(new THREE.Layers()), true, 'and still on the default one')
+	assert.equal(castsNear(skeleton) || materialsNear(), false)
+	setNearStill(true)
+	assert.equal(posed.intersectsFrustum(near), false, 'the still pass leaves a posed batch out')
+	assert.equal(faded.intersectsFrustum(near), false, 'and one with a moving material')
+	assert.equal(still.intersectsFrustum(near), true, 'but draws a still one')
+	assert.equal(castsNear(skeleton) && materialsNear(), true, 'both are noted all the same')
+	setNearStill(false)
+	assert.equal(posed.intersectsFrustum(near), true, 'the moving pass draws it')
+	clearNearCasters()
+	assert.equal(castsNear(skeleton) || materialsNear(), false, 'a redraw forgets them')
+	setNearCascade(null)
 })
