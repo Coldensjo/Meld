@@ -414,7 +414,10 @@ creature's way round obstacles.
   client's inner sample, the largest is about 4 yd, and `Base` is the tile's corners) and
   `TestPatchMovesInnerSamples` (a uniform +4 raise leaves every middle at its corners' mean); unit:
   `tests/navmesh.test.ts` (a lifted middle in the gathered ground and the tile's span; `cellLift` is 0
-  for a cell with a corner off `innerBase`). In the app, with the view on in the benchmark scene, `e.terrain.innerLift` is a float a
+  for a cell with a corner off `innerBase`). Trap: the benchmark scene reads 32_48 with the client's
+  patch-3, which held an earlier Meld export of it on 2026-10-20 (269 corners south-west of the
+  abbey, up to 5.6 yd off the base tile), so its `heights` and `innerBase` differ there without any
+  sculpt in the session: those cells count as sculpted, as they would in the next export. In the app, with the view on in the benchmark scene, `e.terrain.innerLift` is a float a
   cell (16384 for one tile) once `innerPending` is false; a probe that turns the view on and reads the
   ground at once must wait for that, as `NavPreview` does.
 - Trap: Recast lifts the detail mesh's copy of a polygon's corners by one voxel height
