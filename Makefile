@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test check probe clean
+.PHONY: dev build build-linux build-windows test check probe probe-perf clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -36,9 +36,13 @@ check:
 	@if [ -f frontend/dist/index.html ]; then go vet .; else echo 'skipping go vet . (frontend/dist is missing; build the frontend first)'; fi
 	cd frontend && bun run check
 
-# Every probe in frontend/probes against the running `make dev` (docs/TESTS.md, "Probes").
+# Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) against the running `make dev` (docs/TESTS.md, "Probes").
 probe:
 	cd frontend && bun run probe --all
+
+# The benchmark probes, which print numbers for a before/after (docs/TESTS.md, "Measuring performance").
+probe-perf:
+	cd frontend && bun run probe bench 'perf-*'
 
 clean:
 	rm -rf build/bin frontend/dist

@@ -3,7 +3,7 @@
 //
 //   bun run probe smoke undo-sculpt      run these probes
 //   bun run probe probes/scratch/x.js    run a probe file from any path (one-off checks; probes/scratch is git-ignored)
-//   bun run probe --all                  every probe in this folder
+//   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*; name those)
 //   bun run probe bench --shot out       also save a screenshot a probe as out/<name>.png
 //   bun run probe bench --profile        also print the probe's top functions by CPU time
 //   bun run probe --list                 list the probes with their first comment line
@@ -63,7 +63,10 @@ const expand = (n) => {
 	if (!found.length) fail(`no probe matches ${n} (bun run probe --list)`)
 	return found
 }
-const run = (names[0] === '--all' ? all : names.flatMap(expand)).map(probeFile)
+// --all leaves out the benchmarks (bench, perf-*): they print numbers for a before/after and check nothing a feature breaks, and
+// their ~8 minutes would take `make probe` past the agent harness's 30-minute task limit (#390). `make probe-perf` runs them.
+const isBenchmark = (n) => n === 'bench' || n.startsWith('perf-')
+const run = (names[0] === '--all' ? all.filter((n) => !isBenchmark(n)) : names.flatMap(expand)).map(probeFile)
 
 function fail(msg) {
 	console.error(`probe: ${msg}`)
