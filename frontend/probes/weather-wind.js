@@ -1,4 +1,4 @@
-// The weather preview's splashes, wind and doorways (#244): heavy rain on Stormwind's map leaves splashes on the ground, heavy snow leaves settled flakes there (#316), a camera moving along +X leads the rain's box and tips the streaks' tails that way (and both settle when it stops), the rain shows whole on the Trade District's street (a 0x40 group), and from a shop (SI:7, group 113) only while a doorway onto the street is in view.
+// The weather preview's splashes, wind and doorways (#244): heavy rain on Stormwind's map leaves splashes on the ground, heavy snow leaves settled flakes there (#316), a camera moving along +X leads the rain's box and tips the streaks' tails that way (and both settle when it stops), the rain shows whole on the Trade District's street (a 0x40 group), and from a shop (SI:7, group 113) only while a doorway onto the street is in view, and from the street outside the shop's door the drops under its roof are hidden (#315).
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e
@@ -137,6 +137,50 @@ out.shopDoor.door = P.diff(dry, inShop, 2, { x0: 0.2, x1: 0.48, y0: 0.2, y1: 0.9
 out.shopDoor.wall = P.diff(dry, inShop, 2, { x0: 0.6, x1: 1, y0: 0, y1: 1 }).off
 at(shop, 3.2)
 await state('shopWall')
+
+// From the street outside SI:7's way out (group 118's portal onto the street, group 122, 6 yd out on
+// the street's side), the drops under the shop's roof are hidden (#315): the shop's cells are roofed
+// over its floor, and the same frames drawn with the roofs emptied have more drops in the doorway.
+{
+	const c = [-102.81, 9.03, 308.94]
+	const n = [-0.961, 0, -0.275]
+	const outside = new THREE.Vector3(c[0] + 6 * n[0], c[1], c[2] + 6 * n[2]).applyMatrix4(m)
+	const look = new THREE.Vector3(-n[0], 0, -n[2]).transformDirection(m)
+	e.setSceneView({ target: outside.toArray(), yaw: Math.atan2(-look.x, -look.z), pitch: 0, distance: 0.5, hour: 13 })
+	const roof = layer.roof
+	roof.budget = 50
+	await P.until(() => roof.reach > 20, 120_000, 'the roofs within 20 yd')
+	roof.budget = 1
+	await P.frames(2)
+	const { NO_ROOF } = await P.app('/src/lib/world/WeatherRoof.ts')
+	const door = { x0: 0.42, x1: 0.58, y0: 0.25, y1: 0.7 }
+	let hidden = 0
+	for (let k = 0; k < 4; k++) {
+		const roofed = await P.shot()
+		const open = await P.shot(() => {
+			const kept = roof.heights.slice()
+			roof.heights.fill(NO_ROOF)
+			roof.texture.needsUpdate = true
+			e.renderer.render(e.scene, e.camera)
+			roof.heights.set(kept)
+			roof.texture.needsUpdate = true
+		})
+		if (k === 0) P.save(roofed, 'outside-door')
+		hidden += P.diff(open, roofed, 2, door).off
+	}
+	const cells = { n: 0, roofed: 0 }
+	for (const gi of [113, 118]) {
+		const b = nav.groups[gi]
+		for (let x = b.min[0] + 1.5; x <= b.max[0] - 1.5; x += 1)
+			for (let y = b.min[1] + 1.5; y <= b.max[1] - 1.5; y += 1) {
+				const w = new THREE.Vector3(x, b.min[2], -y).applyMatrix4(m)
+				const r = roof.get(w.x, w.z)
+				cells.n++
+				if (r !== undefined && r > w.y + 2) cells.roofed++
+			}
+	}
+	out.outsideDoor = { group: e.rooms.current?.group ?? null, hidden: +hidden.toFixed(5), cells }
+}
 out.glError = P.glError()
 ui.weather = 'clear'
 await P.frames(1)
@@ -171,6 +215,9 @@ out.ok =
 	out.shopWall.group === 113 &&
 	out.shopWall.gate === 0 &&
 	!out.shopWall.visible &&
+	out.outsideDoor.group === 122 &&
+	out.outsideDoor.hidden > 0 &&
+	out.outsideDoor.cells.roofed > out.outsideDoor.cells.n * 0.8 &&
 	!out.glError &&
 	out.clearHidden
 return out

@@ -322,17 +322,61 @@ export class Engine {
   private tmpColor = new THREE.Color()
   /** Lighting › Weather Preview's drops around the camera. */
   private weather = new WeatherLayer()
-  /** Where the rain's splashes land: the terrain, and the models' surfaces from a height down. */
-  private splashRay = new THREE.Raycaster()
-  private splashGround: SplashGround = {
-    terrain: (x, z) => (this.terrain.contains(x, z) && !this.terrain.isHole(x, z) ? this.terrain.heightAt(x, z) : -Infinity),
-    models: (x, fromY, z) => {
-      this.splashRay.set(this.snapHit.set(x, fromY, z), DOWN)
-      this.splashRay.far = 250
-      return this.objects.raycastSurface(this.splashRay)?.point.y ?? -Infinity
-    },
-    source: () => this.objects,
-  }
+	/**
+	 * Where the weather's drops land (#315: their roofs, the splashes, the settled flakes): the terrain,
+	 * and the models' surfaces from a height down, each ray tested against only the models whose reach
+	 * (a circle round each, kept by `near`) takes in its column, drawn or not, so a roof behind the
+	 * camera still counts. Helpers are left out: the client never has them.
+	 */
+	private splashRay = new THREE.Ray()
+	private splashNear: number[] = []
+	private splashReach = new Float32Array(0)
+	private splashIds: number[] = []
+	private splashPos = new THREE.Vector3()
+	private splashGround: SplashGround = {
+		terrain: (x, z) => (this.terrain.contains(x, z) && !this.terrain.isHole(x, z) ? this.terrain.heightAt(x, z) : -Infinity),
+		near: (x0, z0, x1, z1) => {
+			const ids = this.splashNear
+			ids.length = 0
+			let reach = this.splashReach
+			for (const o of this.objects.objects.values()) {
+				if (isHelper(o.type)) continue
+				const a = getAsset(o.type)
+				if (!a.ready) continue
+				const b = a.bbox
+				// The farthest a corner reaches from the origin, however the model is turned.
+				const r = Math.hypot(Math.max(-b.min.x, b.max.x), Math.max(-b.min.y, b.max.y), Math.max(-b.min.z, b.max.z)) * this.objects.worldScale(o)
+				const p = this.objects.worldPosition(o, this.splashPos)
+				if (p.x + r < x0 || p.x - r > x1 || p.z + r < z0 || p.z - r > z1) continue
+				const k = ids.length * 3
+				if (k + 3 > reach.length) {
+					const grown = new Float32Array(Math.max(64, reach.length * 2))
+					grown.set(reach)
+					reach = this.splashReach = grown
+				}
+				reach[k] = p.x
+				reach[k + 1] = p.z
+				reach[k + 2] = r * r
+				ids.push(o.id)
+			}
+		},
+		models: (x, fromY, z) => {
+			const near = this.splashNear
+			const reach = this.splashReach
+			const ids = this.splashIds
+			let n = 0
+			for (let i = 0; i < near.length; i++) {
+				const dx = x - reach[i * 3]
+				const dz = z - reach[i * 3 + 1]
+				if (dx * dx + dz * dz <= reach[i * 3 + 2]) ids[n++] = near[i]
+			}
+			if (!n) return -Infinity
+			this.splashRay.origin.set(x, fromY, z)
+			this.splashRay.direction.copy(DOWN)
+			return this.objects.raycastAmong(this.splashRay, ids, n)?.point.y ?? -Infinity
+		},
+		source: () => this.objects,
+	}
   /** View › Bounding boxes: a box around every model. */
   private boxes = new ModelBoxes()
   /** The box around each selection group a selected model is in. */

@@ -387,7 +387,7 @@ the Engine's loop).
   particle's alpha too, which composited the spark texture's black as opaque squares there; additive
   batches now keep the target's alpha (CustomBlending, same colour factors).
 
-## Weather preview and zone weather (#185); splashes, wind and doorways (#244)
+## Weather preview and zone weather (#185); splashes, wind and doorways (#244); roofs (#315)
 
 Checks: Lighting › Weather Preview (`world/WeatherLayer.ts`, `wow/weather.ts`, the storm blend in
 `wow/clientLight.ts`) and the Zones dialog's Weather section (`vmangos/weather.go`). Unit tests:
@@ -411,9 +411,19 @@ storm params over the clear ones), `go test ./internal/vmangos/ -run 'Weather|Cl
   rain's box along +X and tips the streaks' tails that way, and both settle when it stops; the rain
   shows whole on the Trade District's street (group 49, 0x40) with splashes on Stormwind's models,
   and from SI:7 (group 113) only while its door is in view, where the same frame with and without
-  the weather differs in the doorway and not on the wall. Unit tests: `tests/weather.test.ts` (the
-  wind's window, lead and tilt, the splash and settled-flake rates), `tests/wmoFlood.test.ts` (a doorway onto a 0x40
-  street is a sky window, not an exterior one).
+  the weather differs in the doorway and not on the wall; and (#315) from the street 6 yd outside the
+  shop's way out (group 118's portal onto group 122), over 80% of the shop's cells are roofed over its
+  floor and the same frames drawn with the roof grid emptied have more drops in the doorway. Unit tests:
+  `tests/weather.test.ts` (the wind's window, lead and tilt, the splash and settled-flake rates),
+  `tests/weatherRoof.test.ts` (the roof grid's probes, its wrap as the eye moves, and when it is
+  forgotten), `tests/wmoFlood.test.ts` (a doorway onto a 0x40 street is a sky window, not an exterior
+  one).
+- Trap (#315): drops are sparse (heavy rain is about one a 39 cubic yards), so a shop's inside seen
+  through its door holds only a few at a time and a one-frame diff can be zero; the probe sums four
+  frames. The probe raises `layer.roof.budget` to fill the grid in a few frames (its frames are slow)
+  and puts it back. Diffs against the weather hidden (`layer.group.visible = false`) include the mist,
+  which at heavy grade fills the doorway's depth (it is clear only within 6 yd); diff against the
+  roofs emptied instead.
 - Trap: the probe's frames are about 0.3 s apart, longer than a splash lives, so only the frame's own
   splashes are alive (compare births as `Math.fround(clock)`, the attribute is float32). Splashes are
   tiny (1/6 yd, the shape a third of that) and faint (Mod2x on a grey atlas): at heavy rain about 0.2

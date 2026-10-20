@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { loadTexture } from '../wow/api'
+import { PROBE_ABOVE, roofChunk, WeatherRoof, type SplashGround } from './WeatherRoof'
 import { effectDensity, MAX_MIST, MAX_RAIN, MAX_SETTLED, MAX_SNOW, MAX_SPLASH, MIST_BOX, RAIN_BOX, SETTLE_FIELD, SETTLE_LIFE, settleRate, SNOW_BOX, SPLASH_FIELD, SPLASH_LIFE, splashRate, streakTilt, weatherCounts, WeatherWind, type WeatherKind } from '../wow/weather'
 
 // Lighting › Weather Preview (#185): the client's rain, snow and sandstorms around the camera, so an
@@ -14,11 +15,17 @@ import { effectDensity, MAX_MIST, MAX_RAIN, MAX_SETTLED, MAX_SNOW, MAX_SPLASH, M
 // on the ground and roofs the Engine's probe finds, the only part placed on the CPU, a few dozen a
 // frame), the wind (the camera's own motion leads the boxes and tips the streaks, wow/weather.ts
 // `WeatherWind`), and the weather seen from a room through its doorways: `gate` clips every part to
-// the portal flood's exterior windows, since the wrapped drops have no roof to land on and would
-// otherwise fall through the room.
+// the portal flood's exterior windows, since the wrapped drops had no roof to land on and fell through
+// the room (#315 gave them one; the gate still keeps the mist out, and what the roof misses).
 //
 // #316 gave snow the same: a flake that lands lies where it fell and fades over 0.25 s, on the same
 // ground and cache as the splashes, in a field as wide as the snow's box.
+//
+// #315 gave the drops their roofs: `WeatherRoof` keeps the models' highest surface on the client's
+// 1.04 yd cells round the eye, and rain and snow hide a drop under the roof of its cell, as the
+// client's die where they land, so from outside a building its inside stays dry.
+
+export type { SplashGround } from './WeatherRoof'
 
 /** The drift heading's centre: the client's -1.57 rad in the WoW frame (toward -Y), which is +Z here. */
 const DRIFT = new THREE.Vector2(0, 1)
@@ -67,6 +74,7 @@ bool gated() {
 // rows, so the head takes v = 1 and the tip v = 0, as Benilla's `push_streaks` maps it (#314).
 const rainVertex = /* glsl */ `
 ${wrapChunk}
+${roofChunk}
 uniform float density;
 uniform vec2 drift;
 uniform mat3 tilt;
@@ -84,6 +92,13 @@ void main() {
 	float edge;
 	vec3 p = wrapped(seed.xyz, vel, edge);
 	vec3 head = eye + p;
+	// Under a roof the drop has landed on it: nothing is drawn.
+	if (roofed(head)) {
+		vUv = vec2(0.0);
+		vFade = 0.0;
+		gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+		return;
+	}
 	vec3 back = -normalize(vel);
 	vec3 right = normalize(cross(back, normalize(eye - head)));
 	vec3 pos = corner < 0.5 ? head - right * 0.05 : corner < 1.5 ? head + right * 0.05 : head + tilt * back * 2.0;
@@ -113,6 +128,7 @@ void main() {
 // when calm.
 const snowVertex = /* glsl */ `
 ${wrapChunk}
+${roofChunk}
 uniform float density;
 uniform vec2 drift;
 uniform float pxScale;
@@ -127,6 +143,12 @@ void main() {
 	vec3 vel = vec3(cos(a) * speed, -vz, sin(a) * speed);
 	float edge;
 	vec3 p = wrapped(seed.xyz, vel, edge);
+	if (roofed(eye + p)) {
+		vFade = 0.0;
+		gl_PointSize = 0.0;
+		gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+		return;
+	}
 	float d = length(p);
 	vFade = edge;
 	gl_PointSize = max(1.0, 14.0 * clamp(1.0 - 0.02 * d, 0.0, 1.0) * pxScale);
@@ -253,26 +275,6 @@ const TEX = {
 	mist: 'Textures\\Weather\\SnowMist01.blp',
 }
 
-/**
- * Where a splash lands: the terrain right under a point, and the models' highest surface under a
- * point from `fromY` down; -Infinity for none. The Engine's; the models' probe is a raycast, so its
- * answers are kept on the client's 1.04 yd grid and only a few are asked for a frame.
- */
-export interface SplashGround {
-	terrain(x: number, z: number): number
-	models(x: number, fromY: number, z: number): number
-	/** What the models' answers come from, and its change counter: a change forgets them. */
-	source(): { version: number }
-}
-
-/** The client's weather ground grid (`0x80ff98`), and how many cells the models are probed for a frame. */
-const CELL = 1.0416666
-const PROBES_A_FRAME = 4
-/** The probes start this far above the eye, so a roof over the camera takes the rain. */
-const PROBE_ABOVE = 30
-/** The cache is cleared past this many cells, when the probes' start moves a story, or when the models change. */
-const CACHE_CELLS = 20000
-const CACHE_STORY = 8
 /** A settled flake sits this far over the ground: a point sprite takes its centre's depth, so the ground would clip its lower half. */
 const SETTLE_LIFT = 0.05
 
@@ -331,19 +333,21 @@ export class WeatherLayer {
 	private leadOut = { x: 0, z: 0 }
 	private tiltAxis = new THREE.Vector3()
 	private tiltM4 = new THREE.Matrix4()
-	// The rings of splashes and settled flakes, the seed they land by, and the models' heights on the ground grid.
+	// The rings of splashes and settled flakes and the seed they land by.
 	private splashRing: GroundRing | null = null
 	private settleRing: GroundRing | null = null
 	private splashSeed = 0x2545f491
-	private cells = new Map<number, number>()
-	private cellsFrom = 0
-	private cellsSource: { version: number } | null = null
-	private cellsVersion = -1
+	/** The models' heights on the ground grid round the eye: the drops' roofs and where the splashes land. */
+	private roofGrid: WeatherRoof | null = null
 	private lastTime = -1
 
 	constructor() {
 		this.group.name = 'weather'
 		this.group.visible = false
+	}
+
+	private get roof(): WeatherRoof {
+		return (this.roofGrid ??= new WeatherRoof())
 	}
 
 	private uniforms(box: readonly number[]): PartUniforms {
@@ -381,7 +385,7 @@ export class WeatherLayer {
 		g.setAttribute('corner', new THREE.BufferAttribute(new Float32Array([0, 1, 2]), 1))
 		g.setAttribute('seed', new THREE.InstancedBufferAttribute(seeds(MAX_RAIN), 4))
 		const m = new THREE.ShaderMaterial({
-			uniforms: { ...this.uniforms(RAIN_BOX), density: { value: 0 }, tilt: { value: new THREE.Matrix3() }, map: { value: null } },
+			uniforms: { ...this.uniforms(RAIN_BOX), density: { value: 0 }, tilt: { value: new THREE.Matrix3() }, roof: { value: this.roof.texture }, map: { value: null } },
 			vertexShader: rainVertex,
 			fragmentShader: rainFragment,
 			blending: THREE.CustomBlending,
@@ -434,7 +438,7 @@ export class WeatherLayer {
 		g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_SNOW * 3), 3))
 		g.setAttribute('seed', new THREE.BufferAttribute(seeds(MAX_SNOW), 4))
 		const m = new THREE.ShaderMaterial({
-			uniforms: { ...this.uniforms(SNOW_BOX), density: { value: 0 }, pxScale: { value: 1 }, map: { value: null } },
+			uniforms: { ...this.uniforms(SNOW_BOX), density: { value: 0 }, pxScale: { value: 1 }, roof: { value: this.roof.texture }, map: { value: null } },
 			vertexShader: snowVertex,
 			fragmentShader: snowFragment,
 			transparent: true,
@@ -539,47 +543,21 @@ export class WeatherLayer {
 
 	/**
 	 * Where a drop at (`x`, `z`) lands: the higher of the terrain under it and the models' surface on
-	 * its grid cell, probed from `from` down; a cell not probed yet takes the terrain alone until one of
-	 * the frame's few probes reaches it. -Infinity where neither is.
+	 * its grid cell; a cell not probed yet takes the terrain alone until the roof's scan reaches it.
+	 * -Infinity where neither is.
 	 */
-	private landing(x: number, z: number, from: number, ground: SplashGround, budget: { n: number }): number {
+	private landing(x: number, z: number, ground: SplashGround): number {
 		const t = ground.terrain(x, z)
-		const cx = Math.floor(x / CELL)
-		const cz = Math.floor(z / CELL)
-		// Cells are 1.04 yd, so a key of 65536 a row covers any map's 17066 yd (and the cells below 0).
-		const key = (cx + 32768) * 65536 + (cz + 32768)
-		let m = this.cells.get(key)
-		if (m === undefined) {
-			if (budget.n <= 0) return t
-			budget.n--
-			m = ground.models((cx + 0.5) * CELL, from, (cz + 0.5) * CELL)
-			this.cells.set(key, m)
-		}
-		return Math.max(t, m)
-	}
-
-	private probeBudget = { n: 0 }
-
-	/** Forgets the models' heights when the probes' start moves a story, the cache fills or the models change. */
-	private refreshCells(from: number, ground: SplashGround) {
-		const src = ground.source()
-		if (Math.abs(from - this.cellsFrom) > CACHE_STORY || this.cells.size > CACHE_CELLS || src !== this.cellsSource || src.version !== this.cellsVersion) {
-			this.cells.clear()
-			this.cellsFrom = from
-			this.cellsSource = src
-			this.cellsVersion = src.version
-		}
+		const m = this.roof.get(x, z)
+		return m === undefined ? t : Math.max(t, m)
 	}
 
 	/**
 	 * Lands this frame's share of `rate` a second in the `field` yd square around the led eye into
-	 * `ring`, `lift` yd over the ground, born at `clock`, and returns how many slots are filled. One
-	 * ring lands a frame (rain's or snow's), so it spends the frame's probes.
+	 * `ring`, `lift` yd over the ground, born at `clock`, and returns how many slots are filled.
 	 */
 	private land(ring: GroundRing, rate: number, field: number, lift: number, clock: number, dt: number, ground: SplashGround): number {
 		const from = this.eye.y + PROBE_ABOVE
-		this.refreshCells(from, ground)
-		this.probeBudget.n = PROBES_A_FRAME
 		ring.carry += rate * Math.min(dt, 0.1)
 		const max = ring.at.count
 		const n = Math.min(Math.floor(ring.carry), max)
@@ -592,7 +570,7 @@ export class WeatherLayer {
 		for (let i = 0; i < n; i++) {
 			const x = ox + this.random() * field
 			const z = oz + this.random() * field
-			const y = this.landing(x, z, from, ground, this.probeBudget)
+			const y = this.landing(x, z, ground)
 			// No ground under it (off the map, in a hole) or above the probes' start: nothing lands.
 			if (y === -Infinity || y > from) continue
 			const k = ring.next * 4
@@ -621,8 +599,8 @@ export class WeatherLayer {
 
 	/**
 	 * Per frame: shows `kind` at `grade` around `eye` at `time` (seconds), the mist in `fog`'s colour;
-	 * `viewWidth` and `viewHeight` are the drawing buffer's size in pixels, `ground` where the rain's
-	 * splashes land. `show` false (the weather off, the top-down view) hides it all and costs nothing;
+	 * `viewWidth` and `viewHeight` are the drawing buffer's size in pixels, `ground` where the drops
+	 * land (their roofs, the splashes and the settled flakes). `show` false (the weather off, the top-down view) hides it all and costs nothing;
 	 * so does a room's gate (`gate`) with no doorway in view.
 	 */
 	update(kind: WeatherKind, grade: number, eye: THREE.Vector3, time: number, fog: THREE.Color, viewWidth: number, viewHeight: number, ground: SplashGround, show: boolean) {
@@ -656,6 +634,7 @@ export class WeatherLayer {
 			this.settled ??= this.buildSettled()
 		}
 		if (counts.mist) this.mist ??= this.buildMist()
+		if (kind === 'rain' || kind === 'snow') this.roof.update(this.eye, ground)
 		if (this.rain) {
 			this.rain.visible = kind === 'rain'
 			this.rain.geometry.instanceCount = counts.drops
@@ -713,5 +692,6 @@ export class WeatherLayer {
 			part.geometry.dispose()
 			part.material.dispose()
 		}
+		this.roofGrid?.dispose()
 	}
 }

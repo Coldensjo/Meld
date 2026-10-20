@@ -90,11 +90,10 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   - **Splashes**, rain's 0.25 s patters on the 4 x 4 atlas `RainDropSplash01.blp`: the wrapped box has
     no landing, so they are a field of their own, 64 yd square round the eye, filled at the rate the
     box's drops land on that much ground (`wow/weather.ts` `splashRate`), a ring of slots the CPU
-    fills a few dozen a frame (`WeatherLayer.updateSplashes`). Each lands on the higher of the terrain
-    and the models' surface on its 1.04 yd cell (the client's grid), which the Engine's `splashGround`
-    raycasts from 30 yd over the eye, cached per cell and only 4 cells a frame (about 0.25 ms each in
-    the bench scene); a cell not probed yet takes the terrain alone, so over Stormwind's holed ground
-    the splashes fill in over the first seconds.
+    fills a few dozen a frame (`WeatherLayer.land`). Each lands on the higher of the terrain and the
+    models' surface on its 1.04 yd cell (the client's grid), read from the roof grid below; a cell not
+    probed yet takes the terrain alone, so over Stormwind's holed ground the splashes fill in over the
+    first moments.
   - **Settled flakes** (#316), snow's: a flake that lands lies where it fell and fades out over
     0.25 s (Benilla's `SNOW_SETTLE_LIFE`), drawn as the falling flakes' point sprite and size law.
     They land as the splashes do, on the same ground and cell cache, in a field as wide as the snow's
@@ -106,11 +105,25 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
     tips the streaks' tails into it, up to 45 degrees at 30 yd/s. The client's slab tilt is not ported
     (the wrapped box is full everywhere, so a moving camera meets drops anyway), nor the mist's yaw by
     the wind's heading (it turns each new puff, and wrapped puffs have no birth).
+  - **Roofs** (#315): the client's drops die where they land, so none falls inside a building or
+    under a bridge. `world/WeatherRoof.ts` keeps the models' highest surface on each 1.04 yd cell 75
+    yd round the eye (144 x 144 cells), raycast straight down from 30 yd over the eye by the Engine's
+    `splashGround` (`near` lists the models whose reach takes in the grid, drawn or not, helpers left
+    out; `models` tests only the ones over the cell with `raycastAmong`), nearest cells first, for 1 ms
+    a frame (about 38 us a cell on Stormwind's street, 8 on open ground, in the headless probe page).
+    It is an R32F texture wrapped on itself (a cell's texel is its index mod 144), so it follows the
+    eye without moving: the rows and columns that come in are emptied until probed, and a still eye
+    with the grid probed costs nothing. The rain and snow vertex shaders (`roofChunk`) drop a drop below
+    its cell's roof; the splashes and settled flakes land on the same cells. The grid is forgotten
+    when the models change (`ObjectLayer.version`, which also bumps when a model loads) or the eye
+    moves a story (8 yd). Cell sized, as the client's: a drop within a yard of a wall whose cell holds
+    the wall's top is hidden too. The mist is left alone.
   - **Rooms**: in a WMO group open to the sky (0x8, 0x40 or 0x100, as Stormwind's streets) the
     weather shows whole; in a true interior only through the doorways onto one (the flood's
     `skyWindows`, a fragment clip on up to 4 NDC rects, `WeatherLayer.gate`, set after
     `updateRoomGate` so it is this frame's), and a room with none in view hides it, as the client hides
-    it when no such group is visible. The clip stands in for the client's drops landing on the roof.
+    it when no such group is visible. The roofs (above) keep the drops out of the room itself; the
+    clip still keeps the mist out, and anything over the roof's probes (30 yd above the eye).
   Which weather a zone gets is the server's `game_weather` (the Zones dialog,
   docs/architecture/terrain.md).
 - Time of day, day cycle, clouds and shadows are `prefs`. The Engine keeps its own `hour` while
