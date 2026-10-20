@@ -199,6 +199,10 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     switch on and off", take two shots with the switch unchanged as the noise floor (swaying trees,
     particles); `wmo-cull` and `terrain-dxt` do this.
   - Looking at a picture: `P.save(img, name, region?)` keeps a shot as a PNG, which `bun run probe <probe> --shot <dir>` writes to `<dir>/<probe>-<name>.png` (the page's own `--shot` capture is `<probe>.png`; without `--shot` the saved pictures are dropped, and their pixels stay out of the printed result). `P.fullView()` hides the panels (Tab) so the viewport fills the window, about 1384 x 745 instead of 1017 x 387 under the asset browser, which matters for pixel-sized effects such as snow; call it before `P.shot`.
+  - Looking at a client texture: `await P.texture(path, { size?, alpha? })` returns a picture like `P.shot`'s
+    (so `P.save` and `P.diff` take it) from the decoded RGBA, scaled to `size` px square if given; `alpha: true`
+    shows the alpha channel as grey (where an atlas is cut out, which end of a streak is bright). Write the
+    client path with the Write tool (backslashes), and save with `bun run probe <probe> --shot <dir>`.
   - Which object drew a pixel: `P.whoDrew(x, y)` (shares of the viewport, y = 0 the top; default the centre) renders one
     extra frame in which every mesh ends in a flat colour for its index, and returns `{ name, type, chain, batch, material }`
     of the mesh at that pixel, or null for the background (#299). Each mesh gets a material inheriting from the real one,

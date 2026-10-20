@@ -243,6 +243,54 @@ const P = {
 		;(window.__probeShots ??= []).push({ name, data: c.toDataURL('image/png').split(',')[1] })
 	},
 
+	/**
+	 * One of the client's textures as a picture (#317), the same `{ w, h, px, lit }` as `shot`, so `P.save`
+	 * and `P.diff` take it. `path` is a client path (`Textures\\Weather\\RainDropSplash01.blp`); write it
+	 * with the Write tool, not a heredoc. Reads the decoded RGBA (`fetchImage`), not the GPU texture,
+	 * which is DXT where S3TC is sampled. `size` scales it to that many pixels square (default its own
+	 * size). `alpha` shows the alpha channel as grey instead of the colour; otherwise alpha is kept, and
+	 * a transparent texel shows as whatever its RGB holds (opaque), so use `alpha` to see the cut-out.
+	 * Rows are bottom-up like `shot`'s.
+	 */
+	async texture(path, { size, alpha = false } = {}) {
+		const { fetchImage } = await P.app('/src/lib/wow/api.ts')
+		const img = await fetchImage(path)
+		let w = img.width
+		let h = img.height
+		let src = img.pixels
+		if (size && (size !== w || size !== h)) {
+			const a = document.createElement('canvas')
+			a.width = w
+			a.height = h
+			a.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(src.slice(0, w * h * 4)), w, h), 0, 0)
+			const b = document.createElement('canvas')
+			b.width = b.height = size
+			const bc = b.getContext('2d', { willReadFrequently: true })
+			bc.drawImage(a, 0, 0, size, size)
+			src = bc.getImageData(0, 0, size, size).data
+			w = h = size
+		}
+		const px = new Uint8Array(w * h * 4)
+		let lit = 0
+		for (let y = 0; y < h; y++) {
+			// The reply's row 0 is the top; the picture's is the bottom.
+			const from = (h - 1 - y) * w * 4
+			for (let x = 0; x < w; x++) {
+				const i = from + x * 4
+				const o = (y * w + x) * 4
+				if (alpha) px[o] = px[o + 1] = px[o + 2] = src[i + 3]
+				else {
+					px[o] = src[i]
+					px[o + 1] = src[i + 1]
+					px[o + 2] = src[i + 2]
+				}
+				px[o + 3] = 255
+				if (px[o] > 8 || px[o + 1] > 8 || px[o + 2] > 8) lit++
+			}
+		}
+		return { w, h, px, lit: lit / (w * h) }
+	},
+
 	/** Hides (or with `false` shows) the panels, so the viewport fills the window (what Tab does), and steps frames for the resize. */
 	async fullView(on = true) {
 		const { ui } = await P.state()
