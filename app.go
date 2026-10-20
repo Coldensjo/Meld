@@ -858,7 +858,7 @@ func (a *App) ReadObject(entry int) (vmangos.TemplateRecord, error) {
 // SaveObject writes a game object template's changed values (by column) into the world database
 // and returns the SQL it ran.
 func (a *App) SaveObject(entry, patch int, values map[string]string) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -873,7 +873,7 @@ func (a *App) SaveObject(entry, patch int, values map[string]string) (string, er
 // CreateObject adds a game object template named name, a copy of template base (or a generic
 // object for 0), and returns its entry.
 func (a *App) CreateObject(base int, name string) (int, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
 	}
@@ -892,7 +892,7 @@ func (a *App) ReadObjectLoot(entry, loot int) (vmangos.ObjectLoot, error) {
 
 // SaveObjectLoot replaces game object loot list loot's rows with items and returns the SQL it ran.
 func (a *App) SaveObjectLoot(loot int, items []vmangos.LootItem) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -979,7 +979,7 @@ func (a *App) ReadCreature(entry int) (vmangos.TemplateRecord, error) {
 // SaveCreature writes a creature template's changed values (by column) into the world database
 // and returns the SQL it ran.
 func (a *App) SaveCreature(entry, patch int, values map[string]string) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -1015,7 +1015,7 @@ func (a *App) ReadVendor(entry int) (vmangos.Vendor, error) {
 
 // SaveVendor replaces what a creature template sells with items, in order, and returns the SQL it ran.
 func (a *App) SaveVendor(entry int, items []vmangos.VendorItem) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -1033,7 +1033,7 @@ func (a *App) ReadCreatureQuests(entry int) (vmangos.QuestLists, error) {
 
 // SaveCreatureQuests replaces the quests a creature template starts and ends, and returns the SQL it ran.
 func (a *App) SaveCreatureQuests(entry int, quests vmangos.QuestLists) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -1053,7 +1053,7 @@ func (a *App) ReadObjectQuests(entry int) (vmangos.QuestLists, error) {
 // SaveObjectQuests replaces the quests a game object template starts and ends, and returns the SQL
 // it ran. An object that is not of the quest giver type is refused new quests.
 func (a *App) SaveObjectQuests(entry int, quests vmangos.QuestLists) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -1081,7 +1081,7 @@ func (a *App) ReadQuest(entry int) (vmangos.TemplateRecord, error) {
 // SaveQuest writes a quest's changed values (by column) into the world database once they pass the
 // server's rules and what they name exists, and returns the SQL it ran.
 func (a *App) SaveQuest(entry, patch int, values map[string]string) (string, error) {
-	server, dataDir, err := a.serverAndData()
+	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -1096,7 +1096,7 @@ func (a *App) SaveQuest(entry, patch int, values map[string]string) (string, err
 // CreateQuest adds a quest titled title, a copy of quest base (or a blank level 1 quest for 0), and
 // returns its entry.
 func (a *App) CreateQuest(base int, title string) (int, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
 	}
@@ -1114,7 +1114,7 @@ func (a *App) PlanQuestDelete(entry int) (vmangos.QuestDeletePlan, error) {
 
 // DeleteQuest removes quest entry and its relation, script and translation rows, and returns the SQL.
 func (a *App) DeleteQuest(entry int) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -1138,7 +1138,7 @@ func (a *App) ReadQuestGivers(entry int) (vmangos.QuestGivers, error) {
 // SaveQuestGivers replaces the creatures and game objects that start and end a quest, gives the
 // creatures in flag the Quest giver flag, and returns the SQL it ran.
 func (a *App) SaveQuestGivers(entry int, givers vmangos.QuestGivers, flag []int) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -1176,7 +1176,7 @@ func (a *App) ReadGossip(entry int) (vmangos.Gossip, error) {
 // SaveGreeting sets what a creature template says when talked to, for a man and a woman player
 // (an empty female text uses the male one), and returns its gossip menu now.
 func (a *App) SaveGreeting(entry int, male, female string) (vmangos.GreetingSaved, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return vmangos.GreetingSaved{}, err
 	}
@@ -1186,7 +1186,7 @@ func (a *App) SaveGreeting(entry int, male, female string) (vmangos.GreetingSave
 // SaveGossipOptions replaces the options (the lines a player can pick) of a creature template's
 // gossip menu, and returns its gossip menu now.
 func (a *App) SaveGossipOptions(entry int, options []vmangos.GossipOption) (vmangos.GreetingSaved, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return vmangos.GreetingSaved{}, err
 	}
@@ -1262,7 +1262,7 @@ func (a *App) ReadItemTemplate(entry int) (vmangos.TemplateRecord, error) {
 // SaveItem writes an item template's changed values (by column) into the world database and
 // returns the SQL it ran.
 func (a *App) SaveItem(entry, patch int, values map[string]string) (string, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return "", err
 	}
@@ -1277,7 +1277,7 @@ func (a *App) SaveItem(entry, patch int, values map[string]string) (string, erro
 // CreateItem adds an item named name, a copy of item base (or a plain junk item for 0), and returns
 // its entry.
 func (a *App) CreateItem(base int, name string) (int, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
 	}
@@ -1297,7 +1297,7 @@ func (a *App) ListItemKinds() ([]vmangos.ItemKind, error) {
 // CreateItemOfKind adds an item named name of a kind, with the usual basics of that kind's items and
 // no stats, and returns its entry.
 func (a *App) CreateItemOfKind(class, subclass, invType int, name string) (int, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
 	}
@@ -1410,7 +1410,7 @@ func (a *App) PlanItemImport(path string) (vmangos.ItemImport, error) {
 // ImportItems writes the items of the SQL script at path into the world database and returns their
 // entries.
 func (a *App) ImportItems(path string) ([]int, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return nil, err
 	}
@@ -1501,7 +1501,7 @@ type SpellSaved struct {
 // closed when it runs (#365), so the game has it the next time it starts.
 func (a *App) SaveSpell(entry, build int, values map[string]string, icon string, visual *vmangos.VisualDesign) (SpellSaved, error) {
 	defer a.releaseClient()()
-	server, dataDir, err := a.serverAndData()
+	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return SpellSaved{}, err
 	}
@@ -1526,7 +1526,7 @@ func (a *App) SaveSpell(entry, build int, values map[string]string, icon string,
 // writes it, without closing anything), and returns its entry.
 func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 	defer a.releaseClient()()
-	server, dataDir, err := a.serverAndData()
+	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
 	}
@@ -1587,7 +1587,7 @@ func (a *App) PlanSpellImport(path string) (vmangos.SpellImport, error) {
 // uses, into Spell.dbc in Meld's patch, as SaveSpell does. Returns their entries.
 func (a *App) ImportSpells(path string) ([]int, error) {
 	defer a.releaseClient()()
-	server, dataDir, err := a.serverAndData()
+	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return nil, err
 	}
@@ -1664,7 +1664,7 @@ func (a *App) ReadCreatureSpells(entry int) (vmangos.CreatureSpells, error) {
 // SaveCreatureSpells sets a creature template's spell list to spells, in order, and returns its
 // spell_list_id now with the SQL it ran.
 func (a *App) SaveCreatureSpells(entry int, spells []vmangos.CreatureSpell) (vmangos.CreatureSpellsSaved, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return vmangos.CreatureSpellsSaved{}, err
 	}
@@ -1674,7 +1674,7 @@ func (a *App) SaveCreatureSpells(entry int, spells []vmangos.CreatureSpell) (vma
 // CreateCreature adds a creature template named name, a copy of template base (or the defaults
 // for 0), and returns its entry.
 func (a *App) CreateCreature(base int, name string) (int, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
 	}
@@ -1716,7 +1716,7 @@ func (a *App) SpawnEditSQL(mapName string, x, y, size int, edits []vmangos.Spawn
 // ApplySpawnEdits writes a region's spawn edits into the world database. The SQL run is kept in
 // <user cache>/Meld/spawn-sql first, so what changed can be looked up (or undone by hand).
 func (a *App) ApplySpawnEdits(mapName string, x, y, size int, edits []vmangos.SpawnEdit) (vmangos.Result, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return vmangos.Result{}, err
 	}
@@ -2078,6 +2078,11 @@ func (a *App) ZoneWeather() (ZoneWeatherList, error) {
 func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	defer a.releaseClient()()
+	// Before anything is read: the throwaway client's server tables are the real ones (#383).
+	server, err := a.optionalServerForWrite()
+	if err != nil {
+		return res, err
+	}
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return res, err
@@ -2094,9 +2099,6 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 	if err != nil {
 		return res, err
 	}
-	a.cfgMu.Lock()
-	server := a.cfg.VmangosPath
-	a.cfgMu.Unlock()
 	if server == "" && len(weather) > 0 {
 		return res, errors.New("the weather is the server's: set the VMaNGOS server folder first")
 	}
@@ -2156,6 +2158,11 @@ func (a *App) AreaTriggers(mapID uint32) (AreaTriggerList, error) {
 func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	defer a.releaseClient()()
+	// Before anything is read: the throwaway client's server tables are the real ones (#383).
+	server, err := a.optionalServerForWrite()
+	if err != nil {
+		return res, err
+	}
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return res, err
@@ -2168,9 +2175,6 @@ func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (Are
 	if err != nil {
 		return res, err
 	}
-	a.cfgMu.Lock()
-	server := a.cfg.VmangosPath
-	a.cfgMu.Unlock()
 	if server != "" {
 		if err := vmangos.ApplySQL(server, vmangos.AreaTriggerSQL(rows, remove)); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
@@ -2216,6 +2220,11 @@ func (a *App) TaxiNetwork(mapID uint32) (vmangos.TaxiNetwork, error) {
 func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	defer a.releaseClient()()
+	// Before anything is read: the throwaway client's server tables are the real ones (#383).
+	server, err := a.optionalServerForWrite()
+	if err != nil {
+		return res, err
+	}
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return res, err
@@ -2228,9 +2237,6 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	if err != nil {
 		return res, err
 	}
-	a.cfgMu.Lock()
-	server := a.cfg.VmangosPath
-	a.cfgMu.Unlock()
 	if server != "" {
 		if err := vmangos.ApplySQL(server, vmangos.TaxiSQL(edit.Nodes, edit.RemoveNodes, edit.RemoveRoutes)); err != nil {
 			return res, fmt.Errorf("world database: %w", err)

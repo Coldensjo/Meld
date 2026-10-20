@@ -45,6 +45,28 @@ func (a *App) sandboxed() bool {
 // errSandboxed is what a call that would reach the real game or server says while the sandbox is on.
 var errSandboxed = errors.New("a probe is using a throwaway copy of the client; the game and the servers are left alone until it ends")
 
+// serverForWrite is serverAndData for a binding that writes the world database: while the sandbox is
+// on it answers errSandboxed, as the throwaway client has no throwaway database and the write would
+// reach the owner's (#383).
+func (a *App) serverForWrite() (string, string, error) {
+	if a.sandboxed() {
+		return "", "", errSandboxed
+	}
+	return a.serverAndData()
+}
+
+// optionalServerForWrite is the VMaNGOS server folder ("" when none is set) for a binding that writes
+// the world database only when one is set; errSandboxed when one is set while the sandbox is on.
+func (a *App) optionalServerForWrite() (string, error) {
+	a.cfgMu.Lock()
+	server, sandboxed := a.cfg.VmangosPath, a.sandboxData != ""
+	a.cfgMu.Unlock()
+	if server != "" && sandboxed {
+		return "", errSandboxed
+	}
+	return server, nil
+}
+
 // ClientSandbox is the throwaway client StartClientSandbox turned on: its Data folder, and the stamp
 // of the real patch, which EndClientSandbox compares.
 type ClientSandbox struct {
