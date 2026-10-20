@@ -166,8 +166,11 @@ Map.dbc row pointing at it.
   Deadmines' picture, writes it again as map 36's own (row 206, within 0.1 a channel), the client's
   rows unchanged and Map.dbc's row 36 pointing at it.
 - Probe `loading-screen`: a map made for the client (the probe sets `doc.meta.vmangos`) lists the
-  41 choices, previews the Deadmines' picture and shows Picture…; it doesn't press it, which writes
-  the owner's patch.
+  41 choices, previews the Deadmines' picture and shows Picture…, then presses it in the throwaway
+  client (`P.sandboxClient`, #382) with a blue PNG made in the page: a 42nd choice named ProbeMap
+  (row 206) is chosen and previewed blue, and the real client still lists 40. The file dialog is
+  stubbed (`window.go.main.App.OpenImageDialog`); wait for the list to change, not for the button,
+  which reads Picture… again before Svelte has drawn Writing….
 - In the game: not checked by the loop; the owner's check is the picture on entering the map.
 
 ## World map of a zone (World › World Map, #181; exploration overlays, #219)
@@ -194,7 +197,11 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
   Generate redraws Northshire Valley's ("12 overlays, 1 drawn": Echo Ridge Mine and Northshire
   Vineyards, which no overlay names, go into Northshire's piece, whose art covers them). More than 1
   drawn means a neighbour was rewritten: Stormwind's, Goldshire's, Tower of Azora's and Stonecairn
-  Lake's soft edges spill over the block's band, which #278's clearing must leave alone. To see the
+  Lake's soft edges spill over the block's band, which #278's clearing must leave alone. Then Write to
+  Client in the throwaway client (#382), and the dialog opened again reads it back: within 0.11 a
+  channel of the generated preview, 1.34 from the client's. Trap: wait for the button to read Working…
+  before waiting for Write to Client again; checked at once, it still reads Write to Client, and
+  closing the dialog then reads the map back before it is written. To see the
   preview, copy the probe into `probes/scratch/`, return `canvas.toDataURL()` and decode it.
 - Dev page, Northshire (Azeroth 32_48): wait for the models, then `ed.ui.dialog = 'worldMap'`. The zone
   list is Elwynn Forest (12), "3471 × 2315 yd · the client's (row 30)", the canvas shows the client's
