@@ -175,7 +175,7 @@
               active={d.id === selected}
               badge={String(d.id)}
               onclick={() => pick(d)}
-              onhover={(on) => onhover?.(on ? d : null)}
+              onhover={(on) => on && onhover?.(d)}
             />
           {/each}
         </div>

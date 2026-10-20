@@ -51,6 +51,16 @@ its own browser arguments), so drive the window from PowerShell with user32 (`Se
 - Trap: this runs the owner's real app on their config; its session restore opens their tabs. Only
   edit an untitled map, and quit without saving.
 
+## Hover previews in tile grids (no gap between tiles)
+
+Checks: in every grid whose hovered tile drives a preview (the asset browser, Doodad Brushes, the
+prefab browser, the spawn tabs, the creature editor's displays and gear, the item editor's looks), a
+tile only *sets* the hover and the grid clears it on `pointerleave`, so moving slowly from one tile
+to the next never flashes the selected item in the gap between them (`PaletteTile`'s `onhover(false)`
+is ignored). Probe `item-editor` checks it on the item looks: after a tile's `pointerleave` the bar
+still reads "Showing display 8690", and only the grid's `pointerleave` clears it. A new grid with a
+hover preview should do the same.
+
 ## Thumbnail loading order (asset browser grids)
 
 Checks: `lib/wow/thumbQueue.ts` (the priority queue: tiles on screen nearest the grid's centre

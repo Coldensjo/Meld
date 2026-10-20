@@ -179,7 +179,7 @@
         <div class="virtual" style:height="{rows * rowH}px">
           <div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
             {#each visible as w (w.entry)}
-              <PaletteTile thumbKey={weaponThumbKey(w)} label={label(w)} title={title(w)} size={TILE} active={w.entry === selected} onclick={() => onpick(w.entry)} onhover={(on) => hover(on ? w : hovered === w ? null : hovered)} />
+              <PaletteTile thumbKey={weaponThumbKey(w)} label={label(w)} title={title(w)} size={TILE} active={w.entry === selected} onclick={() => onpick(w.entry)} onhover={(on) => on && hover(w)} />
             {/each}
           </div>
         </div>

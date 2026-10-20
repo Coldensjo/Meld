@@ -217,7 +217,8 @@
                 </button>
               {/each}
             </nav>
-            <div class="grid-wrap" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)}>
+            <!-- A tile only sets the hover; leaving the grid clears it (no gap between two tiles). -->
+            <div class="grid-wrap" role="listbox" tabindex="-1" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)} onpointerleave={() => (hovered = null)}>
               {#if loadingList}
                 <p class="hint">Reading the client's file list…</p>
               {:else if !items.length}
@@ -226,7 +227,7 @@
                 <div class="virtual" style:height="{rows * rowH}px">
                   <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
                     {#each visible as it (it.key)}
-                      <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={inBrush.has(it.key)} badge={inBrush.has(it.key) ? '✓' : undefined} onclick={() => addModel(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                      <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={inBrush.has(it.key)} badge={inBrush.has(it.key) ? '✓' : undefined} onclick={() => addModel(it)} onhover={(on) => on && (hovered = it)} />
                     {/each}
                   </div>
                 </div>

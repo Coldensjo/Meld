@@ -65,7 +65,8 @@
 </script>
 
 <div class="body">
-	<div class="grid-wrap">
+	<!-- A tile only sets the hover; leaving the grid clears it (no gap between two tiles). -->
+	<div class="grid-wrap" role="listbox" tabindex="-1" onpointerleave={() => (hovered = null)}>
 		<div class="bar">
 			<input class="search" placeholder="Search prefabs…" bind:value={query} aria-label="Search prefabs" />
 			<span class="dim folder" title={prefs.prefabDir}>{prefs.prefabDir || 'No prefab folder yet'}</span>
@@ -86,7 +87,7 @@
 		{:else}
 			<div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)">
 				{#each shown as e (e.file)}
-					<PaletteTile thumbKey={e.thumbKey} label={e.prefab.name} title={`${e.file}: ${e.prefab.objects.length} models`} size={tile} badge={String(e.prefab.objects.length)} onclick={() => place(e)} onhover={(on) => (hovered = on ? e : hovered === e ? null : hovered)} />
+					<PaletteTile thumbKey={e.thumbKey} label={e.prefab.name} title={`${e.file}: ${e.prefab.objects.length} models`} size={tile} badge={String(e.prefab.objects.length)} onclick={() => place(e)} onhover={(on) => on && (hovered = e)} />
 				{/each}
 			</div>
 		{/if}

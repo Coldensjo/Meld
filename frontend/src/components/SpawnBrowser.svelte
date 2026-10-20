@@ -272,7 +272,7 @@
         <div class="virtual" style:height="{rows * rowH}px">
           <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
             {#each visible as t (t.key)}
-              <PaletteTile thumbKey={t.thumb} label={t.name} title={t.title} size={tile} badge={t.badge} active={t.key === activeKey} onclick={() => pick(t)} onhover={(on) => onhover(on ? asItem(t) : null)} />
+              <PaletteTile thumbKey={t.thumb} label={t.name} title={t.title} size={tile} badge={t.badge} active={t.key === activeKey} onclick={() => pick(t)} onhover={(on) => on && onhover(asItem(t))} />
             {/each}
           </div>
         </div>

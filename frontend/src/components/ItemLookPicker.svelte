@@ -196,7 +196,7 @@
 										active={same(d.id, selected)}
 										badge={String(d.id)}
 										onclick={() => onpick(d.id)}
-										onhover={(on) => onhover(on ? d.id : null)}
+										onhover={(on) => on && onhover(d.id)}
 									/>
 								{:else}
 									<button

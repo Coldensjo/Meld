@@ -116,13 +116,19 @@ const tileTitle = tile.title
 tile.dispatchEvent(new PointerEvent('pointerenter'))
 await P.until(() => change().querySelector('.change-bar .dim').textContent.includes('Showing display 8690'), WAIT, 'the hovered look')
 const hoverKept = root().querySelector('.display input').value
+// Leaving the tile for the gap before the next one keeps it shown; only leaving the grid clears it.
 tile.dispatchEvent(new PointerEvent('pointerleave'))
+await P.frames(1)
+const gapKept = change().querySelector('.change-bar .dim').textContent.includes('Showing display 8690')
+picker().querySelector('[aria-label="Looks"]').dispatchEvent(new PointerEvent('pointerleave'))
+await P.frames(1)
+const gridCleared = !change().querySelector('.change-bar .dim').textContent.includes('Showing display')
 tile.click()
 await P.frames(1)
 const picked = change().querySelector('.change-bar .dim').textContent
 button(change().querySelector('.change-bar'), 'Change look').click()
 await P.until(() => !change() && look().startsWith('Held') && root().querySelector('.display input').value === '8690', WAIT, 'the hammer held')
-const taken = { view, display: root().querySelector('.display input').value, look: look(), tiles, tileTitle, hoverKept, picked, back: !!root().querySelector('nav.tabs') }
+const taken = { gapKept, gridCleared, view, display: root().querySelector('.display input').value, look: look(), tiles, tileTitle, hoverKept, picked, back: !!root().querySelector('nav.tabs') }
 // Change icon…: an icon for the model, unsaved until Save, which would make the display; Esc cancels a second one.
 changeButton('Change icon').click()
 await P.until(() => picker(), WAIT, 'the Change icon view')
@@ -227,6 +233,7 @@ const ok =
 	taken.tileTitle.includes('Battleworn Hammer') &&
 	taken.view.label === 'Change look' && taken.view.fieldsHidden && taken.view.bigModel &&
 	taken.hoverKept === '1542' &&
+	taken.gapKept && taken.gridCleared &&
 	taken.picked.includes('Picked display 8690') &&
 	taken.back &&
 	iconPick.pending.startsWith('Icon INV_Axe_01') &&

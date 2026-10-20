@@ -523,6 +523,7 @@ the same scene, the report before and after.
 - Session restore (reopening the last tabs at start)
 - Autosave and recovery (#177)
 - The desktop window itself (closing with unsaved maps, #188)
+- Hover previews in tile grids (no gap between tiles)
 - Thumbnail loading order (asset browser grids)
 - Asset browser tabs remember their place (#123)
 - Model sets (the asset browser's Sets tab, #124)

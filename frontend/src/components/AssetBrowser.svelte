@@ -445,7 +445,8 @@
           {/each}
         </nav>
 
-        <div class="grid-wrap" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={onScroll}>
+        <!-- A tile only sets the hover; leaving the grid clears it, so the gap between two tiles shows no third item. -->
+        <div class="grid-wrap" role="listbox" tabindex="-1" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={onScroll} onpointerleave={() => (hovered = null)}>
           {#if kind === 'sets'}
             <div class="setbar">
               {#if activeSet}
@@ -472,7 +473,7 @@
               <div class="section">Favourites</div>
               <div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)" style:gap="{GAP}px">
                 {#each favourites as it (it.key)}
-                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
                 {/each}
               </div>
               {#if !recent.length}<div class="section">{query ? 'Results' : category || 'Everything'}</div>{/if}
@@ -481,7 +482,7 @@
               <div class="section">Recent</div>
               <div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)" style:gap="{GAP}px">
                 {#each recent as it (it.key)}
-                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
                 {/each}
               </div>
               <div class="section">{query ? 'Results' : category || 'Everything'}</div>
@@ -492,7 +493,7 @@
               <div class="virtual" bind:this={virtualEl} style:height="{rows * rowH}px">
                 <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
                   {#each visible as it (it.key)}
-                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => (hovered = on ? it : hovered === it ? null : hovered)} />
+                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
                   {/each}
                 </div>
               </div>
