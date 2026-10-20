@@ -247,7 +247,7 @@
       <h3>{group}</h3>
       <table>
         <tbody>
-          {#each rows as [key, what] (key)}
+          {#each rows as [key, what] (key + what)}
             <tr><td><kbd>{key}</kbd></td><td>{what}</td></tr>
           {/each}
         </tbody>

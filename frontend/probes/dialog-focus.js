@@ -64,5 +64,12 @@ ui.questEditor = null
 await P.frames(2)
 r.editorClosedFocus = document.activeElement?.tagName
 
-const ok = r.focusInside && r.labelledByHeading && r.controls > 0 && r.tabWraps && r.tabWrapPrevented && r.shiftTabWraps && r.shiftTabWrapPrevented && r.tabPullsBackIn && r.focusReturned && r.menuTitleRefocused && r.editorFocusInside && r.editorClosedFocus === 'BODY'
+// Keyboard Shortcuts lists both Arrow keys rows; a duplicate key in its keyed each threw (#377).
+ui.dialog = 'shortcuts'
+const sc = await P.until(() => document.querySelector('[role="dialog"]'), 20_000, 'the shortcuts dialog')
+r.arrowRows = [...sc.querySelectorAll('tr, li, div')].filter((el) => el.children.length >= 2 && el.firstElementChild?.textContent.trim() === 'Arrow keys').length
+ui.dialog = null
+await P.frames(2)
+
+const ok = r.focusInside && r.labelledByHeading && r.controls > 0 && r.tabWraps && r.tabWrapPrevented && r.shiftTabWraps && r.shiftTabWrapPrevented && r.tabPullsBackIn && r.focusReturned && r.menuTitleRefocused && r.editorFocusInside && r.editorClosedFocus === 'BODY' && r.arrowRows === 2
 return { ok, r }
