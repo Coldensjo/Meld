@@ -1,6 +1,8 @@
 // The sun's near shadow map is kept between frames and redrawn only when something it shows changed (#326):
 // a still view redraws neither cascade; moving an object, sculpting, cutting holes, undo, a layer toggle and
-// a turn of the camera each redraw the near one. Counts the frames whose markShadows asked for a redraw.
+// a turn of the camera each redraw the near one. The far one holds through a small turn and a sun moved
+// under 0.1°, and is redrawn after a long pan or a larger sun move (#324). Counts the frames whose
+// markShadows asked for a redraw.
 const e = P.e
 const { editor, prefs } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
@@ -59,10 +61,22 @@ try {
 	r.turned = await count(() => {
 		e.controller.yaw += 0.05
 	})
+	// #324: the far fit is held while the view turns a little, and refit once it has moved a good
+	// share of the far box's half-size; the sun's direction is held within 0.1°.
+	r.panned = await count(() => {
+		e.controller.target.x += e.env.far.shadow.camera.right * 0.5
+	})
+	r.sunNudged = await count(() => {
+		e.hour += 0.001
+	})
+	r.sunMoved = await count(() => {
+		e.hour += 0.05
+	})
 	r.stillAgain = await count(() => {})
 } finally {
 	prefs.showObjects = true
 	e.markShadows = mark
 }
 const redrawn = ['moved', 'sculpted', 'holes', 'undone', 'layer', 'turned'].every((k) => r[k].near > 0)
-return { ok: r.still.near === 0 && r.still.far === 0 && r.stillAgain.near === 0 && redrawn && r.layer.far > 0, ...r }
+const held = r.turned.far === 0 && r.panned.far > 0 && r.sunNudged.near === 0 && r.sunNudged.far === 0 && r.sunMoved.near > 0 && r.sunMoved.far > 0
+return { ok: r.still.near === 0 && r.still.far === 0 && r.stillAgain.near === 0 && redrawn && r.layer.far > 0 && held, ...r }

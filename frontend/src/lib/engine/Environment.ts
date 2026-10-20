@@ -289,6 +289,15 @@ const HEIGHT_SLACK = 1000
 export const SHADOW_NEAR = 1
 export const SHADOW_FAR = 2
 
+/**
+ * A fit is kept while the key light has turned less than this (cos 0.1°), so the day cycle's slowly
+ * moving sun doesn't redraw both shadow maps every frame (#324).
+ */
+const DIR_COS = Math.cos(THREE.MathUtils.degToRad(0.1))
+
+/** The far cascade's hysteresis (#324): its fit stays until the wanted centre or size drifts this share of its half-size. */
+const FAR_HOLD = 0.25
+
 export class Environment {
   readonly sky: THREE.Mesh
   readonly hemi: THREE.HemisphereLight
@@ -417,9 +426,32 @@ export class Environment {
    */
   updateShadow(nearCenter: THREE.Vector3, nearExtent: number, farCenter: THREE.Vector3, farExtent: number): number {
 		const near = this.fitCascade(this.cascades[0], nearCenter, nearExtent)
-		const far = this.fitCascade(this.cascades[1], farCenter, farExtent)
+		// The far fit is held while the view turns or drifts a little (#324): its map is redrawn only
+		// once the wanted box has moved a quarter of its width, so a turning camera stops paying a
+		// second full shadow pass every frame.
+		const far = !this.holdsFar(farCenter, farExtent, nearCenter, nearExtent) && this.fitCascade(this.cascades[1], farCenter, farExtent)
 		return (near ? SHADOW_NEAR : 0) | (far ? SHADOW_FAR : 0)
   }
+
+	/**
+	 * Whether the far cascade's current fit can stay for a wanted fit around `center` with half-size
+	 * `extent`: the same light direction (within `DIR_COS`), the size within FAR_HOLD of the wanted
+	 * one, the centre within FAR_HOLD of the size from the wanted one, and the near box (which blends
+	 * into the far map at its edge) still inside the held far box.
+	 */
+	private holdsFar(center: THREE.Vector3, extent: number, nearCenter: THREE.Vector3, nearExtent: number): boolean {
+		const c = this.cascades[1]
+		if (c.extent <= 0 || c.dir.dot(this.state.keyDir) < DIR_COS) return false
+		if (Math.abs(extent - c.extent) > c.extent * FAR_HOLD) return false
+		if (center.distanceTo(c.center) > c.extent * FAR_HOLD) return false
+		// The near box in the far map's plane: its centre's offset along the far camera's axes, plus
+		// its half-size, must stay inside the far box with a margin for the blend.
+		const fwd = this.tmpV1.copy(c.dir).negate()
+		const right = this.tmpV2.crossVectors(fwd, Math.abs(fwd.y) > 0.99 ? this.ax : this.up).normalize()
+		const up = this.tmpV3.crossVectors(right, fwd)
+		const d = this.tmpV4.subVectors(nearCenter, c.center)
+		return Math.max(Math.abs(d.dot(right)), Math.abs(d.dot(up))) + nearExtent <= c.extent * 0.9
+	}
 
   /**
    * Points the key light along `state.keyDir` at `center` when it casts no shadow (the shadow fit
@@ -454,22 +486,28 @@ export class Environment {
       light.shadow.bias = (-texel * 0.25) / (cam.far - cam.near)
       changed = true
     }
-    // Snap the centre to whole shadow texels to stop shimmering as the camera moves.
+    // Snap the centre to whole shadow texels to stop shimmering as the camera moves. A light that has
+    // turned less than DIR_COS keeps its fitted direction and so its texel grid (#324): the snapped
+    // centre then stays put under the day cycle's slowly moving sun, and the map isn't redrawn. The
+    // shadow matrix follows the direction only when the map is redrawn (three updates it then), so
+    // the drawn map and its lookup always agree.
     const texel = (2 * c.extent) / mapSize
-    const dir = this.state.keyDir
+    const turned = c.dir.dot(this.state.keyDir) < DIR_COS
+    const dir = turned ? this.state.keyDir : c.dir
     const fwd = this.tmpV1.copy(dir).negate()
     const right = this.tmpV2.crossVectors(fwd, Math.abs(fwd.y) > 0.99 ? this.ax : this.up).normalize()
     const up = this.tmpV3.crossVectors(right, fwd)
     const r = Math.round(center.dot(right) / texel) * texel - center.dot(right)
     const u = Math.round(center.dot(up) / texel) * texel - center.dot(up)
     const snapped = this.tmpV4.copy(center).addScaledVector(right, r).addScaledVector(up, u)
-    if (!snapped.equals(c.center) || !dir.equals(c.dir)) {
+    if (turned || !snapped.equals(c.center)) {
       c.center.copy(snapped)
       c.dir.copy(dir)
       changed = true
     }
+    // The key light's position also lights the scene, so it follows the live direction.
     light.target.position.copy(snapped)
-    light.position.copy(snapped).addScaledVector(dir, c.extent * 2 + HEIGHT_SLACK)
+    light.position.copy(snapped).addScaledVector(this.state.keyDir, c.extent * 2 + HEIGHT_SLACK)
     light.target.updateMatrixWorld()
     return changed
   }

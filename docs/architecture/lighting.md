@@ -31,6 +31,16 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   redraws neither (#326). Something new that casts must bump one of those keys or its shadow goes
   stale; the `shadow-redraw` probe checks the edits. Both cascade frustums feed instance culling,
   so what is off screen still casts.
+- The fits hold where a refit would redraw a map for little gain (#324). The far fit holds
+  (`Environment.holdsFar`) until the wanted centre or half-size has drifted a quarter (`FAR_HOLD`) of
+  the held half-size, the light has turned, or the near box would reach past 90% of the held far box,
+  so a turning camera no longer redraws the far map every frame (a second full shadow pass: about
+  3.5 ms of a turning frame on the everything map). The light direction holds within 0.1°
+  (`DIR_COS`): a fit keeps its fitted direction and so its texel grid, so the day cycle's sun redraws
+  the maps about every 0.1° rather than every frame. The key light's own position follows the live
+  direction for the lighting; three updates a shadow matrix only when it redraws that map, so a map
+  and its lookup always agree. Keep the near box inside the far one (the 90% bound) if either
+  cascade's sizes change: `cascadeShadow` blends into the far map at the near map's edge.
 - Lighting is plain Lambert on terrain and props alike (no wrap, no shadow floor), so a shadowed
   surface keeps only the hemisphere light. The day sky light is a few times weaker than the sun
   for the shadows to read.
