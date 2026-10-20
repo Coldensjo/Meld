@@ -225,7 +225,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 
   A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
-- The probes on 2026-10-17: `tool-hints` (#238, tool hints in the status bar, not the options bar), `hide-panels` (#248, Tab gives the viewport the whole window), `options-more` (#254, the options bar keeps one row and More shows the rest), `smoke` (the benchmark scene draws, no errors), `bench` (its numbers), `perf-*` (#322, each benchmark map's numbers, below),
+- The probes on 2026-10-17: `tool-hints` (#238, tool hints in the status bar, not the options bar), `hide-panels` (#248, Tab gives the viewport the whole window), `options-more` (#254, the options bar keeps one row and More shows the rest), `probe-helpers` (#348, P.time, P.stroke and P.turn), `smoke` (the benchmark scene draws, no errors), `bench` (its numbers), `perf-*` (#322, each benchmark map's numbers, below),
   `undo-sculpt` and `undo-holes` (an edit and its undo on a flat map), `undo-spawns` (#193, undoing a Spawn brush stroke of 60 creatures redraws the spawn layer once; needs the world database), `wmo-cull` (#198's Stormwind
   cull, in the scene pass and the near shadow cascade, #215), `terrain-dxt` (#216's DXT3 tileset
   array draws the ground as the RGBA one does, and #225's mips smooth the distant ground), `object-entry` (#136, a game object spawn turned into
@@ -435,11 +435,19 @@ the same scene, the report before and after.
     variable without the `PROBE_` prefix never arrives (`AB_MAP=x` reads as the fallback); print what
     `P.env` returned in the probe's result.
   - A cost that isn't a steady frame (a rebuild while a map's models load, a sculpt stroke's
-    re-snapping) doesn't show in `P.perf` or `loadMs`, which the client reads dominate: wrap the
-    method on its class's prototype in a scratch probe (`(await P.app('/src/lib/world/ObjectLayer.ts')).ObjectLayer.prototype.update`)
-    with a timer before `P.benchMap`, and give the summed ms and calls during the load and during a
-    stroke (`e.tools.sculpt.onDown`/`tick`/`onUp` as `undo-sculpt` does). #329 measured this way:
-    on creatures the spawn rebuilds while loading went from 107 ms to 10.
+    re-snapping) doesn't show in `P.perf` or `loadMs`, which the client reads dominate (#348). Time
+    the methods: `const t = await P.time({ '/src/lib/world/ObjectLayer.ts:ObjectLayer': ['update', 'markRegionDirty'] })`
+    (or `[[Class, 'method'], ...]`) before `P.benchMap`, then `t.snap()` gives ms and calls per method
+    (an outermost call only) and a `total`; `t.reset()` zeroes it between the load and a stroke, and
+    `P.stroke('sculpt', { x, z }, { x, z }, 30)` drives the stroke (set `editor.tool`, the mode and
+    `editor.brush` first, as `undo-sculpt` does). The calls divided by the frames stepped give how
+    often a method runs a frame: check that before building a gain for it (#331: a method that ran 0
+    times a frame on the map it was meant for). `P.turn(0.05)` turns the camera 0.05 rad a frame
+    until the function it returns is called, and `P.ab(set, n, { turn: 0.05 })` does so around its
+    windows: the `perf-*` probes look at a still camera, which hides a cost that only comes with
+    movement. `probe-helpers` checks all three. #329 measured this way: on creatures the spawn
+    rebuilds while loading went from 107 ms to 10. Trap: the classes must come from the page's own
+    modules (`P.time` goes through `P.app`); an imported copy is a second one and measures nothing.
   - Trap: the first probe run after an edit to served source (`make dev` hot-reloads it) can load the
     map cold: on the everything map it ended with 117 shader programs instead of 72 (models drawn
     before their textures, so three made each program twice) and waited 15 to 18 s on program links in

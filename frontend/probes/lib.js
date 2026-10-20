@@ -486,13 +486,14 @@ ${fs.slice(0, end)}
 	 * the frame's spread); `delta` is on minus off for the CPU mean and each section, and `overlap` names
 	 * the measures whose [min, max] ranges overlap. Leaves the switch off. Needs the map built first.
 	 * Sixteen windows after the everything map's 100 s build outrun the default 300 s limit: run it with
-	 * `PROBE_TIMEOUT=900`. `opts.sections` limits the sections reported (names or substrings).
+	 * `PROBE_TIMEOUT=900`. `opts.sections` limits the sections reported (names or substrings). `opts.turn` (radians a frame) turns the camera during the windows (`P.turn`, #348).
 	 */
 	async ab(set, n = 8, opts = {}) {
 		const { CPU_SECTIONS } = await P.app('/src/lib/engine/perfMeter.ts')
 		const want = opts.sections
 		const names = CPU_SECTIONS.filter((s) => !want || want.some((w) => s.includes(w)))
 		const runs = { off: [], on: [] }
+		const stopTurn = opts.turn ? P.turn(opts.turn) : null
 		try {
 			for (let i = 0; i < n; i++) {
 				for (const on of i % 2 ? [true, false] : [false, true]) {
@@ -502,6 +503,7 @@ ${fs.slice(0, end)}
 				}
 			}
 		} finally {
+			stopTurn?.()
 			await set(false)
 		}
 		const round = (v) => Math.round(v * 100) / 100
@@ -529,6 +531,118 @@ ${fs.slice(0, end)}
 		delete off.ranges
 		delete on.ranges
 		return { off, on, delta, overlap }
+	},
+
+	/**
+	 * Times chosen methods (#348): `spec` lists what to wrap, either `{ '/src/lib/world/ObjectLayer.ts:ObjectLayer': ['update'] }`
+	 * (an app module path, a colon and the exported class, resolved through `P.app` so the wrap lands on
+	 * the page's own copy) or `[[Class, 'method'], ...]` for classes already in hand. Wraps the
+	 * prototype methods and returns `{ snap(), reset(), restore() }`. `snap()` gives per method
+	 * `{ ms, calls }` (an outermost call only: a call nested in the same method adds nothing) and
+	 * `total`, the ms and calls of the outermost wrapped call of any method (a wrapped method called by
+	 * another counts once there). `reset()` zeroes the counts in place, so call it between a load and a
+	 * stroke; `restore()` puts the originals back. Wrap before the work to measure (`P.benchMap`).
+	 */
+	async time(spec) {
+		const pairs = []
+		if (Array.isArray(spec)) for (const [cls, name] of spec) pairs.push([cls.name + '.' + name, cls, name])
+		else
+			for (const [key, names] of Object.entries(spec)) {
+				const [path, cname] = key.split(':')
+				const cls = (await P.app(path))[cname]
+				if (!cls) throw new Error(`P.time: ${path} exports no ${cname}`)
+				for (const name of names) pairs.push([cname + '.' + name, cls, name])
+			}
+		const stats = {}
+		const total = { ms: 0, calls: 0 }
+		let depth = 0
+		const undo = []
+		for (const [label, cls, name] of pairs) {
+			const f = cls.prototype[name]
+			if (typeof f !== 'function') throw new Error(`P.time: ${label} is not a method`)
+			const s = (stats[label] = { ms: 0, calls: 0, depth: 0 })
+			cls.prototype[name] = function (...a) {
+				const outer = s.depth++ === 0
+				const top = depth++ === 0
+				const t0 = performance.now()
+				try {
+					return f.apply(this, a)
+				} finally {
+					const dt = performance.now() - t0
+					s.depth--
+					depth--
+					if (outer) {
+						s.ms += dt
+						s.calls++
+					}
+					if (top) {
+						total.ms += dt
+						total.calls++
+					}
+				}
+			}
+			undo.push(() => (cls.prototype[name] = f))
+		}
+		const round = (v) => Math.round(v * 10) / 10
+		return {
+			snap() {
+				const out = { total: { ms: round(total.ms), calls: total.calls } }
+				for (const [k, s] of Object.entries(stats)) out[k] = { ms: round(s.ms), calls: s.calls }
+				return out
+			},
+			reset() {
+				total.ms = total.calls = 0
+				for (const s of Object.values(stats)) s.ms = s.calls = 0
+			},
+			restore() {
+				for (const u of undo.splice(0)) u()
+			},
+		}
+	},
+
+	/**
+	 * Turns the camera `step` radians of yaw every frame (#348), so a measurement sees the cost that comes
+	 * only with movement; `P.perf` and the `perf-*` probes look at a still camera. Wraps
+	 * `controller.update` and returns a function that stops it. `P.ab(set, n, { turn: 0.05 })` does this
+	 * around its windows.
+	 */
+	turn(step) {
+		const c = window.__engine.controller
+		const f = c.update
+		c.update = function (...a) {
+			this.yaw += step
+			return f.apply(this, a)
+		}
+		return () => {
+			c.update = f
+		}
+	},
+
+	/**
+	 * A scripted brush stroke (#348): `tool` is an instance (`P.e.tools.sculpt`) or its name, `from` and
+	 * `to` are `{ x, z }` in editor coordinates. Presses on `from`, ticks `n` times (default 30, `dt`
+	 * 0.05) along the line with a frame after each stamp, releases on `to`, and steps a last frame.
+	 * Set `editor.tool`, the mode and `editor.brush` first (see `undo-sculpt`). Returns `{ tickMs, ticks }`,
+	 * the ms inside the tool's `tick` calls (what a stroke costs besides its frames). History gets the stroke as one edit.
+	 */
+	async stroke(tool, from, to, n = 30, dt = 0.05) {
+		const e = window.__engine
+		const t = typeof tool === 'string' ? e.tools[tool] : tool
+		if (!t) throw new Error(`P.stroke: no tool ${tool}`)
+		const V3 = e.controller.target.constructor
+		const at = (p) => new V3(p.x, e.terrain.heightAt(p.x, p.z), p.z)
+		let tickMs = 0
+		t.onDown(e.ctx, at(from))
+		for (let i = 1; i <= n; i++) {
+			const k = i / n
+			const t0 = performance.now()
+			t.tick(e.ctx, dt, at({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k }))
+			tickMs += performance.now() - t0
+			await P.frames(1)
+		}
+		t.onUp(e.ctx)
+		await P.frames(1)
+		return { tickMs: Math.round(tickMs * 10) / 10, ticks: n }
 	},
 
 	/**
