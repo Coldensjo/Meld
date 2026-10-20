@@ -29,7 +29,7 @@ try {
 	await P.settle()
 	await P.frames(10)
 	// Freeze everything but the hour: a shot is then only the sun's doing.
-	e.clock.getDelta = () => 0
+	e.timer.setTimescale(0)
 	near.needsUpdate = true
 	await P.frames(2)
 	let drawn = near.matrix.clone()
@@ -56,7 +56,7 @@ try {
 	}
 	r.worstHeld = worst
 } finally {
-	delete e.clock.getDelta
+	e.timer.setTimescale(1)
 	e.markShadows = mark
 	prefs.dayCycle = wasCycle
 }

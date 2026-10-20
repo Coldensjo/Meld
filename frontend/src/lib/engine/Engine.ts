@@ -370,7 +370,12 @@ export class Engine {
   /** The client's status revision the liquids' frames were loaded for. */
   private wowRevision = -1
   private hit: THREE.Vector3 | null = null
-  private clock = new THREE.Clock()
+  /**
+   * The frame clock: `frame()` advances it once (`update`), then reads the frame's delta and elapsed
+   * seconds. Not connected to the page's visibility, so a probe driving `frame()` in a hidden tab still
+   * sees time pass; `setTimescale(0)` holds it (the probes' frozen clock).
+   */
+  readonly timer = new THREE.Timer()
   private raf = 0
   private frames = 0
   private statTime = 0
@@ -579,11 +584,11 @@ export class Engine {
   // ---------------------------------------------------------------- lifecycle
 
   start() {
-    this.clock.start()
+    this.timer.reset()
     let last = -Infinity
     const loop = (now: number) => {
       this.raf = requestAnimationFrame(loop)
-      // Graphics › FPS limit (#24): a frame waits for its interval; the clock's delta covers the skipped ones.
+      // Graphics › FPS limit (#24): a frame waits for its interval; the timer's next delta covers the skipped ones.
       if (!frameDue(now, last, this.prefs?.fpsLimit ?? 0)) return
       last = now
       if (!this.contextLost) this.frame()
@@ -613,7 +618,8 @@ export class Engine {
       if ((o as THREE.Light).isLight && o.castShadow) (o as THREE.PointLight).shadow.needsUpdate = true
     })
     for (const d of this.documents) d.terrain.contextRestored()
-    this.clock.getDelta()
+    // The time the context was lost advances `elapsed` but is not the next frame's delta.
+    this.timer.update()
     setStatus('The viewport is back.', 4000)
     for (const w of this.contextWaiters.splice(0)) w()
   }
@@ -990,8 +996,9 @@ export class Engine {
   }
 
   private frame() {
-    const dt = Math.min(this.clock.getDelta(), 0.1)
-    const time = this.clock.elapsedTime
+    this.timer.update()
+    const dt = Math.min(this.timer.getDelta(), 0.1)
+    const time = this.timer.getElapsed()
     const m = this.meter
     m.setOn(!!this.prefs?.perfOverlay || this.perfWaiters.length > 0)
     // The overlay starts on "Measuring…" the next time, not on old numbers.
@@ -1597,7 +1604,7 @@ export class Engine {
 		this.stopTaxiFlight()
 		const follow = this.controller.followGround
 		this.controller.setFollowGround(false)
-		this.taxiFlight = { pts, lengths: segmentLengths(pts), start: this.clock.elapsedTime, view: this.sceneView(), follow }
+		this.taxiFlight = { pts, lengths: segmentLengths(pts), start: this.timer.getElapsed(), view: this.sceneView(), follow }
 		ui.taxiFlying = true
 	}
 
@@ -1614,7 +1621,7 @@ export class Engine {
 	/** A chase view of the flight: from the rider's point a moment ago, 3 yd up, towards where it will be. */
 	private updateTaxiFlight() {
 		const f = this.taxiFlight!
-		const t = this.clock.elapsedTime - f.start
+		const t = this.timer.getElapsed() - f.start
 		const flying = flightAt(f.pts, f.lengths, t, this.taxiAt)
 		flightAt(f.pts, f.lengths, t + 0.8, this.taxiAhead)
 		flightAt(f.pts, f.lengths, Math.max(0, t - 0.35), this.taxiBehind)
@@ -3868,7 +3875,7 @@ export class Engine {
 
   /** Keeps the terrain shader's texture looks (scrolling, overbright) in step with the map's (B-162). */
   private updateLookTexture(u: Record<string, THREE.IUniform>, time: number) {
-    // time is the clock's seconds.
+    // time is the timer's elapsed seconds.
     if (!this.lookTex) {
       this.lookTex = new THREE.DataTexture(new Uint8Array(256 * 4), 256, 1, THREE.RGBAFormat, THREE.UnsignedByteType)
       this.lookTex.needsUpdate = true

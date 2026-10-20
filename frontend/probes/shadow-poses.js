@@ -22,7 +22,7 @@ const run = async (kind) => {
 	await P.frames(6)
 	r.still = { full: fulls, posed: ps.passes - p0 }
 	// Hold the clock: every frame still poses the models, at the same time.
-	e.clock.getDelta = () => 0
+	e.timer.setTimescale(0)
 	try {
 		await P.frames(3)
 		const split = await P.shot()
@@ -40,7 +40,7 @@ const run = async (kind) => {
 		r.vsFull = P.diff(split, full)
 		r.vsBare = P.diff(split, bare)
 	} finally {
-		delete e.clock.getDelta
+		e.timer.setTimescale(1)
 		delete ps.drawPosed
 		forceFull = false
 	}

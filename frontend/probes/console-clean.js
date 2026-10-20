@@ -1,7 +1,6 @@
 // Loading Northshire (P.BENCH) logs no console warning or error and no HTTP 400+ besides known ones, and the terrain asks only for the sheen twins that exist (#336).
 // Known messages, each with its issue; drop an entry when its issue is fixed.
 const known = [
-	[/THREE\.Clock/, '#334'],
 ]
 const seen = []
 const wrap = (level) => {
