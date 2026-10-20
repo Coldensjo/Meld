@@ -150,6 +150,25 @@
     return null
   }
 
+  /**
+   * Whether a focused slider, select or checkbox keeps this key for itself. Only the keys it uses are
+   * its own, so Delete and the tool letters still reach the map while the focus sits on a control
+   * (after a click on an options-bar checkbox it stays there, #345). Ctrl+Z and Ctrl+Y always reach the map (#127).
+   */
+  function controlKeepsKey(e: KeyboardEvent): boolean {
+    const k = e.key.toLowerCase()
+    if ((e.ctrlKey || e.metaKey) && (k === 'z' || k === 'y')) return false
+    if (e.ctrlKey || e.metaKey || e.altKey) return true
+    const el = e.target as HTMLElement
+    if (k === 'delete' || k === 'backspace') return false
+    if (el.tagName === 'SELECT') return true
+    if (k === 'escape') return false
+    if (k === 'enter' || k === ' ' || k === 'tab') return true
+    const type = (el as HTMLInputElement).type
+    if (type === 'range' || type === 'radio') return k.startsWith('arrow') || k === 'home' || k === 'end' || k === 'pageup' || k === 'pagedown'
+    return false
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Alt') {
       e.preventDefault()
@@ -160,7 +179,7 @@
     // options-bar slider (Vertex mode's Slope) the focus stays on it (#127).
     const field = formField(e.target)
     if (field === 'text') return
-    if (field === 'control' && !((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'y'))) return
+    if (field === 'control' && controlKeepsKey(e)) return
     const engine = engineRef.current
     if (!engine || ui.showNewDialog || ui.dialog) return
     const mod = e.ctrlKey || e.metaKey

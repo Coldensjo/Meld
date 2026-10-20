@@ -74,6 +74,10 @@ input must leave the history alone. A Shift move is `onDown(..., { shiftKey: tru
   `e.history.position`, not `peek()`.
 - Before #127 the App's key handler dropped every key aimed at an `INPUT` or `SELECT`, so after
   dragging Slope or Direction (the mode's only edit besides Flatten) Ctrl+Z did nothing.
+- Until #345 the same drop also swallowed Delete, R and the tool letters after a click left the focus on an
+  options-bar checkbox, slider or select. `bun run probe hotkeys` presses Delete on a selected model with
+  each kind of control focused and after each editor opened and closed, and checks a text field and a
+  slider keep their own keys. A control now keeps only the keys it uses (`controlKeepsKey` in `App.svelte`).
 
 ## Gizmo drags (spin ring, height arrow, scale knob) without a mouse
 
