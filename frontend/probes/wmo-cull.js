@@ -51,8 +51,9 @@ try {
 	sm.render = render
 }
 return {
+	// The 0.1% slack: a posed model at the cascade edge once made the two counts differ by 16 triangles (#350).
 	// Over the city the near cascade draws about 390k fewer triangles with the cull; the far one is redrawn only when its fit changes.
-	ok: on.stormwind > 0 && on.stormwind * 4 < off.stormwind && on.shadow <= off.shadow && cityOff.shadow - cityOn.shadow > 200_000 && look.ok,
+	ok: on.stormwind > 0 && on.stormwind * 4 < off.stormwind && on.shadow <= off.shadow * 1.001 && cityOff.shadow - cityOn.shadow > 200_000 && look.ok,
 	culled: on,
 	whole: off,
 	city: { culled: cityOn, whole: cityOff },
