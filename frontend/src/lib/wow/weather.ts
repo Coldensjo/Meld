@@ -66,6 +66,19 @@ export function splashRate(kind: WeatherKind, density: number): number {
 	return (RAIN_RATE * density * SPLASH_FIELD * SPLASH_FIELD) / (RAIN_BOX[0] * RAIN_BOX[2])
 }
 
+// Snow's settled flakes (#316): a flake that lands lies where it fell and fades out over 0.25 s
+// (`0x678dfa`, Benilla's `SNOW_SETTLE_LIFE`), as rain leaves a splash. Their field is the snow box's
+// own ground, since a flake shrinks to its 1 px floor by 46 yd, about the box's half width.
+export const SETTLE_LIFE = 0.25
+export const SETTLE_FIELD = SNOW_BOX[0]
+export const MAX_SETTLED = 2048
+
+/** Settled flakes a second in the field at `density`: snow's spawn rate over the box's ground, times the field's. */
+export function settleRate(kind: WeatherKind, density: number): number {
+	if (kind !== 'snow' || density <= 0) return 0
+	return (SNOW_RATE * density * SETTLE_FIELD * SETTLE_FIELD) / (SNOW_BOX[0] * SNOW_BOX[2])
+}
+
 // The weather's wind (#244), the client's `0x67c150` as Benilla's `wind.rs` ports it: the viewer's
 // own planar velocity averaged over 149 ms, so the weather blows past a moving camera. It leads the
 // drops' box by 1.75 x itself (`0x8680f8`) and tips the streaks' tails into it, up to 45 degrees at

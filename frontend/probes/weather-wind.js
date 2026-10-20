@@ -1,4 +1,4 @@
-// The weather preview's splashes, wind and doorways (#244): heavy rain on Stormwind's map leaves splashes on the ground, a camera moving along +X leads the rain's box and tips the streaks' tails that way (and both settle when it stops), the rain shows whole on the Trade District's street (a 0x40 group), and from a shop (SI:7, group 113) only while a doorway onto the street is in view.
+// The weather preview's splashes, wind and doorways (#244): heavy rain on Stormwind's map leaves splashes on the ground, heavy snow leaves settled flakes there (#316), a camera moving along +X leads the rain's box and tips the streaks' tails that way (and both settle when it stops), the rain shows whole on the Trade District's street (a 0x40 group), and from a shop (SI:7, group 113) only while a doorway onto the street is in view.
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e
@@ -62,6 +62,34 @@ const live = () => {
 }
 out.splash = { spot: spot.map(Math.round), ...live(), drawn: P.diff(bare, withSplash, 2).off }
 
+// Snow's settled flakes (#316) on the same ground: this frame's lie on the terrain, none under it, and they change pixels.
+ui.weather = 'snow'
+await P.until(() => layer.settled?.material.visible, 30_000, 'the settled flakes texture')
+await P.frames(3)
+const withSettled = await P.shot()
+const unsettled = await P.shot(() => {
+	layer.settled.visible = false
+	e.renderer.render(e.scene, e.camera)
+})
+P.save(withSettled, 'settled-flakes')
+const settled = { live: 0, onTerrain: 0, onModels: 0, under: 0, splashes: layer.splash.geometry.instanceCount }
+{
+	const a = layer.settled.geometry.getAttribute('ground').array
+	const clock = Math.fround(layer.settled.material.uniforms.clock.value)
+	for (let i = 0; i < layer.settled.geometry.drawRange.count; i++) {
+		if (a[i * 4 + 3] !== clock) continue
+		settled.live++
+		const d = a[i * 4 + 1] - 0.05 - e.terrain.heightAt(a[i * 4], a[i * 4 + 2])
+		if (Math.abs(d) < 0.01) settled.onTerrain++
+		else if (d > 0) settled.onModels++
+		else settled.under++
+	}
+}
+out.settled = { ...settled, drawn: P.diff(unsettled, withSettled, 2).off }
+ui.weather = 'rain'
+await P.frames(2)
+out.settled.goneInRain = layer.settled.geometry.drawRange.count === 0 && !layer.settled.visible
+
 // The wind: 2 yd a frame along +X, then still.
 const lead = () => layer.rain.material.uniforms.lead.value.clone()
 const tipX = () => {
@@ -119,6 +147,12 @@ out.ok =
 	out.splash.onTerrain > out.splash.live / 2 &&
 	out.splash.under === 0 &&
 	out.splash.drawn > 0 &&
+	out.settled.live > 100 &&
+	out.settled.onTerrain > out.settled.live / 2 &&
+	out.settled.under === 0 &&
+	out.settled.splashes === 0 &&
+	out.settled.drawn > 0 &&
+	out.settled.goneInRain &&
 	moving.speed > 1 &&
 	moving.lead > 1 &&
 	Math.abs(moving.leadZ) < 0.5 &&

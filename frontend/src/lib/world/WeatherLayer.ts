@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { loadTexture } from '../wow/api'
-import { effectDensity, MAX_MIST, MAX_RAIN, MAX_SNOW, MAX_SPLASH, MIST_BOX, RAIN_BOX, SNOW_BOX, SPLASH_FIELD, SPLASH_LIFE, splashRate, streakTilt, weatherCounts, WeatherWind, type WeatherKind } from '../wow/weather'
+import { effectDensity, MAX_MIST, MAX_RAIN, MAX_SETTLED, MAX_SNOW, MAX_SPLASH, MIST_BOX, RAIN_BOX, SETTLE_FIELD, SETTLE_LIFE, settleRate, SNOW_BOX, SPLASH_FIELD, SPLASH_LIFE, splashRate, streakTilt, weatherCounts, WeatherWind, type WeatherKind } from '../wow/weather'
 
 // Lighting › Weather Preview (#185): the client's rain, snow and sandstorms around the camera, so an
 // author sees how a zone with weather (its game_weather chances, the Zones dialog) looks in it. The
@@ -16,6 +16,9 @@ import { effectDensity, MAX_MIST, MAX_RAIN, MAX_SNOW, MAX_SPLASH, MIST_BOX, RAIN
 // `WeatherWind`), and the weather seen from a room through its doorways: `gate` clips every part to
 // the portal flood's exterior windows, since the wrapped drops have no roof to land on and would
 // otherwise fall through the room.
+//
+// #316 gave snow the same: a flake that lands lies where it fell and fades over 0.25 s, on the same
+// ground and cache as the splashes, in a field as wide as the snow's box.
 
 /** The drift heading's centre: the client's -1.57 rad in the WoW frame (toward -Y), which is +Z here. */
 const DRIFT = new THREE.Vector2(0, 1)
@@ -128,6 +131,32 @@ void main() {
 	vFade = edge;
 	gl_PointSize = max(1.0, 14.0 * clamp(1.0 - 0.02 * d, 0.0, 1.0) * pxScale);
 	gl_Position = projectionMatrix * viewMatrix * vec4(eye + p, 1.0);
+}
+`
+
+// Settled flakes (#316): a falling flake's sprite and size law where it landed, its alpha 1 - age / 0.25
+// (Benilla's `push_flakes`), fading out at the field's edges as the falling ones do at the box's.
+// `ground` is where it landed and when, on the shader's clock.
+const settleVertex = /* glsl */ `
+uniform vec3 eye;
+uniform vec3 lead;
+uniform float clock;
+uniform float pxScale;
+attribute vec4 ground;
+varying float vFade;
+void main() {
+	float age = mod(clock - ground.w, ${CLOCK_WRAP.toFixed(1)});
+	vec3 p = ground.xyz - eye;
+	vec2 q = abs(p.xz - lead.xz) / ${(SETTLE_FIELD / 2).toFixed(1)};
+	vFade = (1.0 - smoothstep(0.8, 1.0, max(q.x, q.y))) * (1.0 - age / ${SETTLE_LIFE.toFixed(2)});
+	if (age >= ${SETTLE_LIFE.toFixed(2)} || vFade <= 0.0) {
+		vFade = 0.0;
+		gl_PointSize = 0.0;
+		gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+		return;
+	}
+	gl_PointSize = max(1.0, 14.0 * clamp(1.0 - 0.02 * length(p), 0.0, 1.0) * pxScale);
+	gl_Position = projectionMatrix * viewMatrix * vec4(ground.xyz, 1.0);
 }
 `
 
@@ -244,6 +273,8 @@ const PROBE_ABOVE = 30
 /** The cache is cleared past this many cells, when the probes' start moves a story, or when the models change. */
 const CACHE_CELLS = 20000
 const CACHE_STORY = 8
+/** A settled flake sits this far over the ground: a point sprite takes its centre's depth, so the ground would clip its lower half. */
+const SETTLE_LIFT = 0.05
 
 /** Seeds in the box and a random fourth, the same every build. */
 function seeds(n: number): Float32Array {
@@ -256,6 +287,17 @@ function seeds(n: number): Float32Array {
 		out[i] = (x >>> 8) / 16777216
 	}
 	return out
+}
+
+/**
+ * A ring of slots on the ground (rain's splashes, snow's settled flakes): its attribute, the next slot
+ * to fill, how many were ever filled since shown, and the fraction of one carried to the next frame.
+ */
+interface GroundRing {
+	at: THREE.BufferAttribute
+	next: number
+	filled: number
+	carry: number
 }
 
 /** Shared uniforms of every part: the eye, its lead, the clock, the drift and the room's gate. */
@@ -280,6 +322,7 @@ export class WeatherLayer {
 	private rain: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial> | null = null
 	private splash: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial> | null = null
 	private snow: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
+	private settled: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null
 	private mist: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial> | null = null
 	// The room's gate, shared by every part's material.
 	private gateCount = { value: -1 }
@@ -288,11 +331,9 @@ export class WeatherLayer {
 	private leadOut = { x: 0, z: 0 }
 	private tiltAxis = new THREE.Vector3()
 	private tiltM4 = new THREE.Matrix4()
-	// The splashes: a ring of slots, the next one to fill, how many were ever filled since shown, the
-	// fraction of a splash carried to the next frame, and the models' heights on the ground grid.
-	private splashNext = 0
-	private splashFilled = 0
-	private splashCarry = 0
+	// The rings of splashes and settled flakes, the seed they land by, and the models' heights on the ground grid.
+	private splashRing: GroundRing | null = null
+	private settleRing: GroundRing | null = null
 	private splashSeed = 0x2545f491
 	private cells = new Map<number, number>()
 	private cellsFrom = 0
@@ -367,6 +408,7 @@ export class WeatherLayer {
 		at.setUsage(THREE.DynamicDrawUsage)
 		g.setAttribute('splash', at)
 		g.instanceCount = 0
+		this.splashRing = { at, next: 0, filled: 0, carry: 0 }
 		const m = new THREE.ShaderMaterial({
 			uniforms: { eye: { value: this.eye }, clock: { value: 0 }, gateCount: this.gateCount, gateRects: this.gateRects, viewport: this.viewport, map: { value: null } },
 			vertexShader: splashVertex,
@@ -394,6 +436,30 @@ export class WeatherLayer {
 		const m = new THREE.ShaderMaterial({
 			uniforms: { ...this.uniforms(SNOW_BOX), density: { value: 0 }, pxScale: { value: 1 }, map: { value: null } },
 			vertexShader: snowVertex,
+			fragmentShader: snowFragment,
+			transparent: true,
+			depthWrite: false,
+		})
+		m.visible = false
+		this.texture(TEX.snow, m)
+		const points = new THREE.Points(g, m)
+		points.frustumCulled = false
+		points.renderOrder = 10
+		this.group.add(points)
+		return points
+	}
+
+	private buildSettled() {
+		const g = new THREE.BufferGeometry()
+		g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_SETTLED * 3), 3))
+		const at = new THREE.BufferAttribute(new Float32Array(MAX_SETTLED * 4), 4)
+		at.setUsage(THREE.DynamicDrawUsage)
+		g.setAttribute('ground', at)
+		g.setDrawRange(0, 0)
+		this.settleRing = { at, next: 0, filled: 0, carry: 0 }
+		const m = new THREE.ShaderMaterial({
+			uniforms: { eye: { value: this.eye }, lead: { value: new THREE.Vector3() }, clock: { value: 0 }, pxScale: { value: 1 }, gateCount: this.gateCount, gateRects: this.gateRects, viewport: this.viewport, map: { value: null } },
+			vertexShader: settleVertex,
 			fragmentShader: snowFragment,
 			transparent: true,
 			depthWrite: false,
@@ -494,10 +560,8 @@ export class WeatherLayer {
 
 	private probeBudget = { n: 0 }
 
-	/** Lands this frame's splashes in the field around the led eye and hands the ring to the GPU. */
-	private updateSplashes(density: number, clock: number, dt: number, ground: SplashGround) {
-		const s = this.splash!
-		const from = this.eye.y + PROBE_ABOVE
+	/** Forgets the models' heights when the probes' start moves a story, the cache fills or the models change. */
+	private refreshCells(from: number, ground: SplashGround) {
 		const src = ground.source()
 		if (Math.abs(from - this.cellsFrom) > CACHE_STORY || this.cells.size > CACHE_CELLS || src !== this.cellsSource || src.version !== this.cellsVersion) {
 			this.cells.clear()
@@ -505,33 +569,54 @@ export class WeatherLayer {
 			this.cellsSource = src
 			this.cellsVersion = src.version
 		}
-		this.splashCarry += splashRate('rain', density) * Math.min(dt, 0.1)
-		let n = Math.floor(this.splashCarry)
-		this.splashCarry -= n
-		n = Math.min(n, MAX_SPLASH)
-		if (n === 0) return
-		const at = s.geometry.getAttribute('splash') as THREE.InstancedBufferAttribute
-		const a = at.array as Float32Array
-		const l = this.wind.lead(SPLASH_FIELD, this.leadOut)
-		const ox = this.eye.x + l.x - SPLASH_FIELD / 2
-		const oz = this.eye.z + l.z - SPLASH_FIELD / 2
+	}
+
+	/**
+	 * Lands this frame's share of `rate` a second in the `field` yd square around the led eye into
+	 * `ring`, `lift` yd over the ground, born at `clock`, and returns how many slots are filled. One
+	 * ring lands a frame (rain's or snow's), so it spends the frame's probes.
+	 */
+	private land(ring: GroundRing, rate: number, field: number, lift: number, clock: number, dt: number, ground: SplashGround): number {
+		const from = this.eye.y + PROBE_ABOVE
+		this.refreshCells(from, ground)
 		this.probeBudget.n = PROBES_A_FRAME
+		ring.carry += rate * Math.min(dt, 0.1)
+		const max = ring.at.count
+		const n = Math.min(Math.floor(ring.carry), max)
+		ring.carry -= Math.floor(ring.carry)
+		if (n === 0) return ring.filled
+		const a = ring.at.array as Float32Array
+		const l = this.wind.lead(field, this.leadOut)
+		const ox = this.eye.x + l.x - field / 2
+		const oz = this.eye.z + l.z - field / 2
 		for (let i = 0; i < n; i++) {
-			const x = ox + this.random() * SPLASH_FIELD
-			const z = oz + this.random() * SPLASH_FIELD
+			const x = ox + this.random() * field
+			const z = oz + this.random() * field
 			const y = this.landing(x, z, from, ground, this.probeBudget)
-			// No ground under it (off the map, in a hole) or above the probes' start: no splash, as no drop lands.
+			// No ground under it (off the map, in a hole) or above the probes' start: nothing lands.
 			if (y === -Infinity || y > from) continue
-			const k = this.splashNext * 4
+			const k = ring.next * 4
 			a[k] = x
-			a[k + 1] = y + 0.02
+			a[k + 1] = y + lift
 			a[k + 2] = z
 			a[k + 3] = clock
-			this.splashNext = (this.splashNext + 1) % MAX_SPLASH
-			this.splashFilled = Math.min(MAX_SPLASH, this.splashFilled + 1)
+			ring.next = (ring.next + 1) % max
+			ring.filled = Math.min(max, ring.filled + 1)
 		}
-		at.needsUpdate = true
-		s.geometry.instanceCount = this.splashFilled
+		ring.at.needsUpdate = true
+		return ring.filled
+	}
+
+	/** Empties the splashes and settled flakes, so none left in a ring shows again when its clock comes round. */
+	private clearGround(splash: boolean, settled: boolean) {
+		if (splash && this.splashRing) {
+			this.splashRing.filled = 0
+			this.splash!.geometry.instanceCount = 0
+		}
+		if (settled && this.settleRing) {
+			this.settleRing.filled = 0
+			this.settled!.geometry.setDrawRange(0, 0)
+		}
 	}
 
 	/**
@@ -556,9 +641,7 @@ export class WeatherLayer {
 		const on = shown && this.gateOpen
 		this.group.visible = on
 		if (!on) {
-			// A splash left in the ring would show again for a frame when its clock came round.
-			this.splashFilled = 0
-			if (this.splash) this.splash.geometry.instanceCount = 0
+			this.clearGround(true, true)
 			return
 		}
 		this.eye.copy(eye)
@@ -568,7 +651,10 @@ export class WeatherLayer {
 			this.rain ??= this.buildRain()
 			this.splash ??= this.buildSplash()
 		}
-		if (kind === 'snow') this.snow ??= this.buildSnow()
+		if (kind === 'snow') {
+			this.snow ??= this.buildSnow()
+			this.settled ??= this.buildSettled()
+		}
 		if (counts.mist) this.mist ??= this.buildMist()
 		if (this.rain) {
 			this.rain.visible = kind === 'rain'
@@ -588,11 +674,8 @@ export class WeatherLayer {
 			this.splash.visible = kind === 'rain'
 			if (kind === 'rain') {
 				this.splash.material.uniforms.clock.value = clock
-				this.updateSplashes(density, clock, dt, ground)
-			} else {
-				this.splashFilled = 0
-				this.splash.geometry.instanceCount = 0
-			}
+				this.splash.geometry.instanceCount = this.land(this.splashRing!, splashRate('rain', density), SPLASH_FIELD, 0.02, clock, dt, ground)
+			} else this.clearGround(true, false)
 		}
 		if (this.snow) {
 			this.snow.visible = kind === 'snow'
@@ -602,6 +685,16 @@ export class WeatherLayer {
 			u.density.value = density
 			u.pxScale.value = viewHeight / 800
 			this.setLead(this.snow, SNOW_BOX[0])
+		}
+		if (this.settled) {
+			this.settled.visible = kind === 'snow'
+			if (kind === 'snow') {
+				const u = this.settled.material.uniforms
+				u.clock.value = clock
+				u.pxScale.value = viewHeight / 800
+				this.setLead(this.settled, SETTLE_FIELD)
+				this.settled.geometry.setDrawRange(0, this.land(this.settleRing!, settleRate('snow', density), SETTLE_FIELD, SETTLE_LIFT, clock, dt, ground))
+			} else this.clearGround(false, true)
 		}
 		if (this.mist) {
 			this.mist.visible = counts.mist > 0
@@ -615,7 +708,7 @@ export class WeatherLayer {
 	}
 
 	dispose() {
-		for (const part of [this.rain, this.splash, this.snow, this.mist]) {
+		for (const part of [this.rain, this.splash, this.snow, this.settled, this.mist]) {
 			if (!part) continue
 			part.geometry.dispose()
 			part.material.dispose()

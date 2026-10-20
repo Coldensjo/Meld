@@ -1,7 +1,7 @@
 // Run with: bun test tests/weather.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { effectDensity, MAX_SPLASH, SPLASH_LIFE, splashRate, stormBlend, streakTilt, WEATHER_GRADE, weatherCounts, WeatherWind } from '../src/lib/wow/weather.ts'
+import { effectDensity, MAX_SETTLED, MAX_SPLASH, SETTLE_LIFE, settleRate, SPLASH_LIFE, splashRate,stormBlend, streakTilt, WEATHER_GRADE, weatherCounts, WeatherWind } from '../src/lib/wow/weather.ts'
 
 test("a grade's drops start past a quarter, and its storm light is full from a quarter up", () => {
 	assert.equal(effectDensity(0.2), 0)
@@ -55,4 +55,13 @@ test('the streaks tip up to 45 degrees at 30 yd/s, and the splashes fall only wi
 	// Heavy rain: a few thousand a second, so at 0.25 s each about a thousand live, within the ring.
 	const rate = splashRate('rain', effectDensity(WEATHER_GRADE.heavy))
 	assert.ok(rate > 1000 && rate * SPLASH_LIFE < MAX_SPLASH, `rate ${rate}`)
+})
+
+test('snowflakes settle only with snow, and heavy snow keeps its settled flakes within the ring', () => {
+	assert.equal(settleRate('rain', 1), 0)
+	assert.equal(settleRate('snow', 0), 0)
+	// The field is the box's ground, so every flake that lands settles: the spawn rate itself.
+	const rate = settleRate('snow', effectDensity(WEATHER_GRADE.heavy))
+	assert.ok(rate > 1000 && rate * SETTLE_LIFE < MAX_SETTLED, `rate ${rate}`)
+	assert.ok(settleRate('snow', 1) * SETTLE_LIFE < MAX_SETTLED)
 })

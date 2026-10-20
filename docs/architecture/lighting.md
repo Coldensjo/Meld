@@ -95,6 +95,12 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
     raycasts from 30 yd over the eye, cached per cell and only 4 cells a frame (about 0.25 ms each in
     the bench scene); a cell not probed yet takes the terrain alone, so over Stormwind's holed ground
     the splashes fill in over the first seconds.
+  - **Settled flakes** (#316), snow's: a flake that lands lies where it fell and fades out over
+    0.25 s (Benilla's `SNOW_SETTLE_LIFE`), drawn as the falling flakes' point sprite and size law.
+    They land as the splashes do, on the same ground and cell cache, in a field as wide as the snow's
+    box (90 yd, where a flake is down to its 1 px floor), at `wow/weather.ts` `settleRate`, faded at the
+    field's edges as the box's are; `WeatherLayer.land` fills either ring, one a frame, and each sits
+    0.05 yd up, since a point sprite takes its centre's depth and the ground would clip its lower half.
   - **Wind**: the camera's own planar velocity over 149 ms (`WeatherWind`). It leads each box by 1.75 x
     itself, held to 0.3 of the box's width (Meld's camera flies far faster than a player runs), and
     tips the streaks' tails into it, up to 45 degrees at 30 yd/s. The client's slab tilt is not ported
