@@ -553,6 +553,7 @@ the same scene, the report before and after.
 - Log window (and the session log file, #319, probe `session-log`)
 - Minimap window (M)
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
+- Accessibility (#354)
 
 ### Creatures, objects and the server database (`docs/tests/spawns.md`)
 

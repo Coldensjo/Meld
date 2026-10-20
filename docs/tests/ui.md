@@ -321,3 +321,19 @@ nothing written unchanged, a doodad set written, a move refused).
   be missing from it; look at a building with `P.save(await P.shot(), name)` after `P.settle()`.
 - Trap: a dungeon's WMO groups are all interior, so before #271 the outside flood drew none of the
   building from outside (only its doodads' flames); inside a room it draws as usual.
+
+## Accessibility (#354)
+
+Checks: keyboard focus, roles and contrast, the audit's method (its findings are #369 to #375).
+- `cd frontend && bun run check` reports Svelte's a11y warnings; `svelte.config.js` sets no
+  `warningFilter`, so 0 warnings means none are hidden (only two `svelte-ignore a11y` lines exist).
+- Focus and roles in the live app, from a probe (`P.state()` gives `ui`): open a dialog with
+  `ui.dialog = 'about'`, then read `document.activeElement` and
+  `document.querySelector('[role="dialog"]').contains(document.activeElement)`; click a
+  `.menubar .title` and check the focus lands in `.dropdown`; count `[aria-pressed]` in `.toolbar`.
+  Dispatch keys with `new KeyboardEvent('keydown', { key, bubbles: true })` on the focused element.
+- Contrast: compute the WCAG ratio of each token pair in `app.css` (relative luminance, sRGB) for
+  both themes; small UI text (10 to 12 px) needs 4.5:1, focus rings and borders 3:1.
+- Trap: `el.focus()` from a script doesn't match `:focus-visible` in Chromium, so a focus ring checked
+  that way reads `outline-style: none`; press Tab in a real page, or check the CSS rule itself.
+- Trap: the `data-ui` attributes on component roots belong to the F8 overlay, not to accessibility.
