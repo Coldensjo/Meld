@@ -87,6 +87,18 @@ export class Terrain {
   readonly shadowSide: number
   /** Whether the Engine has asked the client for this terrain's baked shadows (once per terrain). */
   bakedRequested = false
+  /**
+   * How far each cell's middle (its MCVT inner height) lies above its four corners' mean in the
+   * client's tile, a float a cell, `size` a row; null for a map of its own or until read. The grid
+   * keeps only the corners, so this is the walkable-ground view's alone (#284): the server's ground
+   * has four triangles a cell about that middle, which the export moves by the corners' mean change,
+   * so a cell's middle is its corners' mean plus this, sculpted or not. Read from the client once per
+   * terrain (`Engine.updateInnerLift`), never saved.
+   */
+  innerLift: Float32Array | null = null
+  /** Whether the Engine has asked the client for `innerLift`, and whether the answer is still on its way. */
+  innerRequested = false
+  innerPending = false
   /** Bumped whenever the mask is marked dirty, so a scan of it can be skipped when nothing changed. */
   maskVersion = 0
   private maskDirty = new DirtyRegion()

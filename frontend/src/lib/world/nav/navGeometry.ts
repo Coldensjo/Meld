@@ -1,6 +1,7 @@
 // What one navmesh tile is built from (View › Walkable ground, #175): the terrain's triangles under
-// the tile's box, four a cell about its middle as the server's map has them (a half-cell hole keeps
-// its other triangle as the ground draws it, holes.ts), and the collision faces of the placed
+// the tile's box, four a cell about its middle as the server's map has them (a region's middle at the
+// client's inner height, Terrain.innerLift, #284; a half-cell hole keeps its other triangle as the
+// ground draws it, holes.ts), and the collision faces of the placed
 // models that reach into it, cut as VMaNGOS's builder cuts them (TerrainBuilder::loadVMap,
 // TileWorker::buildMoveMapTile; #282):
 // - Ground under a model goes: a ground corner whose nearest face above, in one of a model's groups,
@@ -28,6 +29,11 @@ export interface NavGround {
 	cellSize: number
 	heights: Float32Array
 	holes: Uint8Array
+	/**
+	 * How far each cell's middle lies above its corners' mean in the client's tile (a region's inner
+	 * heights, Terrain.innerLift, #284), `size` a row; null where every middle is the mean.
+	 */
+	innerLift?: Float32Array | null
 }
 
 /**
@@ -159,13 +165,16 @@ export function adtHeightSpan(
 	const z0 = Math.max(0, az * per - 1), z1 = Math.min(ground.size - 1, (az + 1) * per)
 	const h = ground.heights
 	const v = ground.verts
+	const lift = ground.innerLift
 	for (let gz = z0; gz <= z1; gz++) {
 		for (let gx = x0; gx <= x1; gx++) {
 			if (ground.holes[gz * ground.size + gx] === HOLE_CELL || deep?.(gx, gz)) continue
 			const i = gz * v + gx
 			const a = h[i], b = h[i + 1], c = h[i + v], d = h[i + v + 1]
-			lo = Math.min(lo, a, b, c, d)
-			hi = Math.max(hi, a, b, c, d)
+			// The cell's middle counts too, as the inner sample does on the server.
+			const m = lift ? (a + b + c + d) / 4 + lift[gz * ground.size + gx] : a
+			lo = Math.min(lo, a, b, c, d, m)
+			hi = Math.max(hi, a, b, c, d, m)
 		}
 	}
 	const bx0 = ax * adtYards, bx1 = bx0 + adtYards
@@ -313,9 +322,11 @@ export class TileGatherer {
 				const d = c + 1
 				if (v === HOLE_NONE) {
 					// Four triangles about the cell's middle, as the server's map has the client's inner
-					// height there (here the corners' mean, which is what the export writes).
+					// height there: the corners' mean, lifted as far as the client's tile has it over
+					// its own corners' mean, which is what the export writes (PatchTileHeights, #284).
 					const p = this.pos
-					const m = this.vertex((gx + 0.5) * cs, (p[a * 3 + 1] + p[b * 3 + 1] + p[c * 3 + 1] + p[d * 3 + 1]) / 4, (gz + 0.5) * cs)
+					const lift = g.innerLift ? g.innerLift[gz * g.size + gx] : 0
+					const m = this.vertex((gx + 0.5) * cs, (p[a * 3 + 1] + p[b * 3 + 1] + p[c * 3 + 1] + p[d * 3 + 1]) / 4 + lift, (gz + 0.5) * cs)
 					tri(a, c, m)
 					tri(c, d, m)
 					tri(d, b, m)

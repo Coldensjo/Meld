@@ -604,6 +604,16 @@ func (a *App) RegionShadows(mapName string, x, y, size int) (*vmangos.RegionShad
 	return vmangos.ReadRegionShadows(dataDir, mapName, x, y, size)
 }
 
+// RegionInner reads how far each cell's middle lies above its corners' mean in a square block of 1.12
+// map tiles (their MCVT inner heights), for the walkable-ground view to build the server's ground (#284).
+func (a *App) RegionInner(mapName string, x, y, size int) (*vmangos.RegionInner, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadRegionInner(dataDir, mapName, x, y, size)
+}
+
 // RegionHorizon reads the map's far horizon (its WDL tiles) within five tiles around a square block of
 // 1.12 map tiles, for the editor to draw past the block as the client does. Five tiles, as Benilla
 // draws it: the client's own three leave hills still in view uncovered.

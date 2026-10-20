@@ -108,7 +108,7 @@ import { SpawnLinks } from '../world/SpawnLinks'
 import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
 import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, ObjectTeleport, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, ObjectTeleport, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionInner, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 import { contentKey } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
@@ -1668,6 +1668,7 @@ export class Engine {
       source.tileX = r?.x ?? 0
       source.tileY = r?.y ?? 0
     }
+    if (!this.prefs.navServer) this.updateInnerLift()
     this.nav.update(this.terrain, this.objects, this.doc.liquids, editor.waterEnabled ? editor.waterLevel : null, this.controller.target, id === null || id <= 1, now, source)
     if (now - this.navStatusAt < 500 || this.navPick) return
     this.navStatusAt = now
@@ -1692,6 +1693,28 @@ export class Engine {
         : `Walkable ground: building the navmesh, ${c.done} of ${c.total} tiles…`
     this.navStatus = busy ? text : ''
     setStatus(text, busy ? 0 : 5000)
+  }
+
+  /**
+   * A region's inner heights for the walkable-ground view (#284): read from the client once per
+   * terrain, the first time the view builds it. A map of its own has none (its export writes the
+   * corners' mean), nor has a WMO-only map's hidden ground.
+   */
+  private updateInnerLift() {
+    const t = this.terrain
+    const region = this.doc.meta.region
+    if (t.innerRequested || !region || region.wmoOnly || !wow.loaded) return
+    t.innerRequested = true
+    t.innerPending = true
+    RegionInner(region.mapName, region.x, region.y, region.size)
+      .then((r) => {
+        if (r?.lifts && r.side === t.size) {
+          const b = base64ToBytes(r.lifts)
+          t.innerLift = new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4)
+        }
+      })
+      .catch((err) => console.warn('inner heights not read', err))
+      .finally(() => (t.innerPending = false))
   }
 
   /** View › Test a Path: the next two clicks in the viewport are the path's start and end. */

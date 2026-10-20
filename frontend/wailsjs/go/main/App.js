@@ -458,6 +458,10 @@ export function RegionHorizon(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['RegionHorizon'](arg1, arg2, arg3, arg4);
 }
 
+export function RegionInner(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['RegionInner'](arg1, arg2, arg3, arg4);
+}
+
 export function RegionPending(arg1) {
   return window['go']['main']['App']['RegionPending'](arg1);
 }

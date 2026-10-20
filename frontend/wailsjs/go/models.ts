@@ -2304,6 +2304,20 @@ export namespace vmangos {
 		    return a;
 		}
 	}
+	export class RegionInner {
+	    side: number;
+	    lifts: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RegionInner(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.side = source["side"];
+	        this.lifts = source["lifts"];
+	    }
+	}
 	
 	export class RegionResult {
 	    patch: string;

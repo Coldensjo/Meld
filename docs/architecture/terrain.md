@@ -95,8 +95,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     export writes it, and a chunk with dark water (ocean as deep as a depth byte goes, the export's
     fatigue flag) dropped from the navmesh, ground and all, as the server's builder does.
   - `navGeometry.ts` gathers a tile's triangles: the terrain's cells, four triangles about each
-    cell's middle as the server's map has them (the middle at the corners' mean, which is what the
-    export writes; a half-cell hole keeps its other triangle as `writeCellIndex` draws it), and the
+    cell's middle as the server's map has them (a half-cell hole keeps its other triangle as
+    `writeCellIndex` draws it), and the
     placed models' collision faces (`/wow/collision`: an M2's hull, a WMO's faces and doodads as the
     server's vmap extractor takes them (#283: COLLISION faces and RENDER ones without DETAIL, no
     unreachable or antiportal groups, and only the doodads of the placement's own set, not set 0
@@ -116,9 +116,19 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     for Northshire is Stormwind's WMO 720 yd off), since where the voxels' steps fall decides whether
     a gap a hair over the agent's 1.5 yd is walkable; `TileBuilder` takes it as `floorY`, and
     rasterizes the triangles highest first as the server does (SortAndRasterizeTriangles), since a
-    lower triangle reaching into a span takes the larger area. What still parts the two: the client's
-    own inner heights (the editor keeps only the corners) and knife-edge cases at the server's 1.0
-    and 1.5 yd thresholds; and Detour's paths over the server's larger tiles come out a few % apart.
+    lower triangle reaching into a span takes the larger area. What still parts the two: knife-edge
+    cases at the server's 1.0 and 1.5 yd thresholds, and Detour's paths over the server's larger
+    tiles, which come out a few % apart.
+  - **Inner heights** (#284): the grid keeps only a cell's corners, but the client's tile has a height
+    at each cell's middle too (MCVT's 8x8 inner samples, up to 4 yd off the corners' mean in
+    Northshire's tile, 1.5 yd near the abbey), and the server builds its four triangles about it. The
+    export moves an inner sample by the mean change of its four corners (`PatchTileHeights`), so a
+    cell's middle is its corners' mean plus the client's own lift over its corners' mean, sculpted or
+    not. `RegionInner` (`vmangos.ReadRegionInner`, from the tiles a save starts from) sends those lifts,
+    a float a cell; `Engine.updateInnerLift` reads them once per terrain into `Terrain.innerLift` the
+    first time the view builds a region, the build waits for them (`innerPending`), and
+    `TileGatherer.addGround` and `adtHeightSpan` add them. They are not saved: a map of its own has
+    none (its export writes the mean), and a region's come from the client each session.
   - `NavPreview.ts` keeps the tiles within `RANGE` (160 yd), builds the nearest first within 6 ms a
     frame, and builds them again 400 ms after the terrain's height or holes, the objects, the
     loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. `Engine.updateNav` calls it only while the view is on and

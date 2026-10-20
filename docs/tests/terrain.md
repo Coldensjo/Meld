@@ -389,7 +389,8 @@ creature's way round obstacles.
   triangles, 2 s), checks the drawn vertices lie on the ground (within 1.5 yd, 0.8 at the probe's spot: a wrong
   transform puts them a mirror away), walks four paths round and through the abbey over it and over
   the browser's build, which must come out within 12% (server 67.1, 75.4, 183.2 and 44.8 yd; the
-  browser's 72.7, 82.5, 186.9 and 44.7 after #282), and the
+  browser's 72.7, 82.5, 186.9 and 44.7 after #282, 72.6, 82.5, 186.8 and 44.7 with the client's inner
+  heights, #284), and the
   view off frees it. It needs the VMaNGOS folder set and its `data/mmaps` built for map 0 (470 tiles
   on this machine). Unit: `tests/navServer.test.ts` (the frame round trip against `serverSpot`, the
   flags' colours, a built tile's surface read back from its bytes and a copy of them pathing in a
@@ -406,6 +407,12 @@ creature's way round obstacles.
   server's tile header holds its height span (`bmin`/`bmax` at bytes 72 to 96 of the Detour data,
   after `/wow/navtile`'s 20-byte prefix), which `NavPreview`'s `spans` should match: 28.846 for
   32_48. A gap a hair over 1.5 yd flips with the voxels' origin, so check that first.
+- Inner heights (#284): Go `TestInnerLifts`, and with `WOW_DIR=C:/WoW/client` `TestClientRegionInner`
+  (each lift of Azeroth 32_48 puts its cell's corners' mean back on the client's inner sample; the
+  largest is about 4 yd); unit: `tests/navmesh.test.ts` (a lifted middle in the gathered ground and the
+  tile's span). In the app, with the view on in the benchmark scene, `e.terrain.innerLift` is a float a
+  cell (16384 for one tile) once `innerPending` is false; a probe that turns the view on and reads the
+  ground at once must wait for that, as `NavPreview` does.
 - Trap: Recast lifts the detail mesh's copy of a polygon's corners by one voxel height
   (rcBuildPolyMeshDetail), and Detour's tile keeps the unlifted ones, so a tile's surface read from
   its bytes sits up to 0.25 yd below the `BuiltTile.tris` of the same build.

@@ -251,7 +251,9 @@ export class NavPreview {
 			this.followServer(focus)
 			return
 		}
-		const sig = `${terrain.heightVersion}|${terrain.holesVersion}|${objects.version}|${this.loaded}|${liquids.version}|${sea}`
+		// The client's inner heights (#284) arriving rebuild the tiles, and the first build waits for them.
+		if (terrain.innerPending) return
+		const sig = `${terrain.heightVersion}|${terrain.holesVersion}|${objects.version}|${this.loaded}|${liquids.version}|${sea}|${!!terrain.innerLift}`
 		if (sig !== this.signature) {
 			this.signature = sig
 			this.changedAt = now

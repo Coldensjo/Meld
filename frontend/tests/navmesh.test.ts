@@ -19,7 +19,7 @@ import {
 	vmangosSettings,
 	type TileInput,
 } from '../src/lib/world/nav/navBuild.ts'
-import { TileGatherer, liquidTypeArea, placeFaces, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
+import { TileGatherer, adtHeightSpan, liquidTypeArea, placeFaces, type NavGround, type PlacedCollision } from '../src/lib/world/nav/navGeometry.ts'
 import { NavLiquids } from '../src/lib/world/nav/navLiquids.ts'
 import { HOLE_FIRST } from '../src/lib/terrain/holes.ts'
 import { columnSpans, heightfieldSpans } from '../src/lib/world/nav/navFilters.ts'
@@ -95,6 +95,30 @@ test('the gatherer takes the ground under the box, leaves holes out, cuts the gr
 	assert.equal(t.triCount - t.modelFrom, 12)
 	assert.equal(t.minY, 4)
 	assert.equal(t.maxY, 12)
+})
+
+test("a region's cell middle sits at the corners' mean plus the client's inner lift, and counts in the tile's span (#284)", () => {
+	const g = flat(16)
+	g.innerLift = new Float32Array(16 * 16)
+	g.innerLift[1 * 16 + 1] = 0.5
+	g.innerLift[2 * 16 + 0] = -0.25
+	const t = new TileGatherer().gather(g, [], 0, 0, 3 * CELL - 0.01, 3 * CELL - 0.01, groundAt(g))
+	const middle = (cx: number, cz: number) => {
+		for (let v = 0; v < t.vertCount; v++) {
+			if (Math.abs(t.pos[v * 3] - (cx + 0.5) * CELL) < 1e-4 && Math.abs(t.pos[v * 3 + 2] - (cz + 0.5) * CELL) < 1e-4) return t.pos[v * 3 + 1]
+		}
+		return NaN
+	}
+	assert.ok(Math.abs(middle(1, 1) - 10.5) < 1e-5)
+	assert.ok(Math.abs(middle(0, 2) - 9.75) < 1e-5)
+	assert.equal(middle(2, 2), 10)
+	assert.ok(Math.abs(t.maxY - 10.5) < 1e-5 && Math.abs(t.minY - 9.75) < 1e-5)
+	const span = adtHeightSpan(g, [], 0, 0, 16 * CELL, null, [0, 0])
+	assert.ok(Math.abs(span[0] - 9.75) < 1e-5 && Math.abs(span[1] - 10.5) < 1e-5)
+	// Without lifts every middle is the corners' mean.
+	g.innerLift = null
+	const flatTile = new TileGatherer().gather(g, [], 0, 0, 3 * CELL - 0.01, 3 * CELL - 0.01, groundAt(g))
+	assert.equal(flatTile.maxY, 10)
 })
 
 test("a half-cell hole leaves out the same world triangle whatever the tile's first cell", () => {
