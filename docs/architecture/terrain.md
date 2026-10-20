@@ -53,7 +53,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   or the swapped-out one). Stroke undo covers whole chunks (`settleSlots`).
 - **The palette's textures** (`terrain/paletteArray.ts`): one array texture the shader samples as
   `palette`, a 256x256 layer per palette entry, the alpha the entry's sheen mask (the `_s` twin's
-  alpha), mipmapped (trilinear, anisotropic) so distant ground doesn't shimmer (#225). Where the
+  alpha, asked for only when the client's `/wow/list?kind=sheen` names it, `hasSheenTwin`, #336), mipmapped (trilinear, anisotropic) so distant ground doesn't shimmer (#225). Where the
   renderer samples S3TC (`compressedTexturesOn`, #178) it is DXT3, about 85 KB a layer with its mips
   (#216): `paletteBlocks.ts` takes the base BLP's colour blocks and the `_s` twin's alpha blocks as
   they are, every level from the BLP's own mips (`chainColour`, `chainAlpha`), resamples a smaller

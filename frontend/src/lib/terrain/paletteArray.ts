@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { compressedTexturesOn, fetchImage, fetchTextureDXT, textureAnisotropy, type RawImage } from '../wow/api'
+import { compressedTexturesOn, fetchImage, fetchTextureDXT, listAssets, textureAnisotropy, type RawImage } from '../wow/api'
 import { applySheen, sheenPath } from './sheen'
 import {
 	LAYER_BYTES,
@@ -73,6 +73,18 @@ function resample(pixels: Uint8Array, w: number, h: number): Uint8Array {
 		}
 	}
 	return out
+}
+
+let twins: { list: Promise<string[]>; set: Promise<Set<string>> } | null = null
+
+/**
+ * Whether a tileset texture has an `_s` twin in the client (the `sheen` list, read once a client), so
+ * a texture without one costs no request and no 404 in the console and the load log (#336).
+ */
+export function hasSheenTwin(path: string): Promise<boolean> {
+	const list = listAssets('sheen')
+	if (twins?.list !== list) twins = { list, set: list.then((l) => new Set(l.map((p) => p.toLowerCase()))) }
+	return twins.set.then((s) => s.has(sheenPath(path).toLowerCase()))
 }
 
 /** The RGBA pixels of a texture reply that isn't DXT (`fetchImage`'s layout), resampled. */
@@ -228,10 +240,14 @@ export class PaletteArray {
 		if (this.loading.has(path)) return
 		this.loading.add(path)
 		const layerBytes = this.compressed
-			? Promise.all([fetchTextureDXT(path), fetchTextureDXT(sheenPath(path)).catch(() => null)]).then(([base, sheen]) =>
-					blockLayer(path, base, sheen),
-				)
-			: Promise.all([fetchImage(path), fetchImage(sheenPath(path)).then(resampled, () => null)]).then(([img, mask]) => {
+			? Promise.all([
+					fetchTextureDXT(path),
+					hasSheenTwin(path).then((has) => (has ? fetchTextureDXT(sheenPath(path)).catch(() => null) : null)),
+				]).then(([base, sheen]) => blockLayer(path, base, sheen))
+			: Promise.all([
+					fetchImage(path),
+					hasSheenTwin(path).then((has) => (has ? fetchImage(sheenPath(path)).then(resampled, () => null) : null)),
+				]).then(([img, mask]) => {
 					const px = resampled(img)
 					applySheen(px, mask)
 					return px

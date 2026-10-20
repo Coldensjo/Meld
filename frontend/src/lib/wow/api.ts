@@ -210,7 +210,8 @@ export async function clearWowFolder(): Promise<void> {
 
 const lists = new Map<string, Promise<string[]>>()
 
-export function listAssets(kind: 'm2' | 'wmo' | 'tileset'): Promise<string[]> {
+/** The client's paths of a kind, read once a client (`sheen`: the tilesets' `_s` twins, #336). */
+export function listAssets(kind: 'm2' | 'wmo' | 'tileset' | 'sheen'): Promise<string[]> {
   let p = lists.get(kind)
   if (!p) {
     p = fetch(`/wow/list?kind=${kind}`)

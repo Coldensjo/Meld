@@ -216,7 +216,7 @@ exterior shell (MOGP 0x8) and reads outside, as the client does.
 Checks: under Lighting › Client Lighting the terrain shader takes the light's rows in gamma space
 (`clientAmbient`, `clientDiffuse`, `clientSpecular` = rows 1, 0 and 9), sums and clamps them per
 vertex, and adds the sheen times the layers' `_s` mask (`paletteArray.ts` puts each `_s` twin's alpha
-in the palette layer's alpha, 0 without one). In the dev page, load a region with
+in the palette layer's alpha, 0 without one; a texture without a twin in `/wow/list?kind=sheen` is not asked for, #336, `bun run probe console-clean`). In the dev page, load a region with
 `"prefs":{"clientLighting":true}` in the scene, step frames, then read
 `__engine.terrain.material.uniforms.clientLit.value` (1) and the masks from `__engine.terrain.palette.levels[0]`
 (level 0 of every layer, #225; with `?nodxt`, RGBA: layer i's alpha bytes at `i * 256 * 256 * 4 + 3`, every fourth; else DXT3, #216:

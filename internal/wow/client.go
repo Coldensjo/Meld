@@ -142,7 +142,8 @@ func (c *Client) read(path string) ([]byte, error) {
 
 var wmoGroupRe = regexp.MustCompile(`(?i)_\d{3}\.wmo$`)
 
-// List returns asset paths of a kind: "m2", "wmo" or "tileset".
+// List returns asset paths of a kind: "m2", "wmo", "tileset" or "sheen" (the tilesets' `_s` twins,
+// so the terrain asks only for the sheen masks that exist, #336).
 func (c *Client) List(kind string) []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -160,6 +161,10 @@ func (c *Client) List(kind string) []string {
 			}
 		case "tileset":
 			if strings.HasPrefix(l, `tileset\`) && strings.HasSuffix(l, ".blp") && !strings.HasSuffix(l, "_s.blp") {
+				out = append(out, f)
+			}
+		case "sheen":
+			if strings.HasPrefix(l, `tileset\`) && strings.HasSuffix(l, "_s.blp") {
 				out = append(out, f)
 			}
 		}
