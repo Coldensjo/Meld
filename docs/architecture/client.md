@@ -183,7 +183,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `prefs.showFlightPaths`) and picks markers, and `Engine.taxiPress` takes a left press before the
   tool: a stop's marker drags over the ground, the picked route's points drag level (Shift: up and
   down), and with Draw points a click adds a point after the picked one at its height
-  (`taxiRoute.ts` `airPoint`). A drag moves the layer's copy and the window hears of it once, on
+  (`taxiRoute.ts` `airPoint`); with Draw points off, a click on a route's drawn curve picks that route
+  (`TaxiLayer.pickRoute`, `rayNearSegment`: the segment nearest the ray in angle, within a tolerance
+  that grows with distance). A drag moves the layer's copy and the window hears of it once, on
   release. `taxiRoute.ts` is the server's curve (uniform Catmull-Rom with the ends doubled, timed at
   32 yd/s segment by segment); the layer colours it red where it runs under the ground, and
   `Engine.flyTaxi` rides the camera along it (`ui.taxiFlying`, Esc stops). Make flight master sets

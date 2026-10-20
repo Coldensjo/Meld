@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { airPoint, CRUISE_HEIGHT, defaultRoute, flightAt, flightSeconds, FLIGHT_SPEED, routeLines, segmentLengths, splinePoint } from '../src/lib/world/taxiRoute.ts'
+import { airPoint, CRUISE_HEIGHT, defaultRoute, flightAt, flightSeconds, FLIGHT_SPEED, rayNearSegment, routeLines, segmentLengths, splinePoint } from '../src/lib/world/taxiRoute.ts'
 import { stopColor, underground } from '../src/lib/world/TaxiLayer.ts'
 
 const line = [
@@ -87,4 +87,14 @@ test('a route turns red where it runs under the ground, and a stop is coloured b
 	assert.deepEqual(underground(lines, () => NaN, new THREE.Color(0, 0, 1)).slice(6, 9), [0, 0, 1])
 	assert.notEqual(stopColor({ hordeMount: 0, allianceMount: 541 }), stopColor({ hordeMount: 2224, allianceMount: 0 }))
 	assert.notEqual(stopColor({ hordeMount: 2224, allianceMount: 541 }), stopColor({ hordeMount: 0, allianceMount: 0 }))
+})
+
+test('a ray near a segment gives the angle tangent, far or behind gives Infinity', () => {
+	const o = { x: 0, y: 0, z: 0 }
+	const d = { x: 0, y: 0, z: 1 }
+	// A segment crossing the ray's line 1 yd off at 100 yd: tangent 0.01.
+	const near = rayNearSegment(o, d, { x: 1, y: -5, z: 100 }, { x: 1, y: 5, z: 100 })
+	assert.ok(Math.abs(near - 0.01) < 1e-9)
+	assert.equal(rayNearSegment(o, d, { x: 0, y: -5, z: 50 }, { x: 0, y: 5, z: 50 }), 0)
+	assert.equal(rayNearSegment(o, d, { x: 0, y: -5, z: -50 }, { x: 0, y: 5, z: -50 }), Infinity)
 })

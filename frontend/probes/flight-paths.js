@@ -1,4 +1,4 @@
-// Flight paths (#180): World › Flight Paths in Redridge (Azeroth 36_49) reads Eastern Kingdoms' stops and routes, a click on Lakeshire's marker (stop 5) picks it and a drag moves it, a route picked from the list takes a drawn point, and Fly it moves the camera along the route and puts it back. Nothing is saved.
+// Flight paths (#180): World › Flight Paths in Redridge (Azeroth 36_49) reads Eastern Kingdoms' stops and routes, a click on Lakeshire's marker (stop 5) picks it and a drag moves it, a route picked from the list takes a drawn point, a click on a route's curve picks it, and Fly it moves the camera along the route and puts it back. Nothing is saved.
 const { ui } = await P.state()
 const confirmWas = window.confirm
 window.confirm = () => true
@@ -36,6 +36,15 @@ try {
 	await P.frames(2)
 	const routeId = L.pick.route
 	const points = L.routes.find((r) => r.id === routeId)?.points.length ?? 0
+	// A click on the route's curve (through its middle point, with nothing picked) picks the route.
+	const mid = L.routes.find((r) => r.id === routeId).points
+	const midAt = L.editor(mid[Math.floor(mid.length / 2)])
+	L.pick = { stop: L.pick.stop, route: null, point: -1 }
+	L.drawRoutes()
+	await P.lookAt(midAt, { yaw: 0.6, pitch: 0.35, back: 40 })
+	const [cx, cy] = screen(midAt)
+	await P.click(cx, cy, {}, 2)
+	const byCurve = L.pick.route
 	button('Draw points')?.click()
 	await P.frames(1)
 	await P.click(0.3, 0.75, {}, 2)
@@ -57,8 +66,8 @@ try {
 	ui.flightPaths = false
 	await P.frames(2)
 	const hidden = !L.group.visible
-	const ok = counts.stops >= 40 && counts.routes >= 100 && counts.visible && picked === 5 && moved > 1 && saveLabel === 'Save (1)' && routeId !== null && points >= 2 && drawn === 1 && flying && flew > 10 && back < 0.01 && !ui.taxiFlying && hidden
-	return { ok, ...counts, picked, moved: +moved.toFixed(1), saveLabel, routeId, points, drawn, flying, flew: +flew.toFixed(1), back, hidden }
+	const ok = counts.stops >= 40 && counts.routes >= 100 && counts.visible && picked === 5 && moved > 1 && saveLabel === 'Save (1)' && routeId !== null && points >= 2 && byCurve === routeId && drawn === 1 && flying && flew > 10 && back < 0.01 && !ui.taxiFlying && hidden
+	return { ok, ...counts, picked, moved: +moved.toFixed(1), saveLabel, routeId, byCurve, points, drawn, flying, flew: +flew.toFixed(1), back, hidden }
 } finally {
 	ui.flightPaths = false
 	window.confirm = confirmWas

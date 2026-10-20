@@ -1504,6 +1504,17 @@ export class Engine {
 			this.taxiDrag = { kind: 'stop', id: stop, moved: false }
 			return true
 		}
+		if (!hooks.drawing()) {
+			const hit = L.pickRoute(this.raycaster)
+			if (hit !== null) {
+				if (hit !== L.pick.route) {
+					L.pick = { ...L.pick, route: hit, point: -1 }
+					L.drawRoutes()
+					hooks.pick(L.pick)
+				}
+				return true
+			}
+		}
 		if (!route || !hooks.drawing() || !route.points.length) return false
 		const after = L.pick.point >= 0 && L.pick.point < route.points.length ? L.pick.point : route.points.length - 1
 		const height = L.editor(route.points[after]).y

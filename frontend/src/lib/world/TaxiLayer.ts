@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { editorPoint } from '../io/portCoords'
-import { routeLines, type Vec3 } from './taxiRoute'
+import { rayNearSegment, routeLines, type Vec3 } from './taxiRoute'
 
 // Flight paths (#180): the open map's flight stops (TaxiNodes.dbc) and the routes from or to them
 // (TaxiPath.dbc, through TaxiPathNode.dbc's points), drawn while View › Flight paths is on or the
@@ -190,6 +190,34 @@ export class TaxiLayer {
 		if (!this.pointMarks.count) return -1
 		const hit = raycaster.intersectObject(this.pointMarks, false)[0]
 		return hit?.instanceId ?? -1
+	}
+
+	/** The route whose drawn curve passes within `tolerance` (the tangent of the angle off the ray) of the ray, the nearest in angle, or null. */
+	pickRoute(raycaster: THREE.Raycaster, tolerance = 0.012): number | null {
+		const { origin, direction } = raycaster.ray
+		let best = tolerance
+		let found: number | null = null
+		const lines: number[] = []
+		const a = { x: 0, y: 0, z: 0 }
+		const b = { x: 0, y: 0, z: 0 }
+		for (const r of this.routes) {
+			lines.length = 0
+			routeLines(this.editorPoints(r), PIECES, lines)
+			for (let i = 0; i < lines.length; i += 6) {
+				a.x = lines[i]
+				a.y = lines[i + 1]
+				a.z = lines[i + 2]
+				b.x = lines[i + 3]
+				b.y = lines[i + 4]
+				b.z = lines[i + 5]
+				const d = rayNearSegment(origin, direction, a, b)
+				if (d < best) {
+					best = d
+					found = r.id
+				}
+			}
+		}
+		return found
 	}
 
 	/** An instanced mesh with room for n, replacing `m` when it has too little. */

@@ -144,3 +144,32 @@ export function airPoint(origin: Vec3, dir: Vec3, height: number, ground: Vec3 |
 	if (!ground) return null
 	return { x: ground.x, y: Math.max(height, ground.y + clearance), z: ground.z }
 }
+
+/**
+ * How far, as a fraction of its distance along the ray, the segment a-b passes from the ray (origin,
+ * unit `dir`): the tangent of the angle between the ray and the segment's closest point, so one
+ * tolerance serves near and far. Infinity when the closest point is behind the origin.
+ */
+export function rayNearSegment(origin: Vec3, dir: Vec3, a: Vec3, b: Vec3): number {
+	const ex = b.x - a.x
+	const ey = b.y - a.y
+	const ez = b.z - a.z
+	const wx = a.x - origin.x
+	const wy = a.y - origin.y
+	const wz = a.z - origin.z
+	const ee = ex * ex + ey * ey + ez * ez
+	const de = dir.x * ex + dir.y * ey + dir.z * ez
+	const dw = dir.x * wx + dir.y * wy + dir.z * wz
+	const ew = ex * wx + ey * wy + ez * wz
+	// Closest point on the segment to the infinite ray, then clamped; the ray's parameter follows.
+	const denom = ee - de * de
+	let u = denom > 1e-9 ? (de * dw - ew) / denom : 0
+	u = Math.min(1, Math.max(0, u))
+	const px = wx + ex * u
+	const py = wy + ey * u
+	const pz = wz + ez * u
+	const t = dir.x * px + dir.y * py + dir.z * pz
+	if (t <= 0) return Infinity
+	const d2 = px * px + py * py + pz * pz - t * t
+	return Math.sqrt(Math.max(0, d2)) / t
+}
