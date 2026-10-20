@@ -57,6 +57,19 @@ const levelError = root().querySelector('.bar.error').textContent
 button(root().querySelector('header .actions'), 'Revert').click()
 await P.frames(1)
 
+// The client's $ codes are listed under the text areas, and a code button inserts at the cursor.
+const details = root().querySelector('textarea')
+const codesShown = root().querySelector('.codes')?.textContent.includes('a line break') ?? false
+const before = details.value
+details.focus()
+details.setSelectionRange(0, 0)
+button(details.closest('label').querySelector('.codes'), '$N').click()
+await P.frames(1)
+const inserted = details.value === '$N' + before && details.selectionStart === 2
+const codeSave = button(root().querySelector('header .actions'), 'Save')?.textContent.trim()
+button(root().querySelector('header .actions'), 'Revert').click()
+await P.frames(1)
+
 // An item the world database doesn't have: refused, and the editor shows the tab it is on.
 await openTab('Objectives')
 const item = [...root().querySelectorAll('.ref')].find((x) => x.querySelector('.label')?.textContent.trim() === 'Item 1').querySelector('input[type=number]')
@@ -102,6 +115,7 @@ const ok =
 	requirements['After quest'] !== '' && !requirements['After quest'].startsWith('No ') &&
 	givers.every((g) => g.startsWith('Eagan Peltskinner')) &&
 	saveText === 'Save quest (1)' &&
+	codesShown && inserted && codeSave === 'Save quest (1)' &&
 	levelError.includes('QuestLevel must be from 0 to 255') &&
 	missing === 'No item 16000000' &&
 	itemError.includes("ReqItemId1 names item 16000000, which the world database doesn't have") &&
@@ -110,4 +124,4 @@ const ok =
 	reverted &&
 	stored.values.QuestLevel === '2' && stored.values.ReqItemId1 === '750' &&
 	!afterEsc.questEditor && afterEsc.creatureEditor
-return { ok, afterEsc, title, quest, objectives, rewards, requirements, givers, saveText, levelError, missing, itemError, jumped, warned, reverted, stored: { level: stored.values.QuestLevel, item: stored.values.ReqItemId1 } }
+return { ok, codesShown, inserted, codeSave, afterEsc, title, quest, objectives, rewards, requirements, givers, saveText, levelError, missing, itemError, jumped, warned, reverted, stored: { level: stored.values.QuestLevel, item: stored.values.ReqItemId1 } }

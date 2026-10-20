@@ -3,6 +3,7 @@
 	import { withBit, type CreatureField } from '../lib/world/creatureFields'
 	import AuraField from './AuraField.svelte'
 	import RefField from './RefField.svelte'
+	import { TEXT_CODES, insertCode } from '../lib/wow/textCodes'
 
 	// A group of a template's columns as the creature and game object editors show them: a checkbox
 	// list for flags, a checkbox for a 0/1 column, a select where the numbers have names, a picker for a
@@ -20,8 +21,21 @@
 		onset: (col: string, value: string) => void
 		/** The grid's columns (3). */
 		cols?: number
+		/** Offer the client's `$` text codes under each text area (quest text). */
+		codes?: boolean
 	}
-	let { fields, values, columns, changes, onset, cols = 3 }: Props = $props()
+	let { fields, values, columns, changes, onset, cols = 3, codes = false }: Props = $props()
+
+	/** Inserts a `$` code at the text area's caret, through onset so the change is counted. */
+	function addCode(e: MouseEvent, col: string, code: string) {
+		const ta = (e.currentTarget as HTMLElement).closest('label')?.querySelector('textarea')
+		if (!ta) return
+		const r = insertCode(ta.value, ta.selectionStart, ta.selectionEnd, code)
+		onset(col, r.value)
+		ta.value = r.value
+		ta.focus()
+		ta.setSelectionRange(r.caret, r.caret)
+	}
 
 	const value = (f: CreatureField) => values[f.col] ?? ''
 	const tip = (f: CreatureField) => (f.hint ? `${f.hint} (${f.col})` : f.col)
@@ -40,7 +54,14 @@
 		{:else if f.long}
 			<label class="wide" class:changed title={tip(f)}
 				>{f.label}
-				<textarea rows="4" value={value(f)} oninput={(e) => onset(f.col, (e.currentTarget as HTMLTextAreaElement).value)}></textarea></label
+				<textarea rows="4" value={value(f)} oninput={(e) => onset(f.col, (e.currentTarget as HTMLTextAreaElement).value)}></textarea>
+				{#if codes}
+					<span class="codes"
+						>Codes:
+						{#each TEXT_CODES as t (t.code)}<button type="button" class="code" title="{t.meaning}. Click to insert at the cursor." onclick={(e) => addCode(e, f.col, t.code)}>{t.label}</button>{/each}
+						<span class="codemean">{TEXT_CODES.map((t) => `${t.code.slice(0, 2)} ${t.meaning}`).join(', ')}.</span></span
+					>
+				{/if}</label
 			>
 		{:else if f.flags}
 			<fieldset class="wide" class:changed title={f.col}>
@@ -103,6 +124,21 @@
 		resize: vertical;
 		font: inherit;
 		color: var(--text);
+	}
+	.codes {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px;
+		font-size: 11px;
+	}
+	.code {
+		padding: 0 5px;
+		font-family: monospace;
+		font-size: 11px;
+	}
+	.codemean {
+		flex-basis: 100%;
 	}
 	.note {
 		margin-left: 4px;

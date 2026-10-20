@@ -309,6 +309,8 @@ writes `quest_template` and the four relation tables only on Save, after Go's ch
   Valley, Tough Wolf Meat (750), the choices Soft Fur-lined Shoes and Wolfskin Bracers, Stormwind
   and the quest before it (Eagan Peltskinner, 5261), started and ended by Eagan Peltskinner (196);
   a level of 300 and item 16000000 are refused (the second jumps to the Objectives tab); Revert;
+  the Quest tab's text areas list the client's `$` codes (`lib/wow/textCodes.ts`, the same list as
+  `TemplateFields`' `codes` prop) and a code button inserts at the cursor (counted as one change);
   then Edit in 196's Quests tab opens the quest over the creature editor, and Esc closes only the
   quest editor.
 - Unit: `quests_test.go` (`checkQuest`'s rules on a fake lookup, `createQuestSQL`, the givers' SQL

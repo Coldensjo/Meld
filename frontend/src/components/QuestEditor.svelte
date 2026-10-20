@@ -382,7 +382,7 @@
 								{#if t.id === tab}
 									{#each t.groups as g (g.title)}
 										<h3>{g.title}</h3>
-										<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={(col, v) => (values[col] = v)} />
+										<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} codes onset={(col, v) => (values[col] = v)} />
 									{/each}
 								{/if}
 							{/each}
