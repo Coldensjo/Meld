@@ -339,3 +339,16 @@ Checks: keyboard focus, roles and contrast, the audit's method (its findings are
 - Trap: `el.focus()` from a script doesn't match `:focus-visible` in Chromium, so a focus ring checked
   that way reads `outline-style: none`; press Tab in a real page, or check the CSS rule itself.
 - Trap: the `data-ui` attributes on component roots belong to the F8 overlay, not to accessibility.
+
+## Dialog focus (#369, probe `dialog-focus`)
+
+Checks: a dialog takes the focus on open, keeps Tab inside it and gives the focus back on close.
+- `bun run probe dialog-focus` opens About from a button and from the Help menu, checks the focus
+  lands inside, that Tab from the last control and Shift+Tab from the first wrap (and are prevented),
+  that Tab from outside pulls the focus back in, that closing refocuses the opener (the menu title
+  for a menu item), and does the same for the quest editor. Run `hotkeys` with it: the keys must
+  still work after a dialog closes.
+- Trap: the first focus waits a `setTimeout(0)`, so a dialog's own `autofocus` or `searchBox.focus()`
+  wins; read the focus with `P.until`, not straight after setting `ui.dialog`.
+- Trap: a synthetic Tab `KeyboardEvent` doesn't move the focus by itself; the probe checks the
+  wrap cases only, where the action moves it and calls `preventDefault`.

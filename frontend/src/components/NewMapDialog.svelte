@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import MapPicker from './MapPicker.svelte'
 	import type { TileBlock as Block } from '../lib/io/regionGrow'
 	import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
@@ -140,7 +141,7 @@
 </script>
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
-	<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="nm-title">
+	<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="nm-title" use:dialogFocus>
 		<header>
 			<h2 id="nm-title">Start</h2>
 			<div class="modes">

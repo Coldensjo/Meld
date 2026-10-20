@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateSpell, ReadSpell, ReadSpellVisual, SaveSpell, SearchSpells, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
@@ -390,7 +391,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Spell editor">
+	<div class="editor" role="dialog" aria-modal="true" aria-label="Spell editor" use:dialogFocus>
 		<header>
 			<div class="title">
 				{#if target.entry > 0}

@@ -554,6 +554,7 @@ the same scene, the report before and after.
 - Minimap window (M)
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
 - Accessibility (#354)
+- Dialog focus (#369, probe `dialog-focus`)
 
 ### Creatures, objects and the server database (`docs/tests/spawns.md`)
 

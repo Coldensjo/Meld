@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import { ui } from '../lib/state/editor.svelte'
 
@@ -23,7 +24,7 @@
 
 {#if ui.modelPreview}
 	{@const p = ui.modelPreview}
-	<div class="window" role="dialog" aria-modal="true" aria-label="Model preview">
+	<div class="window" role="dialog" aria-modal="true" aria-label="Model preview" use:dialogFocus>
 		<header>
 			<div class="title">
 				<h2>{p.title}</h2>

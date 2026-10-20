@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus } from '../lib/ui/dialogFocus'
   import PaletteTile from './PaletteTile.svelte'
   import AssetPreview from './AssetPreview.svelte'
   import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
@@ -170,7 +171,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if open}
-  <div class="editor" role="dialog" aria-modal="true" aria-label="Doodad brush editor">
+  <div class="editor" role="dialog" aria-modal="true" aria-label="Doodad brush editor" use:dialogFocus>
     <header>
       <div class="title">
         <h2>Doodad brushes</h2>

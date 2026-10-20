@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
@@ -275,7 +276,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Quest editor">
+	<div class="editor" role="dialog" aria-modal="true" aria-label="Quest editor" use:dialogFocus>
 		<header>
 			<div class="title">
 				{#if target.entry > 0}

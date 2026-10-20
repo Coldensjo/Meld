@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { ClassLevelStats, CreateCreature, EquipmentFor, Factions, ReadCreature, SaveCreature, SearchCreatures, SpawnLook } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { untrack } from 'svelte'
@@ -243,7 +244,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if ui.creatures}
-	<div class="ws" role="dialog" aria-modal="true" aria-label="Creatures">
+	<div class="ws" role="dialog" aria-modal="true" aria-label="Creatures" use:dialogFocus>
 		<header>
 			<h2>Creatures</h2>
 			<span class="dim">Find a creature to edit, or make a new one step by step.</span>

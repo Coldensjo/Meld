@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { CreateObject, NextObjectLoot, ObjectModel, ReadObject, SaveObject } from '../../wailsjs/go/main/App'
@@ -356,7 +357,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Game object editor">
+	<div class="editor" role="dialog" aria-modal="true" aria-label="Game object editor" use:dialogFocus>
 		<header>
 			<div class="title">
 				{#if target.entry > 0}

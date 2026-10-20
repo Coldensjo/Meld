@@ -85,3 +85,11 @@ The window layout, the asset browser and the dock panels and floating windows.
     Put any new per-map setting in this dialog, not in a panel or the Graphics menu.
   - Alt+click is the pipette (`tools/PipetteTool.ts`): in Select and Place it picks the model
     under the cursor as the one to place, or the ground's texture; in Paint and Road, the texture.
+- **Dialogs and focus** (#369): every dialog, `Modal.svelte` and the editors and windows with their
+  own `role="dialog"` root (the creature, item, spell, quest and object editors, the Creatures
+  workspace, the doodad brush editor, the model preview, the start dialog), carries
+  `use:dialogFocus` (`lib/ui/dialogFocus.ts`). On open it focuses the first control (Modal prefers
+  its body over the ✕) unless the dialog focused a field itself (`autofocus`, a search box); while
+  it is the newest open dialog, Tab and Shift+Tab wrap at its ends; on close the focus goes back to
+  what held it, or to the menu title when a menu item opened it. A new dialog root gets the action
+  too. Modal is labelled by its `<h2>` (`aria-labelledby`, an id from `$props.id()`).

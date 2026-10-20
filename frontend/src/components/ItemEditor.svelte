@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
@@ -520,7 +521,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Item editor">
+	<div class="editor" role="dialog" aria-modal="true" aria-label="Item editor" use:dialogFocus>
 		<header>
 			<div class="title">
 				{#if target.entry > 0}
