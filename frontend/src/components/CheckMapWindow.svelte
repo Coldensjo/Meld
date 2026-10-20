@@ -45,6 +45,8 @@
 		return [...out]
 	})
 	const count = (s: Severity) => findings.filter((f) => f.severity === s).length
+	const GLYPH = { error: '✖', warning: '▲', info: '●' }
+	const WORD = { error: 'Error', warning: 'Warning', info: 'Info' }
 	const FIX_LABEL = { deleteModels: 'Delete copies', groundModels: 'Put on ground', cropWater: 'Crop water' }
 
 	function fix(f: Finding) {
@@ -65,9 +67,9 @@
 			<span class="right">
 				{#if ran}
 					<span class="counts">
-						<span class="sev error" title="Errors: wrong in the game">{count('error')}</span>
-						<span class="sev warning" title="Warnings: probably wrong in the game">{count('warning')}</span>
-						<span class="sev info" title="Tidying">{count('info')}</span>
+						<span class="sev error" title="Errors: wrong in the game"><span aria-hidden="true">{GLYPH.error}</span> {count('error')}<span class="vh"> errors</span></span>
+						<span class="sev warning" title="Warnings: probably wrong in the game"><span aria-hidden="true">{GLYPH.warning}</span> {count('warning')}<span class="vh"> warnings</span></span>
+						<span class="sev info" title="Tidying"><span aria-hidden="true">{GLYPH.info}</span> {count('info')}<span class="vh"> notes</span></span>
 					</span>
 				{/if}
 				<button class="again" disabled={running} onclick={run} title="Run the checks again">{running ? 'Checking…' : 'Check again'}</button>
@@ -92,7 +94,7 @@
 						{#each list as f, i (i)}
 							<li class:done={fixed.has(f)}>
 								<button class="go {f.severity}" disabled={Number.isNaN(f.x) && f.target.kind === 'none'} onclick={() => engineRef.current?.focusFinding(f)} title="Go there">
-									{f.message}
+									<span class="glyph" aria-hidden="true">{GLYPH[f.severity]}</span><span class="vh">{WORD[f.severity]}: </span>{f.message}
 								</button>
 								{#if f.fix && !fixed.has(f)}
 									<button class="fix" onclick={() => fix(f)}>{FIX_LABEL[f.fix]}</button>
@@ -161,6 +163,28 @@
 	}
 	.sev.info {
 		background: rgba(120, 160, 230, 0.2);
+	}
+	.vh {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	.glyph {
+		display: inline-block;
+		width: 1.3em;
+		font-size: 9px;
+	}
+	.go.error .glyph {
+		color: rgb(230, 80, 80);
+	}
+	.go.warning .glyph {
+		color: rgb(230, 180, 60);
+	}
+	.go.info .glyph {
+		color: rgb(120, 160, 230);
 	}
 	.again {
 		font-size: 11px;
