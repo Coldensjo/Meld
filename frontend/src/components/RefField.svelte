@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { SearchCreatures, SearchItems, SearchQuests, SearchSpells } from '../../wailsjs/go/main/App'
+	import { SearchCreatures, SearchItems, SearchQuests } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import type { CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
 	import { emoteList, questTables, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
-	import { rememberSpells } from '../lib/wow/spells'
-	import ItemIcon from './ItemIcon.svelte'
+		import ItemIcon from './ItemIcon.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 	import SpellIcon from './SpellIcon.svelte'
+	import SpellPicker from './SpellPicker.svelte'
 
 	// A column that names a thing (#259, the quest editor): its number, the name of what it names
 	// (an item with its icon and quality colour, a spell with its icon, a creature, a quest…), and
@@ -45,7 +45,7 @@
 		if (ref === 'emote' && !emotes.length) void emoteList().then((e) => (emotes = e))
 	})
 
-	// Find: a search by name or number.
+	// Find: a search by name or number; a spell is browsed by category too (SpellPicker, #367).
 	interface Hit {
 		kind: NameKind
 		id: number
@@ -91,11 +91,8 @@
 					.map((o) => ({ kind: k, id: o.entry, name: o.name, sub: String(o.entry) }))
 			case 'quest':
 				return ((await SearchQuests(q)) ?? []).map((r) => ({ kind: k, id: r.quest, name: r.title, sub: `${r.quest} · level ${r.level}` }))
-			case 'spell': {
-				const list = (await SearchSpells(q)) ?? []
-				rememberSpells(list)
-				return list.map((s) => ({ kind: k, id: s.id, name: s.rank ? `${s.name} (${s.rank})` : s.name, sub: String(s.id), icon: s.icon }))
-			}
+			case 'spell':
+				return []
 			case 'zone':
 				return (await loadAreas())
 					.filter((a) => like(a.name, a.id, q))
@@ -117,7 +114,7 @@
 		const q = query.trim()
 		const k = kind
 		clearTimeout(timer)
-		if (!open) return
+		if (!open || k === 'spell') return
 		// The client's short lists show whole without a search; the zones, the objects and the
 		// database's templates need one.
 		const whole = k === 'faction' || k === 'skill' || k === 'sort'
@@ -175,7 +172,11 @@
 			<button class:on={open} onclick={toggle} title="Find by name">Find</button>
 			<button disabled={!target} onclick={() => onset('0')} title="Clear">✕</button>
 		</span>
-		{#if open}
+		{#if open && kind === 'spell'}
+			<div class="find">
+				<SpellPicker memoryKey="field" text={false} height={200} label="Find a spell" placeholder="Name or number" focus onpick={(s) => pick({ kind: 'spell', id: s.id, name: s.rank ? `${s.name} (${s.rank})` : s.name, sub: String(s.id), icon: s.icon })} />
+			</div>
+		{:else if open}
 			<div class="find">
 				<span class="row">
 					{#if kinds[1]}

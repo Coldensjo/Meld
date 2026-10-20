@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dialogFocus } from '../lib/ui/dialogFocus'
-	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SearchSpells, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
+	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/mapio'
@@ -9,9 +9,10 @@
 	import { tabOfColumn } from '../lib/world/questFields'
 	import { effectSummary, spellTabs, spellTooltip } from '../lib/world/spellFields'
 	import { forgetName } from '../lib/wow/refNames'
-	import { forgetSpell, rememberSpells } from '../lib/wow/spells'
+	import { forgetSpell } from '../lib/wow/spells'
 	import ItemLookPicker from './ItemLookPicker.svelte'
 	import SpellIcon from './SpellIcon.svelte'
+	import SpellPicker from './SpellPicker.svelte'
 	import SpellVisualComposer, { STAGES, loadVisualEffects, stageEffects } from './SpellVisualComposer.svelte'
 	import TemplateFields from './TemplateFields.svelte'
 
@@ -246,33 +247,9 @@
 		}
 	}
 
-	// Find: the client's spells by name or ID.
-	let query = $state('')
-	let found = $state<vmangos.SpellRef[]>([])
-	let searching = $state(false)
+	// Find: the client's spells by category and school, narrowed by name or ID (SpellPicker, #367),
+	// leftovers (tests, OLD) included, since this edits them too.
 	let searchVersion = $state(0)
-	let timer = 0
-	$effect(() => {
-		const q = query.trim()
-		void searchVersion
-		clearTimeout(timer)
-		if (!q) {
-			found = []
-			return
-		}
-		timer = window.setTimeout(async () => {
-			searching = true
-			try {
-				const r = (await SearchSpells(q)) ?? []
-				rememberSpells(r)
-				if (q === query.trim()) found = r
-			} catch (err) {
-				error = String(err)
-			} finally {
-				searching = false
-			}
-		}, 250)
-	})
 
 	// A new spell: from a starter Meld fills in (#360), or a copy of the one open.
 	const COPY = 'copy'
@@ -359,21 +336,7 @@
 		visualUsers = []
 		if (v > 0) SpellsWithVisual(v).then((r) => v === visual && (visualUsers = (r ?? []).filter((s) => s.id !== record?.entry)))
 	})
-	let visualQuery = $state('')
-	let visualHits = $state<vmangos.SpellRef[]>([])
-	let visualTimer = 0
-	$effect(() => {
-		const q = visualQuery.trim()
-		clearTimeout(visualTimer)
-		if (!q) {
-			visualHits = []
-			return
-		}
-		visualTimer = window.setTimeout(async () => {
-			const r = (await SearchSpells(q).catch(() => [])) ?? []
-			if (q === visualQuery.trim()) visualHits = r.filter((s) => s.visual > 0).slice(0, 12)
-		}, 250)
-	})
+	let takingVisual = $state(false)
 
 	/** Opens the composer on the visual waiting for Save, else the spell's own. */
 	async function compose() {
@@ -408,7 +371,7 @@
 	function takeVisual(s: vmangos.SpellRef) {
 		pendingVisual = null
 		values.spellVisual1 = String(s.visual)
-		visualQuery = ''
+		takingVisual = false
 	}
 
 	const tip = $derived(record ? spellTooltip(values, tables) : null)
@@ -532,20 +495,15 @@
 		<div class="body">
 			<aside>
 				<button class="new" class:active={isNew} onclick={startNew}>New spell…</button>
-				<input type="search" placeholder="Spell name or ID" bind:value={query} aria-label="Find a spell" />
-				<ul class="found" aria-label="Spells found">
-					{#each found as s (s.id)}
-						<li>
-							<button class:on={s.id === target.entry} onclick={() => open(s.id)} oncontextmenu={(e) => resultMenu(e, s)} title={`${s.text || s.name}\nRight-click for the commands that try it in the game`}>
-								<SpellIcon icon={s.icon} />
-								<span class="name">{s.name || '(no name)'}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span>
-								<span class="dim">{s.id}</span>
-							</button>
-						</li>
-					{:else}
-						<li class="dim">{searching ? 'Searching…' : query.trim() ? 'No spell matches.' : "Type a name to search the client's spells."}</li>
-					{/each}
-				</ul>
+				<SpellPicker memoryKey="spell-editor" start="every" leftovers height={0} text={false} label="Find a spell" listLabel="Spells found" version={searchVersion}>
+					{#snippet row(s: vmangos.SpellRef)}
+						<button class="hit" class:on={s.id === target.entry} onclick={() => open(s.id)} oncontextmenu={(e) => resultMenu(e, s)} title={`${s.text || s.name}\nRight-click for the commands that try it in the game`}>
+							<SpellIcon icon={s.icon} />
+							<span class="name">{s.name || '(no name)'}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span>
+							<span class="dim">{s.id}</span>
+						</button>
+					{/snippet}
+				</SpellPicker>
 			</aside>
 
 			<section class="main">
@@ -671,19 +629,17 @@
 							{#each pendingSummary as line (line)}<li>{line}</li>{:else}<li class="dim">No stages: nothing is drawn.</li>{/each}
 						</ul>
 					{/if}
-					<input type="search" placeholder="Take the visual of a spell: Fireball, Frost Nova…" bind:value={visualQuery} aria-label="Take the visual of a spell" />
-					{#if visualHits.length}
-						<ul class="found hits">
-							{#each visualHits as s (s.id)}
-								<li>
-									<button onclick={() => takeVisual(s)} title="Use visual {s.visual}">
-										<SpellIcon icon={s.icon} />
-										<span class="name">{s.name}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span>
-										<span class="dim">visual {s.visual}</span>
-									</button>
-								</li>
-							{/each}
-						</ul>
+					<button class="take" class:active={takingVisual} onclick={() => (takingVisual = !takingVisual)} title="Browse the client's spells and use the visual of the one clicked">Take the visual of a spell…</button>
+					{#if takingVisual}
+						<SpellPicker memoryKey="visual" height={220} text={false} label="Take the visual of a spell" listLabel="Spells to take the visual of" focus>
+							{#snippet row(s: vmangos.SpellRef)}
+								<button class="hit" disabled={!s.visual} onclick={() => takeVisual(s)} title={s.visual ? `Use visual ${s.visual}` : 'It has no visual'}>
+									<SpellIcon icon={s.icon} />
+									<span class="name">{s.name}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span>
+									<span class="dim">{s.visual ? `visual ${s.visual}` : 'no visual'}</span>
+								</button>
+							{/snippet}
+						</SpellPicker>
 					{/if}
 					<h3>In the game</h3>
 					{#if !record.inClient}<p class="warn-text">The client's Spell.dbc has no spell {record.entry} yet: Save writes it there.</p>{/if}
@@ -783,41 +739,37 @@
 		border-right: 1px solid var(--border);
 		background: var(--panel);
 	}
-	.found {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		overflow-y: auto;
-		flex: 1;
-		font-size: 12px;
-	}
-	.found.hits {
-		flex: none;
-		max-height: 220px;
-	}
-	.found button {
+	.hit {
 		width: 100%;
 		display: flex;
 		align-items: center;
 		gap: 6px;
 		background: transparent;
 		border: none;
+		border-radius: 0;
 		padding: 3px 6px;
 		text-align: left;
+		font-size: 12px;
 	}
-	.found button:hover {
+	.hit:hover:not(:disabled) {
 		background: var(--panel-2);
 	}
-	.found button.on {
+	.hit:disabled {
+		opacity: 0.45;
+	}
+	.hit.on {
 		background: var(--accent);
 		color: #fff;
 	}
-	.found .name {
+	.hit .name {
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
+	}
+	.take {
+		align-self: flex-start;
 	}
 	.main {
 		flex: 1;

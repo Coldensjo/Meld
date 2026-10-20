@@ -3,9 +3,11 @@
 	import type { CreatureField } from '../lib/world/creatureFields'
 	import { spellRef } from '../lib/wow/spells'
 	import SpellIcon from './SpellIcon.svelte'
+	import SpellPicker from './SpellPicker.svelte'
 
 	// A column of spell IDs separated by spaces (a creature's auras): the text to edit, and under it
-	// each spell's icon and name from the client (#255).
+	// each spell's icon and name from the client (#255). Find browses the client's spells (#367) and
+	// adds the one clicked.
 
 	interface Props {
 		f: CreatureField
@@ -29,13 +31,27 @@
 				})
 		})
 	})
+
+	let open = $state(false)
+
+	function add(r: vmangos.SpellRef) {
+		if (!ids.includes(r.id)) onset(value.trim() ? `${value.trim()} ${r.id}` : String(r.id))
+	}
 </script>
 
 <div class="aura" class:changed>
 	<label title={f.hint ? `${f.hint} (${f.col})` : f.col}>
 		{f.label}
-		<input type="text" {value} oninput={(e) => onset((e.currentTarget as HTMLInputElement).value)} />
+		<span class="row">
+			<input type="text" {value} oninput={(e) => onset((e.currentTarget as HTMLInputElement).value)} />
+			<button class:on={open} onclick={() => (open = !open)} title="Find a spell to add">Find</button>
+		</span>
 	</label>
+	{#if open}
+		<div class="find">
+			<SpellPicker memoryKey="aura" start="npc" text={false} height={200} label="Find an aura" placeholder="Name or number" focus onpick={add} />
+		</div>
+	{/if}
 	{#if spells.length}
 		<ul>
 			{#each spells as s (s.id)}
@@ -65,9 +81,28 @@
 		flex-direction: column;
 		gap: 2px;
 	}
+	.row {
+		display: flex;
+		gap: 4px;
+	}
 	input {
+		flex: 1;
 		width: 100%;
 		min-width: 0;
+	}
+	button {
+		padding: 1px 6px;
+		flex: none;
+	}
+	button.on {
+		background: var(--accent);
+		color: #fff;
+	}
+	.find {
+		padding: 6px;
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		background: var(--panel-2);
 	}
 	ul {
 		list-style: none;

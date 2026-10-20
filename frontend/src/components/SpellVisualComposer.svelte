@@ -38,9 +38,10 @@
 </script>
 
 <script lang="ts">
-	import { ReadSpellVisual, SearchSpells } from '../../wailsjs/go/main/App'
+	import { ReadSpellVisual } from '../../wailsjs/go/main/App'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import SpellIcon from './SpellIcon.svelte'
+	import SpellPicker from './SpellPicker.svelte'
 
 	// The spell editor's visual composer (#361): a new visual put together from the client's pieces.
 	// Each stage of a cast (precast, cast, channel, missile, impact, state, area) can be taken from any
@@ -109,23 +110,7 @@
 		return out.slice(0, 300)
 	})
 
-	// Take a stage, or every stage, from a spell.
-	let spellQuery = $state('')
-	let spellHits = $state<vmangos.SpellRef[]>([])
-	let timer = 0
-	$effect(() => {
-		const q = spellQuery.trim()
-		clearTimeout(timer)
-		if (!q) {
-			spellHits = []
-			return
-		}
-		timer = window.setTimeout(async () => {
-			const r = (await SearchSpells(q).catch(() => [])) ?? []
-			if (q === spellQuery.trim()) spellHits = r.filter((s) => s.visual > 0).slice(0, 12)
-		}, 250)
-	})
-
+	// Take a stage, or every stage, from a spell, browsed by category and school (SpellPicker, #367).
 	async function take(s: vmangos.SpellRef, all: boolean) {
 		error = ''
 		try {
@@ -203,18 +188,17 @@
 				<button disabled={!stageEffects(design, stage).length} onclick={clearStage}>Clear the stage</button>
 			</div>
 			<h3>Take from a spell</h3>
-			<input type="search" placeholder="A spell: Rain of Fire, Blizzard, Frostbolt…" bind:value={spellQuery} aria-label="Take from a spell" />
-			<ul class="hits">
-				{#each spellHits as s (s.id)}
-					<li>
+			<SpellPicker memoryKey="visual" height={160} text={false} label="Take from a spell" listLabel="Spells to take from" placeholder="A spell: Rain of Fire, Blizzard, Frostbolt…">
+				{#snippet row(s: vmangos.SpellRef)}
+					<span class="hit">
 						<SpellIcon icon={s.icon} />
 						<span class="name">{s.name}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span>
 						<span class="dim">{s.id}</span>
-						<button onclick={() => take(s, false)} title="Use its {current.name.toLowerCase()} for this visual's">Its {current.name.toLowerCase()}</button>
-						<button onclick={() => take(s, true)} title="Start again from its whole visual">All</button>
-					</li>
-				{/each}
-			</ul>
+						<button disabled={!s.visual} onclick={() => take(s, false)} title={s.visual ? `Use its ${current.name.toLowerCase()} for this visual's` : 'It has no visual'}>Its {current.name.toLowerCase()}</button>
+						<button disabled={!s.visual} onclick={() => take(s, true)} title={s.visual ? 'Start again from its whole visual' : 'It has no visual'}>All</button>
+					</span>
+				{/snippet}
+			</SpellPicker>
 		</div>
 		<div class="effects">
 			<h3>Effect models <span class="dim">· {current.kit !== undefined ? `for the ${SLOTS[slot].toLowerCase()}` : `the ${current.name.toLowerCase()}`}; hover to preview, click to use</span></h3>
@@ -364,23 +348,19 @@
 		gap: 6px;
 		flex-wrap: wrap;
 	}
-	.hits,
 	.list {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		overflow-y: auto;
 	}
-	.hits {
-		max-height: 160px;
-	}
-	.hits li {
+	.hit {
 		display: flex;
 		align-items: center;
 		gap: 6px;
 		padding: 2px 0;
 	}
-	.hits button {
+	.hit button {
 		padding: 1px 6px;
 	}
 	.name {

@@ -148,7 +148,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the creature abilities (spells in no `SkillLineAbility.dbc` row, the default), all spells, and each
   class skill line (named with its class from `SkillRaceClassInfo.dbc`, "Mage: Fire"), pet, profession
   and secondary skill line. Unnamed and leftover spells (test, OLD, zz, DND: `spellNoise`) are left
-  out except by ID. Save checks each spell against the server's `spell_template` and writes the whole
+  out except by ID; the category `every`, which `SpellCategories` doesn't list, keeps them. The list is
+  `components/SpellPicker.svelte` (#367), which every spell field shares: `onpick`, or a `row` snippet
+  for a row of its own, a `memoryKey` under which the last category and school are kept a session,
+  `start` (the first category) and `leftovers` (offers `every`). Save checks each spell against the server's `spell_template` and writes the whole
   row (`creatureSpellsSQL`): a list other templates share is never edited, the creature gets a new
   one (`freeSpellList`: entry*10 to entry*10+9 as VMaNGOS numbers them, else one past the highest),
   as does a creature with none; an emptied list deletes its own row and sets `spell_list_id` to 0.
@@ -224,7 +227,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   Other for unlisted columns). A column that names something is a `ref` field
   (`components/RefField.svelte`): its number, the name (`lib/wow/refNames.ts`: `TemplateNames` in
   batches for items, creatures, objects and quests; `SpellRefs`; `QuestTables` for Faction.dbc,
-  SkillLine.dbc and QuestSort.dbc; `Areas`; `SpawnEmotes`) and Find. `ReqCreatureOrGOId` is a
+  SkillLine.dbc and QuestSort.dbc; `Areas`; `SpawnEmotes`) and Find, which for a spell is a
+  `SpellPicker` (#367; the creature's aura field, `AuraField.svelte`, has one too and adds the
+  spell clicked). `ReqCreatureOrGOId` is a
   creature when positive and an object when negative, `ZoneOrSort` a zone or (negative) a quest sort.
   `SaveQuest` holds the row to `questRules` (after the server's `ObjectMgr::LoadQuests`: Method,
   SpecialFlags, a thing with its count, a reputation with its faction, no gap in the reward choices,
@@ -323,7 +328,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   opened by Tools › Spells… (`entry: 0`, find one; `-1`, a new spell). A spell lives in two places:
   the server reads `spell_template` (VMaNGOS keeps no Spell.dbc; a row per entry and client build,
   the newest build up to 5875 used, `spellBuild`), the client draws it from Spell.dbc. The left
-  searches the client's spells (`SearchSpells`); a result's right-click copies `.cast <id>` or
+  browses the client's spells (`SpellPicker`, starting at `every`, leftovers included); a result's right-click copies `.cast <id>` or
   `.learn <id>`. `ReadSpell` (`internal/vmangos/spells.go`) reads the row the server uses, every
   column, laid out by `world/spellFields.ts` on tabs (Spell: text, casting, levels, rules; Effect 1-3;
   Other), with the effects, auras and targets named from VMaNGOS' `SpellDefines.h` and
@@ -332,7 +337,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   middle into `ItemLookPicker`'s icon grid, `iconsFirst="spells"`; the picked name waits for Save),
   the tooltip (`spellTooltip`: name and rank, cost and range, cast time and cooldown, the description
   with `expandSpellText`, the TypeScript twin of Go's), the effects in a line each and the visual
-  (`spellVisual1`, typed or taken from a searched spell's `SpellRef.Visual`, its other users named by
+  (`spellVisual1`, typed or taken from a browsed spell's `SpellRef.Visual`, its other users named by
   `SpellsWithVisual`), or composed (#361, `components/SpellVisualComposer.svelte`, Compose… turning
   the middle into the composer as Change icon… does): the stages of a cast (precast, cast, channel,
   missile, impact, state, area), each taken from any spell (`ReadSpellVisual` gives a visual as a

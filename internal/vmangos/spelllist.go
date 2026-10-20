@@ -16,7 +16,7 @@ import (
 // abilities, the spells in no skill line) and by school, narrowed by a search.
 
 // SpellCategory is one entry of the Spells tab's category list: Key is what ListSpells takes
-// ("npc", "all" or "skill:<SkillLine ID>"), Group the heading it is listed under and Count how many
+// ("npc", "all", "every" or "skill:<SkillLine ID>"), Group the heading it is listed under and Count how many
 // spells it holds (noise left out).
 type SpellCategory struct {
 	Key   string `json:"key"`
@@ -144,7 +144,7 @@ func spellNoise(name string) bool {
 // spellInCategory says whether spell id is in category key; spellSkills must be loaded and locked.
 func spellInCategory(key string, id uint32) bool {
 	switch key {
-	case "", "all":
+	case "", "all", "every":
 		return true
 	case "npc":
 		return !spellSkills.inSkill[id]
@@ -211,7 +211,8 @@ func SpellCategories(dataDir string) ([]SpellCategory, error) {
 // field 1: 0 physical, 1 holy, 2 fire, 3 nature, 4 frost, 5 shadow, 6 arcane; -1 any) whose name has
 // text in it, or whose ID is text, sorted as SearchSpells sorts, at most limit of them, with the
 // count of all that matched. Spells with no name or a leftover's name (spellNoise) are left out,
-// unless their ID is the text.
+// unless their ID is the text; category "every", which SpellCategories does not list, keeps the
+// leftovers (the spell editor's Find, #367).
 func ListSpells(dataDir, category string, school int, text string, limit int) (SpellList, error) {
 	spellData.Lock()
 	defer spellData.Unlock()
@@ -229,7 +230,7 @@ func ListSpells(dataDir, category string, school int, text string, limit int) (S
 			return true
 		}
 		id := t.u32(r, 0)
-		return !spellNoise(t.str(r, spellFName)) && (school < 0 || int(t.u32(r, 1)) == school) && spellInCategory(category, id)
+		return (category == "every" || !spellNoise(t.str(r, spellFName))) && (school < 0 || int(t.u32(r, 1)) == school) && spellInCategory(category, id)
 	})
 	total := len(hits)
 	if len(hits) > max(limit, 1) {

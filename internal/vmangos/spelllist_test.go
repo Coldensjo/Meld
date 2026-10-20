@@ -91,6 +91,15 @@ func TestListSpellsFromClient(t *testing.T) {
 	if !hasSpellNamed(frost, "Frostbolt") || hasSpellNamed(frost, "Shadow Bolt") {
 		t.Fatalf("frost bolts: %+v", frost.Spells[:min(10, len(frost.Spells))])
 	}
+	// "every" keeps the leftovers "all" leaves out (#367).
+	all, _ := ListSpells(dataDir, "all", -1, "test", 5000)
+	every, _ := ListSpells(dataDir, "every", -1, "test", 5000)
+	if every.Total <= all.Total {
+		t.Fatalf("every %d, all %d", every.Total, all.Total)
+	}
+	if search, _ := SearchSpells(dataDir, "test", 5000); len(search) != every.Total {
+		t.Fatalf("every %d, SearchSpells %d", every.Total, len(search))
+	}
 }
 
 func hasSpell(l SpellList, id int) bool {
