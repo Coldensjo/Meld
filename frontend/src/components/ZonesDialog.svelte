@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { startSaving } from '../lib/state/saving'
   import Modal from './Modal.svelte'
   import { AreaRows, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds, ZoneWeather } from '../../wailsjs/go/main/App'
   import { vmangos } from '../../wailsjs/go/models'
@@ -169,6 +170,7 @@
     const weathers = weatherDirty.map((z) => weather[z]).filter(Boolean)
     if (!changed.length && !weathers.length) return
     saving = true
+    const end = startSaving('Saving the zones')
     error = ''
     try {
       const res = await SaveAreas(
@@ -187,6 +189,7 @@
       error = String(err)
     } finally {
       saving = false
+      end()
     }
   }
 

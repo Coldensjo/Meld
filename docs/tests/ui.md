@@ -204,6 +204,15 @@ Textures · G_BARREL01.BLP", and is gone within ~200 ms of the reads ending. One
 idle must never show it. Trap: on a second run the reads come from cache and each batch ends before
 400 ms, so the bar rightly never shows; use a region not opened in that browser profile yet.
 
+## Saving bar (#343, probe `saving-bar`)
+
+Checks: `bun run probe saving-bar` drives `lib/state/saving.ts` in the dev page: a 100 ms save never
+shows `SavingBar.svelte` (`[data-ui="SavingBar"]`), a longer one shows it after 400 ms centred in the
+window, an overlapping save names itself with its log line and the first shows again when it ends,
+and a save that throws still clears it. For a look, a scratch probe that calls `startSaving` and
+waits 600 ms, run with `--shot <dir>`. The real saves need the desktop app's dialogs and database, so
+the probe checks the helper, not File › Save; in `make dev` a Compile to Client of a region shows it.
+
 ## Preview window (#197)
 
 Checks: the right-click menu's Preview (`ui.modelPreview`, `ModelPreviewWindow.svelte` over

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import Modal from './Modal.svelte'
 	import { AreaTriggers, MapEntries, SaveAreaTriggers } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
@@ -192,6 +193,7 @@
 		const changed = triggers.filter((x) => dirty.includes(x.id))
 		if (!changed.length && !removed.length) return
 		saving = true
+		const end = startSaving('Saving the area triggers')
 		error = ''
 		try {
 			const res = await SaveAreaTriggers(
@@ -208,6 +210,7 @@
 			error = String(err)
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

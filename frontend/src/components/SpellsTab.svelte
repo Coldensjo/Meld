@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import { ReadCreatureSpells, SaveCreatureSpells } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -72,6 +73,7 @@
 
 	async function save() {
 		saving = true
+		const end = startSaving("Saving the creature's spells")
 		error = ''
 		try {
 			const r = await SaveCreatureSpells(entry, spells)
@@ -85,6 +87,7 @@
 			error = String(err)
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

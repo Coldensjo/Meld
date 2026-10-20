@@ -48,6 +48,7 @@ import { mapfile } from '../../../wailsjs/go/models'
 import type { Engine, MapSnapshot } from '../engine/Engine'
 import type { MapDocument } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
+import { savingDetail, startSaving, withSaving } from '../state/saving'
 import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
 import { formatSet, parseSet, type ModelSet } from '../wow/modelSets'
 import { grownBlock, type Side } from './regionGrow'
@@ -194,7 +195,7 @@ export function saveMap(engine: Engine, saveAs = false) {
       if (!path) return
     }
     const t0 = performance.now()
-    await SaveMap(path, toMapData(engine.snapshot()))
+    await withSaving('Saving map', () => SaveMap(path, toMapData(engine.snapshot())))
     editor.filePath = path
     editor.dirty = false
     engine.refreshTabs()
@@ -275,7 +276,7 @@ export function reloadSpawns(engine: Engine) {
  */
 export function saveSpawns(engine: Engine) {
 	return guarded('Save spawns', async () => {
-		const saved = await writeSpawns(engine)
+		const saved = await withSaving('Saving spawns to the world database', () => writeSpawns(engine))
 		if (saved) setStatus(`${saved} Restart the world server to see them.`, 12000)
 	})
 }
@@ -578,7 +579,8 @@ function spawnNote() {
  * rebuild, whose restart of the world server then reads them.
  */
 export function compileRegion(engine: Engine, target: CompileTarget) {
-  return guarded('Compile region', async () => {
+  const label = target === 'client' ? 'Compiling to the client' : target === 'server' ? 'Compiling to the server' : 'Compiling to the client and server'
+  return guarded('Compile region', () => withSaving(label, async () => {
     const region = engine.activeRegion()
     if (!region) {
       setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
@@ -635,7 +637,7 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
     }
     // The tiles alone only when the server's data matched the patch before; else the whole map.
     await rebuildServerMaps(res.mapId, res.tilesCurrent ? res.changedTiles : [], `${wrote}${spawns.note}`)
-  })
+  }))
 }
 
 /** Compile to Server: the region's tiles rebuilt from the client's patch, which must hold its edits. */
@@ -1174,15 +1176,21 @@ export async function chooseVmangosFolder() {
 }
 
 let lastMapId = 0
+/** Clears the Saving bar of the publish running in the background; a no-op when none is. */
+let endPublish = () => {}
 let listening = false
 
 /** Routes progress from the background publish to the status bar, once. */
 function listenToPublish() {
   if (listening) return
   listening = true
-  EventsOn('publish:log', (line: string) => setStatus(line, 0))
+  EventsOn('publish:log', (line: string) => {
+    setStatus(line, 0)
+    savingDetail(line)
+  })
   EventsOn('publish:done', (msg: string) => {
     ui.busy = false
+    endPublish()
     if (msg) setStatus(`Publish failed: ${msg}`, 0)
     else setStatus(`Map published. In game, type .go xyz 16800 16800 10 ${lastMapId} to go there.`, 15000)
   })
@@ -1217,6 +1225,7 @@ export function publishVmangosMap(engine: Engine) {
     }
     lastMapId = ref.mapId
     ui.busy = true
+    endPublish = startSaving(`Publishing ${ref.dir}`)
     setStatus(`Publishing ${ref.dir}…${notes.length ? ' ' + notes.join('. ') + '.' : ''}`, 0)
     try {
       await PublishVmangosMap(
@@ -1232,6 +1241,7 @@ export function publishVmangosMap(engine: Engine) {
       )
     } catch (e) {
       ui.busy = false
+      endPublish()
       throw e
     }
   })

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
@@ -152,6 +153,7 @@
 	async function save() {
 		if (!record || !unsaved) return
 		saving = true
+		const end = startSaving('Saving the spell')
 		error = ''
 		note = ''
 		try {
@@ -177,6 +179,7 @@
 			if (t) tab = t
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { startSaving } from '../lib/state/saving'
   import Modal from './Modal.svelte'
   import { MapLights, NewLightIDs, SaveLights } from '../../wailsjs/go/main/App'
   import { vmangos } from '../../wailsjs/go/models'
@@ -115,6 +116,7 @@
 
   async function save() {
     saving = true
+    const end = startSaving('Saving the lights')
     error = ''
     try {
       const patch = await SaveLights(
@@ -132,6 +134,7 @@
       error = String(err)
     } finally {
       saving = false
+      end()
     }
   }
 

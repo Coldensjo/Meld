@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
@@ -126,6 +127,7 @@
 	async function save() {
 		if (!record || !unsaved) return
 		saving = true
+		const end = startSaving('Saving the quest')
 		error = ''
 		note = ''
 		try {
@@ -150,6 +152,7 @@
 			if (t) tab = t
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

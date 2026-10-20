@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import { onDestroy, tick } from 'svelte'
 	import { MapEntries, ReadCreature, SaveCreature, SaveTaxi, TaxiNetwork } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
@@ -341,6 +342,7 @@
 	async function save() {
 		if (!changes) return
 		saving = true
+		const end = startSaving('Saving the flight paths')
 		error = ''
 		try {
 			const edit = vmangos.TaxiEdit.createFrom({
@@ -365,6 +367,7 @@
 			error = String(err)
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

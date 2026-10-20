@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
@@ -191,6 +192,7 @@
 	async function save() {
 		if (!record || !unsaved) return
 		saving = true
+		const end = startSaving('Saving the game object')
 		error = ''
 		try {
 			if (changeCount > 0) {
@@ -207,6 +209,7 @@
 			error = String(err)
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

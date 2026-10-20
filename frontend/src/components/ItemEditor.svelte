@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
   import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
@@ -155,6 +156,7 @@
 	async function save() {
 		if (!record || !unsaved) return
 		saving = true
+		const end = startSaving('Saving the item')
 		error = ''
 		note = ''
 		try {
@@ -186,6 +188,7 @@
 			if (t) tab = t
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

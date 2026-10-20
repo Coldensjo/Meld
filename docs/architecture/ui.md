@@ -16,6 +16,16 @@ The window layout, the asset browser and the dock panels and floating windows.
   - Contextual editing goes in dock panels (`DockPanel` wrapper: tabs + collapse). Dock width
     and collapsed panels are stored in `prefs`.
   - Theme tokens are in `app.css` (neutral greys, blue `--accent`).
+  - **Saving bar** (`components/SavingBar.svelte`, #343): a box in the middle of the window that
+    names the save running (`ui.saving`) over a moving stripe, with a publish's log line under it
+    (`ui.savingDetail`). Every save goes through `lib/state/saving.ts`: `withSaving(label, fn)` around
+    the write itself (not its file dialog), or `startSaving(label)` and the returned end function
+    where a Save button already keeps a `saving` flag (the database editors, their tabs, the flight
+    path, light, portal and zone windows). Saves may overlap; the newest running is named. The Go
+    bindings report no progress, so there is no percentage. It shows after 400 ms, takes no clicks
+    (the quit dialog under it still works) and sits at z-index 900, over the editors and `Modal`.
+    A new save anywhere gets a label through the same helper; the background server map rebuild
+    after a compile reports in the status bar only, since editing goes on during it.
   - **Interface size** (Preferences, Ctrl+= / Ctrl+- / Ctrl+0, `prefs.uiScale`, #372):
     `lib/ui/uiScale.ts` puts CSS `zoom` on the root element, since every size in the app is in px.
     Under it, pointer positions (`clientX`) and `getBoundingClientRect` stay in window px, while

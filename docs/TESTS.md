@@ -554,6 +554,7 @@ the same scene, the report before and after.
 - Preferences from two windows
 - Detail info readout
 - Loading bar (#159)
+- Saving bar (#343, probe `saving-bar`)
 - Preview window (#197)
 - Top-down view (U)
 - Log window (and the session log file, #319, probe `session-log`)

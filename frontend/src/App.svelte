@@ -8,6 +8,7 @@
   import Viewport from './components/Viewport.svelte'
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
+  import SavingBar from './components/SavingBar.svelte'
   import CreatureEditor from './components/CreatureEditor.svelte'
   import ObjectEditor from './components/ObjectEditor.svelte'
   import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
@@ -381,6 +382,7 @@
 <ModelPreviewWindow />
 <DoodadBrushEditor />
 <AppDialogs />
+<SavingBar />
 <ContextMenu />
 <DebugOverlay />
 {#if ui.showNewDialog}

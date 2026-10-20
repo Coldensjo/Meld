@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import { ReadVendor, SaveVendor, SearchItems } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -69,6 +70,7 @@
 
 	async function save() {
 		saving = true
+		const end = startSaving("Saving the creature's shop")
 		error = ''
 		try {
 			await SaveVendor(entry, items)
@@ -78,6 +80,7 @@
 			error = String(err)
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

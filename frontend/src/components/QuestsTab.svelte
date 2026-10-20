@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import { ReadCreatureQuests, ReadObjectQuests, SaveCreatureQuests, SaveObjectQuests, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
@@ -84,6 +85,7 @@
 
 	async function save() {
 		saving = true
+		const end = startSaving('Saving the quest givers')
 		error = ''
 		try {
 			await (kind === 'object' ? SaveObjectQuests : SaveCreatureQuests)(entry, vmangos.QuestLists.createFrom($state.snapshot(quests)))
@@ -93,6 +95,7 @@
 			error = String(err)
 		} finally {
 			saving = false
+			end()
 		}
 	}
 

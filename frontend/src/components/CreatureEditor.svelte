@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { startSaving } from '../lib/state/saving'
   import { dialogFocus } from '../lib/ui/dialogFocus'
   import { editor, setStatus, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
@@ -159,6 +160,7 @@
   async function save() {
     if (!record || changeCount === 0) return
     saving = true
+    const end = startSaving('Saving the creature')
     error = ''
     try {
       const before = { ...saved }
@@ -170,6 +172,7 @@
       error = String(err)
     } finally {
       saving = false
+      end()
     }
   }
 

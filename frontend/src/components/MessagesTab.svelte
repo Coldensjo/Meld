@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { startSaving } from '../lib/state/saving'
 	import { ReadGossip, SaveGossipOptions, SaveGreeting } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -85,6 +86,7 @@
 
 	async function saveOptions() {
 		savingOptions = true
+		const endOptions = startSaving("Saving the creature's gossip options")
 		error = ''
 		try {
 			const r = await SaveGossipOptions(entry, options)
@@ -95,6 +97,7 @@
 			error = String(err)
 		} finally {
 			savingOptions = false
+			endOptions()
 		}
 	}
 
@@ -125,6 +128,7 @@
 
 	async function save() {
 		saving = true
+		const end = startSaving("Saving the creature's greeting")
 		error = ''
 		try {
 			const r = await SaveGreeting(entry, male, female)
@@ -135,6 +139,7 @@
 			error = String(err)
 		} finally {
 			saving = false
+			end()
 		}
 	}
 </script>

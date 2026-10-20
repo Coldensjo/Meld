@@ -576,6 +576,10 @@ export const ui = $state({
   /** An asset the browser should show and scroll to (the pipette's pick); `seq` makes every pick a new request. */
   revealAsset: null as { key: string; seq: number } | null,
   busy: false,
+  /** The save running now, in words ("Saving map"), for the Saving bar (#343); '' when none. Set through `lib/state/saving.ts` only. */
+  saving: '',
+  /** The save's latest progress line (a publish's log), shown under the Saving bar; '' for none. */
+  savingDetail: '',
   /** Vertices selected in Sculpt's Vertex mode (updated when a stroke ends). */
   vertexCount: 0,
   /** A texture waiting to be replaced in these paint chunks: the next texture picked in the browser takes its place. */
