@@ -53,6 +53,8 @@ export function DeleteQuest(arg1:number):Promise<string>;
 
 export function DropRecovery(arg1:string):Promise<void>;
 
+export function EndClientSandbox():Promise<main.SandboxEnded>;
+
 export function EndRecovery():Promise<void>;
 
 export function EquipBonuses():Promise<Array<vmangos.EquipBonusKind>>;
@@ -249,6 +251,8 @@ export function RegionPending(arg1:vmangos.RegionEdit):Promise<vmangos.RegionRes
 
 export function RegionShadows(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionShadows>;
 
+export function SandboxWriteFile(arg1:string,arg2:string):Promise<string>;
+
 export function SaveAreaTriggers(arg1:Array<vmangos.AreaTrigger>,arg2:Array<number>):Promise<main.AreaSaveResult>;
 
 export function SaveAreas(arg1:Array<vmangos.AreaRow>,arg2:Array<vmangos.ZoneWeather>):Promise<main.AreaSaveResult>;
@@ -352,6 +356,8 @@ export function SpellTables():Promise<vmangos.SpellTables>;
 export function SpellTexts(arg1:Array<number>):Promise<Record<number, string>>;
 
 export function SpellsWithVisual(arg1:number):Promise<Array<vmangos.SpellRef>>;
+
+export function StartClientSandbox():Promise<main.ClientSandbox>;
 
 export function TaxiNetwork(arg1:number):Promise<vmangos.TaxiNetwork>;
 

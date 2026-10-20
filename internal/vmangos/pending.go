@@ -97,6 +97,14 @@ func PendingFiles(dataDir string) ([]mpq.File, error) {
 	return out, nil
 }
 
+// DropPending drops every file waiting for a client data folder, unwritten: the probes' throwaway
+// client starts each time without what a probe left waiting (#368).
+func DropPending(dataDir string) error {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	return os.RemoveAll(pendingDir(dataDir))
+}
+
 // ClearPending drops the waiting files of a client data folder that are the ones in written (by
 // name and content), after they went into the patch; a file saved again meanwhile stays.
 func ClearPending(dataDir string, written []mpq.File) error {

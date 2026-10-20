@@ -12,6 +12,35 @@ const P = {
 	 */
 	BENCH: 'Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":32,"y":48,"size":1}},"view":{"target":[182,30,353],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{"cameraFollowGround":true},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}',
 
+	/**
+	 * Points every client read and write at a fresh throwaway copy of the client (#368), so a probe can press
+	 * what writes Meld's patch: the copy's archives are links to the real ones and its patch a copy, made
+	 * again at each call. Throws when it can't, so a probe never writes the real client by mistake. Returns
+	 * `{ dataDir, realPatch }`. The runner ends it after the probe; `P.endSandbox()` ends it sooner and says
+	 * whether the real patch kept its size and time (`realUnchanged`). While it is on, nothing closes the
+	 * game, starts the servers or writes the server's tables (they answer with an error).
+	 */
+	async sandboxClient() {
+		const sb = await window.go.main.App.StartClientSandbox()
+		if (!sb?.dataDir) throw new Error('P.sandboxClient: the throwaway client did not start')
+		window.__probeSandbox = true
+		return sb
+	},
+
+	/** Ends the throwaway client (`P.sandboxClient`): `{ wasOn, realUnchanged, realPatch }`. */
+	async endSandbox() {
+		window.__probeSandbox = false
+		return await window.go.main.App.EndClientSandbox()
+	},
+
+	/** Writes bytes (a Uint8Array or a Blob) as a file of the throwaway client's scratch folder, for a binding that reads a file the user picked; returns its path. */
+	async sandboxFile(name, bytes) {
+		if (bytes instanceof Blob) bytes = new Uint8Array(await bytes.arrayBuffer())
+		let bin = ''
+		for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+		return await window.go.main.App.SandboxWriteFile(name, btoa(bin))
+	},
+
 	/** The open dialog with this accessible name: `aria-label`, or the text of its `aria-labelledby` heading (Modal, #369). Null when none. */
 	dialog(name) {
 		return (

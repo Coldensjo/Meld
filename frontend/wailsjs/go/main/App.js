@@ -94,6 +94,10 @@ export function DropRecovery(arg1) {
   return window['go']['main']['App']['DropRecovery'](arg1);
 }
 
+export function EndClientSandbox() {
+  return window['go']['main']['App']['EndClientSandbox']();
+}
+
 export function EndRecovery() {
   return window['go']['main']['App']['EndRecovery']();
 }
@@ -486,6 +490,10 @@ export function RegionShadows(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['RegionShadows'](arg1, arg2, arg3, arg4);
 }
 
+export function SandboxWriteFile(arg1, arg2) {
+  return window['go']['main']['App']['SandboxWriteFile'](arg1, arg2);
+}
+
 export function SaveAreaTriggers(arg1, arg2) {
   return window['go']['main']['App']['SaveAreaTriggers'](arg1, arg2);
 }
@@ -692,6 +700,10 @@ export function SpellTexts(arg1) {
 
 export function SpellsWithVisual(arg1) {
   return window['go']['main']['App']['SpellsWithVisual'](arg1);
+}
+
+export function StartClientSandbox() {
+  return window['go']['main']['App']['StartClientSandbox']();
 }
 
 export function TaxiNetwork(arg1) {

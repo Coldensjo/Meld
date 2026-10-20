@@ -24,6 +24,7 @@ import (
 	"Meld/internal/mapfile"
 	"Meld/internal/mpq"
 	"Meld/internal/recovery"
+	"Meld/internal/sandbox"
 	"Meld/internal/sessionlog"
 	"Meld/internal/vmangos"
 	"Meld/internal/wow"
@@ -52,6 +53,15 @@ type App struct {
 	stale game.Stale
 	// pendingWatch is whether the watcher of the client files waiting for the game to close runs.
 	pendingWatch atomic.Bool
+
+	// The probes' throwaway client (app_sandbox.go, #368). sandboxData, under cfgMu, is its Data
+	// folder while it is on; the rest is under sandboxMu.
+	sandboxData  string
+	sandboxMu    sync.Mutex
+	sandboxGen   int
+	sandboxTimer *time.Timer
+	sandboxReal  string
+	sandboxStamp sandbox.Stamp
 }
 
 func NewApp() *App {
@@ -542,13 +552,7 @@ func (a *App) SetVmangosPath(path string) error {
 // patch-3.MPQ, for the server to load. Returns the archive's path.
 func (a *App) InstallMapPatch(files map[string]string) (string, error) {
 	defer a.releaseClient()()
-	a.cfgMu.Lock()
-	wowPath := a.cfg.WowPath
-	a.cfgMu.Unlock()
-	if wowPath == "" {
-		return "", errors.New("no WoW client is set")
-	}
-	dataDir, err := wow.ResolveDataDir(wowPath)
+	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return "", err
 	}
@@ -563,11 +567,15 @@ func (a *App) InstallMapPatch(files map[string]string) (string, error) {
 	return vmangos.InstallPatch(dataDir, list)
 }
 
-// clientDataDir is the loaded client's Data folder, or an error if none is set.
+// clientDataDir is the loaded client's Data folder, or an error if none is set. While a probe has
+// the throwaway client on (app_sandbox.go), it is that copy's.
 func (a *App) clientDataDir() (string, error) {
 	a.cfgMu.Lock()
-	wowPath := a.cfg.WowPath
+	wowPath, sandboxData := a.cfg.WowPath, a.sandboxData
 	a.cfgMu.Unlock()
+	if sandboxData != "" {
+		return sandboxData, nil
+	}
 	if wowPath == "" {
 		return "", errors.New("no WoW client is set")
 	}
@@ -1899,6 +1907,13 @@ func (a *App) installClosed(dataDir string, files []mpq.File, also func() error)
 		}
 		return patch, err
 	}
+	if a.sandboxed() {
+		// The probes' throwaway client: no game holds its patch, and the server's tables are the real ones.
+		if also != nil {
+			return "", errSandboxed
+		}
+		return run()
+	}
 	if goruntime.GOOS != "windows" {
 		return run()
 	}
@@ -2249,6 +2264,9 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 
 // gameSession is the game and server a region export restarts, with the saved login.
 func (a *App) gameSession() (game.Session, error) {
+	if a.sandboxed() {
+		return game.Session{}, errSandboxed
+	}
 	root, err := a.clientRoot()
 	if err != nil {
 		return game.Session{}, err
@@ -2508,8 +2526,11 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
 // clientRoot is the WoW client's folder (the one holding Data), whichever of the two was configured.
 func (a *App) clientRoot() (string, error) {
 	a.cfgMu.Lock()
-	path := a.cfg.WowPath
+	path, sandboxed := a.cfg.WowPath, a.sandboxData != ""
 	a.cfgMu.Unlock()
+	if sandboxed {
+		return "", errSandboxed
+	}
 	if path == "" {
 		return "", errors.New("no WoW client is set")
 	}

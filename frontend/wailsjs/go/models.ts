@@ -94,6 +94,38 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ClientSandbox {
+	    dataDir: string;
+	    realPatch: sandbox.Stamp;
+	
+	    static createFrom(source: any = {}) {
+	        return new ClientSandbox(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.dataDir = source["dataDir"];
+	        this.realPatch = this.convertValues(source["realPatch"], sandbox.Stamp);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class GameClientInfo {
 	    client: string;
 	    benillaPath: string;
@@ -243,6 +275,40 @@ export namespace main {
 	        this.name = source["name"];
 	        this.text = source["text"];
 	    }
+	}
+	export class SandboxEnded {
+	    wasOn: boolean;
+	    realUnchanged: boolean;
+	    realPatch: sandbox.Stamp;
+	
+	    static createFrom(source: any = {}) {
+	        return new SandboxEnded(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.wasOn = source["wasOn"];
+	        this.realUnchanged = source["realUnchanged"];
+	        this.realPatch = this.convertValues(source["realPatch"], sandbox.Stamp);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class SpellSaved {
 	    sql: string;
@@ -529,6 +595,25 @@ export namespace recovery {
 	        this.region = source["region"];
 	        this.saved = source["saved"];
 	        this.fileTime = source["fileTime"];
+	    }
+	}
+
+}
+
+export namespace sandbox {
+	
+	export class Stamp {
+	    size: number;
+	    modTime: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Stamp(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.size = source["size"];
+	        this.modTime = source["modTime"];
 	    }
 	}
 

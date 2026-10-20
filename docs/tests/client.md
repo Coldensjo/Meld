@@ -219,11 +219,13 @@ as `<name>.png` files.
   twice and a bad PNG refused; installed, the list has it and the export writes it, a missing name and
   `..\up` reported), `TestPendingIcons` (an icon waiting for the game to close is listed, previewed
   through `PendingIcon` and exported).
-- Probe `icons` (nothing written): Fireball's Change icon… shows Import PNG… and Export all as PNG…;
+- Probe `icons` (the real client left alone): Fireball's Change icon… shows Import PNG… and Export all as PNG…;
   searching Spell_Fire_FlameBolt leaves one icon and Export 1 as PNG…; `ImportIcons` with a missing
   file refuses it under its name (`Probe_Icon`, from "Probe Icon.png") and `ExportIcons` refuses a
-  missing folder. It never imports: an import writes the owner's patch, and an icon can't be taken out
-  of it again from Meld.
+  missing folder. Then, in the throwaway client (`P.sandboxClient`, #368), Import PNG… with the file
+  dialog stubbed takes a red 64 px PNG drawn in the page ("Meld Probe Icon.png"): the note says it was
+  added, the grid shows `Meld_Probe_Icon` alone and its preview is red; after `P.endSandbox()` the real
+  patch has its size and time and the real icon list hasn't the icon. About 7 s.
 - Export of every icon, by a scratch probe calling `ExportIcons(await ListItemIcons(), <a temp
   folder>)`: 2684 written in 5.3 s on 2026-10-20, none failed.
 - In the game (the owner): an imported icon set on a spell (Save) or an item (Change icon…, Save)

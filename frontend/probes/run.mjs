@@ -246,6 +246,10 @@ async function main() {
 				}
 			}
 		}
+		// A probe that turned the throwaway client on (P.sandboxClient, #368) leaves it on when it fails:
+		// end it here, so the next probe and the owner's dev window read the real client again.
+		const ended = await evaluate('window.__probeSandbox ? window.go.main.App.EndClientSandbox() : null', 60_000).catch((e) => ({ error: e.message }))
+		if (ended?.error) out.sandboxEnd = ended.error
 		if (prof) out.profile = topFunctions(prof)
 		if (pageErrors.length) {
 			out.pageErrors = pageErrors.slice(0, 5)
