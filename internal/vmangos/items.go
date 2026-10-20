@@ -100,7 +100,7 @@ func ExportItems(serverRoot string, entries []int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return exportScript(db, itemScript, cols, entries)
+	return exportScript(db, itemScript, cols, entries, nil)
 }
 
 // ItemImport is what an SQL script of items would write: its item rows, and what of it is left

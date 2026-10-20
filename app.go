@@ -1549,11 +1549,11 @@ func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 // ExportSpells asks where to save an SQL script of spells and writes their spell_template rows there
 // (#357). Returns the path, or "" if cancelled.
 func (a *App) ExportSpells(entries []int, suggested string) (string, error) {
-	server, _, err := a.serverAndData()
+	server, dataDir, err := a.serverAndData()
 	if err != nil {
 		return "", err
 	}
-	script, err := vmangos.ExportSpells(server, entries)
+	script, err := vmangos.ExportSpells(server, dataDir, entries)
 	if err != nil {
 		return "", err
 	}
@@ -1584,7 +1584,8 @@ func (a *App) PlanSpellImport(path string) (vmangos.SpellImport, error) {
 
 // ImportSpells writes the spells of the SQL script at path into the world database (and has the
 // running world server reload its spells), then each one's record, made from the row the server
-// uses, into Spell.dbc in Meld's patch, as SaveSpell does. Returns their entries.
+// uses, into Spell.dbc in Meld's patch, as SaveSpell does, with the icons and visuals the script
+// carries that the client lacks (#381). Returns their entries.
 func (a *App) ImportSpells(path string) ([]int, error) {
 	defer a.releaseClient()()
 	server, dataDir, err := a.serverForWrite()
@@ -1595,14 +1596,14 @@ func (a *App) ImportSpells(path string) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	entries, err := vmangos.ImportSpellRows(server, string(b))
+	entries, looks, err := vmangos.ImportSpellRows(server, dataDir, string(b))
 	if err != nil {
 		return nil, err
 	}
 	a.reloadSpells(server)
 	files, err := vmangos.SpellClientFiles(server, dataDir, entries)
 	if err == nil {
-		err = a.saveClientFiles(dataDir, files)
+		err = a.saveClientFiles(dataDir, append(looks, files...))
 	}
 	vmangos.ForgetSpells()
 	if err != nil {

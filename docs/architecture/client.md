@@ -350,12 +350,18 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   spell and the next save builds on it. The game reads Spell.dbc only at start, so it has the spell
   the next time it starts. `ForgetSpells` drops the Go caches. Export and Import (#357,
   `internal/vmangos/spellscripts.go`) work as the item editor's: Export writes every build's row of
-  the spell as `REPLACE INTO spell_template` (`ExportSpells`); Import plans the script
-  (`PlanSpellImport`: which rows replace existing ones, which spells the client's Spell.dbc already
-  has, a build newer than 5875 that the server won't use, and an icon or visual ID this client's
-  SpellIcon.dbc or SpellVisual.dbc lacks, as Meld-added ones from another client are), then
-  `ImportSpells` (`app.go`) runs the rows (`ImportSpellRows`), reloads the server's spells, and writes
-  each imported spell's Spell.dbc record, made from the row the server now uses
+  the spell as `REPLACE INTO spell_template` (`ExportSpells`), with `-- meld icon`, `-- meld visual`
+  and `-- meld kit` comment lines after the header that carry what the rows' `spellIconId` and
+  `spellVisual1` hold in the exporting client (the icon's texture path, the SpellVisual and
+  SpellVisualKit records; #381, `spelllooks.go`), which a server running the script ignores. Import
+  plans the script (`PlanSpellImport`: which rows replace existing ones, which spells the client's
+  Spell.dbc already has, a build newer than 5875 that the server won't use, the icon and visual each
+  row comes to (`planScriptLooks`: a carried icon or visual is the client's row of that ID when it
+  holds the same, else any row that does, else a new row at the end; the effect, sound and missile
+  IDs inside are taken as stock), and an icon or visual ID this client lacks that the script doesn't
+  carry), then `ImportSpells` (`app.go`) rewrites the rows' IDs, runs them (`ImportSpellRows`),
+  reloads the server's spells, and writes the added SpellIcon, SpellVisualKit and SpellVisual rows
+  with each imported spell's Spell.dbc record, made from the row the server now uses
   (`SpellClientFiles`), through `saveClientFiles` as Save does. `spellDBCColumns`
   maps the 173 fields to columns: strings take all 8 locales, `spellFamilyFlags` two fields, the
   locale masks stay the client's (the server's are older builds'), and the server's own columns

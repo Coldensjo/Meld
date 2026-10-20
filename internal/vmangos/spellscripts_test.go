@@ -18,7 +18,7 @@ func TestSpellScriptRoundTrip(t *testing.T) {
 		TemplateColumn{Name: "speed", Kind: "float"},
 		TemplateColumn{Name: "spellFamilyFlags", Kind: "uint", Max: 1<<63 - 1})
 	rows := [][]string{{"133", "5875", `Fire's \\ "ball"`, "185", "24", "1"}}
-	script := templateScript(spellScript, cols, rows, time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC))
+	script := templateScript(spellScript, cols, rows, "", time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC))
 	if !strings.Contains(script, "-- Fire's \\ \"ball\" (entry 133, build 5875)") || !strings.Contains(script, "REPLACE INTO `spell_template` (`entry`, `build`, `name`") ||
 		!strings.Contains(script, "spell editor (Tools > Spells)") {
 		t.Fatalf("script:\n%s", script)
@@ -62,7 +62,7 @@ func TestSpellScriptsLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script, err := ExportSpells(server, []int{133})
+	script, err := ExportSpells(server, dataDir, []int{133})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,11 +70,14 @@ func TestSpellScriptsLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Spells) == 0 || len(plan.Unknown) != 0 || plan.Skipped != 0 {
+	if !strings.Contains(script, "\n-- meld icon ") || !strings.Contains(script, "\n-- meld visual ") || !strings.Contains(script, "\n-- meld kit ") {
+		t.Fatalf("the script doesn't carry Fireball's look:\n%s", script)
+	}
+	if len(plan.Spells) == 0 || len(plan.Unknown) != 0 || plan.Skipped != 0 || len(plan.Adds) != 0 {
 		t.Fatalf("plan %+v", plan)
 	}
 	for _, s := range plan.Spells {
-		if s.Entry != 133 || s.Name != "Fireball" || !s.Exists || !s.InClient || s.Newer || s.MissingIcon != 0 || s.MissingVisual != 0 {
+		if s.Entry != 133 || s.Name != "Fireball" || !s.Exists || !s.InClient || s.Newer || s.MissingIcon != 0 || s.MissingVisual != 0 || s.NewIcon != 0 || s.NewVisual != 0 {
 			t.Fatalf("row %+v", s)
 		}
 	}

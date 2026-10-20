@@ -2795,6 +2795,8 @@ export namespace vmangos {
 	    newer: boolean;
 	    missingIcon: number;
 	    missingVisual: number;
+	    newIcon: number;
+	    newVisual: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new SpellImportRow(source);
@@ -2810,12 +2812,15 @@ export namespace vmangos {
 	        this.newer = source["newer"];
 	        this.missingIcon = source["missingIcon"];
 	        this.missingVisual = source["missingVisual"];
+	        this.newIcon = source["newIcon"];
+	        this.newVisual = source["newVisual"];
 	    }
 	}
 	export class SpellImport {
 	    spells: SpellImportRow[];
 	    skipped: number;
 	    unknown: string[];
+	    adds: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new SpellImport(source);
@@ -2826,6 +2831,7 @@ export namespace vmangos {
 	        this.spells = this.convertValues(source["spells"], SpellImportRow);
 	        this.skipped = source["skipped"];
 	        this.unknown = source["unknown"];
+	        this.adds = source["adds"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -44,8 +44,9 @@ func (t scriptTable) keyColumns() []TemplateColumn {
 }
 
 // exportScript is an SQL script that puts the rows of entries back as they are now: every row of
-// each entry (all its patches or builds), cols being the table's columns but its keys.
-func exportScript(db worldDB, t scriptTable, cols []TemplateColumn, entries []int) (string, error) {
+// each entry (all its patches or builds), cols being the table's columns but its keys. extra, when
+// not nil, gives comment lines to write after the header from the rows (keys first, as cols).
+func exportScript(db worldDB, t scriptTable, cols []TemplateColumn, entries []int, extra func([]TemplateColumn, [][]string) (string, error)) (string, error) {
 	if len(entries) == 0 {
 		return "", fmt.Errorf("no %s to export", strings.ToLower(t.things))
 	}
@@ -67,12 +68,18 @@ func exportScript(db worldDB, t scriptTable, cols []TemplateColumn, entries []in
 	if len(rows) == 0 {
 		return "", fmt.Errorf("the world database has no %s %s", t.thing, strings.Join(ids, ", "))
 	}
-	return templateScript(t, all, rows, time.Now()), nil
+	more := ""
+	if extra != nil {
+		if more, err = extra(all, rows); err != nil {
+			return "", err
+		}
+	}
+	return templateScript(t, all, rows, more, time.Now()), nil
 }
 
 // templateScript writes rows (mariadb's batch fields, in the order of cols, the keys first) as an SQL
-// script.
-func templateScript(t scriptTable, cols []TemplateColumn, rows [][]string, now time.Time) string {
+// script, extra (comment lines) after its header.
+func templateScript(t scriptTable, cols []TemplateColumn, rows [][]string, extra string, now time.Time) string {
 	names := make([]string, len(cols))
 	for i, c := range cols {
 		names[i] = "`" + c.Name + "`"
@@ -80,6 +87,7 @@ func templateScript(t scriptTable, cols []TemplateColumn, rows [][]string, now t
 	var b strings.Builder
 	fmt.Fprintf(&b, "-- %s exported by Meld on %s: %d %s of %s.\n", t.things, now.Format("2006-01-02 15:04"), len(rows), plural(len(rows), "row", "rows"), t.name)
 	fmt.Fprintf(&b, "-- Load it with Import in %s, or run it on the world database.\n", t.editor)
+	b.WriteString(extra)
 	for _, f := range rows {
 		vals := make([]string, len(cols))
 		name := ""

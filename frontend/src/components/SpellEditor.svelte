@@ -219,6 +219,8 @@
 	}
 
 	const missingLook = $derived(plan ? plan.plan.spells.filter((s) => s.missingIcon || s.missingVisual) : [])
+	// Spells whose icon or visual the script carries and this client holds under another ID, or lacks (#381).
+	const movedLook = $derived(plan ? plan.plan.spells.filter((s) => s.newIcon || s.newVisual) : [])
 
 	async function confirmImport() {
 		if (!plan) return
@@ -495,6 +497,14 @@
 					</span>
 					{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only spell_template rows are imported.</span>{/if}
 					{#if plan.plan.unknown?.length}<span>Columns this server's spell_template lacks are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
+					{#if movedLook.length}
+						<span
+							>The script carries the look of {movedLook
+								.slice(0, 6)
+								.map((s) => `${s.name || s.entry} (${[s.newIcon ? `icon ${s.newIcon}` : '', s.newVisual ? `visual ${s.newVisual}` : ''].filter(Boolean).join(', ')})`)
+								.join(', ')}{movedLook.length > 6 ? ` and ${movedLook.length - 6} more` : ''}: this client has it under another ID{plan.plan.adds?.length ? ` or gets it in ${plan.plan.adds.map((f) => f.replace(/^.*\\/, '')).join(', ')}` : ''}, and the import uses that.</span
+						>
+					{/if}
 					{#if missingLook.length}
 						<span class="warn-text"
 							>This client lacks {missingLook

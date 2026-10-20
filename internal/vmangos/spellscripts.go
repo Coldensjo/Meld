@@ -14,8 +14,9 @@ import (
 // server uses, into Spell.dbc in Meld's patch, as Save does.
 
 // ExportSpells is an SQL script that puts spells back as they are now: every build's row of each
-// entry, as REPLACE statements that name their columns.
-func ExportSpells(serverRoot string, entries []int) (string, error) {
+// entry, as REPLACE statements that name their columns, with the "-- meld" lines that carry their
+// icons and visuals as the client of dataDir has them (spelllooks.go).
+func ExportSpells(serverRoot, dataDir string, entries []int) (string, error) {
 	db, err := openWorld(serverRoot)
 	if err != nil {
 		return "", err
@@ -24,7 +25,24 @@ func ExportSpells(serverRoot string, entries []int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return exportScript(db, spellScript, cols, entries)
+	return exportScript(db, spellScript, cols, entries, func(all []TemplateColumn, rows [][]string) (string, error) {
+		set, err := mpq.OpenDataDir(dataDir)
+		if err != nil {
+			return "", err
+		}
+		defer set.Close()
+		var tables [3]*dbcTable
+		for i, name := range []string{SpellIconPath, SpellVisualPath, SpellVisualKitPath} {
+			b, err := readOverlay(set, dataDir, name)
+			if err != nil {
+				return "", err
+			}
+			if tables[i], err = parseDBC(b); err != nil {
+				return "", fmt.Errorf("%s: %w", name, err)
+			}
+		}
+		return looksComment(all, rows, tables[0], tables[1], tables[2]), nil
+	})
 }
 
 // SpellImport is what an SQL script of spells would write: its spell rows, and what of it is left
@@ -35,6 +53,9 @@ type SpellImport struct {
 	Skipped int `json:"skipped"`
 	// Unknown are columns the script names that this server's spell_template lacks, left out.
 	Unknown []string `json:"unknown"`
+	// Adds are the client tables importing adds rows to, for the icons and visuals the script
+	// carries that the client lacks (#381).
+	Adds []string `json:"adds"`
 }
 
 // SpellImportRow is one spell row of a script: its entry, build and name; whether the world database
@@ -52,6 +73,10 @@ type SpellImportRow struct {
 	Newer         bool   `json:"newer"`
 	MissingIcon   int    `json:"missingIcon"`
 	MissingVisual int    `json:"missingVisual"`
+	// NewIcon and NewVisual are the IDs importing gives the row's icon and visual in this client,
+	// found or added from what the script carries, when they differ from the script's (0 when not).
+	NewIcon   int `json:"newIcon"`
+	NewVisual int `json:"newVisual"`
 }
 
 // PlanSpellImport reads an SQL script of spells and says what importing it would write, without
@@ -74,11 +99,26 @@ func PlanSpellImport(serverRoot, dataDir, script string) (SpellImport, error) {
 		return SpellImport{}, err
 	}
 	defer set.Close()
+	before := make([][2]int, len(plan.rows))
+	for i, r := range plan.rows {
+		before[i] = [2]int{lookID(r.values["spellIconId"]), lookID(r.values["spellVisual1"])}
+	}
+	looks, err := planScriptLooks(set, dataDir, script, plan.rows)
+	if err != nil {
+		return SpellImport{}, err
+	}
+	// The client's tables as the import leaves them: with the rows the looks add.
+	added := map[string][]byte{}
+	for _, f := range looks.files {
+		added[f.Name] = f.Data
+	}
 	tables := map[string]*dbcTable{}
 	for _, name := range []string{SpellPath, SpellIconPath, SpellVisualPath} {
-		b, err := readOverlay(set, dataDir, name)
-		if err != nil {
-			return SpellImport{}, err
+		b, ok := added[name]
+		if !ok {
+			if b, err = readOverlay(set, dataDir, name); err != nil {
+				return SpellImport{}, err
+			}
 		}
 		if tables[name], err = parseDBC(b); err != nil {
 			return SpellImport{}, fmt.Errorf("%s: %w", name, err)
@@ -96,6 +136,15 @@ func PlanSpellImport(serverRoot, dataDir, script string) (SpellImport, error) {
 		return id
 	}
 	out := SpellImport{Skipped: plan.skipped, Unknown: plan.unknown}
+	for _, f := range looks.files {
+		out.Adds = append(out.Adds, f.Name)
+	}
+	changed := func(was int, now string) int {
+		if n := lookID(now); n != was {
+			return n
+		}
+		return 0
+	}
 	for i, k := range plan.keys {
 		_, inClient := tables[SpellPath].row(uint32(k.entry))
 		row := plan.rows[i].values
@@ -106,29 +155,49 @@ func PlanSpellImport(serverRoot, dataDir, script string) (SpellImport, error) {
 			Newer:         k.key > spellBuild,
 			MissingIcon:   lacks(SpellIconPath, row["spellIconId"]),
 			MissingVisual: lacks(SpellVisualPath, row["spellVisual1"]),
+			NewIcon:       changed(before[i][0], row["spellIconId"]),
+			NewVisual:     changed(before[i][1], row["spellVisual1"]),
 		})
 	}
 	return out, nil
 }
 
 // ImportSpellRows writes the spell rows of an SQL script into the world database, replacing rows of
-// the same entry and build, and returns the entries it wrote. Every row is checked against the
-// table's columns first, and nothing is written if one is refused. SpellClientFiles then makes their
+// the same entry and build, and returns the entries it wrote and the client tables to write into
+// Meld's patch with the icons and visuals the script carries that the client of dataDir lacks
+// (spelllooks.go), the rows' IDs rewritten to theirs first. Every row is checked against the table's
+// columns first, and nothing is written if one is refused. SpellClientFiles then makes their
 // Spell.dbc records.
-func ImportSpellRows(serverRoot, script string) ([]int, error) {
+func ImportSpellRows(serverRoot, dataDir, script string) ([]int, []mpq.File, error) {
 	db, err := openWorld(serverRoot)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cols, err := spellColumns(db)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	plan, err := importScript(db, spellScript, cols, script)
+	plan, err := readScript(db, spellScript, script)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return plan.entries(), nil
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	looks, err := planScriptLooks(set, dataDir, script, plan.rows)
+	set.Close()
+	if err != nil {
+		return nil, nil, err
+	}
+	sql, err := importSQL(spellScript, cols, plan.rows)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := runScript(db, sql); err != nil {
+		return nil, nil, err
+	}
+	return plan.entries(), looks.files, nil
 }
 
 // SpellClientFiles is Spell.dbc (as the client will have it) with the record of each of entries made

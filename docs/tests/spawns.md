@@ -543,9 +543,13 @@ new icon) in Meld's patch only on Save or New spell.
 - Export and import (#357): `TestSpellScriptRoundTrip` (an exported row with a quote and a
   backslash read back under its entry and build, its REPLACE, a row without a build taking 5875, an
   entry or build past 65535 refused). With `VMANGOS_DIR` and `WOW_DIR`, `TestSpellScriptsLive`
-  exports Fireball (133), plans the script back (its three builds' rows exist, the client has the
+  exports Fireball (133), plans the script back (its three builds' rows exist, its icon, visual and kits carried as `-- meld` lines and found under their own IDs, the client has the
   spell, icon and visual; nothing unknown) and makes its Spell.dbc record from the row the server
-  uses; nothing written. Probe `spell-editor` checks the Import… and Export… buttons are there; they
+  uses; nothing written. `TestSpellScriptLooks` (#381): the `-- meld` lines an export writes for a
+  Meld-added icon and a visual with its kit, read back without counting as statements; on the same
+  client nothing changes; on another client the icon (its ID another texture there) and the visual
+  and kit (other rows under their IDs) are added at the end and the rows' IDs rewritten; a visual the
+  client holds under another ID is found, not added. Probe `spell-editor` checks the Import… and Export… buttons are there; they
   open native dialogs, which a probe can't drive. An import's write was not run on 2026-10-20: it
   changes the owner's world database and patch. To try it: export a spell, change its name in the
   script, Import it, and `ReadSpell` and `SearchSpells` show the new name.

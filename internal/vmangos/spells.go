@@ -280,6 +280,11 @@ func commonSpellFields(t *dbcTable) []uint32 {
 // spellIconRow is the SpellIcon.dbc ID of an icon (a name under Interface\Icons): the client's row
 // for its texture, else a new row, returning the table with it added (nil when nothing changed).
 func spellIconRow(dbc []byte, icon string) (int, []byte, error) {
+	return spellIconPathRow(dbc, `Interface\Icons\`+icon)
+}
+
+// spellIconPathRow is spellIconRow for an icon's whole texture path.
+func spellIconPathRow(dbc []byte, path string) (int, []byte, error) {
 	t, err := parseDBC(dbc)
 	if err != nil {
 		return 0, nil, err
@@ -287,7 +292,6 @@ func spellIconRow(dbc []byte, icon string) (int, []byte, error) {
 	if t.fields < 2 {
 		return 0, nil, errors.New("SpellIcon.dbc has no texture field")
 	}
-	path := `Interface\Icons\` + icon
 	maxID := uint32(0)
 	for r := 0; r < t.records; r++ {
 		if strings.EqualFold(t.str(r, 1), path) {
