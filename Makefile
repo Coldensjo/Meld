@@ -27,11 +27,13 @@ build-windows:
 
 test:
 	go test ./internal/...
+	@if [ -f frontend/dist/index.html ]; then go test .; else echo 'skipping go test . (frontend/dist is missing; build the frontend first)'; fi
 	cd frontend && bun run test
 
 check:
 	@test -z "$$(gofmt -l internal *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal *.go; exit 1; }
 	go vet ./internal/...
+	@if [ -f frontend/dist/index.html ]; then go vet .; else echo 'skipping go vet . (frontend/dist is missing; build the frontend first)'; fi
 	cd frontend && bun run check
 
 # Every probe in frontend/probes against the running `make dev` (docs/TESTS.md, "Probes").
