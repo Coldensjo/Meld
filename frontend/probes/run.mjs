@@ -144,53 +144,28 @@ async function main() {
 	}
 
 	const profile = join(tmpdir(), `meld-probe-${PORT}`)
-	const chrome = spawn(findChrome(), [
-		'--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
-		'--window-size=1400,900', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
-		'--no-first-run', '--no-default-browser-check', 'about:blank',
-	], { stdio: 'ignore' })
+	let chrome = null
+	let ws = null
+	let seq = 0
+	const waiting = new Map()
+	const pageErrors = []
 	const cleanup = () => {
-		chrome.kill()
+		chrome?.kill()
 		try { rmSync(profile, { recursive: true, force: true }) } catch { /* Chrome may still hold it */ }
 	}
 	process.on('exit', cleanup)
 
-	let target
-	for (let i = 0; i < 100 && !target; i++) {
-		await sleep(100)
-		try {
-			const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()
-			target = list.find((t) => t.type === 'page')
-		} catch { /* not up yet */ }
-	}
-	if (!target) fail('Chrome did not open its DevTools port')
-
-	const ws = new WebSocket(target.webSocketDebuggerUrl)
-	await new Promise((r, j) => { ws.onopen = r; ws.onerror = j })
-	let seq = 0
-	const waiting = new Map()
-	ws.onmessage = (m) => {
-		const msg = JSON.parse(m.data)
-		if (msg.id && waiting.has(msg.id)) {
-			waiting.get(msg.id)(msg)
-			waiting.delete(msg.id)
-		} else if (msg.method === 'Runtime.exceptionThrown') {
-			const d = msg.params.exceptionDetails
-			// The message and its first frames, enough to find the code. Wails' runtime throws in
-			// /wails/ipc.js in a plain browser page (no desktop host); that is not the app's.
-			if (d.exception?.description?.includes('/wails/ipc.js')) return
-			pageErrors.push(d.exception?.description?.split('\n').slice(0, 3).map((l) => l.trim()).join(' ') ?? d.text)
-		}
-	}
-	const pageErrors = []
-	const send = (method, params = {}) => new Promise((r) => {
+	/** A CDP command. Rejects when the page's socket closes or nothing answers in time, so a closed page never stalls the run (#388). */
+	const send = (method, params = {}, timeout = 60_000) => new Promise((resolve, reject) => {
+		if (!ws || ws.readyState !== WebSocket.OPEN) return reject(new Error(`the probe page is closed (${method})`))
 		const id = ++seq
-		waiting.set(id, r)
+		const timer = setTimeout(() => { waiting.delete(id); reject(new Error(`${method} got no answer in ${timeout / 1000} s`)) }, timeout)
+		waiting.set(id, { resolve: (m) => { clearTimeout(timer); resolve(m) }, reject: (e) => { clearTimeout(timer); reject(e) } })
 		ws.send(JSON.stringify({ id, method, params }))
 	})
 	const evaluate = async (expression, timeout = TIMEOUT) => {
 		const res = await Promise.race([
-			send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }),
+			send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, timeout + 5000),
 			sleep(timeout).then(() => ({ timedOut: true })),
 		])
 		if (res.timedOut) throw new Error(`timed out after ${timeout / 1000} s`)
@@ -203,11 +178,57 @@ async function main() {
 		return r.result.value
 	}
 
-	await send('Runtime.enable')
-	// The page keeps only 250 resource entries by default, which the app's modules fill, and P.app (lib.js)
-	// reads the module URLs from them; raise the limit before the page's scripts run.
-	await send('Page.enable')
-	await send('Page.addScriptToEvaluateOnNewDocument', { source: 'performance.setResourceTimingBufferSize(100000)' })
+	/** Starts a headless Chrome with a fresh profile and connects to its page. Used at the start and again after a probe leaves the page unusable (#388). */
+	const launch = async () => {
+		chrome = spawn(findChrome(), [
+			'--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
+			'--window-size=1400,900', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
+			'--no-first-run', '--no-default-browser-check', 'about:blank',
+		], { stdio: 'ignore' })
+		let target
+		for (let i = 0; i < 100 && !target; i++) {
+			await sleep(100)
+			try {
+				const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()
+				target = list.find((t) => t.type === 'page')
+			} catch { /* not up yet */ }
+		}
+		if (!target) fail('Chrome did not open its DevTools port')
+		const sock = new WebSocket(target.webSocketDebuggerUrl)
+		ws = sock
+		await new Promise((r, j) => { sock.onopen = r; sock.onerror = j })
+		sock.onclose = () => {
+			for (const w of waiting.values()) w.reject(new Error('the probe page closed'))
+			waiting.clear()
+		}
+		sock.onmessage = (m) => {
+			const msg = JSON.parse(m.data)
+			if (msg.id && waiting.has(msg.id)) {
+				waiting.get(msg.id).resolve(msg)
+				waiting.delete(msg.id)
+			} else if (msg.method === 'Runtime.exceptionThrown') {
+				const d = msg.params.exceptionDetails
+				// The message and its first frames, enough to find the code. Wails' runtime throws in
+				// /wails/ipc.js in a plain browser page (no desktop host); that is not the app's.
+				if (d.exception?.description?.includes('/wails/ipc.js')) return
+				pageErrors.push(d.exception?.description?.split('\n').slice(0, 3).map((l) => l.trim()).join(' ') ?? d.text)
+			}
+		}
+		await send('Runtime.enable')
+		// The page keeps only 250 resource entries by default, which the app's modules fill, and P.app (lib.js)
+		// reads the module URLs from them; raise the limit before the page's scripts run.
+		await send('Page.enable')
+		await send('Page.addScriptToEvaluateOnNewDocument', { source: 'performance.setResourceTimingBufferSize(100000)' })
+	}
+	/** Throws Chrome away (the probe's own, found by its port and profile) and starts another, since a timed-out or closed page does not recover. */
+	const relaunch = async () => {
+		try { ws?.close() } catch { /* already closed */ }
+		chrome?.kill()
+		await sleep(500)
+		try { rmSync(profile, { recursive: true, force: true }) } catch { /* Chrome may still hold it */ }
+		await launch()
+	}
+	await launch()
 	const lib = readFileSync(join(here, 'lib.js'), 'utf8')
 
 	/** One probe on a fresh page, so one probe's state never leaks into the next. */
@@ -238,6 +259,8 @@ async function main() {
 			}
 		} catch (err) {
 			out = { probe: name, ok: false, error: err.message }
+			// The page itself is lost (a timeout, a closed or navigated target, no answer): it needs a new Chrome (#388).
+			if (/timed out after|got no answer|page (is )?closed|navigated or closed|Target closed|Session with given id|Cannot find context/.test(err.message)) out.lostPage = true
 			// Where it stopped: the step a wait (P.until, P.settle) was in, and for a throw the first
 			// stack line inside the probe's own body, as a line of the probe file.
 			const step = await evaluate('window.__probeStep ?? null', 5000).catch(() => null)
@@ -265,6 +288,15 @@ async function main() {
 	for (const p of run) {
 		const t0 = Date.now()
 		let out = await runOnce(p)
+		const recover = async () => {
+			if (!out.lostPage && !out.sandboxEnd) return
+			await relaunch()
+			// The lost page could not end a throwaway client it had turned on; a new page ends it (a no-op when none is on).
+			if (out.sandboxEnd) {
+				await send('Page.navigate', { url: PAGE })
+				await evaluate(`(async () => { for (let i = 0; i < 300; i++) { if (window.go?.main?.App) return window.go.main.App.EndClientSandbox(); await new Promise((r) => setTimeout(r, 100)) } })()`, 60_000).catch(() => null)
+			}
+		}
 		// After a new Go binding, wails dev replaces wailsjs' App.js by rename, Vite's watcher misses it
 		// and the page fails on "does not provide an export named" (docs/TESTS.md). Moving the file out
 		// and back makes Vite see a new file; then run the probe again, once.
@@ -275,6 +307,16 @@ async function main() {
 			await sleep(2000)
 			out = { ...(await runOnce(p)), refreshedWailsjs: true }
 		}
+		// A failure gets one more try in a fresh page (a new Chrome when the page was lost), so a probe that fails only in a
+		// long run is reported flaky instead of failing the run, and a real break still fails twice (#388).
+		if (!out.ok) {
+			const first = out
+			await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
+			out = await runOnce(p)
+			if (out.ok) out = { ...out, flaky: true, firstFailure: first.error ?? first.pageErrors?.[0] ?? 'ok: false', ...(first.step ? { firstStep: first.step } : {}) }
+			else out.retried = true
+		}
+		await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
 		out.seconds = Math.round((Date.now() - t0) / 100) / 10
 		// Taken after every probe, so a later probe never writes this one's pictures.
 		const saved = (await evaluate('(() => { const s = window.__probeShots ?? []; window.__probeShots = []; return s })()').catch(() => null)) ?? []
