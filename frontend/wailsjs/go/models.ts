@@ -452,6 +452,68 @@ export namespace main {
 
 export namespace mapfile {
 	
+	export class PathPoint {
+	    x: number;
+	    y: number;
+	    z: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PathPoint(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	    }
+	}
+	export class MapPath {
+	    id: number;
+	    name: string;
+	    kind: string;
+	    points: PathPoint[];
+	    width: number;
+	    falloff: number;
+	    edge: number;
+	    grade: number;
+	    texture: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MapPath(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.kind = source["kind"];
+	        this.points = this.convertValues(source["points"], PathPoint);
+	        this.width = source["width"];
+	        this.falloff = source["falloff"];
+	        this.edge = source["edge"];
+	        this.grade = source["grade"];
+	        this.texture = source["texture"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ReferenceImage {
 	    path: string;
 	    mode: string;
@@ -584,6 +646,7 @@ export namespace mapfile {
 	    tileEffects?: Record<string, any>;
 	    // Go type: ReferenceImage
 	    reference?: any;
+	    paths?: MapPath[];
 	    version?: number;
 	    heights: string;
 	    weights?: string;
@@ -620,6 +683,7 @@ export namespace mapfile {
 	        this.zoneEffects = source["zoneEffects"];
 	        this.tileEffects = source["tileEffects"];
 	        this.reference = this.convertValues(source["reference"], null);
+	        this.paths = this.convertValues(source["paths"], MapPath);
 	        this.version = source["version"];
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];

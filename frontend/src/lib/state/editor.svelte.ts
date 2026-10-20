@@ -8,6 +8,7 @@ import { noRoles, type TextureRoles } from '../terrain/roles'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import type { ReferenceImage } from '../terrain/referenceImage'
+import type { MapPath, PathKind } from '../terrain/paths'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { MaskPick } from '../terrain/maskSelect'
 import { newSpawnBrush, type SpawnBrush } from '../tools/spawnBrush'
@@ -20,7 +21,7 @@ import type { vmangos } from '../../../wailsjs/go/models'
 // Reactive editor state (Svelte 5 runes). The engine reads these values each
 // frame; it never stores per-frame data here (that would trigger re-renders).
 
-export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata' | 'stamp'
+export type ToolId = 'select' | 'sculpt' | 'paint' | 'road' | 'water' | 'place' | 'clear' | 'doodad' | 'mapdata' | 'stamp' | 'path'
 /**
  * What the Map data tool paints into the chunk headers: the zone (an AreaTable.dbc ID), the
  * impassable flag, or the cells that grow no ground effect doodads.
@@ -122,6 +123,13 @@ export const editor = $state({
   scopedEffects: { zones: {}, tiles: {} } as ScopedEffects,
   /** The map's reference image (terrain/referenceImage.ts, View › Reference Image): its path and where it lies; saved with the map. */
   reference: null as ReferenceImage | null,
+  /** The map's paths (terrain/paths.ts, the Path tool, #167): roads drawn along a curve; saved with the map, never exported. */
+  paths: [] as MapPath[],
+  /** The Path tool's picked path (its id) and point (its index); -1 for none. Not saved. */
+  pathId: -1,
+  pathPoint: -1,
+  /** What a new path does. */
+  pathKind: 'road' as PathKind,
   /**
    * Sculpt's Vertex mode lays the selected vertices onto a plane through the selection centre or the
    * cursor, rising at vertexAngle degrees (-89 to 89) toward vertexDir degrees (0 is +x, 90 is +z).

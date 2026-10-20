@@ -22,6 +22,12 @@
 {:else if editor.tool === 'place'}
 	<kbd>Ctrl</kbd>+scroll rotate · <kbd>Shift</kbd>+scroll scale · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>←↑↓→</kbd> offset from the cursor · <kbd>R</kbd> spin · props attach to what they're placed on{#if editor.selected}
 		· Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect{/if}
+{:else if editor.tool === 'path'}
+	{#if editor.pathId < 0}
+		Click the ground to start a path, and again to add its points
+	{:else}
+		Click to add a point (on the curve inserts one) · drag a point to move it, <kbd>Shift</kbd>+drag to raise it · <kbd>Del</kbd> deletes the point · <kbd>Enter</kbd> applies · <kbd>Esc</kbd> starts a new path
+	{/if}
 {:else if editor.tool === 'stamp'}
 	The size and strength are the stack's: its brushes take them unless they have their own.
 {:else if editor.tool === 'doodad' && editor.doodadMode === 'creatures'}

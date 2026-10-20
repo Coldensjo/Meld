@@ -121,6 +121,35 @@ type Header struct {
 	// Reference is the author's reference image laid over the map (#184): its path, never its
 	// pixels, and where it lies. Optional; older readers ignore it.
 	Reference *ReferenceImage `json:"reference,omitempty"`
+	// Paths are the roads drawn along a curve with the Path tool (#167), kept so they can be moved and
+	// applied again; what an apply wrote is in the heights and paint. Never exported. Optional; older
+	// readers ignore it.
+	Paths []MapPath `json:"paths,omitempty"`
+}
+
+// PathPoint is a path's control point, in world units.
+type PathPoint struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
+}
+
+// MapPath is a path of the Path tool (frontend terrain/paths.ts): its control points and what its
+// apply does.
+type MapPath struct {
+	ID     int         `json:"id"`
+	Name   string      `json:"name"`
+	Kind   string      `json:"kind"`
+	Points []PathPoint `json:"points"`
+	// Width is the levelled and painted part's full width, Falloff the yards over which the ground
+	// blends back at each side, and Edge the yards over which the paint fades (0 is hard), all in yards.
+	Width   float64 `json:"width"`
+	Falloff float64 `json:"falloff"`
+	Edge    float64 `json:"edge"`
+	// Grade is the steepest the path climbs along its length, in percent; 0 for no limit.
+	Grade float64 `json:"grade"`
+	// Texture is the palette texture painted along it; "" for none.
+	Texture string `json:"texture"`
 }
 
 // ReferenceImage is a picture the author traces the map from (View › Reference Image): a file of

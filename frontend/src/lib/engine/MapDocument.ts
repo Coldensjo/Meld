@@ -4,6 +4,7 @@ import { noScopedEffects, type ScopedEffects, type TextureEffects } from '../wor
 import type { TextureLooks } from '../world/textureLooks'
 import type { ReferenceImage } from '../terrain/referenceImage'
 import type { LoadedReference } from '../io/referenceLoad'
+import type { MapPath } from '../terrain/paths'
 import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
 import { Water } from '../water/Water'
@@ -42,6 +43,8 @@ export interface DocMeta {
   scopedEffects: ScopedEffects
   /** The map's reference image record (editor.reference), saved with the map. */
   reference: ReferenceImage | null
+  /** The map's paths (editor.paths, the Path tool), saved with the map. */
+  paths: MapPath[]
 }
 
 /** A saved camera view: where it looks at, and from what angle and distance. */
@@ -183,6 +186,7 @@ export class MapDocument {
       textureLooks: {},
       scopedEffects: noScopedEffects(),
       reference: null,
+      paths: [],
     }
   }
 

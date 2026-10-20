@@ -234,6 +234,11 @@
       editor.sculptPaintLayer = slot
       return
     }
+    // In the Path tool the pick is the picked path's texture, and the tool stays (#167).
+    if (editor.tool === 'path') {
+      engine.path((t, c) => t.setField(c, 'texture', editor.palette[slot]))
+      return
+    }
     if (editor.tool !== 'paint' && editor.tool !== 'road') editor.tool = 'paint'
     // With a mask painted, picking a texture fills the whole mask with it.
     if (ui.maskActive && editor.tool === 'paint') engine.fillMask(slot)

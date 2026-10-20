@@ -12,6 +12,8 @@
 	import { activeBrushStack } from '../lib/tools/StampTool'
 	import { chooseBrushImageFolder, listBrushImages, useBrushImage } from '../lib/io/brushImages'
 	import type { vmangos } from '../../wailsjs/go/models'
+	import { NARROW_WIDTH, type MapPath } from '../lib/terrain/paths'
+	import type { PathField } from '../lib/tools/PathTool'
 
 	const SCULPT_MODES: Array<{ id: SculptMode; name: string; tip: string }> = [
 		{ id: 'raise', name: 'Raise', tip: 'Lift the ground under the brush' },
@@ -99,6 +101,12 @@
 			return
 		}
 		await useBrushImage(value)
+	}
+
+	/** The Path tool's picked path (#167), and a setter for its fields that records undo. */
+	const pickedPath = $derived(editor.paths.find((p) => p.id === editor.pathId))
+	function setPath<K extends PathField>(key: K, value: MapPath[K]) {
+		engineRef.current?.path((t, c) => t.setField(c, key, value))
 	}
 
 	/** Opens the brush editor window, making a brush first when there is none. */
@@ -379,6 +387,36 @@
 		{#if editor.tool === 'road'}
 			<label class="check"><input type="checkbox" bind:checked={editor.roadFlatten} /> Level terrain</label>
 			{@render editLimit()}
+		{/if}
+		<div class="divider"></div>
+	{:else if editor.tool === 'path'}
+		<select class="curve" value={editor.pathId} onchange={(e) => engineRef.current?.path((t) => t.pick(Number(e.currentTarget.value)))} title="The path the clicks add points to and Apply bakes; New path makes the next click start one" aria-label="Path">
+			<option value={-1}>New path</option>
+			{#each editor.paths as p (p.id)}
+				<option value={p.id}>{p.name} ({p.points.length} points)</option>
+			{/each}
+		</select>
+		{#if pickedPath}
+			{@const pp = pickedPath}
+			<OptSlider label="Width" bind:value={() => pp.width, (v) => setPath('width', v)} min={1} max={60} step={0.5} digits={1} width={70} title="The full width that is levelled and painted, in yards" />
+			<OptSlider label="Falloff" bind:value={() => pp.falloff, (v) => setPath('falloff', v)} min={0} max={40} step={0.5} digits={1} width={60} title="The yards beyond each side over which the ground blends back into what was there" />
+			<OptSlider label="Max grade %" bind:value={() => pp.grade, (v) => setPath('grade', v)} min={0} max={100} step={1} digits={0} width={60} title="The steepest the road may climb along its length, in percent (10 rises 10 yd over 100); 0 follows the points' heights" />
+			<select class="curve" value={pp.texture} onchange={(e) => setPath('texture', e.currentTarget.value)} title="The texture painted along the road: one of the map's textures (pick more in the asset browser)" aria-label="Path texture">
+				<option value="">Paint: none</option>
+				{#each editor.palette as tex (tex)}
+					<option value={tex}>Paint: {texName(tex)}</option>
+				{/each}
+				{#if pp.texture && !editor.palette.includes(pp.texture)}
+					<option value={pp.texture}>Paint: {texName(pp.texture)} (not in the map)</option>
+				{/if}
+			</select>
+			<OptSlider label="Edge" bind:value={() => pp.edge, (v) => setPath('edge', v)} min={0} max={8} step={0.25} digits={2} width={50} title="The yards over which the paint fades at each side; 0 is a hard edge" />
+			{#if pp.width < NARROW_WIDTH}
+				<span class="warn" title="The ground has a vertex every 2 yards, so a road narrower than two cells comes out jagged">Narrower than {NARROW_WIDTH} yd: jagged</span>
+			{/if}
+			<button onclick={() => engineRef.current?.path((t, c) => t.apply(c))} title="Bake the path into the map as one undo step; applying it again first takes back its last apply (Enter)">Apply</button>
+			<button onclick={() => engineRef.current?.path((t, c) => t.deletePoint(c))} disabled={editor.pathPoint < 0} title="Delete the picked point (Delete)">Delete point</button>
+			<button onclick={() => engineRef.current?.path((t, c) => t.deletePath(c))} title="Delete the path; what it applied stays in the map">Delete path</button>
 		{/if}
 		<div class="divider"></div>
 	{:else if editor.tool === 'water'}
@@ -774,6 +812,10 @@
 	}
 	.dim {
 		color: var(--text-dim);
+	}
+	.warn {
+		color: var(--danger-text);
+		white-space: nowrap;
 	}
 	.weight {
 		width: 38px;

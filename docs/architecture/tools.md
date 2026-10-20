@@ -71,6 +71,24 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   with the brush's level, wander, respawn and facing; the Engine supplies guids and looks
   (`brushCreature`, `brushLook`). A stroke is one undo step of ordinary unsaved spawn edits.
 
+- **Paths** (`tools/PathTool.ts`, tool `path`, key K, #167): roads drawn along a spline, as Unreal's
+  landscape splines. A path (`terrain/paths.ts`, `MapPath`) is control points plus its settings
+  (width, falloff, max grade in percent, texture, paint edge), kept per map in `editor.paths`
+  (`DocMeta.paths`, the map file's `paths` header) and picked by `editor.pathId`/`pathPoint`. A click
+  on the ground adds a point to the picked path (on the curve's width it inserts one; with no path
+  picked it starts one), a drag moves a point keeping its height above the ground, Shift+drag raises
+  it; every change is an undo step that swaps in a copy of the whole list (`PathTool.record`), and a
+  run of changes to one setting merges into one (`setField`). The dots are picked by their angle off
+  the pointer's ray (`PICK_ANGLE`), so they are as easy to hit near or far. The curve is a centripetal
+  `CatmullRomCurve3` sampled every half yard by arc length (`samplePath`), its heights graded
+  (`limitGrade`), and `pathField` gives every vertex or texel near it the distance to the curve and
+  the curve's height there, filling only each sample segment's box. Apply (`tools/pathApply.ts`,
+  `applyRoad`) levels the vertices with a cosine falloff (`crossWeight`) and paints the texels, and
+  records only what it touched (heights per vertex, paint per chunk), since a diagonal road's rect
+  would hold most of a region's paint. Applying again first undoes the path's last apply while it is
+  live (`PathTool.applies`, per terrain, not saved), inside the new undo step, so undoing that step
+  puts the old apply back; what was painted or sculpted in the chunks it covered since is lost there.
+
 ## Selection, clipboard & nudging
 
 - **Select tool** (`tools/ObjectTools.ts`, `SelectTool`) does both kinds of selection:

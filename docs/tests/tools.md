@@ -296,3 +296,17 @@ and `e.undo()` brings them and their marks back.
 - The marks are found again only when the brush moves, its radius changes or a model is added or
   removed (`ObjectLayer.version`); a model moved under a still brush is picked up on the next move.
 - The tint is drawn over the frame, so it shows through what stands in front of a marked model.
+
+## Paths: roads along a curve (#167, probe `path-road`)
+
+Checks: the Path tool's clicks drop a road's points on the ground, a click on a dot picks it rather
+than adding one, Shift+drag raises it, Apply levels the ground to the curve's height and paints the
+road's texture across its width (one undo step), and applying again after deleting the raised point
+takes the first apply back (the hump goes), with both applies undoing in order.
+`bun run probe path-road` on a fresh flat map; `--shot <dir>` saves `path-road-applied.png`, the road
+seen from above with its dots and width lines.
+- `frontend/tests/paths.test.ts` covers the curve sampling, the grade limit, the cross profile, the
+  distance field, reading paths from a file and `applyRoad`'s heights and paint with their undo, on a
+  plain object standing in for `Terrain`.
+- The probe aims the clicks by projecting world points through `e.camera` (`Vector3.project`), and
+  passes `movementY` in the drag's event options, which a synthetic `PointerEvent` otherwise leaves 0.

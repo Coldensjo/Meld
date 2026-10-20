@@ -158,7 +158,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
 - **Reference image** (View › Reference Image, `components/ReferenceWindow.svelte`, `ui.referenceWindow`,
   #184): the author's own plan of a zone, a PNG or JPEG of theirs. The map file keeps only its path and
   where it lies (`Header.Reference`, `mapfile.ReferenceImage`: an optional header field, no version
-  bump; `editor.reference`, per map in `DocMeta.reference`, an undo step for every change through
+  bump, as the paths' `Header.Paths` (#167, tools.md) is too; `editor.reference`, per map in `DocMeta.reference`, an undo step for every change through
   `Engine.setReference`). `ReadReferenceImage` returns the file's bytes and the page decodes them
   (`io/referenceLoad.ts`, at most `REF_MAX_SIDE` 2048 a side) into the pixels the conversions read and
   a texture, held by the document (`MapDocument.referenceImage`, read again when the map opens). On

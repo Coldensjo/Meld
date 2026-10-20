@@ -19,6 +19,10 @@
       editor.sculptPaintLayer = slot
       return
     }
+    if (editor.tool === 'path') {
+      e.path((t, c) => t.setField(c, 'texture', editor.palette[slot]))
+      return
+    }
     editor.paintLayer = slot
     if (editor.tool !== 'paint' && editor.tool !== 'road') editor.tool = 'paint'
   }

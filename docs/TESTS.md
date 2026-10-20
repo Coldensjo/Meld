@@ -536,6 +536,7 @@ the same scene, the report before and after.
 - Group gizmo (ring, knob and arrow on a multi-selection)
 - Mouse-move snap (Follow cursor, Snap models to the ground)
 - Clear tool: the models a stroke would delete (#131)
+- Paths: roads along a curve (#167, probe `path-road`)
 
 ### UI and the window (`docs/tests/ui.md`)
 

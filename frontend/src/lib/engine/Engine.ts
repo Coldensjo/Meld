@@ -24,6 +24,8 @@ import { pickLayer, pickModel, pickSpawn } from '../tools/PipetteTool'
 import { TerrainStroke, brushCenter, paintPixel, type Rect } from '../tools/brush'
 import { editWholeMask, modifyMask } from '../tools/maskWand'
 import { ChunkDataStroke } from '../tools/chunkDataStroke'
+import { copyPaths, type MapPath } from '../terrain/paths'
+import { PathTool } from '../tools/PathTool'
 import { areasFromImage, colourIndices, copyReference, dragCorner, dragTurn, fitPlace, heightsFromImage, maskFromImage, refHit, sameReference, texturesFromImage, type RefColour, type RefHeightMode, type ReferenceImage, type ReferencePlace } from '../terrain/referenceImage'
 import { readReferenceFile, type LoadedReference } from '../io/referenceLoad'
 import { areaCells, areaShape, objectsInArea, setAreaCells } from '../state/areaSelection'
@@ -223,6 +225,8 @@ export interface MapSnapshot {
   scopedEffects: ScopedEffects
   /** The map's reference image (terrain/referenceImage.ts): its path and where it lies; null for none. */
   reference: ReferenceImage | null
+  /** The map's paths (terrain/paths.ts), kept so they can be moved and applied again. */
+  paths: MapPath[]
   heights: Uint8Array
   /** Four weights per splat texel (format 2). */
   weights: Uint8Array
@@ -450,6 +454,8 @@ export class Engine {
   private doomTargets: OutlineTarget[] = []
   private doomMatrices: THREE.Matrix4[] = []
   private clearTool = new ClearTool()
+  /** The Path tool (#167), which the options bar reaches through `path`. */
+  private pathTool = new PathTool()
   private spawnLabels: SpawnLabels
   private gizmo = new TransformGizmo()
   /** Active handle drag: which handle and the state when it started. */
@@ -610,6 +616,7 @@ export class Engine {
       doodad: this.doodadTool,
       stamp: new StampTool(),
       mapdata: new MapDataTool(),
+      path: this.pathTool,
     }
 
     // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
@@ -2219,6 +2226,7 @@ export class Engine {
       textureLooks: { ...editor.textureLooks },
       scopedEffects: structuredClone(plainScoped(editor.scopedEffects)),
       reference: copyReference(editor.reference),
+      paths: copyPaths(editor.paths),
       region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
@@ -2267,6 +2275,9 @@ export class Engine {
     editor.textureLooks = { ...m.textureLooks }
     editor.scopedEffects = structuredClone(m.scopedEffects ?? noScopedEffects())
     editor.reference = copyReference(m.reference)
+    editor.paths = copyPaths(m.paths ?? [])
+    editor.pathId = -1
+    editor.pathPoint = -1
     ui.referenceUrl = d.referenceImage?.url ?? ''
     ui.referenceVersion++
     this.refDrag = null
@@ -3343,6 +3354,7 @@ export class Engine {
       textureLooks: { ...m.textureLooks },
       scopedEffects: structuredClone(plainScoped(m.scopedEffects ?? noScopedEffects())),
       reference: copyReference(m.reference),
+      paths: copyPaths(m.paths ?? []),
       heights: new Uint8Array(t.heights.buffer, t.heights.byteOffset, t.heights.byteLength),
       weights: t.weights,
       chunkSlots: t.chunkSlots,
@@ -3433,6 +3445,7 @@ export class Engine {
       textureLooks: { ...(m.textureLooks ?? {}) },
       scopedEffects: structuredClone(m.scopedEffects ?? noScopedEffects()),
       reference: copyReference(m.reference),
+      paths: copyPaths(m.paths ?? []),
     }
     // The image is the author's file, read again each time the map opens.
     if (m.reference) void this.loadReferenceImage(m.reference.path, d)
@@ -5487,6 +5500,11 @@ export class Engine {
   }
 
   /** Sculpt's Vertex mode: flatten the selected vertices to their mean height, or clear the selection. */
+  /** Runs `fn` on the Path tool, for the options bar's path controls (#167). */
+  path<T>(fn: (tool: PathTool, ctx: ToolContext) => T): T {
+    return fn(this.pathTool, this.ctx)
+  }
+
   vertexAction(action: 'flatten' | 'clear') {
     ;(this.tools.sculpt as SculptTool).vertexAction(this.ctx, action)
   }
