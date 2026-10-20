@@ -16,6 +16,15 @@ The window layout, the asset browser and the dock panels and floating windows.
   - Contextual editing goes in dock panels (`DockPanel` wrapper: tabs + collapse). Dock width
     and collapsed panels are stored in `prefs`.
   - Theme tokens are in `app.css` (neutral greys, blue `--accent`).
+  - **Interface size** (Preferences, Ctrl+= / Ctrl+- / Ctrl+0, `prefs.uiScale`, #372):
+    `lib/ui/uiScale.ts` puts CSS `zoom` on the root element, since every size in the app is in px.
+    Under it, pointer positions (`clientX`) and `getBoundingClientRect` stay in window px, while
+    `left`, `top`, widths, `offsetWidth`, `clientWidth` and `scrollTop` are in the zoomed page's CSS
+    px. So code that turns a pointer position, a drag distance or a rect into a CSS position or size
+    goes through `toCss` (and `cssViewport()` for the window's size); a ratio of a pointer to a rect
+    (the viewport's picking) needs nothing. Zoom scales `vw` and `vh` too: use `var(--vw)` and
+    `var(--vh)` from `app.css`. The 3D canvas and the preview canvases multiply their pixel ratio
+    by the zoom, so they keep one buffer pixel per screen pixel.
 
 - **Asset browser** (`components/AssetBrowser.svelte`, along the bottom of the window):
   - Search-first: `lib/wow/search.ts` tokenises every path (folder segments, file-name words,

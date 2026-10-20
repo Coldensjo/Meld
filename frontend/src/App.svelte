@@ -37,6 +37,7 @@
   import { LAYERS } from './lib/terrain/layers'
   import { docs, editor, prefs, setStatus, stepCameraSpeed, ui, wow } from './lib/state/editor.svelte'
   import { stepFalloff } from './lib/tools/brushSize'
+  import { applyUiScale, stepUiScale } from './lib/ui/uiScale'
   import { engineRef } from './lib/state/engineRef'
   import { openMap, saveMinimapImage, saveOrPublish } from './lib/io/mapio'
   import { requestClose } from './components/DocTabs.svelte'
@@ -82,6 +83,9 @@
       void AckClose()
     })
   })
+
+	// Preferences › Interface size (#372): the whole page zoomed, before the engine reads the pref for its pixel ratio.
+	$effect(() => applyUiScale(prefs.uiScale))
 
   // Apply preferences to the engine whenever they change, and persist them.
   $effect(() => {
@@ -261,6 +265,10 @@
       }
       else if (key === 'b') engine.addBookmark()
       else if (e.key === 'PageDown') engine.snapSelectedToGround()
+			// Interface size (#372): Ctrl+= (or Ctrl++) larger, Ctrl+- smaller, Ctrl+0 back to 100 %.
+			else if (e.key === '=' || e.key === '+') prefs.uiScale = stepUiScale(prefs.uiScale, 1)
+			else if (e.key === '-' || e.key === '_') prefs.uiScale = stepUiScale(prefs.uiScale, -1)
+			else if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') prefs.uiScale = 1
       else return
       e.preventDefault()
       return

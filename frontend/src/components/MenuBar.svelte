@@ -16,6 +16,7 @@
 	import { rememberAntialias, toggleFullScreen } from '../lib/engine/display'
 	import { MANUAL_URL } from './AppDialogs.svelte'
 	import { TOOLBAR_ICON_MAX, TOOLBAR_ICON_MIN } from './Toolbar.svelte'
+	import { UI_SCALES } from '../lib/ui/uiScale'
 	import { GRAPHICS_PRESETS, applyPreset, presetOf } from '../lib/state/graphicsPresets'
 	import { focusMenuEdge, menuMoveFocus } from '../lib/ui/menuKeys'
 	import { tick } from 'svelte'
@@ -569,6 +570,12 @@
 					() => prefs.mouseSensitivity,
 					(v) => (prefs.mouseSensitivity = v),
 				),
+				{ kind: 'header', label: 'Interface size (Ctrl+= / Ctrl+- / Ctrl+0)' },
+				...radios(
+					UI_SCALES.map((s) => [`${Math.round(s * 100)} %`, s] as [string, number]),
+					() => prefs.uiScale,
+					(v) => (prefs.uiScale = v),
+				),
 				{ kind: 'header', label: 'Toolbar icons' },
 				...radios(
 					[
@@ -800,7 +807,7 @@
 		border-radius: 8px;
 		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 		/* A menu that still outgrows a small window scrolls rather than running off it. */
-		max-height: calc(100vh - 48px);
+		max-height: calc(100 * var(--vh) - 48px);
 		overflow-y: auto;
 	}
 	.item {

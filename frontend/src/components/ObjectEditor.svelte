@@ -595,7 +595,7 @@
 	.right {
 		/* One width on every tab, so the preview beside it never moves. */
 		flex: none;
-		width: min(560px, 45vw);
+		width: min(560px, calc(45 * var(--vw)));
 		min-width: 0;
 		display: flex;
 		flex-direction: column;

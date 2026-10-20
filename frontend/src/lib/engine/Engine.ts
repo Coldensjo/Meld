@@ -111,6 +111,7 @@ import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selec
 import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, ObjectTeleport, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionShadows, SpawnLook } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 import { contentKey } from '../io/regionKey'
+import { clampUiScale } from '../ui/uiScale'
 
 /** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
 const FIT_APRON_CELLS = 2
@@ -2039,7 +2040,8 @@ export class Engine {
     if (!p.dayCycle) this.hour = p.timeOfDay
     this.env.setClouds(p.clouds)
     this.env.setShadows(p.shadows)
-    const ratio = Math.min(window.devicePixelRatio * p.renderScale, 3)
+		// Times the interface size (#372): under the page's CSS zoom the canvas's CSS px are that much larger on screen.
+    const ratio = Math.min(window.devicePixelRatio * p.renderScale * clampUiScale(p.uiScale), 3)
     if (this.renderer.getPixelRatio() !== ratio) {
       this.renderer.setPixelRatio(ratio)
       this.resize()

@@ -937,7 +937,7 @@
 	.look {
 		/* One width, so the fields beside it never move. */
 		flex: none;
-		width: min(400px, 34vw);
+		width: min(400px, calc(34 * var(--vw)));
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
@@ -948,7 +948,7 @@
 	}
 	.model {
 		flex: none;
-		height: min(420px, 45vh);
+		height: min(420px, calc(45 * var(--vh)));
 		display: flex;
 		flex-direction: column;
 		border: 1px solid var(--border);

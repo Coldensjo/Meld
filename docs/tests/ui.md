@@ -365,3 +365,20 @@ Checks: the menu bar and the right-click menu work from the keyboard.
   the focus back to the opener, and a pick running its item. Run `hotkeys` and `dialog-focus` with it.
 - Trap: a synthetic Tab doesn't move the focus, so the probe only checks the menu closed and the
   focus sits on the title, from where the browser's own Tab moves on.
+
+## Interface size (#372, probe `ui-scale`)
+
+Checks: Preferences › Interface size zooms the whole UI and everything still lines up.
+- `bun run probe ui-scale` sets 150 % and checks the root's `zoom` and `--ui-zoom`, that the app
+  fills the window without running past it, that the canvas's buffer matches its size on screen
+  (sharp), that the window's own hit test finds the canvas inside its rect and a pointer at a share
+  of the rect gives the engine that share, that the Preferences menu fits and lists the sizes, that
+  a right-click menu opened at window px (300, 200) has its corner there, and Ctrl+= / Ctrl+- /
+  Ctrl+0. Run `menu-keys`, `dialog-focus`, `zones-fit` and `hide-panels` with it.
+- To look at it: a scratch probe that sets `prefs.uiScale = 1.5` and opens a dialog, run with
+  `--shot <dir>`.
+- Trap: the zoom also scales `vw` and `vh` (a `100vh` box is 1.5 windows tall at 150 %), which is
+  why the styles use `var(--vh)`. A new `vh` or `vw` in a style overflows at a larger size.
+- Not checked here: WebKitGTK (Linux). Its `zoom` may report `getBoundingClientRect` in the zoomed
+  page's px rather than window px; check the viewport picking, the right-click menu and the dock's
+  resizer there at 150 %.

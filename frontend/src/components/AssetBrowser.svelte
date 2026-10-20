@@ -18,6 +18,7 @@
   import { exportModelSet, hasBackend, importModelSets } from '../lib/io/mapio'
   import PrefabBrowser from './PrefabBrowser.svelte'
   import { paletteIndex } from '../lib/terrain/chunkPaint'
+  import { cssViewport, toCss } from '../lib/ui/uiScale'
 
   /** A tab: the client's files by kind, all of them, the world database's templates, or the author's sets. */
   type Kind = AssetKind | 'all' | SpawnKind | 'sets' | 'prefabs'
@@ -364,7 +365,7 @@
     const el = e.currentTarget as HTMLElement
     el.setPointerCapture(e.pointerId)
     const move = (ev: PointerEvent) => {
-      prefs.browserHeight = Math.round(Math.min(window.innerHeight * 0.7, Math.max(160, startH + (startY - ev.clientY))))
+      prefs.browserHeight = Math.round(Math.min(cssViewport().h * 0.7, Math.max(160, startH + toCss(startY - ev.clientY))))
     }
     const up = () => {
       el.removeEventListener('pointermove', move)

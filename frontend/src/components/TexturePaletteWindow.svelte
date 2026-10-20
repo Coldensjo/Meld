@@ -52,7 +52,7 @@
     bottom: 340px;
     left: 52px;
     width: 300px;
-    max-height: calc(100vh - 200px);
+    max-height: calc(100 * var(--vh) - 200px);
     display: flex;
     flex-direction: column;
     background: var(--panel);

@@ -8,6 +8,7 @@
   import { ParticleLayer, PreviewSet } from '../lib/world/ParticleLayer'
   import { prefs } from '../lib/state/editor.svelte'
   import { spawnType } from '../lib/world/spawnInfo'
+  import { uiZoom } from '../lib/ui/uiScale'
 
   // A creature shown big and animated, as the creature editor sees it: the model dressed in its look
   // (see wow.Look) playing one of its animations. Drag turns it, the wheel (or Ctrl+wheel) zooms. It
@@ -90,7 +91,9 @@
     const w = canvas.clientWidth
     const h = canvas.clientHeight
     if (!w || !h) return
-    if (canvas.width !== w || canvas.height !== h) {
+    // three sizes the buffer to the CSS size times the pixel ratio; comparing with the CSS size alone resized it every frame.
+    const pr = renderer.getPixelRatio()
+    if (canvas.width !== Math.floor(w * pr) || canvas.height !== Math.floor(h * pr)) {
       renderer.setSize(w, h, false)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
@@ -198,7 +201,8 @@
   onMount(() => {
     if (canvas) {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
-      renderer.setPixelRatio(hq ? window.devicePixelRatio : Math.min(window.devicePixelRatio, 1.5))
+      // Times the interface size (#372), so the zoomed canvas stays sharp.
+      renderer.setPixelRatio((hq ? window.devicePixelRatio : Math.min(window.devicePixelRatio, 1.5)) * uiZoom())
       renderer.outputColorSpace = THREE.SRGBColorSpace
       // three rebuilds its state and uploads the geometry and textures again on a restore by itself
       // (it cancels the loss event's default for that), and these views keep no shadow maps or other

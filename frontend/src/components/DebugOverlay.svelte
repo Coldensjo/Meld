@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { cssViewport, toCss } from '../lib/ui/uiScale'
+
   // Developer help: hold F8 and the part of the UI under the cursor is named. Components tag their
   // root elements with data-ui (see svelte.config.js), so the label reads as the component chain
   // ("Dock › DockPanel") followed by the element itself ("button.tab.active").
@@ -25,8 +27,9 @@
     y = clientY
     const el = document.elementFromPoint(clientX, clientY)
     if (!el || el.closest('.debug-overlay')) return
+    // The rect is in window px; the overlay's left and top are in the zoomed page's CSS px (#372).
     const r = el.getBoundingClientRect()
-    box = { left: r.left, top: r.top, width: r.width, height: r.height }
+    box = { left: toCss(r.left), top: toCss(r.top), width: toCss(r.width), height: toCss(r.height) }
     const names: string[] = []
     for (let n: Element | null = el; n; n = n.parentElement) {
       const ui = n.getAttribute('data-ui')
@@ -59,8 +62,11 @@
     active = false
   }
 
-  const flipX = $derived(x > window.innerWidth - 320)
-  const flipY = $derived(y > window.innerHeight - 90)
+  // The pointer in the page's CSS px, for the label's position.
+  const cx = $derived(toCss(x))
+  const cy = $derived(toCss(y))
+  const flipX = $derived(cx > cssViewport().w - 320)
+  const flipY = $derived(cy > cssViewport().h - 90)
 </script>
 
 <svelte:window onkeydown={onKeyDown} onkeyup={onKeyUp} onmousemove={onMove} onblur={onBlur} />
@@ -70,7 +76,7 @@
     {#if box}
       <div class="box" style:left="{box.left}px" style:top="{box.top}px" style:width="{box.width}px" style:height="{box.height}px"></div>
     {/if}
-    <div class="label" style:left="{flipX ? x - 316 : x + 14}px" style:top="{flipY ? y - 80 : y + 14}px">
+    <div class="label" style:left="{flipX ? cx - 316 : cx + 14}px" style:top="{flipY ? cy - 80 : cy + 14}px">
       <div class="chain">{chain.length ? chain.join(' › ') : '(no component)'}</div>
       <div class="el">{element}</div>
       {#if text}<div class="text">“{text}”</div>{/if}

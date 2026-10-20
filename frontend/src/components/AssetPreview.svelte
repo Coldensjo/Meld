@@ -5,6 +5,7 @@
   import { helperGeometry, helperMaterial, isHelper } from '../lib/models/helpers'
   import { fetchMesh, texturePreview } from '../lib/wow/api'
   import type { SearchItem } from '../lib/wow/search'
+  import { uiZoom } from '../lib/ui/uiScale'
 
   // A live view of one model or texture: models spin slowly and can be turned by dragging, so an
   // author can tell what a thing is before placing it. It has its own small renderer, so the main
@@ -58,7 +59,9 @@
     const w = canvas.clientWidth
     const h = canvas.clientHeight
     if (!w || !h) return
-    if (canvas.width !== w || canvas.height !== h) {
+    // three sizes the buffer to the CSS size times the pixel ratio; comparing with the CSS size alone resized it every frame.
+    const pr = renderer.getPixelRatio()
+    if (canvas.width !== Math.floor(w * pr) || canvas.height !== Math.floor(h * pr)) {
       renderer.setSize(w, h, false)
       camera.aspect = w / h
       camera.updateProjectionMatrix()
@@ -124,7 +127,8 @@
   onMount(() => {
     if (canvas) {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+      // Times the interface size (#372), so the zoomed canvas stays sharp.
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5) * uiZoom())
       renderer.outputColorSpace = THREE.SRGBColorSpace
       // three rebuilds its state and uploads the geometry and textures again on a restore by itself
       // (it cancels the loss event's default for that), and these views keep no shadow maps or other

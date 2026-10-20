@@ -72,7 +72,7 @@
     top: 96px;
     left: 52px;
     width: 260px;
-    max-height: calc(100vh - 160px);
+    max-height: calc(100 * var(--vh) - 160px);
     display: flex;
     flex-direction: column;
     background: var(--panel);

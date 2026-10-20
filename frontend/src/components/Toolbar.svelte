@@ -21,6 +21,7 @@
 
 <script lang="ts">
   import { editor, prefs } from '../lib/state/editor.svelte'
+  import { toCss } from '../lib/ui/uiScale'
 
   const icon = $derived(Math.min(TOOLBAR_ICON_MAX, Math.max(TOOLBAR_ICON_MIN, Number(prefs.toolbarIcon) || 22)))
 
@@ -37,7 +38,8 @@
     const place = () => {
       const b = el.getBoundingClientRect()
       const bar = el.closest('nav')!.getBoundingClientRect()
-      tip = { tool: t, x: bar.right + TIP_GAP, y: b.top + b.height / 2 }
+      // Rects are in window px, the tip's left and top in the zoomed page's CSS px (#372).
+      tip = { tool: t, x: toCss(bar.right) + TIP_GAP, y: toCss(b.top + b.height / 2) }
     }
     if (tip || performance.now() - lastHidden < TIP_DELAY) place()
     else timer = window.setTimeout(place, TIP_DELAY)

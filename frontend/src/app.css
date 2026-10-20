@@ -1,4 +1,9 @@
 :root {
+  /* Interface size (#372): lib/ui/uiScale.ts zooms the page by --ui-zoom, and zoom scales vw and vh
+     too, so a size meant as a share of the window uses var(--vw) and var(--vh) rather than vw and vh. */
+  --ui-zoom: 1;
+  --vw: calc(1vw / var(--ui-zoom));
+  --vh: calc(1vh / var(--ui-zoom));
   /* Photoshop-like neutral greys with a blue accent */
   --bg: #1e1e1e;
   --panel: #2c2c2c;

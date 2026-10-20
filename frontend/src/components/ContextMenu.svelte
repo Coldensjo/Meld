@@ -2,6 +2,7 @@
 	import { tick } from 'svelte'
 	import { ui } from '../lib/state/editor.svelte'
 	import { focusMenuEdge, menuMoveFocus } from '../lib/ui/menuKeys'
+	import { cssViewport, toCss } from '../lib/ui/uiScale'
 
 	// The viewport's right-click menu: a plain right-click (no orbit drag) on a creature, an object
 	// of the region or a placed model opens it with what can be done to that thing. It closes on a
@@ -24,14 +25,16 @@
 		})
 	})
 
-	// Keep the menu on screen when opened near the right or bottom edge.
+	// Keep the menu on screen when opened near the right or bottom edge. `m` is in window px (a
+	// pointer's position), `left` and `top` in the zoomed page's CSS px (#372).
 	const style = $derived.by(() => {
 		const m = ui.contextMenu
 		if (!m) return ''
 		const w = el?.offsetWidth ?? 220
 		const h = el?.offsetHeight ?? 120
-		const x = Math.min(m.x, window.innerWidth - w - 8)
-		const y = Math.min(m.y, window.innerHeight - h - 8)
+		const vp = cssViewport()
+		const x = Math.min(toCss(m.x), vp.w - w - 8)
+		const y = Math.min(toCss(m.y), vp.h - h - 8)
 		return `left:${Math.max(0, x)}px;top:${Math.max(0, y)}px`
 	})
 

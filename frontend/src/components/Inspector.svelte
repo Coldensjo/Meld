@@ -22,7 +22,7 @@
     position: fixed;
     top: 96px;
     width: 300px;
-    max-height: calc(100vh - 160px);
+    max-height: calc(100 * var(--vh) - 160px);
     display: flex;
     flex-direction: column;
     background: var(--panel);

@@ -2,6 +2,7 @@
   import DockPanel from './DockPanel.svelte'
   import LayersPanel from './LayersPanel.svelte'
   import { prefs } from '../lib/state/editor.svelte'
+  import { toCss } from '../lib/ui/uiScale'
 
   // Drag the left edge to resize the dock, like Photoshop's panel column.
   function startResize(e: PointerEvent) {
@@ -10,7 +11,7 @@
     const el = e.currentTarget as HTMLElement
     el.setPointerCapture(e.pointerId)
     const move = (ev: PointerEvent) => {
-      prefs.dockWidth = Math.round(Math.min(640, Math.max(240, startW + (startX - ev.clientX))))
+      prefs.dockWidth = Math.round(Math.min(640, Math.max(240, startW + toCss(startX - ev.clientX))))
     }
     const up = () => {
       el.removeEventListener('pointermove', move)

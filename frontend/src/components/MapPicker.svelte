@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { TileBlock as Block } from '../lib/io/regionGrow'
 	import { blockGaps, fullBlock, tileKey } from '../lib/io/mapTiles'
+	import { toCss } from '../lib/ui/uiScale'
 
 	// A map seen from above, stitched from the client's minimap (tiles without one, an instance's,
 	// drawn from their heights), on which a square of tiles is picked by dragging. Scroll zooms around
@@ -71,8 +72,9 @@
 	function tileAt(e: PointerEvent): { x: number; y: number } | null {
 		if (!viewEl) return null
 		const r = viewEl.getBoundingClientRect()
-		const x = Math.floor((e.clientX - r.left - panX) / scale)
-		const y = Math.floor((e.clientY - r.top - panY) / scale)
+		// Pointer and rect in window px, the pan and scale in the zoomed page's CSS px (#372).
+		const x = Math.floor((toCss(e.clientX - r.left) - panX) / scale)
+		const y = Math.floor((toCss(e.clientY - r.top) - panY) / scale)
 		if (x < 0 || y < 0 || x >= TILES || y >= TILES) return null
 		return { x, y }
 	}
@@ -98,8 +100,8 @@
 	}
 	function move(e: PointerEvent) {
 		if (panning) {
-			panX = panning.px + (e.clientX - panning.x)
-			panY = panning.py + (e.clientY - panning.y)
+			panX = panning.px + toCss(e.clientX - panning.x)
+			panY = panning.py + toCss(e.clientY - panning.y)
 			clampPan()
 			return
 		}
@@ -115,8 +117,8 @@
 		e.preventDefault()
 		if (!viewEl) return
 		const r = viewEl.getBoundingClientRect()
-		const mx = e.clientX - r.left
-		const my = e.clientY - r.top
+		const mx = toCss(e.clientX - r.left)
+		const my = toCss(e.clientY - r.top)
 		const next = Math.min(6, Math.max(1, zoom * (e.deltaY > 0 ? 0.8 : 1.25)))
 		// Zoom about the cursor: the map point under it stays put.
 		panX = mx - ((mx - panX) * next) / zoom

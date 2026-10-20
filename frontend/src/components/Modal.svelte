@@ -36,8 +36,8 @@
 		z-index: 200;
 	}
 	.dialog {
-		max-width: calc(100vw - 32px);
-		max-height: calc(100vh - 64px);
+		max-width: calc(100 * var(--vw) - 32px);
+		max-height: calc(100 * var(--vh) - 64px);
 		display: flex;
 		flex-direction: column;
 		background: var(--panel);

@@ -444,7 +444,7 @@
   }
   /* Wide enough to judge a model before adding it; a narrow window keeps room for the grid. */
   .side {
-    width: min(520px, 28vw);
+    width: min(520px, calc(28 * var(--vw)));
     flex: none;
     display: flex;
     flex-direction: column;
@@ -457,7 +457,7 @@
     text-align: center;
   }
   .right {
-    width: min(520px, 42vw);
+    width: min(520px, calc(42 * var(--vw)));
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--border);

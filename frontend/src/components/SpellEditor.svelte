@@ -795,7 +795,7 @@
 	}
 	.look {
 		flex: none;
-		width: min(380px, 32vw);
+		width: min(380px, calc(32 * var(--vw)));
 		display: flex;
 		flex-direction: column;
 		gap: 8px;

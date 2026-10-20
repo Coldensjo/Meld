@@ -121,6 +121,7 @@
         ['Ctrl+Tab / Ctrl+Shift+Tab', 'Next / previous map tab'],
         ['Tab', 'Hide / show the panels (the menu bar stays)'],
         ['F11', 'Full screen on / off'],
+        ['Ctrl+= / Ctrl+- / Ctrl+0', 'Interface larger / smaller / back to 100 %'],
         ['Ctrl+Shift+S', 'Save as'],
         ['Ctrl+Shift+P', 'Save the minimap as an image'],
     ['Ctrl+Shift+M', 'Performance overlay on / off: where the frame time goes'],
