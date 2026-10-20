@@ -506,7 +506,8 @@ export class ObjectLayer {
     m.userData.ids = ids
     // Our own cull packs what is in view; three only culls it per point-light shadow face.
     cullForShadows(m)
-    m.castShadow = true
+    // A model with nothing to draw in the game (a collision blocker) shows as a marker with no shadow.
+    m.castShadow = !a.marker
     m.receiveShadow = true
     return m
   }

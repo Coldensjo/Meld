@@ -457,12 +457,14 @@ export class SpawnLayer {
       const asset = b.type !== 'cone' && !invisible ? getAsset(b.type) : null
       const ready = asset?.ready === true
       const geometry = ready ? asset.geometry : invisible ? this.invisible : this.cone
-      const material = ready ? asset.material : (invisible ? this.invisibleMaterials : this.coneMaterials).get(b.kind)!
+      // A model the game draws nothing of (#333) is its hull in the kind's wireframe, as a spawn with no model is.
+      const marker = ready && !!asset.marker
+      const material = ready && !marker ? asset.material : (invisible || marker ? this.invisibleMaterials : this.coneMaterials).get(b.kind)!
       const mesh =
         ready && asset.skeleton ? new SkinnedInstancedMesh(geometry, material, b.items.length, asset.skeleton) : new THREE.InstancedMesh(geometry, material, b.items.length)
       cullForShadows(mesh)
-      mesh.castShadow = ready
-      mesh.receiveShadow = ready
+      mesh.castShadow = ready && !marker
+      mesh.receiveShadow = ready && !marker
       const matrices = new Float32Array(b.items.length * 16)
       const spheres = new Float32Array(b.items.length * 4)
       const batch: SpawnBatch = { mesh, kind: b.kind, type: b.type, ready, all: b.items, matrices, spheres, packed: [-1], scratch: [], dirty: true }

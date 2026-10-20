@@ -386,6 +386,23 @@ func (c *Client) WMODoodadSets(path string) ([]string, error) {
 	return names, nil
 }
 
+// nothingToDraw is the mesh Model sends for an M2 the client draws nothing of (ErrNothingToDraw):
+// no groups, effects, emitters or ribbons, and the model's collision hull as its vertices and
+// triangles (none for a model without one), so the editor can show where it stands and pick it.
+func (c *Client) nothingToDraw(path string) (*Mesh, error) {
+	raw, err := c.readM2(path)
+	if err != nil {
+		return nil, err
+	}
+	hull, _ := m2HullFaces(raw)
+	n := len(hull) / 3
+	m := &Mesh{Pos: hull, Normal: make([]float32, n*3), UV: make([]float32, n*2), Index: make([]uint32, n)}
+	for i := range m.Index {
+		m.Index[i] = uint32(i)
+	}
+	return m, nil
+}
+
 // Model returns an encoded mesh for an .m2 or .wmo path, an M2 dressed in look (a WMO with its doodad set).
 func (c *Client) Model(path string, look Look) ([]byte, error) {
 	key := "mdl:" + strings.ToLower(path)
@@ -403,6 +420,8 @@ func (c *Client) Model(path string, look Look) ([]byte, error) {
 			m, err = c.m2Mesh(path, lp)
 			if err == nil {
 				m.Consolidate()
+			} else if errors.Is(err, ErrNothingToDraw) {
+				m, err = c.nothingToDraw(path)
 			}
 		}
 		if err != nil {

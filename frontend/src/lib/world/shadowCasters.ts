@@ -31,6 +31,8 @@ export function modelCasters(objects: ObjectLayer, size: number, cellSize: numbe
 	for (const o of objects.list()) {
 		if (isHelper(o.type)) continue
 		const asset = getAsset(o.type)
+		// A model the game draws nothing of (a collision blocker, #333) casts nothing.
+		if (asset.marker) continue
 		const tree = asset.ready ? (asset.geometry.boundsTree as MeshBVH | undefined) : undefined
 		if (!tree) {
 			loading++

@@ -37,6 +37,12 @@ export interface ModelAsset {
    * as a mesh of its own: never picked and casting no shadow.
    */
   liquid?: THREE.BufferGeometry
+  /**
+   * A model the client draws nothing of (a collision blocker, an invisible trigger; #333): drawn
+   * as a see-through wireframe of its collision hull (or a small diamond without one), so it can be
+   * found, picked and deleted, and casting no shadow, as in the game.
+   */
+  marker?: boolean
 }
 
 export type ModelKind = 'm2' | 'wmo'
@@ -126,6 +132,7 @@ export function loadAsset(type: string): Promise<ModelAsset> {
       .then(async (m) => {
         const asset = buildWowAsset(m, type)
         buildBoundsTree(asset.geometry)
+        if (asset.marker) return asset
         asset.lod = await buildLod(asset.geometry).catch((err) => {
           console.warn('model LOD failed', type, err)
           return undefined
@@ -302,6 +309,29 @@ export function texturesReady(material: THREE.Material | THREE.Material[]): Prom
   return Promise.allSettled(list.map((m) => m.userData.ready as Promise<void> | undefined))
 }
 
+/** Whether the client draws nothing of a model: Go then sends its collision hull and no groups (#333). */
+export function nothingToDraw(m: WowMesh): boolean {
+	return m.groups.length === 0 && m.effects.length === 0 && m.emitters.length === 0 && m.ribbons.length === 0 && !m.liquid
+}
+
+let markerMaterial: THREE.Material | null = null
+
+/** A model with nothing to draw, as a marker (ModelAsset.marker): its hull's wireframe, or a diamond. */
+function markerAsset(m: WowMesh): ModelAsset {
+	let geo: THREE.BufferGeometry
+	if (m.indices.length >= 3) {
+		geo = new THREE.BufferGeometry()
+		geo.setAttribute('position', new THREE.BufferAttribute(m.positions, 3))
+		geo.setIndex(new THREE.BufferAttribute(m.indices, 1))
+	} else {
+		geo = new THREE.OctahedronGeometry(0.8).translate(0, 1, 0)
+	}
+	geo.computeBoundingBox()
+	geo.computeBoundingSphere()
+	markerMaterial ??= new THREE.MeshBasicMaterial({ color: 0xb0b0b0, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false })
+	return { geometry: geo, material: markerMaterial, bbox: geo.boundingBox!.clone(), ready: true, effects: [], emitters: [], ribbons: [], marker: true }
+}
+
 /** Every animated model loaded so far, by type (the Engine drives the ones in view each frame). */
 export const animatedAssets = new Map<string, ModelAsset>()
 
@@ -311,6 +341,7 @@ export const animatedAssets = new Map<string, ModelAsset>()
  * keep the asset should dispose the geometry.
  */
 export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
+	if (nothingToDraw(m)) return markerAsset(m)
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(m.positions, 3))
   geo.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3))

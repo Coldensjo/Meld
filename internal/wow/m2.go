@@ -41,6 +41,12 @@ func (r reader) cstr(off, n int) string {
 	return string(s)
 }
 
+// ErrNothingToDraw is what ParseM2 returns for a model the client draws nothing of: no batch it
+// shows, and no light, emitter or ribbon, such as an open door's collision blocker or an
+// invisible trigger. It is a known, permanent state, not a broken model (#333): Client.Model
+// answers such a model with its collision hull and no groups, which the editor draws as a marker.
+var ErrNothingToDraw = errors.New("m2: no renderable batches")
+
 // ParseM2 parses a pre-WotLK (version 256-263) M2 model using the first
 // (highest detail) view. Geometry is the bind pose; the idle animation,
 // lights and flame emitters are returned alongside. path feeds heuristics.
@@ -237,7 +243,7 @@ func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
 	m.Anim, m.Effects, m.Emitters, m.Ribbons = parseM2Extras(r, version, vertMap, textures, path, max(maxY-minY, maxX-minX), anim, m.Groups, refs)
 	m.points = parseAttachments(r)
 	if len(m.Groups) == 0 && len(m.Effects) == 0 && len(m.Emitters) == 0 && len(m.Ribbons) == 0 {
-		return nil, errors.New("m2: no renderable batches")
+		return nil, ErrNothingToDraw
 	}
 	return m, nil
 }

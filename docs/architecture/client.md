@@ -24,6 +24,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
     mesh.
   - WoW meshes are one geometry with groups plus a material array, which keeps it at one
     `InstancedMesh` per type.
+  - A model that fails to load is not cached: `loadAsset` warns and tries it again after `RETRY_MS`.
+    An M2 the client draws nothing of (no batch shown, no light, emitter or ribbon: an open door's
+    collision blocker, an invisible trigger) is not a failure (#333): `ParseM2` returns
+    `wow.ErrNothingToDraw`, `Client.Model` answers it with its collision hull as vertices and
+    triangles and no groups (`nothingToDraw`), and `buildWowAsset` turns that into a ready asset with
+    `marker` set: a grey see-through wireframe of the hull (a small diamond without one), loaded once,
+    picked like any model, casting no shadow and left out of baked shadows. A spawn of one draws its
+    hull in its kind's wireframe colour, as a spawn with no model does.
   - A placed WMO's doodad set rides in its type, `wmo:<path>?set=<n>` (`models/wmoSet.ts`): the model
     endpoint bakes set 0 and that set (`WMORoot.DoodadsOf`), and the export writes it as the MODF doodad
     set (`vmangos/modeltype.go`). A bare `wmo:` type in a region keeps the client's set on save. A WMO group flagged interior (`Group.Interior`, from MOGP flag

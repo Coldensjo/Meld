@@ -173,7 +173,7 @@ func TestSpawnModelsLoad(t *testing.T) {
 	if err := c.Open(clientDir); err != nil {
 		t.Fatal(err)
 	}
-	withModel, failed, invisible, dressed := 0, 0, 0, 0
+	withModel, failed, dressed := 0, 0, 0
 	seen := map[string]bool{}
 	for _, s := range spawns {
 		if s.Model == "" {
@@ -194,12 +194,9 @@ func TestSpawnModelsLoad(t *testing.T) {
 		if len(look.Attach) > 0 {
 			dressed++
 		}
+		// An invisible trigger names a model with nothing to draw, which Model answers with its hull and
+		// no groups (#333) rather than an error; the editor shows those as markers.
 		if _, err := c.Model(s.Model, look); err != nil {
-			// Invisible triggers name a model with nothing to draw; the editor shows those as markers.
-			if strings.Contains(err.Error(), "no renderable batches") {
-				invisible++
-				continue
-			}
 			failed++
 			if failed <= 3 {
 				t.Errorf("%s %q: model %q: %v", s.Kind, s.Name, s.Model, err)
@@ -209,5 +206,5 @@ func TestSpawnModelsLoad(t *testing.T) {
 	if withModel*10 < len(spawns)*9 {
 		t.Fatalf("only %d of %d spawns name a model", withModel, len(spawns))
 	}
-	t.Logf("%d spawns with models, %d distinct looks (%d with items attached), %d invisible, %d failed to load", withModel, len(seen), dressed, invisible, failed)
+	t.Logf("%d spawns with models, %d distinct looks (%d with items attached), %d failed to load", withModel, len(seen), dressed, failed)
 }

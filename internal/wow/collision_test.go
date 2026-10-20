@@ -2,6 +2,8 @@ package wow
 
 import (
 	"encoding/binary"
+	"encoding/json"
+	"errors"
 	"math"
 	"os"
 	"testing"
@@ -151,6 +153,44 @@ func TestClientCollision(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestClientNothingToDraw reads an open door's collision blocker, an M2 the client draws nothing of
+// (#333): ParseM2 says so with ErrNothingToDraw, and Model answers it with its hull and no groups
+// instead of failing. WOW_DIR=/path/to/client go test ./internal/wow/ -run NothingToDraw -v
+func TestClientNothingToDraw(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("set WOW_DIR to a WoW 1.x client to run")
+	}
+	c := NewClient()
+	if err := c.Open(dir); err != nil {
+		t.Fatal(err)
+	}
+	p := `World\KhazModan\Blackrock\PassiveDoodads\Doors\BlackRockHugeDoorsOpenDoorCollision.m2`
+	raw, err := c.readM2(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseM2(raw, p); !errors.Is(err, ErrNothingToDraw) {
+		t.Fatalf("ParseM2: %v, want ErrNothingToDraw", err)
+	}
+	b, err := c.Model(p, Look{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := binary.LittleEndian.Uint32(b)
+	var h meshHeader
+	if err := json.Unmarshal(b[4:4+n], &h); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.Groups) != 0 || len(h.Effects) != 0 || len(h.Emitters) != 0 || len(h.Ribbons) != 0 {
+		t.Fatalf("%d groups, %d effects, %d emitters, %d ribbons; want none", len(h.Groups), len(h.Effects), len(h.Emitters), len(h.Ribbons))
+	}
+	if h.Verts < 3 || h.Indices != h.Verts || h.BBox[3] <= h.BBox[0] {
+		t.Fatalf("the hull: %d vertices, %d indices, bounds %v", h.Verts, h.Indices, h.BBox)
+	}
+	t.Logf("%s: a hull of %d triangles, bounds %v", p, h.Verts/3, h.BBox)
 }
 
 // TestServerLiquidType follows the vmap extractor's liquid types: groupLiquid plus one, the first wet
