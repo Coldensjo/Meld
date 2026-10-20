@@ -649,7 +649,7 @@
 		flex: 1;
 	}
 	.bar.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 		white-space: pre-line;
 	}
@@ -749,7 +749,7 @@
 	.summary {
 		margin: 0;
 		font-size: 13px;
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 	.empty {
 		flex: 1;
@@ -817,7 +817,7 @@
 		min-width: 0;
 	}
 	.icon-row.changed .icon-text > span:first-child {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 	.tip {
 		max-width: 320px;
@@ -880,10 +880,10 @@
 		margin: 0;
 		padding-left: 16px;
 		font-size: 12px;
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 	.visual.changed input {
-		color: var(--accent);
+		color: var(--accent-text);
 		border-color: var(--accent);
 	}
 	.commands {

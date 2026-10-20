@@ -380,7 +380,7 @@
 		background: var(--panel-2);
 	}
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 	}
 	.list {

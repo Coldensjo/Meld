@@ -707,7 +707,7 @@
   }
   .brand {
     font-weight: 700;
-    color: var(--accent-2);
+    color: var(--accent-text);
     letter-spacing: 0.02em;
     margin-right: 6px;
   }

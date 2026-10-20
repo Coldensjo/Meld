@@ -223,7 +223,7 @@
 	}
 	.error {
 		margin: 0;
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 	}
 	.list {

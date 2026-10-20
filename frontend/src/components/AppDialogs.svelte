@@ -437,7 +437,7 @@
   .logo {
     font-size: 40px;
     line-height: 1;
-    color: var(--accent-2);
+    color: var(--accent-text);
   }
   .name {
     margin-top: 0;

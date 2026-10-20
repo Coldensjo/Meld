@@ -446,7 +446,7 @@
 		gap: 2px;
 	}
 	.bar.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 		white-space: pre-line;
 	}

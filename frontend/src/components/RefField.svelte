@@ -294,7 +294,7 @@
 		color: var(--text-dim);
 	}
 	.missing {
-		color: var(--danger);
+		color: var(--danger-text);
 		margin: 0;
 	}
 	select {
@@ -304,7 +304,7 @@
 	.changed .label,
 	.changed input,
 	.changed select {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 	.changed input,
 	.changed select {

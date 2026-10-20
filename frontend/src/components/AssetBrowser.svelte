@@ -664,7 +664,7 @@
     max-width: 480px;
   }
   .err {
-    color: var(--danger);
+    color: var(--danger-text);
   }
   .setbar {
     position: sticky;

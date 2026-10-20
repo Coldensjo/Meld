@@ -214,7 +214,7 @@
 		display: none;
 	}
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		white-space: normal !important;
 	}
 	.row {

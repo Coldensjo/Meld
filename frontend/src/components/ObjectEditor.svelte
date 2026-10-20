@@ -567,7 +567,7 @@
 	}
 	.bar.error,
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 	}
 	.body {

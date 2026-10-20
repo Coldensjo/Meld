@@ -452,7 +452,7 @@
 	}
 	.bar.error {
 		padding: 8px 16px;
-		color: var(--danger);
+		color: var(--danger-text);
 		border-bottom: 1px solid var(--border);
 	}
 	.body {

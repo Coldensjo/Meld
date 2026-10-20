@@ -8,13 +8,16 @@
   --border: #1a1a1a;
   --border-soft: #3d3d3d;
   --text: #d8d8d8;
-  --text-dim: #959595;
+  --text-dim: #b4b4b4;
   /* Text on the active (panel-3) buttons. */
   --text-strong: #ffffff;
-  --accent: #2680eb;
+  --accent: #1a6fd1;
   --accent-2: #4b9cf5;
+  /* Accent and danger as text: 4.5:1 on every panel (tests/contrast.test.ts). */
+  --accent-text: #7ab6ff;
   --accent-ink: #ffffff;
   --danger: #e34850;
+  --danger-text: #ff9aa0;
   --radius: 3px;
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
   --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
@@ -31,12 +34,14 @@
   --border: #b4b4b4;
   --border-soft: #c6c6c6;
   --text: #1d1d1d;
-  --text-dim: #5d5d5d;
+  --text-dim: #4a4a4a;
   --text-strong: #000000;
   --accent: #1a6fd1;
   --accent-2: #2680eb;
+  --accent-text: #0a4a9c;
   --accent-ink: #ffffff;
   --danger: #c9252d;
+  --danger-text: #961a22;
   color-scheme: light;
 }
 

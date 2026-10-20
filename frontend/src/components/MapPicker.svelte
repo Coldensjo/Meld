@@ -285,6 +285,6 @@
 		font-size: 12px;
 	}
 	.warn {
-		color: var(--danger);
+		color: var(--danger-text);
 	}
 </style>

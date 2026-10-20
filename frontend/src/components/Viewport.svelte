@@ -143,7 +143,7 @@
     inset: 0;
     display: grid;
     place-items: center;
-    color: var(--danger);
+    color: var(--danger-text);
     padding: 24px;
     text-align: center;
   }

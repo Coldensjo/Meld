@@ -294,7 +294,7 @@
     pointer-events: none;
   }
   .warn {
-    color: var(--danger);
+    color: var(--danger-text);
   }
   .spin {
     position: absolute;

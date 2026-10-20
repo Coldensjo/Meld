@@ -267,7 +267,7 @@
     margin: 0;
   }
   .error {
-    color: var(--danger);
+    color: var(--danger-text);
     font-size: 12px;
     margin: 0;
   }

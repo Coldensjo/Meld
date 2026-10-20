@@ -352,7 +352,7 @@
     margin: 8px;
   }
   .hint.error {
-    color: var(--danger);
+    color: var(--danger-text);
   }
   .dim {
     color: var(--text-dim);

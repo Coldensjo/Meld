@@ -71,7 +71,7 @@
 	}
 	.sub {
 		margin-top: 4px;
-		color: var(--accent);
+		color: var(--accent-text);
 		font-weight: 600;
 	}
 	.row {

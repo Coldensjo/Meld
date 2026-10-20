@@ -74,6 +74,6 @@
 		background: rgba(0, 0, 0, 0.55);
 	}
 	.failed {
-		color: var(--danger);
+		color: var(--danger-text);
 	}
 </style>

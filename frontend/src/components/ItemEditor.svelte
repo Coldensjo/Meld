@@ -789,7 +789,7 @@
 		gap: 2px;
 	}
 	.bar.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 		white-space: pre-line;
 	}
@@ -992,7 +992,7 @@
 		width: 90px;
 	}
 	.display.changed input {
-		color: var(--accent);
+		color: var(--accent-text);
 		border-color: var(--accent);
 	}
 	.shot-warn {
@@ -1006,7 +1006,7 @@
 		font-size: 12px;
 	}
 	.pending {
-		color: var(--accent);
+		color: var(--accent-text);
 		font-size: 12px;
 		margin: 0;
 	}

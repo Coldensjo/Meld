@@ -87,11 +87,11 @@
 		color: var(--text-dim);
 	}
 	.missing {
-		color: var(--danger);
+		color: var(--danger-text);
 	}
 	.changed,
 	.changed input {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 	.changed input {
 		border-color: var(--accent);

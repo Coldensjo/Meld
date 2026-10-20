@@ -349,7 +349,7 @@
 		border-radius: var(--radius);
 	}
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 	}
 	.dim {

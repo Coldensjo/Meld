@@ -353,7 +353,7 @@
     padding: 2px 8px;
   }
   .error {
-    color: var(--danger);
+    color: var(--danger-text);
     margin: 0 0 8px;
   }
   .dim {

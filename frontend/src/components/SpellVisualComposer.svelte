@@ -354,7 +354,7 @@
 		text-overflow: ellipsis;
 	}
 	.slots button.set > span:first-child {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 	.slots button.on {
 		border-color: var(--accent);
@@ -417,7 +417,7 @@
 		margin: 0;
 	}
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		margin: 0;
 	}
 </style>

@@ -142,7 +142,7 @@
 		margin: 0;
 	}
 	.warn {
-		color: var(--danger);
+		color: var(--danger-text);
 		font-size: 12px;
 		margin: 0;
 	}

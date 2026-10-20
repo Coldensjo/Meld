@@ -116,7 +116,7 @@
 		background: none;
 		border: none;
 		padding: 0;
-		color: var(--accent);
+		color: var(--accent-text);
 		font-size: 12px;
 		cursor: pointer;
 	}

@@ -150,7 +150,7 @@
 		margin: 0;
 	}
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		margin: 0;
 	}
 </style>

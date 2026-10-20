@@ -576,7 +576,7 @@
 		border-top: 1px solid var(--border);
 	}
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		margin: 0;
 	}
 	.dim {

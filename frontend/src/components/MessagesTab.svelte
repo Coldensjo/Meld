@@ -256,7 +256,7 @@
 		margin: 0;
 	}
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 	}
 	label {

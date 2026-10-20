@@ -35,7 +35,7 @@
   .changes {
     border: none;
     background: transparent;
-    color: var(--accent);
+    color: var(--accent-text);
     padding: 0;
     font: inherit;
     cursor: pointer;
@@ -67,6 +67,6 @@
     text-align: right;
   }
   .fps.low {
-    color: var(--danger);
+    color: var(--danger-text);
   }
 </style>

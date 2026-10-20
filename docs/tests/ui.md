@@ -334,6 +334,8 @@ Checks: keyboard focus, roles and contrast, the audit's method (its findings are
   Dispatch keys with `new KeyboardEvent('keydown', { key, bubbles: true })` on the focused element.
 - Contrast: compute the WCAG ratio of each token pair in `app.css` (relative luminance, sRGB) for
   both themes; small UI text (10 to 12 px) needs 4.5:1, focus rings and borders 3:1.
+  `frontend/tests/contrast.test.ts` asserts it for `--text`, `--text-dim`, `--accent-text` and
+  `--danger-text` on all four panels; text uses those tokens, `--accent` and `--danger` stay for fills.
 - Trap: `el.focus()` from a script doesn't match `:focus-visible` in Chromium, so a focus ring checked
   that way reads `outline-style: none`; press Tab in a real page, or check the CSS rule itself.
 - Trap: the `data-ui` attributes on component roots belong to the F8 overlay, not to accessibility.

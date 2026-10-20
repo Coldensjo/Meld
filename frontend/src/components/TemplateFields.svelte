@@ -135,7 +135,7 @@
 	.changed input,
 	.changed select,
 	.changed textarea {
-		color: var(--accent);
+		color: var(--accent-text);
 	}
 	.changed input,
 	.changed select,

@@ -376,7 +376,7 @@
 		padding-left: 16px;
 	}
 	.error {
-		color: var(--danger);
+		color: var(--danger-text);
 		overflow-wrap: anywhere;
 	}
 	.dim {
