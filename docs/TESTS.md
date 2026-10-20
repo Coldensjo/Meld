@@ -555,6 +555,7 @@ the same scene, the report before and after.
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
 - Accessibility (#354)
 - Dialog focus (#369, probe `dialog-focus`)
+- Menu keys (#370, probe `menu-keys`)
 
 ### Creatures, objects and the server database (`docs/tests/spawns.md`)
 

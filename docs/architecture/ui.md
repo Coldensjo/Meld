@@ -93,3 +93,13 @@ The window layout, the asset browser and the dock panels and floating windows.
   it is the newest open dialog, Tab and Shift+Tab wrap at its ends; on close the focus goes back to
   what held it, or to the menu title when a menu item opened it. A new dialog root gets the action
   too. Modal is labelled by its `<h2>` (`aria-labelledby`, an id from `$props.id()`).
+- **Menus from the keyboard** (#370): the menu bar (`MenuBar.svelte`, `role="menubar"`, titles with
+  `aria-haspopup` and `aria-expanded`) and the right-click menu (`ContextMenu.svelte`) follow the
+  WAI-ARIA menu pattern. Opening a menu (click, Enter, Space or Down on a title; Up opens on the last
+  item) focuses its first enabled item; Up, Down, Home and End move between the items
+  (`lib/ui/menuKeys.ts`, shared by both), Left and Right open the neighbouring menu, Escape closes
+  it onto its title (the right-click menu: onto what held the focus before), Tab closes it and moves
+  on. The items have `tabindex="-1"`, and the dropdown's keydown handler stops every key, so the
+  map's hotkeys (App.svelte `onKeyDown`, on `window`) don't fire while a menu holds the focus. Keep
+  each dropdown right after its title in the DOM: `dialogFocus` finds the title as the menu's
+  previous sibling.

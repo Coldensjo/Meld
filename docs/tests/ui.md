@@ -352,3 +352,16 @@ Checks: a dialog takes the focus on open, keeps Tab inside it and gives the focu
   wins; read the focus with `P.until`, not straight after setting `ui.dialog`.
 - Trap: a synthetic Tab `KeyboardEvent` doesn't move the focus by itself; the probe checks the
   wrap cases only, where the action moves it and calls `preventDefault`.
+
+## Menu keys (#370, probe `menu-keys`)
+
+Checks: the menu bar and the right-click menu work from the keyboard.
+- `bun run probe menu-keys` checks the roles (`menubar`, `aria-haspopup`, `aria-expanded`), that a
+  click on File focuses its first item, Down/Up/Home/End and the wrap, that a tool letter (`b`)
+  pressed in the menu doesn't change the tool (and does once the menu is closed), Right and Left
+  between File and Edit, Escape back onto the title, Down/Up/Enter/Right on a closed title, and Tab
+  closing the menu onto its title. Then it opens a right-click menu through `ui.contextMenu` with a
+  separator and a disabled item, and checks the first focus, the skip and the wrap, Escape giving
+  the focus back to the opener, and a pick running its item. Run `hotkeys` and `dialog-focus` with it.
+- Trap: a synthetic Tab doesn't move the focus, so the probe only checks the menu closed and the
+  focus sits on the title, from where the browser's own Tab moves on.
