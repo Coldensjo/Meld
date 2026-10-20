@@ -45,22 +45,22 @@ func TestParseInserts(t *testing.T) {
 
 func TestPlanImport(t *testing.T) {
 	order := []string{"entry", "patch", "class", "name", "description"}
-	rows, plan, err := planImport("INSERT INTO item_template (entry, name, shiny) VALUES (25, 'Sword', 1);\nREPLACE INTO item_template VALUES (26, 3, 2, 'Axe', '');", order)
+	plan, err := planScript(itemScript, "INSERT INTO item_template (entry, name, shiny) VALUES (25, 'Sword', 1);\nREPLACE INTO item_template VALUES (26, 3, 2, 'Axe', '');", order)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 2 || len(plan.Items) != 2 || plan.Items[0].Entry != 25 || plan.Items[0].Patch != 0 || plan.Items[1].Patch != 3 || plan.Items[1].Name != "Axe" {
+	if len(plan.rows) != 2 || len(plan.keys) != 2 || plan.keys[0].entry != 25 || plan.keys[0].key != 0 || plan.keys[1].key != 3 || plan.keys[1].name != "Axe" {
 		t.Fatalf("plan %+v", plan)
 	}
-	if strings.Join(plan.Unknown, ",") != "shiny" {
-		t.Fatalf("unknown %v", plan.Unknown)
+	if strings.Join(plan.unknown, ",") != "shiny" {
+		t.Fatalf("unknown %v", plan.unknown)
 	}
 	cols := []TemplateColumn{
 		{Name: "class", Kind: "uint", Min: 0, Max: 255},
 		{Name: "name", Kind: "text", MaxLen: 255},
 		{Name: "description", Kind: "text", MaxLen: 255},
 	}
-	sql, err := importSQL(cols, rows)
+	sql, err := importSQL(itemScript, cols, plan.rows)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,36 +69,36 @@ func TestPlanImport(t *testing.T) {
 	if sql != want {
 		t.Fatalf("sql\n%s\nwant\n%s", sql, want)
 	}
-	if _, _, err := planImport("REPLACE INTO item_template VALUES (1, 0);", order); err == nil {
+	if _, err := planScript(itemScript, "REPLACE INTO item_template VALUES (1, 0);", order); err == nil {
 		t.Error("a row of the wrong width was taken")
 	}
-	if _, _, err := planImport("DELETE FROM item_template;", order); err == nil {
+	if _, err := planScript(itemScript, "DELETE FROM item_template;", order); err == nil {
 		t.Error("a script without rows was taken")
 	}
-	rows, _, _ = planImport("INSERT INTO item_template (entry, class) VALUES (5, 300);", order)
-	if _, err := importSQL(cols, rows); err == nil || !strings.Contains(err.Error(), "item 5") {
+	plan, _ = planScript(itemScript, "INSERT INTO item_template (entry, class) VALUES (5, 300);", order)
+	if _, err := importSQL(itemScript, cols, plan.rows); err == nil || !strings.Contains(err.Error(), "item 5") {
 		t.Errorf("an out of range value: %v", err)
 	}
 }
 
 // An exported row reads back as the same values.
 func TestItemsScriptRoundTrip(t *testing.T) {
-	cols := append(append([]TemplateColumn{}, keyColumns...),
+	cols := append(itemScript.keyColumns(),
 		TemplateColumn{Name: "name", Kind: "text", MaxLen: 255},
 		TemplateColumn{Name: "description", Kind: "text", MaxLen: 255},
 		TemplateColumn{Name: "dmg_min1", Kind: "float"},
 		TemplateColumn{Name: "other_team_entry", Kind: "uint", Nullable: true, Max: 1<<32 - 1})
 	rows := [][]string{{"25", "0", `It's \\ "fine"`, `line\none`, "2.5", "NULL"}}
-	script := itemsScript(cols, rows, time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC))
+	script := templateScript(itemScript, cols, rows, time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC))
 	if !strings.Contains(script, "-- It's \\ \"fine\" (entry 25, patch 0)") {
 		t.Fatalf("script:\n%s", script)
 	}
 	order := []string{"entry", "patch", "name", "description", "dmg_min1", "other_team_entry"}
-	got, _, err := planImport(script, order)
+	got, err := planScript(itemScript, script, order)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := got[0]
+	r := got.rows[0]
 	if r.values["name"] != `It's \ "fine"` || r.values["description"] != "line\none" || r.values["dmg_min1"] != "2.5" || !r.null["other_team_entry"] {
 		t.Fatalf("read back %+v", r)
 	}

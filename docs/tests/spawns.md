@@ -463,7 +463,7 @@ Import or New item.
   four lines that set `ui.itemEditor = { entry }` and wait for `.tooltip .line`). Seen on 2026-10-19:
   the Battleworn Hammer (2361) in a human's hand, the Skullsplitter Helm (1624) on an orc's head, the
   Fire Hardened Buckler (1276) on the shield arm.
-- Unit: `items_test.go` (`parseInserts` on comments, quoting and other statements; `planImport` with
+- Unit: `items_test.go` (`parseInserts` on comments, quoting and other statements; `planScript` with
   a column the server lacks and rows without a column list; an exported row read back; `createItemSQL`)
   and `frontend/tests/itemTooltip.test.ts` (the client's stat and resistance order, all resistances in
   one line, the biased damage rounding, a gun's type alone, ammunition, classes and requirements).
@@ -540,6 +540,15 @@ new icon) in Meld's patch only on Save or New spell.
   and reads the planned Spell.dbc back: the copy's name in every locale, Fireball's rank, icon,
   visual and filled-in text, the new SpellIcon row, and every other spell's row unchanged. Neither
   writes anything.
+- Export and import (#357): `TestSpellScriptRoundTrip` (an exported row with a quote and a
+  backslash read back under its entry and build, its REPLACE, a row without a build taking 5875, an
+  entry or build past 65535 refused). With `VMANGOS_DIR` and `WOW_DIR`, `TestSpellScriptsLive`
+  exports Fireball (133), plans the script back (its three builds' rows exist, the client has the
+  spell, icon and visual; nothing unknown) and makes its Spell.dbc record from the row the server
+  uses; nothing written. Probe `spell-editor` checks the Import… and Export… buttons are there; they
+  open native dialogs, which a probe can't drive. An import's write was not run on 2026-10-20: it
+  changes the owner's world database and patch. To try it: export a spell, change its name in the
+  script, Import it, and `ReadSpell` and `SearchSpells` show the new name.
 - Unit: `spells_test.go` (`putRecord`, `spellIconRow`, `spellClientRow` with a float, a negative and
   a 64-bit value, the build-keyed UPDATE) and `frontend/tests/spellFields.test.ts` (the description's
   tokens, the tooltip's cost, range, cast and cooldown, an effect's line, the tabs).

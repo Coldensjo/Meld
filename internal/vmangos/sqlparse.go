@@ -7,7 +7,7 @@ import (
 )
 
 // A reader for the INSERT and REPLACE statements of an SQL script, as mariadb-dump and the server's
-// sql files write them, so the item editor can import items (#353) without running a script it
+// sql files write them, so the editors can import items (#353) and spells (#357) without running a script they
 // hasn't looked at: only rows of the one table are taken, and every other statement is counted and
 // left out.
 

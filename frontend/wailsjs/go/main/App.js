@@ -122,6 +122,10 @@ export function ExportItems(arg1, arg2) {
   return window['go']['main']['App']['ExportItems'](arg1, arg2);
 }
 
+export function ExportSpells(arg1, arg2) {
+  return window['go']['main']['App']['ExportSpells'](arg1, arg2);
+}
+
 export function Factions() {
   return window['go']['main']['App']['Factions']();
 }
@@ -152,6 +156,10 @@ export function ImportIcons(arg1) {
 
 export function ImportItems(arg1) {
   return window['go']['main']['App']['ImportItems'](arg1);
+}
+
+export function ImportSpells(arg1) {
+  return window['go']['main']['App']['ImportSpells'](arg1);
 }
 
 export function InstallMapPatch(arg1) {
@@ -346,6 +354,10 @@ export function OpenModelSetDialog() {
   return window['go']['main']['App']['OpenModelSetDialog']();
 }
 
+export function OpenSpellsDialog() {
+  return window['go']['main']['App']['OpenSpellsDialog']();
+}
+
 export function OpenTextDialog() {
   return window['go']['main']['App']['OpenTextDialog']();
 }
@@ -356,6 +368,10 @@ export function PlanItemImport(arg1) {
 
 export function PlanQuestDelete(arg1) {
   return window['go']['main']['App']['PlanQuestDelete'](arg1);
+}
+
+export function PlanSpellImport(arg1) {
+  return window['go']['main']['App']['PlanSpellImport'](arg1);
 }
 
 export function PlayHere(arg1) {

@@ -1538,6 +1538,71 @@ func (a *App) CreateSpell(base int, starter, name string) (int, error) {
 	return plan.Entry, nil
 }
 
+// ExportSpells asks where to save an SQL script of spells and writes their spell_template rows there
+// (#357). Returns the path, or "" if cancelled.
+func (a *App) ExportSpells(entries []int, suggested string) (string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return "", err
+	}
+	script, err := vmangos.ExportSpells(server, entries)
+	if err != nil {
+		return "", err
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "Export Spells", DefaultFilename: suggested + ".sql", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, os.WriteFile(path, []byte(script), 0o644)
+}
+
+// OpenSpellsDialog asks for an SQL script of spells to import. Returns "" if cancelled.
+func (a *App) OpenSpellsDialog() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Import Spells", Filters: sqlFilters})
+}
+
+// PlanSpellImport says what importing the spells of the SQL script at path would write.
+func (a *App) PlanSpellImport(path string) (vmangos.SpellImport, error) {
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return vmangos.SpellImport{}, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return vmangos.SpellImport{}, err
+	}
+	return vmangos.PlanSpellImport(server, dataDir, string(b))
+}
+
+// ImportSpells writes the spells of the SQL script at path into the world database (and has the
+// running world server reload its spells), then each one's record, made from the row the server
+// uses, into Spell.dbc in Meld's patch, as SaveSpell does. Returns their entries.
+func (a *App) ImportSpells(path string) ([]int, error) {
+	defer a.releaseClient()()
+	server, dataDir, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := vmangos.ImportSpellRows(server, string(b))
+	if err != nil {
+		return nil, err
+	}
+	a.reloadSpells(server)
+	files, err := vmangos.SpellClientFiles(server, dataDir, entries)
+	if err == nil {
+		err = a.saveClientFiles(dataDir, files)
+	}
+	vmangos.ForgetSpells()
+	if err != nil {
+		return entries, fmt.Errorf("the spells are in the world database, but writing them into the client's Spell.dbc failed (Save each one, or import again, to retry): %w", err)
+	}
+	return entries, nil
+}
+
 // ReadSpellVisual reads a client spell visual as the composer edits it (#361).
 func (a *App) ReadSpellVisual(id int) (vmangos.VisualDesign, error) {
 	dataDir, err := a.clientDataDir()

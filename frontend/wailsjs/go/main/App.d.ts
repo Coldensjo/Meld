@@ -67,6 +67,8 @@ export function ExportIconsDialog():Promise<string>;
 
 export function ExportItems(arg1:Array<number>,arg2:string):Promise<string>;
 
+export function ExportSpells(arg1:Array<number>,arg2:string):Promise<string>;
+
 export function Factions():Promise<Array<vmangos.FactionInfo>>;
 
 export function GameClient():Promise<main.GameClientInfo>;
@@ -82,6 +84,8 @@ export function GroundEffects():Promise<vmangos.GroundEffectTables>;
 export function ImportIcons(arg1:Array<string>):Promise<main.IconsImported>;
 
 export function ImportItems(arg1:string):Promise<Array<number>>;
+
+export function ImportSpells(arg1:string):Promise<Array<number>>;
 
 export function InstallMapPatch(arg1:Record<string, string>):Promise<string>;
 
@@ -179,11 +183,15 @@ export function OpenMapDialog():Promise<string>;
 
 export function OpenModelSetDialog():Promise<Array<string>>;
 
+export function OpenSpellsDialog():Promise<string>;
+
 export function OpenTextDialog():Promise<string>;
 
 export function PlanItemImport(arg1:string):Promise<vmangos.ItemImport>;
 
 export function PlanQuestDelete(arg1:number):Promise<vmangos.QuestDeletePlan>;
+
+export function PlanSpellImport(arg1:string):Promise<vmangos.SpellImport>;
 
 export function PlayHere(arg1:vmangos.CharacterSpot):Promise<string>;
 

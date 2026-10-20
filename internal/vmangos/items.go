@@ -3,10 +3,7 @@ package vmangos
 import (
 	"errors"
 	"fmt"
-	"sort"
-	"strconv"
 	"strings"
-	"time"
 
 	"Meld/internal/wow"
 )
@@ -91,19 +88,10 @@ func forgetWeapons() {
 	forgetItemDisplayUses()
 }
 
-// keyColumns are item_template's key columns as TemplateColumns, for checking an imported row.
-var keyColumns = []TemplateColumn{
-	{Name: "entry", Kind: "uint", Min: 0, Max: 1<<24 - 1},
-	{Name: "patch", Kind: "uint", Min: 0, Max: 255},
-}
-
 // ExportItems is an SQL script that puts items back as they are now: every patch row of each
 // entry, as REPLACE statements that name their columns, so the script loads on a server whose
 // table has its columns in another order.
 func ExportItems(serverRoot string, entries []int) (string, error) {
-	if len(entries) == 0 {
-		return "", errors.New("no items to export")
-	}
 	db, err := openWorld(serverRoot)
 	if err != nil {
 		return "", err
@@ -112,75 +100,7 @@ func ExportItems(serverRoot string, entries []int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	all := append(append([]TemplateColumn{}, keyColumns...), cols...)
-	ids := make([]string, len(entries))
-	for i, e := range entries {
-		ids[i] = strconv.Itoa(e)
-	}
-	names := make([]string, len(all))
-	for i, c := range all {
-		names[i] = "`" + c.Name + "`"
-	}
-	raw, err := runSQL(db, fmt.Sprintf("SELECT %s FROM `item_template` WHERE `entry` IN (%s) ORDER BY `entry`, `patch`",
-		strings.Join(names, ", "), strings.Join(ids, ",")))
-	if err != nil {
-		return "", err
-	}
-	rows := tsvRows(raw, len(all))
-	if len(rows) == 0 {
-		return "", fmt.Errorf("the world database has no item %s", strings.Join(ids, ", "))
-	}
-	return itemsScript(all, rows, time.Now()), nil
-}
-
-// itemsScript writes item rows (mariadb's batch fields, in the order of cols) as an SQL script.
-func itemsScript(cols []TemplateColumn, rows [][]string, now time.Time) string {
-	names := make([]string, len(cols))
-	for i, c := range cols {
-		names[i] = "`" + c.Name + "`"
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "-- Items exported by Meld on %s: %d %s of item_template.\n", now.Format("2006-01-02 15:04"), len(rows), plural(len(rows), "row", "rows"))
-	b.WriteString("-- Load it with Import in Meld's item editor (Tools > Items), or run it on the world database.\n")
-	for _, f := range rows {
-		vals := make([]string, len(cols))
-		for i, c := range cols {
-			v := f[i]
-			if v == "NULL" && c.Nullable {
-				vals[i] = "NULL"
-				continue
-			}
-			v = unescapeBatch(v)
-			if c.Kind == "text" {
-				vals[i] = sqlQuote(v)
-			} else if s, err := sqlValue(c, v); err == nil {
-				vals[i] = s
-			} else {
-				vals[i] = sqlQuote(v)
-			}
-		}
-		name := ""
-		for i, c := range cols {
-			if c.Name == "name" {
-				name = unescapeBatch(f[i])
-			}
-		}
-		fmt.Fprintf(&b, "\n-- %s (entry %s, patch %s)\nREPLACE INTO `item_template` (%s) VALUES\n(%s);\n",
-			commentSafe(name), f[0], f[1], strings.Join(names, ", "), strings.Join(vals, ", "))
-	}
-	return b.String()
-}
-
-// commentSafe is text for a "--" comment line: one line.
-func commentSafe(s string) string {
-	return strings.NewReplacer("\r", " ", "\n", " ").Replace(s)
-}
-
-func plural(n int, one, many string) string {
-	if n == 1 {
-		return one
-	}
-	return many
+	return exportScript(db, itemScript, cols, entries)
 }
 
 // ItemImport is what an SQL script of items would write: its item rows, and what of it is left
@@ -210,27 +130,19 @@ func PlanItemImport(serverRoot, script string) (ItemImport, error) {
 	if err != nil {
 		return ItemImport{}, err
 	}
-	rows, plan, err := importRows(db, script)
+	plan, err := readScript(db, itemScript, script)
 	if err != nil {
 		return ItemImport{}, err
 	}
-	ids := make([]string, len(rows))
-	for i, r := range rows {
-		ids[i] = r.values["entry"]
-	}
-	have := map[string]bool{}
-	raw, err := runSQL(db, "SELECT `entry`, `patch` FROM `item_template` WHERE `entry` IN ("+strings.Join(ids, ",")+")")
+	have, err := existingRows(db, itemScript, plan)
 	if err != nil {
 		return ItemImport{}, err
 	}
-	for _, f := range tsvRows(raw, 2) {
-		have[f[0]+"|"+f[1]] = true
+	out := ItemImport{Skipped: plan.skipped, Unknown: plan.unknown}
+	for _, k := range plan.keys {
+		out.Items = append(out.Items, ItemImportRow{Entry: k.entry, Patch: k.key, Name: k.name, Exists: have[rowKey(k.entry, k.key)]})
 	}
-	for i := range plan.Items {
-		it := &plan.Items[i]
-		it.Exists = have[strconv.Itoa(it.Entry)+"|"+strconv.Itoa(it.Patch)]
-	}
-	return plan, nil
+	return out, nil
 }
 
 // ImportItems writes the item rows of an SQL script into the world database, replacing rows of the
@@ -241,146 +153,16 @@ func ImportItems(serverRoot, script string) ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, plan, err := importRows(db, script)
-	if err != nil {
-		return nil, err
-	}
 	cols, err := templateColumns(db, itemTable)
 	if err != nil {
 		return nil, err
 	}
-	sql, err := importSQL(cols, rows)
+	plan, err := importScript(db, itemScript, cols, script)
 	if err != nil {
-		return nil, err
-	}
-	if err := runScript(db, sql); err != nil {
 		return nil, err
 	}
 	forgetWeapons()
-	var out []int
-	seen := map[int]bool{}
-	for _, it := range plan.Items {
-		if !seen[it.Entry] {
-			seen[it.Entry] = true
-			out = append(out, it.Entry)
-		}
-	}
-	return out, nil
-}
-
-// importRows parses a script's item rows against the database's item_template columns.
-func importRows(db worldDB, script string) ([]sqlRow, ItemImport, error) {
-	raw, err := runSQL(db, "SHOW COLUMNS FROM `item_template`")
-	if err != nil {
-		return nil, ItemImport{}, err
-	}
-	var order []string
-	for _, f := range tsvRows(raw, 6) {
-		order = append(order, f[0])
-	}
-	if len(order) == 0 {
-		return nil, ItemImport{}, errors.New("the world database has no item_template")
-	}
-	return planImport(script, order)
-}
-
-// planImport reads a script's item_template rows, the columns of a row without a column list taken
-// in the table's order (order), and keeps the columns the table has.
-func planImport(script string, order []string) ([]sqlRow, ItemImport, error) {
-	stmts, skipped, err := parseInserts(script, itemTable)
-	if err != nil {
-		return nil, ItemImport{}, err
-	}
-	have := map[string]bool{}
-	for _, c := range order {
-		have[c] = true
-	}
-	unknown := map[string]bool{}
-	var rows []sqlRow
-	plan := ItemImport{Skipped: skipped}
-	for _, st := range stmts {
-		names := st.columns
-		if names == nil {
-			names = order
-		}
-		for _, tuple := range st.rows {
-			if len(tuple) != len(names) {
-				return nil, ItemImport{}, fmt.Errorf("an item row has %d values for %d columns", len(tuple), len(names))
-			}
-			r := sqlRow{values: map[string]string{}, null: map[string]bool{}}
-			for i, n := range names {
-				if !have[n] {
-					unknown[n] = true
-					continue
-				}
-				r.values[n] = tuple[i].text
-				r.null[n] = tuple[i].null
-			}
-			entry, err1 := strconv.Atoi(r.values["entry"])
-			if err1 != nil || entry <= 0 {
-				return nil, ItemImport{}, fmt.Errorf("an item row has no entry (%q)", r.values["entry"])
-			}
-			patch := 0
-			if p, ok := r.values["patch"]; ok {
-				n, err := strconv.Atoi(p)
-				if err != nil || n < 0 || n > 255 {
-					return nil, ItemImport{}, fmt.Errorf("item %d has patch %q, not 0 to 255", entry, p)
-				}
-				patch = n
-			}
-			r.values["patch"] = strconv.Itoa(patch)
-			rows = append(rows, r)
-			plan.Items = append(plan.Items, ItemImportRow{Entry: entry, Patch: patch, Name: r.values["name"]})
-		}
-	}
-	if len(rows) == 0 {
-		return nil, ItemImport{}, errors.New("the script has no item_template rows (INSERT or REPLACE INTO item_template)")
-	}
-	plan.Unknown = make([]string, 0, len(unknown))
-	for n := range unknown {
-		plan.Unknown = append(plan.Unknown, n)
-	}
-	sort.Strings(plan.Unknown)
-	return rows, plan, nil
-}
-
-// importSQL is the REPLACE statements that write imported rows, each value checked against its
-// column; a column a row leaves out takes the table's default.
-func importSQL(cols []TemplateColumn, rows []sqlRow) (string, error) {
-	var b strings.Builder
-	for _, r := range rows {
-		entry := r.values["entry"]
-		names := []string{"`entry`", "`patch`"}
-		vals := []string{entry, r.values["patch"]}
-		for _, c := range cols {
-			v, ok := r.values[c.Name]
-			if !ok {
-				continue
-			}
-			var s string
-			switch {
-			case r.null[c.Name] && c.Nullable:
-				s = "NULL"
-			case r.null[c.Name]:
-				return "", fmt.Errorf("item %s: %s can't be NULL", entry, c.Name)
-			case c.Kind == "text":
-				// Kept as written, spaces and all; only the length is checked.
-				if c.MaxLen > 0 && len(v) > c.MaxLen {
-					return "", fmt.Errorf("item %s: %s is longer than %d characters", entry, c.Name, c.MaxLen)
-				}
-				s = sqlQuote(v)
-			default:
-				var err error
-				if s, err = sqlValue(c, v); err != nil {
-					return "", fmt.Errorf("item %s: %w", entry, err)
-				}
-			}
-			names = append(names, "`"+c.Name+"`")
-			vals = append(vals, s)
-		}
-		fmt.Fprintf(&b, "REPLACE INTO `item_template` (%s) VALUES (%s);\n", strings.Join(names, ", "), strings.Join(vals, ", "))
-	}
-	return b.String(), nil
+	return plan.entries(), nil
 }
 
 // ItemLook is how the item editor shows an item: a character of the chosen race and sex holding or

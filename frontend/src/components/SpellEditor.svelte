@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dialogFocus } from '../lib/ui/dialogFocus'
-	import { CreateSpell, ReadSpell, ReadSpellVisual, SaveSpell, SearchSpells, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
+	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SearchSpells, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/mapio'
@@ -20,7 +20,8 @@
 	// its three effects), pick its icon from the client's and take its visual from another spell, and
 	// see its tooltip as the game draws it, which follows every change before it is saved. Save writes
 	// the row to the world database and the same spell into Spell.dbc in Meld's patch (a new icon into
-	// SpellIcon.dbc), closing the game and servers around the patch on Windows, so the two agree.
+	// SpellIcon.dbc), closing the game and servers around the patch on Windows, so the two agree. Export
+	// writes the spell's spell_template rows to an SQL script, and Import reads one back into both (#357).
 
 	const target = $derived(ui.spellEditor)
 
@@ -175,6 +176,71 @@
 			if (t) tab = t
 		} finally {
 			saving = false
+		}
+	}
+
+	// Export and import: SQL scripts of spell_template rows; an import writes each spell into Spell.dbc too.
+	async function exportSpell() {
+		if (!record) return
+		error = ''
+		try {
+			const file = (saved.name || `spell-${record.entry}`).replace(/[^\w\- ]+/g, '').trim() || `spell-${record.entry}`
+			const path = await ExportSpells([record.entry], file)
+			if (!path) return
+			note = `Exported ${saved.name} (spell ${record.entry}) to ${path}${unsaved ? ', as saved: the unsaved changes are not in it' : ''}.`
+			setStatus(note, 8000)
+		} catch (err) {
+			error = String(err)
+		}
+	}
+
+	/** An import being confirmed: the script's path and what it writes. */
+	let plan = $state<{ path: string; plan: vmangos.SpellImport } | null>(null)
+	let importing = $state(false)
+
+	function askImport() {
+		leave(async () => {
+			error = ''
+			note = ''
+			try {
+				const path = await OpenSpellsDialog()
+				if (!path) return
+				plan = { path, plan: await PlanSpellImport(path) }
+			} catch (err) {
+				error = String(err)
+			}
+		})
+	}
+
+	/** One spell row of an import plan, for its summary. */
+	function planRow(s: vmangos.SpellImportRow): string {
+		const notes = [s.exists ? 'replaces it' : 'new', s.newer ? `build ${s.build} is newer than the client's: the server won't use it` : s.build !== 5875 ? `build ${s.build}` : '']
+		return `${s.name || 'spell'} (${s.entry}, ${notes.filter(Boolean).join(', ')})`
+	}
+
+	const missingLook = $derived(plan ? plan.plan.spells.filter((s) => s.missingIcon || s.missingVisual) : [])
+
+	async function confirmImport() {
+		if (!plan) return
+		importing = true
+		error = ''
+		try {
+			const { path, plan: p } = plan
+			const n = p.spells.length
+			const entries = (await ImportSpells(path)) ?? []
+			plan = null
+			for (const e of entries) forget(e)
+			// The open spell is read again when the import wrote it.
+			if (target && entries.includes(target.entry)) {
+				loadedFor = 0
+				ui.spellEditor = { entry: target.entry }
+			} else if (entries.length) ui.spellEditor = { entry: entries[0] }
+			note = `Imported ${n} spell ${n === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc.`
+			setStatus(note, 10000)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			importing = false
 		}
 	}
 
@@ -383,6 +449,7 @@
 		e.preventDefault()
 		if (composing) composing = null
 		else if (changing) changing = false
+		else if (plan) plan = null
 		else if (confirmClose && unsaved) confirmClose = false
 		else close()
 	}
@@ -405,7 +472,9 @@
 				{/if}
 			</div>
 			<div class="actions">
+				<button onclick={askImport} title="Read spells from an SQL script into the world database and the client's Spell.dbc">Import…</button>
 				{#if record}
+					<button onclick={exportSpell} title="Write this spell to an SQL script">Export…</button>
 					<button disabled={!unsaved || saving} onclick={revert}>Revert</button>
 					<button class="active" disabled={!unsaved || saving} onclick={save} title="Write it to the world database and the client's Spell.dbc">
 						{saving ? 'Saving…' : unsaved ? `Save spell (${changeCount})` : 'Saved'}
@@ -414,6 +483,32 @@
 				<button onclick={() => close()} title="Close (Esc)">Close</button>
 			</div>
 		</header>
+		{#if plan}
+			<div class="bar warn plan">
+				<div class="what">
+					<strong>Import {plan.plan.spells.length} spell {plan.plan.spells.length === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc?</strong>
+					<span>
+						{plan.plan.spells
+							.slice(0, 12)
+							.map(planRow)
+							.join('; ')}{plan.plan.spells.length > 12 ? `; and ${plan.plan.spells.length - 12} more` : ''}.
+					</span>
+					{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only spell_template rows are imported.</span>{/if}
+					{#if plan.plan.unknown?.length}<span>Columns this server's spell_template lacks are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
+					{#if missingLook.length}
+						<span class="warn-text"
+							>This client lacks {missingLook
+								.slice(0, 6)
+								.map((s) => `${s.name || s.entry}'s ${[s.missingIcon ? `icon ${s.missingIcon}` : '', s.missingVisual ? `visual ${s.missingVisual}` : ''].filter(Boolean).join(' and ')}`)
+								.join(', ')}{missingLook.length > 6 ? ` and ${missingLook.length - 6} more` : ''}: the game shows no icon or draws nothing for them. Pick them again after the import.</span
+						>
+					{/if}
+					<span>A replaced spell can't be brought back, unless you exported it first.</span>
+				</div>
+				<button onclick={() => (plan = null)}>Cancel</button>
+				<button class="active" disabled={importing} onclick={confirmImport}>{importing ? 'Importing…' : 'Import'}</button>
+			</div>
+		{/if}
 		{#if confirmClose && unsaved}
 			<div class="bar warn">
 				<span>{changeCount} unsaved {changeCount === 1 ? 'change' : 'changes'} to the spell.</span>
@@ -648,6 +743,12 @@
 	}
 	.bar.warn span {
 		flex: 1;
+	}
+	.bar.plan .what {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 	}
 	.bar.error {
 		color: var(--danger-text);

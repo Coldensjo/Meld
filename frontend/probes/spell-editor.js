@@ -1,4 +1,4 @@
-// The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, Save refuses a cost past an unsigned int and jumps to its tab, Change icon… previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written.
+// The spell editor (#294): Tools › Spells… finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, Save refuses a cost past an unsigned int and jumps to its tab, Change icon… previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, Export… and Import… are there (#357), and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -38,6 +38,8 @@ const fx = effects()
 await P.until(() => /as /.test(root().querySelector('.visual .dim')?.textContent ?? ''), WAIT, 'the visual users')
 const visualText = root().querySelector('.visual .dim').textContent.trim()
 const visualBefore = root().querySelector('.visual input').value
+// Export… and Import… (#357) open native dialogs, so only their presence is checked.
+const scripts = !!button(actions(), 'Export') && !!button(actions(), 'Import')
 
 // Typed values: the tooltip follows before anything is saved.
 type(field('Name'), 'Probe Bolt')
@@ -110,8 +112,9 @@ const ok =
 	visualAfter !== visualBefore &&
 	/\(\d\)/.test(saveText) &&
 	reverted &&
+	scripts &&
 	starts.length === 7 &&
 	starts[0] === 'Bolt' &&
 	startOn === 'Copy of Fireball' &&
 	newName === 'Fireball'
-return { ok, menu, title, tip, fx, visualText, summary, edited, error, jumped, firstIcon, hovering, picked, visualBefore, visualAfter, saveText, reverted, starts, startOn, newName }
+return { ok, scripts, menu, title, tip, fx, visualText, summary, edited, error, jumped, firstIcon, hovering, picked, visualBefore, visualAfter, saveText, reverted, starts, startOn, newName }
