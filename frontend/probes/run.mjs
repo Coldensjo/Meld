@@ -311,8 +311,19 @@ async function main() {
 		// long run is reported flaky instead of failing the run, and a real break still fails twice (#388).
 		if (!out.ok) {
 			const first = out
+			// A dev server that died under the probe (or is rebuilding) fails the retry too: wait a minute for a rebuild to
+			// finish, then start `make dev` again as at the start of the run (#391).
+			if (!process.env.MELD_URL && (await devDown())) {
+				for (let i = 0; i < 12 && (await devDown()); i++) await sleep(5000)
+				const why = await devDown()
+				if (why) {
+					await ensureDev()
+					first.devRestarted = why
+				}
+			}
 			await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
 			out = await runOnce(p)
+			if (first.devRestarted) out.devRestarted = first.devRestarted
 			if (out.ok) out = { ...out, flaky: true, firstFailure: first.error ?? first.pageErrors?.[0] ?? 'ok: false', ...(first.step ? { firstStep: first.step } : {}) }
 			else out.retried = true
 		}
