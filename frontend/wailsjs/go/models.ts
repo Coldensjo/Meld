@@ -1374,6 +1374,24 @@ export namespace vmangos {
 		}
 	}
 	
+	export class ItemKind {
+	    class: number;
+	    subclass: number;
+	    invType: number;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ItemKind(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.class = source["class"];
+	        this.subclass = source["subclass"];
+	        this.invType = source["invType"];
+	        this.count = source["count"];
+	    }
+	}
 	export class ItemLook {
 	    model: string;
 	    look: string;

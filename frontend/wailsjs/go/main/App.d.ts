@@ -41,6 +41,8 @@ export function CreateCreature(arg1:number,arg2:string):Promise<number>;
 
 export function CreateItem(arg1:number,arg2:string):Promise<number>;
 
+export function CreateItemOfKind(arg1:number,arg2:number,arg3:number,arg4:string):Promise<number>;
+
 export function CreateObject(arg1:number,arg2:string):Promise<number>;
 
 export function CreateQuest(arg1:number,arg2:string):Promise<number>;
@@ -98,6 +100,8 @@ export function ListDisplays():Promise<Array<vmangos.DisplayEntry>>;
 export function ListItemDisplays():Promise<Array<vmangos.ItemDisplayEntry>>;
 
 export function ListItemIcons():Promise<Array<string>>;
+
+export function ListItemKinds():Promise<Array<vmangos.ItemKind>>;
 
 export function ListObjectTemplates():Promise<Array<vmangos.ObjectTemplate>>;
 

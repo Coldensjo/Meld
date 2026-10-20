@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { CreateItem, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
+	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/mapio'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { changedValues } from '../lib/world/creatureFields'
-	import { HELD_TYPES, itemTabs, SHOOTS_LIKE, slotKind } from '../lib/world/itemFields'
+	import { HELD_TYPES, INVENTORY_TYPES, ITEM_CLASSES, itemTabs, SHOOTS_LIKE, slotKind, subclassOptions } from '../lib/world/itemFields'
 	import { tabOfColumn } from '../lib/world/questFields'
 	import { forgetItemIcons, forgetItemRow, itemTooltipNames } from '../lib/wow/items'
 	import { QUALITY_COLORS, tooltipLines, type TooltipNames } from '../lib/wow/itemTooltip'
@@ -215,22 +215,49 @@
 		}, 250)
 	})
 
-	// A new item: blank, or a copy of the one that was open.
+	// A new item: a kind of item (a bow, a cloth chest…) with the usual basics of the database's items
+	// of that kind and no stats, a blank junk item, or a copy of the one that was open.
 	let newName = $state('')
-	let copyThis = $state(true)
+	let startFrom = $state<'kind' | 'blank' | 'copy'>('kind')
 	let creating = $state(false)
-	let copySource = $state<{ entry: number; name: string } | null>(null)
+	let copySource = $state<{ entry: number; name: string; kind: string } | null>(null)
 	const isNew = $derived(target?.entry === -1)
+
+	let kinds = $state<vmangos.ItemKind[]>([])
+	let kindClass = $state(2)
+	/** The picked kind's subclass and inventory type, as "subclass|invType". */
+	let kindKey = $state('')
+	const kindClasses = $derived(ITEM_CLASSES.filter(([c]) => kinds.some((k) => k.class === c)))
+	const classKinds = $derived(kinds.filter((k) => k.class === kindClass))
+	const kindName = (k: vmangos.ItemKind) => {
+		const sub = subclassOptions(k.class).find(([v]) => v === k.subclass)?.[1] ?? `Subclass ${k.subclass}`
+		const slot = INVENTORY_TYPES.find(([v]) => v === k.invType)?.[1] ?? `Slot ${k.invType}`
+		return `${sub} · ${slot}`
+	}
+	const picked = $derived(classKinds.find((k) => `${k.subclass}|${k.invType}` === kindKey))
+	// Another class starts on its most common kind.
+	$effect(() => {
+		if (classKinds.length && !picked) kindKey = `${[...classKinds].sort((a, b) => b.count - a.count)[0].subclass}|${[...classKinds].sort((a, b) => b.count - a.count)[0].invType}`
+	})
 
 	function startNew() {
 		if (isNew) return
 		leave(() => {
-			copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
-			copyThis = copySource !== null
+			copySource = record ? { entry: record.entry, name: saved.name ?? '', kind: `${saved.class}|${saved.subclass}|${saved.inventory_type}` } : null
+			startFrom = 'kind'
+			// The kind of the item that was open, when the database has it.
+			if (copySource) {
+				const [c, sub, inv] = copySource.kind.split('|').map(Number)
+				kindClass = c
+				kindKey = `${sub}|${inv}`
+			}
 			note = ''
 			ui.itemEditor = { entry: -1 }
 		})
 	}
+	$effect(() => {
+		if (isNew && !kinds.length) ListItemKinds().then((k) => (kinds = k ?? []), (err) => (error = String(err)))
+	})
 
 	async function create() {
 		const name = newName.trim()
@@ -238,13 +265,21 @@
 		creating = true
 		error = ''
 		try {
-			const base = copyThis && copySource ? copySource.entry : 0
-			const entry = await CreateItem(base, name)
+			let entry: number
+			let made: string
+			if (startFrom === 'kind' && picked) {
+				entry = await CreateItemOfKind(picked.class, picked.subclass, picked.invType, name)
+				made = ` with the usual basics of ${kindName(picked).toLowerCase()} items: give it its damage or armour, stats, level and price.`
+			} else {
+				const base = startFrom === 'copy' && copySource ? copySource.entry : 0
+				entry = await CreateItem(base, name)
+				made = base ? `, a copy of ${copySource?.name}.` : '. Pick its look on the right.'
+			}
 			newName = ''
 			searchVersion++
 			ui.itemEditor = { entry }
 			tab = 'item'
-			note = `Made item ${entry}, ${name}. Fill it in and save.${base ? '' : ' Pick its look on the right.'}`
+			note = `Made item ${entry}, ${name}${made}`
 			setStatus(note, 8000)
 		} catch (err) {
 			error = String(err)
@@ -562,13 +597,30 @@
 					<div class="new-form">
 						<p>Make an item of your own for the world database. It gets the first free entry; fill it in and save.</p>
 						<label>Name <input type="text" maxlength="255" placeholder="Name" bind:value={newName} onkeydown={(e) => e.key === 'Enter' && create()} /></label>
-						{#if copySource}
-							<label class="check"><input type="checkbox" bind:checked={copyThis} /> Copy {copySource.name} (item {copySource.entry}): its look, stats and effects</label>
-						{/if}
-						{#if !copySource || !copyThis}
-							<p class="dim">It starts as a common junk item with no look. To start from an existing item, open that one and choose New item there.</p>
-						{/if}
-						<button class="active" disabled={!newName.trim() || creating} onclick={create}>{creating ? 'Making…' : 'Make item'}</button>
+						<fieldset class="start" aria-label="Start from">
+							<legend>Start from</legend>
+							<label class="check"><input type="radio" bind:group={startFrom} value="kind" /> A kind of item</label>
+							{#if startFrom === 'kind'}
+								<div class="kind">
+									<select bind:value={kindClass} aria-label="Class" disabled={!kinds.length}>
+										{#each kindClasses as [c, name] (c)}<option value={c}>{name}</option>{/each}
+									</select>
+									<select bind:value={kindKey} aria-label="Type" disabled={!kinds.length}>
+										{#each classKinds as k (`${k.subclass}|${k.invType}`)}<option value={`${k.subclass}|${k.invType}`}>{kindName(k)} ({k.count})</option>{/each}
+									</select>
+								</div>
+								<p class="dim">
+									{kinds.length
+										? `It gets what most of the world database's ${picked ? kindName(picked).toLowerCase() : ''} items have: their look, where it is carried, material, ammo, range, speed, durability and stacks. No damage, armour, stats, effects, binding, level or price: those are yours to set.`
+										: 'Reading the kinds of item…'}
+								</p>
+							{/if}
+							<label class="check"><input type="radio" bind:group={startFrom} value="blank" /> A blank item (common junk, no look)</label>
+							{#if copySource}
+								<label class="check"><input type="radio" bind:group={startFrom} value="copy" /> A copy of {copySource.name} (item {copySource.entry}): its look, stats and effects</label>
+							{/if}
+						</fieldset>
+						<button class="active" disabled={!newName.trim() || creating || (startFrom === 'kind' && !picked)} onclick={create}>{creating ? 'Making…' : 'Make item'}</button>
 					</div>
 				{:else if target.entry === 0}
 					<div class="empty dim">Find an item on the left, make a new one, or import some.</div>
@@ -855,6 +907,31 @@
 	}
 	.new-form p {
 		margin: 0;
+	}
+	.start {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin: 0;
+		padding: 8px 10px;
+		border: 1px solid var(--border);
+		border-radius: 4px;
+	}
+	.start legend {
+		color: var(--text-dim);
+		padding: 0 4px;
+	}
+	.kind {
+		display: flex;
+		gap: 6px;
+		padding-left: 22px;
+	}
+	.kind select {
+		flex: 1;
+		min-width: 0;
+	}
+	.start .dim {
+		padding-left: 22px;
 	}
 	.look {
 		/* One width, so the fields beside it never move. */

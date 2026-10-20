@@ -70,6 +70,10 @@ export function CreateItem(arg1, arg2) {
   return window['go']['main']['App']['CreateItem'](arg1, arg2);
 }
 
+export function CreateItemOfKind(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['CreateItemOfKind'](arg1, arg2, arg3, arg4);
+}
+
 export function CreateObject(arg1, arg2) {
   return window['go']['main']['App']['CreateObject'](arg1, arg2);
 }
@@ -184,6 +188,10 @@ export function ListItemDisplays() {
 
 export function ListItemIcons() {
   return window['go']['main']['App']['ListItemIcons']();
+}
+
+export function ListItemKinds() {
+  return window['go']['main']['App']['ListItemKinds']();
 }
 
 export function ListObjectTemplates() {

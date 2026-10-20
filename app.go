@@ -1259,6 +1259,26 @@ func (a *App) CreateItem(base int, name string) (int, error) {
 	return vmangos.CreateItem(server, base, name)
 }
 
+// ListItemKinds lists the kinds of item (class, subclass, inventory type) the world database has, for
+// the item editor's New item.
+func (a *App) ListItemKinds() ([]vmangos.ItemKind, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ListItemKinds(server)
+}
+
+// CreateItemOfKind adds an item named name of a kind, with the usual basics of that kind's items and
+// no stats, and returns its entry.
+func (a *App) CreateItemOfKind(class, subclass, invType int, name string) (int, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return 0, err
+	}
+	return vmangos.CreateItemOfKind(server, vmangos.ItemKind{Class: class, Subclass: subclass, InvType: invType}, name)
+}
+
 // ItemModelLook is an item display on a character of race and sex (0 male, 1 female) as an item of
 // inventory type invType is held or worn, and the item's model alone.
 func (a *App) ItemModelLook(display, invType, race, sex int) (vmangos.ItemLook, error) {

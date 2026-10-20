@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece is not shown on the body, the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -162,11 +162,31 @@ await P.frames(1)
 button(root().querySelector('header .actions'), 'Revert').click()
 await P.frames(2)
 shot.reverted = !root().querySelector('.shot-warn') && !root().querySelector('.look .pending')
+
+// New item… from a kind: Weapon › Bow · Ranged (bow), whose basics come from the database's bows (not made here).
+button(root().querySelector('aside'), 'New item').click()
+const form = () => root().querySelector('.new-form')
+await P.until(() => form()?.querySelector('select[aria-label=Type] option'), WAIT, 'the kinds of item')
+choose(form().querySelector('select[aria-label=Class]'), '2')
+await P.frames(1)
+const bow = [...form().querySelectorAll('select[aria-label=Type] option')].find((o) => o.textContent.startsWith('Bow · Ranged (bow)'))
+choose(form().querySelector('select[aria-label=Type]'), bow?.value ?? '')
+await P.frames(1)
+const kind = {
+	bow: bow?.textContent ?? '',
+	text: form().querySelector('.start .dim')?.textContent.trim() ?? '',
+	start: [...form().querySelectorAll('.start input[type=radio]')].map((r) => r.parentElement.textContent.trim().split(':')[0]),
+	disabledWithoutName: button(form(), 'Make item')?.disabled === true,
+}
 const stored = await window.go.main.App.ReadItemTemplate(25)
 ui.itemEditor = null
 await P.frames(1)
 
 const ok =
+	/^Bow · Ranged \(bow\) \(\d+\)$/.test(kind.bow) &&
+	kind.text.startsWith("It gets what most of the world database's bow · ranged (bow) items have") &&
+	kind.start.length === 3 && kind.start[0] === 'A kind of item' && kind.start[2].startsWith('A copy of Worn Shortsword') &&
+	kind.disabledWithoutName &&
 	shot.warn.startsWith('This look shoots like a crossbow (its shot visual 743), so the game fires a bow on it like one.') &&
 	shot.pending.startsWith('Save makes the look shoot like a bow (shot visual 5)') &&
 	shot.save === 'Save item (4)' &&
@@ -212,4 +232,4 @@ const ok =
 	iconPick.pending.startsWith('Icon INV_Axe_01') &&
 	iconPick.save === 'Save item (3)' &&
 	iconPick.escClosed
-return { ok, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+return { ok, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }

@@ -217,8 +217,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   opened by Tools › Items… (`entry: 0`, find one; `-1`, a new item). The left finds items
   (`SearchItems`); a result's right-click opens `ui.contextMenu` (z-index 180, over the editor, whose
   Esc then leaves it to the menu) with Open and Copy `.additem <entry>`, the GM command that gives the
-  item to the player selected or to yourself (`ClipboardSetText`); New item makes a common junk item or a copy of the open one (`CreateItem` in
-  `internal/vmangos/items.go`, patch 0, the first entry past the table's). Every `item_template`
+  item to the player selected or to yourself (`ClipboardSetText`); New item starts from a kind of item, a blank junk item or a copy of the open one: a kind is a
+  (class, subclass, inventory type) group the world database has at least 3 of (`ListItemKinds` in
+  `internal/vmangos/itemkinds.go`), shown as Class › Type (Weapon › Bow · Ranged (bow)), and
+  `CreateItemOfKind` gives the new item those items' usual basics (`usualItemValues`: the most common
+  look, sheath, material, ammo, range modifier, stacks and bag fields, the middle speed and
+  durability) and no damage, armour, stats, effects, binding, level or price; every way makes patch
+  0, the first entry past the table's (`CreateItem`). Every `item_template`
   column goes through the template path (`ReadItemTemplate`, `SaveItem`, `templateUpdateSQL`), laid
   out on tabs by `world/itemFields.ts` (Item, Combat, Stats, Effects, Requirements, More, then Other),
   whose subclass names follow the class; a group may set its grid's `columns` (Stats: 2, a stat's

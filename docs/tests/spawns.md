@@ -403,6 +403,16 @@ Import or New item.
   hover (the item's display_id unchanged), is picked by a click and applied by Change look, back on
   the fields, held; Change icon… marks INV_Axe_01 to be made on Save (Save item (3)), and Esc leaves a
   second Change icon view; Revert.
+- New item from a kind: the probe opens New item…, picks Weapon › "Bow · Ranged (bow) (124)" and reads
+  its explanation (it makes nothing). `TestUsualItemValues` (a tie takes the lower, delay and
+  durability the middle, the INSERT); with `VMANGOS_DIR`, `TestItemKindsLive` (117 kinds; a bow:
+  arrows, range 100, sheath 0, wood). A real make by a scratch Go test (not kept), cleaned up by
+  entry: a bow got display 32079, delay 2300, durability 65; a cloth chest 24546, cloth, 70; a bag
+  1183, 10 slots; none had damage, armour, stats, level or price. Picture: `probes/scratch/item-new.js`.
+  Trap: editing a Go file while `make dev` runs rebuilds it; when that build fails (Meld-dev.exe
+  locked) it leaves `frontend/wailsjs/go/main` missing, so `make check` reports every binding import
+  missing and probes say "the page never set up __engine": stop the dev server and run `wails
+  generate module`.
 - Shot visuals: the probe makes the Worn Shortsword a bow (slot 15, subclass 2) on display 35578
   and reads "This look shoots like a crossbow (its shot visual 743)…", Make it shoot like a bow
   (visual 5, Save item (4)), and Change look's "Fits it: shoots like a bow" with bow shooters only.
