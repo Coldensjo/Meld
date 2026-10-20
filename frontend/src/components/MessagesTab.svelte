@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
-	import { ReadGossip, SaveGossipOptions, SaveGreeting } from '../../wailsjs/go/main/App'
+	import { DeleteConditionText, ReadGossip, SaveConditionText, SaveGossipOptions, SaveGreeting } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { ACTION_TALK, AI_EVENTS, CHAT_TYPES, GOSSIP_ACTIONS, GOSSIP_ICONS, nameOf, nextOptionId } from '../lib/wow/gossipNames'
 
 	// The creature editor's Messages tab (#145, #158): what the creature says when a player talks to
-	// it, its gossip menu's greeting and options, and the lines its AI says on its own (read only).
-	// Broadcast texts are shared between creatures, so Go never edits one: a greeting save adds new
-	// text rows and points this creature's menu at them, an edited option text goes into the option's
-	// own row, and a shared menu is copied first.
+	// it, its gossip menu's greeting, its texts shown under a condition (#160) and options, and the
+	// lines its AI says on its own (read only). Broadcast texts are shared between creatures, so Go
+	// never edits one: a greeting or conditioned text save adds new text rows and points this
+	// creature's menu at them, an edited option text goes into the option's own row, and a shared
+	// menu is copied first.
 
 	let {
 		entry,
@@ -26,9 +27,77 @@
 	let saving = $state(false)
 	let error = $state('')
 
-	/** The menu row the greeting is: the one shown without a condition. */
-	const greeting = $derived(gossip?.texts?.find((t) => t.condition === 0) ?? null)
-	const conditional = $derived(gossip?.texts?.filter((t) => t !== greeting) ?? [])
+	/** A text shown under a condition, being edited: textId 0 is a new row; saved* are as last read. */
+	type CondText = { textId: number; condition: number; male: string; female: string; savedCondition: number; savedMale: string; savedFemale: string }
+	let conds = $state<CondText[]>([])
+	let savingCond = $state(-1)
+	const condDirty = (c: CondText) => c.textId === 0 || c.condition !== c.savedCondition || c.male !== c.savedMale || c.female !== c.savedFemale
+	const anyCondDirty = $derived(conds.some(condDirty))
+
+	function readConds(g: vmangos.Gossip) {
+		conds = (g.texts ?? [])
+			.filter((t) => t.condition !== 0)
+			.map((t) => {
+				const female = t.female !== t.male ? t.female : ''
+				return { textId: t.textId, condition: t.condition, male: t.male, female, savedCondition: t.condition, savedMale: t.male, savedFemale: female }
+			})
+	}
+
+	function addCond() {
+		const top = Math.max(0, ...conds.map((c) => c.condition))
+		conds.push({ textId: 0, condition: top, male: '', female: '', savedCondition: 0, savedMale: '', savedFemale: '' })
+	}
+
+	function revertCond(i: number) {
+		const c = conds[i]
+		if (c.textId === 0) {
+			conds.splice(i, 1)
+			return
+		}
+		c.condition = c.savedCondition
+		c.male = c.savedMale
+		c.female = c.savedFemale
+	}
+
+	async function saveCond(i: number) {
+		const c = conds[i]
+		savingCond = i
+		const end = startSaving("Saving the creature's conditioned text")
+		error = ''
+		try {
+			const r = await SaveConditionText(entry, c.textId, c.condition, c.male, c.female)
+			onsaved(r.menuId)
+			await load()
+			setStatus(`Saved the text creature ${entry} shows under condition ${c.condition} (gossip menu ${r.menuId}). Restart the world server to see it in the game.`, 10000)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			savingCond = -1
+			end()
+		}
+	}
+
+	async function deleteCond(i: number) {
+		const c = conds[i]
+		if (c.textId === 0) {
+			conds.splice(i, 1)
+			return
+		}
+		savingCond = i
+		const end = startSaving("Removing the creature's conditioned text")
+		error = ''
+		try {
+			const r = await DeleteConditionText(entry, c.textId)
+			onsaved(r.menuId)
+			await load()
+			setStatus(`Removed the text creature ${entry} showed under condition ${c.savedCondition} (gossip menu ${r.menuId}). Restart the world server to see it in the game.`, 10000)
+		} catch (err) {
+			error = String(err)
+		} finally {
+			savingCond = -1
+			end()
+		}
+	}
 
 	/** The options being edited, and as last read (JSON), to tell an edit. */
 	let options = $state<vmangos.GossipOption[]>([])
@@ -38,7 +107,7 @@
 	const greetingDirty = $derived(male !== savedMale || female !== savedFemale)
 
 	$effect(() => {
-		dirty = greetingDirty || optionsDirty
+		dirty = greetingDirty || optionsDirty || anyCondDirty
 	})
 
 	function readOptions(g: vmangos.Gossip) {
@@ -119,6 +188,7 @@
 			// A female text equal to the male one is shown empty: it follows the male text.
 			savedFemale = female = t && t.female !== t.male ? t.female : ''
 			readOptions(g)
+			readConds(g)
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -168,15 +238,28 @@
 		<label>To a man (and to a woman, if the next box is empty)<textarea rows="5" bind:value={male}></textarea></label>
 		<label>To a woman (optional)<textarea rows="3" bind:value={female} placeholder="Same as above"></textarea></label>
 
-		{#if conditional.length}
-			<h3>Shown under a condition</h3>
-			<p class="dim">These replace the greeting when their condition holds; they are kept as they are.</p>
-			<ul>
-				{#each conditional as t (t.textId)}
-					<li><span class="dim">condition {t.condition} · text {t.textId}</span> {t.male}</li>
-				{/each}
-			</ul>
-		{/if}
+		<div class="head">
+			<h3>Shown under a condition ({conds.length})</h3>
+			<button onclick={addCond} title="Add a text shown instead of the greeting when a condition holds">Add text</button>
+		</div>
+		<p class="dim">
+			Each replaces the greeting when its condition (a row of the conditions table) holds; of those that hold, the highest-numbered condition wins. A saved text is a new text row, so other creatures showing the old one keep it{(gossip?.shared ?? 0) > 1 ? '; this shared menu is copied for this creature first' : ''}.
+		</p>
+		{#each conds as c, i (c)}
+			<div class="option">
+				<div class="line">
+					<label class="cond" title="The conditions row (condition_entry) that must hold">Condition <input type="number" min="1" bind:value={c.condition} /></label>
+					<span class="dim">{c.textId ? `text ${c.textId}` : 'new'}</span>
+					<span class="row-actions">
+						<button disabled={!condDirty(c) || savingCond >= 0} onclick={() => revertCond(i)}>Revert</button>
+						<button class="active" disabled={!condDirty(c) || savingCond >= 0 || !c.male.trim() || !(c.condition > 0)} onclick={() => saveCond(i)}>{savingCond === i ? 'Saving…' : condDirty(c) ? 'Save' : 'Saved'}</button>
+						<button disabled={savingCond >= 0} onclick={() => deleteCond(i)} title="Remove this text from the creature's menu">✕</button>
+					</span>
+				</div>
+				<label>To a man (and to a woman, if the next box is empty)<textarea rows="3" bind:value={c.male}></textarea></label>
+				<label>To a woman (optional)<textarea rows="2" bind:value={c.female} placeholder="Same as above"></textarea></label>
+			</div>
+		{/each}
 
 		<div class="head">
 			<h3>Options ({options.length})</h3>
@@ -305,6 +388,17 @@
 	}
 	.line.small input[type='number'] {
 		width: 64px;
+	}
+	.line .cond {
+		flex-direction: row;
+		align-items: center;
+		gap: 4px;
+	}
+	.line .cond input {
+		width: 80px;
+	}
+	.line .row-actions {
+		margin-left: auto;
 	}
 	.line.small .box input {
 		width: 140px;

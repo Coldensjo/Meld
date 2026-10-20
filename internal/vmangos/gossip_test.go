@@ -48,6 +48,60 @@ func TestGreetingSQLNeverEditsSharedText(t *testing.T) {
 	}
 }
 
+func TestConditionTextSQL(t *testing.T) {
+	own := Gossip{MenuID: 4048, Shared: 1, Texts: []GossipText{{TextID: 5000, Condition: 0}, {TextID: 5001, Condition: 7}}}
+	// An edited text: a new text row, the conditioned row repointed with its new condition.
+	sql := conditionTextSQL(197, own, 5001, 9, "Welcome back.", "", false)
+	for _, want := range []string{
+		"VALUES (@text_b, 'Welcome back.', 'Welcome back.')",
+		"UPDATE `gossip_menu` SET `text_id` = @text_n, `condition_id` = 9 WHERE `entry` = @menu AND `text_id` = 5001;",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("edited: missing %q in\n%s", want, sql)
+		}
+	}
+	// Only the condition changed: the row keeps its npc_text, no text row is added.
+	sql = conditionTextSQL(197, own, 5001, 9, "", "", true)
+	if strings.Contains(sql, "broadcast_text") || !strings.Contains(sql, "SET `text_id` = 5001, `condition_id` = 9 WHERE `entry` = @menu AND `text_id` = 5001;") {
+		t.Fatalf("kept:\n%s", sql)
+	}
+	// A new conditioned row.
+	sql = conditionTextSQL(197, own, -1, 9, "Hi", "", false)
+	if !strings.Contains(sql, "VALUES (@menu, @text_n, 0, 9);") || strings.Contains(sql, "UPDATE `gossip_menu`") {
+		t.Fatalf("new:\n%s", sql)
+	}
+	// A shared menu: copied with the row swapped and its condition set, options copied, nothing edited.
+	shared := Gossip{MenuID: 6944, Shared: 42, Texts: []GossipText{{TextID: 8000}, {TextID: 8001, Condition: 3}}}
+	sql = conditionTextSQL(1, shared, 8001, 4, "Hi", "", false)
+	for _, want := range []string{
+		"SELECT @menu, IF(`text_id` = 8001, @text_n, `text_id`), `script_id`, IF(`text_id` = 8001, 4, `condition_id`) FROM `gossip_menu` WHERE `entry` = 6944;",
+		"FROM `gossip_menu_option` WHERE `menu_id` = 6944;",
+		"SET `gossip_menu_id` = @menu, `npc_flags` = `npc_flags` | 1 WHERE `entry` = 1;",
+		// A new menu's number is past every menu named anywhere, not only gossip_menu's rows.
+		"SET @menu = GREATEST(",
+		"MAX(`gossip_menu_id`), 0) FROM `creature_template`)) + 1;",
+	} {
+		if !strings.Contains(sql, want) {
+			t.Fatalf("shared: missing %q in\n%s", want, sql)
+		}
+	}
+	if strings.Contains(sql, "UPDATE `gossip_menu`") {
+		t.Fatal("a shared menu was edited")
+	}
+
+	// Deleting: from its own menu a DELETE; a shared menu is copied without the row.
+	var b strings.Builder
+	textRowSQL(&b, 197, own, 5001, "", 0)
+	if sql = b.String(); !strings.Contains(sql, "DELETE FROM `gossip_menu` WHERE `entry` = @menu AND `text_id` = 5001;") || strings.Contains(sql, "npc_flags") {
+		t.Fatalf("delete own:\n%s", sql)
+	}
+	b.Reset()
+	textRowSQL(&b, 1, shared, 8001, "", 0)
+	if sql = b.String(); !strings.Contains(sql, "FROM `gossip_menu` WHERE `entry` = 6944 AND `text_id` <> 8001;") || strings.Contains(sql, "DELETE") {
+		t.Fatalf("delete shared:\n%s", sql)
+	}
+}
+
 func TestOptionsSQLNeverEditsSharedText(t *testing.T) {
 	shown := map[int]string{3000: "I want to browse your goods.", 3001: "Are you sure?"}
 	opts := []GossipOption{

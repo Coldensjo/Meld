@@ -246,6 +246,18 @@ it was; `select count(*) from npc_vendor where entry=805` is 0).
   Clean up as above, plus `gossip_menu_option` rows of the new menus, and set 931's `gossip_menu_id`
   back to 6944 (931 has two patch rows). 931 also lists one AI line ("On aggro · yells Guards! Help
   me!") and warns that its quest option is hidden (it lacks the Quest giver flag).
+- Texts shown under a condition (#160, `SaveConditionText`, `DeleteConditionText`): the probe
+  `messages-conditions` checks the rows on Sputtervalve (3442, text 519 under condition 315; nothing
+  written). A write test, by the bindings in a scratch probe, with the maxima noted as above: on 805
+  add a text under condition 315 (a new menu holding only that row), change only its condition to 316
+  (the row keeps its npc_text), change its text (a new npc_text), try condition 999999 (refused: not
+  in `conditions`), delete it; then add one on 931 (a copied menu, shared by 1, with 6944's two
+  options; 6944 keeps its one row). Clean up as above. Of the texts whose condition holds, VMaNGOS
+  shows the one with the highest condition_id (`Player::GetGossipTextId`).
+- Trap: a menu can be left with no `gossip_menu` rows (805 above after the delete) while a creature
+  still names it, so a new menu's number must look past `creature_template.gossip_menu_id` and
+  `gossip_menu_option` too, not only `max(gossip_menu.entry)` (`lastMenuSQL`); the first try gave
+  931's copy 805's menu number, and the two shared it.
 - Trap: GossipDef.h's comments give later clients' npc flag values (vendor 128, flight 8192); 1.12's
   are in UnitDefines.h (vendor 4, flight 8), which the world database uses.
 

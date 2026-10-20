@@ -49,6 +49,8 @@ export function CreateQuest(arg1:number,arg2:string):Promise<number>;
 
 export function CreateSpell(arg1:number,arg2:string,arg3:string):Promise<number>;
 
+export function DeleteConditionText(arg1:number,arg2:number):Promise<vmangos.GreetingSaved>;
+
 export function DeleteQuest(arg1:number):Promise<string>;
 
 export function DropRecovery(arg1:string):Promise<void>;
@@ -264,6 +266,8 @@ export function SaveAreaTriggers(arg1:Array<vmangos.AreaTrigger>,arg2:Array<numb
 export function SaveAreas(arg1:Array<vmangos.AreaRow>,arg2:Array<vmangos.ZoneWeather>):Promise<main.AreaSaveResult>;
 
 export function SaveBrushDialog(arg1:string):Promise<string>;
+
+export function SaveConditionText(arg1:number,arg2:number,arg3:number,arg4:string,arg5:string):Promise<vmangos.GreetingSaved>;
 
 export function SaveCreature(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 

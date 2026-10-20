@@ -1183,6 +1183,26 @@ func (a *App) SaveGreeting(entry int, male, female string) (vmangos.GreetingSave
 	return vmangos.SaveGreeting(server, entry, male, female)
 }
 
+// SaveConditionText sets a text a creature template's gossip menu shows under a condition: the row
+// showing npc_text textID (0 for a new row) now shows male and female when condition cond holds.
+func (a *App) SaveConditionText(entry, textID, cond int, male, female string) (vmangos.GreetingSaved, error) {
+	server, _, err := a.serverForWrite()
+	if err != nil {
+		return vmangos.GreetingSaved{}, err
+	}
+	return vmangos.SaveConditionText(server, entry, textID, cond, male, female)
+}
+
+// DeleteConditionText removes the conditioned text row showing npc_text textID from a creature
+// template's gossip menu.
+func (a *App) DeleteConditionText(entry, textID int) (vmangos.GreetingSaved, error) {
+	server, _, err := a.serverForWrite()
+	if err != nil {
+		return vmangos.GreetingSaved{}, err
+	}
+	return vmangos.DeleteConditionText(server, entry, textID)
+}
+
 // SaveGossipOptions replaces the options (the lines a player can pick) of a creature template's
 // gossip menu, and returns its gossip menu now.
 func (a *App) SaveGossipOptions(entry int, options []vmangos.GossipOption) (vmangos.GreetingSaved, error) {

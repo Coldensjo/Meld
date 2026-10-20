@@ -14,6 +14,12 @@ const NpcFlagGossip = 0x1
 // are unsigned smallints.
 const maxGossipMenu = 65535
 
+// lastMenuSQL is the largest gossip menu number in use: not only gossip_menu's, since a menu left
+// with no text rows can still be named by a creature template or have options, and a new menu given
+// its number would be shared with them.
+const lastMenuSQL = "GREATEST((SELECT COALESCE(MAX(`entry`), 0) FROM `gossip_menu`), (SELECT COALESCE(MAX(`menu_id`), 0) FROM `gossip_menu_option`), " +
+	"(SELECT COALESCE(MAX(`action_menu_id`), 0) FROM `gossip_menu_option`), (SELECT COALESCE(MAX(`gossip_menu_id`), 0) FROM `creature_template`))"
+
 // GossipText is one text row of a gossip menu: the npc_text it shows, the condition it is shown
 // under (0 always), and the first broadcast text of that npc_text, for a man and a woman player.
 type GossipText struct {
@@ -197,14 +203,8 @@ func parseGossipTexts(raw []byte) []GossipText {
 // too is copied first (its text rows and options), so they keep theirs; a creature with no menu gets
 // one. The creature gets the gossip flag. g is the creature's gossip as readGossip read it.
 func greetingSQL(entry int, g Gossip, male, female string) string {
-	if strings.TrimSpace(female) == "" {
-		female = male
-	}
 	var b strings.Builder
-	b.WriteString("SET @text_b = (SELECT COALESCE(MAX(`entry`), 0) + 1 FROM `broadcast_text`);\n")
-	fmt.Fprintf(&b, "INSERT INTO `broadcast_text` (`entry`, `male_text`, `female_text`) VALUES (@text_b, %s, %s);\n", sqlQuote(male), sqlQuote(female))
-	b.WriteString("SET @text_n = (SELECT COALESCE(MAX(`ID`), 0) + 1 FROM `npc_text`);\n")
-	b.WriteString("INSERT INTO `npc_text` (`ID`, `BroadcastTextID0`, `Probability0`) VALUES (@text_n, @text_b, 1);\n")
+	newTextSQL(&b, male, female)
 	old := -1 // the text row the greeting replaces
 	for _, t := range g.Texts {
 		if t.Condition == 0 {
@@ -212,28 +212,69 @@ func greetingSQL(entry int, g Gossip, male, female string) string {
 			break
 		}
 	}
+	textRowSQL(&b, entry, g, old, "@text_n", 0)
+	return b.String()
+}
+
+// newTextSQL adds a broadcast_text of male and female (an empty female text follows the male one)
+// and an npc_text showing it, as @text_b and @text_n.
+func newTextSQL(b *strings.Builder, male, female string) {
+	if strings.TrimSpace(female) == "" {
+		female = male
+	}
+	b.WriteString("SET @text_b = (SELECT COALESCE(MAX(`entry`), 0) + 1 FROM `broadcast_text`);\n")
+	fmt.Fprintf(b, "INSERT INTO `broadcast_text` (`entry`, `male_text`, `female_text`) VALUES (@text_b, %s, %s);\n", sqlQuote(male), sqlQuote(female))
+	b.WriteString("SET @text_n = (SELECT COALESCE(MAX(`ID`), 0) + 1 FROM `npc_text`);\n")
+	b.WriteString("INSERT INTO `npc_text` (`ID`, `BroadcastTextID0`, `Probability0`) VALUES (@text_n, @text_b, 1);\n")
+}
+
+// textRowSQL changes one text row of creature entry's gossip menu (g, as readGossip read it): the row
+// showing npc_text old (-1 for a new row) shows text (an SQL value: "@text_n" or an npc_text ID) under
+// condition cond, or is removed when text is "". A menu other creature templates share is copied
+// first (its text rows and options), so they keep theirs; a creature with no menu gets one. With a
+// text, the creature gets the gossip flag.
+func textRowSQL(b *strings.Builder, entry int, g Gossip, old int, text string, cond int) {
+	const cols = "INSERT INTO `gossip_menu` (`entry`, `text_id`, `script_id`, `condition_id`) "
 	switch {
 	case g.MenuID <= 0:
-		b.WriteString("SET @menu = (SELECT COALESCE(MAX(`entry`), 0) + 1 FROM `gossip_menu`);\n")
-		b.WriteString("INSERT INTO `gossip_menu` (`entry`, `text_id`, `script_id`, `condition_id`) VALUES (@menu, @text_n, 0, 0);\n")
-	case g.Shared > 1:
-		b.WriteString("SET @menu = (SELECT COALESCE(MAX(`entry`), 0) + 1 FROM `gossip_menu`);\n")
-		fmt.Fprintf(&b, "INSERT INTO `gossip_menu` (`entry`, `text_id`, `script_id`, `condition_id`) SELECT @menu, IF(`text_id` = %d, @text_n, `text_id`), `script_id`, `condition_id` FROM `gossip_menu` WHERE `entry` = %d;\n", old, g.MenuID)
-		if old < 0 {
-			b.WriteString("INSERT INTO `gossip_menu` (`entry`, `text_id`, `script_id`, `condition_id`) VALUES (@menu, @text_n, 0, 0);\n")
+		b.WriteString("SET @menu = " + lastMenuSQL + " + 1;\n")
+		if text != "" {
+			fmt.Fprintf(b, cols+"VALUES (@menu, %s, 0, %d);\n", text, cond)
 		}
-		fmt.Fprintf(&b, "INSERT INTO `gossip_menu_option` (`menu_id`, `id`, `option_icon`, `option_text`, `option_broadcast_text`, `option_id`, `npc_option_npcflag`, `action_menu_id`, `action_poi_id`, `action_script_id`, `box_coded`, `box_money`, `box_text`, `box_broadcast_text`, `condition_id`) "+
+	case g.Shared > 1:
+		b.WriteString("SET @menu = " + lastMenuSQL + " + 1;\n")
+		switch {
+		case text == "":
+			fmt.Fprintf(b, cols+"SELECT @menu, `text_id`, `script_id`, `condition_id` FROM `gossip_menu` WHERE `entry` = %d AND `text_id` <> %d;\n", g.MenuID, old)
+		case old >= 0 && cond != 0:
+			fmt.Fprintf(b, cols+"SELECT @menu, IF(`text_id` = %d, %s, `text_id`), `script_id`, IF(`text_id` = %d, %d, `condition_id`) FROM `gossip_menu` WHERE `entry` = %d;\n", old, text, old, cond, g.MenuID)
+		default:
+			fmt.Fprintf(b, cols+"SELECT @menu, IF(`text_id` = %d, %s, `text_id`), `script_id`, `condition_id` FROM `gossip_menu` WHERE `entry` = %d;\n", old, text, g.MenuID)
+		}
+		if old < 0 && text != "" {
+			fmt.Fprintf(b, cols+"VALUES (@menu, %s, 0, %d);\n", text, cond)
+		}
+		fmt.Fprintf(b, "INSERT INTO `gossip_menu_option` (`menu_id`, `id`, `option_icon`, `option_text`, `option_broadcast_text`, `option_id`, `npc_option_npcflag`, `action_menu_id`, `action_poi_id`, `action_script_id`, `box_coded`, `box_money`, `box_text`, `box_broadcast_text`, `condition_id`) "+
 			"SELECT @menu, `id`, `option_icon`, `option_text`, `option_broadcast_text`, `option_id`, `npc_option_npcflag`, `action_menu_id`, `action_poi_id`, `action_script_id`, `box_coded`, `box_money`, `box_text`, `box_broadcast_text`, `condition_id` FROM `gossip_menu_option` WHERE `menu_id` = %d;\n", g.MenuID)
 	default:
-		fmt.Fprintf(&b, "SET @menu = %d;\n", g.MenuID)
-		if old >= 0 {
-			fmt.Fprintf(&b, "UPDATE `gossip_menu` SET `text_id` = @text_n WHERE `entry` = @menu AND `text_id` = %d;\n", old)
-		} else {
-			b.WriteString("INSERT INTO `gossip_menu` (`entry`, `text_id`, `script_id`, `condition_id`) VALUES (@menu, @text_n, 0, 0);\n")
+		fmt.Fprintf(b, "SET @menu = %d;\n", g.MenuID)
+		switch {
+		case old < 0 && text != "":
+			fmt.Fprintf(b, cols+"VALUES (@menu, %s, 0, %d);\n", text, cond)
+		case old < 0:
+		case text == "":
+			fmt.Fprintf(b, "DELETE FROM `gossip_menu` WHERE `entry` = @menu AND `text_id` = %d;\n", old)
+		case cond != 0:
+			fmt.Fprintf(b, "UPDATE `gossip_menu` SET `text_id` = %s, `condition_id` = %d WHERE `entry` = @menu AND `text_id` = %d;\n", text, cond, old)
+		default:
+			fmt.Fprintf(b, "UPDATE `gossip_menu` SET `text_id` = %s WHERE `entry` = @menu AND `text_id` = %d;\n", text, old)
 		}
 	}
-	fmt.Fprintf(&b, "UPDATE `creature_template` SET `gossip_menu_id` = @menu, `npc_flags` = `npc_flags` | %d WHERE `entry` = %d;", NpcFlagGossip, entry)
-	return b.String()
+	if text == "" {
+		fmt.Fprintf(b, "UPDATE `creature_template` SET `gossip_menu_id` = @menu WHERE `entry` = %d;", entry)
+		return
+	}
+	fmt.Fprintf(b, "UPDATE `creature_template` SET `gossip_menu_id` = @menu, `npc_flags` = `npc_flags` | %d WHERE `entry` = %d;", NpcFlagGossip, entry)
 }
 
 // SaveGreeting sets what creature template entry says when a player talks to it (greetingSQL), and
@@ -253,16 +294,144 @@ func SaveGreeting(serverRoot string, entry int, male, female string) (GreetingSa
 	if err != nil {
 		return GreetingSaved{}, err
 	}
-	if g.MenuID <= 0 || g.Shared > 1 {
-		raw, err := runSQL(db, "SELECT COALESCE(MAX(`entry`), 0) FROM `gossip_menu`")
-		if err != nil {
-			return GreetingSaved{}, err
-		}
-		if n, _ := strconv.Atoi(strings.TrimSpace(string(raw))); n >= maxGossipMenu {
-			return GreetingSaved{}, fmt.Errorf("the world database has no free gossip menu entry (the last is %d)", n)
-		}
+	if err := openMenuSlot(db, g); err != nil {
+		return GreetingSaved{}, err
 	}
 	sql := greetingSQL(entry, g, male, female)
+	if err := runScript(db, sql); err != nil {
+		return GreetingSaved{}, err
+	}
+	after, err := readGossip(db, entry)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	return GreetingSaved{MenuID: after.MenuID, SQL: sql}, nil
+}
+
+// maxCondition is the largest conditions.condition_entry (gossip_menu.condition_id is a mediumint).
+const maxCondition = 16777215
+
+// conditionTextSQL sets one conditioned text of creature entry's gossip menu (g, as readGossip read
+// it): the row showing npc_text old (-1 for a new row) shows male and female under condition cond.
+// As greetingSQL does, it never edits a broadcast_text or npc_text: a changed text is a new one, and
+// with keep (the text is the row's own, only its condition changes) the row keeps its npc_text.
+func conditionTextSQL(entry int, g Gossip, old, cond int, male, female string, keep bool) string {
+	var b strings.Builder
+	text := "@text_n"
+	if keep && old >= 0 {
+		text = strconv.Itoa(old)
+	} else {
+		newTextSQL(&b, male, female)
+	}
+	textRowSQL(&b, entry, g, old, text, cond)
+	return b.String()
+}
+
+// openMenuSlot fails when g's save needs a new gossip menu (it has none, or shares one) and the
+// world database has no free entry left.
+func openMenuSlot(db worldDB, g Gossip) error {
+	if g.MenuID > 0 && g.Shared <= 1 {
+		return nil
+	}
+	raw, err := runSQL(db, "SELECT "+lastMenuSQL)
+	if err != nil {
+		return err
+	}
+	if n, _ := strconv.Atoi(strings.TrimSpace(string(raw))); n >= maxGossipMenu {
+		return fmt.Errorf("the world database has no free gossip menu entry (the last is %d)", n)
+	}
+	return nil
+}
+
+// conditionRow finds the conditioned text row of g showing npc_text id.
+func conditionRow(g Gossip, id int) (GossipText, bool) {
+	for _, t := range g.Texts {
+		if t.TextID == id && t.Condition != 0 {
+			return t, true
+		}
+	}
+	return GossipText{}, false
+}
+
+// SaveConditionText sets a text creature template entry's gossip menu shows under a condition
+// (conditionTextSQL): the row showing npc_text textID, or a new row when textID is 0, now shows male
+// and female (an empty female text uses the male one) when condition cond holds. It returns the
+// creature's gossip menu now with the SQL it ran.
+func SaveConditionText(serverRoot string, entry, textID, cond int, male, female string) (GreetingSaved, error) {
+	if strings.TrimSpace(male) == "" {
+		return GreetingSaved{}, fmt.Errorf("the text is empty")
+	}
+	if cond <= 0 || cond > maxCondition {
+		return GreetingSaved{}, fmt.Errorf("condition %d is out of range (1 to %d; a text with no condition is the greeting)", cond, maxCondition)
+	}
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return GreetingSaved{}, err
+	}
+	raw, err := runSQL(db, fmt.Sprintf("SELECT COUNT(*) FROM `conditions` WHERE `condition_entry` = %d", cond))
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	if strings.TrimSpace(string(raw)) == "0" {
+		return GreetingSaved{}, fmt.Errorf("the world database has no condition %d (the conditions table)", cond)
+	}
+	g, err := readGossip(db, entry)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	old, keep := -1, false
+	if textID > 0 {
+		t, ok := conditionRow(g, textID)
+		if !ok {
+			return GreetingSaved{}, fmt.Errorf("creature %d's gossip menu has no conditioned text %d", entry, textID)
+		}
+		f := female
+		if strings.TrimSpace(f) == "" {
+			f = male
+		}
+		old, keep = textID, t.Male == male && t.Female == f
+	}
+	if err := openMenuSlot(db, g); err != nil {
+		return GreetingSaved{}, err
+	}
+	sql := conditionTextSQL(entry, g, old, cond, male, female, keep)
+	if err := runScript(db, sql); err != nil {
+		return GreetingSaved{}, err
+	}
+	after, err := readGossip(db, entry)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	return GreetingSaved{MenuID: after.MenuID, SQL: sql}, nil
+}
+
+// DeleteConditionText removes the conditioned text row showing npc_text textID from creature
+// template entry's gossip menu (a shared menu is copied without it), leaving the npc_text, which
+// other menus may show. It returns the creature's gossip menu now with the SQL it ran.
+func DeleteConditionText(serverRoot string, entry, textID int) (GreetingSaved, error) {
+	db, err := worldDatabase(serverRoot)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	if err := ensureDatabase(db, serverRoot); err != nil {
+		return GreetingSaved{}, err
+	}
+	g, err := readGossip(db, entry)
+	if err != nil {
+		return GreetingSaved{}, err
+	}
+	if _, ok := conditionRow(g, textID); !ok || g.MenuID <= 0 {
+		return GreetingSaved{}, fmt.Errorf("creature %d's gossip menu has no conditioned text %d", entry, textID)
+	}
+	if err := openMenuSlot(db, g); err != nil {
+		return GreetingSaved{}, err
+	}
+	var b strings.Builder
+	textRowSQL(&b, entry, g, textID, "", 0)
+	sql := b.String()
 	if err := runScript(db, sql); err != nil {
 		return GreetingSaved{}, err
 	}
@@ -312,7 +481,7 @@ func checkGossipOptions(opts []GossipOption) error {
 func optionsSQL(entry int, g Gossip, opts []GossipOption, shown map[int]string) string {
 	var b strings.Builder
 	if g.Shared > 1 {
-		b.WriteString("SET @menu = (SELECT COALESCE(MAX(`entry`), 0) + 1 FROM `gossip_menu`);\n")
+		b.WriteString("SET @menu = " + lastMenuSQL + " + 1;\n")
 		fmt.Fprintf(&b, "INSERT INTO `gossip_menu` (`entry`, `text_id`, `script_id`, `condition_id`) SELECT @menu, `text_id`, `script_id`, `condition_id` FROM `gossip_menu` WHERE `entry` = %d;\n", g.MenuID)
 		fmt.Fprintf(&b, "UPDATE `creature_template` SET `gossip_menu_id` = @menu WHERE `entry` = %d;\n", entry)
 	} else {
@@ -360,14 +529,8 @@ func SaveGossipOptions(serverRoot string, entry int, opts []GossipOption) (Greet
 	if g.MenuID <= 0 {
 		return GreetingSaved{}, fmt.Errorf("creature %d has no gossip menu yet: save a greeting first", entry)
 	}
-	if g.Shared > 1 {
-		raw, err := runSQL(db, "SELECT COALESCE(MAX(`entry`), 0) FROM `gossip_menu`")
-		if err != nil {
-			return GreetingSaved{}, err
-		}
-		if n, _ := strconv.Atoi(strings.TrimSpace(string(raw))); n >= maxGossipMenu {
-			return GreetingSaved{}, fmt.Errorf("the world database has no free gossip menu entry (the last is %d)", n)
-		}
+	if err := openMenuSlot(db, g); err != nil {
+		return GreetingSaved{}, err
 	}
 	// The texts the menu's broadcast texts showed, to tell a kept text from an edited one.
 	shown := map[int]string{}

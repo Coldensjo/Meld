@@ -86,6 +86,10 @@ export function CreateSpell(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateSpell'](arg1, arg2, arg3);
 }
 
+export function DeleteConditionText(arg1, arg2) {
+  return window['go']['main']['App']['DeleteConditionText'](arg1, arg2);
+}
+
 export function DeleteQuest(arg1) {
   return window['go']['main']['App']['DeleteQuest'](arg1);
 }
@@ -516,6 +520,10 @@ export function SaveAreas(arg1, arg2) {
 
 export function SaveBrushDialog(arg1) {
   return window['go']['main']['App']['SaveBrushDialog'](arg1);
+}
+
+export function SaveConditionText(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SaveConditionText'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function SaveCreature(arg1, arg2, arg3) {

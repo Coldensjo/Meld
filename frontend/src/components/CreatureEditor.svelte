@@ -130,7 +130,7 @@
   })
 
   const unsavedText = $derived(
-    [changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the creature` : '', spellsDirty ? 'unsaved changes to the spells' : '', shopDirty ? 'unsaved changes to the shop' : '', questsDirty ? 'unsaved changes to the quests' : '', messagesDirty ? 'an unsaved greeting' : '']
+    [changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the creature` : '', spellsDirty ? 'unsaved changes to the spells' : '', shopDirty ? 'unsaved changes to the shop' : '', questsDirty ? 'unsaved changes to the quests' : '', messagesDirty ? 'unsaved changes to the messages' : '']
       .filter(Boolean)
       .join(', ') + '.',
   )
