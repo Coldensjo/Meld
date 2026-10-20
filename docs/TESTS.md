@@ -187,7 +187,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
 - A probe is `frontend/probes/<name>.js`: the body of an async function run in the page, whose first
   line is a `//` comment saying what it checks (`--list` shows it). It returns an object; `ok: false`
   or a throw fails it. `P` (`probes/lib.js`) is in scope:
-  - `P.e` (the Engine), `P.scene(line or object)`, `P.BENCH` (the benchmark scene), `P.settle()`
+  - `P.e` (the Engine), `P.scene(line or object)`, `P.BENCH` (the benchmark scene), `P.settle()` (waits for client reads and the spawn layer's version to go quiet, #393)
     (frames until the client reads stop), `P.frames(n)`, `P.until(fn, ms, what)`, `P.perf()`
     (`measurePerf` with frames stepped), `P.state()` (the app's own `editor`/`prefs`/`ui`),
     `P.app(path)` (any app module, the page's own instance) and `P.glError()`.

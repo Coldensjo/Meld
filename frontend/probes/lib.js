@@ -209,20 +209,36 @@ const P = {
 		}
 	},
 
-	/** Steps frames until no read from the client has been open for `quietMs` (models, textures, tiles). */
+	/**
+	 * Steps frames until no read from the client has been open for `quietMs` (models, textures, tiles)
+	 * and the spawn layer's `version` has not changed for as long: a spawn arriving later bumps it,
+	 * which redraws both shadow maps under a measurement (#393). A version that keeps changing is
+	 * waited on for at most 10 s past the reads, so an animated layer can't time out.
+	 */
 	async settle(quietMs = 1500, timeout = 300_000) {
 		const { readLoad } = await P.app('/src/lib/wow/loadProgress.ts')
 		const b = {}
 		P.resetStalls()
+		const version = () => window.__engine?.doc?.spawnLayer?.version ?? 0
 		let quietSince = performance.now()
+		let readsQuietAt = 0
+		let seen = version()
 		const end = performance.now() + timeout
 		for (;;) {
 			await P.frames(1)
 			readLoad(b)
 			const now = performance.now()
 			window.__probeStep = `P.settle: ${b.done} of ${b.started} client reads done, last ${b.kind} ${b.path}`
-			if (b.started !== b.done) quietSince = now
-			else if (now - quietSince > quietMs) {
+			const v = version()
+			if (v !== seen) {
+				seen = v
+				quietSince = now
+			}
+			if (b.started !== b.done) {
+				quietSince = now
+				readsQuietAt = 0
+			} else if (!readsQuietAt) readsQuietAt = now
+			if (b.started === b.done && (now - quietSince > quietMs || now - readsQuietAt > quietMs + 10_000)) {
 				window.__probeStep = null
 				return
 			}
