@@ -382,3 +382,12 @@ Checks: Preferences › Interface size zooms the whole UI and everything still l
 - Not checked here: WebKitGTK (Linux). Its `zoom` may report `getBoundingClientRect` in the zoomed
   page's px rather than window px; check the viewport picking, the right-click menu and the dock's
   resizer there at 150 %.
+
+## Selected state for assistive tech (#373, probe `aria-state`)
+
+Checks: the toolbar's tool buttons carry `aria-pressed` (exactly one true, moving with `editor.tool`), the
+asset browser's kind tabs are `role="tab"` with `aria-selected`, its facets carry `aria-pressed`, and no
+`role="listbox"` holds plain tile buttons. `bun run probe aria-state`.
+- Trap: the tool tip opens on keyboard focus only (`:focus-visible`), which a script's `focus()` does not
+  trigger in the dev page and a synthetic Tab keydown cannot fake (Tab toggles the panels). Press Tab in the
+  dev page by hand to see the tip; the probe only checks that a blur hides it.

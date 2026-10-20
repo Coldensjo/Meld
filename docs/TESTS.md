@@ -555,6 +555,7 @@ the same scene, the report before and after.
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
 - Accessibility (#354)
 - Dialog focus (#369, probe `dialog-focus`)
+- Selected state for assistive tech (#373, probe `aria-state`)
 - Menu keys (#370, probe `menu-keys`)
 - Interface size (#372, probe `ui-scale`)
 

@@ -383,9 +383,9 @@
     <div class="resizer" role="separator" aria-orientation="horizontal" onpointerdown={startResize}></div>
   {/if}
   <header>
-    <div class="kinds">
+    <div class="kinds" role="tablist">
       {#each KINDS as k (k.id)}
-        <button class="tab" class:active={kind === k.id && !prefs.browserCollapsed} onclick={() => chooseKind(k.id)}>{k.label}</button>
+        <button class="tab" role="tab" aria-selected={kind === k.id && !prefs.browserCollapsed} class:active={kind === k.id && !prefs.browserCollapsed} onclick={() => chooseKind(k.id)}>{k.label}</button>
       {/each}
     </div>
     {#if !prefs.browserCollapsed && wow.loaded && !spawnKind && kind !== 'prefabs'}
@@ -436,18 +436,18 @@
     {:else}
       <div class="body">
         <nav class="facets">
-          <button class="facet" class:active={!category} onclick={() => setView({ category: '' })}>
+          <button class="facet" aria-pressed={!category} class:active={!category} onclick={() => setView({ category: '' })}>
             All <span>{result.categories.reduce((n, c) => n + c.count, 0).toLocaleString()}</span>
           </button>
           {#each result.categories as c (c.name)}
-            <button class="facet" class:active={category === c.name} onclick={() => setView({ category: category === c.name ? '' : c.name })}>
+            <button class="facet" aria-pressed={category === c.name} class:active={category === c.name} onclick={() => setView({ category: category === c.name ? '' : c.name })}>
               {c.name} <span>{c.count.toLocaleString()}</span>
             </button>
           {/each}
         </nav>
 
         <!-- A tile only sets the hover; leaving the grid clears it, so the gap between two tiles shows no third item. -->
-        <div class="grid-wrap" role="listbox" tabindex="-1" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={onScroll} onpointerleave={() => (hovered = null)}>
+        <div class="grid-wrap" role="group" aria-label="Assets" tabindex="-1" bind:this={scroller} bind:clientWidth={gridWidth} bind:clientHeight={viewHeight} onscroll={onScroll} onpointerleave={() => (hovered = null)}>
           {#if kind === 'sets'}
             <div class="setbar">
               {#if activeSet}

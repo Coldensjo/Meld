@@ -82,7 +82,8 @@
   class="tile"
   class:active
   class:failed
-  {title}
+  aria-pressed={active}
+  title={failed ? `${title} (thumbnail failed)` : title}
   {onclick}
   oncontextmenu={(e) => {
     if (onmenu) {

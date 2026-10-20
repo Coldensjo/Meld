@@ -59,6 +59,9 @@
     <button
       class:active={editor.tool === t.id}
       aria-label={t.name}
+      aria-pressed={editor.tool === t.id}
+      onfocus={(e) => e.currentTarget.matches(':focus-visible') && showTip(t, e.currentTarget)}
+      onblur={hideTip}
       onpointerenter={(e) => showTip(t, e.currentTarget)}
       onpointerleave={hideTip}
       onclick={() => {
