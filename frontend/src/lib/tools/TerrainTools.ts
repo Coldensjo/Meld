@@ -37,7 +37,7 @@ export function withSettings<T>(settings: ToolSettings, fn: () => T): T {
   }
 }
 import { slopeDegrees, slopeWeights } from '../terrain/roles'
-import { tentBlur } from '../terrain/blur'
+import { copyRect, tentBlur } from '../terrain/blur'
 import type { Command } from '../state/history'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
 import { fbm, ridged } from '../engine/noise'
@@ -559,8 +559,15 @@ export class SculptTool extends BrushTool {
       case 'smooth': {
         // Box-blur from a snapshot so the result is order independent.
         const V = t.verts
+        const cs = t.cellSize
         if (this.scratch.length !== h.length) this.scratch = new Float32Array(h.length)
-        this.scratch.set(h)
+        // Only the brush rect and the ring the filter reads around it, not the whole map.
+        copyRect(h, V, {
+          x0: Math.max(0, Math.floor((hit.x - radius) / cs)),
+          z0: Math.max(0, Math.floor((hit.z - radius) / cs)),
+          x1: Math.min(V - 1, Math.ceil((hit.x + radius) / cs)),
+          z1: Math.min(V - 1, Math.ceil((hit.z + radius) / cs)),
+        }, 1, this.scratch)
         const src = this.scratch
         const k = Math.min(1, rate * 10)
         rect = forEachVertex(t, hit.x, hit.z, radius, falloff, (i, w, x, z) => {

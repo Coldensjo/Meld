@@ -58,3 +58,16 @@ export function tentBlur(src: Float32Array, verts: number, r: VertexRect, radius
   }
   return tmp
 }
+
+/**
+ * Copies the vertices of `r` grown by `margin` (clamped to the map) from `src` into `dst`, both indexed
+ * as a `verts`-wide grid, so a filter reading `margin` vertices around the rect sees a snapshot of
+ * before without copying the whole map. Row by row, so it costs the rect, not the map.
+ */
+export function copyRect(src: Float32Array, verts: number, r: VertexRect, margin: number, dst: Float32Array): void {
+	const x0 = Math.max(0, r.x0 - margin)
+	const x1 = Math.min(verts - 1, r.x1 + margin) + 1
+	const z0 = Math.max(0, r.z0 - margin)
+	const z1 = Math.min(verts - 1, r.z1 + margin)
+	for (let z = z0; z <= z1; z++) dst.set(src.subarray(z * verts + x0, z * verts + x1), z * verts + x0)
+}
