@@ -82,6 +82,12 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     filling the caller's scratch array. A move that writes `x`/`z` without a `touch` leaves the object in its
     old cell, as it leaves its drawn row: always touch. Probe `objects-near` checks them against a scan
     of every object.
+  - Selection groups are indexed too (#630): `groupIds` holds each group's ids, kept by `file` (`add`,
+    `touch`), `setGroup` (the Group and Ungroup commands and their undo), `remove` and `clear`, so
+    `withGroups` (the Select brush, once per grouped model under it, a click, the area, Select All),
+    Ungroup and the Inspector's group sizes read `groupMembers(g)` instead of scanning every object.
+    Write `group` through `setGroup`, or follow the write with a `touch`. Probe `select-groups` checks
+    it against a scan.
   - A move is not a rebuild (#510): `markTree` (a touch, a re-snap) only notes the ids in their batch's
     `moved`, unless the batch is dirty anyway, and `update` recomputes those rows alone, found through
     `index` (each id's place in `all`). `cull` then writes them in place (`patch`) into the meshes that

@@ -53,7 +53,8 @@ export function withGroups(objects: ObjectLayer, ids: Iterable<number>): number[
     const g = objects.objects.get(id)?.group
     if (g) groups.add(g)
   }
-  if (groups.size) for (const o of objects.objects.values()) if (o.group && groups.has(o.group)) out.add(o.id)
+  // Each group's members come from ObjectLayer's index (#630), not a scan of every object.
+  for (const g of groups) for (const m of objects.groupMembers(g)) out.add(m)
   return [...out]
 }
 

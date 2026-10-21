@@ -47,6 +47,7 @@ const MAX_DEPTH = 8
 /** The most moves `ObjectLayer` logs before cutting the log (a sculpt stroke over a city re-snaps thousands a frame). */
 const MOVE_LOG = 16384
 const NO_MOVES: readonly number[] = []
+const NO_IDS: ReadonlySet<number> = new Set()
 /** The side of the cells `rootsNear` and `rootsIn` read (#512), in yards: about a chunk. */
 const NEAR_CELL = 32
 /**
@@ -188,6 +189,13 @@ export class ObjectLayer {
 	 */
 	private ground = new CellGrid(NEAR_CELL)
 	private wide = new Set<number>()
+	/**
+	 * The ids in each selection group, and the group each id was filed under (#630), so `withGroups`
+	 * reads a group's members rather than every object. Kept with `kids`, by `file` (`add`, `touch`),
+	 * `setGroup`, `remove` and `clear`: every change to an object's `group` is followed by one of them.
+	 */
+	private groupIds = new Map<number, Set<number>>()
+	private filedGroup = new Map<number, number>()
 	private cellScratch: Set<number>[] = []
 	private regionScratch: WorldObject[] = []
   private nextId = 1
@@ -245,6 +253,7 @@ export class ObjectLayer {
     this.hidden.delete(id)
 		this.leaveBatch(o)
 		this.unfile(id)
+		this.unfileGroup(id)
 		this.ground.delete(id)
 		this.wide.delete(id)
     this.version++
@@ -269,6 +278,7 @@ export class ObjectLayer {
 	 */
 	private file(o: WorldObject) {
 		this.fileGround(o)
+		this.fileGroup(o)
 		const was = this.filedParent.get(o.id)
 		if (was === o.parent) return
 		if (was !== undefined) this.unfile(o.id)
@@ -396,6 +406,43 @@ export class ObjectLayer {
 			if (o && o.parent !== undefined) out.push(o)
 		}
 		return out
+	}
+
+	/** Files an object under its selection group in `groupIds`, moving it from the one it was filed under. */
+	private fileGroup(o: WorldObject) {
+		const was = this.filedGroup.get(o.id)
+		if (was === o.group) return
+		if (was !== undefined) this.unfileGroup(o.id)
+		if (!o.group) return
+		let ms = this.groupIds.get(o.group)
+		if (!ms) this.groupIds.set(o.group, (ms = new Set()))
+		ms.add(o.id)
+		this.filedGroup.set(o.id, o.group)
+	}
+
+	private unfileGroup(id: number) {
+		const was = this.filedGroup.get(id)
+		if (was === undefined) return
+		this.filedGroup.delete(id)
+		const ms = this.groupIds.get(was)
+		ms?.delete(id)
+		if (ms && !ms.size) this.groupIds.delete(was)
+	}
+
+	/** Puts an object into selection group `g`, or takes it out of its group when `g` is undefined or 0. */
+	setGroup(id: number, g: number | undefined) {
+		const o = this.objects.get(id)
+		if (!o) return
+		if (g) {
+			o.group = g
+			this.nextGroup = Math.max(this.nextGroup, g + 1)
+		} else delete o.group
+		this.fileGroup(o)
+	}
+
+	/** The ids in selection group `g`, read from `groupIds`; empty for no group. Don't change the set. */
+	groupMembers(g: number): ReadonlySet<number> {
+		return this.groupIds.get(g) ?? NO_IDS
 	}
 
 	private unfile(id: number) {
@@ -589,6 +636,8 @@ export class ObjectLayer {
 		for (const b of this.batches.values()) b.members.clear()
 		this.kids.clear()
 		this.filedParent.clear()
+		this.groupIds.clear()
+		this.filedGroup.clear()
 		this.ground.clear()
 		this.wide.clear()
     this.markAllDirty()

@@ -9,6 +9,7 @@ import type { Terrain } from '../src/lib/terrain/Terrain.ts'
 const g = globalThis as Record<string, unknown>
 g.$state = <T>(v: T) => v
 const { ObjectLayer } = await import('../src/lib/world/ObjectLayer.ts')
+const selection = await import('../src/lib/state/selection.ts')
 
 const TYPE = 'helper:cube:4'
 const terrain = { heightAt: () => 0 } as unknown as Terrain
@@ -149,4 +150,40 @@ test('rootsNear and rootsIn find what a scan of every object finds, through move
 	assert.equal(L.attachedObjects(out).length, [...L.objects.values()].filter((o) => o.parent !== undefined).length)
 	L.clear()
 	assert.deepEqual(L.rootsNear(0, 0, 1e6, out), [])
+})
+
+test('groupMembers follows add, setGroup, a snapshot written back with touch, remove and clear (#630)', () => {
+	const { L, a, b, c, d, e } = tree()
+	assert.equal(L.groupMembers(1).size, 0)
+	const g = L.newGroup()
+	for (const o of [a, c, e]) L.setGroup(o.id, g)
+	assert.deepEqual(ids(L.groupMembers(g)), ids([a.id, c.id, e.id]))
+	const { withGroups } = selection
+	assert.deepEqual(ids(withGroups(L, [c.id])), ids([a.id, c.id, e.id]))
+	assert.deepEqual(ids(withGroups(L, [b.id])), [b.id])
+	// Taken out of the group.
+	L.setGroup(e.id, undefined)
+	assert.equal(e.group, undefined)
+	assert.deepEqual(ids(L.groupMembers(g)), ids([a.id, c.id]))
+	// An undo snapshot writes the field over, then touches.
+	const before = { ...d }
+	d.group = g
+	L.touch(d.id)
+	assert.deepEqual(ids(L.groupMembers(g)), ids([a.id, c.id, d.id]))
+	Object.assign(d, before)
+	delete d.group
+	L.touch(d.id)
+	assert.deepEqual(ids(L.groupMembers(g)), ids([a.id, c.id]))
+	// Added with a group (paste, a map loading), and re-added under the same id in another.
+	const f = L.add({ type: TYPE, x: 5, z: 5, yOff: 0, rotY: 0, scale: 1, group: g })
+	assert.ok(L.groupMembers(g).has(f.id))
+	assert.ok(L.newGroup() > g)
+	L.add({ ...f, group: 9 })
+	assert.ok(!L.groupMembers(g).has(f.id))
+	assert.deepEqual(ids(L.groupMembers(9)), [f.id])
+	L.remove(a.id)
+	assert.deepEqual(ids(L.groupMembers(g)), [c.id])
+	L.clear()
+	assert.equal(L.groupMembers(g).size, 0)
+	assert.equal(L.groupMembers(9).size, 0)
 })

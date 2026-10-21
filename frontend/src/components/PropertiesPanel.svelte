@@ -70,15 +70,13 @@
   /** The selection groups the selected models are in, with their sizes; re-read after every undo step, which grouping is. */
   const groups = $derived.by(() => {
     void ui.historyVersion
-    const objects = e?.objects.objects
+    const layer = e?.objects
     const ids = new Set<number>()
     for (const id of editor.selectedIds) {
-      const g = objects?.get(id)?.group
+      const g = layer?.objects.get(id)?.group
       if (g) ids.add(g)
     }
-    const sizes = new Map<number, number>()
-    if (ids.size && objects) for (const o of objects.values()) if (o.group && ids.has(o.group)) sizes.set(o.group, (sizes.get(o.group) ?? 0) + 1)
-    return [...sizes.values()]
+    return layer ? [...ids].map((g) => layer.groupMembers(g).size) : []
   })
 
   const area = $derived(editor.selection)

@@ -5958,7 +5958,7 @@ export class Engine {
       return
     }
     const changes: Array<{ id: number; from: number | undefined; to: number | undefined }> = []
-    for (const o of this.objects.objects.values()) if (o.group && groups.has(o.group)) changes.push({ id: o.id, from: o.group, to: undefined })
+    for (const g of groups) for (const id of this.objects.groupMembers(g)) changes.push({ id, from: g, to: undefined })
     this.setGroups(changes, groups.size === 1 ? 'Ungroup models' : `Ungroup ${groups.size} groups`)
     setStatus(`Ungrouped ${changes.length} models.`, 4000)
   }
@@ -5968,11 +5968,8 @@ export class Engine {
     const objects = this.objects
     const apply = (to: boolean) => {
       for (const c of changes) {
-        const o = objects.objects.get(c.id)
-        if (!o) continue
-        const g = to ? c.to : c.from
-        if (g) o.group = g
-        else delete o.group
+        // Through setGroup, which keeps ObjectLayer's group index (#630).
+        objects.setGroup(c.id, to ? c.to : c.from)
       }
     }
     apply(true)
