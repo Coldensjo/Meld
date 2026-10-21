@@ -82,3 +82,21 @@ test('the slope angle is limited to 89 degrees', () => {
   orientVertices(heights, sel, 2, { x: 0, y: 0, z: 0 }, 90, 0)
   assert.ok(Number.isFinite(heights[7]))
 })
+
+test('the selection version moves only when the selection changes', () => {
+	const { sel } = map()
+	const v0 = sel.version
+	sel.add(6)
+	const v1 = sel.version
+	assert.notEqual(v1, v0)
+	sel.add(6)
+	assert.equal(sel.version, v1)
+	sel.remove(9)
+	assert.equal(sel.version, v1)
+	sel.remove(6)
+	assert.notEqual(sel.version, v1)
+	const v2 = sel.version
+	sel.add(7)
+	sel.clear()
+	assert.ok(sel.version > v2)
+})

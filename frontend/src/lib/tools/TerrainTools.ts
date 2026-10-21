@@ -286,6 +286,8 @@ export class SculptTool extends BrushTool {
 	} | null = null
   private vcenter = { x: 0, y: 0, z: 0 }
   private markers: THREE.Points | null = null
+  /** What the markers' buffer was last filled from, so an unchanged frame skips the rewrite and upload. */
+  private markersKey = { sel: null as VertexSelection | null, terrain: null as unknown, version: -1, size: -1, heights: -1 }
 
   /** The vertex selection for the active map; a new map starts with none. */
   private selection(t: Terrain): VertexSelection {
@@ -505,9 +507,20 @@ export class SculptTool extends BrushTool {
       m.frustumCulled = false
       m.renderOrder = 10
       this.markers = m
+      this.markersKey.version = -1
     }
     if (m.parent !== ctx.scene) ctx.scene.add(m)
     const t = ctx.terrain
+    const key = this.markersKey
+    if (key.sel === sel && key.terrain === t && key.version === sel.version && key.size === n && key.heights === t.heightVersion) {
+      m.visible = true
+      return
+    }
+    key.sel = sel
+    key.terrain = t
+    key.version = sel.version
+    key.size = n
+    key.heights = t.heightVersion
     const V = t.verts
     const cs = t.cellSize
     const pos = m.geometry.attributes.position as THREE.BufferAttribute

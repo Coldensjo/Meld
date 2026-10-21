@@ -12,6 +12,8 @@ export interface VertexRect {
 /** A set of heightmap vertices, by index into the (size+1)^2 height array. */
 export class VertexSelection {
   readonly ids: number[] = []
+  /** Bumped by every add, remove and clear, so a drawing of the selection can tell when it is stale. */
+  version = 0
   readonly verts: number
   private mark: Uint8Array
 
@@ -31,12 +33,14 @@ export class VertexSelection {
   add(i: number) {
     if (this.mark[i]) return
     this.mark[i] = 1
+    this.version++
     this.ids.push(i)
   }
 
   remove(i: number) {
     if (!this.mark[i]) return
     this.mark[i] = 0
+    this.version++
     const k = this.ids.indexOf(i)
     this.ids[k] = this.ids[this.ids.length - 1]
     this.ids.pop()
@@ -45,6 +49,7 @@ export class VertexSelection {
   clear() {
     for (const i of this.ids) this.mark[i] = 0
     this.ids.length = 0
+    this.version++
   }
 
   /** The vertex rect the selection spans, or null when it is empty. */
