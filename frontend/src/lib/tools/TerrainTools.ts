@@ -50,7 +50,7 @@ import { CHUNK_CELLS, NO_TEXTURE, SLOTS, chunkOfTexel, dominantTexel, findSlot, 
 import type { Terrain } from '../terrain/Terrain'
 import type { SculptLimit } from '../state/editor.svelte'
 import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
-import { OCEAN_OPACITY, RIVER_OPACITY, autoOpacity, paintLiquid } from '../water/liquids'
+import { OCEAN_OPACITY, RIVER_OPACITY, autoOpacity, newLiquidBrush, paintLiquid } from '../water/liquids'
 import { LiquidStroke } from '../water/liquidStroke'
 
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
@@ -1051,6 +1051,8 @@ export class WaterTool extends BrushTool {
   protected records = { heights: true }
   private liquidStroke: LiquidStroke | null = null
   private removing = false
+  /** The brush handed to paintLiquid, filled in each tick rather than built anew. */
+  private liquidBrush = newLiquidBrush()
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
     if (editor.waterMode !== 'paint') return super.onDown(ctx, hit)
@@ -1071,26 +1073,21 @@ export class WaterTool extends BrushTool {
     if (!hit) return
     const w = editor.water
     const deg = THREE.MathUtils.degToRad
-    paintLiquid(
-      ctx.liquids,
-      ctx.terrain,
-      {
-        x: hit.x,
-        y: hit.y,
-        z: hit.z,
-        radius: editor.brush.radius,
-        id: w.liquid,
-        add: !this.removing,
-        angle: w.angled ? deg(w.angle) : 0,
-        orientation: w.angled ? deg(w.orientation) : 0,
-        lock: w.lock,
-        origin: w.lockPos,
-        overrideHeight: w.overrideHeight,
-        overrideId: w.overrideId,
-        opacity: waterOpacityFactor(w.liquid),
-      },
-      this.liquidStroke.reserve,
-    )
+    const b = this.liquidBrush
+    b.x = hit.x
+    b.y = hit.y
+    b.z = hit.z
+    b.radius = editor.brush.radius
+    b.id = w.liquid
+    b.add = !this.removing
+    b.angle = w.angled ? deg(w.angle) : 0
+    b.orientation = w.angled ? deg(w.orientation) : 0
+    b.lock = w.lock
+    b.origin = w.lockPos
+    b.overrideHeight = w.overrideHeight
+    b.overrideId = w.overrideId
+    b.opacity = waterOpacityFactor(w.liquid)
+    paintLiquid(ctx.liquids, ctx.terrain, b, this.liquidStroke.reserve)
   }
 
   protected apply(ctx: ToolContext, dt: number, hit: THREE.Vector3) {

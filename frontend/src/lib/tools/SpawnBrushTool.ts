@@ -11,6 +11,7 @@ import { spawnKey, spawnOrientation } from '../world/SpawnLayer'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { rulesAllow, rulesEmpty } from './doodadBrush'
 import { ToolGround } from './toolGround'
+import { InputsKey } from './inputsKey'
 import { brushLevels, facingTurn, pickSpawnEntry, spacedOut, targetCount, type SpawnBrush, type SpawnBrushEntry } from './spawnBrush'
 
 /** What the spawn brush needs from the Engine. */
@@ -53,7 +54,7 @@ export class SpawnBrushTool implements Tool {
 	private near = new Float32Array(2 * 256)
 	private nearCount = 0
 	private plan: Planned[] = []
-	private planKey = ''
+	private planKey = new InputsKey()
 	private ghosts: THREE.Mesh[] = []
 	private ghostGroup = new THREE.Group()
 	/** The model types of the ghosts shown now, which the Engine poses (#328). */
@@ -72,7 +73,7 @@ export class SpawnBrushTool implements Tool {
 		ctx.scene.remove(this.ghostGroup)
 		this.ghostTypes.clear()
 		this.plan = []
-		this.planKey = ''
+		this.planKey.reset()
 	}
 
 	/** Whether a ghost of model `type` shows under the brush, so its idle plays though no spawn of it is in view. */
@@ -101,7 +102,7 @@ export class SpawnBrushTool implements Tool {
 		this.gatherNear(ctx, hit)
 		for (const p of this.plan) this.place(ctx, hit, p.dx, p.dz, p.entry, p.turn)
 		this.plan = []
-		this.planKey = ''
+		this.planKey.reset()
 	}
 
 	tick(ctx: ToolContext, _dt: number, hit: THREE.Vector3 | null) {
@@ -183,10 +184,10 @@ export class SpawnBrushTool implements Tool {
 		const brush = this.brush
 		const radius = editor.brush.radius
 		const step = Math.max(1, radius * 0.25)
-		let key = `${Math.round(hit.x / step)},${Math.round(hit.z / step)}|${radius}|${ctx.spawns.changeStamp}|${brush.density}|${brush.spacing}|${brush.facing}|${brush.maxSlope}|${brush.avoidWater}`
-		for (const e of brush.entries) key += `|${e.entry}:${e.weight}`
-		if (key === this.planKey) return
-		this.planKey = key
+		const key = this.planKey.begin().add(Math.round(hit.x / step)).add(Math.round(hit.z / step)).add(radius).add(ctx.spawns.changeStamp)
+		key.add(brush.density).add(brush.spacing).add(brush.facing).add(brush.maxSlope).add(brush.avoidWater)
+		for (const e of brush.entries) key.add(e.entry).add(e.weight)
+		if (!key.changed()) return
 		this.plan = []
 		const want = Math.min(MAX_PREVIEW, targetCount(brush.density, radius) - this.countUnder(ctx, hit, radius))
 		if (want <= 0) return

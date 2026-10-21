@@ -546,6 +546,7 @@ the same scene, the report before and after.
 - Group gizmo (ring, knob and arrow on a multi-selection)
 - Mouse-move snap (Follow cursor, Snap models to the ground)
 - Clear tool: the models a stroke would delete (#131)
+- Tools reuse their plans and brushes per frame (#452, probe `tool-reuse`)
 - Paths: roads along a curve (#167, probe `path-road`)
 - Paths: rivers (#167, probe `path-river`)
 - Paths: fences (#167, probe `path-fence`)

@@ -6,7 +6,7 @@ import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { TerrainStroke, forEachTexel, forEachVertex, type Rect } from './brush'
 import { CHUNK_CELLS, SLOTS, dropFaintLayers, resetTexel } from '../terrain/chunkPaint'
 import { LiquidStroke } from '../water/liquidStroke'
-import { RIVER_OPACITY, paintLiquid } from '../water/liquids'
+import { newLiquidBrush, paintLiquid } from '../water/liquids'
 import { HOLE_BLOCK, countHoles, fillHoles } from '../terrain/holes'
 
 /**
@@ -21,6 +21,8 @@ export class ClearTool implements Tool {
   private held = false
   private stroke: TerrainStroke | null = null
   private liquidStroke: LiquidStroke | null = null
+  /** The remove-all brush handed to paintLiquid, moved to the cursor each tick. */
+  private liquidBrush = newLiquidBrush()
   private removed: WorldObject[] = []
 	/** Scratch for `modelsIn`. */
 	private near: WorldObject[] = []
@@ -171,12 +173,12 @@ export class ClearTool implements Tool {
   /** Every painted liquid layer loses the cells under the brush (noggit's liquid brush with "remove"). */
   private clearLiquids(ctx: ToolContext, hit: THREE.Vector3) {
     if (!this.liquidStroke) return
-    paintLiquid(
-      ctx.liquids,
-      ctx.terrain,
-      { x: hit.x, y: hit.y, z: hit.z, radius: editor.brush.radius, id: 1, add: false, angle: 0, orientation: 0, lock: false, origin: hit, overrideHeight: false, overrideId: false, opacity: RIVER_OPACITY },
-      this.liquidStroke.reserve,
-    )
+    const b = this.liquidBrush
+    b.x = hit.x
+    b.y = hit.y
+    b.z = hit.z
+    b.radius = editor.brush.radius
+    paintLiquid(ctx.liquids, ctx.terrain, b, this.liquidStroke.reserve)
   }
 
   /** The holes of the 2x2-cell blocks (the client's hole blocks) whose centre is under the brush are filled. */

@@ -297,6 +297,21 @@ and `e.undo()` brings them and their marks back.
   removed (`ObjectLayer.version`); a model moved under a still brush is picked up on the next move.
 - The tint is drawn over the frame, so it shows through what stands in front of a marked model.
 
+## Tools reuse their plans and brushes per frame (#452, probe `tool-reuse`)
+
+Checks: the hover and tick paths don't rebuild what their inputs haven't changed, and still rebuild
+when they do. `bun run probe tool-reuse` (a flat map, no world database needed): the Doodad brush's
+`plan` stays the same array while `ensurePlan` sees the same brush and settings, and is drawn again
+after a radius change or a new entry; the Spawn brush's plan stays for a move under a quarter radius
+and is drawn again after a long one; the Select tool's paste `landings` stay for the same anchor (to
+the hundredth of a yard) and are worked out again when it moves; a Place scatter stroke's props keep
+the spacing (0.8 yd for a 1 yd cube); the Water tool's paint and Clear › Liquids work through their
+reused `LiquidBrush` (`newLiquidBrush`), and both undo.
+- The plan and landing checks compare their inputs through `tools/inputsKey.ts` (`InputsKey`), not a
+  joined string. A new input to a plan goes in as another `.add(...)`, or a change to it won't
+  redraw the plan.
+- The probe calls the tools' private methods (`ensurePlan`, `updateGhosts`) by name; a rename breaks it.
+
 ## Paths: roads along a curve (#167, probe `path-road`)
 
 Checks: the Path tool's clicks drop a road's points on the ground, a click on a dot picks it rather

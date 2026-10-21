@@ -21,6 +21,8 @@ import { pickNearest } from '../world/pickNearest'
 import { placementEuler } from '../world/placement'
 import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { slotFieldsAt } from '../world/formations'
+import { SpacingGrid } from './doodadBrush'
+import { InputsKey } from './inputsKey'
 
 function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
   const saved = added.map((o) => ({ ...o }))
@@ -95,6 +97,9 @@ export class PlaceTool implements Tool {
   private scale = 1
   private tilt: { tiltX?: number; tiltZ?: number } = {}
   private scattering: WorldObject[] | null = null
+  /** The stroke's scattered props by place, for the spacing between them. */
+  private scatterGrid: SpacingGrid | null = null
+  private scatterSize = new THREE.Vector3()
   private scatterAcc = 0
   private normal = { x: 0, y: 1, z: 0 }
   private ghostTilt = { tiltX: 0, tiltZ: 0 }
@@ -242,6 +247,7 @@ export class PlaceTool implements Tool {
     }
     if (editor.placeScatter || e.shiftKey) {
       this.scattering = []
+      this.scatterGrid = new SpacingGrid()
       this.scatterAcc = 1
       return
     }
@@ -280,9 +286,9 @@ export class PlaceTool implements Tool {
   }
 
   tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
-    if (!this.scattering || !hit) return
+    if (!this.scattering || !this.scatterGrid || !hit) return
     const { radius, strength } = editor.brush
-    const size = getAsset(editor.prefab).bbox.getSize(new THREE.Vector3())
+    const size = getAsset(editor.prefab).bbox.getSize(this.scatterSize)
     const spacing = Math.max(0.8, Math.max(size.x, size.z) * 0.8)
     this.scatterAcc += dt * (2 + strength * 20)
     while (this.scatterAcc >= 1) {
@@ -293,7 +299,7 @@ export class PlaceTool implements Tool {
       const z = hit.z + Math.sin(a) * r
       if (!ctx.terrain.contains(x, z)) continue
       // Keep a minimum spacing between same-type props in this stroke.
-      if (this.scattering.some((o) => Math.hypot(o.x - x, o.z - z) < spacing)) continue
+      if (!this.scatterGrid.fits(x, z, 1, spacing)) continue
       const rotY = Math.random() * Math.PI * 2
       const o = ctx.objects.add({
         type: editor.prefab,
@@ -305,12 +311,14 @@ export class PlaceTool implements Tool {
         ...(editor.followGround ? this.groundTilt(ctx, x, z, rotY, { tiltX: 0, tiltZ: 0 }) : randomTilt()),
       })
       this.scattering.push(o)
+      this.scatterGrid.add(x, z, 1)
     }
   }
 
   onUp(ctx: ToolContext) {
     if (this.scattering?.length) ctx.history.push(addCommand(ctx.objects, this.scattering, 'Scatter'))
     this.scattering = null
+    this.scatterGrid = null
   }
 
   /**
@@ -349,6 +357,8 @@ export class PlaceTool implements Tool {
 }
 
 const tmpQ = new THREE.Quaternion()
+/** The clip objects with no paste going, so a frame without one doesn't allocate an empty list. */
+const NO_CLIP_OBJECTS: ObjectClip['objects'] = []
 const tmpE = new THREE.Euler()
 const tmpS = new THREE.Vector3()
 /** An attached model's world spot, for the selection brush. */
@@ -420,12 +430,13 @@ export class SelectTool implements Tool {
   pasteOnModel = false
   /** The roots' landings for the ghosts, worked out again only when the anchor, the clip or the models change. */
   private landings: Map<number, Landing> | null = null
-  private landingKey = ''
-  private landingClip: ObjectClip | null = null
+  private landingKey = new InputsKey()
   /** Previews of the models being pasted, one mesh per clip object, grown as needed. */
   private ghosts: THREE.Mesh[] = []
   private ghostGroup = new THREE.Group()
   private ghostTmp = new THREE.Vector3()
+  /** The ghosts by clip id, for the attached ones' parents; cleared each frame. */
+  private ghostByCid = new Map<number, THREE.Mesh>()
 
   constructor(
     private hooks: {
@@ -478,13 +489,11 @@ export class SelectTool implements Tool {
 
   /** Shows the clip's models at the anchor `at`, or hides the previews when there is no clip. */
   private updateGhosts(ctx: ToolContext, clip: ObjectClip | null, at: THREE.Vector3 | null) {
-    const list = clip && at ? clip.objects : []
+    const list = clip && at ? clip.objects : NO_CLIP_OBJECTS
     let landings: Map<number, Landing> | null = null
     if (clip && at && this.pasteOnModel) {
-      const key = `${at.x.toFixed(2)},${at.z.toFixed(2)},${ctx.objects.version}`
-      if (key !== this.landingKey || clip !== this.landingClip || !this.landings) {
-        this.landingKey = key
-        this.landingClip = clip
+      const key = this.landingKey.begin().add(Math.round(at.x * 100)).add(Math.round(at.z * 100)).add(ctx.objects.version).add(clip)
+      if (key.changed() || !this.landings) {
         this.landings = pasteLandings(ctx.objects, ctx.terrain, clip.objects, at.x, at.z)
       }
       landings = this.landings
@@ -495,7 +504,8 @@ export class SelectTool implements Tool {
       this.ghosts.push(m)
       this.ghostGroup.add(m)
     }
-    const byCid = new Map<number, THREE.Mesh>()
+    const byCid = this.ghostByCid
+    byCid.clear()
     for (let i = 0; i < this.ghosts.length; i++) {
       let g = this.ghosts[i]
       const o = list[i]

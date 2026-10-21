@@ -275,6 +275,11 @@ export interface LiquidBrush {
   opacity: number
 }
 
+/** A remove-everything brush at the origin, for a tool to keep and fill in each tick (paintLiquid's argument, #452). */
+export function newLiquidBrush(): LiquidBrush {
+  return { x: 0, y: 0, z: 0, radius: 1, id: 1, add: false, angle: 0, orientation: 0, lock: false, origin: { x: 0, y: 0, z: 0 }, overrideHeight: false, overrideId: false, opacity: RIVER_OPACITY }
+}
+
 /** The height the surface takes at (x, z): the reference's, tilted by the angle (noggit's angledHeight). */
 function angledHeight(ref: { x: number; y: number; z: number }, x: number, z: number, angle: number, orientation: number) {
   return ref.y + ((x - ref.x) * Math.cos(orientation) + (z - ref.z) * Math.sin(orientation)) * Math.tan(angle)

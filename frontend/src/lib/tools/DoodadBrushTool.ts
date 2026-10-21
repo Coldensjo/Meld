@@ -10,6 +10,7 @@ import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
 import { placementEuler } from '../world/placement'
 import { MAX_ATTEMPTS, SpacingGrid, attemptRate, candidate, fillAttempts, fits, fitsOn, newBrush, pickEntry, rulesAllow, uniqueName, type DoodadBrush, type GroundProbe } from './doodadBrush'
 import { ToolGround } from './toolGround'
+import { InputsKey } from './inputsKey'
 import type { SpawnBrushTool } from './SpawnBrushTool'
 
 /** The brush the Doodad tool paints with: the preference's pick, else the first one; null with none made. */
@@ -102,7 +103,7 @@ export class DoodadBrushTool implements Tool {
   /** The placements drawn ahead, shown as ghosts and put down first on the press. */
   private plan: Planned[] = []
   /** What the plan was drawn for; a change of brush or settings draws a new one. */
-  private planKey = ''
+  private planKey = new InputsKey()
   /** How far the plan has been spun (for the hint); a new plan starts afresh. */
   private spun = 0
   /** The spacing check while a fill runs (`fill`), in place of `near`. */
@@ -133,7 +134,7 @@ export class DoodadBrushTool implements Tool {
     ctx.scene.remove(this.ghostGroup)
     this.spawns?.deactivate(ctx)
     this.plan = []
-    this.planKey = ''
+    this.planKey.reset()
   }
 
   /** Turns the planned placements about the brush centre by `radians`, each model facing along. */
@@ -200,7 +201,7 @@ export class DoodadBrushTool implements Tool {
     this.prepareNear(ctx, hit, brush)
     for (const p of this.plan) this.place(ctx, brush, hit, p)
     this.plan = []
-    this.planKey = ''
+    this.planKey.reset()
     this.acc = 0
   }
 
@@ -302,10 +303,9 @@ export class DoodadBrushTool implements Tool {
   /** Draws the plan again when the brush or the settings it depends on changed. */
   private ensurePlan(brush: DoodadBrush) {
     const { radius, strength, falloff, curve } = editor.brush
-    let key = `${brush.name}|${brush.spacing}|${radius}|${strength}|${falloff}|${curve}|${editor.doodad.randomRot ? 1 : 0}`
-    for (const e of brush.entries) key += `|${e.type}|${e.weight}|${e.scaleMin}|${e.scaleMax}|${e.tilt}|${e.align}`
-    if (key === this.planKey) return
-    this.planKey = key
+    const key = this.planKey.begin().add(brush.name).add(brush.spacing).add(radius).add(strength).add(falloff).add(curve).add(editor.doodad.randomRot)
+    for (const e of brush.entries) key.add(e.type).add(e.weight).add(e.scaleMin).add(e.scaleMax).add(e.tilt).add(e.align)
+    if (!key.changed()) return
     this.plan = []
     this.spun = 0
     const want = Math.max(1, Math.min(MAX_PREVIEW, Math.round(attemptRate(radius, strength) / 4)))
