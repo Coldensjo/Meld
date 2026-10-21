@@ -129,6 +129,7 @@ ed.tool = 'select'; sel.selectObjects(e.objects, [...e.objects.objects.keys()]);
 - A `PropField` label scrub can be driven with synthetic `PointerEvent`s (`pointerdown`, a few
   `pointermove`s, `pointerup`, `pointerId: 1`, `button: 0`) on the `.label` span; the value moves
   by pixels × step and `ui.canUndo` turns true on release.
+- Probe: `bun run probe layers-panel` (hover, selection, delete and undo; the panel has no timer and re-reads on `ui.historyVersion`, `editor.hoverChunk` and `editor.selection`, #585).
 - Trap: texture thumbnails stay blank in a hidden extension tab, since they render on the main
   renderer's rAF loop. The rows, names and coverage still show.
 - The map's facts and world settings are not in the dock: `ui.dialog = 'mapProps'` opens the

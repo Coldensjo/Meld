@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import PaletteTile from './PaletteTile.svelte'
   import { editor, prefs, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
@@ -13,12 +12,6 @@
   // together. Replace on a layer waits for the next texture picked in the asset browser and puts it
   // in that layer's place; Delete empties the layer. Both act on the hovered chunk, or on all the
   // selected chunks, and are one undo step.
-  let tick = $state(0)
-  onMount(() => {
-    const id = setInterval(() => tick++, 300)
-    return () => clearInterval(id)
-  })
-
   const texName = (p: string) => p.slice(p.search(/[^\\/]*$/)).replace(/\.blp$/i, '')
   const colorName = (p: string) => LAYERS.find((l) => l.swatch.toLowerCase() === p.toLowerCase())?.name ?? p
   const label = (p: string) => (isColor(p) ? colorName(p) : texName(p))
@@ -31,7 +24,8 @@
 
   /** The chunks the panel is about and their layers: the selected chunks, else the hovered one. */
   const view = $derived.by(() => {
-    void tick
+    // Every History change and tab switch bumps historyVersion; the selection and the hovered chunk are reactive.
+    void ui.historyVersion
     const e = engineRef.current
     if (!e) return null
     const selected = e.selectedChunks()
