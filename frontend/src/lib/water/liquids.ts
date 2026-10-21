@@ -200,9 +200,9 @@ export class LiquidMap {
   }
 
   /** The chunks a circle at (x, z) reaches, as noggit's for_all_chunks_in_range. */
-  chunksInRange(x: number, z: number, radius: number, cellSize: number): number[] {
+  chunksInRange(x: number, z: number, radius: number, cellSize: number, out: number[] = []): number[] {
     const span = LIQUID_CELLS * cellSize
-    const out: number[] = []
+    out.length = 0
     const c0 = Math.max(0, Math.floor((x - radius) / span))
     const c1 = Math.min(this.side - 1, Math.floor((x + radius) / span))
     const r0 = Math.max(0, Math.floor((z - radius) / span))
@@ -303,6 +303,17 @@ function updateVertexOpacity(l: LiquidLayer, i: number, ground: LiquidGround, ba
   l.depth[i] = Math.min(1, Math.max(0, (diff + 1) * factor))
 }
 
+/** The four vertices of the cell whose first vertex is `id`, filled by fillCorners (a scratch: use it before the next call). */
+const corners = new Int32Array(4)
+
+function fillCorners(id: number): Int32Array {
+  corners[0] = id
+  corners[1] = id + 1
+  corners[2] = id + LIQUID_VERTS
+  corners[3] = id + LIQUID_VERTS + 1
+  return corners
+}
+
 /** noggit's liquid_layer::paintLiquid: one layer under a dab. */
 function paintLayer(l: LiquidLayer, b: LiquidBrush, add: boolean, ground: LiquidGround, base: number, ox: number, oz: number) {
   const cs = ground.cellSize
@@ -313,7 +324,9 @@ function paintLayer(l: LiquidLayer, b: LiquidBrush, add: boolean, ground: Liquid
       if (add) {
         const id = z * LIQUID_VERTS + x
         const empty = !l.cells[z * LIQUID_CELLS + x]
-        for (const i of [id, id + 1, id + LIQUID_VERTS, id + LIQUID_VERTS + 1]) {
+        const cs4 = fillCorners(id)
+        for (let k = 0; k < 4; k++) {
+          const i = cs4[k]
           const vx = ox + (i % LIQUID_VERTS) * cs
           const vz = oz + Math.floor(i / LIQUID_VERTS) * cs
           const inRange = Math.hypot(b.x - vx, b.z - vz) <= b.radius
@@ -337,7 +350,8 @@ function copyHeightToLayer(layers: readonly LiquidLayer[], target: LiquidLayer, 
       for (let x = 0; x < LIQUID_CELLS; x++) {
         if (!l.cells[z * LIQUID_CELLS + x] || shortestDist(b.x, b.z, ox + x * cs, oz + z * cs, cs) > b.radius) continue
         const id = z * LIQUID_VERTS + x
-        for (const i of [id, id + 1, id + LIQUID_VERTS, id + LIQUID_VERTS + 1]) target.heights[i] = l.heights[i]
+        const cs4 = fillCorners(id)
+        for (let k = 0; k < 4; k++) target.heights[cs4[k]] = l.heights[cs4[k]]
         target.cells[z * LIQUID_CELLS + x] = 1
       }
     }
@@ -378,7 +392,7 @@ function paintChunk(map: LiquidMap, ground: LiquidGround, c: number, b: LiquidBr
 
 /** Paints (or removes) liquid under a dab. `reserve` is told each chunk before it changes. */
 export function paintLiquid(map: LiquidMap, ground: LiquidGround, b: LiquidBrush, reserve?: (c: number) => void) {
-  for (const c of map.chunksInRange(b.x, b.z, b.radius, ground.cellSize)) {
+  for (const c of map.chunksInRange(b.x, b.z, b.radius, ground.cellSize, chunkScratch)) {
     reserve?.(c)
     paintChunk(map, ground, c, b)
   }
@@ -417,9 +431,12 @@ export function cropLiquids(map: LiquidMap, ground: LiquidGround, rect?: { x0: n
           const cell = z * LIQUID_CELLS + x
           if (!l.cells[cell]) continue
           const id = z * LIQUID_VERTS + x
-          const under = [id, id + 1, id + LIQUID_VERTS, id + LIQUID_VERTS + 1].every(
-            (i) => l.heights[i] < groundAt(ground, o.v, i % LIQUID_VERTS, Math.floor(i / LIQUID_VERTS)),
-          )
+          const cs4 = fillCorners(id)
+          let under = true
+          for (let k = 0; k < 4 && under; k++) {
+            const i = cs4[k]
+            under = l.heights[i] < groundAt(ground, o.v, i % LIQUID_VERTS, Math.floor(i / LIQUID_VERTS))
+          }
           if (top < minGround || under) {
             l.cells[cell] = 0
             touched = true
@@ -458,6 +475,9 @@ export function regenOpacity(map: LiquidMap, ground: LiquidGround, factor: numbe
 const tri = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]
 const box = new THREE.Box3()
 const hitScratch = new THREE.Vector3()
+/** The two triangles of a cell as indices into `tri`. */
+const CELL_TRIS = [0, 2, 1, 1, 2, 3]
+const chunkScratch: number[] = []
 
 /**
  * The nearest liquid surface along a ray, within maxDist, into `out` (noggit's liquid intersect, for
@@ -478,13 +498,14 @@ export function raycastLiquids(map: LiquidMap, cellSize: number, ray: THREE.Ray,
         for (let x = 0; x < LIQUID_CELLS; x++) {
           if (!l.cells[z * LIQUID_CELLS + x]) continue
           const id = z * LIQUID_VERTS + x
-          const at = (k: number, i: number, dx: number, dz: number) => tri[k].set(ox + (x + dx) * cellSize, l.heights[i], oz + (z + dz) * cellSize)
-          at(0, id, 0, 0)
-          at(1, id + 1, 1, 0)
-          at(2, id + LIQUID_VERTS, 0, 1)
-          at(3, id + LIQUID_VERTS + 1, 1, 1)
-          for (const [a, b2, d] of [[0, 2, 1], [1, 2, 3]] as const) {
-            if (!ray.intersectTriangle(tri[a], tri[b2], tri[d], false, hitScratch)) continue
+          const x0 = ox + x * cellSize
+          const z0 = oz + z * cellSize
+          tri[0].set(x0, l.heights[id], z0)
+          tri[1].set(x0 + cellSize, l.heights[id + 1], z0)
+          tri[2].set(x0, l.heights[id + LIQUID_VERTS], z0 + cellSize)
+          tri[3].set(x0 + cellSize, l.heights[id + LIQUID_VERTS + 1], z0 + cellSize)
+          for (let k = 0; k < 6; k += 3) {
+            if (!ray.intersectTriangle(tri[CELL_TRIS[k]], tri[CELL_TRIS[k + 1]], tri[CELL_TRIS[k + 2]], false, hitScratch)) continue
             const t = hitScratch.distanceTo(ray.origin)
             if (t < best) {
               best = t
