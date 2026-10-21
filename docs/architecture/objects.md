@@ -41,6 +41,18 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     the two share one half instead of a third (16 MB for Stormwind). The twin shares the model's bounds
     tree, as the LOD does, since picking and the names' sight lines raycast the batch mesh: without it a
     ray walked every triangle, over a second for Blackrock Depths (#286, probe `brd-fly`).
+  - The bounds tree, the LOD's index and the group cull's twin index are built in the model workers,
+    off the main thread (#507): for Stormwind they took 1.2 s of one frame there. `loadAsset`
+    (`models/assets.ts`) builds the asset (so its textures start loading), then `buildModel`
+    (`models/modelBuild.ts`) posts copies of its positions, index and rooms to one of up to three
+    workers (`models/modelWorker.ts`, bundled by Vite from `new Worker(new URL(...))`), which run
+    `buildModelData` (`models/modelData.ts`): the tree first, since it reorders the index within each
+    group, then the LOD (`lodIndex`) and the twin (`cullData` in `wmoGroupCull.ts`) from the reordered
+    index. `adoptModel` puts them on the geometry: the reordered index, the tree through
+    `MeshBVH.deserialize`, the LOD geometry, and the cull through `WmoGroupCull.adopt`, which
+    `WmoGroupCull.of` then finds. Without workers (Bun's tests) or once one fails to start, the same
+    build runs on the main thread. Probe `model-worker` measures the stall and compares the results
+    with a main-thread build.
   - Objects store `x, z, yOff, rotY, scale`. Y is always `terrain height + yOff`, re-snapped after
     sculpting. A tilted one also has `tiltX`/`tiltZ`, the MDDF/MODF record's first and third angles,
     turned in the client's order by `world/placement.ts` (`placementEuler`); build every model

@@ -16,7 +16,6 @@ mock.module('../src/lib/wow/api.ts', () => ({
 		return true
 	},
 }))
-mock.module('../src/lib/models/lod.ts', () => ({ buildLod: () => Promise.resolve(undefined) }))
 const { buildWowAsset, getAsset, keptCounts, loadAsset, releaseAssets, releaseWowAsset } = await import('../src/lib/models/assets.ts')
 
 function mesh(groups: Partial<MeshGroup>[]): WowMesh {

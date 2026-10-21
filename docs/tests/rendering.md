@@ -305,6 +305,29 @@ cascade in the scene pass and the near cascade's shadow pass, and looks the same
   culled half); on 2026-10-17 (#215) the canvas read back with `toDataURL` right after `frame()`
   differed in no pixel with the cull on and off.
 
+## A model's bounds tree, LOD and group cull built in the model workers (#507)
+Checks: a loaded model's bounds tree, LOD index and WMO group cull twin are built off the main thread
+(`models/modelBuild.ts`, `modelWorker.ts`), so a big model's arrival no longer stalls the page, and
+what the worker built is what the main thread would have.
+- Probe: `bun run probe model-worker`. It loads Stormwind's WMO (1.33M triangles) through `loadAsset`
+  with a `MessageChannel` ticker running and reports the longest gap between ticks; then it builds
+  the twin (`cullData`) and the LOD (`lodIndex`) on the main thread from the index the worker's tree
+  reordered and compares them, and casts a ray through the tree. On 2026-10-21: the longest stall
+  about 50 ms with the workers, 1,177 ms before (bounds tree 340 ms, LOD 840 ms, twin 50 ms, all in
+  the frame the model arrived in).
+- Trap: a stall meter must let one more task run after `await loadAsset(...)` before it reads its
+  maximum. The load's last stretch runs in the same task as the promise's resolution, so reading at
+  once misses that gap (it read 13 ms for the old 1.2 s stall).
+- Trap: `typedArray.from(other)` of a big typed array iterates and cost about 100 ms for Stormwind's
+  copies; `slice()` copies at memcpy speed.
+- The built app (Windows, 2026-10-21): the worker script `/assets/modelWorker-*.js` is fetched
+  through the Wails asset server (WebView2 sends a dedicated worker's requests through
+  WebResourceRequested) and its results come back. Seen by logging the middleware's paths in a
+  throwaway build of `main.go`. Not yet checked on Linux (WebKitGTK's `wails://` scheme); if a worker
+  can't start there, `fail` logs a console warning and builds on the main thread as before.
+- Unit: `frontend/tests/modelBuild.test.ts` (Bun has no `window`, so it runs the main-thread path of
+  the same build and compares it with `buildBoundsTree`, `buildLod` and `WmoGroupCull.of`).
+
 ## Compressed client textures (DXT, #178)
 Checks: model, liquid and particle textures go to the GPU as the BLP's own DXT blocks and mips where
 the renderer has `WEBGL_compressed_texture_s3tc` and `..._s3tc_srgb`, and look as the RGBA path did.

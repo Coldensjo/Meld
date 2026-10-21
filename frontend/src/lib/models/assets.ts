@@ -6,7 +6,7 @@ import { patchCascadeShadows } from '../engine/shadowCascades'
 import { patchRoomGate, ROOM_ATTRIBUTE } from '../world/roomGate'
 import { buildBoundsTree } from '../world/bvh'
 import { markShadowMoving } from '../world/shadowReach'
-import { buildLod } from './lod'
+import { adoptModel, buildModel } from './modelBuild'
 import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
 import type { LiquidClass } from '../water/liquids'
 
@@ -61,7 +61,7 @@ export function displayName(type: string): string {
 
 const assets = new Map<string, ModelAsset>()
 const pending = new Map<string, Promise<ModelAsset>>()
-/** Kept assets built and waiting for their LOD, not yet in `assets`: their shared materials are in use. */
+/** Kept assets built and waiting for their bounds tree and LOD, not yet in `assets`: their shared materials are in use. */
 const building = new Set<ModelAsset>()
 /** Assets built outside the registry (thumbnails, previews) and not yet released: their shared materials are in use. */
 const loose = new Set<ModelAsset>()
@@ -139,16 +139,20 @@ export function loadAsset(type: string): Promise<ModelAsset> {
   if (!p) {
     p = fetchMesh(wowPath(type))
       .then(async (m) => {
-        const asset = buildWowAsset(m, type)
-        buildBoundsTree(asset.geometry)
-        if (asset.marker) return asset
+				// Built first, so its textures load while the worker builds the rest.
+				const asset = buildWowAsset(m, type)
+				if (asset.marker) {
+					buildBoundsTree(asset.geometry)
+					return asset
+				}
 				building.add(asset)
-        asset.lod = await buildLod(asset.geometry).catch((err) => {
-          console.warn('model LOD failed', type, err)
-          return undefined
-        })
-				building.delete(asset)
-        return asset
+				try {
+					// The bounds tree, the LOD and the WMO group cull, off the main thread (#507).
+					asset.lod = adoptModel(asset.geometry, await buildModel(asset.geometry))
+				} finally {
+					building.delete(asset)
+				}
+				return asset
       })
       .catch((err) => {
         // Not cached: the next request after RETRY_MS tries the model again.

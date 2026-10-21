@@ -21,13 +21,93 @@ export const MIN_TRIANGLES = 20000
 export const MIN_GROUPS = 4
 
 /** A run of a material's triangles that belong to one WMO group (or two, for a doodad shared by rooms). */
-interface Run {
+export interface Run {
 	/** The WMO groups plus one (0 for none, always drawn), as the room attribute holds them. */
 	a: number
 	b: number
 	/** Into the twin's index, in indices. */
 	start: number
 	count: number
+}
+
+/** A material group of the model: its range in the model's index. */
+export interface IndexGroup {
+	start: number
+	count: number
+	materialIndex?: number
+}
+
+/**
+ * What the cull is made of, built off the main thread for a loaded model (models/modelWorker.ts, #507)
+ * and plain enough to post between threads.
+ */
+export interface CullData {
+	/** The twin's index: the model's, each material's triangles sorted by WMO group, then as much again for the view half. */
+	index: Uint32Array
+	/** Each material group's runs, in the order of the model's groups. */
+	runs: Run[][]
+	/** Each WMO group's box in model space (min xyz, max xyz), empty (min > max) for a group with no vertices. */
+	boxes: Float32Array
+}
+
+/**
+ * Builds the twin's index and the WMO groups' boxes from the model's `index` (after its bounds tree
+ * reordered it), its material `groups`, `positions` (xyz) and `rooms` (the room attribute's two values
+ * a vertex), or null for a model without enough triangles or WMO groups to be worth one. Pure, so the
+ * model worker runs it too.
+ */
+export function cullData(index: ArrayLike<number>, groups: readonly IndexGroup[], positions: ArrayLike<number>, rooms: ArrayLike<number>, minTriangles = MIN_TRIANGLES, minGroups = MIN_GROUPS): CullData | null {
+	const half = index.length
+	if (half / 3 < minTriangles) return null
+	const vertices = rooms.length / 2
+	let groupCount = 0
+	for (let i = 0; i < rooms.length; i++) if (rooms[i] > groupCount) groupCount = rooms[i]
+	if (groupCount < minGroups) return null
+	const twin = new Uint32Array(half * 2)
+	const runs: Run[][] = []
+	const list = groups.length ? groups : [{ start: 0, count: half }]
+	for (const grp of list) {
+		const start = grp.start
+		const end = Math.min(half, grp.start + grp.count)
+		// A stable sort of the material's triangles by their WMO groups.
+		const byKey = new Map<number, number[]>()
+		for (let t = start; t + 2 < end; t += 3) {
+			const v = index[t]
+			const key = rooms[2 * v] * 65536 + rooms[2 * v + 1]
+			let tris = byKey.get(key)
+			if (!tris) byKey.set(key, (tris = []))
+			tris.push(t)
+		}
+		const material: Run[] = []
+		let o = start
+		for (const [key, tris] of byKey) {
+			const run = { a: Math.floor(key / 65536), b: key % 65536, start: o, count: tris.length * 3 }
+			for (const t of tris) {
+				twin[o++] = index[t]
+				twin[o++] = index[t + 1]
+				twin[o++] = index[t + 2]
+			}
+			material.push(run)
+		}
+		runs.push(material)
+	}
+	const boxes = new Float32Array(groupCount * 6)
+	for (let g = 0; g < groupCount; g++) boxes.fill(Infinity, g * 6, g * 6 + 3).fill(-Infinity, g * 6 + 3, g * 6 + 6)
+	const grow = (g: number, v: number) => {
+		const o = g * 6
+		for (let k = 0; k < 3; k++) {
+			const x = positions[3 * v + k]
+			if (x < boxes[o + k]) boxes[o + k] = x
+			if (x > boxes[o + 3 + k]) boxes[o + 3 + k] = x
+		}
+	}
+	for (let v = 0; v < vertices; v++) {
+		const a = rooms[2 * v]
+		const b = rooms[2 * v + 1]
+		if (a) grow(a - 1, v)
+		if (b) grow(b - 1, v)
+	}
+	return { index: twin, runs, boxes }
 }
 
 export class WmoGroupCull {
@@ -53,51 +133,27 @@ export class WmoGroupCull {
 	private readonly inverse = new THREE.Matrix4()
 	private readonly matrix = new THREE.Matrix4()
 
-	private constructor(source: THREE.BufferGeometry, room: THREE.BufferAttribute, groupCount: number) {
-		// From the model's own index, before the twin's view half (zeros at first) could count.
+	private constructor(source: THREE.BufferGeometry, data: CullData) {
 		if (!source.boundingBox) source.computeBoundingBox()
 		if (!source.boundingSphere) source.computeBoundingSphere()
-		const src = source.index!.array
-		const half = src.length
+		const half = data.index.length / 2
 		this.half = half
-		const index = new Uint32Array(half * 2)
 		const g = new THREE.BufferGeometry()
 		for (const [name, attr] of Object.entries(source.attributes)) g.setAttribute(name, attr)
-		g.setIndex(new THREE.BufferAttribute(index, 1))
+		g.setIndex(new THREE.BufferAttribute(data.index, 1))
 		g.boundingBox = source.boundingBox?.clone() ?? null
 		g.boundingSphere = source.boundingSphere?.clone() ?? null
 		// The batch mesh is raycast through the geometry it draws, this twin: without the model's bounds
 		// tree every pick and sight line walked all of its triangles, over a second a ray in Blackrock
 		// Depths (#286). The tree tests the model's own index, which holds the same triangles.
 		g.boundsTree = source.boundsTree
-		this.runs = []
+		this.runs = data.runs
 		this.full = []
 		this.view = []
 		const groups = source.groups.length ? source.groups : [{ start: 0, count: half, materialIndex: 0 }]
 		for (const grp of groups) {
 			const start = grp.start
 			const end = Math.min(half, grp.start + grp.count)
-			// A stable sort of the material's triangles by their WMO groups.
-			const byKey = new Map<number, number[]>()
-			for (let t = start; t + 2 < end; t += 3) {
-				const v = src[t]
-				const key = room.getX(v) * 65536 + room.getY(v)
-				let list = byKey.get(key)
-				if (!list) byKey.set(key, (list = []))
-				list.push(t)
-			}
-			const runs: Run[] = []
-			let o = start
-			for (const [key, list] of byKey) {
-				const run = { a: Math.floor(key / 65536), b: key % 65536, start: o, count: list.length * 3 }
-				for (const t of list) {
-					index[o++] = src[t]
-					index[o++] = src[t + 1]
-					index[o++] = src[t + 2]
-				}
-				runs.push(run)
-			}
-			this.runs.push(runs)
 			this.full.push({ start, count: end - start })
 			this.view.push({ start: half + start, count: 0 })
 			const twin = { start, count: end - start, materialIndex: grp.materialIndex ?? 0 }
@@ -106,34 +162,38 @@ export class WmoGroupCull {
 		}
 		this.geometry = g
 		g.userData.drawnIndexCount = half
-		this.boxes = Array.from({ length: groupCount }, () => new THREE.Box3())
-		const pos = source.attributes.position
-		const p = new THREE.Vector3()
-		for (let v = 0; v < pos.count; v++) {
-			const a = room.getX(v)
-			const b = room.getY(v)
-			if (!a && !b) continue
-			p.fromBufferAttribute(pos, v)
-			if (a) this.boxes[a - 1].expandByPoint(p)
-			if (b) this.boxes[b - 1].expandByPoint(p)
+		const b = data.boxes
+		this.boxes = []
+		for (let o = 0; o < b.length; o += 6) {
+			const box = new THREE.Box3()
+			// An empty group keeps three's empty box.
+			if (b[o] <= b[o + 3]) {
+				box.min.set(b[o], b[o + 1], b[o + 2])
+				box.max.set(b[o + 3], b[o + 4], b[o + 5])
+			}
+			this.boxes.push(box)
 		}
-		this.visible = new Uint8Array(groupCount)
+		this.visible = new Uint8Array(this.boxes.length)
 	}
 
 	/**
 	 * The cull for a model's geometry, made once and kept with it, or null for a model without WMO
-	 * groups or too small to be worth one.
+	 * groups or too small to be worth one. A model loaded through assets.ts has it from the model
+	 * worker already (`adopt`); built here, it costs the main thread tens of ms for a city.
 	 */
 	static of(source: THREE.BufferGeometry, minTriangles = MIN_TRIANGLES, minGroups = MIN_GROUPS): WmoGroupCull | null {
 		const cached = culls.get(source)
 		if (cached !== undefined) return cached
 		const room = source.getAttribute(ROOM_ATTRIBUTE) as THREE.BufferAttribute | undefined
-		let cull: WmoGroupCull | null = null
-		if (room && room.itemSize === 2 && source.index && source.index.count / 3 >= minTriangles) {
-			let groups = 0
-			for (let v = 0; v < room.count; v++) groups = Math.max(groups, room.getX(v), room.getY(v))
-			if (groups >= minGroups) cull = new WmoGroupCull(source, room, groups)
-		}
+		const pos = source.getAttribute('position') as THREE.BufferAttribute | undefined
+		let data: CullData | null = null
+		if (room && room.itemSize === 2 && pos && source.index) data = cullData(source.index.array, source.groups, pos.array, room.array, minTriangles, minGroups)
+		return WmoGroupCull.adopt(source, data)
+	}
+
+	/** Keeps the cull built from `data` (or none, for null) as the one of `source`. */
+	static adopt(source: THREE.BufferGeometry, data: CullData | null): WmoGroupCull | null {
+		const cull = data ? new WmoGroupCull(source, data) : null
 		culls.set(source, cull)
 		// The twin's index goes with the model it was made of (assets.ts releaseAssets, #505).
 		const twin = cull?.geometry
