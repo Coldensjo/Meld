@@ -16,6 +16,9 @@ import {
 	TileBuilder,
 	loadRecast,
 	markAreas,
+	runTileJob,
+	tileBuffers,
+	tileJob,
 	vmangosSettings,
 	type TileInput,
 } from '../src/lib/world/nav/navBuild.ts'
@@ -408,4 +411,44 @@ test("a WMO's liquid over its floor is swim area, its type's low bits picking th
 	assert.ok((lava.areas.get(AREA_SLIME) ?? 0) > 0, 'no slime area over the floor')
 	assert.equal(lava.areas.get(AREA_WATER) ?? 0, 0)
 	lava.done()
+})
+
+test("a worker's job (#508) builds the same tile as the main thread, from copies that own their buffers", async () => {
+	const r = await loadRecast()
+	const s = vmangosSettings(true)
+	const g = flat(16)
+	const wall = placeFaces(box(20, 5, 0, 22, 16, 50), new THREE.Matrix4().elements)
+	const gather = new TileGatherer()
+	const border = s.borderSize * s.cs
+	const tx = 2
+	const tz = 1
+	const input = gather.gather(g, [wall], tx * s.tileYards - border, tz * s.tileYards - border, (tx + 1) * s.tileYards + border, (tz + 1) * s.tileYards + border, groundAt(g))
+	const job = tileJob(input, true, tx, tz)
+	// The copies hold just the used parts, apart from the gatherer's buffers, which it reuses.
+	assert.equal(job.input.pos.length, input.vertCount * 3)
+	assert.equal(job.input.idx.length, input.triCount * 3)
+	assert.notEqual(job.input.pos.buffer, input.pos.buffer)
+	assert.equal(tileBuffers(job).length, 2)
+	const builder = new TileBuilder(r, s)
+	const here = builder.build(input, tx, tz)
+	assert.ok(here?.data)
+	const out = runTileJob(r, new Map(), job)
+	assert.ok(out?.data)
+	assert.deepEqual(out.data, here.data.toTypedArray())
+	assert.deepEqual(out.tris, here.tris)
+	assert.deepEqual(out.areas, here.areas)
+	assert.deepEqual(out.polys, here.polys)
+	// Each array owns its buffer, so handing them over moves no more than they hold.
+	for (const a of [out.data, out.tris, out.areas, out.polys]) assert.equal(a.byteLength, a.buffer.byteLength)
+	assert.equal(tileBuffers(out).length, 4)
+	// The bytes make a tile the navmesh takes.
+	const nav = new r.NavMesh()
+	assert.ok(nav.initTiled(r.NavMeshParams.create({ orig: { x: 0, y: 0, z: 0 }, tileWidth: s.tileYards, tileHeight: s.tileYards, maxTiles: 64, maxPolys: 4096 })))
+	const data = new r.UnsignedCharArray()
+	data.copy(out.data)
+	assert.ok(!r.statusFailed(nav.addTile(data, 0, 0).status))
+	nav.destroy()
+	data.destroy()
+	here.data.destroy()
+	builder.destroy()
 })

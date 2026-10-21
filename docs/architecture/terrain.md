@@ -143,8 +143,16 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     objects or their collision alone (#509) builds again only the tiles whose bordered box meets a
     placement added, moved or dropped (`refreshModels` collects their boxes, `markChanged` marks the
     tiles), and every tile of a client tile whose height span (`adtHeightSpan`) it moved; anything
-    else builds every tile again. `Engine.updateNav` calls it only while the view is on and
-    `clear()`s it (frees the WASM navmesh) when it goes off. View › Test a Path arms `Engine.navPick`:
+    else builds every tile again. Recast's build of a tile runs in up to two Web Workers (#508,
+    `navJobs.ts` posts the jobs, `navWorker.ts` runs `runTileJob` with a WASM instance of its own,
+    three jobs out a worker): the main thread gathers the tile's triangles (`tileJob` copies them
+    out of the gatherer's reused buffers), and takes back Detour's tile bytes, which it copies into
+    its own navmesh (kept there for the path test, as in server mode; added without
+    `DT_TILE_FREE_DATA`, the tile's `data` freed by `dropTile`), and the surface to draw. The 6 ms
+    budget then pays only for gathering. A job whose inputs a settled change made stale is dropped
+    when it returns (`tile.job`); without workers (Bun's tests) or after one fails, the build runs
+    on the main thread as before. `Engine.updateNav` calls it only while the view is on and
+    `clear()`s it (frees the WASM navmesh and stops the workers) when it goes off. View › Test a Path arms `Engine.navPick`:
     the next two clicks are a creature's path (`NavPreview.pathPoint`, Detour's `computePath`),
     drawn as a line, its length in the status bar: a walking creature's (`NAV_GROUND`, the server's
     `PathInfo::createFilter`), or where only a swimming one gets there, that one's, said so.

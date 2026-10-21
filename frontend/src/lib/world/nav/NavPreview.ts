@@ -2,7 +2,9 @@
 // ground around the camera, and a path test between two clicked points. Tiles (navBuild.ts) are
 // built nearest first within RANGE of the camera's target, a few each frame within BUDGET_MS, and
 // built again QUIET_MS after the ground or the models stop changing: all of them for the ground, only
-// those a changed model meets for the models (#509). Nothing runs while the view is
+// those a changed model meets for the models (#509). A tile's triangles are gathered here and Recast
+// builds it in a Web Worker (navJobs.ts, #508), whose Detour bytes go into the navmesh kept here
+// for the path test; without workers the build runs here. Nothing runs while the view is
 // off: the Engine calls `update` only while it is on, and `clear` frees the WASM side when it goes off.
 // In server mode (#240, navServer.ts) the tiles are instead the server's own, one a client tile, read
 // from its movement maps, and nothing is built.
@@ -27,10 +29,13 @@ import {
 	NAV_WATER,
 	TileBuilder,
 	loadRecast,
+	tileJob,
 	vmangosSettings,
 	type NavSettings,
 	type Recast,
+	type TileOutput,
 } from './navBuild'
+import { buildInWorker, navWorkerRoom, navWorkersReady, stopNavWorkers } from './navJobs'
 import { TileGatherer, adtHeightSpan, placeFaces, type ModelLiquid, type PlacedCollision } from './navGeometry'
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
@@ -88,8 +93,11 @@ interface NavTile {
 	mesh: THREE.Mesh | null
 	/** The build generation the tile was last built for; -1 for never. */
 	stamp: number
-	/** Its tile in the navmesh, 0 for none. */
+	/** Its tile in the navmesh, 0 for none, and the Detour data it reads, ours to free once the tile is out. */
 	ref: number
+	data: RecastModule.UnsignedCharArray | null
+	/** The worker job building it (#508), 0 for none: a result whose job no longer matches is dropped. */
+	job: number
 }
 
 /** One of the server's tiles (#240), a client tile, `ax` its column and `ay` its row on the map. */
@@ -136,7 +144,9 @@ export class NavPreview {
 	private r: Recast | null = null
 	private loading = false
 	private settings: NavSettings | null = null
+	/** The main thread's builder, only where the workers can't run (navJobs.ts). */
 	private builder: TileBuilder | null = null
+	private jobs = 0
 	private gather = new TileGatherer()
 	private nav: NavMesh | null = null
 	private query: NavMeshQuery | null = null
@@ -279,6 +289,8 @@ export class NavPreview {
 			this.dirty = false
 			const full = this.full || this.stamp === 0
 			this.full = false
+			// A tile still out in a worker was gathered from the inputs before the change: its result is dropped.
+			for (const t of this.tiles.values()) t.job = 0
 			this.refreshModels(focus)
 			if (full) {
 				this.liquids.reset(this.liquidMap, terrain, this.sea)
@@ -290,13 +302,19 @@ export class NavPreview {
 		this.followFocus(focus)
 		// Wait for the models' faces, and for a change to settle, so no tile is built twice.
 		if (this.pending > 0 || this.dirty) return
+		// The workers build (#508) and the budget pays only for gathering; without them the builds run here.
+		const workers = navWorkersReady()
 		const t0 = performance.now()
-		while (this.queue.length && performance.now() - t0 < BUDGET_MS) this.buildTile(this.queue.pop()!)
+		while (this.queue.length && performance.now() - t0 < BUDGET_MS) {
+			if (workers && !navWorkerRoom()) break
+			this.buildTile(this.queue.pop()!, workers)
+		}
 	}
 
 	/** Frees the navmesh, the tiles and the path; the collision faces stay for next time. */
 	clear() {
 		this.reset()
+		stopNavWorkers()
 		this.terrain = null
 		this.objects = null
 		this.liquidMap = null
@@ -323,7 +341,6 @@ export class NavPreview {
 			return
 		}
 		const s = (this.settings = vmangosSettings(this.continent))
-		this.builder = new TileBuilder(r, s)
 		this.nav = new r.NavMesh()
 		this.nav.initTiled(r.NavMeshParams.create({ orig: { x: 0, y: 0, z: 0 }, tileWidth: s.tileYards, tileHeight: s.tileYards, maxTiles: MAX_TILES, maxPolys: MAX_POLYS }))
 		this.query = new r.NavMeshQuery(this.nav)
@@ -332,7 +349,10 @@ export class NavPreview {
 	}
 
 	private reset() {
-		for (const t of this.tiles.values()) this.dropMesh(t)
+		for (const t of this.tiles.values()) {
+			this.dropTile(t)
+			this.dropMesh(t)
+		}
 		this.tiles.clear()
 		for (const t of this.serverTiles.values()) this.dropServerTile(t)
 		this.serverTiles.clear()
@@ -464,7 +484,7 @@ export class NavPreview {
 		for (const [key, tile] of this.tiles) {
 			// A tile past KEEP goes, and so does a stale one outside RANGE, which would show old ground.
 			if (dist(tile) <= (tile.stamp === this.stamp ? KEEP : RANGE)) continue
-			if (tile.ref) this.nav!.removeTile(tile.ref)
+			this.dropTile(tile)
 			this.dropMesh(tile)
 			this.tiles.delete(key)
 		}
@@ -472,20 +492,20 @@ export class NavPreview {
 			for (let tx = Math.max(0, fx - reach); tx <= Math.min(last, fx + reach); tx++) {
 				const key = tz * 4096 + tx
 				if (this.tiles.has(key)) continue
-				const tile: NavTile = { tx, tz, mesh: null, stamp: -1, ref: 0 }
+				const tile: NavTile = { tx, tz, mesh: null, stamp: -1, ref: 0, data: null, job: 0 }
 				if (dist(tile) > RANGE) continue
 				this.tiles.set(key, tile)
 			}
 		}
 		this.queue.length = 0
-		for (const tile of this.tiles.values()) if (tile.stamp !== this.stamp && dist(tile) <= RANGE) this.queue.push(tile)
+		for (const tile of this.tiles.values()) if (tile.stamp !== this.stamp && !tile.job && dist(tile) <= RANGE) this.queue.push(tile)
 		// Nearest last, since the builder pops.
 		this.queue.sort((a, b) => dist(b) - dist(a))
 	}
 
-	private buildTile(tile: NavTile) {
+	/** Gathers a tile's triangles and builds it, in a worker with `workers` (the result taken when it comes back). */
+	private buildTile(tile: NavTile, workers: boolean) {
 		const s = this.settings!
-		const nav = this.nav!
 		const border = s.borderSize * s.cs
 		const x0 = tile.tx * s.tileYards - border
 		const z0 = tile.tz * s.tileYards - border
@@ -502,20 +522,67 @@ export class NavPreview {
 		}
 		input.floorY = span[0]
 		input.ceilY = span[1]
-		const built = this.builder!.build(input, tile.tx, tile.tz)
+		if (workers) {
+			const id = ++this.jobs
+			const key = tile.tz * 4096 + tile.tx
+			tile.job = id
+			// Dropped if the tile went, or a change since (update cancels the jobs out) made its inputs stale.
+			const live = () => tile.job === id && this.tiles.get(key) === tile
+			buildInWorker(tileJob(input, this.continent, tile.tx, tile.tz)).then(
+				(out) => {
+					if (!live()) return
+					tile.job = 0
+					this.takeTile(tile, out && this.wasmData(out), out)
+				},
+				() => {
+					if (!live()) return
+					// The workers failed or stopped: queued again, for the main thread.
+					tile.job = 0
+					this.focusTile.x = NaN
+				},
+			)
+			return
+		}
+		this.builder ??= new TileBuilder(this.r!, s)
+		const built = this.builder.build(input, tile.tx, tile.tz)
+		this.takeTile(tile, built?.data ?? null, built)
+	}
+
+	/** A worker's tile bytes copied into the WASM heap, for the navmesh. */
+	private wasmData(out: TileOutput): RecastModule.UnsignedCharArray | null {
+		if (!out.data) return null
+		const data = new this.r!.UnsignedCharArray()
+		data.copy(out.data)
+		return data
+	}
+
+	/** Puts a built tile in the navmesh (`data` then the tile's to free) and draws its surface. */
+	private takeTile(tile: NavTile, data: RecastModule.UnsignedCharArray | null, surface: { tris: Float32Array; areas: Uint8Array; polys: Uint16Array } | null) {
+		const nav = this.nav!
 		this.builds++
 		tile.stamp = this.stamp
-		if (tile.ref) nav.removeTile(tile.ref)
-		tile.ref = 0
-		if (built?.data) {
-			const added = nav.addTile(built.data, this.r!.Detour.DT_TILE_FREE_DATA, 0)
-			if (this.r!.statusFailed(added.status)) built.data.destroy()
-			else tile.ref = added.tileRef
+		this.dropTile(tile)
+		if (data) {
+			// Not DT_TILE_FREE_DATA: the array stays the tile's, freed once the tile is out (dropTile).
+			const added = nav.addTile(data, 0, 0)
+			if (this.r!.statusFailed(added.status)) data.destroy()
+			else {
+				tile.ref = added.tileRef
+				tile.data = data
+			}
 		}
 		this.dropMesh(tile)
-		if (!built || built.areas.length === 0) return
-		tile.mesh = this.surfaceMesh(built)
+		if (!surface || surface.areas.length === 0) return
+		tile.mesh = this.surfaceMesh(surface)
 		this.group.add(tile.mesh)
+	}
+
+	/** Takes a tile out of the navmesh and frees its data. */
+	private dropTile(tile: NavTile) {
+		if (tile.ref) this.nav?.removeTile(tile.ref)
+		tile.ref = 0
+		tile.data?.destroy()
+		tile.data = null
 	}
 
 	/** A tile's surface to draw, each triangle its area's colour, lifted off the ground. */

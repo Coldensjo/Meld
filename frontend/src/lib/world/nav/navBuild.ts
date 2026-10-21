@@ -356,6 +356,84 @@ export class TileBuilder {
 	}
 }
 
+/**
+ * One tile's build as it crosses to and from a worker (#508): the inputs copied out of the gatherer's
+ * reused buffers, and the result with Detour's data as plain bytes instead of a WASM array.
+ */
+export interface TileJob {
+	continent: boolean
+	tx: number
+	tz: number
+	input: TileInput
+}
+
+export interface TileOutput {
+	/** Detour's tile data, null where the tile has no polygons. */
+	data: Uint8Array | null
+	tris: Float32Array
+	areas: Uint8Array
+	polys: Uint16Array
+}
+
+/** A job for the tile at (tx, tz) with copies of `input`'s used parts, which own their buffers. */
+export function tileJob(input: TileInput, continent: boolean, tx: number, tz: number): TileJob {
+	const copy: TileInput = {
+		pos: input.pos.slice(0, input.vertCount * 3),
+		vertCount: input.vertCount,
+		idx: input.idx.slice(0, input.triCount * 3),
+		triCount: input.triCount,
+		modelFrom: input.modelFrom,
+		minY: input.minY,
+		maxY: input.maxY,
+		floorY: input.floorY,
+		ceilY: input.ceilY,
+	}
+	const lt = input.liquidTriCount ?? 0
+	if (lt > 0) {
+		copy.liquidPos = input.liquidPos!.slice(0, input.liquidVertCount! * 3)
+		copy.liquidVertCount = input.liquidVertCount
+		copy.liquidIdx = input.liquidIdx!.slice(0, lt * 3)
+		copy.liquidAreas = input.liquidAreas!.slice(0, lt)
+		copy.liquidTriCount = lt
+	}
+	return { continent, tx, tz, input: copy }
+}
+
+/** The buffers of a job or an output, to hand over with postMessage. */
+export function tileBuffers(x: TileJob | TileOutput): ArrayBuffer[] {
+	const list: ArrayBuffer[] = []
+	const add = (a: ArrayBufferView | null | undefined) => {
+		if (a && !list.includes(a.buffer as ArrayBuffer)) list.push(a.buffer as ArrayBuffer)
+	}
+	if ('input' in x) {
+		const i = x.input
+		for (const a of [i.pos, i.idx, i.liquidPos, i.liquidIdx, i.liquidAreas]) add(a)
+	} else for (const a of [x.data, x.tris, x.areas, x.polys]) add(a)
+	return list
+}
+
+/** A view that owns its whole buffer, so handing it over moves no more than it holds. */
+function own<T extends Float32Array | Uint8Array | Uint16Array>(a: T): T {
+	return a.byteOffset === 0 && a.byteLength === a.buffer.byteLength ? a : (a.slice() as T)
+}
+
+/**
+ * Builds a job's tile with `builders`' TileBuilder for its settings (made on first use), and returns
+ * it with Detour's data copied out of the WASM heap and freed there. The worker's whole build.
+ */
+export function runTileJob(r: Recast, builders: Map<boolean, TileBuilder>, job: TileJob): TileOutput | null {
+	let b = builders.get(job.continent)
+	if (!b) {
+		b = new TileBuilder(r, vmangosSettings(job.continent))
+		builders.set(job.continent, b)
+	}
+	const built = b.build(job.input, job.tx, job.tz)
+	if (!built) return null
+	const data = built.data ? built.data.toTypedArray() : null
+	built.data?.destroy()
+	return { data, tris: own(built.tris), areas: own(built.areas), polys: own(built.polys) }
+}
+
 /** The detail mesh's triangles in world space, with their polygon's area and index. */
 function detailSurface(pmesh: RecastModule.RecastPolyMesh, dmesh: RecastModule.RecastPolyMeshDetail) {
 	const np = pmesh.npolys()
