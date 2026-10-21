@@ -346,11 +346,12 @@ function paintAlong(t: Terrain, sm: PathSamples, path: MapPath, tex: number, pai
 	return refused
 }
 
-/** One command doing `parts` in order, undoing them in reverse. */
-export function combine(label: string, parts: ReadonlyArray<{ undo(): void; redo(): void }>): Command | null {
+/** One command doing `parts` in order, undoing them in reverse, holding the bytes they hold. */
+export function combine(label: string, parts: ReadonlyArray<{ undo(): void; redo(): void; bytes?: number }>): Command | null {
 	if (!parts.length) return null
 	return {
 		label,
+		bytes: parts.reduce((n, p) => n + (p.bytes ?? 0), 0),
 		undo: () => {
 			for (let i = parts.length - 1; i >= 0; i--) parts[i].undo()
 		},
