@@ -33,6 +33,10 @@ Go tests cover the alive file going stale). In the dev page:
   (`20261016-000000-aaaaaa_7`, with `id` and `session` changed in the JSON) and open a new page. The
   Recover dialog lists only that one; Recover opens it dirty (height -5 at index 1000 of a fresh ocean
   map) and drops the copy.
+- `bun run probe autosave` (#546) checks a big map's copy: none while a stroke is held, the encoding
+  sliced between turns, the copy loading back. What it does not slice is the binding call itself: Wails
+  stringifies the whole `MapData` and sends it in one go (about 230 ms for a 1024-cell map in the
+  headless page), which the probe prints as `bindingCallMs`.
 - Traps: the page's session is the Go process's, so a page reload never offers its own copies, and two
   dev pages on one `wails dev` share the session (their doc ids can collide). `preview_click` on the
   dialog's buttons does nothing in a hidden preview tab; click through `preview_evaluate`. Delete the

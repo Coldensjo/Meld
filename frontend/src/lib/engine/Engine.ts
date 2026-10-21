@@ -3347,6 +3347,11 @@ export class Engine {
     return !!d
   }
 
+  /** A left-button drag is held (a brush stroke, a box select): the map is mid-edit, its history step not yet pushed. */
+  isStroking() {
+    return this.leftDown
+  }
+
   isDirty(id: number) {
     const d = this.documents.find((x) => x.id === id)
     return !!d && (d === this.doc ? editor.dirty : d.meta.dirty)

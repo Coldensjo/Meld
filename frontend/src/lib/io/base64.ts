@@ -14,6 +14,24 @@ export function bytesToBase64(bytes: Uint8Array): string {
   return btoa(s)
 }
 
+/** Bytes encoded per slice by `bytesToBase64Sliced`: a multiple of 3, so the slices' base64 joins with no padding between. */
+export const SLICE_BYTES = 3 * (1 << 20)
+
+/**
+ * `bytesToBase64` in slices of `SLICE_BYTES`, awaiting `pause` between them, so a region's paint (16.7 MB
+ * for 2x2 tiles) is encoded over several turns instead of one long one on the frame's thread.
+ */
+export async function bytesToBase64Sliced(bytes: Uint8Array, pause: () => Promise<void>, slice = SLICE_BYTES): Promise<string> {
+	if (slice % 3 !== 0) throw new Error('slice must be a multiple of 3 bytes')
+	if (bytes.length <= slice) return bytesToBase64(bytes)
+	const parts: string[] = []
+	for (let i = 0; i < bytes.length; i += slice) {
+		if (i) await pause()
+		parts.push(bytesToBase64(bytes.subarray(i, i + slice)))
+	}
+	return parts.join('')
+}
+
 export function base64ToBytes(b64: string): Uint8Array {
   const native = (Uint8Array as B64Ctor).fromBase64
   if (native) return native(b64)

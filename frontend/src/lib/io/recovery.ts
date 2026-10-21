@@ -1,9 +1,10 @@
 import { DropRecovery, EndRecovery, ListRecovery, LoadRecovery, SaveRecovery } from '../../../wailsjs/go/main/App'
-import { recovery } from '../../../wailsjs/go/models'
+import { mapfile, recovery } from '../../../wailsjs/go/models'
 import type { Engine } from '../engine/Engine'
 import { regionLabel, type MapDocument, type RegionRef } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { fromMapData, hasBackend, reloadSpawns, toMapData } from './mapio'
+import { bytesToBase64Sliced } from './base64'
 
 // Autosave (#177): every few minutes (Preferences › Autosave), each map with unsaved changes is
 // copied into the recovery folder of the user cache (`internal/recovery`), and the copy goes once the
@@ -31,7 +32,8 @@ export function startAutosave(engine: Engine) {
 const pathOf = (engine: Engine, d: MapDocument) => (d === engine.activeDocument() ? editor.filePath : d.meta.filePath)
 const nameOf = (engine: Engine, d: MapDocument) => (d === engine.activeDocument() ? editor.mapName : d.meta.mapName)
 
-async function autosave(engine: Engine) {
+/** One check of the open tabs, as the timer runs it (exported for the `autosave` probe). */
+export async function autosave(engine: Engine) {
 	// A save, compile or open in progress has the map half-written; the next check comes soon.
 	if (busy || ui.busy) return
 	busy = true
@@ -54,9 +56,13 @@ async function autosave(engine: Engine) {
 			const since = copy?.at ?? dirtySince.get(d.id) ?? now
 			dirtySince.set(d.id, since)
 			if (now - since < every) continue
+			// Mid-stroke the terrain is half-edited and its history step not pushed: copy it after the stroke.
+			if (engine.isStroking()) continue
+			const data = await encodeCopy(engine, d, changes)
+			if (!data) continue
 			const region = d.meta.region
 			const info = recovery.Info.createFrom({ name: nameOf(engine, d), file: pathOf(engine, d), region: region ? regionLabel(region) : '' })
-			const saved = await SaveRecovery(d.id, info, toMapData(engine.snapshotOf(d)))
+			const saved = await SaveRecovery(d.id, info, data)
 			copies.set(d.id, { id: saved.id, changes, at: Date.now() })
 			dirtySince.delete(d.id)
 			wrote++
@@ -71,6 +77,32 @@ async function autosave(engine: Engine) {
 	} finally {
 		busy = false
 	}
+}
+
+/** A turn for the editor between slices: a message, not a timeout, which a hidden window throttles to one a second. */
+const yieldTurn = () =>
+	new Promise<void>((done) => {
+		const ch = new MessageChannel()
+		ch.port1.onmessage = () => done()
+		ch.port2.postMessage(0)
+	})
+
+/**
+ * A tab's map as the recovery binding takes it, with its large arrays (heights, paint weights and slots,
+ * up to hundreds of MB for a big region) base64-encoded in slices between turns rather than in one go on
+ * the frame's thread (#546). The arrays are the terrain's own, so an edit landing between slices would
+ * tear the copy: when the tab's history moved on, a stroke is held or the tab closed by the end, this
+ * gives null and the next check copies it again.
+ */
+async function encodeCopy(engine: Engine, d: MapDocument, changes: number): Promise<mapfile.MapData | null> {
+	await yieldTurn()
+	const snap = engine.snapshotOf(d)
+	const heights = await bytesToBase64Sliced(snap.heights, yieldTurn)
+	const weights = await bytesToBase64Sliced(snap.weights, yieldTurn)
+	const chunkSlots = await bytesToBase64Sliced(snap.chunkSlots, yieldTurn)
+	if (!engine.documents.includes(d) || d.history.changes !== changes || engine.isStroking()) return null
+	const none = new Uint8Array(0)
+	return Object.assign(toMapData({ ...snap, heights: none, weights: none, chunkSlots: none }), { heights, weights, chunkSlots })
 }
 
 async function drop(docId: number) {
