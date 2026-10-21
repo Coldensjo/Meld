@@ -117,16 +117,36 @@ export class TaxiLayer {
 		this.group.visible = false
 	}
 
-	/** Draws `stops` and `routes` (server coordinates) in the block whose first tile is (tileX, tileY), with `pick` highlighted. */
+	/**
+	 * Draws `stops` and `routes` (server coordinates) in the block whose first tile is (tileX, tileY),
+	 * with `pick` highlighted. Only what differs from the last call is redrawn (#588): the Flight Paths
+	 * window hands over its whole network on every pick and edit, and after a drag, which the layer
+	 * has drawn already, so a pick redraws the stops or the picked route and a release nothing.
+	 */
 	set(stops: TaxiStopShape[], routes: TaxiRouteShape[], tileX: number, tileY: number, pick: TaxiPick, ground: GroundAt) {
+		const all = tileX !== this.tileX || tileY !== this.tileY || ground !== this.ground
+		const stopsChanged = all || pick.stop !== this.pick.stop || !sameStops(stops, this.stops)
+		let routesChanged = all || pick.route !== this.pick.route || routes.length !== this.routes.length
+		let pickedChanged = routesChanged || pick.point !== this.pick.point
+		if (!routesChanged) {
+			for (let i = 0; i < routes.length; i++) {
+				if (sameRoute(routes[i], this.routes[i])) continue
+				if (routes[i].id === pick.route && this.routes[i].id === pick.route) pickedChanged = true
+				else {
+					routesChanged = true
+					break
+				}
+			}
+		}
 		this.stops = stops
 		this.routes = routes
 		this.tileX = tileX
 		this.tileY = tileY
 		this.pick = pick
 		this.ground = ground
-		this.drawStops()
-		this.drawRoutes()
+		if (stopsChanged) this.drawStops()
+		if (routesChanged) this.drawRoutes()
+		else if (pickedChanged) this.drawPicked()
 	}
 
 	/** The editor point of a server point in this block. */
@@ -251,6 +271,28 @@ export class TaxiLayer {
 		this.stopGeo.dispose()
 		this.pointGeo.dispose()
 	}
+}
+
+/** Whether two lists of stops draw the same: the same stops in order, at the same spots, with the same mounts. */
+export function sameStops(a: readonly TaxiStopShape[], b: readonly TaxiStopShape[]): boolean {
+	if (a.length !== b.length) return false
+	for (let i = 0; i < a.length; i++) {
+		const s = a[i]
+		const t = b[i]
+		if (s.id !== t.id || s.x !== t.x || s.y !== t.y || s.z !== t.z || s.hordeMount !== t.hordeMount || s.allianceMount !== t.allianceMount) return false
+	}
+	return true
+}
+
+/** Whether two routes draw the same: the same ID and points. */
+export function sameRoute(a: TaxiRouteShape, b: TaxiRouteShape): boolean {
+	if (a.id !== b.id || a.points.length !== b.points.length) return false
+	for (let i = 0; i < a.points.length; i++) {
+		const p = a.points[i]
+		const q = b.points[i]
+		if (p.x !== q.x || p.y !== q.y || p.z !== q.z) return false
+	}
+	return true
 }
 
 function setLines(g: THREE.BufferGeometry, v: number[], colors?: number[]) {

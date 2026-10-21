@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { airPoint, CRUISE_HEIGHT, defaultRoute, flightAt, flightSeconds, FLIGHT_SPEED, rayNearSegment, routeLines, segmentLengths, splinePoint } from '../src/lib/world/taxiRoute.ts'
-import { stopColor, underground } from '../src/lib/world/TaxiLayer.ts'
+import { stopColor, TaxiLayer, underground } from '../src/lib/world/TaxiLayer.ts'
 
 const line = [
 	{ x: 0, y: 0, z: 0 },
@@ -97,4 +97,59 @@ test('a ray near a segment gives the angle tangent, far or behind gives Infinity
 	assert.ok(Math.abs(near - 0.01) < 1e-9)
 	assert.equal(rayNearSegment(o, d, { x: 0, y: -5, z: 50 }, { x: 0, y: 5, z: 50 }), 0)
 	assert.equal(rayNearSegment(o, d, { x: 0, y: -5, z: -50 }, { x: 0, y: 5, z: -50 }), Infinity)
+})
+
+test('TaxiLayer.set redraws only what differs from the last call (#588)', () => {
+	const L = new TaxiLayer()
+	const drawn: string[] = []
+	const spy = (name: 'drawStops' | 'drawRoutes' | 'drawPicked') => {
+		const f = L[name].bind(L)
+		L[name] = () => {
+			drawn.push(name)
+			f()
+		}
+	}
+	spy('drawStops')
+	spy('drawRoutes')
+	spy('drawPicked')
+	const ground = () => 0
+	const net = () => ({
+		stops: [
+			{ id: 1, x: 10, y: 20, z: 5, hordeMount: 1, allianceMount: 0 },
+			{ id: 2, x: 400, y: 20, z: 5, hordeMount: 0, allianceMount: 1 },
+		],
+		routes: [
+			{ id: 7, from: 1, to: 2, points: [{ x: 10, y: 20, z: 40 }, { x: 200, y: 20, z: 40 }, { x: 400, y: 20, z: 40 }] },
+			{ id: 8, from: 2, to: 1, points: [{ x: 400, y: 20, z: 40 }, { x: 10, y: 20, z: 40 }] },
+		],
+	})
+	const set = (pick: { stop: number | null; route: number | null; point: number }, edit?: (n: ReturnType<typeof net>) => void) => {
+		const n = net()
+		edit?.(n)
+		drawn.length = 0
+		L.set(n.stops, n.routes, 36, 49, pick, ground)
+		return [...drawn].filter((d) => d !== 'drawPicked' || !drawn.includes('drawRoutes'))
+	}
+	assert.deepEqual(set({ stop: null, route: 7, point: -1 }), ['drawStops', 'drawRoutes'])
+	// A copy of the same network (the window's snapshot after a drag the layer drew) redraws nothing.
+	assert.deepEqual(set({ stop: null, route: 7, point: -1 }), [])
+	assert.deepEqual(set({ stop: 1, route: 7, point: -1 }), ['drawStops'])
+	assert.deepEqual(set({ stop: 1, route: 7, point: 2 }), ['drawPicked'])
+	// A point of the picked route moved, or one added: only that route.
+	assert.deepEqual(set({ stop: 1, route: 7, point: 2 }, (n) => (n.routes[0].points[1].z = 60)), ['drawPicked'])
+	assert.deepEqual(set({ stop: 1, route: 7, point: 2 }, (n) => n.routes[0].points.push({ x: 500, y: 0, z: 40 })), ['drawPicked'])
+	// Another route changed, a route picked, a stop moved or its mount changed, a stop removed.
+	assert.deepEqual(set({ stop: 1, route: 7, point: 2 }, (n) => (n.routes[1].points[0].x = 390)), ['drawRoutes'])
+	assert.deepEqual(set({ stop: 1, route: 8, point: -1 }), ['drawRoutes'])
+	assert.deepEqual(set({ stop: 1, route: 8, point: -1 }, (n) => (n.stops[1].x = 300)), ['drawStops'])
+	assert.deepEqual(set({ stop: 1, route: 8, point: -1 }, (n) => {
+		n.stops[1].x = 300
+		n.stops[1].allianceMount = 0
+	}), ['drawStops'])
+	assert.deepEqual(set({ stop: 1, route: 8, point: -1 }, (n) => n.stops.pop()), ['drawStops'])
+	// A new block or ground draws everything again.
+	drawn.length = 0
+	L.set(L.stops, L.routes, 37, 49, L.pick, ground)
+	assert.ok(drawn.includes('drawStops') && drawn.includes('drawRoutes'))
+	L.dispose()
 })

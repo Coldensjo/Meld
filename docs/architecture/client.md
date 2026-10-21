@@ -226,7 +226,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   (`taxiRoute.ts` `airPoint`); with Draw points off, a click on a route's drawn curve picks that route
   (`TaxiLayer.pickRoute`, `rayNearSegment`: the segment nearest the ray in angle, within a tolerance
   that grows with distance). A drag moves the layer's copy and the window hears of it once, on
-  release. `taxiRoute.ts` is the server's curve (uniform Catmull-Rom with the ends doubled, timed at
+  release. The window hands its whole network to `showTaxi` on every pick and edit, so
+  `TaxiLayer.set` compares it with what it drew (`sameStops`, `sameRoute`) and redraws only the
+  stops, the picked route or all routes as needed: a release after a drag redraws nothing (#588). `taxiRoute.ts` is the server's curve (uniform Catmull-Rom with the ends doubled, timed at
   32 yd/s segment by segment); the layer colours it red where it runs under the ground, and
   `Engine.flyTaxi` rides the camera along it (`ui.taxiFlying`, Esc stops). Make flight master sets
   npc_flags 8 on the selected creature's template through `SaveCreature`.
