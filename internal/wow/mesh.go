@@ -1,7 +1,6 @@
 package wow
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"math"
@@ -293,31 +292,66 @@ func (m *Mesh) Encode() []byte {
 	for len(hdr)%4 != 0 {
 		hdr = append(hdr, ' ')
 	}
-	var buf bytes.Buffer
-	buf.Grow(4 + len(hdr) + n*32 + len(m.Index)*4)
-	binary.Write(&buf, binary.LittleEndian, uint32(len(hdr)))
-	buf.Write(hdr)
-	binary.Write(&buf, binary.LittleEndian, m.Pos)
-	binary.Write(&buf, binary.LittleEndian, m.Normal)
-	binary.Write(&buf, binary.LittleEndian, m.UV)
-	if len(m.Color) == n*4 && n > 0 {
-		buf.Write(m.Color)
+	size := 4 + len(hdr) + 4*(len(m.Pos)+len(m.Normal)+len(m.UV)+len(m.Index))
+	if h.Colors {
+		size += len(m.Color)
 	}
-	binary.Write(&buf, binary.LittleEndian, m.Index)
 	if hasAnim {
-		buf.Write(m.Anim.BoneIdx)
-		buf.Write(m.Anim.BoneW)
+		size += len(m.Anim.BoneIdx) + len(m.Anim.BoneW)
 	}
 	if h.Rooms {
-		binary.Write(&buf, binary.LittleEndian, m.Room)
+		size += 2 * len(m.Room)
 	}
 	if h.LiquidVerts > 0 {
-		binary.Write(&buf, binary.LittleEndian, lq.Pos)
-		binary.Write(&buf, binary.LittleEndian, lq.UV)
-		buf.Write(lq.Info)
-		buf.Write(lq.Body)
-		binary.Write(&buf, binary.LittleEndian, lq.Room)
-		binary.Write(&buf, binary.LittleEndian, lq.Index)
+		size += 4*(len(lq.Pos)+len(lq.UV)+len(lq.Index)) + len(lq.Info) + len(lq.Body) + 2*len(lq.Room)
 	}
-	return buf.Bytes()
+	b := make([]byte, 0, size)
+	b = binary.LittleEndian.AppendUint32(b, uint32(len(hdr)))
+	b = append(b, hdr...)
+	b = appendF32(b, m.Pos)
+	b = appendF32(b, m.Normal)
+	b = appendF32(b, m.UV)
+	if h.Colors {
+		b = append(b, m.Color...)
+	}
+	b = appendU32(b, m.Index)
+	if hasAnim {
+		b = append(b, m.Anim.BoneIdx...)
+		b = append(b, m.Anim.BoneW...)
+	}
+	if h.Rooms {
+		b = appendU16(b, m.Room)
+	}
+	if h.LiquidVerts > 0 {
+		b = appendF32(b, lq.Pos)
+		b = appendF32(b, lq.UV)
+		b = append(b, lq.Info...)
+		b = append(b, lq.Body...)
+		b = appendU16(b, lq.Room)
+		b = appendU32(b, lq.Index)
+	}
+	return b
+}
+
+// appendF32, appendU32 and appendU16 append a slice little-endian. The encoders size their buffer
+// once and fill it with these, since binary.Write allocates a temporary the size of each slice (#503).
+func appendF32(b []byte, s []float32) []byte {
+	for _, v := range s {
+		b = binary.LittleEndian.AppendUint32(b, math.Float32bits(v))
+	}
+	return b
+}
+
+func appendU32(b []byte, s []uint32) []byte {
+	for _, v := range s {
+		b = binary.LittleEndian.AppendUint32(b, v)
+	}
+	return b
+}
+
+func appendU16(b []byte, s []uint16) []byte {
+	for _, v := range s {
+		b = binary.LittleEndian.AppendUint16(b, v)
+	}
+	return b
 }

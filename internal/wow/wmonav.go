@@ -1,7 +1,6 @@
 package wow
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -232,16 +231,23 @@ func (n *WMONav) Encode() []byte {
 	for len(hdr)%4 != 0 {
 		hdr = append(hdr, ' ')
 	}
-	var buf bytes.Buffer
-	binary.Write(&buf, binary.LittleEndian, uint32(len(hdr)))
-	buf.Write(hdr)
+	size := 4 + len(hdr)
 	for _, f := range n.walk {
-		binary.Write(&buf, binary.LittleEndian, f)
+		size += 4 * len(f)
 	}
 	for _, f := range n.camera {
-		binary.Write(&buf, binary.LittleEndian, f)
+		size += 4 * len(f)
 	}
-	return buf.Bytes()
+	b := make([]byte, 0, size)
+	b = binary.LittleEndian.AppendUint32(b, uint32(len(hdr)))
+	b = append(b, hdr...)
+	for _, f := range n.walk {
+		b = appendF32(b, f)
+	}
+	for _, f := range n.camera {
+		b = appendF32(b, f)
+	}
+	return b
 }
 
 // WMONav reads a WMO's room data from the client, encoded for the /wow/wmonav endpoint.

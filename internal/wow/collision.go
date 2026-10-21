@@ -1,7 +1,6 @@
 package wow
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -96,19 +95,19 @@ type collisionLiquids struct {
 }
 
 func (col *collision) encode() []byte {
-	var buf bytes.Buffer
-	le := binary.LittleEndian
-	binary.Write(&buf, le, uint32(len(col.faces)/9))
-	binary.Write(&buf, le, col.faces)
-	binary.Write(&buf, le, uint32(len(col.groups)))
-	binary.Write(&buf, le, col.groups)
 	l := &col.liquid
-	binary.Write(&buf, le, uint32(len(l.verts)/3))
-	binary.Write(&buf, le, l.verts)
-	binary.Write(&buf, le, uint32(len(l.types)))
-	binary.Write(&buf, le, l.tris)
-	binary.Write(&buf, le, l.types)
-	return buf.Bytes()
+	le := binary.LittleEndian
+	b := make([]byte, 0, 16+4*(len(col.faces)+len(col.groups)+len(l.verts)+len(l.tris)+len(l.types)))
+	b = le.AppendUint32(b, uint32(len(col.faces)/9))
+	b = appendF32(b, col.faces)
+	b = le.AppendUint32(b, uint32(len(col.groups)))
+	b = appendU32(b, col.groups)
+	b = le.AppendUint32(b, uint32(len(l.verts)/3))
+	b = appendF32(b, l.verts)
+	b = le.AppendUint32(b, uint32(len(l.types)))
+	b = appendU32(b, l.tris)
+	b = appendU32(b, l.types)
+	return b
 }
 
 // serverLiquidType is the liquid type the vmap extractor gives a group's MLIQ

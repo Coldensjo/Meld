@@ -45,6 +45,10 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   step that sets a corner holds that corner, `Command.bytes`) and that its undo and redo restore them, on a
   fake terrain; `tests/blockSnapshot.test.ts` covers `BlockSnapshot.diff` and `GridPatch` underneath (#444).
 - WoW client integration tests: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
+- `TestMeshEncodeLayout` and `TestCollisionEncodeLayout` (`internal/wow/encode_test.go`) check the
+  mesh and collision bodies against the `binary.Write` layout they replaced and that the buffer is
+  sized exactly (#503). `go test ./internal/wow/ -run X -bench MeshEncode -benchmem` gives the bytes
+  and allocations of encoding a 54k-triangle mesh (6.6 MB and 20 allocs before #503, 2.1 MB and 6 after).
 - The same `WOW_DIR` runs the client checks in `internal/vmangos` (region round trips, the chunk
   header write `TestRegionHeadersWritten`, `TestReadAreasFromClient`). On the owner's machine the
   client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk
