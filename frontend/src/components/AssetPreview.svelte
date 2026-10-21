@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as THREE from 'three'
   import { onMount } from 'svelte'
-  import { buildWowAsset, texturesReady, type ModelAsset } from '../lib/models/assets'
+  import { buildWowAsset, releaseWowAsset, texturesReady, type ModelAsset } from '../lib/models/assets'
   import { helperGeometry, helperMaterial, isHelper } from '../lib/models/helpers'
   import { fetchMesh, texturePreview } from '../lib/wow/api'
   import type { SearchItem } from '../lib/wow/search'
@@ -47,10 +47,11 @@
   function dropMesh() {
     if (mesh) {
       pivot.remove(mesh)
-      mesh.geometry.dispose()
       mesh = null
-      asset = null
     }
+		// Its geometry, and the materials of its own, which leave the animated lists (#506).
+		if (asset) releaseWowAsset(asset)
+		asset = null
   }
 
   function frame() {
@@ -93,7 +94,7 @@
       const a: ModelAsset = helper ? { geometry: helper, material: helperMaterial(), bbox: helper.boundingBox!.clone(), ready: true, effects: [], emitters: [], ribbons: [] } : buildWowAsset(await fetchMesh(it.path))
       await texturesReady(a.material)
       if (id !== loadId) {
-        a.geometry.dispose()
+        releaseWowAsset(a)
         return
       }
       asset = a

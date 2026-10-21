@@ -143,7 +143,10 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
   colour index) and transparency weight (0x64 through 0xA4) work the same way (B-181, `Group.Color`,
   `ColorAnim`): Go drops a batch whose alpha times weight is a constant 0 or less (the client never
   draws it), and the frontend tints the group's own material and sets its opacity, hiding it at 0
-  (`updateMaterialAnimations`).
+  (`updateMaterialAnimations`). Those own materials are never cached, so an asset that is not kept
+  (a thumbnail, the asset browser's and creature editor's previews) is handed to `releaseWowAsset`
+  when done: it takes them out of the animated lists and disposes them with their texture copies
+  (#506; a preview keeps them, and so animates, for as long as it shows the model).
 - `world/Animator.ts` (`ModelAnimation`) poses the bones on the CPU per model type, and the shader
   skins the shared geometry from its skeleton's bone texture. All instances animate in sync. The
   Engine (`animateModels`) poses each frame only the types in `animatedAssets` that are drawn: a placed

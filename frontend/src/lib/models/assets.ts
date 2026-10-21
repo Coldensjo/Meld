@@ -160,7 +160,7 @@ export function loadAsset(type: string): Promise<ModelAsset> {
 const materialCache = new Map<string, THREE.Material>()
 
 /** The textures that move (M2 texture transforms): each animated group's own copy of its texture, and its animation. */
-const uvAnimated: Array<{ texture: THREE.Texture; spec: UVAnimSpec; cutout: boolean }> = []
+const uvAnimated: Array<{ material: THREE.Material; texture: THREE.Texture; spec: UVAnimSpec; cutout: boolean }> = []
 /** The materials whose colour or transparency changes (M2 colours and weights), with their colour before the tint. */
 const colorAnimated: Array<{ material: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial; base: THREE.Color; spec: ColorAnimSpec }> = []
 const uvRows = [0, 0, 0, 0, 0, 0]
@@ -263,16 +263,20 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean, rooms: boolean): THREE
   m.shadowSide = THREE.DoubleSide
   if (m instanceof THREE.MeshLambertMaterial) patchCascadeShadows(m)
   if (rooms) patchRoomGate(m)
+	// Not cached, so an asset that is not kept lets go of it (releaseWowAsset).
+	if (own) m.userData.own = true
   const mat = m as THREE.MeshLambertMaterial
   // userData.ready resolves once the texture is bound (or failed).
   mat.userData.ready = g.texture
     ? loadTexture(g.texture)
         .then((t) => {
+					// Released before its texture came (a preview moved on): nothing to bind or animate.
+					if (mat.userData.released) return
           if (moving) {
             // A copy shares the image (three keeps one GPU texture for both) but has its own matrix.
             t = t.clone()
             t.matrixAutoUpdate = false
-            uvAnimated.push({ texture: t, spec: g.uv as UVAnimSpec, cutout: mat.alphaTest > 0 })
+            uvAnimated.push({ material: mat, texture: t, spec: g.uv as UVAnimSpec, cutout: mat.alphaTest > 0 })
           }
           mat.map = t
           mat.needsUpdate = true
@@ -282,6 +286,40 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean, rooms: boolean): THREE
     : Promise.resolve()
   if (!own) materialCache.set(key, m)
   return m
+}
+
+/** How many textures and colours `updateMaterialAnimations` moves each frame (for tests and probes). */
+export function animatedCount(): number {
+	return uvAnimated.length + colorAnimated.length
+}
+
+/**
+ * Lets go of an asset that is not kept (a thumbnail, a preview; #506): its geometry, and the materials
+ * `buildWowAsset` made for it alone (a moving texture or colour), which stop being animated each frame
+ * and are disposed with their texture copies. The shared materials and textures stay. Works on a
+ * helper's asset too, whose shared material it leaves alone.
+ */
+export function releaseWowAsset(asset: ModelAsset) {
+	asset.geometry.dispose()
+	asset.liquid?.dispose()
+	const own = new Set<THREE.Material>()
+	for (const m of Array.isArray(asset.material) ? asset.material : [asset.material]) {
+		if (!m.userData.own || m.userData.released) continue
+		m.userData.released = true
+		own.add(m)
+	}
+	if (!own.size) return
+	let j = 0
+	for (const a of uvAnimated) {
+		// The copy shares its image with the cached texture: three frees the GPU texture with the last user.
+		if (own.has(a.material)) a.texture.dispose()
+		else uvAnimated[j++] = a
+	}
+	uvAnimated.length = j
+	j = 0
+	for (const a of colorAnimated) if (!own.has(a.material)) colorAnimated[j++] = a
+	colorAnimated.length = j
+	for (const m of own) m.dispose()
 }
 
 const LIQUID_CLASSES: LiquidClass[] = ['river', 'ocean', 'magma', 'slime']
@@ -342,7 +380,8 @@ export const animatedAssets = new Map<string, ModelAsset>()
 /**
  * Builds geometry + materials. `animateAs` is the type to register the idle animation under, for a
  * kept asset only (thumbnails and previews pass nothing and show the bind pose). Callers that don't
- * keep the asset should dispose the geometry.
+ * keep the asset pass it to `releaseWowAsset` when done with it, which frees the geometry and the
+ * materials of its own: until then its moving textures and colours animate with the scene's.
  */
 export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
 	if (nothingToDraw(m)) return markerAsset(m)

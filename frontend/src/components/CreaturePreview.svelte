@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as THREE from 'three'
   import { onMount } from 'svelte'
-  import { buildWowAsset, texturesReady, type ModelAsset } from '../lib/models/assets'
+  import { buildWowAsset, releaseWowAsset, texturesReady, type ModelAsset } from '../lib/models/assets'
   import { helperGeometry, helperMaterial, isHelper } from '../lib/models/helpers'
   import { fetchMesh } from '../lib/wow/api'
   import { ModelAnimation, modelMesh } from '../lib/world/Animator'
@@ -41,7 +41,8 @@
   const pivot = new THREE.Group()
   let mesh: THREE.Mesh | null = null
   let animation: ModelAnimation | null = null
-  let geometry: THREE.BufferGeometry | null = null
+  /** The asset shown, released (its geometry and own materials, #506) when another replaces it. */
+  let shown: ModelAsset | null = null
   let yaw = 0.5
   let pitch = 0.15
   let distance = 6
@@ -79,10 +80,10 @@
       pivot.remove(mesh)
       unplaced.set(mesh, null)
     }
-    geometry?.dispose()
+    if (shown) releaseWowAsset(shown)
     mesh = null
     animation = null
-    geometry = null
+    shown = null
   }
 
   function frame() {
@@ -132,7 +133,7 @@
       const a: ModelAsset = helper ? { geometry: helper, material: helperMaterial(), bbox: helper.boundingBox!.clone(), ready: true, effects: [], emitters: [], ribbons: [] } : buildWowAsset(m!)
       await texturesReady(a.material)
       if (id !== loadId) {
-        a.geometry.dispose()
+        releaseWowAsset(a)
         return
       }
       // Another creature (model or look) is framed whole; another animation of the same one keeps the view.
@@ -140,7 +141,7 @@
       const reframe = !mesh || shownKey !== key
       shownKey = key
       drop()
-      geometry = a.geometry
+      shown = a
       // The preview poses its own copy of the bones, so it never moves the scene's instances.
       if (m?.bones && m.boneIdx && m.boneW) animation = new ModelAnimation(a.geometry, m.bones, m.boneIdx, m.boneW)
       mesh = modelMesh(a.geometry, a.material, animation?.skeleton)

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { isHelper } from '../models/helpers'
 import { engineRef } from '../state/engineRef'
-import { buildWowAsset, getAsset, texturesReady, wowPath, type ModelAsset } from '../models/assets'
+import { buildWowAsset, getAsset, releaseWowAsset, texturesReady, wowPath, type ModelAsset } from '../models/assets'
 import { placementEuler } from '../world/placement'
 import type { Prefab } from './prefabs'
 import { fetchMesh, texturePreview } from './api'
@@ -73,7 +73,7 @@ async function renderModel(type: string): Promise<Blob> {
   try {
     return await capture(mesh, asset.bbox)
   } finally {
-    if (!isHelper(type)) asset.geometry.dispose()
+    if (!isHelper(type)) releaseWowAsset(asset)
   }
 }
 
@@ -120,7 +120,7 @@ async function renderPrefab(p: Prefab): Promise<Blob> {
   try {
     return await capture(group, new THREE.Box3().setFromObject(group))
   } finally {
-    for (const [type, a] of assets) if (!isHelper(type)) a.geometry.dispose()
+    for (const [type, a] of assets) if (!isHelper(type)) releaseWowAsset(a)
   }
 }
 
