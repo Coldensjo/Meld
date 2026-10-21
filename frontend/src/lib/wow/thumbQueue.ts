@@ -18,15 +18,40 @@ interface Job<T> {
 
 export class ThumbQueue<T> {
   private pending = new Map<string, Job<T>>()
-  /** Keys whose work has started, with its result. A failed key is dropped so it can be retried. */
+  /**
+   * Keys whose work has started, with its result, least recently asked for first (a Map keeps its
+   * insertion order, and a request re-inserts its key). A failed key is dropped so it can be
+   * retried. Past `maxKept` the oldest are forgotten and `onEvict` gets their results.
+   */
   private results = new Map<string, Promise<T>>()
   private running = 0
   private work: (key: string) => Promise<T>
   private maxRunning: number
+  private maxKept: number
+  private onEvict?: (v: T) => void
 
-  constructor(work: (key: string) => Promise<T>, maxRunning = 3) {
+  constructor(work: (key: string) => Promise<T>, maxRunning = 3, maxKept = 512, onEvict?: (v: T) => void) {
     this.work = work
     this.maxRunning = maxRunning
+    this.maxKept = maxKept
+    this.onEvict = onEvict
+  }
+
+  /** The number of results kept. */
+  get keptCount() {
+    return this.results.size
+  }
+
+  private keep(key: string, p: Promise<T>) {
+    this.results.delete(key)
+    this.results.set(key, p)
+    // Keys still being worked on are never the oldest for long (at most maxRunning of them), and
+    // an evicted one only has its result released after its listeners have had it.
+    while (this.results.size > this.maxKept) {
+      const [oldKey, old] = this.results.entries().next().value as [string, Promise<T>]
+      this.results.delete(oldKey)
+      if (this.onEvict) old.then(this.onEvict, () => {})
+    }
   }
 
   /**
@@ -36,6 +61,7 @@ export class ThumbQueue<T> {
   request(key: string, priority: number, onReady: (v: T) => void, onError: () => void): () => void {
     const done = this.results.get(key)
     if (done) {
+      this.keep(key, done)
       done.then(onReady, onError)
       return () => {}
     }
@@ -92,11 +118,11 @@ export class ThumbQueue<T> {
       this.running++
       const job = next
       const p = this.work(job.key)
-      this.results.set(job.key, p)
+      this.keep(job.key, p)
       p.then(
         (v) => job.listeners.forEach((l) => l.onReady(v)),
         () => {
-          this.results.delete(job.key)
+          if (this.results.get(job.key) === p) this.results.delete(job.key)
           job.listeners.forEach((l) => l.onError())
         },
       ).finally(() => {

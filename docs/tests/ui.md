@@ -67,7 +67,7 @@ hover preview should do the same.
 
 Checks: `lib/wow/thumbQueue.ts` (the priority queue: tiles on screen nearest the grid's centre
 first, then the rows just outside the view that `prefetchAround` asks for) and `PaletteTile`'s
-IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe and prefetch set.
+IntersectionObserver. `tests/thumbQueue.test.ts` covers the ordering, dedupe, prefetch set and the 512-result eviction (an evicted blob URL is revoked).
 
 - In the live app: open a tab with uncached thumbnails (Creatures after `/wow/thumb` cache is
   cleared, or a zone not browsed before), then scroll by 3 rows (one mouse-wheel tick is a row)

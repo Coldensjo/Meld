@@ -86,6 +86,32 @@ test('prefetch replaces its set and never outranks a tile on screen', async () =
   assert.deepEqual(started, ['busy', 'tile', 'p2'])
 })
 
+test('only the most recently asked results are kept, and an evicted one is released', async () => {
+	const started: string[] = []
+	const evicted: string[] = []
+	const q = new ThumbQueue<string>(
+		(key) => {
+			started.push(key)
+			return Promise.resolve('url:' + key)
+		},
+		3,
+		2,
+		(v) => evicted.push(v),
+	)
+	const settle = () => new Promise((r) => setTimeout(r, 0))
+	for (const k of ['a', 'b']) q.request(k, 0, () => {}, () => {})
+	await settle()
+	q.request('a', 0, () => {}, () => {}) // a is now newer than b
+	q.request('c', 0, () => {}, () => {})
+	await settle()
+	assert.equal(q.keptCount, 2)
+	assert.deepEqual(evicted, ['url:b'])
+	q.request('b', 0, () => {}, () => {}) // forgotten, so it is worked again
+	await settle()
+	assert.deepEqual(started, ['a', 'b', 'c', 'b'])
+	assert.deepEqual(evicted, ['url:b', 'url:a'])
+})
+
 test('a failed key reports the error and can be asked for again', async () => {
   const { q, started, release, settle } = harness(2)
   let errors = 0

@@ -19,7 +19,12 @@ const SUPERSAMPLE = 2
 
 // Only tiles on screen ask for thumbnails, nearest the grid's centre first, and the grids prefetch
 // the rows just outside the view (ThumbQueue). Three run at once: each needs the main renderer.
-const queue = new ThumbQueue<string>(produce, 3)
+// The last 512 results are kept; an older one's blob URL is revoked (a data URL ignores that), so
+// scrolling through thousands of models does not hold every PNG for the session. A tile on screen
+// asked recently, so it is among those kept.
+const queue = new ThumbQueue<string>(produce, 3, 512, (url) => {
+  if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+})
 
 // --- disk cache via Go ------------------------------------------------------
 
