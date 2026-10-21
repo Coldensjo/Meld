@@ -382,10 +382,12 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	}
 	defer set.Close()
 	// A WMO-only map is checked against its WDT as the client has it now, as ReadRegion read it.
+	bigAlpha := false
 	if wdt, err := set.ReadFile(fmt.Sprintf(`World\Maps\%s\%s.wdt`, e.MapName, e.MapName)); err == nil {
 		if w, ok := wmoOnlyBuilding(wdt); ok {
 			return buildWMOOnly(set, e, wdt, w)
 		}
+		bigAlpha = adt.ReadBigAlpha(wdt)
 	}
 
 	type tileEdit struct {
@@ -461,8 +463,11 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 	}
 
-	// Painted chunks: each block chunk belongs to one tile, at its index within that tile.
+	// Painted chunks: each block chunk belongs to one tile, at its index within that tile. The editor
+	// sends every chunk at half the client's alpha resolution, so each keeps the client's own alpha
+	// wherever its weights are still the ones read from it (#526).
 	perRow := ChunksPerTileSide * e.Size
+	own := make([]map[int]adt.TexChunk, len(tiles))
 	for _, p := range e.Paint {
 		if p.Chunk < 0 || p.Chunk >= perRow*perRow {
 			return nil, fmt.Errorf("paint chunk %d is outside the block", p.Chunk)
@@ -481,7 +486,16 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		gx, gy := p.Chunk%perRow, p.Chunk/perRow
 		k := (gy/ChunksPerTileSide)*e.Size + gx/ChunksPerTileSide
 		local := (gy%ChunksPerTileSide)*ChunksPerTileSide + gx%ChunksPerTileSide
-		tiles[k].change.Paint[local] = chunkPaint(p.Textures, p.Effects, p.Flags, p.NoEffect, weights, perSide)
+		paint := chunkPaint(p.Textures, p.Effects, p.Flags, p.NoEffect, weights, perSide)
+		if own[k] == nil {
+			if own[k], err = ownTextures(tiles[k].root, bigAlpha); err != nil {
+				return nil, fmt.Errorf("tile %d_%d: %w", e.X+k%e.Size, e.Y+k/e.Size, err)
+			}
+		}
+		if c, ok := own[k][local]; ok {
+			paint.KeepClientAlpha(c, weights, perSide)
+		}
+		tiles[k].change.Paint[local] = paint
 	}
 
 	for _, h := range e.Headers {
@@ -541,6 +555,26 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		files = append(files, mpq.File{Name: wdlPath(e.MapName), Data: BuildWDL(horizon)})
 	}
 	return files, nil
+}
+
+// ownTextures is a tile's texture layers and alpha maps by chunk index (y*16 + x), as ReadRegion's
+// view gives them to the editor.
+func ownTextures(root []byte, bigAlpha bool) (map[int]adt.TexChunk, error) {
+	terrain, err := adt.ParseTerrain(root)
+	if err != nil {
+		return nil, err
+	}
+	textures, err := adt.ParseTextures(root, bigAlpha, terrain)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int]adt.TexChunk, len(textures.Chunks))
+	for i, c := range terrain.Chunks {
+		if i < len(textures.Chunks) {
+			out[c.IndexY*adt.ChunksPerTile+c.IndexX] = textures.Chunks[i]
+		}
+	}
+	return out, nil
 }
 
 // changeLiquids lists in ch the chunks of tile (i, j) of the block whose liquids differ from the

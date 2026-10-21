@@ -405,6 +405,64 @@ func TestRegionPaintWritten(t *testing.T) {
 	}
 }
 
+// TestRegionUnpaintedChunksKeepClientAlpha sends every chunk of a real tile back with the weights the
+// editor reads from it (ClientWeights, which tileImport.test.ts pins to tilePaint), as Compile does:
+// the tile must come out as the same save without paint writes it, byte for byte, where before #526
+// every chunk's alpha came back at half resolution. It needs WOW_DIR set to the client.
+func TestRegionUnpaintedChunksKeepClientAlpha(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := ReadRegion(dataDir, "Azeroth", 32, 48, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The save starts from the tile without Meld's patch, which the editor's weights are compared to.
+	root, err := BaseTileRoot(dataDir, "Azeroth", 32, 48)
+	if err != nil {
+		t.Fatal(err)
+	}
+	own, err := ownTextures(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects}
+	plain, err := BuildRegion(dataDir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	layered := 0
+	for i := 0; i < adt.ChunkCount; i++ {
+		c := own[i]
+		var textures []string
+		var effects []uint32
+		for _, l := range c.Layers {
+			textures = append(textures, l.Texture)
+			effects = append(effects, l.Effect)
+		}
+		if len(textures) > 1 {
+			layered++
+		}
+		weights := adt.ClientWeights(c, 32)
+		edit.Paint = append(edit.Paint, RegionPaint{Chunk: i/16*16 + i%16, Textures: textures, Effects: effects, Weights: base64.StdEncoding.EncodeToString(weights)})
+	}
+	if layered < 100 {
+		t.Fatalf("only %d chunks of the tile have more than one layer", layered)
+	}
+	files, err := BuildRegion(dataDir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(files[0].Data, plain[0].Data) {
+		t.Fatal("unpainted chunks changed the tile")
+	}
+}
+
 // TestRegionHeadersWritten sets a real chunk's zone, impassable flag, no-effect bits and holes through a region save: they
 // must read back, and every other chunk keep the zone, flags and heights the same save without them
 // writes. It needs WOW_DIR set to

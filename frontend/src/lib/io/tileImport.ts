@@ -37,7 +37,8 @@ export const ALPHA_BYTES = ALPHA * ALPHA
 
 /**
  * Converts a tile's chunks to paint. side is the paint chunks a side of the tile (16), and
- * the splat texels a side of a chunk follow from SPLAT_PER_CELL.
+ * the splat texels a side of a chunk follow from SPLAT_PER_CELL. Go's adt.ClientWeights repeats this
+ * conversion to the unit, so Compile can tell the chunks left unpainted (#526): change both together.
  */
 export function tilePaint(chunks: TileChunkIn[], side: number): TilePaint {
   const palette: string[] = []

@@ -41,6 +41,9 @@ type ChunkPaint struct {
 	// NoEffect is one byte per cell row, a bit per cell set where the game is to grow no ground
 	// effect doodads; the bits are added to the chunk's own. Nil leaves the chunk's own bits.
 	NoEffect []uint8
+	// ClientAlpha says Layers are the chunk's own, unpainted (KeepClientAlpha): its layer records and
+	// alpha bytes stay as they are, but for a layer's Effect (when not 0) and Flags (when set).
+	ClientAlpha bool
 }
 
 // Object is a model to place on the tile, in the file's own space: X east, Y up, Z south, with a
@@ -491,7 +494,15 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 	flags := binary.LittleEndian.Uint32(m[0:])
 	var mcly, mcal []byte
 	nLayers := binary.LittleEndian.Uint32(m[mcnkLayers:])
-	if paint, ok := ch.Paint[idx]; ok && len(paint.Layers) > 0 {
+	paint, painted := ch.Paint[idx]
+	painted = painted && len(paint.Layers) > 0
+	if painted && paint.ClientAlpha {
+		if own := ownLayers(layersRaw, paint.Layers); own != nil {
+			layersRaw = own
+			painted = false
+		}
+	}
+	if painted {
 		if len(paint.Layers) > 4 {
 			return nil, errors.New("more than four layers")
 		}

@@ -255,6 +255,16 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   the world server reads them; a failed spawn write is reported and leaves the server alone, while
   All's client tiles are still written. Compile to Client never touches the database. Compile works on the active tab only; with
   nothing changed it names the other region tabs edited since their last compile.
+  `regionPaint` sends every chunk's paint, at the editor's 32x32 texels a chunk, half the client's
+  64x64 alpha (`tilePaint` box-averages each 2x2 block). So `BuildRegion` compares each chunk with the
+  client's tile without Meld's patch (`ownTextures`) through `ChunkPaint.KeepClientAlpha`
+  (`internal/adt/clientalpha.go`): every texel whose weights are still those `adt.ClientWeights` reads
+  from the client's alpha (a Go copy of `tilePaint`, pinned to it by a shared checksum in
+  `clientalpha_test.go` and `tileImport.test.ts`; change both together) keeps the client's 2x2 alpha,
+  and only painted texels are written from the weights, repeated over their block. A chunk with no
+  painted texel and the client's textures sets `ClientAlpha`, so `rebuildChunk` keeps its MCLY records
+  (bar a sent effect or look flags), MCAL bytes and predominant map as they are (#526). A chunk a
+  compile before #526 already wrote at half resolution reads back that way, so it stays so.
 - **Uncompiled edits**: `MapDocument.compiled` is the fingerprint (`Engine.regionKey`,
   `io/regionKey.ts`) of what Compile writes, taken when the region is opened from the client and after
   each compile, with the history's change count then. `regionUncompiled` compares the active region's

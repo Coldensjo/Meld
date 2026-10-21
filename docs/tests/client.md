@@ -167,6 +167,24 @@ open region has edits the client lacks, and only then.
   any such tile. That's why Launch trusts the fingerprint and asks Go only when there is none.
 - `go test ./internal/vmangos/ -run TestRegionPending` (with `WOW_DIR`): a raised vertex makes the tile differ.
 
+## Compile keeps the client's alpha where nothing was painted (#526)
+Checks: a region's compile writes the client's own 64x64 alpha maps back on every chunk and texel the
+editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.
+- Probe `compile-alpha` (`bun run probe compile-alpha`, about 5 s): in the throwaway client
+  (`P.sandboxClient`), opens Azeroth 31_50 (a tile not in the owner's patch), writes a 2x2-texel spot of
+  one chunk straight into `terrain.weights` and compiles to the client. Read back with `LoadRegion`,
+  `keptChunks` (255) chunks have the alpha bytes they had, and the painted chunk differs only in the
+  spot's 4x4 alpha texels (`changedTexels`). The real patch is left alone.
+- `go test ./internal/adt/ -run 'ClientWeights|Unpainted|PaintedTexels|Renamed'`: synthetic tiles with
+  alpha that changes texel to texel. `TestClientWeightsMatchesTilePaint` and the last test in
+  `frontend/tests/tileImport.test.ts` pin `adt.ClientWeights` and `tilePaint` to the same checksum:
+  if either changes, `KeepClientAlpha` stops matching and every chunk is rewritten at half resolution
+  again, so update both.
+- `WOW_DIR=... go test ./internal/vmangos/ -run TestRegionUnpaintedChunksKeepClientAlpha`: every chunk
+  of Azeroth 32_48 sent back with the client's weights builds the same bytes as a build with no paint.
+- Trap: the comparison is against the tile without Meld's patch, so a tile a compile before #526
+  already wrote at half resolution reads back degraded and stays so; test on a tile not in the patch.
+
 ## A map's own loading screen (Map Properties › Picture…, #218)
 Checks: a PNG becomes a map's loading screen: the BLP, its LoadingScreens.dbc row and the map's
 Map.dbc row pointing at it.

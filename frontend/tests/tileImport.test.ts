@@ -59,3 +59,12 @@ test('palette entries are shared by name across chunks', () => {
   )
   assert.equal(p.palette.filter((t) => t === 'x.blp').length, 1)
 })
+
+test('weights match Go ClientWeights for the same chunk, which compile compares them against (#526)', () => {
+	// The alpha and the fold are internal/adt/clientalpha_test.go's parityAlpha and paritySum.
+	const alpha = (l: number) => Uint8Array.from({ length: 64 * 64 }, (_, i) => (l === 1 ? (i * 37) % 256 : (i * 91 + 17) % 256))
+	const p = tilePaint([{ indexX: 0, indexY: 0, layers: [{ texture: 'a' }, { texture: 'b', alpha: alpha(1) }, { texture: 'c', alpha: alpha(2) }] }], 1)
+	let sum = 0
+	p.weights.forEach((v, i) => (sum = (sum * 31 + v * ((i % 251) + 1)) % 1000000007))
+	assert.equal(sum, 138039546)
+})
