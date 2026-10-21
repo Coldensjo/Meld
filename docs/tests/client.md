@@ -200,7 +200,8 @@ the client draws only the first loaded placement of an ID and the server's vmaps
 
 ## Border models in every tile that lists them (#646)
 Checks: a model the client's tiles list in each tile it overlaps reaches the editor once, and a save
-moves, deletes or adds it in every block tile its bounds reach, under one ID.
+moves, deletes or adds it in every block tile its bounds reach, under one ID; Publish lists each model
+in every tile of the map it reaches the same way.
 - `go test ./internal/vmangos/ -run TestRegionBorderModelsInEveryTile`: a made-up 2x2 block whose tiles
   0_0 and 1_0 both list three border models; one is moved off the border, one deleted, one kept, and a
   model added on the block's middle corner must land in all four tiles. No client needed.
@@ -210,6 +211,10 @@ moves, deletes or adds it in every block tile its bounds reach, under one ID.
   (`blockTilesOf` with `reaches.bound`) against the client's own listing, for every placement of Azeroth
   28-35 x 44-51 200 yards inside it: 99% of M2s get the client's tiles (2026-10-22: 139 of 19060 fewer,
   mostly trees and smoke whose client bounds reach past their vertices), and no WMO gets fewer.
+- `go test ./internal/vmangos/ -run TestExportBorderModelsInEveryTile`: Publish (`ExportMap`) of a
+  made-up 2x1 map: trees 5 yards either side of the border and a WMO 120 yards from it (sized from a
+  MOHD-only root in the test's archive; the writer's 64-yard default would miss) land in both tiles under
+  one ID, a rock mid-tile and a tree by the map's outer edge in their own tile only (#648). No client needed.
 - Trap: models are named `.mdx` in the tiles and `.m2` in the archives; a size read that doesn't
   swap them falls back to the writer's 16-yard default reach.
 - Trap: a tile outside the block isn't written, so a border model by the block's edge keeps the copy

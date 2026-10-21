@@ -72,8 +72,8 @@ type Changes struct {
 	// Add places new models.
 	Add []Object
 	// NextUID, when set, is the unique ID the next added model without one takes, counted up as
-	// they are taken (and kept above the tile's own IDs). One export shares it across all its tiles,
-	// seeded above every ID of the map, since the client draws only the first loaded placement of
+	// they are taken (and kept above the tile's own IDs). Tiles written together share it, seeded
+	// above every ID of the map, since the client draws only the first loaded placement of
 	// an ID and the server's vmaps keep only one spawn an ID a map (#491). Nil numbers added models
 	// after the tile's own highest ID, which is unique only within the tile.
 	NextUID *uint32

@@ -187,12 +187,48 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		return res, err
 	}
 	nextUID++
-	for _, t := range m.Tiles {
+	// Each model takes its ID here and goes into every tile of the map its bounds reach, under that one
+	// ID, as the client's tiles list a model that crosses a border in each tile it overlaps (#646,
+	// #648); its size is read from the model, as the writer's default reach cuts a large one short. A
+	// model whose bounds reach no tile of the map stays in the tile it was sent in.
+	rc := newReaches(set)
+	index := make(map[[2]int]int, len(m.Tiles))
+	for i, t := range m.Tiles {
+		index[[2]int{t.X, t.Y}] = i
+	}
+	adds := make([][]adt.Object, len(m.Tiles))
+	for i, t := range m.Tiles {
+		for _, o := range t.Objects {
+			obj, err := objectIn(t.X, t.Y, o)
+			if err != nil {
+				return res, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
+			}
+			rc.bound(&obj)
+			obj.UID = nextUID
+			nextUID++
+			lo, hi := obj.Bounds()
+			reached := false
+			// A bound exactly on a border touches the tile before it too, hence the one tile more.
+			for ty := max(0, tileFloor(lo[2])-1); ty <= min(MapTiles-1, tileFloor(hi[2])); ty++ {
+				for tx := max(0, tileFloor(lo[0])-1); tx <= min(MapTiles-1, tileFloor(hi[0])); tx++ {
+					k, ok := index[[2]int{tx, ty}]
+					if ok && reachesTile(lo, hi, tx, ty) {
+						adds[k] = append(adds[k], obj)
+						reached = true
+					}
+				}
+			}
+			if !reached {
+				adds[i] = append(adds[i], obj)
+			}
+		}
+	}
+	for i, t := range m.Tiles {
 		var water *adt.Water
 		if m.Water {
 			water = &adt.Water{Level: m.WaterLevel}
 		}
-		data, err := buildTile(t, water, &nextUID)
+		data, err := buildTile(t, adds[i], water)
 		if err != nil {
 			return res, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
 		}
@@ -215,7 +251,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		if obj.Kind != adt.WMO {
 			return res, errors.New("a WMO-only map's building must be a WMO")
 		}
-		newReaches(set).bound(&obj)
+		rc.bound(&obj)
 		wdt, err := BuildWMOOnlyWDT(wdtTemplate, GlobalWMO{Name: obj.Name, Position: obj.Position, Rotation: obj.Rotation, Min: obj.Min, Max: obj.Max, DoodadSet: obj.DoodadSet})
 		if err != nil {
 			return res, err
@@ -277,9 +313,15 @@ func changedTiles(m MapSpec, files []mpq.File) ([]string, bool) {
 	return tiles, layout
 }
 
-// buildTile writes one tile: its ground, paint and models, the models numbered from nextUID.
-func buildTile(t TileSpec, water *adt.Water, nextUID *uint32) ([]byte, error) {
-	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water, NextUID: nextUID}
+// tileFloor is the map tile a coordinate in the file's space falls in, unclamped.
+func tileFloor(v float32) int {
+	return int(math.Floor(float64(v) / adt.TileSize))
+}
+
+// buildTile writes one tile: its ground and paint from t, and the models it lists (objs, already
+// numbered and bounded, which may include ones placed in a neighbour that reach into it).
+func buildTile(t TileSpec, objs []adt.Object, water *adt.Water) ([]byte, error) {
+	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water, Add: objs}
 	liquids, err := liquidsByChunk(t.Liquids, adt.ChunksPerTile)
 	if err != nil {
 		return nil, err
@@ -313,13 +355,6 @@ func buildTile(t TileSpec, water *adt.Water, nextUID *uint32) ([]byte, error) {
 			return nil, fmt.Errorf("chunk %d has %d weights, want %d", p.Chunk, len(weights), perSide*perSide*4)
 		}
 		ch.Paint[p.Chunk] = chunkPaint(p.Textures, p.Effects, p.Flags, p.NoEffect, weights, perSide)
-	}
-	for _, o := range t.Objects {
-		obj, err := objectIn(t.X, t.Y, o)
-		if err != nil {
-			return nil, err
-		}
-		ch.Add = append(ch.Add, obj)
 	}
 	return adt.BuildTile(t.Outer, ch)
 }

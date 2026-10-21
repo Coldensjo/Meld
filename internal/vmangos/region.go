@@ -371,18 +371,23 @@ func blockTilesOf(obj adt.Object, o ObjectView, e RegionEdit) []int {
 	var out []int
 	for j := 0; j < e.Size; j++ {
 		for i := 0; i < e.Size; i++ {
-			left := float32(e.X+i) * adt.TileSize
-			top := float32(e.Y+j) * adt.TileSize
-			if hi[0] < left || lo[0] > left+adt.TileSize || hi[2] < top || lo[2] > top+adt.TileSize {
-				continue
+			if reachesTile(lo, hi, e.X+i, e.Y+j) {
+				out = append(out, j*e.Size+i)
 			}
-			out = append(out, j*e.Size+i)
 		}
 	}
 	if len(out) == 0 {
 		out = append(out, tileOf(o, e.Size))
 	}
 	return out
+}
+
+// reachesTile says whether a model's bounds, lo to hi in the file's space, touch map tile tx,ty, by the
+// same test Rewrite uses for a tile's chunks.
+func reachesTile(lo, hi [3]float32, tx, ty int) bool {
+	left := float32(tx) * adt.TileSize
+	top := float32(ty) * adt.TileSize
+	return hi[0] >= left && lo[0] <= left+adt.TileSize && hi[2] >= top && lo[2] <= top+adt.TileSize
 }
 
 func clampTile(i, size int) int {

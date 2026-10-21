@@ -275,14 +275,16 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   client's own tiles for 99% of M2s and every WMO, and never fewer for a WMO. A tile outside the block
   is not written, so a model by the block's edge keeps any copy a tile outside lists. An added model
   (one whose ID the client's tile without Meld's patch doesn't hold) takes an ID from one counter for
-  the whole compile, numbered in `BuildRegion` so its copies share it (Publish passes the counter as
-  `adt.Changes.NextUID`), seeded above every placement of the map: the block's
+  the whole compile, numbered in `BuildRegion` so its copies share it, seeded above every placement of the map: the block's
   tiles without Meld's patch and every other tile as the client reads it now (`mapUIDMax`,
   `internal/vmangos/uids.go`, which reads only the start of each tile through `mpq.Set.ReadPrefix`:
   about 0.1 s for Azeroth's 687 tiles against 5 s whole). The client draws only the first loaded
   placement of an ID, and the server's vmap assembler keeps one spawn an ID a map, so IDs numbered
   per tile (as before #491) made models vanish. Publish (`ExportMap`) numbers its tiles' models
-  from one counter the same way.
+  from one counter the same way, and lists each in every tile of the map its bounds reach
+  (`reachesTile`, with `reaches.bound` reading its size), under its one ID; the editor sends each
+  model only in the tile its position falls in (`objectsOf`, `io/vmangosExport.ts`), and one whose
+  bounds reach no tile of the map stays there (#648).
 - **Uncompiled edits**: `MapDocument.compiled` is the fingerprint (`Engine.regionKey`,
   `io/regionKey.ts`) of what Compile writes, taken when the region is opened from the client and after
   each compile, with the history's change count then. `regionUncompiled` compares the active region's
