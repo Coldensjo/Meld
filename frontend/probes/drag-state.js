@@ -1,4 +1,4 @@
-// Drags write the editor's reactive state at most once a frame, not on every pointer move (#448): a model dragged by the Select tool reaches the Inspector's copy (editor.selected) at the next frame, an area drag reaches editor.selection then, a dragged path point reaches editor.paths on release, the Sculpt vertex slope slider records its undo step at most every 100 ms and once more when it rests, and a paint stroke over a full chunk says so once, not every tick.
+// Drags write the editor's reactive state at most once a frame, not on every pointer move (#448): a model dragged by the Select tool reaches the Inspector's copy (editor.selected) at the next frame, an area drag reaches editor.selection then, a dragged path point reaches editor.paths on release, the Sculpt vertex slope slider records its undo step at most every 100 ms and once more when it rests,, a paint stroke over a full chunk says so once, not every tick, and the viewport hint of a gizmo or brush-size drag is published once a frame (#621).
 const e = P.e
 const { editor, ui } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
@@ -140,6 +140,19 @@ await P.frames(1)
 out.chunkFull = { first: first.slice(0, 30), later }
 const fullOk = first.startsWith('Not painted') && later === 'probe'
 
+// A brush-size drag (stepBrush calls showBrushHint): the hint reaches ui.viewportHint at the next frame, once.
+editor.tool = 'sculpt'
+await P.frames(2)
+const seq0 = ui.viewportHintSeq
+const r0 = editor.brush.radius
+for (let i = 1; i <= 6; i++) e.stepBrush(1)
+const hintNow = ui.viewportHintSeq - seq0
+await P.frames(1)
+const hintNext = ui.viewportHintSeq - seq0
+out.hint = { now: hintNow, next: hintNext, text: ui.viewportHint }
+const hintOk = hintNow === 0 && hintNext === 1 && ui.viewportHint.startsWith('Size')
+editor.brush.radius = r0
+
 editor.tool = 'select'
 await P.frames(1)
-return { ok: modelOk && areaOk && pathOk && slopeOk && fullOk, modelOk, areaOk, pathOk, slopeOk, fullOk, ...out }
+return { ok: modelOk && areaOk && pathOk && slopeOk && fullOk && hintOk, hintOk, modelOk, areaOk, pathOk, slopeOk, fullOk, ...out }

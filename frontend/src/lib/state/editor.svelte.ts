@@ -729,7 +729,27 @@ export function setViewportHint(msg: string, timeout = 1500) {
   hintTimer = setTimeout(() => (ui.viewportHint = ''), timeout)
 }
 
-let statusTimer: ReturnType<typeof setTimeout> | undefined
+let queuedHint: string | null = null
+/**
+ * Like `setViewportHint`, for a drag that calls it on every pointer move (#621): the text waits in a
+ * plain variable and `publishViewportHint` shows it once a frame.
+ */
+export function queueViewportHint(msg: string) {
+  queuedHint = msg
+}
+/** Shows the hint `queueViewportHint` left, if any. The same text again only restarts the fade timer. */
+export function publishViewportHint() {
+  if (queuedHint === null) return
+  const msg = queuedHint
+  queuedHint = null
+  if (msg !== ui.viewportHint) setViewportHint(msg)
+  else {
+    clearTimeout(hintTimer)
+    hintTimer = setTimeout(() => (ui.viewportHint = ''), 1500)
+  }
+}
+
+let statusTimer:ReturnType<typeof setTimeout> | undefined
 /**
  * The Log window's lines (Help › Log…): every status message, the Go side's progress lines (which
  * arrive as status messages) and, with Log file loading on, every file read from the client. The

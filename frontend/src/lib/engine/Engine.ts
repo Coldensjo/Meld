@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
-import { MAX_BRUSH_RADIUS, docs, editor, setStatus, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
+import { MAX_BRUSH_RADIUS, docs, editor, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import { type adt, vmangos } from '../../../wailsjs/go/models'
@@ -1166,6 +1166,7 @@ export class Engine {
     tool.frame?.(this.ctx, this.hit)
     // A drag moves models on every pointer move; the Inspector's copy follows once a frame.
     publishMoved(this.objects)
+    publishViewportHint()
     m.mark(SECTION.Tool)
 
     this.syncPalette()
@@ -4833,20 +4834,20 @@ export class Engine {
       if (snap) along = Math.round(along * 2) / 2
       mx = d.move.axis.x * along
       mz = d.move.axis.z * along
-      setViewportHint(`Move ${along >= 0 ? '+' : ''}${along.toFixed(2)} along ${d.handle === 'moveX' ? 'x' : 'z'} (${g.targets.length} objects)`)
+      queueViewportHint(`Move ${along >= 0 ? '+' : ''}${along.toFixed(2)} along ${d.handle === 'moveX' ? 'x' : 'z'} (${g.targets.length} objects)`)
     } else if (d.handle === 'ring') {
       turn = this.ringAngle(this.dragPoint, p) - d.startAngle
       if (snap) turn = Math.round(turn / (Math.PI / 12)) * (Math.PI / 12)
       this.gizmo.setSweep(d.startAngle, turn)
-      setViewportHint(`Rotation ${Math.round(THREE.MathUtils.radToDeg(turn))}° (${g.targets.length} objects)`)
+      queueViewportHint(`Rotation ${Math.round(THREE.MathUtils.radToDeg(turn))}° (${g.targets.length} objects)`)
     } else if (d.handle === 'scale') {
       factor = Math.hypot(this.dragPoint.x - p.x, this.dragPoint.z - p.z) / d.startDist
       if (snap) factor = Math.max(0.1, Math.round(factor * 10) / 10)
-      setViewportHint(`Scale ×${factor.toFixed(2)} (${g.targets.length} objects)`)
+      queueViewportHint(`Scale ×${factor.toFixed(2)} (${g.targets.length} objects)`)
     } else {
       dy = this.dragPoint.y - d.startY
       if (snap) dy = Math.round(dy * 2) / 2
-      setViewportHint(`Height ${dy >= 0 ? '+' : ''}${dy.toFixed(2)} (${g.targets.length} objects)`)
+      queueViewportHint(`Height ${dy >= 0 ? '+' : ''}${dy.toFixed(2)} (${g.targets.length} objects)`)
     }
     const about = editor.rotatePivot
     for (let i = 0; i < g.targets.length; i++) {
@@ -4913,14 +4914,14 @@ export class Engine {
       if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
       this.gizmo.setSweep(d.startAngle, rot - spawnRotation(sp.orientation))
       applySpawn(this.doc.spawnLayer, sp.key, { orientation: spawnOrientation(rot) }, true)
-      setViewportHint(`Facing ${Math.round(THREE.MathUtils.radToDeg(spawnOrientation(rot)))}°`)
+      queueViewportHint(`Facing ${Math.round(THREE.MathUtils.radToDeg(spawnOrientation(rot)))}°`)
     } else {
       let dy = this.dragPoint.y - d.startY
       if (snap) dy = Math.round(dy * 2) / 2
       const y = sp.y + dy
       applySpawn(this.doc.spawnLayer, sp.key, { y }, true)
       const above = y - this.terrain.heightAt(s.x, s.z)
-      setViewportHint(`Height ${above >= 0 ? '+' : ''}${above.toFixed(2)} above the ground`)
+      queueViewportHint(`Height ${above >= 0 ? '+' : ''}${above.toFixed(2)} above the ground`)
     }
   }
 
@@ -4940,14 +4941,14 @@ export class Engine {
       w.pos.z = THREE.MathUtils.clamp(d.move.pos.z + d.move.axis.z * along, 0, this.terrain.worldSize)
       w.pos.y = o.parent === undefined ? this.terrain.heightAt(w.pos.x, w.pos.z) + d.before.yOff : d.move.pos.y
       this.objects.place(o, o.parent ?? null, w)
-      setViewportHint(`Move ${along >= 0 ? '+' : ''}${along.toFixed(2)} along ${d.handle === 'moveX' ? 'x' : 'z'}`)
+      queueViewportHint(`Move ${along >= 0 ? '+' : ''}${along.toFixed(2)} along ${d.handle === 'moveX' ? 'x' : 'z'}`)
     } else if (d.handle === 'ring') {
       let rot = d.before.rotY + (this.ringAngle(this.dragPoint, o) - d.startAngle)
       if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
       o.rotY = rot
       this.gizmo.setSweep(d.startAngle, rot - d.before.rotY)
       const deg = Math.round(THREE.MathUtils.euclideanModulo(THREE.MathUtils.radToDeg(rot), 360)) % 360
-      setViewportHint(`Rotation ${deg}°`)
+      queueViewportHint(`Rotation ${deg}°`)
     } else if (d.handle === 'scale') {
       // The knob rides the ring, whose radius grows with the scale, so it follows the cursor.
       const centre = this.objects.worldPosition(o, this.tmpV)
@@ -4955,14 +4956,14 @@ export class Engine {
       let scale = d.before.scale * (dist / d.startDist)
       if (snap) scale = Math.round(scale * 10) / 10
       o.scale = THREE.MathUtils.clamp(Math.round(scale * 100) / 100, 0.05, 20)
-      setViewportHint(`Scale ×${o.scale.toFixed(2)}`)
+      queueViewportHint(`Scale ×${o.scale.toFixed(2)}`)
     } else {
       let dy = this.dragPoint.y - d.startY
       if (snap) dy = Math.round(dy * 2) / 2
       const w = this.objects.worldPlacement(o)
       w.pos.y = d.startWorldY + dy
       this.objects.place(o, o.parent ?? null, w)
-      setViewportHint(`Height ${o.yOff >= 0 ? '+' : ''}${o.yOff.toFixed(2)}`)
+      queueViewportHint(`Height ${o.yOff >= 0 ? '+' : ''}${o.yOff.toFixed(2)}`)
     }
     this.objects.touch(o.id)
     editor.selected = { ...o }
@@ -5037,7 +5038,7 @@ export class Engine {
 
   private showBrushHint() {
     const f = this.brushFalloffApplies() ? ` · Falloff ${editor.brush.falloff.toFixed(2)}` : ''
-    setViewportHint(`Size ${editor.brush.radius.toFixed(1)}${f}`)
+    queueViewportHint(`Size ${editor.brush.radius.toFixed(1)}${f}`)
   }
 
   /** The zone and tile effect choices the tuft key was last made from, and that key. */
