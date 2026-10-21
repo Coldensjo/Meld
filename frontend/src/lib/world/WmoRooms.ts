@@ -1,8 +1,8 @@
 import * as THREE from 'three'
-import { getAsset } from '../models/assets'
+import { getAsset, type ModelAsset } from '../models/assets'
 import { baseType } from '../models/wmoSet'
 import { fetchWmoNav } from '../wow/api'
-import type { ObjectLayer } from './ObjectLayer'
+import type { ObjectLayer, WorldObject } from './ObjectLayer'
 import { EXTERIOR_LIT } from './wmoFlood'
 import { selectWmoFog, type FogTarget } from './wmoFog'
 import { collideSphere, decodeWmoNav, downRayPick, EXTERIOR, nearestFaceDist, toModel, walkFloorZ, type RoomSeeds, type WmoNav } from './wmoRoom'
@@ -49,6 +49,23 @@ export interface OutsideWmo {
 }
 
 /**
+ * A placed WMO as `WmoRooms` keeps it (#523): its world matrix, inverse and largest scale, and its
+ * world box, so the per-frame scans invert no matrix. Kept with the WMO list, recomputed for a moved one.
+ */
+interface PlacedWmo {
+	id: number
+	/** The client path, for `nav`. */
+	path: string
+	/** The model, or the placeholder while it loads: its `ready` and `bbox` are read at use. */
+	asset: ModelAsset
+	matrix: THREE.Matrix4
+	inverse: THREE.Matrix4
+	scale: number
+	/** The model's box in the world, or empty while it loads. */
+	box: THREE.Box3
+}
+
+/**
  * Tracks which room of which placed WMO the camera is in (`wmoRoom.ts`'s probe), loading each WMO's
  * room data from the client the first time the camera enters its box. The probe reruns only when
  * the camera moves or the objects change.
@@ -72,21 +89,23 @@ export class WmoRooms {
    */
   wallDist = Infinity
   private navs = new Map<string, WmoNav | null>()
-  private wmoIds: number[] = []
+	/** The placed WMOs that are not hidden, as of `sync`; entries are reused through `placedPool`. */
+	private placed: PlacedWmo[] = []
+	private placedPool: PlacedWmo[] = []
+	private placedById = new Map<number, PlacedWmo>()
+	/** Set by `sync` when the list was rebuilt or a WMO moved, so `update` runs the probe again. */
+	private placedChanged = false
   private layer: ObjectLayer | null = null
   private objectsVersion = -1
   private objectsMoves = 0
   private lastEye = new THREE.Vector3(NaN, NaN, NaN)
   private loaded = 0
   private seenLoaded = -1
-  private m = new THREE.Matrix4()
-  private inv = new THREE.Matrix4()
   private local = new THREE.Vector3()
   private eyeModel: [number, number, number] = [0, 0, 0]
   private groundModel: [number, number, number] = [0, 0, 0]
   private pool: OutsideWmo[] = []
   private found: OutsideWmo[] = []
-  private box = new THREE.Box3()
   private fromModel: [number, number, number] = [0, 0, 0]
   private toModelPt: [number, number, number] = [0, 0, 0]
   private fromLocal = new THREE.Vector3()
@@ -104,17 +123,13 @@ export class WmoRooms {
     found.length = 0
     // A hidden Objects layer (View › Layers) gates nothing.
     if (objects !== this.layer || !objects.group.visible) return found
-    for (const id of this.wmoIds) {
-      if (id === this.current?.id || id === whole || this.over.includes(id)) continue
-      const o = objects.objects.get(id)
-      if (!o || objects.isHidden(id)) continue
-      const asset = getAsset(o.type)
-      if (!asset.ready) continue
-      objects.matrixOf(o, this.m)
-      this.box.copy(asset.bbox).applyMatrix4(this.m)
-      const dist = this.box.distanceToPoint(eye)
-      if (dist > OUTSIDE_RANGE || !frustum.intersectsBox(this.box)) continue
-      const nav = this.nav(baseType(o.type).slice('wmo:'.length))
+    this.sync(objects)
+    for (const w of this.placed) {
+      const id = w.id
+      if (id === this.current?.id || id === whole || !w.asset.ready || this.over.includes(id)) continue
+      const dist = w.box.distanceToPoint(eye)
+      if (dist > OUTSIDE_RANGE || !frustum.intersectsBox(w.box)) continue
+      const nav = this.nav(w.path)
       if (!nav || !nav.portals.length) continue
       let e = this.pool[found.length]
       if (!e) {
@@ -123,8 +138,8 @@ export class WmoRooms {
       }
       e.id = id
       e.nav = nav
-      e.matrix.copy(this.m)
-      e.origin.setFromMatrixPosition(this.m)
+      e.matrix.copy(w.matrix)
+      e.origin.setFromMatrixPosition(w.matrix)
       e.dist = dist
       found.push(e)
     }
@@ -147,45 +162,31 @@ export class WmoRooms {
       this.lastEye.set(NaN, NaN, NaN) // look again once the layer is shown
       return
     }
-    // The WMO list follows what is placed; a move only asks for the probe again, and only a WMO's
-    // (#511): a drag or a sculpt stroke moves objects every frame. Attached ones are logged with their parent.
-    let movedWmo = false
-    if (objects !== this.layer || objects.shapeVersion !== this.objectsVersion) {
+    if (objects !== this.layer) {
       this.layer = objects
-      this.objectsVersion = objects.shapeVersion
-      this.objectsMoves = objects.moveSeq
-      this.wmoIds.length = 0
-      for (const o of objects.objects.values()) if (o.type.startsWith('wmo:')) this.wmoIds.push(o.id)
-      movedWmo = true
-    } else if (objects.moveSeq !== this.objectsMoves) {
-      const moved = objects.movedSince(this.objectsMoves)
-      this.objectsMoves = objects.moveSeq
-      movedWmo = !moved
-      for (let i = 0; moved && !movedWmo && i < moved.length; i++) movedWmo = !!objects.objects.get(moved[i])?.type.startsWith('wmo:')
+      this.objectsVersion = -1
     }
-    if (!movedWmo && eye.distanceToSquared(this.lastEye) < MOVE_EPS * MOVE_EPS && this.loaded === this.seenLoaded) return
+    this.sync(objects)
+    if (!this.placedChanged && eye.distanceToSquared(this.lastEye) < MOVE_EPS * MOVE_EPS && this.loaded === this.seenLoaded) return
+    this.placedChanged = false
     this.lastEye.copy(eye)
     this.seenLoaded = this.loaded
     this.current = null
     this.over.length = 0
     this.wallDist = Infinity
     const ground = groundAt(eye.x, eye.z)
-    for (const id of this.wmoIds) {
-      const o = objects.objects.get(id)
-      if (!o || objects.isHidden(id)) continue
-      const asset = getAsset(o.type)
-      if (!asset.ready) {
+    for (const w of this.placed) {
+      const id = w.id
+      if (!w.asset.ready) {
         this.lastEye.set(NaN, NaN, NaN) // look again once it has loaded
         continue
       }
-      objects.matrixOf(o, this.m)
-      this.inv.copy(this.m).invert()
-      this.local.copy(eye).applyMatrix4(this.inv)
-      const b = asset.bbox
+      this.local.copy(eye).applyMatrix4(w.inverse)
+      const b = w.asset.bbox
       const l = this.local
-      const path = baseType(o.type).slice('wmo:'.length)
+      const path = w.path
       // Within WALL_REACH of the building's box: how near its walls the eye is.
-      const scale = this.m.getMaxScaleOnAxis()
+      const scale = w.scale
       const r = WALL_REACH / scale
       if (l.x >= b.min.x - r && l.x <= b.max.x + r && l.y >= b.min.y - r && l.y <= b.max.y + r && l.z >= b.min.z - r && l.z <= b.max.z + r) {
         const nav = this.nav(path)
@@ -205,7 +206,7 @@ export class WmoRooms {
       toModel(this.local, this.eyeModel)
       let groundZ: number | null = null
       if (ground !== null) {
-        this.local.set(eye.x, ground, eye.z).applyMatrix4(this.inv)
+        this.local.set(eye.x, ground, eye.z).applyMatrix4(w.inverse)
         groundZ = toModel(this.local, this.groundModel)[2]
       }
       const [ex, ey, ez] = this.eyeModel
@@ -221,7 +222,7 @@ export class WmoRooms {
         fog = selectWmoFog(nav.fogs, nav.groups[g].fogs, this.eyeModel)
         break
       }
-      const matrix = this.m.clone()
+      const matrix = w.matrix.clone()
       this.current = {
         id,
         path,
@@ -246,27 +247,22 @@ export class WmoRooms {
 	 */
 	collide(objects: ObjectLayer, from: THREE.Vector3, to: THREE.Vector3, radius: number) {
 		if (objects !== this.layer || !objects.group.visible) return
-		for (const id of this.wmoIds) {
-			const o = objects.objects.get(id)
-			if (!o || objects.isHidden(id)) continue
-			const asset = getAsset(o.type)
-			if (!asset.ready) continue
-			objects.matrixOf(o, this.m)
-			this.inv.copy(this.m).invert()
-			const scale = this.m.getMaxScaleOnAxis()
-			const r = radius / scale
-			const a = this.fromLocal.copy(from).applyMatrix4(this.inv)
-			const b = this.local.copy(to).applyMatrix4(this.inv)
-			const bb = asset.bbox
+		this.sync(objects)
+		for (const w of this.placed) {
+			if (!w.asset.ready) continue
+			const r = radius / w.scale
+			const a = this.fromLocal.copy(from).applyMatrix4(w.inverse)
+			const b = this.local.copy(to).applyMatrix4(w.inverse)
+			const bb = w.asset.bbox
 			if (Math.max(a.x, b.x) < bb.min.x - r || Math.min(a.x, b.x) > bb.max.x + r) continue
 			if (Math.max(a.y, b.y) < bb.min.y - r || Math.min(a.y, b.y) > bb.max.y + r) continue
 			if (Math.max(a.z, b.z) < bb.min.z - r || Math.min(a.z, b.z) > bb.max.z + r) continue
-			const nav = this.nav(baseType(o.type).slice('wmo:'.length))
+			const nav = this.nav(w.path)
 			if (!nav) continue
 			const end = toModel(b, this.toModelPt)
 			if (!collideSphere(nav, toModel(a, this.fromModel), end, r)) continue
 			// Back from WoW axes to the local frame, then to the world.
-			to.set(end[0], end[2], -end[1]).applyMatrix4(this.m)
+			to.set(end[0], end[2], -end[1]).applyMatrix4(w.matrix)
 		}
 	}
 
@@ -279,25 +275,71 @@ export class WmoRooms {
 	floorAt(objects: ObjectLayer, eye: THREE.Vector3): number {
 		let best = -Infinity
 		if (objects !== this.layer || !objects.group.visible) return best
-		for (const id of this.wmoIds) {
-			const o = objects.objects.get(id)
-			if (!o || objects.isHidden(id)) continue
-			const asset = getAsset(o.type)
-			if (!asset.ready) continue
-			objects.matrixOf(o, this.m)
-			this.inv.copy(this.m).invert()
-			const l = this.local.copy(eye).applyMatrix4(this.inv)
-			const bb = asset.bbox
+		this.sync(objects)
+		for (const w of this.placed) {
+			if (!w.asset.ready) continue
+			const l = this.local.copy(eye).applyMatrix4(w.inverse)
+			const bb = w.asset.bbox
 			if (l.x < bb.min.x || l.x > bb.max.x || l.z < bb.min.z || l.z > bb.max.z || l.y < bb.min.y) continue
-			const nav = this.nav(baseType(o.type).slice('wmo:'.length))
+			const nav = this.nav(w.path)
 			if (!nav) continue
 			const [ex, ey, ez] = toModel(l, this.eyeModel)
 			const z = walkFloorZ(nav, ex, ey, ez)
 			if (z === -Infinity) continue
-			const y = l.set(ex, z, -ey).applyMatrix4(this.m).y
+			const y = l.set(ex, z, -ey).applyMatrix4(w.matrix).y
 			if (y > best) best = y
 		}
 		return best
+	}
+
+	/**
+	 * Brings the WMO list up to `objects` (the layer of the last `update`): rebuilt when what is placed
+	 * changed (`shapeVersion`: added, removed, hidden, a model loaded), and only the moved WMOs'
+	 * matrices recomputed when objects moved (#511's move log; attached ones are logged with their
+	 * parent), since a drag or a sculpt stroke moves objects every frame. Either sets `placedChanged`.
+	 */
+	private sync(objects: ObjectLayer) {
+		if (objects.shapeVersion === this.objectsVersion) {
+			if (objects.moveSeq === this.objectsMoves) return
+			const moved = objects.movedSince(this.objectsMoves)
+			if (moved) {
+				this.objectsMoves = objects.moveSeq
+				for (const id of moved) {
+					const w = this.placedById.get(id)
+					const o = w && objects.objects.get(id)
+					if (!w || !o) continue
+					this.placeOf(objects, o, w)
+					this.placedChanged = true
+				}
+				return
+			}
+		}
+		this.objectsVersion = objects.shapeVersion
+		this.objectsMoves = objects.moveSeq
+		for (const w of this.placed) this.placedPool.push(w)
+		this.placed.length = 0
+		this.placedById.clear()
+		for (const o of objects.objects.values()) {
+			if (!o.type.startsWith('wmo:') || objects.isHidden(o.id)) continue
+			const asset = getAsset(o.type)
+			const w = this.placedPool.pop() ?? { id: 0, path: '', asset, matrix: new THREE.Matrix4(), inverse: new THREE.Matrix4(), scale: 1, box: new THREE.Box3() }
+			w.id = o.id
+			w.path = baseType(o.type).slice('wmo:'.length)
+			w.asset = asset
+			this.placeOf(objects, o, w)
+			this.placed.push(w)
+			this.placedById.set(o.id, w)
+		}
+		this.placedChanged = true
+	}
+
+	/** Sets a placed WMO's matrix, inverse, scale and world box from where `o` is now. */
+	private placeOf(objects: ObjectLayer, o: WorldObject, w: PlacedWmo) {
+		objects.matrixOf(o, w.matrix)
+		w.inverse.copy(w.matrix).invert()
+		w.scale = w.matrix.getMaxScaleOnAxis()
+		if (w.asset.ready) w.box.copy(w.asset.bbox).applyMatrix4(w.matrix)
+		else w.box.makeEmpty()
 	}
 
 	/** Forgets the room data of the WMOs at `paths` (#505: the buildings of a closed map nothing else places). */

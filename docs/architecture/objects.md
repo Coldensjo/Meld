@@ -99,7 +99,9 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     returns those since a reader's `moveSeq`, or null once the log (cut at `MOVE_LOG` entries) no
     longer reaches back, when the reader rebuilds. `PropEffects`, `ParticleLayer`, `WmoRooms` and
     `ModelBoxes` read the two, so a drag or a sculpt stroke's re-snap updates only the moved objects'
-    lights, flames, particle pools and boxes, and the WMO probe runs again only for a moved WMO; this
+    lights, flames, particle pools and boxes, and the WMO probe runs again only for a moved WMO
+    (`WmoRooms` keeps each placed WMO's matrix, inverse and world box, #523, recomputing a moved one's,
+    so `update`, `collide`, `floorAt` and `outside` invert no matrix per frame); this
     is `SpawnLayer`'s `version`/`moveSeq` pattern. Probe `effects-drag` checks it.
   - `SpawnLayer` notes the creature models that load and its next `cull` redraws only the batches they
     change (`regroup`): the model's own and the marker cones holding a spawn of it. A change to the
