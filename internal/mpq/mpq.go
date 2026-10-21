@@ -161,7 +161,14 @@ func (a *Archive) readHeader() error {
 	}
 	headerSize := binary.LittleEndian.Uint32(buf[4:])
 	version := binary.LittleEndian.Uint16(buf[12:])
-	a.sectorSize = 512 << binary.LittleEndian.Uint16(buf[14:])
+	// The format allows 512 << 15 at most; a larger shift (a damaged or
+	// half-written archive) overflows the size to 0 at 23 and would make
+	// ReadFile divide by zero, so the archive is refused instead.
+	shift := binary.LittleEndian.Uint16(buf[14:])
+	if shift > 15 {
+		return fmt.Errorf("sector size shift %d out of range", shift)
+	}
+	a.sectorSize = 512 << shift
 	hashPos := int64(binary.LittleEndian.Uint32(buf[16:]))
 	blockPos := int64(binary.LittleEndian.Uint32(buf[20:]))
 	hashCount := binary.LittleEndian.Uint32(buf[24:])

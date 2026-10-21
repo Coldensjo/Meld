@@ -145,3 +145,36 @@ func TestReadPrefix(t *testing.T) {
 		t.Fatalf("missing file: %v", err)
 	}
 }
+
+// A header whose sector shift overflows the sector size (#489) must fail to
+// open, so OpenDataDir skips the archive instead of ReadFile dividing by zero.
+func TestOpenRejectsBadSectorShift(t *testing.T) {
+	dir := t.TempDir()
+	good := Write([]File{{Name: `a.txt`, Data: []byte("good")}})
+	bad := Write([]File{{Name: `a.txt`, Data: []byte("bad")}})
+	bad[14], bad[15] = 0xFF, 0
+	if err := os.WriteFile(filepath.Join(dir, "patch.MPQ"), good, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "patch-2.MPQ"), bad, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if a, err := Open(filepath.Join(dir, "patch-2.MPQ")); err == nil {
+		a.Close()
+		t.Fatal("Open accepted a sector shift of 255")
+	}
+	s, err := OpenDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(s.Archives()); n != 1 {
+		t.Fatalf("OpenDataDir opened %d archives, want 1", n)
+	}
+	got, err := s.ReadFile(`a.txt`)
+	if err != nil || string(got) != "good" {
+		t.Fatalf("ReadFile = %q, %v; want the good archive's copy", got, err)
+	}
+	for _, a := range s.Archives() {
+		a.Close()
+	}
+}
