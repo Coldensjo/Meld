@@ -209,9 +209,9 @@ export class SelectionOutline {
     }
   }
 
-  /** World boxes of other props the target overlaps; parts inside them are marked. */
-  setWarnBoxes(boxes: THREE.Box3[]) {
-    const n = Math.min(boxes.length, MAX_BOXES)
+  /** World boxes of other props the target overlaps (the first `count` of `boxes`); parts inside them are marked. */
+  setWarnBoxes(boxes: readonly THREE.Box3[], count = boxes.length) {
+    const n = Math.min(count, boxes.length, MAX_BOXES)
     for (let i = 0; i < n; i++) {
       this.shared.boxMin.value[i].copy(boxes[i].min)
       this.shared.boxMax.value[i].copy(boxes[i].max)

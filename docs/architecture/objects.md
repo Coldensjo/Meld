@@ -68,15 +68,18 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     cost the tree's size, not the map's (#512). `matrixAt` builds the matrices in module scratch, a
     parent's in `parentM[depth]`.
   - "What stands near here" reads cells, not every object (#512): the layer files each root by its
-    ground point in a `CellGrid` (`world/cellGrid.ts`, 32 yd cells) and keeps the roots whose
-    footprint (`groundReach`, half the box's diagonal across the ground) is wider than `WIDE` (64 yd,
-    the buildings) in `wide`, both kept by `file` with `kids` (`add`, `touch`, `setType`, a model
-    loading, which changes its box) and by `remove` and `clear`. `rootsNear(x, z, r, out, sized)`
-    gives the roots within `r` (`sized`: within `r` of their footprint), `rootsIn` those in a rect, and
-    `attachedObjects` the attached ones, which callers place by `worldPosition` (they are few). The
-    Clear tool's models under the brush, the Select brush, the Doodad brush's spacing neighbours,
-    prop list and erase, `objectsInRect` (the area's objects) and `markRegionDirty` use them, filling
-    the caller's scratch array. A move that writes `x`/`z` without a `touch` leaves the object in its
+    ground point in a `CellGrid` (`world/cellGrid.ts`, 32 yd cells) and keeps the roots that reach
+    further than `WIDE` (64 yd, the buildings) from their spot in `wide`: `reachOf`, the box's
+    farthest corner from the model's origin, which bounds the footprint (`groundReach`, half the box's
+    diagonal across the ground) and any turn or tilt. Both are kept by `file` with `kids` (`add`,
+    `touch`, `setType`, a model loading, which changes its box) and by `remove` and `clear`.
+    `rootsNear(x, z, r, out, sized)` gives the roots within `r` (`sized`: within `r` of their
+    footprint), `rootsIn` those in a rect, `rootsTouching` those whose model may reach a rect (a
+    superset, for a box test: the selection's prop test, #551), and `attachedObjects` the attached
+    ones, which callers place by `worldPosition` (they are few). The Clear tool's models under the
+    brush, the Select brush, the Doodad brush's spacing neighbours, prop list and erase,
+    `objectsInRect` (the area's objects), `markRegionDirty` and the selection outline use them,
+    filling the caller's scratch array. A move that writes `x`/`z` without a `touch` leaves the object in its
     old cell, as it leaves its drawn row: always touch. Probe `objects-near` checks them against a scan
     of every object.
   - A move is not a rebuild (#510): `markTree` (a touch, a re-snap) only notes the ids in their batch's

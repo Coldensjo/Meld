@@ -131,6 +131,15 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
 - Screenshot and zoom on the two: the one on the ground has a green stroke (red along any part
   under the slope), the one 6 units up a yellow one. The models may still be the purple
   placeholder boxes, which is enough for the colours.
+- Probe `selection-visuals` (#551) checks the colours and the warn boxes without a screenshot: on
+  objects-mixed it lifts the 16 models nearest the middle 30 yd, selects them, and compares each
+  `outlineTargets[i].touching` and a single selection's `outline.shared.boxMin`/`boxMax` with a scan
+  of every object, still, after a drag, a move away, a hidden neighbour and a prop attached elsewhere
+  at the model's spot (the old scan compared an attached prop's parent-relative `x` with world
+  ones and missed it). It prints `updateSelectionVisuals`' ms a frame: still with 16 selected,
+  dragging one of them, and one selected (2.75, 2.94 and 0.55 ms before #551 on SwiftShader; 0.02,
+  0.66 and 0.02 after). The warn boxes come in the order the cells give them, so it matches them
+  as a set.
 
 ## Ground effects: no-doodad cells and density
 

@@ -165,8 +165,6 @@ export interface RegionObject {
   scale: number
 }
 
-/** No overlap boxes, for a selection of several objects. */
-const NO_BOXES: THREE.Box3[] = []
 const NO_OBJECTS: readonly WorldObject[] = []
 
 /** How far above the ground the top-down view's camera stands: over any building or mountain a map holds. */
@@ -490,9 +488,25 @@ export class Engine {
   /** Merges a burst of key nudges on the same selection into a single undo step. */
   private nudgeSession: { key: string; before: WorldObject[]; cmd: Command; time: number } | null = null
   private selectTool: SelectTool
-  /** Scratch for the outline: one matrix per selected model, reused each frame. */
+  /** Scratch for the outline: one target and matrix per selected model, reused each time it is built. */
   private outlineTargets: OutlineTarget[] = []
+  private outlinePool: OutlineTarget[] = []
   private outlineMatrices: THREE.Matrix4[] = []
+	/**
+	 * What the selection's outline and handles were last built for (#551): `updateSelectionVisuals`
+	 * builds them again only when one of these moved.
+	 */
+	private selBuiltFor = {
+		layer: null as ObjectLayer | null,
+		version: -1,
+		terrain: null as Terrain | null,
+		heights: -1,
+		ids: null as readonly number[] | null,
+		primary: undefined as number | undefined,
+		nudge: false,
+	}
+	/** Where the handles of the selected models stand, kept between builds; `on` is false with no model selected. */
+	private selGizmo = { on: false, group: false, at: new THREE.Vector3(), radius: 0, top: 0, scalable: true, yaw: 0 }
   private placeTool = new PlaceTool({ placeSpawn: (at) => this.placeSpawnAt(at), fitGround: (id, fit) => this.fitGroundUnder(id, fit) })
   private doodadTool = new DoodadBrushTool()
   /** The looks of the spawn brush's templates (#171), by display and equipment; null while one is read. */
@@ -4413,51 +4427,79 @@ export class Engine {
     if (n) setStatus(`${n} hidden model${n === 1 ? '' : 's'} shown again.`, 3000)
   }
 
-  /**
-   * Outlines every selected object, and shows the handles on the selection when it is one object
-   * (Select and Place tools).
-   */
-  private updateSelectionVisuals() {
-    const sel = this.canNudge() ? selectedObjects(this.objects) : []
-    const targets = this.outlineTargets
-    targets.length = 0
-    for (let i = 0; i < sel.length; i++) {
-      const m = (this.outlineMatrices[i] ??= new THREE.Matrix4())
-      this.objects.matrixOf(sel[i], m)
-      targets.push({ asset: getAsset(sel[i].type), matrix: m, touching: this.touchesSomething(sel[i], sel.length) })
-    }
-    this.outline.setTargets(targets)
-    this.outline.setTerrain(this.terrain)
-    if (sel.length > 1) {
-      // A group: the handles stand at its pivot, sized to the whole, and work the group as one.
-      this.placeGroupGizmo(sel)
-      this.outline.setWarnBoxes(NO_BOXES)
-      if (this.canvas.style.cursor && !this.gizmoDrag) this.canvas.style.cursor = ''
-      return
-    }
-    const o = sel.length === 1 ? sel[0] : undefined
-    if (!o) {
-      // No model: the selected creature or object of the region gets the ring and arrow instead.
-      const s = this.gizmoSpawn()
-      if (s && this.doc.spawnLayer.boundsOf(s, this.tmpBox)) {
-        const size = this.tmpBox.getSize(this.tmpV)
-        this.gizmo.update(this.dragPoint.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), false)
-      } else this.gizmo.hide()
-      this.outline.setWarnBoxes(NO_BOXES)
-      if (this.canvas.style.cursor && !this.gizmoDrag) this.canvas.style.cursor = ''
-      return
-    }
-    const asset = getAsset(o.type)
-    this.objects.matrixOf(o, this.tmpM)
+	/**
+	 * Outlines every selected object, and shows the handles on the selection when it is one object
+	 * (Select and Place tools).
+	 */
+	private updateSelectionVisuals() {
+		// The outline's targets, colours and warn boxes and where the handles stand are built again only
+		// when the objects, the ground, the selection or the tool moved (#551); each frame only the handles
+		// are fitted to the camera.
+		const nudge = this.canNudge()
+		const L = this.objects
+		const k = this.selBuiltFor
+		const primary = editor.selected?.id
+		if (k.layer !== L || k.version !== L.version || k.terrain !== this.terrain || k.heights !== this.terrain.heightsVersion || k.ids !== editor.selectedIds || k.primary !== primary || k.nudge !== nudge) {
+			k.layer = L
+			k.version = L.version
+			k.terrain = this.terrain
+			k.heights = this.terrain.heightsVersion
+			k.ids = editor.selectedIds
+			k.primary = primary
+			k.nudge = nudge
+			this.buildSelectionVisuals(nudge ? selectedObjects(L) : NO_OBJECTS)
+		}
+		this.outline.setTerrain(this.terrain)
+		const g = this.selGizmo
+		if (g.on) {
+			this.gizmo.update(g.at, g.radius, g.top, this.viewEye(), g.scalable, true, editor.gizmoLocal ? g.yaw : 0)
+			// A group's handles work the group as one: no hover cursor from a single model's.
+			if (g.group && this.canvas.style.cursor && !this.gizmoDrag) this.canvas.style.cursor = ''
+			return
+		}
+		// No model: the selected creature or object of the region gets the ring and arrow instead.
+		const s = this.gizmoSpawn()
+		if (s && this.doc.spawnLayer.boundsOf(s, this.tmpBox)) {
+			const size = this.tmpBox.getSize(this.tmpV)
+			this.gizmo.update(this.dragPoint.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), false)
+		} else this.gizmo.hide()
+		if (this.canvas.style.cursor && !this.gizmoDrag) this.canvas.style.cursor = ''
+	}
 
-    this.tmpBox.copy(asset.bbox).applyMatrix4(this.tmpM)
-    const size = this.tmpBox.getSize(this.tmpV)
-    const base = this.objects.worldPosition(o, this.dragPoint)
-    this.gizmo.update(base, Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), !o.type.startsWith('wmo:'), true, editor.gizmoLocal ? this.objects.worldYaw(o) : 0)
-
-    // Last: overlappingBoxes reuses the scratch matrix/vectors used above.
-    this.outline.setWarnBoxes(this.overlappingBoxes(o))
-  }
+	/** Outlines every selected model in its colour, sets the warn boxes and puts the handles' spot into `selGizmo`. */
+	private buildSelectionVisuals(sel: readonly WorldObject[]) {
+		const one = sel.length === 1 ? sel[0] : undefined
+		// One model: its warn boxes answer its prop test too.
+		const warn = one ? this.overlappingBoxes(one, this.warnBoxes.length) : 0
+		const targets = this.outlineTargets
+		targets.length = 0
+		for (let i = 0; i < sel.length; i++) {
+			const o = sel[i]
+			const m = (this.outlineMatrices[i] ??= new THREE.Matrix4())
+			this.objects.matrixOf(o, m)
+			const t = (this.outlinePool[i] ??= { asset: getAsset(o.type), matrix: m, touching: false })
+			t.asset = getAsset(o.type)
+			t.matrix = m
+			t.touching = this.touchesSomething(o, sel.length, one ? warn > 0 : undefined)
+			targets.push(t)
+		}
+		this.outline.setTargets(targets)
+		this.outline.setWarnBoxes(this.warnBoxes, warn)
+		const g = this.selGizmo
+		g.on = sel.length > 0
+		g.group = sel.length > 1
+		if (g.group) this.placeGroupGizmo(sel)
+		else if (one) {
+			// One model: the handles stand at its spot, sized to its box.
+			this.tmpBox.copy(getAsset(one.type).bbox).applyMatrix4(this.objects.matrixOf(one, this.tmpM))
+			const size = this.tmpBox.getSize(this.tmpV)
+			this.objects.worldPosition(one, g.at)
+			g.radius = Math.max(size.x, size.z) * 0.55
+			g.top = this.tmpBox.max.y
+			g.scalable = !one.type.startsWith('wmo:')
+			g.yaw = this.objects.worldYaw(one)
+		}
+	}
 
   private sightRay = new THREE.Raycaster()
   private sightDir = new THREE.Vector3()
@@ -4517,45 +4559,52 @@ export class Engine {
     this.poolOutline.setTargets(targets)
   }
 
-  /** Puts the gizmo at a multi-selection's pivot, the ring round the whole group and the arrow over its top. */
-  private placeGroupGizmo(sel: readonly WorldObject[]) {
-    const targets = movableSelection(this.objects)
-    const pivot = this.selectionPivot(targets.length ? targets : sel)
-    let radius = 0
-    let topY = -Infinity
-    let baseY = 0
-    let scalable = true
-    for (const o of sel) {
-      this.objects.matrixOf(o, this.tmpM)
-      this.tmpBox.copy(getAsset(o.type).bbox).applyMatrix4(this.tmpM)
-      for (const x of [this.tmpBox.min.x, this.tmpBox.max.x]) for (const z of [this.tmpBox.min.z, this.tmpBox.max.z]) radius = Math.max(radius, Math.hypot(x - pivot.x, z - pivot.z))
-      topY = Math.max(topY, this.tmpBox.max.y)
-      baseY += this.objects.worldPosition(o, this.tmpV).y / sel.length
-      if (o.type.startsWith('wmo:')) scalable = false
-    }
-    const lead = this.selectedObject() ?? sel[0]
-    this.gizmo.update(this.dragPoint.set(pivot.x, baseY, pivot.z), radius * 1.05, topY, this.viewEye(), scalable, true, editor.gizmoLocal ? this.objects.worldYaw(lead) : 0)
-  }
+	/** Puts the handles' spot into `selGizmo` for a multi-selection: its pivot, the ring round the whole group and the arrow over its top. */
+	private placeGroupGizmo(sel: readonly WorldObject[]) {
+		const targets = movableSelection(this.objects)
+		const pivot = this.selectionPivot(targets.length ? targets : sel)
+		let radius = 0
+		let topY = -Infinity
+		let baseY = 0
+		let scalable = true
+		for (const o of sel) {
+			this.objects.matrixOf(o, this.tmpM)
+			const { min, max } = this.tmpBox.copy(getAsset(o.type).bbox).applyMatrix4(this.tmpM)
+			const dx = Math.max(Math.abs(min.x - pivot.x), Math.abs(max.x - pivot.x))
+			const dz = Math.max(Math.abs(min.z - pivot.z), Math.abs(max.z - pivot.z))
+			radius = Math.max(radius, Math.hypot(dx, dz))
+			topY = Math.max(topY, max.y)
+			baseY += this.objects.worldPosition(o, this.tmpV).y / sel.length
+			if (o.type.startsWith('wmo:')) scalable = false
+		}
+		const g = this.selGizmo
+		g.at.set(pivot.x, baseY, pivot.z)
+		g.radius = radius * 1.05
+		g.top = topY
+		g.scalable = scalable
+		g.yaw = this.objects.worldYaw(this.selectedObject() ?? sel[0])
+	}
 
-  private warnBoxes: THREE.Box3[] = Array.from({ length: 8 }, () => new THREE.Box3())
-  private touchBox = new THREE.Box3()
-  private touchM = new THREE.Matrix4()
+	private warnBoxes: THREE.Box3[] = Array.from({ length: 8 }, () => new THREE.Box3())
+	private touchBox = new THREE.Box3()
+	private touchM = new THREE.Matrix4()
+	private touchNear: WorldObject[] = []
 
-  /**
-   * Whether a selected model touches anything, for the outline's colour: it is attached to a parent,
-   * its lowest point is on (or under) the ground somewhere across its footprint, or another prop's
-   * box meets its own. The prop test walks every object, so a big selection skips it.
-   */
-  private touchesSomething(o: WorldObject, selected: number): boolean {
-    if (o.parent !== null && o.parent !== undefined) return true
-    const box = this.touchBox.copy(getAsset(o.type).bbox).applyMatrix4(this.objects.matrixOf(o, this.touchM))
-    // The ground under the footprint's centre and corners (no allocation: this runs every frame).
-    let ground = this.groundAt((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2)
-    ground = Math.max(ground, this.groundAt(box.min.x, box.min.z), this.groundAt(box.max.x, box.min.z))
-    ground = Math.max(ground, this.groundAt(box.min.x, box.max.z), this.groundAt(box.max.x, box.max.z))
-    if (box.min.y <= ground + 0.25) return true
-    return selected <= 16 && this.overlappingBoxes(o).length > 0
-  }
+	/**
+	 * Whether a selected model touches anything, for the outline's colour: it is attached to a parent,
+	 * its lowest point is on (or under) the ground somewhere across its footprint, or another prop's
+	 * box meets its own (`props`, when the caller already knows). A big selection skips the prop test.
+	 */
+	private touchesSomething(o: WorldObject, selected: number, props?: boolean): boolean {
+		if (o.parent !== null && o.parent !== undefined) return true
+		const box = this.touchBox.copy(getAsset(o.type).bbox).applyMatrix4(this.objects.matrixOf(o, this.touchM))
+		// The ground under the footprint's centre and corners.
+		let ground = this.groundAt((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2)
+		ground = Math.max(ground, this.groundAt(box.min.x, box.min.z), this.groundAt(box.max.x, box.min.z))
+		ground = Math.max(ground, this.groundAt(box.min.x, box.max.z), this.groundAt(box.max.x, box.max.z))
+		if (box.min.y <= ground + 0.25) return true
+		return selected <= 16 && (props ?? this.overlappingBoxes(o, 1) > 0)
+	}
 
   /** The terrain height at a point, or -Infinity off the map or over a hole. */
   private groundAt(x: number, z: number): number {
@@ -4563,32 +4612,38 @@ export class Engine {
     return t.contains(x, z) && !t.isHole(x, z) ? t.heightAt(x, z) : -Infinity
   }
 
-  /**
-   * World boxes of other props that overlap `o` (shrunk, since bounds are
-   * loose). The outline marks the parts of `o` inside them; parts under the
-   * terrain are marked by the outline shader itself.
-   */
-  private overlappingBoxes(o: WorldObject): THREE.Box3[] {
-    const asset = getAsset(o.type)
-    if (!asset.ready) return []
-    const box = this.tmpBox.copy(asset.bbox).applyMatrix4(this.objects.matrixOf(o, this.tmpM))
-    box.expandByVector(box.getSize(this.tmpV).multiplyScalar(-0.05))
-    let n = 0
-    // A prop resting on/holding another isn't a collision.
-    const family = this.objects.descendantIds(o.id)
-    for (const id of this.objects.ancestorIds(o)) family.add(id)
-    for (const other of this.objects.objects.values()) {
-      if (n >= this.warnBoxes.length) break
-      if (family.has(other.id) || this.objects.isHidden(other.id)) continue
-      if (Math.abs(other.x - o.x) > 200 || Math.abs(other.z - o.z) > 200) continue
-      const a = getAsset(other.type)
-      if (!a.ready) continue
-      const ob = this.otherBox.copy(a.bbox).applyMatrix4(this.objects.matrixOf(other, this.tmpM))
-      ob.expandByVector(ob.getSize(this.dragPoint).multiplyScalar(-0.05))
-      if (box.intersectsBox(ob)) this.warnBoxes[n++].copy(ob)
-    }
-    return this.warnBoxes.slice(0, n)
-  }
+	/**
+	 * Puts into `warnBoxes` the world boxes of up to `limit` other props that overlap `o` (shrunk,
+	 * since bounds are loose), and returns how many. The outline marks the parts of `o` inside them;
+	 * parts under the terrain are marked by the outline shader itself. Reads the roots that may reach
+	 * its box from the layer's cells (#551), and the attached props, not every object.
+	 */
+	private overlappingBoxes(o: WorldObject, limit: number): number {
+		const asset = getAsset(o.type)
+		if (!asset.ready) return 0
+		const L = this.objects
+		const box = this.tmpBox.copy(asset.bbox).applyMatrix4(L.matrixOf(o, this.tmpM))
+		box.expandByVector(box.getSize(this.tmpV).multiplyScalar(-0.05))
+		let n = 0
+		const near = this.touchNear
+		for (let pass = 0; pass < 2 && n < limit; pass++) {
+			if (pass === 0) L.rootsTouching(box.min.x, box.min.z, box.max.x, box.max.z, near)
+			else L.attachedObjects(near)
+			for (let i = 0; i < near.length && n < limit; i++) {
+				const other = near[i]
+				if (L.isHidden(other.id)) continue
+				const a = getAsset(other.type)
+				if (!a.ready) continue
+				// A prop resting on/holding another isn't a collision.
+				if (L.hangsOn(o, other.id) || L.hangsOn(other, o.id)) continue
+				const ob = this.otherBox.copy(a.bbox).applyMatrix4(L.matrixOf(other, this.tmpM))
+				ob.expandByVector(ob.getSize(this.tmpV).multiplyScalar(-0.05))
+				if (box.intersectsBox(ob)) this.warnBoxes[n++].copy(ob)
+			}
+		}
+		near.length = 0
+		return n
+	}
 
   // ------------------------------------------------------------- gizmo drag
 

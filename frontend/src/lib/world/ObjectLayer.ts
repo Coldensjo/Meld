@@ -50,8 +50,9 @@ const NO_MOVES: readonly number[] = []
 /** The side of the cells `rootsNear` and `rootsIn` read (#512), in yards: about a chunk. */
 const NEAR_CELL = 32
 /**
- * A root whose footprint (`groundReach`) is wider than this, in yards, is kept in `wide` as well, so a
- * sized `rootsNear` reads the cells this far around its rect and those few roots, not every cell.
+ * A root that reaches further than this from its spot (`reachOf`, which covers its footprint,
+ * `groundReach`, too), in yards, is kept in `wide` as well, so a sized `rootsNear` and `rootsTouching`
+ * read the cells this far around their rect and those few roots, not every cell.
  */
 const WIDE = 64
 
@@ -285,7 +286,7 @@ export class ObjectLayer {
 			return
 		}
 		this.ground.set(o.id, o.x, o.z)
-		if (this.groundReach(o.type, o.scale) > WIDE) this.wide.add(o.id)
+		if (this.reachOf(o.type, o.scale) > WIDE) this.wide.add(o.id)
 		else this.wide.delete(o.id)
 	}
 
@@ -296,6 +297,49 @@ export class ObjectLayer {
 	groundReach(type: string, scale: number): number {
 		const box = getAsset(type).bbox
 		return Math.hypot(box.max.x - box.min.x, box.max.z - box.min.z) * 0.5 * scale
+	}
+
+	/**
+	 * How far any point of a model of `type` at `scale` can be from its spot, however it is turned or
+	 * tilted: its box's farthest corner from the model's origin, which need not be the box's middle (a
+	 * building's often isn't). Never less than `groundReach`.
+	 */
+	private reachOf(type: string, scale: number): number {
+		const { min, max } = getAsset(type).bbox
+		const x = Math.max(Math.abs(min.x), Math.abs(max.x))
+		const y = Math.max(Math.abs(min.y), Math.abs(max.y))
+		const z = Math.max(Math.abs(min.z), Math.abs(max.z))
+		return Math.hypot(x, y, z) * scale
+	}
+
+	/**
+	 * Fills `out` with the root objects whose model may reach into the rect (x0, z0)..(x1, z1), hidden
+	 * ones too: those whose spot is within their `reachOf` of it (#551). A superset: test each one's
+	 * box. Reads the cells `WIDE` around the rect and the wide roots, not every object.
+	 */
+	rootsTouching(x0: number, z0: number, x1: number, z1: number, out: WorldObject[]): WorldObject[] {
+		out.length = 0
+		for (const s of this.ground.cellsIn(x0 - WIDE, z0 - WIDE, x1 + WIDE, z1 + WIDE, this.cellScratch)) {
+			for (const id of s) {
+				if (this.wide.has(id)) continue
+				const o = this.objects.get(id)
+				if (o && o.parent === undefined) this.pushReaching(o, x0, z0, x1, z1, out)
+			}
+		}
+		this.cellScratch.length = 0
+		for (const id of this.wide) {
+			const o = this.objects.get(id)
+			if (o && o.parent === undefined) this.pushReaching(o, x0, z0, x1, z1, out)
+		}
+		return out
+	}
+
+	/** Adds a root to `out` when its spot is within its `reachOf` of the rect. */
+	private pushReaching(o: WorldObject, x0: number, z0: number, x1: number, z1: number, out: WorldObject[]) {
+		const dx = Math.max(x0 - o.x, 0, o.x - x1)
+		const dz = Math.max(z0 - o.z, 0, o.z - z1)
+		const r = this.reachOf(o.type, o.scale)
+		if (dx * dx + dz * dz <= r * r) out.push(o)
 	}
 
 	/**
@@ -459,7 +503,7 @@ export class ObjectLayer {
 	}
 
 	/** Whether `o` is the object `id` or hangs on it, through any number of parents. */
-	private hangsOn(o: WorldObject, id: number): boolean {
+	hangsOn(o: WorldObject, id: number): boolean {
 		let p: WorldObject | undefined = o
 		// The step bound only guards against a cycle in a broken file.
 		for (let n = 0; p && n <= this.objects.size; n++) {

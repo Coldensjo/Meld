@@ -148,6 +148,13 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   - Red parts of the outline are decided per pixel in the mask shader: below the terrain (from
     a heightmap texture) or inside an overlapping prop's box (`Engine.overlappingBoxes`, up to
     8). The edge pass colours the stroke from the neighbouring mask pixels.
+  - `Engine.updateSelectionVisuals` builds the outline's targets, their colours, the warn boxes and
+    the handles' spot (`selGizmo`) only when the layer's `version`, the ground's `heightsVersion`,
+    `editor.selectedIds`, the primary selection or the tool moved (`selBuiltFor`, #551); each frame
+    it only fits the handles to the camera. The prop test reads `ObjectLayer.rootsTouching` (the
+    roots whose model may reach the box) and `attachedObjects`, not every object, so a drag that
+    rebuilds every frame stays cheap. Probe `selection-visuals` checks the colours and warn boxes
+    against a scan of every object and prints the ms a frame.
 - **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
   the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
   moving. Bursts of nudges merge into one undo step via `History.replaceTop`.
