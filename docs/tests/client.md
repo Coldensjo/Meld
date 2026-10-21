@@ -83,6 +83,9 @@ into the client's minimap (BLP plus md5translate.trs in Meld's patch).
   roads land in the same place, and the mean brightness is close (89 against 84). To look at both,
   draw them on a canvas and save it with `go.main.App.SaveThumbnail(key, pngBase64)`, then read the
   newest PNG under `%LOCALAPPDATA%\Meld\thumbs`.
+- Probe `top-down-shot` (#554): the shot runs `Engine.simulate` for its ortho camera and draws only
+  itself, so it draws no frame of the view, moves no clock and is the same twice; it prints the ms a
+  shot (SwiftShader, Northshire: about 600 ms before #554, 250 to 350 after).
 - The client's tiles show the buildings (WMOs) but not the trees, hence the default; their rock is
   darker and more shaded than the editor's top-down light.
 - Not run against the real client in the loop: the write replaces that map's minimap tiles in the

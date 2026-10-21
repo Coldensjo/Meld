@@ -1079,6 +1079,7 @@ export class Engine {
     this.activeTool.activate?.(this.ctx)
   }
 
+	/** One frame of the loop: `simulate` readies the scene for the view, `draw` draws it, and the stats are published. */
   private frame() {
     this.timer.update()
     const dt = Math.min(this.timer.getDelta(), 0.1)
@@ -1089,7 +1090,41 @@ export class Engine {
     if (!this.prefs?.perfOverlay && stats.perf) stats.perf = null
     m.begin()
     if (m.on) this.gpu.poll()
+		this.simulate(dt, time)
+		this.draw(dt)
+		const calls = this.drawnCalls
+		const triangles = this.drawnTriangles
+    if (m.end()) this.publishPerf(calls, triangles)
 
+    this.frames++
+    if (time - this.statTime >= 0.5) {
+      stats.fps = Math.round(this.frames / (time - this.statTime))
+      stats.drawCalls = calls
+      stats.triangles = triangles
+      stats.objects = this.objects.objects.size
+      stats.cursor = this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z } : null
+      stats.detail = this.prefs?.detailInfo ? this.detailInfo() : null
+      const hoverArea = editor.tool === 'mapdata' ? this.hoverArea() : ''
+      if (stats.hoverArea !== hoverArea) stats.hoverArea = hoverArea
+      const c = this.controller
+      stats.view = ui.minimap ? { x: c.target.x, z: c.target.z, yaw: c.yaw, cells: this.terrain.size, world: this.terrain.worldSize } : null
+      this.frames = 0
+      this.statTime = time
+    }
+  }
+
+	/** The scene's draw calls and triangles of the last `draw`, before its outline passes. */
+	private drawnCalls = 0
+	private drawnTriangles = 0
+
+	/**
+	 * Readies everything the next draw shows from `this.camera`: the camera and sky, picking and the
+	 * tool, the uniforms, the terrain, objects, lights and rooms, culling, animation and particles, the
+	 * selection visuals and which shadow maps to redraw. It draws nothing, so `renderTopDown` runs it for
+	 * a shot's ortho camera and then draws only the shot (#554). `dt` 0 leaves what moves where it is.
+	 */
+	private simulate(dt: number, time: number) {
+		const m = this.meter
     this.syncTool()
     this.controller.setWalk(ui.walkCamera && !this.topDown)
     this.controller.update(dt)
@@ -1187,6 +1222,18 @@ export class Engine {
     m.mark(SECTION['WMO rooms'])
     this.cullInstances()
     m.mark(SECTION.Culling)
+		this.updateGroundEffects()
+		// The water and the tufts show through a room's doorways only, as the rest of the world (#119).
+		const gate = this.cullView.gate ?? null
+		this.doc.groundEffects.gate(gate)
+		this.doc.liquidRenderer.gate(gate)
+		this.water.gate(gate)
+		m.mark(SECTION['Ground effects'])
+		this.updateBakedShadows()
+		const sel = editor.selectedSpawn
+		this.paths.update(this.doc.spawnLayer, sel ? spawnKey(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
+		this.links.update(this.doc.spawnLayer, sel, !!this.prefs?.showPools)
+		m.mark(SECTION['Paths and baked shadows'])
     this.animateModels(time)
     m.mark(SECTION.Animation)
     this.updateParticles(dt, time)
@@ -1197,38 +1244,26 @@ export class Engine {
     this.updatePoolVisuals()
     m.mark(SECTION['Selection visuals'])
 		this.markShadows()
+	}
+
+	/** Draws what `simulate` readied to the canvas: the scene, the spawn labels and the outline passes. */
+	private draw(dt: number) {
+		const m = this.meter
     if (m.on) this.gpu.begin(1)
     this.renderer.render(this.scene, this.camera)
     m.mark(SECTION['Render (CPU)'])
     this.spawnLabels.update(this.doc.spawnLayer, this.camera, this.camera.position, this.container.clientWidth, this.container.clientHeight, dt)
     m.mark(SECTION['Spawn labels'])
     // The counters describe the last render call, so read the scene's before the outline passes.
-    const calls = this.renderer.info.render.calls
-    const triangles = this.renderer.info.render.triangles
+		this.drawnCalls = this.renderer.info.render.calls
+		this.drawnTriangles = this.renderer.info.render.triangles
     if (m.on) this.gpu.begin(2)
     this.outline.render(this.renderer, this.camera)
     this.doomOutline.render(this.renderer, this.camera)
     this.poolOutline.render(this.renderer, this.camera)
     if (m.on) this.gpu.endFrame()
     m.mark(SECTION.Outlines)
-    if (m.end()) this.publishPerf(calls, triangles)
-
-    this.frames++
-    if (time - this.statTime >= 0.5) {
-      stats.fps = Math.round(this.frames / (time - this.statTime))
-      stats.drawCalls = calls
-      stats.triangles = triangles
-      stats.objects = this.objects.objects.size
-      stats.cursor = this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z } : null
-      stats.detail = this.prefs?.detailInfo ? this.detailInfo() : null
-      const hoverArea = editor.tool === 'mapdata' ? this.hoverArea() : ''
-      if (stats.hoverArea !== hoverArea) stats.hoverArea = hoverArea
-      const c = this.controller
-      stats.view = ui.minimap ? { x: c.target.x, z: c.target.z, yaw: c.yaw, cells: this.terrain.size, world: this.terrain.worldSize } : null
-      this.frames = 0
-      this.statTime = time
-    }
-  }
+	}
 
   /**
    * Draws only the models and spawns in view: inside the camera's frustum, or the shadow camera's so
@@ -1301,17 +1336,6 @@ export class Engine {
     if (this.prefs?.spawnsThroughWalls !== false) v.gate = null
     this.doc.spawnLayer.cull(v)
     v.gate = gate
-    this.meter.mark(SECTION.Culling)
-    this.updateGroundEffects()
-    this.meter.mark(SECTION['Ground effects'])
-    // The water and the tufts show through a room's doorways only, as the rest of the world (#119).
-    this.doc.groundEffects.gate(v.gate ?? null)
-    this.doc.liquidRenderer.gate(v.gate ?? null)
-    this.water.gate(v.gate ?? null)
-    this.updateBakedShadows()
-    const sel = editor.selectedSpawn
-    this.paths.update(this.doc.spawnLayer, sel ? spawnKey(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
-    this.links.update(this.doc.spawnLayer, sel, !!this.prefs?.showPools)
   }
 
   /**
@@ -5195,6 +5219,27 @@ export class Engine {
   /** The rectangle the top-down camera frames while renderTopDown draws it, or null. */
   private minimapShot: { cx: number; cz: number; halfX: number; halfZ: number; top: number } | null = null
   private minimapTarget: THREE.WebGLRenderTarget | null = null
+	/** The active map's highest ground, kept until its terrain or heights change (`groundTop`). */
+	private groundTopKey: { terrain: Terrain | null; version: number; top: number } = { terrain: null, version: -1, top: -Infinity }
+
+	/**
+	 * The active map's highest ground, scanned once per change of its heights rather than once per shot:
+	 * renderTopDown asks for every minimap tile and world-map zone (#554).
+	 */
+	private groundTop(): number {
+		const t = this.terrain
+		// Edits still waiting for the frame bump heightsVersion here, so the key sees them.
+		t.update(this.renderer)
+		const k = this.groundTopKey
+		if (k.terrain === t && k.version === t.heightsVersion) return k.top
+		let top = -Infinity
+		const hs = t.heights
+		for (let i = 0; i < hs.length; i++) if (hs[i] > top) top = hs[i]
+		k.terrain = t
+		k.version = t.heightsVersion
+		k.top = top
+		return top
+	}
 
   /** How many placed models still wait for their mesh (they draw as placeholders until then). */
   modelsLoading(): number {
@@ -5225,8 +5270,8 @@ export class Engine {
     // Without a context (#209) the shot would be black, and it is written into the client.
     if (this.renderer.getContext().isContextLost()) throw new Error('the viewport lost its WebGL context; try again once it is back')
     const t = this.terrain
-    let top = editor.waterEnabled ? editor.waterLevel : -Infinity
-    for (let i = 0; i < t.heights.length; i++) if (t.heights[i] > top) top = t.heights[i]
+		const ground = this.groundTop()
+		const top = editor.waterEnabled ? Math.max(editor.waterLevel, ground) : ground
     // Models stand up to a few hundred yards above the ground; the camera is far above that.
     this.minimapShot = { cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, halfX: (x1 - x0) / 2, halfZ: (z1 - z0) / 2, top: top + 400 }
     const ss = Math.max(1, Math.min(4, Math.floor(this.renderer.capabilities.maxTextureSize / Math.max(w, h))))
@@ -5235,8 +5280,13 @@ export class Engine {
     // From that height the deepest ground may lie past the top-down view's far plane.
     const far = this.ortho.far
     this.ortho.far = ORTHO_HEIGHT + 400 + 20000
+		// The shot is no frame of the view: the meter books none of it to the frame's sections.
+		const metered = this.meter.on
+		this.meter.on = false
     try {
-      this.frame()
+			// Readied for the ortho camera (updateTopDown reads minimapShot), without drawing the view or
+			// moving the clock.
+			this.simulate(0, this.timer.getElapsed())
       const u = t.material.uniforms
       const saved: Array<[THREE.IUniform, unknown]> = []
       const set = (key: string, v: unknown) => {
@@ -5299,6 +5349,8 @@ export class Engine {
         this.renderer.setRenderTarget(prev)
         this.scene.background = background
         for (const c of hidden) c.visible = true
+				// The shot drew the shadow maps without what it hid; the view's next frame draws them again.
+				this.prefsChanged = true
         for (const [un, v] of saved) {
           if (un.value instanceof THREE.Vector4 && v instanceof THREE.Vector4) un.value.copy(v)
           else un.value = v
@@ -5330,6 +5382,7 @@ export class Engine {
       }
       return out
     } finally {
+			this.meter.on = metered
       this.minimapShot = null
       this.ortho.far = far
       this.ortho.updateProjectionMatrix()

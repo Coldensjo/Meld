@@ -289,7 +289,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   reads the table at start or on `.reload game_weather`.
 - **World map** (`components/WorldMapDialog.svelte`, World › World Map…, `ui.dialog = 'worldMap'`, #181): a
   zone's map for the game's M key. `Engine.renderTopDown` draws the zone's rectangle from above (the
-  minimap's shot, any size), `io/worldMap.ts` gives the rectangle (the client's WorldMapArea row, or the
+  minimap's shot, any size; it runs `Engine.simulate` for the shot's ortho camera and draws only the
+  shot, not a whole frame of the view, and keeps the map's highest ground until its heights change, #554), `io/worldMap.ts` gives the rectangle (the client's WorldMapArea row, or the
   zone's chunks grown to 3:2), the parchment look and the feathered paste over a zone the client already
   maps; Go (`vmangos/worldmap.go`, `WriteWorldMap`) cuts the 1002x668 picture into twelve DXT1 tiles and
   sets the WorldMapArea.dbc row, written into Meld's patch with the game closed. Exploration overlays

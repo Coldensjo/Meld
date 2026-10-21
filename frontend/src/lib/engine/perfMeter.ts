@@ -17,6 +17,7 @@ export const CPU_SECTIONS = [
 	'WMO rooms',
 	'Culling',
 	'Ground effects',
+	'Paths and baked shadows',
 	'Animation',
 	'Particles',
 	'Selection visuals',
