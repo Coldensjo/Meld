@@ -269,16 +269,19 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 			}
 		}
 	}
-	written := 0
+	// A model the tiles list by a border is one model in the editor (#646).
+	written := map[uint32]bool{}
 	for _, f := range files[:view.Size*view.Size] {
 		placements, err := adt.ParsePlacements(f.Data)
 		if err != nil {
 			t.Fatal(err)
 		}
-		written += len(placements)
+		for _, p := range placements {
+			written[p.UID] = true
+		}
 	}
-	if written != len(view.Objects) {
-		t.Fatalf("models written: %d, shown in the editor: %d", written, len(view.Objects))
+	if len(written) != len(view.Objects) {
+		t.Fatalf("models written: %d, shown in the editor: %d", len(written), len(view.Objects))
 	}
 }
 

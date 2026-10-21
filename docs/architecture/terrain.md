@@ -265,9 +265,18 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   painted texel and the client's textures sets `ClientAlpha`, so `rebuildChunk` keeps its MCLY records
   (bar a sent effect or look flags), MCAL bytes and predominant map as they are (#526). A chunk a
   compile before #526 already wrote at half resolution reads back that way, so it stays so.
-  Models keep their unique IDs (a moved one is removed and re-added under its own). An added model
+  Models keep their unique IDs (a moved one is removed and re-added under its own). The client's tiles
+  list a model whose bounds cross a tile border in each tile it overlaps, under one ID (910 M2s and 25
+  WMOs on Azeroth 28-35 x 44-51), so `ReadRegion` hands the editor one object an ID, and `BuildRegion`
+  keeps every block tile that lists an ID (`owners`): a moved or deleted model leaves all of them, and
+  a moved or added one goes into every block tile its bounds reach (`blockTilesOf`, the same test
+  `Rewrite` uses for a tile's chunks; `reaches.bound` reads the model's size, its `.mdx` name read as
+  the archive's `.m2`), so no tile keeps a copy at the old spot (#646). On Azeroth that rule picks the
+  client's own tiles for 99% of M2s and every WMO, and never fewer for a WMO. A tile outside the block
+  is not written, so a model by the block's edge keeps any copy a tile outside lists. An added model
   (one whose ID the client's tile without Meld's patch doesn't hold) takes an ID from one counter for
-  the whole compile (`adt.Changes.NextUID`), seeded above every placement of the map: the block's
+  the whole compile, numbered in `BuildRegion` so its copies share it (Publish passes the counter as
+  `adt.Changes.NextUID`), seeded above every placement of the map: the block's
   tiles without Meld's patch and every other tile as the client reads it now (`mapUIDMax`,
   `internal/vmangos/uids.go`, which reads only the start of each tile through `mpq.Set.ReadPrefix`:
   about 0.1 s for Azeroth's 687 tiles against 5 s whole). The client draws only the first loaded

@@ -293,7 +293,7 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 		putVec(e[8:], o.Position)
 		putVec(e[20:], o.Rotation)
 		if wmo {
-			lo, hi := bounds(o, wmoReach)
+			lo, hi := o.Bounds()
 			putVec(e[32:], lo)
 			putVec(e[44:], hi)
 			binary.LittleEndian.PutUint16(e[58:], o.DoodadSet)
@@ -306,9 +306,8 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 			binary.LittleEndian.PutUint16(e[32:], uint16(math.Max(1, math.Min(65535, math.Round(float64(scale)*1024)))))
 		}
 		var index int
-		lo, hi := bounds(o, m2Reach)
+		lo, hi := o.Bounds()
 		if wmo {
-			lo, hi = bounds(o, wmoReach)
 			index = len(wmoEntries)
 			wmoEntries = append(wmoEntries, e)
 		} else {
@@ -433,6 +432,15 @@ func around(p [3]float32, r float32) (lo, hi [3]float32) {
 		hi[k] = p[k] + r
 	}
 	return lo, hi
+}
+
+// Bounds is the object's bounds as the writer uses them to pick the chunks that list it: its own Min
+// and Max, or the default around its position for its kind.
+func (o Object) Bounds() (lo, hi [3]float32) {
+	if o.Kind == WMO {
+		return bounds(o, wmoReach)
+	}
+	return bounds(o, m2Reach)
 }
 
 // bounds returns an object's bounds: its own, or the default around its position.

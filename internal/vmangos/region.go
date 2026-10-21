@@ -221,6 +221,7 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 		wmoOnlyView(view, w)
 		return view, nil
 	}
+	listed := map[uint32]bool{}
 	for j := 0; j < size; j++ {
 		for i := 0; i < size; i++ {
 			tx, ty := x+i, y+j
@@ -248,7 +249,13 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 				view.Liquids = append(view.Liquids, l)
 			}
 			for _, p := range tile.Placements {
+				// A model whose bounds cross a tile border is listed by each tile it overlaps under one
+				// ID; the editor holds it once (#646).
+				if p.UID != 0 && listed[p.UID] {
+					continue
+				}
 				if o, ok := objectView(p, x, y); ok {
+					listed[p.UID] = true
 					view.Objects = append(view.Objects, o)
 				}
 			}
@@ -355,14 +362,38 @@ func tileOf(o ObjectView, size int) int {
 	return j*size + i
 }
 
+// blockTilesOf is the tiles of the block a placement's bounds reach into, as the client's tiles list a
+// model in each tile it overlaps (#646), by the same test Rewrite uses for a tile's chunks. A model
+// whose bounds reach no tile of the block (it sits off its edge) goes into the tile tileOf gives it.
+// A tile outside the block isn't written, so a model crossing the block's edge isn't listed there.
+func blockTilesOf(obj adt.Object, o ObjectView, e RegionEdit) []int {
+	lo, hi := obj.Bounds()
+	var out []int
+	for j := 0; j < e.Size; j++ {
+		for i := 0; i < e.Size; i++ {
+			left := float32(e.X+i) * adt.TileSize
+			top := float32(e.Y+j) * adt.TileSize
+			if hi[0] < left || lo[0] > left+adt.TileSize || hi[2] < top || lo[2] > top+adt.TileSize {
+				continue
+			}
+			out = append(out, j*e.Size+i)
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, tileOf(o, e.Size))
+	}
+	return out
+}
+
 func clampTile(i, size int) int {
 	return max(0, min(size-1, i))
 }
 
 // BuildRegion writes the edited block into copies of its tiles' files and returns them. Heights
-// go into every tile. Models that are unchanged keep their placements exactly; changed ones are
-// rewritten in the tile they came from; new ones go into the tile they fall in; and placements
-// that were removed in the editor are dropped. Painted chunks are rewritten from their weights; the rest
+// go into every tile. Models that are unchanged keep their placements exactly; changed and new ones
+// are written into every tile of the block their bounds reach, under one ID, after a changed one is
+// taken out of every tile that listed it; and placements that were removed in the editor are dropped
+// from every tile that listed them. Painted chunks are rewritten from their weights; the rest
 // keep the paint the client has. The map's WDL comes last, its block's horizon redrawn from the heights.
 func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	if err := checkRegion(e.X, e.Y, e.Size); err != nil {
@@ -397,7 +428,9 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		change adt.Changes
 	}
 	tiles := make([]tileEdit, e.Size*e.Size)
-	owner := map[uint32]int{}
+	// owners is the block's tiles that list each model, by ID: a model whose bounds cross a tile border
+	// is listed by every tile it overlaps under the one ID (#646).
+	owners := map[uint32][]int{}
 	for j := 0; j < e.Size; j++ {
 		for i := 0; i < e.Size; i++ {
 			k := j*e.Size + i
@@ -424,7 +457,9 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 					continue
 				}
 				t.orig[p.UID] = p
-				owner[p.UID] = k
+				if o := owners[p.UID]; len(o) == 0 || o[len(o)-1] != k {
+					owners[p.UID] = append(o, k)
+				}
 			}
 			tiles[k] = t
 		}
@@ -438,46 +473,64 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	for uid := range owner {
+	for uid := range owners {
 		if uid != GlobalUID {
 			nextUID = max(nextUID, uid)
 		}
 	}
 	nextUID++
-	for k := range tiles {
-		tiles[k].change.NextUID = &nextUID
-	}
 
-	rc := newReaches(set)
-	seen := map[uint32]bool{}
-	for _, o := range e.Objects {
-		if k, ok := owner[o.UID]; o.UID != 0 && ok {
-			seen[o.UID] = true
-			orig := tiles[k].orig[o.UID]
-			if unchanged(o, e, orig) {
-				continue
-			}
-			obj, err := placementFromView(o, e, &orig)
-			if err != nil {
-				return nil, err
-			}
-			rc.bound(&obj)
-			tiles[k].change.Remove[o.UID] = true
-			tiles[k].change.Add = append(tiles[k].change.Add, obj)
+	// One object an ID: a map saved before ReadRegion handed out a border model once may hold it once
+	// per tile that lists it. A copy moved in the editor wins over one left in place.
+	pick := map[uint32]int{}
+	for i, o := range e.Objects {
+		ks, ok := owners[o.UID]
+		if o.UID == 0 || !ok {
 			continue
 		}
-		k := tileOf(o, e.Size)
-		o.UID = 0
-		obj, err := placementFromView(o, e, nil)
+		orig := tiles[ks[0]].orig[o.UID]
+		if j, ok := pick[o.UID]; !ok || unchanged(e.Objects[j], e, orig) && !unchanged(o, e, orig) {
+			pick[o.UID] = i
+		}
+	}
+
+	// A changed model is taken out of every tile that lists it and an added or changed one goes into
+	// every tile of the block its bounds reach, under one ID, so no tile keeps a copy at the old spot
+	// and the neighbour's chunks list a model that crosses into them (#646). Added models are numbered
+	// here rather than by Rewrite, so each one's copies share their ID.
+	rc := newReaches(set)
+	for i, o := range e.Objects {
+		var orig *adt.Placement
+		if ks, ok := owners[o.UID]; o.UID != 0 && ok {
+			if pick[o.UID] != i {
+				continue
+			}
+			p := tiles[ks[0]].orig[o.UID]
+			if unchanged(o, e, p) {
+				continue
+			}
+			orig = &p
+			for _, k := range ks {
+				tiles[k].change.Remove[o.UID] = true
+			}
+		} else {
+			o.UID = nextUID
+			nextUID++
+		}
+		obj, err := placementFromView(o, e, orig)
 		if err != nil {
 			return nil, err
 		}
 		rc.bound(&obj)
-		tiles[k].change.Add = append(tiles[k].change.Add, obj)
+		for _, k := range blockTilesOf(obj, o, e) {
+			tiles[k].change.Add = append(tiles[k].change.Add, obj)
+		}
 	}
-	for uid, k := range owner {
-		if !seen[uid] {
-			tiles[k].change.Remove[uid] = true
+	for uid, ks := range owners {
+		if _, kept := pick[uid]; !kept {
+			for _, k := range ks {
+				tiles[k].change.Remove[uid] = true
+			}
 		}
 	}
 

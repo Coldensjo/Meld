@@ -64,6 +64,7 @@ func TestRegionAddedModelsGetMapWideIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The two added by the border between 0_0 and 1_0 are listed by both tiles, under one ID (#646).
 	var uids []uint32
 	for _, f := range files {
 		placed, err := adt.ParsePlacements(f.Data)
@@ -75,6 +76,7 @@ func TestRegionAddedModelsGetMapWideIDs(t *testing.T) {
 		}
 	}
 	slices.Sort(uids)
+	uids = slices.Compact(uids)
 	if want := []uint32{10, 20, 901, 902, 903, 904}; !slices.Equal(uids, want) {
 		t.Fatalf("IDs %v, want %v: the kept ones and four above the map's highest", uids, want)
 	}
@@ -194,6 +196,7 @@ func TestClientRegionAddedModelIDs(t *testing.T) {
 		}
 	}
 	seen := map[uint32]bool{}
+	addedAt := map[uint32][3]float32{}
 	var added []uint32
 	for _, f := range files {
 		if !strings.EqualFold(filepath.Ext(f.Name), ".adt") {
@@ -205,9 +208,14 @@ func TestClientRegionAddedModelIDs(t *testing.T) {
 		}
 		for _, p := range placed {
 			if !before[p.UID] {
-				if seen[p.UID] {
-					t.Fatalf("two added models share ID %d", p.UID)
+				// A model added by a border is listed by each tile it reaches, at the one place (#646).
+				if q, ok := addedAt[p.UID]; ok {
+					if q != p.Position {
+						t.Fatalf("two added models share ID %d", p.UID)
+					}
+					continue
 				}
+				addedAt[p.UID] = p.Position
 				added = append(added, p.UID)
 			}
 			seen[p.UID] = true

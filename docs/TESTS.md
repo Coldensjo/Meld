@@ -630,6 +630,7 @@ the same scene, the report before and after.
 - Compile to Server and Compile All save the spawn edits (#342; probe `compile-spawns`)
 - Compile keeps the client's alpha where nothing was painted (#526; probe `compile-alpha`)
 - Added models get unique IDs across the map (#491)
+- Border models in every tile that lists them (#646)
 - A map's own loading screen (Map Properties › Picture…, #218)
 - World map of a zone (World › World Map, #181; exploration overlays, #219)
 - Icons from PNG files and back (#364, probe `icons`)

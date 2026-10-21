@@ -57,6 +57,11 @@ func (r *reaches) halfSize(kind adt.Kind, name string) ([3]float32, bool) {
 
 func (r *reaches) readHalfSize(kind adt.Kind, name string) [3]float32 {
 	b, err := r.set.ReadFile(name)
+	// The client's tiles name models ".mdx" (or ".mdl"), which its archives hold as ".m2"; without this
+	// every model read from a tile kept the writer's default reach.
+	if l := strings.ToLower(name); err != nil && kind == adt.M2 && (strings.HasSuffix(l, ".mdx") || strings.HasSuffix(l, ".mdl")) {
+		b, err = r.set.ReadFile(name[:len(name)-len(".mdx")] + ".m2")
+	}
 	if err != nil {
 		return [3]float32{}
 	}

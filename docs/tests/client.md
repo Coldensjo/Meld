@@ -198,6 +198,24 @@ the client draws only the first loaded placement of an ID and the server's vmaps
 - Not checked in the game: two models added on either side of a tile border, both standing after a
   compile and a relog, would show it.
 
+## Border models in every tile that lists them (#646)
+Checks: a model the client's tiles list in each tile it overlaps reaches the editor once, and a save
+moves, deletes or adds it in every block tile its bounds reach, under one ID.
+- `go test ./internal/vmangos/ -run TestRegionBorderModelsInEveryTile`: a made-up 2x2 block whose tiles
+  0_0 and 1_0 both list three border models; one is moved off the border, one deleted, one kept, and a
+  model added on the block's middle corner must land in all four tiles. No client needed.
+- `WOW_DIR=... go test ./internal/vmangos/ -run TestClientRegionBorderModels`: the same on Azeroth 32_48
+  2x2 (67 M2s listed by two of its tiles): one moved 3 yards, one deleted.
+- `WOW_DIR=... go test ./internal/vmangos/ -run TestClientBorderTilesAgree -v`: the tile rule
+  (`blockTilesOf` with `reaches.bound`) against the client's own listing, for every placement of Azeroth
+  28-35 x 44-51 200 yards inside it: 99% of M2s get the client's tiles (2026-10-22: 139 of 19060 fewer,
+  mostly trees and smoke whose client bounds reach past their vertices), and no WMO gets fewer.
+- Trap: models are named `.mdx` in the tiles and `.m2` in the archives; a size read that doesn't
+  swap them falls back to the writer's 16-yard default reach.
+- Trap: a tile outside the block isn't written, so a border model by the block's edge keeps the copy
+  that tile lists.
+- Not checked in the game: move a tree on a tile border, compile, relog and look from both tiles.
+
 ## A map's own loading screen (Map Properties › Picture…, #218)
 Checks: a PNG becomes a map's loading screen: the BLP, its LoadingScreens.dbc row and the map's
 Map.dbc row pointing at it.
