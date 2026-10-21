@@ -126,8 +126,8 @@
 
     <div class="section">Rotation</div>
     <PropField label="Turn" value={turn(selected.rotY)} step={1} digits={1} unit="°" onstart={startEdit} oninput={(v) => live({ rotY: rad(v) })} onchange={(v) => commit({ rotY: rad(v) })} title="Spin about the up axis (R in the viewport)" />
-    <PropField label="Tilt" value={deg(selected.tiltX ?? 0)} step={0.5} digits={1} unit="°" min={-89} max={89} onstart={startEdit} oninput={(v) => live({ tiltX: rad(v) })} onchange={(v) => commit({ tiltX: rad(v) })} title="Lean forward or back" />
-    <PropField label="Roll" value={deg(selected.tiltZ ?? 0)} step={0.5} digits={1} unit="°" min={-89} max={89} onstart={startEdit} oninput={(v) => live({ tiltZ: rad(v) })} onchange={(v) => commit({ tiltZ: rad(v) })} title="Lean to a side" />
+    <PropField label="Tilt" value={deg(selected.tiltX ?? 0)} step={0.5} digits={1} unit="°" min={-180} max={180} onstart={startEdit} oninput={(v) => live({ tiltX: rad(v) })} onchange={(v) => commit({ tiltX: rad(v) })} title="Lean forward or back (hold Z and scroll in the viewport)" />
+    <PropField label="Roll" value={deg(selected.tiltZ ?? 0)} step={0.5} digits={1} unit="°" min={-180} max={180} onstart={startEdit} oninput={(v) => live({ tiltZ: rad(v) })} onchange={(v) => commit({ tiltZ: rad(v) })} title="Lean to a side (hold Shift+Z and scroll in the viewport)" />
     {#if selected.tiltX || selected.tiltZ}
       <button class="link" onclick={() => { startEdit(); commit({ tiltX: 0, tiltZ: 0 }) }}>Stand upright</button>
     {/if}

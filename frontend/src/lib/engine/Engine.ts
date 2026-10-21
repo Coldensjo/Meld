@@ -35,7 +35,8 @@ import { ShadowStroke } from '../tools/shadowStroke'
 import { areaVertexWeights, erodePatch, settledMask, SETTLED_FULL, type ErodeSettings } from '../terrain/erodeArea'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
-import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, transformCommand } from '../tools/ObjectTools'
+import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, tiltDeg, transformCommand } from '../tools/ObjectTools'
+import { stepTilt } from '../world/placement'
 import { ClearTool } from '../tools/ClearTool'
 import { SpawnLabels } from '../world/SpawnLabels'
 import { MapDataTool } from '../tools/MapDataTool'
@@ -526,6 +527,8 @@ export class Engine {
   private wheelAcc = 0
   /** Which modifier the accumulated wheel delta belongs to, so a remainder never carries over to the other. */
   private wheelMod = ''
+  /** Z is held: the wheel tilts the selected models or the placement preview (Shift: rolls), #344. */
+  private tiltHeld = false
   /** Copied region; shared by all documents so it can be pasted into another map. */
   private clip: MapClip | null = null
   /** Copied models, likewise shared. Whichever was copied last is what Paste places. */
@@ -655,6 +658,7 @@ export class Engine {
     // The arrows nudge the selection, or in the Place tool offset the preview from the cursor.
     this.controller.arrowsBlocked = () => this.canNudge() || (editor.tool === 'place' && !!editor.prefab && !editor.placeScatter)
     this.controller.wheelBlocked = (e) =>
+      this.tiltScrolls() ||
       (editor.tool === 'place' && (e.ctrlKey || e.shiftKey)) || (editor.tool === 'doodad' && e.ctrlKey) || (this.brushSizable() && e.ctrlKey) || (ui.pasting && this.lastCopied === 'objects' && e.ctrlKey)
     this.controller.rightBlocked = (e) => e.altKey && this.brushSizable()
     this.controller.onContextClick = (e) => this.openContextMenu(e)
@@ -886,12 +890,41 @@ export class Engine {
     // Alt is tracked for the pipette cursor; a lost focus (Alt+Tab) releases it.
     window.addEventListener('keydown', (e) => e.key === 'Alt' && (this.altHeld = true), sig)
     window.addEventListener('keyup', (e) => e.key === 'Alt' && (this.altHeld = false), sig)
-    window.addEventListener('blur', () => (this.altHeld = false), sig)
+    window.addEventListener('blur', () => (this.altHeld = this.tiltHeld = false), sig)
+    // Z held turns the wheel into tilt; not while typing (a z in a text field) or with Ctrl (undo).
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.code !== 'KeyZ' || e.ctrlKey || e.metaKey || e.altKey) return
+        const t = e.target as HTMLElement | null
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+        this.tiltHeld = true
+      },
+      sig,
+    )
+    window.addEventListener('keyup', (e) => e.code === 'KeyZ' && (this.tiltHeld = false), sig)
+    // Z+scroll tilts the selected models, or the placement preview, 5° per notch (Shift+Z+scroll rolls them).
     // Ctrl+scroll rotates the placement preview (15° per notch), Shift+scroll scales it. Its height is
     // PgUp / PgDn and its offset the arrows (PlaceTool.onKey): Alt is the pipette, so Alt+scroll clashed.
     c.addEventListener(
       'wheel',
       (e) => {
+        if (this.tiltScrolls()) {
+          if (this.wheelMod !== 'tilt') {
+            this.wheelMod = 'tilt'
+            this.wheelAcc = 0
+          }
+          // Shift+wheel may arrive as a sideways scroll (deltaX).
+          const d = e.deltaY || e.deltaX
+          this.wheelAcc += e.deltaMode === 1 ? d * 33 : d
+          while (Math.abs(this.wheelAcc) >= 100) {
+            const dir = Math.sign(this.wheelAcc)
+            this.wheelAcc -= dir * 100
+            if (this.canNudge()) this.tiltSelected(-dir * 5, e.shiftKey)
+            else this.placeTool.tiltPreview(-dir * 5, e.shiftKey)
+          }
+          return
+        }
         const doodads = editor.tool === 'doodad' && e.ctrlKey
         const sizing = this.brushSizable() && e.ctrlKey
         const turning = ui.pasting && this.lastCopied === 'objects' && e.ctrlKey
@@ -5626,6 +5659,37 @@ export class Engine {
     if (continuing) this.history.replaceTop(cmd)
     else this.history.push(cmd)
     this.nudgeSession = { key, before, cmd, time: now }
+  }
+
+  /** Whether the wheel tilts now: Z is held over the selected models, or over the Place tool's preview. */
+  private tiltScrolls(): boolean {
+    return this.tiltHeld && (this.canNudge() || (editor.tool === 'place' && !!editor.prefab && !editor.placeScatter && !ui.placeCreature && !ui.placeObject))
+  }
+
+  /**
+   * Tilts (forward or back) or rolls (to a side, `roll`) each selected model by `degrees` about its own
+   * axes, Z+scroll (#344). Steps in a row on the same selection are one undo step, as the nudge keys are.
+   */
+  tiltSelected(degrees: number, roll: boolean) {
+    const targets = movableSelection(this.objects)
+    if (!targets.length) return
+    const now = performance.now()
+    const s = this.nudgeSession
+    const key = targets.map((o) => o.id).join(',')
+    const continuing = !!s && s.key === key && this.history.peek() === s.cmd && now - s.time < 1500
+    const before = continuing ? s.before : targets.map((o) => ({ ...o }))
+    for (const o of targets) {
+      if (roll) o.tiltZ = stepTilt(o.tiltZ ?? 0, degrees)
+      else o.tiltX = stepTilt(o.tiltX ?? 0, degrees)
+      this.objects.touch(o.id)
+      if (editor.selected?.id === o.id) editor.selected = { ...o }
+    }
+    const cmd = groupTransformCommand(this.objects, before, targets, targets.length > 1 ? `Tilt ${targets.length} objects` : 'Tilt')
+    if (continuing) this.history.replaceTop(cmd)
+    else this.history.push(cmd)
+    this.nudgeSession = { key, before, cmd, time: now }
+    const o = targets[0]
+    setViewportHint(`Tilt ${tiltDeg(o.tiltX ?? 0)}°, roll ${tiltDeg(o.tiltZ ?? 0)}°${targets.length > 1 ? ' (first of the selection)' : ''}`)
   }
 
   /**

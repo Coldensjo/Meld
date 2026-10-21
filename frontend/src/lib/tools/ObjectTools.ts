@@ -18,7 +18,7 @@ import { combineMask, type MaskOp } from '../terrain/maskSelect'
 import { pasteLandings, type Landing } from '../world/pasteLanding'
 import { spawnKey } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
-import { placementEuler } from '../world/placement'
+import { placementEuler, stepTilt } from '../world/placement'
 import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { slotFieldsAt } from '../world/formations'
 import { SpacingGrid } from './doodadBrush'
@@ -70,6 +70,11 @@ const UP = new THREE.Vector3(0, 1, 0)
 
 const TILT_LIMIT = (8 * Math.PI) / 180
 
+/** A tilt in whole tenths of a degree, for the viewport hint. */
+export function tiltDeg(r: number): number {
+  return Math.round((r * 1800) / Math.PI) / 10
+}
+
 /** A random tilt each way, up to TILT_LIMIT, when random tilt is on; nothing otherwise. */
 function randomTilt(): { tiltX?: number; tiltZ?: number } {
   if (!editor.placeRandomTilt) return {}
@@ -96,6 +101,8 @@ export class PlaceTool implements Tool {
   private rot = 0
   private scale = 1
   private tilt: { tiltX?: number; tiltZ?: number } = {}
+  /** A tilt set by hand (hold Z and scroll, #344): replaces Random tilt and Follow ground rotation while set. */
+  private handTilt: { tiltX: number; tiltZ: number } | null = null
   private scattering: WorldObject[] | null = null
   /** The stroke's scattered props by place, for the spacing between them. */
   private scatterGrid: SpacingGrid | null = null
@@ -174,6 +181,19 @@ export class PlaceTool implements Tool {
   }
 
   /**
+   * Tilt (forward or back) or roll (to a side, `roll`) the placement preview by `degrees` (hold Z and
+   * scroll). The next clicks use this tilt instead of Random tilt and Follow ground rotation, until
+   * both angles are scrolled back to 0.
+   */
+  tiltPreview(degrees: number, roll: boolean) {
+    const t = this.handTilt ?? { tiltX: 0, tiltZ: 0 }
+    if (roll) t.tiltZ = stepTilt(t.tiltZ, degrees)
+    else t.tiltX = stepTilt(t.tiltX, degrees)
+    this.handTilt = t.tiltX === 0 && t.tiltZ === 0 ? null : t
+    setViewportHint(this.handTilt ? `Tilt ${tiltDeg(t.tiltX)}°, roll ${tiltDeg(t.tiltZ)}°` : 'Upright (Random tilt and Follow ground rotation apply again)')
+  }
+
+  /**
    * Scale the placement preview by `steps` notches (Shift+scroll), within the Properties panel's range.
    * The scale sits on a ladder of powers of SCALE_STEP, so step 0 is exactly 1 and scrolling back always
    * returns to it; a random scale snaps to the nearest rung on the first notch. The next click uses
@@ -223,7 +243,9 @@ export class PlaceTool implements Tool {
       const p = this.placePoint(ctx, surf)
       this.ghost.position.copy(p)
       // On open ground with Follow ground rotation, the preview leans to the slope it will land on.
-      if (editor.followGround && surf.parent === null) {
+      if (this.handTilt) {
+        placementEuler(this.ghost.rotation, this.rot, this.handTilt.tiltX, this.handTilt.tiltZ)
+      } else if (editor.followGround && surf.parent === null) {
         this.groundTilt(ctx, p.x, p.z, this.rot, this.ghostTilt)
         placementEuler(this.ghost.rotation, this.rot, this.ghostTilt.tiltX, this.ghostTilt.tiltZ)
       } else {
@@ -254,8 +276,12 @@ export class PlaceTool implements Tool {
     // Attach to the building/prop under the cursor, or sit on the ground.
     const surf = ctx.surface() ?? { point: hit.clone(), parent: null }
     const p = this.placePoint(ctx, surf)
-    // On open ground, Follow ground rotation replaces Random tilt with the slope's tilt.
-    const tilt = editor.followGround && surf.parent === null ? this.groundTilt(ctx, p.x, p.z, this.rot, { tiltX: 0, tiltZ: 0 }) : this.tilt
+    // A hand tilt wins; otherwise on open ground Follow ground rotation replaces Random tilt with the slope's tilt.
+    const tilt = this.handTilt
+      ? { ...this.handTilt }
+      : editor.followGround && surf.parent === null
+        ? this.groundTilt(ctx, p.x, p.z, this.rot, { tiltX: 0, tiltZ: 0 })
+        : this.tilt
     const o = ctx.objects.add({ type: editor.prefab, x: p.x, z: p.z, yOff: 0, rotY: this.rot, scale: this.scale, ...tilt })
     ctx.objects.place(o, surf.parent, {
       pos: p.clone(),

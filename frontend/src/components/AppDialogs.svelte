@@ -172,6 +172,7 @@
         ['R / Shift+R', 'Spin selected object 15° (or the placement preview)'],
         ['Shift + arrows', 'Bigger steps'],
         ['Ctrl+scroll', 'Rotate the placement preview (Place tool)'],
+        ['Z+scroll, Shift+Z+scroll', 'Tilt / roll the selected models 5° a notch, or the placement preview with nothing selected (Place tool); all the way round'],
         ['PgUp / PgDn', 'Raise / lower the placement preview (Place tool, nothing selected)'],
         ['Arrow keys', 'Move the placement preview away from the cursor (Place tool, nothing selected; Shift for bigger steps)'],
         ['Shift+scroll', 'Scale the placement preview (Place tool; doodads only, the client draws buildings at full size)'],

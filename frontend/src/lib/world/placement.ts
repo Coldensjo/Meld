@@ -11,3 +11,15 @@ import type * as THREE from 'three'
 export function placementEuler(out: THREE.Euler, rotY: number, tiltX = 0, tiltZ = 0): THREE.Euler {
   return out.set(tiltZ, rotY, -tiltX, 'YZX')
 }
+
+/**
+ * A tilt or roll (radians) stepped by `degrees` by hand (hold Z and scroll, #344), wrapped to
+ * -180..180 so a model can be flipped all the way round, and rounded to a tenth of a degree so
+ * steps back land exactly on 0.
+ */
+export function stepTilt(angle: number, degrees: number): number {
+  let d = Math.round(((angle * 180) / Math.PI + degrees) * 10) / 10
+  d = ((((d + 180) % 360) + 360) % 360) - 180
+  if (d === -180) d = 180
+  return (d * Math.PI) / 180
+}

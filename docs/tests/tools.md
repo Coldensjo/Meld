@@ -121,6 +121,16 @@ document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel', { deltaY:
 
 - The Options bar shows an Offset chip with Reset while the offset is not zero.
 
+## Tilting by hand (Z+scroll, #344)
+
+Checks: holding Z turns the wheel into tilt (Shift: roll), 5° a notch, on the selected models or, in
+the Place tool with nothing selected, on the preview, and the camera does not zoom meanwhile. Probe
+`hand-tilt` (`bun run probe hand-tilt`) sends the Z key and wheel events to the canvas and checks the
+preview's next placement, the selection's `tiltX`/`tiltZ`, one undo step for a burst, and that
+scrolling back to 0 hands the tilt back to Random tilt. `tests/placement.test.ts` pins `stepTilt`.
+- Trap: the key is tracked by `e.code === 'KeyZ'`, so a synthetic keydown needs `code: 'KeyZ'`, and a
+  keyup (or a window blur) to release it, or later wheel events keep tilting.
+
 ## Placement tilt (the client's rotation order, #149)
 
 Checks: a placed model's tilt and roll match the client's. `world/placement.ts` (`placementEuler`) is the

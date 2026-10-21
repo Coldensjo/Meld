@@ -166,3 +166,11 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
 - **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
   the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
   moving. Bursts of nudges merge into one undo step via `History.replaceTop`.
+- **Tilting by hand** (#344): while Z is held (`Engine.tiltHeld`, set from `KeyZ` outside text fields),
+  the wheel tilts 5° a notch (Shift: rolls), about the model's own axes. With a selection in the Select
+  or Place tool it tilts the selected models (`Engine.tiltSelected`, merged into one undo step like the
+  nudges); in the Place tool with nothing selected it tilts the preview (`PlaceTool.tiltPreview`), and
+  that hand tilt replaces Random tilt and Follow ground rotation for the next clicks until both angles
+  are scrolled back to 0. Angles step through `stepTilt` (`world/placement.ts`), wrapped to -180..180
+  so a model can be flipped all the way round; scatter keeps its random tilts. Placed models only;
+  game object spawns keep their tilt from the server (#229).
