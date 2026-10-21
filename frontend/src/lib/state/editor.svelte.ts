@@ -301,6 +301,27 @@ export const editor = $state({
   dirty: false,
 })
 
+/**
+ * The editor fields the brush tools of TerrainTools.ts read their settings from (`ToolSettings`). A new
+ * setting read there fails to compile until it is listed here, so the Stamp tool's per-brush copy has it.
+ */
+export const TOOL_SETTING_KEYS = [
+	'brush', 'brushImage', 'sculptMode', 'sculptLimit', 'sculptPaint', 'sculptPaintLayer', 'paintMode', 'paintSpray', 'paintLayer',
+	'flattenTarget', 'flattenDir', 'flattenAngled', 'flattenLock', 'terrace', 'mountain', 'crevice', 'erode', 'slopePaint', 'roles',
+	'spray', 'swap', 'maskSelect', 'maskErase', 'holeFill', 'palette', 'roadFlatten', 'water', 'waterMode', 'waterLevel',
+	'vertexAngle', 'vertexDir', 'vertexRef',
+] as const satisfies ReadonlyArray<keyof typeof editor>
+
+/** The editor state the brush tools read their settings from. */
+export type ToolSettings = Pick<typeof editor, (typeof TOOL_SETTING_KEYS)[number]>
+
+/** A plain deep copy of just the tool settings (not the region's spawns, paths and the rest), for the Stamp tool's per-brush settings. */
+export function copyToolSettings(): ToolSettings {
+	const out: Record<string, unknown> = {}
+	for (const k of TOOL_SETTING_KEYS) out[k] = structuredClone($state.snapshot(editor[k]))
+	return out as ToolSettings
+}
+
 /** What the Detail info readout says about the ground under the cursor (View › Detail info). */
 export interface DetailInfo {
   /** The client tile ("x, y"), or a dash on a map that isn't a region. */

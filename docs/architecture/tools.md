@@ -47,7 +47,9 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   Paint tool on one shared `TerrainStroke` (`useStroke`/`releaseStroke`), one undo step a stroke. The brush
   tools in `TerrainTools.ts` read their settings from a module binding named `editor`, which
   `withSettings` points at a brush's own copy of the editor state for the call, so a stack never writes
-  the reactive editor each frame; keep new settings reads in that module going through it.
+  the reactive editor each frame; keep new settings reads in that module going through it. The copy (`copyToolSettings`, `editor.svelte.ts`) holds only the
+  fields in `TOOL_SETTING_KEYS`, which `ToolSettings` is a `Pick` of: a new `editor.x` read in
+  `TerrainTools.ts` fails to compile until `x` is listed there.
 - **Doodad brush** (`tools/DoodadBrushTool.ts`, tool `doodad`, key 8) scatters models the way Paint
   lays down textures. A brush (`tools/doodadBrush.ts`, `DoodadBrush`) is a named list of models with
   a weight, scale range, sink and tilt each, plus a spacing (a multiple of the models' footprints).

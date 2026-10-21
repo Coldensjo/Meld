@@ -1,10 +1,9 @@
 import * as THREE from 'three'
 import { HOLE_CELL, HOLE_NONE, fillHoles, snapToBlocks } from '../terrain/holes'
 import { HoleWalls } from './HoleWalls'
-import { editor as liveEditor, setStatus, ui, type SculptMode } from '../state/editor.svelte'
+import { editor as liveEditor, setStatus, ui, type SculptMode, type ToolSettings } from '../state/editor.svelte'
 
-/** The editor state the brush tools read their settings from. */
-export type ToolSettings = typeof liveEditor
+export type { ToolSettings }
 
 /**
  * What every brush tool in this module reads its settings from: the editor, or, while the Stamp tool

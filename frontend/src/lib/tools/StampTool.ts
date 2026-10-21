@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { editor, prefs, setStatus } from '../state/editor.svelte'
+import { copyToolSettings, editor, prefs, setStatus } from '../state/editor.svelte'
 import type { Tool, ToolContext } from './Tool'
 import { TerrainStroke } from './brush'
 import { PaintTool, SculptTool, withSettings, type ToolSettings } from './TerrainTools'
@@ -37,7 +37,7 @@ export class StampTool implements Tool {
     }
     const cs = ctx.terrain.cellSize
     this.stroke = new TerrainStroke(ctx.terrain, `Stamp ${stack!.name}`, { heights: true, splat: true }, (r) => ctx.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs))
-    const base = JSON.stringify(editor)
+    const base = copyToolSettings()
     const brush = { radius: editor.brush.radius, strength: editor.brush.strength, rotation: editor.brushImage.rotation }
     this.run = []
     let missing = 0
@@ -49,7 +49,7 @@ export class StampTool implements Tool {
         missing++
         continue
       }
-      const settings = applyItem(JSON.parse(base) as ToolSettings, item, brush, tex)
+      const settings = applyItem(structuredClone(base), item, brush, tex)
       let tool: SculptTool | PaintTool
       if (item.tool === 'sculpt') tool = this.sculpts[ns++] ??= new SculptTool()
       else tool = this.paints[np++] ??= new PaintTool()
