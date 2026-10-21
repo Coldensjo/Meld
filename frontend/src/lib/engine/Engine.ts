@@ -2287,7 +2287,7 @@ export class Engine {
     editor.regionMap = m.region?.mapName ?? ''
     editor.spawns = d.spawnLayer.spawns.slice()
     editor.spawnsError = d.spawnsError
-    ui.spawnChanges = d.spawnLayer.edits().length
+    ui.spawnChanges = d.spawnLayer.editCount()
     ui.hiddenModels = d.objects.hidden.size
     selectSpawn(null)
     d.terrain.setTileBorders(m.region ? TILE_CELLS : 0)
@@ -4776,13 +4776,13 @@ export class Engine {
       let rot = spawnRotation(sp.orientation) + (this.ringAngle(this.dragPoint, s) - d.startAngle)
       if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
       this.gizmo.setSweep(d.startAngle, rot - spawnRotation(sp.orientation))
-      applySpawn(this.doc.spawnLayer, sp.key, { orientation: spawnOrientation(rot) })
+      applySpawn(this.doc.spawnLayer, sp.key, { orientation: spawnOrientation(rot) }, true)
       setViewportHint(`Facing ${Math.round(THREE.MathUtils.radToDeg(spawnOrientation(rot)))}°`)
     } else {
       let dy = this.dragPoint.y - d.startY
       if (snap) dy = Math.round(dy * 2) / 2
       const y = sp.y + dy
-      applySpawn(this.doc.spawnLayer, sp.key, { y })
+      applySpawn(this.doc.spawnLayer, sp.key, { y }, true)
       const above = y - this.terrain.heightAt(s.x, s.z)
       setViewportHint(`Height ${above >= 0 ? '+' : ''}${above.toFixed(2)} above the ground`)
     }
@@ -4841,6 +4841,7 @@ export class Engine {
       const layer = this.doc.spawnLayer
       const sp = d.spawn
       const s = layer.get(sp.key)
+      syncSpawnUi(layer)
       if (!s || (s.orientation === sp.orientation && s.y === sp.y)) return
       const before: SpawnFields = d.handle === 'ring' ? { orientation: sp.orientation } : { y: sp.y }
       const after: SpawnFields = d.handle === 'ring' ? { orientation: s.orientation } : { y: s.y }

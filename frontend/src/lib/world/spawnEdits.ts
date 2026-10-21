@@ -73,13 +73,15 @@ export async function withLook(s: vmangos.WorldSpawn, vals: SpawnFields): Promis
 }
 
 /** Writes field values into the spawn with `key`, redraws it and updates the Inspector. */
-export function applySpawn(layer: SpawnLayer, key: string, vals: SpawnFields) {
+export function applySpawn(layer: SpawnLayer, key: string, vals: SpawnFields, live = false) {
   const s = layer.get(key)
   if (!s) return
   layer.touch(s)
   Object.assign(s, vals)
   layer.refresh(s)
-  syncSpawnUi(layer)
+  // Mid-drag (live) only the edit count moves; the Inspector's copy catches up when the drag ends.
+  if (live) ui.spawnChanges = layer.editCount()
+  else syncSpawnUi(layer)
 }
 
 /**
@@ -112,7 +114,7 @@ export function syncSpawnUi(layer: SpawnLayer, listChanged = false) {
     if (editor.selectedWaypoint >= (s?.waypoints?.length ?? 0)) editor.selectedWaypoint = -1
   }
   if (listChanged) editor.spawns = layer.spawns.slice()
-  ui.spawnChanges = layer.edits().length
+  ui.spawnChanges = layer.editCount()
 }
 
 function pick(s: vmangos.WorldSpawn, keys: string[]): SpawnFields {

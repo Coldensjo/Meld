@@ -7,6 +7,7 @@ import { cullSpheres, instanceSphere, packMatrices, type CullView } from './inst
 import { cullForShadows } from './shadowReach'
 import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { spawnQuaternion } from './spawnTilt'
+import { SpawnChanges } from './spawnChanges'
 
 /** The spawns of one kind and model, and what's needed to draw the ones in view. */
 interface SpawnBatch {
@@ -62,6 +63,7 @@ const tmpScale = new THREE.Vector3()
 const tmpPos = new THREE.Vector3()
 const eachM = new THREE.Matrix4()
 const buildM = new THREE.Matrix4()
+const refreshM = new THREE.Matrix4()
 
 /** A spawn's instance matrix: a model turns to the spawn's rotation and takes its size; a cone points up. */
 export function spawnMatrix(s: vmangos.WorldSpawn, model: boolean, out: THREE.Matrix4) {
@@ -118,6 +120,8 @@ export class SpawnLayer {
   /** Keys of spawns added in the editor, and the database spawns deleted since the last save. */
   private created = new Set<string>()
   private deleted = new Map<string, vmangos.WorldSpawn>()
+  /** Which spawns differ from their original, compared only for those marked since the last count. */
+  private changes = new SpawnChanges<vmangos.WorldSpawn>()
 
   /** Replaces the drawn spawns, and starts loading their models. Forgets every edit. */
   set(spawns: vmangos.WorldSpawn[]) {
@@ -126,6 +130,7 @@ export class SpawnLayer {
     this.originals.clear()
     this.created.clear()
     this.deleted.clear()
+    this.changes.clear()
     this.retype()
     this.rebuild()
   }
@@ -290,6 +295,7 @@ export class SpawnLayer {
   touch(s: vmangos.WorldSpawn) {
     const key = spawnKey(s)
     if (!this.originals.has(key)) this.originals.set(key, cloneSpawn(s))
+    this.changes.mark(key)
   }
 
   /**
@@ -312,17 +318,18 @@ export class SpawnLayer {
     if (!at) return null
     const g = at.batch.mesh.geometry
     if (!g.boundingBox) g.computeBoundingBox()
-    return out.copy(g.boundingBox!).applyMatrix4(spawnMatrix(s, at.batch.ready, new THREE.Matrix4()))
+    return out.copy(g.boundingBox!).applyMatrix4(spawnMatrix(s, at.batch.ready, refreshM))
   }
 
   /** Redraws a spawn after it moved, turned or changed its look. */
   refresh(s: vmangos.WorldSpawn) {
+    this.changes.mark(spawnKey(s))
     const at = this.where.get(s)
     if (!at || at.type !== spawnType(s)) {
       this.redraw()
       return
     }
-    const m = spawnMatrix(s, at.batch.ready, new THREE.Matrix4())
+    const m = spawnMatrix(s, at.batch.ready, refreshM)
     m.toArray(at.batch.matrices, at.i * 16)
     instanceSphere(at.batch.mesh.geometry, m, at.batch.spheres, at.i * 4)
     at.batch.dirty = true
@@ -351,10 +358,12 @@ export class SpawnLayer {
     if (this.deleted.has(key)) {
       // Deleted and added back (an undo): it is the database's spawn again.
       this.deleted.delete(key)
+      this.changes.mark(key)
     } else if (!this.originals.has(key)) {
       this.created.add(key)
       this.originals.set(key, cloneSpawn(s))
     }
+    this.changes.mark(key)
     this.redraw()
   }
 
@@ -365,18 +374,30 @@ export class SpawnLayer {
     if (i < 0) return
     this.spawns.splice(i, 1)
     this.keys.delete(key)
+    this.changes.mark(key)
     if (!this.created.has(key)) this.deleted.set(key, this.originals.get(key) ?? cloneSpawn(s))
     this.redraw()
   }
 
+  /** Compares the spawns touched since the last call with their originals, and only those. */
+  private settle() {
+    this.changes.settle((k) => this.keys.get(k), (k) => this.originals.get(k), (k) => this.created.has(k))
+  }
+
+  /** How many edits `edits()` would return, without building them. */
+  editCount(): number {
+    this.settle()
+    return this.changes.size + this.deleted.size
+  }
+
   /** The edits to tell the world database of: changed, added and deleted spawns. */
   edits(): vmangos.SpawnEdit[] {
+    this.settle()
     const out: vmangos.SpawnEdit[] = []
     for (const [key, original] of this.originals) {
-      const s = this.keys.get(key)
-      if (!s) continue
+      if (!this.changes.has(key)) continue
+      const s = this.keys.get(key)!
       const created = this.created.has(key)
-      if (!created && JSON.stringify(s) === JSON.stringify(original)) continue
       out.push(vmangos.SpawnEdit.createFrom({ spawn: s, original, created, deleted: false }))
     }
     for (const original of this.deleted.values()) {
@@ -390,6 +411,7 @@ export class SpawnLayer {
     this.originals.clear()
     this.created.clear()
     this.deleted.clear()
+    this.changes.clear()
   }
 
   private rebuild() {
