@@ -8,6 +8,9 @@
   const KEY = 'F8'
 
   let active = $state(false)
+  // The pointer, in plain variables: it moves constantly and only matters while F8 is held.
+  let lx = 0
+  let ly = 0
   let x = $state(0)
   let y = $state(0)
   let box = $state<{ left: number; top: number; width: number; height: number } | null>(null)
@@ -45,17 +48,15 @@
     if (e.key !== KEY || e.repeat) return
     e.preventDefault()
     active = true
-    inspect(x, y)
+    inspect(lx, ly)
   }
   function onKeyUp(e: KeyboardEvent) {
     if (e.key === KEY) active = false
   }
   function onMove(e: MouseEvent) {
-    if (active) inspect(e.clientX, e.clientY)
-    else {
-      x = e.clientX
-      y = e.clientY
-    }
+    lx = e.clientX
+    ly = e.clientY
+    if (active) inspect(lx, ly)
   }
   // Losing focus (alt-tab) would leave the overlay stuck on.
   function onBlur() {
