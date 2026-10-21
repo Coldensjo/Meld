@@ -311,9 +311,17 @@ export class ObjectLayer {
 		}
   }
 
-  childrenOf(id: number): WorldObject[] {
-    return [...this.objects.values()].filter((c) => c.parent === id)
-  }
+	/** The objects attached to `id` (its children, not theirs), read from `kids`. */
+	childrenOf(id: number): WorldObject[] {
+		const out: WorldObject[] = []
+		const ks = this.kids.get(id)
+		if (!ks) return out
+		for (const k of ks) {
+			const c = this.objects.get(k)
+			if (c && c.parent === id) out.push(c)
+		}
+		return out
+	}
 
   /** A selection group number no object has yet. */
   newGroup(): number {
@@ -325,21 +333,36 @@ export class ObjectLayer {
     return this.descendantsOf([id])
   }
 
-  /** The objects plus everything attached to any of them, recursively, found in one walk. */
-  descendantsOf(ids: Iterable<number>): Set<number> {
-    const out = new Set<number>(ids)
-    let grew = true
-    while (grew) {
-      grew = false
-      for (const c of this.objects.values()) {
-        if (c.parent !== undefined && out.has(c.parent) && !out.has(c.id)) {
-          out.add(c.id)
-          grew = true
-        }
-      }
-    }
-    return out
-  }
+	/**
+	 * The objects plus everything attached to any of them, recursively, added to `out` (a new set
+	 * when not given; ids already in it are walked too). A breadth-first walk over `kids` (#512): a
+	 * Set iterates what is added during the loop, so `out` is its own queue. A child filed under an
+	 * id whose `parent` no longer names it (written over from a snapshot, not yet touched) is skipped.
+	 */
+	descendantsOf(ids: Iterable<number>, out = new Set<number>()): Set<number> {
+		if (ids !== out) for (const id of ids) out.add(id)
+		for (const id of out) {
+			const ks = this.kids.get(id)
+			if (!ks) continue
+			for (const k of ks) {
+				if (out.has(k)) continue
+				const c = this.objects.get(k)
+				if (c && c.parent === id) out.add(k)
+			}
+		}
+		return out
+	}
+
+	/** Whether `o` is the object `id` or hangs on it, through any number of parents. */
+	private hangsOn(o: WorldObject, id: number): boolean {
+		let p: WorldObject | undefined = o
+		// The step bound only guards against a cycle in a broken file.
+		for (let n = 0; p && n <= this.objects.size; n++) {
+			if (p.id === id) return true
+			p = p.parent !== undefined ? this.objects.get(p.parent) : undefined
+		}
+		return false
+	}
 
   /** Ancestors of an object (its parent chain). */
   ancestorIds(o: WorldObject): Set<number> {
@@ -481,7 +504,8 @@ export class ObjectLayer {
    */
   place(o: WorldObject, parentId: number | null, w: WorldPlacement) {
     const parent = parentId !== null ? this.objects.get(parentId) : undefined
-    if (parent && parent.id !== o.id && !this.descendantIds(o.id).has(parent.id)) {
+    // Not onto itself or onto anything that hangs on it: walk the parent's chain, not o's whole tree.
+    if (parent && !this.hangsOn(parent, o.id)) {
       const pw = this.worldPlacement(parent)
       const inv = this.matrixOf(parent, new THREE.Matrix4()).invert()
       const local = w.pos.clone().applyMatrix4(inv)

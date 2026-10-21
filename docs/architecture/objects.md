@@ -61,8 +61,12 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     type or hidden, or its model loaded. Each batch keeps the ids of its type (`members`),
     and the layer keeps each object's children (`kids`, filed by `add`, `remove` and `touch`, since
     every change to `parent` is followed by one of them), so a rebuild and `markTree` (a touch, a
-    sculpt stamp's `markRegionDirty`) never walk every object (#329). `matrixAt` builds the matrices
-    in module scratch, a parent's in `parentM[depth]`.
+    sculpt stamp's `markRegionDirty`) never walk every object (#329). `descendantsOf` (a breadth-first
+    walk over `kids`, skipping a child whose `parent` no longer names the id it is filed under) and
+    `childrenOf` read it too, and `place` checks for a cycle by walking the new parent's chain
+    (`hangsOn`), so the gizmo's per-move `place` and the Clear and Doodad tools' "what hangs on these"
+    cost the tree's size, not the map's (#512). `matrixAt` builds the matrices in module scratch, a
+    parent's in `parentM[depth]`.
   - A move is not a rebuild (#510): `markTree` (a touch, a re-snap) only notes the ids in their batch's
     `moved`, unless the batch is dirty anyway, and `update` recomputes those rows alone, found through
     `index` (each id's place in `all`). `cull` then writes them in place (`patch`) into the meshes that

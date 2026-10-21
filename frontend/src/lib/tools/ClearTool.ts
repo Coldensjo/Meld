@@ -218,8 +218,9 @@ export class ClearTool implements Tool {
       const dz = o.z - hit.z
       if (dx * dx + dz * dz > r2) continue
       out.add(o.id)
-      for (const kid of objects.descendantIds(o.id)) out.add(kid)
     }
+    // What hangs on them, in one walk.
+    objects.descendantsOf(out, out)
   }
 
   private gone = new Set<number>()

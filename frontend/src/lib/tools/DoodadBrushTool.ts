@@ -637,8 +637,9 @@ export class DoodadBrushTool implements Tool {
       const dx = o.x - hit.x
       const dz = o.z - hit.z
       if (dx * dx + dz * dz > r2) continue
-      for (const id of ctx.objects.descendantIds(o.id)) gone.add(id)
+      gone.add(o.id)
     }
+    ctx.objects.descendantsOf(gone, gone)
     for (const id of gone) {
       const o = ctx.objects.objects.get(id)
       if (!o) continue

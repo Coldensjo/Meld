@@ -767,8 +767,7 @@ export class SelectTool implements Tool {
     selectObjects(ctx.objects, ids, id)
     // Drag along whatever surface is under the cursor (never the selection itself or things attached
     // to it); the lead re-attaches to what it lands on.
-    const exclude = new Set<number>()
-    for (const sid of ids) for (const d of ctx.objects.descendantIds(sid)) exclude.add(d)
+    const exclude = ctx.objects.descendantsOf(ids)
     const surf = ctx.surface(exclude)
     const w = ctx.objects.worldPlacement(o)
     const at = surf?.point ?? hit
