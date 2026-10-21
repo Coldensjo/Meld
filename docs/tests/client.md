@@ -119,6 +119,13 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   region's own tiles), which runs `vmangos.UpdateServerMaps` (the publish without the database
   step) in the background and reports through `servermaps:log`/`servermaps:done`. It stops and restarts mangosd, so
   not for the loop to try against the live server. Go: `TestFileTileName`.
+- What a patch write closes (#469): `installClosed` (`app.go`) closes the game alone through
+  `game.Session.Around`, so `SaveRegion` leaves mangosd to `UpdateRegionServer` (one restart a Compile
+  All) and realmd is never closed; only SaveTaxi, Zones and Portals with a server folder close mangosd
+  too, for the tables it reads at its start. Go: `TestAround*` in `internal/game/session_test.go`. The
+  live path runs only on Windows outside the probe sandbox (`gameSession` refuses there), so check it by
+  hand with the owner's go-ahead: Compile to Client with realmd and mangosd running leaves both PIDs
+  unchanged (`tasklist /FI "IMAGENAME eq mangosd.exe"`).
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
 

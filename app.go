@@ -1371,7 +1371,7 @@ func (a *App) ListItemIcons() ([]string, error) {
 
 // ItemDisplayVariant is the item display showing display's model with icon ("" keeps its own) and
 // shot visual (-1 keeps its own). When the client has none, it is added to ItemDisplayInfo.dbc in
-// Meld's patch (the game and servers closed around it on Windows); added says so.
+// Meld's patch (the game closed around it on Windows); added says so.
 func (a *App) ItemDisplayVariant(display int, icon string, visual int) (vmangos.IconDisplay, error) {
 	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
@@ -1795,9 +1795,10 @@ func (a *App) SaveSQLDialog(suggested string) (string, error) {
 
 // SaveRegion writes an edited block back into the client's patch, into the tiles it came from, and
 // says what it wrote. Only the tiles that differ from the patch's copies are written; with nothing
-// changed the patch, the game and the servers are left alone. The server's map data is built from
-// the patch. On Windows the game and the servers are closed first, since they hold the patch open,
-// and opened again afterwards.
+// changed the patch, the game and the servers are left alone. On Windows the game is closed first,
+// since it holds the patch open, and opened again afterwards. The servers stay up: the server's map
+// data is built from the patch by UpdateRegionServer, which Compile All calls next and which restarts
+// the world server itself, so closing it here too would start it twice (#469).
 func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) {
 	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
@@ -1929,15 +1930,18 @@ func (a *App) ReadImageFile(path string) (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-// installWithGameClosed writes files into the client's patch. On Windows the game and the servers
-// hold the patch open, so they are closed first and opened again afterwards.
+// installWithGameClosed writes files into the client's patch. On Windows the game holds the patch
+// open, so it is closed first and opened again afterwards. The servers stay up: they read their own
+// data, never the client's archives (#469).
 func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, error) {
-	return a.installClosed(dataDir, files, nil)
+	return a.installClosed(dataDir, files, false, nil)
 }
 
 // installClosed is installWithGameClosed that also runs also (when set) after the patch is written,
-// before the game and servers start again: a write into the server's data the restarted server reads.
-func (a *App) installClosed(dataDir string, files []mpq.File, also func() error) (string, error) {
+// before the game starts again. With world set, the world server is closed and started again around
+// the write too, for what it reads only at its start: a write into its data by also, or rows written
+// into the world database before the call. The auth server is never closed.
+func (a *App) installClosed(dataDir string, files []mpq.File, world bool, also func() error) (string, error) {
 	run := func() (string, error) {
 		// The client files waiting for the game to close (#365) go along.
 		pending, err := vmangos.PendingFiles(dataDir)
@@ -1968,15 +1972,11 @@ func (a *App) installClosed(dataDir string, files []mpq.File, also func() error)
 	if err != nil {
 		return "", err
 	}
-	closed, err := sess.Stop()
-	if err != nil {
-		// Open what did close again, and leave the patch alone.
-		return "", errors.Join(err, sess.Start(closed))
-	}
-	patch, err := run()
-	if restart := sess.Start(closed); restart != nil {
-		err = errors.Join(err, restart)
-	}
+	var patch string
+	err = sess.Around(game.Closed{Game: true, World: world}, func() (err error) {
+		patch, err = run()
+		return err
+	})
 	return patch, err
 }
 
@@ -2010,7 +2010,7 @@ func (a *App) NewLightIDs() (LightIDs, error) {
 }
 
 // SaveLights writes the light editor's lights and params into the client's light tables in Meld's
-// patch (only the tables that changed; the game and servers closed around it on Windows). Returns the
+// patch (only the tables that changed; the game closed around it on Windows). Returns the
 // patch's path, or "" when nothing changed. The server doesn't read the lights.
 func (a *App) SaveLights(edit vmangos.LightsEdit) (string, error) {
 	defer a.releaseClient()()
@@ -2120,8 +2120,9 @@ func (a *App) ZoneWeather() (ZoneWeatherList, error) {
 
 // SaveAreas writes the zone editor's rows into the client's AreaTable.dbc (in Meld's patch) and,
 // with a server folder set, into the world database's area_template, which the server reads areas
-// from, with the zones' weather into game_weather. The game and the servers are closed around the
-// patch write on Windows.
+// from, with the zones' weather into game_weather. The game is closed around the patch write on
+// Windows, and the world server too when the database took the rows, since it reads area_template
+// only at its start.
 func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	defer a.releaseClient()()
@@ -2156,7 +2157,7 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 		res.Server = true
 	}
 	if len(rows) > 0 && !bytes.Equal(out, dbc) {
-		if res.Patch, err = a.installWithGameClosed(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}); err != nil {
+		if res.Patch, err = a.installClosed(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}, res.Server, nil); err != nil {
 			return res, err
 		}
 	}
@@ -2200,8 +2201,9 @@ func (a *App) AreaTriggers(mapID uint32) (AreaTriggerList, error) {
 
 // SaveAreaTriggers writes the Portals dialog's changed triggers (rows) and removed ones (remove, by
 // ID) into the client's AreaTrigger.dbc in Meld's patch and into the world database's
-// areatrigger_template and areatrigger_teleport, which the server reads. The game and the servers
-// are closed around the patch write on Windows.
+// areatrigger_template and areatrigger_teleport, which the server reads. The game is closed around
+// the patch write on Windows, and the world server too when the database took the rows, since it
+// reads areatrigger_template only at its start.
 func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	defer a.releaseClient()()
@@ -2229,7 +2231,7 @@ func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (Are
 		res.Server = true
 	}
 	if !bytes.Equal(out, dbc) {
-		if res.Patch, err = a.installWithGameClosed(dataDir, []mpq.File{{Name: vmangos.AreaTriggerPath, Data: out}}); err != nil {
+		if res.Patch, err = a.installClosed(dataDir, []mpq.File{{Name: vmangos.AreaTriggerPath, Data: out}}, res.Server, nil); err != nil {
 			return res, err
 		}
 	}
@@ -2263,7 +2265,8 @@ func (a *App) TaxiNetwork(mapID uint32) (vmangos.TaxiNetwork, error) {
 // SaveTaxi writes the Flight Paths window's changed and removed stops and routes into the client's
 // three taxi tables (Meld's patch) and, with a server folder set, the stops into the world database's
 // taxi_nodes and the route tables into the server's data, which it reads at start. The game and the
-// servers are closed around the writes on Windows, so the servers start again with the new routes.
+// world server are closed around the writes on Windows, so the world server starts again with the new
+// routes; the auth server reads none of it and stays up.
 func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	defer a.releaseClient()()
@@ -2311,7 +2314,7 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	if len(files) == 0 {
 		return res, serverTables()
 	}
-	res.Patch, err = a.installClosed(dataDir, files, serverTables)
+	res.Patch, err = a.installClosed(dataDir, files, server != "", serverTables)
 	return res, err
 }
 

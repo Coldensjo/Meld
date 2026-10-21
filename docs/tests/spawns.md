@@ -279,9 +279,9 @@ patch, the server's `data/5875/dbc` and `taxi_nodes`.
   to the stop (the server picks the stop nearest the flight master for the player's side, at any
   distance), learn the stop, and fly. A stop needs a route that starts there, or VMaNGOS leaves it
   out of its taxi mask (`sTaxiNodesMask`) and no flight master offers it. The server reads `taxi_nodes` and the route tables only at
-  start; Save restarts it on Windows when the patch changes.
+  start; Save restarts the world server on Windows when the patch changes.
 - Trap: a live Save writes Meld's patch-3.MPQ and the server's taxi tables (keeping `.before-meld`
-  copies) and closes the game and servers around it; don't run it in a check unless the owner wants
+  copies) and closes the game and the world server around it; don't run it in a check unless the owner wants
   that. The Go tests cover the write.
 - Trap: the client's own data has odd stops: Northshire Abbey (1) and Programmer Isle (3) carry a
   Riding Horse (308) in the Horde slot, so they draw red; that's the table, not a bug.
@@ -299,8 +299,8 @@ server's names and teleports, draws them, and saves them to the client's patch a
   11208 − 53·533.33), then `ui.dialog = 'portals'`: "Eastern Kingdoms: 133 triggers", first
   "Deadmines - Entrance → 78", teleport to Deadmines (36) at level 10, and
   `__engine.triggerLayer.group` visible with the picked sphere's 192 points.
-- Trap: a live Save writes Meld's patch-3.MPQ and closes the game and servers around it (as Zones
-  does); don't run it in a check unless the owner wants that. The Go tests cover the write.
+- Trap: a live Save writes Meld's patch-3.MPQ and closes the game and the world server around it (as
+  Zones does); don't run it in a check unless the owner wants that. The Go tests cover the write.
 - Teleport to destination (#306): probe `teleport-trigger`. With View › Area triggers on, a
   right-click on trigger 78 selects it (`__engine.triggerLayer.selected`) and its menu's Teleport to
   destination opens `DeadminesInstance 31_31 3` with the camera on the areatrigger_teleport spot
@@ -500,7 +500,7 @@ Import or New item.
   with the same model, a new row past the last ID, an icon alone); with `WOW_DIR`,
   `TestItemLooksLive` (29604 displays, 2684 icons, the Battleworn Hammer's 8690 a weapon with
   INV_Hammer_15). Writing one into the real patch was not run on 2026-10-19: it changes the owner's
-  client (a row it keeps), and closes the game and servers on Windows. To try it: pick an icon, Save,
+  client (a row it keeps), and closes the game on Windows. To try it: pick an icon, Save,
   then `ListItemDisplays` has the new ID and the item's tooltip shows the icon; in the game the
   item shows it once the game restarts.
 - Pictures: `bun run probe probes/scratch/item-look.js --shot <dir>` with `PROBE_ITEM=<entry>` (and

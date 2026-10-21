@@ -116,6 +116,62 @@ func TestStopDoesNotForceTheWorldServer(t *testing.T) {
 	}
 }
 
+// A patch write closes the game alone: the servers read their own data, never the patch (#469).
+func TestAroundAPatchWriteLeavesTheServersRunning(t *testing.T) {
+	run := &fakeRunner{running: map[string]bool{gameImage: true, worldImage: true, authImage: true}}
+	wrote := false
+	err := session(run, "server").Around(Closed{Game: true}, func() error {
+		if run.running[gameImage] || !run.running[worldImage] || !run.running[authImage] {
+			t.Fatalf("running during the write: %v", run.running)
+		}
+		wrote = true
+		return nil
+	})
+	if err != nil || !wrote {
+		t.Fatalf("err = %v, wrote = %v", err, wrote)
+	}
+	for _, c := range run.calls {
+		if strings.Contains(c, worldImage) || strings.Contains(c, authImage) {
+			t.Fatalf("call %q touches a server", c)
+		}
+	}
+	if !run.running[gameImage] {
+		t.Fatal("the game wasn't started again")
+	}
+}
+
+// A write the world server reads at its start (the taxi tables) closes it too, but never the auth server.
+func TestAroundAServerWriteRestartsTheWorldServerOnly(t *testing.T) {
+	run := &fakeRunner{running: map[string]bool{gameImage: true, worldImage: true, authImage: true}}
+	err := session(run, "server").Around(Closed{Game: true, World: true}, func() error {
+		if run.running[gameImage] || run.running[worldImage] || !run.running[authImage] {
+			t.Fatalf("running during the write: %v", run.running)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"taskkill /IM Wow.exe", "taskkill /IM mangosd.exe", "START mangosd.exe", "START Wow.exe"}
+	if strings.Join(run.calls, "|") != strings.Join(want, "|") {
+		t.Fatalf("calls = %q, want %q", run.calls, want)
+	}
+}
+
+// When the game won't close, nothing is written.
+func TestAroundSkipsTheWriteWhenTheGameWontClose(t *testing.T) {
+	exitWait = 10 * time.Millisecond
+	defer func() { exitWait = 20 * time.Second }()
+	run := &fakeRunner{running: map[string]bool{gameImage: true}, stuck: gameImage}
+	err := session(run, "server").Around(Closed{Game: true}, func() error {
+		t.Fatal("the write ran with the game open")
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), gameImage) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestStartOpensAuthWorldThenGame(t *testing.T) {
 	run := &fakeRunner{running: map[string]bool{}}
 	s := session(run, "server")

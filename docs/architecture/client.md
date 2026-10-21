@@ -188,8 +188,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the world database's `taxi_nodes` (the row of the highest build up to 5875; `TaxiSQL` writes 5875)
   and the routes and their points from its own `data/5875/dbc` copies of TaxiPath.dbc and
   TaxiPathNode.dbc (`InstallServerTaxi`), so `App.SaveTaxi` writes all three: SQL first, then the
-  patch and the server's tables inside one closed-game window (`installClosed`), so the restarted
-  server reads them. A stop's ID is 1 to 256 (the client's taxi mask); a route's points are rewritten
+  patch and the server's tables inside one window with the game and the world server closed
+  (`installClosed` with `world`), so the restarted world server reads them. A stop's ID is 1 to 256 (the client's taxi mask); a route's points are rewritten
   whole, reusing its old point IDs. `components/FlightPathsWindow.svelte` (World › Flight Paths,
   `ui.flightPaths`) is a floating window, not a dialog, so the map stays in reach, and a form saved
   with Save, not undo steps (as Zones and Portals, decision #83). It hands its stops and routes to

@@ -1,5 +1,5 @@
-// Package game closes the WoW client and the VMaNGOS servers around a region export, then opens them
-// again and logs the client in.
+// Package game closes the WoW client (and, where a write needs it, the VMaNGOS world server) around a
+// write into the client's patch, then opens them again and logs the client in.
 package game
 
 import (
@@ -109,28 +109,52 @@ type Closed struct {
 // Stop closes the game, then the world and auth servers, each only if it's running. It waits for each
 // one to exit. On an error it returns what it did close, so the caller can still Start them.
 func (s Session) Stop() (Closed, error) {
+	return s.stop(Closed{Game: true, World: true, Auth: true})
+}
+
+// stop is Stop for the programs want names only.
+func (s Session) stop(want Closed) (Closed, error) {
 	var c Closed
-	closed, err := s.closeGame()
-	c.Game = closed
-	if err != nil {
-		return c, err
+	if want.Game {
+		closed, err := s.closeGame()
+		c.Game = closed
+		if err != nil {
+			return c, err
+		}
 	}
 	if s.ServerRoot == "" {
 		return c, nil
 	}
-	if s.Run.Running(worldImage) {
+	if want.World && s.Run.Running(worldImage) {
 		if err := s.close(worldImage); err != nil {
 			return c, err
 		}
 		c.World = true
 	}
-	if s.Run.Running(authImage) {
+	if want.Auth && s.Run.Running(authImage) {
 		if err := s.closeAuth(); err != nil {
 			return c, err
 		}
 		c.Auth = true
 	}
 	return c, nil
+}
+
+// Around closes the programs want names that are running, runs write, then opens again what it closed
+// (Start). A write into Meld's patch closes the game alone, the one program that holds the patch open
+// while it runs: the servers read their own data, never the client's archives (#469). The world
+// server is closed too only when write changes what it reads at its start. When a program won't close,
+// write doesn't run and what did close is opened again.
+func (s Session) Around(want Closed, write func() error) error {
+	closed, err := s.stop(want)
+	if err != nil {
+		return errors.Join(err, s.Start(closed))
+	}
+	err = write()
+	if restart := s.Start(closed); restart != nil {
+		err = errors.Join(err, restart)
+	}
+	return err
 }
 
 // Start opens what Stop closed: the auth server, then the world server, then the client. The client

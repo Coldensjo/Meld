@@ -22,7 +22,7 @@
 	// its three effects), pick its icon from the client's and take its visual from another spell, and
 	// see its tooltip as the game draws it, which follows every change before it is saved. Save writes
 	// the row to the world database and the same spell into Spell.dbc in Meld's patch (a new icon into
-	// SpellIcon.dbc), closing the game and servers around the patch on Windows, so the two agree. Export
+	// SpellIcon.dbc) at once, or once the game has closed when it runs (#365), so the two agree. Export
 	// writes the spell's spell_template rows to an SQL script, and Import reads one back into both (#357).
 
 	const target = $derived(ui.spellEditor)

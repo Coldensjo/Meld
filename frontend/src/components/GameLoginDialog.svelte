@@ -36,7 +36,7 @@
 </script>
 
 <Modal title="Game login" width={400} onclose={close}>
-  <p>After a region export the editor closes the game and the servers, then opens them again and logs in with this account.</p>
+  <p>After a region export the editor closes the game, then opens it again and logs in with this account.</p>
   <p>With a character, the game enters the world as it, and Launch puts it where the camera is.</p>
   <p class="warn">The password is saved in plain text in your Meld config file. Use this on a development machine only.</p>
   <div class="fields">
