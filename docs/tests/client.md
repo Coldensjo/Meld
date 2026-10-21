@@ -264,7 +264,8 @@ again only when one changed.
   adds a file to `List` and, after `Forget` of one in another case and slash, only that one is read
   again; `Open` drops it all), `vmangos.TestInstallPatchHoldsReader` (a fake reader sees suspend,
   resume, forget, with the written names and the dropped minimap tile, not the carried tile; `AddPending`
-  forgets the waiting file), `TestInstallPatchWithClientOpen` (the rename succeeds while a real
+  forgets the waiting file), `wow.TestDoodadsCached` (a doodad's mesh and hull read once, again
+  after a `Forget` of a model but not of a texture, and after `Open`; #500), `TestInstallPatchWithClientOpen` (the rename succeeds while a real
   `wow.Client` holds the patch; on Windows it fails without the reader set).
 - Probe `patch-cache` (the throwaway client, the real one left alone): Stormwind's WMO from
   `/wow/model` cold, then an icon imported red, an `InstallMapPatch` of a file of its own, the WMO

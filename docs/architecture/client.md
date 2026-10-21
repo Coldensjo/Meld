@@ -21,6 +21,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   drops the replies built from the files the write changed; `AddPending` forgets the files it puts
   in the overlay. The app hands the client to vmangos with `vmangos.SetClientReader` in `NewApp`; a
   binding that writes the patch needs nothing else. Reads fail only during the rename.
+- The doodads a WMO bakes in (`wmoMesh`) and their collision hulls (`wmoCollision`) are parsed once
+  into `Client.parts` (`m2cache.go`, #500): an LRU of up to `partsLimit` (512) undressed M2 meshes
+  and hulls by lower-case path, shared read-only (`wmoMesh` copies the arrays it transforms), so the
+  next building with the same furniture, another doodad set or the collision request after the model
+  reuse them. `Open` empties it, and so does a `Forget` naming any `.m2` or `.mdx` (a parsed doodad
+  holds its particles' recursion models too); a `Forget` of other files keeps it.
 - `InstallPatch` rebuilds Meld's patch on every write, but opens the old one once and streams it
   (#476): the files it carries over are `mpq.Entry`s whose bytes `mpq.Archive.Reader` reads straight
   from the old patch while `mpq.WriteTo` writes the new one beside it, so a one-file save holds only

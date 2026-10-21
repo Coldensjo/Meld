@@ -224,7 +224,6 @@ func (c *Client) wmoCollision(path string, set int) (collision, error) {
 		}
 		counts = append(counts, uint32(len(g)/9))
 	}
-	hulls := map[string][]float32{}
 	if set < 0 || set >= len(root.Sets) {
 		col.faces, col.groups = faces, counts
 		return col, nil
@@ -235,14 +234,7 @@ func (c *Client) wmoCollision(path string, set int) (collision, error) {
 		if !referenced[di] || d.Model == "" {
 			continue
 		}
-		key := strings.ToLower(d.Model)
-		hull, ok := hulls[key]
-		if !ok {
-			if b, err := c.readM2(d.Model); err == nil {
-				hull, _ = m2HullFaces(b)
-			}
-			hulls[key] = hull
-		}
+		hull := c.doodadHull(d.Model)
 		if len(hull) == 0 {
 			continue
 		}

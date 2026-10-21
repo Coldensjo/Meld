@@ -39,6 +39,8 @@ type Client struct {
 	// cacheGen counts the times the cache was emptied or forgot files, so a build that read a file
 	// before then isn't stored after.
 	cacheGen int
+	// parts holds parsed doodads (m2cache.go), under cacheMu and cacheGen too.
+	parts partCache
 
 	// The minimap table (see minimap.go), parsed on first use.
 	minimapMu sync.Mutex
@@ -88,6 +90,7 @@ func (c *Client) Open(dir string) error {
 	c.files, c.dir, c.data, c.err, c.stamps, c.held = nil, dir, "", nil, "", 0
 	c.cacheMu.Lock()
 	c.cache, c.cacheSize = map[string][]byte{}, 0
+	c.parts.clear()
 	c.cacheGen++
 	c.cacheMu.Unlock()
 	c.forgetMinimap()
@@ -414,15 +417,9 @@ func (c *Client) wmoMesh(path string, set int) (*Mesh, error) {
 		m.Append(g)
 	}
 	// Bake the doodads (furniture, lamps, crates...) into the mesh: the global set, and the placement's.
-	models := map[string]*Mesh{}
 	for _, di := range root.DoodadIndicesOf(set) {
 		d := root.AllDoodads[di]
-		key := strings.ToLower(d.Model)
-		src, ok := models[key]
-		if !ok {
-			src, _ = c.m2Mesh(d.Model, nil)
-			models[key] = src
-		}
+		src := c.doodadMesh(d.Model)
 		if src == nil {
 			continue
 		}
@@ -700,16 +697,22 @@ func (c *Client) Forget(paths ...string) {
 		return
 	}
 	gone := make(map[string]bool, len(paths))
+	model := false
 	for _, p := range paths {
 		p = strings.ToLower(strings.ReplaceAll(p, "/", `\`))
 		gone[p] = true
 		if strings.EqualFold(p, MinimapIndexPath) {
 			c.forgetMinimap()
 		}
+		model = model || strings.HasSuffix(p, ".m2") || strings.HasSuffix(p, ".mdx")
 	}
 	c.cacheMu.Lock()
 	defer c.cacheMu.Unlock()
 	c.cacheGen++
+	// A parsed doodad also holds the models its particles recurse into, so any model write drops them all.
+	if model {
+		c.parts.clear()
+	}
 	for key, b := range c.cache {
 		// Keys are "<kind>:<path>", then "|<look or set>" for a model or its collision.
 		_, p, _ := strings.Cut(key, ":")
