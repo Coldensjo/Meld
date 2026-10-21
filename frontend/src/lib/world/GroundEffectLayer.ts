@@ -81,6 +81,11 @@ function tuftMaterial(src: THREE.Material): THREE.Material {
   }
   twin.customProgramCacheKey = () => key.call(twin) + '|tuftFade'
   tuftMaterials.set(src, twin)
+	// Let go of with its model's material (assets.ts releaseAssets, #505).
+	src.addEventListener('dispose', () => {
+		tuftMaterials.delete(src)
+		twin.dispose()
+	})
   return twin
 }
 
@@ -336,6 +341,12 @@ export class GroundEffectLayer {
     for (const b of this.batches.values()) n += b.count
     return n
   }
+
+	/** Adds the models of the tufts built now to `into` (#505: what a closed map lets go of). */
+	modelTypes(into: Set<string>): Set<string> {
+		for (const t of this.batches.keys()) into.add(t)
+		return into
+	}
 
   dispose() {
     this.unsubscribe()

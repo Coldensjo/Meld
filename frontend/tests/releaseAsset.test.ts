@@ -10,6 +10,7 @@ import type { MeshGroup, WowMesh } from '../src/lib/wow/api.ts'
 mock.module('../src/lib/wow/api.ts', () => ({
 	fetchMesh: () => Promise.reject(new Error('no client')),
 	loadTexture: () => Promise.resolve(new THREE.Texture()),
+	releaseTexture: () => true,
 }))
 const { animatedCount, buildWowAsset, releaseWowAsset, texturesReady, updateMaterialAnimations } = await import('../src/lib/models/assets.ts')
 

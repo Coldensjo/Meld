@@ -67,8 +67,8 @@ import { runMapChecks } from '../check/run'
 import type { Finding } from '../check/findings'
 import type { EdgeSegment } from '../check/terrainChecks'
 import { loadAreas } from '../wow/areas'
-import { animatedAssets, displayName, getAsset, texturesBoundCount, updateMaterialAnimations } from '../models/assets'
-import { withDoodadSet } from '../models/wmoSet'
+import { animatedAssets, displayName, getAsset, releaseAssets, texturesBoundCount, updateMaterialAnimations, withParticleModels } from '../models/assets'
+import { baseType, withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { castsNear, clearNearCasters, materialsNear, setNearCascade } from '../world/shadowReach'
 import { PosedShadows } from './posedShadows'
@@ -2426,7 +2426,10 @@ export class Engine {
    * document may no longer be the active tab by the time they arrive; the layer is kept either way.
    */
   setSpawns(d: MapDocument, spawns: vmangos.WorldSpawn[]) {
+		const before = d.spawnLayer.modelTypes(new Set())
     d.spawnLayer.set(spawns)
+		// Spawns read again: the models only the old ones used are let go of (#505).
+		if (this.documents.includes(d)) this.releaseModels(before)
     d.spawnsError = ''
     if (d === this.doc) {
       editor.spawns = spawns.slice()
@@ -3309,9 +3312,36 @@ export class Engine {
         this.activate(fresh, false)
       }
     }
+		this.releaseModels(d.modelTypes(new Set()))
     d.dispose()
     this.syncTabs()
   }
+
+	/**
+	 * Lets go of the models of `drop` (a closed map's, or spawns replaced) and of their particles' models
+	 * that no open map, tool preview or clipboard uses (#505): their geometry, materials and textures,
+	 * which the registry otherwise kept for the rest of the session, and their WMOs' room data.
+	 */
+	private releaseModels(drop: Set<string>) {
+		const keep = new Set<string>()
+		for (const d of this.documents) d.modelTypes(keep)
+		if (editor.prefab) keep.add(editor.prefab)
+		for (const e of activeDoodadBrush()?.entries ?? []) keep.add(e.type)
+		for (const o of this.objectClip?.objects ?? []) keep.add(o.type)
+		for (const o of this.clip?.objects ?? []) keep.add(o.type)
+		withParticleModels(keep)
+		withParticleModels(drop)
+		for (const t of drop) if (keep.has(t) || this.doodadTool.previewing(t)) drop.delete(t)
+		if (!drop.size) return
+		releaseAssets(drop)
+		// A WMO's room data goes with the last type placing it (its doodad sets are types of their own).
+		const wmo = (t: string) => (t.startsWith('wmo:') ? baseType(t).slice('wmo:'.length).toLowerCase() : '')
+		const placed = new Set<string>()
+		for (const t of keep) placed.add(wmo(t))
+		const paths = new Set<string>()
+		for (const t of drop) if (wmo(t) && !placed.has(wmo(t))) paths.add(wmo(t))
+		this.rooms.forget(paths)
+	}
 
   /** Keep the active tab's title/dirty marker current (called from the UI). */
   refreshTabs() {

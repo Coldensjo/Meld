@@ -44,6 +44,20 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
     `marker` set: a grey see-through wireframe of the hull (a small diamond without one), loaded once,
     picked like any model, casting no shadow and left out of baked shadows. A spawn of one draws its
     hull in its kind's wireframe colour, as a spawn with no model does.
+  - Closing a map lets go of its models (#505): `Engine.closeDocument` (and `setSpawns`, for spawns
+    read again) hands `releaseModels` the types the map holds or draws (`MapDocument.modelTypes`: its
+    objects and their batches, spawns and built tufts), with the models their particles are drawn as
+    (`withParticleModels`). It leaves out those another open map, the place tool's prefab, the active
+    doodad brush, a brush or paste preview or the clipboard uses, and `releaseAssets` disposes the rest:
+    geometry, LOD, bounds tree, skeleton, the WMO group cull twin (on the geometry's dispose event)
+    and the tuft twins (on their material's), and drops them from `animatedAssets`. A shared material
+    goes when no remaining asset uses it, counting those still loading (`building`) and the thumbnails
+    and previews not yet released (`loose`); a client texture goes (`api.ts` `releaseTexture`) when no
+    remaining material maps it and only models asked for it (`loadTexture(path, true)`; liquids,
+    particles and weather pin theirs). A type still loading is dropped when it arrives unless it is
+    asked for again; `WmoRooms.forget` drops the closed WMOs' room data. A later `getAsset` loads a
+    released model afresh. Anything new that keeps a mesh of a registry asset outside a document
+    (a preview, a tool's ghost) must add its types to `releaseModels`' keep set.
   - A placed WMO's doodad set rides in its type, `wmo:<path>?set=<n>` (`models/wmoSet.ts`): the model
     endpoint bakes set 0 and that set (`WMORoot.DoodadsOf`), and the export writes it as the MODF doodad
     set (`vmangos/modeltype.go`). A bare `wmo:` type in a region keeps the client's set on save. A WMO group flagged interior (`Group.Interior`, from MOGP flag

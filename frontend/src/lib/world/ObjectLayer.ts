@@ -512,6 +512,13 @@ export class ObjectLayer {
     return m
   }
 
+	/** Adds every model type this layer holds or has a batch for to `into` (#505: what a closed map lets go of). */
+	modelTypes(into: Set<string>): Set<string> {
+		for (const t of this.batches.keys()) into.add(t)
+		for (const o of this.objects.values()) into.add(o.type)
+		return into
+	}
+
   /** Whether any object of `type` is drawn: not hidden, and in view as of the last cull. */
   hasVisible(type: string): boolean {
     const b = this.batches.get(type)

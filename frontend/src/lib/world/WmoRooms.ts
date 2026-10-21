@@ -290,6 +290,11 @@ export class WmoRooms {
 		return best
 	}
 
+	/** Forgets the room data of the WMOs at `paths` (#505: the buildings of a closed map nothing else places). */
+	forget(paths: Iterable<string>) {
+		for (const p of paths) this.navs.delete(p.toLowerCase())
+	}
+
   /** The room data of a WMO, or null while it loads (or when it failed). */
   private nav(path: string): WmoNav | null {
     const key = path.toLowerCase()

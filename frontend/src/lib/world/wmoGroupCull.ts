@@ -135,6 +135,9 @@ export class WmoGroupCull {
 			if (groups >= minGroups) cull = new WmoGroupCull(source, room, groups)
 		}
 		culls.set(source, cull)
+		// The twin's index goes with the model it was made of (assets.ts releaseAssets, #505).
+		const twin = cull?.geometry
+		if (twin) source.addEventListener('dispose', () => twin.dispose())
 		return cull
 	}
 

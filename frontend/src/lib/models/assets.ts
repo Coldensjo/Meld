@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { fetchMesh, loadTexture, type MeshEffect, type MeshEmitter, type MeshGroup, type MeshRibbon, type WowLiquid, type WowMesh } from '../wow/api'
+import { fetchMesh, loadTexture, releaseTexture, type MeshEffect, type MeshEmitter, type MeshGroup, type MeshRibbon, type WowLiquid, type WowMesh } from '../wow/api'
 import { colorAt, colorFades, colorIsStatic, uvMatrix, type ColorAnimSpec, type UVAnimSpec } from '../world/uvAnim'
 import { ModelAnimation } from '../world/Animator'
 import { patchCascadeShadows } from '../engine/shadowCascades'
@@ -61,6 +61,12 @@ export function displayName(type: string): string {
 
 const assets = new Map<string, ModelAsset>()
 const pending = new Map<string, Promise<ModelAsset>>()
+/** Kept assets built and waiting for their LOD, not yet in `assets`: their shared materials are in use. */
+const building = new Set<ModelAsset>()
+/** Assets built outside the registry (thumbnails, previews) and not yet released: their shared materials are in use. */
+const loose = new Set<ModelAsset>()
+/** Types released while they loaded (`releaseAssets`): let go of on arrival unless asked for again. */
+const dropOnArrival = new Set<string>()
 const listeners = new Set<(type: string) => void>()
 
 /** Subscribe to "asset finished loading" notifications. */
@@ -114,7 +120,8 @@ export function getAsset(type: string): ModelAsset {
       return helper
     }
   }
-  if (isWowType(type) && !pending.has(type) && retryDue(type)) void loadAsset(type)
+	if (pending.has(type)) dropOnArrival.delete(type)
+	else if (isWowType(type) && retryDue(type)) void loadAsset(type)
   return getPlaceholder()
 }
 
@@ -127,6 +134,7 @@ export function loadAsset(type: string): Promise<ModelAsset> {
   const have = assets.get(type)
   if (have) return Promise.resolve(have)
   if (!isWowType(type)) return Promise.resolve(getPlaceholder())
+	dropOnArrival.delete(type)
   let p = pending.get(type)
   if (!p) {
     p = fetchMesh(wowPath(type))
@@ -134,10 +142,12 @@ export function loadAsset(type: string): Promise<ModelAsset> {
         const asset = buildWowAsset(m, type)
         buildBoundsTree(asset.geometry)
         if (asset.marker) return asset
+				building.add(asset)
         asset.lod = await buildLod(asset.geometry).catch((err) => {
           console.warn('model LOD failed', type, err)
           return undefined
         })
+				building.delete(asset)
         return asset
       })
       .catch((err) => {
@@ -147,8 +157,14 @@ export function loadAsset(type: string): Promise<ModelAsset> {
         return getPlaceholder()
       })
       .then((asset) => {
-        if (asset.ready) assets.set(type, asset)
         pending.delete(type)
+				if (dropOnArrival.delete(type)) {
+					// Its map closed while it loaded, and nothing asked for it since.
+					animatedAssets.delete(type)
+					if (asset.ready) evict([asset])
+					return asset
+				}
+        if (asset.ready) assets.set(type, asset)
         listeners.forEach((fn) => fn(type))
         return asset
       })
@@ -265,10 +281,13 @@ function wowMaterial(g: MeshGroup, vertexColors: boolean, rooms: boolean): THREE
   if (rooms) patchRoomGate(m)
 	// Not cached, so an asset that is not kept lets go of it (releaseWowAsset).
 	if (own) m.userData.own = true
+	else m.userData.cacheKey = key
+	// The client texture it maps, which `releaseAssets` lets go of with the last material mapping it.
+	if (g.texture) m.userData.texture = g.texture.toLowerCase()
   const mat = m as THREE.MeshLambertMaterial
   // userData.ready resolves once the texture is bound (or failed).
   mat.userData.ready = g.texture
-    ? loadTexture(g.texture)
+    ? loadTexture(g.texture, true)
         .then((t) => {
 					// Released before its texture came (a preview moved on): nothing to bind or animate.
 					if (mat.userData.released) return
@@ -300,8 +319,11 @@ export function animatedCount(): number {
  * helper's asset too, whose shared material it leaves alone.
  */
 export function releaseWowAsset(asset: ModelAsset) {
+	loose.delete(asset)
 	asset.geometry.dispose()
+	asset.lod?.dispose()
 	asset.liquid?.dispose()
+	asset.skeleton?.dispose()
 	const own = new Set<THREE.Material>()
 	for (const m of Array.isArray(asset.material) ? asset.material : [asset.material]) {
 		if (!m.userData.own || m.userData.released) continue
@@ -320,6 +342,91 @@ export function releaseWowAsset(asset: ModelAsset) {
 	for (const a of colorAnimated) if (!own.has(a.material)) colorAnimated[j++] = a
 	colorAnimated.length = j
 	for (const m of own) m.dispose()
+}
+
+function materialsOf(a: ModelAsset): THREE.Material[] {
+	return Array.isArray(a.material) ? a.material : [a.material]
+}
+
+/**
+ * Lets go of the kept models of `types` (#505: the models of a closed map nothing else uses), as
+ * `releaseWowAsset` does a preview's, with their bounds trees, LODs and WMO group cull twins (which go
+ * with the geometry's dispose event); then of the shared materials no other asset (kept, loading, a
+ * thumbnail or a preview) uses, and of the textures no remaining material maps. A type still loading
+ * is let go of when it arrives, unless something asks for it before. The caller makes sure no drawn
+ * mesh still uses them; a later `getAsset` loads the model again. Returns how many were let go of.
+ */
+export function releaseAssets(types: Iterable<string>): number {
+	const gone: ModelAsset[] = []
+	for (const t of types) {
+		if (isHelper(t)) continue
+		const a = assets.get(t)
+		if (!a) {
+			if (pending.has(t)) dropOnArrival.add(t)
+			continue
+		}
+		assets.delete(t)
+		animatedAssets.delete(t)
+		gone.push(a)
+	}
+	if (gone.length) evict(gone)
+	return gone.length
+}
+
+function evict(gone: ModelAsset[]) {
+	const textures = new Set<string>()
+	for (const a of gone) {
+		for (const m of materialsOf(a)) if (m.userData.texture) textures.add(m.userData.texture as string)
+		a.geometry.disposeBoundsTree?.()
+		// A marker's material is shared by every marker, and stays.
+		if (a.marker) a.geometry.dispose()
+		else releaseWowAsset(a)
+	}
+	// The materials and textures the remaining assets use.
+	const used = new Set<THREE.Material>()
+	const mapped = new Set<string>()
+	const use = (a: ModelAsset) => {
+		for (const m of materialsOf(a)) {
+			used.add(m)
+			if (m.userData.texture) mapped.add(m.userData.texture as string)
+		}
+	}
+	for (const a of assets.values()) use(a)
+	for (const a of building) use(a)
+	for (const a of loose) use(a)
+	for (const a of gone)
+		for (const m of materialsOf(a)) {
+			const key = m.userData.cacheKey as string | undefined
+			if (key === undefined || used.has(m) || materialCache.get(key) !== m) continue
+			materialCache.delete(key)
+			// A texture still on its way is not bound to it.
+			m.userData.released = true
+			m.dispose()
+		}
+	for (const t of textures) if (!mapped.has(t)) releaseTexture(t)
+}
+
+/** How many models the registry keeps, shared materials it caches and animated models it poses (for tests and probes). */
+export function keptCounts(): { models: number; materials: number; animated: number } {
+	return { models: assets.size, materials: materialCache.size, animated: animatedAssets.size }
+}
+
+/**
+ * Adds to `types` the models the particles of its loaded models are drawn as (an emitter's
+ * `geometry`), so they are kept or let go of with them.
+ */
+export function withParticleModels(types: Set<string>): Set<string> {
+	const add = (list: MeshEmitter[]) => {
+		for (const e of list) {
+			if (e.geometry) types.add(`m2:${e.geometry}`)
+			if (e.children) add(e.children)
+		}
+	}
+	for (const t of [...types]) {
+		const a = assets.get(t)
+		if (a) add(a.emitters)
+	}
+	return types
 }
 
 const LIQUID_CLASSES: LiquidClass[] = ['river', 'ocean', 'magma', 'slime']
@@ -409,5 +516,7 @@ export function buildWowAsset(m: WowMesh, animateAs?: string): ModelAsset {
     asset.skeleton = asset.anim.skeleton
     animatedAssets.set(animateAs, asset)
   }
+	// Not kept: its shared materials count as used until `releaseWowAsset`.
+	if (animateAs === undefined) loose.add(asset)
   return asset
 }

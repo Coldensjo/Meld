@@ -200,6 +200,12 @@ export class SpawnLayer {
     return this.keys.get(key)
   }
 
+	/** Adds the model types of the spawns to `into` (#505: what a closed map lets go of). */
+	modelTypes(into: Set<string>): Set<string> {
+		for (const t of this.types) into.add(t)
+		return into
+	}
+
   /** Whether any spawn uses the model `type`. */
   hasType(type: string): boolean {
     return this.types.has(type)

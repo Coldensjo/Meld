@@ -195,6 +195,14 @@ export class MapDocument {
     return !this.meta.dirty && !this.meta.filePath && this.objects.objects.size === 0 && !this.history.peek()
   }
 
+	/** Adds every model type the map holds or draws to `into`: its objects, spawns and tufts (#505). */
+	modelTypes(into: Set<string>): Set<string> {
+		this.objects.modelTypes(into)
+		this.spawnLayer.modelTypes(into)
+		this.groundEffects.modelTypes(into)
+		return into
+	}
+
   dispose() {
     this.groundEffects.dispose()
     this.terrain.dispose()

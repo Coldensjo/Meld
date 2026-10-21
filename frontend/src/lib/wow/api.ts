@@ -337,9 +337,16 @@ export function fetchTextureDXT(path: string): Promise<ArrayBuffer> {
   return fetchBinary('texture', `${path}?fmt=dxt`)
 }
 
-/** Load a BLP from the client as a mipmapped, repeating texture (cached). */
-export function loadTexture(path: string): Promise<THREE.Texture> {
+/** The textures a caller other than a model's material asked for (liquids, particles, weather): never released. */
+const pinnedTextures = new Set<string>()
+
+/**
+ * Load a BLP from the client as a mipmapped, repeating texture (cached). `model` marks a request
+ * from a model's material, which `releaseTexture` may let go of once no model maps it (#505).
+ */
+export function loadTexture(path: string, model = false): Promise<THREE.Texture> {
   const key = path.toLowerCase()
+	if (!model) pinnedTextures.add(key)
   let p = textureCache.get(key)
   if (!p) {
     p = fetchBinary('texture', compressedTextures ? `${path}?fmt=dxt` : path).then((buf) => {
@@ -358,6 +365,26 @@ export function loadTexture(path: string): Promise<THREE.Texture> {
     textureCache.set(key, p)
   }
   return p
+}
+
+/**
+ * Forgets a texture only models asked for and frees it on the GPU (#505), once the materials that
+ * mapped it are gone; a texture something else asked for stays. Returns whether it was let go of.
+ */
+export function releaseTexture(path: string): boolean {
+	const key = path.toLowerCase()
+	const p = textureCache.get(key)
+	if (!p || pinnedTextures.has(key)) return false
+	textureCache.delete(key)
+	p.then((t) => t.dispose(), () => {})
+	return true
+}
+
+/** How many client textures are cached for models alone, and how many for anything else (for tests and probes). */
+export function cachedTextureCounts(): { models: number; pinned: number } {
+	let pinned = 0
+	for (const k of textureCache.keys()) if (pinnedTextures.has(k)) pinned++
+	return { models: textureCache.size - pinned, pinned }
 }
 
 /**
