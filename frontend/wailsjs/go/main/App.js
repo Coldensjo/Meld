@@ -106,6 +106,10 @@ export function DropRecovery(arg1) {
   return window['go']['main']['App']['DropRecovery'](arg1);
 }
 
+export function DropRecoveryParts(arg1) {
+  return window['go']['main']['App']['DropRecoveryParts'](arg1);
+}
+
 export function EndClientSandbox() {
   return window['go']['main']['App']['EndClientSandbox']();
 }
@@ -628,6 +632,10 @@ export function SaveQuestGivers(arg1, arg2, arg3) {
 
 export function SaveRecovery(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveRecovery'](arg1, arg2, arg3);
+}
+
+export function SaveRecoveryPart(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveRecoveryPart'](arg1, arg2, arg3, arg4);
 }
 
 export function SaveRegion(arg1) {

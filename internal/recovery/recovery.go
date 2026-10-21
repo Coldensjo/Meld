@@ -56,6 +56,67 @@ type Store struct {
 	// mu keeps a heartbeat from writing the alive file back after End removed it.
 	mu    sync.Mutex
 	ended bool
+
+	// parts holds, by doc, the large fields of a copy being sent in parts (AddPart) until Save takes
+	// them. They stay in memory, so a crash between parts leaves no half copy on disk.
+	partsMu sync.Mutex
+	parts   map[int]map[string]*strings.Builder
+}
+
+// partFields are the MapData fields a copy may send in parts: the large base64 arrays.
+var partFields = map[string]bool{"heights": true, "weights": true, "chunkSlots": true}
+
+// AddPart appends part, the next slice of the base64 of field ("heights", "weights" or
+// "chunkSlots"), to doc's pending copy. Index 0 starts the field afresh, so a copy given up halfway
+// is replaced by the next one.
+func (s *Store) AddPart(doc int, field string, index int, part string) error {
+	if !partFields[field] {
+		return errors.New("not a field sent in parts: " + field)
+	}
+	s.partsMu.Lock()
+	defer s.partsMu.Unlock()
+	if s.parts == nil {
+		s.parts = map[int]map[string]*strings.Builder{}
+	}
+	fields := s.parts[doc]
+	if fields == nil {
+		fields = map[string]*strings.Builder{}
+		s.parts[doc] = fields
+	}
+	sb := fields[field]
+	if index == 0 {
+		sb = &strings.Builder{}
+		fields[field] = sb
+	} else if sb == nil {
+		return errors.New("recovery part " + strconv.Itoa(index) + " of " + field + " without part 0")
+	}
+	sb.WriteString(part)
+	return nil
+}
+
+// DropParts forgets doc's pending parts: the copy was given up.
+func (s *Store) DropParts(doc int) {
+	s.partsMu.Lock()
+	defer s.partsMu.Unlock()
+	delete(s.parts, doc)
+}
+
+// takeParts fills m's fields from doc's pending parts, if any, and forgets them.
+func (s *Store) takeParts(doc int, m *mapfile.MapData) {
+	s.partsMu.Lock()
+	fields := s.parts[doc]
+	delete(s.parts, doc)
+	s.partsMu.Unlock()
+	for f, sb := range fields {
+		switch f {
+		case "heights":
+			m.Heights = sb.String()
+		case "weights":
+			m.Weights = sb.String()
+		case "chunkSlots":
+			m.ChunkSlots = sb.String()
+		}
+	}
 }
 
 var idPattern = regexp.MustCompile(`^[0-9A-Za-z-]+_[0-9]+$`)
@@ -99,8 +160,10 @@ func (s *Store) Touch() error {
 }
 
 // Save writes doc's map and its info as this session's copy and returns the info with its ID set.
-// The info is written last, so a copy List sees always has its whole map.
+// The fields sent in parts (AddPart) since doc's last Save take their place in m. The info is
+// written last, so a copy List sees always has its whole map.
 func (s *Store) Save(doc int, info Info, m *mapfile.MapData) (Info, error) {
+	s.takeParts(doc, m)
 	info.Session = s.Session
 	info.ID = s.Session + "_" + strconv.Itoa(doc)
 	info.Saved = time.Now().UnixMilli()

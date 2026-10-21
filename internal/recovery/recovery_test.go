@@ -157,3 +157,55 @@ func TestListDropsDeadSessionsWithoutCopies(t *testing.T) {
 		}
 	}
 }
+
+func TestCopySentInParts(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	whole := small("parts")
+	hb := make([]byte, 17*17*4)
+	for i := range hb {
+		hb[i] = byte(i * 7)
+	}
+	whole.Heights = base64.StdEncoding.EncodeToString(hb)
+	split := func(field, b64 string, n int) {
+		for i := 0; i*n < len(b64) || i == 0; i++ {
+			if err := s.AddPart(3, field, i, b64[i*n:min(len(b64), (i+1)*n)]); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// A copy given up halfway, then the whole one: part 0 starts each field afresh.
+	split("heights", "AAAA", 4)
+	split("heights", whole.Heights, 8)
+	split("weights", whole.Weights, 12)
+	split("chunkSlots", whole.ChunkSlots, 4)
+	sent := *whole
+	sent.Heights, sent.Weights, sent.ChunkSlots = "", "", ""
+	in, err := s.Save(3, Info{Name: "parts"}, &sent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := s.Load(in.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Heights != whole.Heights || m.Weights != whole.Weights || m.ChunkSlots != whole.ChunkSlots {
+		t.Fatal("the copy sent in parts did not load back whole")
+	}
+	if len(s.parts) != 0 {
+		t.Fatal("Save left the parts pending")
+	}
+	if err := s.AddPart(3, "weights", 1, "AAAA"); err == nil {
+		t.Fatal("a part after Save without part 0 was taken")
+	}
+	if err := s.AddPart(3, "name", 0, "x"); err == nil {
+		t.Fatal("a field not sent in parts was taken")
+	}
+	s.AddPart(4, "heights", 0, "AAAA")
+	s.DropParts(4)
+	if s.parts[4] != nil {
+		t.Fatal("DropParts left the parts")
+	}
+}

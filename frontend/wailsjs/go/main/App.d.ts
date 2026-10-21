@@ -60,6 +60,8 @@ export function DeleteQuest(arg1:number):Promise<string>;
 
 export function DropRecovery(arg1:string):Promise<void>;
 
+export function DropRecoveryParts(arg1:number):Promise<void>;
+
 export function EndClientSandbox():Promise<main.SandboxEnded>;
 
 export function EndRecovery():Promise<void>;
@@ -321,6 +323,8 @@ export function SaveQuest(arg1:number,arg2:number,arg3:Record<string, string>):P
 export function SaveQuestGivers(arg1:number,arg2:vmangos.QuestGivers,arg3:Array<number>):Promise<string>;
 
 export function SaveRecovery(arg1:number,arg2:recovery.Info,arg3:mapfile.MapData):Promise<recovery.Info>;
+
+export function SaveRecoveryPart(arg1:number,arg2:string,arg3:number,arg4:string):Promise<void>;
 
 export function SaveRegion(arg1:vmangos.RegionEdit):Promise<vmangos.RegionResult>;
 

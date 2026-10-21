@@ -1,10 +1,10 @@
-import { DropRecovery, EndRecovery, ListRecovery, LoadRecovery, SaveRecovery } from '../../../wailsjs/go/main/App'
+import { DropRecovery, DropRecoveryParts, EndRecovery, ListRecovery, LoadRecovery, SaveRecovery, SaveRecoveryPart } from '../../../wailsjs/go/main/App'
 import { mapfile, recovery } from '../../../wailsjs/go/models'
 import type { Engine } from '../engine/Engine'
 import { regionLabel, type MapDocument, type RegionRef } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { fromMapData, hasBackend, reloadSpawns, toMapData } from './mapio'
-import { bytesToBase64Sliced } from './base64'
+import { bytesToBase64, SLICE_BYTES } from './base64'
 
 // Autosave (#177): every few minutes (Preferences › Autosave), each map with unsaved changes is
 // copied into the recovery folder of the user cache (`internal/recovery`), and the copy goes once the
@@ -88,21 +88,33 @@ const yieldTurn = () =>
 	})
 
 /**
- * A tab's map as the recovery binding takes it, with its large arrays (heights, paint weights and slots,
- * up to hundreds of MB for a big region) base64-encoded in slices between turns rather than in one go on
- * the frame's thread (#546). The arrays are the terrain's own, so an edit landing between slices would
- * tear the copy: when the tab's history moved on, a stroke is held or the tab closed by the end, this
- * gives null and the next check copies it again.
+ * A tab's map as the recovery binding takes it. Its large arrays (heights, paint weights and slots, up to
+ * hundreds of MB for a big region) go ahead of it to Go through `SaveRecoveryPart`, base64-encoded a
+ * slice at a time, each slice in its own turn and its own call (#546, #637): one call with the whole map
+ * kept the page without a turn for 230-400 ms while the bridge stringified and sent it. The arrays are the
+ * terrain's own, so an edit landing between slices would tear the copy: when the tab's history moved on, a
+ * stroke is held or the tab closed by the end, the parts are dropped, this gives null and the next check
+ * copies it again. The map it gives has those arrays empty; Go fills them from the parts.
  */
 async function encodeCopy(engine: Engine, d: MapDocument, changes: number): Promise<mapfile.MapData | null> {
 	await yieldTurn()
 	const snap = engine.snapshotOf(d)
-	const heights = await bytesToBase64Sliced(snap.heights, yieldTurn)
-	const weights = await bytesToBase64Sliced(snap.weights, yieldTurn)
-	const chunkSlots = await bytesToBase64Sliced(snap.chunkSlots, yieldTurn)
-	if (!engine.documents.includes(d) || d.history.changes !== changes || engine.isStroking()) return null
+	let sent = false
+	try {
+		for (const [field, bytes] of [['heights', snap.heights], ['weights', snap.weights], ['chunkSlots', snap.chunkSlots]] as const) {
+			// At least one part a field, so part 0 replaces what a copy given up earlier left in Go.
+			for (let at = 0, i = 0; at === 0 || at < bytes.length; at += SLICE_BYTES, i++) {
+				await yieldTurn()
+				await SaveRecoveryPart(d.id, field, i, bytesToBase64(bytes.subarray(at, at + SLICE_BYTES)))
+			}
+		}
+		if (!engine.documents.includes(d) || d.history.changes !== changes || engine.isStroking()) return null
+		sent = true
+	} finally {
+		if (!sent) await DropRecoveryParts(d.id).catch(() => {})
+	}
 	const none = new Uint8Array(0)
-	return Object.assign(toMapData({ ...snap, heights: none, weights: none, chunkSlots: none }), { heights, weights, chunkSlots })
+	return toMapData({ ...snap, heights: none, weights: none, chunkSlots: none })
 }
 
 async function drop(docId: number) {

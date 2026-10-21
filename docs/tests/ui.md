@@ -33,10 +33,15 @@ Go tests cover the alive file going stale). In the dev page:
   (`20261016-000000-aaaaaa_7`, with `id` and `session` changed in the JSON) and open a new page. The
   Recover dialog lists only that one; Recover opens it dirty (height -5 at index 1000 of a fresh ocean
   map) and drops the copy.
-- `bun run probe autosave` (#546) checks a big map's copy: none while a stroke is held, the encoding
-  sliced between turns, the copy loading back. What it does not slice is the binding call itself: Wails
-  stringifies the whole `MapData` and sends it in one go (about 230 ms for a 1024-cell map in the
-  headless page), which the probe prints as `bindingCallMs`.
+- `bun run probe autosave` (#546, #637) checks a big map's copy: none while a stroke is held, the encoding
+  sliced between turns, each slice sent through its own `SaveRecoveryPart` call (about 4 MB of base64,
+  10-15 ms a call), the parts joining into the one-go encoding and the copy loading back. It measures the
+  second copy: a page's first tens of MB across the bridge pause it once for 300-700 ms, one whole-map
+  call or parts alike. `bindingCallMs`, the longest stretch without a turn once the parts go, is printed,
+  not checked: 55-760 ms across runs (most under 300) in the headless page against 290-530 ms for one `SaveRecovery` with
+  the whole map before #637, and the gap is a pause of the page with no script running (a
+  long-animation-frame observer lists none), not a part call. With the native `toBase64` (Chrome,
+  WebView2) and the bridge warmed, parts gave 33-44 ms against 286-321 ms for one call.
 - Traps: the page's session is the Go process's, so a page reload never offers its own copies, and two
   dev pages on one `wails dev` share the session (their doc ids can collide). `preview_click` on the
   dialog's buttons does nothing in a hidden preview tab; click through `preview_evaluate`. Delete the

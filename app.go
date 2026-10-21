@@ -339,12 +339,30 @@ func (a *App) shutdown(ctx context.Context) {
 
 var errNoRecovery = errors.New("no recovery folder")
 
-// SaveRecovery writes the autosaved copy of open map doc (a tab's id) and returns its info.
+// SaveRecovery writes the autosaved copy of open map doc (a tab's id) and returns its info. Its
+// large fields may come before it through SaveRecoveryPart, empty in data.
 func (a *App) SaveRecovery(doc int, info recovery.Info, data mapfile.MapData) (recovery.Info, error) {
 	if a.rec == nil {
 		return info, errNoRecovery
 	}
 	return a.rec.Save(doc, info, &data)
+}
+
+// SaveRecoveryPart sends the next slice of a large field of doc's autosaved copy ("heights",
+// "weights" or "chunkSlots", base64), index 0 first; the SaveRecovery after them writes the copy
+// with them. A region's copy is ~100 MB of base64, which crossed the bridge in one call before (#637).
+func (a *App) SaveRecoveryPart(doc int, field string, index int, part string) error {
+	if a.rec == nil {
+		return errNoRecovery
+	}
+	return a.rec.AddPart(doc, field, index, part)
+}
+
+// DropRecoveryParts forgets the parts sent for doc's copy, which the autosave gave up.
+func (a *App) DropRecoveryParts(doc int) {
+	if a.rec != nil {
+		a.rec.DropParts(doc)
+	}
 }
 
 // DropRecovery removes an autosaved copy: its map was saved, closed or recovered, or the author
