@@ -638,7 +638,8 @@ export class SelectTool implements Tool {
     const r = setAreaCells(t, size, cells)
     const inside = r ? withGroups(ctx.objects, objectsInArea(ctx.objects, t, size, t.cellSize).map((m) => m.id)) : []
     // Shift keeps the models selected before; Ctrl drops those no longer in the area.
-    const ids = o.op === 'add' ? [...before, ...inside] : o.op === 'subtract' ? before.filter((id) => inside.includes(id)) : inside
+    const insideSet = o.op === 'subtract' ? new Set(inside) : null
+    const ids = o.op === 'add' ? [...before, ...inside] : insideSet ? before.filter((id) => insideSet.has(id)) : inside
     selectObjects(ctx.objects, ids)
     let count = 0
     for (let i = 0; i < cells.length; i++) if (cells[i]) count++
@@ -751,8 +752,10 @@ export class SelectTool implements Tool {
     const members = withGroups(ctx.objects, [id])
     if (shift) {
       // Shift+click adds or removes without moving anything.
-      ids = ids.includes(id) ? ids.filter((i) => !members.includes(i)) : [...ids, ...members]
-      selectObjects(ctx.objects, ids, ids.includes(id) ? id : undefined)
+      const had = ids.includes(id)
+      const memberSet = new Set(members)
+      ids = had ? ids.filter((i) => !memberSet.has(i)) : [...ids, ...members]
+      selectObjects(ctx.objects, ids, had ? undefined : id)
       return
     }
     if (!ids.includes(id)) ids = members

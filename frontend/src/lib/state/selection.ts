@@ -9,9 +9,14 @@ import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
  */
 export function selectObjects(objects: ObjectLayer, ids: Iterable<number>, primary?: number) {
   const live: number[] = []
-  for (const id of ids) if (objects.objects.has(id) && !live.includes(id)) live.push(id)
+  const seen = new Set<number>()
+  for (const id of ids) {
+    if (seen.has(id) || !objects.objects.has(id)) continue
+    seen.add(id)
+    live.push(id)
+  }
   editor.selectedIds = live
-  const p = primary !== undefined && live.includes(primary) ? primary : live.length === 1 ? live[0] : undefined
+  const p = primary !== undefined && seen.has(primary) ? primary : live.length === 1 ? live[0] : undefined
   const o = p !== undefined ? objects.objects.get(p) : undefined
   editor.selected = o ? { ...o } : null
 }
