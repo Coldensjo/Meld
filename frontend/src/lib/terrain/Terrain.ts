@@ -512,6 +512,10 @@ export class Terrain {
     return x >= 0 && z >= 0 && x <= this.worldSize && z <= this.worldSize
   }
 
+  /** Scratch for `raycast`, which runs several times a frame. The y range is wide enough for any height. */
+  private readonly rayBox = new THREE.Box3(new THREE.Vector3(0, -1e5, 0), new THREE.Vector3(0, 1e5, 0))
+  private readonly rayHit = new THREE.Vector3()
+
   /** Ray-march the heightmap. Much cheaper than triangle raycasts. */
   /**
    * Where `ray` meets the ground, in `out`. The ray passes through holes, so what is below a cave
@@ -523,11 +527,10 @@ export class Terrain {
     const dir = ray.direction
     // Skip ahead to the terrain's bounding box.
     let t = 0
-    const box = new THREE.Box3(
-      new THREE.Vector3(0, -1000, 0),
-      new THREE.Vector3(this.worldSize, 1000, this.worldSize),
-    )
-    const hit = new THREE.Vector3()
+    const box = this.rayBox
+    box.max.x = this.worldSize
+    box.max.z = this.worldSize
+    const hit = this.rayHit
     if (!box.containsPoint(o)) {
       if (!ray.intersectBox(box, hit)) return false
       t = hit.distanceTo(o)
