@@ -183,7 +183,7 @@ export class SpawnBrushTool implements Tool {
 		const brush = this.brush
 		const radius = editor.brush.radius
 		const step = Math.max(1, radius * 0.25)
-		let key = `${Math.round(hit.x / step)},${Math.round(hit.z / step)}|${radius}|${ctx.spawns.version}|${brush.density}|${brush.spacing}|${brush.facing}|${brush.maxSlope}|${brush.avoidWater}`
+		let key = `${Math.round(hit.x / step)},${Math.round(hit.z / step)}|${radius}|${ctx.spawns.changeStamp}|${brush.density}|${brush.spacing}|${brush.facing}|${brush.maxSlope}|${brush.avoidWater}`
 		for (const e of brush.entries) key += `|${e.entry}:${e.weight}`
 		if (key === this.planKey) return
 		this.planKey = key

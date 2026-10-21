@@ -121,6 +121,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   DOM labels over the canvas for the 48 nearest spawns the cull drew (`SpawnLayer.forEachDrawn`), with
   the name in the kind's colour, the subname and a creature's level and rank, picked four times a second
   and left out where the ground or a building hides them (`Engine.sightBlocked`, `ObjectLayer.wmoBlocks`).
+  `SpawnLayer.version` changes only with the spawns, their models and the kinds shown; a spawn changed
+  in place (`refresh`: a drag, a nudge) goes to the `moveSeq` log instead (`movedSince`, `changeStamp`
+  for those that need either), so the labels, particles, paths and links update only what moved.
 - **Creature editor** (`components/CreatureEditor.svelte`, `ui.creatureEditor`): full screen, opened
   by the right-click menu's Edit creature, the Inspector's Open editor, or a template's Edit. `CreaturePreview` draws the creature in its own renderer with
   any of its model's animations (`ModelAnimations`). Tabs: This spawn (`SpawnFields`, also shown in

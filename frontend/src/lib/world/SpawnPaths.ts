@@ -21,6 +21,9 @@ export class SpawnPaths {
   private readonly markerGeo = new THREE.OctahedronGeometry(0.7)
   private built = ''
   private builtFor: SpawnLayer | null = null
+  private builtMoves = 0
+  /** The spawns whose paths the last build drew, so a move of one of them (or an edit that emptied its path) redraws. */
+  private pathed = new Set<vmangos.WorldSpawn>()
   private tmpM = new THREE.Matrix4()
 
   constructor() {
@@ -42,13 +45,24 @@ export class SpawnPaths {
    */
   update(layer: SpawnLayer, selectedKey: string | null, picked: number, showAll: boolean) {
     const state = `${layer.version}|${selectedKey}|${picked}|${showAll}`
-    if (state === this.built && layer === this.builtFor) return
+    const sel = selectedKey ? layer.get(selectedKey) : undefined
+    if (state === this.built && layer === this.builtFor) {
+      if (layer.moveSeq === this.builtMoves) return
+      // Spawns moved in place: redraw only when one of them has a path.
+      const moved = layer.movedSince(this.builtMoves)
+      this.builtMoves = layer.moveSeq
+      if (moved && !moved.some((s) => s === sel || s.waypoints?.length || this.pathed.has(s))) return
+    }
     this.built = state
     this.builtFor = layer
-    const sel = selectedKey ? layer.get(selectedKey) : undefined
+    this.builtMoves = layer.moveSeq
+    this.pathed.clear()
     const others: number[] = []
     if (showAll) {
-      for (const s of layer.spawns) if (s !== sel && s.waypoints?.length && layer.eventShown(s)) pushLoop(others, s)
+      for (const s of layer.spawns) if (s !== sel && s.waypoints?.length && layer.eventShown(s)) {
+        pushLoop(others, s)
+        this.pathed.add(s)
+      }
     }
     setPositions(this.all.geometry, others)
     const mine: number[] = []

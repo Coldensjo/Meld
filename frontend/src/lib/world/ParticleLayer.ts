@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { getAsset, type ModelAsset } from '../models/assets'
 import { loadTexture } from '../wow/api'
 import type { ObjectLayer } from './ObjectLayer'
-import type { SpawnLayer } from './SpawnLayer'
+import type { vmangos } from '../../../wailsjs/go/models'
+import { spawnKey, type SpawnLayer } from './SpawnLayer'
 import { blendOf, fogOf, litOf, overLife, PARTICLE_FLOATS, ParticlePool, sortQuads, VERTEX_FLOATS, type GroundProbe, type LifeSample, type ParticleBlend } from './particles'
 import { RibbonTrail, ribbonBlend } from './ribbons'
 
@@ -365,6 +366,7 @@ export class ParticleLayer {
   private version = -1
   private spawns: SpawnLayer | null = null
   private spawnsVersion = -1
+  private spawnsMoves = 0
   private previewsVersion = -1
   private generation = 0
 
@@ -449,6 +451,26 @@ export class ParticleLayer {
     this.list = [...this.live.values()]
   }
 
+  /** Moves the pools and trails of spawns changed in place to where their models are now; the rest are kept as they are. */
+  private moveSpawns(spawns: SpawnLayer, moved: readonly vmangos.WorldSpawn[]) {
+    for (const s of moved) {
+      const type = spawns.modelOf(s, m)
+      if (type === null) continue
+      const asset = getAsset(type)
+      const owner = `s:${spawnKey(s)}`
+      for (let i = 0; i < asset.emitters.length; i++) this.relocate(`${owner}:${i}`)
+      for (let i = 0; i < asset.ribbons.length; i++) this.relocate(`${owner}:r${i}`)
+    }
+  }
+
+  /** Puts entry `key` at the matrix `m`. */
+  private relocate(key: string) {
+    const l = this.live.get(key)
+    if (!l) return
+    l.inst.copy(m)
+    l.reach = reachOf(l.asset, l.frame, m)
+  }
+
   /** The pools and trails of one model drawn at `m`, its owner named by `owner`. */
   private addModel(owner: string, asset: ModelAsset, gen: number) {
     for (let i = 0; i < asset.emitters.length; i++) {
@@ -503,7 +525,13 @@ export class ParticleLayer {
       this.rebuild(layer, spawns)
       this.version = layer?.version ?? -1
       this.spawnsVersion = spawnsVersion
+      this.spawnsMoves = spawns?.moveSeq ?? 0
       this.previewsVersion = this.unplaced.version
+    } else if (spawns && spawns.moveSeq !== this.spawnsMoves) {
+      const moved = spawns.movedSince(this.spawnsMoves)
+      this.spawnsMoves = spawns.moveSeq
+      if (moved) this.moveSpawns(spawns, moved)
+      else this.rebuild(layer, spawns)
     }
     camera.getWorldPosition(eye)
     right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()

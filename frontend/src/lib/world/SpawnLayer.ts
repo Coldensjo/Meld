@@ -114,6 +114,25 @@ export class SpawnLayer {
   private events = new Set<number>()
   /** Bumped whenever what is drawn changes (spawns, their loaded models or the kinds shown). */
   version = 0
+	/**
+	 * The spawns `refresh` moved or changed in place, oldest first. `version` stays put for these, so a
+	 * drag move doesn't make every consumer rebuild: each reads `movedSince` with the `moveSeq` it saw.
+	 */
+	private moveLog: vmangos.WorldSpawn[] = []
+	private moveBase = 0
+	/** Counts the in-place changes; with `version` it tells whether anything about the spawns changed. */
+	get moveSeq(): number {
+		return this.moveBase + this.moveLog.length
+	}
+	/** Whether the membership, the models or anything in place changed: `version` plus the moves. */
+	get changeStamp(): number {
+		return this.version + this.moveSeq
+	}
+	/** The spawns changed in place since `seq` (a `moveSeq`), or null when the log no longer reaches back that far. */
+	movedSince(seq: number): readonly vmangos.WorldSpawn[] | null {
+		if (seq < this.moveBase) return null
+		return this.moveLog.slice(seq - this.moveBase)
+	}
 
   /** The database state of each spawn edited since the last save, by key, as it was read. */
   private originals = new Map<string, vmangos.WorldSpawn>()
@@ -333,8 +352,23 @@ export class SpawnLayer {
     m.toArray(at.batch.matrices, at.i * 16)
     instanceSphere(at.batch.mesh.geometry, m, at.batch.spheres, at.i * 4)
     at.batch.dirty = true
-    this.version++
+		if (this.moveLog.length >= 4096) {
+			this.moveBase += this.moveLog.length
+			this.moveLog.length = 0
+		}
+		this.moveLog.push(s)
   }
+
+	/**
+	 * The model type and instance matrix a spawn is drawn with (written to `out`), or null when it is
+	 * not drawn with its model (a marker, or a kind not shown).
+	 */
+	modelOf(s: vmangos.WorldSpawn, out: THREE.Matrix4): string | null {
+		const at = this.where.get(s)
+		if (!at || !at.batch.ready || !this.shown[at.batch.kind]) return null
+		spawnMatrix(s, true, out)
+		return at.batch.type
+	}
 
   /**
    * Changes a spawn the way the world database already has it (its creature template was saved),

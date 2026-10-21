@@ -96,6 +96,7 @@ export class SpawnLabels {
   private bySpawn = new Map<vmangos.WorldSpawn, Label>()
   private layer: SpawnLayer | null = null
   private layerVersion = -1
+  private moveSeq = 0
   private since = Infinity
   // Scratch for the pick, kept between picks.
   private cand: vmangos.WorldSpawn[] = []
@@ -124,6 +125,21 @@ export class SpawnLabels {
       return
     }
     this.since += dt
+    // Spawns moved in place keep their label and only find their model's top again; the pick is not redone for them.
+    if (layer === this.layer && layer.version === this.layerVersion && layer.moveSeq !== this.moveSeq) {
+      const moved = layer.movedSince(this.moveSeq)
+      this.moveSeq = layer.moveSeq
+      if (moved) {
+        for (const s of moved) {
+          this.tops.delete(s)
+          const l = this.bySpawn.get(s)
+          if (l) this.fill(l, s, layer)
+        }
+      } else {
+        this.tops.clear()
+        this.since = Infinity
+      }
+    }
     if (this.since >= PICK_EVERY || layer !== this.layer || layer.version !== this.layerVersion) {
       this.since = 0
       const changed = layer !== this.layer || layer.version !== this.layerVersion
@@ -131,6 +147,7 @@ export class SpawnLabels {
       this.pick(layer, eye, changed)
       this.layer = layer
       this.layerVersion = layer.version
+      this.moveSeq = layer.moveSeq
     }
     const v = this.v
     for (const l of this.labels) {

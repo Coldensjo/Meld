@@ -30,6 +30,9 @@ export class SpawnLinks {
 	private readonly slotGeo = new THREE.OctahedronGeometry(0.45)
 	private builtFor: SpawnLayer | null = null
 	private builtVersion = -1
+	private builtMoves = 0
+	/** The spawns the last build drew lines or rings for, so a move of one of them redraws. */
+	private involved = new Set<vmangos.WorldSpawn>()
 	private builtSel: vmangos.WorldSpawn | null = null
 	private builtPools = false
 	private tmpM = new THREE.Matrix4()
@@ -55,9 +58,17 @@ export class SpawnLinks {
 	 * nothing did; call once per frame.
 	 */
 	update(layer: SpawnLayer, selected: vmangos.WorldSpawn | null, showPools: boolean) {
-		if (layer === this.builtFor && layer.version === this.builtVersion && selected === this.builtSel && showPools === this.builtPools) return
+		if (layer === this.builtFor && layer.version === this.builtVersion && selected === this.builtSel && showPools === this.builtPools) {
+			if (layer.moveSeq === this.builtMoves) return
+			// Spawns moved in place: redraw only when one of them is in a drawn formation or pool.
+			const moved = layer.movedSince(this.builtMoves)
+			this.builtMoves = layer.moveSeq
+			if (moved && !moved.some((s) => this.involved.has(s) || leads(s) || follows(s) || (showPools && topPool(s)))) return
+		}
 		this.builtFor = layer
 		this.builtVersion = layer.version
+		this.builtMoves = layer.moveSeq
+		this.involved.clear()
 		this.builtSel = selected
 		this.builtPools = showPools
 		this.buildFormation(layer, selected)
@@ -69,6 +80,8 @@ export class SpawnLinks {
 		const sel = selected && selected.kind !== 'object' ? creatureOf(spawns, selected.guid) : undefined
 		const leader = !sel ? undefined : leads(sel) ? sel : follows(sel) ? creatureOf(spawns, sel.leader) : undefined
 		const members = leader ? followersOf(spawns, leader.guid) : []
+		if (leader) this.involved.add(leader)
+		for (const m of members) this.involved.add(m)
 		// A group that doesn't walk in formation (only fights or respawns together) has no slots: its
 		// lines go to the followers themselves.
 		const walks = !!leader && (groupOptions(spawns, leader) & 0x001) !== 0
@@ -109,6 +122,7 @@ export class SpawnLinks {
 			for (const s of layer.spawns) {
 				const pool = topPool(s)
 				if (!pool || !layer.eventShown(s)) continue
+				this.involved.add(s)
 				this.color.setHSL(poolHue(pool), 0.85, 0.6)
 				const r = s.kind === 'object' ? 2 : Math.min(4, 1.4 * Math.max(1, s.scale || 1))
 				const y = s.y + LIFT

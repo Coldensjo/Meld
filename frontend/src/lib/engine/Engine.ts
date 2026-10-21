@@ -2118,7 +2118,7 @@ export class Engine {
 		const v0 = objects.version
 		const v1 = t.heightsVersion
 		const v2 = t.holesVersion
-		const v3 = this.doc.spawnLayer.version
+		const v3 = this.doc.spawnLayer.changeStamp
 		const v4 = texturesBoundCount()
 		if (objects === this.shadowObjects && k[0] === v0 && k[1] === v1 && k[2] === v2 && k[3] === v3 && k[4] === v4) return false
 		this.shadowObjects = objects
