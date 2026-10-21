@@ -71,7 +71,9 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   map file (version 5) and painted by the tool through `ChunkDataStroke` (one undo step a stroke).
   The tool draws its overlay through `Terrain.setMapDataOverlay`: a texel per chunk (`chunkDataTex`)
   and the no-tufts cells in the red of `Terrain.cellTex`, a texel per cell whose green is the selected
-  area's shape (`Terrain.setAreaShape`), shared so the shader spends one sampler on both (#394). The export sends every chunk's
+  area's shape (`Terrain.setAreaShape`), shared so the shader spends one sampler on both (#394).
+  A dab marks only what it reached (`touchChunkData(rect, cells)`, a rect of paint chunks or of cells),
+  and `Terrain.update` rewrites and uploads just those texels (#530); an undo or a paste marks all of it. The export sends every chunk's
   `HeaderSpec` (`TileSpec.Headers`, `RegionEdit.Headers`) and Go sets the area ID and the 0x2 flag
   (`adt/header.go`); a map saved before version 5 (`MapDocument.chunkDataKnown` false) sends none,
   so a region keeps the client's.

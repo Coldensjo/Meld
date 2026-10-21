@@ -119,7 +119,8 @@ export class MapDataTool implements Tool {
         changed = true
       })
     }
-    if (changed) t.touchChunkData()
+    // `this.rect` is now what the brush reached: cells for no tufts, else paint chunks.
+    if (changed) t.touchChunkData(this.rect, editor.mapDataMode === 'noTufts')
   }
 
   /** Shadows (or lights, with Clear) the shadow texels whose centres are in the brush circle. */

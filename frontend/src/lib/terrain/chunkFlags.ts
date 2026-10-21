@@ -16,20 +16,27 @@ export function areaColor(id: number, out: Uint8Array, at: number) {
     return
   }
   const h = (Math.imul(id, 2654435761) >>> 0) / 4294967296
-  // HSV with full saturation and value, by sixths of the hue.
+  // HSV with full saturation and value, by sixths of the hue: in each sixth one channel is full, one
+  // zero and one ramps up (f) or down (1 - f).
   const k = h * 6
+  const sixth = Math.floor(k) % 6
   const f = k - Math.floor(k)
-  const rgb = [
-    [1, f, 0],
-    [1 - f, 1, 0],
-    [0, 1, f],
-    [0, 1 - f, 1],
-    [f, 0, 1],
-    [1, 0, 1 - f],
-  ][Math.floor(k) % 6]
-  out[at] = Math.round(rgb[0] * 255)
-  out[at + 1] = Math.round(rgb[1] * 255)
-  out[at + 2] = Math.round(rgb[2] * 255)
+  const up = Math.round(f * 255)
+  const down = Math.round((1 - f) * 255)
+  let r = 0
+  let g = 0
+  let b = 0
+  switch (sixth) {
+    case 0: r = 255; g = up; break
+    case 1: r = down; g = 255; break
+    case 2: g = 255; b = up; break
+    case 3: g = down; b = 255; break
+    case 4: r = up; b = 255; break
+    default: r = 255; b = down
+  }
+  out[at] = r
+  out[at + 1] = g
+  out[at + 2] = b
 }
 
 /** An inclusive rect of chunks or cells. */

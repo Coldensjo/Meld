@@ -156,7 +156,8 @@ the shape's rim keeps the map's heights). One undo restores every height.
 - The probe `terrain-cell-tex` (#394) checks that a shape's tint covers its cells and not the rest of its
   rect, top-down on a flat map, together with the Map data tool's no-tufts overlay, which shares the
   shape's texture (`Terrain.cellTex`: red no tufts, green the shape): each drawn, and neither clobbered
-  when the other changes. It also counts the terrain program's own samplers (10, plus 5 shadow maps at
+  when the other changes. The no-tufts patch and a zone on a few chunks are marked by rect, as a dab
+  marks them (#530), so a broken sub-rect upload fails it. It also counts the terrain program's own samplers (10, plus 5 shadow maps at
   most: under WebGL2's guaranteed 16), so a new overlay sampler that would stop the ground drawing on
   Windows fails it. SwiftShader in the probes has 32 units, so only this count shows that limit.
 

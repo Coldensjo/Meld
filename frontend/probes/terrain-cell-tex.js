@@ -1,4 +1,4 @@
-// The terrain's cell texture (#394): the Map data tool's no-tufts overlay (its red) and a free-form area's outline (its green) share one sampler and draw together without either clobbering the other, and the terrain shader leaves a texture unit free with the sun's two shadow cascades and three lamp shadow maps.
+// The terrain's cell texture (#394), and the Map data overlay redrawn by rect (#530): the Map data tool's no-tufts overlay (its red) and a free-form area's outline (its green) share one sampler and draw together without either clobbering the other, and the terrain shader leaves a texture unit free with the sun's two shadow cascades and three lamp shadow maps.
 const e = P.e
 const { editor, ui } = await P.state()
 const { setAreaCells } = await P.app('/src/lib/state/areaSelection.ts')
@@ -30,9 +30,11 @@ const spots = (shot) => ({ patch: at(shot, 0.25, 0.5), shape: at(shot, 0.62, 0.6
 const base = spots(await P.shot())
 
 // No tufts on a patch of the left half, shown by the Map data tool.
+// Marked as the tool marks a dab, by the rect of cells it changed (#530).
+const patch = { x0: Math.floor(n * 0.1), z0: Math.floor(n * 0.3), x1: Math.floor(n * 0.4) - 1, z1: Math.floor(n * 0.7) - 1 }
 const setPatch = (v) => {
-	for (let z = Math.floor(n * 0.3); z < Math.floor(n * 0.7); z++) for (let x = Math.floor(n * 0.1); x < Math.floor(n * 0.4); x++) t.noEffect[z * n + x] = v
-	t.touchChunkData()
+	for (let z = patch.z0; z <= patch.z1; z++) for (let x = patch.x0; x <= patch.x1; x++) t.noEffect[z * n + x] = v
+	t.touchChunkData(patch, true)
 }
 setPatch(1)
 editor.tool = 'mapdata'
@@ -52,6 +54,21 @@ const both = spots(await P.shot())
 setPatch(0)
 await P.frames(2)
 const cleared = spots(await P.shot())
+
+// A zone painted on the chunks around the patch's spot, marked by their chunk rect: the zone overlay
+// draws them and leaves the shape's spot as it was (#530).
+editor.mapDataMode = 'area'
+await P.frames(2)
+const zoneBase = spots(await P.shot())
+const side = t.paintChunksPerSide
+const cx = Math.floor(side * 0.25)
+const cz = Math.floor(side * 0.5)
+const zone = { x0: cx - 1, z0: cz - 1, x1: cx + 1, z1: cz + 1 }
+for (let z = zone.z0; z <= zone.z1; z++) for (let x = zone.x0; x <= zone.x1; x++) t.areaIds[z * side + x] = 12
+t.touchChunkData(zone)
+await P.frames(2)
+const zoned = spots(await P.shot())
+const zoneDrawn = differs(zoned.patch, zoneBase.patch) && !differs(zoned.shape, zoneBase.shape)
 editor.selection = null
 editor.tool = 'select'
 
@@ -81,11 +98,12 @@ const shapeDrawn = differs(both.shape, base.shape) && !differs(both.corner, base
 const patchKept = !differs(both.patch, overlay.patch)
 const patchCleared = !differs(cleared.patch, base.patch) && !differs(cleared.shape, both.shape)
 return {
-	ok: !!prog && overlayDrawn && shapeDrawn && patchKept && patchCleared && units <= 15,
+	ok: !!prog && overlayDrawn && shapeDrawn && patchKept && patchCleared && zoneDrawn && units <= 15,
 	overlayDrawn,
 	shapeDrawn,
 	patchKept,
 	patchCleared,
+	zoneDrawn,
 	samplers: { own, shadowNow: shadow, withFiveShadowMaps: units, names },
-	colours: { base, overlay, both, cleared },
+	colours: { base, overlay, both, cleared, zoneBase, zoned },
 }

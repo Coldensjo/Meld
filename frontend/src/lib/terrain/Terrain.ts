@@ -58,18 +58,23 @@ export class Terrain {
   chunkDataVersion = 0
   /**
    * The Map data tool's overlay, made on first use: a texel per chunk (its zone's colour, and the
-   * impassable flag in alpha) and a texel per cell (the no-effect cells, in `cellTex`'s red). Uploaded
-   * whole by `update` after an edit; both are small next to the paint.
+   * impassable flag in alpha) and a texel per cell (the no-effect cells, in `cellTex`'s red). `update`
+   * rewrites and uploads only the chunks and cells `touchChunkData` marked (#530). `chunkDataSrc` and
+   * `cellSrc` are never-bound views of the same arrays, for the sub-rect uploads (see uploadRect).
    */
   private chunkDataTex: THREE.DataTexture | null = null
+  private chunkDataSrc: THREE.DataTexture | null = null
   /**
    * A texel per cell, made on first use, shared so the shader spends one sampler on both (#394): red
    * is `noEffect` for the Map data overlay, green the selected area's shape (`setAreaShape`).
    */
   private cellTex: THREE.DataTexture | null = null
+  private cellSrc: THREE.DataTexture | null = null
   /** The shape last written into `cellTex`'s green, so an unchanged one isn't copied again. */
   private areaCells: Uint8Array | null = null
-  private chunkDataDirty = false
+  /** What changed in the chunk data since the overlay's last upload: chunks, and cells. */
+  private chunkDataDirty = new DirtyRegion()
+  private cellDataDirty = new DirtyRegion()
   /** SLOTS weights per splat texel, for the chunk's slots; each texel sums to 255. */
   readonly weights: Uint8Array
   /** SLOTS palette indices per paint chunk (NO_TEXTURE for an empty slot). */
@@ -387,19 +392,37 @@ export class Terrain {
       this.uploadRegion(renderer, this.maskDirty, this.maskSrc, this.maskTex)
       this.maskDirty.clear()
     }
-    if (this.chunkDataDirty && this.chunkDataTex) {
+    if (this.chunkDataTex && this.chunkDataDirty.dirty) {
+      const side = this.paintChunksPerSide
+      const r = this.chunkDataDirty.rect
       const px = this.chunkDataTex.image.data as Uint8Array
-      for (let c = 0; c < this.areaIds.length; c++) {
-        areaColor(this.areaIds[c], px, c * 4)
-        px[c * 4 + 3] = this.chunkFlags[c] & CHUNK_IMPASSABLE ? 255 : 0
+      const x0 = r ? Math.max(0, r.x0) : 0
+      const z0 = r ? Math.max(0, r.z0) : 0
+      const x1 = r ? Math.min(side - 1, r.x1) : side - 1
+      const z1 = r ? Math.min(side - 1, r.z1) : side - 1
+      for (let cz = z0; cz <= z1; cz++) {
+        for (let cx = x0; cx <= x1; cx++) {
+          const c = cz * side + cx
+          areaColor(this.areaIds[c], px, c * 4)
+          px[c * 4 + 3] = this.chunkFlags[c] & CHUNK_IMPASSABLE ? 255 : 0
+        }
       }
-      this.chunkDataTex.needsUpdate = true
+      this.uploadRegion(renderer, this.chunkDataDirty, this.chunkDataSrc!, this.chunkDataTex, side)
+      this.chunkDataDirty.clear()
+    }
+    if (this.chunkDataTex && this.cellDataDirty.dirty) {
+      const n = this.size
+      const r = this.cellDataDirty.rect
       const tex = this.cellTexture()
       const cells = tex.image.data as Uint8Array
       const ne = this.noEffect
-      for (let i = 0; i < ne.length; i++) cells[i * 2] = ne[i]
-      tex.needsUpdate = true
-      this.chunkDataDirty = false
+      const x0 = r ? Math.max(0, r.x0) : 0
+      const z0 = r ? Math.max(0, r.z0) : 0
+      const x1 = r ? Math.min(n - 1, r.x1) : n - 1
+      const z1 = r ? Math.min(n - 1, r.z1) : n - 1
+      for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) cells[(z * n + x) * 2] = ne[z * n + x]
+      this.uploadRegion(renderer, this.cellDataDirty, this.cellSrc!, tex, n)
+      this.cellDataDirty.clear()
     }
     if (this.splatDirty.dirty) {
       this.uploadRegion(renderer, this.splatDirty, this.weightSrc, this.weightTex)
@@ -409,10 +432,20 @@ export class Terrain {
     }
   }
 
-  /** Marks the area IDs, chunk flags or no-effect cells as edited, for their overlay and the tufts. */
-  touchChunkData() {
+  /**
+   * Marks the area IDs, chunk flags or no-effect cells as edited, for their overlay and the tufts.
+   * With `rect`, an inclusive rect of paint chunks (or, with `cells`, of cells), only those are
+   * redrawn in the overlay; without one all of it is.
+   */
+  touchChunkData(rect?: DirtyRect | null, cells = false) {
     this.chunkDataVersion++
-    this.chunkDataDirty = true
+    // Before the overlay is first shown there is nothing to redraw: making it draws all of it.
+    if (!this.chunkDataTex) return
+    if (!rect) {
+      this.chunkDataDirty.mark()
+      this.cellDataDirty.mark()
+    } else if (cells) this.cellDataDirty.mark(rect)
+    else this.chunkDataDirty.mark(rect)
   }
 
   /**
@@ -429,7 +462,9 @@ export class Terrain {
     this.chunkDataTex.magFilter = this.chunkDataTex.minFilter = THREE.NearestFilter
     this.chunkDataTex.generateMipmaps = false
     u.chunkDataTex.value = this.chunkDataTex
-    this.chunkDataDirty = true
+    this.chunkDataSrc = new THREE.DataTexture(this.chunkDataTex.image.data, side, side, THREE.RGBAFormat)
+    this.chunkDataDirty.mark()
+    this.cellDataDirty.mark()
   }
 
   /** `cellTex`, made the first time the overlay or a shaped area needs it. */
@@ -440,6 +475,7 @@ export class Terrain {
       t.generateMipmaps = false
       t.needsUpdate = true
       this.cellTex = t
+      this.cellSrc = new THREE.DataTexture(t.image.data, this.size, this.size, THREE.RGFormat, THREE.UnsignedByteType)
       this.material.uniforms.cellTex.value = t
     }
     return this.cellTex
@@ -709,7 +745,9 @@ export class Terrain {
     this.heightTex?.dispose()
     this.heightSrc?.dispose()
     this.chunkDataTex?.dispose()
+    this.chunkDataSrc?.dispose()
     this.cellTex?.dispose()
+    this.cellSrc?.dispose()
   }
 }
 
