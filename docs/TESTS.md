@@ -231,6 +231,10 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     frame waited behind it (a frame of the start map, 2 s with it, 0.3 to 0.6 s without). Something
     a probe waits on must come from a frame it steps (`P.frames`, `P.until`, `P.settle`), never
     from the loop. The previews' own loops (`CreaturePreview`) still run.
+  - A probe frame takes about 250 ms even on a flat map, so a throttle measured in milliseconds
+    (once every 100 ms) fires on every `P.frames(1)`. To check one, call the tool's own `frame` (or
+    `onMove`) many times in a loop without stepping frames, as `drag-state` does for the vertex slope
+    (#448). And `history.steps().length` counts redo steps too: compare `history.position` instead.
 
   A probe on a fresh flat map (`P.e.newDocument(256, 'flat', 0, 'Probe')`) takes about
   4 s; one that loads the benchmark scene about 90 s, nearly all of it SwiftShader drawing the region.
