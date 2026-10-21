@@ -23,7 +23,9 @@ const after = count()
 // The renderer's textures less the shared ones the second map brought (its WMOs' lava frames).
 after.textures -= after.otherTextures - one.otherTextures
 // Over the first map's numbers, allowing a few for the tufts and particles of a moving view, and 3 %
-// of the textures for the ones a closed map's own terrain and water leave (#623: 5 to 12 here).
+// of the textures for the shared ones uploaded only when first drawn, which no map owns (#623: the
+// liquids' animation frames, a frame at a time as each comes round, the room gate's mask, and the
+// first map's model textures that came into view; a closed map's own textures are all disposed).
 const near = (k) => after[k] <= one[k] + Math.max(4, one[k] * (k === 'textures' ? 0.03 : 0.02))
 const fell = (k) => both[k] - after[k] >= (both[k] - one[k]) * 0.9
 const keys = ['models', 'materials', 'modelTextures', 'geometries', 'textures']
