@@ -1,4 +1,4 @@
-// View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, moving it builds again only the tiles it meets (#509), a river 2 yd deep across the map is swim area only a swimmer crosses (#239), and turning the view off frees it all.
+// View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, moving it builds again only the tiles it meets (#509), so does a small sculpt and hole (#620), a river 2 yd deep across the map is swim area only a swimmer crosses (#239), and turning the view off frees it all.
 const e = P.e
 const { prefs } = await P.state()
 // Orbit the map's centre: the default flying camera sits 250 yd up and Test a Path's clicks land past the built tiles (#256).
@@ -85,6 +85,27 @@ const all = await built('every tile again')
 const fullBuilds = all.builds - moved.builds
 const whole = surface()
 
+// #620: a small sculpt (a 2 yd bump) and a hole cell build again only the tiles they touch, and give
+// the same surface as building every tile again. Both sit in the inn's client tile (the target is a
+// client tile corner), under its roof's height, so the tile's height span stays.
+const vx = Math.round((t.x + 35) / cs)
+const vz = Math.round((t.z + 30) / cs)
+for (let z = vz - 2; z <= vz + 2; z++) for (let x = vx - 2; x <= vx + 2; x++) e.terrain.heights[z * e.terrain.verts + x] += 2
+e.terrain.markDirty(vx - 2, vz - 2, vx + 2, vz + 2)
+const hx = Math.floor((t.x + 15) / cs)
+const hz = Math.floor((t.z + 35) / cs)
+e.terrain.holes[hz * size + hx] = 1
+e.terrain.touchHoles({ x0: hx, z0: hz, x1: hx, z1: hz })
+e.terrain.markDirty(hx, hz, hx + 1, hz + 1)
+await P.frames(2)
+const sculpted = await built('the tiles after the sculpt')
+const sculptBuilds = sculpted.builds - all.builds
+const sculptPartial = surface()
+e.terrain.touchHoles()
+await P.frames(2)
+const sculptAll = await built('every tile again after the sculpt')
+const sculptWhole = surface()
+
 // A river 2 yd deep down one chunk row 50 yd south of the target, across the whole map (#239): swim
 // area (blue), which a walking creature can't cross and a swimming one can.
 const liquids = e.doc.liquids
@@ -123,7 +144,11 @@ const ok =
 	movedBuilds < first.total / 4 &&
 	fullBuilds === all.total &&
 	partial === whole &&
+	sculptBuilds > 0 &&
+	sculptBuilds < first.total / 4 &&
+	sculptAll.builds - sculpted.builds === sculptAll.total &&
+	sculptPartial === sculptWhole &&
 	blue > 0 &&
 	across.kind === 'swim' &&
 	freed
-return { ok, tiles: first.total, buildMs, tris, straight, clicked, around, innFloorVerts: high, movedBuilds, fullBuilds, partial, whole, riverVerts: blue, across, freed }
+return { ok, tiles: first.total, buildMs, tris, straight, clicked, around, innFloorVerts: high, movedBuilds, fullBuilds, partial, whole, sculptBuilds, sculptPartial, sculptWhole, riverVerts: blue, across, freed }

@@ -53,6 +53,21 @@ export class NavLiquids {
 		this.chunks.clear()
 	}
 
+	/**
+	 * Forgets the chunks over cells gx0..gx1, gz0..gz1 (inclusive), whose ground changed: the sea's
+	 * cells and depth follow the ground under it (#620).
+	 */
+	forget(gx0: number, gz0: number, gx1: number, gz1: number) {
+		const g = this.ground
+		if (!g || this.chunks.size === 0) return
+		const side = g.size / LIQUID_CELLS
+		const cx0 = Math.max(0, Math.floor(gx0 / LIQUID_CELLS))
+		const cz0 = Math.max(0, Math.floor(gz0 / LIQUID_CELLS))
+		const cx1 = Math.min(side - 1, Math.floor(gx1 / LIQUID_CELLS))
+		const cz1 = Math.min(side - 1, Math.floor(gz1 / LIQUID_CELLS))
+		for (let cz = cz0; cz <= cz1; cz++) for (let cx = cx0; cx <= cx1; cx++) this.chunks.delete(cz * side + cx)
+	}
+
 	/** Whether map cell (gx, gz) lies in a deep chunk, which has no navmesh. */
 	deep(gx: number, gz: number): boolean {
 		return this.chunk(gx, gz).deep

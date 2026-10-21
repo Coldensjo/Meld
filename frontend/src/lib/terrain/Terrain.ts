@@ -294,18 +294,51 @@ export class Terrain {
     geo.computeBoundingBox()
   }
 
-  /** Mark a vertex-space rect (inclusive) as changed. */
-  /** Says `holes` changed (every writer of it calls this, TerrainStroke for the undoable ones). */
-  touchHoles() {
+  /**
+   * Says `holes` changed (every writer of it calls this, TerrainStroke for the undoable ones), in the
+   * inclusive cell rect `r` when given and anywhere when not.
+   */
+  touchHoles(r?: { x0: number; z0: number; x1: number; z1: number } | null) {
     this.holesVersion++
+    if (r) this.growGroundChange(r.x0, r.z0, r.x1 + 1, r.z1 + 1)
+    else this.growGroundChange(0, 0, this.size, this.size)
   }
 
   /** Bumped whenever heights or paint change, for layers that rebuild from them (the ground effects). */
   heightVersion = 0
   paintVersion = 0
 
+  /**
+   * The vertex rect (inclusive) whose heights or holes changed since the walkable-ground view last
+   * took it (`takeGroundChange`), so it builds again only the tiles there (#620). Empty when x0 > x1.
+   */
+  private groundChange = { x0: Infinity, z0: Infinity, x1: -Infinity, z1: -Infinity }
+
+  private growGroundChange(x0: number, z0: number, x1: number, z1: number) {
+    const g = this.groundChange
+    g.x0 = Math.min(g.x0, x0)
+    g.z0 = Math.min(g.z0, z0)
+    g.x1 = Math.max(g.x1, x1)
+    g.z1 = Math.max(g.z1, z1)
+  }
+
+  /** Copies into `out` the vertex rect changed since the last call and starts a new one; false when nothing changed. */
+  takeGroundChange(out: { x0: number; z0: number; x1: number; z1: number }): boolean {
+    const g = this.groundChange
+    const any = g.x0 <= g.x1 && g.z0 <= g.z1
+    out.x0 = g.x0
+    out.z0 = g.z0
+    out.x1 = g.x1
+    out.z1 = g.z1
+    g.x0 = g.z0 = Infinity
+    g.x1 = g.z1 = -Infinity
+    return any
+  }
+
+  /** Mark a vertex-space rect (inclusive) as changed. */
   markDirty(x0: number, z0: number, x1: number, z1: number) {
     this.heightVersion++
+    this.growGroundChange(x0, z0, x1, z1)
     const d = this.dirty
     d.x0 = Math.min(d.x0, x0 - 1)
     d.z0 = Math.min(d.z0, z0 - 1)

@@ -142,8 +142,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. A change to the
     objects or their collision alone (#509) builds again only the tiles whose bordered box meets a
     placement added, moved or dropped (`refreshModels` collects their boxes, `markChanged` marks the
-    tiles), and every tile of a client tile whose height span (`adtHeightSpan`) it moved; anything
-    else builds every tile again. Recast's build of a tile runs in up to two Web Workers (#508,
+    tiles), and every tile of a client tile whose height span (`adtHeightSpan`) it moved. A change
+    to the ground's heights or holes does the same (#620): `Terrain.markDirty` and
+    `Terrain.touchHoles(rect)` grow a vertex rect that `NavPreview.addGroundChange` takes at the
+    settle (`takeGroundChange`), widens a cell all round (a cell's lift reads its neighbours) and,
+    with the sea, to whole liquid chunks (the sea's cells and deep flag follow the ground), whose
+    `NavLiquids` entries it forgets; `touchHoles()` with no rect counts as the whole map. A change
+    to the liquids, the sea or the client's inner heights builds every tile again. Recast's build of a tile runs in up to two Web Workers (#508,
     `navJobs.ts` posts the jobs, `navWorker.ts` runs `runTileJob` with a WASM instance of its own,
     three jobs out a worker): the main thread gathers the tile's triangles (`tileJob` copies them
     out of the gatherer's reused buffers), and takes back Detour's tile bytes, which it copies into

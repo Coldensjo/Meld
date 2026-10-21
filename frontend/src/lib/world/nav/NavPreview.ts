@@ -1,10 +1,10 @@
 // View › Walkable ground (#175): the server's navmesh as VMaNGOS would build it, drawn over the
 // ground around the camera, and a path test between two clicked points. Tiles (navBuild.ts) are
 // built nearest first within RANGE of the camera's target, a few each frame within BUDGET_MS, and
-// built again QUIET_MS after the ground or the models stop changing: all of them for the ground, only
-// those a changed model meets for the models (#509). A tile's triangles are gathered here and Recast
-// builds it in a Web Worker (navJobs.ts, #508), whose Detour bytes go into the navmesh kept here
-// for the path test; without workers the build runs here. Nothing runs while the view is
+// built again QUIET_MS after the ground or the models stop changing: only those a changed model (#509)
+// or a sculpt or hole stroke (#620) meets, and all of them for a change to the liquids or the sea. A
+// tile's triangles are gathered here and Recast builds it in a Web Worker (navJobs.ts, #508), whose
+// Detour bytes go into the navmesh kept here for the path test; without workers the build runs here. Nothing runs while the view is
 // off: the Engine calls `update` only while it is on, and `clear` frees the WASM side when it goes off.
 // In server mode (#240, navServer.ts) the tiles are instead the server's own, one a client tile, read
 // from its movement maps, and nothing is built.
@@ -16,7 +16,7 @@ import { fetchCollision, fetchNavTile } from '../../wow/api'
 import { isHelper } from '../../models/helpers'
 import type { ObjectLayer } from '../ObjectLayer'
 import type { Terrain } from '../../terrain/Terrain'
-import type { LiquidMap } from '../../water/liquids'
+import { LIQUID_CELLS, type LiquidMap } from '../../water/liquids'
 import {
 	AREA_MAGMA,
 	AREA_SLIME,
@@ -166,10 +166,13 @@ export class NavPreview {
 	/** Each client tile's height span (adtHeightSpan) by tile, for the current build. */
 	private spans = new Map<number, [number, number]>()
 	private deep = (gx: number, gz: number) => this.liquids.deep(gx, gz)
-	/** The inputs' versions: the ground's, liquids' and settings' part, and the models' part (#509). */
+	/** The inputs' versions: the liquids' and settings' part, the ground's (#620) and the models' (#509). */
 	private signature = ''
+	private groundSignature = ''
+	/** Scratch for the vertex rect Terrain.takeGroundChange hands over. */
+	private groundRect = { x0: 0, z0: 0, x1: 0, z1: 0 }
 	private modelSignature = ''
-	/** The boxes (x0, z0, x1, z1) of the placements refreshModels added, moved or dropped. */
+	/** The boxes (x0, z0, x1, z1) of the placements refreshModels added, moved or dropped, and of the ground that changed. */
 	private changed: number[] = []
 	/** Tiles built so far, for the probes. */
 	private builds = 0
@@ -272,12 +275,15 @@ export class NavPreview {
 		}
 		// The client's inner heights (#284) arriving rebuild the tiles, and the first build waits for them.
 		if (terrain.innerPending) return
-		const sig = `${terrain.heightVersion}|${terrain.holesVersion}|${liquids.version}|${sea}|${!!terrain.innerLift}`
+		const sig = `${liquids.version}|${sea}|${!!terrain.innerLift}`
+		const groundSig = `${terrain.heightVersion}|${terrain.holesVersion}`
 		const modelSig = `${objects.version}|${this.loaded}`
-		if (sig !== this.signature || modelSig !== this.modelSignature) {
-			// Only a change to the models leaves the ground's tiles alone (#509); anything else rebuilds them all.
+		if (sig !== this.signature || groundSig !== this.groundSignature || modelSig !== this.modelSignature) {
+			// A change to the models (#509) or the ground's heights and holes (#620) builds again only the
+			// tiles it touches; the liquids, the sea or the client's inner heights rebuild them all.
 			if (sig !== this.signature) this.full = true
 			this.signature = sig
+			this.groundSignature = groundSig
 			this.modelSignature = modelSig
 			this.changedAt = now
 			this.dirty = true
@@ -295,8 +301,12 @@ export class NavPreview {
 			if (full) {
 				this.liquids.reset(this.liquidMap, terrain, this.sea)
 				this.spans.clear()
+				terrain.takeGroundChange(this.groundRect)
 				this.stamp++
-			} else this.markChanged()
+			} else {
+				this.addGroundChange(terrain)
+				this.markChanged()
+			}
 			this.focusTile.x = NaN
 		}
 		this.followFocus(focus)
@@ -321,6 +331,7 @@ export class NavPreview {
 		this.placed.clear()
 		this.placedList.length = 0
 		this.signature = ''
+		this.groundSignature = ''
 		this.modelSignature = ''
 	}
 
@@ -414,9 +425,35 @@ export class NavPreview {
 	}
 
 	/**
-	 * After a change to the models only (#509): marks for building the tiles whose box (with its
-	 * border, as buildTile gathers) meets a changed placement's, and every tile of a client tile whose
-	 * height span (adtHeightSpan) the change moved, since the span sets every one of its tiles' voxels.
+	 * Adds to `changed` the box of the ground whose heights or holes changed since the last build
+	 * (#620), a cell wider all round, since a cell's lift reads its neighbours. With the sea, whose
+	 * cells and depth follow the ground, the box grows to whole liquid chunks, whose deep flag drops
+	 * the chunk's navmesh, and those chunks are worked out again.
+	 */
+	private addGroundChange(terrain: Terrain) {
+		const g = this.groundRect
+		if (!terrain.takeGroundChange(g)) return
+		// The cells that touch the changed vertices, and one more.
+		let cx0 = g.x0 - 2
+		let cz0 = g.z0 - 2
+		let cx1 = g.x1 + 1
+		let cz1 = g.z1 + 1
+		if (this.sea !== null) {
+			cx0 = Math.floor(cx0 / LIQUID_CELLS) * LIQUID_CELLS
+			cz0 = Math.floor(cz0 / LIQUID_CELLS) * LIQUID_CELLS
+			cx1 = Math.floor(cx1 / LIQUID_CELLS) * LIQUID_CELLS + LIQUID_CELLS - 1
+			cz1 = Math.floor(cz1 / LIQUID_CELLS) * LIQUID_CELLS + LIQUID_CELLS - 1
+		}
+		this.liquids.forget(cx0, cz0, cx1, cz1)
+		const cs = terrain.cellSize
+		this.changed.push(cx0 * cs, cz0 * cs, (cx1 + 1) * cs, (cz1 + 1) * cs)
+	}
+
+	/**
+	 * After a change to the models (#509) or the ground's heights and holes (#620): marks for building
+	 * the tiles whose box (with its border, as buildTile gathers) meets a changed box, and every tile
+	 * of a client tile whose height span (adtHeightSpan) the change moved, since the span sets every
+	 * one of its tiles' voxels.
 	 */
 	private markChanged() {
 		const s = this.settings!

@@ -208,7 +208,7 @@ export class HoleWalls {
         for (let z = band.z0; z <= band.z1; z++) for (let x = band.x0; x <= band.x1; x++) t.holes[z * t.size + x] = value
       }
       d.stroke.touchHoles(rect)
-      t.touchHoles()
+      t.touchHoles(rect)
       t.markDirty(rect.x0, rect.z0, rect.x1 + 1, rect.z1 + 1)
       d.rect = grow(d.rect, rect)
     }
@@ -245,7 +245,7 @@ export class HoleWalls {
       rect = grow(rect, r)
     }
     if (!rect) return
-    t.touchHoles()
+    t.touchHoles(rect)
     t.markDirty(rect.x0, rect.z0, rect.x1 + 1, rect.z1 + 1)
     const cmd = stroke.finish()
     if (cmd) ctx.history.push(cmd)
