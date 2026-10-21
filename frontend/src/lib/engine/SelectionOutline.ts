@@ -244,17 +244,40 @@ export class SelectionOutline {
         this.proxies[i] = proxy
       }
       proxy.geometry = t.asset.geometry
-      proxy.material = Array.isArray(t.asset.material) ? t.asset.material.map((m) => this.maskMaterial(m, t.touching)) : this.maskMaterial(t.asset.material, t.touching)
+      proxy.material = Array.isArray(t.asset.material) ? this.maskMaterials(t.asset.material, t.touching) : this.maskMaterial(t.asset.material, t.touching)
       proxy.matrix.copy(t.matrix)
       proxy.matrixWorld.copy(t.matrix)
     }
   }
 
+  /**
+   * A multi-material model's mask materials, filled into an array kept per source array and touching
+   * flag rather than mapped each frame. Each is still asked of `maskMaterial`, which refreshes its map
+   * and cut-off from the source (a texture can arrive after the model).
+   */
+  private maskMaterials(list: THREE.Material[], touching: boolean): THREE.Material[] {
+    const cache = this.maskLists[touching ? 1 : 0]
+    let out = cache.get(list)
+    if (!out) {
+      out = []
+      cache.set(list, out)
+    }
+    out.length = list.length
+    for (let i = 0; i < list.length; i++) out[i] = this.maskMaterial(list[i], touching)
+    return out
+  }
+
+  /** `maskMaterials`' arrays per source array, for a free and for a touching model. */
+  private maskLists = [new WeakMap<THREE.Material[], THREE.Material[]>(), new WeakMap<THREE.Material[], THREE.Material[]>()]
+
+  /** Scratch for `render`'s saved clear colour. */
+  private prevClear = new THREE.Color()
+
   /** Draw the stroke on top of the already-rendered frame. */
   render(renderer: THREE.WebGLRenderer, camera: THREE.Camera) {
     if (!this.active) return
     const prevTarget = renderer.getRenderTarget()
-    const prevColor = renderer.getClearColor(new THREE.Color())
+    const prevColor = renderer.getClearColor(this.prevClear)
     const prevAlpha = renderer.getClearAlpha()
     const prevAuto = renderer.autoClear
     renderer.setRenderTarget(this.maskRT)

@@ -88,7 +88,8 @@ export class TransformGizmo {
   private right = new THREE.Vector3()
   private up = new THREE.Vector3(0, 1, 0)
   private hovered: GizmoHandle | null = null
-  private ringKey = ''
+  private ringKeyR = NaN
+  private ringKeyTube = NaN
 
   constructor() {
     const hidden = new THREE.MeshBasicMaterial({ visible: false })
@@ -169,13 +170,16 @@ export class TransformGizmo {
     this.ring.scale.setScalar(r)
     this.ringMat.uniforms.uWidth.value = tube / r
     // The hit torus is rebuilt only on a noticeable change (quantised), not every frame.
-    const key = `${Math.round(r * 10)}|${Math.round(Math.log(tube) * 8)}`
-    if (key !== this.ringKey) {
-      this.ringKey = key
+    const keyR = Math.round(r * 10)
+    const keyTube = Math.round(Math.log(tube) * 8)
+    if (keyR !== this.ringKeyR || keyTube !== this.ringKeyTube) {
+      this.ringKeyR = keyR
+      this.ringKeyTube = keyTube
       this.ringHit.geometry.dispose()
       this.ringHit.geometry = new THREE.TorusGeometry(r, tube * 5, 4, 36)
     }
-    for (const m of [this.ring, this.ringHit]) m.position.set(base.x, base.y + 0.15, base.z)
+    this.ring.position.set(base.x, base.y + 0.15, base.z)
+    this.ringHit.position.set(base.x, base.y + 0.15, base.z)
     const len = THREE.MathUtils.clamp(camDist * 0.1, 1.5, 40)
     this.arrow.position.set(base.x, topY + len * 0.75, base.z)
     this.arrow.scale.setScalar(len)

@@ -527,6 +527,13 @@ export class Engine {
   private cullView: CullView = { frustums: [], spheres: [], eye: new THREE.Vector3(), pxPerUnit: 1, cutoffPx: 0 }
   private viewFrustum = new THREE.Frustum()
   private viewProj = new THREE.Matrix4()
+	/** The two shadowed sun lights `cullInstances` walks, set once the environment is built. */
+	private shadowLights: THREE.DirectionalLight[] = []
+	/** The water brush's ring for `updateLiquids`, filled each frame rather than built. */
+	private liquidRing = { x: 0, y: 0, z: 0, radius: 0 }
+	/** The selected spawn whose key `spawnKeyOf` keeps, so a held selection doesn't build its string each frame. */
+	private keyedSpawn: { kind: string; guid: number } | null = null
+	private keyedSpawnKey = ''
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -547,6 +554,7 @@ export class Engine {
     canvas.addEventListener('webglcontextlost', () => this.onContextLost(), { signal: this.abort.signal })
     canvas.addEventListener('webglcontextrestored', () => this.onContextRestored(), { signal: this.abort.signal })
     this.env = new Environment(this.scene)
+    this.shadowLights = [this.env.key, this.env.far]
 		this.posedShadows = new PosedShadows(this.renderer, this.env.key)
 		// After PosedShadows, so the timing wraps its passes and copies too.
 		this.timeShadowMaps()
@@ -1113,6 +1121,15 @@ export class Engine {
     }
   }
 
+	/** `spawnKey(s)`, kept while the same spawn object stays selected (a held selection asks every frame). */
+	private spawnKeyOf(s: { kind: string; guid: number }) {
+		if (s !== this.keyedSpawn) {
+			this.keyedSpawn = s
+			this.keyedSpawnKey = spawnKey(s)
+		}
+		return this.keyedSpawnKey
+	}
+
 	/** The scene's draw calls and triangles of the last `draw`, before its outline passes. */
 	private drawnCalls = 0
 	private drawnTriangles = 0
@@ -1194,7 +1211,14 @@ export class Engine {
       this.wowRevision = wow.revision
       resetLiquidFrames()
     }
-    const ring = editor.tool === 'water' && editor.waterMode === 'paint' && this.hit ? { x: this.hit.x, y: this.hit.y, z: this.hit.z, radius: editor.brush.radius } : null
+    let ring: typeof this.liquidRing | null = null
+    if (editor.tool === 'water' && editor.waterMode === 'paint' && this.hit) {
+      ring = this.liquidRing
+      ring.x = this.hit.x
+      ring.y = this.hit.y
+      ring.z = this.hit.z
+      ring.radius = editor.brush.radius
+    }
     updateLiquids(time * 1000, this.hour, wow.loaded, ring, this.env.state.keyDir)
     m.mark(SECTION['Uniforms and water'])
 
@@ -1218,6 +1242,10 @@ export class Engine {
     m.mark(SECTION['Lights and flames'])
     this.rooms.update(this.objects, this.camera.position, this.roomGround)
     this.updateNear()
+    // The room gate and the culling both read this frame's view-projection; the camera has stopped moving.
+    this.camera.updateMatrixWorld()
+    this.viewProj.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
+    this.viewFrustum.setFromProjectionMatrix(this.viewProj)
     this.updateRoomGate(dt)
     m.mark(SECTION['WMO rooms'])
     this.cullInstances()
@@ -1231,7 +1259,7 @@ export class Engine {
 		m.mark(SECTION['Ground effects'])
 		this.updateBakedShadows()
 		const sel = editor.selectedSpawn
-		this.paths.update(this.doc.spawnLayer, sel ? spawnKey(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
+		this.paths.update(this.doc.spawnLayer, sel ? this.spawnKeyOf(sel) : null, editor.selectedWaypoint, !!this.prefs?.showAllPaths)
 		this.links.update(this.doc.spawnLayer, sel, !!this.prefs?.showPools)
 		m.mark(SECTION['Paths and baked shadows'])
     this.animateModels(time)
@@ -1272,15 +1300,12 @@ export class Engine {
    */
   private cullInstances() {
     const v = this.cullView
-    this.camera.updateMatrixWorld()
-    this.viewProj.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
-    this.viewFrustum.setFromProjectionMatrix(this.viewProj)
     v.frustums.length = 0
     v.frustums.push(this.viewFrustum)
     v.camera = this.camera
     v.shadowCamera = null
     v.shadowFrustum = null
-    for (const light of [this.env.key, this.env.far]) {
+    for (const light of this.shadowLights) {
       if (!light.castShadow) continue
       light.updateMatrixWorld()
 			// The cull wants the frustum of the live light, but the lookup matrix must stay the one its map
@@ -6239,9 +6264,6 @@ export class Engine {
     const r = this.rooms.current
     beginRoomGates()
     if (!this.topDown) {
-      this.camera.updateMatrixWorld()
-      this.viewProj.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse)
-      this.viewFrustum.setFromProjectionMatrix(this.viewProj)
       if (r) {
         this.roomClip.copy(this.viewProj).multiply(r.matrix)
         const pvs = this.roomFlood.run(r.nav, r.seeds, r.eye, this.roomClip)

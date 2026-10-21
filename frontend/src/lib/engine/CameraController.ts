@@ -155,8 +155,11 @@ export class CameraController {
     this.jumped = true
   }
 
-  /** The offset from a looked-at point back to the camera, `dist` away along the view direction. */
-  private viewOffset(dist: number, out = new THREE.Vector3()) {
+  /** Scratch for `viewOffset`, which the frame's update calls. */
+  private offsetScratch = new THREE.Vector3()
+
+  /** The offset from a looked-at point back to the camera, `dist` away along the view direction; a shared scratch, used at once. */
+  private viewOffset(dist: number, out = this.offsetScratch) {
     const cp = Math.cos(this.pitch)
     return out.set(Math.sin(this.yaw) * cp * dist, Math.sin(this.pitch) * dist, Math.cos(this.yaw) * cp * dist)
   }
