@@ -186,7 +186,7 @@ export class PathTool implements Tool {
 
 	/** Records the change from `before` to the paths now as one undo step. */
 	private record(ctx: ToolContext, label: string, before: MapPath[]): Command {
-		const after = copyPaths(editor.paths)
+		const after = editor.paths
 		const cmd: Command = { label, undo: () => this.restore(before), redo: () => this.restore(after) }
 		ctx.history.push(cmd)
 		return cmd
@@ -202,11 +202,11 @@ export class PathTool implements Tool {
 			editor.pathId = picked.id
 			editor.pathKind = p?.kind ?? editor.pathKind
 			editor.pathPoint = picked.index
-			this.drag = { ...picked, before: copyPaths(editor.paths), paths: copyPaths(editor.paths), height: e.shiftKey, offset: q.y - ctx.terrain.heightAt(q.x, q.z), moved: false, label: e.shiftKey ? 'Raise path point' : 'Move path point' }
+			this.drag = { ...picked, before: editor.paths, paths: copyPaths(editor.paths), height: e.shiftKey, offset: q.y - ctx.terrain.heightAt(q.x, q.z), moved: false, label: e.shiftKey ? 'Raise path point' : 'Move path point' }
 			return
 		}
 		if (!hit) return
-		const before = copyPaths(editor.paths)
+		const before = editor.paths
 		const list = copyPaths(editor.paths)
 		const point: PathPoint = { x: hit.x, y: hit.y, z: hit.z }
 		let path = list.find((p) => p.id === editor.pathId)
@@ -291,7 +291,7 @@ export class PathTool implements Tool {
 			setStatus('Click a path\'s point to pick it first.', 2500)
 			return
 		}
-		const before = copyPaths(editor.paths)
+		const before = editor.paths
 		const list = copyPaths(editor.paths)
 		const q = list.find((x) => x.id === p.id)!
 		q.points.splice(editor.pathPoint, 1)
@@ -306,8 +306,8 @@ export class PathTool implements Tool {
 	deletePath(ctx: ToolContext) {
 		const p = this.current()
 		if (!p) return
-		const before = copyPaths(editor.paths)
-		editor.paths = copyPaths(editor.paths.filter((x) => x.id !== p.id))
+		const before = editor.paths
+		editor.paths = (editor.paths.filter((x) => x.id !== p.id))
 		this.pick(-1)
 		this.version++
 		this.record(ctx, `Delete ${p.name}`, before)
@@ -319,12 +319,12 @@ export class PathTool implements Tool {
 		if (!p || p[key] === value) return
 		const run = this.fieldRun
 		const merge = run && run.id === p.id && run.key === key && ctx.history.peek() === run.cmd
-		const before = merge ? run.before : copyPaths(editor.paths)
+		const before = merge ? run.before : editor.paths
 		const list = copyPaths(editor.paths)
 		list.find((x) => x.id === p.id)![key] = value
 		editor.paths = list
 		this.version++
-		const after = copyPaths(list)
+		const after = list
 		const cmd: Command = { label: `Set ${p.name} ${key}`, undo: () => this.restore(before), redo: () => this.restore(after) }
 		if (merge) ctx.history.replaceTop(cmd)
 		else ctx.history.push(cmd)
