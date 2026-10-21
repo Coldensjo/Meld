@@ -130,9 +130,11 @@ export class PropEffects {
   private tmpV = new THREE.Vector3()
   private tmpQ = new THREE.Quaternion()
   private tmpS = new THREE.Vector3()
-  private order: number[] = []
-  /** Each source's squared distance to the camera target this frame, for the light pool's order. */
-  private dist = new Float32Array(0)
+  /** The nearest sources to the camera target this frame, nearest first, the first `orderLen`. */
+  private order = new Int32Array(LIGHT_POOL)
+  private orderLen = 0
+  /** The squared distance of each of `order`'s sources to the camera target. */
+  private orderDist = new Float32Array(LIGHT_POOL)
   /** The source each pooled light shows (-1 for none), kept across frames so shadows aren't redrawn. */
   private slots = new Int32Array(LIGHT_POOL).fill(-1)
   /**
@@ -366,16 +368,8 @@ export class PropEffects {
 
     // Nearest sources to the camera target get the light pool, and the nearest of those its shadows.
     const src = this.sources
-    const count = this.count
-    this.order.length = 0
-    for (let i = 0; i < count; i++) this.order.push(i)
-    if (count > SHADOW_LIGHTS) {
-      if (this.dist.length < count) this.dist = new Float32Array(count)
-      const d = this.dist
-      for (let i = 0; i < count; i++) d[i] = src[i].pos.distanceToSquared(focus)
-      this.order.sort((a, b) => d[a] - d[b])
-    }
-    this.assignSlots(this.enabled ? Math.min(LIGHT_POOL, this.order.length) : 0)
+    this.selectNearest(focus)
+    this.assignSlots(this.enabled ? this.orderLen : 0)
     for (const sp of this.shadowSpheres) this.sphereFree.push(sp)
     this.shadowSpheres.length = 0
     clearShadowReach()
@@ -444,6 +438,38 @@ export class PropEffects {
       const sp = this.slotOwner[i] >= 0 ? this.spans.get(this.slotOwner[i]) : undefined
       slots[i] = sp && this.slotK[i] < sp.srcCount ? sp.src + this.slotK[i] : -1
     }
+  }
+
+  /**
+   * Fills `order` with the LIGHT_POOL sources nearest `focus`, nearest first, in one pass with a
+   * bounded insertion: a city holds thousands of sources, and sorting them all each frame only to
+   * take eight was the light pool's main cost (#518). A tie keeps the lower index first, as the
+   * stable sort did, so the shadowed lights don't trade sources between equally near ones.
+   */
+  private selectNearest(focus: THREE.Vector3) {
+    const src = this.sources
+    const count = this.count
+    const order = this.order
+    const d = this.orderDist
+    let len = 0
+    if (count <= SHADOW_LIGHTS) {
+      // All of them go to the shadowed lights, which keep their sources whatever the order.
+      for (; len < count; len++) order[len] = len
+      this.orderLen = len
+      return
+    }
+    for (let i = 0; i < count; i++) {
+      const di = src[i].pos.distanceToSquared(focus)
+      if (len === LIGHT_POOL && di >= d[len - 1]) continue
+      let j = len < LIGHT_POOL ? len++ : len - 1
+      for (; j > 0 && d[j - 1] > di; j--) {
+        d[j] = d[j - 1]
+        order[j] = order[j - 1]
+      }
+      d[j] = di
+      order[j] = i
+    }
+    this.orderLen = len
   }
 
   /**

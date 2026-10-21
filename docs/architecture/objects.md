@@ -209,7 +209,8 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
   three's multiply by the identity inverses and uploads the bone texture only after a new pose.
 - `world/PropEffects.ts` draws the flames (instanced upright billboards with a procedural fire
   shader) and assigns a pool of `LIGHT_POOL` (8) `PointLight`s to the nearest light sources,
-  with flicker.
+  with flicker. `selectNearest` finds those eight in one pass over the sources (a bounded
+  insertion, ties to the lower index), not a sort of them all.
   - A prop's coincident light and flames merge into one light.
   - The nearest `SHADOW_LIGHTS` (3) cast cube shadows (even with the Shadows pref off) so they don't shine through walls. Their maps
     redraw only when a light gets another source or the objects or terrain change, and culling keeps
