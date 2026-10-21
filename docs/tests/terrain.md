@@ -399,7 +399,8 @@ creature's way round obstacles.
   is). Needs the VMaNGOS folder's `data/mmaps`. The lava's centroid in that block is about
   (478, 431, 56); the WMO reaches into tile 34_41.
 - Probe: `bun run probe walkable` (about 45 s) on a flat map: 172 tiles, a 60 yd straight path, a path
-  round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, a river 2 yd
+  round an 80 yd line of holes (92 yd), Goldshire's inn bringing floors above the ground, the inn moved 3 yd building again
+  only the tiles it meets (12 of 172, `counts.builds`) with the same surface as building them all (#509), a river 2 yd
   deep across the map drawn blue and crossed only as a swimmer (`kind: 'swim'`, #239), and the view
   off freeing every tile. It turns Follow the Ground on first: with the default flying camera the new
   map's view starts 250 yd up and Test a Path's clicks land 345 yd out, past the built tiles (#256).

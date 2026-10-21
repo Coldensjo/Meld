@@ -137,7 +137,11 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     has none (its export writes the mean), and a region's come from the client each session.
   - `NavPreview.ts` keeps the tiles within `RANGE` (160 yd), builds the nearest first within 6 ms a
     frame, and builds them again 400 ms after the terrain's height or holes, the objects, the
-    loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. `Engine.updateNav` calls it only while the view is on and
+    loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. A change to the
+    objects or their collision alone (#509) builds again only the tiles whose bordered box meets a
+    placement added, moved or dropped (`refreshModels` collects their boxes, `markChanged` marks the
+    tiles), and every tile of a client tile whose height span (`adtHeightSpan`) it moved; anything
+    else builds every tile again. `Engine.updateNav` calls it only while the view is on and
     `clear()`s it (frees the WASM navmesh) when it goes off. View › Test a Path arms `Engine.navPick`:
     the next two clicks are a creature's path (`NavPreview.pathPoint`, Detour's `computePath`),
     drawn as a line, its length in the status bar: a walking creature's (`NAV_GROUND`, the server's

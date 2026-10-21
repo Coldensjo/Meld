@@ -1,4 +1,4 @@
-// View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, a river 2 yd deep across the map is swim area only a swimmer crosses (#239), and turning the view off frees it all.
+// View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, moving it builds again only the tiles it meets (#509), a river 2 yd deep across the map is swim area only a swimmer crosses (#239), and turning the view off frees it all.
 const e = P.e
 const { prefs } = await P.state()
 // Orbit the map's centre: the default flying camera sits 250 yd up and Test a Path's clicks land past the built tiles (#256).
@@ -64,6 +64,27 @@ for (const m of nav.group.children) {
 	}
 }
 
+// #509: moving the inn 3 yd builds again only the tiles its boxes meet (its client tile's height
+// span stays), and gives the same surface as building every tile again (a hole's touch forces that).
+const surface = () => {
+	let n = 0
+	for (const m of nav.group.children) if (m.isMesh && m.geometry.attributes.color) n += m.geometry.attributes.position.count
+	return n
+}
+const before = nav.counts.builds
+const w = e.objects.worldPlacement(inn)
+w.pos.x += 3
+e.objects.place(inn, null, w)
+await P.frames(2)
+const moved = await built('the tiles after moving the inn')
+const movedBuilds = moved.builds - before
+const partial = surface()
+e.terrain.touchHoles()
+await P.frames(2)
+const all = await built('every tile again')
+const fullBuilds = all.builds - moved.builds
+const whole = surface()
+
 // A river 2 yd deep down one chunk row 50 yd south of the target, across the whole map (#239): swim
 // area (blue), which a walking creature can't cross and a swimming one can.
 const liquids = e.doc.liquids
@@ -98,7 +119,11 @@ const ok =
 	around.kind === 'path' &&
 	around.yards > 70 &&
 	high > 0 &&
+	movedBuilds > 0 &&
+	movedBuilds < first.total / 4 &&
+	fullBuilds === all.total &&
+	partial === whole &&
 	blue > 0 &&
 	across.kind === 'swim' &&
 	freed
-return { ok, tiles: first.total, buildMs, tris, straight, clicked, around, innFloorVerts: high, riverVerts: blue, across, freed }
+return { ok, tiles: first.total, buildMs, tris, straight, clicked, around, innFloorVerts: high, movedBuilds, fullBuilds, partial, whole, riverVerts: blue, across, freed }

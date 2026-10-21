@@ -1,7 +1,8 @@
 // View › Walkable ground (#175): the server's navmesh as VMaNGOS would build it, drawn over the
 // ground around the camera, and a path test between two clicked points. Tiles (navBuild.ts) are
 // built nearest first within RANGE of the camera's target, a few each frame within BUDGET_MS, and
-// built again QUIET_MS after the ground or the models stop changing. Nothing runs while the view is
+// built again QUIET_MS after the ground or the models stop changing: all of them for the ground, only
+// those a changed model meets for the models (#509). Nothing runs while the view is
 // off: the Engine calls `update` only while it is on, and `clear` frees the WASM side when it goes off.
 // In server mode (#240, navServer.ts) the tiles are instead the server's own, one a client tile, read
 // from its movement maps, and nothing is built.
@@ -155,9 +156,17 @@ export class NavPreview {
 	/** Each client tile's height span (adtHeightSpan) by tile, for the current build. */
 	private spans = new Map<number, [number, number]>()
 	private deep = (gx: number, gz: number) => this.liquids.deep(gx, gz)
+	/** The inputs' versions: the ground's, liquids' and settings' part, and the models' part (#509). */
 	private signature = ''
+	private modelSignature = ''
+	/** The boxes (x0, z0, x1, z1) of the placements refreshModels added, moved or dropped. */
+	private changed: number[] = []
+	/** Tiles built so far, for the probes. */
+	private builds = 0
 	private sea: number | null = null
 	private changedAt = 0
+	/** Whether the change waiting to settle touched more than the models, so every tile is built again. */
+	private full = false
 	private dirty = false
 	private stamp = 0
 	/** The tile the focus was last in; in server mode the focus itself (yd from the map's corner). */
@@ -220,7 +229,7 @@ export class NavPreview {
 			return { done, total: this.serverTiles.size, loading: this.serverPending + (this.r ? 0 : 1), settling: false, missing }
 		}
 		for (const t of this.tiles.values()) if (t.stamp === this.stamp) done++
-		return { done, total: this.tiles.size, loading: this.pending + (this.r ? 0 : 1), settling: this.dirty, missing }
+		return { done, total: this.tiles.size, loading: this.pending + (this.r ? 0 : 1), settling: this.dirty, missing, builds: this.builds }
 	}
 
 	/**
@@ -253,9 +262,13 @@ export class NavPreview {
 		}
 		// The client's inner heights (#284) arriving rebuild the tiles, and the first build waits for them.
 		if (terrain.innerPending) return
-		const sig = `${terrain.heightVersion}|${terrain.holesVersion}|${objects.version}|${this.loaded}|${liquids.version}|${sea}|${!!terrain.innerLift}`
-		if (sig !== this.signature) {
+		const sig = `${terrain.heightVersion}|${terrain.holesVersion}|${liquids.version}|${sea}|${!!terrain.innerLift}`
+		const modelSig = `${objects.version}|${this.loaded}`
+		if (sig !== this.signature || modelSig !== this.modelSignature) {
+			// Only a change to the models leaves the ground's tiles alone (#509); anything else rebuilds them all.
+			if (sig !== this.signature) this.full = true
 			this.signature = sig
+			this.modelSignature = modelSig
 			this.changedAt = now
 			this.dirty = true
 		}
@@ -264,12 +277,14 @@ export class NavPreview {
 		// The first build doesn't wait for the models to settle.
 		if (this.dirty && (this.stamp === 0 || now - this.changedAt > QUIET_MS)) {
 			this.dirty = false
+			const full = this.full || this.stamp === 0
+			this.full = false
 			this.refreshModels(focus)
-			this.liquids.reset(this.liquidMap, terrain, this.sea)
-			this.spans.clear()
-			this.stamp++
-			this.queue.length = 0
-			for (const t of this.tiles.values()) this.queue.push(t)
+			if (full) {
+				this.liquids.reset(this.liquidMap, terrain, this.sea)
+				this.spans.clear()
+				this.stamp++
+			} else this.markChanged()
 			this.focusTile.x = NaN
 		}
 		this.followFocus(focus)
@@ -288,6 +303,7 @@ export class NavPreview {
 		this.placed.clear()
 		this.placedList.length = 0
 		this.signature = ''
+		this.modelSignature = ''
 	}
 
 	dispose() {
@@ -337,9 +353,13 @@ export class NavPreview {
 		this.focusTile.x = NaN
 	}
 
-	/** The placed models' faces in world space: reused where an object's type and matrix are unchanged. */
+	/**
+	 * The placed models' faces in world space: reused where an object's type and matrix are unchanged.
+	 * The boxes of those added, moved (old and new) or dropped go in `changed`.
+	 */
 	private refreshModels(focus: THREE.Vector3) {
 		const objects = this.objects!
+		this.changed.length = 0
 		const side = Math.max(1, Math.round(this.terrain!.worldSize / ADT_YARDS))
 		const keep = new Set<number>()
 		for (const o of objects.objects.values()) {
@@ -355,11 +375,59 @@ export class NavPreview {
 			keep.add(o.id)
 			const old = this.placed.get(o.id)
 			if (old && old.type === o.type && sameMatrix(old.matrix, e)) continue
-			this.placed.set(o.id, { type: o.type, matrix: new Float32Array(e), faces: placeFaces(local.tris, e, local.groups, local.liquid) })
+			if (old) this.addChanged(old.faces)
+			const faces = placeFaces(local.tris, e, local.groups, local.liquid)
+			this.addChanged(faces)
+			this.placed.set(o.id, { type: o.type, matrix: new Float32Array(e), faces })
 		}
-		for (const id of this.placed.keys()) if (!keep.has(id)) this.placed.delete(id)
+		for (const [id, p] of this.placed) {
+			if (keep.has(id)) continue
+			this.addChanged(p.faces)
+			this.placed.delete(id)
+		}
 		this.placedList.length = 0
 		for (const p of this.placed.values()) this.placedList.push(p.faces)
+	}
+
+	private addChanged(f: PlacedCollision) {
+		this.changed.push(f.min[0], f.min[2], f.max[0], f.max[2])
+	}
+
+	/**
+	 * After a change to the models only (#509): marks for building the tiles whose box (with its
+	 * border, as buildTile gathers) meets a changed placement's, and every tile of a client tile whose
+	 * height span (adtHeightSpan) the change moved, since the span sets every one of its tiles' voxels.
+	 */
+	private markChanged() {
+		const s = this.settings!
+		const border = s.borderSize * s.cs
+		const c = this.changed
+		const per = Math.round(ADT_YARDS / s.tileYards)
+		const moved = new Set<number>()
+		for (const [key, old] of this.spans) {
+			const ax = key % 64
+			const az = (key - ax) / 64
+			const span = adtHeightSpan(this.terrain!, this.placedList, ax, az, ADT_YARDS, this.deep, [0, 0])
+			if (span[0] === old[0] && span[1] === old[1]) continue
+			this.spans.set(key, span)
+			moved.add(key)
+		}
+		for (const tile of this.tiles.values()) {
+			if (tile.stamp !== this.stamp) continue
+			if (moved.has(Math.floor(tile.tz / per) * 64 + Math.floor(tile.tx / per))) {
+				tile.stamp = -1
+				continue
+			}
+			const x0 = tile.tx * s.tileYards - border
+			const z0 = tile.tz * s.tileYards - border
+			const x1 = (tile.tx + 1) * s.tileYards + border
+			const z1 = (tile.tz + 1) * s.tileYards + border
+			for (let i = 0; i < c.length; i += 4) {
+				if (c[i + 2] < x0 || c[i] > x1 || c[i + 3] < z0 || c[i + 1] > z1) continue
+				tile.stamp = -1
+				break
+			}
+		}
 	}
 
 	/** A model type's collision faces, their groups and its liquids, fetched on first ask (null until they arrive). */
@@ -374,6 +442,9 @@ export class NavPreview {
 			.finally(() => {
 				this.pending--
 				this.loaded++
+				// Settling from now, not from the next frame's look at the signature, so `counts` never
+				// shows the tiles done between the faces' arrival and that frame.
+				this.dirty = true
 			})
 		return null
 	}
@@ -432,6 +503,7 @@ export class NavPreview {
 		input.floorY = span[0]
 		input.ceilY = span[1]
 		const built = this.builder!.build(input, tile.tx, tile.tz)
+		this.builds++
 		tile.stamp = this.stamp
 		if (tile.ref) nav.removeTile(tile.ref)
 		tile.ref = 0
