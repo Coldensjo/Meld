@@ -430,6 +430,24 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 	}
 
+	// Added models take IDs above every one of the map: the block's tiles as the client has them
+	// without Meld's patch, and the map's other tiles as it reads them now (#491).
+	nextUID, err := mapUIDMax(set, e.MapName, func(x, y int) bool {
+		return x >= e.X && x < e.X+e.Size && y >= e.Y && y < e.Y+e.Size
+	})
+	if err != nil {
+		return nil, err
+	}
+	for uid := range owner {
+		if uid != GlobalUID {
+			nextUID = max(nextUID, uid)
+		}
+	}
+	nextUID++
+	for k := range tiles {
+		tiles[k].change.NextUID = &nextUID
+	}
+
 	rc := newReaches(set)
 	seen := map[uint32]bool{}
 	for _, o := range e.Objects {

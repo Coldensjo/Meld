@@ -179,11 +179,20 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 			return res, fmt.Errorf("tile %d,%d is listed twice", t.X, t.Y)
 		}
 		present[[2]int{t.X, t.Y}] = true
+	}
+	// The models take IDs from one counter for the whole map, above any tile of the folder the export
+	// doesn't rewrite (a new map has none), so no two share one (#491).
+	nextUID, err := mapUIDMax(set, m.Dir, func(x, y int) bool { return present[[2]int{x, y}] })
+	if err != nil {
+		return res, err
+	}
+	nextUID++
+	for _, t := range m.Tiles {
 		var water *adt.Water
 		if m.Water {
 			water = &adt.Water{Level: m.WaterLevel}
 		}
-		data, err := buildTile(t, water)
+		data, err := buildTile(t, water, &nextUID)
 		if err != nil {
 			return res, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
 		}
@@ -268,9 +277,9 @@ func changedTiles(m MapSpec, files []mpq.File) ([]string, bool) {
 	return tiles, layout
 }
 
-// buildTile writes one tile: its ground, paint and models.
-func buildTile(t TileSpec, water *adt.Water) ([]byte, error) {
-	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water}
+// buildTile writes one tile: its ground, paint and models, the models numbered from nextUID.
+func buildTile(t TileSpec, water *adt.Water, nextUID *uint32) ([]byte, error) {
+	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water, NextUID: nextUID}
 	liquids, err := liquidsByChunk(t.Liquids, adt.ChunksPerTile)
 	if err != nil {
 		return nil, err

@@ -185,6 +185,19 @@ editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.
 - Trap: the comparison is against the tile without Meld's patch, so a tile a compile before #526
   already wrote at half resolution reads back degraded and stays so; test on a tile not in the patch.
 
+## Added models get unique IDs across the map (#491)
+Checks: a compile or Publish gives every model it adds an ID no other placement of the map has, since
+the client draws only the first loaded placement of an ID and the server's vmaps keep one an ID.
+- `go test ./internal/adt/ -run 'NextUID|MaxPlacementUID'` and `go test ./internal/vmangos/ -run
+  TestRegionAddedModelsGetMapWideIDs`: synthetic tiles in made-up archives, no client needed.
+- `WOW_DIR=... go test ./internal/vmangos/ -run 'ClientTileUIDMax|ClientRegionAddedModelIDs'`: the quick
+  read of a tile's highest ID (the start of the file only) against a whole parse on a quarter of
+  Azeroth, and a save of Azeroth 32_48 2x2 with two models added.
+- Trap: models an earlier compile added are in Meld's patch, not the client's own tiles, so a save
+  renumbers them along with the new ones (the test counts them as added).
+- Not checked in the game: two models added on either side of a tile border, both standing after a
+  compile and a relog, would show it.
+
 ## A map's own loading screen (Map Properties › Picture…, #218)
 Checks: a PNG becomes a map's loading screen: the BLP, its LoadingScreens.dbc row and the map's
 Map.dbc row pointing at it.

@@ -110,3 +110,38 @@ func TestWriteReplacesOwnMarker(t *testing.T) {
 		t.Errorf("marker = %q", got)
 	}
 }
+
+// TestReadPrefix reads the start of a file only, as the unique ID scan reads tiles (#491): at least
+// the bytes asked for, and the whole file when it is shorter or n is negative.
+func TestReadPrefix(t *testing.T) {
+	big := make([]byte, 50000)
+	for i := range big {
+		big[i] = byte(i * 7)
+	}
+	const name = `World\Maps\Test\Test_1_2.adt`
+	path := filepath.Join(t.TempDir(), "patch-3.MPQ")
+	if err := os.WriteFile(path, Write([]File{{Name: name, Data: big}}), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := OpenDataDir(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for _, n := range []int{0, 10, 4096, 4097, 20000, 50000, 1 << 20, -1} {
+		got, err := s.ReadPrefix(name, n)
+		if err != nil {
+			t.Fatalf("n %d: %v", n, err)
+		}
+		want := n
+		if n < 0 || n > len(big) {
+			want = len(big)
+		}
+		if len(got) < want || !bytes.Equal(got, big[:len(got)]) {
+			t.Fatalf("n %d: got %d bytes, want the first %d", n, len(got), want)
+		}
+	}
+	if _, err := s.ReadPrefix(`missing.adt`, 10); err != ErrNotFound {
+		t.Fatalf("missing file: %v", err)
+	}
+}

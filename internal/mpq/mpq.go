@@ -252,12 +252,23 @@ func (a *Archive) Has(name string) bool {
 
 // ReadFile returns the full, decompressed contents of name.
 func (a *Archive) ReadFile(name string) ([]byte, error) {
+	return a.ReadPrefix(name, -1)
+}
+
+// ReadPrefix returns at least the first n bytes of name (all of it when shorter, or when n < 0),
+// unpacking only the sectors they lie in, so a caller after a file's header doesn't pay for the rest.
+// It may return more than n bytes: up to the end of the last sector read.
+func (a *Archive) ReadPrefix(name string, n int) ([]byte, error) {
 	b, ok := a.find(name)
 	if !ok || b.flags&flagDeleted != 0 {
 		return nil, ErrNotFound
 	}
 	if b.size == 0 {
 		return []byte{}, nil
+	}
+	limit := b.size
+	if n >= 0 && int64(n) < int64(limit) {
+		limit = uint32(n)
 	}
 	pos := a.base + (int64(b.pos) | int64(b.posHi)<<32)
 	var key uint32
@@ -285,14 +296,17 @@ func (a *Archive) ReadFile(name string) ([]byte, error) {
 
 	compressed := b.flags&(flagCompress|flagImplode) != 0
 	nSectors := (b.size + a.sectorSize - 1) / a.sectorSize
+	// The sectors the first limit bytes lie in.
+	nRead := (limit + a.sectorSize - 1) / a.sectorSize
+	readSize := min(b.size, nRead*a.sectorSize)
 	if !compressed {
-		data := make([]byte, b.size)
+		data := make([]byte, readSize)
 		if _, err := a.f.ReadAt(data, pos); err != nil && err != io.EOF {
 			return nil, err
 		}
 		if b.flags&flagEncrypted != 0 {
-			for i := uint32(0); i < nSectors; i++ {
-				end := min((i+1)*a.sectorSize, b.size)
+			for i := uint32(0); i < nRead; i++ {
+				end := min((i+1)*a.sectorSize, readSize)
 				decryptBytes(data[i*a.sectorSize:end], key+i)
 			}
 		}
@@ -314,15 +328,15 @@ func (a *Archive) ReadFile(name string) ([]byte, error) {
 	for i := range offs {
 		offs[i] = binary.LittleEndian.Uint32(ob[i*4:])
 	}
-	if offs[nSectors] > b.csize+16 {
+	if offs[nSectors] > b.csize+16 || offs[nRead] > offs[nSectors] {
 		return nil, errors.New("mpq: corrupt sector table")
 	}
-	raw := make([]byte, offs[nSectors])
+	raw := make([]byte, offs[nRead])
 	if _, err := a.f.ReadAt(raw, pos); err != nil && err != io.EOF {
 		return nil, err
 	}
-	out := make([]byte, 0, b.size)
-	for i := uint32(0); i < nSectors; i++ {
+	out := make([]byte, 0, readSize)
+	for i := uint32(0); i < nRead; i++ {
 		if offs[i] > offs[i+1] || offs[i+1] > uint32(len(raw)) {
 			return nil, errors.New("mpq: corrupt sector offsets")
 		}

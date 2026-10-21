@@ -67,13 +67,18 @@ func (s *Set) Archives() []*Archive { return s.archives }
 
 // ReadFile reads name from the highest-priority archive that has it.
 func (s *Set) ReadFile(name string) ([]byte, error) {
+	return s.ReadPrefix(name, -1)
+}
+
+// ReadPrefix reads at least the first n bytes of name as ReadFile finds it (Archive.ReadPrefix).
+func (s *Set) ReadPrefix(name string, n int) ([]byte, error) {
 	for i := len(s.archives) - 1; i >= 0; i-- {
 		a := s.archives[i]
 		if b, ok := a.find(name); ok {
 			if b.flags&flagDeleted != 0 {
 				return nil, ErrNotFound
 			}
-			return a.ReadFile(name)
+			return a.ReadPrefix(name, n)
 		}
 	}
 	return nil, ErrNotFound

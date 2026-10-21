@@ -473,6 +473,39 @@ func ParsePlacements(obj []byte) ([]Placement, error) {
 	return out, nil
 }
 
+// MaxPlacementUID is the highest unique ID among a 1.12 tile's M2 and WMO placements, 0 for none. It
+// leaves out 0xffffffff, the ID a WMO-only map's WDT gives its building, which no counter may pass.
+// root may be only the start of the file: the placement tables come before the map chunks, so the
+// walk stops at the first MCNK, and found says it got there. Without found, the tables may run past
+// root's end (or the file has no chunks), and only the whole file gives the answer.
+func MaxPlacementUID(root []byte) (top uint32, found bool) {
+	for pos := 0; pos+8 <= len(root); {
+		id := string([]byte{root[pos+3], root[pos+2], root[pos+1], root[pos]})
+		if id == "MCNK" {
+			return top, true
+		}
+		size := int(binary.LittleEndian.Uint32(root[pos+4:]))
+		start := pos + 8
+		if size < 0 || start+size > len(root) {
+			return top, false
+		}
+		entry := 0
+		switch id {
+		case "MDDF":
+			entry = 36
+		case "MODF":
+			entry = 64
+		}
+		for o := start; entry > 0 && o+entry <= start+size; o += entry {
+			if uid := u32(root, o+4); uid > top && uid != 0xffffffff {
+				top = uid
+			}
+		}
+		pos = start + size
+	}
+	return top, false
+}
+
 // nameFor resolves a placement's name ID through its offsets table into the name table.
 func nameFor(table []byte, offsets []uint32, id uint32) string {
 	if int(id) >= len(offsets) {

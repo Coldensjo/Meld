@@ -71,6 +71,12 @@ type Changes struct {
 	Remove map[uint32]bool
 	// Add places new models.
 	Add []Object
+	// NextUID, when set, is the unique ID the next added model without one takes, counted up as
+	// they are taken (and kept above the tile's own IDs). One export shares it across all its tiles,
+	// seeded above every ID of the map, since the client draws only the first loaded placement of
+	// an ID and the server's vmaps keep only one spawn an ID a map (#491). Nil numbers added models
+	// after the tile's own highest ID, which is unique only within the tile.
+	NextUID *uint32
 	// Liquids replaces the liquids of the chunks it lists, by chunk index (y*16 + x), with their
 	// layers; a chunk listed with none loses its liquid. Chunks not listed keep their own, unless
 	// Water is set.
@@ -266,8 +272,12 @@ func Rewrite(root []byte, ch Changes) ([]byte, error) {
 		wmo := o.Kind == WMO
 		uid := o.UID
 		if uid == 0 {
-			uidMax++
-			uid = uidMax
+			uid = uidMax + 1
+			if ch.NextUID != nil {
+				uid = max(uid, *ch.NextUID)
+				*ch.NextUID = uid + 1
+			}
+			uidMax = uid
 		}
 		size := mddfSize
 		if wmo {
