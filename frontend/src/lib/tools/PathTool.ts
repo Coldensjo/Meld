@@ -145,7 +145,11 @@ export class PathTool implements Tool {
 	private view = new PathView()
 	/** Bumped by every change made in place (a dragged point), so the view redraws. */
 	private version = 0
-	private drag: { id: number; index: number; before: MapPath[]; height: boolean; offset: number; moved: boolean; label: string } | null = null
+	/**
+	 * A point being dragged. The drag moves it in `paths`, a plain copy of the map's paths, and puts
+	 * that into `editor.paths` on release, so a pointer move writes no reactive state.
+	 */
+	private drag: { id: number; index: number; before: MapPath[]; paths: MapPath[]; height: boolean; offset: number; moved: boolean; label: string } | null = null
 	/** A run of changes to one field of one path, merged into one undo step while it stays on top. */
 	private fieldRun: { cmd: Command; id: number; key: PathField; before: MapPath[] } | null = null
 	/** Each map's paths' last applies, by path id. */
@@ -157,11 +161,11 @@ export class PathTool implements Tool {
 
 	deactivate(ctx: ToolContext) {
 		ctx.scene.remove(this.view.group)
-		this.drag = null
+		this.onUp(ctx)
 	}
 
 	frame(ctx: ToolContext) {
-		this.view.update(editor.paths, this.version, editor.pathId, editor.pathPoint, ctx.terrain)
+		this.view.update(this.drag?.paths ?? editor.paths, this.version, editor.pathId, editor.pathPoint, ctx.terrain)
 	}
 
 	/** The picked path, if any. */
@@ -198,7 +202,7 @@ export class PathTool implements Tool {
 			editor.pathId = picked.id
 			editor.pathKind = p?.kind ?? editor.pathKind
 			editor.pathPoint = picked.index
-			this.drag = { ...picked, before: copyPaths(editor.paths), height: e.shiftKey, offset: q.y - ctx.terrain.heightAt(q.x, q.z), moved: false, label: e.shiftKey ? 'Raise path point' : 'Move path point' }
+			this.drag = { ...picked, before: copyPaths(editor.paths), paths: copyPaths(editor.paths), height: e.shiftKey, offset: q.y - ctx.terrain.heightAt(q.x, q.z), moved: false, label: e.shiftKey ? 'Raise path point' : 'Move path point' }
 			return
 		}
 		if (!hit) return
@@ -225,13 +229,13 @@ export class PathTool implements Tool {
 		editor.pathPoint = index
 		this.version++
 		// The new point follows the pointer until the button is let go.
-		this.drag = { id: path.id, index, before, height: false, offset: 0, moved: true, label: path.points.length === 1 ? `New ${path.name}` : 'Add path point' }
+		this.drag = { id: path.id, index, before, paths: copyPaths(list), height: false, offset: 0, moved: true, label: path.points.length === 1 ? `New ${path.name}` : 'Add path point' }
 	}
 
 	onMove(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
 		const d = this.drag
 		if (!d) return
-		const q = editor.paths.find((p) => p.id === d.id)?.points[d.index]
+		const q = d.paths.find((p) => p.id === d.id)?.points[d.index]
 		if (!q) return
 		if (d.height) {
 			if (!e.movementY) return
@@ -249,7 +253,10 @@ export class PathTool implements Tool {
 	onUp(ctx: ToolContext) {
 		const d = this.drag
 		this.drag = null
-		if (d?.moved) this.record(ctx, d.label, d.before)
+		if (!d?.moved) return
+		editor.paths = d.paths
+		this.version++
+		this.record(ctx, d.label, d.before)
 	}
 
 	onKey(ctx: ToolContext, e: KeyboardEvent): boolean {

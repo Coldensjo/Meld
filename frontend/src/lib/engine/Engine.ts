@@ -96,7 +96,7 @@ import { isHelper } from '../models/helpers'
 import { NavPreview, RANGE as NAV_RANGE, type PathResult, type ServerSource } from '../world/nav/NavPreview'
 import type { MapInfo } from './MapDocument'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
-import { movableSelection, objectsInRect, selectObjects, selectedObjects, withGroups } from '../state/selection'
+import { markMoved, movableSelection, objectsInRect, publishMoved, selectObjects, selectedObjects, withGroups } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
 import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
 import { fitHeights, type FitOptions } from '../terrain/fitGround'
@@ -1098,6 +1098,8 @@ export class Engine {
     if (this.leftDown) tool.tick?.(this.ctx, dt, this.hit)
     this.placeTool.hidePreview = this.altHeld
     tool.frame?.(this.ctx, this.hit)
+    // A drag moves models on every pointer move; the Inspector's copy follows once a frame.
+    publishMoved(this.objects)
     m.mark(SECTION.Tool)
 
     this.syncPalette()
@@ -4735,7 +4737,7 @@ export class Engine {
       w.rot = s.rot + turn
       w.scale = THREE.MathUtils.clamp(Math.round(s.scale * factor * 100) / 100, 0.05, 20)
       this.objects.place(o, o.parent ?? null, w)
-      if (editor.selected?.id === o.id) editor.selected = { ...o }
+      markMoved(o.id)
     }
   }
 

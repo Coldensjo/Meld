@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { editor, prefs, setStatus, setViewportHint, ui } from '../state/editor.svelte'
-import { movableSelection, objectsInRect, selectObjects, withGroups } from '../state/selection'
+import { markMoved, movableSelection, objectsInRect, selectObjects, withGroups } from '../state/selection'
 import { getAsset, type ModelAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { ObjectClip } from '../world/clipboard'
@@ -397,6 +397,9 @@ export class SelectTool implements Tool {
   private pastThreshold = false
   /** The cell an area drag started at. */
   private rectStart: Cell | null = null
+	/** The cell an area drag has reached; `publishRect` copies the area into `editor.selection` once a frame. */
+	private rectEnd: Cell = { x: 0, z: 0 }
+	private rectDirty = false
   /**
    * A lasso being dragged or a polygon being clicked (#183): its points (world x, z pairs), and whether
    * it adds to the area or takes from it.
@@ -594,6 +597,8 @@ export class SelectTool implements Tool {
     }
     if (!e.shiftKey) selectObjects(ctx.objects, [])
     this.rectStart = this.cell(ctx, at)
+    this.rectEnd = this.rectStart
+    this.rectDirty = false
     editor.selection = { x0: this.rectStart.x, z0: this.rectStart.z, x1: this.rectStart.x, z1: this.rectStart.z }
   }
 
@@ -836,11 +841,9 @@ export class SelectTool implements Tool {
       const at = this.groundPoint(ctx, hit)
       if (!at) return
       const c = this.cell(ctx, at)
-      editor.selection = {
-        x0: Math.min(this.rectStart.x, c.x),
-        z0: Math.min(this.rectStart.z, c.z),
-        x1: Math.max(this.rectStart.x, c.x),
-        z1: Math.max(this.rectStart.z, c.z),
+      if (c.x !== this.rectEnd.x || c.z !== this.rectEnd.z) {
+        this.rectEnd = c
+        this.rectDirty = true
       }
       return
     }
@@ -889,7 +892,7 @@ export class SelectTool implements Tool {
       ctx.objects.place(s, s.parent ?? null, sw)
     }
     d.moved = true
-    if (editor.selected?.id === o.id) editor.selected = { ...o }
+    markMoved(o.id)
   }
 
   onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
@@ -934,6 +937,7 @@ export class SelectTool implements Tool {
       return
     }
     if (this.rectStart) {
+      this.publishRect()
       this.rectStart = null
       const s = editor.selection
       if (!s) return
@@ -958,6 +962,7 @@ export class SelectTool implements Tool {
   }
 
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
+    this.publishRect()
     this.walls.frame(ctx)
     this.drawOutline(ctx, hit)
     const clip = ui.pasting ? this.hooks.objectClip() : null
@@ -975,6 +980,15 @@ export class SelectTool implements Tool {
     const cs = ctx.terrain.cellSize
     this.pasteAt = { x: Math.round(hit.x / cs - size.w / 2), z: Math.round(hit.z / cs - size.h / 2) }
   }
+
+	/** Puts the area being dragged into `editor.selection` when it reached another cell since the last call. */
+	private publishRect() {
+		const a = this.rectStart
+		if (!a || !this.rectDirty) return
+		this.rectDirty = false
+		const b = this.rectEnd
+		editor.selection = { x0: Math.min(a.x, b.x), z0: Math.min(a.z, b.z), x1: Math.max(a.x, b.x), z1: Math.max(a.z, b.z) }
+	}
 
   onKey(ctx: ToolContext, e: KeyboardEvent) {
     if (ui.pasting) {

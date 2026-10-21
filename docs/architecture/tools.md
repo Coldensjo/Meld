@@ -119,6 +119,14 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   - `editor.selectedIds` holds every selected object and `editor.selected` the primary one (the
     gizmo and the Properties sliders work on it). Change them through `lib/state/selection.ts`
     (`selectObjects`), never by hand. Delete, hide, nudge and focus act on the whole selection.
+  - Drags write reactive state at most once a frame, not on every pointer move (#448): a model drag
+    (the Select tool's and the gizmo's) calls `markMoved(id)` and `Engine.frame` copies the object
+    into `editor.selected` through `publishMoved`; an area drag keeps its corner cell in the tool and
+    `SelectTool.publishRect` puts it in `editor.selection` from `frame` and `onUp`. The Path tool drags
+    a point in a plain copy of the paths (`drag.paths`, drawn by its view) and puts it in `editor.paths`
+    on release. Sculpt's vertex slope lays the heights each frame its slider moves but records its undo
+    step at most every 100 ms and once when the slider rests (`recordOrient`), and a paint stroke over a
+    full chunk shows its message once a stroke (`BrushTool.chunkFull`).
 - **Clipboard** (`world/clipboard.ts`): `copyRegion` captures heights, holes, splat texels plus the
   source slot texture paths, and objects relative to the corner. `pasteRegion` remaps texture
   slots onto the target map and returns one undo command. `copyObjects`/`pasteObjects` copy

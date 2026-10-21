@@ -37,7 +37,7 @@ export function withSettings<T>(settings: ToolSettings, fn: () => T): T {
 }
 import { slopeDegrees, slopeWeights } from '../terrain/roles'
 import { copyRect, tentBlur } from '../terrain/blur'
-import type { Command } from '../state/history'
+import type { Command, History } from '../state/history'
 import { VertexSelection, flattenVertices, moveVertices, orientVertices, type VertexRect } from './vertexEdit'
 import { fbm, ridged } from '../engine/noise'
 import type { Tool, ToolContext } from './Tool'
@@ -100,6 +100,7 @@ export abstract class BrushTool implements Tool {
   /** Leaves the shared stroke without finishing it: the Stamp tool finishes it once for all its brushes. */
   releaseStroke() {
     this.stroke = null
+    this.chunkFullShown = null
   }
 
   onUp(ctx: ToolContext) {
@@ -107,6 +108,7 @@ export abstract class BrushTool implements Tool {
     if (this.imageShaped() && editor.brushImage.name && editor.brushImage.random) editor.brushImage.rotation = Math.floor(Math.random() * 360)
     const cmd = this.stroke.finish()
     this.stroke = null
+    this.chunkFullShown = null
     if (cmd) ctx.history.push(cmd)
   }
 
@@ -147,6 +149,16 @@ export abstract class BrushTool implements Tool {
     ctx.terrain.markDirty(r.x0, r.z0, r.x1, r.z1)
     this.stroke?.touchHeights(r)
     this.resnap(ctx, r)
+  }
+
+  /** The stroke the "chunk full" message was last shown for: a stroke shows it once, not every frame. */
+  private chunkFullShown: TerrainStroke | null = null
+
+  /** Says a full chunk refused the paint, once per stroke. */
+  protected chunkFull() {
+    if (this.stroke && this.stroke === this.chunkFullShown) return
+    this.chunkFullShown = this.stroke
+    setStatus(CHUNK_FULL, 3000)
   }
 
   protected splatChanged(ctx: ToolContext, r: Rect | null) {
@@ -195,7 +207,7 @@ function keeps(v: number, limit: SculptLimit, cursorY: number): boolean {
 }
 
 /** Sets heightmap vertices `ids` to `before` on undo and back to their current heights on redo. */
-function vertexCommand(ctx: ToolContext, label: string, ids: number[], before: Float32Array, r: VertexRect): Command {
+function vertexCommand(ctx: Pick<ToolContext, 'terrain' | 'objects'>, label: string, ids: number[], before: Float32Array, r: VertexRect): Command {
   const t = ctx.terrain
   const objects = ctx.objects
   const after = Float32Array.from(ids, (i) => t.heights[i])
@@ -207,6 +219,9 @@ function vertexCommand(ctx: ToolContext, label: string, ids: number[], before: F
   }
   return { label, undo: () => apply(before), redo: () => apply(after) }
 }
+
+/** The slope slider's undo step is recorded at most this often while it moves (ms). */
+const ORIENT_RECORD_MS = 100
 
 /** Most selected vertices drawn as markers. */
 const MAX_VERTEX_MARKERS = 65536
@@ -257,8 +272,18 @@ export class SculptTool extends BrushTool {
   private cursor = new THREE.Vector3()
   private hasCursor = false
   private applied = { angle: 0, dir: 0, ref: 'center' }
-  /** The open slope edit, merged into one undo step while it stays on top of the history. */
-  private orientSession: { cmd: Command | null; ids: number[]; before: Float32Array } | null = null
+  /**
+   * The open slope edit, merged into one undo step while it stays on top of the history. The slider
+   * lays the heights every frame it moves, but the step is recorded at most every ORIENT_RECORD_MS
+   * and once the slider rests (`pending` holds what to record), so a drag doesn't redraw History a frame.
+   */
+  private orientSession: {
+		cmd: Command | null
+		ids: number[]
+		before: Float32Array
+		recorded: number
+		pending: { at: Pick<ToolContext, 'terrain' | 'objects'>; history: History; r: VertexRect } | null
+	} | null = null
   private vcenter = { x: 0, y: 0, z: 0 }
   private markers: THREE.Points | null = null
 
@@ -274,6 +299,7 @@ export class SculptTool extends BrushTool {
 
   /** Resets the slope to level for a new selection, as noggit3 does, and publishes the count. */
   private selectionChanged() {
+    this.recordOrient()
     editor.vertexAngle = 0
     editor.vertexDir = 0
     this.applied = { angle: 0, dir: 0, ref: editor.vertexRef }
@@ -282,6 +308,7 @@ export class SculptTool extends BrushTool {
   }
 
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
+    this.recordOrient()
     if (editor.sculptMode === 'hole') {
       if (this.walls.onDown(ctx)) return
       if (!hit) return
@@ -379,10 +406,12 @@ export class SculptTool extends BrushTool {
     const sel = editor.sculptMode === 'vertex' ? this.selection(ctx.terrain) : null
     const a = this.applied
     if (sel && sel.size && (editor.vertexAngle !== a.angle || editor.vertexDir !== a.dir || editor.vertexRef !== a.ref)) this.orient(ctx, sel)
+    else this.recordOrient()
     this.drawMarkers(ctx, sel)
   }
 
   deactivate(ctx: ToolContext) {
+    this.recordOrient()
     this.drawMarkers(ctx, null)
     this.walls.detach(ctx.scene)
     this.wallsShown = false
@@ -401,6 +430,7 @@ export class SculptTool extends BrushTool {
 
   /** Vertex mode actions from the options bar: flatten the selection to its mean height, or clear it. */
   vertexAction(ctx: ToolContext, action: 'flatten' | 'clear') {
+    this.recordOrient()
     const sel = this.selection(ctx.terrain)
     if (action === 'clear') {
       sel.clear()
@@ -424,19 +454,32 @@ export class SculptTool extends BrushTool {
     const r = sel.rect()
     if (!r) return
     let s = this.orientSession
-    if (!s || !s.cmd || ctx.history.peek() !== s.cmd) {
+    // A session goes on while its step is still unrecorded or still on top of the history.
+    if (!s || (!s.pending && (!s.cmd || ctx.history.peek() !== s.cmd))) {
       const ids = sel.ids.slice()
-      s = { cmd: null, ids, before: Float32Array.from(ids, (i) => t.heights[i]) }
+      s = { cmd: null, ids, before: Float32Array.from(ids, (i) => t.heights[i]), recorded: 0, pending: null }
     }
     const ref = editor.vertexRef === 'cursor' && this.hasCursor ? this.cursor : sel.center(t.heights, t.cellSize, this.vcenter)
     orientVertices(t.heights, sel, t.cellSize, ref, editor.vertexAngle, editor.vertexDir)
     this.heightsChanged(ctx, r)
-    const cmd = vertexCommand(ctx, 'Vertex slope', s.ids, s.before, r)
-    if (s.cmd) ctx.history.replaceTop(cmd)
-    else ctx.history.push(cmd)
-    s.cmd = cmd
+    // The map, its objects and its history now, in case the tab changes before the step is recorded.
+    s.pending = { at: { terrain: t, objects: ctx.objects }, history: ctx.history, r }
     this.orientSession = s
     this.applied = { angle: editor.vertexAngle, dir: editor.vertexDir, ref: editor.vertexRef }
+    if (performance.now() - s.recorded >= ORIENT_RECORD_MS) this.recordOrient()
+  }
+
+  /** Records the slope laid since the last record as the session's undo step (replacing it while on top). */
+  private recordOrient() {
+    const s = this.orientSession
+    const p = s?.pending
+    if (!s || !p) return
+    s.pending = null
+    const cmd = vertexCommand(p.at, 'Vertex slope', s.ids, s.before, p.r)
+    if (s.cmd && p.history.peek() === s.cmd) p.history.replaceTop(cmd)
+    else p.history.push(cmd)
+    s.cmd = cmd
+    s.recorded = performance.now()
   }
 
   /** Draws a dot on each selected vertex. Hidden when `sel` is null or empty. */
@@ -696,7 +739,7 @@ export class SculptTool extends BrushTool {
           }, this.stroke)
         }
       }
-      if (refused) setStatus(CHUNK_FULL, 3000)
+      if (refused) this.chunkFull()
       this.splatChanged(ctx, sr)
     }
   }
@@ -832,7 +875,7 @@ export class PaintTool extends BrushTool {
     const { radius, falloff } = editor.brush
     const strength = editor.brush.strength * ctx.pressure()
     if (!editor.paintSpray) {
-      if (this.paintAt(ctx, hit.x, hit.z, radius, falloff, Math.min(1, strength * dt * 5))) setStatus(CHUNK_FULL, 3000)
+      if (this.paintAt(ctx, hit.x, hit.z, radius, falloff, Math.min(1, strength * dt * 5))) this.chunkFull()
       return
     }
     // Spray: random dabs over the brush, plus the brush's solid centre when Inner radius is on.
@@ -844,7 +887,7 @@ export class PaintTool extends BrushTool {
     let refused = false
     for (let i = 0; i < n; i++) refused = this.paintAt(ctx, this.dabs[i * 2], this.dabs[i * 2 + 1], dab, falloff, amt) || refused
     if (inner && falloff < 1) refused = this.paintAt(ctx, hit.x, hit.z, radius * (1 - falloff), falloff, Math.min(1, strength * dt * 5)) || refused
-    if (refused) setStatus(CHUNK_FULL, 3000)
+    if (refused) this.chunkFull()
   }
 
   /** Spray dab centres for one frame, as x, z pairs. */
@@ -943,7 +986,7 @@ export class PaintTool extends BrushTool {
     const rect = forEachTexel(t, hit.x, hit.z, radius, falloff, (p, w) => {
       if (!swapTexel(t.paintChunksPerSide, t.splatRes, t.chunkSlots, t.weights, p, from, to, amt * w)) refused++
     }, this.stroke)
-    if (refused) setStatus(CHUNK_FULL, 3000)
+    if (refused) this.chunkFull()
     this.splatChanged(ctx, rect)
   }
 }
@@ -966,7 +1009,7 @@ export class RoadTool extends BrushTool {
     const sr = forEachTexel(t, hit.x, hit.z, width, 0.25, (p, w) => {
       if (!paintPixel(t, p, editor.paintLayer, amt * w)) refused++
     }, this.stroke)
-    if (refused) setStatus(CHUNK_FULL, 3000)
+    if (refused) this.chunkFull()
     this.splatChanged(ctx, sr)
 
     if (editor.roadFlatten) {

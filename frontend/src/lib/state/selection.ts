@@ -19,6 +19,27 @@ export function selectObjects(objects: ObjectLayer, ids: Iterable<number>, prima
   const p = primary !== undefined && seen.has(primary) ? primary : live.length === 1 ? live[0] : undefined
   const o = p !== undefined ? objects.objects.get(p) : undefined
   editor.selected = o ? { ...o } : null
+  movedId = -1
+}
+
+/** The id of the primary object a drag moved since the last `publishMoved`, or -1. */
+let movedId = -1
+
+/**
+ * Notes that a drag moved object `id`, so `publishMoved` refreshes the Inspector's copy
+ * (`editor.selected`) at most once a frame instead of on every pointer move.
+ */
+export function markMoved(id: number) {
+	if (editor.selected?.id === id) movedId = id
+}
+
+/** Copies the object a drag moved into `editor.selected`; the engine calls it once a frame. */
+export function publishMoved(objects: ObjectLayer) {
+	if (movedId < 0) return
+	const id = movedId
+	movedId = -1
+	const o = objects.objects.get(id)
+	if (o && editor.selected?.id === id) editor.selected = { ...o }
 }
 
 /**
