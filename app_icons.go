@@ -14,7 +14,7 @@ import (
 
 // clientOverlay reads an icon waiting for the game to close, for the asset server's previews.
 func (a *App) clientOverlay(path string) ([]byte, bool) {
-	if !vmangos.IsIconPath(path) {
+	if !vmangos.IsIconPath(path) || !vmangos.AnyPending() {
 		return nil, false
 	}
 	dataDir, err := a.clientDataDir()

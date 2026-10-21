@@ -24,6 +24,69 @@ import (
 
 var pendingMu sync.Mutex
 
+// pendingSet is the names of the waiting files (pendingName) of each client data folder's folder,
+// read from disk once and kept up to date by AddPending, ClearPending and DropPending, so the asset
+// server's icon previews don't touch the disk for a name nothing waits under (#485). It is reread
+// when pendingRoot changes (the tests). Guarded by pendingMu.
+var pendingSet struct {
+	root string
+	dirs map[string]map[string]bool
+}
+
+// pendingNames is the set of names waiting in dir, loading every folder's from disk on first use.
+// The caller holds pendingMu.
+func pendingNames(dir string) map[string]bool {
+	loadPending()
+	return pendingSet.dirs[dir]
+}
+
+// loadPending fills pendingSet from disk when it is empty or pendingRoot moved. The caller holds
+// pendingMu.
+func loadPending() {
+	root := pendingRoot()
+	if pendingSet.dirs != nil && pendingSet.root == root {
+		return
+	}
+	pendingSet.root, pendingSet.dirs = root, map[string]map[string]bool{}
+	subs, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, sub := range subs {
+		if !sub.IsDir() {
+			continue
+		}
+		dir := filepath.Join(root, sub.Name())
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() || strings.HasSuffix(e.Name(), ".tmp") {
+				continue
+			}
+			if pendingSet.dirs[dir] == nil {
+				pendingSet.dirs[dir] = map[string]bool{}
+			}
+			pendingSet.dirs[dir][e.Name()] = true
+		}
+	}
+}
+
+// AnyPending says whether any file waits for any client data folder, without touching the disk
+// after the first call.
+func AnyPending() bool {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	loadPending()
+	for _, names := range pendingSet.dirs {
+		if len(names) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // pendingRoot is the folder the waiting files are kept in; a variable for the tests.
 var pendingRoot = func() string {
 	d, err := os.UserCacheDir()
@@ -63,6 +126,11 @@ func AddPending(dataDir string, files []mpq.File) error {
 		if err := os.Rename(tmp, filepath.Join(dir, pendingName(f.Name))); err != nil {
 			return err
 		}
+		loadPending()
+		if pendingSet.dirs[dir] == nil {
+			pendingSet.dirs[dir] = map[string]bool{}
+		}
+		pendingSet.dirs[dir][pendingName(f.Name)] = true
 	}
 	// Meld's reader serves them through its overlay now, so it forgets what it decoded before (#471).
 	if r := heldReader(); r != nil {
@@ -110,7 +178,10 @@ func PendingFiles(dataDir string) ([]mpq.File, error) {
 func DropPending(dataDir string) error {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
-	return os.RemoveAll(pendingDir(dataDir))
+	dir := pendingDir(dataDir)
+	loadPending()
+	delete(pendingSet.dirs, dir)
+	return os.RemoveAll(dir)
 }
 
 // ClearPending drops the waiting files of a client data folder that are the ones in written (by
@@ -131,6 +202,7 @@ func ClearPending(dataDir string, written []mpq.File) error {
 			if err := os.Remove(path); err != nil {
 				return err
 			}
+			delete(pendingSet.dirs[pendingDir(dataDir)], pendingName(f.Name))
 		}
 	}
 	return nil
@@ -140,7 +212,11 @@ func ClearPending(dataDir string, written []mpq.File) error {
 func pendingFile(dataDir, name string) ([]byte, bool) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
-	b, err := os.ReadFile(filepath.Join(pendingDir(dataDir), pendingName(name)))
+	dir, key := pendingDir(dataDir), pendingName(name)
+	if !pendingNames(dir)[key] {
+		return nil, false
+	}
+	b, err := os.ReadFile(filepath.Join(dir, key))
 	if err != nil {
 		return nil, false
 	}

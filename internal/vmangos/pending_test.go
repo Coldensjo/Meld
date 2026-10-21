@@ -114,3 +114,46 @@ func TestPendingSpellLive(t *testing.T) {
 		t.Fatalf("search %+v", found)
 	}
 }
+
+// The set of waiting names (#485) answers without the disk: AnyPending and pendingFile follow
+// AddPending, ClearPending and DropPending, and a file nothing was added for is not looked up.
+func TestPendingSet(t *testing.T) {
+	dir := t.TempDir()
+	old := pendingRoot
+	pendingRoot = func() string { return dir }
+	defer func() { pendingRoot = old }()
+	const data = `C:\WoW\client\Data`
+
+	if AnyPending() {
+		t.Fatal("nothing waits yet")
+	}
+	f := mpq.File{Name: `Interface\Icons\Mine.blp`, Data: []byte("x")}
+	if err := AddPending(data, []mpq.File{f}); err != nil {
+		t.Fatal(err)
+	}
+	if !AnyPending() {
+		t.Fatal("one waits")
+	}
+	if _, ok := pendingFile(data, `Interface\Icons\Other.blp`); ok {
+		t.Fatal("another name found")
+	}
+	if b, ok := pendingFile(data, f.Name); !ok || string(b) != "x" {
+		t.Fatalf("read back: %q %v", b, ok)
+	}
+	// A fresh load from disk (as after a restart) sees the same.
+	pendingSet.dirs = nil
+	if !AnyPending() {
+		t.Fatal("not found after reload")
+	}
+	if err := ClearPending(data, []mpq.File{f}); err != nil {
+		t.Fatal(err)
+	}
+	if AnyPending() {
+		t.Fatal("cleared, still waiting")
+	}
+	_ = AddPending(data, []mpq.File{f})
+	_ = DropPending(data)
+	if _, ok := pendingFile(data, f.Name); ok || AnyPending() {
+		t.Fatal("dropped, still waiting")
+	}
+}
