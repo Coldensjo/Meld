@@ -30,6 +30,14 @@ func TestTileRoundTrip(t *testing.T) {
 	if len(view.Heights) != LatticeSize*LatticeSize || len(view.Chunks) != adt.ChunkCount {
 		t.Fatalf("%d heights, %d chunks", len(view.Heights), len(view.Chunks))
 	}
+	// Every layer but a chunk's first has its alpha map in Alpha (#636).
+	layers := 0
+	for _, c := range view.Chunks {
+		layers += max(len(c.Layers)-1, 0)
+	}
+	if layers == 0 || len(view.Alpha) != layers*AlphaBytes {
+		t.Fatalf("%d bytes of alpha maps for %d layers", len(view.Alpha), layers)
+	}
 	same, err := PatchTileHeights(root, view.Heights)
 	if err != nil {
 		t.Fatal(err)

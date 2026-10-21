@@ -263,7 +263,11 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   (`vmangos.EncodeHeights`, `DecodeHeights`); so do `RegionView.Heights` (LoadRegion) and Publish's
   `TileSpec.Outer`, typed `vmangos.HeightGrid`, a float slice in Go whose JSON is that string
   (`ts_type:"string"` in the bindings; the page reads it with `base64ToFloats` and writes it with
-  `floatsToBase64`, `io/base64.ts`), a third of the JSON numbers' size for a 3x3 block (#632). Launch (`launchGame`) opens the Compile and Launch
+  `floatsToBase64`, `io/base64.ts`), a third of the JSON numbers' size for a 3x3 block (#632). A region's alpha maps stay out of
+  LoadRegion's JSON altogether (`RegionView.Alpha` is `json:"-"`): `App.handOffAlpha` puts them in
+  `App.handoffs` (`internal/handoff`) and the reply carries `alphaUrl`, which `openRegionView` fetches as
+  one binary GET and slices 4096 bytes a layer, every layer but each chunk's first, in chunk order. As
+  base64 strings they were 33 of a 3x3 block's 36.5 MB, and the call took 375-465 ms against 220-300 (#636). Launch (`launchGame`) opens the Compile and Launch
   dialog (`ui.dialog = 'compileBeforeLaunch'`) when it is true; Play Here says so in its status line.
   `regionKey` hashes the document's own arrays and settings, not `exportInput`, whose building
   footprints in `noEffect` change as models load: a new compile input must be added to it, or Launch

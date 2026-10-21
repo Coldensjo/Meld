@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"Meld/internal/handoff"
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -42,6 +44,10 @@ func main() {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.URL.Path == "/wow/navtile" {
 						app.serveNavTile(w, r)
+						return
+					}
+					if r.URL.Path == handoff.Path {
+						app.handoffs.ServeHTTP(w, r)
 						return
 					}
 					if strings.HasPrefix(r.URL.Path, "/wow/") {

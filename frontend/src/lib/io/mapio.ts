@@ -57,7 +57,7 @@ import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import { CELL_SIZE } from '../terrain/Terrain'
 import { base64ToBytes, base64ToFloats, bytesToBase64, floatsToBase64 } from './base64'
-import { tilePaint } from './tileImport'
+import { ALPHA_BYTES, tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { TILE_CELLS, mapToTiles, type ExportObject } from './vmangosExport'
@@ -397,17 +397,33 @@ export function teleportTo(engine: Engine, dest: TriggerDestination, what: strin
   })
 }
 
+/**
+ * A region view's alpha maps (vmangos.RegionView.Alpha): every layer but each chunk's first,
+ * ALPHA_BYTES each, in the order of its chunks. They come as one GET from the asset server rather
+ * than in LoadRegion's reply, whose JSON they made 33 of a 3x3 block's 36.5 MB (#636).
+ */
+async function regionAlpha(view: vmangos.RegionView): Promise<Uint8Array> {
+	if (!view.alphaUrl) return new Uint8Array(0)
+	const res = await fetch(view.alphaUrl)
+	if (!res.ok) throw new Error(`the block's alpha maps: ${res.status} ${await res.text()}`)
+	return new Uint8Array(await res.arrayBuffer())
+}
+
 /** Opens a block read from the client (LoadRegion, LoadBuildingMap) in a new tab, then its spawns. */
 async function openRegionView(engine: Engine, view: vmangos.RegionView) {
   const { mapName, x, y, size } = view
+  const alpha = await regionAlpha(view)
+  let at = 0
+  const nextAlpha = () => alpha.subarray(at, (at += ALPHA_BYTES))
   const paint = tilePaint(
     view.chunks.map((c) => ({
       indexX: c.indexX,
       indexY: c.indexY,
-      layers: (c.layers ?? []).map((l) => ({ texture: l.texture, alpha: l.alpha ? base64ToBytes(l.alpha) : undefined })),
+      layers: (c.layers ?? []).map((l, k) => ({ texture: l.texture, alpha: k > 0 ? nextAlpha() : undefined })),
     })),
     TILE_CHUNKS * size,
   )
+  if (at !== alpha.length) throw new Error(`the block's alpha maps are ${alpha.length} bytes, its layers take ${at}`)
   // The client's holes (cave mouths) and no-doodad cells: each chunk gives a byte per cell row, a
   // bit per cell.
   const cells = TILE_CHUNKS * size * CHUNK_CELLS

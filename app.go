@@ -20,6 +20,7 @@ import (
 
 	"Meld/internal/config"
 	"Meld/internal/game"
+	"Meld/internal/handoff"
 	"Meld/internal/heightmap"
 	"Meld/internal/mapfile"
 	"Meld/internal/mpq"
@@ -37,6 +38,8 @@ import (
 type App struct {
 	ctx context.Context
 	wow *wow.Client
+	// handoffs holds the binary parts of bound replies until the page fetches them (#636).
+	handoffs handoff.Store
 
 	cfgMu sync.Mutex // bound methods run concurrently
 	cfg   config.Config
@@ -595,7 +598,18 @@ func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, e
 	if err != nil {
 		return nil, err
 	}
-	return vmangos.ReadRegion(dataDir, mapName, x, y, size)
+	return a.handOffAlpha(vmangos.ReadRegion(dataDir, mapName, x, y, size))
+}
+
+// handOffAlpha puts a region view's alpha maps in the handoffs for the page to fetch (AlphaURL),
+// since in the reply's JSON they were most of its size (#636).
+func (a *App) handOffAlpha(view *vmangos.RegionView, err error) (*vmangos.RegionView, error) {
+	if err != nil {
+		return nil, err
+	}
+	view.AlphaURL = a.handoffs.Put(view.Alpha)
+	view.Alpha = nil
+	return view, nil
 }
 
 // LoadBuildingMap reads a WMO-only map (a dungeon that is one building and no terrain tiles) as the
@@ -605,7 +619,7 @@ func (a *App) LoadBuildingMap(mapName string) (*vmangos.RegionView, error) {
 	if err != nil {
 		return nil, err
 	}
-	return vmangos.ReadWMOOnlyRegion(dataDir, mapName)
+	return a.handOffAlpha(vmangos.ReadWMOOnlyRegion(dataDir, mapName))
 }
 
 // RegionShadows reads the baked terrain shadows (MCSH) of a square block of 1.12 map tiles from the

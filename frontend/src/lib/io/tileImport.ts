@@ -32,6 +32,9 @@ export interface TilePaint {
 /** WoW's alpha maps are 64x64 per chunk. */
 const ALPHA = 64
 
+/** The bytes of one layer's alpha map (vmangos.AlphaBytes). */
+export const ALPHA_BYTES = ALPHA * ALPHA
+
 /**
  * Converts a tile's chunks to paint. side is the paint chunks a side of the tile (16), and
  * the splat texels a side of a chunk follow from SPLAT_PER_CELL.

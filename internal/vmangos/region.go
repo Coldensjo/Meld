@@ -35,6 +35,13 @@ type RegionView struct {
 	Objects []ObjectView `json:"objects"`
 	// Liquids index across the whole block, like Chunks.
 	Liquids []adt.Liquid `json:"liquids"`
+	// Alpha is the chunks' alpha maps as TileView has them, in the order of Chunks: every layer but
+	// each chunk's first, AlphaBytes each. It stays out of the JSON, which it made 33 of a 3x3 block's
+	// 36.5 MB as base64 strings: the app hands it to the page as one GET, at AlphaURL (#636).
+	Alpha []byte `json:"-"`
+	// AlphaURL is where the page fetches Alpha from (App.LoadRegion sets it, internal/handoff), or
+	// "" when there is none.
+	AlphaURL string `json:"alphaUrl"`
 	// WMOOnly says the map is one building with no tiles (wmoonly.go): Heights are flat ground under
 	// it, which the editor hides, and Objects is the building, its UID GlobalUID.
 	WMOOnly bool `json:"wmoOnly"`
@@ -234,6 +241,7 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 				c.IndexY += j * adt.ChunksPerTile
 				view.Chunks = append(view.Chunks, c)
 			}
+			view.Alpha = append(view.Alpha, tile.Alpha...)
 			for _, l := range tile.Liquids {
 				l.IndexX += i * adt.ChunksPerTile
 				l.IndexY += j * adt.ChunksPerTile

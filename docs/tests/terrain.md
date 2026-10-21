@@ -22,6 +22,20 @@ ed.editor.regionBlock, ed.docs.tabs.length    // {x: 32, y: 48, size: 2}, the ta
 - Opening a region takes a few seconds; `ui.busy` is true meanwhile, and the Map panel ignores a
   second plus until it is done.
 
+## Opening a region: the alpha maps' handoff (#636, probe `region-alpha`)
+
+Checks: `App.LoadRegion` (and `LoadBuildingMap`) put the block's alpha maps in `App.handoffs`
+(`internal/handoff`) instead of the reply, and `openRegionView` (`io/mapio.ts`) fetches them from the
+`alphaUrl` and hands each layer its 4096 bytes in chunk order. `bun run probe region-alpha` checks the
+reply, the bytes and that the URL is served once, and prints the times (2026-10-21, Azeroth 31_49 3x3 in
+the dev page: the call 375-465 ms with 36.5 MB of JSON before, 220-300 ms and 3.85 MB plus a 16-24 ms
+fetch of 24.5 MB after; Go's `ReadRegion` alone is about 85 ms).
+
+- The paint must not change: hash `tilePaint`'s weights and slots from the old decoding and the new one
+  (a throwaway probe; 31_49 3x3 gave the same hash, `b46234aa`, on the owner's client that day).
+- Trap: a handoff is served once and dropped after `handoff.TTL` (2 minutes) unfetched, so fetching the
+  `alphaUrl` by hand after the page has read it gives 404; call `LoadRegion` again for a new one.
+
 ## Holes per triangle (Sculpt › Hole)
 
 Checks: `holes.ts` (cell values 0 none, 1 whole cell, 2 first triangle, 3 second) and the Sculpt

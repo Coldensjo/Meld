@@ -974,7 +974,6 @@ export namespace vmangos {
 	export class LayerView {
 	    texture: string;
 	    effect: number;
-	    alpha?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LayerView(source);
@@ -984,7 +983,6 @@ export namespace vmangos {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.texture = source["texture"];
 	        this.effect = source["effect"];
-	        this.alpha = source["alpha"];
 	    }
 	}
 	export class ChunkView {
@@ -2670,6 +2668,7 @@ export namespace vmangos {
 	    chunks: ChunkView[];
 	    objects: ObjectView[];
 	    liquids: adt.Liquid[];
+	    alphaUrl: string;
 	    wmoOnly: boolean;
 	    bounds?: number[];
 	
@@ -2687,6 +2686,7 @@ export namespace vmangos {
 	        this.chunks = this.convertValues(source["chunks"], ChunkView);
 	        this.objects = this.convertValues(source["objects"], ObjectView);
 	        this.liquids = this.convertValues(source["liquids"], adt.Liquid);
+	        this.alphaUrl = source["alphaUrl"];
 	        this.wmoOnly = source["wmoOnly"];
 	        this.bounds = source["bounds"];
 	    }

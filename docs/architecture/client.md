@@ -8,7 +8,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - `wow.Client.Handler()` serves `/wow/{status,list,texture,model}` (and `wmonav`, a WMO's room data,
   and `collision`, a model's collision faces and a WMO's liquids for the walkable-ground view, `wow/collision.go`; `main.go`
   routes `/wow/navtile`, a tile of the server's movement maps, to `App.serveNavTile`, as it needs the
-  VMaNGOS folder, see terrain.md's walkable ground). The handler is mounted via
+  VMaNGOS folder, see terrain.md's walkable ground, and `/wow/handoff?id=` to `App.handoffs`
+  (`internal/handoff`): the binary part of a bound reply, served once, such as a region's alpha maps, #636). The handler is mounted via
   Wails `AssetServer.Middleware` in `main.go`, so it works in dev and prod. Responses are binary:
   - Textures: `"RGBA" w h pixels`; with `fmt=dxt` (#178) a DXT BLP comes as `"DXT1"`/`"DXT3"`/`"DXT5"`
     w h, the mip count and each level's size and blocks (`Client.TextureDXT`), which `loadTexture`

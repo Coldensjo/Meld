@@ -1,7 +1,6 @@
 package vmangos
 
 import (
-	"encoding/base64"
 	"fmt"
 
 	"Meld/internal/adt"
@@ -11,13 +10,14 @@ import (
 // LatticeSize is the side of a tile's outer height grid: 129 samples across.
 const LatticeSize = adt.ChunksPerTile*adt.CellsPerChunk + 1
 
-// LayerView is one texture layer of a chunk, for the editor.
+// AlphaBytes is the size of a layer's alpha map: 64x64, row-major, 0-255.
+const AlphaBytes = adt.AlphaSize * adt.AlphaSize
+
+// LayerView is one texture layer of a chunk, for the editor. Every layer but a chunk's first has an
+// alpha map, kept apart in the view's Alpha (TileView, RegionView).
 type LayerView struct {
 	Texture string `json:"texture"`
 	Effect  uint32 `json:"effect"`
-	// Alpha is the 64x64 alpha map of every layer but the first, row-major, base64 in JSON (the
-	// frontend's bindings type it as a string). Empty for the base layer.
-	Alpha string `json:"alpha,omitempty"`
 }
 
 // ChunkView is one 8x8-cell chunk of a tile, for the editor.
@@ -46,6 +46,9 @@ type TileView struct {
 	Placements []adt.Placement `json:"placements"`
 	// Liquids are the chunks with water, in the tile's chunk indexes.
 	Liquids []adt.Liquid `json:"liquids"`
+	// Alpha is the alpha maps of every layer but each chunk's first, AlphaBytes each, in chunk then
+	// layer order.
+	Alpha []byte `json:"-"`
 }
 
 // ReadTile opens a client's data folder and reads the tile at (x, y) of the named map.
@@ -101,11 +104,10 @@ func viewOf(root []byte, bigAlpha bool) (*TileView, error) {
 		cv.Holes = rowBits(c.Holes)
 		cv.NoEffect = rowBits(c.NoEffect)
 		for l, layer := range textures.Chunks[i].Layers {
-			lv := LayerView{Texture: layer.Texture, Effect: layer.Effect}
+			cv.Layers = append(cv.Layers, LayerView{Texture: layer.Texture, Effect: layer.Effect})
 			if l > 0 {
-				lv.Alpha = base64.StdEncoding.EncodeToString(textures.Chunks[i].Alpha[l-1])
+				view.Alpha = append(view.Alpha, textures.Chunks[i].Alpha[l-1]...)
 			}
-			cv.Layers = append(cv.Layers, lv)
 		}
 		view.Chunks = append(view.Chunks, cv)
 	}
