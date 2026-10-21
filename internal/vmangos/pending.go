@@ -64,6 +64,14 @@ func AddPending(dataDir string, files []mpq.File) error {
 			return err
 		}
 	}
+	// Meld's reader serves them through its overlay now, so it forgets what it decoded before (#471).
+	if r := heldReader(); r != nil {
+		names := make([]string, len(files))
+		for i, f := range files {
+			names[i] = f.Name
+		}
+		r.Forget(names...)
+	}
 	return nil
 }
 

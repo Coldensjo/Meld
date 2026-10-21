@@ -30,7 +30,7 @@ func (a *App) gameRunning() bool {
 }
 
 // saveClientFiles writes files into Meld's patch without closing anything: at once when the game
-// isn't running, else once it has closed. The caller has released Meld's own reader of the archives.
+// isn't running, else once it has closed.
 func (a *App) saveClientFiles(dataDir string, files []mpq.File) error {
 	if len(files) == 0 {
 		return nil
@@ -84,7 +84,6 @@ func (a *App) watchPending() {
 
 // writePending writes the waiting files into the patch and drops them.
 func (a *App) writePending(dataDir string, pending []mpq.File) error {
-	defer a.releaseClient()()
 	if _, err := vmangos.InstallPatch(dataDir, pending); err != nil {
 		return err
 	}

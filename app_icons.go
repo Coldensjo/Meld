@@ -69,7 +69,6 @@ func (a *App) ImportIcons(paths []string) (IconsImported, error) {
 		}
 		return res, nil
 	}
-	defer a.releaseClient()()
 	files, names, refused, err := vmangos.PlanIconImport(dataDir, srcs)
 	if err != nil {
 		return IconsImported{}, err

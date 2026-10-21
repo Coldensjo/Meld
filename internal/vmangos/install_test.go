@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
@@ -179,5 +180,83 @@ func TestDropUnusedMinimaps(t *testing.T) {
 	// No index anywhere: everything stays.
 	if n := len(dropUnusedMinimaps(append([]mpq.File(nil), keep...), nil)); n != 4 {
 		t.Fatalf("kept %d without an index", n)
+	}
+}
+
+// fakeReader records what InstallPatch and AddPending tell Meld's reader of the archives.
+type fakeReader struct {
+	log    []string
+	forgot []string
+}
+
+func (r *fakeReader) Suspend()      { r.log = append(r.log, "suspend") }
+func (r *fakeReader) Resume() error { r.log = append(r.log, "resume"); return nil }
+func (r *fakeReader) Forget(paths ...string) {
+	r.log = append(r.log, "forget")
+	r.forgot = append(r.forgot, paths...)
+}
+
+// TestInstallPatchHoldsReader checks that a patch write closes Meld's reader for the rename only and
+// has it forget just the files it wrote and the minimap tiles it dropped, not the ones it carried (#471).
+func TestInstallPatchHoldsReader(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := InstallPatch(dir, []mpq.File{
+		{Name: `World\Maps\Azeroth\Azeroth_32_48.adt`, Data: []byte("tile")},
+		{Name: `textures\Minimap\old.blp`, Data: []byte("old")},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	r := &fakeReader{}
+	SetClientReader(r)
+	t.Cleanup(func() { SetClientReader(nil) })
+	index := []byte("dir: Azeroth\r\nAzeroth\\map32_48.blp\tnew.blp\r\n")
+	if _, err := InstallPatch(dir, []mpq.File{
+		{Name: `textures\Minimap\md5translate.trs`, Data: index},
+		{Name: `textures\Minimap\new.blp`, Data: []byte("new")},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(r.log, ","); got != "suspend,resume,forget" {
+		t.Fatalf("reader calls %s", got)
+	}
+	want := `textures\Minimap\md5translate.trs,textures\Minimap\new.blp,textures\Minimap\old.blp`
+	if got := strings.Join(r.forgot, ","); got != want {
+		t.Fatalf("forgot %s, want %s", got, want)
+	}
+
+	// A file waiting for the game to close is forgotten too: the reader's overlay serves it now.
+	root := t.TempDir()
+	old := pendingRoot
+	pendingRoot = func() string { return root }
+	defer func() { pendingRoot = old }()
+	r.log, r.forgot = nil, nil
+	if err := AddPending(dir, []mpq.File{{Name: `Interface\Icons\Meld_Test.blp`, Data: []byte("icon")}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(r.forgot, ","); got != `Interface\Icons\Meld_Test.blp` || len(r.log) != 1 {
+		t.Fatalf("pending: calls %v, forgot %s", r.log, got)
+	}
+}
+
+// TestInstallPatchWithClientOpen writes the patch while Meld's reader has it open, as the app does:
+// Windows renames over it only because the reader lets go for the write.
+func TestInstallPatchWithClientOpen(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := InstallPatch(dir, tileFiles); err != nil {
+		t.Fatal(err)
+	}
+	c := wow.NewClient()
+	if err := c.Open(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Open("") })
+	SetClientReader(c)
+	t.Cleanup(func() { SetClientReader(nil) })
+	two := []mpq.File{{Name: tileFiles[0].Name, Data: []byte("tile two")}}
+	if _, err := InstallPatch(dir, two); err != nil {
+		t.Fatal(err)
+	}
+	if !c.Status().Loaded {
+		t.Fatal("the reader didn't open the archives again")
 	}
 }

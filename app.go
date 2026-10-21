@@ -68,6 +68,9 @@ func NewApp() *App {
 	a := &App{wow: wow.NewClient(), cfg: config.Load()}
 	// The asset server previews an icon added while the game ran before the patch has it (#364).
 	a.wow.SetOverlay(a.clientOverlay)
+	// A patch write closes the client's archives for its rename only, and the asset server forgets
+	// just the files it changed (#471).
+	vmangos.SetClientReader(a.wow)
 	return a
 }
 
@@ -555,7 +558,6 @@ func (a *App) SetVmangosPath(path string) error {
 // InstallMapPatch writes the given archive files (path to base64 bytes) into the loaded client's
 // patch-3.MPQ, for the server to load. Returns the archive's path.
 func (a *App) InstallMapPatch(files map[string]string) (string, error) {
-	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return "", err
@@ -674,7 +676,6 @@ func (a *App) GroundEffects() (*vmangos.GroundEffectTables, error) {
 // AddGroundEffect writes a new ground effect (GroundEffectTexture row) growing the given detail models
 // into the client's patch, with the game closed around it on Windows, and returns its ID.
 func (a *App) AddGroundEffect(doodads []string, density, terrain uint32) (uint32, error) {
-	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return 0, err
@@ -1373,7 +1374,6 @@ func (a *App) ListItemIcons() ([]string, error) {
 // shot visual (-1 keeps its own). When the client has none, it is added to ItemDisplayInfo.dbc in
 // Meld's patch (the game closed around it on Windows); added says so.
 func (a *App) ItemDisplayVariant(display int, icon string, visual int) (vmangos.IconDisplay, error) {
-	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return vmangos.IconDisplay{}, err
@@ -1533,7 +1533,6 @@ type SpellSaved struct {
 // (with the icon's and the visual's new rows) without closing anything: at once, or once the game has
 // closed when it runs (#365), so the game has it the next time it starts.
 func (a *App) SaveSpell(entry, build int, values map[string]string, icon string, visual *vmangos.VisualDesign) (SpellSaved, error) {
-	defer a.releaseClient()()
 	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return SpellSaved{}, err
@@ -1558,7 +1557,6 @@ func (a *App) SaveSpell(entry, build int, values map[string]string, icon string,
 // that ID), to the world database and the client's Spell.dbc (in Meld's patch, written as SaveSpell
 // writes it, without closing anything), and returns its entry.
 func (a *App) CreateSpell(base int, starter, name string) (int, error) {
-	defer a.releaseClient()()
 	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
@@ -1620,7 +1618,6 @@ func (a *App) PlanSpellImport(path string) (vmangos.SpellImport, error) {
 // uses, into Spell.dbc in Meld's patch, as SaveSpell does, with the icons and visuals the script
 // carries that the client lacks (#381). Returns their entries.
 func (a *App) ImportSpells(path string) ([]int, error) {
-	defer a.releaseClient()()
 	server, dataDir, err := a.serverForWrite()
 	if err != nil {
 		return nil, err
@@ -1800,7 +1797,6 @@ func (a *App) SaveSQLDialog(suggested string) (string, error) {
 // data is built from the patch by UpdateRegionServer, which Compile All calls next and which restarts
 // the world server itself, so closing it here too would start it twice (#469).
 func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) {
-	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return vmangos.RegionResult{}, err
@@ -1855,7 +1851,6 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) error {
 		return err
 	}
 	go func() {
-		defer a.releaseClient()()
 		logf := func(line string) { runtime.EventsEmit(a.ctx, "servermaps:log", line) }
 		msg := ""
 		plan := vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}
@@ -1871,7 +1866,6 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) error {
 // (B-129): their BLPs and the minimap index go into Meld's patch, with the game closed around it.
 // Returns the patch's path.
 func (a *App) WriteMinimapTiles(mapDir string, tiles []vmangos.MinimapTile) (string, error) {
-	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return "", err
@@ -1905,7 +1899,6 @@ type WorldMapResult struct {
 // WorldMapArea.dbc row and its exploration overlays (WorldMapOverlay.dbc rows and their art, #219),
 // with the game closed around it.
 func (a *App) WriteWorldMap(spec vmangos.WorldMapSpec) (WorldMapResult, error) {
-	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return WorldMapResult{}, err
@@ -2013,7 +2006,6 @@ func (a *App) NewLightIDs() (LightIDs, error) {
 // patch (only the tables that changed; the game closed around it on Windows). Returns the
 // patch's path, or "" when nothing changed. The server doesn't read the lights.
 func (a *App) SaveLights(edit vmangos.LightsEdit) (string, error) {
-	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return "", err
@@ -2052,7 +2044,6 @@ type LoadingScreenResult struct {
 // a BLP, its LoadingScreens.dbc row and, when the client has the map already, its Map.dbc row pointing
 // at it, with the game closed around it.
 func (a *App) WriteLoadingScreen(spec vmangos.LoadingScreenSpec) (LoadingScreenResult, error) {
-	defer a.releaseClient()()
 	dataDir, err := a.clientDataDir()
 	if err != nil {
 		return LoadingScreenResult{}, err
@@ -2125,7 +2116,6 @@ func (a *App) ZoneWeather() (ZoneWeatherList, error) {
 // only at its start.
 func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (AreaSaveResult, error) {
 	var res AreaSaveResult
-	defer a.releaseClient()()
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
 	server, err := a.optionalServerForWrite()
 	if err != nil {
@@ -2206,7 +2196,6 @@ func (a *App) AreaTriggers(mapID uint32) (AreaTriggerList, error) {
 // reads areatrigger_template only at its start.
 func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (AreaSaveResult, error) {
 	var res AreaSaveResult
-	defer a.releaseClient()()
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
 	server, err := a.optionalServerForWrite()
 	if err != nil {
@@ -2269,7 +2258,6 @@ func (a *App) TaxiNetwork(mapID uint32) (vmangos.TaxiNetwork, error) {
 // routes; the auth server reads none of it and stays up.
 func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	var res AreaSaveResult
-	defer a.releaseClient()()
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
 	server, err := a.optionalServerForWrite()
 	if err != nil {
@@ -2568,7 +2556,6 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
 		return errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
 	}
 	go func() {
-		defer a.releaseClient()()
 		logf := func(line string) { runtime.EventsEmit(a.ctx, "publish:log", line) }
 		msg := ""
 		if err := vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}, m, logf); err != nil {
@@ -2594,13 +2581,6 @@ func (a *App) clientRoot() (string, error) {
 		return filepath.Dir(path), nil
 	}
 	return path, nil
-}
-
-// releaseClient lets the game's files be written: the client's archives keep them open while
-// they're loaded, so they close until the returned function runs.
-func (a *App) releaseClient() func() {
-	a.wow.Suspend()
-	return func() { _ = a.wow.Resume() }
 }
 
 // HeightmapData is a square grid of terrain heights read from an image: Side samples a side, row by row.

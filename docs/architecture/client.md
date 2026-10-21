@@ -14,6 +14,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
     w h, the mip count and each level's size and blocks (`Client.TextureDXT`), which `loadTexture`
     uploads as a `CompressedTexture` where the renderer has S3TC with sRGB.
   - Meshes: `Mesh.Encode()` = JSON header + pos/normal/uv/[color]/u32 index.
+- The decoded replies stay in `Client.cache` (up to `cacheLimit`, 512 MB) until a client change
+  (`Client.Open`). A write into Meld's patch keeps them (#471): `vmangos.InstallPatch` closes the
+  archives (`Suspend`) for its rename only, as Windows won't rename over a file Meld holds open, then
+  `Resume` opens them again (listing their files again only when an archive changed) and `Forget`
+  drops the replies built from the files the write changed; `AddPending` forgets the files it puts
+  in the overlay. The app hands the client to vmangos with `vmangos.SetClientReader` in `NewApp`; a
+  binding that writes the patch needs nothing else. Reads fail only during the rename.
 
 - The client path is persisted by `internal/config` (`os.UserConfigDir()/Meld/config.json`).
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so

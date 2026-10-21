@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,13 +23,22 @@ import (
 type Client struct {
 	mu    sync.RWMutex
 	dir   string
+	data  string // dir's Data folder, where the archives are
 	set   *mpq.Set
 	files []string
 	err   error
+	// stamps are the archives' names, sizes and times when files was listed, so Resume lists them
+	// again only when one changed.
+	stamps string
+	// held counts the Suspends that wait for their Resume: the archives open again with the last.
+	held int
 
 	cacheMu   sync.Mutex
 	cache     map[string][]byte
 	cacheSize int
+	// cacheGen counts the times the cache was emptied or forgot files, so a build that read a file
+	// before then isn't stored after.
+	cacheGen int
 
 	// The minimap table (see minimap.go), parsed on first use.
 	minimapMu sync.Mutex
@@ -66,7 +76,8 @@ func ResolveDataDir(dir string) (string, error) {
 	return "", errors.New("no MPQ archives found (select the WoW folder or its Data folder)")
 }
 
-// Open (re)loads the client at dir. An empty dir unloads it.
+// Open (re)loads the client at dir, dropping everything decoded from the one before. An empty dir
+// unloads it.
 func (c *Client) Open(dir string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -74,10 +85,12 @@ func (c *Client) Open(dir string) error {
 		c.set.Close()
 		c.set = nil
 	}
-	c.files, c.dir, c.err = nil, dir, nil
+	c.files, c.dir, c.data, c.err, c.stamps, c.held = nil, dir, "", nil, "", 0
 	c.cacheMu.Lock()
 	c.cache, c.cacheSize = map[string][]byte{}, 0
+	c.cacheGen++
 	c.cacheMu.Unlock()
+	c.forgetMinimap()
 	if dir == "" {
 		return nil
 	}
@@ -86,15 +99,27 @@ func (c *Client) Open(dir string) error {
 		c.err = err
 		return err
 	}
-	set, err := mpq.OpenDataDir(data)
+	c.data = data
+	return c.load()
+}
+
+// load opens the archives of c.data and lists their files, unless they're the ones listed last
+// (stamps): a reopen after Meld's own patch write that changed nothing, or a write into the waiting
+// files, keeps the list. Called with c.mu held.
+func (c *Client) load() error {
+	stamps := archiveStamps(c.data)
+	set, err := mpq.OpenDataDir(c.data)
 	if err != nil {
 		c.err = err
 		return err
 	}
-	c.set = set
-	c.minimapMu.Lock()
-	c.minimap = nil
-	c.minimapMu.Unlock()
+	c.set, c.err = set, nil
+	if stamps != "" && stamps == c.stamps {
+		return nil
+	}
+	c.files, c.stamps = nil, stamps
+	// The minimap index may be new too.
+	c.forgetMinimap()
 	// Listfiles reference some files that were never shipped; drop those.
 	for _, f := range set.List() {
 		if set.Has(f) {
@@ -102,6 +127,33 @@ func (c *Client) Open(dir string) error {
 		}
 	}
 	return nil
+}
+
+// archiveStamps names the archives in data with their sizes and modification times, or "" when the
+// folder can't be read.
+func archiveStamps(data string) string {
+	entries, err := os.ReadDir(data)
+	if err != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, e := range entries {
+		if e.IsDir() || !strings.EqualFold(filepath.Ext(e.Name()), ".mpq") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			return ""
+		}
+		fmt.Fprintf(&b, "%s|%d|%d\n", e.Name(), info.Size(), info.ModTime().UnixNano())
+	}
+	return b.String()
+}
+
+func (c *Client) forgetMinimap() {
+	c.minimapMu.Lock()
+	c.minimap = nil
+	c.minimapMu.Unlock()
 }
 
 type Status struct {
@@ -178,12 +230,18 @@ func (c *Client) cached(key string, build func() ([]byte, error)) ([]byte, error
 		c.cacheMu.Unlock()
 		return b, nil
 	}
+	gen := c.cacheGen
 	c.cacheMu.Unlock()
 	b, err := build()
 	if err != nil {
 		return nil, err
 	}
 	c.cacheMu.Lock()
+	if gen != c.cacheGen {
+		// Built from files a write has changed since: served, not kept.
+		c.cacheMu.Unlock()
+		return b, nil
+	}
 	if c.cacheSize+len(b) > cacheLimit {
 		c.cache, c.cacheSize = map[string][]byte{}, 0
 	}
@@ -606,21 +664,61 @@ func (c *Client) Handler() http.Handler {
 	return mux
 }
 
-// Suspend closes the client's archives, so another program can write the game's files (the patch
-// archive, say, which the archives keep open while they're loaded). Resume loads them again.
+// Suspend closes the client's archives, so Meld's patch can be replaced (Windows doesn't rename over
+// a file a program holds open). Resume loads them again; while they're closed every read fails, so
+// hold them only around the write itself (vmangos.InstallPatch does, through SetClientReader).
+// Suspends nest: the archives open again with the last Resume.
 func (c *Client) Suspend() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.held++
 	if c.set != nil {
 		c.set.Close()
 		c.set = nil
 	}
 }
 
-// Resume loads the archives again after Suspend.
+// Resume loads the archives again after Suspend. What was decoded from them stays: a write that
+// changed files the cache holds says so with Forget. The list of files is read again only when an
+// archive changed (#471).
 func (c *Client) Resume() error {
-	c.mu.RLock()
-	dir := c.dir
-	c.mu.RUnlock()
-	return c.Open(dir)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.held > 0 {
+		c.held--
+	}
+	if c.held > 0 || c.set != nil || c.data == "" {
+		return nil
+	}
+	return c.load()
+}
+
+// Forget drops what was decoded from the client files at paths (any case, either slash), as their
+// textures, models and collision, after a write changed them: the next request reads them again.
+func (c *Client) Forget(paths ...string) {
+	if len(paths) == 0 {
+		return
+	}
+	gone := make(map[string]bool, len(paths))
+	for _, p := range paths {
+		p = strings.ToLower(strings.ReplaceAll(p, "/", `\`))
+		gone[p] = true
+		if strings.EqualFold(p, MinimapIndexPath) {
+			c.forgetMinimap()
+		}
+	}
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+	c.cacheGen++
+	for key, b := range c.cache {
+		// Keys are "<kind>:<path>", then "|<look or set>" for a model or its collision.
+		_, p, _ := strings.Cut(key, ":")
+		if i := strings.IndexByte(p, '|'); i >= 0 {
+			p = p[:i]
+		}
+		if gone[p] {
+			delete(c.cache, key)
+			c.cacheSize -= len(b)
+		}
+	}
 }

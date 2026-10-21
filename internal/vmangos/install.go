@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"Meld/internal/mpq"
 	"Meld/internal/wow"
@@ -63,7 +64,15 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 		if keep, err = carryOver(target, files); err != nil {
 			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
 		}
-		keep = dropUnusedMinimaps(keep, files)
+	}
+	changed := make([]string, 0, len(files))
+	for _, f := range files {
+		changed = append(changed, f.Name)
+	}
+	if len(keep) > 0 {
+		kept := dropUnusedMinimaps(append([]mpq.File(nil), keep...), files)
+		changed = append(changed, droppedNames(keep, kept)...)
+		keep = kept
 	}
 	files = append(files, keep...)
 
@@ -72,10 +81,69 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 	if err := os.WriteFile(tmp, mpq.Write(files), 0o644); err != nil {
 		return "", err
 	}
-	if err := replaceFile(tmp, target); err != nil {
+	// Meld's own reader lets go of the archives for the rename only, then forgets what it decoded
+	// from the files this write changed (#471).
+	reader := heldReader()
+	if reader != nil {
+		reader.Suspend()
+	}
+	err := replaceFile(tmp, target)
+	if reader != nil {
+		_ = reader.Resume()
+		if err == nil {
+			reader.Forget(changed...)
+		}
+	}
+	if err != nil {
 		return "", err
 	}
 	return target, nil
+}
+
+// ClientReader is Meld's own reader of the client's archives (wow.Client), which holds Meld's patch
+// open while it's loaded.
+type ClientReader interface {
+	// Suspend closes the archives until Resume.
+	Suspend()
+	// Resume opens them again.
+	Resume() error
+	// Forget drops what was decoded from the files at paths.
+	Forget(paths ...string)
+}
+
+var (
+	readerMu     sync.Mutex
+	clientReader ClientReader
+)
+
+// SetClientReader names the reader InstallPatch closes while it replaces the patch and tells which
+// files changed, and AddPending tells which files now wait (nil for none, as in the tests). The app
+// sets it once at its start.
+func SetClientReader(r ClientReader) {
+	readerMu.Lock()
+	clientReader = r
+	readerMu.Unlock()
+}
+
+func heldReader() ClientReader {
+	readerMu.Lock()
+	defer readerMu.Unlock()
+	return clientReader
+}
+
+// droppedNames lists the names of before that after no longer has.
+func droppedNames(before, after []mpq.File) []string {
+	left := make(map[string]bool, len(after))
+	for _, f := range after {
+		left[strings.ToUpper(f.Name)] = true
+	}
+	var out []string
+	for _, f := range before {
+		if !left[strings.ToUpper(f.Name)] {
+			out = append(out, f.Name)
+		}
+	}
+	return out
 }
 
 // carryOver reads the files of an existing patch that aren't in files, so replacing the patch

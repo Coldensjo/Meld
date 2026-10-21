@@ -247,3 +247,23 @@ as `<name>.png` files.
 - Trap: the import refuses a PNG named as one of the client's icons (rename the file); the client
   caches nothing by icon name across a restart, but Meld's own previews do (`forgetIconImages`,
   `forgetSpellIcons` drop them after an import).
+
+## The asset server across a patch write (#471, probe `patch-cache`)
+Checks: a write into Meld's patch closes the asset server's archives (`wow.Client`) only for the
+rename in `vmangos.InstallPatch` (through `vmangos.SetClientReader`), keeps what it decoded, forgets
+only the files the write changed (and the minimap tiles it dropped), and lists the archives' files
+again only when one changed.
+- Go: `wow.TestResumeKeepsCache` (a temporary client: two textures read once, a nested Suspend and
+  Resume serves them from the cache, counted through the overlay; a patch rewritten while suspended
+  adds a file to `List` and, after `Forget` of one in another case and slash, only that one is read
+  again; `Open` drops it all), `vmangos.TestInstallPatchHoldsReader` (a fake reader sees suspend,
+  resume, forget, with the written names and the dropped minimap tile, not the carried tile; `AddPending`
+  forgets the waiting file), `TestInstallPatchWithClientOpen` (the rename succeeds while a real
+  `wow.Client` holds the patch; on Windows it fails without the reader set).
+- Probe `patch-cache` (the throwaway client, the real one left alone): Stormwind's WMO from
+  `/wow/model` cold, then an icon imported red, an `InstallMapPatch` of a file of its own, the WMO
+  again, and the icon imported again in blue. On 2026-10-21: cold 1239 ms, after the write 49 ms (the
+  code before #471 rebuilt it, 1167 ms); the file count 79890 to 79892; the icon read back red, then
+  blue. About 6 s.
+- Trap: `P.endSandbox()` (and any `Open`, a change of client) still drops the whole cache, so measure
+  inside one sandbox.
