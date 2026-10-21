@@ -197,6 +197,14 @@ const SMALL_MODEL_PX = 1.5
 /** Props whose bounds cover fewer pixels than this are drawn with their LOD (see models/lod.ts), whose error is about 1% of that. */
 const LOD_PX = 100
 
+/** The world settings of Map Properties (`Engine.setWorldSettings`): any of them. */
+export interface WorldSettings {
+  waterEnabled?: boolean
+  waterLevel?: number
+  rock?: number
+  dirt?: number
+}
+
 export interface MapSnapshot {
   name: string
   size: number
@@ -2057,6 +2065,35 @@ export class Engine {
       undo: () => (ref.info = before ? { ...before } : undefined),
       redo: () => (ref.info = { ...after }),
     })
+  }
+
+  /**
+   * Sets the open map's world settings (Map Properties: sea on/off, sea level, rock and dirt roles);
+   * one undo step. `before` is the values from before a live drag that already wrote `editor`.
+   * Undo and redo write through `editor` at call time, since a tab switch replaces `editor.roles`.
+   */
+  setWorldSettings(label: string, patch: WorldSettings, before?: WorldSettings) {
+    const read = (): WorldSettings => ({
+      waterEnabled: editor.waterEnabled,
+      waterLevel: editor.waterLevel,
+      rock: editor.roles.rock,
+      dirt: editor.roles.dirt,
+    })
+    const write = (w: WorldSettings) => {
+      if (w.waterEnabled !== undefined) editor.waterEnabled = w.waterEnabled
+      if (w.waterLevel !== undefined) editor.waterLevel = w.waterLevel
+      if (w.rock !== undefined) editor.roles.rock = w.rock
+      if (w.dirt !== undefined) editor.roles.dirt = w.dirt
+    }
+    const now = read()
+    const prior: WorldSettings = {}
+    const after: WorldSettings = {}
+    for (const k of Object.keys(patch) as (keyof WorldSettings)[]) {
+      ;(prior as Record<string, unknown>)[k] = before?.[k] ?? now[k]
+      ;(after as Record<string, unknown>)[k] = patch[k]
+    }
+    write(after)
+    this.history.push({ label, undo: () => write(prior), redo: () => write(after) })
   }
 
   /** The open map's Map.dbc ID for the light editor: waits for the map table when a region needs it. */

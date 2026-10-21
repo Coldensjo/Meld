@@ -104,6 +104,21 @@
 		info = { ...info, ...patch }
 		engineRef.current?.setMapInfo(info)
 	}
+	/** The sea level drags live and becomes one undo step on release; `seaFrom` is where the drag began. */
+	let seaFrom: number | null = null
+	function seaInput(v: number) {
+		seaFrom ??= editor.waterLevel
+		editor.waterLevel = v
+	}
+	function seaCommit(v: number) {
+		const from = seaFrom ?? editor.waterLevel
+		seaFrom = null
+		if (from !== v) engineRef.current?.setWorldSettings('Sea level', { waterLevel: v }, { waterLevel: from })
+	}
+	function setRole(role: 'rock' | 'dirt', e: Event) {
+		const v = Number((e.currentTarget as HTMLSelectElement).value)
+		if (v !== editor.roles[role]) engineRef.current?.setWorldSettings('Texture roles', { [role]: v })
+	}
 	/** The side of a loading screen's picture (`vmangos.LoadingScreenSize`): the game stretches it to the screen. */
 	const LOADING_SCREEN_SIZE = 512
 	const num = (e: Event) => Number((e.target as HTMLInputElement).value) || 0
@@ -173,7 +188,7 @@
 	{/if}
 	<div class="section">World</div>
 	<label class="check" title="Ocean at the sea level wherever the ground lies below it. Lakes and rivers are painted with the Water tool."
-		><input type="checkbox" bind:checked={editor.waterEnabled} /> Sea</label
+		><input type="checkbox" checked={editor.waterEnabled} onchange={(e) => engineRef.current?.setWorldSettings(e.currentTarget.checked ? 'Sea on' : 'Sea off', { waterEnabled: e.currentTarget.checked })} /> Sea</label
 	>
 	{#if editor.waterEnabled}
 		{#if azeroth}
@@ -182,7 +197,7 @@
 			</div>
 			<p class="dim">A part of Azeroth keeps the client's sea level.</p>
 		{:else}
-			<Slider label="Sea level" bind:value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} />
+			<Slider label="Sea level" value={editor.waterLevel} min={-30} max={60} step={0.1} digits={1} oninput={seaInput} onchange={seaCommit} />
 			<p class="dim">One level for the whole map. Dig lake, Raise shore and Auto-paint shape the coast around it.</p>
 		{/if}
 	{/if}
@@ -193,12 +208,12 @@
 	<p class="dim">The textures Sculpt paints by slope while it shapes the ground: rock on the steep, dirt rimming its foot. Pick them from the map's palette (the asset browser adds textures to it).</p>
 	<div class="facts">
 		<label class="k" for="role-rock">Rock</label>
-		<select id="role-rock" bind:value={editor.roles.rock}>
+		<select id="role-rock" value={editor.roles.rock} onchange={(e) => setRole('rock', e)}>
 			<option value={NO_ROLE}>none</option>
 			{#each editor.palette as p, i (i)}<option value={i}>{textureName(p)}</option>{/each}
 		</select>
 		<label class="k" for="role-dirt">Dirt</label>
-		<select id="role-dirt" bind:value={editor.roles.dirt}>
+		<select id="role-dirt" value={editor.roles.dirt} onchange={(e) => setRole('dirt', e)}>
 			<option value={NO_ROLE}>none</option>
 			{#each editor.palette as p, i (i)}<option value={i}>{textureName(p)}</option>{/each}
 		</select>
