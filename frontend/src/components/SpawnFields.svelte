@@ -16,8 +16,10 @@
 
   interface Props {
     s: vmangos.WorldSpawn
+    /** The editor around these fields: picking a pool mate or formation member goes through it. */
+    onswitch?: (o: vmangos.WorldSpawn) => void
   }
-  let { s }: Props = $props()
+  let { s, onswitch }: Props = $props()
   const creature = $derived(s.kind !== 'object')
 
   // The looping emotes a creature can hold (Emotes.dbc's STATE_* rows), read from the client once.
@@ -93,7 +95,7 @@
     <label>to s <input type="number" min="0" step="10" value={s.respawnMaxSecs} onchange={(e) => { const v = int(e); if (v !== null) edit({ respawnMaxSecs: Math.max(s.respawnSecs, v) }, 'Respawn time') }} /></label>
   </div>
 
-  <PoolFields {s} />
+  <PoolFields {s} {onswitch} />
 
   {#if creature}
     <h4>Movement</h4>
@@ -110,7 +112,7 @@
       >
     </div>
 
-    <FormationFields {s} />
+    <FormationFields {s} {onswitch} />
 
     {@const points = s.waypoints ?? []}
     <h4>Path</h4>

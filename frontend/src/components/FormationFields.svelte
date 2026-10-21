@@ -12,8 +12,10 @@
 
 	interface Props {
 		s: vmangos.WorldSpawn
+		/** An editor shows this spawn: it asks about its unsaved edits, then moves to the picked spawn. */
+		onswitch?: (o: vmangos.WorldSpawn) => void
 	}
-	let { s }: Props = $props()
+	let { s, onswitch }: Props = $props()
 
 	// `s` is a new copy after every edit, so these follow the edits.
 	const leader = $derived(leads(s) ? s : follows(s) ? creatureOf(editor.spawns, s.leader) : undefined)
@@ -26,6 +28,10 @@
 	function pick(o: vmangos.WorldSpawn) {
 		const drawn = engineRef.current?.activeDocument().spawnLayer.get(spawnKey(o))
 		if (!drawn) return
+		if (onswitch) {
+			onswitch(drawn)
+			return
+		}
 		selectSpawn(drawn)
 		if (ui.creatureEditor?.key) ui.creatureEditor = { key: spawnKey(drawn), entry: drawn.entry }
 	}

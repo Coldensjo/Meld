@@ -6,7 +6,8 @@
   import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
   import { changedValues, fieldGroups, withBit } from '../lib/world/creatureFields'
-  import { creatureTemplateOf } from '../lib/world/spawnEdits'
+  import { creatureTemplateOf, selectSpawn } from '../lib/world/spawnEdits'
+  import { spawnKey } from '../lib/world/SpawnLayer'
   import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
   import CreaturePreview from './CreaturePreview.svelte'
   import DisplayPicker from './DisplayPicker.svelte'
@@ -212,6 +213,19 @@
     }
     go()
   }
+  /** A pool mate or formation member was picked: the editor moves to it, once unsaved changes are dealt with. */
+  function switchTo(o: vmangos.WorldSpawn) {
+    const go = () => {
+      selectSpawn(o)
+      ui.creatureEditor = { key: spawnKey(o), entry: o.entry }
+    }
+    if (changeCount > 0 || tabsDirty) {
+      afterDiscard = go
+      confirmClose = true
+      return
+    }
+    go()
+  }
   let copying = $state(false)
   let copyName = $state('')
   let creating = $state(false)
@@ -353,7 +367,7 @@
 
         <div class="scroll">
           {#if tab === 'spawn' && spawn}
-            <SpawnFields s={spawn} />
+            <SpawnFields s={spawn} onswitch={switchTo} />
             <p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (File › Save Spawns to Database…). Edit the path in the world: close the editor, then Edit path.</p>
           {:else if tab === 'spells' || tab === 'shop' || tab === 'quests' || tab === 'messages'}
             <!-- The Spells, Shop, Quests and Messages tabs stay mounted below, so their unsaved edits survive a tab switch. -->

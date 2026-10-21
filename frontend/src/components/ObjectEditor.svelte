@@ -7,7 +7,7 @@
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { changedValues, fieldGroups } from '../lib/world/creatureFields'
 	import { objectFieldGroups } from '../lib/world/objectFields'
-	import { objectEntryFields } from '../lib/world/spawnEdits'
+	import { objectEntryFields, selectSpawn } from '../lib/world/spawnEdits'
 	import { objectTypeName, spawnType } from '../lib/world/spawnInfo'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import CreaturePreview from './CreaturePreview.svelte'
@@ -298,6 +298,20 @@
 		go()
 	}
 
+	/** A pool mate was picked: the editor moves to it, once unsaved changes are dealt with. */
+	function switchTo(o: vmangos.WorldSpawn) {
+		const go = () => {
+			selectSpawn(o)
+			ui.objectEditor = { key: spawnKey(o), entry: o.entry }
+		}
+		if (anyUnsaved) {
+			afterDiscard = go
+			confirmClose = true
+			return
+		}
+		go()
+	}
+
 	function changeTo(t: vmangos.ObjectTemplate) {
 		const s = spawn
 		if (!s || t.entry === s.entry) return
@@ -491,7 +505,7 @@
 						</ul>
 						{#if matches.length > LIMIT}<p class="dim">Showing {LIMIT} of {matches.length}. Narrow the search to see the rest.</p>{/if}
 						<h3>This spawn</h3>
-						<SpawnFields s={spawn} />
+						<SpawnFields s={spawn} onswitch={switchTo} />
 						<p class="dim hint">Changes to this spawn are undo steps and are saved with the region's spawns (File › Save Spawns to Database…).</p>
 					{:else if tab === 'display' && record}
 						<p class="dim">
