@@ -11,7 +11,10 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     the brush on the spot: sideways doubles the radius every `DRAG_DOUBLE` px, up and down set the
     falloff, and the ring stays on the ground point it started on.
   - Terrain brush tools extend `BrushTool` and record undo through `TerrainStroke`, which stores only
-    the dirty sub-rect.
+    the cells that changed: `BlockSnapshot.diff` keeps, for each saved block under the dirty rect, the
+    bounding rect of the cells that differ, before and after (a `GridPatch`), so a whole-mask step (the
+    wand, Grow/Shrink/Feather Mask, Erode map) holds only what it changed. The step's `bytes` says what
+    it holds, for the history's byte budget (#444).
   - **Image brushes** (`tools/brushImage.ts`): a greyscale image from the user's folder
     (`prefs.brushImageDir`, read by Go into grey levels) multiplies the brush weight inside
     `forEachVertex`/`forEachTexel`. `BrushTool.tick` switches `brushImage.active` on only for tools

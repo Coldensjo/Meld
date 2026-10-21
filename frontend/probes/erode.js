@@ -1,4 +1,4 @@
-// Sculpt › Erode (water and thermal strokes) and Terrain › Erode over a selected area on a Mountains map change the heights only where they may, and undo and redo each exactly; with the mask option the paint mask holds where the ground settled, only in the area, and undoes with the heights.
+// Sculpt › Erode (water and thermal strokes) and Terrain › Erode over a selected area on a Mountains map change the heights only where they may, and undo and redo each exactly; with the mask option the paint mask holds where the ground settled, only in the area, and undoes with the heights, the step holding only what changed (#444).
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'mountains', 3, 'Probe')
@@ -101,6 +101,9 @@ t.markMaskDirty()
 const maskBefore = Uint8Array.from(t.mask)
 await e.erodeArea({ density: 0.5, passes: 3, talus: 40, seed: 1, mask: true }, () => {}, () => false)
 await P.frames(1)
+// The step keeps only the texels and heights that changed (#444), not two copies of the whole mask.
+const stepBytes = e.history.peek()?.bytes ?? -1
+const wholeMask = 2 * t.mask.length
 let maskSet = 0
 let maskOutside = 0
 let maskFull = 0
@@ -120,7 +123,7 @@ const farLeft = t.mask[far]
 const heightsMoved = diff(before, t.heights)
 e.history.undo()
 await P.frames(1)
-const mask = { set: maskSet, full: maskFull, levels, outside: maskOutside, farLeft, active: maskActive, heightsMoved, maskUndone: diff(maskBefore, t.mask), heightsUndone: diff(before, t.heights) }
+const mask = { set: maskSet, full: maskFull, levels, outside: maskOutside, farLeft, active: maskActive, heightsMoved, stepBytes, wholeMask, maskUndone: diff(maskBefore, t.mask), heightsUndone: diff(before, t.heights) }
 t.mask.fill(0)
 t.markMaskDirty()
 editor.selection = null
@@ -128,7 +131,7 @@ const area = { finished, progress: last, changed: areaChanged, outside: outsideA
 
 const good = (s) => s.changed > 20 && s.outside === 0 && s.undone === 0 && s.redone === 0
 return {
-	ok: good(water) && good(thermal) && finished && last === 1 && areaChanged > 500 && outsideArea === 0 && areaUndone === 0 && cancelled === false && afterCancel === 0 && mask.set > 100 && mask.outside === 0 && mask.farLeft === 0 && mask.active && mask.heightsMoved > 500 && mask.maskUndone === 0 && mask.heightsUndone === 0,
+	ok: good(water) && good(thermal) && finished && last === 1 && areaChanged > 500 && outsideArea === 0 && areaUndone === 0 && cancelled === false && afterCancel === 0 && mask.set > 100 && mask.outside === 0 && mask.farLeft === 0 && mask.active && mask.heightsMoved > 500 && mask.maskUndone === 0 && mask.heightsUndone === 0 && mask.stepBytes > 0 && mask.stepBytes < mask.wholeMask / 4,
 	spot: { x: sx, z: sz, steepest: +steepest.toFixed(1) },
 	water,
 	thermal,

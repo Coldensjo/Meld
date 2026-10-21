@@ -81,7 +81,10 @@ The window layout, the asset browser and the dock panels and floating windows.
   - **History** (`components/HistoryWindow.svelte`, `ui.history`, Edit › History) is a floating window
     like the Inspector, not a dock panel: the active map's undo stack (`History.steps`), where a click
     calls `Engine.goToHistory` (undo or redo to that step). It re-reads the stack when
-    `ui.historyVersion`, bumped by every `History` change and tab switch, moves.
+    `ui.historyVersion`, bumped by every `History` change and tab switch, moves. Its header shows the
+    steps against `HISTORY_LIMIT` and the bytes they hold (`History.bytes`, the sum of each
+    `Command.bytes`); `History` drops the oldest steps past the limit or past `History.budget`
+    (`HISTORY_BYTES`, 256 MB), always keeping the newest (#444).
   - **Layers** (`LayersPanel.svelte`) is only the four texture layers of the paint chunk under the
     cursor (`editor.hoverChunk`, tracked in `Engine.updateHoverChunk` and tinted in the terrain
     shader), an unused slot shown as an empty layer. With an area selected it is instead about every

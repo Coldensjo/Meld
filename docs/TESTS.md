@@ -38,9 +38,12 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 
 - `make test` runs `go test ./internal/...`, `go test .` (the root package, only when `frontend/dist` exists, since it is `//go:embed`ed; otherwise it prints a skip line) and the frontend unit tests (`bun test ./tests`).
 - `make check` runs go vet (`./internal/...`, and `.` when `frontend/dist` exists) and svelte-check/tsc.
-- `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit,
-  replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
+- `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
+  the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
   runes state. Trap: a test can't import a `.svelte.ts` runes module, since Bun doesn't run the Svelte compiler on it.
+- `tests/terrainStroke.test.ts` checks that a `TerrainStroke` keeps only the cells that changed (a whole-mask
+  step that sets a corner holds that corner, `Command.bytes`) and that its undo and redo restore them, on a
+  fake terrain; `tests/blockSnapshot.test.ts` covers `BlockSnapshot.diff` and `GridPatch` underneath (#444).
 - WoW client integration tests: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
 - The same `WOW_DIR` runs the client checks in `internal/vmangos` (region round trips, the chunk
   header write `TestRegionHeadersWritten`, `TestReadAreasFromClient`). On the owner's machine the
