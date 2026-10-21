@@ -407,6 +407,8 @@ export const prefs = $state({
   showHorizon: true,
   /** View › Bounding boxes: draw a box around every model (Noggit Red's model boxes). */
   showBoxes: false,
+	/** View › Hover outline (#641): a faint stroke round the model or spawn a Select click would pick. */
+	hoverOutline: true,
   /** View › Area triggers: draw the map's AreaTrigger.dbc volumes (dungeon portals and the like, #141). */
   showAreaTriggers: false,
   /** View › Flight paths: draw the map's flight stops and the routes from them (TaxiNodes.dbc and TaxiPath.dbc, #180). */

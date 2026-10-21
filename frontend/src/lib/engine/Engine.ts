@@ -67,7 +67,7 @@ import { runMapChecks } from '../check/run'
 import type { Finding } from '../check/findings'
 import type { EdgeSegment } from '../check/terrainChecks'
 import { loadAreas } from '../wow/areas'
-import { animatedAssets, displayName, getAsset, releaseAssets, texturesBoundCount, updateMaterialAnimations, withParticleModels } from '../models/assets'
+import { animatedAssets, displayName, getAsset, type ModelAsset, releaseAssets, texturesBoundCount, updateMaterialAnimations, withParticleModels } from '../models/assets'
 import { baseType, withDoodadSet } from '../models/wmoSet'
 import { PropEffects } from '../world/PropEffects'
 import { castsNear, clearNearCasters, materialsNear, setNearCascade } from '../world/shadowReach'
@@ -106,6 +106,7 @@ import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
 import { spawnKey, spawnMatrix, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
+import { InputsKey } from '../tools/inputsKey'
 import { pickTrigger, triggerWins } from '../world/teleport'
 import { teleportTo } from '../io/mapio'
 import { SpawnPaths } from '../world/SpawnPaths'
@@ -451,6 +452,16 @@ export class Engine {
   private doomOutline = new SelectionOutline({ color: new THREE.Color(1, 0.18, 0.15), fill: 0.32 })
   private doomTargets: OutlineTarget[] = []
   private doomMatrices: THREE.Matrix4[] = []
+	/** View › Hover outline (#641): a faint white stroke round the model or spawn a Select click would pick. */
+	private hoverOutline = new SelectionOutline({ color: new THREE.Color(1, 1, 1), opacity: 0.45 })
+	/** The hover outline's target list: empty, or `hoverTarget`. */
+	private hoverTargets: OutlineTarget[] = []
+	private hoverTarget: OutlineTarget | null = null
+	private hoverMatrix = new THREE.Matrix4()
+	/** What the hover outline shows: a placed model's id or a spawn, both null for nothing (read by probe `hover-outline`). */
+	readonly hovered: { id: number | null; spawn: vmangos.WorldSpawn | null } = { id: null, spawn: null }
+	/** What the hover pick was last made for: the pointer, the camera, the objects, the spawns and the selection. */
+	private hoverKey = new InputsKey()
   private clearTool = new ClearTool()
   /** The Path tool (#167), which the options bar reaches through `path`. */
   private pathTool = new PathTool()
@@ -718,6 +729,7 @@ export class Engine {
     this.controller.dispose()
     this.outline.dispose()
     this.doomOutline.dispose()
+		this.hoverOutline.dispose()
     this.spawnLabels.dispose()
     this.env.dispose()
 		this.posedShadows.dispose()
@@ -747,6 +759,7 @@ export class Engine {
     const buf = this.renderer.getDrawingBufferSize(new THREE.Vector2())
     this.outline.setSize(buf.x, buf.y)
     this.doomOutline.setSize(buf.x, buf.y)
+		this.hoverOutline.setSize(buf.x, buf.y)
     this.poolOutline.setSize(buf.x, buf.y)
     this.persp.aspect = w / h
     this.persp.updateProjectionMatrix()
@@ -1271,6 +1284,7 @@ export class Engine {
     this.updateSelectionVisuals()
     this.updateDoomVisuals()
     this.updatePoolVisuals()
+		this.updateHoverVisuals()
     m.mark(SECTION['Selection visuals'])
 		this.markShadows()
 	}
@@ -1287,6 +1301,7 @@ export class Engine {
 		this.drawnCalls = this.renderer.info.render.calls
 		this.drawnTriangles = this.renderer.info.render.triangles
     if (m.on) this.gpu.begin(2)
+		this.hoverOutline.render(this.renderer, this.camera)
     this.outline.render(this.renderer, this.camera)
     this.doomOutline.render(this.renderer, this.camera)
     this.poolOutline.render(this.renderer, this.camera)
@@ -4588,6 +4603,79 @@ export class Engine {
     }
     this.doomOutline.setTargets(targets)
   }
+
+	/**
+	 * Outlines the model or spawn under the pointer that a Select click would pick (#641), by the click's
+	 * own `pickNearest`. Picks again only when the pointer, the camera, the objects, the spawns or the
+	 * selection moved, and draws nothing (no mask pass) while it is off, another tool is active, the
+	 * pointer is pressed or off the viewport, a handle is under it, or the pick is already selected.
+	 */
+	private updateHoverVisuals() {
+		const h = this.hovered
+		const on =
+			this.prefs?.hoverOutline !== false &&
+			editor.tool === 'select' &&
+			this.pointerInside &&
+			!this.leftDown &&
+			!this.gizmoDrag &&
+			!this.sizeDrag &&
+			!this.navPick &&
+			!ui.pasting &&
+			!this.controller.isDragging &&
+			!(this.gizmo.visible && this.gizmo.hoveredHandle)
+		if (!on) {
+			if (h.id !== null || h.spawn || this.hoverTargets.length) this.setHover(null, null)
+			this.hoverKey.reset()
+			return
+		}
+		const c = this.camera.matrixWorld.elements
+		const layer = this.doc.spawnLayer
+		const k = this.hoverKey.begin().add(this.ndc.x).add(this.ndc.y).add(c[8]).add(c[9]).add(c[10]).add(c[12]).add(c[13]).add(c[14])
+		k.add(this.objects).add(this.objects.version).add(layer).add(layer.version).add(editor.selectedIds).add(editor.selectedSpawn)
+		if (!k.changed()) return
+		this.raycaster.setFromCamera(this.ndc, this.camera)
+		const { id, spawn } = pickNearest(this.objects, layer, this.raycaster)
+		const o = id !== null ? this.objects.objects.get(id) : undefined
+		if (o && !editor.selectedIds.includes(o.id)) {
+			const asset = getAsset(o.type)
+			if (!asset.ready) return this.hoverPending()
+			this.setHover(o.id, null, asset, this.objects.matrixOf(o, this.hoverMatrix))
+			return
+		}
+		const sel = editor.selectedSpawn
+		if (spawn && !(sel && this.spawnKeyOf(sel) === spawnKey(spawn))) {
+			const type = spawnType(spawn)
+			const asset = type ? getAsset(type) : null
+			// A spawn drawn as a marker (no model of its own) gets no stroke.
+			if (asset && !asset.ready) return this.hoverPending()
+			if (asset) {
+				this.setHover(null, spawn, asset, spawnMatrix(spawn, true, this.hoverMatrix))
+				return
+			}
+		}
+		this.setHover(null, null)
+	}
+
+	/** The hovered model is still loading: nothing outlined yet, and the pick is made again next frame. */
+	private hoverPending() {
+		this.setHover(null, null)
+		this.hoverKey.reset()
+	}
+
+	/** Sets what the hover outline shows; no asset for nothing. */
+	private setHover(id: number | null, spawn: vmangos.WorldSpawn | null, asset?: ModelAsset, matrix?: THREE.Matrix4) {
+		this.hovered.id = id
+		this.hovered.spawn = spawn
+		const targets = this.hoverTargets
+		targets.length = 0
+		if (asset && matrix) {
+			const t = (this.hoverTarget ??= { asset, matrix, touching: false })
+			t.asset = asset
+			t.matrix = matrix
+			targets.push(t)
+		}
+		this.hoverOutline.setTargets(targets)
+	}
 
   /**
    * Outlines the other spawns of the selected spawn's pool (#172), those drawn with their model. Built

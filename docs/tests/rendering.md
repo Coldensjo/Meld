@@ -149,6 +149,17 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
   1025²; before #567 the outline's own copy uploaded the whole 4 MB every frame, 130 MB a stroke).
   Trap: raise the ground under the cube's middle and the cube re-snaps up with it, so nothing turns red.
 
+## Hover outline (#641)
+
+Checks: `Engine.updateHoverVisuals` and the second `SelectionOutline` it drives. Probe
+`hover-outline` (about 10 s): on a flat map with two helper cubes under the Select tool, the
+pointer over a cube sets `e.hovered.id` and the outline's `active`, off the cubes both clear, a
+selected cube gets none while the other still does, a still pointer and camera make no
+`ObjectLayer.pickHit` call in 10 frames, and View › Hover outline off (`prefs.hoverOutline`) or the
+Sculpt tool draws nothing. `--shot` shows the faint white stroke round the hovered cube.
+- Trap: `prefs` reach the engine through `App.svelte`'s effect, a snapshot, not the object: after
+  setting a pref in a probe, step a frame before reading what the engine does with it.
+
 ## Ground effects: no-doodad cells and density
 
 Checks: tufts stay off the cells under buildings and off the client's own `noEffectDoodad` cells,

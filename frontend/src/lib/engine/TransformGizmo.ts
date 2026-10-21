@@ -229,6 +229,11 @@ export class TransformGizmo {
     return first === this.arrowHit ? 'arrow' : first === this.knobHit ? 'scale' : first === this.moveXHit ? 'moveX' : first === this.moveZHit ? 'moveZ' : 'ring'
   }
 
+	/** The handle under the pointer, lit by `setHover`, or null. */
+	get hoveredHandle(): GizmoHandle | null {
+		return this.hovered
+	}
+
   setHover(h: GizmoHandle | null) {
     if (h === this.hovered) return
     this.hovered = h

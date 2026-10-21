@@ -155,6 +155,14 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     roots whose model may reach the box) and `attachedObjects`, not every object, so a drag that
     rebuilds every frame stays cheap. Probe `selection-visuals` checks the colours and warn boxes
     against a scan of every object and prints the ms a frame.
+  - The hover outline (#641, View › Hover outline, pref `hoverOutline`, on by default) is a second
+    `SelectionOutline` (white, `opacity` 0.45) round the model or spawn a Select click would pick:
+    `Engine.updateHoverVisuals` runs the click's own `pickNearest` and outlines its hit, but not one
+    already selected, a spawn drawn as a marker, or anything while another tool is active, the pointer
+    is pressed or off the viewport, a handle is under it or a paste floats. It picks again only when
+    the pointer, the camera, the objects, the spawns or the selection moved (`hoverKey`, an
+    `InputsKey`), and with nothing hovered it has no targets, so its mask pass is skipped. It is drawn
+    before the selection's stroke. Probe `hover-outline`.
 - **Object nudging** (`Engine.handleSelectionKey`): arrow keys are camera-relative and apply in
   the Select and Place tools. `CameraController.arrowsBlocked` keeps the camera from also
   moving. Bursts of nudges merge into one undo step via `History.replaceTop`.

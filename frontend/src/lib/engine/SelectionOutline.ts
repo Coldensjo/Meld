@@ -52,9 +52,10 @@ export class SelectionOutline {
   /**
    * `color` draws every stroke in one colour (the free, touching and warning colours alike), and
    * `fill` also tints the inside of the silhouette with it at that opacity: the Clear tool's marks
-   * on the models it would delete (#131).
+   * on the models it would delete (#131). `opacity` scales the stroke's alpha: the hover outline's
+   * faint stroke (#641).
    */
-  constructor(opts: { color?: THREE.Color; fill?: number } = {}) {
+  constructor(opts: { color?: THREE.Color; fill?: number; opacity?: number } = {}) {
     if (opts.color) {
       this.color.copy(opts.color)
       this.touchColor.copy(opts.color)
@@ -68,6 +69,7 @@ export class SelectionOutline {
         touchColor: { value: this.touchColor },
         warnColor: { value: this.warnColor },
         fill: { value: opts.fill ?? 0 },
+        opacity: { value: opts.opacity ?? 1 },
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -79,6 +81,7 @@ export class SelectionOutline {
         uniform vec3 touchColor;
         uniform vec3 warnColor;
         uniform float fill;
+        uniform float opacity;
         varying vec2 vUv;
         void main() {
           float c = texture2D(mask, vUv).r;
@@ -103,7 +106,7 @@ export class SelectionOutline {
           }
           float edge = clamp(m - c, 0.0, 1.0);
           if (edge < 0.01) discard;
-          gl_FragColor = vec4(mix(mix(color, touchColor, touch), warnColor, warn), edge);
+          gl_FragColor = vec4(mix(mix(color, touchColor, touch), warnColor, warn), edge * opacity);
           #include <colorspace_fragment>
         }`,
       transparent: true,
