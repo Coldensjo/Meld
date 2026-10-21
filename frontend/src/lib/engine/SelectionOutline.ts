@@ -38,7 +38,6 @@ export class SelectionOutline {
     boxCount: { value: 0 },
   }
   private terrain: Terrain | null = null
-  private terrainVersion = -1
   private maskRT = new THREE.WebGLRenderTarget(1, 1)
   private maskScene = new THREE.Scene()
   /** One stand-in mesh per outlined model, grown as needed. */
@@ -191,23 +190,18 @@ export class SelectionOutline {
     return m
   }
 
-  /** Terrain used to detect underground parts (heightmap kept in sync). */
-  setTerrain(t: Terrain) {
-    if (t !== this.terrain) {
-      this.terrain = t
-      this.shared.heightTex.value?.dispose()
-      const tex = new THREE.DataTexture(t.heights, t.verts, t.verts, THREE.RedFormat, THREE.FloatType)
-      tex.minFilter = tex.magFilter = THREE.NearestFilter
-      tex.needsUpdate = true
-      this.shared.heightTex.value = tex
-      this.shared.cellSize.value = t.cellSize
-      this.shared.verts.value = t.verts
-      this.terrainVersion = t.heightsVersion
-    } else if (this.terrainVersion !== t.heightsVersion && this.active) {
-      this.terrainVersion = t.heightsVersion
-      this.shared.heightTex.value!.needsUpdate = true
-    }
-  }
+	/**
+	 * Terrain used to detect underground parts. Samples the terrain's own height texture, which
+	 * `Terrain.update` keeps in sync by uploading only the edited rect (#567); the terrain owns and
+	 * disposes it.
+	 */
+	setTerrain(t: Terrain) {
+		if (t === this.terrain) return
+		this.terrain = t
+		this.shared.heightTex.value = t.heightTexture()
+		this.shared.cellSize.value = t.cellSize
+		this.shared.verts.value = t.verts
+	}
 
   /** World boxes of other props the target overlaps (the first `count` of `boxes`); parts inside them are marked. */
   setWarnBoxes(boxes: readonly THREE.Box3[], count = boxes.length) {
@@ -292,7 +286,6 @@ export class SelectionOutline {
   }
 
   dispose() {
-    this.shared.heightTex.value?.dispose()
     this.maskRT.dispose()
     this.quadMat.dispose()
   }

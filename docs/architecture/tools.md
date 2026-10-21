@@ -146,7 +146,7 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   - `TransformGizmo` provides a ring (spin) and an up/down arrow (height). Gizmo drags are
     handled in `Engine` before tools get the pointer, and each drag is one undo step.
   - Red parts of the outline are decided per pixel in the mask shader: below the terrain (from
-    a heightmap texture) or inside an overlapping prop's box (`Engine.overlappingBoxes`, up to
+    `Terrain.heightTexture()`, shared with the terrain, which uploads only the edited rect) or inside an overlapping prop's box (`Engine.overlappingBoxes`, up to
     8). The edge pass colours the stroke from the neighbouring mask pixels.
   - `Engine.updateSelectionVisuals` builds the outline's targets, their colours, the warn boxes and
     the handles' spot (`selGizmo`) only when the layer's `version`, the ground's `heightsVersion`,

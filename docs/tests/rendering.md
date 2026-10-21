@@ -140,6 +140,14 @@ e.controller.setView(134, e.terrain.heightAt(134, 128), 128, 0, 0.35, 40); for (
   dragging one of them, and one selected (2.75, 2.94 and 0.55 ms before #551 on SwiftShader; 0.02,
   0.66 and 0.02 after). The warn boxes come in the order the cells give them, so it matches them
   as a set.
+- Probe `outline-heights` (#567) checks the red underground marks against the terrain's own height
+  texture, which the outline shares: on a flat 1024 map a 4 yd helper cube is selected under the
+  Select tool and a Sculpt stroke (driven through `P.stroke(e.tools.sculpt, ...)`, since the outline
+  is built only under Select and Place) raises the ground along its edge; the outline's mask
+  (`outline.maskRT`, read back) gains red pixels, and the float texels uploaded during the stroke
+  (counted by wrapping `texImage2D`/`texSubImage2D`) stay far below one heightmap (740 against
+  1025²; before #567 the outline's own copy uploaded the whole 4 MB every frame, 130 MB a stroke).
+  Trap: raise the ground under the cube's middle and the cube re-snaps up with it, so nothing turns red.
 
 ## Ground effects: no-doodad cells and density
 
