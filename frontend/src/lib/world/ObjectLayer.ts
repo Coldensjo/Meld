@@ -7,6 +7,7 @@ import { SkinnedInstancedMesh } from './Animator'
 import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } from './instanceCull'
 import { cullForShadows } from './shadowReach'
 import { WmoGroupCull } from './wmoGroupCull'
+import { CellGrid } from './cellGrid'
 import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { wantLiquid, wmoLiquidMaterial } from '../water/liquidMaterial'
 import type { LiquidClass } from '../water/liquids'
@@ -46,6 +47,13 @@ const MAX_DEPTH = 8
 /** The most moves `ObjectLayer` logs before cutting the log (a sculpt stroke over a city re-snaps thousands a frame). */
 const MOVE_LOG = 16384
 const NO_MOVES: readonly number[] = []
+/** The side of the cells `rootsNear` and `rootsIn` read (#512), in yards: about a chunk. */
+const NEAR_CELL = 32
+/**
+ * A root whose footprint (`groundReach`) is wider than this, in yards, is kept in `wide` as well, so a
+ * sized `rootsNear` reads the cells this far around its rect and those few roots, not every cell.
+ */
+const WIDE = 64
 
 interface Batch {
   mesh: THREE.InstancedMesh
@@ -172,6 +180,15 @@ export class ObjectLayer {
 	 */
 	private kids = new Map<number, Set<number>>()
 	private filedParent = new Map<number, number>()
+	/**
+	 * The root objects filed by their ground point (#512), so `rootsNear` and `rootsIn` read the cells
+	 * around a spot rather than every object, and the roots reaching further than `WIDE` (a building).
+	 * Kept with `kids`, by `file` (`add`, `touch`, `setType`, a model loading), `remove` and `clear`.
+	 */
+	private ground = new CellGrid(NEAR_CELL)
+	private wide = new Set<number>()
+	private cellScratch: Set<number>[] = []
+	private regionScratch: WorldObject[] = []
   private nextId = 1
   /** The next unused selection group number. */
   private nextGroup = 1
@@ -191,6 +208,11 @@ export class ObjectLayer {
       this.shapeVersion++
       this.setMeshes(b, type, b.mesh.instanceMatrix.count)
       b.dirty = true
+			// Its box is the model's now, not the placeholder's: how far each one reaches has changed.
+			for (const id of b.members) {
+				const o = this.objects.get(id)
+				if (o) this.fileGround(o)
+			}
     })
   }
 
@@ -222,6 +244,8 @@ export class ObjectLayer {
     this.hidden.delete(id)
 		this.leaveBatch(o)
 		this.unfile(id)
+		this.ground.delete(id)
+		this.wide.delete(id)
     this.version++
     this.shapeVersion++
     return o
@@ -238,8 +262,12 @@ export class ObjectLayer {
 		if (b?.members.delete(o.id)) b.dirty = true
 	}
 
-	/** Files an object under its parent in `kids`, moving it from the one it was filed under. */
+	/**
+	 * Files an object under its parent in `kids`, moving it from the one it was filed under, and a root
+	 * by its ground point in `ground`.
+	 */
 	private file(o: WorldObject) {
+		this.fileGround(o)
 		const was = this.filedParent.get(o.id)
 		if (was === o.parent) return
 		if (was !== undefined) this.unfile(o.id)
@@ -248,6 +276,82 @@ export class ObjectLayer {
 		if (!ks) this.kids.set(o.parent, (ks = new Set()))
 		ks.add(o.id)
 		this.filedParent.set(o.id, o.parent)
+	}
+
+	private fileGround(o: WorldObject) {
+		if (o.parent !== undefined) {
+			this.ground.delete(o.id)
+			this.wide.delete(o.id)
+			return
+		}
+		this.ground.set(o.id, o.x, o.z)
+		if (this.groundReach(o.type, o.scale) > WIDE) this.wide.add(o.id)
+		else this.wide.delete(o.id)
+	}
+
+	/**
+	 * How far a model of `type` at `scale` reaches across the ground from its spot: half its box's
+	 * diagonal over x and z.
+	 */
+	groundReach(type: string, scale: number): number {
+		const box = getAsset(type).bbox
+		return Math.hypot(box.max.x - box.min.x, box.max.z - box.min.z) * 0.5 * scale
+	}
+
+	/**
+	 * Fills `out` with the root objects (no parent) whose ground point is within `r` of (x, z), hidden
+	 * ones too; `sized`, within `r` of their footprint instead (`groundReach` added to `r`). Reads the
+	 * cells around the spot, not every object (#512).
+	 */
+	rootsNear(x: number, z: number, r: number, out: WorldObject[], sized = false): WorldObject[] {
+		out.length = 0
+		const pad = sized ? WIDE : 0
+		for (const s of this.ground.cellsIn(x - r - pad, z - r - pad, x + r + pad, z + r + pad, this.cellScratch)) {
+			for (const id of s) {
+				if (sized && this.wide.has(id)) continue
+				const o = this.objects.get(id)
+				if (o) this.pushNear(o, x, z, r, sized, out)
+			}
+		}
+		if (sized) {
+			for (const id of this.wide) {
+				const o = this.objects.get(id)
+				if (o) this.pushNear(o, x, z, r, sized, out)
+			}
+		}
+		this.cellScratch.length = 0
+		return out
+	}
+
+	private pushNear(o: WorldObject, x: number, z: number, r: number, sized: boolean, out: WorldObject[]) {
+		if (o.parent !== undefined) return
+		const lim = sized ? r + this.groundReach(o.type, o.scale) : r
+		const dx = o.x - x
+		const dz = o.z - z
+		if (dx * dx + dz * dz <= lim * lim) out.push(o)
+	}
+
+	/** Fills `out` with the root objects whose ground point is in the rect (x0, z0)..(x1, z1), edges included, hidden ones too. */
+	rootsIn(x0: number, z0: number, x1: number, z1: number, out: WorldObject[]): WorldObject[] {
+		out.length = 0
+		for (const s of this.ground.cellsIn(x0, z0, x1, z1, this.cellScratch)) {
+			for (const id of s) {
+				const o = this.objects.get(id)
+				if (o && o.parent === undefined && o.x >= x0 && o.x <= x1 && o.z >= z0 && o.z <= z1) out.push(o)
+			}
+		}
+		this.cellScratch.length = 0
+		return out
+	}
+
+	/** Fills `out` with the attached objects (those with a parent), which `rootsNear` leaves out: place them by `worldPosition`. */
+	attachedObjects(out: WorldObject[]): WorldObject[] {
+		out.length = 0
+		for (const id of this.filedParent.keys()) {
+			const o = this.objects.get(id)
+			if (o && o.parent !== undefined) out.push(o)
+		}
+		return out
 	}
 
 	private unfile(id: number) {
@@ -269,6 +373,7 @@ export class ObjectLayer {
 		this.leaveBatch(o)
     o.type = type
 		this.joinBatch(o)
+		this.fileGround(o)
     this.markTree(o, 0)
     this.version++
     this.shapeVersion++
@@ -440,6 +545,8 @@ export class ObjectLayer {
 		for (const b of this.batches.values()) b.members.clear()
 		this.kids.clear()
 		this.filedParent.clear()
+		this.ground.clear()
+		this.wide.clear()
     this.markAllDirty()
   }
 
@@ -451,12 +558,11 @@ export class ObjectLayer {
 
   /** Re-snap ground objects within a world-space rect after terrain edits (children follow). */
   markRegionDirty(x0: number, z0: number, x1: number, z1: number) {
-    for (const o of this.objects.values()) {
-      if (o.parent === undefined && o.x >= x0 && o.x <= x1 && o.z >= z0 && o.z <= z1) {
-        this.markTree(o, 0)
-        this.version++
-      }
-    }
+		for (const o of this.rootsIn(x0, z0, x1, z1, this.regionScratch)) {
+			this.markTree(o, 0)
+			this.version++
+		}
+		this.regionScratch.length = 0
   }
 
   private parentOf(o: WorldObject, depth: number): WorldObject | undefined {

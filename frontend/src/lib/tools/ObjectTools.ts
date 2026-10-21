@@ -351,6 +351,8 @@ export class PlaceTool implements Tool {
 const tmpQ = new THREE.Quaternion()
 const tmpE = new THREE.Euler()
 const tmpS = new THREE.Vector3()
+/** An attached model's world spot, for the selection brush. */
+const brushPos = new THREE.Vector3()
 
 /** An area drag's corner, in cells. */
 interface Cell {
@@ -370,6 +372,8 @@ export class SelectTool implements Tool {
   }
   /** A selection brush stroke: the selection it builds, and whether it takes models out. */
   private brushing: { remove: boolean; ids: Set<number> } | null = null
+	/** Scratch for `brushAt`. */
+	private brushNear: WorldObject[] = []
   private normal = { x: 0, y: 1, z: 0 }
   /** Dragging the selection: `lead` is the clicked model; `others` keep their world offset from it. */
   private dragging: {
@@ -680,32 +684,36 @@ export class SelectTool implements Tool {
    * The selection brush at `at`: every drawn model whose place is within the brush radius joins the
    * stroke's selection (or leaves it, with Ctrl), as Noggit Red's `range_add_to_selection`.
    */
-  private brushAt(ctx: ToolContext, at: THREE.Vector3) {
-    const b = this.brushing
-    if (!b) return
-    const r2 = editor.brush.radius * editor.brush.radius
-    let changed = b.ids.size === 0 && editor.selectedIds.length > 0
-    for (const o of ctx.objects.objects.values()) {
-      if (!ctx.objects.pickable(o.id)) continue
-      let x = o.x
-      let z = o.z
-      if (o.parent !== undefined) {
-        const p = ctx.objects.worldPlacement(o).pos
-        x = p.x
-        z = p.z
-      }
-      if ((x - at.x) ** 2 + (z - at.z) ** 2 > r2) continue
-      for (const m of o.group ? withGroups(ctx.objects, [o.id]) : [o.id]) {
-        if (b.remove) {
-          if (b.ids.delete(m)) changed = true
-        } else if (!b.ids.has(m)) {
-          b.ids.add(m)
-          changed = true
-        }
-      }
-    }
-    if (changed) selectObjects(ctx.objects, b.ids, editor.selected?.id)
-  }
+	private brushAt(ctx: ToolContext, at: THREE.Vector3) {
+		const b = this.brushing
+		if (!b) return
+		const L = ctx.objects
+		const r = editor.brush.radius
+		let changed = b.ids.size === 0 && editor.selectedIds.length > 0
+		// The roots from the layer's cells around the brush (#512); the attached ones by their world spot.
+		for (const o of L.rootsNear(at.x, at.z, r, this.brushNear)) if (this.brushOne(L, b, o)) changed = true
+		for (const o of L.attachedObjects(this.brushNear)) {
+			const p = L.worldPosition(o, brushPos)
+			if ((p.x - at.x) ** 2 + (p.z - at.z) ** 2 <= r * r && this.brushOne(L, b, o)) changed = true
+		}
+		this.brushNear.length = 0
+		if (changed) selectObjects(L, b.ids, editor.selected?.id)
+	}
+
+	/** Adds a model the selection brush reached (with its group) to the stroke's selection, or takes it out; true when that changed it. */
+	private brushOne(L: ObjectLayer, b: { remove: boolean; ids: Set<number> }, o: WorldObject): boolean {
+		if (!L.pickable(o.id)) return false
+		let changed = false
+		for (const m of o.group ? withGroups(L, [o.id]) : [o.id]) {
+			if (b.remove) {
+				if (b.ids.delete(m)) changed = true
+			} else if (!b.ids.has(m)) {
+				b.ids.add(m)
+				changed = true
+			}
+		}
+		return changed
+	}
 
   /**
    * The ground under the cursor for an area selection: the terrain hit, or, where the cursor is over

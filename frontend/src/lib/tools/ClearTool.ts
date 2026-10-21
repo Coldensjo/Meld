@@ -22,6 +22,8 @@ export class ClearTool implements Tool {
   private stroke: TerrainStroke | null = null
   private liquidStroke: LiquidStroke | null = null
   private removed: WorldObject[] = []
+	/** Scratch for `modelsIn`. */
+	private near: WorldObject[] = []
   /** The object layer the stroke started on: undo must restore that map, not whichever tab is active then. */
   private objects: ObjectLayer | null = null
   private cellRect: Rect = { x0: 0, z0: 0, x1: 0, z1: 0 }
@@ -210,17 +212,11 @@ export class ClearTool implements Tool {
   /** Fills `out` with the root models whose ground point is in the brush at `hit`, and what hangs on them. */
   private modelsIn(objects: ObjectLayer, hit: THREE.Vector3, out: Set<number>) {
     out.clear()
-    const r2 = editor.brush.radius * editor.brush.radius
-    for (const o of objects.objects.values()) {
-      if (o.parent !== undefined || !objects.pickable(o.id)) continue
-      // A root model's x and z are its world ground point.
-      const dx = o.x - hit.x
-      const dz = o.z - hit.z
-      if (dx * dx + dz * dz > r2) continue
-      out.add(o.id)
-    }
-    // What hangs on them, in one walk.
-    objects.descendantsOf(out, out)
+		// A root model's x and z are its world ground point: the layer's cells find those in the brush.
+		for (const o of objects.rootsNear(hit.x, hit.z, editor.brush.radius, this.near)) if (objects.pickable(o.id)) out.add(o.id)
+		this.near.length = 0
+		// What hangs on them, in one walk.
+		objects.descendantsOf(out, out)
   }
 
   private gone = new Set<number>()

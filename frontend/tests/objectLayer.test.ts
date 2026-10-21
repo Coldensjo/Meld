@@ -84,3 +84,69 @@ test('place refuses to hang an object on itself or on anything below it', () => 
 	const p = L.worldPosition(c, new THREE.Vector3())
 	assert.ok(Math.abs(p.x - 12) < 1e-9 && Math.abs(p.z - 10) < 1e-9, `c stays at (12, 10): ${p.x}, ${p.z}`)
 })
+
+/** A seeded random number in [0, 1). */
+function rng(seed: number) {
+	let s = seed >>> 0
+	return () => {
+		s = (s * 1664525 + 1013904223) >>> 0
+		return s / 4294967296
+	}
+}
+
+type Layer = ReturnType<typeof tree>['L']
+type Obj = ReturnType<typeof tree>['a']
+
+/** What the cells must give: the roots near the spot, found by looking at every object. */
+function brute(L: Layer, x: number, z: number, r: number, sized: boolean): number[] {
+	const out: number[] = []
+	for (const o of L.objects.values()) {
+		if (o.parent !== undefined) continue
+		const lim = sized ? r + L.groundReach(o.type, o.scale) : r
+		if ((o.x - x) ** 2 + (o.z - z) ** 2 <= lim * lim) out.push(o.id)
+	}
+	return out.sort((p, q) => p - q)
+}
+
+test('rootsNear and rootsIn find what a scan of every object finds, through moves, removes and scale', () => {
+	const L = new ObjectLayer(terrain)
+	const r = rng(512)
+	const objs: Obj[] = []
+	for (let i = 0; i < 400; i++) objs.push(L.add({ type: TYPE, x: r() * 600 - 100, z: r() * 600 - 100, yOff: 0, rotY: 0, scale: 0.5 + r() }))
+	// A few attached ones, which the roots queries leave out, and a few very wide ones (a building's reach).
+	for (let i = 0; i < 20; i++) L.add({ type: TYPE, x: 1, z: 1, yOff: 0, rotY: 0, scale: 1, parent: objs[i * 7].id })
+	for (let i = 0; i < 5; i++) {
+		const o = objs[i * 50 + 3]
+		o.scale = 60
+		L.touch(o.id)
+	}
+	const out: Obj[] = []
+	const check = () => {
+		for (let k = 0; k < 60; k++) {
+			const x = r() * 700 - 150
+			const z = r() * 700 - 150
+			const rad = k % 10 === 0 ? 2000 : r() * 60
+			for (const sized of [false, true]) {
+				assert.deepEqual(ids(L.rootsNear(x, z, rad, out, sized).map((o) => o.id)), brute(L, x, z, rad, sized), `near ${x}, ${z}, ${rad}, sized ${sized}`)
+			}
+			const want = [...L.objects.values()].filter((o) => o.parent === undefined && o.x >= x && o.x <= x + rad && o.z >= z && o.z <= z + rad).map((o) => o.id)
+			assert.deepEqual(ids(L.rootsIn(x, z, x + rad, z + rad, out).map((o) => o.id)), ids(want))
+		}
+	}
+	check()
+	// Moved (as a drag does: the fields written, then a touch), removed, attached and detached.
+	for (let i = 0; i < 100; i++) {
+		const o = objs[(i * 13) % objs.length]
+		if (!L.objects.has(o.id)) continue
+		o.x += (r() - 0.5) * 200
+		o.z += (r() - 0.5) * 200
+		L.touch(o.id)
+	}
+	for (let i = 0; i < 30; i++) L.remove(objs[i * 11 + 1].id)
+	L.place(objs[200], objs[201].id, L.worldPlacement(objs[200]))
+	L.place(objs[7], null, L.worldPlacement(objs[7]))
+	check()
+	assert.equal(L.attachedObjects(out).length, [...L.objects.values()].filter((o) => o.parent !== undefined).length)
+	L.clear()
+	assert.deepEqual(L.rootsNear(0, 0, 1e6, out), [])
+})

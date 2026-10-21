@@ -83,6 +83,7 @@ export function movableSelection(objects: ObjectLayer): WorldObject[] {
 }
 
 const tmp = new THREE.Vector3()
+const found: WorldObject[] = []
 
 /**
  * The objects whose world position lies in the cell rect (corners x0..x1, z0..z1), and for which
@@ -93,11 +94,17 @@ export function objectsInRect(objects: ObjectLayer, cellSize: number, r: { x0: n
   const z0 = r.z0 * cellSize
   const x1 = r.x1 * cellSize
   const z1 = r.z1 * cellSize
-  const out: WorldObject[] = []
-  for (const o of objects.objects.values()) {
-    if (!objects.pickable(o.id)) continue
-    const p = objects.worldPosition(o, tmp)
-    if (p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1 && (!inside || inside(p.x, p.z))) out.push(o)
-  }
-  return out
+	// The roots from the layer's cells over the rect (#512), then the attached ones by their world spot.
+	const out: WorldObject[] = []
+	for (const o of objects.rootsIn(x0, z0, x1, z1, found)) {
+		if (objects.pickable(o.id) && (!inside || inside(o.x, o.z))) out.push(o)
+	}
+	for (const o of objects.attachedObjects(found)) {
+		if (!objects.pickable(o.id)) continue
+		const p = objects.worldPosition(o, tmp)
+		if (p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1 && (!inside || inside(p.x, p.z))) out.push(o)
+	}
+	found.length = 0
+	// In id order, so the selection's order doesn't depend on the cells (the scan gave the map's order).
+	return out.sort((a, b) => a.id - b.id)
 }

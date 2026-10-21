@@ -94,6 +94,8 @@ export class DoodadBrushTool implements Tool {
   private propLayer: ObjectLayer | null = null
   private propVersion = -1
   private pos = new THREE.Vector3()
+	/** Scratch for the layer's `rootsNear` and `attachedObjects`. */
+	private found: WorldObject[] = []
   private normal = { x: 0, y: 1, z: 0 }
   private tilt = { tiltX: 0, tiltZ: 0 }
   private size = new THREE.Vector3()
@@ -367,47 +369,46 @@ export class DoodadBrushTool implements Tool {
    * Gathers the root models within `reach` of the brush into `near`, and with On props the attached
    * ones into `nearOn` (at their world position and world scale).
    */
-  private gatherNear(ctx: ToolContext, hit: THREE.Vector3, reach: number) {
-    let n = 0
-    let m = 0
-    const r2 = reach * reach
-    const onProps = editor.doodad.onProps
-    for (const o of ctx.objects.objects.values()) {
-      if (o.parent !== undefined) {
-        if (!onProps) continue
-        const w = ctx.objects.worldPosition(o, this.pos)
-        const dx = w.x - hit.x
-        const dz = w.z - hit.z
-        if (dx * dx + dz * dz > r2) continue
-        if (m * 4 + 4 > this.nearOn.length) {
-          const grown = new Float32Array(this.nearOn.length * 2)
-          grown.set(this.nearOn)
-          this.nearOn = grown
-        }
-        this.nearOn[m * 4] = w.x
-        this.nearOn[m * 4 + 1] = w.z
-        // Spaced by its size on the map: its own scale times its parents'.
-        this.nearOn[m * 4 + 2] = this.footprint(o.type, ctx.objects.worldScale(o))
-        this.nearOn[m * 4 + 3] = o.parent
-        m++
-        continue
-      }
-      const dx = o.x - hit.x
-      const dz = o.z - hit.z
-      if (dx * dx + dz * dz > r2) continue
-      if (n * 3 + 3 > this.near.length) {
-        const grown = new Float32Array(this.near.length * 2)
-        grown.set(this.near)
-        this.near = grown
-      }
-      this.near[n * 3] = o.x
-      this.near[n * 3 + 1] = o.z
-      this.near[n * 3 + 2] = this.footprint(o.type, o.scale)
-      n++
-    }
-    this.nearCount = n
-    this.nearOnCount = m
-  }
+	private gatherNear(ctx: ToolContext, hit: THREE.Vector3, reach: number) {
+		let n = 0
+		let m = 0
+		const L = ctx.objects
+		// The roots from the layer's cells around the brush (#512).
+		for (const o of L.rootsNear(hit.x, hit.z, reach, this.found)) {
+			if (n * 3 + 3 > this.near.length) {
+				const grown = new Float32Array(this.near.length * 2)
+				grown.set(this.near)
+				this.near = grown
+			}
+			this.near[n * 3] = o.x
+			this.near[n * 3 + 1] = o.z
+			this.near[n * 3 + 2] = this.footprint(o.type, o.scale)
+			n++
+		}
+		if (editor.doodad.onProps) {
+			const r2 = reach * reach
+			for (const o of L.attachedObjects(this.found)) {
+				const w = L.worldPosition(o, this.pos)
+				const dx = w.x - hit.x
+				const dz = w.z - hit.z
+				if (dx * dx + dz * dz > r2) continue
+				if (m * 4 + 4 > this.nearOn.length) {
+					const grown = new Float32Array(this.nearOn.length * 2)
+					grown.set(this.nearOn)
+					this.nearOn = grown
+				}
+				this.nearOn[m * 4] = w.x
+				this.nearOn[m * 4 + 1] = w.z
+				// Spaced by its size on the map: its own scale times its parents'.
+				this.nearOn[m * 4 + 2] = this.footprint(o.type, L.worldScale(o))
+				this.nearOn[m * 4 + 3] = o.parent!
+				m++
+			}
+		}
+		this.found.length = 0
+		this.nearCount = n
+		this.nearOnCount = m
+	}
 
   private pushNearOn(x: number, z: number, size: number, parent: number) {
     const m = this.nearOnCount
@@ -492,25 +493,31 @@ export class DoodadBrushTool implements Tool {
     this.propVersion = layer.version
     this.propReach = reach
     this.propCentre.set(x, 0, z)
-    let n = 0
-    for (const o of layer.objects.values()) {
-      const box = getAsset(o.type).bbox
-      // The box's half diagonal across the ground, at the model's world scale, as its reach.
-      const half = Math.hypot(box.max.x - box.min.x, box.max.z - box.min.z) * 0.5 * layer.worldScale(o)
-      const w = o.parent === undefined ? this.pos.set(o.x, 0, o.z) : layer.worldPosition(o, this.pos)
-      const ox = w.x - x
-      const oz = w.z - z
-      const r = reach + half
-      if (ox * ox + oz * oz > r * r) continue
-      if (n >= this.props.length) {
-        const grown = new Int32Array(this.props.length * 2)
-        grown.set(this.props)
-        this.props = grown
-      }
-      this.props[n++] = o.id
-    }
-    this.propCount = n
-  }
+		let n = 0
+		// The roots whose box reaches over the brush, from the layer's cells (#512), then the attached
+		// ones: the box's half diagonal across the ground, at the model's world scale, as its reach.
+		for (const o of layer.rootsNear(x, z, reach, this.found, true)) n = this.pushProp(n, o.id)
+		for (const o of layer.attachedObjects(this.found)) {
+			const half = layer.groundReach(o.type, layer.worldScale(o))
+			const w = layer.worldPosition(o, this.pos)
+			const ox = w.x - x
+			const oz = w.z - z
+			const r = reach + half
+			if (ox * ox + oz * oz <= r * r) n = this.pushProp(n, o.id)
+		}
+		this.found.length = 0
+		this.propCount = n
+	}
+
+	private pushProp(n: number, id: number): number {
+		if (n >= this.props.length) {
+			const grown = new Int32Array(this.props.length * 2)
+			grown.set(this.props)
+			this.props = grown
+		}
+		this.props[n] = id
+		return n + 1
+	}
 
   private pushNear(x: number, z: number, size: number) {
     const n = this.nearCount
@@ -630,15 +637,11 @@ export class DoodadBrushTool implements Tool {
   /** Removes the brush's models (with anything attached to them) whose ground point is under the brush. */
   private erase(ctx: ToolContext, hit: THREE.Vector3, brush: DoodadBrush) {
     const types = new Set(brush.entries.map((e) => e.type))
-    const r2 = editor.brush.radius * editor.brush.radius
     const gone = new Set<number>()
-    for (const o of ctx.objects.objects.values()) {
-      if (o.parent !== undefined || !types.has(o.type) || !ctx.objects.pickable(o.id)) continue
-      const dx = o.x - hit.x
-      const dz = o.z - hit.z
-      if (dx * dx + dz * dz > r2) continue
-      gone.add(o.id)
-    }
+		for (const o of ctx.objects.rootsNear(hit.x, hit.z, editor.brush.radius, this.found)) {
+			if (types.has(o.type) && ctx.objects.pickable(o.id)) gone.add(o.id)
+		}
+		this.found.length = 0
     ctx.objects.descendantsOf(gone, gone)
     for (const id of gone) {
       const o = ctx.objects.objects.get(id)
