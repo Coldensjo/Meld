@@ -2367,6 +2367,12 @@ export class Engine {
 
   /** Make `d` the edited/rendered document. `stash` saves the current one first. */
   private activate(d: MapDocument, stash = true) {
+    // Already the active tab: its `meta` is the copy from the last stash, so loading it would revert
+    // what the editor holds since (palette, dirty flag, roles, effects, reference, paths) (#547).
+    if (stash && d === this.doc) {
+      this.syncTabs()
+      return
+    }
     this.triggerLayer.select(null)
     ui.pickedTrigger = null
     // The chunk under the cursor on one map means nothing on another.
@@ -2479,6 +2485,7 @@ export class Engine {
   cycleDocument(dir: 1 | -1) {
     const i = this.documents.indexOf(this.doc)
     const n = this.documents.length
+    if (n < 2) return
     this.activate(this.documents[(i + dir + n) % n])
   }
 
