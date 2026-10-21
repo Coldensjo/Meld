@@ -14,7 +14,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
     w h, the mip count and each level's size and blocks (`Client.TextureDXT`), which `loadTexture`
     uploads as a `CompressedTexture` where the renderer has S3TC with sRGB.
   - Meshes: `Mesh.Encode()` = JSON header + pos/normal/uv/[color]/u32 index.
-- The decoded replies stay in `Client.cache` (up to `cacheLimit`, 512 MB) until a client change
+- The decoded replies stay in `Client.cache` (`bytecache.go`, an LRU bounded by `cacheLimit`, 512 MB: the oldest go first, #501; `TextureDXT` keeps an empty marker for a non-DXT BLP and serves the `tex:` entry) until a client change
   (`Client.Open`). A write into Meld's patch keeps them (#471): `vmangos.InstallPatch` closes the
   archives (`Suspend`) for its rename only, as Windows won't rename over a file Meld holds open, then
   `Resume` opens them again (listing their files again only when an archive changed) and `Forget`

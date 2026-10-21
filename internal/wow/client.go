@@ -33,9 +33,8 @@ type Client struct {
 	// held counts the Suspends that wait for their Resume: the archives open again with the last.
 	held int
 
-	cacheMu   sync.Mutex
-	cache     map[string][]byte
-	cacheSize int
+	cacheMu sync.Mutex
+	cache   byteCache
 	// cacheGen counts the times the cache was emptied or forgot files, so a build that read a file
 	// before then isn't stored after.
 	cacheGen int
@@ -58,9 +57,10 @@ func (c *Client) SetOverlay(over func(path string) ([]byte, bool)) {
 	c.mu.Unlock()
 }
 
-const cacheLimit = 512 << 20
+// cacheLimit is the bytes the reply cache keeps; past it the least recently used go first.
+var cacheLimit = 512 << 20
 
-func NewClient() *Client { return &Client{cache: map[string][]byte{}} }
+func NewClient() *Client { return &Client{} }
 
 // ResolveDataDir accepts either the client root or its Data folder.
 func ResolveDataDir(dir string) (string, error) {
@@ -89,7 +89,7 @@ func (c *Client) Open(dir string) error {
 	}
 	c.files, c.dir, c.data, c.err, c.stamps, c.held = nil, dir, "", nil, "", 0
 	c.cacheMu.Lock()
-	c.cache, c.cacheSize = map[string][]byte{}, 0
+	c.cache.clear()
 	c.parts.clear()
 	c.cacheGen++
 	c.cacheMu.Unlock()
@@ -229,7 +229,7 @@ func (c *Client) List(kind string) []string {
 
 func (c *Client) cached(key string, build func() ([]byte, error)) ([]byte, error) {
 	c.cacheMu.Lock()
-	if b, ok := c.cache[key]; ok {
+	if b, ok := c.cache.get(key); ok {
 		c.cacheMu.Unlock()
 		return b, nil
 	}
@@ -245,11 +245,7 @@ func (c *Client) cached(key string, build func() ([]byte, error)) ([]byte, error
 		c.cacheMu.Unlock()
 		return b, nil
 	}
-	if c.cacheSize+len(b) > cacheLimit {
-		c.cache, c.cacheSize = map[string][]byte{}, 0
-	}
-	c.cache[key] = b
-	c.cacheSize += len(b)
+	c.cache.put(key, b, cacheLimit)
 	c.cacheMu.Unlock()
 	return b, nil
 }
@@ -284,14 +280,15 @@ func (c *Client) TextureDXT(path string) ([]byte, error) {
 	if _, ok := parseComposed(path); ok {
 		return c.Texture(path)
 	}
-	return c.cached("dxt:"+strings.ToLower(path), func() ([]byte, error) {
+	b, err := c.cached("dxt:"+strings.ToLower(path), func() ([]byte, error) {
 		raw, err := c.read(path)
 		if err != nil {
 			return nil, err
 		}
 		d, ok := DXTOf(raw)
 		if !ok {
-			return c.Texture(path)
+			// A marker: the RGBA reply is kept once, under "tex:", not again here.
+			return []byte{}, nil
 		}
 		n := 16
 		for _, m := range d.Mips {
@@ -308,6 +305,10 @@ func (c *Client) TextureDXT(path string) ([]byte, error) {
 		}
 		return out, nil
 	})
+	if err == nil && len(b) == 0 {
+		return c.Texture(path)
+	}
+	return b, err
 }
 
 // m2Mesh decodes an M2 dressed in look (nil for none), with the look's items attached. An item
@@ -713,15 +714,12 @@ func (c *Client) Forget(paths ...string) {
 	if model {
 		c.parts.clear()
 	}
-	for key, b := range c.cache {
+	c.cache.forget(func(key string) bool {
 		// Keys are "<kind>:<path>", then "|<look or set>" for a model or its collision.
 		_, p, _ := strings.Cut(key, ":")
 		if i := strings.IndexByte(p, '|'); i >= 0 {
 			p = p[:i]
 		}
-		if gone[p] {
-			delete(c.cache, key)
-			c.cacheSize -= len(b)
-		}
-	}
+		return gone[p]
+	})
 }
