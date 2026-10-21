@@ -189,7 +189,7 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 		AND gt.patch = (SELECT MAX(patch) FROM gameobject_template WHERE entry = g.id)
 		WHERE %s`, gBounds)
 
-	tables, err := loadModelTables(dataDir)
+	tables, err := cachedModelTables(dataDir)
 	if err != nil {
 		return nil, err
 	}
