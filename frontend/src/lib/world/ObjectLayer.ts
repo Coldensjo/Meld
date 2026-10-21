@@ -73,7 +73,47 @@ interface Batch {
   dirty: boolean
 	/** The ids of every object of the type, hidden or not, so `update` reads only its own (#329). */
 	members: Set<number>
+	/** Each id's index in `all`, as of the last rebuild. */
+	index: Map<number, number>
+	/**
+	 * The ids moved since the last `update` while the batch was not dirty (#510): `update` recomputes
+	 * only their rows, and the next `cull` writes them into the instance buffers that draw them.
+	 */
+	moved: Set<number>
+	/** The indices into `all` whose rows `update` recomputed, for the next `cull`. */
+	movedIdx: number[]
 }
+
+/** With more moved rows than this, a mesh uploads its whole instance buffer rather than a range a row. */
+const RANGES_MAX = 32
+
+/** The instance buffers `pack` rewrote that three has not uploaded yet: a range upload would cut that short. */
+const wholePending = new WeakSet<THREE.InstancedBufferAttribute>()
+
+/** The position of `v` in the ascending `sorted`, or -1. */
+function indexIn(sorted: number[], v: number): number {
+	let lo = 0
+	let hi = sorted.length - 1
+	while (lo <= hi) {
+		const mid = (lo + hi) >> 1
+		const x = sorted[mid]
+		if (x === v) return mid
+		if (x < v) lo = mid + 1
+		else hi = mid - 1
+	}
+	return -1
+}
+
+/** Sets up an instance buffer for rewrites every frame, and clears its pending whole upload once three has made it. */
+function watchUploads(attr: THREE.InstancedBufferAttribute) {
+	attr.setUsage(THREE.DynamicDrawUsage)
+	attr.onUpload(() => wholePending.delete(attr))
+}
+
+// Scratch for `patch`.
+const patchM = new THREE.Matrix4()
+const patchS = new Float32Array(4)
+const patchSphere = new THREE.Sphere()
 
 // Scratch for `matrixAt`, which runs for every instance a rebuild places (#329). A parent's matrix
 // at depth d goes in `parentM[d]`, so the recursion never overwrites one still in use.
@@ -219,9 +259,13 @@ export class ObjectLayer {
     this.version++
   }
 
-  /** Mark an object and everything attached to it (recursively) for rebuild. */
+  /**
+   * Marks an object and everything attached to it (recursively) as moved: `update` recomputes their
+   * matrices only, unless their batch is rebuilt anyway (#510).
+   */
   private markTree(o: WorldObject, depth: number) {
-    this.batch(o.type).dirty = true
+		const b = this.batch(o.type)
+		if (!b.dirty) b.moved.add(o.id)
     if (depth >= MAX_DEPTH) return
 		const ks = this.kids.get(o.id)
 		if (!ks) return
@@ -446,6 +490,9 @@ export class ObjectLayer {
         scratchFar: [],
         dirty: true,
 				members: new Set(),
+				index: new Map(),
+				moved: new Set(),
+				movedIdx: [],
       }
       this.batches.set(type, b)
       this.group.add(b.mesh)
@@ -476,7 +523,7 @@ export class ObjectLayer {
   private makeLiquidMesh(type: string, geometry: THREE.BufferGeometry, capacity: number, ids: number[]) {
     for (const k of (geometry.userData.liquidKinds ?? []) as LiquidClass[]) wantLiquid(k)
     const m = new THREE.InstancedMesh(geometry, wmoLiquidMaterial(), capacity)
-    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    watchUploads(m.instanceMatrix)
     m.count = 0
     m.visible = false
     m.userData.type = type
@@ -498,7 +545,7 @@ export class ObjectLayer {
       m.onBeforeShadow = (_r, _s, _c, shadowCamera, _g, _m, group) => cull.before(shadowCamera, group as unknown as THREE.GeometryGroup | null)
       m.onAfterShadow = (_r, _s, _c, shadowCamera, _g, _m, group) => cull.after(shadowCamera, group as unknown as THREE.GeometryGroup | null)
     }
-    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    watchUploads(m.instanceMatrix)
     m.count = 0
     // Shown by `pack` once it holds an instance.
     m.visible = false
@@ -543,10 +590,20 @@ export class ObjectLayer {
    */
   update() {
     for (const [type, b] of this.batches) {
-      if (!b.dirty) continue
+      if (!b.dirty) {
+				if (b.moved.size) this.updateMoved(b)
+				continue
+			}
       b.dirty = false
+			b.moved.clear()
+			b.movedIdx.length = 0
       b.all.length = 0
-			for (const id of b.members) if (!this.isHidden(id)) b.all.push(id)
+			b.index.clear()
+			for (const id of b.members) {
+				if (this.isHidden(id)) continue
+				b.index.set(id, b.all.length)
+				b.all.push(id)
+			}
       const n = b.all.length
       if (n > b.mesh.instanceMatrix.count) {
         let cap = b.mesh.instanceMatrix.count
@@ -569,6 +626,22 @@ export class ObjectLayer {
     }
   }
 
+	/** Recomputes the rows of a batch's moved objects only, and notes them for `cull` (#510). */
+	private updateMoved(b: Batch) {
+		const geometry = b.mesh.geometry
+		for (const id of b.moved) {
+			const i = b.index.get(id)
+			const o = this.objects.get(id)
+			// A hidden object has no row.
+			if (i === undefined || !o) continue
+			this.matrixOf(o, this.tmpM)
+			this.tmpM.toArray(b.matrices, i * 16)
+			instanceSphere(geometry, this.tmpM, b.spheres, i * 4)
+			b.movedIdx.push(i)
+		}
+		b.moved.clear()
+	}
+
   /**
    * Draws only the instances in `view`: they are packed to the front of each batch's instance buffer,
    * so a type with nothing in view costs no draw calls. Instances small on screen go to the LOD mesh.
@@ -576,17 +649,26 @@ export class ObjectLayer {
    */
   cull(view: CullView) {
     for (const b of this.batches.values()) {
-      const exempt = view.gate && view.gateExempt !== undefined ? b.all.indexOf(view.gateExempt) : -1
+      const exempt = view.gate && view.gateExempt !== undefined ? (b.index.get(view.gateExempt) ?? -1) : -1
       const changed = cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch, exempt)
-      if (changed && b.liquid) this.pack(b, b.liquid, b.liquidIds, b.packed)
+			// Rows moved since the last cull, in a packing that is otherwise the same, are written in place.
+			const moved = b.movedIdx.length > 0
+      if (b.liquid) {
+				if (changed) this.pack(b, b.liquid, b.liquidIds, b.packed)
+				else if (moved) this.patch(b, b.liquid, b.packed)
+			}
       if (!b.lod) {
         if (changed) this.pack(b, b.mesh, b.ids, b.packed)
-        continue
-      }
-      // The split changes as the camera moves, even when the instances in view don't.
-      if (!splitLod(view, b.spheres, b.packed, b.near, b.far, b.scratch, b.scratchFar) && !changed) continue
-      this.pack(b, b.mesh, b.ids, b.near)
-      this.pack(b, b.lod, b.lodIds, b.far)
+				else if (moved) this.patch(b, b.mesh, b.packed)
+      } else if (splitLod(view, b.spheres, b.packed, b.near, b.far, b.scratch, b.scratchFar) || changed) {
+				// The split changes as the camera moves, even when the instances in view don't.
+				this.pack(b, b.mesh, b.ids, b.near)
+				this.pack(b, b.lod, b.lodIds, b.far)
+			} else if (moved) {
+				this.patch(b, b.mesh, b.near)
+				this.patch(b, b.lod, b.far)
+			}
+			b.movedIdx.length = 0
     }
     // A big WMO drawn once is culled by group, every frame, as its groups' view changes with the camera.
     for (const b of this.batches.values()) {
@@ -604,10 +686,43 @@ export class ObjectLayer {
     mesh.count = which.length
     // An empty mesh is hidden: three would still set up each of its groups in every pass (#323).
     mesh.visible = which.length > 0
+		// The whole buffer: a range left from a `patch` not yet uploaded would cut the upload short.
+		mesh.instanceMatrix.clearUpdateRanges()
     mesh.instanceMatrix.needsUpdate = true
+		wholePending.add(mesh.instanceMatrix)
     // Picking tests the mesh's sphere first, so it must cover the instances drawn.
     mesh.computeBoundingSphere()
   }
+
+	/**
+	 * Writes the rows `update` recomputed (`b.movedIdx`) into `mesh`, where `which` (ascending indices
+	 * into `b.all`, as packed) draws them, and uploads only those rows (#510). The mesh's sphere grows to
+	 * cover them; the next `pack` fits it again.
+	 */
+	private patch(b: Batch, mesh: THREE.InstancedMesh, which: number[]) {
+		const attr = mesh.instanceMatrix
+		const arr = attr.array as Float32Array
+		const ranged = !wholePending.has(attr) && b.movedIdx.length <= RANGES_MAX
+		let any = false
+		for (const i of b.movedIdx) {
+			const k = indexIn(which, i)
+			if (k < 0) continue
+			const s = i * 16
+			const d = k * 16
+			for (let j = 0; j < 16; j++) arr[d + j] = b.matrices[s + j]
+			if (ranged) attr.addUpdateRange(d, 16)
+			patchM.fromArray(b.matrices, s)
+			instanceSphere(mesh.geometry, patchM, patchS, 0)
+			patchSphere.center.set(patchS[0], patchS[1], patchS[2])
+			patchSphere.radius = patchS[3]
+			if (mesh.boundingSphere) mesh.boundingSphere.union(patchSphere)
+			any = true
+		}
+		if (!any) return
+		if (!ranged) attr.clearUpdateRanges()
+		attr.needsUpdate = true
+		if (!mesh.boundingSphere) mesh.computeBoundingSphere()
+	}
 
   /** Hits on the drawn instances, nearest first: one per instance, from its model's bounds tree. */
   private intersect(raycaster: THREE.Raycaster, wmoOnly = false): THREE.Intersection[] {
