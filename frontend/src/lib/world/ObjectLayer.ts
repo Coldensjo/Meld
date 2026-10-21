@@ -43,6 +43,9 @@ export interface WorldPlacement {
 }
 
 const MAX_DEPTH = 8
+/** The most moves `ObjectLayer` logs before cutting the log (a sculpt stroke over a city re-snaps thousands a frame). */
+const MOVE_LOG = 16384
+const NO_MOVES: readonly number[] = []
 
 interface Batch {
   mesh: THREE.InstancedMesh
@@ -132,8 +135,31 @@ const parentM = Array.from({ length: MAX_DEPTH + 1 }, () => new THREE.Matrix4())
 export class ObjectLayer {
   readonly group = new THREE.Group()
   readonly objects = new Map<number, WorldObject>()
-  /** Bumped on any change to placed objects (or their loaded models). */
+  /** Bumped on any change to placed objects (or their loaded models): what they are and where. */
   version = 0
+	/**
+	 * Bumped when what is placed changes, not where (#511): an object added, removed, given another
+	 * model or hidden, a model loaded, the layer's view changed. A move (`touch`, `markRegionDirty`)
+	 * leaves it and is logged instead, for `movedSince`: what keeps per-object state (the lights and
+	 * flames, the particle pools, the WMO list) updates the moved objects alone rather than rebuilding.
+	 */
+	shapeVersion = 0
+	/**
+	 * The ids moved since the log was last cut, oldest first, an object's attached children after it;
+	 * an id may appear more than once. Cut at `MOVE_LOG` entries, after which a reader further back
+	 * gets null and rebuilds.
+	 */
+	private moveLog: number[] = []
+	private moveBase = 0
+	/** Counts the logged moves: a reader keeps the one it saw and asks `movedSince` for the rest. */
+	get moveSeq(): number {
+		return this.moveBase + this.moveLog.length
+	}
+	/** The ids moved since `seq` (a `moveSeq`), or null when the log no longer reaches back that far. */
+	movedSince(seq: number): readonly number[] | null {
+		if (seq < this.moveBase) return null
+		return seq === this.moveSeq ? NO_MOVES : this.moveLog.slice(seq - this.moveBase)
+	}
   /** Objects hidden for this session (H). Not saved in the map, and not undoable, like layer visibility. */
   readonly hidden = new Set<number>()
   /** Draw hidden objects anyway, so they can be picked and shown again. */
@@ -162,6 +188,7 @@ export class ObjectLayer {
       const b = this.batches.get(type)
       if (!b) return
       this.version++
+      this.shapeVersion++
       this.setMeshes(b, type, b.mesh.instanceMatrix.count)
       b.dirty = true
     })
@@ -184,6 +211,7 @@ export class ObjectLayer {
 		this.joinBatch(obj)
 		this.file(obj)
     this.version++
+    this.shapeVersion++
     return obj
   }
 
@@ -195,6 +223,7 @@ export class ObjectLayer {
 		this.leaveBatch(o)
 		this.unfile(id)
     this.version++
+    this.shapeVersion++
     return o
   }
 
@@ -242,6 +271,7 @@ export class ObjectLayer {
 		this.joinBatch(o)
     this.markTree(o, 0)
     this.version++
+    this.shapeVersion++
   }
 
   /** Call after mutating an object's fields. Attached children follow. */
@@ -253,6 +283,7 @@ export class ObjectLayer {
 			if (!this.batch(o.type).members.has(o.id)) {
 				for (const b of this.batches.values()) if (b.members.delete(o.id)) b.dirty = true
 				this.joinBatch(o)
+				this.shapeVersion++
 			}
 			this.markTree(o, 0)
 		}
@@ -266,6 +297,11 @@ export class ObjectLayer {
   private markTree(o: WorldObject, depth: number) {
 		const b = this.batch(o.type)
 		if (!b.dirty) b.moved.add(o.id)
+		if (this.moveLog.length >= MOVE_LOG) {
+			this.moveBase += this.moveLog.length
+			this.moveLog.length = 0
+		}
+		this.moveLog.push(o.id)
     if (depth >= MAX_DEPTH) return
 		const ks = this.kids.get(o.id)
 		if (!ks) return
@@ -358,6 +394,7 @@ export class ObjectLayer {
     else this.hidden.delete(id)
     this.batch(o.type).dirty = true
     this.version++
+    this.shapeVersion++
   }
 
   clearHidden() {
@@ -386,6 +423,7 @@ export class ObjectLayer {
   markAllDirty() {
     for (const b of this.batches.values()) b.dirty = true
     this.version++
+    this.shapeVersion++
   }
 
   /** Re-snap ground objects within a world-space rect after terrain edits (children follow). */

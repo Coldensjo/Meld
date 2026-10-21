@@ -72,6 +72,16 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     bounding sphere over them for picking. A move that changes what is in view or the LOD split repacks
     as before. Adding, removing, hiding or retyping an object, or a model loading, still rebuilds the
     batch. Probe `object-move` checks it.
+  - The layer's counters (#511): `version` moves on any change, what is placed or where, and is what
+    a consumer needing either reads (the shadow maps' scene key, the nav preview, the group boxes,
+    the tools' caches). `shapeVersion` moves only when what is placed changes (added, removed,
+    retyped, hidden, a model loaded, the view's kinds or hidden set). A move leaves it and is logged
+    instead: `markTree` pushes each moved id (children after their parent) and `movedSince(seq)`
+    returns those since a reader's `moveSeq`, or null once the log (cut at `MOVE_LOG` entries) no
+    longer reaches back, when the reader rebuilds. `PropEffects`, `ParticleLayer`, `WmoRooms` and
+    `ModelBoxes` read the two, so a drag or a sculpt stroke's re-snap updates only the moved objects'
+    lights, flames, particle pools and boxes, and the WMO probe runs again only for a moved WMO; this
+    is `SpawnLayer`'s `version`/`moveSeq` pattern. Probe `effects-drag` checks it.
   - `SpawnLayer` notes the creature models that load and its next `cull` redraws only the batches they
     change (`regroup`): the model's own and the marker cones holding a spawn of it. A change to the
     spawns themselves (`set`, `add`, `remove`, the events shown) still rebuilds every batch (#329).
@@ -189,4 +199,8 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
   - Lights inside a WMO's interior groups (`Effect.Interior`) get flames but no light: interiors are
     lit by their baked colours, so such a light would only show through the walls.
   - The terrain shader adds the point lights with three's falloff.
-  - `ObjectLayer.version` tells it when to rebuild.
+  - `ObjectLayer.shapeVersion` tells it when to rebuild; a move only (`movedSince`) rewrites the
+    moved objects' sources and flames in place (`emit`, through each object's `Span`), since a move
+    keeps how many each object gives. A rebuild reuses the `Source` objects and points each pooled light
+    at its source's new index (`keepSlots`, by owner id and place), so a shadowed light keeps its map,
+    marked out of date, rather than going dark for a frame (#511).

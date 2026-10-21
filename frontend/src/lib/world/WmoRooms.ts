@@ -75,6 +75,7 @@ export class WmoRooms {
   private wmoIds: number[] = []
   private layer: ObjectLayer | null = null
   private objectsVersion = -1
+  private objectsMoves = 0
   private lastEye = new THREE.Vector3(NaN, NaN, NaN)
   private loaded = 0
   private seenLoaded = -1
@@ -146,14 +147,23 @@ export class WmoRooms {
       this.lastEye.set(NaN, NaN, NaN) // look again once the layer is shown
       return
     }
-    if (objects !== this.layer || objects.version !== this.objectsVersion) {
+    // The WMO list follows what is placed; a move only asks for the probe again, and only a WMO's
+    // (#511): a drag or a sculpt stroke moves objects every frame. Attached ones are logged with their parent.
+    let movedWmo = false
+    if (objects !== this.layer || objects.shapeVersion !== this.objectsVersion) {
       this.layer = objects
-      this.objectsVersion = objects.version
+      this.objectsVersion = objects.shapeVersion
+      this.objectsMoves = objects.moveSeq
       this.wmoIds.length = 0
       for (const o of objects.objects.values()) if (o.type.startsWith('wmo:')) this.wmoIds.push(o.id)
-    } else if (eye.distanceToSquared(this.lastEye) < MOVE_EPS * MOVE_EPS && this.loaded === this.seenLoaded) {
-      return
+      movedWmo = true
+    } else if (objects.moveSeq !== this.objectsMoves) {
+      const moved = objects.movedSince(this.objectsMoves)
+      this.objectsMoves = objects.moveSeq
+      movedWmo = !moved
+      for (let i = 0; moved && !movedWmo && i < moved.length; i++) movedWmo = !!objects.objects.get(moved[i])?.type.startsWith('wmo:')
     }
+    if (!movedWmo && eye.distanceToSquared(this.lastEye) < MOVE_EPS * MOVE_EPS && this.loaded === this.seenLoaded) return
     this.lastEye.copy(eye)
     this.seenLoaded = this.loaded
     this.current = null

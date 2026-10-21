@@ -134,3 +134,34 @@ test('a hidden object moved is skipped, and showing it again draws it where it i
 	const want = matrix(L, 4)
 	for (let j = 0; j < 16; j++) assert.ok(Math.abs(row[j] - want[j]) < 1e-4)
 })
+
+test('a move is logged with its children and leaves shapeVersion; a change of what is placed bumps it (#511)', () => {
+	const { L } = setup(5)
+	const kid = L.add({ type: TYPE, parent: 2, x: 1, z: 0, yOff: 2, rotY: 0, scale: 1 })
+	const shape = L.shapeVersion
+	const v = L.version
+	const seq = L.moveSeq
+	L.objects.get(2)!.x += 5
+	L.touch(2)
+	L.markRegionDirty(35, -1, 45, 1)
+	assert.equal(L.shapeVersion, shape, 'moves leave shapeVersion')
+	assert.ok(L.version > v, 'version still moves on any change')
+	assert.deepEqual(L.movedSince(seq), [2, kid.id, 5])
+	assert.deepEqual(L.movedSince(L.moveSeq), [])
+	// An undo-style snapshot that gives an object another type changes what is placed.
+	L.objects.get(3)!.type = 'helper:cube:2'
+	L.touch(3)
+	assert.equal(L.shapeVersion, shape + 1)
+	L.setHidden(4, true)
+	L.remove(1)
+	L.add({ type: TYPE, x: 0, z: 9, yOff: 0, rotY: 0, scale: 1 })
+	assert.equal(L.shapeVersion, shape + 4)
+})
+
+test('a reader the move log no longer reaches is told to rebuild', () => {
+	const { L } = setup(1)
+	const seq = L.moveSeq
+	for (let i = 0; i < 20000; i++) L.touch(1)
+	assert.equal(L.movedSince(seq), null)
+	assert.equal(L.movedSince(L.moveSeq - 1)!.length, 1)
+})

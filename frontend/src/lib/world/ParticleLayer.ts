@@ -363,7 +363,8 @@ export class ParticleLayer {
   private list: Live[] = []
   private batches = new Map<string, Batch>()
   private layer: ObjectLayer | null = null
-  private version = -1
+  private shapeVersion = -1
+  private layerMoves = 0
   private spawns: SpawnLayer | null = null
   private spawnsVersion = -1
   private spawnsMoves = 0
@@ -463,6 +464,20 @@ export class ParticleLayer {
     }
   }
 
+  /** Moves the pools and trails of placed objects that moved to where they are now; the rest are kept as they are. */
+  private moveObjects(layer: ObjectLayer, moved: readonly number[]) {
+    for (let k = 0; k < moved.length; k++) {
+      const o = layer.objects.get(moved[k])
+      if (!o || layer.isHidden(o.id)) continue
+      const asset = getAsset(o.type)
+      if (!asset.emitters.length && !asset.ribbons.length) continue
+      layer.matrixOf(o, m)
+      const owner = String(o.id)
+      for (let i = 0; i < asset.emitters.length; i++) this.relocate(`${owner}:${i}`)
+      for (let i = 0; i < asset.ribbons.length; i++) this.relocate(`${owner}:r${i}`)
+    }
+  }
+
   /** Puts entry `key` at the matrix `m`. */
   private relocate(key: string) {
     const l = this.live.get(key)
@@ -515,23 +530,32 @@ export class ParticleLayer {
     this.group.visible = this.enabled
     if (!this.enabled) return
     const spawnsVersion = spawns?.version ?? -1
-    if (
+    let changed =
       layer !== this.layer ||
-      (layer?.version ?? -1) !== this.version ||
+      (layer?.shapeVersion ?? -1) !== this.shapeVersion ||
       spawns !== this.spawns ||
       spawnsVersion !== this.spawnsVersion ||
       this.unplaced.version !== this.previewsVersion
-    ) {
-      this.rebuild(layer, spawns)
-      this.version = layer?.version ?? -1
-      this.spawnsVersion = spawnsVersion
-      this.spawnsMoves = spawns?.moveSeq ?? 0
-      this.previewsVersion = this.unplaced.version
-    } else if (spawns && spawns.moveSeq !== this.spawnsMoves) {
+    // Moves alone (a drag, a sculpt stroke's re-snap) carry the moved models' pools along (#511).
+    if (!changed && layer && layer.moveSeq !== this.layerMoves) {
+      const moved = layer.movedSince(this.layerMoves)
+      this.layerMoves = layer.moveSeq
+      if (moved) this.moveObjects(layer, moved)
+      else changed = true
+    }
+    if (!changed && spawns && spawns.moveSeq !== this.spawnsMoves) {
       const moved = spawns.movedSince(this.spawnsMoves)
       this.spawnsMoves = spawns.moveSeq
       if (moved) this.moveSpawns(spawns, moved)
-      else this.rebuild(layer, spawns)
+      else changed = true
+    }
+    if (changed) {
+      this.rebuild(layer, spawns)
+      this.shapeVersion = layer?.shapeVersion ?? -1
+      this.layerMoves = layer?.moveSeq ?? 0
+      this.spawnsVersion = spawnsVersion
+      this.spawnsMoves = spawns?.moveSeq ?? 0
+      this.previewsVersion = this.unplaced.version
     }
     camera.getWorldPosition(eye)
     right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()

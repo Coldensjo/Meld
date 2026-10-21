@@ -22,6 +22,21 @@ interface Source {
   seed: number
   /** The client's raw light colour (an M2 light's colour times intensity), or null for none. */
   raw: [number, number, number] | null
+  /** The object it belongs to, and its place among that object's sources: what a slot follows through a rebuild. */
+  owner: number
+  k: number
+}
+
+function newSource(): Source {
+  return { pos: new THREE.Vector3(), color: new THREE.Color(), intensity: 0, radius: 0, fire: false, seed: 0, raw: null, owner: 0, k: 0 }
+}
+
+/** Where an object's sources and flames sit in `PropEffects`' lists, so a move rewrites them in place. */
+interface Span {
+  src: number
+  srcCount: number
+  flame: number
+  flameCount: number
 }
 
 const flameVertex = /* glsl */ `
@@ -97,10 +112,21 @@ export class PropEffects {
   private flames: THREE.InstancedMesh
   private seeds: THREE.InstancedBufferAttribute
   private material: THREE.ShaderMaterial
+  /** The light sources, the first `count`; the rest are kept for reuse, as rebuilds refill the list. */
   private sources: Source[] = []
-  private version = -1
+  private count = 0
+  /** Each object's sources and flames, by id: only objects with one or the other. */
+  private spans = new Map<number, Span>()
+  private spanFree: Span[] = []
+  private shapeVersion = -1
+  private moveSeq = 0
   private layer: ObjectLayer | null = null
+  /** The owner and place of each pooled light's source before a rebuild, to find it again after. */
+  private slotOwner = new Int32Array(LIGHT_POOL)
+  private slotK = new Int32Array(LIGHT_POOL)
+  private flameColor = new THREE.Color()
   private tmpM = new THREE.Matrix4()
+  private tmpM2 = new THREE.Matrix4()
   private tmpV = new THREE.Vector3()
   private tmpQ = new THREE.Quaternion()
   private tmpS = new THREE.Vector3()
@@ -170,63 +196,124 @@ export class PropEffects {
     this.setShadows(true)
   }
 
-  /** Rebuild the source list when the objects (or loaded assets) changed. */
+  /** Rebuilds the source list and flames when what is placed (or a loaded asset) changed. */
   private rebuild(layer: ObjectLayer) {
-    this.sources = []
-    let flameCount = 0
-    const color = new THREE.Color()
+    for (const sp of this.spans.values()) this.spanFree.push(sp)
+    this.spans.clear()
+    this.count = 0
+    let flames = 0
     for (const o of layer.objects.values()) {
       if (layer.isHidden(o.id)) continue
       const a = getAsset(o.type)
       if (!a.effects.length) continue
-      const ownFlames = this.particles && a.emitters.length > 0
-      layer.matrixOf(o, this.tmpM)
-      // One dynamic light per prop cluster: a model's light + flames at the
-      // same spot would otherwise waste several of the pooled lights.
-      const firstOfObject = this.sources.length
-      for (const e of a.effects) {
-        const pos = new THREE.Vector3(e.pos[0], e.pos[1], e.pos[2]).applyMatrix4(this.tmpM)
-        const seed = (o.id * 0.6180339 + e.pos[0] * 3.1 + e.pos[2] * 1.7) % 1
-        const src: Source = {
-          pos,
-          color: new THREE.Color(e.color[0], e.color[1], e.color[2]),
-          intensity: e.intensity,
-          radius: e.radius * o.scale,
-          fire: e.kind === 'fire',
-          seed,
-          raw: e.raw && (e.raw[0] || e.raw[1] || e.raw[2]) ? e.raw : null,
-        }
-        const near = e.interior ? null : this.sources.slice(firstOfObject).find((x) => x.pos.distanceTo(pos) < 2.5 * o.scale)
-        if (e.interior) {
-          // Interiors are lit by their baked vertex colours; with no shadows,
-          // a point light here would only light the outside through the walls.
-        } else if (near) {
-          // Keep the model's own light colour; let flames make it flicker.
-          if (src.fire) near.fire = true
-          else {
-            near.color.copy(src.color)
-            near.raw = src.raw
-          }
-          near.radius = Math.max(near.radius, src.radius)
-        } else {
-          this.sources.push(src)
-        }
-        if (src.fire && !ownFlames && flameCount < MAX_FLAMES) {
-          const size = (e.size ?? 0.4) * o.scale
-          this.tmpM.compose(pos, this.tmpQ.identity(), this.tmpS.setScalar(size))
-          this.flames.setMatrixAt(flameCount, this.tmpM)
-          this.flames.setColorAt(flameCount, color.copy(src.color))
-          this.seeds.setX(flameCount, seed)
-          flameCount++
-          layer.matrixOf(o, this.tmpM) // restore for the next effect
-        }
-      }
+      const sp = this.spanFree.pop() ?? { src: 0, srcCount: 0, flame: 0, flameCount: 0 }
+      sp.src = this.count
+      sp.flame = flames
+      this.emit(layer, o.id, sp)
+      this.count += sp.srcCount
+      flames += sp.flameCount
+      this.spans.set(o.id, sp)
     }
-    this.flames.count = flameCount
+    this.flames.count = flames
     this.flames.instanceMatrix.needsUpdate = true
     if (this.flames.instanceColor) this.flames.instanceColor.needsUpdate = true
     this.seeds.needsUpdate = true
   }
+
+  /**
+   * Writes object `id`'s sources from `sp.src` and its flames from `sp.flame`, setting their counts.
+   * A move keeps both counts (a prop's effects merge by their distance apart, which a move and a
+   * uniform scale keep in proportion), so `move` rewrites them in place.
+   */
+  private emit(layer: ObjectLayer, id: number, sp: Span) {
+    const o = layer.objects.get(id)!
+    const a = getAsset(o.type)
+    const ownFlames = this.particles && a.emitters.length > 0
+    const m = layer.matrixOf(o, this.tmpM)
+    const pool = this.sources
+    // One dynamic light per prop cluster: a model's light + flames at the
+    // same spot would otherwise waste several of the pooled lights.
+    const first = sp.src
+    let n = first
+    let flame = sp.flame
+    for (const e of a.effects) {
+      // The candidate is written to the next free entry, and kept only if it merges with none.
+      const src = pool[n] ?? (pool[n] = newSource())
+      const pos = src.pos.set(e.pos[0], e.pos[1], e.pos[2]).applyMatrix4(m)
+      const seed = (o.id * 0.6180339 + e.pos[0] * 3.1 + e.pos[2] * 1.7) % 1
+      src.color.setRGB(e.color[0], e.color[1], e.color[2])
+      src.intensity = e.intensity
+      src.radius = e.radius * o.scale
+      src.fire = e.kind === 'fire'
+      src.seed = seed
+      src.raw = e.raw && (e.raw[0] || e.raw[1] || e.raw[2]) ? e.raw : null
+      src.owner = o.id
+      src.k = n - first
+      let near: Source | null = null
+      if (!e.interior) {
+        const reach = 2.5 * o.scale
+        for (let i = first; i < n && !near; i++) if (pool[i].pos.distanceTo(pos) < reach) near = pool[i]
+      }
+      if (e.interior) {
+        // Interiors are lit by their baked vertex colours; with no shadows,
+        // a point light here would only light the outside through the walls.
+      } else if (near) {
+        // Keep the model's own light colour; let flames make it flicker.
+        if (src.fire) near.fire = true
+        else {
+          near.color.copy(src.color)
+          near.raw = src.raw
+        }
+        near.radius = Math.max(near.radius, src.radius)
+      } else {
+        n++
+      }
+      if (src.fire && !ownFlames && flame < MAX_FLAMES) {
+        const size = (e.size ?? 0.4) * o.scale
+        this.tmpM2.compose(pos, this.tmpQ.identity(), this.tmpS.setScalar(size))
+        this.flames.setMatrixAt(flame, this.tmpM2)
+        this.flames.setColorAt(flame, this.flameColor.setRGB(e.color[0], e.color[1], e.color[2]))
+        this.seeds.setX(flame, seed)
+        flame++
+      }
+    }
+    sp.srcCount = n - first
+    sp.flameCount = flame - sp.flame
+  }
+
+  /**
+   * Rewrites the sources and flames of the objects moved since the last frame, in place. False when
+   * one no longer gives as many as it did, and the list must be rebuilt.
+   */
+  private move(layer: ObjectLayer, moved: readonly number[]): boolean {
+    let flames = false
+    for (let i = 0; i < moved.length; i++) {
+      const sp = this.spans.get(moved[i])
+      if (!sp || !layer.objects.has(moved[i])) continue
+      const srcCount = sp.srcCount
+      const flameCount = sp.flameCount
+      // A merged candidate lands past the object's own sources: keep the next object's first one safe.
+      const next = sp.src + srcCount
+      const keep = next < this.count ? this.sources[next] : null
+      if (keep) this.sources[next] = this.spare
+      this.emit(layer, moved[i], sp)
+      if (keep) {
+        this.spare = this.sources[next]
+        this.sources[next] = keep
+      }
+      if (sp.srcCount !== srcCount || sp.flameCount !== flameCount) return false
+      if (flameCount) flames = true
+    }
+    if (flames) {
+      this.flames.instanceMatrix.needsUpdate = true
+      if (this.flames.instanceColor) this.flames.instanceColor.needsUpdate = true
+      this.seeds.needsUpdate = true
+    }
+    return true
+  }
+
+  /** Scratch for `move`: stands in for the entry after an object's sources while its candidates are written. */
+  private spare = newSource()
 
   /**
    * Whether the nearest lights cast shadows. On from the start, whatever the sun's Shadows preference:
@@ -252,28 +339,40 @@ export class PropEffects {
    * `sceneVersion` changes whenever what could throw a light's shadow changed (here, the terrain).
    */
   update(layer: ObjectLayer, time: number, focus: THREE.Vector3, night: number, sceneVersion: number) {
-    const rebuilt = layer !== this.layer || layer.version !== this.version || this.particles !== this.drawnParticles
-    if (rebuilt) {
-      this.layer = layer
-      this.version = layer.version
-      this.drawnParticles = this.particles
-      this.rebuild(layer)
-      // Source indices name other sources now.
-      this.slots.fill(-1)
+    let changed = layer !== this.layer || layer.shapeVersion !== this.shapeVersion || this.particles !== this.drawnParticles
+    let redraw = false
+    if (!changed && layer.moveSeq !== this.moveSeq) {
+      // Moves only (a drag, a sculpt stroke's re-snap): the moved objects' sources are rewritten in
+      // place, so every index, and the slots naming them, still hold.
+      const moved = layer.movedSince(this.moveSeq)
+      this.moveSeq = layer.moveSeq
+      if (!moved || !this.move(layer, moved)) changed = true
+      // What moved may throw a shadowed light's shadow.
+      else redraw = moved.length > 0
     }
-    const redraw = rebuilt || sceneVersion !== this.sceneVersion
+    if (changed) {
+      const same = layer === this.layer
+      this.layer = layer
+      this.shapeVersion = layer.shapeVersion
+      this.moveSeq = layer.moveSeq
+      this.drawnParticles = this.particles
+      this.keepSlots(same)
+      redraw = true
+    }
+    redraw ||= sceneVersion !== this.sceneVersion
     this.sceneVersion = sceneVersion
     this.material.uniforms.time.value = time
     this.flames.visible = this.enabled
 
     // Nearest sources to the camera target get the light pool, and the nearest of those its shadows.
     const src = this.sources
+    const count = this.count
     this.order.length = 0
-    for (let i = 0; i < src.length; i++) this.order.push(i)
-    if (src.length > SHADOW_LIGHTS) {
-      if (this.dist.length < src.length) this.dist = new Float32Array(src.length)
+    for (let i = 0; i < count; i++) this.order.push(i)
+    if (count > SHADOW_LIGHTS) {
+      if (this.dist.length < count) this.dist = new Float32Array(count)
       const d = this.dist
-      for (let i = 0; i < src.length; i++) d[i] = src[i].pos.distanceToSquared(focus)
+      for (let i = 0; i < count; i++) d[i] = src[i].pos.distanceToSquared(focus)
       this.order.sort((a, b) => d[a] - d[b])
     }
     this.assignSlots(this.enabled ? Math.min(LIGHT_POOL, this.order.length) : 0)
@@ -323,6 +422,27 @@ export class PropEffects {
       l.intensity = s.intensity * s.radius * s.radius * 0.5 * flicker * strength
       // A shadowed light waits for its first map, rather than shining through walls with another's.
       if (i < SHADOW_LIGHTS && l.castShadow && this.stale[i] === 2) l.intensity = 0
+    }
+  }
+
+  /**
+   * Rebuilds the sources, and points each pooled light at its source's new index, found by the
+   * object and its place among the object's sources; a light whose source is gone is freed. A shadowed
+   * light so keeps its map (marked out of date) rather than going dark until a new one is drawn,
+   * which made a drag's nearest lights flicker every frame. `same` is false for another layer (a tab
+   * switch), whose sources share nothing with the old ones.
+   */
+  private keepSlots(same: boolean) {
+    const slots = this.slots
+    for (let i = 0; i < LIGHT_POOL; i++) {
+      const s = same && slots[i] >= 0 && slots[i] < this.count ? this.sources[slots[i]] : null
+      this.slotOwner[i] = s ? s.owner : -1
+      this.slotK[i] = s ? s.k : -1
+    }
+    this.rebuild(this.layer!)
+    for (let i = 0; i < LIGHT_POOL; i++) {
+      const sp = this.slotOwner[i] >= 0 ? this.spans.get(this.slotOwner[i]) : undefined
+      slots[i] = sp && this.slotK[i] < sp.srcCount ? sp.src + this.slotK[i] : -1
     }
   }
 
