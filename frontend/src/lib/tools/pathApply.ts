@@ -43,7 +43,7 @@ class HeightEdit {
 		return { x0, z0, x1, z1 }
 	}
 
-	finish(objects: ObjectLayer): { undo(): void; redo(): void } | null {
+	finish(objects: ObjectLayer): { undo(): void; redo(): void; bytes: number } | null {
 		const r = this.rect()
 		if (!r) return null
 		const t = this.t
@@ -59,7 +59,7 @@ class HeightEdit {
 		// The apply wrote them already: the mesh and the models standing there follow now.
 		t.markDirty(r.x0, r.z0, r.x1, r.z1)
 		objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
-		return { undo: () => write(before), redo: () => write(after) }
+		return { bytes: index.byteLength + before.byteLength + after.byteLength, undo: () => write(before), redo: () => write(after) }
 	}
 }
 
@@ -106,7 +106,7 @@ class PaintEdit {
 		if (!this.chunks.has(c)) this.chunks.set(c, this.read(c))
 	}
 
-	finish(): { undo(): void; redo(): void } | null {
+	finish(): { undo(): void; redo(): void; bytes: number } | null {
 		if (!this.chunks.size) return null
 		const t = this.t
 		const side = t.paintChunksPerSide
@@ -131,7 +131,9 @@ class PaintEdit {
 			for (const [c, v] of m) this.write(c, v)
 			t.markSplatDirty(rect)
 		}
-		return { undo: () => apply(before), redo: () => apply(after) }
+		let bytes = 0
+		for (const m of [before, after]) for (const v of m.values()) bytes += v.weights.byteLength + v.slots.byteLength
+		return { bytes, undo: () => apply(before), redo: () => apply(after) }
 	}
 }
 
@@ -152,7 +154,7 @@ export interface PathTargets {
 	liquids: LiquidMap
 }
 
-type Part = { undo(): void; redo(): void }
+type Part = { undo(): void; redo(): void; bytes?: number }
 
 /** A fence's model as the apply needs it: its length along the curve, and whether that is its local Z. */
 export interface FencePiece {
@@ -185,7 +187,7 @@ export function applyPath(m: PathTargets, path: MapPath, tex: number, piece?: Fe
 	}
 	const paint = new PaintEdit(t)
 	const refused = tex >= 0 ? paintAlong(t, sm, path, tex, paint) : 0
-	parts.unshift(...[heights.finish(m.objects), paint.finish()].filter((p): p is Part => !!p))
+	parts.unshift(...[heights.finish(m.objects), paint.finish()].filter((p) => p !== null))
 	const message = refused
 		? `${kind} applied, but part of its paint was refused: those chunks already hold four other textures (the 1.12 limit).`
 		: tex < 0 && path.texture

@@ -79,6 +79,8 @@ export class ChunkDataStroke {
       if (keepCells && r && cells) inject(t.noEffect, t.size, r, before ? cells.before : cells.after)
       t.touchChunkData()
     }
-    return { label: this.label, undo: () => apply(true), redo: () => apply(false) }
+    let bytes = areas.before.byteLength + areas.after.byteLength + flags.before.byteLength + flags.after.byteLength
+    if (keepCells && cells) bytes += cells.before.byteLength + cells.after.byteLength
+    return { label: this.label, bytes, undo: () => apply(true), redo: () => apply(false) }
   }
 }

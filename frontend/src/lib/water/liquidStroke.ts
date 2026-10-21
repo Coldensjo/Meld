@@ -45,6 +45,8 @@ export class LiquidStroke {
     const apply = (m: Map<number, LiquidLayer[]>) => {
       for (const [c, layers] of m) map.set(c, layers.map(cloneLayer))
     }
-    return { label: this.label, undo: () => apply(before), redo: () => apply(after) }
+    let bytes = 0
+    for (const m of [before, after]) for (const layers of m.values()) for (const l of layers) bytes += l.heights.byteLength + l.depth.byteLength + l.cells.byteLength
+    return { label: this.label, bytes, undo: () => apply(before), redo: () => apply(after) }
   }
 }

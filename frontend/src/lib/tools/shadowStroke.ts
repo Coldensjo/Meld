@@ -63,7 +63,7 @@ export class ShadowStroke {
 			inject(t.ensureShadow(), t.shadowSide, r, undo ? before : after)
 			t.touchShadow(r.z0, r.z1)
 		}
-		return { label: this.label, undo: () => apply(true), redo: () => apply(false) }
+		return { label: this.label, bytes: before.byteLength + after.byteLength, undo: () => apply(true), redo: () => apply(false) }
 	}
 }
 

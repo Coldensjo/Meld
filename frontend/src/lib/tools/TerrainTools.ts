@@ -217,7 +217,7 @@ function vertexCommand(ctx: Pick<ToolContext, 'terrain' | 'objects'>, label: str
     const cs = t.cellSize
     objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
   }
-  return { label, undo: () => apply(before), redo: () => apply(after) }
+  return { label, bytes: before.byteLength + after.byteLength, undo: () => apply(before), redo: () => apply(after) }
 }
 
 /** The slope slider's undo step is recorded at most this often while it moves (ms). */

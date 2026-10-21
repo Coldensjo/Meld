@@ -23,6 +23,8 @@ test('a stroke undoes and redoes the zones, flags and no-tuft cells it changed',
   t.noEffect[6 * 64 + 6] = 1
   s.touchCells(r)
   const cmd = s.finish()!
+  // Two chunks (areas 4+4 each side, flags 1+1) and a 2x1 cell rect (2 bytes each side).
+  assert.equal(cmd.bytes, 2 * 4 * 2 + 2 * 2 + 2 * 2)
   assert.ok(cmd)
   cmd.undo()
   assert.equal(t.areaIds[3], 12)

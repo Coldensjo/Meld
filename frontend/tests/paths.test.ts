@@ -118,6 +118,7 @@ test('a road levels the ground to its height across the width and blends back ov
 	const r = road([[20, 30, 60], [100, 30, 60]], { width: 8, falloff: 4 })
 	const res = applyPath({ terrain: t as unknown as Terrain, objects, liquids: new LiquidMap(t.size) }, r, -1)
 	assert.ok(res.cmd)
+	assert.ok(res.cmd!.bytes! > 0, "the step reports the heights it holds")
 	const at = (x: number, z: number) => t.heights[(z / 2) * t.verts + x / 2]
 	assert.ok(Math.abs(at(60, 60) - 30) < 1e-3, 'centre at the road height')
 	assert.ok(Math.abs(at(60, 64) - 30) < 1e-3, 'edge of the width too')
@@ -178,6 +179,7 @@ test('a river carves its bed and fills it with its liquid, whose surface slopes 
 	const r = road([[10, 9, 60], [118, 5, 60]], { kind: 'river', width: 12, falloff: 4, depth: 3, liquid: 1 })
 	const res = applyPath({ terrain: t as unknown as Terrain, objects, liquids }, r, -1)
 	assert.ok(res.cmd)
+	assert.ok(res.cmd!.bytes! > 0, "the step reports the heights and the liquid it holds")
 	const at = (x: number, z: number) => t.heights[(z / 2) * t.verts + x / 2]
 	assert.ok(Math.abs(at(64, 60) - (7 - 3)) < 0.1, `bed ${at(64, 60)}`)
 	assert.equal(at(64, 80), 10, 'untouched beyond the falloff')
