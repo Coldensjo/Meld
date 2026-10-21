@@ -30,8 +30,8 @@ type ObjectSpec struct {
 // TileSpec is one tile of a map to write.
 type TileSpec struct {
 	X, Y int
-	// Outer is the tile's ground: 129 x 129 heights, row-major, rows running south.
-	Outer []float32
+	// Outer is the tile's ground: 129 x 129 heights, row-major, rows running south; base64 in JSON.
+	Outer HeightGrid `ts_type:"string"`
 	// Paint holds the chunks that have paint: their textures (up to four, base first) and weights.
 	Paint []PaintSpec
 	// Objects are the models on the tile.

@@ -2121,7 +2121,7 @@ export namespace vmangos {
 	export class TileSpec {
 	    X: number;
 	    Y: number;
-	    Outer: number[];
+	    Outer: string;
 	    Paint: PaintSpec[];
 	    Objects: ObjectSpec[];
 	    Liquids: adt.Liquid[];
@@ -2666,7 +2666,7 @@ export namespace vmangos {
 	    x: number;
 	    y: number;
 	    size: number;
-	    heights: number[];
+	    heights: string;
 	    chunks: ChunkView[];
 	    objects: ObjectView[];
 	    liquids: adt.Liquid[];

@@ -260,7 +260,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   was taken at, and reused until the history reaches a state with another fingerprint, so repeated
   Launch, Play Here and grow checks don't rebuild the block (#531; 2.2 s a check for a 3×3 block).
   `RegionEdit.Heights` crosses the bridge as base64 of the float32s, as `MapData.Heights` does
-  (`vmangos.EncodeHeights`, `DecodeHeights`). Launch (`launchGame`) opens the Compile and Launch
+  (`vmangos.EncodeHeights`, `DecodeHeights`); so do `RegionView.Heights` (LoadRegion) and Publish's
+  `TileSpec.Outer`, typed `vmangos.HeightGrid`, a float slice in Go whose JSON is that string
+  (`ts_type:"string"` in the bindings; the page reads it with `base64ToFloats` and writes it with
+  `floatsToBase64`, `io/base64.ts`), a third of the JSON numbers' size for a 3x3 block (#632). Launch (`launchGame`) opens the Compile and Launch
   dialog (`ui.dialog = 'compileBeforeLaunch'`) when it is true; Play Here says so in its status line.
   `regionKey` hashes the document's own arrays and settings, not `exportInput`, whose building
   footprints in `noEffect` change as models load: a new compile input must be added to it, or Launch

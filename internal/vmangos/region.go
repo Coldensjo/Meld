@@ -3,6 +3,7 @@ package vmangos
 import (
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -28,7 +29,7 @@ type RegionView struct {
 	Y       int    `json:"y"`
 	Size    int    `json:"size"`
 	// Heights is the block's outer grid: (Size*128+1) squared, row-major, rows running south.
-	Heights []float32 `json:"heights"`
+	Heights HeightGrid `json:"heights" ts_type:"string"`
 	// Chunks index across the whole block: 16*Size chunks a side.
 	Chunks  []ChunkView  `json:"chunks"`
 	Objects []ObjectView `json:"objects"`
@@ -105,6 +106,34 @@ func EncodeHeights(h []float32) string {
 		binary.LittleEndian.PutUint32(b[4*i:], math.Float32bits(v))
 	}
 	return base64.StdEncoding.EncodeToString(b)
+}
+
+// HeightGrid is heights Go keeps as floats that cross the Wails bridge as EncodeHeights does: a
+// 3x3 block's 148,225 heights are 2.68 MB as JSON numbers and 0.79 MB as base64, and far quicker to
+// encode and parse (#632). The page reads them with base64.ts's base64ToFloats.
+type HeightGrid []float32
+
+// MarshalJSON writes the heights as a base64 string.
+func (h HeightGrid) MarshalJSON() ([]byte, error) {
+	return json.Marshal(EncodeHeights(h))
+}
+
+// UnmarshalJSON reads the heights from a base64 string; null leaves them empty.
+func (h *HeightGrid) UnmarshalJSON(b []byte) error {
+	var s *string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return fmt.Errorf("heights: %w", err)
+	}
+	if s == nil {
+		*h = nil
+		return nil
+	}
+	f, err := DecodeHeights(*s)
+	if err != nil {
+		return err
+	}
+	*h = f
+	return nil
 }
 
 // DecodeHeights reads RegionEdit.Heights back into floats.

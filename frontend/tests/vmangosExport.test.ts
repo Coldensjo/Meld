@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
 import { mapToTiles, toBase64, TILE_CELLS, type ExportInput } from '../src/lib/io/vmangosExport.ts'
+import { base64ToFloats } from '../src/lib/io/base64.ts'
 
 const CELL = 1600 / 3 / 128
 
@@ -36,10 +37,13 @@ test('a 256-cell map cuts into four 128-cell tiles, with their own heights', () 
   const out = mapToTiles(inp)
   assert.equal(out.tiles.length, 4)
   const t = out.tiles.find((x) => x.X === 1 && x.Y === 0)!
-  assert.equal(t.Outer.length, 129 * 129)
+  // The heights cross the bridge as base64 of their float32s (#632).
+  assert.equal(typeof t.Outer, 'string')
+  const outer = base64ToFloats(t.Outer)
+  assert.equal(outer.length, 129 * 129)
   // Tile (1,0) starts 128 cells in: its first sample is map sample (0, 128).
-  assert.equal(t.Outer[0], inp.heights[128])
-  assert.equal(t.Outer[129 + 2], inp.heights[(1) * 257 + 128 + 2])
+  assert.equal(outer[0], inp.heights[128])
+  assert.equal(outer[129 + 2], inp.heights[(1) * 257 + 128 + 2])
 })
 
 test('a map that does not cut into whole tiles is refused', () => {

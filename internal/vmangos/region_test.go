@@ -3,6 +3,7 @@ package vmangos
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"math"
 	"os"
 	"testing"
@@ -614,5 +615,33 @@ func TestHeightsBase64(t *testing.T) {
 	}
 	if _, err := DecodeHeights(base64.StdEncoding.EncodeToString([]byte{1, 2, 3})); err == nil {
 		t.Fatal("3 bytes decoded as heights")
+	}
+}
+
+// TestHeightGridJSON checks RegionView's heights and a TileSpec's Outer cross the bridge as a base64
+// string, not as an array of numbers, and read back the same (#632).
+func TestHeightGridJSON(t *testing.T) {
+	view := RegionView{Heights: HeightGrid{1, -2.5}}
+	b, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `"heights":"` + EncodeHeights([]float32{1, -2.5}) + `"`
+	if !bytes.Contains(b, []byte(want)) {
+		t.Fatalf("view JSON %s lacks %s", b, want)
+	}
+	var spec MapSpec
+	in := `{"Tiles":[{"X":1,"Y":2,"Outer":"` + EncodeHeights([]float32{3, 4.75}) + `"},{"X":0,"Y":0,"Outer":null}]}`
+	if err := json.Unmarshal([]byte(in), &spec); err != nil {
+		t.Fatal(err)
+	}
+	if o := spec.Tiles[0].Outer; len(o) != 2 || o[0] != 3 || o[1] != 4.75 {
+		t.Fatalf("Outer read as %v", o)
+	}
+	if spec.Tiles[1].Outer != nil {
+		t.Fatalf("null Outer read as %v", spec.Tiles[1].Outer)
+	}
+	if err := json.Unmarshal([]byte(`{"Tiles":[{"Outer":[1,2]}]}`), &spec); err == nil {
+		t.Fatal("an array of numbers read as Outer")
 	}
 }

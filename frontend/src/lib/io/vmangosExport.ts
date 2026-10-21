@@ -3,6 +3,7 @@ import { liquidsToAdt, type AdtLiquid, type LiquidMap } from '../water/liquids'
 import { chunkNoEffect } from '../world/groundEffects'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { SHADOW_PER_CELL, chunkShadowBits } from '../terrain/bakedShadows'
+import { floatsToBase64 } from './base64'
 
 /** A palette entry that's a colour rather than a texture. */
 const isColor = (entry: string) => /^#[0-9a-fA-F]{6}$/.test(entry)
@@ -114,7 +115,8 @@ export interface ObjectOut {
 export interface TileOut {
   X: number
   Y: number
-  Outer: number[]
+  /** The tile's 129 x 129 heights as base64 of their float32s, as vmangos.HeightGrid reads them (#632). */
+  Outer: string
   Paint: PaintOut[]
   Objects: ObjectOut[]
   /** The tile's liquid layers, each placed by its chunk in the tile. */
@@ -164,7 +166,7 @@ export function mapToTiles(input: ExportInput): ExportOut {
 
   for (let ty = 0; ty < tilesPerSide; ty++) {
     for (let tx = 0; tx < tilesPerSide; tx++) {
-      const outer: number[] = new Array(129 * 129)
+      const outer = new Float32Array(129 * 129)
       for (let r = 0; r <= TILE_CELLS; r++) {
         for (let c = 0; c <= TILE_CELLS; c++) {
           outer[r * 129 + c] = input.heights[(ty * TILE_CELLS + r) * V + tx * TILE_CELLS + c]
@@ -211,7 +213,7 @@ export function mapToTiles(input: ExportInput): ExportOut {
       }
 
       const liquids = input.liquids ? liquidsToAdt(input.liquids, tx * CHUNKS_PER_TILE, ty * CHUNKS_PER_TILE, CHUNKS_PER_TILE) : []
-      const tile: TileOut = { X: tx, Y: ty, Outer: outer, Paint: paint, Objects: objectsOf(tx, ty), Liquids: liquids }
+      const tile: TileOut = { X: tx, Y: ty, Outer: floatsToBase64(outer), Paint: paint, Objects: objectsOf(tx, ty), Liquids: liquids }
       const h = input.headers
       if (h) {
         tile.Headers = []

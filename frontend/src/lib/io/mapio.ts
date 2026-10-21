@@ -56,7 +56,7 @@ import { cachedPending } from './regionKey'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import { CELL_SIZE } from '../terrain/Terrain'
-import { base64ToBytes, bytesToBase64 } from './base64'
+import { base64ToBytes, base64ToFloats, bytesToBase64, floatsToBase64 } from './base64'
 import { tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
@@ -438,7 +438,7 @@ async function openRegionView(engine: Engine, view: vmangos.RegionView) {
     x,
     y,
     size,
-    heights: Float32Array.from(view.heights),
+    heights: base64ToFloats(view.heights),
     weights: paint.weights,
     chunkSlots: paint.chunkSlots,
     holes,
@@ -539,7 +539,7 @@ function regionEdit(engine: Engine, region: RegionBlock) {
     y: region.y,
     size: region.size,
     // As the map file keeps them: base64 of the float32s, a fraction of the JSON numbers' text (#531).
-    heights: bytesToBase64(new Uint8Array(heights.buffer, heights.byteOffset, heights.byteLength)),
+    heights: floatsToBase64(heights),
     objects: engine.regionObjects(),
     paint,
     headers,
