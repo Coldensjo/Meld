@@ -812,5 +812,5 @@ ${fs.slice(0, end)}
 
 // The probes drive the frames (P.frames), so the app's own loop is stopped: on SwiftShader it kept
 // about 14 cores drawing frames nobody looked at, and every probe frame waited behind them (#233).
-// The previews' own loops (CreaturePreview) still run.
+// The previews' own loops (lib/ui/previewRenderer.ts) still run, while their model moves (#589).
 window.__engine.stopLoop()

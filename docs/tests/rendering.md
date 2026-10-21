@@ -262,8 +262,9 @@ Checks: the asset browser's preview (`AssetPreview.svelte`) and the Preview wind
 their own context is lost and restored, with no WebGL errors, and a closed Preview's released context
 (#201) stays lost.
 - Probe: `bun run probe preview-context` (about 2.5 minutes: the previews' own rAF is throttled in the
-  headless page, so it waits for their draws rather than stepping frames). It hovers a palette tile,
-  then opens `ui.modelPreview` on a model of the scene with particles (the Northshire waterfall).
+  headless page, so it waits for their draws rather than stepping frames). It hovers a palette tile
+  and the preview itself (a still preview draws nothing since #589, so the pointer over it keeps it
+  spinning), then opens `ui.modelPreview` on a model of the scene with particles (the Northshire waterfall).
 - How: `canvas.getContext('webgl2')` on the preview's canvas returns its live context; wrap its
   `drawElements` to count draws, call `getError` after each and `readPixels` in a microtask after the
   first (the same task, before the buffer is cleared) for the drawn share. Then

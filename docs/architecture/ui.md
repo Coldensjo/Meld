@@ -57,6 +57,11 @@ The window layout, the asset browser and the dock panels and floating windows.
     there.
   - The grid is virtualised (only the rows in view are rendered), so there is no result cap.
     `AssetPreview.svelte` shows the hovered (else picked) item live in its own small renderer.
+    It and `CreaturePreview` share `lib/ui/previewRenderer.ts` (#589): the renderer, its context
+    loss and release, the orbit camera with drag and wheel, and a frame loop that runs only while the
+    view's `step` says something moves (a spin, an animation, particles, a moving texture), wakes on
+    input, a resize, a restored context or a shown page, and keeps to Graphics › FPS limit. The asset
+    preview spins a newly shown model for 6 s and while the pointer is over it, then stops drawing.
   - `ui.palette` follows the tool (textures while painting) and the browser follows it. Its
     height, collapsed state, tile size and recent picks are `prefs`, and so are the tab
     (`browserKind`) and each tab's search, zone, category and scroll (`browserViews`, `wow/browserViews.ts`).

@@ -55,12 +55,16 @@ async function loseAndRestore(name, canvas) {
 	return r
 }
 
-// The asset browser's preview, with a hovered model tile.
+// The asset browser's preview, with a hovered model tile, and the pointer over the preview so its
+// model keeps spinning and drawing (#589: a still preview draws nothing).
 const tile = await P.until(() => document.querySelector('[data-ui="PaletteTile"]'), 60_000, 'a palette tile')
 tile.dispatchEvent(new PointerEvent('pointerenter'))
-const assetCanvas = document.querySelector('[role="img"][aria-label="Model preview"] canvas')
+const assetView = document.querySelector('[role="img"][aria-label="Model preview"]')
+const assetCanvas = assetView?.querySelector('canvas')
 if (!assetCanvas) throw new Error('no asset preview canvas')
+assetView.dispatchEvent(new PointerEvent('pointerenter'))
 const asset = await loseAndRestore('asset preview', assetCanvas)
+assetView.dispatchEvent(new PointerEvent('pointerleave'))
 tile.dispatchEvent(new PointerEvent('pointerleave'))
 
 // The Preview window, on a model of the scene with particles where there is one (#200).

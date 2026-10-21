@@ -1,184 +1,154 @@
 <script lang="ts">
-  import * as THREE from 'three'
-  import { onMount } from 'svelte'
-  import { buildWowAsset, releaseWowAsset, texturesReady, type ModelAsset } from '../lib/models/assets'
-  import { helperGeometry, helperMaterial, isHelper } from '../lib/models/helpers'
-  import { fetchMesh, texturePreview } from '../lib/wow/api'
-  import type { SearchItem } from '../lib/wow/search'
-  import { uiZoom } from '../lib/ui/uiScale'
+	import * as THREE from 'three'
+	import { onMount } from 'svelte'
+	import { buildWowAsset, releaseWowAsset, texturesReady, type ModelAsset } from '../lib/models/assets'
+	import { helperGeometry, helperMaterial, isHelper } from '../lib/models/helpers'
+	import { fetchMesh, texturePreview } from '../lib/wow/api'
+	import type { SearchItem } from '../lib/wow/search'
+	import { materialsMove, PREVIEW_SPIN, PreviewRenderer } from '../lib/ui/previewRenderer'
 
-  // A live view of one model or texture: models spin slowly and can be turned by dragging, so an
-  // author can tell what a thing is before placing it. It has its own small renderer, so the main
-  // scene is untouched; three uploads the shared textures to this context on first use.
+	// A live view of one model or texture: a model shown spins for a few seconds, and while the pointer
+	// is over the view, and can be turned by dragging, so an author can tell what a thing is before
+	// placing it. It has its own small renderer (lib/ui/previewRenderer.ts), which draws only while the
+	// model spins or its textures move (#589), so a still preview costs nothing beside the viewport.
 
-  interface Props {
-    item: SearchItem | null
-  }
-  let { item }: Props = $props()
+	interface Props {
+		item: SearchItem | null
+	}
+	let { item }: Props = $props()
 
-  let canvas: HTMLCanvasElement | undefined = $state()
-  let texUrl = $state('')
-  let loading = $state(false)
-  let failed = $state(false)
-  let info = $state<{ w: number; h: number; d: number; tris: number } | null>(null)
+	let canvas: HTMLCanvasElement | undefined = $state()
+	let texUrl = $state('')
+	let loading = $state(false)
+	let failed = $state(false)
+	let info = $state<{ w: number; h: number; d: number; tris: number } | null>(null)
 
-  let renderer: THREE.WebGLRenderer | null = null
-  const scene = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 10000)
-  const pivot = new THREE.Group()
-  let mesh: THREE.Mesh | null = null
-  let asset: ModelAsset | null = null
-  let yaw = 0.6
-  let pitch = 0.35
-  let distance = 10
-  let center = new THREE.Vector3()
-  let spinning = true
-  let raf = 0
-  /** The context is lost (a driver reset, #213): the frame skips its work until three has restored it. */
-  let contextLost = false
-  let loadId = 0
+	/** How long a newly shown model spins, in ms. */
+	const SPIN_MS = 6000
+	/** How long a model turned by a drag holds still before the pointer over it spins it again, in ms. */
+	const HOLD_MS = 4000
+	const pivot = new THREE.Group()
+	let mesh: THREE.Mesh | null = null
+	let asset: ModelAsset | null = null
+	/** The shown model's textures or colours move, so the view keeps drawing. */
+	let moves = false
+	/** It spins until then (performance.now()'s ms, as rAF's are). */
+	let spinUntil = 0
+	/** And not before then, after a drag. */
+	let holdUntil = 0
+	/** The pointer is over the view. */
+	let over = false
+	let loadId = 0
 
-  scene.add(pivot)
-  scene.add(new THREE.HemisphereLight(new THREE.Color(0.6, 0.65, 0.75), new THREE.Color(0.28, 0.25, 0.22), Math.PI))
-  const sun = new THREE.DirectionalLight(new THREE.Color(1, 0.96, 0.88), Math.PI * 0.9)
-  sun.position.set(4, 7, 3)
-  scene.add(sun)
+	const view = new PreviewRenderer({
+		fov: 30,
+		yaw: 0.6,
+		pitch: 0.35,
+		distance: 10,
+		minPitch: -0.5,
+		turn: 1,
+		step,
+		ondrag(on) {
+			if (on) return
+			holdUntil = performance.now() + HOLD_MS
+			clearTimeout(resume)
+			resume = setTimeout(() => view.wake(), HOLD_MS)
+		},
+	})
+	view.scene.add(pivot)
+	let resume: ReturnType<typeof setTimeout> | undefined
 
-  function dropMesh() {
-    if (mesh) {
-      pivot.remove(mesh)
-      mesh = null
-    }
+	function step(now: number, dt: number): boolean | null {
+		if (!mesh) return null
+		const spin = !view.dragging && now >= holdUntil && (over || now < spinUntil)
+		if (spin) view.yaw += PREVIEW_SPIN * dt
+		view.place()
+		return spin || moves
+	}
+
+	function dropMesh() {
+		if (mesh) {
+			pivot.remove(mesh)
+			mesh = null
+		}
 		// Its geometry, and the materials of its own, which leave the animated lists (#506).
 		if (asset) releaseWowAsset(asset)
 		asset = null
-  }
+		moves = false
+	}
 
-  function frame() {
-    raf = requestAnimationFrame(frame)
-    if (!renderer || contextLost || !canvas || !mesh) return
-    const w = canvas.clientWidth
-    const h = canvas.clientHeight
-    if (!w || !h) return
-    // three sizes the buffer to the CSS size times the pixel ratio; comparing with the CSS size alone resized it every frame.
-    const pr = renderer.getPixelRatio()
-    if (canvas.width !== Math.floor(w * pr) || canvas.height !== Math.floor(h * pr)) {
-      renderer.setSize(w, h, false)
-      camera.aspect = w / h
-      camera.updateProjectionMatrix()
-    }
-    if (spinning) yaw += 0.004
-    const cp = Math.cos(pitch)
-    camera.position.set(center.x + Math.sin(yaw) * cp * distance, center.y + Math.sin(pitch) * distance, center.z + Math.cos(yaw) * cp * distance)
-    camera.lookAt(center)
-    renderer.render(scene, camera)
-  }
+	async function show(it: SearchItem | null) {
+		const id = ++loadId
+		dropMesh()
+		texUrl = ''
+		failed = false
+		info = null
+		if (!it) return
+		loading = true
+		try {
+			if (it.kind === 'tex') {
+				const u = await texturePreview(it.path, 256)
+				if (id === loadId) texUrl = u
+				return
+			}
+			// A helper shape gets a geometry of its own here, since the preview disposes what it drew.
+			const helper = isHelper(it.key) ? helperGeometry(it.key) : null
+			if (helper) helper.computeBoundingBox()
+			const a: ModelAsset = helper ? { geometry: helper, material: helperMaterial(), bbox: helper.boundingBox!.clone(), ready: true, effects: [], emitters: [], ribbons: [] } : buildWowAsset(await fetchMesh(it.path))
+			await texturesReady(a.material)
+			if (id !== loadId) {
+				releaseWowAsset(a)
+				return
+			}
+			asset = a
+			moves = materialsMove(a)
+			mesh = new THREE.Mesh(a.geometry, a.material)
+			pivot.add(mesh)
+			const size = a.bbox.getSize(new THREE.Vector3())
+			a.bbox.getCenter(view.target)
+			const r = Math.max(size.length() / 2, 0.3)
+			view.distance = (r / Math.sin(THREE.MathUtils.degToRad(15))) * 0.95
+			view.camera.near = view.distance / 100
+			view.camera.far = view.distance * 4
+			view.camera.updateProjectionMatrix()
+			// Tall things are looked at from lower down, flat things from higher up.
+			view.pitch = size.y > Math.max(size.x, size.z) * 1.5 ? 0.15 : size.y < Math.max(size.x, size.z) * 0.3 ? 0.8 : 0.35
+			info = { w: size.x, h: size.y, d: size.z, tris: a.geometry.index ? a.geometry.index.count / 3 : 0 }
+			spinUntil = performance.now() + SPIN_MS
+			view.wake()
+		} catch {
+			if (id === loadId) failed = true
+		} finally {
+			if (id === loadId) loading = false
+		}
+	}
 
-  async function show(it: SearchItem | null) {
-    const id = ++loadId
-    dropMesh()
-    texUrl = ''
-    failed = false
-    info = null
-    if (!it) return
-    loading = true
-    try {
-      if (it.kind === 'tex') {
-        const u = await texturePreview(it.path, 256)
-        if (id === loadId) texUrl = u
-        return
-      }
-      // A helper shape gets a geometry of its own here, since the preview disposes what it drew.
-      const helper = isHelper(it.key) ? helperGeometry(it.key) : null
-      if (helper) helper.computeBoundingBox()
-      const a: ModelAsset = helper ? { geometry: helper, material: helperMaterial(), bbox: helper.boundingBox!.clone(), ready: true, effects: [], emitters: [], ribbons: [] } : buildWowAsset(await fetchMesh(it.path))
-      await texturesReady(a.material)
-      if (id !== loadId) {
-        releaseWowAsset(a)
-        return
-      }
-      asset = a
-      mesh = new THREE.Mesh(a.geometry, a.material)
-      pivot.add(mesh)
-      const size = a.bbox.getSize(new THREE.Vector3())
-      a.bbox.getCenter(center)
-      const r = Math.max(size.length() / 2, 0.3)
-      distance = (r / Math.sin(THREE.MathUtils.degToRad(15))) * 0.95
-      camera.near = distance / 100
-      camera.far = distance * 4
-      camera.updateProjectionMatrix()
-      // Tall things are looked at from lower down, flat things from higher up.
-      pitch = size.y > Math.max(size.x, size.z) * 1.5 ? 0.15 : size.y < Math.max(size.x, size.z) * 0.3 ? 0.8 : 0.35
-      info = { w: size.x, h: size.y, d: size.z, tris: a.geometry.index ? a.geometry.index.count / 3 : 0 }
-    } catch {
-      if (id === loadId) failed = true
-    } finally {
-      if (id === loadId) loading = false
-    }
-  }
+	$effect(() => {
+		void show(item)
+	})
 
-  $effect(() => {
-    void show(item)
-  })
+	/** The path without a look query (a weapon's texture), which is noise to a reader. */
+	const shownPath = $derived(item ? item.path.split('?')[0] : '')
 
-  /** The path without a look query (a weapon's texture), which is noise to a reader. */
-  const shownPath = $derived(item ? item.path.split('?')[0] : '')
+	onMount(() => {
+		if (canvas) view.attach(canvas)
+		return () => {
+			clearTimeout(resume)
+			dropMesh()
+			view.dispose()
+		}
+	})
 
-  const listeners = new AbortController()
-  onMount(() => {
-    if (canvas) {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
-      // Times the interface size (#372), so the zoomed canvas stays sharp.
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5) * uiZoom())
-      renderer.outputColorSpace = THREE.SRGBColorSpace
-      // three rebuilds its state and uploads the geometry and textures again on a restore by itself
-      // (it cancels the loss event's default for that), and these views keep no shadow maps or other
-      // drawn-once targets, so the frame need only wait. A closed view's released context (below) is
-      // never restored, since nothing calls restoreContext on it.
-      canvas.addEventListener('webglcontextlost', () => (contextLost = true), { signal: listeners.signal })
-      canvas.addEventListener('webglcontextrestored', () => (contextLost = false), { signal: listeners.signal })
-    }
-    raf = requestAnimationFrame(frame)
-    return () => {
-      cancelAnimationFrame(raf)
-      listeners.abort()
-      dropMesh()
-      // dispose() keeps the WebGL context alive until garbage collection, and the browser drops the
-      // oldest context (the viewport's) past about 16 (#201): release this one now.
-      renderer?.forceContextLoss()
-      renderer?.dispose()
-      renderer = null
-    }
-  })
+	function enter() {
+		over = true
+		view.wake()
+	}
 
-  // Dragging turns the model; it resumes spinning after a moment.
-  let drag: { x: number; y: number } | null = null
-  let resume: ReturnType<typeof setTimeout> | undefined
-  function down(e: PointerEvent) {
-    drag = { x: e.clientX, y: e.clientY }
-    spinning = false
-    clearTimeout(resume)
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }
-  function move(e: PointerEvent) {
-    if (!drag) return
-    yaw += (e.clientX - drag.x) * 0.01
-    pitch = Math.min(1.4, Math.max(-0.5, pitch + (e.clientY - drag.y) * 0.01))
-    drag = { x: e.clientX, y: e.clientY }
-  }
-  function up() {
-    drag = null
-    resume = setTimeout(() => (spinning = true), 4000)
-  }
-  function wheel(e: WheelEvent) {
-    distance *= e.deltaY > 0 ? 1.1 : 0.9
-  }
-
-  const yards = (n: number) => (n >= 10 ? n.toFixed(0) : n.toFixed(1))
+	const yards = (n: number) => (n >= 10 ? n.toFixed(0) : n.toFixed(1))
 </script>
 
 <div class="preview">
-  <div class="view" role="img" aria-label="Model preview" class:hidden={!item || item.kind === 'tex'} onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} onwheel={wheel}>
+  <div class="view" role="img" aria-label="Model preview" class:hidden={!item || item.kind === 'tex'} onpointerenter={enter} onpointerleave={() => (over = false)} onpointerdown={view.down} onpointermove={view.move} onpointerup={view.up} onpointercancel={view.up} onwheel={view.wheel}>
     <canvas bind:this={canvas}></canvas>
   </div>
   {#if item?.kind === 'tex'}

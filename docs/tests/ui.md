@@ -234,6 +234,22 @@ The same menu ends with Unselect (#288) before Delete: it clears the selection (
   `forceContextLoss()` on close, the browser dropped the viewport's context on the 15th open (black
   viewport). Works in headless Chrome over CDP.
 
+## Previews draw only while something moves (#589)
+
+Checks: `AssetPreview` and `CreaturePreview` (over `lib/ui/previewRenderer.ts`) stop their frame
+loop when nothing moves, and keep to Graphics › FPS limit while drawing.
+- Probe: `bun run probe preview-idle` (about 30 s, no map needed). It counts each preview canvas's
+  frames by wrapping its context's `drawElements` and `drawArrays` (the draws of one task are one
+  frame) over 2 s windows: the asset preview spinning a hovered tile's model, settled after its 6 s
+  spin (0), with the pointer over it (spinning), at `prefs.fpsLimit = 5` (at most 11), and after the
+  pointer left (0); then the Preview window on `helper:cube:4` still (0), with Turn checked and
+  unchecked again (0).
+- Before the change the asset preview drew about 240 frames a second in the headless page with
+  nothing moving, and the Preview window about 150.
+- Trap: the asset preview keeps drawing a model whose textures or colours move (a waterfall,
+  `materialsMove`), and the Preview window any model with bones, particles or a moving texture, so
+  a "settles to 0" check needs a still model: the first palette tile (a plain doodad) or a helper.
+
 ## Top-down view (U)
 
 Checks: U (or Camera › Top-down View) draws the map straight down with an orthographic camera
