@@ -6,8 +6,9 @@
 // opens the Compile and Launch dialog instead of starting the game; growing the region (#318) with the
 // raised vertex, or with a spawn edit counted, is refused with a status line that names Compile to
 // Client or Save Spawns and keeps the tab; and for a region with no
-// fingerprint (opened from a file) the Go side's RegionPending finds the raised tile. It never
-// compiles: that would write the owner's patch.
+// fingerprint (opened from a file) the Go side's RegionPending finds the raised tile, and its answer is
+// kept on the document (#531): asked again with no edit, or after a step that changes no compile input,
+// it is not rebuilt, and after an undo it is. It never compiles: that would write the owner's patch.
 const { ui, editor } = await P.state()
 const mapio = await P.app('/src/lib/io/mapio.ts')
 const menuLabels = async (name) => {
@@ -60,11 +61,29 @@ const restored = P.e.outerHeights().every((h, i) => h === before[i])
 P.e.redo()
 const key = d.compiled
 d.compiled = { key: null, changes: -1 }
+d.pending = null
+let t = performance.now()
 const pendingRaised = await mapio.regionUncompiled(P.e)
-d.compiled = key
+const askMs = performance.now() - t
+const asked = d.pending
+t = performance.now()
+const pendingAgain = await mapio.regionUncompiled(P.e)
+const cachedMs = performance.now() - t
+d.history.push({ label: 'Probe step', undo() {}, redo() {} })
+const pendingStep = await mapio.regionUncompiled(P.e)
+const cache = {
+	askMs: Math.round(askMs),
+	cachedMs: Math.round(cachedMs * 10) / 10,
+	kept: d.pending === asked && asked?.files > 0 && pendingAgain === true && pendingStep === true && asked.changes === d.history.changes,
+}
 P.e.undo()
+P.e.undo()
+await mapio.regionUncompiled(P.e)
+cache.askedAgain = d.pending !== asked
+d.compiled = key
+d.pending = null
 
-const out = { menu, opened, afterStep, afterRaise, dialog, named, growRaised, growSpawn, afterUndo, restored, pendingRaised }
+const out = { menu, opened, afterStep, afterRaise, dialog, named, growRaised, growSpawn, afterUndo, restored, pendingRaised, cache }
 out.ok =
 	menu.compile.join('|') === 'Compile to Client|Compile to Server|Compile All' &&
 	!menu.oldEntry &&
@@ -84,5 +103,7 @@ out.ok =
 	!growSpawn.status.includes('Compile to Client') &&
 	afterUndo === false &&
 	restored &&
-	pendingRaised === true
+	pendingRaised === true &&
+	cache.kept &&
+	cache.askedAgain
 return out

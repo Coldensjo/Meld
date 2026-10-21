@@ -2557,7 +2557,7 @@ export namespace vmangos {
 	    x: number;
 	    y: number;
 	    size: number;
-	    heights: number[];
+	    heights: string;
 	    objects: ObjectView[];
 	    paint: RegionPaint[];
 	    hasLiquids: boolean;

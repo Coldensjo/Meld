@@ -52,6 +52,7 @@ import { savingDetail, startSaving, withSaving } from '../state/saving'
 import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
 import { formatSet, parseSet, type ModelSet } from '../wow/modelSets'
 import { grownBlock, type Side } from './regionGrow'
+import { cachedPending } from './regionKey'
 import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
 import type { TextureLooks } from '../world/textureLooks'
 import { CELL_SIZE } from '../terrain/Terrain'
@@ -531,12 +532,14 @@ type RegionBlock = { mapName: string; x: number; y: number; size: number }
 function regionEdit(engine: Engine, region: RegionBlock) {
   const water = engine.regionLiquids()
   const { paint, headers } = regionPaint(engine, region.size)
+  const heights = engine.outerHeights()
   return vmangos.RegionEdit.createFrom({
     mapName: region.mapName,
     x: region.x,
     y: region.y,
     size: region.size,
-    heights: Array.from(engine.outerHeights()),
+    // As the map file keeps them: base64 of the float32s, a fraction of the JSON numbers' text (#531).
+    heights: bytesToBase64(new Uint8Array(heights.buffer, heights.byteOffset, heights.byteLength)),
     objects: engine.regionObjects(),
     paint,
     headers,
@@ -552,14 +555,25 @@ const regionName = (r: RegionBlock) => `${r.mapName} ${r.x}_${r.y}`
 /**
  * Whether the active region has edits the client's patch lacks (ground, paint, models, water; not
  * spawns): its fingerprint against the one taken when it was opened or last compiled, or, for a
- * region opened from a file, which has none, the Go side's build against the patch.
+ * region opened from a file, which has none, the Go side's build against the patch. That answer is
+ * kept on the document (`MapDocument.pending`) and reused until the history moves to a state with
+ * another fingerprint, since the build serialises and rebuilds the whole block (#531).
  */
 export async function regionUncompiled(engine: Engine): Promise<boolean> {
   const region = engine.activeRegion()
   if (!region) return false
   const d = engine.activeDocument()
   if (d.compiled.key !== null) return d.history.changes !== d.compiled.changes && engine.regionKey() !== d.compiled.key
-  return (await RegionPending(regionEdit(engine, region))).files > 0
+  let key: string | undefined
+  const keyNow = () => (key ??= engine.regionKey())
+  const changes = d.history.changes
+  const cached = cachedPending(d.pending, changes, keyNow)
+  if (cached !== null) return cached > 0
+  // Taken before the call, so an edit made while it runs is not credited with its answer.
+  const k = keyNow()
+  const { files } = await RegionPending(regionEdit(engine, region))
+  d.pending = { key: k, changes, files }
+  return files > 0
 }
 
 /** The client's continents, whose server map data Compile to Server rebuilds: their map IDs. */

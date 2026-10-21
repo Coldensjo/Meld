@@ -125,7 +125,7 @@ func TestRegionSaveKeepsBlizzardPatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files, err := BuildRegion(dataDir, RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects})
+	files, err := BuildRegion(dataDir, RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects})
 	if err != nil {
 		t.Fatal(err)
 	}

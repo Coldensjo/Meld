@@ -40,3 +40,24 @@ export function contentKey(parts: KeyPart[]): string {
 	}
 	return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0')
 }
+
+/**
+ * The Go side's last answer to "what does the client lack of this region" (`RegionPending`), for a
+ * region whose client state has no fingerprint (one opened from a file): how many files differed, at
+ * which history step, and the fingerprint then (#531).
+ */
+export type PendingAnswer = { key: string; changes: number; files: number }
+
+/**
+ * The remembered answer's file count for a document now `changes` steps into its history, or null
+ * when it must be asked again. It holds while the history hasn't moved, or, once it has, while the
+ * fingerprint `key()` (only worked out then) is still the one it was taken at, as after a spawn edit
+ * or an undo back to it; that hit moves the answer to `changes`, so the next check is free again.
+ */
+export function cachedPending(answer: PendingAnswer | null, changes: number, key: () => string): number | null {
+	if (!answer) return null
+	if (answer.changes === changes) return answer.files
+	if (answer.key !== key()) return null
+	answer.changes = changes
+	return answer.files
+}

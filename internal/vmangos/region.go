@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -58,11 +59,13 @@ type ObjectView struct {
 
 // RegionEdit is what the editor saves back over a region: its heights and its models.
 type RegionEdit struct {
-	MapName string       `json:"mapName"`
-	X       int          `json:"x"`
-	Y       int          `json:"y"`
-	Size    int          `json:"size"`
-	Heights []float32    `json:"heights"`
+	MapName string `json:"mapName"`
+	X       int    `json:"x"`
+	Y       int    `json:"y"`
+	Size    int    `json:"size"`
+	// Heights is the block's outer grid as RegionView has it, as base64 of little-endian float32s, as
+	// mapfile.MapData keeps it: a 3x3 block's 148,225 heights as JSON numbers cost the bridge far more (#531).
+	Heights string       `json:"heights"`
 	Objects []ObjectView `json:"objects"`
 	// Paint is the painted chunks of the block, by block chunk index: the block's chunks in rows of
 	// 16*Size, row-major. Chunks not listed keep the paint the client has.
@@ -93,6 +96,31 @@ type RegionPaint struct {
 	// NoEffect is one entry per cell row, a bit per cell set where no ground effect doodads grow;
 	// optional, added to the tile's own bits.
 	NoEffect []int `json:"noEffect,omitempty"`
+}
+
+// EncodeHeights is heights as RegionEdit.Heights carries them: base64 of little-endian float32s.
+func EncodeHeights(h []float32) string {
+	b := make([]byte, 4*len(h))
+	for i, v := range h {
+		binary.LittleEndian.PutUint32(b[4*i:], math.Float32bits(v))
+	}
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+// DecodeHeights reads RegionEdit.Heights back into floats.
+func DecodeHeights(s string) ([]float32, error) {
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return nil, fmt.Errorf("region heights: %w", err)
+	}
+	if len(b)%4 != 0 {
+		return nil, fmt.Errorf("region heights are %d bytes, not whole float32s", len(b))
+	}
+	h := make([]float32, len(b)/4)
+	for i := range h {
+		h[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
+	}
+	return h, nil
 }
 
 // chunkPaint is a chunk's layers from the bridge's textures, effects and weights, with the per-cell
@@ -304,8 +332,12 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		return nil, err
 	}
 	side := e.Size*tileCells + 1
-	if len(e.Heights) != side*side {
-		return nil, fmt.Errorf("%d heights for a region, want %d", len(e.Heights), side*side)
+	heights, err := DecodeHeights(e.Heights)
+	if err != nil {
+		return nil, err
+	}
+	if len(heights) != side*side {
+		return nil, fmt.Errorf("%d heights for a region, want %d", len(heights), side*side)
 	}
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
@@ -446,7 +478,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		outer := make([]float32, LatticeSize*LatticeSize)
 		for r := 0; r < LatticeSize; r++ {
 			row := (j*tileCells+r)*side + i*tileCells
-			copy(outer[r*LatticeSize:(r+1)*LatticeSize], e.Heights[row:row+LatticeSize])
+			copy(outer[r*LatticeSize:(r+1)*LatticeSize], heights[row:row+LatticeSize])
 		}
 		patched, err := PatchTileHeights(t.root, outer)
 		if err != nil {
@@ -466,7 +498,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 		for j := 0; j < e.Size; j++ {
 			for i := 0; i < e.Size; i++ {
-				horizon[(e.Y+j)*MapTiles+e.X+i] = WDLTileOf(e.Heights[j*tileCells*side+i*tileCells:], side)
+				horizon[(e.Y+j)*MapTiles+e.X+i] = WDLTileOf(heights[j*tileCells*side+i*tileCells:], side)
 			}
 		}
 		files = append(files, mpq.File{Name: wdlPath(e.MapName), Data: BuildWDL(horizon)})

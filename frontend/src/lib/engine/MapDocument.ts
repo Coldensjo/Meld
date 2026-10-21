@@ -4,6 +4,7 @@ import { noScopedEffects, type ScopedEffects, type TextureEffects } from '../wor
 import type { TextureLooks } from '../world/textureLooks'
 import type { ReferenceImage } from '../terrain/referenceImage'
 import type { LoadedReference } from '../io/referenceLoad'
+import type { PendingAnswer } from '../io/regionKey'
 import type { MapPath } from '../terrain/paths'
 import * as THREE from 'three'
 import { CELL_SIZE, Terrain } from '../terrain/Terrain'
@@ -155,6 +156,12 @@ export class MapDocument {
    * change count then. A null key is unknown, as for a region opened from a file.
    */
   compiled: { key: string | null; changes: number } = { key: null, changes: -1 }
+  /**
+   * For a region with no compiled key, the Go side's last answer to whether the client lacks its edits
+   * (io/mapio.ts `regionUncompiled`, io/regionKey.ts `cachedPending`), so Launch, Play Here and growing
+   * the region don't rebuild the block each time until it is edited (#531). Null until first asked.
+   */
+  pending: PendingAnswer | null = null
   /** The palette the terrain's shader was last given, as one string, to tell when it changes. */
   paletteFrom: unknown = null
   meta: DocMeta

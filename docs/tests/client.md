@@ -152,7 +152,10 @@ open region has edits the client lacks, and only then.
   Launch then opens the Compile and Launch dialog without starting anything, that growing the region
   (`extendRegion`, #318) with the raised vertex or with a spawn edit counted is refused with a status
   line naming Compile to Client or Save Spawns and keeps the 1×1 tab, and that the Go side's
-  `RegionPending` (used for a region opened from a file) finds the raised tile.
+  `RegionPending` (used for a region opened from a file) finds the raised tile, and that its answer is
+  kept (#531): `cache.kept` says a second check, and one after a step that changes no compile input,
+  reused it, `cache.askedAgain` that an undo asked Go again; `cache.askMs` and `cache.cachedMs` time the
+  first and second checks.
 - It never compiles: Compile to Client writes the owner's `patch-3.MPQ` (closing the game), and Compile
   to Server or All restart mangosd. Check those by hand, with the owner's go-ahead: after Compile to
   Client the patch's time changes and `ReadRegion` of the tile gives the edited heights.

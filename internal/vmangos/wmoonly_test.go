@@ -187,7 +187,7 @@ func TestClientWMOOnlyRegion(t *testing.T) {
 		t.Fatalf("building at %v,%v, ground at %v", b.X, b.Z, v.Heights[0])
 	}
 	edit := func(objects ...ObjectView) RegionEdit {
-		return RegionEdit{MapName: v.MapName, X: v.X, Y: v.Y, Size: v.Size, Heights: v.Heights, Objects: objects}
+		return RegionEdit{MapName: v.MapName, X: v.X, Y: v.Y, Size: v.Size, Heights: EncodeHeights(v.Heights), Objects: objects}
 	}
 	files, res, err := RegionChanges(dataDir, edit(b))
 	if err != nil || len(files) != 0 || !res.Building || res.Tiles != 0 || res.Files != 0 {

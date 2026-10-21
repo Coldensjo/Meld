@@ -242,7 +242,12 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   against it (the count alone says "unchanged" without hashing; a spawn step changes the count but not
   the key); a region opened from a file has no key, so the Go side's `RegionPending` builds it and
   compares with the patch (it counts a tile the client has never had compiled as changed, since the
-  builder orders an MCNK's subchunks its own way). Launch (`launchGame`) opens the Compile and Launch
+  builder orders an MCNK's subchunks its own way). That answer is kept on the document
+  (`MapDocument.pending`, `cachedPending` in `io/regionKey.ts`) with the fingerprint and change count it
+  was taken at, and reused until the history reaches a state with another fingerprint, so repeated
+  Launch, Play Here and grow checks don't rebuild the block (#531; 2.2 s a check for a 3×3 block).
+  `RegionEdit.Heights` crosses the bridge as base64 of the float32s, as `MapData.Heights` does
+  (`vmangos.EncodeHeights`, `DecodeHeights`). Launch (`launchGame`) opens the Compile and Launch
   dialog (`ui.dialog = 'compileBeforeLaunch'`) when it is true; Play Here says so in its status line.
   `regionKey` hashes the document's own arrays and settings, not `exportInput`, whose building
   footprints in `noEffect` change as models load: a new compile input must be added to it, or Launch

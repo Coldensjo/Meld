@@ -111,9 +111,9 @@ func TestRegionPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects}
-	edit.Heights = append([]float32(nil), view.Heights...)
-	edit.Heights[len(edit.Heights)/2] += 5
+	raised := append([]float32(nil), view.Heights...)
+	raised[len(raised)/2] += 5
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(raised), Objects: view.Objects}
 	_, res, err := RegionChanges(dataDir, edit)
 	if err != nil || res.Files < 1 || res.Changed != 1 || len(res.ChangedTiles) != 1 || res.ChangedTiles[0] != "29_51" || res.MapID != 0 {
 		t.Fatalf("raised: %+v, %v", res, err)
@@ -135,7 +135,7 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects}
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects}
 	files, err := BuildRegion(dataDir, edit)
 	if err != nil {
 		t.Fatal(err)
@@ -302,7 +302,7 @@ func TestRegionMoveRoundTrip(t *testing.T) {
 	moved := view.Objects[0]
 	moved.X += 5
 	objects := append([]ObjectView{moved}, view.Objects[1:]...)
-	files, err := BuildRegion(dataDir, RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: objects})
+	files, err := BuildRegion(dataDir, RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: objects})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +385,7 @@ func TestRegionPaintWritten(t *testing.T) {
 	for i := 0; i < len(weights); i += 4 {
 		weights[i] = 255
 	}
-	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects,
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects,
 		Paint: []RegionPaint{{Chunk: 0, Textures: []string{texture}, Weights: base64.StdEncoding.EncodeToString(weights)}}}
 	files, err := BuildRegion(dataDir, edit)
 	if err != nil {
@@ -422,7 +422,7 @@ func TestRegionHeadersWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The same save without headers, which the one with them is compared against.
-	plain, err := BuildRegion(dataDir, RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects})
+	plain, err := BuildRegion(dataDir, RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -431,7 +431,7 @@ func TestRegionHeadersWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Block chunk 17 is the tile's chunk (1, 1).
-	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects,
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects,
 		Headers: []HeaderSpec{{Chunk: 17, AreaID: 40, Impassable: true, NoEffect: []int{3, 0, 0, 0, 0, 0, 0, 0x80}, Holes: []int{0, 0, 0, 0, 0, 0, 1, 0}}}}
 	files, err := BuildRegion(dataDir, edit)
 	if err != nil {
@@ -493,7 +493,7 @@ func TestRegionHolesRoundTrip(t *testing.T) {
 		}
 		headers = append(headers, HeaderSpec{Chunk: c.IndexY*perRow + c.IndexX, Holes: rows})
 	}
-	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: view.Heights, Objects: view.Objects, Headers: headers}
+	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects, Headers: headers}
 	files, err := BuildRegion(dataDir, edit)
 	if err != nil {
 		t.Fatal(err)
@@ -592,5 +592,27 @@ func TestFileTileName(t *testing.T) {
 	}
 	if _, ok := ClientMapID("MyMap"); ok {
 		t.Error("ClientMapID(MyMap) found a map")
+	}
+}
+
+// TestHeightsBase64 round-trips RegionEdit's heights through their bridge encoding, the one the
+// editor's bytesToBase64 of a Float32Array gives (#531), and rejects a cut-off one.
+func TestHeightsBase64(t *testing.T) {
+	h := []float32{0, -1.5, 123.25, float32(math.Inf(1)), 1e-7}
+	got, err := DecodeHeights(EncodeHeights(h))
+	if err != nil || len(got) != len(h) {
+		t.Fatalf("decoded %v, %v", got, err)
+	}
+	for i := range h {
+		if got[i] != h[i] {
+			t.Fatalf("height %d: %v, want %v", i, got[i], h[i])
+		}
+	}
+	// 1.0 as a little-endian float32 is 00 00 80 3f.
+	if s := EncodeHeights([]float32{1}); s != base64.StdEncoding.EncodeToString([]byte{0, 0, 0x80, 0x3f}) {
+		t.Fatalf("1.0 encodes as %q", s)
+	}
+	if _, err := DecodeHeights(base64.StdEncoding.EncodeToString([]byte{1, 2, 3})); err == nil {
+		t.Fatal("3 bytes decoded as heights")
 	}
 }
