@@ -156,7 +156,7 @@ export class MapDocument {
    */
   compiled: { key: string | null; changes: number } = { key: null, changes: -1 }
   /** The palette the terrain's shader was last given, as one string, to tell when it changes. */
-  paletteKey = ''
+  paletteFrom: unknown = null
   meta: DocMeta
   camera: DocCamera | null = null
   /** The reference image's pixels and texture, read from `meta.reference`'s path (io/referenceLoad.ts); null until read. */

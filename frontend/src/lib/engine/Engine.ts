@@ -2200,9 +2200,9 @@ export class Engine {
 
   /** Give the active terrain the palette whenever the editor's palette changes. */
   private syncPalette() {
-    const key = editor.palette.join('\n')
-    if (this.doc.paletteKey === key) return
-    this.doc.paletteKey = key
+    // The palette array is replaced, never edited in place (as in updateLookTexture), so identity says it changed.
+    if (this.doc.paletteFrom === editor.palette) return
+    this.doc.paletteFrom = editor.palette
     this.terrain.setPalette(editor.palette)
   }
 
@@ -4907,6 +4907,11 @@ export class Engine {
   /** The zone and tile effect choices the tuft key was last made from, and that key. */
   private scopedFrom: ScopedEffects | null = null
   private scopedKey = ''
+  private geKey = ''
+  private geDensity = ''
+  private geVersion = -1
+  private gePalette: unknown = null
+  private geEffects: unknown = null
 
   /** The export's effect per palette texture and paint chunk, with the map's zone and tile choices. */
   private exportEffectAt(): (tex: number, gx: number, gz: number) => number {
@@ -5284,13 +5289,23 @@ export class Engine {
     // What the build depends on besides the ground: the palette, the map's own effects, the density
     // and the buildings (any object change, since the cells under a building grow nothing).
     const density = this.prefs?.groundEffectDensity ?? 'normal'
-    let key = `${density}|${this.objects.version}|` + editor.palette.join('|')
-    for (const [tex, id] of Object.entries(editor.textureEffects)) key += `|${tex}=${id}`
-    if (this.scopedFrom !== editor.scopedEffects) {
-      this.scopedFrom = editor.scopedEffects
-      this.scopedKey = JSON.stringify(editor.scopedEffects)
+    // The key is rebuilt only when one of them changed: the palette, the map's effects and the scoped ones
+    // are replaced as a whole on every edit, so identity tells.
+    const version = this.objects.version
+    if (this.geDensity !== density || this.geVersion !== version || this.gePalette !== editor.palette || this.geEffects !== editor.textureEffects || this.scopedFrom !== editor.scopedEffects) {
+      this.geDensity = density
+      this.geVersion = version
+      this.gePalette = editor.palette
+      this.geEffects = editor.textureEffects
+      if (this.scopedFrom !== editor.scopedEffects) {
+        this.scopedFrom = editor.scopedEffects
+        this.scopedKey = JSON.stringify(editor.scopedEffects)
+      }
+      let k = `${density}|${version}|` + editor.palette.join('|')
+      for (const [tex, id] of Object.entries(editor.textureEffects)) k += `|${tex}=${id}`
+      this.geKey = k + this.scopedKey
     }
-    key += this.scopedKey
+    const key = this.geKey
     // The client seeds each chunk's tufts by its place in the client's map: a region's tiles start at its first.
     const region = this.doc.meta.region
     // Tufts show as far as the fade lets them, which is farther at the corners of a wide view.
