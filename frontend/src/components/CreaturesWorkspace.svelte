@@ -105,9 +105,14 @@
 	let factions = $state<vmangos.FactionInfo[]>([])
 	let side = $state(0)
 	let factionQuery = $state('')
-	Factions()
-		.then((f) => (factions = f ?? []))
-		.catch((err) => (error = String(err)))
+	let factionsAsked = false
+	$effect(() => {
+		if (!ui.creatures || factionsAsked) return
+		factionsAsked = true
+		Factions()
+			.then((f) => (factions = f ?? []))
+			.catch((err) => (error = String(err)))
+	})
 	const sideFactions = $derived(
 		factions.filter((f) => offered(f) && f.alliance === SIDES[side].alliance && f.horde === SIDES[side].horde && (!factionQuery.trim() || f.name.toLowerCase().includes(factionQuery.trim().toLowerCase()))),
 	)
@@ -157,6 +162,7 @@
 	// Step 4: what the server gives the class at the level range, times the multipliers.
 	let stats = $state<vmangos.ClassLevelStats[]>([])
 	$effect(() => {
+		if (!ui.creatures) return
 		const c = draft.unitClass, a = draft.levelMin, b = Math.max(draft.levelMin, draft.levelMax)
 		ClassLevelStats(c, a, b)
 			.then((s) => (stats = s ?? []))

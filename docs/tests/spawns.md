@@ -331,6 +331,7 @@ Checks: Tools › Creatures… (`ui.creatures = true`): the search opens a creat
 the guide's four steps make a working `creature_template` row. Unit: `factions_test.go` (reactions;
 with `WOW_DIR`, the client's FactionTemplate.dbc: 14 hostile to both, 35 friendly to both, 12
 Stormwind Alliance-only), `TestParseClassLevelStats`.
+- Probe `creatures-lazy` (#586): the guide calls `Factions` and `ClassLevelStats` only once opened, `Factions` once.
 - Live: name it, level 10 to 12, rank Elite (multipliers 3, 2, 1), side Alliance (Stormwind, 11),
   click a display tile, then step 4 shows level 10 at 594 health, 30 damage, 492 armour (warrior:
   198, 15.2 and 492 from `creature_classlevelstats`). Make creature writes one row; check it with
