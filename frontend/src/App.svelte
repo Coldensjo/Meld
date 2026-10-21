@@ -40,7 +40,7 @@
   import { offerRecovery, startAutosave } from './lib/io/recovery'
   import { startSessionLog } from './lib/io/sessionLog'
   import { copyTeleport } from './lib/io/scene'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { refreshGameClient } from './lib/io/mapio'
   import { toggleFullScreen } from './lib/engine/display'
   import { initWow } from './lib/wow/api'
@@ -100,10 +100,15 @@
 	// Preferences › Interface size (#372): the whole page zoomed, before the engine reads the pref for its pixel ratio.
 	$effect(() => applyUiScale(prefs.uiScale))
 
+  // Object.keys on the reactive prefs reads every key (the session too), so the keys are listed once, untracked.
+  const prefKeys = untrack(() => Object.keys(prefs)).filter((k) => k !== 'session')
   // Apply preferences to the engine whenever they change, and persist them.
   $effect(() => {
-    const snapshot = { ...prefs }
-    engineRef.current?.applyPrefs(snapshot)
+    // The session changes with every camera move: it is saved on its own (savePref), so it stays out of
+    // this effect, which would re-apply every preference and walk them all for a save (#461).
+    const snapshot = {} as Record<string, unknown>
+    for (const k of prefKeys) snapshot[k] = prefs[k as keyof typeof prefs]
+    engineRef.current?.applyPrefs(snapshot as unknown as typeof prefs)
     if (prefsLoaded) savePrefs()
   })
 

@@ -3,13 +3,13 @@ import type { Engine } from '../engine/Engine'
 import { editor, prefs, setStatus, wow } from '../state/editor.svelte'
 import { fromMapData, hasBackend, openWowRegion } from './mapio'
 import { LoadMap, Quit, SetUnsaved } from '../../../wailsjs/go/main/App'
-import { flushPrefs } from '../state/prefs'
+import { flushPrefs, savePref } from '../state/prefs'
 import { endAutosave } from './recovery'
 import { engineRef } from '../state/engineRef'
 
 // The session is what the editor had open when it was last closed: every tab that is a saved map
 // file or a block of the client's tiles, each with its camera, and which tab was active. It is kept
-// in the preferences (`prefs.session`) a few seconds after it changes and on quit, and opened again
+// in the preferences (`prefs.session`, saved on its own through `savePref`) a few seconds after it changes and on quit, and opened again
 // at the next start so the owner carries on where they were. Untitled maps are not kept: they have
 // no file to come back from.
 
@@ -69,6 +69,7 @@ export function saveSession(engine: Engine) {
   if (key === lastSaved) return
   lastSaved = key
   prefs.session = s
+  void savePref('session')
 }
 
 /** Quits after writing the session and the preferences, so the next start opens the same tabs. */

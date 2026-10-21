@@ -70,6 +70,19 @@ export async function flushPrefs() {
   await send()
 }
 
+/** Saves one preference alone, without the walk over every key that `send` does (the session, every 3 s). */
+export async function savePref(key: keyof Prefs) {
+	if (!canSave()) return
+	const v = JSON.stringify(prefs[key])
+	if (v === undefined || baseline.get(key) === v) return
+	try {
+		await SavePrefs(`{${JSON.stringify(key)}:${v}}`)
+		baseline.set(key, v)
+	} catch (e) {
+		console.warn('failed to save preference', key, e)
+	}
+}
+
 /** Debounced save of the preferences that changed. */
 export function savePrefs() {
   if (!canSave()) return

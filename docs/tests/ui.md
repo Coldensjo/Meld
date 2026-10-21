@@ -6,7 +6,9 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 ## Session restore (reopening the last tabs at start)
 
 Checks: `lib/io/session.ts` keeps the open file and region tabs with their cameras in
-`prefs.session` (every 3 s when changed, and on quit) and opens them again at start. In the dev page:
+`prefs.session` (every 3 s when changed, saved alone through `savePref`, and on quit) and opens them again at start.
+The prefs effect in App.svelte leaves `session` out, so a camera move re-applies nothing: `bun run probe session-prefs` (#461).
+In the dev page:
 
 ```js
 await window.__loadScene('Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":32,"y":48,"size":1}},"view":{"target":[182,30,353],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}')
