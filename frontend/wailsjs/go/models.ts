@@ -657,6 +657,8 @@ export namespace mapfile {
 	    // Go type: ReferenceImage
 	    reference?: any;
 	    paths?: MapPath[];
+	    liquidsUnknown?: boolean;
+	    chunkDataUnknown?: boolean;
 	    version?: number;
 	    heights: string;
 	    weights?: string;
@@ -694,6 +696,8 @@ export namespace mapfile {
 	        this.tileEffects = source["tileEffects"];
 	        this.reference = this.convertValues(source["reference"], null);
 	        this.paths = this.convertValues(source["paths"], MapPath);
+	        this.liquidsUnknown = source["liquidsUnknown"];
+	        this.chunkDataUnknown = source["chunkDataUnknown"];
 	        this.version = source["version"];
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];

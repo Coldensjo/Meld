@@ -112,6 +112,30 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+// A map opened without the client's liquids or chunk data keeps saying so across a save (#525), and
+// one that has them writes neither flag.
+func TestUnknownFlagsRoundTrip(t *testing.T) {
+	for _, unknown := range []bool{false, true} {
+		m := sample(32)
+		m.LiquidsUnknown, m.ChunkDataUnknown = unknown, unknown
+		var buf bytes.Buffer
+		if err := Write(&buf, m); err != nil {
+			t.Fatal(err)
+		}
+		got, err := Read(&buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.LiquidsUnknown != unknown || got.ChunkDataUnknown != unknown {
+			t.Fatalf("unknown %v: read liquids %v, chunk data %v", unknown, got.LiquidsUnknown, got.ChunkDataUnknown)
+		}
+		hdr, _ := json.Marshal(&got.Header)
+		if !unknown && bytes.Contains(hdr, []byte("Unknown")) {
+			t.Fatalf("a known map writes the flags: %s", hdr)
+		}
+	}
+}
+
 // writeV1 writes a version 1 stream, as the format before chunks: eight global layers.
 func writeV1(t *testing.T, size, splat int) []byte {
 	t.Helper()

@@ -391,6 +391,23 @@ export sends each chunk's MCSH as the client has it.
   second: a loop that yields with `setTimeout(0)` crawls there (the bake took over a minute). Yield
   through a `MessageChannel` instead.
 
+## The unknown state of liquids and chunk data across a save (#525)
+
+A region `.wmap` saved before version 4 (liquids) or 5 (area IDs, chunk flags, no-tuft cells) opens
+with `MapDocument.liquidsKnown` / `chunkDataKnown` false, and Compile then leaves the client's own
+alone. The header's `liquidsUnknown` / `chunkDataUnknown` keep that across a save.
+
+- Unit: `bun test tests/mapData.test.ts` (`toMapData` → JSON → `fromMapData` keeps both flags, a
+  known map writes neither, version 3 and 4 files open without them) and `go test ./internal/mapfile/
+  -run TestUnknownFlagsRoundTrip` (the header round trip).
+- Probe `unknown-flags`: Northshire saved through Go (`SaveSceneMap`, `LoadMap`) and opened again,
+  first as opened from the client (no flag written), then with both flags set false and saved twice:
+  they stay false, the export sends no chunk headers and partial liquids, and Map Properties lists
+  them under "The client's".
+- Trap: `Engine.regionKey` hashes both flags, so a region whose flag is false has another compile
+  fingerprint than the same region with it true (decision #82); that is wanted, as Compile writes
+  differently.
+
 ## Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
 
 Checks: View › Walkable ground builds the server's navmesh around the camera's target from the

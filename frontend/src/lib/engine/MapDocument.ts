@@ -15,6 +15,10 @@ import { ObjectLayer } from '../world/ObjectLayer'
 import { SpawnLayer } from '../world/SpawnLayer'
 import { History } from '../state/history'
 import { LAYERS } from '../terrain/layers'
+import type { MapInfo } from './mapInfo'
+
+// Kept in a plain module so io/mapData.ts and its test need no runes state.
+export { defaultMapInfo, type MapInfo } from './mapInfo'
 
 /** Per-map editor settings that are swapped in/out of `editor` on tab switch. */
 export interface DocMeta {
@@ -66,23 +70,6 @@ export interface VmangosRef {
   /** The map's own Map.dbc and map_template facts (Map Properties); absent until set. */
   info?: MapInfo
 }
-
-/** What a map made for the client says about itself (vmangos.MapInfo): written on publish. */
-export interface MapInfo {
-  /** 0 a world map, 1 a dungeon, 2 a raid, 3 a battleground. */
-  type: number
-  name: string
-  areaId: number
-  loadingScreen: number
-  maxPlayers: number
-  ghostMap: number
-  ghostX: number
-  ghostY: number
-  /** A WMO-only map: the map is its first building, with no ground, as the client's Blackfathom Deeps. */
-  wmoOnly?: boolean
-}
-
-export const defaultMapInfo = (): MapInfo => ({ type: 0, name: '', areaId: 0, loadingScreen: 0, maxPlayers: 0, ghostMap: -1, ghostX: 0, ghostY: 0 })
 
 /**
  * A square block of 1.12 map tiles in the client: the tile it starts at, and how many tiles a side.
@@ -140,13 +127,14 @@ export class MapDocument {
   readonly liquidRenderer: LiquidRenderer
   /**
    * Whether `liquids` holds the region's liquids. A region saved before maps kept liquids opens
-   * without them, and its export then leaves the client's liquids alone.
+   * without them, and its export then leaves the client's liquids alone. Saved again, the file says
+   * so (the header's `liquidsUnknown`, #525), so it opens the same way.
    */
   liquidsKnown = true
   /**
    * Whether the terrain's area IDs, chunk flags and no-effect cells are the map's own. A map saved
    * before the file kept them opens without them, and a region's export then leaves the client's
-   * chunk headers alone.
+   * chunk headers alone. Kept across saves as `liquidsKnown` is (`chunkDataUnknown`).
    */
   chunkDataKnown = true
   readonly history = new History()

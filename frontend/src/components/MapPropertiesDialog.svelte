@@ -25,6 +25,10 @@
 	/** The map's size: in client tiles for a region, else in cells. */
 	const tiles = $derived(editor.regionBlock ? `${editor.regionBlock.size}×${editor.regionBlock.size} tiles` : `${editor.mapSize} × ${editor.mapSize} cells`)
 	const azeroth = $derived(!!editor.region)
+	// A region saved before the file kept its liquids or chunk data holds only what was drawn since
+	// (#525): Compile then leaves the client's own alone, which the author should know.
+	const doc = engineRef.current?.activeDocument()
+	const unknown = doc && editor.region ? [!doc.liquidsKnown && 'liquids', !doc.chunkDataKnown && 'zones, flags and no-tuft cells'].filter((x): x is string => !!x) : []
 
 	// A map made for the client also says what it is to the client and the server (written on publish).
 	const ref = engineRef.current?.activeVmangos() ?? null
@@ -116,6 +120,11 @@
 		<span class="k">Name</span><span title={editor.mapName}>{editor.mapName}</span>
 		<span class="k">Size</span><span>{tiles}</span>
 		{#if editor.region}<span class="k">Region</span><span title={editor.region}>{editor.region}</span>{/if}
+		{#if unknown.length}
+			<span class="k">The client's</span><span
+				title="This map was saved before Meld kept its {unknown.join(' and ')}, so it holds only what was drawn since: Compile writes that and leaves the client's own as they are">{unknown.join('; ')}</span
+			>
+		{/if}
 		{#if editor.filePath}<span class="k">File</span><span title={editor.filePath}>{editor.filePath}</span>{/if}
 		<span class="k">Models</span><span>{stats.objects}</span>
 		<span class="k">Textures</span><span>{editor.palette.length}</span>

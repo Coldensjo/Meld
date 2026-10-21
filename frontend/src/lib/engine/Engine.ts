@@ -237,10 +237,17 @@ export interface MapSnapshot {
   /** The liquids blob (format 4, see liquids.ts); null for an older map, which has none. */
   liquids: Uint8Array | null
   /**
+   * Whether `liquids` is all of the region's liquids (`MapDocument.liquidsKnown`). False for a map
+   * saved before format 4, and kept false across later saves (#525), when it holds only what was drawn.
+   */
+  liquidsKnown: boolean
+  /**
    * Each chunk's AreaTable.dbc ID and flags, and a byte per cell where no tufts grow (format 5);
    * null for an older map, which has none.
    */
   chunkData: { areaIds: Uint32Array; chunkFlags: Uint8Array; noEffect: Uint8Array } | null
+  /** Whether `chunkData` is the map's own (`MapDocument.chunkDataKnown`), as `liquidsKnown` for the liquids. */
+  chunkDataKnown: boolean
   /** The baked shadows' bits (format 6, terrain/bakedShadows.ts); null when the map has none of its own. */
   shadows: Uint8Array | null
   /** Format 1 maps only, converted on open: the eight global layers and their splats. */
@@ -3509,7 +3516,9 @@ export class Engine {
       chunkSlots: t.chunkSlots,
       holes: t.holes,
       liquids: encodeLiquids(d.liquids),
+      liquidsKnown: d.liquidsKnown,
       chunkData: { areaIds: t.areaIds, chunkFlags: t.chunkFlags, noEffect: t.noEffect },
+      chunkDataKnown: d.chunkDataKnown,
       shadows: t.shadow ? packShadowBits(t.shadow) : null,
     }
   }
@@ -3547,7 +3556,7 @@ export class Engine {
     if (m.holes.length === t.holes.length) t.holes.set(m.holes)
     else if (m.holes.length) throw new Error('hole data size mismatch')
     if (m.liquids) decodeLiquids(d.liquids, m.liquids)
-    d.liquidsKnown = m.liquids !== null
+    d.liquidsKnown = m.liquidsKnown
     if (m.chunkData) {
       const c = m.chunkData
       if (c.areaIds.length !== t.areaIds.length || c.chunkFlags.length !== t.chunkFlags.length || c.noEffect.length !== t.noEffect.length) {
@@ -3558,7 +3567,7 @@ export class Engine {
       t.chunkFlags.set(c.chunkFlags)
       t.noEffect.set(c.noEffect)
     }
-    d.chunkDataKnown = m.chunkData !== null
+    d.chunkDataKnown = m.chunkDataKnown
     if (m.shadows) {
       if (m.shadows.length !== (t.shadowSide * t.shadowSide) / 8) {
         d.dispose()

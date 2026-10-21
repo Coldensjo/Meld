@@ -44,8 +44,8 @@ import {
   WriteNormalMap,
   WriteMinimapTiles,
 } from '../../../wailsjs/go/main/App'
-import { mapfile } from '../../../wailsjs/go/models'
-import type { Engine, MapSnapshot } from '../engine/Engine'
+import { fromMapData, toMapData } from './mapData'
+import type { Engine } from '../engine/Engine'
 import type { MapDocument } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { savingDetail, startSaving, withSaving } from '../state/saving'
@@ -53,10 +53,8 @@ import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/
 import { formatSet, parseSet, type ModelSet } from '../wow/modelSets'
 import { grownBlock, type Side } from './regionGrow'
 import { cachedPending } from './regionKey'
-import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
-import type { TextureLooks } from '../world/textureLooks'
 import { CELL_SIZE } from '../terrain/Terrain'
-import { base64ToBytes, base64ToFloats, bytesToBase64, floatsToBase64 } from './base64'
+import { base64ToFloats, floatsToBase64 } from './base64'
 import { ALPHA_BYTES, tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
@@ -68,12 +66,9 @@ import { blockAround, blockHolds, spotTile } from '../world/teleport'
 import type { TriggerDestination } from '../world/areaTriggers'
 import { minimapScale, shadeHeights } from './minimapImage'
 import { isHelper } from '../models/helpers'
-import { defaultMapInfo, type MapInfo } from '../engine/MapDocument'
 import { watermapCells } from './watermapImport'
 import { IMAGE_MAX, IMAGE_MIN, imageRatios, importHeights, importHeightsOnTile, type HeightmapMode } from './heightmapImport'
 import { normalMapPixels, toBase64 } from './normalMap'
-import { readReference } from '../terrain/referenceImage'
-import { readPaths } from '../terrain/paths'
 import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
@@ -81,101 +76,7 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime'
 /** True when running inside the Wails webview (Go bindings available). */
 export const hasBackend = () => typeof (window as unknown as { go?: unknown }).go !== 'undefined'
 
-export function toMapData(s: MapSnapshot): mapfile.MapData {
-  // Not MapData.createFrom: Wails generates its embedded header's region, vmangos and roles with a null
-  // class, which throws "classs is not a constructor" for any map that has one. The binding only
-  // needs the fields, which it sends as JSON.
-  return Object.assign(new mapfile.MapData(), {
-    name: s.name,
-    size: s.size,
-    cellSize: s.cellSize,
-    splatRes: s.splatRes,
-    waterLevel: s.waterLevel,
-    waterEnabled: s.waterEnabled,
-    objects: s.objects,
-    region: s.region ?? undefined,
-    // The info travels as JSON the Go side keeps opaque (mapfile.VmangosFolder.Info).
-    vmangos: s.vmangos ? { dir: s.vmangos.dir, mapId: s.vmangos.mapId, info: s.vmangos.info as unknown as number[] | undefined } : undefined,
-    palette: s.palette,
-    roles: s.roles ?? undefined,
-    textureEffects: Object.keys(s.textureEffects).length ? s.textureEffects : undefined,
-    textureLooks: Object.keys(s.textureLooks).length ? s.textureLooks : undefined,
-    zoneEffects: Object.keys(s.scopedEffects.zones).length ? s.scopedEffects.zones : undefined,
-    tileEffects: Object.keys(s.scopedEffects.tiles).length ? s.scopedEffects.tiles : undefined,
-    reference: s.reference ? Object.assign(new mapfile.ReferenceImage(), s.reference) : undefined,
-    paths: s.paths.length ? s.paths.map((p) => mapfile.MapPath.createFrom(p)) : undefined,
-    heights: bytesToBase64(s.heights),
-    weights: bytesToBase64(s.weights),
-    chunkSlots: bytesToBase64(s.chunkSlots),
-    holes: bytesToBase64(s.holes),
-    liquids: s.liquids ? bytesToBase64(s.liquids) : undefined,
-    areaIds: s.chunkData ? bytesToBase64(u32Bytes(s.chunkData.areaIds)) : undefined,
-    chunkFlags: s.chunkData ? bytesToBase64(s.chunkData.chunkFlags) : undefined,
-    noEffect: s.chunkData ? bytesToBase64(s.chunkData.noEffect) : undefined,
-    shadows: s.shadows ? bytesToBase64(s.shadows) : undefined,
-  })
-}
-
-/** The bytes of a Uint32Array, little endian as the map file stores them (every target is little endian). */
-function u32Bytes(a: Uint32Array) {
-  return new Uint8Array(a.buffer, a.byteOffset, a.byteLength)
-}
-
-/** A Uint32Array read from little-endian bytes. */
-function bytesU32(b: Uint8Array) {
-  return new Uint32Array(b.slice().buffer, 0, b.byteLength >> 2)
-}
-
-export function fromMapData(m: mapfile.MapData): MapSnapshot {
-  const common = {
-    name: m.name,
-    size: m.size,
-    cellSize: m.cellSize,
-    splatRes: m.splatRes,
-    waterLevel: m.waterLevel,
-    waterEnabled: m.waterEnabled,
-    objects: (m.objects ?? []).map((o, i) => ({ ...o, id: o.id || 100000 + i, parent: o.parent || undefined, uid: o.uid || undefined })),
-    region: m.region ? { mapName: m.region.mapName, x: m.region.x, y: m.region.y, size: m.region.size } : null,
-    vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId, info: m.vmangos.info ? ({ ...defaultMapInfo(), ...(m.vmangos.info as unknown as Partial<MapInfo>) } as MapInfo) : undefined } : null,
-    roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
-    textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
-    textureLooks: { ...((m.textureLooks ?? {}) as TextureLooks) },
-    scopedEffects: { zones: (m.zoneEffects ?? {}) as ScopedEffects['zones'], tiles: (m.tileEffects ?? {}) as ScopedEffects['tiles'] },
-    reference: readReference(m.reference),
-    paths: readPaths(m.paths),
-    heights: base64ToBytes(m.heights),
-  }
-  if (m.version === 1) {
-    // Format 1: eight global layers, converted when the map opens.
-    return {
-      ...common,
-      palette: [],
-      weights: new Uint8Array(0),
-      chunkSlots: new Uint8Array(0),
-      holes: new Uint8Array(0),
-      liquids: null,
-      chunkData: null,
-      shadows: null,
-      legacy: { layerTextures: m.layerTextures ?? [], splatA: base64ToBytes(m.splatA ?? ''), splatB: base64ToBytes(m.splatB ?? '') },
-    }
-  }
-  return {
-    ...common,
-    palette: m.palette ?? [],
-    weights: base64ToBytes(m.weights ?? ''),
-    chunkSlots: base64ToBytes(m.chunkSlots ?? ''),
-    // A format 2 map has no holes, and a format 3 map no liquids.
-    holes: base64ToBytes(m.holes ?? ''),
-    liquids: (m.version ?? 0) >= 4 ? base64ToBytes(m.liquids ?? '') : null,
-    // A format 4 map has no area IDs, chunk flags or no-effect cells.
-    chunkData:
-      (m.version ?? 0) >= 5
-        ? { areaIds: bytesU32(base64ToBytes(m.areaIds ?? '')), chunkFlags: base64ToBytes(m.chunkFlags ?? ''), noEffect: base64ToBytes(m.noEffect ?? '') }
-        : null,
-    // Format 6 keeps the baked shadows; empty means the map holds none of its own.
-    shadows: m.shadows ? base64ToBytes(m.shadows) : null,
-  }
-}
+export { fromMapData, toMapData }
 
 async function guarded(label: string, fn: () => Promise<void>) {
   if (!hasBackend()) {

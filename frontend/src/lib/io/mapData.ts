@@ -1,0 +1,117 @@
+/**
+ * The `.wmap` snapshot as the Go side reads and writes it (`internal/mapfile`), kept apart from
+ * mapio.ts so the conversion can be unit-tested without the runes state.
+ */
+import { mapfile } from '../../../wailsjs/go/models'
+import type { MapSnapshot } from '../engine/Engine'
+import { defaultMapInfo, type MapInfo } from '../engine/mapInfo'
+import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
+import type { TextureLooks } from '../world/textureLooks'
+import { base64ToBytes, bytesToBase64 } from './base64'
+import { readReference } from '../terrain/referenceImage'
+import { readPaths } from '../terrain/paths'
+
+export function toMapData(s: MapSnapshot): mapfile.MapData {
+	// Not MapData.createFrom: Wails generates its embedded header's region, vmangos and roles with a null
+	// class, which throws "classs is not a constructor" for any map that has one. The binding only
+	// needs the fields, which it sends as JSON.
+	return Object.assign(new mapfile.MapData(), {
+		name: s.name,
+		size: s.size,
+		cellSize: s.cellSize,
+		splatRes: s.splatRes,
+		waterLevel: s.waterLevel,
+		waterEnabled: s.waterEnabled,
+		objects: s.objects,
+		region: s.region ?? undefined,
+		// The info travels as JSON the Go side keeps opaque (mapfile.VmangosFolder.Info).
+		vmangos: s.vmangos ? { dir: s.vmangos.dir, mapId: s.vmangos.mapId, info: s.vmangos.info as unknown as number[] | undefined } : undefined,
+		palette: s.palette,
+		roles: s.roles ?? undefined,
+		textureEffects: Object.keys(s.textureEffects).length ? s.textureEffects : undefined,
+		textureLooks: Object.keys(s.textureLooks).length ? s.textureLooks : undefined,
+		zoneEffects: Object.keys(s.scopedEffects.zones).length ? s.scopedEffects.zones : undefined,
+		tileEffects: Object.keys(s.scopedEffects.tiles).length ? s.scopedEffects.tiles : undefined,
+		reference: s.reference ? Object.assign(new mapfile.ReferenceImage(), s.reference) : undefined,
+		paths: s.paths.length ? s.paths.map((p) => mapfile.MapPath.createFrom(p)) : undefined,
+		// A map opened without the client's liquids or chunk data says so (#525): the blobs below then
+		// hold only what was drawn since, and must not read back as the whole of it.
+		liquidsUnknown: s.liquidsKnown ? undefined : true,
+		chunkDataUnknown: s.chunkDataKnown ? undefined : true,
+		heights: bytesToBase64(s.heights),
+		weights: bytesToBase64(s.weights),
+		chunkSlots: bytesToBase64(s.chunkSlots),
+		holes: bytesToBase64(s.holes),
+		liquids: s.liquids ? bytesToBase64(s.liquids) : undefined,
+		areaIds: s.chunkData ? bytesToBase64(u32Bytes(s.chunkData.areaIds)) : undefined,
+		chunkFlags: s.chunkData ? bytesToBase64(s.chunkData.chunkFlags) : undefined,
+		noEffect: s.chunkData ? bytesToBase64(s.chunkData.noEffect) : undefined,
+		shadows: s.shadows ? bytesToBase64(s.shadows) : undefined,
+	})
+}
+
+/** The bytes of a Uint32Array, little endian as the map file stores them (every target is little endian). */
+function u32Bytes(a: Uint32Array) {
+	return new Uint8Array(a.buffer, a.byteOffset, a.byteLength)
+}
+
+/** A Uint32Array read from little-endian bytes. */
+function bytesU32(b: Uint8Array) {
+	return new Uint32Array(b.slice().buffer, 0, b.byteLength >> 2)
+}
+
+export function fromMapData(m: mapfile.MapData): MapSnapshot {
+	const common = {
+		name: m.name,
+		size: m.size,
+		cellSize: m.cellSize,
+		splatRes: m.splatRes,
+		waterLevel: m.waterLevel,
+		waterEnabled: m.waterEnabled,
+		objects: (m.objects ?? []).map((o, i) => ({ ...o, id: o.id || 100000 + i, parent: o.parent || undefined, uid: o.uid || undefined })),
+		region: m.region ? { mapName: m.region.mapName, x: m.region.x, y: m.region.y, size: m.region.size } : null,
+		vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId, info: m.vmangos.info ? ({ ...defaultMapInfo(), ...(m.vmangos.info as unknown as Partial<MapInfo>) } as MapInfo) : undefined } : null,
+		roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,
+		textureEffects: { ...((m.textureEffects ?? {}) as TextureEffects) },
+		textureLooks: { ...((m.textureLooks ?? {}) as TextureLooks) },
+		scopedEffects: { zones: (m.zoneEffects ?? {}) as ScopedEffects['zones'], tiles: (m.tileEffects ?? {}) as ScopedEffects['tiles'] },
+		reference: readReference(m.reference),
+		paths: readPaths(m.paths),
+		heights: base64ToBytes(m.heights),
+	}
+	if (m.version === 1) {
+		// Format 1: eight global layers, converted when the map opens.
+		return {
+			...common,
+			palette: [],
+			weights: new Uint8Array(0),
+			chunkSlots: new Uint8Array(0),
+			holes: new Uint8Array(0),
+			liquids: null,
+			liquidsKnown: false,
+			chunkData: null,
+			chunkDataKnown: false,
+			shadows: null,
+			legacy: { layerTextures: m.layerTextures ?? [], splatA: base64ToBytes(m.splatA ?? ''), splatB: base64ToBytes(m.splatB ?? '') },
+		}
+	}
+	const version = m.version ?? 0
+	return {
+		...common,
+		palette: m.palette ?? [],
+		weights: base64ToBytes(m.weights ?? ''),
+		chunkSlots: base64ToBytes(m.chunkSlots ?? ''),
+		// A format 2 map has no holes, and a format 3 map no liquids.
+		holes: base64ToBytes(m.holes ?? ''),
+		liquids: version >= 4 ? base64ToBytes(m.liquids ?? '') : null,
+		liquidsKnown: version >= 4 && !m.liquidsUnknown,
+		// A format 4 map has no area IDs, chunk flags or no-effect cells.
+		chunkData:
+			version >= 5
+				? { areaIds: bytesU32(base64ToBytes(m.areaIds ?? '')), chunkFlags: base64ToBytes(m.chunkFlags ?? ''), noEffect: base64ToBytes(m.noEffect ?? '') }
+				: null,
+		chunkDataKnown: version >= 5 && !m.chunkDataUnknown,
+		// Format 6 keeps the baked shadows; empty means the map holds none of its own.
+		shadows: m.shadows ? base64ToBytes(m.shadows) : null,
+	}
+}
