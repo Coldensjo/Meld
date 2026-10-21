@@ -267,3 +267,18 @@ again only when one changed.
   blue. About 6 s.
 - Trap: `P.endSandbox()` (and any `Open`, a change of client) still drops the whole cache, so measure
   inside one sandbox.
+
+## The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
+Checks: a save of one small file into a large patch (a DBC row, an imported icon) opens the patch
+once in `ChangedFiles` and once in `InstallPatch`, and copies the files it carries over straight from
+the old patch into the new one (`mpq.Archive.Reader`, `mpq.WriteTo`) instead of reading them all into
+memory and building the archive there.
+- `go test ./internal/vmangos/ -run xxx -bench InstallPatch -benchmem -count 3`: one 4 KB icon saved
+  into a patch of 200 generated 512 KB tiles (100 MB, no client bytes). The figure to watch is B/op,
+  which should stay about the copy buffers (~1.4 MB), not the patch's size. On 2026-10-21 (Ryzen 9
+  9900X3D, NVMe): before #476 119 ms and 210 MB a save, after it 57 ms and 1.4 MB.
+- `mpq.TestWriteToFromArchive` copies files between archives through `Reader` and checks that a
+  short reader fails the write; the `InstallPatch` tests and probes `patch-cache` and `icons` cover
+  the carried files and the minimap tiles it drops.
+- Trap: the time is mostly the disk copy of the carried files, so it varies with the disk cache;
+  compare B/op, and time only on the same machine.

@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -46,13 +47,18 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 	if err := checkFree(target); err != nil {
 		return "", err
 	}
-	var keep []mpq.File
+	// The old patch is opened once: its owner, the files it carries over and their bytes all come from
+	// this one handle, and the carried files are copied straight from it into the new patch rather
+	// than read into memory first (#476).
+	var old *mpq.Archive
+	var keep []mpq.Entry
 	if _, err := os.Stat(target); err == nil {
-		owner, err := archiveOwner(target)
-		if err != nil {
+		if old, err = mpq.Open(target); err != nil {
 			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
 		}
-		switch owner {
+		// Closed before the rename below; this is for the returns before it.
+		defer old.Close()
+		switch archiveOwnerOf(old) {
 		case "":
 			return "", fmt.Errorf("%s is not a patch Meld or Ironforge wrote; move it out of the Data folder first", PatchName)
 		case IronforgeMarker:
@@ -61,7 +67,7 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 			}
 		}
 		// Tiles edited earlier stay in the patch; the ones given here replace theirs.
-		if keep, err = carryOver(target, files); err != nil {
+		if keep, err = carryOver(old, files); err != nil {
 			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
 		}
 	}
@@ -70,16 +76,24 @@ func InstallPatch(dataDir string, files []mpq.File) (string, error) {
 		changed = append(changed, f.Name)
 	}
 	if len(keep) > 0 {
-		kept := dropUnusedMinimaps(append([]mpq.File(nil), keep...), files)
+		index, err := minimapIndex(old, files, keep)
+		if err != nil {
+			return "", fmt.Errorf("cannot read %s: %w", PatchName, err)
+		}
+		kept := dropUnusedMinimaps(append([]mpq.Entry(nil), keep...), index)
 		changed = append(changed, droppedNames(keep, kept)...)
 		keep = kept
 	}
-	files = append(files, keep...)
 
 	// Written beside the target and renamed over it, so a failed write leaves the old patch.
 	tmp := target + ".tmp"
-	if err := os.WriteFile(tmp, mpq.Write(files), 0o644); err != nil {
+	if err := writeArchive(tmp, append(mpq.Entries(files), keep...)); err != nil {
+		os.Remove(tmp)
 		return "", err
+	}
+	if old != nil {
+		// Windows doesn't rename over a file still open.
+		old.Close()
 	}
 	// Meld's own reader lets go of the archives for the rename only, then forgets what it decoded
 	// from the files this write changed (#471).
@@ -131,8 +145,26 @@ func heldReader() ClientReader {
 	return clientReader
 }
 
+// writeArchive writes the archive of files to path through a buffer.
+func writeArchive(path string, files []mpq.Entry) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	w := bufio.NewWriterSize(f, 1<<20)
+	if err := mpq.WriteTo(w, files); err != nil {
+		f.Close()
+		return err
+	}
+	if err := w.Flush(); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
+}
+
 // droppedNames lists the names of before that after no longer has.
-func droppedNames(before, after []mpq.File) []string {
+func droppedNames(before, after []mpq.Entry) []string {
 	left := make(map[string]bool, len(after))
 	for _, f := range after {
 		left[strings.ToUpper(f.Name)] = true
@@ -146,14 +178,10 @@ func droppedNames(before, after []mpq.File) []string {
 	return out
 }
 
-// carryOver reads the files of an existing patch that aren't in files, so replacing the patch
-// keeps the tiles exported before. The archive's own marker and listfile are left out.
-func carryOver(path string, files []mpq.File) ([]mpq.File, error) {
-	a, err := mpq.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer a.Close()
+// carryOver lists the files of an existing patch that aren't in files, so replacing the patch keeps
+// the tiles exported before. Their bytes are read from a only when the new patch is written. The
+// archive's own marker and listfile are left out.
+func carryOver(a *mpq.Archive, files []mpq.File) ([]mpq.Entry, error) {
 	names, err := a.ListFile()
 	if err != nil {
 		return nil, err
@@ -162,37 +190,41 @@ func carryOver(path string, files []mpq.File) ([]mpq.File, error) {
 	for _, f := range files {
 		replaced[strings.ToUpper(strings.ReplaceAll(f.Name, "/", `\`))] = true
 	}
-	var out []mpq.File
+	var out []mpq.Entry
 	for _, name := range names {
 		if name == "" || name[0] == '(' || replaced[strings.ToUpper(strings.ReplaceAll(name, "/", `\`))] {
 			continue
 		}
-		data, err := a.ReadFile(name)
+		r, size, err := a.Reader(name)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", name, err)
 		}
-		out = append(out, mpq.File{Name: name, Data: data})
+		out = append(out, mpq.Entry{Name: name, Size: size, Data: r})
 	}
 	return out, nil
 }
 
-// dropUnusedMinimaps leaves out of the carried-over files the minimap tiles (textures\Minimap\*.blp)
-// that the patch's minimap index, the new one or the carried one, names in no row: a tile drawn again
-// is stored under the md5 of its new bytes, and its old file would otherwise stay in the patch (#164).
-// Without an index in the patch every file is kept.
-func dropUnusedMinimaps(keep, files []mpq.File) []mpq.File {
-	var index []byte
-	for _, list := range [][]mpq.File{files, keep} {
-		for _, f := range list {
-			if strings.EqualFold(f.Name, wow.MinimapIndexPath) {
-				index = f.Data
-				break
-			}
-		}
-		if index != nil {
-			break
+// minimapIndex is the patch's minimap index after the write: the one in files, else the one carried
+// over from old (read from it), else nil.
+func minimapIndex(old *mpq.Archive, files []mpq.File, keep []mpq.Entry) ([]byte, error) {
+	for _, f := range files {
+		if strings.EqualFold(f.Name, wow.MinimapIndexPath) {
+			return f.Data, nil
 		}
 	}
+	for _, f := range keep {
+		if strings.EqualFold(f.Name, wow.MinimapIndexPath) {
+			return old.ReadFile(f.Name)
+		}
+	}
+	return nil, nil
+}
+
+// dropUnusedMinimaps leaves out of the carried-over files the minimap tiles (textures\Minimap\*.blp)
+// that the patch's minimap index (minimapIndex) names in no row: a tile drawn again is stored under
+// the md5 of its new bytes, and its old file would otherwise stay in the patch (#164). Without an
+// index in the patch every file is kept.
+func dropUnusedMinimaps(keep []mpq.Entry, index []byte) []mpq.Entry {
 	if index == nil {
 		return keep
 	}
@@ -217,13 +249,18 @@ func archiveOwner(path string) (string, error) {
 		return "", err
 	}
 	defer a.Close()
+	return archiveOwnerOf(a), nil
+}
+
+// archiveOwnerOf is archiveOwner of an archive already open.
+func archiveOwnerOf(a *mpq.Archive) string {
 	switch {
 	case a.Has(mpq.MarkerName), a.Has(mpq.OldMarkerName):
-		return mpq.MarkerName, nil
+		return mpq.MarkerName
 	case a.Has(IronforgeMarker):
-		return IronforgeMarker, nil
+		return IronforgeMarker
 	}
-	return "", nil
+	return ""
 }
 
 // backup copies src to dst unless dst exists already, so the first backup is kept.
@@ -258,17 +295,20 @@ func ChangedFiles(dataDir string, files []mpq.File) ([]mpq.File, error) {
 	if _, err := os.Stat(target); err != nil {
 		return files, nil
 	}
-	if owner, err := archiveOwner(target); err != nil || owner == "" {
-		return files, nil
-	}
+	// Opened once, for its owner and its files both (#476). An archive that doesn't open is no patch
+	// Meld wrote, and InstallPatch reports it.
 	a, err := mpq.Open(target)
 	if err != nil {
-		return nil, err
+		return files, nil
 	}
 	defer a.Close()
+	if archiveOwnerOf(a) == "" {
+		return files, nil
+	}
 	var out []mpq.File
 	for _, f := range files {
-		if !a.Has(f.Name) {
+		// A file of another size changed, without reading the old copy.
+		if size, ok := a.Size(f.Name); !ok || size != int64(len(f.Data)) {
 			out = append(out, f)
 			continue
 		}

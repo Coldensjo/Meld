@@ -1,7 +1,11 @@
 package mpq
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
+	"io"
+	"math"
 	"strings"
 )
 
@@ -28,22 +32,49 @@ const OldMarkerName = "(worldeditor)"
 // MarkerText is the marker file's contents. Stored uncompressed, it can be found in the file.
 const MarkerText = "Meld map export: this patch was written by Meld and is replaced by its next export."
 
+// Entry is a file to store whose bytes are read only while the archive is written, so an archive
+// can be rebuilt from another one without holding every file in memory (Archive.Reader).
+type Entry struct {
+	Name string
+	// Size is how many bytes Data gives.
+	Size int64
+	Data io.Reader
+}
+
+// Entries wraps files as entries.
+func Entries(files []File) []Entry {
+	out := make([]Entry, len(files))
+	for i, f := range files {
+		out[i] = Entry{Name: f.Name, Size: int64(len(f.Data)), Data: bytes.NewReader(f.Data)}
+	}
+	return out
+}
+
 // Write builds an MPQ archive (format 1) that the 1.12 client reads: each file is stored whole and
 // uncompressed, found through encrypted hash and block tables. A (listfile) names the files, and
 // the marker file is added. A file with the marker's name in files is replaced by it.
 func Write(files []File) []byte {
-	all := make([]File, 0, len(files)+2)
+	var buf bytes.Buffer
+	// A write fails only on a short reader, which bytes.Reader never is, or past 4 GB, which files
+	// held in memory don't reach.
+	_ = WriteTo(&buf, Entries(files))
+	return buf.Bytes()
+}
+
+// WriteTo writes the archive Write builds to w, reading each entry's bytes as it goes.
+func WriteTo(w io.Writer, files []Entry) error {
+	all := make([]Entry, 0, len(files)+2)
 	for _, f := range files {
 		if f.Name != "(listfile)" && f.Name != MarkerName && f.Name != OldMarkerName {
 			all = append(all, f)
 		}
 	}
-	all = append(all, File{Name: MarkerName, Data: []byte(MarkerText)})
+	all = append(all, Entry{Name: MarkerName, Size: int64(len(MarkerText)), Data: strings.NewReader(MarkerText)})
 	var list strings.Builder
 	for _, f := range all {
 		list.WriteString(strings.ReplaceAll(f.Name, "/", `\`) + "\r\n")
 	}
-	all = append(all, File{Name: "(listfile)", Data: []byte(list.String())})
+	all = append(all, Entry{Name: "(listfile)", Size: int64(list.Len()), Data: strings.NewReader(list.String())})
 
 	// Room for twice the files, a power of two as the lookup needs.
 	hashCount := 16
@@ -51,22 +82,32 @@ func Write(files []File) []byte {
 		hashCount *= 2
 	}
 	mask := uint32(hashCount - 1)
-	dataSize := 0
+	dataSize := int64(0)
 	for _, f := range all {
-		dataSize += len(f.Data)
+		dataSize += f.Size
 	}
 	hashPos := writeHeaderSize + dataSize
-	blockPos := hashPos + hashCount*16
-	out := make([]byte, blockPos+len(all)*16)
+	blockPos := hashPos + int64(hashCount)*16
+	total := blockPos + int64(len(all))*16
+	if total > math.MaxUint32 {
+		return fmt.Errorf("mpq: %d MB is more than an archive of this format holds", total>>20)
+	}
+	if b, ok := w.(*bytes.Buffer); ok {
+		b.Grow(int(total))
+	}
 
-	binary.LittleEndian.PutUint32(out[0:], 0x1a51504d) // "MPQ\x1a"
-	binary.LittleEndian.PutUint32(out[4:], writeHeaderSize)
-	binary.LittleEndian.PutUint32(out[8:], uint32(len(out)))
-	binary.LittleEndian.PutUint16(out[14:], sectorShift)
-	binary.LittleEndian.PutUint32(out[16:], uint32(hashPos))
-	binary.LittleEndian.PutUint32(out[20:], uint32(blockPos))
-	binary.LittleEndian.PutUint32(out[24:], uint32(hashCount))
-	binary.LittleEndian.PutUint32(out[28:], uint32(len(all)))
+	var header [writeHeaderSize]byte
+	binary.LittleEndian.PutUint32(header[0:], 0x1a51504d) // "MPQ\x1a"
+	binary.LittleEndian.PutUint32(header[4:], writeHeaderSize)
+	binary.LittleEndian.PutUint32(header[8:], uint32(total))
+	binary.LittleEndian.PutUint16(header[14:], sectorShift)
+	binary.LittleEndian.PutUint32(header[16:], uint32(hashPos))
+	binary.LittleEndian.PutUint32(header[20:], uint32(blockPos))
+	binary.LittleEndian.PutUint32(header[24:], uint32(hashCount))
+	binary.LittleEndian.PutUint32(header[28:], uint32(len(all)))
+	if _, err := w.Write(header[:]); err != nil {
+		return err
+	}
 
 	hashes := make([]byte, hashCount*16)
 	for i := 0; i < hashCount; i++ {
@@ -75,15 +116,25 @@ func Write(files []File) []byte {
 	used := make([]bool, hashCount)
 	blocks := make([]byte, len(all)*16)
 
-	at := writeHeaderSize
+	// One copy buffer for every file: w's own ReadFrom (a file's, a bufio.Writer's) would take a new
+	// one for each.
+	out := struct{ io.Writer }{w}
+	copyBuf := make([]byte, 64<<10)
+	at := int64(writeHeaderSize)
 	for index, f := range all {
-		copy(out[at:], f.Data)
+		n, err := io.CopyBuffer(out, io.LimitReader(f.Data, f.Size), copyBuf)
+		if err == nil && n < f.Size {
+			err = io.ErrUnexpectedEOF
+		}
+		if err != nil {
+			return fmt.Errorf("mpq: %s: %d of %d bytes: %w", f.Name, n, f.Size, err)
+		}
 		b := blocks[index*16:]
 		binary.LittleEndian.PutUint32(b[0:], uint32(at))
-		binary.LittleEndian.PutUint32(b[4:], uint32(len(f.Data)))
-		binary.LittleEndian.PutUint32(b[8:], uint32(len(f.Data)))
+		binary.LittleEndian.PutUint32(b[4:], uint32(f.Size))
+		binary.LittleEndian.PutUint32(b[8:], uint32(f.Size))
 		binary.LittleEndian.PutUint32(b[12:], fileExists)
-		at += len(f.Data)
+		at += f.Size
 
 		// Its slot: where the name hashes to, or the next free one after it.
 		slot := hashString(f.Name, hashOffset) & mask
@@ -109,9 +160,11 @@ func Write(files []File) []byte {
 	}
 	encryptBytes(hashes, hashString("(hash table)", hashFileKey))
 	encryptBytes(blocks, hashString("(block table)", hashFileKey))
-	copy(out[hashPos:], hashes)
-	copy(out[blockPos:], blocks)
-	return out
+	if _, err := w.Write(hashes); err != nil {
+		return err
+	}
+	_, err := w.Write(blocks)
+	return err
 }
 
 // encryptBytes encrypts little-endian words in place; decryptBytes undoes it.

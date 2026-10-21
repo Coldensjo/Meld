@@ -341,6 +341,49 @@ func (a *Archive) ReadFile(name string) ([]byte, error) {
 	return out, nil
 }
 
+// Size returns the unpacked size of name.
+func (a *Archive) Size(name string) (int64, bool) {
+	b, ok := a.find(name)
+	if !ok || b.flags&flagDeleted != 0 {
+		return 0, false
+	}
+	return int64(b.size), true
+}
+
+// Reader returns a reader of name's contents and their size, for copying a file into another archive
+// (Entry) without holding it in memory. A file stored plainly, as Write stores every file, is read
+// straight from the archive; any other is read whole at the reader's first Read. The archive must
+// stay open until the reader is done.
+func (a *Archive) Reader(name string) (io.Reader, int64, error) {
+	b, ok := a.find(name)
+	if !ok || b.flags&flagDeleted != 0 {
+		return nil, 0, ErrNotFound
+	}
+	if b.flags&(flagCompress|flagImplode|flagEncrypted) == 0 && b.csize >= b.size {
+		pos := a.base + (int64(b.pos) | int64(b.posHi)<<32)
+		return io.NewSectionReader(a.f, pos, int64(b.size)), int64(b.size), nil
+	}
+	return &wholeReader{a: a, name: name}, int64(b.size), nil
+}
+
+// wholeReader reads a packed file whole at its first Read.
+type wholeReader struct {
+	a    *Archive
+	name string
+	r    *bytes.Reader
+}
+
+func (w *wholeReader) Read(p []byte) (int, error) {
+	if w.r == nil {
+		data, err := w.a.ReadFile(w.name)
+		if err != nil {
+			return 0, err
+		}
+		w.r = bytes.NewReader(data)
+	}
+	return w.r.Read(p)
+}
+
 func decompressSector(data []byte, want uint32, flags uint32) ([]byte, error) {
 	if uint32(len(data)) >= want {
 		return data[:want], nil // stored uncompressed

@@ -21,6 +21,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   drops the replies built from the files the write changed; `AddPending` forgets the files it puts
   in the overlay. The app hands the client to vmangos with `vmangos.SetClientReader` in `NewApp`; a
   binding that writes the patch needs nothing else. Reads fail only during the rename.
+- `InstallPatch` rebuilds Meld's patch on every write, but opens the old one once and streams it
+  (#476): the files it carries over are `mpq.Entry`s whose bytes `mpq.Archive.Reader` reads straight
+  from the old patch while `mpq.WriteTo` writes the new one beside it, so a one-file save holds only
+  that file in memory, not the whole patch. `ChangedFiles` also opens the patch once, and skips
+  reading a file whose size differs.
 
 - The client path is persisted by `internal/config` (`os.UserConfigDir()/Meld/config.json`).
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so

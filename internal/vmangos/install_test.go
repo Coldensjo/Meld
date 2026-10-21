@@ -163,13 +163,13 @@ func TestChangedFiles(t *testing.T) {
 
 func TestDropUnusedMinimaps(t *testing.T) {
 	index := []byte("dir: Azeroth\r\nAzeroth\\map32_48.blp\tnew.blp\r\n")
-	keep := []mpq.File{
+	keep := []mpq.Entry{
 		{Name: `textures\Minimap\old.blp`},
 		{Name: `textures\Minimap\new.blp`},
 		{Name: `World\Maps\Azeroth\Azeroth_32_48.adt`},
 		{Name: `textures\Minimap\WMO\x.blp`}, // a folder below: not a tile of the index's form
 	}
-	got := dropUnusedMinimaps(append([]mpq.File(nil), keep...), []mpq.File{{Name: `textures\Minimap\md5translate.trs`, Data: index}})
+	got := dropUnusedMinimaps(append([]mpq.Entry(nil), keep...), index)
 	names := []string{}
 	for _, f := range got {
 		names = append(names, f.Name)
@@ -178,7 +178,7 @@ func TestDropUnusedMinimaps(t *testing.T) {
 		t.Fatalf("kept %v", names)
 	}
 	// No index anywhere: everything stays.
-	if n := len(dropUnusedMinimaps(append([]mpq.File(nil), keep...), nil)); n != 4 {
+	if n := len(dropUnusedMinimaps(append([]mpq.Entry(nil), keep...), nil)); n != 4 {
 		t.Fatalf("kept %d without an index", n)
 	}
 }
