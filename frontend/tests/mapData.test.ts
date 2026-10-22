@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { MapSnapshot } from '../src/lib/engine/Engine'
 import { fromMapData, toMapData } from '../src/lib/io/mapData'
 import type { mapfile } from '../wailsjs/go/models'
+import { encodeLiquids, LIQUID_MAGMA, liquidKindsOf, LiquidMap, liquidType, newLayer, rememberLiquidKinds, tileLiquidType } from '../src/lib/water/liquids'
 
 const SIZE = 16
 const CHUNKS = (SIZE / 8) ** 2
@@ -80,5 +81,40 @@ describe('the unknown state of holes, liquids and chunk data (#525, #663)', () =
 		expect(v4.liquidsKnown).toBe(true)
 		expect(v4.chunkData).toBeNull()
 		expect(v4.chunkDataKnown).toBe(false)
+	})
+})
+
+describe("a liquid layer's kind (#540)", () => {
+	// 30 is a row no client table here holds: a building's liquid of another client.
+	test('a layer of an ID the table lacks keeps its kind across a save, and draws and exports as it', () => {
+		rememberLiquidKinds({ 30: 'magma' })
+		const map = new LiquidMap(SIZE)
+		const l = newLayer(30, 5)
+		l.cells.fill(1)
+		map.set(0, [l])
+		const kinds = liquidKindsOf(map)
+		expect(kinds).toEqual({ 30: 'magma' })
+		const data = reread({ ...snapshot(true), liquids: encodeLiquids(map), liquidKinds: kinds }, 6)
+		expect(data.liquidKinds).toEqual({ '30': 'magma' })
+		const back = fromMapData(data)
+		expect(back.liquidKinds).toEqual({ 30: 'magma' })
+		rememberLiquidKinds(back.liquidKinds)
+		expect(liquidType(30).kind).toBe('magma')
+		expect(tileLiquidType(30)).toBe(LIQUID_MAGMA)
+	})
+
+	test('a map without building liquids writes no kinds, and a bad entry is dropped on read', () => {
+		expect(toMapData(snapshot(true)).liquidKinds).toBeUndefined()
+		const raw = reread(snapshot(true), 6)
+		raw.liquidKinds = { '2': 'slime', '31': 'lava', '300': 'slime', x: 'river', '32': 'slime' }
+		expect(fromMapData(raw).liquidKinds).toEqual({ 32: 'slime' })
+	})
+
+	test('an ID whose kind is unknown is left out rather than saved as water', () => {
+		const map = new LiquidMap(SIZE)
+		const l = newLayer(99, 5)
+		l.cells.fill(1)
+		map.set(0, [l, { ...newLayer(1, 5), cells: new Uint8Array(64).fill(1) }])
+		expect(liquidKindsOf(map)).toBeUndefined()
 	})
 })

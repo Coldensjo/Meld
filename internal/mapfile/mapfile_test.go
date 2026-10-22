@@ -136,6 +136,29 @@ func TestUnknownFlagsRoundTrip(t *testing.T) {
 	}
 }
 
+// The kinds of the liquid IDs past the base four survive a save (#540), and a map without any writes none.
+func TestLiquidKindsRoundTrip(t *testing.T) {
+	for _, kinds := range []map[string]string{nil, {"21": "slime"}} {
+		m := sample(32)
+		m.LiquidKinds = kinds
+		var buf bytes.Buffer
+		if err := Write(&buf, m); err != nil {
+			t.Fatal(err)
+		}
+		got, err := Read(&buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got.LiquidKinds) != len(kinds) || got.LiquidKinds["21"] != kinds["21"] {
+			t.Fatalf("wrote %v, read %v", kinds, got.LiquidKinds)
+		}
+		hdr, _ := json.Marshal(&got.Header)
+		if kinds == nil && bytes.Contains(hdr, []byte("liquidKinds")) {
+			t.Fatalf("a map without kinds writes them: %s", hdr)
+		}
+	}
+}
+
 // writeV1 writes a version 1 stream, as the format before chunks: eight global layers.
 func writeV1(t *testing.T, size, splat int) []byte {
 	t.Helper()

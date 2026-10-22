@@ -23,8 +23,9 @@
 // holds none of its own: a region keeps the client's.
 //
 // A liquid layer (noggit3's liquid_layer) is: uint32 chunk index (8x8-cell chunks, row-major),
-// uint8 liquid type (LiquidType.dbc: 1 water, 2 ocean, 3 magma, 4 slime), uint64 cell mask (bit
-// z*8+x), 81 float32 surface heights and 81 depth bytes, each 9x9 row-major.
+// uint8 liquid type (LiquidType.dbc: 1 water, 2 ocean, 3 magma, 4 slime, or a building's row such as
+// 21, whose kind the header's LiquidKinds keeps), uint64 cell mask (bit z*8+x), 81 float32 surface
+// heights and 81 depth bytes, each 9x9 row-major.
 //
 // Version 5 has no shadows blob: such a map opens with none of its own. Version 4 has no area IDs, chunk flags or no-effect cells: such a map opens with none, and says so
 // (Version < 5), so a region's export can keep the client's own. Version 3 has no liquids: such a map opens with none. Version 2 has no holes blob either.
@@ -136,6 +137,11 @@ type Header struct {
 	HolesUnknown     bool `json:"holesUnknown,omitempty"`
 	LiquidsUnknown   bool `json:"liquidsUnknown,omitempty"`
 	ChunkDataUnknown bool `json:"chunkDataUnknown,omitempty"`
+	// LiquidKinds is the kind ("river", "ocean", "magma" or "slime") of each liquid ID past the base
+	// four that the liquids blob uses, by ID ("21"), so a layer of a row the client's table lacks (or
+	// a map opened before the table is read) still draws and exports as its kind (#540). Optional;
+	// older readers ignore it, and the frontend checks it.
+	LiquidKinds map[string]string `json:"liquidKinds,omitempty"`
 }
 
 // PathPoint is a path's control point, in world units.

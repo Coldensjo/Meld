@@ -660,6 +660,7 @@ export namespace mapfile {
 	    holesUnknown?: boolean;
 	    liquidsUnknown?: boolean;
 	    chunkDataUnknown?: boolean;
+	    liquidKinds?: Record<string, string>;
 	    version?: number;
 	    heights: string;
 	    weights?: string;
@@ -700,6 +701,7 @@ export namespace mapfile {
 	        this.holesUnknown = source["holesUnknown"];
 	        this.liquidsUnknown = source["liquidsUnknown"];
 	        this.chunkDataUnknown = source["chunkDataUnknown"];
+	        this.liquidKinds = source["liquidKinds"];
 	        this.version = source["version"];
 	        this.heights = source["heights"];
 	        this.weights = source["weights"];

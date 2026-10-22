@@ -50,6 +50,8 @@ export const LIQUID_WATER = 1
 export const LIQUID_OCEAN = 2
 export const LIQUID_MAGMA = 3
 export const LIQUID_SLIME = 4
+/** The highest liquid ID the map file can hold (a byte a layer). */
+const MAX_LIQUID_ID = 255
 
 /** The kind a LiquidType.dbc row's type column names: 0 magma, 2 slime, 3 water; the ocean is water row 2. */
 export function kindOfDbcType(id: number, type: number): LiquidClass {
@@ -64,10 +66,13 @@ export function kindOfDbcType(id: number, type: number): LiquidClass {
   }
 }
 
-/** Replaces the liquid list with the client's rows (kept in ID order, the base four first). */
+/**
+ * Replaces the liquid list with the client's rows (kept in ID order, the base four first). A row past
+ * ID 255 is left out: the map file keeps a layer's ID in one byte.
+ */
 export function setLiquidTypes(rows: ReadonlyArray<{ id: number; name: string; kind: number }>) {
   const list: LiquidType[] = rows
-    .filter((r) => r.id > 0 && r.name)
+    .filter((r) => r.id > 0 && r.id <= MAX_LIQUID_ID && r.name)
     .map((r) => {
       const kind = kindOfDbcType(r.id, r.kind)
       return { id: r.id, name: r.name, kind, ...KIND_TEXTURES[kind] }
@@ -78,8 +83,56 @@ export function setLiquidTypes(rows: ReadonlyArray<{ id: number; name: string; k
   LIQUID_TYPES.push(...list)
 }
 
+/**
+ * The kinds of the liquid IDs the client's table doesn't hold (yet), as the map files opened keep
+ * them (the header's `liquidKinds`, #540): a layer of a building's row, opened before the table is
+ * read or against a client without that row, still draws and exports as its kind, not as water.
+ */
+const fileKinds = new Map<number, LiquidType>()
+
+function isLiquidClass(v: unknown): v is LiquidClass {
+  return v === 'river' || v === 'ocean' || v === 'magma' || v === 'slime'
+}
+
+/** A map file's `liquidKinds` as far as it reads right: IDs past the base four, up to 255, with a known kind. */
+export function readLiquidKinds(raw: unknown): Record<number, LiquidClass> {
+  const out: Record<number, LiquidClass> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [k, v] of Object.entries(raw)) {
+    const id = Number(k)
+    if (Number.isInteger(id) && id > LIQUID_SLIME && id <= MAX_LIQUID_ID && isLiquidClass(v)) out[id] = v
+  }
+  return out
+}
+
+/** Remembers the kinds a map file gives its liquid IDs, for the IDs the client's table lacks. */
+export function rememberLiquidKinds(kinds: Readonly<Record<number, LiquidClass>> | undefined) {
+  for (const [k, kind] of Object.entries(kinds ?? {})) {
+    const id = Number(k)
+    fileKinds.set(id, { id, name: `Liquid ${id}`, kind, ...KIND_TEXTURES[kind] })
+  }
+}
+
+/** The liquid with this ID: the client's row, else the kind a map file gave it, else water. */
 export function liquidType(id: number): LiquidType {
-  return LIQUID_TYPES.find((t) => t.id === id) ?? LIQUID_TYPES[0]
+  return LIQUID_TYPES.find((t) => t.id === id) ?? fileKinds.get(id) ?? LIQUID_TYPES[0]
+}
+
+/**
+ * The kinds of the liquid IDs past the base four that a map's layers use, for its file's
+ * `liquidKinds`; an ID whose kind isn't known is left out rather than saved as water. Undefined when
+ * there are none.
+ */
+export function liquidKindsOf(map: LiquidMap): Record<number, LiquidClass> | undefined {
+  let out: Record<number, LiquidClass> | undefined
+  for (const [, layers] of map.entries()) {
+    for (const l of layers) {
+      if (l.id <= LIQUID_SLIME || out?.[l.id]) continue
+      const t = LIQUID_TYPES.find((x) => x.id === l.id) ?? fileKinds.get(l.id)
+      if (t) (out ??= {})[l.id] = t.kind
+    }
+  }
+  return out
 }
 
 /** The base row (1 to 4) a tile stores for a liquid: its kind's, since a chunk keeps the kind, not the ID. */

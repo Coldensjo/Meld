@@ -6,7 +6,7 @@ import { MAX_BRUSH_RADIUS, docs, editor, setStatus, queueViewportHint, publishVi
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import { type adt, vmangos } from '../../../wailsjs/go/models'
-import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, type AdtLiquid, type LiquidClipCell } from '../water/liquids'
+import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidKindsOf, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, rememberLiquidKinds, type AdtLiquid, type LiquidClass, type LiquidClipCell } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { resetLiquidFrames, setLiquidLight, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
 import { BAND, lightAt, newLightAt, sceneFog, type ClientLights } from '../wow/clientLight'
@@ -252,6 +252,8 @@ export interface MapSnapshot {
    * saved before format 4, and kept false across later saves (#525), when it holds only what was drawn.
    */
   liquidsKnown: boolean
+  /** The kind of each liquid ID past the base four that `liquids` uses (liquids.ts `liquidKindsOf`, #540). */
+  liquidKinds?: Record<number, LiquidClass>
   /**
    * Each chunk's AreaTable.dbc ID and flags, and a byte per cell where no tufts grow (format 5);
    * null for an older map, which has none.
@@ -3608,6 +3610,7 @@ export class Engine {
       holesKnown: d.holesKnown,
       liquids: encodeLiquids(d.liquids),
       liquidsKnown: d.liquidsKnown,
+      liquidKinds: liquidKindsOf(d.liquids),
       chunkData: { areaIds: t.areaIds, chunkFlags: t.chunkFlags, noEffect: t.noEffect },
       chunkDataKnown: d.chunkDataKnown,
       shadows: t.shadow ? packShadowBits(t.shadow) : null,
@@ -3647,6 +3650,8 @@ export class Engine {
     if (m.holes.length === t.holes.length) t.holes.set(m.holes)
     else if (m.holes.length) throw new Error('hole data size mismatch')
     d.holesKnown = m.holesKnown
+    // Before the layers, so a building's liquid the client's table lacks draws as its kind (#540).
+    rememberLiquidKinds(m.liquidKinds)
     if (m.liquids) decodeLiquids(d.liquids, m.liquids)
     d.liquidsKnown = m.liquidsKnown
     if (m.chunkData) {

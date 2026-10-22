@@ -8,7 +8,11 @@ Liquids, the sea and how both are drawn and exported.
     client's own table, read by the `LiquidTypes` binding into `LIQUID_TYPES` through
     `setLiquidTypes`, adds rows such as Naxxramas's slime, each drawn as its kind), 9x9 surface
     heights, 9x9 depths (0..1) and an 8x8 cell mask. A tile stores a chunk's liquid by kind, so
-    the export writes the base row of the layer's kind (`tileLiquidType`); the `.wmap` keeps the ID. `paintLiquid`, `cropLiquids` and `regenOpacity` port
+    the export writes the base row of the layer's kind (`tileLiquidType`); the `.wmap` keeps the ID
+    (one byte, so `setLiquidTypes` leaves out rows past 255), and the header's optional
+    `liquidKinds` keeps the kind of each ID past the base four (`liquidKindsOf` on save,
+    `rememberLiquidKinds` on open, #540), which `liquidType` falls back to when the client's table
+    lacks the row or hasn't been read yet; an ID with neither still reads as water. `paintLiquid`, `cropLiquids` and `regenOpacity` port
     noggit's `liquid_chunk`/`liquid_layer` logic. Edits go through `LiquidStroke` for undo.
   - The Water tool's Paint mode is noggit's water brush (`editor.water`: lock, angled mode,
     overrides, opacity mode, cursor on liquids). Dig lake and Raise shore shape the ground around

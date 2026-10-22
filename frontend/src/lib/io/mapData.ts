@@ -10,6 +10,7 @@ import type { TextureLooks } from '../world/textureLooks'
 import { base64ToBytes, bytesToBase64 } from './base64'
 import { readReference } from '../terrain/referenceImage'
 import { readPaths } from '../terrain/paths'
+import { readLiquidKinds } from '../water/liquids'
 
 export function toMapData(s: MapSnapshot): mapfile.MapData {
 	// Not MapData.createFrom: Wails generates its embedded header's region, vmangos and roles with a null
@@ -44,6 +45,8 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
 		chunkSlots: bytesToBase64(s.chunkSlots),
 		holes: bytesToBase64(s.holes),
 		liquids: s.liquids ? bytesToBase64(s.liquids) : undefined,
+		// The kinds of the building liquids the layers use, keyed by ID as JSON keys are (#540).
+		liquidKinds: s.liquidKinds && Object.keys(s.liquidKinds).length ? s.liquidKinds : undefined,
 		areaIds: s.chunkData ? bytesToBase64(u32Bytes(s.chunkData.areaIds)) : undefined,
 		chunkFlags: s.chunkData ? bytesToBase64(s.chunkData.chunkFlags) : undefined,
 		noEffect: s.chunkData ? bytesToBase64(s.chunkData.noEffect) : undefined,
@@ -108,6 +111,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
 		holesKnown: version >= 3 && !m.holesUnknown,
 		liquids: version >= 4 ? base64ToBytes(m.liquids ?? '') : null,
 		liquidsKnown: version >= 4 && !m.liquidsUnknown,
+		liquidKinds: readLiquidKinds(m.liquidKinds),
 		// A format 4 map has no area IDs, chunk flags or no-effect cells.
 		chunkData:
 			version >= 5

@@ -113,7 +113,12 @@ Checks: the Water tool's liquid list is the client's LiquidType.dbc (`LiquidType
 Slime". `go test ./internal/vmangos/ -run TestLoadLiquidTypesFromClient` with `WOW_DIR` set reads
 the real table; `tests/liquidTypes.test.ts` covers the mapping. In the dev page the Water tool's
 select lists five liquids once the client is loaded, and a layer painted with 21 exports as slime
-(`liquidsToAdt` gives type 4) while the `.wmap` keeps 21.
+(`liquidsToAdt` gives type 4) while the `.wmap` keeps 21, and its header's `liquidKinds` keeps
+`{"21": "slime"}`, so the layer still draws and exports as slime when the file is opened before the
+table is read or against a client without row 21 (#540; `tests/mapData.test.ts`, "a liquid layer's
+kind", with row 30 as the missing one). Probe `liquid-kinds` saves a layer of row 30 through Go
+(`SaveSceneMap`, `LoadMap`) and checks the header, the reopened layer and its export as magma; it
+needs `make dev` rebuilt after a change to `mapfile.Header`, or Go drops the field.
 
 ## Selection outline colours (free, touching, buried)
 

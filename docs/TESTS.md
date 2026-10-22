@@ -503,7 +503,7 @@ the same scene, the report before and after.
 - Ground effects (grass tufts)
 - Water look (the client's combine, B-174)
 - Client clouds (B-179)
-- Liquid types from the client
+- Liquid types from the client, and a layer's kind kept in the map file (#540, probe `liquid-kinds`)
 - Selection outline colours (free, touching, buried)
 - Hover outline (#641)
 - Ground effects: no-doodad cells and density
