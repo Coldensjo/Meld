@@ -46,11 +46,14 @@ func parseMLIQ(s []byte) *WMOLiquid {
 	}
 	r := reader{s}
 	l := &WMOLiquid{XVerts: r.u32(0), YVerts: r.u32(4), XTiles: r.u32(8), YTiles: r.u32(12)}
-	nv, nt := l.XVerts*l.YVerts, l.XTiles*l.YTiles
-	// Real grids are some dozens a side; a corrupt header must not size gigabytes.
-	if l.XVerts <= 0 || l.YVerts <= 0 || l.XTiles <= 0 || l.YTiles <= 0 || nv > 1<<20 || nt > 1<<20 {
-		return nil
+	// Real grids are some dozens a side; a corrupt header must not size gigabytes. Each side is bounded
+	// before multiplying, since 0xffffffff · 0xffffffff wraps negative and would pass a bound on the product.
+	for _, n := range [...]int{l.XVerts, l.YVerts, l.XTiles, l.YTiles} {
+		if n <= 0 || n > 1024 {
+			return nil
+		}
 	}
+	nv, nt := l.XVerts*l.YVerts, l.XTiles*l.YTiles
 	tbase := 30 + nv*8
 	if len(s) < tbase+nt {
 		return nil

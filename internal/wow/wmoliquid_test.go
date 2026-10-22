@@ -77,6 +77,15 @@ func TestGroupLiquidSurface(t *testing.T) {
 	if l, _, _ := GroupLiquid(short); l != nil {
 		t.Fatal("truncated MLIQ parsed")
 	}
+	// A corrupt header whose sides multiply past int64 (wrapping negative): no liquid, no panic.
+	huge := append(le(0xffffffff, 0xffffffff, 3, 2, float32(0), float32(0), float32(0), u16(0)), make([]byte, 64)...)
+	if l := parseMLIQ(huge); l != nil {
+		t.Fatal("overflowing MLIQ header parsed")
+	}
+	// One side past the bound with the other small: no liquid.
+	if l := parseMLIQ(append(le(2000, 1, 3, 2, float32(0), float32(0), float32(0), u16(0)), make([]byte, 64)...)); l != nil {
+		t.Fatal("oversized MLIQ side parsed")
+	}
 }
 
 // The liquid travels after the rest of the encoded mesh, sized in the header.
