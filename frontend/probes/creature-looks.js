@@ -15,11 +15,11 @@ const next = async () => {
 }
 await type(q('input[placeholder="Gregor the Smith"]'), 'Probe')
 await next()
-await P.until(() => q('input[name="faction"]'), 'factions')
+await P.until(() => q('input[name="faction"]'), 60_000, 'factions')
 q('input[name="faction"]').click()
 await P.frames(3)
 await next()
-await P.until(() => q('.looks'), 'looks')
+await P.until(() => q('.looks'), 60_000, 'looks')
 await P.frames(20)
 const looks = q('.looks').getBoundingClientRect()
 const pick = q('.looks .pick').getBoundingClientRect()

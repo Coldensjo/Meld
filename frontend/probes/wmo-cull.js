@@ -2,7 +2,7 @@
 // At the benchmark view the city is outside the near cascade's box, which since #325 leaves it out of that pass whole, so the near cascade's group cull is measured over the city.
 await P.scene(P.BENCH)
 await P.settle()
-const batch = await P.until(() => [...P.e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 300_000, 'the Stormwind batch')
+const batch = await P.until(() => [...P.e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 120_000, 'the Stormwind batch')
 // The class the batch was made with: an import gives another module instance after an edit (Vite's `?t=` URLs).
 const WmoGroupCull = batch[1].cull.constructor
 // The triangles the near cascade drew in its last redraw on its own: three draws the shadow maps inside

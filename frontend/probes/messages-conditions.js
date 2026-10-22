@@ -2,7 +2,7 @@
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
-const WAIT = 300_000
+const WAIT = 120_000
 const root = () => document.querySelector('[aria-label="Creature editor"]')
 const tab = () => root()?.querySelector('.messages')
 const button = (el, text) => [...(el?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim().startsWith(text))

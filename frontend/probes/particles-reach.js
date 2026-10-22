@@ -23,7 +23,7 @@ for (const l of pl.live.values()) saved.set(l, l.reach)
 const views = []
 const target = P.e.camera.position.clone()
 for (let v = 0; v < 4; v++) {
-	if (v) P.lookAt({ x: target.x + 40 * Math.cos(v * 1.6), y: target.y - 20, z: target.z + 40 * Math.sin(v * 1.6) }, { yaw: v * 1.6, pitch: 0.4, back: 30 })
+	if (v) await P.lookAt({ x: target.x + 40 * Math.cos(v * 1.6), y: target.y - 20, z: target.z + 40 * Math.sin(v * 1.6) }, { yaw: v * 1.6, pitch: 0.4, back: 30 })
 	// Let the camera settle (a followed camera glides), then off, on and off again: the two offs must
 	// agree, or something besides the switch changed between the frames and the view is retried.
 	const eq = (a, b) => a.size === b.size && [...a].every((p) => b.has(p))

@@ -195,6 +195,7 @@ const P = {
 
 	/** Steps frames until `fn()` is truthy, and returns it; throws after `timeout` ms, naming the longest stall. */
 	async until(fn, timeout = 300_000, what = 'the condition') {
+		if (typeof timeout !== 'number') throw new Error(`P.until: timeout must be a number of ms, got ${typeof timeout} (${String(timeout)}); the step name goes third`)
 		P.resetStalls()
 		window.__probeStep = `P.until: ${what}`
 		const end = performance.now() + timeout

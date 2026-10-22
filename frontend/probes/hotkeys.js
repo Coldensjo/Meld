@@ -77,4 +77,4 @@ range.value = '5'
 const arrow = press(range, 'ArrowRight')
 results.sliderKeepsArrows = !arrow.defaultPrevented
 range.remove()
-return { ok: Object.entries(results).every(([k, v]) => (k === 'textKeepsDelete' || k === 'sliderKeepsArrows' ? v === true : v === true)), results }
+return { ok: Object.entries(results).every(([k, v]) => v === true), results }

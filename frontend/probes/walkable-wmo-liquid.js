@@ -9,7 +9,7 @@ const loaded = (what) =>
 	P.until(() => {
 		const k = nav.counts
 		return k.total > 0 && k.done === k.total && k.loading === 0 && !k.settling && k
-	}, 400_000, what)
+	}, 120_000, what)
 const v = c.clone()
 const a = c.clone(), b = c.clone(), d = c.clone()
 const measure = () => {
