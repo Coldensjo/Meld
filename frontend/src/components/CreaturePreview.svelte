@@ -206,7 +206,7 @@
     <label class="spin" onpointerdown={(e) => e.stopPropagation()}><input type="checkbox" bind:checked={spinning} /> Turn</label>
   </div>
   {#if size}
-    <p class="dim">{size.h.toFixed(1)} yd tall · {size.tris.toLocaleString()} triangles · drag to turn, scroll to zoom</p>
+    <p class="dim">{size.h.toFixed(1)} yd tall · {size.tris.toLocaleString()} triangles · drag to turn, right-drag to move up and down, scroll to zoom</p>
   {/if}
 </div>
 

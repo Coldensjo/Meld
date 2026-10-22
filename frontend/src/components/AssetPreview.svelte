@@ -159,7 +159,7 @@
     </div>
   {/if}
   {#if !item}
-    <p class="hint">Hover a tile to see it here. Drag to turn a model, scroll to zoom.</p>
+    <p class="hint">Hover a tile to see it here. Drag to turn a model, right-drag to move up and down it, scroll to zoom.</p>
   {:else}
     {#if loading}<p class="hint">Loading…</p>{/if}
     {#if failed}<p class="hint">Nothing to show (an effect-only model).</p>{/if}
