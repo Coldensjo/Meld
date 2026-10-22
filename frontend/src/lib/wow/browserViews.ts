@@ -9,9 +9,13 @@ export interface BrowserView {
   zone: string
   /** The grid's scroll position in px. */
   scroll: number
+  /** The creature tabs' order (#659): the database's ('') or by level, lowest or highest first. */
+  sort: BrowserSort
 }
 
-const EMPTY: BrowserView = { query: '', category: '', zone: '', scroll: 0 }
+export type BrowserSort = '' | 'level' | 'level-desc'
+
+const EMPTY: BrowserView = { query: '', category: '', zone: '', scroll: 0, sort: '' }
 
 /** A tab's view from the stored views, every field checked, since the config file may hold anything. */
 export function readView(views: unknown, kind: string): BrowserView {
@@ -24,6 +28,7 @@ export function readView(views: unknown, kind: string): BrowserView {
     category: str(r.category),
     zone: str(r.zone),
     scroll: typeof r.scroll === 'number' && Number.isFinite(r.scroll) && r.scroll > 0 ? r.scroll : 0,
+    sort: r.sort === 'level' || r.sort === 'level-desc' ? r.sort : '',
   }
 }
 
@@ -34,6 +39,12 @@ export function readView(views: unknown, kind: string): BrowserView {
 export function writeView(views: Record<string, BrowserView>, kind: string, patch: Partial<BrowserView>): Record<string, BrowserView> {
   const old = readView(views, kind)
   const next = { ...old, ...patch }
-  if (next.query === old.query && next.category === old.category && next.zone === old.zone && next.scroll === old.scroll && views[kind]) return views
+  if (next.query === old.query && next.category === old.category && next.zone === old.zone && next.scroll === old.scroll && next.sort === old.sort && views[kind]) return views
   return { ...views, [kind]: next }
+}
+
+/** Orders creatures by level (#659): the lowest level, then the highest, then the name; `desc` puts the highest levels first, the names still A to Z. */
+export function byLevel<T extends { levelMin: number; levelMax: number; name: string }>(desc: boolean): (a: T, b: T) => number {
+  const d = desc ? -1 : 1
+  return (a, b) => d * (a.levelMin - b.levelMin) || d * (a.levelMax - b.levelMax) || a.name.localeCompare(b.name)
 }

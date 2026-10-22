@@ -55,7 +55,7 @@
   import { entryFrom } from '../lib/tools/spawnBrush'
   import type { SearchItem } from '../lib/wow/search'
   import { onDestroy, tick, untrack } from 'svelte'
-  import { readView, writeView, type BrowserView } from '../lib/wow/browserViews'
+  import { byLevel, readView, writeView, type BrowserSort, type BrowserView } from '../lib/wow/browserViews'
   import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
 
   // The asset browser's Creatures, NPCs and Objects tabs: the world database's templates as
@@ -132,6 +132,8 @@
   const view = $derived(readView(prefs.browserViews, kind))
   const query = $derived(view.query)
   const category = $derived(view.category)
+  /** The creature tabs' order; objects have no level, so their tab keeps the database's. */
+  const sort = $derived(kind === 'object' ? '' : view.sort)
   function setView(patch: Partial<BrowserView>, k: SpawnKind = kind) {
     prefs.browserViews = writeView(prefs.browserViews, k, patch)
   }
@@ -144,7 +146,10 @@
 
   const items = $derived.by(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean)
-    return all.filter((t) => (!category || t.category === category) && (!words.length || words.every((w) => `${t.entry} ${t.name} ${t.sub}`.toLowerCase().includes(w))))
+    const list = all.filter((t) => (!category || t.category === category) && (!words.length || words.every((w) => `${t.entry} ${t.name} ${t.sub}`.toLowerCase().includes(w))))
+    if (!sort) return list
+    const cmp = byLevel(sort === 'level-desc')
+    return list.sort((a, b) => cmp(a.creature!, b.creature!))
   })
 
   /** The template the Place tool puts down now, drawn highlighted. */
@@ -252,6 +257,13 @@
 <div class="spawn-browser">
   <div class="top">
     <input type="search" placeholder={kind === 'object' ? 'Search objects: a name (chest, vein, peacebloom) or an entry' : 'Search: a name (Hogger) or an entry'} bind:value={() => query, (v) => setView({ query: v })} />
+    {#if kind !== 'object'}
+      <select aria-label="Sort" title="The order of the creatures" value={sort} onchange={(e) => setView({ sort: e.currentTarget.value as BrowserSort })}>
+        <option value="">Database order</option>
+        <option value="level">Level, lowest first</option>
+        <option value="level-desc">Level, highest first</option>
+      </select>
+    {/if}
     <span class="dim">{items.length.toLocaleString()} {kind === 'object' ? 'objects' : kind === 'npc' ? 'NPCs' : 'creatures'}</span>
   </div>
   <div class="body">
