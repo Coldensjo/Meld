@@ -129,6 +129,10 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
   live path runs only on Windows outside the probe sandbox (`gameSession` refuses there), so check it by
   hand with the owner's go-ahead: Compile to Client with realmd and mangosd running leaves both PIDs
   unchanged (`tasklist /FI "IMAGENAME eq mangosd.exe"`).
+- Publish closes the game too (#470): `PublishVmangosMap` runs `vmangos.Publish` inside
+  `withGameClosed` (`game.Session.Around` with the game alone; Publish restarts mangosd itself), so the
+  game opens again once the world server is back. Same hand check on Windows: Publish with Wow.exe
+  running no longer fails with "patch-3.MPQ is in use".
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
 

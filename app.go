@@ -2575,7 +2575,8 @@ func (a *App) SetGameLogin(account, password, character string) error {
 // PublishVmangosMap makes a map made in the editor playable: it's written into the client's patch, added to
 // the server's tables, and the server's map data is extracted again before the world server restarts.
 // It runs in the background. Progress arrives as "publish:log" events, and "publish:done" carries an error
-// message, or nothing when the publish finished.
+// message, or nothing when the publish finished. On Windows the game is closed for it and opened again
+// once the world server is back (withGameClosed).
 func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
 	clientDir, err := a.clientRoot()
 	if err != nil {
@@ -2590,12 +2591,29 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
 	go func() {
 		logf := func(line string) { runtime.EventsEmit(a.ctx, "publish:log", line) }
 		msg := ""
-		if err := vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}, m, logf); err != nil {
+		publish := func() error {
+			return vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}, m, logf)
+		}
+		if err := a.withGameClosed(publish); err != nil {
 			msg = err.Error()
 		}
 		runtime.EventsEmit(a.ctx, "publish:done", msg)
 	}()
 	return nil
+}
+
+// withGameClosed runs write with the game closed and opens it again afterwards, on Windows, where the
+// running game holds patch-3.MPQ open and a write into it fails (#470). The servers are left alone:
+// write handles them itself. Elsewhere, write just runs.
+func (a *App) withGameClosed(write func() error) error {
+	if goruntime.GOOS != "windows" {
+		return write()
+	}
+	sess, err := a.gameSession()
+	if err != nil {
+		return err
+	}
+	return sess.Around(game.Closed{Game: true}, write)
 }
 
 // clientRoot is the WoW client's folder (the one holding Data), whichever of the two was configured.
