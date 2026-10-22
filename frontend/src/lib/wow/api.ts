@@ -339,6 +339,8 @@ export function fetchTextureDXT(path: string): Promise<ArrayBuffer> {
 
 /** The textures a caller other than a model's material asked for (liquids, particles, weather): never released. */
 const pinnedTextures = new Set<string>()
+/** The cache's textures once loaded, so a probe can tell them from the renderer's other textures (`isCachedTexture`). */
+const cachedTextures = new WeakSet<THREE.Texture>()
 
 /**
  * Load a BLP from the client as a mipmapped, repeating texture (cached). `model` marks a request
@@ -359,6 +361,7 @@ export function loadTexture(path: string, model = false): Promise<THREE.Texture>
       t.flipY = false // BLP rows are top-down, matching WoW UVs
       t.needsUpdate = true
       t.name = path
+			cachedTextures.add(t)
       return t
     })
     p.catch(() => textureCache.delete(key))
@@ -376,7 +379,10 @@ export function releaseTexture(path: string): boolean {
 	const p = textureCache.get(key)
 	if (!p || pinnedTextures.has(key)) return false
 	textureCache.delete(key)
-	p.then((t) => t.dispose(), () => {})
+	p.then((t) => {
+		cachedTextures.delete(t)
+		t.dispose()
+	}, () => {})
 	return true
 }
 
@@ -385,6 +391,14 @@ export function cachedTextureCounts(): { models: number; pinned: number } {
 	let pinned = 0
 	for (const k of textureCache.keys()) if (pinnedTextures.has(k)) pinned++
 	return { models: textureCache.size - pinned, pinned }
+}
+
+/**
+ * Whether a texture is one of the cache's client textures (not a copy of one; for tests and probes):
+ * the renderer's other textures are the ones a map, a layer or the engine made itself (#658).
+ */
+export function isCachedTexture(t: THREE.Texture): boolean {
+	return cachedTextures.has(t)
 }
 
 /**
