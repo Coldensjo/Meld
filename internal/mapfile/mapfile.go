@@ -508,29 +508,39 @@ func Read(r io.Reader) (*MapData, error) {
 	return m, nil
 }
 
-// Save writes m to path atomically (temp file + rename).
+// Save writes m to path atomically: to a temp file beside it, synced to disk before the rename so
+// a crash or power loss can't leave the map replaced by a partial file. The temp file is removed
+// whenever the save fails, the rename included (the map open in another program on Windows).
 func Save(path string, m *MapData) error {
 	tmp := path + ".tmp"
 	f, err := os.Create(tmp)
 	if err != nil {
-		return err
+		return fmt.Errorf("save %s: %w", path, err)
+	}
+	fail := func(err error) error {
+		f.Close()
+		os.Remove(tmp)
+		return fmt.Errorf("save %s: %w", path, err)
 	}
 	bw := bufio.NewWriterSize(f, 1<<20)
 	if err := Write(bw, m); err != nil {
-		f.Close()
-		os.Remove(tmp)
-		return err
+		return fail(err)
 	}
 	if err := bw.Flush(); err != nil {
-		f.Close()
-		os.Remove(tmp)
-		return err
+		return fail(err)
+	}
+	if err := f.Sync(); err != nil {
+		return fail(err)
 	}
 	if err := f.Close(); err != nil {
 		os.Remove(tmp)
-		return err
+		return fmt.Errorf("save %s: %w", path, err)
 	}
-	return os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("save %s: %w", path, err)
+	}
+	return nil
 }
 
 // Load reads a map from path.

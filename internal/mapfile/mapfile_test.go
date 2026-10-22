@@ -7,7 +7,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"math"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -109,6 +111,36 @@ func TestRoundTrip(t *testing.T) {
 	}
 	if len(got.Objects) != 2 || got.Objects[0].Type != "oak" || got.Objects[0].Scale != 1.2 || got.Objects[1].Parent != 1 || got.Objects[0].Group != 3 || got.Objects[1].Group != 0 {
 		t.Fatalf("objects mismatch: %+v", got.Objects)
+	}
+	// A second save over the first replaces it and leaves no temp file.
+	m.Name = "again"
+	if err := Save(path, m); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := Load(path); err != nil || got.Name != "again" {
+		t.Fatalf("resave: %v, %+v", err, got)
+	}
+	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("temp file left after a save: %v", err)
+	}
+}
+
+// A save whose rename fails (here the map's path is a folder that isn't empty) reports the path and
+// removes its temp file rather than leaving it beside the map (#504).
+func TestSaveRenameFailRemovesTemp(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "x.wmap")
+	if err := os.MkdirAll(filepath.Join(path, "in"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := Save(path, sample(32))
+	if err == nil {
+		t.Fatal("save over a folder succeeded")
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Fatalf("error %q doesn't name the path", err)
+	}
+	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("temp file left after a failed rename: %v", err)
 	}
 }
 
