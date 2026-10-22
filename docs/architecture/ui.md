@@ -97,6 +97,11 @@ The window layout, the asset browser and the dock panels and floating windows.
   growing a region and saving or exporting spawns are File menu actions (shown for a region), with
   the unsaved spawn count as a chip in the status bar; the region's facts are in Map Properties.
   `MinimapPanel` and `SpawnsPanel` were deleted (the owner wants no spawn list; #263).
+  The dock hides on its own (#653): `prefs.dockHidden`, set by the ✕ on its header (`DockPanel`'s
+  `onclose`) and toggled by View › Layers panel. `App.svelte` then leaves it out of `.main`, and
+  `.centre` keeps its pinned grid column, so the viewport takes the dock's width. Hiding drops a
+  pending Replace (`ui.replaceSlot`), whose Cancel is in the hidden panel. Tab's hide-panels works on
+  top of it.
   - **History** (`components/HistoryWindow.svelte`, `ui.history`, Edit › History) is a floating window
     like the Inspector, not a dock panel: the active map's undo stack (`History.steps`), where a click
     calls `Engine.goToHistory` (undo or redo to that step). It re-reads the stack when

@@ -597,6 +597,7 @@ the same scene, the report before and after.
 - Menu heights (#122)
 - Dock panel (Layers) and the Inspector
 - Hide panels (Tab)
+- Hide the dock (#653)
 - Toolbar on the right (#654)
 - Tool hints
 - Options bar overflow (More, #254)

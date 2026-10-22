@@ -316,6 +316,7 @@
 				{ kind: 'check', label: 'Performance overlay (where the frame time goes)', shortcut: 'Ctrl+Shift+M', checked: prefs.perfOverlay, toggle: () => (prefs.perfOverlay = !prefs.perfOverlay) },
 				{ kind: 'check', label: 'Wireframe', checked: prefs.wireframe, toggle: () => (prefs.wireframe = !prefs.wireframe) },
 				{ kind: 'check', label: 'Hide panels', shortcut: 'Tab', checked: ui.hidePanels, toggle: () => (ui.hidePanels = !ui.hidePanels) },
+				{ kind: 'check', label: 'Layers panel (the right dock)', checked: !prefs.dockHidden, toggle: () => { prefs.dockHidden = !prefs.dockHidden; if (prefs.dockHidden) ui.replaceSlot = null } },
 				{ kind: 'header', label: 'Layers' },
 				{ kind: 'check', label: 'Terrain', checked: prefs.showTerrain, toggle: () => (prefs.showTerrain = !prefs.showTerrain) },
 				{ kind: 'check', label: 'Water', checked: prefs.showWater, toggle: () => (prefs.showWater = !prefs.showWater) },

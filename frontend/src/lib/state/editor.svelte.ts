@@ -525,6 +525,8 @@ export const prefs = $state({
   /** Right dock width in px and collapsed panel ids (Photoshop-style dock). */
   dockWidth: 320,
   collapsedPanels: ['properties'] as string[],
+  /** The right dock hidden on its own (View › Layers panel, the dock's ✕; #653). Tab's hide-panels works on top of it. */
+  dockHidden: false,
   /** The asset browser along the bottom: its height in px, whether it is folded away, and its tile size. */
   browserHeight: 300,
   browserCollapsed: false,

@@ -170,6 +170,13 @@ Probe: `bun run probe hide-panels` (canvas fills the window below the menu bar, 
 Trap: `.centre` must stay in grid column 2 of `.main`; alone in the auto first column it shrank to its
 content (145 px wide, #248).
 
+## Hide the dock (#653)
+
+Checks: the ✕ on the dock's header hides the right dock alone (`prefs.dockHidden`, saved) and the
+viewport grows by the dock's width; View › Layers panel brings it back; Tab still hides and restores
+the other panels with the dock staying hidden. Hiding drops a pending Replace (`ui.replaceSlot`).
+Probe: `bun run probe hide-dock` (canvas width before, hidden, with Tab and shown again).
+
 ## Toolbar on the right (#654)
 
 Checks: Preferences › Toolbar on the right (`prefs.toolbarSide`) puts the toolbar at the window's right

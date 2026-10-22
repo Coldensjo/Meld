@@ -375,7 +375,7 @@
         <AssetBrowser />
       {/if}
     </div>
-    {#if !ui.hidePanels}
+    {#if !ui.hidePanels && !prefs.dockHidden}
       <Dock />
     {/if}
   </div>
