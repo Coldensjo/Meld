@@ -55,6 +55,9 @@ type App struct {
 	stale game.Stale
 	// pendingWatch is whether the watcher of the client files waiting for the game to close runs.
 	pendingWatch atomic.Bool
+	// serverBusy is whether UpdateRegionServer or PublishVmangosMap runs: both rewrite the server's map
+	// data, so a second one is refused (#486).
+	serverBusy atomic.Bool
 
 	// The probes' throwaway client (app_sandbox.go, #368). sandboxData, under cfgMu, is its Data
 	// folder while it is on; the rest is under sandboxMu.
@@ -1872,13 +1875,25 @@ func (a *App) RegionMapID(mapName string) (int, error) {
 	return -1, nil
 }
 
+// errServerBusy is what a second server map rebuild gets while one runs (#486).
+var errServerBusy = errors.New("the server's map data is being rebuilt")
+
 // UpdateRegionServer rebuilds the server's map data for a continent after SaveRegion wrote tiles of it:
 // only those tiles (RegionResult.ChangedTiles) when the server's data matched the patch before, else the
 // whole map (#211). Nothing is stopped or started (#661): the rebuild waits until the game is closed
 // (while tiles wait for it to reach the patch) and the world server is stopped. It runs in the
 // background: progress arrives as "servermaps:log" events and "servermaps:done" carries an error
 // message, or nothing.
-func (a *App) UpdateRegionServer(mapID int, tiles []string) error {
+func (a *App) UpdateRegionServer(mapID int, tiles []string) (err error) {
+	if !a.serverBusy.CompareAndSwap(false, true) {
+		return errServerBusy
+	}
+	started := false
+	defer func() {
+		if !started {
+			a.serverBusy.Store(false)
+		}
+	}()
 	clientDir, err := a.clientRoot()
 	if err != nil {
 		return err
@@ -1895,7 +1910,9 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) error {
 	if err := vmangos.CheckServer(server); err != nil {
 		return err
 	}
+	started = true
 	go func() {
+		defer a.serverBusy.Store(false)
 		logf := func(line string) { runtime.EventsEmit(a.ctx, "servermaps:log", line) }
 		msg := ""
 		plan := vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}
@@ -2552,7 +2569,16 @@ func (a *App) SetGameLogin(account, password, character string) error {
 // publish finished. Nothing is closed or started (#661): it waits for the author to close the game
 // (which holds the patch open on Windows) and to stop the world server (which holds its map data), and
 // the author starts them again.
-func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
+func (a *App) PublishVmangosMap(m vmangos.MapSpec) (err error) {
+	if !a.serverBusy.CompareAndSwap(false, true) {
+		return errServerBusy
+	}
+	started := false
+	defer func() {
+		if !started {
+			a.serverBusy.Store(false)
+		}
+	}()
 	clientDir, err := a.clientRoot()
 	if err != nil {
 		return err
@@ -2563,7 +2589,9 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
 	if server == "" {
 		return errors.New("set the VMaNGOS server folder first (Preferences › VMaNGOS Server Folder)")
 	}
+	started = true
 	go func() {
+		defer a.serverBusy.Store(false)
 		logf := func(line string) { runtime.EventsEmit(a.ctx, "publish:log", line) }
 		msg := ""
 		if err := a.waitForGameClosed(filepath.Join(clientDir, "Data"), logf); err != nil {

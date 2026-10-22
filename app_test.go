@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Meld/internal/vmangos"
 	"testing"
 	"time"
 )
@@ -31,5 +32,27 @@ func TestCloseAsksWhileAMapIsUnsaved(t *testing.T) {
 	a.SetUnsaved(false)
 	if a.stopClose(t0.Add(time.Hour)) {
 		t.Fatal("stopped the quit")
+	}
+}
+
+func TestServerMapRebuildsRefuseToOverlap(t *testing.T) {
+	a := &App{}
+	a.serverBusy.Store(true)
+	if err := a.UpdateRegionServer(0, nil); err != errServerBusy {
+		t.Fatalf("UpdateRegionServer while busy = %v", err)
+	}
+	if err := a.PublishVmangosMap(vmangos.MapSpec{}); err != errServerBusy {
+		t.Fatalf("PublishVmangosMap while busy = %v", err)
+	}
+	a.serverBusy.Store(false)
+	// A call refused by its own checks (no client set) must not leave the guard held.
+	if err := a.UpdateRegionServer(0, nil); err == nil || err == errServerBusy {
+		t.Fatalf("UpdateRegionServer without a client = %v", err)
+	}
+	if err := a.PublishVmangosMap(vmangos.MapSpec{}); err == nil || err == errServerBusy {
+		t.Fatalf("PublishVmangosMap without a client = %v", err)
+	}
+	if a.serverBusy.Load() {
+		t.Fatal("a refused call kept the guard")
 	}
 }
