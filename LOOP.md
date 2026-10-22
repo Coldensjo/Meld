@@ -288,7 +288,7 @@ closed as not planned, with the reason in a comment. Never close an owner-filed 
 as a duplicate, and say so in the run log; whether an external request fits is the owner's call.
 
 **6. Check the run as a whole, then push.** When the run committed anything, run every probe
-(`make probe`, a few minutes): it catches what an item broke in another item's feature, which its
+(`make probe`, about 30 minutes, so start it in the background and read its log): it catches what an item broke in another item's feature, which its
 own checks don't look at. Skip it when the run changed only Markdown files (`git diff --name-only
 @{u}..HEAD` lists nothing but `.md` files), since no probe can catch a doc edit; say so in the
 report. If one fails, find the commit that broke it (the probe's subject against
