@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"math"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"Meld/internal/adt"
@@ -141,9 +143,24 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 5 || files[4].Name != wdlPath("Azeroth") {
+	// The block's tiles come first and the WDL last. Between them sit the tiles outside the block that
+	// list a model an earlier compile moved (#647), so their number depends on the client's patch.
+	if len(files) < 5 || files[len(files)-1].Name != wdlPath("Azeroth") {
 		t.Fatalf("a 2x2 region writes 4 tiles and the WDL, got %d files", len(files))
 	}
+	for k, f := range files[:len(files)-1] {
+		inBlock := k < view.Size*view.Size
+		isBlockTile := false
+		for j := 0; j < view.Size; j++ {
+			for i := 0; i < view.Size; i++ {
+				isBlockTile = isBlockTile || strings.EqualFold(f.Name, adt.TilePath("Azeroth", view.X+i, view.Y+j, ""))
+			}
+		}
+		if inBlock != isBlockTile || !strings.EqualFold(filepath.Ext(f.Name), ".adt") {
+			t.Fatalf("file %d is %s: the block's 4 tiles come first, then only tiles outside it", k, f.Name)
+		}
+	}
+	wdl := files[len(files)-1]
 	// The same edit builds the same bytes, so a save with nothing edited finds every file unchanged.
 	twice, err := BuildRegion(dataDir, edit)
 	if err != nil {
@@ -168,7 +185,7 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	now, err := ParseWDL(files[4].Data)
+	now, err := ParseWDL(wdl.Data)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -67,8 +67,11 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `TestClientWDL` (WOW_DIR) is the check for the WDL write: Azeroth.wdl parsed and rebuilt must be
   byte-identical, and the outer horizon heights sampled from a client tile must equal the client's. Trap:
   Northshire (32,48) is a few yards off the client's WDL (the tile was edited after Blizzard built it), so
-  don't use it for an exact comparison; Westfall (31,49) is exact. `BuildRegion` returns the WDL after the
-  tiles, so a test that walks the files as tiles takes `files[:size*size]`.
+  don't use it for an exact comparison; Westfall (31,49) is exact. `BuildRegion` returns the block's tiles
+  first and the WDL last, so a test that walks the block's tiles takes `files[:size*size]` and the WDL
+  `files[len(files)-1]`. Between them may sit tiles outside the block that list a model an earlier
+  compile moved (#647), so their number depends on the client's `patch-3.MPQ`: a WOW_DIR test must hold
+  with and without them (`TestRegionNoEditRoundTrip`, `TestClientRegionAddedModelIDs`, #667).
 - `TestClientAnimatedLayersKept` (WOW_DIR) finds an animated layer in the client (Burning Steppes lava,
   tile 33_44) and rewrites its chunk as a region save does: the layer must keep its MCLY look flags. It is
   the check that a paint rewrite doesn't drop the client's animation or overbright.
