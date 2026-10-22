@@ -15,6 +15,10 @@ test('duplicates: same type, spot, turn and size are one finding, deleting all b
 	assert.equal(found.length, 1)
 	assert.deepEqual(found[0].target, { kind: 'models', ids: [2, 3] })
 	assert.equal(found[0].fix, 'deleteModels')
+	// Twins either side of a cell edge are still found, in x, z and diagonally.
+	assert.equal(checkDuplicateModels([model(1, { x: 10.999 }), model(2, { x: 11.001 })]).length, 1)
+	assert.equal(checkDuplicateModels([model(1, { x: 10.249 }), model(2, { x: 10.251 })]).length, 1)
+	assert.equal(checkDuplicateModels([model(1, { x: 10.999, z: 10.999 }), model(2, { x: 11.001, z: 11.001 })]).length, 1)
 	// A turn all the way round is the same turn.
 	assert.equal(checkDuplicateModels([model(1, { rotY: 0 }), model(2, { rotY: Math.PI * 2 })]).length, 1)
 	// Attached to different parents, they are different placements.

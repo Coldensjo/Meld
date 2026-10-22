@@ -24,42 +24,52 @@ const SAME_TURN = 0.01
  * accidental double paste. Each group is one finding, whose fix deletes all but the first.
  */
 export function checkDuplicateModels(models: readonly CheckModel[]): Finding[] {
-	const buckets = new Map<string, CheckModel[]>()
+	// Cells of 1 yd, wider than SAME_PLACE, so a twin is in the same cell or one of the eight around it.
+	const cells = new Map<string, CheckModel[]>()
+	const cellKey = (m: CheckModel, dx: number, dz: number) => `${m.type}|${m.parent ?? ''}|${Math.floor(m.x) + dx}|${Math.floor(m.z) + dz}`
 	for (const m of models) {
-		const key = `${m.type}|${m.parent ?? ''}|${Math.round(m.x / 0.5)}|${Math.round(m.z / 0.5)}`
-		let b = buckets.get(key)
-		if (!b) buckets.set(key, (b = []))
+		const key = cellKey(m, 0, 0)
+		let b = cells.get(key)
+		if (!b) cells.set(key, (b = []))
 		b.push(m)
 	}
+	const order = new Map<number, number>()
+	models.forEach((m, i) => order.set(m.id, i))
 	const out: Finding[] = []
 	const seen = new Set<number>()
-	for (const b of buckets.values()) {
-		if (b.length < 2) continue
-		for (const a of b) {
-			if (seen.has(a.id)) continue
-			const twins = b.filter(
-				(o) =>
-					o !== a &&
-					!seen.has(o.id) &&
-					Math.abs(o.x - a.x) < SAME_PLACE &&
-					Math.abs(o.z - a.z) < SAME_PLACE &&
-					Math.abs(o.yOff - a.yOff) < SAME_PLACE &&
-					Math.abs(o.scale - a.scale) < SAME_PLACE &&
-					Math.abs(Math.atan2(Math.sin(o.rotY - a.rotY), Math.cos(o.rotY - a.rotY))) < SAME_TURN,
-			)
-			if (!twins.length) continue
-			seen.add(a.id)
-			for (const t of twins) seen.add(t.id)
-			out.push({
-				check: 'Duplicate models',
-				severity: 'warning',
-				message: `${a.name} is placed ${twins.length + 1} times at the same spot.`,
-				x: a.x,
-				z: a.z,
-				target: { kind: 'models', ids: twins.map((t) => t.id) },
-				fix: 'deleteModels',
-			})
+	for (const a of models) {
+		if (seen.has(a.id)) continue
+		const twins: CheckModel[] = []
+		for (let dx = -1; dx <= 1; dx++) {
+			for (let dz = -1; dz <= 1; dz++) {
+				for (const o of cells.get(cellKey(a, dx, dz)) ?? []) {
+					if (
+						o !== a &&
+						!seen.has(o.id) &&
+						Math.abs(o.x - a.x) < SAME_PLACE &&
+						Math.abs(o.z - a.z) < SAME_PLACE &&
+						Math.abs(o.yOff - a.yOff) < SAME_PLACE &&
+						Math.abs(o.scale - a.scale) < SAME_PLACE &&
+						Math.abs(Math.atan2(Math.sin(o.rotY - a.rotY), Math.cos(o.rotY - a.rotY))) < SAME_TURN
+					) {
+						twins.push(o)
+					}
+				}
+			}
 		}
+		if (!twins.length) continue
+		twins.sort((p, q) => order.get(p.id)! - order.get(q.id)!)
+		seen.add(a.id)
+		for (const t of twins) seen.add(t.id)
+		out.push({
+			check: 'Duplicate models',
+			severity: 'warning',
+			message: `${a.name} is placed ${twins.length + 1} times at the same spot.`,
+			x: a.x,
+			z: a.z,
+			target: { kind: 'models', ids: twins.map((t) => t.id) },
+			fix: 'deleteModels',
+		})
 	}
 	return capped('Duplicate models', out)
 }
