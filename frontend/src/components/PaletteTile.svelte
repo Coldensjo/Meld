@@ -17,8 +17,10 @@
     onstar?: () => void
     /** A right-click on the tile opens this menu (the asset browser's: favourite and model sets). */
     onmenu?: (e: MouseEvent) => void
+    /** The name under the picture; off, the tile is only the picture and the name is in its tooltip (#655). */
+    showLabel?: boolean
   }
-  let { thumbKey, label, title, active = false, badge, size, onclick, onhover, starred = false, onstar, onmenu }: Props = $props()
+  let { thumbKey, label, title, active = false, badge, size, onclick, onhover, starred = false, onstar, onmenu, showLabel = true }: Props = $props()
 
   let url = $state('')
   let failed = $state(false)
@@ -107,7 +109,7 @@
     {#if badge}<span class="badge">{badge}</span>{/if}
     {#if starred}<span class="star" aria-label="Favourite">★</span>{/if}
   </div>
-  <span class="label">{label}</span>
+  {#if showLabel}<span class="label">{label}</span>{/if}
 </button>
 
 <style>

@@ -182,7 +182,7 @@
   // The grid renders only the rows in view.
   const GAP = 6
   const tile = $derived(prefs.browserTile)
-  const rowH = $derived(tile + 22 + GAP)
+  const rowH = $derived(tile + (prefs.browserNames ? 22 : 0) + GAP)
   let width = $state(0)
   let height = $state(0)
   let scrollTop = $state(0)
@@ -284,7 +284,7 @@
         <div class="virtual" style:height="{rows * rowH}px">
           <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
             {#each visible as t (t.key)}
-              <PaletteTile thumbKey={t.thumb} label={t.name} title={t.title} size={tile} badge={t.badge} active={t.key === activeKey} onclick={() => pick(t)} onhover={(on) => on && onhover(asItem(t))} />
+              <PaletteTile thumbKey={t.thumb} label={t.name} title={t.title} size={tile} badge={t.badge} showLabel={prefs.browserNames} active={t.key === activeKey} onclick={() => pick(t)} onhover={(on) => on && onhover(asItem(t))} />
             {/each}
           </div>
         </div>

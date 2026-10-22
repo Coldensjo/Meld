@@ -6,6 +6,7 @@
 	import { fetchMesh, texturePreview } from '../lib/wow/api'
 	import type { SearchItem } from '../lib/wow/search'
 	import { materialsMove, PREVIEW_SPIN, PreviewRenderer } from '../lib/ui/previewRenderer'
+	import { prefs } from '../lib/state/editor.svelte'
 
 	// A live view of one model or texture: a model shown spins for a few seconds, and while the pointer
 	// is over the view, and can be turned by dragging, so an author can tell what a thing is before
@@ -163,7 +164,7 @@
     {#if loading}<p class="hint">Loading…</p>{/if}
     {#if failed}<p class="hint">Nothing to show (an effect-only model).</p>{/if}
     <div class="details">
-      <div class="name" title={shownPath}>{item.name}</div>
+      {#if prefs.browserNames}<div class="name" title={shownPath}>{item.name}</div>{/if}
       <div class="dim">{item.kind === 'tex' ? 'Texture' : item.kind === 'm2' ? 'Doodad' : 'Building'} · {item.category} · {item.zone}</div>
       {#if info}
         <div class="dim">{yards(info.w)} × {yards(info.d)} yd, {yards(info.h)} yd tall · {info.tris.toLocaleString()} tris</div>

@@ -87,7 +87,7 @@
 		{:else}
 			<div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)">
 				{#each shown as e (e.file)}
-					<PaletteTile thumbKey={e.thumbKey} label={e.prefab.name} title={`${e.file}: ${e.prefab.objects.length} models`} size={tile} badge={String(e.prefab.objects.length)} onclick={() => place(e)} onhover={(on) => on && (hovered = e)} />
+					<PaletteTile thumbKey={e.thumbKey} label={e.prefab.name} title={`${e.file}: ${e.prefab.objects.length} models`} size={tile} badge={String(e.prefab.objects.length)} showLabel={prefs.browserNames} onclick={() => place(e)} onhover={(on) => on && (hovered = e)} />
 				{/each}
 			</div>
 		{/if}

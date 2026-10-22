@@ -529,6 +529,8 @@ export const prefs = $state({
   browserHeight: 300,
   browserCollapsed: false,
   browserTile: 112,
+  /** The names under the asset browser's tiles and in its preview (#655); off, the tiles are only pictures. */
+  browserNames: true,
   /** The toolbar's icon size in px (Preferences › Toolbar icons), from TOOLBAR_ICON_MIN to TOOLBAR_ICON_MAX (#128). */
   toolbarIcon: 22,
   /** Preferences › Interface size (#372): the whole UI scaled by this factor (CSS zoom, lib/ui/uiScale.ts), 1 to 2. */

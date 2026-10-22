@@ -270,7 +270,8 @@
   let scrollTop = $state(0)
   let viewHeight = $state(0)
   const tile = $derived(prefs.browserTile)
-  const rowH = $derived(tile + 22 + GAP)
+  // A tile's name takes 22 px under its picture (#655).
+  const rowH = $derived(tile + (prefs.browserNames ? 22 : 0) + GAP)
   const cols = $derived(Math.max(1, Math.floor((gridWidth - GAP) / (tile + GAP))))
   const rows = $derived(Math.ceil(items.length / cols))
   const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
@@ -424,6 +425,11 @@
         <input type="range" min="64" max="176" step="8" bind:value={prefs.browserTile} />
       </label>
     {/if}
+    {#if !prefs.browserCollapsed}
+      <label class="names" title="Show each tile's name under its picture, and the name in the preview">
+        <input type="checkbox" bind:checked={prefs.browserNames} /> Names
+      </label>
+    {/if}
     <button class="chev" onclick={() => (prefs.browserCollapsed = !prefs.browserCollapsed)} title={prefs.browserCollapsed ? 'Expand' : 'Collapse'} aria-label={prefs.browserCollapsed ? 'Expand the asset browser' : 'Collapse the asset browser'}>
       {prefs.browserCollapsed ? '▴' : '▾'}
     </button>
@@ -492,7 +498,7 @@
               <div class="section">Favourites</div>
               <div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)" style:gap="{GAP}px">
                 {#each favourites as it (it.key)}
-                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} showLabel={prefs.browserNames} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
                 {/each}
               </div>
               {#if !recent.length}<div class="section">{query ? 'Results' : category || 'Everything'}</div>{/if}
@@ -501,7 +507,7 @@
               <div class="section">Recent</div>
               <div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)" style:gap="{GAP}px">
                 {#each recent as it (it.key)}
-                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} showLabel={prefs.browserNames} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
                 {/each}
               </div>
               <div class="section">{query ? 'Results' : category || 'Everything'}</div>
@@ -512,7 +518,7 @@
               <div class="virtual" bind:this={virtualEl} style:height="{rows * rowH}px">
                 <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
                   {#each visible as it (it.key)}
-                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
+                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} showLabel={prefs.browserNames} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
                   {/each}
                 </div>
               </div>
@@ -598,6 +604,14 @@
     width: 90px;
     display: flex;
     align-items: center;
+  }
+  .names {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
   }
   .chev {
     margin-left: auto;
