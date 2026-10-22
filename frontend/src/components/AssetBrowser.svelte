@@ -602,10 +602,12 @@
   }
   .size {
     width: 90px;
+    flex: none;
     display: flex;
     align-items: center;
   }
   .names {
+    flex: none;
     display: flex;
     align-items: center;
     gap: 4px;
