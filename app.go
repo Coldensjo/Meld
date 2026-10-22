@@ -1861,6 +1861,19 @@ func (a *App) RegionPending(edit vmangos.RegionEdit) (vmangos.RegionResult, erro
 	return res, err
 }
 
+// RegionMapID is the map ID the client's Map.dbc gives a region's folder, or -1 for a folder it lacks:
+// Compile to Server rebuilds the server's map data of that map (#467).
+func (a *App) RegionMapID(mapName string) (int, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return -1, err
+	}
+	if id, ok := vmangos.ClientMapID(dataDir, mapName); ok {
+		return int(id), nil
+	}
+	return -1, nil
+}
+
 // UpdateRegionServer rebuilds the server's map data for a continent after SaveRegion wrote tiles of it:
 // only those tiles (RegionResult.ChangedTiles) when the server's data matched the patch before, else the
 // whole map (#211). The world server stops and starts around it. It runs in the background: progress

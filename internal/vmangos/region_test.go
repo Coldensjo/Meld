@@ -665,11 +665,12 @@ func TestFileTileName(t *testing.T) {
 			t.Errorf("fileTileName(%q) = %q, want %q", in, got, want)
 		}
 	}
-	if id, ok := ClientMapID("kalimdor"); !ok || id != 1 {
-		t.Errorf("ClientMapID(kalimdor) = %d, %v", id, ok)
+	entries := []MapEntry{{ID: 0, Dir: "Azeroth"}, {ID: 30, Dir: "PVPZone01"}}
+	if id, ok := mapIDByDir(entries, "pvpzone01"); !ok || id != 30 {
+		t.Errorf("mapIDByDir(pvpzone01) = %d, %v", id, ok)
 	}
-	if _, ok := ClientMapID("MyMap"); ok {
-		t.Error("ClientMapID(MyMap) found a map")
+	if _, ok := mapIDByDir(entries, "MyMap"); ok {
+		t.Error("mapIDByDir(MyMap) found a map")
 	}
 }
 

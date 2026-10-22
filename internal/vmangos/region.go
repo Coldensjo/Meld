@@ -901,13 +901,22 @@ type RegionResult struct {
 	Files int `json:"files"`
 }
 
-// ClientMapID is the ID of a continent the client holds, by its folder name; ok is false for others.
-func ClientMapID(name string) (uint32, bool) {
-	switch strings.ToLower(name) {
-	case "azeroth":
-		return 0, true
-	case "kalimdor":
-		return 1, true
+// ClientMapID is the ID of the map the client's Map.dbc gives the folder name (case-insensitive); ok is
+// false for a folder the table lacks or when it cannot be read.
+func ClientMapID(dataDir, name string) (uint32, bool) {
+	entries, err := LoadMapEntries(dataDir)
+	if err != nil {
+		return 0, false
+	}
+	return mapIDByDir(entries, name)
+}
+
+// mapIDByDir finds the entry whose folder is name.
+func mapIDByDir(entries []MapEntry, name string) (uint32, bool) {
+	for _, e := range entries {
+		if strings.EqualFold(e.Dir, name) {
+			return e.ID, true
+		}
 	}
 	return 0, false
 }
@@ -956,7 +965,7 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 		}
 	}
 	res.MapID = -1
-	if id, ok := ClientMapID(e.MapName); ok {
+	if id, ok := ClientMapID(dataDir, e.MapName); ok {
 		res.MapID = int(id)
 	}
 	for _, f := range changed {

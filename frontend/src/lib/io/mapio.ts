@@ -35,7 +35,7 @@ import {
   WritePNG,
   SaveMap,
   SaveMapDialog,
-  RegionPending,
+  RegionMapID, RegionPending,
   SaveRegion,
   UpdateRegionServer,
   SetVmangosPath,
@@ -493,12 +493,6 @@ export async function regionUncompiled(engine: Engine): Promise<boolean> {
   return files > 0
 }
 
-/** The client's continents, whose server map data Compile to Server rebuilds: their map IDs. */
-function continentId(mapName: string) {
-  const name = mapName.toLowerCase()
-  return name === 'azeroth' ? 0 : name === 'kalimdor' ? 1 : -1
-}
-
 /** A note on the spawn edits not yet in the world database, for a compile that can't save them. */
 function spawnNote() {
   const n = ui.spawnChanges
@@ -591,9 +585,9 @@ async function compileServer(engine: Engine, region: RegionBlock, name: string) 
 	}
 	// The spawns go first, so the world server the rebuild restarts reads them (#342).
 	const spawns = await compileSpawns(engine)
-	const mapId = continentId(region.mapName)
+	const mapId = await RegionMapID(region.mapName).catch(() => -1)
 	if (mapId < 0 || spawns.failed) {
-		const only = mapId < 0 && !spawns.failed ? ` Only Azeroth's and Kalimdor's map data is rebuilt this way. ${region.mapName}'s comes from update-maps.bat in the scripts folder beside the server.` : ''
+		const only = mapId < 0 && !spawns.failed ? ` The client's Map.dbc has no row for ${region.mapName}, so its map data comes from update-maps.bat in the scripts folder beside the server.` : ''
 		setStatus(`${spawns.note}${restartNote(spawns)}${only}`.trimStart(), 12000)
 		return
 	}

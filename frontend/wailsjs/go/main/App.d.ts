@@ -270,6 +270,8 @@ export function RegionHorizon(arg1:string,arg2:number,arg3:number,arg4:number):P
 
 export function RegionInner(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionInner>;
 
+export function RegionMapID(arg1:string):Promise<number>;
+
 export function RegionPending(arg1:vmangos.RegionEdit):Promise<vmangos.RegionResult>;
 
 export function RegionShadows(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionShadows>;
