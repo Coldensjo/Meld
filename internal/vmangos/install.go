@@ -145,7 +145,9 @@ func heldReader() ClientReader {
 	return clientReader
 }
 
-// writeArchive writes the archive of files to path through a buffer.
+// writeArchive writes the archive of files to path through a buffer, and syncs it to disk before
+// closing it: the caller renames it over the patch, and a rename the file system journals before the
+// file's data reaches the disk would leave a patch of zeros after a power loss (#638).
 func writeArchive(path string, files []mpq.Entry) error {
 	f, err := os.Create(path)
 	if err != nil {
@@ -157,6 +159,10 @@ func writeArchive(path string, files []mpq.Entry) error {
 		return err
 	}
 	if err := w.Flush(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
 		f.Close()
 		return err
 	}
@@ -263,7 +269,9 @@ func archiveOwnerOf(a *mpq.Archive) string {
 	return ""
 }
 
-// backup copies src to dst unless dst exists already, so the first backup is kept.
+// backup copies src to dst unless dst exists already, so the first backup is kept. The copy is synced
+// to disk before src is replaced, and a copy that failed is removed, since an existing dst is never
+// written again (#638).
 func backup(src, dst string) error {
 	if _, err := os.Stat(dst); err == nil {
 		return nil
@@ -279,12 +287,17 @@ func backup(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		os.Remove(dst)
-		return err
+	_, err = io.Copy(out, in)
+	if err == nil {
+		err = out.Sync()
 	}
-	return out.Close()
+	if cerr := out.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(dst)
+	}
+	return err
 }
 
 // ChangedFiles keeps the files whose bytes differ from the copy in the patch in dataDir, so an export

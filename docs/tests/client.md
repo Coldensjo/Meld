@@ -337,7 +337,10 @@ memory and building the archive there.
 - `go test ./internal/vmangos/ -run xxx -bench InstallPatch -benchmem -count 3`: one 4 KB icon saved
   into a patch of 200 generated 512 KB tiles (100 MB, no client bytes). The figure to watch is B/op,
   which should stay about the copy buffers (~1.4 MB), not the patch's size. On 2026-10-21 (Ryzen 9
-  9900X3D, NVMe): before #476 119 ms and 210 MB a save, after it 57 ms and 1.4 MB.
+  9900X3D, NVMe): before #476 119 ms and 210 MB a save, after it 57 ms and 1.4 MB. On 2026-10-22,
+  syncing the new patch to disk before the rename (#638) took it from 69 to 74 ms to 142 to 295 ms
+  (B/op unchanged): the price of a rename that a power loss can't leave pointing at zeros, so don't
+  drop the `Sync` in `writeArchive` to win this back.
 - `mpq.TestWriteToFromArchive` copies files between archives through `Reader` and checks that a
   short reader fails the write; the `InstallPatch` tests and probes `patch-cache` and `icons` cover
   the carried files and the minimap tiles it drops.
