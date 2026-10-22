@@ -226,28 +226,62 @@ func waitFor(done func() bool, timeout time.Duration) bool {
 	return true
 }
 
+// stagingDir is the folder under the server's data folder that the extractors write into, so the
+// server's own maps and vmaps stay as they were until every step has passed (#466). It sits beside
+// them, so its files move over theirs by a rename.
+const stagingDir = "meld-staging"
+
 // UpdateServerMaps rebuilds the server's map data for one map from the client's patch and restarts the
 // world server around it, the share of a publish that follows the database (and all a compiled region
 // of a continent needs, #211). Tiles are as publishServer's: "x_y" names, or none for the whole map.
+// The extractors write into stagingDir, whose files replace the server's only once all three steps
+// have passed; when one fails the server keeps its old data and is started again on it.
 func UpdateServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []string, log func(string)) error {
 	if p.Run == nil {
 		p.Run = OSRunner{}
 	}
-	spec := MapSpec{MapID: mapID}
 	log("Stopping the world server…")
 	_ = p.Run.Run(p.ServerRoot, "taskkill", []string{"/IM", "mangosd.exe"}, nil)
 	if !waitFor(func() bool { return !p.Run.Running("mangosd.exe") }, serverExitWait) {
 		return errors.New("mangosd did not close")
 	}
 
+	err := extractServerMaps(p, clientData, mapID, tiles, log)
+	if err != nil {
+		log(fmt.Sprintf("%v: the server keeps its old map data.", err))
+	}
+	log("Starting the world server…")
+	if serr := p.Run.Start(filepath.Join(p.ServerRoot, "run"), filepath.Join(p.ServerRoot, "run", "mangosd.exe"),
+		"-c", filepath.Join(p.ServerRoot, "run", "mangosd.conf")); serr != nil {
+		return errors.Join(err, fmt.Errorf("starting the world server: %w", serr))
+	}
+	return err
+}
+
+// extractServerMaps runs the three extraction steps into stagingDir and, when all have passed, moves
+// their files over the server's data/maps and data/vmaps. The server must be down.
+func extractServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []string, log func(string)) error {
 	extractors := filepath.Join(p.ServerRoot, "run", "Extractors")
 	data := filepath.Join(p.ServerRoot, "data")
 	vmaps := filepath.Join(data, "vmaps")
-	id := strconv.FormatUint(uint64(spec.MapID), 10)
+	stage := filepath.Join(data, stagingDir)
+	stageMaps, stageVmaps := filepath.Join(stage, "maps"), filepath.Join(stage, "vmaps")
+	id := strconv.FormatUint(uint64(mapID), 10)
 	_, err := os.Stat(filepath.Join(vmaps, "temp_gameobject_models"))
 	whole := err != nil
 
-	mapArgs := []string{"-i", p.ClientRoot, "-o", data, "-e", "1", "--silent"}
+	// A folder left by an earlier run that stopped half way holds nothing worth keeping.
+	if err := os.RemoveAll(stage); err != nil {
+		return fmt.Errorf("clearing %s: %w", stage, err)
+	}
+	defer os.RemoveAll(stage)
+	// The extractors make their folders one level deep only.
+	if err := os.MkdirAll(stageVmaps, 0o755); err != nil {
+		return err
+	}
+
+	// Relative to data, where the extractors run: MapExtractor keeps its output path in 128 bytes.
+	mapArgs := []string{"-i", p.ClientRoot, "-o", stagingDir, "-e", "1", "--silent"}
 	switch {
 	case whole:
 		log("Extracting every map from the client, as the server's collision data was never built whole…")
@@ -256,13 +290,13 @@ func UpdateServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []st
 		mapArgs = append(mapArgs, "-m", id, "-t", strings.Join(tiles, ","))
 	default:
 		log("Extracting the map from the client…")
-		removeFiles(filepath.Join(data, "maps"), func(name string) bool { return isMapTile(name, spec.MapID) })
 		mapArgs = append(mapArgs, "-m", id)
 	}
 	if err := p.Run.Run(data, filepath.Join(extractors, "MapExtractor.exe"), mapArgs, log); err != nil {
 		return fmt.Errorf("map extraction: %w", err)
 	}
 	log("Extracting collision data…")
+	// Buildings is the extractor's scratch output, which the server never reads.
 	_ = os.RemoveAll(filepath.Join(data, "Buildings"))
 	vmapArgs := []string{"-l", "-d", clientData, "--silent"}
 	if !whole {
@@ -271,26 +305,52 @@ func UpdateServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []st
 	if err := p.Run.Run(data, filepath.Join(extractors, "VMapExtractor.exe"), vmapArgs, log); err != nil {
 		return fmt.Errorf("collision extraction: %w", err)
 	}
-	if err := os.MkdirAll(vmaps, 0o755); err != nil {
-		return err
+	if err := p.Run.Run(data, filepath.Join(extractors, "VMapAssembler.exe"),
+		[]string{"Buildings", filepath.Join(stagingDir, "vmaps")}, log); err != nil {
+		return fmt.Errorf("collision assembly: %w", err)
+	}
+
+	log("Replacing the server's map data…")
+	maps := filepath.Join(data, "maps")
+	if !whole && len(tiles) == 0 {
+		// The whole map was extracted, and it may have lost tiles since.
+		removeFiles(maps, func(name string) bool { return isMapTile(name, mapID) })
 	}
 	if !whole {
 		// The assembler writes the map's tree and a file per tile with buildings, so the old ones go
 		// first: a tile whose buildings were all removed would keep its old file.
-		tree := fmt.Sprintf("%03d", spec.MapID)
+		tree := fmt.Sprintf("%03d", mapID)
 		removeFiles(vmaps, func(name string) bool {
 			return name == tree+".vmtree" || strings.HasPrefix(name, tree+"_") && strings.HasSuffix(name, ".vmtile")
 		})
 	}
-	if err := p.Run.Run(data, filepath.Join(extractors, "VMapAssembler.exe"),
-		[]string{"Buildings", "vmaps"}, log); err != nil {
-		return fmt.Errorf("collision assembly: %w", err)
+	if err := moveFiles(stageMaps, maps); err != nil {
+		return fmt.Errorf("replacing the map files: %w", err)
 	}
+	if err := moveFiles(stageVmaps, vmaps); err != nil {
+		return fmt.Errorf("replacing the collision files: %w", err)
+	}
+	return nil
+}
 
-	log("Starting the world server…")
-	if err := p.Run.Start(filepath.Join(p.ServerRoot, "run"), filepath.Join(p.ServerRoot, "run", "mangosd.exe"),
-		"-c", filepath.Join(p.ServerRoot, "run", "mangosd.conf")); err != nil {
-		return fmt.Errorf("starting the world server: %w", err)
+// moveFiles moves every file of src into dst, over any of the same name. A missing src moves nothing.
+func moveFiles(src, dst string) error {
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if err := os.Rename(filepath.Join(src, e.Name()), filepath.Join(dst, e.Name())); err != nil {
+			return err
+		}
 	}
 	return nil
 }

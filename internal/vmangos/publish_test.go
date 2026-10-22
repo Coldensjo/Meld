@@ -17,12 +17,24 @@ type fakeRunner struct {
 	failAt string
 	// serverUp is whether mangosd.exe is running: taskkill clears it unless it is stuck.
 	serverUp, stuck bool
+	// writes are the files (slash paths under the folder it runs in) a program whose name holds the
+	// key writes before it returns, as an extractor would.
+	writes map[string][]string
 }
 
 func (f *fakeRunner) Run(dir, name string, args []string, log func(string)) error {
 	f.calls = append(f.calls, name+" "+strings.Join(args, " "))
 	if name == "taskkill" && !f.stuck {
 		f.serverUp = false
+	}
+	for prog, files := range f.writes {
+		if strings.Contains(name, prog) {
+			for _, n := range files {
+				path := filepath.Join(dir, filepath.FromSlash(n))
+				os.MkdirAll(filepath.Dir(path), 0o755)
+				os.WriteFile(path, []byte("new"), 0o644)
+			}
+		}
 	}
 	if f.failAt != "" && strings.Contains(name, f.failAt) {
 		return errors.New("failed")
@@ -71,17 +83,41 @@ func TestPublishServerRunsStepsInOrder(t *testing.T) {
 	}
 }
 
-func TestPublishServerStopsBeforeStartingOnFailure(t *testing.T) {
-	server := serverFolder(t)
-	f := &fakeRunner{failAt: "MapExtractor"}
-	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
-	err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), MapSpec{Dir: "MyMap", MapID: 1900}, nil, func(string) {})
-	if err == nil || !strings.Contains(err.Error(), "map extraction") {
-		t.Fatalf("err = %v", err)
-	}
-	for _, c := range f.calls {
-		if strings.HasPrefix(c, "START") {
-			t.Fatal("the world server was started after a failed extraction")
+// fileText is a file's content, or "" when it can't be read.
+func fileText(path string) string {
+	b, _ := os.ReadFile(path)
+	return string(b)
+}
+
+func TestPublishServerKeepsTheOldDataAndRestartsOnFailure(t *testing.T) {
+	for _, step := range []string{"MapExtractor", "VMapExtractor", "VMapAssembler"} {
+		server := serverFolder(t)
+		data := filepath.Join(server, "data")
+		os.MkdirAll(filepath.Join(data, "vmaps"), 0o755)
+		os.MkdirAll(filepath.Join(data, "maps"), 0o755)
+		old := []string{"maps/19000201.map", "vmaps/1900.vmtree", "vmaps/1900_01_02.vmtile", "vmaps/temp_gameobject_models"}
+		for _, n := range old {
+			os.WriteFile(filepath.Join(data, filepath.FromSlash(n)), []byte("old"), 0o644)
+		}
+		f := &fakeRunner{failAt: step, writes: map[string][]string{
+			"MapExtractor":  {stagingDir + "/maps/19000201.map"},
+			"VMapAssembler": {stagingDir + "/vmaps/1900.vmtree"},
+		}}
+		p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
+		err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), MapSpec{Dir: "MyMap", MapID: 1900}, nil, func(string) {})
+		if err == nil {
+			t.Fatalf("%s: no error", step)
+		}
+		for _, n := range old {
+			if got := fileText(filepath.Join(data, filepath.FromSlash(n))); got != "old" {
+				t.Fatalf("%s failed: %s is %q, want the old file", step, n, got)
+			}
+		}
+		if last := f.calls[len(f.calls)-1]; !strings.HasPrefix(last, "START") {
+			t.Fatalf("%s failed: the world server was not started again (last call %q)", step, last)
+		}
+		if _, err := os.Stat(filepath.Join(data, stagingDir)); err == nil {
+			t.Fatalf("%s failed: the staging folder was left", step)
 		}
 	}
 }
@@ -121,11 +157,25 @@ func TestPublishServerExtractsOnlyTheMap(t *testing.T) {
 		os.WriteFile(filepath.Join(data, filepath.FromSlash(n)), []byte("x"), 0o644)
 	}
 
-	f := &fakeRunner{}
+	f := &fakeRunner{writes: map[string][]string{
+		"MapExtractor":  {stagingDir + "/maps/19000403.map"},
+		"VMapAssembler": {stagingDir + "/vmaps/1900_03_04.vmtile"},
+	}}
 	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
 	spec := MapSpec{Dir: "MyMap", MapID: 1900}
 	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), spec, []string{"1_2", "3_4"}, func(string) {}); err != nil {
 		t.Fatal(err)
+	}
+	if c := callOf(f.calls, "VMapAssembler.exe"); !strings.HasSuffix(c, filepath.Join(stagingDir, "vmaps")) {
+		t.Fatalf("assembler call = %q", c)
+	}
+	for _, n := range []string{"maps/19000403.map", "vmaps/1900_03_04.vmtile"} {
+		if got := fileText(filepath.Join(data, filepath.FromSlash(n))); got != "new" {
+			t.Fatalf("%s = %q, want the extracted file moved in", n, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(data, stagingDir)); err == nil {
+		t.Fatal("the staging folder was left")
 	}
 	if c := callOf(f.calls, "MapExtractor.exe"); !strings.HasSuffix(c, "-m 1900 -t 1_2,3_4") {
 		t.Fatalf("map extractor call = %q", c)
