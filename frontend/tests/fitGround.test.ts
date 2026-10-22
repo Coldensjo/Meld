@@ -33,7 +33,7 @@ test('the ground goes just under the floor and blends back over the ring', () =>
 	const ring2 = at(r.heights, 2, 5)
 	assert.ok(ring1 < 13.5 && ring1 > ring2 && ring2 > 10, `the ring falls away: ${ring1}, ${ring2}`)
 	assert.equal(at(r.heights, 0, 5), 10, 'a cell beyond the falloff (where the smoothing ends) the ground is untouched')
-	assert.equal(at(r.holes, 0, 0), 0)
+	assert.equal(r.holes[0], 0)
 })
 
 test('only lower leaves ground that is already under the floor, only raise leaves ground above it', () => {

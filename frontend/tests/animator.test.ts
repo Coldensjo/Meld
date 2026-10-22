@@ -26,7 +26,7 @@ test('the skeleton holds each bone\'s matrix about its pivot, with parents appli
   const a = new ModelAnimation(g, bones, new Uint8Array([0, 0, 0, 0, 1, 0, 0, 0]), new Uint8Array([255, 0, 0, 0, 255, 0, 0, 0]))
   a.update(500)
   a.skeleton.update()
-  const m = a.skeleton.boneMatrices
+  const m = a.skeleton.boneMatrices!
   // Bone 0 slides 5 units along x at the loop's midpoint.
   near(m.subarray(12, 15), [5, 0, 0], 'bone 0 translation')
   // Bone 1 turns nothing but is a child of bone 0, so it carries the slide.
@@ -45,7 +45,7 @@ test('vertices with no bone weight are tied to the still bone, and the attribute
   assert.equal(w.normalized, true, 'weights are 0 to 1 in the shader')
   a.update(0)
   a.skeleton.update()
-  near(a.skeleton.boneMatrices.subarray(16, 32), new THREE.Matrix4().elements, 'the still bone is the identity')
+  near(a.skeleton.boneMatrices!.subarray(16, 32), new THREE.Matrix4().elements, 'the still bone is the identity')
 })
 
 test('meshes of an animated model are skinned with its skeleton; others are plain', () => {
@@ -72,7 +72,7 @@ test('a stepped bone track holds its last key until the loop ends', () => {
   const a = new ModelAnimation(geometry(1), bones, new Uint8Array([0, 0, 0, 0]), new Uint8Array([255, 0, 0, 0]))
   a.update(700)
   a.skeleton.update()
-  near(a.skeleton.boneMatrices.subarray(12, 15), [4, 0, 0], 'the second key holds')
+  near(a.skeleton.boneMatrices!.subarray(12, 15), [4, 0, 0], 'the second key holds')
 })
 
 test('a bone turns and scales about its pivot under its parent, as T(pivot) · TRS · T(-pivot) (#328)', () => {

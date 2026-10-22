@@ -1,15 +1,16 @@
 // Run with: bun test tests/spellFields.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { vmangos } from '../wailsjs/go/models.ts'
 import { effectSummary, expandSpellText, spellTabs, spellTooltip } from '../src/lib/world/spellFields.ts'
 
 // The client's tables as SpellTables gives them: duration 9 is 4 sec, cast time 7 is 1.5 sec, range 4 is 30 yd, radius 13 is 10 yd.
-const tables = {
+const tables = vmangos.SpellTables.createFrom({
 	castTimes: [{ id: 1, label: 'Instant', value: 0 }, { id: 7, label: '1.5 sec', value: 1500 }],
 	durations: [{ id: 9, label: '4 sec', value: 4000 }, { id: 21, label: 'until cancelled', value: -1 }],
 	ranges: [{ id: 1, label: '0 yd · Self Only', value: 0 }, { id: 2, label: '5 yd · Combat Range', value: 5 }, { id: 4, label: '30 yd', value: 30 }],
 	radii: [{ id: 13, label: '10 yd', value: 10 }],
-}
+})
 
 // Fireball (Rank 1) as spell_template has it: 14 to 22 Fire damage, then 2 over 4 sec in ticks of 2 sec.
 const fireball: Record<string, string> = {

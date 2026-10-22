@@ -37,7 +37,7 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 ## Unit and integration tests
 
 - `make test` runs `go test ./internal/...`, `go test .` (the root package, only when `frontend/dist` exists, since it is `//go:embed`ed; otherwise it prints a skip line) and the frontend unit tests (`bun test ./tests`).
-- `make check` runs go vet (`./internal/...`, and `.` when `frontend/dist` exists) and svelte-check/tsc.
+- `make check` runs go vet (`./internal/...`, and `.` when `frontend/dist` exists) and svelte-check/tsc. svelte-check runs twice: on `tsconfig.app.json` (`src`) and on `tsconfig.tests.json` (`frontend/tests`, which Bun runs with types erased, so a fixture that drifts from its type fails `make check`, not `make test`).
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
   runes state. Trap: a test can't import a `.svelte.ts` runes module, since Bun doesn't run the Svelte compiler on it.

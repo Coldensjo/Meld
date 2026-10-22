@@ -5,7 +5,7 @@ import { BlizzardRandomizer, cellPredominant, cellTexture, chunkSeed, chunkNoEff
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
 
 const tables: GroundEffectTables = {
-  effects: { 7: { doodads: ['World\\NoDXT\\Detail\\ElwGra01.m2', 'World\\NoDXT\\Detail\\ElwFlo01.m2'], density: 8, terrain: 5 } },
+  effects: { 7: { doodads: ['World\\NoDXT\\Detail\\ElwGra01.m2', 'World\\NoDXT\\Detail\\ElwFlo01.m2'], density: 8, terrain: 5, slots: [0, 1, -1, -1] } },
   textures: { 'tileset\\elwynn\\elwynngrassbase.blp': 7, 'tileset\\elwynn\\elwynnflowerbase.blp': 7 },
 }
 
