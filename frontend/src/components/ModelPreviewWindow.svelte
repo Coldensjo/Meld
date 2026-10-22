@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { dialogFocus } from '../lib/ui/dialogFocus'
+	import { takeEscape } from '../lib/state/escape'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import { ui } from '../lib/state/editor.svelte'
 
@@ -11,10 +12,11 @@
 	const close = () => (ui.modelPreview = null)
 	const shownPath = $derived(ui.modelPreview ? ui.modelPreview.type.replace(/^(m2|wmo|helper):/, '').split('?')[0] : '')
 
+	let root = $state<HTMLElement>()
+
 	function onKey(e: KeyboardEvent) {
-		if (ui.modelPreview && e.key === 'Escape') {
+		if (ui.modelPreview && e.key === 'Escape' && takeEscape(e, root)) {
 			e.preventDefault()
-			e.stopPropagation()
 			close()
 		}
 	}
@@ -24,7 +26,7 @@
 
 {#if ui.modelPreview}
 	{@const p = ui.modelPreview}
-	<div class="window" role="dialog" aria-modal="true" aria-label="Model preview" use:dialogFocus>
+	<div class="window" role="dialog" aria-modal="true" aria-label="Model preview" bind:this={root} use:dialogFocus>
 		<header>
 			<div class="title">
 				<h2>{p.title}</h2>

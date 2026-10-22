@@ -365,11 +365,13 @@
 		}
 	}
 
+	let root = $state<HTMLElement>()
+
 	function onKey(e: KeyboardEvent) {
 		// The quest editor over it takes its own Esc.
 		if (!target || ui.questEditor) return
 		if (e.key === 'Escape') {
-			if (!takeEscape(e)) return
+			if (!takeEscape(e, root)) return
 			const el = e.target as HTMLElement | null
 			if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
 				e.preventDefault()
@@ -386,7 +388,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Game object editor" use:dialogFocus>
+	<div class="editor" role="dialog" aria-modal="true" aria-label="Game object editor" bind:this={root} use:dialogFocus>
 		<header>
 			<div class="title">
 				{#if target.entry > 0}

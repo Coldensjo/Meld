@@ -408,9 +408,11 @@
 		}
 	}
 
+	let root = $state<HTMLElement>()
+
 	function onKey(e: KeyboardEvent) {
 		if (!target || e.key !== 'Escape' || ui.contextMenu) return
-		if (!takeEscape(e)) return
+		if (!takeEscape(e, root)) return
 		const el = e.target as HTMLElement | null
 		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
 			e.preventDefault()
@@ -429,7 +431,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Spell editor" use:dialogFocus>
+	<div class="editor" role="dialog" aria-modal="true" aria-label="Spell editor" bind:this={root} use:dialogFocus>
 		<header>
 			<div class="title">
 				{#if target.entry > 0}

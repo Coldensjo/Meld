@@ -132,6 +132,12 @@ The window layout, the asset browser and the dock panels and floating windows.
   it is the newest open dialog, Tab and Shift+Tab wrap at its ends; on close the focus goes back to
   what held it, or to the menu title when a menu item opened it. A new dialog root gets the action
   too. Modal is labelled by its `<h2>` (`aria-labelledby`, an id from `$props.id()`).
+  Esc belongs to the topmost dialog only (#573): each dialog's window keydown listener calls
+  `takeEscape(e, root)` (`lib/state/escape.ts`, `root` its `use:dialogFocus` element), which is
+  true once per event and false while another dialog is open above `root` (`topDialog()`, the
+  newest root on dialogFocus's stack), so a Modal over an editor (the weapon picker over the
+  creature editor) closes alone, whatever order the listeners mounted in. In a text field the first
+  Esc only leaves the field, in Modal as in the editors. A new dialog with its own Esc uses the same.
 - **Menus from the keyboard** (#370): the menu bar (`MenuBar.svelte`, `role="menubar"`, titles with
   `aria-haspopup` and `aria-expanded`) and the right-click menu (`ContextMenu.svelte`) follow the
   WAI-ARIA menu pattern. Opening a menu (click, Enter, Space or Down on a title; Up opens on the last

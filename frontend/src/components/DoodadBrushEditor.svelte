@@ -1,5 +1,6 @@
 <script lang="ts">
   import { dialogFocus } from '../lib/ui/dialogFocus'
+  import { takeEscape } from '../lib/state/escape'
   import PaletteTile from './PaletteTile.svelte'
   import AssetPreview from './AssetPreview.svelte'
   import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
@@ -151,9 +152,12 @@
     scrollTop = 0
   })
 
+  let root = $state<HTMLElement>()
+
   function onKey(e: KeyboardEvent) {
     if (!open) return
     if (e.key === 'Escape') {
+      if (!takeEscape(e, root)) return
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
         el.blur()
@@ -171,7 +175,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if open}
-  <div class="editor" role="dialog" aria-modal="true" aria-label="Doodad brush editor" use:dialogFocus>
+  <div class="editor" role="dialog" aria-modal="true" aria-label="Doodad brush editor" bind:this={root} use:dialogFocus>
     <header>
       <div class="title">
         <h2>Doodad brushes</h2>

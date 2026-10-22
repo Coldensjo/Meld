@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { dialogFocus } from '../lib/ui/dialogFocus'
+	import { takeEscape } from '../lib/state/escape'
 	import { ClassLevelStats, CreateCreature, EquipmentFor, Factions, ReadCreature, SaveCreature, SearchCreatures, SpawnLook } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { untrack } from 'svelte'
@@ -235,8 +236,10 @@
 	const toggleRole = (bit: number, on: boolean) => (draft.npcFlags = on ? draft.npcFlags | bit : draft.npcFlags & ~bit)
 	const chip = (r: string) => (r === 'friendly' ? 'ok' : r === 'hostile' ? 'bad' : 'mid')
 
+	let root = $state<HTMLElement>()
+
 	function onKey(e: KeyboardEvent) {
-		if (!ui.creatures || e.key !== 'Escape') return
+		if (!ui.creatures || e.key !== 'Escape' || !takeEscape(e, root)) return
 		const el = e.target as HTMLElement | null
 		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
 			el.blur()
@@ -250,7 +253,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if ui.creatures}
-	<div class="ws" role="dialog" aria-modal="true" aria-label="Creatures" use:dialogFocus>
+	<div class="ws" role="dialog" aria-modal="true" aria-label="Creatures" bind:this={root} use:dialogFocus>
 		<header>
 			<h2>Creatures</h2>
 			<span class="dim">Find a creature to edit, or make a new one step by step.</span>

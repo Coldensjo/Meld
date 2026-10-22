@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
+	import { takeEscape } from '../lib/state/escape'
 
 	interface Props {
 		title: string
@@ -11,12 +12,23 @@
 	}
 	let { title, width = 420, onclose, children, actions }: Props = $props()
 	const titleId = $props.id()
+	let root = $state<HTMLElement>()
+
+	// Esc closes the dialog only while it is the topmost one, so an editor behind it keeps its own (#573).
+	// In one of its text fields the first Esc leaves the field, as in the editors.
+	function onKey(e: KeyboardEvent) {
+		if (e.key !== 'Escape' || !root || !takeEscape(e, root)) return
+		e.preventDefault()
+		const el = e.target as HTMLElement | null
+		if (el && root.contains(el) && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) el.blur()
+		else onclose()
+	}
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
+<svelte:window onkeydown={onKey} />
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && onclose()}>
-	<div class="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} style:width="{width}px" use:dialogFocus={{ prefer: '.body' }}>
+	<div class="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} style:width="{width}px" bind:this={root} use:dialogFocus={{ prefer: '.body' }}>
 		<header>
 			<h2 id={titleId}>{title}</h2>
 			<button class="close" onclick={onclose} aria-label="Close">✕</button>

@@ -1,4 +1,4 @@
-// A dialog takes the focus when it opens, keeps Tab inside it, and gives the focus back when it closes (#369).
+// A dialog takes the focus when it opens, keeps Tab inside it, and gives the focus back when it closes (#369); Esc goes to the topmost dialog only (#573).
 const { ui } = await P.state()
 const press = (key, init = {}) => {
 	const target = document.activeElement ?? document.body
@@ -64,6 +64,35 @@ ui.questEditor = null
 await P.frames(2)
 r.editorClosedFocus = document.activeElement?.tagName
 
+// Esc goes to the topmost dialog only (#573): About over the quest editor closes alone, as the weapon
+// picker over the creature editor must, and an Esc in one of its fields only leaves the field.
+ui.questEditor = { entry: 0 }
+const under = await P.until(() => document.querySelector('[role="dialog"][aria-label="Quest editor"]'), 20_000, 'the quest editor again')
+await P.until(() => under.contains(document.activeElement), 20_000, 'focus inside the quest editor again')
+ui.dialog = 'about'
+const over = await P.until(() => document.querySelector('[role="dialog"][aria-labelledby]'), 20_000, 'About over the quest editor')
+await P.until(() => over.contains(document.activeElement), 20_000, 'focus inside About')
+const field = document.createElement('input')
+over.querySelector('.body').append(field)
+field.focus()
+press('Escape')
+await P.frames(2)
+r.escInFieldBlurs = document.activeElement !== field && ui.dialog === 'about' && !!ui.questEditor
+press('Escape')
+await P.frames(2)
+r.escClosesTopOnly = ui.dialog === null && !!ui.questEditor && !!document.querySelector('[aria-label="Quest editor"]')
+// Then the editor is the topmost and takes it (a first Esc may only leave its search box).
+press('Escape')
+await P.frames(2)
+if (ui.questEditor) {
+	press('Escape')
+	await P.frames(2)
+}
+r.escThenClosesEditor = !ui.questEditor
+ui.questEditor = null
+ui.dialog = null
+await P.frames(2)
+
 // Keyboard Shortcuts lists both Arrow keys rows; a duplicate key in its keyed each threw (#377).
 ui.dialog = 'shortcuts'
 const sc = await P.until(() => document.querySelector('[role="dialog"]'), 20_000, 'the shortcuts dialog')
@@ -71,5 +100,5 @@ r.arrowRows = [...sc.querySelectorAll('tr, li, div')].filter((el) => el.children
 ui.dialog = null
 await P.frames(2)
 
-const ok = r.focusInside && r.labelledByHeading && r.controls > 0 && r.tabWraps && r.tabWrapPrevented && r.shiftTabWraps && r.shiftTabWrapPrevented && r.tabPullsBackIn && r.focusReturned && r.menuTitleRefocused && r.editorFocusInside && r.editorClosedFocus === 'BODY' && r.arrowRows === 2
+const ok = r.focusInside && r.labelledByHeading && r.controls > 0 && r.tabWraps && r.tabWrapPrevented && r.shiftTabWraps && r.shiftTabWrapPrevented && r.tabPullsBackIn && r.focusReturned && r.menuTitleRefocused && r.editorFocusInside && r.editorClosedFocus === 'BODY' && r.escInFieldBlurs && r.escClosesTopOnly && r.escThenClosesEditor && r.arrowRows === 2
 return { ok, r }

@@ -20,6 +20,11 @@ export function dialogOpen(): boolean {
 	return stack.length > 0
 }
 
+/** The newest open dialog's root, the one Esc belongs to (`takeEscape`), or null when none is open. */
+export function topDialog(): HTMLElement | null {
+	return stack.length ? stack[stack.length - 1] : null
+}
+
 /** The controls in `node` that Tab reaches, in document order (hidden ones left out). */
 export function tabbables(node: HTMLElement): HTMLElement[] {
 	return Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(

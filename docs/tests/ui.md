@@ -393,14 +393,16 @@ Checks: keyboard focus, roles and contrast, the audit's method (its findings are
   since the probe cannot fake a Tab or the media query). Look at the ring by pressing Tab in the dev page.
 - Trap: the `data-ui` attributes on component roots belong to the F8 overlay, not to accessibility.
 
-## Dialog focus (#369, probe `dialog-focus`)
+## Dialog focus and Esc (#369, #573, probe `dialog-focus`)
 
 Checks: a dialog takes the focus on open, keeps Tab inside it and gives the focus back on close.
 - `bun run probe dialog-focus` opens About from a button and from the Help menu, checks the focus
   lands inside, that Tab from the last control and Shift+Tab from the first wrap (and are prevented),
   that Tab from outside pulls the focus back in, that closing refocuses the opener (the menu title
-  for a menu item), and does the same for the quest editor. Run `hotkeys` with it: the keys must
-  still work after a dialog closes.
+  for a menu item), and does the same for the quest editor. Then About over the quest editor: an Esc
+  in a field of About only leaves the field, the next closes About alone (#573), and the editor
+  takes the one after. Run `hotkeys` and `quest-editor` with it: the keys must still work after a
+  dialog closes, and Esc in the quest editor over the creature editor closes only the quest editor.
 - Trap: the first focus waits a `setTimeout(0)`, so a dialog's own `autofocus` or `searchBox.focus()`
   wins; read the focus with `P.until`, not straight after setting `ui.dialog`.
 - Trap: a synthetic Tab `KeyboardEvent` doesn't move the focus by itself; the probe checks the
