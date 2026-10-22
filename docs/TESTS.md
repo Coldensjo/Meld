@@ -41,6 +41,7 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
   runes state. Trap: a test can't import a `.svelte.ts` runes module, since Bun doesn't run the Svelte compiler on it.
+- `tests/terrainRaycast.test.ts` runs the terrain ray-march (`rayMarchGround`) on a flat stand-in ground with a hole: straight and slanted rays through the hole, a miss, `solid` (#528).
 - `tests/terrainStroke.test.ts` checks that a `TerrainStroke` keeps only the cells that changed (a whole-mask
   step that sets a corner holds that corner, `Command.bytes`) and that its undo and redo restore them, on a
   fake terrain; `tests/blockSnapshot.test.ts` covers `BlockSnapshot.diff` and `GridPatch` underneath (#444).

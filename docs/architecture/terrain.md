@@ -18,7 +18,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   - Heights are a `Float32Array` of `(size+1)^2` vertices; `CELL_SIZE` = 2 world units.
   - The mesh is split into 32×32-cell chunks. Edits call `markDirty(rect)`, and `update()` rewrites
     only the touched chunks.
-  - Picking ray-marches the heightmap (`raycast`). Don't use triangle raycasts on the terrain.
+  - Picking ray-marches the heightmap (`raycast`, the march itself in `rayMarch.ts`). Don't use triangle raycasts on the terrain.
+    A ray passes through holes and, once below the surface through one, stays under until it is above the ground again (#528), so a slanted ray into a cave mouth does not hit the ground's underside at the rim.
   - **Holes**: `Terrain.holes` is one byte per cell (`terrain/holes.ts`). A hole cell gets no
     triangles (`writeChunk` rebuilds the chunk's index and draw range) and the ray passes through it.
     Holes are edited through `TerrainStroke({ holes: true })`, copied with the clipboard and saved in

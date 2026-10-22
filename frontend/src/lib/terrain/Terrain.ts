@@ -5,6 +5,7 @@ import { createTerrainMaterial } from './TerrainMaterial'
 import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRoles } from './chunkPaint'
+import { rayMarchGround } from './rayMarch'
 import { holeTriangle, triangleIsHole, writeCellIndex } from './holes'
 import { DirtyRegion, uploadRect, type DirtyRect } from './dirtyRect'
 import { CHUNK_IMPASSABLE, areaColor } from './chunkFlags'
@@ -585,55 +586,14 @@ export class Terrain {
   private readonly rayBox = new THREE.Box3(new THREE.Vector3(0, -1e5, 0), new THREE.Vector3(0, 1e5, 0))
   private readonly rayHit = new THREE.Vector3()
 
-  /** Ray-march the heightmap. Much cheaper than triangle raycasts. */
   /**
-   * Where `ray` meets the ground, in `out`. The ray passes through holes, so what is below a cave
-   * mouth can be picked, unless `solid` is set, which the Hole mode's Fill needs to aim at a hole.
+   * Where `ray` meets the ground, in `out`: a ray-march of the heightmap (`rayMarch.ts`), much cheaper
+   * than triangle raycasts. The ray passes through holes and keeps passing under the ground after one,
+   * so what is below a cave mouth can be picked, unless `solid` is set, which the Hole mode's Fill needs
+   * to aim at a hole.
    */
   raycast(ray: THREE.Ray, out: THREE.Vector3, maxDist = 4000, solid = false): boolean {
-    const step = this.cellSize * 0.5
-    const o = ray.origin
-    const dir = ray.direction
-    // Skip ahead to the terrain's bounding box.
-    let t = 0
-    const box = this.rayBox
-    box.max.x = this.worldSize
-    box.max.z = this.worldSize
-    const hit = this.rayHit
-    if (!box.containsPoint(o)) {
-      if (!ray.intersectBox(box, hit)) return false
-      t = hit.distanceTo(o)
-    }
-    let prevT = t
-    let prevAbove = true
-    for (; t < maxDist; t += step) {
-      const x = o.x + dir.x * t
-      const y = o.y + dir.y * t
-      const z = o.z + dir.z * t
-      if (!this.contains(x, z)) {
-        if (t > 0 && !prevAbove) break
-        prevT = t
-        continue
-      }
-      // The ray passes through holes, so what's below a cave mouth can be picked.
-      const above = y > this.heightAt(x, z) || (!solid && this.isHole(x, z))
-      if (!above) {
-        // Binary refine between prevT and t.
-        let lo = prevT, hi = t
-        for (let i = 0; i < 12; i++) {
-          const mid = (lo + hi) * 0.5
-          const mx = o.x + dir.x * mid
-          const mz = o.z + dir.z * mid
-          if (o.y + dir.y * mid > this.heightAt(mx, mz) || (!solid && this.isHole(mx, mz))) lo = mid
-          else hi = mid
-        }
-        out.copy(dir).multiplyScalar(hi).add(o)
-        return true
-      }
-      prevAbove = above
-      prevT = t
-    }
-    return false
+    return rayMarchGround(this, this.rayBox, this.rayHit, ray, out, maxDist, solid)
   }
 
   /** Procedural starting terrain from a preset (see presets.ts). */
