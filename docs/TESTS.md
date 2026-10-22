@@ -284,10 +284,11 @@ sequence, a question no probe asks). Start
 `make dev` in the background, wait until `curl localhost:34115/wow/status` answers, then drive a
 headless Chrome over the DevTools protocol from a scratch folder (not the repo):
 `uv run -q --with websocket-client python -u cdp.py "http://localhost:34115/?nosave" shot step1.js step2.js`.
-The script (about 40 lines) starts `chrome.exe --headless=new --remote-debugging-port=9333
+The script (about 40 lines) starts `chrome.exe --headless=new --remote-debugging-port=0
 --user-data-dir=<scratch>\profile --window-size=1400,900 --use-angle=swiftshader
---enable-unsafe-swiftshader about:blank`, reads the page's websocket from
-`http://127.0.0.1:9333/json`, sends `Page.navigate`, waits 4 s, and for each JS file runs
+--enable-unsafe-swiftshader about:blank`, reads the port Chrome chose from `<scratch>\profile\DevToolsActivePort` (first line; a fixed port can
+belong to another run) and the page's websocket from
+`http://127.0.0.1:<port>/json`, sends `Page.navigate`, waits 4 s, and for each JS file runs
 `Runtime.evaluate` on `(async () => { <file> })()` with `awaitPromise` and `returnByValue`, prints
 the result and saves `Page.captureScreenshot` as `<prefix>-<n>.png`. A step loads a scene with
 `__loadScene`, then steps the app with `await new Promise(r => setTimeout(r, 50)); __engine.frame()`

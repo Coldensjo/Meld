@@ -20,7 +20,8 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 // `nosession`: a fresh blank map, not the owner's last session (a restored region takes the probe's tab, #250); `defaults`: every preference at its default, not the owner's (#253).
 const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession&defaults'
-const PORT = 9333 + Math.floor(Math.random() * 500)
+// Chrome picks its own DevTools port (--remote-debugging-port=0, read back from DevToolsActivePort, #602), so two runs never share one; DEBUG_PORT forces a port.
+const DEBUG_PORT = process.env.DEBUG_PORT ?? '0'
 // A probe that runs longer is stopped and reports the step it was waiting on (#301); PROBE_TIMEOUT (seconds) changes the limit.
 const TIMEOUT = Number(process.env.PROBE_TIMEOUT ?? 300) * 1000
 // `bun run` starts the script in frontend/ and doesn't set INIT_CWD; a path is meant from there, or from where `bun probes/run.mjs` was typed.
@@ -143,7 +144,7 @@ async function main() {
 		for (const o of others) console.error(`  ${o}`)
 	}
 
-	const profile = join(tmpdir(), `meld-probe-${PORT}`)
+	const profile = join(tmpdir(), `meld-probe-${process.pid}`)
 	let chrome = null
 	let ws = null
 	let seq = 0
@@ -181,15 +182,18 @@ async function main() {
 	/** Starts a headless Chrome with a fresh profile and connects to its page. Used at the start and again after a probe leaves the page unusable (#388). */
 	const launch = async () => {
 		chrome = spawn(findChrome(), [
-			'--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
+			'--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
 			'--window-size=1400,900', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
 			'--no-first-run', '--no-default-browser-check', 'about:blank',
 		], { stdio: 'ignore' })
 		let target
+		let port = DEBUG_PORT !== '0' ? DEBUG_PORT : null
 		for (let i = 0; i < 100 && !target; i++) {
 			await sleep(100)
 			try {
-				const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()
+				if (!port) port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split(/\s/)[0].trim() || null
+				if (!port) continue
+				const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json()
 				target = list.find((t) => t.type === 'page')
 			} catch { /* not up yet */ }
 		}
@@ -220,7 +224,7 @@ async function main() {
 		await send('Page.enable')
 		await send('Page.addScriptToEvaluateOnNewDocument', { source: 'performance.setResourceTimingBufferSize(100000)' })
 	}
-	/** Throws Chrome away (the probe's own, found by its port and profile) and starts another, since a timed-out or closed page does not recover. */
+	/** Throws Chrome away (the probe's own, found by its profile) and starts another, since a timed-out or closed page does not recover. */
 	const relaunch = async () => {
 		try { ws?.close() } catch { /* already closed */ }
 		chrome?.kill()
