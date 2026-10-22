@@ -147,7 +147,7 @@ func (c *Client) MapOverview(mapName string) ([]byte, error) {
 	}
 	// "overview2" since tiles without a minimap image are drawn from their heights (#222): an older
 	// cached overview left them out.
-	path, err := c.cachePath("overview2", mapName)
+	path, err := c.overviewPath(mapName)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +218,16 @@ func (c *Client) MapOverview(mapName string) ([]byte, error) {
 		_ = os.WriteFile(path, buf.Bytes(), 0o644)
 	}
 	return buf.Bytes(), nil
+}
+
+// overviewPath is the cached overview of mapName. The key holds the archives' names, sizes and times,
+// so a patch written with new tiles, minimap images or heights builds a new overview instead of
+// showing the first one ever made (#493).
+func (c *Client) overviewPath(mapName string) (string, error) {
+	c.mu.RLock()
+	stamps := c.stamps
+	c.mu.RUnlock()
+	return c.cachePath("overview2", mapName+"|"+hashHex(stamps))
 }
 
 // drawTileRelief draws a tile without a minimap image from its ADT: each overview pixel takes the

@@ -618,6 +618,7 @@ func (c *Client) Handler() http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "no-store")
 		w.Write(b)
 	})
 	mux.HandleFunc("/wow/tiles", func(w http.ResponseWriter, r *http.Request) {

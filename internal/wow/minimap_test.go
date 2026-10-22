@@ -5,6 +5,8 @@ import (
 	"image/png"
 	"os"
 	"testing"
+
+	"Meld/internal/mpq"
 )
 
 // TestRealMinimap stitches Azeroth's overview from the client and checks Goldshire's tile is drawn:
@@ -51,4 +53,23 @@ func TestRealMinimap(t *testing.T) {
 		t.Fatal("tile 0,0 should be empty")
 	}
 	t.Logf("%d tiles, %d bytes of PNG", len(tiles), len(b))
+}
+
+func TestOverviewPathChangesWithTheArchives(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("LocalAppData", t.TempDir())
+	c := &Client{dir: "client", set: &mpq.Set{}, stamps: "patch-3.mpq|100|1\n"}
+	before, err := c.overviewPath("Azeroth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, _ := c.overviewPath("Azeroth")
+	if before != again {
+		t.Fatal("same archives, different path")
+	}
+	c.stamps = "patch-3.mpq|200|2\n"
+	after, _ := c.overviewPath("Azeroth")
+	if before == after {
+		t.Fatal("a rewritten patch kept the cached overview")
+	}
 }

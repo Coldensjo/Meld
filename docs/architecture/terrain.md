@@ -327,7 +327,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `terrain/presets.ts` (`PRESETS`, `presetHeight`; all but Flat land are islands, so a world is
   bounded by sea); the cards are drawn by `drawPresetPreview`. "Part of Azeroth" picks a square of
   tiles on `MapPicker.svelte` (only with a project open, #48: it asks for one first), a continent overview stitched by the Go side from the client's
-  minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir), with
+  minimap (`/wow/overview?map=`, `internal/wow/minimap.go`, cached in the user's cache dir, keyed by the archives' sizes and times so a patch write builds a new one, #493), with
   the zones of `WorldMapArea.dbc` (`MapZones` binding, `internal/vmangos/zones.go`) as jumps. The
   tiles that exist come from the map's WDT, not the minimap (`MapTiles`, `WDTTiles`, `/wow/tiles`):
   a tile with no minimap image is drawn from its ADT's heights (`drawTileRelief`), and a block that
