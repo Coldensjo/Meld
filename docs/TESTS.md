@@ -81,14 +81,18 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   writing only its changed values, instead of checking its order (#275), and the Lights dialog sorts a
   band only when a key's time changes, so recolouring a key of 499's band 9 keeps its order (#276; the
   test recolours one).
-- Normals across tile borders (#492): `TestNormalsMatchFile` (WOW_DIR) recomputes Azeroth_32_48's
-  normals against the file's, in interior chunk 100 and on the border of corner chunks 0, 15, 240 and
-  255 with the neighbouring tiles' ring; the ring must beat one-sided normals at each corner. Trap: the
-  recomputed normals are a few bytes off the file's on steep ground even inside a tile (chunks 16 and
-  17 have a quarter of their bytes off by more than 3), so the border can't be held to chunk 100's
-  closeness. `TestBuildTileNormalsMeetAcrossTheBorder`, `TestWriteHeightsRefreshesTheBorderWhenTheRingMoves`
-  (`internal/adt`) and `TestRegionNormalsMeetAcrossTiles` (`internal/vmangos`, a made-up map in a temp
-  MPQ) need no client. Trap in a made-up map: give a client tile a ring side only toward a tile the map
+- Normals (#492, #668): `TestNormalsMatchFile` (WOW_DIR) recomputes the normals of steep and gentle
+  chunks inside Azeroth_32_48 and Azeroth_31_49, which must match the file's to the byte, and the
+  south, west and east borders of Azeroth_30_40 with the ring from its neighbours, which must stay
+  within a twentieth of their bytes and beat both one-sided normals and a ring without the inner
+  samples across. Traps: some of the client's chunks have normals that don't follow their heights at
+  all (Azeroth_32_48 chunk 0, the first chunk row and column of 31_49, 30_40's north border, whose
+  heights differ from the north tile's in 22 shared samples), so pick chunks and sides that were
+  checked; and the client truncates each part (`int8(v*127)`), so rounding puts half the bytes 1 off.
+  `TestBuildTileNormalsMeetAcrossTheBorder`, `TestWriteHeightsRefreshesTheBorderWhenTheRingMoves`
+  (`internal/adt`), `TestRegionNormalsMeetAcrossTiles` and `TestRegionNormalsReadTheInnerSamplesAcrossTiles`
+  (`internal/vmangos`, made-up maps in a temp MPQ; the second gives the client tiles inner samples off
+  their corners' mean, which the first's don't have) need no client. Trap in a made-up map: give a client tile a ring side only toward a tile the map
   has, or the block's corner samples differ from it for no fault of the export.
 - `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
   checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the

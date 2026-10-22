@@ -146,6 +146,14 @@ func PatchTileHeights(root []byte, outer []float32, edges *adt.Edges) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
+	patchHeights(terrain, outer)
+	return adt.WriteHeights(root, terrain, edges)
+}
+
+// patchHeights puts outer into terrain's chunks as PatchTileHeights writes them, with each cell's inner
+// sample kept or set to its corners' mean. blockEdges runs it on a neighbour in the block too, for the
+// inner samples across a tile's border, so both tiles see the same heights to the bit.
+func patchHeights(terrain *adt.Terrain, outer []float32) {
 	for i := range terrain.Chunks {
 		c := &terrain.Chunks[i]
 		// The change at each outer sample. The inner samples sit between four outer ones: an
@@ -172,7 +180,6 @@ func PatchTileHeights(root []byte, outer []float32, edges *adt.Edges) ([]byte, e
 			}
 		}
 	}
-	return adt.WriteHeights(root, terrain, edges)
 }
 
 // sculpted says a corner's change d moves it off the client's height (#380).

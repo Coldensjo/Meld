@@ -10,15 +10,24 @@ import (
 // lattice is the tile's outer height grid: (ChunksPerTile*8+1) samples on each side.
 const lattice = ChunksPerTile*CellsPerChunk + 1
 
-// padded is the side of the grid normalAt reads: the lattice with one ring of samples around it.
-const padded = lattice + 2
+// padded is the side of the grid normalAt reads (normalGrid): the lattice on a grid of half a cell's
+// step, with two half steps around it.
+const padded = 2*lattice - 1 + 4
 
 // Ring is the outer heights one sample beyond each side of a tile's lattice, from the neighbouring
 // tiles (#492): North is the row north of the tile's first (the north neighbour's second to last),
 // South the row south of its last (the south neighbour's second), West and East the columns beside
 // its first and last. Each is lattice long, North and South running east, West and East south. A nil
-// side has no neighbour, and the normals along it are one-sided.
-type Ring struct{ North, South, West, East []float32 }
+// side has no neighbour, and the normals along it are one-sided (from the triangles inside the tile).
+//
+// NorthIn, SouthIn, WestIn and EastIn are the inner samples of the cells just across each side (the
+// north neighbour's last row of cells, and so on), lattice-1 long in the same order, since a border
+// sample's normal takes in the triangles of those cells (#668). A nil one is taken as the mean of each
+// cell's four corners, as a tile Meld builds has them.
+type Ring struct {
+	North, South, West, East         []float32
+	NorthIn, SouthIn, WestIn, EastIn []float32
+}
 
 // Edges is the ring around a tile for working out the normals on its border: Now from the heights
 // being written, Was from those the tile's normals were made against. A chunk on the border whose
@@ -101,7 +110,7 @@ func WriteHeights(root []byte, terrain *Terrain, edges *Edges) ([]byte, error) {
 		for s := 0; s < HeightCount; s++ {
 			n := normalAt(grid, c, s)
 			for k := 0; k < 3; k++ {
-				out[mcnr.start+s*3+k] = byte(int8(math.Round(float64(n[k]) * 127)))
+				out[mcnr.start+s*3+k] = byte(n[k])
 			}
 		}
 	}
@@ -142,20 +151,20 @@ func mcnkStarts(root []byte) ([]int, error) {
 // read: a chunk off the border never has.
 func (e *Edges) moved(c Chunk) bool {
 	lo, hi := c.IndexX*CellsPerChunk, c.IndexX*CellsPerChunk+CellsPerChunk
-	if c.IndexY == 0 && ringMoved(e.Now.North, e.Was.North, lo, hi) ||
-		c.IndexY == ChunksPerTile-1 && ringMoved(e.Now.South, e.Was.South, lo, hi) {
+	if c.IndexY == 0 && (ringMoved(e.Now.North, e.Was.North, lattice, lo, hi) || ringMoved(e.Now.NorthIn, e.Was.NorthIn, lattice-1, lo, hi-1)) ||
+		c.IndexY == ChunksPerTile-1 && (ringMoved(e.Now.South, e.Was.South, lattice, lo, hi) || ringMoved(e.Now.SouthIn, e.Was.SouthIn, lattice-1, lo, hi-1)) {
 		return true
 	}
 	lo, hi = c.IndexY*CellsPerChunk, c.IndexY*CellsPerChunk+CellsPerChunk
-	return c.IndexX == 0 && ringMoved(e.Now.West, e.Was.West, lo, hi) ||
-		c.IndexX == ChunksPerTile-1 && ringMoved(e.Now.East, e.Was.East, lo, hi)
+	return c.IndexX == 0 && (ringMoved(e.Now.West, e.Was.West, lattice, lo, hi) || ringMoved(e.Now.WestIn, e.Was.WestIn, lattice-1, lo, hi-1)) ||
+		c.IndexX == ChunksPerTile-1 && (ringMoved(e.Now.East, e.Was.East, lattice, lo, hi) || ringMoved(e.Now.EastIn, e.Was.EastIn, lattice-1, lo, hi-1))
 }
 
-// ringMoved says one side of the ring differs between now and was over samples lo to hi; a side that
-// appears or goes away counts as moved.
-func ringMoved(now, was []float32, lo, hi int) bool {
-	if len(now) != lattice || len(was) != lattice {
-		return len(now) == lattice || len(was) == lattice
+// ringMoved says one side of the ring, n samples long, differs between now and was over samples lo
+// to hi; a side that appears or goes away counts as moved.
+func ringMoved(now, was []float32, n, lo, hi int) bool {
+	if len(now) != n || len(was) != n {
+		return len(now) == n || len(was) == n
 	}
 	for k := lo; k <= hi; k++ {
 		if now[k] != was[k] {
@@ -165,8 +174,12 @@ func ringMoved(now, was []float32, lo, hi int) bool {
 	return false
 }
 
-// normalGrid is the outer grid normalAt reads: the tile's lattice from terrain's heights, padded by
-// one sample a side with the ring, NaN where a side has none.
+// normalGrid is the grid normalAt reads: the tile's outer and inner heights from terrain on a grid of
+// half a cell's step (an outer sample at (2r, 2c) of the lattice, an inner one at (2r+1, 2c+1)),
+// padded by two half steps a side. The padding holds the ring at two half steps out and, at one, the
+// inner samples of the cells just across the border (the ring's, or the average of their four corners
+// where it has none). It is NaN where a side has no ring, in the corners beyond two sides, and between
+// the samples.
 func normalGrid(terrain *Terrain, ring Ring) []float32 {
 	grid := make([]float32, padded*padded)
 	nan := float32(math.NaN())
@@ -174,68 +187,118 @@ func normalGrid(terrain *Terrain, ring Ring) []float32 {
 		grid[i] = nan
 	}
 	for _, c := range terrain.Chunks {
-		for r := 0; r < CellsPerChunk+1; r++ {
-			for col := 0; col < CellsPerChunk+1; col++ {
-				gr, gc := c.IndexY*CellsPerChunk+r, c.IndexX*CellsPerChunk+col
-				grid[(gr+1)*padded+gc+1] = c.Heights[r*17+col]
-			}
+		for s := 0; s < HeightCount; s++ {
+			grid[halfIndex(c, s)] = c.Heights[s]
 		}
 	}
-	for k := 0; k < lattice; k++ {
-		if len(ring.North) == lattice {
-			grid[k+1] = ring.North[k]
+	// at is the cell (R, C) of the half-step grid, 0 at the tile's first sample.
+	at := func(R, C int) *float32 { return &grid[(R+2)*padded+C+2] }
+	last := 2 * (lattice - 1)
+	// Each side's ring sample k sits at R0 + k*dR, C0 + k*dC, and the inner sample of the cell across
+	// the border between ring samples k and k+1 at R1 + k*dR, C1 + k*dC (dR and dC in half steps, so
+	// one sample along is 2).
+	sides := []struct {
+		line, inner    []float32
+		R0, C0, R1, C1 int
+		dR, dC         int
+	}{
+		{ring.North, ring.NorthIn, -2, 0, -1, 1, 0, 2},
+		{ring.South, ring.SouthIn, last + 2, 0, last + 1, 1, 0, 2},
+		{ring.West, ring.WestIn, 0, -2, 1, -1, 2, 0},
+		{ring.East, ring.EastIn, 0, last + 2, 1, last + 1, 2, 0},
+	}
+	for _, side := range sides {
+		if len(side.line) != lattice {
+			continue
 		}
-		if len(ring.South) == lattice {
-			grid[(padded-1)*padded+k+1] = ring.South[k]
+		for k := 0; k < lattice; k++ {
+			*at(side.R0+k*side.dR, side.C0+k*side.dC) = side.line[k]
 		}
-		if len(ring.West) == lattice {
-			grid[(k+1)*padded] = ring.West[k]
+	}
+	// The inner samples across, once every side's ring is in. The mean adds the corners in the order
+	// BuildTile's chunkHeights does (north-west, north-east, south-west, south-east), so a tile built
+	// beside this one has the same value to the bit.
+	for _, side := range sides {
+		if len(side.line) != lattice {
+			continue
 		}
-		if len(ring.East) == lattice {
-			grid[(k+1)*padded+padded-1] = ring.East[k]
+		for k := 0; k+1 < lattice; k++ {
+			R, C := side.R1+k*side.dR, side.C1+k*side.dC
+			if len(side.inner) == lattice-1 {
+				*at(R, C) = side.inner[k]
+			} else {
+				*at(R, C) = (*at(R-1, C-1) + *at(R-1, C+1) + *at(R+1, C-1) + *at(R+1, C+1)) / 4
+			}
 		}
 	}
 	return grid
 }
 
-// normalAt is the ground normal at sample s of chunk c, from the padded grid around it (normalGrid),
-// in the file's order: north, west, up. Rows run south and columns east. An outer sample takes the
-// difference across its neighbours, from the ring on the tile's border, one-sided where the ring has
-// no sample.
-func normalAt(grid []float32, c Chunk, s int) [3]float32 {
-	step := TileSize / (ChunksPerTile * CellsPerChunk)
-	// at reads lattice sample (r, col), which may be one outside the tile, in the ring.
-	at := func(r, col int) float64 { return float64(grid[(r+1)*padded+col+1]) }
-	known := func(r, col int) bool { return !math.IsNaN(float64(grid[(r+1)*padded+col+1])) }
+// halfIndex is where sample s of chunk c sits in normalGrid.
+func halfIndex(c Chunk, s int) int {
 	row, col := s/17, s%17
-	var north, west float64
-	if col < 9 {
-		gr, gc := c.IndexY*CellsPerChunk+row, c.IndexX*CellsPerChunk+col
-		rn, rs := gr-1, gr+1
-		if !known(rn, gc) {
-			rn = gr
-		}
-		if !known(rs, gc) {
-			rs = gr
-		}
-		cw, ce := gc-1, gc+1
-		if !known(gr, cw) {
-			cw = gc
-		}
-		if !known(gr, ce) {
-			ce = gc
-		}
-		north = (at(rn, gc) - at(rs, gc)) / (float64(rs-rn) * step)
-		west = (at(gr, cw) - at(gr, ce)) / (float64(ce-cw) * step)
-	} else {
-		gr, gc := c.IndexY*CellsPerChunk+row, c.IndexX*CellsPerChunk+col-9
-		nw, ne := at(gr, gc), at(gr, gc+1)
-		sw, se := at(gr+1, gc), at(gr+1, gc+1)
-		north = ((nw + ne) - (sw + se)) / 2 / step
-		west = ((nw + sw) - (ne + se)) / 2 / step
+	R, C := 2*(c.IndexY*CellsPerChunk+row), 2*(c.IndexX*CellsPerChunk+col)
+	if col >= 9 {
+		R, C = R+1, 2*(c.IndexX*CellsPerChunk+col-9)+1
 	}
-	l := math.Hypot(math.Hypot(north, west), 1)
-	return [3]float32{float32(-north / l), float32(-west / l), float32(1 / l)}
+	return (R+2)*padded + C + 2
+}
+
+// Around a sample, the neighbours of the triangles it is a corner of, on the half-step grid (rows
+// south, columns east), going round from north through west, south and east. An outer sample is a
+// corner of eight: in each of the four cells around it, the two between it, the cell's inner sample
+// and the outer samples beside it. An inner sample is the centre of its cell's four. crossFan is the
+// four triangles between an outer sample's outer neighbours, for a tile's corner (normalAt).
+var (
+	outerFan = [][2]int{{-2, 0}, {-1, -1}, {0, -2}, {1, -1}, {2, 0}, {1, 1}, {0, 2}, {-1, 1}}
+	innerFan = [][2]int{{-1, 1}, {-1, -1}, {1, -1}, {1, 1}}
+	crossFan = [][2]int{{-2, 0}, {0, -2}, {2, 0}, {0, 2}}
+)
+
+// normalAt is the ground normal at sample s of chunk c, from the half-step grid around it
+// (normalGrid), as the client's tiles store it: north, west and up, 127 for 1. As the game's own
+// normals are made (#668), it is the mean of the unit normals of the triangles the sample is a corner
+// of in the ground's mesh (a cell is four triangles around its inner sample), each part truncated
+// toward zero. A triangle with a corner the grid lacks (past a border without a ring) is left out. A
+// tile's corner lacks the cell of the tile diagonally beyond it, and each of the four tiles meeting
+// there lacks a different one, so where its four outer neighbours are known a corner takes the four
+// triangles between them instead, which every one of those tiles has, and they store the same normal.
+func normalAt(grid []float32, c Chunk, s int) [3]int8 {
+	half := TileSize / (ChunksPerTile * CellsPerChunk) / 2
+	i := halfIndex(c, s)
+	known := func(d [2]int) bool { return !math.IsNaN(float64(grid[i+d[0]*padded+d[1]])) }
+	fan := outerFan
+	if s%17 >= 9 {
+		fan = innerFan
+	} else if !known(fan[1]) || !known(fan[3]) || !known(fan[5]) || !known(fan[7]) {
+		if known(crossFan[0]) && known(crossFan[1]) && known(crossFan[2]) && known(crossFan[3]) {
+			fan = crossFan
+		}
+	}
+	h := float64(grid[i])
+	// arm is the edge from the sample to its neighbour d, in north, west and up.
+	arm := func(d [2]int) (v [3]float64, ok bool) {
+		n := grid[i+d[0]*padded+d[1]]
+		return [3]float64{-float64(d[0]) * half, -float64(d[1]) * half, float64(n) - h}, known(d)
+	}
+	var sum [3]float64
+	for k := range fan {
+		a, okA := arm(fan[k])
+		b, okB := arm(fan[(k+1)%len(fan)])
+		if !okA || !okB {
+			continue
+		}
+		n := [3]float64{a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]}
+		l := math.Sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2])
+		for j := range sum {
+			sum[j] += n[j] / l
+		}
+	}
+	l := math.Sqrt(sum[0]*sum[0] + sum[1]*sum[1] + sum[2]*sum[2])
+	if l == 0 {
+		return [3]int8{0, 0, 127}
+	}
+	return [3]int8{int8(sum[0] / l * 127), int8(sum[1] / l * 127), int8(sum[2] / l * 127)}
 }
 
 func abs(v int) int {

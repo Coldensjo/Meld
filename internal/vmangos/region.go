@@ -750,12 +750,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	for k := range tiles {
 		t := &tiles[k]
 		i, j := k%e.Size, k/e.Size
-		outer := make([]float32, LatticeSize*LatticeSize)
-		for r := 0; r < LatticeSize; r++ {
-			row := (j*tileCells+r)*side + i*tileCells
-			copy(outer[r*LatticeSize:(r+1)*LatticeSize], heights[row:row+LatticeSize])
-		}
-		patched, err := PatchTileHeights(t.root, outer, &edges[k])
+		patched, err := PatchTileHeights(t.root, blockTile(heights, side, i, j), &edges[k])
 		if err != nil {
 			return nil, err
 		}

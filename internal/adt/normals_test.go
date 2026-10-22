@@ -25,7 +25,7 @@ func slopeTile(tx, ty int) []float32 {
 
 // slopeRing is the ring around the tile at (tx, ty) of slope, as its neighbours have it.
 func slopeRing(tx, ty int) Ring {
-	ring := Ring{make([]float32, lattice), make([]float32, lattice), make([]float32, lattice), make([]float32, lattice)}
+	ring := Ring{North: make([]float32, lattice), South: make([]float32, lattice), West: make([]float32, lattice), East: make([]float32, lattice)}
 	x0, y0 := tx*(lattice-1), ty*(lattice-1)
 	for k := 0; k < lattice; k++ {
 		ring.North[k], ring.South[k] = slope(x0+k, y0-1), slope(x0+k, y0+lattice)

@@ -26,42 +26,60 @@ func tileLattice(root []byte) ([]float32, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]float32, LatticeSize*LatticeSize)
+	return grids(terrain).outer, nil
+}
+
+// tileGrids is a tile's heights: outer, LatticeSize squared, and inner, one a cell, (LatticeSize-1)
+// squared, rows running south in both.
+type tileGrids struct{ outer, inner []float32 }
+
+// grids lays out terrain's heights as tileGrids.
+func grids(terrain *adt.Terrain) tileGrids {
+	g := tileGrids{make([]float32, LatticeSize*LatticeSize), make([]float32, tileCells*tileCells)}
 	for _, c := range terrain.Chunks {
 		for r := 0; r <= adt.CellsPerChunk; r++ {
 			for col := 0; col <= adt.CellsPerChunk; col++ {
 				gr, gc := c.IndexY*adt.CellsPerChunk+r, c.IndexX*adt.CellsPerChunk+col
-				out[gr*LatticeSize+gc] = c.Heights[r*17+col]
+				g.outer[gr*LatticeSize+gc] = c.Heights[r*17+col]
+				if r < adt.CellsPerChunk && col < adt.CellsPerChunk {
+					g.inner[gr*tileCells+gc] = c.Heights[r*17+9+col]
+				}
 			}
 		}
 	}
-	return out, nil
+	return g
+}
+
+// ring is the side of an adt.Ring a neighbour gives the tile it is on side of: its outer line just
+// across the border (ringOf) and the inner samples of its cells along the border (#668).
+func (g tileGrids) ring(side string) (outer, inner []float32) {
+	return ringOf(g.outer, side), lineOf(g.inner, tileCells, side, 0)
 }
 
 // edgeOf takes the border a tile on side shares with the block: a tile north of the block gives its
 // last row, south its first, west its last column, east its first.
-func edgeOf(lattice []float32, side string) []float32 { return lineOf(lattice, side, 0) }
+func edgeOf(lattice []float32, side string) []float32 { return lineOf(lattice, LatticeSize, side, 0) }
 
 // ringOf takes the line of a neighbour's lattice just across the border from the tile it is on side
 // of: a north neighbour gives its second to last row, south its second, west its second to last
 // column, east its second (adt.Ring, #492).
-func ringOf(lattice []float32, side string) []float32 { return lineOf(lattice, side, 1) }
+func ringOf(lattice []float32, side string) []float32 { return lineOf(lattice, LatticeSize, side, 1) }
 
 // lineOf takes the row or column in from the border a tile on side shares with its neighbour, as
-// edgeOf names the border.
-func lineOf(lattice []float32, side string, in int) []float32 {
-	out := make([]float32, LatticeSize)
-	last := LatticeSize - 1 - in
-	for k := 0; k < LatticeSize; k++ {
+// edgeOf names the border, from a grid n samples a side.
+func lineOf(grid []float32, n int, side string, in int) []float32 {
+	out := make([]float32, n)
+	last := n - 1 - in
+	for k := 0; k < n; k++ {
 		switch side {
 		case "north":
-			out[k] = lattice[last*LatticeSize+k]
+			out[k] = grid[last*n+k]
 		case "south":
-			out[k] = lattice[in*LatticeSize+k]
+			out[k] = grid[in*n+k]
 		case "west":
-			out[k] = lattice[k*LatticeSize+last]
+			out[k] = grid[k*n+last]
 		case "east":
-			out[k] = lattice[k*LatticeSize+in]
+			out[k] = grid[k*n+in]
 		}
 	}
 	return out
@@ -115,39 +133,54 @@ func ReadRegionEdges(dataDir, mapName string, x, y, size int) ([]EdgeSegment, er
 
 // blockEdges is the ring around each of a block's tiles for their normals (adt.Edges, #492), in the
 // block's order (row by row, rows running south). Inside the block, Now comes from heights (the
-// block's, side squared, side = size*tileCells+1) and Was from roots, the tiles the save starts from.
-// At the block's border both come from the client's tiles beyond: Now as the client reads them now,
-// Was without Meld's patch, as the client's own normals were made against. A side off the map, or
-// toward a tile the map doesn't have, stays empty and its normals one-sided.
+// block's, side squared, side = size*tileCells+1) put into the neighbour as PatchTileHeights will
+// (its inner samples kept or set to their corners' mean), and Was from roots, the tiles the save
+// starts from. At the block's border both come from the client's tiles beyond: Now as the client
+// reads them now, Was without Meld's patch, as the client's own normals were made against. A side off
+// the map, or toward a tile the map doesn't have, stays empty and its normals one-sided.
 func blockEdges(set *mpq.Set, mapName string, x, y, size int, heights []float32, roots [][]byte) ([]adt.Edges, error) {
 	side := size*tileCells + 1
-	inner := make([][]float32, len(roots))
-	innerOf := func(k int) ([]float32, error) {
-		if inner[k] == nil {
-			lattice, err := tileLattice(roots[k])
+	// inside holds a tile of the block as the save starts from it (was) and as it will be (now).
+	type both struct{ now, was tileGrids }
+	inside := make([]*both, len(roots))
+	insideOf := func(k int) (*both, error) {
+		if inside[k] == nil {
+			terrain, err := adt.ParseTerrain(roots[k])
 			if err != nil {
 				return nil, fmt.Errorf("tile %d_%d: %w", x+k%size, y+k/size, err)
 			}
-			inner[k] = lattice
+			b := &both{was: grids(terrain)}
+			patchHeights(terrain, blockTile(heights, side, k%size, k/size))
+			b.now = grids(terrain)
+			inside[k] = b
 		}
-		return inner[k], nil
+		return inside[k], nil
 	}
-	type beyond struct{ now, was []float32 }
+	// outside holds a client tile beyond the block, nil for one the client lacks.
+	type beyond struct{ now, was *tileGrids }
 	outside := map[[2]int]beyond{}
 	outsideOf := func(tx, ty int) (beyond, error) {
 		if b, ok := outside[[2]int{tx, ty}]; ok {
 			return b, nil
 		}
 		var b beyond
+		read := func(root []byte) (*tileGrids, error) {
+			terrain, err := adt.ParseTerrain(root)
+			if err != nil {
+				return nil, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+			}
+			g := grids(terrain)
+			return &g, nil
+		}
 		if tx >= 0 && ty >= 0 && tx < MapTiles && ty < MapTiles {
 			name := adt.TilePath(mapName, tx, ty, "")
 			if root, err := set.ReadFile(name); err == nil {
-				if b.now, err = tileLattice(root); err != nil {
-					return b, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+				if b.now, err = read(root); err != nil {
+					return b, err
 				}
 				if base, err := readUnpatched(set, name); err == nil {
-					if b.was, err = tileLattice(base); err != nil {
-						return b, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+					if b.was, err = read(base); err != nil {
+						return b, err
 					}
 				}
 			}
@@ -155,38 +188,29 @@ func blockEdges(set *mpq.Set, mapName string, x, y, size int, heights []float32,
 		outside[[2]int{tx, ty}] = b
 		return b, nil
 	}
-	// line reads LatticeSize of the block's heights from (r, c), a step of (dr, dc) apart.
-	line := func(r, c, dr, dc int) []float32 {
-		out := make([]float32, LatticeSize)
-		for k := range out {
-			out[k] = heights[(r+k*dr)*side+c+k*dc]
-		}
-		return out
-	}
 	out := make([]adt.Edges, size*size)
 	for j := 0; j < size; j++ {
 		for i := 0; i < size; i++ {
 			e := &out[j*size+i]
-			r0, c0 := j*tileCells, i*tileCells
 			for _, s := range []struct {
-				side     string
-				di, dj   int
-				r, c     int
-				dr, dc   int
-				now, was *[]float32
+				side         string
+				di, dj       int
+				now, was     *[]float32
+				nowIn, wasIn *[]float32
 			}{
-				{"north", 0, -1, r0 - 1, c0, 0, 1, &e.Now.North, &e.Was.North},
-				{"south", 0, 1, r0 + tileCells + 1, c0, 0, 1, &e.Now.South, &e.Was.South},
-				{"west", -1, 0, r0, c0 - 1, 1, 0, &e.Now.West, &e.Was.West},
-				{"east", 1, 0, r0, c0 + tileCells + 1, 1, 0, &e.Now.East, &e.Was.East},
+				{"north", 0, -1, &e.Now.North, &e.Was.North, &e.Now.NorthIn, &e.Was.NorthIn},
+				{"south", 0, 1, &e.Now.South, &e.Was.South, &e.Now.SouthIn, &e.Was.SouthIn},
+				{"west", -1, 0, &e.Now.West, &e.Was.West, &e.Now.WestIn, &e.Was.WestIn},
+				{"east", 1, 0, &e.Now.East, &e.Was.East, &e.Now.EastIn, &e.Was.EastIn},
 			} {
 				ni, nj := i+s.di, j+s.dj
 				if ni >= 0 && nj >= 0 && ni < size && nj < size {
-					was, err := innerOf(nj*size + ni)
+					b, err := insideOf(nj*size + ni)
 					if err != nil {
 						return nil, err
 					}
-					*s.now, *s.was = line(s.r, s.c, s.dr, s.dc), ringOf(was, s.side)
+					*s.now, *s.nowIn = b.now.ring(s.side)
+					*s.was, *s.wasIn = b.was.ring(s.side)
 					continue
 				}
 				b, err := outsideOf(x+ni, y+nj)
@@ -194,13 +218,24 @@ func blockEdges(set *mpq.Set, mapName string, x, y, size int, heights []float32,
 					return nil, err
 				}
 				if b.now != nil {
-					*s.now = ringOf(b.now, s.side)
+					*s.now, *s.nowIn = b.now.ring(s.side)
 				}
 				if b.was != nil {
-					*s.was = ringOf(b.was, s.side)
+					*s.was, *s.wasIn = b.was.ring(s.side)
 				}
 			}
 		}
 	}
 	return out, nil
+}
+
+// blockTile is the outer heights of the block's tile (i, j), LatticeSize squared, from the block's
+// heights, side samples a side.
+func blockTile(heights []float32, side, i, j int) []float32 {
+	outer := make([]float32, LatticeSize*LatticeSize)
+	for r := 0; r < LatticeSize; r++ {
+		row := (j*tileCells+r)*side + i*tileCells
+		copy(outer[r*LatticeSize:(r+1)*LatticeSize], heights[row:row+LatticeSize])
+	}
+	return outer
 }

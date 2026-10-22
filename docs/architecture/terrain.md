@@ -149,12 +149,20 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     (`innerPending`), and `TileGatherer.addGround` and `adtHeightSpan` add each cell's `cellLift` (0
     where a corner is off `innerBase`, as the export decides). They are not saved: a map of its own
     has none (its export writes the mean), and a region's come from the client each session.
-  - **Normals** (MCNR, #492): `adt.WriteHeights` works out the normals of the chunks whose heights
-    changed, and of those around them, from the tile's lattice padded by `adt.Ring`, the row or
-    column just across each border from the neighbouring tile, so a border sample takes the same
-    central difference in both tiles and the client shows no crease along the border. `BuildRegion`
-    gets the rings from `blockEdges`: the block's own heights between its tiles, the client's tiles
-    beyond its edge. `adt.Edges.Was` is the ring the tile's normals were made against (the tiles the
+  - **Normals** (MCNR, #492, #668): `adt.WriteHeights` works out the normals of the chunks whose
+    heights changed, and of those around them, as the game's own tiles were made (`normalAt`): the
+    mean of the unit normals of the triangles a sample is a corner of in the ground's mesh (eight for
+    an outer sample, four for an inner one, a cell being four triangles around its inner sample),
+    each part truncated toward zero (`int8(v*127)`, not rounded). That matches the client's normals
+    to the byte inside a tile, steep ground included; the old central differences were up to 30
+    off. `normalGrid` lays the heights out on a half-step grid padded by `adt.Ring`: the row or
+    column just across each border from the neighbouring tile, and the inner samples of the cells
+    along it (`NorthIn` and so on; nil means their corners' mean, as a tile Meld builds has them), so
+    a border sample takes the same triangles in both tiles and the client shows no crease along the
+    border. A tile's corner, which lacks the diagonal tile's cell, takes the four triangles between
+    its outer neighbours instead, which all four tiles there have. `BuildRegion` gets the rings from
+    `blockEdges`: the block's own heights between its tiles (a neighbour's inner samples put through
+    `patchHeights`, as `PatchTileHeights` will write them), the client's tiles beyond its edge. `adt.Edges.Was` is the ring the tile's normals were made against (the tiles the
     save starts from, the client's beyond without Meld's patch); a border chunk whose ring moved has
     its normals redone though its own heights didn't change, and an unedited block stays
     byte-identical. A new map's tiles (`ExportMap`) take the ring from the map's other tiles

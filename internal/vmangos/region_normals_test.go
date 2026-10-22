@@ -139,3 +139,91 @@ func TestRegionNormalsMeetAcrossTiles(t *testing.T) {
 		}
 	}
 }
+
+// TestRegionNormalsReadTheInnerSamplesAcrossTiles saves a 2x2 block whose client tiles carry detail in
+// their inner samples (off their corners' mean), sculpting a strip of the column just west of the
+// border between 0_0 and 1_0. The cells across the border keep their detail in 1_0 and go to the mean
+// in 0_0's sculpted strip, and the border's normals take in both, so the two tiles store the same
+// normals along it only if each reads the other's inner samples as they will be written (#668).
+func TestRegionNormalsReadTheInnerSamplesAcrossTiles(t *testing.T) {
+	dir := t.TempDir()
+	cut := func(tx, ty int) []float32 {
+		out := make([]float32, LatticeSize*LatticeSize)
+		for r := 0; r < LatticeSize; r++ {
+			for c := 0; c < LatticeSize; c++ {
+				out[r*LatticeSize+c] = hillAt(tx*tileCells+c, ty*tileCells+r)
+			}
+		}
+		return out
+	}
+	onMap := func(x, y int) bool { return x >= 0 && y >= 0 && x < 2 && y < 2 }
+	tile := func(x, y int) mpq.File {
+		root, err := adt.BuildTile(cut(x, y), adt.Ring{}, adt.Changes{TileX: x, TileY: y})
+		if err != nil {
+			t.Fatal(err)
+		}
+		terrain, err := adt.ParseTerrain(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range terrain.Chunks {
+			c := &terrain.Chunks[i]
+			for r := 0; r < adt.CellsPerChunk; r++ {
+				for col := 0; col < adt.CellsPerChunk; col++ {
+					c.Heights[r*17+9+col] += float32(2 * math.Sin(float64(c.IndexY*8+r)+float64(c.IndexX*8+col)*1.7))
+				}
+			}
+		}
+		if root, err = adt.WriteHeights(root, terrain, nil); err != nil {
+			t.Fatal(err)
+		}
+		return mpq.File{Name: adt.TilePath("Hills", x, y, ""), Data: root}
+	}
+	mphd := binary.LittleEndian.AppendUint32([]byte("DHPM"), 32)
+	wdt, err := BuildWDT(append(mphd, make([]byte, 32)...), onMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := []mpq.File{{Name: `World\Maps\Hills\Hills.wdt`, Data: wdt}, tile(0, 0), tile(1, 0), tile(0, 1), tile(1, 1)}
+	if err := os.WriteFile(filepath.Join(dir, "terrain.MPQ"), mpq.Write(files), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	side := 2*tileCells + 1
+	heights := make([]float32, side*side)
+	for r := 0; r < side; r++ {
+		for c := 0; c < side; c++ {
+			heights[r*side+c] = hillAt(c, r)
+		}
+	}
+	for r := 20; r < 60; r++ {
+		heights[r*side+tileCells-1] += 3
+	}
+	out, err := BuildRegion(dir, RegionEdit{MapName: "Hills", X: 0, Y: 0, Size: 2, Heights: EncodeHeights(heights)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	normals := map[string][][]byte{}
+	for _, f := range out {
+		if name := fileTileName(f.Name); name != "" {
+			if normals[name], err = adt.ParseNormals(f.Data); err != nil {
+				t.Fatalf("%s: %v", f.Name, err)
+			}
+		}
+	}
+	if normals["0_0"] == nil || normals["1_0"] == nil {
+		t.Fatalf("the save wrote %d tiles, not 0_0 and 1_0", len(normals))
+	}
+	// The client tiles' own border normals are one-sided, so only the chunks the save redoes on both
+	// sides are compared: rows 16 to 63, chunks 2 to 7, around the strip.
+	last := LatticeSize - 1
+	apart := 0
+	for k := 16; k < 64; k++ {
+		if latticeNormal(normals["0_0"], k, last) != latticeNormal(normals["1_0"], k, 0) {
+			apart++
+		}
+	}
+	if apart > 0 {
+		t.Errorf("%d of 48 samples on the border of 0_0 and 1_0 store different normals", apart)
+	}
+}
