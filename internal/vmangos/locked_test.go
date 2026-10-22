@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -26,6 +27,9 @@ func TestInUseRecognisesLockedErrors(t *testing.T) {
 
 // A read-only file stands in for one the game has open: both refuse writes.
 func TestLockedPatchIsRefusedUntouched(t *testing.T) {
+	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+		t.Skip("root ignores file permissions, so a 0444 file does not refuse writes here")
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, PatchName)
 	orig := mpq.Write([]mpq.File{{Name: `keep\me.txt`, Data: []byte("original")}})
