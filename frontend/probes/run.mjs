@@ -86,12 +86,12 @@ function findChrome() {
 	return c.find((p) => p && existsSync(p)) ?? fail('no Chrome found; set CHROME to its path')
 }
 
-/** Other probe runs still alive (their node runner or headless Chrome), as 'pid: name' lines. A forgotten run doubles the load and skews every timing (#257). */
+/** Other probe runs still alive (their Bun runner or headless Chrome), as 'pid: name' lines. A forgotten run doubles the load and skews every timing (#257). */
 function otherRuns() {
 	const lines = []
 	try {
 		if (process.platform === 'win32') {
-			const ps = `Get-CimInstance Win32_Process -Filter "Name='node.exe' OR Name='chrome.exe' OR Name='msedge.exe'" | Where-Object { $_.CommandLine -match 'meld-probe-|probes.run.mjs' } | ForEach-Object { "$($_.ProcessId): $($_.Name)" }`
+			const ps = `Get-CimInstance Win32_Process -Filter "Name='bun.exe' OR Name='node.exe' OR Name='chrome.exe' OR Name='msedge.exe'" | Where-Object { $_.CommandLine -match 'meld-probe-|probes.run.mjs' } | ForEach-Object { "$($_.ProcessId): $($_.Name) $($_.CommandLine.Substring(0, [Math]::Min(80, $_.CommandLine.Length)))" }`
 			const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8', timeout: 15000 })
 			lines.push(...(r.stdout ?? '').split(/\r?\n/))
 		} else {
