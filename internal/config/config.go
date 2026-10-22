@@ -4,6 +4,8 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -79,39 +81,97 @@ func migrate(dir string) {
 	_ = os.Rename(oldDir, newDir)
 }
 
-func Load() Config {
+// read loads the config file. A file that does not exist is an empty config with no error; one that
+// exists but does not parse (truncated, hand-edited wrongly, empty) returns the parse error with an
+// empty config, so Update can tell it from a fresh install.
+func read(p string) (Config, error) {
 	var c Config
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return c, nil
+	}
+	if err := json.Unmarshal(b, &c); err != nil {
+		return Config{}, err
+	}
+	return c, nil
+}
+
+func Load() Config {
 	p, err := path()
 	if err != nil {
-		return c
+		return Config{}
 	}
-	if b, err := os.ReadFile(p); err == nil {
-		_ = json.Unmarshal(b, &c)
-	}
+	c, _ := read(p)
 	return c
 }
 
+// Save writes the config through a temp file and a rename, so a crash mid-write leaves the old file
+// whole instead of a truncated one.
 func Save(c Config) error {
 	p, err := path()
 	if err != nil {
 		return err
 	}
+	return write(p, c)
+}
+
+func write(p string, c Config) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
-	b, _ := json.MarshalIndent(c, "", "  ")
-	return os.WriteFile(p, b, 0o644)
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := p + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(b); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, p); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 // Update applies change to the config as the file holds it now and saves the result. Two windows
 // share one config file, so a window that sets one field (its client folder, its size) must not
 // write the other fields from its own older copy over what the other window saved since.
+//
+// A file that exists but no longer parses is not written over: it is kept as config.json.broken
+// (replacing an older one) and the change starts from an empty config, so the user can recover
+// their settings by hand.
 func Update(change func(*Config) error) error {
-	c := Load()
+	p, err := path()
+	if err != nil {
+		return err
+	}
+	c, perr := read(p)
+	if perr != nil {
+		log.Printf("config: %s does not parse (%v); kept as config.json.broken, starting from an empty config", p, perr)
+		if err := os.Rename(p, p+".broken"); err != nil {
+			return fmt.Errorf("config file %s does not parse and could not be set aside: %w", p, err)
+		}
+	}
 	if err := change(&c); err != nil {
 		return err
 	}
-	return Save(c)
+	return write(p, c)
 }
 
 // MergePrefs overlays the keys of patch (a JSON object of preference keys) onto existing (the

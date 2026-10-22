@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 )
 
@@ -57,5 +58,41 @@ func TestUpdateKeepsTheOtherWindowsFields(t *testing.T) {
 	got := Load()
 	if got.WowPath != "client" || got.VmangosPath != "server" || got.Window.Width != 800 {
 		t.Fatalf("config after the update = %+v", got)
+	}
+}
+
+// TestUpdateKeepsAFileThatNoLongerParses checks a truncated config is set aside as config.json.broken
+// instead of being replaced by an empty config with one field changed, and that no temp file is left.
+func TestUpdateKeepsAFileThatNoLongerParses(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("APPDATA", dir)
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("HOME", dir)
+	if err := Save(Config{WowPath: "client"}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	broken := []byte(`{"wowPath": "client", "vmangosPa`)
+	if err := os.WriteFile(p, broken, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Update(func(c *Config) error {
+		c.Window = Window{Width: 800, Height: 600}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	kept, err := os.ReadFile(p + ".broken")
+	if err != nil || string(kept) != string(broken) {
+		t.Fatalf("config.json.broken = %q, %v; want the old bytes", kept, err)
+	}
+	if got := Load(); got.Window.Width != 800 {
+		t.Fatalf("config after the update = %+v", got)
+	}
+	if _, err := os.Stat(p + ".tmp"); err == nil {
+		t.Fatal("temp file left behind")
 	}
 }
