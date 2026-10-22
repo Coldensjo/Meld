@@ -2,9 +2,11 @@ package mpq
 
 import (
 	"bytes"
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestWriteRoundTrip(t *testing.T) {
@@ -176,5 +178,64 @@ func TestOpenRejectsBadSectorShift(t *testing.T) {
 	}
 	for _, a := range s.Archives() {
 		a.Close()
+	}
+}
+
+// A user data block ("MPQ\x1b") whose header offset is 0 pointed back at itself
+// and made Open loop forever (#490); one that points at a real header must still
+// open, since MPQEditor's patches start with one.
+func TestOpenUserDataBlock(t *testing.T) {
+	dir := t.TempDir()
+	open := func(name string, data []byte) (*Archive, error) {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		type result struct {
+			a   *Archive
+			err error
+		}
+		done := make(chan result, 1)
+		go func() {
+			a, err := Open(path)
+			done <- result{a, err}
+		}()
+		select {
+		case r := <-done:
+			return r.a, r.err
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s: Open still running after 5 s", name)
+			return nil, nil
+		}
+	}
+
+	self := make([]byte, 1024)
+	copy(self, "MPQ\x1b")
+	if a, err := open("self.MPQ", self); err == nil {
+		a.Close()
+		t.Fatal("Open accepted a user data block pointing at itself")
+	}
+
+	garbage := make([]byte, 2048)
+	copy(garbage, "MPQ\x1b")
+	binary.LittleEndian.PutUint32(garbage[8:], 1024)
+	if a, err := open("garbage.MPQ", garbage); err == nil {
+		a.Close()
+		t.Fatal("Open accepted a user data block pointing at no header")
+	}
+
+	archive := Write([]File{{Name: `a.txt`, Data: []byte("user data")}})
+	wrapped := make([]byte, 512, 512+len(archive))
+	copy(wrapped, "MPQ\x1b")
+	binary.LittleEndian.PutUint32(wrapped[8:], 512)
+	wrapped = append(wrapped, archive...)
+	a, err := open("wrapped.MPQ", wrapped)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	got, err := a.ReadFile(`a.txt`)
+	if err != nil || string(got) != "user data" {
+		t.Fatalf("ReadFile = %q, %v", got, err)
 	}
 }

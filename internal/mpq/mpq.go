@@ -138,23 +138,35 @@ func (a *Archive) Close() error { return a.f.Close() }
 
 func (a *Archive) readHeader() error {
 	var buf [44]byte
-	// The header may sit at any 512-byte boundary.
-	for off := int64(0); ; off += 512 {
+	// The header may sit at any 512-byte boundary within the first 16 MiB.
+	found := false
+	for off := int64(0); off <= 1<<24; off += 512 {
 		if _, err := a.f.ReadAt(buf[:32], off); err != nil {
-			return errors.New("no MPQ header found")
-		}
-		magic := string(buf[:4])
-		if magic == "MPQ\x1b" { // user data block → points at real header
-			off += int64(binary.LittleEndian.Uint32(buf[8:])) - 512
-			continue
-		}
-		if magic == "MPQ\x1a" {
-			a.base = off
 			break
 		}
-		if off > 1<<24 {
-			return errors.New("no MPQ header found")
+		magic := string(buf[:4])
+		if magic == "MPQ\x1a" {
+			a.base = off
+			found = true
+			break
 		}
+		if magic == "MPQ\x1b" {
+			// A user data block (MPQEditor's patches start with one) gives the
+			// header's offset from its own start. The pointer is followed once
+			// and must land on a header; a pointer of 0 (#490) or one to garbage
+			// falls back to the scan, which always moves on.
+			if hop := int64(binary.LittleEndian.Uint32(buf[8:])); hop > 0 {
+				var magic2 [4]byte
+				if _, err := a.f.ReadAt(magic2[:], off+hop); err == nil && string(magic2[:]) == "MPQ\x1a" {
+					a.base = off + hop
+					found = true
+					break
+				}
+			}
+		}
+	}
+	if !found {
+		return errors.New("no MPQ header found")
 	}
 	if _, err := a.f.ReadAt(buf[:], a.base); err != nil && err != io.EOF {
 		return err
