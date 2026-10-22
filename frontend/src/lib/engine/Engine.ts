@@ -3641,6 +3641,18 @@ export class Engine {
     const verts = (m.size + 1) * (m.size + 1)
     if (m.heights.byteLength !== verts * 4) throw new Error('height data size mismatch')
     const d = new MapDocument(m.size, m.name || 'Untitled', m.cellSize)
+    // Anything below can throw once the document holds GPU resources, so it is freed on every throw (#535).
+    try {
+      this.fillDocument(d, m, filePath, replace)
+    } catch (e) {
+      d.dispose()
+      throw e
+    }
+    this.addDocument(d, replace)
+  }
+
+  /** The part of openDocument that can throw: fills the new document `d` from the snapshot. */
+  private fillDocument(d: MapDocument, m: MapSnapshot, filePath: string, replace: MapDocument | undefined) {
     const t = d.terrain
     let palette: string[]
     if (m.legacy) {
@@ -3651,7 +3663,6 @@ export class Engine {
       palette = Array.from({ length: LAYERS.length }, (_, i) => m.legacy!.layerTextures[i] || LAYERS[i].swatch)
     } else {
       if (m.weights.length !== t.weights.length || m.chunkSlots.length !== t.chunkSlots.length) {
-        d.dispose()
         throw new Error('paint data size mismatch')
       }
       t.weights.set(m.weights)
@@ -3670,7 +3681,6 @@ export class Engine {
     if (m.chunkData) {
       const c = m.chunkData
       if (c.areaIds.length !== t.areaIds.length || c.chunkFlags.length !== t.chunkFlags.length || c.noEffect.length !== t.noEffect.length) {
-        d.dispose()
         throw new Error('chunk data size mismatch')
       }
       t.areaIds.set(c.areaIds)
@@ -3680,7 +3690,6 @@ export class Engine {
     d.chunkDataKnown = m.chunkDataKnown
     if (m.shadows) {
       if (m.shadows.length !== (t.shadowSide * t.shadowSide) / 8) {
-        d.dispose()
         throw new Error('shadow data size mismatch')
       }
       t.setBakedShadows(m.shadows, t.shadowSide)
@@ -3721,7 +3730,6 @@ export class Engine {
       d.camera = replace.camera
       d.meta.bookmarks = [...replace.meta.bookmarks]
     }
-    this.addDocument(d, replace)
   }
 
   // ---------------------------------------------------------------- reference image (#184)
