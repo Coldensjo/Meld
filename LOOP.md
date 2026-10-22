@@ -328,8 +328,9 @@ a. Read the issue with its comments: `gh issue view <n> --repo Coldensjo/Meld --
 
 b. Read the code it touches before changing it, and search the decisions about the features it
    changes: `gh issue list --repo Coldensjo/Meld --state closed --label decision --search "<words>"`.
-   Read the docs for the area (CLAUDE.md, "Architecture docs", and the area's checks in the index of
-   docs/TESTS.md), and update them in the item's commit where it changes what they say. Keep the
+   Read the area's checks in the index of docs/TESTS.md, and the area's architecture doc when the
+   issue's notes don't already say which code to change and what the traps are (CLAUDE.md,
+   "Architecture docs"). Update the docs once for the item, where it changes what they say. Keep the
    change to that item. Follow the hard rules in docs/DESIGN.md, and every edit through `History`.
    When finding something means sweeping many files (every caller of a function, every place a
    format field is read), hand the sweep to an Explore subagent where your tools allow and keep only

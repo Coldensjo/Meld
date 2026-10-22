@@ -175,9 +175,13 @@ cd frontend && bun run build   # frontend only
 
 ## Architecture docs
 
-The architecture lives in `docs/architecture/`, one file an area. **Before changing code in an area,
-read its doc**; when a change alters what a doc says (a new feature, a moved function, a new rule),
-update the doc in the same commit. A new area gets its own file and a line here.
+The architecture lives in `docs/architecture/`, one file an area. It is a reference, not a step
+before every change: **read an area's doc when the issue's notes don't already say which code to
+change and what the traps are**, or when a change reaches past the code the notes name. Update the
+docs **once an issue**, in its last commit or a commit of its own, and only for what a later reader
+needs: a feature's behaviour and where it lives, a rule, a trap, a decision. A renamed or moved
+function needs a doc edit only where a doc names it. A new area gets its own file and a line here.
+The test docs are kept to the same rule (see "Testing notes"): a check worth repeating still goes in.
 
 | Doc | What it covers |
 |---|---|
