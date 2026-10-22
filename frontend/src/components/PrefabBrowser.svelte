@@ -107,7 +107,7 @@
 				<label title="The chance each model (with what hangs on it) is left out; one always stays">Leave out <input type="number" min="0" max="90" step="5" value={Math.round(prefs.prefabVary.drop * 100)} onchange={(ev) => (prefs.prefabVary.drop = clamp(num(ev), 0, 90) / 100)} />%</label>
 			{/if}
 		</div>
-		{#if hovered}
+		{#if hovered && prefs.browserNames}
 			<div class="name">{hovered.prefab.name}</div>
 			<ul>
 				{#each contents(hovered) as [name, n] (name)}<li><span>{name}</span>{#if n > 1}<span class="dim"> ×{n}</span>{/if}</li>{/each}

@@ -81,10 +81,13 @@ The window layout, the asset browser and the dock panels and floating windows.
     `PrefabBrowser` gets it as a prop, and both hand their result's length back through a bindable
     `count`. Neither has a search box of its own, and their category facets stay in their panels.
   - The **Names** checkbox in the header (`prefs.browserNames`, #655) shows or hides the name under
-    every browser tab's tiles (`PaletteTile`'s `showLabel`) and in the asset preview; the rows' height
-    (`rowH`) drops by the label's 22 px with it. The pickers and the brush editor always show names.
-    The header's size slider and the checkbox don't shrink (`flex: none`): a narrow header overflows
-    instead of squeezing the slider to nothing.
+    every browser tab's tiles (`PaletteTile`'s `showLabel`) and, in the asset preview, the whole details
+    block under the picture (name, kind, size and path; the Prefabs tab's name and contents too); the
+    rows' height (`rowH`) drops by the label's 22 px with it. The pickers and the brush editor always
+    show names. The size slider, the checkbox and the fold button sit in `.view-opts` at the header's
+    right end, 254 px wide so they stand over the 260 px preview column (owner's request). In a narrow
+    browser the search, the select and `.view-opts` shrink (to 60, 70 and 150 px) so the checkbox and
+    the fold button stay in view; the slider gives way first.
   - The **Sets** tab shows the author's model sets (`wow/modelSets.ts`, `prefs.modelSets`): named lists
     of doodads and buildings, made and filled through a tile's right-click menu (which also holds the
     favourite star), and imported or exported as TOML (`importModelSets`/`exportModelSet` in `mapio.ts`).

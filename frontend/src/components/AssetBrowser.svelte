@@ -437,18 +437,23 @@
         </select>
       {/if}
       <span class="count">{(spawnKind || kind === 'prefabs' ? childCount : items.length).toLocaleString()}</span>
-      <label class="size" title="Tile size">
-        <input type="range" min="64" max="176" step="8" bind:value={prefs.browserTile} />
-      </label>
     {/if}
-    {#if !prefs.browserCollapsed}
-      <label class="names" title="Show each tile's name under its picture, and the name in the preview">
-        <input type="checkbox" bind:checked={prefs.browserNames} /> Names
-      </label>
-    {/if}
-    <button class="chev" onclick={() => (prefs.browserCollapsed = !prefs.browserCollapsed)} title={prefs.browserCollapsed ? 'Expand' : 'Collapse'} aria-label={prefs.browserCollapsed ? 'Expand the asset browser' : 'Collapse the asset browser'}>
-      {prefs.browserCollapsed ? '▴' : '▾'}
-    </button>
+    <!-- The tile size and Names sit over the preview column, as wide as it, at the header's right end. -->
+    <div class="view-opts">
+      {#if !prefs.browserCollapsed && wow.loaded}
+        <label class="size" title="Tile size">
+          <input type="range" min="64" max="176" step="8" bind:value={prefs.browserTile} />
+        </label>
+      {/if}
+      {#if !prefs.browserCollapsed}
+        <label class="names" title="Show each tile's name under its picture, and the details under the preview">
+          <input type="checkbox" bind:checked={prefs.browserNames} /> Names
+        </label>
+      {/if}
+      <button class="chev" onclick={() => (prefs.browserCollapsed = !prefs.browserCollapsed)} title={prefs.browserCollapsed ? 'Expand' : 'Collapse'} aria-label={prefs.browserCollapsed ? 'Expand the asset browser' : 'Collapse the asset browser'}>
+        {prefs.browserCollapsed ? '▴' : '▾'}
+      </button>
+    </div>
   </header>
 
   {#if !prefs.browserCollapsed}
@@ -584,6 +589,7 @@
   }
   .kinds {
     display: flex;
+    flex: none;
     align-self: stretch;
   }
   .tab {
@@ -602,25 +608,41 @@
     background: var(--panel);
     color: var(--text);
   }
+  /* In a narrow browser the search, the select and the slider shrink, so Names and the fold button stay in view. */
   .search {
-    flex: 1;
-    min-width: 120px;
+    flex: 1 1 160px;
+    min-width: 60px;
     max-width: 420px;
   }
-  select {
-    width: 150px;
+  header select {
+    flex: 0 1 150px;
+    min-width: 70px;
   }
   .count {
+    flex: none;
     font: 11px var(--mono);
     color: var(--text-dim);
-    min-width: 48px;
     text-align: right;
   }
-  .size {
-    width: 90px;
-    flex: none;
+  .view-opts {
+    margin-left: auto;
+    /* The preview column's 260 px, less the header's right padding. */
+    flex: 0 1 254px;
+    min-width: 150px;
     display: flex;
     align-items: center;
+    gap: 6px;
+    padding-left: 8px;
+    box-sizing: border-box;
+  }
+  .size {
+    flex: 1;
+    min-width: 30px;
+    display: flex;
+    align-items: center;
+  }
+  .size input {
+    width: 100%;
   }
   .names {
     flex: none;
@@ -633,6 +655,7 @@
   }
   .chev {
     margin-left: auto;
+    flex: none;
     border: none;
     background: transparent;
     color: var(--text-dim);

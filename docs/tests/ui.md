@@ -106,9 +106,12 @@ Checks: the asset browser header's Names checkbox (`.names input`, `prefs.browse
 under every tab's tiles and in the preview, and the virtual rows pack tighter.
 - In the dev page, on Doodads: a `.tile` is 110 px tall with names and 90 px without at the default size,
   and `.virtual`'s height drops with it (400 to 312 px for four rows); `.tile .label` count goes to 0.
-  Hover a tile (`pointerenter`) and the preview's `.details .name` goes and comes back with the box.
-- Trap: the header is crowded at 125 % interface size. The size slider and the checkbox are `flex: none`;
-  without that the checkbox squeezed the slider to 0 px. Check `.size input`'s width after a header change.
+  Hover a tile (`pointerenter`) and the preview's `.details` (name, kind, size, path) goes and comes back with the box.
+- The slider, Names and the fold button (`header .view-opts`) start at the preview column's left edge
+  when the browser has room, and stay in view beside the dock. Probe: `bun run probe browser-names`
+  (the dock hidden and shown, three tabs, and the preview's details with Names off).
+- Trap: the header is crowded at 125 % interface size or beside the dock (1017 px in the dev page): the
+  search, the select and `.view-opts` shrink; check that `.chev` ends inside the browser after a header change.
 - The setting is saved to the real config from the dev page: put it back.
 
 ## The same header on every tab (#651)

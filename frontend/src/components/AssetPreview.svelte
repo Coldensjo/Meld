@@ -163,14 +163,15 @@
   {:else}
     {#if loading}<p class="hint">Loading…</p>{/if}
     {#if failed}<p class="hint">Nothing to show (an effect-only model).</p>{/if}
-    <div class="details">
-      {#if prefs.browserNames}<div class="name" title={shownPath}>{item.name}</div>{/if}
+    <!-- Names off (#655) leaves only the picture: no name, kind, size or path under it. -->
+    {#if prefs.browserNames}<div class="details">
+      <div class="name" title={shownPath}>{item.name}</div>
       <div class="dim">{item.kind === 'tex' ? 'Texture' : item.kind === 'm2' ? 'Doodad' : 'Building'} · {item.category} · {item.zone}</div>
       {#if info}
         <div class="dim">{yards(info.w)} × {yards(info.d)} yd, {yards(info.h)} yd tall · {info.tris.toLocaleString()} tris</div>
       {/if}
       <div class="path">{shownPath}</div>
-    </div>
+    </div>{/if}
   {/if}
 </div>
 
