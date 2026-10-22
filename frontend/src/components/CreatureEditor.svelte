@@ -74,6 +74,7 @@
     loading = true
     try {
       const r = await ReadCreature(entry)
+      if (ui.creatureEditor?.entry !== entry) return
       record = r
       values = { ...r.values }
       saved = { ...r.values }
@@ -98,9 +99,10 @@
     const d = firstDisplay.display
     const eq = Number(values.equipment_id) || 0
     if (!record) return
+    const current = () => firstDisplay.display === d && (Number(values.equipment_id) || 0) === eq
     SpawnLook(d, eq, 0, 0, 1)
-      .then((l) => (templateLook = l))
-      .catch(() => (templateLook = null))
+      .then((l) => current() && (templateLook = l))
+      .catch(() => current() && (templateLook = null))
   })
   // The display slot (1-4) a click in the Looks picker fills, and the display under the pointer.
   let slot = $state(1)
@@ -128,7 +130,11 @@
     animsFor = m
     anim = null
     anims = []
-    if (m && !m.toLowerCase().endsWith('.wmo')) ModelAnimations(m).then((a) => (anims = a ?? [])).catch(() => (anims = []))
+    if (m && !m.toLowerCase().endsWith('.wmo')) {
+      ModelAnimations(m)
+        .then((a) => animsFor === m && (anims = a ?? []))
+        .catch(() => animsFor === m && (anims = []))
+    }
   })
 
   const unsavedText = $derived(
