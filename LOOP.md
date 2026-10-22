@@ -289,7 +289,9 @@ as a duplicate, and say so in the run log; whether an external request fits is t
 
 **6. Check the run as a whole, then push.** When the run committed anything, run every probe
 (`make probe`, a few minutes): it catches what an item broke in another item's feature, which its
-own checks don't look at. If one fails, find the commit that broke it (the probe's subject against
+own checks don't look at. Skip it when the run changed only Markdown files (`git diff --name-only
+@{u}..HEAD` lists nothing but `.md` files), since no probe can catch a doc edit; say so in the
+report. If one fails, find the commit that broke it (the probe's subject against
 the run's commits; rerun it with that commit reverted in the working tree if unsure, then restore
 it). File the failure as a `bug` issue and hand it to a worker like any item. If it
 cannot be fixed in this run, revert the commit (`git revert`, a new commit, never a reset), reopen
