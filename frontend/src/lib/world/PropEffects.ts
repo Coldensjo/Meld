@@ -145,6 +145,8 @@ export class PropEffects {
    * all three in one frame.
    */
   private stale = new Uint8Array(SHADOW_LIGHTS)
+  /** The shadowed light whose map was redrawn last, where the next search starts after (#629). */
+  private lastRedrawn = SHADOW_LIGHTS - 1
   private sceneVersion = -1
   private shadows = false
   /** The reach of the shadowed lights in use, for culling: what can throw their shadows must be drawn. */
@@ -374,11 +376,17 @@ export class PropEffects {
     this.shadowSpheres.length = 0
     clearShadowReach()
 
-    // The one shadow map redrawn this frame: a new light's first, else an out-of-date one.
+    // The one shadow map redrawn this frame: a new light's first, else an out-of-date one. Ties go
+    // round robin from the light after the one redrawn last: a drag or a sculpt stroke marks every
+    // map out of date each frame, and taking the first would redraw light 0's alone (#629).
     if (redraw) for (let i = 0; i < SHADOW_LIGHTS; i++) if (this.stale[i] < 1) this.stale[i] = 1
     let next = -1
-    for (let i = 0; i < SHADOW_LIGHTS; i++) if (this.slots[i] >= 0 && this.stale[i] > (next < 0 ? 0 : this.stale[next])) next = i
+    for (let k = 1; k <= SHADOW_LIGHTS; k++) {
+      const i = (this.lastRedrawn + k) % SHADOW_LIGHTS
+      if (this.slots[i] >= 0 && this.stale[i] > (next < 0 ? 0 : this.stale[next])) next = i
+    }
     if (next >= 0) {
+      this.lastRedrawn = next
       this.stale[next] = 0
       if (this.lights[next].castShadow) this.lights[next].shadow.needsUpdate = true
     }

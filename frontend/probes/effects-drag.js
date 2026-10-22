@@ -2,7 +2,8 @@
 // The lights, flames and particle pools follow the moved objects without a full rebuild (PropEffects.rebuild and ParticleLayer.rebuild
 // not called), no shadowed light goes dark for a frame, and what they hold after it matches a full rebuild. Prints the ms a frame of
 // PropEffects.update, ParticleLayer.update and WmoRooms.update during each, for before/after. With View › Bounding boxes on, the
-// drag rewrites the moved box in place and the lines match a full rebuild.
+// drag rewrites the moved box in place and the lines match a full rebuild. Each shadowed light's cube map is redrawn in turn during
+// both (#629), not light 0's every frame: `redraws` counts the frames each light's shadow.needsUpdate was set.
 const { buildBenchMap, benchView, benchMap } = await P.app('/src/lib/bench/benchMaps.ts')
 const { getAsset } = await P.app('/src/lib/models/assets.ts')
 const { prefs, editor } = await P.state()
@@ -76,9 +77,22 @@ const per = (s, n) => {
 	return r
 }
 const out = { object: o.type.split(/[\\/]/).pop(), sources: count(), pools: parts.list.length }
+// The frames each shadowed light's map was asked to redraw, counted around PropEffects.update.
+const redraws = [0, 0, 0]
+const update = fx.update
+fx.update = function (...a) {
+	const was = this.lights.slice(0, 3).map((l) => l.shadow.needsUpdate)
+	const r = update.apply(this, a)
+	for (let i = 0; i < 3; i++) if (!was[i] && this.lights[i].shadow.needsUpdate) redraws[i]++
+	return r
+}
+/** The lights holding a shadowed source, whose maps should share the redraws. */
+const shadowed = () => [0, 1, 2].filter((i) => fx.lights[i].castShadow && fx.slots[i] >= 0)
+/** Every shadowed light got about its share of `frames` redraws. */
+const turns = (r, lit, frames) => lit.length > 0 && lit.every((i) => r[i] >= Math.floor(frames / lit.length) - 1)
+const N = 20
 try {
 	// A drag, as the Select tool does it: the fields written and the object touched, a frame each move.
-	const N = 20
 	const x0 = o.x
 	let darkFrames = 0
 	const boxesWere = prefs.showBoxes
@@ -87,6 +101,7 @@ try {
 	const boxGeo = () => e.boxes.lines.geometry
 	const geo0 = boxGeo()
 	t.reset()
+	redraws.fill(0)
 	for (let i = 1; i <= N; i++) {
 		o.x = x0 + i * 0.25
 		o.rotY = i * 0.05
@@ -94,7 +109,7 @@ try {
 		await P.frames(1)
 		if (dark()) darkFrames++
 	}
-	out.drag = { ...per(t.snap(), N), darkFrames }
+	out.drag = { ...per(t.snap(), N), darkFrames, redraws: [...redraws], shadowed: shadowed() }
 	// The boxes: written in place (the same geometry), and as a full rebuild makes them.
 	const boxes = Float32Array.from(boxGeo().getAttribute('position').array)
 	out.drag.boxesInPlace = boxGeo() === geo0
@@ -121,6 +136,7 @@ try {
 	editor.brush.strength = 1
 	t.reset()
 	let sculptDark = 0
+	redraws.fill(0)
 	// Around the dragged object: nothing stands within 60 yd of the camera's own spot.
 	const c = L.worldPosition(o, new V3())
 	const n = 20
@@ -136,7 +152,7 @@ try {
 	}
 	tool.onUp(e.ctx)
 	await P.frames(1)
-	out.sculpt = { ...per(t.snap(), n + 1), darkFrames: sculptDark }
+	out.sculpt = { ...per(t.snap(), n + 1), darkFrames: sculptDark, redraws: [...redraws], shadowed: shadowed(), frames: n + 1 }
 	const sculpted = snapSources()
 	out.sculpt.pool = poolErr()
 	fx.layer = null
@@ -146,6 +162,7 @@ try {
 	await P.frames(1)
 	editor.tool = 'select'
 } finally {
+	delete fx.update
 	t.restore()
 }
 const close = (v) => v < 1e-3
@@ -155,6 +172,8 @@ const ok =
 	out.drag.boxesInPlace &&
 	close(out.drag.boxErr) &&
 	out.drag.darkFrames === 0 &&
+	turns(out.drag.redraws, out.drag.shadowed, N) &&
+	turns(out.sculpt.redraws, out.sculpt.shadowed, out.sculpt.frames) &&
 	close(out.drag.vsRebuild) &&
 	close(out.drag.pool.err) &&
 	out.sculpt['PropEffects.rebuild'].calls === 0 &&

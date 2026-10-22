@@ -226,7 +226,8 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
   insertion, ties to the lower index), not a sort of them all.
   - A prop's coincident light and flames merge into one light.
   - The nearest `SHADOW_LIGHTS` (3) cast cube shadows (even with the Shadows pref off) so they don't shine through walls. Their maps
-    redraw only when a light gets another source or the objects or terrain change, and culling keeps
+    redraw only when a light gets another source or the objects or terrain change, one map a frame (a new
+    light's first, ties round robin, so a drag or sculpt stroke redraws the three in turn), and culling keeps
     every model within their reach (`CullView.spheres`). The terrain shader applies them per light
     and reads the sun's shadow alone (`keyShadow`), not `getShadowMask`.
   - Lights inside a WMO's interior groups (`Effect.Interior`) get flames but no light: interiors are
