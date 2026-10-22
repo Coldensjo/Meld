@@ -28,8 +28,10 @@
 
   /** The tooltip beside the hovered button (#130): shown after TIP_DELAY, at once when moving on from one. */
   const TIP_DELAY = 300
-  /** Its gap to the right of the toolbar, px. */
+  /** Its gap to the toolbar, px. */
   const TIP_GAP = 10
+  /** The toolbar is at the window's right edge (#654), so its tooltip opens to its left. */
+  const right = $derived(prefs.toolbarSide === 'right')
   let tip = $state<{ tool: (typeof TOOLS)[number]; x: number; y: number } | null>(null)
   let timer = 0
   let lastHidden = 0
@@ -40,7 +42,7 @@
       const b = el.getBoundingClientRect()
       const bar = el.closest('nav')!.getBoundingClientRect()
       // Rects are in window px, the tip's left and top in the zoomed page's CSS px (#372).
-      tip = { tool: t, x: toCss(bar.right) + TIP_GAP, y: toCss(b.top + b.height / 2) }
+      tip = { tool: t, x: right ? toCss(bar.left) - TIP_GAP : toCss(bar.right) + TIP_GAP, y: toCss(b.top + b.height / 2) }
     }
     if (tip || performance.now() - lastHidden < TIP_DELAY) place()
     else timer = window.setTimeout(place, TIP_DELAY)
@@ -55,7 +57,7 @@
 
 <svelte:window onblur={hideTip} />
 
-<nav class="toolbar" style:--icon="{icon}px">
+<nav class="toolbar" class:right style:--icon="{icon}px">
   {#each TOOLS as t (t.id)}
     <button
       class:active={editor.tool === t.id}
@@ -79,7 +81,7 @@
 </nav>
 
 {#if tip}
-  <div class="tip" role="tooltip" style:left="{tip.x}px" style:top="{tip.y}px">
+  <div class="tip" class:right role="tooltip" style:left="{tip.x}px" style:top="{tip.y}px">
     <div class="tip-name">{tip.tool.name} <kbd>{tip.tool.letter ? tip.tool.letter + ', ' : ''}{tip.tool.key}</kbd></div>
     <div class="tip-desc">{tip.tool.desc}</div>
   </div>
@@ -97,6 +99,10 @@
     scrollbar-width: none;
     background: var(--panel);
     border-right: 1px solid var(--border);
+  }
+  .toolbar.right {
+    border-right: none;
+    border-left: 1px solid var(--border);
   }
   button {
     flex: none;
@@ -132,6 +138,10 @@
     border-radius: var(--radius);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
     pointer-events: none;
+  }
+  /* Its right edge at x, beside a toolbar on the right. */
+  .tip.right {
+    transform: translate(-100%, -50%);
   }
   .tip-name {
     color: var(--text);

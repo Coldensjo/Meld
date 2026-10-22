@@ -365,7 +365,7 @@
   {#if !ui.hidePanels}
     <OptionsBar />
   {/if}
-  <div class="main">
+  <div class="main" class:toolbar-right={prefs.toolbarSide === 'right'}>
     {#if !ui.hidePanels}
       <Toolbar />
     {/if}
@@ -429,5 +429,20 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+  }
+  /* The toolbar at the window's right edge, after the dock (#654): the columns change, not the DOM, so the tab order stays. */
+  .main.toolbar-right {
+    grid-template-columns: 1fr auto auto;
+  }
+  .main.toolbar-right > .centre {
+    grid-column: 1;
+  }
+  .main.toolbar-right > :global(.toolbar) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .main.toolbar-right > :global(.dock) {
+    grid-column: 2;
+    grid-row: 1;
   }
 </style>

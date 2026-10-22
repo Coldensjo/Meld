@@ -596,7 +596,7 @@
 					() => prefs.uiScale,
 					(v) => (prefs.uiScale = v),
 				),
-				{ kind: 'header', label: 'Toolbar icons' },
+				{ kind: 'header', label: 'Toolbar' },
 				...radios(
 					[
 						['Small', TOOLBAR_ICON_MIN],
@@ -607,6 +607,14 @@
 					],
 					() => prefs.toolbarIcon,
 					(v) => (prefs.toolbarIcon = v),
+				),
+				...radios<typeof prefs.toolbarSide>(
+					[
+						['Toolbar on the left', 'left'],
+						['Toolbar on the right', 'right'],
+					],
+					() => prefs.toolbarSide,
+					(v) => (prefs.toolbarSide = v),
 				),
 				{ kind: 'sep' },
 				{ kind: 'check', label: 'Invert camera Y', checked: prefs.invertY, toggle: () => (prefs.invertY = !prefs.invertY) },
