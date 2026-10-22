@@ -2407,6 +2407,25 @@ export class Engine {
     docs.active = this.doc.id
   }
 
+	/**
+	 * Ends what a held button is doing on the outgoing document before a tab switch or close (#549),
+	 * as a stroke's onUp does: a gizmo drag pushes its step into that document's History (it reads the
+	 * selection and `this.objects`, which still name the old tab), a flight-path drag hands the window
+	 * where the stop went, and the brush-size drag, a Select press on a trigger and the path test's
+	 * clicks, which belong to a spot on the old map, are dropped.
+	 */
+	private endInteractions() {
+		if (this.gizmoDrag) this.endGizmoDrag()
+		if (this.taxiDrag) this.endTaxiDrag()
+		this.sizeDrag = null
+		this.trigDown = null
+		if (this.navPick) {
+			this.navPick = false
+			this.nav.clearPath()
+			setStatus('Stopped the path test.', 2000)
+		}
+	}
+
   /** Make `d` the edited/rendered document. `stash` saves the current one first. */
   private activate(d: MapDocument, stash = true) {
     // Already the active tab: its `meta` is the copy from the last stash, so loading it would revert
@@ -2424,6 +2443,7 @@ export class Engine {
       this.activeTool?.onUp?.(this.ctx, this.hit, new PointerEvent('pointerup'))
       this.leftDown = false
     }
+    if (this.doc) this.endInteractions()
     if (stash && this.doc && this.doc !== d) {
       this.stashActive()
       this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.water.floor, this.doc.objects.group, this.doc.groundEffects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)

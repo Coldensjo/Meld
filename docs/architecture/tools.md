@@ -144,7 +144,10 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     its footprint, or another prop's box meeting its own), so an author sees when a model is
     attached. The mask's B channel carries it per model.
   - `TransformGizmo` provides a ring (spin) and an up/down arrow (height). Gizmo drags are
-    handled in `Engine` before tools get the pointer, and each drag is one undo step.
+    handled in `Engine` before tools get the pointer, and each drag is one undo step. A tab switch
+    or close with the button held ends the drag on the outgoing tab first (`Engine.endInteractions`,
+    called from `activate`, as a stroke gets its `onUp`): its step goes into that tab's History, a
+    flight-path drag is handed to the window, and a brush-size drag or the path test is dropped (#549).
   - Red parts of the outline are decided per pixel in the mask shader: below the terrain (from
     `Terrain.heightTexture()`, shared with the terrain, which uploads only the edited rect) or inside an overlapping prop's box (`Engine.overlappingBoxes`, up to
     8). The edge pass colours the stroke from the neighbouring mask pixels.
