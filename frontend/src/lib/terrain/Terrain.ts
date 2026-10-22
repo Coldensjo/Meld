@@ -697,6 +697,7 @@ export class Terrain {
 
   /** Sets the baked shadows to `bytes` (a byte per texel, kept), or none. */
   setShadow(bytes: Uint8Array | null) {
+    if (this.disposed) return
     this.bakedTex?.dispose()
     this.bakedTex = null
     this.shadow = bytes
@@ -765,7 +766,11 @@ export class Terrain {
     this.material.uniforms.bakedShadowOn.value = on && this.bakedTex ? 1 : 0
   }
 
+  /** Set by dispose: a late shadow set (a client read that outlived its tab) then makes no texture. */
+  private disposed = false
+
   dispose() {
+    this.disposed = true
     for (const c of this.chunks) c.geometry.dispose()
     this.bakedTex?.dispose()
     this.material.dispose()

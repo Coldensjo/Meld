@@ -144,6 +144,7 @@ export class SpawnLayer {
 
   /** Replaces the drawn spawns, and starts loading their models. Forgets every edit. */
   set(spawns: vmangos.WorldSpawn[]) {
+    if (this.disposed) return
     this.spawns = spawns
     this.keys = new Map(spawns.map((s) => [spawnKey(s), s]))
     this.originals.clear()
@@ -455,6 +456,7 @@ export class SpawnLayer {
   }
 
   private rebuild() {
+    if (this.disposed) return
     this.version++
     this.clearMeshes()
 		this.loaded.clear()
@@ -553,7 +555,11 @@ export class SpawnLayer {
     this.where.clear()
   }
 
+  /** Set by dispose: a late set (a database read that outlived its tab) then draws and loads nothing. */
+  private disposed = false
+
   dispose() {
+    this.disposed = true
     this.unsubscribe()
     this.clearMeshes()
     this.cone.dispose()

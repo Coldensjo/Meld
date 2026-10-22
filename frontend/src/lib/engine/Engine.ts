@@ -119,6 +119,7 @@ import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, Factions, MapEntries, MapLigh
 import { base64ToBytes } from '../io/base64'
 import { contentKey } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
+import { yieldToFrame } from './yieldToFrame'
 
 /** The most Teleport items a spawn's menu lists (#308); a boss with many blink spots would fill the screen. */
 const MAX_TELEPORT_ITEMS = 10
@@ -1903,11 +1904,13 @@ export class Engine {
   private updateInnerLift() {
     const t = this.terrain
     const region = this.doc.meta.region
+    const doc = this.doc
     if (t.innerRequested || !region || region.wmoOnly || !wow.loaded) return
     t.innerRequested = true
     t.innerPending = true
     RegionInner(region.mapName, region.x, region.y, region.size)
       .then((r) => {
+        if (!this.documents.includes(doc)) return
         if (r?.lifts && r.base && r.side === t.size) {
           const b = base64ToBytes(r.lifts)
           const c = base64ToBytes(r.base)
@@ -2595,6 +2598,8 @@ export class Engine {
    * document may no longer be the active tab by the time they arrive; the layer is kept either way.
    */
   setSpawns(d: MapDocument, spawns: vmangos.WorldSpawn[]) {
+    // The tab was closed while the database was read: its layer is disposed, nothing to give it (#550).
+    if (!this.documents.includes(d)) return
 		const before = d.spawnLayer.modelTypes(new Set())
     d.spawnLayer.set(spawns)
 		// Spawns read again: the models only the old ones used are let go of (#505).
@@ -2610,6 +2615,7 @@ export class Engine {
 
   /** Records why a region's spawns could not be read, so the UI can say so and offer a retry. */
   setSpawnsError(d: MapDocument, message: string) {
+    if (!this.documents.includes(d)) return
     d.spawnsError = message
     if (d === this.doc) editor.spawnsError = message
   }
@@ -5265,11 +5271,13 @@ export class Engine {
   private updateBakedShadows() {
     const t = this.terrain
     t.showBakedShadows(!!this.prefs?.bakedShadows || (editor.tool === 'mapdata' && editor.mapDataMode === 'shadow'))
-    const region = this.doc.meta.region
+    const doc = this.doc
+    const region = doc.meta.region
     if (t.bakedRequested || !region || !wow.loaded) return
     t.bakedRequested = true
     RegionShadows(region.mapName, region.x, region.y, region.size)
       .then((s) => {
+        if (!this.documents.includes(doc)) return
         if (s?.bits && !t.shadow) t.setBakedShadows(base64ToBytes(s.bits), s.side)
       })
       .catch((err) => console.warn('baked shadows not read', err))
@@ -5295,6 +5303,7 @@ export class Engine {
       setStatus('Shadows are still baking.')
       return
     }
+    const doc = this.doc
     const t = this.terrain
     const r = this.shadowRect()
     const stroke = new ShadowStroke(t, groundOnly ? 'Bake shadows from the ground' : 'Bake shadows')
@@ -5325,11 +5334,11 @@ export class Engine {
         if (z <= r.z1) {
           setStatus(`Baking shadows ${where}… ${Math.round(((z - r.z0) / (r.z1 - r.z0 + 1)) * 100)}%`, 2000)
           // A message, not a timeout: a hidden window throttles timeouts to one a second.
-          await new Promise<void>((done) => {
-            const ch = new MessageChannel()
-            ch.port1.onmessage = () => done()
-            ch.port2.postMessage(0)
-          })
+          await yieldToFrame()
+          if (!this.documents.includes(doc)) {
+            setStatus('The shadow bake stopped: its map was closed.')
+            return
+          }
         }
       }
     } finally {
@@ -5339,7 +5348,7 @@ export class Engine {
     // The bake may have ended on another tab; its stroke belongs to the map it started on.
     stroke.touch(r)
     const cmd = stroke.finish()
-    if (cmd) (this.documents.find((d) => d.terrain === t)?.history ?? this.history).push(cmd)
+    if (cmd) doc.history.push(cmd)
     const from = models ? ` from the ground and ${models.count} models` : ' from the ground'
     const waiting = models?.loading ? ` ${models.loading} models still loading cast nothing; bake again once they show.` : ''
     setStatus((n ? `Baked the shadows ${where}${from}: ${n} texels changed.` : `The shadows ${where} were already so.`) + waiting, waiting ? 8000 : 4000)
@@ -5361,6 +5370,7 @@ export class Engine {
       setStatus('The ground is still eroding.')
       return false
     }
+    const doc = this.doc
     const t = this.terrain
     const objects = this.objects
     const s = editor.selection
@@ -5380,6 +5390,10 @@ export class Engine {
       finished = await erodePatch(work, w, h, weights, o, progress, cancelled)
     } finally {
       this.eroding = false
+    }
+    if (!this.documents.includes(doc)) {
+      setStatus('The erosion stopped: its map was closed.')
+      return false
     }
     if (!finished) {
       setStatus(`Erosion cancelled; the ground ${where} is as it was.`)
@@ -5417,8 +5431,8 @@ export class Engine {
       t.markMaskDirty()
     }
     const cmd = stroke.finish()
-    if (cmd) (this.documents.find((d) => d.terrain === t)?.history ?? this.history).push(cmd)
-    if (gain) this.refreshMaskState()
+    if (cmd) doc.history.push(cmd)
+    if (gain && doc === this.doc) this.refreshMaskState()
     const masked = !gain ? '' : settled ? `; the mask holds where it settled (Paint › Fill Mask with Paint Texture lays a texture there)` : '; nothing settled enough to mask'
     setStatus(`Eroded the ground ${where}: up to ${most.toFixed(1)} yd moved${masked}.`, gain ? 8000 : 4000)
     return true
