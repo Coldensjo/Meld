@@ -92,6 +92,9 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   all (Azeroth_32_48 chunk 0, the first chunk row and column of 31_49, 30_40's north border, whose
   heights differ from the north tile's in 22 shared samples), so pick chunks and sides that were
   checked; and the client truncates each part (`int8(v*127)`), so rounding puts half the bytes 1 off.
+  `TestRegionNormalsReachTheTilesBeside` (no client needed) sculpts the column one in from a block's
+  east edge and checks the client tiles east of it get their west border normals redone to match,
+  heights and other chunks kept, an unedited save and the same edit from the patch writing neither (#666).
   `TestBuildTileNormalsMeetAcrossTheBorder`, `TestWriteHeightsRefreshesTheBorderWhenTheRingMoves`
   (`internal/adt`), `TestRegionNormalsMeetAcrossTiles` and `TestRegionNormalsReadTheInnerSamplesAcrossTiles`
   (`internal/vmangos`, made-up maps in a temp MPQ; the second gives the client tiles inner samples off

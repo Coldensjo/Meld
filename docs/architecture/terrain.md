@@ -166,8 +166,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     save starts from, the client's beyond without Meld's patch); a border chunk whose ring moved has
     its normals redone though its own heights didn't change, and an unedited block stays
     byte-identical. A new map's tiles (`ExportMap`) take the ring from the map's other tiles
-    (`tileRing`). A side without a tile stays one-sided. The tiles outside the block keep their own
-    normals, so sculpting a row in from the block's edge leaves theirs on that border as they were.
+    (`tileRing`). A side without a tile stays one-sided. A client tile sharing a side with the block
+    whose normals along it the block's line one in from its edge (or the inner samples of its cells
+    there) moves gets its border chunks' normals redone too, its heights and the rest of its bytes
+    kept (`blockEdges`' `beside`, #666): `Was` there is the block tile as the client reads it now when
+    Meld's patch holds the outside tile, without the patch when it is still the client's own, so an
+    unedited save, or the same edit again, writes no tile outside. One the save writes for its models
+    too (#647) is written once, `adt.Rewrite` over the new normals.
   - `NavPreview.ts` keeps the tiles within `RANGE` (160 yd), builds the nearest first within 6 ms a
     frame, and builds them again 400 ms after the terrain's height or holes, the objects, the
     loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. A change to the

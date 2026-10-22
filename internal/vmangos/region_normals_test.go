@@ -227,3 +227,176 @@ func TestRegionNormalsReadTheInnerSamplesAcrossTiles(t *testing.T) {
 		t.Errorf("%d of 48 samples on the border of 0_0 and 1_0 store different normals", apart)
 	}
 }
+
+// TestRegionNormalsReachTheTilesBeside saves the 2x2 block at 0_0 of a made-up map of hills whose
+// client tiles 2_0 and 2_1 lie east of it (#666). An unedited save writes neither. Sculpting the
+// block's column one in from its east edge (255) redoes their west border normals to match the
+// block's east edge, keeping their heights and their other normals; a model added by the edge makes
+// 2_0 written once, with both. Compiled into the patch, the same edit writes no tile outside again.
+func TestRegionNormalsReachTheTilesBeside(t *testing.T) {
+	dir := t.TempDir()
+	onMap := func(x, y int) bool { return x >= 0 && y >= 0 && x < 3 && y < 2 }
+	// hills is a tile as a client would have it, its border normals read from the map's other tiles.
+	hills := func(tx, ty int) mpq.File {
+		x0, y0 := tx*tileCells, ty*tileCells
+		outer := make([]float32, LatticeSize*LatticeSize)
+		for r := 0; r < LatticeSize; r++ {
+			for c := 0; c < LatticeSize; c++ {
+				outer[r*LatticeSize+c] = hillAt(x0+c, y0+r)
+			}
+		}
+		var ring adt.Ring
+		for _, s := range []struct {
+			dx, dy int
+			line   *[]float32
+			at     func(k int) float32
+		}{
+			{0, -1, &ring.North, func(k int) float32 { return hillAt(x0+k, y0-1) }},
+			{0, 1, &ring.South, func(k int) float32 { return hillAt(x0+k, y0+tileCells+1) }},
+			{-1, 0, &ring.West, func(k int) float32 { return hillAt(x0-1, y0+k) }},
+			{1, 0, &ring.East, func(k int) float32 { return hillAt(x0+tileCells+1, y0+k) }},
+		} {
+			if !onMap(tx+s.dx, ty+s.dy) {
+				continue
+			}
+			*s.line = make([]float32, LatticeSize)
+			for k := range *s.line {
+				(*s.line)[k] = s.at(k)
+			}
+		}
+		root, err := adt.BuildTile(outer, ring, adt.Changes{TileX: tx, TileY: ty})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return mpq.File{Name: adt.TilePath("Hills", tx, ty, ""), Data: root}
+	}
+	mphd := binary.LittleEndian.AppendUint32([]byte("DHPM"), 32)
+	wdt, err := BuildWDT(append(mphd, make([]byte, 32)...), onMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := []mpq.File{{Name: `World\Maps\Hills\Hills.wdt`, Data: wdt}}
+	client := map[string][]byte{}
+	for ty := 0; ty < 2; ty++ {
+		for tx := 0; tx < 3; tx++ {
+			f := hills(tx, ty)
+			files = append(files, f)
+			client[fileTileName(f.Name)] = f.Data
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "terrain.MPQ"), mpq.Write(files), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	side := 2*tileCells + 1
+	heights := make([]float32, side*side)
+	for r := 0; r < side; r++ {
+		for c := 0; c < side; c++ {
+			heights[r*side+c] = hillAt(c, r)
+		}
+	}
+	byName := func(out []mpq.File) map[string][]byte {
+		m := map[string][]byte{}
+		for _, f := range out {
+			if name := fileTileName(f.Name); name != "" {
+				if _, twice := m[name]; twice {
+					t.Fatalf("the save wrote %s twice", name)
+				}
+				m[name] = f.Data
+			}
+		}
+		return m
+	}
+	edit := RegionEdit{MapName: "Hills", X: 0, Y: 0, Size: 2, Heights: EncodeHeights(heights)}
+	out, err := BuildRegion(dir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := byName(out); got["2_0"] != nil || got["2_1"] != nil {
+		t.Fatal("an unedited save wrote a tile outside the block")
+	}
+
+	for r := 1; r < side-1; r++ {
+		heights[r*side+side-2] += 3
+	}
+	edit.Heights = EncodeHeights(heights)
+	edit.Objects = []ObjectView{{Type: `m2:World\Test\Rock.m2`, X: 2*adt.TileSize - 4, Z: 100, Scale: 1}}
+	out, err = BuildRegion(dir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := byName(out)
+	last := LatticeSize - 1
+	for _, b := range []struct{ in, beside string }{{"1_0", "2_0"}, {"1_1", "2_1"}} {
+		root := got[b.beside]
+		if root == nil {
+			t.Fatalf("the save didn't write %s, beside the sculpted column", b.beside)
+		}
+		inside, err := adt.ParseNormals(got[b.in])
+		if err != nil {
+			t.Fatal(err)
+		}
+		normals, err := adt.ParseNormals(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		apart := 0
+		for k := 0; k < LatticeSize; k++ {
+			if latticeNormal(inside, k, last) != latticeNormal(normals, k, 0) {
+				apart++
+			}
+		}
+		if apart > 0 {
+			t.Errorf("%d of %d samples on the border of %s and %s store different normals", apart, LatticeSize, b.in, b.beside)
+		}
+		was, err := adt.ParseNormals(client[b.beside])
+		if err != nil {
+			t.Fatal(err)
+		}
+		before, err := adt.ParseTerrain(client[b.beside])
+		if err != nil {
+			t.Fatal(err)
+		}
+		after, err := adt.ParseTerrain(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		redone := 0
+		for i, c := range after.Chunks {
+			if c.Heights != before.Chunks[i].Heights {
+				t.Fatalf("%s chunk %d's heights changed", b.beside, i)
+			}
+			if string(normals[i]) == string(was[i]) {
+				continue
+			}
+			if c.IndexX != 0 {
+				t.Fatalf("%s chunk %d,%d off the block's border changed its normals", b.beside, c.IndexX, c.IndexY)
+			}
+			redone++
+		}
+		if redone == 0 {
+			t.Fatalf("%s kept every normal", b.beside)
+		}
+	}
+	placed, err := adt.ParsePlacements(got["2_0"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(placed) != 1 {
+		t.Fatalf("2_0 lists %d models, want the one added by its edge", len(placed))
+	}
+
+	if _, err := InstallPatch(dir, out); err != nil {
+		t.Fatal(err)
+	}
+	if _, res, err := RegionChanges(dir, edit); err != nil || res.Files != 0 {
+		t.Fatalf("the same edit again changes %d files (%v, err %v), want none", res.Files, res.ChangedTiles, err)
+	}
+	out, err = BuildRegion(dir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := byName(out); got["2_1"] != nil {
+		t.Fatal("the same edit from the patch wrote 2_1 again")
+	}
+}

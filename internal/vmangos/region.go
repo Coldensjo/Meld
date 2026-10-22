@@ -1,6 +1,7 @@
 package vmangos
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -400,7 +401,8 @@ func clampTile(i, size int) int {
 // taken out of every tile that listed it; and placements that were removed in the editor are dropped
 // from every tile that listed them. A tile outside the block that lists such a model, or that a moved or
 // added one now reaches, is written too, after the block's tiles, with only its placements changed
-// (#647). Painted chunks are rewritten from their weights; the rest keep the paint the client has.
+// (#647), and so is one beside the block whose border normals its heights move, with only those
+// changed (#666). Painted chunks are rewritten from their weights; the rest keep the paint the client has.
 // The map's WDL comes last, its block's horizon redrawn from the heights.
 func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	if err := checkRegion(e.X, e.Y, e.Size); err != nil {
@@ -742,9 +744,25 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	for k := range tiles {
 		roots[k] = tiles[k].root
 	}
-	edges, err := blockEdges(set, e.MapName, e.X, e.Y, e.Size, heights, roots)
+	edges, beside, err := blockEdges(set, e.MapName, e.X, e.Y, e.Size, heights, roots)
 	if err != nil {
 		return nil, err
+	}
+	// The client's tiles beside the block whose normals along it the block's heights one in from its
+	// edge move get those normals redone, their heights and the rest of their bytes kept (#666).
+	normals := map[[2]int][]byte{}
+	for _, b := range beside {
+		terrain, err := adt.ParseTerrain(b.root)
+		if err != nil {
+			return nil, fmt.Errorf("tile %d_%d: %w", b.x, b.y, err)
+		}
+		root, err := adt.WriteHeights(b.root, terrain, &b.edges)
+		if err != nil {
+			return nil, fmt.Errorf("tile %d_%d: %w", b.x, b.y, err)
+		}
+		if !bytes.Equal(root, b.root) {
+			normals[[2]int{b.x, b.y}] = root
+		}
 	}
 	files := make([]mpq.File, 0, len(tiles))
 	for k := range tiles {
@@ -761,21 +779,32 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		files = append(files, mpq.File{Name: t.name, Data: rewritten})
 	}
 	// The tiles outside the block that list a model as it no longer stands, or that a moved or added one
-	// now reaches, keep everything else as the client reads them now (#647).
+	// now reaches, keep everything else as the client reads them now (#647). One whose normals the save
+	// redoes too is written once, its placements changed over the new normals.
 	objs := make([]adt.Object, len(now))
 	for i, p := range now {
 		objs[i] = p.obj
 	}
 	for _, t := range outside {
-		ch, ok := t.changes(objs)
-		if !ok {
+		key := [2]int{t.x, t.y}
+		root, redone := normals[key]
+		if !redone {
+			root = t.root
+		}
+		delete(normals, key)
+		if ch, ok := t.changes(objs); ok {
+			if root, err = adt.Rewrite(root, ch); err != nil {
+				return nil, fmt.Errorf("tile %d_%d: %w", t.x, t.y, err)
+			}
+		} else if !redone {
 			continue
 		}
-		rewritten, err := adt.Rewrite(t.root, ch)
-		if err != nil {
-			return nil, fmt.Errorf("tile %d_%d: %w", t.x, t.y, err)
+		files = append(files, mpq.File{Name: t.name, Data: root})
+	}
+	for _, b := range beside {
+		if root, ok := normals[[2]int{b.x, b.y}]; ok {
+			files = append(files, mpq.File{Name: b.name, Data: root})
 		}
-		files = append(files, mpq.File{Name: t.name, Data: rewritten})
 	}
 	// The far horizon follows the new heights. A map without a WDL is left without one.
 	if b, err := set.ReadFile(wdlPath(e.MapName)); err == nil {
