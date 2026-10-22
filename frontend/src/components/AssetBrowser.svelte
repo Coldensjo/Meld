@@ -19,6 +19,7 @@
   import PrefabBrowser from './PrefabBrowser.svelte'
   import { paletteIndex } from '../lib/terrain/chunkPaint'
   import { cssViewport, toCss } from '../lib/ui/uiScale'
+  import { dialogOpen } from '../lib/ui/dialogFocus'
 
   /** A tab: the client's files by kind, all of them, the world database's templates, or the author's sets. */
   type Kind = AssetKind | 'all' | SpawnKind | 'sets' | 'prefabs'
@@ -366,6 +367,8 @@
   /** Ctrl+F focuses the search from anywhere. */
   function globalKey(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+      // Not under a dialog or full-screen editor: the box would take focus behind it (#574).
+      if (dialogOpen()) return
       e.preventDefault()
       prefs.browserCollapsed = false
       searchBox?.focus()

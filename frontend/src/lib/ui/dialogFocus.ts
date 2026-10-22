@@ -15,6 +15,11 @@ const FOCUSABLE = [
 /** The open dialogs, the newest last: only the newest one wraps Tab. */
 const stack: HTMLElement[] = []
 
+/** Whether a dialog or full-screen editor is open: keys meant for the page behind it should be left alone. */
+export function dialogOpen(): boolean {
+	return stack.length > 0
+}
+
 /** The controls in `node` that Tab reaches, in document order (hidden ones left out). */
 export function tabbables(node: HTMLElement): HTMLElement[] {
 	return Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
