@@ -48,9 +48,9 @@ func iconClient(t *testing.T) string {
 
 func TestIconName(t *testing.T) {
 	for file, want := range map[string]string{
-		`C:\art\INV_Misc_MyThing.png`: "INV_Misc_MyThing",
-		"/home/me/my icon 2.PNG":      "my_icon_2",
-		"Spell-Fire.png":              "Spell-Fire",
+		filepath.Join(string(filepath.Separator)+"art", "INV_Misc_MyThing.png"): "INV_Misc_MyThing",
+		"/home/me/my icon 2.PNG": "my_icon_2",
+		"Spell-Fire.png":         "Spell-Fire",
 	} {
 		if got, err := IconName(file); err != nil || got != want {
 			t.Errorf("%s: %q %v, want %q", file, got, err, want)
