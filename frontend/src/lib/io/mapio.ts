@@ -434,7 +434,7 @@ function regionPaint(engine: Engine, size: number) {
     paint: tiles.flatMap((t) =>
       t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, flags: p.Flags, noEffect: p.NoEffect ?? undefined })),
     ),
-    // The chunk headers, by block chunk; none for a map saved before it kept them.
+    // The chunk headers, by block chunk; for a map saved before it kept chunk data, only holes and shadows (#644).
     headers: tiles.flatMap((t) => (t.Headers ?? []).map((h) => ({ ...h, chunk: block(t, h.chunk) }))),
   }
 }

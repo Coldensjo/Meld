@@ -402,8 +402,14 @@ alone. The header's `liquidsUnknown` / `chunkDataUnknown` keep that across a sav
   -run TestUnknownFlagsRoundTrip` (the header round trip).
 - Probe `unknown-flags`: Northshire saved through Go (`SaveSceneMap`, `LoadMap`) and opened again,
   first as opened from the client (no flag written), then with both flags set false and saved twice:
-  they stay false, the export sends no chunk headers and partial liquids, and Map Properties lists
-  them under "The client's".
+  they stay false, the export sends no chunk data and partial liquids, and Map Properties lists
+  them under "The client's". A hole cut there still reaches `mapToTiles`'s chunk header, with area
+  ID 0 and no `impassable` or `noEffect`, which keep the client's (#644).
+- Unit: `bun test tests/chunkFlags.test.ts` (a map without chunk data sends holes and shadows only)
+  and `go test ./internal/vmangos/ -run 'TestHeaderSpecImpassableOptional|TestRegionHolesRoundTrip'`
+  (the second needs `WOW_DIR`: holes-only headers leave every chunk's zone, flags and no-tuft cells
+  as a save without headers has them; compare with that save, not with `ReadTile`, which reads
+  Meld's patch while a region save starts from the unpatched tile).
 - Trap: `Engine.regionKey` hashes both flags, so a region whose flag is false has another compile
   fingerprint than the same region with it true (decision #82); that is wanted, as Compile writes
   differently.

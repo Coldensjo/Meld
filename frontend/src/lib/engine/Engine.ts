@@ -3270,10 +3270,11 @@ export class Engine {
       looks: looksByIndex(editor.palette, editor.textureLooks),
       effectAt: hasScopedEffects(editor.scopedEffects) ? this.exportEffectAt() : undefined,
       noEffect: blockedCells(t, this.objects, new Uint8Array(t.size * t.size)),
-      // A map saved before the file kept chunk data has none of its own, so the client's stays.
+      // A map saved before the file kept chunk data has none of its own, so the client's zones,
+      // impassable flags and no-tuft cells stay; its holes and baked shadows are still sent (#644).
       headers: this.doc.chunkDataKnown ? { areaIds: t.areaIds, chunkFlags: t.chunkFlags } : undefined,
       holes: t.holes,
-      // Sent with the headers only: a map that has none of its own keeps the client's.
+      // A map that has none of its own keeps the client's.
       shadows: t.shadow ?? undefined,
       objects,
       waterEnabled: editor.waterEnabled,

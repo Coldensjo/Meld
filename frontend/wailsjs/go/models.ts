@@ -1515,7 +1515,7 @@ export namespace vmangos {
 	export class HeaderSpec {
 	    chunk: number;
 	    areaId: number;
-	    impassable: boolean;
+	    impassable?: boolean;
 	    noEffect?: number[];
 	    holes?: number[];
 	    shadow?: number[];

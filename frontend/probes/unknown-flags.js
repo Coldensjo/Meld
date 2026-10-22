@@ -1,6 +1,7 @@
-// A region opened without the client's liquids or chunk data (a .wmap older than version 4 or 5) keeps saying so across a save (#525): saved through the Go side and opened again, MapDocument.liquidsKnown and chunkDataKnown stay false, the file's header has liquidsUnknown and chunkDataUnknown, and Map Properties names them under "The client's"; a region that has them writes neither flag.
+// A region opened without the client's liquids or chunk data (a .wmap older than version 4 or 5) keeps saying so across a save (#525): saved through the Go side and opened again, MapDocument.liquidsKnown and chunkDataKnown stay false, the file's header has liquidsUnknown and chunkDataUnknown, and Map Properties names them under "The client's"; a region that has them writes neither flag. Such a region still compiles its holes, in chunk headers without an area ID, impassable flag or no-tuft rows (#644).
 const { editor, ui } = await P.state()
 const { toMapData, fromMapData } = await P.app('/src/lib/io/mapData.ts')
+const { mapToTiles } = await P.app('/src/lib/io/vmangosExport.ts')
 const App = window.go.main.App
 const bad = []
 
@@ -32,6 +33,18 @@ for (const pass of [1, 2]) {
 	if (d.liquidsKnown || d.chunkDataKnown) bad.push(`pass ${pass}: reopened with liquidsKnown ${d.liquidsKnown}, chunkDataKnown ${d.chunkDataKnown}`)
 	if (!P.e.regionLiquids().partial) bad.push(`pass ${pass}: the region's liquids would replace the client's`)
 	if (P.e.exportInput().headers) bad.push(`pass ${pass}: the export sends chunk headers`)
+}
+
+// Its holes still go, in headers that keep the client's zone, flag and no-tuft cells (#644). Cell
+// (8, 8) is the first tile's chunk 17, row 0, bit 0; the tab is closed below, so no undo is needed.
+const t = P.e.terrain
+t.holes[8 * t.size + 8] = 1
+const headers = mapToTiles(P.e.exportInput()).tiles[0].Headers
+const h17 = headers?.[17]
+if (!h17) bad.push('a region without chunk data compiles no chunk headers, so its holes are dropped')
+else {
+	if (h17.holes?.[0] !== 1) bad.push(`chunk 17 sends holes ${JSON.stringify(h17.holes)}`)
+	if (h17.areaId !== 0 || 'impassable' in h17 || 'noEffect' in h17) bad.push(`chunk 17's header overwrites the client's chunk data: ${JSON.stringify({ ...h17, holes: undefined, shadow: undefined })}`)
 }
 
 // Map Properties says what the region leaves to the client.

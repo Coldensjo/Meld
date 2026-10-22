@@ -10,8 +10,9 @@ const mcnkAreaID = 0x34
 type ChunkHeader struct {
 	// AreaID is the chunk's AreaTable.dbc ID; 0 keeps the chunk's own.
 	AreaID uint32
-	// Impassable sets the header's impassable flag (0x2); false clears it.
-	Impassable bool
+	// Impassable, when set, sets the header's impassable flag (0x2) or, false, clears it; nil keeps
+	// the chunk's own (a map without chunk data of its own, which still sends holes and shadows).
+	Impassable *bool
 	// NoEffect, one byte per cell row with a bit per cell, replaces the chunk's noEffectDoodad bits,
 	// including any a ChunkPaint added; nil keeps them.
 	NoEffect []uint8
@@ -70,7 +71,7 @@ func HoleBits(rows []uint8) uint16 {
 }
 
 // apply writes h into a chunk header and returns the chunk's flags with the impassable bit set
-// as h has it.
+// as h has it (kept when h leaves it nil).
 func (h ChunkHeader) apply(header []byte, flags uint32) uint32 {
 	if h.AreaID != 0 {
 		binary.LittleEndian.PutUint32(header[mcnkAreaID:], h.AreaID)
@@ -83,7 +84,10 @@ func (h ChunkHeader) apply(header []byte, flags uint32) uint32 {
 		binary.LittleEndian.PutUint16(header[mcnkHoles:], *h.Holes)
 		flags &^= mcnkFlagHighHole
 	}
-	if h.Impassable {
+	if h.Impassable == nil {
+		return flags
+	}
+	if *h.Impassable {
 		return flags | mcnkFlagImpass
 	}
 	return flags &^ mcnkFlagImpass

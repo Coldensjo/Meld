@@ -493,8 +493,9 @@ func TestRegionHeadersWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Block chunk 17 is the tile's chunk (1, 1).
+	impassable := true
 	edit := RegionEdit{MapName: view.MapName, X: view.X, Y: view.Y, Size: view.Size, Heights: EncodeHeights(view.Heights), Objects: view.Objects,
-		Headers: []HeaderSpec{{Chunk: 17, AreaID: 40, Impassable: true, NoEffect: []int{3, 0, 0, 0, 0, 0, 0, 0x80}, Holes: []int{0, 0, 0, 0, 0, 0, 1, 0}}}}
+		Headers: []HeaderSpec{{Chunk: 17, AreaID: 40, Impassable: &impassable, NoEffect: []int{3, 0, 0, 0, 0, 0, 0, 0x80}, Holes: []int{0, 0, 0, 0, 0, 0, 1, 0}}}}
 	files, err := BuildRegion(dataDir, edit)
 	if err != nil {
 		t.Fatal(err)
@@ -560,6 +561,13 @@ func TestRegionHolesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The same save without headers: headers with holes alone, as a map without chunk data of its own
+	// sends them (#644), must leave every chunk's zone, flags and no-tuft cells as that one has them.
+	edit.Headers = nil
+	plain, err := BuildRegion(dataDir, edit)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for k, f := range files[:view.Size*view.Size] {
 		after, err := adt.ParseTerrain(f.Data)
 		if err != nil {
@@ -573,9 +581,17 @@ func TestRegionHolesRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		without, err := adt.ParseTerrain(plain[k].Data)
+		if err != nil {
+			t.Fatal(err)
+		}
 		for i := range after.Chunks {
-			if after.Chunks[i].Holes != before.Chunks[i].Holes {
-				t.Fatalf("tile %d chunk %d holes %v, client %v", k, i, after.Chunks[i].Holes, before.Chunks[i].Holes)
+			a, b, w := after.Chunks[i], before.Chunks[i], without.Chunks[i]
+			if a.Holes != b.Holes {
+				t.Fatalf("tile %d chunk %d holes %v, client %v", k, i, a.Holes, b.Holes)
+			}
+			if a.AreaID != w.AreaID || a.Flags != w.Flags || a.NoEffect != w.NoEffect {
+				t.Fatalf("tile %d chunk %d: area %d flags %#x no-tufts %v, without headers %d %#x %v", k, i, a.AreaID, a.Flags, a.NoEffect, w.AreaID, w.Flags, w.NoEffect)
 			}
 		}
 	}
@@ -704,5 +720,31 @@ func TestHeightGridJSON(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(`{"Tiles":[{"Outer":[1,2]}]}`), &spec); err == nil {
 		t.Fatal("an array of numbers read as Outer")
+	}
+}
+
+// TestHeaderSpecImpassableOptional checks that a header without "impassable" (a map without chunk
+// data of its own, which sends only holes and shadows, #644) keeps the chunk's flag, while false
+// clears it.
+func TestHeaderSpecImpassableOptional(t *testing.T) {
+	var specs []HeaderSpec
+	if err := json.Unmarshal([]byte(`[{"chunk":1,"areaId":0,"holes":[1,0,0,0,0,0,0,0]},{"chunk":2,"areaId":5,"impassable":false},{"chunk":3,"areaId":5,"impassable":true}]`), &specs); err != nil {
+		t.Fatal(err)
+	}
+	if h := specs[0].chunkHeader(); h.Impassable != nil || h.AreaID != 0 || h.Holes == nil {
+		t.Fatalf("holes-only header: %+v", h)
+	}
+	if h := specs[1].chunkHeader(); h.Impassable == nil || *h.Impassable {
+		t.Fatalf("impassable false read as %v", h.Impassable)
+	}
+	if h := specs[2].chunkHeader(); h.Impassable == nil || !*h.Impassable {
+		t.Fatalf("impassable true read as %v", h.Impassable)
+	}
+	b, err := json.Marshal(HeaderSpec{Chunk: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(b, []byte("impassable")) {
+		t.Fatalf("an unset impassable written: %s", b)
 	}
 }

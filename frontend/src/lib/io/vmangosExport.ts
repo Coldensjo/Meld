@@ -58,14 +58,17 @@ export interface ExportInput {
   noEffect?: Uint8Array
   /**
    * Each paint chunk's AreaTable.dbc ID and flags (CHUNK_IMPASSABLE), for the chunk headers; optional,
-   * which leaves the headers as the tile has them.
+   * which leaves the zones, impassable flags and no-tuft cells as the tile has them (#644).
    */
   headers?: { areaIds: Uint32Array; chunkFlags: Uint8Array }
-  /** One byte per cell, non-zero where the ground is a hole; sent in the headers, so only with them. */
+  /**
+   * One byte per cell, non-zero where the ground is a hole; sent in the chunk headers, with or without
+   * `headers`. Without, the tiles keep their own.
+   */
   holes?: Uint8Array
   /**
    * The baked shadows, a byte per texel (terrain/bakedShadows.ts, `size * SHADOW_PER_CELL` a side);
-   * sent in the headers, so only with them. Without, the tiles keep their own.
+   * sent in the chunk headers, with or without `headers`. Without, the tiles keep their own.
    */
   shadows?: Uint8Array
   objects: readonly ExportObject[]
@@ -94,7 +97,8 @@ export interface HeaderOut {
   chunk: number
   /** AreaTable.dbc ID; 0 keeps the tile's own. */
   areaId: number
-  impassable: boolean
+  /** Sets or clears the impassable flag; absent keeps the tile's own (a map without chunk data, #644). */
+  impassable?: boolean
   /** The cells that grow no ground effect doodads, a bit per cell in each row; replaces the tile's own. */
   noEffect?: number[]
   /** The hole cells, a bit per cell in each row; Go turns them into the client's 2x2-cell blocks. */
@@ -121,7 +125,7 @@ export interface TileOut {
   Objects: ObjectOut[]
   /** The tile's liquid layers, each placed by its chunk in the tile. */
   Liquids: AdtLiquid[]
-  /** Every chunk's header fields, when the map has them. */
+  /** Every chunk's header fields, when the map sends any (chunk data, holes or baked shadows). */
   Headers?: HeaderOut[]
 }
 
@@ -215,17 +219,23 @@ export function mapToTiles(input: ExportInput): ExportOut {
       const liquids = input.liquids ? liquidsToAdt(input.liquids, tx * CHUNKS_PER_TILE, ty * CHUNKS_PER_TILE, CHUNKS_PER_TILE) : []
       const tile: TileOut = { X: tx, Y: ty, Outer: floatsToBase64(outer), Paint: paint, Objects: objectsOf(tx, ty), Liquids: liquids }
       const h = input.headers
-      if (h) {
+      // Holes and baked shadows travel in the headers too, so a map without chunk data of its own
+      // still sends them, with area ID 0 and no impassable flag or no-tuft rows, which keep the tile's (#644).
+      if (h || input.holes || input.shadows) {
         tile.Headers = []
         for (let cy = 0; cy < CHUNKS_PER_TILE; cy++) {
           for (let cx = 0; cx < CHUNKS_PER_TILE; cx++) {
             const chunk = (ty * CHUNKS_PER_TILE + cy) * paintSide + tx * CHUNKS_PER_TILE + cx
             const gx = tx * CHUNKS_PER_TILE + cx
             const gz = ty * CHUNKS_PER_TILE + cy
-            // The map holds every no-tuft cell (the client's, the painted ones and, in noEffect,
-            // those under its buildings), so the header's bits are replaced and a cleared cell comes off.
-            const header: HeaderOut = { chunk: cy * CHUNKS_PER_TILE + cx, areaId: h.areaIds[chunk], impassable: (h.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0 }
-            if (input.noEffect) header.noEffect = chunkNoEffect(input.noEffect, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
+            const header: HeaderOut = { chunk: cy * CHUNKS_PER_TILE + cx, areaId: 0 }
+            if (h) {
+              header.areaId = h.areaIds[chunk]
+              header.impassable = (h.chunkFlags[chunk] & CHUNK_IMPASSABLE) !== 0
+              // The map holds every no-tuft cell (the client's, the painted ones and, in noEffect,
+              // those under its buildings), so the header's bits are replaced and a cleared cell comes off.
+              if (input.noEffect) header.noEffect = chunkNoEffect(input.noEffect, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
+            }
             if (input.holes) header.holes = chunkNoEffect(input.holes, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
             if (input.shadows) header.shadow = toBase64(chunkShadowBits(input.shadows, input.size * SHADOW_PER_CELL, gx, gz))
             tile.Headers.push(header)

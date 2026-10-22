@@ -86,8 +86,8 @@ type RegionEdit struct {
 	// PartialLiquids says Liquids holds only some chunks' liquids (a map saved before maps kept
 	// them): chunks it has layers for are rewritten, and the rest keep the client's.
 	PartialLiquids bool `json:"partialLiquids"`
-	// Headers are the zones and impassable flags of the block's chunks, by block chunk index.
-	// Chunks not listed keep the client's.
+	// Headers are the zones, impassable flags, holes and baked shadows of the block's chunks, by block
+	// chunk index. Chunks not listed keep the client's, and so do the fields a header leaves unset.
 	Headers []HeaderSpec `json:"headers"`
 }
 

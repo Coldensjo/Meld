@@ -38,12 +38,13 @@ type TileSpec struct {
 	Objects []ObjectSpec
 	// Liquids are the tile's painted liquid layers, each placed by its chunk in the tile.
 	Liquids []adt.Liquid
-	// Headers are the chunks' zones and impassable flags; chunks not listed keep the new tile's.
+	// Headers are the chunks' zones, impassable flags, holes and baked shadows; chunks not listed keep the new tile's.
 	Headers []HeaderSpec
 }
 
 // HeaderSpec is a chunk's header fields: its index (in the tile for a TileSpec, in the block for a
-// RegionEdit), its AreaTable.dbc ID (0 keeps the chunk's own) and whether it is impassable.
+// RegionEdit), its AreaTable.dbc ID (0 keeps the chunk's own) and whether it is impassable (nil keeps
+// the chunk's own: a map without chunk data of its own still sends its holes and shadows, #644).
 // NoEffect, one entry per cell row with a bit per cell, replaces the chunk's noEffectDoodad bits;
 // empty keeps them (with a PaintSpec's added). Holes, in the same form, replaces the chunk's holes,
 // each 2x2-cell block a hole when any of its cells is; empty keeps them. Shadow (base64 in JSON),
@@ -51,7 +52,7 @@ type TileSpec struct {
 type HeaderSpec struct {
 	Chunk      int    `json:"chunk"`
 	AreaID     uint32 `json:"areaId"`
-	Impassable bool   `json:"impassable"`
+	Impassable *bool  `json:"impassable,omitempty"`
 	NoEffect   []int  `json:"noEffect,omitempty"`
 	Holes      []int  `json:"holes,omitempty"`
 	Shadow     []byte `json:"shadow,omitempty"`

@@ -304,7 +304,8 @@ func TestRewriteClientShadowsUnchanged(t *testing.T) {
 	}
 	headers := map[int]ChunkHeader{}
 	for i, c := range before.Chunks {
-		h := ChunkHeader{AreaID: c.AreaID, Impassable: c.Impassable(), Shadow: c.Shadow}
+		impassable := c.Impassable()
+		h := ChunkHeader{AreaID: c.AreaID, Impassable: &impassable, Shadow: c.Shadow}
 		headers[i] = h
 	}
 	out, err := Rewrite(root, Changes{TileX: 32, TileY: 48, Headers: headers})

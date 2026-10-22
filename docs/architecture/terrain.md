@@ -82,7 +82,9 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   and `Terrain.update` rewrites and uploads just those texels (#530); an undo or a paste marks all of it. The export sends every chunk's
   `HeaderSpec` (`TileSpec.Headers`, `RegionEdit.Headers`) and Go sets the area ID and the 0x2 flag
   (`adt/header.go`); a map saved before version 5 (`MapDocument.chunkDataKnown` false, kept across
-  later saves by the header's `chunkDataUnknown`) sends none, so a region keeps the client's.
+  later saves by the header's `chunkDataUnknown`) sends no area ID (0), impassable flag (`nil`) or
+  no-tuft rows, so a region keeps the client's, but its headers still carry the holes and the baked
+  shadows (#644).
 
 - **Walkable ground** (#175): Terrain › Climb (`prefs.climbView`, Shift+F2) tints each triangle
   steeper than `prefs.climbAngle` in the terrain shader (`climbCos`). View › Walkable ground

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { CHUNK_IMPASSABLE, areaColor, forEachSquare, squaresUnder, type GridRect } from '../src/lib/terrain/chunkFlags.ts'
 import { NO_TEXTURE, SLOTS, SPLAT_PER_CELL } from '../src/lib/terrain/chunkPaint.ts'
 import { mapToTiles, type ExportInput } from '../src/lib/io/vmangosExport.ts'
+import { SHADOW_PER_CELL } from '../src/lib/terrain/bakedShadows.ts'
 
 const rect = (): GridRect => ({ x0: 0, z0: 0, x1: 0, z1: 0 })
 
@@ -92,6 +93,23 @@ test('the header carries every chunk’s hole cells, which Go turns into blocks'
   assert.deepEqual(h[16].holes, [0, 0, 0, 0, 0, 0, 0, 0])
 })
 
-test('a map without chunk data sends no headers, which keeps the tile’s own', () => {
-  assert.equal(mapToTiles(input(false)).tiles[0].Headers, undefined)
+test('a map without chunk data, holes or shadows sends no headers, which keeps the tile’s own', () => {
+	assert.equal(mapToTiles(input(false)).tiles[0].Headers, undefined)
+})
+
+test('a map without chunk data still sends its holes and shadows, keeping the tile’s zones, flags and no-tuft cells (#644)', () => {
+	const inp = input(false)
+	inp.noEffect = new Uint8Array(128 * 128)
+	inp.noEffect[8 * 128 + 9] = 1
+	inp.holes = new Uint8Array(128 * 128)
+	inp.holes[8 * 128 + 8] = 1
+	inp.shadows = new Uint8Array(128 * SHADOW_PER_CELL * 128 * SHADOW_PER_CELL)
+	const h = mapToTiles(inp).tiles[0].Headers!
+	assert.equal(h.length, 256)
+	assert.deepEqual(h[17].holes, [1, 0, 0, 0, 0, 0, 0, 0])
+	assert.deepEqual(h[16].holes, [0, 0, 0, 0, 0, 0, 0, 0])
+	assert.equal(typeof h[17].shadow, 'string')
+	assert.equal(h[17].areaId, 0)
+	assert.equal('impassable' in h[17], false)
+	assert.equal('noEffect' in h[17], false)
 })
