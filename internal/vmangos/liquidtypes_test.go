@@ -3,6 +3,8 @@ package vmangos
 import (
 	"os"
 	"testing"
+
+	"Meld/internal/wow"
 )
 
 func TestLoadLiquidTypesFromClient(t *testing.T) {
@@ -10,7 +12,11 @@ func TestLoadLiquidTypesFromClient(t *testing.T) {
 	if dir == "" {
 		t.Skip("WOW_DIR not set")
 	}
-	rows, err := LoadLiquidTypes(dir + `\Data`)
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := LoadLiquidTypes(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
