@@ -6,6 +6,7 @@
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/mapio'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
+	import { takeEscape } from '../lib/state/escape'
 	import { changedValues } from '../lib/world/creatureFields'
 	import { HELD_TYPES, INVENTORY_TYPES, ITEM_CLASSES, itemTabs, SHOOTS_LIKE, slotKind, subclassOptions } from '../lib/world/itemFields'
 	import { tabOfColumn } from '../lib/world/questFields'
@@ -529,8 +530,10 @@
 	function onKey(e: KeyboardEvent) {
 		// The right-click menu over the editor takes its own Esc.
 		if (!target || e.key !== 'Escape' || ui.contextMenu) return
+		if (!takeEscape(e)) return
 		const el = e.target as HTMLElement | null
 		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
+			e.preventDefault()
 			el.blur()
 			return
 		}

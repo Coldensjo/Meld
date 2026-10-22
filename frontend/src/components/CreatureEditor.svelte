@@ -2,6 +2,7 @@
   import { startSaving } from '../lib/state/saving'
   import { dialogFocus } from '../lib/ui/dialogFocus'
   import { editor, setStatus, ui } from '../lib/state/editor.svelte'
+  import { takeEscape } from '../lib/state/escape'
   import { engineRef } from '../lib/state/engineRef'
   import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../../wailsjs/go/main/App'
   import type { vmangos } from '../../wailsjs/go/models'
@@ -270,8 +271,10 @@
     // The quest editor over it takes its own Esc.
     if (!target || ui.questEditor) return
     if (e.key === 'Escape') {
+      if (!takeEscape(e)) return
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
+        e.preventDefault()
         el.blur()
         return
       }

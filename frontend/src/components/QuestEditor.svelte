@@ -4,6 +4,7 @@
 	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
+	import { takeEscape } from '../lib/state/escape'
 	import { changedValues } from '../lib/world/creatureFields'
 	import { questTabs, tabOfColumn } from '../lib/world/questFields'
 	import { forgetName } from '../lib/wow/refNames'
@@ -265,8 +266,10 @@
 
 	function onKey(e: KeyboardEvent) {
 		if (!target || e.key !== 'Escape') return
+		if (!takeEscape(e)) return
 		const el = e.target as HTMLElement | null
 		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
+			e.preventDefault()
 			el.blur()
 			return
 		}

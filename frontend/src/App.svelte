@@ -9,13 +9,22 @@
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
   import SavingBar from './components/SavingBar.svelte'
-  import CreatureEditor from './components/CreatureEditor.svelte'
-  import ObjectEditor from './components/ObjectEditor.svelte'
+  // The five editors are opened from Tools, so each loads on first use and then stays mounted.
+  import type { Component } from 'svelte'
+  let CreatureEditor = $state<Component | null>(null)
+  let ObjectEditor = $state<Component | null>(null)
+  let QuestEditor = $state<Component | null>(null)
+  let ItemEditor = $state<Component | null>(null)
+  let SpellEditor = $state<Component | null>(null)
+  $effect(() => {
+    if (ui.creatureEditor && !CreatureEditor) void import('./components/CreatureEditor.svelte').then((m) => (CreatureEditor = m.default))
+    if (ui.objectEditor && !ObjectEditor) void import('./components/ObjectEditor.svelte').then((m) => (ObjectEditor = m.default))
+    if (ui.questEditor && !QuestEditor) void import('./components/QuestEditor.svelte').then((m) => (QuestEditor = m.default))
+    if (ui.itemEditor && !ItemEditor) void import('./components/ItemEditor.svelte').then((m) => (ItemEditor = m.default))
+    if (ui.spellEditor && !SpellEditor) void import('./components/SpellEditor.svelte').then((m) => (SpellEditor = m.default))
+  })
   import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
   import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
-  import QuestEditor from './components/QuestEditor.svelte'
-  import ItemEditor from './components/ItemEditor.svelte'
-  import SpellEditor from './components/SpellEditor.svelte'
   import DoodadBrushEditor from './components/DoodadBrushEditor.svelte'
   import Inspector from './components/Inspector.svelte'
   import HistoryWindow from './components/HistoryWindow.svelte'
@@ -31,7 +40,7 @@
   import { offerRecovery, startAutosave } from './lib/io/recovery'
   import { startSessionLog } from './lib/io/sessionLog'
   import { copyTeleport } from './lib/io/scene'
-  import { onMount, untrack } from 'svelte'
+  import { onMount } from 'svelte'
   import { refreshGameClient } from './lib/io/mapio'
   import { toggleFullScreen } from './lib/engine/display'
   import { initWow } from './lib/wow/api'
@@ -91,15 +100,10 @@
 	// Preferences › Interface size (#372): the whole page zoomed, before the engine reads the pref for its pixel ratio.
 	$effect(() => applyUiScale(prefs.uiScale))
 
-  // Object.keys on the reactive prefs reads every key (the session too), so the keys are listed once, untracked.
-  const prefKeys = untrack(() => Object.keys(prefs)).filter((k) => k !== 'session')
   // Apply preferences to the engine whenever they change, and persist them.
   $effect(() => {
-    // The session changes with every camera move: it is saved on its own (savePref), so it stays out of
-    // this effect, which would re-apply every preference and walk them all for a save (#461).
-    const snapshot = {} as Record<string, unknown>
-    for (const k of prefKeys) snapshot[k] = prefs[k as keyof typeof prefs]
-    engineRef.current?.applyPrefs(snapshot as unknown as typeof prefs)
+    const snapshot = { ...prefs }
+    engineRef.current?.applyPrefs(snapshot)
     if (prefsLoaded) savePrefs()
   })
 
@@ -383,11 +387,11 @@
 <MinimapWindow />
 {#if ui.referenceWindow}<ReferenceWindow />{/if}
 <CreaturesWorkspace />
-<CreatureEditor />
-<ObjectEditor />
-<QuestEditor />
-<ItemEditor />
-<SpellEditor />
+{#if CreatureEditor}{@const Editor = CreatureEditor}<Editor />{/if}
+{#if ObjectEditor}{@const Editor = ObjectEditor}<Editor />{/if}
+{#if QuestEditor}{@const Editor = QuestEditor}<Editor />{/if}
+{#if ItemEditor}{@const Editor = ItemEditor}<Editor />{/if}
+{#if SpellEditor}{@const Editor = SpellEditor}<Editor />{/if}
 <ModelPreviewWindow />
 <DoodadBrushEditor />
 <AppDialogs />
