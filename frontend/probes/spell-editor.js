@@ -1,4 +1,4 @@
-// The spell editor (#294): Tools › Spells… lists leftover test spells (#367) and finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, Save refuses a cost past an unsigned int and jumps to its tab, Change icon… previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, Export… and Import… are there (#357), and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written.
+// The spell editor (#294): Tools › Spells… lists leftover test spells (#367) and finds Fireball (133), whose right-click copies `.cast 133`, shows its tooltip as the game does (rank, cost, range, cast time, the description's tokens filled in), its effects in a line each and its visual's other users; a typed name and base points change the tooltip before saving, the Effect 1 tab names the effect, a cost past an unsigned int is an unsaved edit (Go refuses it, a Go test; Save is never pressed), Change icon… previews a hovered icon and marks a picked one for Save, Take the visual of Frost Nova sets the visual, Revert drops it all, Export… and Import… are there (#357), and New spell offers the six starters and a copy of the open spell, the copy picked; nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -56,14 +56,10 @@ type(field('Base points'), '99')
 await P.frames(2)
 const edited = tooltip()
 
-// A cost past an unsigned int: refused before anything is written, on its tab.
+// A cost past an unsigned int is an unsaved edit; Go's refusal is a Go test (TestEditorSavesRefuseOutOfRangeValues, #419), so Save is never pressed.
 await openTab('Spell')
 type(field('Cost'), '99999999999')
 await openTab('Effect 2')
-button(actions(), 'Save').click()
-await P.until(() => root().querySelector('.bar.error'), WAIT, 'the refusal')
-const error = root().querySelector('.bar.error').textContent.trim()
-const jumped = root().querySelector('nav.tabs button.on')?.textContent.trim()
 
 // Change icon…: the grid previews the icon under the pointer, a click picks it, Change icon marks it for Save.
 button(root().querySelector('.look'), 'Change icon').click()
@@ -115,8 +111,6 @@ const ok =
 	/Probe Bolt/.test(edited[0]) &&
 	edited.some((l) => /100 to 108 Fire damage/.test(l)) &&
 	/^Damage/.test(summary) &&
-	/manaCost/.test(error) &&
-	jumped?.startsWith('Spell') &&
 	/^Now Spell_Fire_FlameBolt\. Showing \w+/.test(hovering) &&
 	/Set on Save/.test(picked) &&
 	leftovers > 0 &&
@@ -128,4 +122,4 @@ const ok =
 	starts[0] === 'Bolt' &&
 	startOn === 'Copy of Fireball' &&
 	newName === 'Fireball'
-return { ok, leftovers, scripts, menu, title, tip, fx, visualText, summary, edited, error, jumped, firstIcon, hovering, picked, visualBefore, visualAfter, saveText, reverted, starts, startOn, newName }
+return { ok, leftovers, scripts, menu, title, tip, fx, visualText, summary, edited, firstIcon, hovering, picked, visualBefore, visualAfter, saveText, reverted, starts, startOn, newName }

@@ -1,4 +1,4 @@
-// The game object editor's Quests tab (#293): the Wanted Poster (68) starts Wanted: "Hogger" (176), a quest added from the search is an unsaved edit that Revert drops, and Edit opens the quest over the editor (Esc closes only the quest editor); the Solid Chest (2855, a chest, not a Quest giver) says why it gets no quests and offers no way to add one, the quest editor's Givers tab won't add it, and Go refuses it both ways. Nothing is written to the database.
+// The game object editor's Quests tab (#293): the Wanted Poster (68) starts Wanted: "Hogger" (176), a quest added from the search is an unsaved edit that Revert drops, and Edit opens the quest over the editor (Esc closes only the quest editor); the Solid Chest (2855, a chest, not a Quest giver) says why it gets no quests and offers no way to add one, the quest editor's Givers tab won't add it. Nothing is written to the database (Go's refusals are Go tests, #419).
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -56,22 +56,9 @@ const chest = {
 ui.objectEditor = null
 await P.frames(1)
 
-// Go refuses a new quest on the chest, and the chest as a new giver of quest 7.
+// Go refuses a new quest on the chest, and the chest as a new giver (TestObjectQuestsRefuseNewQuestsOnANonGiver,
+// TestGiverObjectsRefuseANewNonGiver, #419); the probe never calls those saves, so nothing can be written.
 const App = window.go.main.App
-const refusal = async (f) => {
-	try {
-		await f()
-		return ''
-	} catch (err) {
-		return String(err)
-	}
-}
-const ref = { quest: 7, title: '', level: 0, patchMin: 0, patchMax: 10 }
-const objectError = await refusal(() => App.SaveObjectQuests(2855, { starts: [ref], ends: [] }))
-const before = await App.ReadQuestGivers(7)
-const chestGiver = { kind: 'object', id: 2855, name: 'Solid Chest', patchMin: 0, patchMax: 10, ready: false, spawns: 0 }
-const giversError = await refusal(() => App.SaveQuestGivers(7, { starts: [...(before.starts ?? []), chestGiver], ends: before.ends ?? [] }, []))
-const after = await App.ReadQuestGivers(7)
 const chestQuests = await App.ReadObjectQuests(2855)
 
 // The quest editor's Givers tab won't add the chest.
@@ -99,9 +86,6 @@ const ok =
 	!afterEsc.questEditor && afterEsc.objectEditor &&
 	chest.warn.includes('not a Quest giver') &&
 	chest.newQuest === true && chest.search === true &&
-	objectError.includes('not a Quest giver') &&
-	giversError.includes('not a Quest giver') &&
-	JSON.stringify(after) === JSON.stringify(before) &&
 	(chestQuests.starts ?? []).length === 0 &&
 	giverButtons.starts === true && giverButtons.ends === true && giverButtons.text.includes('cannot be added')
-return { ok, poster, added, reverted, afterEsc, chest, objectError, giversError, giverButtons }
+return { ok, poster, added, reverted, afterEsc, chest, giverButtons }

@@ -220,3 +220,28 @@ func TestObjectDisplays(t *testing.T) {
 		t.Fatalf("vein %+v", v)
 	}
 }
+
+// TestEditorSavesRefuseOutOfRangeValues covers the refusals the quest, item and spell editors'
+// probes used to press a real Save for (#419): the value is refused with the message the editor
+// shows, before any SQL exists, so nothing reaches the database.
+func TestEditorSavesRefuseOutOfRangeValues(t *testing.T) {
+	cases := []struct {
+		name  string
+		table string
+		key   string
+		cols  string
+		col   string
+		value string
+		want  string
+	}{
+		{"quest level", questTable, "patch", "QuestLevel\ttinyint(3) unsigned\tNO\t\t0\t\n", "QuestLevel", "300", "QuestLevel must be from 0 to 255, not 300"},
+		{"item level", itemTable, "patch", "required_level\ttinyint(3) unsigned\tNO\t\t0\t\n", "required_level", "300", "required_level must be from 0 to 255, not 300"},
+		{"spell cost", spellTable, "build", "manaCost\tint(10) unsigned\tNO\t\t0\t\n", "manaCost", "99999999999", "manaCost must be from 0 to 4294967295, not 99999999999"},
+	}
+	for _, c := range cases {
+		sql, err := keyedUpdateSQL(c.table, c.key, parseColumns([]byte(c.cols)), 1, 0, map[string]string{c.col: c.value})
+		if err == nil || sql != "" || err.Error() != c.want {
+			t.Errorf("%s: %q, %v, want the error %q", c.name, sql, err, c.want)
+		}
+	}
+}

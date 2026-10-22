@@ -1,4 +1,4 @@
-// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, Save refuses a level past 255 and shows the tab it is on, a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view, and a set piece (Blackened Defias Belt) shows its set's name, members and bonuses (#355); nothing written.
+// The item editor (#353): Tools › Items… finds the Worn Shortsword (25), whose right-click copies `.additem 25`, and shows its tooltip as the game does (slot, type, damage, speed, damage per second), a character holding it and the sword alone; typed values change the tooltip before saving, a chest piece with the sword's look paints nothing and with the Robes of Arcana's is worn on the body (#356), the Stats tab holds one stat a row and adds Healing +22 as an Equip effect, a level past 255 is an unsaved edit (Go refuses it, a Go test; Save is never pressed), a bow on a crossbow-shooting look is flagged with Make it shoot like a bow and Change look lists bow shooters only, New item… offers Weapon › Bow · Ranged (bow) with the usual basics, Revert drops the edits, Change look… shows the item large over the client's looks, where the Battleworn Hammer's look previews on hover, is picked by a click and applied by Change look (back to the fields, held), and Change icon… marks an icon to be made on Save, Esc leaving the view, and a set piece (Blackened Defias Belt) shows its set's name, members and bonuses (#355); nothing written.
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
@@ -71,15 +71,11 @@ const robe = look()
 type(displayInput, swordLook)
 await P.until(() => look().startsWith('Its display has nothing'), WAIT, 'the sword look back')
 
-// A level past a tinyint's 255: refused before anything is written, on its tab.
+// A level past a tinyint's 255 is an unsaved edit; Go's refusal is a Go test (TestEditorSavesRefuseOutOfRangeValues, #419), so Save is never pressed.
 await openTab('Requirements')
 type(field('Level'), '300')
 await openTab('Item')
 const saveText = button(root().querySelector('header .actions'), 'Save')?.textContent.trim()
-button(root().querySelector('header .actions'), 'Save').click()
-await P.until(() => root().querySelector('.bar.error'), WAIT, 'the refusal')
-const error = root().querySelector('.bar.error').textContent
-const jumped = root().querySelector('nav.tabs button.on')?.textContent.trim()
 button(root().querySelector('header .actions'), 'Revert').click()
 await P.frames(2)
 const reverted = button(root().querySelector('header .actions'), 'Saved') !== undefined && tooltip()[0] === tip[0]
@@ -247,8 +243,6 @@ const ok =
 	chest.startsWith('Its display has nothing') &&
 	robe.startsWith('Worn on the body, on a') &&
 	saveText === 'Save item (5)' &&
-	error.includes('required_level must be from 0 to 255') &&
-	jumped.startsWith('Requirements') &&
 	reverted &&
 	stored.values.name === 'Worn Shortsword' &&
 	stored.values.required_level === '1' &&
@@ -269,4 +263,4 @@ const ok =
 	setBlock.bonuses.length >= 2 &&
 	setBlock.bonuses[0].startsWith('(2) Set: ') && !setBlock.bonuses.some((l) => l.includes('spell ')) &&
 	setBlock.headerColor === 'rgb(255, 210, 0)'
-return { ok, setBlock, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, error, jumped, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
+return { ok, setBlock, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }
