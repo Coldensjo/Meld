@@ -90,6 +90,18 @@ const DRAG_PX = 4
 /** One Shift+scroll notch scales the placement preview by this much. */
 const SCALE_STEP = 1.1
 
+/**
+ * The size the creature or game object template being placed is drawn at (#672): a creature's
+ * template scale times its display's, an object's template size, as `newCreatureSpawn` and
+ * `newObjectSpawn` give the spawn; null when a model is placed.
+ */
+function placingSpawnScale(): number | null {
+  const c = ui.placeCreature
+  if (c) return (c.scale || 1) * (c.displayScale || 1)
+  const o = ui.placeObject
+  return o ? o.size || 1 : null
+}
+
 export class PlaceTool implements Tool {
   get usesBrush() {
     return editor.placeScatter
@@ -205,6 +217,10 @@ export class PlaceTool implements Tool {
       setStatus('Buildings (WMOs) cannot be scaled: the 1.12 client always draws them at full size.', 3000)
       return
     }
+    if (placingSpawnScale() !== null) {
+      setStatus('A creature or game object takes its size from its template, not from the Place tool.', 3000)
+      return
+    }
     const rung = Math.round(Math.log(this.scale) / Math.log(SCALE_STEP)) + steps
     this.scale = rung === 0 ? 1 : THREE.MathUtils.clamp(Math.round(SCALE_STEP ** rung * 100) / 100, 0.05, 20)
     setViewportHint(`Scale ×${this.scale.toFixed(2)}`)
@@ -252,7 +268,7 @@ export class PlaceTool implements Tool {
       } else {
         placementEuler(this.ghost.rotation, this.rot)
       }
-      this.ghost.scale.setScalar(this.scale)
+      this.ghost.scale.setScalar(placingSpawnScale() ?? this.scale)
     }
   }
 

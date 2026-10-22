@@ -23,6 +23,8 @@ export interface SpawnBrushHooks {
 	newCreature(e: SpawnBrushEntry, x: number, y: number, z: number, orientation: number): vmangos.WorldSpawn | null
 	/** What the creature of `e` looks like, as a spawn type for its ghost; '' while it loads. */
 	ghostType(e: SpawnBrushEntry): string
+	/** The size the creature of `e` is drawn at once placed (#672): its template's scale times its display's. */
+	ghostScale(e: SpawnBrushEntry): number
 }
 
 /** Most placements tried a frame while the button is held. */
@@ -176,6 +178,7 @@ export class SpawnBrushTool implements Tool {
 			this.ghostTypes.add(type)
 			g.position.set(x, y, z)
 			g.rotation.set(0, p.turn, 0)
+			g.scale.setScalar(this.hooks.ghostScale(brush.entries[p.entry]))
 		}
 	}
 

@@ -661,6 +661,7 @@ export class Engine {
         const look = this.brushLook(e)
         return look ? spawnType({ model: look.model, look: look.look, anim: look.anim }) : ''
       },
+      ghostScale: (e) => e.scale * (this.brushLook(e)?.displayScale || 1),
     })
     this.tools = {
       select: this.selectTool,

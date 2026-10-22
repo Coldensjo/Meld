@@ -131,6 +131,17 @@ scrolling back to 0 hands the tilt back to Random tilt. `tests/placement.test.ts
 - Trap: the key is tracked by `e.code === 'KeyZ'`, so a synthetic keydown needs `code: 'KeyZ'`, and a
   keyup (or a window blur) to release it, or later wheel events keep tilting.
 
+## Placing a creature or game object: the preview's size (#672)
+
+Checks: with a template from the browser's Creatures, NPCs or Objects tab, the Place tool's preview is
+drawn at the size the spawn takes (`placingSpawnScale` in `ObjectTools.ts`: the template's scale times
+its display's, an object's `size`), not at 1, Shift+scroll leaves it be, and the clicked spawn's
+`scale` matches. Probe `place-spawn-size` (`bun run probe place-spawn-size`) picks the first object
+and creature templates sized away from 1 on the benchmark scene; needs the world database. The spawn
+brush's ghosts take the same size through its `ghostScale` hook.
+- Trap: a template made in the creature editor (`creatureTemplateOf`) has `displayScale` 1 until its
+  look is read, so its preview misses the display's own scale; the browser's templates carry it.
+
 ## Placement tilt (the client's rotation order, #149)
 
 Checks: a placed model's tilt and roll match the client's. `world/placement.ts` (`placementEuler`) is the
