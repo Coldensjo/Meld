@@ -1969,15 +1969,7 @@ func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, e
 func (a *App) installClosed(dataDir string, files []mpq.File, world bool, also func() error) (string, error) {
 	run := func() (string, error) {
 		// The client files waiting for the game to close (#365) go along.
-		pending, err := vmangos.PendingFiles(dataDir)
-		if err != nil {
-			return "", err
-		}
-		patch, err := vmangos.InstallPatch(dataDir, vmangos.WithPending(pending, files))
-		if err == nil && len(pending) > 0 {
-			err = vmangos.ClearPending(dataDir, pending)
-			vmangos.ForgetSpells()
-		}
+		patch, err := vmangos.InstallWithPending(dataDir, files)
 		if err == nil && also != nil {
 			err = also()
 		}

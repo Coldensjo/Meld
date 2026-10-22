@@ -234,6 +234,29 @@ func readOverlay(set *mpq.Set, dataDir, name string) ([]byte, error) {
 	return set.ReadFile(name)
 }
 
+// InstallWithPending writes files into the patch with the files waiting for the game to close
+// (#365) taken along, then drops the waiting ones it wrote. Reading the waiting files, the write and
+// the drop hold patchMu together, so no other write can slip between them (#657). With nothing given
+// and nothing waiting it writes nothing and returns "".
+func InstallWithPending(dataDir string, files []mpq.File) (string, error) {
+	patchMu.Lock()
+	defer patchMu.Unlock()
+	pending, err := PendingFiles(dataDir)
+	if err != nil {
+		return "", err
+	}
+	if len(pending) == 0 && len(files) == 0 {
+		return "", nil
+	}
+	patch, err := installPatch(dataDir, WithPending(pending, files))
+	if err != nil || len(pending) == 0 {
+		return patch, err
+	}
+	err = ClearPending(dataDir, pending)
+	ForgetSpells()
+	return patch, err
+}
+
 // WithPending is files with the waiting ones of the same client in front, a file in files replacing
 // a waiting one of its name, for a patch write that takes the waiting files along.
 func WithPending(pending, files []mpq.File) []mpq.File {

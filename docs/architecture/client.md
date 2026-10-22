@@ -405,8 +405,11 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the tables without closing anything (#365, `app_pending.go` `saveClientFiles`): into Meld's patch at
   once when the game isn't running, else into the waiting files in the user's cache
   (`internal/vmangos/pending.go`), which a watcher (`watchPending`, also started at Meld's start)
-  writes once the game has closed, and which any patch write that closes the game (`installClosed`)
-  takes along. Meld's own reads of the client's tables (`readOverlay`, through `readClientFile`,
+  writes once the game has closed, and which any patch write that closes the game (`installClosed`,
+  Publish's `ExportMap`) takes along (`vmangos.InstallWithPending`). Patch writes run one at a time
+  (`patchMu` in `install.go`, held by `InstallPatch` and by `InstallWithPending` around reading,
+  writing and dropping the waiting files), so the watcher never rebuilds the patch beside another
+  write and drops its files (#657). Meld's own reads of the client's tables (`readOverlay`, through `readClientFile`,
   `loadSpellData` and the visual tables) see the waiting files first, so the editor shows the saved
   spell and the next save builds on it. The game reads Spell.dbc only at start, so it has the spell
   the next time it starts. `ForgetSpells` drops the Go caches. Export and Import (#357,

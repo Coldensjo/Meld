@@ -14,7 +14,8 @@ import (
 // client's tables without closing the game or the servers. The files go into Meld's patch at once when
 // the game isn't running, else they wait (vmangos.AddPending) and a watcher writes them once it has
 // closed, so the game has them the next time it starts. A patch write that closes the game anyway
-// (installClosed) takes them along.
+// (installClosed, Publish) takes them along. Every patch write runs one at a time
+// (vmangos.InstallPatch, InstallWithPending), so the watcher never writes beside another (#657).
 
 // pendingPoll is how often the watcher looks whether the game has closed.
 const pendingPoll = 3 * time.Second
@@ -42,15 +43,8 @@ func (a *App) saveClientFiles(dataDir string, files []mpq.File) error {
 		a.watchPending()
 		return nil
 	}
-	pending, err := vmangos.PendingFiles(dataDir)
-	if err != nil {
-		return err
-	}
-	all := vmangos.WithPending(pending, files)
-	if _, err := vmangos.InstallPatch(dataDir, all); err != nil {
-		return err
-	}
-	return vmangos.ClearPending(dataDir, pending)
+	_, err := vmangos.InstallWithPending(dataDir, files)
+	return err
 }
 
 // watchPending starts the watcher, unless it runs already. It writes the waiting files once the game
@@ -71,7 +65,9 @@ func (a *App) watchPending() {
 				return
 			}
 			if !a.gameRunning() {
-				if err := a.writePending(dataDir, pending); err != nil {
+				// Read again under the patch lock, so a write that took them along meanwhile
+				// (installClosed, Publish) leaves nothing to write twice.
+				if _, err := vmangos.InstallWithPending(dataDir, nil); err != nil {
 					runtime.LogWarning(a.ctx, "The client files waiting for the game to close weren't written: "+err.Error())
 					time.Sleep(10 * pendingPoll)
 				}
@@ -80,15 +76,6 @@ func (a *App) watchPending() {
 			time.Sleep(pendingPoll)
 		}
 	}()
-}
-
-// writePending writes the waiting files into the patch and drops them.
-func (a *App) writePending(dataDir string, pending []mpq.File) error {
-	if _, err := vmangos.InstallPatch(dataDir, pending); err != nil {
-		return err
-	}
-	vmangos.ForgetSpells()
-	return vmangos.ClearPending(dataDir, pending)
 }
 
 // reloadSpells has the world server, when it runs, read spell_template again, so a saved spell works

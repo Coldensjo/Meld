@@ -2,6 +2,7 @@ package vmangos
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -258,5 +259,89 @@ func TestInstallPatchWithClientOpen(t *testing.T) {
 	}
 	if !c.Status().Loaded {
 		t.Fatal("the reader didn't open the archives again")
+	}
+}
+
+// TestPatchWritesOneAtATime runs patch writes at once, as Publish and the waiting files' watcher can
+// (#657): each rebuilds the patch from the old one and renames over it, so without patchMu the last
+// rename drops the files the others wrote.
+func TestPatchWritesOneAtATime(t *testing.T) {
+	dir := t.TempDir()
+	cache, old := t.TempDir(), pendingRoot
+	pendingRoot = func() string { return cache }
+	defer func() { pendingRoot = old }()
+	if err := AddPending(dir, []mpq.File{{Name: SpellPath, Data: []byte("spell")}}); err != nil {
+		t.Fatal(err)
+	}
+	const writers = 8
+	errs := make(chan error, writers)
+	for i := 0; i < writers; i++ {
+		go func(i int) {
+			f := []mpq.File{{Name: fmt.Sprintf(`World\Maps\Azeroth\Azeroth_32_%d.adt`, 40+i), Data: []byte{byte(i)}}}
+			var err error
+			if i%2 == 0 {
+				_, err = InstallPatch(dir, f)
+			} else {
+				_, err = InstallWithPending(dir, f)
+			}
+			errs <- err
+		}(i)
+	}
+	for i := 0; i < writers; i++ {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, err := mpq.Open(filepath.Join(dir, PatchName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	for i := 0; i < writers; i++ {
+		if name := fmt.Sprintf(`World\Maps\Azeroth\Azeroth_32_%d.adt`, 40+i); !a.Has(name) {
+			t.Errorf("%s was dropped", name)
+		}
+	}
+	if b, err := a.ReadFile(SpellPath); err != nil || string(b) != "spell" {
+		t.Errorf("the waiting Spell.dbc: %q %v", b, err)
+	}
+	if left, _ := PendingFiles(dir); len(left) != 0 {
+		t.Errorf("still waiting: %d", len(left))
+	}
+}
+
+// TestInstallWithPending takes the waiting files along, a given file replacing a waiting one of its
+// name, and writes nothing when nothing is given or waits.
+func TestInstallWithPending(t *testing.T) {
+	dir := t.TempDir()
+	cache, old := t.TempDir(), pendingRoot
+	pendingRoot = func() string { return cache }
+	defer func() { pendingRoot = old }()
+	if patch, err := InstallWithPending(dir, nil); err != nil || patch != "" {
+		t.Fatalf("nothing to write: %q %v", patch, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, PatchName)); err == nil {
+		t.Fatal("a patch was written with nothing in it")
+	}
+	if err := AddPending(dir, []mpq.File{{Name: SpellPath, Data: []byte("old")}, {Name: SpellIconPath, Data: []byte("icons")}}); err != nil {
+		t.Fatal(err)
+	}
+	patch, err := InstallWithPending(dir, []mpq.File{{Name: SpellPath, Data: []byte("new")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := mpq.Open(patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if b, _ := a.ReadFile(SpellPath); string(b) != "new" {
+		t.Errorf("Spell.dbc = %q", b)
+	}
+	if b, _ := a.ReadFile(SpellIconPath); string(b) != "icons" {
+		t.Errorf("SpellIcon.dbc = %q", b)
+	}
+	if left, _ := PendingFiles(dir); len(left) != 0 {
+		t.Errorf("still waiting: %d", len(left))
 	}
 }

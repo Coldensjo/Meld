@@ -38,10 +38,22 @@ func CheckServer(dir string) error {
 	return nil
 }
 
+// patchMu serialises Meld's writes of a patch (#657): each rebuilds the patch from the one on disk
+// and renames the new one over it, so two at once (a Publish and the waiting files' watcher) would
+// drop the files of whichever renamed first.
+var patchMu sync.Mutex
+
 // InstallPatch writes files as the client's patch archive in its Data folder. An archive that
 // Meld or Ironforge wrote is replaced (Ironforge's after a backup); any other patch-3 is
-// left alone, since it may be the game's. Returns the archive's path.
+// left alone, since it may be the game's. Returns the archive's path. One write runs at a time.
 func InstallPatch(dataDir string, files []mpq.File) (string, error) {
+	patchMu.Lock()
+	defer patchMu.Unlock()
+	return installPatch(dataDir, files)
+}
+
+// installPatch is InstallPatch, for a caller holding patchMu.
+func installPatch(dataDir string, files []mpq.File) (string, error) {
 	target := filepath.Join(dataDir, PatchName)
 	// A patch the game has open can't be replaced: say so before anything is backed up or written.
 	if err := checkFree(target); err != nil {

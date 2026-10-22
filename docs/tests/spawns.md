@@ -604,7 +604,10 @@ new icon) in Meld's patch only on Save or New spell.
   tokens, the tooltip's cost, range, cast and cooldown, an effect's line, the tabs).
 - Waiting client files (#365): `TestPendingFiles` (a later save replaces a file of its name, another
   client's folder is apart, a file given with the patch write replaces a waiting one, clearing keeps
-  a file saved again meanwhile) and `TestReloadSpells` (nothing sent with SOAP off; `reload
+  a file saved again meanwhile), `TestInstallWithPending` (the waiting files go into the write and are
+  dropped; nothing written when nothing waits), `TestPatchWritesOneAtATime` (eight `InstallPatch` and
+  `InstallWithPending` writes at once all land, with the waiting Spell.dbc; it fails without
+  `patchMu`, #657) and `TestReloadSpells` (nothing sent with SOAP off; `reload
   spell_template` with it on). With `WOW_DIR` and `VMANGOS_DIR`, `TestPendingSpellLive` queues a new
   spell's planned Spell.dbc in a temporary folder and finds it through `SpellRefs` and `SearchSpells`.
   The watcher and a Save while the game runs were not run: they write the owner's patch.

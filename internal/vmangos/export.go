@@ -280,10 +280,15 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 	}
 	res.Changed = countTiles(files)
 	res.ChangedTiles, res.Layout = changedTiles(m, files)
+	// The client files waiting for the game to close go along (#657): Publish closes the game around
+	// this write, so the watcher would otherwise write them at the same time. Patch stays "" when the
+	// map itself is unchanged, so Publish still leaves an up-to-date server alone.
+	patch, err := InstallWithPending(patchDir, files)
+	if err != nil {
+		return res, err
+	}
 	if len(files) > 0 {
-		if res.Patch, err = InstallPatch(patchDir, files); err != nil {
-			return res, err
-		}
+		res.Patch = patch
 	}
 	if serverDir != "" {
 		res.Server, err = installServerMapTable(serverDir, dbc)
