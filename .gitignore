@@ -10,3 +10,4 @@ frontend/package.json.md5
 *.mpq
 *.MPQ
 frontend/probes/scratch/
+*.probe-refresh

@@ -150,11 +150,31 @@ async function main() {
 	let seq = 0
 	const waiting = new Map()
 	const pageErrors = []
+	/** Kills Chrome with its children (taskkill /T on Windows, the process group on Linux, where launch detaches it). */
+	const killChrome = () => {
+		const pid = chrome?.pid
+		if (!pid) return
+		try {
+			if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' })
+			else process.kill(-pid, 'SIGKILL')
+		} catch { /* already gone */ }
+		try { chrome.kill() } catch { /* already gone */ }
+	}
 	const cleanup = () => {
-		chrome?.kill()
+		killChrome()
 		try { rmSync(profile, { recursive: true, force: true }) } catch { /* Chrome may still hold it */ }
+		// A stop during the App.js refresh (below) would leave the app without it until Wails regenerates it.
+		try { if (existsSync(APP_JS + '.probe-refresh')) renameSync(APP_JS + '.probe-refresh', APP_JS) } catch { /* nothing to restore */ }
 	}
 	process.on('exit', cleanup)
+	// Node and Bun skip 'exit' handlers when a signal ends the process, so Ctrl-C, kill and a harness timeout left Chrome running (#601).
+	for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(s, () => { cleanup(); process.exit(130) })
+	// Profiles of runs that were killed before this (their pid is gone) pile up in the temp folder.
+	for (const d of readdirSync(tmpdir())) {
+		const m = /^meld-probe-(\d+)$/.exec(d)
+		if (!m || Number(m[1]) === process.pid) continue
+		try { process.kill(Number(m[1]), 0) } catch { try { rmSync(join(tmpdir(), d), { recursive: true, force: true }) } catch { /* in use */ } }
+	}
 
 	/** A CDP command. Rejects when the page's socket closes or nothing answers in time, so a closed page never stalls the run (#388). */
 	const send = (method, params = {}, timeout = 60_000) => new Promise((resolve, reject) => {
@@ -185,7 +205,7 @@ async function main() {
 			'--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
 			'--window-size=1400,900', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
 			'--no-first-run', '--no-default-browser-check', 'about:blank',
-		], { stdio: 'ignore' })
+		], { stdio: 'ignore', detached: process.platform !== 'win32' })
 		let target
 		let port = DEBUG_PORT !== '0' ? DEBUG_PORT : null
 		for (let i = 0; i < 100 && !target; i++) {
@@ -227,7 +247,7 @@ async function main() {
 	/** Throws Chrome away (the probe's own, found by its profile) and starts another, since a timed-out or closed page does not recover. */
 	const relaunch = async () => {
 		try { ws?.close() } catch { /* already closed */ }
-		chrome?.kill()
+		killChrome()
 		await sleep(500)
 		try { rmSync(profile, { recursive: true, force: true }) } catch { /* Chrome may still hold it */ }
 		await launch()
