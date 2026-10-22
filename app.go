@@ -1822,8 +1822,8 @@ func (a *App) SaveSQLDialog(suggested string) (string, error) {
 	})
 }
 
-// SaveRegion writes an edited block back into the client's patch, into the tiles it came from, and
-// says what it wrote. Only the tiles that differ from the patch's copies are written; with nothing
+// SaveRegion writes an edited block back into the client's patch, into the tiles it came from and
+// those beside it that list a model by its edge (#647), and says what it wrote. Only the tiles that differ from the patch's copies are written; with nothing
 // changed the patch, the game and the servers are left alone. On Windows the game is closed first,
 // since it holds the patch open, and opened again afterwards. The servers stay up: the server's map
 // data is built from the patch by UpdateRegionServer, which Compile All calls next and which restarts

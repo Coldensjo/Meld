@@ -2625,6 +2625,7 @@ export namespace vmangos {
 	    patch: string;
 	    tiles: number;
 	    changed: number;
+	    outside: number;
 	    changedTiles: string[];
 	    mapId: number;
 	    tilesCurrent: boolean;
@@ -2641,6 +2642,7 @@ export namespace vmangos {
 	        this.patch = source["patch"];
 	        this.tiles = source["tiles"];
 	        this.changed = source["changed"];
+	        this.outside = source["outside"];
 	        this.changedTiles = source["changedTiles"];
 	        this.mapId = source["mapId"];
 	        this.tilesCurrent = source["tilesCurrent"];

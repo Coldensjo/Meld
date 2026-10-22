@@ -217,10 +217,26 @@ in every tile of the map it reaches the same way.
   one ID, a rock mid-tile and a tree by the map's outer edge in their own tile only (#648). No client needed.
 - Trap: models are named `.mdx` in the tiles and `.m2` in the archives; a size read that doesn't
   swap them falls back to the writer's 16-yard default reach.
-- Trap: a tile outside the block isn't written, so a border model by the block's edge keeps the copy
-  that tile lists.
+- Since #647 a tile outside the block that lists a border model is written too (next entry).
 - Not checked in the game: move a tree on a tile border, compile, relog and look from both tiles.
 
+
+## Border models in the tiles outside the block (#647)
+Checks: a compile moves, deletes or adds a model by the block's edge in the tiles outside the block that
+list it or that it now reaches, changing nothing else there, and a second compile of the same edit (or
+of the block read back from the patch) writes nothing.
+- `go test ./internal/vmangos/ -run TestRegionBorderModelsOutsideBlock`: a made-up 2x1 map compiled as
+  the 1x1 block 0_0, whose tile 1_0 lists three of its border models; it installs the first compile
+  into a patch in the temp folder and compiles again from it, then moves a model back where the client
+  had it and deletes one the first compile added. No client needed.
+- `WOW_DIR=... go test ./internal/vmangos/ -run TestClientRegionOutsideTiles -v`: Azeroth 32_48 1x1 with
+  two models a neighbour lists moved and deleted; the neighbours written keep their ground, paint,
+  liquids and every other placement as the client reads them now (hard rule 5). It logs the build's
+  time (about 0.17 s, 2026-10-22).
+- Trap: the owner's patch has a rock under ID 352776 in 32_49 that a compile before #491 gave the ID of
+  a bowl in 31_49; the save must not take the bowl out (`outsideFix.isCopy` checks the model's name).
+- Not checked in the game: a tree moved off the edge of a compiled block, seen from the neighbouring
+  tile after a relog, would show it gone from its old spot.
 ## A map's own loading screen (Map Properties › Picture…, #218)
 Checks: a PNG becomes a map's loading screen: the BLP, its LoadingScreens.dbc row and the map's
 Map.dbc row pointing at it.

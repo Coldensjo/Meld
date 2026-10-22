@@ -273,10 +273,20 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `Rewrite` uses for a tile's chunks; `reaches.bound` reads the model's size, its `.mdx` name read as
   the archive's `.m2`), so no tile keeps a copy at the old spot (#646). On Azeroth that rule picks the
   client's own tiles for 99% of M2s and every WMO, and never fewer for a WMO. A tile outside the block
-  is not written, so a model by the block's edge keeps any copy a tile outside lists. An added model
+  that lists such a model, or that a moved or added one now reaches, is written too, with only its
+  placements changed and starting from the tile as the client reads it now, Meld's patch included
+  (`internal/vmangos/regionoutside.go`, the owner's choice on #647): the copies of a model the save
+  moves or deletes leave it, and so do those of a model an earlier compile moved, deleted or added
+  (which the block's tiles in Meld's patch list otherwise than the client's own do, `tileEdit.patched`),
+  unless a copy already stands where the block now has it; a different model under the same ID (an ID
+  a compile before #491 handed out twice) is left alone. The tiles looked at are the neighbours of the
+  block tiles that list such a model (a particle emitter's client bounds reach 250 yards past its
+  vertices) and those its old bounds, a chunk wider, or its new ones reach. `RegionResult.Outside`
+  counts them, and `ChangedTiles` names them for the server's map data. An added model
   (one whose ID the client's tile without Meld's patch doesn't hold) takes an ID from one counter for
   the whole compile, numbered in `BuildRegion` so its copies share it, seeded above every placement of the map: the block's
-  tiles without Meld's patch and every other tile as the client reads it now (`mapUIDMax`,
+  tiles without Meld's patch, the tiles outside it as they stay after the save takes its copies out,
+  and every other tile as the client reads it now (`mapUIDMax`,
   `internal/vmangos/uids.go`, which reads only the start of each tile through `mpq.Set.ReadPrefix`:
   about 0.1 s for Azeroth's 687 tiles against 5 s whole). The client draws only the first loaded
   placement of an ID, and the server's vmap assembler keeps one spawn an ID a map, so IDs numbered

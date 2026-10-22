@@ -554,9 +554,11 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
       return
     }
     const unchanged = res.tiles - res.changed
+    // Tiles outside the block that list a model by its edge are written too (#647).
+    const outside = res.outside ? `, and ${res.outside} ${res.outside === 1 ? 'tile' : 'tiles'} beside it for the models by its edge` : ''
     const wrote = res.building
       ? `Wrote ${region.mapName}'s building (its WDT) to ${res.patch}.`
-      : `Wrote ${res.changed} of ${res.tiles} tiles of ${name} to the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}.`
+      : `Wrote ${res.changed} of ${res.tiles} tiles of ${name} to the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}${outside}.`
     // Only a continent of the client has map data to rebuild this way, and only when a tile changed.
     const rebuildable = !!server && res.mapId >= 0 && !!res.changedTiles?.length
     if (target === 'client') {

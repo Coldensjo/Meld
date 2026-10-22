@@ -365,7 +365,7 @@ func tileOf(o ObjectView, size int) int {
 // blockTilesOf is the tiles of the block a placement's bounds reach into, as the client's tiles list a
 // model in each tile it overlaps (#646), by the same test Rewrite uses for a tile's chunks. A model
 // whose bounds reach no tile of the block (it sits off its edge) goes into the tile tileOf gives it.
-// A tile outside the block isn't written, so a model crossing the block's edge isn't listed there.
+// The tiles outside the block it reaches are BuildRegion's outside tiles (#647).
 func blockTilesOf(obj adt.Object, o ObjectView, e RegionEdit) []int {
 	lo, hi := obj.Bounds()
 	var out []int
@@ -398,8 +398,10 @@ func clampTile(i, size int) int {
 // go into every tile. Models that are unchanged keep their placements exactly; changed and new ones
 // are written into every tile of the block their bounds reach, under one ID, after a changed one is
 // taken out of every tile that listed it; and placements that were removed in the editor are dropped
-// from every tile that listed them. Painted chunks are rewritten from their weights; the rest
-// keep the paint the client has. The map's WDL comes last, its block's horizon redrawn from the heights.
+// from every tile that listed them. A tile outside the block that lists such a model, or that a moved or
+// added one now reaches, is written too, after the block's tiles, with only its placements changed
+// (#647). Painted chunks are rewritten from their weights; the rest keep the paint the client has.
+// The map's WDL comes last, its block's horizon redrawn from the heights.
 func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	if err := checkRegion(e.X, e.Y, e.Size); err != nil {
 		return nil, err
@@ -427,10 +429,13 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 	}
 
 	type tileEdit struct {
-		name   string
-		root   []byte
-		orig   map[uint32]adt.Placement
-		change adt.Changes
+		name string
+		root []byte
+		orig map[uint32]adt.Placement
+		// patched is the tile's models as Meld's patch has them, when it has the tile and root is the
+		// client's own: an earlier compile may have moved, deleted or added models there.
+		patched map[uint32]adt.Placement
+		change  adt.Changes
 	}
 	tiles := make([]tileEdit, e.Size*e.Size)
 	// owners is the block's tiles that list each model, by ID: a model whose bounds cross a tile border
@@ -445,6 +450,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 			// still apply): the editor already holds the whole block's heights, paint and models, so earlier
 			// exports are rebuilt from the original. A tile only Meld's patch has (one it made) starts from that.
 			root, err := readUnpatched(set, name)
+			own := err == nil
 			if err != nil {
 				root, err = set.ReadFile(name)
 			}
@@ -456,6 +462,22 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 				return nil, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
 			}
 			t := tileEdit{name: name, root: root, orig: map[uint32]adt.Placement{}}
+			if own && patchHolds(set, name) {
+				b, err := set.ReadFile(name)
+				if err != nil {
+					return nil, err
+				}
+				ps, err := adt.ParsePlacements(b)
+				if err != nil {
+					return nil, fmt.Errorf("tile %d_%d in %s: %w", tx, ty, PatchName, err)
+				}
+				t.patched = map[uint32]adt.Placement{}
+				for _, p := range ps {
+					if p.Kind == adt.M2 || p.Kind == adt.WMO {
+						t.patched[p.UID] = p
+					}
+				}
+			}
 			t.change = adt.Changes{TileX: tx, TileY: ty, Remove: map[uint32]bool{}, Paint: map[int]adt.ChunkPaint{}}
 			for _, p := range placements {
 				if p.Kind != adt.M2 && p.Kind != adt.WMO {
@@ -470,21 +492,34 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 	}
 
-	// Added models take IDs above every one of the map: the block's tiles as the client has them
-	// without Meld's patch, and the map's other tiles as it reads them now (#491).
-	nextUID, err := mapUIDMax(set, e.MapName, func(x, y int) bool {
-		return x >= e.X && x < e.X+e.Size && y >= e.Y && y < e.Y+e.Size
-	})
-	if err != nil {
-		return nil, err
+	// fix is the models whose copies in tiles outside the block the save brings in line with it (#647):
+	// first those an earlier compile moved, deleted or added, which the block's tiles in Meld's patch
+	// list otherwise than the client's own do; then, below, those this save moves, deletes or adds.
+	fix := map[uint32]*outsideFix{}
+	fixOf := func(uid uint32) *outsideFix {
+		f := fix[uid]
+		if f == nil {
+			f = &outsideFix{}
+			fix[uid] = f
+		}
+		return f
 	}
-	for uid := range owners {
-		if uid != GlobalUID {
-			nextUID = max(nextUID, uid)
+	for k := range tiles {
+		t := &tiles[k]
+		if t.patched == nil {
+			continue
+		}
+		for uid, p := range t.patched {
+			if o, ok := t.orig[uid]; !ok || !samePlace(p, objectOf(o)) {
+				fixOf(uid).saw(k, p)
+			}
+		}
+		for uid := range t.orig {
+			if _, ok := t.patched[uid]; !ok {
+				fixOf(uid)
+			}
 		}
 	}
-	nextUID++
-
 	// One object an ID: a map saved before ReadRegion handed out a border model once may hold it once
 	// per tile that lists it. A copy moved in the editor wins over one left in place.
 	pick := map[uint32]int{}
@@ -501,40 +536,143 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 
 	// A changed model is taken out of every tile that lists it and an added or changed one goes into
 	// every tile of the block its bounds reach, under one ID, so no tile keeps a copy at the old spot
-	// and the neighbour's chunks list a model that crosses into them (#646). Added models are numbered
-	// here rather than by Rewrite, so each one's copies share their ID.
+	// and the neighbour's chunks list a model that crosses into them (#646). Added models, and those an
+	// earlier compile added (the client's own tiles lack their IDs), are numbered below, rather than by
+	// Rewrite, so each one's copies share their ID. now is where every model the save places stands,
+	// with those of fix it leaves in the block's tiles as they are, for the tiles outside the block;
+	// block is set on those the block's tiles take.
 	rc := newReaches(set)
+	type placed struct {
+		obj   adt.Object
+		view  ObjectView
+		fresh bool
+		block bool
+	}
+	var now []placed
 	for i, o := range e.Objects {
 		var orig *adt.Placement
+		fresh := false
 		if ks, ok := owners[o.UID]; o.UID != 0 && ok {
 			if pick[o.UID] != i {
 				continue
 			}
 			p := tiles[ks[0]].orig[o.UID]
 			if unchanged(o, e, p) {
+				// The block's tiles keep it as the client has it; a tile outside where an earlier compile
+				// moved or deleted it gets it back.
+				if fix[o.UID] != nil {
+					obj := objectOf(p)
+					rc.bound(&obj)
+					now = append(now, placed{obj: obj, view: o})
+				}
 				continue
 			}
 			orig = &p
 			for _, k := range ks {
 				tiles[k].change.Remove[o.UID] = true
 			}
+			fixOf(o.UID)
 		} else {
-			o.UID = nextUID
-			nextUID++
+			o.UID = 0
+			fresh = true
 		}
 		obj, err := placementFromView(o, e, orig)
 		if err != nil {
 			return nil, err
 		}
 		rc.bound(&obj)
-		for _, k := range blockTilesOf(obj, o, e) {
-			tiles[k].change.Add = append(tiles[k].change.Add, obj)
-		}
+		now = append(now, placed{obj: obj, view: o, fresh: fresh, block: true})
 	}
 	for uid, ks := range owners {
-		if _, kept := pick[uid]; !kept {
+		if _, picked := pick[uid]; !picked {
 			for _, k := range ks {
 				tiles[k].change.Remove[uid] = true
+			}
+			fixOf(uid)
+		}
+	}
+	for uid, f := range fix {
+		for _, k := range owners[uid] {
+			f.saw(k, tiles[k].orig[uid])
+		}
+	}
+	for i := range now {
+		if !now[i].fresh {
+			fixOf(now[i].obj.UID).final = &now[i].obj
+		}
+	}
+
+	// The tiles outside the block that may list a model of fix, or that a moved or added model now
+	// reaches: the neighbours of the block tiles that list it, and those its old bounds reach.
+	inBlock := func(x, y int) bool { return x >= e.X && x < e.X+e.Size && y >= e.Y && y < e.Y+e.Size }
+	want := map[[2]int]bool{}
+	for _, f := range fix {
+		for _, k := range f.near {
+			x, y := e.X+k%e.Size, e.Y+k/e.Size
+			for dy := -1; dy <= 1; dy++ {
+				for dx := -1; dx <= 1; dx++ {
+					if x+dx >= 0 && y+dy >= 0 && x+dx < MapTiles && y+dy < MapTiles {
+						want[[2]int{x + dx, y + dy}] = true
+					}
+				}
+			}
+		}
+		for _, p := range f.old {
+			obj := objectOf(p)
+			rc.bound(&obj)
+			lo, hi := obj.Bounds()
+			tilesReached(want, lo, hi, outsidePad)
+		}
+	}
+	for _, p := range now {
+		lo, hi := p.obj.Bounds()
+		tilesReached(want, lo, hi, 0)
+	}
+	for k := range want {
+		if inBlock(k[0], k[1]) {
+			delete(want, k)
+		}
+	}
+	outside, err := readOutside(set, e.MapName, want)
+	if err != nil {
+		return nil, err
+	}
+
+	// Added models take IDs above every one of the map: the block's tiles as the client has them
+	// without Meld's patch, and the map's other tiles as it reads them now (#491), but for the copies the
+	// save takes out of the tiles outside the block. Those of the models an earlier compile added are
+	// among them, so a compile with nothing new numbers its added models as the one before did.
+	nextUID, err := mapUIDMax(set, e.MapName, func(x, y int) bool { return inBlock(x, y) || want[[2]int{x, y}] })
+	if err != nil {
+		return nil, err
+	}
+	take := func(uid uint32) {
+		if uid != GlobalUID {
+			nextUID = max(nextUID, uid)
+		}
+	}
+	for i := range outside {
+		outside[i].removals(fix)
+		for uid := range outside[i].placed {
+			if !outside[i].remove[uid] {
+				take(uid)
+			}
+		}
+	}
+	for uid := range owners {
+		take(uid)
+	}
+	nextUID++
+	for i := range now {
+		if now[i].fresh {
+			now[i].obj.UID = nextUID
+			nextUID++
+		}
+	}
+	for _, p := range now {
+		if p.block {
+			for _, k := range blockTilesOf(p.obj, p.view, e) {
+				tiles[k].change.Add = append(tiles[k].change.Add, p.obj)
 			}
 		}
 	}
@@ -614,6 +752,23 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		rewritten, err := adt.Rewrite(patched, t.change)
 		if err != nil {
 			return nil, fmt.Errorf("tile %d_%d: %w", e.X+i, e.Y+j, err)
+		}
+		files = append(files, mpq.File{Name: t.name, Data: rewritten})
+	}
+	// The tiles outside the block that list a model as it no longer stands, or that a moved or added one
+	// now reaches, keep everything else as the client reads them now (#647).
+	objs := make([]adt.Object, len(now))
+	for i, p := range now {
+		objs[i] = p.obj
+	}
+	for _, t := range outside {
+		ch, ok := t.changes(objs)
+		if !ok {
+			continue
+		}
+		rewritten, err := adt.Rewrite(t.root, ch)
+		if err != nil {
+			return nil, fmt.Errorf("tile %d_%d: %w", t.x, t.y, err)
 		}
 		files = append(files, mpq.File{Name: t.name, Data: rewritten})
 	}
@@ -727,6 +882,9 @@ type RegionResult struct {
 	Patch   string `json:"patch"`
 	Tiles   int    `json:"tiles"`
 	Changed int    `json:"changed"`
+	// Outside is how many tiles outside the block were written, for the copies of the models by its
+	// edge that they list (#647). ChangedTiles names them too.
+	Outside int `json:"outside"`
 	// ChangedTiles names the written tiles as "x_y", as the map extractor's -t takes them, and MapID is
 	// the client map they belong to (0 Azeroth, 1 Kalimdor; -1 for any other). TilesCurrent says the
 	// server's map data matched the patch before this write, so only those tiles need extracting again.
@@ -778,7 +936,16 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 	if err != nil {
 		return nil, res, err
 	}
-	res.Changed = countTiles(changed)
+	for _, f := range changed {
+		if fileTileName(f.Name) == "" {
+			continue
+		}
+		if regionTile(f.Name, e) {
+			res.Changed++
+		} else {
+			res.Outside++
+		}
+	}
 	res.Files = len(changed)
 	if countTiles(files) == 0 {
 		res.Building, res.Tiles = true, 0
