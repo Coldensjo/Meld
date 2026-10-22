@@ -9,6 +9,7 @@
 	import { editorPoint, serverSpot } from '../lib/io/portCoords'
 	import type { TaxiHooks } from '../lib/world/TaxiLayer'
 	import { defaultRoute, flightSeconds, type Vec3 } from '../lib/world/taxiRoute'
+	import { applyNote } from '../lib/io/applyNote'
 
 	// World › Flight Paths (#180): the open map's flight stops (TaxiNodes.dbc) and the routes between
 	// them (TaxiPath.dbc and TaxiPathNode.dbc's points), edited on the map. A window, not a dialog, so
@@ -362,7 +363,7 @@
 			removedStops = []
 			removedRoutes = []
 			const where = [res.patch ? 'the client' : '', res.server ? "the server's data" : ''].filter(Boolean).join(' and ')
-			setStatus(`Saved ${n} flight path change${n === 1 ? '' : 's'} to ${where || 'nowhere new (nothing differed)'}.${res.server ? '' : ' Set the VMaNGOS server folder: without the server, nobody can fly them.'}`, 10000)
+			setStatus(`Saved ${n} flight path change${n === 1 ? '' : 's'} to ${where || 'nowhere new (nothing differed)'}.${res.server ? '' : ' Set the VMaNGOS server folder: without the server, nobody can fly them.'}${applyNote(res)}`, 10000)
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -516,7 +517,7 @@
 		{/if}
 	</div>
 	<footer>
-		<span class="dim grow">Save writes the client's taxi tables (the game restarts) and the server's.</span>
+		<span class="dim grow">Save writes the client's taxi tables (the game reads them when it starts) and the server's (the world server, when it starts).</span>
 		<button class="active" onclick={() => void save()} disabled={!changes || saving}>{saving ? 'Saving…' : `Save${changes ? ` (${changes})` : ''}`}</button>
 	</footer>
 </aside>

@@ -72,6 +72,7 @@ import { normalMapPixels, toBase64 } from './normalMap'
 import { areaName, loadAreas } from '../wow/areas'
 import { vmangos } from '../../../wailsjs/go/models'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
+import { applyNote } from './applyNote'
 
 /** True when running inside the Wails webview (Go bindings available). */
 export const hasBackend = () => typeof (window as unknown as { go?: unknown }).go !== 'undefined'
@@ -211,8 +212,8 @@ const noSpawns: CompileSpawns = { note: '', saved: false, failed: false }
 
 /**
  * Compile to Server and Compile All save the region's spawn edits with the ground (#342). A failure is
- * reported, not thrown, so the client's tiles still compile; the caller then leaves the server alone
- * rather than restarting it with half the edits.
+ * reported, not thrown, so the client's tiles still compile; the caller then leaves the server's map
+ * data alone rather than rebuilding it with half the edits.
  */
 async function compileSpawns(engine: Engine): Promise<CompileSpawns> {
 	try {
@@ -224,7 +225,7 @@ async function compileSpawns(engine: Engine): Promise<CompileSpawns> {
 	}
 }
 
-/** The restart hint after spawns were saved with no server rebuild (which restarts the world server). */
+/** The restart hint after spawns were saved with no server rebuild (whose end says to start the world server, #661). */
 const restartNote = (s: CompileSpawns) => (s.saved ? ' Restart the world server to see the spawns.' : '')
 
 /** Saves the active region's spawn edits as an SQL script for the world database, without running it. */
@@ -507,7 +508,8 @@ function spawnNote() {
  *   sure the patch holds the region's edits, since the server is built from it.
  * - all does both, the server only for the tiles the client compile wrote.
  * Server and all also save the region's spawn edits into the world database (#342), before the
- * rebuild, whose restart of the world server then reads them.
+ * rebuild. Nothing is closed or restarted (#661): the rebuild waits for the author to close the game
+ * (while the tiles wait for it) and stop the world server, which reads the spawns when started again.
  */
 export function compileRegion(engine: Engine, target: CompileTarget) {
   const label = target === 'client' ? 'Compiling to the client' : target === 'server' ? 'Compiling to the server' : 'Compiling to the client and server'
@@ -550,9 +552,11 @@ export function compileRegion(engine: Engine, target: CompileTarget) {
     const unchanged = res.tiles - res.changed
     // Tiles outside the block that list a model by its edge are written too (#647).
     const outside = res.outside ? `, and ${res.outside} ${res.outside === 1 ? 'tile' : 'tiles'} beside it for the models by its edge` : ''
-    const wrote = res.building
-      ? `Wrote ${region.mapName}'s building (its WDT) to ${res.patch}.`
-      : `Wrote ${res.changed} of ${res.tiles} tiles of ${name} to the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}${outside}.`
+    // A running game holds the patch: the files wait for it to close, since Meld never closes it (#661).
+    const verb = res.waiting ? 'Compiled' : 'Wrote'
+    const wrote = (res.building
+      ? `${verb} ${region.mapName}'s building (its WDT) for ${res.patch}.`
+      : `${verb} ${res.changed} of ${res.tiles} tiles of ${name} for the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}${outside}.`) + applyNote(res)
     // Only a continent of the client has map data to rebuild this way, and only when a tile changed.
     const rebuildable = !!server && res.mapId >= 0 && !!res.changedTiles?.length
     if (target === 'client') {
@@ -583,7 +587,7 @@ async function compileServer(engine: Engine, region: RegionBlock, name: string) 
 		setStatus(`${name} has edits the client doesn't have yet, and the server's map data is built from the client's tiles: Compile All writes both.`, 10000)
 		return
 	}
-	// The spawns go first, so the world server the rebuild restarts reads them (#342).
+	// The spawns go first (#342); the world server reads them when the author starts it after the rebuild.
 	const spawns = await compileSpawns(engine)
 	const mapId = await RegionMapID(region.mapName).catch(() => -1)
 	if (mapId < 0 || spawns.failed) {
@@ -623,7 +627,8 @@ function listenToServerMaps() {
   EventsOn('servermaps:log', (line: string) => setStatus(line, 0))
   EventsOn('servermaps:done', (msg: string) => {
     serverMapsRunning = false
-    setStatus(msg ? `Server map update failed: ${msg}` : "The server's map data is rebuilt and the world server is running again.", msg ? 0 : 10000)
+    // Meld stops and starts no server (#661): the author starts it again.
+    setStatus(msg ? `Server map update failed: ${msg}` : "The server's map data is rebuilt: start the world server to play on it.", msg ? 0 : 15000)
   })
 }
 
@@ -1125,7 +1130,7 @@ function listenToPublish() {
     ui.busy = false
     endPublish()
     if (msg) setStatus(`Publish failed: ${msg}`, 0)
-    else setStatus(`Map published. In game, type .go xyz 16800 16800 10 ${lastMapId} to go there.`, 15000)
+    else setStatus(`Map published. Start the world server and the game, then type .go xyz 16800 16800 10 ${lastMapId} in the game to go there.`, 15000)
   })
 }
 

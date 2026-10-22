@@ -904,6 +904,9 @@ type RegionResult struct {
 	// Files is how many of the block's files (tiles, WDL, WDT) differ from the patch's copies: 0 means
 	// the client already has the block as the editor holds it.
 	Files int `json:"files"`
+	// Waiting says the written files wait for the game to close, which holds the patch open on
+	// Windows: Meld never closes it (#661).
+	Waiting bool `json:"waiting"`
 }
 
 // ClientMapID is the ID of the map the client's Map.dbc gives the folder name (case-insensitive); ok is

@@ -256,7 +256,7 @@
       </div>
     {/if}
   </div>
-  <p class="dim">Save writes the changed lights into the client's Light tables (Meld's patch; the game restarts to read them). Lighting › Client Lighting shows them in the editor.</p>
+  <p class="dim">Save writes the changed lights into the client's Light tables (Meld's patch, which the game reads when it starts). Lighting › Client Lighting shows them in the editor.</p>
   {#snippet actions()}
     <button onclick={close}>Close</button>
     <button class="active" onclick={() => void save()} disabled={(!dirtyLights.length && !dirtyParams.length) || saving}>{saving ? 'Saving…' : 'Save'}</button>

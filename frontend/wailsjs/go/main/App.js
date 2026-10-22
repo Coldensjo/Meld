@@ -66,6 +66,10 @@ export function ClearThumbnailCache() {
   return window['go']['main']['App']['ClearThumbnailCache']();
 }
 
+export function ClientFilesWaiting() {
+  return window['go']['main']['App']['ClientFilesWaiting']();
+}
+
 export function CloseProject() {
   return window['go']['main']['App']['CloseProject']();
 }

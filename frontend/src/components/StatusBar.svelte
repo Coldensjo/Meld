@@ -1,11 +1,23 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { editor, stats, ui } from '../lib/state/editor.svelte'
+  import { hasBackend } from '../lib/io/mapio'
+  import { ClientFilesWaiting } from '../../wailsjs/go/main/App'
+  import { EventsOn } from '../../wailsjs/runtime/runtime'
   import ToolHint from './ToolHint.svelte'
 
   const fmt = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n))
 
   /** The slot is one line and cuts long hints off; hovering it gives the whole text. */
   let hintTitle = $state('')
+
+  /** Client files that wait for the game to close (#661): Meld never closes it, so the bar says so until they are written. */
+  let waiting = $state(0)
+  onMount(() => {
+    if (!hasBackend()) return
+    void ClientFilesWaiting().then((n) => (waiting = n))
+    return EventsOn('client:pending', (n: number) => (waiting = n))
+  })
 </script>
 
 <footer class="status">
@@ -21,6 +33,9 @@
     {/if}
   </span>
   {#if editor.region}<span class="cell region">{editor.region}</span>{/if}
+  {#if waiting > 0}
+    <span class="cell waiting" title="Meld's patch holds them once the game is closed; the game reads them when it starts again.">Close the game to apply {waiting} client {waiting === 1 ? 'file' : 'files'}</span>
+  {/if}
   {#if ui.spawnChanges > 0}
     <button class="cell changes" onclick={() => (ui.dialog = 'saveSpawns')} title="Unsaved changes to the region's creatures and game objects: File › Save Spawns to Database…">
       {ui.spawnChanges} spawn {ui.spawnChanges === 1 ? 'change' : 'changes'}
@@ -32,6 +47,9 @@
 </footer>
 
 <style>
+  .waiting {
+    color: var(--accent-text);
+  }
   .changes {
     border: none;
     background: transparent;

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -725,7 +724,7 @@ func (a *App) AddGroundEffect(doodads []string, density, terrain uint32) (uint32
 			if err != nil {
 				return 0, err
 			}
-			_, err = a.installWithGameClosed(dataDir, []mpq.File{{Name: `DBFilesClient\GroundEffectTexture.dbc`, Data: out}})
+			_, err = a.installClientFiles(dataDir, []mpq.File{{Name: `DBFilesClient\GroundEffectTexture.dbc`, Data: out}})
 			return id, err
 		}
 	}
@@ -1414,7 +1413,7 @@ func (a *App) ItemDisplayVariant(display int, icon string, visual int) (vmangos.
 	if err != nil || dbc == nil {
 		return vmangos.IconDisplay{ID: id}, err
 	}
-	if _, err := a.installWithGameClosed(dataDir, []mpq.File{{Name: vmangos.ItemDisplayPath, Data: dbc}}); err != nil {
+	if _, err := a.installClientFiles(dataDir, []mpq.File{{Name: vmangos.ItemDisplayPath, Data: dbc}}); err != nil {
 		return vmangos.IconDisplay{}, err
 	}
 	vmangos.ForgetItemDisplays()
@@ -1824,10 +1823,9 @@ func (a *App) SaveSQLDialog(suggested string) (string, error) {
 
 // SaveRegion writes an edited block back into the client's patch, into the tiles it came from and
 // those beside it that list a model by its edge (#647), and says what it wrote. Only the tiles that differ from the patch's copies are written; with nothing
-// changed the patch, the game and the servers are left alone. On Windows the game is closed first,
-// since it holds the patch open, and opened again afterwards. The servers stay up: the server's map
-// data is built from the patch by UpdateRegionServer, which Compile All calls next and which restarts
-// the world server itself, so closing it here too would start it twice (#469).
+// changed the patch is left alone. Nothing is closed or restarted (#661): on Windows, while the game
+// holds the patch open, the tiles wait for it to close (RegionResult.Waiting). The server's map data
+// is built from the patch by UpdateRegionServer, which Compile All calls next.
 func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) {
 	dataDir, err := a.clientDataDir()
 	if err != nil {
@@ -1844,7 +1842,7 @@ func (a *App) SaveRegion(edit vmangos.RegionEdit) (vmangos.RegionResult, error) 
 		// Before the write, as it makes the patch newer than the server's map data.
 		res.TilesCurrent = vmangos.ServerMapsCurrent(server, uint32(res.MapID), dataDir)
 	}
-	res.Patch, err = a.installWithGameClosed(dataDir, files)
+	res.Patch, res.Waiting, err = a.installClient(dataDir, files, nil)
 	return res, err
 }
 
@@ -1876,8 +1874,10 @@ func (a *App) RegionMapID(mapName string) (int, error) {
 
 // UpdateRegionServer rebuilds the server's map data for a continent after SaveRegion wrote tiles of it:
 // only those tiles (RegionResult.ChangedTiles) when the server's data matched the patch before, else the
-// whole map (#211). The world server stops and starts around it. It runs in the background: progress
-// arrives as "servermaps:log" events and "servermaps:done" carries an error message, or nothing.
+// whole map (#211). Nothing is stopped or started (#661): the rebuild waits until the game is closed
+// (while tiles wait for it to reach the patch) and the world server is stopped. It runs in the
+// background: progress arrives as "servermaps:log" events and "servermaps:done" carries an error
+// message, or nothing.
 func (a *App) UpdateRegionServer(mapID int, tiles []string) error {
 	clientDir, err := a.clientRoot()
 	if err != nil {
@@ -1899,7 +1899,10 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) error {
 		logf := func(line string) { runtime.EventsEmit(a.ctx, "servermaps:log", line) }
 		msg := ""
 		plan := vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}
-		if err := vmangos.UpdateServerMaps(plan, filepath.Join(clientDir, "Data"), uint32(mapID), tiles, logf); err != nil {
+		dataDir := filepath.Join(clientDir, "Data")
+		if err := a.waitForGameClosed(dataDir, logf); err != nil {
+			msg = err.Error()
+		} else if err := vmangos.UpdateServerMaps(plan, dataDir, uint32(mapID), tiles, logf); err != nil {
 			msg = err.Error()
 		}
 		runtime.EventsEmit(a.ctx, "servermaps:done", msg)
@@ -1919,7 +1922,7 @@ func (a *App) WriteMinimapTiles(mapDir string, tiles []vmangos.MinimapTile) (str
 	if err != nil {
 		return "", err
 	}
-	return a.installWithGameClosed(dataDir, files)
+	return a.installClientFiles(dataDir, files)
 }
 
 // ReadWorldMap reads the client's world map of a zone (WorldMapArea.dbc's row of the map and area, and
@@ -1952,7 +1955,7 @@ func (a *App) WriteWorldMap(spec vmangos.WorldMapSpec) (WorldMapResult, error) {
 	if err != nil {
 		return WorldMapResult{}, err
 	}
-	patch, err := a.installWithGameClosed(dataDir, files)
+	patch, err := a.installClientFiles(dataDir, files)
 	return WorldMapResult{Row: row, Overlays: overlays, Patch: patch}, err
 }
 
@@ -1966,48 +1969,6 @@ func (a *App) ReadImageFile(path string) (string, error) {
 		return "", errors.New("not a PNG image")
 	}
 	return base64.StdEncoding.EncodeToString(b), nil
-}
-
-// installWithGameClosed writes files into the client's patch. On Windows the game holds the patch
-// open, so it is closed first and opened again afterwards. The servers stay up: they read their own
-// data, never the client's archives (#469).
-func (a *App) installWithGameClosed(dataDir string, files []mpq.File) (string, error) {
-	return a.installClosed(dataDir, files, false, nil)
-}
-
-// installClosed is installWithGameClosed that also runs also (when set) after the patch is written,
-// before the game starts again. With world set, the world server is closed and started again around
-// the write too, for what it reads only at its start: a write into its data by also, or rows written
-// into the world database before the call. The auth server is never closed.
-func (a *App) installClosed(dataDir string, files []mpq.File, world bool, also func() error) (string, error) {
-	run := func() (string, error) {
-		// The client files waiting for the game to close (#365) go along.
-		patch, err := vmangos.InstallWithPending(dataDir, files)
-		if err == nil && also != nil {
-			err = also()
-		}
-		return patch, err
-	}
-	if a.sandboxed() {
-		// The probes' throwaway client: no game holds its patch, and the server's tables are the real ones.
-		if also != nil {
-			return "", errSandboxed
-		}
-		return run()
-	}
-	if goruntime.GOOS != "windows" {
-		return run()
-	}
-	sess, err := a.gameSession()
-	if err != nil {
-		return "", err
-	}
-	var patch string
-	err = sess.Around(game.Closed{Game: true, World: world}, func() (err error) {
-		patch, err = run()
-		return err
-	})
-	return patch, err
 }
 
 // MapLights reads a map's lights from the client's Light tables, for the preview's client lighting.
@@ -2059,7 +2020,7 @@ func (a *App) SaveLights(edit vmangos.LightsEdit) (string, error) {
 	if len(files) == 0 {
 		return "", nil
 	}
-	return a.installWithGameClosed(dataDir, files)
+	return a.installClientFiles(dataDir, files)
 }
 
 // LoadingScreens lists the client's loading screens, which a map made for the client may show.
@@ -2089,7 +2050,7 @@ func (a *App) WriteLoadingScreen(spec vmangos.LoadingScreenSpec) (LoadingScreenR
 	if err != nil {
 		return LoadingScreenResult{}, err
 	}
-	patch, err := a.installWithGameClosed(dataDir, files)
+	patch, err := a.installClientFiles(dataDir, files)
 	return LoadingScreenResult{Row: row, Patch: patch}, err
 }
 
@@ -2121,10 +2082,14 @@ func (a *App) NewAreaRow(mapID, parent uint32) (vmangos.AreaRow, error) {
 }
 
 // AreaSaveResult says where the zone editor's rows went: the client's patch, and whether the
-// server's world database (area_template) took them too.
+// server's world database (area_template) took them too. Waiting says the patch's files wait for the
+// game to close, and Restart that the world server runs and reads them only at its start, so the
+// author restarts it: Meld restarts nothing (#661).
 type AreaSaveResult struct {
-	Patch  string `json:"patch"`
-	Server bool   `json:"server"`
+	Patch   string `json:"patch"`
+	Server  bool   `json:"server"`
+	Waiting bool   `json:"waiting"`
+	Restart bool   `json:"restart"`
 }
 
 // ZoneWeatherList is every zone's weather from the world database's game_weather, and whether a
@@ -2148,9 +2113,8 @@ func (a *App) ZoneWeather() (ZoneWeatherList, error) {
 
 // SaveAreas writes the zone editor's rows into the client's AreaTable.dbc (in Meld's patch) and,
 // with a server folder set, into the world database's area_template, which the server reads areas
-// from, with the zones' weather into game_weather. The game is closed around the patch write on
-// Windows, and the world server too when the database took the rows, since it reads area_template
-// only at its start.
+// from, with the zones' weather into game_weather. Nothing is closed or restarted (#661): the server
+// reads area_template only at its start, so the result says when to restart it.
 func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
@@ -2182,9 +2146,10 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 			return res, fmt.Errorf("world database: %w", err)
 		}
 		res.Server = true
+		res.Restart = len(rows) > 0 && a.worldRunning()
 	}
 	if len(rows) > 0 && !bytes.Equal(out, dbc) {
-		if res.Patch, err = a.installClosed(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}, res.Server, nil); err != nil {
+		if res.Patch, res.Waiting, err = a.installClient(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}, nil); err != nil {
 			return res, err
 		}
 	}
@@ -2228,9 +2193,9 @@ func (a *App) AreaTriggers(mapID uint32) (AreaTriggerList, error) {
 
 // SaveAreaTriggers writes the Portals dialog's changed triggers (rows) and removed ones (remove, by
 // ID) into the client's AreaTrigger.dbc in Meld's patch and into the world database's
-// areatrigger_template and areatrigger_teleport, which the server reads. The game is closed around
-// the patch write on Windows, and the world server too when the database took the rows, since it
-// reads areatrigger_template only at its start.
+// areatrigger_template and areatrigger_teleport, which the server reads. Nothing is closed or
+// restarted (#661): the server reads areatrigger_template only at its start, so the result says when
+// to restart it.
 func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
@@ -2255,9 +2220,10 @@ func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (Are
 			return res, fmt.Errorf("world database: %w", err)
 		}
 		res.Server = true
+		res.Restart = a.worldRunning()
 	}
 	if !bytes.Equal(out, dbc) {
-		if res.Patch, err = a.installClosed(dataDir, []mpq.File{{Name: vmangos.AreaTriggerPath, Data: out}}, res.Server, nil); err != nil {
+		if res.Patch, res.Waiting, err = a.installClient(dataDir, []mpq.File{{Name: vmangos.AreaTriggerPath, Data: out}}, nil); err != nil {
 			return res, err
 		}
 	}
@@ -2290,9 +2256,8 @@ func (a *App) TaxiNetwork(mapID uint32) (vmangos.TaxiNetwork, error) {
 
 // SaveTaxi writes the Flight Paths window's changed and removed stops and routes into the client's
 // three taxi tables (Meld's patch) and, with a server folder set, the stops into the world database's
-// taxi_nodes and the route tables into the server's data, which it reads at start. The game and the
-// world server are closed around the writes on Windows, so the world server starts again with the new
-// routes; the auth server reads none of it and stays up.
+// taxi_nodes and the route tables into the server's data, which it reads at start. Nothing is closed
+// or restarted (#661): the result says when the world server needs a restart for the new routes.
 func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 	var res AreaSaveResult
 	// Before anything is read: the throwaway client's server tables are the real ones (#383).
@@ -2334,12 +2299,13 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 			return fmt.Errorf("server data: %w", err)
 		}
 		res.Server = true
+		res.Restart = a.worldRunning()
 		return nil
 	}
 	if len(files) == 0 {
 		return res, serverTables()
 	}
-	res.Patch, err = a.installClosed(dataDir, files, server != "", serverTables)
+	res.Patch, res.Waiting, err = a.installClient(dataDir, files, serverTables)
 	return res, err
 }
 
@@ -2491,6 +2457,7 @@ func (a *App) LaunchGame() error {
 	if err != nil {
 		return err
 	}
+	a.flushPending()
 	return sess.StartGame()
 }
 
@@ -2505,6 +2472,7 @@ func (a *App) LaunchGameAt(spot vmangos.CharacterSpot) (string, error) {
 	}
 	character := sess.Login.Character
 	if character == "" || sess.ServerRoot == "" {
+		a.flushPending()
 		return "", sess.StartGame()
 	}
 	if err := sess.StopGame(); err != nil {
@@ -2513,6 +2481,7 @@ func (a *App) LaunchGameAt(spot vmangos.CharacterSpot) (string, error) {
 	if err := vmangos.PlaceCharacter(sess.ServerRoot, character, spot, sess.WorldRunning); err != nil {
 		return "", err
 	}
+	a.flushPending()
 	return character, sess.StartGame()
 }
 
@@ -2578,10 +2547,11 @@ func (a *App) SetGameLogin(account, password, character string) error {
 }
 
 // PublishVmangosMap makes a map made in the editor playable: it's written into the client's patch, added to
-// the server's tables, and the server's map data is extracted again before the world server restarts.
-// It runs in the background. Progress arrives as "publish:log" events, and "publish:done" carries an error
-// message, or nothing when the publish finished. On Windows the game is closed for it and opened again
-// once the world server is back (withGameClosed).
+// the server's tables, and the server's map data is extracted again. It runs in the background. Progress
+// arrives as "publish:log" events, and "publish:done" carries an error message, or nothing when the
+// publish finished. Nothing is closed or started (#661): it waits for the author to close the game
+// (which holds the patch open on Windows) and to stop the world server (which holds its map data), and
+// the author starts them again.
 func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
 	clientDir, err := a.clientRoot()
 	if err != nil {
@@ -2596,29 +2566,14 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) error {
 	go func() {
 		logf := func(line string) { runtime.EventsEmit(a.ctx, "publish:log", line) }
 		msg := ""
-		publish := func() error {
-			return vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}, m, logf)
-		}
-		if err := a.withGameClosed(publish); err != nil {
+		if err := a.waitForGameClosed(filepath.Join(clientDir, "Data"), logf); err != nil {
+			msg = err.Error()
+		} else if err := vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}, m, logf); err != nil {
 			msg = err.Error()
 		}
 		runtime.EventsEmit(a.ctx, "publish:done", msg)
 	}()
 	return nil
-}
-
-// withGameClosed runs write with the game closed and opens it again afterwards, on Windows, where the
-// running game holds patch-3.MPQ open and a write into it fails (#470). The servers are left alone:
-// write handles them itself. Elsewhere, write just runs.
-func (a *App) withGameClosed(write func() error) error {
-	if goruntime.GOOS != "windows" {
-		return write()
-	}
-	sess, err := a.gameSession()
-	if err != nil {
-		return err
-	}
-	return sess.Around(game.Closed{Game: true}, write)
 }
 
 // clientRoot is the WoW client's folder (the one holding Data), whichever of the two was configured.

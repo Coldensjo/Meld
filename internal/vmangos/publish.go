@@ -103,9 +103,9 @@ type PublishPlan struct {
 }
 
 // Publish writes a map for the client and rebuilds what the server needs from it: the map is written
-// into the client's patch, added to the server's map table and world database, the server's map and
-// collision data are extracted again, and the world server is restarted. log gets a line per step.
-// Player connections are dropped when the world server stops.
+// into the client's patch, added to the server's map table and world database, and the server's map
+// and collision data are extracted again once the world server is stopped. The server is never
+// stopped or started here (#661): the author does that. log gets a line per step.
 func Publish(p PublishPlan, spec MapSpec, log func(string)) error {
 	if p.Run == nil {
 		p.Run = OSRunner{}
@@ -127,7 +127,7 @@ func Publish(p PublishPlan, spec MapSpec, log func(string)) error {
 		return err
 	}
 	if res.Patch == "" && current {
-		log("Nothing changed since the last publish, and the server's map data is newer than the patch: the server was left running.")
+		log("Nothing changed since the last publish, and the server's map data is newer than the patch: the server was left alone.")
 		return nil
 	}
 	if res.Patch != "" {
@@ -186,7 +186,7 @@ func ServerMapsCurrent(serverRoot string, mapID uint32, clientData string) bool 
 }
 
 // publishServer does the server's share of a publish, once the map is in the client's patch: the world
-// database, the map data extracted again, and the world server restarted. Only the map's own data is
+// database, and the map data extracted again once the world server is stopped. Only the map's own data is
 // extracted (#174): its ground (just tiles, named "x_y", when given; else all of it, with the old tile
 // files removed first, as the map may have lost some) and its buildings. A server whose vmaps were never
 // built whole (no game object model list) gets every map extracted instead, as update-maps.bat does.
@@ -208,9 +208,9 @@ func publishServer(p PublishPlan, clientData string, spec MapSpec, tiles []strin
 }
 
 var (
-	// serverExitWait is how long UpdateServerMaps waits for mangosd to exit, which a server saving
-	// players takes longer than a few seconds to do; tests shorten it.
-	serverExitWait = 20 * time.Second
+	// serverStopWait is how long UpdateServerMaps waits for the author to stop a running world server,
+	// which Meld never stops itself (#661); tests shorten it.
+	serverStopWait = 15 * time.Minute
 	serverPoll     = 250 * time.Millisecond
 )
 
@@ -231,31 +231,27 @@ func waitFor(done func() bool, timeout time.Duration) bool {
 // them, so its files move over theirs by a rename.
 const stagingDir = "meld-staging"
 
-// UpdateServerMaps rebuilds the server's map data for one map from the client's patch and restarts the
-// world server around it, the share of a publish that follows the database (and all a compiled region
-// of a continent needs, #211). Tiles are as publishServer's: "x_y" names, or none for the whole map.
-// The extractors write into stagingDir, whose files replace the server's only once all three steps
-// have passed; when one fails the server keeps its old data and is started again on it.
+// UpdateServerMaps rebuilds the server's map data for one map from the client's patch, the share of a
+// publish that follows the database (and all a compiled region of a continent needs, #211). Tiles are
+// as publishServer's: "x_y" names, or none for the whole map. The world server holds its map files
+// open, so a running one is waited for (up to serverStopWait) until the author stops it: Meld never
+// stops or starts it (#661). The extractors write into stagingDir, whose files replace the server's
+// only once all three steps have passed; when one fails the server keeps its old data.
 func UpdateServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []string, log func(string)) error {
 	if p.Run == nil {
 		p.Run = OSRunner{}
 	}
-	log("Stopping the world server…")
-	_ = p.Run.Run(p.ServerRoot, "taskkill", []string{"/IM", "mangosd.exe"}, nil)
-	if !waitFor(func() bool { return !p.Run.Running("mangosd.exe") }, serverExitWait) {
-		return errors.New("mangosd did not close")
+	if p.Run.Running("mangosd.exe") {
+		log("Stop the world server: its map data is rebuilt as soon as it has stopped.")
+		if !waitFor(func() bool { return !p.Run.Running("mangosd.exe") }, serverStopWait) {
+			return errors.New("the world server kept running, so its map data was not rebuilt: stop it, then compile to the server again")
+		}
 	}
-
-	err := extractServerMaps(p, clientData, mapID, tiles, log)
-	if err != nil {
+	if err := extractServerMaps(p, clientData, mapID, tiles, log); err != nil {
 		log(fmt.Sprintf("%v: the server keeps its old map data.", err))
+		return err
 	}
-	log("Starting the world server…")
-	if serr := p.Run.Start(filepath.Join(p.ServerRoot, "run"), filepath.Join(p.ServerRoot, "run", "mangosd.exe"),
-		"-c", filepath.Join(p.ServerRoot, "run", "mangosd.conf")); serr != nil {
-		return errors.Join(err, fmt.Errorf("starting the world server: %w", serr))
-	}
-	return err
+	return nil
 }
 
 // extractServerMaps runs the three extraction steps into stagingDir and, when all have passed, moves

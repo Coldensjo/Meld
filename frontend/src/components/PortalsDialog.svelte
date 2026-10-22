@@ -8,6 +8,7 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/mapio'
 	import { editorPoint, type ServerSpot } from '../lib/io/portCoords'
+	import { applyNote } from '../lib/io/applyNote'
 
 	// World › Portals (#141): the open map's area triggers (AreaTrigger.dbc) and the teleports the
 	// server runs for them (areatrigger_teleport), as a dungeon entrance does. Add one where the
@@ -205,7 +206,7 @@
 			removed = []
 			nextId = Math.max(nextId, ...triggers.map((x) => x.id + 1))
 			const where = [res.patch ? 'the client' : '', res.server ? "the server's area triggers" : ''].filter(Boolean).join(' and ')
-			setStatus(`Saved ${n} trigger${n === 1 ? '' : 's'} to ${where || 'nowhere new (nothing differed)'}.${res.server ? ' Restart the world server for it to know them.' : ' Set the VMaNGOS server folder: without the server, a trigger does nothing.'}`, 10000)
+			setStatus(`Saved ${n} trigger${n === 1 ? '' : 's'} to ${where || 'nowhere new (nothing differed)'}.${res.server ? '' : ' Set the VMaNGOS server folder: without the server, a trigger does nothing.'}${applyNote(res)}`, 10000)
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -317,7 +318,7 @@
 	</div>
 	<p class="dim">
 		A trigger is a volume the client reports when a player walks in; the server teleports them. The swirl of a dungeon portal is a model: place one there with the Place tool.
-		Save writes the client's AreaTrigger.dbc (Meld's patch; the game restarts to read it) and the server's areatrigger_template and areatrigger_teleport.
+		Save writes the client's AreaTrigger.dbc (Meld's patch, which the game reads when it starts) and the server's areatrigger_template and areatrigger_teleport.
 	</p>
 	{#snippet actions()}
 		<button onclick={close}>Close</button>

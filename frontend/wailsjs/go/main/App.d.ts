@@ -40,6 +40,8 @@ export function ClassLevelStats(arg1:number,arg2:number,arg3:number):Promise<Arr
 
 export function ClearThumbnailCache():Promise<void>;
 
+export function ClientFilesWaiting():Promise<number>;
+
 export function CloseProject():Promise<void>;
 
 export function CreateCreature(arg1:number,arg2:string):Promise<number>;

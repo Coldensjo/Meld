@@ -72,6 +72,8 @@ export namespace main {
 	export class AreaSaveResult {
 	    patch: string;
 	    server: boolean;
+	    waiting: boolean;
+	    restart: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new AreaSaveResult(source);
@@ -81,6 +83,8 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.patch = source["patch"];
 	        this.server = source["server"];
+	        this.waiting = source["waiting"];
+	        this.restart = source["restart"];
 	    }
 	}
 	export class AreaTriggerList {
@@ -2638,6 +2642,7 @@ export namespace vmangos {
 	    building: boolean;
 	    wdt: boolean;
 	    files: number;
+	    waiting: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new RegionResult(source);
@@ -2655,6 +2660,7 @@ export namespace vmangos {
 	        this.building = source["building"];
 	        this.wdt = source["wdt"];
 	        this.files = source["files"];
+	        this.waiting = source["waiting"];
 	    }
 	}
 	export class RegionShadows {

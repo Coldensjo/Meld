@@ -15,8 +15,10 @@ import (
 type fakeRunner struct {
 	calls  []string
 	failAt string
-	// serverUp is whether mangosd.exe is running: taskkill clears it unless it is stuck.
-	serverUp, stuck bool
+	// serverUp is whether mangosd.exe is running; stopsAfter, when above 0, is how many times Running
+	// answers yes before the author stops it.
+	serverUp   bool
+	stopsAfter int
 	// writes are the files (slash paths under the folder it runs in) a program whose name holds the
 	// key writes before it returns, as an extractor would.
 	writes map[string][]string
@@ -24,9 +26,6 @@ type fakeRunner struct {
 
 func (f *fakeRunner) Run(dir, name string, args []string, log func(string)) error {
 	f.calls = append(f.calls, name+" "+strings.Join(args, " "))
-	if name == "taskkill" && !f.stuck {
-		f.serverUp = false
-	}
 	for prog, files := range f.writes {
 		if strings.Contains(name, prog) {
 			for _, n := range files {
@@ -47,7 +46,18 @@ func (f *fakeRunner) Start(dir, name string, args ...string) error {
 	return nil
 }
 
-func (f *fakeRunner) Running(image string) bool { return image == "mangosd.exe" && f.serverUp }
+func (f *fakeRunner) Running(image string) bool {
+	if image != "mangosd.exe" || !f.serverUp {
+		return false
+	}
+	if f.stopsAfter > 0 {
+		f.stopsAfter--
+		if f.stopsAfter == 0 {
+			f.serverUp = false
+		}
+	}
+	return true
+}
 
 // serverFolder makes a server folder with its configuration and map table.
 func serverFolder(t *testing.T) string {
@@ -69,7 +79,7 @@ func TestPublishServerRunsStepsInOrder(t *testing.T) {
 	if err := publishServer(p, filepath.Join(client, "Data"), spec, nil, func(string) {}); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"mariadb", "taskkill", "MapExtractor.exe", "VMapExtractor.exe", "VMapAssembler.exe", "START"}
+	want := []string{"mariadb", "MapExtractor.exe", "VMapExtractor.exe", "VMapAssembler.exe"}
 	if len(f.calls) != len(want) {
 		t.Fatalf("calls = %q", f.calls)
 	}
@@ -89,7 +99,7 @@ func fileText(path string) string {
 	return string(b)
 }
 
-func TestPublishServerKeepsTheOldDataAndRestartsOnFailure(t *testing.T) {
+func TestPublishServerKeepsTheOldDataOnFailure(t *testing.T) {
 	for _, step := range []string{"MapExtractor", "VMapExtractor", "VMapAssembler"} {
 		server := serverFolder(t)
 		data := filepath.Join(server, "data")
@@ -112,9 +122,6 @@ func TestPublishServerKeepsTheOldDataAndRestartsOnFailure(t *testing.T) {
 			if got := fileText(filepath.Join(data, filepath.FromSlash(n))); got != "old" {
 				t.Fatalf("%s failed: %s is %q, want the old file", step, n, got)
 			}
-		}
-		if last := f.calls[len(f.calls)-1]; !strings.HasPrefix(last, "START") {
-			t.Fatalf("%s failed: the world server was not started again (last call %q)", step, last)
 		}
 		if _, err := os.Stat(filepath.Join(data, stagingDir)); err == nil {
 			t.Fatalf("%s failed: the staging folder was left", step)
@@ -246,26 +253,42 @@ func TestTemplateSQLWithInfo(t *testing.T) {
 	}
 }
 
-func TestUpdateServerMapsWaitsForTheServerToExit(t *testing.T) {
-	serverExitWait, serverPoll = 50*time.Millisecond, time.Millisecond
-	defer func() { serverExitWait, serverPoll = 20*time.Second, 250*time.Millisecond }()
+func TestUpdateServerMapsWaitsForTheAuthorToStopTheServer(t *testing.T) {
+	serverStopWait, serverPoll = 50*time.Millisecond, time.Millisecond
+	defer func() { serverStopWait, serverPoll = 15*time.Minute, 250*time.Millisecond }()
 	server := serverFolder(t)
 
-	f := &fakeRunner{serverUp: true}
+	// Stopped by the author while it waits: the data is rebuilt, and the server is not started (#661).
+	f := &fakeRunner{serverUp: true, stopsAfter: 3}
 	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
 	if err := UpdateServerMaps(p, t.TempDir(), 1900, nil, func(string) {}); err != nil {
 		t.Fatal(err)
 	}
+	if callOf(f.calls, "MapExtractor") == "" {
+		t.Fatalf("calls = %q, want the extractors", f.calls)
+	}
 
-	f = &fakeRunner{serverUp: true, stuck: true}
+	// Left running: nothing runs beside it, and it is never stopped or started.
+	f = &fakeRunner{serverUp: true}
 	p.Run = f
 	err := UpdateServerMaps(p, t.TempDir(), 1900, nil, func(string) {})
-	if err == nil || !strings.Contains(err.Error(), "did not close") {
-		t.Fatalf("err = %v, want mangosd did not close", err)
+	if err == nil || !strings.Contains(err.Error(), "kept running") {
+		t.Fatalf("err = %v, want the server kept running", err)
+	}
+	if len(f.calls) != 0 {
+		t.Fatalf("ran %q beside a live server", f.calls)
+	}
+}
+
+func TestUpdateServerMapsNeverStopsOrStartsTheServer(t *testing.T) {
+	f := &fakeRunner{}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: serverFolder(t), Run: f}
+	if err := UpdateServerMaps(p, t.TempDir(), 1900, nil, func(string) {}); err != nil {
+		t.Fatal(err)
 	}
 	for _, c := range f.calls {
-		if strings.Contains(c, "Extractor") || strings.HasPrefix(c, "START") {
-			t.Fatalf("ran %q beside a live server", c)
+		if strings.Contains(c, "taskkill") || strings.HasPrefix(c, "START") {
+			t.Fatalf("called %q", c)
 		}
 	}
 }

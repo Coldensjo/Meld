@@ -7,6 +7,7 @@
   import { engineRef } from '../lib/state/engineRef'
   import { hasBackend } from '../lib/io/mapio'
   import { reloadAreas } from '../lib/wow/areas'
+  import { applyNote } from '../lib/io/applyNote'
 
   // World › Zones (Noggit Red's zone editor in its Area Designator): a map's zones and subzones from
   // the client's AreaTable.dbc. Pick one to edit its row, or add a zone or a subzone; Save writes the
@@ -184,7 +185,7 @@
       const where = [res.patch ? 'the client' : '', res.server ? `the server's ${tables}` : ''].filter(Boolean).join(' and ')
       const what = [changed.length ? `${changed.length} zone${changed.length === 1 ? '' : 's'}` : '', weathers.length ? `the weather of ${weathers.length} zone${weathers.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' and ')
       const after = !res.server ? ' Set the VMaNGOS server folder for the server to know them.' : weathers.length ? ' The world server reads the weather when it starts, or on .reload game_weather in the game.' : ''
-      setStatus(`Saved ${what} to ${where || 'nowhere new (nothing differed)'}.${after}`, 10000)
+      setStatus(`Saved ${what} to ${where || 'nowhere new (nothing differed)'}.${after}${applyNote(res)}`, 10000)
     } catch (err) {
       error = String(err)
     } finally {
@@ -282,7 +283,7 @@
       </div>
     {/if}
   </div>
-  <p class="dim">Save writes the changed zones into the client's AreaTable.dbc (Meld's patch; the game restarts to read it) and the server's area_template. Paint a zone onto the ground with the Map data tool.</p>
+  <p class="dim">Save writes the changed zones into the client's AreaTable.dbc (Meld's patch, which the game reads when it starts) and the server's area_template. Paint a zone onto the ground with the Map data tool.</p>
   {#snippet actions()}
     <button onclick={close}>Close</button>
     <button class="active" onclick={() => void save()} disabled={!unsaved || saving}>{saving ? 'Saving…' : `Save${unsaved ? ` (${unsaved})` : ''}`}</button>
