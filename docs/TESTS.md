@@ -245,7 +245,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     A pixel on an antialiased edge reports a neighbour (`near: true`).
   - Viewport input: `P.click(x, y, opts, frames)` moves, presses and releases the pointer on the canvas and steps a frame; `P.drag([x, y], [x, y], steps, opts)` strokes; `x`, `y` are shares of the viewport, y = 0 the top, `opts` the event's `button`, `altKey`, `ctrlKey`, `shiftKey`. Setting `e.ndc` does not do this: the handlers overwrite it from the event. The status bar and tool state are read after the helper returns (its frame lets the handlers' messages land); `walkable` uses it.
   - Aiming and menus (#309): `P.lookAt({ x, y, z }, { yaw, pitch, back })` flies the camera `back` yards from an editor point, looking at it, whatever Follow the Ground says (a flying camera is its own target, so a view "on" a point puts the camera inside it; a following one lifts the target onto the terrain, above a cave). `P.contextMenu(x, y)` right-clicks the viewport at shares of it (default the centre) and returns `ui.contextMenu` (null for no menu); `teleport-trigger` uses both. Trap: on the benchmark scene (Follow the Ground on) the view still moves for a few frames after `P.lookAt`, so a probe comparing two states frame by frame steps `P.frames(3)` first and checks the first state again after the second (`particles-reach` failed once without it, #330).
-  - Writing the client (#368): `await P.sandboxClient()` points every client read and write of the Go side (`clientDataDir`, the asset server's archives) at a throwaway copy of the client's Data folder in the user's cache (`Meld/probe-client`: the archives hard links to the real ones, a symbolic link across volumes, and `patch-3.MPQ` a copy made afresh at each call), so a probe can press what writes Meld's patch (Import PNG…, Save in the spell editor, Generate) and check the result in the app. It throws when it can't, so a probe never writes the real client by mistake. `P.endSandbox()` ends it and returns `realUnchanged` (the real patch kept its size and time), which a probe should check; the runner ends it after every probe anyway. `P.sandboxFile(name, bytes)` writes a file (a `Blob` or bytes made in the page) into its scratch folder and returns the path, for a binding that reads a file the user picked; stub the dialog binding (`window.go.main.App.OpenIconsDialog = async () => [path]`, restored in a `finally`), since the wailsjs wrappers look it up at call time. `icons` is the example (`loading-screen` and `world-map` too). Traps: only `wails dev` offers it; the owner's dev window shares the Go process, so while it is on that window reads and writes the copy too, which is why it ends by itself after 10 minutes; and nothing that closes the game, starts the servers or writes the server's tables runs meanwhile (`gameSession`, `clientRoot`, an `installClosed` with server tables and every binding that writes the world database answer with an error: a saving binding takes its server folder from `serverForWrite` or `optionalServerForWrite`, never `serverAndData`, and `TestSandboxRefusesWorldDatabaseWrites` lists them, #383), so a check of those still needs the real client and database. A new binding that writes the world database belongs in that test (`make test` runs it when `frontend/dist` exists; by hand, `go test -run TestSandbox .` at the repo root).
+  - Writing the client (#368): `await P.sandboxClient()` points every client read and write of the Go side (`clientDataDir`, the asset server's archives) at a throwaway copy of the client's Data folder in the user's cache (`Meld/probe-client`: the archives hard links to the real ones, a symbolic link across volumes, and `patch-3.MPQ` a copy made afresh at each call), so a probe can press what writes Meld's patch (Import PNG…, Save in the spell editor, Generate) and check the result in the app. It throws when it can't, so a probe never writes the real client by mistake. `P.endSandbox()` ends it and returns `realUnchanged` (the real patch kept its size and time), which a probe should check; the runner ends it after every probe anyway. `P.sandboxFile(name, bytes)` writes a file (a `Blob` or bytes made in the page) into its scratch folder and returns the path, for a binding that reads a file the user picked; stub the dialog binding (`window.go.main.App.OpenIconsDialog = async () => [path]`, restored in a `finally`), since the wailsjs wrappers look it up at call time. `icons` is the example (`loading-screen` and `world-map` too). Traps: only `wails dev` offers it; the owner's dev window shares the Go process, so while it is on that window reads and writes the copy too, which is why it ends by itself after 10 minutes; and nothing that closes the game, starts the servers or writes the server's tables runs meanwhile (`gameSession`, `clientRoot`, an `installClient` with server tables and every binding that writes the world database answer with an error: a saving binding takes its server folder from `serverForWrite` or `optionalServerForWrite`, never `serverAndData`, and `TestSandboxRefusesWorldDatabaseWrites` lists them, #383), so a check of those still needs the real client and database. A new binding that writes the world database belongs in that test (`make test` runs it when `frontend/dist` exists; by hand, `go test -run TestSandbox .` at the repo root).
   - A timeout in `P.until` or `P.settle` names the longest frame and the longest wait between frames
     during the wait (`P.stalls`), so a stall doesn't look like a broken feature.
   - `P.frames` waits after each frame until the GPU has drawn it (`P.drawn`, a WebGL2 fence). Without
@@ -592,10 +592,12 @@ the same scene, the report before and after.
 - Hover previews in tile grids (no gap between tiles)
 - Thumbnail loading order (asset browser grids)
 - Asset browser tabs remember their place (#123)
+- Names under the tiles (#655)
 - Model sets (the asset browser's Sets tab, #124)
 - Menu heights (#122)
 - Dock panel (Layers) and the Inspector
 - Hide panels (Tab)
+- Toolbar on the right (#654)
 - Tool hints
 - Options bar overflow (More, #254)
 - Help window
@@ -605,6 +607,7 @@ the same scene, the report before and after.
 - Saving bar (#343, probe `saving-bar`)
 - Preview window (#197)
 - Previews draw only while something moves (#589)
+- Moving the view up and down in the previews (#662)
 - Top-down view (U)
 - Log window (and the session log file, #319, probe `session-log`)
 - Minimap window (M)
@@ -620,6 +623,8 @@ the same scene, the report before and after.
 
 - Gear picker (a spawn's main hand, off hand and ranged items)
 - Spawn tabs of the asset browser (Creatures, NPCs, Objects)
+- Sorting the creature tabs by level (#659)
+- Spawns on cave and dungeon floors (#660)
 - Game object editor: turning a spawn into another object, pools (#136)
 - Game object editor: Find object, with no spawn (#351)
 - Game object editor: Contents, Make it a chest, respawn (#220)
@@ -650,7 +655,7 @@ the same scene, the report before and after.
 - Benilla launcher: nothing on screen until the world (benilla-launcher)
 - The game's template cache after an editor's Save (#234)
 - Minimap tiles for the client (B-129, #17)
-- Server map extraction for one map (Publish, #174)
+- Server map extraction for one map (Publish, #174; nothing closed or started, #661)
 - Compile to Client, Server, All and Launch's check for uncompiled edits (#214; probe `compile-launch`)
 - Compile to Server and Compile All save the spawn edits (#342; probe `compile-spawns`)
 - Compile keeps the client's alpha where nothing was painted (#526; probe `compile-alpha`)

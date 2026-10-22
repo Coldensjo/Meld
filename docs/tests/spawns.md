@@ -39,6 +39,30 @@ const pip = await import('<PipetteTool.ts URL>'); await pip.pickSpawn(editor.spa
 - Traps: a creature tile's badge is its level; the title holds entry, level, rank and type. The
   lists are cached in Go per server and client, so a changed template needs a restart to show.
 
+## Sorting the creature tabs by level (#659)
+
+Checks: the Creatures and NPCs tabs' sort menu (`.spawn-browser select`) orders by level. In the dev page
+on Creatures: set the select's value to `level`, `level-desc` and `''` and dispatch `change`; the first
+tiles' `.badge` levels read all 1s, all 63s, then the database's order again, and
+`.spawn-browser .grid-wrap`'s scrollTop is 0 after each. The choice is in `prefs.browserViews.creature.sort`.
+Unit: `tests/browserViews.test.ts` (`byLevel`, the stored `sort`).
+
+## Spawns on cave and dungeon floors (#660)
+
+Checks: the Place tool (a creature or object template), dragging a spawn or a waypoint, and the spawn
+brush stand spawns on the first upward-facing surface under the cursor (`ctx.floor()`), not on the
+ground above a cave or in the air.
+- Unit: `tests/raycastFloor.test.ts` (a helper cube: the top is a floor; the bottom seen from below and
+  a wall are not). The layer must be `update`d and `cull`ed first, or nothing is packed and nothing is hit.
+- Live (not run yet): a mine under the ground, such as Fargodeep in Elwynn (save the view with
+  `window.__sceneText()` once found). Fly the camera into it, pick a creature in the Creatures tab, click the
+  floor: the spawn's `y` equals the floor's height, not the ground's (`__engine.terrain.heightAt(x, z)`).
+  Brush a few with the Doodad tool's Creatures mode; none land on the ground overhead.
+- Trap: from above the ground, the grass over a cave is still the ground (only an underground camera or
+  View › Layers › Terrain off looks through it).
+- Trap: the brush's Max slope and Avoid water rules still read the terrain at the point, the ground
+  above a cave.
+
 ## Game object editor: turning a spawn into another object, pools (#136)
 
 Checks: `ObjectEditor.svelte`'s Which object list, `objectEntryFields`, the `gameobject.id` the SQL
@@ -279,10 +303,9 @@ patch, the server's `data/5875/dbc` and `taxi_nodes`.
   to the stop (the server picks the stop nearest the flight master for the player's side, at any
   distance), learn the stop, and fly. A stop needs a route that starts there, or VMaNGOS leaves it
   out of its taxi mask (`sTaxiNodesMask`) and no flight master offers it. The server reads `taxi_nodes` and the route tables only at
-  start; Save restarts the world server on Windows when the patch changes.
-- Trap: a live Save writes Meld's patch-3.MPQ and the server's taxi tables (keeping `.before-meld`
-  copies) and closes the game and the world server around it; don't run it in a check unless the owner wants
-  that. The Go tests cover the write.
+  start; Save says to restart it when it runs (#661: Meld restarts nothing).
+- Trap: a live Save writes Meld's patch-3.MPQ (or queues it while the game runs) and the server's
+  taxi tables (keeping `.before-meld` copies); don't run it in a check unless the owner wants that. The Go tests cover the write.
 - Trap: the client's own data has odd stops: Northshire Abbey (1) and Programmer Isle (3) carry a
   Riding Horse (308) in the Horde slot, so they draw red; that's the table, not a bug.
 
@@ -299,8 +322,8 @@ server's names and teleports, draws them, and saves them to the client's patch a
   11208 − 53·533.33), then `ui.dialog = 'portals'`: "Eastern Kingdoms: 133 triggers", first
   "Deadmines - Entrance → 78", teleport to Deadmines (36) at level 10, and
   `__engine.triggerLayer.group` visible with the picked sphere's 192 points.
-- Trap: a live Save writes Meld's patch-3.MPQ and closes the game and the world server around it (as
-  Zones does); don't run it in a check unless the owner wants that. The Go tests cover the write.
+- Trap: a live Save writes Meld's patch-3.MPQ (or queues it while the game runs) and the world
+  database (as Zones does); don't run it in a check unless the owner wants that. The Go tests cover the write.
 - Teleport to destination (#306): probe `teleport-trigger`. With View › Area triggers on, a
   right-click on trigger 78 selects it (`__engine.triggerLayer.selected`) and its menu's Teleport to
   destination opens `DeadminesInstance 31_31 3` with the camera on the areatrigger_teleport spot
@@ -501,7 +524,7 @@ Import or New item.
   with the same model, a new row past the last ID, an icon alone); with `WOW_DIR`,
   `TestItemLooksLive` (29604 displays, 2684 icons, the Battleworn Hammer's 8690 a weapon with
   INV_Hammer_15). Writing one into the real patch was not run on 2026-10-19: it changes the owner's
-  client (a row it keeps), and closes the game on Windows. To try it: pick an icon, Save,
+  client (a row it keeps); while the game runs it waits for it to close (#661). To try it: pick an icon, Save,
   then `ListItemDisplays` has the new ID and the item's tooltip shows the icon; in the game the
   item shows it once the game restarts.
 - Pictures: `bun run probe probes/scratch/item-look.js --shot <dir>` with `PROBE_ITEM=<entry>` (and

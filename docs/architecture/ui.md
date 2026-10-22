@@ -6,6 +6,11 @@ The window layout, the asset browser and the dock panels and floating windows.
   - Rows: `MenuBar`, `OptionsBar`, then the main row, then `StatusBar`.
   - Main row: `Toolbar` | centre column | `Dock`. The centre column is the `Viewport` (with the
     document tab) over the `AssetBrowser`, which has its own area along the bottom.
+  - Preferences › Toolbar on the left / on the right (`prefs.toolbarSide`, #654) moves the toolbar to
+    the window's right edge, after the dock. `App.svelte` swaps the `.main` grid's columns
+    (`.toolbar-right`); the DOM order stays, so the tab order and the probes don't change. The
+    toolbar's border and its hover description (#130) flip with it: the tip is placed by the
+    toolbar's left edge and translated by its own width.
   - Per-tool settings go in `OptionsBar` (use `OptSlider`). The bar is one row: its controls wrap
     and the rows below the first are clipped until its More (n) button opens the bar over the
     viewport (#254), so put a tool's most used controls first; the brush's Size and Strength
@@ -58,13 +63,22 @@ The window layout, the asset browser and the dock panels and floating windows.
   - The grid is virtualised (only the rows in view are rendered), so there is no result cap.
     `AssetPreview.svelte` shows the hovered (else picked) item live in its own small renderer.
     It and `CreaturePreview` share `lib/ui/previewRenderer.ts` (#589): the renderer, its context
-    loss and release, the orbit camera with drag and wheel, and a frame loop that runs only while the
+    loss and release, the orbit camera with drag and wheel, a right or middle drag that moves the
+    orbit target up and down the model (#662: scaled by the distance, held to the bounds the view
+    sets with `setPanRange` when it fits a model), and a frame loop that runs only while the
     view's `step` says something moves (a spin, an animation, particles, a moving texture), wakes on
     input, a resize, a restored context or a shown page, and keeps to Graphics › FPS limit. The asset
     preview spins a newly shown model for 6 s and while the pointer is over it, then stops drawing.
   - `ui.palette` follows the tool (textures while painting) and the browser follows it. Its
     height, collapsed state, tile size and recent picks are `prefs`, and so are the tab
     (`browserKind`) and each tab's search, zone, category and scroll (`browserViews`, `wow/browserViews.ts`).
+    The Creatures and NPCs tabs (`SpawnBrowser.svelte`) also keep a sort there (#659: database order,
+    or by level with `byLevel`, lowest or highest first).
+  - The **Names** checkbox in the header (`prefs.browserNames`, #655) shows or hides the name under
+    every browser tab's tiles (`PaletteTile`'s `showLabel`) and in the asset preview; the rows' height
+    (`rowH`) drops by the label's 22 px with it. The pickers and the brush editor always show names.
+    The header's size slider and the checkbox don't shrink (`flex: none`): a narrow header overflows
+    instead of squeezing the slider to nothing.
   - The **Sets** tab shows the author's model sets (`wow/modelSets.ts`, `prefs.modelSets`): named lists
     of doodads and buildings, made and filled through a tile's right-click menu (which also holds the
     favourite star), and imported or exported as TOML (`importModelSets`/`exportModelSet` in `mapio.ts`).

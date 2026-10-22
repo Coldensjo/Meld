@@ -145,8 +145,9 @@ cd frontend && bun run build   # frontend only
   - `vmangos` is the server side: regions read from the client and written back as a patch (with the
     map's WDL horizon redrawn for the block, `wdl.go`), the map and spawn exports, the world database's spawns, templates and looks, the DBC tables the editor
     needs (maps, zones, emotes, liquids, ground effects), and launching the client and servers.
-  - `game` closes and reopens the client (and the world server, for a write it reads at its start)
-    around a patch write: Wow.exe, or Benilla (the
+  - `game` starts the client and tells whether it and the servers run; no patch write closes or
+    restarts anything (#661: a write waits for a running game, `installClient` in `app_pending.go`).
+    The client is Wow.exe, or Benilla (the
     open-source 1.12.1 client, `config.GameClient`, started from its folder with `WOW_DATA`,
     `WOW_USER`, `WOW_PASS`, `WOW_REALM` and `WOW_CHAR`; see docs/BENILLA.md). Launch (`LaunchGameAt`)
     puts the Game Login's character where the camera is: `Engine.playerSpot` finds the ground or

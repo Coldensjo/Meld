@@ -86,6 +86,15 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   (`spawnType` in `world/spawnInfo.ts`), so each look is one cached mesh and one InstancedMesh.
   Items are welded on in Go (`Mesh.Attach`) and bound to the attachment's bone, so GPU skinning
   carries them.
+- **Where a spawn stands** (#660): a creature or game object goes on the floor under the cursor,
+  `ctx.floor()` (`Engine.floorHit`): the nearer of the terrain and `ObjectLayer.raycastFloor`, with
+  the terrain see-through while the camera is under it (the ray march reports a hit at the camera
+  there) or the terrain is hidden. The Place tool's template preview and click, dragging a spawn or
+  a waypoint, and the spawn brush use it (`Engine.pick` aims the brush at it, and the brush's
+  per-point height casts `raycastFloor` down, skipping a point with no floor when the ground is far
+  overhead). Models keep `ctx.surface()`, which takes any surface. The answer is cached for 250 ms
+  while the cursor and camera stay put. From above the ground, grass over a cave is still the
+  ground: only an underground camera or hidden terrain looks through it.
 - **Spawn editing** (`world/spawnEdits.ts`): spawns are edited in place in the `SpawnLayer`
   (keyed `kind/guid`), and every change is a `History` command. `SpawnLayer.touch` keeps a
   spawn's database state before its first edit, so `edits()` lists what changed (`SpawnChanges` re-compares only the spawns touched since the last count); File › Save Spawns to
@@ -227,8 +236,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the world database's `taxi_nodes` (the row of the highest build up to 5875; `TaxiSQL` writes 5875)
   and the routes and their points from its own `data/5875/dbc` copies of TaxiPath.dbc and
   TaxiPathNode.dbc (`InstallServerTaxi`), so `App.SaveTaxi` writes all three: SQL first, then the
-  patch and the server's tables inside one window with the game and the world server closed
-  (`installClosed` with `world`), so the restarted world server reads them. A stop's ID is 1 to 256 (the client's taxi mask); a route's points are rewritten
+  patch (or the files waiting for the game, #661) and the server's tables, closing nothing; the
+  result's `restart` tells the author to restart a running world server, which reads them only at
+  its start. A stop's ID is 1 to 256 (the client's taxi mask); a route's points are rewritten
   whole, reusing its old point IDs. `components/FlightPathsWindow.svelte` (World › Flight Paths,
   `ui.flightPaths`) is a floating window, not a dialog, so the map stays in reach, and a form saved
   with Save, not undo steps (as Zones and Portals, decision #83). It hands its stops and routes to
@@ -349,7 +359,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   another (Blizzard's display 35578 is a bow model with the crossbow's visual) with Make it shoot like
   a bow, a shot visual that waits for Save with the icon. A picked icon waits for Save, where `ItemDisplayVariant` finds the display that pairs the item's model
   and everything else with that icon and shot visual, or adds one (a copy of the item's display with the new icon,
-  the next ID) to ItemDisplayInfo.dbc in Meld's patch (`installWithGameClosed`), then
+  the next ID) to ItemDisplayInfo.dbc in Meld's patch (`installClientFiles`, waiting for a running game, #661), then
   `ForgetItemDisplays` drops the Go caches built from that table. Item tiles load their icons only
   once on screen (`ItemIcon` `lazy`).
   The icon grid (here and in the spell editor) has Import PNG… and Export … as PNG… (#364,
@@ -408,8 +418,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the tables without closing anything (#365, `app_pending.go` `saveClientFiles`): into Meld's patch at
   once when the game isn't running, else into the waiting files in the user's cache
   (`internal/vmangos/pending.go`), which a watcher (`watchPending`, also started at Meld's start)
-  writes once the game has closed, and which any patch write that closes the game (`installClosed`,
-  Publish's `ExportMap`) takes along (`vmangos.InstallWithPending`). Patch writes run one at a time
+  writes once the game has closed, and which any patch write takes along
+  (`vmangos.InstallWithPending`). Since #661 every client write goes this way (`installClient`): no
+  save closes the game. Patch writes run one at a time
   (`patchMu` in `install.go`, held by `InstallPatch` and by `InstallWithPending` around reading,
   writing and dropping the waiting files), so the watcher never rebuilds the patch beside another
   write and drops its files (#657). Meld's own reads of the client's tables (`readOverlay`, through `readClientFile`,

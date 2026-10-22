@@ -24,6 +24,10 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
   - Each loaded model gets a three-mesh-bvh bounds tree (`world/bvh.ts`), which `pick` and
     `raycastSurface` cast through. Both read a hit's object through `hitId` (`world/instanceHit.ts`)
     and go on past a hit whose instance has no id (a mesh repacked or swapped since the last pack, #524).
+    `raycastFloor` (#660) casts the same meshes with `firstHitOnly` off, since a building's own
+    ceiling comes before its floor, and takes the nearest hit whose world normal faces up
+    (`FLOOR_MIN_UP`): ceilings and walls are passed. Only packed instances are hit, so a layer that
+    was never `update`d and `cull`ed (a unit test's) hits nothing.
   - Each loaded model may also get a meshoptimizer LOD (`models/lod.ts`): a second index over the
     same vertices, drawn by a second InstancedMesh for instances under `LOD_PX` on screen
     (`splitLod` in `instanceCull.ts`). The LOD shares the full model's bounds tree, so picking

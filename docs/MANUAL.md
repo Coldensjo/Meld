@@ -25,10 +25,12 @@ The layout follows Photoshop:
 
 - **Menu bar** at the top.
 - **Options bar** below it, showing the active tool's settings (mode, size, strength, falloff…).
-- **Toolbar** on the left.
+- **Toolbar** on the left, or on the right (Preferences › Toolbar on the right).
 - **Asset browser** along the bottom: search the client's doodads, buildings and textures in one box
   (`Ctrl+F`), narrow by category and zone, and hover a tile to see it large and turning in the
-  preview on the right. Recent picks sit at the top. Drag its top edge to resize it.
+  preview on the right (drag to turn a model, right-drag to move up and down it, scroll to zoom).
+  Recent picks sit at the top. The Creatures and NPCs tabs sort by level, and the Names checkbox
+  hides the names under the tiles. Drag its top edge to resize it.
 - **Document tabs** above the 3D view. Several maps can be open at once, each with its own undo
   history and camera. New Map and Open add a tab, Ctrl+Tab switches tabs, and Ctrl+W or the tab's
   ✕ closes one (it asks first if there are unsaved changes).
@@ -108,6 +110,9 @@ Also included:
   open region into the client's tiles, Compile to Server rebuilds the server's map data from those
   tiles, and Compile All does both. Compile to Server and Compile All also save the region's
   creature and game object edits into the world database, as File › Save Spawns to Database does. Launch asks first when the open region has edits the client lacks.
+  Meld never closes or starts the game or the servers: while the game runs, what a compile or save
+  writes into the client waits for you to close it (the status bar says how many files wait), and the
+  server's map data is rebuilt once you stop the world server. Start them again yourself.
 - **Edit**: Undo / Redo, History, Copy / Paste, Select All / Deselect, cut or fill holes in the area.
 - **Models**: duplicate, group, hide, delete, ground and replace the selected models; the Inspector.
 - **Terrain**: clean up the tile under the camera, auto-paint, replace a texture everywhere, climb view.
@@ -127,7 +132,8 @@ Also included:
 - **Camera**: follow the ground, collision, top-down view, minimap window, speed, bookmarks.
 - **Game**: launch the 1.12 client or Benilla, Game Login.
 - **Preferences**: WoW client folder, VMaNGOS and Benilla folders, game client and window, thumbnail
-  cache, camera speed, mouse sensitivity, invert camera Y, tablet support.
+  cache, camera speed, mouse sensitivity, interface size, toolbar icon size and side, invert camera Y,
+  tablet support.
 - **Help**: a help window (F1) with the tools, brushes, camera and view in short, the keyboard shortcuts, the manual (this file), the log and app info.
 
 The sky is a physically based atmosphere (or the client's own sky with Client Lighting) with a sun
@@ -207,7 +213,7 @@ internal/mpq/          Read-only MPQ reader (WoW 1.x archives)
 internal/wow/          BLP/M2/WMO decoders, creature looks, minimaps + /wow/* HTTP endpoints serving the local client
 internal/adt/          Reads and rewrites 1.12 tiles (terrain, textures, liquids, holes, ground effects)
 internal/vmangos/      Regions to and from the client, the world database, DBC tables, spawn SQL
-internal/game/         Closes and reopens Wow.exe or Benilla around an export
+internal/game/         Starts Wow.exe or Benilla (Launch), and the game's template caches
 internal/heightmap/    Heightmap PNGs
 internal/config/       Per-user settings (client, server and Benilla folders, preferences)
 benilla-launcher/      Meld's launcher for Benilla (BENILLA.md)

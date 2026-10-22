@@ -276,10 +276,23 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   region's tiles from the patch (`UpdateRegionServer`), and refuses while the region has edits the
   patch lacks; All does both, the server only for the tiles the client compile wrote. Server and All
   also write the region's spawn edits into the world database (#342, `compileSpawns`, the same
-  `writeSpawns` as Save Spawns, which stays for spawn-only changes) before the rebuild, whose restart of
-  the world server reads them; a failed spawn write is reported and leaves the server alone, while
-  All's client tiles are still written. Compile to Client never touches the database. Compile works on the active tab only; with
-  nothing changed it names the other region tabs edited since their last compile.
+  `writeSpawns` as Save Spawns, which stays for spawn-only changes) before the rebuild; the world
+  server reads them when the author starts it again. A failed spawn write is reported and leaves the
+  server's map data alone, while All's client tiles are still written. Compile to Client never
+  touches the database. Compile works on the active tab only; with nothing changed it names the
+  other region tabs edited since their last compile.
+- **Compiling never closes or starts anything** (#661, the owner's choice A/A): not the game, not
+  mangosd, not realmd. A patch write (`installClient` in `app_pending.go`, used by `SaveRegion` and
+  every other client write) goes in at once when the game isn't running; while it runs (Windows
+  only: it holds the patch open) the files wait in the pending list (#365) for the watcher, the
+  result says `waiting`, and the status bar counts them ("Close the game to apply…",
+  `client:pending`, `ClientFilesWaiting`). The server map rebuild (`UpdateRegionServer`, and
+  Publish) first waits for the game to close and the waiting files to reach the patch
+  (`waitForGameClosed`), since the server is built from the patch, then `vmangos.UpdateServerMaps`
+  waits for the author to stop mangosd (which holds its map files) before extracting; each wait
+  gives up after 15 min with a message. Saves the world server reads only at its start (Zones,
+  Portals, Flight Paths) set `restart` when it runs, and `lib/io/applyNote.ts` words both notes.
+  Launch writes any waiting files before it starts the game (`flushPending`).
   `regionPaint` sends every chunk's paint, at the editor's 32x32 texels a chunk, half the client's
   64x64 alpha (`tilePaint` box-averages each 2x2 block). So `BuildRegion` compares each chunk with the
   client's tile without Meld's patch (`ownTextures`) through `ChunkPaint.KeepClientAlpha`
@@ -371,7 +384,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   flood (its groups are all interior), so it draws whole from outside.
 - **Zones** (`components/ZonesDialog.svelte`, World › Zones…, `ui.dialog = 'zones'`): a map's AreaTable.dbc
   rows (`vmangos/areatable.go`: `ReadAreaRows`, `NewAreaRow`, `SetAreaRows`; bindings `AreaRows`,
-  `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (the game closed around it) and
+  `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (waiting for a running game
+  to close, #661) and
   the rows into the world database's `area_template`, which is where VMaNGOS reads areas from (not the
   DBC). A form saved with Save, not undo steps, like creature templates. A zone's Weather (#185) is its
   `game_weather` row (`vmangos/weather.go`, `ZoneWeather` binding): the chance of rain, snow and storm
@@ -384,7 +398,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   shot, not a whole frame of the view, and keeps the map's highest ground until its heights change, #554), `io/worldMap.ts` gives the rectangle (the client's WorldMapArea row, or the
   zone's chunks grown to 3:2), the parchment look and the feathered paste over a zone the client already
   maps; Go (`vmangos/worldmap.go`, `WriteWorldMap`) cuts the 1002x668 picture into twelve DXT1 tiles and
-  sets the WorldMapArea.dbc row, written into Meld's patch with the game closed. Exploration overlays
+  sets the WorldMapArea.dbc row, written into Meld's patch (or waiting for the game to close, #661). Exploration overlays
   (#219, Overlays: one per subzone): `io/worldMap.ts` `drawOverlays` draws each subzone painted in the
   drawn part (an area whose parent is the zone) into the overlay naming it, else the one whose art
   covers half of it or more (as Elwynn's Northshire piece holds Echo Ridge Mine), else a new one; its

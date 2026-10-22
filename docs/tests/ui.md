@@ -100,6 +100,17 @@ facet click then goes to the top. `tests/browserViews.test.ts` covers the stored
 `?nosave` nothing reaches config.json, so a restart can't be checked in the page; reload the desktop
 window instead.
 
+## Names under the tiles (#655)
+
+Checks: the asset browser header's Names checkbox (`.names input`, `prefs.browserNames`) hides the names
+under every tab's tiles and in the preview, and the virtual rows pack tighter.
+- In the dev page, on Doodads: a `.tile` is 110 px tall with names and 90 px without at the default size,
+  and `.virtual`'s height drops with it (400 to 312 px for four rows); `.tile .label` count goes to 0.
+  Hover a tile (`pointerenter`) and the preview's `.details .name` goes and comes back with the box.
+- Trap: the header is crowded at 125 % interface size. The size slider and the checkbox are `flex: none`;
+  without that the checkbox squeezed the slider to 0 px. Check `.size input`'s width after a header change.
+- The setting is saved to the real config from the dev page: put it back.
+
 ## Model sets (the asset browser's Sets tab, #124)
 
 Checks: making a set, adding models by a tile's right-click, showing it. In headless Chrome (`docs/TESTS.md`):
@@ -158,6 +169,14 @@ same unless an input has focus; Ctrl+Tab still cycles the map tabs.
 Probe: `bun run probe hide-panels` (canvas fills the window below the menu bar, returns on the second Tab).
 Trap: `.centre` must stay in grid column 2 of `.main`; alone in the auto first column it shrank to its
 content (145 px wide, #248).
+
+## Toolbar on the right (#654)
+
+Checks: Preferences › Toolbar on the right (`prefs.toolbarSide`) puts the toolbar at the window's right
+edge, after the dock, and back. In the dev page, click the Preferences menu item, then the radio
+"Toolbar on the right": `.toolbar`'s left is the `.dock`'s right, and its left border is set. Hover a
+toolbar button (`pointerenter`, wait 450 ms): the `.tip` ends left of the toolbar. Hide panels still
+fills the window. The pref saves to the real config from the dev page: set it back to the left.
 
 ## Tool hints
 Checks: each tool's help sentence shows in the status bar's left slot and not in the options bar; a
@@ -260,6 +279,20 @@ loop when nothing moves, and keep to Graphics › FPS limit while drawing.
 - Trap: the asset preview keeps drawing a model whose textures or colours move (a waterfall,
   `materialsMove`), and the Preview window any model with bones, particles or a moving texture, so
   a "settles to 0" check needs a still model: the first palette tile (a plain doodad) or a helper.
+
+## Moving the view up and down in the previews (#662)
+
+Checks: a right or middle drag in `AssetPreview` and `CreaturePreview` moves the orbit target up
+and down the model, held to its bounds; the left drag still turns and the wheel zooms.
+- The previews don't draw in a hidden page (`document.hidden`, #589), so a headless or background tab
+  can't show the pan. Its logic can be checked anywhere on a renderer of its own:
+  `const { PreviewRenderer } = await import('/src/lib/ui/previewRenderer.ts')`, make one, `setPanRange(0, 8)`,
+  then call `down`, `move` and `up` with `{ button: 2, clientX, clientY, pointerId, currentTarget: { setPointerCapture() {} } }`:
+  `target.y` follows a drag down, stops at 0 and 8, and `yaw` stays. Without a canvas a pixel is the whole
+  view's height, so any drag reaches a bound.
+- A right-click on `[aria-label="Model preview"]` is cancelled (`contextmenu` handler), so no menu opens.
+- By eye, in a visible window: a tall model (a Stormwind tower, a large creature) zoomed in on its
+  middle; a right-drag down slides it down to show the top, the same way in both previews.
 
 ## Top-down view (U)
 

@@ -95,7 +95,7 @@ into the client's minimap (BLP plus md5translate.trs in Meld's patch).
   stores it as an sRGB texture, which encodes a second time (a pale picture), so its
   `internalFormat` is `'RGBA8'`.
 
-## Server map extraction for one map (Publish, #174)
+## Server map extraction for one map (Publish, #174; nothing closed or started, #661)
 Checks: Publish runs the VMaNGOS extractors on the published map only: MapExtractor with `-m <id>`
 (and `-t x_y,...` for the tiles the export wrote, when the server was current before it), VMapExtractor
 with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.vmtile` files.
@@ -124,19 +124,23 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
 - Compile All and Compile to Server (#211, #214) reuse it: `SaveRegion` returns `changedTiles`, `mapId` (0 Azeroth, 1 Kalimdor) and
   `tilesCurrent`, and with a VMaNGOS folder set `compileRegion` calls `UpdateRegionServer` (Compile to Server with the
   region's own tiles), which runs `vmangos.UpdateServerMaps` (the publish without the database
-  step) in the background and reports through `servermaps:log`/`servermaps:done`. It stops and restarts mangosd, so
-  not for the loop to try against the live server. Go: `TestFileTileName`.
-- What a patch write closes (#469): `installClosed` (`app.go`) closes the game alone through
-  `game.Session.Around`, so `SaveRegion` leaves mangosd to `UpdateRegionServer` (one restart a Compile
-  All) and realmd is never closed; only SaveTaxi, Zones and Portals with a server folder close mangosd
-  too, for the tables it reads at its start. Go: `TestAround*` in `internal/game/session_test.go`. The
-  live path runs only on Windows outside the probe sandbox (`gameSession` refuses there), so check it by
-  hand with the owner's go-ahead: Compile to Client with realmd and mangosd running leaves both PIDs
-  unchanged (`tasklist /FI "IMAGENAME eq mangosd.exe"`).
-- Publish closes the game too (#470): `PublishVmangosMap` runs `vmangos.Publish` inside
-  `withGameClosed` (`game.Session.Around` with the game alone; Publish restarts mangosd itself), so the
-  game opens again once the world server is back. Same hand check on Windows: Publish with Wow.exe
-  running no longer fails with "patch-3.MPQ is in use".
+  step) in the background and reports through `servermaps:log`/`servermaps:done`. It rebuilds the
+  live server's map data, so not for the loop to try against the live server. Go: `TestFileTileName`.
+- Nothing is closed or started (#661, replacing #469 and #470): a patch write (`installClient`,
+  `app_pending.go`) waits for a running game instead, and `UpdateServerMaps` waits for the author to
+  stop mangosd and never starts it. Go: `TestUpdateServerMapsWaitsForTheAuthorToStopTheServer` and
+  `TestUpdateServerMapsNeverStopsOrStartsTheServer` (`publish_test.go`, the fake runner's
+  `stopsAfter` stops the server after that many `Running` calls). The live path runs only on Windows
+  outside the probe sandbox, so check it by hand with the owner's go-ahead:
+  - Compile to Client with Wow.exe open: the status says the tiles wait, the status bar shows "Close
+    the game to apply N client files", and closing the game writes them within a few seconds (the
+    cell goes; the patch's time changes). Wow.exe, realmd and mangosd keep their PIDs
+    (`tasklist /FI "IMAGENAME eq mangosd.exe"`).
+  - Compile to Server with mangosd running: the status bar says to stop the world server; stopping
+    it starts the extraction, and the done message says to start it. Nothing starts it.
+  - Publish with Wow.exe running waits with "Close the game…" and goes on once it is closed.
+- Trap: each wait gives up after 15 min (`gameWait`, `serverStopWait`); until then the File menu's
+  compile entries say "still being rebuilt" (`serverMapsRunning`), and Publish keeps `ui.busy`.
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
 
@@ -151,7 +155,7 @@ before the server rebuild, a failed write stops the rebuild, and Compile to Clie
 - Trap: the rebuild flag (`serverMapsRunning`) stays set until Go sends `servermaps:done`, so a second
   compile in the same page says "still being rebuilt" and skips `UpdateRegionServer`. The probe sends
   the event itself (`window.runtime.EventsEmit('servermaps:done', '')`) after each compile.
-- Against the live database, by hand with the owner's go-ahead (it restarts mangosd): move a spawn,
+- Against the live database, by hand with the owner's go-ahead (it rebuilds the server's map data once mangosd is stopped): move a spawn,
   Compile to Server, read the row back with mariadb (port 3307), then move it back and compile again.
 
 ## Compile to Client, Server, All and Launch's check for uncompiled edits (#214)
@@ -167,8 +171,8 @@ open region has edits the client lacks, and only then.
   kept (#531): `cache.kept` says a second check, and one after a step that changes no compile input,
   reused it, `cache.askedAgain` that an undo asked Go again; `cache.askMs` and `cache.cachedMs` time the
   first and second checks.
-- It never compiles: Compile to Client writes the owner's `patch-3.MPQ` (closing the game), and Compile
-  to Server or All restart mangosd. Check those by hand, with the owner's go-ahead: after Compile to
+- It never compiles: Compile to Client writes the owner's `patch-3.MPQ`, and Compile to Server or All
+  rebuild the server's map data. Check those by hand, with the owner's go-ahead: after Compile to
   Client the patch's time changes and `ReadRegion` of the tile gives the edited heights.
 - Trap: an unedited block built by `BuildRegion` is not byte-equal to a tile the client has never had
   compiled (the builder orders an MCNK's subchunks its own way), so `RegionPending` says "changed" for
