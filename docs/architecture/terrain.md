@@ -286,6 +286,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   server's map data alone, while All's client tiles are still written. Compile to Client never
   touches the database. Compile works on the active tab only; with nothing changed it names the
   other region tabs edited since their last compile.
+- **The patch's previous copy** (#475): `vmangos.InstallPatch` rebuilds Meld's patch from the one on
+  disk and renames it over, so a bug in `carryOver`/`dropUnusedMinimaps` would drop entries silently,
+  and the client-table rows (Spell.dbc, icons, lights, areas, taxis, world maps) exist nowhere else.
+  Each write therefore first renames the patch it replaces to `patch-3.MPQ.prev`, overwriting the
+  last one (`replaceKeepingPrev`, which puts it back if the new patch's rename fails). The client,
+  Meld's reader and the probes' sandbox load only `*.MPQ`, so none of them reads it. An Ironforge
+  patch is still also kept once as `.before-meld`.
 - **Compiling never closes or starts anything** (#661, the owner's choice A/A): not the game, not
   mangosd, not realmd. A patch write (`installClient` in `app_pending.go`, used by `SaveRegion` and
   every other client write) goes in at once when the game isn't running; while it runs (Windows

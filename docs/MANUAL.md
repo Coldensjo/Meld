@@ -113,6 +113,10 @@ Also included:
   Meld never closes or starts the game or the servers: while the game runs, what a compile or save
   writes into the client waits for you to close it (the status bar says how many files wait), and the
   server's map data is rebuilt once you stop the world server. Start them again yourself.
+  Everything Meld writes into the client goes into `Data\patch-3.MPQ`, and each write keeps the patch
+  it replaced as `Data\patch-3.MPQ.prev` (only the last one). If a write lost something (a spell, an
+  icon, a zone, a flight path), close the game and Meld and rename `patch-3.MPQ.prev` back to
+  `patch-3.MPQ`.
 - **Edit**: Undo / Redo, History, Copy / Paste, Select All / Deselect, cut or fill holes in the area.
 - **Models**: duplicate, group, hide, delete, ground and replace the selected models; the Inspector.
 - **Terrain**: clean up the tile under the camera, auto-paint, replace a texture everywhere, climb view.

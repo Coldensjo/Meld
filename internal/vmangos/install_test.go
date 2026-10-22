@@ -31,6 +31,32 @@ func TestInstallPatchFreshThenReplace(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, PatchName+BackupSuffix)); err == nil {
 		t.Error("a Meld patch was backed up")
 	}
+	// The patch it replaced is kept as .prev (#475), and the next write replaces that one.
+	prevHas := func(name, want string) {
+		t.Helper()
+		p, err := mpq.Open(filepath.Join(dir, PatchName+PrevSuffix))
+		if err != nil {
+			t.Fatalf("no previous patch: %v", err)
+		}
+		defer p.Close()
+		if got, err := p.ReadFile(name); err != nil || string(got) != want {
+			t.Fatalf("previous patch's %s = %q, %v; want %q", name, got, err, want)
+		}
+	}
+	prevHas(`World\Maps\Azeroth\Azeroth_32_48.adt`, string(tileFiles[0].Data))
+	tileFiles3 := []mpq.File{{Name: `World\Maps\Azeroth\Azeroth_32_48.adt`, Data: []byte("tile three")}}
+	if _, err := InstallPatch(dir, tileFiles3); err != nil {
+		t.Fatal(err)
+	}
+	prevHas(`World\Maps\Azeroth\Azeroth_32_48.adt`, "tile two")
+	if err := os.WriteFile(filepath.Join(dir, PatchName+PrevSuffix), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallPatch(dir, tileFiles2); err != nil {
+		t.Fatal(err)
+	}
+	// A .prev already there (here not even an archive) is overwritten.
+	prevHas(`World\Maps\Azeroth\Azeroth_32_48.adt`, "tile three")
 	a, err := mpq.Open(path)
 	if err != nil {
 		t.Fatal(err)
