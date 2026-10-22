@@ -209,7 +209,7 @@
     grid-template-columns: minmax(120px, 1fr) 2fr;
     gap: 4px 10px;
     align-items: center;
-    max-height: 50vh;
+    max-height: calc(50 * var(--vh));
     overflow-y: auto;
   }
   .name {

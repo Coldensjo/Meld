@@ -239,7 +239,7 @@
 		min-width: 0;
 	}
 	.grid-wrap {
-		max-height: min(58vh, 640px);
+		max-height: min(calc(58 * var(--vh)), 640px);
 		flex: none;
 		overflow-y: auto;
 		border: 1px solid var(--border);

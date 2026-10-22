@@ -467,7 +467,7 @@
     line-height: 1.45;
   }
   .log {
-    max-height: 60vh;
+    max-height: calc(60 * var(--vh));
     overflow: auto;
     font-family: ui-monospace, Consolas, monospace;
     font-size: 12px;

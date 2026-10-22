@@ -37,7 +37,7 @@
 		left: 50%;
 		transform: translate(-50%, -50%);
 		width: 320px;
-		max-width: 80vw;
+		max-width: calc(80 * var(--vw));
 		padding: 12px 16px;
 		border: 1px solid var(--border);
 		border-radius: var(--radius);

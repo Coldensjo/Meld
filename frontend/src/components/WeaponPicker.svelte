@@ -248,7 +248,7 @@
     min-width: 0;
   }
   .grid-wrap {
-    height: min(52vh, 560px);
+    height: min(calc(52 * var(--vh)), 560px);
     flex: none;
     overflow-y: auto;
     border: 1px solid var(--border);

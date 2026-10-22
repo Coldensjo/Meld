@@ -53,7 +53,7 @@
     opacity: 0.5;
   }
   .dock :global(.panel:not(.grow) .body) {
-    max-height: 40vh;
+    max-height: calc(40 * var(--vh));
     overflow-y: auto;
   }
   .dock :global(.panel.grow .body) {
