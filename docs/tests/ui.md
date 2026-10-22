@@ -388,8 +388,8 @@ Checks: keyboard focus, roles and contrast, the audit's method (its findings are
   `--danger-text` on all four panels; text uses those tokens, `--accent` and `--danger` stay for fills.
 - Trap: `el.focus()` from a script doesn't match `:focus-visible` in Chromium, so a focus ring checked
   that way reads `outline-style: none`; press Tab in a real page, or check the CSS rule itself.
-- Focus ring and reduced motion (#374, probe `focus-motion`): checks `app.css` holds the `:focus-visible` ring,
-  the `:focus:not(:focus-visible)` reset and the `prefers-reduced-motion` rule (it reads the stylesheets,
+- Focus ring and reduced motion (#374, probe `focus-motion`): checks `app.css` holds the `:root[data-kbd-nav] :focus-visible` ring
+  (#652: `main.ts` sets the attribute on Tab, clears it on a pointer press) and the plain `:focus-visible` reset and the `prefers-reduced-motion` rule (it reads the stylesheets,
   since the probe cannot fake a Tab or the media query). Look at the ring by pressing Tab in the dev page.
 - Trap: the `data-ui` attributes on component roots belong to the F8 overlay, not to accessibility.
 

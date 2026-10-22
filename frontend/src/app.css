@@ -147,13 +147,15 @@ kbd {
   border-radius: 4px;
 }
 
-/* Keyboard focus (#374): one visible ring for every control; a mouse click shows none. */
+/* Keyboard focus (#374, #652): one visible ring for every control, only while navigating with Tab
+   (main.ts sets data-kbd-nav) and in text fields; a mouse click, or a shortcut key after one, shows none. */
 :focus-visible {
+	outline: none;
+}
+:root[data-kbd-nav] :focus-visible,
+:is(input, textarea, select):focus-visible {
 	outline: 2px solid var(--accent-2);
 	outline-offset: 1px;
-}
-:focus:not(:focus-visible) {
-	outline: none;
 }
 
 /* Reduced motion (#374): UI animations and transitions end at once. The 3D scene is the content. */
