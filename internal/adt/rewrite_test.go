@@ -145,6 +145,72 @@ func TestRewritePaintReadsBack(t *testing.T) {
 	}
 }
 
+// TestRewriteZeroesFieldsOfMissingPieces repaints a two-layer chunk to one layer, which writes no
+// MCAL, and rewrites a chunk whose header claims a shadow map and sound emitters it doesn't have:
+// the header's offset, size and count fields and the flags for those pieces must be cleared rather
+// than kept from the old chunk (#496), while a chunk with a shadow map keeps them.
+func TestRewriteZeroesFieldsOfMissingPieces(t *testing.T) {
+	two := ChunkPaint{Layers: []Layer{{Texture: `Tileset\Test\A.blp`}, {Texture: `Tileset\Test\B.blp`, Alpha: bytes.Repeat([]byte{128}, 64*64)}}}
+	root, err := BuildTile(hills(), Ring{}, Changes{TileX: 3, TileY: 4, Paint: map[int]ChunkPaint{5: two}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := func(root []byte, idx int) []byte {
+		t.Helper()
+		starts, err := mcnkStarts(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return root[starts[idx] : starts[idx]+mcnkHeaderLen]
+	}
+	u32 := func(h []byte, at int) uint32 { return binary.LittleEndian.Uint32(h[at:]) }
+	if h := header(root, 5); u32(h, 0x24) == 0 || u32(h, 0)&mcnkFlagNoFix == 0 {
+		t.Fatalf("two layers: ofsAlpha %#x flags %#x, want an MCAL and the 0x8000 flag", u32(h, 0x24), u32(h, 0))
+	}
+	// A stale shadow size and flag and a sound emitter count with no MCSH or MCSE behind them.
+	stale := header(root, 6)
+	binary.LittleEndian.PutUint32(stale[0:], u32(stale, 0)|mcnkFlagShadow)
+	binary.LittleEndian.PutUint32(stale[mcnkShadowSize:], ShadowBytes)
+	binary.LittleEndian.PutUint32(stale[mcnkSoundCount:], 3)
+
+	one := ChunkPaint{Layers: []Layer{{Texture: `Tileset\Test\A.blp`}}}
+	shadow := make([]byte, ShadowBytes)
+	shadow[0] = 1
+	out, err := Rewrite(root, Changes{TileX: 3, TileY: 4, Paint: map[int]ChunkPaint{5: one}, Headers: map[int]ChunkHeader{7: {Shadow: shadow}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := header(out, 5)
+	if u32(h, 0x24) != 0 || u32(h, 0x28) != 0 || u32(h, 0)&mcnkFlagNoFix != 0 {
+		t.Fatalf("one layer: ofsAlpha %#x sizeAlpha %d flags %#x, want none", u32(h, 0x24), u32(h, 0x28), u32(h, 0))
+	}
+	h = header(out, 6)
+	if u32(h, 0x2c) != 0 || u32(h, mcnkShadowSize) != 0 || u32(h, 0)&mcnkFlagShadow != 0 || u32(h, mcnkSoundOfs) != 0 || u32(h, mcnkSoundCount) != 0 {
+		t.Fatalf("no shadow or sounds: ofsShadow %#x sizeShadow %d flags %#x ofsSound %#x nSound %d", u32(h, 0x2c), u32(h, mcnkShadowSize), u32(h, 0), u32(h, mcnkSoundOfs), u32(h, mcnkSoundCount))
+	}
+	// The shadow written for chunk 7 keeps its offset, size and flag, through a second rewrite too.
+	for _, tile := range [][]byte{out, mustRewrite(t, out)} {
+		starts, err := mcnkStarts(tile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h = tile[starts[7] : starts[7]+mcnkHeaderLen]
+		at := starts[7] + int(u32(h, 0x2c)) - 8
+		if u32(h, 0x2c) == 0 || string([]byte{tile[at+3], tile[at+2], tile[at+1], tile[at]}) != "MCSH" || u32(h, mcnkShadowSize) != ShadowBytes || u32(h, 0)&mcnkFlagShadow == 0 {
+			t.Fatalf("shadow: ofsShadow %#x sizeShadow %d flags %#x", u32(h, 0x2c), u32(h, mcnkShadowSize), u32(h, 0))
+		}
+	}
+}
+
+func mustRewrite(t *testing.T, root []byte) []byte {
+	t.Helper()
+	out, err := Rewrite(root, Changes{TileX: 3, TileY: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 func TestRewriteAddsAndRemovesPlacements(t *testing.T) {
 	root := realTile(t)
 	before, _ := ParsePlacements(root)

@@ -100,6 +100,7 @@ const (
 	mcnkMapObjRefs  = 0x38
 	mcnkHeaderLen   = 0x80
 	mcnkSoundOfs    = 0x58
+	mcnkSoundCount  = 0x5c
 	mcnkLiquidOfs   = 0x60
 	mcnkLiquidSize  = 0x64
 	mddfSize        = 36
@@ -681,6 +682,28 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 	}
 
 	// Lay the pieces out after the header, and point the header at each one's payload.
+	// A field whose piece is not written is zeroed first, so it doesn't keep the old chunk's offset
+	// and size: a chunk repainted to one layer has no MCAL, and its 0x8000 flag (the alpha maps'
+	// layout) and the shadow flag go with their pieces (#496).
+	shadowSize := binary.LittleEndian.Uint32(header[mcnkShadowSize:])
+	soundCount := binary.LittleEndian.Uint32(header[mcnkSoundCount:])
+	for _, f := range []int{0x24, 0x28, 0x2c, mcnkShadowSize, mcnkSoundOfs, mcnkSoundCount} {
+		binary.LittleEndian.PutUint32(header[f:], 0)
+	}
+	written := map[string]bool{}
+	for _, p := range pieces {
+		if p.data != nil {
+			written[p.id] = true
+		}
+	}
+	if !written["MCAL"] {
+		flags &^= mcnkFlagNoFix
+	}
+	if !written["MCSH"] {
+		flags &^= mcnkFlagShadow
+	}
+	binary.LittleEndian.PutUint32(header[0:], flags)
+
 	body := []byte{}
 	at := mcnkHeaderLen
 	for _, p := range pieces {
@@ -702,8 +725,10 @@ func rebuildChunk(m []byte, idx int, ch Changes, texNames *nameList, effects, lo
 			binary.LittleEndian.PutUint32(header[0x28:], uint32(len(p.data)-8+8))
 		case "MCSH":
 			binary.LittleEndian.PutUint32(header[0x2c:], ofs)
+			binary.LittleEndian.PutUint32(header[mcnkShadowSize:], shadowSize)
 		case "MCSE":
 			binary.LittleEndian.PutUint32(header[mcnkSoundOfs:], ofs)
+			binary.LittleEndian.PutUint32(header[mcnkSoundCount:], soundCount)
 		case "MCLQ":
 			binary.LittleEndian.PutUint32(header[mcnkLiquidOfs:], ofs)
 			if p.fresh {
