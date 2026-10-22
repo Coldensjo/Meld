@@ -539,7 +539,7 @@ export class Engine {
 	}
 	/** Where the handles of the selected models stand, kept between builds; `on` is false with no model selected. */
 	private selGizmo = { on: false, group: false, at: new THREE.Vector3(), radius: 0, top: 0, scalable: true, yaw: 0 }
-  private placeTool = new PlaceTool({ placeSpawn: (at) => this.placeSpawnAt(at), fitGround: (id, fit) => this.fitGroundUnder(id, fit) })
+  private placeTool = new PlaceTool({ placeSpawn: (at, rotY) => this.placeSpawnAt(at, rotY), fitGround: (id, fit) => this.fitGroundUnder(id, fit) })
   private doodadTool = new DoodadBrushTool()
   /** The looks of the spawn brush's templates (#171), by display and equipment; null while one is read. */
   private brushLooks = new Map<string, vmangos.LookResult | null>()
@@ -3023,15 +3023,15 @@ export class Engine {
    * open region, so creatures placed in different tabs never share one.
    */
   /** Spawns whichever template the browser's spawn tabs picked (ui.placeCreature or ui.placeObject) at a point. */
-  placeSpawnAt(at: THREE.Vector3) {
-    if (ui.placeCreature) void this.placeCreature(ui.placeCreature, at)
-    else if (ui.placeObject) void this.placeObject(ui.placeObject, at)
+  placeSpawnAt(at: THREE.Vector3, rotY?: number) {
+    if (ui.placeCreature) void this.placeCreature(ui.placeCreature, at, rotY)
+    else if (ui.placeObject) void this.placeObject(ui.placeObject, at, rotY)
   }
 
   private nextObjectGuid = 0
 
   /** Spawns a game object template at a point, facing the camera, as one undo step. */
-  async placeObject(t: vmangos.ObjectTemplate, at: THREE.Vector3) {
+  async placeObject(t: vmangos.ObjectTemplate, at: THREE.Vector3, rotY?: number) {
     const d = this.doc
     try {
       const dbNext = this.nextObjectGuid ? 0 : await NextObjectGUID()
@@ -3039,7 +3039,7 @@ export class Engine {
       for (const doc of this.documents) for (const s of doc.spawnLayer.spawns) if (s.kind === 'object') guid = Math.max(guid, s.guid + 1)
       this.nextObjectGuid = guid + 1
       const cam = this.camera.position
-      const o = spawnOrientation(Math.atan2(-(cam.z - at.z), cam.x - at.x))
+      const o = spawnOrientation(rotY ?? Math.atan2(-(cam.z - at.z), cam.x - at.x))
       const s = newObjectSpawn(t, guid, at.x, at.y, at.z, o)
       d.history.push(spawnAdd(d.spawnLayer, s, `Add ${t.name}`))
       if (d === this.doc) selectSpawn(s)
@@ -3048,7 +3048,7 @@ export class Engine {
     }
   }
 
-  async placeCreature(t: vmangos.CreatureTemplate, at: THREE.Vector3) {
+  async placeCreature(t: vmangos.CreatureTemplate, at: THREE.Vector3, rotY?: number) {
     const d = this.doc
     try {
       const [dbNext, look] = await Promise.all([this.nextCreatureGuid ? Promise.resolve(0) : NextCreatureGUID(), SpawnLook(t.display, t.equipment, 0, 0, 1)])
@@ -3057,7 +3057,7 @@ export class Engine {
       this.nextCreatureGuid = guid + 1
       // Face the camera: the model's front (+X at rest) turned towards where the camera is.
       const cam = this.camera.position
-      const o = spawnOrientation(Math.atan2(-(cam.z - at.z), cam.x - at.x))
+      const o = spawnOrientation(rotY ?? Math.atan2(-(cam.z - at.z), cam.x - at.x))
       const s = newCreatureSpawn(t, guid, at.x, at.y, at.z, o, look)
       d.history.push(spawnAdd(d.spawnLayer, s, `Add ${t.name}`))
       if (d === this.doc) selectSpawn(s)

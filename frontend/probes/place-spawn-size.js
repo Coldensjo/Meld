@@ -1,9 +1,10 @@
-// Placing a creature or game object template (#672): the Place tool's preview is drawn at the size the spawn takes once placed (the template's scale times its display's, or the object's size), not at the model's own size; Shift+scroll leaves it be.
+// (#673: the spawn also takes the preview's rotation.) Placing a creature or game object template (#672): the Place tool's preview is drawn at the size the spawn takes once placed (the template's scale times its display's, or the object's size), not at the model's own size; Shift+scroll leaves it be.
 await P.scene(P.BENCH)
 const e = P.e
 const { editor, ui } = await P.state()
 const { getAsset } = await P.app('/src/lib/models/assets.ts')
 const { spawnType } = await P.app('/src/lib/world/spawnInfo.ts')
+const { spawnOrientation } = await P.app('/src/lib/world/SpawnLayer.ts')
 const App = window.go.main.App
 const bad = []
 const objects = (await App.ListObjectTemplates()).filter((t) => t.model && Math.abs((t.size || 1) - 1) > 0.2)
@@ -33,9 +34,12 @@ for (const [kind, t] of [['object', objects[0]], ['creature', creatures[0]]]) {
 	// The spawn the click puts down is drawn at the preview's size.
 	const layer = e.doc.spawnLayer
 	const n = layer.spawns.length
+	tool.rot = 1.3
 	await P.click(0.5, 0.5)
 	await P.until(() => layer.spawns.length > n, 30_000, `the ${kind} to be placed`)
 	const s = layer.spawns[layer.spawns.length - 1]
+	const wantO = spawnOrientation(1.3)
+	if (Math.abs(Math.atan2(Math.sin(s.orientation - wantO), Math.cos(s.orientation - wantO))) > 1e-3) bad.push(`${kind}: placed facing ${s.orientation}, the preview's rotation gives ${wantO}`)
 	if (!near(s.scale, tool.ghost.scale.x)) bad.push(`${kind}: placed at ${s.scale}, previewed at ${tool.ghost.scale.x}`)
 }
 ui.placeCreature = ui.placeObject = null

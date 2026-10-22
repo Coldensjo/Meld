@@ -129,7 +129,7 @@ export class PlaceTool implements Tool {
   constructor(
     private hooks: {
       /** Spawns the creature or object template being placed (ui.placeCreature / ui.placeObject) at a point. */
-      placeSpawn: (at: THREE.Vector3) => void
+      placeSpawn: (at: THREE.Vector3, rotY?: number) => void
       /** Fits the ground under the model `id` just placed (Fit ground, #207), already applied; null when nothing changed. */
       fitGround: (id: number, fit: FitOptions) => Command | null
     },
@@ -277,7 +277,7 @@ export class PlaceTool implements Tool {
     // A creature or object template from the browser's spawn tabs is spawned, not placed as a model.
     if (ui.placeCreature || ui.placeObject) {
       const surf = ctx.floor() ?? { point: hit.clone(), parent: null }
-      this.hooks.placeSpawn(this.placePoint(ctx, surf).clone().setY(surf.point.y))
+      this.hooks.placeSpawn(this.placePoint(ctx, surf).clone().setY(surf.point.y), this.rot)
       return
     }
     if (!editor.prefab) {
@@ -489,7 +489,7 @@ export class SelectTool implements Tool {
       objectClip: () => ObjectClip | null
       commitPaste: () => void
       /** Spawns the creature or object template being placed at a point (see Engine.placeSpawnAt). */
-      placeSpawn: (at: THREE.Vector3) => void
+      placeSpawn: (at: THREE.Vector3, rotY?: number) => void
       cancelPaste: () => void
       /** A click on a spawn while a formation or pool is built (`ui.spawnPick`, see Engine.pickSpawn). */
       pickSpawn: (s: vmangos.WorldSpawn) => void

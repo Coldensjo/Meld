@@ -139,6 +139,9 @@ its display's, an object's `size`), not at 1, Shift+scroll leaves it be, and the
 `scale` matches. Probe `place-spawn-size` (`bun run probe place-spawn-size`) picks the first object
 and creature templates sized away from 1 on the benchmark scene; needs the world database. The spawn
 brush's ghosts take the same size through its `ghostScale` hook.
+- The clicked spawn also faces the preview's rotation (`tool.rot`, turned by R, Ctrl+scroll or Random
+  rotation; #673): the probe sets `tool.rot` and compares the spawn's `orientation` with
+  `spawnOrientation(rot)`. The Select tool's template click still faces the camera.
 - Trap: a template made in the creature editor (`creatureTemplateOf`) has `displayScale` 1 until its
   look is read, so its preview misses the display's own scale; the browser's templates carry it.
 
