@@ -878,6 +878,12 @@ export class Engine {
       const f = this.floorHit()
       this.hit = f ? this.hitVec.copy(f.point) : null
     }
+    // Under the ground the march meets the ground at the camera itself, so the Place tool aims at the
+    // model surface (or floor) under the cursor instead, a cave's or a dungeon's.
+    if (editor.tool === 'place' && this.hit && this.terrainSeeThrough()) {
+      const s = ui.placeCreature || ui.placeObject ? this.floorHit() : this.surfaceHit()
+      this.hit = s ? this.hitVec.copy(s.point) : null
+    }
     if (editor.tool === 'water' && editor.waterMode === 'paint' && editor.water.onLiquids) this.pickLiquid()
   }
 
@@ -3956,10 +3962,14 @@ export class Engine {
 
   // ---------------------------------------------------------------- surfaces
 
-  /** Terrain or object surface under the cursor, whichever is nearer. */
+  /**
+   * Terrain or object surface under the cursor, whichever is nearer. The terrain is left out where
+   * `terrainSeeThrough` says so: under the ground its ray march meets the ground at the camera itself,
+   * which put a model placed in a cave or a dungeon at the camera.
+   */
   surfaceHit(exclude?: Set<number>): { point: THREE.Vector3; parent: number | null } | null {
     this.raycaster.setFromCamera(this.ndc, this.camera)
-    const groundPoint = this.terrainPointUnderRay()
+    const groundPoint = this.terrainSeeThrough() ? null : this.terrainPointUnderRay()
     const obj = this.objects.raycastSurface(this.raycaster, exclude)
     const groundDist = groundPoint ? groundPoint.distanceTo(this.raycaster.ray.origin) : Infinity
     if (obj && obj.distance < groundDist) return { point: obj.point, parent: obj.id }
