@@ -64,6 +64,22 @@ function bytesU32(b: Uint8Array) {
 	return new Uint32Array(b.slice().buffer, 0, b.byteLength >> 2)
 }
 
+/**
+ * Clears the `parent` of every object whose parent is not in the list (or is itself), and warns with
+ * its id and type. An attachment without its parent would be drawn with its local offsets as world
+ * coordinates and exported there (#516). Only the link goes: the object keeps its values.
+ */
+export function dropOrphanParents<T extends { id: number; type: string; parent?: number }>(objects: T[]): T[] {
+	const ids = new Set<number>()
+	for (const o of objects) ids.add(o.id)
+	for (const o of objects) {
+		if (o.parent === undefined || (o.parent !== o.id && ids.has(o.parent))) continue
+		console.warn(`Object ${o.id} (${o.type}) names parent ${o.parent}, which is not in the map; it is placed as a root object`)
+		o.parent = undefined
+	}
+	return objects
+}
+
 export function fromMapData(m: mapfile.MapData): MapSnapshot {
 	const common = {
 		name: m.name,
@@ -72,7 +88,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
 		splatRes: m.splatRes,
 		waterLevel: m.waterLevel,
 		waterEnabled: m.waterEnabled,
-		objects: (m.objects ?? []).map((o, i) => ({ ...o, id: o.id || 100000 + i, parent: o.parent || undefined, uid: o.uid || undefined })),
+		objects: dropOrphanParents((m.objects ?? []).map((o, i) => ({ ...o, id: o.id || 100000 + i, parent: o.parent || undefined, uid: o.uid || undefined }))),
 		region: m.region ? { mapName: m.region.mapName, x: m.region.x, y: m.region.y, size: m.region.size } : null,
 		vmangos: m.vmangos ? { dir: m.vmangos.dir, mapId: m.vmangos.mapId, info: m.vmangos.info ? ({ ...defaultMapInfo(), ...(m.vmangos.info as unknown as Partial<MapInfo>) } as MapInfo) : undefined } : null,
 		roles: m.roles ? { rock: m.roles.rock, dirt: m.roles.dirt } : null,

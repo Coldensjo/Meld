@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { MapSnapshot } from '../src/lib/engine/Engine'
-import { fromMapData, toMapData } from '../src/lib/io/mapData'
+import { dropOrphanParents, fromMapData, toMapData } from '../src/lib/io/mapData'
 import type { mapfile } from '../wailsjs/go/models'
 import { encodeLiquids, LIQUID_MAGMA, liquidKindsOf, LiquidMap, liquidType, newLayer, rememberLiquidKinds, tileLiquidType } from '../src/lib/water/liquids'
 
@@ -116,5 +116,24 @@ describe("a liquid layer's kind (#540)", () => {
 		l.cells.fill(1)
 		map.set(0, [l, { ...newLayer(1, 5), cells: new Uint8Array(64).fill(1) }])
 		expect(liquidKindsOf(map)).toBeUndefined()
+	})
+})
+
+describe('dropOrphanParents', () => {
+	test('clears a parent that is not in the map and keeps a present one', () => {
+		const objs = [
+			{ id: 1, type: 'm2:a', parent: undefined as number | undefined },
+			{ id: 2, type: 'm2:b', parent: 1 as number | undefined },
+			{ id: 3, type: 'm2:c', parent: 99 as number | undefined },
+			{ id: 4, type: 'm2:d', parent: 4 as number | undefined },
+		]
+		const warn = console.warn
+		console.warn = () => {}
+		try {
+			dropOrphanParents(objs)
+		} finally {
+			console.warn = warn
+		}
+		expect(objs.map((o) => o.parent)).toEqual([undefined, 1, undefined, undefined])
 	})
 })
