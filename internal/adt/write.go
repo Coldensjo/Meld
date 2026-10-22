@@ -10,12 +10,29 @@ import (
 // lattice is the tile's outer height grid: (ChunksPerTile*8+1) samples on each side.
 const lattice = ChunksPerTile*CellsPerChunk + 1
 
+// padded is the side of the grid normalAt reads: the lattice with one ring of samples around it.
+const padded = lattice + 2
+
+// Ring is the outer heights one sample beyond each side of a tile's lattice, from the neighbouring
+// tiles (#492): North is the row north of the tile's first (the north neighbour's second to last),
+// South the row south of its last (the south neighbour's second), West and East the columns beside
+// its first and last. Each is lattice long, North and South running east, West and East south. A nil
+// side has no neighbour, and the normals along it are one-sided.
+type Ring struct{ North, South, West, East []float32 }
+
+// Edges is the ring around a tile for working out the normals on its border: Now from the heights
+// being written, Was from those the tile's normals were made against. A chunk on the border whose
+// ring changed has its normals refreshed though its own heights didn't change, since the samples just
+// across the border move them.
+type Edges struct{ Now, Was Ring }
+
 // WriteHeights returns root with the heights of terrain written into it. terrain must be the
 // result of ParseTerrain on root, edited in place (its chunks in the same order). Only the chunks
 // whose heights changed are rewritten, along with the normals around them, so every other byte of
 // the file stays as it was. Heights are stored relative to each chunk's base height, which
-// stays as it is.
-func WriteHeights(root []byte, terrain *Terrain) ([]byte, error) {
+// stays as it is. edges, when not nil, gives the neighbours' heights, so the normals on the tile's
+// border match the ones across it; without it they are one-sided there.
+func WriteHeights(root []byte, terrain *Terrain, edges *Edges) ([]byte, error) {
 	orig, err := ParseTerrain(root)
 	if err != nil {
 		return nil, err
@@ -28,16 +45,11 @@ func WriteHeights(root []byte, terrain *Terrain) ([]byte, error) {
 		return nil, err
 	}
 
-	// The outer grid of the whole tile, from the new heights, for working out normals.
-	grid := make([]float32, lattice*lattice)
-	for _, c := range terrain.Chunks {
-		for r := 0; r < CellsPerChunk+1; r++ {
-			for col := 0; col < CellsPerChunk+1; col++ {
-				gr, gc := c.IndexY*CellsPerChunk+r, c.IndexX*CellsPerChunk+col
-				grid[gr*lattice+gc] = c.Heights[r*17+col]
-			}
-		}
+	var ring Ring
+	if edges != nil {
+		ring = edges.Now
 	}
+	grid := normalGrid(terrain, ring)
 
 	out := append([]byte(nil), root...)
 	changed := make([]bool, len(terrain.Chunks))
@@ -66,6 +78,9 @@ func WriteHeights(root []byte, terrain *Terrain) ([]byte, error) {
 	// block around a changed one.
 	refresh := make([]bool, len(terrain.Chunks))
 	for i, c := range terrain.Chunks {
+		if edges != nil && edges.moved(c) {
+			refresh[i] = true
+		}
 		if !changed[i] {
 			continue
 		}
@@ -93,6 +108,24 @@ func WriteHeights(root []byte, terrain *Terrain) ([]byte, error) {
 	return out, nil
 }
 
+// ParseNormals returns each chunk's normals (MCNR) in file order: HeightCount of them, three signed
+// bytes each (north, west, up, 127 for 1), in the order of the chunk's heights.
+func ParseNormals(root []byte) ([][]byte, error) {
+	starts, err := mcnkStarts(root)
+	if err != nil {
+		return nil, err
+	}
+	out := make([][]byte, len(starts))
+	for i, s := range starts {
+		mcnr, ok := subChunk(root, s, len(root), u32(root, s+0x18), "MCNR")
+		if !ok || mcnr.start+HeightCount*3 > len(root) {
+			return nil, fmt.Errorf("adt: chunk %d without normals", i)
+		}
+		out[i] = append([]byte(nil), root[mcnr.start:mcnr.start+HeightCount*3]...)
+	}
+	return out, nil
+}
+
 // mcnkStarts returns the payload offset of each top-level MCNK, in file order.
 func mcnkStarts(root []byte) ([]int, error) {
 	var starts []int
@@ -105,21 +138,93 @@ func mcnkStarts(root []byte) ([]int, error) {
 	return starts, err
 }
 
-// normalAt is the ground normal at sample s of chunk c, from the outer grid around it, in the
-// file's order: north, west, up. Rows run south and columns east; the edges of the tile are one-sided.
+// moved says the ring along chunk c's side of the tile changed, over the samples c's border ones
+// read: a chunk off the border never has.
+func (e *Edges) moved(c Chunk) bool {
+	lo, hi := c.IndexX*CellsPerChunk, c.IndexX*CellsPerChunk+CellsPerChunk
+	if c.IndexY == 0 && ringMoved(e.Now.North, e.Was.North, lo, hi) ||
+		c.IndexY == ChunksPerTile-1 && ringMoved(e.Now.South, e.Was.South, lo, hi) {
+		return true
+	}
+	lo, hi = c.IndexY*CellsPerChunk, c.IndexY*CellsPerChunk+CellsPerChunk
+	return c.IndexX == 0 && ringMoved(e.Now.West, e.Was.West, lo, hi) ||
+		c.IndexX == ChunksPerTile-1 && ringMoved(e.Now.East, e.Was.East, lo, hi)
+}
+
+// ringMoved says one side of the ring differs between now and was over samples lo to hi; a side that
+// appears or goes away counts as moved.
+func ringMoved(now, was []float32, lo, hi int) bool {
+	if len(now) != lattice || len(was) != lattice {
+		return len(now) == lattice || len(was) == lattice
+	}
+	for k := lo; k <= hi; k++ {
+		if now[k] != was[k] {
+			return true
+		}
+	}
+	return false
+}
+
+// normalGrid is the outer grid normalAt reads: the tile's lattice from terrain's heights, padded by
+// one sample a side with the ring, NaN where a side has none.
+func normalGrid(terrain *Terrain, ring Ring) []float32 {
+	grid := make([]float32, padded*padded)
+	nan := float32(math.NaN())
+	for i := range grid {
+		grid[i] = nan
+	}
+	for _, c := range terrain.Chunks {
+		for r := 0; r < CellsPerChunk+1; r++ {
+			for col := 0; col < CellsPerChunk+1; col++ {
+				gr, gc := c.IndexY*CellsPerChunk+r, c.IndexX*CellsPerChunk+col
+				grid[(gr+1)*padded+gc+1] = c.Heights[r*17+col]
+			}
+		}
+	}
+	for k := 0; k < lattice; k++ {
+		if len(ring.North) == lattice {
+			grid[k+1] = ring.North[k]
+		}
+		if len(ring.South) == lattice {
+			grid[(padded-1)*padded+k+1] = ring.South[k]
+		}
+		if len(ring.West) == lattice {
+			grid[(k+1)*padded] = ring.West[k]
+		}
+		if len(ring.East) == lattice {
+			grid[(k+1)*padded+padded-1] = ring.East[k]
+		}
+	}
+	return grid
+}
+
+// normalAt is the ground normal at sample s of chunk c, from the padded grid around it (normalGrid),
+// in the file's order: north, west, up. Rows run south and columns east. An outer sample takes the
+// difference across its neighbours, from the ring on the tile's border, one-sided where the ring has
+// no sample.
 func normalAt(grid []float32, c Chunk, s int) [3]float32 {
 	step := TileSize / (ChunksPerTile * CellsPerChunk)
-	at := func(r, col int) float64 {
-		r = max(0, min(lattice-1, r))
-		col = max(0, min(lattice-1, col))
-		return float64(grid[r*lattice+col])
-	}
+	// at reads lattice sample (r, col), which may be one outside the tile, in the ring.
+	at := func(r, col int) float64 { return float64(grid[(r+1)*padded+col+1]) }
+	known := func(r, col int) bool { return !math.IsNaN(float64(grid[(r+1)*padded+col+1])) }
 	row, col := s/17, s%17
 	var north, west float64
 	if col < 9 {
 		gr, gc := c.IndexY*CellsPerChunk+row, c.IndexX*CellsPerChunk+col
-		rn, rs := max(0, gr-1), min(lattice-1, gr+1)
-		cw, ce := max(0, gc-1), min(lattice-1, gc+1)
+		rn, rs := gr-1, gr+1
+		if !known(rn, gc) {
+			rn = gr
+		}
+		if !known(rs, gc) {
+			rs = gr
+		}
+		cw, ce := gc-1, gc+1
+		if !known(gr, cw) {
+			cw = gc
+		}
+		if !known(gr, ce) {
+			ce = gc
+		}
 		north = (at(rn, gc) - at(rs, gc)) / (float64(rs-rn) * step)
 		west = (at(gr, cw) - at(gr, ce)) / (float64(ce-cw) * step)
 	} else {

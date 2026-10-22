@@ -205,7 +205,7 @@ func TestWriteHeightsSynthetic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	same, err := WriteHeights(root, terrain)
+	same, err := WriteHeights(root, terrain, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestWriteHeightsSynthetic(t *testing.T) {
 	}
 
 	terrain.Chunks[0].Heights[5] += 2.5
-	out, err := WriteHeights(root, terrain)
+	out, err := WriteHeights(root, terrain, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +257,7 @@ func TestWriteHeightsIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	same, err := WriteHeights(root, terrain)
+	same, err := WriteHeights(root, terrain, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +268,7 @@ func TestWriteHeightsIntegration(t *testing.T) {
 	c := &terrain.Chunks[100]
 	before := c.Heights[40]
 	c.Heights[40] = before + 4
-	out, err := WriteHeights(root, terrain)
+	out, err := WriteHeights(root, terrain, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,8 +302,9 @@ func bytesEqual(a, b []byte) bool {
 	return true
 }
 
-// TestNormalsMatchFile recomputes a real chunk's normals from its heights and compares them with
-// the ones the file stores: WOW_DIR=/path/to/client go test ./internal/adt/
+// TestNormalsMatchFile recomputes a real tile's normals from its heights and compares them with the
+// ones the file stores, in an interior chunk and in the four corner chunks, whose border samples read
+// the neighbouring tiles' heights through the ring (#492): WOW_DIR=/path/to/client go test ./internal/adt/
 func TestNormalsMatchFile(t *testing.T) {
 	dir := os.Getenv("WOW_DIR")
 	if dir == "" {
@@ -318,52 +319,89 @@ func TestNormalsMatchFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer set.Close()
-	root, err := set.ReadFile(TilePath("Azeroth", 32, 48, ""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	terrain, err := ParseTerrain(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	grid := make([]float32, lattice*lattice)
-	for _, c := range terrain.Chunks {
-		for r := 0; r < CellsPerChunk+1; r++ {
-			for col := 0; col < CellsPerChunk+1; col++ {
-				grid[(c.IndexY*CellsPerChunk+r)*lattice+c.IndexX*CellsPerChunk+col] = c.Heights[r*17+col]
-			}
+	read := func(x, y int) (*Terrain, []byte) {
+		root, err := set.ReadFile(TilePath("Azeroth", x, y, ""))
+		if err != nil {
+			t.Fatal(err)
 		}
+		terrain, err := ParseTerrain(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return terrain, root
+	}
+	terrain, root := read(32, 48)
+	// lat is a neighbour's lattice, as normalGrid lays it out inside its padding.
+	lat := func(x, y int) func(r, c int) float32 {
+		n, _ := read(x, y)
+		g := normalGrid(n, Ring{})
+		return func(r, c int) float32 { return g[(r+1)*padded+c+1] }
+	}
+	north, south, west, east := lat(32, 47), lat(32, 49), lat(31, 48), lat(33, 48)
+	var ring Ring
+	ring.North, ring.South = make([]float32, lattice), make([]float32, lattice)
+	ring.West, ring.East = make([]float32, lattice), make([]float32, lattice)
+	for k := 0; k < lattice; k++ {
+		ring.North[k], ring.South[k] = north(lattice-2, k), south(1, k)
+		ring.West[k], ring.East[k] = west(k, lattice-2), east(k, 1)
 	}
 	starts, err := mcnkStarts(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	const chunk = 100
-	mcnr, ok := subChunk(root, starts[chunk], len(root), u32(root, starts[chunk]+0x18), "MCNR")
-	if !ok {
-		t.Fatal("no MCNR")
-	}
-	bad, worst := 0, 0
-	for s := 0; s < HeightCount; s++ {
-		n := normalAt(grid, terrain.Chunks[chunk], s)
-		for k := 0; k < 3; k++ {
-			want := int(int8(root[mcnr.start+s*3+k]))
-			got := int(math.Round(float64(n[k]) * 127))
-			d := got - want
-			if d < 0 {
-				d = -d
+	// off counts the bytes of chunk i's border samples (all its samples for an interior chunk) more
+	// than 3 off the file's, with the normals worked out against ring.
+	off := func(i int, ring Ring) (bad, worst, n int) {
+		c := terrain.Chunks[i]
+		mcnr, ok := subChunk(root, starts[i], len(root), u32(root, starts[i]+0x18), "MCNR")
+		if !ok {
+			t.Fatal("no MCNR")
+		}
+		grid := normalGrid(terrain, ring)
+		interior := c.IndexX > 0 && c.IndexY > 0 && c.IndexX < ChunksPerTile-1 && c.IndexY < ChunksPerTile-1
+		for s := 0; s < HeightCount; s++ {
+			row, col := s/17, s%17
+			border := col < 9 && (c.IndexY == 0 && row == 0 || c.IndexY == ChunksPerTile-1 && row == 8 ||
+				c.IndexX == 0 && col == 0 || c.IndexX == ChunksPerTile-1 && col == 8)
+			if !interior && !border {
+				continue
 			}
-			if d > worst {
-				worst = d
-			}
-			if d > 3 {
-				bad++
+			n++
+			got := normalAt(grid, c, s)
+			for k := 0; k < 3; k++ {
+				want := int(int8(root[mcnr.start+s*3+k]))
+				d := int(math.Round(float64(got[k])*127)) - want
+				if d < 0 {
+					d = -d
+				}
+				worst = max(worst, d)
+				if d > 3 {
+					bad++
+				}
 			}
 		}
+		return bad, worst, n
 	}
-	t.Logf("worst byte difference %d, %d off by more than 3", worst, bad)
+	bad, worst, n := off(100, ring)
+	t.Logf("chunk 100: worst byte difference %d, %d of %d bytes off by more than 3", worst, bad, n*3)
 	if bad > HeightCount/10 {
-		t.Errorf("recomputed normals disagree with the file (%d bytes off)", bad)
+		t.Errorf("recomputed normals disagree with the file in chunk 100 (%d bytes off)", bad)
+	}
+	// The corner chunks of this tile are steep, where the recomputed normals are a few bytes off the
+	// file's even inside the tile (chunks 16 and 17 have a quarter of their bytes off by more than 3),
+	// so the border is held to beating the one-sided normals, and to a fifth of its bytes in all.
+	total, all := 0, 0
+	for _, i := range []int{0, 15, 240, 255} {
+		bad, worst, n := off(i, ring)
+		oneSided, _, _ := off(i, Ring{})
+		t.Logf("chunk %d border: worst byte difference %d, %d of %d bytes off by more than 3 (%d one-sided)", i, worst, bad, n*3, oneSided)
+		if bad >= oneSided {
+			t.Errorf("chunk %d: border normals from the ring are no closer to the file than one-sided ones (%d against %d bytes off)", i, bad, oneSided)
+		}
+		total, all = total+bad, all+n*3
+	}
+	if total > all/5 {
+		t.Errorf("border normals disagree with the file (%d of %d bytes off)", total, all)
 	}
 }
 

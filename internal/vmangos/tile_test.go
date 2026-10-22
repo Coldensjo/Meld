@@ -38,7 +38,7 @@ func TestTileRoundTrip(t *testing.T) {
 	if layers == 0 || len(view.Alpha) != layers*AlphaBytes {
 		t.Fatalf("%d bytes of alpha maps for %d layers", len(view.Alpha), layers)
 	}
-	same, err := PatchTileHeights(root, view.Heights)
+	same, err := PatchTileHeights(root, view.Heights, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestTileRoundTrip(t *testing.T) {
 
 	const at = 50*LatticeSize + 60
 	view.Heights[at] += 3
-	patched, err := PatchTileHeights(root, view.Heights)
+	patched, err := PatchTileHeights(root, view.Heights, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestPatchMovesInnerSamples(t *testing.T) {
 	for i := range outer {
 		outer[i] += 4
 	}
-	patched, err := PatchTileHeights(root, outer)
+	patched, err := PatchTileHeights(root, outer, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestPatchSculptedCellsTakeTheMean(t *testing.T) {
 	for i := range outer {
 		outer[i] = 10
 	}
-	built, err := adt.BuildTile(outer, adt.Changes{TileX: 32, TileY: 48})
+	built, err := adt.BuildTile(outer, adt.Ring{}, adt.Changes{TileX: 32, TileY: 48})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,11 +237,11 @@ func TestPatchSculptedCellsTakeTheMean(t *testing.T) {
 			}
 		}
 	}
-	root, err := adt.WriteHeights(built, terrain)
+	root, err := adt.WriteHeights(built, terrain, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	same, err := PatchTileHeights(root, outer)
+	same, err := PatchTileHeights(root, outer, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +253,7 @@ func TestPatchSculptedCellsTakeTheMean(t *testing.T) {
 	const gr, gc = 20, 30
 	edited := append([]float32(nil), outer...)
 	edited[gr*LatticeSize+gc] = 6
-	patched, err := PatchTileHeights(root, edited)
+	patched, err := PatchTileHeights(root, edited, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

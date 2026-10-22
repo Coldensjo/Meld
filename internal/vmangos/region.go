@@ -736,6 +736,16 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 		}
 	}
 
+	// The normals on each tile's border read the heights across it: the next tile's in the block, the
+	// client's beyond it (#492).
+	roots := make([][]byte, len(tiles))
+	for k := range tiles {
+		roots[k] = tiles[k].root
+	}
+	edges, err := blockEdges(set, e.MapName, e.X, e.Y, e.Size, heights, roots)
+	if err != nil {
+		return nil, err
+	}
 	files := make([]mpq.File, 0, len(tiles))
 	for k := range tiles {
 		t := &tiles[k]
@@ -745,7 +755,7 @@ func BuildRegion(dataDir string, e RegionEdit) ([]mpq.File, error) {
 			row := (j*tileCells+r)*side + i*tileCells
 			copy(outer[r*LatticeSize:(r+1)*LatticeSize], heights[row:row+LatticeSize])
 		}
-		patched, err := PatchTileHeights(t.root, outer)
+		patched, err := PatchTileHeights(t.root, outer, &edges[k])
 		if err != nil {
 			return nil, err
 		}

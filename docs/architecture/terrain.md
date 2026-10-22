@@ -149,6 +149,17 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
     (`innerPending`), and `TileGatherer.addGround` and `adtHeightSpan` add each cell's `cellLift` (0
     where a corner is off `innerBase`, as the export decides). They are not saved: a map of its own
     has none (its export writes the mean), and a region's come from the client each session.
+  - **Normals** (MCNR, #492): `adt.WriteHeights` works out the normals of the chunks whose heights
+    changed, and of those around them, from the tile's lattice padded by `adt.Ring`, the row or
+    column just across each border from the neighbouring tile, so a border sample takes the same
+    central difference in both tiles and the client shows no crease along the border. `BuildRegion`
+    gets the rings from `blockEdges`: the block's own heights between its tiles, the client's tiles
+    beyond its edge. `adt.Edges.Was` is the ring the tile's normals were made against (the tiles the
+    save starts from, the client's beyond without Meld's patch); a border chunk whose ring moved has
+    its normals redone though its own heights didn't change, and an unedited block stays
+    byte-identical. A new map's tiles (`ExportMap`) take the ring from the map's other tiles
+    (`tileRing`). A side without a tile stays one-sided. The tiles outside the block keep their own
+    normals, so sculpting a row in from the block's edge leaves theirs on that border as they were.
   - `NavPreview.ts` keeps the tiles within `RANGE` (160 yd), builds the nearest first within 6 ms a
     frame, and builds them again 400 ms after the terrain's height or holes, the objects, the
     loaded collision, the liquids (`LiquidMap.version`) or the sea stop changing. A change to the

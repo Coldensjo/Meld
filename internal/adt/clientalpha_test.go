@@ -61,7 +61,7 @@ func smoothTile(t *testing.T) ([]byte, []string) {
 			a2[y*AlphaSize+x] = byte((x*y + 3*y) % 256)
 		}
 	}
-	root, err := BuildTile(hills(), Changes{TileX: 3, TileY: 4, Paint: map[int]ChunkPaint{5: {Layers: []Layer{
+	root, err := BuildTile(hills(), Ring{}, Changes{TileX: 3, TileY: 4, Paint: map[int]ChunkPaint{5: {Layers: []Layer{
 		{Texture: names[0]}, {Texture: names[1], Alpha: a1}, {Texture: names[2], Alpha: a2},
 	}}}})
 	if err != nil {

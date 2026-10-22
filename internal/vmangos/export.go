@@ -232,7 +232,7 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		if m.Water {
 			water = &adt.Water{Level: m.WaterLevel}
 		}
-		data, err := buildTile(t, adds[i], water)
+		data, err := buildTile(t, tileRing(m.Tiles, index, t), adds[i], water)
 		if err != nil {
 			return res, fmt.Errorf("tile %d,%d: %w", t.X, t.Y, err)
 		}
@@ -327,9 +327,31 @@ func tileFloor(v float32) int {
 	return int(math.Floor(float64(v) / adt.TileSize))
 }
 
-// buildTile writes one tile: its ground and paint from t, and the models it lists (objs, already
-// numbered and bounded, which may include ones placed in a neighbour that reach into it).
-func buildTile(t TileSpec, objs []adt.Object, water *adt.Water) ([]byte, error) {
+// tileRing is the heights just across t's border from the map's other tiles (index finds them by
+// position), so the normals there match theirs (#492). A side without a tile stays one-sided.
+func tileRing(tiles []TileSpec, index map[[2]int]int, t TileSpec) adt.Ring {
+	var ring adt.Ring
+	for _, s := range []struct {
+		side   string
+		dx, dy int
+		line   *[]float32
+	}{
+		{"north", 0, -1, &ring.North},
+		{"south", 0, 1, &ring.South},
+		{"west", -1, 0, &ring.West},
+		{"east", 1, 0, &ring.East},
+	} {
+		if k, ok := index[[2]int{t.X + s.dx, t.Y + s.dy}]; ok && len(tiles[k].Outer) == LatticeSize*LatticeSize {
+			*s.line = ringOf(tiles[k].Outer, s.side)
+		}
+	}
+	return ring
+}
+
+// buildTile writes one tile: its ground and paint from t, the ring of heights around it from its
+// neighbours (tileRing), and the models it lists (objs, already numbered and bounded, which may include
+// ones placed in a neighbour that reach into it).
+func buildTile(t TileSpec, ring adt.Ring, objs []adt.Object, water *adt.Water) ([]byte, error) {
 	ch := adt.Changes{TileX: t.X, TileY: t.Y, Paint: map[int]adt.ChunkPaint{}, Water: water, Add: objs}
 	liquids, err := liquidsByChunk(t.Liquids, adt.ChunksPerTile)
 	if err != nil {
@@ -365,7 +387,7 @@ func buildTile(t TileSpec, objs []adt.Object, water *adt.Water) ([]byte, error) 
 		}
 		ch.Paint[p.Chunk] = chunkPaint(p.Textures, p.Effects, p.Flags, p.NoEffect, weights, perSide)
 	}
-	return adt.BuildTile(t.Outer, ch)
+	return adt.BuildTile(t.Outer, ring, ch)
 }
 
 // liquidsByChunk groups liquid layers by their chunk's index, in a grid of perRow chunks a side,

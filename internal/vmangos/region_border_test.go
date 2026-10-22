@@ -28,7 +28,7 @@ func TestRegionBorderModelsInEveryTile(t *testing.T) {
 	}
 	moved, deleted, kept := at(30, adt.TileSize-5, 50), at(40, adt.TileSize-5, 150), at(50, adt.TileSize+5, 300)
 	tile := func(x, y int, objs ...adt.Object) mpq.File {
-		root, err := adt.BuildTile(flatTile(0), adt.Changes{TileX: x, TileY: y, Add: objs})
+		root, err := adt.BuildTile(flatTile(0), adt.Ring{}, adt.Changes{TileX: x, TileY: y, Add: objs})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func TestRegionBorderModelsOutsideBlock(t *testing.T) {
 	moved, deleted, kept := at(30, adt.TileSize-5, 50), at(40, adt.TileSize-5, 150), at(50, adt.TileSize+5, 300)
 	theirs, inward := at(60, adt.TileSize+200, 200), at(70, 100, 400)
 	tile := func(x, y int, h float32, objs ...adt.Object) mpq.File {
-		root, err := adt.BuildTile(flatTile(h), adt.Changes{TileX: x, TileY: y, Add: objs})
+		root, err := adt.BuildTile(flatTile(h), adt.Ring{}, adt.Changes{TileX: x, TileY: y, Add: objs})
 		if err != nil {
 			t.Fatal(err)
 		}

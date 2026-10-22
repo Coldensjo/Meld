@@ -81,6 +81,15 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   writing only its changed values, instead of checking its order (#275), and the Lights dialog sorts a
   band only when a key's time changes, so recolouring a key of 499's band 9 keeps its order (#276; the
   test recolours one).
+- Normals across tile borders (#492): `TestNormalsMatchFile` (WOW_DIR) recomputes Azeroth_32_48's
+  normals against the file's, in interior chunk 100 and on the border of corner chunks 0, 15, 240 and
+  255 with the neighbouring tiles' ring; the ring must beat one-sided normals at each corner. Trap: the
+  recomputed normals are a few bytes off the file's on steep ground even inside a tile (chunks 16 and
+  17 have a quarter of their bytes off by more than 3), so the border can't be held to chunk 100's
+  closeness. `TestBuildTileNormalsMeetAcrossTheBorder`, `TestWriteHeightsRefreshesTheBorderWhenTheRingMoves`
+  (`internal/adt`) and `TestRegionNormalsMeetAcrossTiles` (`internal/vmangos`, a made-up map in a temp
+  MPQ) need no client. Trap in a made-up map: give a client tile a ring side only toward a tile the map
+  has, or the block's corner samples differ from it for no fault of the export.
 - `TestRegionHolesRoundTrip` (WOW_DIR) sends a Westfall block's own holes back as the editor does and
   checks every chunk keeps the client's hole bits (4 chunks there have holes); it is the check for the
   hole export's block mapping. Seeing a cut cave mouth in game is still a manual check.

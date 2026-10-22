@@ -21,7 +21,7 @@ import (
 func TestRegionAddedModelsGetMapWideIDs(t *testing.T) {
 	dir := t.TempDir()
 	tile := func(x, y int, objs ...adt.Object) mpq.File {
-		root, err := adt.BuildTile(flatTile(0), adt.Changes{TileX: x, TileY: y, Add: objs})
+		root, err := adt.BuildTile(flatTile(0), adt.Ring{}, adt.Changes{TileX: x, TileY: y, Add: objs})
 		if err != nil {
 			t.Fatal(err)
 		}

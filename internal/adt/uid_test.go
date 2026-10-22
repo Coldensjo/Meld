@@ -26,11 +26,11 @@ func TestNextUIDSharedAcrossTiles(t *testing.T) {
 	tree := Object{Kind: M2, Name: `World\Test\Tree.m2`, Position: [3]float32{100, 30, 120}, Scale: 1}
 	house := Object{Kind: WMO, Name: `World\Test\House.wmo`, Position: [3]float32{200, 30, 220}}
 	next := uint32(500)
-	a, err := BuildTile(hills(), Changes{TileX: 3, TileY: 4, Add: []Object{tree, house}, NextUID: &next})
+	a, err := BuildTile(hills(), Ring{}, Changes{TileX: 3, TileY: 4, Add: []Object{tree, house}, NextUID: &next})
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := BuildTile(hills(), Changes{TileX: 4, TileY: 4, Add: []Object{tree}, NextUID: &next})
+	b, err := BuildTile(hills(), Ring{}, Changes{TileX: 4, TileY: 4, Add: []Object{tree}, NextUID: &next})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestNextUIDSharedAcrossTiles(t *testing.T) {
 // TestMaxPlacementUID reads the highest ID from a whole tile and from the start of one, and says when
 // the start is too short to hold the placement tables.
 func TestMaxPlacementUID(t *testing.T) {
-	root, err := BuildTile(hills(), Changes{TileX: 3, TileY: 4, Add: []Object{
+	root, err := BuildTile(hills(), Ring{}, Changes{TileX: 3, TileY: 4, Add: []Object{
 		{Kind: M2, Name: `World\Test\Tree.m2`, UID: 40, Position: [3]float32{100, 30, 120}, Scale: 1},
 		{Kind: WMO, Name: `World\Test\House.wmo`, UID: 90, Position: [3]float32{200, 30, 220}},
 		{Kind: M2, Name: `World\Test\Rock.m2`, UID: 0xffffffff, Position: [3]float32{300, 30, 320}, Scale: 1},

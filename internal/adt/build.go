@@ -12,8 +12,9 @@ const ZeroPoint = 32 * TileSize
 // BuildTile writes a new tile: the ground's outer heights (129 x 129, row-major, rows running south)
 // and the paint and models in ch. The tile starts flat, so its chunks, normals and references are
 // all made here; nothing comes from a client's file. Inner height samples are the average of the four
-// outer corners around them, as a regular grid has them.
-func BuildTile(outer []float32, ch Changes) ([]byte, error) {
+// outer corners around them, as a regular grid has them. ring is the neighbouring tiles' heights just
+// across the border (an empty side for none), so the normals there match the neighbours' (#492).
+func BuildTile(outer []float32, ring Ring, ch Changes) ([]byte, error) {
 	if len(outer) != (ChunksPerTile*CellsPerChunk+1)*(ChunksPerTile*CellsPerChunk+1) {
 		return nil, fmt.Errorf("adt: %d heights for a tile", len(outer))
 	}
@@ -26,7 +27,7 @@ func BuildTile(outer []float32, ch Changes) ([]byte, error) {
 		c := &terrain.Chunks[i]
 		c.Heights = chunkHeights(outer, c.IndexX, c.IndexY)
 	}
-	withHeights, err := WriteHeights(root, terrain)
+	withHeights, err := WriteHeights(root, terrain, &Edges{Now: ring})
 	if err != nil {
 		return nil, err
 	}

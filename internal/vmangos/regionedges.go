@@ -40,19 +40,28 @@ func tileLattice(root []byte) ([]float32, error) {
 
 // edgeOf takes the border a tile on side shares with the block: a tile north of the block gives its
 // last row, south its first, west its last column, east its first.
-func edgeOf(lattice []float32, side string) []float32 {
+func edgeOf(lattice []float32, side string) []float32 { return lineOf(lattice, side, 0) }
+
+// ringOf takes the line of a neighbour's lattice just across the border from the tile it is on side
+// of: a north neighbour gives its second to last row, south its second, west its second to last
+// column, east its second (adt.Ring, #492).
+func ringOf(lattice []float32, side string) []float32 { return lineOf(lattice, side, 1) }
+
+// lineOf takes the row or column in from the border a tile on side shares with its neighbour, as
+// edgeOf names the border.
+func lineOf(lattice []float32, side string, in int) []float32 {
 	out := make([]float32, LatticeSize)
-	last := LatticeSize - 1
+	last := LatticeSize - 1 - in
 	for k := 0; k < LatticeSize; k++ {
 		switch side {
 		case "north":
 			out[k] = lattice[last*LatticeSize+k]
 		case "south":
-			out[k] = lattice[k]
+			out[k] = lattice[in*LatticeSize+k]
 		case "west":
 			out[k] = lattice[k*LatticeSize+last]
 		case "east":
-			out[k] = lattice[k*LatticeSize]
+			out[k] = lattice[k*LatticeSize+in]
 		}
 	}
 	return out
@@ -98,6 +107,98 @@ func ReadRegionEdges(dataDir, mapName string, x, y, size int) ([]EdgeSegment, er
 		} {
 			if err := add(s.side, s.tx, s.ty, off); err != nil {
 				return nil, err
+			}
+		}
+	}
+	return out, nil
+}
+
+// blockEdges is the ring around each of a block's tiles for their normals (adt.Edges, #492), in the
+// block's order (row by row, rows running south). Inside the block, Now comes from heights (the
+// block's, side squared, side = size*tileCells+1) and Was from roots, the tiles the save starts from.
+// At the block's border both come from the client's tiles beyond: Now as the client reads them now,
+// Was without Meld's patch, as the client's own normals were made against. A side off the map, or
+// toward a tile the map doesn't have, stays empty and its normals one-sided.
+func blockEdges(set *mpq.Set, mapName string, x, y, size int, heights []float32, roots [][]byte) ([]adt.Edges, error) {
+	side := size*tileCells + 1
+	inner := make([][]float32, len(roots))
+	innerOf := func(k int) ([]float32, error) {
+		if inner[k] == nil {
+			lattice, err := tileLattice(roots[k])
+			if err != nil {
+				return nil, fmt.Errorf("tile %d_%d: %w", x+k%size, y+k/size, err)
+			}
+			inner[k] = lattice
+		}
+		return inner[k], nil
+	}
+	type beyond struct{ now, was []float32 }
+	outside := map[[2]int]beyond{}
+	outsideOf := func(tx, ty int) (beyond, error) {
+		if b, ok := outside[[2]int{tx, ty}]; ok {
+			return b, nil
+		}
+		var b beyond
+		if tx >= 0 && ty >= 0 && tx < MapTiles && ty < MapTiles {
+			name := adt.TilePath(mapName, tx, ty, "")
+			if root, err := set.ReadFile(name); err == nil {
+				if b.now, err = tileLattice(root); err != nil {
+					return b, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+				}
+				if base, err := readUnpatched(set, name); err == nil {
+					if b.was, err = tileLattice(base); err != nil {
+						return b, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+					}
+				}
+			}
+		}
+		outside[[2]int{tx, ty}] = b
+		return b, nil
+	}
+	// line reads LatticeSize of the block's heights from (r, c), a step of (dr, dc) apart.
+	line := func(r, c, dr, dc int) []float32 {
+		out := make([]float32, LatticeSize)
+		for k := range out {
+			out[k] = heights[(r+k*dr)*side+c+k*dc]
+		}
+		return out
+	}
+	out := make([]adt.Edges, size*size)
+	for j := 0; j < size; j++ {
+		for i := 0; i < size; i++ {
+			e := &out[j*size+i]
+			r0, c0 := j*tileCells, i*tileCells
+			for _, s := range []struct {
+				side     string
+				di, dj   int
+				r, c     int
+				dr, dc   int
+				now, was *[]float32
+			}{
+				{"north", 0, -1, r0 - 1, c0, 0, 1, &e.Now.North, &e.Was.North},
+				{"south", 0, 1, r0 + tileCells + 1, c0, 0, 1, &e.Now.South, &e.Was.South},
+				{"west", -1, 0, r0, c0 - 1, 1, 0, &e.Now.West, &e.Was.West},
+				{"east", 1, 0, r0, c0 + tileCells + 1, 1, 0, &e.Now.East, &e.Was.East},
+			} {
+				ni, nj := i+s.di, j+s.dj
+				if ni >= 0 && nj >= 0 && ni < size && nj < size {
+					was, err := innerOf(nj*size + ni)
+					if err != nil {
+						return nil, err
+					}
+					*s.now, *s.was = line(s.r, s.c, s.dr, s.dc), ringOf(was, s.side)
+					continue
+				}
+				b, err := outsideOf(x+ni, y+nj)
+				if err != nil {
+					return nil, err
+				}
+				if b.now != nil {
+					*s.now = ringOf(b.now, s.side)
+				}
+				if b.was != nil {
+					*s.was = ringOf(b.was, s.side)
+				}
 			}
 		}
 	}

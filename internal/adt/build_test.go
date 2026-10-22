@@ -24,7 +24,7 @@ func TestBuildTileReadsBack(t *testing.T) {
 	for i := range alpha {
 		alpha[i] = 200
 	}
-	root, err := BuildTile(outer, Changes{
+	root, err := BuildTile(outer, Ring{}, Changes{
 		TileX: 3, TileY: 4,
 		Paint: map[int]ChunkPaint{5: {Layers: []Layer{{Texture: `Tileset\Elwynn\ElwynnGrassBase.blp`}, {Texture: `Tileset\Elwynn\ElwynnDirtBase2.blp`, Alpha: alpha}}}},
 		Add:   []Object{{Kind: M2, Name: `World\Test\Tree.m2`, UID: 7, Position: [3]float32{100, 30, 120}, Scale: 1}},
@@ -88,7 +88,7 @@ func TestBuildTileWater(t *testing.T) {
 			}
 		}
 	}
-	root, err := BuildTile(outer, Changes{TileX: 1, TileY: 1, Water: &Water{Level: 0}})
+	root, err := BuildTile(outer, Ring{}, Changes{TileX: 1, TileY: 1, Water: &Water{Level: 0}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestBuildTileWaterReadsBack(t *testing.T) {
 		}
 	}
 	const level = 1.5
-	root, err := BuildTile(outer, Changes{TileX: 1, TileY: 1, Water: &Water{Level: level}})
+	root, err := BuildTile(outer, Ring{}, Changes{TileX: 1, TileY: 1, Water: &Water{Level: level}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestBuildTileLiquidLayers(t *testing.T) {
 		17: {lava, lake},
 		18: nil, // listed with no layers: just the sea
 	}}
-	root, err := BuildTile(outer, ch)
+	root, err := BuildTile(outer, Ring{}, ch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestBuildTileMergesLayersOfOneType(t *testing.T) {
 		ocean.Cells[56+i] = true // the last row, beside the sea
 	}
 	ch := Changes{TileX: 2, TileY: 3, Water: &Water{Level: 0}, Liquids: map[int][]Liquid{17: {lake, river, ocean}}}
-	root, err := BuildTile(outer, ch)
+	root, err := BuildTile(outer, Ring{}, ch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func TestRewriteRemovesLiquid(t *testing.T) {
 	outer := make([]float32, lattice*lattice)
 	lake := Liquid{Type: LiquidWater}
 	lake.Cells[0] = true
-	root, err := BuildTile(outer, Changes{TileX: 0, TileY: 0, Liquids: map[int][]Liquid{0: {lake}, 1: {lake}}})
+	root, err := BuildTile(outer, Ring{}, Changes{TileX: 0, TileY: 0, Liquids: map[int][]Liquid{0: {lake}, 1: {lake}}})
 	if err != nil {
 		t.Fatal(err)
 	}

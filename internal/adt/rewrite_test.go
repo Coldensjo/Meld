@@ -201,7 +201,7 @@ func TestRewriteWithHeightsKeepsBoth(t *testing.T) {
 	root := realTile(t)
 	terrain := mustTerrain(t, root)
 	terrain.Chunks[7].Heights[40] += 2
-	withHeights, err := WriteHeights(root, terrain)
+	withHeights, err := WriteHeights(root, terrain, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
