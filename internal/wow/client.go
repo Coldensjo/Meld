@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -659,7 +661,24 @@ func (c *Client) Handler() http.Handler {
 		b, err := c.Collision(r.URL.Query().Get("path"), ParseLook(r.URL.Query()).Set)
 		blob(w, b, err)
 	})
-	return mux
+	return RecoverPanics(mux)
+}
+
+// RecoverPanics answers a request whose handler panics with a 500 that names the panic, and logs
+// it with the path and stack, so a corrupt client file (a truncated model in a patch) costs that
+// one reply rather than the app: Wails' desktop asset server runs each request in a goroutine of
+// its own with no recover, where a panic ends the process (#487); only wails dev's net/http
+// server survives one.
+func RecoverPanics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if v := recover(); v != nil {
+				log.Printf("panic serving %s: %v\n%s", r.URL.RequestURI(), v, debug.Stack())
+				http.Error(w, fmt.Sprintf("internal error: %v", v), http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Suspend closes the client's archives, so Meld's patch can be replaced (Windows doesn't rename over

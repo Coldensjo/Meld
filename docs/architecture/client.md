@@ -10,7 +10,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   routes `/wow/navtile`, a tile of the server's movement maps, to `App.serveNavTile`, as it needs the
   VMaNGOS folder, see terrain.md's walkable ground, and `/wow/handoff?id=` to `App.handoffs`
   (`internal/handoff`): the binary part of a bound reply, served once, such as a region's alpha maps, #636). The handler is mounted via
-  Wails `AssetServer.Middleware` in `main.go`, so it works in dev and prod. Responses are binary:
+  Wails `AssetServer.Middleware` in `main.go`, so it works in dev and prod. Both the handler and that
+  middleware are wrapped in `wow.RecoverPanics`, which answers a panicking request with a 500 and logs
+  it: Wails' desktop asset server runs each request with no recover, so a parser panic on a corrupt
+  file would end the app (#487). Responses are binary:
   - Textures: `"RGBA" w h pixels`; with `fmt=dxt` (#178) a DXT BLP comes as `"DXT1"`/`"DXT3"`/`"DXT5"`
     w h, the mip count and each level's size and blocks (`Client.TextureDXT`), which `loadTexture`
     uploads as a `CompressedTexture` where the renderer has S3TC with sRGB.

@@ -41,6 +41,10 @@ func (r reader) cstr(off, n int) string {
 	return string(s)
 }
 
+// m2HeaderSize is a vanilla (version 256-263) MD20 header's size, through the particle emitters'
+// M2Array at 0x13C.
+const m2HeaderSize = 0x144
+
 // ErrNothingToDraw is what ParseM2 returns for a model the client draws nothing of: no batch it
 // shows, and no light, emitter or ribbon, such as an open door's collision blocker or an
 // invisible trigger. It is a known, permanent state, not a broken model (#333): Client.Model
@@ -60,8 +64,13 @@ func ParseM2(b []byte, path string) (*Mesh, error) {
 // look's attachments are not added here (see Client.m2Mesh), but the model's attachment points
 // are kept for them.
 func ParseM2Look(b []byte, path string, look *Look) (*Mesh, error) {
-	if len(b) < 0xB4 || string(b[:4]) != "MD20" {
+	if len(b) < 4 || string(b[:4]) != "MD20" {
 		return nil, errors.New("m2: bad magic")
+	}
+	// The whole vanilla header, up to the particle emitters' array at 0x13C: the attachments
+	// (0x104), lights (0x11C), ribbons (0x134) and emitters are read from it without a check (#487).
+	if len(b) < m2HeaderSize {
+		return nil, fmt.Errorf("m2: header truncated (%d bytes, want %d)", len(b), m2HeaderSize)
 	}
 	r := reader{b}
 	version := r.u32(4)

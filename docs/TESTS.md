@@ -49,6 +49,11 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   mesh and collision bodies against the `binary.Write` layout they replaced and that the buffer is
   sized exactly (#503). `go test ./internal/wow/ -run X -bench MeshEncode -benchmem` gives the bytes
   and allocations of encoding a 54k-triangle mesh (6.6 MB and 20 allocs before #503, 2.1 MB and 6 after).
+- `internal/wow/m2header_test.go` (#487) checks that an M2 cut short inside the vanilla header
+  (0xB4..0x143 bytes, synthetic) is an error, not a panic, and that `/wow/model` answers it, and any
+  handler panic (`RecoverPanics`), with a 500. A request needs `c.set` non-nil (`&mpq.Set{}` in the
+  package's tests) before the overlay (`SetOverlay`) is asked. Trap: the panic only kills the app in
+  the desktop build; `wails dev`'s net/http server recovers it, so the dev page never shows the crash.
 - The same `WOW_DIR` runs the client checks in `internal/vmangos` (region round trips, the chunk
   header write `TestRegionHeadersWritten`, `TestReadAreasFromClient`). On the owner's machine the
   client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"Meld/internal/handoff"
+	"Meld/internal/wow"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -41,7 +42,8 @@ func main() {
 			// /wow/* is served from the user's local WoW client (see internal/wow).
 			Middleware: func(next http.Handler) http.Handler {
 				wowHandler := app.wow.Handler()
-				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// The nav tiles parse the client's files too, so a panic there answers a 500 as well (#487).
+				return wow.RecoverPanics(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.URL.Path == "/wow/navtile" {
 						app.serveNavTile(w, r)
 						return
@@ -55,7 +57,7 @@ func main() {
 						return
 					}
 					next.ServeHTTP(w, r)
-				})
+				}))
 			},
 		},
 		BackgroundColour: &options.RGBA{R: 17, G: 19, B: 24, A: 1},
