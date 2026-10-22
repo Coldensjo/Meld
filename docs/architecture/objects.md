@@ -22,7 +22,8 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     each frame by `Engine.cullInstances` through `setNearCascade`) when one meets the
     cascade's box (#325). The camera and the far cascade keep every packed batch. So `visible` on a batch mesh means "drawn now".
   - Each loaded model gets a three-mesh-bvh bounds tree (`world/bvh.ts`), which `pick` and
-    `raycastSurface` cast through.
+    `raycastSurface` cast through. Both read a hit's object through `hitId` (`world/instanceHit.ts`)
+    and go on past a hit whose instance has no id (a mesh repacked or swapped since the last pack, #524).
   - Each loaded model may also get a meshoptimizer LOD (`models/lod.ts`): a second index over the
     same vertices, drawn by a second InstancedMesh for instances under `LOD_PX` on screen
     (`splitLod` in `instanceCull.ts`). The LOD shares the full model's bounds tree, so picking

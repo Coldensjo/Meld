@@ -8,6 +8,7 @@ import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } fr
 import { cullForShadows } from './shadowReach'
 import { WmoGroupCull } from './wmoGroupCull'
 import { CellGrid } from './cellGrid'
+import { firstPick, hitId } from './instanceHit'
 import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { wantLiquid, wmoLiquidMaterial } from '../water/liquidMaterial'
 import type { LiquidClass } from '../water/liquids'
@@ -1133,14 +1134,13 @@ export class ObjectLayer {
   /** Nearest object surface under the ray, skipping `exclude` ids. */
   raycastSurface(raycaster: THREE.Raycaster, exclude?: Set<number>): { id: number; point: THREE.Vector3; distance: number } | null {
     const hits = this.intersect(raycaster)
-    for (const h of hits) {
-      if (h.instanceId === undefined) continue
-      const id = (h.object.userData.ids as number[])[h.instanceId]
-      if (id === undefined || exclude?.has(id)) continue
-      if (!getAsset(this.objects.get(id)!.type).ready) continue
-      return { id, point: h.point.clone(), distance: h.distance }
-    }
-    return null
+		for (const h of hits) {
+			const id = hitId(h)
+			if (id === undefined || exclude?.has(id)) continue
+			if (!getAsset(this.objects.get(id)!.type).ready) continue
+			return { id, point: h.point.clone(), distance: h.distance }
+		}
+		return null
   }
 
   /**
@@ -1148,8 +1148,8 @@ export class ObjectLayer {
    * map has few buildings beside its many doodads.
    */
   wmoBlocks(raycaster: THREE.Raycaster): boolean {
-    for (const h of this.intersect(raycaster, true)) if (h.instanceId !== undefined) return true
-    return false
+		for (const h of this.intersect(raycaster, true)) if (hitId(h) !== undefined) return true
+		return false
   }
 
   /** Returns the id of the object under the ray, or null. */
@@ -1159,12 +1159,7 @@ export class ObjectLayer {
 
   /** The object under the ray and how far along the ray it was hit, or null. */
   pickHit(raycaster: THREE.Raycaster): { id: number; distance: number } | null {
-    for (const h of this.intersect(raycaster)) {
-      if (h.instanceId === undefined) continue
-      const id = (h.object.userData.ids as number[])[h.instanceId]
-      return id === undefined ? null : { id, distance: h.distance }
-    }
-    return null
+		return firstPick(this.intersect(raycaster))
   }
 
   list(): WorldObject[] {
