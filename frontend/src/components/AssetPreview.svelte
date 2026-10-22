@@ -106,6 +106,7 @@
 			pivot.add(mesh)
 			const size = a.bbox.getSize(new THREE.Vector3())
 			a.bbox.getCenter(view.target)
+			view.setPanRange(a.bbox.min.y, a.bbox.max.y)
 			const r = Math.max(size.length() / 2, 0.3)
 			view.distance = (r / Math.sin(THREE.MathUtils.degToRad(15))) * 0.95
 			view.camera.near = view.distance / 100
@@ -148,7 +149,7 @@
 </script>
 
 <div class="preview">
-  <div class="view" role="img" aria-label="Model preview" class:hidden={!item || item.kind === 'tex'} onpointerenter={enter} onpointerleave={() => (over = false)} onpointerdown={view.down} onpointermove={view.move} onpointerup={view.up} onpointercancel={view.up} onwheel={view.wheel}>
+  <div class="view" role="img" aria-label="Model preview" class:hidden={!item || item.kind === 'tex'} onpointerenter={enter} onpointerleave={() => (over = false)} onpointerdown={view.down} onpointermove={view.move} onpointerup={view.up} onpointercancel={view.up} oncontextmenu={view.contextmenu} onwheel={view.wheel}>
     <canvas bind:this={canvas}></canvas>
   </div>
   {#if item?.kind === 'tex'}

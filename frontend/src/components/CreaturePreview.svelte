@@ -159,6 +159,7 @@
 			if (reframe) {
 				// Look a little above the box's middle (the box, not the ground: a model's origin need not be at its feet).
 				view.target.set((box.min.x + box.max.x) / 2, box.min.y + s.y * 0.55, (box.min.z + box.max.z) / 2)
+				view.setPanRange(box.min.y, box.max.y)
 				view.distance = (Math.max(s.y, s.x, s.z) / 2 / Math.tan(THREE.MathUtils.degToRad(15))) * 1.25
 				view.pitch = 0.15
 				camera.near = view.distance / 200
@@ -195,7 +196,7 @@
 </script>
 
 <div class="preview">
-  <div class="view" role="img" aria-label="Creature preview" onpointerdown={view.down} onpointermove={view.move} onpointerup={view.up} onpointercancel={view.up} onwheel={view.wheel}>
+  <div class="view" role="img" aria-label="Creature preview" onpointerdown={view.down} onpointermove={view.move} onpointerup={view.up} onpointercancel={view.up} oncontextmenu={view.contextmenu} onwheel={view.wheel}>
     <canvas bind:this={canvas}></canvas>
     <div class="overlay">
       {#if loading}<span>Loading…</span>{/if}

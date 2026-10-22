@@ -43,6 +43,9 @@ export class PreviewRenderer {
 	pitch: number
 	distance: number
 	readonly target = new THREE.Vector3()
+	/** The lowest and highest `target.y` a pan reaches (#662): the view's model's bounds, set with the target. */
+	panMin = -Infinity
+	panMax = Infinity
 	renderer: THREE.WebGLRenderer | null = null
 	/** Frames drawn, for the probes. */
 	frames = 0
@@ -56,7 +59,8 @@ export class PreviewRenderer {
 	private contextLost = false
 	private listeners: AbortController | null = null
 	private resizeObs: ResizeObserver | null = null
-	private drag: { x: number; y: number } | null = null
+	/** A left drag turns the camera round the target; a right or middle drag (`pan`) moves the target up and down (#662). */
+	private drag: { x: number; y: number; pan: boolean } | null = null
 
 	constructor(private readonly opts: PreviewOptions) {
 		this.camera = new THREE.PerspectiveCamera(opts.fov, 1, 0.05, 2000)
@@ -150,17 +154,32 @@ export class PreviewRenderer {
 		return this.drag !== null
 	}
 
-	// Dragging turns the model, the wheel zooms. Bound to the view's element.
+	/** Sets the target's pan range to `min`..`max` (a model's lowest and highest y) and puts the target back into it. */
+	setPanRange(min: number, max: number) {
+		this.panMin = min
+		this.panMax = max
+		this.target.y = Math.min(max, Math.max(min, this.target.y))
+	}
+
+	// Dragging turns the model, a right or middle drag moves the view up and down it, the wheel zooms. Bound to the view's element.
 	down = (e: PointerEvent) => {
-		this.drag = { x: e.clientX, y: e.clientY }
+		if (this.drag || e.button > 2) return
+		this.drag = { x: e.clientX, y: e.clientY, pan: e.button !== 0 }
 		;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
 		this.opts.ondrag?.(true)
 		this.wake()
 	}
 	move = (e: PointerEvent) => {
 		if (!this.drag) return
-		this.yaw += (e.clientX - this.drag.x) * 0.01 * this.opts.turn
-		this.pitch = Math.min(1.4, Math.max(this.opts.minPitch, this.pitch + (e.clientY - this.drag.y) * 0.01))
+		if (this.drag.pan) {
+			// The model follows the pointer: a pixel is the view's height at the target's distance over the canvas's height, the same zoomed in or out.
+			const h = this.canvas?.clientHeight || 1
+			const perPixel = (2 * this.distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / h
+			this.target.y = Math.min(this.panMax, Math.max(this.panMin, this.target.y + (e.clientY - this.drag.y) * perPixel))
+		} else {
+			this.yaw += (e.clientX - this.drag.x) * 0.01 * this.opts.turn
+			this.pitch = Math.min(1.4, Math.max(this.opts.minPitch, this.pitch + (e.clientY - this.drag.y) * 0.01))
+		}
 		this.drag.x = e.clientX
 		this.drag.y = e.clientY
 		this.wake()
@@ -171,6 +190,8 @@ export class PreviewRenderer {
 		this.opts.ondrag?.(false)
 		this.wake()
 	}
+	/** The right drag pans, so the view has no context menu. */
+	contextmenu = (e: MouseEvent) => e.preventDefault()
 	wheel = (e: WheelEvent) => {
 		if (this.opts.ownWheel) {
 			e.preventDefault()
