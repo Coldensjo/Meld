@@ -224,6 +224,7 @@ export class SpawnBrushTool implements Tool {
 		const z = hit.z + dz
 		if (!this.groundAllows(ctx, x, z) || !spacedOut(x, z, brush.spacing, this.near, this.nearCount)) return false
 		const y = this.surfaceY(ctx, hit, x, z)
+		if (y === null) return false
 		const s = this.hooks.newCreature(e, x, y, z, spawnOrientation(turn))
 		if (!s) return false
 		const lv = brushLevels(brush, e)
@@ -239,16 +240,19 @@ export class SpawnBrushTool implements Tool {
 
 	/**
 	 * The height a creature at (x, z) stands at: the ground, or, when the brush is on a model (a mine's
-	 * floor, a bridge), the model's surface under the point near the brush's height.
+	 * floor, a bridge), the model's floor under the point near the brush's height (a ceiling passed
+	 * through, #660). Null where a brush under the ground finds no floor (past a cave's wall), since
+	 * the ground there is far overhead.
 	 */
-	private surfaceY(ctx: ToolContext, hit: THREE.Vector3, x: number, z: number): number {
+	private surfaceY(ctx: ToolContext, hit: THREE.Vector3, x: number, z: number): number | null {
 		const ground = ctx.terrain.heightAt(x, z)
 		if (Math.abs(hit.y - ground) < 0.5 && !ctx.terrain.isHole(hit.x, hit.z)) return ground
 		this.ray.ray.origin.set(x, hit.y + 4, z)
 		this.ray.ray.direction.set(0, -1, 0)
 		this.ray.far = 12
-		const s = ctx.objects.raycastSurface(this.ray)
-		return s ? s.point.y : ground
+		const s = ctx.objects.raycastFloor(this.ray)
+		if (s) return s.point.y
+		return ground > hit.y + 4 ? null : ground
 	}
 
 	/** Whether the brush's rules let a creature stand at (x, z): on the map, no hole, not too steep, and out of water if asked. */

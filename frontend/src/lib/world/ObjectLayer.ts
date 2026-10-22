@@ -13,6 +13,9 @@ import { meshTriangles, type ModelCost } from '../engine/perfMeter'
 import { wantLiquid, wmoLiquidMaterial } from '../water/liquidMaterial'
 import type { LiquidClass } from '../water/liquids'
 
+/** The least upward part of a surface's normal that a creature stands on (#660): about 70° of slope; steeper is a wall, below 0 a ceiling. */
+const FLOOR_MIN_UP = 0.35
+
 export interface WorldObject {
   id: number
   type: string
@@ -1141,6 +1144,45 @@ export class ObjectLayer {
 			return { id, point: h.point.clone(), distance: h.distance }
 		}
 		return null
+  }
+
+  private floorM = new THREE.Matrix4()
+  private floorN = new THREE.Matrix3()
+  private floorNormal = new THREE.Vector3()
+
+  /**
+   * The nearest object surface under the ray that faces up enough to stand on (#660), skipping
+   * ceilings and walls, and `exclude` ids: a cave's or a dungeon's floor seen past its roof. Every
+   * hit of every model along the ray is tested, not just each model's first, since a building's
+   * own ceiling comes before its floor.
+   */
+  raycastFloor(raycaster: THREE.Raycaster, exclude?: Set<number>): { id: number; point: THREE.Vector3; distance: number } | null {
+    if (!this.group.visible) return null
+    const meshes: THREE.Object3D[] = []
+    for (const b of this.batches.values()) {
+      if (b.mesh.count > 0) meshes.push(b.mesh)
+      if (b.lod && b.lod.count > 0) meshes.push(b.lod)
+    }
+    const first = raycaster.firstHitOnly
+    raycaster.firstHitOnly = false
+    let hits: THREE.Intersection[]
+    try {
+      hits = raycaster.intersectObjects(meshes, false)
+    } finally {
+      raycaster.firstHitOnly = first
+    }
+    for (const h of hits) {
+      const id = hitId(h)
+      if (id === undefined || exclude?.has(id) || !h.face) continue
+      if (!getAsset(this.objects.get(id)!.type).ready) continue
+      const mesh = h.object as THREE.InstancedMesh
+      mesh.getMatrixAt(h.instanceId!, this.floorM)
+      this.floorM.premultiply(mesh.matrixWorld)
+      const n = this.floorNormal.copy(h.face.normal).applyMatrix3(this.floorN.getNormalMatrix(this.floorM)).normalize()
+      if (n.y < FLOOR_MIN_UP) continue
+      return { id, point: h.point.clone(), distance: h.distance }
+    }
+    return null
   }
 
   /**

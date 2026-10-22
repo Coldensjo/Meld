@@ -641,6 +641,7 @@ export class Engine {
       get scene() { return self.scene },
       get raycaster() { return self.raycaster },
       surface: (exclude?: Set<number>) => self.surfaceHit(exclude),
+      floor: (exclude?: Set<number>) => self.floorHit(exclude),
       pressure: () => (self.prefs?.tabletSupport ? self.penPressure : 1),
       radiusPressure: () => self.radiusPressure(),
       cameraYaw: () => self.controller.yaw,
@@ -872,6 +873,11 @@ export class Engine {
     // The Hole mode aims at holes too (to fill them), so its ray stops where the ground would be.
     const solid = editor.tool === 'sculpt' && editor.sculptMode === 'hole'
     this.hit = this.terrain.raycast(this.raycaster.ray, this.hitVec, 4000, solid) ? this.hitVec : null
+    // The spawn brush stands its creatures on the floor under the cursor, a cave's or a dungeon's too (#660).
+    if (editor.tool === 'doodad' && editor.doodadMode === 'creatures') {
+      const f = this.floorHit()
+      this.hit = f ? this.hitVec.copy(f.point) : null
+    }
     if (editor.tool === 'water' && editor.waterMode === 'paint' && editor.water.onLiquids) this.pickLiquid()
   }
 
@@ -3958,6 +3964,41 @@ export class Engine {
     const groundDist = groundPoint ? groundPoint.distanceTo(this.raycaster.ray.origin) : Infinity
     if (obj && obj.distance < groundDist) return { point: obj.point, parent: obj.id }
     return groundPoint ? { point: groundPoint, parent: null } : null
+  }
+
+  /** The last floorHit's cursor, camera and answer: the spawn brush asks on every move, and a ray through every model is dear. */
+  private floorCache = { x: NaN, y: NaN, cam: new THREE.Matrix4(), at: 0, exclude: undefined as Set<number> | undefined, hit: null as { point: THREE.Vector3; parent: number | null } | null }
+
+  /**
+   * The floor under the cursor a creature or game object stands on (#660): the nearer of the terrain
+   * and the first model surface facing up (`raycastFloor` passes ceilings and walls). The terrain is
+   * see-through when the camera is under it (in a cave or a dungeon below the ground, where the ray
+   * starts inside the ground) or hidden, so the model floor wins there. The answer is kept for a
+   * quarter second while the cursor and the camera stay put, for models still loading.
+   */
+  floorHit(exclude?: Set<number>): { point: THREE.Vector3; parent: number | null } | null {
+    const c = this.floorCache
+    const now = performance.now()
+    if (c.x === this.ndc.x && c.y === this.ndc.y && c.exclude === exclude && now - c.at < 250 && c.cam.equals(this.camera.matrixWorld)) return c.hit
+    this.raycaster.setFromCamera(this.ndc, this.camera)
+    const groundPoint = this.terrainPointUnderRay()
+    const obj = this.objects.raycastFloor(this.raycaster, exclude)
+    const groundDist = groundPoint ? groundPoint.distanceTo(this.raycaster.ray.origin) : Infinity
+    c.hit = obj && (obj.distance < groundDist || this.terrainSeeThrough()) ? { point: obj.point, parent: obj.id } : groundPoint ? { point: groundPoint, parent: null } : null
+    c.x = this.ndc.x
+    c.y = this.ndc.y
+    c.exclude = exclude
+    c.at = now
+    c.cam.copy(this.camera.matrixWorld)
+    return c.hit
+  }
+
+  /** Whether a floor ray looks through the terrain: it is hidden, or the camera is under it (not in a hole). */
+  private terrainSeeThrough(): boolean {
+    const t = this.terrain
+    if (!t.group.visible) return true
+    const p = this.camera.position
+    return t.contains(p.x, p.z) && !t.isHole(p.x, p.z) && p.y < t.heightAt(p.x, p.z)
   }
 
   private terrainPointUnderRay(): THREE.Vector3 | null {

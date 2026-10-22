@@ -25,6 +25,13 @@ export interface ToolContext {
    */
   surface(exclude?: Set<number>): { point: THREE.Vector3; parent: number | null } | null
   /**
+   * The floor under the cursor a creature or game object stands on (#660): like `surface`, but a
+   * model surface must face up (a ceiling or a wall is passed through), and the terrain is
+   * see-through while the camera is under it or the terrain is hidden, so a cave's or a dungeon's
+   * floor is found below the ground.
+   */
+  floor(exclude?: Set<number>): { point: THREE.Vector3; parent: number | null } | null
+  /**
    * Pen pressure from 0 to 1 while Tablet support is on and a pen is drawing; 1 for a mouse or with the
    * setting off. Brush tools scale their strength by it.
    */

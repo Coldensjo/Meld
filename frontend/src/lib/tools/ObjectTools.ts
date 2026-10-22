@@ -237,7 +237,8 @@ export class PlaceTool implements Tool {
       parent?.add(next)
     }
     // The preview sits on whatever is under the cursor: terrain, a building, another prop.
-    const surf = hit ? ctx.surface() : null
+    // A creature or object template stands on a floor (#660), a model goes on whatever is hit.
+    const surf = hit ? (ui.placeCreature || ui.placeObject ? ctx.floor() : ctx.surface()) : null
     this.ghost.visible = !!surf && !editor.placeScatter && !!editor.prefab && !this.hidePreview
     if (surf && hit) {
       const p = this.placePoint(ctx, surf)
@@ -259,7 +260,7 @@ export class PlaceTool implements Tool {
     if (!hit) return
     // A creature or object template from the browser's spawn tabs is spawned, not placed as a model.
     if (ui.placeCreature || ui.placeObject) {
-      const surf = ctx.surface() ?? { point: hit.clone(), parent: null }
+      const surf = ctx.floor() ?? { point: hit.clone(), parent: null }
       this.hooks.placeSpawn(this.placePoint(ctx, surf).clone().setY(surf.point.y))
       return
     }
@@ -595,7 +596,7 @@ export class SelectTool implements Tool {
     }
     if (ui.placeCreature || ui.placeObject) {
       // Shift keeps placing the same template; a plain click places one and stops.
-      const surf = ctx.surface()
+      const surf = ctx.floor()
       if (surf) this.hooks.placeSpawn(surf.point.clone())
       if (!e.shiftKey) ui.placeCreature = ui.placeObject = null
       return
@@ -611,7 +612,7 @@ export class SelectTool implements Tool {
     selectSpawn(spawn)
     if (spawn) {
       if (editor.selectedIds.length) selectObjects(ctx.objects, [])
-      const at = ctx.surface()?.point ?? hit
+      const at = ctx.floor()?.point ?? hit
       if (at)
         this.spawnDrag = {
           key: spawnKey(spawn),
@@ -839,7 +840,7 @@ export class SelectTool implements Tool {
     const pd = this.pointDrag
     if (pd) {
       const s = ctx.spawns.get(pd.key)
-      const surf = ctx.surface()
+      const surf = ctx.floor()
       const p = s?.waypoints?.[pd.i]
       if (!s || !surf || !p || !ctx.terrain.contains(surf.point.x, surf.point.z)) return
       ctx.spawns.touch(s)
@@ -851,7 +852,7 @@ export class SelectTool implements Tool {
     const sd = this.spawnDrag
     if (sd) {
       const s = ctx.spawns.get(sd.key)
-      const surf = ctx.surface()
+      const surf = ctx.floor()
       if (!s || !surf) return
       const x = surf.point.x + sd.dx
       const z = surf.point.z + sd.dz
