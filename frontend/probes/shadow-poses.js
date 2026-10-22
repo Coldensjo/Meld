@@ -14,7 +14,7 @@ let forceFull = false
 const mark = e.markShadows.bind(e)
 
 const run = async (kind) => {
-	await P.benchMap(kind)
+	await P.loadBenchMap(kind)
 	const r = { kind }
 	await P.frames(4)
 	fulls = 0

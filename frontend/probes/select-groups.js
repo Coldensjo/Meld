@@ -1,5 +1,5 @@
 // Selection groups read from the layer's index (#630): on the everything benchmark map with every root put in a group of ten, withGroups for each grouped model under a Select brush matches a scan of every object, as does the Ungroup command's member list and its undo; prints the ms the brush's withGroups calls took a spot, against the scan's.
-const map = await P.benchMap('everything')
+const map = await P.loadBenchMap('everything')
 const e = P.e
 const L = e.objects
 const { editor } = await P.state()
@@ -64,4 +64,4 @@ if (made === first || sorted(L.groupMembers(made)) !== sorted([roots[0].id, root
 e.history.undo()
 if (L.groupMembers(made).size || sorted(L.groupMembers(first)) !== members) throw new Error('undo of Group did not put them back')
 const per = (v) => Math.round((v / K) * 1000) / 1000
-return { objects: L.objects.size, groups: Math.ceil(roots.length / 10), modelsUnderBrush: Math.round(models / K), msSpot: { index: per(index), scan: per(scan) }, cpu: map.cpuMeanMs }
+return { objects: L.objects.size, groups: Math.ceil(roots.length / 10), modelsUnderBrush: Math.round(models / K), msSpot: { index: per(index), scan: per(scan) } }

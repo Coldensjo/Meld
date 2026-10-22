@@ -1,5 +1,5 @@
 // The layer's cells for "objects near a point" (#512): on the everything benchmark map, the Clear tool's models under the brush, the Doodad brush's spacing neighbours and prop list, the Select brush and the area's objects match a scan of every object, after the models loaded (a building's box only then reaching wide) and after a move; prints the ms a call.
-const map = await P.benchMap('everything')
+const map = await P.loadBenchMap('everything')
 const e = P.e
 const L = e.objects
 const ctx = e.ctx
@@ -104,4 +104,4 @@ const per = (v) => Math.round((v / (2 * K)) * 1000) / 1000
 const wide = L.wide.size
 if (bad.length) throw new Error(`the cells and the scan differ: ${bad.slice(0, 8).join('; ')}`)
 if (!wide) throw new Error('no root reaches wide: the buildings should, once their models load')
-return { objects: L.objects.size, wide, found: Math.round(found / (2 * K)), msCall: { clear: per(ms.clear), gather: per(ms.gather), props: per(ms.props), rect: per(ms.rect) }, cpu: map.cpuMeanMs }
+return { objects: L.objects.size, wide, found: Math.round(found / (2 * K)), msCall: { clear: per(ms.clear), gather: per(ms.gather), props: per(ms.props), rect: per(ms.rect) } }

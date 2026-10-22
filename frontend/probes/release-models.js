@@ -34,10 +34,10 @@ const count = () => {
 
 let one, both, after, first, firstId
 try {
-	first = await P.benchMap('objects-mixed', 600)
+	first = await P.loadBenchMap('objects-mixed', 600)
 	firstId = P.e.activeDocumentId()
 	one = count()
-	await P.benchMap('wmo', 40)
+	await P.loadBenchMap('wmo', 40)
 	const secondId = P.e.activeDocumentId()
 	if (secondId === firstId) throw new Error('the buildings map did not open in a tab of its own')
 	both = count()

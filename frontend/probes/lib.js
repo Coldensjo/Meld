@@ -769,6 +769,18 @@ ${fs.slice(0, end)}
 	 * to stop and measures it. `buildMs` is the map's build, `loadMs` that plus its models' loading.
 	 */
 	async benchMap(kind, count, scale = P.env('SCALE', 1)) {
+		const m = await P.loadBenchMap(kind, count, scale)
+		await P.frames(5)
+		const r = await P.perf()
+		return { ...m, ...P.perfSummary(r) }
+	},
+
+	/**
+	 * `P.benchMap` without the measurement: builds the map, flies to its view and waits for the client
+	 * reads to stop. For a probe that only needs the map: the measurement's windows of SwiftShader
+	 * frames take 25 to 70 s a map, most of such a probe's time.
+	 */
+	async loadBenchMap(kind, count, scale = P.env('SCALE', 1)) {
 		const { buildBenchMap, benchView, benchMap } = await P.app('/src/lib/bench/benchMaps.ts')
 		const { prefs } = await P.state()
 		const m = benchMap(kind)
@@ -780,9 +792,6 @@ ${fs.slice(0, end)}
 		benchView(P.e, kind)
 		await P.frames(2)
 		await P.settle()
-		const loadMs = Math.round(performance.now() - t0)
-		await P.frames(5)
-		const r = await P.perf()
 		return {
 			map: kind,
 			stresses: m.stresses,
@@ -792,8 +801,7 @@ ${fs.slice(0, end)}
 			objects: d.objects.objects.size,
 			spawns: d.spawnLayer.spawns.length,
 			buildMs,
-			loadMs,
-			...P.perfSummary(r),
+			loadMs: Math.round(performance.now() - t0),
 		}
 	},
 

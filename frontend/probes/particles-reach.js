@@ -4,7 +4,7 @@ const scale = P.env('SCALE', 1)
 if (kind === 'bench') {
 	await P.scene(P.BENCH)
 	await P.settle()
-} else await P.benchMap(kind, undefined, scale)
+} else await P.loadBenchMap(kind, undefined, scale)
 const pl = P.e.particles
 const { ParticlePool } = await P.app('/src/lib/world/particles.ts')
 const { RibbonTrail } = await P.app('/src/lib/world/ribbons.ts')

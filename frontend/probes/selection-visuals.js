@@ -1,6 +1,6 @@
 // The selection's outline colour and warn boxes (#551): on objects-mixed with 16 floating models selected, each one's touching flag and a single selection's warn boxes match a scan of every object and the handles stand at the pivot or the model, still, after a move, a hide and an attached prop; prints updateSelectionVisuals' ms a frame, still and dragging.
 const t = await P.time({ '/src/lib/engine/Engine.ts:Engine': ['updateSelectionVisuals'] })
-const map = await P.benchMap('objects-mixed')
+const map = await P.loadBenchMap('objects-mixed')
 const e = P.e
 const L = e.objects
 const { editor } = await P.state()
@@ -82,7 +82,7 @@ const many = check('16 selected')
 let pivot = e.selectionPivot()
 gizmoAt('16 selected', pivot.x, pivot.z)
 
-const N = P.env('N', 40)
+const N = P.env('N', 10)
 t.reset()
 await P.frames(N)
 const still = t.snap()
@@ -135,5 +135,4 @@ return {
 	warnOne: one,
 	warnWithProp: withProp,
 	msFrame: { still16: per(still), drag16: per(drag), still1: per(oneStill) },
-	cpu: map.cpuMeanMs,
 }

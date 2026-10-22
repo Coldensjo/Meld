@@ -418,7 +418,8 @@ the same scene, the report before and after.
     mountains with the sea off, four tilesets blended on every chunk, holes), `water` (water, ocean, magma and slime on 70% of the
     chunks, half of them two layers deep, and the sea) and `everything` (a moderate mix on 4x4 tiles).
   - `cd frontend && bun run probe 'perf-*'` measures all of them, each on a fresh page (one probe file a
-    map, `perf-<kind>.js`, all through `P.benchMap(kind, count?)` in `lib.js`); `bun run probe
+    map, `perf-<kind>.js`, all through `P.benchMap(kind, count?)` in `lib.js`; a probe that only needs
+    the map, not its numbers, uses `P.loadBenchMap`, which skips the measurement's 25 to 70 s); `bun run probe
     perf-lights` one. A name ending in `*` runs every probe it starts. The line adds `buildMs` (making
     the map) and `loadMs` (that plus the client reads) to `bench`'s numbers. Give it a longer
     `PROBE_TIMEOUT` (900) when raising a count.

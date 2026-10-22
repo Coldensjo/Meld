@@ -1,5 +1,5 @@
 // Only the animated spawn types the cull drew are posed each frame, and with Prop animations off a drawn type holds its first frame, not the bind pose (#328).
-await P.benchMap('creatures', 300)
+await P.loadBenchMap('creatures', 300)
 const { animatedAssets } = await P.app('/src/lib/models/assets.ts')
 const layer = P.e.doc.spawnLayer
 const types = [...animatedAssets.keys()].filter((t) => layer.hasType(t))
