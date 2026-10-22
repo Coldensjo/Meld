@@ -17,6 +17,10 @@
 		}
 		return p
 	}
+	/** Drops the creature displays read, so the next picker reads them again (after a creature is saved or made). */
+	export function forgetCreatureDisplays() {
+		displaysPromise.creature = null
+	}
 	/** Drops the game object displays read, so the next picker reads them again. */
 	export function forgetObjectDisplays() {
 		displaysPromise.object = null

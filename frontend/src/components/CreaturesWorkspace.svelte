@@ -8,7 +8,7 @@
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { CREATURE_TYPES, levelText, NPC_FLAGS, RANKS } from '../lib/world/spawnInfo'
 	import CreaturePreview from './CreaturePreview.svelte'
-	import DisplayPicker from './DisplayPicker.svelte'
+	import DisplayPicker, { forgetCreatureDisplays } from './DisplayPicker.svelte'
 	import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
 
 	// The Creatures workspace (#132, World › Creatures…): the world database's creatures to find and
@@ -215,6 +215,7 @@
 			const entry = await CreateCreature(0, v.name)
 			const rec = await ReadCreature(entry)
 			await SaveCreature(entry, rec.patch, v)
+			forgetCreatureDisplays()
 			made = { entry, values: { ...rec.values, ...v } }
 			setStatus(`Made creature ${entry}, ${v.name}. Restart the world server to see it in the game.`, 10000)
 		} catch (err) {

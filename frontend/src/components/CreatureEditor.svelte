@@ -11,7 +11,7 @@
   import { spawnKey } from '../lib/world/SpawnLayer'
   import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
   import CreaturePreview from './CreaturePreview.svelte'
-  import DisplayPicker from './DisplayPicker.svelte'
+  import DisplayPicker, { forgetCreatureDisplays } from './DisplayPicker.svelte'
   import MessagesTab from './MessagesTab.svelte'
   import QuestsTab from './QuestsTab.svelte'
   import ShopTab from './ShopTab.svelte'
@@ -173,6 +173,7 @@
     try {
       const before = { ...saved }
       await SaveCreature(record.entry, record.patch, changes)
+      forgetCreatureDisplays()
       saved = { ...values }
       await engineRef.current?.applyCreatureTemplate(record.entry, values, before)
       setStatus(`Saved ${values.name} (entry ${record.entry}) to the world database. Restart the world server and the game to see it in the game.`, 10000)
@@ -247,6 +248,7 @@
     error = ''
     try {
       const entry = await CreateCreature(record.entry, name)
+      forgetCreatureDisplays()
       copying = false
       ui.creatureEditor = { key: null, entry }
       setStatus(`Copied to creature ${entry}, ${name}. Edit it, save, then place it.`, 8000)

@@ -287,7 +287,11 @@ func SaveCreature(serverRoot string, entry, patch int, values map[string]string)
 	if err != nil || sql == "" {
 		return sql, err
 	}
-	return sql, runScript(db, sql)
+	if err := runScript(db, sql); err != nil {
+		return "", err
+	}
+	forgetDisplays()
+	return sql, nil
 }
 
 // SaveObject writes changed template values (by column) into game object template entry's row of
@@ -370,9 +374,13 @@ func createTemplate(serverRoot, table, what, name string, build func(cols []Temp
 // table's defaults: level 1, a warrior (class 1: the server has no stats for class 0, the column's
 // default), hostile to everyone (faction 14), no display.
 func CreateCreature(serverRoot string, base int, name string) (int, error) {
-	return createTemplate(serverRoot, creatureTable, "creature", name, func(cols []TemplateColumn, entry int, name string) (string, error) {
+	entry, err := createTemplate(serverRoot, creatureTable, "creature", name, func(cols []TemplateColumn, entry int, name string) (string, error) {
 		return createCreatureSQL(cols, entry, base, name)
 	})
+	if err == nil {
+		forgetDisplays()
+	}
+	return entry, err
 }
 
 // CreateObject adds a game object template named name under the first free entry and returns the
@@ -466,6 +474,14 @@ var (
 	displaysMu    sync.Mutex
 	displaysCache = map[string][]DisplayEntry{}
 )
+
+// forgetDisplays drops the cached creature display lists, after a creature template was saved or
+// made, since that changes which creatures use each display.
+func forgetDisplays() {
+	displaysMu.Lock()
+	defer displaysMu.Unlock()
+	clear(displaysCache)
+}
 
 // ListDisplays lists every creature display with a model, dressed as a spawn of it would be (no
 // equipment, standing), with the creature templates that use it when the world database can be

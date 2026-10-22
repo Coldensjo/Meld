@@ -245,3 +245,15 @@ func TestEditorSavesRefuseOutOfRangeValues(t *testing.T) {
 		}
 	}
 }
+
+func TestForgetDisplays(t *testing.T) {
+	displaysMu.Lock()
+	displaysCache["k"] = []DisplayEntry{{ID: 1}}
+	displaysMu.Unlock()
+	forgetDisplays()
+	displaysMu.Lock()
+	defer displaysMu.Unlock()
+	if len(displaysCache) != 0 {
+		t.Fatalf("display cache not cleared: %d entries", len(displaysCache))
+	}
+}
