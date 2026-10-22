@@ -101,6 +101,9 @@ func ParseWMONav(root []byte, groups [][]byte) (*WMONav, error) {
 		case "MOHD":
 			if len(c.data) >= 8 {
 				n = r.u32(4)
+				if n > maxWMOGroups {
+					return nil, errWMOGroups
+				}
 			}
 		case "MOGN":
 			mogn = c.data

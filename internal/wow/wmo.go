@@ -27,6 +27,14 @@ func chunks(b []byte) []chunk {
 	return out
 }
 
+// maxWMOGroups bounds a root's MOHD group count. The client's 1.12 WMOs have under 600 groups; a
+// corrupt count (0xFFFFFFFF) would otherwise size a slice a group and read billions of group files
+// (#488).
+const maxWMOGroups = 4096
+
+// errWMOGroups is a root whose MOHD gives more groups than maxWMOGroups.
+var errWMOGroups = fmt.Errorf("wmo: root gives more than %d groups", maxWMOGroups)
+
 // WMORoot holds what we need from a root .wmo file.
 type WMORoot struct {
 	Materials []WMOMaterial
@@ -129,6 +137,9 @@ func ParseWMORoot(b []byte) (*WMORoot, error) {
 		case "MOHD":
 			if len(c.data) >= 8 {
 				root.NumGroups = reader{c.data}.u32(4)
+				if root.NumGroups > maxWMOGroups {
+					return nil, errWMOGroups
+				}
 			}
 			if len(c.data) >= 64 {
 				root.Flags = reader{c.data}.u32(60)

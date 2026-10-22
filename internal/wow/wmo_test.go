@@ -83,3 +83,26 @@ func TestMeshRoomsEncoded(t *testing.T) {
 		t.Fatal("an untagged mesh claims rooms")
 	}
 }
+
+// A root whose MOHD gives a corrupt group count is refused, before anything sizes a slice by it (#488).
+func TestWMORootRefusesHugeGroupCount(t *testing.T) {
+	root := func(groups int) []byte {
+		b := iffChunk("MVER", le(17))
+		return append(b, iffChunk("MOHD", le(0, groups, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))...)
+	}
+	for _, n := range []int{0xFFFFFFFF, maxWMOGroups + 1} {
+		if _, err := ParseWMORoot(root(n)); err == nil {
+			t.Fatalf("ParseWMORoot accepted %d groups", n)
+		}
+		if _, err := ParseWMONav(root(n), nil); err == nil {
+			t.Fatalf("ParseWMONav accepted %d groups", n)
+		}
+	}
+	r, err := ParseWMORoot(root(maxWMOGroups))
+	if err != nil || r.NumGroups != maxWMOGroups {
+		t.Fatalf("ParseWMORoot(%d groups) = %v, %v", maxWMOGroups, r, err)
+	}
+	if nav, err := ParseWMONav(root(3), nil); err != nil || len(nav.Groups) != 3 {
+		t.Fatalf("ParseWMONav(3 groups) = %v, %v", nav, err)
+	}
+}
