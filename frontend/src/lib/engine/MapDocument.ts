@@ -50,6 +50,10 @@ export interface DocMeta {
   reference: ReferenceImage | null
   /** The map's paths (editor.paths, the Path tool), saved with the map. */
   paths: MapPath[]
+  /** The Flatten tool's locked point (editor.flattenLock), a position on this map; unset means off (#449). */
+  flattenLock?: { on: boolean; x: number; y: number; z: number }
+  /** The water brush's lock and its locked point (editor.water.lock, lockPos), a position on this map (#449). */
+  waterLock?: { on: boolean; pos: { x: number; y: number; z: number } }
 }
 
 /** A saved camera view: where it looks at, and from what angle and distance. */

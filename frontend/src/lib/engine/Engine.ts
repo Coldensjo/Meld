@@ -2388,6 +2388,8 @@ export class Engine {
       region: d.meta.region,
       vmangos: d.meta.vmangos,
       bookmarks: [...editor.bookmarks],
+      flattenLock: { ...editor.flattenLock },
+      waterLock: { on: editor.water.lock, pos: { ...editor.water.lockPos } },
     }
     const c = this.controller
     d.camera = { target: c.target.clone(), yaw: c.yaw, pitch: c.pitch, distance: c.distance }
@@ -2442,6 +2444,10 @@ export class Engine {
     editor.paths = copyPaths(m.paths ?? [])
     editor.pathId = -1
     editor.pathPoint = -1
+    // The locked points are positions on one map; another map starts unlocked (#449).
+    editor.flattenLock = { ...(m.flattenLock ?? { on: false, x: 0, y: 0, z: 0 }) }
+    editor.water.lock = m.waterLock?.on ?? true
+    editor.water.lockPos = { ...(m.waterLock?.pos ?? { x: 0, y: 0, z: 0 }) }
     ui.referenceUrl = d.referenceImage?.url ?? ''
     ui.referenceVersion++
     this.refDrag = null
