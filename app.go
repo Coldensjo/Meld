@@ -829,7 +829,7 @@ func (a *App) EquipmentItems(id int) ([3]int, error) {
 // EquipmentFor is the equipment template with these items (main hand, off hand, ranged), made
 // in the world database when none has them; 0 for none.
 func (a *App) EquipmentFor(items [3]int) (int, error) {
-	server, _, err := a.serverAndData()
+	server, _, err := a.serverForWrite()
 	if err != nil {
 		return 0, err
 	}

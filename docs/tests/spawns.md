@@ -20,7 +20,7 @@ await window.go.main.App.EquipmentFor([14643, 1897, 0])   // finds or makes a te
 
 - Traps: thumbnails only render while frames run (`__engine.frame()` in a loop with short
   waits). `EquipmentFor` writes a creature_equip_template row for a new item combination, after
-  the highest entry (987002 on this database): delete it again after a test, with its items in
+  the highest entry (987002 on this database; refused with the sandbox on, like every world-database write): delete it again after a test, with its items in
   the WHERE clause. `editor.spawns` is a snapshot; read the layer's spawn for the edited state.
 
 ## Spawn tabs of the asset browser (Creatures, NPCs, Objects)
