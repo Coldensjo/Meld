@@ -12,3 +12,16 @@ export function changedPrefs(current: Record<string, unknown>, base: Map<string,
   }
   return parts.length ? { json: `{${parts.join(',')}}`, keys } : null
 }
+
+/**
+ * Whether `v` may replace a preference whose current value is `current`: the same type, arrays for
+ * arrays, and finite numbers (JSON has no NaN, but a hand-written scene could hold anything).
+ * Shared by loadPrefs (the file) and parseScene (a pasted scene), so neither writes a mistyped value.
+ */
+export function prefValueOk(current: unknown, v: unknown): boolean {
+	if (Array.isArray(current)) return Array.isArray(v)
+	if (v === null) return current === null
+	if (Array.isArray(v)) return false
+	if (typeof v === 'number') return typeof current === 'number' && Number.isFinite(v)
+	return typeof v === typeof current
+}

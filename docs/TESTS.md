@@ -103,6 +103,8 @@ Checks: anything visual (shaders, shadows, lighting, models, UI) against the rea
 
 - `make dev` (`wails dev`) serves the app at http://localhost:34115. The page exposes
   `window.__engine` (the Engine), `window.__loadScene(text)` and `window.__sceneText()`.
+  `__loadScene` checks the whole line first (`parseScene`, tests/scene.test.ts): a scene must be complete
+  (`v`, `map`, `view`, `prefs`, `tool`, `selectedIds`, `selected`, `viewport`), or it throws naming the field and changes nothing.
 - From a script (Python especially), call the dev server at `http://127.0.0.1:34115`, not
   `localhost`: Python on Windows tries `::1` first and spends seconds on each request (a survey of
   621 tilesets hit a 10-minute timeout that `127.0.0.1` finished in under a minute, #227). curl,

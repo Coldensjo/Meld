@@ -1,9 +1,10 @@
 import { tick } from 'svelte'
 import type { Engine } from '../engine/Engine'
 import { formatReport } from '../engine/perfMeter'
-import { editor, prefs, setStatus, ui, type Prefs, type ToolId } from '../state/editor.svelte'
+import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { engineRef } from '../state/engineRef'
 import { selectObjects } from '../state/selection'
+import { parseScene, PREFIX, VIEW_PREFS, type Scene, type ViewPrefs } from './sceneParse'
 import { fromMapData, hasBackend, openWowRegion, toMapData } from './mapio'
 import { LoadMap, SaveSceneMap } from '../../../wailsjs/go/main/App'
 import { ClipboardGetText, ClipboardSetText } from '../../../wailsjs/runtime/runtime'
@@ -12,60 +13,6 @@ import { ClipboardGetText, ClipboardSetText } from '../../../wailsjs/runtime/run
 // someone else on this machine (or to Claude, through `window.__loadScene`) and opened again exactly:
 // the map, the camera, the hour, the tool, the selection and the graphics preferences. A map with
 // unsaved changes is written to a copy in the cache dir first, which the scene names.
-
-const PREFIX = 'Meld scene '
-/** Scenes copied before the rename. */
-const OLD_PREFIX = 'WorldEditor scene '
-
-/** The preferences that change what the view looks like. Layout and input prefs stay the viewer's. */
-const VIEW_PREFS = [
-  'wireframe',
-  'climbView',
-  'navView',
-  'navServer',
-  'showContours',
-  'contourStep',
-  'showBoxes',
-  'clientLighting',
-  'climbAngle',
-  'showTerrain',
-  'showWater',
-  'showObjects',
-  'showDoodads',
-  'showBuildings',
-  'showMonsters',
-  'showNpcs',
-  'showGameObjects',
-  'renderScale',
-  'viewDistance',
-  'fog',
-  'cameraFollowGround',
-  'cameraCollision',
-  'timeOfDay',
-  'dayCycle',
-  'cycleMinutes',
-  'clouds',
-  'shadows',
-  'propEffects',
-  'animations',
-  'cullSmallModels',
-] as const satisfies readonly (keyof Prefs)[]
-
-type ViewPrefs = Partial<Pick<Prefs, (typeof VIEW_PREFS)[number]>>
-
-interface Scene {
-  v: 1
-  /** The map: a file (saved, or the cache copy of unsaved changes) or a block of the client's tiles. */
-  map: { file: string; copy?: boolean } | { region: { mapName: string; x: number; y: number; size: number } }
-  view: ReturnType<Engine['sceneView']>
-  prefs: ViewPrefs
-  tool: ToolId
-  selectedIds: number[]
-  selected: number | null
-  area: typeof editor.selection
-  /** The viewport's size in CSS pixels, so the same framing can be had. */
-  viewport: [number, number]
-}
 
 const round = (n: number) => Math.round(n * 1000) / 1000
 
@@ -143,11 +90,8 @@ export async function copyPerfReport(engine: Engine) {
 
 /** Opens the scene's map (or switches to its tab) and restores everything else the scene holds. */
 export async function loadScene(engine: Engine, text: string) {
-  const at = text.indexOf('{')
-  const head = text.trim()
-  if (!(head.startsWith(PREFIX.trim()) || head.startsWith(OLD_PREFIX.trim())) || at < 0) throw new Error('not a Meld scene')
-  const scene = JSON.parse(text.slice(at)) as Scene
-  if (scene.v !== 1) throw new Error(`unknown scene version ${scene.v}`)
+  // Check the whole scene before anything is opened or written, so a bad paste changes nothing.
+  const scene = parseScene(text, prefs as unknown as Record<string, unknown>)
 
   if ('region' in scene.map) {
     const r = scene.map.region
