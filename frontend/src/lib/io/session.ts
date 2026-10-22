@@ -103,9 +103,15 @@ export const skipRestore = typeof location !== 'undefined' && /[?&]nosession(?:[
 export async function restoreSession(engine: Engine): Promise<void> {
   if (!hasBackend() || skipRestore) return
   const s = prefs.session
-  if (!s.tabs.length) return
-  lastSaved = JSON.stringify(s)
-  if (s.tabs.some((t) => 'region' in t.map)) await untilLoaded()
+  try {
+    // The preferences check the session's shape on load; this keeps a bad one from stopping startup anyway.
+    if (!s.tabs.length) return
+    lastSaved = JSON.stringify(s)
+    if (s.tabs.some((t) => 'region' in t.map)) await untilLoaded()
+  } catch (err) {
+    console.warn('could not read the last session', err)
+    return
+  }
   let activeId: number | null = null
   for (let i = 0; i < s.tabs.length; i++) {
     const t = s.tabs[i]

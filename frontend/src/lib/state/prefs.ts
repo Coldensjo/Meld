@@ -1,7 +1,7 @@
 import { LoadPrefs, SavePrefs } from '../../../wailsjs/go/main/App'
 import { hasBackend } from '../io/mapio'
 import { prefs, type Prefs } from './editor.svelte'
-import { changedPrefs, prefValueOk } from './prefsPatch'
+import { changedPrefs, prefShapeOk, prefValueOk } from './prefsPatch'
 
 // Preferences live in the Go-side config file (reliable across platforms,
 // unlike webview storage). Unknown/invalid keys are ignored on load.
@@ -39,10 +39,15 @@ export async function loadPrefs() {
     if (!raw) return
     const saved = JSON.parse(raw) as Partial<Prefs>
     for (const k of Object.keys(prefs) as (keyof Prefs)[]) {
-      const ok = prefValueOk(prefs[k], saved[k])
-      if (ok) {
+      if (!(k in saved)) continue
+      if (prefValueOk(prefs[k], saved[k]) && prefShapeOk(k, saved[k])) {
         ;(prefs as Record<string, unknown>)[k] = saved[k]
         baseline.set(k, JSON.stringify(saved[k]))
+      } else {
+        // Rejected: keep the default, but count it as already saved, so the next save doesn't
+        // overwrite what the file holds until the user changes the preference themselves.
+        console.warn('ignored preference with the wrong shape:', k)
+        baseline.set(k, JSON.stringify(prefs[k]))
       }
     }
   } catch (e) {
