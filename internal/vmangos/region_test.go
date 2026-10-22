@@ -250,7 +250,9 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 			}
 		}
 		// The write's outer heights are the editor's, and each inner sample moves by the average
-		// change of the four outer samples around it, from the original tile.
+		// change of the four outer samples around it, from the original tile. A cell whose corners
+		// the editor's view moved off the original (an edit Meld's patch already holds, #631) is a
+		// sculpted cell, and its inner sample sits at its corners' mean (#380).
 		base, err := adt.ParseTerrain(original)
 		if err != nil {
 			t.Fatal(err)
@@ -279,6 +281,13 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 				for col := 0; col < adt.CellsPerChunk; col++ {
 					avg := (delta[r][col] + delta[r][col+1] + delta[r+1][col] + delta[r+1][col+1]) / 4
 					want := float64(cb.Heights[r*17+9+col]) + avg
+					for _, d := range [4]float64{delta[r][col], delta[r][col+1], delta[r+1][col], delta[r+1][col+1]} {
+						if sculpted(float32(d)) {
+							h := &cw.Heights
+							want = float64((h[r*17+col] + h[r*17+col+1] + h[(r+1)*17+col] + h[(r+1)*17+col+1]) / 4)
+							break
+						}
+					}
 					if math.Abs(float64(cw.Heights[r*17+9+col])-want) > 1e-3 {
 						t.Fatalf("tile %d_%d chunk %d inner %d,%d: wrote %v, want %v", tx, ty, c, r, col, cw.Heights[r*17+9+col], want)
 					}
