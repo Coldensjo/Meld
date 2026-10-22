@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"Meld/internal/mpq"
 )
@@ -14,10 +15,15 @@ import (
 type fakeRunner struct {
 	calls  []string
 	failAt string
+	// serverUp is whether mangosd.exe is running: taskkill clears it unless it is stuck.
+	serverUp, stuck bool
 }
 
 func (f *fakeRunner) Run(dir, name string, args []string, log func(string)) error {
 	f.calls = append(f.calls, name+" "+strings.Join(args, " "))
+	if name == "taskkill" && !f.stuck {
+		f.serverUp = false
+	}
 	if f.failAt != "" && strings.Contains(name, f.failAt) {
 		return errors.New("failed")
 	}
@@ -29,7 +35,7 @@ func (f *fakeRunner) Start(dir, name string, args ...string) error {
 	return nil
 }
 
-func (f *fakeRunner) Running(image string) bool { return false }
+func (f *fakeRunner) Running(image string) bool { return image == "mangosd.exe" && f.serverUp }
 
 // serverFolder makes a server folder with its configuration and map table.
 func serverFolder(t *testing.T) string {
@@ -186,6 +192,30 @@ func TestTemplateSQLWithInfo(t *testing.T) {
 	for _, want := range []string{`VALUES (1901, 0, 0, 1, 12, 5, 0, 0, -9000.5, 120, 'Meld\'s Keep', '')`, "ON DUPLICATE KEY UPDATE map_type = VALUES(map_type)"} {
 		if !strings.Contains(sql, want) {
 			t.Fatalf("SQL %s lacks %s", sql, want)
+		}
+	}
+}
+
+func TestUpdateServerMapsWaitsForTheServerToExit(t *testing.T) {
+	serverExitWait, serverPoll = 50*time.Millisecond, time.Millisecond
+	defer func() { serverExitWait, serverPoll = 20*time.Second, 250*time.Millisecond }()
+	server := serverFolder(t)
+
+	f := &fakeRunner{serverUp: true}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
+	if err := UpdateServerMaps(p, t.TempDir(), 1900, nil, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+
+	f = &fakeRunner{serverUp: true, stuck: true}
+	p.Run = f
+	err := UpdateServerMaps(p, t.TempDir(), 1900, nil, func(string) {})
+	if err == nil || !strings.Contains(err.Error(), "did not close") {
+		t.Fatalf("err = %v, want mangosd did not close", err)
+	}
+	for _, c := range f.calls {
+		if strings.Contains(c, "Extractor") || strings.HasPrefix(c, "START") {
+			t.Fatalf("ran %q beside a live server", c)
 		}
 	}
 }

@@ -207,6 +207,25 @@ func publishServer(p PublishPlan, clientData string, spec MapSpec, tiles []strin
 	return UpdateServerMaps(p, clientData, spec.MapID, tiles, log)
 }
 
+var (
+	// serverExitWait is how long UpdateServerMaps waits for mangosd to exit, which a server saving
+	// players takes longer than a few seconds to do; tests shorten it.
+	serverExitWait = 20 * time.Second
+	serverPoll     = 250 * time.Millisecond
+)
+
+// waitFor polls done until it is true or the timeout passes, and reports which.
+func waitFor(done func() bool, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for !done() {
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(serverPoll)
+	}
+	return true
+}
+
 // UpdateServerMaps rebuilds the server's map data for one map from the client's patch and restarts the
 // world server around it, the share of a publish that follows the database (and all a compiled region
 // of a continent needs, #211). Tiles are as publishServer's: "x_y" names, or none for the whole map.
@@ -217,7 +236,9 @@ func UpdateServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []st
 	spec := MapSpec{MapID: mapID}
 	log("Stopping the world server…")
 	_ = p.Run.Run(p.ServerRoot, "taskkill", []string{"/IM", "mangosd.exe"}, nil)
-	time.Sleep(3 * time.Second)
+	if !waitFor(func() bool { return !p.Run.Running("mangosd.exe") }, serverExitWait) {
+		return errors.New("mangosd did not close")
+	}
 
 	extractors := filepath.Join(p.ServerRoot, "run", "Extractors")
 	data := filepath.Join(p.ServerRoot, "data")
