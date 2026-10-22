@@ -657,6 +657,7 @@ export namespace mapfile {
 	    // Go type: ReferenceImage
 	    reference?: any;
 	    paths?: MapPath[];
+	    holesUnknown?: boolean;
 	    liquidsUnknown?: boolean;
 	    chunkDataUnknown?: boolean;
 	    version?: number;
@@ -696,6 +697,7 @@ export namespace mapfile {
 	        this.tileEffects = source["tileEffects"];
 	        this.reference = this.convertValues(source["reference"], null);
 	        this.paths = this.convertValues(source["paths"], MapPath);
+	        this.holesUnknown = source["holesUnknown"];
 	        this.liquidsUnknown = source["liquidsUnknown"];
 	        this.chunkDataUnknown = source["chunkDataUnknown"];
 	        this.version = source["version"];
@@ -1518,6 +1520,7 @@ export namespace vmangos {
 	    impassable?: boolean;
 	    noEffect?: number[];
 	    holes?: number[];
+	    holesAdd?: boolean;
 	    shadow?: number[];
 	
 	    static createFrom(source: any = {}) {
@@ -1531,6 +1534,7 @@ export namespace vmangos {
 	        this.impassable = source["impassable"];
 	        this.noEffect = source["noEffect"];
 	        this.holes = source["holes"];
+	        this.holesAdd = source["holesAdd"];
 	        this.shadow = source["shadow"];
 	    }
 	}

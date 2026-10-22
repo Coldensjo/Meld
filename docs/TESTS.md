@@ -543,7 +543,7 @@ the same scene, the report before and after.
 - Reference image (View › Reference Image, #184)
 - Water layers (the Water tool's All layers / Layer, #14)
 - Baked shadows: bake, paint, save and export (B-057, #16)
-- The unknown state of liquids and chunk data across a save (#525, #644, probe `unknown-flags`)
+- The unknown state of holes, liquids and chunk data across a save (#525, #644, #663, probe `unknown-flags`)
 - Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
 
 ### Tools and placing models (`docs/tests/tools.md`)

@@ -7,9 +7,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   cross the bridge as base64 strings. If you change the format, bump `Version` and update the tests.
   Older versions stay readable (a version 5 map has no shadows, a version 4 map no chunk data, a
   version 3 map no liquids blob, a version 2 map no holes blob either). Such a map opens with
-  `MapDocument.liquidsKnown` / `chunkDataKnown` false, and saved again it keeps saying so through the
-  header's optional `liquidsUnknown` / `chunkDataUnknown` (#525), since the blobs then hold only what
-  was drawn since and an empty one would otherwise read as "none" and erase the client's on Compile.
+  `MapDocument.holesKnown` / `liquidsKnown` / `chunkDataKnown` false, and saved again it keeps saying
+  so through the header's optional `holesUnknown` / `liquidsUnknown` / `chunkDataUnknown` (#525,
+  #663), since the blobs then hold only what was drawn since and an empty one would otherwise read as
+  "none" and erase the client's on Compile.
   The conversion to and from the bridge's `MapData` is `io/mapData.ts` (`toMapData`, `fromMapData`),
   kept free of the runes state so `tests/mapData.test.ts` can run it; Map Properties names what a
   region leaves to the client.
@@ -85,7 +86,9 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   (`adt/header.go`); a map saved before version 5 (`MapDocument.chunkDataKnown` false, kept across
   later saves by the header's `chunkDataUnknown`) sends no area ID (0), impassable flag (`nil`) or
   no-tuft rows, so a region keeps the client's, but its headers still carry the holes and the baked
-  shadows (#644).
+  shadows (#644). A map saved before version 3 (`MapDocument.holesKnown` false, kept by
+  `holesUnknown`) sends holes only for the chunks that have one, with `holesAdd`, which Go ORs into
+  the chunk's own bitmap (`adt.ChunkHeader.HolesAdd`), so the client's holes are never filled (#663).
 
 - **Walkable ground** (#175): Terrain › Climb (`prefs.climbView`, Shift+F2) tints each triangle
   steeper than `prefs.climbAngle` in the terrain shader (`climbCos`). View › Walkable ground

@@ -243,6 +243,8 @@ export interface MapSnapshot {
   chunkSlots: Uint8Array
   /** One byte per cell, 1 for a hole (format 3). Empty for an older map. */
   holes: Uint8Array
+  /** Whether `holes` is all of the region's holes (`MapDocument.holesKnown`), as `liquidsKnown` for the liquids. */
+  holesKnown: boolean
   /** The liquids blob (format 4, see liquids.ts); null for an older map, which has none. */
   liquids: Uint8Array | null
   /**
@@ -3274,6 +3276,8 @@ export class Engine {
       // impassable flags and no-tuft cells stay; its holes and baked shadows are still sent (#644).
       headers: this.doc.chunkDataKnown ? { areaIds: t.areaIds, chunkFlags: t.chunkFlags } : undefined,
       holes: t.holes,
+      // A map saved before the file kept holes adds its own to the client's (#663).
+      holesAdd: !this.doc.holesKnown,
       // A map that has none of its own keeps the client's.
       shadows: t.shadow ?? undefined,
       objects,
@@ -3368,7 +3372,7 @@ export class Engine {
   regionKey(): string {
     const d = this.doc
     const t = d.terrain
-    const settings = [editor.palette, editor.textureEffects, editor.textureLooks, editor.scopedEffects, d.chunkDataKnown, d.liquidsKnown]
+    const settings = [editor.palette, editor.textureEffects, editor.textureLooks, editor.scopedEffects, d.chunkDataKnown, d.liquidsKnown, d.holesKnown]
     return contentKey([
       t.heights,
       t.weights,
@@ -3601,6 +3605,7 @@ export class Engine {
       weights: t.weights,
       chunkSlots: t.chunkSlots,
       holes: t.holes,
+      holesKnown: d.holesKnown,
       liquids: encodeLiquids(d.liquids),
       liquidsKnown: d.liquidsKnown,
       chunkData: { areaIds: t.areaIds, chunkFlags: t.chunkFlags, noEffect: t.noEffect },
@@ -3641,6 +3646,7 @@ export class Engine {
     t.heights.set(new Float32Array(m.heights.slice().buffer))
     if (m.holes.length === t.holes.length) t.holes.set(m.holes)
     else if (m.holes.length) throw new Error('hole data size mismatch')
+    d.holesKnown = m.holesKnown
     if (m.liquids) decodeLiquids(d.liquids, m.liquids)
     d.liquidsKnown = m.liquidsKnown
     if (m.chunkData) {

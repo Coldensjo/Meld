@@ -67,6 +67,11 @@ export interface ExportInput {
    */
   holes?: Uint8Array
   /**
+   * Whether `holes` are added to the tiles' own rather than replacing them, for a map that doesn't know
+   * the client's holes (saved before the file kept them, #663): only the chunks with a hole send any.
+   */
+  holesAdd?: boolean
+  /**
    * The baked shadows, a byte per texel (terrain/bakedShadows.ts, `size * SHADOW_PER_CELL` a side);
    * sent in the chunk headers, with or without `headers`. Without, the tiles keep their own.
    */
@@ -103,6 +108,8 @@ export interface HeaderOut {
   noEffect?: number[]
   /** The hole cells, a bit per cell in each row; Go turns them into the client's 2x2-cell blocks. */
   holes?: number[]
+  /** Adds `holes` to the tile's own instead of replacing them (a map that doesn't know them, #663). */
+  holesAdd?: boolean
   /** The chunk's baked shadow map in the client's form (512 bytes, base64); replaces the tile's own. */
   shadow?: string
 }
@@ -236,7 +243,16 @@ export function mapToTiles(input: ExportInput): ExportOut {
               // those under its buildings), so the header's bits are replaced and a cleared cell comes off.
               if (input.noEffect) header.noEffect = chunkNoEffect(input.noEffect, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
             }
-            if (input.holes) header.holes = chunkNoEffect(input.holes, input.size, gx, gz) ?? new Array<number>(CHUNK_CELLS).fill(0)
+            if (input.holes) {
+              const holes = chunkNoEffect(input.holes, input.size, gx, gz)
+              // Added to the client's, a chunk without any of the map's sends none and keeps its own.
+              if (input.holesAdd) {
+                if (holes) {
+                  header.holes = holes
+                  header.holesAdd = true
+                }
+              } else header.holes = holes ?? new Array<number>(CHUNK_CELLS).fill(0)
+            }
             if (input.shadows) header.shadow = toBase64(chunkShadowBits(input.shadows, input.size * SHADOW_PER_CELL, gx, gz))
             tile.Headers.push(header)
           }

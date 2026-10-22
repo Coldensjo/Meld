@@ -112,12 +112,12 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// A map opened without the client's liquids or chunk data keeps saying so across a save (#525), and
+// A map opened without the client's holes, liquids or chunk data keeps saying so across a save (#525), and
 // one that has them writes neither flag.
 func TestUnknownFlagsRoundTrip(t *testing.T) {
 	for _, unknown := range []bool{false, true} {
 		m := sample(32)
-		m.LiquidsUnknown, m.ChunkDataUnknown = unknown, unknown
+		m.HolesUnknown, m.LiquidsUnknown, m.ChunkDataUnknown = unknown, unknown, unknown
 		var buf bytes.Buffer
 		if err := Write(&buf, m); err != nil {
 			t.Fatal(err)
@@ -126,8 +126,8 @@ func TestUnknownFlagsRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.LiquidsUnknown != unknown || got.ChunkDataUnknown != unknown {
-			t.Fatalf("unknown %v: read liquids %v, chunk data %v", unknown, got.LiquidsUnknown, got.ChunkDataUnknown)
+		if got.HolesUnknown != unknown || got.LiquidsUnknown != unknown || got.ChunkDataUnknown != unknown {
+			t.Fatalf("unknown %v: read holes %v, liquids %v, chunk data %v", unknown, got.HolesUnknown, got.LiquidsUnknown, got.ChunkDataUnknown)
 		}
 		hdr, _ := json.Marshal(&got.Header)
 		if !unknown && bytes.Contains(hdr, []byte("Unknown")) {

@@ -28,6 +28,7 @@ function snapshot(known: boolean): MapSnapshot {
 		weights: new Uint8Array(64 * 64 * 4),
 		chunkSlots: new Uint8Array(CHUNKS * 4),
 		holes: new Uint8Array(SIZE * SIZE),
+		holesKnown: known,
 		// No layers: a map that holds no liquids of its own.
 		liquids: new Uint8Array(4),
 		liquidsKnown: known,
@@ -42,9 +43,10 @@ function reread(s: MapSnapshot, version: number): mapfile.MapData {
 	return { ...JSON.parse(JSON.stringify(toMapData(s))), version } as mapfile.MapData
 }
 
-describe('the unknown state of liquids and chunk data (#525)', () => {
+describe('the unknown state of holes, liquids and chunk data (#525, #663)', () => {
 	test('a map opened without them keeps saying so across a save', () => {
 		const m = fromMapData(reread(snapshot(false), 6))
+		expect(m.holesKnown).toBe(false)
 		expect(m.liquidsKnown).toBe(false)
 		expect(m.chunkDataKnown).toBe(false)
 		// What was drawn since still comes back.
@@ -54,15 +56,23 @@ describe('the unknown state of liquids and chunk data (#525)', () => {
 
 	test('a map that has them writes no flag and reads back as known', () => {
 		const data = toMapData(snapshot(true))
+		expect(data.holesUnknown).toBeUndefined()
 		expect(data.liquidsUnknown).toBeUndefined()
 		expect(data.chunkDataUnknown).toBeUndefined()
 		const m = fromMapData(reread(snapshot(true), 6))
+		expect(m.holesKnown).toBe(true)
 		expect(m.liquidsKnown).toBe(true)
 		expect(m.chunkDataKnown).toBe(true)
 	})
 
 	test('a file older than the blobs opens without them', () => {
+		// Version 2 has no holes blob: opened and saved again, it still keeps the client's holes.
+		const v2 = fromMapData({ ...reread(snapshot(true), 2), holes: '' } as mapfile.MapData)
+		expect(v2.holes.length).toBe(0)
+		expect(v2.holesKnown).toBe(false)
+		expect(fromMapData(reread({ ...v2, holes: new Uint8Array(SIZE * SIZE) }, 6)).holesKnown).toBe(false)
 		const v3 = fromMapData(reread(snapshot(true), 3))
+		expect(v3.holesKnown).toBe(true)
 		expect(v3.liquids).toBeNull()
 		expect(v3.liquidsKnown).toBe(false)
 		expect(v3.chunkDataKnown).toBe(false)

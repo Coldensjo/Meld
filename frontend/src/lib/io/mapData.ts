@@ -34,8 +34,9 @@ export function toMapData(s: MapSnapshot): mapfile.MapData {
 		tileEffects: Object.keys(s.scopedEffects.tiles).length ? s.scopedEffects.tiles : undefined,
 		reference: s.reference ? Object.assign(new mapfile.ReferenceImage(), s.reference) : undefined,
 		paths: s.paths.length ? s.paths.map((p) => mapfile.MapPath.createFrom(p)) : undefined,
-		// A map opened without the client's liquids or chunk data says so (#525): the blobs below then
-		// hold only what was drawn since, and must not read back as the whole of it.
+		// A map opened without the client's holes, liquids or chunk data says so (#525, #663): the blobs
+		// below then hold only what was drawn since, and must not read back as the whole of it.
+		holesUnknown: s.holesKnown ? undefined : true,
 		liquidsUnknown: s.liquidsKnown ? undefined : true,
 		chunkDataUnknown: s.chunkDataKnown ? undefined : true,
 		heights: bytesToBase64(s.heights),
@@ -87,6 +88,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
 			weights: new Uint8Array(0),
 			chunkSlots: new Uint8Array(0),
 			holes: new Uint8Array(0),
+			holesKnown: false,
 			liquids: null,
 			liquidsKnown: false,
 			chunkData: null,
@@ -103,6 +105,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
 		chunkSlots: base64ToBytes(m.chunkSlots ?? ''),
 		// A format 2 map has no holes, and a format 3 map no liquids.
 		holes: base64ToBytes(m.holes ?? ''),
+		holesKnown: version >= 3 && !m.holesUnknown,
 		liquids: version >= 4 ? base64ToBytes(m.liquids ?? '') : null,
 		liquidsKnown: version >= 4 && !m.liquidsUnknown,
 		// A format 4 map has no area IDs, chunk flags or no-effect cells.

@@ -110,6 +110,27 @@ func TestRewriteHolesReadBack(t *testing.T) {
 	if terrain.Chunks[8].Holes != [CellsPerChunk]uint8{} {
 		t.Fatal("another chunk got holes")
 	}
+
+	// Added, as a map that doesn't know the client's holes sends them (#663), they join the chunk's
+	// own; replaced, the chunk's own go.
+	more := HoleBits([]uint8{0x03, 0, 0, 0, 0, 0, 0, 0})
+	for _, add := range []bool{true, false} {
+		again, err := Rewrite(out, Changes{TileX: 32, TileY: 48, Headers: map[int]ChunkHeader{9: {Holes: &more, HolesAdd: add}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		terrain, err := ParseTerrain(again)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := [CellsPerChunk]uint8{0x03, 0x03, 0, 0, 0, 0, 0, 0}
+		if add {
+			want = [CellsPerChunk]uint8{0x03, 0x03, 0x0c, 0x0c, 0, 0, 0, 0}
+		}
+		if terrain.Chunks[9].Holes != want {
+			t.Fatalf("add %v: holes %v, want %v", add, terrain.Chunks[9].Holes, want)
+		}
+	}
 }
 
 func TestRewriteShadowReadsBack(t *testing.T) {

@@ -391,26 +391,30 @@ export sends each chunk's MCSH as the client has it.
   second: a loop that yields with `setTimeout(0)` crawls there (the bake took over a minute). Yield
   through a `MessageChannel` instead.
 
-## The unknown state of liquids and chunk data across a save (#525)
+## The unknown state of holes, liquids and chunk data across a save (#525, #663)
 
-A region `.wmap` saved before version 4 (liquids) or 5 (area IDs, chunk flags, no-tuft cells) opens
-with `MapDocument.liquidsKnown` / `chunkDataKnown` false, and Compile then leaves the client's own
-alone. The header's `liquidsUnknown` / `chunkDataUnknown` keep that across a save.
+A region `.wmap` saved before version 3 (holes), 4 (liquids) or 5 (area IDs, chunk flags, no-tuft
+cells) opens with `MapDocument.holesKnown` / `liquidsKnown` / `chunkDataKnown` false, and Compile
+then leaves the client's own alone (the holes cut since are added to the client's). The header's
+`holesUnknown` / `liquidsUnknown` / `chunkDataUnknown` keep that across a save.
 
-- Unit: `bun test tests/mapData.test.ts` (`toMapData` → JSON → `fromMapData` keeps both flags, a
-  known map writes neither, version 3 and 4 files open without them) and `go test ./internal/mapfile/
+- Unit: `bun test tests/mapData.test.ts` (`toMapData` → JSON → `fromMapData` keeps the flags, a
+  known map writes none, version 2, 3 and 4 files open without them) and `go test ./internal/mapfile/
   -run TestUnknownFlagsRoundTrip` (the header round trip).
 - Probe `unknown-flags`: Northshire saved through Go (`SaveSceneMap`, `LoadMap`) and opened again,
-  first as opened from the client (no flag written), then with both flags set false and saved twice:
-  they stay false, the export sends no chunk data and partial liquids, and Map Properties lists
+  first as opened from the client (no flag written), then with the three flags set false and saved
+  twice: they stay false, the export sends no chunk data and partial liquids, and Map Properties lists
   them under "The client's". A hole cut there still reaches `mapToTiles`'s chunk header, with area
-  ID 0 and no `impassable` or `noEffect`, which keep the client's (#644).
-- Unit: `bun test tests/chunkFlags.test.ts` (a map without chunk data sends holes and shadows only)
+  ID 0 and no `impassable` or `noEffect`, which keep the client's (#644), and with `holesAdd`, while
+  a chunk without a hole sends none (#663).
+- Unit: `bun test tests/chunkFlags.test.ts` (a map without chunk data sends holes and shadows only;
+  one without holes sends them added, only for the chunks that have one), `go test ./internal/adt/
+  -run TestRewriteHolesReadBack` (added holes join the chunk's, replaced ones don't)
   and `go test ./internal/vmangos/ -run 'TestHeaderSpecImpassableOptional|TestRegionHolesRoundTrip'`
   (the second needs `WOW_DIR`: holes-only headers leave every chunk's zone, flags and no-tuft cells
   as a save without headers has them; compare with that save, not with `ReadTile`, which reads
   Meld's patch while a region save starts from the unpatched tile).
-- Trap: `Engine.regionKey` hashes both flags, so a region whose flag is false has another compile
+- Trap: `Engine.regionKey` hashes the flags, so a region whose flag is false has another compile
   fingerprint than the same region with it true (decision #82); that is wanted, as Compile writes
   differently.
 

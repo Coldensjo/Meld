@@ -113,3 +113,20 @@ test('a map without chunk data still sends its holes and shadows, keeping the ti
 	assert.equal('impassable' in h[17], false)
 	assert.equal('noEffect' in h[17], false)
 })
+
+test('a map that doesn’t know the client’s holes adds its own to them, and leaves the chunks without any alone (#663)', () => {
+	const inp = input(false)
+	inp.holes = new Uint8Array(128 * 128)
+	inp.holes[8 * 128 + 8] = 1
+	inp.holesAdd = true
+	const h = mapToTiles(inp).tiles[0].Headers!
+	assert.deepEqual(h[17].holes, [1, 0, 0, 0, 0, 0, 0, 0])
+	assert.equal(h[17].holesAdd, true)
+	assert.equal('holes' in h[16], false)
+	assert.equal('holesAdd' in h[16], false)
+	// Known, every chunk's holes are sent and replace the tile's.
+	inp.holesAdd = false
+	const known = mapToTiles(inp).tiles[0].Headers!
+	assert.deepEqual(known[16].holes, [0, 0, 0, 0, 0, 0, 0, 0])
+	assert.equal('holesAdd' in known[17], false)
+})

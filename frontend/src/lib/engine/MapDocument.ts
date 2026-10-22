@@ -130,6 +130,12 @@ export class MapDocument {
   readonly liquids: LiquidMap
   readonly liquidRenderer: LiquidRenderer
   /**
+   * Whether the terrain's holes are all of the region's. A map saved before the file kept holes opens
+   * without them, and a region's export then adds the holes cut since to the client's rather than
+   * filling the client's in (#663). Kept across saves as `liquidsKnown` is (`holesUnknown`).
+   */
+  holesKnown = true
+  /**
    * Whether `liquids` holds the region's liquids. A region saved before maps kept liquids opens
    * without them, and its export then leaves the client's liquids alone. Saved again, the file says
    * so (the header's `liquidsUnknown`, #525), so it opens the same way.

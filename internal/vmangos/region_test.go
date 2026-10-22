@@ -729,12 +729,17 @@ func TestHeightGridJSON(t *testing.T) {
 // clears it.
 func TestHeaderSpecImpassableOptional(t *testing.T) {
 	var specs []HeaderSpec
-	if err := json.Unmarshal([]byte(`[{"chunk":1,"areaId":0,"holes":[1,0,0,0,0,0,0,0]},{"chunk":2,"areaId":5,"impassable":false},{"chunk":3,"areaId":5,"impassable":true}]`), &specs); err != nil {
+	if err := json.Unmarshal([]byte(`[{"chunk":1,"areaId":0,"holes":[1,0,0,0,0,0,0,0]},{"chunk":2,"areaId":0,"holes":[1,0,0,0,0,0,0,0],"holesAdd":true},{"chunk":2,"areaId":5,"impassable":false},{"chunk":3,"areaId":5,"impassable":true}]`), &specs); err != nil {
 		t.Fatal(err)
 	}
-	if h := specs[0].chunkHeader(); h.Impassable != nil || h.AreaID != 0 || h.Holes == nil {
+	if h := specs[0].chunkHeader(); h.Impassable != nil || h.AreaID != 0 || h.Holes == nil || h.HolesAdd {
 		t.Fatalf("holes-only header: %+v", h)
 	}
+	// A map that doesn't know the client's holes adds its own to them (#663).
+	if h := specs[1].chunkHeader(); h.Holes == nil || !h.HolesAdd {
+		t.Fatalf("added holes: %+v", h)
+	}
+	specs = specs[1:]
 	if h := specs[1].chunkHeader(); h.Impassable == nil || *h.Impassable {
 		t.Fatalf("impassable false read as %v", h.Impassable)
 	}
@@ -745,7 +750,7 @@ func TestHeaderSpecImpassableOptional(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(b, []byte("impassable")) {
-		t.Fatalf("an unset impassable written: %s", b)
+	if bytes.Contains(b, []byte("impassable")) || bytes.Contains(b, []byte("holesAdd")) {
+		t.Fatalf("an unset impassable or holesAdd written: %s", b)
 	}
 }

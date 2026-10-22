@@ -28,7 +28,7 @@
 //
 // Version 5 has no shadows blob: such a map opens with none of its own. Version 4 has no area IDs, chunk flags or no-effect cells: such a map opens with none, and says so
 // (Version < 5), so a region's export can keep the client's own. Version 3 has no liquids: such a map opens with none. Version 2 has no holes blob either.
-// Saved again, such a map keeps saying so through the header's LiquidsUnknown and ChunkDataUnknown.
+// Saved again, such a map keeps saying so through the header's HolesUnknown, LiquidsUnknown and ChunkDataUnknown.
 //
 // Version 1 stored eight global paint layers instead, as splatA and splatB (SplatRes^2 * 4 bytes
 // each). It's still read; the frontend converts it to chunks.
@@ -130,8 +130,10 @@ type Header struct {
 	// file older than version 4, which kept none, so it holds only what was drawn since, and a region's
 	// export leaves the client's other liquids alone. ChunkDataUnknown says the same of the area IDs,
 	// chunk flags and no-effect cells (a file older than version 5), whose export then keeps the
-	// client's chunk headers. Without them a version 6 file would read an empty blob as "none" (#525).
-	// Optional; older readers ignore them.
+	// client's chunk headers. HolesUnknown says it of the holes (a file older than version 3), whose
+	// export then adds the map's holes to the client's rather than replacing them (#663). Without them
+	// a version 6 file would read an empty blob as "none" (#525). Optional; older readers ignore them.
+	HolesUnknown     bool `json:"holesUnknown,omitempty"`
 	LiquidsUnknown   bool `json:"liquidsUnknown,omitempty"`
 	ChunkDataUnknown bool `json:"chunkDataUnknown,omitempty"`
 }

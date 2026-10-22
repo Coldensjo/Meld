@@ -47,7 +47,8 @@ type TileSpec struct {
 // the chunk's own: a map without chunk data of its own still sends its holes and shadows, #644).
 // NoEffect, one entry per cell row with a bit per cell, replaces the chunk's noEffectDoodad bits;
 // empty keeps them (with a PaintSpec's added). Holes, in the same form, replaces the chunk's holes,
-// each 2x2-cell block a hole when any of its cells is; empty keeps them. Shadow (base64 in JSON),
+// each 2x2-cell block a hole when any of its cells is; empty keeps them. HolesAdd adds them to the
+// chunk's own instead, for a map that doesn't know the client's holes (#663). Shadow (base64 in JSON),
 // adt.ShadowBytes long, replaces the chunk's baked shadow map; empty keeps it.
 type HeaderSpec struct {
 	Chunk      int    `json:"chunk"`
@@ -55,6 +56,7 @@ type HeaderSpec struct {
 	Impassable *bool  `json:"impassable,omitempty"`
 	NoEffect   []int  `json:"noEffect,omitempty"`
 	Holes      []int  `json:"holes,omitempty"`
+	HolesAdd   bool   `json:"holesAdd,omitempty"`
 	Shadow     []byte `json:"shadow,omitempty"`
 }
 
@@ -74,6 +76,7 @@ func (h HeaderSpec) chunkHeader() adt.ChunkHeader {
 		}
 		bits := adt.HoleBits(rows)
 		ch.Holes = &bits
+		ch.HolesAdd = h.HolesAdd
 	}
 	if len(h.Shadow) == adt.ShadowBytes {
 		ch.Shadow = h.Shadow

@@ -19,6 +19,9 @@ type ChunkHeader struct {
 	// Holes, when set, replaces the chunk's holes: the 1.12 4x4 bitmap, bit row*4+col for the 2x2-cell
 	// block (col, row). See HoleBits.
 	Holes *uint16
+	// HolesAdd adds Holes to the chunk's own instead of replacing them: a map that doesn't know the
+	// client's holes (one saved before the file kept them, #663) must not fill them in.
+	HolesAdd bool
 	// Shadow, when set, replaces the chunk's baked shadow map (MCSH): ShadowBytes bytes, laid out as
 	// Chunk.Shadow. See shadowPiece.
 	Shadow []byte
@@ -81,7 +84,11 @@ func (h ChunkHeader) apply(header []byte, flags uint32) uint32 {
 	}
 	if h.Holes != nil {
 		// 1.12 knows only the low-resolution holes; the high-resolution flag of later clients goes.
-		binary.LittleEndian.PutUint16(header[mcnkHoles:], *h.Holes)
+		bits := *h.Holes
+		if h.HolesAdd {
+			bits |= binary.LittleEndian.Uint16(header[mcnkHoles:])
+		}
+		binary.LittleEndian.PutUint16(header[mcnkHoles:], bits)
 		flags &^= mcnkFlagHighHole
 	}
 	if h.Impassable == nil {

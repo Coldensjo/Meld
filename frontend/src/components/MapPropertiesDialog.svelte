@@ -25,10 +25,10 @@
 	/** The map's size: in client tiles for a region, else in cells. */
 	const tiles = $derived(editor.regionBlock ? `${editor.regionBlock.size}×${editor.regionBlock.size} tiles` : `${editor.mapSize} × ${editor.mapSize} cells`)
 	const azeroth = $derived(!!editor.region)
-	// A region saved before the file kept its liquids or chunk data holds only what was drawn since
-	// (#525): Compile then leaves the client's own alone, which the author should know.
+	// A region saved before the file kept its holes, liquids or chunk data holds only what was drawn
+	// since (#525, #663): Compile then leaves the client's own alone, which the author should know.
 	const doc = engineRef.current?.activeDocument()
-	const unknown = doc && editor.region ? [!doc.liquidsKnown && 'liquids', !doc.chunkDataKnown && 'zones, flags and no-tuft cells'].filter((x): x is string => !!x) : []
+	const unknown = doc && editor.region ? [!doc.holesKnown && 'holes', !doc.liquidsKnown && 'liquids', !doc.chunkDataKnown && 'zones, flags and no-tuft cells'].filter((x): x is string => !!x) : []
 
 	// A map made for the client also says what it is to the client and the server (written on publish).
 	const ref = engineRef.current?.activeVmangos() ?? null
