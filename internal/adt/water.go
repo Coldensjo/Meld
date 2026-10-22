@@ -138,10 +138,62 @@ func atMaxDepth(l *Liquid, x, z int) bool {
 	return true
 }
 
+// MergeLiquids returns a chunk's layers with those of one type joined into one, since the client
+// reads one MCLQ entry per MCNK liquid flag and so drops a second layer of a type (two LiquidType.dbc
+// rows of one kind painted side by side, or a painted ocean beside the sea). The joined layer covers
+// every cell any of them covers, and takes each vertex from the first layer, in order, with a covered
+// cell at it: a cell covered twice keeps the first layer's surface. The order of the types is kept.
+func MergeLiquids(layers []Liquid) []Liquid {
+	out := make([]Liquid, 0, len(layers))
+	// owned[k] marks the vertices out[k] has from a covered cell.
+	var owned [][liquidVerts]bool
+	for _, l := range layers {
+		k := 0
+		for k < len(out) && out[k].Type != l.Type {
+			k++
+		}
+		if k == len(out) {
+			out = append(out, l)
+			owned = append(owned, [liquidVerts]bool{})
+			markCorners(&owned[k], &l)
+			continue
+		}
+		m := &out[k]
+		for i, on := range l.Cells {
+			if !on || m.Cells[i] {
+				continue
+			}
+			m.Cells[i] = true
+			r, c := i/CellsPerChunk, i%CellsPerChunk
+			for _, v := range [4]int{r*9 + c, r*9 + c + 1, (r+1)*9 + c, (r+1)*9 + c + 1} {
+				if !owned[k][v] {
+					m.Heights[v], m.Depth[v] = l.Heights[v], l.Depth[v]
+					owned[k][v] = true
+				}
+			}
+		}
+	}
+	return out
+}
+
+// markCorners marks in owned the corner vertices of every cell l covers.
+func markCorners(owned *[liquidVerts]bool, l *Liquid) {
+	for i, on := range l.Cells {
+		if !on {
+			continue
+		}
+		r, c := i/CellsPerChunk, i%CellsPerChunk
+		for _, v := range [4]int{r*9 + c, r*9 + c + 1, (r+1)*9 + c, (r+1)*9 + c + 1} {
+			owned[v] = true
+		}
+	}
+}
+
 // liquidRecords encodes a chunk's layers as its MCLQ payload, in the order of their MCNK flags, and
-// returns the flags to set. Layers of an unknown type, or that cover no cell, are left out. It
-// returns nil when nothing is left.
+// returns the flags to set. Layers of one type are joined first (MergeLiquids). Layers of an unknown
+// type, or that cover no cell, are left out. It returns nil when nothing is left.
 func liquidRecords(layers []Liquid) ([]byte, uint32) {
+	layers = MergeLiquids(layers)
 	kept := make([]*Liquid, 0, len(layers))
 	for i := range layers {
 		l := &layers[i]

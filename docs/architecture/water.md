@@ -42,5 +42,8 @@ Liquids, the sea and how both are drawn and exported.
     alphas. It casts no shadow, is never picked, follows View › Water, and is never exported (the WMO
     is the client's).
   - Go: `adt.Liquid` is one layer. `ParseLiquids` reads every MCLQ layer, and `Changes.Liquids`
-    rewrites chunks in the client's flag order (`internal/adt/water.go`). A region save only
-    rewrites chunks whose liquids differ from the client's.
+    rewrites chunks in the client's flag order (`internal/adt/water.go`). The client reads one MCLQ
+    entry per MCNK liquid flag, so `MergeLiquids` first joins a chunk's layers of one type (two
+    LiquidType.dbc rows of one kind, or a painted ocean beside the sea): the cells OR'd, each vertex
+    from the first layer with a covered cell at it (#527). A region save only rewrites chunks whose
+    liquids differ from the client's, comparing the joined layers (`liquidsByChunk`).

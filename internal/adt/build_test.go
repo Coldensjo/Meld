@@ -226,6 +226,68 @@ func TestBuildTileLiquidLayers(t *testing.T) {
 	}
 }
 
+// Two layers of one type in a chunk (two LiquidType.dbc rows of one kind, or a painted ocean beside
+// the sea) are written as one entry under their one flag, since the client reads an entry a flag (#527).
+func TestBuildTileMergesLayersOfOneType(t *testing.T) {
+	const lattice = ChunksPerTile*CellsPerChunk + 1
+	outer := make([]float32, lattice*lattice)
+	for i := range outer {
+		outer[i] = -5
+	}
+	lake := Liquid{Type: LiquidWater}
+	river := Liquid{Type: LiquidWater}
+	ocean := Liquid{Type: LiquidOcean}
+	for v := range lake.Heights {
+		lake.Heights[v], lake.Depth[v] = 2, 100
+		river.Heights[v], river.Depth[v] = 7, 200
+		ocean.Heights[v] = 0
+	}
+	for i := 0; i < 8; i++ {
+		lake.Cells[i] = true     // row 0
+		river.Cells[8+i] = true  // row 1, sharing row 0's lower vertices
+		river.Cells[i] = i < 2   // two cells the lake has too
+		ocean.Cells[56+i] = true // the last row, beside the sea
+	}
+	ch := Changes{TileX: 2, TileY: 3, Water: &Water{Level: 0}, Liquids: map[int][]Liquid{17: {lake, river, ocean}}}
+	root, err := BuildTile(outer, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	liquids, err := ParseLiquids(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var at17 []Liquid
+	for _, l := range liquids {
+		if l.IndexX == 1 && l.IndexY == 1 {
+			at17 = append(at17, l)
+		}
+	}
+	if len(at17) != 2 || at17[0].Type != LiquidWater || at17[1].Type != LiquidOcean {
+		t.Fatalf("chunk 17 layers: %+v, want one water and one ocean", typesOf(at17))
+	}
+	w := at17[0]
+	for i, on := range w.Cells {
+		if on != (i < 16) {
+			t.Fatalf("water cell %d covered %v; want rows 0 and 1", i, on)
+		}
+	}
+	for v := 0; v < 27; v++ {
+		want, depth := float32(2), byte(100) // rows 0 and 1 of vertices are the lake's, the first layer
+		if v >= 18 {
+			want, depth = 7, 200 // row 2 only the river's cells reach
+		}
+		if w.Heights[v] != want || w.Depth[v] != depth {
+			t.Fatalf("water vertex %d: height %v depth %d, want %v and %d", v, w.Heights[v], w.Depth[v], want, depth)
+		}
+	}
+	for i, on := range at17[1].Cells {
+		if on != (i >= 16) {
+			t.Fatalf("ocean cell %d covered %v; want the painted row and the sea's joined", i, on)
+		}
+	}
+}
+
 func typesOf(ls []Liquid) []int {
 	out := make([]int, len(ls))
 	for i, l := range ls {

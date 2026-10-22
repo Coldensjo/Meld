@@ -364,7 +364,8 @@ func buildTile(t TileSpec, objs []adt.Object, water *adt.Water) ([]byte, error) 
 	return adt.BuildTile(t.Outer, ch)
 }
 
-// liquidsByChunk groups liquid layers by their chunk's index, in a grid of perRow chunks a side.
+// liquidsByChunk groups liquid layers by their chunk's index, in a grid of perRow chunks a side,
+// with a chunk's layers of one type joined (adt.MergeLiquids).
 func liquidsByChunk(layers []adt.Liquid, perRow int) (map[int][]adt.Liquid, error) {
 	out := map[int][]adt.Liquid{}
 	for _, l := range layers {
@@ -376,6 +377,10 @@ func liquidsByChunk(layers []adt.Liquid, perRow int) (map[int][]adt.Liquid, erro
 		}
 		k := l.IndexY*perRow + l.IndexX
 		out[k] = append(out[k], l)
+	}
+	// Joined here as the writer joins them, so a region save compares the chunk the client will hold.
+	for k, ls := range out {
+		out[k] = adt.MergeLiquids(ls)
 	}
 	return out, nil
 }
