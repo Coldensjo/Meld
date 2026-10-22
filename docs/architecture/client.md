@@ -50,6 +50,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   - WoW meshes are one geometry with groups plus a material array, which keeps it at one
     `InstancedMesh` per type.
   - A model that fails to load is not cached: `loadAsset` warns and tries it again after `RETRY_MS`.
+    A WMO's room data and a model's collision faces do the same through `wow/loadCache.ts`'s
+    `LoadCache` (#515): a failure, the server's or the decoder's, is warned, counted (`failed`) and
+    handed to `onFail` (the Engine's status bar and Log line), and the first ask after `RETRY_MS`
+    loads it again.
     An M2 the client draws nothing of (no batch shown, no light, emitter or ribbon: an open door's
     collision blocker, an invisible trigger) is not a failure (#333): `ParseM2` returns
     `wow.ErrNothingToDraw`, `Client.Model` answers it with its collision hull as vertices and

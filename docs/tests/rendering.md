@@ -564,6 +564,12 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   and the near plane at 0.5 yd; off, it ends 9.5 yd past the wall in SI:7 (group 111).
 - Unit test: `bun test tests/wmoRoom.test.ts` ("a sphere moved into a wall ..."): stop, slide, floor,
   push-out and a free move on a toy room, with and without the column index.
+- Room data that fails (#515): `bun run probe wmo-nav-fail` (about 15 s with the scene loaded) makes
+  `/wow/wmonav` answer 500 once for Stormwind (it wraps `window.fetch`), and checks the failure is
+  counted in `rooms.navs.failed` and logged (`Building rooms: ... didn't load`), the camera is in no
+  room and the file is not fetched again each frame, then moves the cache's clock (`rooms.navs.now`)
+  past `RETRY_MS` and checks the retry loads it and the camera is in room 49 again. The cache itself:
+  `bun test tests/loadCache.test.ts` (a truncated body for `decodeWmoNav`, the retry, a forget mid-load).
 - The clamp (#310): the probe's `low` step lowers the eye 4 yd from its start and checks it stops 3 yd
   over the Trade District street's floor (`WmoRooms.floorAt`), in room 49, below the terrain there; `on.lift`
   checks the start eye set by `setSceneView` is not lifted.

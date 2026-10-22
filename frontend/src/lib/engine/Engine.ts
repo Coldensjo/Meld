@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { GenerateKind, Terrain } from '../terrain/Terrain'
 import { presetById } from '../terrain/presets'
 import type { Command } from '../state/history'
-import { MAX_BRUSH_RADIUS, docs, editor, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
+import { MAX_BRUSH_RADIUS, docs, editor, logLine, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
 import { type adt, vmangos } from '../../../wailsjs/go/models'
@@ -74,6 +74,7 @@ import { PropEffects } from '../world/PropEffects'
 import { castsNear, clearNearCasters, materialsNear, setNearCascade } from '../world/shadowReach'
 import { PosedShadows } from './posedShadows'
 import { WmoRooms } from '../world/WmoRooms'
+import { RETRY_MS } from '../wow/loadCache'
 import { GROUND_SNAP_REACH } from '../world/particles'
 import { RoomFlood, SKY_GROUP } from '../world/wmoFlood'
 import { RoomFogFade } from '../world/wmoFog'
@@ -628,6 +629,11 @@ export class Engine {
       const floor = this.rooms.floorAt(this.objects, at)
       return this.rooms.current && floor > -Infinity ? floor : Math.max(ground, floor)
     }
+    // A WMO whose room data failed has no rooms, walls or floor until its retry (#515): say so, and log it.
+    this.rooms.navs.onFail = (path, err) =>
+      setStatus(`Building rooms: ${path} didn't load, so the camera passes through its walls (tried again in ${RETRY_MS / 1000} s): ${err instanceof Error ? err.message : err}`, 8000)
+    // A model whose collision failed is left out of the walkable ground; the status line counts them.
+    this.nav.collisions.onFail = (path, err) => logLine(`Walkable ground: the collision of ${path} didn't load: ${err instanceof Error ? err.message : err}`)
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this
@@ -1905,7 +1911,7 @@ export class Engine {
             ? "Walkable ground: the server has no movement maps (mmaps) here. Build them with VMaNGOS's MoveMapGenerator."
             : `Walkable ground: the server's own navmesh (its mmaps) within ${NAV_RANGE} yd${c.missing ? `, ${c.missing} of ${c.total} tiles have none` : ''}. A tile edited since they were built shows the old ground. ${colours}`
       : !busy
-      ? `Walkable ground: the navmesh within ${NAV_RANGE} yd. ${colours}`
+      ? `Walkable ground: the navmesh within ${NAV_RANGE} yd.${c.failed ? ` ${c.failed} model${c.failed === 1 ? "'s" : "s'"} collision didn't load and is left out (Help > Log).` : ''} ${colours}`
       : c.loading
         ? "Walkable ground: loading the models' collision…"
         : `Walkable ground: building the navmesh, ${c.done} of ${c.total} tiles…`

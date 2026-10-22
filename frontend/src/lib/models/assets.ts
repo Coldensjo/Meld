@@ -8,6 +8,7 @@ import { buildBoundsTree } from '../world/bvh'
 import { markShadowMoving } from '../world/shadowReach'
 import { adoptModel, buildModel } from './modelBuild'
 import { helperGeometry, helperMaterial, helperName, isHelper } from './helpers'
+import { RETRY_MS } from '../wow/loadCache'
 import type { LiquidClass } from '../water/liquids'
 
 /**
@@ -98,13 +99,13 @@ function getPlaceholder(): ModelAsset {
   return placeholder
 }
 
+/** When each model that failed to load last failed: the loader tries it again after RETRY_MS. */
+const failedAt = new Map<string, number>()
+
 /**
  * Returns the asset if loaded, otherwise a placeholder (and starts loading).
  * Listen with `onAssetLoaded` to swap the placeholder out.
  */
-/** How long a model that failed to load waits before the loader tries it again. */
-const RETRY_MS = 30000
-const failedAt = new Map<string, number>()
 
 export function getAsset(type: string): ModelAsset {
   const a = assets.get(type)

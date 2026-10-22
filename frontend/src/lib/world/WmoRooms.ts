@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { getAsset, type ModelAsset } from '../models/assets'
 import { baseType } from '../models/wmoSet'
 import { fetchWmoNav } from '../wow/api'
+import { LoadCache } from '../wow/loadCache'
 import type { ObjectLayer, WorldObject } from './ObjectLayer'
 import { EXTERIOR_LIT } from './wmoFlood'
 import { selectWmoFog, type FogTarget } from './wmoFog'
@@ -88,7 +89,11 @@ export class WmoRooms {
    * camera is closer to than 0.5 yd is not clipped away to show the sky or the street behind it.
    */
   wallDist = Infinity
-  private navs = new Map<string, WmoNav | null>()
+	/**
+	 * Each WMO's room data by lower-case path, read the first time the camera comes near it. A failure is
+	 * warned and retried (#515); the Engine sets `onFail` to say so in the status bar.
+	 */
+	readonly navs = new LoadCache<WmoNav>('WMO room data', async (path) => decodeWmoNav(await fetchWmoNav(path)))
 	/** The placed WMOs that are not hidden, as of `sync`; entries are reused through `placedPool`. */
 	private placed: PlacedWmo[] = []
 	private placedPool: PlacedWmo[] = []
@@ -99,7 +104,6 @@ export class WmoRooms {
   private objectsVersion = -1
   private objectsMoves = 0
   private lastEye = new THREE.Vector3(NaN, NaN, NaN)
-  private loaded = 0
   private seenLoaded = -1
   private local = new THREE.Vector3()
   private eyeModel: [number, number, number] = [0, 0, 0]
@@ -167,10 +171,10 @@ export class WmoRooms {
       this.objectsVersion = -1
     }
     this.sync(objects)
-    if (!this.placedChanged && eye.distanceToSquared(this.lastEye) < MOVE_EPS * MOVE_EPS && this.loaded === this.seenLoaded) return
+    if (!this.placedChanged && eye.distanceToSquared(this.lastEye) < MOVE_EPS * MOVE_EPS && this.navs.settled === this.seenLoaded) return
     this.placedChanged = false
     this.lastEye.copy(eye)
-    this.seenLoaded = this.loaded
+    this.seenLoaded = this.navs.settled
     this.current = null
     this.over.length = 0
     this.wallDist = Infinity
@@ -344,20 +348,14 @@ export class WmoRooms {
 
 	/** Forgets the room data of the WMOs at `paths` (#505: the buildings of a closed map nothing else places). */
 	forget(paths: Iterable<string>) {
-		for (const p of paths) this.navs.delete(p.toLowerCase())
+		for (const p of paths) this.navs.forget(p.toLowerCase())
 	}
 
-  /** The room data of a WMO, or null while it loads (or when it failed). */
-  private nav(path: string): WmoNav | null {
-    const key = path.toLowerCase()
-    if (this.navs.has(key)) return this.navs.get(key)!
-    this.navs.set(key, null)
-    fetchWmoNav(path)
-      .then((buf) => {
-        this.navs.set(key, decodeWmoNav(buf))
-        this.loaded++
-      })
-      .catch(() => {})
-    return null
-  }
+	/**
+	 * The room data of a WMO, or null while it loads or after it failed (#515: a server error or a
+	 * body `decodeWmoNav` rejects is warned, counted in `failed` and retried after RETRY_MS).
+	 */
+	private nav(path: string): WmoNav | null {
+		return this.navs.get(path.toLowerCase(), path)
+	}
 }

@@ -135,7 +135,7 @@ class Batch {
         this.material.uniforms.map.value = t
         this.ready = true
       })
-      .catch(() => {})
+      .catch((err) => console.warn('particle texture failed', look.texture, err))
   }
 
   /** Makes room for `more` floats past this frame's. */

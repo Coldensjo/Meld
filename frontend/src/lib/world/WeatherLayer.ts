@@ -376,7 +376,7 @@ export class WeatherLayer {
 				material.uniforms.map.value = t
 				material.visible = true
 			})
-			.catch(() => {})
+			.catch((err) => console.warn('weather texture failed', path, err))
 	}
 
 	private buildRain() {

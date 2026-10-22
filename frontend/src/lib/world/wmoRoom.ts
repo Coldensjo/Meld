@@ -156,6 +156,7 @@ export function decodeWmoNav(buf: ArrayBuffer): WmoNav {
   const hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, n))) as Header
   let off = 4 + n
   const take = (tris: number) => {
+    if (off + tris * 36 > buf.byteLength) throw new Error(`WMO room data: ${tris} faces at byte ${off} run past the body's ${buf.byteLength} bytes`)
     const a = new Float32Array(buf, off, tris * 9)
     off += tris * 36
     return a

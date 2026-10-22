@@ -45,7 +45,7 @@ function toCache(key: string, blob: Blob) {
   blob
     .arrayBuffer()
     .then((b) => SaveThumbnail(VERSION + '|' + key, bytesToBase64(new Uint8Array(b))))
-    .catch(() => {})
+    .catch((err) => console.warn('thumbnail cache write failed', key, err))
 }
 
 // --- model rendering --------------------------------------------------------
