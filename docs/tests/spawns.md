@@ -41,7 +41,7 @@ const pip = await import('<PipetteTool.ts URL>'); await pip.pickSpawn(editor.spa
 
 ## Sorting the creature tabs by level (#659)
 
-Checks: the Creatures and NPCs tabs' sort menu (`.spawn-browser select`) orders by level. In the dev page
+Checks: the Creatures and NPCs tabs' sort menu (the browser header's `select[aria-label=Sort]`, #651) orders by level. In the dev page
 on Creatures: set the select's value to `level`, `level-desc` and `''` and dispatch `change`; the first
 tiles' `.badge` levels read all 1s, all 63s, then the database's order again, and
 `.spawn-browser .grid-wrap`'s scrollTop is 0 after each. The choice is in `prefs.browserViews.creature.sort`.

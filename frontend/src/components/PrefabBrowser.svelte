@@ -14,13 +14,16 @@
 
 	interface Props {
 		tile: number
+		/** The browser header's search (#651). */
+		query: string
+		/** How many prefabs the search leaves, for the header's count. */
+		count?: number
 	}
-	let { tile }: Props = $props()
+	let { tile, query, count = $bindable(0) }: Props = $props()
 
 	let entries = $state<PrefabEntry[]>([])
 	let problems = $state<string[]>([])
 	let loading = $state(false)
-	let query = $state('')
 	let hovered = $state<PrefabEntry | null>(null)
 
 	async function load() {
@@ -44,6 +47,9 @@
 	})
 
 	const shown = $derived(query.trim() ? entries.filter((e) => e.prefab.name.toLowerCase().includes(query.trim().toLowerCase())) : entries)
+	$effect(() => {
+		count = shown.length
+	})
 
 	function place(e: PrefabEntry) {
 		const engine = engineRef.current
@@ -68,7 +74,6 @@
 	<!-- A tile only sets the hover; leaving the grid clears it (no gap between two tiles). -->
 	<div class="grid-wrap" role="group" aria-label="Prefabs" tabindex="-1" onpointerleave={() => (hovered = null)}>
 		<div class="bar">
-			<input class="search" placeholder="Search prefabs…" bind:value={query} aria-label="Search prefabs" />
 			<span class="dim folder" title={prefs.prefabDir}>{prefs.prefabDir || 'No prefab folder yet'}</span>
 			<button onclick={() => void choosePrefabFolder()} disabled={!hasBackend()} title="The folder your prefabs are kept in">Folder…</button>
 			<button onclick={() => void load()} disabled={!prefs.prefabDir} title="Read the folder again">Refresh</button>
@@ -132,9 +137,6 @@
 		gap: 6px;
 		padding: 0 0 6px;
 		background: var(--panel);
-	}
-	.search {
-		width: 180px;
 	}
 	.folder {
 		flex: 1;

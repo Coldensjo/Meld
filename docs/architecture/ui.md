@@ -74,6 +74,12 @@ The window layout, the asset browser and the dock panels and floating windows.
     (`browserKind`) and each tab's search, zone, category and scroll (`browserViews`, `wow/browserViews.ts`).
     The Creatures and NPCs tabs (`SpawnBrowser.svelte`) also keep a sort there (#659: database order,
     or by level with `byLevel`, lowest or highest first).
+  - The header is the same on every tab (#651): one search box (Ctrl+F, a per-tab placeholder), the
+    count and the tile-size slider. Beside the box the model tabs show the zone select and Creatures
+    and NPCs the sort; Objects and Prefabs show neither. The box writes the shown tab's
+    `browserViews` entry (Prefabs has one too); `SpawnBrowser` reads its query from there and
+    `PrefabBrowser` gets it as a prop, and both hand their result's length back through a bindable
+    `count`. Neither has a search box of its own, and their category facets stay in their panels.
   - The **Names** checkbox in the header (`prefs.browserNames`, #655) shows or hides the name under
     every browser tab's tiles (`PaletteTile`'s `showLabel`) and in the asset preview; the rows' height
     (`rowH`) drops by the label's 22 px with it. The pickers and the brush editor always show names.

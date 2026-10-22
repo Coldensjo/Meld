@@ -55,20 +55,23 @@
   import { entryFrom } from '../lib/tools/spawnBrush'
   import type { SearchItem } from '../lib/wow/search'
   import { onDestroy, tick, untrack } from 'svelte'
-  import { byLevel, readView, writeView, type BrowserSort, type BrowserView } from '../lib/wow/browserViews'
+  import { byLevel, readView, writeView, type BrowserView } from '../lib/wow/browserViews'
   import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
 
   // The asset browser's Creatures, NPCs and Objects tabs: the world database's templates as
   // rendered tiles in a virtualised grid, narrowed by category (creature type, or object type with
-  // herbs and ore apart) and a search over names and entries. A creature tile shows its level. A
+  // herbs and ore apart) and a search over names and entries (the browser's header holds the search
+  // box and the order, #651). A creature tile shows its level. A
   // pick makes the template what the Place tool puts down.
 
   interface Props {
     kind: SpawnKind
     /** The tile under the pointer, for the browser's preview. */
     onhover: (item: SearchItem | null) => void
+    /** How many templates the search and category leave, for the browser header's count. */
+    count?: number
   }
-  let { kind, onhover }: Props = $props()
+  let { kind, onhover, count = $bindable(0) }: Props = $props()
 
   let creatures = $state<vmangos.CreatureTemplate[]>([])
   let objects = $state<vmangos.ObjectTemplate[]>([])
@@ -150,6 +153,9 @@
     if (!sort) return list
     const cmp = byLevel(sort === 'level-desc')
     return list.sort((a, b) => cmp(a.creature!, b.creature!))
+  })
+  $effect(() => {
+    count = items.length
   })
 
   /** The template the Place tool puts down now, drawn highlighted. */
@@ -255,17 +261,6 @@
 </script>
 
 <div class="spawn-browser">
-  <div class="top">
-    <input type="search" placeholder={kind === 'object' ? 'Search objects: a name (chest, vein, peacebloom) or an entry' : 'Search: a name (Hogger) or an entry'} bind:value={() => query, (v) => setView({ query: v })} />
-    {#if kind !== 'object'}
-      <select aria-label="Sort" title="The order of the creatures" value={sort} onchange={(e) => setView({ sort: e.currentTarget.value as BrowserSort })}>
-        <option value="">Database order</option>
-        <option value="level">Level, lowest first</option>
-        <option value="level-desc">Level, highest first</option>
-      </select>
-    {/if}
-    <span class="dim">{items.length.toLocaleString()} {kind === 'object' ? 'objects' : kind === 'npc' ? 'NPCs' : 'creatures'}</span>
-  </div>
   <div class="body">
     <nav class="facets">
       <button class="facet" aria-pressed={!category} class:active={!category} onclick={() => setView({ category: '' })}>All <span>{all.length.toLocaleString()}</span></button>
@@ -299,16 +294,6 @@
     flex-direction: column;
     min-height: 0;
     flex: 1;
-  }
-  .top {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 6px;
-  }
-  .top input {
-    flex: 1;
-    min-width: 0;
   }
   .body {
     display: flex;
@@ -365,10 +350,5 @@
   }
   .hint.error {
     color: var(--danger-text);
-  }
-  .dim {
-    color: var(--text-dim);
-    font-size: 11px;
-    white-space: nowrap;
   }
 </style>

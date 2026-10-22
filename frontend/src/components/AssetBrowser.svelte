@@ -12,7 +12,7 @@
   import { prefetchAround, prefetchThumbs } from '../lib/wow/thumbs'
   import { categoryOrder } from '../lib/wow/catalog'
   import { searchAssets, type AssetKind, type SearchItem } from '../lib/wow/search'
-  import { readView, writeView, type BrowserView } from '../lib/wow/browserViews'
+  import { readView, writeView, type BrowserSort, type BrowserView } from '../lib/wow/browserViews'
   import { isModelKey, newSet, sameModel, validSets, withModel, withoutModel, type ModelSet } from '../lib/wow/modelSets'
   import { uniqueName } from '../lib/tools/doodadBrush'
   import { exportModelSet, hasBackend, importModelSets } from '../lib/io/mapio'
@@ -53,10 +53,24 @@
   const query = $derived(view.query)
   const category = $derived(view.category)
   const zone = $derived(view.zone)
+  /** The creature tabs' order (#659); objects have no level. */
+  const sort = $derived(view.sort)
   function setView(patch: Partial<BrowserView>) {
     prefs.browserViews = writeView(prefs.browserViews, kind, patch)
   }
   let hovered = $state<SearchItem | null>(null)
+  /** What the spawn and prefab tabs list, for the header's count; they search the header's query (#651). */
+  let childCount = $state(0)
+  /** Each tab's search box hint: what it searches by. */
+  const PLACEHOLDERS: Partial<Record<Kind, string>> = {
+    tex: 'Search textures… (Ctrl+F)',
+    all: 'Search everything… (Ctrl+F)',
+    creature: 'Search creatures: a name (Hogger) or an entry… (Ctrl+F)',
+    npc: 'Search NPCs: a name or an entry… (Ctrl+F)',
+    object: 'Search objects: a name (chest, vein, peacebloom) or an entry… (Ctrl+F)',
+    prefabs: 'Search prefabs… (Ctrl+F)',
+  }
+  const placeholder = $derived(PLACEHOLDERS[kind] ?? 'Search models… (Ctrl+F)')
   let searchBox: HTMLInputElement | undefined = $state()
 
   // The whole client's catalog, indexed once per client.
@@ -407,20 +421,22 @@
         <button class="tab" role="tab" aria-selected={kind === k.id && !prefs.browserCollapsed} class:active={kind === k.id && !prefs.browserCollapsed} onclick={() => chooseKind(k.id)}>{k.label}</button>
       {/each}
     </div>
-    {#if !prefs.browserCollapsed && wow.loaded && !spawnKind && kind !== 'prefabs'}
-      <input
-        class="search"
-        type="text"
-        placeholder={kind === 'tex' ? 'Search textures… (Ctrl+F)' : kind === 'all' ? 'Search everything… (Ctrl+F)' : 'Search models… (Ctrl+F)'}
-        bind:value={() => query, (v) => setView({ query: v })}
-        bind:this={searchBox}
-        onkeydown={onKey}
-      />
-      <select bind:value={() => zone, (v) => setView({ zone: v })} title="Zone" aria-label="Zone">
-        <option value="">All zones</option>
-        {#each result.zones as z (z.name)}<option value={z.name}>{z.name} ({z.count})</option>{/each}
-      </select>
-      <span class="count">{items.length.toLocaleString()}</span>
+    {#if !prefs.browserCollapsed && wow.loaded}
+      <!-- The same search, count and tile size on every tab (#651); the zone is the model tabs' and the order the creature tabs'. -->
+      <input class="search" type="text" {placeholder} title={placeholder} bind:value={() => query, (v) => setView({ query: v })} bind:this={searchBox} onkeydown={onKey} />
+      {#if kind === 'creature' || kind === 'npc'}
+        <select aria-label="Sort" title="The order of the creatures" value={sort} onchange={(e) => setView({ sort: e.currentTarget.value as BrowserSort })}>
+          <option value="">Database order</option>
+          <option value="level">Level, lowest first</option>
+          <option value="level-desc">Level, highest first</option>
+        </select>
+      {:else if !spawnKind && kind !== 'prefabs'}
+        <select bind:value={() => zone, (v) => setView({ zone: v })} title="Zone" aria-label="Zone">
+          <option value="">All zones</option>
+          {#each result.zones as z (z.name)}<option value={z.name}>{z.name} ({z.count})</option>{/each}
+        </select>
+      {/if}
+      <span class="count">{(spawnKind || kind === 'prefabs' ? childCount : items.length).toLocaleString()}</span>
       <label class="size" title="Tile size">
         <input type="range" min="64" max="176" step="8" bind:value={prefs.browserTile} />
       </label>
@@ -449,10 +465,10 @@
         {/if}
       </div>
     {:else if kind === 'prefabs'}
-      <PrefabBrowser {tile} />
+      <PrefabBrowser {tile} {query} bind:count={childCount} />
     {:else if spawnKind}
       <div class="body spawn">
-        <SpawnBrowser kind={kind as SpawnKind} onhover={(it) => (spawnHover = it)} />
+        <SpawnBrowser kind={kind as SpawnKind} onhover={(it) => (spawnHover = it)} bind:count={childCount} />
         <aside class="side">
           <AssetPreview item={spawnHover} />
         </aside>

@@ -593,6 +593,7 @@ the same scene, the report before and after.
 - Thumbnail loading order (asset browser grids)
 - Asset browser tabs remember their place (#123)
 - Names under the tiles (#655)
+- The same header on every tab (#651)
 - Model sets (the asset browser's Sets tab, #124)
 - Menu heights (#122)
 - Dock panel (Layers) and the Inspector

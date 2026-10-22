@@ -111,6 +111,14 @@ under every tab's tiles and in the preview, and the virtual rows pack tighter.
   without that the checkbox squeezed the slider to 0 px. Check `.size input`'s width after a header change.
 - The setting is saved to the real config from the dev page: put it back.
 
+## The same header on every tab (#651)
+
+Checks: each asset browser tab shows the header's search box, count and tile-size slider; Ctrl+F
+focuses the box; the zone select shows on Doodads, Buildings, Textures, All and Sets, the creature
+order on Creatures and NPCs; no tab has a search box of its own; a creature name typed in the header
+narrows the Creatures tab's count. Probe: `bun run probe browser-header` (needs the world database for
+the Creatures count). Trap: the Sets tab's rename box is a text input outside the header, by design.
+
 ## Model sets (the asset browser's Sets tab, #124)
 
 Checks: making a set, adding models by a tile's right-click, showing it. In headless Chrome (`docs/TESTS.md`):
