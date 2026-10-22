@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { dialogFocus } from '../lib/ui/dialogFocus'
+	import Modal from './Modal.svelte'
 	import MapPicker from './MapPicker.svelte'
 	import type { TileBlock as Block } from '../lib/io/regionGrow'
 	import { editor, prefs, ui, wow } from '../lib/state/editor.svelte'
@@ -140,166 +140,131 @@
 	}
 </script>
 
-<div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
-	<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="nm-title" use:dialogFocus>
-		<header>
-			<h2 id="nm-title">Start</h2>
-			<div class="modes">
-				<button class:active={mode === 'new'} onclick={() => (ui.newMapMode = 'new')}>New world</button>
-				<button class:active={mode === 'open'} onclick={() => (ui.newMapMode = 'open')} disabled={!hasBackend()}>Part of Azeroth</button>
-			</div>
-			<button class="close" onclick={close} aria-label="Close">✕</button>
-		</header>
-
-		{#if mode === 'new'}
-			<div class="body new">
-				<p class="dim">A world of its own for the client and server. Once published it can be reached from Azeroth through a portal.</p>
-				<div class="row">
-					<label class="field">
-						<span>Name</span>
-						<input type="text" bind:value={name} spellcheck="false" />
-					</label>
-					<div class="field">
-						<span>Size</span>
-						<div class="sizes">
-							{#each SIZES as s (s.tiles)}
-								<button class="size" class:active={tiles === s.tiles} onclick={() => (tiles = s.tiles)} title={s.note}>
-									<b>{s.label}</b><small>{s.note}</small>
-								</button>
-							{/each}
-						</div>
-					</div>
-				</div>
-				{#if !nameOk}<p class="warn">Use letters, digits, - and _ for the name: it is the map's folder in the client.</p>{/if}
-				<div class="presets">
-					{#each PRESETS as p (p.id)}
-						<button class="preset" class:active={preset === p.id} onclick={() => (preset = p.id)} title={p.blurb}>
-							<canvas use:preview={p.id} width="96" height="96"></canvas>
-							<b>{p.name}</b>
-							<small>{p.blurb}</small>
-						</button>
-					{/each}
-				</div>
-				<div class="row bottom">
-					<label class="field seed">
-						<span>Seed</span>
-						<span class="seedrow">
-							<input type="number" bind:value={seed} />
-							<button onclick={() => (seed = Math.floor(Math.random() * 100000))} title="Another layout">🎲</button>
-						</span>
-					</label>
-					{#if showId}
-						<label class="field id">
-							<span>Map ID</span>
-							<input type="number" min="1" max="99999" bind:value={mapId} />
-						</label>
-					{:else}
-						<button class="link" onclick={() => (showId = true)}>Map ID {mapId}…</button>
-					{/if}
-					{#if !mapIdOk}<p class="warn">A map ID is a whole number from 1 to 99999.</p>{/if}
-					{#if clientError}<p class="warn">{clientError}</p>{/if}
-				</div>
-			</div>
-			<footer>
-				<button onclick={close}>Cancel</button>
-				<button class="active" disabled={!nameOk || !mapIdOk} onclick={create}>Create world</button>
-			</footer>
-		{:else}
-			<div class="body open">
-				{#if !ui.project}
-					<!-- The owner's limit on #48: a new world goes straight in, editing the client's own maps needs a project. -->
-					<div class="needproject">
-						<p>Opening a part of Azeroth edits the client's own maps, so it needs a project: a project folder for your maps of it and the WoW 1.12 client folder.</p>
-						<button class="active" onclick={() => (ui.dialog = 'project')}>Choose a Project…</button>
-					</div>
-				{:else if !wow.loaded}
-					<p class="dim">The project's client isn't loaded{wow.error ? `: ${wow.error}` : ''}. Choose its client folder in File › Project….</p>
-				{:else}
-					<div class="side">
-						<div class="mapfind">
-							<input type="search" placeholder="Find a map…" bind:value={mapQuery} />
-							<select bind:value={mapType} aria-label="Kind of map">
-								<option value={-1}>All</option>
-								{#each MAP_TYPES as t, i (t)}<option value={i}>{t}s</option>{/each}
-							</select>
-						</div>
-						<div class="maplist">
-							{#each listedMaps as m (m.ID)}
-								<div class="maprow" class:active={continent?.ID === m.ID}>
-									<button class="pin" class:on={pinned.has(m.ID)} onclick={() => togglePin(m.ID)} title={pinned.has(m.ID) ? 'Unpin' : 'Pin to the top'}>{pinned.has(m.ID) ? '★' : '☆'}</button>
-									<button class="mapname" onclick={() => pickMap(m)} title="{m.Dir} ({m.ID})">{m.Name || m.Dir} <span class="dim">{MAP_TYPES[m.Type] ?? `type ${m.Type}`} · {m.ID}</span></button>
-								</div>
-							{:else}
-								<p class="dim">No map matches.</p>
-							{/each}
-						</div>
-						<input type="text" placeholder="Find a zone…" bind:value={zoneFilter} />
-						<div class="zones">
-							{#each shownZones as z (z.Name + z.X0 + z.Y0)}
-								<button class="zone" onclick={() => pickZone(z)}>{z.Name}</button>
-							{/each}
-							{#if !shownZones.length}<p class="dim">{clientError || 'No zones.'}</p>{/if}
-						</div>
-					</div>
-					<div class="map">
-						{#if continent}
-							<MapPicker map={continent.Dir} bind:block bind:gaps bind:tileCount maxSize={MAX_TILES} {focus} autoPick={continent.Type !== 0} />
-						{/if}
-					</div>
-				{/if}
-			</div>
-			<footer>
-				<span class="dim grow"
-					>{building
-						? 'The building and its creatures and objects open in a new tab. Saving writes its doodad set back to the client.'
-						: 'The ground, textures and models of those tiles open in a new tab. Saving writes them back to the client.'}</span
-				>
-				<button onclick={close}>Cancel</button>
-				<button class="active" disabled={!canOpen || !ui.project} onclick={open}>Open</button>
-			</footer>
-		{/if}
+<Modal title="Start" width={860} onclose={close}>
+	<div class="modes">
+		<button class:active={mode === 'new'} onclick={() => (ui.newMapMode = 'new')}>New world</button>
+		<button class:active={mode === 'open'} onclick={() => (ui.newMapMode = 'open')} disabled={!hasBackend()}>Part of Azeroth</button>
 	</div>
-</div>
+
+	{#if mode === 'new'}
+		<div class="body new">
+			<p class="dim">A world of its own for the client and server. Once published it can be reached from Azeroth through a portal.</p>
+			<div class="row">
+				<label class="field">
+					<span>Name</span>
+					<input type="text" bind:value={name} spellcheck="false" />
+				</label>
+				<div class="field">
+					<span>Size</span>
+					<div class="sizes">
+						{#each SIZES as s (s.tiles)}
+							<button class="size" class:active={tiles === s.tiles} onclick={() => (tiles = s.tiles)} title={s.note}>
+								<b>{s.label}</b><small>{s.note}</small>
+							</button>
+						{/each}
+					</div>
+				</div>
+			</div>
+			{#if !nameOk}<p class="warn">Use letters, digits, - and _ for the name: it is the map's folder in the client.</p>{/if}
+			<div class="presets">
+				{#each PRESETS as p (p.id)}
+					<button class="preset" class:active={preset === p.id} onclick={() => (preset = p.id)} title={p.blurb}>
+						<canvas use:preview={p.id} width="96" height="96"></canvas>
+						<b>{p.name}</b>
+						<small>{p.blurb}</small>
+					</button>
+				{/each}
+			</div>
+			<div class="row bottom">
+				<label class="field seed">
+					<span>Seed</span>
+					<span class="seedrow">
+						<input type="number" bind:value={seed} />
+						<button onclick={() => (seed = Math.floor(Math.random() * 100000))} title="Another layout">🎲</button>
+					</span>
+				</label>
+				{#if showId}
+					<label class="field id">
+						<span>Map ID</span>
+						<input type="number" min="1" max="99999" bind:value={mapId} />
+					</label>
+				{:else}
+					<button class="link" onclick={() => (showId = true)}>Map ID {mapId}…</button>
+				{/if}
+				{#if !mapIdOk}<p class="warn">A map ID is a whole number from 1 to 99999.</p>{/if}
+				{#if clientError}<p class="warn">{clientError}</p>{/if}
+			</div>
+		</div>
+	{:else}
+		<div class="body open">
+			{#if !ui.project}
+				<!-- The owner's limit on #48: a new world goes straight in, editing the client's own maps needs a project. -->
+				<div class="needproject">
+					<p>Opening a part of Azeroth edits the client's own maps, so it needs a project: a project folder for your maps of it and the WoW 1.12 client folder.</p>
+					<button class="active" onclick={() => (ui.dialog = 'project')}>Choose a Project…</button>
+				</div>
+			{:else if !wow.loaded}
+				<p class="dim">The project's client isn't loaded{wow.error ? `: ${wow.error}` : ''}. Choose its client folder in File › Project….</p>
+			{:else}
+				<div class="side">
+					<div class="mapfind">
+						<input type="search" placeholder="Find a map…" bind:value={mapQuery} />
+						<select bind:value={mapType} aria-label="Kind of map">
+							<option value={-1}>All</option>
+							{#each MAP_TYPES as t, i (t)}<option value={i}>{t}s</option>{/each}
+						</select>
+					</div>
+					<div class="maplist">
+						{#each listedMaps as m (m.ID)}
+							<div class="maprow" class:active={continent?.ID === m.ID}>
+								<button class="pin" class:on={pinned.has(m.ID)} onclick={() => togglePin(m.ID)} title={pinned.has(m.ID) ? 'Unpin' : 'Pin to the top'}>{pinned.has(m.ID) ? '★' : '☆'}</button>
+								<button class="mapname" onclick={() => pickMap(m)} title="{m.Dir} ({m.ID})">{m.Name || m.Dir} <span class="dim">{MAP_TYPES[m.Type] ?? `type ${m.Type}`} · {m.ID}</span></button>
+							</div>
+						{:else}
+							<p class="dim">No map matches.</p>
+						{/each}
+					</div>
+					<input type="text" placeholder="Find a zone…" bind:value={zoneFilter} />
+					<div class="zones">
+						{#each shownZones as z (z.Name + z.X0 + z.Y0)}
+							<button class="zone" onclick={() => pickZone(z)}>{z.Name}</button>
+						{/each}
+						{#if !shownZones.length}<p class="dim">{clientError || 'No zones.'}</p>{/if}
+					</div>
+				</div>
+				<div class="map">
+					{#if continent}
+						<MapPicker map={continent.Dir} bind:block bind:gaps bind:tileCount maxSize={MAX_TILES} {focus} autoPick={continent.Type !== 0} />
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
+	{#snippet actions()}
+		{#if mode === 'new'}
+			<button onclick={close}>Cancel</button>
+			<button class="active" disabled={!nameOk || !mapIdOk} onclick={create}>Create world</button>
+		{:else}
+			<span class="dim grow"
+				>{building
+					? 'The building and its creatures and objects open in a new tab. Saving writes its doodad set back to the client.'
+					: 'The ground, textures and models of those tiles open in a new tab. Saving writes them back to the client.'}</span
+			>
+			<button onclick={close}>Cancel</button>
+			<button class="active" disabled={!canOpen || !ui.project} onclick={open}>Open</button>
+		{/if}
+	{/snippet}
+</Modal>
 
 <style>
-	.backdrop {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.55);
-		display: grid;
-		place-items: center;
-		z-index: 100;
-	}
-	.dialog {
-		width: 860px;
-		max-width: calc(100 * var(--vw) - 32px);
-		max-height: calc(100 * var(--vh) - 40px);
-		display: flex;
-		flex-direction: column;
-		background: var(--panel);
-		border: 1px solid var(--border);
-		border-radius: 10px;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-		overflow: hidden;
-	}
-	header {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		padding: 12px 16px;
-		background: var(--header);
-		border-bottom: 1px solid var(--border);
-	}
-	h2 {
-		margin: 0;
-		font-size: 15px;
-	}
 	.modes {
 		display: flex;
 		gap: 2px;
 		background: var(--bg);
 		border-radius: var(--radius);
 		padding: 2px;
+		width: fit-content;
+		margin-bottom: 10px;
 	}
 	.modes button {
 		border: none;
@@ -310,15 +275,7 @@
 		background: var(--panel-3);
 		color: var(--text-strong);
 	}
-	.close {
-		margin-left: auto;
-		border: none;
-		background: transparent;
-		color: var(--text-dim);
-	}
 	.body {
-		padding: 14px 16px;
-		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
@@ -433,14 +390,6 @@
 		text-decoration: underline;
 		padding: 0;
 		align-self: flex-end;
-	}
-	footer {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		gap: 8px;
-		padding: 10px 16px;
-		border-top: 1px solid var(--border);
 	}
 	.grow {
 		flex: 1;

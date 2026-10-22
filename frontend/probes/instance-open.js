@@ -31,6 +31,10 @@ const moltenNote = await P.until(() => {
 const moltenEnabled = !openButton().disabled
 await pick('DeadminesInstance')
 await P.until(() => !openButton().disabled || null, 30000, 'Open enabled again')
+// Escape closes the dialog (#582), as it does every Modal.
+document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+const escapeCloses = await P.until(() => !ui.showNewDialog || null, 3000, 'Escape closing the Start dialog')
+ui.showNewDialog = true
 // The picked block is 6x6 tiles, which SwiftShader takes minutes to draw; open 2x2 of it the way Open does.
 ui.showNewDialog = false
 const { openWowRegion } = await P.app('/src/lib/io/mapio.ts')
@@ -72,8 +76,9 @@ await P.until(() => editor.spawns.length > 0 || editor.spawnsError || null, 3000
 const inside = editor.spawns.filter((s) => s.x > 370 && s.x < 690 && s.z > 330 && s.z < 545).length
 stockade.spawns = `${inside} of ${editor.spawns.length} inside${editor.spawnsError ? ` (${editor.spawnsError})` : ''}`
 ui.project = hadProject
-const out = { asksProject, deadmines, overview: img.naturalWidth, moltenNote: moltenNote.slice(0, 60), moltenEnabled, relief, stockade }
+const out = { asksProject, escapeCloses, deadmines, overview: img.naturalWidth, moltenNote: moltenNote.slice(0, 60), moltenEnabled, relief, stockade }
 out.ok =
+	escapeCloses &&
 	asksProject &&
 	out.overview > 0 &&
 	moltenEnabled &&
