@@ -120,10 +120,11 @@ func AddPending(dataDir string, files []mpq.File) error {
 		// The archive path first, then the data: the file name holds it lower case only.
 		data := append(append([]byte(f.Name), 0), f.Data...)
 		tmp := filepath.Join(dir, pendingName(f.Name)+".tmp")
-		if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		if err := writeSynced(tmp, data); err != nil {
 			return err
 		}
 		if err := os.Rename(tmp, filepath.Join(dir, pendingName(f.Name))); err != nil {
+			os.Remove(tmp)
 			return err
 		}
 		loadPending()

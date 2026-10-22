@@ -39,6 +39,27 @@ func checkFree(path string) error {
 	return f.Close()
 }
 
+// writeSynced writes data to path and syncs it to disk before closing it, removing the file when any
+// step fails. The callers rename it over a real file next, and a rename the file system journals
+// before the data reaches the disk would leave that file empty after a power loss (#638, #649).
+func writeSynced(path string, data []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		os.Remove(path)
+	}
+	return err
+}
+
 // replaceFile renames tmp over target. A target that is locked is reported as such, and tmp is removed.
 func replaceFile(tmp, target string) error {
 	if err := os.Rename(tmp, target); err != nil {

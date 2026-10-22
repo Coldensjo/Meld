@@ -51,3 +51,25 @@ func TestLockedPatchIsRefusedUntouched(t *testing.T) {
 		t.Fatal("a temporary patch was left behind")
 	}
 }
+
+func TestWriteSyncedReplacesAndCleansUp(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.tmp")
+	if err := os.WriteFile(path, []byte("old longer content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeSynced(path, []byte("new")); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(path); string(b) != "new" {
+		t.Errorf("file holds %q, want %q", b, "new")
+	}
+	// A path that can't be created fails and leaves nothing behind.
+	bad := filepath.Join(dir, "missing", "b.tmp")
+	if err := writeSynced(bad, []byte("x")); err == nil {
+		t.Error("writing into a missing folder did not fail")
+	}
+	if _, err := os.Stat(bad); err == nil {
+		t.Error("a failed write left its file")
+	}
+}

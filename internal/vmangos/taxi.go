@@ -573,7 +573,7 @@ func installServerDBC(serverDir, name string, dbc []byte) (string, error) {
 		}
 	}
 	tmp := target + ".tmp"
-	if err := os.WriteFile(tmp, dbc, 0o644); err != nil {
+	if err := writeSynced(tmp, dbc); err != nil {
 		return "", err
 	}
 	if err := replaceFile(tmp, target); err != nil {
