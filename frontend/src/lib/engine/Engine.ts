@@ -2003,7 +2003,8 @@ export class Engine {
     const m = d.meta
     if (!m.vmangos && !m.region) return null
     if (!m.vmangos) await this.loadMapIds()
-    const mapId = m.vmangos ? m.vmangos.mapId : (this.mapIds?.get(m.region!.mapName.toLowerCase()) ?? 0)
+    const mapId = m.vmangos ? m.vmangos.mapId : this.mapIds?.get(m.region!.mapName.toLowerCase())
+    if (mapId === undefined) return null
     const c = d.camera
     if (!c) return null
     return serverSpot(c.target.clone().setY(c.target.y + PLAYER_LIFT), mapId, m.region?.x ?? 0, m.region?.y ?? 0, c.yaw)
@@ -2033,24 +2034,33 @@ export class Engine {
   /** The client's map list being read, once asked for. */
   private mapIdsLoading: Promise<void> | null = null
 
-  /** The open map's Map.dbc ID: a map made for the client's own, a region's by its folder, else Azeroth's (0); null while unknown. */
+  /** The open map's Map.dbc ID: a map made for the client's own, a region's by its folder; null while unknown, when the list cannot be read or the folder is not in it. */
   /** Reads the client's map list (folder to map ID) once. */
   private loadMapIds(): Promise<void> {
+    if (this.mapIds) return Promise.resolve()
     this.mapIdsLoading ??= MapEntries()
       .then((rows) => void (this.mapIds = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.ID]))))
-      .catch(() => void (this.mapIds = new Map()))
+      .catch((e) => {
+        // Leave the list unknown (never an empty one, which would read as map 0), and retry later.
+        console.warn('The client’s map list could not be read', e)
+        setStatus('The client’s map list could not be read, so this map’s ID is unknown.', 6000)
+        this.mapIdsFailedAt = performance.now()
+      })
+      .finally(() => void (this.mapIdsLoading = null))
     return this.mapIdsLoading
   }
+  /** When the last read of the map list failed, so the per-frame callers retry only every few seconds. */
+  private mapIdsFailedAt = -Infinity
 
   private openMapId(): number | null {
     const m = this.doc.meta
     if (m.vmangos) return m.vmangos.mapId
     if (!m.region) return 0
     if (!this.mapIds) {
-      void this.loadMapIds()
+      if (performance.now() - this.mapIdsFailedAt > 10000) void this.loadMapIds()
       return null
     }
-    return this.mapIds.get(m.region.mapName.toLowerCase()) ?? 0
+    return this.mapIds.get(m.region.mapName.toLowerCase()) ?? null
   }
 
   /**
@@ -2101,12 +2111,10 @@ export class Engine {
 
   /** The open map's Map.dbc ID for the light editor: waits for the map table when a region needs it. */
   async lightsMapId(): Promise<number> {
-    for (let i = 0; i < 100; i++) {
-      const id = this.openMapId()
-      if (id !== null) return id
-      await new Promise((r) => setTimeout(r, 50))
-    }
-    return 0
+    await this.loadMapIds()
+    const id = this.openMapId()
+    if (id === null) throw new Error('The client’s map list could not be read, so this map’s ID is unknown.')
+    return id
   }
 
   /** Where the camera is in the tiles' placement frame (yards), which the client's lights are placed in. */
@@ -3209,7 +3217,8 @@ export class Engine {
     const m = this.doc.meta
     if (!m.vmangos && !m.region) return { error: 'This map isn’t in the client yet, so it has no map ID: make it with File › New World… or open a part of Azeroth.' }
     if (!m.vmangos) await this.loadMapIds()
-    const id = this.openMapId() ?? 0
+    const id = this.openMapId()
+    if (id === null) return { error: 'The client’s map list could not be read, so this map’s ID is unknown.' }
     return { command: teleportCommand(at, id, m.region?.x ?? 0, m.region?.y ?? 0) }
   }
 
