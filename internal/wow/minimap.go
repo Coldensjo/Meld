@@ -53,16 +53,18 @@ func (c *Client) MinimapTiles(mapName string) ([]MapTile, error) {
 
 // minimapTable parses md5translate.trs into tiles by lower-case map name.
 func (c *Client) minimapTable() (map[string][]MapTile, error) {
+	// The read runs outside minimapMu: it may wait for a Resume, which forgets the table under c.mu.
 	c.minimapMu.Lock()
-	defer c.minimapMu.Unlock()
-	if c.minimap != nil {
-		return c.minimap, nil
+	table, gen := c.minimap, c.minimapGen
+	c.minimapMu.Unlock()
+	if table != nil {
+		return table, nil
 	}
 	raw, err := c.read(MinimapIndexPath)
 	if err != nil {
 		return nil, fmt.Errorf("minimap table: %w", err)
 	}
-	table := map[string][]MapTile{}
+	table = map[string][]MapTile{}
 	ParseMinimapIndex(raw).Each(func(name, file string) {
 		m := minimapLine.FindStringSubmatch(name)
 		if m == nil {
@@ -81,7 +83,11 @@ func (c *Client) minimapTable() (map[string][]MapTile, error) {
 			return tiles[i].Y < tiles[j].Y || tiles[i].Y == tiles[j].Y && tiles[i].X < tiles[j].X
 		})
 	}
-	c.minimap = table
+	c.minimapMu.Lock()
+	if gen == c.minimapGen {
+		c.minimap = table
+	}
+	c.minimapMu.Unlock()
 	return table, nil
 }
 

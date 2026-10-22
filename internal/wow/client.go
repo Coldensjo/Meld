@@ -15,6 +15,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"Meld/internal/mpq"
 )
@@ -34,6 +35,9 @@ type Client struct {
 	stamps string
 	// held counts the Suspends that wait for their Resume: the archives open again with the last.
 	held int
+	// resumed is closed when the last Resume (or an Open) ends a Suspend, so the reads that came
+	// while the archives were closed wait for it instead of failing (#472). Nil when not suspended.
+	resumed chan struct{}
 
 	cacheMu sync.Mutex
 	cache   byteCache
@@ -46,6 +50,8 @@ type Client struct {
 	// The minimap table (see minimap.go), parsed on first use.
 	minimapMu sync.Mutex
 	minimap   map[string][]MapTile
+	// minimapGen counts forgetMinimap's calls, so a table read before one isn't kept.
+	minimapGen int
 
 	// overlay, when set, reads a file the archives don't have yet ahead of them (SetOverlay).
 	overlay func(path string) ([]byte, bool)
@@ -90,6 +96,7 @@ func (c *Client) Open(dir string) error {
 		c.set = nil
 	}
 	c.files, c.dir, c.data, c.err, c.stamps, c.held = nil, dir, "", nil, "", 0
+	c.wakeReaders()
 	c.cacheMu.Lock()
 	c.cache.clear()
 	c.parts.clear()
@@ -158,6 +165,7 @@ func archiveStamps(data string) string {
 func (c *Client) forgetMinimap() {
 	c.minimapMu.Lock()
 	c.minimap = nil
+	c.minimapGen++
 	c.minimapMu.Unlock()
 }
 
@@ -182,19 +190,58 @@ func (c *Client) Status() Status {
 	return s
 }
 
+// suspendWait is how long a read waits for the archives a Suspend closed to open again.
+var suspendWait = 60 * time.Second
+
+// read returns a client file. While a Suspend holds the archives closed (a patch write's rename,
+// the sandbox's refresh), it waits for the Resume, up to suspendWait, rather than failing: a model
+// that failed is drawn as a placeholder for 30 s (#472). The read itself holds the read lock, so a
+// Suspend waits for the reads in flight instead of closing the archives under them.
 func (c *Client) read(path string) ([]byte, error) {
-	c.mu.RLock()
-	set, over := c.set, c.overlay
-	c.mu.RUnlock()
-	if set == nil {
-		return nil, errors.New("no WoW client loaded")
-	}
-	if over != nil {
-		if b, ok := over(path); ok {
-			return b, nil
+	var deadline time.Time
+	overlaid := false
+	for {
+		c.mu.RLock()
+		set, over, resumed := c.set, c.overlay, c.resumed
+		if set != nil && (overlaid || over == nil) {
+			b, err := set.ReadFile(path)
+			c.mu.RUnlock()
+			return b, err
+		}
+		c.mu.RUnlock()
+		if set != nil {
+			// The overlay runs outside the lock: it reads the waiting files under their own.
+			if b, ok := over(path); ok {
+				return b, nil
+			}
+			overlaid = true
+			continue
+		}
+		if resumed == nil {
+			return nil, errors.New("no WoW client loaded")
+		}
+		if deadline.IsZero() {
+			deadline = time.Now().Add(suspendWait)
+		}
+		wait := time.Until(deadline)
+		if wait <= 0 {
+			return nil, errors.New("the WoW client's archives stayed closed")
+		}
+		t := time.NewTimer(wait)
+		select {
+		case <-resumed:
+			t.Stop()
+		case <-t.C:
 		}
 	}
-	return set.ReadFile(path)
+}
+
+// wakeReaders ends a Suspend for the reads waiting on it. Called with c.mu held.
+func (c *Client) wakeReaders() {
+	if c.resumed != nil {
+		close(c.resumed)
+		c.resumed = nil
+	}
 }
 
 var wmoGroupRe = regexp.MustCompile(`(?i)_\d{3}\.wmo$`)
@@ -683,13 +730,17 @@ func RecoverPanics(next http.Handler) http.Handler {
 }
 
 // Suspend closes the client's archives, so Meld's patch can be replaced (Windows doesn't rename over
-// a file a program holds open). Resume loads them again; while they're closed every read fails, so
-// hold them only around the write itself (vmangos.InstallPatch does, through SetClientReader).
+// a file a program holds open). Resume loads them again; while they're closed every read waits for
+// it (up to suspendWait), so hold them only around the write itself (vmangos.InstallPatch does,
+// through SetClientReader). It waits for the reads in flight.
 // Suspends nest: the archives open again with the last Resume.
 func (c *Client) Suspend() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.held++
+	if c.resumed == nil {
+		c.resumed = make(chan struct{})
+	}
 	if c.set != nil {
 		c.set.Close()
 		c.set = nil
@@ -705,7 +756,12 @@ func (c *Client) Resume() error {
 	if c.held > 0 {
 		c.held--
 	}
-	if c.held > 0 || c.set != nil || c.data == "" {
+	if c.held > 0 {
+		return nil
+	}
+	// The waiting reads go on once the lock is let go: with the archives, or failing as unloaded.
+	defer c.wakeReaders()
+	if c.set != nil || c.data == "" {
 		return nil
 	}
 	return c.load()

@@ -340,7 +340,9 @@ again only when one changed.
 - Go: `wow.TestResumeKeepsCache` (a temporary client: two textures read once, a nested Suspend and
   Resume serves them from the cache, counted through the overlay; a patch rewritten while suspended
   adds a file to `List` and, after `Forget` of one in another case and slash, only that one is read
-  again; `Open` drops it all), `vmangos.TestInstallPatchHoldsReader` (a fake reader sees suspend,
+  again; `Open` drops it all), `wow.TestReadWaitsForResume` (#472: a read while suspended waits
+  for the Resume and gets the file, an `Open("")` ends the wait with an error, and past
+  `suspendWait` it fails rather than hangs), `vmangos.TestInstallPatchHoldsReader` (a fake reader sees suspend,
   resume, forget, with the written names and the dropped minimap tile, not the carried tile; `AddPending`
   forgets the waiting file), `wow.TestDoodadsCached` (a doodad's mesh and hull read once, again
   after a `Forget` of a model but not of a texture, and after `Open`; #500), `TestInstallPatchWithClientOpen` (the rename succeeds while a real

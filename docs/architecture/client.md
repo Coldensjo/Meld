@@ -24,7 +24,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `Resume` opens them again (listing their files again only when an archive changed) and `Forget`
   drops the replies built from the files the write changed; `AddPending` forgets the files it puts
   in the overlay. The app hands the client to vmangos with `vmangos.SetClientReader` in `NewApp`; a
-  binding that writes the patch needs nothing else. Reads fail only during the rename.
+  binding that writes the patch needs nothing else. `Suspend` waits for the reads in flight, and a
+  read that comes while the archives are closed waits for the `Resume` (up to `suspendWait`, 60 s)
+  instead of failing, which the frontend would draw as a placeholder for 30 s (#472); an `Open`
+  (the sandbox's switch, an unload) ends the wait too.
 - The doodads a WMO bakes in (`wmoMesh`) and their collision hulls (`wmoCollision`) are parsed once
   into `Client.parts` (`m2cache.go`, #500): an LRU of up to `partsLimit` (512) undressed M2 meshes
   and hulls by lower-case path, shared read-only (`wmoMesh` copies the arrays it transforms), so the
