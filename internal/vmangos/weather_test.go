@@ -28,7 +28,7 @@ func TestWeatherReadAndWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "REPLACE INTO game_weather (zone, spring_rain_chance, spring_snow_chance, spring_storm_chance, summer_rain_chance, summer_snow_chance, summer_storm_chance, fall_rain_chance, fall_snow_chance, fall_storm_chance, winter_rain_chance, winter_snow_chance, winter_storm_chance) VALUES (45, 23, 0, 0, 15, 0, 0, 23, 0, 0, 23, 1, 0);"
-	if !strings.Contains(sql, want) || !strings.Contains(sql, "DELETE FROM game_weather WHERE zone = 12;") || !strings.HasPrefix(sql, "START TRANSACTION;") {
+	if !strings.Contains(sql, want) || !strings.Contains(sql, "DELETE FROM game_weather WHERE zone = 12;") {
 		t.Fatalf("sql = %s", sql)
 	}
 	if _, err := WeatherSQL([]ZoneWeather{{Zone: 1, Rain: [4]int{101}}}); err == nil {

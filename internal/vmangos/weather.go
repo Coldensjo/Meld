@@ -81,10 +81,10 @@ func ReadWeather(serverRoot string) ([]ZoneWeather, error) {
 }
 
 // WeatherSQL writes the zones' weather into game_weather: a row with a chance replaces the zone's,
-// and one with none deletes it, as a zone without a row has no weather either.
+// and one with none deletes it, as a zone without a row has no weather either. No transaction of
+// its own: runScript wraps the script in one, and SaveAreas runs it after AreaSQL in that one.
 func WeatherSQL(rows []ZoneWeather) (string, error) {
 	var b strings.Builder
-	b.WriteString("START TRANSACTION;\n")
 	for _, w := range rows {
 		if w.Zone == 0 {
 			return "", fmt.Errorf("weather needs a zone")
@@ -104,6 +104,5 @@ func WeatherSQL(rows []ZoneWeather) (string, error) {
 		}
 		fmt.Fprintf(&b, "REPLACE INTO game_weather (zone, %s) VALUES (%s);\n", strings.Join(weatherColumns(), ", "), strings.Join(vals, ", "))
 	}
-	b.WriteString("COMMIT;\n")
 	return b.String(), nil
 }

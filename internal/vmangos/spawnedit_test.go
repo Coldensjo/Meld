@@ -43,6 +43,41 @@ func TestRunScriptWrapsATransaction(t *testing.T) {
 	}
 }
 
+// No script runScript runs may open or commit a transaction of its own: MariaDB can't nest them, so
+// an inner START TRANSACTION commits the one runScript opened and splits the script in two (#463).
+// This reads the package's source, so a new builder is caught too.
+func TestNoScriptBuilderOpensATransaction(t *testing.T) {
+	files, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		name := f.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") || name == "spawnedit.go" {
+			continue
+		}
+		src, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, word := range []string{"START TRANSACTION", "BEGIN;", "COMMIT;", "ROLLBACK;"} {
+			if strings.Contains(strings.ToUpper(string(src)), word) {
+				t.Errorf("%s writes %q; runScript already wraps every script in one transaction", name, word)
+			}
+		}
+	}
+	sql, err := WeatherSQL([]ZoneWeather{{Zone: 12}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sql = AreaSQL([]AreaRow{{ID: 1, Name: "a"}}) + sql + TaxiSQL([]TaxiNode{{ID: 2}}, []uint32{3}, []uint32{4})
+	for _, word := range []string{"TRANSACTION", "COMMIT"} {
+		if strings.Contains(sql, word) {
+			t.Errorf("AreaSQL+WeatherSQL+TaxiSQL holds %s:\n%s", word, sql)
+		}
+	}
+}
+
 // TestRunScriptLive pipes a script that changes nothing to the server's world database, to check the
 // runner reaches it. It needs VMANGOS_DIR with the database running.
 func TestRunScriptLive(t *testing.T) {

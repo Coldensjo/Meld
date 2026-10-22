@@ -495,10 +495,10 @@ func SetTaxi(tt TaxiTables, nodes []TaxiNode, removeNodes []uint32, routes []Tax
 
 // TaxiSQL writes the stops of nodes into the world database's taxi_nodes (a row for build 5875,
 // which the server takes over older builds' rows) and takes the stops of removeNodes out of it and
-// of locales_taxi_node, and the routes of removeRoutes out of taxi_path_transitions.
+// of locales_taxi_node, and the routes of removeRoutes out of taxi_path_transitions. No transaction
+// of its own: runScript wraps the script in one.
 func TaxiSQL(nodes []TaxiNode, removeNodes, removeRoutes []uint32) string {
 	var b strings.Builder
-	b.WriteString("START TRANSACTION;\n")
 	ids := func(list []uint32) string {
 		s := make([]string, len(list))
 		for i, v := range list {
@@ -518,7 +518,6 @@ func TaxiSQL(nodes []TaxiNode, removeNodes, removeRoutes []uint32) string {
 		fmt.Fprintf(&b, "REPLACE INTO `taxi_nodes` (`id`, `build`, `map_id`, `x`, `y`, `z`, `name`, `mount_creature_id1`, `mount_creature_id2`) VALUES (%d, %d, %d, %s, %s, %s, %s, %d, %d);\n",
 			n.ID, taxiBuild, n.MapID, num32(n.X), num32(n.Y), num32(n.Z), sqlQuote(n.Name), n.HordeMount, n.AllianceMount)
 	}
-	b.WriteString("COMMIT;\n")
 	return b.String()
 }
 

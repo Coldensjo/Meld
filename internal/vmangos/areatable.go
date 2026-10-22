@@ -218,14 +218,14 @@ func SetAreaRows(dbc []byte, rows []AreaRow) ([]byte, error) {
 
 // AreaSQL writes the rows into the world database's area_template, which the server reads its areas
 // from (not from AreaTable.dbc): the zone, exploration bit, flags, level, name, team and liquid.
+// No transaction of its own: runScript wraps the script in one, and opening another inside
+// it would commit the outer one.
 func AreaSQL(rows []AreaRow) string {
 	var b strings.Builder
-	b.WriteString("START TRANSACTION;\n")
 	for _, a := range rows {
 		fmt.Fprintf(&b, "REPLACE INTO area_template (entry, map_id, zone_id, explore_flag, flags, area_level, name, team, liquid_type) VALUES (%d, %d, %d, %d, %d, %d, %s, %d, %d);\n",
 			a.ID, a.MapID, a.Parent, a.AreaBit, a.Flags, a.Level, sqlQuote(a.Name), a.Faction, a.Liquid)
 	}
-	b.WriteString("COMMIT;\n")
 	return b.String()
 }
 
