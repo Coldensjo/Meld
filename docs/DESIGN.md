@@ -1,7 +1,7 @@
 # DESIGN.md: what Meld is for
 
 Status: **draft**, written from README.md and CLAUDE.md. Changes to this file
-need the owner's approval. The loop in LOOP.md must not edit it.
+need the owner's approval. The issue loop (`.claude/issue-loop.md`) must not edit it.
 
 ## Goal
 

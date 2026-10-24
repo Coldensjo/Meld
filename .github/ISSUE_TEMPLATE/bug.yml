@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Keep it short; a few lines per field is enough. The loop triages every issue and rewrites it
-        in the backlog's wording (LOOP.md, "2. Triage"). An issue from anyone but the owner waits for
+        in the backlog's wording (the issue loop's triage). An issue from anyone but the owner waits for
         the owner's approval before it is worked on.
   - type: input
     id: summary
