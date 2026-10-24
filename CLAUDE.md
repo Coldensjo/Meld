@@ -1,7 +1,18 @@
 # CLAUDE.md
 
-Meld: a 3D world/map editor (WoW/WC3-editor style). Desktop app built with Wails v2 (Go) and a
-Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **Windows and Linux**.
+The world editor of 3dgame's cube worlds, a fork of Meld (once a WoW 1.12 map editor). Desktop app
+built with Wails v2 (Go) and a Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **Windows and Linux**.
+
+**This copy is 3dgame's fork of Meld**, in the `editor/` folder of the `Coldensjo/3dgame` repository
+(brought in with `git subtree` from `Coldensjo/Meld` on 2026-10-23). It has been reshaped from a WoW
+1.12 editor into the editor of 3dgame's cube world; the WoW features went with 3dgame #59, #60 and #61. The editor has no design doc of its own: its goal and priorities are the Editor section of the root
+`../docs/DESIGN.md`, and its rules are below. Where this file disagrees
+with the root `../CLAUDE.md` or `../docs/DESIGN.md`, the root ones win. Issue numbers (`#123`) in
+this folder's docs and commits before that date are `Coldensjo/Meld` issues, not 3dgame ones. Never
+commit to, push to or file issues on `Coldensjo/Meld`; Meld fixes come in with
+`git subtree pull --squash --prefix=editor https://github.com/Coldensjo/Meld.git main`, run from the
+repository root and only when the owner asks. Always `--squash`: Meld's own commit messages carry
+`Closes #<n>` lines that would otherwise close this repository's issues of the same numbers (#45).
 
 ## Git workflow
 
@@ -18,37 +29,36 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
 - Match the style of existing commit messages: one sentence in the imperative mood that says what
   changed and why, e.g. "Save palette thumbnails through a Go binding instead of a POST, since
   WebKitGTK crashes on request bodies".
-- Commit to the current branch. At the end of every session, pull and push: `git pull --rebase
-  --autostash`, then `git push`. Never force push. If the pull conflicts or the push is rejected,
-  abort the rebase, leave the commits local and tell the user.
+- Commit to the current branch of the 3dgame repository; pushing follows the root `../CLAUDE.md`.
+  Never force push, and never `git subtree push` to Meld.
 - When a commit finishes an issue, end the message with a blank line and `Closes #<n>` before the
   `Co-Authored-By` trailer.
 
 ## Backlog: GitHub issues
 
-The backlog is the issues of `Coldensjo/Meld`, through `gh` (logged in on this machine); LOOP.md is
-the loop's own use of them. The old BACKLOG.md and PROGRESS.md (the loop's log up to 2026-10-15) are
-in the git history (`git show b47706b:PROGRESS.md`).
+The backlog is the issues of `Coldensjo/3dgame` labelled `area:editor`, through `gh`, worked by the
+issue loop configured in `../.claude/issue-loop.md` (the root `../CLAUDE.md` has the rules). The
+rules below are Meld's own and still apply to editor work where the root ones don't say otherwise;
+the `gap` source label and the B-numbers are Meld's and are not used in 3dgame.
 
 - **Anything new goes in an issue**: a bug you find, an idea, a follow-up you leave for later. Search
   first (`gh issue list --search`) and comment on an existing issue rather than filing a duplicate.
   Don't build it unasked. Label it `value:H|M|L`, `effort:S|M|L`, one `area:` label, a `source:`
   label (`owner` if the user asked for it, `loop` if you found it while working on another issue,
-  `gap` for a Noggit Red feature Meld lacks; those issues are the gap list; `external` for an issue
-  someone other than the owner opened, which always needs the owner's approval), and `bug` or `needs-approval` where they apply.
+  `external` for an issue someone other than the owner opened, which always needs the owner's approval), and `bug` or `needs-approval` where they apply.
 - **Write issues for the next agent.** It starts cold, so the issue must hold what it needs: what and
   why, then a `**Claude:** notes for the agent working on this.` comment (or a section in the body)
   with the code to read (files and functions), the decisions that apply (`decision` issues, earlier
-  comments), how to verify it (the test entry in `docs/tests/`, listed in docs/TESTS.md; a client test, a spot on the map) and the traps
+  comments), how to verify it (the test entry in `docs/tests/`, listed in docs/TESTS.md; a probe, a world and a spot in it) and the traps
   you know of. Give a view to reproduce as a scene line (`window.__sceneText()` or Help > Copy Scene,
   `Meld scene {...}`, loaded with `P.scene(line)`), never as camera numbers copied by hand: the line
   holds the target and the prefs that move the camera (Follow the Ground), which the numbers lose. While working on an issue, comment anything a later session would otherwise have to
-  rediscover: a dead end, a finding about the client's format, where a half-done item stands.
+  rediscover: a dead end, a finding about a format, where a half-done item stands.
 - **Before working on an issue**, read it with its comments (`gh issue view <n> --json title,body,labels,comments`; the plain `--comments` form prints nothing in the agent shells).
 - **Comments**: start every comment you write with `**Claude:**`. A comment by the owner (author
   `Coldensjo`, not starting with `**Claude:**`) is an instruction for that item; comments by
-  `github-actions` are only pings. A decision about an item (the user's answer, or a choice you made
-  from Noggit Red or Benilla) goes in a comment on its issue; a decision that reaches beyond one item
+  `github-actions` are only pings. A decision about an item (the user's answer, or a choice you made)
+  goes in a comment on its issue; a decision that reaches beyond one item
   becomes its own closed issue labelled `decision`. Before changing how a finished feature behaves,
   search those: `gh issue list --state closed --label decision --search "<words>"`.
 - **When the owner is needed** (a question, a decision, something only they can do, such as a check
@@ -71,38 +81,22 @@ in the git history (`git show b47706b:PROGRESS.md`).
 
 ## Folder layout (this machine)
 
-The tool chain lives in `C:\WoW` (moved there 2026-10-15, from `C:\Servers\Meld` and `C:\Servers\Software`):
-
-- `meld`: this repository.
-- `client`: the WoW 1.12.1 client (Meld's client folder, `wowPath`; Meld writes its `Data\patch-3.MPQ`).
-  The only copy on the machine: Benilla reads it too, through `WOW_DATA` (set for the user to `C:\WoW\client\Data`).
-- `vmangos`: the VMaNGOS server (confs in `run`, logs in `logs`, map data in `data`).
-- `mariadb`: the database it runs on (port 3307, data in `vmangos\database`; `mariadb\bin` is on the PATH).
-- `scripts`: the server scripts (`start-server.bat`, `stop-server.bat`, `apply-sql.bat`,
-  `restore-world.bat`, `update-maps.bat`), kept out of the vmangos clone. They find the other folders
-  relative to their own (`%~dp0..`), so moving all of `C:\WoW` needs no edits.
-- `benilla`: the Benilla client (docs/BENILLA.md).
-- `blender`: Blender 5.2 LTS, portable (its settings and add-ons in `blender\portable`).
-- `noggit-red`: the Noggit Red map editor.
-- `backup`: files kept aside by hand (not a backup of the rest).
-
-`benilla`, `vmangos` and `noggit-red` are clones of other people's projects. Never commit to their
-upstream branches or push them. Our changes to vmangos (the extractor reading patch-3 to patch-9), to
-noggit-red (opening 1.12.1 clients) and to benilla (dialling IPv4 first, offered upstream as samwhosung/benilla#1385 from the branch
-`fix/dial-ipv4-first`) are on a branch named `local` in each; after a `git pull` on the upstream branch,
-rebase `local` onto it. A change of ours that upstream merges drops out of `local` in that rebase.
-
-Meld's config (`%APPDATA%\Meld\config.json`) holds absolute paths (`wowPath`, `vmangosPath`,
-`benillaPath`), so moving a folder means updating those.
+- The repository is `C:\Users\Chris\Desktop\3dgame`; the editor is its `editor/` folder, and the
+  game's crates, assets and docs sit beside it (`../crates`, `../assets`, `../docs`).
+- `C:\WoW` holds the owner's own WoW tool chain, which this editor no longer uses: the original Meld
+  (`C:\WoW\meld`, a clone of `Coldensjo/Meld`; never commit to it or push it), the WoW client, VMaNGOS
+  and its database, Benilla and Noggit Red. Leave it alone.
+- The editor's config (`%APPDATA%\Meld\config.json`) holds the user's preferences, the recent
+  projects and the game client's path for Play World (`config.WorldClientPath`).
 
 ## Commands
 
 ```bash
-make dev             # wails dev -tags webkit2_41 (hot reload; browser debug at http://localhost:34115)
+make dev             # wails dev -tags webkit2_41 (hot reload; browser debug at http://localhost:34125)
 make build-linux     # wails build -tags webkit2_41  → build/bin/Meld
 make build-windows   # wails build -platform windows/amd64 → build/bin/Meld.exe
 make test            # go test ./internal/... (and . when frontend/dist exists) + frontend unit tests (`bun test`)
-make check           # go vet (same rule) + (cd frontend && bun run check)
+make check           # the shape table (export-shapes --check), gofmt, go vet (same rule) + (cd frontend && bun run check)
 make probe           # every live-app probe (frontend/probes) against the running `make dev`
 cd frontend && bun run probe <name...>   # chosen probes; --list names them (docs/TESTS.md, "Probes")
 cd frontend && bun run build   # frontend only
@@ -133,41 +127,26 @@ cd frontend && bun run build   # frontend only
 
 ## Architecture
 
-- **Go owns files, archives and the server; the frontend owns rendering and editing.** `app.go` is
-  the thin binding layer (dialogs, `SaveMap`, `LoadMap`, the client and server calls), and the real
+- **Go owns files and archives; the frontend owns rendering and editing.** `app.go` is
+  the thin binding layer (dialogs, preferences, recovery, prefabs, projects), and the real
   work sits in packages under `internal/`:
-  - `mapfile` reads and writes `.wmap` files; `config` keeps the user's settings; `heightmap` reads
-    and writes heightmap PNGs.
-  - `mpq` is our own read-only MPQ reader; `wow` opens the client, decodes BLP, M2 and WMO, dresses
-    creature looks, builds minimap overviews and serves `/wow/*`.
-  - `adt` reads and rewrites 1.12 tiles: terrain, textures and alpha maps, liquids (MCLQ), models,
-    holes and ground effects, and builds new tiles.
-  - `vmangos` is the server side: regions read from the client and written back as a patch (with the
-    map's WDL horizon redrawn for the block, `wdl.go`), the map and spawn exports, the world database's spawns, templates and looks, the DBC tables the editor
-    needs (maps, zones, emotes, liquids, ground effects), and launching the client and servers.
-  - `game` starts the client and tells whether it and the servers run; no patch write closes or
-    restarts anything (#661: a write waits for a running game, `installClient` in `app_pending.go`).
-    The client is Wow.exe, or Benilla (the
-    open-source 1.12.1 client, `config.GameClient`, started from its folder with `WOW_DATA`,
-    `WOW_USER`, `WOW_PASS`, `WOW_REALM` and `WOW_CHAR`; see docs/BENILLA.md). Launch (`LaunchGameAt`)
-    puts the Game Login's character where the camera is: `Engine.playerSpot` finds the ground or
-    model below the camera in the server's coordinates (`io/portCoords.ts` `serverSpot`), and
-    `vmangos.PlaceCharacter` writes it into the character's row once the server has logged it out.
-    Play here (`PlayHere`) moves a character already in the world to that spot without closing the
-    game: `vmangos.TeleportCharacter` sends `.tele name` through the world server's SOAP console.
+  - `worldfile` reads and writes the game's cube worlds (`.world`, `../docs/world-format.md`), bound
+    in `app_world.go`; the frontend holds them in `lib/cubes/world.ts` (`docs/architecture/cubes.md`).
+  - `config` keeps the user's settings; `recovery` the autosaved copies of unsaved worlds; `play`
+    starts the game on a world (Play World); `handoff` passes a bound reply's binary part to the page
+    as one GET. The WoW client readers (`mpq`, `wow` and the `/wow/*` endpoints) went with #59.
 
   No editing logic goes in Go: it never decides what a brush does. It parses, converts and writes
-  formats the frontend should not have to know, and anything that must read the client's archives.
+  formats the frontend should not have to know.
 
 - **Engine** (`frontend/src/lib/engine/Engine.ts`) owns the renderer, scene, camera and rAF loop.
   Svelte talks to it through `engineRef.current` methods.
 - **Documents** (`lib/engine/MapDocument.ts`):
-  - Each open map (tab) owns its terrain, water, objects, `History`, per-map settings (`meta`)
-    and camera.
-  - `engine.terrain`, `engine.objects` and `engine.history` are getters for the active
-    document.
-  - On tab switch, `Engine.activate` stashes the live `editor` per-map fields into the old
-    document's `meta` and loads the new one's. Add any new per-map editor field to `DocMeta`,
+  - Each open cube world (tab) owns its `world`, the `CubeLayer` that draws it, its `History`,
+    per-world settings (`meta`) and camera.
+  - `engine.history` is a getter for the active document.
+  - On tab switch, `Engine.activate` stashes the live `editor` per-world fields into the old
+    document's `meta` and loads the new one's. Add any new per-world editor field to `DocMeta`,
     `stashActive` and `activate`.
   - The tab list for the UI is `docs` in `editor.svelte.ts`.
 - **State**: `lib/state/editor.svelte.ts` holds Svelte 5 runes (`editor`, `stats`, `ui`). The engine
@@ -186,30 +165,25 @@ The test docs are kept to the same rule (see "Testing notes"): a check worth rep
 
 | Doc | What it covers |
 |---|---|
-| `docs/architecture/terrain.md` | The `.wmap` format, heights, holes, splat paint and the paint mask, map data (zones, flags), baked shadows, the far horizon, ground effects, growing a region, the start dialog, zones and the world map |
-| `docs/architecture/tools.md` | The `Tool` interface, brush size and image brushes, Sculpt's painting, Stamp and brush stacks, the doodad and spawn brushes, the Select tool, the clipboard and nudging, the selection outline and gizmo |
-| `docs/architecture/objects.md` | Attachments, `ObjectLayer` (instancing, BVH picking, LOD, WMO group culling, WMO rooms and the portal gate), prop animation, lights, flames, particles, ribbons and texture animation |
-| `docs/architecture/water.md` | Liquid layers, the water brush, the sea, the liquid shader and MCLQ export |
-| `docs/architecture/lighting.md` | Shaders, the sky and time of day, shadow cascades, client lighting and clouds |
-| `docs/architecture/ui.md` | The window layout, the asset browser (search, tabs, sets, prefabs, thumbnails), the dock, the Inspector, History and Map Properties |
-| `docs/architecture/client.md` | The `/wow/*` endpoints, coordinates, the asset registry, WMO doodad sets, and spawns: looks, editing, waypoints, names and the creature editor |
+| `docs/architecture/cubes.md` | The game's cube worlds (`.world`): reading and writing them in Go, `CubeWorld`, the world document and its tab, the tools, drawing them and the layer slice |
+| `docs/architecture/lighting.md` | The sky and time of day, and the shadow cascades |
+| `docs/architecture/ui.md` | The window layout, the palette frame, History, World Properties, dialogs and menus |
 
 ## Rules that cut across the code
 
 These are repeated from the docs above, since breaking one breaks things far from where you work.
 
-- **Every edit must be undoable** through `History`. Undo closures write per-map state through
+- **Every edit must be undoable** through `History`. Undo closures write per-world state through
   `editor` at call time, never through captured arrays, because tab switches replace those arrays.
 - **Never write per-frame data into reactive state** (`editor`, `stats`, `ui`).
 - Avoid per-frame allocations in hot paths (brush loops, `frame()`). Reuse vectors and buffers.
 - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading them.
   Use bindings for uploads.
-- Move objects only through `ObjectLayer.place(o, parentId, worldPlacement)`; never write world values
-  into an attached object's fields. Build every model rotation through `placementEuler`.
-- Terrain picking ray-marches the heightmap (`Terrain.raycast`). Don't use triangle raycasts on it.
-- Prop lighting is tuned to the terrain shader's uniforms: change both together. The key light must
-  stay directional light 0.
-- Change `.wmap` only by bumping `Version`, keeping older versions readable and updating the tests.
+- The key light must stay directional light 0 (the shadow cascades' cascade 0).
+- **Windows and Linux both build.** Linux uses `-tags webkit2_41`; avoid anything that needs cgo or
+  one OS only.
+- **The owner's uncommitted files stay theirs.** The working tree may hold changes of the owner's;
+  never revert or stage them.
 
 ## Debugging the UI
 
@@ -219,9 +193,9 @@ These are repeated from the docs above, since breaking one breaks things far fro
   user reports "the X is broken", ask for that label.
 
 - **Scenes** (`lib/io/scene.ts`): Help > Copy Scene puts one line on the clipboard
-  (`Meld scene {...}`) with the map, camera, hour, tool, selection and view prefs. A map
+  (`Meld scene {...}`) with the world, camera, hour, tool and view prefs. A world
   with unsaved changes is first written to a copy in `<user cache>/Meld/scenes`
-  (`SaveSceneMap`, the last 20 kept). Help > Load Scene from Clipboard opens it again. When a
+  (`SaveSceneWorld`, a `.world` file, the last 20 kept). Help > Load Scene from Clipboard opens it again. When a
   user pastes a scene, load it in `make dev`'s browser page with `await window.__loadScene(text)`
   (and `window.__sceneText()` gives the current one). Loading sets the view prefs, which are
   saved to the user's config.
@@ -239,14 +213,11 @@ These are repeated from the docs above, since breaking one breaks things far fro
 - Dialogs live in `components/AppDialogs.svelte` (state: `ui.dialog`) on top of
   `components/Modal.svelte`.
 
-## WoW client assets
+## Assets
 
-- **Never copy, bundle or commit Blizzard assets.** No extracted files in the repo, the binary or
-  test fixtures. A `.wmap` file refers to the client's assets by path only (`m2:<path>` /
-  `wmo:<path>` object types and the texture `palette`), never by content. What Meld writes *into*
-  the client (tiles, the map table, spawn SQL) goes to the user's own client and server folders and
-  is never checked in.
-- Integration test: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
+- **Never copy, bundle or commit Blizzard assets** (from the WoW client the editor once read), in
+  the repo, the binary or test fixtures. The cubes' textures are the game's own
+  (`../assets/textures`, imported by Vite, `docs/architecture/cubes.md`).
 
 ## Conventions
 
@@ -257,14 +228,11 @@ These are repeated from the docs above, since breaking one breaks things far fro
 - UI styling: plain CSS with the tokens in `frontend/src/app.css` (dark editor theme). No UI
   framework dependency.
 - Avoid per-frame allocations in hot paths (brush loops, `frame()`). Reuse vectors and buffers.
-- In agent shells, write source, edit scripts and any text with backticks, mixed quotes or backslashes
-  (client paths) with the Write and Edit tools, never a Bash heredoc: it fails to parse or halves the
-  backslashes (short heredocs, such as a commit message, are fine).
-- The app ships asset-free. All models and textures come from the user's own WoW install at
-  runtime; there are no built-in prefabs. The one exception is the helper shapes (`models/helpers.ts`,
-  types `helper:*`, the owner's decision): generated cubes, discs, spheres and a human-height post,
-  placed as visual aids, saved in the map and never exported (`exportInput`, `regionObjects` and the
-  object list leave them out).
+- Agent shells: edit with the Write and Edit tools, never a Bash heredoc (see the root `CLAUDE.md`).
+- The editor reads the game's own tables (kinds, shapes, layer themes, monsters, NPCs, the model
+  table) from `crates/world` and `crates/gameplay`, generated or imported as text, and the props'
+  models from `../assets/models`, so the two cannot drift;
+  `docs/architecture/cubes.md` says which.
 
 ## Reuse existing code
 
@@ -274,12 +242,10 @@ These are repeated from the docs above, since breaking one breaks things far fro
   - Frontend: add npm packages with `bun add`. Three.js addons (`three/examples/jsm/...`) are
     already available.
   - Go: add modules with `go get`.
-  - WoW-specific logic: noggit3, wowdev.wiki and similar projects are good references to
-    port from (as the water code ports noggit3).
 - Pick code that fits the project:
   - **License**: MIT, BSD, Apache-2.0, ISC, zlib or similar permissive licenses only. No GPL,
     LGPL or AGPL code or dependencies (that's why `Gophercraft/mpq` isn't used). When porting
-    from a copyleft project such as noggit3, port the behaviour and reimplement it rather than
+    from a copyleft project, port the behaviour and reimplement it rather than
     copying code verbatim.
   - **Fast and small**: no heavy dependencies for a small gain, and nothing that allocates per
     frame in hot paths.

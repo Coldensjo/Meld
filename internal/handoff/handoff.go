@@ -13,7 +13,7 @@ import (
 )
 
 // Path is the asset server path a handoff is fetched from, with its id as ?id=.
-const Path = "/wow/handoff"
+const Path = "/handoff"
 
 // TTL is how long a handoff waits for its fetch before it is dropped, so a reply the page never
 // fetched (it failed after the method returned) doesn't hold its bytes for the whole session.

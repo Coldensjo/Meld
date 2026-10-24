@@ -1,11 +1,11 @@
 // The probe runner (docs/TESTS.md, "Probes"): runs named checks in the dev page over a headless
-// Chrome and prints one JSON line a probe. Needs `make dev` running (http://localhost:34115).
+// Chrome and prints one JSON line a probe. Needs `make dev` running (http://localhost:34125).
 //
-//   bun run probe smoke undo-sculpt      run these probes
+//   bun run probe smoke cube-world       run these probes
 //   bun run probe probes/scratch/x.js    run a probe file from any path (one-off checks; probes/scratch is git-ignored)
-//   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*; name those)
-//   bun run probe bench --shot out       also save a screenshot a probe as out/<name>.png
-//   bun run probe bench --profile        also print the probe's top functions by CPU time
+//   bun run probe --all                  every probe in this folder
+//   bun run probe cube-draw --shot out   also save a screenshot a probe as out/<name>.png
+//   bun run probe cube-draw --profile    also print the probe's top functions by CPU time
 //   bun run probe --list                 list the probes with their first comment line
 //
 // A probe is `probes/<name>.js`: the body of an async function run in the page, with `P` (lib.js)
@@ -18,8 +18,8 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-// `nosession`: a fresh blank map, not the owner's last session (a restored region takes the probe's tab, #250); `defaults`: every preference at its default, not the owner's (#253).
-const PAGE = process.env.MELD_URL ?? 'http://localhost:34115/?nosave&nosession&defaults'
+// `nosession`: a fresh empty world, not the owner's last session (a restored tab takes the probe's place, #250); `defaults`: every preference at its default, not the owner's (#253).
+const PAGE = process.env.MELD_URL ?? 'http://localhost:34125/?nosave&nosession&defaults'
 // Chrome picks its own DevTools port (--remote-debugging-port=0, read back from DevToolsActivePort, #602), so two runs never share one; DEBUG_PORT forces a port.
 const DEBUG_PORT = process.env.DEBUG_PORT ?? '0'
 // A probe that runs longer is stopped and reports the step it was waiting on (#301); PROBE_TIMEOUT (seconds) changes the limit.
@@ -33,7 +33,7 @@ let shotDir = null
 let profiling = false
 const names = []
 for (let i = 0; i < args.length; i++) {
-	if (args[i] === '--shot') shotDir = args[++i]
+	if (args[i] === '--shot') shotDir = resolve(args[++i])
 	else if (args[i] === '--profile') profiling = true
 	else names.push(args[i])
 }
@@ -57,17 +57,14 @@ const probeFile = (arg) => {
 	if (!all.includes(arg)) fail(`no probe named ${arg} (bun run probe --list)`)
 	return { name: arg, file: join(here, arg + '.js') }
 }
-// A name ending in * runs every probe whose name starts with the rest (`perf-*`: every benchmark map, #322).
+// A name ending in * runs every probe whose name starts with the rest (`cube-*`: every cube world probe, #322).
 const expand = (n) => {
 	if (!n.endsWith('*')) return [n]
 	const found = all.filter((a) => a.startsWith(n.slice(0, -1)))
 	if (!found.length) fail(`no probe matches ${n} (bun run probe --list)`)
 	return found
 }
-// --all leaves out the benchmarks (bench, perf-*): they print numbers for a before/after and check nothing a feature breaks, and
-// their ~8 minutes would take `make probe` past the agent harness's 30-minute task limit (#390). `make probe-perf` runs them.
-const isBenchmark = (n) => n === 'bench' || n.startsWith('perf-')
-const run = (names[0] === '--all' ? all.filter((n) => !isBenchmark(n)) : names.flatMap(expand)).map(probeFile)
+const run = (names[0] === '--all' ? all : names.flatMap(expand)).map(probeFile)
 
 function fail(msg) {
 	console.error(`probe: ${msg}`)
@@ -106,11 +103,9 @@ function otherRuns() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-/** Whether the dev server answers: the Go side (/wow/status) and the page through Vite (a dead Vite makes the Wails proxy answer 502, #258). Returns '' or the reason. */
+/** Whether the dev server answers: the page comes through the Go side's proxy from Vite (a dead Vite makes the Wails proxy answer 502, #258). Returns '' or the reason. */
 async function devDown() {
 	try {
-		const s = await fetch(new URL('/wow/status', PAGE), { signal: AbortSignal.timeout(5000) })
-		if (!s.ok) return `/wow/status answered ${s.status}`
 		const p = await fetch(new URL('/', PAGE), { signal: AbortSignal.timeout(10000) })
 		if (!p.ok) return `the page answered ${p.status}`
 	} catch (err) {
@@ -203,7 +198,9 @@ async function main() {
 	const launch = async () => {
 		chrome = spawn(findChrome(), [
 			'--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
-			'--window-size=1400,900', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
+			// PROBE_ANGLE picks the renderer: SwiftShader on the CPU by default, the same on every machine;
+			// d3d11 (Windows) or gl draws on the GPU, for timing a big world (3dgame #218).
+			'--window-size=1400,900', `--use-angle=${process.env.PROBE_ANGLE ?? 'swiftshader'}`, '--enable-unsafe-swiftshader',
 			'--no-first-run', '--no-default-browser-check', 'about:blank',
 		], { stdio: 'ignore', detached: process.platform !== 'win32' })
 		let target
@@ -296,10 +293,6 @@ async function main() {
 				}
 			}
 		}
-		// A probe that turned the throwaway client on (P.sandboxClient, #368) leaves it on when it fails:
-		// end it here, so the next probe and the owner's dev window read the real client again.
-		const ended = await evaluate('window.__probeSandbox ? window.go.main.App.EndClientSandbox() : null', 60_000).catch((e) => ({ error: e.message }))
-		if (ended?.error) out.sandboxEnd = ended.error
 		if (prof) out.profile = topFunctions(prof)
 		if (pageErrors.length) {
 			out.pageErrors = pageErrors.slice(0, 5)
@@ -313,13 +306,8 @@ async function main() {
 		const t0 = Date.now()
 		let out = await runOnce(p)
 		const recover = async () => {
-			if (!out.lostPage && !out.sandboxEnd) return
+			if (!out.lostPage) return
 			await relaunch()
-			// The lost page could not end a throwaway client it had turned on; a new page ends it (a no-op when none is on).
-			if (out.sandboxEnd) {
-				await send('Page.navigate', { url: PAGE })
-				await evaluate(`(async () => { for (let i = 0; i < 300; i++) { if (window.go?.main?.App) return window.go.main.App.EndClientSandbox(); await new Promise((r) => setTimeout(r, 100)) } })()`, 60_000).catch(() => null)
-			}
 		}
 		// After a new Go binding, wails dev replaces wailsjs' App.js by rename, Vite's watcher misses it
 		// and the page fails on "does not provide an export named" (docs/TESTS.md). Moving the file out
@@ -356,7 +344,8 @@ async function main() {
 		// Taken after every probe, so a later probe never writes this one's pictures.
 		const saved = (await evaluate('(() => { const s = window.__probeShots ?? []; window.__probeShots = []; return s })()').catch(() => null)) ?? []
 		if (shotDir) {
-			mkdirSync(shotDir, { recursive: true })
+			// Bun on Windows throws EEXIST from a recursive mkdir of an existing folder named by a relative path (#68).
+			if (!existsSync(shotDir)) mkdirSync(shotDir, { recursive: true })
 			// lib.js stops the app's loop, so the canvas holds the probe's last stepped frame: draw one more
 			// (and wait for the GPU) so the capture shows the state the probe ended in (#274).
 			await evaluate(`(async () => {

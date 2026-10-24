@@ -6,13 +6,12 @@ import (
 	"strings"
 
 	"Meld/internal/config"
-	"Meld/internal/wow"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// Projects (#48): a project folder, where the user's maps of it go, with the client folder it edits.
-// Meld opens straight into a map; a project is needed only to edit a part of Azeroth.
+// Projects (#48): a project folder, where the user's worlds go, which the Open and Save dialogs start
+// in. Meld opens straight into a world; a project is never needed.
 
 // ProjectList is the open project (nil for none) and the recent ones, newest first.
 type ProjectList struct {
@@ -54,47 +53,38 @@ func (a *App) BrowseProjectFolder() (string, error) {
 	})
 }
 
-// ProjectInFolder reads what a folder's project file says (its name and client folder), so picking
-// a folder used before fills them in. A folder without one gets its own name and no client.
+// ProjectInFolder reads what a folder's project file says (its name), so picking a folder used
+// before fills it in. A folder without one gets its own name.
 func (a *App) ProjectInFolder(dir string) (config.Project, error) {
 	return config.ReadProjectFolder(dir)
 }
 
-// OpenProject opens the client at client and makes dir the open project, named name: the folder
-// (made if needed) gets its project file and the project goes to the front of the recent list.
-// The client is opened first, so a folder that isn't a client leaves the open project as it was.
-func (a *App) OpenProject(name, dir, client string) (wow.Status, error) {
-	dir, client, name = strings.TrimSpace(dir), strings.TrimSpace(client), strings.TrimSpace(name)
+// OpenProject makes dir the open project, named name: the folder (made if needed) gets its project
+// file and the project goes to the front of the recent list.
+func (a *App) OpenProject(name, dir string) error {
+	dir, name = strings.TrimSpace(dir), strings.TrimSpace(name)
 	if dir == "" {
-		return a.wow.Status(), errors.New("choose a project folder")
-	}
-	if client == "" {
-		return a.wow.Status(), errors.New("choose the client folder")
+		return errors.New("choose a project folder")
 	}
 	if name == "" {
 		name = filepath.Base(filepath.Clean(dir))
 	}
-	if err := a.wow.Open(client); err != nil {
-		return a.wow.Status(), err
-	}
-	st := a.wow.Status()
-	p := config.Project{Name: name, Path: dir, ClientPath: client}
+	p := config.Project{Name: name, Path: dir}
 	if err := config.WriteProjectFolder(p); err != nil {
-		return st, err
+		return err
 	}
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
-	a.cfg.WowPath, a.cfg.ProjectPath = client, dir
+	a.cfg.ProjectPath = dir
 	a.cfg.Projects = config.TouchProject(a.cfg.Projects, p)
-	return st, config.Update(func(c *config.Config) error {
-		c.WowPath, c.ProjectPath = client, dir
+	return config.Update(func(c *config.Config) error {
+		c.ProjectPath = dir
 		c.Projects = config.TouchProject(c.Projects, p)
 		return nil
 	})
 }
 
-// CloseProject leaves the open project; the client stays loaded, and the project stays in the
-// recent list.
+// CloseProject leaves the open project; it stays in the recent list.
 func (a *App) CloseProject() error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
@@ -121,18 +111,4 @@ func (a *App) ForgetProject(dir string) error {
 		forget(c)
 		return nil
 	})
-}
-
-// projectClientChanged keeps the open project's client folder the one Preferences picks: its
-// recent entry and its project file. Called under cfgMu with c the config being saved.
-func projectClientChanged(c *config.Config, client string) {
-	if c.ProjectPath == "" || client == "" {
-		return
-	}
-	p := config.FindProject(c.Projects, c.ProjectPath)
-	if p == nil || p.ClientPath == client {
-		return
-	}
-	p.ClientPath = client
-	_ = config.WriteProjectFolder(*p)
 }

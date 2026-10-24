@@ -5,42 +5,6 @@ const P = {
 		return window.__engine
 	},
 
-	/**
-	 * The benchmark scene (docs/TESTS.md, "Measuring performance"): Northshire, over the abbey. Its view is
-	 * an orbit 60 yd out, so it turns Follow the Ground on: with the default flying camera the target is
-	 * the camera itself, down on the ground (#256).
-	 */
-	BENCH: 'Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":32,"y":48,"size":1}},"view":{"target":[182,30,353],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{"cameraFollowGround":true},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}',
-
-	/**
-	 * Points every client read and write at a fresh throwaway copy of the client (#368), so a probe can press
-	 * what writes Meld's patch: the copy's archives are links to the real ones and its patch a copy, made
-	 * again at each call. Throws when it can't, so a probe never writes the real client by mistake. Returns
-	 * `{ dataDir, realPatch }`. The runner ends it after the probe; `P.endSandbox()` ends it sooner and says
-	 * whether the real patch kept its size and time (`realUnchanged`). While it is on, nothing closes the
-	 * game, starts the servers or writes the server's tables (they answer with an error).
-	 */
-	async sandboxClient() {
-		const sb = await window.go.main.App.StartClientSandbox()
-		if (!sb?.dataDir) throw new Error('P.sandboxClient: the throwaway client did not start')
-		window.__probeSandbox = true
-		return sb
-	},
-
-	/** Ends the throwaway client (`P.sandboxClient`): `{ wasOn, realUnchanged, realPatch }`. */
-	async endSandbox() {
-		window.__probeSandbox = false
-		return await window.go.main.App.EndClientSandbox()
-	},
-
-	/** Writes bytes (a Uint8Array or a Blob) as a file of the throwaway client's scratch folder, for a binding that reads a file the user picked; returns its path. */
-	async sandboxFile(name, bytes) {
-		if (bytes instanceof Blob) bytes = new Uint8Array(await bytes.arrayBuffer())
-		let bin = ''
-		for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-		return await window.go.main.App.SandboxWriteFile(name, btoa(bin))
-	},
-
 	/** The open dialog with this accessible name: `aria-label`, or the text of its `aria-labelledby` heading (Modal, #369). Null when none. */
 	dialog(name) {
 		return (
@@ -70,7 +34,7 @@ const P = {
 	 * Puts the camera `back` yards from the editor point `at` ({ x, y, z }) looking at it, whatever the
 	 * Follow the Ground pref. The camera flies there: a flying camera is where its target is, so a view
 	 * "on" a point would put the camera inside it, and a following one lifts the target onto the
-	 * terrain, above a cave (#309). `yaw` is the direction the camera sits in (0 = +z of the point).
+	 * ground (#309). `yaw` is the direction the camera sits in (0 = +z of the point).
 	 */
 	async lookAt(at, { yaw = 0, pitch = 0.2, back = 10 } = {}) {
 		const c = window.__engine.controller
@@ -211,40 +175,13 @@ const P = {
 	},
 
 	/**
-	 * Steps frames until no read from the client has been open for `quietMs` (models, textures, tiles)
-	 * and the spawn layer's `version` has not changed for as long: a spawn arriving later bumps it,
-	 * which redraws both shadow maps under a measurement (#393). A version that keeps changing is
-	 * waited on for at most 10 s past the reads, so an animated layer can't time out.
+	 * Steps frames for `quietMs`, so what a change started has drawn. Nothing is read from a WoW client
+	 * any more (#59), so there are no loads to wait for; `timeout` is kept for the callers that pass it.
 	 */
 	async settle(quietMs = 1500, timeout = 300_000) {
-		const { readLoad } = await P.app('/src/lib/wow/loadProgress.ts')
-		const b = {}
 		P.resetStalls()
-		const version = () => window.__engine?.doc?.spawnLayer?.version ?? 0
-		let quietSince = performance.now()
-		let readsQuietAt = 0
-		let seen = version()
-		const end = performance.now() + timeout
-		for (;;) {
-			await P.frames(1)
-			readLoad(b)
-			const now = performance.now()
-			window.__probeStep = `P.settle: ${b.done} of ${b.started} client reads done, last ${b.kind} ${b.path}`
-			const v = version()
-			if (v !== seen) {
-				seen = v
-				quietSince = now
-			}
-			if (b.started !== b.done) {
-				quietSince = now
-				readsQuietAt = 0
-			} else if (!readsQuietAt) readsQuietAt = now
-			if (b.started === b.done && (now - quietSince > quietMs || now - readsQuietAt > quietMs + 10_000)) {
-				window.__probeStep = null
-				return
-			}
-			if (now > end) throw new Error(`timed out waiting for loads to finish (${b.done} of ${b.started} done, last ${b.kind} ${b.path}; ${P.stallText()})`)
-		}
+		const end = performance.now() + Math.min(quietMs, timeout)
+		while (performance.now() < end) await P.frames(1)
 	},
 
 	/**
@@ -287,54 +224,6 @@ const P = {
 		c.height = h
 		c.getContext('2d').putImageData(out, 0, 0)
 		;(window.__probeShots ??= []).push({ name, data: c.toDataURL('image/png').split(',')[1] })
-	},
-
-	/**
-	 * One of the client's textures as a picture (#317), the same `{ w, h, px, lit }` as `shot`, so `P.save`
-	 * and `P.diff` take it. `path` is a client path (`Textures\\Weather\\RainDropSplash01.blp`); write it
-	 * with the Write tool, not a heredoc. Reads the decoded RGBA (`fetchImage`), not the GPU texture,
-	 * which is DXT where S3TC is sampled. `size` scales it to that many pixels square (default its own
-	 * size). `alpha` shows the alpha channel as grey instead of the colour; otherwise alpha is kept, and
-	 * a transparent texel shows as whatever its RGB holds (opaque), so use `alpha` to see the cut-out.
-	 * Rows are bottom-up like `shot`'s.
-	 */
-	async texture(path, { size, alpha = false } = {}) {
-		const { fetchImage } = await P.app('/src/lib/wow/api.ts')
-		const img = await fetchImage(path)
-		let w = img.width
-		let h = img.height
-		let src = img.pixels
-		if (size && (size !== w || size !== h)) {
-			const a = document.createElement('canvas')
-			a.width = w
-			a.height = h
-			a.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(src.slice(0, w * h * 4)), w, h), 0, 0)
-			const b = document.createElement('canvas')
-			b.width = b.height = size
-			const bc = b.getContext('2d', { willReadFrequently: true })
-			bc.drawImage(a, 0, 0, size, size)
-			src = bc.getImageData(0, 0, size, size).data
-			w = h = size
-		}
-		const px = new Uint8Array(w * h * 4)
-		let lit = 0
-		for (let y = 0; y < h; y++) {
-			// The reply's row 0 is the top; the picture's is the bottom.
-			const from = (h - 1 - y) * w * 4
-			for (let x = 0; x < w; x++) {
-				const i = from + x * 4
-				const o = (y * w + x) * 4
-				if (alpha) px[o] = px[o + 1] = px[o + 2] = src[i + 3]
-				else {
-					px[o] = src[i]
-					px[o + 1] = src[i + 1]
-					px[o + 2] = src[i + 2]
-				}
-				px[o + 3] = 255
-				if (px[o] > 8 || px[o + 1] > 8 || px[o + 2] > 8) lit++
-			}
-		}
-		return { w, h, px, lit: lit / (w * h) }
 	},
 
 	/** Hides (or with `false` shows) the panels, so the viewport fills the window (what Tab does), and steps frames for the resize. */
@@ -407,7 +296,7 @@ const P = {
 	 * (as for `P.click`; default the centre). Steps a normal frame, then renders the scene once more with
 	 * every drawable's fragment shader ending in a flat colour that encodes the mesh's index (the
 	 * materials keep their own vertex shaders, depth state and discards, so geometry and alpha tests are
-	 * as drawn; blending is off, and a fragment the material draws with alpha under 0.1 is dropped, so a soft particle does not hide what is behind it). Returns `{ name, type, chain, batch, layer, material, id, near }` or
+	 * as drawn; blending is off, and a fragment the material draws with alpha under 0.1 is dropped, so a soft particle does not hide what is behind it). Returns `{ name, type, chain, material, id, near }` or
 	 * `null` when nothing drew there (the background); `near` is true when the pixel itself was an
 	 * antialiased edge and a neighbour's colour was used. Everything is put back in a `finally`. Points,
 	 * lines and sprites are hidden for the pass.
@@ -423,8 +312,6 @@ const P = {
 			if (o.isMesh) meshes.push(o)
 			else if (o.isPoints || o.isLine || o.isSprite) hidden.push(o)
 		})
-		const batchKeys = new Map()
-		for (const [key, b] of e.objects.batches ?? []) for (const m of [b.mesh, b.lod, b.liquid]) if (m) batchKeys.set(m, key)
 		const swapped = []
 		const chainOf = (o) => {
 			const parts = []
@@ -516,8 +403,8 @@ ${fs.slice(0, end)}
 	},
 
 	/**
-	 * A parameter from the command line (#347): `P.env('MAP', 'creatures')` reads the environment variable
-	 * `PROBE_MAP` the run was started with (`PROBE_MAP=everything bun run probe ab.js`), as a string, or
+	 * A parameter from the command line (#347): `P.env('SIZE', 4)` reads the environment variable
+	 * `PROBE_SIZE` the run was started with (`PROBE_SIZE=8 bun run probe ab.js`), as a string, or
 	 * `fallback` when it is unset. When `fallback` is a number or boolean the value is converted to that
 	 * type. Print what it returned in the probe's result, so a mistyped name shows.
 	 */
@@ -591,7 +478,6 @@ ${fs.slice(0, end)}
 			geometries: r.geometries,
 			textures: r.textures,
 			heapMB: r.heapMB,
-			topModels: r.models.slice(0, 5).map((m) => `${m.type.split('?')[0].split(/[\\/]/).pop()} ${m.triangles}`),
 		}
 	},
 
@@ -602,9 +488,8 @@ ${fs.slice(0, end)}
 	 * `min` and `max` ms, the mean `calls` and `triangles`, and `sections`, the mean ms of each
 	 * `CPU_SECTIONS` entry by name (the section timings are the clear signal for a change smaller than
 	 * the frame's spread); `delta` is on minus off for the CPU mean and each section, and `overlap` names
-	 * the measures whose [min, max] ranges overlap. Leaves the switch off. Needs the map built first.
-	 * Sixteen windows after the everything map's 100 s build outrun the default 300 s limit: run it with
-	 * `PROBE_TIMEOUT=900`. `opts.sections` limits the sections reported (names or substrings). `opts.turn` (radians a frame) turns the camera during the windows (`P.turn`, #348).
+	 * the measures whose [min, max] ranges overlap. Leaves the switch off. Open the world first.
+	 * Sixteen windows can outrun the default 300 s limit: run it with `PROBE_TIMEOUT=900`. `opts.sections` limits the sections reported (names or substrings). `opts.turn` (radians a frame) turns the camera during the windows (`P.turn`, #348).
 	 */
 	async ab(set, n = 8, opts = {}) {
 		const { CPU_SECTIONS } = await P.app('/src/lib/engine/perfMeter.ts')
@@ -652,14 +537,14 @@ ${fs.slice(0, end)}
 	},
 
 	/**
-	 * Times chosen methods (#348): `spec` lists what to wrap, either `{ '/src/lib/world/ObjectLayer.ts:ObjectLayer': ['update'] }`
+	 * Times chosen methods (#348): `spec` lists what to wrap, either `{ '/src/lib/cubes/CubeLayer.ts:CubeLayer': ['update'] }`
 	 * (an app module path, a colon and the exported class, resolved through `P.app` so the wrap lands on
 	 * the page's own copy) or `[[Class, 'method'], ...]` for classes already in hand. Wraps the
 	 * prototype methods and returns `{ snap(), reset(), restore() }`. `snap()` gives per method
 	 * `{ ms, calls }` (an outermost call only: a call nested in the same method adds nothing) and
 	 * `total`, the ms and calls of the outermost wrapped call of any method (a wrapped method called by
-	 * another counts once there). `reset()` zeroes the counts in place, so call it between a load and a
-	 * stroke; `restore()` puts the originals back. Wrap before the work to measure (`P.benchMap`).
+	 * another counts once there). `reset()` zeroes the counts in place, so call it between a load and an
+	 * edit; `restore()` puts the originals back. Wrap before the work to measure.
 	 */
 	async time(spec) {
 		const pairs = []
@@ -720,7 +605,7 @@ ${fs.slice(0, end)}
 
 	/**
 	 * Turns the camera `step` radians of yaw every frame (#348), so a measurement sees the cost that comes
-	 * only with movement; `P.perf` and the `perf-*` probes look at a still camera. Wraps
+	 * only with movement; `P.perf` looks at a still camera. Wraps
 	 * `controller.update` and returns a function that stops it. `P.ab(set, n, { turn: 0.05 })` does this
 	 * around its windows.
 	 */
@@ -733,75 +618,6 @@ ${fs.slice(0, end)}
 		}
 		return () => {
 			c.update = f
-		}
-	},
-
-	/**
-	 * A scripted brush stroke (#348): `tool` is an instance (`P.e.tools.sculpt`) or its name, `from` and
-	 * `to` are `{ x, z }` in editor coordinates. Presses on `from`, ticks `n` times (default 30, `dt`
-	 * 0.05) along the line with a frame after each stamp, releases on `to`, and steps a last frame.
-	 * Set `editor.tool`, the mode and `editor.brush` first (see `undo-sculpt`). Returns `{ tickMs, ticks }`,
-	 * the ms inside the tool's `tick` calls (what a stroke costs besides its frames). History gets the stroke as one edit.
-	 */
-	async stroke(tool, from, to, n = 30, dt = 0.05) {
-		const e = window.__engine
-		const t = typeof tool === 'string' ? e.tools[tool] : tool
-		if (!t) throw new Error(`P.stroke: no tool ${tool}`)
-		const V3 = e.controller.target.constructor
-		const at = (p) => new V3(p.x, e.terrain.heightAt(p.x, p.z), p.z)
-		let tickMs = 0
-		t.onDown(e.ctx, at(from))
-		for (let i = 1; i <= n; i++) {
-			const k = i / n
-			const t0 = performance.now()
-			t.tick(e.ctx, dt, at({ x: from.x + (to.x - from.x) * k, z: from.z + (to.z - from.z) * k }))
-			tickMs += performance.now() - t0
-			await P.frames(1)
-		}
-		t.onUp(e.ctx)
-		await P.frames(1)
-		return { tickMs: Math.round(tickMs * 10) / 10, ticks: n }
-	},
-
-	/**
-	 * Builds benchmark map `kind` (lib/bench/benchMaps.ts, #322) with `count` of its main thing (its
-	 * default times `scale`, `PROBE_SCALE` from the environment when left out (#349), as Help › Benchmark map size does), sets its hour, flies the camera to its view, waits for the client reads
-	 * to stop and measures it. `buildMs` is the map's build, `loadMs` that plus its models' loading.
-	 */
-	async benchMap(kind, count, scale = P.env('SCALE', 1)) {
-		const m = await P.loadBenchMap(kind, count, scale)
-		await P.frames(5)
-		const r = await P.perf()
-		return { ...m, ...P.perfSummary(r) }
-	},
-
-	/**
-	 * `P.benchMap` without the measurement: builds the map, flies to its view and waits for the client
-	 * reads to stop. For a probe that only needs the map: the measurement's windows of SwiftShader
-	 * frames take 25 to 70 s a map, most of such a probe's time.
-	 */
-	async loadBenchMap(kind, count, scale = P.env('SCALE', 1)) {
-		const { buildBenchMap, benchView, benchMap } = await P.app('/src/lib/bench/benchMaps.ts')
-		const { prefs } = await P.state()
-		const m = benchMap(kind)
-		prefs.dayCycle = false
-		prefs.timeOfDay = m.hour
-		const t0 = performance.now()
-		const d = await buildBenchMap(P.e, kind, count, 1, scale)
-		const buildMs = Math.round(performance.now() - t0)
-		benchView(P.e, kind)
-		await P.frames(2)
-		await P.settle()
-		return {
-			map: kind,
-			stresses: m.stresses,
-			scale,
-			count: count ?? Math.round(m.count * scale),
-			size: d.terrain.size,
-			objects: d.objects.objects.size,
-			spawns: d.spawnLayer.spawns.length,
-			buildMs,
-			loadMs: Math.round(performance.now() - t0),
 		}
 	},
 

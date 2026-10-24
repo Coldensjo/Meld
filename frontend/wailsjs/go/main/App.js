@@ -6,36 +6,8 @@ export function AckClose() {
   return window['go']['main']['App']['AckClose']();
 }
 
-export function AddGroundEffect(arg1, arg2, arg3) {
-  return window['go']['main']['App']['AddGroundEffect'](arg1, arg2, arg3);
-}
-
 export function AppendLog(arg1) {
   return window['go']['main']['App']['AppendLog'](arg1);
-}
-
-export function ApplySpawnEdits(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['ApplySpawnEdits'](arg1, arg2, arg3, arg4, arg5);
-}
-
-export function AreaRows(arg1) {
-  return window['go']['main']['App']['AreaRows'](arg1);
-}
-
-export function AreaTriggers(arg1) {
-  return window['go']['main']['App']['AreaTriggers'](arg1);
-}
-
-export function Areas() {
-  return window['go']['main']['App']['Areas']();
-}
-
-export function BrowseBenillaFolder() {
-  return window['go']['main']['App']['BrowseBenillaFolder']();
-}
-
-export function BrowseBrushImageFolder(arg1) {
-  return window['go']['main']['App']['BrowseBrushImageFolder'](arg1);
 }
 
 export function BrowsePrefabFolder(arg1) {
@@ -46,212 +18,28 @@ export function BrowseProjectFolder() {
   return window['go']['main']['App']['BrowseProjectFolder']();
 }
 
-export function BrowseVmangosFolder() {
-  return window['go']['main']['App']['BrowseVmangosFolder']();
-}
-
-export function BrowseWowFolder() {
-  return window['go']['main']['App']['BrowseWowFolder']();
-}
-
-export function CheckSpawnIDs(arg1) {
-  return window['go']['main']['App']['CheckSpawnIDs'](arg1);
-}
-
-export function ClassLevelStats(arg1, arg2, arg3) {
-  return window['go']['main']['App']['ClassLevelStats'](arg1, arg2, arg3);
-}
-
-export function ClearThumbnailCache() {
-  return window['go']['main']['App']['ClearThumbnailCache']();
-}
-
-export function ClientFilesWaiting() {
-  return window['go']['main']['App']['ClientFilesWaiting']();
-}
-
 export function CloseProject() {
   return window['go']['main']['App']['CloseProject']();
 }
 
-export function CreateCreature(arg1, arg2) {
-  return window['go']['main']['App']['CreateCreature'](arg1, arg2);
-}
-
-export function CreateItem(arg1, arg2) {
-  return window['go']['main']['App']['CreateItem'](arg1, arg2);
-}
-
-export function CreateItemOfKind(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['CreateItemOfKind'](arg1, arg2, arg3, arg4);
-}
-
-export function CreateObject(arg1, arg2) {
-  return window['go']['main']['App']['CreateObject'](arg1, arg2);
-}
-
-export function CreateQuest(arg1, arg2) {
-  return window['go']['main']['App']['CreateQuest'](arg1, arg2);
-}
-
-export function CreateSpell(arg1, arg2, arg3) {
-  return window['go']['main']['App']['CreateSpell'](arg1, arg2, arg3);
-}
-
-export function DeleteConditionText(arg1, arg2) {
-  return window['go']['main']['App']['DeleteConditionText'](arg1, arg2);
-}
-
-export function DeleteQuest(arg1) {
-  return window['go']['main']['App']['DeleteQuest'](arg1);
+export function ConvertSprite(arg1, arg2) {
+  return window['go']['main']['App']['ConvertSprite'](arg1, arg2);
 }
 
 export function DropRecovery(arg1) {
   return window['go']['main']['App']['DropRecovery'](arg1);
 }
 
-export function DropRecoveryParts(arg1) {
-  return window['go']['main']['App']['DropRecoveryParts'](arg1);
-}
-
-export function EndClientSandbox() {
-  return window['go']['main']['App']['EndClientSandbox']();
-}
-
 export function EndRecovery() {
   return window['go']['main']['App']['EndRecovery']();
-}
-
-export function EquipBonuses() {
-  return window['go']['main']['App']['EquipBonuses']();
-}
-
-export function EquipmentFor(arg1) {
-  return window['go']['main']['App']['EquipmentFor'](arg1);
-}
-
-export function EquipmentItems(arg1) {
-  return window['go']['main']['App']['EquipmentItems'](arg1);
-}
-
-export function ExportIcons(arg1, arg2) {
-  return window['go']['main']['App']['ExportIcons'](arg1, arg2);
-}
-
-export function ExportIconsDialog() {
-  return window['go']['main']['App']['ExportIconsDialog']();
-}
-
-export function ExportItems(arg1, arg2) {
-  return window['go']['main']['App']['ExportItems'](arg1, arg2);
-}
-
-export function ExportSpells(arg1, arg2) {
-  return window['go']['main']['App']['ExportSpells'](arg1, arg2);
-}
-
-export function Factions() {
-  return window['go']['main']['App']['Factions']();
 }
 
 export function ForgetProject(arg1) {
   return window['go']['main']['App']['ForgetProject'](arg1);
 }
 
-export function GameClient() {
-  return window['go']['main']['App']['GameClient']();
-}
-
-export function GameEvents() {
-  return window['go']['main']['App']['GameEvents']();
-}
-
-export function GameLogin() {
-  return window['go']['main']['App']['GameLogin']();
-}
-
-export function GameWindow() {
-  return window['go']['main']['App']['GameWindow']();
-}
-
-export function GroundEffects() {
-  return window['go']['main']['App']['GroundEffects']();
-}
-
-export function ImportIcons(arg1) {
-  return window['go']['main']['App']['ImportIcons'](arg1);
-}
-
-export function ImportItems(arg1) {
-  return window['go']['main']['App']['ImportItems'](arg1);
-}
-
-export function ImportSpells(arg1) {
-  return window['go']['main']['App']['ImportSpells'](arg1);
-}
-
-export function InstallMapPatch(arg1) {
-  return window['go']['main']['App']['InstallMapPatch'](arg1);
-}
-
-export function ItemDisplayVariant(arg1, arg2, arg3) {
-  return window['go']['main']['App']['ItemDisplayVariant'](arg1, arg2, arg3);
-}
-
-export function ItemIcons(arg1) {
-  return window['go']['main']['App']['ItemIcons'](arg1);
-}
-
-export function ItemModelLook(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['ItemModelLook'](arg1, arg2, arg3, arg4);
-}
-
-export function ItemSets(arg1) {
-  return window['go']['main']['App']['ItemSets'](arg1);
-}
-
-export function LaunchGame() {
-  return window['go']['main']['App']['LaunchGame']();
-}
-
-export function LaunchGameAt(arg1) {
-  return window['go']['main']['App']['LaunchGameAt'](arg1);
-}
-
-export function LiquidTypes() {
-  return window['go']['main']['App']['LiquidTypes']();
-}
-
-export function ListBrushImages(arg1) {
-  return window['go']['main']['App']['ListBrushImages'](arg1);
-}
-
-export function ListCreatureTemplates() {
-  return window['go']['main']['App']['ListCreatureTemplates']();
-}
-
-export function ListDisplays() {
-  return window['go']['main']['App']['ListDisplays']();
-}
-
-export function ListItemDisplays() {
-  return window['go']['main']['App']['ListItemDisplays']();
-}
-
-export function ListItemIcons() {
-  return window['go']['main']['App']['ListItemIcons']();
-}
-
-export function ListItemKinds() {
-  return window['go']['main']['App']['ListItemKinds']();
-}
-
-export function ListObjectDisplays() {
-  return window['go']['main']['App']['ListObjectDisplays']();
-}
-
-export function ListObjectTemplates() {
-  return window['go']['main']['App']['ListObjectTemplates']();
+export function ImportTibiaMap() {
+  return window['go']['main']['App']['ImportTibiaMap']();
 }
 
 export function ListPrefabs(arg1) {
@@ -262,60 +50,24 @@ export function ListRecovery() {
   return window['go']['main']['App']['ListRecovery']();
 }
 
-export function ListSpells(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['ListSpells'](arg1, arg2, arg3, arg4);
+export function ListSprites(arg1) {
+  return window['go']['main']['App']['ListSprites'](arg1);
 }
 
-export function ListVisualEffects() {
-  return window['go']['main']['App']['ListVisualEffects']();
-}
-
-export function ListWeapons() {
-  return window['go']['main']['App']['ListWeapons']();
-}
-
-export function LoadBuildingMap(arg1) {
-  return window['go']['main']['App']['LoadBuildingMap'](arg1);
-}
-
-export function LoadMap(arg1) {
-  return window['go']['main']['App']['LoadMap'](arg1);
+export function LoadItemSprites(arg1) {
+  return window['go']['main']['App']['LoadItemSprites'](arg1);
 }
 
 export function LoadPrefs() {
   return window['go']['main']['App']['LoadPrefs']();
 }
 
-export function LoadRecovery(arg1) {
-  return window['go']['main']['App']['LoadRecovery'](arg1);
+export function LoadRecoveryWorld(arg1) {
+  return window['go']['main']['App']['LoadRecoveryWorld'](arg1);
 }
 
-export function LoadRegion(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['LoadRegion'](arg1, arg2, arg3, arg4);
-}
-
-export function LoadSpawns(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['LoadSpawns'](arg1, arg2, arg3, arg4);
-}
-
-export function LoadingScreens() {
-  return window['go']['main']['App']['LoadingScreens']();
-}
-
-export function MapEntries() {
-  return window['go']['main']['App']['MapEntries']();
-}
-
-export function MapLights(arg1) {
-  return window['go']['main']['App']['MapLights'](arg1);
-}
-
-export function MapZones() {
-  return window['go']['main']['App']['MapZones']();
-}
-
-export function ModelAnimations(arg1) {
-  return window['go']['main']['App']['ModelAnimations'](arg1);
+export function LoadWorld(arg1) {
+  return window['go']['main']['App']['LoadWorld'](arg1);
 }
 
 export function MouseLookBegin() {
@@ -330,92 +82,24 @@ export function MouseLookRecenter() {
   return window['go']['main']['App']['MouseLookRecenter']();
 }
 
-export function NewAreaRow(arg1, arg2) {
-  return window['go']['main']['App']['NewAreaRow'](arg1, arg2);
-}
-
-export function NewLightIDs() {
-  return window['go']['main']['App']['NewLightIDs']();
-}
-
-export function NextCreatureGUID() {
-  return window['go']['main']['App']['NextCreatureGUID']();
-}
-
-export function NextObjectGUID() {
-  return window['go']['main']['App']['NextObjectGUID']();
-}
-
-export function NextObjectLoot() {
-  return window['go']['main']['App']['NextObjectLoot']();
-}
-
-export function NextPoolEntry() {
-  return window['go']['main']['App']['NextPoolEntry']();
-}
-
-export function ObjectModel(arg1) {
-  return window['go']['main']['App']['ObjectModel'](arg1);
-}
-
-export function OpenBrushDialog() {
-  return window['go']['main']['App']['OpenBrushDialog']();
-}
-
-export function OpenHeightmapDialog() {
-  return window['go']['main']['App']['OpenHeightmapDialog']();
-}
-
-export function OpenIconsDialog() {
-  return window['go']['main']['App']['OpenIconsDialog']();
-}
-
-export function OpenImageDialog(arg1) {
-  return window['go']['main']['App']['OpenImageDialog'](arg1);
-}
-
-export function OpenItemsDialog() {
-  return window['go']['main']['App']['OpenItemsDialog']();
-}
-
 export function OpenMapDialog() {
   return window['go']['main']['App']['OpenMapDialog']();
 }
 
-export function OpenModelSetDialog() {
-  return window['go']['main']['App']['OpenModelSetDialog']();
+export function OpenProject(arg1, arg2) {
+  return window['go']['main']['App']['OpenProject'](arg1, arg2);
 }
 
-export function OpenProject(arg1, arg2, arg3) {
-  return window['go']['main']['App']['OpenProject'](arg1, arg2, arg3);
+export function OpenSprite(arg1) {
+  return window['go']['main']['App']['OpenSprite'](arg1);
 }
 
-export function OpenReferenceImageDialog() {
-  return window['go']['main']['App']['OpenReferenceImageDialog']();
+export function OpenSpriteFolder(arg1) {
+  return window['go']['main']['App']['OpenSpriteFolder'](arg1);
 }
 
-export function OpenSpellsDialog() {
-  return window['go']['main']['App']['OpenSpellsDialog']();
-}
-
-export function OpenTextDialog() {
-  return window['go']['main']['App']['OpenTextDialog']();
-}
-
-export function PlanItemImport(arg1) {
-  return window['go']['main']['App']['PlanItemImport'](arg1);
-}
-
-export function PlanQuestDelete(arg1) {
-  return window['go']['main']['App']['PlanQuestDelete'](arg1);
-}
-
-export function PlanSpellImport(arg1) {
-  return window['go']['main']['App']['PlanSpellImport'](arg1);
-}
-
-export function PlayHere(arg1) {
-  return window['go']['main']['App']['PlayHere'](arg1);
+export function PlayWorld(arg1, arg2) {
+  return window['go']['main']['App']['PlayWorld'](arg1, arg2);
 }
 
 export function ProjectInFolder(arg1) {
@@ -426,200 +110,8 @@ export function Projects() {
   return window['go']['main']['App']['Projects']();
 }
 
-export function PublishVmangosMap(arg1) {
-  return window['go']['main']['App']['PublishVmangosMap'](arg1);
-}
-
-export function QuestTables() {
-  return window['go']['main']['App']['QuestTables']();
-}
-
 export function Quit() {
   return window['go']['main']['App']['Quit']();
-}
-
-export function ReadBrushImage(arg1, arg2) {
-  return window['go']['main']['App']['ReadBrushImage'](arg1, arg2);
-}
-
-export function ReadCreature(arg1) {
-  return window['go']['main']['App']['ReadCreature'](arg1);
-}
-
-export function ReadCreatureQuests(arg1) {
-  return window['go']['main']['App']['ReadCreatureQuests'](arg1);
-}
-
-export function ReadCreatureSpells(arg1) {
-  return window['go']['main']['App']['ReadCreatureSpells'](arg1);
-}
-
-export function ReadGossip(arg1) {
-  return window['go']['main']['App']['ReadGossip'](arg1);
-}
-
-export function ReadHeightmap(arg1) {
-  return window['go']['main']['App']['ReadHeightmap'](arg1);
-}
-
-export function ReadImageFile(arg1) {
-  return window['go']['main']['App']['ReadImageFile'](arg1);
-}
-
-export function ReadItem(arg1) {
-  return window['go']['main']['App']['ReadItem'](arg1);
-}
-
-export function ReadItemTemplate(arg1) {
-  return window['go']['main']['App']['ReadItemTemplate'](arg1);
-}
-
-export function ReadObject(arg1) {
-  return window['go']['main']['App']['ReadObject'](arg1);
-}
-
-export function ReadObjectLoot(arg1, arg2) {
-  return window['go']['main']['App']['ReadObjectLoot'](arg1, arg2);
-}
-
-export function ReadObjectQuests(arg1) {
-  return window['go']['main']['App']['ReadObjectQuests'](arg1);
-}
-
-export function ReadQuest(arg1) {
-  return window['go']['main']['App']['ReadQuest'](arg1);
-}
-
-export function ReadQuestGivers(arg1) {
-  return window['go']['main']['App']['ReadQuestGivers'](arg1);
-}
-
-export function ReadReferenceImage(arg1) {
-  return window['go']['main']['App']['ReadReferenceImage'](arg1);
-}
-
-export function ReadSpell(arg1) {
-  return window['go']['main']['App']['ReadSpell'](arg1);
-}
-
-export function ReadSpellVisual(arg1) {
-  return window['go']['main']['App']['ReadSpellVisual'](arg1);
-}
-
-export function ReadTextFile(arg1) {
-  return window['go']['main']['App']['ReadTextFile'](arg1);
-}
-
-export function ReadVendor(arg1) {
-  return window['go']['main']['App']['ReadVendor'](arg1);
-}
-
-export function ReadWorldMap(arg1, arg2) {
-  return window['go']['main']['App']['ReadWorldMap'](arg1, arg2);
-}
-
-export function RegionEdges(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['RegionEdges'](arg1, arg2, arg3, arg4);
-}
-
-export function RegionHorizon(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['RegionHorizon'](arg1, arg2, arg3, arg4);
-}
-
-export function RegionInner(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['RegionInner'](arg1, arg2, arg3, arg4);
-}
-
-export function RegionMapID(arg1) {
-  return window['go']['main']['App']['RegionMapID'](arg1);
-}
-
-export function RegionPending(arg1) {
-  return window['go']['main']['App']['RegionPending'](arg1);
-}
-
-export function RegionShadows(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['RegionShadows'](arg1, arg2, arg3, arg4);
-}
-
-export function SandboxWriteFile(arg1, arg2) {
-  return window['go']['main']['App']['SandboxWriteFile'](arg1, arg2);
-}
-
-export function SaveAreaTriggers(arg1, arg2) {
-  return window['go']['main']['App']['SaveAreaTriggers'](arg1, arg2);
-}
-
-export function SaveAreas(arg1, arg2) {
-  return window['go']['main']['App']['SaveAreas'](arg1, arg2);
-}
-
-export function SaveBrushDialog(arg1) {
-  return window['go']['main']['App']['SaveBrushDialog'](arg1);
-}
-
-export function SaveConditionText(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['SaveConditionText'](arg1, arg2, arg3, arg4, arg5);
-}
-
-export function SaveCreature(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveCreature'](arg1, arg2, arg3);
-}
-
-export function SaveCreatureQuests(arg1, arg2) {
-  return window['go']['main']['App']['SaveCreatureQuests'](arg1, arg2);
-}
-
-export function SaveCreatureSpells(arg1, arg2) {
-  return window['go']['main']['App']['SaveCreatureSpells'](arg1, arg2);
-}
-
-export function SaveGossipOptions(arg1, arg2) {
-  return window['go']['main']['App']['SaveGossipOptions'](arg1, arg2);
-}
-
-export function SaveGreeting(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveGreeting'](arg1, arg2, arg3);
-}
-
-export function SaveHeightmapDialog(arg1) {
-  return window['go']['main']['App']['SaveHeightmapDialog'](arg1);
-}
-
-export function SaveImageDialog(arg1, arg2) {
-  return window['go']['main']['App']['SaveImageDialog'](arg1, arg2);
-}
-
-export function SaveItem(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveItem'](arg1, arg2, arg3);
-}
-
-export function SaveLights(arg1) {
-  return window['go']['main']['App']['SaveLights'](arg1);
-}
-
-export function SaveMap(arg1, arg2) {
-  return window['go']['main']['App']['SaveMap'](arg1, arg2);
-}
-
-export function SaveMapDialog(arg1) {
-  return window['go']['main']['App']['SaveMapDialog'](arg1);
-}
-
-export function SaveModelSetDialog(arg1) {
-  return window['go']['main']['App']['SaveModelSetDialog'](arg1);
-}
-
-export function SaveObject(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveObject'](arg1, arg2, arg3);
-}
-
-export function SaveObjectLoot(arg1, arg2) {
-  return window['go']['main']['App']['SaveObjectLoot'](arg1, arg2);
-}
-
-export function SaveObjectQuests(arg1, arg2) {
-  return window['go']['main']['App']['SaveObjectQuests'](arg1, arg2);
 }
 
 export function SavePrefabDialog(arg1, arg2) {
@@ -630,202 +122,38 @@ export function SavePrefs(arg1) {
   return window['go']['main']['App']['SavePrefs'](arg1);
 }
 
-export function SaveQuest(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveQuest'](arg1, arg2, arg3);
+export function SaveRecoveryWorld(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveRecoveryWorld'](arg1, arg2, arg3);
 }
 
-export function SaveQuestGivers(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveQuestGivers'](arg1, arg2, arg3);
+export function SaveSceneWorld(arg1) {
+  return window['go']['main']['App']['SaveSceneWorld'](arg1);
 }
 
-export function SaveRecovery(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SaveRecovery'](arg1, arg2, arg3);
+export function SaveSpriteModel(arg1, arg2) {
+  return window['go']['main']['App']['SaveSpriteModel'](arg1, arg2);
 }
 
-export function SaveRecoveryPart(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['SaveRecoveryPart'](arg1, arg2, arg3, arg4);
+export function SaveWorld(arg1, arg2) {
+  return window['go']['main']['App']['SaveWorld'](arg1, arg2);
 }
 
-export function SaveRegion(arg1) {
-  return window['go']['main']['App']['SaveRegion'](arg1);
-}
-
-export function SaveSQLDialog(arg1) {
-  return window['go']['main']['App']['SaveSQLDialog'](arg1);
-}
-
-export function SaveSceneMap(arg1) {
-  return window['go']['main']['App']['SaveSceneMap'](arg1);
-}
-
-export function SaveSpell(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['SaveSpell'](arg1, arg2, arg3, arg4, arg5);
-}
-
-export function SaveTaxi(arg1) {
-  return window['go']['main']['App']['SaveTaxi'](arg1);
-}
-
-export function SaveTextDialog(arg1) {
-  return window['go']['main']['App']['SaveTextDialog'](arg1);
-}
-
-export function SaveThumbnail(arg1, arg2) {
-  return window['go']['main']['App']['SaveThumbnail'](arg1, arg2);
-}
-
-export function SaveVendor(arg1, arg2) {
-  return window['go']['main']['App']['SaveVendor'](arg1, arg2);
-}
-
-export function SearchCreatures(arg1) {
-  return window['go']['main']['App']['SearchCreatures'](arg1);
-}
-
-export function SearchItems(arg1) {
-  return window['go']['main']['App']['SearchItems'](arg1);
-}
-
-export function SearchQuests(arg1) {
-  return window['go']['main']['App']['SearchQuests'](arg1);
-}
-
-export function SearchSpells(arg1) {
-  return window['go']['main']['App']['SearchSpells'](arg1);
+export function SaveWorldDialog(arg1) {
+  return window['go']['main']['App']['SaveWorldDialog'](arg1);
 }
 
 export function SessionLog() {
   return window['go']['main']['App']['SessionLog']();
 }
 
-export function SetBenillaPath(arg1) {
-  return window['go']['main']['App']['SetBenillaPath'](arg1);
-}
-
-export function SetGameClient(arg1) {
-  return window['go']['main']['App']['SetGameClient'](arg1);
-}
-
-export function SetGameLogin(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SetGameLogin'](arg1, arg2, arg3);
-}
-
-export function SetGameWindow(arg1, arg2) {
-  return window['go']['main']['App']['SetGameWindow'](arg1, arg2);
-}
-
 export function SetUnsaved(arg1) {
   return window['go']['main']['App']['SetUnsaved'](arg1);
 }
 
-export function SetVmangosPath(arg1) {
-  return window['go']['main']['App']['SetVmangosPath'](arg1);
-}
-
-export function SetWowPath(arg1) {
-  return window['go']['main']['App']['SetWowPath'](arg1);
-}
-
-export function SpawnEditSQL(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['SpawnEditSQL'](arg1, arg2, arg3, arg4, arg5);
-}
-
-export function SpawnEmotes() {
-  return window['go']['main']['App']['SpawnEmotes']();
-}
-
-export function SpawnLook(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['SpawnLook'](arg1, arg2, arg3, arg4, arg5);
-}
-
-export function SpawnTeleports(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SpawnTeleports'](arg1, arg2, arg3);
-}
-
-export function SpellCategories() {
-  return window['go']['main']['App']['SpellCategories']();
-}
-
-export function SpellRefs(arg1) {
-  return window['go']['main']['App']['SpellRefs'](arg1);
-}
-
-export function SpellStarters() {
-  return window['go']['main']['App']['SpellStarters']();
-}
-
-export function SpellTables() {
-  return window['go']['main']['App']['SpellTables']();
-}
-
-export function SpellTexts(arg1) {
-  return window['go']['main']['App']['SpellTexts'](arg1);
-}
-
-export function SpellsWithVisual(arg1) {
-  return window['go']['main']['App']['SpellsWithVisual'](arg1);
-}
-
-export function StartClientSandbox() {
-  return window['go']['main']['App']['StartClientSandbox']();
-}
-
-export function TaxiNetwork(arg1) {
-  return window['go']['main']['App']['TaxiNetwork'](arg1);
-}
-
-export function TemplateNames(arg1, arg2) {
-  return window['go']['main']['App']['TemplateNames'](arg1, arg2);
-}
-
-export function UpdateRegionServer(arg1, arg2) {
-  return window['go']['main']['App']['UpdateRegionServer'](arg1, arg2);
-}
-
-export function VmangosPath() {
-  return window['go']['main']['App']['VmangosPath']();
-}
-
-export function WMODoodadSets(arg1) {
-  return window['go']['main']['App']['WMODoodadSets'](arg1);
-}
-
-export function WowStatus() {
-  return window['go']['main']['App']['WowStatus']();
-}
-
-export function WriteHeightmap(arg1, arg2, arg3) {
-  return window['go']['main']['App']['WriteHeightmap'](arg1, arg2, arg3);
-}
-
-export function WriteLoadingScreen(arg1) {
-  return window['go']['main']['App']['WriteLoadingScreen'](arg1);
-}
-
-export function WriteMinimapTiles(arg1, arg2) {
-  return window['go']['main']['App']['WriteMinimapTiles'](arg1, arg2);
-}
-
-export function WriteNormalMap(arg1, arg2, arg3) {
-  return window['go']['main']['App']['WriteNormalMap'](arg1, arg2, arg3);
-}
-
-export function WritePNG(arg1, arg2) {
-  return window['go']['main']['App']['WritePNG'](arg1, arg2);
+export function SpriteThumb(arg1) {
+  return window['go']['main']['App']['SpriteThumb'](arg1);
 }
 
 export function WriteTextFile(arg1, arg2) {
   return window['go']['main']['App']['WriteTextFile'](arg1, arg2);
-}
-
-export function WriteWorldMap(arg1) {
-  return window['go']['main']['App']['WriteWorldMap'](arg1);
-}
-
-export function ZoneSounds() {
-  return window['go']['main']['App']['ZoneSounds']();
-}
-
-export function ZoneWeather() {
-  return window['go']['main']['App']['ZoneWeather']();
 }

@@ -41,11 +41,6 @@ export function base64ToBytes(b64: string): Uint8Array {
   return out
 }
 
-/** Base64 of float32s in the platform's (little-endian) order, as Go's vmangos.HeightGrid crosses the bridge. */
-export function floatsToBase64(f: Float32Array): string {
-	return bytesToBase64(new Uint8Array(f.buffer, f.byteOffset, f.byteLength))
-}
-
 /** The float32s of a vmangos.HeightGrid from the bridge. The bytes are a fresh array, so the view starts aligned. */
 export function base64ToFloats(b64: string): Float32Array {
 	const bytes = base64ToBytes(b64)

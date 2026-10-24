@@ -3,12 +3,8 @@
   import { Engine } from '../lib/engine/Engine'
   import { engineRef } from '../lib/state/engineRef'
   import DocTabs from './DocTabs.svelte'
-  import PathEditBar from './PathEditBar.svelte'
-  import SpawnPickBar from './SpawnPickBar.svelte'
-  import PoolLegend from './PoolLegend.svelte'
   import PerfOverlay from './PerfOverlay.svelte'
-  import LoadingBar from './LoadingBar.svelte'
-  import { editor, prefs, setStatus, stats, ui } from '../lib/state/editor.svelte'
+  import { prefs, setStatus, ui } from '../lib/state/editor.svelte'
 
   let container: HTMLDivElement
   let canvas: HTMLCanvasElement
@@ -37,37 +33,9 @@
   <DocTabs />
   <div class="viewport" bind:this={container}>
     <canvas bind:this={canvas} tabindex="-1"></canvas>
-    {#if ui.topDown && editor.reference?.mode === 'screen' && editor.reference.shown && ui.referenceUrl}
-      <!-- The reference image over the top-down view, fixed to the screen like tracing paper (#184). -->
-      <img class="reference" src={ui.referenceUrl} alt="" style:opacity={editor.reference.opacity} data-ui="ReferenceOverlay" />
-    {/if}
     {#if error}<div class="error">{error}</div>{/if}
-    <PathEditBar />
-    <SpawnPickBar />
-    <PoolLegend />
-    <LoadingBar />
     {#if prefs.perfOverlay}<PerfOverlay />{/if}
     {#if ui.viewportHint}{#key ui.viewportHintSeq}<div class="hint">{ui.viewportHint}</div>{/key}{/if}
-    {#if prefs.detailInfo && stats.detail}
-      {@const d = stats.detail}
-      <div class="detail" data-ui="DetailInfo">
-        <div><span>Tile</span>{d.tile} <span>Chunk</span>{d.chunk} <span>Cell</span>{d.cell}</div>
-        {#if d.area}
-          <div><span>Zone</span>{d.area}</div>
-        {/if}
-        <div><span>Height</span>{d.height.toFixed(2)} <span>Slope</span>{d.slope.toFixed(0)}°{#if d.hole} · hole{/if}{#if d.impassable} · impassable{/if}{#if d.noTufts} · no tufts{/if}</div>
-        {#each d.textures as tx, i (i)}
-          <div><span>Layer {i}</span>{tx.name} {tx.weight}%{#if tx.effect} · effect {tx.effect}{/if}</div>
-        {/each}
-        {#each d.liquids as l (l)}
-          <div><span>Liquid</span>{l}</div>
-        {/each}
-        <div><span>Models</span>{d.models} in the chunk</div>
-        {#if d.room}
-          <div><span>Camera in</span>{d.room}</div>
-        {/if}
-      </div>
-    {/if}
   </div>
 </div>
 
@@ -98,16 +66,6 @@
     outline: none;
     touch-action: none;
   }
-  /* The reference image over the top-down view: fitted whole, the pointer goes through it. */
-  .reference {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    pointer-events: none;
-    user-select: none;
-  }
   /* A short-lived notice near the top of the view (e.g. the placement scale). The pointer goes through it. */
   .hint {
     position: absolute;
@@ -128,29 +86,6 @@
   @keyframes hint-fade {
     0%, 60% { opacity: 1; }
     100% { opacity: 0; }
-  }
-  /* The Detail info readout (View › Detail info): the ground under the cursor, in the top right corner. */
-  .detail {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    background: rgba(0, 0, 0, 0.6);
-    color: #eee;
-    font-size: 12px;
-    line-height: 1.5;
-    font-variant-numeric: tabular-nums;
-    pointer-events: none;
-    user-select: none;
-    max-width: 320px;
-  }
-  .detail span {
-    color: var(--text-dim);
-    margin-right: 4px;
-  }
-  .detail span:not(:first-child) {
-    margin-left: 8px;
   }
   .error {
     position: absolute;

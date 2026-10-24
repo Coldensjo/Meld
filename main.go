@@ -2,11 +2,12 @@ package main
 
 import (
 	"embed"
+	"fmt"
+	"log"
 	"net/http"
-	"strings"
+	"runtime/debug"
 
 	"Meld/internal/handoff"
-	"Meld/internal/wow"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -39,21 +40,11 @@ func main() {
 		WindowStartState: state,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
-			// /wow/* is served from the user's local WoW client (see internal/wow).
+			// The handoff path serves the binary parts of bound replies (internal/handoff).
 			Middleware: func(next http.Handler) http.Handler {
-				wowHandler := app.wow.Handler()
-				// The nav tiles parse the client's files too, so a panic there answers a 500 as well (#487).
-				return wow.RecoverPanics(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if r.URL.Path == "/wow/navtile" {
-						app.serveNavTile(w, r)
-						return
-					}
+				return recoverPanics(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.URL.Path == handoff.Path {
 						app.handoffs.ServeHTTP(w, r)
-						return
-					}
-					if strings.HasPrefix(r.URL.Path, "/wow/") {
-						wowHandler.ServeHTTP(w, r)
 						return
 					}
 					next.ServeHTTP(w, r)
@@ -82,4 +73,19 @@ func main() {
 	if err != nil {
 		println("Error:", err.Error())
 	}
+}
+
+// recoverPanics answers a request whose handler panics with a 500 that names the panic, and logs it
+// with the path and stack: Wails' desktop asset server runs each request in a goroutine of its own
+// with no recover, where a panic ends the process (#487); only wails dev's net/http server survives one.
+func recoverPanics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if v := recover(); v != nil {
+				log.Printf("panic serving %s: %v\n%s", r.URL.RequestURI(), v, debug.Stack())
+				http.Error(w, fmt.Sprintf("internal error: %v", v), http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }

@@ -1,60 +1,35 @@
 <script lang="ts">
 	// The current tool's hint, shown in the status bar's message slot while no message holds it (#238).
 	// These sentences used to sit in the options bar and pushed its controls off the screen.
-	import { editor, prefs, stats, ui } from '../lib/state/editor.svelte'
-	import { engineRef } from '../lib/state/engineRef'
-
-	const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
+	import { editor, ui } from '../lib/state/editor.svelte'
 </script>
 
-{#if editor.tool === 'sculpt'}
-	{#if editor.sculptMode === 'flatten' && editor.flattenLock.on}
-		<kbd>Alt</kbd>+click locks the height
-	{:else if editor.sculptMode === 'hole'}
-		Holes are 2×2-cell blocks, as the game keeps them · <kbd>Shift</kbd> does the other · select an area for whole-area holes
-	{:else if editor.sculptMode === 'vertex' && !ui.vertexCount}
-		Drag to pick points of the ground, then move them together: <kbd>Shift</kbd>+drag, Flatten, Slope · <kbd>Ctrl</kbd>+drag drops
-	{/if}
-{:else if editor.tool === 'paint' && editor.paintMode === 'swap' && editor.swap.keep}
-	{editor.swap.from ? `Swapping ${texName(editor.swap.from)}` : 'The next stroke picks the texture to swap'}
-{:else if editor.tool === 'water' && editor.waterMode === 'paint'}
-	<kbd>Ctrl</kbd>+click removes water · <kbd>Alt</kbd>+click locks the height at the cursor
-{:else if editor.tool === 'place'}
-	<kbd>Ctrl</kbd>+scroll rotate · <kbd>Shift</kbd>+scroll scale · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>←↑↓→</kbd> offset from the cursor · <kbd>R</kbd> spin · props attach to what they're placed on{#if editor.selected}
-		· Placed object selected: <kbd>←↑↓→</kbd> move · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> height · <kbd>R</kbd> spin · <kbd>Esc</kbd> deselect{/if}
-{:else if editor.tool === 'path'}
-	{#if editor.pathId < 0}
-		Click the ground to start a path, and again to add its points
+{#if editor.tool === 'select'}
+	{#if ui.cubePasting}
+		Click to put the cubes down · <kbd>R</kbd> turns · <kbd>M</kbd> mirrors · <kbd>Enter</kbd> places · <kbd>Esc</kbd> cancels
 	{:else}
-		Click to add a point (on the curve inserts one) · drag a point to move it, <kbd>Shift</kbd>+drag to raise it · <kbd>Del</kbd> deletes the point · <kbd>Enter</kbd> applies · <kbd>Esc</kbd> starts a new path
+		Drag from a cube to a cube to select the box between them · <kbd>Ctrl</kbd>+<kbd>C</kbd> copies · <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes · <kbd>←↑↓→</kbd> move the box · <kbd>Del</kbd> empties it
 	{/if}
-{:else if editor.tool === 'stamp'}
-	The size and strength are the stack's: its brushes take them unless they have their own.
-{:else if editor.tool === 'doodad' && editor.doodadMode === 'creatures'}
-	{#if !prefs.spawnBrush.entries.length}
-		Pick creatures in the browser's Creatures tab below to put them in the brush ·
-	{/if}
-	drag to fill to the density · <kbd>Ctrl</kbd>+drag deletes the brush's creatures · File › Save Spawns to Database writes them
-{:else if editor.tool === 'doodad'}
-	drag to scatter · <kbd>Ctrl</kbd>+scroll / <kbd>R</kbd> spin the preview · <kbd>Shift</kbd> ignores the spacing so models stack · <kbd>Ctrl</kbd>+drag erases the brush's models · a model picked in the browser below joins the brush
-{:else if editor.tool === 'select'}
-	{#if ui.pasting}
-		{#if engineRef.current?.pastingModels()}
-			Click where the copies should stand.
-		{/if}
-	{:else if editor.selectedIds.length}
-		<kbd>←↑↓→</kbd> move · <kbd>Alt+↑↓</kbd> height · <kbd>Alt+←→</kbd>/<kbd>R</kbd> spin · <kbd>Shift</kbd> bigger steps · drag to move · handles: ring spins, arrow raises, knob resizes
+{:else if editor.tool === 'cube'}
+	{#if editor.cubeMode === 'object'}
+		Click a face to attach the object · <kbd>Ctrl</kbd>+click removes one · <kbd>Shift</kbd>+click selects one · <kbd>Del</kbd> removes the selected one · a teleporter goes on the top
+	{:else if editor.cubeMode === 'paint' && editor.cubeBlend}
+		Click near a face's edge to switch its blending into the texture beside it · drag to do the same along more edges · <kbd>Shift</kbd> blends all four edges · <kbd>Ctrl</kbd> none
+	{:else if editor.cubeMode === 'paint'}
+		Click or drag over faces to paint them · <kbd>Shift</kbd> paints the whole cube · <kbd>Ctrl</kbd> clears the paint · <kbd>Alt</kbd>+click picks a face's texture
+	{:else if editor.cubeMode === 'monster'}
+		Click a face to spawn the monster in the cell beside it · drag a spawn point to move it · <kbd>Ctrl</kbd>+click removes one · <kbd>Shift</kbd>+click adds another to its cube · <kbd>Alt</kbd>+click picks its kind
+	{:else if editor.cubeMode === 'npc'}
+		Click a face to put the NPC in the cell beside it · click an NPC to select it, <kbd>Shift</kbd>+click cubes to add to its route · drag an NPC or route cube to move it · <kbd>Ctrl</kbd>+click removes one · <kbd>Alt</kbd>+click picks its name · <kbd>Del</kbd> removes the selected NPC
+	{:else if editor.cubeMode === 'prop'}
+		Click the cubes to put the model there · drag a prop to move it · <kbd>R</kbd> turns it 15°, <kbd>Shift</kbd>+<kbd>R</kbd> back · <kbd>Ctrl</kbd>+click removes one · <kbd>Alt</kbd>+click picks its model · <kbd>Shift</kbd>+click places over one · <kbd>Del</kbd> removes the selected prop
+	{:else if editor.cubeMode === 'mood'}
+		Drag from cell to cell to give the box the mood (Higher reaches up) · <kbd>Shift</kbd>+click selects the region there · <kbd>Ctrl</kbd>+click removes it · <kbd>Alt</kbd>+click picks its mood · <kbd>Del</kbd> removes the selected one · the innermost region wins
+	{:else if editor.cubeMode === 'link'}
+		Click an object to select it, then the objects it acts on (again to stop) · <kbd>Shift</kbd>+click selects another · <kbd>Esc</kbd> deselects
+	{:else if editor.cubeMode === 'box'}
+		Drag from corner to corner to fill a box · <kbd>Ctrl</kbd>+drag empties one · <kbd>Esc</kbd> cancels · <kbd>R</kbd> turn · <kbd>Alt</kbd>+click copies a cube
 	{:else}
-		Click a model to select it (<kbd>Shift</kbd> adds). Drag on the ground to select an area and the models in it. <kbd>Alt</kbd>+click picks a model or texture.
-	{/if}
-{:else if editor.tool === 'mapdata'}
-	{#if editor.mapDataMode === 'area'}
-		{stats.hoverArea ? `Under the cursor: ${stats.hoverArea}` : 'Under the cursor: no zone'}
-	{:else if editor.mapDataMode === 'impassable'}
-		Impassable chunks are hatched red. The export sets the flag (0x2) in their chunk headers.
-	{:else if editor.mapDataMode === 'shadow'}
-		The baked shadows (the ground's darker patches in the game) are tinted violet, 8 texels a cell. Terrain › Bake Shadows works them out from the ground.
-	{:else}
-		Cells that grow no grass tufts are hatched orange, as the game leaves roads bare.
+		<kbd>Ctrl</kbd>+click removes · <kbd>R</kbd> turns, <kbd>Shift</kbd>+<kbd>R</kbd> upside down · <kbd>Alt</kbd>+click copies a cube · <kbd>,</kbd> <kbd>.</kbd> slice the layers · no building in the metal layers (26 to 30)
 	{/if}
 {/if}

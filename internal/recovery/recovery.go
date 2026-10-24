@@ -1,9 +1,9 @@
-// Package recovery keeps autosaved copies of the maps with unsaved changes, so that a crash (of Meld,
-// the WebView or the machine) doesn't lose the edits since the last save.
+// Package recovery keeps autosaved copies of the cube worlds with unsaved changes, so that a crash (of
+// the editor, the WebView or the machine) doesn't lose the edits since the last save.
 //
-// Each running editor is a session. It writes a dirty map as <session>_<doc>.wmap with a JSON
-// <session>_<doc>.json beside it (the map's name, its file or region, when it was written), and
-// keeps <session>.alive fresh while it runs. A copy whose session has no fresh alive file is one a
+// Each running editor is a session. It writes a dirty world as <session>_<doc>.world, in the game's
+// world format, with a JSON <session>_<doc>.json beside it (the world's name, its file, when it was
+// written), and keeps <session>.alive fresh while it runs. A copy whose session has no fresh alive file is one a
 // session left behind without quitting cleanly: List offers those, and a clean quit drops its own.
 package recovery
 
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"Meld/internal/mapfile"
+	"Meld/internal/worldfile"
 )
 
 // Heartbeat is how often a running session touches its alive file; Stale is when an alive file
@@ -36,12 +36,13 @@ type Info struct {
 	// ID is <session>_<doc>, the copy's file name without its extension.
 	ID      string `json:"id"`
 	Session string `json:"session"`
-	// Name is the map's tab name.
+	// Name is the world's tab name.
 	Name string `json:"name"`
-	// File is the map's own file, or "" for an untitled map or a region of the client.
+	// File is the world's own file, or "" for an untitled world.
 	File string `json:"file"`
-	// Region labels the client's tiles a region was opened from ("Azeroth 32_48, 2x2"), or "".
-	Region string `json:"region"`
+	// World is set for a cube world's copy, a .world file (SaveWorld). An older editor's copy of a
+	// .wmap map has it unset: List drops those, as nothing opens them now.
+	World bool `json:"world"`
 	// Saved is when the copy was written, in Unix milliseconds.
 	Saved int64 `json:"saved"`
 	// FileTime is when File was last saved, in Unix milliseconds; 0 without one. Set by List.
@@ -56,67 +57,6 @@ type Store struct {
 	// mu keeps a heartbeat from writing the alive file back after End removed it.
 	mu    sync.Mutex
 	ended bool
-
-	// parts holds, by doc, the large fields of a copy being sent in parts (AddPart) until Save takes
-	// them. They stay in memory, so a crash between parts leaves no half copy on disk.
-	partsMu sync.Mutex
-	parts   map[int]map[string]*strings.Builder
-}
-
-// partFields are the MapData fields a copy may send in parts: the large base64 arrays.
-var partFields = map[string]bool{"heights": true, "weights": true, "chunkSlots": true}
-
-// AddPart appends part, the next slice of the base64 of field ("heights", "weights" or
-// "chunkSlots"), to doc's pending copy. Index 0 starts the field afresh, so a copy given up halfway
-// is replaced by the next one.
-func (s *Store) AddPart(doc int, field string, index int, part string) error {
-	if !partFields[field] {
-		return errors.New("not a field sent in parts: " + field)
-	}
-	s.partsMu.Lock()
-	defer s.partsMu.Unlock()
-	if s.parts == nil {
-		s.parts = map[int]map[string]*strings.Builder{}
-	}
-	fields := s.parts[doc]
-	if fields == nil {
-		fields = map[string]*strings.Builder{}
-		s.parts[doc] = fields
-	}
-	sb := fields[field]
-	if index == 0 {
-		sb = &strings.Builder{}
-		fields[field] = sb
-	} else if sb == nil {
-		return errors.New("recovery part " + strconv.Itoa(index) + " of " + field + " without part 0")
-	}
-	sb.WriteString(part)
-	return nil
-}
-
-// DropParts forgets doc's pending parts: the copy was given up.
-func (s *Store) DropParts(doc int) {
-	s.partsMu.Lock()
-	defer s.partsMu.Unlock()
-	delete(s.parts, doc)
-}
-
-// takeParts fills m's fields from doc's pending parts, if any, and forgets them.
-func (s *Store) takeParts(doc int, m *mapfile.MapData) {
-	s.partsMu.Lock()
-	fields := s.parts[doc]
-	delete(s.parts, doc)
-	s.partsMu.Unlock()
-	for f, sb := range fields {
-		switch f {
-		case "heights":
-			m.Heights = sb.String()
-		case "weights":
-			m.Weights = sb.String()
-		case "chunkSlots":
-			m.ChunkSlots = sb.String()
-		}
-	}
 }
 
 var idPattern = regexp.MustCompile(`^[0-9A-Za-z-]+_[0-9]+$`)
@@ -159,20 +99,19 @@ func (s *Store) Touch() error {
 	return os.WriteFile(p, nil, 0o644)
 }
 
-// Save writes doc's map and its info as this session's copy and returns the info with its ID set.
-// The fields sent in parts (AddPart) since doc's last Save take their place in m. The info is
-// written last, so a copy List sees always has its whole map.
-func (s *Store) Save(doc int, info Info, m *mapfile.MapData) (Info, error) {
-	s.takeParts(doc, m)
+// SaveWorld writes doc's cube world and then its info as this session's copy and returns the info
+// with its ID set. The info is written last, so a copy List sees always has its whole world.
+func (s *Store) SaveWorld(doc int, info Info, w *worldfile.World) (Info, error) {
+	info.World = true
 	info.Session = s.Session
 	info.ID = s.Session + "_" + strconv.Itoa(doc)
 	info.Saved = time.Now().UnixMilli()
 	info.FileTime = 0
-	mp, err := s.path(info.ID, ".wmap")
+	wp, err := s.path(info.ID, worldExt)
 	if err != nil {
 		return info, err
 	}
-	if err := mapfile.Save(mp, m); err != nil {
+	if err := worldfile.Save(wp, w); err != nil {
 		return info, err
 	}
 	b, err := json.Marshal(info)
@@ -187,19 +126,27 @@ func (s *Store) Save(doc int, info Info, m *mapfile.MapData) (Info, error) {
 	return info, os.Rename(tmp, jp)
 }
 
+const (
+	worldExt = ".world"
+	// oldMapExt is an older editor's copy of a .wmap map, which Drop removes too.
+	oldMapExt = ".wmap"
+)
+
 // Drop removes a copy. A copy already gone is not an error.
 func (s *Store) Drop(id string) error {
 	jp, err := s.path(id, ".json")
 	if err != nil {
 		return err
 	}
-	mp, _ := s.path(id, ".wmap")
 	// The info first, so a half-dropped copy is never listed.
 	if err := os.Remove(jp); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if err := os.Remove(mp); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+	for _, ext := range []string{oldMapExt, worldExt} {
+		p, _ := s.path(id, ext)
+		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 	}
 	return nil
 }
@@ -269,6 +216,10 @@ func (s *Store) List() ([]Info, error) {
 		if st, err := os.Stat(s.alivePath(in.Session)); err == nil && now.Sub(st.ModTime()) < Stale {
 			continue
 		}
+		if !in.World {
+			s.Drop(in.ID)
+			continue
+		}
 		if in.File != "" {
 			if st, err := os.Stat(in.File); err == nil {
 				in.FileTime = st.ModTime().UnixMilli()
@@ -280,13 +231,13 @@ func (s *Store) List() ([]Info, error) {
 	return out, nil
 }
 
-// Load reads a copy's map.
-func (s *Store) Load(id string) (*mapfile.MapData, error) {
-	mp, err := s.path(id, ".wmap")
+// LoadWorld reads a cube world's copy.
+func (s *Store) LoadWorld(id string) (*worldfile.World, error) {
+	wp, err := s.path(id, worldExt)
 	if err != nil {
 		return nil, err
 	}
-	return mapfile.Load(mp)
+	return worldfile.Load(wp)
 }
 
 // read gives every copy in the folder with its info. A copy whose info is unreadable is skipped.

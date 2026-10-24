@@ -4,7 +4,8 @@ const r = {}
 const near = (a, b, tol = 2) => Math.abs(a - b) <= tol
 const root = document.documentElement
 const canvas = P.e.renderer.domElement
-await P.e.newDocument(256, 'flat', 0, 'Probe')
+const { CubeWorld } = await P.app('/src/lib/cubes/world.ts')
+P.e.openWorld(CubeWorld.create(2, 2, true), 'Probe', '')
 await P.frames(3)
 
 prefs.uiScale = 1.5
@@ -23,7 +24,7 @@ r.canvas = { buf: [canvas.width, canvas.height], screen: [Math.round(cr.width), 
 r.sharp = near(canvas.width, cr.width * dpr, 3) && near(canvas.height, cr.height * dpr, 3)
 
 // Pointer positions and the canvas's rect agree (both in window px): the window's own hit test finds
-// the canvas just inside two corners of its rect (12 px in: the dock's resizer overlaps the right edge), and a pointer at a share of the rect gives the engine that share.
+// the canvas just inside two corners of its rect (12 px in, clear of the edges), and a pointer at a share of the rect gives the engine that share.
 const inside = (x, y) => document.elementFromPoint(x, y) === canvas
 r.hitTest = inside(cr.left + 12, cr.top + 12) && inside(cr.right - 12, cr.bottom - 12) && !inside(cr.right + 12, cr.top + 12)
 P.pointer('pointermove', 0.25, 0.75)
@@ -52,7 +53,7 @@ r.contextAtPointer = !!mr && near(mr.left, 300) && near(mr.top, 200)
 ui.contextMenu = null
 await P.frames(1)
 
-// Shares of the window (#580): the Log window's body and the dock's panel bodies stay within their share on screen, not 1.5x it.
+// Shares of the window (#580): the Log window's body stays within its share on screen, not 1.5x it.
 ui.dialog = 'log'
 await P.frames(3)
 const logEl = document.querySelector('.log')
@@ -60,8 +61,6 @@ const lh = logEl?.getBoundingClientRect().height ?? 0
 r.logShare = !!logEl && lh <= innerHeight * 0.6 + 1
 ui.dialog = null
 await P.frames(2)
-const bodies = [...document.querySelectorAll('[data-ui="Dock"] .panel:not(.grow) .body')]
-r.dockShare = bodies.every((b) => b.getBoundingClientRect().height <= innerHeight * 0.4 + 1)
 
 // The shortcuts.
 const key = (k) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, ctrlKey: true, bubbles: true, cancelable: true }))
@@ -77,5 +76,5 @@ await P.frames(2)
 r.unzoomed = root.style.zoom === ''
 
 prefs.uiScale = 1
-r.ok = r.zoomed && r.appFits && r.sharp && r.pointerMaps && r.menuFits && r.menuHasSize && r.contextAtPointer && r.ctrlPlus && r.ctrlMinus && r.ctrlZero && r.unzoomed && r.logShare && r.dockShare
+r.ok = r.zoomed && r.appFits && r.sharp && r.pointerMaps && r.menuFits && r.menuHasSize && r.contextAtPointer && r.ctrlPlus && r.ctrlMinus && r.ctrlZero && r.unzoomed && r.logShare
 return r

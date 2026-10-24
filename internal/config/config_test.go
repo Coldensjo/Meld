@@ -45,10 +45,10 @@ func TestUpdateKeepsTheOtherWindowsFields(t *testing.T) {
 	t.Setenv("APPDATA", dir)
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	t.Setenv("HOME", dir)
-	if err := Save(Config{WowPath: "client", VmangosPath: "server"}); err != nil {
+	if err := Save(Config{ProjectPath: "project", WorldClientPath: "game"}); err != nil {
 		t.Fatal(err)
 	}
-	// This window started before the other one set the server folder; it only sets its size.
+	// This window started before the other one set the game client; it only sets its size.
 	if err := Update(func(c *Config) error {
 		c.Window = Window{Width: 800, Height: 600}
 		return nil
@@ -56,7 +56,7 @@ func TestUpdateKeepsTheOtherWindowsFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := Load()
-	if got.WowPath != "client" || got.VmangosPath != "server" || got.Window.Width != 800 {
+	if got.ProjectPath != "project" || got.WorldClientPath != "game" || got.Window.Width != 800 {
 		t.Fatalf("config after the update = %+v", got)
 	}
 }
@@ -68,7 +68,7 @@ func TestUpdateKeepsAFileThatNoLongerParses(t *testing.T) {
 	t.Setenv("APPDATA", dir)
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	t.Setenv("HOME", dir)
-	if err := Save(Config{WowPath: "client"}); err != nil {
+	if err := Save(Config{ProjectPath: "project"}); err != nil {
 		t.Fatal(err)
 	}
 	p, err := path()

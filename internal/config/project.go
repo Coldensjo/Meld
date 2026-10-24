@@ -9,16 +9,14 @@ import (
 	"strings"
 )
 
-// Project is a project folder, where the user's maps of it are kept, with the client folder it edits
-// (#48, Noggit Red's project). Editing a part of Azeroth needs one; a new world of its own does not.
+// Project is a project folder, where the user's worlds are kept (#48, Noggit Red's project).
 type Project struct {
-	Name       string `json:"name"`
-	Path       string `json:"path"`
-	ClientPath string `json:"clientPath"`
+	Name string `json:"name"`
+	Path string `json:"path"`
 }
 
-// ProjectFileName is the file in a project folder that holds its name and client folder, so the
-// folder opened again from anywhere (another machine's recent list, a moved folder) finds its client.
+// ProjectFileName is the file in a project folder that holds its name, so the folder opened again
+// from anywhere (another machine's recent list, a moved folder) keeps it.
 const ProjectFileName = "meld-project.json"
 
 // MaxRecentProjects is how many projects the recent list keeps.
@@ -68,12 +66,11 @@ func FindProject(list []Project, dir string) *Project {
 
 // projectFile is what a project folder's file holds; its folder is where the file is.
 type projectFile struct {
-	Name       string `json:"name"`
-	ClientPath string `json:"clientPath"`
+	Name string `json:"name"`
 }
 
 // ReadProjectFolder reads the project file in dir. A folder without one is a project of the
-// folder's name with no client yet (os.ErrNotExist is not an error here).
+// folder's name (os.ErrNotExist is not an error here).
 func ReadProjectFolder(dir string) (Project, error) {
 	p := Project{Name: filepath.Base(filepath.Clean(dir)), Path: dir}
 	b, err := os.ReadFile(filepath.Join(dir, ProjectFileName))
@@ -90,7 +87,6 @@ func ReadProjectFolder(dir string) (Project, error) {
 	if f.Name != "" {
 		p.Name = f.Name
 	}
-	p.ClientPath = f.ClientPath
 	return p, nil
 }
 
@@ -102,6 +98,6 @@ func WriteProjectFolder(p Project) error {
 	if err := os.MkdirAll(p.Path, 0o755); err != nil {
 		return err
 	}
-	b, _ := json.MarshalIndent(projectFile{Name: p.Name, ClientPath: p.ClientPath}, "", "\t")
+	b, _ := json.MarshalIndent(projectFile{Name: p.Name}, "", "\t")
 	return os.WriteFile(filepath.Join(p.Path, ProjectFileName), b, 0o644)
 }

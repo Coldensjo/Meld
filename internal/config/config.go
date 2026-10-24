@@ -11,30 +11,20 @@ import (
 )
 
 type Config struct {
-	// WowPath is a local WoW 1.x client folder whose MPQs are read live.
-	WowPath string `json:"wowPath"`
-	// VmangosPath is the VMaNGOS server folder that map patches and SQL are written for.
-	VmangosPath string `json:"vmangosPath,omitempty"`
-	// Login is the account a region export logs the game back in with. The password is stored in
-	// plain text, so this is for a local dev setup only.
-	Login Login `json:"login,omitempty"`
 	// Prefs is the frontend's preferences object, stored opaquely.
 	Prefs json.RawMessage `json:"prefs,omitempty"`
 	// Window is the main window's size when it was last closed.
 	Window Window `json:"window,omitempty"`
-	// GameClient is the game Meld closes and opens around an export: "" for the WoW client (Wow.exe),
-	// "benilla" for Benilla, the open-source 1.12.1 client, which reads the same install.
-	GameClient string `json:"gameClient,omitempty"`
-	// BenillaPath is the Benilla folder (its repository, with target/release/benilla.exe built in it).
-	BenillaPath string `json:"benillaPath,omitempty"`
-	// GameWindow is how the game's window opens when Meld starts it: "" the game's own setting,
-	// "windowed" or "fullscreen", at GameResolution ("1280x720"). See game.Window.
-	GameWindow     string `json:"gameWindow,omitempty"`
-	GameResolution string `json:"gameResolution,omitempty"`
+	// WorldClientPath is the 3dgame client (the program, or the folder holding it) that Play World
+	// starts; "" finds the repository's own build (internal/play).
+	WorldClientPath string `json:"worldClientPath,omitempty"`
 	// ProjectPath is the open project's folder (project.go), "" for none; Projects is the recent
 	// list, newest first, the open one included.
 	ProjectPath string    `json:"projectPath,omitempty"`
 	Projects    []Project `json:"projects,omitempty"`
+	// TibiaItemsPath is the items.otb last chosen for a Tibia map (3dgame #218, #225): File > Import
+	// Tibia Map opens its folder, and Load Item Images reads its wall flags; "" before the first.
+	TibiaItemsPath string `json:"tibiaItemsPath,omitempty"`
 }
 
 // Window is the main window's last size (unmaximised) and whether it was maximised.
@@ -42,15 +32,6 @@ type Window struct {
 	Width     int  `json:"width,omitempty"`
 	Height    int  `json:"height,omitempty"`
 	Maximised bool `json:"maximised,omitempty"`
-}
-
-// Login is a game account to log in with after a region export.
-type Login struct {
-	Account  string `json:"account,omitempty"`
-	Password string `json:"password,omitempty"`
-	// Character is the account's character the game enters the world as, skipping character select
-	// (Benilla's WOW_CHAR), and the one Launch places where the editor's camera is. Empty for none.
-	Character string `json:"character,omitempty"`
 }
 
 // dirName is the app's folder in the config dir. oldDirName is what it was called before the

@@ -1,18 +1,14 @@
 import { BrowsePrefabFolder, ListPrefabs, SavePrefabDialog, WriteTextFile } from '../../../wailsjs/go/main/App'
 import type { Engine } from '../engine/Engine'
 import { prefs, setStatus, ui } from '../state/editor.svelte'
-import { formatPrefab, parsePrefab, prefabHash, type Prefab } from '../wow/prefabs'
+import { formatCubePrefab, isCubePrefabText, parseCubePrefab, type CubePrefab } from '../cubes/prefabs'
+import { clipCount } from '../cubes/clip'
+import { monsterKind } from '../cubes/monsterKinds'
 import { hasBackend } from './mapio'
 
-// The prefab folder (#170): Models › Save Selection as Prefab writes a TOML file into it, and the
-// asset browser's Prefabs tab lists what it holds.
-
-/** One prefab of the folder: its file name, the prefab read from it, and the key its thumbnail is made under. */
-export interface PrefabEntry {
-	file: string
-	prefab: Prefab
-	thumbKey: string
-}
+// The prefab folder (#170) keeps the prefabs of cubes (3dgame #73, cubes/prefabs.ts), saved from a
+// world tab's selected box and listed by its cube palette's Prefabs tab. Files that are not prefabs of
+// cubes (Meld's prefabs of models) are left out.
 
 /** Asks for the prefab folder. Returns whether one was chosen. */
 export async function choosePrefabFolder(): Promise<boolean> {
@@ -24,43 +20,44 @@ export async function choosePrefabFolder(): Promise<boolean> {
 	return true
 }
 
-/** The prefabs of the folder, with the files that couldn't be read. */
-export async function readPrefabs(): Promise<{ entries: PrefabEntry[]; problems: string[] }> {
+/** One prefab of cubes of the folder: its file name and the prefab read from it. */
+export interface CubePrefabEntry {
+	file: string
+	prefab: CubePrefab
+}
+
+/** The prefabs of cubes of the folder, with the cube prefab files that couldn't be read. */
+export async function readCubePrefabs(): Promise<{ entries: CubePrefabEntry[]; problems: string[] }> {
 	if (!hasBackend() || !prefs.prefabDir) return { entries: [], problems: [] }
 	const files = (await ListPrefabs(prefs.prefabDir)) ?? []
-	const entries: PrefabEntry[] = []
+	const entries: CubePrefabEntry[] = []
 	const problems: string[] = []
 	for (const f of files) {
-		const { prefab, errors } = parsePrefab(f.text, f.name.replace(/\.toml$/i, ''))
-		if (!prefab) {
-			problems.push(`${f.name}: ${errors[0] ?? 'not a prefab'}`)
-			continue
-		}
-		entries.push({ file: f.name, prefab, thumbKey: `prefab:${prefabHash(f.text)}` })
+		if (!isCubePrefabText(f.text)) continue
+		const { prefab, errors } = parseCubePrefab(f.text, f.name.replace(/\.toml$/i, ''), (k) => !!monsterKind(k))
+		if (!prefab) problems.push(`${f.name}: ${errors[0] ?? 'not a prefab of cubes'}`)
+		else entries.push({ file: f.name, prefab })
 	}
 	return { entries, problems }
 }
 
-/** Models › Save Selection as Prefab: the selected models into a TOML file of the prefab folder. */
-export async function saveSelectionAsPrefab(engine: Engine) {
+/** The cube palette's Save selection: the world tab's selected box of cubes into a TOML file of the prefab folder. */
+export async function saveCubeSelectionAsPrefab(engine: Engine) {
 	if (!hasBackend()) {
 		setStatus('Prefabs need the desktop app.')
 		return
 	}
-	const clip = engine.selectionClip()
-	if (!clip) {
-		setStatus('Select the models to keep as a prefab first (Select tool).')
-		return
-	}
+	const clip = engine.cubeSelectionClip()
+	if (!clip) return
 	if (!prefs.prefabDir && !(await choosePrefabFolder())) return
 	try {
-		const path = await SavePrefabDialog(prefs.prefabDir, 'prefab')
+		const path = await SavePrefabDialog(prefs.prefabDir, 'cubes')
 		if (!path) return
 		const name = path.slice(path.search(/[^\\/]*$/)).replace(/\.toml$/i, '')
-		await WriteTextFile(path, formatPrefab({ name, objects: clip.objects }))
+		await WriteTextFile(path, formatCubePrefab({ name, clip }))
 		ui.prefabsVersion++
-		const n = clip.objects.length
-		setStatus(`Saved ${n} ${n === 1 ? 'model' : 'models'} as the prefab "${name}". Place it from the asset browser's Prefabs tab.`, 6000)
+		const n = clipCount(clip)
+		setStatus(`Saved ${n} ${n === 1 ? 'cube' : 'cubes'} as the prefab "${name}". Place it from the cube palette's Prefabs tab.`, 6000)
 	} catch (err) {
 		setStatus(`Saving the prefab failed: ${err}`, 8000)
 	}

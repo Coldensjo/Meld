@@ -35,14 +35,14 @@ func TestForgetProject(t *testing.T) {
 func TestProjectFolderRoundTrip(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "Elwynn")
 	p, err := ReadProjectFolder(dir)
-	if err != nil || p.Name != "Elwynn" || p.ClientPath != "" {
+	if err != nil || p.Name != "Elwynn" {
 		t.Fatalf("a folder with no project file = %+v %v", p, err)
 	}
-	if err := WriteProjectFolder(Project{Name: "My Elwynn", Path: dir, ClientPath: "C:/WoW/client"}); err != nil {
+	if err := WriteProjectFolder(Project{Name: "My Elwynn", Path: dir}); err != nil {
 		t.Fatal(err)
 	}
 	p, err = ReadProjectFolder(dir)
-	if err != nil || p.Name != "My Elwynn" || p.ClientPath != "C:/WoW/client" || p.Path != dir {
+	if err != nil || p.Name != "My Elwynn" || p.Path != dir {
 		t.Fatalf("read back = %+v %v", p, err)
 	}
 }

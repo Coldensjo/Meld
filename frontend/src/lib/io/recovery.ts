@@ -1,17 +1,18 @@
-import { DropRecovery, DropRecoveryParts, EndRecovery, ListRecovery, LoadRecovery, SaveRecovery, SaveRecoveryPart } from '../../../wailsjs/go/main/App'
-import { mapfile, recovery } from '../../../wailsjs/go/models'
+import { DropRecovery, EndRecovery, ListRecovery, LoadRecoveryWorld, SaveRecoveryWorld } from '../../../wailsjs/go/main/App'
+import { main, recovery } from '../../../wailsjs/go/models'
 import type { Engine } from '../engine/Engine'
-import { regionLabel, type MapDocument, type RegionRef } from '../engine/MapDocument'
+import type { MapDocument } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
-import { fromMapData, hasBackend, reloadSpawns, toMapData } from './mapio'
-import { bytesToBase64, SLICE_BYTES } from './base64'
+import { hasBackend } from './mapio'
+import { CubeWorld } from '../cubes/world'
 
-// Autosave (#177): every few minutes (Preferences › Autosave), each map with unsaved changes is
-// copied into the recovery folder of the user cache (`internal/recovery`), and the copy goes once the
-// map is saved, reverted or closed. A quit through File › Quit drops this session's copies; a crash,
-// or closing the window on unsaved maps, leaves them, and the next start offers them back.
+// Autosave (#177): every few minutes (Preferences › Autosave), each world with unsaved changes is
+// copied, as a .world file (#65), into the recovery folder of the user cache (`internal/recovery`), and
+// the copy goes once the world is saved, reverted or closed. A quit through File › Quit drops this
+// session's copies; a crash, or closing the window on unsaved worlds, leaves them, and the next start
+// offers them back.
 
-/** How often the open tabs are looked at; a map is copied at most every `prefs.autosaveMinutes`. */
+/** How often the open tabs are looked at; a world is copied at most every `prefs.autosaveMinutes`. */
 const CHECK_MS = 15_000
 /** A little over Go's `recovery.Stale`: a session that crashed just before this start counts as gone by then. */
 const RECHECK_MS = 35_000
@@ -56,18 +57,16 @@ export async function autosave(engine: Engine) {
 			const since = copy?.at ?? dirtySince.get(d.id) ?? now
 			dirtySince.set(d.id, since)
 			if (now - since < every) continue
-			// Mid-stroke the terrain is half-edited and its history step not pushed: copy it after the stroke.
+			// Mid-drag the cubes are half-edited and the history step not pushed: copy them after the drag.
 			if (engine.isStroking()) continue
-			const data = await encodeCopy(engine, d, changes)
-			if (!data) continue
-			const region = d.meta.region
-			const info = recovery.Info.createFrom({ name: nameOf(engine, d), file: pathOf(engine, d), region: region ? regionLabel(region) : '' })
-			const saved = await SaveRecovery(d.id, info, data)
+			const info = recovery.Info.createFrom({ name: nameOf(engine, d), file: pathOf(engine, d) })
+			// A world's cubes are a few bytes a chunk and copied at once, so no edit can tear them.
+			const saved = await SaveRecoveryWorld(d.id, info, main.WorldData.createFrom(d.world.toData()))
 			copies.set(d.id, { id: saved.id, changes, at: Date.now() })
 			dirtySince.delete(d.id)
 			wrote++
 		}
-		// Closed tabs: their maps were saved or thrown away.
+		// Closed tabs: their worlds were saved or thrown away.
 		for (const id of [...copies.keys()]) if (!open.has(id)) await drop(id)
 		for (const id of [...dirtySince.keys()]) if (!open.has(id)) dirtySince.delete(id)
 		if (wrote) setStatus(`Autosaved ${wrote === 1 ? 'a recovery copy' : `${wrote} recovery copies`}.`, 2000)
@@ -79,51 +78,13 @@ export async function autosave(engine: Engine) {
 	}
 }
 
-/** A turn for the editor between slices: a message, not a timeout, which a hidden window throttles to one a second. */
-const yieldTurn = () =>
-	new Promise<void>((done) => {
-		const ch = new MessageChannel()
-		ch.port1.onmessage = () => done()
-		ch.port2.postMessage(0)
-	})
-
-/**
- * A tab's map as the recovery binding takes it. Its large arrays (heights, paint weights and slots, up to
- * hundreds of MB for a big region) go ahead of it to Go through `SaveRecoveryPart`, base64-encoded a
- * slice at a time, each slice in its own turn and its own call (#546, #637): one call with the whole map
- * kept the page without a turn for 230-400 ms while the bridge stringified and sent it. The arrays are the
- * terrain's own, so an edit landing between slices would tear the copy: when the tab's history moved on, a
- * stroke is held or the tab closed by the end, the parts are dropped, this gives null and the next check
- * copies it again. The map it gives has those arrays empty; Go fills them from the parts.
- */
-async function encodeCopy(engine: Engine, d: MapDocument, changes: number): Promise<mapfile.MapData | null> {
-	await yieldTurn()
-	const snap = engine.snapshotOf(d)
-	let sent = false
-	try {
-		for (const [field, bytes] of [['heights', snap.heights], ['weights', snap.weights], ['chunkSlots', snap.chunkSlots]] as const) {
-			// At least one part a field, so part 0 replaces what a copy given up earlier left in Go.
-			for (let at = 0, i = 0; at === 0 || at < bytes.length; at += SLICE_BYTES, i++) {
-				await yieldTurn()
-				await SaveRecoveryPart(d.id, field, i, bytesToBase64(bytes.subarray(at, at + SLICE_BYTES)))
-			}
-		}
-		if (!engine.documents.includes(d) || d.history.changes !== changes || engine.isStroking()) return null
-		sent = true
-	} finally {
-		if (!sent) await DropRecoveryParts(d.id).catch(() => {})
-	}
-	const none = new Uint8Array(0)
-	return toMapData({ ...snap, heights: none, weights: none, chunkSlots: none })
-}
-
 async function drop(docId: number) {
 	const copy = copies.get(docId)
 	copies.delete(docId)
 	if (copy) await DropRecovery(copy.id)
 }
 
-/** Drops this session's copies before a quit the author chose (every map saved, or discarded). */
+/** Drops this session's copies before a quit the author chose (every world saved, or discarded). */
 export async function endAutosave() {
 	if (!hasBackend()) return
 	copies.clear()
@@ -148,23 +109,15 @@ export async function recoveryCopies(): Promise<recovery.Info[]> {
 }
 
 const samePath = (a: string, b: string) => a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase()
-const sameRegion = (a: RegionRef | null, b: { mapName: string; x: number; y: number; size: number } | null) =>
-	!!a && !!b && a.mapName === b.mapName && a.x === b.x && a.y === b.y && a.size === b.size
 
-/**
- * Opens a copy as a map with unsaved changes. It takes the place of the tab of the same map (its file,
- * or the same region) when that tab has no changes of its own, as the session restore reopens it.
- */
+/** Opens a copy as a world with unsaved changes, in place of the tab of the same file when that tab has no changes of its own, as the session restore reopens it. */
 export async function recover(engine: Engine, info: recovery.Info) {
-	const snap = fromMapData(await LoadRecovery(info.id))
-	const same = engine.documents.find(
-		(d) => !engine.isDirty(d.id) && (info.file ? samePath(pathOf(engine, d), info.file) : !pathOf(engine, d) && sameRegion(d.meta.region, snap.region)),
-	)
-	engine.openDocument(snap, info.file, same?.id)
+	const world = CubeWorld.fromData(await LoadRecoveryWorld(info.id))
+	const same = engine.documents.find((d) => !engine.isDirty(d.id) && !!info.file && samePath(pathOf(engine, d), info.file))
+	engine.openWorld(world, info.name, info.file, same?.id)
 	editor.dirty = true
 	engine.refreshTabs()
 	await DropRecovery(info.id)
-	if (snap.region) reloadSpawns(engine)
 	setStatus(`Recovered ${info.name}. Save it to keep it.`, 6000)
 }
 

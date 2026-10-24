@@ -3,25 +3,24 @@ import type { Engine } from '../engine/Engine'
 import { formatReport } from '../engine/perfMeter'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { engineRef } from '../state/engineRef'
-import { selectObjects } from '../state/selection'
 import { parseScene, PREFIX, VIEW_PREFS, type Scene, type ViewPrefs } from './sceneParse'
-import { fromMapData, hasBackend, openWowRegion, toMapData } from './mapio'
-import { LoadMap, SaveSceneMap } from '../../../wailsjs/go/main/App'
+import { hasBackend, openPath } from './mapio'
+import { CubeWorld } from '../cubes/world'
+import { LoadWorld, SaveSceneWorld } from '../../../wailsjs/go/main/App'
+import { main } from '../../../wailsjs/go/models'
 import { ClipboardGetText, ClipboardSetText } from '../../../wailsjs/runtime/runtime'
 
 // A scene is the editor's state as one line of text (Help > Copy Scene), so a view can be handed to
 // someone else on this machine (or to Claude, through `window.__loadScene`) and opened again exactly:
-// the map, the camera, the hour, the tool, the selection and the graphics preferences. A map with
-// unsaved changes is written to a copy in the cache dir first, which the scene names.
+// the world, the camera, the hour, the tool and the graphics preferences. A world with unsaved
+// changes is written to a .world copy in the cache dir first, which the scene names (#65).
 
 const round = (n: number) => Math.round(n * 1000) / 1000
 
-/** The active map, written to a cache copy first when it has unsaved changes or was never saved. */
+/** The active world, written to a cache copy first when it has unsaved changes or was never saved. */
 async function mapRef(engine: Engine): Promise<Scene['map']> {
   if (!editor.dirty && editor.filePath) return { file: editor.filePath }
-  const r = editor.regionBlock
-  if (!editor.dirty && r && editor.regionMap) return { region: { mapName: editor.regionMap, x: r.x, y: r.y, size: r.size } }
-  return { file: await SaveSceneMap(toMapData(engine.snapshot())), copy: true }
+  return { file: await SaveSceneWorld(main.WorldData.createFrom(engine.activeDocument().world.toData())), copy: true }
 }
 
 export async function sceneText(engine: Engine): Promise<string> {
@@ -35,25 +34,9 @@ export async function sceneText(engine: Engine): Promise<string> {
     view: { target: view.target.map(round) as [number, number, number], yaw: round(view.yaw), pitch: round(view.pitch), distance: round(view.distance), hour: round(view.hour) },
     prefs: p,
     tool: editor.tool,
-    selectedIds: [...editor.selectedIds],
-    selected: editor.selected?.id ?? null,
-    area: editor.selection,
     viewport: vp,
   }
   return PREFIX + JSON.stringify(scene)
-}
-
-/** F9 (Import/Export › Copy Position as Teleport Command): the GM command to the point under the cursor, onto the clipboard. */
-export async function copyTeleport(engine: Engine) {
-  const r = await engine.teleportAtCursor()
-  if ('error' in r) return setStatus(r.error, 6000)
-  try {
-    if (hasBackend()) await ClipboardSetText(r.command)
-    else await navigator.clipboard.writeText(r.command)
-    setStatus(`Copied ${r.command}: paste it in the game's chat as a GM.`, 6000)
-  } catch (err) {
-    setStatus(`Copying the position failed: ${err}`, 8000)
-  }
 }
 
 /** Help > Copy Scene: puts the scene on the clipboard. */
@@ -62,7 +45,7 @@ export async function copyScene(engine: Engine) {
   try {
     const text = await sceneText(engine)
     await ClipboardSetText(text)
-    setStatus(`Copied the scene${text.includes('"copy":true') ? ' (the unsaved map went to a copy in the cache)' : ''}. Paste it to share this exact view.`, 8000)
+    setStatus(`Copied the scene${text.includes('"copy":true') ? ' (the unsaved world went to a copy in the cache)' : ''}. Paste it to share this exact view.`, 8000)
   } catch (err) {
     console.error(err)
     setStatus(`Copy scene failed: ${err}`, 8000)
@@ -88,16 +71,15 @@ export async function copyPerfReport(engine: Engine) {
   }
 }
 
-/** Opens the scene's map (or switches to its tab) and restores everything else the scene holds. */
+/** Opens the scene's world (or switches to its tab) and restores everything else the scene holds. */
 export async function loadScene(engine: Engine, text: string) {
   // Check the whole scene before anything is opened or written, so a bad paste changes nothing.
   const scene = parseScene(text, prefs as unknown as Record<string, unknown>)
 
-  if ('region' in scene.map) {
-    const r = scene.map.region
-    await openWowRegion(engine, r.mapName, r.x, r.y, r.size)
-  } else if (!engine.focusPath(scene.map.file)) {
-    engine.openDocument(fromMapData(await LoadMap(scene.map.file)), scene.map.copy ? '' : scene.map.file)
+  if (!engine.focusPath(scene.map.file)) {
+    // A copy opens as an untitled world, so Save asks where rather than writing to the cache.
+    if (scene.map.copy) engine.openWorld(CubeWorld.fromData(await LoadWorld(scene.map.file)), 'Scene world', '')
+    else await openPath(engine, scene.map.file)
   }
 
   for (const k of VIEW_PREFS) if (k in scene.prefs) (prefs as Record<string, unknown>)[k] = scene.prefs[k]
@@ -105,12 +87,9 @@ export async function loadScene(engine: Engine, text: string) {
   // pref changes, so a scene without it in its prefs (the probes' P.BENCH) would show the viewer's hour.
   if (!prefs.dayCycle) prefs.timeOfDay = Math.round(scene.view.hour * 100) / 100
   editor.tool = scene.tool
-  // Let the prefs effect run (it applies them to the engine, follow-ground included) before the view is set.
+  // Let the prefs effect run (it applies them to the engine) before the view is set.
   await tick()
   engine.setSceneView(scene.view)
-  const ids = scene.selectedIds.filter((id) => engine.objects.objects.has(id))
-  selectObjects(engine.objects, ids, scene.selected ?? undefined)
-  editor.selection = scene.area
   const [w, h] = scene.viewport
   setStatus(`Loaded the scene (it was framed in a ${w}×${h} viewport).`, 8000)
 }

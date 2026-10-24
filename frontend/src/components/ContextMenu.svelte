@@ -4,8 +4,8 @@
 	import { focusMenuEdge, menuMoveFocus } from '../lib/ui/menuKeys'
 	import { cssViewport, toCss } from '../lib/ui/uiScale'
 
-	// The viewport's right-click menu: a plain right-click (no orbit drag) on a creature, an object
-	// of the region or a placed model opens it with what can be done to that thing. It closes on a
+	// The viewport's right-click menu: a plain right-click (no orbit drag) on a placed model
+	// opens it with what can be done to that thing. It closes on a
 	// pick, a click elsewhere or Escape. It takes the focus on its first item when it opens (#370):
 	// Up/Down/Home/End move between the items, Escape and Tab close it and give the focus back to what
 	// held it, and keys pressed in it stop there, so the map's hotkeys don't fire meanwhile.

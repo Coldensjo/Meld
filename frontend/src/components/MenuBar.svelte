@@ -1,17 +1,11 @@
 <script lang="ts">
-	import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
+	import { editor, prefs, setStatus, stepCameraSpeed, ui } from '../lib/state/editor.svelte'
 	import type { Engine } from '../lib/engine/Engine'
 	import { engineRef } from '../lib/state/engineRef'
-	import { chooseBenillaFolder, launchGame, playHere, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, compileRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish, writeMinimapTiles } from '../lib/io/mapio'
-	import { saveSelectionAsPrefab } from '../lib/io/prefabFiles'
-	import { growableSides, type Side } from '../lib/io/regionGrow'
-	import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
-	import { chooseWowFolder } from '../lib/wow/api'
+	import { playWorld, hasBackend, importTibiaMap, openMap, requestRevert, saveMap } from '../lib/io/mapio'
 	import { openProject } from '../lib/io/project'
 	import type { ProjectInfo } from '../lib/state/editor.svelte'
-	import { copyPerfReport, copyScene, copyTeleport, pasteScene } from '../lib/io/scene'
-	import { BENCH_MAPS, BENCH_SCALES, openBenchMap } from '../lib/bench/benchMaps'
-	import { ClearThumbnailCache, GameEvents } from '../../wailsjs/go/main/App'
+	import { copyPerfReport, copyScene, pasteScene } from '../lib/io/scene'
 	import { quitNow } from '../lib/io/session'
 	import { requestClose } from './DocTabs.svelte'
 	import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
@@ -22,6 +16,8 @@
 	import { GRAPHICS_PRESETS, applyPreset, presetOf } from '../lib/state/graphicsPresets'
 	import { focusMenuEdge, menuMoveFocus } from '../lib/ui/menuKeys'
 	import { tick } from 'svelte'
+	import { setSliceMode, stepSlice } from '../lib/cubes/slice'
+	import { MOODS } from '../lib/engine/moods'
 
 	/** Opens a web page in the user's browser (the desktop runtime's way, else the dev page's). */
 	function openUrl(url: string) {
@@ -31,7 +27,7 @@
 
 	/** Opens a recent project from the File menu; one that no longer opens shows the Project dialog with why. */
 	async function switchProject(p: ProjectInfo) {
-		const err = await openProject(p.name, p.path, p.clientPath)
+		const err = await openProject(p.name, p.path)
 		if (err) {
 			setStatus(`Project ${p.name} didn't open: ${err}`, 8000)
 			ui.dialog = 'project'
@@ -40,7 +36,7 @@
 
 	type Item =
 		| { kind: 'action'; label: string; shortcut?: string; disabled?: boolean; run: () => unknown }
-		| { kind: 'check'; label: string; shortcut?: string; checked: boolean; toggle: () => void }
+		| { kind: 'check'; label: string; shortcut?: string; disabled?: boolean; checked: boolean; toggle: () => void }
 		| { kind: 'radio'; label: string; checked: boolean; select: () => void }
 		| { kind: 'header'; label: string }
 		| { kind: 'sep' }
@@ -49,71 +45,27 @@
 		if (engineRef.current) fn(engineRef.current)
 	}
 
-	// The world events' names (game_event), read once there are spawns to sort into them (#143).
-	let eventNames = $state<Map<number, string>>(new Map())
-	let eventsAsked = false
-	$effect(() => {
-		if (eventsAsked || !editor.spawns.some((s) => s.events?.length)) return
-		eventsAsked = true
-		GameEvents()
-			.then((list) => (eventNames = new Map((list ?? []).map((e) => [e.id, e.name]))))
-			.catch(() => (eventsAsked = false))
-	})
-	/** The events the open region's spawns belong to, with how many spawns each, by name. */
-	const regionEvents = $derived.by(() => {
-		const counts = new Map<number, number>()
-		for (const s of editor.spawns) for (const e of s.events ?? []) counts.set(Math.abs(e), (counts.get(Math.abs(e)) ?? 0) + 1)
-		return [...counts]
-			.map(([id, n]) => ({ id, n, name: eventNames.get(id) ?? `Event ${id}` }))
-			.sort((a, b) => a.name.localeCompare(b.name))
-	})
-	function toggleEvent(id: number) {
-		prefs.shownEvents = prefs.shownEvents.includes(id) ? prefs.shownEvents.filter((e) => e !== id) : [...prefs.shownEvents, id]
-	}
-
 	function exit() {
 		if (engineRef.current?.anyDirty()) ui.dialog = 'quit'
 		else if (hasBackend()) quitNow()
 	}
 
-	async function clearThumbs() {
-		try {
-			await ClearThumbnailCache()
-			setStatus('Thumbnail cache cleared. Thumbnails will re-render as you browse (after restart for ones already shown).')
-		} catch (e) {
-			setStatus(`Could not clear cache: ${e}`)
-		}
-	}
-
-	/** The sides a region can grow toward, for the File menu. */
-	const SIDES: Array<[Side, string]> = [
-		['n', 'north'],
-		['e', 'east'],
-		['s', 'south'],
-		['w', 'west'],
-	]
-
-	/** The climb view's steepest walkable slopes, in degrees: 49 is Noggit Red's default. */
-	const CLIMB_ANGLES = [40, 45, 49, 55, 60]
-	// The game window sizes Preferences › Game Window offers (gxResolution).
-	const GAME_RESOLUTIONS = ['1280x720', '1600x900', '1920x1080', '2560x1440']
-
 	// The Graphics › Quality preset all of whose values the prefs hold now, or null (#203).
 	const graphicsPreset = $derived(presetOf(prefs))
-
 	const radios = <T,>(options: Array<[string, T]>, get: () => T, set: (v: T) => void): Item[] =>
 		options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
 
 	// Rebuilt reactively so checkmarks and enabled states stay current. Each menu is kept short enough
-	// to fit the screen (#122): the actions on the selected models, the terrain and the world's tables
-	// have menus of their own, as do the imports and exports, the view and the game.
+	// to fit the screen (#122).
 	const menus = $derived<Array<{ name: string; items: Item[] }>>([
 		{
 			name: 'File',
 			items: [
-				{ kind: 'action', label: 'New World…', shortcut: 'Ctrl+N', run: () => { ui.newMapMode = 'new'; ui.showNewDialog = true } },
+				// A world of the game in its world format (#29, #62).
+				{ kind: 'action', label: 'New Cube World…', shortcut: 'Ctrl+N', run: () => (ui.showNewDialog = true) },
 				{ kind: 'action', label: 'Open…', shortcut: 'Ctrl+O', disabled: ui.busy, run: withEngine(openMap) },
-				{ kind: 'action', label: 'Open Part of Azeroth…', disabled: !hasBackend() || ui.busy, run: () => { ui.newMapMode = 'open'; ui.showNewDialog = true } },
+				// An Open Tibia map made into a cube world (3dgame #218).
+				{ kind: 'action', label: 'Import Tibia Map…', disabled: ui.busy || !hasBackend(), run: withEngine(importTibiaMap) },
 				{ kind: 'sep' },
 				// Projects (#48): a project folder and the client it edits, with the recent ones to switch to.
 				{ kind: 'action', label: ui.project ? `Project: ${ui.project.name}…` : 'Project…', disabled: !hasBackend(), run: () => (ui.dialog = 'project') },
@@ -122,32 +74,12 @@
 					.slice(0, 4)
 					.map((p) => ({ kind: 'action' as const, label: `Open Project ${p.name}`, disabled: !hasBackend() || ui.busy, run: () => switchProject(p) })),
 				{ kind: 'sep' },
-				{ kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveOrPublish(e)) },
+				{ kind: 'action', label: 'Save', shortcut: 'Ctrl+S', disabled: ui.busy, run: withEngine((e) => saveMap(e)) },
 				{ kind: 'action', label: 'Save As…', shortcut: 'Ctrl+Shift+S', disabled: ui.busy, run: withEngine((e) => saveMap(e, true)) },
 				{ kind: 'action', label: 'Revert to Saved', disabled: !editor.filePath || ui.busy, run: withEngine(requestRevert) },
-				{ kind: 'action', label: 'Map Properties…', run: () => (ui.dialog = 'mapProps') },
+				{ kind: 'action', label: 'World Properties…', run: () => (ui.dialog = 'mapProps') },
 				{ kind: 'sep' },
-				{ kind: 'action', label: 'Check Map…', run: () => (ui.checkMap = true) },
-				// The open region into the game (#214): the client's tiles, the server's map data built from them, or both.
-				{ kind: 'action', label: 'Compile to Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'client')) },
-				{ kind: 'action', label: 'Compile to Server', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'server')) },
-				{ kind: 'action', label: 'Compile All', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'all')) },
-				...(editor.regionBlock
-					? [
-							{ kind: 'header' as const, label: 'Grow region (save first; the map stays square)' },
-							...SIDES.map(([side, name]) => ({
-								kind: 'action' as const,
-								label: `Add the tiles to the ${name}`,
-								disabled: !hasBackend() || ui.busy || !growableSides(editor.regionBlock!).includes(side),
-								run: withEngine((e: Engine) => extendRegion(e, side)),
-							})),
-							{ kind: 'sep' as const },
-							{ kind: 'action' as const, label: 'Save Spawns to Database…', disabled: !hasBackend() || ui.busy || !ui.spawnChanges, run: () => (ui.dialog = 'saveSpawns') },
-							{ kind: 'action' as const, label: 'Export Spawn SQL…', disabled: !hasBackend() || ui.busy || !ui.spawnChanges, run: withEngine((e: Engine) => exportSpawnSql(e)) },
-						]
-					: []),
-				{ kind: 'sep' },
-				{ kind: 'action', label: 'Close Map', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
+				{ kind: 'action', label: 'Close World', shortcut: 'Ctrl+W', run: withEngine((e) => requestClose(e.activeDocumentId())) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Exit', run: exit },
 			],
@@ -159,202 +91,36 @@
 				{ kind: 'action', label: 'Redo', shortcut: 'Ctrl+Y', disabled: !ui.canRedo, run: withEngine((e) => e.redo()) },
 				{ kind: 'check', label: 'History (go back to any step)', checked: ui.history, toggle: () => (ui.history = !ui.history) },
 				{ kind: 'sep' },
-				{ kind: 'action', label: 'Copy', shortcut: 'Ctrl+C', disabled: !editor.selection && !editor.selectedIds.length, run: withEngine((e) => e.copySelection()) },
-				{ kind: 'action', label: 'Paste', shortcut: 'Ctrl+V', disabled: !ui.hasClip, run: withEngine((e) => e.startPaste()) },
+				// Copy, Cut, Paste, Delete and Deselect act on the Select tool's box of cubes (#70).
+				{ kind: 'action', label: 'Copy Cubes', shortcut: 'Ctrl+C', disabled: !ui.cubeSelection, run: withEngine((e) => e.copySelection()) },
+				{ kind: 'action', label: 'Cut Cubes', shortcut: 'Ctrl+X', disabled: !ui.cubeSelection, run: withEngine((e) => e.cutSelection()) },
+				{ kind: 'action', label: 'Paste Cubes', shortcut: 'Ctrl+V', disabled: !ui.hasCubeClip, run: withEngine((e) => e.startPaste()) },
+				{ kind: 'action', label: 'Delete Selected Cubes', shortcut: 'Del', disabled: !ui.cubeSelection, run: withEngine((e) => e.deleteCubes()) },
 				{ kind: 'sep' },
-				{ kind: 'action', label: 'Select All', shortcut: 'Ctrl+A', run: withEngine((e) => { e.selectAll(); editor.tool = 'select' }) },
-				{ kind: 'action', label: 'Deselect', shortcut: 'Ctrl+D', disabled: !editor.selection && !editor.selectedIds.length, run: withEngine((e) => e.deselect()) },
-				{ kind: 'action', label: 'Grow Selected Area by 1 Cell', disabled: !editor.selection, run: withEngine((e) => e.resizeSelection(1)) },
-				{ kind: 'action', label: 'Shrink Selected Area by 1 Cell', disabled: !editor.selection, run: withEngine((e) => e.resizeSelection(-1)) },
+				{ kind: 'action', label: 'Deselect', shortcut: 'Ctrl+D', disabled: !ui.cubeSelection && !ui.cubePasting, run: withEngine((e) => e.deselect()) },
 				{ kind: 'sep' },
-				{ kind: 'action', label: 'Cut Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(true)) },
-				{ kind: 'action', label: 'Fill Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(false)) },
-			],
-		},
-		{
-			name: 'Models',
-			items: [
-				{ kind: 'action', label: 'Duplicate Selected Models', shortcut: 'Ctrl+Shift+D', disabled: !editor.selectedIds.length, run: withEngine((e) => e.duplicateSelected()) },
-				{ kind: 'action', label: 'Reset Rotation', shortcut: 'Ctrl+R', disabled: !editor.selectedIds.length, run: withEngine((e) => e.resetRotation()) },
-				{ kind: 'action', label: 'Put Selected Models on the Ground', shortcut: 'Ctrl+PgDn', disabled: !editor.selectedIds.length, run: withEngine((e) => e.snapSelectedToGround()) },
-				{ kind: 'action', label: 'Fit Ground to Selected Models…', disabled: !editor.selectedIds.length, run: () => (ui.dialog = 'fitGround') },
-				{ kind: 'action', label: 'Save Selection as Prefab…', disabled: !editor.selectedIds.length || !hasBackend(), run: withEngine((e) => void saveSelectionAsPrefab(e)) },
-				{ kind: 'action', label: 'Replace with Copied Model', disabled: !editor.selectedIds.length, run: withEngine((e) => e.replaceSelectedWithCopied()) },
-				{ kind: 'action', label: 'Group Selected Models', shortcut: 'Ctrl+G', disabled: editor.selectedIds.length < 2, run: withEngine((e) => e.groupSelected()) },
-				{ kind: 'action', label: 'Ungroup Selected Models', shortcut: 'Ctrl+Shift+G', disabled: !editor.selectedIds.length, run: withEngine((e) => e.ungroupSelected()) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: 'Delete Selected Models', shortcut: 'Del', disabled: !editor.selectedIds.length, run: withEngine((e) => e.deleteSelected()) },
-				{ kind: 'action', label: 'Remove Duplicate Models', run: withEngine((e) => e.removeDuplicateModels()) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: 'Hide Selected Models', shortcut: 'H', disabled: !editor.selectedIds.length, run: withEngine((e) => e.toggleHideSelected()) },
-				{ kind: 'check', label: 'Show Hidden Models', checked: ui.showHiddenModels, toggle: () => (ui.showHiddenModels = !ui.showHiddenModels) },
-				{ kind: 'action', label: 'Unhide All Models', shortcut: 'Shift+H', disabled: !ui.hiddenModels, run: withEngine((e) => e.unhideAll()) },
-				{ kind: 'sep' },
-				{ kind: 'check', label: 'Inspector (placement numbers)', shortcut: 'I', checked: ui.inspector, toggle: () => (ui.inspector = !ui.inspector) },
-				{ kind: 'check', label: 'Gizmo Arrows in Local Space', checked: editor.gizmoLocal, toggle: () => (editor.gizmoLocal = !editor.gizmoLocal) },
-			],
-		},
-		{
-			name: 'Terrain',
-			items: [
-				{ kind: 'header', label: 'Clean up the tile under the camera' },
-				{ kind: 'action', label: 'Clear Height', run: withEngine((e) => e.cleanUpTile('height')) },
-				{ kind: 'action', label: 'Clear Textures', run: withEngine((e) => e.cleanUpTile('textures')) },
-				{ kind: 'action', label: 'Clear Textures and Set Base (paint texture)', run: withEngine((e) => e.cleanUpTile('setBase')) },
-				{ kind: 'action', label: 'Remove Texture Duplicates', run: withEngine((e) => e.cleanUpTile('textureDuplicates')) },
-				{ kind: 'action', label: 'Clear Models', run: withEngine((e) => e.cleanUpTile('models')) },
-				{ kind: 'action', label: 'Remove Duplicate Models on the Tile', run: withEngine((e) => e.cleanUpTile('duplicateModels')) },
-				{ kind: 'action', label: 'Clear Baked Shadows', run: withEngine((e) => e.cleanUpTile('shadows')) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: editor.selection ? 'Remove Empty Texture Layers in Selection' : 'Remove Empty Texture Layers', run: withEngine((e) => e.removeEmptyLayers()) },
-				{ kind: 'action', label: 'Auto-paint Textures by Height and Slope', run: withEngine((e) => e.regenerateAutoPaint()) },
-				{ kind: 'action', label: 'Fill Mask with Paint Texture', disabled: !ui.maskActive, run: withEngine((e) => e.fillMask(editor.paintLayer)) },
-				{ kind: 'action', label: 'Fill Selection with Doodad Brush', disabled: !editor.selection, run: withEngine((e) => e.fillWithDoodadBrush(false)) },
-				{ kind: 'action', label: 'Fill Mask with Doodad Brush', disabled: !ui.maskActive, run: withEngine((e) => e.fillWithDoodadBrush(true)) },
-				{ kind: 'action', label: 'Replace Texture Everywhere…', run: () => (ui.dialog = 'textures') },
-				{ kind: 'sep' },
-				{ kind: 'header', label: 'Paint mask' },
-				{ kind: 'action', label: 'Mask the Selection', disabled: !editor.selection, run: withEngine((e) => e.maskFromSelection()) },
-				{ kind: 'action', label: `Grow Mask by ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('grow')) },
-				{ kind: 'action', label: `Shrink Mask by ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('shrink')) },
-				{ kind: 'action', label: `Feather Mask over ${editor.maskSelect.step} yd`, disabled: !ui.maskActive, run: withEngine((e) => e.modifyMask('feather')) },
-				{ kind: 'action', label: 'Invert Mask', run: withEngine((e) => e.invertMask()) },
-				{ kind: 'action', label: 'Clear Mask', disabled: !ui.maskActive, run: withEngine((e) => e.clearMask()) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: editor.selection ? 'Erode Selection…' : 'Erode the Map…', run: () => (ui.dialog = 'erode') },
-				{ kind: 'sep' },
-				{ kind: 'action', label: editor.selection ? 'Bake Shadows in Selection' : 'Bake Shadows', run: withEngine((e) => e.bakeShadows()) },
-				{ kind: 'action', label: editor.selection ? 'Bake Shadows from the Ground in Selection' : 'Bake Shadows from the Ground Only', run: withEngine((e) => e.bakeShadows(true)) },
-				{ kind: 'action', label: editor.selection ? 'Clear Shadows in Selection' : 'Clear Shadows', run: withEngine((e) => e.clearShadows()) },
-				{ kind: 'sep' },
-				{ kind: 'check', label: 'Climb (ground too steep to walk up)', shortcut: 'Shift+F2', checked: prefs.climbView, toggle: () => (prefs.climbView = !prefs.climbView) },
-				{ kind: 'check', label: 'Height contours', checked: prefs.showContours, toggle: () => (prefs.showContours = !prefs.showContours) },
-				...radios(
-					[
-						['Contours every 4 yards', 4],
-						['Contours every 10 yards', 10],
-						['Contours every 25 yards', 25],
-					],
-					() => prefs.contourStep,
-					(v) => {
-						prefs.contourStep = v
-						prefs.showContours = true
-					},
-				),
-				...radios(
-					CLIMB_ANGLES.map((a): [string, number] => [`Steepest walkable slope ${a}°`, a]),
-					() => prefs.climbAngle,
-					(v) => {
-						prefs.climbAngle = v
-						prefs.climbView = true
-					},
-				),
-				{ kind: 'sep' },
-				{ kind: 'check', label: 'Map Textures (quick palette)', checked: ui.texturePalette, toggle: () => (ui.texturePalette = !ui.texturePalette) },
-			],
-		},
-		{
-			name: 'Tools',
-			items: [
-				{ kind: 'action', label: 'Creatures…', disabled: !hasBackend(), run: () => (ui.creatures = true) },
-				{ kind: 'action', label: 'Game Objects…', disabled: !hasBackend(), run: () => (ui.objectEditor = { key: null, entry: 0 }) },
-				{ kind: 'action', label: 'Quests…', disabled: !hasBackend(), run: () => (ui.questEditor = { entry: 0 }) },
-				{ kind: 'action', label: 'Items…', disabled: !hasBackend(), run: () => (ui.itemEditor = { entry: 0 }) },
-				{ kind: 'action', label: 'Spells…', disabled: !hasBackend(), run: () => (ui.spellEditor = { entry: 0 }) },
-			],
-		},
-		{
-			name: 'World',
-			items: [
-				{ kind: 'action', label: 'Doodad Brushes…', run: () => (ui.brushEditor = true) },
-				{ kind: 'action', label: 'Ground Effects (Grass Tufts)…', run: () => (ui.dialog = 'effects') },
-				{ kind: 'action', label: 'Texture Looks (Scrolling, Overbright)…', run: () => (ui.dialog = 'looks') },
-				{ kind: 'action', label: 'Zones…', disabled: !hasBackend(), run: () => (ui.dialog = 'zones') },
-				{ kind: 'action', label: 'World Map…', disabled: !hasBackend(), run: () => (ui.dialog = 'worldMap') },
-				{ kind: 'action', label: 'Portals and Area Triggers…', disabled: !hasBackend(), run: () => (ui.dialog = 'portals') },
-				{ kind: 'action', label: 'Flight Paths…', disabled: !hasBackend(), run: () => (ui.flightPaths = true) },
-				{ kind: 'action', label: 'Lights…', disabled: !hasBackend(), run: () => (ui.dialog = 'lights') },
-			],
-		},
-		{
-			name: 'Import/Export',
-			items: [
-				{ kind: 'action', label: 'Import Heightmap…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'heightmap') },
-				{ kind: 'action', label: 'Import Watermap…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'watermap') },
-				{ kind: 'action', label: 'Export Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportHeightmap(e)) },
-				{ kind: 'action', label: 'Export Normal Map…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportNormalMap(e)) },
-				{ kind: 'action', label: 'Export Alphamap of the Paint Texture…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportAlphamap(e)) },
-				{ kind: 'action', label: 'Import Alphamap into the Paint Texture…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importAlphamap(e)) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: 'Import Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importObjectList(e)) },
-				{ kind: 'action', label: 'Export Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportObjectList(e)) },
-				{ kind: 'action', label: 'Export Port Coordinates…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportPortCoords(e)) },
-				{ kind: 'action', label: 'Copy Position as Teleport Command', shortcut: 'F9', run: withEngine((e) => copyTeleport(e)) },
-				{ kind: 'action', label: 'Save Minimap Image…', shortcut: 'Ctrl+Shift+P', disabled: !hasBackend() || ui.busy, run: withEngine((e) => saveMinimapImage(e)) },
-				{ kind: 'action', label: 'Write Minimap Tiles to the Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => writeMinimapTiles(e)) },
-				{ kind: 'check', label: 'Minimap Tiles with All Models (trees too)', checked: prefs.minimapAllModels, toggle: () => (prefs.minimapAllModels = !prefs.minimapAllModels) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: 'Import Doodad Brushes…', disabled: !hasBackend() || ui.busy, run: () => importDoodadBrushes() },
-				{ kind: 'action', label: 'Export Doodad Brush…', disabled: !hasBackend() || ui.busy || !activeDoodadBrush(), run: () => { const b = activeDoodadBrush(); if (b) exportDoodadBrush(b) } },
+				// The texture ids the world's faces are painted with, each replaceable with another (3dgame #216).
+				{ kind: 'action', label: 'Textures in This World…', run: () => (ui.dialog = 'textures') },
 			],
 		},
 		{
 			name: 'View',
 			items: [
-				{ kind: 'check', label: 'Show grid', shortcut: 'G', checked: editor.grid, toggle: () => (editor.grid = !editor.grid) },
-				{ kind: 'check', label: 'Show chunk lines', checked: editor.chunkLines, toggle: () => (editor.chunkLines = !editor.chunkLines) },
-				{ kind: 'check', label: 'Reference Image… (trace a plan of your own)', checked: ui.referenceWindow, toggle: () => (ui.referenceWindow = !ui.referenceWindow) },
-				{ kind: 'check', label: 'Far Horizon (the map around a region)', checked: prefs.showHorizon, toggle: () => (prefs.showHorizon = !prefs.showHorizon) },
-				{ kind: 'check', label: 'Bounding boxes (one per model)', checked: prefs.showBoxes, toggle: () => (prefs.showBoxes = !prefs.showBoxes) },
-				{ kind: 'check', label: 'Hover outline (what a click would select)', checked: prefs.hoverOutline, toggle: () => (prefs.hoverOutline = !prefs.hoverOutline) },
-				{ kind: 'check', label: 'Area triggers (portals)', checked: prefs.showAreaTriggers, toggle: () => (prefs.showAreaTriggers = !prefs.showAreaTriggers) },
-				{ kind: 'check', label: 'Flight paths (stops and routes)', checked: prefs.showFlightPaths, toggle: () => (prefs.showFlightPaths = !prefs.showFlightPaths) },
-				{ kind: 'check', label: 'Walkable ground (the server\'s navmesh)', checked: prefs.navView, toggle: () => (prefs.navView = !prefs.navView) },
-				{ kind: 'check', label: "Server's mmaps (its own navmesh, for a compiled region)", checked: prefs.navView && prefs.navServer, toggle: () => { prefs.navServer = !(prefs.navView && prefs.navServer); if (prefs.navServer) prefs.navView = true } },
-				{ kind: 'action', label: 'Test a Path (click two points)', run: withEngine((e) => { prefs.navView = true; e.startPathTest() }) },
-				{ kind: 'check', label: 'Detail info (the ground under the cursor)', checked: prefs.detailInfo, toggle: () => (prefs.detailInfo = !prefs.detailInfo) },
 				{ kind: 'check', label: 'Performance overlay (where the frame time goes)', shortcut: 'Ctrl+Shift+M', checked: prefs.perfOverlay, toggle: () => (prefs.perfOverlay = !prefs.perfOverlay) },
-				{ kind: 'check', label: 'Wireframe', checked: prefs.wireframe, toggle: () => (prefs.wireframe = !prefs.wireframe) },
 				{ kind: 'check', label: 'Hide panels', shortcut: 'Tab', checked: ui.hidePanels, toggle: () => (ui.hidePanels = !ui.hidePanels) },
-				{ kind: 'check', label: 'Layers panel (the right dock)', checked: !prefs.dockHidden, toggle: () => { prefs.dockHidden = !prefs.dockHidden; if (prefs.dockHidden) ui.replaceSlot = null } },
-				{ kind: 'header', label: 'Layers' },
-				{ kind: 'check', label: 'Terrain', checked: prefs.showTerrain, toggle: () => (prefs.showTerrain = !prefs.showTerrain) },
-				{ kind: 'check', label: 'Water', checked: prefs.showWater, toggle: () => (prefs.showWater = !prefs.showWater) },
-				{ kind: 'check', label: 'Objects (doodads and buildings)', checked: prefs.showObjects, toggle: () => (prefs.showObjects = !prefs.showObjects) },
-				{ kind: 'check', label: 'Doodads (of the objects)', checked: prefs.showDoodads, toggle: () => (prefs.showDoodads = !prefs.showDoodads) },
-				{ kind: 'check', label: 'Buildings (of the objects)', checked: prefs.showBuildings, toggle: () => (prefs.showBuildings = !prefs.showBuildings) },
-				{ kind: 'check', label: 'Ground effects (grass tufts)', checked: prefs.showGroundEffects, toggle: () => (prefs.showGroundEffects = !prefs.showGroundEffects) },
-				...radios<typeof prefs.groundEffectDensity>(
+				// The world's layers (#30): only one and those above or below it, to work underground.
+				{ kind: 'header', label: 'Layer slice' },
+				...radios<typeof ui.cubeSlice.mode>(
 					[
-						['Sparse tufts (the game\'s Low)', 'sparse'],
-						['Normal tufts (Medium)', 'normal'],
-						['Full tufts (High)', 'full'],
+						['Every layer', 'off'],
+						[`Layer ${ui.cubeSlice.layer} and above`, 'above'],
+						[`Layer ${ui.cubeSlice.layer} and below`, 'below'],
 					],
-					() => prefs.groundEffectDensity,
-					(v) => (prefs.groundEffectDensity = v),
+					() => ui.cubeSlice.mode,
+					setSliceMode,
 				),
-				{ kind: 'check', label: 'Monsters', checked: prefs.showMonsters, toggle: () => (prefs.showMonsters = !prefs.showMonsters) },
-				{ kind: 'check', label: 'NPCs', checked: prefs.showNpcs, toggle: () => (prefs.showNpcs = !prefs.showNpcs) },
-				{ kind: 'check', label: 'Game objects', checked: prefs.showGameObjects, toggle: () => (prefs.showGameObjects = !prefs.showGameObjects) },
-				{ kind: 'check', label: 'All creature paths', checked: prefs.showAllPaths, toggle: () => (prefs.showAllPaths = !prefs.showAllPaths) },
-				{ kind: 'check', label: 'Spawn pools', checked: prefs.showPools, toggle: () => (prefs.showPools = !prefs.showPools) },
-				{ kind: 'check', label: 'Names over creatures and objects', checked: prefs.spawnNames, toggle: () => (prefs.spawnNames = !prefs.spawnNames) },
-				...radios<typeof prefs.namesSide>(
-					[
-						['Name colours as the Alliance sees them', 'alliance'],
-						['Name colours as the Horde sees them', 'horde'],
-					],
-					() => prefs.namesSide,
-					(v) => (prefs.namesSide = v),
-				),
-				{ kind: 'check', label: 'Creatures and objects through walls', checked: prefs.spawnsThroughWalls, toggle: () => (prefs.spawnsThroughWalls = !prefs.spawnsThroughWalls) },
-				...(regionEvents.length
-					? ([
-							{ kind: 'header', label: 'World events (their spawns)' },
-							...regionEvents.map((ev): Item => ({ kind: 'check', label: `${ev.name} (${ev.n})`, checked: prefs.shownEvents.includes(ev.id), toggle: () => toggleEvent(ev.id) })),
-							{ kind: 'action', label: 'Hide every event', disabled: !prefs.shownEvents.length, run: () => (prefs.shownEvents = []) },
-						] as Item[])
-					: []),
+				{ kind: 'action', label: 'Slice a layer up', shortcut: ',', run: () => stepSlice(-1) },
+				{ kind: 'action', label: 'Slice a layer down', shortcut: '.', run: () => stepSlice(1) },
 			],
 		},
 		{
@@ -388,9 +154,6 @@
 					(v) => (prefs.viewDistance = v),
 				),
 				{ kind: 'sep' },
-				{ kind: 'check', label: 'Particles', checked: prefs.particles, toggle: () => (prefs.particles = !prefs.particles) },
-				{ kind: 'check', label: 'Prop animations', checked: prefs.animations, toggle: () => (prefs.animations = !prefs.animations) },
-				{ kind: 'check', label: 'Skip models too small to see', checked: prefs.cullSmallModels, toggle: () => (prefs.cullSmallModels = !prefs.cullSmallModels) },
 				{
 					kind: 'check',
 					label: 'Anti-aliasing (after a restart)',
@@ -419,6 +182,24 @@
 		{
 			name: 'Lighting',
 			items: [
+				{ kind: 'header', label: 'Look' },
+				...radios(
+					[
+						["The game's mood (sky, fog, light, grade)", 'mood'],
+						['Work light', 'work'],
+					],
+					() => prefs.look,
+					(v) => (prefs.look = v as typeof prefs.look),
+				),
+				{ kind: 'header', label: 'Mood' },
+				...radios(
+					[['Follow the time of day', ''] as [string, string], ...MOODS.surfaceNames.map((n) => [n[0].toUpperCase() + n.slice(1), n] as [string, string])],
+					() => prefs.mood,
+					(v) => {
+						prefs.mood = v as string
+						prefs.look = 'mood'
+					},
+				),
 				{ kind: 'header', label: 'Time of day' },
 				...radios(
 					[
@@ -445,47 +226,19 @@
 					(v) => (prefs.shadows = v as typeof prefs.shadows),
 				),
 				{ kind: 'sep' },
-				{ kind: 'check', label: "Client Lighting (the zone's light, fog and water colours)", checked: prefs.clientLighting, toggle: () => (prefs.clientLighting = !prefs.clientLighting) },
-				{ kind: 'check', label: "Baked Shadows (the client's, on a region)", checked: prefs.bakedShadows, toggle: () => (prefs.bakedShadows = !prefs.bakedShadows) },
-				{ kind: 'check', label: 'Prop lights & flames', checked: prefs.propEffects, toggle: () => (prefs.propEffects = !prefs.propEffects) },
 				{ kind: 'check', label: 'Clouds', checked: prefs.clouds, toggle: () => (prefs.clouds = !prefs.clouds) },
 				{ kind: 'check', label: 'Fog', checked: prefs.fog, toggle: () => (prefs.fog = !prefs.fog) },
-				// The client's weather around the camera (#185); its storm light needs Client Lighting.
-				{ kind: 'header', label: 'Weather preview' },
-				...radios(
-					[
-						['Clear', 'clear'],
-						['Rain', 'rain'],
-						['Snow', 'snow'],
-						['Sandstorm', 'sand'],
-					],
-					() => ui.weather,
-					(v) => {
-						ui.weather = v as typeof ui.weather
-						if (v !== 'clear' && !prefs.clientLighting) setStatus("Weather preview: the drops show now; turn on Lighting › Client Lighting for the zone's storm light and fog too.", 6000)
-					},
-				),
-				...radios(
-					[
-						['Light', 'light'],
-						['Medium', 'medium'],
-						['Heavy', 'heavy'],
-					],
-					() => ui.weatherGrade,
-					(v) => (ui.weatherGrade = v as typeof ui.weatherGrade),
-				),
+				{ kind: 'check', label: 'Smooth Textures', checked: prefs.smoothTextures, toggle: () => (prefs.smoothTextures = !prefs.smoothTextures) },
 			],
 		},
 		{
 			name: 'Camera',
 			items: [
 				{ kind: 'action', label: 'Turn Around (180°)', run: withEngine((e) => e.turnCameraAround()) },
-				{ kind: 'check', label: 'Follow the Ground', shortcut: 'T', checked: prefs.cameraFollowGround, toggle: () => (prefs.cameraFollowGround = !prefs.cameraFollowGround) },
-				{ kind: 'check', label: 'Camera Collision (stay 3 yards above the ground and off walls)', checked: prefs.cameraCollision, toggle: () => (prefs.cameraCollision = !prefs.cameraCollision) },
 				{ kind: 'check', label: 'Top-down View (2D)', shortcut: 'U', checked: ui.topDown, toggle: () => (ui.topDown = !ui.topDown) },
 				{
 					kind: 'check',
-					label: 'Walk (FPS camera, 3 yards above the ground)',
+					label: 'Walk (FPS camera, on the ground layer)',
 					checked: ui.walkCamera,
 					toggle: () => {
 						ui.walkCamera = !ui.walkCamera
@@ -493,7 +246,6 @@
 					},
 				},
 				{ kind: 'check', label: 'Minimap Window', shortcut: 'M', checked: ui.minimap, toggle: () => (ui.minimap = !ui.minimap) },
-				{ kind: 'check', label: 'Locked Cursor (a brush stays put while the camera moves)', checked: prefs.lockedCursor, toggle: () => (prefs.lockedCursor = !prefs.lockedCursor) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Faster', shortcut: 'P', run: () => stepCameraSpeed(true) },
 				{ kind: 'action', label: 'Slower', shortcut: 'O', run: () => stepCameraSpeed(false) },
@@ -511,46 +263,20 @@
 		{
 			name: 'Game',
 			items: [
-				{ kind: 'action', label: ui.gameClient === 'benilla' ? 'Launch Benilla' : 'Launch World of Warcraft', disabled: !hasBackend() || !wow.loaded, run: () => launchGame(engineRef.current) },
-				{ kind: 'action', label: 'Play Here', disabled: !hasBackend() || !wow.loaded, run: () => playHere(engineRef.current) },
-				{ kind: 'action', label: 'Game Login…', disabled: !hasBackend(), run: () => (ui.dialog = 'gameLogin') },
-				{ kind: 'header', label: 'Game client' },
-				...radios<'wow' | 'benilla'>(
-					[
-						['World of Warcraft (Wow.exe)', 'wow'],
-						['Benilla', 'benilla'],
-					],
-					() => ui.gameClient,
-					(v) => void setGameClient(v),
-				),
-				{ kind: 'action', label: 'Benilla Folder…', disabled: !hasBackend(), run: chooseBenillaFolder },
-				{ kind: 'header', label: 'Game window (when Meld starts it)' },
-				...radios<'' | 'windowed' | 'fullscreen'>(
-					[
-						["The Game's Own Setting", ''],
-						['Windowed', 'windowed'],
-						['Fullscreen', 'fullscreen'],
-					],
-					() => ui.gameWindow,
-					(v) => void setGameWindow(v),
-				),
-				...(ui.gameWindow === ''
-					? []
-					: radios<string>(
-							GAME_RESOLUTIONS.map((r) => [r.replace('x', ' × '), r]),
-							() => ui.gameResolution,
-							(v) => void setGameWindow(ui.gameWindow, v),
-						)),
+				{ kind: 'action', label: 'Play World', disabled: !hasBackend(), run: () => playWorld(engineRef.current) },
+			],
+		},
+		{
+			name: 'Tools',
+			items: [
+				// A sprite drawn slanted (a Tibia item, an isometric tile) made into a 3D model (internal/spritemodel).
+				{ kind: 'action', label: 'Sprite to 3D Model…', disabled: !hasBackend(), run: () => (ui.dialog = 'spriteModel') },
 			],
 		},
 		{
 			name: 'Preferences',
 			items: [
-				{ kind: 'action', label: wow.loaded ? 'Change WoW Client Folder…' : 'Select WoW Client Folder…', disabled: !hasBackend(), run: chooseWowFolder },
-				{ kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
-				{ kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
-				{ kind: 'check', label: 'Check the Map before Compile (stop on errors)', checked: prefs.checkBeforeCompile, toggle: () => (prefs.checkBeforeCompile = !prefs.checkBeforeCompile) },
-				{ kind: 'header', label: 'Autosave unsaved maps' },
+				{ kind: 'header', label: 'Autosave unsaved worlds' },
 				...radios(
 					[
 						['Every minute', 1],
@@ -619,9 +345,6 @@
 				),
 				{ kind: 'sep' },
 				{ kind: 'check', label: 'Invert camera Y', checked: prefs.invertY, toggle: () => (prefs.invertY = !prefs.invertY) },
-				{ kind: 'check', label: 'Tablet support (pen pressure)', checked: prefs.tabletSupport, toggle: () => (prefs.tabletSupport = !prefs.tabletSupport) },
-				{ kind: 'check', label: 'Pen pressure sizes the brush (with Tablet support)', checked: prefs.tabletRadius, toggle: () => (prefs.tabletRadius = !prefs.tabletRadius) },
-				{ kind: 'check', label: 'Log file loading (every client file read, in Help › Log)', checked: prefs.logFileLoading, toggle: () => (prefs.logFileLoading = !prefs.logFileLoading) },
 			],
 		},
 		{
@@ -635,14 +358,6 @@
 				{ kind: 'action', label: 'Copy Scene', disabled: !hasBackend() || ui.busy, run: withEngine(copyScene) },
 				{ kind: 'action', label: 'Load Scene from Clipboard', disabled: !hasBackend() || ui.busy, run: withEngine(pasteScene) },
 				{ kind: 'action', label: 'Copy Performance Report', run: withEngine(copyPerfReport) },
-				{ kind: 'header', label: 'Benchmark maps' },
-				...BENCH_MAPS.map((m) => ({ kind: 'action' as const, label: m.label, disabled: !hasBackend() || ui.busy, run: withEngine((e) => openBenchMap(e, m.kind, prefs.benchScale)) })),
-				{ kind: 'header', label: 'Benchmark map size' },
-				...radios(
-					[...BENCH_SCALES],
-					() => prefs.benchScale,
-					(v) => (prefs.benchScale = v),
-				),
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'About Meld…', run: () => (ui.dialog = 'about') },
 			],
@@ -714,6 +429,7 @@
 			open = null
 			item.run()
 		} else if (item.kind === 'check') {
+			if (item.disabled) return
 			item.toggle()
 		} else if (item.kind === 'radio') {
 			item.select()
@@ -758,7 +474,7 @@
 									tabindex="-1"
 									role={item.kind === 'action' ? 'menuitem' : item.kind === 'check' ? 'menuitemcheckbox' : 'menuitemradio'}
 									aria-checked={item.kind === 'action' ? undefined : item.checked}
-									disabled={item.kind === 'action' && item.disabled}
+									disabled={(item.kind === 'action' || item.kind === 'check') && item.disabled}
 									onclick={() => activate(item)}
 								>
 									<span class="mark">

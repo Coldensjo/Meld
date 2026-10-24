@@ -7,13 +7,7 @@ export interface GraphicsValues {
 	renderScale: number
 	viewDistance: number
 	shadows: 'off' | 'medium' | 'high'
-	particles: boolean
-	animations: boolean
-	cullSmallModels: boolean
 	clouds: boolean
-	showGroundEffects: boolean
-	groundEffectDensity: 'sparse' | 'normal' | 'full'
-	showHorizon: boolean
 }
 
 export interface GraphicsPreset {
@@ -24,23 +18,23 @@ export interface GraphicsPreset {
 export const GRAPHICS_PRESETS: readonly GraphicsPreset[] = [
 	{
 		name: 'Low',
-		values: { renderScale: 0.5, viewDistance: 0.6, shadows: 'off', particles: false, animations: false, cullSmallModels: true, clouds: false, showGroundEffects: false, groundEffectDensity: 'sparse', showHorizon: false },
+		values: { renderScale: 0.5, viewDistance: 0.6, shadows: 'off', clouds: false },
 	},
 	{
 		name: 'Medium',
-		values: { renderScale: 0.75, viewDistance: 0.6, shadows: 'off', particles: true, animations: true, cullSmallModels: true, clouds: false, showGroundEffects: true, groundEffectDensity: 'sparse', showHorizon: true },
+		values: { renderScale: 0.75, viewDistance: 0.6, shadows: 'off', clouds: false },
 	},
 	{
 		name: 'High',
-		values: { renderScale: 1, viewDistance: 1, shadows: 'medium', particles: true, animations: true, cullSmallModels: true, clouds: true, showGroundEffects: true, groundEffectDensity: 'normal', showHorizon: true },
+		values: { renderScale: 1, viewDistance: 1, shadows: 'medium', clouds: true },
 	},
 	{
 		name: 'Very high',
-		values: { renderScale: 1, viewDistance: 1.8, shadows: 'high', particles: true, animations: true, cullSmallModels: true, clouds: true, showGroundEffects: true, groundEffectDensity: 'full', showHorizon: true },
+		values: { renderScale: 1, viewDistance: 1.8, shadows: 'high', clouds: true },
 	},
 	{
 		name: 'Extreme',
-		values: { renderScale: 1.5, viewDistance: 1.8, shadows: 'high', particles: true, animations: true, cullSmallModels: false, clouds: true, showGroundEffects: true, groundEffectDensity: 'full', showHorizon: true },
+		values: { renderScale: 1.5, viewDistance: 1.8, shadows: 'high', clouds: true },
 	},
 ]
 

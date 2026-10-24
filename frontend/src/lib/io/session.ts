@@ -1,17 +1,17 @@
 import { tick } from 'svelte'
 import type { Engine } from '../engine/Engine'
-import { editor, prefs, setStatus, wow } from '../state/editor.svelte'
-import { fromMapData, hasBackend, openWowRegion } from './mapio'
-import { LoadMap, Quit, SetUnsaved } from '../../../wailsjs/go/main/App'
+import { editor, prefs, setStatus } from '../state/editor.svelte'
+import { hasBackend, openPath } from './mapio'
+import { Quit, SetUnsaved } from '../../../wailsjs/go/main/App'
 import { flushPrefs, savePref } from '../state/prefs'
 import { endAutosave } from './recovery'
 import { engineRef } from '../state/engineRef'
 
-// The session is what the editor had open when it was last closed: every tab that is a saved map
-// file or a block of the client's tiles, each with its camera, and which tab was active. It is kept
-// in the preferences (`prefs.session`, saved on its own through `savePref`) a few seconds after it changes and on quit, and opened again
-// at the next start so the owner carries on where they were. Untitled maps are not kept: they have
-// no file to come back from.
+// The session is what the editor had open when it was last closed: every tab that is a saved world
+// file, each with its camera, and which tab was active. It is kept in the preferences
+// (`prefs.session`, saved on its own through `savePref`) a few seconds after it changes and on quit,
+// and opened again at the next start so the owner carries on where they were. Untitled worlds are not
+// kept: they have no file to come back from.
 
 export interface SessionView {
   target: [number, number, number]
@@ -21,7 +21,7 @@ export interface SessionView {
 }
 
 export interface SessionTab {
-  map: { file: string } | { region: { mapName: string; x: number; y: number; size: number } }
+  map: { file: string }
   view: SessionView
 }
 
@@ -40,11 +40,8 @@ export function sessionState(engine: Engine): Session {
   for (const d of engine.documents) {
     const isActive = d === engine.activeDocument()
     const file = isActive ? editor.filePath : d.meta.filePath
-    const region = d.meta.region
-    let map: SessionTab['map'] | null = null
-    if (file) map = { file }
-    else if (region) map = { region: { mapName: region.mapName, x: region.x, y: region.y, size: region.size } }
-    if (!map) continue
+    if (!file) continue
+    const map = { file }
     let view: SessionView
     if (isActive) {
       const v = engine.sceneView()
@@ -90,15 +87,13 @@ export function startSessionSaving(engine: Engine) {
 }
 
 /**
- * A page opened with `?nosession` (the probes' page) starts on a blank map instead of the last
- * session: a region the restore opens takes the active tab a probe has just made, and its spawns,
- * read seconds later, land in it (#250).
+ * A page opened with `?nosession` (the probes' page) starts on a blank world instead of the last
+ * session: a world the restore opens would take the active tab a probe has just made (#250).
  */
 export const skipRestore = typeof location !== 'undefined' && /[?&]nosession(?:[&=]|$)/.test(location.search)
 
 /**
- * Opens the last session's tabs again and puts their cameras back. Region tabs need the client,
- * so they wait for it to load; without one they are skipped. The active tab ends up on top.
+ * Opens the last session's tabs again and puts their cameras back. The active tab ends up on top.
  */
 export async function restoreSession(engine: Engine): Promise<void> {
   if (!hasBackend() || skipRestore) return
@@ -107,7 +102,6 @@ export async function restoreSession(engine: Engine): Promise<void> {
     // The preferences check the session's shape on load; this keeps a bad one from stopping startup anyway.
     if (!s.tabs.length) return
     lastSaved = JSON.stringify(s)
-    if (s.tabs.some((t) => 'region' in t.map)) await untilLoaded()
   } catch (err) {
     console.warn('could not read the last session', err)
     return
@@ -116,14 +110,7 @@ export async function restoreSession(engine: Engine): Promise<void> {
   for (let i = 0; i < s.tabs.length; i++) {
     const t = s.tabs[i]
     try {
-      if ('region' in t.map) {
-        if (!wow.loaded) continue
-        const r = t.map.region
-        await openWowRegion(engine, r.mapName, r.x, r.y, r.size)
-        if (editor.regionMap !== r.mapName) continue
-      } else {
-        if (!engine.focusPath(t.map.file)) engine.openDocument(fromMapData(await LoadMap(t.map.file)), t.map.file)
-      }
+      if (!engine.focusPath(t.map.file)) await openPath(engine, t.map.file)
     } catch (err) {
       console.warn('could not reopen', t.map, err)
       continue
@@ -134,15 +121,4 @@ export async function restoreSession(engine: Engine): Promise<void> {
   }
   if (activeId !== null) engine.switchDocument(activeId)
   if (activeId !== null) setStatus('Opened where you left off.', 4000)
-}
-
-function untilLoaded(): Promise<void> {
-  return new Promise((resolve) => {
-    const poll = setInterval(() => {
-      if (!wow.loading) {
-        clearInterval(poll)
-        resolve()
-      }
-    }, 100)
-  })
 }

@@ -31,11 +31,11 @@
       onkeydown={(e) => e.key === 'Enter' && engineRef.current?.switchDocument(t.id)}
       onauxclick={(e) => e.button === 1 && requestClose(t.id)}
     >
-      <span>{name} @ {t.size}²{dirty ? ' *' : ''}</span>
+      <span>{name} @ {t.world}{dirty ? ' *' : ''}</span>
       <button class="close" aria-label="Close {name}" onclick={(e) => { e.stopPropagation(); requestClose(t.id) }}>✕</button>
     </div>
   {/each}
-  <button class="add" title="New map (Ctrl+N)" aria-label="New map" onclick={() => (ui.showNewDialog = true)}>+</button>
+  <button class="add" title="New cube world (Ctrl+N)" aria-label="New cube world" onclick={() => (ui.showNewDialog = true)}>+</button>
 </div>
 
 <style>

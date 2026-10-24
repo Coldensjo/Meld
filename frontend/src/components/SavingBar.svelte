@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { ui } from '../lib/state/editor.svelte'
 
-	// The Saving bar in the middle of the window (#343): while any save runs (the map, a compile, a
-	// publish, the spawns, the database editors' Save buttons; `lib/state/saving.ts`), what is being
-	// saved over a moving stripe. The bindings report no progress, so the bar has no percentage; a
-	// publish's log lines show under it. It shows once a save has run for DELAY ms, so a quick save
+	// The Saving bar in the middle of the window (#343): while any save runs (`lib/state/saving.ts`),
+	// what is being saved over a moving stripe. The bindings report no progress, so the bar has no
+	// percentage. It shows once a save has run for DELAY ms, so a quick save
 	// doesn't flash it, and it takes no clicks, so the dialogs under it (the quit dialog) still work.
 
 	const DELAY = 400

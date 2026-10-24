@@ -1,28 +1,19 @@
 package recovery
 
 import (
-	"encoding/base64"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"Meld/internal/mapfile"
+	"Meld/internal/worldfile"
 )
 
-// small is the smallest map, 16 cells a side.
-func small(name string) *mapfile.MapData {
-	const size = 16
-	res := size * mapfile.ChunkCells / 2
-	chunks := (size / mapfile.ChunkCells) * (size / mapfile.ChunkCells)
-	b := func(n int) string { return base64.StdEncoding.EncodeToString(make([]byte, n)) }
-	return &mapfile.MapData{
-		Header:     mapfile.Header{Name: name, Size: size, CellSize: 2, SplatRes: res},
-		Heights:    b((size + 1) * (size + 1) * 4),
-		Weights:    b(res * res * 4),
-		ChunkSlots: b(chunks * mapfile.SlotsPerChunk),
-		Holes:      b(size * size),
-	}
+// small is a world of one chunk with one cube.
+func small() *worldfile.World {
+	cubes := make([]byte, worldfile.PlanesLen)
+	cubes[5] = 2
+	return &worldfile.World{ChunksX: 1, ChunksZ: 1, Chunks: []worldfile.Chunk{{CX: 0, CZ: 0, Layer: 10, Cubes: cubes}}}
 }
 
 func TestLeftBehindCopiesAreListed(t *testing.T) {
@@ -35,11 +26,11 @@ func TestLeftBehindCopiesAreListed(t *testing.T) {
 	if err := old.Touch(); err != nil {
 		t.Fatal(err)
 	}
-	file := filepath.Join(dir, "elwynn.wmap")
+	file := filepath.Join(dir, "elwynn.world")
 	if err := os.WriteFile(file, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	in, err := old.Save(3, Info{Name: "Elwynn", File: file}, small("Elwynn"))
+	in, err := old.SaveWorld(3, Info{Name: "Elwynn", File: file}, small())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +38,7 @@ func TestLeftBehindCopiesAreListed(t *testing.T) {
 		t.Fatalf("id %q", in.ID)
 	}
 	// Written again: still one copy.
-	if _, err := old.Save(3, Info{Name: "Elwynn", File: file}, small("Elwynn")); err != nil {
+	if _, err := old.SaveWorld(3, Info{Name: "Elwynn", File: file}, small()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -55,7 +46,7 @@ func TestLeftBehindCopiesAreListed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := cur.Save(1, Info{Name: "Mine"}, small("Mine")); err != nil {
+	if _, err := cur.SaveWorld(1, Info{Name: "Mine"}, small()); err != nil {
 		t.Fatal(err)
 	}
 	// The old session still runs: nothing to offer, and never this session's own.
@@ -75,9 +66,9 @@ func TestLeftBehindCopiesAreListed(t *testing.T) {
 	if len(l) != 1 || l[0].ID != "old-session_3" || l[0].Name != "Elwynn" || l[0].FileTime == 0 {
 		t.Fatalf("list: %+v", l)
 	}
-	m, err := cur.Load(l[0].ID)
-	if err != nil || m.Name != "Elwynn" {
-		t.Fatalf("load: %v %+v", err, m)
+	w, err := cur.LoadWorld(l[0].ID)
+	if err != nil || len(w.Chunks) != 1 {
+		t.Fatalf("load: %v %+v", err, w)
 	}
 	if err := cur.Drop(l[0].ID); err != nil {
 		t.Fatal(err)
@@ -94,7 +85,7 @@ func TestCleanQuitDropsTheSessionsCopies(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Touch()
-	if _, err := s.Save(1, Info{Name: "A"}, small("A")); err != nil {
+	if _, err := s.SaveWorld(1, Info{Name: "A"}, small()); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.DropSession(); err != nil {
@@ -109,7 +100,7 @@ func TestCleanQuitDropsTheSessionsCopies(t *testing.T) {
 func TestIDsStayInTheFolder(t *testing.T) {
 	s, _ := Open(t.TempDir())
 	for _, id := range []string{`..\x_1`, "../x_1", "x", "a_b"} {
-		if _, err := s.Load(id); err == nil {
+		if _, err := s.LoadWorld(id); err == nil {
 			t.Errorf("loaded %q", id)
 		}
 		if err := s.Drop(id); err == nil {
@@ -137,7 +128,7 @@ func TestListDropsDeadSessionsWithoutCopies(t *testing.T) {
 	kept, _ := Open(dir)
 	kept.Session = "kept"
 	kept.Touch()
-	if _, err := kept.Save(1, Info{Name: "A"}, small("A")); err != nil {
+	if _, err := kept.SaveWorld(1, Info{Name: "A"}, small()); err != nil {
 		t.Fatal(err)
 	}
 	live, _ := Open(dir)
@@ -158,54 +149,70 @@ func TestListDropsDeadSessionsWithoutCopies(t *testing.T) {
 	}
 }
 
-func TestCopySentInParts(t *testing.T) {
-	s, err := Open(t.TempDir())
+func TestOldMapCopiesAreDropped(t *testing.T) {
+	dir := t.TempDir()
+	// An older editor's copy of a .wmap map: its info has no world flag.
+	if err := os.WriteFile(filepath.Join(dir, "old-session_2.wmap"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "old-session_2.json"), []byte(`{"id":"old-session_2","session":"old-session","name":"Elwynn"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cur, _ := Open(dir)
+	if l, _ := cur.List(); len(l) != 0 {
+		t.Fatalf("listed an old map's copy: %+v", l)
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, "old-session_2.*")); len(left) != 0 {
+		t.Fatalf("left behind %v", left)
+	}
+}
+
+func TestWorldCopy(t *testing.T) {
+	dir := t.TempDir()
+	old, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	whole := small("parts")
-	hb := make([]byte, 17*17*4)
-	for i := range hb {
-		hb[i] = byte(i * 7)
-	}
-	whole.Heights = base64.StdEncoding.EncodeToString(hb)
-	split := func(field, b64 string, n int) {
-		for i := 0; i*n < len(b64) || i == 0; i++ {
-			if err := s.AddPart(3, field, i, b64[i*n:min(len(b64), (i+1)*n)]); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	// A copy given up halfway, then the whole one: part 0 starts each field afresh.
-	split("heights", "AAAA", 4)
-	split("heights", whole.Heights, 8)
-	split("weights", whole.Weights, 12)
-	split("chunkSlots", whole.ChunkSlots, 4)
-	sent := *whole
-	sent.Heights, sent.Weights, sent.ChunkSlots = "", "", ""
-	in, err := s.Save(3, Info{Name: "parts"}, &sent)
+	old.Session = "old-session"
+	cubes := make([]byte, worldfile.PlanesLen)
+	cubes[5] = 2
+	w := &worldfile.World{ChunksX: 2, ChunksZ: 1, Chunks: []worldfile.Chunk{{CX: 1, CZ: 0, Layer: 10, Cubes: cubes}}}
+	in, err := old.SaveWorld(4, Info{Name: "Valley", File: filepath.Join(dir, "valley.world")}, w)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := s.Load(in.ID)
+	if !in.World {
+		t.Fatal("a world's copy is not marked as one")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "old-session_4.world")); err != nil {
+		t.Fatal(err)
+	}
+	if err := old.End(); err != nil {
+		t.Fatal(err)
+	}
+
+	cur, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Heights != whole.Heights || m.Weights != whole.Weights || m.ChunkSlots != whole.ChunkSlots {
-		t.Fatal("the copy sent in parts did not load back whole")
+	list, err := cur.List()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(s.parts) != 0 {
-		t.Fatal("Save left the parts pending")
+	if len(list) != 1 || !list[0].World || list[0].ID != in.ID {
+		t.Fatalf("listed %+v", list)
 	}
-	if err := s.AddPart(3, "weights", 1, "AAAA"); err == nil {
-		t.Fatal("a part after Save without part 0 was taken")
+	back, err := cur.LoadWorld(in.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := s.AddPart(3, "name", 0, "x"); err == nil {
-		t.Fatal("a field not sent in parts was taken")
+	if back.ChunksX != 2 || len(back.Chunks) != 1 || back.Chunks[0].CX != 1 || back.Chunks[0].Layer != 10 || back.Chunks[0].Cubes[5] != 2 {
+		t.Fatalf("read back %+v", back)
 	}
-	s.AddPart(4, "heights", 0, "AAAA")
-	s.DropParts(4)
-	if s.parts[4] != nil {
-		t.Fatal("DropParts left the parts")
+	if err := cur.Drop(in.ID); err != nil {
+		t.Fatal(err)
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, "old-session_4.*")); len(left) != 0 {
+		t.Fatalf("left behind %v", left)
 	}
 }

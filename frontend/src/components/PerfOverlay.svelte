@@ -11,8 +11,6 @@
 	const gpuMs = $derived(r?.gpu ? r.gpu.reduce((a, b) => a + b, 0) : 0)
 	const fmt = (v: number) => v.toFixed(2)
 	const count = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(0)}k` : `${v}`)
-	/** A model's file name, without its folder or look query. */
-	const modelName = (type: string) => type.split('?')[0].split(/[\\/:]/).pop() ?? type
 </script>
 
 <div class="perf">
@@ -35,16 +33,9 @@
 		<div class="sub">Drawn</div>
 		<div class="row"><span>Draw calls</span><b>{r.calls}</b></div>
 		<div class="row"><span>Triangles</span><b>{count(r.triangles)}</b></div>
-		<div class="row"><span>Instanced meshes</span><b>{r.instancedMeshes}</b></div>
 		<div class="row"><span>Geometries · textures</span><b>{r.geometries} · {r.textures}</b></div>
 		<div class="row"><span>Shader programs</span><b>{r.programs}</b></div>
 		{#if r.heapMB !== null}<div class="row"><span>JS heap</span><b>{r.heapMB.toFixed(0)} MB</b></div>{/if}
-		{#if r.models.length}
-			<div class="sub">Most triangles</div>
-			{#each r.models as mdl (mdl.type)}
-				<div class="row" title={mdl.type}><span>{modelName(mdl.type)} ×{mdl.instances}</span><b>{count(mdl.triangles)}</b></div>
-			{/each}
-		{/if}
 	{/if}
 </div>
 

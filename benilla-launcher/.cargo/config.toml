@@ -1,4 +1,0 @@
-# Build into Benilla's own target folder: the launcher lands beside benilla.exe, where Meld looks for
-# it (internal/game BenillaExe), and the two share every compiled crate instead of building Benilla twice.
-[build]
-target-dir = "../../benilla/target"

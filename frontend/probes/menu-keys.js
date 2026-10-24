@@ -38,7 +38,7 @@ r.end = active() === list[list.length - 1]
 
 // A tool letter or Delete pressed in the menu doesn't reach the map.
 const tool = editor.tool
-press('b')
+press('y')
 r.hotkeyStopped = editor.tool === tool
 
 // Right goes to the next menu (Edit) on its first item; Left comes back.
@@ -107,7 +107,7 @@ press('ArrowDown')
 r.ctxSkips = activeLabel() === 'Two'
 press('ArrowDown')
 r.ctxWraps = activeLabel() === 'One'
-press('b')
+press('y')
 r.ctxHotkeyStopped = editor.tool === tool
 press('Escape')
 await P.frames(2)
@@ -123,8 +123,8 @@ r.ctxPickRuns = ran === 'two' && ui.contextMenu === null
 opener.remove()
 
 // The control: with the menus closed, the same key does reach the map.
-document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', bubbles: true, cancelable: true }))
-r.hotkeyWorksAfter = editor.tool === 'paint'
+document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', bubbles: true, cancelable: true }))
+r.hotkeyWorksAfter = editor.tool === 'cube'
 editor.tool = tool
 
 const ok = Object.values(r).every((v) => v === true)

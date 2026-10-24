@@ -10,21 +10,9 @@ export const CPU_SECTIONS = [
 	'Shadow fit',
 	'Picking',
 	'Tool',
-	'Uniforms and water',
-	'Terrain',
-	'Objects',
-	'Lights and flames',
-	'WMO rooms',
-	'Culling',
-	'Ground effects',
-	'Paths and baked shadows',
-	'Animation',
-	'Particles',
-	'Selection visuals',
+	'Cubes',
 	'Render (CPU)',
 	'Shadow maps (CPU)',
-	'Spawn labels',
-	'Outlines',
 ] as const
 
 export type CpuSection = (typeof CPU_SECTIONS)[number]
@@ -113,47 +101,6 @@ export class PerfMeter {
 	}
 }
 
-/** One model type's share of what was drawn. */
-export interface ModelCost {
-	type: string
-	triangles: number
-	instances: number
-}
-
-/** What `meshTriangles` reads of an InstancedMesh, so it needs no three here. */
-interface DrawnMesh {
-	visible: boolean
-	count: number
-	geometry: { index: { count: number } | null; drawRange: { count: number }; attributes: { position?: { count: number } }; userData?: Record<string, unknown> }
-}
-
-/** The triangles an instanced mesh drew: its draw range (or whole index) times its instances. */
-export function meshTriangles(m: DrawnMesh): number {
-	if (!m.visible || m.count <= 0) return 0
-	const g = m.geometry
-	// A WMO culled by group (world/wmoGroupCull.ts) says how much of its index the scene pass draws.
-	const culled = g.userData?.drawnIndexCount as number | undefined
-	const all = culled ?? (g.index ? g.index.count : (g.attributes.position?.count ?? 0))
-	return Math.floor(Math.min(all, g.drawRange.count) / 3) * m.count
-}
-
-/**
- * The `n` model types that drew the most triangles, from (type, triangles, instances) entries; a type
- * met twice (its full mesh and its LOD, or placed and spawned) is summed.
- */
-export function topModels(entries: Iterable<ModelCost>, n: number): ModelCost[] {
-	const by = new Map<string, ModelCost>()
-	for (const e of entries) {
-		if (e.triangles <= 0) continue
-		const o = by.get(e.type)
-		if (o) {
-			o.triangles += e.triangles
-			o.instances += e.instances
-		} else by.set(e.type, { ...e })
-	}
-	return [...by.values()].sort((a, b) => b.triangles - a.triangles).slice(0, n)
-}
-
 /** The everything-in-one report Help › Copy Performance Report puts on the clipboard. */
 export interface PerfReport extends PerfWindow {
 	/** GPU ms per pass (`GPU_PASSES` order), or null where the browser has no timer queries. */
@@ -163,13 +110,11 @@ export interface PerfReport extends PerfWindow {
 	geometries: number
 	textures: number
 	programs: number
-	instancedMeshes: number
 	/** The JS heap in MB, where the browser tells it (Chromium). */
 	heapMB: number | null
-	models: ModelCost[]
 }
 
-export const GPU_PASSES = ['Shadow maps', 'Scene', 'Outlines'] as const
+export const GPU_PASSES = ['Shadow maps', 'Scene'] as const
 
 /** The report as plain text, a line a number, for pasting into an issue. */
 export function formatReport(r: PerfReport): string {
@@ -184,10 +129,8 @@ export function formatReport(r: PerfReport): string {
 	else lines.push('GPU: n/a (no timer queries in this browser)')
 	lines.push(
 		`Draw calls ${r.calls}, triangles ${r.triangles}`,
-		`Instanced meshes ${r.instancedMeshes}, geometries ${r.geometries}, textures ${r.textures}, shader programs ${r.programs}`,
+		`Geometries ${r.geometries}, textures ${r.textures}, shader programs ${r.programs}`,
 		`JS heap ${r.heapMB === null ? 'n/a' : `${r.heapMB.toFixed(0)} MB`}`,
-		'Most triangles by model:',
-		...r.models.map((m) => `  ${m.type}: ${m.triangles} triangles, ${m.instances} drawn`),
 	)
 	return lines.join('\n')
 }

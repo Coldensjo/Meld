@@ -9,13 +9,10 @@ for (const k of VIEW_PREFS) current[k] = k === 'renderScale' || k === 'timeOfDay
 
 const good = () => ({
 	v: 1,
-	map: { file: 'C:\\maps\\a.wmap' },
+	map: { file: 'C:\\worlds\\a.world' },
 	view: { target: [1, 2, 3], yaw: 0.5, pitch: 0.4, distance: 30, hour: 12 },
 	prefs: { renderScale: 0.75, fog: true },
-	tool: 'sculpt',
-	selectedIds: [1, 2],
-	selected: 1,
-	area: null,
+	tool: 'cube',
 	viewport: [800, 600],
 })
 const line = (o: unknown, prefix = 'Meld scene ') => prefix + JSON.stringify(o)
@@ -27,13 +24,14 @@ const bad = (mut: (s: Record<string, unknown>) => void, re: RegExp) => {
 
 test('a good scene parses, with the old prefix too', () => {
 	const sc = parseScene(line(good()), current)
-	assert.equal(sc.tool, 'sculpt')
+	assert.equal(sc.tool, 'cube')
 	assert.deepEqual(sc.prefs, { renderScale: 0.75, fog: true })
 	assert.deepEqual(parseScene(line(good(), 'WorldEditor scene '), current).viewport, [800, 600])
-	const r = good() as Record<string, unknown>
-	r.map = { region: { mapName: 'Azeroth', x: 1, y: 2, size: 4 } }
-	r.area = { x0: 0, z0: 0, x1: 5, z1: 5 }
-	assert.deepEqual(parseScene(line(r), current).area, { x0: 0, z0: 0, x1: 5, z1: 5 })
+})
+
+test('a scene of a Meld map is refused', () => {
+	bad((s) => (s.map = { region: { mapName: 'Azeroth', x: 1, y: 2, size: 4 } }), /part of the WoW client/)
+	bad((s) => (s.map = { file: 'C:\\maps\\a.wmap' }), /Meld map/)
 })
 
 test('text that is not a scene is refused', () => {
@@ -45,15 +43,12 @@ test('text that is not a scene is refused', () => {
 test('missing or mistyped fields are named', () => {
 	bad((s) => delete s.prefs, /"prefs"/)
 	bad((s) => delete s.map, /"map"/)
-	bad((s) => delete s.selectedIds, /"selectedIds"/)
 	bad((s) => delete s.viewport, /"viewport"/)
 	bad((s) => delete s.view, /"view"/)
 	bad((s) => (s.view = { target: [1, 2], yaw: 0, pitch: 0, distance: 1, hour: 1 }), /view.target/)
 	bad((s) => (s.view = { target: [1, 2, 3], yaw: 'x', pitch: 0, distance: 1, hour: 1 }), /view.yaw/)
 	bad((s) => (s.tool = 'sculp'), /"tool"/)
-	bad((s) => (s.selectedIds = ['a']), /"selectedIds"/)
 	bad((s) => (s.viewport = [1]), /"viewport"/)
-	bad((s) => (s.area = { x0: 1 }), /"area"/)
 	bad((s) => (s.prefs = { renderScale: '1' }), /"renderScale"/)
 	bad((s) => (s.prefs = { fog: 1 }), /"fog"/)
 })

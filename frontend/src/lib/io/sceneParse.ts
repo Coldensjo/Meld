@@ -1,6 +1,7 @@
 import type { Engine } from '../engine/Engine'
-import type { editor, Prefs, ToolId } from '../state/editor.svelte'
+import type { Prefs, ToolId } from '../state/editor.svelte'
 import { prefValueOk } from '../state/prefsPatch'
+import { isWorldPath } from '../cubes/world'
 
 // Reading a pasted scene (io/scene.ts), kept apart from the engine and the state so it can be tested:
 // a scene is typed by hand or by an agent, so nothing in it is trusted until it has been checked here.
@@ -10,57 +11,23 @@ export const PREFIX = 'Meld scene '
 export const OLD_PREFIX = 'WorldEditor scene '
 
 /** The preferences that change what the view looks like. Layout and input prefs stay the viewer's. */
-export const VIEW_PREFS = [
-	'wireframe',
-	'climbView',
-	'navView',
-	'navServer',
-	'showContours',
-	'contourStep',
-	'showBoxes',
-	'clientLighting',
-	'climbAngle',
-	'showTerrain',
-	'showWater',
-	'showObjects',
-	'showDoodads',
-	'showBuildings',
-	'showMonsters',
-	'showNpcs',
-	'showGameObjects',
-	'renderScale',
-	'viewDistance',
-	'fog',
-	'cameraFollowGround',
-	'cameraCollision',
-	'timeOfDay',
-	'dayCycle',
-	'cycleMinutes',
-	'clouds',
-	'shadows',
-	'propEffects',
-	'animations',
-	'cullSmallModels',
-] as const satisfies readonly (keyof Prefs)[]
+export const VIEW_PREFS = ['renderScale', 'viewDistance', 'fog', 'timeOfDay', 'dayCycle', 'cycleMinutes', 'clouds', 'shadows', 'look', 'mood'] as const satisfies readonly (keyof Prefs)[]
 
 export type ViewPrefs = Partial<Pick<Prefs, (typeof VIEW_PREFS)[number]>>
 
 export interface Scene {
 	v: 1
-	/** The map: a file (saved, or the cache copy of unsaved changes) or a block of the client's tiles. */
-	map: { file: string; copy?: boolean } | { region: { mapName: string; x: number; y: number; size: number } }
+	/** The world: its .world file, saved, or the cache copy of unsaved changes. */
+	map: { file: string; copy?: boolean }
 	view: ReturnType<Engine['sceneView']>
 	prefs: ViewPrefs
 	tool: ToolId
-	selectedIds: number[]
-	selected: number | null
-	area: typeof editor.selection
 	/** The viewport's size in CSS pixels, so the same framing can be had. */
 	viewport: [number, number]
 }
 
 /** Every ToolId; the compiler checks each entry is one, a test checks the list against the tools. */
-export const TOOL_IDS: readonly ToolId[] = ['select', 'sculpt', 'paint', 'road', 'water', 'place', 'clear', 'doodad', 'mapdata', 'stamp', 'path']
+export const TOOL_IDS: readonly ToolId[] = ['select', 'cube']
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -86,15 +53,11 @@ export function parseScene(text: string, current: Record<string, unknown>): Scen
 	// map
 	const m = s.map
 	if (!isObj(m)) throw new Error('scene field "map" is missing')
-	let map: Scene['map']
-	if (m.region !== undefined) {
-		const r = m.region
-		if (!isObj(r) || typeof r.mapName !== 'string' || !isNum(r.x) || !isNum(r.y) || !isNum(r.size)) throw new Error('scene field "map.region" needs mapName, x, y and size')
-		map = { region: { mapName: r.mapName, x: r.x, y: r.y, size: r.size } }
-	} else {
-		if (typeof m.file !== 'string' || !m.file) throw new Error('scene field "map.file" must be a path')
-		map = m.copy === true ? { file: m.file, copy: true } : { file: m.file }
-	}
+	// A scene of a Meld map (a .wmap file or a block of the client's tiles) is an older editor's.
+	if (m.region !== undefined) throw new Error('the scene is of a part of the WoW client, which the editor no longer opens')
+	if (typeof m.file !== 'string' || !m.file) throw new Error('scene field "map.file" must be a path')
+	if (!isWorldPath(m.file)) throw new Error('the scene is of a Meld map, which the editor no longer opens: it opens .world files')
+	const map: Scene['map'] = m.copy === true ? { file: m.file, copy: true } : { file: m.file }
 
 	// view
 	const v = s.view
@@ -115,18 +78,8 @@ export function parseScene(text: string, current: Record<string, unknown>): Scen
 	}
 
 	if (typeof s.tool !== 'string' || !(TOOL_IDS as readonly string[]).includes(s.tool)) throw new Error(`scene field "tool" is not a tool (${JSON.stringify(s.tool)})`)
-	const ids = s.selectedIds
-	if (!Array.isArray(ids) || !ids.every(isNum)) throw new Error('scene field "selectedIds" must be a list of numbers')
-	if (s.selected !== null && !isNum(s.selected)) throw new Error('scene field "selected" must be a number or null')
-
-	let area: Scene['area'] = null
-	if (s.area !== null && s.area !== undefined) {
-		const a = s.area
-		if (!isObj(a) || !isNum(a.x0) || !isNum(a.z0) || !isNum(a.x1) || !isNum(a.z1)) throw new Error('scene field "area" must be null or x0, z0, x1, z1')
-		area = { x0: a.x0, z0: a.z0, x1: a.x1, z1: a.z1 }
-	}
 	const vp = s.viewport
 	if (!Array.isArray(vp) || vp.length !== 2 || !vp.every(isNum)) throw new Error('scene field "viewport" must be two numbers')
 
-	return { v: 1, map, view, prefs: prefs as ViewPrefs, tool: s.tool as ToolId, selectedIds: ids as number[], selected: s.selected as number | null, area, viewport: [vp[0], vp[1]] }
+	return { v: 1, map, view, prefs: prefs as ViewPrefs, tool: s.tool as ToolId, viewport: [vp[0], vp[1]] }
 }
