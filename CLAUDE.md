@@ -108,7 +108,9 @@ make dev             # wails dev -tags webkit2_41 (hot reload; browser debug at 
 make build-linux     # wails build -tags webkit2_41  → build/bin/Meld
 make build-windows   # wails build -platform windows/amd64 → build/bin/Meld.exe
 make test            # go test ./internal/... (and . when frontend/dist exists) + frontend unit tests (`bun test`)
-make check           # go vet (same rule) + (cd frontend && bun run check)
+make check           # go vet (same rule) + bindings-check (wailsjs matches the bound methods) + (cd frontend && bun run check)
+make verify          # check + test + the build for this OS: the gate before a commit
+make bindings        # regenerate frontend/wailsjs (wails generate module); make format = gofmt -w
 make probe           # every live-app probe (frontend/probes) against the running `make dev`
 cd frontend && bun run probe <name...>   # chosen probes; --list names them (docs/TESTS.md, "Probes")
 cd frontend && bun run build   # frontend only

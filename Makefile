@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test test-full fuzz check probe probe-smoke probe-perf docs clean
+.PHONY: dev build build-linux build-windows test test-full fuzz check bindings bindings-check format verify probe probe-smoke probe-perf docs clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -41,7 +41,23 @@ test-full:
 	@if [ -f frontend/dist/index.html ]; then go test .; else echo 'skipping go test . (frontend/dist is missing; build the frontend first)'; fi
 	cd frontend && bun run test
 
-check:
+# Regenerates frontend/wailsjs from the bound Go methods (never edit it by hand); stage only the files that changed.
+bindings:
+	$(WAILS) generate module -tags $(LINUX_TAGS)
+
+# Fails when a bound method (func (a *App) X in the root *.go files) has no export in wailsjs/go/main/App.d.ts, or the reverse: run `make bindings`. Needs no wails.
+bindings-check:
+	@grep -hoE '^func \(a \*App\) [A-Z][A-Za-z0-9]*' *.go | sed 's/.* //' | sort -u > .bindings-go.tmp; 	grep -oE '^export function [A-Za-z0-9]+' frontend/wailsjs/go/main/App.d.ts | sed 's/.* //' | sort -u > .bindings-ts.tmp; 	diff=$$(comm -3 .bindings-go.tmp .bindings-ts.tmp); rm -f .bindings-go.tmp .bindings-ts.tmp; 	test -z "$$diff" || { echo 'wailsjs/go/main/App.d.ts is out of step with the bound methods (go on the left, d.ts indented); run make bindings:'; echo "$$diff"; exit 1; }
+
+# Formats the Go sources (the frontend has no formatter configured).
+format:
+	gofmt -w internal *.go
+
+# The gate before a commit (CLAUDE.md, "Git workflow"): check, test, then the build for this OS.
+verify: check test
+	@if [ "$(OS)" = Windows_NT ]; then $(MAKE) build-windows; else $(MAKE) build-linux; fi
+
+check: bindings-check
 	@test -z "$$(gofmt -l internal *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal *.go; exit 1; }
 	go vet ./internal/...
 	@if [ -f frontend/dist/index.html ]; then go vet .; else echo 'skipping go vet . (frontend/dist is missing; build the frontend first)'; fi
