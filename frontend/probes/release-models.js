@@ -57,8 +57,8 @@ try {
 // The liquid, particle and weather textures the second map asked for stay cached (otherTextures, shared
 // by every map), so they are not checked.
 const near = (k) => after[k] <= one[k] + Math.max(4, one[k] * 0.02)
-// And at least 90 % of what the second map added gone (all of it, less one, where it added only a few).
-const fell = (k) => after[k] - one[k] <= Math.max(1, (both[k] - one[k]) * 0.1)
+// And at least 90 % of what the second map added gone (all of it, less the same few, where it added only a few: the own textures of a sweep's busy page grew by 2 of the 5 the buildings added, #690).
+const fell = (k) => after[k] - one[k] <= Math.max(4, (both[k] - one[k]) * 0.1)
 const keys = ['models', 'materials', 'modelTextures', 'geometries', 'ownTextures']
 const ok = P.e.activeDocumentId() === firstId && both.models > one.models && keys.every((k) => near(k) && fell(k))
 return { ok, objects: first.objects, one, both, after }

@@ -19,6 +19,13 @@ for (const t of types.slice(0, 300)) {
 }
 if (!type) throw new Error('no model with a moving texture or colour in the benchmark scene')
 
+// The scene streams its models in, and the shared materials of one it has not loaded yet join the
+// animated lists as it arrives (#690: after a busy probe it arrived while the Preview window was open,
+// and the count never came back to where the thumbnails left it). Load this one and let the page go
+// quiet first, so only what the thumbnails and the Preview window do moves the count.
+await assets.loadAsset(type.slice(3))
+await P.settle()
+
 // As thumbs.ts draws one, many times over.
 const before = assets.animatedCount()
 for (let i = 0; i < 50; i++) {
