@@ -266,6 +266,24 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   cleared comes off); an older one only as `PaintSpec.NoEffect`, which Go ORs into the chunk's own. View › Sparse/Normal/Full tufts (`prefs.groundEffectDensity`) is
   the client's Ground Clutter stop (`frillDensity` 16, 32, 48 cells a chunk). A GroundEffectTexture
   slot names a GroundEffectDoodad by its internal ID (field 1), not its row ID.
+- **The world view** (#15, the owner's decision of 2026-10-15: streaming is a second kind of
+  document beside the block editor): File › World View (from a region tab, the camera kept) or the
+  Start dialog's World View button (at the picked block's middle) open `Engine.openWorld`, a
+  `MapDocument` whose `world` is a `world/WorldStream.ts`. It draws the client's tiles of the whole
+  map in the map's editor coordinates (tile (x, y) at x·TILE_YARDS, y·TILE_YARDS, as `editorPoint`
+  has them), read one at a time from `/wow/ground` (`wow.Client.Ground`: the 129x129 outer heights and
+  a hole byte a cell, read through Meld's patch) with the tile's minimap image as its colour, lit
+  Lambert, within `streamReach` of the eye (3 tiles at the default view distance, 1 to 6), nearest
+  first, three reads at a time, and dropped a tile past that (`keepReach`). The plan is worked out
+  again only when the eye crosses a quarter tile. The fog closes at the reach (`applyViewDistance`).
+  The camera's ground is the stream's (`heightAt`), keeping its height where nothing is loaded. The
+  document's terrain is an 8-cell hidden stand-in: the tools' clicks and keys are off in it
+  (pointerdown, `handleToolKey`), Save refuses, it is never `pristine` (so opening a map doesn't
+  replace it), and its tab shows no size. File › Edit Here (`editWorldHere`) opens the block of up to 3
+  tiles a side around the camera's target (`blockAround`) in a region tab, or switches to an open one
+  holding it, the camera moved by the block's corner; the world tab stays. Scenes (`map.world`) and
+  the session keep a world tab. Not yet streamed: models, liquids, the texture layers (the minimap
+  stands in), a lower level of detail for far tiles, and editing in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `mapio.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

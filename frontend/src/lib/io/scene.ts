@@ -18,6 +18,8 @@ const round = (n: number) => Math.round(n * 1000) / 1000
 
 /** The active map, written to a cache copy first when it has unsaved changes or was never saved. */
 async function mapRef(engine: Engine): Promise<Scene['map']> {
+  const world = engine.activeWorld()
+  if (world) return { world: { mapName: world } }
   if (!editor.dirty && editor.filePath) return { file: editor.filePath }
   const r = editor.regionBlock
   if (!editor.dirty && r && editor.regionMap) return { region: { mapName: editor.regionMap, x: r.x, y: r.y, size: r.size } }
@@ -96,6 +98,9 @@ export async function loadScene(engine: Engine, text: string) {
   if ('region' in scene.map) {
     const r = scene.map.region
     await openWowRegion(engine, r.mapName, r.x, r.y, r.size)
+  } else if ('world' in scene.map) {
+    const t = scene.view.target
+    engine.openWorld(scene.map.world.mapName, { x: t[0], z: t[2] })
   } else if (!engine.focusPath(scene.map.file)) {
     engine.openDocument(fromMapData(await LoadMap(scene.map.file)), scene.map.copy ? '' : scene.map.file)
   }

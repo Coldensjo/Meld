@@ -47,7 +47,7 @@ import {
 } from '../../../wailsjs/go/main/App'
 import { fromMapData, toMapData } from './mapData'
 import type { Engine } from '../engine/Engine'
-import type { MapDocument } from '../engine/MapDocument'
+import type { MapDocument, RegionRef } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { savingDetail, startSaving, withSaving } from '../state/saving'
 import { formatBrush, parseBrush, uniqueName, type DoodadBrush } from '../tools/doodadBrush'
@@ -99,6 +99,11 @@ async function guarded(label: string, fn: () => Promise<void>) {
 
 export function saveMap(engine: Engine, saveAs = false) {
   return guarded('Save', async () => {
+    // A world view holds nothing of its own to save (#15).
+    if (engine.activeWorld()) {
+      setStatus('A world view is not saved: Edit Here (File menu) opens the block around the camera, which saves and compiles.', 6000)
+      return
+    }
     let path = editor.filePath
     if (!path || saveAs) {
       path = await SaveMapDialog(editor.mapName)
@@ -449,6 +454,74 @@ export async function extendRegion(engine: Engine, side: Side) {
     c.pitch = view.pitch
     c.distance = view.distance
   })
+}
+
+/** The side of the block Edit Here opens from a world view, in tiles (#15). */
+const WORLD_EDIT_BLOCK = 3
+
+/**
+ * File › World View (#15): opens the world view of the active region's map, the camera where it was
+ * (the region's coordinates moved by the block's corner), or of map `mapName` looking at tile
+ * block `at`'s middle (the Start dialog's Part of Azeroth).
+ */
+export function openWorldView(engine: Engine, mapName?: string, at?: { x: number; y: number; size: number }) {
+	const shift = TILE_CELLS * CELL_SIZE
+	if (mapName && at) {
+		ui.showNewDialog = false
+		engine.openWorld(mapName, { x: (at.x + at.size / 2) * shift, z: (at.y + at.size / 2) * shift })
+		setStatus(`Opened the world view of ${mapName}: its tiles load around the camera. Edit Here (File menu) opens the block around the camera to edit.`, 8000)
+		return
+	}
+	const region = engine.activeRegion()
+	if (!region || region.wmoOnly) {
+		setStatus('The world view opens from a region of the client (File › Open from Client), or from the Start dialog.', 6000)
+		return
+	}
+	const c = engine.controller
+	const target = c.target.clone()
+	target.x += region.x * shift
+	target.z += region.y * shift
+	engine.openWorld(region.mapName, { x: target.x, z: target.z }, { target, yaw: c.yaw, pitch: c.pitch, distance: c.distance })
+	setStatus(`Opened the world view of ${region.mapName}. Edit Here (File menu) opens the block around the camera to edit.`, 8000)
+}
+
+/**
+ * File › Edit Here (#15): from a world view, opens the block of up to WORLD_EDIT_BLOCK tiles a side
+ * around the camera's target in a region tab (or switches to it), with the camera where it was. The
+ * world view stays open in its tab.
+ */
+export function editWorldHere(engine: Engine) {
+	return guarded('Edit here', async () => {
+		const mapName = engine.activeWorld()
+		const have = engine.worldTiles()
+		if (!mapName || !have) {
+			setStatus('Edit Here opens a block of a world view (File › World View).', 6000)
+			return
+		}
+		// Editing the client's maps needs a project (#48), as the Start dialog's Open does.
+		if (!ui.project) {
+			ui.dialog = 'project'
+			setStatus("Choose a project first: editing the client's maps needs one.", 6000)
+			return
+		}
+		const shift = TILE_CELLS * CELL_SIZE
+		const c = engine.controller
+		const target = c.target.clone()
+		const view = { yaw: c.yaw, pitch: c.pitch, distance: c.distance }
+		const tile = { x: Math.floor(target.x / shift), y: Math.floor(target.z / shift) }
+		const block = blockAround(tile, have, WORLD_EDIT_BLOCK)
+		if (!block) {
+			setStatus(`${mapName} has no tile at ${tile.x}_${tile.y} to edit.`, 6000)
+			return
+		}
+		const holds = (r: RegionRef | null) => !!r && !r.wmoOnly && r.mapName.toLowerCase() === mapName.toLowerCase() && blockHolds(r, tile)
+		const open = engine.documents.find((d) => holds(d.meta.region))
+		if (open) engine.switchDocument(open.id)
+		else await openRegionView(engine, await LoadRegion(mapName, block.x, block.y, block.size))
+		const r = engine.activeRegion()
+		if (!holds(r)) return
+		c.setView(target.x - r!.x * shift, target.y, target.z - r!.y * shift, view.yaw, view.pitch, view.distance)
+	})
 }
 
 /**

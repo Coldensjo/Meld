@@ -13,6 +13,7 @@ import { LiquidMap } from '../water/liquids'
 import { LiquidRenderer } from '../water/LiquidRenderer'
 import { ObjectLayer } from '../world/ObjectLayer'
 import { SpawnLayer } from '../world/SpawnLayer'
+import type { WorldStream } from '../world/WorldStream'
 import { History } from '../state/history'
 import { LAYERS } from '../terrain/layers'
 import type { MapInfo } from './mapInfo'
@@ -166,6 +167,13 @@ export class MapDocument {
   camera: DocCamera | null = null
   /** The reference image's pixels and texture, read from `meta.reference`'s path (io/referenceLoad.ts); null until read. */
   referenceImage: LoadedReference | null = null
+  /**
+   * For a world view (#15), the second kind of document: the client's tiles of a whole map streamed
+   * around the camera, in the map's editor coordinates (tile (x, y) at x*TILE_YARDS, y*TILE_YARDS).
+   * Nothing in it is edited: its terrain is a hidden stand-in, its tools are off, and Edit Here
+   * opens the block around the camera in a region tab. Null for every other map.
+   */
+  world: WorldStream | null = null
 
   constructor(size: number, name: string, cellSize = CELL_SIZE) {
     this.terrain = new Terrain(size, cellSize)
@@ -197,7 +205,7 @@ export class MapDocument {
 
   /** Untitled, unsaved and untouched: safe to replace when opening a file. */
   get pristine() {
-    return !this.meta.dirty && !this.meta.filePath && this.objects.objects.size === 0 && !this.history.peek()
+    return !this.world && !this.meta.dirty && !this.meta.filePath && this.objects.objects.size === 0 && !this.history.peek()
   }
 
 	/** Adds every model type the map holds or draws to `into`: its objects, spawns and tufts (#505). */
@@ -217,5 +225,6 @@ export class MapDocument {
     this.liquidRenderer.dispose()
     this.referenceImage?.dispose()
     this.referenceImage = null
+    this.world?.dispose()
   }
 }

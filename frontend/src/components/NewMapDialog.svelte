@@ -7,7 +7,7 @@
 	import { LAYERS } from '../lib/terrain/layers'
 	import { PRESETS, drawPresetPreview, type PresetId } from '../lib/terrain/presets'
 	import { engineRef } from '../lib/state/engineRef'
-	import { hasBackend, openWowBuilding, openWowRegion } from '../lib/io/mapio'
+	import { hasBackend, openWorldView, openWowBuilding, openWowRegion } from '../lib/io/mapio'
 	import { MapEntries, MapZones } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 
@@ -251,6 +251,7 @@
 					: 'The ground, textures and models of those tiles open in a new tab. Saving writes them back to the client.'}</span
 			>
 			<button onclick={close}>Cancel</button>
+			<button disabled={!continent || building || !block} onclick={() => continent && block && engineRef.current && openWorldView(engineRef.current, continent.Dir, block)} title="The whole map, its tiles loaded around the camera as it moves; File › Edit Here opens the block around the camera">World View</button>
 			<button class="active" disabled={!canOpen || !ui.project} onclick={open}>Open</button>
 		{/if}
 	{/snippet}

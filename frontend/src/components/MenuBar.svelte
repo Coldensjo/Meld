@@ -2,7 +2,7 @@
 	import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
 	import type { Engine } from '../lib/engine/Engine'
 	import { engineRef } from '../lib/state/engineRef'
-	import { chooseBenillaFolder, launchGame, playHere, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, compileRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, restoreClientPaint, saveMap, saveMinimapImage, saveOrPublish, writeMinimapTiles } from '../lib/io/mapio'
+	import { chooseBenillaFolder, launchGame, playHere, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, compileRegion, editWorldHere, exportSpawnSql, extendRegion, hasBackend, openWorldView, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, restoreClientPaint, saveMap, saveMinimapImage, saveOrPublish, writeMinimapTiles } from '../lib/io/mapio'
 	import { saveSelectionAsPrefab } from '../lib/io/prefabFiles'
 	import { growableSides, type Side } from '../lib/io/regionGrow'
 	import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
@@ -114,6 +114,11 @@
 				{ kind: 'action', label: 'New World…', shortcut: 'Ctrl+N', run: () => { ui.newMapMode = 'new'; ui.showNewDialog = true } },
 				{ kind: 'action', label: 'Open…', shortcut: 'Ctrl+O', disabled: ui.busy, run: withEngine(openMap) },
 				{ kind: 'action', label: 'Open Part of Azeroth…', disabled: !hasBackend() || ui.busy, run: () => { ui.newMapMode = 'open'; ui.showNewDialog = true } },
+				// The world view (#15): the region's whole map streamed around the camera, and back to a block to edit.
+				{ kind: 'action', label: 'World View', disabled: !hasBackend() || ui.busy || !editor.regionBlock, run: withEngine((e) => openWorldView(e)) },
+				...(editor.worldMap
+					? [{ kind: 'action' as const, label: 'Edit Here (Open the Block Around the Camera)', disabled: !hasBackend() || ui.busy, run: withEngine((e: Engine) => editWorldHere(e)) }]
+					: []),
 				{ kind: 'sep' },
 				// Projects (#48): a project folder and the client it edits, with the recent ones to switch to.
 				{ kind: 'action', label: ui.project ? `Project: ${ui.project.name}…` : 'Project…', disabled: !hasBackend(), run: () => (ui.dialog = 'project') },

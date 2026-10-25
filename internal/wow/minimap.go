@@ -244,18 +244,8 @@ func (c *Client) drawTileRelief(out *image.NRGBA, mapName string, t MapTile) {
 	flat := color.NRGBA{90, 96, 104, 255}
 	var h []float32
 	if raw, err := c.read(adt.TilePath(mapName, t.X, t.Y, "")); err == nil {
-		if ter, err := adt.ParseTerrain(raw); err == nil {
-			h = make([]float32, (side+1)*(side+1))
-			for _, ch := range ter.Chunks {
-				// The 9x9 outer samples sit at even rows of the 17 interleaved rows (9 + 8).
-				for r := 0; r <= adt.CellsPerChunk; r++ {
-					for q := 0; q <= adt.CellsPerChunk; q++ {
-						x := ch.IndexX*adt.CellsPerChunk + q
-						y := ch.IndexY*adt.CellsPerChunk + r
-						h[y*(side+1)+x] = ch.Heights[r*17+q]
-					}
-				}
-			}
+		if heights, _, err := TileGround(raw); err == nil {
+			h = heights
 		}
 	}
 	at := func(x, y int) float32 {

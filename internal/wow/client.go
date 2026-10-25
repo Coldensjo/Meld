@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -675,6 +676,18 @@ func (c *Client) Handler() http.Handler {
 			return
 		}
 		writeJSON(w, tiles)
+	})
+	// One tile's ground for the world view (#15): its heights and holes (EncodeGround); 404 for no tile.
+	mux.HandleFunc("/wow/ground", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		x, errX := strconv.Atoi(q.Get("x"))
+		y, errY := strconv.Atoi(q.Get("y"))
+		if errX != nil || errY != nil {
+			http.Error(w, "x and y must be tile numbers", http.StatusBadRequest)
+			return
+		}
+		b, err := c.Ground(q.Get("map"), x, y)
+		blob(w, b, err)
 	})
 	mux.HandleFunc("/wow/model", func(w http.ResponseWriter, r *http.Request) {
 		// The rest of the query is the look a spawn's display dresses the model in (see Look.Query).

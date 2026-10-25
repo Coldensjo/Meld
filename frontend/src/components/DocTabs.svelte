@@ -31,7 +31,8 @@
       onkeydown={(e) => e.key === 'Enter' && engineRef.current?.switchDocument(t.id)}
       onauxclick={(e) => e.button === 1 && requestClose(t.id)}
     >
-      <span>{name} @ {t.size}²{dirty ? ' *' : ''}</span>
+      <!-- A world view (#15) has no size of its own: the 0 a tab gets for one. -->
+      <span>{name}{t.size ? ` @ ${t.size}²` : ''}{dirty ? ' *' : ''}</span>
       <button class="close" aria-label="Close {name}" onclick={(e) => { e.stopPropagation(); requestClose(t.id) }}>✕</button>
     </div>
   {/each}

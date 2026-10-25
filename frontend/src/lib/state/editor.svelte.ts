@@ -280,6 +280,8 @@ export const editor = $state({
   regionBlock: null as { x: number; y: number; size: number } | null,
   /** The continent the open region is a part of (its folder name), or ''. */
   regionMap: '',
+  /** The map the open tab is a world view of (its folder name, #15), or '' for any other tab. */
+  worldMap: '',
   /** The creatures and game objects of the open region. */
   spawns: [] as vmangos.WorldSpawn[],
   /** The spawn picked in the viewport, shown in the Inspector and the editors. */
@@ -368,6 +370,7 @@ export const stats = $state({
 
 /** Open map tabs (the active tab's live name/dirty come from `editor`). */
 export const docs = $state({
+  /** `size` is the map's cells a side, 0 for a world view (#15). */
   tabs: [] as Array<{ id: number; name: string; dirty: boolean; size: number }>,
   active: 0,
 })

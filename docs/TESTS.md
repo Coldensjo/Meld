@@ -568,6 +568,7 @@ the same scene, the report before and after.
 - Baked shadows: bake, paint, save and export (B-057, #16)
 - The unknown state of holes, liquids and chunk data across a save (#525, #644, #663, probe `unknown-flags`)
 - Walkable ground: the navmesh view and the path test (#175), and the server's mmaps (#240)
+- The world view: streamed tiles and Edit Here (#15, probe `world-view`)
 
 ### Tools and placing models (`docs/tests/tools.md`)
 

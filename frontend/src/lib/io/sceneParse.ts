@@ -47,8 +47,8 @@ export type ViewPrefs = Partial<Pick<Prefs, (typeof VIEW_PREFS)[number]>>
 
 export interface Scene {
 	v: 1
-	/** The map: a file (saved, or the cache copy of unsaved changes) or a block of the client's tiles. */
-	map: { file: string; copy?: boolean } | { region: { mapName: string; x: number; y: number; size: number } }
+	/** The map: a file (saved, or the cache copy of unsaved changes), a block of the client's tiles, or a map's world view (#15). */
+	map: { file: string; copy?: boolean } | { region: { mapName: string; x: number; y: number; size: number } } | { world: { mapName: string } }
 	view: ReturnType<Engine['sceneView']>
 	prefs: ViewPrefs
 	tool: ToolId
@@ -91,6 +91,10 @@ export function parseScene(text: string, current: Record<string, unknown>): Scen
 		const r = m.region
 		if (!isObj(r) || typeof r.mapName !== 'string' || !isNum(r.x) || !isNum(r.y) || !isNum(r.size)) throw new Error('scene field "map.region" needs mapName, x, y and size')
 		map = { region: { mapName: r.mapName, x: r.x, y: r.y, size: r.size } }
+	} else if (m.world !== undefined) {
+		const w = m.world
+		if (!isObj(w) || typeof w.mapName !== 'string' || !w.mapName) throw new Error('scene field "map.world" needs mapName')
+		map = { world: { mapName: w.mapName } }
 	} else {
 		if (typeof m.file !== 'string' || !m.file) throw new Error('scene field "map.file" must be a path')
 		map = m.copy === true ? { file: m.file, copy: true } : { file: m.file }

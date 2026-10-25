@@ -108,7 +108,7 @@ const spawnBrush = obj({
 })
 const projectInfo = obj({ name: str, path: str, clientPath: str })
 const sessionTab = obj({
-	map: (v) => isObj(v) && (str(v.file) || obj({ region: obj({ mapName: str, x: num, y: num, size: num }) })(v)),
+	map: (v) => isObj(v) && (str(v.file) || obj({ region: obj({ mapName: str, x: num, y: num, size: num }) })(v) || obj({ world: obj({ mapName: str }) })(v)),
 	view: obj({ target: triple, yaw: num, pitch: num, distance: num }),
 })
 

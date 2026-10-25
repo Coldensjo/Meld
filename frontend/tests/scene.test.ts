@@ -36,6 +36,14 @@ test('a good scene parses, with the old prefix too', () => {
 	assert.deepEqual(parseScene(line(r), current).area, { x0: 0, z0: 0, x1: 5, z1: 5 })
 })
 
+test("a world view's scene names its map (#15), and one without a map name is refused", () => {
+	const w = good() as Record<string, unknown>
+	w.map = { world: { mapName: 'Kalimdor' } }
+	assert.deepEqual(parseScene(line(w), current).map, { world: { mapName: 'Kalimdor' } })
+	bad((s) => (s.map = { world: { mapName: '' } }), /"map.world"/)
+	bad((s) => (s.map = { world: 'Kalimdor' }), /"map.world"/)
+})
+
 test('text that is not a scene is refused', () => {
 	assert.throws(() => parseScene('hello', current), /not a Meld scene/)
 	assert.throws(() => parseScene('Meld scene {oops', current), /not valid JSON/)

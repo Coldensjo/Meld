@@ -21,7 +21,7 @@ export interface SessionView {
 }
 
 export interface SessionTab {
-  map: { file: string } | { region: { mapName: string; x: number; y: number; size: number } }
+  map: { file: string } | { region: { mapName: string; x: number; y: number; size: number } } | { world: { mapName: string } }
   view: SessionView
 }
 
@@ -44,6 +44,7 @@ export function sessionState(engine: Engine): Session {
     let map: SessionTab['map'] | null = null
     if (file) map = { file }
     else if (region) map = { region: { mapName: region.mapName, x: region.x, y: region.y, size: region.size } }
+    else if (d.world) map = { world: { mapName: d.world.mapName } }
     if (!map) continue
     let view: SessionView
     if (isActive) {
@@ -107,7 +108,7 @@ export async function restoreSession(engine: Engine): Promise<void> {
     // The preferences check the session's shape on load; this keeps a bad one from stopping startup anyway.
     if (!s.tabs.length) return
     lastSaved = JSON.stringify(s)
-    if (s.tabs.some((t) => 'region' in t.map)) await untilLoaded()
+    if (s.tabs.some((t) => 'region' in t.map || 'world' in t.map)) await untilLoaded()
   } catch (err) {
     console.warn('could not read the last session', err)
     return
@@ -121,6 +122,9 @@ export async function restoreSession(engine: Engine): Promise<void> {
         const r = t.map.region
         await openWowRegion(engine, r.mapName, r.x, r.y, r.size)
         if (editor.regionMap !== r.mapName) continue
+      } else if ('world' in t.map) {
+        if (!wow.loaded) continue
+        engine.openWorld(t.map.world.mapName, { x: t.view.target[0], z: t.view.target[2] })
       } else {
         if (!engine.focusPath(t.map.file)) engine.openDocument(fromMapData(await LoadMap(t.map.file)), t.map.file)
       }

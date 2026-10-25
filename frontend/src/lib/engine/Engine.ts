@@ -16,6 +16,8 @@ import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
 import { Environment, SHADOW_FAR, SHADOW_NEAR, type ClientSky } from './Environment'
 import { HorizonLayer } from '../world/HorizonLayer'
+import { WorldStream } from '../world/WorldStream'
+import { streamReach } from '../world/worldGround'
 import type { Tool, ToolContext } from '../tools/Tool'
 import { brushImage } from '../tools/brushImage'
 import { BrushTool, PaintTool, RoadTool, SculptTool, WaterTool, waterOpacityFactor } from '../tools/TerrainTools'
@@ -125,6 +127,14 @@ import { yieldToFrame } from './yieldToFrame'
 
 /** The most Teleport items a spawn's menu lists (#308); a boss with many blink spots would fill the screen. */
 const MAX_TELEPORT_ITEMS = 10
+/** A world view's side (#15): the whole map, 64 tiles. */
+const WORLD_SIDE = 64 * TILE_YARDS
+/** How far the camera may back off the ground in a world view, in yards. */
+const WORLD_MAX_DISTANCE = 2000
+/** The cells a side of a world view's hidden stand-in terrain, which nothing reads but the tools' picking. */
+const WORLD_STAND_IN = 8
+/** How far off the ground a world view opened without a view looks from, in yards. */
+const WORLD_FOCUS_DISTANCE = 400
 
 /** How many cells of level ground Fit ground keeps around a building before its ring (#210). */
 const FIT_APRON_CELLS = 2
@@ -618,6 +628,12 @@ export class Engine {
     setCompressedTextures(!noDxt && ext.has('WEBGL_compressed_texture_s3tc') && ext.has('WEBGL_compressed_texture_s3tc_srgb'))
     // The camera rides on the water surface where the ground is submerged.
     this.controller = new CameraController(this.persp, canvas, (x, z) => {
+      // A world view's ground is its streamed tiles; where none is loaded yet the camera keeps its height.
+      const world = this.doc?.world
+      if (world) {
+        const g = world.heightAt(x, z)
+        return Number.isNaN(g) ? this.controller.target.y : g
+      }
       const h = this.terrain.heightAt(x, z)
       return editor.waterEnabled ? Math.max(h, editor.waterLevel) : h
     })
@@ -1009,6 +1025,8 @@ export class Engine {
           return
         }
         if (e.button !== 0) return
+        // A world view is looked at, not edited (#15): Edit Here opens a block for the tools.
+        if (this.doc.world) return
         // The path test (View › Test a Path) takes the clicks before any tool.
         if (this.navPick) {
           const s = this.surfaceHit()
@@ -1157,6 +1175,7 @@ export class Engine {
 
   /** Forward a key to the active tool. Returns true if handled. */
   handleToolKey(e: KeyboardEvent): boolean {
+    if (this.doc.world) return false
     return this.activeTool?.onKey?.(this.ctx, e) ?? false
   }
 
@@ -1233,6 +1252,7 @@ export class Engine {
     this.syncTool()
     this.controller.setWalk(ui.walkCamera && !this.topDown)
     this.controller.update(dt)
+    this.updateWorld()
     if (this.taxiFlight) this.updateTaxiFlight()
     this.updateTopDown()
     this.updateEnvironment(dt, time)
@@ -1525,6 +1545,15 @@ export class Engine {
     const d = this.viewDistance
     this.fogNear = w * 0.5 * d
     this.fogFar = w * 2.2 * d
+    if (this.doc?.world) {
+      // A world view's ground ends at the reach it streams to (#15): the fog closes in on it there.
+      this.fogFar = streamReach(d)
+      this.fogNear = this.fogFar * 0.35
+      this.persp.far = this.fogFar * 1.5
+      this.scene.fog = this.fogEnabled && !this.topDown ? new THREE.Fog(this.env.state.horizon.clone(), this.fogNear, this.fogFar) : null
+      this.persp.updateProjectionMatrix()
+      return
+    }
     this.scene.fog = this.fogEnabled && !this.topDown ? new THREE.Fog(this.env.state.horizon.clone(), this.fogNear, this.fogFar) : null
     this.persp.far = Math.max(2000, w * 4 * d)
     this.persp.updateProjectionMatrix()
@@ -2427,8 +2456,10 @@ export class Engine {
   private applyLayerVisibility(p: Prefs) {
     const d = this.doc
     if (!d) return
-    // A single building's map has no ground in the client, only the flat stand-in under it (#271).
-    d.terrain.group.visible = p.showTerrain && !d.meta.region?.wmoOnly
+    // A single building's map has no ground in the client, only the flat stand-in under it (#271); a
+    // world view's is its streamed tiles (#15).
+    d.terrain.group.visible = p.showTerrain && !d.meta.region?.wmoOnly && !d.world
+    if (d.world) d.world.group.visible = p.showTerrain
     d.terrain.material.wireframe = p.wireframe
     d.water.mesh.visible = p.showWater && editor.waterEnabled
     d.liquidRenderer.group.visible = p.showWater
@@ -2490,8 +2521,8 @@ export class Engine {
   private syncTabs() {
     docs.tabs = this.documents.map((d) =>
       d === this.doc
-        ? { id: d.id, name: editor.mapName, dirty: editor.dirty, size: d.terrain.size }
-        : { id: d.id, name: d.meta.mapName, dirty: d.meta.dirty, size: d.terrain.size },
+        ? { id: d.id, name: editor.mapName, dirty: editor.dirty, size: d.world ? 0 : d.terrain.size }
+        : { id: d.id, name: d.meta.mapName, dirty: d.meta.dirty, size: d.world ? 0 : d.terrain.size },
     )
     docs.active = this.doc.id
   }
@@ -2536,9 +2567,11 @@ export class Engine {
     if (stash && this.doc && this.doc !== d) {
       this.stashActive()
       this.scene.remove(this.doc.terrain.group, this.doc.water.mesh, this.doc.water.floor, this.doc.objects.group, this.doc.groundEffects.group, this.doc.spawnLayer.group, this.doc.liquidRenderer.group)
+      if (this.doc.world) this.scene.remove(this.doc.world.group)
     }
     this.doc = d
     this.scene.add(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.groundEffects.group, d.spawnLayer.group, d.liquidRenderer.group)
+    if (d.world) this.scene.add(d.world.group)
     const m = d.meta
     editor.mapName = m.mapName
     editor.filePath = m.filePath
@@ -2567,6 +2600,7 @@ export class Engine {
     editor.region = m.region ? regionLabel(m.region) : ''
     editor.regionBlock = m.region ? { x: m.region.x, y: m.region.y, size: m.region.size } : null
     editor.regionMap = m.region?.mapName ?? ''
+    editor.worldMap = d.world?.mapName ?? ''
     editor.spawns = d.spawnLayer.spawns.slice()
     editor.spawnsError = d.spawnsError
     ui.spawnChanges = d.spawnLayer.editCount()
@@ -2578,8 +2612,8 @@ export class Engine {
     editor.selection = null
     ui.pasting = false
     this.nudgeSession = null
-    this.controller.bounds = d.terrain.worldSize
-    this.controller.maxDistance = d.terrain.worldSize * 1.6
+    this.controller.bounds = d.world ? WORLD_SIDE : d.terrain.worldSize
+    this.controller.maxDistance = d.world ? WORLD_MAX_DISTANCE : d.terrain.worldSize * 1.6
     if (this.prefs) this.applyLayerVisibility(this.prefs)
     if (d.camera) {
       this.controller.target.copy(d.camera.target)
@@ -2700,6 +2734,46 @@ export class Engine {
       this.controller.focus((b[0] + b[3]) / 2, (b[2] + b[5]) / 2, Math.min(this.controller.maxDistance, Math.max(60, radius * 1.2)))
     }
     return d
+  }
+
+  /**
+   * Opens a world view of map `mapName` (its folder name; #15) in a tab of its own, or switches to the
+   * one open: the client's tiles streamed around the camera, in the map's editor coordinates. With
+   * `view` the camera takes it; with only `at` it looks at that ground point once its tile has loaded.
+   */
+  openWorld(mapName: string, at: { x: number; z: number }, view?: { target: THREE.Vector3; yaw: number; pitch: number; distance: number }): MapDocument {
+    let d = this.documents.find((x) => x.world?.mapName.toLowerCase() === mapName.toLowerCase())
+    if (d) this.activate(d)
+    else {
+      d = new MapDocument(WORLD_STAND_IN, this.uniqueName(`${mapName} world`))
+      d.world = new WorldStream(mapName)
+      // The client's water is part of what a later step streams; the stand-in has no sea.
+      d.meta.waterEnabled = false
+      d.camera = { target: new THREE.Vector3(at.x, 0, at.z), yaw: this.controller.yaw, pitch: Math.max(this.controller.pitch, 0.5), distance: WORLD_FOCUS_DISTANCE }
+      this.addDocument(d)
+    }
+    const c = this.controller
+    if (view) {
+      c.setView(view.target.x, view.target.y, view.target.z, view.yaw, view.pitch, view.distance)
+      this.worldFocus = null
+    } else this.worldFocus = { doc: d.id, x: at.x, z: at.z }
+    return d
+  }
+
+  /** A world view's ground point to look at once its tile has loaded (`openWorld` without a view). */
+  private worldFocus: { doc: number; x: number; z: number } | null = null
+
+  /** Streams the active world view's tiles around the camera, and looks at `worldFocus` once it can. */
+  private updateWorld() {
+    const world = this.doc.world
+    if (!world) return
+    const eye = this.camera.position
+    world.update(eye.x, eye.z, streamReach(this.viewDistance))
+    const f = this.worldFocus
+    if (f && f.doc === this.doc.id && !Number.isNaN(world.heightAt(f.x, f.z))) {
+      this.worldFocus = null
+      this.controller.focus(f.x, f.z, WORLD_FOCUS_DISTANCE)
+    }
   }
 
   /**
@@ -3464,6 +3538,21 @@ export class Engine {
     return this.doc.meta.region
   }
 
+  /** The map the active tab is a world view of (#15), or null for any other tab. */
+  activeWorld(): string | null {
+    return this.doc.world?.mapName ?? null
+  }
+
+  /** The tiles the active world view's map has (tileKey), or null for any other tab. */
+  worldTiles(): ReadonlySet<number> | null {
+    return this.doc.world?.tileKeys ?? null
+  }
+
+  /** The active world view's streaming (tiles drawn, being read, the map's count), or null for any other tab. */
+  worldStats(): ReturnType<WorldStream['stats']> | null {
+    return this.doc.world?.stats() ?? null
+  }
+
   /**
    * A fingerprint of what Compile writes for the active region (io/regionKey.ts): its ground, paint,
    * chunk data, models and liquids, taken from the document's own arrays rather than the export, whose
@@ -3573,6 +3662,8 @@ export class Engine {
 
   /** Restores a copied scene's view and hour. Call it after the scene's prefs are applied. */
   setSceneView(v: ReturnType<Engine['sceneView']>) {
+    // The scene's view wins over the one a world view would take once its first tile loads.
+    this.worldFocus = null
     this.controller.setView(v.target[0], v.target[1], v.target[2], v.yaw, v.pitch, v.distance)
     this.hour = v.hour
   }
@@ -3615,6 +3706,7 @@ export class Engine {
     this.documents.splice(i, 1)
     if (d === this.doc) {
       this.scene.remove(d.terrain.group, d.water.mesh, d.water.floor, d.objects.group, d.groundEffects.group, d.spawnLayer.group, d.liquidRenderer.group)
+      if (d.world) this.scene.remove(d.world.group)
       const next = this.documents[Math.min(i, this.documents.length - 1)]
       // Keep at least one map open. The closed doc isn't stashed.
       if (next) {

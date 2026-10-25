@@ -504,3 +504,23 @@ creature's way round obstacles.
   a change (sculpt, a model loading or moving, a liquid edit) holds the build until 400 ms pass without one,
   so while models stream in after a region opens nothing builds; the roofs get navmesh too, as on the
   server (they are walkable, only unreachable).
+
+## The world view: streamed tiles and Edit Here (#15, probe `world-view`)
+Checks: File › World View (from a region) and the Start dialog's World View button open a map's world
+view, which streams the client's tiles around the camera and lets go of the far ones; Edit Here opens
+the block around the camera in a region tab, the camera kept.
+- Probe `world-view` (`bun run probe world-view`, about 15 s): opens Azeroth's world view at the
+  Elwynn block 31-33 x 48-50, waits for the tiles within the reach to load (`engine.worldStats()`:
+  loaded, loading, queued, failed and the map's tile count), checks the camera looks at the block's
+  middle on the ground, that the ground is drawn (a shot with `doc.world.group` hidden differs), that a
+  Sculpt click makes no undo step, that the scene line names `world`, that flying four tiles east loads
+  the tiles there and drops the ones behind, then Edit Here (a project lent in the state) and File ›
+  World View back, the camera where it was each way.
+- `bun test tests/worldGround.test.ts`: the ground reply, the mesh (holes, normals, winding), the
+  height between samples, the tiles wanted nearest first and the reach for the view distance.
+- `go test ./internal/wow/ -run TestTileGround`: a tile `adt.BuildTile` makes reads back as its
+  heights and holes, laid out as the frontend reads them.
+- By hand: `curl "localhost:34115/wow/ground?map=Azeroth&x=32&y=48"` gives 82952 bytes; a tile the
+  map lacks is a 404.
+- Trap: wait for `queued` as well as `loading` to reach 0. Between two reads `loading` is 0 for a
+  frame while tiles still wait, and a check then sees half the ring.

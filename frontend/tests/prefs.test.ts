@@ -40,6 +40,9 @@ test('a session without tabs or maps is rejected, a saved one passes', () => {
 	assert.equal(prefShapeOk('session', { tabs: [{ view }], active: 0 }), false, 'a tab without map')
 	assert.equal(prefShapeOk('session', { tabs: [{ map: {}, view }], active: 0 }), false)
 	assert.equal(prefShapeOk('session', { tabs: 3, active: 0 }), false)
+	// A world view's tab (#15) names its map.
+	assert.equal(prefShapeOk('session', { tabs: [{ map: { world: { mapName: 'Kalimdor' } }, view }], active: 0 }), true)
+	assert.equal(prefShapeOk('session', { tabs: [{ map: { world: {} }, view }], active: 0 }), false)
 	assert.equal(prefShapeOk('session', null), false)
 	assert.equal(prefValueOk(ok, null), false, 'null never replaces an object preference')
 })
