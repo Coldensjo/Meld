@@ -145,18 +145,19 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     The client's camera also collides with a WMO and stays off its walls. Meld's flying camera does
     so only with View › Camera Collision on (#305; off, the author flies through walls into buildings):
     each frame `CameraController.update` hands the move from the last settled eye to the new target
-    to `Engine`'s `collideWalls` hook, `WmoRooms.collide`, which runs `wmoRoom.ts` `collideSphere` in
+    to `cameraMove.ts` `moveStep` (a pure function, unit-tested in `tests/cameraMove.test.ts`, #434),
+    which calls `Engine`'s `collideWalls` hook, `WmoRooms.collide`, which runs `wmoRoom.ts` `collideSphere` in
     each nearby WMO's model space: the path is swept against the collision faces (`sweepFaces`, so a
     fast flight can't tunnel through a thin wall), stops the near plane's corner reach (0.5 yd times
-    `Engine.cornerFactor`) off a face and slides along it, then is pushed out of any face it ended
+    `cameraMove.ts` `cornerFactor`) off a face and slides along it, then is pushed out of any face it ended
     nearer to. It runs after the 3 yd floor clamp, which in a low room can put the eye in a ceiling. A
     teleport, a mode change or a tab switch (`CameraController.jump`) is not collided.
     The clamp keeps the eye 3 yd above the floor the `collisionFloor` hook gives (#310): in a WMO's
     room (`WmoRooms.current`; after a jump the probe runs for the new eye first) the highest walking
     face at or below the eye (`WmoRooms.floorAt`, `wmoRoom.ts` `walkFloorZ`, Leg A of the down-ray),
     not the terrain, which in Stormwind runs yards above and below the streets; elsewhere the higher
-    of the terrain and a WMO floor, so a roof is a floor too. The Walk camera stands on the same floor
-    (#312, `CameraController.walkFloor`), searched from `WALK_STEP` (2 yd) above the floor it stood on,
+    of the terrain and a WMO floor, so a roof is a floor too (`cameraMove.ts` `roomFloor`). The Walk camera stands on the same floor
+    (#312, `cameraMove.ts` `walkFloor`), searched from `WALK_STEP` (2 yd) above the floor it stood on,
     so stairs are climbed and a roof or bridge above is walked under; a jump into the walk searches
     from the eye. Walk always stops at the WMOs' walls (#313), whatever Camera Collision says, as the
     client's player does: its move is swept level at the eye through `collideWalls` (only x/z kept), and

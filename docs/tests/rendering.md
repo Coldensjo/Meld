@@ -578,6 +578,15 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   and the near plane at 0.5 yd; off, it ends 9.5 yd past the wall in SI:7 (group 111).
 - Unit test: `bun test tests/wmoRoom.test.ts` ("a sphere moved into a wall ..."): stop, slide, floor,
   push-out and a free move on a toy room, with and without the column index.
+- Unit test of the order (#434): `bun test tests/cameraMove.test.ts` runs the controller's collision
+  step (`cameraMove.ts` `moveStep`) on a toy street (a floor 5 yd under a flat terrain, a wall) through
+  the same `collideSphere` and `walkFloorZ` the Engine's hooks use: the eye stops the radius off the wall
+  and slides, stays 3 yd over the WMO floor rather than the terrain, and under a low ceiling the walls
+  win over the clamp (the clamp first, then the walls); the walker stands on the floor, climbs a 1.5 yd
+  step, walks under a roof and stops at the wall with Camera Collision on or off; off, the flying camera
+  passes through; a jump and the orbit and top-down cameras are not collided; the near plane
+  (`nearPlane`, #304) pulls in for a face within reach, to 0.05 yd at least. The radius is 0.73 yd at
+  16:9 (0.5 yd times `cornerFactor`), wider at a wider window, so test against the formula, not 0.9.
 - Room data that fails (#515): `bun run probe wmo-nav-fail` (about 15 s with the scene loaded) makes
   `/wow/wmonav` answer 500 once for Stormwind (it wraps `window.fetch`), and checks the failure is
   counted in `rooms.navs.failed` and logged (`Building rooms: ... didn't load`), the camera is in no

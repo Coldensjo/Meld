@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { MouseLookBegin, MouseLookEnd, MouseLookRecenter } from '../../../wailsjs/go/main/App'
+import { moveStep, walkFloor, WALK_HEIGHT, type CameraMoveScratch } from './cameraMove'
 
 /** WebView2 shows a banner on every pointer lock, so Windows hides and recentres the cursor natively. */
 const nativeLook = navigator.userAgent.includes('Windows')
@@ -7,15 +8,6 @@ const nativeLook = navigator.userAgent.includes('Windows')
 const WARP_AT = 150
 const WARP_LANDED = 40
 
-/** How far above the ground the flying camera stays with camera collision on, in yards (Noggit Red's 3). */
-const COLLIDE_HEIGHT = 3
-/** How far above the ground the walking (FPS) camera's eye is, in yards (Noggit Red's FPS camera: 3). */
-const WALK_HEIGHT = 3
-/**
- * How far above the floor it stands on the walker finds the next one, in yards (#312): a stair or a
- * kerb up to this high is climbed, a roof or bridge higher up is walked under.
- */
-const WALK_STEP = 2
 /** A walking character's run speed, in yards a second (the game's 7). */
 const WALK_SPEED = 7
 
@@ -64,8 +56,8 @@ export class CameraController {
 	 * says the eye came there by a jump, so what the Engine knew of its room is out of date.
 	 */
 	collisionFloor: ((at: THREE.Vector3, ground: number, jumped: boolean) => number) | null = null
-	private floorProbe = new THREE.Vector3()
-	private wallProbe = new THREE.Vector3()
+	/** The collision step's probes (`cameraMove.ts` `moveStep`). */
+	private moveScratch: CameraMoveScratch = { floor: new THREE.Vector3(), wall: new THREE.Vector3() }
   /** Where the eye was after the last `update`, and whether it has jumped since (a teleport, a mode change), which is no move to collide. */
   private settled = new THREE.Vector3()
   private jumped = true
@@ -108,7 +100,7 @@ export class CameraController {
   constructor(
     private camera: THREE.PerspectiveCamera,
     private dom: HTMLElement,
-    private ground: (x: number, z: number) => number,
+    readonly ground: (x: number, z: number) => number,
   ) {
     const sig = { signal: this.abort.signal }
     dom.addEventListener('pointerdown', this.onDown, sig)
@@ -302,7 +294,7 @@ export class CameraController {
       this.pitch = Math.min(this.pitch, 0.3)
       this.walk = true
       // From the eye down, so the walk starts on the street under a camera flying over a city.
-      this.target.y = this.walkFloor(this.target.y, true) + WALK_HEIGHT
+      this.target.y = walkFloor(this.target, this.target.y, true, this, this.moveScratch.floor) + WALK_HEIGHT
       return
     }
     this.walk = false
@@ -353,35 +345,12 @@ export class CameraController {
       }
       this.clampTarget()
     }
-    if (this.walk) {
-			// The walker stops at a WMO's walls as the client's player does (#313), always, as it always stands on
-			// the WMOs' floors: the move is swept level at the eye, whose sphere reaches down to WALK_STEP over the
-			// floor, so a wall too high to step over stops it and a kerb or stair doesn't. A jump isn't collided.
-			if (this.collideWalls && !this.jumped && (this.target.x !== this.settled.x || this.target.z !== this.settled.z)) {
-				const to = this.wallProbe.set(this.target.x, this.settled.y, this.target.z)
-				this.collideWalls(this.settled, to)
-				this.target.x = to.x
-				this.target.z = to.z
-			}
-      // From a step above the floor it stood on, or from the eye after a jump.
-      const from = this.jumped ? this.target.y : this.settled.y - WALK_HEIGHT + WALK_STEP
-      this.target.y = this.walkFloor(from, this.jumped) + WALK_HEIGHT
-    } else if (!this.followGround) {
+    if (!this.walk && !this.followGround) {
       if (k.has('Space')) this.target.y += speed
       if (k.has('KeyX') || k.has('KeyC')) this.target.y -= speed
-      if (this.collision && !this.topDown) {
-        let floor = this.ground(this.target.x, this.target.z)
-        if (this.collisionFloor) {
-          // From the higher of where the eye was and where it goes, so a fast drop through a floor still finds it.
-          const p = this.floorProbe.copy(this.target)
-          if (!this.jumped) p.y = Math.max(p.y, this.settled.y)
-          floor = this.collisionFloor(p, floor, this.jumped)
-        }
-        this.target.y = Math.max(this.target.y, floor + COLLIDE_HEIGHT)
-        // After the floor clamp: in a low room the floor + 3 yd can lie in a wall or a ceiling, and the walls win.
-        if (this.collideWalls && !this.jumped && !this.target.equals(this.settled)) this.collideWalls(this.settled, this.target)
-      }
     }
+    // The walker's walls then its floor, the flying camera's floor clamp then its walls (#434).
+    moveStep(this.target, this.settled, this.jumped, this, this.moveScratch)
     this.settled.copy(this.target)
     this.jumped = false
 
@@ -402,19 +371,6 @@ export class CameraController {
       this.camera.lookAt(this.target.x + fx * Math.cos(this.pitch), this.target.y - Math.sin(this.pitch), this.target.z + fz * Math.cos(this.pitch))
     }
   }
-
-	/**
-	 * The floor the walker stands on at the target's x/z (#312): the terrain, or in a WMO the floor the
-	 * Engine's hook finds at or below `fromY` (`collisionFloor`, the one the collision camera uses), so in a
-	 * city it walks the streets rather than the terrain under or over them.
-	 */
-	private walkFloor(fromY: number, jumped: boolean) {
-		const ground = this.ground(this.target.x, this.target.z)
-		if (!this.collisionFloor) return ground
-		const p = this.floorProbe.copy(this.target)
-		p.y = fromY
-		return this.collisionFloor(p, ground, jumped)
-	}
 
   /** Units per second for the keys: in orbit, slow close in and faster zoomed out; flying, a steady pace the wheel scales. */
   private moveSpeed(fast: number) {

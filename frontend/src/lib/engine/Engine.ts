@@ -14,6 +14,7 @@ import { celestialSunDir, lightingSunDir, moonDir, skyWarp, starAlpha, sunDiscSc
 import { TILE_YARDS } from '../terrain/Terrain'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
+import { cornerFactor, nearPlane, roomFloor } from './cameraMove'
 import { Environment, SHADOW_FAR, SHADOW_NEAR, type ClientSky } from './Environment'
 import { HorizonLayer } from '../world/HorizonLayer'
 import { WorldStream } from '../world/WorldStream'
@@ -645,8 +646,7 @@ export class Engine {
     // roof is a floor too (#310). After a jump (a scene, a teleport) the probe runs for the new eye first.
     this.controller.collisionFloor = (at, ground, jumped) => {
       if (jumped) this.rooms.update(this.objects, at, this.roomGround)
-      const floor = this.rooms.floorAt(this.objects, at)
-      return this.rooms.current && floor > -Infinity ? floor : Math.max(ground, floor)
+      return roomFloor(!!this.rooms.current, this.rooms.floorAt(this.objects, at), ground)
     }
     // A WMO whose room data failed has no rooms, walls or floor until its retry (#515): say so, and log it.
     this.rooms.navs.onFail = (path, err) =>
@@ -1529,14 +1529,12 @@ export class Engine {
    */
   /** How much further than its depth a point in the view frustum can lie from the eye: at a corner of the near plane. */
   private cornerFactor() {
-    const p = this.persp
-    const t = Math.tan(THREE.MathUtils.degToRad(p.fov) / 2)
-    return Math.sqrt(1 + t * t * (1 + p.aspect * p.aspect))
+    return cornerFactor(this.persp.fov, this.persp.aspect)
   }
 
   private updateNear() {
     const p = this.persp
-    const near = THREE.MathUtils.clamp(this.rooms.wallDist / this.cornerFactor(), NEAR_MIN, NEAR)
+    const near = nearPlane(this.rooms.wallDist, this.cornerFactor(), NEAR, NEAR_MIN)
     if (Math.abs(near - p.near) < 1e-3) return
     p.near = near
     p.updateProjectionMatrix()
