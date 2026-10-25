@@ -418,6 +418,22 @@ amounts past 99 gold).
 - Trap: the coins are one atlas, `Interface\MoneyFrame\UI-MoneyIcons.blp`; the
   `UI-GoldIcon`/`UI-SilverIcon`/`UI-CopperIcon` names of later clients answer 404 in 1.12.
 
+## The creature editor's faction, family, race, AI, mount and mask pickers (#699, probe `creature-pickers`)
+
+Checks: Stormwind City Guard (68)'s Faction shows template 11 as "Stormwind (friendly to Alliance,
+hostile to Horde)", its Find lists the client's faction templates whole and narrows on a faction
+name (Darnassus, 79), a click puts the ID in; Pet family and Trainer race are selects, AI offers the
+core's AI names in a datalist and still takes any text, the six immunity and flag masks are tick
+lists, and the Looks tab's "A click sets" has "the mount" (a tile clicked fills `mount_display_id`).
+`bun run probe creature-pickers` (about 6 s, nothing written). Unit test: `bun test
+tests/creatureFields.test.ts` (the fields' pickers and each mask's bits, the top static flag
+unsigned).
+- Trap: the faction picker is FactionTemplate.dbc (`ref: 'faction template'`, `App.Factions`), not
+  Faction.dbc (`ref: 'faction'`, a reputation, the quest editor's). Many templates share a faction
+  name; the reaction text tells them apart.
+- The flag names come from VMaNGOS' `CreatureDefines.h` (`CreatureStaticFlags`, `...Flags2`,
+  `CreatureFlagsExtra`, `CreatureImmunityFlags`); the mechanic bits are `1 << (mechanic - 1)`.
+
 ## Icons beside item, spell and class names (#682, probe `editor-icons`)
 
 Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's

@@ -108,7 +108,7 @@
       .then((l) => current() && (templateLook = l))
       .catch(() => current() && (templateLook = null))
   })
-  // The display slot (1-4) a click in the Looks picker fills, and the display under the pointer.
+  // The display slot (1-4, or 0 for the mount) a click in the Looks picker fills, and the display under the pointer.
   let slot = $state(1)
   let hoveredDisplay = $state<vmangos.DisplayEntry | null>(null)
   const usingSpawn = $derived(tab === 'spawn' && spawn !== null)
@@ -268,10 +268,14 @@
     }
   }
 
-  // Looks: the display picker. A click puts the display in slot `slot` (1-4); hovering a tile shows
-  // it in the preview until the pointer leaves.
+  // Looks: the display picker. A click puts the display in slot `slot` (1-4), or in mount_display_id
+  // for slot 0 (#699); hovering a tile shows it in the preview until the pointer leaves.
   function useDisplay(d: vmangos.DisplayEntry) {
     const n = slot
+    if (n === 0) {
+      values.mount_display_id = String(d.id)
+      return
+    }
     values[`display_id${n}`] = String(d.id)
     if (!(Number(values[`display_scale${n}`]) > 0)) values[`display_scale${n}`] = '1'
     if (!(Number(values[`display_probability${n}`]) > 0)) values[`display_probability${n}`] = '100'
@@ -398,10 +402,11 @@
               <span>A click sets</span>
               <select bind:value={slot}>
                 {#each [1, 2, 3, 4] as n (n)}<option value={n}>display {n}{Number(values[`display_id${n}`]) > 0 ? ` (now ${values[`display_id${n}`]})` : ''}</option>{/each}
+                {#if 'mount_display_id' in values}<option value={0}>the mount{Number(values.mount_display_id) > 0 ? ` (now ${values.mount_display_id})` : ''}</option>{/if}
               </select>
               <span class="dim">Hover a tile to see it big on the left.</span>
             </div>
-            <DisplayPicker selected={Number(values[`display_id${slot}`]) || 0} onpick={useDisplay} onhover={(d) => (hoveredDisplay = d)} />
+            <DisplayPicker selected={Number(values[slot === 0 ? 'mount_display_id' : `display_id${slot}`]) || 0} onpick={useDisplay} onhover={(d) => (hoveredDisplay = d)} />
             <h3>Displays</h3>
             {#each groups.filter((g) => g.title === 'Looks') as g (g.title)}
               <TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} />

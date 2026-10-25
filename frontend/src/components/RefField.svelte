@@ -4,15 +4,16 @@
 	import type { CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
-	import { emoteList, questTables, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
-		import ItemIcon from './ItemIcon.svelte'
+	import { emoteList, factionTemplateName, factionTemplates, questTables, reactionText, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
+	import ItemIcon from './ItemIcon.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 	import SpellIcon from './SpellIcon.svelte'
 	import SpellPicker from './SpellPicker.svelte'
 
 	// A column that names a thing (#259, the quest editor): its number, the name of what it names
 	// (an item with its icon and quality colour, a spell with its icon, a creature, a quest…), and
-	// Find, a search that puts the picked thing's number in. An emote is a list to pick from.
+	// Find, a search that puts the picked thing's number in. An emote is a list to pick from. A faction
+	// template lists its faction's name with how it treats Alliance and Horde players (#699).
 
 	interface Props {
 		f: CreatureField
@@ -54,6 +55,8 @@
 		quality?: number
 		displayId?: number
 		icon?: string
+		/** The name the field shows once picked, when it is not `name`. */
+		full?: string
 	}
 	let open = $state(false)
 	let query = $state('')
@@ -100,6 +103,11 @@
 					.map((a) => ({ kind: k, id: a.id, name: areaName(a.id), sub: String(a.id) }))
 			case 'emote':
 				return []
+			case 'faction template':
+				return (await factionTemplates())
+					.filter((f) => like(f.name, f.id, q) || (q !== '' && reactionText(f).includes(q.toLowerCase())))
+					.slice(0, 300)
+					.map((f) => ({ kind: k, id: f.id, name: f.name || 'Unnamed', sub: `${f.id} · ${reactionText(f)}`, full: factionTemplateName(f) }))
 		}
 		const t = await questTables()
 		const list = k === 'faction' ? t.factions : k === 'skill' ? t.skills : t.sorts
@@ -117,7 +125,7 @@
 		if (!open || k === 'spell') return
 		// The client's short lists show whole without a search; the zones, the objects and the
 		// database's templates need one.
-		const whole = k === 'faction' || k === 'skill' || k === 'sort'
+		const whole = k === 'faction' || k === 'faction template' || k === 'skill' || k === 'sort'
 		const local = whole || k === 'zone' || k === 'object'
 		if (!q && !whole) {
 			hits = []
@@ -138,7 +146,7 @@
 	})
 
 	function pick(h: Hit) {
-		rememberName(h.kind, h.id, { name: h.name, quality: h.quality, displayId: h.displayId, icon: h.icon })
+		rememberName(h.kind, h.id, { name: h.full ?? h.name, quality: h.quality, displayId: h.displayId, icon: h.icon })
 		const negative = h.kind === 'object' || h.kind === 'sort'
 		onset(String(negative ? -h.id : h.id))
 		open = false

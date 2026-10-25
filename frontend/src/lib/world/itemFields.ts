@@ -1,7 +1,7 @@
 import type { CreatureField, CreatureFieldGroup } from './creatureFields'
-import { fieldGroups } from './creatureFields'
+import { RACE_MASK, fieldGroups } from './creatureFields'
 import type { QuestTab } from './questFields'
-import { CLASS_MASK, RACE_MASK } from './questFields'
+import { CLASS_MASK } from './questFields'
 import { REP_RANKS } from '../wow/itemTooltip'
 
 /**

@@ -1,5 +1,5 @@
 import type { CreatureField, CreatureFieldGroup } from './creatureFields'
-import { fieldGroups } from './creatureFields'
+import { RACE_MASK, fieldGroups } from './creatureFields'
 
 /**
  * How the quest editor (#259) shows quest_template's columns: on tabs, grouped, with plain labels,
@@ -25,18 +25,6 @@ export const CLASS_MASK: Array<[number, string]> = [
 	[128, 'Mage'],
 	[256, 'Warlock'],
 	[1024, 'Druid'],
-]
-
-/** RequiredRaces' bits. */
-export const RACE_MASK: Array<[number, string]> = [
-	[1, 'Human'],
-	[2, 'Orc'],
-	[4, 'Dwarf'],
-	[8, 'Night Elf'],
-	[16, 'Undead'],
-	[32, 'Tauren'],
-	[64, 'Gnome'],
-	[128, 'Troll'],
 ]
 
 /** QuestFlags (QUEST_FLAGS_*): the ones the 1.12 server and client act on, and the unused ones by their names. */

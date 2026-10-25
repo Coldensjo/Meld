@@ -1,15 +1,15 @@
-import { QuestTables, SpawnEmotes, TemplateNames } from '../../../wailsjs/go/main/App'
+import { Factions, QuestTables, SpawnEmotes, TemplateNames } from '../../../wailsjs/go/main/App'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { areaName, loadAreas } from './areas'
 import { spellRef } from './spells'
 
 // Names for the quest editor's references (#259): what an item, creature, object, quest, spell,
-// faction, skill, zone, quest sort or emote number stands for. The world database's templates are
+// faction, faction template, skill, zone, quest sort or emote number stands for. The world database's templates are
 // asked for in one TemplateNames call per kind and batch, the client's tables read once, and every
 // answer kept for the session (forgetName drops one that a save changed).
 
 /** What a reference number can be once its sign is read (see refTarget). */
-export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'skill' | 'zone' | 'sort' | 'emote'
+export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote'
 
 export interface RefName {
 	name: string
@@ -74,6 +74,27 @@ export function emoteList(): Promise<vmangos.Emote[]> {
 	return emotes
 }
 
+let templates: Promise<vmangos.FactionInfo[]> | null = null
+/** The client's faction templates (what a creature's or object's `faction` holds), read once. */
+export function factionTemplates(): Promise<vmangos.FactionInfo[]> {
+	if (!templates) {
+		templates = Factions().then((f) => f ?? [])
+		templates.catch(() => (templates = null))
+	}
+	return templates
+}
+
+/** How a faction template treats the two sides' players, such as "friendly to Alliance, hostile to Horde" (#699). */
+export function reactionText(f: Pick<vmangos.FactionInfo, 'alliance' | 'horde'>): string {
+	if (f.alliance === f.horde) return `${f.alliance} to both`
+	return `${f.alliance} to Alliance, ${f.horde} to Horde`
+}
+
+/** A faction template's name as a picker shows it: its faction's name and how it treats players. */
+export function factionTemplateName(f: vmangos.FactionInfo): string {
+	return `${f.name || 'Unnamed'} (${reactionText(f)})`
+}
+
 /** A client table row's name, or null. */
 async function tableName(kind: 'faction' | 'skill' | 'sort', id: number): Promise<RefName | null> {
 	const t = await questTables()
@@ -105,6 +126,12 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 			break
 		case 'zone':
 			p = loadAreas().then((list) => (list.some((a) => a.id === id) ? { name: areaName(id) } : null))
+			break
+		case 'faction template':
+			p = factionTemplates().then((list) => {
+				const f = list.find((x) => x.id === id)
+				return f ? { name: factionTemplateName(f) } : null
+			})
 			break
 		case 'emote':
 			p = emoteList().then((list) => {

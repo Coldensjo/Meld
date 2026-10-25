@@ -208,7 +208,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   saved with Save (`SaveCreature`, the newest patch row), not undo steps;
   `SpawnActions.applyCreatureTemplate` then brings that creature's spawns up to date through
   `SpawnLayer.rebase`, which changes their saved state too. A template's columns are drawn by
-  `TemplateFields.svelte`, shared with the game object editor.
+  `TemplateFields.svelte`, shared with the game object editor: a `CreatureField`'s `options` give a
+  select, `flags` a tick list, `suggest` a text box with a datalist, `ref` a `RefField` picker.
+  The creature's `faction` is a `'faction template'` ref (FactionTemplate.dbc through `App.Factions`,
+  named with how it treats Alliance and Horde, #699), not `'faction'` (Faction.dbc, a reputation);
+  the pet family, race, AI and mask lists come from VMaNGOS' `CreatureDefines.h` and
+  `CreatureAIRegistry.cpp`. The Looks tab's "A click sets" fills a display slot or the mount.
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a

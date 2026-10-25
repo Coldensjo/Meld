@@ -1,6 +1,6 @@
 import type { vmangos } from '../../../wailsjs/go/models'
 import type { CreatureField } from './creatureFields'
-import { fieldGroups } from './creatureFields'
+import { MECHANICS, fieldGroups } from './creatureFields'
 import type { QuestTab } from './questFields'
 
 /**
@@ -19,41 +19,6 @@ export const SPELL_SCHOOLS: Array<[number, string]> = named(['Physical', 'Holy',
 export const POWER_TYPES: Array<[number, string]> = [[0, 'Mana'], [1, 'Rage'], [2, 'Focus'], [3, 'Energy'], [4, 'Happiness'], [-2, 'Health']]
 
 const DISPELS = named(['None', 'Magic', 'Curse', 'Disease', 'Poison', 'Stealth', 'Invisibility', 'All', 'NPC only', 'Enrage'])
-
-const MECHANICS = named([
-	'None',
-	'Charm',
-	'Disoriented',
-	'Disarm',
-	'Distract',
-	'Fear',
-	'Fumble',
-	'Root',
-	'Pacify',
-	'Silence',
-	'Sleep',
-	'Snare',
-	'Stun',
-	'Freeze',
-	'Knockout',
-	'Bleed',
-	'Bandage',
-	'Polymorph',
-	'Banish',
-	'Shield',
-	'Shackle',
-	'Mount',
-	'Persuade',
-	'Turn',
-	'Horror',
-	'Invulnerability',
-	'Interrupt',
-	'Daze',
-	'Discovery',
-	'Immune shield',
-	'Sapped',
-	'Slow cast speed',
-])
 
 const DAMAGE_CLASSES = named(['None', 'Magic', 'Melee', 'Ranged'])
 const PREVENTION = named(['None', 'Silence', 'Pacify'])

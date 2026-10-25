@@ -11,7 +11,7 @@
 	// A group of a template's columns as the creature and game object editors show them: a checkbox
 	// list for flags, a checkbox for a 0/1 column, gold, silver and copper for money, a select where the numbers have names, a picker for a
 	// number that names a thing (RefField), a text area for long text, else a text or number input by
-	// the column's kind, held to the column's range. A changed column shows in the accent colour, and
+	// the column's kind, held to the column's range (offering `suggest`'s values in a datalist). A changed column shows in the accent colour, and
 	// each label's tooltip names its column.
 
 	interface Props {
@@ -109,9 +109,10 @@
 					min={range(c).min}
 					max={range(c).max}
 					maxlength={c?.kind === 'text' && c.maxLen ? c.maxLen : undefined}
+					list={f.suggest ? `suggest-${f.col}` : undefined}
 					value={value(f)}
 					oninput={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).value)}
-				/></label
+				/>{#if f.suggest}<datalist id="suggest-{f.col}">{#each f.suggest as v (v)}<option value={v}></option>{/each}</datalist>{/if}</label
 			>
 		{/if}
 	{/each}
