@@ -119,6 +119,16 @@ async function devDown() {
 	return ''
 }
 
+/** When the dev server's Go side started (/wow/status `started`, Unix ms), or 0 when it doesn't answer. A change between two calls means wails dev rebuilt and restarted it (#656). */
+async function devStarted() {
+	try {
+		const s = await fetch(new URL('/wow/status', PAGE), { signal: AbortSignal.timeout(5000) })
+		return s.ok ? (await s.json()).started ?? 0 : 0
+	} catch {
+		return 0
+	}
+}
+
 /** Starts `make dev` detached (it outlives this run, for the next one) when the server is down, and waits for it. Only for the default local URL. */
 async function ensureDev() {
 	const why = await devDown()
@@ -311,6 +321,7 @@ async function main() {
 	let failed = 0
 	for (const p of run) {
 		const t0 = Date.now()
+		const bootBefore = await devStarted()
 		let out = await runOnce(p)
 		const recover = async () => {
 			if (!out.lostPage && !out.sandboxEnd) return
@@ -352,6 +363,13 @@ async function main() {
 			else out.retried = true
 		}
 		await recover().catch((e) => console.error(`probe: could not restart Chrome: ${e.message}`))
+		// The app restarted under the probe (a Go change rebuilt by wails dev, maybe another session's, #656): name it, so a
+		// lost page or a failure here is read as the restart rather than the probe's own fault.
+		const bootAfter = await devStarted()
+		if (bootBefore && bootAfter && bootAfter !== bootBefore) {
+			out.devRebuilt = `the dev server restarted during this probe (at ${new Date(bootAfter).toLocaleTimeString()}): wails dev rebuilt the Go side, so a lost page or failure here may come from that`
+			console.error(`probe: ${p.name}: ${out.devRebuilt}`)
+		}
 		out.seconds = Math.round((Date.now() - t0) / 100) / 10
 		// Taken after every probe, so a later probe never writes this one's pictures.
 		const saved = (await evaluate('(() => { const s = window.__probeShots ?? []; window.__probeShots = []; return s })()').catch(() => null)) ?? []

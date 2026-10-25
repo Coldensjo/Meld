@@ -176,12 +176,18 @@ type Status struct {
 	Error    string `json:"error"`
 	Files    int    `json:"files"`
 	Archives int    `json:"archives"`
+	// Started is when this process started (Unix ms), so the probe runner can tell that wails dev rebuilt and
+	// restarted the app during a probe (#656).
+	Started int64 `json:"started"`
 }
+
+// processStart is when this process started, for Status.Started.
+var processStart = time.Now().UnixMilli()
 
 func (c *Client) Status() Status {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	s := Status{Path: c.dir, Loaded: c.set != nil, Files: len(c.files)}
+	s := Status{Path: c.dir, Loaded: c.set != nil, Files: len(c.files), Started: processStart}
 	if c.set != nil {
 		s.Archives = len(c.set.Archives())
 	}

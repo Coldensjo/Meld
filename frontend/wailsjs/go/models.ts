@@ -3883,6 +3883,7 @@ export namespace wow {
 	    error: string;
 	    files: number;
 	    archives: number;
+	    started: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Status(source);
@@ -3895,6 +3896,7 @@ export namespace wow {
 	        this.error = source["error"];
 	        this.files = source["files"];
 	        this.archives = source["archives"];
+	        this.started = source["started"];
 	    }
 	}
 

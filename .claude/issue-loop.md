@@ -74,6 +74,12 @@ on the change (docs/TESTS.md, "Measuring performance"). An estimate with its wor
 
 Started by the coordinator before the first worker and left running; workers never start their own.
 
+- One loop at a time (#656): two loops on this checkout and its one `make dev` broke each other's
+  whole-run probes. At the start of the run, before the pull, the coordinator runs
+  `cd frontend && bun probes/loop-lock.mjs take`. If it exits 1, another live loop holds the lock
+  (`<user cache>/Meld/loop.lock`, its pid and start time): stop the run and say so, without touching
+  the issues. A lock whose process is gone is stale and is taken over. After the report (or when the
+  run stops early, for any reason) it runs `bun probes/loop-lock.mjs release`. Workers never touch it.
 - `make dev`, in the background from Git Bash; healthy when `curl -s localhost:34115/wow/status`
   answers. Read the dead-session trap in docs/TESTS.md first: the owner's own session may be half dead.
 
