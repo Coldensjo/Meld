@@ -2,13 +2,17 @@
 // Build it with `cd frontend && bun run docs:build`; `bun run docs:dev` serves it with hot reload.
 // VitePress is installed in frontend/, so this file imports only types (erased when it is bundled).
 import { createRequire } from 'node:module'
+import { dirname } from 'node:path'
 import type { DefaultTheme, UserConfig } from 'vitepress'
 
 const repo = 'https://github.com/Coldensjo/Meld'
 
 // The pages sit outside frontend/, so their bare imports of Vue find no node_modules above them
-// under Bun (Node falls back to VitePress's own copy): resolve them from frontend/.
+// under Bun (Node falls back to VitePress's own copy): resolve them from frontend/. The alias names
+// the package's folder, not `require.resolve('vue')`, which is the CommonJS entry: bundled into the
+// browser build that left `vue` undefined, so the site never started and no button worked.
 const frontend = createRequire(new URL('../../frontend/package.json', import.meta.url))
+const vueDir = dirname(frontend.resolve('vue/package.json'))
 
 const config: UserConfig<DefaultTheme.Config> = {
 	title: 'Meld',
@@ -23,8 +27,8 @@ const config: UserConfig<DefaultTheme.Config> = {
 	vite: {
 		resolve: {
 			alias: [
-				{ find: /^vue$/, replacement: frontend.resolve('vue') },
-				{ find: /^vue\/server-renderer$/, replacement: frontend.resolve('vue/server-renderer') },
+				{ find: /^vue$/, replacement: vueDir },
+				{ find: /^vue\/server-renderer$/, replacement: `${vueDir}/server-renderer` },
 			],
 		},
 	},
