@@ -61,10 +61,28 @@ If the item changes what the app shows or does, check it in the app or say in th
 that you did not. A check worth repeating becomes a probe (`frontend/probes/<name>.js`, docs/TESTS.md,
 "Probes"), committed with the item. Name the probes run in the closing comment.
 
-Full-run check (once per run, after the last item, when the run committed anything):
-- `make probe` (every probe, about 30 minutes: start it in the background and read its log). Skip it
-  when the run changed only Markdown files (`git diff --name-only @{u}..HEAD` lists only `.md`
-  files), since no probe can catch a doc edit; say so in the report.
+Full-run check (once per run, after the last item, when the run committed anything). The coordinator
+records `git rev-parse origin/main` at step 1, after the pull (the run's start), and uses it as the
+range below, so other sessions' commits on main are covered too. Why it is not the whole sweep every
+run: the 19 end-of-run `make probe` checks in #1 and #285 passed 11 times and failed 8, every failure
+was fixed on the probe or runner side, none was a regression in the editor, and nothing was reverted;
+the real regressions (#366, #377) were found by workers inside their items. The sweep cost 23 to 31
+minutes a run plus fix items (#439).
+- Skip it all when the range changed only Markdown files (`git diff --name-only <start>..HEAD` lists
+  only `.md` files), since no probe can catch a doc edit; say so in the report.
+- Every run: `make probe-smoke` (#398) and `cd frontend && bun run probe --touching <start>..HEAD`
+  (#397), then `cd frontend && bun run probe bench` as the draw-count guard (#429), and `make test-full`
+  (#401) once, so the client-dependent Go tests run at least once a run.
+- The full `make probe` (about 30 minutes: start it in the background and read its log) only on the
+  first loop run of each calendar day (the run log, #1/#285, says whether one already ran today), or
+  when the range touched `Engine.ts`, `ObjectLayer.ts`, `Modal.svelte`, `MenuBar.svelte` or a shader.
+  It never runs outside a run, and never beside one: two probe runs double the SwiftShader load and
+  skew every timing (#257).
+- `make probe-perf` only for optimization items.
+- Until a command above exists (#397, #398, #401, #429 are open), leave it out and keep the full
+  `make probe`, still once per calendar day; the other runs of the day skip the sweep and say so.
+- The run log says which selection ran and how long it took. A failure is handled as before: find the
+  commit, file a bug, revert if it cannot be fixed.
 
 Benchmark for optimizations: `cd frontend && bun run probe bench`, on the commit before the change and
 on the change (docs/TESTS.md, "Measuring performance"). An estimate with its working also counts (e.g.
