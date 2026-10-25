@@ -113,8 +113,9 @@ type MapSpec struct {
 	// Info, when set, is written into the map's Map.dbc row and the server's map_template; without it
 	// a new row is a world map like the continents.
 	Info *MapInfo
-	// Global, when set, makes a WMO-only map: the WDT places this building (X and Z in yards from the
-	// map's corner, as a tile 0,0 object) and the map has no tiles, as the client's Blackfathom Deeps.
+	// Global, when set, makes a WMO-only map: the WDT places this building and the map has no tiles,
+	// as the client's Blackfathom Deeps. Its X and Z are left out: the building goes at the world's
+	// middle, where the client and the server's vmaps both put a WDT's building at 0 (#272).
 	Global *ObjectSpec
 }
 
@@ -255,6 +256,9 @@ func ExportMap(readDir, patchDir, serverDir string, m MapSpec) (ExportResult, er
 		if obj.Kind != adt.WMO {
 			return res, errors.New("a WMO-only map's building must be a WMO")
 		}
+		// At the world's middle, as every client dungeon has it (wmoonly.go): X and Z 0 in the WDT's
+		// frame, with the bounds round it in the same frame. Its height and turn are kept.
+		obj.Position[0], obj.Position[2] = 0, 0
 		rc.bound(&obj)
 		wdt, err := BuildWMOOnlyWDT(wdtTemplate, GlobalWMO{Name: obj.Name, Position: obj.Position, Rotation: obj.Rotation, Min: obj.Min, Max: obj.Max, DoodadSet: obj.DoodadSet})
 		if err != nil {

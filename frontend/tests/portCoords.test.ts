@@ -1,7 +1,7 @@
 // Run with: bun test tests/portCoords.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatPortCoords, serverSpot, teleportCommand } from '../src/lib/io/portCoords.ts'
+import { formatPortCoords, serverSpot, teleportCommand, wmoOnlyTiles } from '../src/lib/io/portCoords.ts'
 
 const ZP = 32 * (533 + 1 / 3)
 
@@ -49,4 +49,16 @@ test('a server spot faces where the camera looks', () => {
   // Any yaw comes out in [0, 2π).
   close(serverSpot(at, 0, 0, 0, -Math.PI / 2).o, (3 * Math.PI) / 2)
   close(serverSpot(at, 0, 0, 0, 5 * Math.PI).o, Math.PI)
+})
+
+test('a WMO-only map made with New World puts its building at the server 0,0 (#272)', () => {
+	const building = { x: 266.5, y: 12, z: 410 }
+	const t = wmoOnlyTiles(building)
+	const s = serverSpot(building, 1902, t.x, t.y)
+	assert.ok(Math.abs(s.x) < 1e-9 && Math.abs(s.y) < 1e-9, `${s.x}, ${s.y}`)
+	assert.equal(s.z, 12)
+	// A point 10 yards east of it in the editor (+x) is 10 yards to the server's -y.
+	const east = serverSpot({ x: building.x + 10, y: 0, z: building.z }, 1902, t.x, t.y)
+	assert.ok(Math.abs(east.y + 10) < 1e-9 && Math.abs(east.x) < 1e-9, `${east.x}, ${east.y}`)
+	assert.equal(teleportCommand(building, 1902, t.x, t.y), '.go xyz 0.00 0.00 12.00 1902')
 })

@@ -65,3 +65,12 @@ export function serverSpot(pos: { x: number; y: number; z: number }, mapId: numb
 export function editorPoint(s: { x: number; y: number; z: number }, tileX = 0, tileY = 0): { x: number; y: number; z: number } {
   return { x: ZERO_POINT - s.y - tileX * TILE_SIZE, y: s.z, z: ZERO_POINT - s.x - tileY * TILE_SIZE }
 }
+
+/**
+ * The client tile at the north-west corner of a WMO-only map made with New World, for serverSpot:
+ * Publish writes its building at the world's middle whatever its spot in the editor (#272), so the
+ * editor's frame is the one that puts the building (`building`, its editor position) there. Fractional.
+ */
+export function wmoOnlyTiles(building: { x: number; z: number }): { x: number; y: number } {
+	return { x: 32 - building.x / TILE_SIZE, y: 32 - building.z / TILE_SIZE }
+}

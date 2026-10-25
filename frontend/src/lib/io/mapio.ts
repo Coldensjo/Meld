@@ -60,7 +60,7 @@ import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { TILE_CELLS, mapToTiles, type ExportObject } from './vmangosExport'
 import { formatObjectList, parseObjectList } from '../world/objectList'
-import { formatPortCoords } from './portCoords'
+import { formatPortCoords, teleportCommand, wmoOnlyTiles } from './portCoords'
 import { tileKey } from './mapTiles'
 import { blockAround, blockHolds, spotTile } from '../world/teleport'
 import type { TriggerDestination } from '../world/areaTriggers'
@@ -1113,7 +1113,8 @@ export async function chooseVmangosFolder() {
   }
 }
 
-let lastMapId = 0
+/** The `.go` line the last publish's message gives: the map's start, or a WMO-only map's building. */
+let lastGo = ''
 /** Clears the Saving bar of the publish running in the background; a no-op when none is. */
 let endPublish = () => {}
 let listening = false
@@ -1130,7 +1131,7 @@ function listenToPublish() {
     ui.busy = false
     endPublish()
     if (msg) setStatus(`Publish failed: ${msg}`, 0)
-    else setStatus(`Map published. Start the world server and the game, then type .go xyz 16800 16800 10 ${lastMapId} in the game to go there.`, 15000)
+    else setStatus(`Map published. Start the world server and the game, then type ${lastGo} in the game to go there.`, 15000)
   })
 }
 
@@ -1161,7 +1162,10 @@ export function publishVmangosMap(engine: Engine) {
       }
       out.tiles = []
     }
-    lastMapId = ref.mapId
+	// A WMO-only map's building goes to the world's middle (#272), so the line points there, a little
+	// over its origin; another map's points near its corner.
+	const at = global && wmoOnlyTiles(global)
+	lastGo = global && at ? teleportCommand({ x: global.x, y: global.y + 2, z: global.z }, ref.mapId, at.x, at.y) : `.go xyz 16800 16800 10 ${ref.mapId}`
     ui.busy = true
     endPublish = startSaving(`Publishing ${ref.dir}`)
     setStatus(`Publishing ${ref.dir}…${notes.length ? ' ' + notes.join('. ') + '.' : ''}`, 0)

@@ -392,8 +392,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   where the server's creatures stand). Saving (`BuildRegion` → `buildWMOOnly`) writes only the WDT,
   and only when the building's model or doodad set changed; moving, turning or scaling it, or any
   other model on the map, is refused, since a building off 0 would be placed differently by the
-  client and the server's vmap extractor. `WmoRooms.outside` leaves the building out of the outside
-  flood (its groups are all interior), so it draws whole from outside.
+  client and the server's vmap extractor. For the same reason a new map with Map Properties' "The map
+  is its first building" publishes its building (the first WMO) at the world's middle, 0 on X and Z
+  in the WDT, keeping its height and turn, wherever it stands in the editor (`ExportMap`'s
+  `m.Global` branch, the owner's choice on #272). The editor's frame for such a map follows the
+  building (`Engine.serverTiles`, `wmoOnlyTiles` in `io/portCoords.ts`), so Launch, Play here, Copy
+  Position as Teleport Command (F9) and the publish message's `.go` line all point at 0,0 on the
+  server. `WmoRooms.outside` leaves the building out of the outside flood (its groups are all interior), so it draws whole from outside.
 - **Zones** (`components/ZonesDialog.svelte`, World › Zones…, `ui.dialog = 'zones'`): a map's AreaTable.dbc
   rows (`vmangos/areatable.go`: `ReadAreaRows`, `NewAreaRow`, `SetAreaRows`; bindings `AreaRows`,
   `NewAreaRow`, `SaveAreas`). Save writes AreaTable.dbc into Meld's patch (waiting for a running game

@@ -85,7 +85,7 @@ import { ParticleLayer } from '../world/ParticleLayer'
 import { CloudDome } from './CloudDome'
 import { stormBlend, WEATHER_GRADE } from '../wow/weather'
 import { WeatherLayer, type SplashGround } from '../world/WeatherLayer'
-import { editorPoint, serverSpot, teleportCommand, type ServerSpot } from '../io/portCoords'
+import { editorPoint, serverSpot, teleportCommand, wmoOnlyTiles, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
 import { TaxiLayer, type TaxiHooks, type TaxiPick, type TaxiRouteShape, type TaxiStopShape } from '../world/TaxiLayer'
 import { airPoint, flightAt, segmentLengths, type Vec3 } from '../world/taxiRoute'
@@ -2030,7 +2030,8 @@ export class Engine {
     if (mapId === undefined) return null
     const c = d.camera
     if (!c) return null
-    return serverSpot(c.target.clone().setY(c.target.y + PLAYER_LIFT), mapId, m.region?.x ?? 0, m.region?.y ?? 0, c.yaw)
+    const t = this.serverTiles(d)
+    return serverSpot(c.target.clone().setY(c.target.y + PLAYER_LIFT), mapId, t.x, t.y, c.yaw)
   }
 
   /** The open map's Light.dbc lights for the minimap's light zones (#26), read once per map ID. */
@@ -3242,7 +3243,8 @@ export class Engine {
     if (!m.vmangos) await this.loadMapIds()
     const id = this.openMapId()
     if (id === null) return { error: 'The client’s map list could not be read, so this map’s ID is unknown.' }
-    return { command: teleportCommand(at, id, m.region?.x ?? 0, m.region?.y ?? 0) }
+    const t = this.serverTiles(this.doc)
+    return { command: teleportCommand(at, id, t.x, t.y) }
   }
 
   /**
@@ -3261,8 +3263,29 @@ export class Engine {
     const from = c.followGround ? c.target.clone().setY(c.target.y + PLAYER_PROBE) : this.camera.position.clone()
     const at = this.groundBelow(from) ?? from.clone().setY(this.terrain.heightAt(from.x, from.z))
     at.y += PLAYER_LIFT
-    return serverSpot(at, id, m.region?.x ?? 0, m.region?.y ?? 0, c.yaw)
+    const t = this.serverTiles(this.doc)
+    return serverSpot(at, id, t.x, t.y, c.yaw)
   }
+
+	/**
+	 * The client tile at the north-west corner of a map's editor frame, for serverSpot: a region's first
+	 * tile; 0 for a map made with New World, but for a WMO-only one, whose building Publish writes at the
+	 * world's middle (#272), the frame that puts its building there.
+	 */
+	private serverTiles(d: MapDocument): { x: number; y: number } {
+		const m = d.meta
+		if (m.region) return { x: m.region.x, y: m.region.y }
+		const b = m.vmangos?.info?.wmoOnly ? this.globalBuilding(d) : null
+		return b ? wmoOnlyTiles(b) : { x: 0, y: 0 }
+	}
+
+	/** A WMO-only map's building, as Publish picks it: the first WMO, at its editor position. */
+	globalBuilding(d: MapDocument = this.doc): THREE.Vector3 | null {
+		for (const o of d.objects.objects.values()) {
+			if (o.type.startsWith('wmo:')) return d.objects.worldPlacement(o).pos
+		}
+		return null
+	}
 
   /** The nearest terrain or model surface straight below `from`, or null when there is none. */
   private groundBelow(from: THREE.Vector3): THREE.Vector3 | null {

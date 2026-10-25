@@ -19,7 +19,9 @@ import (
 // files' frame. vmangos' vmap extractor does the same, and only for a building at exactly 0 on the
 // ground plane (wmo.cpp, WMOInstance). So the WDT's position is the file frame less ZeroPoint on X
 // and Z, and the editor reads it that way; a building moved off 0 would be placed by the client and
-// the server's collision data differently, which is why a save refuses to move it.
+// the server's collision data differently, which is why a save refuses to move it, and why a new
+// WMO-only map (ExportMap, MapSpec.Global) writes its building at 0 on X and Z whatever its spot in
+// the editor (the owner's choice on #272; the editor's frame for such a map follows the building).
 
 // globalGroundDrop is how far below the building's lowest point the hidden ground lies, in yards.
 const globalGroundDrop = 20
