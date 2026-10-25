@@ -118,7 +118,7 @@ import {
 	replacePalette,
 	resetTexel,
 } from '../terrain/chunkPaint'
-import { isColor } from '../terrain/paletteArray'
+import { isColor, retryFailedPalettes, setPaletteFailHandler } from '../terrain/paletteArray'
 import { listAssets, setCompressedTextures, setMaxAnisotropy } from '../wow/api'
 import { runMapChecks } from '../check/run'
 import type { Finding } from '../check/findings'
@@ -677,6 +677,8 @@ export class Engine {
 		}
 		// A WMO whose room data failed has no rooms, walls or floor until its retry (#515): say so, and log it.
 		this.rooms.navs.onFail = (path, err) => setStatus(`Building rooms: ${path} didn't load, so the camera passes through its walls (tried again in ${RETRY_MS / 1000} s): ${err instanceof Error ? err.message : err}`, 8000)
+		// A palette texture the client could not serve stays grey: say so, and ask again on a reconnect (#544).
+		setPaletteFailHandler((path, err) => setStatus(`Paint texture ${path} didn't load, so its layer stays grey: ${err instanceof Error ? err.message : err}`, 8000))
 		// A model whose collision failed is left out of the walkable ground; the status line counts them.
 		this.nav.collisions.onFail = (path, err) => logLine(`Walkable ground: the collision of ${path} didn't load: ${err instanceof Error ? err.message : err}`)
 
@@ -1443,6 +1445,7 @@ export class Engine {
 		if (this.wowRevision !== wow.revision) {
 			this.wowRevision = wow.revision
 			resetLiquidFrames()
+			retryFailedPalettes()
 		}
 		let ring: typeof this.liquidRing | null = null
 		if (editor.tool === 'water' && editor.waterMode === 'paint' && this.hit) {

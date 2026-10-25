@@ -105,6 +105,20 @@ const RGBA_LEVEL = [PALETTE_RES * PALETTE_RES * 4]
 /** Bytes of an RGBA layer on the GPU with the mips it makes. */
 const RGBA_GPU_BYTES = LEVEL_SIDE.reduce((a, s) => a + s * s * 4, 0)
 
+let failHandler: ((path: string, err: unknown) => void) | null = null
+/** The palettes holding a texture that failed to load, so a reconnect can ask for those again (#544). */
+const failedPalettes = new Set<PaletteArray>()
+
+/** Called once for each palette texture that fails to load (the Engine says so in the status line and the log). */
+export function setPaletteFailHandler(fn: ((path: string, err: unknown) => void) | null) {
+	failHandler = fn
+}
+
+/** Loads again every palette texture that failed, once the client is back. */
+export function retryFailedPalettes() {
+	failedPalettes.forEach((p) => p.retryFailed())
+}
+
 export class PaletteArray {
 	/** The array texture the terrain shader samples. Replaced when the palette outgrows it. */
 	texture: THREE.DataArrayTexture | THREE.CompressedArrayTexture
@@ -114,6 +128,8 @@ export class PaletteArray {
 	/** Each entry's layer bytes loaded so far (RGBA level 0, or DXT3 every level), by entry. */
 	private loaded = new Map<string, Uint8Array>()
 	private loading = new Set<string>()
+	/** Paths whose load failed: reported once, left grey until retryFailed. */
+	private failed = new Set<string>()
 	/** A layer's bytes in each uploaded level. */
 	private readonly levelBytes: readonly number[]
 	/** Where each level starts in a layer's bytes. */
@@ -224,7 +240,7 @@ export class PaletteArray {
 			this.write(layer, c)
 			return
 		}
-		if (this.loading.has(path)) return
+		if (this.loading.has(path) || this.failed.has(path)) return
 		this.loading.add(path)
 		const layerBytes = this.compressed
 			? Promise.all([fetchTextureDXT(path), hasSheenTwin(path).then((has) => (has ? fetchTextureDXT(sheenPath(path)).catch(() => null) : null))]).then(([base, sheen]) => blockLayer(path, base, sheen))
@@ -243,13 +259,27 @@ export class PaletteArray {
 				})
 				this.texture.needsUpdate = true
 			})
-			.catch(() => {
+			.catch((err) => {
 				this.loading.delete(path)
-				// Keep the grey placeholder and drop the failed path from the cache so it can be retried.
+				// Keep the grey placeholder, say so once, and ask again when the client reconnects.
+				this.failed.add(path)
+				failedPalettes.add(this)
+				failHandler?.(path, err)
 			})
 	}
 
+	/** Asks again for the textures that failed. */
+	retryFailed() {
+		const paths = [...this.failed]
+		this.failed.clear()
+		failedPalettes.delete(this)
+		this.paths.forEach((p, i) => {
+			if (paths.includes(p)) this.fill(i, p)
+		})
+	}
+
 	dispose() {
+		failedPalettes.delete(this)
 		this.texture.dispose()
 	}
 }
