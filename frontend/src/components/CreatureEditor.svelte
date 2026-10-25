@@ -45,6 +45,10 @@
   let questsDirty = $state(false)
   let messagesDirty = $state(false)
   const tabsDirty = $derived(spellsDirty || shopDirty || questsDirty || messagesDirty)
+  let spellsTab = $state<SpellsTab | null>(null)
+  let shopTab = $state<ShopTab | null>(null)
+  let questsTab = $state<QuestsTab | null>(null)
+  let messagesTab = $state<MessagesTab | null>(null)
   const changes = $derived(changedValues(values, saved))
   const changeCount = $derived(Object.keys(changes).length)
   const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name)) : [])
@@ -158,6 +162,11 @@
 
   function discard() {
     values = { ...saved }
+    // The tabs read their rows again, so a switch that keeps them mounted (another spawn of the same creature) shows no stale edits.
+    if (spellsDirty) spellsTab?.revert()
+    if (shopDirty) shopTab?.revert()
+    if (questsDirty) questsTab?.revert()
+    if (messagesDirty) messagesTab?.revert()
     confirmClose = false
     const then = afterDiscard
     afterDiscard = null
@@ -407,16 +416,16 @@
           {/if}
           {#if record && target.entry > 0}
             <div hidden={tab !== 'spells'}>
-              <SpellsTab entry={record.entry} onsaved={spellsSaved} bind:dirty={spellsDirty} />
+              <SpellsTab bind:this={spellsTab} entry={record.entry} onsaved={spellsSaved} bind:dirty={spellsDirty} />
             </div>
             <div hidden={tab !== 'shop'}>
-              <ShopTab entry={record.entry} npcFlags={Number(values.npc_flags) || 0} onvendorflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x4, true))} bind:dirty={shopDirty} />
+              <ShopTab bind:this={shopTab} entry={record.entry} npcFlags={Number(values.npc_flags) || 0} onvendorflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x4, true))} bind:dirty={shopDirty} />
             </div>
             <div hidden={tab !== 'quests'}>
-              <QuestsTab entry={record.entry} name={saved.name || values.name || ''} ready={((Number(values.npc_flags) || 0) & 0x2) !== 0} onquestflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x2, true))} bind:dirty={questsDirty} />
+              <QuestsTab bind:this={questsTab} entry={record.entry} name={saved.name || values.name || ''} ready={((Number(values.npc_flags) || 0) & 0x2) !== 0} onquestflag={() => (values.npc_flags = withBit(values.npc_flags ?? '0', 0x2, true))} bind:dirty={questsDirty} />
             </div>
             <div hidden={tab !== 'messages'}>
-              <MessagesTab entry={record.entry} onsaved={greetingSaved} bind:dirty={messagesDirty} />
+              <MessagesTab bind:this={messagesTab} entry={record.entry} onsaved={greetingSaved} bind:dirty={messagesDirty} />
             </div>
           {/if}
         </div>

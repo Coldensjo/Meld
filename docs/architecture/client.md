@@ -209,6 +209,14 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `SpawnActions.applyCreatureTemplate` then brings that creature's spawns up to date through
   `SpawnLayer.rebase`, which changes their saved state too. A template's columns are drawn by
   `TemplateFields.svelte`, shared with the game object editor.
+- **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
+  options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
+  that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a
+  later one is dropped), `follow` (reads again when the entry changes), `save` (the Saving bar and
+  the error), and `moveRow`/`removeRow`. Every one of these tabs exports `revert()`, which the
+  editors' Discard calls (the creature editor for its dirty tabs, the object editor and the quest
+  editor through their Revert), so a switch that keeps the tab mounted (another spawn of the same
+  creature) shows no stale edits.
 - **Spells** (`components/SpellsTab.svelte`, #243): the creature editor's tab for what the creature
   casts in combat, the eight slots of the `creature_spells` row its `spell_list_id` names
   (`internal/vmangos/creaturespells.go`: `ReadCreatureSpells`, `SaveCreatureSpells`), each with its

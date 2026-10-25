@@ -2,6 +2,7 @@
 	import { ReadQuestGivers, SaveQuestGivers, SearchCreatures } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { editor } from '../lib/state/editor.svelte'
+	import { RowList, removeRow } from '../lib/ui/rowList.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 
 	// The quest editor's Givers tab (#259): the creatures and game objects that start the quest
@@ -14,46 +15,32 @@
 	let { entry, dirty = $bindable(false) }: { entry: number; dirty?: boolean } = $props()
 
 	type List = 'starts' | 'ends'
-	let givers = $state<{ starts: vmangos.QuestGiver[]; ends: vmangos.QuestGiver[] }>({ starts: [], ends: [] })
-	let saved = $state('')
+	type Lists = { starts: vmangos.QuestGiver[]; ends: vmangos.QuestGiver[] }
 	/** The creatures without the flag that get it on Save, by entry. */
 	let flag = $state<Record<number, boolean>>({})
-	let loading = $state(false)
-	let error = $state('')
 
 	const id = (g: vmangos.QuestGiver) => `${g.kind}:${g.id}`
-	const key = (g: typeof givers) => JSON.stringify([g.starts.map((r) => [id(r), r.patchMin, r.patchMax]), g.ends.map((r) => [id(r), r.patchMin, r.patchMax])])
+	const lists = new RowList<Lists>({
+		empty: { starts: [], ends: [] },
+		read: async () => {
+			const g = await ReadQuestGivers(entry)
+			flag = {}
+			return { starts: g.starts ?? [], ends: g.ends ?? [] }
+		},
+		key: (g) => JSON.stringify([g.starts.map((r) => [id(r), r.patchMin, r.patchMax]), g.ends.map((r) => [id(r), r.patchMin, r.patchMax])]),
+	})
+	const givers = $derived(lists.rows)
 	/** The creatures of the lists that lack the flag. */
 	const unflagged = $derived([...new Map([...givers.starts, ...givers.ends].filter((g) => g.kind === 'creature' && !g.ready).map((g) => [g.id, g])).values()])
 	const flagging = $derived(unflagged.filter((g) => flag[g.id] !== false).map((g) => g.id))
 	$effect(() => {
-		dirty = saved !== '' && (key(givers) !== saved || flagging.length > 0)
+		dirty = lists.dirty || flagging.length > 0
 	})
+	lists.follow(() => entry)
 
-	let loadedFor = -1
-	$effect(() => {
-		if (entry === loadedFor) return
-		loadedFor = entry
-		void load()
-	})
-
-	async function load() {
-		loading = true
-		error = ''
-		try {
-			const g = await ReadQuestGivers(entry)
-			givers = { starts: g.starts ?? [], ends: g.ends ?? [] }
-			flag = {}
-			saved = key(givers)
-		} catch (err) {
-			error = String(err)
-		} finally {
-			loading = false
-		}
-	}
-
+	/** Drops the unsaved lists (the quest editor's Revert and Discard). */
 	export function revert() {
-		void load()
+		void lists.revert()
 	}
 
 	/** Writes the lists (and the flags), and says what it wrote; '' when nothing changed. */
@@ -61,13 +48,13 @@
 		if (!dirty) return ''
 		await SaveQuestGivers(entry, vmangos.QuestGivers.createFrom($state.snapshot(givers)), flagging)
 		const flagged = flagging.length
-		await load()
+		await lists.load()
 		const n = (k: List) => givers[k].length
 		return `givers (starts ${n('starts')}, ends ${n('ends')}${flagged ? `; ${flagged} given the Quest giver flag` : ''})`
 	}
 
 	function remove(list: List, i: number) {
-		givers[list] = givers[list].filter((_, k) => k !== i)
+		lists.rows[list] = removeRow(lists.rows[list], i)
 	}
 
 	/** An object that can't be added: not a Quest giver, so the server would ignore it. */
@@ -77,11 +64,11 @@
 	function add(list: List, g: vmangos.QuestGiver) {
 		if (givers[list].some((r) => id(r) === id(g))) return
 		if (refused(g)) {
-			error = `${g.name} (object ${g.id}): ${refusedText}.`
+			lists.error = `${g.name} (object ${g.id}): ${refusedText}.`
 			return
 		}
-		error = ''
-		givers[list] = [...givers[list], vmangos.QuestGiver.createFrom({ ...g, patchMin: 0, patchMax: 10 })]
+		lists.error = ''
+		lists.rows[list] = [...givers[list], vmangos.QuestGiver.createFrom({ ...g, patchMin: 0, patchMax: 10 })]
 	}
 
 	// Adding: a search over creatures (the world database) or game objects (the object list).
@@ -115,7 +102,7 @@
 				}
 				if (q === query.trim() && k === kind) results = r
 			} catch (err) {
-				error = String(err)
+				lists.error = String(err)
 			} finally {
 				searching = false
 			}
@@ -135,8 +122,8 @@
 </script>
 
 <div class="givers">
-	{#if error}<p class="error">{error}</p>{/if}
-	<p class="dim">{loading ? 'Loading the givers…' : 'Who offers the quest and who takes it in. Saved with Save quest.'}</p>
+	{#if lists.error}<p class="error">{lists.error}</p>{/if}
+	<p class="dim">{lists.loading ? 'Loading the givers…' : 'Who offers the quest and who takes it in. Saved with Save quest.'}</p>
 
 	{#each [['starts', 'Starts it', 'Offered by'], ['ends', 'Ends it', 'Handed in to']] as [list, title, what2] (list)}
 		{@const rows = givers[list as List]}

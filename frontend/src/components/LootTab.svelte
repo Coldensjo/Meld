@@ -2,6 +2,7 @@
 	import { NextObjectLoot, ReadObjectLoot, SaveObjectLoot, SearchItems } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
+	import { RowList } from '../lib/ui/rowList.svelte'
 	import { engineRef } from '../lib/state/engineRef'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import { objectTypeName } from '../lib/world/spawnInfo'
@@ -40,62 +41,40 @@
 	const QUALITY = QUALITY_COLORS
 	const container = $derived(type === 3 || type === 25)
 
-	let items = $state<vmangos.LootItem[]>([])
-	let users = $state<vmangos.LootUser[]>([])
-	let spawns = $state(0)
-	/** The loot list the rows are edited for, and the one (with its rows) the database has them for. */
-	let listFor = $state(0)
-	let savedFor = $state(0)
-	let savedKey = $state('[]')
-	let loading = $state(false)
-	let error = $state('')
-
-	const key = (list: vmangos.LootItem[]) => JSON.stringify(list.map((i) => [i.item, i.chance, i.group, i.minCount, i.maxCount, i.condition, i.patchMin, i.patchMax]))
+	/** The loot list the rows are edited for, its rows, and the objects and spawns that hold it too. */
+	type Loot = { list: number; items: vmangos.LootItem[]; users: vmangos.LootUser[]; spawns: number }
+	const rows = new RowList<Loot>({
+		empty: { list: 0, items: [], users: [], spawns: 0 },
+		read: async () => {
+			const r = await ReadObjectLoot(entry, loot)
+			return { list: loot, items: r.items ?? [], users: r.users ?? [], spawns: r.spawns }
+		},
+		// The list leads the key, so the list the database has the rows for can be read back from it.
+		key: (l) => `${l.list}|${JSON.stringify(l.items.map((i) => [i.item, i.chance, i.group, i.minCount, i.maxCount, i.condition, i.patchMin, i.patchMax]))}`,
+	})
+	const items = $derived(rows.rows.items)
+	const listFor = $derived(rows.rows.list)
+	const users = $derived(rows.rows.users)
+	const spawns = $derived(rows.rows.spawns)
+	const savedFor = $derived(Number(rows.saved.slice(0, rows.saved.indexOf('|'))))
 	$effect(() => {
-		dirty = listFor > 0 && (listFor !== savedFor || key(items) !== savedKey)
+		dirty = listFor > 0 && rows.dirty
 	})
 
 	// The rows follow the object and its loot list; a list this tab picked itself (a copy) keeps them.
-	let shownFor = ''
-	let token = 0
-	$effect(() => {
-		const id = `${entry}|${loot}`
-		if (id === shownFor) return
-		shownFor = id
-		void load(entry, loot)
-	})
-
-	async function load(e: number, l: number) {
-		const mine = ++token
-		loading = true
-		error = ''
-		try {
-			const r = await ReadObjectLoot(e, l)
-			if (mine !== token) return
-			items = r.items ?? []
-			users = r.users ?? []
-			spawns = r.spawns
-			listFor = savedFor = l
-			savedKey = key(items)
-		} catch (err) {
-			if (mine === token) error = String(err)
-		} finally {
-			if (mine === token) loading = false
-		}
-	}
+	rows.follow(() => `${entry}|${loot}`)
 
 	/** Drops the unsaved rows: reads the list the object points at again. */
 	export function revert() {
-		shownFor = `${entry}|${loot}`
-		void load(entry, loot)
+		rows.followed = `${entry}|${loot}`
+		void rows.revert()
 	}
 
 	/** Writes the rows into their list; returns how many it saved, or -1 when nothing needed saving. */
 	export async function save(): Promise<number> {
 		if (!dirty) return -1
 		await SaveObjectLoot(listFor, items)
-		savedFor = listFor
-		savedKey = key(items)
+		rows.markSaved()
 		return items.length
 	}
 
@@ -103,13 +82,13 @@
 	async function ownCopy() {
 		try {
 			const id = await NextObjectLoot()
-			shownFor = `${entry}|${id}`
-			listFor = id
-			users = []
+			rows.followed = `${entry}|${id}`
+			rows.rows.list = id
+			rows.rows.users = []
 			onsetloot(id)
 			setStatus(`${name} now has loot list ${id}, a copy of the shared one. Save to keep it.`, 8000)
 		} catch (err) {
-			error = String(err)
+			rows.error = String(err)
 		}
 	}
 
@@ -117,12 +96,12 @@
 		try {
 			onsetloot(await NextObjectLoot())
 		} catch (err) {
-			error = String(err)
+			rows.error = String(err)
 		}
 	}
 
 	function remove(item: number) {
-		items = items.filter((i) => i.item !== item)
+		rows.rows.items = items.filter((i) => i.item !== item)
 	}
 
 	const int = (v: string, lo: number, hi: number) => {
@@ -162,7 +141,7 @@
 				const r = await SearchItems(q)
 				if (q === query.trim()) results = r ?? []
 			} catch (err) {
-				error = String(err)
+				rows.error = String(err)
 			} finally {
 				searching = false
 			}
@@ -174,7 +153,7 @@
 			setStatus(`${r.name} is already in the contents.`, 4000)
 			return
 		}
-		items = [
+		rows.rows.items = [
 			...items,
 			vmangos.LootItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, chance: 100, group: 0, minCount: 1, maxCount: 1, condition: 0, patchMin: 0, patchMax: 10 }),
 		]
@@ -204,7 +183,7 @@
 </script>
 
 <div class="loot">
-	{#if error}<p class="error">{error}</p>{/if}
+	{#if rows.error}<p class="error">{rows.error}</p>{/if}
 
 	{#if !container}
 		<p>A {objectTypeName(type).toLowerCase()} holds nothing: only a chest (veins and herbs are chests too) or a fishing hole has contents.</p>
@@ -244,7 +223,7 @@
 			<h3>Holds{items.length ? ` (${items.length})` : ''}</h3>
 			<span class="dim">loot list {loot}{spawns ? ` · ${spawnWord(spawns)} of ${name}` : ''}</span>
 		</div>
-		{#if loading}
+		{#if rows.loading}
 			<p class="dim">Loading the contents…</p>
 		{:else if items.length === 0}
 			<p class="dim">Nothing yet. Find items below and click one to add it.</p>

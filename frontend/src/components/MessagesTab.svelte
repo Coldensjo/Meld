@@ -4,6 +4,7 @@
 	import type { vmangos } from '../../wailsjs/go/models'
 	import MoneyField from './MoneyField.svelte'
 	import { setStatus } from '../lib/state/editor.svelte'
+	import { RowList } from '../lib/ui/rowList.svelte'
 	import { ACTION_TALK, AI_EVENTS, CHAT_TYPES, GOSSIP_ACTIONS, GOSSIP_ICONS, nameOf, nextOptionId } from '../lib/wow/gossipNames'
 
 	// The creature editor's Messages tab (#145, #158): what the creature says when a player talks to
@@ -101,10 +102,10 @@
 	}
 
 	/** The options being edited, and as last read (JSON), to tell an edit. */
-	let options = $state<vmangos.GossipOption[]>([])
-	let savedOptions = $state('[]')
+	const optionRows = new RowList<vmangos.GossipOption[]>({ empty: [] })
+	const options = $derived(optionRows.rows)
 	let savingOptions = $state(false)
-	const optionsDirty = $derived(JSON.stringify(options) !== savedOptions)
+	const optionsDirty = $derived(optionRows.dirty)
 	const greetingDirty = $derived(male !== savedMale || female !== savedFemale)
 
 	$effect(() => {
@@ -112,8 +113,7 @@
 	})
 
 	function readOptions(g: vmangos.Gossip) {
-		options = (g.options ?? []).map((o) => ({ ...o }))
-		savedOptions = JSON.stringify(options)
+		optionRows.set((g.options ?? []).map((o) => ({ ...o })))
 	}
 
 	function addOption() {
@@ -195,6 +195,11 @@
 		} finally {
 			loading = false
 		}
+	}
+
+	/** Drops every unsaved change: the greeting, the conditioned texts and the options (the editor's Discard). */
+	export function revert() {
+		void load()
 	}
 
 	async function save() {

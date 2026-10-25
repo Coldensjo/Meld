@@ -270,7 +270,10 @@ Checks: the Shop tab lists, adds, reorders and saves what a creature sells. Unit
 (Tharynn Bouden, 17 items), click the Shop tab. To test a save without changing the user's world
 database for good, use a creature with no shop (805, Cameron): add an item, Save shop, read it back
 with `await window.go.main.App.ReadVendor(805)`, then remove it and save again (the table is back as
-it was; `select count(*) from npc_vendor where entry=805` is 0).
+it was; `select count(*) from npc_vendor where entry=805` is 0). Probe: `bun run probe
+creature-shop` (#577: Brother Danil, 152, a row moved down and Revert, a row removed and the editor's
+Discard, reopened unchanged; nothing written). The tabs' shared dirty logic is unit-tested in
+`frontend/tests/rowList.test.ts`.
 - Trap: saving renumbers the slots 0..n in list order, so re-saving a real vendor's list as it was
   can still change its `slot` values. Test saves on a creature with no shop.
 - Trap: the tab keeps its list while other tabs are shown (it stays mounted, hidden); its unsaved

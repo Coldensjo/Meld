@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { startSaving } from '../lib/state/saving'
 	import { ReadVendor, SaveVendor, SearchItems } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
+	import { RowList, moveRow, removeRow } from '../lib/ui/rowList.svelte'
 	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
 	import ItemIcon from './ItemIcon.svelte'
 	import ItemTooltip from './ItemTooltip.svelte'
@@ -32,72 +32,33 @@
 		dirty = $bindable(false),
 	}: { entry: number; npcFlags: number; onvendorflag: () => void; dirty?: boolean } = $props()
 
-	let items = $state<vmangos.VendorItem[]>([])
-	let saved = $state<string>('[]')
 	let templateId = $state(0)
 	let template = $state<vmangos.VendorItem[]>([])
-	let loading = $state(false)
-	let saving = $state(false)
-	let error = $state('')
-
-	const key = (list: vmangos.VendorItem[]) => JSON.stringify(list.map((i) => [i.item, i.maxCount, i.incrTime, i.itemFlags, i.condition]))
-	$effect(() => {
-		dirty = key(items) !== saved
-	})
-
-	let loadedFor = -1
-	$effect(() => {
-		if (entry === loadedFor) return
-		loadedFor = entry
-		void load()
-	})
-
-	async function load() {
-		loading = true
-		error = ''
-		try {
+	const rows = new RowList<vmangos.VendorItem[]>({
+		empty: [],
+		read: async () => {
 			const v = await ReadVendor(entry)
-			items = v.items ?? []
-			saved = key(items)
 			templateId = v.templateId
 			template = v.template ?? []
-		} catch (err) {
-			error = String(err)
-		} finally {
-			loading = false
-		}
-	}
+			return v.items ?? []
+		},
+		key: (list) => JSON.stringify(list.map((i) => [i.item, i.maxCount, i.incrTime, i.itemFlags, i.condition])),
+	})
+	rows.follow(() => entry)
+	$effect(() => {
+		dirty = rows.dirty
+	})
 
-	async function save() {
-		saving = true
-		const end = startSaving("Saving the creature's shop")
-		error = ''
-		try {
+	function save() {
+		void rows.save("Saving the creature's shop", async (items) => {
 			await SaveVendor(entry, items)
-			saved = key(items)
 			setStatus(`Saved the shop of creature ${entry} (${items.length} ${items.length === 1 ? 'item' : 'items'}). Restart the world server to see it in the game.`, 10000)
-		} catch (err) {
-			error = String(err)
-		} finally {
-			saving = false
-			end()
-		}
+		})
 	}
 
-	function revert() {
-		void load()
-	}
-
-	function move(i: number, d: number) {
-		const j = i + d
-		if (j < 0 || j >= items.length) return
-		const list = [...items]
-		;[list[i], list[j]] = [list[j], list[i]]
-		items = list
-	}
-
-	function remove(i: number) {
-		items = items.filter((_, k) => k !== i)
+	/** Drops the unsaved rows (the tab's Revert, the editor's Discard). */
+	export function revert() {
+		void rows.revert()
 	}
 
 	function num(v: string, max: number): number {
@@ -123,7 +84,7 @@
 				const r = await SearchItems(q)
 				if (q === query.trim()) results = r ?? []
 			} catch (err) {
-				error = String(err)
+				rows.error = String(err)
 			} finally {
 				searching = false
 			}
@@ -131,16 +92,16 @@
 	})
 
 	function add(r: vmangos.ItemRef) {
-		if (items.some((i) => i.item === r.entry)) {
+		if (rows.rows.some((i) => i.item === r.entry)) {
 			setStatus(`${r.name} is already in the shop.`, 4000)
 			return
 		}
-		items = [...items, vmangos.VendorItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, maxCount: 0, incrTime: 0, itemFlags: 0, condition: 0 })]
+		rows.rows = [...rows.rows, vmangos.VendorItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, maxCount: 0, incrTime: 0, itemFlags: 0, condition: 0 })]
 	}
 </script>
 
 <div class="shop">
-	{#if error}<p class="error">{error}</p>{/if}
+	{#if rows.error}<p class="error">{rows.error}</p>{/if}
 	{#if (npcFlags & VENDOR_FLAG) === 0}
 		<p class="warn">
 			This creature has no Vendor flag, so the server opens no shop for it.
@@ -150,13 +111,13 @@
 	{/if}
 
 	<div class="head">
-		<h3>Sells{items.length ? ` (${items.length})` : ''}</h3>
-		<button disabled={!dirty || saving} onclick={revert}>Revert</button>
-		<button class="active" disabled={!dirty || saving} onclick={save}>{saving ? 'Saving…' : dirty ? 'Save shop' : 'Saved'}</button>
+		<h3>Sells{rows.rows.length ? ` (${rows.rows.length})` : ''}</h3>
+		<button disabled={!rows.dirty || rows.saving} onclick={revert}>Revert</button>
+		<button class="active" disabled={!rows.dirty || rows.saving} onclick={save}>{rows.saving ? 'Saving…' : rows.dirty ? 'Save shop' : 'Saved'}</button>
 	</div>
-	{#if loading}
+	{#if rows.loading}
 		<p class="dim">Loading the shop…</p>
-	{:else if items.length === 0}
+	{:else if rows.rows.length === 0}
 		<p class="dim">Nothing yet. Find items below and click one to add it.</p>
 	{:else}
 		<table>
@@ -164,15 +125,15 @@
 				<tr><th>Item</th><th title="How many it has in stock; 0 is unlimited">Stock</th><th title="Seconds before a sold-out stock comes back">Restock (s)</th><th></th></tr>
 			</thead>
 			<tbody>
-				{#each items as it, i (it.item)}
+				{#each rows.rows as it, i (it.item)}
 					<tr>
 						<td class="item" {...hoverItem(it.item, it.displayId)}><ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}</span></td>
 						<td><input type="number" min="0" max="255" value={it.maxCount} oninput={(e) => (it.maxCount = num(e.currentTarget.value, 255))} /></td>
 						<td><input type="number" min="0" value={it.incrTime} disabled={it.maxCount === 0} oninput={(e) => (it.incrTime = num(e.currentTarget.value, 4294967295))} /></td>
 						<td class="row-actions">
-							<button title="Move up" disabled={i === 0} onclick={() => move(i, -1)}>↑</button>
-							<button title="Move down" disabled={i === items.length - 1} onclick={() => move(i, 1)}>↓</button>
-							<button title="Remove" onclick={() => remove(i)}>✕</button>
+							<button title="Move up" disabled={i === 0} onclick={() => (rows.rows = moveRow(rows.rows, i, -1))}>↑</button>
+							<button title="Move down" disabled={i === rows.rows.length - 1} onclick={() => (rows.rows = moveRow(rows.rows, i, 1))}>↓</button>
+							<button title="Remove" onclick={() => (rows.rows = removeRow(rows.rows, i))}>✕</button>
 						</td>
 					</tr>
 				{/each}
@@ -187,7 +148,7 @@
 		<ul class="results">
 			{#each results as r (r.entry)}
 				<li>
-					<button disabled={items.some((i) => i.item === r.entry)} onclick={() => add(r)} {...hoverItem(r.entry, r.displayId)}>
+					<button disabled={rows.rows.some((i) => i.item === r.entry)} onclick={() => add(r)} {...hoverItem(r.entry, r.displayId)}>
 						<ItemIcon displayId={r.displayId} /> <span style:color={QUALITY[r.quality] ?? QUALITY[1]}>{r.name}</span> <span class="dim">{r.entry}</span>
 					</button>
 				</li>
