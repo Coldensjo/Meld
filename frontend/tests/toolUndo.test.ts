@@ -4,7 +4,7 @@
 // then checks that the stroke changed the map, left exactly one new History step, that Undo brings
 // back every array of the snapshot taken before it, and that Redo brings back the stroke's result.
 // The Select tool's drags, the spawn brush and the hole wall handles have rows too (#694); the gizmo's
-// handles are the Engine's, checked by the gizmo-undo probe.
+// handles are GizmoDrag's, checked in gizmoDrag.test.ts and by the gizmo-undo probe.
 import './runes.ts'
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'

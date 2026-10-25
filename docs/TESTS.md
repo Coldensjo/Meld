@@ -643,7 +643,7 @@ the same scene, the report before and after.
 
 - Brush size controls (Photoshop-style)
 - Scripted brush strokes
-- Every tool's stroke is one undo step (#438, `tests/toolUndo.test.ts`)
+- Every tool's stroke is one undo step (#438, `tests/toolUndo.test.ts`; the gizmo's drags, #555, `tests/gizmoDrag.test.ts`)
 - Vertex mode undo and keys on a focused control (#127)
 - Gizmo drags (spin ring, height arrow, scale knob) without a mouse
 - Place tool keys (preview height and offset)

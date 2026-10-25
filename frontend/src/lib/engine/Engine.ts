@@ -101,27 +101,28 @@ import { isHelper } from '../models/helpers'
 import { NavPreview, RANGE as NAV_RANGE, type PathResult, type ServerSource } from '../world/nav/NavPreview'
 import type { MapInfo } from './MapDocument'
 import { SelectionOutline, type OutlineTarget } from './SelectionOutline'
-import { markMoved, movableSelection, objectsInRect, publishMoved, selectObjects, selectedObjects, withGroups } from '../state/selection'
+import { movableSelection, objectsInRect, publishMoved, selectObjects, selectedObjects, withGroups } from '../state/selection'
 import { meanPivot, turnAbout } from '../world/pivot'
 import { countHoles, fillHoles, snapToBlocks } from '../terrain/holes'
 import { fitHeights, type FitOptions } from '../terrain/fitGround'
 
 import { nearScreenBox } from '../world/screenBox'
-import { TransformGizmo, type GizmoHandle } from './TransformGizmo'
+import { TransformGizmo } from './TransformGizmo'
 import type { CullView } from '../world/instanceCull'
-import { spawnKey, spawnMatrix, spawnOrientation, spawnRotation } from '../world/SpawnLayer'
+import { spawnKey, spawnMatrix } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
 import { InputsKey } from '../tools/inputsKey'
 import { pickTrigger, triggerWins } from '../world/teleport'
 import { teleportTo } from '../io/mapio'
 import { SpawnActions } from './SpawnActions'
 import { TaxiEditing } from './TaxiEditing'
+import { GizmoDrag } from './GizmoDrag'
 import { DocOverlay } from './docOverlay'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { SpawnLinks } from '../world/SpawnLinks'
 import type { SpawnChange } from '../world/formations'
 import { poolMates } from '../world/pools'
-import { applySpawn, selectSpawn, syncSpawnUi, type SpawnFields } from '../world/spawnEdits'
+import { selectSpawn, type SpawnFields } from '../world/spawnEdits'
 import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
@@ -501,31 +502,10 @@ export class Engine {
   private pathTool = new PathTool()
   private spawnLabels: SpawnLabels
   private gizmo = new TransformGizmo()
-  /** Active handle drag: which handle and the state when it started. */
-  private gizmoDrag: {
-    handle: GizmoHandle
-    before: WorldObject
-    startAngle: number
-    startY: number
-    startWorldY: number
-    /** Scale drag: the cursor's distance from the prop's axis when the drag began, in the ring plane. */
-    startDist: number
-    planeNormal: THREE.Vector3
-    /** The spawn being dragged instead of a model, with its facing and height before the drag. */
-    spawn?: { key: string; orientation: number; y: number }
-    /** A move arrow's drag: the ground direction it moves along, where the cursor met the plane, and the model's world position then. */
-    move?: { axis: THREE.Vector3; from: THREE.Vector3; pos: THREE.Vector3 }
-    /** A multi-selection being dragged as one: its models, their state before, and the pivot the handles work about. */
-    group?: {
-      targets: WorldObject[]
-      before: WorldObject[]
-      /** Each target's world placement when the drag began: x, z, y, yaw and scale. */
-      start: Array<{ x: number; z: number; y: number; rot: number; scale: number }>
-      pivot: { x: number; z: number }
-    }
-  } | null = null
-  private dragPlane = new THREE.Plane()
-  private dragPoint = new THREE.Vector3()
+	/** The drag of the selection's handles (GizmoDrag.ts). */
+	private gizmoDrag: GizmoDrag
+	/** Where a selected spawn's handles stand (updateSelectionVisuals). */
+	private spawnGizmoAt = new THREE.Vector3()
   private tmpBox = new THREE.Box3()
   private otherBox = new THREE.Box3()
   private tmpV = new THREE.Vector3()
@@ -674,6 +654,22 @@ export class Engine {
 		surfaceHit: () => self.surfaceHit(),
 		sceneView: () => self.sceneView(),
 		setSceneView: (v) => self.setSceneView(v),
+	})
+	this.gizmoDrag = new GizmoDrag({
+		gizmo: self.gizmo,
+		get raycaster() { return self.raycaster },
+		get camera() { return self.camera },
+		get ndc() { return self.ndc },
+		get ortho() { return self.ortho },
+		get topDown() { return self.topDown },
+		get objects() { return self.objects },
+		get spawnLayer() { return self.doc.spawnLayer },
+		get terrain() { return self.terrain },
+		get history() { return self.history },
+		setCursor: (cursor) => { self.canvas.style.cursor = cursor },
+		canNudge: () => self.canNudge(),
+		selectedObject: () => self.selectedObject(),
+		selectionPivot: (targets) => self.selectionPivot(targets),
 	})
 	this.scene.add(this.taxi.layer.group)
     this.ctx = {
@@ -1103,7 +1099,7 @@ export class Engine {
           this.showBrushHint()
           return
         }
-        if (this.gizmoDrag) {
+        if (this.gizmoDrag.active) {
           this.updateGizmoDrag(e.shiftKey)
           return
         }
@@ -1136,7 +1132,7 @@ export class Engine {
           this.sizeDrag = null
           return
         }
-        if (e.button === 0 && this.gizmoDrag) {
+        if (e.button === 0 && this.gizmoDrag.active) {
           this.endGizmoDrag()
           return
         }
@@ -2364,7 +2360,7 @@ export class Engine {
 	 * clicks, which belong to a spot on the old map, are dropped.
 	 */
 	private endInteractions() {
-		if (this.gizmoDrag) this.endGizmoDrag()
+		if (this.gizmoDrag.active) this.endGizmoDrag()
 		if (this.taxi.dragging) this.taxi.endDrag()
 		this.sizeDrag = null
 		this.trigDown = null
@@ -4321,16 +4317,16 @@ export class Engine {
 		if (g.on) {
 			this.gizmo.update(g.at, g.radius, g.top, this.viewEye(), g.scalable, true, editor.gizmoLocal ? g.yaw : 0)
 			// A group's handles work the group as one: no hover cursor from a single model's.
-			if (g.group && this.canvas.style.cursor && !this.gizmoDrag) this.canvas.style.cursor = ''
+			if (g.group && this.canvas.style.cursor && !this.gizmoDrag.active) this.canvas.style.cursor = ''
 			return
 		}
 		// No model: the selected creature or object of the region gets the ring and arrow instead.
-		const s = this.gizmoSpawn()
+		const s = this.gizmoDrag.selectedSpawn()
 		if (s && this.doc.spawnLayer.boundsOf(s, this.tmpBox)) {
 			const size = this.tmpBox.getSize(this.tmpV)
-			this.gizmo.update(this.dragPoint.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), false)
+			this.gizmo.update(this.spawnGizmoAt.set(s.x, s.y, s.z), Math.max(size.x, size.z) * 0.55, this.tmpBox.max.y, this.viewEye(), false)
 		} else this.gizmo.hide()
-		if (this.canvas.style.cursor && !this.gizmoDrag) this.canvas.style.cursor = ''
+		if (this.canvas.style.cursor && !this.gizmoDrag.active) this.canvas.style.cursor = ''
 	}
 
 	/** Outlines every selected model in its colour, sets the warn boxes and puts the handles' spot into `selGizmo`. */
@@ -4414,7 +4410,7 @@ export class Engine {
 			editor.tool === 'select' &&
 			this.pointerInside &&
 			!this.leftDown &&
-			!this.gizmoDrag &&
+			!this.gizmoDrag.active &&
 			!this.sizeDrag &&
 			!this.navPick &&
 			!ui.pasting &&
@@ -4585,310 +4581,20 @@ export class Engine {
 		return n
 	}
 
-  // ------------------------------------------------------------- gizmo drag
+	// ------------------------------------------------------------- gizmo drag (GizmoDrag.ts)
 
-  private ringAngle(p: THREE.Vector3, o: { x: number; z: number }) {
-    return Math.atan2(-(p.z - o.z), p.x - o.x)
-  }
+	/** Begin dragging a gizmo handle under the pointer. Returns true if one was hit. */
+	private startGizmoDrag(): boolean {
+		return this.gizmoDrag.start()
+	}
 
-  /** The selected creature or region object the gizmo works on, when no model is selected (Select tool). */
-  private gizmoSpawn(): vmangos.WorldSpawn | undefined {
-    if (editor.tool !== 'select' || editor.selectedIds.length || !editor.selectedSpawn) return undefined
-    return this.doc.spawnLayer.get(spawnKey(editor.selectedSpawn)) ?? undefined
-  }
+	private updateGizmoDrag(snap: boolean) {
+		this.gizmoDrag.update(snap)
+	}
 
-  /**
-   * Puts where a gizmo drag is into dragPoint: the cursor on the drag plane, or, for the height arrow in
-   * the top-down view (whose straight-down ray never meets the arrow's upright plane), a height from the
-   * cursor's height on screen, a yard per yard of the view. Returns false when the cursor misses the plane.
-   */
-  private dragAt(handle: GizmoHandle): boolean {
-    if (handle === 'arrow' && this.topDown) {
-      const o = this.ortho
-      this.dragPoint.y = (this.ndc.y * (o.top - o.bottom)) / (2 * o.zoom)
-      return true
-    }
-    this.raycaster.setFromCamera(this.ndc, this.camera)
-    return !!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)
-  }
-
-  /** Begin dragging a gizmo handle under the pointer. Returns true if one was hit. */
-  private startGizmoDrag(): boolean {
-    if (this.canNudge() && editor.selectedIds.length > 1) return this.startGroupGizmoDrag()
-    const o = this.canNudge() && editor.selectedIds.length === 1 ? this.selectedObject() : undefined
-    if (!o) return this.startSpawnGizmoDrag()
-    if (!this.gizmo.visible) return false
-    this.raycaster.setFromCamera(this.ndc, this.camera)
-    const handle = this.gizmo.pick(this.raycaster)
-    if (!handle) return false
-    const planeNormal = new THREE.Vector3()
-    let startAngle = 0
-    let startY = 0
-    let startDist = 1
-    if (handle === 'moveX' || handle === 'moveZ') {
-      // Along the arrow, on the ring's plane.
-      planeNormal.set(0, 1, 0)
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.objects.worldPosition(o, this.tmpV).setY(this.gizmo.ringY))
-      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
-      const move = { axis: this.gizmo.axisDir(handle, new THREE.Vector3()), from: this.dragPoint.clone(), pos: this.objects.worldPosition(o, new THREE.Vector3()) }
-      this.gizmoDrag = { handle, before: { ...o }, startAngle, startY, startWorldY: move.pos.y, startDist, planeNormal, move }
-      this.canvas.style.cursor = 'move'
-      return true
-    }
-    if (handle === 'ring' || handle === 'scale') {
-      planeNormal.set(0, 1, 0)
-      const centre = this.objects.worldPosition(o, this.tmpV).setY(this.gizmo.ringY)
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, centre)
-      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
-      startAngle = this.ringAngle(this.dragPoint, o)
-      startDist = Math.max(0.05, Math.hypot(this.dragPoint.x - centre.x, this.dragPoint.z - centre.z))
-    } else {
-      // Vertical plane through the object, facing the camera.
-      planeNormal.copy(this.camera.position).sub(this.tmpV.set(o.x, 0, o.z)).setY(0).normalize()
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.objects.worldPosition(o, this.tmpV))
-      if (!this.dragAt('arrow')) return false
-      startY = this.dragPoint.y
-    }
-    this.gizmoDrag = { handle, before: { ...o }, startAngle, startY, startWorldY: this.objects.worldPosition(o, this.tmpV).y, startDist, planeNormal }
-    this.canvas.style.cursor = handle === 'ring' ? 'grabbing' : handle === 'scale' ? 'ew-resize' : 'ns-resize'
-    return true
-  }
-
-  /**
-   * A multi-selection's handles work the group as one about its pivot: the ring turns it (each model
-   * about the pivot with Rotate around pivot point, else in place), the knob scales it (the models and
-   * their spread from the pivot), and the arrow lifts it. One undo step on release.
-   */
-  private startGroupGizmoDrag(): boolean {
-    const targets = movableSelection(this.objects)
-    if (targets.length < 2 || !this.gizmo.visible) return false
-    this.raycaster.setFromCamera(this.ndc, this.camera)
-    const handle = this.gizmo.pick(this.raycaster)
-    if (!handle) return false
-    const pivot = this.selectionPivot(targets)
-    const planeNormal = new THREE.Vector3()
-    let startAngle = 0
-    let startY = 0
-    let startDist = 1
-    let move: { axis: THREE.Vector3; from: THREE.Vector3; pos: THREE.Vector3 } | undefined
-    if (handle === 'moveX' || handle === 'moveZ') {
-      planeNormal.set(0, 1, 0)
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(pivot.x, this.gizmo.ringY, pivot.z))
-      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
-      move = { axis: this.gizmo.axisDir(handle, new THREE.Vector3()), from: this.dragPoint.clone(), pos: new THREE.Vector3(pivot.x, 0, pivot.z) }
-    } else if (handle === 'ring' || handle === 'scale') {
-      planeNormal.set(0, 1, 0)
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(pivot.x, this.gizmo.ringY, pivot.z))
-      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
-      startAngle = this.ringAngle(this.dragPoint, pivot)
-      startDist = Math.max(0.05, Math.hypot(this.dragPoint.x - pivot.x, this.dragPoint.z - pivot.z))
-    } else {
-      planeNormal.copy(this.camera.position).sub(this.tmpV.set(pivot.x, 0, pivot.z)).setY(0).normalize()
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(pivot.x, this.gizmo.ringY, pivot.z))
-      if (!this.dragAt('arrow')) return false
-      startY = this.dragPoint.y
-    }
-    const start = targets.map((o) => {
-      const w = this.objects.worldPlacement(o)
-      return { x: w.pos.x, z: w.pos.z, y: w.pos.y, rot: w.rot, scale: w.scale }
-    })
-    const primary = this.selectedObject() ?? targets[0]
-    this.gizmoDrag = {
-      handle,
-      before: { ...primary },
-      startAngle,
-      startY,
-      startWorldY: 0,
-      startDist,
-      planeNormal,
-      move,
-      group: { targets, before: targets.map((o) => ({ ...o })), start, pivot },
-    }
-    this.canvas.style.cursor = handle === 'ring' ? 'grabbing' : handle === 'scale' ? 'ew-resize' : move ? 'move' : 'ns-resize'
-    return true
-  }
-
-  private updateGroupGizmoDrag(snap: boolean) {
-    const d = this.gizmoDrag
-    const g = d?.group
-    if (!d || !g) return
-    if (!this.dragAt(d.handle)) return
-    const p = g.pivot
-    let turn = 0
-    let factor = 1
-    let dy = 0
-    let mx = 0
-    let mz = 0
-    if (d.move) {
-      let along = (this.dragPoint.x - d.move.from.x) * d.move.axis.x + (this.dragPoint.z - d.move.from.z) * d.move.axis.z
-      if (snap) along = Math.round(along * 2) / 2
-      mx = d.move.axis.x * along
-      mz = d.move.axis.z * along
-      queueViewportHint(`Move ${along >= 0 ? '+' : ''}${along.toFixed(2)} along ${d.handle === 'moveX' ? 'x' : 'z'} (${g.targets.length} objects)`)
-    } else if (d.handle === 'ring') {
-      turn = this.ringAngle(this.dragPoint, p) - d.startAngle
-      if (snap) turn = Math.round(turn / (Math.PI / 12)) * (Math.PI / 12)
-      this.gizmo.setSweep(d.startAngle, turn)
-      queueViewportHint(`Rotation ${Math.round(THREE.MathUtils.radToDeg(turn))}° (${g.targets.length} objects)`)
-    } else if (d.handle === 'scale') {
-      factor = Math.hypot(this.dragPoint.x - p.x, this.dragPoint.z - p.z) / d.startDist
-      if (snap) factor = Math.max(0.1, Math.round(factor * 10) / 10)
-      queueViewportHint(`Scale ×${factor.toFixed(2)} (${g.targets.length} objects)`)
-    } else {
-      dy = this.dragPoint.y - d.startY
-      if (snap) dy = Math.round(dy * 2) / 2
-      queueViewportHint(`Height ${dy >= 0 ? '+' : ''}${dy.toFixed(2)} (${g.targets.length} objects)`)
-    }
-    const about = editor.rotatePivot
-    for (let i = 0; i < g.targets.length; i++) {
-      const o = g.targets[i]
-      const s = g.start[i]
-      const w = this.objects.worldPlacement(o)
-      let x = s.x + mx
-      let z = s.z + mz
-      if (about && turn !== 0) {
-        const t = turnAbout(s.x, s.z, p.x, p.z, turn)
-        x = t.x
-        z = t.z
-      }
-      if (about && factor !== 1) {
-        x = p.x + (x - p.x) * factor
-        z = p.z + (z - p.z) * factor
-      }
-      w.pos.x = THREE.MathUtils.clamp(x, 0, this.terrain.worldSize)
-      w.pos.z = THREE.MathUtils.clamp(z, 0, this.terrain.worldSize)
-      // A ground model is re-seated on the terrain where it lands; an attached one keeps its height.
-      w.pos.y = (o.parent === undefined && (turn !== 0 || factor !== 1 || mx !== 0 || mz !== 0) ? this.terrain.heightAt(w.pos.x, w.pos.z) + g.before[i].yOff : s.y) + dy
-      w.rot = s.rot + turn
-      w.scale = THREE.MathUtils.clamp(Math.round(s.scale * factor * 100) / 100, 0.05, 20)
-      this.objects.place(o, o.parent ?? null, w)
-      markMoved(o.id)
-    }
-  }
-
-  /** The spawn's ring turns its facing and its arrow its height; its position stays. */
-  private startSpawnGizmoDrag(): boolean {
-    const s = this.gizmoSpawn()
-    if (!s || !this.gizmo.visible) return false
-    this.raycaster.setFromCamera(this.ndc, this.camera)
-    const handle = this.gizmo.pick(this.raycaster)
-    if (!handle || handle === 'scale' || handle === 'moveX' || handle === 'moveZ') return false
-    const planeNormal = new THREE.Vector3()
-    let startAngle = 0
-    let startY = 0
-    if (handle === 'ring') {
-      planeNormal.set(0, 1, 0)
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(s.x, this.gizmo.ringY, s.z))
-      if (!this.raycaster.ray.intersectPlane(this.dragPlane, this.dragPoint)) return false
-      startAngle = this.ringAngle(this.dragPoint, s)
-    } else {
-      planeNormal.copy(this.camera.position).sub(this.tmpV.set(s.x, 0, s.z)).setY(0).normalize()
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.tmpV.set(s.x, s.y, s.z))
-      if (!this.dragAt('arrow')) return false
-      startY = this.dragPoint.y
-    }
-    const key = spawnKey(s)
-    this.gizmoDrag = { handle, before: { id: -1, type: '', x: s.x, z: s.z, yOff: 0, rotY: 0, scale: 1 }, startAngle, startY, startWorldY: s.y, startDist: 1, planeNormal, spawn: { key, orientation: s.orientation, y: s.y } }
-    this.canvas.style.cursor = handle === 'ring' ? 'grabbing' : 'ns-resize'
-    return true
-  }
-
-  private updateSpawnGizmoDrag(snap: boolean) {
-    const d = this.gizmoDrag
-    const sp = d?.spawn
-    const s = sp ? this.doc.spawnLayer.get(sp.key) : undefined
-    if (!d || !sp || !s) return
-    if (!this.dragAt(d.handle)) return
-    if (d.handle === 'ring') {
-      let rot = spawnRotation(sp.orientation) + (this.ringAngle(this.dragPoint, s) - d.startAngle)
-      if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
-      this.gizmo.setSweep(d.startAngle, rot - spawnRotation(sp.orientation))
-      applySpawn(this.doc.spawnLayer, sp.key, { orientation: spawnOrientation(rot) }, true)
-      queueViewportHint(`Facing ${Math.round(THREE.MathUtils.radToDeg(spawnOrientation(rot)))}°`)
-    } else {
-      let dy = this.dragPoint.y - d.startY
-      if (snap) dy = Math.round(dy * 2) / 2
-      const y = sp.y + dy
-      applySpawn(this.doc.spawnLayer, sp.key, { y }, true)
-      const above = y - this.terrain.heightAt(s.x, s.z)
-      queueViewportHint(`Height ${above >= 0 ? '+' : ''}${above.toFixed(2)} above the ground`)
-    }
-  }
-
-  private updateGizmoDrag(snap: boolean) {
-    const d = this.gizmoDrag
-    if (d?.spawn) return this.updateSpawnGizmoDrag(snap)
-    if (d?.group) return this.updateGroupGizmoDrag(snap)
-    const o = this.selectedObject()
-    if (!d || !o) return
-    if (!this.dragAt(d.handle)) return
-    if (d.move) {
-      // Along the arrow: a model on the ground stays on it where it lands; an attached one keeps its height.
-      let along = (this.dragPoint.x - d.move.from.x) * d.move.axis.x + (this.dragPoint.z - d.move.from.z) * d.move.axis.z
-      if (snap) along = Math.round(along * 2) / 2
-      const w = this.objects.worldPlacement(o)
-      w.pos.x = THREE.MathUtils.clamp(d.move.pos.x + d.move.axis.x * along, 0, this.terrain.worldSize)
-      w.pos.z = THREE.MathUtils.clamp(d.move.pos.z + d.move.axis.z * along, 0, this.terrain.worldSize)
-      w.pos.y = o.parent === undefined ? this.terrain.heightAt(w.pos.x, w.pos.z) + d.before.yOff : d.move.pos.y
-      this.objects.place(o, o.parent ?? null, w)
-      queueViewportHint(`Move ${along >= 0 ? '+' : ''}${along.toFixed(2)} along ${d.handle === 'moveX' ? 'x' : 'z'}`)
-    } else if (d.handle === 'ring') {
-      let rot = d.before.rotY + (this.ringAngle(this.dragPoint, o) - d.startAngle)
-      if (snap) rot = Math.round(rot / (Math.PI / 12)) * (Math.PI / 12)
-      o.rotY = rot
-      this.gizmo.setSweep(d.startAngle, rot - d.before.rotY)
-      const deg = Math.round(THREE.MathUtils.euclideanModulo(THREE.MathUtils.radToDeg(rot), 360)) % 360
-      queueViewportHint(`Rotation ${deg}°`)
-    } else if (d.handle === 'scale') {
-      // The knob rides the ring, whose radius grows with the scale, so it follows the cursor.
-      const centre = this.objects.worldPosition(o, this.tmpV)
-      const dist = Math.hypot(this.dragPoint.x - centre.x, this.dragPoint.z - centre.z)
-      let scale = d.before.scale * (dist / d.startDist)
-      if (snap) scale = Math.round(scale * 10) / 10
-      o.scale = THREE.MathUtils.clamp(Math.round(scale * 100) / 100, 0.05, 20)
-      queueViewportHint(`Scale ×${o.scale.toFixed(2)}`)
-    } else {
-      let dy = this.dragPoint.y - d.startY
-      if (snap) dy = Math.round(dy * 2) / 2
-      const w = this.objects.worldPlacement(o)
-      w.pos.y = d.startWorldY + dy
-      this.objects.place(o, o.parent ?? null, w)
-      queueViewportHint(`Height ${o.yOff >= 0 ? '+' : ''}${o.yOff.toFixed(2)}`)
-    }
-    this.objects.touch(o.id)
-    editor.selected = { ...o }
-  }
-
-  private endGizmoDrag() {
-    const d = this.gizmoDrag
-    this.gizmoDrag = null
-    this.gizmo.setSweep(0, 0)
-    this.canvas.style.cursor = ''
-    if (d?.spawn) {
-      const layer = this.doc.spawnLayer
-      const sp = d.spawn
-      const s = layer.get(sp.key)
-      syncSpawnUi(layer)
-      if (!s || (s.orientation === sp.orientation && s.y === sp.y)) return
-      const before: SpawnFields = d.handle === 'ring' ? { orientation: sp.orientation } : { y: sp.y }
-      const after: SpawnFields = d.handle === 'ring' ? { orientation: s.orientation } : { y: s.y }
-      this.history.push({ label: `${d.handle === 'ring' ? 'Turn' : 'Raise'} ${s.name}`, undo: () => applySpawn(layer, sp.key, before), redo: () => applySpawn(layer, sp.key, after) })
-      return
-    }
-    if (d?.group) {
-      const g = d.group
-      const same = (a: WorldObject, b: WorldObject) => a.x === b.x && a.z === b.z && a.yOff === b.yOff && a.rotY === b.rotY && a.scale === b.scale
-      if (g.targets.every((o, i) => same(o, g.before[i]))) return
-      const verb = d.handle === 'ring' ? 'Turn' : d.handle === 'scale' ? 'Scale' : d.move ? 'Move' : 'Raise'
-      this.history.push(groupTransformCommand(this.objects, g.before, g.targets, `${verb} ${g.targets.length} objects`))
-      return
-    }
-    const o = this.selectedObject()
-    if (!d || !o) return
-    if (o.rotY !== d.before.rotY || o.yOff !== d.before.yOff || o.x !== d.before.x || o.z !== d.before.z || o.scale !== d.before.scale) {
-      this.history.push(transformCommand(this.objects, d.before, o))
-    }
-  }
+	private endGizmoDrag() {
+		this.gizmoDrag.end()
+	}
 
   /** Whether Alt+click picks something in the active tool: a model or the ground's texture, a texture, or the water's height. */
   private pipetteApplies() {
@@ -4903,7 +4609,7 @@ export class Engine {
 
   /** Shows the eyedropper while Alt is held over the viewport where Alt+click is the pipette. Toggles a class only on change. */
   private updatePipetteCursor() {
-    const want = this.altHeld && this.pointerInside && !this.leftDown && !this.gizmoDrag && !this.controller.isDragging && this.pipetteApplies()
+    const want = this.altHeld && this.pointerInside && !this.leftDown && !this.gizmoDrag.active && !this.controller.isDragging && this.pipetteApplies()
     if (want === this.pipetteOn) return
     this.pipetteOn = want
     this.canvas.classList.toggle('pipette', want)

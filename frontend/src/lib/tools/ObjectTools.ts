@@ -18,7 +18,7 @@ import { combineMask, type MaskOp } from '../terrain/maskSelect'
 import { pasteLandings, type Landing } from '../world/pasteLanding'
 import { spawnKey } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
-import { placementEuler, stepTilt } from '../world/placement'
+import { clampScale, placementEuler, stepTilt } from '../world/placement'
 import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { slotFieldsAt } from '../world/formations'
 import { SpacingGrid } from './doodadBrush'
@@ -222,7 +222,7 @@ export class PlaceTool implements Tool {
       return
     }
     const rung = Math.round(Math.log(this.scale) / Math.log(SCALE_STEP)) + steps
-    this.scale = rung === 0 ? 1 : THREE.MathUtils.clamp(Math.round(SCALE_STEP ** rung * 100) / 100, 0.05, 20)
+    this.scale = rung === 0 ? 1 : clampScale(SCALE_STEP ** rung)
     setViewportHint(`Scale ×${this.scale.toFixed(2)}`)
   }
 

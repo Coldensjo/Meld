@@ -144,7 +144,13 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     its footprint, or another prop's box meeting its own), so an author sees when a model is
     attached. The mask's B channel carries it per model.
   - `TransformGizmo` provides a ring (spin) and an up/down arrow (height). Gizmo drags are
-    handled in `Engine` before tools get the pointer, and each drag is one undo step. A tab switch
+    handled before tools get the pointer, by `engine/GizmoDrag.ts` over a narrow `GizmoHost` (#555;
+    Engine's `startGizmoDrag`, `updateGizmoDrag` and `endGizmoDrag` forward to it): one model, a
+    multi-selection about its pivot (`groupSpot`) and a selected spawn's ring and arrow, with one
+    drag-plane setup (`grab`: the ring's flat plane through the centre, or an upright one facing the
+    camera for the arrow) and the Shift snaps in `snapAngle` (15°) and `snapHalfYard`; a scale is
+    kept through `placement.ts` `clampScale` (0.05..20, to a hundredth), as the Place tool's is.
+    Each drag is one undo step, pushed on release (`tests/gizmoDrag.test.ts`). A tab switch
     or close with the button held ends the drag on the outgoing tab first (`Engine.endInteractions`,
     called from `activate`, as a stroke gets its `onUp`): its step goes into that tab's History, a
     flight-path drag is handed to the window, and a brush-size drag or the path test is dropped (#549).

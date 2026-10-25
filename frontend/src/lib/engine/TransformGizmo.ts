@@ -23,13 +23,13 @@ const ringVert = /* glsl */ `
 const ringFrag = /* glsl */ `
   uniform vec3 uColor;
   uniform float uWidth;      // half-width of the band, local units
-  uniform float uSweepStart; // radians, same convention as Engine.ringAngle
+  uniform float uSweepStart; // radians, same convention as GizmoDrag.ringAngle
   uniform float uSweep;      // signed radians, 0 = no arc
   varying vec2 vLocal;
   const float PI = 3.14159265;
   void main() {
     float r = length(vLocal);
-    // The ring lies flat with local y pointing to world -z, so this equals Engine.ringAngle.
+    // The ring lies flat with local y pointing to world -z, so this equals GizmoDrag.ringAngle.
     float ang = atan(vLocal.y, vLocal.x);
     float aa = fwidth(r) * 1.2;
     // Band: solid between 1-w and 1+w, feathered by one pixel.
@@ -251,7 +251,7 @@ export class TransformGizmo {
     return handle === 'moveX' ? out.set(Math.cos(yaw), 0, -Math.sin(yaw)) : out.set(Math.sin(yaw), 0, Math.cos(yaw))
   }
 
-  /** Fill the arc the current spin drag has swept, from `start` (Engine.ringAngle) by `delta` radians. */
+  /** Fill the arc the current spin drag has swept, from `start` (GizmoDrag.ringAngle) by `delta` radians. */
   setSweep(start: number, delta: number) {
     this.ringMat.uniforms.uSweepStart.value = start
     this.ringMat.uniforms.uSweep.value = delta

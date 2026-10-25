@@ -104,10 +104,14 @@ mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the
   `newCreature` hook hands out guids; the snapshot holds the `SpawnLayer`'s spawns.
 - A selection is no edit: the `selections` tests (a rectangle, a lasso, the selection brush, a click
   on a model) check that it selects with no History step and the map unchanged.
-- The gizmo's handles are the Engine's (`startGizmoDrag`, `updateGizmoDrag`, `endGizmoDrag`), so they
-  are the probe `gizmo-undo` (`bun run probe gizmo-undo`, about 7 s): one model's ring, arrow, knob and
-  move arrow and a group's ring and arrow, each one step that Undo and Redo restore. A spawn's gizmo
-  (ring and arrow on a selected creature) is not in it: it needs a drawn spawn model.
+- The gizmo's handles are `engine/GizmoDrag.ts` (#555), so they are `tests/gizmoDrag.test.ts`
+  (`bun test tests/gizmoDrag.test.ts`, well under a second): on a flat map through a fake `GizmoHost`
+  with a real `TransformGizmo` and camera, one model's ring, arrow, knob and move arrow, a group's
+  ring, arrow and knob, and a selected spawn's ring and arrow, each one step that Undo and Redo
+  restore, with the snap and angle maths. The test puts the handles itself (`place`), as
+  `Engine.updateSelectionVisuals` would, so a spawn needs no drawn model there. The probe `gizmo-undo`
+  (`bun run probe gizmo-undo`, about 7 s) runs the model and group drags through the Engine in the
+  live app, where a spawn's gizmo is left out since it needs a drawn spawn model.
 - Trap: Sculpt's hole walls draw on a canvas when made, so the rows run inside `withCanvas`, which
   stands a `document` in and takes it away again (`uiScale.test.ts` checks the code without one).
 

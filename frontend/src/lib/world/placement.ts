@@ -23,3 +23,12 @@ export function stepTilt(angle: number, degrees: number): number {
   if (d === -180) d = 180
   return (d * Math.PI) / 180
 }
+
+/** The smallest and largest scale a placed model takes. */
+export const MIN_SCALE = 0.05
+export const MAX_SCALE = 20
+
+/** A model's scale as it is kept: rounded to a hundredth and held to MIN_SCALE..MAX_SCALE. */
+export function clampScale(scale: number): number {
+	return Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round(scale * 100) / 100))
+}
