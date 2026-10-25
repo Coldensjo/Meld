@@ -74,13 +74,12 @@ minutes a run plus fix items (#439).
   (#397), then `cd frontend && bun run probe bench` as the draw-count guard (#429), and `make test-full`
   (#401) once, so the client-dependent Go tests run at least once a run.
 - The full `make probe` (about 30 minutes: start it in the background and read its log) only on the
-  first loop run of each calendar day (the run log, #1/#285, says whether one already ran today), or
-  when the range touched `Engine.ts`, `ObjectLayer.ts`, `Modal.svelte`, `MenuBar.svelte` or a shader.
-  It never runs outside a run, and never beside one: two probe runs double the SwiftShader load and
-  skew every timing (#257).
+  first loop run of each calendar day (the run log says whether one already ran today), whatever files
+  the range touched: the probes that check a hot file (`Engine.ts`, `ObjectLayer.ts`) name it in their
+  `// touches:` line, so `--touching` already runs them, and a hot-file trigger ran the whole sweep
+  nearly every run, since about one commit in four touches one. It never runs outside a run, and never
+  beside one: two probe runs double the SwiftShader load and skew every timing (#257).
 - `make probe-perf` only for optimization items.
-- Until a command above exists (#397, #398, #401, #429 are open), leave it out and keep the full
-  `make probe`, still once per calendar day; the other runs of the day skip the sweep and say so.
 - The run log says which selection ran and how long it took. A failure is handled as before: find the
   commit, file a bug, revert if it cannot be fixed.
 
