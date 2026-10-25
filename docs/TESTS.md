@@ -43,6 +43,7 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
   runes state. Trap: a test can't import a `.svelte.ts` runes module, since Bun doesn't run the Svelte compiler on it.
 - `tests/terrainRaycast.test.ts` runs the terrain ray-march (`rayMarchGround`) on a flat stand-in ground with a hole: straight and slanted rays through the hole, a miss, `solid` (#528).
+- `tests/heightField.test.ts` runs the bilinear `heightAt` (shared by `Terrain` and the shadow bake) and the ray-march over a cliff: a slanted ray onto the top, a low ray into the face, a ray from outside the box, one to the sky (#536).
 - `tests/terrainStroke.test.ts` checks that a `TerrainStroke` keeps only the cells that changed (a whole-mask
   step that sets a corner holds that corner, `Command.bytes`) and that its undo and redo restore them, on a
   fake terrain, and that every layer (heights, paint, mask, holes) round-trips exactly, `settleSlots` restores whole

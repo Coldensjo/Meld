@@ -6,6 +6,7 @@ import { LAYER_COUNT } from './layers'
 import { PaletteArray } from './paletteArray'
 import { CHUNK_CELLS, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunksPerSide, packRoles } from './chunkPaint'
 import { rayMarchGround } from './rayMarch'
+import { heightAt as heightField } from './heightField'
 import { holeTriangle, triangleIsHole, writeCellIndex } from './holes'
 import { DirtyRegion, uploadRect, type DirtyRect } from './dirtyRect'
 import { CHUNK_IMPASSABLE, areaColor } from './chunkFlags'
@@ -563,19 +564,7 @@ export class Terrain {
 
   /** Bilinear height at world position. */
   heightAt(x: number, z: number): number {
-    const fx = THREE.MathUtils.clamp(x / this.cellSize, 0, this.size)
-    const fz = THREE.MathUtils.clamp(z / this.cellSize, 0, this.size)
-    const x0 = Math.min(Math.floor(fx), this.size - 1)
-    const z0 = Math.min(Math.floor(fz), this.size - 1)
-    const tx = fx - x0
-    const tz = fz - z0
-    const V = this.verts
-    const h = this.heights
-    const a = h[z0 * V + x0]
-    const b = h[z0 * V + x0 + 1]
-    const c = h[(z0 + 1) * V + x0]
-    const e = h[(z0 + 1) * V + x0 + 1]
-    return a + (b - a) * tx + (c - a) * tz + (a - b - c + e) * tx * tz
+    return heightField(this.heights, this.size, this.cellSize, x, z)
   }
 
   contains(x: number, z: number) {

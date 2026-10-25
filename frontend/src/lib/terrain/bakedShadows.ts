@@ -3,6 +3,8 @@
 // region (vmangos.RegionShadows). The client darkens shadowed ground to 70% of its light (Benilla's
 // terrain.wgsl, after the client's terrainp_s.bls: diffuse x (0.3 x lit + 0.7)).
 
+import { heightAt } from './heightField'
+
 /** How much of its light a shadowed texel keeps. */
 export const BAKED_SHADOW_LIGHT = 0.7
 
@@ -114,19 +116,7 @@ export function shadowBaker(heights: Float32Array, size: number, cellSize: numbe
   const len = Math.hypot(sun[0], sun[1], sun[2]) || 1
   const dir = [sun[0] / len, sun[1] / len, sun[2] / len]
   let ray = 0
-  const height = (x: number, z: number) => {
-    const fx = x / cellSize
-    const fz = z / cellSize
-    const x0 = Math.min(Math.floor(fx), size - 1)
-    const z0 = Math.min(Math.floor(fz), size - 1)
-    const tx = fx - x0
-    const tz = fz - z0
-    const a = heights[z0 * verts + x0]
-    const b = heights[z0 * verts + x0 + 1]
-    const c = heights[(z0 + 1) * verts + x0]
-    const e = heights[(z0 + 1) * verts + x0 + 1]
-    return a + (b - a) * tx + (c - a) * tz + (a - b - c + e) * tx * tz
-  }
+  const height = (x: number, z: number) => heightAt(heights, size, cellSize, x, z)
   const texel = cellSize / SHADOW_PER_CELL
   return (rect, out) => {
     let changed = 0
