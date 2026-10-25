@@ -1,17 +1,16 @@
 <script lang="ts">
-	import { startSaving } from '../lib/state/saving'
-	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
-	import { takeEscape } from '../lib/state/escape'
 	import { engineRef } from '../lib/state/engineRef'
 	import { CreateCreature, ModelAnimations, ReadCreature, SaveCreature, SpawnLook } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
-	import { changedValues, fieldGroups, withBit } from '../lib/world/creatureFields'
+	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
+	import { fieldGroups, withBit } from '../lib/world/creatureFields'
 	import { creatureTemplateOf, selectSpawn } from '../lib/world/spawnEdits'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import { levelText, npcRoles, rankName } from '../lib/world/spawnInfo'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import DisplayPicker, { forgetCreatureDisplays } from './DisplayPicker.svelte'
+	import EditorFrame from './EditorFrame.svelte'
 	import MessagesTab from './MessagesTab.svelte'
 	import QuestsTab from './QuestsTab.svelte'
 	import ShopTab from './ShopTab.svelte'
@@ -31,13 +30,6 @@
 	const spawn = $derived(target?.key && editor.selectedSpawn && spawnKey(editor.selectedSpawn) === target.key ? editor.selectedSpawn : null)
 
 	let tab = $state<Tab>('creature')
-	let record = $state<vmangos.TemplateRecord | null>(null)
-	let values = $state<Record<string, string>>({})
-	let saved = $state<Record<string, string>>({})
-	let error = $state('')
-	let loading = $state(false)
-	let saving = $state(false)
-	let confirmClose = $state(false)
 
 	/** Unsaved edits in the Spells, Shop, Quests and Messages tabs, which have their own Save. */
 	let spellsDirty = $state(false)
@@ -49,45 +41,38 @@
 	let shopTab = $state<ShopTab | null>(null)
 	let questsTab = $state<QuestsTab | null>(null)
 	let messagesTab = $state<MessagesTab | null>(null)
-	const changes = $derived(changedValues(values, saved))
-	const changeCount = $derived(Object.keys(changes).length)
-	const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name)) : [])
-	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
 	// Opening another creature reads its template and picks the first tab.
-	let loadedFor = ''
-	$effect(() => {
-		const t = target
-		if (!t) return
-		const id = `${t.key}|${t.entry}`
-		if (id === loadedFor) return
-		loadedFor = id
-		tab = t.key ? 'spawn' : 'creature'
-		spellsDirty = false
-		shopDirty = false
-		questsDirty = false
-		messagesDirty = false
-		record = null
-		error = ''
-		confirmClose = false
-		copying = false
-		if (t.entry > 0) void load(t.entry)
+	const ed = new TemplateEditor<{ key: string | null; entry: number }, vmangos.TemplateRecord>({
+		id: (t) => `${t.key}|${t.entry}`,
+		entry: (t) => t.entry,
+		read: ReadCreature,
+		clear: () => (ui.creatureEditor = null),
+		dirty: () => tabsDirty,
+		onopen: (t) => {
+			tab = t.key ? 'spawn' : 'creature'
+			spellsDirty = false
+			shopDirty = false
+			questsDirty = false
+			messagesDirty = false
+			copying = false
+		},
+		// The tabs read their rows again, so a switch that keeps them mounted (another spawn of the same creature) shows no stale edits.
+		ondiscard: () => {
+			if (spellsDirty) spellsTab?.revert()
+			if (shopDirty) shopTab?.revert()
+			if (questsDirty) questsTab?.revert()
+			if (messagesDirty) messagesTab?.revert()
+		},
 	})
-
-	async function load(entry: number) {
-		loading = true
-		try {
-			const r = await ReadCreature(entry)
-			if (ui.creatureEditor?.entry !== entry) return
-			record = r
-			values = { ...r.values }
-			saved = { ...r.values }
-		} catch (err) {
-			error = String(err)
-		} finally {
-			loading = false
-		}
-	}
+	ed.follow(() => target)
+	const record = $derived(ed.record)
+	const values = $derived(ed.values)
+	const saved = $derived(ed.saved)
+	const changes = $derived(ed.changes)
+	const changeCount = $derived(ed.changeCount)
+	const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name)) : [])
+	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
 	// What the preview shows: the spawn as it is placed on its tab, else the template's first display
 	// with its equipment, standing.
@@ -153,51 +138,17 @@
 			.join(', ') + '.',
 	)
 
-	/** What to do once unsaved changes are discarded: close, unless something else asked first. */
-	let afterDiscard: (() => void) | null = null
-
-	function close(force = false) {
-		if ((changeCount > 0 || tabsDirty) && !force) {
-			afterDiscard = null
-			confirmClose = true
-			return
-		}
-		ui.creatureEditor = null
-		loadedFor = ''
-	}
-
-	function discard() {
-		values = { ...saved }
-		// The tabs read their rows again, so a switch that keeps them mounted (another spawn of the same creature) shows no stale edits.
-		if (spellsDirty) spellsTab?.revert()
-		if (shopDirty) shopTab?.revert()
-		if (questsDirty) questsTab?.revert()
-		if (messagesDirty) messagesTab?.revert()
-		confirmClose = false
-		const then = afterDiscard
-		afterDiscard = null
-		if (then) then()
-		else close(true)
-	}
-
-	async function save() {
-		if (!record || changeCount === 0) return
-		saving = true
-		const end = startSaving('Saving the creature')
-		error = ''
-		try {
+	function save() {
+		const r = record
+		if (!r || changeCount === 0) return
+		void ed.save('Saving the creature', async () => {
 			const before = { ...saved }
-			await SaveCreature(record.entry, record.patch, changes)
+			await SaveCreature(r.entry, r.patch, changes)
 			forgetCreatureDisplays()
-			saved = { ...values }
-			await engineRef.current?.applyCreatureTemplate(record.entry, values, before)
-			setStatus(`Saved ${values.name} (entry ${record.entry}) to the world database. Restart the world server and the game to see it in the game.`, 10000)
-		} catch (err) {
-			error = String(err)
-		} finally {
-			saving = false
-			end()
-		}
+			ed.markSaved()
+			await engineRef.current?.applyCreatureTemplate(r.entry, values, before)
+			setStatus(`Saved ${values.name} (entry ${r.entry}) to the world database. Restart the world server and the game to see it in the game.`, 10000)
+		})
 	}
 
 	/** The greeting was saved: the database now has the creature's gossip menu and Gossip flag. */
@@ -217,37 +168,23 @@
 		if (!record) return
 		ui.placeCreature = creatureTemplateOf(record.entry, values)
 		editor.tool = 'select'
-		ui.creatureEditor = null
-		loadedFor = ''
+		ed.close(true)
 		setStatus(`Click the ground to place ${values.name}. Shift+click places more; Esc stops.`, 10000)
 	}
 
 	// A new creature opens the guide (CreaturesWorkspace); a copy of the open creature is made here.
 	function startNew() {
-		const go = () => {
-			ui.creatureEditor = null
-			loadedFor = ''
+		ed.leave(() => {
+			ed.close(true)
 			ui.creatures = true
-		}
-		if (changeCount > 0 || tabsDirty) {
-			afterDiscard = go
-			confirmClose = true
-			return
-		}
-		go()
+		})
 	}
 	/** A pool mate or formation member was picked: the editor moves to it, once unsaved changes are dealt with. */
 	function switchTo(o: vmangos.WorldSpawn) {
-		const go = () => {
+		ed.leave(() => {
 			selectSpawn(o)
 			ui.creatureEditor = { key: spawnKey(o), entry: o.entry }
-		}
-		if (changeCount > 0 || tabsDirty) {
-			afterDiscard = go
-			confirmClose = true
-			return
-		}
-		go()
+		})
 	}
 	let copying = $state(false)
 	let copyName = $state('')
@@ -260,7 +197,7 @@
 		const name = copyName.trim()
 		if (!name || !record) return
 		creating = true
-		error = ''
+		ed.error = ''
 		try {
 			const entry = await CreateCreature(record.entry, name)
 			forgetCreatureDisplays()
@@ -268,7 +205,7 @@
 			ui.creatureEditor = { key: null, entry }
 			setStatus(`Copied to creature ${entry}, ${name}. Edit it, save, then place it.`, 8000)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		} finally {
 			creating = false
 		}
@@ -293,77 +230,47 @@
 	function setField(col: string, v: string) {
 		values[col] = v
 	}
-
-	let root = $state<HTMLElement>()
-
-	function onKey(e: KeyboardEvent) {
-		// The quest editor over it takes its own Esc.
-		if (!target || ui.questEditor) return
-		if (e.key === 'Escape') {
-			if (!takeEscape(e, root)) return
-			const el = e.target as HTMLElement | null
-			if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
-				e.preventDefault()
-				el.blur()
-				return
-			}
-			e.preventDefault()
-			if (confirmClose && (changeCount > 0 || tabsDirty)) confirmClose = false
-			else close()
-		}
-	}
 </script>
 
-<svelte:window onkeydown={onKey} />
-
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Creature editor" bind:this={root} use:dialogFocus>
-		<header>
-			<div class="title">
-				{#if target.entry > 0}
-					<h2>{values.name || saved.name || 'Creature'}{values.subname ? ` <${values.subname}>` : ''}</h2>
-					<span class="dim">
-						entry {target.entry}{spawn ? ` · spawn ${spawn.guid}` : ''}
-						{#if record}
-							· level {levelText(Number(values.level_min), Number(values.level_max))} · {rankName(Number(values.rank))}{npcRoles(Number(values.npc_flags)) ? ` · ${npcRoles(Number(values.npc_flags))}` : ''}
-						{/if}
-					</span>
-				{/if}
-			</div>
-			<div class="actions">
-				{#if record}
-					<button disabled={!record || saving} onclick={place} title="Place this creature in the region">Place in world</button>
-					<button disabled={!record || saving || copying} onclick={startCopy} title="Make a new creature with this one's looks, stats, loot and AI">Copy this creature</button>
-					<button disabled={changeCount === 0 || saving} onclick={() => (values = { ...saved })}>Revert</button>
-					<button class="active" disabled={changeCount === 0 || saving} onclick={save}>
-						{saving ? 'Saving…' : changeCount ? `Save creature (${changeCount})` : 'Saved'}
-					</button>
-				{/if}
-				<button onclick={() => close()} title="Close (Esc)">Close</button>
-			</div>
-		</header>
-		{#if confirmClose && (changeCount > 0 || tabsDirty)}
-			<div class="bar warn">
-				<span>{unsavedText}</span>
-				<button onclick={() => (confirmClose = false)}>Keep editing</button>
-				<button class="danger" onclick={discard}>Discard them</button>
-			</div>
-		{/if}
-		{#if copying}
-			<div class="bar warn">
-				<input type="text" maxlength="100" placeholder="Name of the copy" bind:value={copyName} onkeydown={(e) => e.key === 'Enter' && copyCreature()} />
-				<button class="active" disabled={!copyName.trim() || creating} onclick={copyCreature}>{creating ? 'Copying…' : 'Make copy'}</button>
-				<button onclick={() => (copying = false)}>Cancel</button>
-			</div>
-		{/if}
-		{#if error}<div class="bar error">{error}</div>{/if}
+	<EditorFrame {ed} label="Creature editor" z={150} {unsavedText} blocked={() => !!ui.questEditor}>
+		{#snippet title()}
+			{#if target.entry > 0}
+				<h2>{values.name || saved.name || 'Creature'}{values.subname ? ` <${values.subname}>` : ''}</h2>
+				<span class="dim">
+					entry {target.entry}{spawn ? ` · spawn ${spawn.guid}` : ''}
+					{#if record}
+						· level {levelText(Number(values.level_min), Number(values.level_max))} · {rankName(Number(values.rank))}{npcRoles(Number(values.npc_flags)) ? ` · ${npcRoles(Number(values.npc_flags))}` : ''}
+					{/if}
+				</span>
+			{/if}
+		{/snippet}
+		{#snippet actions()}
+			{#if record}
+				<button disabled={!record || ed.saving} onclick={place} title="Place this creature in the region">Place in world</button>
+				<button disabled={!record || ed.saving || copying} onclick={startCopy} title="Make a new creature with this one's looks, stats, loot and AI">Copy this creature</button>
+				<button disabled={changeCount === 0 || ed.saving} onclick={() => ed.revert()}>Revert</button>
+				<button class="active" disabled={changeCount === 0 || ed.saving} onclick={save}>
+					{ed.saving ? 'Saving…' : changeCount ? `Save creature (${changeCount})` : 'Saved'}
+				</button>
+			{/if}
+		{/snippet}
+		{#snippet bars()}
+			{#if copying}
+				<div class="bar warn">
+					<input type="text" maxlength="100" placeholder="Name of the copy" bind:value={copyName} onkeydown={(e) => e.key === 'Enter' && copyCreature()} />
+					<button class="active" disabled={!copyName.trim() || creating} onclick={copyCreature}>{creating ? 'Copying…' : 'Make copy'}</button>
+					<button onclick={() => (copying = false)}>Cancel</button>
+				</div>
+			{/if}
+		{/snippet}
 
 		<div class="body">
 			<section class="left">
 				{#if preview}
 					<CreaturePreview model={preview.model} look={preview.look} anim={anim ?? preview.anim} scale={preview.scale} />
 				{:else}
-					<div class="empty dim">{loading ? 'Loading…' : 'No display to show yet: pick one under Looks.'}</div>
+					<div class="empty dim">{ed.loading ? 'Loading…' : 'No display to show yet: pick one under Looks.'}</div>
 				{/if}
 				<div class="under">
 					<label
@@ -422,7 +329,7 @@
 							<h3>{g.title}</h3>
 							<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} entry={record.entry} />
 						{/each}
-					{:else if loading}
+					{:else if ed.loading}
 						<p class="dim">Loading the creature…</p>
 					{/if}
 					{#if record && target.entry > 0}
@@ -449,60 +356,10 @@
 				</div>
 			</section>
 		</div>
-	</div>
+	</EditorFrame>
 {/if}
 
 <style>
-	.editor {
-		position: fixed;
-		inset: 0;
-		z-index: 150;
-		display: flex;
-		flex-direction: column;
-		background: var(--bg);
-		color: var(--text);
-	}
-	header {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 10px 16px;
-		border-bottom: 1px solid var(--border);
-		background: var(--panel);
-	}
-	.title {
-		flex: 1;
-		min-width: 0;
-	}
-	h2 {
-		margin: 0;
-		font-size: 18px;
-		font-weight: 600;
-	}
-	.actions {
-		display: flex;
-		gap: 8px;
-	}
-	.bar {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 16px;
-		font-size: 12px;
-		border-bottom: 1px solid var(--border);
-	}
-	.bar.warn span {
-		flex: 1;
-	}
-	.bar.error {
-		color: var(--danger-text);
-		overflow-wrap: anywhere;
-	}
-	.body {
-		flex: 1;
-		min-height: 0;
-		display: flex;
-	}
 	.left {
 		flex: 1;
 		min-width: 0;
@@ -542,20 +399,6 @@
 		align-items: center;
 		gap: 8px;
 		font-size: 12px;
-	}
-	.tabs {
-		display: flex;
-		gap: 2px;
-		padding: 8px 12px 0;
-		border-bottom: 1px solid var(--border);
-	}
-	.tabs button {
-		border-radius: 4px 4px 0 0;
-		border-bottom: none;
-	}
-	.tabs button.on {
-		background: var(--accent);
-		color: var(--accent-ink);
 	}
 	.scroll {
 		flex: 1;
