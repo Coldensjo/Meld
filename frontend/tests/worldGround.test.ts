@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { tileKey } from '../src/lib/io/mapTiles.ts'
 import { TILE_SIZE as TILE_YARDS } from '../src/lib/io/portCoords.ts'
-import { GROUND_CELLS, GROUND_SIDE, groundHeight, groundMesh, keepReach, parseGround, streamReach, tileDistance, wantedTiles } from '../src/lib/world/worldGround.ts'
+import { GROUND_CELLS, GROUND_SIDE, groundHeight, groundMesh, keepReach, parseGround, streamReach, tileDistance, TileModelShare, wantedTiles, type TileModel } from '../src/lib/world/worldGround.ts'
 
 /** A /wow/ground reply (wow.EncodeGround) for heights f(x, y) and the hole cells listed. */
 function reply(f: (x: number, y: number) => number, holes: Array<[number, number]> = []): ArrayBuffer {
@@ -73,4 +73,37 @@ test('the reach follows the view distance, 3 tiles by default, 1 to 6', () => {
 	assert.equal(streamReach(1), 3 * TILE_YARDS)
 	assert.equal(streamReach(0.1), TILE_YARDS)
 	assert.equal(streamReach(5), 6 * TILE_YARDS)
+})
+
+test('a model several tiles list is placed once, and taken away with the last of them', () => {
+	const model = (uid: number, type: string): TileModel => ({ uid, type, x: 0, y: 0, z: 0, rotY: 0, tiltX: 0, tiltZ: 0, scale: 1 })
+	const share = new TileModelShare()
+	const placed: string[] = []
+	const removed: number[] = []
+	let next = 1
+	const ids = new Map<number, string>()
+	const place = (m: TileModel) => {
+		placed.push(m.type)
+		ids.set(next, m.type)
+		return next++
+	}
+	const remove = (id: number) => removed.push(id)
+	// Tile A lists the inn (5) twice and a tree without an ID; tile B the inn and a rock (6).
+	share.add(1, [model(5, 'inn'), model(0, 'tree'), model(5, 'inn')], place)
+	share.add(2, [model(5, 'inn'), model(6, 'rock')], place)
+	assert.deepEqual(placed, ['inn', 'tree', 'rock'])
+	assert.equal(share.count, 3)
+	// A tile added again is not placed twice.
+	share.add(2, [model(5, 'inn'), model(6, 'rock')], place)
+	assert.equal(placed.length, 3)
+	// Letting go of A takes its tree; the inn stays, B lists it.
+	share.drop(1, remove)
+	assert.deepEqual(removed.map((id) => ids.get(id)), ['tree'])
+	assert.equal(share.count, 2)
+	share.drop(2, remove)
+	assert.deepEqual(removed.map((id) => ids.get(id)).sort(), ['inn', 'rock', 'tree'])
+	assert.equal(share.count, 0)
+	// A tile that was never added drops nothing.
+	share.drop(3, remove)
+	assert.equal(removed.length, 3)
 })

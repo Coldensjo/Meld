@@ -1,4 +1,4 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, with their models (each once, however many tiles list it), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/mapio.ts')
@@ -7,6 +7,7 @@ const T = 1600 / 3
 openWorldView(e, 'Azeroth', { x: 31, y: 48, size: 3 })
 await P.until(() => editor.worldMap === 'Azeroth' || null, 30000, "Azeroth's world tab")
 const worldId = e.activeDocumentId()
+const worldDoc = e.doc
 // The camera looks at the block's middle (tile 32_49's) once that tile has loaded.
 const mid = { x: 32.5 * T, z: 49.5 * T }
 await P.until(() => {
@@ -31,6 +32,26 @@ e.doc.world.group.visible = false
 const hidden = await P.shot()
 e.doc.world.group.visible = true
 const drawn = +P.diff(shown, hidden).off.toFixed(3)
+// The models are drawn too: the view with them hidden differs.
+worldDoc.objects.group.visible = false
+const bare = await P.shot()
+worldDoc.objects.group.visible = true
+const modelsDrawn = +P.diff(shown, bare).off.toFixed(3)
+// What the models cost, for the level-of-detail step that comes next: not checked, only reported.
+const perfModels = P.perfSummary(await P.perf())
+worldDoc.objects.group.visible = false
+const perfBare = P.perfSummary(await P.perf())
+worldDoc.objects.group.visible = true
+// Each model is placed once: as many objects as the loaded tiles list unique IDs (and models without
+// one). Not by spot: the client has a few models twice at one spot under two IDs (a haystack in Elwynn).
+const uids = new Set()
+let unnamed = 0
+for (const t of worldDoc.world.tiles.values()) {
+	if (!t.ground) continue
+	const list = await (await fetch(`/wow/groundmodels?map=Azeroth&x=${t.x}&y=${t.y}`)).json()
+	for (const m of list) if (m.uid) uids.add(m.uid); else unnamed++
+}
+const placedOnce = worldDoc.objects.objects.size === uids.size + unnamed && e.worldStats().models === worldDoc.objects.objects.size
 // A Sculpt click does nothing in a world view.
 editor.tool = 'sculpt'
 await P.frames(2)
@@ -57,6 +78,25 @@ const r = e.activeRegion()
 const tile = { x: Math.floor(before.x / T), y: Math.floor(before.z / T) }
 const holds = tile.x >= r.x && tile.x < r.x + r.size && tile.y >= r.y && tile.y < r.y + r.size
 const regionCam = Math.hypot(c.target.x + r.x * T - before.x, c.target.z + r.y * T - before.z)
+// The region's buildings stand where the world view has them, the block's corner apart: the same
+// coordinates and turn as ReadRegion gives them.
+const v = new e.camera.position.constructor()
+const w = new e.camera.position.constructor()
+let matched = 0
+let checked = 0
+for (const o of e.objects.objects.values()) {
+	if (!o.type.startsWith('wmo:') || o.parent !== undefined) continue
+	checked++
+	e.objects.worldPosition(o, v)
+	for (const q of worldDoc.objects.objects.values()) {
+		if (q.type !== o.type) continue
+		worldDoc.objects.worldPosition(q, w)
+		if (Math.hypot(w.x - v.x - r.x * T, w.y - v.y, w.z - v.z - r.y * T) < 0.05 && Math.abs(q.rotY - o.rotY) < 1e-3) {
+			matched++
+			break
+		}
+	}
+}
 // And back to the world tab, the camera where the region had it.
 openWorldView(e)
 await P.frames(3)
@@ -69,6 +109,9 @@ const out = {
 	focused,
 	loadedAll,
 	drawn,
+	modelsDrawn,
+	perf: { models: perfModels, bare: perfBare },
+	placedOnce,
 	noEdit,
 	sceneNamesWorld: scene.includes('"world":{"mapName":"Azeroth"}'),
 	moved,
@@ -76,6 +119,7 @@ const out = {
 	region: `${r.x},${r.y} ${r.size}`,
 	holds,
 	regionCam: +regionCam.toFixed(2),
+	buildings: `${matched}/${checked}`,
 	backToWorld,
 	worldCam: +worldCam.toFixed(2),
 }
@@ -84,6 +128,9 @@ out.ok =
 	Number.isFinite(ground) &&
 	loadedAll &&
 	drawn > 0.05 &&
+	first.models > 0 &&
+	modelsDrawn > 0.01 &&
+	placedOnce &&
 	noEdit &&
 	out.sceneNamesWorld &&
 	moved.loaded <= first.tiles &&
@@ -91,6 +138,8 @@ out.ok =
 	westDropped &&
 	holds &&
 	regionCam < 0.5 &&
+	checked > 0 &&
+	matched === checked &&
 	backToWorld &&
 	worldCam < 0.5
 return out

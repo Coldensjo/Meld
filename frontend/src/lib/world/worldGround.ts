@@ -135,3 +135,81 @@ export function keepReach(reach: number): number {
 export function streamReach(viewDistance: number): number {
 	return Math.min(6, Math.max(1, Math.round(3 * viewDistance))) * TILE_YARDS
 }
+
+/**
+ * A model a tile places, as /wow/groundmodels sends it (wow.TileModel): in the map's editor
+ * coordinates with `y` its absolute height, its turn in radians, and `uid` the file's unique ID (0 for
+ * none), under which every tile its bounds overlap lists it.
+ */
+export interface TileModel {
+	uid: number
+	type: string
+	x: number
+	y: number
+	z: number
+	rotY: number
+	tiltX: number
+	tiltZ: number
+	scale: number
+}
+
+/**
+ * Which of the loaded tiles' models are placed (#15). A model whose bounds cross a tile border is
+ * listed by each tile it overlaps under one ID, as `vmangos.ReadRegion` finds (#646): it is placed once,
+ * by the first of those tiles to load, and taken away when the last of them is let go of. A model
+ * without an ID belongs to its tile alone.
+ */
+export class TileModelShare {
+	/** The placed object of each ID, and the loaded tiles (tileKey) that list it. */
+	private byUid = new Map<number, { id: number; tiles: Set<number> }>()
+	/** What each loaded tile lists: the IDs it shares, and the objects only it placed. */
+	private byTile = new Map<number, { uids: number[]; ids: number[] }>()
+
+	/** Notes tile `key`'s models, placing (`place`, which returns the object's id) those not placed yet. */
+	add(key: number, models: readonly TileModel[], place: (m: TileModel) => number) {
+		if (this.byTile.has(key)) return
+		const own = { uids: [] as number[], ids: [] as number[] }
+		this.byTile.set(key, own)
+		for (const m of models) {
+			if (!m.uid) {
+				own.ids.push(place(m))
+				continue
+			}
+			const shared = this.byUid.get(m.uid)
+			if (shared) {
+				// A tile may list one ID twice; it holds it once.
+				if (!shared.tiles.has(key)) {
+					shared.tiles.add(key)
+					own.uids.push(m.uid)
+				}
+				continue
+			}
+			this.byUid.set(m.uid, { id: place(m), tiles: new Set([key]) })
+			own.uids.push(m.uid)
+		}
+	}
+
+	/** Lets go of tile `key`'s models, taking away (`remove`) those no other loaded tile lists. */
+	drop(key: number, remove: (id: number) => void) {
+		const own = this.byTile.get(key)
+		if (!own) return
+		this.byTile.delete(key)
+		for (const id of own.ids) remove(id)
+		for (const uid of own.uids) {
+			const shared = this.byUid.get(uid)
+			if (!shared) continue
+			shared.tiles.delete(key)
+			if (shared.tiles.size === 0) {
+				this.byUid.delete(uid)
+				remove(shared.id)
+			}
+		}
+	}
+
+	/** How many models are placed. */
+	get count(): number {
+		let n = this.byUid.size
+		for (const own of this.byTile.values()) n += own.ids.length
+		return n
+	}
+}

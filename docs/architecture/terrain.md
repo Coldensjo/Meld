@@ -276,14 +276,20 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   Lambert, within `streamReach` of the eye (3 tiles at the default view distance, 1 to 6), nearest
   first, three reads at a time, and dropped a tile past that (`keepReach`). The plan is worked out
   again only when the eye crosses a quarter tile. The fog closes at the reach (`applyViewDistance`).
+  Each tile's models come beside its ground from `/wow/groundmodels` (`wow.Client.GroundModels`,
+  `TileModel`: the placements in the map's editor coordinates, named by `adt.ModelType` and turned by
+  `adt.Placement.EditorTurn`, which the region reader uses too) and go into the document's own
+  `objects`, so they are drawn, culled, lit and animated as a region's are; the stand-in's flat ground
+  makes `yOff` their absolute height. A model listed by several tiles under one ID is placed once
+  and taken away with the last loaded tile listing it (`TileModelShare` in `worldGround.ts`).
   The camera's ground is the stream's (`heightAt`), keeping its height where nothing is loaded. The
   document's terrain is an 8-cell hidden stand-in: the tools' clicks and keys are off in it
   (pointerdown, `handleToolKey`), Save refuses, it is never `pristine` (so opening a map doesn't
   replace it), and its tab shows no size. File › Edit Here (`editWorldHere`) opens the block of up to 3
   tiles a side around the camera's target (`blockAround`) in a region tab, or switches to an open one
   holding it, the camera moved by the block's corner; the world tab stays. Scenes (`map.world`) and
-  the session keep a world tab. Not yet streamed: models, liquids, the texture layers (the minimap
-  stands in), a lower level of detail for far tiles, and editing in the world view itself.
+  the session keep a world tab. Not yet streamed: liquids, the texture layers (the minimap stands
+  in), a lower level of detail for far tiles and models, and editing in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `mapio.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

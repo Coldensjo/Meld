@@ -11,7 +11,8 @@ import (
 
 // The editor names a placed model "m2:<path>" or "wmo:<path>"; a WMO showing a doodad set besides its
 // global set 0 carries it as a query, "wmo:<path>?set=<n>", which is also what the model endpoint
-// draws. These convert between that name and a placement's kind, path and doodad set.
+// draws. adt.ModelType writes the name; parseModelType reads a placement's kind, path and doodad set
+// back from it.
 
 // parseModelType splits a model name into its kind, its path and, for a WMO, its doodad set; hasSet says
 // the name gives one. A name without one keeps a placement's own set (a map saved before the editor
@@ -40,15 +41,4 @@ func parseModelType(t string) (kind adt.Kind, name string, set uint16, hasSet bo
 		}
 	}
 	return kind, name, set, hasSet, nil
-}
-
-// modelType is the editor's name for a placement: its path, and a WMO's doodad set when it isn't 0.
-func modelType(kind adt.Kind, name string, set uint16) string {
-	if kind == adt.WMO {
-		if set != 0 {
-			return "wmo:" + name + "?set=" + strconv.Itoa(int(set))
-		}
-		return "wmo:" + name
-	}
-	return "m2:" + name
 }

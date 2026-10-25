@@ -325,14 +325,12 @@ func objectView(p adt.Placement, x, y int) (ObjectView, bool) {
 	if p.Kind != adt.M2 && p.Kind != adt.WMO {
 		return o, false
 	}
-	o.Type = modelType(p.Kind, p.Name, p.DoodadSet)
+	o.Type = adt.ModelType(p.Kind, p.Name, p.DoodadSet)
 	o.UID = p.UID
 	o.X = p.Position[0] - float32(x)*adt.TileSize
 	o.Y = p.Position[1]
 	o.Z = p.Position[2] - float32(y)*adt.TileSize
-	o.RotY = float32((float64(p.Rotation[1]) - 90) * math.Pi / 180)
-	o.TiltX = fromDegrees(p.Rotation[0])
-	o.TiltZ = fromDegrees(p.Rotation[2])
+	o.RotY, o.TiltX, o.TiltZ = p.EditorTurn()
 	o.Scale = p.Scale
 	return o, true
 }
@@ -375,11 +373,6 @@ const (
 // toDegrees converts a tilt in radians to the degrees a placement stores.
 func toDegrees(r float32) float32 {
 	return float32(float64(r) * 180 / math.Pi)
-}
-
-// fromDegrees converts a placement's stored degrees to a tilt in radians.
-func fromDegrees(d float32) float32 {
-	return float32(float64(d) * math.Pi / 180)
 }
 
 // angleDiff is the smallest difference between two angles in degrees.

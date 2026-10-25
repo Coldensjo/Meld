@@ -171,7 +171,8 @@ export class MapDocument {
    * For a world view (#15), the second kind of document: the client's tiles of a whole map streamed
    * around the camera, in the map's editor coordinates (tile (x, y) at x*TILE_YARDS, y*TILE_YARDS).
    * Nothing in it is edited: its terrain is a hidden stand-in, its tools are off, and Edit Here
-   * opens the block around the camera in a region tab. Null for every other map.
+   * opens the block around the camera in a region tab. The loaded tiles' models are in `objects`,
+   * placed and taken away by the stream. Null for every other map.
    */
   world: WorldStream | null = null
 
@@ -217,6 +218,8 @@ export class MapDocument {
 	}
 
   dispose() {
+    // First: it takes its models out of `objects`.
+    this.world?.dispose()
     this.groundEffects.dispose()
     this.terrain.dispose()
     this.water.dispose()
@@ -225,6 +228,5 @@ export class MapDocument {
     this.liquidRenderer.dispose()
     this.referenceImage?.dispose()
     this.referenceImage = null
-    this.world?.dispose()
   }
 }

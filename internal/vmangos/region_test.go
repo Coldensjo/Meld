@@ -237,7 +237,7 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 		for _, p := range after {
 			found := false
 			for _, o := range view.Objects {
-				if o.Type == modelType(p.Kind, p.Name, p.DoodadSet) {
+				if o.Type == adt.ModelType(p.Kind, p.Name, p.DoodadSet) {
 					if math.Abs(float64(o.X+float32(view.X)*adt.TileSize-p.Position[0])) < 0.05 &&
 						math.Abs(float64(o.Z+float32(view.Y)*adt.TileSize-p.Position[2])) < 0.05 {
 						found = true

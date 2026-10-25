@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { fetchImage, textureAnisotropy } from '../wow/api'
 import { tileKey } from '../io/mapTiles'
 import { TILE_YARDS } from '../terrain/Terrain'
-import { groundHeight, groundMesh, keepReach, parseGround, tileDistance, wantedTiles, GROUND_CELLS, type TileGround } from './worldGround'
+import { groundHeight, groundMesh, keepReach, parseGround, tileDistance, wantedTiles, GROUND_CELLS, TileModelShare, type TileGround, type TileModel } from './worldGround'
+import type { ObjectLayer } from './ObjectLayer'
 
 /** How many tiles are read at once. */
 const LOADS = 3
@@ -28,9 +29,11 @@ interface StreamTile {
 /**
  * The world view's ground (#15): the client's tiles of one map within the reach of the camera, read
  * one at a time nearest first (`/wow/ground`, the heights and holes; the minimap image as the
- * colour), and let go of once the camera is a tile further off. Drawn lit, as the props are, with the
- * scene's fog. The tiles are the client's as it reads them now, Meld's patch included; nothing here
- * edits them: a block is edited in a region tab (io/mapio.ts `editWorldHere`).
+ * colour; `/wow/groundmodels`, the models), and let go of once the camera is a tile further off. The
+ * ground is drawn lit, as the props are, with the scene's fog; the models are placed in the document's
+ * own `ObjectLayer`, so they are drawn, culled, lit and animated as a region's are. The tiles are the
+ * client's as it reads them now, Meld's patch included; nothing here edits them: a block is edited in
+ * a region tab (io/mapio.ts `editWorldHere`).
  */
 export class WorldStream {
 	readonly group = new THREE.Group()
@@ -47,8 +50,18 @@ export class WorldStream {
 	private disposed = false
 	/** Why the map's tile list could not be read, '' when it was. */
 	error = ''
+	/** The loaded tiles' models in `objects`, each placed once however many tiles list it. */
+	private models = new TileModelShare()
 
-	constructor(readonly mapName: string) {
+	/**
+	 * `objects` is the world view's document's layer, whose terrain is a flat stand-in: `groundAt` is
+	 * its height, which a model's height above it (`yOff`) is taken from.
+	 */
+	constructor(
+		readonly mapName: string,
+		private objects: ObjectLayer,
+		private groundAt: (x: number, z: number) => number,
+	) {
 		this.group.name = 'world'
 		fetch(`/wow/tiles?map=${encodeURIComponent(mapName)}`)
 			.then(async (res) => {
@@ -110,8 +123,8 @@ export class WorldStream {
 		return groundHeight(g, (x / TILE_YARDS - tx) * GROUND_CELLS, (z / TILE_YARDS - ty) * GROUND_CELLS)
 	}
 
-	/** What is loaded, for the probes: tiles drawn, being read, waiting to be read, failed, and the map's count. */
-	stats(): { loaded: number; loading: number; queued: number; tiles: number; failed: number } {
+	/** What is loaded, for the probes: tiles drawn, being read, waiting to be read, failed, the map's count, and the models placed. */
+	stats(): { loaded: number; loading: number; queued: number; tiles: number; failed: number; models: number } {
 		let loaded = 0
 		let failed = 0
 		for (const t of this.tiles?.values() ?? []) {
@@ -122,7 +135,7 @@ export class WorldStream {
 			const t = this.tiles?.get(k)
 			return !!t && !t.ground && !t.loading && !t.failed
 		}).length
-		return { loaded, loading: this.loads, queued, tiles: this.have.size, failed }
+		return { loaded, loading: this.loads, queued, tiles: this.have.size, failed, models: this.models.count }
 	}
 
 	private async load(t: StreamTile) {
@@ -130,15 +143,28 @@ export class WorldStream {
 		t.loading = true
 		this.loads++
 		try {
-			const res = await fetch(`/wow/ground?map=${encodeURIComponent(this.mapName)}&x=${t.x}&y=${t.y}`)
+			const query = `map=${encodeURIComponent(this.mapName)}&x=${t.x}&y=${t.y}`
+			// The models are read beside the ground; a tile whose models fail still shows its ground.
+			const models = fetch(`/wow/groundmodels?${query}`)
+				.then(async (r) => {
+					if (!r.ok) throw new Error((await r.text()).trim() || `${r.status}`)
+					return ((await r.json()) as TileModel[] | null) ?? []
+				})
+				.catch((err): TileModel[] => {
+					console.warn(`the models of tile ${this.mapName} ${t.x}_${t.y} not read`, err)
+					return []
+				})
+			const res = await fetch(`/wow/ground?${query}`)
 			if (!res.ok) throw new Error((await res.text()).trim() || `${res.status}`)
 			const ground = parseGround(await res.arrayBuffer())
 			const image = t.file ? await fetchImage(t.file).catch(() => null) : null
+			const placed = await models
 			// Let go of while it was read (the camera moved off, or the tab closed).
 			if (this.disposed || t.gen !== gen) return
 			t.ground = ground
 			t.mesh = this.meshOf(t, ground, image)
 			this.group.add(t.mesh)
+			this.models.add(t.key, placed, (m) => this.place(m))
 		} catch (err) {
 			if (t.gen === gen) t.failed = true
 			console.warn(`tile ${this.mapName} ${t.x}_${t.y} not read`, err)
@@ -176,11 +202,26 @@ export class WorldStream {
 		return mesh
 	}
 
+	/** Places one of a tile's models in the document's layer, at its height in the client. */
+	private place(m: TileModel): number {
+		return this.objects.add({
+			type: m.type,
+			x: m.x,
+			z: m.z,
+			yOff: m.y - this.groundAt(m.x, m.z),
+			rotY: m.rotY,
+			scale: m.scale,
+			tiltX: m.tiltX,
+			tiltZ: m.tiltZ,
+		}).id
+	}
+
 	private drop(t: StreamTile) {
 		// A read under way is thrown away when it lands (`load` sees the generation moved on).
 		t.gen++
 		t.loading = false
 		t.ground = null
+		this.models.drop(t.key, (id) => this.objects.remove(id))
 		if (!t.mesh) return
 		this.group.remove(t.mesh)
 		t.mesh.geometry.dispose()

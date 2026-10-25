@@ -507,20 +507,29 @@ creature's way round obstacles.
 
 ## The world view: streamed tiles and Edit Here (#15, probe `world-view`)
 Checks: File › World View (from a region) and the Start dialog's World View button open a map's world
-view, which streams the client's tiles around the camera and lets go of the far ones; Edit Here opens
-the block around the camera in a region tab, the camera kept.
-- Probe `world-view` (`bun run probe world-view`, about 15 s): opens Azeroth's world view at the
+view, which streams the client's tiles and their models around the camera and lets go of the far
+ones; Edit Here opens the block around the camera in a region tab, the camera kept.
+- Probe `world-view` (`bun run probe world-view`, about 90 s with the models): opens Azeroth's world view at the
   Elwynn block 31-33 x 48-50, waits for the tiles within the reach to load (`engine.worldStats()`:
   loaded, loading, queued, failed and the map's tile count), checks the camera looks at the block's
-  middle on the ground, that the ground is drawn (a shot with `doc.world.group` hidden differs), that a
+  middle on the ground, that the ground is drawn (a shot with `doc.world.group` hidden differs), that
+  the models are drawn (the same with `doc.objects.group`) and placed once (as many as the loaded
+  tiles list unique IDs), that a
   Sculpt click makes no undo step, that the scene line names `world`, that flying four tiles east loads
   the tiles there and drops the ones behind, then Edit Here (a project lent in the state) and File ›
-  World View back, the camera where it was each way.
+  World View back, the camera where it was each way, and that every building of the region stands
+  where the world view has it, the block's corner apart. It reports `perf` with the models and
+  without (not checked): at the Elwynn view, reach 3, about 26,000 models, 4,500 draw calls, 3.4M
+  triangles and 26 ms of CPU against 3 ms bare, on 2026-10-25.
 - `bun test tests/worldGround.test.ts`: the ground reply, the mesh (holes, normals, winding), the
-  height between samples, the tiles wanted nearest first and the reach for the view distance.
-- `go test ./internal/wow/ -run TestTileGround`: a tile `adt.BuildTile` makes reads back as its
-  heights and holes, laid out as the frontend reads them.
+  height between samples, the tiles wanted nearest first, the reach for the view distance, and a
+  model several tiles list placed once (`TileModelShare`).
+- `go test ./internal/wow/ -run TestTile`: a tile `adt.BuildTile` makes reads back as its
+  heights and holes, laid out as the frontend reads them, and as its models in the map's editor
+  coordinates and turn.
 - By hand: `curl "localhost:34115/wow/ground?map=Azeroth&x=32&y=48"` gives 82952 bytes; a tile the
-  map lacks is a 404.
+  map lacks is a 404. `/wow/groundmodels` with the same query lists the tile's models as JSON.
+- The client has a few models twice at one spot under two IDs (an Elwynn haystack, 18883 and 18884):
+  check that a model is placed once by its ID, not by its spot.
 - Trap: wait for `queued` as well as `loading` to reach 0. Between two reads `loading` is 0 for a
   frame while tiles still wait, and a check then sees half the ring.

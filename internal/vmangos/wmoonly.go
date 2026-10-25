@@ -152,9 +152,9 @@ func buildWMOOnly(set *mpq.Set, e RegionEdit, wdt []byte, w GlobalWMO) ([]mpq.Fi
 		return nil, fmt.Errorf("%s's building must be a WMO, not %s", e.MapName, model)
 	}
 	if !hasSet {
-		doodadSet = 0 // modelType leaves set 0 out of the name
+		doodadSet = 0 // adt.ModelType leaves set 0 out of the name
 	}
-	moved := ObjectView{Type: modelType(adt.WMO, orig.Name, orig.DoodadSet), X: building.X, Y: building.Y, Z: building.Z,
+	moved := ObjectView{Type: adt.ModelType(adt.WMO, orig.Name, orig.DoodadSet), X: building.X, Y: building.Y, Z: building.Z,
 		RotY: building.RotY, TiltX: building.TiltX, TiltZ: building.TiltZ, Scale: building.Scale}
 	if !unchanged(moved, e, orig) {
 		return nil, fmt.Errorf("%s's building can't be moved, turned or scaled: the server's creatures and collision stand where the client has it. Put it back (Undo) to save", e.MapName)

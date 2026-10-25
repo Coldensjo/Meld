@@ -56,3 +56,36 @@ func TestTileGroundReadsABuiltTile(t *testing.T) {
 		t.Fatal("encoded holes are not after the heights")
 	}
 }
+
+// A tile's models read back in the map's editor coordinates under the editor's names: a WMO's doodad
+// set in its name, and the turn the region reader gives it (yaw the file's middle angle less 90°).
+func TestTileModelsReadABuiltTile(t *testing.T) {
+	outer := make([]float32, GroundSide*GroundSide)
+	tx, ty := 30, 40
+	x0, z0 := float32(tx)*adt.TileSize, float32(ty)*adt.TileSize
+	set := adt.Changes{TileX: tx, TileY: ty, Add: []adt.Object{
+		{Kind: adt.M2, Name: `World\Tree.m2`, UID: 7, Position: [3]float32{x0 + 10, 55, z0 + 20}, Rotation: [3]float32{0, 180, 0}, Scale: 1.5},
+		{Kind: adt.WMO, Name: `World\wmo\Inn.wmo`, UID: 9, Position: [3]float32{x0 + 100, 60, z0 + 200}, Rotation: [3]float32{10, 90, -5}, Scale: 1, DoodadSet: 2},
+	}}
+	root, err := adt.BuildTile(outer, adt.Ring{}, set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	models, err := TileModels(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("%d models: %+v", len(models), models)
+	}
+	near := func(a, b float32) bool { return math.Abs(float64(a-b)) < 1e-3 }
+	tree, inn := models[0], models[1]
+	if tree.Type != `m2:World\Tree.m2` || tree.UID != 7 || !near(tree.X, x0+10) || !near(tree.Y, 55) || !near(tree.Z, z0+20) ||
+		!near(tree.RotY, math.Pi/2) || !near(tree.Scale, 1.5) {
+		t.Fatalf("tree %+v", tree)
+	}
+	if inn.Type != `wmo:World\wmo\Inn.wmo?set=2` || inn.UID != 9 || !near(inn.X, x0+100) || !near(inn.Z, z0+200) ||
+		!near(inn.RotY, 0) || !near(inn.TiltX, 10*math.Pi/180) || !near(inn.TiltZ, -5*math.Pi/180) {
+		t.Fatalf("inn %+v", inn)
+	}
+}

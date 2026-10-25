@@ -2746,7 +2746,8 @@ export class Engine {
     if (d) this.activate(d)
     else {
       d = new MapDocument(WORLD_STAND_IN, this.uniqueName(`${mapName} world`))
-      d.world = new WorldStream(mapName)
+      const stand = d.terrain
+      d.world = new WorldStream(mapName, d.objects, (x, z) => stand.heightAt(x, z))
       // The client's water is part of what a later step streams; the stand-in has no sea.
       d.meta.waterEnabled = false
       d.camera = { target: new THREE.Vector3(at.x, 0, at.z), yaw: this.controller.yaw, pitch: Math.max(this.controller.pitch, 0.5), distance: WORLD_FOCUS_DISTANCE }

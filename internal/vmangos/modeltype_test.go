@@ -17,7 +17,7 @@ func TestModelTypeRoundTrip(t *testing.T) {
 		{adt.WMO, `World\wmo\Inn.wmo`, 0, `wmo:World\wmo\Inn.wmo`},
 		{adt.WMO, `World\wmo\Inn.wmo`, 2, `wmo:World\wmo\Inn.wmo?set=2`},
 	} {
-		got := modelType(c.kind, c.name, c.set)
+		got := adt.ModelType(c.kind, c.name, c.set)
 		if got != c.want {
 			t.Fatalf("modelType = %q, want %q", got, c.want)
 		}
