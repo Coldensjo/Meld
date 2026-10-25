@@ -128,6 +128,7 @@ const shapes: Record<string, Check> = {
 	collapsedPanels: arr(str),
 	recentAssets: arr(str),
 	favoriteAssets: arr(str),
+	keymap: (v) => isObj(v) && Object.values(v).every(arr(str)),
 }
 
 /** Whether `v` has the nested shape the preference `key` needs; true for a key with no nested data. */

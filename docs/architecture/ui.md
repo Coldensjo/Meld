@@ -198,3 +198,16 @@ The window layout, the asset browser and the dock panels and floating windows.
   Keyboard Shortcuts lists `shortcutSections()`. A new shortcut is a row there plus its runner; a
   menu never types a shortcut string (`tests/shortcuts.test.ts` fails on one). The tool keys come
   from `TOOLS` (`lib/ui/tools.ts`).
+- **Rebinding** (#396, Preferences › Hotkey Manager, `components/HotkeyManager.svelte`): the table's
+  `chords` (commands, matched on `e.key`) and `codes` (the camera's movement rows, `camForward`…,
+  matched on `e.code` as CameraController always did) are the defaults; the `keymap` pref holds only
+  the rows the user changed (row id → chord texts such as `ctrl+shift+z`, or key codes; an empty list
+  is a row with no key; an entry that doesn't parse keeps the default). App calls
+  `bindKeymap(() => prefs.keymap)`, and every reader (`commandFor`, `keysOf`, `firstKeyOf`,
+  `CAMERA_KEYS`) goes through the effective keys rebuilt when the pref is *replaced*: never edit it in
+  place. Read inside a `$derived` (the menus, the Shortcuts dialog, the toolbar), `keysOf` follows the
+  pref; `$effect(syncKeymap)` in App refills `CAMERA_KEYS` at once. `assignBinding` takes a key off
+  every other row with the same press (a camera code clashes with the plain letter it types);
+  `refusal` keeps out modifiers, F5/F8/F12 and the plain keys the engine reads (Esc, Enter, Del,
+  arrows, PgUp/PgDn); `fixedClash` warns of H, R, T and Z, which the selection or a tool read first.
+  The rows without chords or codes (Del, H, R, arrows, Esc, Paint's T, the mouse) stay fixed.

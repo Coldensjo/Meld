@@ -31,6 +31,9 @@ test('a preference with the wrong nested shape is rejected', () => {
 	assert.equal(prefShapeOk('pinnedMaps', [1, null]), false)
 	assert.equal(prefShapeOk('pinnedMaps', [0, 1]), true)
 	assert.equal(prefShapeOk('theme', 'nonsense'), true, 'a key with no nested data is left to prefValueOk')
+	assert.equal(prefShapeOk('keymap', { grid: ['g', 'ctrl+k'], camForward: [] }), true)
+	assert.equal(prefShapeOk('keymap', { grid: 'g' }), false, 'a keymap row must be a list')
+	assert.equal(prefShapeOk('keymap', { grid: [1] }), false)
 })
 
 test('a session without tabs or maps is rejected, a saved one passes', () => {

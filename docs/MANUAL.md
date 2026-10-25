@@ -136,7 +136,10 @@ Also included:
 - **Game**: launch the 1.12 client or Benilla, Game Login.
 - **Preferences**: WoW client folder, VMaNGOS and Benilla folders, game client and window, thumbnail
   cache, camera speed, mouse sensitivity, interface size, toolbar icon size and side, invert camera Y,
-  tablet support.
+  tablet support, and the **Hotkey Manager**: every command and camera movement key with its keys,
+  changed with a click and a key press, cleared or reset (a key given to one command leaves any other
+  that had it). The keys the selection and the tools read themselves (Del, H, R, the arrows, Esc) and
+  the mouse stay fixed. The menus, the toolbar and Help › Keyboard Shortcuts show the keys you set.
 - **Help**: a help window (F1) with the tools, brushes, camera and view in short, the keyboard shortcuts, the manual (this file), the log and app info.
 
 The sky is a physically based atmosphere (or the client's own sky with Client Lighting) with a sun

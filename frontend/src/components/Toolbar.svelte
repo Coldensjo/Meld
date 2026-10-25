@@ -10,6 +10,7 @@
 <script lang="ts">
 	import { editor, prefs } from '../lib/state/editor.svelte'
 	import { toCss } from '../lib/ui/uiScale'
+	import { firstKeyOf, keysOf } from '../lib/ui/commands'
 
 	const icon = $derived(Math.min(TOOLBAR_ICON_MAX, Math.max(TOOLBAR_ICON_MIN, Number(prefs.toolbarIcon) || 22)))
 
@@ -62,14 +63,17 @@
 			<svg viewBox="0 0 24 24" width={icon} height={icon} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
 				<path d={t.icon} />
 			</svg>
-			<span class="key">{t.key}</span>
+			<span class="key">{firstKeyOf(`tool:${t.id}`)}</span>
 		</button>
 	{/each}
 </nav>
 
 {#if tip}
 	<div class="tip" class:right role="tooltip" style:left="{tip.x}px" style:top="{tip.y}px">
-		<div class="tip-name">{tip.tool.name} <kbd>{tip.tool.letter ? tip.tool.letter + ', ' : ''}{tip.tool.key}</kbd></div>
+		<div class="tip-name">
+			{tip.tool.name}
+			{#if keysOf(`tool:${tip.tool.id}`)}<kbd>{keysOf(`tool:${tip.tool.id}`)}</kbd>{/if}
+		</div>
 		<div class="tip-desc">{tip.tool.desc}</div>
 	</div>
 {/if}

@@ -1,6 +1,13 @@
 import * as THREE from 'three'
 import { MouseLookBegin, MouseLookEnd, MouseLookRecenter } from '../../../wailsjs/go/main/App'
 import { moveStep, walkFloor, WALK_HEIGHT, type CameraMoveScratch } from './cameraMove'
+import { CAMERA_KEYS } from '../ui/commands'
+
+/** Whether any of `codes` is held. */
+function held(keys: Set<string>, codes: readonly string[]): boolean {
+	for (const c of codes) if (keys.has(c)) return true
+	return false
+}
 
 /** WebView2 shows a banner on every pointer lock, so Windows hides and recentres the cursor natively. */
 const nativeLook = navigator.userAgent.includes('Windows')
@@ -330,12 +337,14 @@ export class CameraController {
 		let fwd = 0,
 			right = 0
 		const arrows = !this.arrowsBlocked()
-		if (k.has('KeyW') || (arrows && k.has('ArrowUp'))) fwd += 1
-		if (k.has('KeyS') || (arrows && k.has('ArrowDown'))) fwd -= 1
-		if (k.has('KeyD') || (arrows && k.has('ArrowRight'))) right += 1
-		if (k.has('KeyA') || (arrows && k.has('ArrowLeft'))) right -= 1
-		if (k.has('KeyQ')) this.yaw += dt * 1.6 * this.sensitivity
-		if (k.has('KeyE')) this.yaw -= dt * 1.6 * this.sensitivity
+		// The movement keys are the Hotkey Manager's (#396); the arrows stay fixed.
+		const c = CAMERA_KEYS
+		if (held(k, c.camForward) || (arrows && k.has('ArrowUp'))) fwd += 1
+		if (held(k, c.camBack) || (arrows && k.has('ArrowDown'))) fwd -= 1
+		if (held(k, c.camRight) || (arrows && k.has('ArrowRight'))) right += 1
+		if (held(k, c.camLeft) || (arrows && k.has('ArrowLeft'))) right -= 1
+		if (held(k, c.camTurnLeft)) this.yaw += dt * 1.6 * this.sensitivity
+		if (held(k, c.camTurnRight)) this.yaw -= dt * 1.6 * this.sensitivity
 
 		const speed = this.moveSpeed(fast) * dt
 		const fx = -Math.sin(this.yaw)
@@ -354,8 +363,8 @@ export class CameraController {
 			this.clampTarget()
 		}
 		if (!this.walk && !this.followGround) {
-			if (k.has('Space')) this.target.y += speed
-			if (k.has('KeyX') || k.has('KeyC')) this.target.y -= speed
+			if (held(k, c.camUp)) this.target.y += speed
+			if (held(k, c.camDown)) this.target.y -= speed
 		}
 		// The walker's walls then its floor, the flying camera's floor clamp then its walls (#434).
 		moveStep(this.target, this.settled, this.jumped, this, this.moveScratch)

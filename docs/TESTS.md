@@ -737,6 +737,7 @@ the same scene, the report before and after.
 - Selected state for assistive tech (#373, probe `aria-state`)
 - Menu keys (#370, probe `menu-keys`)
 - Shortcut table (#583, probe `shortcut-table`)
+- Hotkey Manager (#396, probe `hotkey-manager`)
 - Interface size (#372, probe `ui-scale`)
 
 ### Creatures, objects and the server database (`docs/tests/spawns.md`)

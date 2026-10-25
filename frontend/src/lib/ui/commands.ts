@@ -1,8 +1,13 @@
 // The editor's keyboard shortcuts in one table (#583). App.svelte's key handler matches a key press
 // against the rows that carry `chords` and runs that command (lib/ui/runCommand.ts), the menu bar
 // takes its shortcut text and its action from the same row by id, and Help › Keyboard Shortcuts
-// lists every row. A row without chords is a key the engine, a tool or the camera reads itself (or a
-// mouse action): it is listed, and a menu may show its keys, but App doesn't bind it.
+// lists every row. A row with `codes` is a camera movement key CameraController holds. A row with
+// neither is a key the engine or a tool reads itself (or a mouse action): it is listed, and a menu
+// may show its keys, but it is fixed.
+//
+// The chords and codes here are the defaults. The Hotkey Manager (#396) rebinds a row through the
+// `keymap` pref, which holds only the rows the user changed: the effective keys are rebuilt from it
+// whenever it is replaced (`bindKeymap`), and every reader below goes through them.
 import type { ToolId } from '../state/editor.svelte'
 import { TOOLS } from './tools'
 
@@ -26,6 +31,8 @@ export interface Shortcut {
 	readonly desc: string
 	/** The keys App's key handler binds to this command. */
 	readonly chords?: readonly Chord[]
+	/** The physical keys (`KeyboardEvent.code`) the camera holds for this movement (CameraController). */
+	readonly codes?: readonly string[]
 	/** The text shown, for a row without chords; a bound row's text is made from its chords. */
 	readonly keys?: string
 }
@@ -65,9 +72,15 @@ const GENERAL = [
 	{ id: 'look', group: 'Camera', desc: 'Look around (orbit when following the ground)', keys: 'Right mouse drag' },
 	{ id: 'slide', group: 'Camera', desc: 'Slide sideways and up/down (pan when following the ground)', keys: 'Middle mouse drag' },
 	{ id: 'wheel', group: 'Camera', desc: 'Flight speed (zoom when following the ground)', keys: 'Mouse wheel' },
-	{ id: 'fly', group: 'Camera', desc: 'Fly: W goes the way you look, A/D strafe (arrows nudge the object when one is selected)', keys: 'W A S D / arrows' },
-	{ id: 'upDown', group: 'Camera', desc: 'Fly up / down', keys: 'Space / X' },
-	{ id: 'turn', group: 'Camera', desc: 'Rotate', keys: 'Q / E' },
+	{ id: 'camForward', group: 'Camera', desc: 'Fly forward, the way you look', codes: ['KeyW'] },
+	{ id: 'camBack', group: 'Camera', desc: 'Fly back', codes: ['KeyS'] },
+	{ id: 'camLeft', group: 'Camera', desc: 'Strafe left', codes: ['KeyA'] },
+	{ id: 'camRight', group: 'Camera', desc: 'Strafe right', codes: ['KeyD'] },
+	{ id: 'camUp', group: 'Camera', desc: 'Fly up', codes: ['Space'] },
+	{ id: 'camDown', group: 'Camera', desc: 'Fly down', codes: ['KeyX', 'KeyC'] },
+	{ id: 'camTurnLeft', group: 'Camera', desc: 'Rotate left', codes: ['KeyQ'] },
+	{ id: 'camTurnRight', group: 'Camera', desc: 'Rotate right', codes: ['KeyE'] },
+	{ id: 'flyArrows', group: 'Camera', desc: 'Fly with the arrow keys (they nudge the object instead when one is selected)', keys: '↑ ← ↓ →' },
 	{ id: 'fast', group: 'Camera', desc: 'Fast / very fast', keys: 'Shift / Ctrl+Shift' },
 	{ id: 'cameraFaster', group: 'Camera', desc: 'Camera speed up a step', chords: [key('p')] },
 	{ id: 'cameraSlower', group: 'Camera', desc: 'Camera speed down a step', chords: [key('o')] },
@@ -124,6 +137,8 @@ type Row = (typeof GENERAL)[number] | (typeof TOOL_KEYS)[number]
 type ToolCommand = `tool:${ToolId}`
 /** A command App's key handler binds: a row with chords, or a tool's key. */
 export type CommandId = Extract<Row, { chords: readonly Chord[] }>['id'] | ToolCommand
+/** A camera movement CameraController holds while its key is down. */
+export type CameraMove = Extract<Row, { codes: readonly string[] }>['id']
 /** Any row of the table. */
 export type ShortcutId = Row['id'] | ToolCommand
 
@@ -140,6 +155,16 @@ export const SHORTCUTS: readonly Shortcut[] = [...GENERAL, ...TOOL_ROWS, ...TOOL
 
 const BY_ID = new Map<string, Shortcut>(SHORTCUTS.map((s) => [s.id, s]))
 
+/**
+ * The rows the user rebound (the `keymap` pref, #396): row id → its keys, each a chord as text
+ * ('ctrl+shift+z', 'f1', '[', see `chordText`) or, for a camera row, a key code ('KeyW'). Only the
+ * changed rows are in it, and an empty list leaves a row with no key. An entry that names no row,
+ * or whose keys all fail to parse, is ignored: the row keeps its default.
+ */
+export type Keymap = Record<string, string[]>
+
+// ---------------------------------------------------------------- keys as text
+
 /** Names of the named keys, as the menus show them. */
 const NAMES: Record<string, string> = {
 	pagedown: 'PgDn',
@@ -148,6 +173,13 @@ const NAMES: Record<string, string> = {
 	escape: 'Esc',
 	tab: 'Tab',
 	enter: 'Enter',
+	' ': 'Space',
+	arrowup: '↑',
+	arrowdown: '↓',
+	arrowleft: '←',
+	arrowright: '→',
+	insert: 'Ins',
+	backspace: 'Backspace',
 	'{': 'Shift+[',
 	'}': 'Shift+]',
 }
@@ -157,21 +189,170 @@ const isSymbol = (k: string) => k.length === 1 && !/[a-z0-9]/.test(k)
 
 /** A chord as text: Ctrl+Shift+Z, Shift+F2, PgDn, Shift+[. */
 export function chordLabel(c: Chord): string {
-	const name = NAMES[c.key] ?? (/^f\d+$/.test(c.key) ? c.key.toUpperCase() : c.key.length === 1 ? c.key.toUpperCase() : c.key)
+	const name = NAMES[c.key] ?? (/^f\d+$/.test(c.key) ? c.key.toUpperCase() : c.key.length === 1 ? c.key.toUpperCase() : c.key[0].toUpperCase() + c.key.slice(1))
 	return (c.ctrl ? 'Ctrl+' : '') + (c.shift && !isSymbol(c.key) ? 'Shift+' : '') + name
 }
 
-/** The keys of shortcut `id`, as the menus and the Shortcuts dialog show them. */
+/** A chord as the keymap stores it: 'ctrl+shift+z', 'shift+f2', '[', 'ctrl++'. */
+export function chordText(c: Chord): string {
+	return (c.ctrl ? 'ctrl+' : '') + (c.shift && !isSymbol(c.key) ? 'shift+' : '') + c.key
+}
+
+/** The chord a keymap entry names, or null when it names none. */
+export function parseChord(text: string): Chord | null {
+	let rest = text.toLowerCase()
+	let ctrl = false
+	let shift = false
+	for (;;) {
+		if (rest.startsWith('ctrl+') && rest.length > 5) {
+			ctrl = true
+			rest = rest.slice(5)
+		} else if (rest.startsWith('shift+') && rest.length > 6) {
+			shift = true
+			rest = rest.slice(6)
+		} else break
+	}
+	if (!rest || (rest.length > 1 && !/^[a-z0-9]+$/.test(rest))) return null
+	return { key: rest, ctrl, shift: shift && !isSymbol(rest) }
+}
+
+/** The key codes with a name of their own (the US layout's symbols). */
+const CODE_NAMES: Record<string, string> = {
+	Space: 'Space',
+	ArrowUp: '↑',
+	ArrowDown: '↓',
+	ArrowLeft: '←',
+	ArrowRight: '→',
+	BracketLeft: '[',
+	BracketRight: ']',
+	Minus: '-',
+	Equal: '=',
+	Semicolon: ';',
+	Quote: "'",
+	Comma: ',',
+	Period: '.',
+	Slash: '/',
+	Backslash: '\\',
+	Backquote: '`',
+	PageUp: 'PgUp',
+	PageDown: 'PgDn',
+	Insert: 'Ins',
+	Delete: 'Del',
+}
+
+/** A key code as the menus show it: KeyW is W, Digit1 is 1, Space is Space. */
+export function codeLabel(code: string): string {
+	if (/^Key[A-Z]$/.test(code)) return code.slice(3)
+	if (/^Digit\d$/.test(code)) return code.slice(5)
+	if (/^Numpad\d$/.test(code)) return `Num ${code.slice(6)}`
+	return CODE_NAMES[code] ?? code
+}
+
+/** The character a key code types with no modifier (on the US layout), as `KeyboardEvent.key` lowercased. */
+function codeKey(code: string): string {
+	if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase()
+	if (/^Digit\d$/.test(code)) return code.slice(5)
+	if (code === 'Space') return ' '
+	return CODE_NAMES[code]?.length === 1 ? CODE_NAMES[code] : code.toLowerCase()
+}
+
+const isCode = (s: unknown): s is string => typeof s === 'string' && /^[A-Z][A-Za-z0-9]*$/.test(s)
+
+// ---------------------------------------------------------------- the effective keys
+
+/** A row's chords after the keymap: the user's when they parse (or are an empty list), else the defaults. */
+function rowChords(s: Shortcut, km: Keymap | undefined): readonly Chord[] {
+	const o = km && Object.hasOwn(km, s.id) ? km[s.id] : undefined
+	if (!Array.isArray(o)) return s.chords ?? []
+	const parsed = o.map((x) => (typeof x === 'string' ? parseChord(x) : null)).filter((c): c is Chord => c !== null)
+	return parsed.length || !o.length ? parsed : (s.chords ?? [])
+}
+
+/** A camera row's key codes after the keymap, as `rowChords`. */
+function rowCodes(s: Shortcut, km: Keymap | undefined): readonly string[] {
+	const o = km && Object.hasOwn(km, s.id) ? km[s.id] : undefined
+	if (!Array.isArray(o)) return s.codes ?? []
+	const codes = o.filter(isCode)
+	return codes.length || !o.length ? codes : (s.codes ?? [])
+}
+
+interface Effective {
+	chords: Map<string, readonly Chord[]>
+	codes: Map<string, readonly string[]>
+	/** The rows App's key handler binds, in the table's order. */
+	bound: Array<{ id: CommandId; chords: readonly Chord[] }>
+}
+
+/**
+ * The camera's keys, which CameraController reads every frame: each movement's key codes. Refilled in
+ * place when the keymap changes, so the controller holds the one object.
+ */
+export const CAMERA_KEYS = {} as Record<CameraMove, string[]>
+
+function build(km: Keymap | undefined): Effective {
+	const out: Effective = { chords: new Map(), codes: new Map(), bound: [] }
+	for (const s of SHORTCUTS) {
+		if (s.chords) {
+			const chords = rowChords(s, km)
+			out.chords.set(s.id, chords)
+			if (chords.length) out.bound.push({ id: s.id as CommandId, chords })
+		} else if (s.codes) {
+			const codes = rowCodes(s, km)
+			out.codes.set(s.id, codes)
+			const held = (CAMERA_KEYS[s.id as CameraMove] ??= [])
+			held.length = 0
+			held.push(...codes)
+		}
+	}
+	return out
+}
+
+let source: () => Keymap | undefined = () => undefined
+let builtFrom: Keymap | undefined = undefined
+let effective = build(undefined)
+
+/**
+ * Where the keymap comes from: App passes `() => prefs.keymap`. The keys are rebuilt when it returns
+ * another object, so a change must replace the pref, never edit it in place. Read inside a `$derived`
+ * or an `$effect` (the menus, the Shortcuts dialog), the getter makes the reader follow the keymap.
+ */
+export function bindKeymap(get: () => Keymap | undefined) {
+	source = get
+	syncKeymap()
+}
+
+/** Rebuilds the keys if the keymap was replaced; App runs it in an effect, so the camera's keys follow at once. */
+export function syncKeymap(): void {
+	const km = source()
+	if (km === builtFrom) return
+	effective = build(km)
+	builtFrom = km
+}
+
+function current(): Effective {
+	syncKeymap()
+	return effective
+}
+
+/** The keys of shortcut `id`, as the menus and the Shortcuts dialog show them; '' for a row left with none. */
 export function keysOf(id: ShortcutId): string {
 	const s = BY_ID.get(id)
 	if (!s) return ''
-	return (
-		s.keys ??
-		(s.chords ?? [])
-			.filter((c) => !c.hidden)
-			.map(chordLabel)
-			.join(' / ')
-	)
+	if (s.keys) return s.keys
+	const e = current()
+	if (s.codes) return (e.codes.get(id) ?? []).map(codeLabel).join(' / ')
+	return (e.chords.get(id) ?? [])
+		.filter((c) => !c.hidden)
+		.map(chordLabel)
+		.join(' / ')
+}
+
+/** The first key of shortcut `id`, for the toolbar's buttons; '' when it has none. */
+export function firstKeyOf(id: ShortcutId): string {
+	const c = current()
+		.chords.get(id)
+		?.find((x) => !x.hidden)
+	return c ? chordLabel(c) : ''
 }
 
 /** The parts of a key event a chord is matched against. */
@@ -194,11 +375,9 @@ export function isEarly(c: Chord): boolean {
 	return !!c.ctrl || /^f\d+$/.test(c.key) || c.key === 'tab'
 }
 
-const BOUND = SHORTCUTS.filter((s) => s.chords?.length) as Array<Shortcut & { id: CommandId; chords: readonly Chord[] }>
-
 /** The command bound to key event `e` among the early chords (`early`) or the later ones, or null. */
 export function commandFor(e: KeyLike, early: boolean): CommandId | null {
-	for (const s of BOUND) for (const c of s.chords) if (isEarly(c) === early && chordMatches(c, e)) return s.id
+	for (const s of current().bound) for (const c of s.chords) if (isEarly(c) === early && chordMatches(c, e)) return s.id
 	return null
 }
 
@@ -211,4 +390,161 @@ export function shortcutSections(): Array<[ShortcutGroup, Array<{ id: string; ke
 		out.set(s.group, rows)
 	}
 	return [...out]
+}
+
+// ---------------------------------------------------------------- rebinding (the Hotkey Manager)
+
+/** Whether row `id` can be rebound: a command App binds or a camera movement. The rest are fixed. */
+export function isBindable(id: string): boolean {
+	const s = BY_ID.get(id)
+	return !!(s && (s.chords || s.codes))
+}
+
+const isCamera = (id: string) => !!BY_ID.get(id)?.codes
+
+/** Row `id`'s keys after the user's changes in `km`, as the keymap stores them. */
+export function bindingsOf(id: string, km?: Keymap): string[] {
+	const s = BY_ID.get(id)
+	if (!s) return []
+	if (s.codes) return [...rowCodes(s, km)]
+	return rowChords(s, km)
+		.filter((c) => !c.hidden)
+		.map(chordText)
+}
+
+/** One of row `id`'s keys (as the keymap stores it) as the dialog shows it. */
+export function bindingLabel(id: string, binding: string): string {
+	if (isCamera(id)) return codeLabel(binding)
+	const c = parseChord(binding)
+	return c ? chordLabel(c) : binding
+}
+
+/** Whether `km` changes row `id`'s keys. */
+export function isRebound(id: string, km: Keymap | undefined): boolean {
+	return !!km && Object.hasOwn(km, id) && bindingsOf(id, km).join('\n') !== bindingsOf(id).join('\n')
+}
+
+/** `km` with row `id`'s keys set to `list`: a new object, without the row when `list` is its default. */
+export function withBindings(km: Keymap | undefined, id: string, list: readonly string[]): Keymap {
+	const out: Keymap = { ...km }
+	const unique = [...new Set(list)]
+	if (unique.join('\n') === bindingsOf(id).join('\n')) delete out[id]
+	else out[id] = unique
+	return out
+}
+
+/** Whether key `a` of row `idA` and key `b` of row `idB` would be the same press. */
+function clash(idA: string, a: string, idB: string, b: string): boolean {
+	const camA = isCamera(idA)
+	const camB = isCamera(idB)
+	if (camA && camB) return a === b
+	if (camA || camB) {
+		// The camera reads its key with any Shift (fast) and none of Ctrl.
+		const code = camA ? a : b
+		const c = parseChord(camA ? b : a)
+		return !!c && !c.ctrl && c.key === codeKey(code)
+	}
+	const ca = parseChord(a)
+	const cb = parseChord(b)
+	return !!ca && !!cb && ca.key === cb.key && !!ca.ctrl === !!cb.ctrl && (isSymbol(ca.key) || !!ca.shift === !!cb.shift)
+}
+
+/**
+ * `km` with `binding` put on row `id`, in place of its key at `index` (or added after them), and taken
+ * off every other row that had the same press, so a key never runs two things. `moved` names the
+ * rows it was taken from.
+ */
+export function assignBinding(km: Keymap | undefined, id: string, binding: string, index?: number): { keymap: Keymap; moved: string[] } {
+	const moved: string[] = []
+	let out: Keymap = { ...km }
+	for (const s of SHORTCUTS) {
+		if (s.id === id || !isBindable(s.id)) continue
+		const keys = bindingsOf(s.id, out)
+		const kept = keys.filter((k) => !clash(id, binding, s.id, k))
+		if (kept.length === keys.length) continue
+		out = withBindings(out, s.id, kept)
+		moved.push(s.id)
+	}
+	const before = bindingsOf(id, out)
+	const replaced = index === undefined ? undefined : before[index]
+	const own = before.filter((k) => k === replaced || !clash(id, binding, id, k))
+	if (replaced === undefined) own.push(binding)
+	return { keymap: withBindings(out, id, replaced === undefined ? own : own.map((k) => (k === replaced ? binding : k))), moved }
+}
+
+/** `km` without row `id`'s key at `index`. */
+export function removeBinding(km: Keymap | undefined, id: string, index: number): Keymap {
+	return withBindings(
+		km,
+		id,
+		bindingsOf(id, km).filter((_, i) => i !== index),
+	)
+}
+
+/** `km` with row `id` back on its default keys. */
+export function resetBindings(km: Keymap | undefined, id: string): Keymap {
+	const out: Keymap = { ...km }
+	delete out[id]
+	return out
+}
+
+/** Modifier and system keys, never a binding by themselves. */
+const MODIFIERS = new Set(['control', 'shift', 'alt', 'altgraph', 'meta', 'os', 'capslock', 'numlock', 'scrolllock', 'contextmenu', 'dead', 'unidentified', 'process', 'compose', 'fn'])
+
+/** Keys the window keeps (reload, dev tools) and F8, which names the UI under the cursor. */
+const WINDOW_KEYS = new Set(['f5', 'f8', 'f12'])
+
+/** Keys the selection, the tools and the dialogs read themselves, plain. */
+const ENGINE_KEYS = new Set(['escape', 'enter', 'delete', 'backspace', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'pageup', 'pagedown'])
+
+/** Why `binding` cannot go on row `id`, or null when it can. */
+export function refusal(id: string, binding: string): string | null {
+	let k: string
+	let ctrl = false
+	if (isCamera(id)) {
+		if (!isCode(binding) || /^(Shift|Control|Alt|Meta|OS)/.test(binding) || binding === 'CapsLock' || binding === 'ContextMenu') return 'Shift and Ctrl are the camera’s speed keys.'
+		k = binding === 'NumpadEnter' ? 'enter' : binding.toLowerCase()
+	} else {
+		const c = parseChord(binding)
+		if (!c) return 'That key cannot be bound.'
+		k = c.key
+		ctrl = !!c.ctrl
+	}
+	if (MODIFIERS.has(k)) return 'Press a key, with or without Ctrl and Shift.'
+	if (WINDOW_KEYS.has(k)) return k === 'f8' ? 'F8 is kept for naming the UI under the cursor.' : `${k.toUpperCase()} is kept by the window.`
+	if (!ctrl && ENGINE_KEYS.has(k)) return `${chordLabel({ key: k })} is read by the selection, the tools and the dialogs, and stays fixed.`
+	return null
+}
+
+/** Plain keys a fixed row reads (the engine and the tools see them first): the row's id. */
+const FIXED_KEYS: Record<string, string> = { h: 'hideSelected', r: 'spin', t: 'spray', z: 'placeTilt' }
+
+/**
+ * The fixed row that also reads `binding` on row `id`, for a warning: the selection or a tool takes
+ * that key first, so the command runs only when they don't (H with no model selected).
+ */
+export function fixedClash(id: string, binding: string): Shortcut | null {
+	let k: string | undefined
+	if (isCamera(id)) k = codeKey(binding)
+	else {
+		const c = parseChord(binding)
+		if (c && !c.ctrl) k = c.key
+	}
+	const row = k !== undefined ? FIXED_KEYS[k] : undefined
+	return row ? (BY_ID.get(row) ?? null) : null
+}
+
+/** The binding a key press makes for row `id` (a code for a camera row, a chord's text otherwise), or why it makes none. */
+export function bindingFromEvent(id: string, e: KeyLike & { altKey: boolean }): { binding: string } | { error: string } {
+	if (e.altKey) return { error: 'Alt is kept for the pipette and the brush drag: press a key with or without Ctrl and Shift.' }
+	if (isCamera(id)) {
+		if (e.ctrlKey || e.metaKey) return { error: 'The camera keys take no Ctrl (Ctrl+Shift is very fast).' }
+		return { binding: e.code }
+	}
+	return { binding: chordText({ key: e.key.toLowerCase(), ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey }) }
+}
+
+/** Whether a key press is a modifier alone, which the Hotkey Manager waits past. */
+export function isModifierKey(e: Pick<KeyboardEvent, 'key'>): boolean {
+	return MODIFIERS.has(e.key.toLowerCase())
 }

@@ -22,6 +22,7 @@
 	import RecoveryDialog from './RecoveryDialog.svelte'
 	import FitGroundDialog from './FitGroundDialog.svelte'
 	import ErodeDialog from './ErodeDialog.svelte'
+	import HotkeyManager from './HotkeyManager.svelte'
 	import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
 	import { EquipmentFor } from '../../wailsjs/go/main/App'
 	import { setStatus } from '../lib/state/editor.svelte'
@@ -119,8 +120,8 @@
 		],
 	]
 
-	/** Help › Keyboard Shortcuts' rows, from the shortcut table the key handler and the menus use (#583). */
-	const SHORTCUTS = shortcutSections()
+	/** Help › Keyboard Shortcuts' rows, from the shortcut table the key handler and the menus use (#583), with the Hotkey Manager's bindings (#396). */
+	const SHORTCUTS = $derived(shortcutSections())
 </script>
 
 {#if ui.dialog === 'about'}
@@ -179,12 +180,13 @@
 			<table>
 				<tbody>
 					{#each rows as row (row.id)}
-						<tr><td><kbd>{row.keys}</kbd></td><td>{row.desc}</td></tr>
+						<tr><td><kbd>{row.keys || '(none)'}</kbd></td><td>{row.desc}</td></tr>
 					{/each}
 				</tbody>
 			</table>
 		{/each}
 		{#snippet actions()}
+			<button onclick={() => (ui.dialog = 'hotkeys')}>Change keys…</button>
 			<button class="active" onclick={close}>Close</button>
 		{/snippet}
 	</Modal>
@@ -349,6 +351,8 @@
 	<FitGroundDialog onclose={close} />
 {:else if ui.dialog === 'erode'}
 	<ErodeDialog onclose={close} />
+{:else if ui.dialog === 'hotkeys'}
+	<HotkeyManager onclose={close} />
 {:else if ui.dialog === 'project'}
 	<ProjectDialog onclose={close} />
 {:else if ui.dialog === 'folderSetup'}

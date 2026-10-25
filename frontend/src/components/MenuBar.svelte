@@ -623,6 +623,7 @@
 			items: [
 				{ kind: 'action', label: wow.loaded ? 'Change WoW Client Folder…' : 'Select WoW Client Folder…', disabled: !hasBackend(), run: chooseWowFolder },
 				{ kind: 'action', label: 'VMaNGOS Server Folder…', disabled: !hasBackend(), run: chooseVmangosFolder },
+				{ kind: 'action', label: 'Hotkey Manager…', run: () => (ui.dialog = 'hotkeys') },
 				{ kind: 'action', label: 'Clear Thumbnail Cache', disabled: !wow.loaded, run: clearThumbs },
 				{ kind: 'check', label: 'Check the Map before Compile (stop on errors)', checked: prefs.checkBeforeCompile, toggle: () => (prefs.checkBeforeCompile = !prefs.checkBeforeCompile) },
 				{ kind: 'check', label: 'Build movement maps on compile (server mmaps)', checked: prefs.buildMoveMaps, toggle: () => (prefs.buildMoveMaps = !prefs.buildMoveMaps) },

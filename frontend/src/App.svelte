@@ -49,7 +49,7 @@
 	import { LAYERS } from './lib/terrain/layers'
 	import { docs, editor, prefs, ui, wow } from './lib/state/editor.svelte'
 	import { applyUiScale } from './lib/ui/uiScale'
-	import { commandFor } from './lib/ui/commands'
+	import { bindKeymap, commandFor, syncKeymap } from './lib/ui/commands'
 	import { runCommand } from './lib/ui/runCommand'
 	import { engineRef } from './lib/state/engineRef'
 	import { EventsOn, WindowSetTitle } from '../wailsjs/runtime/runtime'
@@ -96,6 +96,11 @@
 			void AckClose()
 		})
 	})
+
+	// The keys follow the Hotkey Manager's bindings (#396): the menus and the Shortcuts dialog read them
+	// through the getter, and this effect rebuilds the camera's keys as soon as the pref is replaced.
+	bindKeymap(() => prefs.keymap)
+	$effect(() => syncKeymap())
 
 	// Preferences › Interface size (#372): the whole page zoomed, before the engine reads the pref for its pixel ratio.
 	$effect(() => applyUiScale(prefs.uiScale))
