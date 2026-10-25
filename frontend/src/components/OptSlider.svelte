@@ -33,8 +33,9 @@
     color: var(--text-dim);
   }
   .num {
-    width: 52px;
-    padding: 1px 4px;
+    /* Room for the value beside the native spin arrows (about 15 px), which sit flush at the right edge. */
+    width: 68px;
+    padding: 1px 0 1px 4px;
     font: 11px var(--mono);
     text-align: right;
   }
