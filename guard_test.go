@@ -15,10 +15,10 @@ import (
 // writerDirArg maps each function that writes into a client's Data folder to the position of the
 // argument holding that folder. WriteLights takes DBC bytes, not a folder, so it needs no entry.
 var writerDirArg = map[string]int{
-	"InstallPatch": 0,
-	"SaveRegion":   0,
-	"AddPending":   0,
-	"ExportMap":    1, // ExportMap(readDir, patchDir, serverDir, spec)
+	"InstallPatch":       0,
+	"InstallWithPending": 0,
+	"AddPending":         0,
+	"ExportMap":          1, // ExportMap(readDir, patchDir, serverDir, spec)
 }
 
 // guardAllowConfig lists the test files (slash paths below internal/) that may read config.json.
@@ -98,7 +98,7 @@ func TestC(t *testing.T) {
 func TestD(t *testing.T) {
 	dir := testclient.DataDir(t)
 	dataDir, _ := wow.ResolveDataDir(dir)
-	SaveRegion(dataDir, nil)
+	InstallWithPending(dataDir, nil)
 }
 func TestCreatedGUIDLive(t *testing.T) {
 	dir := testclient.ServerDir(t)

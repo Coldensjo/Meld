@@ -1058,13 +1058,3 @@ func RegionChanges(dataDir string, e RegionEdit) ([]mpq.File, RegionResult, erro
 	}
 	return changed, res, nil
 }
-
-// SaveRegion writes the edited block's changed files into the client's patch.
-func SaveRegion(dataDir string, e RegionEdit) (RegionResult, error) {
-	files, res, err := RegionChanges(dataDir, e)
-	if err != nil || len(files) == 0 {
-		return res, err
-	}
-	res.Patch, err = InstallPatch(dataDir, files)
-	return res, err
-}
