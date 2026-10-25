@@ -206,6 +206,10 @@ open region has edits the client lacks, and only then.
     runs waits, a refused write keeps it waiting, the next region save takes it into the patch, and a
     region saved while the game runs reaches the patch at `waitForGameClosed` (the step before a
     server rebuild). Set `pendingWatch` so the watcher doesn't race the saves.
+  - `go test . -run TestSaveAfterDatabase` (#477): `SaveAreaTriggers` over a held patch, with
+    `App.runSQL` standing in for the world database, says the portals are saved in the world database
+    and to Save again; without a server folder it returns the patch's own error. `SaveAreas` and
+    `SaveTaxi` wrap the same way (`afterDatabase` in `app.go`).
   - Trap: the server's "current" test compares file times, so the test sets them (`os.Chtimes`)
     rather than trusting the order of two writes a few milliseconds apart.
 - `bun test tests/regionKey.test.ts` (#433): the fingerprint (`regionKey` in `io/regionKey.ts`) changes

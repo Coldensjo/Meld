@@ -57,6 +57,9 @@ type App struct {
 	pendingWatch atomic.Bool
 	// gameUp, when set, is gameRunning's answer, for the tests of the client file chain (#405).
 	gameUp func() bool
+	// runSQL, when set, runs a script in the world database in place of vmangos.ApplySQL, for the tests
+	// of the saves that write the database and then the patch (#477).
+	runSQL func(server, script string) error
 	// serverBusy is whether UpdateRegionServer or PublishVmangosMap runs: both rewrite the server's map
 	// data, so a second one is refused (#486).
 	serverBusy atomic.Bool
@@ -2164,6 +2167,20 @@ func (a *App) ZoneWeather() (ZoneWeatherList, error) {
 	return ZoneWeatherList{Server: true, Zones: zones}, err
 }
 
+// applySQL runs script in the server's world database.
+func (a *App) applySQL(server, script string) error {
+	if a.runSQL != nil {
+		return a.runSQL(server, script)
+	}
+	return vmangos.ApplySQL(server, script)
+}
+
+// afterDatabase is the error of a client write that failed once the world database already held the
+// save (what names it), so the user knows the server and the client disagree until a Save again (#477).
+func afterDatabase(what string, err error) error {
+	return fmt.Errorf("%s saved in the world database, but writing them into the client's patch failed (Save again to retry): %w", what, err)
+}
+
 // SaveAreas writes the zone editor's rows into the client's AreaTable.dbc (in Meld's patch) and,
 // with a server folder set, into the world database's area_template, which the server reads areas
 // from, with the zones' weather into game_weather. Nothing is closed or restarted (#661): the server
@@ -2195,7 +2212,7 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 		return res, errors.New("the weather is the server's: set the VMaNGOS server folder first")
 	}
 	if server != "" {
-		if err := vmangos.ApplySQL(server, vmangos.AreaSQL(rows)+weatherSQL); err != nil {
+		if err := a.applySQL(server, vmangos.AreaSQL(rows)+weatherSQL); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
 		}
 		res.Server = true
@@ -2203,6 +2220,9 @@ func (a *App) SaveAreas(rows []vmangos.AreaRow, weather []vmangos.ZoneWeather) (
 	}
 	if len(rows) > 0 && !bytes.Equal(out, dbc) {
 		if res.Patch, res.Waiting, err = a.installClient(dataDir, []mpq.File{{Name: vmangos.AreaTablePath, Data: out}}, nil); err != nil {
+			if res.Server {
+				err = afterDatabase("the zones are", err)
+			}
 			return res, err
 		}
 	}
@@ -2269,7 +2289,7 @@ func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (Are
 		return res, err
 	}
 	if server != "" {
-		if err := vmangos.ApplySQL(server, vmangos.AreaTriggerSQL(rows, remove)); err != nil {
+		if err := a.applySQL(server, vmangos.AreaTriggerSQL(rows, remove)); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
 		}
 		res.Server = true
@@ -2277,6 +2297,9 @@ func (a *App) SaveAreaTriggers(rows []vmangos.AreaTrigger, remove []uint32) (Are
 	}
 	if !bytes.Equal(out, dbc) {
 		if res.Patch, res.Waiting, err = a.installClient(dataDir, []mpq.File{{Name: vmangos.AreaTriggerPath, Data: out}}, nil); err != nil {
+			if res.Server {
+				err = afterDatabase("the portals are", err)
+			}
 			return res, err
 		}
 	}
@@ -2331,7 +2354,7 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 		return res, err
 	}
 	if server != "" {
-		if err := vmangos.ApplySQL(server, vmangos.TaxiSQL(edit.Nodes, edit.RemoveNodes, edit.RemoveRoutes)); err != nil {
+		if err := a.applySQL(server, vmangos.TaxiSQL(edit.Nodes, edit.RemoveNodes, edit.RemoveRoutes)); err != nil {
 			return res, fmt.Errorf("world database: %w", err)
 		}
 	}
@@ -2344,12 +2367,20 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 			files = append(files, mpq.File{Name: f.name, Data: f.new})
 		}
 	}
+	// The client's tables are written (or wait for the game) by the time the server's run, so their
+	// failure says the stops are in the world database and the client but the routes are not.
+	tablesTried := false
 	serverTables := func() error {
+		tablesTried = true
 		if server == "" {
 			return nil
 		}
 		if _, err := vmangos.InstallServerTaxi(server, out); err != nil {
-			return fmt.Errorf("server data: %w", err)
+			where := "the world database and the client's patch"
+			if len(files) == 0 {
+				where = "the world database"
+			}
+			return fmt.Errorf("the flight stops are saved in %s, but writing the routes into the server's data failed (Save again to retry): %w", where, err)
 		}
 		res.Server = true
 		res.Restart = a.worldRunning()
@@ -2359,6 +2390,9 @@ func (a *App) SaveTaxi(edit vmangos.TaxiEdit) (AreaSaveResult, error) {
 		return res, serverTables()
 	}
 	res.Patch, res.Waiting, err = a.installClient(dataDir, files, serverTables)
+	if err != nil && server != "" && !tablesTried {
+		err = afterDatabase("the flight stops are", err)
+	}
 	return res, err
 }
 
