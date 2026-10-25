@@ -706,6 +706,7 @@ the same scene, the report before and after.
 - Autosave and recovery (#177)
 - Folder setup dialog at start (#689)
 - The desktop window itself (closing with unsaved maps, #188)
+- A long right-drag turn on Windows never stops (#724)
 - Hover previews in tile grids (no gap between tiles)
 - Thumbnail loading order (asset browser grids)
 - Asset browser tabs remember their place (#123)

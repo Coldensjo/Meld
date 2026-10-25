@@ -62,6 +62,26 @@ its own browser arguments), so drive the window from PowerShell with user32 (`Se
 - Trap: this runs the owner's real app on their config; its session restore opens their tabs. Only
   edit an untitled map, and quit without saving.
 
+## A long right-drag turn on Windows never stops (#724)
+
+Checks: the Windows mouse look (`CameraController` with `lookWarp.ts`, `mouselook_windows.go`) moves
+the hidden cursor back to the drag's start once it is `WARP_AT` away, however fast the spin, and the
+jump back never turns the camera. The bookkeeping is unit-tested in `tests/lookWarp.test.ts`; the real
+cursor only moves in the native window (the dev page uses pointer lock), so the live check drives the
+built `build/bin/Meld.exe` from PowerShell as in the entry above:
+
+- Start it, `ShowWindow(h, 3)`, tap Alt (`keybd_event(0x12, ...)` down and up) and then
+  `SetForegroundWindow(h)`, and stop unless `GetForegroundWindow()` is the window: a background
+  PowerShell is refused the foreground without the Alt tap, and the drag then lands in whatever window
+  is in front (the first try on 2026-10-25 right-dragged a browser).
+- `SetCursorPos` at the window's centre, right down (`mouse_event(0x0008)`), 300 relative moves of
+  60 px (`mouse_event(0x0001, 60, 0, ...)`, 8 ms apart), right up (`0x0010`). Every 25 moves read
+  `GetCursorPos`: its offset from the start stays under `WARP_AT` plus a move or two (60, 120, 0, ...
+  on 2026-10-25); before the fix it ran to the monitor's edge. Screenshots of the viewport late in the
+  spin differ (the map's edge moves), so the turn goes on.
+- Traps: the session restore opens the owner's tabs; nothing is edited, so `CloseMainWindow` ends it
+  with no prompt.
+
 ## Hover previews in tile grids (no gap between tiles)
 
 Checks: in every grid whose hovered tile drives a preview (the asset browser, Doodad Brushes, the
