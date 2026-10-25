@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { withBit, type CreatureField } from '../lib/world/creatureFields'
+	import { classOfBit } from '../lib/wow/classes'
 	import AuraField from './AuraField.svelte'
+	import ClassIcon from './ClassIcon.svelte'
 	import RefField from './RefField.svelte'
 	import { TEXT_CODES, insertCode } from '../lib/wow/textCodes'
 
@@ -43,6 +45,13 @@
 	const range = (c: vmangos.TemplateColumn | undefined) => (c && (c.min !== 0 || c.max !== 0) ? { min: String(c.min), max: String(c.max) } : { min: c?.kind === 'uint' ? '0' : undefined, max: undefined })
 </script>
 
+{#snippet select(f: CreatureField)}
+	<select value={value(f)} onchange={(e) => onset(f.col, (e.currentTarget as HTMLSelectElement).value)}>
+		{#if !f.options?.some(([v]) => String(v) === value(f))}<option value={value(f)}>{value(f)}</option>{/if}
+		{#each f.options ?? [] as [v, name] (v)}<option value={String(v)}>{name}</option>{/each}
+	</select>
+{/snippet}
+
 <div class="grid" style:grid-template-columns="repeat({cols}, 1fr)">
 	{#each fields as f (f.col)}
 		{@const c = columns.get(f.col)}
@@ -67,7 +76,7 @@
 			<fieldset class="wide" class:changed title={f.col}>
 				<legend>{f.label}</legend>
 				{#each f.flags as [bit, name] (bit)}
-					<label class="check"><input type="checkbox" checked={((Number(value(f)) || 0) & bit) !== 0} onchange={(e) => onset(f.col, withBit(value(f), bit, (e.currentTarget as HTMLInputElement).checked))} /> {name}</label>
+					<label class="check"><input type="checkbox" checked={((Number(value(f)) || 0) & bit) !== 0} onchange={(e) => onset(f.col, withBit(value(f), bit, (e.currentTarget as HTMLInputElement).checked))} />{#if f.classes === 'mask'}<ClassIcon id={classOfBit(bit)} />{/if} {name}</label>
 				{/each}
 			</fieldset>
 		{:else if f.bool}
@@ -75,10 +84,15 @@
 		{:else if f.options}
 			<label class:changed title={tip(f)}
 				>{f.label}
-				<select value={value(f)} onchange={(e) => onset(f.col, (e.currentTarget as HTMLSelectElement).value)}>
-					{#if !f.options.some(([v]) => String(v) === value(f))}<option value={value(f)}>{value(f)}</option>{/if}
-					{#each f.options as [v, name] (v)}<option value={String(v)}>{name}</option>{/each}
-				</select></label
+				{#if f.classes === 'id'}
+					<!-- A class: the picked one's icon beside the select (#682). -->
+					<div class="pick">
+						<ClassIcon id={Number(value(f)) || 0} />
+						{@render select(f)}
+					</div>
+				{:else}
+					{@render select(f)}
+				{/if}</label
 			>
 		{:else}
 			<label class:changed class:wide={f.wide || (c?.kind === 'text' && (c.maxLen === 0 || c.maxLen > 64))} title={tip(f)}
@@ -139,6 +153,12 @@
 	}
 	.codemean {
 		flex-basis: 100%;
+	}
+	.pick {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
 	}
 	.note {
 		margin-left: 4px;

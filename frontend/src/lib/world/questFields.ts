@@ -214,7 +214,7 @@ export const QUEST_TABS: QuestTab[] = [
 				title: 'Who may take it',
 				fields: [
 					{ col: 'RequiredRaces', label: 'Races (none ticked: every race)', flags: RACE_MASK },
-					{ col: 'RequiredClasses', label: 'Classes (none ticked: every class)', flags: CLASS_MASK },
+					{ col: 'RequiredClasses', label: 'Classes (none ticked: every class)', flags: CLASS_MASK, classes: 'mask' },
 					{ col: 'RequiredSkill', label: 'Skill', ref: 'skill' },
 					{ col: 'RequiredSkillValue', label: 'Skill level' },
 					{ col: 'RequiredMinRepFaction', label: 'Reputation at least with', ref: 'faction' },

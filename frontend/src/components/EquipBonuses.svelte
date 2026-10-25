@@ -14,6 +14,8 @@
 </script>
 
 <script lang="ts">
+	import RefIcon from './RefIcon.svelte'
+
 	// The item editor's Equip bonuses (#353), on its Stats tab: the stats an item's ten stat slots
 	// can't hold (1.12 has only mana, health and the five attributes there), such as healing, spell
 	// damage, crit, hit, dodge, attack power or mana per 5. In the game each is an Equip effect, a
@@ -80,6 +82,7 @@
 		{#each equips as i (i)}
 			{@const id = Number(values[`spellid_${i}`])}
 			<li>
+				<RefIcon kind="spell" {id} />
 				<span class="text">{texts[id] ?? `Spell ${id}`}</span>
 				<span class="dim">{bonusOf.get(id) ?? ''} · spell {id}, effect {i}</span>
 				<button onclick={() => remove(i)} title="Empty effect slot {i}">Remove</button>
@@ -118,7 +121,7 @@
 	}
 	li {
 		display: grid;
-		grid-template-columns: 1fr auto auto;
+		grid-template-columns: auto 1fr auto auto;
 		align-items: center;
 		gap: 8px;
 		padding: 4px 6px;

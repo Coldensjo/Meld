@@ -395,6 +395,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `scriptTable` names the table and its second key, `patch` or `build`).
   Save and Import mark the items stale (`game.Stale.AddItem`), so the client's `itemcache.wdb` and
   `itemnamecache.wdb` drop them, and forget the session's rows and names (`forgetItemRow`, `forgetName`).
+- **Icons beside names** (#682): an item shows `ItemIcon` (its display, or an icon by name), a spell
+  `SpellIcon` (its SpellIcon.dbc path), and a thing known only by its number `RefIcon` (looks the name
+  up through `refNames` first). A field with `ref: 'item'` or `ref: 'spell'` gets its icon from
+  `RefField`, so naming a column in `*Fields.ts` is how an editor field gets one (the spell editor's
+  reagents and tools, an object's spell data columns: a `DATA_NAMES` name ending in "spell" or "aura").
+  Classes: `ClassIcon` cuts a cell of the 1.12 client's only class atlas,
+  `Interface\Glues\CharacterCreate\UI-CharacterCreate-Classes.blp` (`UI-Classes-Circles` is 2.x),
+  where GlueXML's `CLASS_ICON_TCOORDS` cuts it (`lib/wow/classes.ts`, `classIcons.ts`, alpha kept). A
+  field with `classes: 'mask'` (flag ticks, a ClassMask bit) or `classes: 'id'` (a select of class
+  IDs) shows it in `TemplateFields`. A `<select>`'s options cannot hold images, so a select shows the
+  picked value's icon beside it.
 - **Icons tool** (`components/IconsWindow.svelte`, `ui.iconsTool`, #683): full screen (z-index 165),
   opened by Tools › Icons… (`{ icon: '' }`; a name opens it on that icon). The shared `IconGrid`
   (every icon by name, `iconsFirst="none"`, with Import PNG… and Export … as PNG…), and on the right

@@ -318,7 +318,7 @@ function itemTabList(cls: number): QuestTab[] {
 					title: 'Who may use it',
 					fields: [
 						{ col: 'required_level', label: 'Level' },
-						{ col: 'allowable_class', label: 'Classes', flags: CLASS_MASK, hint: '-1 for every class' },
+						{ col: 'allowable_class', label: 'Classes', flags: CLASS_MASK, classes: 'mask', hint: '-1 for every class' },
 						{ col: 'allowable_race', label: 'Races', flags: RACE_MASK, hint: '-1 for every race' },
 						{ col: 'required_skill', label: 'Skill', ref: 'skill' },
 						{ col: 'required_skill_rank', label: 'Skill rank' },

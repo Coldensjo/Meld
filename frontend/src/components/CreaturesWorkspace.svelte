@@ -7,6 +7,7 @@
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { CREATURE_TYPES, levelText, NPC_FLAGS, RANKS } from '../lib/world/spawnInfo'
+	import ClassIcon from './ClassIcon.svelte'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import DisplayPicker, { forgetCreatureDisplays } from './DisplayPicker.svelte'
 	import WeaponPicker, { SLOTS } from './WeaponPicker.svelte'
@@ -367,7 +368,7 @@
 						<p class="dim">The server gives a creature its health, damage and armour from its class and level; the multipliers make it tougher or weaker. The rank set them; change them as you like.</p>
 						<div class="sides">
 							{#each CLASSES as [v, name, what] (v)}
-								<label class="check"><input type="radio" name="class" checked={draft.unitClass === v} onchange={() => (draft.unitClass = v)} /> {name} <span class="dim">({what})</span></label>
+								<label class="check"><input type="radio" name="class" checked={draft.unitClass === v} onchange={() => (draft.unitClass = v)} /><ClassIcon id={v} /> {name} <span class="dim">({what})</span></label>
 							{/each}
 						</div>
 						<span class="row">

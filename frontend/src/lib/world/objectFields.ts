@@ -1,4 +1,4 @@
-import type { CreatureFieldGroup } from './creatureFields'
+import type { CreatureField, CreatureFieldGroup } from './creatureFields'
 import { OBJECT_TYPES } from './spawnInfo'
 
 /**
@@ -100,7 +100,8 @@ export function objectFieldGroups(type: number): CreatureFieldGroup[] {
 		},
 		{
 			title: `What a ${(OBJECT_TYPES[type] ?? 'object').toLowerCase()} does`,
-			fields: data.map((name, i) => ({ col: `data${i}`, label: name.replace(/^\?/, ''), bool: name.startsWith('?') })).filter((f) => f.label !== ''),
+			// A column named "... spell" or "... aura" holds a spell ID: a picker with the spell's icon (#682).
+			fields: data.map((name, i): CreatureField => ({ col: `data${i}`, label: name.replace(/^\?/, ''), bool: name.startsWith('?'), ref: /(spell|aura)$/i.test(name) ? 'spell' : undefined })).filter((f) => f.label !== ''),
 		},
 		{
 			title: 'Money',

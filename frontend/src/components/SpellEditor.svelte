@@ -435,7 +435,7 @@
 		<header>
 			<div class="title">
 				{#if target.entry > 0}
-					<h2>{values.name || saved.name || 'Spell'}{#if values.nameSubtext}<span class="rank">{values.nameSubtext}</span>{/if}</h2>
+					<h2><SpellIcon icon={iconShown} size={20} /> {values.name || saved.name || 'Spell'}{#if values.nameSubtext}<span class="rank">{values.nameSubtext}</span>{/if}</h2>
 					<span class="dim">spell {target.entry}{record ? ` · build ${record.build}` : ''}</span>
 				{:else if target.entry === -1}
 					<h2>New spell</h2>

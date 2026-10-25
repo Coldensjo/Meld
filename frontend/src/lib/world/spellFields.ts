@@ -145,6 +145,18 @@ function spellTabList(tables: vmangos.SpellTables | null): QuestTab[] {
 						{ col: 'procChance', label: 'Proc chance (%)' },
 						{ col: 'procCharges', label: 'Charges' },
 						{ col: 'maxAffectedTargets', label: 'Most targets' },
+						{ col: 'modelNextSpell', label: 'Next spell', ref: 'spell', hint: 'The spell an auto-repeating spell casts again, such as Auto Shot' },
+					],
+				},
+				{
+					title: 'Reagents and totems',
+					fields: [
+						...[1, 2, 3, 4, 5, 6, 7, 8].flatMap((i): CreatureField[] => [
+							{ col: `reagent${i}`, label: `Reagent ${i}`, ref: 'item', hint: 'An item the cast uses up' },
+							{ col: `reagentCount${i}`, label: 'Count' },
+						]),
+						{ col: 'totem1', label: 'Tool 1', ref: 'item', hint: 'An item the caster must carry, not used up (a totem, a blacksmith hammer)' },
+						{ col: 'totem2', label: 'Tool 2', ref: 'item' },
 					],
 				},
 			],

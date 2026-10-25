@@ -1,3 +1,4 @@
+import { CLASSES } from '../wow/classes'
 import { CREATURE_TYPES, NPC_FLAGS, RANKS } from './spawnInfo'
 
 /**
@@ -12,6 +13,8 @@ export interface CreatureField {
   options?: Array<[number, string]>
   /** Checkboxes for these bits of the value. */
   flags?: Array<[number, string]>
+  /** The bits (with `flags`) or the values (with `options`) are classes: each shows its class icon (#682). */
+  classes?: 'mask' | 'id'
   /** A 0/1 checkbox. */
   bool?: boolean
   hint?: string
@@ -55,7 +58,7 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
       { col: 'level_max', label: 'Level to' },
       { col: 'rank', label: 'Rank', options: named(RANKS) },
       { col: 'type', label: 'Creature type', options: [[0, 'None'], ...named(CREATURE_TYPES).filter(([v]) => v > 0)] },
-      { col: 'unit_class', label: 'Class', options: [[0, 'None'], [1, 'Warrior'], [2, 'Paladin'], [4, 'Rogue'], [8, 'Mage']] },
+      { col: 'unit_class', label: 'Class', options: [[0, 'None'], [1, 'Warrior'], [2, 'Paladin'], [4, 'Rogue'], [8, 'Mage']], classes: 'id' },
       { col: 'faction', label: 'Faction', hint: 'FactionTemplate ID: 14 attacks everyone, 35 is friendly to everyone' },
       { col: 'pet_family', label: 'Pet family' },
       { col: 'civilian', label: 'Civilian', bool: true },
@@ -70,8 +73,8 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
       { col: 'vendor_id', label: 'Vendor list' },
       { col: 'trainer_id', label: 'Trainer list' },
       { col: 'trainer_type', label: 'Trainer type', options: [[0, 'Class'], [1, 'Mounts'], [2, 'Trade skills'], [3, 'Pets']] },
-      { col: 'trainer_spell', label: 'Trainer spell' },
-      { col: 'trainer_class', label: 'Trainer class' },
+      { col: 'trainer_spell', label: 'Trainer spell', ref: 'spell' },
+      { col: 'trainer_class', label: 'Trainer class', options: [[0, 'None'], ...CLASSES], classes: 'id' },
       { col: 'trainer_race', label: 'Trainer race' },
     ],
   },

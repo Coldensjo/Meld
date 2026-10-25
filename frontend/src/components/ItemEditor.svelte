@@ -554,7 +554,7 @@
 		<header>
 			<div class="title">
 				{#if target.entry > 0}
-					<h2 style:color={QUALITY_COLORS[Number(values.quality)] ?? undefined}>{values.name || saved.name || 'Item'}</h2>
+					<h2 style:color={QUALITY_COLORS[Number(values.quality)] ?? undefined}><ItemIcon displayId={iconShown ? 0 : display} icon={iconShown} size={20} /> {values.name || saved.name || 'Item'}</h2>
 					<span class="dim">item {target.entry}{record ? ` · patch ${record.patch}` : ''}</span>
 				{:else if target.entry === -1}
 					<h2>New item</h2>

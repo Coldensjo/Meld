@@ -404,6 +404,20 @@ as `<name>.png` files.
   caches nothing by icon name across a restart, but Meld's own previews do (`forgetIconImages`,
   `forgetSpellIcons` drop them after an import).
 
+## Icons beside item, spell and class names (#682, probe `editor-icons`)
+
+Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's
+Requirements › Classes ticks each show a different class icon (nine cells of the class atlas), the
+spell editor's Spell tab has Reagent 1–8, Tool 1–2 and Next spell as item and spell pickers, and the
+creature editor's Trainer class is a select of classes with the picked class's icon. `bun run probe
+editor-icons` (about 7 s, nothing written). Unit test: `bun test tests/classes.test.ts` (the ClassMask
+bits and the atlas cells).
+- By eye: Tools › Creatures (the guide's class step), a spawn's Gear slots in the Properties panel, and
+  the item editor's Stats › Equip bonuses rows also show icons; the probe doesn't open those.
+- Trap: the 1.12 client has no `Interface\TargetingFrame\UI-Classes-Circles.blp` (a 2.x file); the
+  `/wow/texture` endpoint answers 404 for it. Check a path there before relying on it:
+  `curl -s -o /dev/null -w '%{http_code}' "localhost:34115/wow/texture?path=<url-encoded path>"`.
+
 ## The asset server across a patch write (#471, probe `patch-cache`)
 Checks: a write into Meld's patch closes the asset server's archives (`wow.Client`) only for the
 rename in `vmangos.InstallPatch` (through `vmangos.SetClientReader`), keeps what it decoded, forgets

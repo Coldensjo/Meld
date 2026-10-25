@@ -8,6 +8,7 @@
   import type { vmangos } from '../../wailsjs/go/models'
   import { loadWeapons, SLOTS } from './WeaponPicker.svelte'
   import FormationFields from './FormationFields.svelte'
+  import ItemIcon from './ItemIcon.svelte'
   import PoolFields from './PoolFields.svelte'
 
   // The fields of one spawn the editor changes: placement, respawn time, pool, movement, formation,
@@ -34,12 +35,17 @@
   })
   // The names of the items a creature holds, from the world database's holdable items (read once).
   let weaponNames = $state<Map<number, string>>(new Map())
+  /** Their displays, for each slot's icon. */
+  let weaponDisplays = $state<Map<number, number>>(new Map())
   let weaponsAsked = false
   $effect(() => {
     if (weaponsAsked || !creature) return
     weaponsAsked = true
     loadWeapons()
-      .then((list) => (weaponNames = new Map(list.map((w) => [w.entry, w.name]))))
+      .then((list) => {
+        weaponNames = new Map(list.map((w) => [w.entry, w.name]))
+        weaponDisplays = new Map(list.map((w) => [w.entry, w.display]))
+      })
       .catch(() => (weaponsAsked = false))
   })
   const itemName = (entry: number) => (entry ? (weaponNames.get(entry) ?? `Item ${entry}`).replace(/^monster\s*-\s*/i, '') : 'None')
@@ -178,7 +184,7 @@
         {#each SLOTS as slot, i (slot)}
           <button class="slot" title="Choose what goes in the {slot.toLowerCase()}" onclick={() => chooseWeapon(i)}>
             <span class="dim">{slot}</span>
-            <span class="item" class:none={!s.equipItems?.[i]}>{itemName(s.equipItems?.[i] ?? 0)}</span>
+            <span class="item" class:none={!s.equipItems?.[i]}>{#if s.equipItems?.[i]}<ItemIcon displayId={weaponDisplays.get(s.equipItems[i]) ?? 0} size={14} />{/if} {itemName(s.equipItems?.[i] ?? 0)}</span>
           </button>
         {/each}
       </div>
