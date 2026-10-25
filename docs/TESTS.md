@@ -58,6 +58,8 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   `make test`: `go test ./internal/...` went from 3 s and 98 skips to 29 s and 4 skips (the three
   database-writing tests below, and `TestIronforgePatchIsBackedUp`, which needs a particular patch-3).
   A set variable still wins (`WOW_DIR=/path/to/client go test ./internal/wow/ -v` for another client).
+  To see what a machine without a client runs (CI), leave `WOW_DIR` unset and point the config folder at an empty
+  one: `APPDATA="$(cygpath -w $(mktemp -d))" go test ./internal/adt/ -v` in Git Bash (`XDG_CONFIG_HOME` on Linux).
   A new client test calls the locator rather than `os.Getenv`; a test that writes the world database
   (`TestCreatedGUIDLive`, `TestSpellStartersLive`, `TestSpellScriptsLive`) keeps the explicit
   `os.Getenv("VMANGOS_DIR")`, and the guard below enforces it.
