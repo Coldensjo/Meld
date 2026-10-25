@@ -144,6 +144,8 @@ export function ListVisualEffects():Promise<Array<vmangos.VisualEffect>>;
 
 export function ListWeapons():Promise<Array<vmangos.WeaponEntry>>;
 
+export function LoadBaseRegionPaint(arg1:string,arg2:number,arg3:number,arg4:number):Promise<vmangos.RegionView>;
+
 export function LoadBuildingMap(arg1:string):Promise<vmangos.RegionView>;
 
 export function LoadMap(arg1:string):Promise<mapfile.MapData>;

@@ -315,7 +315,13 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   and only painted texels are written from the weights, repeated over their block. A chunk with no
   painted texel and the client's textures sets `ClientAlpha`, so `rebuildChunk` keeps its MCLY records
   (bar a sent effect or look flags), MCAL bytes and predominant map as they are (#526). A chunk a
-  compile before #526 already wrote at half resolution reads back that way, so it stays so.
+  compile before #526 already wrote at half resolution reads back that way, so it stays so until the
+  user runs Terrain › Restore the Client's Paint (#645, `restoreClientPaint` in `mapio.ts`): the
+  `LoadBaseRegionPaint` binding (`vmangos.ReadBaseRegionPaint`) reads the block's layers and alpha
+  without Meld's patch, `tilePaint` turns them into weights, and `Engine.restoreClientPaint`
+  (`terrain/restorePaint.ts`) writes the selected area's chunks, or all of them, back with the
+  textures remapped into the palette (any it lacked added), as one undo step. Those chunks then match
+  in the next compile and keep the client's own bytes; the paint edits there are lost.
   Models keep their unique IDs (a moved one is removed and re-added under its own). The client's tiles
   list a model whose bounds cross a tile border in each tile it overlaps, under one ID (910 M2s and 25
   WMOs on Azeroth 28-35 x 44-51), so `ReadRegion` hands the editor one object an ID, and `BuildRegion`

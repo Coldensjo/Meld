@@ -61,6 +61,7 @@ import { turnObjectClip } from '../world/clipTurn'
 import { mirrorClip, rotateClip } from '../world/clipRotate'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { LAYERS } from '../terrain/layers'
+import { planRestore, restoreChunk } from '../terrain/restorePaint'
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, chunkTextures, clearPalette, compactChunk, convertGlobalLayers, findSlot, hasEmptySlot, mergeDuplicateSlots, paletteCoverage, paletteIndex, removeSlot, replaceInChunk, replacePalette, resetTexel } from '../terrain/chunkPaint'
 import { isColor } from '../terrain/paletteArray'
 import { listAssets, setCompressedTextures, setMaxAnisotropy } from '../wow/api'
@@ -6754,6 +6755,12 @@ export class Engine {
 
   /** Edits the splat of each chunk in `chunks` through `edit(c)`, as one undo step named `label`. */
   private editChunks(label: string, chunks: number[], edit: (c: number) => void) {
+    const cmd = this.chunkStroke(label, chunks, edit)
+    if (cmd) this.history.push(cmd)
+  }
+
+  /** editChunks' step, made and applied but not pushed, for a caller that adds to it. */
+  private chunkStroke(label: string, chunks: number[], edit: (c: number) => void) {
     const t = this.terrain
     const side = t.paintChunksPerSide
     const per = t.splatRes / side
@@ -6768,8 +6775,7 @@ export class Engine {
       stroke.touchSplat(rect)
       t.markSplatDirty(rect)
     }
-    const cmd = stroke.finish()
-    if (cmd) this.history.push(cmd)
+    return stroke.finish()
   }
 
   /** Replaces palette texture `tex` with `path` in `chunks` only (undoable). */
@@ -6805,6 +6811,45 @@ export class Engine {
     })
     setStatus(`Removed ${layers} empty texture layer${layers === 1 ? '' : 's'} in ${chunks.length} chunk${chunks.length === 1 ? '' : 's'}.`, 4000)
   }
+
+	/**
+	 * Restore the Client's Paint (#645): puts the selected area's chunks (or every chunk) back to `base`,
+	 * the region's paint as the client has it without Meld's patch (tilePaint of LoadBaseRegionPaint), as
+	 * one undo step with the textures the palette lacked. The next compile then finds those chunks
+	 * unpainted and writes the client's own alpha (#526). Returns the status line.
+	 */
+	restoreClientPaint(base: { palette: string[]; weights: Uint8Array; chunkSlots: Uint8Array }): string {
+		const t = this.terrain
+		if (base.weights.length !== t.weights.length || base.chunkSlots.length !== t.chunkSlots.length) {
+			return "The client's tiles do not cover this map's ground."
+		}
+		const side = t.paintChunksPerSide
+		const where = editor.selection ? ' in the selected area' : ''
+		const scope = editor.selection ? this.selectedChunks() : Array.from({ length: side * side }, (_, c) => c)
+		const plan = planRestore(t, editor.palette, base, base.palette, scope, side, t.splatRes)
+		if ('full' in plan) return `This map's texture palette has no room for ${plan.full.length} of the client's textures${where} (${MAX_PALETTE} at most).`
+		if (!plan.changed.length) return `The paint${where} is the client's already.`
+		const n = plan.changed.length
+		const before = [...editor.palette]
+		const after = plan.palette
+		editor.palette = [...after]
+		const cmd = this.chunkStroke('', plan.changed, (c) => restoreChunk(t, base, plan.remap, c, side, t.splatRes))
+		if (cmd) {
+			this.history.push({
+				label: `Restore the client's paint in ${n} chunk${n === 1 ? '' : 's'}`,
+				bytes: cmd.bytes,
+				undo: () => {
+					cmd.undo()
+					editor.palette = [...before]
+				},
+				redo: () => {
+					editor.palette = [...after]
+					cmd.redo()
+				},
+			})
+		} else editor.palette = before
+		return `Restored the client's paint in ${n} chunk${n === 1 ? '' : 's'}${where}. Compile to Client writes its own alpha maps back there.`
+	}
 
   /**
    * Lays an alphamap (splatRes squared values, 0 to 1) into palette texture `tex` over the whole map as

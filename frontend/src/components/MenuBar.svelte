@@ -2,7 +2,7 @@
 	import { editor, prefs, setStatus, stepCameraSpeed, ui, wow } from '../lib/state/editor.svelte'
 	import type { Engine } from '../lib/engine/Engine'
 	import { engineRef } from '../lib/state/engineRef'
-	import { chooseBenillaFolder, launchGame, playHere, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, compileRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, saveMap, saveMinimapImage, saveOrPublish, writeMinimapTiles } from '../lib/io/mapio'
+	import { chooseBenillaFolder, launchGame, playHere, setGameClient, setGameWindow, chooseVmangosFolder, exportAlphamap, importAlphamap, exportDoodadBrush, exportHeightmap, exportNormalMap, exportObjectList, compileRegion, exportSpawnSql, extendRegion, hasBackend, importDoodadBrushes, exportPortCoords, importObjectList, openMap, requestRevert, restoreClientPaint, saveMap, saveMinimapImage, saveOrPublish, writeMinimapTiles } from '../lib/io/mapio'
 	import { saveSelectionAsPrefab } from '../lib/io/prefabFiles'
 	import { growableSides, type Side } from '../lib/io/regionGrow'
 	import { activeDoodadBrush } from '../lib/tools/DoodadBrushTool'
@@ -207,6 +207,8 @@
 				{ kind: 'action', label: 'Clear Baked Shadows', run: withEngine((e) => e.cleanUpTile('shadows')) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: editor.selection ? 'Remove Empty Texture Layers in Selection' : 'Remove Empty Texture Layers', run: withEngine((e) => e.removeEmptyLayers()) },
+				// The client's own paint back, read without Meld's patch, for chunks an early compile left blocky (#645).
+				{ kind: 'action', label: editor.selection ? "Restore the Client's Paint in Selection" : "Restore the Client's Paint", disabled: !hasBackend() || ui.busy || !editor.regionBlock, run: withEngine((e) => restoreClientPaint(e)) },
 				{ kind: 'action', label: 'Auto-paint Textures by Height and Slope', run: withEngine((e) => e.regenerateAutoPaint()) },
 				{ kind: 'action', label: 'Fill Mask with Paint Texture', disabled: !ui.maskActive, run: withEngine((e) => e.fillMask(editor.paintLayer)) },
 				{ kind: 'action', label: 'Fill Selection with Doodad Brush', disabled: !editor.selection, run: withEngine((e) => e.fillWithDoodadBrush(false)) },

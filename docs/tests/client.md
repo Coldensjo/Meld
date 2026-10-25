@@ -213,6 +213,21 @@ editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.
 - Trap: the comparison is against the tile without Meld's patch, so a tile a compile before #526
   already wrote at half resolution reads back degraded and stays so; test on a tile not in the patch.
 
+## Restore the Client's Paint (#645)
+Checks: Terrain › Restore the Client's Paint puts a region's chunks (the selected area's, or all) back
+to the client's paint without Meld's patch, as one undo step, so the next compile writes the client's
+own alpha bytes there again.
+- Probe `restore-paint` (`bun run probe restore-paint`, about 10 s): in the throwaway client, paints a
+  spot of an Azeroth 31_50 chunk and compiles it into the patch, opens the region again from the
+  patch, selects that chunk and restores it (undo and redo checked), compiles again and reads back
+  every chunk's layers and alpha bytes as they were before the first compile.
+- `bun test tests/restorePaint.test.ts`: the palette remap (textures added, case kept), only the asked
+  chunks written, a full palette refused.
+- `WOW_DIR=... go test ./internal/vmangos/ -run TestBaseRegionPaintSkipsMeldsPatch`: a 2x2 block's
+  layers and alpha read without Meld's patch match `BaseTileRoot`'s files.
+- Trap: the probe's tab must be closed before reopening the same block (`openRegion` refuses a block
+  already open).
+
 ## Added models get unique IDs across the map (#491)
 Checks: a compile or Publish gives every model it adds an ID no other placement of the map has, since
 the client draws only the first loaded placement of an ID and the server's vmaps keep one an ID.

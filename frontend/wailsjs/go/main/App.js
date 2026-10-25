@@ -274,6 +274,10 @@ export function ListWeapons() {
   return window['go']['main']['App']['ListWeapons']();
 }
 
+export function LoadBaseRegionPaint(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['LoadBaseRegionPaint'](arg1, arg2, arg3, arg4);
+}
+
 export function LoadBuildingMap(arg1) {
   return window['go']['main']['App']['LoadBuildingMap'](arg1);
 }

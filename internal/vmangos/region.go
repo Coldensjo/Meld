@@ -265,6 +265,59 @@ func ReadRegion(dataDir, mapName string, x, y, size int) (*RegionView, error) {
 	return view, nil
 }
 
+// ReadBaseRegionPaint reads the texture layers and alpha maps of the block's chunks as the client has
+// them without Meld's patch (BaseTileRoot, the tiles a compile compares the paint against), for Restore
+// the Client's Paint (#645): compiles before #526 left the patch's chunks at half the alpha resolution,
+// and a region read from the patch keeps them so. The view has Chunks and Alpha only, in ReadRegion's
+// order; a WMO-only map, or a tile only Meld's patch has (a new map), is an error.
+func ReadBaseRegionPaint(dataDir, mapName string, x, y, size int) (*RegionView, error) {
+	if err := checkRegion(x, y, size); err != nil {
+		return nil, err
+	}
+	set, err := mpq.OpenDataDir(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	defer set.Close()
+	wdt, err := set.ReadFile(fmt.Sprintf(`World\Maps\%s\%s.wdt`, mapName, mapName))
+	if err != nil {
+		return nil, err
+	}
+	if !wdtHasTiles(wdt) {
+		return nil, fmt.Errorf("%s is a single building with no ground to paint", mapName)
+	}
+	bigAlpha := adt.ReadBigAlpha(wdt)
+	view := &RegionView{MapName: mapName, X: x, Y: y, Size: size, Chunks: []ChunkView{}, Objects: []ObjectView{}, Liquids: []adt.Liquid{}}
+	for j := 0; j < size; j++ {
+		for i := 0; i < size; i++ {
+			tx, ty := x+i, y+j
+			root, err := readUnpatched(set, adt.TilePath(mapName, tx, ty, ""))
+			if err != nil {
+				return nil, fmt.Errorf("tile %d_%d is not in the client without Meld's patch: %w", tx, ty, err)
+			}
+			terrain, err := adt.ParseTerrain(root)
+			if err != nil {
+				return nil, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+			}
+			textures, err := adt.ParseTextures(root, bigAlpha, terrain)
+			if err != nil {
+				return nil, fmt.Errorf("tile %d_%d: %w", tx, ty, err)
+			}
+			for k, c := range terrain.Chunks {
+				cv := ChunkView{IndexX: c.IndexX + i*adt.ChunksPerTile, IndexY: c.IndexY + j*adt.ChunksPerTile, AreaID: c.AreaID}
+				for l, layer := range textures.Chunks[k].Layers {
+					cv.Layers = append(cv.Layers, LayerView{Texture: layer.Texture, Effect: layer.Effect})
+					if l > 0 {
+						view.Alpha = append(view.Alpha, textures.Chunks[k].Alpha[l-1]...)
+					}
+				}
+				view.Chunks = append(view.Chunks, cv)
+			}
+		}
+	}
+	return view, nil
+}
+
 // objectView converts a placement in a file to the block's coordinates (the block starts at tile
 // (x, y)). The editor's yaw is the file's middle rotation less 90 degrees, as objectIn writes it.
 func objectView(p adt.Placement, x, y int) (ObjectView, bool) {

@@ -635,6 +635,16 @@ func (a *App) LoadRegion(mapName string, x, y, size int) (*vmangos.RegionView, e
 	return a.handOffAlpha(vmangos.ReadRegion(dataDir, mapName, x, y, size))
 }
 
+// LoadBaseRegionPaint reads a block's texture layers and alpha maps as the client has them without
+// Meld's patch, for Restore the Client's Paint (#645). Only the view's chunks and alphaUrl are set.
+func (a *App) LoadBaseRegionPaint(mapName string, x, y, size int) (*vmangos.RegionView, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return a.handOffAlpha(vmangos.ReadBaseRegionPaint(dataDir, mapName, x, y, size))
+}
+
 // handOffAlpha puts a region view's alpha maps in the handoffs for the page to fetch (AlphaURL),
 // since in the reply's JSON they were most of its size (#636).
 func (a *App) handOffAlpha(view *vmangos.RegionView, err error) (*vmangos.RegionView, error) {

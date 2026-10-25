@@ -434,6 +434,63 @@ func TestRegionPaintWritten(t *testing.T) {
 	}
 }
 
+// TestBaseRegionPaintSkipsMeldsPatch reads a 2x2 block's paint without Meld's patch: each tile's
+// layers and alpha maps must be the ones BaseTileRoot's file has, placed in the block as ReadRegion
+// places them (#645). It needs WOW_DIR set to the client.
+func TestBaseRegionPaintSkipsMeldsPatch(t *testing.T) {
+	dir := os.Getenv("WOW_DIR")
+	if dir == "" {
+		t.Skip("WOW_DIR not set")
+	}
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const x, y, size = 32, 48, 2
+	view, err := ReadBaseRegionPaint(dataDir, "Azeroth", x, y, size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Chunks) != size*size*adt.ChunkCount {
+		t.Fatalf("%d chunks, want %d", len(view.Chunks), size*size*adt.ChunkCount)
+	}
+	at, c := 0, 0
+	for j := 0; j < size; j++ {
+		for i := 0; i < size; i++ {
+			root, err := BaseTileRoot(dataDir, "Azeroth", x+i, y+j)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tile, err := viewOf(root, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range tile.Chunks {
+				got := view.Chunks[c]
+				c++
+				if got.IndexX != want.IndexX+i*adt.ChunksPerTile || got.IndexY != want.IndexY+j*adt.ChunksPerTile {
+					t.Fatalf("tile %d,%d chunk %d,%d placed at %d,%d", i, j, want.IndexX, want.IndexY, got.IndexX, got.IndexY)
+				}
+				if len(got.Layers) != len(want.Layers) {
+					t.Fatalf("tile %d,%d chunk %d,%d: %d layers, the base tile has %d", i, j, want.IndexX, want.IndexY, len(got.Layers), len(want.Layers))
+				}
+				for k := range want.Layers {
+					if got.Layers[k] != want.Layers[k] {
+						t.Fatalf("tile %d,%d chunk %d,%d layer %d: %+v, the base tile has %+v", i, j, want.IndexX, want.IndexY, k, got.Layers[k], want.Layers[k])
+					}
+				}
+			}
+			if !bytes.Equal(view.Alpha[at:at+len(tile.Alpha)], tile.Alpha) {
+				t.Fatalf("tile %d,%d: the alpha maps are not the base tile's", i, j)
+			}
+			at += len(tile.Alpha)
+		}
+	}
+	if at != len(view.Alpha) {
+		t.Fatalf("the view has %d alpha bytes, its tiles %d", len(view.Alpha), at)
+	}
+}
+
 // TestRegionUnpaintedChunksKeepClientAlpha sends every chunk of a real tile back with the weights the
 // editor reads from it (ClientWeights, which tileImport.test.ts pins to tilePaint), as Compile does:
 // the tile must come out as the same save without paint writes it, byte for byte, where before #526

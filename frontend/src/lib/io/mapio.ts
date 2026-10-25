@@ -5,6 +5,7 @@ import {
   SpawnEditSQL,
   LoadMap,
   LoadBuildingMap,
+  LoadBaseRegionPaint,
   LoadRegion,
   LoadSpawns,
   MapEntries,
@@ -311,21 +312,48 @@ async function regionAlpha(view: vmangos.RegionView): Promise<Uint8Array> {
 	return new Uint8Array(await res.arrayBuffer())
 }
 
+/** A region view's chunks and alpha maps in the editor's paint form (tilePaint). */
+async function regionViewPaint(view: vmangos.RegionView) {
+	const alpha = await regionAlpha(view)
+	let at = 0
+	const nextAlpha = () => alpha.subarray(at, (at += ALPHA_BYTES))
+	const paint = tilePaint(
+		view.chunks.map((c) => ({
+			indexX: c.indexX,
+			indexY: c.indexY,
+			layers: (c.layers ?? []).map((l, k) => ({ texture: l.texture, alpha: k > 0 ? nextAlpha() : undefined })),
+		})),
+		TILE_CHUNKS * view.size,
+	)
+	if (at !== alpha.length) throw new Error(`the block's alpha maps are ${alpha.length} bytes, its layers take ${at}`)
+	return paint
+}
+
+/**
+ * Terrain › Restore the Client's Paint (#645): puts the active region's paint, in the selected area or
+ * everywhere, back to the client's own as its tiles have it without Meld's patch, as one undo step.
+ * Compiles before #526 left the patch's chunks at half the alpha resolution, which a region read from
+ * the patch keeps for good; after this, the next compile writes the client's alpha maps there again.
+ * The paint edits there are lost (undo brings them back).
+ */
+export function restoreClientPaint(engine: Engine) {
+	return guarded("Restore the client's paint", async () => {
+		const region = engine.activeRegion()
+		if (!region || region.wmoOnly) {
+			setStatus("Restore the Client's Paint needs a region opened from the client's tiles (File › Open from Client).", 6000)
+			return
+		}
+		const id = engine.activeDocumentId()
+		const paint = await regionViewPaint(await LoadBaseRegionPaint(region.mapName, region.x, region.y, region.size))
+		if (engine.activeDocumentId() !== id) return
+		setStatus(engine.restoreClientPaint(paint), 8000)
+	})
+}
+
 /** Opens a block read from the client (LoadRegion, LoadBuildingMap) in a new tab, then its spawns. */
 async function openRegionView(engine: Engine, view: vmangos.RegionView) {
   const { mapName, x, y, size } = view
-  const alpha = await regionAlpha(view)
-  let at = 0
-  const nextAlpha = () => alpha.subarray(at, (at += ALPHA_BYTES))
-  const paint = tilePaint(
-    view.chunks.map((c) => ({
-      indexX: c.indexX,
-      indexY: c.indexY,
-      layers: (c.layers ?? []).map((l, k) => ({ texture: l.texture, alpha: k > 0 ? nextAlpha() : undefined })),
-    })),
-    TILE_CHUNKS * size,
-  )
-  if (at !== alpha.length) throw new Error(`the block's alpha maps are ${alpha.length} bytes, its layers take ${at}`)
+  const paint = await regionViewPaint(view)
   // The client's holes (cave mouths) and no-doodad cells: each chunk gives a byte per cell row, a
   // bit per cell.
   const cells = TILE_CHUNKS * size * CHUNK_CELLS
