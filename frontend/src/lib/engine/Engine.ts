@@ -5,7 +5,7 @@ import type { Command } from '../state/history'
 import { MAX_BRUSH_RADIUS, docs, editor, logLine, setStatus, queueViewportHint, publishViewportHint, setViewportHint, stats, type ContextItem, type DetailInfo, type Prefs, type ToolId, ui, wow } from '../state/editor.svelte'
 import { GLOBAL_UID, MapDocument, regionLabel, type Bookmark, type RegionRef, type VmangosRef } from './MapDocument'
 import type { ExportInput } from '../io/vmangosExport'
-import { type adt, vmangos } from '../../../wailsjs/go/models'
+import { type adt, type main, vmangos } from '../../../wailsjs/go/models'
 import { cropLiquids, decodeLiquids, encodeLiquids, layLiquidCells, liquidKindsOf, liquidsFromAdt, liquidsToAdt, liquidType, raycastLiquids, regenOpacity, rememberLiquidKinds, type AdtLiquid, type LiquidClass, type LiquidClipCell } from '../water/liquids'
 import { groundSlopeDeg } from '../world/groundTilt'
 import { resetLiquidFrames, setLiquidLight, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
@@ -90,8 +90,8 @@ import { stormBlend, WEATHER_GRADE } from '../wow/weather'
 import { WeatherLayer, type SplashGround } from '../world/WeatherLayer'
 import { editorPoint, serverSpot, teleportCommand, wmoOnlyTiles, type ServerSpot } from '../io/portCoords'
 import { AreaTriggerLayer, type TriggerShape } from '../world/areaTriggers'
-import { TaxiLayer, type TaxiHooks, type TaxiPick, type TaxiRouteShape, type TaxiStopShape } from '../world/TaxiLayer'
-import { airPoint, flightAt, segmentLengths, type Vec3 } from '../world/taxiRoute'
+import type { TaxiHooks, TaxiPick, TaxiRouteShape, TaxiStopShape } from '../world/TaxiLayer'
+import type { Vec3 } from '../world/taxiRoute'
 import { antialiasAtStart } from './display'
 import { frameDue } from './frameLimit'
 import { GPU_PASSES, PerfMeter, SECTION, topModels, type ModelCost, type PerfReport } from './perfMeter'
@@ -115,12 +115,14 @@ import { InputsKey } from '../tools/inputsKey'
 import { pickTrigger, triggerWins } from '../world/teleport'
 import { teleportTo } from '../io/mapio'
 import { SpawnActions } from './SpawnActions'
+import { TaxiEditing } from './TaxiEditing'
+import { DocOverlay } from './docOverlay'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { SpawnLinks } from '../world/SpawnLinks'
 import type { SpawnChange } from '../world/formations'
 import { poolMates } from '../world/pools'
 import { applySpawn, selectSpawn, syncSpawnUi, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, Factions, MapEntries, MapLights, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, CheckSpawnIDs, Factions, MapEntries, MapLights, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
@@ -612,7 +614,6 @@ export class Engine {
     this.scene.add(this.paths.group)
     this.scene.add(this.links.group)
     this.scene.add(this.triggerLayer.group)
-    this.scene.add(this.taxiLayer.group)
     this.scene.add(this.nav.group)
 
 
@@ -661,6 +662,20 @@ export class Engine {
 		deselect: () => self.deselect(),
 		teleport: (dest, what) => void teleportTo(self, dest, what),
 	})
+	this.taxi = new TaxiEditing({
+		get doc() { return self.doc },
+		get camera() { return self.camera },
+		get persp() { return self.persp },
+		get raycaster() { return self.raycaster },
+		get ndc() { return self.ndc },
+		get controller() { return self.controller },
+		get timer() { return self.timer },
+		openMapId: () => self.openMapId(),
+		surfaceHit: () => self.surfaceHit(),
+		sceneView: () => self.sceneView(),
+		setSceneView: (v) => self.setSceneView(v),
+	})
+	this.scene.add(this.taxi.layer.group)
     this.ctx = {
       get terrain() { return self.terrain },
       get spawns() { return self.doc.spawnLayer },
@@ -801,7 +816,7 @@ export class Engine {
     this.poolOutline.dispose()
     for (const d of this.documents) d.dispose()
     this.triggerLayer.dispose()
-    this.taxiLayer.dispose()
+    this.taxi.dispose()
     this.nav.dispose()
     this.gpu.dispose()
     this.renderer.dispose()
@@ -1044,7 +1059,7 @@ export class Engine {
           // A synthetic event (the probes' P.click) has no pointer to capture.
         }
         // The Flight Paths window takes a click on a stop or a route point, or one that draws a point.
-        if (this.taxiPress(e)) return
+        if (this.taxi.press(e)) return
         // While the reference image is being placed, the top-down view's presses drag it (#184).
         if (this.referencePress(e)) return
         if (this.startGizmoDrag()) return
@@ -1092,8 +1107,8 @@ export class Engine {
           this.updateGizmoDrag(e.shiftKey)
           return
         }
-        if (this.taxiDrag) {
-          this.moveTaxiDrag()
+        if (this.taxi.dragging) {
+          this.taxi.moveDrag()
           return
         }
         if (this.refDrag) {
@@ -1125,8 +1140,8 @@ export class Engine {
           this.endGizmoDrag()
           return
         }
-        if (e.button === 0 && this.taxiDrag) {
-          this.endTaxiDrag()
+        if (e.button === 0 && this.taxi.dragging) {
+          this.taxi.endDrag()
           return
         }
         if (e.button === 0 && this.refDrag) {
@@ -1258,7 +1273,7 @@ export class Engine {
     this.controller.setWalk(ui.walkCamera && !this.topDown)
     this.controller.update(dt)
     this.updateWorld()
-    if (this.taxiFlight) this.updateTaxiFlight()
+    this.taxi.updateFlight()
     this.updateTopDown()
     this.updateEnvironment(dt, time)
     m.mark(SECTION['Camera and sky'])
@@ -1345,7 +1360,7 @@ export class Engine {
     this.objects.update()
     this.boxes.update(this.objects, this.prefs?.showBoxes === true, this.terrain.heightsVersion)
     this.updateTriggers()
-    this.updateTaxi()
+    this.taxi.update(this.prefs?.showFlightPaths === true, this.topDown)
     this.groupBoxes.update(this.objects, editor.selectedIds, this.terrain.heightsVersion, ui.historyVersion)
     m.mark(SECTION.Objects)
     // Lights first: culling keeps what can throw the shadowed lights' shadows.
@@ -1683,218 +1698,31 @@ export class Engine {
 
 	// ---------------------------------------------------------------- flight paths (#180)
 
-	/** The open map's flight stops and routes, drawn with View › Flight paths or while the Flight Paths window edits them. */
-	readonly taxiLayer = new TaxiLayer()
-	/** The document whose stops were read from the client, and while it reads. */
-	private taxiFor = -1
-	private taxiLoading = false
-	/** The Flight Paths window's hooks while it draws its own (edited) stops and routes. */
-	private taxiEdit: TaxiHooks | null = null
-	/** A press on a stop or a route point that may become a drag: what, and (for a point) the plane it moves on and the press's offset from it. */
-	private taxiDrag:
-		| { kind: 'stop'; id: number; moved: boolean }
-		| { kind: 'point'; route: number; index: number; height: boolean; plane: THREE.Plane; offset: THREE.Vector3; moved: boolean }
-		| null = null
-	/** A route's fly-along preview: its curve (editor points), segment lengths, start time, and the view and ground following to go back to. */
-	private taxiFlight: { pts: Vec3[]; lengths: number[]; start: number; view: ReturnType<Engine['sceneView']>; follow: boolean } | null = null
-	private taxiAt = { x: 0, y: 0, z: 0 }
-	private taxiAhead = { x: 0, y: 0, z: 0 }
-	private taxiBehind = { x: 0, y: 0, z: 0 }
-
-	/** The ground's height under an editor point of the open map, NaN off it (or in a building-only map). */
-	private readonly taxiGround = (x: number, z: number) =>
-		!this.doc.meta.region?.wmoOnly && this.terrain.contains(x, z) ? this.terrain.heightAt(x, z) : NaN
+	/** View › Flight paths and the Flight Paths window's editing in the viewport (TaxiEditing.ts). */
+	readonly taxi: TaxiEditing
+	/** The flight stops and routes drawn over the map (the probes read it). */
+	get taxiLayer() {
+		return this.taxi.layer
+	}
 
 	/** Draws the Flight Paths window's stops and routes (server coordinates), `pick` highlighted, and lets `hooks` take its clicks until endTaxiEdit. */
 	showTaxi(stops: TaxiStopShape[], routes: TaxiRouteShape[], pick: TaxiPick, hooks: TaxiHooks) {
-		this.taxiEdit = hooks
-		const r = this.doc.meta.region
-		this.taxiLayer.set(stops, routes, r?.x ?? 0, r?.y ?? 0, pick, this.taxiGround)
+		this.taxi.show(stops, routes, pick, hooks)
 	}
 
 	/** The Flight Paths window closed: View › Flight paths reads the map's stops again (they may have been saved). */
 	endTaxiEdit() {
-		this.taxiEdit = null
-		this.taxiDrag = null
-		this.taxiFor = -1
-		this.stopTaxiFlight()
-	}
-
-	/** Shows the stops and routes while asked for, reading the open map's once per document. */
-	private updateTaxi() {
-		const on = this.taxiEdit !== null || this.prefs?.showFlightPaths === true
-		this.taxiLayer.group.visible = on && !this.topDown
-		if (!on || this.taxiEdit || this.taxiLoading || this.taxiFor === this.doc.id) return
-		const id = this.openMapId()
-		if (id === null) return
-		const doc = this.doc
-		this.taxiLoading = true
-		TaxiNetwork(id)
-			.then((n) => {
-				if (doc !== this.doc || this.taxiEdit) return
-				const reg = doc.meta.region
-				this.taxiLayer.set(n.nodes ?? [], n.routes ?? [], reg?.x ?? 0, reg?.y ?? 0, { stop: null, route: null, point: -1 }, this.taxiGround)
-			})
-			.catch(() => this.taxiLayer.set([], [], 0, 0, { stop: null, route: null, point: -1 }, this.taxiGround))
-			.finally(() => {
-				this.taxiLoading = false
-				this.taxiFor = doc.id
-			})
-	}
-
-	/** An editor point in the server's coordinates of the block the stops are drawn in. */
-	private taxiServer(p: Vec3): Vec3 {
-		const L = this.taxiLayer
-		const s = serverSpot(p, 0, L.tileX, L.tileY)
-		return { x: s.x, y: s.y, z: s.z }
-	}
-
-	/**
-	 * A left press while the Flight Paths window is open: on a point of the picked route it picks the
-	 * point and may drag it (level, or with Shift up and down); on a stop it picks the stop and may drag
-	 * it over the ground; elsewhere, while the window draws, it adds a point after the picked one, at
-	 * that one's height (`airPoint`), and may drag it. Returns false when the press is the tool's.
-	 */
-	private taxiPress(e: PointerEvent): boolean {
-		const hooks = this.taxiEdit
-		const L = this.taxiLayer
-		if (!hooks || !L.group.visible) return false
-		this.raycaster.setFromCamera(this.ndc, this.camera)
-		const route = L.routes.find((r) => r.id === L.pick.route)
-		const index = route ? L.pickPoint(this.raycaster) : -1
-		if (route && index >= 0) {
-			L.pick = { ...L.pick, point: index }
-			L.drawPicked()
-			hooks.pick(L.pick)
-			this.startPointDrag(route.id, index, e.shiftKey)
-			return true
-		}
-		const stop = L.pickStop(this.raycaster)
-		if (stop !== null) {
-			L.pick = { ...L.pick, stop, point: -1 }
-			L.drawStops()
-			L.drawPicked()
-			hooks.pick(L.pick)
-			this.taxiDrag = { kind: 'stop', id: stop, moved: false }
-			return true
-		}
-		if (!hooks.drawing()) {
-			const hit = L.pickRoute(this.raycaster)
-			if (hit !== null) {
-				if (hit !== L.pick.route) {
-					L.pick = { ...L.pick, route: hit, point: -1 }
-					L.drawRoutes()
-					hooks.pick(L.pick)
-				}
-				return true
-			}
-		}
-		if (!route || !hooks.drawing() || !route.points.length) return false
-		const after = L.pick.point >= 0 && L.pick.point < route.points.length ? L.pick.point : route.points.length - 1
-		const height = L.editor(route.points[after]).y
-		const ground = this.surfaceHit()?.point ?? null
-		this.raycaster.setFromCamera(this.ndc, this.camera)
-		const at = airPoint(this.raycaster.ray.origin, this.raycaster.ray.direction, height, ground)
-		if (!at) return true
-		const s = this.taxiServer(at)
-		route.points.splice(after + 1, 0, { ...route.points[after], x: s.x, y: s.y, z: s.z })
-		L.pick = { ...L.pick, point: after + 1 }
-		L.drawPicked()
-		hooks.added(route.id, after + 1, s)
-		this.startPointDrag(route.id, after + 1, false)
-		return true
-	}
-
-	/** Starts dragging point `index` of route `route`: on its level plane, or with `height` up and down on an upright one facing the camera. */
-	private startPointDrag(route: number, index: number, height: boolean) {
-		const L = this.taxiLayer
-		const r = L.routes.find((x) => x.id === route)
-		if (!r) return
-		const p = L.editor(r.points[index])
-		const at = new THREE.Vector3(p.x, p.y, p.z)
-		const plane = new THREE.Plane()
-		if (height) {
-			const n = this.camera.getWorldDirection(new THREE.Vector3()).setY(0)
-			if (n.lengthSq() < 1e-6) n.set(0, 0, 1)
-			plane.setFromNormalAndCoplanarPoint(n.normalize(), at)
-		} else plane.set(new THREE.Vector3(0, 1, 0), -p.y)
-		this.raycaster.setFromCamera(this.ndc, this.camera)
-		const hit = new THREE.Vector3()
-		const offset = this.raycaster.ray.intersectPlane(plane, hit) ? at.sub(hit) : new THREE.Vector3()
-		this.taxiDrag = { kind: 'point', route, index, height, plane, offset, moved: false }
-	}
-
-	/** Moves what the press took to under the cursor: the layer's copy, which the window hears of on release. */
-	private moveTaxiDrag() {
-		const d = this.taxiDrag
-		const L = this.taxiLayer
-		if (!d) return
-		if (d.kind === 'stop') {
-			const s = L.stops.find((x) => x.id === d.id)
-			const hit = this.surfaceHit()
-			if (!s || !hit) return
-			Object.assign(s, this.taxiServer(hit.point))
-			d.moved = true
-			L.drawStops()
-			return
-		}
-		const p = L.routes.find((x) => x.id === d.route)?.points[d.index]
-		this.raycaster.setFromCamera(this.ndc, this.camera)
-		if (!p || !this.raycaster.ray.intersectPlane(d.plane, this.dragPoint)) return
-		const e = L.editor(p)
-		const to = this.dragPoint.add(d.offset)
-		Object.assign(p, this.taxiServer(d.height ? { x: e.x, y: to.y, z: e.z } : { x: to.x, y: e.y, z: to.z }))
-		d.moved = true
-		L.drawPicked()
-	}
-
-	/** A drag ended: the window takes where the stop or point went, as one edit. */
-	private endTaxiDrag() {
-		const d = this.taxiDrag
-		this.taxiDrag = null
-		const L = this.taxiLayer
-		if (!d?.moved || !this.taxiEdit) return
-		if (d.kind === 'stop') {
-			const s = L.stops.find((x) => x.id === d.id)
-			if (s) this.taxiEdit.moved('stop', d.id, -1, { x: s.x, y: s.y, z: s.z })
-			return
-		}
-		const p = L.routes.find((x) => x.id === d.route)?.points[d.index]
-		if (p) this.taxiEdit.moved('point', d.route, d.index, { x: p.x, y: p.y, z: p.z })
+		this.taxi.endEdit()
 	}
 
 	/** Flies the camera along a route's points (server coordinates) at a flight's speed, then puts the view back; Esc or stopTaxiFlight ends it early. */
 	flyTaxi(points: readonly Vec3[]) {
-		const L = this.taxiLayer
-		const pts = points.map((p) => L.editor(p))
-		if (pts.length < 2) return
-		this.stopTaxiFlight()
-		const follow = this.controller.followGround
-		this.controller.setFollowGround(false)
-		this.taxiFlight = { pts, lengths: segmentLengths(pts), start: this.timer.getElapsed(), view: this.sceneView(), follow }
-		ui.taxiFlying = true
+		this.taxi.fly(points)
 	}
 
 	/** Ends a fly-along preview and puts the camera back where it was. */
 	stopTaxiFlight() {
-		const f = this.taxiFlight
-		if (!f) return
-		this.taxiFlight = null
-		ui.taxiFlying = false
-		this.controller.setFollowGround(f.follow)
-		this.setSceneView({ ...f.view, hour: this.hour })
-	}
-
-	/** A chase view of the flight: from the rider's point a moment ago, 3 yd up, towards where it will be. */
-	private updateTaxiFlight() {
-		const f = this.taxiFlight!
-		const t = this.timer.getElapsed() - f.start
-		const flying = flightAt(f.pts, f.lengths, t, this.taxiAt)
-		flightAt(f.pts, f.lengths, t + 0.8, this.taxiAhead)
-		flightAt(f.pts, f.lengths, Math.max(0, t - 0.35), this.taxiBehind)
-		this.persp.position.set(this.taxiBehind.x, this.taxiBehind.y + 3, this.taxiBehind.z)
-		this.persp.lookAt(this.taxiAhead.x, this.taxiAhead.y + 1.5, this.taxiAhead.z)
-		if (!flying) this.stopTaxiFlight()
+		this.taxi.stopFlight()
 	}
 
   // ---------------------------------------------------------------- walkable ground (#175)
@@ -2015,47 +1843,41 @@ export class Engine {
             : `There is no walkable ground at the ${r.reason === 'start' ? 'start' : 'end'} (or its tile isn't built yet).`
     setStatus(msg, 8000)
   }
-  /** The document whose triggers were read from the client, and while it reads. */
-  private triggersFor = -1
-  private triggersLoading = false
-  /** Set while the Portals dialog draws its own (edited) list. */
-  private triggersEdited = false
 
-  /** Draws the Portals dialog's triggers, `selected` highlighted, until endTriggerEdit. */
-  showTriggers(list: readonly TriggerShape[], selected: number | null) {
-    this.triggersEdited = true
-    const r = this.doc.meta.region
-    this.triggerLayer.set(list, r?.x ?? 0, r?.y ?? 0, selected)
-  }
+	/** The client's area triggers of the open map, read once per document; `edited` while the Portals dialog draws its own list. */
+	private readonly triggers = new DocOverlay<MapDocument, main.AreaTriggerList>({
+		what: 'area triggers',
+		current: () => this.doc,
+		load: () => {
+			const id = this.openMapId()
+			return id === null ? null : AreaTriggers(id)
+		},
+		apply: (doc, r) => {
+			const reg = doc.meta.region
+			this.triggerLayer.set(r?.triggers ?? [], reg?.x ?? 0, reg?.y ?? 0, null)
+		},
+	})
 
-  /** The Portals dialog closed: View › Area triggers reads the map's triggers again (they may have been saved). */
-  endTriggerEdit() {
-    this.triggersEdited = false
-    this.triggersFor = -1
-    ui.pickedTrigger = null
-  }
+	/** Draws the Portals dialog's triggers, `selected` highlighted, until endTriggerEdit. */
+	showTriggers(list: readonly TriggerShape[], selected: number | null) {
+		this.triggers.edited = true
+		const r = this.doc.meta.region
+		this.triggerLayer.set(list, r?.x ?? 0, r?.y ?? 0, selected)
+	}
 
-  /** Shows the triggers while asked for, reading the open map's once per document. */
-  private updateTriggers() {
-    const on = this.triggersEdited || this.prefs?.showAreaTriggers === true
-    this.triggerLayer.group.visible = on && !this.topDown
-    if (!on || this.triggersEdited || this.triggersLoading || this.triggersFor === this.doc.id) return
-    const id = this.openMapId()
-    if (id === null) return
-    const doc = this.doc
-    this.triggersLoading = true
-    AreaTriggers(id)
-      .then((r) => {
-        if (doc !== this.doc || this.triggersEdited) return
-        const reg = doc.meta.region
-        this.triggerLayer.set(r.triggers ?? [], reg?.x ?? 0, reg?.y ?? 0, null)
-      })
-      .catch(() => this.triggerLayer.set([], 0, 0, null))
-      .finally(() => {
-        this.triggersLoading = false
-        this.triggersFor = doc.id
-      })
-  }
+	/** The Portals dialog closed: View › Area triggers reads the map's triggers again (they may have been saved). */
+	endTriggerEdit() {
+		this.triggers.edited = false
+		this.triggers.reset()
+		ui.pickedTrigger = null
+	}
+
+	/** Shows the triggers while asked for, reading the open map's once per document. */
+	private updateTriggers() {
+		const on = this.triggers.edited || this.prefs?.showAreaTriggers === true
+		this.triggerLayer.group.visible = on && !this.topDown
+		this.triggers.update(on)
+	}
 
   /**
    * Where the camera of open map `id` (a tab) is, in the server's coordinates: the active one's as
@@ -2543,7 +2365,7 @@ export class Engine {
 	 */
 	private endInteractions() {
 		if (this.gizmoDrag) this.endGizmoDrag()
-		if (this.taxiDrag) this.endTaxiDrag()
+		if (this.taxi.dragging) this.taxi.endDrag()
 		this.sizeDrag = null
 		this.trigDown = null
 		if (this.navPick) {
