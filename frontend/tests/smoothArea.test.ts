@@ -1,7 +1,7 @@
 // Run with: bun test tests/smoothArea.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { fadeFromEdge, smoothPass, smoothPatch } from '../src/lib/terrain/smoothArea.ts'
+import { fadeFromEdge, shapePatch, smoothPass, smoothPatch } from '../src/lib/terrain/smoothArea.ts'
 
 const settings = { strength: 1, passes: 1, falloff: false, width: 0 }
 
@@ -107,4 +107,51 @@ test('a cancelled run stops at the next turn and reports progress', async () => 
 	assert.equal(done, false)
 	assert.equal(turns, 1)
 	assert.ok(last > 0 && last < 1)
+})
+
+test('raise and lower move each vertex by the amount times its weight, and leave weight-0 vertices alone (#721)', () => {
+	const w = 3
+	const h = 2
+	const weights = Float32Array.from([0, 1, 0.5, 1, 0.25, 0])
+	for (const mode of ['raise', 'lower'] as const) {
+		const hs = Float32Array.from([1, 2, 3, 4, 5, 6])
+		shapePatch(hs, w, h, weights, { ...settings, mode, amount: 4 }, 0, 0, 1)
+		const sign = mode === 'raise' ? 1 : -1
+		for (let i = 0; i < w * h; i++) assert.ok(Math.abs(hs[i] - (i + 1 + sign * 4 * weights[i])) < 1e-5, `${mode} ${i}`)
+	}
+})
+
+test('flatten levels the weighted vertices to their mean, or to a height (#721)', () => {
+	const weights = Float32Array.from([1, 1, 0, 0.5])
+	const hs = Float32Array.from([2, 4, 100, 9])
+	const target = shapePatch(hs, 2, 2, weights, { ...settings, mode: 'flatten' as const, flatten: 'average' as const }, 0, 0, 1)
+	assert.equal(target, 5)
+	assert.deepEqual([...hs], [5, 5, 100, 7])
+	const hs2 = Float32Array.from([2, 4, 100, 9])
+	shapePatch(hs2, 2, 2, weights, { ...settings, mode: 'flatten' as const, flatten: 'height' as const, height: -1 }, 0, 0, 1)
+	assert.deepEqual([...hs2], [-1, -1, 100, 4])
+})
+
+test('roughen adds bumps within the amplitude, the same for the same seed and spot, and none where the weight is 0 (#721)', () => {
+	const w = 32
+	const h = 32
+	const weights = new Float32Array(w * h).fill(1)
+	weights[0] = 0
+	const o = { ...settings, mode: 'roughen' as const, amount: 2, scale: 8, seed: 3 }
+	const a = new Float32Array(w * h)
+	shapePatch(a, w, h, weights, o, 10, 20, 2)
+	assert.equal(a[0], 0)
+	let moved = 0
+	for (const v of a) {
+		assert.ok(Math.abs(v) <= 2 + 1e-5)
+		if (Math.abs(v) > 0.05) moved++
+	}
+	assert.ok(moved > w * h * 0.5, `${moved} moved`)
+	// The noise is in world space: the patch one vertex over reads the same bumps shifted.
+	const b = new Float32Array(w * h)
+	shapePatch(b, w, h, weights, o, 11, 20, 2)
+	assert.ok(Math.abs(b[5] - a[6]) < 1e-5)
+	const c = new Float32Array(w * h)
+	shapePatch(c, w, h, weights, { ...o, seed: 4 }, 10, 20, 2)
+	assert.notDeepEqual([...c], [...a])
 })

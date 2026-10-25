@@ -67,7 +67,7 @@ import { INSIDE, cellsInRect } from '../terrain/areaShape'
 import { growMask, shrinkMask } from '../terrain/maskSelect'
 import { ShadowStroke } from '../tools/shadowStroke'
 import { areaVertexWeights, erodePatch, settledMask, SETTLED_FULL, type ErodeSettings } from '../terrain/erodeArea'
-import { fadeFromEdge, smoothPatch, type SmoothAreaSettings } from '../terrain/smoothArea'
+import { fadeFromEdge, shapePatch, smoothPatch, type SmoothAreaSettings } from '../terrain/smoothArea'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
 import { PlaceTool, SelectTool, groupTransformCommand, tiltDeg, transformCommand } from '../tools/ObjectTools'
@@ -5030,12 +5030,15 @@ export class Engine {
 	 * cells are all in it) or the whole map, faded in from the area's edge over `o.width` yards with
 	 * `o.falloff`. Works on a copy a slice at a time between frames, as erodeArea does, and writes the
 	 * result as one undo step; `cancelled` leaves the ground as it was. Returns whether it ran to the end.
+	 * With `o.mode` Raise, Lower, Flatten or Roughen (#721) it runs that one pass instead (`shapePatch`), over
+	 * the same vertices with the same falloff, as one undo step.
 	 */
 	async smoothArea(o: SmoothAreaSettings, progress: (f: number) => void, cancelled: () => boolean): Promise<boolean> {
 		if (this.smoothing) {
 			setStatus('The ground is still being smoothed.')
 			return false
 		}
+		const mode = o.mode ?? 'smooth'
 		const doc = this.doc
 		const t = this.terrain
 		const s = editor.selection
@@ -5050,23 +5053,32 @@ export class Engine {
 		if (o.falloff) fadeFromEdge(weights, w, h, o.width / cs)
 		const work = new Float32Array(w * h)
 		for (let z = 0; z < h; z++) work.set(t.heights.subarray((r.z0 + z) * V + r.x0, (r.z0 + z) * V + r.x0 + w), z * w)
-		this.smoothing = true
 		let finished = false
-		try {
-			finished = await smoothPatch(work, w, h, weights, o, progress, cancelled)
-		} finally {
-			this.smoothing = false
+		let target = NaN
+		if (mode !== 'smooth') {
+			// One pass, no slicing: a few million vertices at most, well under a frame's worth each.
+			finished = !cancelled()
+			if (finished) target = shapePatch(work, w, h, weights, o, r.x0, r.z0, cs)
+			progress(1)
+		} else {
+			this.smoothing = true
+			try {
+				finished = await smoothPatch(work, w, h, weights, o, progress, cancelled)
+			} finally {
+				this.smoothing = false
+			}
 		}
 		if (!this.documents.includes(doc)) {
 			setStatus('The smoothing stopped: its map was closed.')
 			return false
 		}
 		if (!finished) {
-			setStatus(`Smoothing cancelled; the ground ${where} is as it was.`)
+			setStatus(`${mode === 'smooth' ? 'Smoothing' : 'The pass was'} cancelled; the ground ${where} is as it was.`)
 			return false
 		}
 		const resnap = (q: Rect) => doc.objects.markRegionDirty(q.x0 * cs, q.z0 * cs, q.x1 * cs, q.z1 * cs)
-		const stroke = new TerrainStroke(t, s ? 'Smooth selection' : 'Smooth map', { heights: true }, resnap)
+		const verb = { smooth: 'Smooth', raise: 'Raise', lower: 'Lower', flatten: 'Flatten', roughen: 'Roughen' }[mode]
+		const stroke = new TerrainStroke(t, `${verb} ${s ? 'selection' : 'map'}`, { heights: true }, resnap)
 		stroke.reserveHeights(r)
 		let most = 0
 		for (let z = 0; z < h; z++) {
@@ -5085,7 +5097,10 @@ export class Engine {
 		doc.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
 		const cmd = stroke.finish()
 		if (cmd) doc.history.push(cmd)
-		setStatus(most ? `Smoothed the ground ${where}: up to ${most.toFixed(2)} yd moved.` : `The ground ${where} was already smooth.`, 4000)
+		const done = { smooth: 'Smoothed', raise: 'Raised', lower: 'Lowered', flatten: 'Flattened', roughen: 'Roughened' }[mode]
+		const to = mode === 'flatten' && Number.isFinite(target) ? ` to ${target.toFixed(2)} yd` : ''
+		const already = mode === 'smooth' ? 'was already smooth' : mode === 'flatten' ? 'was already flat' : 'did not change'
+		setStatus(most ? `${done} the ground ${where}${to}: up to ${most.toFixed(2)} yd moved.` : `The ground ${where} ${already}.`, 4000)
 		return true
 	}
 

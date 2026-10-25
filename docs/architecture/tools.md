@@ -55,6 +55,13 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     the brush at full strength). With `falloff` the weights fade in from the area's edge over `width`
     yards (`fadeFromEdge`, a chamfer distance and a smoothstep). Sliced between frames with progress
     and Cancel, written as one undo step ("Smooth selection" / "Smooth map") with the models re-snapped.
+    Its Mode (#721, `editor.smoothArea.mode`, the menu's "Raise, Lower, Flatten or Roughen
+    Selection…", which opens on the last shape picked, `shape`) runs one unsliced pass instead
+    (`shapePatch`) over the same weights and falloff: Raise or Lower by `amount` yards, Flatten to the
+    area's mean (of the vertices with a weight) or to `height`, or Roughen with Sculpt › Noise's `fbm`
+    in world space (`amount` yards up or down, bumps `scale` yards across, `seed`). Undo labels
+    "Raise selection" and so on. With the falloff off, Raise and Lower make a cliff at the area's
+    edge: that is expected, the falloff is what blends.
   - Object tools push `Command`s: `addedCommand` and `removedCommand` (`world/objectCommands.ts`) for
     models added or removed, `transformCommand` (`tools/ObjectTools.ts`) for a move.
   - **Every edit must be undoable** through `History`.

@@ -1,5 +1,5 @@
-// Terrain › Smooth Selection (#713) on a Mountains map: over a selected square and over a lasso-style free-form area it smooths the ground inside (rougher before than after), leaves every vertex outside the area as it was, is one undo step that undo and redo restore exactly, fades in from the edge with the falloff on, and a cancelled run changes nothing.
-// touches: frontend/src/lib/terrain/smoothArea.ts, frontend/src/components/SmoothAreaDialog.svelte, frontend/src/lib/state/areaSelection.ts
+// Terrain › Smooth Selection (#713) on a Mountains map: over a selected square and over a lasso-style free-form area it smooths the ground inside (rougher before than after), leaves every vertex outside the area as it was, is one undo step that undo and redo restore exactly, fades in from the edge with the falloff on, and a cancelled run changes nothing. #721: Raise, Lower, Flatten (to the average and to a height) and Roughen over the square, each with the falloff off and on, change only the area's inner vertices, move the ground as asked, and undo and redo exactly as one step; the dialog's Mode lists the five and Flatten shows its target.
+// touches: frontend/src/lib/terrain/smoothArea.ts, frontend/src/components/SmoothAreaDialog.svelte, frontend/src/lib/state/areaSelection.ts, frontend/src/components/MenuBar.svelte
 const e = P.e
 const { editor } = await P.state()
 const area = await P.app('/src/lib/state/areaSelection.ts')
@@ -59,6 +59,8 @@ async function run(o, inside) {
 	return { finished, progress: last, changed: diff(before, after), outside, label, undone, redone, before, after }
 }
 
+const strip = ({ before, after, ...r }) => r
+
 // A square, hard edge.
 editor.selection = { ...sel }
 await P.frames(1)
@@ -94,13 +96,70 @@ const cancelled = await e.smoothArea(
 	() => true,
 )
 const afterCancel = diff(beforeCancel, t.heights)
+
+// #721: the one-pass shapes over the square, hard edge and with the falloff.
+editor.selection = { ...sel }
+await P.frames(1)
+const mid = (h) => h[130 * V + 130]
+const shapes = {}
+let shapesOk = true
+for (const falloff of [false, true]) {
+	const base = { strength: 0.5, passes: 10, falloff, width: 12, amount: 5, scale: 12, seed: 2 }
+	const raise = await run({ ...base, mode: 'raise' }, inSquare)
+	const lower = await run({ ...base, mode: 'lower' }, inSquare)
+	const flat = await run({ ...base, mode: 'flatten', flatten: 'average' }, inSquare)
+	const level = await run({ ...base, mode: 'flatten', flatten: 'height', height: 42 }, inSquare)
+	const roughen = await run({ ...base, mode: 'roughen' }, inSquare)
+	// The spread of the heights in the square's middle, away from the falloff.
+	const spread = (h) => {
+		let lo = Infinity
+		let hi = -Infinity
+		for (let z = 120; z <= 140; z++) for (let x = 120; x <= 140; x++) ((lo = Math.min(lo, h[z * V + x])), (hi = Math.max(hi, h[z * V + x])))
+		return hi - lo
+	}
+	const r = {
+		raise: { ...strip(raise), mid: +(mid(raise.after) - mid(raise.before)).toFixed(3) },
+		lower: { ...strip(lower), mid: +(mid(lower.after) - mid(lower.before)).toFixed(3) },
+		flat: { ...strip(flat), spread: +spread(flat.after).toFixed(4) },
+		level: { ...strip(level), mid: +mid(level.after).toFixed(3) },
+		roughen: { ...strip(roughen), roughBefore: +rough(roughen.before, sel).toFixed(1), roughAfter: +rough(roughen.after, sel).toFixed(1) },
+	}
+	const labels = { raise: 'Raise selection', lower: 'Lower selection', flat: 'Flatten selection', level: 'Flatten selection', roughen: 'Roughen selection' }
+	const ok =
+		Object.entries(r).every(([k, v]) => v.finished && v.progress === 1 && v.changed > 300 && v.outside === 0 && v.undone === 0 && v.redone === 0 && v.label === labels[k]) &&
+		Math.abs(r.raise.mid - 5) < 1e-3 &&
+		Math.abs(r.lower.mid + 5) < 1e-3 &&
+		r.flat.spread < 1e-3 &&
+		Math.abs(r.level.mid - 42) < 1e-3 &&
+		r.roughen.roughAfter > r.roughen.roughBefore
+	if (!ok) shapesOk = false
+	shapes[falloff ? 'falloff' : 'hard'] = r
+}
+// The dialog: Mode lists the five, and picking Flatten shows its target and names the button.
+const { ui } = await P.state()
+editor.smoothArea.mode = 'smooth'
+ui.dialog = 'smoothArea'
+await P.frames(2)
+const select = document.querySelector('#smooth-mode')
+const box = select?.closest('[role="dialog"], .modal') ?? select?.parentElement?.parentElement?.parentElement
+const modal = () => box ?? document.body
+const modes = select ? [...select.options].map((x) => x.value) : []
+if (select) {
+	select.value = 'flatten'
+	select.dispatchEvent(new Event('change', { bubbles: true }))
+}
+await P.frames(2)
+const button = [...modal().querySelectorAll('button')].map((b) => b.textContent.trim())
+const dialog = { modes, flattenTarget: !!modal().querySelector('#smooth-target'), button, shape: editor.smoothArea.shape }
+ui.dialog = null
+editor.smoothArea.mode = 'smooth'
+const dialogOk = modes.join() === 'smooth,raise,lower,flatten,roughen' && dialog.flattenTarget && button.includes('Flatten') && dialog.shape === 'flatten'
 editor.selection = null
 await P.frames(1)
 
 const good = (r) => r.finished && r.progress === 1 && r.changed > 300 && r.outside === 0 && r.undone === 0 && r.redone === 0 && r.label === 'Smooth selection'
-const strip = ({ before, after, ...r }) => r
 return {
-	ok: good(hard) && good(soft) && good(masked) && roughAfter < roughBefore * 0.3 && softEdge < hardEdge * 0.5 && cancelled === false && afterCancel === 0,
+	ok: good(hard) && good(soft) && good(masked) && roughAfter < roughBefore * 0.3 && softEdge < hardEdge * 0.5 && cancelled === false && afterCancel === 0 && shapesOk && dialogOk,
 	rough: { before: +roughBefore.toFixed(1), after: +roughAfter.toFixed(1) },
 	edge: { hard: +hardEdge.toFixed(3), soft: +softEdge.toFixed(3) },
 	hard: strip(hard),
@@ -108,4 +167,6 @@ return {
 	masked: strip(masked),
 	cancelled,
 	afterCancel,
+	shapes,
+	dialog,
 }

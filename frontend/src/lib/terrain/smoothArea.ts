@@ -1,11 +1,28 @@
 // Terrain › Smooth Selection (#713): Sculpt › Smooth's kernel run over the selected area or the whole
 // map, a number of passes at a chosen strength, a slice at a time between frames so the editor stays
-// live and the run can be cancelled. The Engine copies the heights out into a patch, runs this, and
-// writes the result back as one undo step. Kept free of three.js so it can be tested on its own.
+// live and the run can be cancelled; and (#721) the one-pass Raise, Lower, Flatten and Roughen over the
+// same area (`shapePatch`). The Engine copies the heights out into a patch, runs this, and writes the
+// result back as one undo step. Kept free of three.js so it can be tested on its own.
 import { nextTurn } from './erodeArea'
+import { fbm } from '../engine/noise'
+
+/** What Terrain › Smooth Selection does to the area (#721): Smooth's passes, or one of the one-pass shapes. */
+export type AreaShapeMode = 'smooth' | 'raise' | 'lower' | 'flatten' | 'roughen'
 
 /** Terrain › Smooth Selection's settings (editor.smoothArea). */
 export interface SmoothAreaSettings {
+	/** Smooth (the default), or Raise, Lower, Flatten or Roughen in one pass (#721). */
+	mode?: AreaShapeMode
+	/** Raise and Lower: how many yards the area moves at full weight. Roughen: the noise's amplitude in yards (up or down). */
+	amount?: number
+	/** Flatten: to the area's mean height ('average'), or to `height`. */
+	flatten?: 'average' | 'height'
+	/** Flatten to a height: the height in yards. */
+	height?: number
+	/** Roughen: the size of the bumps in yards (the noise's wavelength). */
+	scale?: number
+	/** Roughen: the noise's seed. */
+	seed?: number
 	/**
 	 * How far each pass moves a vertex toward the average of the 3x3 vertices around it, 0 to 1. The
 	 * brush moves it `min(1, strength × 10 × seconds)` of the way, so a pass at 1 is a tenth of a second
@@ -148,4 +165,55 @@ export async function smoothPatch(
 	}
 	progress(1)
 	return true
+}
+
+/**
+ * Raise, Lower, Flatten or Roughen (#721) the patch `hs` (`w` by `h`, its first vertex at (`x0`, `z0`) of
+ * the map's vertices, `cs` yards apart) in place, in one pass, each vertex by its `weights`: Raise and
+ * Lower move it `o.amount` yards, Flatten moves it to the target (the mean of the vertices with a weight,
+ * or `o.height`), Roughen adds Sculpt › Noise's fractal noise in world space, `o.amount` yards up or down
+ * with bumps `o.scale` yards across. Returns the Flatten target (or NaN for the other modes). Smooth is
+ * smoothPatch's.
+ */
+export function shapePatch(hs: Float32Array, w: number, h: number, weights: Float32Array, o: SmoothAreaSettings, x0: number, z0: number, cs: number): number {
+	const n = w * h
+	const amount = Math.max(0, o.amount ?? 0)
+	switch (o.mode) {
+		case 'raise':
+		case 'lower': {
+			const d = o.mode === 'raise' ? amount : -amount
+			for (let i = 0; i < n; i++) if (weights[i]) hs[i] += d * weights[i]
+			return NaN
+		}
+		case 'flatten': {
+			let target = o.height ?? 0
+			if (o.flatten !== 'height') {
+				let sum = 0
+				let c = 0
+				for (let i = 0; i < n; i++) {
+					if (!weights[i]) continue
+					sum += hs[i]
+					c++
+				}
+				if (!c) return NaN
+				target = sum / c
+			}
+			for (let i = 0; i < n; i++) if (weights[i]) hs[i] += (target - hs[i]) * weights[i]
+			return target
+		}
+		case 'roughen': {
+			const f = 1 / Math.max(1, o.scale ?? 12)
+			const seed = Math.round(o.seed ?? 1)
+			for (let z = 0; z < h; z++) {
+				for (let x = 0; x < w; x++) {
+					const i = z * w + x
+					if (!weights[i]) continue
+					hs[i] += (fbm((x0 + x) * cs * f, (z0 + z) * cs * f, 4, seed) - 0.5) * 2 * amount * weights[i]
+				}
+			}
+			return NaN
+		}
+		default:
+			return NaN
+	}
 }

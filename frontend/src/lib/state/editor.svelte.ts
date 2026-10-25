@@ -11,6 +11,7 @@ import type { ReferenceImage } from '../terrain/referenceImage'
 import type { MapPath, PathKind } from '../terrain/paths'
 import type { PasteHeightMode } from '../world/pasteHeight'
 import type { MaskPick } from '../terrain/maskSelect'
+import type { AreaShapeMode } from '../terrain/smoothArea'
 import { newSpawnBrush, type SpawnBrush } from '../tools/spawnBrush'
 import type { Bookmark } from '../engine/MapDocument'
 import type { PerfReport } from '../engine/perfMeter'
@@ -105,9 +106,24 @@ export const editor = $state({
 	/**
 	 * Terrain › Smooth Selection (#713, terrain/smoothArea.ts): `passes` passes of Sculpt › Smooth's kernel
 	 * at `strength` (0 to 1 of the way to the neighbours' average a pass), faded in from the area's edge over
-	 * `width` yards with `falloff`.
+	 * `width` yards with `falloff`. `mode` (#721) runs Raise or Lower by `amount` yards, Flatten to the area's
+	 * mean or to `height` (`flatten`), or Roughen by `amount` yards of noise with bumps `scale` yards across
+	 * from `seed`, in one pass over the same area, instead; `shape` is the last of those picked.
 	 */
-	smoothArea: { strength: 0.5, passes: 10, falloff: true, width: 12 },
+	smoothArea: {
+		mode: 'smooth' as AreaShapeMode,
+		/** The shape the Raise, Lower, Flatten or Roughen menu entry opens the dialog on: the last one picked. */
+		shape: 'raise' as Exclude<AreaShapeMode, 'smooth'>,
+		strength: 0.5,
+		passes: 10,
+		falloff: true,
+		width: 12,
+		amount: 5,
+		flatten: 'average' as 'average' | 'height',
+		height: 0,
+		scale: 12,
+		seed: 1,
+	},
 	sculptLimit: 'none' as SculptLimit,
 	/**
 	 * Sculpting also paints under the brush: 'texture' paints `sculptPaintLayer` (a palette index, per

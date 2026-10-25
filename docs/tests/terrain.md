@@ -97,7 +97,7 @@ under the brush goes to the level under the first click.
 - A probe edit that breaks a Svelte file's parse breaks the owner's own `wails dev` window too until
   it is fixed: check `curl localhost:34115/src/components/<File>.svelte` gives 200 after editing.
 
-## Terrain › Smooth Selection (#713)
+## Terrain › Smooth Selection (#713), with Raise, Lower, Flatten and Roughen (#721)
 
 Checks: the area smoothing pass. The kernel, the edge falloff and the sliced run are
 `terrain/smoothArea.ts`, unit tests in `smoothArea.test.ts` (a pass equals the brush's 3x3 average,
@@ -108,6 +108,14 @@ with the falloff and over a free-form half of the square (`setAreaCells`) change
 vertices, cuts the bends (second difference) to well under a third, undoes and redoes exactly as
 "Smooth selection", the falloff moves the vertices next to the edge less than half as far, and a
 cancelled run changes nothing. The Mountains preset alone is too smooth to measure: add the noise.
+
+The one-pass shapes (#721, `shapePatch`) have unit tests in the same file (raise and lower by the
+amount times the weight, flatten to the weighted vertices' mean or to a height, roughen within the
+amplitude, in world space and by seed). The probe also runs Raise and Lower by 5 yd (the square's
+middle moves exactly 5), Flatten to the average (no spread left in the middle) and to 42 yd, and
+Roughen (more bend than before), each hard-edged and with the falloff, checking nothing outside the
+square changes and undo and redo are exact under the mode's label; and it opens the dialog, checks
+Mode lists the five and that picking Flatten shows its target and names the button.
 
 ## Sculpt › Erode and Terrain › Erode (#165)
 
