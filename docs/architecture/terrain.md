@@ -4,7 +4,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
 
 - `internal/mapfile`: the `.wmap` format is gzip(magic "WMAP" + version + JSON header + raw height
   float32 + weights + chunkSlots + holes + liquids + areaIds + chunkFlags + noEffect + shadows). Blobs
-  cross the bridge as base64 strings. If you change the format, bump `Version` and update the tests.
+  cross the bridge as base64 strings. If you change the format, bump `Version`, update the tests and add the new version's fixture
+  (`internal/mapfile/testdata`, `TestFixtures`, docs/tests/terrain.md).
   Older versions stay readable (a version 5 map has no shadows, a version 4 map no chunk data, a
   version 3 map no liquids blob, a version 2 map no holes blob either). Such a map opens with
   `MapDocument.holesKnown` / `liquidsKnown` / `chunkDataKnown` false, and saved again it keeps saying

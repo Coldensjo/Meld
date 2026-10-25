@@ -413,6 +413,15 @@ with roles or a region failed to save) were.
   each version has.
 - When the format gets a version 7: add its fixture there (the previous one plus the new field), and
   the new field to `fullSnapshot`. The Go side's own fixtures are `go test ./internal/mapfile/`.
+- Go (#545): `go test ./internal/mapfile/ -run TestFixtures` reads the committed
+  `internal/mapfile/testdata/v1.wmap` to `v6.wmap` (a 16-cell map written once by each version's
+  layout, `writeVersion` in `version_test.go`) and checks each opens with its header and exactly the
+  blobs that version had, saves again at `Version` with the same blobs, and that `Write` still lays out
+  the current fixture byte for byte (the JSON header aside). So a reader that drops or reorders a tail
+  blob fails even when `Write` and `Read` change together. For a version 7: add its case to
+  `writeVersion` and `fixtureMap`, bump `Version`, then `go test ./internal/mapfile/ -run TestFixtures
+  -update`, which writes only the missing `v7.wmap`. Never regenerate an existing fixture (delete and
+  `-update`): a fixture made by the code it tests checks nothing.
 - Trap: `toEqual` treats a key set to `undefined` as missing, so a field `fromMapData` forgets to read
   but whose snapshot value is `undefined` passes; give every optional field in `fullSnapshot` a value.
 

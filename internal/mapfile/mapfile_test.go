@@ -231,48 +231,14 @@ func writeV2(t *testing.T, m *MapData) []byte {
 	return writeOld(t, m, 2)
 }
 
-// writeOld writes a version 2, 3 or 4 stream: the current layout without the version 5 blobs, for
-// version 3 without liquids too, and for version 2 without holes.
+// writeOld writes a version 2 to 5 stream (writeVersion's layout for that version), failing the test
+// on an error.
 func writeOld(t *testing.T, m *MapData, version uint32) []byte {
 	t.Helper()
-	hdr, err := json.Marshal(&m.Header)
-	if err != nil {
+	var buf bytes.Buffer
+	if err := writeVersion(&buf, m, version); err != nil {
 		t.Fatal(err)
 	}
-	dec := func(s string) []byte {
-		b, err := base64.StdEncoding.DecodeString(s)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return b
-	}
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	var pre [12]byte
-	copy(pre[:4], Magic)
-	binary.LittleEndian.PutUint32(pre[4:8], version)
-	binary.LittleEndian.PutUint32(pre[8:12], uint32(len(hdr)))
-	gz.Write(pre[:])
-	gz.Write(hdr)
-	gz.Write(dec(m.Heights))
-	gz.Write(dec(m.Weights))
-	gz.Write(dec(m.ChunkSlots))
-	if version >= 3 {
-		gz.Write(dec(m.Holes))
-	}
-	if version >= 4 {
-		liquids := dec(m.Liquids)
-		var n [4]byte
-		binary.LittleEndian.PutUint32(n[:], uint32(len(liquids)))
-		gz.Write(n[:])
-		gz.Write(liquids)
-	}
-	if version >= 5 {
-		gz.Write(dec(m.AreaIDs))
-		gz.Write(dec(m.ChunkFlags))
-		gz.Write(dec(m.NoEffect))
-	}
-	gz.Close()
 	return buf.Bytes()
 }
 
