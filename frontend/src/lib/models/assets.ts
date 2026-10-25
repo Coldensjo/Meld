@@ -411,6 +411,11 @@ function evict(gone: ModelAsset[]) {
 	for (const t of textures) if (!mapped.has(t)) releaseTexture(t)
 }
 
+/** Whether the registry keeps the model `type`, loaded (for tests and probes; unlike `getAsset`, never starts a load). */
+export function isKept(type: string): boolean {
+	return assets.has(type)
+}
+
 /** How many models the registry keeps, shared materials it caches and animated models it poses (for tests and probes). */
 export function keptCounts(): { models: number; materials: number; animated: number } {
 	return { models: assets.size, materials: materialCache.size, animated: animatedAssets.size }

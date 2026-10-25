@@ -1,4 +1,4 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
 // touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
@@ -104,6 +104,7 @@ const noEdit = !e.history.peek() && !editor.dirty
 editor.tool = 'select'
 const scene = await window.__sceneText()
 // Four tiles east: the tiles there load, the ones far behind go.
+const typesBefore = new Set(worldDoc.objects.batches.keys())
 c.setView(c.target.x + 4 * T, c.target.y, c.target.z, c.yaw, c.pitch, c.distance)
 const east = { x: c.target.x, z: c.target.z }
 await P.until(() => {
@@ -112,6 +113,20 @@ await P.until(() => {
 }, 120000, 'the tiles four tiles east')
 const moved = e.worldStats()
 const westDropped = Number.isNaN(e.doc.world.heightAt(mid.x - 2 * T, mid.z))
+// What the dropped tiles alone used goes with them: no batch is left without objects, and the models
+// of the types gone are let go of from the registry, unless another tab, a preview or a particle uses them.
+await P.frames(2)
+const { isKept, withParticleModels } = await P.app('/src/lib/models/assets.ts')
+const batches = [...worldDoc.objects.batches.values()]
+const keep = new Set()
+for (const d of e.documents) if (d !== worldDoc) d.modelTypes(keep)
+withParticleModels(worldDoc.objects.modelTypes(keep))
+const gone = [...typesBefore].filter((t) => !worldDoc.objects.batches.has(t))
+const released = {
+	empty: batches.filter((b) => b.members.size === 0).length,
+	gone: gone.length,
+	stillKept: gone.filter((t) => !keep.has(t) && isKept(t)).length,
+}
 // Edit Here: the block around the camera in a region tab (a project lent in the state, as instance-open does).
 const hadProject = ui.project
 ui.project = hadProject ?? { name: 'probe', path: '', clientPath: '' }
@@ -164,6 +179,7 @@ const out = {
 	sceneNamesWorld: scene.includes('"world":{"mapName":"Azeroth"}'),
 	moved,
 	westDropped,
+	released,
 	region: `${r.x},${r.y} ${r.size}`,
 	holds,
 	regionCam: +regionCam.toFixed(2),
@@ -191,6 +207,9 @@ out.ok =
 	moved.loaded <= first.tiles &&
 	moved.loaded <= wantedTiles(east.x, east.z, keepReach(reach) + T, e.worldTiles()).length &&
 	westDropped &&
+	released.empty === 0 &&
+	released.gone > 0 &&
+	released.stillKept === 0 &&
 	holds &&
 	regionCam < 0.5 &&
 	checked > 0 &&

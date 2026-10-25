@@ -304,6 +304,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   out one further across the ground than 50, 125 or 200 yards past its radius for a radius up to 0.5,
   2.5 or 7 yards (the ends of the 1.12 client's doodad fade bands, as Benilla reads them in
   `model_fade.rs`); a bigger one, a tree, always shows. It cuts where the client fades.
+  When a dropped tile took models away (`WorldStream.takeDropped`), `Engine.updateWorld` takes away
+  the layer's batches no object uses any more (`ObjectLayer.dropEmptyBatches`; a region keeps its
+  empty ones) and lets go of their models through `releaseModels` (#505's path: kept while another
+  tab, a preview, the clipboard or a particle uses them), so a long flight keeps only what is near.
   The camera's ground is the stream's (`heightAt`), keeping its height where nothing is loaded. The
   document's terrain is an 8-cell hidden stand-in: the tools' clicks and keys are off in it
   (pointerdown, `handleToolKey`), Save refuses, it is never `pristine` (so opening a map doesn't

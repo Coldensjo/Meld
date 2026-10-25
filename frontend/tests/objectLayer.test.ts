@@ -195,3 +195,26 @@ test('objects read without ids (a map saved before they had them, #534) are each
 	// The next object placed after them takes the id after theirs.
 	assert.equal(L.add({ ...old, id: undefined }).id, 4)
 })
+
+test('dropEmptyBatches takes away the batches no object uses any more, and only those (#15)', () => {
+	const L = new ObjectLayer(terrain)
+	const OTHER = 'helper:cube:1'
+	const at = (type: string) => ({ type, x: 0, z: 0, yOff: 0, rotY: 0, scale: 1 })
+	const a = L.add(at(TYPE))
+	const b = L.add(at(OTHER))
+	assert.equal(L.group.children.length, 2)
+	assert.deepEqual([...L.dropEmptyBatches(new Set())], [])
+	L.remove(b.id)
+	// The empty batch is still named until it is dropped.
+	assert.ok(L.modelTypes(new Set()).has(OTHER))
+	assert.deepEqual([...L.dropEmptyBatches(new Set())], [OTHER])
+	assert.deepEqual([...L.modelTypes(new Set())], [TYPE])
+	assert.equal(L.group.children.length, 1)
+	assert.deepEqual([...L.dropEmptyBatches(new Set())], [])
+	// Placed again, the type gets a batch again and is drawn.
+	L.add(at(OTHER))
+	L.update()
+	assert.equal(L.group.children.length, 2)
+	assert.ok(L.modelTypes(new Set()).has(OTHER))
+	assert.ok(L.objects.has(a.id))
+})

@@ -2598,6 +2598,12 @@ export class Engine {
     if (!world) return
     const eye = this.camera.position
     world.update(eye.x, eye.z, streamReach(this.viewDistance))
+		// The models of the tiles dropped go with their batches when nothing else uses them (#15), before
+		// this frame's lights, particles and rooms are worked out from the objects left.
+		if (world.takeDropped()) {
+			const gone = this.doc.objects.dropEmptyBatches(new Set())
+			if (gone.size) this.releaseModels(gone)
+		}
     const f = this.worldFocus
     if (f && f.doc === this.doc.id && !Number.isNaN(world.heightAt(f.x, f.z))) {
       this.worldFocus = null

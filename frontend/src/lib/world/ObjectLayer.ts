@@ -790,6 +790,27 @@ export class ObjectLayer {
 		return into
 	}
 
+	/**
+	 * Takes away the batches of the types no object has any more, with their instanced meshes, and adds
+	 * those types to `into` (#15: a world view lets go of the models of the tiles it dropped, which
+	 * `modelTypes` would otherwise name for as long as their empty batch stays). A region keeps its empty
+	 * batches, so a model deleted and undone back is not set up again, and its type is let go of with
+	 * the closed map.
+	 */
+	dropEmptyBatches(into: Set<string>): Set<string> {
+		for (const [type, b] of this.batches) {
+			if (b.members.size) continue
+			for (const m of [b.mesh, b.lod, b.liquid]) {
+				if (!m) continue
+				this.group.remove(m)
+				m.dispose()
+			}
+			this.batches.delete(type)
+			into.add(type)
+		}
+		return into
+	}
+
 	/** Whether any object of `type` is drawn: not hidden, and in view as of the last cull. */
 	hasVisible(type: string): boolean {
 		const b = this.batches.get(type)

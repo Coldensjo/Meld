@@ -78,6 +78,8 @@ export class WorldStream {
 	error = ''
 	/** The loaded tiles' models in `objects`, each placed once however many tiles list it. */
 	private models = new TileModelShare()
+	/** A dropped tile took models away since `takeDropped` was last asked. */
+	private dropped = false
 	/** The map's WDL tiles (View › Far Horizon), unlit in the fog's colour; its index holds the tiles shown. */
 	readonly horizon = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ fog: false }))
 	/** The horizon tiles' map coordinates, in the mesh's order, and every tile's triangles. */
@@ -216,6 +218,17 @@ export class WorldStream {
 		index.needsUpdate = true
 	}
 
+	/**
+	 * Whether a dropped tile took models away since the last call: the engine then lets go of the
+	 * models no object uses any more (`Engine.updateWorld`), so a long flight does not keep every model
+	 * it passed.
+	 */
+	takeDropped(): boolean {
+		const d = this.dropped
+		this.dropped = false
+		return d
+	}
+
 	/** The ground's height at (x, z), NaN where no tile is loaded. */
 	heightAt(x: number, z: number): number {
 		const tx = Math.floor(x / TILE_YARDS)
@@ -327,7 +340,10 @@ export class WorldStream {
 		t.gen++
 		t.loading = false
 		t.ground = null
-		this.models.drop(t.key, (id) => this.objects.remove(id))
+		this.models.drop(t.key, (id) => {
+			this.objects.remove(id)
+			this.dropped = true
+		})
 		if (!t.mesh) return
 		this.horizonDirty = true
 		this.group.remove(t.mesh)
