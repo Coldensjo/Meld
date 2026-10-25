@@ -11,6 +11,11 @@ Shaders, the sky and time of day, the shadow cascades and the client's lighting.
   - The sky dome is three's Preetham `Sky` shader, patched with our ACES tone mapping, stars,
     Milky Way and moon.
   - `update(hour)` computes the sun/moon directions and all lighting colours (`state`).
+  - A map with no sky (#339, `Engine.noSky`: a client dungeon or raid in Map.dbc with no WDL far
+    terrain around the open region, such as Uldaman) hides the dome and the clouds and shows `EARTH`,
+    the floor plane's dark earth with the sea off, as the background (and the editor's fog colour) at
+    every pitch and hour. Its halls lie below the floor plane, so a camera there saw the dome's white
+    horizon band. A dungeon with land around it (Zul'Farrak, the Deadmines) keeps its sky.
 - `Engine.updateEnvironment` pushes `state` into the terrain and water uniforms, fog and
   background every frame. Change lighting there, not in individual shaders.
 - **Shadow cascades** (`engine/shadowCascades.ts`): the key light's shadow has two maps. The

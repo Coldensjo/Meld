@@ -503,6 +503,20 @@ hole in the ground still shows its dark earth, not the sky dome.
 - Hole: a flat map with a hole cut (`setHoleInSelection`), seen from above, shows the dark earth
   through it as before. The sea (an archipelago map) looks the same before and after.
 
+## A map with no sky shows the dark earth behind it (#339)
+
+Checks: `Engine.noSky` and `updateEnvironment`: Uldaman (a dungeon with no WDL far terrain around its
+region) shows `EARTH` (63,58,53 on screen) behind the map at every pitch and hour, with the editor's
+lighting and the client's, and the sky dome is hidden; Northshire keeps its sky.
+- Probe: `bun run probe sky-dungeon` (about 25 s): the owner's Uldaman view at pitch 0.32, 0.08 and
+  -0.3, at hour 13 and 0, Client Lighting off and on, reading the top-middle pixel. Before the fix
+  pitch 0.08 showed the dome's near-white horizon band (246,249,250).
+- Why it turned white: the grey/brown was never a sky colour but `Water.floor` (40 yd below the sea
+  level) seen from above; Uldaman's halls lie at about -76, so a camera pitched toward the horizon
+  dropped below the plane, which is one-sided, and saw the dome.
+- Trap: every client map, dungeons too, has a global light in Light.dbc, so the lights cannot tell a
+  map without a sky; the WDL (`RegionHorizon`) around the region can.
+
 ## A WMO's liquids: Blackrock Depths' lava (#287)
 
 Checks: a WMO group's MLIQ (`internal/wow/wmoliquid.go`) reaches the frontend after the mesh

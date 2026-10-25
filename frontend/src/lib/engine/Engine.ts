@@ -116,7 +116,7 @@ import { SpawnLinks } from '../world/SpawnLinks'
 import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
 import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionInner, RegionShadows, SpawnLook, SpawnTeleports } from '../../../wailsjs/go/main/App'
+import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionHorizon, RegionInner, RegionShadows, SpawnLook, SpawnTeleports } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 import { contentKey } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
@@ -180,6 +180,8 @@ const NEAR_MIN = 0.05
 
 /** Straight down, for finding the ground below a point. */
 const DOWN = new THREE.Vector3(0, -1, 0)
+/** The dark earth below the ground with the sea off (the floor's colour in daylight), and what a map with no sky shows behind it at every hour (#339). */
+const EARTH = new THREE.Color(0.05, 0.042, 0.035)
 /** The portal flood's seeds for a building the camera is not in: its outside leg. */
 const NO_SEEDS = { inGroup: null, across: null } as const
 /** How far above an orbit target `playerSpot` looks down from, in yards: a floor up to this high over the terrain is stood on. */
@@ -1540,9 +1542,13 @@ export class Engine {
       fog.near = this.fogNear
       fog.far = this.fogFar
     }
-    this.applyClientLight(time)
-    ;(this.scene.background as THREE.Color).copy(s.horizon)
-    if (fog) fog.color.copy(s.horizon)
+    // A map with no sky (#339) shows the earth's colour behind it instead of the dome, at every pitch and
+    // hour, and the editor's fog fades into it; the client's light keeps its own fog colour.
+    const skyless = this.noSky()
+    this.env.sky.visible = !skyless
+    this.applyClientLight(time, skyless)
+    ;(this.scene.background as THREE.Color).copy(skyless ? EARTH : s.horizon)
+    if (fog) fog.color.copy(skyless && !this.terrain.material.uniforms.clientLit.value ? EARTH : s.horizon)
     this.horizon.update(this.doc.id, this.doc.meta.region, !!this.prefs?.showHorizon && wow.loaded && !this.topDown, s.horizon)
 
     const tu = this.terrain.material.uniforms
@@ -1556,7 +1562,7 @@ export class Engine {
     // Under the sea the floor is deep water; with the sea off it is dark earth, seen through holes.
     const floor = this.water.floor.material as THREE.MeshBasicMaterial
     if (editor.waterEnabled) floor.color.setRGB(0.03 * light, 0.12 * light, 0.18 * light)
-    else floor.color.setRGB(0.05 * light, 0.042 * light, 0.035 * light)
+    else floor.color.copy(EARTH).multiplyScalar(skyless ? 1 : light)
 
     this.meter.mark(SECTION['Camera and sky'])
     if (env.key.castShadow) this.fitShadows()
@@ -2055,6 +2061,8 @@ export class Engine {
   }
 
   private mapIds: Map<string, number> | null = null
+  /** The client's maps' instance types (Map.dbc: 0 a continent, 1 a dungeon, 2 a raid, 3 a battleground), by folder. */
+  private mapTypes: Map<string, number> | null = null
   /** The client's map list being read, once asked for. */
   private mapIdsLoading: Promise<void> | null = null
 
@@ -2063,7 +2071,10 @@ export class Engine {
   private loadMapIds(): Promise<void> {
     if (this.mapIds) return Promise.resolve()
     this.mapIdsLoading ??= MapEntries()
-      .then((rows) => void (this.mapIds = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.ID]))))
+      .then((rows) => {
+        this.mapTypes = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.Type]))
+        this.mapIds = new Map((rows ?? []).map((r) => [r.Dir.toLowerCase(), r.ID]))
+      })
       .catch((e) => {
         // Leave the list unknown (never an empty one, which would read as map 0), and retry later.
         console.warn('The client’s map list could not be read', e)
@@ -2075,6 +2086,51 @@ export class Engine {
   }
   /** When the last read of the map list failed, so the per-frame callers retry only every few seconds. */
   private mapIdsFailedAt = -Infinity
+
+	/** Whether the open document's map has no sky, and the document it was worked out for (`docId` -1: not yet). */
+	private skyless = { docId: -1, value: false, asking: -1 }
+
+	/**
+	 * Whether the open map has no sky (#339): a client dungeon or raid (Map.dbc) with no far terrain in its
+	 * WDL around the open region, as Uldaman, whose halls lie far below the sea's floor. Such a map shows
+	 * the steady `SKYLESS` colour behind it instead of the sky dome, which a camera below the floor saw
+	 * turn white at the horizon. A dungeon with land around it (Zul'Farrak, the Deadmines' cove) keeps its
+	 * sky. False while unknown and for a map of Meld's own.
+	 */
+	private noSky(): boolean {
+		const d = this.doc
+		const r = d.meta.region
+		if (!r || d.meta.vmangos || !wow.loaded) return false
+		const k = this.skyless
+		if (k.docId === d.id) return k.value
+		if (!this.mapTypes) {
+			if (performance.now() - this.mapIdsFailedAt > 10000) void this.loadMapIds()
+			return false
+		}
+		const type = this.mapTypes.get(r.mapName.toLowerCase())
+		if (type !== 1 && type !== 2) {
+			k.docId = d.id
+			k.value = false
+			return false
+		}
+		if (k.asking === d.id) return false
+		k.asking = d.id
+		const id = d.id
+		RegionHorizon(r.mapName, r.x, r.y, r.size)
+			.then((tiles) => {
+				k.docId = id
+				k.value = !tiles?.length
+			})
+			.catch((err) => {
+				console.warn('far terrain not read', err)
+				k.docId = id
+				k.value = false
+			})
+			.finally(() => {
+				if (k.asking === id) k.asking = -1
+			})
+		return false
+	}
 
   private openMapId(): number | null {
     const m = this.doc.meta
@@ -2162,7 +2218,7 @@ export class Engine {
    * colour stops, warped toward the sun at dawn and dusk where the light says so. Off, or until the
    * lights are read, the editor's own lighting and sky stay.
    */
-  private applyClientLight(time: number) {
+  private applyClientLight(time: number, skyless: boolean) {
     const tu = this.terrain.material.uniforms
     tu.clientLit.value = 0
     const id = this.prefs?.clientLighting && wow.loaded ? this.openMapId() : null
@@ -2222,7 +2278,7 @@ export class Engine {
     this.env.setClientSky(sky, time)
     const dt = Math.min(0.1, Math.max(0, time - this.cloudsAt))
     this.cloudsAt = time
-    this.clouds.update(dt, this.lightOut, minute, this.celestialOut, this.moonOut, this.camera.position, this.prefs?.clouds !== false && !this.topDown, stormBlend(ui.weather, grade))
+    this.clouds.update(dt, this.lightOut, minute, this.celestialOut, this.moonOut, this.camera.position, this.prefs?.clouds !== false && !this.topDown && !skyless, stormBlend(ui.weather, grade))
     s.keyColor.setRGB(c[BAND.diffuse * 3], c[BAND.diffuse * 3 + 1], c[BAND.diffuse * 3 + 2], THREE.SRGBColorSpace)
     s.skyAmbient.setRGB(c[BAND.ambient * 3], c[BAND.ambient * 3 + 1], c[BAND.ambient * 3 + 2], THREE.SRGBColorSpace)
     s.groundAmbient.copy(s.skyAmbient).multiplyScalar(0.5)

@@ -542,6 +542,7 @@ the same scene, the report before and after.
 - Preview window: particles, ribbons and texture animation (#200)
 - Weather preview and zone weather (#185); splashes, wind and doorways (#244); roofs (#315)
 - The floor plane under the map is a backdrop (#289)
+- A map with no sky shows the dark earth behind it (#339, probe `sky-dungeon`)
 - A WMO's liquids: Blackrock Depths' lava (#287)
 - A camera over a building is in none of its rooms (#300)
 - Camera collision keeps the flying camera off a WMO's walls (#305)
