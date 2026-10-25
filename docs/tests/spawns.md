@@ -351,6 +351,11 @@ server's names and teleports, draws them, and saves them to the client's patch a
   `__engine.triggerLayer.group` visible with the picked sphere's 192 points.
 - Trap: a live Save writes Meld's patch-3.MPQ (or queues it while the game runs) and the world
   database (as Zones does); don't run it in a check unless the owner wants that. The Go tests cover the write.
+- Layout (#718): probe `portals-fit`. With trigger 78 picked (as a sphere, then a box), at 100 % and
+  150 % interface size and in both themes, the dialog has no horizontal scrollbar and no field row
+  runs past it. Trap: a grid track of plain `1fr` grows to its widest child (the destination map
+  select with long map names pushed the form 117 px past the dialog); use `minmax(0, 1fr)` and give
+  the select `width: 100%`.
 - Teleport to destination (#306): probe `teleport-trigger`. With View › Area triggers on, a
   right-click on trigger 78 selects it (`__engine.triggerLayer.selected`) and its menu's Teleport to
   destination opens `DeadminesInstance 31_31 3` with the camera on the areatrigger_teleport spot

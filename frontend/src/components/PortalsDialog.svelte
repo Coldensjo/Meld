@@ -240,8 +240,8 @@
 		<ul class="list" aria-label="Triggers">
 			{#each listed as x (x.id)}
 				<li>
-					<button class:picked={picked === x.id} class:dirty={dirty.includes(x.id)} onclick={() => (picked = x.id)}>
-						{x.name || `Trigger ${x.id}`}{x.teleport ? ' →' : ''}
+					<button class:picked={picked === x.id} class:dirty={dirty.includes(x.id)} onclick={() => (picked = x.id)} title={x.name || `Trigger ${x.id}`}>
+						<span class="name">{x.name || `Trigger ${x.id}`}{x.teleport ? ' →' : ''}</span>
 						<span class="id">{x.id}{distance(x) !== null ? ` · ${distance(x)} yd` : ''}</span>
 					</button>
 				</li>
@@ -251,69 +251,90 @@
 		</ul>
 		{#if t}
 			<div class="form">
-				<label class="k" for="at-name">Name</label>
-				<input id="at-name" maxlength="64" value={t.name} oninput={(e) => edit('name', (e.target as HTMLInputElement).value)} />
-				<span class="k">Position</span>
-				<span class="row">
-					<input type="number" step="any" value={t.x} oninput={(e) => edit('x', num(e))} aria-label="X" />
-					<input type="number" step="any" value={t.y} oninput={(e) => edit('y', num(e))} aria-label="Y" />
-					<input type="number" step="any" value={t.z} oninput={(e) => edit('z', num(e))} aria-label="Z" />
-				</span>
-				<span></span>
-				<span class="row">
-					<button onclick={moveHere} disabled={!here}>Move to the camera</button>
-					<button onclick={goTo}>Look at it</button>
-				</span>
-				<span class="k">Shape</span>
-				<span class="row">
-					<label class="check"><input type="radio" checked={t.radius > 0} onchange={() => setShape(false)} /> Sphere</label>
-					<label class="check"><input type="radio" checked={t.radius === 0} onchange={() => setShape(true)} /> Box</label>
-				</span>
-				{#if t.radius > 0}
-					<label class="k" for="at-radius">Radius (yd)</label>
-					<input id="at-radius" type="number" min="0.1" step="any" value={t.radius} oninput={(e) => edit('radius', Math.max(0.1, num(e)))} />
-				{:else}
-					<span class="k">Box (yd)</span>
+				<div class="grid">
+					<label class="k" for="at-name">Name</label>
 					<span class="row">
-						<input type="number" min="0.1" step="any" value={t.boxX} oninput={(e) => edit('boxX', Math.max(0.1, num(e)))} aria-label="Length" title="Length, along its facing" />
-						<input type="number" min="0.1" step="any" value={t.boxY} oninput={(e) => edit('boxY', Math.max(0.1, num(e)))} aria-label="Width" title="Width" />
-						<input type="number" min="0.1" step="any" value={t.boxZ} oninput={(e) => edit('boxZ', Math.max(0.1, num(e)))} aria-label="Height" title="Height" />
+						<input id="at-name" maxlength="64" value={t.name} oninput={(e) => edit('name', (e.target as HTMLInputElement).value)} />
+						<span class="dim nowrap" title="The trigger's ID in AreaTrigger.dbc">ID {t.id}</span>
 					</span>
-					<label class="k" for="at-yaw">Turn (°)</label>
-					<input id="at-yaw" type="number" step="any" value={deg(t.boxYaw)} oninput={(e) => edit('boxYaw', rad(num(e)))} />
-				{/if}
+				</div>
 
-				<span class="k">Teleport</span>
-				<label class="check"><input type="checkbox" checked={!!t.teleport} onchange={(e) => setTeleport((e.target as HTMLInputElement).checked)} /> Sends a player who walks in to another place</label>
-				{#if t.teleport}
-					<label class="k" for="at-map">To map</label>
-					<select id="at-map" value={t.teleport.map} onchange={(e) => editTeleport('map', Number((e.target as HTMLSelectElement).value))}>
-						{#each maps as m (m.ID)}<option value={m.ID}>{m.Name || m.Dir} ({m.ID})</option>{/each}
-						{#if !maps.some((m) => m.ID === t.teleport!.map)}<option value={t.teleport.map}>map {t.teleport.map}</option>{/if}
-					</select>
-					<span class="k">To position</span>
-					<span class="row">
-						<input type="number" step="any" value={t.teleport.x} oninput={(e) => editTeleport('x', num(e))} aria-label="Target X" />
-						<input type="number" step="any" value={t.teleport.y} oninput={(e) => editTeleport('y', num(e))} aria-label="Target Y" />
-						<input type="number" step="any" value={t.teleport.z} oninput={(e) => editTeleport('z', num(e))} aria-label="Target Z" />
-					</span>
-					<label class="k" for="at-o">Facing (°)</label>
-					<input id="at-o" type="number" step="any" value={deg(t.teleport.o)} oninput={(e) => editTeleport('o', rad(num(e)))} />
-					<span class="k">From a map tab</span>
-					<span class="row">
-						<select bind:value={fromTab} aria-label="Map tab">
-							<option value={-1}>Pick an open map…</option>
-							{#each docs.tabs as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
-						</select>
-						<button onclick={() => void destinationFromTab()} disabled={fromTab < 0} title="The destination becomes where that map's camera is">Use its camera</button>
-					</span>
-					<label class="k" for="at-level">Required level</label>
-					<input id="at-level" type="number" min="0" max="255" value={t.teleport.level} oninput={(e) => editTeleport('level', Math.min(255, Math.max(0, Math.round(num(e)))))} />
-					<label class="k" for="at-msg">Message</label>
-					<input id="at-msg" maxlength="128" value={t.teleport.message} placeholder="Shown to a player below the level" oninput={(e) => editTeleport('message', (e.target as HTMLInputElement).value)} />
-				{/if}
-				<span class="k">ID</span>
-				<span class="row"><span class="dim">{t.id}</span><button class="danger" onclick={remove}>Delete trigger</button></span>
+				<fieldset>
+					<legend>Where it is</legend>
+					<div class="grid">
+						<span class="k">Position</span>
+						<span class="row">
+							<label class="axis">X <input type="number" step="any" value={t.x} oninput={(e) => edit('x', num(e))} aria-label="X" /></label>
+							<label class="axis">Y <input type="number" step="any" value={t.y} oninput={(e) => edit('y', num(e))} aria-label="Y" /></label>
+							<label class="axis">Z <input type="number" step="any" value={t.z} oninput={(e) => edit('z', num(e))} aria-label="Z" /></label>
+						</span>
+						<span></span>
+						<span class="row wrap">
+							<button onclick={moveHere} disabled={!here} title="Put the trigger where the camera is">Move to the camera</button>
+							<button onclick={goTo} title="Put the camera on the trigger">Look at it</button>
+						</span>
+					</div>
+				</fieldset>
+
+				<fieldset>
+					<legend>Shape</legend>
+					<div class="grid">
+						<span class="k">Kind</span>
+						<span class="row">
+							<label class="check"><input type="radio" checked={t.radius > 0} onchange={() => setShape(false)} /> Sphere</label>
+							<label class="check"><input type="radio" checked={t.radius === 0} onchange={() => setShape(true)} /> Box</label>
+						</span>
+						{#if t.radius > 0}
+							<label class="k" for="at-radius">Radius (yd)</label>
+							<input id="at-radius" type="number" min="0.1" step="any" value={t.radius} oninput={(e) => edit('radius', Math.max(0.1, num(e)))} />
+						{:else}
+							<span class="k">Size (yd)</span>
+							<span class="row">
+								<label class="axis" title="Length, along its facing">L <input type="number" min="0.1" step="any" value={t.boxX} oninput={(e) => edit('boxX', Math.max(0.1, num(e)))} aria-label="Length" /></label>
+								<label class="axis" title="Width">W <input type="number" min="0.1" step="any" value={t.boxY} oninput={(e) => edit('boxY', Math.max(0.1, num(e)))} aria-label="Width" /></label>
+								<label class="axis" title="Height">H <input type="number" min="0.1" step="any" value={t.boxZ} oninput={(e) => edit('boxZ', Math.max(0.1, num(e)))} aria-label="Height" /></label>
+							</span>
+							<label class="k" for="at-yaw">Turn (°)</label>
+							<input id="at-yaw" type="number" step="any" value={deg(t.boxYaw)} oninput={(e) => edit('boxYaw', rad(num(e)))} />
+						{/if}
+					</div>
+				</fieldset>
+
+				<fieldset>
+					<legend>Teleport</legend>
+					<label class="check"><input type="checkbox" checked={!!t.teleport} onchange={(e) => setTeleport((e.target as HTMLInputElement).checked)} /> Send a player who walks in somewhere else</label>
+					{#if t.teleport}
+						<div class="grid">
+							<span class="k">From a map tab</span>
+							<span class="row">
+								<select bind:value={fromTab} aria-label="Map tab">
+									<option value={-1}>Pick an open map…</option>
+									{#each docs.tabs as d (d.id)}<option value={d.id}>{d.name}</option>{/each}
+								</select>
+								<button class="nowrap" onclick={() => void destinationFromTab()} disabled={fromTab < 0} title="The destination becomes where that map's camera is">Use its camera</button>
+							</span>
+							<label class="k" for="at-map">Map</label>
+							<select id="at-map" value={t.teleport.map} onchange={(e) => editTeleport('map', Number((e.target as HTMLSelectElement).value))}>
+								{#each maps as m (m.ID)}<option value={m.ID}>{m.Name || m.Dir} ({m.ID})</option>{/each}
+								{#if !maps.some((m) => m.ID === t.teleport!.map)}<option value={t.teleport.map}>map {t.teleport.map}</option>{/if}
+							</select>
+							<span class="k">Position</span>
+							<span class="row">
+								<label class="axis">X <input type="number" step="any" value={t.teleport.x} oninput={(e) => editTeleport('x', num(e))} aria-label="Target X" /></label>
+								<label class="axis">Y <input type="number" step="any" value={t.teleport.y} oninput={(e) => editTeleport('y', num(e))} aria-label="Target Y" /></label>
+								<label class="axis">Z <input type="number" step="any" value={t.teleport.z} oninput={(e) => editTeleport('z', num(e))} aria-label="Target Z" /></label>
+							</span>
+							<label class="k" for="at-o">Facing (°)</label>
+							<input id="at-o" type="number" step="any" value={deg(t.teleport.o)} oninput={(e) => editTeleport('o', rad(num(e)))} />
+							<label class="k" for="at-level">Required level</label>
+							<input id="at-level" type="number" min="0" max="255" value={t.teleport.level} title="0: anyone" oninput={(e) => editTeleport('level', Math.min(255, Math.max(0, Math.round(num(e)))))} />
+							<label class="k" for="at-msg">Message</label>
+							<input id="at-msg" maxlength="128" value={t.teleport.message} placeholder="Shown to a player below the level" oninput={(e) => editTeleport('message', (e.target as HTMLInputElement).value)} />
+						</div>
+					{/if}
+				</fieldset>
+
+				<span class="row end"><button class="danger" onclick={remove}>Delete trigger</button></span>
 			</div>
 		{/if}
 	</div>
@@ -344,10 +365,13 @@
 	}
 	.top span {
 		flex: 1;
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
+	/* minmax(0, …): a long map name in a select or a long trigger name must not widen its column past the dialog (issue 718). */
 	.cols {
 		display: grid;
-		grid-template-columns: 250px 1fr;
+		grid-template-columns: minmax(160px, 230px) minmax(0, 1fr);
 		gap: 12px;
 		min-height: 0;
 	}
@@ -367,6 +391,14 @@
 		background: transparent;
 		border: none;
 		padding: 3px 8px;
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	.list .name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.list button.picked {
 		background: var(--panel-3);
@@ -379,27 +411,79 @@
 		font-size: 11px;
 	}
 	.form {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		min-width: 0;
+	}
+	fieldset {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin: 0;
+		padding: 6px 10px 8px;
+		min-width: 0;
+		border: 1px solid var(--border-soft);
+		border-radius: var(--radius);
+	}
+	legend {
+		padding: 0 4px;
+		color: var(--text-dim);
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.grid {
 		display: grid;
-		grid-template-columns: 120px 1fr;
+		grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr);
 		gap: 6px 8px;
 		align-items: center;
-		align-content: start;
+	}
+	.k {
+		overflow-wrap: anywhere;
+	}
+	.grid > input,
+	.grid > select,
+	.row select {
+		width: 100%;
+		min-width: 0;
 	}
 	.row {
 		display: flex;
 		gap: 6px;
 		align-items: center;
+		min-width: 0;
 	}
-	.row input {
+	.row.wrap {
+		flex-wrap: wrap;
+	}
+	.row.end {
+		justify-content: flex-end;
+	}
+	.row > input,
+	.row > select {
+		flex: 1;
+	}
+	.axis {
+		display: flex;
+		flex: 1;
+		gap: 4px;
+		align-items: center;
+		min-width: 0;
+		color: var(--text-dim);
+	}
+	.axis input {
 		flex: 1;
 		min-width: 0;
+		width: 100%;
 	}
 	.check {
 		display: flex;
 		gap: 4px;
 		align-items: center;
+		overflow-wrap: anywhere;
 	}
-	.danger {
-		margin-left: auto;
+	.nowrap {
+		white-space: nowrap;
 	}
 </style>
