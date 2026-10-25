@@ -404,6 +404,8 @@ export function VmangosPath():Promise<string>;
 
 export function WMODoodadSets(arg1:string):Promise<Array<string>>;
 
+export function WorldHorizon(arg1:string):Promise<Array<vmangos.HorizonTile>>;
+
 export function WowStatus():Promise<wow.Status>;
 
 export function WriteHeightmap(arg1:string,arg2:number,arg3:Array<number>):Promise<void>;

@@ -30,6 +30,9 @@ export function parseGround(buf: ArrayBuffer): TileGround {
 	return { heights: new Float32Array(buf, 4, n), holes: new Uint8Array(buf, 4 + n * 4, cells) }
 }
 
+/** How far a skirt hangs below the stray of its edge: past the WDL horizon's heights, which are whole yards cut toward 0. */
+const SKIRT_MARGIN = 2
+
 /** The strides a tile's ground is drawn at (#15): every sample near the camera, every second or fourth further off. */
 export type GroundStride = 1 | 2 | 4
 
@@ -44,7 +47,10 @@ export function groundStride(d: number): GroundStride {
 	return 4
 }
 
-/** How far the edge `edge` (its GROUND_SIDE heights in order) strays at any stride from at another: the skirt's depth less its margin. */
+/**
+ * How far the edge `edge` (its GROUND_SIDE heights in order) strays at any stride from at another, the
+ * WDL horizon's every eighth sample among them: the skirt's depth less its margin.
+ */
 function edgeStray(edge: Float32Array): number {
 	let most = 0
 	const lerp = (k: number, s: number) => {
@@ -56,7 +62,8 @@ function edgeStray(edge: Float32Array): number {
 		const f = edge[k]
 		const c2 = lerp(k, 2)
 		const c4 = lerp(k, 4)
-		most = Math.max(most, Math.abs(f - c2), Math.abs(f - c4), Math.abs(c2 - c4))
+		const c8 = lerp(k, 8)
+		most = Math.max(most, Math.abs(f - c2), Math.abs(f - c4), Math.abs(c2 - c4), Math.abs(f - c8), Math.abs(c2 - c8), Math.abs(c4 - c8))
 	}
 	return most
 }
@@ -65,9 +72,9 @@ function edgeStray(edge: Float32Array): number {
  * The mesh of one tile at `stride`, in the tile's own frame (its north-west corner at the origin, the
  * mesh placed there): a vertex every `stride` height samples, its normal from the samples around it,
  * its uv across the tile (the minimap image's), and two triangles a cell of `stride` samples but for
- * the holes (a coarse cell is a hole only when all its cells are). Where an edge's ground strays
- * between the strides, so a neighbour drawn at another stride would leave a slit along it, the edge
- * hangs a skirt down past the stray, facing out.
+ * the holes (a coarse cell is a hole only when all its cells are). Each edge hangs a skirt down past
+ * how far its ground strays between the strides and the WDL horizon's every eighth sample, facing
+ * out, so a neighbour drawn at another stride, or the horizon past the last tile, leaves no slit.
  */
 export function groundMesh(g: TileGround, stride: GroundStride = 1): { positions: Float32Array; normals: Float32Array; uvs: Float32Array; index: Uint16Array } {
 	const S = GROUND_SIDE
@@ -88,11 +95,10 @@ export function groundMesh(g: TileGround, stride: GroundStride = 1): { positions
 			const [x, y] = at(k / stride)
 			line[k] = h[y * S + x]
 		}
-		const stray = edgeStray(line)
-		return stray > 1e-3 ? stray + 0.5 : 0
+		return edgeStray(line) + SKIRT_MARGIN
 	})
-	const skirted = depth.filter((d) => d > 0).length
-	const total = n * n + skirted * n
+	// The grid, then a row of skirt vertices an edge.
+	const total = n * n + 4 * n
 	const positions = new Float32Array(total * 3)
 	const normals = new Float32Array(total * 3)
 	const uvs = new Float32Array(total * 2)
@@ -129,7 +135,7 @@ export function groundMesh(g: TileGround, stride: GroundStride = 1): { positions
 		}
 	}
 	// A skirt runs along every coarse cell of its edge but the holes'.
-	const index = new Uint16Array(solid * 6 + skirted * cells * 6)
+	const index = new Uint16Array(solid * 6 + 4 * cells * 6)
 	let k = 0
 	for (let y = 0; y < cells; y++) {
 		for (let x = 0; x < cells; x++) {
@@ -149,7 +155,6 @@ export function groundMesh(g: TileGround, stride: GroundStride = 1): { positions
 	}
 	let base = n * n
 	edges.forEach((edgeAt, e) => {
-		if (!depth[e]) return
 		for (let q = 0; q < n; q++) {
 			const [x, y] = edgeAt(q)
 			vertex(base + q, x, y, depth[e])

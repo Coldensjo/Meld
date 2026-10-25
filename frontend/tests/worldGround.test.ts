@@ -40,8 +40,9 @@ test("the ground's height runs between its samples, and on a slope its normals l
 test("a hole cell gets no triangles, and the ground's top faces up", () => {
 	const all = groundMesh(parseGround(reply(() => 0)))
 	const holed = groundMesh(parseGround(reply(() => 0, [[0, 0], [9, 3]])))
-	assert.equal(all.index.length, GROUND_CELLS * GROUND_CELLS * 6)
-	assert.equal(holed.index.length, all.index.length - 12)
+	assert.equal(all.index.length, GROUND_CELLS * GROUND_CELLS * 6 + 4 * GROUND_CELLS * 6)
+	// Cell 0_0's two triangles and its stretch of the north and west skirts; cell 9_3's two.
+	assert.equal(holed.index.length, all.index.length - 24)
 	// The first triangle's normal by the right-hand rule points up (+y).
 	const p = all.positions
 	const [a, b, c] = [all.index[0], all.index[1], all.index[2]]
@@ -60,8 +61,9 @@ test('a far tile is drawn at a coarser stride, a coarse cell a hole only when al
 	for (const stride of [2, 4] as const) {
 		const m = groundMesh(flat, stride)
 		const n = GROUND_CELLS / stride + 1
-		assert.equal(m.positions.length, n * n * 3, 'flat ground hangs no skirt')
-		assert.equal(m.index.length, (n - 1) * (n - 1) * 6)
+		assert.equal(m.positions.length, (n * n + 4 * n) * 3, 'a skirt on each edge')
+		assert.equal(m.index.length, (n - 1) * (n - 1) * 6 + 4 * (n - 1) * 6)
+		assert.equal(m.positions[(n * n) * 3 + 1], 5, 'flat ground hangs its skirts the margin deep')
 		assert.ok(Math.abs(m.positions[(n - 1) * 3] - TILE_YARDS) < 1e-3, "the east edge is still a tile off")
 		assert.equal(m.positions[1], 7)
 	}
@@ -70,23 +72,24 @@ test('a far tile is drawn at a coarser stride, a coarse cell a hole only when al
 	const holes: Array<[number, number]> = []
 	for (let y = 0; y < 2; y++) for (let x = 0; x < 4; x++) holes.push([x, y])
 	const holed = parseGround(reply(() => 0, holes))
-	assert.equal(groundMesh(holed, 2).index.length, (64 * 64 - 2) * 6)
-	assert.equal(groundMesh(holed, 4).index.length, 32 * 32 * 6)
+	// The skirts leave out the holes' stretches of edge too: two of the north's, one of the west's.
+	assert.equal(groundMesh(holed, 2).index.length, (64 * 64 - 2) * 6 + (4 * 64 - 3) * 6)
+	assert.equal(groundMesh(holed, 4).index.length, 32 * 32 * 6 + 4 * 32 * 6)
 })
 
-test('an edge whose ground strays between the strides hangs a skirt below the stray, facing out', () => {
+test('an edge whose ground strays between the strides hangs its skirt below the stray, facing out', () => {
 	// The north edge zigzags 3 yards a sample; the rest of the tile is flat.
 	const g = parseGround(reply((x, y) => (y === 0 && x % 2 ? 3 : 0)))
 	const m = groundMesh(g, 4)
 	const n = GROUND_CELLS / 4 + 1
-	assert.equal(m.positions.length, (n * n + n) * 3, 'one edge skirted')
-	assert.equal(m.index.length, ((n - 1) * (n - 1) + (n - 1)) * 6)
-	// The skirt's vertices run along the north edge (z 0), more than the stray below it.
+	// The north skirt's vertices come first, along the north edge (z 0), more than the stray below it;
+	// the east skirt's after them, only the margin below the flat ground.
 	for (let q = 0; q < n; q++) {
 		const v = n * n + q
 		assert.equal(m.positions[v * 3 + 2], 0)
 		assert.ok(m.positions[v * 3 + 1] < -3)
 	}
+	assert.equal(m.positions[(n * n + n + 1) * 3 + 1], -2)
 	// Its first triangle faces north (-z), out of the tile.
 	const p = m.positions
 	const t = (n - 1) * (n - 1) * 6
@@ -94,8 +97,6 @@ test('an edge whose ground strays between the strides hangs a skirt below the st
 	const e1 = [p[b * 3] - p[a * 3], p[b * 3 + 1] - p[a * 3 + 1], p[b * 3 + 2] - p[a * 3 + 2]]
 	const e2 = [p[c * 3] - p[a * 3], p[c * 3 + 1] - p[a * 3 + 1], p[c * 3 + 2] - p[a * 3 + 2]]
 	assert.ok(e1[0] * e2[1] - e1[1] * e2[0] < 0, 'the z of e1 x e2 is negative')
-	// The full stride hangs one too: the edge strays from what a coarse neighbour draws.
-	assert.equal(groundMesh(g, 1).positions.length, (GROUND_SIDE * GROUND_SIDE + GROUND_SIDE) * 3)
 })
 
 test('the tiles wanted are the map’s within reach, nearest first, and loaded ones are kept a tile further', () => {

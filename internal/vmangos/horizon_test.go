@@ -58,3 +58,47 @@ func TestClientRegionHorizon(t *testing.T) {
 	}
 	t.Logf("%d horizon tiles", len(tiles))
 }
+
+// TestClientWorldHorizon reads Azeroth's whole horizon for the world view: every tile once, at its own
+// coordinates, Northshire's (32_48) among them with the same heights the region's horizon has for it.
+func TestClientWorldHorizon(t *testing.T) {
+	dir := testclient.DataDir(t)
+	dataDir, err := wow.ResolveDataDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	all, err := ReadWorldHorizon(dataDir, "Azeroth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[int]bool{}
+	var north *HorizonTile
+	for i, h := range all {
+		k := h.DX + MapTiles*h.DY
+		if seen[k] || h.DX < 0 || h.DY < 0 || h.DX >= MapTiles || h.DY >= MapTiles || len(h.Heights) != WDLHeights {
+			t.Fatalf("tile %d,%d twice, off the map or with %d heights", h.DX, h.DY, len(h.Heights))
+		}
+		seen[k] = true
+		if h.DX == 32 && h.DY == 48 {
+			north = &all[i]
+		}
+	}
+	if len(all) < 100 || north == nil {
+		t.Fatalf("%d tiles, Northshire's found: %v", len(all), north != nil)
+	}
+	around, err := ReadRegionHorizon(dataDir, "Azeroth", 31, 48, 1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range around {
+		if h.DX == 1 && h.DY == 0 {
+			for i := range h.Heights {
+				if h.Heights[i] != north.Heights[i] {
+					t.Fatalf("height %d: %d in the world's horizon, %d in the region's", i, north.Heights[i], h.Heights[i])
+				}
+			}
+			return
+		}
+	}
+	t.Fatal("Northshire's tile not in the horizon of the tile west of it")
+}

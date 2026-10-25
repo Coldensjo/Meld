@@ -1582,6 +1582,8 @@ export class Engine {
     ;(this.scene.background as THREE.Color).copy(skyless ? EARTH : s.horizon)
     if (fog) fog.color.copy(skyless && !this.terrain.material.uniforms.clientLit.value ? EARTH : s.horizon)
     this.horizon.update(this.doc.id, this.doc.meta.region, !!this.prefs?.showHorizon && wow.loaded && !this.topDown, s.horizon)
+		// A world view's horizon is its own, past the tiles it streams (#15).
+		this.doc.world?.showHorizon(!!this.prefs?.showHorizon && !this.topDown, s.horizon)
 
     const tu = this.terrain.material.uniforms
     tu.sunDir.value.copy(s.keyDir)

@@ -134,6 +134,43 @@ func ReadRegionHorizon(dataDir, mapName string, x, y, size, radius int) ([]Horiz
 	if err := checkRegion(x, y, size); err != nil {
 		return nil, err
 	}
+	tiles, err := readWDL(dataDir, mapName)
+	if err != nil || tiles == nil {
+		return nil, err
+	}
+	var out []HorizonTile
+	for ty := max(0, y-radius); ty < min(MapTiles, y+size+radius); ty++ {
+		for tx := max(0, x-radius); tx < min(MapTiles, x+size+radius); tx++ {
+			if tx >= x && tx < x+size && ty >= y && ty < y+size {
+				continue
+			}
+			if t := tiles[tx+MapTiles*ty]; t != nil {
+				out = append(out, horizonTile(t, tx-x, ty-y))
+			}
+		}
+	}
+	return out, nil
+}
+
+// ReadWorldHorizon reads every WDL tile of the named map, for the world view's horizon past the tiles
+// it streams (#15): DX and DY are the tile's own coordinates. A map without a WDL has no horizon.
+func ReadWorldHorizon(dataDir, mapName string) ([]HorizonTile, error) {
+	tiles, err := readWDL(dataDir, mapName)
+	if err != nil || tiles == nil {
+		return nil, err
+	}
+	var out []HorizonTile
+	for i := 0; i < MapTiles*MapTiles; i++ {
+		if t := tiles[i]; t != nil {
+			out = append(out, horizonTile(t, i%MapTiles, i/MapTiles))
+		}
+	}
+	return out, nil
+}
+
+// readWDL reads the named map's WDL through the client's archives (Meld's patch included), nil when
+// the map has none.
+func readWDL(dataDir, mapName string) (map[int]*WDLTile, error) {
 	set, err := mpq.OpenDataDir(dataDir)
 	if err != nil {
 		return nil, err
@@ -143,26 +180,14 @@ func ReadRegionHorizon(dataDir, mapName string, x, y, size, radius int) ([]Horiz
 	if err != nil {
 		return nil, nil
 	}
-	tiles, err := ParseWDL(b)
-	if err != nil {
-		return nil, err
+	return ParseWDL(b)
+}
+
+// horizonTile is WDL tile t placed at (dx, dy).
+func horizonTile(t *WDLTile, dx, dy int) HorizonTile {
+	h := HorizonTile{DX: dx, DY: dy, Heights: make([]int, WDLHeights)}
+	for i, v := range t {
+		h.Heights[i] = int(v)
 	}
-	var out []HorizonTile
-	for ty := max(0, y-radius); ty < min(MapTiles, y+size+radius); ty++ {
-		for tx := max(0, x-radius); tx < min(MapTiles, x+size+radius); tx++ {
-			if tx >= x && tx < x+size && ty >= y && ty < y+size {
-				continue
-			}
-			t := tiles[tx+MapTiles*ty]
-			if t == nil {
-				continue
-			}
-			h := HorizonTile{DX: tx - x, DY: ty - y, Heights: make([]int, WDLHeights)}
-			for i, v := range t {
-				h.Heights[i] = int(v)
-			}
-			out = append(out, h)
-		}
-	}
-	return out, nil
+	return h
 }

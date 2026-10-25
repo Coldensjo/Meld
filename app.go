@@ -697,6 +697,16 @@ func (a *App) RegionHorizon(mapName string, x, y, size int) ([]vmangos.HorizonTi
 	return vmangos.ReadRegionHorizon(dataDir, mapName, x, y, size, 5)
 }
 
+// WorldHorizon reads every WDL tile of a map for the world view's horizon (#15), each at its own tile
+// coordinates.
+func (a *App) WorldHorizon(mapName string) ([]vmangos.HorizonTile, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ReadWorldHorizon(dataDir, mapName)
+}
+
 // RegionEdges reads the client's border rows of the tiles around a region, for File › Check Map's
 // seam check (#195).
 func (a *App) RegionEdges(mapName string, x, y, size int) ([]vmangos.EdgeSegment, error) {

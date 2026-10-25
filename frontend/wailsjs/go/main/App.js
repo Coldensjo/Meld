@@ -794,6 +794,10 @@ export function WMODoodadSets(arg1) {
   return window['go']['main']['App']['WMODoodadSets'](arg1);
 }
 
+export function WorldHorizon(arg1) {
+  return window['go']['main']['App']['WorldHorizon'](arg1);
+}
+
 export function WowStatus() {
   return window['go']['main']['App']['WowStatus']();
 }

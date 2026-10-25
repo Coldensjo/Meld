@@ -54,3 +54,22 @@ export function horizonMesh(tiles: readonly HorizonTile[], tileYards: number): {
   })
   return { positions, indices }
 }
+
+/** The indices of one horizon tile in `horizonMesh`'s output: four triangles a chunk. */
+export const HORIZON_TILE_INDICES = INNER * INNER * 12
+
+/**
+ * Packs the triangles of the tiles `show` keeps (by their place in `horizonMesh`'s list) from `full`,
+ * every tile's indices in order, to the front of `out` (as long as `full`), and returns how many it
+ * wrote: the world view's horizon leaves out the tiles it draws the ground of (#15).
+ */
+export function packHorizon(full: Uint32Array, tiles: number, show: (k: number) => boolean, out: Uint32Array): number {
+	let n = 0
+	for (let k = 0; k < tiles; k++) {
+		if (!show(k)) continue
+		const s = k * HORIZON_TILE_INDICES
+		out.set(full.subarray(s, s + HORIZON_TILE_INDICES), n)
+		n += HORIZON_TILE_INDICES
+	}
+	return n
+}

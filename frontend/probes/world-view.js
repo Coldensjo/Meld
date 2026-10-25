@@ -1,5 +1,5 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
-// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/mapio.ts')
@@ -42,6 +42,21 @@ e.doc.world.group.visible = false
 const hidden = await P.shot()
 e.doc.world.group.visible = true
 const drawn = +P.diff(shown, hidden).off.toFixed(3)
+// Past the ground the map's WDL horizon is drawn, none of it on a tile whose ground is drawn: the view
+// with it hidden differs.
+const hz = worldDoc.world.horizon
+let horizonOnGround = 0
+const hzIndex = hz.geometry.index?.array
+for (let k = 0; hzIndex && k < hz.geometry.drawRange.count; k += 3072) {
+	// A packed tile's first index is its first vertex, 545 a tile in the mesh's order.
+	const t = worldDoc.world.horizonTiles[Math.floor(hzIndex[k] / 545)]
+	if (worldDoc.world.tiles.get(t.key)?.mesh) horizonOnGround++
+}
+// (The frame shows or hides the mesh by the preference; its material is the probe's to hide.)
+hz.material.visible = false
+const noHorizon = await P.shot()
+hz.material.visible = true
+const horizon = { tiles: e.worldStats().horizon, onGround: horizonOnGround, drawn: +P.diff(shown, noHorizon).off.toFixed(3) }
 // The models are drawn too: the view with them hidden differs.
 worldDoc.objects.group.visible = false
 const bare = await P.shot()
@@ -139,6 +154,7 @@ const out = {
 	strides,
 	strideOff,
 	drawn,
+	horizon,
 	modelsDrawn,
 	doodads,
 	perf: { models: perfModels, bare: perfBare },
@@ -160,6 +176,9 @@ out.ok =
 	loadedAll &&
 	strides &&
 	drawn > 0.05 &&
+	horizon.tiles > 0 &&
+	horizon.onGround === 0 &&
+	horizon.drawn > 0.002 &&
 	first.models > 0 &&
 	modelsDrawn > 0.01 &&
 	doodads.drawn > 0 &&

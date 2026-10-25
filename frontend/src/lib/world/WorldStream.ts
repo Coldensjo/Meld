@@ -4,11 +4,17 @@ import { tileKey } from '../io/mapTiles'
 import { TILE_YARDS } from '../terrain/Terrain'
 import { groundHeight, groundMesh, groundStride, keepReach, parseGround, tileDistance, wantedTiles, GROUND_CELLS, TileModelShare, type GroundStride, type TileGround, type TileModel } from './worldGround'
 import type { ObjectLayer } from './ObjectLayer'
+import { WorldHorizon } from '../../../wailsjs/go/main/App'
+import { horizonMesh, packHorizon, type HorizonTile } from './horizonMesh'
 
 /** How many tiles are read at once. */
 const LOADS = 3
 /** The colour of a tile with no minimap image (every tile of an instance). */
 const BARE = 0x8a9078
+/** How many tiles past the reach the horizon reaches, as a region's does (`RegionHorizon`). */
+const HORIZON_TILES = 5
+/** The least time between two packings of the horizon, in ms: tiles land a few a second while streaming. */
+const HORIZON_EVERY = 250
 
 interface StreamTile {
 	key: number
@@ -49,7 +55,8 @@ function geometryOf(ground: TileGround, stride: GroundStride): THREE.BufferGeome
  * ground is drawn lit, as the props are, with the scene's fog; the models are placed in the document's
  * own `ObjectLayer`, so they are drawn, culled, lit and animated as a region's are. The tiles are the
  * client's as it reads them now, Meld's patch included; nothing here edits them: a block is edited in
- * a region tab (io/mapio.ts `editWorldHere`).
+ * a region tab (io/mapio.ts `editWorldHere`). Past the ground it draws, and where a tile is still
+ * being read, the map's WDL horizon stands in, as a region's far horizon does (`HorizonLayer`).
  */
 export class WorldStream {
 	readonly group = new THREE.Group()
@@ -71,6 +78,16 @@ export class WorldStream {
 	error = ''
 	/** The loaded tiles' models in `objects`, each placed once however many tiles list it. */
 	private models = new TileModelShare()
+	/** The map's WDL tiles (View › Far Horizon), unlit in the fog's colour; its index holds the tiles shown. */
+	readonly horizon = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ fog: false }))
+	/** The horizon tiles' map coordinates, in the mesh's order, and every tile's triangles. */
+	private horizonTiles: Array<{ x: number; y: number; key: number }> = []
+	private horizonFull: Uint32Array | null = null
+	/** The tiles shown changed since the horizon was last packed, and when that was (performance.now). */
+	private horizonDirty = false
+	private horizonPacked = 0
+	/** How many horizon tiles are drawn, for the probes. */
+	private horizonShown = 0
 
 	/**
 	 * `objects` is the world view's document's layer, whose terrain is a flat stand-in: `groundAt` is
@@ -82,6 +99,15 @@ export class WorldStream {
 		private groundAt: (x: number, z: number) => number,
 	) {
 		this.group.name = 'world'
+		this.horizon.name = 'world horizon'
+		this.horizon.frustumCulled = false
+		this.horizon.visible = false
+		this.group.add(this.horizon)
+		WorldHorizon(mapName)
+			.then((tiles) => {
+				if (!this.disposed) this.setHorizon((tiles ?? []) as HorizonTile[])
+			})
+			.catch((err) => console.warn(`the horizon of ${mapName} not read`, err))
 		fetch(`/wow/tiles?map=${encodeURIComponent(mapName)}`)
 			.then(async (res) => {
 				if (!res.ok) throw new Error((await res.text()).trim() || `${res.status}`)
@@ -137,11 +163,57 @@ export class WorldStream {
 					t.mesh.geometry = geometryOf(t.ground, t.stride)
 				}
 			}
+			this.horizonDirty = true
 		}
 		while (this.loads < LOADS && this.queue.length) {
 			const t = tiles.get(this.queue.shift()!)
 			if (t && !t.ground && !t.loading && !t.failed) void this.load(t)
 		}
+		if (this.horizonDirty && this.horizonFull && performance.now() - this.horizonPacked >= HORIZON_EVERY) this.packHorizon()
+	}
+
+	/** Shows the horizon (View › Far Horizon, where it can be seen) in `color`, the fog's. */
+	showHorizon(on: boolean, color: THREE.Color) {
+		this.horizon.material.color.copy(color)
+		this.horizon.visible = on && this.horizonShown > 0
+	}
+
+	private setHorizon(tiles: HorizonTile[]) {
+		if (!tiles.length) return
+		// The tiles' own coordinates as the offsets from tile 0_0 place them where the ground is.
+		const { positions, indices } = horizonMesh(tiles, TILE_YARDS)
+		const g = new THREE.BufferGeometry()
+		g.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+		g.setIndex(new THREE.BufferAttribute(new Uint32Array(indices.length), 1))
+		g.setDrawRange(0, 0)
+		this.horizon.geometry.dispose()
+		this.horizon.geometry = g
+		this.horizonFull = indices
+		this.horizonTiles = tiles.map((t) => ({ x: t.dx, y: t.dy, key: tileKey(t.dx, t.dy) }))
+		this.horizonDirty = true
+	}
+
+	/** Packs the horizon's index with the tiles near enough to draw that have no ground drawn. */
+	private packHorizon() {
+		this.horizonDirty = false
+		this.horizonPacked = performance.now()
+		const g = this.horizon.geometry
+		const index = g.index!
+		const far = this.planReach + HORIZON_TILES * TILE_YARDS
+		const tiles = this.tiles
+		const list = this.horizonTiles
+		let shown = 0
+		const n = packHorizon(this.horizonFull!, list.length, (k) => {
+			const t = list[k]
+			const on = !tiles?.get(t.key)?.mesh && tileDistance(this.eyeX, this.eyeZ, t.x, t.y) <= far
+			if (on) shown++
+			return on
+		}, index.array as Uint32Array)
+		this.horizonShown = shown
+		g.setDrawRange(0, n)
+		index.clearUpdateRanges()
+		index.addUpdateRange(0, n)
+		index.needsUpdate = true
 	}
 
 	/** The ground's height at (x, z), NaN where no tile is loaded. */
@@ -156,9 +228,9 @@ export class WorldStream {
 
 	/**
 	 * What is loaded, for the probes: tiles drawn, being read, waiting to be read, failed, the map's
-	 * count, the models placed, and the tiles drawn at each stride ("1", "2", "4").
+	 * count, the models placed, the tiles drawn at each stride ("1", "2", "4") and the horizon's tiles drawn.
 	 */
-	stats(): { loaded: number; loading: number; queued: number; tiles: number; failed: number; models: number; strides: Record<GroundStride, number> } {
+	stats(): { loaded: number; loading: number; queued: number; tiles: number; failed: number; models: number; strides: Record<GroundStride, number>; horizon: number } {
 		let loaded = 0
 		let failed = 0
 		const strides: Record<GroundStride, number> = { 1: 0, 2: 0, 4: 0 }
@@ -173,7 +245,7 @@ export class WorldStream {
 			const t = this.tiles?.get(k)
 			return !!t && !t.ground && !t.loading && !t.failed
 		}).length
-		return { loaded, loading: this.loads, queued, tiles: this.have.size, failed, models: this.models.count, strides }
+		return { loaded, loading: this.loads, queued, tiles: this.have.size, failed, models: this.models.count, strides, horizon: this.horizonShown }
 	}
 
 	private async load(t: StreamTile) {
@@ -204,6 +276,7 @@ export class WorldStream {
 			t.stride = groundStride(tileDistance(this.eyeX, this.eyeZ, t.x, t.y))
 			t.mesh = this.meshOf(t, ground, image)
 			this.group.add(t.mesh)
+			this.horizonDirty = true
 			this.models.add(t.key, placed, (m) => this.place(m))
 		} catch (err) {
 			if (t.gen === gen) t.failed = true
@@ -256,6 +329,7 @@ export class WorldStream {
 		t.ground = null
 		this.models.drop(t.key, (id) => this.objects.remove(id))
 		if (!t.mesh) return
+		this.horizonDirty = true
 		this.group.remove(t.mesh)
 		t.mesh.geometry.dispose()
 		t.mesh.material.map?.dispose()
@@ -266,5 +340,7 @@ export class WorldStream {
 	dispose() {
 		this.disposed = true
 		for (const t of this.tiles?.values() ?? []) this.drop(t)
+		this.horizon.geometry.dispose()
+		this.horizon.material.dispose()
 	}
 }

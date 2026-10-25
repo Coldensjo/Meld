@@ -530,7 +530,9 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   Elwynn block 31-33 x 48-50, waits for the tiles within the reach to load (`engine.worldStats()`:
   loaded, loading, queued, failed and the map's tile count), checks the camera looks at the block's
   middle on the ground, that each tile is drawn at `groundStride` for its distance (`strides`, with
-  `worldStats().strides` counting the tiles at 1, 2 and 4), that the ground is drawn (a shot with `doc.world.group` hidden differs), that
+  `worldStats().strides` counting the tiles at 1, 2 and 4), that the WDL horizon is drawn past the
+  ground and on no tile whose ground is drawn (`horizon`: its tiles, those on ground, the share of the
+  view it changes; `worldStats().horizon`), that the ground is drawn (a shot with `doc.world.group` hidden differs), that
   the models are drawn (the same with `doc.objects.group`) and placed once (as many as the loaded
   tiles list unique IDs), that no doodad (M2) is drawn further across the ground than
   `doodadReach` gives for its size and some are left out for it (`doodads`: drawn, past, cut), that a
@@ -541,7 +543,11 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   without (not checked): at the Elwynn view, reach 3, about 26,000 models, 4,500 draw calls, 3.4M
   triangles and 26 ms of CPU against 3 ms bare, on 2026-10-25; with the doodads' reach, 4,070 calls,
   3.0M triangles and 21 ms (WMO groups are most of the calls, and the shadow cascades about 60%);
-  with the ground's strides, 2.45M triangles, the bare ground's 687k down to 143k.
+  with the ground's strides, 2.45M triangles, the bare ground's 687k down to 143k; the horizon adds
+  about 180k triangles and no draw call worth counting.
+- `bun test tests/horizonMesh.test.ts`: the world view's horizon packs the tiles it keeps, in order.
+- `go test ./internal/vmangos/ -run Horizon`: the world's horizon has every WDL tile once at its own
+  coordinates, Northshire's as the region's horizon has it.
 - `bun test tests/instanceCull.test.ts`: the doodads' reach by size, across the ground, only for a
   doodad batch in a view that asks for it.
 - `bun test tests/worldGround.test.ts`: the ground reply, the mesh (holes, normals, winding), the
