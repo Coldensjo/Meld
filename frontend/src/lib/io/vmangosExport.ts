@@ -121,6 +121,9 @@ export interface ObjectOut {
 	Y: number
 	Z: number
 	RotY: number
+	/** The model's tilt forward and back, and side to side, in radians, as vmangos.ObjectSpec reads them (#229). */
+	TiltX: number
+	TiltZ: number
 	Scale: number
 }
 

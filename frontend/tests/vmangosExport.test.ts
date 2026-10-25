@@ -78,7 +78,7 @@ test("a model goes to the tile it stands in, in that tile's own coordinates", ()
 	const tileYards = TILE_CELLS * CELL
 	const inp = input(256, {
 		objects: [
-			{ type: 'm2:World\\Test\\Rock.m2', x: tileYards + 10, y: 42, z: 20, rotY: 0.5, scale: 1 },
+			{ type: 'm2:World\\Test\\Rock.m2', x: tileYards + 10, y: 42, z: 20, rotY: 0.5, tiltX: 0.1, tiltZ: -0.2, scale: 1 },
 			{ type: 'wmo:World\\Test\\Hut.wmo', x: 5, y: 3, z: 6, rotY: 0, scale: 1 },
 			{ type: 'm2:World\\Test\\Far.m2', x: -50, y: 0, z: 0, rotY: 0, scale: 1 },
 		],
@@ -87,8 +87,11 @@ test("a model goes to the tile it stands in, in that tile's own coordinates", ()
 	const east = out.tiles.find((t) => t.X === 1 && t.Y === 0)!
 	assert.equal(east.Objects.length, 1)
 	assert.ok(Math.abs(east.Objects[0].X - 10) < 1e-6, 'x is measured from the tile')
+	assert.equal(east.Objects[0].TiltX, 0.1, 'the tilt goes out with the model')
+	assert.equal(east.Objects[0].TiltZ, -0.2)
 	const west = out.tiles.find((t) => t.X === 0 && t.Y === 0)!
 	assert.equal(west.Objects[0].Type, 'wmo:World\\Test\\Hut.wmo')
+	assert.equal(west.Objects[0].TiltX, 0, 'a model without a tilt goes out level')
 	assert.equal(out.outside, 1)
 })
 
