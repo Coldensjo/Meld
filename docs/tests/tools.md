@@ -92,8 +92,22 @@ mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the
   their defaults before each row), and a `from`/`to`/`ticks` or an `act` when it is a click or a key.
   "The stroke changed the map" failing means the row's settings or the map don't give the tool
   anything to do (Erode thermal needed a lower talus than the map's slopes).
-- Not covered yet: the Select tool's drags (move, gizmo, area), the spawn brush and the hole wall
-  handles (#694).
+- The Select tool (#694) is built by `selectTool(w)`, its paste hooks doing what `Engine.commitPaste`
+  does with the clip a row puts in `paste`. Its rows drag a model, three models, a creature and a path
+  point, add a path point, paste models and an area, and drag a hole wall or click its + and − badge.
+  The stroke draws the models first (`draw`: `ObjectLayer.update` and `cull`, as the Engine's frame
+  does), since a pick finds only drawn instances, and points the pick ray straight down at each hit;
+  the pointer's `clientX` moves 8 px a frame, past the tool's 4 px drag threshold. A spawn's pick needs
+  its drawn model, so the creature row stands `pickHit` in on the layer. The hole wall rows hover the
+  wall through `frame` with a camera's ray (`look`), as a sprite badge's raycast needs one.
+- The spawn brush rows run the Doodad tool in Creatures mode with a `SpawnBrushTool` whose
+  `newCreature` hook hands out guids; the snapshot holds the `SpawnLayer`'s spawns.
+- A selection is no edit: the `selections` tests (a rectangle, a lasso, the selection brush, a click
+  on a model) check that it selects with no History step and the map unchanged.
+- The gizmo's handles are the Engine's (`startGizmoDrag`, `updateGizmoDrag`, `endGizmoDrag`), so they
+  are the probe `gizmo-undo` (`bun run probe gizmo-undo`, about 7 s): one model's ring, arrow, knob and
+  move arrow and a group's ring and arrow, each one step that Undo and Redo restore. A spawn's gizmo
+  (ring and arrow on a selected creature) is not in it: it needs a drawn spawn model.
 - Trap: Sculpt's hole walls draw on a canvas when made, so the rows run inside `withCanvas`, which
   stands a `document` in and takes it away again (`uiScale.test.ts` checks the code without one).
 
