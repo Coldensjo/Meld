@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
-	import { editor, stats, ui } from '../lib/state/editor.svelte'
+	import { editor, setStatus, stats, ui } from '../lib/state/editor.svelte'
 	import { hasBackend } from '../lib/io/backend'
 	import { ClientFilesWaiting } from '../../wailsjs/go/main/App'
 	import { EventsOn } from '../../wailsjs/runtime/runtime'
@@ -16,7 +16,13 @@
 	onMount(() => {
 		if (!hasBackend()) return
 		void ClientFilesWaiting().then((n) => (waiting = n))
-		return EventsOn('client:pending', (n: number) => (waiting = n))
+		const offPending = EventsOn('client:pending', (n: number) => (waiting = n))
+		// The watcher gave up writing them (#481): said once, in the status line and the Log.
+		const offFailed = EventsOn('client:pending-failed', (msg: string) => setStatus(msg, 15000))
+		return () => {
+			offPending()
+			offFailed()
+		}
 	})
 </script>
 

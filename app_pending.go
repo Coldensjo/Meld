@@ -162,6 +162,12 @@ func (a *App) flushPending() {
 	a.emitPending(dataDir)
 }
 
+// pendingRetry is how long the watcher waits after a write the patch refused as in use before it tries
+// again, and pendingTries how many such writes it makes before it gives up (#481). A var, for the tests.
+var pendingRetry = 10 * pendingPoll
+
+const pendingTries = 5
+
 // watchPending starts the watcher, unless it runs already. It writes the waiting files once the game
 // has closed and stops when none wait.
 func (a *App) watchPending() {
@@ -170,28 +176,45 @@ func (a *App) watchPending() {
 	}
 	go func() {
 		defer a.pendingWatch.Store(false)
-		for {
-			dataDir, err := a.clientDataDir()
-			if err != nil {
-				return
-			}
-			pending, err := vmangos.PendingFiles(dataDir)
-			if err != nil || len(pending) == 0 {
-				a.emitPending(dataDir)
-				return
-			}
-			if !a.gameRunning() {
-				// Read again under the patch lock, so a write that took them along meanwhile
-				// (another save, a publish) leaves nothing to write twice.
-				if _, err := vmangos.InstallWithPending(dataDir, nil); err != nil {
-					runtime.LogWarning(a.ctx, "The client files waiting for the game to close weren't written: "+err.Error())
-					time.Sleep(10 * pendingPoll)
-				}
-				continue
-			}
-			time.Sleep(pendingPoll)
-		}
+		a.runPendingWatch()
 	}()
+}
+
+// runPendingWatch is the watcher's loop. A write that fails gives up at once when a retry won't fix
+// it (the patch isn't Meld's), or after pendingTries when the patch stays in use, and says so once in
+// the Log ("client:pending-failed"). The files keep waiting: the next patch write takes them along,
+// and the next save while the game runs starts the watcher again (#481).
+func (a *App) runPendingWatch() {
+	failed := 0
+	for {
+		dataDir, err := a.clientDataDir()
+		if err != nil {
+			return
+		}
+		pending, err := vmangos.PendingFiles(dataDir)
+		if err != nil || len(pending) == 0 {
+			a.emitPending(dataDir)
+			return
+		}
+		if !a.gameRunning() {
+			// Read again under the patch lock, so a write that took them along meanwhile
+			// (another save, a publish) leaves nothing to write twice.
+			if _, err := vmangos.InstallWithPending(dataDir, nil); err != nil {
+				failed++
+				if !vmangos.InUse(err) || failed >= pendingTries {
+					msg := "The client files waiting for the game to close weren't written, and Meld stopped trying: " + err.Error() + ". They still wait: the next save to the client takes them along."
+					if a.ctx != nil {
+						runtime.LogWarning(a.ctx, msg)
+						runtime.EventsEmit(a.ctx, "client:pending-failed", msg)
+					}
+					return
+				}
+				time.Sleep(pendingRetry)
+			}
+			continue
+		}
+		time.Sleep(pendingPoll)
+	}
 }
 
 // reloadSpells has the world server, when it runs, read spell_template again, so a saved spell works

@@ -558,7 +558,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   once when the game isn't running, else into the waiting files in the user's cache
   (`internal/vmangos/pending.go`), which a watcher (`watchPending`, also started at Meld's start)
   writes once the game has closed, and which any patch write takes along
-  (`vmangos.InstallWithPending`). Since #661 every client write goes this way (`installClient`): no
+  (`vmangos.InstallWithPending`). A watcher write that fails gives up (#481, `runPendingWatch`): at
+  once when no retry fixes it (the patch isn't Meld's), after `pendingTries` 30 s apart while the
+  patch stays in use (`vmangos.InUse`), saying so once in the status line and the Log
+  (`client:pending-failed`, `StatusBar.svelte`). The files keep waiting for the next patch write. Since #661 every client write goes this way (`installClient`): no
   save closes the game. Patch writes run one at a time
   (`patchMu` in `install.go`, held by `InstallPatch` and by `InstallWithPending` around reading,
   writing and dropping the waiting files), so the watcher never rebuilds the patch beside another

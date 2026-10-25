@@ -206,6 +206,9 @@ open region has edits the client lacks, and only then.
     runs waits, a refused write keeps it waiting, the next region save takes it into the patch, and a
     region saved while the game runs reaches the patch at `waitForGameClosed` (the step before a
     server rebuild). Set `pendingWatch` so the watcher doesn't race the saves.
+  - `go test . -run TestPendingWatchGivesUp` (#481): the watcher's loop (`runPendingWatch`) returns
+    after one try over a patch Meld didn't write, and after its tries over a read-only patch (with
+    `pendingRetry` cut to 1 ms), keeping the waiting file both times.
   - `go test . -run TestSaveAfterDatabase` (#477): `SaveAreaTriggers` over a held patch, with
     `App.runSQL` standing in for the world database, says the portals are saved in the world database
     and to Save again; without a server folder it returns the patch's own error. `SaveAreas` and

@@ -18,9 +18,23 @@ func inUse(err error) bool {
 	return errors.Is(err, fs.ErrPermission) || errors.Is(err, sharingViolation)
 }
 
+// lockedErr is lockedError's error, so InUse can tell it from a failure a retry won't fix.
+type lockedErr struct{ name string }
+
+func (e *lockedErr) Error() string {
+	return fmt.Sprintf("%s is in use by another program or is read-only. Close World of Warcraft and the server, check the file is not read-only, then export again", e.name)
+}
+
 // lockedError says what to do about a file that couldn't be written.
 func lockedError(path string) error {
-	return fmt.Errorf("%s is in use by another program or is read-only. Close World of Warcraft and the server, check the file is not read-only, then export again", filepath.Base(path))
+	return &lockedErr{name: filepath.Base(path)}
+}
+
+// InUse reports whether a write failed only because a file was held open elsewhere (or read-only),
+// which may pass once that program lets go, rather than for a reason a retry won't fix (#481).
+func InUse(err error) bool {
+	var l *lockedErr
+	return errors.As(err, &l) || inUse(err)
 }
 
 // checkFree fails when path exists and can't be opened for writing, before anything is written, so a

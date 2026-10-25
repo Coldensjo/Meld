@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
@@ -174,4 +175,70 @@ func TestClientFileChain(t *testing.T) {
 	if left := waiting(); len(left) != 0 {
 		t.Fatalf("still waiting after waitForGameClosed: %v", left)
 	}
+}
+
+// TestPendingWatchGivesUp checks the watcher stops when a write of the waiting files fails (#481):
+// at once when the patch isn't Meld's, after pendingTries when it stays in use, keeping the files.
+func TestPendingWatchGivesUp(t *testing.T) {
+	cache := t.TempDir()
+	t.Setenv("LocalAppData", cache)
+	t.Setenv("XDG_CACHE_HOME", cache)
+	root := chainSaveClient(t)
+	dataDir := filepath.Join(root, "Data")
+	patch := filepath.Join(dataDir, vmangos.PatchName)
+	a := &App{gameUp: func() bool { return false }}
+	a.cfg.WowPath = root
+	if err := vmangos.AddPending(dataDir, []mpq.File{{Name: vmangos.SpellPath, Data: []byte("spell")}}); err != nil {
+		t.Fatal(err)
+	}
+	stillWaiting := func(what string) {
+		t.Helper()
+		files, err := vmangos.PendingFiles(dataDir)
+		if err != nil || len(files) != 1 {
+			t.Fatalf("%s: waiting %d files (%v), want the Spell.dbc kept", what, len(files), err)
+		}
+	}
+
+	// A patch Meld didn't write: no retry fixes that, so the watcher returns after one try.
+	if err := os.WriteFile(patch, []byte("not an archive from us"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	slept := pendingRetry
+	pendingRetry = time.Hour
+	defer func() { pendingRetry = slept }()
+	done := make(chan struct{})
+	go func() { a.runPendingWatch(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the watcher kept retrying a patch that isn't Meld's")
+	}
+	stillWaiting("after a foreign patch")
+
+	// A patch held open (a read-only file stands in): retried pendingTries times, then given up.
+	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+		return
+	}
+	if err := os.Remove(patch); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := vmangos.InstallPatch(dataDir, []mpq.File{{Name: vmangos.SpellIconPath, Data: []byte("icons")}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(patch, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(patch, 0o644)
+	if _, err := vmangos.InstallWithPending(dataDir, nil); !vmangos.InUse(err) {
+		t.Fatalf("a write over a read-only patch: %v, want it seen as in use (retried)", err)
+	}
+	pendingRetry = time.Millisecond
+	done = make(chan struct{})
+	go func() { a.runPendingWatch(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the watcher kept retrying a patch in use")
+	}
+	stillWaiting("after a patch in use")
 }
