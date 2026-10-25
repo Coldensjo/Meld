@@ -8,6 +8,7 @@
   import Modal from './Modal.svelte'
   import GameLoginDialog from './GameLoginDialog.svelte'
   import ProjectDialog from './ProjectDialog.svelte'
+  import FolderSetupDialog from './FolderSetupDialog.svelte'
   import MapPropertiesDialog from './MapPropertiesDialog.svelte'
   import GroundEffectsDialog from './GroundEffectsDialog.svelte'
   import PortalsDialog from './PortalsDialog.svelte'
@@ -425,6 +426,8 @@
   <ErodeDialog onclose={close} />
 {:else if ui.dialog === 'project'}
   <ProjectDialog onclose={close} />
+{:else if ui.dialog === 'folderSetup'}
+  <FolderSetupDialog onclose={close} />
 {/if}
 
 <style>

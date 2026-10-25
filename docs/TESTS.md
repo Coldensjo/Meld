@@ -658,6 +658,7 @@ the same scene, the report before and after.
 
 - Session restore (reopening the last tabs at start)
 - Autosave and recovery (#177)
+- Folder setup dialog at start (#689)
 - The desktop window itself (closing with unsaved maps, #188)
 - Hover previews in tile grids (no gap between tiles)
 - Thumbnail loading order (asset browser grids)

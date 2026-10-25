@@ -544,6 +544,8 @@ export const prefs = $state({
   toolbarSide: 'left' as 'left' | 'right',
   /** Preferences › Interface size (#372): the whole UI scaled by this factor (CSS zoom, lib/ui/uiScale.ts), 1 to 2. */
   uiScale: 1,
+  /** The start dialog that offers the client and server folders (#689): "Don't ask again" stops it. */
+  skipFolderSetup: false,
   /** The asset browser's tab (a catalog kind, 'all' or a spawn kind) and where each tab was (wow/browserViews.ts). */
   browserKind: 'm2',
   browserViews: {} as Record<string, BrowserView>,
@@ -610,7 +612,7 @@ export const ui = $state({
   /** The active map's paint mask has something in it. */
   maskActive: false,
   pasting: false,
-  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | 'spawnRules' | 'worldMap' | 'erode' | 'compileBeforeLaunch' | 'project' | null,
+  dialog: null as 'stack' | 'about' | 'help' | 'log' | 'shortcuts' | 'quit' | 'closeDoc' | 'revert' | 'publish' | 'textures' | 'effects' | 'zones' | 'portals' | 'lights' | 'looks' | 'heightmap' | 'watermap' | 'gameLogin' | 'saveSpawns' | 'mapProps' | 'weapon' | 'recovery' | 'fitGround' | 'spawnRules' | 'worldMap' | 'erode' | 'compileBeforeLaunch' | 'project' | 'folderSetup' | null,
   /** Tab hides every panel but the menu bar (the toolbar, options bar, asset browser, dock and status bar), as noggit's Tab does. */
   hidePanels: false,
   /** U: the top-down 2D view, as noggit's tile mode: straight down, no perspective, the wheel zooms. */

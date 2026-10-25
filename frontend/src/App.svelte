@@ -38,6 +38,7 @@
   import { loadPrefs, savePrefs } from './lib/state/prefs'
   import { restoreSession, saveSession, skipRestore, startSessionSaving } from './lib/io/session'
   import { offerRecovery, startAutosave } from './lib/io/recovery'
+  import { offerFolderSetup } from './lib/io/folderSetup'
   import { startSessionLog } from './lib/io/sessionLog'
   import { copyTeleport } from './lib/io/scene'
   import { onMount, untrack } from 'svelte'
@@ -74,7 +75,7 @@
       stopSaving = startSessionSaving(engine)
       stopAutosave = startAutosave(engine)
       // The probes' page (?nosession) must not meet the owner's recovery dialog over its screenshots (#262).
-      if (!skipRestore) void offerRecovery()
+      if (!skipRestore) void offerRecovery().then(() => offerFolderSetup())
     })
     return () => {
       stopSaving()

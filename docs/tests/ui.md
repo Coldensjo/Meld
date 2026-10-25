@@ -497,3 +497,11 @@ asset browser's kind tabs are `role="tab"` with `aria-selected`, its facets carr
 - Trap: the tool tip opens on keyboard focus only (`:focus-visible`), which a script's `focus()` does not
   trigger in the dev page and a synthetic Tab keydown cannot fake (Tab toggles the panels). Press Tab in the
   dev page by hand to see the tip; the probe only checks that a blur hides it.
+
+## Folder setup dialog at start (#689)
+
+Checks: `lib/io/folderSetup.ts` opens `FolderSetupDialog` after the recovery offer when the client folder
+(`wow.path`) or the server folder (`VmangosPath()`) is unset and `prefs.skipFolderSetup` is false; the pure rule is
+`folderGaps` (`bun test tests/folderGaps.test.ts`). It is skipped on the probes' page (`?nosession`). In the app, back up
+`%APPDATA%\Meld\config.json`, clear `wowPath` or `vmangosPath` in a copy's place, start `make dev`, and see the dialog
+with Skip and "Don't ask again"; restore the config afterwards.
