@@ -910,12 +910,13 @@ export class ObjectLayer {
   /**
    * Draws only the instances in `view`: they are packed to the front of each batch's instance buffer,
    * so a type with nothing in view costs no draw calls. Instances small on screen go to the LOD mesh.
+   * The M2 types are the doodads, which the view's `doodadReach` cuts by distance.
    * Call once per frame, after `update`.
    */
   cull(view: CullView) {
-    for (const b of this.batches.values()) {
+    for (const [type, b] of this.batches) {
       const exempt = view.gate && view.gateExempt !== undefined ? (b.index.get(view.gateExempt) ?? -1) : -1
-      const changed = cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch, exempt)
+      const changed = cullSpheres(view, b.spheres, b.all.length, b.packed, b.scratch, exempt, type.startsWith('m2:'))
 			// Rows moved since the last cull, in a packing that is otherwise the same, are written in place.
 			const moved = b.movedIdx.length > 0
       if (b.liquid) {

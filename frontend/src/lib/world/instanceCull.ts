@@ -27,6 +27,11 @@ export interface CullView {
   cutoffPx: number
   /** Instances whose bounds cover fewer pixels than this are drawn with their model's LOD; 0 never. */
   lodPx?: number
+	/**
+	 * Whether a batch culled as doodads (`cullSpheres`' `doodads`) leaves out the instances past the
+	 * client's draw distance for their size (`doodadReach`): the world view's, as the game draws them.
+	 */
+	doodadReach?: boolean
   /**
    * With the camera in a WMO room, the open world shows only through the room's doorways: an
    * instance must also meet one of these frustums (none, in a sealed room). Null outside.
@@ -48,6 +53,23 @@ export function throughGate(view: CullView, s: THREE.Sphere): boolean {
 
 const sphere = new THREE.Sphere()
 
+/** Above this radius in yards a doodad has no draw distance of its own; only the far clip drops it. */
+export const DOODAD_ALWAYS_RADIUS = 7
+
+/**
+ * How far in yards, across the ground, past its own radius a doodad (a placed M2) of `radius` yards is
+ * drawn in the 1.12 client (#15): 50 for one up to half a yard (a candle), 125 up to 2.5 (a fence, a
+ * haystack), 200 up to 7, and always above that (a tree). These are the ends of the client's distance
+ * fade bands (Benilla's `model_fade.rs`, `doodad_fade_alpha`, read from the client at `0x683f80`);
+ * the world view cuts at the end instead of fading.
+ */
+export function doodadReach(radius: number): number {
+	if (radius > DOODAD_ALWAYS_RADIUS) return Infinity
+	if (radius <= 0.5) return 50
+	if (radius <= 2.5) return 125
+	return 200
+}
+
 /**
  * Writes the bounding sphere of `geometry` placed by `matrix` into `out` at `o`, as centre x, y, z and
  * radius.
@@ -65,14 +87,22 @@ export function instanceSphere(geometry: THREE.BufferGeometry, matrix: THREE.Mat
 /**
  * The indices of the `n` instances whose spheres (four values each, as instanceSphere writes them)
  * are in view, in order, written into `out`. Returns false when `out` already held exactly them, so
- * the caller can skip re-packing the instance buffer.
+ * the caller can skip re-packing the instance buffer. With `doodads` and the view's `doodadReach`,
+ * an instance further across the ground than its `doodadReach` past its radius is left out too.
  */
-export function cullSpheres(view: CullView, spheres: Float32Array, n: number, out: number[], scratch: number[], exempt = -1): boolean {
+export function cullSpheres(view: CullView, spheres: Float32Array, n: number, out: number[], scratch: number[], exempt = -1, doodads = false): boolean {
   scratch.length = 0
   const { frustums, eye, pxPerUnit, cutoffPx } = view
+	const reachCut = doodads && view.doodadReach === true
   for (let i = 0; i < n; i++) {
     const o = i * 4
     const r = spheres[o + 3]
+		if (reachCut && r <= DOODAD_ALWAYS_RADIUS) {
+			const far = doodadReach(r) + r
+			const dx = spheres[o] - eye.x
+			const dz = spheres[o + 2] - eye.z
+			if (dx * dx + dz * dz > far * far) continue
+		}
     sphere.center.set(spheres[o], spheres[o + 1], spheres[o + 2])
     sphere.radius = r
     if (cutoffPx > 0) {

@@ -531,13 +531,17 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   loaded, loading, queued, failed and the map's tile count), checks the camera looks at the block's
   middle on the ground, that the ground is drawn (a shot with `doc.world.group` hidden differs), that
   the models are drawn (the same with `doc.objects.group`) and placed once (as many as the loaded
-  tiles list unique IDs), that a
+  tiles list unique IDs), that no doodad (M2) is drawn further across the ground than
+  `doodadReach` gives for its size and some are left out for it (`doodads`: drawn, past, cut), that a
   Sculpt click makes no undo step, that the scene line names `world`, that flying four tiles east loads
   the tiles there and drops the ones behind, then Edit Here (a project lent in the state) and File ›
   World View back, the camera where it was each way, and that every building of the region stands
   where the world view has it, the block's corner apart. It reports `perf` with the models and
   without (not checked): at the Elwynn view, reach 3, about 26,000 models, 4,500 draw calls, 3.4M
-  triangles and 26 ms of CPU against 3 ms bare, on 2026-10-25.
+  triangles and 26 ms of CPU against 3 ms bare, on 2026-10-25; with the doodads' reach, 4,070 calls,
+  3.0M triangles and 21 ms (WMO groups are most of the calls, and the shadow cascades about 60%).
+- `bun test tests/instanceCull.test.ts`: the doodads' reach by size, across the ground, only for a
+  doodad batch in a view that asks for it.
 - `bun test tests/worldGround.test.ts`: the ground reply, the mesh (holes, normals, winding), the
   height between samples, the tiles wanted nearest first, the reach for the view distance, and a
   model several tiles list placed once (`TileModelShare`).

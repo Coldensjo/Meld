@@ -1465,6 +1465,8 @@ export class Engine {
     v.pxPerUnit = this.topDown ? (this.container.clientHeight / (2 * this.ortho.top)) * ORTHO_HEIGHT : this.container.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(this.persp.fov) / 2))
     v.cutoffPx = this.prefs?.cullSmallModels === false ? 0 : SMALL_MODEL_PX
     v.lodPx = LOD_PX
+		// A world view draws the doodads as far as the game does (#15); a region keeps every one in sight to edit.
+		v.doodadReach = !!this.doc.world
     this.objects.cull(v)
     // Spawns show through a room's walls by preference (#150): the camera often sits inside a building
     // while the author works on the creatures around it.

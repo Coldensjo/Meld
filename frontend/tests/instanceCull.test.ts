@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { cullSpheres, instanceSphere, packMatrices, splitLod, type CullView } from '../src/lib/world/instanceCull.ts'
+import { cullSpheres, doodadReach, instanceSphere, packMatrices, splitLod, type CullView } from '../src/lib/world/instanceCull.ts'
 
 /** A camera at the origin looking down -z with a 90 degree view, and the view it makes. */
 function view(cutoffPx = 0): CullView {
@@ -113,4 +113,22 @@ test('in a WMO room only what a doorway shows is kept, the building itself alway
   assert.deepEqual(out, [], 'a sealed room shows none of the world')
   cullSpheres({ ...view(), gate: null }, s, 3, out, [])
   assert.deepEqual(out, [0, 1, 2], 'outside, no gate')
+})
+
+test("doodads are cut past the client's draw distance for their size, across the ground, only where the view asks", () => {
+	assert.equal(doodadReach(0.3), 50)
+	assert.equal(doodadReach(2), 125)
+	assert.equal(doodadReach(5), 200)
+	assert.equal(doodadReach(8), Infinity)
+	// In front of the camera (down -z), each a little inside or past its reach plus its radius; the
+	// tree has none. The first candle stands 30 yards up, which the cut ignores as the client does.
+	const s = spheres([0, 30, -50, 0.3], [0, 0, -51, 0.3], [0, 0, -126, 2], [0, 0, -128, 2], [0, 0, -204, 5], [0, 0, -206, 5], [0, 0, -900, 8])
+	const out: number[] = []
+	const v = { ...view(), doodadReach: true }
+	cullSpheres(v, s, 7, out, [], -1, true)
+	assert.deepEqual(out, [0, 2, 4, 6])
+	cullSpheres(v, s, 7, out, [], -1, false)
+	assert.deepEqual(out, [0, 1, 2, 3, 4, 5, 6], 'a batch that is not doodads keeps them all')
+	cullSpheres(view(), s, 7, out, [], -1, true)
+	assert.deepEqual(out, [0, 1, 2, 3, 4, 5, 6], 'a view without the reach keeps them all')
 })

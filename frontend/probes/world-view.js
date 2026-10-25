@@ -1,5 +1,5 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, with their models (each once, however many tiles list it), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
-// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/mapio.ts')
@@ -38,7 +38,25 @@ worldDoc.objects.group.visible = false
 const bare = await P.shot()
 worldDoc.objects.group.visible = true
 const modelsDrawn = +P.diff(shown, bare).off.toFixed(3)
-// What the models cost, for the level-of-detail step that comes next: not checked, only reported.
+// The doodads (M2s) are drawn only as far across the ground as the client draws them for their size
+// (doodadReach): none drawn past it, and some left out for it.
+const { doodadReach, DOODAD_ALWAYS_RADIUS } = await P.app('/src/lib/world/instanceCull.ts')
+const doodads = { drawn: 0, past: 0, cut: 0 }
+const eyeNow = e.camera.position
+for (const [type, b] of worldDoc.objects.batches) {
+	if (!type.startsWith('m2:')) continue
+	const drawn = new Set(b.packed)
+	for (let i = 0; i < b.all.length; i++) {
+		const r = b.spheres[i * 4 + 3]
+		const far = r <= DOODAD_ALWAYS_RADIUS ? doodadReach(r) + r : Infinity
+		const beyond = Math.hypot(b.spheres[i * 4] - eyeNow.x, b.spheres[i * 4 + 2] - eyeNow.z) > far + 0.01
+		if (drawn.has(i)) {
+			doodads.drawn++
+			if (beyond) doodads.past++
+		} else if (beyond) doodads.cut++
+	}
+}
+// What the models cost, for the level-of-detail steps that come next: not checked, only reported.
 const perfModels = P.perfSummary(await P.perf())
 worldDoc.objects.group.visible = false
 const perfBare = P.perfSummary(await P.perf())
@@ -111,6 +129,7 @@ const out = {
 	loadedAll,
 	drawn,
 	modelsDrawn,
+	doodads,
 	perf: { models: perfModels, bare: perfBare },
 	placedOnce,
 	noEdit,
@@ -131,6 +150,9 @@ out.ok =
 	drawn > 0.05 &&
 	first.models > 0 &&
 	modelsDrawn > 0.01 &&
+	doodads.drawn > 0 &&
+	doodads.past === 0 &&
+	doodads.cut > 0 &&
 	placedOnce &&
 	noEdit &&
 	out.sceneNamesWorld &&
