@@ -63,6 +63,11 @@ The window layout, the asset browser and the dock panels and floating windows.
   - Categories and zones come from path keywords in `lib/wow/catalog.ts`; tune the regex rules
     there.
   - The grid is virtualised (only the rows in view are rendered), so there is no result cap.
+    Every tile grid (the asset and spawn browsers, the doodad brush editor, the display, look, icon
+    and weapon pickers) shares it (#578): `lib/ui/virtualGrid.ts` (`gridCols`, `gridWindow`, the
+    rows in view plus one each side, `rowTop`) and `components/VirtualGrid.svelte`, which renders
+    the window's items through a `cell` snippet. The scroller, its scroll position and resets stay
+    in each grid; the asset browser binds the block (`el`) to measure the Recent section above it.
     `AssetPreview.svelte` shows the hovered (else picked) item live in its own small renderer.
     It and `CreaturePreview` share `lib/ui/previewRenderer.ts` (#589): the renderer, its context
     loss and release, the orbit camera with drag and wheel, a right or middle drag that moves the

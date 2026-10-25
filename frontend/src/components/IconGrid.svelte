@@ -19,6 +19,8 @@
 </script>
 
 <script lang="ts">
+	import VirtualGrid from './VirtualGrid.svelte'
+	import { gridCols, gridWindow } from '../lib/ui/virtualGrid'
 	import { forgetIconImages } from '../lib/wow/items'
 	import { forgetSpellIcons } from '../lib/wow/spells'
 	import ItemIcon from './ItemIcon.svelte'
@@ -74,11 +76,8 @@
 	let height = $state(0)
 	let scrollTop = $state(0)
 	let scroller: HTMLDivElement | undefined = $state()
-	const cols = $derived(Math.max(1, Math.floor((width - GAP) / (TILE + GAP))))
-	const rows = $derived(Math.ceil(count / cols))
-	const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
-	const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
-	const visibleIcons = $derived(iconMatches.slice(first * cols, last * cols))
+	const cols = $derived(gridCols(width, TILE, GAP))
+	const win = $derived(gridWindow(count, cols, rowH, scrollTop, height))
 	$effect(() => {
 		void iconMatches
 		scroller?.scrollTo(0, 0)
@@ -164,24 +163,22 @@
 		{:else if !count}
 			<p class="dim">Nothing matches.</p>
 		{:else}
-			<div class="virtual" style:height="{rows * rowH}px">
-				<div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-					{#each visibleIcons as name (name)}
-						<button
-							class="icon-btn"
-							class:on={same(name, selected)}
-							style:width="{TILE}px"
-							style:height="{TILE}px"
-							title={name}
-							onclick={() => onpick(name)}
-							ondblclick={() => onapply?.(name)}
-							onpointerover={() => onhover?.(name)}
-						>
-							<ItemIcon icon={name} size={36} />
-						</button>
-					{/each}
-				</div>
-			</div>
+			<VirtualGrid items={iconMatches} {win} {cols} tile={TILE} gap={GAP} {rowH} key={(name) => name}>
+				{#snippet cell(name: string)}
+					<button
+						class="icon-btn"
+						class:on={same(name, selected)}
+						style:width="{TILE}px"
+						style:height="{TILE}px"
+						title={name}
+						onclick={() => onpick(name)}
+						ondblclick={() => onapply?.(name)}
+						onpointerover={() => onhover?.(name)}
+					>
+						<ItemIcon icon={name} size={36} />
+					</button>
+				{/snippet}
+			</VirtualGrid>
 		{/if}
 	</div>
 </div>
@@ -215,12 +212,6 @@
 		border: 1px solid var(--border);
 		border-radius: 4px;
 		padding: 6px;
-	}
-	.virtual {
-		position: relative;
-	}
-	.grid {
-		display: grid;
 	}
 	.icon-btn {
 		padding: 0;

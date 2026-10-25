@@ -98,7 +98,18 @@ and dispatch `change`, `grid-wrap.scrollTo(0, 400)`, wait 800 ms (the scroll is 
 stops), go to Textures and Creatures and back: the zone, the count and the scrollTop come back; a
 facet click then goes to the top. `tests/browserViews.test.ts` covers the stored shape. Trap: with
 `?nosave` nothing reaches config.json, so a restart can't be checked in the page; reload the desktop
-window instead.
+window instead. The `virtual-grid` probe runs this check for the scroll (Doodads, Textures and back).
+
+## The virtualised tile grids (#578)
+
+Checks: every tile grid renders only the rows in view through `components/VirtualGrid.svelte`,
+with the row maths in `lib/ui/virtualGrid.ts` (`tests/virtualGrid.test.ts`: columns, the window
+with its one-row margins, the last partial row, an empty or shrunk list). `bun run probe
+virtual-grid` scrolls the asset browser's Doodads grid 40 rows down and checks the rendered rows
+cover the view with at most a row or two to spare and no more tiles than those rows, and that the
+scroll comes back after Textures and back. The probe dispatches a `scroll` event after `scrollTo`,
+since the browser's own one may land after the frames it waits. The
+brush editor (`ui.brushEditor = true`) has the same grid under `[data-ui="DoodadBrushEditor"]`.
 
 ## Names under the tiles (#655)
 

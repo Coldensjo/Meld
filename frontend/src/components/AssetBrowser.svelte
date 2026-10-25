@@ -1,6 +1,8 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte'
   import PaletteTile from './PaletteTile.svelte'
+  import VirtualGrid from './VirtualGrid.svelte'
+  import { gridCols, gridWindow, rowTop } from '../lib/ui/virtualGrid'
   import AssetPreview from './AssetPreview.svelte'
   import SpawnBrowser, { type SpawnKind } from './SpawnBrowser.svelte'
   import { editor, prefs, setStatus, ui, wow, type ContextItem } from '../lib/state/editor.svelte'
@@ -288,15 +290,12 @@
   const tile = $derived(prefs.browserTile)
   // A tile's name takes 22 px under its picture (#655).
   const rowH = $derived(tile + (prefs.browserNames ? 22 : 0) + GAP)
-  const cols = $derived(Math.max(1, Math.floor((gridWidth - GAP) / (tile + GAP))))
-  const rows = $derived(Math.ceil(items.length / cols))
-  const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
-  const last = $derived(Math.min(rows, Math.ceil((scrollTop + viewHeight) / rowH) + 1))
-  const visible = $derived(items.slice(first * cols, last * cols))
+  const cols = $derived(gridCols(gridWidth, tile, GAP))
+  const win = $derived(gridWindow(items.length, cols, rowH, scrollTop, viewHeight))
   // The rows just outside the view are prepared after the ones in it, so scrolling finds them ready.
   $effect(() => {
     if (prefs.browserCollapsed) prefetchThumbs([])
-    else if (!spawnKind && !loadingList) prefetchAround(items.length, cols, first, last, (i) => items[i].key)
+    else if (!spawnKind && !loadingList) prefetchAround(items.length, cols, win.first, win.last, (i) => items[i].key)
   })
 
   let scroller: HTMLDivElement | undefined = $state()
@@ -364,7 +363,7 @@
     const idx = items.indexOf(it)
     if (idx < 0 || !scroller) return
     // The row sits a little below the top edge, clear of the scroller's padding.
-    scroller.scrollTo({ top: Math.max(0, contentTop() + Math.floor(idx / cols) * rowH - GAP * 3) })
+    scroller.scrollTo({ top: Math.max(0, contentTop() + rowTop(idx, cols, rowH) - GAP * 3) })
     scrollTop = Math.max(0, scroller.scrollTop - contentTop())
   }
 
@@ -538,13 +537,11 @@
             {#if !items.length}
               <p class="hint">Nothing matches. Try another word, or clear the zone and category.</p>
             {:else}
-              <div class="virtual" bind:this={virtualEl} style:height="{rows * rowH}px">
-                <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-                  {#each visible as it (it.key)}
-                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} showLabel={prefs.browserNames} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
-                  {/each}
-                </div>
-              </div>
+              <VirtualGrid {items} {win} {cols} {tile} gap={GAP} {rowH} key={(it) => it.key} bind:el={virtualEl}>
+                {#snippet cell(it: SearchItem)}
+                  <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} showLabel={prefs.browserNames} active={isActive(it)} badge={badgeOf(it)} starred={isFavourite(it)} onmenu={(e) => tileMenu(e, it)} onclick={() => pick(it)} onhover={(on) => on && (hovered = it)} />
+                {/snippet}
+              </VirtualGrid>
             {/if}
           {/if}
         </div>
@@ -711,9 +708,6 @@
     overflow-y: auto;
     padding: 6px;
     min-height: 0;
-  }
-  .virtual {
-    position: relative;
   }
   .grid {
     display: grid;

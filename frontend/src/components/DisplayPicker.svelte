@@ -29,6 +29,8 @@
 
 <script lang="ts">
 	import PaletteTile from './PaletteTile.svelte'
+	import VirtualGrid from './VirtualGrid.svelte'
+	import { gridCols, gridWindow, rowTop } from '../lib/ui/virtualGrid'
 	import { creatureTypeName, objectTypeName, spawnType } from '../lib/world/spawnInfo'
 
 	// A visual picker of creature displays, or (kind 'object', #230) of game object displays: rendered
@@ -122,13 +124,10 @@
 	let height = $state(0)
 	let scrollTop = $state(0)
 	let scroller: HTMLDivElement | undefined = $state()
-	const cols = $derived(Math.max(1, Math.floor((width - PAD + GAP) / (TILE + GAP))))
+	const cols = $derived(gridCols(width, TILE, GAP, PAD - GAP))
 	const tile = $derived(Math.min(MAX_TILE, Math.max(TILE, Math.floor((width - PAD - (cols - 1) * GAP) / cols))))
 	const rowH = $derived(tile + 22 + GAP)
-	const rows = $derived(Math.ceil(items.length / cols))
-	const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
-	const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
-	const visible = $derived(items.slice(first * cols, last * cols))
+	const win = $derived(gridWindow(items.length, cols, rowH, scrollTop, height))
 	$effect(() => {
 		void items
 		scroller?.scrollTo(0, 0)
@@ -154,7 +153,7 @@
 		requestAnimationFrame(() => {
 			const i = items.indexOf(d)
 			if (i < 0 || !scroller) return
-			const top = Math.max(0, Math.floor(i / cols) * rowH - (height - rowH) / 2)
+			const top = Math.max(0, rowTop(i, cols, rowH) - (height - rowH) / 2)
 			scroller.scrollTo(0, top)
 			scrollTop = top
 		})
@@ -203,22 +202,20 @@
 		{:else if !items.length}
 			<p class="dim">No display matches.</p>
 		{:else}
-			<div class="virtual" style:height="{rows * rowH}px">
-				<div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-					{#each visible as d (d.id)}
-						<PaletteTile
-							thumbKey={spawnType({ model: d.model, look: d.look })}
-							label={label(d)}
-							title={title(d)}
-							size={tile}
-							active={d.id === selected}
-							badge={String(d.id)}
-							onclick={() => pick(d)}
-							onhover={(on) => on && onhover?.(d)}
-						/>
-					{/each}
-				</div>
-			</div>
+			<VirtualGrid {items} {win} {cols} {tile} gap={GAP} {rowH} key={(d) => d.id}>
+				{#snippet cell(d: vmangos.DisplayEntry)}
+					<PaletteTile
+						thumbKey={spawnType({ model: d.model, look: d.look })}
+						label={label(d)}
+						title={title(d)}
+						size={tile}
+						active={d.id === selected}
+						badge={String(d.id)}
+						onclick={() => pick(d)}
+						onhover={(on) => on && onhover?.(d)}
+					/>
+				{/snippet}
+			</VirtualGrid>
 		{/if}
 	</div>
 </div>
@@ -249,12 +246,6 @@
 		border: 1px solid var(--border);
 		border-radius: 4px;
 		padding: 6px;
-	}
-	.virtual {
-		position: relative;
-	}
-	.grid {
-		display: grid;
 	}
 	.dim {
 		color: var(--text-dim);

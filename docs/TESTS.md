@@ -672,6 +672,7 @@ the same scene, the report before and after.
 - Hover previews in tile grids (no gap between tiles)
 - Thumbnail loading order (asset browser grids)
 - Asset browser tabs remember their place (#123)
+- The virtualised tile grids (#578)
 - Names under the tiles (#655)
 - The same header on every tab (#651)
 - Model sets (the asset browser's Sets tab, #124)

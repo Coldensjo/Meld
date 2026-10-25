@@ -54,6 +54,8 @@
 
 <script lang="ts">
   import PaletteTile from './PaletteTile.svelte'
+  import VirtualGrid from './VirtualGrid.svelte'
+  import { gridCols, gridWindow } from '../lib/ui/virtualGrid'
   import AssetPreview from './AssetPreview.svelte'
   import type { SearchItem } from '../lib/wow/search'
 
@@ -116,11 +118,8 @@
   let height = $state(0)
   let scrollTop = $state(0)
   let scroller: HTMLDivElement | undefined = $state()
-  const cols = $derived(Math.max(1, Math.floor((width - GAP) / (TILE + GAP))))
-  const rows = $derived(Math.ceil(items.length / cols))
-  const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
-  const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
-  const visible = $derived(items.slice(first * cols, last * cols))
+  const cols = $derived(gridCols(width, TILE, GAP))
+  const win = $derived(gridWindow(items.length, cols, rowH, scrollTop, height))
   $effect(() => {
     void items
     scroller?.scrollTo(0, 0)
@@ -176,13 +175,11 @@
       {:else if !items.length}
         <p class="dim">Nothing matches.</p>
       {:else}
-        <div class="virtual" style:height="{rows * rowH}px">
-          <div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-            {#each visible as w (w.entry)}
-              <PaletteTile thumbKey={weaponThumbKey(w)} label={label(w)} title={title(w)} size={TILE} active={w.entry === selected} onclick={() => onpick(w.entry)} onhover={(on) => on && hover(w)} />
-            {/each}
-          </div>
-        </div>
+        <VirtualGrid {items} {win} {cols} tile={TILE} gap={GAP} {rowH} key={(w) => w.entry}>
+          {#snippet cell(w: vmangos.WeaponEntry)}
+            <PaletteTile thumbKey={weaponThumbKey(w)} label={label(w)} title={title(w)} size={TILE} active={w.entry === selected} onclick={() => onpick(w.entry)} onhover={(on) => on && hover(w)} />
+          {/snippet}
+        </VirtualGrid>
       {/if}
     </div>
     <span class="dim">{items.length.toLocaleString()} items</span>
@@ -254,12 +251,6 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 6px;
-  }
-  .virtual {
-    position: relative;
-  }
-  .grid {
-    display: grid;
   }
   .dim {
     color: var(--text-dim);

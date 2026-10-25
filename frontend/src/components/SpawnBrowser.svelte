@@ -51,6 +51,8 @@
 
 <script lang="ts">
   import PaletteTile from './PaletteTile.svelte'
+  import VirtualGrid from './VirtualGrid.svelte'
+  import { gridCols, gridWindow, rowTop } from '../lib/ui/virtualGrid'
   import { editor, prefs, setStatus, ui } from '../lib/state/editor.svelte'
   import { entryFrom } from '../lib/tools/spawnBrush'
   import type { SearchItem } from '../lib/wow/search'
@@ -193,14 +195,11 @@
   let height = $state(0)
   let scrollTop = $state(0)
   let scroller: HTMLDivElement | undefined = $state()
-  const cols = $derived(Math.max(1, Math.floor((width - GAP) / (tile + GAP))))
-  const rows = $derived(Math.ceil(items.length / cols))
-  const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
-  const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
-  const visible = $derived(items.slice(first * cols, last * cols))
+  const cols = $derived(gridCols(width, tile, GAP))
+  const win = $derived(gridWindow(items.length, cols, rowH, scrollTop, height))
   // The rows just outside the view are prepared after the ones in it, so scrolling finds them ready.
   $effect(() => {
-    prefetchAround(items.length, cols, first, last, (i) => items[i].thumb)
+    prefetchAround(items.length, cols, win.first, win.last, (i) => items[i].thumb)
     return () => prefetchThumbs([])
   })
   /** The tab whose list the grid shows, so a new list knows whether it came with a tab change. */
@@ -255,7 +254,7 @@
     await tick()
     const idx = items.indexOf(t)
     if (idx < 0 || !scroller) return
-    scroller.scrollTo({ top: Math.max(0, Math.floor(idx / cols) * rowH - GAP * 3) })
+    scroller.scrollTo({ top: Math.max(0, rowTop(idx, cols, rowH) - GAP * 3) })
     scrollTop = scroller.scrollTop
   }
 </script>
@@ -276,13 +275,11 @@
       {:else if !items.length}
         <p class="hint">Nothing matches.</p>
       {:else}
-        <div class="virtual" style:height="{rows * rowH}px">
-          <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-            {#each visible as t (t.key)}
-              <PaletteTile thumbKey={t.thumb} label={t.name} title={t.title} size={tile} badge={t.badge} showLabel={prefs.browserNames} active={t.key === activeKey} onclick={() => pick(t)} onhover={(on) => on && onhover(asItem(t))} />
-            {/each}
-          </div>
-        </div>
+        <VirtualGrid {items} {win} {cols} {tile} gap={GAP} {rowH} key={(t) => t.key}>
+          {#snippet cell(t: Tile)}
+            <PaletteTile thumbKey={t.thumb} label={t.name} title={t.title} size={tile} badge={t.badge} showLabel={prefs.browserNames} active={t.key === activeKey} onclick={() => pick(t)} onhover={(on) => on && onhover(asItem(t))} />
+          {/snippet}
+        </VirtualGrid>
       {/if}
     </div>
   </div>
@@ -335,13 +332,6 @@
     overflow-y: auto;
     padding: 6px;
     position: relative;
-  }
-  .virtual {
-    position: relative;
-  }
-  .grid {
-    display: grid;
-    align-content: start;
   }
   .hint {
     color: var(--text-dim);

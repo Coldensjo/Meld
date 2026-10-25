@@ -2,6 +2,8 @@
   import { dialogFocus } from '../lib/ui/dialogFocus'
   import { takeEscape } from '../lib/state/escape'
   import PaletteTile from './PaletteTile.svelte'
+  import VirtualGrid from './VirtualGrid.svelte'
+  import { gridCols, gridWindow } from '../lib/ui/virtualGrid'
   import AssetPreview from './AssetPreview.svelte'
   import { editor, prefs, setStatus, ui, wow } from '../lib/state/editor.svelte'
   import { displayName } from '../lib/models/assets'
@@ -141,11 +143,8 @@
   let scrollTop = $state(0)
   let viewHeight = $state(0)
   const rowH = tile + 22 + GAP
-  const cols = $derived(Math.max(1, Math.floor((gridWidth - GAP) / (tile + GAP))))
-  const rows = $derived(Math.ceil(items.length / cols))
-  const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
-  const last = $derived(Math.min(rows, Math.ceil((scrollTop + viewHeight) / rowH) + 1))
-  const visible = $derived(items.slice(first * cols, last * cols))
+  const cols = $derived(gridCols(gridWidth, tile, GAP))
+  const win = $derived(gridWindow(items.length, cols, rowH, scrollTop, viewHeight))
   let scroller: HTMLDivElement | undefined = $state()
   $effect(() => {
     void items
@@ -230,13 +229,11 @@
               {:else if !items.length}
                 <p class="hint">Nothing matches. Try another word, or clear the category.</p>
               {:else}
-                <div class="virtual" style:height="{rows * rowH}px">
-                  <div class="grid" style:grid-template-columns="repeat({cols}, {tile}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-                    {#each visible as it (it.key)}
-                      <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={inBrush.has(it.key)} badge={inBrush.has(it.key) ? '✓' : undefined} onclick={() => addModel(it)} onhover={(on) => on && (hovered = it)} />
-                    {/each}
-                  </div>
-                </div>
+                <VirtualGrid {items} {win} {cols} {tile} gap={GAP} {rowH} key={(it) => it.key}>
+                  {#snippet cell(it: SearchItem)}
+                    <PaletteTile thumbKey={it.key} label={it.name} title={it.path} size={tile} active={inBrush.has(it.key)} badge={inBrush.has(it.key) ? '✓' : undefined} onclick={() => addModel(it)} onhover={(on) => on && (hovered = it)} />
+                  {/snippet}
+                </VirtualGrid>
               {/if}
             </div>
             <aside class="side">
@@ -434,13 +431,6 @@
     min-width: 0;
     overflow-y: auto;
     position: relative;
-  }
-  .virtual {
-    position: relative;
-  }
-  .grid {
-    display: grid;
-    align-content: start;
   }
   .hint {
     color: var(--text-dim);

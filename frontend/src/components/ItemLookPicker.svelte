@@ -25,6 +25,8 @@
 	import IconGrid from './IconGrid.svelte'
 	import ItemIcon from './ItemIcon.svelte'
 	import PaletteTile from './PaletteTile.svelte'
+	import VirtualGrid from './VirtualGrid.svelte'
+	import { gridCols, gridWindow } from '../lib/ui/virtualGrid'
 
 	// The item editor's look and icon grids (#353), under its Change look and Change icon views, as
 	// the creature editor's display picker: looks are the client's item displays, a rendered tile of
@@ -110,11 +112,8 @@
 	let height = $state(0)
 	let scrollTop = $state(0)
 	let scroller: HTMLDivElement | undefined = $state()
-	const cols = $derived(Math.max(1, Math.floor((width - GAP) / (TILE + GAP))))
-	const rows = $derived(Math.ceil(count / cols))
-	const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
-	const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
-	const visibleLooks = $derived(looks.slice(first * cols, last * cols))
+	const cols = $derived(gridCols(width, TILE, GAP))
+	const win = $derived(gridWindow(count, cols, rowH, scrollTop, height))
 	$effect(() => {
 		void looks
 		scroller?.scrollTo(0, 0)
@@ -162,39 +161,37 @@
 			{:else if !count}
 				<p class="dim">Nothing matches.</p>
 			{:else}
-				<div class="virtual" style:height="{rows * rowH}px">
-					<div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-						{#each visibleLooks as d (d.id)}
-								<!-- A double click applies the look; the tile's own click picks it. -->
-								<div class="cell" role="presentation" ondblclick={() => onapply(d.id)}>
-									{#if d.path}
-										<PaletteTile
-											thumbKey={spawnType({ model: d.path, look: d.skin })}
-											label={label(d)}
-											title={title(d)}
-											size={TILE}
-											active={same(d.id, selected)}
-											badge={String(d.id)}
-											onclick={() => onpick(d.id)}
-											onhover={(on) => on && onhover(d.id)}
-										/>
-									{:else}
-										<button
-											class="icon-tile"
-											class:on={same(d.id, selected)}
-											style:width="{TILE}px"
-											title={title(d)}
-											onclick={() => onpick(d.id)}
-											onpointerover={() => onhover(d.id)}
-										>
-											<span class="img" style:height="{TILE}px"><ItemIcon displayId={d.id} size={56} /></span>
-											<span class="name">{label(d)}</span>
-										</button>
-									{/if}
-								</div>
-							{/each}
-					</div>
-				</div>
+				<VirtualGrid items={looks} {win} {cols} tile={TILE} gap={GAP} {rowH} key={(d) => d.id}>
+					{#snippet cell(d: vmangos.ItemDisplayEntry)}
+						<!-- A double click applies the look; the tile's own click picks it. -->
+						<div class="cell" role="presentation" ondblclick={() => onapply(d.id)}>
+							{#if d.path}
+								<PaletteTile
+									thumbKey={spawnType({ model: d.path, look: d.skin })}
+									label={label(d)}
+									title={title(d)}
+									size={TILE}
+									active={same(d.id, selected)}
+									badge={String(d.id)}
+									onclick={() => onpick(d.id)}
+									onhover={(on) => on && onhover(d.id)}
+								/>
+							{:else}
+								<button
+									class="icon-tile"
+									class:on={same(d.id, selected)}
+									style:width="{TILE}px"
+									title={title(d)}
+									onclick={() => onpick(d.id)}
+									onpointerover={() => onhover(d.id)}
+								>
+									<span class="img" style:height="{TILE}px"><ItemIcon displayId={d.id} size={56} /></span>
+									<span class="name">{label(d)}</span>
+								</button>
+							{/if}
+						</div>
+					{/snippet}
+				</VirtualGrid>
 			{/if}
 		</div>
 	</div>
@@ -229,12 +226,6 @@
 		border: 1px solid var(--border);
 		border-radius: 4px;
 		padding: 6px;
-	}
-	.virtual {
-		position: relative;
-	}
-	.grid {
-		display: grid;
 	}
 	.icon-tile {
 		display: flex;
