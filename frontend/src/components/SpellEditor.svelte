@@ -1,17 +1,15 @@
 <script lang="ts">
-	import { startSaving } from '../lib/state/saving'
-	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SpellStarters, SpellsWithVisual } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/backend'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
-	import { takeEscape } from '../lib/state/escape'
-	import { changedValues } from '../lib/world/creatureFields'
+	import { TemplateEditor, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { tabOfColumn } from '../lib/world/questFields'
 	import { effectSummary, spellTabs, spellTooltip } from '../lib/world/spellFields'
 	import { forgetName, forgetSpellTables, spellTables } from '../lib/wow/refNames'
 	import { forgetSpell } from '../lib/wow/spells'
+	import EditorFrame from './EditorFrame.svelte'
 	import ItemLookPicker from './ItemLookPicker.svelte'
 	import SpellIcon from './SpellIcon.svelte'
 	import SpellPicker from './SpellPicker.svelte'
@@ -29,14 +27,6 @@
 	const target = $derived(ui.spellEditor)
 
 	let tab = $state('spell')
-	let record = $state<vmangos.SpellRecord | null>(null)
-	let values = $state<Record<string, string>>({})
-	let saved = $state<Record<string, string>>({})
-	let error = $state('')
-	let note = $state('')
-	let loading = $state(false)
-	let saving = $state(false)
-	let confirmClose = $state(false)
 	/** An icon picked (a name under Interface\Icons), which Save turns into the spell's SpellIcon row. */
 	let pendingIcon = $state('')
 	/** A visual from the composer (#361), which Save turns into the spell's visual (new kits and a new visual when it is new). */
@@ -53,13 +43,35 @@
 		if (target && !tables)
 			spellTables().then(
 				(t) => (tables = t),
-				(err) => (error = String(err)),
+				(err) => (ed.error = String(err)),
 			)
 	})
 
-	const changes = $derived(changedValues(values, saved))
-	const changeCount = $derived(Object.keys(changes).length + (pendingIcon ? 1 : 0) + (pendingVisual ? 1 : 0))
-	const unsaved = $derived(changeCount > 0)
+	const ed = new TemplateEditor<{ entry: number }, vmangos.SpellRecord>({
+		id: (t) => String(t.entry),
+		entry: (t) => t.entry,
+		read: ReadSpell,
+		clear: () => (ui.spellEditor = null),
+		dirty: () => !!pendingIcon || !!pendingVisual,
+		onopen: () => {
+			pendingIcon = ''
+			pendingVisual = null
+			composing = null
+			changing = false
+		},
+		onrevert: () => {
+			pendingIcon = ''
+			pendingVisual = null
+		},
+	})
+	ed.follow(() => target)
+	const record = $derived(ed.record)
+	const values = $derived(ed.values)
+	const saved = $derived(ed.saved)
+	const changes = $derived(ed.changes)
+	/** The changed values, and the icon and visual waiting for Save. */
+	const changeCount = $derived(ed.changeCount + (pendingIcon ? 1 : 0) + (pendingVisual ? 1 : 0))
+	const unsaved = $derived(ed.unsaved)
 	const tabs = $derived(
 		record
 			? spellTabs(
@@ -70,87 +82,12 @@
 			: [],
 	)
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
-	const tabChanges = $derived(new Map(tabs.map((t) => [t.id, t.groups.reduce((n, g) => n + g.fields.filter((f) => changes[f.col] !== undefined).length, 0)])))
-
-	// Opening another spell reads it.
-	let loadedFor = 0
-	$effect(() => {
-		const t = target
-		if (!t) {
-			loadedFor = 0
-			return
-		}
-		if (t.entry === loadedFor) return
-		loadedFor = t.entry
-		record = null
-		values = {}
-		saved = {}
-		pendingIcon = ''
-		pendingVisual = null
-		composing = null
-		changing = false
-		error = ''
-		confirmClose = false
-		if (t.entry > 0) void load(t.entry)
-	})
-
-	async function load(entry: number) {
-		loading = true
-		try {
-			const r = await ReadSpell(entry)
-			if (ui.spellEditor?.entry !== entry) return
-			record = r
-			values = { ...r.values }
-			saved = { ...r.values }
-		} catch (err) {
-			error = String(err)
-		} finally {
-			loading = false
-		}
-	}
-
-	let afterDiscard: (() => void) | null = null
-
-	/** Runs `go` now, or once the unsaved changes are kept or discarded. */
-	function leave(go: () => void) {
-		if (!unsaved) {
-			go()
-			return
-		}
-		afterDiscard = go
-		confirmClose = true
-	}
-
-	function close(force = false) {
-		if (unsaved && !force) {
-			afterDiscard = null
-			confirmClose = true
-			return
-		}
-		ui.spellEditor = null
-		loadedFor = 0
-		note = ''
-	}
-
-	function discard() {
-		revert()
-		confirmClose = false
-		const then = afterDiscard
-		afterDiscard = null
-		if (then) then()
-		else close(true)
-	}
-
-	function revert() {
-		values = { ...saved }
-		pendingIcon = ''
-		pendingVisual = null
-	}
+	const tabChanges = $derived(tabChangeCounts(tabs, changes))
 
 	function open(entry: number) {
 		if (target?.entry === entry) return
-		leave(() => {
-			note = ''
+		ed.leave(() => {
+			ed.note = ''
 			ui.spellEditor = { entry }
 		})
 	}
@@ -162,53 +99,45 @@
 		searchVersion++
 	}
 
-	async function save() {
-		if (!record || !unsaved) return
-		saving = true
-		const end = startSaving('Saving the spell')
-		error = ''
-		note = ''
-		try {
-			const n = changeCount
-			const r = await SaveSpell(record.entry, record.build, changes, pendingIcon, pendingVisual as vmangos.VisualDesign)
-			pendingIcon = ''
-			pendingVisual = null
-			// Its icon or category may be new: the pickers read the tables again.
-			forgetSpellTables()
-			values.spellVisual1 = String(r.visual)
-			saved = { ...values }
-			forget(record.entry)
-			let added = r.iconAdded ? ` Added the icon ${r.iconAdded} to SpellIcon.dbc.` : ''
-			if (r.visualAdded) added += ` Added visual ${r.visual} to SpellVisual.dbc (and its new stages to SpellVisualKit.dbc).`
-			note = `Saved ${n} ${n === 1 ? 'change' : 'changes'} to ${values.name} (spell ${record.entry}) .${added}`
-			setStatus(note, 10000)
-			// Read it again for its icon's texture and that the client has it now.
-			loadedFor = 0
-			await load(record.entry)
-			loadedFor = record?.entry ?? 0
-		} catch (err) {
-			error = String(err)
-			const col = error.replace(/^Error:\s*/, '').split(/\s/)[0]
-			const t = tabOfColumn(tabs, col)
-			if (t) tab = t
-		} finally {
-			saving = false
-			end()
-		}
+	function save() {
+		const rec = record
+		if (!rec || !unsaved) return
+		void ed.save(
+			'Saving the spell',
+			async () => {
+				const n = changeCount
+				const r = await SaveSpell(rec.entry, rec.build, changes, pendingIcon, pendingVisual as vmangos.VisualDesign)
+				pendingIcon = ''
+				pendingVisual = null
+				// Its icon or category may be new: the pickers read the tables again.
+				forgetSpellTables()
+				values.spellVisual1 = String(r.visual)
+				ed.markSaved()
+				forget(rec.entry)
+				let added = r.iconAdded ? ` Added the icon ${r.iconAdded} to SpellIcon.dbc.` : ''
+				if (r.visualAdded) added += ` Added visual ${r.visual} to SpellVisual.dbc (and its new stages to SpellVisualKit.dbc).`
+				const note = `Saved ${n} ${n === 1 ? 'change' : 'changes'} to ${values.name} (spell ${rec.entry}) .${added}`
+				setStatus(note, 10000)
+				// Read it again for its icon's texture and that the client has it now.
+				await ed.load(rec.entry)
+				ed.note = note
+			},
+			(col) => (tab = tabOfColumn(tabs, col) ?? tab),
+		)
 	}
 
 	// Export and import: SQL scripts of spell_template rows; an import writes each spell into Spell.dbc too.
 	async function exportSpell() {
 		if (!record) return
-		error = ''
+		ed.error = ''
 		try {
 			const file = (saved.name || `spell-${record.entry}`).replace(/[^\w\- ]+/g, '').trim() || `spell-${record.entry}`
 			const path = await ExportSpells([record.entry], file)
 			if (!path) return
-			note = `Exported ${saved.name} (spell ${record.entry}) to ${path}${unsaved ? ', as saved: the unsaved changes are not in it' : ''}.`
-			setStatus(note, 8000)
+			ed.note = `Exported ${saved.name} (spell ${record.entry}) to ${path}${unsaved ? ', as saved: the unsaved changes are not in it' : ''}.`
+			setStatus(ed.note, 8000)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		}
 	}
 
@@ -217,15 +146,15 @@
 	let importing = $state(false)
 
 	function askImport() {
-		leave(async () => {
-			error = ''
-			note = ''
+		ed.leave(async () => {
+			ed.error = ''
+			ed.note = ''
 			try {
 				const path = await OpenSpellsDialog()
 				if (!path) return
 				plan = { path, plan: await PlanSpellImport(path) }
 			} catch (err) {
-				error = String(err)
+				ed.error = String(err)
 			}
 		})
 	}
@@ -243,7 +172,7 @@
 	async function confirmImport() {
 		if (!plan) return
 		importing = true
-		error = ''
+		ed.error = ''
 		try {
 			const { path, plan: p } = plan
 			const n = p.spells.length
@@ -252,13 +181,13 @@
 			for (const e of entries) forget(e)
 			// The open spell is read again when the import wrote it.
 			if (target && entries.includes(target.entry)) {
-				loadedFor = 0
+				ed.reopen()
 				ui.spellEditor = { entry: target.entry }
 			} else if (entries.length) ui.spellEditor = { entry: entries[0] }
-			note = `Imported ${n} spell ${n === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc.`
-			setStatus(note, 10000)
+			ed.note = `Imported ${n} spell ${n === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc.`
+			setStatus(ed.note, 10000)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		} finally {
 			importing = false
 		}
@@ -280,11 +209,11 @@
 
 	function startNew() {
 		if (isNew) return
-		leave(() => {
+		ed.leave(() => {
 			copySource = record ? { entry: record.entry, name: saved.name ?? '' } : null
 			newName = copySource ? copySource.name : ''
 			start = copySource ? COPY : ''
-			note = ''
+			ed.note = ''
 			ui.spellEditor = { entry: -1 }
 			if (!starters.length)
 				SpellStarters().then((s) => {
@@ -300,7 +229,7 @@
 		const copy = start === COPY ? copySource : null
 		if (!name || !start) return
 		creating = true
-		error = ''
+		ed.error = ''
 		try {
 			const entry = await CreateSpell(copy?.entry ?? 0, copy ? '' : start, name)
 			const from = copy ? `a copy of ${copy.name}` : `from the ${starters.find((s) => s.id === start)?.name ?? start} starter`
@@ -308,10 +237,10 @@
 			searchVersion++
 			ui.spellEditor = { entry }
 			tab = 'spell'
-			note = `Made spell ${entry}, ${name}, ${from}. Change it and save.`
-			setStatus(note, 8000)
+			ed.note = `Made spell ${entry}, ${name}, ${from}. Change it and save.`
+			setStatus(ed.note, 8000)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		} finally {
 			creating = false
 		}
@@ -357,13 +286,13 @@
 
 	/** Opens the composer on the visual waiting for Save, else the spell's own. */
 	async function compose() {
-		error = ''
+		ed.error = ''
 		try {
 			const d = pendingVisual ?? (await ReadSpellVisual(visual))
 			composing = $state.snapshot(d) as vmangos.VisualDesign
 			changing = false
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		}
 	}
 
@@ -396,14 +325,14 @@
 
 	// The GM commands that try a spell: .cast casts it on the target, .learn teaches it.
 	async function copyCommand(command: string, what: string) {
-		error = ''
+		ed.error = ''
 		try {
 			if (hasBackend()) await ClipboardSetText(command)
 			else await navigator.clipboard.writeText(command)
-			note = `Copied ${command}: paste it in the game's chat as a GM to ${what}.`
+			ed.note = `Copied ${command}: paste it in the game's chat as a GM to ${what}.`
 			setStatus(`Copied ${command}.`, 6000)
 		} catch (err) {
-			error = `Copying the command failed: ${err}`
+			ed.error = `Copying the command failed: ${err}`
 		}
 	}
 
@@ -421,99 +350,77 @@
 		}
 	}
 
-	let root = $state<HTMLElement>()
-
-	function onKey(e: KeyboardEvent) {
-		if (!target || e.key !== 'Escape' || ui.contextMenu) return
-		if (!takeEscape(e, root)) return
-		const el = e.target as HTMLElement | null
-		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
-			e.preventDefault()
-			el.blur()
-			return
-		}
-		e.preventDefault()
+	/** Esc closes the composer, Change icon, then the import's confirmation, before the editor's own. */
+	function back(): boolean {
 		if (composing) composing = null
 		else if (changing) changing = false
 		else if (plan) plan = null
-		else if (confirmClose && unsaved) confirmClose = false
-		else close()
+		else return false
+		return true
 	}
 </script>
 
-<svelte:window onkeydown={onKey} />
-
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Spell editor" bind:this={root} use:dialogFocus>
-		<header>
-			<div class="title">
-				{#if target.entry > 0}
-					<h2>
-						<SpellIcon icon={iconShown} size={20} />
-						{values.name || saved.name || 'Spell'}{#if values.nameSubtext}<span class="rank">{values.nameSubtext}</span>{/if}
-					</h2>
-					<span class="dim">spell {target.entry}{record ? ` · build ${record.build}` : ''}</span>
-				{:else if target.entry === -1}
-					<h2>New spell</h2>
-				{:else}
-					<h2>Spells</h2>
-					<span class="dim">Find a spell to edit, or open one and make a new spell from it.</span>
-				{/if}
-			</div>
-			<div class="actions">
-				<button onclick={askImport} title="Read spells from an SQL script into the world database and the client's Spell.dbc">Import…</button>
-				{#if record}
-					<button onclick={exportSpell} title="Write this spell to an SQL script">Export…</button>
-					<button disabled={!unsaved || saving} onclick={revert}>Revert</button>
-					<button class="active" disabled={!unsaved || saving} onclick={save} title="Write it to the world database and the client's Spell.dbc">
-						{saving ? 'Saving…' : unsaved ? `Save spell (${changeCount})` : 'Saved'}
-					</button>
-				{/if}
-				<button onclick={() => close()} title="Close (Esc)">Close</button>
-			</div>
-		</header>
-		{#if plan}
-			<div class="bar warn plan">
-				<div class="what">
-					<strong>Import {plan.plan.spells.length} spell {plan.plan.spells.length === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc?</strong>
-					<span>
-						{plan.plan.spells.slice(0, 12).map(planRow).join('; ')}{plan.plan.spells.length > 12 ? `; and ${plan.plan.spells.length - 12} more` : ''}.
-					</span>
-					{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only spell_template rows are imported.</span>{/if}
-					{#if plan.plan.unknown?.length}<span>Columns this server's spell_template lacks are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
-					{#if movedLook.length}
-						<span
-							>The script carries the look of {movedLook
-								.slice(0, 6)
-								.map((s) => `${s.name || s.entry} (${[s.newIcon ? `icon ${s.newIcon}` : '', s.newVisual ? `visual ${s.newVisual}` : ''].filter(Boolean).join(', ')})`)
-								.join(', ')}{movedLook.length > 6 ? ` and ${movedLook.length - 6} more` : ''}: this client has it under another ID{plan.plan.adds?.length
-								? ` or gets it in ${plan.plan.adds.map((f) => f.replace(/^.*\\/, '')).join(', ')}`
-								: ''}, and the import uses that.</span
-						>
-					{/if}
-					{#if missingLook.length}
-						<span class="warn-text"
-							>This client lacks {missingLook
-								.slice(0, 6)
-								.map((s) => `${s.name || s.entry}'s ${[s.missingIcon ? `icon ${s.missingIcon}` : '', s.missingVisual ? `visual ${s.missingVisual}` : ''].filter(Boolean).join(' and ')}`)
-								.join(', ')}{missingLook.length > 6 ? ` and ${missingLook.length - 6} more` : ''}: the game shows no icon or draws nothing for them. Pick them again after the import.</span
-						>
-					{/if}
-					<span>A replaced spell can't be brought back, unless you exported it first.</span>
+	<EditorFrame {ed} label="Spell editor" z={165} unsavedText={`${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the spell.`} blocked={() => !!ui.contextMenu} {back}>
+		{#snippet title()}
+			{#if target.entry > 0}
+				<h2>
+					<SpellIcon icon={iconShown} size={20} />
+					{values.name || saved.name || 'Spell'}{#if values.nameSubtext}<span class="rank">{values.nameSubtext}</span>{/if}
+				</h2>
+				<span class="dim">spell {target.entry}{record ? ` · build ${record.build}` : ''}</span>
+			{:else if target.entry === -1}
+				<h2>New spell</h2>
+			{:else}
+				<h2>Spells</h2>
+				<span class="dim">Find a spell to edit, or open one and make a new spell from it.</span>
+			{/if}
+		{/snippet}
+		{#snippet actions()}
+			<button onclick={askImport} title="Read spells from an SQL script into the world database and the client's Spell.dbc">Import…</button>
+			{#if record}
+				<button onclick={exportSpell} title="Write this spell to an SQL script">Export…</button>
+				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
+				<button class="active" disabled={!unsaved || ed.saving} onclick={save} title="Write it to the world database and the client's Spell.dbc">
+					{ed.saving ? 'Saving…' : unsaved ? `Save spell (${changeCount})` : 'Saved'}
+				</button>
+			{/if}
+		{/snippet}
+		{#snippet bars()}
+			{#if plan}
+				<div class="bar warn plan">
+					<div class="what">
+						<strong>Import {plan.plan.spells.length} spell {plan.plan.spells.length === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc?</strong>
+						<span>
+							{plan.plan.spells.slice(0, 12).map(planRow).join('; ')}{plan.plan.spells.length > 12 ? `; and ${plan.plan.spells.length - 12} more` : ''}.
+						</span>
+						{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only spell_template rows are imported.</span>{/if}
+						{#if plan.plan.unknown?.length}<span>Columns this server's spell_template lacks are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
+						{#if movedLook.length}
+							<span
+								>The script carries the look of {movedLook
+									.slice(0, 6)
+									.map((s) => `${s.name || s.entry} (${[s.newIcon ? `icon ${s.newIcon}` : '', s.newVisual ? `visual ${s.newVisual}` : ''].filter(Boolean).join(', ')})`)
+									.join(', ')}{movedLook.length > 6 ? ` and ${movedLook.length - 6} more` : ''}: this client has it under another ID{plan.plan.adds?.length
+									? ` or gets it in ${plan.plan.adds.map((f) => f.replace(/^.*\\/, '')).join(', ')}`
+									: ''}, and the import uses that.</span
+							>
+						{/if}
+						{#if missingLook.length}
+							<span class="warn-text"
+								>This client lacks {missingLook
+									.slice(0, 6)
+									.map((s) => `${s.name || s.entry}'s ${[s.missingIcon ? `icon ${s.missingIcon}` : '', s.missingVisual ? `visual ${s.missingVisual}` : ''].filter(Boolean).join(' and ')}`)
+									.join(', ')}{missingLook.length > 6 ? ` and ${missingLook.length - 6} more` : ''}: the game shows no icon or draws nothing for them. Pick them again after the import.</span
+							>
+						{/if}
+						<span>A replaced spell can't be brought back, unless you exported it first.</span>
+					</div>
+					<button onclick={() => (plan = null)}>Cancel</button>
+					<button class="active" disabled={importing} onclick={confirmImport}>{importing ? 'Importing…' : 'Import'}</button>
 				</div>
-				<button onclick={() => (plan = null)}>Cancel</button>
-				<button class="active" disabled={importing} onclick={confirmImport}>{importing ? 'Importing…' : 'Import'}</button>
-			</div>
-		{/if}
-		{#if confirmClose && unsaved}
-			<div class="bar warn">
-				<span>{changeCount} unsaved {changeCount === 1 ? 'change' : 'changes'} to the spell.</span>
-				<button onclick={() => (confirmClose = false)}>Keep editing</button>
-				<button class="danger" onclick={discard}>Discard them</button>
-			</div>
-		{/if}
-		{#if error}<div class="bar error">{error}</div>{/if}
-		{#if note && !error}<div class="bar ok">{note}</div>{/if}
+			{/if}
+		{/snippet}
 
 		<div class="body">
 			<aside>
@@ -592,7 +499,7 @@
 					</nav>
 					<div class="scroll">
 						{#if !record}
-							<p class="dim">{loading ? 'Loading the spell…' : ''}</p>
+							<p class="dim">{ed.loading ? 'Loading the spell…' : ''}</p>
 						{:else}
 							{#each tabs as t (t.id)}
 								{#if t.id === tab}
@@ -677,7 +584,7 @@
 				</section>
 			{/if}
 		</div>
-	</div>
+	</EditorFrame>
 {/if}
 
 {#snippet tooltip(t: ReturnType<typeof spellTooltip>)}
@@ -690,71 +597,17 @@
 {/snippet}
 
 <style>
-	.editor {
-		position: fixed;
-		inset: 0;
-		z-index: 165;
-		display: flex;
-		flex-direction: column;
-		background: var(--bg);
-		color: var(--text);
-	}
-	header {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 10px 16px;
-		border-bottom: 1px solid var(--border);
-		background: var(--panel);
-	}
-	.title {
-		flex: 1;
-		min-width: 0;
-	}
-	h2 {
-		margin: 0;
-		font-size: 18px;
-		font-weight: 600;
-	}
 	.rank {
 		margin-left: 6px;
 		font-size: 13px;
 		font-weight: 400;
 		color: var(--text-dim);
 	}
-	.actions {
-		display: flex;
-		gap: 8px;
-	}
-	.bar {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 16px;
-		font-size: 12px;
-		border-bottom: 1px solid var(--border);
-	}
-	.bar.warn span {
-		flex: 1;
-	}
 	.bar.plan .what {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-	}
-	.bar.error {
-		color: var(--danger-text);
-		overflow-wrap: anywhere;
-		white-space: pre-line;
-	}
-	.bar.ok {
-		color: var(--ok);
-	}
-	.body {
-		flex: 1;
-		min-height: 0;
-		display: flex;
 	}
 	aside {
 		width: 280px;
@@ -803,22 +656,6 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-	}
-	.tabs {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 2px;
-		padding: 8px 12px 0;
-		border-bottom: 1px solid var(--border);
-		background: var(--panel);
-	}
-	.tabs button {
-		border-radius: 4px 4px 0 0;
-		border-bottom: none;
-	}
-	.tabs button.on {
-		background: var(--accent);
-		color: var(--accent-ink);
 	}
 	.scroll {
 		flex: 1;
