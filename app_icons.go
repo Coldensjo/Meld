@@ -106,3 +106,13 @@ func (a *App) ExportIcons(names []string, dir string) (IconsExported, error) {
 	n, failed, err := vmangos.ExportIcons(dataDir, names, dir)
 	return IconsExported{Written: n, Failed: failed}, err
 }
+
+// SpellsWithIcon gives an icon's SpellIcon.dbc ID and a few of the spells that show it, for the
+// Icons tool (#683).
+func (a *App) SpellsWithIcon(name string) (vmangos.IconSpells, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.IconSpells{}, err
+	}
+	return vmangos.SpellsWithIcon(dataDir, name, 8)
+}

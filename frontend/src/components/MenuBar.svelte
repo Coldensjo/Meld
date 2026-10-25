@@ -268,6 +268,7 @@
 				{ kind: 'action', label: 'Quests…', disabled: !hasBackend(), run: () => (ui.questEditor = { entry: 0 }) },
 				{ kind: 'action', label: 'Items…', disabled: !hasBackend(), run: () => (ui.itemEditor = { entry: 0 }) },
 				{ kind: 'action', label: 'Spells…', disabled: !hasBackend(), run: () => (ui.spellEditor = { entry: 0 }) },
+				{ kind: 'action', label: 'Icons…', disabled: !hasBackend(), run: () => (ui.iconsTool = { icon: '' }) },
 			],
 		},
 		{

@@ -390,6 +390,8 @@ export function SpellTables():Promise<vmangos.SpellTables>;
 
 export function SpellTexts(arg1:Array<number>):Promise<Record<number, string>>;
 
+export function SpellsWithIcon(arg1:string):Promise<vmangos.IconSpells>;
+
 export function SpellsWithVisual(arg1:number):Promise<Array<vmangos.SpellRef>>;
 
 export function StartClientSandbox():Promise<main.ClientSandbox>;

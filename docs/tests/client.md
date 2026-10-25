@@ -369,7 +369,7 @@ picture pixels) and their art at `Interface\WorldMap\<Zone>\<NAME><n>.blp`, DXT3
   painted on its chunks; whether 1.12's World Map opens a zone of a map that isn't a continent
   (WorldMapContinent.dbc lists only Kalimdor and Azeroth) is for the owner to check.
 
-## Icons from PNG files and back (#364, probe `icons`)
+## Icons from PNG files and back, and the Icons tool (#364, #683, probe `icons`)
 Checks: Import PNG… in the spell and item editors' icon grid adds square PNG files to the client as
 `Interface\Icons\<file name>.blp` in Meld's patch, and Export … as PNG… saves the icons the grid shows
 as `<name>.png` files.
@@ -389,6 +389,13 @@ as `<name>.png` files.
   dialog stubbed takes a red 64 px PNG drawn in the page ("Meld Probe Icon.png"): the note says it was
   added, the grid shows `Meld_Probe_Icon` alone and its preview is red; after `P.endSandbox()` the real
   patch has its size and time and the real icon list hasn't the icon. About 7 s.
+- Probe `icons`, the Icons tool (#683): Tools › Icons… (`ui.iconsTool`) shows the shared grid with
+  Export all as PNG…; searching Spell_Fire_FlameBolt and clicking it shows its name, Copy spell icon
+  ID (185) enabled and Fireball (Rank 1) among its spells, and Copy name puts the name on the
+  clipboard. Go: `vmangos.TestSpellsWithIcon` (a synthetic SpellIcon map and Spell.dbc: any case, the
+  lowest of two rows, one spell per name, the count past the limit, an unused icon).
+- Look at it in the app: Tools › Icons…, pick an icon a spell and an item use (Spell_Fire_FlameBolt:
+  81 spells, 2 items with the world database up).
 - Export of every icon, by a scratch probe calling `ExportIcons(await ListItemIcons(), <a temp
   folder>)`: 2684 written in 5.3 s on 2026-10-20, none failed.
 - In the game (the owner): an imported icon set on a spell (Save) or an item (Change icon…, Save)

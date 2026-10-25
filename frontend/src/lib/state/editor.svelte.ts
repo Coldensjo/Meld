@@ -708,6 +708,8 @@ export const ui = $state({
   itemEditor: null as { entry: number } | null,
   /** The spell editor (#294, Tools › Spells…): the spell open (0 for none yet, -1 while making one). */
   spellEditor: null as { entry: number } | null,
+  /** The Icons tool (#683, Tools › Icons…), open on `icon` ('' for none picked yet). */
+  iconsTool: null as { icon: string } | null,
   /** The doodad brush editor, full screen (components/DoodadBrushEditor.svelte). */
   brushEditor: false,
   /** The game Meld closes and opens around an export (Game › Game Client): Wow.exe or Benilla. */

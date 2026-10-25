@@ -1,5 +1,5 @@
-// Icons from PNG files and back (#364): the spell editor's Change icon… grid has Import PNG… and Export all as PNG…, a search narrows the export to its matches (Export 1 as PNG…), the bindings refuse a missing PNG file and folder, and Import PNG… on a PNG made in the page lists and previews the new icon in a throwaway client (#368); the real client is left alone.
-// touches: frontend/src/components/SpellEditor.svelte, frontend/src/components/SpellIcon.svelte, app_icons.go, internal/vmangos/icons.go, internal/wow/icon.go, internal/wow/blpwrite.go
+// Icons from PNG files and back (#364): the spell editor's Change icon… grid has Import PNG… and Export all as PNG…, a search narrows the export to its matches (Export 1 as PNG…), the bindings refuse a missing PNG file and folder, and Import PNG… on a PNG made in the page lists and previews the new icon in a throwaway client (#368); the real client is left alone. Tools › Icons… (#683) shows the same grid (IconGrid) with every icon, and a picked icon's name (Copy name puts it on the clipboard), its SpellIcon.dbc ID and the spells that show it.
+// touches: frontend/src/components/SpellEditor.svelte, frontend/src/components/SpellIcon.svelte, frontend/src/components/IconGrid.svelte, frontend/src/components/IconsWindow.svelte, frontend/src/components/ItemLookPicker.svelte, app_icons.go, internal/vmangos/spells.go, internal/vmangos/icons.go, internal/wow/icon.go, internal/wow/blpwrite.go
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const { ui } = await P.state()
@@ -60,7 +60,37 @@ const ended = await P.endSandbox()
 const real = await App.ListItemIcons()
 const after = { realHasIt: real.some((n) => n.toLowerCase() === 'meld_probe_icon'), realIcons: real.length }
 
+// Tools › Icons…: the shared grid lists every icon, a search and a click pick one, and the side shows
+// its name, SpellIcon ID and spells; Copy name copies it.
+ui.iconsTool = { icon: '' }
+const tool = () => document.querySelector('[aria-label="Icons"][role="dialog"]')
+await P.until(() => tool()?.querySelectorAll('.icon-btn').length > 10, WAIT, 'the Icons tool')
+const toolAll = button(tool(), 'Export')?.textContent.trim()
+type(tool().querySelector('[aria-label="Search the icons"]'), 'Spell_Fire_FlameBolt')
+await P.until(() => tool().querySelectorAll('.icon-btn').length === 1, WAIT, 'the tool search')
+tool().querySelector('.icon-btn').click()
+await P.until(() => /SpellIcon \d+/.test(tool().querySelector('.uses')?.textContent ?? ''), WAIT, 'the spells of the icon')
+const side = tool().querySelector('aside')
+const iconsTool = {
+	exportText: toolAll,
+	name: side.querySelector('.name')?.textContent,
+	idButton: button(side, 'Copy spell icon ID')?.textContent.trim(),
+	idEnabled: !button(side, 'Copy spell icon ID')?.disabled,
+	spells: [...side.querySelectorAll('.spells li')].map((l) => l.textContent.trim()),
+}
+button(side, 'Copy name').click()
+await P.until(() => /Copied the name/.test(tool().querySelector('.bar.ok')?.textContent ?? ''), WAIT, 'Copy name')
+iconsTool.clipboard = await window.runtime.ClipboardGetText().catch((e) => `(${e})`)
+ui.iconsTool = null
+await P.frames(1)
+
 const ok =
+	iconsTool.exportText === 'Export all as PNG…' &&
+	iconsTool.name === 'Spell_Fire_FlameBolt' &&
+	/^Copy spell icon ID \(\d+\)$/.test(iconsTool.idButton ?? '') &&
+	iconsTool.idEnabled &&
+	iconsTool.spells.some((s) => s.startsWith('Fireball')) &&
+	iconsTool.clipboard === 'Spell_Fire_FlameBolt' &&
 	before.import &&
 	before.exportText === 'Export all as PNG…' &&
 	narrowed.icon === 'Spell_Fire_FlameBolt' &&
@@ -78,4 +108,4 @@ const ok =
 	ended.wasOn &&
 	ended.realUnchanged &&
 	!after.realHasIt
-return { ok, before, narrowed, imported, exported, sandbox: sb.dataDir, added, ended, after }
+return { ok, iconsTool, before, narrowed, imported, exported, sandbox: sb.dataDir, added, ended, after }

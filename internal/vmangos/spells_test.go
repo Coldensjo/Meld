@@ -354,3 +354,38 @@ func TestSpellStartersLive(t *testing.T) {
 		}
 	}
 }
+
+// TestSpellsWithIcon finds an icon's SpellIcon row (any case, the lowest of two) and the spells that
+// show it, one per name, for the Icons tool (#683).
+func TestSpellsWithIcon(t *testing.T) {
+	icons := map[uint32]string{
+		7:  `Interface\Icons\Spell_Fire_FlameBolt`,
+		12: `INTERFACE\ICONS\spell_fire_flamebolt`,
+		9:  `Interface\Icons\INV_Sword_01`,
+	}
+	spell := func(id, icon int, name string) []any {
+		row := make([]any, spellFName+1)
+		for i := range row {
+			row[i] = 0
+		}
+		row[0], row[spellFIcon], row[spellFName] = id, icon, name
+		return row
+	}
+	tbl := testDBC(t, spellFRank+1,
+		spell(133, 7, "Fireball"),
+		spell(143, 7, "Fireball"),
+		spell(200, 12, "Fire Bolt"),
+		spell(300, 9, "Strike"),
+		spell(400, 0, "Nothing"),
+	)
+	id, rows, count := spellsWithIcon(icons, tbl, "spell_fire_flamebolt", 8)
+	if id != 7 || count != 3 || len(rows) != 2 || tbl.u32(rows[0], 0) != 133 || tbl.u32(rows[1], 0) != 200 {
+		t.Fatalf("flamebolt: id %d, count %d, rows %v", id, count, rows)
+	}
+	if _, rows, count := spellsWithIcon(icons, tbl, "spell_fire_flamebolt", 1); count != 3 || len(rows) != 1 {
+		t.Fatalf("limit 1: count %d, rows %v", count, rows)
+	}
+	if id, rows, count := spellsWithIcon(icons, tbl, "INV_Axe_01", 8); id != 0 || rows != nil || count != 0 {
+		t.Fatalf("unused icon: id %d, count %d, rows %v", id, count, rows)
+	}
+}

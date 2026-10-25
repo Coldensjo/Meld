@@ -1,10 +1,9 @@
 <script lang="ts" module>
-	import { ExportIcons, ExportIconsDialog, ImportIcons, ListItemDisplays, ListItemIcons, OpenIconsDialog } from '../../wailsjs/go/main/App'
+	import { ListItemDisplays } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 
-	// The lists are read once a session; forgetLooks drops the displays after one was added.
+	// The list is read once a session; forgetLooks drops it after a display was added.
 	let displays: Promise<vmangos.ItemDisplayEntry[]> | null = null
-	let icons: Promise<string[]> | null = null
 
 	export function loadItemDisplays(): Promise<vmangos.ItemDisplayEntry[]> {
 		if (!displays) {
@@ -14,30 +13,16 @@
 		return displays
 	}
 
-	function loadIcons(): Promise<string[]> {
-		if (!icons) {
-			icons = ListItemIcons().then((d) => d ?? [])
-			icons.catch(() => (icons = null))
-		}
-		return icons
-	}
-
 	/** Drops the display list, after a display was added or an item's display changed. */
 	export function forgetLooks() {
 		displays = null
 	}
-
-	/** Drops the icon list, after icons were added (#364). */
-	export function forgetIcons() {
-		icons = null
-	}
 </script>
 
 <script lang="ts">
-	import { forgetIconImages } from '../lib/wow/items'
-	import { forgetSpellIcons } from '../lib/wow/spells'
 	import { SHOOTS_LIKE } from '../lib/world/itemFields'
 	import { spawnType } from '../lib/world/spawnInfo'
+	import IconGrid from './IconGrid.svelte'
 	import ItemIcon from './ItemIcon.svelte'
 	import PaletteTile from './PaletteTile.svelte'
 
@@ -47,8 +32,7 @@
 	// item's slot first; icons are every icon of the client. Only the rows in view are drawn. Hovering
 	// a tile previews it, a click picks it, a double click picks it and applies it. The spell editor
 	// (#294) uses the icons too, with the spells' and abilities' first rather than the items' (INV_…).
-	// Under the icons, Import PNG… adds PNG files to the client as icons and picks the first, and
-	// Export saves the icons the search shows as PNG files in a folder (#364).
+	// The icons are the grid shared with the Icons tool (IconGrid, #683), with Import PNG… and Export (#364).
 
 	interface Props {
 		mode: 'looks' | 'icons'
@@ -88,23 +72,15 @@
 	/** The kind the looks show: 'fits' for the item's own, '' for every one. */
 	let filter = $state('fits')
 	let list = $state<vmangos.ItemDisplayEntry[]>([])
-	let iconList = $state<string[]>([])
 	let error = $state('')
 	let loading = $state(true)
-	/** What the last import or export did. */
-	let note = $state('')
-	let busy = $state(false)
 
 	$effect(() => {
+		if (mode !== 'looks') return
 		loading = true
-		if (mode === 'looks')
-			loadItemDisplays()
-				.then((d) => (list = d), (e) => (error = String(e)))
-				.finally(() => (loading = false))
-		else
-			loadIcons()
-				.then((d) => (iconList = d), (e) => (error = String(e)))
-				.finally(() => (loading = false))
+		loadItemDisplays()
+			.then((d) => (list = d), (e) => (error = String(e)))
+			.finally(() => (loading = false))
 	})
 
 	const want = $derived(filter === 'fits' ? kind : filter)
@@ -122,20 +98,14 @@
 		// The looks items use first, then by model.
 		return out.sort((a, b) => (b.uses > 0 ? 1 : 0) - (a.uses > 0 ? 1 : 0) || a.model.localeCompare(b.model) || a.id - b.id)
 	})
-	const iconMatches = $derived.by(() => {
-		const q = query.trim().toLowerCase().replace(/\s+/g, '_')
-		const list = q ? iconList.filter((i) => i.toLowerCase().includes(q)) : iconList
-		const inv = (n: string) => /^inv_/i.test(n) === (iconsFirst === 'items')
-		return [...list.filter(inv), ...list.filter((n) => !inv(n))]
-	})
-	const count = $derived(mode === 'looks' ? looks.length : iconMatches.length)
+	const count = $derived(looks.length)
 	const kindName = (k: string) => (k === 'ranged' && shoots >= 0 && SHOOTS_LIKE[shoots] ? `shoots like ${SHOOTS_LIKE[shoots]}` : (KINDS.find(([v]) => v === k)?.[1] ?? k))
 
 	// The grid draws only the rows in view.
-	const TILE = $derived(mode === 'looks' ? 96 : 44)
-	const LABEL = $derived(mode === 'looks' ? 22 : 0)
+	const TILE = 96
+	const LABEL = 22
 	const GAP = 6
-	const rowH = $derived(TILE + LABEL + GAP)
+	const rowH = TILE + LABEL + GAP
 	let width = $state(0)
 	let height = $state(0)
 	let scrollTop = $state(0)
@@ -144,63 +114,12 @@
 	const rows = $derived(Math.ceil(count / cols))
 	const first = $derived(Math.max(0, Math.floor(scrollTop / rowH) - 1))
 	const last = $derived(Math.min(rows, Math.ceil((scrollTop + height) / rowH) + 1))
-	const visibleLooks = $derived(mode === 'looks' ? looks.slice(first * cols, last * cols) : [])
-	const visibleIcons = $derived(mode === 'icons' ? iconMatches.slice(first * cols, last * cols) : [])
+	const visibleLooks = $derived(looks.slice(first * cols, last * cols))
 	$effect(() => {
 		void looks
-		void iconMatches
 		scroller?.scrollTo(0, 0)
 		scrollTop = 0
 	})
-
-	const plural = (n: number, one: string) => `${n.toLocaleString()} ${one}${n === 1 ? '' : 's'}`
-
-	async function importIcons() {
-		const paths = await OpenIconsDialog().catch((e) => ((error = String(e)), null))
-		if (!paths?.length) return
-		busy = true
-		error = note = ''
-		try {
-			const r = await ImportIcons(paths)
-			const names = r.names ?? []
-			const parts: string[] = []
-			if (names.length) {
-				forgetIcons()
-				forgetIconImages(names)
-				forgetSpellIcons(names)
-				iconList = await loadIcons()
-				query = names.length === 1 ? names[0] : ''
-				onpick(names[0])
-				const it = names.length === 1 ? 'it' : 'them'
-				const when = r.waiting ? ` Meld's patch takes ${it} once the game has closed;` : ''
-				parts.push(`Added ${names.join(', ')} to the client's icons.${when} ${r.waiting ? 'the' : 'The'} game shows ${it} from its next start.`)
-			}
-			if (r.refused?.length) parts.push(`Not added: ${r.refused.join('; ')}.`)
-			note = parts.join(' ')
-		} catch (e) {
-			error = String(e)
-		} finally {
-			busy = false
-		}
-	}
-
-	async function exportIcons() {
-		const names = iconMatches
-		if (!names.length) return
-		const dir = await ExportIconsDialog().catch((e) => ((error = String(e)), ''))
-		if (!dir) return
-		busy = true
-		error = note = ''
-		try {
-			const r = await ExportIcons(names, dir)
-			const failed = r.failed ?? []
-			note = `Saved ${plural(r.written, 'icon')} as PNG in ${dir}.${failed.length ? ` Not read: ${failed.slice(0, 5).join(', ')}${failed.length > 5 ? ` and ${failed.length - 5} more` : ''}.` : ''}`
-		} catch (e) {
-			error = String(e)
-		} finally {
-			busy = false
-		}
-	}
 
 	const label = (d: vmangos.ItemDisplayEntry) => d.names?.[0] ?? (d.model || d.icon)
 	const title = (d: vmangos.ItemDisplayEntry) =>
@@ -208,98 +127,78 @@
 	const same = (a: number | string, b: number | string) => (typeof a === 'string' && typeof b === 'string' ? a.toLowerCase() === b.toLowerCase() : a === b)
 </script>
 
-<div class="picker">
-	<div class="row">
-		<input
-			type="search"
-			placeholder={mode === 'looks' ? 'Search: an item (Battleworn Hammer), a model (sword, helm_plate), an icon or a display number' : 'Search: an icon name, such as sword, INV_Axe or potion'}
-			bind:value={query}
-			aria-label="Search the {mode}"
-		/>
-		{#if mode === 'looks'}
+{#if mode === 'icons'}
+	<IconGrid selected={String(selected)} {iconsFirst} onpick={(n) => onpick(n)} onapply={(n) => onapply(n)} onhover={(n) => onhover(n)} />
+{:else}
+	<div class="picker">
+		<div class="row">
+			<input
+				type="search"
+				placeholder="Search: an item (Battleworn Hammer), a model (sword, helm_plate), an icon or a display number"
+				bind:value={query}
+				aria-label="Search the looks"
+			/>
 			<select bind:value={filter} aria-label="Which looks">
 				<option value="fits">Fits it: {kindName(kind)}</option>
 				<option value="">Every look</option>
 				{#each KINDS as [v, name] (v)}<option value={v}>{name}</option>{/each}
 			</select>
-		{/if}
-		<span class="dim">{count.toLocaleString()} {mode}</span>
-		{#if mode === 'icons'}
-			<button disabled={busy} onclick={importIcons} title="Add PNG files to the client as icons, each named after its file (square; scaled to 64x64)">Import PNG…</button>
-			<button disabled={busy || !count} onclick={exportIcons} title="Save the icons shown (all of them, or the search's matches) as PNG files in a folder">Export {count === iconList.length ? 'all' : count.toLocaleString()} as PNG…</button>
-		{/if}
-	</div>
-	{#if error}<p class="error">{error}</p>{/if}
-	{#if note}<p class="note">{note}</p>{/if}
-	<div
-		class="grid-wrap"
-		role="listbox"
-		aria-label={mode === 'looks' ? 'Looks' : 'Icons'}
-		tabindex="-1"
-		bind:this={scroller}
-		bind:clientWidth={width}
-		bind:clientHeight={height}
-		onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)}
-		onpointerleave={() => onhover(null)}
-	>
-		{#if loading}
-			<p class="dim">Reading the client's {mode}…</p>
-		{:else if !count}
-			<p class="dim">Nothing matches.</p>
-		{:else}
-			<div class="virtual" style:height="{rows * rowH}px">
-				<div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
-					{#if mode === 'looks'}
+			<span class="dim">{count.toLocaleString()} looks</span>
+		</div>
+		{#if error}<p class="error">{error}</p>{/if}
+		<div
+			class="grid-wrap"
+			role="listbox"
+			aria-label="Looks"
+			tabindex="-1"
+			bind:this={scroller}
+			bind:clientWidth={width}
+			bind:clientHeight={height}
+			onscroll={(e) => (scrollTop = (e.currentTarget as HTMLDivElement).scrollTop)}
+			onpointerleave={() => onhover(null)}
+		>
+			{#if loading}
+				<p class="dim">Reading the client's looks…</p>
+			{:else if !count}
+				<p class="dim">Nothing matches.</p>
+			{:else}
+				<div class="virtual" style:height="{rows * rowH}px">
+					<div class="grid" style:grid-template-columns="repeat({cols}, {TILE}px)" style:gap="{GAP}px" style:transform="translateY({first * rowH}px)">
 						{#each visibleLooks as d (d.id)}
-							<!-- A double click applies the look; the tile's own click picks it. -->
-							<div class="cell" role="presentation" ondblclick={() => onapply(d.id)}>
-								{#if d.path}
-									<PaletteTile
-										thumbKey={spawnType({ model: d.path, look: d.skin })}
-										label={label(d)}
-										title={title(d)}
-										size={TILE}
-										active={same(d.id, selected)}
-										badge={String(d.id)}
-										onclick={() => onpick(d.id)}
-										onhover={(on) => on && onhover(d.id)}
-									/>
-								{:else}
-									<button
-										class="icon-tile"
-										class:on={same(d.id, selected)}
-										style:width="{TILE}px"
-										title={title(d)}
-										onclick={() => onpick(d.id)}
-										onpointerover={() => onhover(d.id)}
-									>
-										<span class="img" style:height="{TILE}px"><ItemIcon displayId={d.id} size={56} /></span>
-										<span class="name">{label(d)}</span>
-									</button>
-								{/if}
-							</div>
-						{/each}
-					{:else}
-						{#each visibleIcons as name (name)}
-							<button
-								class="icon-btn"
-								class:on={same(name, selected)}
-								style:width="{TILE}px"
-								style:height="{TILE}px"
-								title={name}
-								onclick={() => onpick(name)}
-								ondblclick={() => onapply(name)}
-								onpointerover={() => onhover(name)}
-							>
-								<ItemIcon icon={name} size={36} />
-							</button>
-						{/each}
-					{/if}
+								<!-- A double click applies the look; the tile's own click picks it. -->
+								<div class="cell" role="presentation" ondblclick={() => onapply(d.id)}>
+									{#if d.path}
+										<PaletteTile
+											thumbKey={spawnType({ model: d.path, look: d.skin })}
+											label={label(d)}
+											title={title(d)}
+											size={TILE}
+											active={same(d.id, selected)}
+											badge={String(d.id)}
+											onclick={() => onpick(d.id)}
+											onhover={(on) => on && onhover(d.id)}
+										/>
+									{:else}
+										<button
+											class="icon-tile"
+											class:on={same(d.id, selected)}
+											style:width="{TILE}px"
+											title={title(d)}
+											onclick={() => onpick(d.id)}
+											onpointerover={() => onhover(d.id)}
+										>
+											<span class="img" style:height="{TILE}px"><ItemIcon displayId={d.id} size={56} /></span>
+											<span class="name">{label(d)}</span>
+										</button>
+									{/if}
+								</div>
+							{/each}
+					</div>
 				</div>
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
-</div>
+{/if}
 
 <style>
 	.picker {
@@ -360,19 +259,9 @@
 		text-overflow: ellipsis;
 		text-align: left;
 	}
-	.icon-btn {
-		padding: 0;
-		display: grid;
-		place-items: center;
-		background: transparent;
-		border: 1px solid transparent;
-		border-radius: 4px;
-	}
-	.icon-btn:hover,
 	.icon-tile:hover {
 		border-color: var(--text-dim);
 	}
-	.icon-btn.on,
 	.icon-tile.on {
 		border-color: var(--accent);
 		background: var(--accent);
@@ -386,13 +275,5 @@
 	.error {
 		color: var(--danger-text);
 		margin: 0;
-	}
-	.note {
-		color: var(--text-dim);
-		margin: 0;
-	}
-	.row button {
-		flex: none;
-		white-space: nowrap;
 	}
 </style>

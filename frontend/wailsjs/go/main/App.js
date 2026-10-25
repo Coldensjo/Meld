@@ -766,6 +766,10 @@ export function SpellTexts(arg1) {
   return window['go']['main']['App']['SpellTexts'](arg1);
 }
 
+export function SpellsWithIcon(arg1) {
+  return window['go']['main']['App']['SpellsWithIcon'](arg1);
+}
+
 export function SpellsWithVisual(arg1) {
   return window['go']['main']['App']['SpellsWithVisual'](arg1);
 }

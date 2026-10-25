@@ -590,3 +590,61 @@ func SpellsWithVisual(dataDir string, visual, limit int) ([]SpellRef, error) {
 	}
 	return out, nil
 }
+
+// IconSpells is how spells use an icon (a name under Interface\Icons), for the Icons tool (#683): its
+// SpellIcon.dbc ID (0 when no row has it yet; the spell editor adds one when a spell first takes it),
+// how many of the client's spells show it, and up to a limit of them, one per name.
+type IconSpells struct {
+	SpellIconID int        `json:"spellIconId"`
+	Count       int        `json:"count"`
+	Spells      []SpellRef `json:"spells"`
+}
+
+// SpellsWithIcon lists how the client's spells use icon, at most limit of them by name.
+func SpellsWithIcon(dataDir, icon string, limit int) (IconSpells, error) {
+	spellData.Lock()
+	defer spellData.Unlock()
+	if err := loadSpellData(dataDir); err != nil {
+		return IconSpells{}, err
+	}
+	id, rows, count := spellsWithIcon(spellData.icons, spellData.spells, icon, limit)
+	out := IconSpells{SpellIconID: id, Count: count, Spells: make([]SpellRef, len(rows))}
+	for i, r := range rows {
+		out.Spells[i] = spellRef(r)
+	}
+	return out, nil
+}
+
+// spellsWithIcon finds icon's SpellIcon.dbc rows in icons (ID -> texture path), giving the lowest ID,
+// the Spell.dbc rows of up to limit spells (one per name) whose icon is any of them, and how many
+// spells show it in all.
+func spellsWithIcon(icons map[uint32]string, t *dbcTable, icon string, limit int) (int, []int, int) {
+	path := `Interface\Icons\` + icon
+	ids := map[uint32]bool{}
+	first := uint32(0)
+	for id, p := range icons {
+		if strings.EqualFold(p, path) {
+			ids[id] = true
+			if first == 0 || id < first {
+				first = id
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return 0, nil, 0
+	}
+	seen := map[string]bool{}
+	var rows []int
+	count := 0
+	for r := 0; r < t.records; r++ {
+		if !ids[t.u32(r, spellFIcon)] {
+			continue
+		}
+		count++
+		if name := t.str(r, spellFName); !seen[name] && len(rows) < max(limit, 1) {
+			seen[name] = true
+			rows = append(rows, r)
+		}
+	}
+	return int(first), rows, count
+}

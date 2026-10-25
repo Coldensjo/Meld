@@ -374,7 +374,8 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the next ID) to ItemDisplayInfo.dbc in Meld's patch (`installClientFiles`, waiting for a running game, #661), then
   `ForgetItemDisplays` drops the Go caches built from that table. Item tiles load their icons only
   once on screen (`ItemIcon` `lazy`).
-  The icon grid (here and in the spell editor) has Import PNG… and Export … as PNG… (#364,
+  The icon grid (`components/IconGrid.svelte`, which `ItemLookPicker` shows for its icons; the same
+  in the spell editor and the Icons tool, #683) has Import PNG… and Export … as PNG… (#364,
   `app_icons.go`, `internal/vmangos/icons.go`, `internal/wow/icon.go`). Import takes square PNG files,
   each named after its file (letters, digits, `_` and `-`, spaces as `_`), scaled to 64x64 by area
   (`resample`) and written as most of the client's icons are, DXT3 with mips (`EncodeOverlayBLP`), to
@@ -394,6 +395,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `scriptTable` names the table and its second key, `patch` or `build`).
   Save and Import mark the items stale (`game.Stale.AddItem`), so the client's `itemcache.wdb` and
   `itemnamecache.wdb` drop them, and forget the session's rows and names (`forgetItemRow`, `forgetName`).
+- **Icons tool** (`components/IconsWindow.svelte`, `ui.iconsTool`, #683): full screen (z-index 165),
+  opened by Tools › Icons… (`{ icon: '' }`; a name opens it on that icon). The shared `IconGrid`
+  (every icon by name, `iconsFirst="none"`, with Import PNG… and Export … as PNG…), and on the right
+  the picked (or hovered) icon at 128 px, its name and path, Copy name, Copy spell icon ID and Export
+  as PNG… of that one. An icon has no number of its own (it is a file): the owner's decision on #683
+  (1A) is that the only ID copied is its SpellIcon.dbc row (`SpellsWithIcon`, `internal/vmangos/spells.go`:
+  the lowest row naming `Interface\Icons\<name>` in any case, how many spells show it and a few by
+  name), disabled when no row has it yet (the spell editor adds one when a spell first takes it).
+  Items reach an icon through their ItemDisplayInfo.dbc display, so the tool only lists the items
+  whose displays show it (from `ListItemDisplays`' `uses` and `names`; none without the world
+  database). It writes nothing but the PNG import, through #364's path.
 - **Spell editor** (`components/SpellEditor.svelte`, `ui.spellEditor`, #294): full screen (z-index 165),
   opened by Tools › Spells… (`entry: 0`, find one; `-1`, a new spell). A spell lives in two places:
   the server reads `spell_template` (VMaNGOS keeps no Spell.dbc; a row per entry and client build,
@@ -404,7 +416,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   Other), with the effects, auras and targets named from VMaNGOS' `SpellDefines.h` and
   `SpellAuraDefines.h` and the cast time, duration, range and radius indexes from the client's
   tables (`ReadSpellTables`, `spelltables.go`). The right shows the icon (Change icon… turns the
-  middle into `ItemLookPicker`'s icon grid, `iconsFirst="spells"`; the picked name waits for Save),
+  middle into the shared `IconGrid`, `iconsFirst="spells"`; the picked name waits for Save),
   the tooltip (`spellTooltip`: name and rank, cost and range, cast time and cooldown, the description
   with `expandSpellText`, the TypeScript twin of Go's), the effects in a line each and the visual
   (`spellVisual1`, typed or taken from a browsed spell's `SpellRef.Visual`, its other users named by

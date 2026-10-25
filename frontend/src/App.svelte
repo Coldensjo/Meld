@@ -9,19 +9,21 @@
   import NewMapDialog from './components/NewMapDialog.svelte'
   import AppDialogs from './components/AppDialogs.svelte'
   import SavingBar from './components/SavingBar.svelte'
-  // The five editors are opened from Tools, so each loads on first use and then stays mounted.
+  // The editors and the Icons tool are opened from Tools, so each loads on first use and then stays mounted.
   import type { Component } from 'svelte'
   let CreatureEditor = $state<Component | null>(null)
   let ObjectEditor = $state<Component | null>(null)
   let QuestEditor = $state<Component | null>(null)
   let ItemEditor = $state<Component | null>(null)
   let SpellEditor = $state<Component | null>(null)
+  let IconsWindow = $state<Component | null>(null)
   $effect(() => {
     if (ui.creatureEditor && !CreatureEditor) void import('./components/CreatureEditor.svelte').then((m) => (CreatureEditor = m.default))
     if (ui.objectEditor && !ObjectEditor) void import('./components/ObjectEditor.svelte').then((m) => (ObjectEditor = m.default))
     if (ui.questEditor && !QuestEditor) void import('./components/QuestEditor.svelte').then((m) => (QuestEditor = m.default))
     if (ui.itemEditor && !ItemEditor) void import('./components/ItemEditor.svelte').then((m) => (ItemEditor = m.default))
     if (ui.spellEditor && !SpellEditor) void import('./components/SpellEditor.svelte').then((m) => (SpellEditor = m.default))
+    if (ui.iconsTool && !IconsWindow) void import('./components/IconsWindow.svelte').then((m) => (IconsWindow = m.default))
   })
   import ModelPreviewWindow from './components/ModelPreviewWindow.svelte'
   import CreaturesWorkspace from './components/CreaturesWorkspace.svelte'
@@ -219,8 +221,8 @@
       e.preventDefault()
       return
     }
-    // The quest, item and spell editors have no undo steps of their own (their Save writes the database), and no key reaches the map.
-    if (ui.questEditor || ui.itemEditor || ui.spellEditor) return
+    // The quest, item and spell editors and the Icons tool have no undo steps of their own (their Save writes the database), and no key reaches the map.
+    if (ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool) return
     if (ui.creatureEditor || ui.objectEditor) {
       if (mod && (key === 'z' || key === 'y')) {
         const c = key === 'y' || e.shiftKey ? engine.redo() : engine.undo()
@@ -398,6 +400,7 @@
 {#if QuestEditor}{@const Editor = QuestEditor}<Editor />{/if}
 {#if ItemEditor}{@const Editor = ItemEditor}<Editor />{/if}
 {#if SpellEditor}{@const Editor = SpellEditor}<Editor />{/if}
+{#if IconsWindow}{@const Editor = IconsWindow}<Editor />{/if}
 <ModelPreviewWindow />
 <DoodadBrushEditor />
 <AppDialogs />
