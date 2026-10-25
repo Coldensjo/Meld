@@ -357,6 +357,17 @@ git diff --cached                        # must show only your lines
 - Commit the index with plain `git commit` (`git commit <path>` would take the whole file), then
   check `git status`: the owner's hunks must still show as unstaged.
 
+## The docs site (VitePress)
+
+Checks: that `docs/` still builds into the site `.github/workflows/docs.yml` publishes. Run `make docs`
+(or `cd frontend && bun run docs:build`); `bun run docs:preview` then serves
+`docs/.vitepress/dist` at `http://localhost:4173/Meld/`. The build fails on a dead link between pages.
+- A new page needs a line in the sidebar in `docs/.vitepress/config.mts`, or it is reachable only by search.
+- Raw HTML in the Markdown renders as text (`markdown.html` is off, so `<placeholder>`s in prose
+  don't break Vue); a link to a file outside `docs/` (the README, source files) must be a full GitHub URL.
+- The scripts run Bun with `--no-install`: without it Bun auto-installs Vue from its global cache for
+  the pages (which sit outside `frontend/`) and the build fails to resolve `@vue/runtime-dom`.
+
 ## Measuring performance (the overlay, #179)
 
 Checks: where a frame's time goes, before and after a performance change. View › Performance overlay

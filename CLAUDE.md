@@ -112,6 +112,7 @@ make check           # go vet (same rule) + (cd frontend && bun run check)
 make probe           # every live-app probe (frontend/probes) against the running `make dev`
 cd frontend && bun run probe <name...>   # chosen probes; --list names them (docs/TESTS.md, "Probes")
 cd frontend && bun run build   # frontend only
+make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vitepress/dist; `cd frontend && bun run docs:dev` serves it live
 ```
 
 - Linux **requires** `-tags webkit2_41`. This system only has webkit2gtk-4.1.

@@ -1,6 +1,6 @@
 # Meld manual
 
-Everything Meld does, tool by tool. For building it, see the [README](../README.md).
+Everything Meld does, tool by tool. For building it, see the [README](https://github.com/Coldensjo/Meld#readme).
 
 ## Features
 

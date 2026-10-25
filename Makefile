@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test check probe probe-perf clean
+.PHONY: dev build build-linux build-windows test check probe probe-perf docs clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -43,6 +43,10 @@ probe:
 # The benchmark probes, which print numbers for a before/after (docs/TESTS.md, "Measuring performance").
 probe-perf:
 	cd frontend && bun run probe bench 'perf-*'
+
+# The documentation site (VitePress) -> docs/.vitepress/dist; .github/workflows/docs.yml publishes it to GitHub Pages.
+docs:
+	cd frontend && bun run docs:build
 
 clean:
 	rm -rf build/bin frontend/dist

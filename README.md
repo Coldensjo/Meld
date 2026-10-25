@@ -37,6 +37,8 @@ On first start, pick your WoW 1.12 client folder in Preferences.
 
 ## Documentation
 
+The docs are also published as a site: <https://coldensjo.github.io/Meld/>.
+
 - [Manual](docs/MANUAL.md): every tool, menu, shortcut and format (also Help › Manual in the app).
 - [Benilla](docs/BENILLA.md): using the open-source Benilla client as Meld's game client.
 - [Testing](docs/TESTS.md): how to test and verify changes.
