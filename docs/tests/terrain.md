@@ -97,6 +97,18 @@ under the brush goes to the level under the first click.
 - A probe edit that breaks a Svelte file's parse breaks the owner's own `wails dev` window too until
   it is fixed: check `curl localhost:34115/src/components/<File>.svelte` gives 200 after editing.
 
+## Terrain › Smooth Selection (#713)
+
+Checks: the area smoothing pass. The kernel, the edge falloff and the sliced run are
+`terrain/smoothArea.ts`, unit tests in `smoothArea.test.ts` (a pass equals the brush's 3x3 average,
+edges included; weight-0 vertices keep their height; the falloff rises from 0 to full over the band;
+cancel stops at the next turn). In the live app, `bun run probe smooth-selection`: on a Mountains map
+(256, seed 3) with a yard of seeded noise over a 60-cell square, `Engine.smoothArea` with a hard edge,
+with the falloff and over a free-form half of the square (`setAreaCells`) changes only the area's inner
+vertices, cuts the bends (second difference) to well under a third, undoes and redoes exactly as
+"Smooth selection", the falloff moves the vertices next to the edge less than half as far, and a
+cancelled run changes nothing. The Mountains preset alone is too smooth to measure: add the noise.
+
 ## Sculpt › Erode and Terrain › Erode (#165)
 
 Checks: the Erode brush (water and thermal) and the area pass. The droplet and thermal models are

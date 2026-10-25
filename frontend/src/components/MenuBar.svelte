@@ -258,6 +258,7 @@
 				{ kind: 'action', label: 'Invert Mask', run: withEngine((e) => e.invertMask()) },
 				{ kind: 'action', label: 'Clear Mask', disabled: !ui.maskActive, run: withEngine((e) => e.clearMask()) },
 				{ kind: 'sep' },
+				{ kind: 'action', label: editor.selection ? 'Smooth Selection…' : 'Smooth the Map…', run: () => (ui.dialog = 'smoothArea') },
 				{ kind: 'action', label: editor.selection ? 'Erode Selection…' : 'Erode the Map…', run: () => (ui.dialog = 'erode') },
 				{ kind: 'sep' },
 				{ kind: 'action', label: editor.selection ? 'Bake Shadows in Selection' : 'Bake Shadows', run: withEngine((e) => e.bakeShadows()) },

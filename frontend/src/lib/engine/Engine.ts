@@ -67,6 +67,7 @@ import { INSIDE, cellsInRect } from '../terrain/areaShape'
 import { growMask, shrinkMask } from '../terrain/maskSelect'
 import { ShadowStroke } from '../tools/shadowStroke'
 import { areaVertexWeights, erodePatch, settledMask, SETTLED_FULL, type ErodeSettings } from '../terrain/erodeArea'
+import { fadeFromEdge, smoothPatch, type SmoothAreaSettings } from '../terrain/smoothArea'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
 import { PlaceTool, SelectTool, groupTransformCommand, tiltDeg, transformCommand } from '../tools/ObjectTools'
@@ -5022,6 +5023,74 @@ export class Engine {
 
 	/** Whether Terrain › Erode is running (erodeArea). */
 	private eroding = false
+
+	/**
+	 * Terrain › Smooth Selection (#713): Sculpt › Smooth's 3x3 kernel (terrain/smoothArea.ts), `o.passes`
+	 * passes at `o.strength`, over the selected area (its rectangle or free-form shape, the vertices whose
+	 * cells are all in it) or the whole map, faded in from the area's edge over `o.width` yards with
+	 * `o.falloff`. Works on a copy a slice at a time between frames, as erodeArea does, and writes the
+	 * result as one undo step; `cancelled` leaves the ground as it was. Returns whether it ran to the end.
+	 */
+	async smoothArea(o: SmoothAreaSettings, progress: (f: number) => void, cancelled: () => boolean): Promise<boolean> {
+		if (this.smoothing) {
+			setStatus('The ground is still being smoothed.')
+			return false
+		}
+		const doc = this.doc
+		const t = this.terrain
+		const s = editor.selection
+		const r = s && s.x1 > s.x0 && s.z1 > s.z0 ? { x0: s.x0, z0: s.z0, x1: s.x1, z1: s.z1 } : { x0: 0, z0: 0, x1: t.size, z1: t.size }
+		const where = s ? 'in the selected area' : 'over the map'
+		const w = r.x1 - r.x0 + 1
+		const h = r.z1 - r.z0 + 1
+		const V = t.verts
+		const cs = t.cellSize
+		const weights = new Float32Array(w * h)
+		areaVertexWeights(s ? areaCells(t, t.size) : null, t.size, r, weights)
+		if (o.falloff) fadeFromEdge(weights, w, h, o.width / cs)
+		const work = new Float32Array(w * h)
+		for (let z = 0; z < h; z++) work.set(t.heights.subarray((r.z0 + z) * V + r.x0, (r.z0 + z) * V + r.x0 + w), z * w)
+		this.smoothing = true
+		let finished = false
+		try {
+			finished = await smoothPatch(work, w, h, weights, o, progress, cancelled)
+		} finally {
+			this.smoothing = false
+		}
+		if (!this.documents.includes(doc)) {
+			setStatus('The smoothing stopped: its map was closed.')
+			return false
+		}
+		if (!finished) {
+			setStatus(`Smoothing cancelled; the ground ${where} is as it was.`)
+			return false
+		}
+		const resnap = (q: Rect) => doc.objects.markRegionDirty(q.x0 * cs, q.z0 * cs, q.x1 * cs, q.z1 * cs)
+		const stroke = new TerrainStroke(t, s ? 'Smooth selection' : 'Smooth map', { heights: true }, resnap)
+		stroke.reserveHeights(r)
+		let most = 0
+		for (let z = 0; z < h; z++) {
+			for (let x = 0; x < w; x++) {
+				const k = z * w + x
+				if (!weights[k]) continue
+				const i = (r.z0 + z) * V + r.x0 + x
+				const d = work[k] - t.heights[i]
+				if (!d) continue
+				if (Math.abs(d) > most) most = Math.abs(d)
+				t.heights[i] = work[k]
+			}
+		}
+		t.markDirty(r.x0, r.z0, r.x1, r.z1)
+		stroke.touchHeights(r)
+		doc.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+		const cmd = stroke.finish()
+		if (cmd) doc.history.push(cmd)
+		setStatus(most ? `Smoothed the ground ${where}: up to ${most.toFixed(2)} yd moved.` : `The ground ${where} was already smooth.`, 4000)
+		return true
+	}
+
+	/** Whether Terrain › Smooth Selection is running (smoothArea). */
+	private smoothing = false
 
 	/** The rectangle the top-down camera frames while renderTopDown draws it, or null. */
 	private minimapShot: { cx: number; cz: number; halfX: number; halfZ: number; top: number } | null = null

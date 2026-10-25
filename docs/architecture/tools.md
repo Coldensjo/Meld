@@ -47,6 +47,14 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     Its "Mask where sediment settled" option (#242, `editor.erode.mask`) replaces the paint mask, in
     the same step, with each vertex's rise (dropped sediment and slid scree, bilinear to the mask's
     texels, full at `SETTLED_FULL` = 1 yd; `settledMask`), so Fill Mask lays dirt or gravel there.
+  - Terrain › Smooth Selection (#713, `Engine.smoothArea`, `SmoothAreaDialog.svelte`,
+    `terrain/smoothArea.ts`) runs Sculpt › Smooth's 3x3 average (separable, `smoothPass`) over the
+    same vertices Erode takes (`areaVertexWeights`: the rectangle or the free-form shape) or the whole
+    map: `editor.smoothArea.passes` passes, each moving a vertex `strength` of the way to its average
+    (the brush moves it `min(1, strength × 10 × seconds)`, so a pass at 1 is a tenth of a second of
+    the brush at full strength). With `falloff` the weights fade in from the area's edge over `width`
+    yards (`fadeFromEdge`, a chamfer distance and a smoothstep). Sliced between frames with progress
+    and Cancel, written as one undo step ("Smooth selection" / "Smooth map") with the models re-snapped.
   - Object tools push `Command`s: `addedCommand` and `removedCommand` (`world/objectCommands.ts`) for
     models added or removed, `transformCommand` (`tools/ObjectTools.ts`) for a move.
   - **Every edit must be undoable** through `History`.

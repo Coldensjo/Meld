@@ -102,6 +102,12 @@ export const editor = $state({
 	 * ground settled into the paint mask (#242).
 	 */
 	erode: { kind: 'hydraulic' as 'hydraulic' | 'thermal', talus: 40, density: 0.5, passes: 5, seed: 1, mask: false },
+	/**
+	 * Terrain › Smooth Selection (#713, terrain/smoothArea.ts): `passes` passes of Sculpt › Smooth's kernel
+	 * at `strength` (0 to 1 of the way to the neighbours' average a pass), faded in from the area's edge over
+	 * `width` yards with `falloff`.
+	 */
+	smoothArea: { strength: 0.5, passes: 10, falloff: true, width: 12 },
 	sculptLimit: 'none' as SculptLimit,
 	/**
 	 * Sculpting also paints under the brush: 'texture' paints `sculptPaintLayer` (a palette index, per
@@ -670,6 +676,7 @@ export const ui = $state({
 		| 'spawnRules'
 		| 'worldMap'
 		| 'erode'
+		| 'smoothArea'
 		| 'compileBeforeLaunch'
 		| 'project'
 		| 'folderSetup'
