@@ -43,7 +43,7 @@ tool's Hole mode. Unit tests: `tests/holes.test.ts`. In the dev page, without a 
 
 ```js
 const ed = await import('<editor.svelte.ts URL>'); const e = __engine; const t = e.terrain; const cs = t.cellSize
-const cx = Math.floor(326 / cs), cz = Math.floor(720 / cs)       // a region's cells are 4.17 units, a new map's 2
+const cx = Math.floor(326 / cs), cz = Math.floor(720 / cs)       // every map's cells are CELL_SIZE, 4.17 yd
 ed.editor.tool = 'select'; ed.editor.selection = { x0: cx - 2, z0: cz - 2, x1: cx + 3, z1: cz + 3 }; e.setHoleInSelection(true)
 ed.editor.selection = null; ed.editor.tool = 'sculpt'; ed.editor.sculptMode = 'hole'; ed.editor.holeFill = true
 const hit = e.controller.target.clone().set((cx + 0.2) * cs, 0, (cz + 0.2) * cs)

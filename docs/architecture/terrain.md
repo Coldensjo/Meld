@@ -23,7 +23,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `hasBackend` and `guarded`.
 
 - **Terrain** (`lib/terrain/Terrain.ts`):
-  - Heights are a `Float32Array` of `(size+1)^2` vertices; `CELL_SIZE` = 2 world units.
+  - Heights are a `Float32Array` of `(size+1)^2` vertices; `CELL_SIZE` = a tile's 1600/3 (533.33) yd over 128 cells = 4.1667 yd, for every map, new or read from the client.
   - The mesh is split into 32×32-cell chunks. Edits call `markDirty(rect)`, and `update()` rewrites
     only the touched chunks.
   - Picking ray-marches the heightmap (`raycast`, the march itself in `rayMarch.ts`). Don't use triangle raycasts on the terrain.
