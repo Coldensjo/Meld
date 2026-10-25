@@ -144,6 +144,7 @@ uniform float bakedShadowOn;
 uniform float maskVisible;
 // The Map data overlay: 0 off, 1 zones, 2 impassable, 3 no tufts (see Terrain.setMapDataOverlay).
 uniform float mapDataMode;
+uniform vec3 mapDataZone;
 uniform sampler2D chunkDataTex;
 // A texel per cell of the map (Terrain.cellTex), two overlays in one sampler (#394): red the cells
 // that grow no tufts (Map data's mode 3), green a free-form area (selMode 3), set inside (#183).
@@ -366,8 +367,15 @@ void main() {
     vec4 cd = texture2D(chunkDataTex, (cc + 0.5) / chunksSide);
     float stripes = step(0.5, fract((vWorldPos.x + vWorldPos.z) / (cellSize * 2.0)));
     if (mapDataMode < 1.5) {
-      // Each zone in its own colour; a chunk with none is left as it is.
-      lit = mix(lit, cd.rgb, dot(cd.rgb, vec3(1.0)) > 0.0 ? 0.4 : 0.0);
+      // Each zone in its own colour; a chunk with none is left as it is. The chunks of the zone being
+      // painted (mapDataZone) are striped and stronger, and every chunk's edge is drawn, so a stroke shows
+      // which chunks it reached.
+      float zoned = dot(cd.rgb, vec3(1.0)) > 0.0 ? 1.0 : 0.0;
+      float mine = zoned * step(dot(abs(cd.rgb - mapDataZone), vec3(1.0)), 0.01) * step(0.001, dot(mapDataZone, vec3(1.0)));
+      lit = mix(lit, cd.rgb, zoned * (0.4 + mine * (0.1 + 0.2 * stripes)));
+      vec2 ce = vWorldPos.xz / chunkWorld;
+      vec2 cg = abs(fract(ce - 0.5) - 0.5) / fwidth(ce);
+      lit = mix(lit, vec3(1.0), zoned * (1.0 - min(min(cg.x, cg.y), 1.0)) * 0.45);
     } else if (mapDataMode < 2.5) {
       lit = mix(lit, vec3(0.9, 0.1, 0.1), cd.a > 0.5 ? 0.25 + 0.25 * stripes : 0.0);
     } else if (mapDataMode < 3.5) {
@@ -501,6 +509,7 @@ export function createTerrainMaterial(palette: THREE.Texture, slots: THREE.Textu
 		bakedShadowOn: { value: 0 },
 		maskVisible: { value: 0 },
 		mapDataMode: { value: 0 },
+		mapDataZone: { value: new THREE.Vector3() },
 		chunkDataTex: { value: null },
 		selRect: { value: new THREE.Vector4() },
 		cellTex: { value: null },

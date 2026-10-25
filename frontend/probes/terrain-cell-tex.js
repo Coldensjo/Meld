@@ -73,6 +73,15 @@ t.touchChunkData(zone)
 await P.frames(2)
 const zoned = spots(await P.shot())
 const zoneDrawn = differs(zoned.patch, zoneBase.patch) && !differs(zoned.shape, zoneBase.shape)
+// The zone being painted is striped and stronger than the others (#714).
+editor.mapDataArea = 12
+editor.mapDataClear = false
+await P.frames(2)
+const chosen = spots(await P.shot())
+editor.mapDataArea = 0
+await P.frames(2)
+const unchosen = spots(await P.shot())
+const zoneMarked = differs(chosen.patch, unchosen.patch)
 editor.selection = null
 editor.tool = 'select'
 
@@ -102,12 +111,13 @@ const shapeDrawn = differs(both.shape, base.shape) && !differs(both.corner, base
 const patchKept = !differs(both.patch, overlay.patch)
 const patchCleared = !differs(cleared.patch, base.patch) && !differs(cleared.shape, both.shape)
 return {
-	ok: !!prog && overlayDrawn && shapeDrawn && patchKept && patchCleared && zoneDrawn && units <= 15,
+	ok: !!prog && overlayDrawn && shapeDrawn && patchKept && patchCleared && zoneDrawn && zoneMarked && units <= 15,
 	overlayDrawn,
 	shapeDrawn,
 	patchKept,
 	patchCleared,
 	zoneDrawn,
+	zoneMarked,
 	samplers: { own, shadowNow: shadow, withFiveShadowMaps: units, names },
 	colours: { base, overlay, both, cleared, zoneBase, zoned },
 }

@@ -84,6 +84,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   chunk (the `Areas` binding lists them, `wow/areas.ts` names them) and `Terrain.chunkFlags` a byte
   per chunk (`CHUNK_IMPASSABLE`); both and `Terrain.noEffect` are read from a region, saved in the
   map file (version 5) and painted by the tool through `ChunkDataStroke` (one undo step a stroke).
+  Area mode tints each zone in its colour with the chunk edges drawn, and stripes the chunks of the zone being painted (`Terrain.setMapDataZone`, uniform `mapDataZone`, #714); the status line names the zone and the chunks reached.
   The tool draws its overlay through `Terrain.setMapDataOverlay`: a texel per chunk (`chunkDataTex`)
   and the no-tufts cells in the red of `Terrain.cellTex`, a texel per cell whose green is the selected
   area's shape (`Terrain.setAreaShape`), shared so the shader spends one sampler on both (#394).

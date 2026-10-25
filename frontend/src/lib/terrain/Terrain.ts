@@ -491,6 +491,16 @@ export class Terrain {
 		this.cellDataDirty.mark()
 	}
 
+	/** Names the zone the Map data tool paints, whose chunks the Area overlay stripes; 0 for none. Cheap to call every frame. */
+	setMapDataZone(id: number) {
+		if (id === this.zoneShown) return
+		this.zoneShown = id
+		areaColor(id, this.zoneRgb, 0)
+		;(this.material.uniforms.mapDataZone.value as THREE.Vector3).set(this.zoneRgb[0] / 255, this.zoneRgb[1] / 255, this.zoneRgb[2] / 255)
+	}
+	private zoneShown = 0
+	private zoneRgb = new Uint8Array(3)
+
 	/** `cellTex`, made the first time the overlay or a shaped area needs it. */
 	private cellTexture(): THREE.DataTexture {
 		if (!this.cellTex) {

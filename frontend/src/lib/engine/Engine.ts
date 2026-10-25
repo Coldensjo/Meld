@@ -1424,6 +1424,7 @@ export class Engine {
 		this.updateHoverChunk(u.chunkHover.value as THREE.Vector4)
 		const md = editor.mapDataMode
 		this.terrain.setMapDataOverlay(editor.tool !== 'mapdata' ? 0 : md === 'area' ? 1 : md === 'impassable' ? 2 : md === 'noTufts' ? 3 : 4)
+		this.terrain.setMapDataZone(editor.mapDataClear ? 0 : editor.mapDataArea)
 		// Strong red while editing the mask; faint while painting so results stay visible.
 		const painting = editor.tool === 'paint' || editor.tool === 'road'
 		u.maskVisible.value = !painting ? 0 : editor.tool === 'paint' && editor.paintMode === 'mask' ? 0.45 : ui.maskActive ? 0.15 : 0

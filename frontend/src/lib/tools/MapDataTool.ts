@@ -22,6 +22,7 @@ export class MapDataTool implements Tool {
 	readonly usesBrush = true
 	private stroke: ChunkDataStroke | null = null
 	private shadows: ShadowStroke | null = null
+	private chunksPainted = 0
 	private rect: GridRect = { x0: 0, z0: 0, x1: 0, z1: 0 }
 
 	onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
@@ -30,9 +31,10 @@ export class MapDataTool implements Tool {
 			return
 		}
 		if (editor.mapDataMode === 'area' && !editor.mapDataClear && !editor.mapDataArea) {
-			setStatus('Pick a zone in the options bar first, or Alt+click a chunk to take its zone.')
+			setStatus('Pick a zone in the options bar first, or Alt+click a chunk to take its zone.', 6000)
 			return
 		}
+		this.chunksPainted = 0
 		if (editor.mapDataMode === 'shadow') this.shadows = new ShadowStroke(ctx.terrain, this.label())
 		else this.stroke = new ChunkDataStroke(ctx.terrain, this.label())
 		this.apply(ctx, hit)
@@ -117,7 +119,9 @@ export class MapDataTool implements Tool {
 				if (t.areaIds[i] === value) return
 				t.areaIds[i] = value
 				changed = true
+				this.chunksPainted++
 			})
+			if (changed) setStatus(value ? `Painting ${areaName(value)} (${value}): ${this.chunksPainted} chunks` : `Clearing the zone: ${this.chunksPainted} chunks`)
 		}
 		// `this.rect` is now what the brush reached: cells for no tufts, else paint chunks.
 		if (changed) t.touchChunkData(this.rect, editor.mapDataMode === 'noTufts')
