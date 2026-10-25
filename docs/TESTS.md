@@ -251,7 +251,8 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
     (`measurePerf` with frames stepped), `P.state()` (the app's own `editor`/`prefs`/`ui`),
     `P.app(path)` (any app module, the page's own instance) and `P.glError()`.
   - Pictures: `P.shot(draw?)` steps a frame (or runs `draw`) and reads the canvas back in the same
-    task, `{ w, h, px, lit }` (`lit`, the share of pixels not black, so a blank read can't pass as
+    task (so whatever the frame sets each frame, such as a mesh's `visible` from a preference, is set
+    back before the read: hide such a mesh through its `material.visible` instead), `{ w, h, px, lit }` (`lit`, the share of pixels not black, so a blank read can't pass as
     "the same"); `P.diff(a, b, threshold, region)` gives the share of pixels that differ (`off`) and
     the mean difference; `P.busy(img, region)` how busy a picture is (neighbour differences: shimmer,
     noise); a region is `{ x0, x1, y0, y1 }` as shares of the picture, y0 = 0 the top.
