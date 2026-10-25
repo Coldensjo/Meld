@@ -5,6 +5,7 @@ import type { Command } from '../state/history'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { getAsset } from '../models/assets'
 import { GhostPool } from './ghosts'
+import { grow } from './typedArray'
 import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
 import { placementEuler } from '../world/placement'
 import { MAX_ATTEMPTS, SpacingGrid, attemptRate, candidate, fillAttempts, fits, fitsOn, newBrush, pickEntry, rulesAllow, uniqueName, type DoodadBrush, type GroundProbe } from './doodadBrush'
@@ -351,11 +352,7 @@ export class DoodadBrushTool implements Tool {
 		const L = ctx.objects
 		// The roots from the layer's cells around the brush (#512).
 		for (const o of L.rootsNear(hit.x, hit.z, reach, this.found)) {
-			if (n * 3 + 3 > this.near.length) {
-				const grown = new Float32Array(this.near.length * 2)
-				grown.set(this.near)
-				this.near = grown
-			}
+			this.near = grow(this.near, n * 3 + 3)
 			this.near[n * 3] = o.x
 			this.near[n * 3 + 1] = o.z
 			this.near[n * 3 + 2] = this.footprint(o.type, o.scale)
@@ -368,11 +365,7 @@ export class DoodadBrushTool implements Tool {
 				const dx = w.x - hit.x
 				const dz = w.z - hit.z
 				if (dx * dx + dz * dz > r2) continue
-				if (m * 4 + 4 > this.nearOn.length) {
-					const grown = new Float32Array(this.nearOn.length * 2)
-					grown.set(this.nearOn)
-					this.nearOn = grown
-				}
+				this.nearOn = grow(this.nearOn, m * 4 + 4)
 				this.nearOn[m * 4] = w.x
 				this.nearOn[m * 4 + 1] = w.z
 				// Spaced by its size on the map: its own scale times its parents'.
@@ -388,11 +381,7 @@ export class DoodadBrushTool implements Tool {
 
   private pushNearOn(x: number, z: number, size: number, parent: number) {
     const m = this.nearOnCount
-    if (m * 4 + 4 > this.nearOn.length) {
-      const grown = new Float32Array(this.nearOn.length * 2)
-      grown.set(this.nearOn)
-      this.nearOn = grown
-    }
+    this.nearOn = grow(this.nearOn, m * 4 + 4)
     this.nearOn[m * 4] = x
     this.nearOn[m * 4 + 1] = z
     this.nearOn[m * 4 + 2] = size
@@ -486,22 +475,14 @@ export class DoodadBrushTool implements Tool {
 	}
 
 	private pushProp(n: number, id: number): number {
-		if (n >= this.props.length) {
-			const grown = new Int32Array(this.props.length * 2)
-			grown.set(this.props)
-			this.props = grown
-		}
+		this.props = grow(this.props, n + 1)
 		this.props[n] = id
 		return n + 1
 	}
 
   private pushNear(x: number, z: number, size: number) {
     const n = this.nearCount
-    if (n * 3 + 3 > this.near.length) {
-      const grown = new Float32Array(this.near.length * 2)
-      grown.set(this.near)
-      this.near = grown
-    }
+    this.near = grow(this.near, n * 3 + 3)
     this.near[n * 3] = x
     this.near[n * 3 + 1] = z
     this.near[n * 3 + 2] = size

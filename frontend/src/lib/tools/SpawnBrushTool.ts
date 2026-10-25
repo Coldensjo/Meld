@@ -5,6 +5,7 @@ import { editor, prefs, setStatus } from '../state/editor.svelte'
 import type { Command } from '../state/history'
 import { getAsset } from '../models/assets'
 import { GhostPool } from './ghosts'
+import { grow } from './typedArray'
 import { spawnType } from '../world/spawnInfo'
 import { spawnAdd, spawnDelete, spawnsBatch } from '../world/spawnEdits'
 import { spawnKey, spawnOrientation } from '../world/SpawnLayer'
@@ -291,11 +292,7 @@ export class SpawnBrushTool implements Tool {
 
 	private pushNear(x: number, z: number) {
 		const n = this.nearCount
-		if (n * 2 + 2 > this.near.length) {
-			const grown = new Float32Array(this.near.length * 2)
-			grown.set(this.near)
-			this.near = grown
-		}
+		this.near = grow(this.near, n * 2 + 2)
 		this.near[n * 2] = x
 		this.near[n * 2 + 1] = z
 		this.nearCount = n + 1
