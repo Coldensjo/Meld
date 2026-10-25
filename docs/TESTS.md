@@ -747,4 +747,5 @@ the same scene, the report before and after.
 - World map of a zone (World › World Map, #181; exploration overlays, #219)
 - Icons from PNG files and back (#364, probe `icons`)
 - The asset server across a patch write (#471, probe `patch-cache`)
+- The binary replies against their parsers (#520, the wire fixtures)
 - The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)

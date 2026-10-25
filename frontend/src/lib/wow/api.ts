@@ -6,6 +6,7 @@ import { hasBackend } from '../io/mapio'
 import { logFile, wow } from '../state/editor.svelte'
 import { beginLoad, endLoad } from './loadProgress'
 import { textureFrom } from './textureReply'
+import { parseCollision, parseMesh, type CollisionReply } from './meshReply'
 
 // Client for the Go side's /wow/* endpoints, which read assets live from the
 // user's own WoW 1.x installation. Nothing is bundled with the app.
@@ -262,24 +263,8 @@ export function fetchWmoNav(path: string): Promise<ArrayBuffer> {
  * MLIQ grids, three indices a wet tile's triangle, and each triangle's liquid type as the server's
  * vmaps hold it (null for none). `path` may carry a WMO's `?set=<n>` as a model type does.
  */
-export async function fetchCollision(path: string): Promise<{
-	tris: Float32Array
-	groups: Uint32Array
-	liquid: { verts: Float32Array; idx: Uint32Array; types: Uint32Array } | null
-}> {
-	const buf = await fetchBinary('collision', path)
-	const v = new DataView(buf)
-	const n = v.getUint32(0, true)
-	let at = 4 + n * 36
-	const groups = new Uint32Array(v.getUint32(at, true))
-	for (let g = 0; g < groups.length; g++) groups[g] = v.getUint32(at + 4 + g * 4, true)
-	at += 4 + groups.length * 4
-	const nv = v.getUint32(at, true)
-	const nt = v.getUint32(at + 4 + nv * 12, true)
-	const verts = new Float32Array(buf, at + 4, nv * 3)
-	const idx = new Uint32Array(buf, at + 8 + nv * 12, nt * 3)
-	const types = new Uint32Array(buf, at + 8 + nv * 12 + nt * 12, nt)
-	return { tris: new Float32Array(buf, 4, n * 9), groups, liquid: nt > 0 ? { verts, idx, types } : null }
+export async function fetchCollision(path: string): Promise<CollisionReply> {
+	return parseCollision(await fetchBinary('collision', path))
 }
 
 /**
@@ -425,51 +410,5 @@ export async function texturePreview(path: string, size = 64): Promise<string> {
 }
 
 export async function fetchMesh(path: string): Promise<WowMesh> {
-  const buf = await fetchBinary('model', path)
-  const dv = new DataView(buf)
-  const hdrLen = dv.getUint32(0, true)
-  const hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hdrLen))) as {
-    verts: number
-    indices: number
-    colors: boolean
-    groups: MeshGroup[]
-    bbox: number[]
-    bones?: AnimBone[]
-    effects?: MeshEffect[]
-    emitters?: MeshEmitter[]
-    ribbons?: MeshRibbon[]
-    rooms?: boolean
-    liquidVerts?: number
-    liquidIndices?: number
-  }
-  let o = 4 + hdrLen
-  const take = <T>(ctor: new (b: ArrayBuffer, o: number, n: number) => T, n: number, bytes: number) => {
-    const v = new ctor(buf, o, n)
-    o += n * bytes
-    return v
-  }
-  const positions = take(Float32Array, hdr.verts * 3, 4)
-  const normals = take(Float32Array, hdr.verts * 3, 4)
-  const uvs = take(Float32Array, hdr.verts * 2, 4)
-  const colors = hdr.colors ? take(Uint8Array, hdr.verts * 4, 1) : null
-  const indices = take(Uint32Array, hdr.indices, 4)
-  const mesh: WowMesh = { positions, normals, uvs, colors, indices, groups: hdr.groups ?? [], bbox: hdr.bbox, effects: hdr.effects ?? [], emitters: hdr.emitters ?? [], ribbons: hdr.ribbons ?? [] }
-  if (hdr.bones?.length) {
-    mesh.bones = hdr.bones
-    mesh.boneIdx = take(Uint8Array, hdr.verts * 4, 1)
-    mesh.boneW = take(Uint8Array, hdr.verts * 4, 1)
-  }
-  if (hdr.rooms) mesh.rooms = take(Uint16Array, hdr.verts * 2, 2)
-  const lv = hdr.liquidVerts ?? 0
-  if (lv > 0) {
-    mesh.liquid = {
-      positions: take(Float32Array, lv * 3, 4),
-      uvs: take(Float32Array, lv * 2, 4),
-      info: take(Uint8Array, lv * 4, 1),
-      body: take(Uint8Array, lv * 4, 1),
-      rooms: take(Uint16Array, lv * 2, 2),
-      indices: take(Uint32Array, hdr.liquidIndices ?? 0, 4),
-    }
-  }
-  return mesh
+	return parseMesh(await fetchBinary('model', path))
 }

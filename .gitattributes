@@ -4,3 +4,4 @@
 *.png binary
 *.ico binary
 *.wmap binary
+*.bin binary

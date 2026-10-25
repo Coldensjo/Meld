@@ -420,6 +420,20 @@ again only when one changed.
 - Trap: `P.endSandbox()` (and any `Open`, a change of client) still drops the whole cache, so measure
   inside one sandbox.
 
+## The binary replies against their parsers (#520, the wire fixtures)
+Checks: the frontend's parsers of the binary `/wow/*` replies read what Go's encoders write:
+`parseMesh` and `parseCollision` (`wow/meshReply.ts`) against `Mesh.Encode` and `collision.encode`,
+`decodeWmoNav` against `WMONav.Encode`, and `parseNavTile` against `vmangos.NavTile`.
+- Go: `wow.TestWireFixtures` and `vmangos.TestWireFixtures` encode small generated meshes (a box in
+  two groups with colours, a bone, rooms and a liquid quad; two collision faces and a liquid; two
+  rooms and a portal; a fake Detour tile) and compare the bytes with `frontend/tests/fixtures/*.bin`.
+- Bun: `frontend/tests/wire.test.ts` decodes those files, checks counts and a value of each
+  section, and that the last section ends the reply, so a section one side skips fails.
+- When a layout changes on purpose (a new section), write the fixtures again with
+  `go test ./internal/wow/ ./internal/vmangos/ -run TestWireFixtures -update`, then make the parser
+  and `wire.test.ts` follow. Trap: the fixtures are generated geometry only; never write one from
+  the client's files (CLAUDE.md, Blizzard assets).
+
 ## The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
 Checks: a save of one small file into a large patch (a DBC row, an imported icon) opens the patch
 once in `ChangedFiles` and once in `InstallPatch`, and copies the files it carries over straight from

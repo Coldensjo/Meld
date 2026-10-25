@@ -19,7 +19,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   - Textures: `"RGBA" w h pixels`; with `fmt=dxt` (#178) a DXT BLP comes as `"DXT1"`/`"DXT3"`/`"DXT5"`
     w h, the mip count and each level's size and blocks (`Client.TextureDXT`), which `loadTexture`
     uploads as a `CompressedTexture` where the renderer has S3TC with sRGB.
-  - Meshes: `Mesh.Encode()` = JSON header + pos/normal/uv/[color]/u32 index.
+  - Meshes: `Mesh.Encode()` = u32 header length, JSON header (padded to 4), pos, normal, uv, [colour
+    u8x4], index (u32), [bone indices u8x4, bone weights u8x4], [rooms u16x2], [liquid pos, uv, info
+    u8x4, body u8x4, rooms u16x2, index (u32)]; the header's `colors`, `bones`, `rooms` and
+    `liquidVerts` say which optional sections follow. `parseMesh` (`wow/meshReply.ts`) reads it;
+    `parseCollision` there reads `/wow/collision`, `decodeWmoNav` (`world/wmoRoom.ts`) `/wow/wmonav`
+    and `parseNavTile` (`world/nav/navServer.ts`) `/wow/navtile`. Change an encoder and its parser
+    together: the wire fixtures pin them (#520, docs/tests/client.md).
 - The decoded replies stay in `Client.cache` (`bytecache.go`, an LRU bounded by `cacheLimit`, 512 MB: the oldest go first, #501; `TextureDXT` keeps an empty marker for a non-DXT BLP and serves the `tex:` entry) until a client change
   (`Client.Open`). A write into Meld's patch keeps them (#471): `vmangos.InstallPatch` closes the
   archives (`Suspend`) for its rename only, as Windows won't rename over a file Meld holds open, then

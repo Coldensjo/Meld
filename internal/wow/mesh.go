@@ -261,6 +261,7 @@ type meshHeader struct {
 // Encode serialises the mesh for the frontend:
 // u32 headerLen | JSON header | pad to 4 | pos | normal | uv | [color] | index(u32) | [boneIdx u8x4 | boneW u8x4] | [room u16x2]
 // | [liquid pos | liquid uv | liquid info u8x4 | liquid body u8x4 | liquid room u16x2 | liquid index(u32)]
+// The frontend's parseMesh (wow/meshReply.ts) reads it; TestWireFixtures pins the two together (#520).
 func (m *Mesh) Encode() []byte {
 	n := m.vertCount()
 	mn := [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
