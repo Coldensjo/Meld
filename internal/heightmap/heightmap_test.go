@@ -2,6 +2,7 @@ package heightmap
 
 import (
 	"bytes"
+	"image"
 	"image/png"
 	"math"
 	"testing"
@@ -66,5 +67,44 @@ func TestEncodeRGB(t *testing.T) {
 	}
 	if _, err := EncodeRGB(2, make([]byte, 5)); err == nil {
 		t.Fatal("a short buffer must be refused")
+	}
+}
+
+func TestDecodeRefusesAnOversizedImage(t *testing.T) {
+	var buf bytes.Buffer
+	img := image.NewGray(image.Rect(0, 0, MaxSide+1, MaxSide+1))
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Decode(buf.Bytes()); err == nil {
+		t.Fatal("an image past MaxSide was decoded")
+	}
+}
+
+func TestDecodeGrayAndColourMatchGray16(t *testing.T) {
+	g8 := image.NewGray(image.Rect(0, 0, 2, 2))
+	rgb := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	for i, v := range []uint8{0, 255, 128, 64} {
+		g8.Pix[i] = v
+		rgb.Pix[4*i], rgb.Pix[4*i+1], rgb.Pix[4*i+2], rgb.Pix[4*i+3] = v, v, v, 255
+	}
+	var a, b bytes.Buffer
+	png.Encode(&a, g8)
+	png.Encode(&b, rgb)
+	_, ha, err := Decode(a.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, hb, err := Decode(b.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range ha {
+		if ha[i] != hb[i] {
+			t.Fatalf("pixel %d: gray %v, colour %v", i, ha[i], hb[i])
+		}
+	}
+	if ha[0] != Min || ha[1] != Max {
+		t.Fatalf("ends = %v %v", ha[0], ha[1])
 	}
 }

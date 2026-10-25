@@ -49,3 +49,10 @@ func TestReadGreyBoxesDownAndAverages(t *testing.T) {
 		t.Fatalf("list %v %v", names, err)
 	}
 }
+
+func TestToGreyTerminatesForZeroMax(t *testing.T) {
+	g := toGrey(image.NewGray(image.Rect(0, 0, 4, 4)), 0)
+	if g.W != 1 || g.H != 1 {
+		t.Fatalf("size = %dx%d", g.W, g.H)
+	}
+}

@@ -67,6 +67,9 @@ func ReadGrey(path string, max int) (*Grey, error) {
 
 // toGrey boxes img down to fit max a side and turns it grey.
 func toGrey(img image.Image, max int) *Grey {
+	if max < 1 {
+		max = 1
+	}
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
 	step := 1
