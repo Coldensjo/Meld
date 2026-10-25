@@ -41,7 +41,11 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `make check` runs go vet (`./internal/...`, and `.` when `frontend/dist` exists) and svelte-check/tsc. svelte-check runs twice: on `tsconfig.app.json` (`src`) and on `tsconfig.tests.json` (`frontend/tests`, which Bun runs with types erased, so a fixture that drifts from its type fails `make check`, not `make test`).
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the
-  runes state. Trap: a test can't import a `.svelte.ts` runes module, since Bun doesn't run the Svelte compiler on it.
+  runes state. Trap: Bun doesn't run the Svelte compiler, so a test that imports `editor.svelte.ts`, or any module that
+  reaches it (the tools, `ObjectLayer`, `Terrain`'s palette), puts `import './runes.ts'` first: it makes `$state` a
+  plain value and the module loads with its real defaults. Don't `mock.module` the editor or `wow/api.ts` without
+  the rest of the module (`...await import(...)`, as `releaseAsset.test.ts` does): every file runs in one process and
+  a module mock lasts the whole run, so a later file that needs another export fails only in `make test`, not alone.
 - `tests/terrainRaycast.test.ts` runs the terrain ray-march (`rayMarchGround`) on a flat stand-in ground with a hole: straight and slanted rays through the hole, a miss, `solid` (#528).
 - `tests/heightField.test.ts` runs the bilinear `heightAt` (shared by `Terrain` and the shadow bake) and the ray-march over a cliff: a slanted ray onto the top, a low ray into the face, a ray from outside the box, one to the sky (#536).
 - `tests/terrainStroke.test.ts` checks that a `TerrainStroke` keeps only the cells that changed (a whole-mask
@@ -636,6 +640,7 @@ the same scene, the report before and after.
 
 - Brush size controls (Photoshop-style)
 - Scripted brush strokes
+- Every tool's stroke is one undo step (#438, `tests/toolUndo.test.ts`)
 - Vertex mode undo and keys on a focused control (#127)
 - Gizmo drags (spin ring, height arrow, scale knob) without a mouse
 - Place tool keys (preview height and offset)

@@ -79,6 +79,24 @@ input must leave the history alone. A Shift move is `onDown(..., { shiftKey: tru
   each kind of control focused and after each editor opened and closed, and checks a text field and a
   slider keep their own keys. A control now keeps only the keys it uses (`controlKeepsKey` in `App.svelte`).
 
+## Every tool's stroke is one undo step (#438, `tests/toolUndo.test.ts`)
+
+Checks: the hard rule that every edit is undoable, and that a stroke is one step, for each tool and
+mode without the app: `cd frontend && bun test tests/toolUndo.test.ts`. Each row drives a tool as the
+Engine does (`onDown`, then `onMove` and `tick` each frame, `onUp`) on a real 64-cell `Terrain` with
+paint, a hole block, a pond and three cubes in a real `ObjectLayer`, then asserts that the map changed,
+that the History holds exactly one new step, that Undo gives back every array (heights, holes, paint,
+mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the stroke's result.
+
+- A new tool or mode gets a row in `rows`: its settings in `setup` (the editor and prefs are reset to
+  their defaults before each row), and a `from`/`to`/`ticks` or an `act` when it is a click or a key.
+  "The stroke changed the map" failing means the row's settings or the map don't give the tool
+  anything to do (Erode thermal needed a lower talus than the map's slopes).
+- Not covered yet: the Select tool's drags (move, gizmo, area), the spawn brush and the hole wall
+  handles (#694).
+- Trap: Sculpt's hole walls draw on a canvas when made, so the rows run inside `withCanvas`, which
+  stands a `document` in and takes it away again (`uiScale.test.ts` checks the code without one).
+
 ## Gizmo drags (spin ring, height arrow, scale knob) without a mouse
 
 Checks: the selected prop's gizmo (`TransformGizmo`), its sweep arc and the viewport badge, in the

@@ -1,14 +1,18 @@
 // Run with: bun test tests/releaseAssets.test.ts
 // The kept models of a closed map are let go of with their own geometry and materials, and with the
 // shared materials and textures no remaining model uses (#505).
+import './runes.ts'
 import { expect, mock, test } from 'bun:test'
 import * as THREE from 'three'
 import type { MeshGroup, WowMesh } from '../src/lib/wow/api.ts'
 
+const api = await import('../src/lib/wow/api.ts')
 // Each model is one triangle whose groups map the textures named in its path ("a.blp+b.blp.m2").
-// (The real module reads the editor's state, which needs Svelte's compiler.)
+// The rest of the module stays the real one, so a later test file that loads it (the mock lasts the
+// whole run) finds every export.
 const released: string[] = []
 mock.module('../src/lib/wow/api.ts', () => ({
+	...api,
 	fetchMesh: (path: string) => Promise.resolve(mesh(path.replace(/\.m2$/, '').split('+').map((texture) => ({ texture })))),
 	loadTexture: () => Promise.resolve(new THREE.Texture()),
 	releaseTexture: (path: string) => {

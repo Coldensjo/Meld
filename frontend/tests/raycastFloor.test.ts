@@ -1,13 +1,11 @@
 // Run with: bun test tests/raycastFloor.test.ts
 // A floor ray passes ceilings and walls and stops on a surface facing up (#660).
+import './runes.ts'
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import type { Terrain } from '../src/lib/terrain/Terrain.ts'
 
-// The layer's imports reach the editor's state, whose runes need Svelte's compiler: plain values do here.
-const g = globalThis as Record<string, unknown>
-g.$state = <T>(v: T) => v
 const { ObjectLayer } = await import('../src/lib/world/ObjectLayer.ts')
 
 const terrain = { heightAt: () => 0 } as unknown as Terrain

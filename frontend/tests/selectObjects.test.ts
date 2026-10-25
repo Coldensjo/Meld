@@ -1,10 +1,8 @@
-import { expect, mock, test } from 'bun:test'
+import './runes.ts'
+import { expect, test } from 'bun:test'
 import type { ObjectLayer } from '../src/lib/world/ObjectLayer'
-
-// editor.svelte.ts needs the Svelte compiler for its runes, so the test stands in a plain object.
-const editor: { selectedIds: number[]; selected: { id: number } | null } = { selectedIds: [], selected: null }
-mock.module('../src/lib/state/editor.svelte.ts', () => ({ editor }))
-const { selectObjects } = await import('../src/lib/state/selection')
+import { editor } from '../src/lib/state/editor.svelte.ts'
+import { selectObjects } from '../src/lib/state/selection'
 
 function layer(n: number): ObjectLayer {
 	const objects = new Map<number, { id: number }>()

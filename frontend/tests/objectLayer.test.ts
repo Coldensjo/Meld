@@ -1,13 +1,11 @@
 // Run with: bun test tests/objectLayer.test.ts
 // The attachment tree is read from the kids index, not by walking every object (#512).
+import './runes.ts'
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import type { Terrain } from '../src/lib/terrain/Terrain.ts'
 
-// The layer's imports reach the editor's state, whose runes need Svelte's compiler: plain values do here.
-const g = globalThis as Record<string, unknown>
-g.$state = <T>(v: T) => v
 const { ObjectLayer } = await import('../src/lib/world/ObjectLayer.ts')
 const selection = await import('../src/lib/state/selection.ts')
 

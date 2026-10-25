@@ -2,14 +2,12 @@
 // The spawn save's edit list (SpawnLayer.edits, built through spawnEdits.ts's commands): one edit per
 // spawn, and a DELETE only for a row the document loaded or saved, keyed by that row's own guid and
 // entry, never a created spawn's or another entry's row (#199, #432).
+import './runes.ts'
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { vmangos } from '../wailsjs/go/models'
 import type { Command } from '../src/lib/state/history'
 
-// spawnEdits.ts reaches the editor's state, whose runes need Svelte's compiler: plain values do here.
-const g = globalThis as Record<string, unknown>
-g.$state = <T>(v: T) => v
 const { SpawnLayer, spawnKey } = await import('../src/lib/world/SpawnLayer.ts')
 const { spawnAdd, spawnChange, spawnDelete } = await import('../src/lib/world/spawnEdits.ts')
 

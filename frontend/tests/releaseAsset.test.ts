@@ -1,13 +1,17 @@
 // Run with: bun test tests/releaseAsset.test.ts
 // An asset built for a thumbnail or a preview and then released leaves nothing in the per-frame
 // texture and colour animation lists (#506).
+import './runes.ts'
 import { expect, mock, test } from 'bun:test'
 import * as THREE from 'three'
 import type { MeshGroup, WowMesh } from '../src/lib/wow/api.ts'
 
-// The texture arrives from the client through Go; here it is a blank one, at once. (The real module
-// reads the editor's state, which needs Svelte's compiler.)
+const api = await import('../src/lib/wow/api.ts')
+// The texture arrives from the client through Go; here it is a blank one, at once. The rest of the
+// module stays the real one, so a later test file that loads it (the mock lasts the whole run) finds
+// every export.
 mock.module('../src/lib/wow/api.ts', () => ({
+	...api,
 	fetchMesh: () => Promise.reject(new Error('no client')),
 	loadTexture: () => Promise.resolve(new THREE.Texture()),
 	releaseTexture: () => true,
