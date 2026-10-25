@@ -3,6 +3,18 @@
 Spawns, the creature editor, paths, vendors and portals. The general methods these entries use (the dev page in headless
 Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that first.
 
+## Spawn save: the edit list (#199, #432)
+
+Checks: `SpawnLayer.edits()`, built through `spawnEdits.ts`'s commands (`spawnAdd`, `spawnChange`,
+`spawnDelete`), gives one edit per spawn, and a DELETE only for a row the document loaded or saved,
+keyed by that row's own guid and entry (never a created spawn's, nor the entry a retype gave it).
+Unit: `bun test tests/spawnLayerEdits.test.ts`: fixed cases plus 300 seeded random sequences of add,
+move, retype, delete, undo, redo and save, each save applied to a model database that must end as the
+editor shows it. A failure prints the seed and the sequence. The Go half (a created guid taken in the
+database before the save) is `TestCreatedGUIDLive` in `internal/vmangos`, which needs the database.
+- Trap: `SpawnLayer` reaches `editor.svelte.ts`, so the test sets `globalThis.$state` before a dynamic
+  import, as `objectLayer.test.ts` does.
+
 ## Gear picker (a spawn's main hand, off hand and ranged items)
 
 Checks: `WeaponPicker.svelte` and the `ListWeapons` / `EquipmentFor` / `EquipmentItems` bindings. The

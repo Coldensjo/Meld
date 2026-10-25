@@ -667,6 +667,7 @@ the same scene, the report before and after.
 
 ### Creatures, objects and the server database (`docs/tests/spawns.md`)
 
+- Spawn save: the edit list (#199, #432)
 - Gear picker (a spawn's main hand, off hand and ranged items)
 - Spawn tabs of the asset browser (Creatures, NPCs, Objects)
 - Sorting the creature tabs by level (#659)
