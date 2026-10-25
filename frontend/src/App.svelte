@@ -1,6 +1,6 @@
 <script lang="ts">
   import MenuBar from './components/MenuBar.svelte'
-  import Toolbar, { TOOLS } from './components/Toolbar.svelte'
+  import Toolbar from './components/Toolbar.svelte'
   import OptionsBar from './components/OptionsBar.svelte'
   import Dock from './components/Dock.svelte'
   import AssetBrowser from './components/AssetBrowser.svelte'
@@ -42,21 +42,16 @@
   import { offerRecovery, startAutosave } from './lib/io/recovery'
   import { offerFolderSetup } from './lib/io/folderSetup'
   import { startSessionLog } from './lib/io/sessionLog'
-  import { copyTeleport } from './lib/io/scene'
   import { onMount, untrack } from 'svelte'
   import { refreshGameClient } from './lib/io/game'
-  import { toggleFullScreen } from './lib/engine/display'
   import { initWow } from './lib/wow/api'
   import { defaultLayerTextures } from './lib/wow/defaults'
   import { LAYERS } from './lib/terrain/layers'
-  import { docs, editor, prefs, setStatus, stepCameraSpeed, ui, wow } from './lib/state/editor.svelte'
-  import { stepFalloff } from './lib/tools/brushSize'
-  import { applyUiScale, stepUiScale } from './lib/ui/uiScale'
+  import { docs, editor, prefs, ui, wow } from './lib/state/editor.svelte'
+  import { applyUiScale } from './lib/ui/uiScale'
+  import { commandFor } from './lib/ui/commands'
+  import { runCommand } from './lib/ui/runCommand'
   import { engineRef } from './lib/state/engineRef'
-  import { saveMinimapImage } from './lib/io/images'
-  import { openMap } from './lib/io/mapio'
-  import { saveOrPublish } from './lib/io/publish'
-  import { requestClose } from './components/DocTabs.svelte'
   import { EventsOn, WindowSetTitle } from '../wailsjs/runtime/runtime'
   import { AckClose, SetUnsaved } from '../wailsjs/go/main/App'
   import { hasBackend } from './lib/io/backend'
@@ -209,8 +204,6 @@
     if (field === 'control' && controlKeepsKey(e)) return
     const engine = engineRef.current
     if (!engine || ui.showNewDialog || ui.dialog) return
-    const mod = e.ctrlKey || e.metaKey
-    const key = e.key.toLowerCase()
 
     // Over the creature editor only undo and redo reach the map (its spawn edits are undo steps);
     // the brush editor takes every key (its own Esc closes it).
@@ -226,135 +219,33 @@
     // The quest, item and spell editors and the Icons tool have no undo steps of their own (their Save writes the database), and no key reaches the map.
     if (ui.questEditor || ui.itemEditor || ui.spellEditor || ui.iconsTool) return
     if (ui.creatureEditor || ui.objectEditor) {
-      if (mod && (key === 'z' || key === 'y')) {
-        const c = key === 'y' || e.shiftKey ? engine.redo() : engine.undo()
-        if (c) setStatus(`${key === 'y' || e.shiftKey ? 'Redo' : 'Undo'}: ${c.label}`)
+      const id = commandFor(e, true)
+      if (id === 'undo' || id === 'redo') {
+        runCommand(id)
         e.preventDefault()
       }
       return
     }
 
-    if (e.key === 'F1') {
-      ui.dialog = 'help'
+    // The Ctrl chords, the function keys and Tab come first (lib/ui/commands.ts); a Ctrl chord that
+    // is no command goes no further.
+    const early = commandFor(e, true)
+    if (early) {
+      runCommand(early)
       e.preventDefault()
       return
     }
-    if (e.key === 'F11' && !mod) {
-      void toggleFullScreen()
-      e.preventDefault()
-      return
-    }
-    if (e.key === 'F9' && !mod) {
-      void copyTeleport(engine)
-      e.preventDefault()
-      return
-    }
-    if (e.key === 'F2' && e.shiftKey && !mod) {
-      prefs.climbView = !prefs.climbView
-      setStatus(prefs.climbView ? `Climb view: ground steeper than ${prefs.climbAngle}° is tinted red (Shift+F2 to hide).` : 'Climb view off.', 3000)
-      e.preventDefault()
-      return
-    }
-    // Tab hides the panels, so the map fills the window; Ctrl+Tab cycles the map tabs below.
-    if (e.key === 'Tab' && !mod) {
-      ui.hidePanels = !ui.hidePanels
-      e.preventDefault()
-      return
-    }
-
-    if (mod) {
-      if (key === 'z' && !e.shiftKey) {
-        const c = engine.undo()
-        if (c) setStatus(`Undo: ${c.label}`)
-      } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
-        const c = engine.redo()
-        if (c) setStatus(`Redo: ${c.label}`)
-      } else if (key === 'c') engine.copySelection()
-      else if (key === 'v') engine.startPaste()
-      else if (key === 'a') engine.selectAll()
-      else if (key === 'd' && e.shiftKey) engine.duplicateSelected()
-      else if (key === 'd') engine.deselect()
-      else if (key === 's') saveOrPublish(engine, e.shiftKey)
-      else if (key === 'p' && e.shiftKey) saveMinimapImage(engine)
-      else if (key === 'm' && e.shiftKey) prefs.perfOverlay = !prefs.perfOverlay
-      else if (key === 'r' && !e.shiftKey) engine.resetRotation()
-      else if (key === 'g') e.shiftKey ? engine.ungroupSelected() : engine.groupSelected()
-      else if (key === 'w') requestClose(engine.activeDocumentId())
-      else if (e.key === 'Tab') engine.cycleDocument(e.shiftKey ? -1 : 1)
-      else if (key === 'o') openMap(engine)
-      else if (key === 'n') {
-        ui.newMapMode = 'new'
-        ui.showNewDialog = true
-      }
-      else if (key === 'b') engine.addBookmark()
-      else if (e.key === 'PageDown') engine.snapSelectedToGround()
-			// Interface size (#372): Ctrl+= (or Ctrl++) larger, Ctrl+- smaller, Ctrl+0 back to 100 %.
-			else if (e.key === '=' || e.key === '+') prefs.uiScale = stepUiScale(prefs.uiScale, 1)
-			else if (e.key === '-' || e.key === '_') prefs.uiScale = stepUiScale(prefs.uiScale, -1)
-			else if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') prefs.uiScale = 1
-      else return
-      e.preventDefault()
-      return
-    }
+    if (e.ctrlKey || e.metaKey) return
 
     if (engine.handleSelectionKey(e) || engine.handleToolKey(e)) {
       e.preventDefault()
       return
     }
 
-    // The day cycle's keys (#20), Noggit Red's N and J; its B (slower) is Paint here, so Shift+N.
-    if (key === 'n' || key === 'j') {
-      if (key === 'j') {
-        const on = !prefs.dayCycle
-        if (!on) prefs.timeOfDay = Math.round(engine.currentHour() * 100) / 100
-        prefs.dayCycle = on
-        setStatus(on ? `Day cycle running: a day in ${prefs.cycleMinutes} min (N faster, Shift+N slower).` : 'Day cycle paused (J runs it again).', 3000)
-      } else {
-        const step = stepCycle(prefs.dayCycle ? prefs.cycleMinutes : 0, !e.shiftKey)
-        if (step === 0) {
-          prefs.timeOfDay = Math.round(engine.currentHour() * 100) / 100
-          prefs.dayCycle = false
-          setStatus('Day cycle paused (N runs it again).', 3000)
-        } else {
-          if (!prefs.dayCycle) prefs.timeOfDay = Math.round(engine.currentHour() * 100) / 100
-          prefs.cycleMinutes = step
-          prefs.dayCycle = true
-          setStatus(`Day cycle: a day in ${step} min (N faster, Shift+N slower, J pauses).`, 3000)
-        }
-      }
-      e.preventDefault()
-      return
-    }
-
-    const tool = TOOLS.find((t) => t.key === e.key || t.letter?.toLowerCase() === key)
-    if (tool) editor.tool = tool.id
-    else if (e.key === '[' || e.key === ']') engine.stepBrush(e.key === ']' ? 1 : -1)
-    else if (e.key === '{' || e.key === '}') editor.brush.falloff = stepFalloff(editor.brush.falloff, e.key === '}' ? 1 : -1)
-    else if (key === 'g') editor.grid = !editor.grid
-    else if (key === 'u') {
-      ui.topDown = !ui.topDown
-      setStatus(ui.topDown ? 'Top-down view: the wheel zooms, Q/E or a right drag turn the map (U for the 3D view).' : '3D view.', 3000)
-    } else if (key === 't' && editor.tool !== 'paint') {
-      prefs.cameraFollowGround = !prefs.cameraFollowGround
-      setStatus(prefs.cameraFollowGround ? 'Camera follows the ground (T to fly freely).' : 'Camera flies freely: W goes where you look, Space/X up and down (T to follow the ground).', 3000)
-    }
-    else if (key === 'h' && e.shiftKey) engine.unhideAll()
-    else if (key === 'p') stepCameraSpeed(true)
-    else if (key === 'o') stepCameraSpeed(false)
-    else if (key === 'f') engine.focusSelected()
-    else if (key === 'i') ui.inspector = !ui.inspector
-    else if (key === 'm') ui.minimap = !ui.minimap
-    else return
+    const late = commandFor(e, false)
+    if (!late) return
+    runCommand(late)
     e.preventDefault()
-  }
-
-  /** The day cycle's speeds, a day in so many minutes, slowest first; 0 is paused. */
-  const CYCLE_MINUTES = [40, 20, 10, 5, 2, 1]
-  /** The next speed faster or slower than a day in `minutes` (0 paused); slower than the slowest pauses. */
-  function stepCycle(minutes: number, faster: boolean): number {
-    if (minutes <= 0) return faster ? CYCLE_MINUTES[0] : 0
-    if (faster) return CYCLE_MINUTES.find((m) => m < minutes) ?? CYCLE_MINUTES[CYCLE_MINUTES.length - 1]
-    return [...CYCLE_MINUTES].reverse().find((m) => m > minutes) ?? 0
   }
 
   function onBeforeUnload(e: BeforeUnloadEvent) {

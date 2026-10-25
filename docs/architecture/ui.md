@@ -178,3 +178,12 @@ The window layout, the asset browser and the dock panels and floating windows.
   map's hotkeys (App.svelte `onKeyDown`, on `window`) don't fire while a menu holds the focus. Keep
   each dropdown right after its title in the DOM: `dialogFocus` finds the title as the menu's
   previous sibling.
+- **Shortcuts in one table** (#583): `lib/ui/commands.ts` lists every shortcut (id, group, text, and
+  the `chords` App binds). App.svelte `onKeyDown` asks `commandFor(e, early)` and runs the command
+  through `lib/ui/runCommand.ts`: the early chords (Ctrl, the function keys, Tab) before the engine
+  and the tool see the key, the rest after `handleSelectionKey`/`handleToolKey`, so a tool's own
+  letter (Paint's T) wins. A menu item takes its shortcut text and action with `cmd(id)` or
+  `toggle(id)` (`keysOf(id)` for a key the engine reads itself, such as Del or H), and Help ›
+  Keyboard Shortcuts lists `shortcutSections()`. A new shortcut is a row there plus its runner; a
+  menu never types a shortcut string (`tests/shortcuts.test.ts` fails on one). The tool keys come
+  from `TOOLS` (`lib/ui/tools.ts`).

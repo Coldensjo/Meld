@@ -48,6 +48,7 @@
   }
   import { quitNow } from '../lib/io/session'
   import { APP_VERSION } from '../lib/version'
+  import { shortcutSections } from '../lib/ui/commands'
 
   const close = () => (ui.dialog = null)
 
@@ -91,19 +92,20 @@
       ],
     ],
     [
-      'Tools (keys 1 to 9)',
+      'Tools (keys 1 to 9, 0 and K)',
       [
         'Select (1): click a model, Shift+click adds one, drag moves the selection; drag on the ground to select an area and the models in it. Alt+click is the pipette. I opens the Inspector with the placement numbers.',
         'Sculpt (2): raise, lower, smooth, flatten, noise, mountain, crevice, terrace (levels of a set step; Shift+drag keeps the level of the first click), erode (water carving gullies, or thermal sliding off slopes steeper than the talus angle; Terrain › Erode does a whole area), vertex and hole modes. Painting while shaping paints a texture, or rock and dirt by slope, under the brush as the ground moves.',
         'Paint (3): paints the texture picked in the browser; a chunk of 8x8 cells takes four textures, and the Layers panel shows the ones under the cursor. Mask mode marks ground to fill with one texture.',
         'Roads (4) paint a hard-edged texture and level the ground across it. Water (5) paints lakes and rivers by liquid type, or shapes the sea\'s shore; the sea level is in Map Properties.',
         'Place (6) puts down the model picked in the browser, onto the ground or onto a building. Clear (7) wipes textures or models under the brush. Doodad brush (8) scatters a brush of weighted models like paint; World › Doodad Brushes makes brushes. Map data (9) paints the zone each chunk belongs to, which the export writes into the tiles; Alt+click takes the zone of the chunk under the cursor.',
+        'Stamp (0) applies a stack of sculpt and paint brushes in one stroke (Edit stack in the options bar). Paths (K) draws a road, river or fence along a curve of points, then Apply levels, carves, paints, fills or fences along it.',
       ],
     ],
     [
       'Brushes and undo',
       [
-        '[ and ] step the brush size, Shift+[ and ] the falloff, and Alt+right-drag sizes the brush where it stands. Ctrl+scroll also steps the size.',
+        '[ and ] step the brush size, Shift+[ and Shift+] the falloff, and Alt+right-drag sizes the brush where it stands. Ctrl+scroll also steps the size.',
         'Every edit is undoable with Ctrl+Z and Ctrl+Y, including strokes, placements, water and spawn changes.',
       ],
     ],
@@ -111,91 +113,13 @@
       'Camera and view',
       [
         'Right-drag looks around, W A S D fly, Space and X go up and down, the wheel sets the speed; T follows the ground, so the camera orbits a point on it. F focuses the selection.',
-        'Graphics has the time of day, shadows, fog, the grid and chunk lines, and the layers to show. Tab hides every panel but the menu bar. Hold F8 to name the part of the UI under the cursor for a bug report.',
+        'Lighting has the time of day, shadows and fog, and View the grid and chunk lines and the layers to show. Tab hides every panel but the menu bar. Hold F8 to name the part of the UI under the cursor for a bug report.',
       ],
     ],
   ]
 
-  const SHORTCUTS: Array<[string, Array<[string, string]>]> = [
-    [
-      'File',
-      [
-        ['Ctrl+N', 'New map'],
-        ['Ctrl+O', 'Open map'],
-        ['Ctrl+S', 'Save'],
-        ['Ctrl+W', 'Close map tab'],
-        ['Ctrl+Tab / Ctrl+Shift+Tab', 'Next / previous map tab'],
-        ['Tab', 'Hide / show the panels (the menu bar stays)'],
-        ['F11', 'Full screen on / off'],
-        ['Ctrl+= / Ctrl+- / Ctrl+0', 'Interface larger / smaller / back to 100 %'],
-        ['Ctrl+Shift+S', 'Save as'],
-        ['Ctrl+Shift+P', 'Save the minimap as an image'],
-    ['Ctrl+Shift+M', 'Performance overlay on / off: where the frame time goes'],
-        ['Ctrl+R', 'Stand the selected models upright (their tilt goes, their heading stays)'],
-        ['Ctrl+G / Ctrl+Shift+G', 'Group the selected models, so a click selects them all / ungroup them'],
-        ['Ctrl+Z / Ctrl+Y', 'Undo / Redo'],
-        ['Ctrl+C / Ctrl+V', 'Copy selection / Paste (also into another map tab)'],
-        ['Ctrl+A / Ctrl+D', 'Select all / Deselect'],
-        ['Enter / Esc', 'Place / cancel a paste'],
-        ['PgUp / PgDn', 'Raise / lower the paste while placing'],
-      ],
-    ],
-    [
-      'Camera',
-      [
-        ['Right mouse drag', 'Look around (orbit when following the ground)'],
-        ['Middle mouse drag', 'Slide sideways and up/down (pan when following the ground)'],
-        ['Mouse wheel', 'Flight speed (zoom when following the ground)'],
-        ['W A S D / arrows', 'Fly: W goes the way you look, A/D strafe (arrows nudge the object when one is selected)'],
-        ['Space / X', 'Fly up / down'],
-        ['Q / E', 'Rotate'],
-        ['Shift / Ctrl+Shift', 'Fast / very fast'],
-        ['T', 'Follow the ground on/off (on, the camera stays above the terrain; off, it can enter caves)'],
-        ['U', 'Top-down view on/off: straight down with no perspective; the wheel zooms, Q/E or a right drag turn the map'],
-        ['M', 'Minimap window: the map from above with the camera\'s spot; a click moves the camera there'],
-        ['F', 'Focus selected object'],
-        ['Shift+F2', 'Climb view on/off: ground too steep to walk up is tinted red (the slope is in the View menu)'],
-        ['N / Shift+N', 'Day cycle faster / slower (a day in 40, 20, 10, 5, 2 or 1 min; slower than 40 pauses it)'],
-        ['J', 'Pause / run the day cycle'],
-      ],
-    ],
-    [
-      'Tools',
-      [
-        ['1 – 9, 0', 'Select, Sculpt, Paint, Roads, Water, Place, Clear, Doodad brush, Map data, Stamp'],
-        ['V / B', 'Select / Paint'],
-        ['Alt+click', 'Pipette: pick the model under the cursor to place, or the texture to paint with'],
-        ['Click, Shift+click', 'Select a model, add or remove one (Select tool)'],
-        ['Drag on the ground', 'Select an area and the models in it (Select tool)'],
-        ['[ / ], Ctrl+scroll', 'Brush smaller / larger (fine steps when small, coarse when big)'],
-        ['Shift+[ / Shift+]', 'Brush falloff softer / harder'],
-        ['Alt+right-drag', 'Size the brush where it stands: sideways for the size, up and down for the falloff'],
-        ['Arrow keys', 'Move selected object (camera-relative)'],
-        ['Ctrl+Page Down', 'Put the selected models back on the ground'],
-        ['Alt+↑ / Alt+↓, PgUp / PgDn', 'Raise / lower selected object'],
-        ['Alt+← / Alt+→', 'Spin selected object 5°'],
-        ['R / Shift+R', 'Spin selected object 15° (or the placement preview)'],
-        ['Shift + arrows', 'Bigger steps'],
-        ['Ctrl+scroll', 'Rotate the placement preview (Place tool)'],
-        ['Z+scroll, Shift+Z+scroll', 'Tilt / roll the selected models 5° a notch, or the placement preview with nothing selected (Place tool); all the way round'],
-        ['PgUp / PgDn', 'Raise / lower the placement preview (Place tool, nothing selected)'],
-        ['Arrow keys', 'Move the placement preview away from the cursor (Place tool, nothing selected; Shift for bigger steps)'],
-        ['Shift+scroll', 'Scale the placement preview (Place tool; doodads only, the client draws buildings at full size)'],
-        ['Shift+drag', 'Scatter (Place tool)'],
-        ['Ctrl+scroll, R', 'Spin the preview about the brush (Doodad brush tool)'],
-        ['Shift+drag', 'Stack models on top of each other, ignoring the spacing (Doodad brush tool)'],
-        ['Ctrl+drag', "Erase the brush's models (Doodad brush tool)"],
-        ['Delete', 'Delete the selected models'],
-        ['Ctrl+C / Ctrl+V', 'Copy the selected models (or area) / paste under the cursor'],
-        ['Ctrl+Shift+D', 'Duplicate the selected models in place'],
-        ['Esc', 'Deselect'],
-        ['G', 'Toggle grid'],
-        ['I', 'Inspector: the selected model\'s placement numbers and actions (Esc closes it)'],
-        ['Hold F8', 'Name the part of the UI under the cursor (for bug reports)'],
-        ['F9', 'Copy the GM teleport command (.go xyz) to the point under the cursor'],
-      ],
-    ],
-  ]
+  /** Help › Keyboard Shortcuts' rows, from the shortcut table the key handler and the menus use (#583). */
+  const SHORTCUTS = shortcutSections()
 </script>
 
 {#if ui.dialog === 'about'}
@@ -254,8 +178,8 @@
       <h3>{group}</h3>
       <table>
         <tbody>
-          {#each rows as [key, what] (key + what)}
-            <tr><td><kbd>{key}</kbd></td><td>{what}</td></tr>
+          {#each rows as row (row.id)}
+            <tr><td><kbd>{row.keys}</kbd></td><td>{row.desc}</td></tr>
           {/each}
         </tbody>
       </table>

@@ -472,6 +472,21 @@ Checks: the menu bar and the right-click menu work from the keyboard.
 - Trap: a synthetic Tab doesn't move the focus, so the probe only checks the menu closed and the
   focus sits on the title, from where the browser's own Tab moves on.
 
+## Shortcut table (#583, probe `shortcut-table`)
+
+Checks: the menus, App's key handler and Help › Keyboard Shortcuts use the one table in
+`lib/ui/commands.ts`.
+- `cd frontend && bun test tests/shortcuts.test.ts`: unique ids, no chord bound twice, each chord
+  reaching its own command (Ctrl+Shift+Z is Redo, Shift+[ the falloff, Ctrl+0 by `code` too, Ctrl+T
+  nothing), the tool keys from `TOOLS`, and the sources: no `shortcut: '...'` in `MenuBar.svelte`,
+  every `cmd`/`toggle`/`keysOf` id in the table, the dialog reading `shortcutSections()`.
+- `bun run probe shortcut-table` (smoke): K and 0 pick Paths and Stamp, G the grid, Ctrl+A selects
+  and switches to Select; every menu's shortcut text is a table row's; Edit › Undo shows the
+  "Undo: ..." status Ctrl+Z shows; the Shortcuts dialog has a row for each table row. Run `hotkeys`
+  and `menu-keys` with it.
+- Trap: the probe's keys go to `window`, so the focus must not sit in a text field (the runner's
+  page starts on the body).
+
 ## Interface size (#372, probe `ui-scale`)
 
 Checks: Preferences › Interface size zooms the whole UI and everything still lines up.
