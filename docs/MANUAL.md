@@ -17,7 +17,7 @@ Everything Meld does, tool by tool. For building it, see the [README](https://gi
 | Clear | `7` | Erase models, or paint in the brush: heights, liquids or holes. |
 | Doodad brush | `8` | Scatter a brush of weighted models over the ground; `Ctrl` erases them. |
 | Stamp | `0` | One stroke applies a stack of sculpt and paint brushes together. |
-| Map data | `9` | Paints the zone (AreaTable.dbc) each chunk belongs to, shown as a colour per zone; Set or Clear, `Alt`+click takes the zone under the cursor. The export writes it into the tiles' chunk headers. |
+| Map data | `9` | Paints the zone (AreaTable.dbc) each chunk belongs to, shown as a colour per zone; Set or Clear, `Alt`+click takes the zone under the cursor. It also marks chunks impassable and cells that grow no grass tufts. The export writes it into the tiles' chunk headers. |
 
 ### Layout
 
@@ -83,7 +83,6 @@ portals and interior fog). Creatures are dressed from their displays, equipment 
 Also included:
 
 - Round or **square** brushes; square brushes can snap to the grid for tile-aligned painting.
-
 - New-world generator: Open sea, Island, Archipelago, Rolling hills, Lakeland, Highlands, Mountains or Flat land, from 1 to 6 tiles a side, seeded.
 - **Auto-paint** textures by height and slope, plus automatic rock on cliffs. New maps start with
   Elwynn tilesets.
@@ -157,10 +156,12 @@ Graphics and camera preferences are saved in the user config file
 
 All platforms:
 
-- Go ≥ 1.25
+- Go ≥ 1.26
 - Bun ≥ 1.4 (bun.sh); it runs the frontend tooling, so Node.js isn't needed
 - Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
 - Check with `wails doctor`
+- golangci-lint v2 for `make check` (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`); without it the lint is skipped
+- GNU Make; on Windows its recipes run through Git for Windows' `sh.exe`
 
 **Linux:** `gtk3` and `webkit2gtk-4.1` dev packages.
 
@@ -193,8 +194,9 @@ On Windows, natively: `wails build`. To build an NSIS installer: `wails build -n
 ### Tests & checks
 
 ```bash
-make test    # Go tests under internal/ and the frontend unit tests (node --test)
-make check   # go vet + svelte-check/tsc
+make test    # Go tests under internal/ and cmd/, and the frontend unit tests (bun test)
+make check   # gofmt, go vet, golangci-lint, bindings and notices checks, svelte-check/tsc
+make verify  # check + test + the build for this OS
 WOW_DIR=/path/to/WoW go test ./internal/wow/ -v   # integration test against a real 1.12 client
 ```
 
@@ -220,6 +222,12 @@ internal/vmangos/      Regions to and from the client, the world database, DBC t
 internal/game/         Starts Wow.exe or Benilla (Launch), and the game's template caches
 internal/heightmap/    Heightmap PNGs
 internal/config/       Per-user settings (client, server and Benilla folders, preferences)
+internal/recovery/     Autosaved copies of maps with unsaved changes, offered again after a crash
+internal/sessionlog/   Each session's status lines, kept in a file for bug reports
+internal/handoff/      Large binary replies of bound methods, fetched by the page in one GET
+internal/sandbox/      Throwaway copies of the client's Data folder for the probes
+internal/testclient/   Finds the client and server the client-dependent Go tests read
+cmd/meldtool/          Read-only inspector for .wmap files, tiles, MPQs and the bound methods
 benilla-launcher/      Meld's launcher for Benilla (BENILLA.md)
 frontend/src/
   App.svelte           Layout + global shortcuts
@@ -233,4 +241,9 @@ frontend/src/
   lib/state/           Svelte rune state, undo history
   lib/io/              Bridge to Go (save/load), base64
   lib/wow/             Client for the /wow/* endpoints (lists, textures, meshes)
+  lib/ui/              Tool list, menu commands and keys, UI scale, virtual grids
+  lib/check/           File › Check Map's checks
+  lib/bench/           Generated benchmark maps
+frontend/tests/       Bun unit tests
+frontend/probes/      Checks in the live app (docs/TESTS.md)
 ```

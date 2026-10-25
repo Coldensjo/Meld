@@ -47,7 +47,8 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     Its "Mask where sediment settled" option (#242, `editor.erode.mask`) replaces the paint mask, in
     the same step, with each vertex's rise (dropped sediment and slid scree, bilinear to the mask's
     texels, full at `SETTLED_FULL` = 1 yd; `settledMask`), so Fill Mask lays dirt or gravel there.
-  - Object tools push `Command`s (`addCommand`, `removeCommand`, `transformCommand`).
+  - Object tools push `Command`s: `addedCommand` and `removedCommand` (`world/objectCommands.ts`) for
+    models added or removed, `transformCommand` (`tools/ObjectTools.ts`) for a move.
   - **Every edit must be undoable** through `History`.
 - **Stamp** (`tools/StampTool.ts`, tool `stamp`, key 0) applies a brush stack (`tools/brushStack.ts`,
   `prefs.brushStacks`, edited in `BrushStackDialog.svelte`): each brush of the stack runs a pooled Sculpt or

@@ -106,7 +106,7 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
 - The extractors write into `data\meld-staging` (MapExtractor `-o meld-staging`, the assembler's
   `meld-staging\vmaps`), whose files move over `data\maps` and `data\vmaps` only once all three steps
   passed; a failed step leaves the old files and starts mangosd again on them (#466). Go:
-  `TestPublishServerKeepsTheOldDataAndRestartsOnFailure` (each step failing in turn).
+  `TestPublishServerKeepsTheOldDataOnFailure` (each step failing in turn).
 - Extractors by hand, without touching the server: run them in an empty scratch folder (VMapExtractor
   writes `.\Buildings` in the working folder and refuses a folder that already holds `Buildings\dir_bin`):
   `MapExtractor.exe -i C:\WoW\client -o . -e 1 -m 0 -t 32_48,33_48,32_49,33_49 --silent`, then

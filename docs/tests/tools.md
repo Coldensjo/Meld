@@ -382,8 +382,8 @@ takes the first apply back (the hump goes), with both applies undoing in order.
 `bun run probe path-road` on a fresh flat map; `--shot <dir>` saves `path-road-applied.png`, the road
 seen from above with its dots and width lines.
 - `frontend/tests/paths.test.ts` covers the curve sampling, the grade limit, the cross profile, the
-  distance field, reading paths from a file and `applyRoad`'s heights and paint with their undo, on a
-  plain object standing in for `Terrain`.
+  distance field, reading paths from a file and a road's heights and paint through `applyPath`
+  (`tools/pathApply.ts`) with their undo, on a plain object standing in for `Terrain`.
 - The probe aims the clicks by projecting world points through `e.camera` (`Vector3.project`), and
   passes `movementY` in the drag's event options, which a synthetic `PointerEvent` otherwise leaves 0.
 

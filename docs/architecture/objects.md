@@ -211,8 +211,8 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
   combo at +22) is read for the same loop as the bones into `Group.UV` (`UVAnim`: translation, raw
   quaternion, scaling; `Consolidate` keeps such groups apart). The frontend gives an animated group a
   material of its own with a copy of its texture (`assets.ts`, one GPU texture still) and sets the
-  copy's matrix each frame from the client's law (`world/uvAnim.ts`, `updateUVAnimations`, called from
-  `Engine.animateModels`): waterfalls and lava scroll as in the game. A batch's colour (0x54, by its
+  copy's matrix each frame from the client's law (`world/uvAnim.ts`; `updateMaterialAnimations` in
+  `models/assets.ts`, called from `Engine.animateModels`): waterfalls and lava scroll as in the game. A batch's colour (0x54, by its
   colour index) and transparency weight (0x64 through 0xA4) work the same way (B-181, `Group.Color`,
   `ColorAnim`): Go drops a batch whose alpha times weight is a constant 0 or less (the client never
   draws it), and the frontend tints the group's own material and sets its opacity, hiding it at 0

@@ -108,7 +108,7 @@ make dev             # wails dev -tags webkit2_41 (hot reload; browser debug at 
 make build-linux     # wails build -tags webkit2_41  → build/bin/Meld
 make build-windows   # wails build -platform windows/amd64 → build/bin/Meld.exe
 make test            # go test ./internal/... ./cmd/... (and . when frontend/dist exists) + frontend unit tests (`bun test`)
-make check           # go vet (same rule) + bindings-check (wailsjs matches the bound methods) + (cd frontend && bun run check)
+make check           # gofmt + go vet (same rule) + golangci-lint (skipped if missing) + bindings-check (wailsjs matches the bound methods) + notices-check + (cd frontend && bun run check)
 make verify          # check + test + the build for this OS: the gate before a commit
 make bindings        # regenerate frontend/wailsjs (wails generate module); make format = gofmt -w
 make probe           # every live-app probe (frontend/probes) against the running `make dev`
@@ -142,11 +142,16 @@ make docs            # the docs site (VitePress, docs/.vitepress) → docs/.vite
 
 ## Architecture
 
-- **Go owns files, archives and the server; the frontend owns rendering and editing.** `app.go` is
-  the thin binding layer (dialogs, `SaveMap`, `LoadMap`, the client and server calls), and the real
-  work sits in packages under `internal/`:
+- **Go owns files, archives and the server; the frontend owns rendering and editing.** `app.go` (with
+  one `app_<area>.go` file a seam beside it) is the thin binding layer (dialogs, `SaveMap`,
+  `LoadMap`, the client and server calls), and the real work sits in packages under `internal/`:
   - `mapfile` reads and writes `.wmap` files; `config` keeps the user's settings; `heightmap` reads
-    and writes heightmap PNGs.
+    and writes heightmap PNGs; `recovery` autosaves maps with unsaved changes for after a crash;
+    `sessionlog` keeps each session's status lines in a file; `handoff` passes a bound method's large
+    binary reply to the page as one GET.
+  - For tests: `sandbox` copies the client's Data folder for the probes, `testclient` finds the
+    client and server the client-dependent Go tests read, and `cmd/meldtool` inspects `.wmap` files,
+    tiles, MPQs and the bound methods (docs/TESTS.md).
   - `mpq` is our own read-only MPQ reader; `wow` opens the client, decodes BLP, M2 and WMO, dresses
     creature looks, builds minimap overviews and serves `/wow/*`.
   - `adt` reads and rewrites 1.12 tiles: terrain, textures and alpha maps, liquids (MCLQ), models,
