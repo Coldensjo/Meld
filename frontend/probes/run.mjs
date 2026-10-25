@@ -6,6 +6,7 @@
 //   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*; name those)
 //   bun run probe bench --shot out       also save a screenshot a probe as out/<name>.png
 //   bun run probe bench --profile        also print the probe's top functions by CPU time
+//   bun run probe --smoke                the probes marked `// tier: smoke` (#398): fast, deterministic, guarding shared code; `make probe-smoke`
 //   bun run probe --list                 list the probes with their first comment line and their touches line
 //   bun run probe --touching HEAD~3..HEAD  the probes whose `// touches:` globs match a file the git range changed (#397)
 //   bun run probe --touching <range> --list  name those probes without running them
@@ -36,10 +37,12 @@ const args = process.argv.slice(2)
 let shotDir = null
 let profiling = false
 let touching = null
+let smoke = false
 const names = []
 for (let i = 0; i < args.length; i++) {
 	if (args[i] === '--shot') shotDir = args[++i]
 	else if (args[i] === '--profile') profiling = true
+	else if (args[i] === '--smoke') smoke = true
 	else if (args[i] === '--touching') touching = args[++i] ?? fail('--touching needs a git range, e.g. HEAD~3..HEAD')
 	else names.push(args[i])
 }
@@ -52,12 +55,15 @@ const all = readdirSync(here).filter((f) => f.endsWith('.js') && f !== 'lib.js')
 const header = (name) => {
 	const lines = readFileSync(join(here, name + '.js'), 'utf8').split(/\r?\n/)
 	let touches = null
+	let tier = null
 	for (const l of lines) {
 		if (!l.startsWith('//')) break
 		const m = /^\/\/\s*touches:\s*(.*)$/.exec(l)
+		const t = /^\/\/\s*tier:\s*(\S+)/.exec(l)
+		if (t) tier = t[1]
 		if (m) touches = m[1].split(',').map((g) => g.trim()).filter(Boolean)
 	}
-	return { first: lines[0].replace(/^\/\/\s*/, ''), touches }
+	return { first: lines[0].replace(/^\/\/\s*/, ''), touches, tier }
 }
 /** A glob as a RegExp over repo-root paths: `**` any run of folders, `*` within one name; a path ending in / matches what is under it. */
 const globRe = (g) => new RegExp('^' + g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\/?|\*/g, (m) => (m === '*' ? '[^/]*' : '.*')) + (g.endsWith('/') ? '.*' : '') + '$')
@@ -65,7 +71,7 @@ const globRe = (g) => new RegExp('^' + g.replace(/[.+^${}()|[\]\\]/g, '\\$&').re
 // --list with --touching names the probes it would run, without running them.
 const listOnly = touching && names[0] === '--list'
 if (listOnly) names.shift()
-if (names[0] === '--list' || (names.length === 0 && !touching)) {
+if (names[0] === '--list' || (names.length === 0 && !touching && !smoke)) {
 	for (const n of all) {
 		const { first, touches } = header(n)
 		console.log(`${n.padEnd(20)} ${first}`)
@@ -112,6 +118,7 @@ const touchingProbes = (range) => {
 	})
 }
 let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n)) : names.flatMap(expand)
+if (smoke) picked = [...new Set([...picked, ...all.filter((n) => header(n).tier === 'smoke')])]
 if (touching) {
 	const found = touchingProbes(touching)
 	console.error(`probe: --touching ${touching}: ${found.length ? found.join(' ') : 'no probe touches it'}`)

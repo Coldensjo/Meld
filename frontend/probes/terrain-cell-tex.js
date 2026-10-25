@@ -1,5 +1,6 @@
 // The terrain's cell texture (#394), and the Map data overlay redrawn by rect (#530): the Map data tool's no-tufts overlay (its red) and a free-form area's outline (its green) share one sampler and draw together without either clobbering the other, and the terrain shader leaves a texture unit free with the sun's two shadow cascades and three lamp shadow maps.
 // touches: frontend/src/lib/terrain/TerrainMaterial.ts, frontend/src/lib/terrain/Terrain.ts, frontend/src/lib/tools/MapDataTool.ts, frontend/src/lib/state/areaSelection.ts, frontend/src/lib/terrain/areaShape.ts
+// tier: smoke
 const e = P.e
 const { editor, ui } = await P.state()
 const { setAreaCells } = await P.app('/src/lib/state/areaSelection.ts')

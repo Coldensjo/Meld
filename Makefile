@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test check probe probe-perf docs clean
+.PHONY: dev build build-linux build-windows test check probe probe-smoke probe-perf docs clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -39,6 +39,10 @@ check:
 # Every probe in frontend/probes but the benchmarks (bench, perf-*; `make probe-perf` runs those) against the running `make dev` (docs/TESTS.md, "Probes").
 probe:
 	cd frontend && bun run probe --all
+
+# The probes marked `// tier: smoke`: fast and deterministic, guarding the shared code most commits touch (docs/TESTS.md, "Probes").
+probe-smoke:
+	cd frontend && bun run probe --smoke
 
 # The benchmark probes, which print numbers for a before/after (docs/TESTS.md, "Measuring performance").
 probe-perf:

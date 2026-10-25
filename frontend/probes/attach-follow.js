@@ -1,5 +1,6 @@
 // Attached objects follow their parent (#329): a move, an undo-style snapshot that detaches one, re-parenting through place, a type change, a sculpt re-snap, and the parent deleted and added back.
 // touches: frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/world/placement.ts, frontend/src/lib/world/pivot.ts
+// tier: smoke
 const e = P.e
 e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

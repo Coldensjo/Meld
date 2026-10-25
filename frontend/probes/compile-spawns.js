@@ -6,6 +6,7 @@
 // and says why; Compile All writes the tiles, then the spawns, then rebuilds; Compile to Client never
 // writes the spawns; with no spawn edits nothing goes to the database.
 // touches: frontend/src/lib/io/mapio.ts, frontend/src/lib/world/spawnEdits.ts, app.go, internal/vmangos/spawnedit.go
+// tier: smoke
 const { ui, editor, prefs } = await P.state()
 const mapio = await P.app('/src/lib/io/mapio.ts')
 mapio.openWowRegion(P.e, 'Azeroth', 31, 50, 1)

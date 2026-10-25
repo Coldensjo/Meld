@@ -1,5 +1,6 @@
 // The menu bar and the right-click menu work from the keyboard (#370): focus on the first item when a menu opens, arrows between items and menus, Escape back to the title, and no map hotkey fires meanwhile.
 // touches: frontend/src/components/MenuBar.svelte, frontend/src/components/ContextMenu.svelte, frontend/src/lib/ui/menuKeys.ts
+// tier: smoke
 const { ui, editor } = await P.state()
 const press = (key, init = {}) => {
 	const target = document.activeElement ?? document.body

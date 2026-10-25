@@ -4,6 +4,7 @@
 // under 0.1°, and is redrawn after a long pan or a larger sun move (#324). Counts the frames whose
 // markShadows asked for a redraw.
 // touches: frontend/src/lib/engine/shadowCascades.ts, frontend/src/lib/engine/Environment.ts, frontend/src/lib/world/shadowCasters.ts
+// tier: smoke
 const e = P.e
 const { editor, prefs } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

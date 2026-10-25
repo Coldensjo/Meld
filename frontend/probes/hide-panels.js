@@ -1,5 +1,6 @@
 // Tab hides the panels and the viewport fills the window below the menu bar; Tab again restores it (#248).
 // touches: frontend/src/App.svelte, frontend/src/components/MenuBar.svelte, frontend/src/components/Toolbar.svelte
+// tier: smoke
 await P.frames(3)
 const tab = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
 const box = () => {
