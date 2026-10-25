@@ -4,11 +4,12 @@
 	import { classOfBit } from '../lib/wow/classes'
 	import AuraField from './AuraField.svelte'
 	import ClassIcon from './ClassIcon.svelte'
+	import MoneyField from './MoneyField.svelte'
 	import RefField from './RefField.svelte'
 	import { TEXT_CODES, insertCode } from '../lib/wow/textCodes'
 
 	// A group of a template's columns as the creature and game object editors show them: a checkbox
-	// list for flags, a checkbox for a 0/1 column, a select where the numbers have names, a picker for a
+	// list for flags, a checkbox for a 0/1 column, gold, silver and copper for money, a select where the numbers have names, a picker for a
 	// number that names a thing (RefField), a text area for long text, else a text or number input by
 	// the column's kind, held to the column's range. A changed column shows in the accent colour, and
 	// each label's tooltip names its column.
@@ -79,6 +80,11 @@
 					<label class="check"><input type="checkbox" checked={((Number(value(f)) || 0) & bit) !== 0} onchange={(e) => onset(f.col, withBit(value(f), bit, (e.currentTarget as HTMLInputElement).checked))} />{#if f.classes === 'mask'}<ClassIcon id={classOfBit(bit)} />{/if} {name}</label>
 				{/each}
 			</fieldset>
+		{:else if f.money}
+			<label class:changed title={tip(f)}
+				>{f.label}
+				<MoneyField value={Number(value(f)) || 0} signed={f.money === 'signed'} costsHint={f.hint} onset={(v) => onset(f.col, String(v))} /></label
+			>
 		{:else if f.bool}
 			<label class="check" class:changed title={tip(f)}><input type="checkbox" checked={value(f) !== '0' && value(f) !== ''} onchange={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).checked ? '1' : '0')} /> {f.label}</label>
 		{:else if f.options}

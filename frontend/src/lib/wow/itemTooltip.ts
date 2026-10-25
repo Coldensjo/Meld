@@ -21,6 +21,8 @@ export interface TooltipLine {
 	title?: boolean
 	/** Meld's own line, not the game's (item level, sell price). */
 	extra?: boolean
+	/** A copper count drawn after `left` as coins (the sell price, #679). */
+	money?: number
 }
 
 /** Names the tooltip shows that the row only has as numbers; a line whose name is missing is left out. */
@@ -288,6 +290,6 @@ export function tooltipLines(row: Record<string, string>, known: TooltipNames = 
 	const item = n('item_level')
 	if (item > 0) out.push({ left: `Item Level ${item}`, color: DIM, extra: true })
 	const sell = n('sell_price')
-	if (sell > 0) out.push({ left: `Sell Price: ${money(sell)}`, extra: true })
+	if (sell > 0) out.push({ left: 'Sell Price:', money: sell, extra: true })
 	return out
 }

@@ -106,8 +106,8 @@ export function objectFieldGroups(type: number): CreatureFieldGroup[] {
 		{
 			title: 'Money',
 			fields: [
-				{ col: 'mingold', label: 'Copper from' },
-				{ col: 'maxgold', label: 'Copper to' },
+				{ col: 'mingold', label: 'Money from', money: true },
+				{ col: 'maxgold', label: 'Money to', money: true },
 			],
 		},
 	]

@@ -754,6 +754,7 @@ the same scene, the report before and after.
 - World map of a zone (World › World Map, #181; exploration overlays, #219)
 - Icons from PNG files and back, and the Icons tool (#364, #683, probe `icons`)
 - Icons beside item, spell and class names (#682, probe `editor-icons`)
+- Money as gold, silver and copper (#679, probe `money-fields`)
 - The asset server across a patch write (#471, probe `patch-cache`)
 - The binary replies against their parsers (#520, the wire fixtures)
 - The format constants and the axis swap on both sides (#538, the format fixture)

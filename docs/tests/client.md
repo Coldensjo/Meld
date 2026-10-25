@@ -404,6 +404,20 @@ as `<name>.png` files.
   caches nothing by icon name across a restart, but Meld's own previews do (`forgetIconImages`,
   `forgetSpellIcons` drop them after an import).
 
+## Money as gold, silver and copper (#679, probe `money-fields`)
+
+Checks: the item editor's Buy price for the Worn Shortsword (25, 35 copper) shows three amounts with
+three different coin images, 150 typed as copper is an unsaved edit that rolls over to 1s 50c when
+the field is left and Revert puts back, the tooltip's Sell Price draws a coin, and the quest editor's
+Money for Grime-Encrusted Ring (2945, -300) ticks Costs with 3 silver. `bun run probe money-fields`
+(about 6 s, nothing written). Unit test: `bun test tests/money.test.ts` (split, join, rollover, sign,
+amounts past 99 gold).
+- By eye: Gnome Improvement (2948) › Rewards shows Costs 30 silver beside Money at level 60; World ›
+  Flight Paths' price and the creature editor's Messages tab's option Cost use the same control; the
+  probe doesn't open those.
+- Trap: the coins are one atlas, `Interface\MoneyFrame\UI-MoneyIcons.blp`; the
+  `UI-GoldIcon`/`UI-SilverIcon`/`UI-CopperIcon` names of later clients answer 404 in 1.12.
+
 ## Icons beside item, spell and class names (#682, probe `editor-icons`)
 
 Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's

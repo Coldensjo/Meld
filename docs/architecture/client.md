@@ -418,6 +418,17 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   field with `classes: 'mask'` (flag ticks, a ClassMask bit) or `classes: 'id'` (a select of class
   IDs) shows it in `TemplateFields`. A `<select>`'s options cannot hold images, so a select shows the
   picked value's icon beside it.
+- **Money** (#679): every amount of money (a quest's rewards, an item's prices and the money inside
+  it, a creature's or chest's coins, a flight's price, a gossip option's cost) is entered as gold,
+  silver and copper (`components/MoneyField.svelte`) and shown with the coins (`Money.svelte`, as the
+  item tooltip's sell price, `TooltipLine.money`). The databases keep the one copper count: a field
+  with `money: true` (or `'signed'`, with a Costs box for a negative count) in `*Fields.ts` gets the
+  control from `TemplateFields`, which writes the count back through the same `onset`. What is typed
+  stays as typed until the field is left (so 1000 silver can be typed), then rolls over. The coins
+  are cut from `Interface\MoneyFrame\UI-MoneyIcons.blp` (64 x 16, gold, silver, copper a quarter each,
+  as MoneyFrame.xml's TexCoords; there is no `UI-GoldIcon` in 1.12) by `lib/wow/coinIcons.ts`, alpha
+  kept; `Coin.svelte` shows the letter while it loads or without a client. The arithmetic is
+  `lib/wow/money.ts`.
 - **Icons tool** (`components/IconsWindow.svelte`, `ui.iconsTool`, #683): full screen (z-index 165),
   opened by Tools › Icons… (`{ icon: '' }`; a name opens it on that icon). The shared `IconGrid`
   (every icon by name, `iconsFirst="none"`, with Import PNG… and Export … as PNG…), and on the right

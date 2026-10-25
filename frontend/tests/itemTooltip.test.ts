@@ -16,8 +16,9 @@ test("a weapon's tooltip has its slot, type, damage, speed and damage per second
 	const lines = tooltipLines({ entry: '2361', name: 'Battleworn Hammer', quality: '1', bonding: '0', inventory_type: '17', class: '2', subclass: '5', armor: '0', dmg_min1: '3', dmg_max1: '5', dmg_type1: '0', delay: '2900', stat_type1: '0', stat_value1: '0', required_level: '1', item_level: '2', sell_price: '9', max_durability: '25', description: '' })
 	assert.deepEqual(
 		lines.map((l) => (l.right ? `${l.left} | ${l.right}` : l.left)),
-		['Battleworn Hammer', 'Two-Hand | Mace', '3 - 5 Damage | Speed 2.90', '(1.4 damage per second)', 'Durability 25 / 25', 'Item Level 2', 'Sell Price: 9c'],
+		['Battleworn Hammer', 'Two-Hand | Mace', '3 - 5 Damage | Speed 2.90', '(1.4 damage per second)', 'Durability 25 / 25', 'Item Level 2', 'Sell Price:'],
 	)
+	assert.equal(lines.at(-1)?.money, 9)
 	assert.equal(lines[0].color, '#ffffff')
 	assert.ok(lines[0].title)
 })

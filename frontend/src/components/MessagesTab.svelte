@@ -2,6 +2,7 @@
 	import { startSaving } from '../lib/state/saving'
 	import { DeleteConditionText, ReadGossip, SaveConditionText, SaveGossipOptions, SaveGreeting } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
+	import MoneyField from './MoneyField.svelte'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { ACTION_TALK, AI_EVENTS, CHAT_TYPES, GOSSIP_ACTIONS, GOSSIP_ICONS, nameOf, nextOptionId } from '../lib/wow/gossipNames'
 
@@ -298,7 +299,7 @@
 					<label title="A gossip_scripts id run when it is picked (0 for none)">Script <input type="number" min="0" bind:value={o.actionScript} /></label>
 					<label title="A point of interest marked on the map (0 for none)">Map point <input type="number" min="0" bind:value={o.actionPoi} /></label>
 					<label title="A conditions row the option needs to show (0 always)">Condition <input type="number" min="0" bind:value={o.condition} /></label>
-					<label title="Copper the player pays to pick it; the box asks first">Cost <input type="number" min="0" bind:value={o.boxMoney} /></label>
+					<label class="cost" title="What the player pays to pick it; the box asks first">Cost <MoneyField value={o.boxMoney} onset={(v) => (o.boxMoney = v)} /></label>
 					<label class="box" title="A box asking the player to confirm (empty for none)">Box <input bind:value={o.boxText} placeholder="none" /></label>
 					<label class="check" title="The box asks for a typed code"><input type="checkbox" bind:checked={o.boxCoded} /> Code</label>
 				</div>
@@ -388,6 +389,9 @@
 	}
 	.line.small input[type='number'] {
 		width: 64px;
+	}
+	.line .cost {
+		width: 240px;
 	}
 	.line .cond {
 		flex-direction: row;

@@ -2,7 +2,7 @@ import type { CreatureField, CreatureFieldGroup } from './creatureFields'
 import { fieldGroups } from './creatureFields'
 import type { QuestTab } from './questFields'
 import { CLASS_MASK, RACE_MASK } from './questFields'
-import { money, REP_RANKS } from '../wow/itemTooltip'
+import { REP_RANKS } from '../wow/itemTooltip'
 
 /**
  * How the item editor (#353) shows item_template's columns: on tabs, grouped, with plain labels, a
@@ -190,8 +190,6 @@ const AMMO: Array<[number, string]> = [
 
 const FOOD: Array<[number, string]> = named(['None', 'Meat', 'Fish', 'Cheese', 'Bread', 'Fungus', 'Fruit', 'Raw meat', 'Raw fish'])
 
-const coins = (v: string) => (Number(v) > 0 ? money(Number(v)) : '')
-
 /** The subclasses of class `cls`, for its select. */
 export function subclassOptions(cls: number): Array<[number, string]> {
 	return SUBCLASSES[cls] ?? [[0, 'None']]
@@ -236,8 +234,8 @@ function itemTabList(cls: number): QuestTab[] {
 				{
 					title: 'Price',
 					fields: [
-						{ col: 'buy_price', label: 'Buy price (copper)', note: coins },
-						{ col: 'sell_price', label: 'Sell price (copper)', note: coins },
+						{ col: 'buy_price', label: 'Buy price', money: true },
+						{ col: 'sell_price', label: 'Sell price', money: true },
 						{ col: 'buy_count', label: 'Sold in stacks of' },
 					],
 				},
@@ -356,8 +354,8 @@ function itemTabList(cls: number): QuestTab[] {
 						{ col: 'page_text', label: 'Page text', hint: 'page_text ID: the text it reads' },
 						{ col: 'page_language', label: 'Page language' },
 						{ col: 'page_material', label: 'Page material' },
-						{ col: 'min_money_loot', label: 'Money inside from', note: coins },
-						{ col: 'max_money_loot', label: 'Money inside to', note: coins },
+						{ col: 'min_money_loot', label: 'Money inside from', money: true },
+						{ col: 'max_money_loot', label: 'Money inside to', money: true },
 						{ col: 'wrapped_gift', label: 'Wrapped gift', ref: 'item' },
 					],
 				},

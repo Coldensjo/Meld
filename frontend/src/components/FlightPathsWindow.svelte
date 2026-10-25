@@ -11,6 +11,8 @@
 	import type { TaxiHooks } from '../lib/world/TaxiLayer'
 	import { defaultRoute, flightSeconds, type Vec3 } from '../lib/world/taxiRoute'
 	import { applyNote } from '../lib/io/applyNote'
+	import Money from './Money.svelte'
+	import MoneyField from './MoneyField.svelte'
 
 	// World › Flight Paths (#180): the open map's flight stops (TaxiNodes.dbc) and the routes between
 	// them (TaxiPath.dbc and TaxiPathNode.dbc's points), edited on the map. A window, not a dialog, so
@@ -390,7 +392,6 @@
 		const v = Number((e.target as HTMLInputElement).value)
 		return Number.isFinite(v) ? v : 0
 	}
-	const money = (c: number) => [c >= 10000 ? `${Math.floor(c / 10000)}g` : '', c >= 100 ? `${Math.floor(c / 100) % 100}s` : '', `${c % 100}c`].filter(Boolean).join(' ')
 	const duration = (s: number) => (s >= 60 ? `${Math.floor(s / 60)} min ${Math.round(s % 60)} s` : `${Math.round(s)} s`)
 	const sides = (s: Stop) => (s.allianceMount && s.hordeMount ? 'both' : s.allianceMount ? 'Alliance' : s.hordeMount ? 'Horde' : 'nobody')
 </script>
@@ -472,7 +473,7 @@
 					{#each stopRoutes as r (r.id)}
 						<li>
 							<button class:picked={pickRoute === r.id} class:dirty={dirtyRoutes.includes(r.id)} onclick={() => pickRouteFromList(r.id)}>
-								{r.from === stop.id ? `→ ${stopName(r.to)}` : `← ${stopName(r.from)}`}<span class="id">{r.id} · {money(r.cost)}</span>
+								{r.from === stop.id ? `→ ${stopName(r.to)}` : `← ${stopName(r.from)}`}<span class="id">{r.id} · <Money copper={r.cost} size={11} /></span>
 							</button>
 						</li>
 					{:else}
@@ -485,11 +486,8 @@
 				<div class="form">
 					<span class="k">Route {route.id}</span>
 					<span class="dim">{stopName(route.from)} to {stopName(route.to)}: {route.points.length} points, {duration(flightSeconds(route.points))}</span>
-					<label class="k" for="fp-cost">Price (copper)</label>
-					<span class="row">
-						<input id="fp-cost" type="number" min="0" value={route.cost} oninput={(e) => editCost(num(e))} />
-						<span class="dim">{money(route.cost)}</span>
-					</span>
+					<label class="k" for="fp-cost">Price</label>
+					<MoneyField id="fp-cost" value={route.cost} onset={editCost} />
 					<span></span>
 					<span class="row">
 						<button class:active={drawing} onclick={() => (drawing = !drawing)} title="Clicks on the map add a point after the picked one, at its height">{drawing ? 'Drawing…' : 'Draw points'}</button>

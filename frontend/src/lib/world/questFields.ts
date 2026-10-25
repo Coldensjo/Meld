@@ -174,8 +174,8 @@ export const QUEST_TABS: QuestTab[] = [
 			{
 				title: 'Money and experience',
 				fields: [
-					{ col: 'RewOrReqMoney', label: 'Money (copper)', note: moneyText, hint: 'Negative: the quest costs this much to hand in' },
-					{ col: 'RewMoneyMaxLevel', label: 'Money at level 60 (copper)', note: moneyText, hint: 'Given instead of experience at the top level' },
+					{ col: 'RewOrReqMoney', label: 'Money', money: 'signed', hint: 'Negative: the quest costs this much to hand in' },
+					{ col: 'RewMoneyMaxLevel', label: 'Money at level 60', money: true, hint: 'Given instead of experience at the top level' },
 					{ col: 'RewXP', label: 'Experience', hint: '0: worked out from the level' },
 				],
 			},
@@ -201,7 +201,7 @@ export const QUEST_TABS: QuestTab[] = [
 				fields: [
 					{ col: 'RewMailTemplateId', label: 'Mail template' },
 					{ col: 'RewMailDelaySecs', label: 'Delay (s)', note: timeText },
-					{ col: 'RewMailMoney', label: 'Mail money (copper)', note: moneyText },
+					{ col: 'RewMailMoney', label: 'Mail money', money: true },
 				],
 			},
 		],

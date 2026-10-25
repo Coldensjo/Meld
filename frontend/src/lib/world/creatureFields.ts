@@ -26,7 +26,9 @@ export interface CreatureField {
   long?: boolean
   /** The whole row of the grid. */
   wide?: boolean
-  /** What the value comes to, beside the label (such as copper as gold and silver). */
+  /** A copper count, entered as gold, silver and copper with their coins (MoneyField.svelte, #679); `signed` may be negative (it costs that much). */
+  money?: true | 'signed'
+  /** What the value comes to, beside the label (such as seconds as minutes). */
   note?: (value: string) => string
 }
 
@@ -141,8 +143,8 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
       { col: 'loot_id', label: 'Loot' },
       { col: 'pickpocket_loot_id', label: 'Pickpocket loot' },
       { col: 'skinning_loot_id', label: 'Skinning loot' },
-      { col: 'gold_min', label: 'Copper from' },
-      { col: 'gold_max', label: 'Copper to' },
+      { col: 'gold_min', label: 'Money from', money: true },
+      { col: 'gold_max', label: 'Money to', money: true },
     ],
   },
   {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { TooltipLine } from '../lib/wow/itemTooltip'
 	import ItemIcon from './ItemIcon.svelte'
+	import Money from './Money.svelte'
 
 	// An item's tooltip as the game draws it (#202): the icon and the lines, in the game's dark box.
 	// The Shop tab's ItemTooltip puts it beside the pointer; the item editor (#353) shows it in place,
@@ -19,7 +20,7 @@
 			<div class="lines">
 				{#each lines as l, i (i)}
 					<div class="line" class:title={l.title} class:extra={l.extra} style:color={l.color}>
-						<span>{l.left}</span>
+						<span>{l.left}{#if l.money !== undefined} <Money copper={l.money} size={11} />{/if}</span>
 						{#if l.right}<span class="right">{l.right}</span>{/if}
 					</div>
 				{/each}
