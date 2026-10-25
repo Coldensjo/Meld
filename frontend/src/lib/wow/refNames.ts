@@ -1,4 +1,4 @@
-import { Factions, ObjectTables, QuestTables, SpawnEmotes, TemplateNames, WorldRefNames } from '../../../wailsjs/go/main/App'
+import { Factions, ItemTables, ObjectTables, QuestTables, SpawnEmotes, TemplateNames, WorldRefNames } from '../../../wailsjs/go/main/App'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { areaName, loadAreas } from './areas'
 import { lockText } from './locks'
@@ -10,15 +10,22 @@ import { spellRef } from './spells'
 // answer kept for the session (forgetName drops one that a save changed).
 
 /** What a reference number can be once its sign is read (see refTarget). */
-export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote' | ObjectTableKind | WorldKind
+export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote' | ObjectTableKind | ItemTableKind | WorldKind
 
 /** The client tables a game object's data columns name (#702), read once (objectTables). */
 export type ObjectTableKind = 'lock' | 'language' | 'page material' | 'spell focus' | 'cinematic' | 'taxi path' | 'auction house'
 
-/** The world database rows a game object's data columns name (#702), named by WorldRefNames. */
-export type WorldKind = 'gossip' | 'page' | 'text' | 'event' | 'loot'
+/** The client tables the item editor's columns name (#701), read once (itemTables). */
+export type ItemTableKind = 'item set' | 'spell category' | 'map'
 
-export const WORLD_KINDS: readonly WorldKind[] = ['gossip', 'page', 'text', 'event', 'loot']
+/**
+ * The world database rows a game object's data columns (#702) and an item's random enchantment and
+ * disenchant columns (#701) name, named by WorldRefNames.
+ */
+export type WorldKind = 'gossip' | 'page' | 'text' | 'event' | 'loot' | 'enchantment' | 'disenchant'
+
+export const WORLD_KINDS: readonly WorldKind[] = ['gossip', 'page', 'text', 'event', 'loot', 'enchantment', 'disenchant']
+export const ITEM_TABLE_KINDS: readonly ItemTableKind[] = ['item set', 'spell category', 'map']
 export const OBJECT_TABLE_KINDS: readonly ObjectTableKind[] = ['lock', 'language', 'page material', 'spell focus', 'cinematic', 'taxi path', 'auction house']
 
 export interface RefName {
@@ -155,6 +162,21 @@ export function objectTableList(t: vmangos.ObjectTables, kind: Exclude<ObjectTab
 	}
 }
 
+let itmTables: Promise<vmangos.ItemTables> | null = null
+/** The client's tables the item editor's columns name (item sets, cooldown categories, maps), read once. */
+export function itemTables(): Promise<vmangos.ItemTables> {
+	if (!itmTables) {
+		itmTables = ItemTables().then((t) => ({ sets: t.sets ?? [], spellCategories: t.spellCategories ?? [], maps: t.maps ?? [] }) as vmangos.ItemTables)
+		itmTables.catch(() => (itmTables = null))
+	}
+	return itmTables
+}
+
+/** The list of an item table kind. */
+export function itemTableList(t: vmangos.ItemTables, kind: ItemTableKind): vmangos.NamedID[] {
+	return kind === 'item set' ? t.sets : kind === 'spell category' ? t.spellCategories : t.maps
+}
+
 /** A lock's text with its keys' names asked of the world database. */
 export async function lockName(lock: vmangos.LockInfo, lockTypes: vmangos.NamedID[]): Promise<string> {
 	const keys = (lock.parts ?? []).filter((p) => p.type === 1).map((p) => p.index)
@@ -188,7 +210,9 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 		case 'page':
 		case 'text':
 		case 'event':
-		case 'loot': {
+		case 'loot':
+		case 'enchantment':
+		case 'disenchant': {
 			p = new Promise<RefName | null>((done) => {
 				let ids = pending.get(kind)
 				if (!ids) pending.set(kind, (ids = new Map()))
@@ -223,6 +247,14 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 		case 'auction house':
 			p = objectTables().then((t) => {
 				const r = objectTableList(t, kind).find((x) => x.id === id)
+				return r ? { name: r.name } : null
+			})
+			break
+		case 'item set':
+		case 'spell category':
+		case 'map':
+			p = itemTables().then((t) => {
+				const r = itemTableList(t, kind).find((x) => x.id === id)
 				return r ? { name: r.name } : null
 			})
 			break

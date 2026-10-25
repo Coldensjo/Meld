@@ -304,9 +304,27 @@ func (a *App) ObjectTables() (vmangos.ObjectTables, error) {
 	return vmangos.LoadObjectTables(dataDir)
 }
 
+// ItemTables lists the client's tables the item editor names columns from (item sets, spell cooldown
+// categories, maps).
+func (a *App) ItemTables() (vmangos.ItemTables, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.ItemTables{}, err
+	}
+	return vmangos.LoadItemTables(dataDir)
+}
+
 // WorldRefNames names world database rows by number: gossip menus, pages, texts, event scripts or
-// loot (kind), for the game object editor's data columns.
+// loot (kind), for the game object editor's data columns, and an item's random enchantments
+// ("enchantment", named from the client's ItemRandomProperties) or disenchant loot.
 func (a *App) WorldRefNames(kind string, ids []int) (map[int]string, error) {
+	if kind == "enchantment" {
+		server, dataDir, err := a.serverAndData()
+		if err != nil {
+			return nil, err
+		}
+		return vmangos.ItemEnchantmentNames(server, dataDir, ids)
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return nil, err
@@ -317,6 +335,13 @@ func (a *App) WorldRefNames(kind string, ids []int) (map[int]string, error) {
 // SearchWorldRefs lists the world database rows of kind (as WorldRefNames) numbered text or whose
 // text has it.
 func (a *App) SearchWorldRefs(kind, text string) ([]vmangos.NamedID, error) {
+	if kind == "enchantment" {
+		server, dataDir, err := a.serverAndData()
+		if err != nil {
+			return nil, err
+		}
+		return vmangos.SearchItemEnchantments(server, dataDir, text, 60)
+	}
 	server, _, err := a.serverAndData()
 	if err != nil {
 		return nil, err

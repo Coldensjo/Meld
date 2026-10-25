@@ -161,7 +161,8 @@ func LoadObjectTables(dataDir string) (ObjectTables, error) {
 
 // worldRefSQL is the query that names world database rows of kind: "gossip" (a gossip menu by its
 // first text), "page" (page_text), "text" (broadcast_text), "event" (event_scripts, by its
-// command count) or "loot" (gameobject_loot_template, by its row count). where picks the rows
+// command count), "loot" (gameobject_loot_template, by its row count) or "disenchant"
+// (disenchant_loot_template, by its items). where picks the rows
 // (with `id` the row's number). Each row is the number and its name.
 func worldRefSQL(kind, where string) (string, error) {
 	switch kind {
@@ -176,6 +177,10 @@ func worldRefSQL(kind, where string) (string, error) {
 		return "SELECT id, name FROM (SELECT id, CONCAT(COUNT(*), IF(COUNT(*) = 1, ' script command', ' script commands')) AS name FROM event_scripts GROUP BY id) r WHERE " + where + " ORDER BY id", nil
 	case "loot":
 		return "SELECT id, name FROM (SELECT entry AS id, CONCAT(COUNT(*), IF(COUNT(*) = 1, ' loot row', ' loot rows')) AS name FROM gameobject_loot_template GROUP BY entry) r WHERE " + where + " ORDER BY id", nil
+	case "disenchant":
+		// An item's disenchant_id (#701), by the items it gives, likeliest first.
+		return "SELECT id, name FROM (SELECT d.entry AS id, GROUP_CONCAT(DISTINCT COALESCE(i.name, CONCAT('item ', d.item)) ORDER BY d.ChanceOrQuestChance DESC SEPARATOR ', ') AS name " +
+			"FROM disenchant_loot_template d LEFT JOIN item_template i ON i.entry = d.item AND i.patch = (SELECT MAX(patch) FROM item_template WHERE entry = d.item) GROUP BY d.entry) r WHERE " + where + " ORDER BY id", nil
 	}
 	return "", fmt.Errorf("no world rows of kind %q", kind)
 }
@@ -265,7 +270,7 @@ func worldRefMatch(kind, text string) string {
 	if n, err := strconv.Atoi(text); err == nil {
 		parts = append(parts, "id = "+strconv.Itoa(n))
 	}
-	if kind == "gossip" || kind == "page" || kind == "text" {
+	if kind == "gossip" || kind == "page" || kind == "text" || kind == "disenchant" {
 		parts = append(parts, "name LIKE "+likePattern(text))
 	}
 	if len(parts) == 0 {

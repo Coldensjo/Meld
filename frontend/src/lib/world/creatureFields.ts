@@ -1,5 +1,5 @@
 import { CLASSES } from '../wow/classes'
-import type { ObjectTableKind, WorldKind } from '../wow/refNames'
+import type { ItemTableKind, ObjectTableKind, WorldKind } from '../wow/refNames'
 import { CREATURE_TYPES, NPC_FLAGS, RANKS } from './spawnInfo'
 
 /**
@@ -41,9 +41,10 @@ export interface CreatureField {
  * (FactionTemplate.dbc, what a creature's or object's `faction` holds), a zone (positive) or quest
  * sort (negative), a skill or an emote; for a game object's data columns (#702) a creature, a game
  * object or a zone alone, a client table row (a lock, a language…) or a world database row (a gossip
- * menu, a page, a text, an event script, a loot list).
+ * menu, a page, a text, an event script, a loot list); for the item editor's (#701) an item set, a
+ * cooldown category, a map, a random enchantment or disenchant loot.
  */
-export type RefKind = 'item' | 'creature or object' | 'creature' | 'object' | 'zone' | 'spell' | 'quest' | 'faction' | 'faction template' | 'zone or sort' | 'skill' | 'emote' | ObjectTableKind | WorldKind
+export type RefKind = 'item' | 'creature or object' | 'creature' | 'object' | 'zone' | 'spell' | 'quest' | 'faction' | 'faction template' | 'zone or sort' | 'skill' | 'emote' | ObjectTableKind | ItemTableKind | WorldKind
 
 export interface CreatureFieldGroup {
 	title: string

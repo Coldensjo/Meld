@@ -451,6 +451,25 @@ and `TestLoadObjectTablesClient` with `WOW_DIR`.
   quest lists, and the animation would need the model's sequence names.
 - The event and loot pickers search by number only (they have no text).
 
+## The item editor's id column pickers (#701, probe `item-pickers`)
+
+Checks: Armor of the Fang (6473)'s More tab names its item set (162, Embrace of the Viper) and its
+disenchant loot by its items (3, Strange Dust…), and Item set's Find lists every set and a click puts
+its ID in (the field turns changed); the Notched Shortsword (727) names its random enchantment (5168)
+by its suffixes ("of the …"); the Ornate Bronze Lockbox (4632) its lock by what opens it; A Letter to
+Grelin Whitebeard (2188) its page by its first line and its page material; the Gordok Inner Door Key
+(18268) its map (Dire Maul); Tough Jerky (117)'s Effects tab its cooldown category by its spells;
+Marshal's Satin Sandals (17607) Honor rank Marshal / General (16). `bun run probe item-pickers`
+(nothing written). Unit tests: `bun test tests/itemFields.test.ts`, `go test ./internal/vmangos/ -run
+'TestSpellCategoryNames|TestRandomPropertyNames|TestEnchantments|TestDisenchantSQL'`, and
+`TestLoadItemTablesClient` with `WOW_DIR`.
+- Trap: random_property names an item_enchantment_template entry, not an ItemRandomProperties.dbc
+  row; the entry lists up to 166 of them, so the name gives the first three by chance and the search
+  matches any of them (read whole in Go, `SearchItemEnchantments`, about 780 entries).
+- 1.12 has no SpellCategory.dbc: a cooldown category is named by the spells in it (Spell.dbc field 2).
+- 0 means none for map_bound, though map 0 is Eastern Kingdoms; other_team_entry's 1 also means none
+  and shows as "No item 1".
+
 ## Icons beside item, spell and class names (#682, probe `editor-icons`)
 
 Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's

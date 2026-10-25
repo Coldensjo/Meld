@@ -1826,6 +1826,54 @@ export namespace vmangos {
 		}
 	}
 	
+	export class NamedID {
+	    id: number;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new NamedID(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	    }
+	}
+	export class ItemTables {
+	    sets: NamedID[];
+	    spellCategories: NamedID[];
+	    maps: NamedID[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ItemTables(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sets = this.convertValues(source["sets"], NamedID);
+	        this.spellCategories = this.convertValues(source["spellCategories"], NamedID);
+	        this.maps = this.convertValues(source["maps"], NamedID);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	export class LightKey {
 	    t: number;
@@ -2335,20 +2383,7 @@ export namespace vmangos {
 	        this.pixels = source["pixels"];
 	    }
 	}
-	export class NamedID {
-	    id: number;
-	    name: string;
 	
-	    static createFrom(source: any = {}) {
-	        return new NamedID(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	    }
-	}
 	export class ObjectLoot {
 	    loot: number;
 	    items: LootItem[];

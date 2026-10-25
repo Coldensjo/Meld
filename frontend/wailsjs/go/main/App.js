@@ -210,6 +210,10 @@ export function ItemSets(arg1) {
   return window['go']['main']['App']['ItemSets'](arg1);
 }
 
+export function ItemTables() {
+  return window['go']['main']['App']['ItemTables']();
+}
+
 export function LaunchGame() {
   return window['go']['main']['App']['LaunchGame']();
 }

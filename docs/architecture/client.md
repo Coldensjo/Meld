@@ -223,6 +223,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   dropped) or their size through `App.WorldRefNames`, batched as the template names are, and
   searched with `App.SearchWorldRefs`. A `'creature'` or `'object'` ref alone keeps its sign: only
   `'creature or object'` reads a negative as an object.
+  The item editor's fields (`lib/world/itemFields.ts`, #701) reuse `'lock'`, `'page'`, `'language'`
+  and `'page material'`, and add client table rows read once through `App.ItemTables`
+  (`vmangos.LoadItemTables`: `'item set'`, `'map'`, and `'spell category'`, named by its spells since
+  1.12 has no table of them) and world rows through the same `WorldRefNames` and `SearchWorldRefs`:
+  `'disenchant'` (by its items) and `'enchantment'` (an item_enchantment_template entry by its
+  ItemRandomProperties suffixes, which the binding names in Go from the client). Honor rank is a
+  select (`HONOR_RANKS`, 5 to 18).
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a

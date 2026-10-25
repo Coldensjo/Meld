@@ -112,6 +112,8 @@ export function ItemModelLook(arg1:number,arg2:number,arg3:number,arg4:number):P
 
 export function ItemSets(arg1:Array<number>):Promise<Array<vmangos.ItemSet>>;
 
+export function ItemTables():Promise<vmangos.ItemTables>;
+
 export function LaunchGame():Promise<void>;
 
 export function LaunchGameAt(arg1:vmangos.CharacterSpot):Promise<string>;

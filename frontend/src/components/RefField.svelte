@@ -4,7 +4,7 @@
 	import type { CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
-	import { OBJECT_TABLE_KINDS, emoteList, factionTemplateName, factionTemplates, lockName, objectTableList, objectTables, questTables, reactionText, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
+	import { ITEM_TABLE_KINDS, OBJECT_TABLE_KINDS, emoteList, factionTemplateName, factionTemplates, itemTableList, itemTables, lockName, objectTableList, objectTables, questTables, reactionText, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
 	import ItemIcon from './ItemIcon.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 	import SpellIcon from './SpellIcon.svelte'
@@ -16,7 +16,9 @@
 	// template lists its faction's name with how it treats Alliance and Horde players (#699). A game
 	// object's data columns (#702) name client table rows (a lock by what opens it, a language, a
 	// flight path…), listed whole, and world database rows (a gossip menu or page by its first line,
-	// an event script or loot list by its size), searched by text or number.
+	// an event script or loot list by its size), searched by text or number. The item editor's (#701)
+	// add item sets, cooldown categories (named by their spells) and maps, listed whole, and random
+	// enchantments and disenchant loot, named by what they give and searched.
 
 	interface Props {
 		f: CreatureField
@@ -124,11 +126,20 @@
 					.filter((r) => like(r.name, r.id, q))
 					.slice(0, 300)
 					.map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
+			case 'item set':
+			case 'spell category':
+			case 'map':
+				return itemTableList(await itemTables(), k)
+					.filter((r) => like(r.name, r.id, q))
+					.slice(0, 300)
+					.map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
 			case 'gossip':
 			case 'page':
 			case 'text':
 			case 'event':
 			case 'loot':
+			case 'enchantment':
+			case 'disenchant':
 				return ((await SearchWorldRefs(k, q)) ?? []).map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
 			case 'faction template':
 				return (await factionTemplates())
@@ -152,7 +163,7 @@
 		if (!open || k === 'spell') return
 		// The client's short lists show whole without a search; the zones, the objects and the
 		// database's templates need one.
-		const whole = k === 'faction' || k === 'faction template' || k === 'skill' || k === 'sort' || (OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k)
+		const whole = k === 'faction' || k === 'faction template' || k === 'skill' || k === 'sort' || (OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k) || (ITEM_TABLE_KINDS as readonly NameKind[]).includes(k)
 		const local = whole || k === 'zone' || k === 'object'
 		if (!q && !whole) {
 			hits = []

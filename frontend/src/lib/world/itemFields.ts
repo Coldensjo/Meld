@@ -188,6 +188,30 @@ const AMMO: Array<[number, string]> = [
 	[3, 'Bullets'],
 ]
 
+/** item_template.required_honor_rank: the PvP ranks, 5 for the first (Private / Scout) to 18 (#701). */
+export const HONOR_RANKS: Array<[number, string]> = [
+	[0, 'None'],
+	...named(
+		[
+			'Private / Scout',
+			'Corporal / Grunt',
+			'Sergeant / Sergeant',
+			'Master Sergeant / Senior Sergeant',
+			'Sergeant Major / First Sergeant',
+			'Knight / Stone Guard',
+			'Knight-Lieutenant / Blood Guard',
+			'Knight-Captain / Legionnaire',
+			'Knight-Champion / Centurion',
+			'Lieutenant Commander / Champion',
+			'Commander / Lieutenant General',
+			'Marshal / General',
+			'Field Marshal / Warlord',
+			'Grand Marshal / High Warlord',
+		],
+		5,
+	),
+]
+
 const FOOD: Array<[number, string]> = named(['None', 'Meat', 'Fish', 'Cheese', 'Bread', 'Fungus', 'Fruit', 'Raw meat', 'Raw fish'])
 
 /** The subclasses of class `cls`, for its select. */
@@ -228,7 +252,7 @@ function itemTabList(cls: number): QuestTab[] {
 						{ col: 'bag_family', label: 'Bag holds', options: BAG_FAMILIES },
 						{ col: 'duration', label: 'Lasts (s)', hint: 'Seconds before it disappears, 0 for ever' },
 						{ col: 'start_quest', label: 'Starts quest', ref: 'quest' },
-						{ col: 'other_team_entry', label: 'Other faction item', hint: 'The item the other faction gets instead (VMaNGOS; 1 or empty for none)' },
+						{ col: 'other_team_entry', label: 'Other faction item', ref: 'item', hint: 'The item the other faction gets instead (VMaNGOS; 1 or empty for none)' },
 					],
 				},
 				{
@@ -302,7 +326,7 @@ function itemTabList(cls: number): QuestTab[] {
 						{ col: `spellcharges_${i}`, label: 'Charges', hint: '0 for no limit; negative: the item is used up with its last charge' },
 						{ col: `spellppmrate_${i}`, label: 'Procs per minute', hint: 'For Chance on hit' },
 						{ col: `spellcooldown_${i}`, label: 'Cooldown (ms)', hint: "-1 for the spell's own" },
-						{ col: `spellcategory_${i}`, label: 'Cooldown category' },
+						{ col: `spellcategory_${i}`, label: 'Cooldown category', ref: 'spell category', hint: 'Items and spells of one category share its cooldown' },
 						{ col: `spellcategorycooldown_${i}`, label: 'Category cooldown (ms)', hint: "-1 for the spell's own" },
 					],
 				}
@@ -321,7 +345,7 @@ function itemTabList(cls: number): QuestTab[] {
 						{ col: 'required_skill', label: 'Skill', ref: 'skill' },
 						{ col: 'required_skill_rank', label: 'Skill rank' },
 						{ col: 'required_spell', label: 'Spell known', ref: 'spell' },
-						{ col: 'required_honor_rank', label: 'Honor rank' },
+						{ col: 'required_honor_rank', label: 'Honor rank', options: HONOR_RANKS },
 						{ col: 'required_city_rank', label: 'City rank' },
 						{ col: 'required_reputation_faction', label: 'Reputation with', ref: 'faction' },
 						{ col: 'required_reputation_rank', label: 'Reputation at least', options: named(REP_RANKS) },
@@ -331,7 +355,7 @@ function itemTabList(cls: number): QuestTab[] {
 					title: 'Where',
 					fields: [
 						{ col: 'area_bound', label: 'Only in zone', ref: 'zone or sort' },
-						{ col: 'map_bound', label: 'Only on map' },
+						{ col: 'map_bound', label: 'Only on map', ref: 'map', hint: '0 for any map' },
 					],
 				},
 			],
@@ -350,10 +374,10 @@ function itemTabList(cls: number): QuestTab[] {
 				{
 					title: 'Contents and text',
 					fields: [
-						{ col: 'lock_id', label: 'Lock', hint: 'Lock.dbc ID: what opens it' },
-						{ col: 'page_text', label: 'Page text', hint: 'page_text ID: the text it reads' },
-						{ col: 'page_language', label: 'Page language' },
-						{ col: 'page_material', label: 'Page material' },
+						{ col: 'lock_id', label: 'Lock', ref: 'lock', hint: 'What opens it (Lock.dbc)', wide: true },
+						{ col: 'page_text', label: 'Page text', ref: 'page', hint: 'The text it reads (page_text)', wide: true },
+						{ col: 'page_language', label: 'Page language', ref: 'language', hint: '0 for Universal: everyone reads it' },
+						{ col: 'page_material', label: 'Page material', ref: 'page material', hint: 'The background its pages show' },
 						{ col: 'min_money_loot', label: 'Money inside from', money: true },
 						{ col: 'max_money_loot', label: 'Money inside to', money: true },
 						{ col: 'wrapped_gift', label: 'Wrapped gift', ref: 'item' },
@@ -362,9 +386,9 @@ function itemTabList(cls: number): QuestTab[] {
 				{
 					title: 'Links',
 					fields: [
-						{ col: 'random_property', label: 'Random enchantment', hint: 'item_enchantment_template entry' },
-						{ col: 'set_id', label: 'Item set', hint: 'ItemSet.dbc ID' },
-						{ col: 'disenchant_id', label: 'Disenchants into', hint: 'disenchant_loot_template entry' },
+						{ col: 'random_property', label: 'Random enchantment', ref: 'enchantment', hint: 'The suffixes it may roll ("of the Bear"…): an item_enchantment_template entry', wide: true },
+						{ col: 'set_id', label: 'Item set', ref: 'item set', hint: 'ItemSet.dbc' },
+						{ col: 'disenchant_id', label: 'Disenchants into', ref: 'disenchant', hint: 'What disenchanting gives: a disenchant_loot_template entry', wide: true },
 						{ col: 'food_type', label: 'Pet food', options: FOOD },
 					],
 				},
