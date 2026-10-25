@@ -2,11 +2,11 @@ package wow
 
 import (
 	"encoding/binary"
-	"os"
 	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 )
 
 // dxtBLP is a DXT1 BLP of w by h with its mips down to 1x1 (levels of them, -1 for all), each block
@@ -105,10 +105,7 @@ func dxtBLP16(w, h int) []byte {
 // each one's first level decodes to the same pixels DecodeBLP gives (the GPU path shows what the
 // RGBA path did). WOW_DIR=/path/to/client go test ./internal/wow/ -run ClientTexturesAsDXT -v
 func TestClientTexturesAsDXT(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -189,10 +190,7 @@ func TestTaxiSQL(t *testing.T) {
 // TestClientTaxi reads the client's own taxi tables (WOW_DIR=C:/WoW/client): written back unchanged
 // they are the same bytes, Azeroth has Stormwind's stop, and a route edited and read back keeps its points.
 func TestClientTaxi(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

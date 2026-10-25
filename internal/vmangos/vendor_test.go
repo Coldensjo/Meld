@@ -1,10 +1,10 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -53,10 +53,7 @@ func TestParseItemRow(t *testing.T) {
 // the Battleworn Hammer's display (8690) names an icon, and a display the client lacks is left out.
 // It needs WOW_DIR set.
 func TestItemIconsFromClient(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -74,10 +71,7 @@ func TestItemIconsFromClient(t *testing.T) {
 // TestSpellTextsFromClient checks Spell.dbc's field layout against the client's own text: spell 433
 // (the Tough Hunk of Bread's) restores health over its duration. It needs WOW_DIR set.
 func TestSpellTextsFromClient(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

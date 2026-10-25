@@ -13,6 +13,7 @@ import (
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -311,10 +312,7 @@ func TestRegionBorderModelsOutsideBlock(t *testing.T) {
 // tiles: the editor got each once, the moved one is in every tile its bounds reach at its new place and
 // in no tile at the old one, and the deleted one is in none. It needs WOW_DIR.
 func TestClientRegionBorderModels(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -412,10 +410,7 @@ func TestClientRegionBorderModels(t *testing.T) {
 // at the old one, the deleted one is in none, and their ground, paint, liquids and every other model
 // are as the client reads them now. It needs WOW_DIR.
 func TestClientRegionOutsideTiles(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -539,10 +534,7 @@ func TestClientRegionOutsideTiles(t *testing.T) {
 // the client's own files list each model in, over Azeroth 28-35 x 44-51 (models 200 yards inside it):
 // nearly every M2 and every WMO gets at least the client's tiles. It needs WOW_DIR.
 func TestClientBorderTilesAgree(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

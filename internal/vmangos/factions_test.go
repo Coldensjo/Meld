@@ -1,9 +1,9 @@
 package vmangos
 
 import (
-	"os"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -34,10 +34,7 @@ func TestReaction(t *testing.T) {
 // TestClientFactions reads the client's tables: template 14 attacks both sides, 35 is friendly to
 // both, 12 (Stormwind) is friendly to the Alliance and hostile to the Horde. It needs WOW_DIR.
 func TestClientFactions(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

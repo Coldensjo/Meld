@@ -2,19 +2,16 @@ package vmangos
 
 import (
 	"encoding/base64"
-	"os"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
 // TestClientRegionShadows reads Northshire's tile (Azeroth 32_48): its chunks carry baked shadows, the
 // map is 1024 texels a side, and some but not all of it is in shadow. It needs WOW_DIR.
 func TestClientRegionShadows(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

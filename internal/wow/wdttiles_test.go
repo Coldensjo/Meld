@@ -2,8 +2,9 @@ package wow
 
 import (
 	"encoding/binary"
-	"os"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // wdtChunk is a chunk as the client stores it: the id reversed, then its size.
@@ -32,10 +33,7 @@ func TestWDTTiles(t *testing.T) {
 // TestRealInstanceTiles lists an instance's tiles from its WDT, and a WMO-only one's as none:
 // WOW_DIR=/path/to/client go test ./internal/wow/ -run RealInstanceTiles
 func TestRealInstanceTiles(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)

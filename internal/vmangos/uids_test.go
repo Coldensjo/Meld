@@ -10,6 +10,7 @@ import (
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -86,10 +87,7 @@ func TestRegionAddedModelsGetMapWideIDs(t *testing.T) {
 // only, its compressed sectors unpacked as far as needed) against parsing the whole tile, on a
 // quarter of Azeroth's tiles. It needs WOW_DIR.
 func TestClientTileUIDMax(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -140,10 +138,7 @@ func TestClientTileUIDMax(t *testing.T) {
 // any an earlier compile added, which Meld's patch holds) have IDs of their own, above every placement of
 // the map's other tiles. It needs WOW_DIR.
 func TestClientRegionAddedModelIDs(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

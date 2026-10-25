@@ -3,10 +3,10 @@ package vmangos
 import (
 	"encoding/binary"
 	"math"
-	"os"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -104,10 +104,7 @@ func testMapDBC(t *testing.T) []byte {
 // client's own without mips) and close to the picture, LoadingScreens.dbc keeps the client's rows and
 // adds one, and Map.dbc's Deadmines row points at it. It needs WOW_DIR set.
 func TestLoadingScreenFromClient(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

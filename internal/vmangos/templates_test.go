@@ -1,11 +1,11 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -151,10 +151,7 @@ func TestUnescapeBatch(t *testing.T) {
 // TestCreatureRecordsLive reads a template, searches displays and lists a model's animations from
 // the server and client. It needs VMANGOS_DIR (database running) and WOW_DIR, and writes nothing.
 func TestCreatureRecordsLive(t *testing.T) {
-	dir, clientDir := os.Getenv("VMANGOS_DIR"), os.Getenv("WOW_DIR")
-	if dir == "" || clientDir == "" {
-		t.Skip("VMANGOS_DIR or WOW_DIR not set")
-	}
+	dir, clientDir := testclient.ServerDir(t), testclient.DataDir(t)
 	rec, err := ReadCreature(dir, 1642) // Northshire Guard
 	if err != nil {
 		t.Fatal(err)

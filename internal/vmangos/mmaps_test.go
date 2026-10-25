@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // fakeTile64 builds a Detour tile in the server's 64-bit layout with the given counts, each section
@@ -103,10 +105,7 @@ func TestNavTileReadsTheFiles(t *testing.T) {
 
 // With VMANGOS_DIR set to a server folder with built mmaps, every tile of map 0 converts.
 func TestServerNavTiles(t *testing.T) {
-	root := os.Getenv("VMANGOS_DIR")
-	if root == "" {
-		t.Skip("VMANGOS_DIR not set")
-	}
+	root := testclient.ServerFolder(t)
 	names, _ := filepath.Glob(filepath.Join(root, "data", "mmaps", "000*.mmtile"))
 	if len(names) == 0 {
 		t.Skip("no mmaps for map 0")

@@ -2,10 +2,10 @@ package vmangos
 
 import (
 	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -13,10 +13,7 @@ import (
 // the view sends its liquids as [] rather than null, which the editor can't loop over (#120). It
 // needs WOW_DIR set to the client.
 func TestRegionWithoutLiquids(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

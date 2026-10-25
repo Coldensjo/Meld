@@ -8,16 +8,14 @@ import (
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 )
 
 // TestExportMapInClientFolder exports with the read and patch folders the same, as the editor does
 // when the client is its own Data folder. It fails if the read archives still hold the patch open.
 // WOW_DIR=/path/to/client go test ./internal/vmangos/
 func TestExportMapInClientFolder(t *testing.T) {
-	src := os.Getenv("WOW_DIR")
-	if src == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	src := testclient.DataDir(t)
 	clientData, err := filepath.Abs(filepath.Join(src, "Data"))
 	if err != nil {
 		t.Fatal(err)

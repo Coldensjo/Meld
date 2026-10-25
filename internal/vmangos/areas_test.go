@@ -1,19 +1,16 @@
 package vmangos
 
 import (
-	"os"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
 // TestReadAreasFromClient checks the field layout against the client's own AreaTable.dbc: Elwynn
 // Forest is zone 12 on Azeroth, and Goldshire (87) is a subzone of it. It needs WOW_DIR set.
 func TestReadAreasFromClient(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

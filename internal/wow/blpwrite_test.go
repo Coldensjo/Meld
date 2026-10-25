@@ -3,10 +3,10 @@ package wow
 import (
 	"bytes"
 	"math"
-	"os"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 )
 
 // meanError is the mean difference per colour channel of two RGBA images.
@@ -58,10 +58,7 @@ func TestEncodeMinimapBLPReadsBack(t *testing.T) {
 // the header is the client's byte for byte, and the picture comes back close.
 // WOW_DIR=/path/to/client go test ./internal/wow/
 func TestClientMinimapReencoded(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

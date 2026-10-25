@@ -1,10 +1,10 @@
 package vmangos
 
 import (
-	"os"
 	"slices"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -35,10 +35,7 @@ func TestParseItemSetSkipsEmptySlots(t *testing.T) {
 // TestItemSetsFromClient checks the field layout against the client's own ItemSet.dbc: Defias
 // Leather (161) has five pieces and a bonus for each count from 2 to 5. It needs WOW_DIR set.
 func TestItemSetsFromClient(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

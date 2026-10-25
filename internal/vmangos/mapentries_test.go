@@ -2,10 +2,10 @@ package vmangos
 
 import (
 	"encoding/binary"
-	"os"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -41,10 +41,7 @@ func TestReadMapEntriesSynthetic(t *testing.T) {
 // TestRealMapEntries reads the client's Map.dbc and checks a few maps of each type:
 // WOW_DIR=/path/to/client go test ./internal/vmangos/ -run RealMapEntries
 func TestRealMapEntries(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -74,10 +71,7 @@ func TestRealMapEntries(t *testing.T) {
 // reader sees the type and the name, and the zone and loading screen sit where Molten Core's do. It
 // needs WOW_DIR.
 func TestClientMapRowInfo(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"math"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 
 	"Meld/internal/adt"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -124,11 +124,8 @@ func TestRegionSpawnConversion(t *testing.T) {
 // from the client. It needs VMANGOS_DIR set to the server folder, with its database running, and
 // WOW_DIR set to the client.
 func TestReadSpawnsLive(t *testing.T) {
-	dir := os.Getenv("VMANGOS_DIR")
-	clientDir := os.Getenv("WOW_DIR")
-	if dir == "" || clientDir == "" {
-		t.Skip("VMANGOS_DIR or WOW_DIR not set")
-	}
+	dir := testclient.ServerDir(t)
+	clientDir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(clientDir)
 	if err != nil {
 		t.Fatal(err)
@@ -156,11 +153,8 @@ func TestReadSpawnsLive(t *testing.T) {
 // TestSpawnModelsLoad checks that the models the spawns name load through the editor's model
 // loader, for the same live block. It needs VMANGOS_DIR and WOW_DIR.
 func TestSpawnModelsLoad(t *testing.T) {
-	dir := os.Getenv("VMANGOS_DIR")
-	clientDir := os.Getenv("WOW_DIR")
-	if dir == "" || clientDir == "" {
-		t.Skip("VMANGOS_DIR or WOW_DIR not set")
-	}
+	dir := testclient.ServerDir(t)
+	clientDir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(clientDir)
 	if err != nil {
 		t.Fatal(err)

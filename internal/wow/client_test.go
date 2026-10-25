@@ -1,17 +1,15 @@
 package wow
 
 import (
-	"os"
 	"strings"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // Integration test against a local client: WOW_DIR=/path/to/WoW go test ./internal/wow/
 func TestClientAssets(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)

@@ -3,10 +3,10 @@ package vmangos
 import (
 	"encoding/binary"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -132,10 +132,7 @@ func TestWorldOverlayFilesCutAsTheClient(t *testing.T) {
 // as the table has it, its picture whole with soft alpha, and writes it back through WorldMapFiles: its
 // tiles, the rest kept, the table's rows as they were.
 func TestWorldMapOverlaysFromClient(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

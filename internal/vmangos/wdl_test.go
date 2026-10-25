@@ -2,10 +2,10 @@ package vmangos
 
 import (
 	"bytes"
-	"os"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -40,10 +40,7 @@ func TestWDLRoundTrip(t *testing.T) {
 // TestClientWDL checks the WDL against the client's Azeroth.wdl: written back unchanged it is the
 // same file, and the outer heights sampled from a tile are the client's own. It needs WOW_DIR.
 func TestClientWDL(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

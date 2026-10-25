@@ -10,6 +10,7 @@ import (
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -24,10 +25,7 @@ func flatTile(h float32) []float32 {
 // TestExportMapWritesTilesAndTable exports a one-tile map into a temp patch and server folder, then
 // reads the patch back: WOW_DIR=/path/to/client go test ./internal/vmangos/
 func TestExportMapWritesTilesAndTable(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	readDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

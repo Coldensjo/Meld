@@ -1,20 +1,17 @@
 package vmangos
 
 import (
-	"os"
 	"testing"
 
 	"Meld/internal/adt"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
 // TestClientRegionHorizon reads the horizon around Northshire's tile (Azeroth 32_48): the tiles around
 // it within two tiles, none of them the block's own, each with its full grid of heights. It needs WOW_DIR.
 func TestClientRegionHorizon(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

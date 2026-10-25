@@ -1,9 +1,10 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 func TestUsualItemValues(t *testing.T) {
@@ -35,10 +36,7 @@ func TestUsualItemValues(t *testing.T) {
 // TestItemKindsLive lists the world database's kinds of item and works out a bow's basics. It needs
 // VMANGOS_DIR (database running) and writes nothing.
 func TestItemKindsLive(t *testing.T) {
-	dir := os.Getenv("VMANGOS_DIR")
-	if dir == "" {
-		t.Skip("VMANGOS_DIR not set")
-	}
+	dir := testclient.ServerDir(t)
 	kinds, err := ListItemKinds(dir)
 	if err != nil || len(kinds) < 50 {
 		t.Fatalf("%d kinds, %v", len(kinds), err)

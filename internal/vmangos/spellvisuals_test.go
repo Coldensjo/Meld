@@ -1,10 +1,10 @@
 package vmangos
 
 import (
-	"os"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -84,10 +84,7 @@ func TestPlanVisual(t *testing.T) {
 // models) and composes a lava blizzard: Blizzard's visual with Rain of Fire's falling fire for its
 // area. Nothing is written. It needs WOW_DIR.
 func TestSpellVisualsLive(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

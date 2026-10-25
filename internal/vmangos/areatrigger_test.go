@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
-	"os"
 	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -81,10 +81,7 @@ func TestAreaTriggerSQL(t *testing.T) {
 // TestClientAreaTriggers reads the client's own AreaTrigger.dbc: 1.12's ten-field rows, written back
 // unchanged, and a trigger near the Deadmines entrance (Westfall, ID 78). It needs WOW_DIR.
 func TestClientAreaTriggers(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

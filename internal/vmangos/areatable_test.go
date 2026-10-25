@@ -3,11 +3,11 @@ package vmangos
 import (
 	"bytes"
 	"encoding/binary"
-	"os"
 	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -104,10 +104,7 @@ func TestAreaRowsEditAndAdd(t *testing.T) {
 // TestClientAreaTable writes the client's own Azeroth areas back unchanged (the same file), then
 // renames Goldshire and adds a subzone, and checks only those rows changed. It needs WOW_DIR.
 func TestClientAreaTable(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

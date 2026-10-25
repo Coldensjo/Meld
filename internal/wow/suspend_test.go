@@ -8,14 +8,12 @@ import (
 	"time"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 )
 
 // TestSuspendResume releases the archives and loads them again: WOW_DIR=/path/to/client go test ./internal/wow/
 func TestSuspendResume(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)

@@ -2,11 +2,11 @@ package vmangos
 
 import (
 	"errors"
-	"os"
 	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -85,10 +85,7 @@ func TestReloadSpells(t *testing.T) {
 // comes before the archives. Nothing is written to the client or the database. It needs WOW_DIR and
 // VMANGOS_DIR.
 func TestPendingSpellLive(t *testing.T) {
-	dir, server := os.Getenv("WOW_DIR"), os.Getenv("VMANGOS_DIR")
-	if dir == "" || server == "" {
-		t.Skip("WOW_DIR or VMANGOS_DIR not set")
-	}
+	dir, server := testclient.DataDir(t), testclient.ServerDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

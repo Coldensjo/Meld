@@ -3,9 +3,9 @@ package vmangos
 import (
 	"bytes"
 	"math"
-	"os"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -14,10 +14,7 @@ import (
 // noon) and the fog distance 500 yards; a local light sits on the map in yards. A new map takes
 // Azeroth's global light. It needs WOW_DIR.
 func TestClientMapLights(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -85,10 +82,7 @@ func TestClientMapLights(t *testing.T) {
 // key, adds a light with its own params and recolours a band out of time order, and reads them back.
 // It needs WOW_DIR.
 func TestClientLightsWriteBack(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

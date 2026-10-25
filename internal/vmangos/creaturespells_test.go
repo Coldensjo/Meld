@@ -1,10 +1,10 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -115,10 +115,7 @@ func TestFreeSpellList(t *testing.T) {
 // TestSpellRefsFromClient checks Spell.dbc's name, rank and icon fields and SpellIcon.dbc against
 // the client: spell 133 is Fireball, Rank 1, with the flame bolt icon. It needs WOW_DIR set.
 func TestSpellRefsFromClient(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

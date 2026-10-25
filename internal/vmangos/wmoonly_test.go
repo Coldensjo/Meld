@@ -4,21 +4,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
-	"os"
 	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
 // TestClientWMOOnlyWDT rebuilds Blackfathom Deeps' WDT (a WMO-only map) from its own building's
 // placement: the result is the client's file byte for byte. It needs WOW_DIR.
 func TestClientWMOOnlyWDT(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -66,10 +63,7 @@ func TestClientWMOOnlyWDT(t *testing.T) {
 // whatever its spot in the editor, #272) at its height, with its bounds round it, and no tiles or WDL.
 // It needs WOW_DIR.
 func TestExportWMOOnlyMap(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	readDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -168,10 +162,7 @@ func TestGlobalBlock(t *testing.T) {
 // unchanged it writes nothing, a new doodad set writes the WDT with it, and moving the building or
 // adding a model is refused. It needs WOW_DIR.
 func TestClientWMOOnlyRegion(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

@@ -5,13 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"math"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -102,10 +102,7 @@ func TestNewObjectGoesToItsTile(t *testing.T) {
 // when the client has never had the tile compiled, since the builder orders an MCNK's subchunks its own
 // way; TestClientWMOOnlyRegion has the unchanged case.) It needs WOW_DIR.
 func TestRegionPending(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -126,10 +123,7 @@ func TestRegionPending(t *testing.T) {
 // TestRegionNoEditRoundTrip reads a real region of the client and writes it back unedited. The
 // placements and heights must come out as they went in. It needs WOW_DIR set to the client.
 func TestRegionNoEditRoundTrip(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -314,10 +308,7 @@ func TestRegionNoEditRoundTrip(t *testing.T) {
 // TestRegionMoveRoundTrip moves one model of a real region and checks that the write puts it at
 // the new place, under the same unique ID and with its tilt kept. It needs WOW_DIR set.
 func TestRegionMoveRoundTrip(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -369,10 +360,7 @@ func TestRegionMoveRoundTrip(t *testing.T) {
 // TestRegionReadsWater reads a client tile with ocean (tile 29_44 of Azeroth) and checks its water
 // comes through in the block's chunk indexes. It needs WOW_DIR set to the client.
 func TestRegionReadsWater(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -398,10 +386,7 @@ func TestRegionReadsWater(t *testing.T) {
 // TestRegionPaintWritten paints the first chunk of a real tile with one texture and checks the
 // written tile names it. It needs WOW_DIR set to the client.
 func TestRegionPaintWritten(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -438,10 +423,7 @@ func TestRegionPaintWritten(t *testing.T) {
 // layers and alpha maps must be the ones BaseTileRoot's file has, placed in the block as ReadRegion
 // places them (#645). It needs WOW_DIR set to the client.
 func TestBaseRegionPaintSkipsMeldsPatch(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -496,10 +478,7 @@ func TestBaseRegionPaintSkipsMeldsPatch(t *testing.T) {
 // the tile must come out as the same save without paint writes it, byte for byte, where before #526
 // every chunk's alpha came back at half resolution. It needs WOW_DIR set to the client.
 func TestRegionUnpaintedChunksKeepClientAlpha(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -554,10 +533,7 @@ func TestRegionUnpaintedChunksKeepClientAlpha(t *testing.T) {
 // writes. It needs WOW_DIR set to
 // the client.
 func TestRegionHeadersWritten(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -614,10 +590,7 @@ func TestRegionHeadersWritten(t *testing.T) {
 // TestRegionHolesRoundTrip sends a real region's holes back as the editor does (every chunk's cell
 // rows in its header): every chunk must keep the hole bits the client has. It needs WOW_DIR set.
 func TestRegionHolesRoundTrip(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -685,10 +658,7 @@ func TestRegionHolesRoundTrip(t *testing.T) {
 // no chunk may count as changed, so a save keeps the client's own liquid bytes. It needs WOW_DIR set
 // to the client.
 func TestRegionLiquidsUnchanged(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

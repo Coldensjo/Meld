@@ -1,18 +1,16 @@
 package wow
 
 import (
-	"os"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // TestClientWaterfallUVAnim reads Elwynn's tall waterfall, whose two batches scroll their texture down
 // at different rates (Benilla's tex_anim.rs test of the same model): both groups carry a translation
 // that moves along V over a real loop, and the rates differ. It needs WOW_DIR.
 func TestClientWaterfallUVAnim(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)
@@ -50,10 +48,7 @@ func TestClientWaterfallUVAnim(t *testing.T) {
 // intact gate and its burnt twin, whose colour alpha hides the twin (-1, a signed decode) in the loop
 // played while the gate shows. It needs WOW_DIR.
 func TestClientColorAnim(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)

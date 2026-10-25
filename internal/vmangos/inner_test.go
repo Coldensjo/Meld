@@ -4,10 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"math"
-	"os"
 	"testing"
 
 	"Meld/internal/adt"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -46,10 +46,7 @@ func TestInnerLifts(t *testing.T) {
 // Northshire's tile (Azeroth 32_48): the client's inner heights part from the corners' mean by at most
 // a few tenths of a yard under the abbey, and the lifts put each one back. It needs WOW_DIR set.
 func TestClientRegionInner(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

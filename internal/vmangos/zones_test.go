@@ -1,19 +1,16 @@
 package vmangos
 
 import (
-	"os"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
 // TestRealZones reads the client's zones and checks Elwynn Forest sits where Goldshire is (tile
 // 32,48 on Azeroth): WOW_DIR=/path/to/client go test ./internal/vmangos/ -run RealZones
 func TestRealZones(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

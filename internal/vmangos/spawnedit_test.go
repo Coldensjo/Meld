@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // serverSpawn undoes regionSpawn: a spawn read into a region and written back lands where it was.
@@ -81,10 +83,7 @@ func TestNoScriptBuilderOpensATransaction(t *testing.T) {
 // TestRunScriptLive pipes a script that changes nothing to the server's world database, to check the
 // runner reaches it. It needs VMANGOS_DIR with the database running.
 func TestRunScriptLive(t *testing.T) {
-	dir := os.Getenv("VMANGOS_DIR")
-	if dir == "" {
-		t.Skip("VMANGOS_DIR not set")
-	}
+	dir := testclient.ServerDir(t)
 	db, err := worldDatabase(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -175,10 +174,7 @@ func TestLikePattern(t *testing.T) {
 // TestSearchCreaturesLive searches the server's creature templates. It needs VMANGOS_DIR with the
 // database running.
 func TestSearchCreaturesLive(t *testing.T) {
-	dir := os.Getenv("VMANGOS_DIR")
-	if dir == "" {
-		t.Skip("VMANGOS_DIR not set")
-	}
+	dir := testclient.ServerDir(t)
 	got, err := SearchCreatures(dir, "Northshire Guard", 10)
 	if err != nil {
 		t.Fatal(err)

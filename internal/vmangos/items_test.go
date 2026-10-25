@@ -1,11 +1,11 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -122,10 +122,7 @@ func TestCreateItemSQL(t *testing.T) {
 // TestItemsLive reads an item, exports it, plans its import and dresses a character in it, from
 // the server and client. It needs VMANGOS_DIR (database running) and WOW_DIR, and writes nothing.
 func TestItemsLive(t *testing.T) {
-	dir, clientDir := os.Getenv("VMANGOS_DIR"), os.Getenv("WOW_DIR")
-	if dir == "" || clientDir == "" {
-		t.Skip("VMANGOS_DIR or WOW_DIR not set")
-	}
+	dir, clientDir := testclient.ServerDir(t), testclient.DataDir(t)
 	rec, err := ReadItemTemplate(dir, 25) // Worn Shortsword
 	if err != nil {
 		t.Fatal(err)

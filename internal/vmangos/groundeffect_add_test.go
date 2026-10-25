@@ -1,11 +1,11 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -13,10 +13,7 @@ import (
 // row takes the next ID with the models' GroundEffectDoodad IDs, density and terrain, and every other
 // row is unchanged. It needs WOW_DIR.
 func TestClientAddGroundEffect(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -79,10 +76,7 @@ func TestClientAddGroundEffect(t *testing.T) {
 // does: an effect's models then come from one zone's set (Elwynn's grass, Durotar's bushes), where the
 // row IDs would hand most effects the neighbouring row's model. It needs WOW_DIR.
 func TestClientGroundEffectModels(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -129,10 +123,7 @@ func TestClientGroundEffectModels(t *testing.T) {
 // TestClientTerrainTypes reads TerrainType.dbc as Benilla's footsteps.rs describes it: 11 rows, named,
 // with footprints on snow and sand only. It needs WOW_DIR.
 func TestClientTerrainTypes(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

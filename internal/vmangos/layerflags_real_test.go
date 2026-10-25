@@ -1,11 +1,11 @@
 package vmangos
 
 import (
-	"os"
 	"testing"
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -14,10 +14,7 @@ import (
 // does (no flags of the editor's own), and checks the layer keeps the client's animation flags. It
 // needs WOW_DIR.
 func TestClientAnimatedLayersKept(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

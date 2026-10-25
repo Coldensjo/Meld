@@ -2,11 +2,11 @@ package vmangos
 
 import (
 	"encoding/binary"
-	"os"
 	"strings"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -45,10 +45,7 @@ func TestAddMapRowSynthetic(t *testing.T) {
 // TestRealMapTables adds a row to the client's Map.dbc and builds a tile table:
 // WOW_DIR=/path/to/client go test ./internal/vmangos/
 func TestRealMapTables(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

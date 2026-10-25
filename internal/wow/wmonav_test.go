@@ -4,9 +4,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"math"
-	"os"
 	"strings"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // iffChunk is a chunk as the client stores it: the FourCC reversed, the size, the data.
@@ -105,10 +106,7 @@ func TestParseWMONav(t *testing.T) {
 // TestClientWMONav reads the Goldshire inn's room data: the client check for the down-ray's input.
 // WOW_DIR=/path/to/client go test ./internal/wow/ -run ClientWMONav -v
 func TestClientWMONav(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)

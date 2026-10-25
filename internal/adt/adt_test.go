@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 )
 
 // resolveDataDir is the client's Data folder, or dir itself when it has none. Not wow.ResolveDataDir,
@@ -134,10 +135,7 @@ func TestParsePlacementsSynthetic(t *testing.T) {
 
 // TestTileIntegration reads a real Azeroth tile from the client: WOW_DIR=/path/to/client go test ./internal/adt/
 func TestTileIntegration(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := resolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -236,10 +234,7 @@ func TestWriteHeightsSynthetic(t *testing.T) {
 // TestWriteHeightsIntegration edits one sample of a real tile and reads it back:
 // WOW_DIR=/path/to/client go test ./internal/adt/
 func TestWriteHeightsIntegration(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := resolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -308,10 +303,7 @@ func bytesEqual(a, b []byte) bool {
 // read the neighbouring tiles' heights through the ring (#492):
 // WOW_DIR=/path/to/client go test ./internal/adt/
 func TestNormalsMatchFile(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := resolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

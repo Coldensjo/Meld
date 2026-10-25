@@ -3,9 +3,10 @@ package wow
 import (
 	"encoding/binary"
 	"math"
-	"os"
 	"strings"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // fakeM2 is an MD20 buffer with one sequence (0..1000 ms) and one emitter record, whose fields the
@@ -146,10 +147,7 @@ func TestEmitterPlacedByDoodad(t *testing.T) {
 // one lit alpha emitter (flags 0x2), BloodSpurt.m2 four, FlameStrike_Area.m2 four spline
 // emitters, and the free-standing torch two additive flames on a 4x4 flipbook. It needs WOW_DIR.
 func TestClientEmitters(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)
@@ -242,10 +240,7 @@ func TestParseRibbonRecord(t *testing.T) {
 // height rises to 0.167 and falls back; and the Caverns of Time energy trail lays its five ribbons from a
 // moving bone. It needs WOW_DIR.
 func TestClientRibbons(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)
@@ -281,10 +276,7 @@ func TestClientRibbons(t *testing.T) {
 // TestClientRecursionAndGeometry reads the explosive trap's child emitters and the frostwyrm
 // waterfall's geometry particles from the client (WOW_DIR).
 func TestClientRecursionAndGeometry(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)

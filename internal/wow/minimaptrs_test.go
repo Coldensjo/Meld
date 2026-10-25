@@ -2,8 +2,9 @@ package wow
 
 import (
 	"bytes"
-	"os"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // Benilla's minimap_translate.rs case: headers skipped, rows found in any case.
@@ -52,10 +53,7 @@ func TestMinimapIndexSetKeepsTheClientsOrder(t *testing.T) {
 // Azeroth 32_48, the Ironforge interior), writes it back byte for byte, and checks that a stored
 // tile's name is the md5 of its bytes. It needs WOW_DIR.
 func TestClientMinimapIndex(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)

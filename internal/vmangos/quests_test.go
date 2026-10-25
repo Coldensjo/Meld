@@ -1,10 +1,10 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -177,10 +177,7 @@ func TestTemplateNamesSQL(t *testing.T) {
 // TestQuestsLive reads a quest, its givers, the names it uses and the client's quest tables. It
 // needs VMANGOS_DIR (database running) and WOW_DIR, and writes nothing.
 func TestQuestsLive(t *testing.T) {
-	dir, clientDir := os.Getenv("VMANGOS_DIR"), os.Getenv("WOW_DIR")
-	if dir == "" || clientDir == "" {
-		t.Skip("VMANGOS_DIR or WOW_DIR not set")
-	}
+	dir, clientDir := testclient.ServerDir(t), testclient.DataDir(t)
 	rec, err := ReadQuest(dir, 7) // Kobold Camp Cleanup
 	if err != nil {
 		t.Fatal(err)

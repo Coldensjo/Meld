@@ -45,8 +45,20 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `tests/terrainStroke.test.ts` checks that a `TerrainStroke` keeps only the cells that changed (a whole-mask
   step that sets a corner holds that corner, `Command.bytes`) and that its undo and redo restore them, on a
   fake terrain; `tests/blockSnapshot.test.ts` covers `BlockSnapshot.diff` and `GridPatch` underneath (#444).
-- WoW client integration tests: `WOW_DIR=/path/to/client go test ./internal/wow/ -v`.
-- Go tests never write the real client or the live world database (#402). `TestNoTestWritesRealClient` (`guard_test.go`, root package) parses every `internal/**/*_test.go` and fails when `InstallPatch`, `SaveRegion`, `AddPending` or `ExportMap` (its second argument) gets a folder derived from `os.Getenv("WOW_DIR")` (through `ResolveDataDir`, `filepath.Join`, ...) instead of `t.TempDir()` or a hard-linked copy (`clientfolder_test.go`); `AddPending` is allowed where the test points `pendingRoot` at a temp folder. It also fails on `config.Load` in any test but the config package's, so the client and server are reached only through `WOW_DIR` and `VMANGOS_DIR`, never the `config.json` fallback (`TestCreatedGUIDLive` inserts a row that must fail on its key; the database is MyISAM, so a rollback undoes nothing). A locator that finds the client through `config.json` must return a read-only folder, be listed in `guardAllowConfig`, and say so in its doc comment. Limit: a real folder passed on to a helper that writes is not followed. `TestGuardCatchesRealClientWrite` checks the guard on scratch sources.
+- The client and server tests (about 95 in `internal/adt`, `internal/wow` and `internal/vmangos`) find
+  their folders through `internal/testclient` (#400): `testclient.DataDir(t)` is `WOW_DIR`, else
+  `config.json`'s `wowPath`; `testclient.ServerDir(t)` is `VMANGOS_DIR`, else `vmangosPath`, and skips
+  when the world database in the server's `mangosd.conf` does not answer (a TCP connect), so a stopped
+  mariadb skips the database tests instead of failing them; `ServerFolder(t)` is the same without the
+  database check, for tests that read the server's files. Each skips the test when it finds nothing, so
+  a machine without Meld set up skips them all, and on the owner's machine they run in a plain
+  `make test`: `go test ./internal/...` went from 3 s and 98 skips to 29 s and 4 skips (the three
+  database-writing tests below, and `TestIronforgePatchIsBackedUp`, which needs a particular patch-3).
+  A set variable still wins (`WOW_DIR=/path/to/client go test ./internal/wow/ -v` for another client).
+  A new client test calls the locator rather than `os.Getenv`; a test that writes the world database
+  (`TestCreatedGUIDLive`, `TestSpellStartersLive`, `TestSpellScriptsLive`) keeps the explicit
+  `os.Getenv("VMANGOS_DIR")`, and the guard below enforces it.
+- Go tests never write the real client or the live world database (#402). `TestNoTestWritesRealClient` (`guard_test.go`, root package) parses every `internal/**/*_test.go` and fails when `InstallPatch`, `SaveRegion`, `AddPending` or `ExportMap` (its second argument) gets a folder derived from `os.Getenv("WOW_DIR")` (through `ResolveDataDir`, `filepath.Join`, ...) instead of `t.TempDir()` or a hard-linked copy (`clientfolder_test.go`); `AddPending` is allowed where the test points `pendingRoot` at a temp folder. `testclient.DataDir` counts as the real client too. It fails on `config.Load` in any test file but the config package's (the locator, `internal/testclient`, is not a test file), and on a `testclient.Server*` call in the tests listed in `guardDBWriters`, which write the world database and so must name it through `VMANGOS_DIR` (`TestCreatedGUIDLive` inserts a row that must fail on its key; the database is MyISAM, so a rollback undoes nothing). A new test that writes the database goes on that list. Limit: a real folder passed on to a helper that writes is not followed. `TestGuardCatchesRealClientWrite` checks the guard on scratch sources.
 - `TestMeshEncodeLayout` and `TestCollisionEncodeLayout` (`internal/wow/encode_test.go`) check the
   mesh and collision bodies against the `binary.Write` layout they replaced and that the buffer is
   sized exactly (#503). `go test ./internal/wow/ -run X -bench MeshEncode -benchmem` gives the bytes
@@ -56,7 +68,7 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   handler panic (`RecoverPanics`), with a 500. A request needs `c.set` non-nil (`&mpq.Set{}` in the
   package's tests) before the overlay (`SetOverlay`) is asked. Trap: the panic only kills the app in
   the desktop build; `wails dev`'s net/http server recovers it, so the dev page never shows the crash.
-- The same `WOW_DIR` runs the client checks in `internal/vmangos` (region round trips, the chunk
+- The same locator runs the client checks in `internal/vmangos` (region round trips, the chunk
   header write `TestRegionHeadersWritten`, `TestReadAreasFromClient`). On the owner's machine the
   client is the `wowPath` in `%APPDATA%/Meld/config.json`. Trap: a region save itself changes chunk
   flags (0x8000 on some chunks), so compare a write against the same save without your change, not

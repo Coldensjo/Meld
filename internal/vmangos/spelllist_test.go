@@ -1,9 +1,9 @@
 package vmangos
 
 import (
-	"os"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -32,10 +32,7 @@ func TestSpellNoise(t *testing.T) {
 // skill line 8 with Fire Blast in it, the creature abilities are most of the client's spells and
 // hold no class spell, and a school narrows a list. It needs WOW_DIR set.
 func TestListSpellsFromClient(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

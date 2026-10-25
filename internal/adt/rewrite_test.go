@@ -4,19 +4,16 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
-	"os"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 )
 
 // realTile reads Azeroth 32_48 from the client: WOW_DIR=/path/to/client go test ./internal/adt/
 func realTile(t *testing.T) []byte {
 	t.Helper()
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := resolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

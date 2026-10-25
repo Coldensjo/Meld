@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	"os"
 	"testing"
+
+	"Meld/internal/testclient"
 )
 
 // signedVolume is six times the volume a closed triangle set encloses: positive when the faces are
@@ -65,10 +66,7 @@ func TestM2HullFaces(t *testing.T) {
 // closed solid wound outward, and the inn must bring its floors and its doodads' hulls.
 // WOW_DIR=/path/to/client go test ./internal/wow/ -run ClientCollision -v
 func TestClientCollision(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)
@@ -159,10 +157,7 @@ func TestClientCollision(t *testing.T) {
 // (#333): ParseM2 says so with ErrNothingToDraw, and Model answers it with its hull and no groups
 // instead of failing. WOW_DIR=/path/to/client go test ./internal/wow/ -run NothingToDraw -v
 func TestClientNothingToDraw(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.x client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)

@@ -3,22 +3,19 @@ package vmangos
 import (
 	"bytes"
 	"math"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"Meld/internal/adt"
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
 // TestTileRoundTrip reads a real tile, edits one outer height and reads it back:
 // WOW_DIR=/path/to/client go test ./internal/vmangos/
 func TestTileRoundTrip(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -74,10 +71,7 @@ func TestTileRoundTrip(t *testing.T) {
 // and in Blizzard's patch-2.MPQ, and the copy it starts from must be patch-2's (#273).
 // It needs WOW_DIR set to the client.
 func TestBaseTileRootKeepsBlizzardPatches(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -104,10 +98,7 @@ func TestBaseTileRootKeepsBlizzardPatches(t *testing.T) {
 // It needs WOW_DIR set to the client, and is skipped when Meld's patch has the tile (the view is then
 // the patch's).
 func TestRegionSaveKeepsBlizzardPatch(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -173,10 +164,7 @@ func TestRegionSaveKeepsBlizzardPatch(t *testing.T) {
 // editor shows it (#380), even where the client's tile lifts it a few yards off that mean. It needs
 // WOW_DIR set to the client.
 func TestPatchMovesInnerSamples(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

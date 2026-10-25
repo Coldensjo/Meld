@@ -1,11 +1,11 @@
 package vmangos
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -13,10 +13,7 @@ import (
 // client's index: both rows point at their BLPs, identical tiles share one file, and every other row
 // stays. WOW_DIR=/path/to/client go test ./internal/vmangos/
 func TestMinimapFilesSetTheTiles(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -98,10 +99,7 @@ func TestCheckServer(t *testing.T) {
 // TestIronforgePatchIsBackedUp replaces the Ironforge patch in a client copy:
 // WOW_DIR=/path/to/client go test ./internal/vmangos/
 func TestIronforgePatchIsBackedUp(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

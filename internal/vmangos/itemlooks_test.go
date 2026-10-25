@@ -1,10 +1,10 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
@@ -82,15 +82,13 @@ func TestIconNames(t *testing.T) {
 // TestItemLooksLive lists the client's item displays and icons. It needs WOW_DIR, and VMANGOS_DIR
 // (database running) for the displays' items.
 func TestItemLooksLive(t *testing.T) {
-	clientDir := os.Getenv("WOW_DIR")
-	if clientDir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	clientDir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(clientDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	displays, err := ListItemDisplays(os.Getenv("VMANGOS_DIR"), dataDir)
+	server := testclient.ServerDirIfAny()
+	displays, err := ListItemDisplays(server, dataDir)
 	if err != nil || len(displays) < 10000 {
 		t.Fatalf("%d displays, %v", len(displays), err)
 	}
@@ -101,7 +99,7 @@ func TestItemLooksLive(t *testing.T) {
 	kinds := map[string]int{}
 	for _, d := range displays {
 		kinds[d.Kind]++
-		if d.ID == 8690 && os.Getenv("VMANGOS_DIR") != "" && (d.Kind != "weapon" || d.Icon != "INV_Hammer_15" || len(d.Names) == 0) {
+		if d.ID == 8690 && server != "" && (d.Kind != "weapon" || d.Icon != "INV_Hammer_15" || len(d.Names) == 0) {
 			t.Errorf("Battleworn Hammer's display %+v", d)
 		}
 	}

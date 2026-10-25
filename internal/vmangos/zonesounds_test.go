@@ -1,20 +1,17 @@
 package vmangos
 
 import (
-	"os"
 	"strings"
 	"testing"
 
+	"Meld/internal/testclient"
 	"Meld/internal/wow"
 )
 
 // TestClientZoneSounds names the client's zone sound rows: Elwynn's music set, the Orgrimmar intro
 // and an ambience with a playable file. It needs WOW_DIR.
 func TestClientZoneSounds(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("WOW_DIR not set")
-	}
+	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
 		t.Fatal(err)

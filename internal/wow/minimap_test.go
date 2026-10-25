@@ -3,19 +3,16 @@ package wow
 import (
 	"bytes"
 	"image/png"
-	"os"
 	"testing"
 
 	"Meld/internal/mpq"
+	"Meld/internal/testclient"
 )
 
 // TestRealMinimap stitches Azeroth's overview from the client and checks Goldshire's tile is drawn:
 // WOW_DIR=/path/to/client go test ./internal/wow/ -run RealMinimap
 func TestRealMinimap(t *testing.T) {
-	dir := os.Getenv("WOW_DIR")
-	if dir == "" {
-		t.Skip("set WOW_DIR to a WoW 1.12 client to run")
-	}
+	dir := testclient.DataDir(t)
 	c := NewClient()
 	if err := c.Open(dir); err != nil {
 		t.Fatal(err)
