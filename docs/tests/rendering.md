@@ -202,7 +202,15 @@ reads Quality; after one setting changes it reads "Quality (custom)" with no pre
 
 Checks: which group of a placed WMO the camera is in (`world/wmoRoom.ts`, Benilla's `seed.rs`), shown
 as "Camera in" in Detail info. Unit cases are Benilla's own (`tests/wmoRoom.test.ts`); the client data
-is `TestClientWMONav` (WOW_DIR, the Goldshire inn: 12 groups, 10 portals, 2 fogs). Live, in the dev
+is `TestClientWMONav` (WOW_DIR, the Goldshire inn: 12 groups, 10 portals, 2 fogs).
+`tests/wmoRooms.test.ts` (#435) runs `WmoRooms.update` and the gate as `Engine.updateRoomGate`
+composes them (flood, `roomGate.ts`'s mask, `RoomAdmit`) on a fake object layer (`RoomLayer`, with
+the asset and room-data loaders handed to the constructor): a hall of three rooms and a sealed one.
+It checks the room inside a room's box and its neighbours through the doorways in view, the
+camera's room's spawns with no doorway in view (#156), `over` above a room's box or the building
+(#300), the outside flood and the WMO-only exemption (#271), and that a hidden building or a hidden
+Objects layer gates nothing (#142). The gate's uniforms are read by running a patched material's
+`onBeforeCompile` on a stub shader. Live, in the dev
 page: `const nav = e.rooms.navs.get('<lowercased wmo path>')` once the camera has been inside the WMO's
 box, take a flat face of `nav.walk[g]` (nine floats a triangle, WoW axes), lift it 1.7 yd, take it to
 editor space as `(x, z, -y)` and through `e.objects.matrixOf(o, m)`, then put the camera there:

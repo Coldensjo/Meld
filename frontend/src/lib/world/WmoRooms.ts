@@ -28,6 +28,13 @@ export interface CameraRoom {
   fog: FogTarget | null
 }
 
+/**
+ * What `WmoRooms` reads of the object layer: the placed objects, the hidden set and the layer's own
+ * visibility (View › Layers), the change counters and each object's world matrix. `ObjectLayer` is
+ * one; the unit tests pass a fake (tests/wmoRooms.test.ts).
+ */
+export type RoomLayer = Pick<ObjectLayer, 'group' | 'objects' | 'shapeVersion' | 'moveSeq' | 'movedSince' | 'isHidden' | 'matrixOf'>
+
 /** The camera has to move this far (yd) before the probe runs again. */
 const MOVE_EPS = 0.01
 /** How far (yd) from the camera a building is flooded from outside. */
@@ -93,14 +100,14 @@ export class WmoRooms {
 	 * Each WMO's room data by lower-case path, read the first time the camera comes near it. A failure is
 	 * warned and retried (#515); the Engine sets `onFail` to say so in the status bar.
 	 */
-	readonly navs = new LoadCache<WmoNav>('WMO room data', async (path) => decodeWmoNav(await fetchWmoNav(path)))
+	readonly navs: LoadCache<WmoNav>
 	/** The placed WMOs that are not hidden, as of `sync`; entries are reused through `placedPool`. */
 	private placed: PlacedWmo[] = []
 	private placedPool: PlacedWmo[] = []
 	private placedById = new Map<number, PlacedWmo>()
 	/** Set by `sync` when the list was rebuilt or a WMO moved, so `update` runs the probe again. */
 	private placedChanged = false
-  private layer: ObjectLayer | null = null
+  private layer: RoomLayer | null = null
   private objectsVersion = -1
   private objectsMoves = 0
   private lastEye = new THREE.Vector3(NaN, NaN, NaN)
@@ -114,6 +121,17 @@ export class WmoRooms {
   private toModelPt: [number, number, number] = [0, 0, 0]
   private fromLocal = new THREE.Vector3()
 
+	/**
+	 * `assetOf` gives a placed WMO's model (or the placeholder while it loads), `loadNav` reads its room
+	 * data from the client; the tests hand in their own.
+	 */
+	constructor(
+		private assetOf: (type: string) => ModelAsset = getAsset,
+		loadNav: (path: string) => Promise<WmoNav> = async (path) => decodeWmoNav(await fetchWmoNav(path)),
+	) {
+		this.navs = new LoadCache<WmoNav>('WMO room data', loadNav)
+	}
+
   /**
    * The nearest `max` placed WMOs with a portal graph that meet `frustum` within OUTSIDE_RANGE of
    * `eye`, other than the one the camera is in; one whose room data is still loading is left out
@@ -122,7 +140,7 @@ export class WmoRooms {
    * would not show at all; so are the WMOs the camera is `over`. The list and its entries are reused
    * by the next call.
    */
-  outside(objects: ObjectLayer, frustum: THREE.Frustum, eye: THREE.Vector3, max: number, whole: number | null = null): readonly OutsideWmo[] {
+  outside(objects: RoomLayer, frustum: THREE.Frustum, eye: THREE.Vector3, max: number, whole: number | null = null): readonly OutsideWmo[] {
     const found = this.found
     found.length = 0
     // A hidden Objects layer (View › Layers) gates nothing.
@@ -158,7 +176,7 @@ export class WmoRooms {
    * While the Objects layer is hidden (View › Layers) the camera is in no room, so a building the
    * author can't see never gates the view.
    */
-  update(objects: ObjectLayer, eye: THREE.Vector3, groundAt: (x: number, z: number) => number | null) {
+  update(objects: RoomLayer, eye: THREE.Vector3, groundAt: (x: number, z: number) => number | null) {
     if (!objects.group.visible) {
       this.current = null
       this.over.length = 0
@@ -249,7 +267,7 @@ export class WmoRooms {
 	 * still loading, hidden, or on a hidden Objects layer doesn't stop it. Uses the WMO list of the last
 	 * `update`, for the same layer.
 	 */
-	collide(objects: ObjectLayer, from: THREE.Vector3, to: THREE.Vector3, radius: number) {
+	collide(objects: RoomLayer, from: THREE.Vector3, to: THREE.Vector3, radius: number) {
 		if (objects !== this.layer || !objects.group.visible) return
 		this.sync(objects)
 		for (const w of this.placed) {
@@ -276,7 +294,7 @@ export class WmoRooms {
 	 * the terrain, since under a city the terrain lies below the streets. A WMO still loading, hidden,
 	 * or on a hidden Objects layer has no floor. Uses the WMO list of the last `update`, for the same layer.
 	 */
-	floorAt(objects: ObjectLayer, eye: THREE.Vector3): number {
+	floorAt(objects: RoomLayer, eye: THREE.Vector3): number {
 		let best = -Infinity
 		if (objects !== this.layer || !objects.group.visible) return best
 		this.sync(objects)
@@ -302,7 +320,7 @@ export class WmoRooms {
 	 * matrices recomputed when objects moved (#511's move log; attached ones are logged with their
 	 * parent), since a drag or a sculpt stroke moves objects every frame. Either sets `placedChanged`.
 	 */
-	private sync(objects: ObjectLayer) {
+	private sync(objects: RoomLayer) {
 		if (objects.shapeVersion === this.objectsVersion) {
 			if (objects.moveSeq === this.objectsMoves) return
 			const moved = objects.movedSince(this.objectsMoves)
@@ -325,7 +343,7 @@ export class WmoRooms {
 		this.placedById.clear()
 		for (const o of objects.objects.values()) {
 			if (!o.type.startsWith('wmo:') || objects.isHidden(o.id)) continue
-			const asset = getAsset(o.type)
+			const asset = this.assetOf(o.type)
 			const w = this.placedPool.pop() ?? { id: 0, path: '', asset, matrix: new THREE.Matrix4(), inverse: new THREE.Matrix4(), scale: 1, box: new THREE.Box3() }
 			w.id = o.id
 			w.path = baseType(o.type).slice('wmo:'.length)
@@ -338,7 +356,7 @@ export class WmoRooms {
 	}
 
 	/** Sets a placed WMO's matrix, inverse, scale and world box from where `o` is now. */
-	private placeOf(objects: ObjectLayer, o: WorldObject, w: PlacedWmo) {
+	private placeOf(objects: RoomLayer, o: WorldObject, w: PlacedWmo) {
 		objects.matrixOf(o, w.matrix)
 		w.inverse.copy(w.matrix).invert()
 		w.scale = w.matrix.getMaxScaleOnAxis()
