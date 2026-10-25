@@ -278,7 +278,8 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   `compileRegion` in `mapio.ts` with `'client'`, `'server'` or `'all'`. Client builds the active tab's
   `RegionEdit` (`regionEdit`: heights, models, paint and chunk headers, liquids) and `SaveRegion`
   writes the tiles that differ from the patch's copies; Server rebuilds the server's map data of the
-  region's tiles from the patch (`UpdateRegionServer`), and refuses while the region has edits the
+  region's tiles from the patch (`UpdateRegionServer`), then their movement maps (mmaps, #173,
+  `buildMoveMaps`, unless Preferences › Build movement maps on compile is off), and refuses while the region has edits the
   patch lacks; All does both, the server only for the tiles the client compile wrote. Server and All
   also write the region's spawn edits into the world database (#342, `compileSpawns`, the same
   `writeSpawns` as Save Spawns, which stays for spawn-only changes) before the rebuild; the world

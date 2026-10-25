@@ -144,6 +144,22 @@ with `-m <id>`, then VMapAssembler, which rebuilds only that map's `.vmtree`/`.v
 - Trap: an old extractor without `-m` stops at its usage text (exit 1), so Publish then fails with
   "map extraction".
 
+## Movement maps on compile (#173)
+Checks: after the map data is replaced, `buildMoveMaps` (`publish.go`) runs `run\Extractors\MoveMapGenerator.exe`
+in `data`, one run a compiled tile (`<id> --silent --threads N --configInputPath ... --offMeshInput ... --tile x,y`),
+or one run for the whole map with its own `MMM.mmap` and `MMM*.mmtile` removed first (the generator skips a
+tile whose file exists). A failed run is only logged; Preferences › Build movement maps on compile
+(`prefs.buildMoveMaps`, read in Go by `App.buildMoveMaps`) turns it off. `mmap.enabled` stays 0 in mangosd.conf
+(the owner's choice on #173), so the server doesn't load them yet.
+- Go: `TestPublishServerBuildsMoveMaps` (order after the assembler, the `--tile` arguments, the whole-map
+  removal keeping other maps' and `go*.mmtile` files, a failure not failing the publish, the pref off).
+- By hand, without a compile: back up `data\mmaps\0002337.mmtile` and `000.mmap`, then in `data` run
+  `MoveMapGenerator.exe 0 --silent --threads 8 --configInputPath C:\WoW\vmangos\run\Extractors\config.json --offMeshInput C:\WoW\vmangos\run\Extractors\offmesh.txt --tile 37,23`:
+  it writes `mmaps\0002337.mmtile` (file name map, then y, then x) in about a second, and `000.mmap` came
+  out byte for byte the same (2026-10-25).
+- Traps: without `--threads` the generator asks for a count on the console and hangs; without `--silent`
+  it waits for a key at the end. The in-game check (a mob pathing over a raised hill) needs `mmap.enabled = 1`.
+
 ## Compile to Server and Compile All save the spawn edits (#342)
 Checks: Compile to Server and Compile All write the region's spawn edits into the world database
 before the server rebuild, a failed write stops the rebuild, and Compile to Client never writes them.

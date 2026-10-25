@@ -665,6 +665,7 @@ the same scene, the report before and after.
 - The game's template cache after an editor's Save (#234)
 - Minimap tiles for the client (B-129, #17)
 - Server map extraction for one map (Publish, #174; nothing closed or started, #661)
+- Movement maps on compile (#173)
 - Compile to Client, Server, All and Launch's check for uncompiled edits (#214; probe `compile-launch`)
 - Compile to Server and Compile All save the spawn edits (#342; probe `compile-spawns`)
 - Compile keeps the client's alpha where nothing was painted (#526; probe `compile-alpha`)

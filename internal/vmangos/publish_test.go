@@ -217,6 +217,86 @@ func TestPublishServerExtractsOnlyTheMap(t *testing.T) {
 	}
 }
 
+func TestPublishServerBuildsMoveMaps(t *testing.T) {
+	server := serverFolder(t)
+	data := filepath.Join(server, "data")
+	extractors := filepath.Join(server, "run", "Extractors")
+	os.MkdirAll(filepath.Join(data, "vmaps"), 0o755)
+	os.MkdirAll(filepath.Join(data, "mmaps"), 0o755)
+	os.MkdirAll(extractors, 0o755)
+	for _, n := range []string{"MoveMapGenerator.exe", "config.json"} {
+		os.WriteFile(filepath.Join(extractors, n), nil, 0o644)
+	}
+	os.WriteFile(filepath.Join(data, "vmaps", "temp_gameobject_models"), nil, 0o644)
+	old := []string{"mmaps/1900.mmap", "mmaps/19000201.mmtile"}
+	keep := []string{"mmaps/0002337.mmtile", "mmaps/go0042.mmtile"}
+	for _, n := range append(old, keep...) {
+		os.WriteFile(filepath.Join(data, filepath.FromSlash(n)), []byte("old"), 0o644)
+	}
+	f := &fakeRunner{}
+	p := PublishPlan{ClientRoot: t.TempDir(), ServerRoot: server, Run: f}
+	spec := MapSpec{Dir: "MyMap", MapID: 1900}
+
+	// Compiled tiles: one run a tile, after the assembler, as --tile x,y.
+	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), spec, []string{"1_2", "33_48"}, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	var gens []string
+	for i, c := range f.calls {
+		if strings.Contains(c, "MoveMapGenerator.exe") {
+			if !strings.Contains(f.calls[i-1], "VMapAssembler.exe") && len(gens) == 0 {
+				t.Fatalf("calls = %q, want the generator after the assembler", f.calls)
+			}
+			gens = append(gens, c)
+		}
+	}
+	if len(gens) != 2 || !strings.Contains(gens[0], " 1900 --silent --threads ") || !strings.HasSuffix(gens[0], "--tile 1,2") || !strings.HasSuffix(gens[1], "--tile 33,48") {
+		t.Fatalf("generator calls = %q", gens)
+	}
+	if !strings.Contains(gens[0], "--configInputPath "+filepath.Join(extractors, "config.json")) || strings.Contains(gens[0], "--offMeshInput") {
+		t.Fatalf("generator call = %q, want config.json and no missing offmesh.txt", gens[0])
+	}
+	for _, n := range append(old, keep...) {
+		if fileText(filepath.Join(data, filepath.FromSlash(n))) != "old" {
+			t.Fatalf("a tile build removed %s", n)
+		}
+	}
+
+	// The whole map: one run with no --tile, the map's own old mmap files removed first.
+	f.calls = nil
+	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), spec, nil, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	if c := callOf(f.calls, "MoveMapGenerator.exe"); c == "" || strings.Contains(c, "--tile") {
+		t.Fatalf("generator call = %q, want the whole map", c)
+	}
+	for _, n := range old {
+		if fileExists(filepath.Join(data, filepath.FromSlash(n))) {
+			t.Fatalf("%s was kept", n)
+		}
+	}
+	for _, n := range keep {
+		if !fileExists(filepath.Join(data, filepath.FromSlash(n))) {
+			t.Fatalf("another map's %s was removed", n)
+		}
+	}
+
+	// A failing generator leaves the publish passed; switched off, it doesn't run.
+	f = &fakeRunner{failAt: "MoveMapGenerator"}
+	p.Run = f
+	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), spec, []string{"1_2"}, func(string) {}); err != nil {
+		t.Fatalf("a failed movement map build failed the publish: %v", err)
+	}
+	f = &fakeRunner{}
+	p.Run, p.SkipMoveMaps = f, true
+	if err := publishServer(p, filepath.Join(p.ClientRoot, "Data"), spec, []string{"1_2"}, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	if c := callOf(f.calls, "MoveMapGenerator"); c != "" {
+		t.Fatalf("ran %q with movement maps off", c)
+	}
+}
+
 func TestChangedTiles(t *testing.T) {
 	m := MapSpec{Dir: "MyMap", Tiles: []TileSpec{{X: 1, Y: 2}, {X: 3, Y: 4}}}
 	files := []mpq.File{{Name: `World\Maps\MyMap\MyMap_3_4.adt`}, {Name: `World\Maps\MyMap\MyMap.wdl`}}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -100,6 +101,9 @@ type PublishPlan struct {
 	Mariadb string
 	// Run runs programs; OSRunner in the app, a fake in tests.
 	Run Runner
+	// SkipMoveMaps leaves the server's movement maps (mmaps) alone after the map data is rebuilt
+	// (Preferences › Build movement maps on compile, off).
+	SkipMoveMaps bool
 }
 
 // Publish writes a map for the client and rebuilds what the server needs from it: the map is written
@@ -326,7 +330,69 @@ func extractServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []s
 	if err := moveFiles(stageVmaps, vmaps); err != nil {
 		return fmt.Errorf("replacing the collision files: %w", err)
 	}
+	if !p.SkipMoveMaps {
+		buildMoveMaps(p, mapID, tiles, log)
+	}
 	return nil
+}
+
+// buildMoveMaps rebuilds the server's movement maps (mmaps, the navmeshes creatures path on, #173)
+// from its new map and collision data: one MoveMapGenerator run a tile when tiles are given, else
+// the whole map, with its old mmap files removed first, as the generator skips a tile that has one.
+// It runs in data (it reads maps and vmaps there and writes mmaps), after the map data was replaced.
+// A failure is only logged: the map data is in place, and the server keeps mmaps off by default
+// (mmap.enabled in mangosd.conf, which Meld leaves alone: the owner's choice on #173).
+func buildMoveMaps(p PublishPlan, mapID uint32, tiles []string, log func(string)) {
+	extractors := filepath.Join(p.ServerRoot, "run", "Extractors")
+	gen := filepath.Join(extractors, "MoveMapGenerator.exe")
+	if _, err := os.Stat(gen); err != nil {
+		log("No MoveMapGenerator.exe beside the extractors, so the server's movement maps were left as they were.")
+		return
+	}
+	data := filepath.Join(p.ServerRoot, "data")
+	id := strconv.FormatUint(uint64(mapID), 10)
+	// Without --threads it asks for a thread count on the console.
+	base := []string{id, "--silent", "--threads", strconv.Itoa(max(1, min(runtime.NumCPU(), 8)))}
+	for _, f := range []struct{ flag, name string }{{"--configInputPath", "config.json"}, {"--offMeshInput", "offmesh.txt"}} {
+		if path := filepath.Join(extractors, f.name); fileExists(path) {
+			base = append(base, f.flag, path)
+		}
+	}
+	// The generator prints a line a step; only its complaints reach the compile's log.
+	complaints := func(line string) {
+		if l := strings.ToLower(line); strings.Contains(l, "error") || strings.Contains(l, "fail") || strings.Contains(l, "not found") {
+			log(line)
+		}
+	}
+	failed := 0
+	if len(tiles) == 0 {
+		log("Building the map's movement maps…")
+		prefix := fmt.Sprintf("%03d", mapID)
+		removeFiles(filepath.Join(data, "mmaps"), func(name string) bool {
+			return name == prefix+".mmap" || len(name) == len(prefix)+4+len(".mmtile") && strings.HasPrefix(name, prefix) && strings.HasSuffix(name, ".mmtile")
+		})
+		if err := p.Run.Run(data, gen, base, complaints); err != nil {
+			failed++
+		}
+	} else {
+		for i, t := range tiles {
+			// Meld's "x_y" (the ADT's x and y) is the generator's --tile x,y; its files are named by the
+			// map, then y, then x (0002337.mmtile is tile 37_23 of map 0).
+			log(fmt.Sprintf("Building movement maps: tile %s (%d of %d)…", t, i+1, len(tiles)))
+			if err := p.Run.Run(data, gen, append(base, "--tile", strings.Replace(t, "_", ",", 1)), complaints); err != nil {
+				failed++
+			}
+		}
+	}
+	if failed > 0 {
+		log(fmt.Sprintf("MoveMapGenerator failed %d time(s): those movement maps keep their old state. The map data itself was rebuilt.", failed))
+	}
+}
+
+// fileExists reports whether path names an existing file or folder.
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // moveFiles moves every file of src into dst, over any of the same name. A missing src moves nothing.

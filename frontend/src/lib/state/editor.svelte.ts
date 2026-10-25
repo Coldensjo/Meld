@@ -516,6 +516,8 @@ export const prefs = $state({
   detailInfo: false,
   /** Run File › Check Map when Compile to Client or Compile All starts, and stop it on an error finding (#195). */
   checkBeforeCompile: false,
+  /** Compile to Server rebuilds the server's movement maps (mmaps) of the tiles it rebuilt (#173); read by Go from the saved prefs. */
+  buildMoveMaps: true,
   /** View › Performance Overlay (#179): where the frame's time goes, by subsystem and GPU pass, in the viewport's corner. */
   perfOverlay: false,
   /** Every file read from the client (models, textures, lists) goes into the Log window too, with its time (noggit's "additional file loading log"). */

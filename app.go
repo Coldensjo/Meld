@@ -206,6 +206,20 @@ func (a *App) LoadPrefs() string {
 	return string(a.cfg.Prefs)
 }
 
+// buildMoveMaps is Preferences › Build movement maps on compile (the frontend's buildMoveMaps pref, #173),
+// on unless saved off: a compile to the server then rebuilds the mmaps of the tiles it rebuilt.
+func (a *App) buildMoveMaps() bool {
+	a.cfgMu.Lock()
+	defer a.cfgMu.Unlock()
+	var p struct {
+		BuildMoveMaps *bool `json:"buildMoveMaps"`
+	}
+	if json.Unmarshal(a.cfg.Prefs, &p) != nil || p.BuildMoveMaps == nil {
+		return true
+	}
+	return *p.BuildMoveMaps
+}
+
 // SavePrefs stores preferences in the user config file: prefs is a JSON object of the keys that
 // changed, merged over the file's current preferences (read again, since another window or the
 // dev page may have written since), so two windows don't wipe each other's settings.
@@ -1915,7 +1929,7 @@ func (a *App) UpdateRegionServer(mapID int, tiles []string) (err error) {
 		defer a.serverBusy.Store(false)
 		logf := func(line string) { runtime.EventsEmit(a.ctx, "servermaps:log", line) }
 		msg := ""
-		plan := vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}
+		plan := vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server, SkipMoveMaps: !a.buildMoveMaps()}
 		dataDir := filepath.Join(clientDir, "Data")
 		if err := a.waitForGameClosed(dataDir, logf); err != nil {
 			msg = err.Error()
@@ -2596,7 +2610,7 @@ func (a *App) PublishVmangosMap(m vmangos.MapSpec) (err error) {
 		msg := ""
 		if err := a.waitForGameClosed(filepath.Join(clientDir, "Data"), logf); err != nil {
 			msg = err.Error()
-		} else if err := vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server}, m, logf); err != nil {
+		} else if err := vmangos.Publish(vmangos.PublishPlan{ClientRoot: clientDir, ServerRoot: server, SkipMoveMaps: !a.buildMoveMaps()}, m, logf); err != nil {
 			msg = err.Error()
 		}
 		runtime.EventsEmit(a.ctx, "publish:done", msg)
