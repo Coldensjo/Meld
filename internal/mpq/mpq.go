@@ -20,6 +20,13 @@ import (
 
 var ErrNotFound = errors.New("mpq: file not found")
 
+// errCorrupt is returned for a file whose block entry, sector table or sectors don't fit the archive.
+var errCorrupt = errors.New("mpq: corrupt file")
+
+// maxFileSize bounds a file's unpacked size, so a damaged block entry can't ask for gigabytes (#495).
+// No 1.12 client file comes near it; the largest are a few MiB.
+const maxFileSize = 256 << 20
+
 const (
 	flagImplode    = 0x00000100
 	flagCompress   = 0x00000200
@@ -114,6 +121,7 @@ type blockEntry struct {
 type Archive struct {
 	Path       string
 	f          *os.File
+	fileSize   int64
 	base       int64
 	sectorSize uint32
 	hashes     []hashEntry
@@ -126,7 +134,12 @@ func Open(path string) (*Archive, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &Archive{Path: path, f: f}
+	st, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	a := &Archive{Path: path, f: f, fileSize: st.Size()}
 	if err := a.readHeader(); err != nil {
 		f.Close()
 		return nil, fmt.Errorf("%s: %w", filepath.Base(path), err)
@@ -285,11 +298,16 @@ func (a *Archive) ReadPrefix(name string, n int) ([]byte, error) {
 	if b.size == 0 {
 		return []byte{}, nil
 	}
+	pos := a.base + (int64(b.pos) | int64(b.posHi)<<32)
+	// Every allocation below is bounded by size or by the bytes left in the archive after pos.
+	if b.size > maxFileSize || pos < 0 || pos+int64(b.csize) > a.fileSize {
+		return nil, fmt.Errorf("%w: %s: block of %d bytes (%d packed) at %d in a %d-byte archive",
+			errCorrupt, name, b.size, b.csize, pos, a.fileSize)
+	}
 	limit := b.size
 	if n >= 0 && int64(n) < int64(limit) {
 		limit = uint32(n)
 	}
-	pos := a.base + (int64(b.pos) | int64(b.posHi)<<32)
 	var key uint32
 	if b.flags&flagEncrypted != 0 {
 		base := name
@@ -304,7 +322,7 @@ func (a *Archive) ReadPrefix(name string, n int) ([]byte, error) {
 
 	if b.flags&flagSingleUnit != 0 {
 		data := make([]byte, b.csize)
-		if _, err := a.f.ReadAt(data, pos); err != nil && err != io.EOF {
+		if err := a.readAt(data, pos); err != nil {
 			return nil, err
 		}
 		if b.flags&flagEncrypted != 0 {
@@ -320,7 +338,7 @@ func (a *Archive) ReadPrefix(name string, n int) ([]byte, error) {
 	readSize := min(b.size, nRead*a.sectorSize)
 	if !compressed {
 		data := make([]byte, readSize)
-		if _, err := a.f.ReadAt(data, pos); err != nil && err != io.EOF {
+		if err := a.readAt(data, pos); err != nil {
 			return nil, err
 		}
 		if b.flags&flagEncrypted != 0 {
@@ -337,7 +355,7 @@ func (a *Archive) ReadPrefix(name string, n int) ([]byte, error) {
 		nOffsets++
 	}
 	ob := make([]byte, nOffsets*4)
-	if _, err := a.f.ReadAt(ob, pos); err != nil && err != io.EOF {
+	if err := a.readAt(ob, pos); err != nil {
 		return nil, err
 	}
 	if b.flags&flagEncrypted != 0 {
@@ -351,7 +369,7 @@ func (a *Archive) ReadPrefix(name string, n int) ([]byte, error) {
 		return nil, errors.New("mpq: corrupt sector table")
 	}
 	raw := make([]byte, offs[nRead])
-	if _, err := a.f.ReadAt(raw, pos); err != nil && err != io.EOF {
+	if err := a.readAt(raw, pos); err != nil {
 		return nil, err
 	}
 	out := make([]byte, 0, readSize)
@@ -372,6 +390,19 @@ func (a *Archive) ReadPrefix(name string, n int) ([]byte, error) {
 		out = append(out, d...)
 	}
 	return out, nil
+}
+
+// readAt fills p from the archive at off. A short read means the file runs past the archive's end,
+// which is corrupt, not zeros.
+func (a *Archive) readAt(p []byte, off int64) error {
+	n, err := a.f.ReadAt(p, off)
+	if n == len(p) {
+		return nil
+	}
+	if err == nil || err == io.EOF {
+		return fmt.Errorf("%w: %d of %d bytes at %d", errCorrupt, n, len(p), off)
+	}
+	return err
 }
 
 // Size returns the unpacked size of name.
@@ -417,27 +448,56 @@ func (w *wholeReader) Read(p []byte) (int, error) {
 	return w.r.Read(p)
 }
 
+// decompressSector unpacks one sector (or a single-unit file) to exactly want bytes. Each stage reads
+// at most a bounded amount, and a result of any other length is corrupt rather than padded or cut.
 func decompressSector(data []byte, want uint32, flags uint32) ([]byte, error) {
 	if uint32(len(data)) >= want {
 		return data[:want], nil // stored uncompressed
 	}
-	if flags&flagImplode != 0 {
-		return explode(data, want)
+	var err error
+	switch {
+	case flags&flagImplode != 0:
+		data, err = explode(data, want)
+	case flags&flagCompress == 0 || len(data) == 0:
+		// Shorter than want and not packed: the block entry and the data disagree.
+	default:
+		data, err = decompressMasked(data, want)
 	}
-	if flags&flagCompress == 0 || len(data) == 0 {
-		return data, nil
+	if err != nil {
+		return nil, err
 	}
+	if uint32(len(data)) != want {
+		return nil, fmt.Errorf("%w: sector unpacks to %d bytes, want %d", errCorrupt, len(data), want)
+	}
+	return data, nil
+}
+
+// decompressMasked unpacks data whose first byte names its compressions. An inner stage's output is
+// still packed and may in principle run a little past want, so it gets more room than the last one.
+func decompressMasked(data []byte, want uint32) ([]byte, error) {
 	mask := data[0]
 	data = data[1:]
+	if mask&^(0x10|0x08|0x02) != 0 {
+		return nil, fmt.Errorf("mpq: unsupported compression 0x%02x", mask)
+	}
+	inner := 2*int64(want) + 1024
 	var err error
 	// Decompression order is the reverse of compression: bzip2 → implode → zlib.
 	if mask&0x10 != 0 {
-		if data, err = io.ReadAll(bzip2.NewReader(bytes.NewReader(data))); err != nil {
+		limit := int64(want) + 1
+		if mask&(0x08|0x02) != 0 {
+			limit = inner
+		}
+		if data, err = io.ReadAll(io.LimitReader(bzip2.NewReader(bytes.NewReader(data)), limit)); err != nil {
 			return nil, err
 		}
 	}
 	if mask&0x08 != 0 {
-		if data, err = explode(data, want); err != nil {
+		limit := want
+		if mask&0x02 != 0 {
+			limit = uint32(inner)
+		}
+		if data, err = explode(data, limit); err != nil {
 			return nil, err
 		}
 	}
@@ -446,25 +506,23 @@ func decompressSector(data []byte, want uint32, flags uint32) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if data, err = io.ReadAll(r); err != nil {
+		if data, err = io.ReadAll(io.LimitReader(r, int64(want)+1)); err != nil {
 			return nil, err
 		}
-	}
-	if mask&^(0x10|0x08|0x02) != 0 {
-		return nil, fmt.Errorf("mpq: unsupported compression 0x%02x", mask)
 	}
 	return data, nil
 }
 
+// explode unpacks PKWARE imploded data, reading at most want+1 bytes so a bad stream can't grow
+// without bound; the caller checks the length.
 func explode(data []byte, want uint32) ([]byte, error) {
 	r, err := blast.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
-	out := make([]byte, 0, want)
-	buf := bytes.NewBuffer(out)
-	_, err = io.Copy(buf, r)
+	buf := bytes.NewBuffer(make([]byte, 0, want))
+	_, err = io.Copy(buf, io.LimitReader(r, int64(want)+1))
 	return buf.Bytes(), err
 }
 

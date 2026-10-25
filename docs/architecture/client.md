@@ -4,7 +4,9 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 
 - The asset source is the user's **local** WoW 1.12 client. `internal/mpq` reads the archives
   (our own reader; `Gophercraft/mpq` is GPL, so don't add it). `internal/wow` decodes BLP, M2 and
-  WMO files.
+  WMO files. `ReadPrefix` treats the block table as untrusted (#495): a file over 256 MiB unpacked
+  or packed past the archive's end, a short read, or a sector that unpacks to any length but its
+  own is an error (`errCorrupt`), never a huge allocation or a zero-filled or cut file.
 - `wow.Client.Handler()` serves `/wow/{status,list,texture,model}` (and `wmonav`, a WMO's room data,
   and `collision`, a model's collision faces and a WMO's liquids for the walkable-ground view, `wow/collision.go`; `main.go`
   routes `/wow/navtile`, a tile of the server's movement maps, to `App.serveNavTile`, as it needs the
