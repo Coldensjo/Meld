@@ -2,6 +2,61 @@
 // against the one taken when it was opened or last compiled, to tell whether the client still lacks
 // some of its edits. Spawns are not in it, since they go to the server's database, not the tiles.
 
+import type { RegionObject } from '../engine/Engine'
+import { liquidsToAdt, type LiquidMap } from '../water/liquids'
+import type { ScopedEffects, TextureEffects } from '../world/groundEffects'
+import type { TextureLooks } from '../world/textureLooks'
+
+/**
+ * Everything Compile writes for a region, as the document holds it (`Engine.regionKey` gathers it):
+ * the terrain's arrays, the settings the paint and chunk headers are built from, the models and the
+ * liquids. `Engine.exportInput` and the region save (io/mapio.ts `regionEdit`) are built from these,
+ * and tests/regionKey.test.ts checks every `ExportInput` key against them.
+ */
+export interface RegionKeyInput {
+	terrain: {
+		heights: Float32Array
+		weights: Uint8Array
+		chunkSlots: Uint8Array
+		holes: Uint8Array
+		noEffect: Uint8Array
+		areaIds: Uint32Array
+		chunkFlags: Uint8Array
+		shadow: Uint8Array | null
+	}
+	settings: {
+		palette: readonly string[]
+		textureEffects: TextureEffects
+		textureLooks: TextureLooks
+		scopedEffects: ScopedEffects
+		chunkDataKnown: boolean
+		liquidsKnown: boolean
+		holesKnown: boolean
+	}
+	objects: readonly RegionObject[]
+	liquids: LiquidMap
+}
+
+/** The region's fingerprint: every part of `input`, so any edit Compile would write changes it. */
+export function regionKey(input: RegionKeyInput): string {
+	const t = input.terrain
+	const s = input.settings
+	const settings = [s.palette, s.textureEffects, s.textureLooks, s.scopedEffects, s.chunkDataKnown, s.liquidsKnown, s.holesKnown]
+	return contentKey([
+		t.heights,
+		t.weights,
+		t.chunkSlots,
+		t.holes,
+		t.noEffect,
+		t.areaIds,
+		t.chunkFlags,
+		t.shadow,
+		JSON.stringify(settings),
+		JSON.stringify(input.objects),
+		JSON.stringify(liquidsToAdt(input.liquids)),
+	])
+}
+
 /** A part of the fingerprint: a typed array's bytes, a string, or nothing (an absent array). */
 export type KeyPart = ArrayBufferView | string | null | undefined
 

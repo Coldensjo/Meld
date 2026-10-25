@@ -121,7 +121,7 @@ import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, po
 import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
 import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionHorizon, RegionInner, RegionShadows, SpawnLook, SpawnTeleports } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
-import { contentKey } from '../io/regionKey'
+import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
 import { yieldToFrame } from './yieldToFrame'
 
@@ -3558,25 +3558,26 @@ export class Engine {
    * A fingerprint of what Compile writes for the active region (io/regionKey.ts): its ground, paint,
    * chunk data, models and liquids, taken from the document's own arrays rather than the export, whose
    * building footprints change as models load. Spawns are left out: they go to the database. Anything
-   * new that `exportInput` or the region save sends must be added here too, or Launch misses its edits.
+   * new that `exportInput` or the region save sends must be added to `RegionKeyInput` too, or Launch misses
+   * its edits (tests/regionKey.test.ts fails to type-check until it is mapped there).
    */
   regionKey(): string {
     const d = this.doc
     const t = d.terrain
-    const settings = [editor.palette, editor.textureEffects, editor.textureLooks, editor.scopedEffects, d.chunkDataKnown, d.liquidsKnown, d.holesKnown]
-    return contentKey([
-      t.heights,
-      t.weights,
-      t.chunkSlots,
-      t.holes,
-      t.noEffect,
-      t.areaIds,
-      t.chunkFlags,
-      t.shadow,
-      JSON.stringify(settings),
-      JSON.stringify(this.regionObjects()),
-      JSON.stringify(liquidsToAdt(d.liquids)),
-    ])
+    return regionKeyOf({
+      terrain: { heights: t.heights, weights: t.weights, chunkSlots: t.chunkSlots, holes: t.holes, noEffect: t.noEffect, areaIds: t.areaIds, chunkFlags: t.chunkFlags, shadow: t.shadow },
+      settings: {
+        palette: editor.palette,
+        textureEffects: editor.textureEffects,
+        textureLooks: editor.textureLooks,
+        scopedEffects: editor.scopedEffects,
+        chunkDataKnown: d.chunkDataKnown,
+        liquidsKnown: d.liquidsKnown,
+        holesKnown: d.holesKnown,
+      },
+      objects: this.regionObjects(),
+      liquids: d.liquids,
+    })
   }
 
   /** The other open regions edited since they were opened or last compiled (any step, spawns too), by tab name. */

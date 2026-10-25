@@ -194,6 +194,11 @@ open region has edits the client lacks, and only then.
   compiled (the builder orders an MCNK's subchunks its own way), so `RegionPending` says "changed" for
   any such tile. That's why Launch trusts the fingerprint and asks Go only when there is none.
 - `go test ./internal/vmangos/ -run TestRegionPending` (with `WOW_DIR`): a raised vertex makes the tile differ.
+- `bun test tests/regionKey.test.ts` (#433): the fingerprint (`regionKey` in `io/regionKey.ts`) changes
+  for an edit of every leaf of its input (walked, so a new field is covered), stays for a write of the
+  same value and comes back on undo; and every `ExportInput` key is mapped to edits that change it or
+  to why the region save doesn't send it (`size`, `cellSize`, `waterEnabled`, `waterLevel`). The map is
+  typed over `keyof ExportInput`, so a new export key fails `make check` until it is listed.
 
 ## Compile keeps the client's alpha where nothing was painted (#526)
 Checks: a region's compile writes the client's own 64x64 alpha maps back on every chunk and texel the

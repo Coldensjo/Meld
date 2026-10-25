@@ -397,8 +397,10 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   base64 strings they were 33 of a 3x3 block's 36.5 MB, and the call took 375-465 ms against 220-300 (#636). Launch (`launchGame`) opens the Compile and Launch
   dialog (`ui.dialog = 'compileBeforeLaunch'`) when it is true; Play Here says so in its status line.
   `regionKey` hashes the document's own arrays and settings, not `exportInput`, whose building
-  footprints in `noEffect` change as models load: a new compile input must be added to it, or Launch
-  misses its edits.
+  footprints in `noEffect` change as models load: a new compile input must be added to its
+  `RegionKeyInput` (`io/regionKey.ts`, which `Engine.regionKey` fills), or Launch misses its edits.
+  `tests/regionKey.test.ts` maps every `ExportInput` key to the inputs it is built from (a new key
+  fails `make check` until mapped) and edits every leaf of the input to see the key change (#433).
 
 - **Start dialog** (`components/NewMapDialog.svelte`, `ui.showNewDialog` + `ui.newMapMode`): every
   map is for the 1.12 client (folder + map ID). "New world" picks a size in tiles and a preset from
