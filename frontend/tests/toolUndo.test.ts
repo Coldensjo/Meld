@@ -320,7 +320,7 @@ function selectTool(w: World): SelectTool {
 /** The creature template the spawn brush rows paint with. */
 const KOBOLD = { entry: 200, name: 'Kobold', subname: '', levelMin: 1, levelMax: 2, faction: 14, npcFlags: 0, rank: 0, type: 7, display: 1, scale: 1, equipment: 0, weight: 1 }
 
-/** The Doodad tool in Creatures mode, its spawn brush making creatures as `Engine.brushCreature` does, with guids of their own. */
+/** The Doodad tool in Creatures mode, its spawn brush making creatures as `SpawnActions.brushCreature` does, with guids of their own. */
 function spawnBrush(): Tool {
 	let guid = 1000
 	const tool = new DoodadBrushTool()

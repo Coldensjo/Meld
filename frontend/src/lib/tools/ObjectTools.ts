@@ -488,10 +488,10 @@ export class SelectTool implements Tool {
       /** The model clip while models are being pasted. */
       objectClip: () => ObjectClip | null
       commitPaste: () => void
-      /** Spawns the creature or object template being placed at a point (see Engine.placeSpawnAt). */
+      /** Spawns the creature or object template being placed at a point (see SpawnActions.placeSpawnAt). */
       placeSpawn: (at: THREE.Vector3, rotY?: number) => void
       cancelPaste: () => void
-      /** A click on a spawn while a formation or pool is built (`ui.spawnPick`, see Engine.pickSpawn). */
+      /** A click on a spawn while a formation or pool is built (`ui.spawnPick`, see SpawnActions.pickSpawn). */
       pickSpawn: (s: vmangos.WorldSpawn) => void
     },
   ) {

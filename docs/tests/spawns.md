@@ -15,6 +15,18 @@ database before the save) is `TestCreatedGUIDLive` in `internal/vmangos`, which 
 - Trap: `SpawnLayer` reaches `editor.svelte.ts`, so the test sets `globalThis.$state` before a dynamic
   import, as `objectLayer.test.ts` does.
 
+## Spawn actions: new guids and pool entries (#557)
+
+Checks: `engine/SpawnActions.ts`, the spawn editing out of Engine. A new spawn's guid is above every
+open tab's spawns of its kind (monsters and NPCs share creature guids, objects have their own) and at
+least the database's next one (`nextFreeGuid`); a new pool's entry likewise (`nextFreePoolEntry`).
+Unit: `bun test tests/spawnActions.test.ts`, which also runs pool picking, the spawn keys and the
+spawn's right-click menu on a fake `SpawnHost`. Live: the `spawn-groups`, `creature-new`, `undo-spawns`, `compile-spawns`,
+`teleport-trigger` and `place-spawn-size` probes, which name the file in their `// touches:` lines.
+- Trap: the actions that read the world database (placing, the brush's first guid, a new pool, the
+  menu's Teleport items) call Go bindings, which `bun test` lacks; don't define `window` to stub them,
+  since `modelBuild.ts` and `navJobs.ts` check `typeof window` when loaded. They are the probes' part.
+
 ## Gear picker (a spawn's main hand, off hand and ranged items)
 
 Checks: `WeaponPicker.svelte` and the `ListWeapons` / `EquipmentFor` / `EquipmentItems` bindings. The
@@ -134,7 +146,7 @@ world database for the types and names (without it every display is Unused). Uni
 `TestObjectDisplays` in `internal/vmangos/templates_test.go`.
 
 - By hand: pick another display, Save object, and the spawns of that entry change model
-  (`Engine.applyObjectTemplate`); set it back after.
+  (`SpawnActions.applyObjectTemplate`, through Engine's forwarder); set it back after.
 - The folder filter groups by the model's folder (TradeskillNodes, Chests), since most object
   models are used by one display each, so a file-name family would be one tile a family.
 
@@ -342,7 +354,7 @@ server's names and teleports, draws them, and saves them to the client's patch a
   (-14.6, -385.5, 62.5); `SpawnTeleports('object', 176296, 0)` (Portal to Stormwind, type 22)
   gives (-9003.5, 870.0) on map 0, and Lothos Riftwaker's (creature 14387) gossip teleport becomes
   the item `Teleport: Gossip: Transport me to the Molten Core, Lothos.` above Focus (#308; the probe
-  calls `Engine.addSpawnTeleports` on a menu it opens). Unit: `tests/teleport.test.ts` (ray against
+  calls `SpawnActions.addTeleports`, `P.e.spawnActions.addTeleports`, on a menu it opens). Unit: `tests/teleport.test.ts` (ray against
   spheres and turned boxes, which hit wins, the block opened round a spot),
   `internal/vmangos/teleport_test.go`. Other spawns with teleports, for a check by hand: Unstable
   Rift Crystal (object 180601, gossip to Molten Core), Morridune (creature 6729, gossip to

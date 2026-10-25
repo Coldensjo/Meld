@@ -136,7 +136,7 @@ test('random edit sequences: every save leaves the database as the editor shows 
 			}
 		}
 		const layer = loaded(rows)
-		// New guids come from above every guid the database or a region has, as Engine.placeCreature does.
+		// New guids come from above every guid the database or a region has, as SpawnActions.placeCreature does.
 		const next: Record<Kind, number> = { monster: 5, object: 5 }
 		const done: Command[] = []
 		const undone: Command[] = []

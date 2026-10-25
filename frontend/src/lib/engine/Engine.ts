@@ -58,7 +58,6 @@ import { blockedCells } from '../world/GroundEffectLayer'
 import { DoodadBrushTool, activeDoodadBrush } from '../tools/DoodadBrushTool'
 import { SpawnBrushTool } from '../tools/SpawnBrushTool'
 import { spawnType } from '../world/spawnInfo'
-import type { SpawnBrushEntry } from '../tools/spawnBrush'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../world/clipboard'
 import { turnObjectClip } from '../world/clipTurn'
 import { mirrorClip, rotateClip } from '../world/clipRotate'
@@ -115,19 +114,18 @@ import { pickNearest } from '../world/pickNearest'
 import { InputsKey } from '../tools/inputsKey'
 import { pickTrigger, triggerWins } from '../world/teleport'
 import { teleportTo } from '../io/mapio'
+import { SpawnActions } from './SpawnActions'
 import { SpawnPaths } from '../world/SpawnPaths'
 import { SpawnLinks } from '../world/SpawnLinks'
-import { creatureOf, follows, joinChanges, leaveChanges, slotFieldsAt, slotPosition, type SpawnChange } from '../world/formations'
-import { joinMotherChanges, joinPoolChanges, leavePoolChanges, newPoolFields, poolMates } from '../world/pools'
-import { applySpawn, creatureTemplateOf, newCreatureSpawn, newObjectSpawn, selectSpawn, spawnAdd, spawnChange, spawnDelete, spawnsChange, syncSpawnUi, withLook, withPoint, type SpawnFields } from '../world/spawnEdits'
-import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, Factions, MapEntries, MapLights, NextCreatureGUID, NextObjectGUID, NextPoolEntry, ObjectModel, RegionEdges, RegionHorizon, RegionInner, RegionShadows, SpawnLook, SpawnTeleports } from '../../../wailsjs/go/main/App'
+import type { SpawnChange } from '../world/formations'
+import { poolMates } from '../world/pools'
+import { applySpawn, selectSpawn, syncSpawnUi, type SpawnFields } from '../world/spawnEdits'
+import { AreaTriggers, TaxiNetwork, CheckSpawnIDs, Factions, MapEntries, MapLights, RegionEdges, RegionHorizon, RegionInner, RegionShadows } from '../../../wailsjs/go/main/App'
 import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
 import { yieldToFrame } from './yieldToFrame'
 
-/** The most Teleport items a spawn's menu lists (#308); a boss with many blink spots would fill the screen. */
-const MAX_TELEPORT_ITEMS = 10
 /** A world view's side (#15): the whole map, 64 tiles. */
 const WORLD_SIDE = MAP_TILES * TILE_YARDS
 /** How far the camera may back off the ground in a world view, in yards. */
@@ -552,10 +550,10 @@ export class Engine {
 	}
 	/** Where the handles of the selected models stand, kept between builds; `on` is false with no model selected. */
 	private selGizmo = { on: false, group: false, at: new THREE.Vector3(), radius: 0, top: 0, scalable: true, yaw: 0 }
-  private placeTool = new PlaceTool({ placeSpawn: (at, rotY) => this.placeSpawnAt(at, rotY), fitGround: (id, fit) => this.fitGroundUnder(id, fit) })
+  private placeTool = new PlaceTool({ placeSpawn: (at, rotY) => this.spawnActions.placeSpawnAt(at, rotY), fitGround: (id, fit) => this.fitGroundUnder(id, fit) })
   private doodadTool = new DoodadBrushTool()
-  /** The looks of the spawn brush's templates (#171), by display and equipment; null while one is read. */
-  private brushLooks = new Map<string, vmangos.LookResult | null>()
+	/** The spawn editing (#557): placing, fields, paths, formations, pools, the spawn menu and keys. */
+	private spawnActions: SpawnActions
   /** Accumulated Ctrl+wheel delta, so smooth trackpads rotate in steps too. */
   private wheelAcc = 0
   /** Which modifier the accumulated wheel delta belongs to, so a remainder never carries over to the other. */
@@ -654,6 +652,15 @@ export class Engine {
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this
+	this.spawnActions = new SpawnActions({
+		get documents() { return self.documents },
+		get doc() { return self.doc },
+		get cameraPos() { return self.camera.position },
+		get menuSeq() { return self.menuSeq },
+		focus: (x, z, distance) => self.controller.focus(x, z, distance),
+		deselect: () => self.deselect(),
+		teleport: (dest, what) => void teleportTo(self, dest, what),
+	})
     this.ctx = {
       get terrain() { return self.terrain },
       get spawns() { return self.doc.spawnLayer },
@@ -675,16 +682,16 @@ export class Engine {
       objectClip: () => (this.lastCopied === 'objects' ? this.objectClip : null),
       commitPaste: () => this.commitPaste(),
       cancelPaste: () => this.cancelPaste(),
-      placeSpawn: (at) => this.placeSpawnAt(at),
-      pickSpawn: (o) => this.pickSpawn(o),
+      placeSpawn: (at) => this.spawnActions.placeSpawnAt(at),
+      pickSpawn: (o) => this.spawnActions.pickSpawn(o),
     })
     this.doodadTool.spawns = new SpawnBrushTool({
-      newCreature: (e, x, y, z, o) => this.brushCreature(e, x, y, z, o),
+      newCreature: (e, x, y, z, o) => this.spawnActions.brushCreature(e, x, y, z, o),
       ghostType: (e) => {
-        const look = this.brushLook(e)
+        const look = this.spawnActions.brushLook(e)
         return look ? spawnType({ model: look.model, look: look.look, anim: look.anim }) : ''
       },
-      ghostScale: (e) => e.scale * (this.brushLook(e)?.displayScale || 1),
+      ghostScale: (e) => e.scale * (this.spawnActions.brushLook(e)?.displayScale || 1),
     })
     this.tools = {
       select: this.selectTool,
@@ -2804,7 +2811,6 @@ export class Engine {
     if (d === this.doc) editor.spawnsError = message
   }
 
-  /** Moves the camera to a spawn, in the active region's coordinates. */
   /**
    * A plain right-click: selects the creature, region object or placed model under the cursor and
    * opens a menu of what can be done with it. On bare ground there is no menu.
@@ -2840,21 +2846,9 @@ export class Engine {
     // A click that hits nothing near the selected creature or object still opens its menu (#205).
     const spawn = picked.spawn ?? (id === null ? this.selectedSpawnNear(e) : null)
     if (spawn) {
-      if (editor.tool !== 'select') editor.tool = 'select'
-      selectSpawn(spawn)
-      const key = spawnKey(spawn)
-      title = `${spawn.name} (${spawn.kind === 'object' ? 'object' : 'creature'} ${spawn.entry}${spawn.model ? '' : ', invisible in the game'})`
-      if (spawn.kind !== 'object') {
-        items.push({ label: 'Edit creature…', run: () => (ui.creatureEditor = { key, entry: spawn.entry }) })
-        items.push({ label: spawn.waypoints?.length ? 'Edit path' : 'Give it a path', run: () => this.editPath(key) })
-      } else {
-        items.push({ label: 'Edit object…', run: () => (ui.objectEditor = { key, entry: spawn.entry }) })
-      }
-      items.push({ label: 'Focus', shortcut: 'F', run: () => this.focusSpawn(spawn) })
-      const type = spawnType(spawn)
-      if (type) items.push({ label: 'Preview', run: () => (ui.modelPreview = { title: spawn.name || `#${spawn.entry}`, type, scale: spawn.scale > 0 ? spawn.scale : 1 }) })
-      items.push({ label: 'Unselect', run: () => { selectSpawn(null); this.deselect() } })
-      items.push({ separator: true }, { label: 'Delete spawn', shortcut: 'Del', danger: true, run: () => this.deleteSelectedSpawn() })
+		const menu = this.spawnActions.menu(spawn)
+		title = menu.title
+		items.push(...menu.items)
     } else {
       const o = id !== null ? this.objects.objects.get(id) : undefined
       if (!o) return
@@ -2870,40 +2864,11 @@ export class Engine {
       items.push({ separator: true }, { label: n > 1 ? 'Delete models' : 'Delete model', shortcut: 'Del', danger: true, run: () => this.deleteSelected() })
     }
     ui.contextMenu = { x: e.clientX, y: e.clientY, title, items }
-    if (spawn) void this.addSpawnTeleports(spawn, seq, title)
+    if (spawn) void this.spawnActions.addTeleports(spawn, seq, title)
   }
 
   /** Counts the viewport menus opened, so an answer that comes back late finds whether its menu is still up. */
   private menuSeq = 0
-
-  /**
-   * Adds a spawn's Teleport items to its open menu once the world database answers (#306, #308): one
-   * a destination its gossip, spells and scripts lead to (`SpawnTeleports`), above Focus. Nothing is
-   * added when it teleports no one, or when the menu was closed or replaced meanwhile.
-   */
-  private async addSpawnTeleports(spawn: vmangos.WorldSpawn, seq: number, title: string) {
-    let found: vmangos.SpawnTeleport[]
-    try {
-      found = (await SpawnTeleports(spawn.kind === 'object' ? 'object' : 'creature', spawn.entry, spawn.guid)) ?? []
-    } catch {
-      return
-    }
-    const menu = ui.contextMenu
-    if (!found.length || seq !== this.menuSeq || !menu || menu.title !== title) return
-    const what = spawn.name || `#${spawn.entry}`
-    const total = new Map<string, number>()
-    for (const t of found) total.set(t.label, (total.get(t.label) ?? 0) + 1)
-    const seen = new Map<string, number>()
-    const items: ContextItem[] = found.slice(0, MAX_TELEPORT_ITEMS).map((t) => {
-      const n = (seen.get(t.label) ?? 0) + 1
-      seen.set(t.label, n)
-      // A creature that blinks between several spots under one name: number them.
-      const label = (total.get(t.label) ?? 0) > 1 ? `${t.label} (${n})` : t.label
-      return { label: `Teleport: ${label}`, run: () => void teleportTo(this, t.dest, `${what}, ${label}`) }
-    })
-    const at = menu.items.findIndex((i) => i.label === 'Focus')
-    ui.contextMenu = { ...menu, items: [...menu.items.slice(0, at), ...items, ...menu.items.slice(at)] }
-  }
 
   /**
    * Puts the camera at server spot `dest` in the active tab's coordinates, looking the way it faces
@@ -2927,425 +2892,56 @@ export class Engine {
   }
   private nearBox = new THREE.Box3()
 
-  focusSpawn(s: vmangos.WorldSpawn) {
-    this.controller.focus(s.x, s.z, 40)
-  }
+	// The spawn actions (SpawnActions.ts), under the names the components and probes call.
+	focusSpawn(s: vmangos.WorldSpawn) {
+		this.spawnActions.focusSpawn(s)
+	}
+	focusPoint(x: number, z: number) {
+		this.spawnActions.focusPoint(x, z)
+	}
+	editPath(key: string) {
+		this.spawnActions.editPath(key)
+	}
+	startSpawnPick(key: string, mode: 'lead' | 'follow' | 'pool' | 'joinPool' | 'joinMother') {
+		this.spawnActions.startSpawnPick(key, mode)
+	}
+	pickSpawn(o: vmangos.WorldSpawn) {
+		this.spawnActions.pickSpawn(o)
+	}
+	changeSpawns(changes: readonly SpawnChange[], label: string) {
+		this.spawnActions.changeSpawns(changes, label)
+	}
+	makePool(key: string) {
+		return this.spawnActions.makePool(key)
+	}
+	setFormationSlot(key: string, dist: number, angle: number) {
+		this.spawnActions.setFormationSlot(key, dist, angle)
+	}
+	deletePathPoint() {
+		this.spawnActions.deletePathPoint()
+	}
+	editSpawn(key: string, vals: SpawnFields, label: string) {
+		return this.spawnActions.editSpawn(key, vals, label)
+	}
+	placeCreature(t: vmangos.CreatureTemplate, at: THREE.Vector3, rotY?: number) {
+		return this.spawnActions.placeCreature(t, at, rotY)
+	}
+	placeObject(t: vmangos.ObjectTemplate, at: THREE.Vector3, rotY?: number) {
+		return this.spawnActions.placeObject(t, at, rotY)
+	}
+	applyCreatureTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
+		return this.spawnActions.applyCreatureTemplate(entry, now, was)
+	}
+	applyObjectTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
+		return this.spawnActions.applyObjectTemplate(entry, now, was)
+	}
+	spawnEdits(): vmangos.SpawnEdit[] {
+		return this.spawnActions.spawnEdits()
+	}
+	markSpawnsSaved() {
+		this.spawnActions.markSpawnsSaved()
+	}
 
-  /**
-   * Starts editing creature `key`'s path on the map (#138): selects it in the Select tool, closes the
-   * creature editor that would cover the map, and picks the last point, so a click on the ground
-   * adds a point at the end. `PathEditBar` shows what can be done until Done or Esc.
-   */
-  editPath(key: string) {
-    const s = this.doc.spawnLayer.get(key)
-    if (!s || s.kind === 'object') return
-    if (editor.tool !== 'select') editor.tool = 'select'
-    selectSpawn(s)
-    ui.creatureEditor = null
-    editor.selectedWaypoint = (s.waypoints?.length ?? 0) - 1
-    ui.pathEdit = true
-  }
-
-  /**
-   * Starts building the selected spawn `key`'s formation or pool on the map (#172): clicks on spawns
-   * then follow `ui.spawnPick`'s mode (see `pickSpawn`) until Done or Esc. `SpawnPickBar` says what a
-   * click does.
-   */
-  startSpawnPick(key: string, mode: 'lead' | 'follow' | 'pool' | 'joinPool' | 'joinMother') {
-    const s = this.doc.spawnLayer.get(key)
-    if (!s || ((mode === 'lead' || mode === 'follow') && s.kind === 'object')) return
-    if (editor.tool !== 'select') editor.tool = 'select'
-    selectSpawn(s)
-    ui.creatureEditor = ui.objectEditor = null
-    ui.pathEdit = false
-    ui.spawnPick = { mode, key }
-  }
-
-  /**
-   * A click on spawn `o` while `ui.spawnPick` is on, as one undo step: in `lead`, `o` follows the
-   * picked creature (or leaves, when it does already); in `follow`, the picked creature follows `o`'s
-   * leader (or `o`) and the picking ends; in `pool`, `o` joins the picked spawn's pool (or leaves it);
-   * in `joinPool`, the picked spawn joins `o`'s pool and the picking ends; in `joinMother`, the picked
-   * spawn's pool joins `o`'s pool's mother pool (#261) and the picking ends.
-   */
-  pickSpawn(o: vmangos.WorldSpawn) {
-    const pick = ui.spawnPick
-    const layer = this.doc.spawnLayer
-    const s = pick ? layer.get(pick.key) : undefined
-    if (!pick || !s) {
-      ui.spawnPick = null
-      return
-    }
-    let changes: SpawnChange[] | string = []
-    let label = ''
-    let done = false
-    switch (pick.mode) {
-      case 'lead':
-        if (o.guid === s.guid && o.kind === s.kind) return
-        if (o.kind !== 'object' && o.leader === s.guid && o.guid !== s.guid) {
-          changes = leaveChanges(layer.spawns, o)
-          label = `Leave formation (${o.name})`
-        } else {
-          changes = joinChanges(layer.spawns, s, o)
-          label = `Join formation (${o.name})`
-        }
-        break
-      case 'follow': {
-        if (o.guid === s.guid && o.kind === s.kind) return
-        const leader = follows(o) ? creatureOf(layer.spawns, o.leader) : o
-        if (!leader) {
-          setStatus(`${o.name}'s leader is not in this region.`, 4000)
-          return
-        }
-        changes = leader.guid === s.guid ? `${s.name} can't follow its own follower.` : joinChanges(layer.spawns, leader, s)
-        label = `Follow ${leader.name} (${s.name})`
-        done = true
-        break
-      }
-      case 'pool':
-        if (o.guid === s.guid && o.kind === s.kind) return
-        if (o.pool === s.pool && (o.kind === 'object') === (s.kind === 'object')) {
-          changes = leavePoolChanges(o)
-          label = `Leave pool (${o.name})`
-        } else {
-          changes = joinPoolChanges(s, o)
-          label = `Join pool (${o.name})`
-        }
-        break
-      case 'joinPool':
-        if (o.guid === s.guid && o.kind === s.kind) return
-        changes = joinPoolChanges(o, s)
-        label = `Join pool (${s.name})`
-        done = true
-        break
-      case 'joinMother':
-        if (o.guid === s.guid && o.kind === s.kind) return
-        changes = joinMotherChanges(layer.spawns, o, s)
-        label = `Join master pool ${o.motherPool} (pool ${s.pool})`
-        done = true
-        break
-    }
-    if (typeof changes === 'string') {
-      setStatus(changes, 5000)
-      return
-    }
-    const cmd = spawnsChange(layer, changes, label)
-    if (cmd) this.history.push(cmd)
-    if (done) ui.spawnPick = null
-  }
-
-  /** Changes several spawns of the active region (`formations.ts`, `pools.ts` changes) as one undo step. */
-  changeSpawns(changes: readonly SpawnChange[], label: string) {
-    const cmd = spawnsChange(this.doc.spawnLayer, changes, label)
-    if (cmd) this.history.push(cmd)
-  }
-
-  /**
-   * Puts spawn `key` into a new pool of its own (#172), with a limit of 1 and the pool entry after
-   * every one the world database and the open regions use, then starts adding spawns to it.
-   */
-  async makePool(key: string) {
-    const d = this.doc
-    const s = d.spawnLayer.get(key)
-    if (!s) return
-    try {
-      let entry = await NextPoolEntry()
-      for (const doc of this.documents) for (const o of doc.spawnLayer.spawns) entry = Math.max(entry, o.pool + 1)
-      if (entry > 65535) throw new Error('every pool entry up to 65535 is taken')
-      const cmd = spawnsChange(d.spawnLayer, [{ key, vals: newPoolFields(entry, `${s.name} (Meld)`) }], `Make pool (${s.name})`)
-      if (cmd) d.history.push(cmd)
-      if (d === this.doc) this.startSpawnPick(key, 'pool')
-    } catch (err) {
-      setStatus(`Could not make a pool: ${err}`, 8000)
-    }
-  }
-
-  /**
-   * Gives follower `key` the slot `dist` yards from its leader at `angle` radians from the leader's
-   * facing, and moves it there, onto the ground, as one undo step.
-   */
-  setFormationSlot(key: string, dist: number, angle: number) {
-    const layer = this.doc.spawnLayer
-    const s = layer.get(key)
-    const leader = s && follows(s) ? creatureOf(layer.spawns, s.leader) : undefined
-    if (!s || !leader) return
-    const p = slotPosition(leader, Math.max(0, dist), angle, { x: 0, z: 0 })
-    const vals: SpawnFields = { followDist: Math.max(0, dist), followAngle: angle }
-    if (this.terrain.contains(p.x, p.z)) Object.assign(vals, { x: p.x, z: p.z, y: this.terrain.heightAt(p.x, p.z) })
-    const cmd = spawnChange(layer, key, vals, `Formation slot (${s.name})`)
-    if (cmd) this.history.push(cmd)
-  }
-
-  /** Deletes the picked point of the selected creature's path, as one undo step. */
-  deletePathPoint() {
-    const sel = editor.selectedSpawn
-    const i = editor.selectedWaypoint
-    if (!sel || i < 0) return
-    const s = this.doc.spawnLayer.get(spawnKey(sel))
-    if (!s?.waypoints?.[i]) return
-    const cmd = spawnChange(this.doc.spawnLayer, spawnKey(sel), { waypoints: withPoint(s.waypoints, i, null) }, `Delete path point (${sel.name})`)
-    if (cmd) this.history.push(cmd)
-    editor.selectedWaypoint = Math.min(i, s.waypoints.length - 1)
-  }
-
-  /** Moves the camera to a point of the active region, such as a waypoint. */
-  focusPoint(x: number, z: number) {
-    this.controller.focus(x, z, 30)
-  }
-
-  /**
-   * Changes fields of the active region's spawn `key` as one undoable step. A creature whose
-   * display, equipment or pose changes is dressed again by the Go side first.
-   */
-  async editSpawn(key: string, vals: SpawnFields, label: string) {
-    const d = this.doc
-    const s = d.spawnLayer.get(key)
-    if (!s) return
-    let full: SpawnFields
-    try {
-      full = await withLook(s, vals)
-    } catch (err) {
-      setStatus(`Could not dress the spawn: ${err}`, 8000)
-      return
-    }
-    // A follower moved takes its slot where it stands now (#172).
-    if (vals.x !== undefined || vals.z !== undefined) Object.assign(full, slotFieldsAt(d.spawnLayer.spawns, s, vals.x ?? s.x, vals.z ?? s.z))
-    const cmd = spawnChange(d.spawnLayer, key, full, label)
-    if (cmd) d.history.push(cmd)
-  }
-
-  /** The guid the next placed creature gets; 0 until the world database has been asked. */
-  private nextCreatureGuid = 0
-  /** A read of the database's next creature guid is under way (for the spawn brush, which can't wait). */
-  private guidReading = false
-
-  /** The spawn brush's look for a template: its result, or null while it is read (asked for then). */
-  private brushLook(e: SpawnBrushEntry): vmangos.LookResult | null {
-    const key = `${e.display}|${e.equipment}`
-    if (this.brushLooks.has(key)) return this.brushLooks.get(key) ?? null
-    this.brushLooks.set(key, null)
-    SpawnLook(e.display, e.equipment, 0, 0, 1)
-      .then((look) => this.brushLooks.set(key, look))
-      .catch((err) => {
-        this.brushLooks.delete(key)
-        setStatus(`Could not dress ${e.name}: ${err}`, 6000)
-      })
-    return null
-  }
-
-  /**
-   * A new creature of a spawn brush template (#171), with the next free guid, as placeCreature gives
-   * one; null while its look or the database's next guid is still read.
-   */
-  private brushCreature(e: SpawnBrushEntry, x: number, y: number, z: number, orientation: number): vmangos.WorldSpawn | null {
-    const look = this.brushLook(e)
-    if (!this.nextCreatureGuid) {
-      if (!this.guidReading) {
-        this.guidReading = true
-        NextCreatureGUID()
-          .then((g) => (this.nextCreatureGuid = Math.max(this.nextCreatureGuid, g)))
-          .catch((err) => setStatus(`Could not read the next creature guid: ${err}`, 6000))
-          .finally(() => (this.guidReading = false))
-      }
-      return null
-    }
-    if (!look) return null
-    let guid = this.nextCreatureGuid
-    for (const doc of this.documents) for (const s of doc.spawnLayer.spawns) if (s.kind !== 'object') guid = Math.max(guid, s.guid + 1)
-    this.nextCreatureGuid = guid + 1
-    return newCreatureSpawn({ ...e, model: '', look: '', displayScale: 1 }, guid, x, y, z, orientation, look)
-  }
-
-  /**
-   * Spawns creature template `t` at `at` in the active region, facing the camera, as one undoable
-   * step, and selects it. Its guid is above every creature guid of the world database and of every
-   * open region, so creatures placed in different tabs never share one.
-   */
-  /** Spawns whichever template the browser's spawn tabs picked (ui.placeCreature or ui.placeObject) at a point. */
-  placeSpawnAt(at: THREE.Vector3, rotY?: number) {
-    if (ui.placeCreature) void this.placeCreature(ui.placeCreature, at, rotY)
-    else if (ui.placeObject) void this.placeObject(ui.placeObject, at, rotY)
-  }
-
-  private nextObjectGuid = 0
-
-  /** Spawns a game object template at a point, facing the camera, as one undo step. */
-  async placeObject(t: vmangos.ObjectTemplate, at: THREE.Vector3, rotY?: number) {
-    const d = this.doc
-    try {
-      const dbNext = this.nextObjectGuid ? 0 : await NextObjectGUID()
-      let guid = Math.max(this.nextObjectGuid, dbNext)
-      for (const doc of this.documents) for (const s of doc.spawnLayer.spawns) if (s.kind === 'object') guid = Math.max(guid, s.guid + 1)
-      this.nextObjectGuid = guid + 1
-      const cam = this.camera.position
-      const o = spawnOrientation(rotY ?? Math.atan2(-(cam.z - at.z), cam.x - at.x))
-      const s = newObjectSpawn(t, guid, at.x, at.y, at.z, o)
-      d.history.push(spawnAdd(d.spawnLayer, s, `Add ${t.name}`))
-      if (d === this.doc) selectSpawn(s)
-    } catch (err) {
-      setStatus(`Could not place ${t.name}: ${err}`, 8000)
-    }
-  }
-
-  async placeCreature(t: vmangos.CreatureTemplate, at: THREE.Vector3, rotY?: number) {
-    const d = this.doc
-    try {
-      const [dbNext, look] = await Promise.all([this.nextCreatureGuid ? Promise.resolve(0) : NextCreatureGUID(), SpawnLook(t.display, t.equipment, 0, 0, 1)])
-      let guid = Math.max(this.nextCreatureGuid, dbNext)
-      for (const doc of this.documents) for (const s of doc.spawnLayer.spawns) if (s.kind !== 'object') guid = Math.max(guid, s.guid + 1)
-      this.nextCreatureGuid = guid + 1
-      // Face the camera: the model's front (+X at rest) turned towards where the camera is.
-      const cam = this.camera.position
-      const o = spawnOrientation(rotY ?? Math.atan2(-(cam.z - at.z), cam.x - at.x))
-      const s = newCreatureSpawn(t, guid, at.x, at.y, at.z, o, look)
-      d.history.push(spawnAdd(d.spawnLayer, s, `Add ${t.name}`))
-      if (d === this.doc) selectSpawn(s)
-    } catch (err) {
-      setStatus(`Could not place ${t.name}: ${err}`, 8000)
-    }
-  }
-
-  /**
-   * Brings the spawns of creature template `entry` in every open region up to date after the
-   * template was saved (`was` its values before): name, level, faction and the like, and for a spawn
-   * showing the template's display or equipment rather than its own, the new ones. The database
-   * already has this, so it is not a spawn edit to save, nor an undo step.
-   */
-  async applyCreatureTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
-    const t = creatureTemplateOf(entry, now)
-    const old = creatureTemplateOf(entry, was)
-    const info: Partial<vmangos.WorldSpawn> = {
-      name: t.name,
-      subname: t.subname,
-      levelMin: t.levelMin,
-      levelMax: t.levelMax,
-      faction: t.faction,
-      npcFlags: t.npcFlags,
-      rank: t.rank,
-      type: t.type,
-    }
-    const looks = new Map<string, Promise<vmangos.LookResult>>()
-    for (const d of this.documents) {
-      const layer = d.spawnLayer
-      let touched = false
-      for (const s of layer.spawns.slice()) {
-        if (s.kind === 'object' || s.entry !== entry) continue
-        const vals: Partial<vmangos.WorldSpawn> = { ...info }
-        const ownDisplay = s.display !== old.display
-        const display = ownDisplay ? s.display : t.display
-        const equipment = s.equipment === old.equipment ? t.equipment : s.equipment
-        if (display !== s.display || equipment !== s.equipment || (!ownDisplay && t.scale !== old.scale)) {
-          const key = [display, equipment, s.standState, s.emoteState, s.sheathState].join('|')
-          let p = looks.get(key)
-          if (!p) {
-            p = SpawnLook(display, equipment, s.standState, s.emoteState, s.sheathState)
-            looks.set(key, p)
-          }
-          try {
-            const l = await p
-            const templateScale = ownDisplay ? (s.displayScale > 0 ? s.scale / s.displayScale : 1) : t.scale
-            Object.assign(vals, { display, equipment, model: l.model, look: l.look, anim: l.anim, displayScale: l.displayScale, scale: templateScale * (l.displayScale || 1) })
-          } catch (err) {
-            console.warn('spawn not re-dressed', err)
-          }
-        }
-        layer.rebase(s, vals)
-        touched = true
-      }
-      if (touched && d === this.doc) syncSpawnUi(layer, true)
-    }
-  }
-
-  /**
-   * Brings the spawns of game object template `entry` in every open region up to date after the
-   * template was saved (`was` its values before): name, type, and the model and size of its display.
-   * As with applyCreatureTemplate, the database has this already, so it is no edit and no undo step.
-   */
-  async applyObjectTemplate(entry: number, now: Record<string, string>, was: Record<string, string>) {
-    const n = (v: Record<string, string>, col: string) => Number(v[col]) || 0
-    const display = n(now, 'displayId')
-    const vals: Partial<vmangos.WorldSpawn> = { name: now.name ?? '', type: n(now, 'type'), display, scale: n(now, 'size') || 1 }
-    if (display !== n(was, 'displayId')) {
-      try {
-        vals.model = await ObjectModel(display)
-      } catch (err) {
-        console.warn('object model not read', err)
-      }
-    }
-    for (const d of this.documents) {
-      let touched = false
-      for (const s of d.spawnLayer.spawns.slice()) {
-        if (s.kind !== 'object' || s.entry !== entry) continue
-        d.spawnLayer.rebase(s, vals)
-        touched = true
-      }
-      if (touched && d === this.doc) syncSpawnUi(d.spawnLayer, true)
-    }
-  }
-
-  /** Deletes the selected spawn of the active region, undoably. */
-  deleteSelectedSpawn() {
-    const sel = editor.selectedSpawn
-    if (!sel) return
-    const cmd = spawnDelete(this.doc.spawnLayer, spawnKey(sel), `Delete ${sel.name}`)
-    if (cmd) this.history.push(cmd)
-  }
-
-  /** The active region's spawn edits for the world database. */
-  spawnEdits(): vmangos.SpawnEdit[] {
-    return this.doc.spawnLayer.edits()
-  }
-
-  /** The world database now has the active region's spawn edits. */
-  markSpawnsSaved() {
-    this.doc.spawnLayer.markSaved()
-    syncSpawnUi(this.doc.spawnLayer)
-  }
-
-  /**
-   * Keys for a spawn selected alone: turn it (R), delete it, deselect it. While its path is being
-   * edited, Delete removes the picked point and Esc stops editing.
-   */
-  private handleSpawnKey(e: KeyboardEvent): boolean {
-    if ((ui.placeCreature || ui.placeObject) && e.key === 'Escape') {
-      ui.placeCreature = ui.placeObject = null
-      setStatus('Stopped placing creatures.')
-      return true
-    }
-    const sel = editor.selectedSpawn
-    if (!sel || editor.selectedIds.length > 0 || editor.tool !== 'select') return false
-    if (ui.spawnPick && e.key === 'Escape') {
-      ui.spawnPick = null
-      return true
-    }
-    if (ui.pathEdit) {
-      if (e.key === 'Escape') {
-        ui.pathEdit = false
-        return true
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && editor.selectedWaypoint >= 0) {
-        this.deletePathPoint()
-        return true
-      }
-    }
-    switch (e.key) {
-      case 'r':
-      case 'R': {
-        const spin = THREE.MathUtils.degToRad(e.altKey ? 5 : 15) * (e.shiftKey ? -1 : 1)
-        const o = spawnOrientation(spawnRotation(sel.orientation) + spin)
-        void this.editSpawn(spawnKey(sel), { orientation: o }, `Turn ${sel.name}`)
-        return true
-      }
-      case 'Delete':
-      case 'Backspace':
-        this.deleteSelectedSpawn()
-        return true
-      case 'Escape':
-        selectSpawn(null)
-        return true
-    }
-    return false
-  }
 
   /**
    * A new map to export for the 1.12 client, of tiles x tiles 128-cell tiles. It's made the same as
@@ -6088,7 +5684,7 @@ export class Engine {
       this.turnPastedModels((e.shiftKey ? 1 : -1) * THREE.MathUtils.degToRad(45))
       return true
     }
-    if (this.handleSpawnKey(e)) return true
+    if (this.spawnActions.handleKey(e)) return true
     if (!this.canNudge()) return false
     const big = e.shiftKey
     const step = big ? 4 : 0.5

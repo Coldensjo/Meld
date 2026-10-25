@@ -1,5 +1,5 @@
 // Teleport to destination (#306): with View › Area triggers on, a right-click on the Deadmines entrance (trigger 78) on Azeroth selects it and offers "Teleport to destination", which opens the Deadmines (map 36) in a new tab with the camera at the trigger's areatrigger_teleport spot; a spellcaster portal (Portal to Stormwind, 176296) reads its spell's destination in Stormwind; and a creature's gossip teleport (Lothos Riftwaker, 14387, to Molten Core) becomes a Teleport item in its menu (#308).
-// touches: frontend/src/lib/world/areaTriggers.ts, frontend/src/lib/world/teleport.ts, frontend/src/lib/io/portCoords.ts, frontend/src/components/ContextMenu.svelte, internal/vmangos/areatrigger.go, internal/vmangos/teleport.go
+// touches: frontend/src/lib/world/areaTriggers.ts, frontend/src/lib/world/teleport.ts, frontend/src/lib/io/portCoords.ts, frontend/src/components/ContextMenu.svelte, internal/vmangos/areatrigger.go, internal/vmangos/teleport.go, frontend/src/lib/engine/SpawnActions.ts
 const { ui, editor, prefs } = await P.state()
 const before = prefs.showAreaTriggers
 prefs.showAreaTriggers = true
@@ -53,7 +53,7 @@ try {
 	const lothos = { kind: 'creature', entry: 14387, guid: 0, name: 'Lothos Riftwaker' }
 	const seq = ++P.e.menuSeq
 	ui.contextMenu = { x: 10, y: 10, title: 'Lothos', items: [{ label: 'Edit creature…' }, { label: 'Focus' }] }
-	await P.e.addSpawnTeleports(lothos, seq, 'Lothos')
+	await P.e.spawnActions.addTeleports(lothos, seq, 'Lothos')
 	const lothosItems = ui.contextMenu?.items.map((i) => i.label) ?? []
 	ui.contextMenu = null
 	const gossip = lothosItems[1] === 'Teleport: Gossip: Transport me to the Molten Core, Lothos.' && lothosItems[2] === 'Focus'

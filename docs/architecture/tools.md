@@ -74,7 +74,7 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   (`tools/SpawnBrushTool.ts`, `tools/spawnBrush.ts`, `prefs.spawnBrush`): creature templates with weights,
   picked in the browser's Creatures tab, filled to a density (creatures per 100 by 100 yd) and spacing,
   with the brush's level, wander, respawn and facing; the Engine supplies guids and looks
-  (`brushCreature`, `brushLook`). A stroke is one undo step of ordinary unsaved spawn edits.
+  (`SpawnActions.brushCreature`, `brushLook`). A stroke is one undo step of ordinary unsaved spawn edits.
 
 - **Paths** (`tools/PathTool.ts`, tool `path`, key K, #167): roads, rivers and fences drawn along a spline,
   as Unreal's landscape splines. A path (`terrain/paths.ts`, `MapPath`) is control points plus its settings

@@ -1,5 +1,5 @@
 // New creature opens the guide (#260): the editor's New creature tab closes the editor and open the creature guide on step 1; the editor's Copy this creature asks for a name. Nothing is written to the database.
-// touches: frontend/src/components/CreatureEditor.svelte, frontend/src/components/CreaturesWorkspace.svelte
+// touches: frontend/src/components/CreatureEditor.svelte, frontend/src/components/CreaturesWorkspace.svelte, frontend/src/lib/engine/SpawnActions.ts
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

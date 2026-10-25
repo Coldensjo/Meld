@@ -114,6 +114,10 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   while the cursor and camera stay put. From above the ground, grass over a cave is still the
   ground: only an underground camera or hidden terrain looks through it.
 - **Spawn editing** (`world/spawnEdits.ts`): spawns are edited in place in the `SpawnLayer`
+  (the actions on them, placing, fields, paths, formations, pools, template updates, the spawn's
+  right-click menu and keys, are `engine/SpawnActions.ts` over a narrow `SpawnHost`; Engine forwards
+  the names components call, and a new spawn's guid or pool entry comes from `nextFreeGuid` and
+  `nextFreePoolEntry`, above the database's and every open tab's, #557)
   (keyed `kind/guid`), and every change is a `History` command. `SpawnLayer.touch` keeps a
   spawn's database state before its first edit, so `edits()` lists what changed (`SpawnChanges` re-compares only the spawns touched since the last count); File › Save Spawns to
   Database… (and Compile to Server and Compile All, #342) saves them with `ApplySpawnEdits` (SQL from `vmangos.SpawnSQL`, run through mariadb's stdin in
@@ -164,13 +168,13 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   no slots: its lines go to the members). `FormationFields` lists the group and its flags; Lead a
   formation and Add followers on the map make each clicked creature follow in a slot where it stands
   (`joinChanges`), Follow another joins the clicked creature's leader, and a follower dragged (or moved
-  by its fields, `slotFieldsAt` in the Select tool and `Engine.editSpawn`) takes its slot where it is
-  dropped; the slot's own fields move it into the slot (`Engine.setFormationSlot`). Formations don't
+  by its fields, `slotFieldsAt` in the Select tool and `SpawnActions.editSpawn`) takes its slot where it is
+  dropped; the slot's own fields move it into the slot (`SpawnActions.setFormationSlot`). Formations don't
   nest: a follower can't lead, and a leader with followers can't join another. The last follower
   leaving, Disband, and deleting the leader (`spawnDelete`) end the formation. The SQL
   (`formationSQL`) replaces a changed member's row, deletes a leaver's, deletes every row of a leader
   that stops leading, and a deleted creature's rows as member and leader.
-- **Picking spawns on the map** (`ui.spawnPick`, `Engine.startSpawnPick`, `Engine.pickSpawn`): like
+- **Picking spawns on the map** (`ui.spawnPick`, `SpawnActions.startSpawnPick`, `SpawnActions.pickSpawn`): like
   path editing, the Select tool's click on a spawn goes to `pickSpawn` instead of selecting
   (`ObjectTools` hook), each click one undo step through `spawnsChange` (several spawns, one
   command); `SpawnPickBar.svelte` says what a click does, Esc or Done stops, and selecting another
@@ -202,7 +206,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   the guide of `CreaturesWorkspace` (#260); Copy this creature in the header asks for a name and
   makes a copy (`CreateCreature`: the first free entry). Template edits are a form
   saved with Save (`SaveCreature`, the newest patch row), not undo steps;
-  `Engine.applyCreatureTemplate` then brings that creature's spawns up to date through
+  `SpawnActions.applyCreatureTemplate` then brings that creature's spawns up to date through
   `SpawnLayer.rebase`, which changes their saved state too. A template's columns are drawn by
   `TemplateFields.svelte`, shared with the game object editor.
 - **Spells** (`components/SpellsTab.svelte`, #243): the creature editor's tab for what the creature
@@ -234,7 +238,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   against `pickNearest`'s hit: a placed model wins only in front of the trigger (a dungeon portal
   stands in its building), a spawn inside it too. The menu's Teleport to destination, and a
   spawn's Teleport items, call `io/mapio.ts` `teleportTo`. A spawn's items (#308) join its open menu
-  above Focus when `SpawnTeleports` answers (`Engine.addSpawnTeleports`; `menuSeq` and the title
+  above Focus when `SpawnTeleports` answers (`SpawnActions.addTeleports`; Engine's `menuSeq` and the title
   drop an answer whose menu is gone): `internal/vmangos/teleport.go` gathers in one query every
   destination of a spell with a teleport effect (5) and a `spell_target_position` row, and every
   `TELEPORT_TO` (script command 6; a creature's own scripts with map 0 stay on its spawn's map) and
@@ -287,7 +291,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   and names of the templates using it, families by the model's folder; a click sets `displayId`,
   hovering previews it; the Go and frontend lists are forgotten on Save and New object, as their uses
   change), and New object (`CreateObject`). The Object tab follows the spawn's entry
-  (an entry change or its undo). Save calls `Engine.applyObjectTemplate` (name, type, model through
+  (an entry change or its undo). Save calls `SpawnActions.applyObjectTemplate` (name, type, model through
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
 - **Quest editor** (`components/QuestEditor.svelte`, `ui.questEditor`, #259): full screen (over the
   creature editor, z-index 160; the creature and object editors ignore Esc while it is open), opened
