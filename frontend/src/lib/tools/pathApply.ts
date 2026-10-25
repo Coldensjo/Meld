@@ -5,6 +5,7 @@
 import type { Terrain } from '../terrain/Terrain'
 import type { ObjectLayer } from '../world/ObjectLayer'
 import type { Command } from '../state/history'
+import { addedCommand } from '../world/objectCommands'
 import { compactChunk, SLOTS } from '../terrain/chunkPaint'
 import { paintPixel } from './brush'
 import { PATH_KINDS, crossWeight, downhill, fencePieces, limitGrade, pathField, riverBed, samplePath, type MapPath, type PathSamples } from '../terrain/paths'
@@ -207,12 +208,7 @@ function placeFence(objects: ObjectLayer, sm: PathSamples, path: MapPath, piece?
 	const pieces = fencePieces(sm, span, !!piece?.alongZ, path.turn)
 	if (pieces.length > MAX_FENCE_MODELS) return { cmd: null, message: `That would stand ${pieces.length} models: more than ${MAX_FENCE_MODELS}. Raise the spacing or shorten the path.` }
 	const added = pieces.map((p) => objects.add({ type: path.model, x: p.x, z: p.z, yOff: 0, rotY: p.rotY, scale: 1 }))
-	const saved = added.map((o) => ({ ...o }))
-	const cmd: Command = {
-		label: `Apply ${path.name}`,
-		undo: () => saved.forEach((o) => objects.remove(o.id)),
-		redo: () => saved.forEach((o) => objects.add({ ...o })),
-	}
+	const cmd = addedCommand(objects, added, `Apply ${path.name}`)
 	return { cmd, message: `Fence applied: ${added.length} models over ${Math.round(sm.length)} yd.` }
 }
 

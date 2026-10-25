@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import { editor, prefs, setStatus, setViewportHint } from '../state/editor.svelte'
-import type { Command } from '../state/history'
+import { addedCommand, removedCommand } from '../world/objectCommands'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { getAsset } from '../models/assets'
 import { GhostPool } from './ghosts'
@@ -220,24 +220,8 @@ export class DoodadBrushTool implements Tool {
     // A stroke ends where it began, even if the mode was switched under it.
     this.spawns?.onUp(ctx)
     const objects = this.objects
-    if (objects && this.placed?.length) {
-      const saved = this.placed.map((o) => ({ ...o }))
-      const cmd: Command = {
-        label: this.grid ? 'Fill with doodad brush' : 'Doodad brush',
-        undo: () => saved.forEach((o) => objects.remove(o.id)),
-        redo: () => saved.forEach((o) => objects.add({ ...o })),
-      }
-      ctx.history.push(cmd)
-    }
-    if (objects && this.erased?.length) {
-      const saved = this.erased.map((o) => ({ ...o }))
-      const cmd: Command = {
-        label: 'Erase doodads',
-        undo: () => saved.forEach((o) => objects.add({ ...o })),
-        redo: () => saved.forEach((o) => objects.remove(o.id)),
-      }
-      ctx.history.push(cmd)
-    }
+    if (objects && this.placed?.length) ctx.history.push(addedCommand(objects, this.placed, this.grid ? 'Fill with doodad brush' : 'Doodad brush'))
+    if (objects && this.erased?.length) ctx.history.push(removedCommand(objects, this.erased, 'Erase doodads'))
     this.placed = this.erased = this.objects = null
     this.placedIds.clear()
   }

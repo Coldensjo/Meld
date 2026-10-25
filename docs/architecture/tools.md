@@ -10,6 +10,8 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     out on `deactivate` (`detach`), `grow(n)` adds slots, and `show(i, asset)` swaps a slot's mesh
     when the asset's geometry or skeleton changed and runs the asset's particles on it. Use it for a
     new tool's previews rather than swapping meshes by hand.
+  - A step that adds or removes models records undo through `addedCommand` / `removedCommand`
+    (`world/objectCommands.ts`), which copy the models and take the map's `ObjectLayer`.
   - Brush size follows Photoshop (`tools/brushSize.ts`): `[` `]` and Ctrl+scroll step the radius
     through size bands (`stepRadius`, via `Engine.stepBrush`), Shift+`[` `]` step the falloff, and
     Alt+right-drag (`Engine.sizeDrag`, which the camera leaves alone through `rightBlocked`) sizes

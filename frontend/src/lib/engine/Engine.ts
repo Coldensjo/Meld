@@ -38,7 +38,8 @@ import { ShadowStroke } from '../tools/shadowStroke'
 import { areaVertexWeights, erodePatch, settledMask, SETTLED_FULL, type ErodeSettings } from '../terrain/erodeArea'
 import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
-import { PlaceTool, SelectTool, groupTransformCommand, removeCommand, tiltDeg, transformCommand } from '../tools/ObjectTools'
+import { PlaceTool, SelectTool, groupTransformCommand, tiltDeg, transformCommand } from '../tools/ObjectTools'
+import { addedCommand, removedCommand } from '../world/objectCommands'
 import { stepTilt } from '../world/placement'
 import { ClearTool } from '../tools/ClearTool'
 import { SpawnLabels } from '../world/SpawnLabels'
@@ -5307,13 +5308,7 @@ export class Engine {
   /** Places a list of models (from an object list file) as one undoable step. */
   addObjects(list: Array<Omit<WorldObject, 'id'>>) {
     const added = list.map((o) => this.objects.add({ ...o }))
-    const saved = added.map((o) => ({ ...o }))
-    const cmd: Command = {
-      label: 'Import object list',
-      undo: () => saved.forEach((o) => this.objects.remove(o.id)),
-      redo: () => saved.forEach((o) => this.objects.add({ ...o })),
-    }
-    this.history.push(cmd)
+    this.history.push(addedCommand(this.objects, added, 'Import object list'))
   }
 
   /** Sculpt's Vertex mode: flatten the selected vertices to their mean height, or clear the selection. */
@@ -5342,7 +5337,7 @@ export class Engine {
       setStatus('No duplicate models.')
       return
     }
-    const cmd = removeCommand(this.objects, dupes)
+    const cmd = removedCommand(this.objects, dupes)
     cmd.redo()
     this.history.push(cmd)
     this.syncSelection()
@@ -5434,7 +5429,7 @@ export class Engine {
         setStatus(`No ${what === 'models' ? '' : 'duplicate '}models on ${name}.`, 3000)
         return
       }
-      const cmd = removeCommand(this.objects, gone)
+      const cmd = removedCommand(this.objects, gone)
       cmd.label = what === 'models' ? `Clear models on ${name}` : `Remove duplicate models on ${name}`
       cmd.redo()
       this.history.push(cmd)

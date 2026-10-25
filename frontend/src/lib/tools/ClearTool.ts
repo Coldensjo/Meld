@@ -1,7 +1,7 @@
 import type * as THREE from 'three'
 import type { Tool, ToolContext } from './Tool'
 import { editor } from '../state/editor.svelte'
-import type { Command } from '../state/history'
+import { removedCommand } from '../world/objectCommands'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { TerrainStroke, forEachTexel, forEachVertex, type Rect } from './brush'
 import { CHUNK_CELLS, SLOTS, dropFaintLayers, resetTexel } from '../terrain/chunkPaint'
@@ -94,14 +94,7 @@ export class ClearTool implements Tool {
     const saved = this.removed
     this.removed = []
     this.objects = null
-    if (objects && saved.length) {
-      const cmd: Command = {
-        label: 'Clear models',
-        undo: () => saved.forEach((o) => objects.add({ ...o })),
-        redo: () => saved.forEach((o) => objects.remove(o.id)),
-      }
-      ctx.history.push(cmd)
-    }
+    if (objects && saved.length) ctx.history.push(removedCommand(objects, saved, 'Clear models'))
   }
 
   private clear(ctx: ToolContext, hit: THREE.Vector3 | null) {

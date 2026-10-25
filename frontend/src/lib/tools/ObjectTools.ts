@@ -22,24 +22,7 @@ import { applySpawn, newWaypoint, selectSpawn, spawnChange, syncSpawnUi, withPoi
 import { slotFieldsAt } from '../world/formations'
 import { SpacingGrid } from './doodadBrush'
 import { InputsKey } from './inputsKey'
-
-function addCommand(objects: ObjectLayer, added: WorldObject[], label: string): Command {
-  const saved = added.map((o) => ({ ...o }))
-  return {
-    label,
-    undo: () => saved.forEach((o) => objects.remove(o.id)),
-    redo: () => saved.forEach((o) => objects.add({ ...o })),
-  }
-}
-
-export function removeCommand(objects: ObjectLayer, removed: WorldObject[]): Command {
-  const saved = removed.map((o) => ({ ...o }))
-  return {
-    label: 'Delete',
-    undo: () => saved.forEach((o) => objects.add({ ...o })),
-    redo: () => saved.forEach((o) => objects.remove(o.id)),
-  }
-}
+import { addedCommand } from '../world/objectCommands'
 
 export function transformCommand(objects: ObjectLayer, before: WorldObject, after: WorldObject): Command {
   return groupTransformCommand(objects, [before], [after], 'Transform')
@@ -294,7 +277,7 @@ export class PlaceTool implements Tool {
       rot: this.rot,
       scale: this.scale,
     })
-    const add = addCommand(ctx.objects, [o], surf.parent !== null ? 'Place (attached)' : 'Place')
+    const add = addedCommand(ctx.objects, [o], surf.parent !== null ? 'Place (attached)' : 'Place')
     // With Fit ground on, a model on open ground has the ground fitted under it in the same undo step.
     const fit = prefs.placeFitGround && surf.parent === null ? this.hooks.fitGround(o.id, { ...prefs.fitGround }) : null
     ctx.history.push(
@@ -348,7 +331,7 @@ export class PlaceTool implements Tool {
   }
 
   onUp(ctx: ToolContext) {
-    if (this.scattering?.length) ctx.history.push(addCommand(ctx.objects, this.scattering, 'Scatter'))
+    if (this.scattering?.length) ctx.history.push(addedCommand(ctx.objects, this.scattering, 'Scatter'))
     this.scattering = null
     this.scatterGrid = null
   }
