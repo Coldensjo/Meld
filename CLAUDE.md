@@ -15,6 +15,11 @@ Svelte 5 + TypeScript + Three.js frontend. It must stay **fast** and build on **
     Linux. The other one cannot run here, so say so in the issue's closing comment.
 
   If they fail, fix the problem first, or tell the user rather than committing broken code.
+- To redo a reverted commit, start from `git revert <the revert's hash>` (or cherry-pick the original
+  onto the current tree) and resolve the conflicts. Never rebuild it by copying files from the old
+  commit: that silently undoes every later change to them (#640's redo of #618 undid #461's prefs
+  effect in `App.svelte`). Then check that `git diff <revert>^..HEAD -- <files>` shows only the
+  intended change.
 - Match the style of existing commit messages: one sentence in the imperative mood that says what
   changed and why, e.g. "Save palette thumbnails through a Go binding instead of a POST, since
   WebKitGTK crashes on request bodies".
