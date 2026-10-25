@@ -1073,7 +1073,9 @@ export class ObjectLayer {
 		for (const h of hits) {
 			const id = hitId(h)
 			if (id === undefined || exclude?.has(id)) continue
-			if (!getAsset(this.objects.get(id)!.type).ready) continue
+			// An object removed since the last pack (an undone placement) is still in its batch until update.
+			const o = this.objects.get(id)
+			if (!o || !getAsset(o.type).ready) continue
 			return { id, point: h.point.clone(), distance: h.distance }
 		}
 		return null
@@ -1107,7 +1109,8 @@ export class ObjectLayer {
 		for (const h of hits) {
 			const id = hitId(h)
 			if (id === undefined || exclude?.has(id) || !h.face) continue
-			if (!getAsset(this.objects.get(id)!.type).ready) continue
+			const o = this.objects.get(id)
+			if (!o || !getAsset(o.type).ready) continue
 			const mesh = h.object as THREE.InstancedMesh
 			mesh.getMatrixAt(h.instanceId!, this.floorM)
 			this.floorM.premultiply(mesh.matrixWorld)

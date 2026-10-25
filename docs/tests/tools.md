@@ -168,6 +168,21 @@ scrolling back to 0 hands the tilt back to Random tilt. `tests/placement.test.ts
 - Trap: the key is tracked by `e.code === 'KeyZ'`, so a synthetic keydown needs `code: 'KeyZ'`, and a
   keyup (or a window blur) to release it, or later wheel events keep tilting.
 
+## Undoing a placement with the cursor over it (#719, probe `place-undo`)
+
+Checks: with the Place tool and Fit ground on, a click on bumpy ground places a helper cube with the
+ground fitted under it as one step (`Place and fit ground`), and Ctrl+Z takes both away with the next
+frames running: no throw, no model left, every height back, and the undo with its first frame under
+100 ms of script. Probe `place-undo` (`bun run probe place-undo`).
+- Trap: a removed object stays in its instance batch, with its id in the mesh's `userData.ids`, until
+  `ObjectLayer.update` repacks it, and the tool's `frame` (the Place preview's surface raycast) runs
+  before that update in `Engine.simulate`. A pick that looks the hit id up with `objects.get(id)!`
+  threw there every frame, so `update` never ran and the view froze until the cursor left the
+  model's footprint (the owner's 500 to 1000 ms "lag" on a large building). Skip ids that are no
+  longer in `objects`.
+- Measure the script time with `e.undo(); e.frame()` between `performance.now()` calls: `P.frames`
+  waits for SwiftShader to draw, 200 to 350 ms a frame on the dev page, which hides the script cost.
+
 ## Placing a creature or game object: the preview's size (#672)
 
 Checks: with a template from the browser's Creatures, NPCs or Objects tab, the Place tool's preview is
