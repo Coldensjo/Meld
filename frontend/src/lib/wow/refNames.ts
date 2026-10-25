@@ -1,6 +1,7 @@
-import { Factions, QuestTables, SpawnEmotes, TemplateNames } from '../../../wailsjs/go/main/App'
+import { Factions, ObjectTables, QuestTables, SpawnEmotes, TemplateNames, WorldRefNames } from '../../../wailsjs/go/main/App'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { areaName, loadAreas } from './areas'
+import { lockText } from './locks'
 import { spellRef } from './spells'
 
 // Names for the quest editor's references (#259): what an item, creature, object, quest, spell,
@@ -9,7 +10,16 @@ import { spellRef } from './spells'
 // answer kept for the session (forgetName drops one that a save changed).
 
 /** What a reference number can be once its sign is read (see refTarget). */
-export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote'
+export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote' | ObjectTableKind | WorldKind
+
+/** The client tables a game object's data columns name (#702), read once (objectTables). */
+export type ObjectTableKind = 'lock' | 'language' | 'page material' | 'spell focus' | 'cinematic' | 'taxi path' | 'auction house'
+
+/** The world database rows a game object's data columns name (#702), named by WorldRefNames. */
+export type WorldKind = 'gossip' | 'page' | 'text' | 'event' | 'loot'
+
+export const WORLD_KINDS: readonly WorldKind[] = ['gossip', 'page', 'text', 'event', 'loot']
+export const OBJECT_TABLE_KINDS: readonly ObjectTableKind[] = ['lock', 'language', 'page material', 'spell focus', 'cinematic', 'taxi path', 'auction house']
 
 export interface RefName {
 	name: string
@@ -33,7 +43,7 @@ interface NamedRef {
 }
 
 const cache = new Map<string, Promise<RefName | null>>()
-const pending = new Map<TemplateKind, Map<number, (r: RefName | null) => void>>()
+const pending = new Map<TemplateKind | WorldKind, Map<number, (r: RefName | null) => void>>()
 let flush = 0
 
 function flushNames() {
@@ -41,6 +51,16 @@ function flushNames() {
 	const asked = new Map(pending)
 	pending.clear()
 	for (const [kind, ids] of asked) {
+		if ((WORLD_KINDS as readonly string[]).includes(kind)) {
+			WorldRefNames(kind, [...ids.keys()])
+				.then((got: Record<number, string> | null) => {
+					for (const [id, done] of ids) done(got?.[id] !== undefined ? { name: got[id] } : null)
+				})
+				.catch(() => {
+					for (const done of ids.values()) done(null)
+				})
+			continue
+		}
 		TemplateNames(kind, [...ids.keys()])
 			.then((got: Record<number, NamedRef> | null) => {
 				for (const [id, done] of ids) {
@@ -95,6 +115,57 @@ export function factionTemplateName(f: vmangos.FactionInfo): string {
 	return `${f.name || 'Unnamed'} (${reactionText(f)})`
 }
 
+let objTables: Promise<vmangos.ObjectTables> | null = null
+/** The client's tables a game object's data columns name (locks, languages, flight paths…), read once. */
+export function objectTables(): Promise<vmangos.ObjectTables> {
+	if (!objTables) {
+		objTables = ObjectTables().then(
+			(t) =>
+				({
+					locks: t.locks ?? [],
+					lockTypes: t.lockTypes ?? [],
+					languages: t.languages ?? [],
+					pageMaterials: t.pageMaterials ?? [],
+					spellFocus: t.spellFocus ?? [],
+					cinematics: t.cinematics ?? [],
+					taxiPaths: t.taxiPaths ?? [],
+					auctionHouses: t.auctionHouses ?? [],
+				}) as vmangos.ObjectTables,
+		)
+		objTables.catch(() => (objTables = null))
+	}
+	return objTables
+}
+
+/** The list of an object table kind other than a lock. */
+export function objectTableList(t: vmangos.ObjectTables, kind: Exclude<ObjectTableKind, 'lock'>): vmangos.NamedID[] {
+	switch (kind) {
+		case 'language':
+			return t.languages
+		case 'page material':
+			return t.pageMaterials
+		case 'spell focus':
+			return t.spellFocus
+		case 'cinematic':
+			return t.cinematics
+		case 'taxi path':
+			return t.taxiPaths
+		case 'auction house':
+			return t.auctionHouses
+	}
+}
+
+/** A lock's text with its keys' names asked of the world database. */
+export async function lockName(lock: vmangos.LockInfo, lockTypes: vmangos.NamedID[]): Promise<string> {
+	const keys = (lock.parts ?? []).filter((p) => p.type === 1).map((p) => p.index)
+	const names = new Map<number, string>()
+	await Promise.all(keys.map(async (id) => {
+		const r = await refName('item', id)
+		if (r) names.set(id, r.name)
+	}))
+	return lockText(lock, lockTypes, (id) => names.get(id) ?? null)
+}
+
 /** A client table row's name, or null. */
 async function tableName(kind: 'faction' | 'skill' | 'sort', id: number): Promise<RefName | null> {
 	const t = await questTables()
@@ -112,7 +183,12 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 		case 'item':
 		case 'creature':
 		case 'object':
-		case 'quest': {
+		case 'quest':
+		case 'gossip':
+		case 'page':
+		case 'text':
+		case 'event':
+		case 'loot': {
 			p = new Promise<RefName | null>((done) => {
 				let ids = pending.get(kind)
 				if (!ids) pending.set(kind, (ids = new Map()))
@@ -131,6 +207,23 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 			p = factionTemplates().then((list) => {
 				const f = list.find((x) => x.id === id)
 				return f ? { name: factionTemplateName(f) } : null
+			})
+			break
+		case 'lock':
+			p = objectTables().then(async (t) => {
+				const l = t.locks.find((x) => x.id === id)
+				return l ? { name: await lockName(l, t.lockTypes) } : null
+			})
+			break
+		case 'language':
+		case 'page material':
+		case 'spell focus':
+		case 'cinematic':
+		case 'taxi path':
+		case 'auction house':
+			p = objectTables().then((t) => {
+				const r = objectTableList(t, kind).find((x) => x.id === id)
+				return r ? { name: r.name } : null
 			})
 			break
 		case 'emote':

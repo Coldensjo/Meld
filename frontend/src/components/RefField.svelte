@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { SearchCreatures, SearchItems, SearchQuests } from '../../wailsjs/go/main/App'
+	import { SearchCreatures, SearchItems, SearchQuests, SearchWorldRefs } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import type { CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
-	import { emoteList, factionTemplateName, factionTemplates, questTables, reactionText, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
+	import { OBJECT_TABLE_KINDS, emoteList, factionTemplateName, factionTemplates, lockName, objectTableList, objectTables, questTables, reactionText, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
 	import ItemIcon from './ItemIcon.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 	import SpellIcon from './SpellIcon.svelte'
@@ -13,7 +13,10 @@
 	// A column that names a thing (#259, the quest editor): its number, the name of what it names
 	// (an item with its icon and quality colour, a spell with its icon, a creature, a quest…), and
 	// Find, a search that puts the picked thing's number in. An emote is a list to pick from. A faction
-	// template lists its faction's name with how it treats Alliance and Horde players (#699).
+	// template lists its faction's name with how it treats Alliance and Horde players (#699). A game
+	// object's data columns (#702) name client table rows (a lock by what opens it, a language, a
+	// flight path…), listed whole, and world database rows (a gossip menu or page by its first line,
+	// an event script or loot list by its size), searched by text or number.
 
 	interface Props {
 		f: CreatureField
@@ -103,6 +106,30 @@
 					.map((a) => ({ kind: k, id: a.id, name: areaName(a.id), sub: String(a.id) }))
 			case 'emote':
 				return []
+			case 'lock': {
+				const t = await objectTables()
+				const named = await Promise.all(t.locks.map(async (l) => ({ id: l.id, name: await lockName(l, t.lockTypes) })))
+				return named
+					.filter((l) => like(l.name, l.id, q))
+					.slice(0, 300)
+					.map((l) => ({ kind: k, id: l.id, name: l.name, sub: String(l.id) }))
+			}
+			case 'language':
+			case 'page material':
+			case 'spell focus':
+			case 'cinematic':
+			case 'taxi path':
+			case 'auction house':
+				return objectTableList(await objectTables(), k)
+					.filter((r) => like(r.name, r.id, q))
+					.slice(0, 300)
+					.map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
+			case 'gossip':
+			case 'page':
+			case 'text':
+			case 'event':
+			case 'loot':
+				return ((await SearchWorldRefs(k, q)) ?? []).map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
 			case 'faction template':
 				return (await factionTemplates())
 					.filter((f) => like(f.name, f.id, q) || (q !== '' && reactionText(f).includes(q.toLowerCase())))
@@ -125,7 +152,7 @@
 		if (!open || k === 'spell') return
 		// The client's short lists show whole without a search; the zones, the objects and the
 		// database's templates need one.
-		const whole = k === 'faction' || k === 'faction template' || k === 'skill' || k === 'sort'
+		const whole = k === 'faction' || k === 'faction template' || k === 'skill' || k === 'sort' || (OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k)
 		const local = whole || k === 'zone' || k === 'object'
 		if (!q && !whole) {
 			hits = []
@@ -147,7 +174,8 @@
 
 	function pick(h: Hit) {
 		rememberName(h.kind, h.id, { name: h.full ?? h.name, quality: h.quality, displayId: h.displayId, icon: h.icon })
-		const negative = h.kind === 'object' || h.kind === 'sort'
+		// Only a column that names one of two kinds tells them apart by the sign.
+		const negative = kinds[1] !== null && (h.kind === 'object' || h.kind === 'sort')
 		onset(String(negative ? -h.id : h.id))
 		open = false
 	}
@@ -205,7 +233,7 @@
 							</button>
 						</li>
 					{:else}
-						<li class="dim">{searching ? 'Searching…' : query.trim() ? 'Nothing matches.' : 'Type a name or a number.'}</li>
+						<li class="dim">{searching ? 'Searching…' : query.trim() ? 'Nothing matches.' : kind === 'event' || kind === 'loot' ? 'Type a number.' : 'Type a name or a number.'}</li>
 					{/each}
 				</ul>
 			</div>

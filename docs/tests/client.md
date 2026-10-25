@@ -434,6 +434,23 @@ unsigned).
 - The flag names come from VMaNGOS' `CreatureDefines.h` (`CreatureStaticFlags`, `...Flags2`,
   `CreatureFlagsExtra`, `CreatureImmunityFlags`); the mechanic bits are `1 << (mechanic - 1)`.
 
+## The game object editor's faction, cursor and data column pickers (#702, probe `object-pickers`)
+
+Checks: the Sunken Chest (32)'s Object tab names its faction template (12, Stormwind), its lock
+(43, "Open Kneeling", by what opens it) and its loot list (1683, by its row count), the Display
+box's note names the model (Chest01), Cursor icon offers the client's cursor names; Lock's Find lists
+every lock and a click puts its ID in (the field turns changed); Eliza's Tombstone (37, a text) names
+its page by its first line with the HTML tags dropped, its language (Common) and page material
+(Stone). `bun run probe object-pickers` (about 6 s, nothing written). Unit tests: `bun test
+tests/objectFields.test.ts` (which data column gets which picker, the lock text), `go test
+./internal/vmangos/ -run 'TestLockInfos|TestTaxiAndCinematicNames|TestWorldRefSQL|TestFirstLine'`,
+and `TestLoadObjectTablesClient` with `WOW_DIR`.
+- Trap: lock and loot ids aren't unique to objects, and a Lock.dbc slot of type 1 is an item (a
+  key), named through the item templates; type 2 is a LockType.dbc row with the skill it needs.
+- Quest list (a questgiver's data1) and Custom animation stay numbers: no world database table holds
+  quest lists, and the animation would need the model's sequence names.
+- The event and loot pickers search by number only (they have no text).
+
 ## Icons beside item, spell and class names (#682, probe `editor-icons`)
 
 Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's

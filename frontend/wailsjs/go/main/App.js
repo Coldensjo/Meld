@@ -362,6 +362,10 @@ export function ObjectModel(arg1) {
   return window['go']['main']['App']['ObjectModel'](arg1);
 }
 
+export function ObjectTables() {
+  return window['go']['main']['App']['ObjectTables']();
+}
+
 export function OpenBrushDialog() {
   return window['go']['main']['App']['OpenBrushDialog']();
 }
@@ -698,6 +702,10 @@ export function SearchSpells(arg1) {
   return window['go']['main']['App']['SearchSpells'](arg1);
 }
 
+export function SearchWorldRefs(arg1, arg2) {
+  return window['go']['main']['App']['SearchWorldRefs'](arg1, arg2);
+}
+
 export function SessionLog() {
   return window['go']['main']['App']['SessionLog']();
 }
@@ -800,6 +808,10 @@ export function WMODoodadSets(arg1) {
 
 export function WorldHorizon(arg1) {
   return window['go']['main']['App']['WorldHorizon'](arg1);
+}
+
+export function WorldRefNames(arg1, arg2) {
+  return window['go']['main']['App']['WorldRefNames'](arg1, arg2);
 }
 
 export function WowStatus() {

@@ -1,4 +1,5 @@
 import { CLASSES } from '../wow/classes'
+import type { ObjectTableKind, WorldKind } from '../wow/refNames'
 import { CREATURE_TYPES, NPC_FLAGS, RANKS } from './spawnInfo'
 
 /**
@@ -38,9 +39,11 @@ export interface CreatureField {
  * What a reference column names: an item, a creature (positive) or game object (negative), a spell,
  * a quest (by its absolute value), a faction (Faction.dbc, a reputation), a faction template
  * (FactionTemplate.dbc, what a creature's or object's `faction` holds), a zone (positive) or quest
- * sort (negative), a skill or an emote.
+ * sort (negative), a skill or an emote; for a game object's data columns (#702) a creature, a game
+ * object or a zone alone, a client table row (a lock, a language…) or a world database row (a gossip
+ * menu, a page, a text, an event script, a loot list).
  */
-export type RefKind = 'item' | 'creature or object' | 'spell' | 'quest' | 'faction' | 'faction template' | 'zone or sort' | 'skill' | 'emote'
+export type RefKind = 'item' | 'creature or object' | 'creature' | 'object' | 'zone' | 'spell' | 'quest' | 'faction' | 'faction template' | 'zone or sort' | 'skill' | 'emote' | ObjectTableKind | WorldKind
 
 export interface CreatureFieldGroup {
 	title: string
@@ -51,7 +54,7 @@ export interface CreatureFieldGroup {
 
 const named = (names: string[], from = 0): Array<[number, string]> => names.map((n, i) => [i + from, n] as [number, string]).filter(([, n]) => n !== '')
 
-const SCHOOLS = named(['Physical', 'Holy', 'Fire', 'Nature', 'Frost', 'Shadow', 'Arcane'])
+export const SCHOOLS = named(['Physical', 'Holy', 'Fire', 'Nature', 'Frost', 'Shadow', 'Arcane'])
 
 /** The playable races by ChrRaces.dbc ID; a race's RaceMask bit is 1 << (id - 1). */
 export const RACES: Array<[number, string]> = named(['Human', 'Orc', 'Dwarf', 'Night Elf', 'Undead', 'Tauren', 'Gnome', 'Troll'], 1)

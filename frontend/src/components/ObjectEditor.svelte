@@ -59,7 +59,17 @@
 	const unsaved = $derived(changeCount > 0 || lootDirty)
 	/** Anything unsaved at all, the quests (saved apart) too: what closing asks about. */
 	const anyUnsaved = $derived(unsaved || questsDirty)
-	const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name), objectFieldGroups(Number(values.type) || 0)) : [])
+	// The model of the template's display, for the preview and the Display box's note.
+	let templateModel = $state('')
+	$effect(() => {
+		const d = Number(values.displayId) || 0
+		if (!record) return
+		ObjectModel(d)
+			.then((m) => (templateModel = m))
+			.catch(() => (templateModel = ''))
+	})
+
+	const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name), objectFieldGroups(Number(values.type) || 0, templateModel)) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
 	// Opening another object reads its template and picks the first tab.
@@ -122,16 +132,6 @@
 		askedFor = s.entry
 		afterDiscard = follow
 		confirmClose = true
-	})
-
-	// The model of the template's display, for the preview.
-	let templateModel = $state('')
-	$effect(() => {
-		const d = Number(values.displayId) || 0
-		if (!record) return
-		ObjectModel(d)
-			.then((m) => (templateModel = m))
-			.catch(() => (templateModel = ''))
 	})
 
 	/** The object under the pointer in the Change object list, shown big until the pointer leaves. */

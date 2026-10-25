@@ -1,4 +1,4 @@
-import type { CreatureField, CreatureFieldGroup } from './creatureFields'
+import { SCHOOLS, type CreatureField, type CreatureFieldGroup, type RefKind } from './creatureFields'
 import { OBJECT_TYPES } from './spawnInfo'
 
 /**
@@ -70,6 +70,9 @@ const DATA_NAMES: Record<number, string[]> = {
 	26: ['Lock', 'Event', 'Pickup spell', '?No damage immunity'],
 }
 
+/** The cursors of the 1.12 client's Interface\Cursor folder that gameobject_template.icon can name. */
+export const CURSOR_ICONS = ['Point', 'Interact', 'Speak', 'Attack', 'Cast', 'Buy', 'Repair', 'Trainer', 'Taxi', 'Mail', 'Inspect', 'PickLock', 'Mine', 'GatherHerbs', 'Skin', 'LootAll', 'Pickup', 'Item', 'PVP']
+
 /** gameobject_template.flags (GO_FLAG_* in GameObjectDefines.h). */
 const OBJECT_FLAGS: Array<[number, string]> = [
 	[0x01, 'In use'],
@@ -81,8 +84,66 @@ const OBJECT_FLAGS: Array<[number, string]> = [
 	[0x40, 'Triggered'],
 ]
 
-/** The groups for gameobject_template's columns, with the data columns named for object type `type`. */
-export function objectFieldGroups(type: number): CreatureFieldGroup[] {
+/** What a data column names, by its name in DATA_NAMES (#702); a name ending in spell or aura is a spell (#682). */
+const DATA_REFS: Record<string, RefKind> = {
+	Lock: 'lock',
+	'Linked trap': 'object',
+	Quest: 'quest',
+	Creature: 'creature',
+	Zone: 'zone',
+	Loot: 'loot',
+	'Gossip menu': 'gossip',
+	Page: 'page',
+	Event: 'event',
+	'Looted event': 'event',
+	'Start event': 'event',
+	'Stop event': 'event',
+	'Open text': 'text',
+	'Close text': 'text',
+	Language: 'language',
+	'Page material': 'page material',
+	'Spell focus': 'spell focus',
+	Cinematic: 'cinematic',
+	'Taxi path': 'taxi path',
+	'Auction house': 'auction house',
+}
+
+/** The hints of the data columns a picker or select names, such as "Lock.dbc: what opens it". */
+const DATA_HINTS: Record<string, string> = {
+	Lock: 'Lock.dbc: what opens it (a skill or a key)',
+	'Linked trap': 'The game object (a trap) it sets off',
+	Loot: 'gameobject_loot_template entry: what it holds (the Loot tab edits it)',
+	'Gossip menu': 'gossip_menu entry: what it says when used',
+	Event: 'event_scripts ID: the script it runs',
+	'Looted event': 'event_scripts ID: the script it runs when looted',
+	'Open text': 'broadcast_text ID',
+	'Close text': 'broadcast_text ID',
+	'Custom animation': "An animation of the object's model, by index",
+	'Quest list': 'No world database table holds quest lists: a bare number',
+}
+
+/** The editor's field for data column `i` of a type, named `name` in DATA_NAMES. */
+export function dataField(name: string, i: number): CreatureField {
+	const label = name.replace(/^\?/, '')
+	const f: CreatureField = { col: `data${i}`, label, bool: name.startsWith('?') }
+	const ref = DATA_REFS[label] ?? (/(spell|aura)$/i.test(label) ? 'spell' : undefined)
+	if (ref) f.ref = ref
+	if (label === 'Damage school') f.options = SCHOOLS
+	if (DATA_HINTS[label]) f.hint = DATA_HINTS[label]
+	return f
+}
+
+/** A model path's file name without its folder and extension, such as "Chest01". */
+export function modelName(path: string): string {
+	const base = path.split(/[\\/]/).pop() ?? ''
+	return base.replace(/\.[^.]*$/, '')
+}
+
+/**
+ * The groups for gameobject_template's columns, with the data columns named for object type `type`;
+ * `model` is the template's display's model, named beside the Display number.
+ */
+export function objectFieldGroups(type: number, model = ''): CreatureFieldGroup[] {
 	const data = DATA_NAMES[type] ?? []
 	return [
 		{
@@ -90,18 +151,17 @@ export function objectFieldGroups(type: number): CreatureFieldGroup[] {
 			fields: [
 				{ col: 'name', label: 'Name' },
 				{ col: 'type', label: 'Type', options: OBJECT_TYPES.map((n, i) => [i, n] as [number, string]) },
-				{ col: 'displayId', label: 'Display', hint: 'GameObjectDisplayInfo ID: the model it shows' },
+				{ col: 'displayId', label: 'Display', hint: 'GameObjectDisplayInfo ID: the model it shows (the Display tab picks it)', note: (v) => (Number(v) > 0 ? modelName(model) || 'no model' : '') },
 				{ col: 'size', label: 'Size' },
-				{ col: 'faction', label: 'Faction', hint: 'FactionTemplate ID: who may use it (0 everyone)' },
-				{ col: 'icon', label: 'Cursor icon' },
+				{ col: 'faction', label: 'Faction', hint: 'FactionTemplate ID: who may use it (0 everyone)', ref: 'faction template' },
+				{ col: 'icon', label: 'Cursor icon', hint: "The cursor over it, by the client's Interface\\Cursor names (empty: the type's own)", suggest: CURSOR_ICONS },
 				{ col: 'script_name', label: 'Script' },
 				{ col: 'flags', label: 'Flags', flags: OBJECT_FLAGS },
 			],
 		},
 		{
 			title: `What a ${(OBJECT_TYPES[type] ?? 'object').toLowerCase()} does`,
-			// A column named "... spell" or "... aura" holds a spell ID: a picker with the spell's icon (#682).
-			fields: data.map((name, i): CreatureField => ({ col: `data${i}`, label: name.replace(/^\?/, ''), bool: name.startsWith('?'), ref: /(spell|aura)$/i.test(name) ? 'spell' : undefined })).filter((f) => f.label !== ''),
+			fields: data.map(dataField).filter((f) => f.label !== ''),
 		},
 		{
 			title: 'Money',

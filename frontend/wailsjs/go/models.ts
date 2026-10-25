@@ -1993,6 +1993,55 @@ export namespace vmangos {
 	        this.pixels = source["pixels"];
 	    }
 	}
+	export class LockPart {
+	    type: number;
+	    index: number;
+	    skill: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LockPart(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.index = source["index"];
+	        this.skill = source["skill"];
+	    }
+	}
+	export class LockInfo {
+	    id: number;
+	    parts: LockPart[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LockInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.parts = this.convertValues(source["parts"], LockPart);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class LookResult {
 	    model: string;
 	    look: string;
@@ -2337,6 +2386,50 @@ export namespace vmangos {
 		}
 	}
 	
+	export class ObjectTables {
+	    locks: LockInfo[];
+	    lockTypes: NamedID[];
+	    languages: NamedID[];
+	    pageMaterials: NamedID[];
+	    spellFocus: NamedID[];
+	    cinematics: NamedID[];
+	    taxiPaths: NamedID[];
+	    auctionHouses: NamedID[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ObjectTables(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.locks = this.convertValues(source["locks"], LockInfo);
+	        this.lockTypes = this.convertValues(source["lockTypes"], NamedID);
+	        this.languages = this.convertValues(source["languages"], NamedID);
+	        this.pageMaterials = this.convertValues(source["pageMaterials"], NamedID);
+	        this.spellFocus = this.convertValues(source["spellFocus"], NamedID);
+	        this.cinematics = this.convertValues(source["cinematics"], NamedID);
+	        this.taxiPaths = this.convertValues(source["taxiPaths"], NamedID);
+	        this.auctionHouses = this.convertValues(source["auctionHouses"], NamedID);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ObjectTemplate {
 	    entry: number;
 	    name: string;

@@ -188,6 +188,8 @@ export function NextPoolEntry():Promise<number>;
 
 export function ObjectModel(arg1:number):Promise<string>;
 
+export function ObjectTables():Promise<vmangos.ObjectTables>;
+
 export function OpenBrushDialog():Promise<Array<string>>;
 
 export function OpenHeightmapDialog():Promise<string>;
@@ -356,6 +358,8 @@ export function SearchQuests(arg1:string):Promise<Array<vmangos.QuestRef>>;
 
 export function SearchSpells(arg1:string):Promise<Array<vmangos.SpellRef>>;
 
+export function SearchWorldRefs(arg1:string,arg2:string):Promise<Array<vmangos.NamedID>>;
+
 export function SessionLog():Promise<string>;
 
 export function SetBenillaPath(arg1:string):Promise<void>;
@@ -407,6 +411,8 @@ export function VmangosPath():Promise<string>;
 export function WMODoodadSets(arg1:string):Promise<Array<string>>;
 
 export function WorldHorizon(arg1:string):Promise<Array<vmangos.HorizonTile>>;
+
+export function WorldRefNames(arg1:string,arg2:Array<number>):Promise<Record<number, string>>;
 
 export function WowStatus():Promise<wow.Status>;
 

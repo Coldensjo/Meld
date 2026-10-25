@@ -294,6 +294,36 @@ func (a *App) TemplateNames(kind string, ids []int) (map[int]vmangos.NamedRef, e
 	return vmangos.TemplateNames(server, kind, ids)
 }
 
+// ObjectTables lists the client's tables the game object editor names data columns from (locks,
+// languages, page materials, spell focuses, cinematics, flight paths, auction houses).
+func (a *App) ObjectTables() (vmangos.ObjectTables, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.ObjectTables{}, err
+	}
+	return vmangos.LoadObjectTables(dataDir)
+}
+
+// WorldRefNames names world database rows by number: gossip menus, pages, texts, event scripts or
+// loot (kind), for the game object editor's data columns.
+func (a *App) WorldRefNames(kind string, ids []int) (map[int]string, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.WorldRefNames(server, kind, ids)
+}
+
+// SearchWorldRefs lists the world database rows of kind (as WorldRefNames) numbered text or whose
+// text has it.
+func (a *App) SearchWorldRefs(kind, text string) ([]vmangos.NamedID, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SearchWorldRefs(server, kind, text, 60)
+}
+
 // QuestTables lists the client's quest sorts, skills and reputation factions, for the quest editor.
 func (a *App) QuestTables() (vmangos.QuestTables, error) {
 	dataDir, err := a.clientDataDir()
