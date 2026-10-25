@@ -6,9 +6,7 @@
 export const WORLD_MAP_W = 1002
 export const WORLD_MAP_H = 668
 
-/** A 1.12 tile is 533 1/3 yards across, and the client measures from 32 tiles in. */
-const TILE = 1600 / 3
-const ZERO = 32 * TILE
+import { fromServer, toServer } from '../wow/format'
 
 /** A rectangle of the editor's map in yards: x runs east, z south. */
 export interface EditorRect {
@@ -28,16 +26,20 @@ export interface WorldExtent {
 
 /**
  * The editor rectangle of an extent, for a block whose north-west tile is (tileX, tileY) (a region's
- * first tile; 0, 0 for a map made for the client). The client's Y is ZERO less the editor's x, its X is
- * ZERO less z (io/portCoords.ts).
+ * first tile; 0, 0 for a map made for the client). The client's Y is the server's y and its X the
+ * server's x (lib/wow/format.ts toServer).
  */
 export function extentToRect(e: WorldExtent, tileX = 0, tileY = 0): EditorRect {
-	return { x0: ZERO - e.left - tileX * TILE, x1: ZERO - e.right - tileX * TILE, z0: ZERO - e.top - tileY * TILE, z1: ZERO - e.bottom - tileY * TILE }
+	const a = fromServer(e.top, e.left, tileX, tileY)
+	const b = fromServer(e.bottom, e.right, tileX, tileY)
+	return { x0: a.x, x1: b.x, z0: a.z, z1: b.z }
 }
 
 /** The inverse of extentToRect. */
 export function rectToExtent(r: EditorRect, tileX = 0, tileY = 0): WorldExtent {
-	return { left: ZERO - (r.x0 + tileX * TILE), right: ZERO - (r.x1 + tileX * TILE), top: ZERO - (r.z0 + tileY * TILE), bottom: ZERO - (r.z1 + tileY * TILE) }
+	const a = toServer(r.x0, r.z0, tileX, tileY)
+	const b = toServer(r.x1, r.z1, tileX, tileY)
+	return { left: a.y, right: b.y, top: a.x, bottom: b.x }
 }
 
 /**

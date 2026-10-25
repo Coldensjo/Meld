@@ -52,6 +52,7 @@ import type { SculptLimit } from '../state/editor.svelte'
 import { MAX_DABS, sprayAmount, sprayDabRadius, sprayDabs } from './spray'
 import { OCEAN_OPACITY, RIVER_OPACITY, autoOpacity, newLiquidBrush, paintLiquid } from '../water/liquids'
 import { LiquidStroke } from '../water/liquidStroke'
+import { TILE_CHUNKS } from '../wow/format'
 
 /** Shown when a stroke reaches a paint chunk that already has four textures. */
 const CHUNK_FULL = 'Not painted: that chunk already has four textures (the 1.12 limit). Replace one in the Layers panel, use Swap mode, or paint with one of its four.'
@@ -172,9 +173,6 @@ export abstract class BrushTool implements Tool {
     ctx.objects.markRegionDirty(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
   }
 }
-
-/** Paint chunks a side of a 1.12 tile, which Swap's Entire tile works on. */
-const TILE_CHUNKS = 16
 
 /** A texture's file name without its folders and extension, for messages. */
 const texName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))

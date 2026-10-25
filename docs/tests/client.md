@@ -455,6 +455,17 @@ Checks: the frontend's parsers of the binary `/wow/*` replies read what Go's enc
   and `wire.test.ts` follow. Trap: the fixtures are generated geometry only; never write one from
   the client's files (CLAUDE.md, Blizzard assets).
 
+## The format constants and the axis swap on both sides (#538, the format fixture)
+Checks: `lib/wow/format.ts` and Go's `adt`/`mapfile` constants agree, and `toServer`/`fromServer`
+match `adt.ToServer`/`adt.FromServer` (and `serverSpot`, `editorPoint` and the world map extent use
+the same swap).
+- Go: `adt.TestFormatFixture` compares `frontend/tests/fixtures/format.json` with the constants and
+  a few points through `ToServer`, and checks `FromServer` inverts it.
+- Bun: `frontend/tests/format.test.ts` reads the same file.
+- After changing a constant on purpose, write it again with
+  `go test ./internal/adt/ -run TestFormatFixture -update`. Trap: compare yards with a tolerance;
+  `533 + 1/3` and `1600/3` differ in the last bit.
+
 ## The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)
 Checks: a save of one small file into a large patch (a DBC row, an imported icon) opens the patch
 once in `ChangedFiles` and once in `InstallPatch`, and copies the files it carries over straight from

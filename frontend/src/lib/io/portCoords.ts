@@ -1,8 +1,7 @@
-/** A WoW 1.12 ADT tile is 533 1/3 yards across. */
-export const TILE_SIZE = 533 + 1 / 3
+import { TILE_YARDS, ZERO_POINT, fromServer, toServer } from '../wow/format'
 
-/** The zero point the 1.12 client measures positions from (internal/adt ZeroPoint). */
-const ZERO_POINT = 32 * TILE_SIZE
+/** A WoW 1.12 ADT tile is 533 1/3 yards across (lib/wow/format.ts). */
+export const TILE_SIZE = TILE_YARDS
 
 const fmt = (v: number) => (Math.round(v * 100) / 100).toFixed(2)
 
@@ -17,8 +16,9 @@ const fmt = (v: number) => (Math.round(v * 100) / 100).toFixed(2)
  * leaves it out.
  */
 export function formatPortCoords(pos: { x: number; y: number; z: number }, mapId: number, area = ''): string {
-  const wowX = fmt(ZERO_POINT - pos.z)
-  const wowY = fmt(ZERO_POINT - pos.x)
+  const w = toServer(pos.x, pos.z)
+  const wowX = fmt(w.x)
+  const wowY = fmt(w.y)
   const h = fmt(pos.y)
   return [
     `Map: ${area || 'Unknown area'} on ADT ${Math.floor(pos.x / TILE_SIZE)} ${Math.floor(pos.z / TILE_SIZE)}`,
@@ -55,15 +55,15 @@ export interface ServerSpot {
  * axis swap turns into (cos yaw, sin yaw) on the server, so the server's facing is the yaw itself.
  */
 export function serverSpot(pos: { x: number; y: number; z: number }, mapId: number, tileX = 0, tileY = 0, yaw = 0): ServerSpot {
-  const x = pos.x + tileX * TILE_SIZE
-  const z = pos.z + tileY * TILE_SIZE
+  const s = toServer(pos.x, pos.z, tileX, tileY)
   const turn = 2 * Math.PI
-  return { map: mapId, x: ZERO_POINT - z, y: ZERO_POINT - x, z: pos.y, o: ((yaw % turn) + turn) % turn }
+  return { map: mapId, x: s.x, y: s.y, z: pos.y, o: ((yaw % turn) + turn) % turn }
 }
 
 /** The inverse of serverSpot's position: a point of the server's map in the editor's map of a block whose first tile is (tileX, tileY). */
 export function editorPoint(s: { x: number; y: number; z: number }, tileX = 0, tileY = 0): { x: number; y: number; z: number } {
-  return { x: ZERO_POINT - s.y - tileX * TILE_SIZE, y: s.z, z: ZERO_POINT - s.x - tileY * TILE_SIZE }
+  const e = fromServer(s.x, s.y, tileX, tileY)
+  return { x: e.x, y: s.z, z: e.z }
 }
 
 /**

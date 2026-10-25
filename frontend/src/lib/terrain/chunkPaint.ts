@@ -5,10 +5,9 @@
 // This module is plain data handling with no rendering dependency, so the rules can be tested
 // on their own (see chunkPaint.test.ts).
 
-/** A chunk is 8x8 cells, as in the 1.12 terrain format. */
-export const CHUNK_CELLS = 8
-/** Textures per chunk: the four layers 1.12 allows in one chunk. */
-export const SLOTS = 4
+/** A chunk is 8x8 cells, and holds up to four texture layers (SLOTS), as in the 1.12 terrain format. */
+import { CHUNK_CELLS, SLOTS } from '../wow/format'
+export { CHUNK_CELLS, SLOTS }
 /** Palette index meaning "no texture in this slot". */
 export const NO_TEXTURE = 255
 /** Palette entries a map can hold (indices 0 to 254). */

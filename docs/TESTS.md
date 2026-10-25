@@ -750,4 +750,5 @@ the same scene, the report before and after.
 - Icons beside item, spell and class names (#682, probe `editor-icons`)
 - The asset server across a patch write (#471, probe `patch-cache`)
 - The binary replies against their parsers (#520, the wire fixtures)
+- The format constants and the axis swap on both sides (#538, the format fixture)
 - The cost of a write into Meld's patch (#476, `BenchmarkInstallPatch`)

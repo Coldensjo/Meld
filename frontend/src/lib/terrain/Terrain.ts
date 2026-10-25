@@ -11,13 +11,14 @@ import { holeTriangle, triangleIsHole, writeCellIndex } from './holes'
 import { DirtyRegion, uploadRect, type DirtyRect } from './dirtyRect'
 import { CHUNK_IMPASSABLE, areaColor } from './chunkFlags'
 import { SHADOW_PER_CELL, unpackShadowBits } from './bakedShadows'
+import { TILE_YARDS, TILE_CELLS } from '../wow/format'
 
 export type { DirtyRect } from './dirtyRect'
 
 /** A 1.12 tile is 1600/3 yards across: 128 cells of this size, the grid the server's maps use. */
-export const TILE_YARDS = 1600 / 3
+export { TILE_YARDS }
 /** Default cell size in yards: 128 cells make one tile. */
-export const CELL_SIZE = TILE_YARDS / 128
+export const CELL_SIZE = TILE_YARDS / TILE_CELLS
 export { OCEAN_FLOOR } from './presets'
 const CHUNK = 32 // render chunk side, in cells (independent of the 1.12 paint chunks)
 

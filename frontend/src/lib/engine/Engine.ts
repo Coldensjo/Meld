@@ -11,7 +11,7 @@ import { groundSlopeDeg } from '../world/groundTilt'
 import { resetLiquidFrames, setLiquidLight, updateLiquids, wmoLiquidMaterial } from '../water/liquidMaterial'
 import { BAND, lightAt, newLightAt, sceneFog, type ClientLights } from '../wow/clientLight'
 import { celestialSunDir, lightingSunDir, moonDir, skyWarp, starAlpha, sunDiscScale } from '../wow/dayNight'
-import { TILE_YARDS } from '../terrain/Terrain'
+import { MAP_TILES, TILE_CELLS, TILE_CHUNKS, TILE_YARDS } from '../wow/format'
 import { LiquidStroke } from '../water/liquidStroke'
 import { CameraController } from './CameraController'
 import { cornerFactor, nearPlane, roomFloor } from './cameraMove'
@@ -129,7 +129,7 @@ import { yieldToFrame } from './yieldToFrame'
 /** The most Teleport items a spawn's menu lists (#308); a boss with many blink spots would fill the screen. */
 const MAX_TELEPORT_ITEMS = 10
 /** A world view's side (#15): the whole map, 64 tiles. */
-const WORLD_SIDE = 64 * TILE_YARDS
+const WORLD_SIDE = MAP_TILES * TILE_YARDS
 /** How far the camera may back off the ground in a world view, in yards. */
 const WORLD_MAX_DISTANCE = 2000
 /** The cells a side of a world view's hidden stand-in terrain, which nothing reads but the tools' picking. */
@@ -203,10 +203,8 @@ const PLAYER_LIFT = 0.5
 /** How far, in screen pixels, around the selected spawn's box a right-click still opens its menu (#205). */
 const CONTEXT_MARGIN = 24
 
-/** A 1.12 tile is 128 cells a side, which is the editor's map size for one tile. */
-const TILE_CELLS = 128
-/** A client tile's paint chunks a side. */
-const TILE_PAINT_CHUNKS = TILE_CELLS / CHUNK_CELLS
+/** A client tile's paint chunks a side (TILE_CELLS, a tile's cells, is the editor's map size for one tile). */
+const TILE_PAINT_CHUNKS = TILE_CHUNKS
 
 /** Models whose bounds cover fewer pixels than this are not drawn, with the preference on. */
 const SMALL_MODEL_PX = 1.5

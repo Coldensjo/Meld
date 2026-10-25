@@ -4,6 +4,7 @@ import { chunkNoEffect } from '../world/groundEffects'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
 import { SHADOW_PER_CELL, chunkShadowBits } from '../terrain/bakedShadows'
 import { floatsToBase64 } from './base64'
+import { TILE_CELLS, TILE_CHUNKS, TILE_VERTS } from '../wow/format'
 
 /** A palette entry that's a colour rather than a texture. */
 const isColor = (entry: string) => /^#[0-9a-fA-F]{6}$/.test(entry)
@@ -13,9 +14,9 @@ const isColor = (entry: string) => /^#[0-9a-fA-F]{6}$/.test(entry)
 // internal/vmangos/export.go), with the paint's weights as base64.
 
 /** Cells in a 1.12 tile a side. */
-export const TILE_CELLS = 128
+export { TILE_CELLS }
 /** Paint chunks in a tile a side. */
-const CHUNKS_PER_TILE = TILE_CELLS / CHUNK_CELLS
+const CHUNKS_PER_TILE = TILE_CHUNKS
 /** Splat texels in a chunk a side. */
 const TEXELS_PER_CHUNK = CHUNK_CELLS * SPLAT_PER_CELL
 
@@ -177,10 +178,10 @@ export function mapToTiles(input: ExportInput): ExportOut {
 
   for (let ty = 0; ty < tilesPerSide; ty++) {
     for (let tx = 0; tx < tilesPerSide; tx++) {
-      const outer = new Float32Array(129 * 129)
+      const outer = new Float32Array(TILE_VERTS * TILE_VERTS)
       for (let r = 0; r <= TILE_CELLS; r++) {
         for (let c = 0; c <= TILE_CELLS; c++) {
-          outer[r * 129 + c] = input.heights[(ty * TILE_CELLS + r) * V + tx * TILE_CELLS + c]
+          outer[r * TILE_VERTS + c] = input.heights[(ty * TILE_CELLS + r) * V + tx * TILE_CELLS + c]
         }
       }
 

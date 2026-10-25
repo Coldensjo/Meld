@@ -40,6 +40,7 @@ import { buildInWorker, navWorkerRoom, navWorkersReady, stopNavWorkers } from '.
 import { TileGatherer, adtHeightSpan, placeFaces, type ModelLiquid, type PlacedCollision } from './navGeometry'
 import { NavLiquids } from './navLiquids'
 import { ADT_YARDS, detourSurface, navPoint, parseNavTile } from './navServer'
+import { ZERO_POINT } from '../../wow/format'
 
 /** How far around the camera's target tiles are built (yd), and how far they are kept. */
 export const RANGE = 160
@@ -350,7 +351,7 @@ export class NavPreview {
 			this.nav = new r.NavMesh()
 			this.group.add(this.serverGroup)
 			const s = this.server
-			this.serverGroup.matrix.makeScale(-1, 1, -1).setPosition(32 * ADT_YARDS - s.tileX * ADT_YARDS, 0, 32 * ADT_YARDS - s.tileY * ADT_YARDS)
+			this.serverGroup.matrix.makeScale(-1, 1, -1).setPosition(ZERO_POINT - s.tileX * ADT_YARDS, 0, ZERO_POINT - s.tileY * ADT_YARDS)
 			this.serverGroup.matrixWorldNeedsUpdate = true
 			return
 		}

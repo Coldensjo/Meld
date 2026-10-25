@@ -1,5 +1,6 @@
 import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, normalizeTexel } from '../terrain/chunkPaint'
 import { LAYERS } from '../terrain/layers'
+import { ALPHA_SIZE } from '../wow/format'
 
 // Turns a 1.12 tile's texture layers into the editor's paint form. The tile's layers already sit in
 // 8x8-cell chunks with at most four textures each, so this is a change of representation: the
@@ -30,7 +31,7 @@ export interface TilePaint {
 }
 
 /** WoW's alpha maps are 64x64 per chunk. */
-const ALPHA = 64
+const ALPHA = ALPHA_SIZE
 
 /** The bytes of one layer's alpha map (vmangos.AlphaBytes). */
 export const ALPHA_BYTES = ALPHA * ALPHA

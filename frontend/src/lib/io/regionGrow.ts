@@ -1,3 +1,5 @@
+import { MAP_TILES } from '../wow/format'
+
 // Growing an open region by a tile: the block stays square (the editor's terrain is square), so a
 // plus on one side adds that side's tiles and one more row or column along the other axis, kept
 // toward the east or south unless the map's edge is there.
@@ -11,7 +13,7 @@ export interface TileBlock {
 }
 
 /** A continent is 64 tiles a side. */
-export const MAP_TILES = 64
+export { MAP_TILES }
 /** The most tiles a side a region can have (internal/vmangos/region.go). */
 export const MAX_REGION = 16
 

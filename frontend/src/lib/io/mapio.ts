@@ -59,7 +59,8 @@ import { base64ToFloats, floatsToBase64 } from './base64'
 import { ALPHA_BYTES, tilePaint } from './tileImport'
 import { CHUNK_CELLS } from '../terrain/chunkPaint'
 import { CHUNK_IMPASSABLE } from '../terrain/chunkFlags'
-import { TILE_CELLS, mapToTiles, type ExportObject } from './vmangosExport'
+import { mapToTiles, type ExportObject } from './vmangosExport'
+import { TILE_CELLS, TILE_CHUNKS } from '../wow/format'
 import { formatObjectList, parseObjectList } from '../world/objectList'
 import { formatPortCoords, teleportCommand, wmoOnlyTiles } from './portCoords'
 import { tileKey } from './mapTiles'
@@ -154,9 +155,6 @@ export function requestRevert(engine: Engine) {
   if (editor.dirty) ui.dialog = 'revert'
   else revertMap(engine)
 }
-
-/** Paint chunks a side in a 1.12 tile. */
-const TILE_CHUNKS = 16
 
 /**
  * Reads a region's creatures and game objects from the server's world database into its document.
@@ -525,13 +523,13 @@ export function editWorldHere(engine: Engine) {
 }
 
 /**
- * The painted chunks of the active region, by block chunk index (rows of 16 * size chunks), in the
+ * The painted chunks of the active region, by block chunk index (rows of TILE_CHUNKS * size chunks), in the
  * encoding the map export uses. Each tile's own chunks are mapped into the block.
  */
 function regionPaint(engine: Engine, size: number) {
-  const perRow = 16 * size
+  const perRow = TILE_CHUNKS * size
   const tiles = mapToTiles(engine.exportInput()).tiles
-  const block = (t: { X: number; Y: number }, chunk: number) => (t.Y * 16 + Math.floor(chunk / 16)) * perRow + t.X * 16 + (chunk % 16)
+  const block = (t: { X: number; Y: number }, chunk: number) => (t.Y * TILE_CHUNKS + Math.floor(chunk / TILE_CHUNKS)) * perRow + t.X * TILE_CHUNKS + (chunk % TILE_CHUNKS)
   return {
     paint: tiles.flatMap((t) =>
       t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, flags: p.Flags, noEffect: p.NoEffect ?? undefined })),

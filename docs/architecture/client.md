@@ -51,6 +51,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
 - The client path is persisted by `internal/config` (`os.UserConfigDir()/Meld/config.json`).
 - Coordinates: WoW model space is Z-up. `toEditor(x,y,z) = (x, z, -y)` is a proper rotation, so
   triangle winding is unchanged. 1 world unit ≈ 1 yard.
+- The 1.12 format's sizes (tile yards, chunks, cells, slots, liquid records, shadow bytes), the
+  zero point and the map-to-server axis swap live once in `lib/wow/format.ts` (`toServer`,
+  `fromServer`) and in Go in `internal/adt` (`ZeroPoint`, `ToServer`, `FromServer`, used by the
+  spawn reads and writes). Use them rather than writing the sum out: the server's x is the zero
+  point less the editor's z, its y the zero point less the editor's x (#538). The two sides are
+  checked against each other by `frontend/tests/fixtures/format.json` (docs/tests/client.md).
 - Frontend: `lib/models/assets.ts` is the registry for all placeable types.
   - `getAsset(type)` returns the asset immediately, or a placeholder while a WoW model loads.
   - `onAssetLoaded` lets `ObjectLayer` and the place-tool ghost swap the placeholder for the real

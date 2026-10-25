@@ -160,12 +160,11 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 	if err := ensureDatabase(db, serverRoot); err != nil {
 		return nil, err
 	}
-	// The server's coordinates are the ADT ones swapped and mirrored: its x is ZeroPoint less the
-	// tile's Z, and its y is ZeroPoint less the tile's X. So the block's server bounds are:
-	t := float64(adt.TileSize)
-	zp := float64(adt.ZeroPoint)
-	xLo, xHi := zp-float64(y+size)*t, zp-float64(y)*t
-	yLo, yHi := zp-float64(x+size)*t, zp-float64(x)*t
+	// The server's axes are the editor's swapped and mirrored (adt.ToServer), so the block's far
+	// corner gives the low bounds and its first corner the high ones.
+	side := float64(size) * adt.TileSize
+	xLo, yLo := adt.ToServer(side, side, x, y)
+	xHi, yHi := adt.ToServer(0, 0, x, y)
 	bounds := fmt.Sprintf("c.map = %d AND c.position_x BETWEEN %f AND %f AND c.position_y BETWEEN %f AND %f",
 		mapID, xLo, xHi, yLo, yHi)
 	gBounds := strings.Replace(bounds, "c.", "g.", -1)
@@ -286,8 +285,6 @@ func readWaypoints(db worldDB, spawns []WorldSpawn, x, y int) error {
 // parseWaypoints reads path rows (owner, point, x, y, z, orientation, wait, script, wander) into
 // paths by owner, in the region at tile (x, y), in the order the rows come.
 func parseWaypoints(raw []byte, x, y int) map[int][]Waypoint {
-	t := float64(adt.TileSize)
-	zp := float64(adt.ZeroPoint)
 	out := map[int][]Waypoint{}
 	for _, f := range tsvRows(raw, 9) {
 		owner, err1 := strconv.Atoi(f[0])
@@ -304,9 +301,10 @@ func parseWaypoints(raw []byte, x, y int) map[int][]Waypoint {
 		if !ok {
 			continue
 		}
+		ex, ez := adt.FromServer(v[0], v[1], x, y)
 		out[owner] = append(out[owner], Waypoint{
-			X:              float32(zp - v[1] - float64(x)*t),
-			Z:              float32(zp - v[0] - float64(y)*t),
+			X:              float32(ex),
+			Z:              float32(ez),
 			Y:              float32(v[2]),
 			Orientation:    float32(v[3]),
 			WaitMs:         wait,
@@ -420,11 +418,10 @@ func atoiAll(f []string) ([]int, bool) {
 // the tile's X less the block's, editor z the tile's Z less the block's, and the height is the same.
 // A creature is dressed in its display's look with weapons in its hands.
 func regionSpawn(s spawnRow, x, y int, tables *modelTables, weapons [3]heldItem) WorldSpawn {
-	t := float64(adt.TileSize)
-	zp := float64(adt.ZeroPoint)
 	out := s.WorldSpawn
-	out.X = float32(zp - float64(s.sy) - float64(x)*t)
-	out.Z = float32(zp - float64(s.sx) - float64(y)*t)
+	ex, ez := adt.FromServer(float64(s.sx), float64(s.sy), x, y)
+	out.X = float32(ex)
+	out.Z = float32(ez)
 	out.Y = s.height
 	out.Scale = s.scale
 	if out.Scale <= 0 {

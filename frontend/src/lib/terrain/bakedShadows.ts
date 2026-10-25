@@ -2,6 +2,7 @@
 // (8 a cell), rows running south, bit n of a byte the texel n columns into it, as Go stitches them for a
 // region (vmangos.RegionShadows). The client darkens shadowed ground to 70% of its light (Benilla's
 // terrain.wgsl, after the client's terrainp_s.bls: diffuse x (0.3 x lit + 0.7)).
+import { CHUNK_SHADOW_BYTES } from '../wow/format'
 
 import { heightAt } from './heightField'
 
@@ -19,7 +20,7 @@ export function unpackShadowBits(bits: Uint8Array, side: number): Uint8Array {
 export const SHADOW_PER_CELL = 8
 
 /** A chunk's shadow map in the client's form: 64 rows of 8 bytes, bit n the texel n columns into its byte. */
-export const CHUNK_SHADOW_BYTES = 512
+export { CHUNK_SHADOW_BYTES }
 
 /** Packs a byte per texel (in shadow from 128) into a bit per texel, as unpackShadowBits reads them. */
 export function packShadowBits(bytes: Uint8Array): Uint8Array {

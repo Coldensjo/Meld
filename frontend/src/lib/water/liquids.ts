@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { LIQUID_CELLS, LIQUID_RECORD_BYTES, LIQUID_VERTS } from '../wow/format'
 
 // Liquids as noggit3 edits them (liquid_chunk / liquid_layer), on the editor's grid. A map's cells
 // are the client's: an 8x8-cell chunk is an MCNK, and each chunk holds liquid layers, at most one of
@@ -6,11 +7,11 @@ import * as THREE from 'three'
 // vertices, and says which of its 8x8 cells it covers. The 1.12 writer (internal/adt/water.go)
 // stores each layer as an MCLQ entry.
 
-/** Cells a side of a liquid chunk (an MCNK). */
-export const LIQUID_CELLS = 8
-/** Vertices a side of a liquid chunk. */
-export const LIQUID_VERTS = 9
+/** Cells and vertices a side of a liquid chunk (an MCNK). */
+export { LIQUID_CELLS, LIQUID_VERTS }
 const NV = LIQUID_VERTS * LIQUID_VERTS
+/** Cells in a liquid chunk. */
+const NC = LIQUID_CELLS * LIQUID_CELLS
 
 /** How a liquid draws and how deep it reads: noggit's liquid "type" column of LiquidType.dbc. */
 export type LiquidClass = 'river' | 'ocean' | 'magma' | 'slime'
@@ -170,7 +171,7 @@ export interface LiquidLayer {
 }
 
 export function newLayer(id: number, height: number): LiquidLayer {
-  return { id, heights: new Float32Array(NV).fill(height), depth: new Float32Array(NV).fill(1), cells: new Uint8Array(64) }
+  return { id, heights: new Float32Array(NV).fill(height), depth: new Float32Array(NV).fill(1), cells: new Uint8Array(NC) }
 }
 
 export function cloneLayer(l: LiquidLayer): LiquidLayer {
@@ -178,7 +179,7 @@ export function cloneLayer(l: LiquidLayer): LiquidLayer {
 }
 
 function layerEmpty(l: LiquidLayer): boolean {
-  for (let i = 0; i < 64; i++) if (l.cells[i]) return false
+  for (let i = 0; i < NC; i++) if (l.cells[i]) return false
   return true
 }
 
@@ -436,7 +437,7 @@ function paintChunk(map: LiquidMap, ground: LiquidGround, c: number, b: LiquidBr
   if (b.add && !painted) {
     // A new layer of this liquid: at the first layer's surface where there is one, else at the brush.
     const first = layers.find((l) => !layerEmpty(l))
-    const l = first ? { ...cloneLayer(first), id: b.id, cells: new Uint8Array(64) } : newLayer(b.id, b.y)
+    const l = first ? { ...cloneLayer(first), id: b.id, cells: new Uint8Array(NC) } : newLayer(b.id, b.y)
     paintLayer(l, b, true, ground, o.v, o.x, o.z)
     layers.push(l)
   }
@@ -575,7 +576,7 @@ export function raycastLiquids(map: LiquidMap, cellSize: number, ray: THREE.Ray,
 // --- the map file's liquids blob (internal/mapfile): a layer count, then each layer as chunk index
 // (uint32), type (uint8), cell mask (uint64, bit z*8+x), 81 float32 heights and 81 depth bytes.
 
-const RECORD = 4 + 1 + 8 + NV * 4 + NV
+const RECORD = LIQUID_RECORD_BYTES
 
 export function encodeLiquids(map: LiquidMap): Uint8Array {
   const all: Array<[number, LiquidLayer]> = []
@@ -587,7 +588,7 @@ export function encodeLiquids(map: LiquidMap): Uint8Array {
     const o = 4 + k * RECORD
     dv.setUint32(o, c, true)
     dv.setUint8(o + 4, l.id)
-    for (let i = 0; i < 64; i++) if (l.cells[i]) out[o + 5 + (i >> 3)] |= 1 << (i & 7)
+    for (let i = 0; i < NC; i++) if (l.cells[i]) out[o + 5 + (i >> 3)] |= 1 << (i & 7)
     for (let i = 0; i < NV; i++) dv.setFloat32(o + 13 + i * 4, l.heights[i], true)
     for (let i = 0; i < NV; i++) out[o + 13 + NV * 4 + i] = Math.round(l.depth[i] * 255)
   })
@@ -605,7 +606,7 @@ export function decodeLiquids(map: LiquidMap, blob: Uint8Array) {
     const c = dv.getUint32(o, true)
     if (c >= map.side * map.side) continue
     const l = newLayer(blob[o + 4], 0)
-    for (let i = 0; i < 64; i++) l.cells[i] = (blob[o + 5 + (i >> 3)] >> (i & 7)) & 1
+    for (let i = 0; i < NC; i++) l.cells[i] = (blob[o + 5 + (i >> 3)] >> (i & 7)) & 1
     for (let i = 0; i < NV; i++) l.heights[i] = dv.getFloat32(o + 13 + i * 4, true)
     for (let i = 0; i < NV; i++) l.depth[i] = blob[o + 13 + NV * 4 + i] / 255
     by.set(c, [...(by.get(c) ?? []), l])
@@ -632,7 +633,7 @@ export function liquidsFromAdt(map: LiquidMap, liquids: readonly AdtLiquid[]) {
     const l = newLayer(a.type, 0)
     l.heights.set(a.heights)
     for (let i = 0; i < NV; i++) l.depth[i] = (a.depth?.[i] ?? 255) / 255
-    for (let i = 0; i < 64; i++) l.cells[i] = a.cells[i] ? 1 : 0
+    for (let i = 0; i < NC; i++) l.cells[i] = a.cells[i] ? 1 : 0
     by.set(c, [...(by.get(c) ?? []), l])
   }
   for (const [c, layers] of by) map.set(c, layers)

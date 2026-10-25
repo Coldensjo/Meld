@@ -1,10 +1,11 @@
 import type { TileBlock } from './regionGrow'
+import { MAP_TILES } from '../wow/format'
 
 // The tiles a client map has (its WDT's MAIN table, served by /wow/tiles), and the checks the region
 // picker makes against them: a block can only be opened where every tile has an ADT (#222).
 
 /** The side of a client map, in tiles. */
-const SIDE = 64
+const SIDE = MAP_TILES
 
 /** A tile's key in a set of tiles: x + 64 * y, the WDT's own order. */
 export function tileKey(x: number, y: number): number {

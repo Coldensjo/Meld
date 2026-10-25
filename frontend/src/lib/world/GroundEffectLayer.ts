@@ -1,13 +1,12 @@
 import * as THREE from 'three'
 import type { Terrain } from '../terrain/Terrain'
 import { CHUNK_CELLS, NO_TEXTURE } from '../terrain/chunkPaint'
+import { TILE_CHUNKS } from '../wow/format'
 import { getAsset, onAssetLoaded } from '../models/assets'
 import { patchCascadeShadows } from '../engine/shadowCascades'
 import type { ObjectLayer } from './ObjectLayer'
 import { BlizzardRandomizer, cellTexture, chunkSeed, coverCells, effectAt, effectFor, hasScopedEffects, noScopedEffects, scatterChunk, TUFT_ALPHA_REF, TUFT_FADE_FAR, TUFT_FADE_NEAR, type GroundEffect, type ScopedEffects, type CoverBox, type GroundEffectTables, type TextureEffects, type Tuft } from './groundEffects'
 
-/** Paint chunks a side of a 1.12 tile, which a tile's own effect choices cover. */
-const TILE_CHUNKS = 16
 
 /** How high above the ground a building's bottom may float and still bare the cells under it. */
 const COVER_LIFT = 4

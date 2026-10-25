@@ -25,16 +25,15 @@ type SpawnEdit struct {
 
 // serverSpawn moves a region spawn back to the server's coordinates (see regionSpawn) on map mapID.
 func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
-	t := float64(adt.TileSize)
-	zp := float64(adt.ZeroPoint)
+	sx, sy := adt.ToServer(float64(w.X), float64(w.Z), x, y)
 	s := Spawn{
 		Kind:           Creature,
 		GUID:           w.GUID,
 		Entry:          w.Entry,
 		Name:           w.Name,
 		Map:            mapID,
-		X:              zp - float64(w.Z) - float64(y)*t,
-		Y:              zp - float64(w.X) - float64(x)*t,
+		X:              sx,
+		Y:              sy,
 		Z:              float64(w.Y),
 		O:              float64(w.Orientation),
 		Scale:          float64(w.Scale),
@@ -70,9 +69,10 @@ func serverSpawn(w WorldSpawn, mapID, x, y int) Spawn {
 		}
 	}
 	for _, p := range w.Waypoints {
+		px, py := adt.ToServer(float64(p.X), float64(p.Z), x, y)
 		s.Path = append(s.Path, PathPoint{
-			X:              zp - float64(p.Z) - float64(y)*t,
-			Y:              zp - float64(p.X) - float64(x)*t,
+			X:              px,
+			Y:              py,
 			Z:              float64(p.Y),
 			O:              float64(p.Orientation),
 			WaitMs:         p.WaitMs,
