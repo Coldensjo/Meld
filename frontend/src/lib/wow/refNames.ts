@@ -1,4 +1,4 @@
-import { Factions, ItemTables, ObjectTables, QuestTables, SpawnEmotes, TemplateNames, WorldRefNames } from '../../../wailsjs/go/main/App'
+import { Factions, ItemTables, ObjectTables, QuestTables, SpawnEmotes, SpellTables, SpellsWithVisual, TemplateNames, WorldRefNames } from '../../../wailsjs/go/main/App'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { areaName, loadAreas } from './areas'
 import { lockText } from './locks'
@@ -10,10 +10,16 @@ import { spellRef } from './spells'
 // answer kept for the session (forgetName drops one that a save changed).
 
 /** What a reference number can be once its sign is read (see refTarget). */
-export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote' | ObjectTableKind | ItemTableKind | WorldKind
+export type NameKind = 'item' | 'creature' | 'object' | 'quest' | 'spell' | 'faction' | 'faction template' | 'skill' | 'zone' | 'sort' | 'emote' | ObjectTableKind | ItemTableKind | SpellTableKind | WorldKind
 
-/** The client tables a game object's data columns name (#702), read once (objectTables). */
-export type ObjectTableKind = 'lock' | 'language' | 'page material' | 'spell focus' | 'cinematic' | 'taxi path' | 'auction house'
+/** The client tables a game object's data columns name (#702), read once (objectTables); a lock type is also an Open lock effect's misc value (#703). */
+export type ObjectTableKind = 'lock' | 'lock type' | 'language' | 'page material' | 'spell focus' | 'cinematic' | 'taxi path' | 'auction house'
+
+/**
+ * What the spell editor's columns name besides those (#703): a global cooldown category and an icon
+ * (SpellTables, read once), and a visual, named by the spells that use it (SpellsWithVisual).
+ */
+export type SpellTableKind = 'global category' | 'spell icon' | 'spell visual'
 
 /** The client tables the item editor's columns name (#701), read once (itemTables). */
 export type ItemTableKind = 'item set' | 'spell category' | 'map'
@@ -68,7 +74,7 @@ export const isWorldKind = (kind: string): kind is WorldKind => (WORLD_KINDS as 
 /** The world kinds found by number only: their names are counts, not words. */
 export const NUMBER_ONLY_KINDS: readonly WorldKind[] = ['event', 'loot']
 export const ITEM_TABLE_KINDS: readonly ItemTableKind[] = ['item set', 'spell category', 'map']
-export const OBJECT_TABLE_KINDS: readonly ObjectTableKind[] = ['lock', 'language', 'page material', 'spell focus', 'cinematic', 'taxi path', 'auction house']
+export const OBJECT_TABLE_KINDS: readonly ObjectTableKind[] = ['lock', 'lock type', 'language', 'page material', 'spell focus', 'cinematic', 'taxi path', 'auction house']
 
 export interface RefName {
 	name: string
@@ -189,6 +195,8 @@ export function objectTables(): Promise<vmangos.ObjectTables> {
 /** The list of an object table kind other than a lock. */
 export function objectTableList(t: vmangos.ObjectTables, kind: Exclude<ObjectTableKind, 'lock'>): vmangos.NamedID[] {
 	switch (kind) {
+		case 'lock type':
+			return t.lockTypes
 		case 'language':
 			return t.languages
 		case 'page material':
@@ -217,6 +225,30 @@ export function itemTables(): Promise<vmangos.ItemTables> {
 /** The list of an item table kind. */
 export function itemTableList(t: vmangos.ItemTables, kind: ItemTableKind): vmangos.NamedID[] {
 	return kind === 'item set' ? t.sets : kind === 'spell category' ? t.spellCategories : t.maps
+}
+
+let splTables: Promise<vmangos.SpellTables> | null = null
+/** The client's spell tables (cast times, ranges… and the global cooldown categories and icons), read once. */
+export function spellTables(): Promise<vmangos.SpellTables> {
+	if (!splTables) {
+		splTables = SpellTables().then((t) => ({ ...t, globalCategories: t.globalCategories ?? [], icons: t.icons ?? [] }) as vmangos.SpellTables)
+		splTables.catch(() => (splTables = null))
+	}
+	return splTables
+}
+
+/** Drops the spell tables read, after a save changed the client's Spell.dbc or SpellIcon.dbc. */
+export function forgetSpellTables() {
+	splTables = null
+}
+
+/** An icon's name as a picker shows it: its texture's file name. */
+export const iconFileName = (path: string) => path.replace(/^.*\\/, '')
+
+/** A visual's name: the names of the spells that use it, "no spell uses it" for none. */
+export async function visualName(id: number): Promise<RefName> {
+	const users = [...new Set(((await SpellsWithVisual(id)) ?? []).map((s) => s.name))]
+	return { name: users.length ? users.join(', ') : 'no spell uses it' }
 }
 
 /** A lock's text with its keys' names asked of the world database. */
@@ -273,6 +305,7 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 				return l ? { name: await lockName(l, t.lockTypes) } : null
 			})
 			break
+		case 'lock type':
 		case 'language':
 		case 'page material':
 		case 'spell focus':
@@ -291,6 +324,21 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 				const r = itemTableList(t, kind).find((x) => x.id === id)
 				return r ? { name: r.name } : null
 			})
+			break
+		case 'global category':
+			p = spellTables().then((t) => {
+				const r = t.globalCategories.find((x) => x.id === id)
+				return r ? { name: r.name } : null
+			})
+			break
+		case 'spell icon':
+			p = spellTables().then((t) => {
+				const r = t.icons.find((x) => x.id === id)
+				return r ? { name: iconFileName(r.name), icon: r.name } : null
+			})
+			break
+		case 'spell visual':
+			p = visualName(id)
 			break
 		case 'emote':
 			p = emoteList().then((list) => {

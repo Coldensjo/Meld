@@ -3436,6 +3436,8 @@ export namespace vmangos {
 	    durations: SpellOption[];
 	    ranges: SpellOption[];
 	    radii: SpellOption[];
+	    globalCategories: NamedID[];
+	    icons: NamedID[];
 	
 	    static createFrom(source: any = {}) {
 	        return new SpellTables(source);
@@ -3447,6 +3449,8 @@ export namespace vmangos {
 	        this.durations = this.convertValues(source["durations"], SpellOption);
 	        this.ranges = this.convertValues(source["ranges"], SpellOption);
 	        this.radii = this.convertValues(source["radii"], SpellOption);
+	        this.globalCategories = this.convertValues(source["globalCategories"], NamedID);
+	        this.icons = this.convertValues(source["icons"], NamedID);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

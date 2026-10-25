@@ -8,23 +8,31 @@ import (
 )
 
 func TestSpellCategoryNames(t *testing.T) {
+	// Every spell but Hearthstone has the global cooldown's category 133.
 	spell := func(id, cat int, name string) []any {
-		row := make([]any, spellFName+1)
+		row := make([]any, spellFStartCategory+1)
 		for i := range row {
 			row[i] = 0
 		}
-		row[0], row[2], row[spellFName] = id, cat, name
+		row[0], row[spellFCategory], row[spellFName] = id, cat, name
+		if name != "Hearthstone" {
+			row[spellFStartCategory] = 133
+		}
 		return row
 	}
-	tbl := testDBC(t, spellFName+1,
+	tbl := testDBC(t, spellFStartCategory+1,
 		spell(1, 4, "Healing Potion"), spell(2, 4, "Mana Potion"), spell(3, 4, "Healing Potion"),
 		spell(4, 4, "Rage Potion"), spell(5, 4, "Swiftness Potion"), spell(6, 9, "Hearthstone"), spell(7, 0, "Fireball"))
-	got := spellCategoryNames(tbl)
+	got := spellCategoryNames(tbl, spellFCategory)
 	if len(got) != 2 || got[0].ID != 4 || got[1].ID != 9 {
 		t.Fatalf("categories = %+v", got)
 	}
 	if got[0].Name != "Healing Potion, Mana Potion, Rage Potion and 1 more" || got[1].Name != "Hearthstone" {
 		t.Fatalf("names = %q, %q", got[0].Name, got[1].Name)
+	}
+	start := spellCategoryNames(tbl, spellFStartCategory)
+	if len(start) != 1 || start[0].ID != 133 || start[0].Name != "Healing Potion, Fireball, Mana Potion and 2 more" {
+		t.Fatalf("global cooldown categories = %+v", start)
 	}
 }
 

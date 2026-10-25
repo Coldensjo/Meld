@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
-	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SpellStarters, SpellsWithVisual, SpellTables } from '../../wailsjs/go/main/App'
+	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SpellStarters, SpellsWithVisual } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/backend'
@@ -10,7 +10,7 @@
 	import { changedValues } from '../lib/world/creatureFields'
 	import { tabOfColumn } from '../lib/world/questFields'
 	import { effectSummary, spellTabs, spellTooltip } from '../lib/world/spellFields'
-	import { forgetName } from '../lib/wow/refNames'
+	import { forgetName, forgetSpellTables, spellTables } from '../lib/wow/refNames'
 	import { forgetSpell } from '../lib/wow/spells'
 	import ItemLookPicker from './ItemLookPicker.svelte'
 	import SpellIcon from './SpellIcon.svelte'
@@ -50,13 +50,13 @@
 	// The client's cast times, durations, ranges and radii, read once.
 	let tables = $state<vmangos.SpellTables | null>(null)
 	$effect(() => {
-		if (target && !tables) SpellTables().then((t) => (tables = t), (err) => (error = String(err)))
+		if (target && !tables) spellTables().then((t) => (tables = t), (err) => (error = String(err)))
 	})
 
 	const changes = $derived(changedValues(values, saved))
 	const changeCount = $derived(Object.keys(changes).length + (pendingIcon ? 1 : 0) + (pendingVisual ? 1 : 0))
 	const unsaved = $derived(changeCount > 0)
-	const tabs = $derived(record ? spellTabs(record.columns.map((c) => c.name), tables) : [])
+	const tabs = $derived(record ? spellTabs(record.columns.map((c) => c.name), tables, values) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 	const tabChanges = $derived(new Map(tabs.map((t) => [t.id, t.groups.reduce((n, g) => n + g.fields.filter((f) => changes[f.col] !== undefined).length, 0)])))
 
@@ -162,6 +162,8 @@
 			const r = await SaveSpell(record.entry, record.build, changes, pendingIcon, pendingVisual as vmangos.VisualDesign)
 			pendingIcon = ''
 			pendingVisual = null
+			// Its icon or category may be new: the pickers read the tables again.
+			forgetSpellTables()
 			values.spellVisual1 = String(r.visual)
 			saved = { ...values }
 			forget(record.entry)

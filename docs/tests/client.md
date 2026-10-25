@@ -492,6 +492,25 @@ and `TestCreatureListRefsLive` with `VMANGOS_DIR` (the database running) names a
 - The Messages tab's pickers have their own ✕ (Clear) buttons: a probe that clicks a row's ✕ must look
   in `.row-actions`.
 
+## The spell editor's tick lists, selects and pickers (#703, probe `spell-pickers`)
+
+Checks: Execute (5308)'s Needs tab ticks Battle and Berserker stance, reads target aura state
+"Health under 20%" and item class Weapon with its subclasses ticked, and its Flags tab ticks "Is an
+ability"; Mongoose Bite (1495) needs the Defense aura state; Smelt Copper (2657) names its spell focus
+(Forge); Hearthstone (8690) names cooldown category 89 by its spells and Fireball (133) global
+cooldown category 133; Eye of Kilrogg (126) names its active icon with its picture, and its Find
+lists icons by name and puts a picked one's ID in; Effect 1's misc value is Summon Voidwalker's (697)
+creature, Frost Ward's (6143) Frost tick and Arcane Intellect's (1459) Intellect; on Fireball, item
+class Weapon turns the subclasses into a tick list and unticking Dagger is a changed value that
+Revert drops. `bun run probe spell-pickers` (about 15 s, nothing written). Unit tests: `bun test
+tests/spellFields.test.ts` (the masks' bits, the subclasses following the class, `miscField` for
+each kind) and `go test ./internal/vmangos/ -run TestSpellCategoryNames`.
+- No spell in the 1.12 data has a second visual (`spellVisual2`), and only a few dozen an active
+  icon, so there is no spell to check `'spell visual'` against; its Find is the spell list
+  (`SpellPicker`), and a spell with no visual is ignored when picked.
+- An aura's misc value counts only when the effect applies the aura (`AURA_EFFECTS`: apply aura,
+  the persistent and the area auras); a Damage effect with a leftover aura number keeps the number box.
+
 ## Icons beside item, spell and class names (#682, probe `editor-icons`)
 
 Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's

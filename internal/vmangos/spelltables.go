@@ -23,12 +23,16 @@ type SpellOption struct {
 
 // SpellTables are the client's tables a spell's index columns name: castingTimeIndex
 // (SpellCastTimes.dbc), durationIndex (SpellDuration.dbc), rangeIndex (SpellRange.dbc) and
-// effectRadiusIndex1-3 (SpellRadius.dbc), each by ID.
+// effectRadiusIndex1-3 (SpellRadius.dbc), each by ID; and for the spell editor's pickers (#703) the
+// global cooldown categories startRecoveryCategory names (Spell.dbc's, each named by its spells, as
+// 1.12 has no table of them) and the icons activeIconId names (SpellIcon.dbc's texture paths).
 type SpellTables struct {
-	CastTimes []SpellOption `json:"castTimes"`
-	Durations []SpellOption `json:"durations"`
-	Ranges    []SpellOption `json:"ranges"`
-	Radii     []SpellOption `json:"radii"`
+	CastTimes        []SpellOption `json:"castTimes"`
+	Durations        []SpellOption `json:"durations"`
+	Ranges           []SpellOption `json:"ranges"`
+	Radii            []SpellOption `json:"radii"`
+	GlobalCategories []NamedID     `json:"globalCategories"`
+	Icons            []NamedID     `json:"icons"`
 }
 
 var spellTables struct {
@@ -118,6 +122,22 @@ func ReadSpellTables(dataDir string) (SpellTables, error) {
 	if out.Radii, err = read("SpellRadius", 4, func(t *dbcTable, r int) SpellOption {
 		return SpellOption{Label: yards(t.f32(r, 1)), Value: float64(t.f32(r, 1))}
 	}); err != nil {
+		return SpellTables{}, err
+	}
+	spellData.Lock()
+	err = loadSpellData(dataDir)
+	if err == nil {
+		if spellData.spells.fields > spellFStartCategory {
+			out.GlobalCategories = spellCategoryNames(spellData.spells, spellFStartCategory)
+		}
+		out.Icons = make([]NamedID, 0, len(spellData.icons))
+		for id, path := range spellData.icons {
+			out.Icons = append(out.Icons, NamedID{ID: int(id), Name: path})
+		}
+		sort.Slice(out.Icons, func(i, j int) bool { return out.Icons[i].ID < out.Icons[j].ID })
+	}
+	spellData.Unlock()
+	if err != nil {
 		return SpellTables{}, err
 	}
 	if spellTables.byDir == nil {

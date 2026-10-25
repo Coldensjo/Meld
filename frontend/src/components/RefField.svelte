@@ -4,7 +4,7 @@
 	import { ownListIds, type CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
-	import { ITEM_TABLE_KINDS, NUMBER_ONLY_KINDS, OBJECT_TABLE_KINDS, emoteList, factionTemplateName, factionTemplates, itemTableList, itemTables, isWorldKind, lockName, objectTableList, objectTables, questTables, reactionText, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
+	import { ITEM_TABLE_KINDS, NUMBER_ONLY_KINDS, OBJECT_TABLE_KINDS, emoteList, factionTemplateName, factionTemplates, iconFileName, itemTableList, itemTables, isWorldKind, lockName, objectTableList, objectTables, questTables, reactionText, refName, refTarget, rememberName, spellTables, type NameKind, type RefName } from '../lib/wow/refNames'
 	import ItemIcon from './ItemIcon.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 	import SpellIcon from './SpellIcon.svelte'
@@ -21,7 +21,10 @@
 	// enchantments and disenchant loot, named by what they give and searched. The creature editor's
 	// lists (#700: vendor, trainer, equipment, loot and spell lists) are named by what they hold and
 	// how many creatures use them; a list numbered as the creature's own (`own`) says so and is
-	// offered when Find opens. `options` beside `ref` name special values (a gossip menu's −1).
+	// offered when Find opens. `options` beside `ref` name special values (a gossip menu's −1). The
+	// spell editor's (#703) add global cooldown categories (named by their spells) and icons (with
+	// their pictures), listed whole, and visuals, named by the spells that use them and found by
+	// taking the visual of a spell.
 
 	interface Props {
 		f: CreatureField
@@ -117,7 +120,19 @@
 			case 'quest':
 				return ((await SearchQuests(q)) ?? []).map((r) => ({ kind: k, id: r.quest, name: r.title, sub: `${r.quest} · level ${r.level}` }))
 			case 'spell':
+			case 'spell visual':
 				return []
+			case 'global category':
+				return (await spellTables()).globalCategories
+					.filter((r) => like(r.name, r.id, q))
+					.slice(0, 300)
+					.map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
+			case 'spell icon':
+				// Each hit decodes its picture: fewer than the other lists.
+				return (await spellTables()).icons
+					.filter((r) => like(iconFileName(r.name), r.id, q))
+					.slice(0, 80)
+					.map((r) => ({ kind: k, id: r.id, name: iconFileName(r.name), sub: String(r.id), icon: r.name }))
 			case 'zone':
 				return (await loadAreas())
 					.filter((a) => like(a.name, a.id, q))
@@ -133,6 +148,7 @@
 					.slice(0, 300)
 					.map((l) => ({ kind: k, id: l.id, name: l.name, sub: String(l.id) }))
 			}
+			case 'lock type':
 			case 'language':
 			case 'page material':
 			case 'spell focus':
@@ -169,10 +185,10 @@
 		const q = query.trim()
 		const k = kind
 		clearTimeout(timer)
-		if (!open || k === 'spell') return
+		if (!open || k === 'spell' || k === 'spell visual') return
 		// The client's short lists show whole without a search; the zones, the objects and the
 		// database's templates need one.
-		const whole = k === 'faction' || k === 'faction template' || k === 'skill' || k === 'sort' || (OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k) || (ITEM_TABLE_KINDS as readonly NameKind[]).includes(k)
+		const whole = k === 'faction' || k === 'faction template' || k === 'skill' || k === 'sort' || k === 'global category' || k === 'spell icon' || (OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k) || (ITEM_TABLE_KINDS as readonly NameKind[]).includes(k)
 		const local = whole || k === 'zone' || k === 'object'
 		if (!q && !whole) {
 			hits = []
@@ -200,6 +216,13 @@
 		}, local ? 0 : 250)
 	})
 
+	/** A visual: the picked spell's, its name asked again (the spells that share it). */
+	function takeVisual(s: vmangos.SpellRef) {
+		if (!s.visual) return
+		onset(String(s.visual))
+		open = false
+	}
+
 	function pick(h: Hit) {
 		rememberName(h.kind, h.id, { name: h.full ?? h.name, quality: h.quality, displayId: h.displayId, icon: h.icon })
 		// Only a column that names one of two kinds tells them apart by the sign.
@@ -224,7 +247,7 @@
 				{#if special !== undefined}
 					<span>{special}</span>
 				{:else if target && shown && shown.name}
-					{#if target.kind === 'item'}<ItemIcon displayId={shown.displayId ?? 0} />{:else if target.kind === 'spell'}<SpellIcon icon={shown.icon ?? ''} />{/if}
+					{#if target.kind === 'item'}<ItemIcon displayId={shown.displayId ?? 0} />{:else if target.kind === 'spell' || target.kind === 'spell icon'}<SpellIcon icon={shown.icon ?? ''} />{/if}
 					<span style:color={target.kind === 'item' ? (QUALITY_COLORS[shown.quality ?? 1] ?? QUALITY_COLORS[1]) : undefined}>{shown.name}</span>
 					{#if kinds[1]}<span class="dim">({SIDE_NAMES[target.kind]})</span>{/if}
 					{#if isOwn(target.id)}<span class="dim own">(this creature's own)</span>{/if}
@@ -243,6 +266,10 @@
 			<div class="find">
 				<SpellPicker memoryKey="field" text={false} height={200} label="Find a spell" placeholder="Name or number" focus onpick={(s) => pick({ kind: 'spell', id: s.id, name: s.rank ? `${s.name} (${s.rank})` : s.name, sub: String(s.id), icon: s.icon })} />
 			</div>
+		{:else if open && kind === 'spell visual'}
+			<div class="find">
+				<SpellPicker memoryKey="visual" text={false} height={200} label="Take the visual of a spell" placeholder="Name or number" focus onpick={takeVisual} />
+			</div>
 		{:else if open}
 			<div class="find">
 				<span class="row">
@@ -258,7 +285,7 @@
 					{#each hits as h (h.kind + h.id)}
 						<li>
 							<button onclick={() => pick(h)}>
-								{#if h.kind === 'item'}<ItemIcon displayId={h.displayId ?? 0} />{:else if h.kind === 'spell'}<SpellIcon icon={h.icon ?? ''} />{/if}
+								{#if h.kind === 'item'}<ItemIcon displayId={h.displayId ?? 0} />{:else if h.kind === 'spell' || h.kind === 'spell icon'}<SpellIcon icon={h.icon ?? ''} />{/if}
 								<span class="hit" style:color={h.kind === 'item' ? (QUALITY_COLORS[h.quality ?? 1] ?? QUALITY_COLORS[1]) : undefined}>{h.name}</span>
 								<span class="dim">{h.sub}{isOwn(h.id) ? " · this creature's own" : ''}</span>
 							</button>

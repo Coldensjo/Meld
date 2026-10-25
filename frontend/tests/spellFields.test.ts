@@ -2,7 +2,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { vmangos } from '../wailsjs/go/models.ts'
-import { effectSummary, expandSpellText, spellTabs, spellTooltip } from '../src/lib/world/spellFields.ts'
+import { withBit } from '../src/lib/world/creatureFields.ts'
+import { FORM_MASK, SPELL_ATTRIBUTES, SPELL_ATTRIBUTES_EX, SPELL_ATTRIBUTES_EX2, SPELL_ATTRIBUTES_EX3, effectSummary, expandSpellText, miscField, spellTabs, spellTooltip, subclassMask } from '../src/lib/world/spellFields.ts'
 
 // The client's tables as SpellTables gives them: duration 9 is 4 sec, cast time 7 is 1.5 sec, range 4 is 30 yd, radius 13 is 10 yd.
 const tables = vmangos.SpellTables.createFrom({
@@ -60,8 +61,55 @@ test('an effect reads as one line', () => {
 })
 
 test('every column shows, the unlisted ones on Other, the look ones beside the tooltip', () => {
-	const tabs = spellTabs(['name', 'effect1', 'spellIconId', 'spellVisual1', 'customFlags'], tables)
-	assert.deepEqual(tabs.map((t) => t.id), ['spell', 'effect1', 'other'])
+	const tabs = spellTabs(['name', 'effect1', 'spellIconId', 'spellVisual1', 'customFlags', 'stances', 'castUI'], tables)
+	assert.deepEqual(tabs.map((t) => t.id), ['spell', 'effect1', 'needs', 'flags', 'other'])
 	const other = tabs.find((t) => t.id === 'other')!.groups.flatMap((g) => g.fields.map((f) => f.col))
-	assert.deepEqual(other, ['customFlags'])
+	assert.deepEqual(other, ['castUI'])
+})
+
+const field = (tabs: ReturnType<typeof spellTabs>, col: string) => tabs.flatMap((t) => t.groups.flatMap((g) => g.fields)).find((f) => f.col === col)
+
+test('the masks are tick lists of every bit, the forms by 1 << (form - 1)', () => {
+	for (const list of [SPELL_ATTRIBUTES, SPELL_ATTRIBUTES_EX, SPELL_ATTRIBUTES_EX2, SPELL_ATTRIBUTES_EX3]) assert.equal(list.length, 32)
+	assert.deepEqual(FORM_MASK.find(([, n]) => n === 'Cat'), [1, 'Cat'])
+	assert.deepEqual(FORM_MASK.find(([, n]) => n === 'Battle stance'), [0x10000, 'Battle stance'])
+	// Spirit of redemption (form 32) is the top bit, which ticks on and off as an unsigned column.
+	const top = FORM_MASK.find(([, n]) => n === 'Spirit of redemption')![0]
+	assert.equal(top, 0x80000000)
+	assert.equal(withBit('1', top, true), '2147483649')
+	assert.equal(withBit('2147483649', top, false), '1')
+	const tabs = spellTabs(['attributes', 'procFlags', 'targetCreatureType'], tables)
+	assert.ok(field(tabs, 'attributes')?.flags?.some(([b, n]) => b === 0x40 && n === 'Passive'))
+	assert.ok(field(tabs, 'targetCreatureType')?.flags?.some(([b, n]) => b === 1 && n === 'Beast'))
+})
+
+test('the subclasses follow the item class', () => {
+	const cols = ['equippedItemClass', 'equippedItemSubClassMask']
+	assert.equal(field(spellTabs(cols, tables, { equippedItemClass: '-1' }), 'equippedItemSubClassMask')?.flags, undefined)
+	const weapon = field(spellTabs(cols, tables, { equippedItemClass: '2' }), 'equippedItemSubClassMask')?.flags ?? []
+	assert.deepEqual(weapon, subclassMask(2))
+	assert.ok(weapon.length > 10 && weapon[0][0] === 1)
+	assert.ok(weapon.some(([b]) => b === 2 ** 15), 'daggers are subclass 15')
+})
+
+test('a misc value gets the picker its effect or aura implies', () => {
+	const misc = (v: Record<string, string>) => miscField(1, v)
+	assert.equal(misc({ effect1: '28' }).ref, 'creature')
+	assert.equal(misc({ effect1: '76' }).ref, 'object')
+	assert.equal(misc({ effect1: '103' }).ref, 'faction')
+	assert.equal(misc({ effect1: '44' }).ref, 'skill')
+	assert.equal(misc({ effect1: '33' }).ref, 'lock type')
+	assert.equal(misc({ effect1: '30' }).label, 'Power')
+	assert.equal(misc({ effect1: '108' }).label, 'Mechanic')
+	// An aura's misc value counts only when the effect applies the aura.
+	assert.equal(misc({ effect1: '6', effectApplyAuraName1: '22' }).label, 'Schools')
+	assert.equal(misc({ effect1: '6', effectApplyAuraName1: '22' }).flags?.[0]?.[0], 1)
+	assert.equal(misc({ effect1: '35', effectApplyAuraName1: '29' }).options?.[0]?.[1], 'All stats')
+	assert.equal(misc({ effect1: '6', effectApplyAuraName1: '56' }).ref, 'creature')
+	assert.equal(misc({ effect1: '6', effectApplyAuraName1: '107' }).label, 'Modifies')
+	assert.equal(misc({ effect1: '2', effectApplyAuraName1: '22' }).label, 'Misc value')
+	assert.equal(misc({ effect1: '2' }).ref, undefined)
+	assert.equal(misc({}).col, 'effectMiscValue1')
+	assert.equal(miscField(3, { effect3: '61' }).col, 'effectMiscValue3')
+	assert.equal(miscField(3, { effect3: '61' }).ref, 'event')
 })

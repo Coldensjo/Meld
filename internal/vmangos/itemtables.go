@@ -39,12 +39,18 @@ func namedList(names []string) string {
 	return strings.Join(names[:3], ", ") + " and " + strconv.Itoa(len(names)-3) + " more"
 }
 
-// spellCategoryNames names each cooldown category (Spell.dbc's field 2) by the distinct names of the
-// spells in it, those used most first.
-func spellCategoryNames(t *dbcTable) []NamedID {
+// Spell.dbc's cooldown category fields: Category, and StartRecoveryCategory (the global cooldown's).
+const (
+	spellFCategory      = 2
+	spellFStartCategory = 157
+)
+
+// spellCategoryNames names each cooldown category in Spell.dbc's field (spellFCategory or
+// spellFStartCategory) by the distinct names of the spells in it, those used most first.
+func spellCategoryNames(t *dbcTable, field int) []NamedID {
 	byCat := map[int]map[string]int{}
 	for r := 0; r < t.records; r++ {
-		c := int(t.u32(r, 2))
+		c := int(t.u32(r, field))
 		name := strings.TrimSpace(t.str(r, spellFName))
 		if c == 0 || name == "" {
 			continue
@@ -133,7 +139,7 @@ func loadItemDBCs(dataDir string) error {
 	spellData.Lock()
 	err = loadSpellData(dataDir)
 	if err == nil {
-		out.SpellCategories = spellCategoryNames(spellData.spells)
+		out.SpellCategories = spellCategoryNames(spellData.spells, spellFCategory)
 	}
 	spellData.Unlock()
 	if err != nil {

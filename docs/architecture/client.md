@@ -242,6 +242,19 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   Conditions are named in Go by what they test (`vmangos.conditionText`, after VMaNGOS'
   `Conditions.h`, with factions, skills and zones from the client), so `WorldRefNames` and
   `SearchWorldRefs` take the client folder for `'condition'` as for `'enchantment'`.
+  The spell editor's fields (`lib/world/spellFields.ts`, #703) put the masks on two tabs: Needs
+  (forms by `1 << (form - 1)`, target flags, creature types by `1 << (type - 1)`, the item class with
+  its subclasses' tick list, which follows the class, and the slots; the aura states, spell focus and
+  reputation) and Flags (the attributes, interrupt, aura and channel interrupt and proc flags, all
+  from VMaNGOS' `SpellDefines.h`; the family; the second visual and the active icon). `spellTabs`
+  takes the spell's values, since the subclass list and each effect's misc value (`miscField`) follow
+  other columns: a creature, object, faction, skill, quest, language, lock type, flight path or event
+  picker, a power, dispel, mechanic, stat, form or modifier select, or a school, mechanic or creature
+  type tick list, by the effect and (for the aura effects) the aura, after VMaNGOS'
+  `SpellEffects.cpp` and `SpellAuras.cpp`; anything else stays a number. Its new ref kinds are
+  `'global category'` and `'spell icon'` (read once with the cast times through `App.SpellTables`,
+  `refNames.spellTables`, which the editor drops after a Save), `'spell visual'` (named by the spells
+  using it, found by taking another spell's) and `'lock type'` (`ObjectTables`' lock types).
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a

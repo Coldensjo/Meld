@@ -1,14 +1,19 @@
 import type { vmangos } from '../../../wailsjs/go/models'
+import { REP_RANKS } from '../wow/itemTooltip'
 import type { CreatureField } from './creatureFields'
-import { MECHANICS, fieldGroups } from './creatureFields'
+import { MECHANICS, MECHANIC_MASK, SCHOOL_MASK, fieldGroups } from './creatureFields'
+import { INVENTORY_TYPES, ITEM_CLASSES, subclassOptions } from './itemFields'
 import type { QuestTab } from './questFields'
+import { CREATURE_TYPES } from './spawnInfo'
 
 /**
  * How the spell editor (#294) shows spell_template's columns: on tabs, grouped, with plain labels, a
  * select where the numbers have names (the effects, auras and targets from VMaNGOS' SpellDefines.h
  * and SpellAuraDefines.h; the cast times, durations, ranges and radii from the client's tables), and
  * the spell's tooltip and effects as the game words them. A column not listed still shows, on the
- * Other tab. The icon and visual are edited beside the tooltip, not here.
+ * Other tab. The icon and visual are edited beside the tooltip, not here. The masks are tick lists, the
+ * aura states, family and reputation rank selects, and a column that names a thing a picker (#703),
+ * an effect's misc value the one its effect and aura imply (miscField).
  */
 
 const named = (names: string[], from = 0): Array<[number, string]> => names.map((n, i) => [i + from, n] as [number, string]).filter(([, n]) => n !== '')
@@ -23,6 +28,472 @@ const DISPELS = named(['None', 'Magic', 'Curse', 'Disease', 'Poison', 'Stealth',
 const DAMAGE_CLASSES = named(['None', 'Magic', 'Melee', 'Ranged'])
 const PREVENTION = named(['None', 'Silence', 'Pacify'])
 
+/** Bit i of a 32-bit mask named names[i], leaving out the '' ones. */
+const bits = (names: string[]): Array<[number, string]> => names.map((n, i) => [2 ** i, n] as [number, string]).filter(([, n]) => n !== '')
+
+/** spell_template.attributes (SpellAttributes in VMaNGOS' SpellDefines.h). */
+export const SPELL_ATTRIBUTES = bits([
+	'A failed proc uses a charge',
+	'Uses the ranged slot',
+	'On next swing (no damage)',
+	'Needs exotic ammo',
+	'Is an ability (not a spell)',
+	'Trade skill',
+	'Passive',
+	'Hidden (not in the spellbook or aura bar)',
+	'Not in the combat log',
+	'Targets the main hand item',
+	'On next swing',
+	'The wearer casts the proc',
+	'Daytime only',
+	'Night only',
+	'Indoors only',
+	'Outdoors only',
+	'Not while shapeshifted',
+	'Only in stealth',
+	'Weapons stay drawn',
+	'Scales with creature level',
+	'Stops auto attack',
+	'Cannot be dodged, parried or blocked',
+	'Tracks the target while casting (players)',
+	'Castable while dead',
+	'Castable while mounted',
+	'Cooldown starts when the aura or summon ends',
+	'Debuff',
+	'Castable while sitting',
+	'Not in combat',
+	'Ignores invulnerability',
+	'Effects may break early (heartbeat resist)',
+	'The buff cannot be cancelled',
+])
+
+/** spell_template.attributesEx (SpellAttributesEx). */
+export const SPELL_ATTRIBUTES_EX = bits([
+	'Dismisses the pet first',
+	'Uses all power',
+	'Channelled',
+	'Cannot be redirected',
+	'No skill increase',
+	'Does not break stealth',
+	'Self-channelled',
+	'Cannot be reflected',
+	'Target must be out of combat',
+	'Starts auto attack',
+	'No threat',
+	'Unique aura',
+	'Failure breaks stealth',
+	'Toggles far sight',
+	'Faces the target while channelling',
+	'Immunity removes the effect',
+	'Its immunity blocks helpful effects too',
+	'Pets do not cast it on their own',
+	'Prevents animation (stun, sleep)',
+	'Excludes the caster',
+	'Finishing move (damage)',
+	'Threat only on a miss',
+	'Finishing move (duration)',
+	'Ignores caster and target checks',
+	'Special skill up (fishing)',
+	'Unknown 25',
+	'Needs every target',
+	'Refunds power on a miss',
+	'No aura icon',
+	'Spell name in the channel bar',
+	'Combo point on a block',
+	'Cast when learned',
+])
+
+/** spell_template.attributesEx2 (SpellAttributesEx2). */
+export const SPELL_ATTRIBUTES_EX2 = bits([
+	'Can target the dead',
+	'No shapeshift UI',
+	'Ignores line of sight',
+	'Allows buffing low levels',
+	'Shows in the stance bar',
+	'Auto-repeats',
+	'Target must be tapped by the caster',
+	'Failures not reported',
+	'Unused 8',
+	'Unused 9',
+	'Special taming flag',
+	'No per-target cost a second',
+	'Chains from the caster',
+	'Enchants own items only',
+	'Castable while invisible',
+	'Usable after a parry (old)',
+	'No active pets',
+	'Keeps the swing timers',
+	'Needs a dead pet',
+	'Needs no shapeshift',
+	'Starts auto attack after the cast',
+	'Fails if every target is immune',
+	'No initial threat',
+	'Proc cooldown on failure',
+	'Item cast uses the owner’s skill',
+	'Does not block mana regen',
+	'Ignores school immunities',
+	'Ignores weapon skill',
+	'Not an action',
+	'Cannot crit',
+	'Puts the caster in combat',
+	'Food or drink buff',
+])
+
+/** spell_template.attributesEx3 (SpellAttributesEx3). */
+export const SPELL_ATTRIBUTES_EX3 = bits([
+	'PvP enabling',
+	'Procs without the equipment',
+	'No casting bar text',
+	'A block stops every effect',
+	'No resurrection timer',
+	'No durability loss',
+	'Area aura stays outside the radius',
+	'A stack for each caster',
+	'Players only',
+	'Not a proc',
+	'Needs a main hand weapon',
+	'Battlegrounds only',
+	'Ghosts only',
+	'Hides the channel bar',
+	'Hidden in the raid filter',
+	'Normal ranged attack',
+	'Suppresses caster procs',
+	'Suppresses target procs',
+	'Always hits',
+	'Instant target procs',
+	'Aura stays after death',
+	'Procs outdoors only',
+	'Casting cancels auto-repeat',
+	'No damage history',
+	'Needs an off hand weapon',
+	'Treated as periodic (no pushback)',
+	'Can proc from procs',
+	'Procs on the caster only',
+	'Ignores caster and target checks',
+	'Ignores caster modifiers',
+	'Range not shown',
+	'Not on area-immune targets',
+])
+
+/** spell_template.attributesEx4 (SpellAttributesEx4, new in 1.12). */
+export const SPELL_ATTRIBUTES_EX4 = bits([
+	'Ignores resistances',
+	'Class trigger only on the target',
+	'Aura expires while offline',
+	'No helpful threat',
+	'No harmful threat',
+	'Client targeting',
+	'Cannot be stolen',
+	'Castable while casting',
+	'Ignores damage taken modifiers',
+	'Combat feedback when usable',
+])
+
+/** spell_template.customFlags: the server's own (SpellAttributesCustom). */
+export const SPELL_CUSTOM_FLAGS = bits([
+	'Stacks between casters',
+	'Negative',
+	'Positive',
+	'No channel distance limit',
+	'Fixed damage (no bonuses)',
+	'Ignores armor',
+	'Caster must be behind the target',
+	'Target must be in front',
+	'One target at a time',
+	'Applying it breaks stealth',
+	'Kept on evade',
+	'Sends the channel visual',
+	'A separate aura for each caster',
+	'Triggers weapon procs',
+])
+
+/** spell_template.targets (SpellCastTargetFlags): what the cast may be aimed at. */
+export const TARGET_FLAGS: Array<[number, string]> = [
+	[0x1, 'Unused 1'],
+	[0x2, 'A unit'],
+	[0x4, 'A raid member'],
+	[0x8, 'A party member'],
+	[0x10, 'An item'],
+	[0x20, 'A source location'],
+	[0x40, 'A destination location'],
+	[0x80, 'An enemy unit'],
+	[0x100, 'A friendly unit'],
+	[0x200, 'An enemy corpse'],
+	[0x400, 'A dead unit'],
+	[0x800, 'A game object'],
+	[0x1000, 'A trade item'],
+	[0x2000, 'A string'],
+	[0x4000, 'A lock (opening)'],
+	[0x8000, 'A friendly corpse'],
+	[0x10000, 'A mini pet'],
+]
+
+/** spell_template.interruptFlags (SpellInterruptFlags): what interrupts the cast. */
+export const INTERRUPT_FLAGS: Array<[number, string]> = [
+	[0x1, 'Movement'],
+	[0x2, 'Damage pushes it back'],
+	[0x4, 'Stun'],
+	[0x8, 'Combat'],
+	[0x10, 'Damage cancels it'],
+]
+
+/** auraInterruptFlags and channelInterruptFlags (SpellAuraInterruptFlags): what removes the aura or stops the channel. */
+export const AURA_INTERRUPT_FLAGS = bits([
+	'A hostile spell hits',
+	'Damage',
+	'An action (start)',
+	'Moving',
+	'Turning',
+	'An animation (feign death)',
+	'Dismounting',
+	'Going under water',
+	'Leaving the water',
+	'Sheathing',
+	'Talking to an NPC',
+	'Looting or using an object',
+	'Attacking',
+	'Using an item',
+	'Damage (shortens a channel)',
+	'Shapeshifting',
+	'An action (end)',
+	'Mounting',
+	'Standing up',
+	'Leaving the world',
+	'Stealth or invisibility',
+	'An invulnerability buff',
+	'Entering the world',
+])
+
+/** spell_template.procFlags (ProcFlags): what makes the aura proc. */
+export const PROC_FLAGS = bits([
+	'Heartbeat (a tick)',
+	'Killing',
+	'Dealing a melee swing',
+	'Taking a melee swing',
+	'Dealing a melee ability',
+	'Taking a melee ability',
+	'Dealing a ranged attack',
+	'Taking a ranged attack',
+	'Dealing a ranged ability',
+	'Taking a ranged ability',
+	'Dealing a helpful ability',
+	'Taking a helpful ability',
+	'Dealing a harmful ability',
+	'Taking a harmful ability',
+	'Dealing a helpful spell',
+	'Taking a helpful spell',
+	'Dealing a harmful spell',
+	'Taking a harmful spell',
+	'Dealing periodic damage',
+	'Taking periodic damage',
+	'Taking any damage',
+	'A trap triggering',
+	'A main hand swing',
+	'An off hand swing',
+])
+
+/** The shapeshift forms (ShapeshiftForm in VMaNGOS' SharedDefines.h, checked against SpellShapeshiftForm.dbc). */
+export const FORMS: Array<[number, string]> = [
+	[1, 'Cat'],
+	[2, 'Tree of life'],
+	[3, 'Travel'],
+	[4, 'Aquatic'],
+	[5, 'Bear'],
+	[6, 'Ambient'],
+	[7, 'Ghoul'],
+	[8, 'Dire bear'],
+	[14, 'Creature bear'],
+	[15, 'Creature cat'],
+	[16, 'Ghost wolf'],
+	[17, 'Battle stance'],
+	[18, 'Defensive stance'],
+	[19, 'Berserker stance'],
+	[28, 'Shadowform'],
+	[30, 'Stealth'],
+	[31, 'Moonkin'],
+	[32, 'Spirit of redemption'],
+]
+
+/** stances and stancesNot: form f is bit 1 << (f - 1). */
+export const FORM_MASK: Array<[number, string]> = FORMS.map(([f, n]) => [2 ** (f - 1), n] as [number, string])
+
+/** targetCreatureType and the "versus" auras' masks: creature type t is bit 1 << (t - 1). */
+export const CREATURE_TYPE_MASK: Array<[number, string]> = named(CREATURE_TYPES).filter(([t]) => t > 0).map(([t, n]) => [2 ** (t - 1), n] as [number, string])
+
+/** casterAuraState and targetAuraState (AuraState in SpellDefines.h). */
+export const AURA_STATES: Array<[number, string]> = [
+	[0, 'None'],
+	[1, 'Defense (after a dodge, block or parry)'],
+	[2, 'Health under 20%'],
+	[3, 'Berserking'],
+	[4, 'Frozen'],
+	[5, 'Judgement'],
+	[7, 'Hunter parried'],
+	[8, 'Attacking from stealth'],
+	[9, 'Health under 15% (server)'],
+	[10, 'Health under 10% (server)'],
+	[11, 'Health under 5% (server)'],
+]
+
+/** spellFamilyName (SpellFamily in SpellDefines.h): the class a talent or set bonus finds the spell by. */
+export const SPELL_FAMILIES: Array<[number, string]> = [
+	[0, 'Generic'],
+	[1, 'Events and holidays'],
+	[3, 'Mage'],
+	[4, 'Warrior'],
+	[5, 'Warlock'],
+	[6, 'Priest'],
+	[7, 'Druid'],
+	[8, 'Rogue'],
+	[9, 'Hunter'],
+	[10, 'Paladin'],
+	[11, 'Shaman'],
+	[12, 'Unknown 12'],
+	[13, 'Potion'],
+	[15, 'Death knight (unused)'],
+	[17, 'Unknown 17'],
+]
+
+/** minReputation: the reputation ranks (ReputationRank). */
+export const REPUTATION_RANKS: Array<[number, string]> = REP_RANKS.map((n, i) => [i, n] as [number, string])
+
+/** equippedItemClass: an item class, -1 for none needed. */
+export const EQUIPPED_CLASSES: Array<[number, string]> = [[-1, 'None needed'], ...ITEM_CLASSES]
+
+/** equippedItemInventoryTypeMask: slot t is bit 1 << t. */
+export const INVENTORY_TYPE_MASK: Array<[number, string]> = INVENTORY_TYPES.filter(([t]) => t > 0).map(([t, n]) => [2 ** t, n] as [number, string])
+
+/** equippedItemSubClassMask's bits for item class cls: subclass s is bit 1 << s. */
+export function subclassMask(cls: number): Array<[number, string]> {
+	return subclassOptions(cls).map(([s, n]) => [2 ** s, n] as [number, string])
+}
+
+/** The stats (Stats in SharedDefines.h), as a Modify stat aura's misc value holds them. */
+const STATS: Array<[number, string]> = [[-1, 'All stats'], ...named(['Strength', 'Agility', 'Stamina', 'Intellect', 'Spirit'])]
+
+/** An Add modifier aura's misc value: what it changes (SpellModOp in SpellDefines.h). */
+const SPELL_MOD_OPS: Array<[number, string]> = [
+	...named([
+		'Damage',
+		'Duration',
+		'Threat',
+		'Attack power',
+		'Charges',
+		'Range',
+		'Radius',
+		'Critical chance',
+		'All effects',
+		'Not losing cast time',
+		'Cast time',
+		'Cooldown',
+		'Speed',
+		'',
+		'Cost',
+		'Critical damage bonus',
+		'Resist and miss chance',
+		'Jump targets',
+		'Chance of success',
+		'Activation time',
+		'Effects past the first',
+		'Global cooldown',
+		'Damage over time',
+		'Haste',
+		'Spell bonus damage',
+	]),
+	[27, 'Multiple value'],
+	[28, 'Resist dispel chance'],
+]
+
+/** The effects that apply their aura (effectApplyAuraName): apply aura, the area auras and the persistent one. */
+const AURA_EFFECTS = new Set([6, 27, 35, 119, 128, 129, 132, 133])
+const SUMMON_EFFECTS = new Set([28, 41, 42, 56, 73, 74, 87, 88, 89, 90, 97, 112])
+const OBJECT_EFFECTS = new Set([50, 76, 81, 83, 104, 105, 106, 107])
+const POWER_EFFECTS = new Set([8, 30, 62])
+const POWER_AURAS = new Set([24, 35, 64, 85, 110, 132, 162])
+const SCHOOL_AURAS = new Set([13, 14, 22, 39, 40, 69, 71, 72, 73, 74, 79, 81, 83, 87, 97, 101, 115, 123, 135, 136, 142, 143, 179, 182])
+const CREATURE_TYPE_AURAS = new Set([59, 102, 131, 168, 169, 180, 181])
+
+/**
+ * What effect n's (1 to 3) misc value holds, by its effect and aura (after VMaNGOS' SpellEffects.cpp
+ * and SpellAuras.cpp): a creature, a game object, a reputation faction, a skill, a quest, a language,
+ * a lock type, a flight path or an event script as a picker; a power, a dispel type, a mechanic, a
+ * stat, a form, a creature type, an effect, an aura or a modifier as a select; a school, mechanic or
+ * creature type mask as a tick list. The rest stays a number.
+ */
+export function miscField(n: number, v: Record<string, string>): CreatureField {
+	const col = `effectMiscValue${n}`
+	const base: CreatureField = { col, label: 'Misc value', hint: 'The effect’s or aura’s own number: what it holds follows the effect and aura' }
+	const effect = num(v, `effect${n}`)
+	const aura = AURA_EFFECTS.has(effect) ? num(v, `effectApplyAuraName${n}`) : 0
+	const as = (label: string, f: Partial<CreatureField>): CreatureField => ({ ...base, label, ...f })
+	if (SUMMON_EFFECTS.has(effect)) return as('Creature', { ref: 'creature', hint: 'The creature it summons' })
+	if (OBJECT_EFFECTS.has(effect)) return as('Game object', { ref: 'object', hint: 'The game object it puts down' })
+	if (POWER_EFFECTS.has(effect) || POWER_AURAS.has(aura)) return as('Power', { options: POWER_TYPES })
+	switch (effect) {
+		case 16:
+			return as('Quest', { ref: 'quest', hint: 'The quest it completes' })
+		case 33:
+		case 59:
+			return as('Lock type', { ref: 'lock type', hint: 'The kind of lock it opens (LockType.dbc)' })
+		case 38:
+			return as('Dispel type', { options: DISPELS })
+		case 39:
+			return as('Language', { ref: 'language', hint: 'The language it teaches' })
+		case 44:
+		case 118:
+			return as('Skill', { ref: 'skill' })
+		case 61:
+			return as('Event', { ref: 'event', hint: 'The event script it starts (event_scripts)' })
+		case 103:
+			return as('Faction', { ref: 'faction', hint: 'The reputation it gives' })
+		case 108:
+			return as('Mechanic', { options: MECHANICS, hint: 'The mechanic it dispels' })
+		case 123:
+			return as('Flight path', { ref: 'taxi path' })
+	}
+	if (SCHOOL_AURAS.has(aura)) return as('Schools', { flags: SCHOOL_MASK })
+	if (CREATURE_TYPE_AURAS.has(aura)) return as('Creature types', { flags: CREATURE_TYPE_MASK })
+	switch (aura) {
+		case 29:
+		case 80:
+		case 137:
+			return as('Stat', { options: STATS })
+		case 30:
+		case 98:
+			return as('Skill', { ref: 'skill' })
+		case 36:
+			return as('Form', { options: [[0, 'None'], ...FORMS] })
+		case 37:
+			return as('Effect', { options: SPELL_EFFECTS, hint: 'The effect it makes its target immune to' })
+		case 38:
+			return as('Aura', { options: SPELL_AURAS, hint: 'The aura it makes its target immune to' })
+		case 41:
+		case 178:
+			return as('Dispel type', { options: DISPELS })
+		case 44:
+			return as('Creature type', { options: named(CREATURE_TYPES).filter(([t]) => t > 0), hint: 'The creatures it tracks' })
+		case 45:
+			return as('Lock type', { ref: 'lock type', hint: 'The resources it tracks (LockType.dbc)' })
+		case 56:
+		case 78:
+			return as('Creature', { ref: 'creature', hint: aura === 56 ? 'The creature it turns its target into' : 'The creature whose model it rides' })
+		case 75:
+			return as('Language', { ref: 'language' })
+		case 77:
+		case 117:
+			return as('Mechanic', { options: MECHANICS })
+		case 107:
+		case 108:
+			return as('Modifies', { options: SPELL_MOD_OPS, hint: 'What it changes in the spells it affects' })
+		case 139:
+		case 190:
+			return as('Faction', { ref: 'faction' })
+		case 147:
+			return as('Mechanics', { flags: MECHANIC_MASK })
+	}
+	return base
+}
+
 /** A select of a client table's rows, the "none" row first when the table has no 0. */
 const tableOptions = (rows: vmangos.SpellOption[] | undefined, none: string): Array<[number, string]> => {
 	const out: Array<[number, string]> = (rows ?? []).map((r) => [r.id, `${r.label} (${r.id})`])
@@ -30,7 +501,7 @@ const tableOptions = (rows: vmangos.SpellOption[] | undefined, none: string): Ar
 }
 
 /** One effect's fields (n is 1 to 3). */
-function effectFields(n: number, tables: vmangos.SpellTables | null): CreatureField[] {
+function effectFields(n: number, tables: vmangos.SpellTables | null, v: Record<string, string>): CreatureField[] {
 	return [
 		{ col: `effect${n}`, label: 'Effect', options: SPELL_EFFECTS, hint: 'What the effect does' },
 		{ col: `effectApplyAuraName${n}`, label: 'Aura', options: SPELL_AURAS, hint: 'The aura an Apply aura effect puts on its targets' },
@@ -46,7 +517,7 @@ function effectFields(n: number, tables: vmangos.SpellTables | null): CreatureFi
 		{ col: `effectAmplitude${n}`, label: 'Period (ms)', hint: 'How often a periodic aura ticks' },
 		{ col: `effectChainTarget${n}`, label: 'Chain targets' },
 		{ col: `effectMultipleValue${n}`, label: 'Multiple value', hint: 'A chain or drain effect’s multiplier' },
-		{ col: `effectMiscValue${n}`, label: 'Misc value', hint: 'The effect’s or aura’s own number: a school mask, a stat, a creature to summon…' },
+		miscField(n, v),
 		{ col: `effectTriggerSpell${n}`, label: 'Triggers spell', ref: 'spell' },
 		{ col: `effectItemType${n}`, label: 'Item', ref: 'item', hint: 'The item a Create item effect makes' },
 		{ col: `effectMechanic${n}`, label: 'Mechanic', options: MECHANICS },
@@ -55,7 +526,8 @@ function effectFields(n: number, tables: vmangos.SpellTables | null): CreatureFi
 	]
 }
 
-function spellTabList(tables: vmangos.SpellTables | null): QuestTab[] {
+function spellTabList(tables: vmangos.SpellTables | null, v: Record<string, string>): QuestTab[] {
+	const cls = v.equippedItemClass === undefined || v.equippedItemClass === '' ? -1 : Number(v.equippedItemClass)
 	return [
 		{
 			id: 'spell',
@@ -84,9 +556,9 @@ function spellTabList(tables: vmangos.SpellTables | null): QuestTab[] {
 						{ col: 'manaPerSecond', label: 'Cost a second' },
 						{ col: 'recoveryTime', label: 'Cooldown (ms)' },
 						{ col: 'categoryRecoveryTime', label: 'Category cooldown (ms)' },
-						{ col: 'category', label: 'Cooldown category', hint: 'Spells of one category share the category cooldown' },
+						{ col: 'category', label: 'Cooldown category', ref: 'spell category', hint: 'Spells of one category share the category cooldown' },
 						{ col: 'startRecoveryTime', label: 'Global cooldown (ms)' },
-						{ col: 'startRecoveryCategory', label: 'Global cooldown category' },
+						{ col: 'startRecoveryCategory', label: 'Global cooldown category', ref: 'global category', hint: 'Spells of one category share the global cooldown (133 is the usual one)' },
 						{ col: 'speed', label: 'Missile speed', hint: 'Yards a second a bolt flies; 0 hits at once' },
 					],
 				},
@@ -126,17 +598,91 @@ function spellTabList(tables: vmangos.SpellTables | null): QuestTab[] {
 				},
 			],
 		},
-		...[1, 2, 3].map((n) => ({ id: `effect${n}`, title: `Effect ${n}`, groups: [{ title: `Effect ${n}`, fields: effectFields(n, tables) }] })),
+		...[1, 2, 3].map((n) => ({ id: `effect${n}`, title: `Effect ${n}`, groups: [{ title: `Effect ${n}`, fields: effectFields(n, tables, v) }] })),
+		{
+			id: 'needs',
+			title: 'Needs',
+			groups: [
+				{
+					title: 'Caster',
+					fields: [
+						{ col: 'stances', label: 'Only in these forms', flags: FORM_MASK, hint: 'None ticked: in any form' },
+						{ col: 'stancesNot', label: 'Not in these forms', flags: FORM_MASK },
+						{ col: 'casterAuraState', label: 'Caster aura state', options: AURA_STATES, hint: 'A state the caster must be in, such as after a dodge (Overpower)' },
+						{ col: 'requiresSpellFocus', label: 'Near a spell focus', ref: 'spell focus', hint: 'An object the caster must stand by, such as an anvil or forge (SpellFocusObject.dbc)' },
+						{ col: 'minFactionId', label: 'Reputation with', ref: 'faction', hint: 'A faction the caster needs a standing with' },
+						{ col: 'minReputation', label: 'At least', options: REPUTATION_RANKS, hint: 'The standing with that faction' },
+					],
+				},
+				{
+					title: 'Target',
+					fields: [
+						{ col: 'targets', label: 'Can target', flags: TARGET_FLAGS, hint: 'None ticked: the caster' },
+						{ col: 'targetCreatureType', label: 'Creature types', flags: CREATURE_TYPE_MASK, hint: 'None ticked: any' },
+						{ col: 'targetAuraState', label: 'Target aura state', options: AURA_STATES, hint: 'A state the target must be in, such as under 20% health (Execute)' },
+					],
+				},
+				{
+					title: 'Equipped item',
+					fields: [
+						{ col: 'equippedItemClass', label: 'Item class', options: EQUIPPED_CLASSES, hint: 'The kind of item the caster must have equipped' },
+						cls >= 0
+							? { col: 'equippedItemSubClassMask', label: 'Subclasses', flags: subclassMask(cls), hint: 'None ticked: any of the class' }
+							: { col: 'equippedItemSubClassMask', label: 'Subclasses', hint: 'Pick an item class to tick its subclasses' },
+						{ col: 'equippedItemInventoryTypeMask', label: 'Slots', flags: INVENTORY_TYPE_MASK, hint: 'None ticked: any slot' },
+					],
+				},
+			],
+		},
+		{
+			id: 'flags',
+			title: 'Flags',
+			groups: [
+				{
+					title: 'Interrupts and procs',
+					fields: [
+						{ col: 'interruptFlags', label: 'The cast is interrupted by', flags: INTERRUPT_FLAGS },
+						{ col: 'auraInterruptFlags', label: 'The aura is removed by', flags: AURA_INTERRUPT_FLAGS },
+						{ col: 'channelInterruptFlags', label: 'The channel is stopped by', flags: AURA_INTERRUPT_FLAGS },
+						{ col: 'procFlags', label: 'Procs on', flags: PROC_FLAGS },
+					],
+				},
+				{
+					title: 'Attributes',
+					fields: [
+						{ col: 'attributes', label: 'Attributes', flags: SPELL_ATTRIBUTES },
+						{ col: 'attributesEx', label: 'Attributes 2', flags: SPELL_ATTRIBUTES_EX },
+						{ col: 'attributesEx2', label: 'Attributes 3', flags: SPELL_ATTRIBUTES_EX2 },
+						{ col: 'attributesEx3', label: 'Attributes 4', flags: SPELL_ATTRIBUTES_EX3 },
+						{ col: 'attributesEx4', label: 'Attributes 5', flags: SPELL_ATTRIBUTES_EX4 },
+						{ col: 'customFlags', label: 'Server flags', flags: SPELL_CUSTOM_FLAGS, hint: 'The server’s own, not in the client' },
+					],
+				},
+				{
+					title: 'Family and look',
+					fields: [
+						{ col: 'spellFamilyName', label: 'Family', options: SPELL_FAMILIES, hint: 'The class whose talents and set bonuses find it, with the family flags' },
+						{ col: 'spellFamilyFlags', label: 'Family flags', hint: 'Which of the family’s spells it is, for the talents that change them' },
+						{ col: 'spellVisual2', label: 'Second visual', ref: 'spell visual', hint: 'A second SpellVisual.dbc ID, drawn with the first' },
+						{ col: 'activeIconId', label: 'Active icon', ref: 'spell icon', hint: 'The SpellIcon.dbc icon it shows while active (most spells have none)' },
+					],
+				},
+			],
+		},
 	]
 }
 
 /** The look columns, edited beside the tooltip. */
 const LOOK_COLUMNS = ['spellIconId', 'spellVisual1']
 
-/** The spell editor's tabs for these columns: listed columns only where the table has them, the rest on Other. */
-export function spellTabs(columns: string[], tables: vmangos.SpellTables | null): QuestTab[] {
+/**
+ * The spell editor's tabs for these columns: listed columns only where the table has them, the rest on
+ * Other. The values pick what follows another column: the subclasses of the item class, and each
+ * effect's misc value.
+ */
+export function spellTabs(columns: string[], tables: vmangos.SpellTables | null, values: Record<string, string> = {}): QuestTab[] {
 	const have = new Set(columns)
-	const list = spellTabList(tables)
+	const list = spellTabList(tables, values)
 	const tabs = list.map((t) => ({ ...t, groups: t.groups.map((g) => ({ ...g, fields: g.fields.filter((f) => have.has(f.col)) })).filter((g) => g.fields.length) }))
 	const known = new Set([...LOOK_COLUMNS, ...list.flatMap((t) => t.groups.flatMap((g) => g.fields.map((f) => f.col)))])
 	const other = fieldGroups(
