@@ -26,7 +26,7 @@ build-windows:
 	$(WAILS) build -platform windows/amd64
 
 test:
-	go test -short ./internal/...
+	go test -short ./internal/... ./cmd/...
 	@if [ -f frontend/dist/index.html ]; then go test -short .; else echo 'skipping go test . (frontend/dist is missing; build the frontend first)'; fi
 	cd frontend && bun run test
 
@@ -37,7 +37,7 @@ fuzz:
 
 # Everything, with the heavy client scans that -short skips (about 10 s more).
 test-full:
-	go test ./internal/...
+	go test ./internal/... ./cmd/...
 	@if [ -f frontend/dist/index.html ]; then go test .; else echo 'skipping go test . (frontend/dist is missing; build the frontend first)'; fi
 	cd frontend && bun run test
 
@@ -51,7 +51,7 @@ bindings-check:
 
 # Formats the Go sources (the frontend has no formatter configured).
 format:
-	gofmt -w internal *.go
+	gofmt -w internal cmd *.go
 
 # The gate before a commit (CLAUDE.md, "Git workflow"): check, test, then the build for this OS.
 verify: check test
@@ -68,12 +68,12 @@ notices-check:
 # golangci-lint with the committed .golangci.yml (errcheck, govet, ineffassign, staticcheck, unused). Skipped with a note when the tool is missing; install it as README says.
 lint:
 	@if ! command -v golangci-lint >/dev/null 2>&1; then echo 'skipping golangci-lint (not installed: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest)'; \
-	elif [ -f frontend/dist/index.html ]; then golangci-lint run ./internal/... .; \
-	else echo 'linting ./internal/... only (frontend/dist is missing; build the frontend first)'; golangci-lint run ./internal/...; fi
+	elif [ -f frontend/dist/index.html ]; then golangci-lint run ./internal/... ./cmd/... .; \
+	else echo 'linting ./internal/... only (frontend/dist is missing; build the frontend first)'; golangci-lint run ./internal/... ./cmd/...; fi
 
 check: bindings-check notices-check lint
-	@test -z "$$(gofmt -l internal *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal *.go; exit 1; }
-	go vet ./internal/...
+	@test -z "$$(gofmt -l internal cmd *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal cmd *.go; exit 1; }
+	go vet ./internal/... ./cmd/...
 	@if [ -f frontend/dist/index.html ]; then go vet .; else echo 'skipping go vet . (frontend/dist is missing; build the frontend first)'; fi
 	cd frontend && bun run check
 

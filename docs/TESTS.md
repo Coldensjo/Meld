@@ -159,6 +159,35 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   delete the row yourself afterwards. A template whose `unit_class` has no `creature_classlevelstats`
   rows (only classes 1, 2 and 8 have them) stops mangosd at startup (#112).
 
+## Looking into files without the app (`meldtool`)
+
+`cmd/meldtool` (#611) reads the files Meld reads and writes, from the repository root with
+`go run ./cmd/meldtool <command>`, instead of a scratch Go test or the dev page. It only reads (`mpq cat
+-o` writes the file you name, nothing else). A tile argument is a file on disk or, when no such file
+exists, an archive path read from the client: `--client` (the client folder, its Data folder or one
+`.MPQ`), else `config.json`'s `wowPath`, so on the owner's machine a bare `World\Maps\...` path works.
+Its own tests (`cmd/meldtool/meldtool_test.go`, synthetic tiles and archives) run in `make test`.
+
+- `wmap info <file.wmap>`: the version, size, palette, objects by kind (`m2`, `wmo`, `helper`), hole
+  cells, liquid layers by type, chunks by zone, impassable chunks, no-effect cells, shadows, region and
+  the `*Unknown` flags, as JSON. A scene's saved copy is in `<user cache>/Meld/scenes`.
+- `adt dump [--chunk x,y] [--placements] <tile>`: each chunk's flags, area, holes and no-effect bytes
+  (a byte a cell row), height range, layers (texture, flags, ground effect, alpha coverage), liquids
+  and shadowed texels, as JSON; `--chunk` gives one chunk with its 145 heights, `--placements` lists
+  the models. `--big-alpha` for a tile on disk from a map whose WDT has 8-bit alpha (a client tile reads
+  its WDT).
+- `adt diff <a> <b>`: a line per difference, chunk by chunk (flags, area, holes, heights past `--eps`,
+  layers, alpha maps, liquids, shadows) and then placements by UID (past `--place-eps`, 0.01: a float32
+  at 17000 yards is only good to 0.002); exits 1 when they differ. `--client-b` reads b from elsewhere,
+  so `adt diff --client <Data>/terrain.MPQ --client-b <Data>/patch-3.MPQ <path> <path>` shows what a
+  patch changed. Trap, as above: a region save itself sets 0x8000 on some chunks, so diff a write
+  against the same save without your change (`mpq cat -o` both), not against the client's tile.
+- `mpq ls [filter]` and `mpq cat [-o file] <path>`: the listed files (filter: a substring, any case,
+  `/` or `\`), and one file's bytes from the topmost archive that has it (or from the one `--client`
+  archive).
+- `bindings [--json]`: the bound methods (`func (a *App) X` in the root package, the files this OS
+  builds) with their signatures and file:line, read from the sources, no build or wails needed.
+
 ## Rendering and UI in the live app (Claude in Chrome)
 
 Checks: anything visual (shaders, shadows, lighting, models, UI) against the real client assets.
