@@ -1,5 +1,5 @@
 // A region's alpha maps cross as one GET from the asset server, not in LoadRegion's JSON (#636): for Azeroth 31_49 3x3 the reply has no layer alpha and an alphaUrl, the fetched bytes are 4096 for every layer but each chunk's first, a second fetch of the same URL is a 404 (a handoff is served once), and the times of the call and the fetch.
-// touches: app.go, internal/vmangos/region.go, internal/adt/clientalpha.go, frontend/src/lib/io/mapio.ts
+// touches: app.go, internal/vmangos/region.go, internal/adt/clientalpha.go, frontend/src/lib/io/region.ts
 const App = window.go.main.App
 const ALPHA_BYTES = 64 * 64
 const runs = []

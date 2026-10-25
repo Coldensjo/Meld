@@ -4,7 +4,7 @@
 	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
-	import { hasBackend } from '../lib/io/mapio'
+	import { hasBackend } from '../lib/io/backend'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { takeEscape } from '../lib/state/escape'
 	import { changedValues } from '../lib/world/creatureFields'

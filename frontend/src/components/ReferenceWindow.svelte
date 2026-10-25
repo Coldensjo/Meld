@@ -8,7 +8,7 @@
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { hasBackend } from '../lib/io/mapio'
+	import { hasBackend } from '../lib/io/backend'
 	import { chooseReferenceFile, readReferenceFile } from '../lib/io/referenceLoad'
 	import { colourHex, copyReference, fitPlace, type ReferenceImage, type ReferenceMode } from '../lib/terrain/referenceImage'
 	import { areaName, loadAreas } from '../lib/wow/areas'

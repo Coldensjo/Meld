@@ -236,7 +236,9 @@ describe('the .wmap snapshot round trip (#431, where #120 and #161 were)', () =>
 		expect(none.vmangos).toEqual({ dir: 'd', mapId: 5, info: undefined })
 	})
 
-	test('objects without ids get unique ones, and a zero parent or uid reads as none', () => {
+	// A map saved before objects had ids (97042e4) holds none: they read as 0, and ObjectLayer.add gives
+	// each a new one (objectLayer.test.ts), so the old fallback of 100000 + i is gone (#534).
+	test('objects without ids read with id 0, and a zero parent or uid reads as none', () => {
 		const m = fromMapData({
 			...reread(snapshot(true), 6),
 			objects: [
@@ -244,7 +246,7 @@ describe('the .wmap snapshot round trip (#431, where #120 and #161 were)', () =>
 				{ id: 0, parent: 0, uid: 0, type: 'm2:b.m2', x: 0, z: 0, yOff: 0, rotY: 0, scale: 1 },
 			],
 		} as unknown as mapfile.MapData)
-		expect(m.objects.map((o) => o.id)).toEqual([100000, 100001])
+		expect(m.objects.map((o) => o.id)).toEqual([0, 0])
 		expect(m.objects.map((o) => [o.parent, o.uid])).toEqual([
 			[undefined, undefined],
 			[undefined, undefined],

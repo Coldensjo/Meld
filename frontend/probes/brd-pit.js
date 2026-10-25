@@ -1,7 +1,7 @@
 // Blackrock Depths' Ring of Law seen from the stands above (#289): the arena's floor, below the map's floor plane (sea level - 40), is drawn, not a disc of the plane's dark earth. The plane is a backdrop drawn without depth, so it no longer hides models below it.
 // touches: frontend/src/lib/engine/Engine.ts, frontend/src/lib/world/HorizonLayer.ts, frontend/src/lib/water/Water.ts, frontend/src/lib/terrain/Terrain.ts
 const { editor } = await P.state()
-const { openWowBuilding } = await P.app('/src/lib/io/mapio.ts')
+const { openWowBuilding } = await P.app('/src/lib/io/region.ts')
 openWowBuilding(P.e, 'BlackrockDepths')
 await P.until(() => editor.regionMap === 'BlackrockDepths' || null, 120000, "Blackrock Depths' tab")
 const e = P.e

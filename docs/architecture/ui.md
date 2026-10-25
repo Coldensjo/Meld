@@ -92,7 +92,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     the fold button stay in view; the slider gives way first.
   - The **Sets** tab shows the author's model sets (`wow/modelSets.ts`, `prefs.modelSets`): named lists
     of doodads and buildings, made and filled through a tile's right-click menu (which also holds the
-    favourite star), and imported or exported as TOML (`importModelSets`/`exportModelSet` in `mapio.ts`).
+    favourite star), and imported or exported as TOML (`importModelSets`/`exportModelSet` in `io/lists.ts`).
   - The **Prefabs** tab (`PrefabBrowser.svelte`, #170) lists the TOML files of `prefs.prefabDir`
     (`wow/prefabs.ts`: model clips by path, `ListPrefabs` binding); Models › Save Selection as Prefab
     writes one, and a click places it as a model paste (`Engine.placeObjectClip`; R and Ctrl+scroll

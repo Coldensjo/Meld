@@ -54,7 +54,7 @@ export interface SpawnHost {
 	focus(x: number, z: number, distance: number): void
 	/** Drops the selection of placed models. */
 	deselect(): void
-	/** Teleport to destination (`io/mapio.ts` `teleportTo`). */
+	/** Teleport to destination (`io/region.ts` `teleportTo`). */
 	teleport(dest: TriggerDestination, what: string): void
 }
 

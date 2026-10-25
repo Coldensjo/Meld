@@ -5,7 +5,7 @@
   import { vmangos } from '../../wailsjs/go/models'
   import { prefs, setStatus } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { hasBackend } from '../lib/io/mapio'
+  import { hasBackend } from '../lib/io/backend'
   import { lightWeight } from '../lib/wow/clientLight'
 
   // World › Lights (Noggit Red's light editor): the open map's lights from the client's Light.dbc, each

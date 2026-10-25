@@ -6,8 +6,7 @@
 	import { prefabClip } from '../lib/wow/prefabs'
 	import { registerPrefab } from '../lib/wow/thumbs'
 	import { displayName } from '../lib/models/assets'
-	import { hasBackend } from '../lib/io/mapio'
-
+	import { hasBackend } from '../lib/io/backend'
 	// The asset browser's Prefabs tab (#170): the prefabs of the author's prefab folder, drawn as all
 	// their models together. A click places one under the cursor as a model paste (R or Ctrl+scroll
 	// turns it, a click puts it down), varied when Vary is on; placed, it is ordinary models.

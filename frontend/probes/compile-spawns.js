@@ -5,11 +5,12 @@
 // writes the spawns before it starts the rebuild and says so; a failed spawn write stops the rebuild
 // and says why; Compile All writes the tiles, then the spawns, then rebuilds; Compile to Client never
 // writes the spawns; with no spawn edits nothing goes to the database.
-// touches: frontend/src/lib/io/mapio.ts, frontend/src/lib/world/spawnEdits.ts, app.go, internal/vmangos/spawnedit.go, frontend/src/lib/engine/SpawnActions.ts
+// touches: frontend/src/lib/io/region.ts, frontend/src/lib/io/compile.ts, frontend/src/lib/world/spawnEdits.ts, app.go, internal/vmangos/spawnedit.go, frontend/src/lib/engine/SpawnActions.ts
 // tier: smoke
 const { ui, editor, prefs } = await P.state()
-const mapio = await P.app('/src/lib/io/mapio.ts')
-mapio.openWowRegion(P.e, 'Azeroth', 31, 50, 1)
+const regionIo = await P.app('/src/lib/io/region.ts')
+const compileIo = await P.app('/src/lib/io/compile.ts')
+regionIo.openWowRegion(P.e, 'Azeroth', 31, 50, 1)
 await P.until(() => (editor.regionMap === 'Azeroth' && P.e.activeRegion()?.x === 31) || null, 120000, 'the Azeroth 31_50 tab')
 
 const App = window.go.main.App
@@ -43,7 +44,7 @@ const rebuilt = async () => {
 }
 const run = async (target) => {
 	calls = []
-	await mapio.compileRegion(P.e, target)
+	await compileIo.compileRegion(P.e, target)
 	const out = { calls: calls.join(','), status: ui.status }
 	await rebuilt()
 	return out

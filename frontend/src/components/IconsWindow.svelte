@@ -2,7 +2,7 @@
 	import { ExportIcons, ExportIconsDialog, SpellsWithIcon } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
-	import { hasBackend } from '../lib/io/mapio'
+	import { hasBackend } from '../lib/io/backend'
 	import { ui } from '../lib/state/editor.svelte'
 	import { takeEscape } from '../lib/state/escape'
 	import { dialogFocus } from '../lib/ui/dialogFocus'

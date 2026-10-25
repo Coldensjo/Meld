@@ -10,7 +10,7 @@ import type { TextureLooks } from '../world/textureLooks'
 /**
  * Everything Compile writes for a region, as the document holds it (`Engine.regionKey` gathers it):
  * the terrain's arrays, the settings the paint and chunk headers are built from, the models and the
- * liquids. `Engine.exportInput` and the region save (io/mapio.ts `regionEdit`) are built from these,
+ * liquids. `Engine.exportInput` and the region save (io/compile.ts `regionEdit`) are built from these,
  * and tests/regionKey.test.ts checks every `ExportInput` key against them.
  */
 export interface RegionKeyInput {

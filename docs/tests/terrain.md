@@ -5,11 +5,11 @@ Chrome, probes, scenes, measuring performance) are in `docs/TESTS.md`; read that
 
 ## Growing a region (the Map panel's plus)
 
-Checks: `extendRegion` (`io/mapio.ts`) and `grownBlock` (`io/regionGrow.ts`, unit tests in
+Checks: `extendRegion` (`io/region.ts`) and `grownBlock` (`io/regionGrow.ts`, unit tests in
 `tests/regionGrow.test.ts`). In the dev page, with a region open and `editor.svelte.ts` as `ed`:
 
 ```js
-const m = await import('<the loaded mapio.ts URL>')
+const m = await import('<the loaded region.ts URL>')
 ed.editor.regionBlock                         // e.g. {x: 32, y: 48, size: 1}
 await m.extendRegion(window.__engine, 'e')    // opens 2×2 at the same origin, closes the 1×1 tab
 ed.editor.regionBlock, ed.docs.tabs.length    // {x: 32, y: 48, size: 2}, the tab count unchanged
@@ -25,7 +25,7 @@ ed.editor.regionBlock, ed.docs.tabs.length    // {x: 32, y: 48, size: 2}, the ta
 ## Opening a region: the alpha maps' handoff (#636, probe `region-alpha`)
 
 Checks: `App.LoadRegion` (and `LoadBuildingMap`) put the block's alpha maps in `App.handoffs`
-(`internal/handoff`) instead of the reply, and `openRegionView` (`io/mapio.ts`) fetches them from the
+(`internal/handoff`) instead of the reply, and `openRegionView` (`io/region.ts`) fetches them from the
 `alphaUrl` and hands each layer its 4096 bytes in chunk order. `bun run probe region-alpha` checks the
 reply, the bytes and that the URL is served once, and prints the times (2026-10-21, Azeroth 31_49 3x3 in
 the dev page: the call 375-465 ms with 36.5 MB of JSON before, 220-300 ms and 3.85 MB plus a 16-24 ms

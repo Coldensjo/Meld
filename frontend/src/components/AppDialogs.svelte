@@ -27,8 +27,12 @@
   import { setStatus } from '../lib/state/editor.svelte'
   import { appLog, clearLog, docs, editor, prefs, ui } from '../lib/state/editor.svelte'
   import { engineRef } from '../lib/state/engineRef'
-  import { compileAndLaunch, hasBackend, launchGame, openWowRegion, revertMap, saveAndPublish, saveSpawns } from '../lib/io/mapio'
-
+  import { hasBackend } from '../lib/io/backend'
+  import { saveSpawns } from '../lib/io/compile'
+  import { compileAndLaunch, launchGame } from '../lib/io/game'
+  import { revertMap } from '../lib/io/mapio'
+  import { saveAndPublish } from '../lib/io/publish'
+  import { openWowRegion } from '../lib/io/region'
   /** Keeps the Log window scrolled to its newest line while it is open. */
   function stickToEnd(el: HTMLElement) {
     const toEnd = () => (el.scrollTop = el.scrollHeight)

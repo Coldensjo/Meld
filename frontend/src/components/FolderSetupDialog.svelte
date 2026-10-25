@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Modal from './Modal.svelte'
 	import { prefs, wow } from '../lib/state/editor.svelte'
-	import { chooseVmangosFolder } from '../lib/io/mapio'
+	import { chooseVmangosFolder } from '../lib/io/game'
 	import { chooseWowFolder } from '../lib/wow/api'
 	import { VmangosPath } from '../../wailsjs/go/main/App'
 	import { onMount } from 'svelte'

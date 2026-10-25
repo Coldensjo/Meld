@@ -8,7 +8,7 @@
 	import { loadAreas } from '../lib/wow/areas'
 	import { LoadingScreens, OpenImageDialog, ReadImageFile, WriteLoadingScreen } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
-	import { hasBackend } from '../lib/io/mapio'
+	import { hasBackend } from '../lib/io/backend'
 	import { base64ToBytes, bytesToBase64 } from '../lib/io/base64'
 	import { fetchImage } from '../lib/wow/api'
 

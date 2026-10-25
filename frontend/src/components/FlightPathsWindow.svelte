@@ -5,7 +5,7 @@
 	import { vmangos } from '../../wailsjs/go/models'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { hasBackend } from '../lib/io/mapio'
+	import { hasBackend } from '../lib/io/backend'
 	import { editorPoint, serverSpot } from '../lib/io/portCoords'
 	import type { TaxiHooks } from '../lib/world/TaxiLayer'
 	import { defaultRoute, flightSeconds, type Vec3 } from '../lib/world/taxiRoute'

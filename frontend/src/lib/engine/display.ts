@@ -1,6 +1,5 @@
 import { WindowFullscreen, WindowIsFullscreen, WindowUnfullscreen } from '../../../wailsjs/runtime/runtime'
-import { hasBackend } from '../io/mapio'
-
+import { hasBackend } from '../io/backend'
 // Display settings that live outside the renderer's per-frame state (#24): full screen, and whether
 // the WebGL context is made with anti-aliasing, which only a new context can change.
 

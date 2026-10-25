@@ -1,6 +1,6 @@
 import { GroundEffects } from '../../../wailsjs/go/main/App'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
-import { hasBackend } from '../io/mapio'
+import { hasBackend } from '../io/backend'
 import { setStatus, wow } from '../state/editor.svelte'
 import type { GroundEffectTables } from '../world/groundEffects'
 

@@ -1,5 +1,5 @@
 // The map from above as the Minimap window draws it: the ground grey by height and blue under the sea,
-// a pixel per cell. Kept free of the DOM so it can be tested on its own; `saveMinimapImage` in mapio.ts
+// a pixel per cell. Kept free of the DOM so it can be tested on its own; `saveMinimapImage` in images.ts
 // draws it with the overview and the tile borders into a PNG.
 
 /**

@@ -7,8 +7,7 @@
   import { areaName } from '../lib/wow/areas'
   import { effectAt, effectFor, knownEffects, tileKey, type GroundEffectTables, type ScopedEffects, type TextureEffects } from '../lib/world/groundEffects'
   import { AddGroundEffect } from '../../wailsjs/go/main/App'
-  import { hasBackend } from '../lib/io/mapio'
-
+  import { hasBackend } from '../lib/io/backend'
   // World › Ground Effects: what the game grows on each of the map's textures (grass tufts, flowers,
   // pebbles). Each texture shows the effect the client's own tiles give it; the map may choose another,
   // or none, for the whole map, or (B-151) for the zone or the tile the camera is over, a tile's choice

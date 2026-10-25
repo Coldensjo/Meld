@@ -58,9 +58,9 @@ const humpUndone = t.heightAt(256, 290) - h0
 e.history.undo()
 await P.frames(1)
 const flatAgain = t.heightAt(256, 290) - h0
-// The paths travel to the map file and back through mapio (the Go side's round trip is mapfile_test).
-const mapio = await P.app('/src/lib/io/mapio.ts')
-const back = mapio.fromMapData(JSON.parse(JSON.stringify(mapio.toMapData(e.snapshot())))).paths
+// The paths travel to the map file and back through mapData.ts (the Go side's round trip is mapfile_test).
+const mapData = await P.app('/src/lib/io/mapData.ts')
+const back = mapData.fromMapData(JSON.parse(JSON.stringify(mapData.toMapData(e.snapshot())))).paths
 const saved = back.length === 1 && back[0].points.length === editor.paths[0].points.length && back[0].width === 10 && back[0].texture === editor.palette[slot]
 return {
 	ok: drawn && picked && raised > 5 && hump > 4 && painted > 200 && close(offRoad, 0) && close(humpAfter, 0) && close(lineAfter, 0) && close(humpUndone, hump) && close(flatAgain, 0) && saved && labels[1] === 'Apply Road 1 again',

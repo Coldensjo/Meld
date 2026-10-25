@@ -9,7 +9,7 @@
 
 <script lang="ts">
   import Modal from './Modal.svelte'
-  import { importHeightmap, importWatermap } from '../lib/io/mapio'
+  import { importHeightmap, importWatermap } from '../lib/io/images'
   import { engineRef } from '../lib/state/engineRef'
 
   // Import/Export › Import Heightmap (Noggit Red's heightmap importer): the image's black and white become the

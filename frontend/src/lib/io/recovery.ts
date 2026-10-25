@@ -3,7 +3,9 @@ import { mapfile, recovery } from '../../../wailsjs/go/models'
 import type { Engine } from '../engine/Engine'
 import { regionLabel, type MapDocument, type RegionRef } from '../engine/MapDocument'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
-import { fromMapData, hasBackend, reloadSpawns, toMapData } from './mapio'
+import { hasBackend } from './backend'
+import { fromMapData, toMapData } from './mapData'
+import { reloadSpawns } from './region'
 import { bytesToBase64, SLICE_BYTES } from './base64'
 
 // Autosave (#177): every few minutes (Preferences › Autosave), each map with unsaved changes is

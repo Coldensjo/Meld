@@ -15,6 +15,12 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   The conversion to and from the bridge's `MapData` is `io/mapData.ts` (`toMapData`, `fromMapData`),
   kept free of the runes state so `tests/mapData.test.ts` can run it; Map Properties names what a
   region leaves to the client.
+  File › Save, Open and Revert are `io/mapio.ts`. The other file and client actions each have a module
+  of their own in `io/` (#534): `region.ts` (opening a block or a building, its spawns, growing it,
+  Teleport to destination, the world view, Restore the Client's Paint), `compile.ts` (the compiles,
+  `regionUncompiled`, the server map rebuild, Save Spawns), `images.ts`, `lists.ts` (object lists,
+  brushes, sets), `game.ts` (the client, Launch, Play Here) and `publish.ts`, all on `backend.ts`'s
+  `hasBackend` and `guarded`.
 
 - **Terrain** (`lib/terrain/Terrain.ts`):
   - Heights are a `Float32Array` of `(size+1)^2` vertices; `CELL_SIZE` = 2 world units.
@@ -307,7 +313,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   the session keep a world tab. Not yet streamed: liquids, the texture layers (the minimap stands
   in), a lower level of detail for far buildings, and editing in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
-  `extendRegion` in `mapio.ts`, which opens the block one tile bigger that way
+  `extendRegion` in `io/region.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south
   unless the map ends there), closes the old tab and keeps the camera's view. Since the bigger block
   is read from the client and its spawns from the world database, it refuses while the region has
@@ -315,7 +321,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   saved (`ui.spawnChanges`), and names Compile to Client or Save Spawns to Database (#318). A map
   that is only dirty otherwise grows: what Compile writes is in the client.
 - **Compiling a region** (#214): File › Compile to Client, Compile to Server and Compile All call
-  `compileRegion` in `mapio.ts` with `'client'`, `'server'` or `'all'`. Client builds the active tab's
+  `compileRegion` in `io/compile.ts` with `'client'`, `'server'` or `'all'`. Client builds the active tab's
   `RegionEdit` (`regionEdit`: heights, models, paint and chunk headers, liquids) and `SaveRegion`
   writes the tiles that differ from the patch's copies; Server rebuilds the server's map data of the
   region's tiles from the patch (`UpdateRegionServer`), then their movement maps (mmaps, #173,
@@ -356,7 +362,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   painted texel and the client's textures sets `ClientAlpha`, so `rebuildChunk` keeps its MCLY records
   (bar a sent effect or look flags), MCAL bytes and predominant map as they are (#526). A chunk a
   compile before #526 already wrote at half resolution reads back that way, so it stays so until the
-  user runs Terrain › Restore the Client's Paint (#645, `restoreClientPaint` in `mapio.ts`): the
+  user runs Terrain › Restore the Client's Paint (#645, `restoreClientPaint` in `io/region.ts`): the
   `LoadBaseRegionPaint` binding (`vmangos.ReadBaseRegionPaint`) reads the block's layers and alpha
   without Meld's patch, `tilePaint` turns them into weights, and `Engine.restoreClientPaint`
   (`terrain/restorePaint.ts`) writes the selected area's chunks, or all of them, back with the

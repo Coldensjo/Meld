@@ -5,8 +5,7 @@
 import { CloseProject, ForgetProject, OpenProject, Projects } from '../../../wailsjs/go/main/App'
 import { setStatus, ui, wow, type ProjectInfo } from '../state/editor.svelte'
 import { applyStatus } from '../wow/api'
-import { hasBackend } from './mapio'
-
+import { hasBackend } from './backend'
 const info = (p: { name: string; path: string; clientPath: string }): ProjectInfo => ({ name: p.name, path: p.path, clientPath: p.clientPath })
 
 /** Reads the open project and the recent list from the config into `ui`. */

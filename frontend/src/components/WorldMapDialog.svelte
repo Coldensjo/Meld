@@ -4,7 +4,7 @@
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { hasBackend } from '../lib/io/mapio'
+	import { hasBackend } from '../lib/io/backend'
 	import { base64ToBytes, bytesToBase64 } from '../lib/io/base64'
 	import { loadAreas } from '../lib/wow/areas'
 	import { CHUNK_CELLS } from '../lib/terrain/chunkPaint'

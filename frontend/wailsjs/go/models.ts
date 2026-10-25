@@ -573,7 +573,7 @@ export namespace mapfile {
 	export class VmangosFolder {
 	    dir: string;
 	    mapId: number;
-	    info?: number[];
+	    info?: object;
 	
 	    static createFrom(source: any = {}) {
 	        return new VmangosFolder(source);
@@ -2273,7 +2273,7 @@ export namespace vmangos {
 	export class MinimapTile {
 	    x: number;
 	    y: number;
-	    pixels: number[];
+	    pixels: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new MinimapTile(source);

@@ -237,7 +237,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `pickTrigger` (only while drawn; one the camera is inside is skipped). `triggerWins` settles it
   against `pickNearest`'s hit: a placed model wins only in front of the trigger (a dungeon portal
   stands in its building), a spawn inside it too. The menu's Teleport to destination, and a
-  spawn's Teleport items, call `io/mapio.ts` `teleportTo`. A spawn's items (#308) join its open menu
+  spawn's Teleport items, call `io/region.ts` `teleportTo`. A spawn's items (#308) join its open menu
   above Focus when `SpawnTeleports` answers (`SpawnActions.addTeleports`; Engine's `menuSeq` and the title
   drop an answer whose menu is gone): `internal/vmangos/teleport.go` gathers in one query every
   destination of a spell with a teleport effect (5) and a `spell_target_position` row, and every

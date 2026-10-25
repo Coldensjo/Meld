@@ -55,7 +55,7 @@ function geometryOf(ground: TileGround, stride: GroundStride): THREE.BufferGeome
  * ground is drawn lit, as the props are, with the scene's fog; the models are placed in the document's
  * own `ObjectLayer`, so they are drawn, culled, lit and animated as a region's are. The tiles are the
  * client's as it reads them now, Meld's patch included; nothing here edits them: a block is edited in
- * a region tab (io/mapio.ts `editWorldHere`). Past the ground it draws, and where a tile is still
+ * a region tab (io/region.ts `editWorldHere`). Past the ground it draws, and where a tile is still
  * being read, the map's WDL horizon stands in, as a region's far horizon does (`HorizonLayer`).
  */
 export class WorldStream {

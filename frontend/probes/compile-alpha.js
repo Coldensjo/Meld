@@ -3,9 +3,10 @@
 // the region is compiled to the client. Read back, every other chunk's layers and alpha bytes are the client's as they
 // were, and the painted chunk's differ only in the spot's 4x4 alpha texels (the editor's texels are 2x2 of the
 // client's); before #526 every layered chunk came back at half resolution. The real client is left alone.
-// touches: frontend/src/lib/io/mapio.ts, frontend/src/lib/terrain/alphamap.ts, app.go, internal/adt/*, internal/vmangos/region.go
+// touches: frontend/src/lib/io/region.ts, frontend/src/lib/io/compile.ts, frontend/src/lib/terrain/alphamap.ts, app.go, internal/adt/*, internal/vmangos/region.go
 const { editor, prefs } = await P.state()
-const mapio = await P.app('/src/lib/io/mapio.ts')
+const regionIo = await P.app('/src/lib/io/region.ts')
+const compileIo = await P.app('/src/lib/io/compile.ts')
 const App = window.go.main.App
 const bad = []
 const sb = await P.sandboxClient()
@@ -24,7 +25,7 @@ async function read() {
 }
 
 const before = await read()
-mapio.openWowRegion(P.e, 'Azeroth', 31, 50, 1)
+regionIo.openWowRegion(P.e, 'Azeroth', 31, 50, 1)
 await P.until(() => (editor.regionMap === 'Azeroth' && P.e.activeRegion()?.x === 31) || null, 120000, 'the Azeroth 31_50 tab')
 
 // Paint a 2x2-texel spot of a chunk with three layers or more to its base texture.
@@ -38,7 +39,7 @@ for (let v = v0; v < v0 + 2; v++) {
 		t.weights.set([255, 0, 0, 0], i)
 	}
 }
-await mapio.compileRegion(P.e, 'client')
+await compileIo.compileRegion(P.e, 'client')
 const after = await read()
 
 let keptChunks = 0

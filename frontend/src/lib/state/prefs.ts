@@ -1,5 +1,5 @@
 import { LoadPrefs, SavePrefs } from '../../../wailsjs/go/main/App'
-import { hasBackend } from '../io/mapio'
+import { hasBackend } from '../io/backend'
 import { prefs, type Prefs } from './editor.svelte'
 import { changedPrefs, prefShapeOk, prefValueOk } from './prefsPatch'
 

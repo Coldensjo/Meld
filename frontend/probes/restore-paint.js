@@ -3,9 +3,10 @@
 // patch, the painted chunk selected and restored: one undo step, which undo takes back and redo puts again. Compiled
 // once more, every chunk's layers and alpha bytes are the client's own, as they were before the first compile. The
 // real client is left alone.
-// touches: frontend/src/lib/terrain/restorePaint.ts, frontend/src/lib/io/mapio.ts, internal/vmangos/region.go
+// touches: frontend/src/lib/terrain/restorePaint.ts, frontend/src/lib/io/region.ts, frontend/src/lib/io/compile.ts, internal/vmangos/region.go
 const { editor, prefs } = await P.state()
-const mapio = await P.app('/src/lib/io/mapio.ts')
+const regionIo = await P.app('/src/lib/io/region.ts')
+const compileIo = await P.app('/src/lib/io/compile.ts')
 const App = window.go.main.App
 const bad = []
 const sb = await P.sandboxClient()
@@ -37,7 +38,7 @@ function differing(a, b) {
 /** Opens Azeroth 31_50 in a new tab, closing any tab of it first. */
 async function open() {
 	for (const d of [...P.e.documents]) if (d.meta.region?.mapName === 'Azeroth' && d.meta.region.x === 31) P.e.closeDocument(d.id)
-	mapio.openWowRegion(P.e, 'Azeroth', 31, 50, 1)
+	regionIo.openWowRegion(P.e, 'Azeroth', 31, 50, 1)
 	await P.until(() => (editor.regionMap === 'Azeroth' && P.e.activeRegion()?.x === 31) || null, 120000, 'the Azeroth 31_50 tab')
 }
 
@@ -51,7 +52,7 @@ const paintSpot = () => {
 	for (let v = 6; v < 10; v++) for (let u = 10; u < 14; u++) t.weights.set([255, 0, 0, 0], ((target.y * 32 + v) * res + target.x * 32 + u) * 4)
 }
 paintSpot()
-await mapio.compileRegion(P.e, 'client')
+await compileIo.compileRegion(P.e, 'client')
 const painted = differing(await read(), before)
 if (!painted.includes(`${target.x},${target.y}`)) bad.push(`the first compile did not change chunk ${target.x},${target.y} (${painted.join(' ')})`)
 
@@ -61,7 +62,7 @@ const t = P.e.terrain
 const weightsOf = () => t.weights.slice(((target.y * 32 + 6) * res + target.x * 32) * 4, ((target.y * 32 + 10) * res + target.x * 32 + 32) * 4)
 const patched = weightsOf()
 editor.selection = { x0: target.x * 8, z0: target.y * 8, x1: target.x * 8 + 8, z1: target.y * 8 + 8 }
-await mapio.restoreClientPaint(P.e)
+await regionIo.restoreClientPaint(P.e)
 const restored = weightsOf()
 if (restored.every((v, i) => v === patched[i])) bad.push('the restore changed nothing in the painted chunk')
 P.e.history.undo()
@@ -70,7 +71,7 @@ P.e.history.redo()
 if (!weightsOf().every((v, i) => v === restored[i])) bad.push('redo did not put the restore back')
 editor.selection = null
 
-await mapio.compileRegion(P.e, 'client')
+await compileIo.compileRegion(P.e, 'client')
 const left = differing(await read(), before)
 if (left.length) bad.push(`after the restore and compile, chunks differ from the client's own: ${left.slice(0, 8).join(' ')}`)
 

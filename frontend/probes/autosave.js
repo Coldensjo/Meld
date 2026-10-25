@@ -1,9 +1,9 @@
 // Autosave copies a big map in slices (#546) and sends it in parts (#637): on a dirty 1024-cell map (4x4 tiles, ~95 MB of base64), no copy is taken while a stroke is held, and the second copy (the first warms the bridge, whose first tens of MB pause a page once) encodes heights and paint a slice a turn, with the browser's native toBase64 hidden so the slow fallback (older WebKitGTK) runs, and sends each slice through its own SaveRecoveryPart call: the longest the page goes without a turn before the first part, and the longest part call, stay far under that fallback's one-go encoding, the parts join into the one-go encoding, and the copy loads back with both edits; prints the ms of each, and bindingCallMs, the longest stretch without a turn from the first part on: 55-760 ms across runs (most under 300) against 290-530 ms for the whole map in one call before #637, the rest of it pauses of the headless page with no script running (no part call is over 15 ms), so it is printed, not checked.
-// touches: frontend/src/lib/io/recovery.ts, frontend/src/lib/io/mapio.ts, app.go, internal/recovery/*
+// touches: frontend/src/lib/io/recovery.ts, frontend/src/lib/io/mapData.ts, app.go, internal/recovery/*
 const e = P.e
 const { prefs } = await P.state()
 const rec = await P.app('/src/lib/io/recovery.ts')
-const mapio = await P.app('/src/lib/io/mapio.ts')
+const mapData = await P.app('/src/lib/io/mapData.ts')
 const App = window.go?.main?.App
 if (!App?.SaveRecoveryPart) throw new Error('no Go bindings on the page (autosave needs the backend)')
 
@@ -97,7 +97,7 @@ try {
 		await ticker
 		// The same map encoded in one go, as before #546.
 		const t1 = performance.now()
-		whole = mapio.toMapData(e.snapshotOf(d))
+		whole = mapData.toMapData(e.snapshotOf(d))
 		oneGoMs = performance.now() - t1
 	} finally {
 		running = false
@@ -118,7 +118,7 @@ try {
 	for (const k of ['heights', 'weights', 'chunkSlots', 'holes']) if (got[k] !== whole[k]) throw new Error(`the sliced copy's ${k} differ from the one-go encoding`)
 
 	// It loads back as the map.
-	const back = mapio.fromMapData(await App.LoadRecovery(mine[0].id))
+	const back = mapData.fromMapData(await App.LoadRecovery(mine[0].id))
 	const h = new Float32Array(back.heights.slice().buffer)
 	if (h[1000] !== before + 7 || back.weights[12345] !== 200 || h.length !== t.heights.length) throw new Error('the copy did not load back with the edit')
 	await App.DropRecovery(mine[0].id)

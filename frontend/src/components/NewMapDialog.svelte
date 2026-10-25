@@ -7,7 +7,8 @@
 	import { LAYERS } from '../lib/terrain/layers'
 	import { PRESETS, drawPresetPreview, type PresetId } from '../lib/terrain/presets'
 	import { engineRef } from '../lib/state/engineRef'
-	import { hasBackend, openWorldView, openWowBuilding, openWowRegion } from '../lib/io/mapio'
+	import { hasBackend } from '../lib/io/backend'
+	import { openWorldView, openWowBuilding, openWowRegion } from '../lib/io/region'
 	import { MapEntries, MapZones } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 

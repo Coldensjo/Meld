@@ -17,7 +17,7 @@ const MinimapSide = 256
 type MinimapTile struct {
 	X      int    `json:"x"`
 	Y      int    `json:"y"`
-	Pixels []byte `json:"pixels"`
+	Pixels []byte `json:"pixels" ts_type:"string"`
 }
 
 // MinimapFiles are the patch files that put tiles into the client's minimap for the map whose folder

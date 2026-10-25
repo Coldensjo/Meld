@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { editor, stats, ui } from '../lib/state/editor.svelte'
-  import { hasBackend } from '../lib/io/mapio'
+  import { hasBackend } from '../lib/io/backend'
   import { ClientFilesWaiting } from '../../wailsjs/go/main/App'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
   import ToolHint from './ToolHint.svelte'

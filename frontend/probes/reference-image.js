@@ -3,7 +3,7 @@
 const e = P.e
 const { editor, ui } = await P.state()
 const { referenceFrom } = await P.app('/src/lib/io/referenceLoad.ts')
-const { toMapData, fromMapData } = await P.app('/src/lib/io/mapio.ts')
+const { toMapData, fromMapData } = await P.app('/src/lib/io/mapData.ts')
 e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const t = e.terrain

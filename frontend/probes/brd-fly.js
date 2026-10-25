@@ -5,7 +5,7 @@
 // dungeon and frames took 1.2 to 2.4 s every two or three frames. Needs the world database for the spawns.
 // touches: frontend/src/lib/world/SpawnLabels.ts, frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/engine/CameraController.ts
 const { editor, prefs } = await P.state()
-const { openWowBuilding } = await P.app('/src/lib/io/mapio.ts')
+const { openWowBuilding } = await P.app('/src/lib/io/region.ts')
 prefs.spawnNames = true
 openWowBuilding(P.e, 'BlackrockDepths')
 await P.until(() => editor.regionMap === 'BlackrockDepths' || null, 120000, "Blackrock Depths' tab")

@@ -2,8 +2,7 @@ import { BrowseBrushImageFolder, ListBrushImages, ReadBrushImage } from '../../.
 import { editor, prefs, setStatus } from '../state/editor.svelte'
 import { setBrushImage } from '../tools/brushImage'
 import { base64ToBytes } from './base64'
-import { hasBackend } from './mapio'
-
+import { hasBackend } from './backend'
 // The image brushes' folder (prefs.brushImageDir, the user's own greyscale images, as Noggit Red's
 // Samples folder) and the image picked from it (editor.brushImage.name), read through the bindings.
 

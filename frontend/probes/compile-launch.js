@@ -9,10 +9,12 @@
 // fingerprint (opened from a file) the Go side's RegionPending finds the raised tile, and its answer is
 // kept on the document (#531): asked again with no edit, or after a step that changes no compile input,
 // it is not rebuilt, and after an undo it is. It never compiles: that would write the owner's patch.
-// touches: frontend/src/lib/io/mapio.ts, frontend/src/components/MenuBar.svelte, internal/vmangos/pending.go, app_pending.go
+// touches: frontend/src/lib/io/region.ts, frontend/src/lib/io/compile.ts, frontend/src/lib/io/game.ts, frontend/src/components/MenuBar.svelte, internal/vmangos/pending.go, app_pending.go
 // tier: smoke
 const { ui, editor } = await P.state()
-const mapio = await P.app('/src/lib/io/mapio.ts')
+const regionIo = await P.app('/src/lib/io/region.ts')
+const compileIo = await P.app('/src/lib/io/compile.ts')
+const gameIo = await P.app('/src/lib/io/game.ts')
 const menuLabels = async (name) => {
 	const title = [...document.querySelectorAll('.menubar .menu > .title')].find((b) => b.textContent.trim() === name)
 	title.click()
@@ -30,34 +32,34 @@ const menu = {
 	oldPref: preferences.includes('Update the Server Maps after Compile'),
 }
 
-mapio.openWowRegion(P.e, 'Azeroth', 31, 50, 1)
+regionIo.openWowRegion(P.e, 'Azeroth', 31, 50, 1)
 await P.until(() => (editor.regionMap === 'Azeroth' && P.e.activeRegion()?.x === 31) || null, 120000, 'the Azeroth 31_50 tab')
 const d = P.e.activeDocument()
-const opened = await mapio.regionUncompiled(P.e)
+const opened = await compileIo.regionUncompiled(P.e)
 // A step that changes nothing Compile writes, as a spawn edit is.
 d.history.push({ label: 'Probe step', undo() {}, redo() {} })
-const afterStep = await mapio.regionUncompiled(P.e)
+const afterStep = await compileIo.regionUncompiled(P.e)
 const before = P.e.outerHeights()
 const raised = Float32Array.from(P.e.terrain.heights)
 raised[Math.floor(raised.length / 2)] += 5
 P.e.setHeights(raised, 'Probe raise')
-const afterRaise = await mapio.regionUncompiled(P.e)
+const afterRaise = await compileIo.regionUncompiled(P.e)
 // Launch asks first: with the raised vertex it opens the dialog and starts nothing.
-await mapio.launchGame(P.e)
+await gameIo.launchGame(P.e)
 const dialog = ui.dialog
 const named = ui.uncompiledRegion
 ui.dialog = null
 // Growing asks for a compile, not a save, and keeps the tab (#318).
 const tabId = P.e.activeDocumentId()
-await mapio.extendRegion(P.e, 'e')
+await regionIo.extendRegion(P.e, 'e')
 const growRaised = { status: ui.status, kept: P.e.activeDocumentId() === tabId, size: P.e.activeRegion()?.size }
 P.e.undo()
 const spawnCount = ui.spawnChanges
 ui.spawnChanges = 1
-await mapio.extendRegion(P.e, 'e')
+await regionIo.extendRegion(P.e, 'e')
 const growSpawn = { status: ui.status, kept: P.e.activeDocumentId() === tabId, size: P.e.activeRegion()?.size }
 ui.spawnChanges = spawnCount
-const afterUndo = await mapio.regionUncompiled(P.e)
+const afterUndo = await compileIo.regionUncompiled(P.e)
 const restored = P.e.outerHeights().every((h, i) => h === before[i])
 // No fingerprint, as for a region opened from a file: the Go side compares the build with the patch.
 P.e.redo()
@@ -65,14 +67,14 @@ const key = d.compiled
 d.compiled = { key: null, changes: -1 }
 d.pending = null
 let t = performance.now()
-const pendingRaised = await mapio.regionUncompiled(P.e)
+const pendingRaised = await compileIo.regionUncompiled(P.e)
 const askMs = performance.now() - t
 const asked = d.pending
 t = performance.now()
-const pendingAgain = await mapio.regionUncompiled(P.e)
+const pendingAgain = await compileIo.regionUncompiled(P.e)
 const cachedMs = performance.now() - t
 d.history.push({ label: 'Probe step', undo() {}, redo() {} })
-const pendingStep = await mapio.regionUncompiled(P.e)
+const pendingStep = await compileIo.regionUncompiled(P.e)
 const cache = {
 	askMs: Math.round(askMs),
 	cachedMs: Math.round(cachedMs * 10) / 10,
@@ -80,7 +82,7 @@ const cache = {
 }
 P.e.undo()
 P.e.undo()
-await mapio.regionUncompiled(P.e)
+await compileIo.regionUncompiled(P.e)
 cache.askedAgain = d.pending !== asked
 d.compiled = key
 d.pending = null

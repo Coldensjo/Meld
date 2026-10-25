@@ -2,7 +2,7 @@
 // touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
-const { openWorldView, editWorldHere } = await P.app('/src/lib/io/mapio.ts')
+const { openWorldView, editWorldHere } = await P.app('/src/lib/io/region.ts')
 const { streamReach, keepReach, wantedTiles, groundStride, tileDistance } = await P.app('/src/lib/world/worldGround.ts')
 const T = 1600 / 3
 openWorldView(e, 'Azeroth', { x: 31, y: 48, size: 3 })

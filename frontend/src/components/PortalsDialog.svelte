@@ -6,7 +6,7 @@
 	import { untrack } from 'svelte'
 	import { docs, setStatus, ui } from '../lib/state/editor.svelte'
 	import { engineRef } from '../lib/state/engineRef'
-	import { hasBackend } from '../lib/io/mapio'
+	import { hasBackend } from '../lib/io/backend'
 	import { editorPoint, type ServerSpot } from '../lib/io/portCoords'
 	import { applyNote } from '../lib/io/applyNote'
 

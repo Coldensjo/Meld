@@ -2,8 +2,7 @@ import { BrowsePrefabFolder, ListPrefabs, SavePrefabDialog, WriteTextFile } from
 import type { Engine } from '../engine/Engine'
 import { prefs, setStatus, ui } from '../state/editor.svelte'
 import { formatPrefab, parsePrefab, prefabHash, type Prefab } from '../wow/prefabs'
-import { hasBackend } from './mapio'
-
+import { hasBackend } from './backend'
 // The prefab folder (#170): Models › Save Selection as Prefab writes a TOML file into it, and the
 // asset browser's Prefabs tab lists what it holds.
 

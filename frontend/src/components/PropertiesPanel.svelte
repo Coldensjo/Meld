@@ -5,7 +5,7 @@
   import { displayName, isWowType, wowPath } from '../lib/models/assets'
   import { baseType, doodadSetOf } from '../lib/models/wmoSet'
   import { WMODoodadSets } from '../../wailsjs/go/main/App'
-  import { hasBackend } from '../lib/io/mapio'
+  import { hasBackend } from '../lib/io/backend'
   import type { WorldObject } from '../lib/world/ObjectLayer'
   import { spawnKey } from '../lib/world/SpawnLayer'
   import FormationFields from './FormationFields.svelte'
