@@ -63,9 +63,13 @@ export interface Tool {
   imageShaped?(): boolean
   activate?(ctx: ToolContext): void
   deactivate?(ctx: ToolContext): void
-  onDown?(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent): void
-  onMove?(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent): void
-  onUp?(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent): void
+  /**
+   * The press, the drag and the release, with the pointer event that made them. `e` is missing when
+   * the Engine ends a stroke itself (a tool or tab switch with the button held), so read it as `e?.`.
+   */
+  onDown?(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent): void
+  onMove?(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent): void
+  onUp?(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent): void
   tick?(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null): void
   /** Called every frame regardless of input (ghost previews etc.). */
   frame?(ctx: ToolContext, hit: THREE.Vector3 | null): void

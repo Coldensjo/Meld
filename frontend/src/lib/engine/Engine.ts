@@ -1203,7 +1203,7 @@ export class Engine {
   private syncTool() {
     if (this.activeToolId === editor.tool) return
     if (this.leftDown) {
-      this.activeTool?.onUp?.(this.ctx, this.hit, new PointerEvent('pointerup'))
+      this.activeTool?.onUp?.(this.ctx, this.hit)
       this.leftDown = false
     }
     this.activeTool?.deactivate?.(this.ctx)
@@ -2388,7 +2388,7 @@ export class Engine {
     editor.hoverChunk = -1
     ui.replaceSlot = null
     if (this.leftDown) {
-      this.activeTool?.onUp?.(this.ctx, this.hit, new PointerEvent('pointerup'))
+      this.activeTool?.onUp?.(this.ctx, this.hit)
       this.leftDown = false
     }
     if (this.doc) this.endInteractions()

@@ -909,7 +909,7 @@ export class SelectTool implements Tool {
     markMoved(o.id)
   }
 
-  onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
+  onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e?: PointerEvent) {
     ctx.holeWalls.onUp(ctx)
     if (this.brushing) {
       this.brushing = null
@@ -961,7 +961,7 @@ export class SelectTool implements Tool {
         return
       }
       const inside = withGroups(ctx.objects, objectsInRect(ctx.objects, ctx.terrain.cellSize, s).map((o) => o.id))
-      const ids = e.shiftKey ? [...editor.selectedIds, ...inside] : inside
+      const ids = e?.shiftKey ? [...editor.selectedIds, ...inside] : inside
       selectObjects(ctx.objects, ids)
       const n = editor.selectedIds.length
       setStatus(`Selected ${s.x1 - s.x0} × ${s.z1 - s.z0} cells with ${n} ${n === 1 ? 'object' : 'objects'}.`)
