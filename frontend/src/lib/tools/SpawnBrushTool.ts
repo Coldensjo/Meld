@@ -4,7 +4,7 @@ import type { Tool, ToolContext } from './Tool'
 import { editor, prefs, setStatus } from '../state/editor.svelte'
 import type { Command } from '../state/history'
 import { getAsset } from '../models/assets'
-import { hasSkeleton, modelMesh } from '../world/Animator'
+import { GhostPool } from './ghosts'
 import { spawnType } from '../world/spawnInfo'
 import { spawnAdd, spawnDelete, spawnsBatch } from '../world/spawnEdits'
 import { spawnKey, spawnOrientation } from '../world/SpawnLayer'
@@ -57,22 +57,19 @@ export class SpawnBrushTool implements Tool {
 	private nearCount = 0
 	private plan: Planned[] = []
 	private planKey = new InputsKey()
-	private ghosts: THREE.Mesh[] = []
-	private ghostGroup = new THREE.Group()
+	private ghosts = new GhostPool()
 	/** The model types of the ghosts shown now, which the Engine poses (#328). */
 	private ghostTypes = new Set<string>()
 	private ray = new THREE.Raycaster()
 
-	constructor(private hooks: SpawnBrushHooks) {
-		this.ghostGroup.renderOrder = 20
-	}
+	constructor(private hooks: SpawnBrushHooks) {}
 
 	activate(ctx: ToolContext) {
-		ctx.scene.add(this.ghostGroup)
+		this.ghosts.attach(ctx.scene)
 	}
 
 	deactivate(ctx: ToolContext) {
-		ctx.scene.remove(this.ghostGroup)
+		this.ghosts.detach(ctx.scene)
 		this.ghostTypes.clear()
 		this.plan = []
 		this.planKey.reset()
@@ -147,19 +144,14 @@ export class SpawnBrushTool implements Tool {
 		const brush = this.brush
 		this.ghostTypes.clear()
 		if (!hit || this.cmds || !brush.entries.length) {
-			for (const g of this.ghosts) g.visible = false
+			this.ghosts.hideAll()
 			return
 		}
 		this.ensurePlan(ctx, hit)
-		while (this.ghosts.length < this.plan.length) {
-			const m = new THREE.Mesh(new THREE.BufferGeometry())
-			this.ghosts.push(m)
-			this.ghostGroup.add(m)
-		}
+		this.ghosts.grow(this.plan.length)
 		for (let i = 0; i < this.ghosts.length; i++) {
-			let g = this.ghosts[i]
+			this.ghosts.at(i).visible = false
 			const p = this.plan[i]
-			g.visible = false
 			if (!p) continue
 			const x = hit.x + p.dx
 			const z = hit.z + p.dz
@@ -167,13 +159,7 @@ export class SpawnBrushTool implements Tool {
 			const type = y === null ? '' : this.hooks.ghostType(brush.entries[p.entry])
 			const asset = type ? getAsset(type) : null
 			if (!asset?.ready || y === null) continue
-			if (g.geometry !== asset.geometry || !hasSkeleton(g, asset.skeleton)) {
-				g = modelMesh(asset.geometry, asset.material, asset.skeleton)
-				g.renderOrder = this.ghostGroup.renderOrder
-				this.ghostGroup.remove(this.ghosts[i])
-				this.ghostGroup.add(g)
-				this.ghosts[i] = g
-			}
+			const g = this.ghosts.show(i, asset)
 			g.visible = true
 			this.ghostTypes.add(type)
 			g.position.set(x, y, z)

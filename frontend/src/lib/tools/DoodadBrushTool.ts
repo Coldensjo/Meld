@@ -4,8 +4,7 @@ import { editor, prefs, setStatus, setViewportHint } from '../state/editor.svelt
 import type { Command } from '../state/history'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import { getAsset } from '../models/assets'
-import { hasSkeleton, modelMesh } from '../world/Animator'
-import { previewParticles } from '../world/ParticleLayer'
+import { GhostPool } from './ghosts'
 import { groundNormal, groundSlopeDeg, tiltToNormal } from '../world/groundTilt'
 import { placementEuler } from '../world/placement'
 import { MAX_ATTEMPTS, SpacingGrid, attemptRate, candidate, fillAttempts, fits, fitsOn, newBrush, pickEntry, rulesAllow, uniqueName, type DoodadBrush, type GroundProbe } from './doodadBrush'
@@ -110,15 +109,10 @@ export class DoodadBrushTool implements Tool {
   private grid: SpacingGrid | null = null
   /** The ground under a placement, as the brush's rules see it. */
   private ground = new ToolGround()
-  private ghosts: THREE.Mesh[] = []
-  private ghostGroup = new THREE.Group()
+  private ghosts = new GhostPool()
 
   /** The spawn brush, which takes the tool's input in Creatures mode (`editor.doodadMode`, #171); set by the Engine. */
   spawns: SpawnBrushTool | null = null
-
-  constructor() {
-    this.ghostGroup.renderOrder = 20
-  }
 
   /** Whether the spawn brush has the input now. */
   private get creatures() {
@@ -126,12 +120,12 @@ export class DoodadBrushTool implements Tool {
   }
 
   activate(ctx: ToolContext) {
-    ctx.scene.add(this.ghostGroup)
+    this.ghosts.attach(ctx.scene)
     this.spawns?.activate(ctx)
   }
 
   deactivate(ctx: ToolContext) {
-    ctx.scene.remove(this.ghostGroup)
+    this.ghosts.detach(ctx.scene)
     this.spawns?.deactivate(ctx)
     this.plan = []
     this.planKey.reset()
@@ -254,45 +248,27 @@ export class DoodadBrushTool implements Tool {
     const brush = activeDoodadBrush()
     const hovering = !this.creatures && !!hit && !this.placed && !this.erased && !!brush && brush.entries.length > 0
     if (!hovering) {
-      for (const g of this.ghosts) g.visible = false
+      this.ghosts.hideAll()
       return
     }
     this.ensurePlan(brush)
-    while (this.ghosts.length < this.plan.length) {
-      const m = new THREE.Mesh(new THREE.BufferGeometry())
-      this.ghosts.push(m)
-      this.ghostGroup.add(m)
-    }
+    this.ghosts.grow(this.plan.length)
     const t = ctx.terrain
     for (let i = 0; i < this.ghosts.length; i++) {
-      let g = this.ghosts[i]
+      this.ghosts.at(i).visible = false
       const p = this.plan[i]
-      if (!p) {
-        g.visible = false
-        continue
-      }
+      if (!p) continue
       const x = hit.x + p.dx
       const z = hit.z + p.dz
       const parent = this.propAt(ctx, x, z)
-      g.visible = parent !== null || this.groundAllows(ctx, brush, x, z)
-      if (!g.visible) continue
+      if (parent === null && !this.groundAllows(ctx, brush, x, z)) continue
       const y = parent !== null ? this.pos.y : t.heightAt(x, z)
       const e = brush.entries[p.entry]
       const asset = getAsset(e.type)
       // A model still loading shows nothing rather than the placeholder box.
-      if (!asset.ready) {
-        g.visible = false
-        continue
-      }
-      if (g.geometry !== asset.geometry || !hasSkeleton(g, asset.skeleton)) {
-        g = modelMesh(asset.geometry, asset.material, asset.skeleton)
-        g.renderOrder = this.ghostGroup.renderOrder
-        previewParticles(this.ghosts[i], null)
-        previewParticles(g, asset)
-        this.ghostGroup.remove(this.ghosts[i])
-        this.ghostGroup.add(g)
-        this.ghosts[i] = g
-      }
+      if (!asset.ready) continue
+      const g = this.ghosts.show(i, asset)
+      g.visible = true
       g.position.set(x, y + e.sink, z)
       if (parent === null && this.groundTilt(t, x, z, p, e.align)) placementEuler(g.rotation, p.rotY, this.tilt.tiltX, this.tilt.tiltZ)
       else placementEuler(g.rotation, p.rotY, p.tiltX, p.tiltZ)

@@ -2,15 +2,14 @@ import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { editor, prefs, setStatus, setViewportHint, ui } from '../state/editor.svelte'
 import { markMoved, movableSelection, objectsInRect, selectObjects, withGroups } from '../state/selection'
-import { getAsset, type ModelAsset } from '../models/assets'
+import { getAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { ObjectClip } from '../world/clipboard'
 import type { Command } from '../state/history'
 import type { FitOptions } from '../terrain/fitGround'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
-import { hasSkeleton, modelMesh } from '../world/Animator'
-import { previewParticles } from '../world/ParticleLayer'
+import { GhostPool } from './ghosts'
 import { HoleWalls } from './HoleWalls'
 import { areaCells, objectsInArea, setAreaCells } from '../state/areaSelection'
 import { rasterPolygon } from '../terrain/areaShape'
@@ -107,9 +106,13 @@ export class PlaceTool implements Tool {
     return editor.placeScatter
   }
 
-  private ghost: THREE.Mesh
+  /** The preview of the next placement: one ghost. */
+  private ghosts = new GhostPool()
   private ghostType = ''
-  private ghostAsset: ModelAsset | null = null
+  /** The preview mesh (the probes read it). */
+  get ghost() {
+    return this.ghosts.at(0)
+  }
   private rot = 0
   private scale = 1
   private tilt: { tiltX?: number; tiltZ?: number } = {}
@@ -134,8 +137,7 @@ export class PlaceTool implements Tool {
       fitGround: (id: number, fit: FitOptions) => Command | null
     },
   ) {
-    this.ghost = new THREE.Mesh(new THREE.BufferGeometry())
-    this.ghost.renderOrder = 20
+    this.ghosts.grow(1)
   }
 
   /**
@@ -149,7 +151,7 @@ export class PlaceTool implements Tool {
   }
 
   activate(ctx: ToolContext) {
-    ctx.scene.add(this.ghost)
+    this.ghosts.attach(ctx.scene)
   }
 
   /**
@@ -181,7 +183,7 @@ export class PlaceTool implements Tool {
   }
 
   deactivate(ctx: ToolContext) {
-    ctx.scene.remove(this.ghost)
+    this.ghosts.detach(ctx.scene)
   }
 
   /** Rotate the placement preview (Ctrl+scroll). The next click uses this rotation. */
@@ -237,38 +239,25 @@ export class PlaceTool implements Tool {
       this.ghostType = editor.prefab
       this.reroll()
     }
-    const asset = getAsset(editor.prefab)
-    if (asset !== this.ghostAsset) {
-      // Async models swap from placeholder to the real mesh when loaded. An animated model's preview
-      // is a skinned mesh, so it moves as the placed copies will.
-      this.ghostAsset = asset
-      const next = modelMesh(asset.geometry, asset.material, asset.skeleton)
-      previewParticles(this.ghost, null)
-      previewParticles(next, asset)
-      next.renderOrder = this.ghost.renderOrder
-      next.visible = this.ghost.visible
-      const parent = this.ghost.parent
-      parent?.remove(this.ghost)
-      this.ghost = next
-      parent?.add(next)
-    }
+    // Async models swap from placeholder to the real mesh when loaded.
+    const ghost = this.ghosts.show(0, getAsset(editor.prefab))
     // The preview sits on whatever is under the cursor: terrain, a building, another prop.
     // A creature or object template stands on a floor (#660), a model goes on whatever is hit.
     const surf = hit ? (ui.placeCreature || ui.placeObject ? ctx.floor() : ctx.surface()) : null
-    this.ghost.visible = !!surf && !editor.placeScatter && !!editor.prefab && !this.hidePreview
+    ghost.visible = !!surf && !editor.placeScatter && !!editor.prefab && !this.hidePreview
     if (surf && hit) {
       const p = this.placePoint(ctx, surf)
-      this.ghost.position.copy(p)
+      ghost.position.copy(p)
       // On open ground with Follow ground rotation, the preview leans to the slope it will land on.
       if (this.handTilt) {
-        placementEuler(this.ghost.rotation, this.rot, this.handTilt.tiltX, this.handTilt.tiltZ)
+        placementEuler(ghost.rotation, this.rot, this.handTilt.tiltX, this.handTilt.tiltZ)
       } else if (editor.followGround && surf.parent === null) {
         this.groundTilt(ctx, p.x, p.z, this.rot, this.ghostTilt)
-        placementEuler(this.ghost.rotation, this.rot, this.ghostTilt.tiltX, this.ghostTilt.tiltZ)
+        placementEuler(ghost.rotation, this.rot, this.ghostTilt.tiltX, this.ghostTilt.tiltZ)
       } else {
-        placementEuler(this.ghost.rotation, this.rot)
+        placementEuler(ghost.rotation, this.rot)
       }
-      this.ghost.scale.setScalar(placingSpawnScale() ?? this.scale)
+      ghost.scale.setScalar(placingSpawnScale() ?? this.scale)
     }
   }
 
@@ -475,8 +464,7 @@ export class SelectTool implements Tool {
   private landings: Map<number, Landing> | null = null
   private landingKey = new InputsKey()
   /** Previews of the models being pasted, one mesh per clip object, grown as needed. */
-  private ghosts: THREE.Mesh[] = []
-  private ghostGroup = new THREE.Group()
+  private ghosts = new GhostPool(false)
   private ghostTmp = new THREE.Vector3()
   /** The ghosts by clip id, for the attached ones' parents; cleared each frame. */
   private ghostByCid = new Map<number, THREE.Mesh>()
@@ -495,7 +483,6 @@ export class SelectTool implements Tool {
       pickSpawn: (s: vmangos.WorldSpawn) => void
     },
   ) {
-    this.ghostGroup.renderOrder = 20
     this.outlineLine.renderOrder = 30
     this.outlineLine.frustumCulled = false
     this.outlineLine.visible = false
@@ -505,7 +492,7 @@ export class SelectTool implements Tool {
   private walls = new HoleWalls()
 
   activate(ctx: ToolContext) {
-    ctx.scene.add(this.ghostGroup)
+    this.ghosts.attach(ctx.scene)
     ctx.scene.add(this.outlineLine)
     this.walls.attach(ctx.scene)
   }
@@ -524,7 +511,7 @@ export class SelectTool implements Tool {
     this.dragging = null
     this.outline = null
     this.outlineLine.visible = false
-    ctx.scene.remove(this.ghostGroup)
+    this.ghosts.detach(ctx.scene)
     ctx.scene.remove(this.outlineLine)
     this.walls.detach(ctx.scene)
     if (ui.pasting) this.hooks.cancelPaste()
@@ -541,29 +528,17 @@ export class SelectTool implements Tool {
       }
       landings = this.landings
     }
-    while (this.ghosts.length < list.length) {
-      const m = new THREE.Mesh(new THREE.BufferGeometry())
-      m.matrixAutoUpdate = false
-      this.ghosts.push(m)
-      this.ghostGroup.add(m)
-    }
+    this.ghosts.grow(list.length)
     const byCid = this.ghostByCid
     byCid.clear()
     for (let i = 0; i < this.ghosts.length; i++) {
-      let g = this.ghosts[i]
       const o = list[i]
-      g.visible = !!o
-      if (!o || !at) continue
-      const asset = getAsset(o.type)
-      if (g.geometry !== asset.geometry || !hasSkeleton(g, asset.skeleton)) {
-        g = modelMesh(asset.geometry, asset.material, asset.skeleton)
-        g.matrixAutoUpdate = false
-        previewParticles(this.ghosts[i], null)
-        previewParticles(g, asset)
-        this.ghostGroup.remove(this.ghosts[i])
-        this.ghostGroup.add(g)
-        this.ghosts[i] = g
+      if (!o || !at) {
+        this.ghosts.at(i).visible = false
+        continue
       }
+      const g = this.ghosts.show(i, getAsset(o.type))
+      g.visible = true
       byCid.set(o.cid, g)
       if (o.cparent !== undefined) {
         const p = byCid.get(o.cparent)

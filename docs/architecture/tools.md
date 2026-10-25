@@ -5,6 +5,11 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
 - **Tools** implement `Tool` (`lib/tools/Tool.ts`):
   - LMB goes to the active tool; RMB and MMB belong to the camera.
   - `tick(dt)` runs every frame while the button is held, so scale effects by `dt`.
+  - **Ghosts** (the Place tool's preview, a model paste's, the Doodad and Spawn brushes' plans) live
+    in a `GhostPool` (`tools/ghosts.ts`): its group goes into the scene on `activate` (`attach`) and
+    out on `deactivate` (`detach`), `grow(n)` adds slots, and `show(i, asset)` swaps a slot's mesh
+    when the asset's geometry or skeleton changed and runs the asset's particles on it. Use it for a
+    new tool's previews rather than swapping meshes by hand.
   - Brush size follows Photoshop (`tools/brushSize.ts`): `[` `]` and Ctrl+scroll step the radius
     through size bands (`stepRadius`, via `Engine.stepBrush`), Shift+`[` `]` step the falloff, and
     Alt+right-drag (`Engine.sizeDrag`, which the camera leaves alone through `rightBlocked`) sizes
