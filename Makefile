@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test check probe probe-smoke probe-perf docs clean
+.PHONY: dev build build-linux build-windows test test-full check probe probe-smoke probe-perf docs clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -26,6 +26,12 @@ build-windows:
 	$(WAILS) build -platform windows/amd64
 
 test:
+	go test -short ./internal/...
+	@if [ -f frontend/dist/index.html ]; then go test -short .; else echo 'skipping go test . (frontend/dist is missing; build the frontend first)'; fi
+	cd frontend && bun run test
+
+# Everything, with the heavy client scans that -short skips (about 10 s more).
+test-full:
 	go test ./internal/...
 	@if [ -f frontend/dist/index.html ]; then go test .; else echo 'skipping go test . (frontend/dist is missing; build the frontend first)'; fi
 	cd frontend && bun run test

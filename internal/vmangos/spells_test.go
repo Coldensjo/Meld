@@ -130,6 +130,9 @@ func TestSpellUpdateSQL(t *testing.T) {
 // server's row (the build it uses) written as Spell.dbc fields should equal the client's, but for
 // the spells VMaNGOS corrected. It needs WOW_DIR and VMANGOS_DIR, with the world database up.
 func TestSpellColumnsMatchClient(t *testing.T) {
+	if testing.Short() {
+		t.Skip("heavy client scan; run make test-full")
+	}
 	dir, server := testclient.DataDir(t), testclient.ServerDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
@@ -301,6 +304,9 @@ func mustClientFile(t *testing.T, dataDir, name string) []byte {
 // and reads the planned Spell.dbc row back as the tooltips do; each INSERT runs into a temporary copy
 // of spell_template, so nothing is written. It needs WOW_DIR and VMANGOS_DIR.
 func TestSpellStartersLive(t *testing.T) {
+	if testing.Short() {
+		t.Skip("heavy client scan; run make test-full")
+	}
 	dir, server := os.Getenv("WOW_DIR"), os.Getenv("VMANGOS_DIR")
 	if dir == "" || server == "" {
 		t.Skip("WOW_DIR or VMANGOS_DIR not set")

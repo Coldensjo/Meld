@@ -105,6 +105,9 @@ func TestNavTileReadsTheFiles(t *testing.T) {
 
 // With VMANGOS_DIR set to a server folder with built mmaps, every tile of map 0 converts.
 func TestServerNavTiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("heavy client scan; run make test-full")
+	}
 	root := testclient.ServerFolder(t)
 	names, _ := filepath.Glob(filepath.Join(root, "data", "mmaps", "000*.mmtile"))
 	if len(names) == 0 {

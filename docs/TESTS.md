@@ -36,7 +36,8 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 
 ## Unit and integration tests
 
-- `make test` runs `go test ./internal/...`, `go test .` (the root package, only when `frontend/dist` exists, since it is `//go:embed`ed; otherwise it prints a skip line) and the frontend unit tests (`bun test ./tests`).
+- `make test` runs `go test -short ./internal/...`, `go test -short .` (the root package, only when `frontend/dist` exists, since it is `//go:embed`ed; otherwise it prints a skip line) and the frontend unit tests (`bun test ./tests`).
+- `make test-full` is the same without `-short`: it also runs the five heavy client scans (`TestSpawnModelsLoad`, `TestServerNavTiles`, `TestSpellColumnsMatchClient`, `TestSpellStartersLive`, `TestClientAnimatedLayersKept`), which skip under `-short` with "heavy client scan; run make test-full". Measured on the owner's machine (#401): the gated ones add about 7 s (`make test` 30 s, `make test-full` 37 s). The loop's coordinator runs it once a run. Trap: `-short` hides any heavy test a worker adds, so a test over about 5 s belongs behind `if testing.Short() { t.Skip(...) }`.
 - `make check` runs go vet (`./internal/...`, and `.` when `frontend/dist` exists) and svelte-check/tsc. svelte-check runs twice: on `tsconfig.app.json` (`src`) and on `tsconfig.tests.json` (`frontend/tests`, which Bun runs with types erased, so a fixture that drifts from its type fails `make check`, not `make test`).
 - `tests/history.test.ts` covers the undo stack (`state/historyCore.ts`: push, the step limit and
   the byte budget, replaceTop, goTo, clear) through a plain sink; `state/history.ts` only wires that sink to the

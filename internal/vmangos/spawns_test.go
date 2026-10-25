@@ -153,6 +153,9 @@ func TestReadSpawnsLive(t *testing.T) {
 // TestSpawnModelsLoad checks that the models the spawns name load through the editor's model
 // loader, for the same live block. It needs VMANGOS_DIR and WOW_DIR.
 func TestSpawnModelsLoad(t *testing.T) {
+	if testing.Short() {
+		t.Skip("heavy client scan; run make test-full")
+	}
 	dir := testclient.ServerDir(t)
 	clientDir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(clientDir)

@@ -14,6 +14,9 @@ import (
 // does (no flags of the editor's own), and checks the layer keeps the client's animation flags. It
 // needs WOW_DIR.
 func TestClientAnimatedLayersKept(t *testing.T) {
+	if testing.Short() {
+		t.Skip("heavy client scan; run make test-full")
+	}
 	dir := testclient.DataDir(t)
 	dataDir, err := wow.ResolveDataDir(dir)
 	if err != nil {
