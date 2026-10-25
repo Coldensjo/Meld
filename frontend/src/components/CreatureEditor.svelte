@@ -27,8 +27,8 @@
 	type Tab = 'spawn' | 'creature' | 'looks' | 'spells' | 'shop' | 'quests' | 'messages'
 
 	const target = $derived(ui.creatureEditor)
-	/** The spawn the editor was opened from, as the panel's copy of it. */
-	const spawn = $derived(target?.key && editor.selectedSpawn ? editor.selectedSpawn : null)
+	/** The spawn the editor was opened from, as the panel's copy of it; null once another is selected. */
+	const spawn = $derived(target?.key && editor.selectedSpawn && spawnKey(editor.selectedSpawn) === target.key ? editor.selectedSpawn : null)
 
 	let tab = $state<Tab>('creature')
 	let record = $state<vmangos.TemplateRecord | null>(null)
