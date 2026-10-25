@@ -26,8 +26,10 @@
 		cols?: number
 		/** Offer the client's `$` text codes under each text area (quest text). */
 		codes?: boolean
+		/** The record's entry, which a field's `own` list is numbered by (#700). */
+		entry?: number
 	}
-	let { fields, values, columns, changes, onset, cols = 3, codes = false }: Props = $props()
+	let { fields, values, columns, changes, onset, cols = 3, codes = false, entry = 0 }: Props = $props()
 
 	/** Inserts a `$` code at the text area's caret, through onset so the change is counted. */
 	function addCode(e: MouseEvent, col: string, code: string) {
@@ -58,7 +60,7 @@
 		{@const c = columns.get(f.col)}
 		{@const changed = changes[f.col] !== undefined}
 		{#if f.ref}
-			<RefField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} />
+			<RefField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} {entry} />
 		{:else if f.spells}
 			<AuraField {f} value={value(f)} {changed} onset={(v) => onset(f.col, v)} />
 		{:else if f.long}

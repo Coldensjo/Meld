@@ -409,12 +409,12 @@
             <DisplayPicker selected={Number(values[slot === 0 ? 'mount_display_id' : `display_id${slot}`]) || 0} onpick={useDisplay} onhover={(d) => (hoveredDisplay = d)} />
             <h3>Displays</h3>
             {#each groups.filter((g) => g.title === 'Looks') as g (g.title)}
-              <TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} />
+              <TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} entry={record.entry} />
             {/each}
           {:else if record}
             {#each groups.filter((g) => g.title !== 'Looks') as g (g.title)}
               <h3>{g.title}</h3>
-              <TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} />
+              <TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={setField} entry={record.entry} />
             {/each}
           {:else if loading}
             <p class="dim">Loading the creature…</p>

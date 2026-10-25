@@ -470,6 +470,28 @@ Marshal's Satin Sandals (17607) Honor rank Marshal / General (16). `bun run prob
 - 0 means none for map_bound, though map 0 is Eastern Kingdoms; other_team_entry's 1 also means none
   and shows as "No item 1".
 
+## The creature editor's list pickers (#700, probe `creature-list-pickers`)
+
+Checks: Hogger (448) names his loot, pickpocket loot, spell list (4480) and, on the Looks tab,
+equipment by what they hold, each "(this creature's own)"; Loot's Find offers list 448 before a
+search, a search for "Linen Cloth" lists other loot with "used by N creatures", and a pick puts its
+number in (the field turns changed); Zaldimar Wefhellt (328) names trainer list 1 by its spells
+(used by 25 creatures) and his gossip menu by its first line; Innkeeper Helbrek (1464) vendor list
+100 by its items; the Stormwind City Guard's (68) Messages tab names an option's menu, map point
+(Champions' Hall) and condition ("Content patch at least 2"). `bun run probe creature-list-pickers`
+(about 15 s, nothing written). Unit tests: `bun test tests/creatureFields.test.ts`, `go test
+./internal/vmangos/ -run 'TestWorldRefSQL|TestConditionText|TestParseConditions|TestMatchConditions'`,
+and `TestCreatureListRefsLive` with `VMANGOS_DIR` (the database running) names a row of each kind.
+- Trap: a template record's `values` has no `entry` (`parseColumns` drops it with `patch`), so a
+  field that needs the entry gets it as a prop (`TemplateFields`' `entry`), not from `values`.
+- The loot names list the first six drops by chance and the search matches only those; a negative
+  mincountOrRef is a reference_loot_template entry and is named "reference loot N". A name search
+  over creature_loot_template (230,000 rows) takes about a second.
+- Conditions are named in Go (`conditionText`, VMaNGOS' `Conditions.h`), so a search reads the table
+  whole (about 1,900 rows) and filters the words there.
+- The Messages tab's pickers have their own ✕ (Clear) buttons: a probe that clicks a row's ✕ must look
+  in `.row-actions`.
+
 ## Icons beside item, spell and class names (#682, probe `editor-icons`)
 
 Checks: the item and spell editors' titles carry the item's and the spell's icon, the item editor's

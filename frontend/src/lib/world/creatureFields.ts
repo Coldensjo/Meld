@@ -23,6 +23,12 @@ export interface CreatureField {
 	hint?: string
 	/** A number that names a thing: a picker that shows its name (components/RefField.svelte). */
 	ref?: RefKind
+	/**
+	 * With `ref`, the number a creature's own list usually has, which the picker calls "this
+	 * creature's own" and offers first (#700): its entry, or (`tens`) entry × 10 to entry × 10 + 9,
+	 * VMaNGOS' numbering of spell lists.
+	 */
+	own?: 'entry' | 'tens'
 	/** Spell IDs separated by spaces: the text, and each spell's icon and name below it (AuraField.svelte). */
 	spells?: boolean
 	/** Text of several lines (a text area). */
@@ -42,7 +48,9 @@ export interface CreatureField {
  * sort (negative), a skill or an emote; for a game object's data columns (#702) a creature, a game
  * object or a zone alone, a client table row (a lock, a language…) or a world database row (a gossip
  * menu, a page, a text, an event script, a loot list); for the item editor's (#701) an item set, a
- * cooldown category, a map, a random enchantment or disenchant loot.
+ * cooldown category, a map, a random enchantment or disenchant loot; for the creature editor's lists
+ * (#700) a vendor, trainer, equipment, loot or spell list, and the Messages tab's gossip scripts,
+ * map points and conditions.
  */
 export type RefKind = 'item' | 'creature or object' | 'creature' | 'object' | 'zone' | 'spell' | 'quest' | 'faction' | 'faction template' | 'zone or sort' | 'skill' | 'emote' | ObjectTableKind | ItemTableKind | WorldKind
 
@@ -240,9 +248,9 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
 		title: 'Services',
 		fields: [
 			{ col: 'npc_flags', label: 'Roles', flags: NPC_FLAGS.map(([bit, n]) => [bit, n[0].toUpperCase() + n.slice(1)] as [number, string]) },
-			{ col: 'gossip_menu_id', label: 'Gossip menu' },
-			{ col: 'vendor_id', label: 'Vendor list' },
-			{ col: 'trainer_id', label: 'Trainer list' },
+			{ col: 'gossip_menu_id', label: 'Gossip menu', ref: 'gossip', hint: 'gossip_menu entry: what it says when talked to (the Messages tab edits it)' },
+			{ col: 'vendor_id', label: 'Vendor list', ref: 'vendor', hint: 'npc_vendor_template entry: the items it sells, shared by the creatures that name it (the Shop tab lists its own npc_vendor rows)' },
+			{ col: 'trainer_id', label: 'Trainer list', ref: 'trainer', hint: 'npc_trainer_template entry: the spells it teaches, shared by the creatures that name it' },
 			{ col: 'trainer_type', label: 'Trainer type', options: [[0, 'Class'], [1, 'Mounts'], [2, 'Trade skills'], [3, 'Pets']] },
 			{ col: 'trainer_spell', label: 'Trainer spell', ref: 'spell' },
 			{ col: 'trainer_class', label: 'Trainer class', options: [[0, 'None'], ...CLASSES], classes: 'id' },
@@ -266,7 +274,7 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
 			{ col: 'display_probability4', label: 'Chance 4' },
 			{ col: 'display_total_probability', label: 'Chances total', hint: 'The sum of the chances' },
 			{ col: 'mount_display_id', label: 'Mount display', hint: 'The creature display it rides: set "the mount" above and click a tile' },
-			{ col: 'equipment_id', label: 'Equipment', hint: 'creature_equip_template entry: the weapons it holds' },
+			{ col: 'equipment_id', label: 'Equipment', hint: 'creature_equip_template entry: the weapons it holds', ref: 'equipment', own: 'entry' },
 		],
 	},
 	{
@@ -299,8 +307,8 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
 			{ col: 'leash_range', label: 'Leash range' },
 			{ col: 'ai_name', label: 'AI', hint: 'EventAI, or empty for the default', suggest: AI_NAMES },
 			{ col: 'script_name', label: 'Script' },
-			{ col: 'spell_list_id', label: 'Spell list' },
-			{ col: 'pet_spell_list_id', label: 'Pet spell list' },
+			{ col: 'spell_list_id', label: 'Spell list', hint: 'creature_spells entry: the spells it casts (the Spells tab edits it)', ref: 'spell list', own: 'tens' },
+			{ col: 'pet_spell_list_id', label: 'Pet spell list', hint: 'creature_spells entry: the spells it casts as a pet', ref: 'spell list', own: 'tens' },
 			{ col: 'spawn_spell_id', label: 'Spawn spell', ref: 'spell' },
 			{ col: 'totem_spell_id', label: 'Totem spell', ref: 'spell' },
 			{ col: 'auras', label: 'Auras', hint: 'Spell IDs, separated by spaces', spells: true, wide: true },
@@ -309,9 +317,9 @@ export const CREATURE_FIELD_GROUPS: CreatureFieldGroup[] = [
 	{
 		title: 'Loot',
 		fields: [
-			{ col: 'loot_id', label: 'Loot' },
-			{ col: 'pickpocket_loot_id', label: 'Pickpocket loot' },
-			{ col: 'skinning_loot_id', label: 'Skinning loot' },
+			{ col: 'loot_id', label: 'Loot', hint: 'creature_loot_template entry: what it drops', ref: 'creature loot', own: 'entry' },
+			{ col: 'pickpocket_loot_id', label: 'Pickpocket loot', hint: 'pickpocketing_loot_template entry: what a rogue steals from it', ref: 'pickpocket loot', own: 'entry' },
+			{ col: 'skinning_loot_id', label: 'Skinning loot', hint: 'skinning_loot_template entry: what skinning it gives', ref: 'skinning loot', own: 'entry' },
 			{ col: 'gold_min', label: 'Money from', money: true },
 			{ col: 'gold_max', label: 'Money to', money: true },
 		],
@@ -340,6 +348,12 @@ export function fieldGroups(columns: string[], listed: CreatureFieldGroup[] = CR
 }
 
 /** A value with bit `bit` set or cleared, as text (the editor holds values as the database prints them). */
+/** The numbers a creature's own list has for a field's `own` (#700): its entry, or entry × 10 to entry × 10 + 9. */
+export function ownListIds(own: CreatureField['own'], entry: number): number[] {
+	if (!own || !(entry > 0)) return []
+	return own === 'entry' ? [entry] : Array.from({ length: 10 }, (_, i) => entry * 10 + i)
+}
+
 export function withBit(value: string, bit: number, on: boolean): string {
 	const n = Number(value) || 0
 	// A negative mask (an item's allowable_class -1, every class) stays signed, as its column is.

@@ -230,6 +230,18 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `'disenchant'` (by its items) and `'enchantment'` (an item_enchantment_template entry by its
   ItemRandomProperties suffixes, which the binding names in Go from the client). Honor rank is a
   select (`HONOR_RANKS`, 5 to 18).
+  The creature editor's list ids (#700) are world rows too: `'gossip'`, `'vendor'`, `'trainer'`,
+  `'equipment'`, `'creature loot'`, `'pickpocket loot'`, `'skinning loot'` and `'spell list'`, named
+  by what they hold (items, spells, weapons) with how many creature templates point at each
+  (`worldRefUses`, " · used by N creatures"). A field's `own` (`'entry'`, or `'tens'` for VMaNGOS'
+  entry × 10 spell lists, `ownListIds`) marks the creature's own list "(this creature's own)" and
+  offers it when Find opens; `TemplateFields` takes the record's `entry` as a prop, since a template
+  record's `values` leave it out. The Messages tab's option Menu, Script, Map point and Condition and
+  a text's Condition are `RefField`s too (`'gossip'`, `'gossip script'`, `'map point'`,
+  `'condition'`); `options` beside `ref` name special values (a menu's −1, "Closes the window").
+  Conditions are named in Go by what they test (`vmangos.conditionText`, after VMaNGOS'
+  `Conditions.h`, with factions, skills and zones from the client), so `WorldRefNames` and
+  `SearchWorldRefs` take the client folder for `'condition'` as for `'enchantment'`.
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { SearchCreatures, SearchItems, SearchQuests, SearchWorldRefs } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
-	import type { CreatureField } from '../lib/world/creatureFields'
+	import { ownListIds, type CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
-	import { ITEM_TABLE_KINDS, OBJECT_TABLE_KINDS, emoteList, factionTemplateName, factionTemplates, itemTableList, itemTables, lockName, objectTableList, objectTables, questTables, reactionText, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
+	import { ITEM_TABLE_KINDS, NUMBER_ONLY_KINDS, OBJECT_TABLE_KINDS, emoteList, factionTemplateName, factionTemplates, itemTableList, itemTables, isWorldKind, lockName, objectTableList, objectTables, questTables, reactionText, refName, refTarget, rememberName, type NameKind, type RefName } from '../lib/wow/refNames'
 	import ItemIcon from './ItemIcon.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 	import SpellIcon from './SpellIcon.svelte'
@@ -18,23 +18,39 @@
 	// flight path…), listed whole, and world database rows (a gossip menu or page by its first line,
 	// an event script or loot list by its size), searched by text or number. The item editor's (#701)
 	// add item sets, cooldown categories (named by their spells) and maps, listed whole, and random
-	// enchantments and disenchant loot, named by what they give and searched.
+	// enchantments and disenchant loot, named by what they give and searched. The creature editor's
+	// lists (#700: vendor, trainer, equipment, loot and spell lists) are named by what they hold and
+	// how many creatures use them; a list numbered as the creature's own (`own`) says so and is
+	// offered when Find opens. `options` beside `ref` name special values (a gossip menu's −1).
 
 	interface Props {
 		f: CreatureField
 		value: string
 		changed: boolean
 		onset: (value: string) => void
+		/** The record's entry, for `own`. */
+		entry?: number
+		/** Hide the label (a caller that labels the field itself). */
+		bare?: boolean
 	}
-	let { f, value, changed, onset }: Props = $props()
+	let { f, value, changed, onset, entry = 0, bare = false }: Props = $props()
 
 	const ref = $derived(f.ref ?? 'item')
-	const target = $derived(refTarget(ref, Number(value) || 0))
+	/** A special value's name (`options`), shown instead of a lookup. */
+	const special = $derived(f.options?.find(([v]) => String(v) === value.trim())?.[1])
+	const target = $derived(special === undefined ? refTarget(ref, Number(value) || 0) : null)
+	/** The numbers this creature's own list has (`own`). */
+	const ownIds = $derived(ownListIds(f.own, entry))
+	const isOwn = (id: number) => ownIds.includes(id)
 
 	// The name of what the value names: null while it loads, false for none.
 	let shown = $state<RefName | null | false>(false)
 	$effect(() => {
 		const t = target
+		if (special !== undefined) {
+			shown = { name: special }
+			return
+		}
 		if (!t) {
 			shown = false
 			return
@@ -87,6 +103,7 @@
 	const like = (name: string, id: number, q: string) => name.toLowerCase().includes(q.toLowerCase()) || String(id) === q
 
 	async function search(k: NameKind, q: string): Promise<Hit[]> {
+		if (isWorldKind(k)) return ((await SearchWorldRefs(k, q)) ?? []).map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
 		switch (k) {
 			case 'item':
 				return ((await SearchItems(q)) ?? []).map((r) => ({ kind: k, id: r.entry, name: r.name, sub: String(r.entry), quality: r.quality, displayId: r.displayId }))
@@ -133,14 +150,6 @@
 					.filter((r) => like(r.name, r.id, q))
 					.slice(0, 300)
 					.map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
-			case 'gossip':
-			case 'page':
-			case 'text':
-			case 'event':
-			case 'loot':
-			case 'enchantment':
-			case 'disenchant':
-				return ((await SearchWorldRefs(k, q)) ?? []).map((r) => ({ kind: k, id: r.id, name: r.name, sub: String(r.id) }))
 			case 'faction template':
 				return (await factionTemplates())
 					.filter((f) => like(f.name, f.id, q) || (q !== '' && reactionText(f).includes(q.toLowerCase())))
@@ -167,6 +176,14 @@
 		const local = whole || k === 'zone' || k === 'object'
 		if (!q && !whole) {
 			hits = []
+			// Before a search: the special values and the creature's own list, if it has one.
+			const starters: Hit[] = (f.options ?? []).map(([id, name]) => ({ kind: k, id, name, sub: String(id) }))
+			if (ownIds.length) {
+				void Promise.all(ownIds.map(async (id) => ({ id, r: await refName(k, id) }))).then((found) => {
+					if (query.trim() || kind !== k) return
+					hits = [...starters, ...found.filter((x) => x.r).map(({ id, r }) => ({ kind: k, id, name: r?.name ?? '', sub: String(id) }))]
+				})
+			} else hits = starters
 			return
 		}
 		timer = window.setTimeout(async () => {
@@ -193,7 +210,7 @@
 </script>
 
 <div class="ref" class:changed class:wide={f.wide}>
-	<span class="label" title={f.hint ? `${f.hint} (${f.col})` : f.col}>{f.label}</span>
+	{#if !bare}<span class="label" title={f.hint ? `${f.hint} (${f.col})` : f.col}>{f.label}</span>{/if}
 	{#if ref === 'emote'}
 		<select value={value} onchange={(e) => onset((e.currentTarget as HTMLSelectElement).value)} aria-label={f.label}>
 			<option value="0">None</option>
@@ -203,11 +220,14 @@
 	{:else}
 		<span class="row">
 			<input type="number" step="1" {value} oninput={(e) => onset((e.currentTarget as HTMLInputElement).value)} aria-label={f.label} />
-			<span class="name" title={target ? `${target.kind} ${target.id}` : ''}>
-				{#if target && shown && shown.name}
+			<span class="name" title={target ? `${shown && shown.name ? `${shown.name} (${target.kind} ${target.id})` : `${target.kind} ${target.id}`}` : (special ?? '')}>
+				{#if special !== undefined}
+					<span>{special}</span>
+				{:else if target && shown && shown.name}
 					{#if target.kind === 'item'}<ItemIcon displayId={shown.displayId ?? 0} />{:else if target.kind === 'spell'}<SpellIcon icon={shown.icon ?? ''} />{/if}
 					<span style:color={target.kind === 'item' ? (QUALITY_COLORS[shown.quality ?? 1] ?? QUALITY_COLORS[1]) : undefined}>{shown.name}</span>
 					{#if kinds[1]}<span class="dim">({SIDE_NAMES[target.kind]})</span>{/if}
+					{#if isOwn(target.id)}<span class="dim own">(this creature's own)</span>{/if}
 				{:else if target && shown}
 					<span class="missing">No {target.kind} {target.id}</span>
 				{:else if target}
@@ -217,7 +237,7 @@
 				{/if}
 			</span>
 			<button class:on={open} onclick={toggle} title="Find by name">Find</button>
-			<button disabled={!target} onclick={() => onset('0')} title="Clear">✕</button>
+			<button disabled={!target && special === undefined} onclick={() => onset('0')} title="Clear">✕</button>
 		</span>
 		{#if open && kind === 'spell'}
 			<div class="find">
@@ -240,11 +260,11 @@
 							<button onclick={() => pick(h)}>
 								{#if h.kind === 'item'}<ItemIcon displayId={h.displayId ?? 0} />{:else if h.kind === 'spell'}<SpellIcon icon={h.icon ?? ''} />{/if}
 								<span class="hit" style:color={h.kind === 'item' ? (QUALITY_COLORS[h.quality ?? 1] ?? QUALITY_COLORS[1]) : undefined}>{h.name}</span>
-								<span class="dim">{h.sub}</span>
+								<span class="dim">{h.sub}{isOwn(h.id) ? " · this creature's own" : ''}</span>
 							</button>
 						</li>
 					{:else}
-						<li class="dim">{searching ? 'Searching…' : query.trim() ? 'Nothing matches.' : kind === 'event' || kind === 'loot' ? 'Type a number.' : 'Type a name or a number.'}</li>
+						<li class="dim">{searching ? 'Searching…' : query.trim() ? 'Nothing matches.' : (NUMBER_ONLY_KINDS as readonly NameKind[]).includes(kind) ? 'Type a number.' : ownIds.length ? `It has no list of its own (${ownIds.length > 1 ? `${ownIds[0]}–${ownIds[ownIds.length - 1]}` : ownIds[0]}). Type a name or a number.` : 'Type a name or a number.'}</li>
 					{/each}
 				</ul>
 			</div>
@@ -291,6 +311,9 @@
 	.name span {
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	.name .own {
+		flex: none;
 	}
 	button {
 		padding: 1px 6px;

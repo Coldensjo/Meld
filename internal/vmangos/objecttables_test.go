@@ -47,11 +47,21 @@ func TestTaxiAndCinematicNames(t *testing.T) {
 }
 
 func TestWorldRefSQL(t *testing.T) {
-	for _, k := range []string{"gossip", "page", "text", "event", "loot"} {
+	for _, k := range []string{"gossip", "page", "text", "event", "loot", "vendor", "trainer", "equipment", "creature loot", "pickpocket loot", "skinning loot", "spell list", "gossip script", "map point"} {
 		q, err := worldRefSQL(k, worldRefMatch(k, "12"))
 		if err != nil || !strings.Contains(q, "id = 12") {
 			t.Fatalf("%s: %q, %v", k, q, err)
 		}
+	}
+	// A creature list counts the creatures that point at it (#700); a page has no count.
+	if q, _ := worldRefSQL("spell list", "TRUE"); !strings.Contains(q, "pet_spell_list_id") || !strings.Contains(q, "COUNT(DISTINCT entry)") {
+		t.Fatalf("spell list uses = %q", q)
+	}
+	if q, _ := worldRefSQL("page", "TRUE"); !strings.HasPrefix(q, "SELECT id, name, NULL") {
+		t.Fatalf("page = %q", q)
+	}
+	if usesText("NULL") != "" || usesText("0") != "" || usesText("1") != " · used by 1 creature" || usesText("3") != " · used by 3 creatures" {
+		t.Fatal("usesText")
 	}
 	if _, err := worldRefSQL("spell", "TRUE"); err == nil {
 		t.Fatal("an unknown kind should fail")

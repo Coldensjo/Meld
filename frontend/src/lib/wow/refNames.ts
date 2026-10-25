@@ -19,12 +19,54 @@ export type ObjectTableKind = 'lock' | 'language' | 'page material' | 'spell foc
 export type ItemTableKind = 'item set' | 'spell category' | 'map'
 
 /**
- * The world database rows a game object's data columns (#702) and an item's random enchantment and
- * disenchant columns (#701) name, named by WorldRefNames.
+ * The world database rows a game object's data columns (#702), an item's random enchantment and
+ * disenchant columns (#701) and the creature editor's lists and its Messages tab's ids (#700) name,
+ * named by WorldRefNames.
  */
-export type WorldKind = 'gossip' | 'page' | 'text' | 'event' | 'loot' | 'enchantment' | 'disenchant'
+export type WorldKind =
+	| 'gossip'
+	| 'page'
+	| 'text'
+	| 'event'
+	| 'loot'
+	| 'enchantment'
+	| 'disenchant'
+	| 'vendor'
+	| 'trainer'
+	| 'equipment'
+	| 'creature loot'
+	| 'pickpocket loot'
+	| 'skinning loot'
+	| 'spell list'
+	| 'gossip script'
+	| 'map point'
+	| 'condition'
 
-export const WORLD_KINDS: readonly WorldKind[] = ['gossip', 'page', 'text', 'event', 'loot', 'enchantment', 'disenchant']
+export const WORLD_KINDS: readonly WorldKind[] = [
+	'gossip',
+	'page',
+	'text',
+	'event',
+	'loot',
+	'enchantment',
+	'disenchant',
+	'vendor',
+	'trainer',
+	'equipment',
+	'creature loot',
+	'pickpocket loot',
+	'skinning loot',
+	'spell list',
+	'gossip script',
+	'map point',
+	'condition',
+]
+
+/** Whether kind is a world database kind (WorldRefNames, SearchWorldRefs). */
+export const isWorldKind = (kind: string): kind is WorldKind => (WORLD_KINDS as readonly string[]).includes(kind)
+
+/** The world kinds found by number only: their names are counts, not words. */
+export const NUMBER_ONLY_KINDS: readonly WorldKind[] = ['event', 'loot']
 export const ITEM_TABLE_KINDS: readonly ItemTableKind[] = ['item set', 'spell category', 'map']
 export const OBJECT_TABLE_KINDS: readonly ObjectTableKind[] = ['lock', 'language', 'page material', 'spell focus', 'cinematic', 'taxi path', 'auction house']
 
@@ -58,7 +100,7 @@ function flushNames() {
 	const asked = new Map(pending)
 	pending.clear()
 	for (const [kind, ids] of asked) {
-		if ((WORLD_KINDS as readonly string[]).includes(kind)) {
+		if (isWorldKind(kind)) {
 			WorldRefNames(kind, [...ids.keys()])
 				.then((got: Record<number, string> | null) => {
 					for (const [id, done] of ids) done(got?.[id] !== undefined ? { name: got[id] } : null)
@@ -201,26 +243,18 @@ export function refName(kind: NameKind, id: number): Promise<RefName | null> {
 	const key = `${kind}:${id}`
 	let p = cache.get(key)
 	if (p) return p
+	if (kind === 'item' || kind === 'creature' || kind === 'object' || kind === 'quest' || isWorldKind(kind)) {
+		p = new Promise<RefName | null>((done) => {
+			let ids = pending.get(kind)
+			if (!ids) pending.set(kind, (ids = new Map()))
+			ids.set(id, done)
+		})
+		if (!flush) flush = window.setTimeout(flushNames, 0)
+		p = p.catch(() => null)
+		cache.set(key, p)
+		return p
+	}
 	switch (kind) {
-		case 'item':
-		case 'creature':
-		case 'object':
-		case 'quest':
-		case 'gossip':
-		case 'page':
-		case 'text':
-		case 'event':
-		case 'loot':
-		case 'enchantment':
-		case 'disenchant': {
-			p = new Promise<RefName | null>((done) => {
-				let ids = pending.get(kind)
-				if (!ids) pending.set(kind, (ids = new Map()))
-				ids.set(id, done)
-			})
-			if (!flush) flush = window.setTimeout(flushNames, 0)
-			break
-		}
 		case 'spell':
 			p = spellRef(id).then((s) => (s ? { name: s.rank ? `${s.name} (${s.rank})` : s.name, icon: s.icon } : null))
 			break
