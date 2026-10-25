@@ -529,7 +529,8 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
 - Probe `world-view` (`bun run probe world-view`, about 90 s with the models): opens Azeroth's world view at the
   Elwynn block 31-33 x 48-50, waits for the tiles within the reach to load (`engine.worldStats()`:
   loaded, loading, queued, failed and the map's tile count), checks the camera looks at the block's
-  middle on the ground, that the ground is drawn (a shot with `doc.world.group` hidden differs), that
+  middle on the ground, that each tile is drawn at `groundStride` for its distance (`strides`, with
+  `worldStats().strides` counting the tiles at 1, 2 and 4), that the ground is drawn (a shot with `doc.world.group` hidden differs), that
   the models are drawn (the same with `doc.objects.group`) and placed once (as many as the loaded
   tiles list unique IDs), that no doodad (M2) is drawn further across the ground than
   `doodadReach` gives for its size and some are left out for it (`doodads`: drawn, past, cut), that a
@@ -539,11 +540,13 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   where the world view has it, the block's corner apart. It reports `perf` with the models and
   without (not checked): at the Elwynn view, reach 3, about 26,000 models, 4,500 draw calls, 3.4M
   triangles and 26 ms of CPU against 3 ms bare, on 2026-10-25; with the doodads' reach, 4,070 calls,
-  3.0M triangles and 21 ms (WMO groups are most of the calls, and the shadow cascades about 60%).
+  3.0M triangles and 21 ms (WMO groups are most of the calls, and the shadow cascades about 60%);
+  with the ground's strides, 2.45M triangles, the bare ground's 687k down to 143k.
 - `bun test tests/instanceCull.test.ts`: the doodads' reach by size, across the ground, only for a
   doodad batch in a view that asks for it.
 - `bun test tests/worldGround.test.ts`: the ground reply, the mesh (holes, normals, winding), the
-  height between samples, the tiles wanted nearest first, the reach for the view distance, and a
+  height between samples, the strides (a coarse cell a hole only when all its cells are) and the
+  skirts on an edge that strays between them, the tiles wanted nearest first, the reach for the view distance, and a
   model several tiles list placed once (`TileModelShare`).
 - `go test ./internal/wow/ -run TestTile`: a tile `adt.BuildTile` makes reads back as its
   heights and holes, laid out as the frontend reads them, and as its models in the map's editor

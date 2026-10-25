@@ -274,8 +274,12 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   has them), read one at a time from `/wow/ground` (`wow.Client.Ground`: the 129x129 outer heights and
   a hole byte a cell, read through Meld's patch) with the tile's minimap image as its colour, lit
   Lambert, within `streamReach` of the eye (3 tiles at the default view distance, 1 to 6), nearest
-  first, three reads at a time, and dropped a tile past that (`keepReach`). The plan is worked out
-  again only when the eye crosses a quarter tile. The fog closes at the reach (`applyViewDistance`).
+  first, three reads at a time, and dropped a tile past that (`keepReach`). A tile is drawn at a
+  stride for its distance (`groundStride`: every sample within half a tile, every second within a
+  tile and a half, every fourth beyond; a coarse cell is a hole only when all its cells are), and
+  redrawn when that changes. Where an edge's ground strays between the strides, `groundMesh` hangs a
+  skirt down from it past the stray, so a neighbour at another stride leaves no slit; a flat edge gets
+  none. The plan is worked out again only when the eye crosses a quarter tile. The fog closes at the reach (`applyViewDistance`).
   Each tile's models come beside its ground from `/wow/groundmodels` (`wow.Client.GroundModels`,
   `TileModel`: the placements in the map's editor coordinates, named by `adt.ModelType` and turned by
   `adt.Placement.EditorTurn`, which the region reader uses too) and go into the document's own
@@ -294,7 +298,7 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   tiles a side around the camera's target (`blockAround`) in a region tab, or switches to an open one
   holding it, the camera moved by the block's corner; the world tab stays. Scenes (`map.world`) and
   the session keep a world tab. Not yet streamed: liquids, the texture layers (the minimap stands
-  in), a lower level of detail for far tiles and buildings, and editing in the world view itself.
+  in), a lower level of detail for far buildings, the WDL horizon past the reach, and editing in the world view itself.
 - **Growing a region**: the File menu's extend entries (`MenuBar.svelte`, shown for a region) call
   `extendRegion` in `mapio.ts`, which opens the block one tile bigger that way
   (`io/regionGrow.ts`, `grownBlock`: square, so one more row or column comes along, east or south

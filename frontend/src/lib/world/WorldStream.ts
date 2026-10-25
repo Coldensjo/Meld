@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { fetchImage, textureAnisotropy } from '../wow/api'
 import { tileKey } from '../io/mapTiles'
 import { TILE_YARDS } from '../terrain/Terrain'
-import { groundHeight, groundMesh, keepReach, parseGround, tileDistance, wantedTiles, GROUND_CELLS, TileModelShare, type TileGround, type TileModel } from './worldGround'
+import { groundHeight, groundMesh, groundStride, keepReach, parseGround, tileDistance, wantedTiles, GROUND_CELLS, TileModelShare, type GroundStride, type TileGround, type TileModel } from './worldGround'
 import type { ObjectLayer } from './ObjectLayer'
 
 /** How many tiles are read at once. */
@@ -18,6 +18,8 @@ interface StreamTile {
 	file: string
 	ground: TileGround | null
 	mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial> | null
+	/** The stride the mesh is drawn at (groundStride). */
+	stride: GroundStride
 	/** A read is under way; `loads` counts them. */
 	loading: boolean
 	/** The read failed, so it is not tried again this session. */
@@ -26,10 +28,24 @@ interface StreamTile {
 	gen: number
 }
 
+/** The geometry of a tile's ground at `stride` (groundMesh), in the tile's own frame. */
+function geometryOf(ground: TileGround, stride: GroundStride): THREE.BufferGeometry {
+	const m = groundMesh(ground, stride)
+	const g = new THREE.BufferGeometry()
+	g.setAttribute('position', new THREE.BufferAttribute(m.positions, 3))
+	g.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3))
+	g.setAttribute('uv', new THREE.BufferAttribute(m.uvs, 2))
+	g.setIndex(new THREE.BufferAttribute(m.index, 1))
+	g.computeBoundingBox()
+	g.computeBoundingSphere()
+	return g
+}
+
 /**
  * The world view's ground (#15): the client's tiles of one map within the reach of the camera, read
  * one at a time nearest first (`/wow/ground`, the heights and holes; the minimap image as the
- * colour; `/wow/groundmodels`, the models), and let go of once the camera is a tile further off. The
+ * colour; `/wow/groundmodels`, the models), and let go of once the camera is a tile further off. A
+ * tile is drawn at a coarser stride the further it is (`groundStride`), redrawn when that changes. The
  * ground is drawn lit, as the props are, with the scene's fog; the models are placed in the document's
  * own `ObjectLayer`, so they are drawn, culled, lit and animated as a region's are. The tiles are the
  * client's as it reads them now, Meld's patch included; nothing here edits them: a block is edited in
@@ -47,6 +63,9 @@ export class WorldStream {
 	private planX = NaN
 	private planZ = NaN
 	private planReach = NaN
+	/** Where the camera's eye was at the last `update` (a tile is read only after one). */
+	private eyeX = 0
+	private eyeZ = 0
 	private disposed = false
 	/** Why the map's tile list could not be read, '' when it was. */
 	error = ''
@@ -73,7 +92,7 @@ export class WorldStream {
 				this.tiles = new Map()
 				for (const t of list) {
 					const key = tileKey(t.X, t.Y)
-					this.tiles.set(key, { key, x: t.X, y: t.Y, file: t.File ?? '', ground: null, mesh: null, loading: false, failed: false, gen: 0 })
+					this.tiles.set(key, { key, x: t.X, y: t.Y, file: t.File ?? '', ground: null, mesh: null, stride: 1, loading: false, failed: false, gen: 0 })
 					this.have.add(key)
 				}
 				this.planX = NaN
@@ -90,12 +109,15 @@ export class WorldStream {
 	}
 
 	/**
-	 * Keeps the tiles within `reach` yards of the camera's eye at (x, z) loaded and lets go of those a
-	 * tile further. Cheap while the camera stays in a quarter of a tile: called every frame.
+	 * Keeps the tiles within `reach` yards of the camera's eye at (x, z) loaded, each at the stride for
+	 * its distance, and lets go of those a tile further. Cheap while the camera stays in a quarter of a
+	 * tile: called every frame.
 	 */
 	update(x: number, z: number, reach: number) {
 		const tiles = this.tiles
 		if (!tiles) return
+		this.eyeX = x
+		this.eyeZ = z
 		const q = TILE_YARDS / 4
 		const qx = Math.floor(x / q)
 		const qz = Math.floor(z / q)
@@ -105,7 +127,16 @@ export class WorldStream {
 			this.planReach = reach
 			this.queue = wantedTiles(x, z, reach, this.have)
 			const keep = keepReach(reach)
-			for (const t of tiles.values()) if ((t.ground || t.loading) && tileDistance(x, z, t.x, t.y) > keep) this.drop(t)
+			for (const t of tiles.values()) {
+				if (!t.ground && !t.loading) continue
+				const d = tileDistance(x, z, t.x, t.y)
+				if (d > keep) this.drop(t)
+				else if (t.mesh && t.ground && groundStride(d) !== t.stride) {
+					t.stride = groundStride(d)
+					t.mesh.geometry.dispose()
+					t.mesh.geometry = geometryOf(t.ground, t.stride)
+				}
+			}
 		}
 		while (this.loads < LOADS && this.queue.length) {
 			const t = tiles.get(this.queue.shift()!)
@@ -123,19 +154,26 @@ export class WorldStream {
 		return groundHeight(g, (x / TILE_YARDS - tx) * GROUND_CELLS, (z / TILE_YARDS - ty) * GROUND_CELLS)
 	}
 
-	/** What is loaded, for the probes: tiles drawn, being read, waiting to be read, failed, the map's count, and the models placed. */
-	stats(): { loaded: number; loading: number; queued: number; tiles: number; failed: number; models: number } {
+	/**
+	 * What is loaded, for the probes: tiles drawn, being read, waiting to be read, failed, the map's
+	 * count, the models placed, and the tiles drawn at each stride ("1", "2", "4").
+	 */
+	stats(): { loaded: number; loading: number; queued: number; tiles: number; failed: number; models: number; strides: Record<GroundStride, number> } {
 		let loaded = 0
 		let failed = 0
+		const strides: Record<GroundStride, number> = { 1: 0, 2: 0, 4: 0 }
 		for (const t of this.tiles?.values() ?? []) {
-			if (t.mesh) loaded++
+			if (t.mesh) {
+				loaded++
+				strides[t.stride]++
+			}
 			if (t.failed) failed++
 		}
 		const queued = this.queue.filter((k) => {
 			const t = this.tiles?.get(k)
 			return !!t && !t.ground && !t.loading && !t.failed
 		}).length
-		return { loaded, loading: this.loads, queued, tiles: this.have.size, failed, models: this.models.count }
+		return { loaded, loading: this.loads, queued, tiles: this.have.size, failed, models: this.models.count, strides }
 	}
 
 	private async load(t: StreamTile) {
@@ -162,6 +200,8 @@ export class WorldStream {
 			// Let go of while it was read (the camera moved off, or the tab closed).
 			if (this.disposed || t.gen !== gen) return
 			t.ground = ground
+			// The stride for where the camera is now, which the plan keeps up to date from here on.
+			t.stride = groundStride(tileDistance(this.eyeX, this.eyeZ, t.x, t.y))
 			t.mesh = this.meshOf(t, ground, image)
 			this.group.add(t.mesh)
 			this.models.add(t.key, placed, (m) => this.place(m))
@@ -175,14 +215,7 @@ export class WorldStream {
 	}
 
 	private meshOf(t: StreamTile, ground: TileGround, image: { width: number; height: number; pixels: Uint8Array } | null) {
-		const m = groundMesh(ground)
-		const g = new THREE.BufferGeometry()
-		g.setAttribute('position', new THREE.BufferAttribute(m.positions, 3))
-		g.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3))
-		g.setAttribute('uv', new THREE.BufferAttribute(m.uvs, 2))
-		g.setIndex(new THREE.BufferAttribute(m.index, 1))
-		g.computeBoundingBox()
-		g.computeBoundingSphere()
+		const g = geometryOf(ground, t.stride)
 		let map: THREE.DataTexture | null = null
 		if (image) {
 			map = new THREE.DataTexture(image.pixels, image.width, image.height, THREE.RGBAFormat)

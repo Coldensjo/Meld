@@ -1,9 +1,9 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
 // touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/mapio.ts')
-const { streamReach, keepReach, wantedTiles } = await P.app('/src/lib/world/worldGround.ts')
+const { streamReach, keepReach, wantedTiles, groundStride, tileDistance } = await P.app('/src/lib/world/worldGround.ts')
 const T = 1600 / 3
 openWorldView(e, 'Azeroth', { x: 31, y: 48, size: 3 })
 await P.until(() => editor.worldMap === 'Azeroth' || null, 30000, "Azeroth's world tab")
@@ -25,6 +25,15 @@ const reach = streamReach(1)
 const eye = e.camera.position
 const want = wantedTiles(eye.x, eye.z, reach, e.worldTiles())
 const loadedAll = first.loaded >= want.length && first.loaded <= wantedTiles(eye.x, eye.z, keepReach(reach), e.worldTiles()).length
+// Each tile is drawn at the stride for its distance from the eye, as of the plan's last quarter tile
+// (so up to a quarter tile's diagonal off), and the near and far strides are both in use.
+let strideOff = 0
+for (const t of worldDoc.world.tiles.values()) {
+	if (!t.mesh) continue
+	const d = tileDistance(eye.x, eye.z, t.x, t.y)
+	if (groundStride(Math.max(0, d - T / 3)) !== t.stride && groundStride(d + T / 3) !== t.stride) strideOff++
+}
+const strides = first.strides[1] > 0 && first.strides[4] > 0 && strideOff === 0
 // Drawn: the view with the tiles hidden differs.
 await P.lookAt({ x: mid.x, y: ground + 120, z: mid.z + 300 }, { pitch: 0.35, back: 1 })
 await P.settle()
@@ -127,6 +136,8 @@ const out = {
 	ground: +ground.toFixed(1),
 	focused,
 	loadedAll,
+	strides,
+	strideOff,
 	drawn,
 	modelsDrawn,
 	doodads,
@@ -147,6 +158,7 @@ out.ok =
 	focused &&
 	Number.isFinite(ground) &&
 	loadedAll &&
+	strides &&
 	drawn > 0.05 &&
 	first.models > 0 &&
 	modelsDrawn > 0.01 &&

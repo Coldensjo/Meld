@@ -30,47 +30,113 @@ export function parseGround(buf: ArrayBuffer): TileGround {
 	return { heights: new Float32Array(buf, 4, n), holes: new Uint8Array(buf, 4 + n * 4, cells) }
 }
 
+/** The strides a tile's ground is drawn at (#15): every sample near the camera, every second or fourth further off. */
+export type GroundStride = 1 | 2 | 4
+
 /**
- * The mesh of one tile, in the tile's own frame (its north-west corner at the origin, the mesh placed
- * there): a vertex a height sample, its normal from the samples around it, its uv across the tile
- * (the minimap image's), and two triangles a cell but for the holes.
+ * The stride a tile `d` yards from the camera (tileDistance) is drawn at: every sample within half a
+ * tile, every second within a tile and a half, every fourth beyond. A cell is 4.2 yards, so the far
+ * tiles' 17-yard cells are a few pixels on screen there.
  */
-export function groundMesh(g: TileGround): { positions: Float32Array; normals: Float32Array; uvs: Float32Array; index: Uint16Array } {
+export function groundStride(d: number): GroundStride {
+	if (d < TILE_YARDS / 2) return 1
+	if (d < TILE_YARDS * 1.5) return 2
+	return 4
+}
+
+/** How far the edge `edge` (its GROUND_SIDE heights in order) strays at any stride from at another: the skirt's depth less its margin. */
+function edgeStray(edge: Float32Array): number {
+	let most = 0
+	const lerp = (k: number, s: number) => {
+		const a = Math.floor(k / s) * s
+		if (a === k) return edge[k]
+		return edge[a] + ((edge[a + s] - edge[a]) * (k - a)) / s
+	}
+	for (let k = 0; k < GROUND_SIDE; k++) {
+		const f = edge[k]
+		const c2 = lerp(k, 2)
+		const c4 = lerp(k, 4)
+		most = Math.max(most, Math.abs(f - c2), Math.abs(f - c4), Math.abs(c2 - c4))
+	}
+	return most
+}
+
+/**
+ * The mesh of one tile at `stride`, in the tile's own frame (its north-west corner at the origin, the
+ * mesh placed there): a vertex every `stride` height samples, its normal from the samples around it,
+ * its uv across the tile (the minimap image's), and two triangles a cell of `stride` samples but for
+ * the holes (a coarse cell is a hole only when all its cells are). Where an edge's ground strays
+ * between the strides, so a neighbour drawn at another stride would leave a slit along it, the edge
+ * hangs a skirt down past the stray, facing out.
+ */
+export function groundMesh(g: TileGround, stride: GroundStride = 1): { positions: Float32Array; normals: Float32Array; uvs: Float32Array; index: Uint16Array } {
 	const S = GROUND_SIDE
 	const h = g.heights
-	const positions = new Float32Array(S * S * 3)
-	const normals = new Float32Array(S * S * 3)
-	const uvs = new Float32Array(S * S * 2)
+	const cells = GROUND_CELLS / stride
+	const n = cells + 1
+	// The four edges, each in the order its skirt runs (outward to the left of the run, see below):
+	// north west to east, east north to south, south east to west, west south to north.
+	const edges: Array<(k: number) => [number, number]> = [
+		(k) => [k * stride, 0],
+		(k) => [GROUND_CELLS, k * stride],
+		(k) => [GROUND_CELLS - k * stride, GROUND_CELLS],
+		(k) => [0, GROUND_CELLS - k * stride],
+	]
+	const depth = edges.map((at) => {
+		const line = new Float32Array(S)
+		for (let k = 0; k < S; k++) {
+			const [x, y] = at(k / stride)
+			line[k] = h[y * S + x]
+		}
+		const stray = edgeStray(line)
+		return stray > 1e-3 ? stray + 0.5 : 0
+	})
+	const skirted = depth.filter((d) => d > 0).length
+	const total = n * n + skirted * n
+	const positions = new Float32Array(total * 3)
+	const normals = new Float32Array(total * 3)
+	const uvs = new Float32Array(total * 2)
 	const at = (x: number, y: number) => h[Math.min(S - 1, Math.max(0, y)) * S + Math.min(S - 1, Math.max(0, x))]
-	for (let y = 0; y < S; y++) {
-		for (let x = 0; x < S; x++) {
-			const i = y * S + x
-			positions[i * 3] = x * CELL_SIZE
-			positions[i * 3 + 1] = h[i]
-			positions[i * 3 + 2] = y * CELL_SIZE
-			// Central differences, one-sided at the tile's edge.
-			const run = (Math.min(x + 1, S - 1) - Math.max(x - 1, 0)) * CELL_SIZE
-			const fall = (Math.min(y + 1, S - 1) - Math.max(y - 1, 0)) * CELL_SIZE
-			const nx = -(at(x + 1, y) - at(x - 1, y)) / run
-			const nz = -(at(x, y + 1) - at(x, y - 1)) / fall
-			const len = Math.hypot(nx, 1, nz)
-			normals[i * 3] = nx / len
-			normals[i * 3 + 1] = 1 / len
-			normals[i * 3 + 2] = nz / len
-			uvs[i * 2] = x / GROUND_CELLS
-			uvs[i * 2 + 1] = y / GROUND_CELLS
+	/** Writes vertex `i` at sample (x, y), `drop` yards below the ground. */
+	const vertex = (i: number, x: number, y: number, drop: number) => {
+		positions[i * 3] = x * CELL_SIZE
+		positions[i * 3 + 1] = h[y * S + x] - drop
+		positions[i * 3 + 2] = y * CELL_SIZE
+		// Central differences over the samples themselves, one-sided at the tile's edge.
+		const run = (Math.min(x + 1, S - 1) - Math.max(x - 1, 0)) * CELL_SIZE
+		const fall = (Math.min(y + 1, S - 1) - Math.max(y - 1, 0)) * CELL_SIZE
+		const nx = -(at(x + 1, y) - at(x - 1, y)) / run
+		const nz = -(at(x, y + 1) - at(x, y - 1)) / fall
+		const len = Math.hypot(nx, 1, nz)
+		normals[i * 3] = nx / len
+		normals[i * 3 + 1] = 1 / len
+		normals[i * 3 + 2] = nz / len
+		uvs[i * 2] = x / GROUND_CELLS
+		uvs[i * 2 + 1] = y / GROUND_CELLS
+	}
+	for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) vertex(j * n + i, i * stride, j * stride, 0)
+	/** Whether coarse cell (cx, cy) is a hole: all of its cells are. */
+	const hole = (cx: number, cy: number) => {
+		for (let y = cy * stride; y < (cy + 1) * stride; y++) for (let x = cx * stride; x < (cx + 1) * stride; x++) if (!g.holes[y * GROUND_CELLS + x]) return false
+		return true
+	}
+	const holes = new Uint8Array(cells * cells)
+	let solid = 0
+	for (let y = 0; y < cells; y++) {
+		for (let x = 0; x < cells; x++) {
+			holes[y * cells + x] = hole(x, y) ? 1 : 0
+			if (!holes[y * cells + x]) solid++
 		}
 	}
-	let solid = 0
-	for (const v of g.holes) if (!v) solid++
-	const index = new Uint16Array(solid * 6)
+	// A skirt runs along every coarse cell of its edge but the holes'.
+	const index = new Uint16Array(solid * 6 + skirted * cells * 6)
 	let k = 0
-	for (let y = 0; y < GROUND_CELLS; y++) {
-		for (let x = 0; x < GROUND_CELLS; x++) {
-			if (g.holes[y * GROUND_CELLS + x]) continue
-			const a = y * S + x
+	for (let y = 0; y < cells; y++) {
+		for (let x = 0; x < cells; x++) {
+			if (holes[y * cells + x]) continue
+			const a = y * n + x
 			const b = a + 1
-			const c = a + S
+			const c = a + n
 			const d = c + 1
 			// Counter-clockwise seen from above (+y), so the ground's top faces the sky.
 			index[k++] = a
@@ -81,7 +147,37 @@ export function groundMesh(g: TileGround): { positions: Float32Array; normals: F
 			index[k++] = d
 		}
 	}
-	return { positions, normals, uvs, index }
+	let base = n * n
+	edges.forEach((edgeAt, e) => {
+		if (!depth[e]) return
+		for (let q = 0; q < n; q++) {
+			const [x, y] = edgeAt(q)
+			vertex(base + q, x, y, depth[e])
+		}
+		const top = (q: number) => {
+			const [x, y] = edgeAt(q)
+			return (y / stride) * n + x / stride
+		}
+		for (let q = 0; q < cells; q++) {
+			// The coarse cell inside this stretch of the edge.
+			const [x0, y0] = edgeAt(q)
+			const [x1, y1] = edgeAt(q + 1)
+			const cx = Math.min(cells - 1, Math.min(x0, x1) / stride)
+			const cy = Math.min(cells - 1, Math.min(y0, y1) / stride)
+			if (holes[cy * cells + cx]) continue
+			// With the run going from a to b, (a, b, a') and (b, b', a') face out.
+			const a = top(q)
+			const b = top(q + 1)
+			index[k++] = a
+			index[k++] = b
+			index[k++] = base + q
+			index[k++] = b
+			index[k++] = base + q + 1
+			index[k++] = base + q
+		}
+		base += n
+	})
+	return { positions, normals, uvs, index: k === index.length ? index : index.slice(0, k) }
 }
 
 /** The ground's height at (u, v) cells into the tile (0 to GROUND_CELLS), between its four samples. */
