@@ -1,18 +1,17 @@
 <script lang="ts">
-	import { startSaving } from '../lib/state/saving'
-	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
-	import { takeEscape } from '../lib/state/escape'
 	import { engineRef } from '../lib/state/engineRef'
 	import { CreateObject, NextObjectLoot, ObjectModel, ReadObject, SaveObject } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
-	import { changedValues, fieldGroups } from '../lib/world/creatureFields'
+	import { TemplateEditor } from '../lib/ui/templateEditor.svelte'
+	import { fieldGroups } from '../lib/world/creatureFields'
 	import { objectFieldGroups } from '../lib/world/objectFields'
 	import { objectEntryFields, selectSpawn } from '../lib/world/spawnEdits'
 	import { objectTypeName, spawnType } from '../lib/world/spawnInfo'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import CreaturePreview from './CreaturePreview.svelte'
 	import DisplayPicker, { forgetObjectDisplays } from './DisplayPicker.svelte'
+	import EditorFrame from './EditorFrame.svelte'
 	import LootTab from './LootTab.svelte'
 	import QuestsTab from './QuestsTab.svelte'
 	import { forgetObjectTemplates, loadObjectTemplates, objectCategory } from './SpawnBrowser.svelte'
@@ -41,24 +40,50 @@
 	const spawn = $derived(target?.key && editor.selectedSpawn && spawnKey(editor.selectedSpawn) === target.key ? editor.selectedSpawn : null)
 
 	let tab = $state<Tab>('object')
-	let record = $state<vmangos.TemplateRecord | null>(null)
-	let values = $state<Record<string, string>>({})
-	let saved = $state<Record<string, string>>({})
-	let error = $state('')
-	let loading = $state(false)
-	let saving = $state(false)
-	let confirmClose = $state(false)
 	let lootDirty = $state(false)
 	let lootTab = $state<LootTab | null>(null)
 	let questsDirty = $state(false)
 	let questsTab = $state<QuestsTab | null>(null)
 
-	const changes = $derived(changedValues(values, saved))
-	const changeCount = $derived(Object.keys(changes).length)
+	// Opening another object reads its template and picks the first tab.
+	const ed = new TemplateEditor<{ key: string | null; entry: number }, vmangos.TemplateRecord>({
+		id: (t) => `${t.key}|${t.entry}`,
+		entry: (t) => t.entry,
+		read: ReadObject,
+		clear: () => (ui.objectEditor = null),
+		dirty: () => lootDirty || questsDirty,
+		onopen: (t, before) => {
+			const sameSpawn = before !== '' && before.startsWith(`${t.key}|`) && t.key !== null
+			if (t.entry === 0) {
+				tab = wantNew ? 'new' : 'find'
+				// Opened from the Tools menu: the search starts over, on every category.
+				if (!wantNew) {
+					category = ''
+					query = ''
+				}
+			} else if (!sameSpawn) tab = t.key ? 'spawn' : 'object'
+			wantNew = false
+			if (t.entry > 0) copySource = null
+			lootDirty = false
+			questsDirty = false
+		},
+		onrevert: () => lootTab?.revert(),
+		ondiscard: () => questsTab?.revert(),
+		onclose: () => {
+			hovered = null
+			hoveredDisplay = null
+		},
+	})
+	ed.follow(() => target)
+	const record = $derived(ed.record)
+	const values = $derived(ed.values)
+	const saved = $derived(ed.saved)
+	const changes = $derived(ed.changes)
+	const changeCount = $derived(ed.changeCount)
 	/** Anything unsaved that Save object writes: the template's values or the contents. */
 	const unsaved = $derived(changeCount > 0 || lootDirty)
 	/** Anything unsaved at all, the quests (saved apart) too: what closing asks about. */
-	const anyUnsaved = $derived(unsaved || questsDirty)
+	const anyUnsaved = $derived(ed.unsaved)
 	// The model of the template's display, for the preview and the Display box's note.
 	let templateModel = $state('')
 	$effect(() => {
@@ -79,50 +104,6 @@
 	)
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
-	// Opening another object reads its template and picks the first tab.
-	let loadedFor = ''
-	$effect(() => {
-		const t = target
-		if (!t) return
-		const id = `${t.key}|${t.entry}`
-		if (id === loadedFor) return
-		const sameSpawn = loadedFor !== '' && loadedFor.startsWith(`${t.key}|`) && t.key !== null
-		loadedFor = id
-		if (t.entry === 0) {
-			tab = wantNew ? 'new' : 'find'
-			// Opened from the Tools menu: the search starts over, on every category.
-			if (!wantNew) {
-				category = ''
-				query = ''
-			}
-		} else if (!sameSpawn) tab = t.key ? 'spawn' : 'object'
-		wantNew = false
-		if (t.entry > 0) copySource = null
-		record = null
-		values = {}
-		saved = {}
-		error = ''
-		confirmClose = false
-		lootDirty = false
-		questsDirty = false
-		if (t.entry > 0) void load(t.entry)
-	})
-
-	async function load(entry: number) {
-		loading = true
-		try {
-			const r = await ReadObject(entry)
-			if (ui.objectEditor?.entry !== entry) return
-			record = r
-			values = { ...r.values }
-			saved = { ...r.values }
-		} catch (err) {
-			error = String(err)
-		} finally {
-			loading = false
-		}
-	}
-
 	// The spawn turned into another object (here, or by an undo): the Object tab follows it, once its
 	// unsaved template changes are dealt with.
 	let askedFor = -1
@@ -137,8 +118,7 @@
 		}
 		if (askedFor === s.entry) return
 		askedFor = s.entry
-		afterDiscard = follow
-		confirmClose = true
+		ed.leave(follow)
 	})
 
 	/** The object under the pointer in the Change object list, shown big until the pointer leaves. */
@@ -168,61 +148,23 @@
 			.join(', ') + '.',
 	)
 
-	/** What to do once unsaved changes are discarded: close, unless something else asked first. */
-	let afterDiscard: (() => void) | null = null
-
-	function close(force = false) {
-		if (anyUnsaved && !force) {
-			afterDiscard = null
-			confirmClose = true
-			return
-		}
-		ui.objectEditor = null
-		loadedFor = ''
-		hovered = null
-		hoveredDisplay = null
-	}
-
-	function discard() {
-		revert()
-		questsTab?.revert()
-		confirmClose = false
-		const then = afterDiscard
-		afterDiscard = null
-		if (then) then()
-		else close(true)
-	}
-
-	/** Drops the unsaved template values and contents. */
-	function revert() {
-		values = { ...saved }
-		lootTab?.revert()
-	}
-
 	// Save writes the template first, so a chest points at its loot list before the list is written.
-	async function save() {
-		if (!record || !unsaved) return
-		saving = true
-		const end = startSaving('Saving the game object')
-		error = ''
-		try {
+	function save() {
+		const r = record
+		if (!r || !unsaved) return
+		void ed.save('Saving the game object', async () => {
 			if (changeCount > 0) {
 				const before = { ...saved }
-				await SaveObject(record.entry, record.patch, changes)
-				saved = { ...values }
+				await SaveObject(r.entry, r.patch, changes)
+				ed.markSaved()
 				forgetObjectTemplates()
 				forgetObjectDisplays()
-				await engineRef.current?.applyObjectTemplate(record.entry, values, before)
+				await engineRef.current?.applyObjectTemplate(r.entry, values, before)
 			}
 			const rows = (await lootTab?.save()) ?? -1
 			const what = rows >= 0 ? ` and its contents (${rows} ${rows === 1 ? 'row' : 'rows'})` : ''
-			setStatus(`Saved ${values.name} (entry ${record.entry})${what} to the world database. Restart the world server and the game to see it in the game.`, 10000)
-		} catch (err) {
-			error = String(err)
-		} finally {
-			saving = false
-			end()
-		}
+			setStatus(`Saved ${values.name} (entry ${r.entry})${what} to the world database. Restart the world server and the game to see it in the game.`, 10000)
+		})
 	}
 
 	/**
@@ -238,10 +180,10 @@
 			const v = { ...values }
 			for (const c of record.columns) if (/^data\d+$/.test(c.name)) v[c.name] = '0'
 			Object.assign(v, { type: '3', data0: '57', data1: String(loot), data3: '1' })
-			values = v
+			ed.values = v
 			setStatus(`${values.name} is a chest now, with loot list ${loot}: add what it holds, then Save.`, 8000)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		}
 	}
 
@@ -255,7 +197,7 @@
 		ui.placeObject = templateOf(record.entry, saved)
 		ui.placeCreature = null
 		editor.tool = 'select'
-		close(true)
+		ed.close(true)
 		setStatus(`Click the ground to place ${saved.name}. Shift+click places more; Esc stops.`, 10000)
 	}
 
@@ -294,12 +236,7 @@
 			return
 		}
 		const go = () => (ui.objectEditor = { key: null, entry: t.entry })
-		if (anyUnsaved) {
-			afterDiscard = go
-			confirmClose = true
-			return
-		}
-		go()
+		ed.leave(go)
 	}
 
 	/** A pool mate was picked: the editor moves to it, once unsaved changes are dealt with. */
@@ -308,12 +245,7 @@
 			selectSpawn(o)
 			ui.objectEditor = { key: spawnKey(o), entry: o.entry }
 		}
-		if (anyUnsaved) {
-			afterDiscard = go
-			confirmClose = true
-			return
-		}
-		go()
+		ed.leave(go)
 	}
 
 	function changeTo(t: vmangos.ObjectTemplate) {
@@ -340,18 +272,13 @@
 			wantNew = true
 			ui.objectEditor = { key: null, entry: 0 }
 		}
-		if (anyUnsaved) {
-			afterDiscard = go
-			confirmClose = true
-			return
-		}
-		go()
+		ed.leave(go)
 	}
 	async function create() {
 		const name = newName.trim()
 		if (!name) return
 		creating = true
-		error = ''
+		ed.error = ''
 		try {
 			const base = copyThis && copySource ? copySource.entry : 0
 			const entry = await CreateObject(base, name)
@@ -362,69 +289,37 @@
 			ui.objectEditor = { key: null, entry }
 			setStatus(`Made game object ${entry}, ${name}. Edit it, save, then place it.`, 8000)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		} finally {
 			creating = false
 		}
 	}
-
-	let root = $state<HTMLElement>()
-
-	function onKey(e: KeyboardEvent) {
-		// The quest editor over it takes its own Esc.
-		if (!target || ui.questEditor) return
-		if (e.key === 'Escape') {
-			if (!takeEscape(e, root)) return
-			const el = e.target as HTMLElement | null
-			if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
-				e.preventDefault()
-				el.blur()
-				return
-			}
-			e.preventDefault()
-			if (confirmClose && anyUnsaved) confirmClose = false
-			else close()
-		}
-	}
 </script>
 
-<svelte:window onkeydown={onKey} />
-
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Game object editor" bind:this={root} use:dialogFocus>
-		<header>
-			<div class="title">
-				{#if target.entry > 0}
-					<h2>{values.name || saved.name || 'Game object'}</h2>
-					<span class="dim">
-						entry {target.entry}{spawn ? ` · spawn ${spawn.guid}` : ''}{record ? ` · ${objectTypeName(Number(values.type) || 0)}` : ''}
-					</span>
-				{:else if tab === 'new'}
-					<h2>New game object</h2>
-				{:else}
-					<h2>Game objects</h2>
-					<span class="dim">Find one to edit, or make a new one</span>
-				{/if}
-			</div>
-			<div class="actions">
-				{#if record}
-					<button disabled={saving} onclick={place} title="Place this object in the region">Place in world</button>
-					<button disabled={!unsaved || saving} onclick={revert}>Revert</button>
-					<button class="active" disabled={!unsaved || saving} onclick={save}>
-						{saving ? 'Saving…' : unsaved ? `Save object (${changeCount + (lootDirty ? 1 : 0)})` : 'Saved'}
-					</button>
-				{/if}
-				<button onclick={() => close()} title="Close (Esc)">Close</button>
-			</div>
-		</header>
-		{#if confirmClose && anyUnsaved}
-			<div class="bar warn">
-				<span>{unsavedText}</span>
-				<button onclick={() => (confirmClose = false)}>Keep editing</button>
-				<button class="danger" onclick={discard}>Discard them</button>
-			</div>
-		{/if}
-		{#if error}<div class="bar error">{error}</div>{/if}
+	<EditorFrame {ed} label="Game object editor" z={150} {unsavedText} blocked={() => !!ui.questEditor}>
+		{#snippet title()}
+			{#if target.entry > 0}
+				<h2>{values.name || saved.name || 'Game object'}</h2>
+				<span class="dim">
+					entry {target.entry}{spawn ? ` · spawn ${spawn.guid}` : ''}{record ? ` · ${objectTypeName(Number(values.type) || 0)}` : ''}
+				</span>
+			{:else if tab === 'new'}
+				<h2>New game object</h2>
+			{:else}
+				<h2>Game objects</h2>
+				<span class="dim">Find one to edit, or make a new one</span>
+			{/if}
+		{/snippet}
+		{#snippet actions()}
+			{#if record}
+				<button disabled={ed.saving} onclick={place} title="Place this object in the region">Place in world</button>
+				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
+				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>
+					{ed.saving ? 'Saving…' : unsaved ? `Save object (${changeCount + (lootDirty ? 1 : 0)})` : 'Saved'}
+				</button>
+			{/if}
+		{/snippet}
 
 		<div class="body">
 			<section class="left">
@@ -432,7 +327,7 @@
 					<CreaturePreview type={spawnType({ model: preview.model })} scale={preview.scale} />
 				{:else}
 					<div class="empty dim">
-						{loading
+						{ed.loading
 							? 'Loading…'
 							: target.entry === 0
 								? tab === 'new'
@@ -536,7 +431,7 @@
 							<h3>{g.title}</h3>
 							<TemplateFields fields={g.fields} {values} columns={columnKind} {changes} onset={(col, v) => (values[col] = v)} />
 						{/each}
-					{:else if loading}
+					{:else if ed.loading}
 						<p class="dim">Loading the object…</p>
 					{/if}
 					{#if record && target.entry > 0}
@@ -563,60 +458,13 @@
 				</div>
 			</section>
 		</div>
-	</div>
+	</EditorFrame>
 {/if}
 
 <style>
-	.editor {
-		position: fixed;
-		inset: 0;
-		z-index: 150;
-		display: flex;
-		flex-direction: column;
-		background: var(--bg);
-		color: var(--text);
-	}
-	header {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 10px 16px;
-		border-bottom: 1px solid var(--border);
-		background: var(--panel);
-	}
-	.title {
-		flex: 1;
-		min-width: 0;
-	}
-	h2 {
-		margin: 0;
-		font-size: 18px;
-		font-weight: 600;
-	}
-	.actions {
-		display: flex;
-		gap: 8px;
-	}
-	.bar {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 16px;
-		font-size: 12px;
-		border-bottom: 1px solid var(--border);
-	}
-	.bar.warn span {
-		flex: 1;
-	}
-	.bar.error,
 	.error {
 		color: var(--danger-text);
 		overflow-wrap: anywhere;
-	}
-	.body {
-		flex: 1;
-		min-height: 0;
-		display: flex;
 	}
 	.left {
 		flex: 1;
@@ -643,20 +491,6 @@
 		flex-direction: column;
 		border-left: 1px solid var(--border);
 		background: var(--panel);
-	}
-	.tabs {
-		display: flex;
-		gap: 2px;
-		padding: 8px 12px 0;
-		border-bottom: 1px solid var(--border);
-	}
-	.tabs button {
-		border-radius: 4px 4px 0 0;
-		border-bottom: none;
-	}
-	.tabs button.on {
-		background: var(--accent);
-		color: var(--accent-ink);
 	}
 	.scroll {
 		flex: 1;
