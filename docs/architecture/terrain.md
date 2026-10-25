@@ -310,7 +310,12 @@ The ground, its paint and chunk data, the map file and the dialogs that make or 
   tab, a preview, the clipboard or a particle uses them), so a long flight keeps only what is near.
   The camera's ground is the stream's (`heightAt`), keeping its height where nothing is loaded. The
   document's terrain is an 8-cell hidden stand-in: the tools' clicks and keys are off in it
-  (pointerdown, `handleToolKey`), Save refuses, it is never `pristine` (so opening a map doesn't
+  (pointerdown, `handleToolKey`), the commands on the map's own ground and models refuse
+  (`Engine.refuseInWorld`, called first by Select All, paste, the Terrain menu's actions, Remove
+  Duplicate Models and the baked shadows) and the menus grey them out with the map's dialogs, imports
+  and exports and Compile (`editing` in `MenuBar.svelte`), its `objects` are `lookOnly` (so
+  `selectObjects` selects none of the streamed models, and nothing that acts on a selection, delete,
+  cut, a move or the Inspector, reaches one), Save refuses, it is never `pristine` (so opening a map doesn't
   replace it), and its tab shows no size. File › Edit Here (`editWorldHere`) opens the block of up to 3
   tiles a side around the camera's target (`blockAround`) in a region tab, or switches to an open one
   holding it, the camera moved by the block's corner; the world tab stays. Scenes (`map.world`) and

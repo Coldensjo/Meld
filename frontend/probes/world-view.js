@@ -1,5 +1,5 @@
-// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
-// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
+// The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, the far ones at a coarser stride, with the map's WDL horizon past them, with their models (each once, however many tiles list it; the doodads only as far as the client draws them for their size), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded, and the models only the dropped tiles used are let go of (no empty batch stays, the registry no longer keeps them); the tools do nothing in it (a Sculpt click makes no undo step), nor do the commands on the map's ground and models (Select All selects nothing, a paste doesn't start, the Terrain menu's clean-up, Remove Duplicate Models and Bake Shadows leave no undo step, no dirty tab and every model placed); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/state/selection.ts, frontend/src/components/MenuBar.svelte, frontend/src/lib/world/worldGround.ts, frontend/src/lib/world/instanceCull.ts, frontend/src/lib/world/horizonMesh.ts, internal/vmangos/wdl.go, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/region.ts')
@@ -102,6 +102,28 @@ await P.frames(2)
 await P.click(0.5, 0.6, {}, 3)
 const noEdit = !e.history.peek() && !editor.dirty
 editor.tool = 'select'
+// Nor do the commands on the map's own ground and models (refuseInWorld): Select All selects nothing
+// (the streamed models are look-only), a paste doesn't start, the Terrain menu's clean-up and the
+// models' Remove Duplicates change nothing, so no undo step, no dirty tab and every model still placed.
+const modelsBefore = worldDoc.objects.objects.size
+e.selectAll()
+const pickedAll = editor.selectedIds.length + (editor.selection ? 1 : 0)
+e.selectModelsOfType([...worldDoc.objects.objects.values()][0]?.type ?? '')
+const pickedType = editor.selectedIds.length
+const clip = { objects: e.objectClip, last: e.lastCopied }
+e.objectClip = { objects: [{ type: 'helper:cube', x: 0, z: 0, yOff: 0, rotY: 0, scale: 1 }] }
+e.lastCopied = 'objects'
+e.startPaste()
+const pasting = ui.pasting
+ui.pasting = false
+e.objectClip = clip.objects
+e.lastCopied = clip.last
+e.cleanUpTile('height')
+e.removeDuplicateModels()
+e.bakeShadows()
+await P.frames(2)
+const commandsOff = { pickedAll, pickedType, pasting, history: !!e.history.peek(), dirty: editor.dirty, models: worldDoc.objects.objects.size - modelsBefore }
+const lookOnly = !pickedAll && !pickedType && !pasting && !commandsOff.history && !commandsOff.dirty && commandsOff.models === 0
 const scene = await window.__sceneText()
 // Four tiles east: the tiles there load, the ones far behind go.
 const typesBefore = new Set(worldDoc.objects.batches.keys())
@@ -176,6 +198,7 @@ const out = {
 	perf: { models: perfModels, bare: perfBare },
 	placedOnce,
 	noEdit,
+	commandsOff,
 	sceneNamesWorld: scene.includes('"world":{"mapName":"Azeroth"}'),
 	moved,
 	westDropped,
@@ -203,6 +226,7 @@ out.ok =
 	doodads.cut > 0 &&
 	placedOnce &&
 	noEdit &&
+	lookOnly &&
 	out.sceneNamesWorld &&
 	moved.loaded <= first.tiles &&
 	moved.loaded <= wantedTiles(east.x, east.z, keepReach(reach) + T, e.worldTiles()).length &&

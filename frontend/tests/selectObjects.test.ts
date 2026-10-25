@@ -33,3 +33,11 @@ test('selectObjects is linear in the selection size', () => {
 	expect(editor.selectedIds.length).toBe(200000)
 	expect(performance.now() - t).toBeLessThan(1000)
 })
+
+test("selectObjects selects nothing in a look-only layer (a world view's streamed models, #15)", () => {
+	const l = layer(5)
+	l.lookOnly = true
+	selectObjects(l, [1, 2, 3], 2)
+	expect(editor.selectedIds.length).toBe(0)
+	expect(editor.selected).toBeNull()
+})

@@ -553,7 +553,11 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   the models are drawn (the same with `doc.objects.group`) and placed once (as many as the loaded
   tiles list unique IDs), that no doodad (M2) is drawn further across the ground than
   `doodadReach` gives for its size and some are left out for it (`doodads`: drawn, past, cut), that a
-  Sculpt click makes no undo step, that the scene line names `world`, that flying four tiles east loads
+  Sculpt click makes no undo step, that the commands on the map's ground and models do nothing
+  (`commandsOff`: Select All and Select Models of Type select nothing, a paste doesn't start, Clear
+  Height, Remove Duplicate Models and Bake Shadows leave no undo step, no dirty tab and every model
+  placed; with `Engine.refuseInWorld` off, Remove Duplicate Models takes away the client's doubled models (two here, such as the Elwynn haystack)
+  and the check fails), that the scene line names `world`, that flying four tiles east loads
   the tiles there and drops the ones behind, with the models only they used (`released`: no batch
   left without objects, the types gone, and of those not used elsewhere how many the registry still
   keeps, through `isKept` in `models/assets.ts`, which must be 0), then Edit Here (a project lent in the state) and File ›
@@ -564,6 +568,7 @@ ones; Edit Here opens the block around the camera in a region tab, the camera ke
   3.0M triangles and 21 ms (WMO groups are most of the calls, and the shadow cascades about 60%);
   with the ground's strides, 2.45M triangles, the bare ground's 687k down to 143k; the horizon adds
   about 180k triangles and no draw call worth counting.
+- `bun test tests/selectObjects.test.ts`: a look-only layer (the world view's streamed models) selects nothing.
 - `bun test tests/horizonMesh.test.ts`: the world view's horizon packs the tiles it keeps, in order.
 - `go test ./internal/vmangos/ -run Horizon`: the world's horizon has every WDL tile once at its own
   coordinates, Northshire's as the region's horizon has it.

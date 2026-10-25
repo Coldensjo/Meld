@@ -5,12 +5,12 @@ import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 /**
  * Makes `ids` the selected objects (`editor.selectedIds`). `primary`, one of them, is the object the
  * gizmo and the Properties panel work on (`editor.selected`); a selection of one is its own primary.
- * Ids that no longer exist are dropped.
+ * Ids that no longer exist are dropped, and a look-only layer's (a world view's, #15) are never selected.
  */
 export function selectObjects(objects: ObjectLayer, ids: Iterable<number>, primary?: number) {
   const live: number[] = []
   const seen = new Set<number>()
-  for (const id of ids) {
+  for (const id of objects.lookOnly ? [] : ids) {
     if (seen.has(id) || !objects.objects.has(id)) continue
     seen.add(id)
     live.push(id)

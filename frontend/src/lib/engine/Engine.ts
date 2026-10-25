@@ -2576,6 +2576,7 @@ export class Engine {
       d = new MapDocument(WORLD_STAND_IN, this.uniqueName(`${mapName} world`))
       const stand = d.terrain
       d.world = new WorldStream(mapName, d.objects, (x, z) => stand.heightAt(x, z))
+      d.objects.lookOnly = true
       // The client's water is part of what a later step streams; the stand-in has no sea.
       d.meta.waterEnabled = false
       d.camera = { target: new THREE.Vector3(at.x, 0, at.z), yaw: this.controller.yaw, pitch: Math.max(this.controller.pitch, 0.5), distance: WORLD_FOCUS_DISTANCE }
@@ -2960,6 +2961,17 @@ export class Engine {
   /** The client region the active map came from, or null. */
   activeRegion(): RegionRef | null {
     return this.doc.meta.region
+  }
+
+  /**
+   * In a world view (#15), which is looked at and not edited, says so and returns true: the commands
+   * that act on the map's ground or models call it first, since a world tab's terrain is a hidden
+   * stand-in and its models are the stream's. File › Edit Here opens the block for them.
+   */
+  refuseInWorld(): boolean {
+    if (!this.doc.world) return false
+    setStatus('A world view is looked at, not edited: File › Edit Here opens the block around the camera to edit.', 6000)
+    return true
   }
 
   /** The map the active tab is a world view of (#15), or null for any other tab. */
@@ -3674,6 +3686,7 @@ export class Engine {
   }
 
   invertMask() {
+    if (this.refuseInWorld()) return
     this.editMask('Invert mask', (m) => {
       for (let i = 0; i < m.length; i++) m[i] = 255 - m[i]
     })
@@ -3696,6 +3709,7 @@ export class Engine {
 
   /** Paint texture slot `layer` over the whole mask (soft mask edges blend). */
   fillMask(layer: number) {
+    if (this.refuseInWorld()) return
     const t = this.terrain
     const R = t.splatRes
     const m = t.mask
@@ -3736,6 +3750,7 @@ export class Engine {
    * the selected area, or over the paint mask (thinned by its value), as one undo step.
    */
   fillWithDoodadBrush(useMask: boolean) {
+    if (this.refuseInWorld()) return
     const brush = activeDoodadBrush()
     if (!brush || !brush.entries.length) {
       setStatus('Make a doodad brush with models first (Doodad tool › Edit brush).', 6000)
@@ -3828,6 +3843,7 @@ export class Engine {
 
   /** Selects the whole map and every object in it. */
   selectAll() {
+    if (this.refuseInWorld()) return
     const n = this.terrain.size
     editor.selection = { x0: 0, z0: 0, x1: n, z1: n }
     selectObjects(this.objects, objectsInRect(this.objects, this.terrain.cellSize, editor.selection).map((o) => o.id))
@@ -4109,6 +4125,7 @@ export class Engine {
 
   /** Start placing the clipboard: the copied models, or a rect of the copied area, follow the mouse until clicked. */
   startPaste() {
+    if (this.refuseInWorld()) return
     if (!(this.lastCopied === 'objects' ? this.objectClip : this.clip)) {
       setStatus('The clipboard is empty. Select models or an area with the Select tool and press Ctrl+C.')
       return
@@ -4713,6 +4730,7 @@ export class Engine {
    * so it runs a band of rows at a time between frames, with its progress in the status bar.
    */
   async bakeShadows(groundOnly = false) {
+    if (this.refuseInWorld()) return
     if (this.shadowBaking) {
       setStatus('Shadows are still baking.')
       return
@@ -5030,6 +5048,7 @@ export class Engine {
 
   /** Terrain › Clear Shadows: lights every baked shadow texel in the selected area or the whole map, as one undo step. */
   clearShadows() {
+    if (this.refuseInWorld()) return
     this.clearShadowRect(this.shadowRect(), editor.selection ? 'in the selected area' : 'over the map')
   }
 
@@ -5334,6 +5353,7 @@ export class Engine {
    * first of each. One undo step. Positions and turns are compared to a hundredth.
    */
   removeDuplicateModels() {
+    if (this.refuseInWorld()) return
     const seen = new Map<string, WorldObject>()
     const dupes: WorldObject[] = []
     for (const o of this.objects.objects.values()) {
@@ -5399,6 +5419,7 @@ export class Engine {
   }
 
   cleanUpTile(what: 'height' | 'textures' | 'setBase' | 'textureDuplicates' | 'models' | 'duplicateModels' | 'shadows') {
+    if (this.refuseInWorld()) return
     const t = this.terrain
     const tile = this.tileUnderCamera()
     if (!tile) {
@@ -6016,6 +6037,7 @@ export class Engine {
    * its look; it only gets its free slots back for other textures.
    */
   removeEmptyLayers() {
+    if (this.refuseInWorld()) return
     const t = this.terrain
     const side = t.paintChunksPerSide
     const scope = editor.selection ? this.selectedChunks() : Array.from({ length: side * side }, (_, c) => c)
@@ -6168,6 +6190,7 @@ export class Engine {
   }
 
   regenerateAutoPaint() {
+    if (this.refuseInWorld()) return
     const t = this.terrain
     const before = { w: t.weights.slice(), s: t.chunkSlots.slice() }
     t.autoPaint(editor.waterLevel, editor.waterEnabled)

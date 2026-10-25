@@ -112,6 +112,12 @@
 	// The Graphics › Quality preset all of whose values the prefs hold now, or null (#203).
 	const graphicsPreset = $derived(presetOf(prefs))
 
+	// A world view (#15) is looked at, not edited: its terrain is a hidden stand-in and its models are the
+	// stream's, so the actions on the map's own ground, models and tables are off in it (the Engine
+	// refuses them too, `refuseInWorld`). File › Edit Here opens the block around the camera for them.
+	const looking = $derived(!!editor.worldMap)
+	const editing = (items: Item[]): Item[] => (looking ? items.map((it) => (it.kind === 'action' ? { ...it, disabled: true } : it)) : items)
+
 	const radios = <T,>(options: Array<[string, T]>, get: () => T, set: (v: T) => void): Item[] =>
 		options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
 
@@ -138,16 +144,18 @@
 					.slice(0, 4)
 					.map((p) => ({ kind: 'action' as const, label: `Open Project ${p.name}`, disabled: !hasBackend() || ui.busy, run: () => switchProject(p) })),
 				{ kind: 'sep' },
-				{ kind: 'action', label: 'Save', disabled: ui.busy, ...cmd('save') },
-				{ kind: 'action', label: 'Save As…', disabled: ui.busy, ...cmd('saveAs') },
-				{ kind: 'action', label: 'Revert to Saved', disabled: !editor.filePath || ui.busy, run: withEngine(requestRevert) },
-				{ kind: 'action', label: 'Map Properties…', run: () => (ui.dialog = 'mapProps') },
-				{ kind: 'sep' },
-				{ kind: 'action', label: 'Check Map…', run: () => (ui.checkMap = true) },
-				// The open region into the game (#214): the client's tiles, the server's map data built from them, or both.
-				{ kind: 'action', label: 'Compile to Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'client')) },
-				{ kind: 'action', label: 'Compile to Server', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'server')) },
-				{ kind: 'action', label: 'Compile All', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'all')) },
+				...editing([
+					{ kind: 'action', label: 'Save', disabled: ui.busy, ...cmd('save') },
+					{ kind: 'action', label: 'Save As…', disabled: ui.busy, ...cmd('saveAs') },
+					{ kind: 'action', label: 'Revert to Saved', disabled: !editor.filePath || ui.busy, run: withEngine(requestRevert) },
+					{ kind: 'action', label: 'Map Properties…', run: () => (ui.dialog = 'mapProps') },
+					{ kind: 'sep' },
+					{ kind: 'action', label: 'Check Map…', run: () => (ui.checkMap = true) },
+					// The open region into the game (#214): the client's tiles, the server's map data built from them, or both.
+					{ kind: 'action', label: 'Compile to Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'client')) },
+					{ kind: 'action', label: 'Compile to Server', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'server')) },
+					{ kind: 'action', label: 'Compile All', disabled: !hasBackend() || ui.busy, run: withEngine((e) => compileRegion(e, 'all')) },
+				]),
 				...(editor.regionBlock
 					? [
 							{ kind: 'header' as const, label: 'Grow region (save first; the map stays square)' },
@@ -176,15 +184,17 @@
 				{ kind: 'check', label: 'History (go back to any step)', checked: ui.history, toggle: () => (ui.history = !ui.history) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Copy', disabled: !editor.selection && !editor.selectedIds.length, ...cmd('copy') },
-				{ kind: 'action', label: 'Paste', disabled: !ui.hasClip, ...cmd('paste') },
+				...editing([{ kind: 'action', label: 'Paste', disabled: !ui.hasClip, ...cmd('paste') }]),
 				{ kind: 'sep' },
-				{ kind: 'action', label: 'Select All', ...cmd('selectAll') },
+				...editing([{ kind: 'action', label: 'Select All', ...cmd('selectAll') }]),
 				{ kind: 'action', label: 'Deselect', disabled: !editor.selection && !editor.selectedIds.length, ...cmd('deselect') },
-				{ kind: 'action', label: 'Grow Selected Area by 1 Cell', disabled: !editor.selection, run: withEngine((e) => e.resizeSelection(1)) },
-				{ kind: 'action', label: 'Shrink Selected Area by 1 Cell', disabled: !editor.selection, run: withEngine((e) => e.resizeSelection(-1)) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: 'Cut Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(true)) },
-				{ kind: 'action', label: 'Fill Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(false)) },
+				...editing([
+					{ kind: 'action', label: 'Grow Selected Area by 1 Cell', disabled: !editor.selection, run: withEngine((e) => e.resizeSelection(1)) },
+					{ kind: 'action', label: 'Shrink Selected Area by 1 Cell', disabled: !editor.selection, run: withEngine((e) => e.resizeSelection(-1)) },
+					{ kind: 'sep' },
+					{ kind: 'action', label: 'Cut Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(true)) },
+					{ kind: 'action', label: 'Fill Hole in Selected Area', disabled: !editor.selection, run: withEngine((e) => e.setHoleInSelection(false)) },
+				]),
 			],
 		},
 		{
@@ -200,7 +210,7 @@
 				{ kind: 'action', label: 'Ungroup Selected Models', disabled: !editor.selectedIds.length, ...cmd('ungroup') },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Delete Selected Models', shortcut: keysOf('deleteSelected'), disabled: !editor.selectedIds.length, run: withEngine((e) => e.deleteSelected()) },
-				{ kind: 'action', label: 'Remove Duplicate Models', run: withEngine((e) => e.removeDuplicateModels()) },
+				...editing([{ kind: 'action', label: 'Remove Duplicate Models', run: withEngine((e) => e.removeDuplicateModels()) }]),
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Hide Selected Models', shortcut: keysOf('hideSelected'), disabled: !editor.selectedIds.length, run: withEngine((e) => e.toggleHideSelected()) },
 				{ kind: 'check', label: 'Show Hidden Models', checked: ui.showHiddenModels, toggle: () => (ui.showHiddenModels = !ui.showHiddenModels) },
@@ -212,7 +222,8 @@
 		},
 		{
 			name: 'Terrain',
-			items: [
+			items: editing([
+				...(looking ? [{ kind: 'header' as const, label: 'A world view: File › Edit Here to edit' }] : []),
 				{ kind: 'header', label: 'Clean up the tile under the camera' },
 				{ kind: 'action', label: 'Clear Height', run: withEngine((e) => e.cleanUpTile('height')) },
 				{ kind: 'action', label: 'Clear Textures', run: withEngine((e) => e.cleanUpTile('textures')) },
@@ -269,7 +280,7 @@
 				),
 				{ kind: 'sep' },
 				{ kind: 'check', label: 'Map Textures (quick palette)', checked: ui.texturePalette, toggle: () => (ui.texturePalette = !ui.texturePalette) },
-			],
+			]),
 		},
 		{
 			name: 'Tools',
@@ -286,8 +297,10 @@
 			name: 'World',
 			items: [
 				{ kind: 'action', label: 'Doodad Brushes…', run: () => (ui.brushEditor = true) },
-				{ kind: 'action', label: 'Ground Effects (Grass Tufts)…', run: () => (ui.dialog = 'effects') },
-				{ kind: 'action', label: 'Texture Looks (Scrolling, Overbright)…', run: () => (ui.dialog = 'looks') },
+				...editing([
+					{ kind: 'action', label: 'Ground Effects (Grass Tufts)…', run: () => (ui.dialog = 'effects') },
+					{ kind: 'action', label: 'Texture Looks (Scrolling, Overbright)…', run: () => (ui.dialog = 'looks') },
+				]),
 				{ kind: 'action', label: 'Zones…', disabled: !hasBackend(), run: () => (ui.dialog = 'zones') },
 				{ kind: 'action', label: 'World Map…', disabled: !hasBackend(), run: () => (ui.dialog = 'worldMap') },
 				{ kind: 'action', label: 'Portals and Area Triggers…', disabled: !hasBackend(), run: () => (ui.dialog = 'portals') },
@@ -298,19 +311,23 @@
 		{
 			name: 'Import/Export',
 			items: [
-				{ kind: 'action', label: 'Import Heightmap…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'heightmap') },
-				{ kind: 'action', label: 'Import Watermap…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'watermap') },
-				{ kind: 'action', label: 'Export Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportHeightmap(e)) },
-				{ kind: 'action', label: 'Export Normal Map…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportNormalMap(e)) },
-				{ kind: 'action', label: 'Export Alphamap of the Paint Texture…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportAlphamap(e)) },
-				{ kind: 'action', label: 'Import Alphamap into the Paint Texture…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importAlphamap(e)) },
-				{ kind: 'sep' },
-				{ kind: 'action', label: 'Import Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importObjectList(e)) },
-				{ kind: 'action', label: 'Export Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportObjectList(e)) },
-				{ kind: 'action', label: 'Export Port Coordinates…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportPortCoords(e)) },
+				...editing([
+					{ kind: 'action', label: 'Import Heightmap…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'heightmap') },
+					{ kind: 'action', label: 'Import Watermap…', disabled: !hasBackend() || ui.busy, run: () => (ui.dialog = 'watermap') },
+					{ kind: 'action', label: 'Export Heightmap…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportHeightmap(e)) },
+					{ kind: 'action', label: 'Export Normal Map…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportNormalMap(e)) },
+					{ kind: 'action', label: 'Export Alphamap of the Paint Texture…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportAlphamap(e)) },
+					{ kind: 'action', label: 'Import Alphamap into the Paint Texture…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importAlphamap(e)) },
+					{ kind: 'sep' },
+					{ kind: 'action', label: 'Import Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => importObjectList(e)) },
+					{ kind: 'action', label: 'Export Object List…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportObjectList(e)) },
+					{ kind: 'action', label: 'Export Port Coordinates…', disabled: !hasBackend() || ui.busy, run: withEngine((e) => exportPortCoords(e)) },
+				]),
 				{ kind: 'action', label: 'Copy Position as Teleport Command', ...cmd('teleport') },
-				{ kind: 'action', label: 'Save Minimap Image…', disabled: !hasBackend() || ui.busy, ...cmd('minimapImage') },
-				{ kind: 'action', label: 'Write Minimap Tiles to the Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => writeMinimapTiles(e)) },
+				...editing([
+					{ kind: 'action', label: 'Save Minimap Image…', disabled: !hasBackend() || ui.busy, ...cmd('minimapImage') },
+					{ kind: 'action', label: 'Write Minimap Tiles to the Client', disabled: !hasBackend() || ui.busy, run: withEngine((e) => writeMinimapTiles(e)) },
+				]),
 				{ kind: 'check', label: 'Minimap Tiles with All Models (trees too)', checked: prefs.minimapAllModels, toggle: () => (prefs.minimapAllModels = !prefs.minimapAllModels) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Import Doodad Brushes…', disabled: !hasBackend() || ui.busy, run: () => importDoodadBrushes() },

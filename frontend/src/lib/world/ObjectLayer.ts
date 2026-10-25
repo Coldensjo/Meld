@@ -117,6 +117,11 @@ const parentM = Array.from({ length: MAX_DEPTH + 1 }, () => new THREE.Matrix4())
 export class ObjectLayer {
 	readonly group = new THREE.Group()
 	readonly objects = new Map<number, WorldObject>()
+	/**
+	 * The layer is looked at, not edited: a world view's streamed models (#15). `selectObjects` selects
+	 * none of them, so nothing that acts on the selection (delete, cut, move, the Inspector) reaches one.
+	 */
+	lookOnly = false
 	/** Bumped on any change to placed objects (or their loaded models): what they are and where. */
 	version = 0
 	/**
