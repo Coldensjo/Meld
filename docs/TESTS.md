@@ -45,7 +45,9 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
 - `tests/terrainRaycast.test.ts` runs the terrain ray-march (`rayMarchGround`) on a flat stand-in ground with a hole: straight and slanted rays through the hole, a miss, `solid` (#528).
 - `tests/terrainStroke.test.ts` checks that a `TerrainStroke` keeps only the cells that changed (a whole-mask
   step that sets a corner holds that corner, `Command.bytes`) and that its undo and redo restore them, on a
-  fake terrain; `tests/blockSnapshot.test.ts` covers `BlockSnapshot.diff` and `GridPatch` underneath (#444).
+  fake terrain, and that every layer (heights, paint, mask, holes) round-trips exactly, `settleSlots` restores whole
+  chunks, a `touch*` without `reserve*` still records and warns, and `ShadowStroke` goes back to no shadows (#462);
+  `tests/blockSnapshot.test.ts` covers `BlockSnapshot.diff` and `GridPatch` underneath (#444).
 - The client and server tests (about 95 in `internal/adt`, `internal/wow` and `internal/vmangos`) find
   their folders through `internal/testclient` (#400): `testclient.DataDir(t)` is `WOW_DIR`, else
   `config.json`'s `wowPath`; `testclient.ServerDir(t)` is `VMANGOS_DIR`, else `vmangosPath`, and skips
