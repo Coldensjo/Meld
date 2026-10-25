@@ -136,12 +136,12 @@ func Open(path string) (*Archive, error) {
 	}
 	st, err := f.Stat()
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, err
 	}
 	a := &Archive{Path: path, f: f, fileSize: st.Size()}
 	if err := a.readHeader(); err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, fmt.Errorf("%s: %w", filepath.Base(path), err)
 	}
 	return a, nil

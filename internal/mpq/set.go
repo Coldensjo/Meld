@@ -138,6 +138,6 @@ func (s *Set) List() []string {
 
 func (s *Set) Close() {
 	for _, a := range s.archives {
-		a.Close()
+		_ = a.Close()
 	}
 }

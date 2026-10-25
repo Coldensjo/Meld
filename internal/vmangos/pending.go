@@ -124,7 +124,7 @@ func AddPending(dataDir string, files []mpq.File) error {
 			return err
 		}
 		if err := os.Rename(tmp, filepath.Join(dir, pendingName(f.Name))); err != nil {
-			os.Remove(tmp)
+			_ = os.Remove(tmp)
 			return err
 		}
 		loadPending()

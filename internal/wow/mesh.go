@@ -224,9 +224,10 @@ func (m *Mesh) Consolidate() {
 	for pass := 0; pass < 3; pass++ {
 		for _, k := range order {
 			p := 2
-			if k.blend == BlendOpaque {
+			switch k.blend {
+			case BlendOpaque:
 				p = 0
-			} else if k.blend == BlendAlphaKey {
+			case BlendAlphaKey:
 				p = 1
 			}
 			if p != pass {

@@ -92,7 +92,7 @@ func (a *App) startup(ctx context.Context) {
 	a.watchPending()
 	if a.cfg.WowPath != "" {
 		go func() {
-			a.wow.Open(a.cfg.WowPath)
+			_ = a.wow.Open(a.cfg.WowPath)
 			runtime.EventsEmit(a.ctx, "wow:status", a.wow.Status())
 		}()
 	}
@@ -308,7 +308,7 @@ func (a *App) startRecovery() {
 		return
 	}
 	a.rec = rec
-	rec.Touch()
+	_ = rec.Touch()
 	go func() {
 		t := time.NewTicker(recovery.Heartbeat)
 		defer t.Stop()
@@ -317,7 +317,7 @@ func (a *App) startRecovery() {
 			case <-a.ctx.Done():
 				return
 			case <-t.C:
-				rec.Touch()
+				_ = rec.Touch()
 			}
 		}
 	}()
@@ -354,7 +354,7 @@ func (a *App) SessionLog() (string, error) {
 // first (EndRecovery), so closing the window on unsaved maps still leaves them to recover.
 func (a *App) shutdown(ctx context.Context) {
 	if a.rec != nil {
-		a.rec.End()
+		_ = a.rec.End()
 	}
 }
 
@@ -441,7 +441,7 @@ func (a *App) SaveSceneMap(data mapfile.MapData) (string, error) {
 	if old, err := filepath.Glob(filepath.Join(dir, "scene-*.wmap")); err == nil && len(old) > sceneKeep {
 		sort.Strings(old)
 		for _, f := range old[:len(old)-sceneKeep] {
-			os.Remove(f)
+			_ = os.Remove(f)
 		}
 	}
 	return path, nil
@@ -2415,7 +2415,7 @@ func (a *App) gameSession() (game.Session, error) {
 		Log: func(msg string) {
 			runtime.LogInfo(a.ctx, msg)
 			if a.slog != nil {
-				a.slog.Append([]string{time.Now().Format("15:04:05") + " " + msg})
+				_ = a.slog.Append([]string{time.Now().Format("15:04:05") + " " + msg})
 			}
 		},
 		Stale: &a.stale,

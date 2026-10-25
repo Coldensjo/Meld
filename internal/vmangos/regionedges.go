@@ -143,9 +143,6 @@ type besideTile struct {
 	edges adt.Edges
 }
 
-// opposite is the side facing side.
-var opposite = map[string]string{"north": "south", "south": "north", "west": "east", "east": "west"}
-
 // ringSide is the line and inner samples of r on side.
 func ringSide(r *adt.Ring, side string) (line, in *[]float32) {
 	switch side {

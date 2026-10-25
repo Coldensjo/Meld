@@ -167,7 +167,7 @@ func ReadSpawns(serverRoot, dataDir, mapName string, x, y, size int) ([]WorldSpa
 	xHi, yHi := adt.ToServer(0, 0, x, y)
 	bounds := fmt.Sprintf("c.map = %d AND c.position_x BETWEEN %f AND %f AND c.position_y BETWEEN %f AND %f",
 		mapID, xLo, xHi, yLo, yHi)
-	gBounds := strings.Replace(bounds, "c.", "g.", -1)
+	gBounds := strings.ReplaceAll(bounds, "c.", "g.")
 
 	creatures := fmt.Sprintf(`SELECT c.guid, c.id, t.name, COALESCE(t.subname, ''), t.level_min, t.level_max, t.faction,
 		t.npc_flags, t.rank, t.type, c.position_x, c.position_y, c.position_z, c.orientation, c.spawntimesecsmin,

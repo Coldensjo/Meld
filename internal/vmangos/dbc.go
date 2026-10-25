@@ -89,7 +89,7 @@ func setRecords(dbc []byte, rows [][]uint32) ([]byte, error) {
 		if len(row) != t.fields {
 			return nil, fmt.Errorf("a row of %d fields for a table of %d", len(row), t.fields)
 		}
-		at := -1
+		var at int
 		if r, ok := t.row(row[0]); ok {
 			at = r * t.recSize
 		} else {

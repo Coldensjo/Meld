@@ -23,8 +23,6 @@ const (
 const (
 	// mcnkLiquidMask is the MCNK flags' liquid bits, which a chunk clears before it's given liquids.
 	mcnkLiquidMask = 0x3c
-	// liquidWater is the MCNK flag of a chunk with river or lake water.
-	liquidWater = 0x04
 	// cellNoLiquid is an MCLQ cell's flags where no liquid covers it.
 	cellNoLiquid = 0x0f
 	// cellFishable and cellFatigue are the cell flags noggit sets: fishing works there, and (deep

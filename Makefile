@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test test-full fuzz check notices notices-check bindings bindings-check format verify probe probe-smoke probe-perf docs clean
+.PHONY: dev build build-linux build-windows test test-full fuzz check lint notices notices-check bindings bindings-check format verify probe probe-smoke probe-perf docs clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -65,7 +65,13 @@ notices:
 notices-check:
 	cd frontend && bun scripts/notices.mjs --check
 
-check: bindings-check notices-check
+# golangci-lint with the committed .golangci.yml (errcheck, govet, ineffassign, staticcheck, unused). Skipped with a note when the tool is missing; install it as README says.
+lint:
+	@if ! command -v golangci-lint >/dev/null 2>&1; then echo 'skipping golangci-lint (not installed: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest)'; \
+	elif [ -f frontend/dist/index.html ]; then golangci-lint run ./internal/... .; \
+	else echo 'linting ./internal/... only (frontend/dist is missing; build the frontend first)'; golangci-lint run ./internal/...; fi
+
+check: bindings-check notices-check lint
 	@test -z "$$(gofmt -l internal *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal *.go; exit 1; }
 	go vet ./internal/...
 	@if [ -f frontend/dist/index.html ]; then go vet .; else echo 'skipping go vet . (frontend/dist is missing; build the frontend first)'; fi

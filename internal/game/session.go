@@ -342,7 +342,7 @@ func portOpen(port int) bool {
 	if err != nil {
 		return false
 	}
-	c.Close()
+	_ = c.Close()
 	return true
 }
 

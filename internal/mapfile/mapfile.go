@@ -518,8 +518,8 @@ func Save(path string, m *MapData) error {
 		return fmt.Errorf("save %s: %w", path, err)
 	}
 	fail := func(err error) error {
-		f.Close()
-		os.Remove(tmp)
+		_ = f.Close()
+		_ = os.Remove(tmp)
 		return fmt.Errorf("save %s: %w", path, err)
 	}
 	bw := bufio.NewWriterSize(f, 1<<20)
@@ -533,11 +533,11 @@ func Save(path string, m *MapData) error {
 		return fail(err)
 	}
 	if err := f.Close(); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("save %s: %w", path, err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("save %s: %w", path, err)
 	}
 	return nil

@@ -106,12 +106,12 @@ func installPatch(dataDir string, files []mpq.File) (string, error) {
 	// Written beside the target and renamed over it, so a failed write leaves the old patch.
 	tmp := target + ".tmp"
 	if err := writeArchive(tmp, append(mpq.Entries(files), keep...)); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return "", err
 	}
 	if old != nil {
 		// Windows doesn't rename over a file still open.
-		old.Close()
+		_ = old.Close()
 	}
 	// Meld's own reader lets go of the archives for the rename only, then forgets what it decoded
 	// from the files this write changed (#471).
@@ -141,7 +141,7 @@ func replaceKeepingPrev(tmp, target string, hadOld bool) error {
 	}
 	prev := target + PrevSuffix
 	if err := os.Rename(target, prev); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		if inUse(err) {
 			return lockedError(target)
 		}
@@ -197,15 +197,15 @@ func writeArchive(path string, files []mpq.Entry) error {
 	}
 	w := bufio.NewWriterSize(f, 1<<20)
 	if err := mpq.WriteTo(w, files); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := w.Flush(); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	return f.Close()
@@ -337,7 +337,7 @@ func backup(src, dst string) error {
 		err = cerr
 	}
 	if err != nil {
-		os.Remove(dst)
+		_ = os.Remove(dst)
 	}
 	return err
 }

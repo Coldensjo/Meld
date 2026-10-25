@@ -214,7 +214,7 @@ func writeReplacing(path string, b []byte) error {
 		return err
 	}
 	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return err
 	}
 	return nil

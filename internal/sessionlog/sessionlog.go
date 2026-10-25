@@ -44,7 +44,7 @@ func Open(dir string) (*Log, error) {
 	if err != nil {
 		return nil, err
 	}
-	f.Close()
+	_ = f.Close()
 	return &Log{Path: p}, nil
 }
 
@@ -56,7 +56,7 @@ func prune(dir string, keep int) {
 	}
 	sort.Strings(names)
 	for _, n := range names[:len(names)-keep] {
-		os.Remove(n)
+		_ = os.Remove(n)
 	}
 }
 

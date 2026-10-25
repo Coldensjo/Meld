@@ -55,7 +55,7 @@ func writeSynced(path string, data []byte) error {
 		err = cerr
 	}
 	if err != nil {
-		os.Remove(path)
+		_ = os.Remove(path)
 	}
 	return err
 }
@@ -63,7 +63,7 @@ func writeSynced(path string, data []byte) error {
 // replaceFile renames tmp over target. A target that is locked is reported as such, and tmp is removed.
 func replaceFile(tmp, target string) error {
 	if err := os.Rename(tmp, target); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		if inUse(err) {
 			return lockedError(target)
 		}

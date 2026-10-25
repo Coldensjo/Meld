@@ -15,6 +15,8 @@ To build Meld you need:
 - [Bun](https://bun.sh), which runs the frontend tooling.
 - The [Wails v2 CLI](https://wails.io/docs/gettingstarted/installation)
   (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`); `wails doctor` checks the rest.
+- [golangci-lint](https://golangci-lint.run) v2 for `make check`
+  (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`); without it `make check` skips the lint.
 - `make` ([GNU Make](https://www.gnu.org/software/make/); the makefile also lists the plain
   commands). On Windows the recipes run through the `sh.exe` of [Git for Windows](https://gitforwindows.org).
 - Linux: `gtk3` and `webkit2gtk-4.1` from your distribution. Windows: the
@@ -30,7 +32,7 @@ make dev             # run with hot reload (also served at http://localhost:3411
 make build-windows   # build/bin/Meld.exe
 make build-linux     # build/bin/Meld
 make test            # Go and frontend unit tests
-make check           # go vet + svelte-check/tsc
+make check           # go vet + golangci-lint + svelte-check/tsc
 ```
 
 On first start, pick your WoW 1.12 client folder in Preferences.

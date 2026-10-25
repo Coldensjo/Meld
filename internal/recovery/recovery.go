@@ -248,7 +248,7 @@ func (s *Store) dropDeadSessions(infos []Info, now time.Time) {
 			continue
 		}
 		if st, err := os.Stat(n); err == nil && now.Sub(st.ModTime()) >= Stale {
-			os.Remove(n)
+			_ = os.Remove(n)
 		}
 	}
 }
