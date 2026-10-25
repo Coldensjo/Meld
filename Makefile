@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test test-full fuzz check bindings bindings-check format verify probe probe-smoke probe-perf docs clean
+.PHONY: dev build build-linux build-windows test test-full fuzz check notices notices-check bindings bindings-check format verify probe probe-smoke probe-perf docs clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -57,7 +57,15 @@ format:
 verify: check test
 	@if [ "$(OS)" = Windows_NT ]; then $(MAKE) build-windows; else $(MAKE) build-linux; fi
 
-check: bindings-check
+# Rewrites the generated part of THIRD_PARTY_NOTICES.md: the licence and text of every library the app bundles (frontend/scripts/notices.mjs).
+notices:
+	cd frontend && bun scripts/notices.mjs
+
+# Fails on a shipped library outside the permissive licence allow list, or when THIRD_PARTY_NOTICES.md is out of date: run make notices.
+notices-check:
+	cd frontend && bun scripts/notices.mjs --check
+
+check: bindings-check notices-check
 	@test -z "$$(gofmt -l internal *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal *.go; exit 1; }
 	go vet ./internal/...
 	@if [ -f frontend/dist/index.html ]; then go vet .; else echo 'skipping go vet . (frontend/dist is missing; build the frontend first)'; fi
