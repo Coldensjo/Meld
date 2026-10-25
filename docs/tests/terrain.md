@@ -358,6 +358,14 @@ set `editor.tool = 'water'`, `editor.water.allLayers = false`, `editor.water.lay
 `__engine.frame()` and count the cells in `__engine.doc.liquidRenderer.group`'s meshes
 (`index.count / 6`): 64 rather than 128, and the mesh's `kind` attribute is the second layer's.
 
+The region save's side of the layers: `go test ./internal/vmangos/ -run TestRegionLiquidsRoundTrip`
+(#404, no client needed) edits a made-up 2x2 block's liquids (a lake turned ocean at sloping heights
+and varied depths with magma under it as a second layer, a lake removed, new slime, a magma chunk
+handed back as read), saves it with `BuildRegion` and reads the MCLQ back with `adt.ParseLiquids`:
+types, cells, all 81 heights and the depths must match, and no other chunk gains a liquid. It also
+checks a partial save (`PartialLiquids`). Magma and slime read their depths as 255 (the file holds
+texture coordinates there), so don't compare theirs.
+
 ## Baked shadows: bake, paint, save and export (B-057, #16)
 
 Checks: a region's client shadows become the map's, the Map data tool's Shadow mode paints them,

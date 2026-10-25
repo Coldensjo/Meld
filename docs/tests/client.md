@@ -215,6 +215,13 @@ editor did not paint, not the editor's 32x32 weights repeated over 2x2 blocks.
   again, so update both.
 - `WOW_DIR=... go test ./internal/vmangos/ -run TestRegionUnpaintedChunksKeepClientAlpha`: every chunk
   of Azeroth 32_48 sent back with the client's weights builds the same bytes as a build with no paint.
+- `go test ./internal/vmangos/ -run TestRegionPaintRoundTrip` (#404, no client needed): chunks of a
+  made-up 2x2 block painted with three and four textures at known weights, saved with `BuildRegion`
+  and read back with `adt.ParseTextures` and `adt.ClientWeights`. The region save writes 4-bit alpha,
+  so weights come back within 1/255 only where each layer's blend alpha is a multiple of 17
+  (`gridWeights`); off that grid (`scatterWeights`) the test checks each layer's stored alpha within
+  half a 4-bit step (8.5, plus rounding) of the weights' blend instead. Unpainted chunks must read as
+  a save with no paint does, not as the archive's tiles (a save flips chunk flag 0x8000 on some chunks, which changes how their alpha's last row and column read).
 - Trap: the comparison is against the tile without Meld's patch, so a tile a compile before #526
   already wrote at half resolution reads back degraded and stays so; test on a tile not in the patch.
 
