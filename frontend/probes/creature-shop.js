@@ -1,5 +1,5 @@
 // The creature editor's Shop tab (#145, #577): Brother Danil (152) lists his npc_vendor rows, a row moved down or removed is an unsaved edit that enables Save shop and counts in the editor's unsaved changes, Revert puts the rows back as read, and Discard them closes the editor with the shop unchanged when it opens again; nothing is written to the database.
-// touches: frontend/src/components/CreatureEditor.svelte, frontend/src/components/ShopTab.svelte, frontend/src/lib/ui/rowList.svelte.ts, internal/vmangos/vendor.go
+// touches: frontend/src/components/CreatureEditor.svelte, frontend/src/components/ShopTab.svelte, frontend/src/lib/ui/rowList.svelte.ts, internal/vmangos/vendor.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

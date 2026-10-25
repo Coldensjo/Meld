@@ -766,6 +766,7 @@ the same scene, the report before and after.
 - Portals and area triggers (#141, #18; Teleport to destination #306, spawn teleports #308, probe `teleport-trigger`; layout #718, probe `portals-fit`)
 - Flight paths (#180, probe `flight-paths`)
 - Creatures workspace and the new-creature guide (#132)
+- The database editors' shared frame (#576, unit `templateEditor.test.ts`)
 - Quest editor (#259)
 - Game object quests (#293)
 - Name colours by reaction (#134)

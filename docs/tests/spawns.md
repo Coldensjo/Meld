@@ -396,6 +396,21 @@ Stormwind Alliance-only), `TestParseClassLevelStats`.
 - Trap: held items go through `EquipmentFor`, which may add a `creature_equip_template` row; leave
   the hands empty in a check, or delete that row too.
 
+## The database editors' shared frame (#576)
+
+Checks: the creature, game object, quest, item and spell editors open, read, leave, close, discard
+and save through one `TemplateEditor` (`lib/ui/templateEditor.svelte.ts`) inside `EditorFrame.svelte`.
+Unit: `cd frontend && bun test tests/templateEditor.test.ts` (a read overtaken by another opening or
+a close is dropped, leave and Discard, reopen after an import, a refused save's column). Live: the
+editors' probes run the flow end to end: `bun run probe quest-editor item-editor spell-editor
+creature-shop creature-new object-find object-quests` (Esc from a field, the Discard bar, Revert, Esc
+closing only the quest editor over the creature editor).
+- Trap: the frame's `:global` rules reach only the bars and `.body` that are the frame's direct
+  children, and `nav.tabs`; a class an editor's body shares with a component inside it (`.dim`,
+  `h3`, `.scroll`) stays in the editor's own styles, or the frame's rule would win inside that component.
+- Trap: the editors' `values` is a `$derived` alias of `ed.values`: assigning to it would not reach
+  the editor (svelte-check refuses it, since the alias is a `const`).
+
 ## Quest editor (#259)
 
 Checks: Tools › Quests… finds and opens a quest, names every number that stands for something, and

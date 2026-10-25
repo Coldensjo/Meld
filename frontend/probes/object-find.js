@@ -1,5 +1,5 @@
 // Tools › Game Objects… with no spawn selected (#351): the editor opens on Find object, the search finds the Small Thorium Vein by name and the Copper Vein by entry (1731), a click opens it on its Object tab with the template's columns, Find object stays as a tab to open another, and New object still shows its form. Nothing is written to the database.
-// touches: frontend/src/components/ObjectEditor.svelte
+// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { editor, ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

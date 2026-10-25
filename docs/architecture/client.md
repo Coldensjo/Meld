@@ -255,6 +255,22 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   `'global category'` and `'spell icon'` (read once with the cast times through `App.SpellTables`,
   `refNames.spellTables`, which the editor drops after a Save), `'spell visual'` (named by the spells
   using it, found by taking another spell's) and `'lock type'` (`ObjectTables`' lock types).
+- **The editors' shared frame** (#576): the creature, game object, quest, item and spell editors
+  each keep their template row in a `TemplateEditor` (`lib/ui/templateEditor.svelte.ts`, Bun-tested
+  in `tests/templateEditor.test.ts`): `record`, `values` and `saved` with `changes` and `unsaved`
+  (the values, or the editor's own `dirty()`: tabs, a picked icon), `follow` (opens on the `ui`
+  slot, reading the row unless the target's `id` is the one open; `onopen` resets the editor's own
+  fields, `before` says what was open), `load` (a read overtaken by another opening or a close is
+  dropped), `leave(go)` (runs `go` now or after Discard them), `close`, `discard` (`onrevert`, then
+  `ondiscard` for tabs with their own Save), `reopen` (an import rewrote the open row) and `save`
+  (the Saving bar; a refused value's column, `refusedColumn`, goes to the editor to show its tab).
+  `components/EditorFrame.svelte` draws the frame: header (title and actions snippets, then Close),
+  the editor's own bars, the Discard bar, error and note, and Esc (a field first, then the editor's
+  `back()` steps, the Discard bar, then close; `blocked` while the quest editor or a right-click menu
+  is over it). Its `:global` rules style the editors' `.bar`s and `.body` (direct children only)
+  and every `nav.tabs`; the rest of each editor's layout stays in its own file. The editors read
+  the row through `$derived` aliases (`const values = $derived(ed.values)`): mutate `values[col]`,
+  but replace it through `ed.values`, `ed.markSaved()` or `ed.revert()`.
 - **Row-list tabs** (`lib/ui/rowList.svelte.ts`, #577): the Spells, Shop, Quests, Messages (its
   options), Contents and Givers tabs keep their rows in a `RowList`: the rows, a key of the fields
   that count (dirty when it differs from the key last read or saved), `load` (a read overtaken by a

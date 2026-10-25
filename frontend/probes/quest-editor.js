@@ -1,5 +1,5 @@
 // The quest editor (#259): Tools › Quests… finds Wolves Across the Border (33) and names what its numbers stand for (its zone, the wolf meat it asks for, its reward choices, its faction, the quest before it) and who gives it; a level past 255 and an item the database lacks are unsaved edits (Go's refusals are tests, #419; Save is never pressed), and Revert drops the edits; Edit in Eagan Peltskinner's Quests tab opens the quest over the creature editor, and Esc closes only the quest editor.
-// touches: frontend/src/components/QuestEditor.svelte, frontend/src/lib/world/questFields.ts, internal/vmangos/quests.go
+// touches: frontend/src/components/QuestEditor.svelte, frontend/src/lib/world/questFields.ts, internal/vmangos/quests.go, frontend/src/components/EditorFrame.svelte, frontend/src/lib/ui/templateEditor.svelte.ts
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
