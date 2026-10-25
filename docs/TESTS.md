@@ -441,7 +441,8 @@ the same scene, the report before and after.
   185 geometries, 688 textures, 305 MB heap; the most triangles: HumanMale (54k), Wolf (44k),
   nsabbey.wmo (35k), stormwind.wmo (31k). On 2026-10-18 after #325 (a batch joins the near shadow
   cascade only with a drawn instance in its box): 1287 draw calls, 679,161 triangles (2026 and 853,913
-  before it), 173 geometries, 722 textures, 314 MB heap. Update this when a commit moves it on purpose.
+  before it), 173 geometries, 722 textures, 314 MB heap. This table is history; the guard's numbers are in `frontend/probes/bench-baseline.json`.
+  **The guard** (#429): `bun run probe bench` fails when draw calls, triangles, geometries or textures drift more than 10 % from `frontend/probes/bench-baseline.json` (the runner hands it to the page as `window.__benchBaseline`; the failing line gives both numbers). On 2026-10-25 it holds 1159 calls, 597,707 triangles, 175 geometries and 727 textures; calls vary by a few with late spawns and triangles by under 0.1 % (#350). Milliseconds and heap never fail it (SwiftShader, #226, #337). A commit that moves a count on purpose edits the file and gives the reason in its message and the before/after in the issue's done comment. The numbers hold only for the probe page (default prefs, `P.BENCH` with Follow the Ground on).
 - **Benchmark maps** (#322): generated maps that each stress one system, for performance work the
   Northshire scene can't show (how a cost grows with how much there is of something).
   `lib/bench/benchMaps.ts` builds them (`buildBenchMap(engine, kind, count?, seed?)`, `BENCH_MAPS` has
