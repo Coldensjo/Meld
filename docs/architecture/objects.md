@@ -18,7 +18,8 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     `cull` finds the rows in view (`packed`, through `cullSpheres`; `repack` forces a change after the
     rows were rewritten), `pack` writes them to the front of a mesh with the item each instance draws
     in its `ids` (the mesh's `userData.ids`, which `hitId` reads), and `patch` writes moved rows in
-    place. `instancedMesh` makes the meshes (skinned with a skeleton, `cullForShadows`, `watchUploads`).
+    place (both layers: ObjectLayer's `movedIdx`, SpawnLayer's `moved` from `refresh`, #697; `repack`
+    is then only for a rebuild). `instancedMesh` makes the meshes (skinned with a skeleton, `cullForShadows`, `watchUploads`).
     What stays in the layers is what they batch: ObjectLayer's object tree, LOD split and WMO
     liquid and group culling; SpawnLayer's grouping by kind and marker. A fix to culling, packing,
     uploads or picking of instances goes there, once.

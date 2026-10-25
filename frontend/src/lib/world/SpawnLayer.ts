@@ -16,6 +16,8 @@ interface SpawnBatch {
 	mesh: THREE.InstancedMesh
 	/** The spawn drawn by each instance, by instance index (the mesh's `userData.ids`, for picking). */
 	ids: vmangos.WorldSpawn[]
+	/** Rows rewritten since the last cull (`refresh`), written in place when the packing stays the same (#697). */
+	moved: number[]
 	kind: SpawnKind
 	/** The spawn type every spawn of the batch has, or 'cone' and 'invisible' for the markers. */
 	type: string
@@ -277,7 +279,8 @@ export class SpawnLayer {
 			if (b.rows.cull(view)) {
 				b.rows.pack(b.mesh, b.ids)
 				b.mesh.visible = this.shown[b.kind] && b.mesh.count > 0
-			}
+			} else if (b.moved.length) b.rows.patch(b.mesh, b.moved)
+			b.moved.length = 0
 			if (b.mesh.visible && b.ready) this.drawn.add(b.type)
 		}
 	}
@@ -339,7 +342,8 @@ export class SpawnLayer {
 			return
 		}
 		at.batch.rows.setRow(at.i, spawnMatrix(s, at.batch.ready, refreshM), at.batch.mesh.geometry)
-		at.batch.rows.repack = true
+		// The next cull writes the row in place, or packs it with the rest if the spawns in view changed.
+		at.batch.moved.push(at.i)
 		if (this.moveLog.length >= 4096) {
 			this.moveBase += this.moveLog.length
 			this.moveLog.length = 0
@@ -517,7 +521,7 @@ export class SpawnLayer {
 			const rows = new InstanceBatch<vmangos.WorldSpawn>()
 			rows.items = b.items
 			rows.reserve(b.items.length)
-			const batch: SpawnBatch = { rows, mesh, ids, kind: b.kind, type: b.type, ready }
+			const batch: SpawnBatch = { rows, mesh, ids, moved: [], kind: b.kind, type: b.type, ready }
 			b.items.forEach((s, i) => {
 				rows.setRow(i, spawnMatrix(s, ready, m), geometry)
 				this.where.set(s, { batch, i, type: b.types[i] })

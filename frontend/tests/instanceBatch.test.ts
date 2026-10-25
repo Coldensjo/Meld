@@ -11,7 +11,7 @@ import type { CullView } from '../src/lib/world/instanceCull.ts'
 
 const { InstanceBatch, instancedMesh, RANGES_MAX } = await import('../src/lib/world/instanceBatch.ts')
 const { firstPick } = await import('../src/lib/world/instanceHit.ts')
-const { SpawnLayer } = await import('../src/lib/world/SpawnLayer.ts')
+const { SpawnLayer, spawnMatrix } = await import('../src/lib/world/SpawnLayer.ts')
 
 /** A camera at the origin looking down -z with a 90 degree view, and the view it makes. */
 function view(): CullView {
@@ -145,5 +145,34 @@ test('a spawn is picked through its packed instance, and a moved one where it we
 	const drawn: vmangos.WorldSpawn[] = []
 	layer.forEachDrawn((s) => drawn.push(s))
 	assert.deepEqual(drawn.map((s) => s.guid).sort(), [1, 2])
+	layer.dispose()
+})
+
+test('a moved spawn is written in place with a range of its own row, not its whole batch repacked (#697)', () => {
+	const layer = new SpawnLayer()
+	const spawns = Array.from({ length: 20 }, (_, i) => spawn(i + 1, i * 0.5 - 5, -20))
+	layer.set(spawns)
+	layer.cull(view())
+	const b = (layer as unknown as { batches: { mesh: THREE.InstancedMesh; ids: vmangos.WorldSpawn[] }[] }).batches[0]
+	const attr = b.mesh.instanceMatrix
+	assert.equal(b.mesh.count, 20)
+	// What three does once it has drawn the buffer.
+	attr.clearUpdateRanges()
+	attr.onUploadCallback()
+	const before = Float32Array.from(attr.array)
+	const s = spawns[7]
+	const k = b.ids.indexOf(s)
+	s.x += 0.2
+	layer.refresh(s)
+	layer.cull(view())
+	assert.deepEqual(attr.updateRanges, [{ start: k * 16, count: 16 }])
+	const want = spawnMatrix(s, false, new THREE.Matrix4()).toArray()
+	for (let j = 0; j < 16; j++) assert.ok(Math.abs(attr.array[k * 16 + j] - want[j]) < 1e-4, `row value ${j}`)
+	for (let i = 0; i < 20 * 16; i++) if (i < k * 16 || i >= k * 16 + 16) assert.equal(attr.array[i], before[i])
+	// Nothing moved: the next cull writes nothing.
+	attr.clearUpdateRanges()
+	const v = attr.version
+	layer.cull(view())
+	assert.equal(attr.version, v)
 	layer.dispose()
 })
