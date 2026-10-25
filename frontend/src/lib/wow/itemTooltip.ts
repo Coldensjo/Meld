@@ -11,6 +11,9 @@
 /** Item quality colours, as the game draws item names. */
 export const QUALITY_COLORS = ['#9d9d9d', '#ffffff', '#1eff00', '#0070dd', '#a335ee', '#ff8000', '#e6cc80']
 
+/** The same qualities for names on the page rather than in the tooltip: theme tokens (--q0 to --q6 in app.css), so white and grey stay readable on the light theme (#708). */
+export const QUALITY_VARS = QUALITY_COLORS.map((_, i) => `var(--q${i})`)
+
 /** One line of a tooltip: text on the left, optional text on the right, and how it is drawn. */
 export interface TooltipLine {
 	left: string

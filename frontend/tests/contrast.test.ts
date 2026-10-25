@@ -45,6 +45,16 @@ for (const [name, selector] of themes) {
 			}
 		}
 	})
+	// The dark theme keeps the game's own colours (the blue and purple are below 4.5:1 there, as in the game).
+	test(`${name} theme: item quality names reach 4.5:1 on the panels they sit on (#708)`, { skip: name === 'dark' }, () => {
+		const t = tokens(selector)
+		for (let q = 0; q <= 6; q++) {
+			for (const bg of ['bg', 'panel', 'panel-2']) {
+				const r = ratio(t[`q${q}`], t[bg])
+				assert.ok(r >= 4.5, `${name} --q${q} on --${bg} is ${r.toFixed(2)}`)
+			}
+		}
+	})
 	test(`${name} theme: accent-ink on the accent fill reaches 4.5:1`, () => {
 		const t = tokens(selector)
 		assert.ok(ratio(t['accent-ink'] ?? '#ffffff', t.accent) >= 4.5)

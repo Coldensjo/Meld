@@ -3,7 +3,7 @@
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ownListIds, type CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
-	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
+	import { QUALITY_VARS } from '../lib/wow/itemTooltip'
 	import {
 		ITEM_TABLE_KINDS,
 		NUMBER_ONLY_KINDS,
@@ -286,7 +286,7 @@
 					<span>{special}</span>
 				{:else if target && shown && shown.name}
 					{#if target.kind === 'item'}<ItemIcon displayId={shown.displayId ?? 0} />{:else if target.kind === 'spell' || target.kind === 'spell icon'}<SpellIcon icon={shown.icon ?? ''} />{/if}
-					<span style:color={target.kind === 'item' ? (QUALITY_COLORS[shown.quality ?? 1] ?? QUALITY_COLORS[1]) : undefined}>{shown.name}</span>
+					<span style:color={target.kind === 'item' ? (QUALITY_VARS[shown.quality ?? 1] ?? QUALITY_VARS[1]) : undefined}>{shown.name}</span>
 					{#if kinds[1]}<span class="dim">({SIDE_NAMES[target.kind]})</span>{/if}
 					{#if isOwn(target.id)}<span class="dim own">(this creature's own)</span>{/if}
 				{:else if target && shown}
@@ -332,7 +332,7 @@
 						<li>
 							<button onclick={() => pick(h)}>
 								{#if h.kind === 'item'}<ItemIcon displayId={h.displayId ?? 0} />{:else if h.kind === 'spell' || h.kind === 'spell icon'}<SpellIcon icon={h.icon ?? ''} />{/if}
-								<span class="hit" style:color={h.kind === 'item' ? (QUALITY_COLORS[h.quality ?? 1] ?? QUALITY_COLORS[1]) : undefined}>{h.name}</span>
+								<span class="hit" style:color={h.kind === 'item' ? (QUALITY_VARS[h.quality ?? 1] ?? QUALITY_VARS[1]) : undefined}>{h.name}</span>
 								<span class="dim">{h.sub}{isOwn(h.id) ? " · this creature's own" : ''}</span>
 							</button>
 						</li>

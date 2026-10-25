@@ -448,6 +448,8 @@ Checks: keyboard focus, roles and contrast, the audit's method (its findings are
   both themes; small UI text (10 to 12 px) needs 4.5:1, focus rings and borders 3:1.
   `frontend/tests/contrast.test.ts` asserts it for `--text`, `--text-dim`, `--accent-text` and
   `--danger-text` on all four panels; text uses those tokens, `--accent` and `--danger` stay for fills.
+  Item names on the page use `--q0` to `--q6` (`QUALITY_VARS`, #708), darkened on the light theme and
+  asserted there on bg, panel and panel-2; the tooltip keeps `QUALITY_COLORS`, the game's own.
 - Trap: `el.focus()` from a script doesn't match `:focus-visible` in Chromium, so a focus ring checked
   that way reads `outline-style: none`; press Tab in a real page, or check the CSS rule itself.
 - Focus ring and reduced motion (#374, probe `focus-motion`): checks `app.css` holds the `:root[data-kbd-nav] :focus-visible` ring

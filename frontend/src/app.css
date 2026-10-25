@@ -28,6 +28,14 @@
 	--warn: #ffd23f;
 	--bad: #ff9a9a;
 	/* The 3D previews stay dark in both themes. */
+	/* Item quality names on the page (#708): the game's colours; the light theme darkens them (tests/contrast.test.ts). */
+	--q0: #9d9d9d;
+	--q1: #ffffff;
+	--q2: #1eff00;
+	--q3: #0070dd;
+	--q4: #a335ee;
+	--q5: #ff8000;
+	--q6: #e6cc80;
 	--preview-bg: #1a1d24;
 	--preview-glow: #5a6373;
 	--preview-edge: #2b3038;
@@ -58,6 +66,13 @@
 	--ok: #0a4f16;
 	--warn: #5c4100;
 	--bad: #8a0f18;
+	--q0: #555555;
+	--q1: #1d1d1d;
+	--q2: #0b5e00;
+	--q3: #00509f;
+	--q4: #7a1fc4;
+	--q5: #8a3a00;
+	--q6: #665000;
 	--preview-bg: #1a1d24;
 	--preview-glow: #5a6373;
 	--preview-edge: #2b3038;

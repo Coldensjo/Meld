@@ -6,7 +6,7 @@
 	import { engineRef } from '../lib/state/engineRef'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import { objectTypeName } from '../lib/world/spawnInfo'
-	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
+	import { QUALITY_VARS } from '../lib/wow/itemTooltip'
 	import ItemIcon from './ItemIcon.svelte'
 	import ItemTooltip from './ItemTooltip.svelte'
 
@@ -38,7 +38,7 @@
 	}
 	let { entry, name, type, loot, consumed, restock, spawn, onmakechest, onsetloot, onset, dirty = $bindable(false) }: Props = $props()
 
-	const QUALITY = QUALITY_COLORS
+	const QUALITY = QUALITY_VARS
 	const container = $derived(type === 3 || type === 25)
 
 	/** The loot list the rows are edited for, its rows, and the objects and spawns that hold it too. */

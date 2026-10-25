@@ -3,7 +3,7 @@
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus } from '../lib/state/editor.svelte'
 	import { RowList, moveRow, removeRow } from '../lib/ui/rowList.svelte'
-	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
+	import { QUALITY_VARS } from '../lib/wow/itemTooltip'
 	import ItemIcon from './ItemIcon.svelte'
 	import ItemTooltip from './ItemTooltip.svelte'
 
@@ -13,7 +13,7 @@
 	/** npc_flags' vendor bit: without it the server opens no shop. */
 	const VENDOR_FLAG = 0x4
 	/** Item quality colours, as the game draws item names. */
-	const QUALITY = QUALITY_COLORS
+	const QUALITY = QUALITY_VARS
 
 	// The item under the pointer, for its tooltip (#202).
 	let hover = $state<{ entry: number; displayId: number; x: number; y: number } | null>(null)
