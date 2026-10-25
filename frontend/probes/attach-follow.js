@@ -12,9 +12,9 @@ await P.frames(1)
 // The drawn instance's position of an object, from its batch.
 const drawn = (o) => {
 	const b = L.batches.get(o.type)
-	const i = b.all.indexOf(o.id)
+	const i = b.rows.items.indexOf(o.id)
 	if (i < 0) return null
-	const m = b.matrices
+	const m = b.rows.matrices
 	return [m[i * 16 + 12], m[i * 16 + 13], m[i * 16 + 14]].map((v) => Math.round(v * 100) / 100)
 }
 const out = {}
@@ -49,7 +49,7 @@ out.reattached = { B: drawn(B), C: drawn(C) }
 // A type change keeps the attachment.
 L.setType(B.id, 'helper:cube:16')
 await P.frames(1)
-out.retyped = { B: drawn(B), inOld: L.batches.get('helper:cube:1').all.includes(B.id), C: drawn(C) }
+out.retyped = { B: drawn(B), inOld: L.batches.get('helper:cube:1').rows.items.includes(B.id), C: drawn(C) }
 // A sculpt stamp under A re-snaps the whole tree.
 const h0 = drawn(C)[1]
 for (let i = 0; i < e.terrain.heights.length; i++) e.terrain.heights[i] += 3

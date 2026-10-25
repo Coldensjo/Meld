@@ -614,6 +614,7 @@ the same scene, the report before and after.
 - A WMO's liquids: Blackrock Depths' lava (#287)
 - A camera over a building is in none of its rooms (#300)
 - Camera collision keeps the flying camera off a WMO's walls (#305)
+- The instance batch: culling, packing and picking of placed models and spawns (#517)
 
 ### Terrain, water and map data (`docs/tests/terrain.md`)
 

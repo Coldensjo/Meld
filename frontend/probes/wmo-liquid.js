@@ -13,7 +13,7 @@ const b = e.objects.batches.get(key())
 const g = b.liquid.geometry
 // A lava vertex in the world, through the dungeon's placement.
 const pos = g.attributes.position.array
-const m = b.matrices
+const m = b.rows.matrices
 const idx = g.index.array
 const vi = idx[Math.floor(idx.length / 6) * 3]
 const x = pos[vi * 3]

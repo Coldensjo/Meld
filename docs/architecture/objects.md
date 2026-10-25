@@ -13,8 +13,17 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
 - **Objects** (`lib/world/ObjectLayer.ts`):
   - One `InstancedMesh` per model type, so draw calls scale with the number of types, not
     instances.
-  - A mesh with nothing packed (`count` 0) is hidden (`pack`, and `SpawnLayer.cull` with the spawn
-    kinds shown): three would still set up each of its groups in every pass, since `cullForShadows`
+  - The instance batch both this layer and `SpawnLayer` draw through is `world/instanceBatch.ts`
+    (#517): `InstanceBatch` holds a batch's rows (`items`, `matrices`, `spheres`; `setRow` writes one),
+    `cull` finds the rows in view (`packed`, through `cullSpheres`; `repack` forces a change after the
+    rows were rewritten), `pack` writes them to the front of a mesh with the item each instance draws
+    in its `ids` (the mesh's `userData.ids`, which `hitId` reads), and `patch` writes moved rows in
+    place. `instancedMesh` makes the meshes (skinned with a skeleton, `cullForShadows`, `watchUploads`).
+    What stays in the layers is what they batch: ObjectLayer's object tree, LOD split and WMO
+    liquid and group culling; SpawnLayer's grouping by kind and marker. A fix to culling, packing,
+    uploads or picking of instances goes there, once.
+  - A mesh with nothing packed (`count` 0) is hidden (`InstanceBatch.pack`; `SpawnLayer.cull` also
+    hides the spawn kinds not shown): three would still set up each of its groups in every pass, since `cullForShadows`
     passes every frustum but a point light's and the near cascade's (#323).
   - Our own cull packs what any frustum needs, so three culls a batch mesh only per shadow pass
     (`world/shadowReach.ts`, `cullForShadows`): a point light's cube face draws it when one of its
@@ -95,7 +104,7 @@ Attachments, the object layer (instancing, picking, LOD, WMO culling and rooms),
     it against a scan.
   - A move is not a rebuild (#510): `markTree` (a touch, a re-snap) only notes the ids in their batch's
     `moved`, unless the batch is dirty anyway, and `update` recomputes those rows alone, found through
-    `index` (each id's place in `all`). `cull` then writes them in place (`patch`) into the meshes that
+    `index` (each id's place in `rows.items`). `cull` then writes them in place (`InstanceBatch.patch`) into the meshes that
     draw them, when the packing is otherwise the same, uploading only their rows (a range each, or the
     whole buffer past `RANGES_MAX` rows or while a `pack`'s whole upload is still pending, which a
     range would cut short: `wholePending`, cleared by the buffer's `onUpload`), and grows the mesh's

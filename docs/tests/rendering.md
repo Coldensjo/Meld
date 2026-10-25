@@ -615,3 +615,17 @@ faces, however far it moves in a frame, and slides it along them; with it off th
   off. Then (#313) it walks 6 yd at the room's south wall from 3 yd back: it stops 0.89 yd off it, in
   room 49 (`atWall`); on the old code it ends 2.5 yd through it, in 111 SI:7. With the walls the street
   walk stays in the rooms (80 samples, 47 before). Trap: starting the walk 6 yd up lands on the top of a wall by the street, a walking face too.
+
+## The instance batch: culling, packing and picking of placed models and spawns (#517)
+
+- `bun test tests/instanceBatch.test.ts`: `world/instanceBatch.ts` on its own (the rows in view packed
+  to the front with their items, a repack forced after rows are rewritten, a moved row written in place
+  with a range or the whole buffer while a pack is pending, a ray hit naming its item) and a
+  `SpawnLayer` picking a marker spawn through its packed instance, before and after a move. Marker
+  spawns (no model, `model: ''`) need no client, so the test runs anywhere.
+- In the live app, the probes over both layers: `perf-objects-mixed`, `perf-creatures`, `pose-drawn`,
+  `shadow-redraw`, `object-move`, `attach-follow`, `spawn-drag`, `nothing-to-draw`. `object-move`
+  counts `InstanceBatch.pack` calls during a drag (none), so it counts the spawn layer's packs too:
+  run it on a new document without spawns, as it does.
+- Probes that peek at ObjectLayer's batches read the rows as `b.rows.items`, `b.rows.matrices`,
+  `b.rows.spheres` and `b.rows.packed` (not `b.all` and the rest, before #517).

@@ -69,11 +69,12 @@ const doodads = { drawn: 0, past: 0, cut: 0 }
 const eyeNow = e.camera.position
 for (const [type, b] of worldDoc.objects.batches) {
 	if (!type.startsWith('m2:')) continue
-	const drawn = new Set(b.packed)
-	for (let i = 0; i < b.all.length; i++) {
-		const r = b.spheres[i * 4 + 3]
+	const { packed, items, spheres } = b.rows
+	const drawn = new Set(packed)
+	for (let i = 0; i < items.length; i++) {
+		const r = spheres[i * 4 + 3]
 		const far = r <= DOODAD_ALWAYS_RADIUS ? doodadReach(r) + r : Infinity
-		const beyond = Math.hypot(b.spheres[i * 4] - eyeNow.x, b.spheres[i * 4 + 2] - eyeNow.z) > far + 0.01
+		const beyond = Math.hypot(spheres[i * 4] - eyeNow.x, spheres[i * 4 + 2] - eyeNow.z) > far + 0.01
 		if (drawn.has(i)) {
 			doodads.drawn++
 			if (beyond) doodads.past++
