@@ -22,10 +22,15 @@ type fakeRunner struct {
 	// writes are the files (slash paths under the folder it runs in) a program whose name holds the
 	// key writes before it returns, as an extractor would.
 	writes map[string][]string
+	// onRun, when set, is called as each program starts, so a test can look at the folders then.
+	onRun func(name string, args []string)
 }
 
 func (f *fakeRunner) Run(dir, name string, args []string, log func(string)) error {
 	f.calls = append(f.calls, name+" "+strings.Join(args, " "))
+	if f.onRun != nil {
+		f.onRun(name, args)
+	}
 	for prog, files := range f.writes {
 		if strings.Contains(name, prog) {
 			for _, n := range files {

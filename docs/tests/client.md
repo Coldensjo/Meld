@@ -194,6 +194,20 @@ open region has edits the client lacks, and only then.
   compiled (the builder orders an MCNK's subchunks its own way), so `RegionPending` says "changed" for
   any such tile. That's why Launch trusts the fingerprint and asks Go only when there is none.
 - `go test ./internal/vmangos/ -run TestRegionPending` (with `WOW_DIR`): a raised vertex makes the tile differ.
+- The write chains, client-free (#405), with temp client and server folders, a fake runner and a temp
+  folder for the files waiting for the game:
+  - `go test ./internal/vmangos/ -run PublishChain`: `Publish` writes the map and a queued Spell.dbc
+    into the patch and the server's Map.dbc before the `map_template` SQL, then runs the extractors;
+    an unchanged map over current server data runs nothing, stale data rebuilds the whole map, an
+    edited tile only that tile (`-t 10_10`, #211), a new tile (WDT changed) the whole map. With the
+    patch held (a read-only file) it fails before any program runs and the Spell.dbc still waits.
+  - `go test . -run TestClientFileChain`: through the app's `saveClientFiles`, `SaveRegion` and
+    `waitForGameClosed`, with `App.gameUp` standing in for the game: a Spell.dbc saved while the game
+    runs waits, a refused write keeps it waiting, the next region save takes it into the patch, and a
+    region saved while the game runs reaches the patch at `waitForGameClosed` (the step before a
+    server rebuild). Set `pendingWatch` so the watcher doesn't race the saves.
+  - Trap: the server's "current" test compares file times, so the test sets them (`os.Chtimes`)
+    rather than trusting the order of two writes a few milliseconds apart.
 - `bun test tests/regionKey.test.ts` (#433): the fingerprint (`regionKey` in `io/regionKey.ts`) changes
   for an edit of every leaf of its input (walked, so a new field is covered), stays for a write of the
   same value and comes back on undo; and every `ExportInput` key is mapped to edits that change it or

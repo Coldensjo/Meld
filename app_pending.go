@@ -29,6 +29,9 @@ const gameWait = 15 * time.Minute
 // gameRunning says whether the game holds Meld's patch open: only Windows locks a file a program has
 // open, so elsewhere it never does.
 func (a *App) gameRunning() bool {
+	if a.gameUp != nil {
+		return a.gameUp()
+	}
 	if goruntime.GOOS != "windows" {
 		return false
 	}

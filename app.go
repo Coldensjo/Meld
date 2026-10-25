@@ -55,6 +55,8 @@ type App struct {
 	stale game.Stale
 	// pendingWatch is whether the watcher of the client files waiting for the game to close runs.
 	pendingWatch atomic.Bool
+	// gameUp, when set, is gameRunning's answer, for the tests of the client file chain (#405).
+	gameUp func() bool
 	// serverBusy is whether UpdateRegionServer or PublishVmangosMap runs: both rewrite the server's map
 	// data, so a second one is refused (#486).
 	serverBusy atomic.Bool
