@@ -1,4 +1,5 @@
 // Selection groups read from the layer's index (#630): on the everything benchmark map with every root put in a group of ten, withGroups for each grouped model under a Select brush matches a scan of every object, as does the Ungroup command's member list and its undo; prints the ms the brush's withGroups calls took a spot, against the scan's.
+// touches: frontend/src/lib/state/selection.ts, frontend/src/lib/world/ObjectLayer.ts
 const map = await P.loadBenchMap('everything')
 const e = P.e
 const L = e.objects

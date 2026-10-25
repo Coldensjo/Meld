@@ -1,4 +1,5 @@
 // Icons from PNG files and back (#364): the spell editor's Change icon… grid has Import PNG… and Export all as PNG…, a search narrows the export to its matches (Export 1 as PNG…), the bindings refuse a missing PNG file and folder, and Import PNG… on a PNG made in the page lists and previews the new icon in a throwaway client (#368); the real client is left alone.
+// touches: frontend/src/components/SpellEditor.svelte, frontend/src/components/SpellIcon.svelte, app_icons.go, internal/vmangos/icons.go, internal/wow/icon.go, internal/wow/blpwrite.go
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)
 const { ui } = await P.state()

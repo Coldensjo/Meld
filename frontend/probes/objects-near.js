@@ -1,4 +1,5 @@
 // The layer's cells for "objects near a point" (#512): on the everything benchmark map, the Clear tool's models under the brush, the Doodad brush's spacing neighbours and prop list, the Select brush and the area's objects match a scan of every object, after the models loaded (a building's box only then reaching wide) and after a move; prints the ms a call.
+// touches: frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/world/cellGrid.ts, frontend/src/lib/tools/ClearTool.ts, frontend/src/lib/tools/DoodadBrushTool.ts, frontend/src/lib/state/selection.ts
 const map = await P.loadBenchMap('everything')
 const e = P.e
 const L = e.objects

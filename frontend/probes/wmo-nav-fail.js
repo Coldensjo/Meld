@@ -2,6 +2,7 @@
 // in the benchmark scene, the failure is counted (`rooms.navs.failed`), logged in the status bar and
 // the Log, and not fetched again every frame; once RETRY_MS has passed (the cache's clock moved on
 // here) the next ask loads it, the count drops to 0 and the camera is in a room again.
+// touches: frontend/src/lib/world/WmoRooms.ts, frontend/src/lib/world/wmoRoom.ts, internal/wow/wmonav.go
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e

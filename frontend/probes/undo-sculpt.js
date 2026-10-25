@@ -1,4 +1,5 @@
 // A scripted Raise stroke on a flat map changes the heights, undo puts them back exactly, redo redoes it.
+// touches: frontend/src/lib/tools/TerrainTools.ts, frontend/src/lib/state/history.ts, frontend/src/lib/state/historyCore.ts
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

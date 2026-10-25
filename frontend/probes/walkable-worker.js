@@ -1,4 +1,5 @@
 // View › Walkable ground's tile builds run in Web Workers (#508): in the benchmark scene (Northshire Abbey, 177 tiles) the workers build every tile, the longest frame's NavPreview.update falls well under the main-thread build's (only the gathering is left on the main thread), and the drawn surface and a path over it come out the same as the main thread's build.
+// touches: frontend/src/lib/world/nav/*
 const e = P.e
 const { prefs } = await P.state()
 const { navWorkers, useNavWorkers } = await P.app('/src/lib/world/nav/navJobs.ts')

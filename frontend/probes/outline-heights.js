@@ -1,4 +1,5 @@
 // The selection outline samples the terrain's own height texture (#567): ground raised under a selected model's edge marks its buried part red, and the stroke uploads only the edited texels, not the whole float heightmap each frame.
+// touches: frontend/src/lib/engine/SelectionOutline.ts, frontend/src/lib/terrain/Terrain.ts
 const e = P.e
 const { editor } = await P.state()
 const { selectObjects } = await P.app('/src/lib/state/selection.ts')

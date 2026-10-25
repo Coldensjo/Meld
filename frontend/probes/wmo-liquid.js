@@ -1,4 +1,5 @@
 // A WMO's liquids (#287): Blackrock Depths' lava (its groups' MLIQ) is drawn, instanced with the dungeon, as the client's magma: the frame's orange, opaque, over the lava pools, and gone with the liquids' material hidden.
+// touches: frontend/src/lib/water/liquidMaterial.ts, frontend/src/lib/world/ObjectLayer.ts, internal/wow/wmoliquid.go
 const { editor } = await P.state()
 const { openWowBuilding } = await P.app('/src/lib/io/mapio.ts')
 const { wmoLiquidMaterial } = await P.app('/src/lib/water/liquidMaterial.ts')

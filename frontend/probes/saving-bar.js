@@ -1,6 +1,7 @@
 // The Saving bar (#343): a save that runs past 400 ms shows what it saves in the middle of the window,
 // a quick one never shows it, overlapping saves name the newest, a publish's log line shows under
 // it, and it goes when the last save ends, even one that threw.
+// touches: frontend/src/components/SavingBar.svelte, frontend/src/lib/state/saving.ts
 await P.frames(3)
 const { startSaving, withSaving, savingDetail } = await P.app('/src/lib/state/saving.ts')
 const wait = (ms) => new Promise((done) => setTimeout(done, ms))

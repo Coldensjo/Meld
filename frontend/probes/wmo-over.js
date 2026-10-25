@@ -1,4 +1,5 @@
 // A camera over a building rather than in it (#300), one in a street room (#302), and one closer to that room's wall than the near plane (#304): over Stormwind's canals, and high over the city, the eye is above the box of the room the down-ray finds, so the city is drawn whole (no holes to the sky); 2.5 yd over a canal's floor it is still in that room, as in the client.
+// touches: frontend/src/lib/world/WmoRooms.ts, frontend/src/lib/world/wmoRoom.ts, frontend/src/lib/world/roomGate.ts, frontend/src/lib/world/roomAdmit.ts
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e

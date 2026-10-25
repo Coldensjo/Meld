@@ -1,4 +1,5 @@
 // Path tool's River (#167): Apply carves the bed along the curve and fills it with the liquid, its surface running downhill from the higher end, as one undo step that takes the bed and the liquid back.
+// touches: frontend/src/lib/tools/PathTool.ts, frontend/src/lib/tools/pathApply.ts, frontend/src/lib/terrain/paths.ts, frontend/src/lib/water/Water.ts
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

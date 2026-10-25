@@ -1,4 +1,5 @@
 // Flight paths (#180): World › Flight Paths in Redridge (Azeroth 36_49) reads Eastern Kingdoms' stops and routes, a click on Lakeshire's marker (stop 5) picks it and a drag moves it, a route picked from the list takes a drawn point, a click on a route's curve picks it, and Fly it moves the camera along the route and puts it back. Nothing is saved.
+// touches: frontend/src/lib/world/TaxiLayer.ts, frontend/src/lib/world/taxiRoute.ts, frontend/src/components/FlightPathsWindow.svelte, internal/vmangos/taxi.go
 const { ui } = await P.state()
 const confirmWas = window.confirm
 window.confirm = () => true

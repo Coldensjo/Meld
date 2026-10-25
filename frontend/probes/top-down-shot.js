@@ -1,4 +1,5 @@
 // A minimap tile's shot (#554): on the benchmark scene, `renderMinimapTile` draws the tile from above without drawing a frame of the view (the frame counter, the clock and the meter's window stay put), the shot is lit ground (not black) and the same twice, the view draws as before after it, and the performance report books the paths and baked shadows to their own section; prints the ms a shot.
+// touches: frontend/src/lib/engine/Engine.ts, frontend/src/lib/engine/perfMeter.ts, frontend/src/lib/io/minimapImage.ts
 await P.scene(P.BENCH)
 await P.settle()
 await P.frames(3)

@@ -1,4 +1,5 @@
 // The app has a focus-visible ring and a reduced-motion rule in app.css (#374).
+// touches: frontend/src/app.css
 const rules = []
 const walk = (list) => {
 	for (const r of list) {

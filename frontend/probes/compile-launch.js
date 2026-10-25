@@ -9,6 +9,7 @@
 // fingerprint (opened from a file) the Go side's RegionPending finds the raised tile, and its answer is
 // kept on the document (#531): asked again with no edit, or after a step that changes no compile input,
 // it is not rebuilt, and after an undo it is. It never compiles: that would write the owner's patch.
+// touches: frontend/src/lib/io/mapio.ts, frontend/src/components/MenuBar.svelte, internal/vmangos/pending.go, app_pending.go
 const { ui, editor } = await P.state()
 const mapio = await P.app('/src/lib/io/mapio.ts')
 const menuLabels = async (name) => {

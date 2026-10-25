@@ -1,4 +1,5 @@
 // The selection's outline colour and warn boxes (#551): on objects-mixed with 16 floating models selected, each one's touching flag and a single selection's warn boxes match a scan of every object and the handles stand at the pivot or the model, still, after a move, a hide and an attached prop; prints updateSelectionVisuals' ms a frame, still and dragging.
+// touches: frontend/src/lib/engine/SelectionOutline.ts, frontend/src/lib/state/selection.ts, frontend/src/lib/world/ModelBoxes.ts
 const t = await P.time({ '/src/lib/engine/Engine.ts:Engine': ['updateSelectionVisuals'] })
 const map = await P.loadBenchMap('objects-mixed')
 const e = P.e

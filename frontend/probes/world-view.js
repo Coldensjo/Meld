@@ -1,4 +1,5 @@
 // The world view (#15): opening Azeroth's from the Start dialog's block (Elwynn, 31-33 x 48-50) streams the client's tiles around the camera, nearest first, with their models (each once, however many tiles list it), and looks at the block's middle once its tile is in; the ground is drawn (the view differs with the tiles hidden) and the camera rides it; flying four tiles east loads the tiles there and lets go of those left behind, so what is loaded stays bounded; the tools do nothing in it (a Sculpt click makes no undo step); the scene line names the world view; Edit Here opens the block around the camera in a region tab with the camera where it was (the region's coordinates are the world's less the block's corner), and File › World View from that region goes back to the world tab, the camera again where it was.
+// touches: frontend/src/lib/world/WorldStream.ts, frontend/src/lib/world/worldGround.ts, frontend/src/components/NewMapDialog.svelte, frontend/src/components/DocTabs.svelte, internal/wow/ground.go, internal/wow/client.go
 const { ui, editor } = await P.state()
 const e = P.e
 const { openWorldView, editWorldHere } = await P.app('/src/lib/io/mapio.ts')

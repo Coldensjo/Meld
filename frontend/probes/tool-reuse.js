@@ -1,4 +1,5 @@
 // The tools' hover and tick paths reuse what they built (#452): the Doodad and Spawn brushes keep their plan while nothing it depends on changes and draw a new one when the radius or brush does, a pasted clip's ghosts keep their landings while the anchor stays put, a Place scatter stroke keeps its props spaced, and the Water tool and Clear › Liquids paint and clear water with their reused brush (each undone).
+// touches: frontend/src/lib/tools/DoodadBrushTool.ts, frontend/src/lib/tools/SpawnBrushTool.ts, frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/tools/ClearTool.ts, frontend/src/lib/water/liquidStroke.ts
 const e = P.e
 const { editor, prefs } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

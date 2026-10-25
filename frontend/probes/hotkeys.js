@@ -1,4 +1,5 @@
 // The Delete key deletes the selected model, and the tool letters work, whatever last held the focus (#345): a checkbox, a slider, a select, a closed editor.
+// touches: frontend/src/App.svelte, frontend/src/lib/state/selection.ts, frontend/src/lib/tools/ObjectTools.ts
 const e = P.e
 const { ui, editor } = await P.state()
 const sel = await P.app('/src/lib/state/selection.ts')

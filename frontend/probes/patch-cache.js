@@ -1,4 +1,5 @@
 // A write into Meld's patch keeps what the asset server decoded (#471): in a throwaway client, Stormwind's WMO built once is served from the cache after a patch write (a fraction of its first build), the archives are open again with the new file listed, and an icon written a second time in another colour is read again, not served from the cache.
+// touches: internal/wow/client.go, internal/wow/bytecache.go, internal/wow/m2cache.go, internal/mpq/*, app_sandbox.go
 const App = window.go.main.App
 const fetchTimed = async (url) => {
 	const t = performance.now()

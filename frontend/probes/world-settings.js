@@ -1,4 +1,5 @@
 // Map Properties' world settings go through History and mark the map dirty (#571): sea on/off, sea level and the texture roles each make one undo step that undo and redo restore, and survive a tab switch.
+// touches: frontend/src/components/MapPropertiesDialog.svelte, frontend/src/lib/engine/MapDocument.ts
 const { editor } = await P.state()
 const e = P.e
 const probeDoc = e.newDocument(256, 'flat', 0, 'Probe')

@@ -1,4 +1,5 @@
 // A model's bounds tree, LOD and WMO group cull are built in the model workers, off the main thread (#507): loading Stormwind's WMO (1.3M triangles, over a second of bounds tree, LOD and twin index on the main thread before) stalls the page for a fraction of that, and what the worker built matches a main-thread build of the same index.
+// touches: frontend/src/lib/models/assets.ts, frontend/src/lib/models/modelBuild.ts, frontend/src/lib/models/modelWorker.ts, frontend/src/lib/models/lod.ts, frontend/src/lib/world/wmoGroupCull.ts
 const THREE = await P.app('/deps/three.js')
 const assets = await P.app('/src/lib/models/assets.ts')
 const { modelWorkers } = await P.app('/src/lib/models/modelBuild.ts')

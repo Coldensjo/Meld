@@ -1,4 +1,5 @@
 // The asset browser's preview and the Preview window draw only while something moves (#589): a hovered tile's model spins a few seconds and stops, the pointer over the preview spins it again, the Preview window on a still helper shape draws nothing until Turn is checked, and Graphics › FPS limit caps their frames; prints the frames each drew in 2 s, idle and moving.
+// touches: frontend/src/components/AssetPreview.svelte, frontend/src/components/CreaturePreview.svelte, frontend/src/components/ModelPreviewWindow.svelte, frontend/src/components/PaletteTile.svelte, frontend/src/lib/ui/previewRenderer.ts
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const { ui, prefs } = await P.state()
 

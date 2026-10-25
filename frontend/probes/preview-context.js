@@ -1,4 +1,5 @@
 // The asset browser's preview and the Preview window (CreaturePreview) draw the model again, with no WebGL errors, after their own WebGL context is lost and restored (#213), and a closed Preview's released context stays lost.
+// touches: frontend/src/components/AssetPreview.svelte, frontend/src/components/CreaturePreview.svelte, frontend/src/components/ModelPreviewWindow.svelte, frontend/src/lib/ui/previewRenderer.ts
 await P.scene(P.BENCH)
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 

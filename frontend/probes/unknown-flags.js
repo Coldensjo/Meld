@@ -1,4 +1,5 @@
 // A region opened without the client's holes, liquids or chunk data (a .wmap older than version 3, 4 or 5) keeps saying so across a save (#525, #663): saved through the Go side and opened again, MapDocument.holesKnown, liquidsKnown and chunkDataKnown stay false, the file's header has holesUnknown, liquidsUnknown and chunkDataUnknown, and Map Properties names them under "The client's"; a region that has them writes none of the flags. Such a region still compiles its holes, in chunk headers without an area ID, impassable flag or no-tuft rows (#644), and, its holes unknown, only in the chunks that have one, added to the client's (#663).
+// touches: frontend/src/lib/io/mapData.ts, frontend/src/lib/io/vmangosExport.ts, internal/mapfile/*
 const { editor, ui } = await P.state()
 const { toMapData, fromMapData } = await P.app('/src/lib/io/mapData.ts')
 const { mapToTiles } = await P.app('/src/lib/io/vmangosExport.ts')

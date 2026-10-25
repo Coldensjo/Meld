@@ -1,4 +1,5 @@
 // Path tool's Fence (#167): a model picked in the asset browser's place goes on the picked path, and Apply stands it end to end along the curve at its own length, each turned along the curve, as one undo step that removes them all; applying again after a change replaces them.
+// touches: frontend/src/lib/tools/PathTool.ts, frontend/src/lib/tools/pathApply.ts, frontend/src/lib/terrain/paths.ts
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

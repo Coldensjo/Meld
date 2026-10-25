@@ -1,4 +1,5 @@
 // The benchmark scene opens, its models load, and it draws with no WebGL or page errors.
+// touches: frontend/src/lib/engine/Engine.ts, frontend/src/lib/io/scene.ts
 await P.scene(P.BENCH)
 await P.settle()
 P.glError()

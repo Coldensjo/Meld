@@ -1,4 +1,5 @@
 // The tile-size slider, Names and the fold button sit at the asset browser header's right end: with room (the dock hidden) over the preview column, its left edge within a few px of it, on every tab; in the narrower browser beside the dock the header shrinks instead and they stay in view. Names off hides the details under the asset preview as well as the tiles' names (#655).
+// touches: frontend/src/components/AssetBrowser.svelte, frontend/src/components/AssetPreview.svelte
 await P.frames(3)
 const { prefs } = await P.state()
 const was = { kind: prefs.browserKind, collapsed: prefs.browserCollapsed, names: prefs.browserNames, dock: prefs.dockHidden }

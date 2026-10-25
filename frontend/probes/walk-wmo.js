@@ -4,6 +4,7 @@
 // 3 yd over the floor in every room, while its height over the terrain swings from -0.5 to 8.7 yd
 // (docs/tests/rendering.md). Where it leaves the rooms it stands on the terrain. Walked at the room's
 // south wall it stops off it, still in room 49 (#313).
+// touches: frontend/src/lib/world/wmoRoom.ts, frontend/src/lib/world/WmoRooms.ts, frontend/src/lib/engine/CameraController.ts, internal/wow/wmonav.go
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e

@@ -3,6 +3,7 @@
 // bounds tree, so no frame stalls. The batch mesh of a big WMO draws its group cull's twin geometry
 // (#198), which must share the model's tree: without it each sight line walked every triangle of the
 // dungeon and frames took 1.2 to 2.4 s every two or three frames. Needs the world database for the spawns.
+// touches: frontend/src/lib/world/SpawnLabels.ts, frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/engine/CameraController.ts
 const { editor, prefs } = await P.state()
 const { openWowBuilding } = await P.app('/src/lib/io/mapio.ts')
 prefs.spawnNames = true

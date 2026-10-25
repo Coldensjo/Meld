@@ -1,4 +1,5 @@
 // Activating the open tab keeps what the editor holds since the last stash (#547): Ctrl+Tab with one tab, openRegion/focusPath of the active file.
+// touches: frontend/src/lib/engine/Engine.ts, frontend/src/lib/engine/MapDocument.ts, frontend/src/lib/state/editor.svelte.ts
 const { editor } = await P.state()
 const e = P.e
 const probeDoc = e.newDocument(256, 'flat', 0, 'Probe')

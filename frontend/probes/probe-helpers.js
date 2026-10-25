@@ -1,4 +1,5 @@
 // P.time, P.stroke and P.turn (#348): the timer counts a scripted Sculpt stroke's ticks, nests once, and restores; the turn changes the yaw every frame.
+// touches: frontend/probes/lib.js
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

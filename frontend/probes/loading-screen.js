@@ -1,4 +1,5 @@
 // Map Properties' loading screen (#218): a map made for the client lists the client's loading screens with their pictures, the chosen one (the Deadmines', 142) shows in the 4:3 preview, and Picture… makes the map's own: in a throwaway client (#382), a blue PNG made in the page and picked through a stubbed file dialog is written into the patch, listed as a new loading screen, chosen and previewed in its colour; the real client is left alone.
+// touches: frontend/src/components/MapPropertiesDialog.svelte, internal/vmangos/loadingscreen.go
 const e = P.e
 const { ui } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

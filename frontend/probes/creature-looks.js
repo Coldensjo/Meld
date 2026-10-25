@@ -1,4 +1,5 @@
 // The new-creature guide's "How it looks" step: the display picker, the weapon picker and the preview stay inside the page, the preview in view and not covered (#221).
+// touches: frontend/src/components/CreaturesWorkspace.svelte, frontend/src/components/DisplayPicker.svelte, frontend/src/components/WeaponPicker.svelte, frontend/src/components/CreaturePreview.svelte
 const { ui } = await P.state()
 ui.creatures = true
 await P.frames(5)

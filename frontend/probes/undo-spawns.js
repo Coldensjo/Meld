@@ -1,4 +1,5 @@
 // Undoing and redoing a Spawn brush stroke of 60 creatures on Elwynn's 1398 spawns redraws the spawn layer once, not once a creature (#193); needs the world database.
+// touches: frontend/src/lib/tools/SpawnBrushTool.ts, frontend/src/lib/world/spawnEdits.ts, frontend/src/lib/world/SpawnLayer.ts
 const e = P.e
 const se = await P.app('/src/lib/world/spawnEdits.ts')
 const App = window.go.main.App

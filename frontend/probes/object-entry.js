@@ -1,4 +1,5 @@
 // A game object spawn turned into another object in the game object editor (#136): its entry, name and model change as one undo step, the SQL writes the new id, the pool's other vein shows, and undo turns it back.
+// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/components/SpawnBrowser.svelte, frontend/src/lib/world/spawnEdits.ts, frontend/src/lib/world/SpawnLayer.ts, internal/vmangos/spawnedit.go
 const e = P.e
 const { editor, ui } = await P.state()
 const se = await P.app('/src/lib/world/spawnEdits.ts')

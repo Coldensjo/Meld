@@ -1,5 +1,6 @@
 // Stormwind, drawn once in the benchmark scene, is culled by WMO group (#198) in the scene pass and the near shadow cascade (#215): far fewer triangles than drawn whole, and the same picture.
 // At the benchmark view the city is outside the near cascade's box, which since #325 leaves it out of that pass whole, so the near cascade's group cull is measured over the city.
+// touches: frontend/src/lib/world/wmoGroupCull.ts, frontend/src/lib/world/ObjectLayer.ts, frontend/src/lib/engine/shadowCascades.ts
 await P.scene(P.BENCH)
 await P.settle()
 const batch = await P.until(() => [...P.e.objects.batches.entries()].find(([k, b]) => k.includes('stormwind.wmo') && b.cull), 120_000, 'the Stormwind batch')

@@ -1,4 +1,5 @@
 // Tilting by hand (#344): with Z held the wheel tilts the Place tool's preview (Shift: rolls) 5° a notch, the camera keeping still; the next click places the model with that tilt over Random tilt; with the model selected Z+scroll tilts it as one undo step; scrolling the preview back to 0 hands the tilt back to Random tilt; with Z released the wheel no longer tilts.
+// touches: frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/world/placement.ts, frontend/src/lib/world/groundTilt.ts
 const e = P.e
 const { editor } = await P.state()
 const { selectObjects } = await P.app('/src/lib/state/selection.ts')

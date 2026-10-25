@@ -1,4 +1,5 @@
 // The terrain's tileset array is DXT3 where the renderer samples S3TC (#216) and draws the ground as the RGBA array does, and its BLP mips (#225) smooth the distant ground.
+// touches: frontend/src/lib/terrain/paletteArray.ts, frontend/src/lib/terrain/paletteBlocks.ts, frontend/src/lib/terrain/TerrainMaterial.ts, internal/wow/blp.go
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e

@@ -1,4 +1,5 @@
 // Formations and spawn pools (#172): the server's are read with their slots, limits and mother pools; a formation and a pool built by clicks on the map draw their lines and rings, write creature_groups and pool rows in the SQL, a dragged follower takes its slot, a new pool joins a master pool and its limit changes (pool_pool, #261), and undo takes it all back.
+// touches: frontend/src/lib/world/pools.ts, frontend/src/lib/world/formations.ts, frontend/src/lib/world/SpawnLinks.ts, frontend/src/components/PoolFields.svelte, frontend/src/components/FormationFields.svelte, internal/vmangos/pools.go, internal/vmangos/formations.go
 const e = P.e
 const { editor, prefs, ui } = await P.state()
 const se = await P.app('/src/lib/world/spawnEdits.ts')

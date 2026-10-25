@@ -1,4 +1,5 @@
 // The Layers panel follows the hovered chunk, the selected area and History without polling (#585).
+// touches: frontend/src/components/LayersPanel.svelte, frontend/src/lib/terrain/layers.ts
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(128, 'island', 3, 'Layers')

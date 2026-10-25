@@ -1,4 +1,5 @@
 // View › Walkable ground (#175) on a flat map: the navmesh tiles build around the target, Test a Path's two clicks give a walk, a path goes straight over open ground and round a line of holes, Goldshire's inn brings floors above the ground, moving it builds again only the tiles it meets (#509), so does a small sculpt and hole (#620), a river 2 yd deep across the map is swim area only a swimmer crosses (#239), and turning the view off frees it all.
+// touches: frontend/src/lib/world/nav/*
 const e = P.e
 const { prefs } = await P.state()
 // Orbit the map's centre: the default flying camera sits 250 yd up and Test a Path's clicks land past the built tiles (#256).

@@ -1,4 +1,5 @@
 // A WMO-only map made with New World (#272): Publish writes its building at the world's middle, so the editor's frame follows the building and Launch's spot over it is the server's 0,0, wherever the building stands in the editor; untick WMO-only and the frame is the corner's again. Nothing written.
+// touches: frontend/src/lib/engine/Engine.ts, internal/vmangos/wmoonly.go, internal/vmangos/publish.go
 const e = P.e
 const doc = e.newVmangosDocument(1, 'flat', 0, { dir: 'ProbeWmoOnly', mapId: 1999, info: { wmoOnly: true } })
 await P.frames(3)

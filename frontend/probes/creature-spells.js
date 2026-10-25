@@ -1,4 +1,5 @@
 // The creature editor's Spells tab (#243): Scarlet Commander Mograine (3976) shows list 39760's two spells with names, icons and text from the client, the Add spells list shows the creature abilities without typing, the Mage: Fire category lists Fire Blast, the Frost school empties it, a search in it finds Fireball, adding it is an unsaved edit that Save counts and Revert undoes; nothing is written to the database.
+// touches: frontend/src/components/CreatureEditor.svelte, frontend/src/components/SpellsTab.svelte, frontend/src/components/SpellPicker.svelte, internal/vmangos/creaturespells.go, internal/vmangos/spelllist.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

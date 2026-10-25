@@ -1,4 +1,5 @@
 // The creature editor's Messages tab (#160): Sputtervalve (3442) lists its one text shown under a condition (text 519 under condition 315) as an editable row, a changed condition is an unsaved edit that enables its Save and counts in the editor's unsaved changes, Revert undoes it, Add text adds a new row that its ✕ removes; nothing is written to the database.
+// touches: frontend/src/components/MessagesTab.svelte, frontend/src/components/CreatureEditor.svelte, internal/vmangos/gossip.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

@@ -1,4 +1,5 @@
 // The spell visual composer (#361): Blizzard's Compose… lists its stages with their effect models (the falling ice on the area), Rain of Fire's area is taken for it (a lava blizzard), the area's model plays in the preview, a hovered effect model previews and a clicked one goes on the cast stage's left hand, Use this visual waits for Save with a summary of the stages (Save spell (1)), Esc leaves the composer, and Revert drops it; nothing written.
+// touches: frontend/src/components/SpellVisualComposer.svelte, internal/vmangos/spellvisuals.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

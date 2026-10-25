@@ -1,4 +1,5 @@
 // The game object editor's Contents tab (#220): the Truesilver Deposit's shared loot list is read with the other veins that hold it, a copy of its own, an added item and Make it a chest are unsaved edits that Save counts and Revert undoes, and its respawn field is an undo step; nothing is written to the database.
+// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/components/LootTab.svelte, frontend/src/lib/world/spawnEdits.ts, internal/vmangos/loot.go
 const e = P.e
 const { ui } = await P.state()
 const se = await P.app('/src/lib/world/spawnEdits.ts')

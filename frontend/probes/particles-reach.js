@@ -1,4 +1,5 @@
 // The far-emitter pre-test (#330) runs the same particle pools and ribbons as the exact range and view test alone, on the benchmark scene (PROBE_MAP=<kind>, PROBE_SCALE for a benchmark map), from its view and three turns.
+// touches: frontend/src/lib/world/ParticleLayer.ts, frontend/src/lib/world/particles.ts, frontend/src/lib/world/ribbons.ts
 const kind = P.env('MAP', 'bench')
 const scale = P.env('SCALE', 1)
 if (kind === 'bench') {

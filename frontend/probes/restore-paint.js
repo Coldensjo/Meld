@@ -3,6 +3,7 @@
 // patch, the painted chunk selected and restored: one undo step, which undo takes back and redo puts again. Compiled
 // once more, every chunk's layers and alpha bytes are the client's own, as they were before the first compile. The
 // real client is left alone.
+// touches: frontend/src/lib/terrain/restorePaint.ts, frontend/src/lib/io/mapio.ts, internal/vmangos/region.go
 const { editor, prefs } = await P.state()
 const mapio = await P.app('/src/lib/io/mapio.ts')
 const App = window.go.main.App

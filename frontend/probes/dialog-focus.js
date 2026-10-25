@@ -1,4 +1,5 @@
 // A dialog takes the focus when it opens, keeps Tab inside it, and gives the focus back when it closes (#369); Esc goes to the topmost dialog only (#573).
+// touches: frontend/src/components/Modal.svelte, frontend/src/lib/ui/dialogFocus.ts, frontend/src/lib/state/escape.ts
 const { ui } = await P.state()
 const press = (key, init = {}) => {
 	const target = document.activeElement ?? document.body

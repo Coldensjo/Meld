@@ -1,4 +1,5 @@
 // A model the client draws nothing of (#333): Blackrock's open-door collision blocker loads once, with no warning, as a ready marker (its hull's wireframe) that casts no shadow, instead of failing and retrying every 30 s.
+// touches: frontend/src/lib/models/assets.ts, frontend/src/lib/models/modelBuild.ts, frontend/src/lib/world/ObjectLayer.ts
 const e = P.e
 e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

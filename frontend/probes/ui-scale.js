@@ -1,4 +1,5 @@
 // Preferences › Interface size (#372): at 150 % the page is zoomed and still fits the window, the menus fit, the 3D canvas keeps one pixel per screen pixel, the pointer maps onto the canvas, the right-click menu opens under the pointer, and Ctrl+= / Ctrl+- / Ctrl+0 step the size.
+// touches: frontend/src/lib/ui/uiScale.ts, frontend/src/components/Dock.svelte, frontend/src/components/Viewport.svelte
 const { prefs, ui } = await P.state()
 const r = {}
 const near = (a, b, tol = 2) => Math.abs(a - b) <= tol

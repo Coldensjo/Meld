@@ -1,4 +1,5 @@
 // Opening an instance from the Start dialog's "Part of Azeroth" (#222, #271): with no project open it asks for one (#48); the Deadmines (an instance with ADT tiles) gets a block picked on its tiles and Open enabled, Molten Core (one WMO, no tiles) says it is a single building with Open enabled, opening 2x2 tiles of the Deadmines reads its ground into a tab (it replaces the page's untouched start map), and opening the Stockade (a single building) shows the building as the tab's one model, drawn from outside, with the ground hidden, the camera on it and its creatures inside its box.
+// touches: frontend/src/components/NewMapDialog.svelte, frontend/src/components/MapPicker.svelte, frontend/src/lib/io/mapio.ts, internal/vmangos/region.go, internal/vmangos/mapentries.go
 const { ui, editor } = await P.state()
 // Without a project the page asks for one (#48, the owner's limit: editing the client's maps needs a
 // project folder and a client folder); the probe then lends the page a project of its own in the

@@ -1,4 +1,5 @@
 // The options bar keeps one row at 1400 px (#254): the brush's Size and Strength sit on it next to the tool's modes, what doesn't fit wraps under More, which opens the bar over the viewport with every control in view; Esc closes it, and Tab onto a clipped control opens it.
+// touches: frontend/src/components/OptionsBar.svelte
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'mountains', 3, 'Probe')

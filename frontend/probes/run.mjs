@@ -6,10 +6,14 @@
 //   bun run probe --all                  every probe in this folder but the benchmarks (bench, perf-*; name those)
 //   bun run probe bench --shot out       also save a screenshot a probe as out/<name>.png
 //   bun run probe bench --profile        also print the probe's top functions by CPU time
-//   bun run probe --list                 list the probes with their first comment line
+//   bun run probe --list                 list the probes with their first comment line and their touches line
+//   bun run probe --touching HEAD~3..HEAD  the probes whose `// touches:` globs match a file the git range changed (#397)
+//   bun run probe --touching <range> --list  name those probes without running them
 //
 // A probe is `probes/<name>.js`: the body of an async function run in the page, with `P` (lib.js)
 // in scope. It returns an object; `ok: false` (or a throw) fails it, and the runner exits 1.
+// Its leading comment block holds a `// touches: <repo-root paths or globs, comma-separated>` line naming the source files it
+// checks, which --touching reads; a probe without one is picked by every range.
 
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
@@ -31,20 +35,43 @@ const APP_JS = join(here, '..', 'wailsjs', 'go', 'main', 'App.js')
 const args = process.argv.slice(2)
 let shotDir = null
 let profiling = false
+let touching = null
 const names = []
 for (let i = 0; i < args.length; i++) {
 	if (args[i] === '--shot') shotDir = args[++i]
 	else if (args[i] === '--profile') profiling = true
+	else if (args[i] === '--touching') touching = args[++i] ?? fail('--touching needs a git range, e.g. HEAD~3..HEAD')
 	else names.push(args[i])
 }
 const all = readdirSync(here).filter((f) => f.endsWith('.js') && f !== 'lib.js').map((f) => f.slice(0, -3)).sort()
 
-if (names[0] === '--list' || names.length === 0) {
-	for (const n of all) {
-		const first = readFileSync(join(here, n + '.js'), 'utf8').split('\n')[0].replace(/^\/\/\s*/, '')
-		console.log(`${n.padEnd(20)} ${first}`)
+/**
+ * A probe's header (#397): its first comment line, and the globs of its `// touches:` line (repo-root paths, comma-separated,
+ * anywhere in the leading comment block), or null when it has none, which counts as touching every file.
+ */
+const header = (name) => {
+	const lines = readFileSync(join(here, name + '.js'), 'utf8').split(/\r?\n/)
+	let touches = null
+	for (const l of lines) {
+		if (!l.startsWith('//')) break
+		const m = /^\/\/\s*touches:\s*(.*)$/.exec(l)
+		if (m) touches = m[1].split(',').map((g) => g.trim()).filter(Boolean)
 	}
-	if (names.length === 0) console.log('\nUsage: bun run probe <name or path.js...> | --all [--shot <dir>] [--profile]')
+	return { first: lines[0].replace(/^\/\/\s*/, ''), touches }
+}
+/** A glob as a RegExp over repo-root paths: `**` any run of folders, `*` within one name; a path ending in / matches what is under it. */
+const globRe = (g) => new RegExp('^' + g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\/?|\*/g, (m) => (m === '*' ? '[^/]*' : '.*')) + (g.endsWith('/') ? '.*' : '') + '$')
+
+// --list with --touching names the probes it would run, without running them.
+const listOnly = touching && names[0] === '--list'
+if (listOnly) names.shift()
+if (names[0] === '--list' || (names.length === 0 && !touching)) {
+	for (const n of all) {
+		const { first, touches } = header(n)
+		console.log(`${n.padEnd(20)} ${first}`)
+		console.log(`${''.padEnd(20)}   touches: ${touches ? touches.join(', ') : '(no touches line: every change)'}`)
+	}
+	if (names.length === 0) console.log('\nUsage: bun run probe <name or path.js...> | --all | --touching <git range> [--shot <dir>] [--profile]')
 	process.exit(0)
 }
 /** A probe by name (in this folder) or by path (ends in .js or has a slash), as { name, file }. */
@@ -67,7 +94,35 @@ const expand = (n) => {
 // --all leaves out the benchmarks (bench, perf-*): they print numbers for a before/after and check nothing a feature breaks, and
 // their ~8 minutes would take `make probe` past the agent harness's 30-minute task limit (#390). `make probe-perf` runs them.
 const isBenchmark = (n) => n === 'bench' || n.startsWith('perf-')
-const run = (names[0] === '--all' ? all.filter((n) => !isBenchmark(n)) : names.flatMap(expand)).map(probeFile)
+/**
+ * --touching <range> (#397): the probes (not the benchmarks) whose `touches` globs match a file `git diff --name-only <range>` lists.
+ * A probe also touches its own file, and lib.js (every probe's P) touches them all; a probe with no `touches` line is always picked.
+ */
+const touchingProbes = (range) => {
+	const r = spawnSync('git', ['diff', '--name-only', range], { cwd: join(here, '..', '..'), encoding: 'utf8' })
+	if (r.status !== 0) fail(`git diff --name-only ${range} failed: ${(r.stderr ?? '').trim()}`)
+	const changed = r.stdout.split(/\r?\n/).filter(Boolean)
+	const libChanged = changed.includes('frontend/probes/lib.js')
+	return all.filter((n) => {
+		if (isBenchmark(n)) return false
+		const { touches } = header(n)
+		if (!touches || libChanged) return true
+		const res = [...touches, `frontend/probes/${n}.js`].map(globRe)
+		return changed.some((f) => res.some((re) => re.test(f)))
+	})
+}
+let picked = names[0] === '--all' ? all.filter((n) => !isBenchmark(n)) : names.flatMap(expand)
+if (touching) {
+	const found = touchingProbes(touching)
+	console.error(`probe: --touching ${touching}: ${found.length ? found.join(' ') : 'no probe touches it'}`)
+	picked = [...new Set([...picked, ...found])]
+	if (listOnly) {
+		for (const n of found) console.log(n)
+		process.exit(0)
+	}
+	if (!picked.length) process.exit(0)
+}
+const run = picked.map(probeFile)
 
 function fail(msg) {
 	console.error(`probe: ${msg}`)

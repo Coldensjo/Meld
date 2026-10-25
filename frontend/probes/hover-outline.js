@@ -1,4 +1,5 @@
 // The hover outline (#641): with the Select tool, the helper cube under the pointer gets the faint stroke (what a click would pick), off the cube it clears, a selected cube gets none, a still pointer and camera pick nothing again, and View › Hover outline off or another tool draws nothing.
+// touches: frontend/src/lib/engine/SelectionOutline.ts, frontend/src/lib/tools/ObjectTools.ts, frontend/src/lib/state/selection.ts
 const e = P.e
 const { editor, prefs } = await P.state()
 const { selectObjects } = await P.app('/src/lib/state/selection.ts')

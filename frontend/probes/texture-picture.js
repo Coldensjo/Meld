@@ -1,4 +1,5 @@
 // P.texture (#317): a client texture as a picture for P.save and P.diff; the alpha view differs from the colour view.
+// touches: frontend/probes/lib.js, internal/wow/blp.go
 const path = 'Textures\\Weather\\RainDropSplash01.blp'
 const color = await P.texture(path)
 const alpha = await P.texture(path, { alpha: true })

@@ -189,7 +189,7 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   detached (log: `meld-dev.log` in the temp folder) and waits up to 10 minutes, a few minutes in
   practice. It stays up for the next run; with `MELD_URL` set it never starts one. Keep it running across items.
 - `cd frontend && bun run probe <name...>` runs those probes, `bun run probe --all` (or `make probe`)
-  runs every one but the benchmarks (`bench`, `perf-*`, about 8 of the 31 minutes; name them, or `make probe-perf`, #390), which keeps a whole run under the agent harness's 30-minute task limit (a foreground command gets 10, so run it in the background and read its log, one line a probe, rather than piping it through `tail`), `bun run probe --list` names them, `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
+  runs every one but the benchmarks (`bench`, `perf-*`, about 8 of the 31 minutes; name them, or `make probe-perf`, #390), which keeps a whole run under the agent harness's 30-minute task limit (a foreground command gets 10, so run it in the background and read its log, one line a probe, rather than piping it through `tail`), `bun run probe --list` names them, `--touching <git range>` runs the ones a change touches (below), `--shot <dir>` saves a screenshot each (of a frame the runner draws after the probe, since the loop is stopped) and
   `--profile` adds the probe's 12 functions with the most CPU time (self / total ms; it found #233's
   stalls in one run), each followed by `<=` and its heaviest caller chain up to the first Meld `src/` frame, with that
   chain's share of its self time (so three's `intersectTriangle` shows which Meld code raycast). `PROFILE_TOP=<n>`
@@ -206,6 +206,18 @@ change, and write a new probe instead of an ad-hoc CDP script when the check is 
   terminal** on every page load (stack in `/wails/ipc.js`) is Wails v2.16.0's, not Meld's (#335): its
   injected "disconnected" overlay is compiled with Svelte 5 but mounted with the old `new Component()`
   call (reported as wailsapp/wails#6317). It is harmless, dev-only, and the probe runner already skips it; don't chase it.
+- **The probes for a change** (#397): every probe's leading comment block holds a `// touches:` line,
+  the source files it checks as repo-root paths or globs, comma-separated (`frontend/src/lib/world/nav/*`,
+  `internal/vmangos/spawnedit.go`; `*` stays in one folder, `**` crosses folders, a path ending in `/` takes
+  what is under it). `cd frontend && bun run probe --touching <git range>` (e.g. `HEAD~3..HEAD`, or
+  `origin/main` for the working tree's change against it) runs every probe, but the benchmarks, whose
+  globs match a file `git diff --name-only <range>` lists; add `--list` to only name them. A probe also
+  touches its own file, a change to `probes/lib.js` picks every probe, and a probe with no `touches`
+  line is picked by every range, so a forgotten line only runs too much. A range no probe touches (only
+  docs) runs nothing and exits 0. `--list` prints each probe's line. When writing a probe, list the
+  component and the engine module it drives and the Go file behind the bindings it calls, not
+  `Engine.ts` unless the probe checks the engine itself (most probes go through it) and never
+  `frontend/wailsjs/` (`wails dev` regenerates it on any binding change, which would pick every probe).
 - **A hung or throwing probe names its place** (#301): a probe running over 5 minutes (`PROBE_TIMEOUT`, seconds) is stopped with `timed out after N s` and `step`, the `P.until` it waited in (its `what`) or the `P.settle` with its client reads pending (`window.__probeStep`); a throw prints `line`, `<file>:<line>:<col>` of the probe body where it stopped. Give every `P.until` a `what`.
 - **A lost page does not stall the run, and a failure is retried once** (#388): every CDP command times out or fails when the page's socket closes, so a probe whose page timed out, navigated away or closed no longer leaves `--all` waiting for ever. After such a loss (`lostPage` in the line) the runner kills its own headless Chrome (found by its port and profile, never the dev window) and starts a new one, ends a throwaway client the lost page had left on, and runs the probe again. Any failed probe gets that one retry in a fresh page: if only the retry passes, its line has `flaky: true` and `firstFailure` (and `firstStep`) and counts as passed; a failure twice has `retried: true` and fails the run. Read a `flaky` as a page or load problem to look at, not as a pass to ignore. Trap: a trivial probe that returns at once (`return { ok: true }`) leaves the app half booted, and the next probe's page can then hang at setup; that is the same stall, and the retry covers it.
 - **One-off checks**: `bun run probe probes/scratch/<x>.js` (any argument ending in `.js` or holding a

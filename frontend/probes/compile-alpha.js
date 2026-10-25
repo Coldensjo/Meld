@@ -3,6 +3,7 @@
 // the region is compiled to the client. Read back, every other chunk's layers and alpha bytes are the client's as they
 // were, and the painted chunk's differ only in the spot's 4x4 alpha texels (the editor's texels are 2x2 of the
 // client's); before #526 every layered chunk came back at half resolution. The real client is left alone.
+// touches: frontend/src/lib/io/mapio.ts, frontend/src/lib/terrain/alphamap.ts, app.go, internal/adt/*, internal/vmangos/region.go
 const { editor, prefs } = await P.state()
 const mapio = await P.app('/src/lib/io/mapio.ts')
 const App = window.go.main.App

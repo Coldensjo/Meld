@@ -1,4 +1,5 @@
 // The creature guide asks the world database only once it is opened (#586): Factions and ClassLevelStats are not called while it is hidden, and are called after Tools > Creatures opens it. Nothing is written to the database.
+// touches: frontend/src/components/CreaturesWorkspace.svelte, internal/vmangos/factions.go, internal/vmangos/classstats.go
 const { ui } = await P.state()
 const app = window.go.main.App
 const calls = { Factions: 0, ClassLevelStats: 0 }

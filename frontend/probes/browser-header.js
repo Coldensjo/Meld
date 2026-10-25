@@ -1,4 +1,5 @@
 // Every asset browser tab has the same header search, count and tile-size slider (#651): the box searches the shown tab (a creature name narrows the Creatures tab), Ctrl+F focuses it, the zone select is on the model tabs only and the creature order on Creatures and NPCs, and no tab has a search box of its own.
+// touches: frontend/src/components/AssetBrowser.svelte, frontend/src/components/SpawnBrowser.svelte, frontend/src/lib/wow/search.ts
 await P.frames(3)
 const { prefs } = await P.state()
 const was = { kind: prefs.browserKind, collapsed: prefs.browserCollapsed, views: prefs.browserViews }

@@ -1,4 +1,5 @@
 // The weather preview's splashes, wind and doorways (#244): heavy rain on Stormwind's map leaves splashes on the ground, heavy snow leaves settled flakes there (#316), a camera moving along +X leads the rain's box and tips the streaks' tails that way (and both settle when it stops), the rain shows whole on the Trade District's street (a 0x40 group), and from a shop (SI:7, group 113) only while a doorway onto the street is in view, and from the street outside the shop's door the drops under its roof are hidden (#315).
+// touches: frontend/src/lib/world/WeatherLayer.ts, frontend/src/lib/world/WeatherRoof.ts, frontend/src/lib/wow/weather.ts
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e

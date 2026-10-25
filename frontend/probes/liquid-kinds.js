@@ -1,4 +1,5 @@
 // A liquid layer's kind is kept in the map file (#540): a layer of row 30, which no 1.12 client table holds, given the kind magma, is saved through the Go side with the header's liquidKinds {"30": "magma"}, reads back with that kind and the layer's ID, and exports as magma (type 3) rather than as water; a map without such a layer writes no liquidKinds.
+// touches: frontend/src/lib/io/mapData.ts, frontend/src/lib/water/liquids.ts, internal/mapfile/*
 const { toMapData, fromMapData } = await P.app('/src/lib/io/mapData.ts')
 const liquids = await P.app('/src/lib/water/liquids.ts')
 const App = window.go.main.App

@@ -1,4 +1,5 @@
 // Moving a spawn a frame at a time (a drag, an arrow-key nudge) leaves the layer's version alone, so the name labels, the particles and the paths are not rebuilt for it (#514); needs the world database.
+// touches: frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/world/spawnEdits.ts, frontend/src/lib/world/SpawnLabels.ts
 const e = P.e
 const se = await P.app('/src/lib/world/spawnEdits.ts')
 const App = window.go.main.App

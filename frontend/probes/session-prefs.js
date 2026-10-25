@@ -1,4 +1,5 @@
 // A session change (the camera moving) doesn't re-apply every preference to the engine (#461): prefs.session set to a new value runs Engine.applyPrefs zero times, while a real preference still runs it.
+// touches: frontend/src/lib/state/prefs.ts, frontend/src/lib/state/prefsPatch.ts, frontend/src/App.svelte
 const e = P.e
 const { prefs } = await P.state()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))

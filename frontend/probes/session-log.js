@@ -1,4 +1,5 @@
 // The Log window's lines also reach the session's log file in the user cache (#319): lines logged here are read back through the SessionLog binding, in order, and stay in the file after the window's log is cleared.
+// touches: frontend/src/lib/io/sessionLog.ts, internal/sessionlog/*
 const { setStatus, logLine, flushLog, clearLog } = await P.state()
 const { SessionLog } = await P.app('/wailsjs/go/main/App.js')
 const mark = 'probe-session-log-' + Date.now()

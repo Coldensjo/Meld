@@ -1,4 +1,5 @@
 // Cutting holes in a selected area cuts whole 2x2 blocks, and one undo fills them again.
+// touches: frontend/src/lib/terrain/holes.ts, frontend/src/lib/state/history.ts
 const e = P.e
 const { editor } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')

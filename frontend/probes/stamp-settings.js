@@ -1,4 +1,5 @@
 // The Stamp tool's per-brush settings copy holds only the brush tools' fields, not the region's spawns, and costs the same with 5000 spawns loaded (#445).
+// touches: frontend/src/lib/tools/StampTool.ts, frontend/src/lib/tools/brushStack.ts, frontend/src/lib/state/editor.svelte.ts
 const st = await P.app('/src/lib/state/editor.svelte.ts')
 const bs = await P.app('/src/lib/tools/brushStack.ts')
 const { editor } = st

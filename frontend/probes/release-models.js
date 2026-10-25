@@ -1,4 +1,5 @@
 // Closing a map lets go of its models (#505): the objects-mixed benchmark map, then the buildings one opened and closed, leave the kept models, shared materials, model textures and the renderer's geometries and own textures where the first map had them (the client textures the cache keeps, uploaded when first drawn, are left out of the renderer's count, #658).
+// touches: frontend/src/lib/models/assets.ts, frontend/src/lib/engine/MapDocument.ts, frontend/src/lib/world/ObjectLayer.ts
 const THREE = await P.app('/node_modules/.vite/deps/three.js')
 const assets = await P.app('/src/lib/models/assets.ts')
 const api = await P.app('/src/lib/wow/api.ts')

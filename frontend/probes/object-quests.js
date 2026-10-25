@@ -1,4 +1,5 @@
 // The game object editor's Quests tab (#293): the Wanted Poster (68) starts Wanted: "Hogger" (176), a quest added from the search is an unsaved edit that Revert drops, and Edit opens the quest over the editor (Esc closes only the quest editor); the Solid Chest (2855, a chest, not a Quest giver) says why it gets no quests and offers no way to add one, the quest editor's Givers tab won't add it. Nothing is written to the database (Go's refusals are Go tests, #419).
+// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/components/QuestsTab.svelte, internal/vmangos/questrel.go
 const { ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

@@ -1,4 +1,5 @@
 // The game object editor's Display tab (#230): the picker lists GameObjectDisplayInfo's displays as tiles, opens on the template's own display (the Small Thorium Vein, 324) marked and in its category, hovering another tile shows it in the preview, a click sets displayId as one unsaved change, and Revert drops it. Nothing is written to the database.
+// touches: frontend/src/components/ObjectEditor.svelte, frontend/src/components/DisplayPicker.svelte
 const { editor, ui } = await P.state()
 P.e.newDocument(256, 'flat', 0, 'Probe')
 await P.frames(1)

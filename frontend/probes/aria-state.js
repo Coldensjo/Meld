@@ -1,4 +1,5 @@
 // The toolbar, the asset browser's tabs and facets and the tiles tell assistive tech what is selected (#373).
+// touches: frontend/src/components/Toolbar.svelte, frontend/src/components/AssetBrowser.svelte, frontend/src/components/PaletteTile.svelte
 const { editor } = await P.state()
 const e = P.e
 e.newDocument(256, 'flat', 0, 'Probe')

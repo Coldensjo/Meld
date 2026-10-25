@@ -1,4 +1,5 @@
 // A tilted game object keeps its tilt (#229): the Sunken Chest (guid 42485) is read with its tilt, drawn tilted as its quaternion says, and a move writes its rotation0..3 back unchanged.
+// touches: frontend/src/lib/world/SpawnLayer.ts, frontend/src/lib/world/spawnEdits.ts, frontend/src/lib/world/spawnTilt.ts, internal/vmangos/spawns.go, internal/vmangos/spawnedit.go
 const e = P.e
 const { spawnKey } = await P.app('/src/lib/world/SpawnLayer.ts')
 const se = await P.app('/src/lib/world/spawnEdits.ts')

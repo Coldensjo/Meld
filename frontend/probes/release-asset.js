@@ -1,4 +1,5 @@
 // Thumbnails and previews let go of their models' own materials (#506): a model with a moving texture or colour built and released as a thumbnail is, and the Preview window opened and closed on it, leave the per-frame animated lists as they were.
+// touches: frontend/src/lib/models/assets.ts, frontend/src/lib/wow/thumbs.ts, frontend/src/components/ModelPreviewWindow.svelte, frontend/src/components/AssetPreview.svelte
 await P.scene(P.BENCH)
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const assets = await P.app('/src/lib/models/assets.ts')

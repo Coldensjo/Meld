@@ -1,4 +1,5 @@
 // The dock's ✕ hides the right dock alone and the viewport takes its width; View › Layers panel (prefs.dockHidden) brings it back, and Tab's hide-panels still works with it hidden (#653).
+// touches: frontend/src/components/Dock.svelte, frontend/src/components/MenuBar.svelte, frontend/src/App.svelte
 await P.frames(3)
 const { prefs } = await P.state()
 const was = prefs.dockHidden

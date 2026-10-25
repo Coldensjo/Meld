@@ -3,6 +3,7 @@
 // fast flight would), stops the near plane's corner reach off it, still in the room, and the near plane
 // stays at 0.5 yd (docs/tests/rendering.md). The clamp keeps it 3 yd over the street's floor, not over the
 // terrain (#310), so the start eye is not lifted and the eye comes down to the street. With collision off it flies through, as the author needs to enter buildings.
+// touches: frontend/src/lib/engine/CameraController.ts, frontend/src/lib/world/wmoRoom.ts, frontend/src/lib/world/WmoRooms.ts, internal/wow/collision.go
 await P.scene(P.BENCH)
 await P.settle()
 const e = P.e

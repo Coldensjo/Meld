@@ -1,4 +1,5 @@
 // The Zones dialog (#247) opens with no horizontal scrollbar, with a zone picked and its weather shown: the dialog body's scrollWidth fits its clientWidth, and no control sticks out past the dialog.
+// touches: frontend/src/components/ZonesDialog.svelte
 const e = P.e
 const { ui } = await P.state()
 e.newDocument(256, 'hills', 1, 'Probe')

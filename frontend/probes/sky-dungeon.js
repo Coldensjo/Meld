@@ -1,6 +1,7 @@
 // A map with no sky (#339): Uldaman, a dungeon whose halls lie below the sea's floor with no far terrain
 // around them, shows the dark earth's colour behind the map at every camera pitch and hour, with the
 // editor's lighting and the client's (the sky dome hidden); Northshire, on a continent, keeps its sky.
+// touches: frontend/src/lib/engine/Environment.ts, frontend/src/lib/world/HorizonLayer.ts, frontend/src/lib/wow/clientLight.ts
 const scene = (pitch, hour, clientLighting) => ({
 	v: 1,
 	map: { region: { mapName: 'Uldaman', x: 31, y: 31, size: 2 } },
