@@ -8,7 +8,8 @@
 	// object displays are read again after an object template is saved or made, since that changes
 	// which objects use each one (forgetObjectDisplays).
 	const displaysPromise: Record<DisplayKind, Promise<vmangos.DisplayEntry[]> | null> = { creature: null, object: null }
-	function loadDisplays(kind: DisplayKind): Promise<vmangos.DisplayEntry[]> {
+	/** Every display of a kind, with the templates using each, read once for the session. */
+	export function loadDisplays(kind: DisplayKind): Promise<vmangos.DisplayEntry[]> {
 		let p = displaysPromise[kind]
 		if (!p) {
 			p = (kind === 'object' ? ListObjectDisplays() : ListDisplays()).then((d) => d ?? [])

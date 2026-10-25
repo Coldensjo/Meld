@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"Meld/internal/vmangos"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -443,6 +445,56 @@ func (a *App) ZoneSounds() (vmangos.ZoneSoundTables, error) {
 		return vmangos.ZoneSoundTables{}, err
 	}
 	return vmangos.ZoneSounds(dataDir)
+}
+
+// SoundEntries lists the client's SoundEntries.dbc rows, each with a file to play, for the game
+// object editor's sound picker (#674).
+func (a *App) SoundEntries() ([]vmangos.SoundOption, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.SoundEntryList(dataDir)
+}
+
+// ObjectDisplaySounds reads a game object display's ten sound slots (#674), as the game will have
+// them once the files waiting for it to close are written.
+func (a *App) ObjectDisplaySounds(display int) (vmangos.ObjectDisplaySounds, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return vmangos.ObjectDisplaySounds{}, err
+	}
+	return vmangos.ReadObjectDisplaySounds(dataDir, uint32(display))
+}
+
+// SoundsSaved is what SaveObjectDisplaySounds did: whether it changed anything, and whether the
+// patch waits for the game to close.
+type SoundsSaved struct {
+	Changed bool `json:"changed"`
+	Waiting bool `json:"waiting"`
+}
+
+// SaveObjectDisplaySounds sets a game object display's ten sound slots in the client's
+// GameObjectDisplayInfo.dbc, in Meld's patch without closing anything (#661): at once, or once the
+// game has closed. Every object of that display plays them from the game's next start.
+func (a *App) SaveObjectDisplaySounds(display int, sounds []int) (SoundsSaved, error) {
+	dataDir, err := a.clientDataDir()
+	if err != nil {
+		return SoundsSaved{}, err
+	}
+	ids := make([]uint32, len(sounds))
+	for i, s := range sounds {
+		if s < 0 {
+			return SoundsSaved{}, fmt.Errorf("sound slot %d: %d is not a sound", i, s)
+		}
+		ids[i] = uint32(s)
+	}
+	files, err := vmangos.ObjectSoundFiles(dataDir, uint32(display), ids)
+	if err != nil || len(files) == 0 {
+		return SoundsSaved{}, err
+	}
+	_, waiting, err := a.queueClientFiles(dataDir, files)
+	return SoundsSaved{Changed: err == nil, Waiting: waiting}, err
 }
 
 // CreateCreature adds a creature template named name, a copy of template base (or the defaults

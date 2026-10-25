@@ -13,6 +13,7 @@
 	import DisplayPicker, { forgetObjectDisplays } from './DisplayPicker.svelte'
 	import EditorFrame from './EditorFrame.svelte'
 	import LootTab from './LootTab.svelte'
+	import ObjectSoundsTab from './ObjectSoundsTab.svelte'
 	import QuestsTab from './QuestsTab.svelte'
 	import { forgetObjectTemplates, loadObjectTemplates, objectCategory } from './SpawnBrowser.svelte'
 	import SpawnFields from './SpawnFields.svelte'
@@ -28,9 +29,11 @@
 	// editor's tab does; only a Quest giver object (type 2) gets new ones. Find object (#351), the tab
 	// Tools › Game Objects… opens on, lists every object template with no spawn selected, and a click
 	// opens that object to edit. Display (#230) picks the template's display from thumbnails, as the
-	// creature editor's Looks tab does; hovering a tile shows it big on the left.
+	// creature editor's Looks tab does; hovering a tile shows it big on the left. Sounds (#674) sets the
+	// sounds the game plays near the object, its display's sound slots in the client's
+	// GameObjectDisplayInfo.dbc, written into Meld's patch with the same Save.
 
-	type Tab = 'spawn' | 'object' | 'display' | 'contents' | 'quests' | 'find' | 'new'
+	type Tab = 'spawn' | 'object' | 'display' | 'sounds' | 'contents' | 'quests' | 'find' | 'new'
 
 	/** GAMEOBJECT_TYPE_QUESTGIVER: the one object type the server lets offer and take quests. */
 	const QUEST_GIVER_TYPE = 2
@@ -44,6 +47,8 @@
 	let lootTab = $state<LootTab | null>(null)
 	let questsDirty = $state(false)
 	let questsTab = $state<QuestsTab | null>(null)
+	let soundsDirty = $state(false)
+	let soundsTab = $state<ObjectSoundsTab | null>(null)
 
 	// Opening another object reads its template and picks the first tab.
 	const ed = new TemplateEditor<{ key: string | null; entry: number }, vmangos.TemplateRecord>({
@@ -51,7 +56,7 @@
 		entry: (t) => t.entry,
 		read: ReadObject,
 		clear: () => (ui.objectEditor = null),
-		dirty: () => lootDirty || questsDirty,
+		dirty: () => lootDirty || questsDirty || soundsDirty,
 		onopen: (t, before) => {
 			const sameSpawn = before !== '' && before.startsWith(`${t.key}|`) && t.key !== null
 			if (t.entry === 0) {
@@ -66,8 +71,12 @@
 			if (t.entry > 0) copySource = null
 			lootDirty = false
 			questsDirty = false
+			soundsDirty = false
 		},
-		onrevert: () => lootTab?.revert(),
+		onrevert: () => {
+			lootTab?.revert()
+			soundsTab?.revert()
+		},
 		ondiscard: () => questsTab?.revert(),
 		onclose: () => {
 			hovered = null
@@ -80,8 +89,8 @@
 	const saved = $derived(ed.saved)
 	const changes = $derived(ed.changes)
 	const changeCount = $derived(ed.changeCount)
-	/** Anything unsaved that Save object writes: the template's values or the contents. */
-	const unsaved = $derived(changeCount > 0 || lootDirty)
+	/** Anything unsaved that Save object writes: the template's values, the contents or the sounds. */
+	const unsaved = $derived(changeCount > 0 || lootDirty || soundsDirty)
 	/** Anything unsaved at all, the quests (saved apart) too: what closing asks about. */
 	const anyUnsaved = $derived(ed.unsaved)
 	// The model of the template's display, for the preview and the Display box's note.
@@ -143,7 +152,12 @@
 	)
 
 	const unsavedText = $derived(
-		[changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object` : '', lootDirty ? 'unsaved changes to the contents' : '', questsDirty ? 'unsaved changes to the quests' : '']
+		[
+			changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object` : '',
+			lootDirty ? 'unsaved changes to the contents' : '',
+			soundsDirty ? 'unsaved changes to the sounds' : '',
+			questsDirty ? 'unsaved changes to the quests' : '',
+		]
 			.filter(Boolean)
 			.join(', ') + '.',
 	)
@@ -163,7 +177,12 @@
 			}
 			const rows = (await lootTab?.save()) ?? -1
 			const what = rows >= 0 ? ` and its contents (${rows} ${rows === 1 ? 'row' : 'rows'})` : ''
-			setStatus(`Saved ${values.name} (entry ${r.entry})${what} to the world database. Restart the world server and the game to see it in the game.`, 10000)
+			const database = changeCount > 0 || rows >= 0
+			// The sounds last: they are the client's, and the database's share is written by then.
+			const sounds = (await soundsTab?.save()) ?? null
+			const heard = !sounds?.changed ? '' : sounds.waiting ? " Its sounds wait for the game to close, then go into the client's patch." : " Its sounds are in the client's patch."
+			const said = database ? `Saved ${values.name} (entry ${r.entry})${what} to the world database. Restart the world server and the game to see it in the game.` : `Saved the sounds of ${values.name}'s display.`
+			setStatus(said + heard + (sounds?.changed && !database ? ' Restart the game to hear them.' : ''), 10000)
 		})
 	}
 
@@ -316,7 +335,7 @@
 				<button disabled={ed.saving} onclick={place} title="Place this object in the region">Place in world</button>
 				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
 				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>
-					{ed.saving ? 'Saving…' : unsaved ? `Save object (${changeCount + (lootDirty ? 1 : 0)})` : 'Saved'}
+					{ed.saving ? 'Saving…' : unsaved ? `Save object (${changeCount + (lootDirty ? 1 : 0) + (soundsDirty ? 1 : 0)})` : 'Saved'}
 				</button>
 			{/if}
 		{/snippet}
@@ -349,6 +368,7 @@
 					{#if spawn}<button class:on={tab === 'spawn'} onclick={() => (tab = 'spawn')}>This spawn</button>{/if}
 					{#if record}<button class:on={tab === 'object'} onclick={() => (tab = 'object')}>Object</button>{/if}
 					{#if record}<button class:on={tab === 'display'} onclick={() => (tab = 'display')}>Display</button>{/if}
+					{#if record}<button class:on={tab === 'sounds'} onclick={() => (tab = 'sounds')}>Sounds{soundsDirty ? ' (1)' : ''}</button>{/if}
 					{#if record}<button class:on={tab === 'contents'} onclick={() => (tab = 'contents')}>Contents</button>{/if}
 					{#if record}<button class:on={tab === 'quests'} onclick={() => (tab = 'quests')}>Quests{questsDirty ? ' (1)' : ''}</button>{/if}
 					<button class:on={tab === 'new'} onclick={startNew}>New object</button>
@@ -424,8 +444,8 @@
 							A click sets it, saved with Save object. Hover a tile to see it big on the left.
 						</p>
 						<DisplayPicker kind="object" selected={Number(values.displayId) || 0} onpick={(d) => (values.displayId = String(d.id))} onhover={(d) => (hoveredDisplay = d)} />
-					{:else if tab === 'contents' || tab === 'quests'}
-						<!-- The Contents and Quests tabs stay mounted below, so their unsaved rows survive a tab switch. -->
+					{:else if tab === 'contents' || tab === 'quests' || tab === 'sounds'}
+						<!-- The Contents, Quests and Sounds tabs stay mounted below, so their unsaved rows survive a tab switch. -->
 					{:else if record}
 						{#each groups as g (g.title)}
 							<h3>{g.title}</h3>
@@ -450,6 +470,9 @@
 								onsetloot={(id) => (values.data1 = String(id))}
 								onset={(col, v) => (values[col] = v)}
 							/>
+						</div>
+						<div hidden={tab !== 'sounds'}>
+							<ObjectSoundsTab bind:this={soundsTab} bind:dirty={soundsDirty} display={Number(values.displayId) || 0} active={tab === 'sounds'} />
 						</div>
 						<div hidden={tab !== 'quests'}>
 							<QuestsTab bind:this={questsTab} bind:dirty={questsDirty} kind="object" entry={record.entry} name={saved.name || values.name || ''} ready={Number(saved.type) === QUEST_GIVER_TYPE} />

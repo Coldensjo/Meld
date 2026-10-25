@@ -188,6 +188,8 @@ export function NextObjectLoot():Promise<number>;
 
 export function NextPoolEntry():Promise<number>;
 
+export function ObjectDisplaySounds(arg1:number):Promise<vmangos.ObjectDisplaySounds>;
+
 export function ObjectModel(arg1:number):Promise<string>;
 
 export function ObjectTables():Promise<vmangos.ObjectTables>;
@@ -320,6 +322,8 @@ export function SaveModelSetDialog(arg1:string):Promise<string>;
 
 export function SaveObject(arg1:number,arg2:number,arg3:Record<string, string>):Promise<string>;
 
+export function SaveObjectDisplaySounds(arg1:number,arg2:Array<number>):Promise<main.SoundsSaved>;
+
 export function SaveObjectLoot(arg1:number,arg2:Array<vmangos.LootItem>):Promise<string>;
 
 export function SaveObjectQuests(arg1:number,arg2:vmangos.QuestLists):Promise<string>;
@@ -377,6 +381,8 @@ export function SetUnsaved(arg1:boolean):Promise<void>;
 export function SetVmangosPath(arg1:string):Promise<void>;
 
 export function SetWowPath(arg1:string):Promise<wow.Status>;
+
+export function SoundEntries():Promise<Array<vmangos.SoundOption>>;
 
 export function SpawnEditSQL(arg1:string,arg2:number,arg3:number,arg4:number,arg5:Array<vmangos.SpawnEdit>):Promise<vmangos.Result>;
 

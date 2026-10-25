@@ -362,7 +362,18 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   GameObjectDisplayInfo row with a model from `ListObjectDisplays`, cached in Go with the object type
   and names of the templates using it, families by the model's folder; a click sets `displayId`,
   hovering previews it; the Go and frontend lists are forgotten on Save and New object, as their uses
-  change), and New object (`CreateObject`). The Object tab follows the spawn's entry
+  change), Sounds (#674: `ObjectSoundsTab.svelte`, the ten sound slots of the template's display,
+  GameObjectDisplayInfo.dbc fields 2 to 11, SoundEntries IDs in wowdev's SoundSlot order: Stand, Open,
+  Loop, Close, Destroy, Opened, Custom 0 to 3; the client's looping sounds sit in Stand, Loop and
+  Custom 0. Read by `ObjectDisplaySounds` and written by `SaveObjectDisplaySounds`
+  (`internal/vmangos/objectsounds.go`: only that row's slots change, an unknown sound or display is
+  refused, a new row never made, since the server checks a template's display against its own copy
+  of the table) into Meld's patch through `queueClientFiles`, so it waits for a running game. The
+  edits are kept per display and saved by Save object after the template and contents; they change
+  every object of the display, which the tab says with the users from `loadDisplays`. A slot is set
+  from `SoundPicker.svelte`, the shared list of SoundEntries rows (`SoundEntries`, cached in the
+  page; `forgetSoundEntries` after an import, #684) with Play through `lib/ui/soundPlayer.svelte.ts`,
+  one sound at a time over `/wow/sound`), and New object (`CreateObject`). The Object tab follows the spawn's entry
   (an entry change or its undo). Save calls `SpawnActions.applyObjectTemplate` (name, type, model through
   `ObjectModel`, size as scale) and forgets the Go and frontend object lists, so they are read again.
 - **Quest editor** (`components/QuestEditor.svelte`, `ui.questEditor`, #259): full screen (over the

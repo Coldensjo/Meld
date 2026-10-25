@@ -367,6 +367,20 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class SoundsSaved {
+	    changed: boolean;
+	    waiting: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SoundsSaved(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.changed = source["changed"];
+	        this.waiting = source["waiting"];
+	    }
+	}
 	export class SpellSaved {
 	    sql: string;
 	    iconAdded: string;
@@ -2384,6 +2398,22 @@ export namespace vmangos {
 	    }
 	}
 	
+	export class ObjectDisplaySounds {
+	    display: number;
+	    model: string;
+	    sounds: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ObjectDisplaySounds(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.display = source["display"];
+	        this.model = source["model"];
+	        this.sounds = source["sounds"];
+	    }
+	}
 	export class ObjectLoot {
 	    loot: number;
 	    items: LootItem[];

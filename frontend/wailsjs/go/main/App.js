@@ -362,6 +362,10 @@ export function NextPoolEntry() {
   return window['go']['main']['App']['NextPoolEntry']();
 }
 
+export function ObjectDisplaySounds(arg1) {
+  return window['go']['main']['App']['ObjectDisplaySounds'](arg1);
+}
+
 export function ObjectModel(arg1) {
   return window['go']['main']['App']['ObjectModel'](arg1);
 }
@@ -626,6 +630,10 @@ export function SaveObject(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveObject'](arg1, arg2, arg3);
 }
 
+export function SaveObjectDisplaySounds(arg1, arg2) {
+  return window['go']['main']['App']['SaveObjectDisplaySounds'](arg1, arg2);
+}
+
 export function SaveObjectLoot(arg1, arg2) {
   return window['go']['main']['App']['SaveObjectLoot'](arg1, arg2);
 }
@@ -740,6 +748,10 @@ export function SetVmangosPath(arg1) {
 
 export function SetWowPath(arg1) {
   return window['go']['main']['App']['SetWowPath'](arg1);
+}
+
+export function SoundEntries() {
+  return window['go']['main']['App']['SoundEntries']();
 }
 
 export function SpawnEditSQL(arg1, arg2, arg3, arg4, arg5) {

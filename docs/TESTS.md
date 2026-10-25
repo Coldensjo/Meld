@@ -754,6 +754,7 @@ the same scene, the report before and after.
 - Game object editor: Find object, with no spawn (#351)
 - Game object editor: Contents, Make it a chest, respawn (#220)
 - Game object editor: Display, picking a display from thumbnails (#230)
+- Game object editor: Sounds, a display's sound slots (#674)
 - Tilted game objects (#229)
 - Names over spawns (#125)
 - Right-click near the selected creature (#205)

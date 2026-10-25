@@ -150,6 +150,28 @@ world database for the types and names (without it every display is Unused). Uni
 - The folder filter groups by the model's folder (TradeskillNodes, Chests), since most object
   models are used by one display each, so a file-name family would be one tile a family.
 
+## Game object editor: Sounds, a display's sound slots (#674)
+
+Checks: the Sounds tab (`ObjectSoundsTab.svelte`, `SoundPicker.svelte`) shows the ten sound slots of
+the template's display, named by SoundEntries, with Play; Add or Change opens the shared sound
+picker on that slot (search by name, file or ID), a click sets it as one unsaved change (Save object
+(1), Sounds (1)) that Revert drops, and Save object writes GameObjectDisplayInfo.dbc into Meld's
+patch. The probe `object-sounds` does it on the Forge (1743, display 197, UndeadCampfireSmall in
+Custom 0) in about 15 s: it saves on a throwaway client (`P.sandboxClient`), reads the slots back
+with `ObjectDisplaySounds`, and checks the real patch is untouched; nothing goes to the world
+database. Unit: `TestObjectDisplaySounds`, `TestSetObjectDisplaySounds` and, with the client,
+`TestClientObjectDisplaySounds` (the real table rewritten: same rows, string block and fields but the
+one row's slots) in `internal/vmangos/objectsounds_test.go`.
+
+- In the game (the owner's check): give a display a sound in Stand, Loop or Custom 0 (a loop such as
+  CampFireLargeLoop, 3244), save, restart the game and walk up to an object of that display; the
+  sound should fade in near it. Which slot the client plays for which object state is only known
+  from the client's own displays (fires use Loop, lamps Stand, forges Custom 0), so try the slot the
+  display's own sound already sits in first.
+- Traps: the slots belong to the display, so a change reaches every object that shares it (the
+  Forge's display 197 is used by 156 templates); the tab names them. The sound list has thousands of
+  rows: the picker draws the first 200 matches.
+
 ## Tilted game objects (#229)
 
 Checks: a game object's tilt (`gameobject.rotation0..3`) is read into `WorldSpawn.tilt`, drawn
