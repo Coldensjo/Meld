@@ -1,6 +1,7 @@
 // Free-form area selections (#183): the Select tool's lasso and polygon make a set of cells, kept as a
 // byte per cell of the map (255 inside), with the selection rect as its bounds. Kept free of three.js
 // so it can be tested on its own.
+import { combineMask, type MaskOp } from './maskSelect'
 
 /** A cell rect: x0..x1 and z0..z1 are vertex corners, so the cells are x0 to x1 - 1. */
 export interface CellRect {
@@ -64,6 +65,18 @@ export function rasterPolygon(points: ArrayLike<number>, cellSize: number, size:
 export function rectCells(r: CellRect, size: number): Uint8Array {
 	const out = new Uint8Array(size * size)
 	for (let z = Math.max(0, r.z0); z < Math.min(size, r.z1); z++) out.fill(INSIDE, z * size + Math.max(0, r.x0), z * size + Math.min(size, r.x1))
+	return out
+}
+
+/**
+ * The area a newly drawn shape leaves (#712): `drawn` alone for a replace, or `drawn` added to or taken
+ * from `prev` (the area there was, null for none), as Photoshop's Shift and Alt drags do. A new array.
+ */
+export function combineArea(prev: Uint8Array | null, drawn: Uint8Array, op: MaskOp): Uint8Array {
+	if (op === 'replace' || (!prev && op === 'add')) return drawn.slice()
+	if (!prev) return new Uint8Array(drawn.length)
+	const out = prev.slice()
+	combineMask(out, drawn, op)
 	return out
 }
 

@@ -30,6 +30,7 @@ import { SpawnBrushTool } from '../src/lib/tools/SpawnBrushTool.ts'
 import { HoleWalls } from '../src/lib/tools/HoleWalls.ts'
 import { SpawnLayer, cloneSpawn } from '../src/lib/world/SpawnLayer.ts'
 import { selectObjects } from '../src/lib/state/selection.ts'
+import { areaCells, areaShape } from '../src/lib/state/areaSelection.ts'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../src/lib/world/clipboard.ts'
 import { vmangos } from '../wailsjs/go/models'
 import type { SpawnPaths } from '../src/lib/world/SpawnPaths.ts'
@@ -709,3 +710,43 @@ for (const s of selections) {
 		})
 	})
 }
+
+// #712: the rectangle adds with Shift and subtracts with Ctrl, as the lasso does, the models following.
+test('Select, a rectangle: Shift adds to the area and Ctrl takes from it, with the models in it', () => {
+	withCanvas(() => {
+		reset()
+		const w = world()
+		const tool = selectTool(w)
+		tool.activate(w.ctx)
+		draw(w)
+		const drag = (from: [number, number], to: [number, number], keys: Keys = {}) => {
+			tool.onDown(w.ctx, at(w, ...from), pointer(keys))
+			const hit = at(w, ...to)
+			tool.onMove(w.ctx, hit, pointer(keys, 0, 8))
+			tool.frame(w.ctx, hit)
+			tool.onUp(w.ctx, hit, pointer(keys, 0, 8))
+		}
+		const cubesAt = () => editor.selectedIds.map((id) => w.objects.objects.get(id)!.x).sort((a, b) => a - b)
+		const cells = () => areaCells(w.terrain, w.terrain.size)!.reduce((n, v) => n + (v ? 1 : 0), 0)
+		drag([50, 50], [64, 80])
+		expect(editor.selection).toEqual({ x0: 25, z0: 25, x1: 32, z1: 40 })
+		expect(cubesAt()).toEqual([60])
+		// A Shift drag beside it: the two make one plain rect, with all three cubes.
+		drag([64, 50], [80, 80], { shiftKey: true })
+		expect(editor.selection).toEqual({ x0: 25, z0: 25, x1: 40, z1: 40 })
+		expect(areaShape(w.terrain, w.terrain.size)).toBeNull()
+		expect(cubesAt()).toEqual([60, 66, 72])
+		// A Ctrl drag inside it: a hole in the area, and the cube there leaves the selection.
+		drag([70, 60], [76, 70], { ctrlKey: true })
+		expect(editor.selection).toEqual({ x0: 25, z0: 25, x1: 40, z1: 40 })
+		expect(cells()).toBe(15 * 15 - 3 * 5)
+		expect(cubesAt()).toEqual([60, 66])
+		// A Shift or Ctrl click leaves it; a plain click clears it.
+		drag([90, 90], [90, 90], { shiftKey: true })
+		expect(cells()).toBe(15 * 15 - 3 * 5)
+		drag([90, 90], [90, 90])
+		expect(editor.selection).toBeNull()
+		expect(w.history.position).toBe(0)
+		tool.deactivate(w.ctx)
+	})
+})

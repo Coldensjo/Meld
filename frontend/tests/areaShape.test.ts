@@ -1,7 +1,7 @@
 // Run with: bun test tests/areaShape.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { INSIDE, cellsInRect, fillsRect, insideDistance, mirrorCells, rasterPolygon, rectCells, rotateCells, shapeBounds } from '../src/lib/terrain/areaShape.ts'
+import { INSIDE, cellsInRect, combineArea, fillsRect, insideDistance, mirrorCells, rasterPolygon, rectCells, rotateCells, shapeBounds } from '../src/lib/terrain/areaShape.ts'
 import type { MapClip } from '../src/lib/world/clipboard.ts'
 import { mirrorClip, rotateClip } from '../src/lib/world/clipRotate.ts'
 import { LiquidMap, LIQUID_CELLS, newLayer, pasteLiquidCells } from '../src/lib/water/liquids.ts'
@@ -105,4 +105,27 @@ test('a liquid paste with a shape clears and lays only the shape', () => {
 	assert.equal(after.cells[0], 0)
 	assert.equal(after.cells[1], 1)
 	assert.equal(after.cells[1 * LIQUID_CELLS], 1)
+})
+
+test('a rect adds to, takes from or replaces the area there is (#712)', () => {
+	const size = 8
+	const first = rectCells({ x0: 0, z0: 0, x1: 4, z1: 4 }, size)
+	const second = rectCells({ x0: 2, z0: 2, x1: 6, z1: 6 }, size)
+	// Shift: the union of two overlapping 4 by 4 rects, 16 + 16 - 4 cells, and no longer a plain rect.
+	const union = combineArea(first, second, 'add')
+	assert.equal(count(union), 28)
+	assert.deepEqual(shapeBounds(union, size), { x0: 0, z0: 0, x1: 6, z1: 6 })
+	assert.equal(fillsRect(union, size, { x0: 0, z0: 0, x1: 6, z1: 6 }), false)
+	// Ctrl: a rect inside it cut out.
+	const cut = combineArea(union, rectCells({ x0: 1, z0: 1, x1: 3, z1: 3 }, size), 'subtract')
+	assert.equal(count(cut), 24)
+	assert.equal(cut[1 * size + 1], 0)
+	assert.equal(cut[0], INSIDE)
+	// The inputs are left alone.
+	assert.equal(count(first), 16)
+	assert.equal(count(union), 28)
+	// A plain drag replaces; adding to nothing is the rect; taking from nothing is nothing.
+	assert.deepEqual(combineArea(union, second, 'replace'), second)
+	assert.deepEqual(combineArea(null, second, 'add'), second)
+	assert.equal(count(combineArea(null, second, 'subtract')), 0)
 })

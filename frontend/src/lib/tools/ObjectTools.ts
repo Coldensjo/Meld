@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { vmangos } from '../../../wailsjs/go/models'
 import { editor, prefs, setStatus, setViewportHint, ui } from '../state/editor.svelte'
-import { markMoved, movableSelection, objectsInRect, selectObjects, withGroups } from '../state/selection'
+import { markMoved, movableSelection, selectObjects, withGroups } from '../state/selection'
 import { getAsset } from '../models/assets'
 import type { ObjectLayer, WorldObject } from '../world/ObjectLayer'
 import type { ObjectClip } from '../world/clipboard'
@@ -10,9 +10,9 @@ import type { FitOptions } from '../terrain/fitGround'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
 import { GhostPool } from './ghosts'
-import { areaCells, objectsInArea, setAreaCells } from '../state/areaSelection'
-import { rasterPolygon } from '../terrain/areaShape'
-import { combineMask, type MaskOp } from '../terrain/maskSelect'
+import { areaCells, areaShape, objectsInArea, setAreaCells } from '../state/areaSelection'
+import { combineArea, rasterPolygon, rectCells } from '../terrain/areaShape'
+import type { MaskOp } from '../terrain/maskSelect'
 import { pasteLandings, type Landing } from '../world/pasteLanding'
 import { spawnKey } from '../world/SpawnLayer'
 import { pickNearest } from '../world/pickNearest'
@@ -386,6 +386,9 @@ interface Cell {
  * offsets. A drag on the ground selects an area, and with it every model standing in it. While
  * pasting, the floating clip follows the cursor and a click drops it.
  */
+/** How an area drawn from press `e` meets the area there is: Shift adds, Ctrl subtracts, a plain press replaces (#183, #712). */
+const pressOp = (e: PointerEvent): MaskOp => (e.shiftKey ? 'add' : e.ctrlKey ? 'subtract' : 'replace')
+
 export class SelectTool implements Tool {
 	get usesBrush() {
 		return editor.selectBrush
@@ -424,6 +427,11 @@ export class SelectTool implements Tool {
 	/** The cell an area drag has reached; `publishRect` copies the area into `editor.selection` once a frame. */
 	private rectEnd: Cell = { x: 0, z: 0 }
 	private rectDirty = false
+	/** How the rect being dragged meets the area there is (#712): Shift adds, Ctrl subtracts, a plain drag replaces. */
+	private rectOp: MaskOp = 'replace'
+	/** Scratch for `dragRect` and `rectOutline`. */
+	private rectBox = { x0: 0, z0: 0, x1: 0, z1: 0 }
+	private rectPts: number[] = []
 	/**
 	 * A lasso being dragged or a polygon being clicked (#183): its points (world x, z pairs), and whether
 	 * it adds to the area or takes from it.
@@ -603,10 +611,16 @@ export class SelectTool implements Tool {
 			this.pressOutline(ctx, at, e)
 			return
 		}
-		if (!e.shiftKey) selectObjects(ctx.objects, [])
+		// As the lasso (#183, #712): Shift adds the rect to the area, Ctrl takes it out, a plain drag replaces it.
+		const op = pressOp(e)
+		this.rectOp = op
 		this.rectStart = this.cell(ctx, at)
 		this.rectEnd = this.rectStart
 		this.rectDirty = false
+		if (op !== 'replace') return
+		// A plain drag shows the new rect as the area while it is dragged; an add or subtract keeps the area
+		// there is on show and draws the rect as an outline over it.
+		selectObjects(ctx.objects, [])
 		editor.selection = { x0: this.rectStart.x, z0: this.rectStart.z, x1: this.rectStart.x, z1: this.rectStart.z }
 	}
 
@@ -627,8 +641,7 @@ export class SelectTool implements Tool {
 			else p.push(at.x, at.z)
 			return
 		}
-		const op: MaskOp = e.shiftKey ? 'add' : e.ctrlKey ? 'subtract' : 'replace'
-		this.outline = { pts: [at.x, at.z], op, polygon: editor.selectShape === 'polygon' }
+		this.outline = { pts: [at.x, at.z], op: pressOp(e), polygon: editor.selectShape === 'polygon' }
 		if (this.outline.polygon) setStatus('Click the corners. Enter or a click on the first corner closes the polygon; Backspace drops the last corner, Esc cancels.', 6000)
 	}
 
@@ -638,16 +651,20 @@ export class SelectTool implements Tool {
 		this.outline = null
 		if (!o) return
 		const t = ctx.terrain
+		const drawn = new Uint8Array(t.size * t.size)
+		rasterPolygon(o.pts, t.cellSize, t.size, drawn)
+		this.commitArea(ctx, drawn, o.op)
+	}
+
+	/**
+	 * Makes the cells a lasso, polygon or rect drew the selected area, added to or taken from the one
+	 * there is by `op`, and selects the models in it.
+	 */
+	private commitArea(ctx: ToolContext, drawn: Uint8Array, op: MaskOp) {
+		const t = ctx.terrain
 		const size = t.size
-		const drawn = new Uint8Array(size * size)
-		rasterPolygon(o.pts, t.cellSize, size, drawn)
 		const before = editor.selectedIds
-		const prev = o.op === 'replace' ? null : areaCells(t, size)
-		let cells = drawn
-		if (prev) {
-			cells = prev.slice()
-			combineMask(cells, drawn, o.op)
-		} else if (o.op === 'subtract') cells = new Uint8Array(size * size)
+		const cells = combineArea(op === 'replace' ? null : areaCells(t, size), drawn, op)
 		const r = setAreaCells(t, size, cells)
 		const inside = r
 			? withGroups(
@@ -656,37 +673,70 @@ export class SelectTool implements Tool {
 				)
 			: []
 		// Shift keeps the models selected before; Ctrl drops those no longer in the area.
-		const insideSet = o.op === 'subtract' ? new Set(inside) : null
-		const ids = o.op === 'add' ? [...before, ...inside] : insideSet ? before.filter((id) => insideSet.has(id)) : inside
+		const insideSet = op === 'subtract' ? new Set(inside) : null
+		const ids = op === 'add' ? [...before, ...inside] : insideSet ? before.filter((id) => insideSet.has(id)) : inside
 		selectObjects(ctx.objects, ids)
-		let count = 0
-		for (let i = 0; i < cells.length; i++) if (cells[i]) count++
 		const m = editor.selectedIds.length
-		setStatus(r ? `Selected ${count} cells (${r.x1 - r.x0} × ${r.z1 - r.z0} around) with ${m} ${m === 1 ? 'object' : 'objects'}.` : 'The area is empty.')
+		const objs = `${m} ${m === 1 ? 'object' : 'objects'}`
+		if (!r) setStatus('The area is empty.')
+		else if (!areaShape(t, size)) setStatus(`Selected ${r.x1 - r.x0} × ${r.z1 - r.z0} cells with ${objs}.`)
+		else {
+			let count = 0
+			for (let i = 0; i < cells.length; i++) if (cells[i]) count++
+			setStatus(`Selected ${count} cells (${r.x1 - r.x0} × ${r.z1 - r.z0} around) with ${objs}.`)
+		}
 	}
 
 	/** Draws the outline being made, a polygon's last side following the cursor. */
 	private drawOutline(ctx: ToolContext, hit: THREE.Vector3 | null) {
 		const o = this.outline
-		this.outlineLine.visible = !!o
-		if (!o) return
 		const t = ctx.terrain
-		const n = o.pts.length / 2
-		const count = n + (o.polygon && hit ? 1 : 0)
+		// An add or subtract rect is drawn as its outline over the area there is, a point a cell along its sides.
+		const rect = !o && this.rectStart && this.rectOp !== 'replace' ? this.rectOutline(t.cellSize) : null
+		const pts = o ? o.pts : rect
+		this.outlineLine.visible = !!pts
+		if (!pts) return
+		const n = pts.length / 2
+		const count = n + (o?.polygon && hit ? 1 : 0)
 		if (this.outlinePos.length < count * 3) {
 			this.outlinePos = new Float32Array(Math.max(64, count * 6))
 			this.outlineLine.geometry.setAttribute('position', new THREE.BufferAttribute(this.outlinePos, 3))
 		}
 		const pos = this.outlinePos
 		for (let i = 0; i < count; i++) {
-			const x = i < n ? o.pts[i * 2] : hit!.x
-			const z = i < n ? o.pts[i * 2 + 1] : hit!.z
+			const x = i < n ? pts[i * 2] : hit!.x
+			const z = i < n ? pts[i * 2 + 1] : hit!.z
 			pos[i * 3] = x
 			pos[i * 3 + 1] = t.heightAt(x, z) + 0.3
 			pos[i * 3 + 2] = z
 		}
 		this.outlineLine.geometry.getAttribute('position').needsUpdate = true
 		this.outlineLine.geometry.setDrawRange(0, count)
+	}
+
+	/** The rect being dragged as world x, z pairs around its sides, a point a cell, in a reused array. */
+	private rectOutline(cs: number): number[] {
+		const r = this.dragRect()
+		const p = this.rectPts
+		p.length = 0
+		for (let x = r.x0; x < r.x1; x++) p.push(x * cs, r.z0 * cs)
+		for (let z = r.z0; z < r.z1; z++) p.push(r.x1 * cs, z * cs)
+		for (let x = r.x1; x > r.x0; x--) p.push(x * cs, r.z1 * cs)
+		for (let z = r.z1; z > r.z0; z--) p.push(r.x0 * cs, z * cs)
+		if (!p.length) p.push(r.x0 * cs, r.z0 * cs, r.x1 * cs, r.z1 * cs)
+		return p
+	}
+
+	/** The cells between the drag's start and where it has reached. */
+	private dragRect() {
+		const a = this.rectStart ?? this.rectEnd
+		const b = this.rectEnd
+		const r = this.rectBox
+		r.x0 = Math.min(a.x, b.x)
+		r.z0 = Math.min(a.z, b.z)
+		r.x1 = Math.max(a.x, b.x)
+		r.z1 = Math.max(a.z, b.z)
+		return r
 	}
 
 	/**
@@ -911,7 +961,7 @@ export class SelectTool implements Tool {
 		markMoved(o.id)
 	}
 
-	onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e?: PointerEvent) {
+	onUp(ctx: ToolContext, _hit?: THREE.Vector3 | null, _e?: PointerEvent) {
 		ctx.holeWalls.onUp(ctx)
 		if (this.brushing) {
 			this.brushing = null
@@ -953,23 +1003,16 @@ export class SelectTool implements Tool {
 			return
 		}
 		if (this.rectStart) {
-			this.publishRect()
+			const r = this.dragRect()
 			this.rectStart = null
-			const s = editor.selection
-			if (!s) return
-			if (s.x1 === s.x0 || s.z1 === s.z0) {
-				// A plain click (no area) clears the area.
-				editor.selection = null
+			const op = this.rectOp
+			if (r.x1 === r.x0 || r.z1 === r.z0) {
+				// A plain click (no area) clears the area; a Shift or Ctrl click leaves it as it was.
+				if (op === 'replace') editor.selection = null
 				return
 			}
-			const inside = withGroups(
-				ctx.objects,
-				objectsInRect(ctx.objects, ctx.terrain.cellSize, s).map((o) => o.id),
-			)
-			const ids = e?.shiftKey ? [...editor.selectedIds, ...inside] : inside
-			selectObjects(ctx.objects, ids)
-			const n = editor.selectedIds.length
-			setStatus(`Selected ${s.x1 - s.x0} × ${s.z1 - s.z0} cells with ${n} ${n === 1 ? 'object' : 'objects'}.`)
+			const size = ctx.terrain.size
+			this.commitArea(ctx, rectCells(r, size), op)
 			return
 		}
 		const d = this.dragging
@@ -1003,10 +1046,9 @@ export class SelectTool implements Tool {
 	/** Puts the area being dragged into `editor.selection` when it reached another cell since the last call. */
 	private publishRect() {
 		const a = this.rectStart
-		if (!a || !this.rectDirty) return
+		if (!a || !this.rectDirty || this.rectOp !== 'replace') return
 		this.rectDirty = false
-		const b = this.rectEnd
-		editor.selection = { x0: Math.min(a.x, b.x), z0: Math.min(a.z, b.z), x1: Math.max(a.x, b.x), z1: Math.max(a.z, b.z) }
+		editor.selection = { ...this.dragRect() }
 	}
 
 	onKey(ctx: ToolContext, e: KeyboardEvent) {

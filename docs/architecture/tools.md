@@ -125,6 +125,11 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
     bounds, and count only while that rect and map are unchanged, so code that sets a plain rect needs
     no change. Cut hole, mask, the Layers chunk list, copy/paste (`MapClip.cells`), the doodad fill and
     Grow/Shrink Selected Area follow the shape; the shader draws it from a cell texture (`selMode` 3).
+  - Every shape adds and subtracts as in Photoshop (#183, #712): Shift adds what it draws to the area,
+    Ctrl takes it out, a plain drag replaces it, and the models follow the final area
+    (`SelectTool.commitArea`, `combineArea` in `terrain/areaShape.ts`). An add or subtract rect leaves
+    `editor.selection` alone while dragged and is drawn as an outline (`rectOutline`) over the area there is;
+    a Shift or Ctrl click without a drag changes nothing, a plain one clears the area.
   - `editor.selectedIds` holds every selected object and `editor.selected` the primary one (the
     gizmo and the Properties sliders work on it). Change them through `lib/state/selection.ts`
     (`selectObjects`), never by hand. Delete, hide, nudge and focus act on the whole selection.

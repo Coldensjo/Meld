@@ -104,6 +104,11 @@ mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the
   `newCreature` hook hands out guids; the snapshot holds the `SpawnLayer`'s spawns.
 - A selection is no edit: the `selections` tests (a rectangle, a lasso, the selection brush, a click
   on a model) check that it selects with no History step and the map unchanged.
+- Adding to and taking from an area (#712): `tests/toolUndo.test.ts`, "Shift adds to the area and Ctrl
+  takes from it", drags a rect, a Shift rect beside it (one plain rect, all three cubes) and a Ctrl rect
+  inside (a hole, its cube dropped), then Shift and plain clicks; `combineArea` itself is in
+  `tests/areaShape.test.ts`. By hand in the dev page: the Shift or Ctrl rect is drawn as a yellow outline
+  over the area while dragged, the area itself staying on show.
 - The gizmo's handles are `engine/GizmoDrag.ts` (#555), so they are `tests/gizmoDrag.test.ts`
   (`bun test tests/gizmoDrag.test.ts`, well under a second): on a flat map through a fake `GizmoHost`
   with a real `TransformGizmo` and camera, one model's ring, arrow, knob and move arrow, a group's
