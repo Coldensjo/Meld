@@ -4,6 +4,7 @@
   import { MapLights, NewLightIDs, SaveLights } from '../../wailsjs/go/main/App'
   import { vmangos } from '../../wailsjs/go/models'
   import { prefs, setStatus } from '../lib/state/editor.svelte'
+  import { askConfirm } from '../lib/state/confirm'
   import { engineRef } from '../lib/state/engineRef'
   import { hasBackend } from '../lib/io/backend'
   import { lightWeight } from '../lib/wow/clientLight'
@@ -138,8 +139,8 @@
     }
   }
 
-  function close() {
-    if ((dirtyLights.length || dirtyParams.length) && !confirm('Close without saving the light changes?')) return
+  async function close() {
+    if ((dirtyLights.length || dirtyParams.length) && !(await askConfirm('Close without saving the light changes?', { title: 'Unsaved changes', ok: 'Close without saving' }))) return
     onclose()
   }
 

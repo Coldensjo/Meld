@@ -4,6 +4,7 @@
   import { AreaRows, MapEntries, MapLights, NewAreaRow, SaveAreas, ZoneSounds, ZoneWeather } from '../../wailsjs/go/main/App'
   import { vmangos } from '../../wailsjs/go/models'
   import { setStatus } from '../lib/state/editor.svelte'
+  import { askConfirm } from '../lib/state/confirm'
   import { engineRef } from '../lib/state/engineRef'
   import { hasBackend } from '../lib/io/backend'
   import { reloadAreas } from '../lib/wow/areas'
@@ -132,14 +133,16 @@
     picked = rows[0]?.id ?? null
   }
 
-  async function changeMap(id: number) {
-    if (dirty.length && !confirm('Drop the unsaved zone changes?')) return
+  /** False when the user kept the unsaved changes, so the map list goes back to the open map. */
+  async function changeMap(id: number): Promise<boolean> {
+    if (dirty.length && !(await askConfirm('Drop the unsaved zone changes?', { title: 'Unsaved changes', ok: 'Drop them' }))) return false
     mapId = id
     try {
       await load()
     } catch (err) {
       error = String(err)
     }
+    return true
   }
 
   function edit<K extends keyof vmangos.AreaRow>(key: K, value: vmangos.AreaRow[K]) {
@@ -194,9 +197,9 @@
     }
   }
 
-  function close() {
+  async function close() {
     audio?.pause()
-    if (unsaved && !confirm('Close without saving the zone changes?')) return
+    if (unsaved && !(await askConfirm('Close without saving the zone changes?', { title: 'Unsaved changes', ok: 'Close without saving' }))) return
     onclose()
   }
 
@@ -213,7 +216,12 @@
   {#if error}<p class="error">{error}</p>{/if}
   <div class="top">
     <label class="k" for="zone-map">Map</label>
-    <select id="zone-map" value={mapId ?? 0} onchange={(e) => void changeMap(Number((e.target as HTMLSelectElement).value))}>
+    <select id="zone-map" value={mapId ?? 0} onchange={(e) => {
+      const el = e.target as HTMLSelectElement
+      void changeMap(Number(el.value)).then((changed) => {
+        if (!changed) el.value = String(mapId ?? 0)
+      })
+    }}>
       {#each maps as m (m.ID)}
         <option value={m.ID}>{m.Name || m.Dir} ({m.ID})</option>
       {/each}

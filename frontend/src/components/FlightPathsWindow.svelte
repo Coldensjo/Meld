@@ -4,6 +4,7 @@
 	import { MapEntries, ReadCreature, SaveCreature, SaveTaxi, TaxiNetwork } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
+	import { askConfirm } from '../lib/state/confirm'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { editorPoint, serverSpot } from '../lib/io/portCoords'
@@ -226,11 +227,11 @@
 		})
 	}
 
-	function removeStop() {
+	async function removeStop() {
 		const s = stop
 		if (!s) return
 		const own = routes.filter((r) => r.from === s.id || r.to === s.id)
-		if (own.length && !confirm(`Delete ${s.name} and its ${own.length} route${own.length === 1 ? '' : 's'}?`)) return
+		if (own.length && !(await askConfirm(`Delete ${s.name} and its ${own.length} route${own.length === 1 ? '' : 's'}?`, { title: 'Delete flight stop', ok: 'Delete' }))) return
 		for (const r of own) dropRoute(r.id)
 		stops = stops.filter((x) => x.id !== s.id)
 		dirtyStops = dirtyStops.filter((x) => x !== s.id)
@@ -372,8 +373,8 @@
 		}
 	}
 
-	function close() {
-		if (changes && !confirm('Close without saving the flight path changes?')) return
+	async function close() {
+		if (changes && !(await askConfirm('Close without saving the flight path changes?', { title: 'Unsaved changes', ok: 'Close without saving' }))) return
 		ui.flightPaths = false
 	}
 

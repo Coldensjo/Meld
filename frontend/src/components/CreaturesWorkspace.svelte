@@ -5,6 +5,7 @@
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { untrack } from 'svelte'
 	import { editor, setStatus, ui } from '../lib/state/editor.svelte'
+	import { askConfirm } from '../lib/state/confirm'
 	import { creatureTemplateOf } from '../lib/world/spawnEdits'
 	import { CREATURE_TYPES, levelText, NPC_FLAGS, RANKS } from '../lib/world/spawnInfo'
 	import ClassIcon from './ClassIcon.svelte'
@@ -64,8 +65,8 @@
 	let making = $state(false)
 	let made = $state<{ entry: number; values: Record<string, string> } | null>(null)
 
-	function close() {
-		if (step > 0 && !made && draft.name && !confirm('Leave the guide? The creature is not made yet.')) return
+	async function close() {
+		if (step > 0 && !made && draft.name && !(await askConfirm('Leave the guide? The creature is not made yet.', { title: 'Leave the guide', ok: 'Leave' }))) return
 		ui.creatures = false
 	}
 
@@ -248,7 +249,7 @@
 			return
 		}
 		e.preventDefault()
-		close()
+		void close()
 	}
 </script>
 

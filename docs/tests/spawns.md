@@ -321,8 +321,8 @@ patch, the server's `data/5875/dbc` and `taxi_nodes`.
   TestClientTaxi` writes the three tables back byte for byte and finds Stormwind's stop 2 with the
   gryphon (Eastern Kingdoms: 43 stops, 132 routes; next stop 88, next route 501).
 - Live: probe `flight-paths` (Azeroth 36_49, Lakeshire is stop 5, its first listed route is 8 to
-  Stormwind, 23 points, about 1 min 46 s). It sets `window.confirm` to say yes, since Close asks about
-  unsaved changes. It also clicks a route's curve (through its middle point) and checks the route is picked.
+  Stormwind, 23 points, about 1 min 46 s). It closes the window through `ui.flightPaths`, which skips Close's
+  question about unsaved changes. It also clicks a route's curve (through its middle point) and checks the route is picked.
 - In the game (the owner's check): save a stop and a route, talk to a creature made flight master next
   to the stop (the server picks the stop nearest the flight master for the player's side, at any
   distance), learn the stop, and fly. A stop needs a route that starts there, or VMaNGOS leaves it

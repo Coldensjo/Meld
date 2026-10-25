@@ -4,6 +4,7 @@
   import AssetPreview from './AssetPreview.svelte'
   import SpawnBrowser, { type SpawnKind } from './SpawnBrowser.svelte'
   import { editor, prefs, setStatus, ui, wow, type ContextItem } from '../lib/state/editor.svelte'
+  import { askConfirm } from '../lib/state/confirm'
   import { activeDoodadBrush, addDoodadBrush } from '../lib/tools/DoodadBrushTool'
   import { newEntry } from '../lib/tools/doodadBrush'
   import { engineRef } from '../lib/state/engineRef'
@@ -176,9 +177,9 @@
     prefs.modelSet = unique
     input.value = unique
   }
-  function deleteSet() {
+  async function deleteSet() {
     const set = activeSet
-    if (!set || !confirm(`Delete the set "${set.name}"? Its ${set.models.length} models stay in the client; only the list goes.`)) return
+    if (!set || !(await askConfirm(`Delete the set "${set.name}"? Its ${set.models.length} models stay in the client; only the list goes.`, { title: 'Delete set', ok: 'Delete' }))) return
     prefs.modelSets = sets.filter((s) => s !== set)
     prefs.modelSet = ''
   }

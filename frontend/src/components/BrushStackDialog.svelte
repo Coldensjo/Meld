@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from './Modal.svelte'
   import { editor, prefs } from '../lib/state/editor.svelte'
+  import { askConfirm } from '../lib/state/confirm'
   import { activeBrushStack } from '../lib/tools/StampTool'
   import { STACK_SCULPT_MODES, freeStackName, newStackItem, type BrushStack, type StackItem } from '../lib/tools/brushStack'
 
@@ -56,9 +57,9 @@
     prefs.brushStack = name
   }
 
-  function deleteStack() {
+  async function deleteStack() {
     const s = activeBrushStack()
-    if (!s || !confirm(`Delete the stack "${s.name}"?`)) return
+    if (!s || !(await askConfirm(`Delete the stack "${s.name}"?`, { title: 'Delete stack', ok: 'Delete' }))) return
     prefs.brushStacks = prefs.brushStacks.filter((x) => x !== s)
     prefs.brushStack = prefs.brushStacks[0]?.name ?? ''
     if (!prefs.brushStacks.length) onclose()

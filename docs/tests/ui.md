@@ -459,6 +459,18 @@ Checks: a dialog takes the focus on open, keeps Tab inside it and gives the focu
 - Trap: a synthetic Tab `KeyboardEvent` doesn't move the focus by itself; the probe checks the
   wrap cases only, where the action moves it and calls `preventDefault`.
 
+## Confirm dialog (#581, probe `confirm-dialog`)
+
+Checks: the app's yes/no prompt (`askConfirm`, `lib/state/confirm.ts`) that replaced the native
+`confirm()` in the Creatures guide, Lights, Portals, Zones, Flight paths, model sets and brush stacks.
+- `bun run probe confirm-dialog` adds a probe brush stack, clicks Delete stack in the brush stack
+  dialog, checks the confirm Modal ("Delete stack") is on top with the focus in it and a danger yes
+  button, that Esc answers no (the stack and the stack dialog stay, the focus returns to Delete
+  stack), and that the yes button (`[data-confirm="yes"]`) deletes it. It restores the stacks.
+- A probe answers any of the nine prompts by clicking `[data-confirm="yes"]` or `[data-confirm="no"]`
+  (or calling `answerConfirm`); a native `confirm()` returned false in headless Chrome, so those
+  paths could not be scripted before.
+
 ## Menu keys (#370, probe `menu-keys`)
 
 Checks: the menu bar and the right-click menu work from the keyboard.

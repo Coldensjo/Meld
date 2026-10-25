@@ -168,6 +168,12 @@ The window layout, the asset browser and the dock panels and floating windows.
   newest root on dialogFocus's stack), so a Modal over an editor (the weapon picker over the
   creature editor) closes alone, whatever order the listeners mounted in. In a text field the first
   Esc only leaves the field, in Modal as in the editors. A new dialog with its own Esc uses the same.
+- **Confirm prompts** (#581): never the native `confirm()` (unthemed, it blocks the render loop,
+  skips the focus return, and headless Chrome answers it no). `await askConfirm(text, { title, ok,
+  danger })` (`lib/state/confirm.ts`) sets `ui.confirm`, which AppDialogs draws as a Modal after
+  every other dialog, so it sits over the dialog or editor that asked; Cancel, Esc and a click
+  outside answer false. A dialog whose close asks (Zones, Portals, Lights) passes its async `close`
+  to `Modal onclose`, so Esc and the backdrop ask too.
 - **Menus from the keyboard** (#370): the menu bar (`MenuBar.svelte`, `role="menubar"`, titles with
   `aria-haspopup` and `aria-expanded`) and the right-click menu (`ContextMenu.svelte`) follow the
   WAI-ARIA menu pattern. Opening a menu (click, Enter, Space or Down on a title; Up opens on the last

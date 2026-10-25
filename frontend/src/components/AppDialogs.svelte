@@ -47,6 +47,7 @@
     void navigator.clipboard?.writeText(text)
   }
   import { quitNow } from '../lib/io/session'
+  import { answerConfirm } from '../lib/state/confirm'
   import { APP_VERSION } from '../lib/version'
   import { shortcutSections } from '../lib/ui/commands'
 
@@ -356,6 +357,17 @@
   <ProjectDialog onclose={close} />
 {:else if ui.dialog === 'folderSetup'}
   <FolderSetupDialog onclose={close} />
+{/if}
+
+<!-- Over every other dialog and editor, so it can ask for the one that is open (#581). -->
+{#if ui.confirm}
+  <Modal title={ui.confirm.title} width={380} onclose={() => answerConfirm(false)}>
+    <p>{ui.confirm.text}</p>
+    {#snippet actions()}
+      <button data-confirm="no" onclick={() => answerConfirm(false)}>Cancel</button>
+      <button data-confirm="yes" class={ui.confirm?.danger ? 'danger' : 'active'} onclick={() => answerConfirm(true)}>{ui.confirm?.ok}</button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <style>

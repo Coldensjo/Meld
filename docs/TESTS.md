@@ -697,6 +697,7 @@ the same scene, the report before and after.
 - Start dialog: opening an instance (#222, #271, probe `instance-open`)
 - Accessibility (#354)
 - Dialog focus and Esc (#369, #573, probe `dialog-focus`)
+- Confirm dialog (#581, probe `confirm-dialog`)
 - Selected state for assistive tech (#373, probe `aria-state`)
 - Menu keys (#370, probe `menu-keys`)
 - Shortcut table (#583, probe `shortcut-table`)

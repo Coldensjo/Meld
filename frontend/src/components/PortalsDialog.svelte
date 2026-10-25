@@ -5,6 +5,7 @@
 	import { vmangos } from '../../wailsjs/go/models'
 	import { untrack } from 'svelte'
 	import { docs, setStatus, ui } from '../lib/state/editor.svelte'
+	import { askConfirm } from '../lib/state/confirm'
 	import { engineRef } from '../lib/state/engineRef'
 	import { hasBackend } from '../lib/io/backend'
 	import { editorPoint, type ServerSpot } from '../lib/io/portCoords'
@@ -215,8 +216,8 @@
 		}
 	}
 
-	function close() {
-		if ((dirty.length || removed.length) && !confirm('Close without saving the portal changes?')) return
+	async function close() {
+		if ((dirty.length || removed.length) && !(await askConfirm('Close without saving the portal changes?', { title: 'Unsaved changes', ok: 'Close without saving' }))) return
 		engineRef.current?.endTriggerEdit()
 		onclose()
 	}

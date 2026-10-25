@@ -635,6 +635,8 @@ export const ui = $state({
   taxiFlying: false,
   /** The spawn (key) and equipment slot (0 main hand, 1 off hand, 2 ranged) the weapon dialog fills. */
   weaponPick: null as { key: string; slot: number } | null,
+  /** The yes/no prompt open over everything else (`lib/state/confirm.ts` askConfirm, #581); null when none. */
+  confirm: null as { text: string; title: string; ok: string; danger: boolean } | null,
   /** Tab awaiting "close with unsaved changes?" confirmation. */
   closeDocId: 0,
   /** Which palette the left panel shows. */
