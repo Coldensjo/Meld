@@ -391,6 +391,23 @@ export sends each chunk's MCSH as the client has it.
   second: a loop that yields with `setTimeout(0)` crawls there (the bake took over a minute). Yield
   through a `MessageChannel` instead.
 
+## The .wmap snapshot round trip and every readable version (#431)
+
+`toMapData` and `fromMapData` (`io/mapData.ts`, free of the runes state) turn the document into the
+`MapData` Go writes and back, where #120 (a region without liquids failed to open) and #161 (a map
+with roles or a region failed to save) were.
+
+- Unit: `bun test tests/mapData.test.ts`. "the .wmap snapshot round trip" sends a map with every
+  optional field set through `toMapData` → JSON → `fromMapData` and compares it whole, checks that one
+  with every optional field unset writes none of them and reads back the defaults, and covers the
+  #120 and #161 cases. "every readable .wmap version opens" has one hand-written `MapData` per
+  version 1 to 6, built from `internal/mapfile`'s test streams (`writeV1`, `writeOld`), with the blobs
+  each version has.
+- When the format gets a version 7: add its fixture there (the previous one plus the new field), and
+  the new field to `fullSnapshot`. The Go side's own fixtures are `go test ./internal/mapfile/`.
+- Trap: `toEqual` treats a key set to `undefined` as missing, so a field `fromMapData` forgets to read
+  but whose snapshot value is `undefined` passes; give every optional field in `fullSnapshot` a value.
+
 ## The unknown state of holes, liquids and chunk data across a save (#525, #663)
 
 A region `.wmap` saved before version 3 (holes), 4 (liquids) or 5 (area IDs, chunk flags, no-tuft
