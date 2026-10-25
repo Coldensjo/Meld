@@ -209,7 +209,7 @@ open region has edits the client lacks, and only then.
   - `go test . -run TestSaveAfterDatabase` (#477): `SaveAreaTriggers` over a held patch, with
     `App.runSQL` standing in for the world database, says the portals are saved in the world database
     and to Save again; without a server folder it returns the patch's own error. `SaveAreas` and
-    `SaveTaxi` wrap the same way (`afterDatabase` in `app.go`).
+    `SaveTaxi` wrap the same way (`afterDatabase` in `app_client_tables.go`).
   - Trap: the server's "current" test compares file times, so the test sets them (`os.Chtimes`)
     rather than trusting the order of two writes a few milliseconds apart.
 - `bun test tests/regionKey.test.ts` (#433): the fingerprint (`regionKey` in `io/regionKey.ts`) changes

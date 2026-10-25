@@ -476,7 +476,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   one (a copy of the visual it was read from with the stages, missile and area set; a missile or area
   taken from another visual brings its path, attachment and sound). Rows other spells use are never
   changed. The layouts (SpellVisual 16 fields, SpellVisualKit 35, SpellVisualEffectName 5) are in the
-  file's comment; `TestSpellVisualsLive` checks them against the client. `SaveSpell` (`app.go`) plans first (`PlanSpellSave`: the UPDATE by entry and
+  file's comment; `TestSpellVisualsLive` checks them against the client. `SaveSpell` (`app_spells.go`) plans first (`PlanSpellSave`: the UPDATE by entry and
   build, a picked icon's SpellIcon.dbc row found or added by `spellIconRow`, then the whole row as it
   will be written into Spell.dbc by `spellClientRow` over the client's record), runs the SQL, has the
   running world server `.reload spell_template` through its SOAP console when it's on
@@ -503,7 +503,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   row comes to (`planScriptLooks`: a carried icon or visual is the client's row of that ID when it
   holds the same, else any row that does, else a new row at the end; the effect, sound and missile
   IDs inside are taken as stock), and an icon or visual ID this client lacks that the script doesn't
-  carry), then `ImportSpells` (`app.go`) rewrites the rows' IDs, runs them (`ImportSpellRows`),
+  carry), then `ImportSpells` (`app_spells.go`) rewrites the rows' IDs, runs them (`ImportSpellRows`),
   reloads the server's spells, and writes the added SpellIcon, SpellVisualKit and SpellVisual rows
   with each imported spell's Spell.dbc record, made from the row the server now uses
   (`SpellClientFiles`), through `saveClientFiles` as Save does. `spellDBCColumns`

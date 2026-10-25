@@ -210,7 +210,7 @@ WOW_DIR=/path/to/WoW go test ./internal/wow/ -v   # integration test against a r
 ## Source layout
 
 ```
-main.go, app.go        Wails entry + bound Go API (file dialogs, save/load)
+main.go, app*.go       Wails entry + bound Go API (app.go: App and config; app_<area>.go: one file a seam)
 env_linux.go           Linux WebKitGTK workarounds
 internal/mapfile/      .wmap binary format (+ tests)
 internal/mpq/          Read-only MPQ reader (WoW 1.x archives)
