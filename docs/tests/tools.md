@@ -112,8 +112,9 @@ mask, chunk data, shadows, liquids, objects, paths) and that Redo gives back the
   `Engine.updateSelectionVisuals` would, so a spawn needs no drawn model there. The probe `gizmo-undo`
   (`bun run probe gizmo-undo`, about 7 s) runs the model and group drags through the Engine in the
   live app, where a spawn's gizmo is left out since it needs a drawn spawn model.
-- Trap: Sculpt's hole walls draw on a canvas when made, so the rows run inside `withCanvas`, which
-  stands a `document` in and takes it away again (`uiScale.test.ts` checks the code without one).
+- Trap: the hole walls draw on a canvas when made, so the test's `ctx.holeWalls` is made on first use
+  inside `withCanvas`, which stands a `document` in and takes it away again (`uiScale.test.ts` checks the
+  code without one).
 
 ## Gizmo drags (spin ring, height arrow, scale knob) without a mouse
 

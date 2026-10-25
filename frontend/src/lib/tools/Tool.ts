@@ -5,6 +5,7 @@ import type { SpawnLayer } from '../world/SpawnLayer'
 import type { SpawnPaths } from '../world/SpawnPaths'
 import type { History } from '../state/history'
 import type { LiquidMap } from '../water/liquids'
+import type { HoleWalls } from './HoleWalls'
 
 export interface ToolContext {
   readonly terrain: Terrain
@@ -18,6 +19,11 @@ export interface ToolContext {
   readonly liquids: LiquidMap
   readonly scene: THREE.Scene
   readonly raycaster: THREE.Raycaster
+  /**
+   * The holes' edges as handles, one for the editor, driven by the tool that shows them (the Select
+   * tool, Sculpt's Hole mode), which attaches it to the scene while active and detaches it after.
+   */
+  readonly holeWalls: HoleWalls
   /**
    * Surface under the cursor: terrain, or a placed object (then `parent` is
    * its id) — whichever is nearer. `exclude` skips objects (e.g. the one

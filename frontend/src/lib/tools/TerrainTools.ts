@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { HOLE_CELL, HOLE_NONE, fillHoles, snapToBlocks } from '../terrain/holes'
-import { HoleWalls } from './HoleWalls'
 import { editor as liveEditor, setStatus, ui, type SculptMode, type ToolSettings } from '../state/editor.svelte'
 
 export type { ToolSettings }
@@ -246,8 +245,7 @@ export class SculptTool extends BrushTool {
   /** Hole mode: whether this stroke restores ground (else it cuts), and the cell rect it touched. */
   private holeFilling = false
   private holeCell = { x0: 0, z0: 0, x1: 0, z1: 0 }
-  /** Hole mode's wall handles: drag an edge, + and − for single cells. */
-  private walls = new HoleWalls()
+  /** Whether Hole mode shows the wall handles (`ctx.holeWalls`) now. */
   private wallsShown = false
   private flattenTarget = 0
   /** Terrace with Shift: the level every vertex of the stroke goes to, the step under the first click; null without. */
@@ -310,7 +308,7 @@ export class SculptTool extends BrushTool {
   onDown(ctx: ToolContext, hit: THREE.Vector3 | null, e?: PointerEvent) {
     this.recordOrient()
     if (editor.sculptMode === 'hole') {
-      if (this.walls.onDown(ctx)) return
+      if (ctx.holeWalls.onDown(ctx)) return
       if (!hit) return
       this.holeFilling = editor.holeFill !== !!e?.shiftKey
       this.stroke = new TerrainStroke(ctx.terrain, this.holeFilling ? 'Fill hole' : 'Cut hole', { holes: true })
@@ -339,7 +337,7 @@ export class SculptTool extends BrushTool {
 
   tick(ctx: ToolContext, dt: number, hit: THREE.Vector3 | null) {
     if (editor.sculptMode === 'hole') {
-      if (this.walls.active) this.walls.onMove(ctx)
+      if (ctx.holeWalls.active) ctx.holeWalls.onMove(ctx)
       else if (this.stroke && hit) this.paintHole(ctx, hit)
       return
     }
@@ -381,7 +379,7 @@ export class SculptTool extends BrushTool {
   }
 
   onUp(ctx: ToolContext) {
-    this.walls.onUp(ctx)
+    ctx.holeWalls.onUp(ctx)
     super.onUp(ctx)
     if (editor.sculptMode === 'vertex' && !this.moving) {
       const sel = this.selection(ctx.terrain)
@@ -395,10 +393,10 @@ export class SculptTool extends BrushTool {
     const hole = editor.sculptMode === 'hole'
     if (hole !== this.wallsShown) {
       this.wallsShown = hole
-      if (hole) this.walls.attach(ctx.scene)
-      else this.walls.detach(ctx.scene)
+      if (hole) ctx.holeWalls.attach(ctx.scene)
+      else ctx.holeWalls.detach(ctx.scene)
     }
-    if (hole) this.walls.frame(ctx)
+    if (hole) ctx.holeWalls.frame(ctx)
     if (hit) {
       this.cursor.copy(hit)
       this.hasCursor = true
@@ -413,7 +411,7 @@ export class SculptTool extends BrushTool {
   deactivate(ctx: ToolContext) {
     this.recordOrient()
     this.drawMarkers(ctx, null)
-    this.walls.detach(ctx.scene)
+    ctx.holeWalls.detach(ctx.scene)
     this.wallsShown = false
   }
 

@@ -10,7 +10,6 @@ import type { FitOptions } from '../terrain/fitGround'
 import type { Tool, ToolContext } from './Tool'
 import { groundNormal, tiltToNormal } from '../world/groundTilt'
 import { GhostPool } from './ghosts'
-import { HoleWalls } from './HoleWalls'
 import { areaCells, objectsInArea, setAreaCells } from '../state/areaSelection'
 import { rasterPolygon } from '../terrain/areaShape'
 import { combineMask, type MaskOp } from '../terrain/maskSelect'
@@ -471,13 +470,10 @@ export class SelectTool implements Tool {
     this.outlineLine.visible = false
   }
 
-  /** The holes' edges as handles: drag one to move it, + and − for single cells. */
-  private walls = new HoleWalls()
-
   activate(ctx: ToolContext) {
     this.ghosts.attach(ctx.scene)
     ctx.scene.add(this.outlineLine)
-    this.walls.attach(ctx.scene)
+    ctx.holeWalls.attach(ctx.scene)
   }
 
   private cell(ctx: ToolContext, hit: THREE.Vector3): Cell {
@@ -496,7 +492,7 @@ export class SelectTool implements Tool {
     this.outlineLine.visible = false
     this.ghosts.detach(ctx.scene)
     ctx.scene.remove(this.outlineLine)
-    this.walls.detach(ctx.scene)
+    ctx.holeWalls.detach(ctx.scene)
     if (ui.pasting) this.hooks.cancelPaste()
   }
 
@@ -555,7 +551,7 @@ export class SelectTool implements Tool {
     }
     // A hole's edge or badge under the cursor comes before a model over it: the edge is lit up, so
     // the intent is clear, and the press moves the edge or cuts/fills a cell at it.
-    if (this.walls.onDown(ctx)) return
+    if (ctx.holeWalls.onDown(ctx)) return
     // While a polygon is open, every click is its next corner, on a model as anywhere else.
     if (this.outline?.polygon) {
       const at = this.groundPoint(ctx, hit)
@@ -803,8 +799,8 @@ export class SelectTool implements Tool {
   }
 
   onMove(ctx: ToolContext, hit: THREE.Vector3 | null, e: PointerEvent) {
-    if (this.walls.active) {
-      this.walls.onMove(ctx)
+    if (ctx.holeWalls.active) {
+      ctx.holeWalls.onMove(ctx)
       return
     }
     if ((this.pointDrag || this.spawnDrag || this.dragging) && !this.pastThreshold) {
@@ -914,7 +910,7 @@ export class SelectTool implements Tool {
   }
 
   onUp(ctx: ToolContext, _hit: THREE.Vector3 | null, e: PointerEvent) {
-    this.walls.onUp(ctx)
+    ctx.holeWalls.onUp(ctx)
     if (this.brushing) {
       this.brushing = null
       return
@@ -981,7 +977,7 @@ export class SelectTool implements Tool {
 
   frame(ctx: ToolContext, hit: THREE.Vector3 | null) {
     this.publishRect()
-    this.walls.frame(ctx)
+    ctx.holeWalls.frame(ctx)
     this.drawOutline(ctx, hit)
     const clip = ui.pasting ? this.hooks.objectClip() : null
     if (clip) {

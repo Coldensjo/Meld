@@ -10,7 +10,7 @@ editor.selection = null
 await P.frames(1)
 const t = e.terrain
 const cs = t.cellSize
-const walls = e.tools.select.walls
+const walls = e.ctx.holeWalls
 const cx = 124 * cs
 const cz = 124 * cs
 // A square camera of our own, so the ribbons' width (a share of the cursor's distance) is a few pixels in every view.

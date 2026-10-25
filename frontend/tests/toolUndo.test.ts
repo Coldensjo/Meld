@@ -27,7 +27,7 @@ import { DoodadBrushTool } from '../src/lib/tools/DoodadBrushTool.ts'
 import { newStackItem } from '../src/lib/tools/brushStack.ts'
 import { DEFAULT_ENTRY } from '../src/lib/tools/doodadBrush.ts'
 import { SpawnBrushTool } from '../src/lib/tools/SpawnBrushTool.ts'
-import type { HoleWalls } from '../src/lib/tools/HoleWalls.ts'
+import { HoleWalls } from '../src/lib/tools/HoleWalls.ts'
 import { SpawnLayer, cloneSpawn } from '../src/lib/world/SpawnLayer.ts'
 import { selectObjects } from '../src/lib/state/selection.ts'
 import { copyObjects, copyRegion, pasteObjects, pasteRegion, type MapClip, type ObjectClip } from '../src/lib/world/clipboard.ts'
@@ -149,6 +149,8 @@ function world(): World {
 	spawns.set([kobold])
 	const history = new History({ dirty() {}, sync() {} })
 	const cursor = new THREE.Vector3()
+	// Made on first use, with a canvas for its badges, as the Engine makes it once.
+	let walls: HoleWalls | null = null
 	const ctx: ToolContext = {
 		terrain: t,
 		objects,
@@ -158,6 +160,10 @@ function world(): World {
 		liquids,
 		scene: new THREE.Scene(),
 		raycaster: new THREE.Raycaster(new THREE.Vector3(0, -1000, 0), new THREE.Vector3(0, -1, 0)),
+		get holeWalls() {
+			if (!walls) withCanvas(() => (walls = new HoleWalls()))
+			return walls!
+		},
 		surface: () => ({ point: cursor.clone(), parent: null }),
 		floor: () => ({ point: cursor.clone(), parent: null }),
 		pressure: () => 1,
@@ -338,8 +344,8 @@ const spawnBrushSetup = () => {
 	prefs.spawnBrush = { ...prefs.spawnBrush, entries: [KOBOLD], density: 300, spacing: 2, avoidWater: false, maxSlope: 90 }
 }
 
-/** The Select tool's hole wall handles (private to it). */
-const wallsOf = (tool: Tool) => (tool as unknown as { walls: HoleWalls }).walls
+/** The hole wall handles the Select tool and Sculpt's Hole mode share (`ctx.holeWalls`). */
+const wallsOf = (w: World) => w.ctx.holeWalls
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 4000)
 camera.up.set(0, 0, -1)
 const centre = new THREE.Vector2()
@@ -357,7 +363,7 @@ function look(w: World, x: number, z: number, y = w.terrain.heightAt(x, z)) {
  * with `badge` (3 for +, 4 for −), the badge the walls show there, as the Engine's frame does.
  */
 function hoverWall(w: World, tool: Tool, badge?: 3 | 4) {
-	const walls = wallsOf(tool)
+	const walls = wallsOf(w)
 	look(w, 60.1, 62.5)
 	tool.frame?.(w.ctx, null)
 	expect(walls.active, 'the wall is hovered').toBe(true)

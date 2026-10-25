@@ -40,6 +40,7 @@ import { modelCasters } from '../world/shadowCasters'
 import { SHADOW_PER_CELL, packShadowBits, shadowBaker } from '../terrain/bakedShadows'
 import { PlaceTool, SelectTool, groupTransformCommand, tiltDeg, transformCommand } from '../tools/ObjectTools'
 import { addedCommand, removedCommand } from '../world/objectCommands'
+import { HoleWalls } from '../tools/HoleWalls'
 import { stepTilt } from '../world/placement'
 import { ClearTool } from '../tools/ClearTool'
 import { SpawnLabels } from '../world/SpawnLabels'
@@ -682,6 +683,7 @@ export class Engine {
       get liquids() { return self.doc.liquids },
       get scene() { return self.scene },
       get raycaster() { return self.raycaster },
+      holeWalls: new HoleWalls(),
       surface: (exclude?: Set<number>) => self.surfaceHit(exclude),
       floor: (exclude?: Set<number>) => self.floorHit(exclude),
       pressure: () => (self.prefs?.tabletSupport ? self.penPressure : 1),

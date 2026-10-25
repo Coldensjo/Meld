@@ -114,7 +114,8 @@ How the tools take input and record undo, the brushes, and selection, clipboard 
   - A drag on the ground selects an **area**, `editor.selection` in cell/vertex coordinates, and
     with it every model standing in it. The terrain shader draws the area (`selRect`/`selMode`,
     marching ants; a free-form shape's cells through `Terrain.setAreaShape`, the green of `cellTex`). `Engine.setHoleInSelection` cuts or fills holes in it.
-  - The holes' edges show as walls (`tools/HoleWalls.ts`, also in Sculpt › Hole): ribbons along each
+  - The holes' edges show as walls (`tools/HoleWalls.ts`, also in Sculpt › Hole; one for the editor,
+    `ToolContext.holeWalls`, made by the Engine and attached by whichever of the two is active): ribbons along each
     straight run of hole boundary, dragged to move it or clicked through + and − badges. They draw
     over everything (depthTest off), so they fade out with the camera's distance and show only near
     the camera or round the cursor (`wallFade` in `terrain/holes.ts`, #249).
