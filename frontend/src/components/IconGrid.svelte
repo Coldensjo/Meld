@@ -236,7 +236,7 @@
 	.icon-btn.on {
 		border-color: var(--accent);
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.dim {
 		color: var(--text-dim);

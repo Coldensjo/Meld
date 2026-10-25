@@ -142,7 +142,7 @@
     display: grid;
     place-items: center;
     border-radius: 4px;
-    background: radial-gradient(circle at 50% 40%, #5a6373, #2b3038 80%);
+    background: radial-gradient(circle at 50% 40%, var(--preview-glow), var(--preview-edge) 80%);
     overflow: hidden;
   }
   img {
@@ -164,7 +164,7 @@
     top: 2px;
     right: 4px;
     font-size: 13px;
-    color: #ffd23f;
+    color: var(--warn);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   }
   .badge {

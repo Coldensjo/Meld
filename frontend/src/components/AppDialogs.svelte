@@ -472,7 +472,7 @@
   .log {
     max-height: calc(60 * var(--vh));
     overflow: auto;
-    font-family: ui-monospace, Consolas, monospace;
+    font-family: var(--mono);
     font-size: 12px;
     line-height: 1.5;
     white-space: pre-wrap;
@@ -503,6 +503,6 @@
   .danger {
     background: var(--danger);
     border-color: var(--danger);
-    color: #fff;
+    color: var(--accent-ink);
   }
 </style>

@@ -80,7 +80,7 @@
     white-space: nowrap;
   }
   .fps {
-    color: #7fc77f;
+    color: var(--ok);
     min-width: 56px;
     text-align: right;
   }

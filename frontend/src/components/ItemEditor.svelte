@@ -824,7 +824,7 @@
 		white-space: pre-line;
 	}
 	.bar.ok {
-		color: #6fdc6f;
+		color: var(--ok);
 	}
 	.body {
 		flex: 1;
@@ -864,7 +864,7 @@
 	}
 	.found button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.found .name {
 		flex: 1;
@@ -893,7 +893,7 @@
 	}
 	.tabs button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.scroll {
 		flex: 1;
@@ -1004,7 +1004,7 @@
 	}
 	.seg button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.display {
 		display: flex;
@@ -1030,9 +1030,9 @@
 		flex-direction: column;
 		gap: 6px;
 		padding: 6px 8px;
-		border: 1px solid #c9a227;
+		border: 1px solid var(--warn);
 		border-radius: 4px;
-		color: #e8c95a;
+		color: var(--warn);
 		font-size: 12px;
 	}
 	.pending {
@@ -1087,7 +1087,7 @@
 		gap: 24px;
 		border: 1px solid var(--border);
 		border-radius: 4px;
-		background: #1a1d24;
+		background: var(--preview-bg);
 	}
 	.grid-area {
 		flex: 1 1 40%;

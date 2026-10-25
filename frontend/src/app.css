@@ -23,6 +23,14 @@
   --accent-ink: #ffffff;
   --danger: #e34850;
   --danger-text: #ff9aa0;
+  /* Status text (ok, warn, bad): 4.5:1 on every panel (tests/contrast.test.ts). */
+  --ok: #6fdc6f;
+  --warn: #ffd23f;
+  --bad: #ff9a9a;
+  /* The 3D previews stay dark in both themes. */
+  --preview-bg: #1a1d24;
+  --preview-glow: #5a6373;
+  --preview-edge: #2b3038;
   --radius: 3px;
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
   --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
@@ -47,6 +55,12 @@
   --accent-ink: #ffffff;
   --danger: #c9252d;
   --danger-text: #961a22;
+  --ok: #0a4f16;
+  --warn: #5c4100;
+  --bad: #8a0f18;
+  --preview-bg: #1a1d24;
+  --preview-glow: #5a6373;
+  --preview-edge: #2b3038;
   color-scheme: light;
 }
 

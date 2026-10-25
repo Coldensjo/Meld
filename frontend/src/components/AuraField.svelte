@@ -96,7 +96,7 @@
 	}
 	button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.find {
 		padding: 6px;

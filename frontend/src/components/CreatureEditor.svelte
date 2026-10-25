@@ -528,7 +528,7 @@
   }
   .tabs button.on {
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-ink);
   }
   .scroll {
     flex: 1;

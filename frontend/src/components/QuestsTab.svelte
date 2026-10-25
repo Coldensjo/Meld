@@ -249,7 +249,7 @@
 		white-space: nowrap;
 	}
 	.lvl {
-		color: #ffd100;
+		color: var(--warn);
 		min-width: 28px;
 	}
 	.list button {

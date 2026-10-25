@@ -188,7 +188,7 @@
     flex: 1;
     min-height: 0;
     border-radius: 4px;
-    background: radial-gradient(circle at 50% 40%, #5a6373, #2b3038 80%);
+    background: radial-gradient(circle at 50% 40%, var(--preview-glow), var(--preview-edge) 80%);
     overflow: hidden;
     cursor: grab;
   }

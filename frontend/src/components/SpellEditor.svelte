@@ -730,7 +730,7 @@
 		white-space: pre-line;
 	}
 	.bar.ok {
-		color: #6fdc6f;
+		color: var(--ok);
 	}
 	.body {
 		flex: 1;
@@ -767,7 +767,7 @@
 	}
 	.hit.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.hit .name {
 		flex: 1;
@@ -799,7 +799,7 @@
 	}
 	.tabs button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.scroll {
 		flex: 1;
@@ -916,7 +916,7 @@
 	}
 	.tip-text {
 		margin: 2px 0 0;
-		color: #ffd100;
+		color: var(--warn);
 		white-space: pre-line;
 	}
 	.effects {
@@ -966,7 +966,7 @@
 	.warn-text {
 		margin: 0;
 		font-size: 12px;
-		color: #e0b050;
+		color: var(--warn);
 	}
 	.change {
 		flex: 1;
@@ -997,7 +997,7 @@
 		gap: 24px;
 		border: 1px solid var(--border);
 		border-radius: 4px;
-		background: #1a1d24;
+		background: var(--preview-bg);
 	}
 	.grid-area {
 		flex: 1 1 50%;

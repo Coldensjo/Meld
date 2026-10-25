@@ -460,7 +460,7 @@
 		white-space: pre-line;
 	}
 	.bar.ok {
-		color: #6fdc6f;
+		color: var(--ok);
 	}
 	.body {
 		flex: 1;
@@ -500,10 +500,10 @@
 	}
 	.found button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.lvl {
-		color: #ffd100;
+		color: var(--warn);
 	}
 	.main {
 		flex: 1;
@@ -525,7 +525,7 @@
 	}
 	.tabs button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.scroll {
 		flex: 1;

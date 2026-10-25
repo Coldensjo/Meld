@@ -230,7 +230,7 @@
 		color: var(--danger-text);
 	}
 	.bar.ok {
-		color: #6fdc6f;
+		color: var(--ok);
 	}
 	.body {
 		flex: 1;

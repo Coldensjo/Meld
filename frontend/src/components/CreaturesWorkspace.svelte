@@ -588,13 +588,13 @@
 		border-radius: var(--radius);
 	}
 	.ok {
-		color: #6fdc6f;
+		color: var(--ok);
 	}
 	.mid {
-		color: #ffd23f;
+		color: var(--warn);
 	}
 	.bad {
-		color: #ff6b6b;
+		color: var(--bad);
 	}
 	.looks {
 		display: flex;

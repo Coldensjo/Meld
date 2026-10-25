@@ -282,7 +282,7 @@
 		border: 1px solid var(--border);
 		border-radius: 4px;
 		overflow: hidden;
-		background: #1a1d24;
+		background: var(--preview-bg);
 	}
 	.caption {
 		padding: 4px 8px;
@@ -390,7 +390,7 @@
 	}
 	.list button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.dim {
 		color: var(--text-dim);

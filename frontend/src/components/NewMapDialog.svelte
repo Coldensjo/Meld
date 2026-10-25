@@ -445,7 +445,7 @@
 		color: var(--text-dim);
 	}
 	.pin.on {
-		color: #ffd23f;
+		color: var(--warn);
 	}
 	.zones {
 		display: flex;

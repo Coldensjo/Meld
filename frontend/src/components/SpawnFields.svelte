@@ -268,7 +268,7 @@
   }
   .row.active {
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-ink);
   }
   .row .name {
     flex: 1;

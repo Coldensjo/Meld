@@ -652,7 +652,7 @@
 	}
 	.tabs button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.scroll {
 		flex: 1;
@@ -707,7 +707,7 @@
 	}
 	.row.active {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.row .name {
 		flex: 1;

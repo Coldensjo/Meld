@@ -236,7 +236,7 @@
   }
   .chips button.on {
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-ink);
   }
   .row {
     display: flex;

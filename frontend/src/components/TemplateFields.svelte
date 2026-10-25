@@ -148,7 +148,7 @@
 	}
 	.code {
 		padding: 0 5px;
-		font-family: monospace;
+		font-family: var(--mono);
 		font-size: 11px;
 	}
 	.codemean {

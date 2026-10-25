@@ -159,7 +159,7 @@
 	.item.danger:hover:not(:disabled),
 	.item.danger:focus-visible {
 		background: var(--danger);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.item:disabled {
 		opacity: 0.45;

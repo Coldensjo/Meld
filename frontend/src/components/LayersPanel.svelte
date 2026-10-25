@@ -157,7 +157,7 @@
     color: var(--text-dim);
   }
   .del:hover {
-    color: #e06060;
+    color: var(--bad);
   }
   .thumb {
     display: block;

@@ -223,7 +223,7 @@
     flex: 1;
     min-height: 0;
     border-radius: 4px;
-    background: radial-gradient(circle at 50% 35%, #5a6373, #22262d 85%);
+    background: radial-gradient(circle at 50% 35%, var(--preview-glow), var(--preview-edge) 85%);
     overflow: hidden;
     cursor: grab;
   }

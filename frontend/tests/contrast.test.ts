@@ -37,7 +37,7 @@ const themes: [string, string][] = [
 for (const [name, selector] of themes) {
 	test(`${name} theme: text tokens reach 4.5:1 on every panel`, () => {
 		const t = tokens(selector)
-		for (const fg of ['text', 'text-dim', 'accent-text', 'danger-text']) {
+		for (const fg of ['text', 'text-dim', 'accent-text', 'danger-text', 'ok', 'warn', 'bad']) {
 			for (const bg of ['bg', 'panel', 'panel-2', 'panel-3']) {
 				assert.ok(t[fg] && t[bg], `${fg} or ${bg} missing`)
 				const r = ratio(t[fg], t[bg])
@@ -50,3 +50,37 @@ for (const [name, selector] of themes) {
 		assert.ok(ratio(t['accent-ink'] ?? '#ffffff', t.accent) >= 4.5)
 	})
 }
+
+// No colour literal in a component's styles (#579): it would escape the light theme and this test.
+// Allowed: the debug overlay, the SVG map strokes, and the game's own colours (item tooltip, quality
+// text), which stay as the client draws them on any theme.
+import { readdirSync } from 'node:fs'
+
+const allowed = new Set([
+	'DebugOverlay.svelte',
+	'MapPicker.svelte',
+	'MinimapWindow.svelte',
+	'ItemTooltipBox.svelte',
+	'FlightPathsWindow.svelte',
+	'EquipBonuses.svelte',
+	'WorldMapDialog.svelte',
+	// Dark overlays over the 3D view, and the spell editor's game-style tooltip: dark in both themes.
+	'PerfOverlay.svelte',
+	'Viewport.svelte',
+	'SpellEditor.svelte',
+])
+
+test('component styles use app.css tokens, not colour literals', () => {
+	const dir = new URL('../src/components/', import.meta.url)
+	const bad: string[] = []
+	for (const f of readdirSync(dir)) {
+		if (!f.endsWith('.svelte') || allowed.has(f)) continue
+		const src = readFileSync(new URL(f, dir), 'utf8')
+		for (const m of src.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)) {
+			for (const line of m[1].split(/\r?\n/)) {
+				if (/#[0-9a-fA-F]{3,8}\b/.test(line.replace(/var\([^)]*\)/g, ''))) bad.push(`${f}: ${line.trim()}`)
+			}
+		}
+	}
+	assert.deepEqual(bad, [])
+})

@@ -539,7 +539,7 @@
     flex: none;
     border-radius: 4px;
     object-fit: cover;
-    background: radial-gradient(circle at 50% 40%, #5a6373, #2b3038 80%);
+    background: radial-gradient(circle at 50% 40%, var(--preview-glow), var(--preview-edge) 80%);
   }
   .ebody {
     flex: 1;

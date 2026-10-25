@@ -233,7 +233,7 @@
 		border-bottom: 1px solid var(--border);
 	}
 	.list li.warn {
-		color: #ffd23f;
+		color: var(--warn);
 		padding-left: 52px;
 	}
 	.kind {
@@ -254,7 +254,7 @@
 	}
 	button.on {
 		background: var(--accent);
-		color: #fff;
+		color: var(--accent-ink);
 	}
 	.results {
 		max-height: 260px;

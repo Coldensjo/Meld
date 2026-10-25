@@ -20,7 +20,9 @@ The window layout, the asset browser and the dock panels and floating windows.
     the slot for its few seconds. Labels that name a control (`Texture:`, `Selected:`) stay in the bar.
   - Contextual editing goes in dock panels (`DockPanel` wrapper: tabs + collapse). Dock width
     and collapsed panels are stored in `prefs`.
-  - Theme tokens are in `app.css` (neutral greys, blue `--accent`).
+  - Theme tokens are in `app.css` (neutral greys, blue `--accent`); status text is `--ok`, `--warn` and `--bad`, text on the accent fill `--accent-ink`, the dark 3D preview backgrounds `--preview-bg`, `--preview-glow` and `--preview-edge`, monospace `--mono` (#579).
+    A component's `<style>` holds no colour literal: `tests/contrast.test.ts` fails on one (its allow-list is the debug
+    overlay, SVG map strokes, game-coloured tooltips and overlays dark in both themes) and checks the status tokens on every panel.
   - **Saving bar** (`components/SavingBar.svelte`, #343): a box in the middle of the window that
     names the save running (`ui.saving`) over a moving stripe, with a publish's log line under it
     (`ui.savingDetail`). Every save goes through `lib/state/saving.ts`: `withSaving(label, fn)` around
