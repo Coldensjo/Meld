@@ -59,7 +59,18 @@ const reverted = button(tab().querySelector('.head'), 'Saved') !== undefined
 ui.creatureEditor = null
 await P.frames(1)
 const ok =
-	listed[0].startsWith('Crusader Strike') && listed[1].startsWith('Hammer of Justice') && texts.length === 2 && texts.every((t) => t && !t.includes('$')) &&
-	listLine.includes('39760') && npcRows === 200 && npcCount.startsWith('Showing 200 of') && fireRows > 50 && found.startsWith('Fireball') && afterAdd.length === 3 && afterAdd[2].startsWith('Fireball') &&
-	saveText === 'Save spells' && warned.includes('unsaved changes to the spells') && reverted
+	listed[0].startsWith('Crusader Strike') &&
+	listed[1].startsWith('Hammer of Justice') &&
+	texts.length === 2 &&
+	texts.every((t) => t && !t.includes('$')) &&
+	listLine.includes('39760') &&
+	npcRows === 200 &&
+	npcCount.startsWith('Showing 200 of') &&
+	fireRows > 50 &&
+	found.startsWith('Fireball') &&
+	afterAdd.length === 3 &&
+	afterAdd[2].startsWith('Fireball') &&
+	saveText === 'Save spells' &&
+	warned.includes('unsaved changes to the spells') &&
+	reverted
 return { ok, npcRows, npcCount, fireRows, listed, texts, listLine, found, afterAdd, saveText, warned, reverted }

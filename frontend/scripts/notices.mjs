@@ -107,9 +107,7 @@ function installed() {
 	const out = []
 	for (const e of readdirSync(nm, { withFileTypes: true })) {
 		if (e.name.startsWith('.')) continue
-		const dirs = e.name.startsWith('@')
-			? readdirSync(join(nm, e.name)).map((n) => join(nm, e.name, n))
-			: [join(nm, e.name)]
+		const dirs = e.name.startsWith('@') ? readdirSync(join(nm, e.name)).map((n) => join(nm, e.name, n)) : [join(nm, e.name)]
 		for (const d of dirs) {
 			if (!existsSync(join(d, 'package.json'))) continue
 			const j = JSON.parse(readFileSync(join(d, 'package.json'), 'utf8'))
@@ -123,12 +121,16 @@ function installed() {
 
 function goModules() {
 	const mods = new Map()
-	for (const [goos, cgo] of [['windows', '0'], ['linux', '1']]) {
-		const out = execFileSync(
-			'go',
-			['list', '-deps', '-e', '-tags', 'desktop,production,webkit2_41', '-f', '{{with .Module}}{{if not .Main}}{{.Path}}|{{.Version}}|{{.Dir}}{{end}}{{end}}', '.'],
-			{ cwd: root, encoding: 'utf8', env: { ...process.env, GOOS: goos, CGO_ENABLED: cgo }, maxBuffer: 1 << 26 },
-		)
+	for (const [goos, cgo] of [
+		['windows', '0'],
+		['linux', '1'],
+	]) {
+		const out = execFileSync('go', ['list', '-deps', '-e', '-tags', 'desktop,production,webkit2_41', '-f', '{{with .Module}}{{if not .Main}}{{.Path}}|{{.Version}}|{{.Dir}}{{end}}{{end}}', '.'], {
+			cwd: root,
+			encoding: 'utf8',
+			env: { ...process.env, GOOS: goos, CGO_ENABLED: cgo },
+			maxBuffer: 1 << 26,
+		})
 		for (const line of out.split('\n')) {
 			if (!line.trim()) continue
 			const [path, version, dir] = line.trim().split('|')
@@ -172,7 +174,7 @@ function section(kind, title, intro) {
 
 const generated =
 	`${MARK}\n\n` +
-	section('npm', 'Bundled npm packages', 'Compiled into the app\'s frontend bundle (`frontend/dist`, embedded in the binary): the runtime dependencies of `frontend/package.json` and theirs.') +
+	section('npm', 'Bundled npm packages', "Compiled into the app's frontend bundle (`frontend/dist`, embedded in the binary): the runtime dependencies of `frontend/package.json` and theirs.") +
 	section('go', 'Linked Go modules', 'Linked into the Windows and Linux binaries (`go list -deps`, the `desktop,production,webkit2_41` build tags).') +
 	'## Build-time tools\n\nThe frontend build uses tools that are not shipped, among them `lightningcss` (MPL-2.0, pulled in by Vite as its CSS minifier). They are used unmodified and none of their code is in the app.\n'
 

@@ -25,12 +25,17 @@ const scanGroups = (ids) => {
 const sorted = (s) => [...s].sort((a, b) => a - b).join(',')
 const xs = roots.map((o) => o.x)
 const zs = roots.map((o) => o.z)
-const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs)
+const minX = Math.min(...xs),
+	maxX = Math.max(...xs),
+	minZ = Math.min(...zs),
+	maxZ = Math.max(...zs)
 const K = 60
 const R = 60
 const near = []
 const bad = []
-let index = 0, scan = 0, models = 0
+let index = 0,
+	scan = 0,
+	models = 0
 for (let i = 0; i < K; i++) {
 	const x = minX + ((maxX - minX) * ((i * 7919) % K)) / K
 	const z = minZ + ((maxZ - minZ) * ((i * 104729) % K)) / K

@@ -76,10 +76,8 @@
 			<span class="dim folder" title={prefs.prefabDir}>{prefs.prefabDir || 'No prefab folder yet'}</span>
 			<button onclick={() => void choosePrefabFolder()} disabled={!hasBackend()} title="The folder your prefabs are kept in">Folder…</button>
 			<button onclick={() => void load()} disabled={!prefs.prefabDir} title="Read the folder again">Refresh</button>
-			<button
-				onclick={() => engineRef.current && void saveSelectionAsPrefab(engineRef.current)}
-				disabled={!hasBackend() || !editor.selectedIds.length}
-				title="Save the selected models as a prefab (Models › Save Selection as Prefab)">Save selection…</button
+			<button onclick={() => engineRef.current && void saveSelectionAsPrefab(engineRef.current)} disabled={!hasBackend() || !editor.selectedIds.length} title="Save the selected models as a prefab (Models › Save Selection as Prefab)"
+				>Save selection…</button
 			>
 		</div>
 		{#if !prefs.prefabDir}
@@ -91,7 +89,16 @@
 		{:else}
 			<div class="grid" style:grid-template-columns="repeat(auto-fill, {tile}px)">
 				{#each shown as e (e.file)}
-					<PaletteTile thumbKey={e.thumbKey} label={e.prefab.name} title={`${e.file}: ${e.prefab.objects.length} models`} size={tile} badge={String(e.prefab.objects.length)} showLabel={prefs.browserNames} onclick={() => place(e)} onhover={(on) => on && (hovered = e)} />
+					<PaletteTile
+						thumbKey={e.thumbKey}
+						label={e.prefab.name}
+						title={`${e.file}: ${e.prefab.objects.length} models`}
+						size={tile}
+						badge={String(e.prefab.objects.length)}
+						showLabel={prefs.browserNames}
+						onclick={() => place(e)}
+						onhover={(on) => on && (hovered = e)}
+					/>
 				{/each}
 			</div>
 		{/if}
@@ -103,13 +110,17 @@
 			{#if prefs.prefabVary.on}
 				<label>Turn ± <input type="number" min="0" max="180" step="5" value={prefs.prefabVary.turn} onchange={(ev) => (prefs.prefabVary.turn = clamp(num(ev), 0, 180))} />°</label>
 				<label>Scale ± <input type="number" min="0" max="50" step="5" value={Math.round(prefs.prefabVary.scale * 100)} onchange={(ev) => (prefs.prefabVary.scale = clamp(num(ev), 0, 50) / 100)} />%</label>
-				<label title="The chance each model (with what hangs on it) is left out; one always stays">Leave out <input type="number" min="0" max="90" step="5" value={Math.round(prefs.prefabVary.drop * 100)} onchange={(ev) => (prefs.prefabVary.drop = clamp(num(ev), 0, 90) / 100)} />%</label>
+				<label title="The chance each model (with what hangs on it) is left out; one always stays"
+					>Leave out <input type="number" min="0" max="90" step="5" value={Math.round(prefs.prefabVary.drop * 100)} onchange={(ev) => (prefs.prefabVary.drop = clamp(num(ev), 0, 90) / 100)} />%</label
+				>
 			{/if}
 		</div>
 		{#if hovered && prefs.browserNames}
 			<div class="name">{hovered.prefab.name}</div>
 			<ul>
-				{#each contents(hovered) as [name, n] (name)}<li><span>{name}</span>{#if n > 1}<span class="dim"> ×{n}</span>{/if}</li>{/each}
+				{#each contents(hovered) as [name, n] (name)}<li>
+						<span>{name}</span>{#if n > 1}<span class="dim"> ×{n}</span>{/if}
+					</li>{/each}
 			</ul>
 		{/if}
 	</aside>

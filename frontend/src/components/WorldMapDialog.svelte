@@ -8,7 +8,26 @@
 	import { base64ToBytes, bytesToBase64 } from '../lib/io/base64'
 	import { loadAreas } from '../lib/wow/areas'
 	import { CHUNK_CELLS } from '../lib/terrain/chunkPaint'
-	import { areasUnder, artName, boxRect, drawOverlays, explored, extentToRect, feather, fitAspect, intersect, mapLook, paste, pixelBox, rectToExtent, WORLD_MAP_H, WORLD_MAP_W, zoneBounds, type EditorRect, type OverlayPiece } from '../lib/io/worldMap'
+	import {
+		areasUnder,
+		artName,
+		boxRect,
+		drawOverlays,
+		explored,
+		extentToRect,
+		feather,
+		fitAspect,
+		intersect,
+		mapLook,
+		paste,
+		pixelBox,
+		rectToExtent,
+		WORLD_MAP_H,
+		WORLD_MAP_W,
+		zoneBounds,
+		type EditorRect,
+		type OverlayPiece,
+	} from '../lib/io/worldMap'
 
 	// World › World Map (#181): a zone's map for the game's World Map (M). Generate draws the zone from
 	// straight above in the client's map look; a zone the client already maps (a part of Azeroth) keeps
@@ -300,7 +319,9 @@
 			</select>
 			<span class="k">Overlays</span>
 			<span class="row">
-				<label title="Generate draws each subzone painted in the zone into its exploration overlay (WorldMapOverlay.dbc), revealed in the game as the player explores it, and leaves it out of the base art"><input type="checkbox" bind:checked={explore} disabled={busy} /> One per subzone</label>
+				<label title="Generate draws each subzone painted in the zone into its exploration overlay (WorldMapOverlay.dbc), revealed in the game as the player explores it, and leaves it out of the base art"
+					><input type="checkbox" bind:checked={explore} disabled={busy} /> One per subzone</label
+				>
 				<label title="Show the overlays over the base, as a player who has explored the whole zone sees it"><input type="checkbox" bind:checked={showExplored} /> Preview explored</label>
 				<span class="dim">{overlayCount}</span>
 			</span>

@@ -169,7 +169,25 @@ function fullSnapshot(): MapSnapshot {
 		scopedEffects: { zones: { '12': { 'Tileset\\Elwynn\\ElwynnGrassBase.blp': 7 } }, tiles: { '1,0': { 'Tileset\\Elwynn\\ElwynnRock.blp': 0 } } },
 		reference: { path: 'C:\\maps\\sketch.png', mode: 'screen', opacity: 0.3, shown: false, x: 12, z: -4, w: 64, h: 32, turn: 0.5 },
 		paths: [
-			{ id: 4, name: 'Old road', kind: 'road', points: [{ x: 0, y: 1, z: 2 }, { x: 10, y: 1.5, z: 20 }], width: 6, falloff: 4, grade: 8, texture: 'Tileset\\Elwynn\\ElwynnDirtBase.blp', edge: 1, depth: 2, liquid: 1, model: '', spacing: 0, turn: 0 },
+			{
+				id: 4,
+				name: 'Old road',
+				kind: 'road',
+				points: [
+					{ x: 0, y: 1, z: 2 },
+					{ x: 10, y: 1.5, z: 20 },
+				],
+				width: 6,
+				falloff: 4,
+				grade: 8,
+				texture: 'Tileset\\Elwynn\\ElwynnDirtBase.blp',
+				edge: 1,
+				depth: 2,
+				liquid: 1,
+				model: '',
+				spacing: 0,
+				turn: 0,
+			},
 			{ id: 9, name: 'Palisade', kind: 'fence', points: [{ x: 3, y: 0, z: 3 }], width: 2, falloff: 0, grade: 0, texture: '', edge: 0, depth: 1, liquid: 2, model: 'm2:World\\Fence.m2', spacing: 3, turn: 90 },
 		],
 		heights: ramp((SIZE + 1) ** 2 * 4),
@@ -201,7 +219,26 @@ describe('the .wmap snapshot round trip (#431, where #120 and #161 were)', () =>
 	test('a map with every optional field unset writes none of them and reads back their defaults', () => {
 		const s: MapSnapshot = { ...snapshot(true), region: null, liquids: null, chunkData: null, shadows: null }
 		const json = JSON.parse(JSON.stringify(toMapData(s))) as Record<string, unknown>
-		for (const k of ['region', 'vmangos', 'roles', 'textureEffects', 'textureLooks', 'zoneEffects', 'tileEffects', 'reference', 'paths', 'liquids', 'liquidKinds', 'areaIds', 'chunkFlags', 'noEffect', 'shadows', 'holesUnknown', 'liquidsUnknown', 'chunkDataUnknown']) {
+		for (const k of [
+			'region',
+			'vmangos',
+			'roles',
+			'textureEffects',
+			'textureLooks',
+			'zoneEffects',
+			'tileEffects',
+			'reference',
+			'paths',
+			'liquids',
+			'liquidKinds',
+			'areaIds',
+			'chunkFlags',
+			'noEffect',
+			'shadows',
+			'holesUnknown',
+			'liquidsUnknown',
+			'chunkDataUnknown',
+		]) {
 			expect(json[k]).toBeUndefined()
 		}
 		const m = fromMapData({ ...json, version: 6 } as unknown as mapfile.MapData)

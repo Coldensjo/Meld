@@ -116,9 +116,7 @@
 			.then((f) => (factions = f ?? []))
 			.catch((err) => (error = String(err)))
 	})
-	const sideFactions = $derived(
-		factions.filter((f) => offered(f) && f.alliance === SIDES[side].alliance && f.horde === SIDES[side].horde && (!factionQuery.trim() || f.name.toLowerCase().includes(factionQuery.trim().toLowerCase()))),
-	)
+	const sideFactions = $derived(factions.filter((f) => offered(f) && f.alliance === SIDES[side].alliance && f.horde === SIDES[side].horde && (!factionQuery.trim() || f.name.toLowerCase().includes(factionQuery.trim().toLowerCase()))))
 	/** A faction a creature can take: named, and not one of the players' own (PLAYER, Human …). */
 	const offered = (f: vmangos.FactionInfo) => f.name !== '' && !f.name.startsWith('PLAYER')
 	const pickedFaction = $derived(factions.find((f) => f.id === draft.faction) ?? null)
@@ -154,19 +152,15 @@
 			.then((l) => (look = l))
 			.catch(() => (look = null))
 	})
-	const preview = $derived(
-		hovered
-			? { model: hovered.model, look: hovered.look, scale: hovered.scale * draft.scale }
-			: look
-				? { model: look.model, look: look.look, scale: draft.scale * (look.displayScale || 1) }
-				: null,
-	)
+	const preview = $derived(hovered ? { model: hovered.model, look: hovered.look, scale: hovered.scale * draft.scale } : look ? { model: look.model, look: look.look, scale: draft.scale * (look.displayScale || 1) } : null)
 
 	// Step 4: what the server gives the class at the level range, times the multipliers.
 	let stats = $state<vmangos.ClassLevelStats[]>([])
 	$effect(() => {
 		if (!ui.creatures) return
-		const c = draft.unitClass, a = draft.levelMin, b = Math.max(draft.levelMin, draft.levelMax)
+		const c = draft.unitClass,
+			a = draft.levelMin,
+			b = Math.max(draft.levelMin, draft.levelMax)
 		ClassLevelStats(c, a, b)
 			.then((s) => (stats = s ?? []))
 			.catch(() => (stats = []))
@@ -404,12 +398,22 @@
 						{:else}
 							<p class="dim">Check it over, then make it. It gets the first free entry.</p>
 							<dl>
-								<dt>Name</dt><dd>{draft.name}{draft.subname ? ` <${draft.subname}>` : ''}</dd>
-								<dt>Does</dt><dd>{ROLES.filter(([b]) => draft.npcFlags & b).map(([, n]) => n).join(', ') || 'nothing for players'}</dd>
-								<dt>Level</dt><dd>{levelText(draft.levelMin, Math.max(draft.levelMin, draft.levelMax))}, {RANKS[draft.rank]}, {CREATURE_TYPES[draft.type]}</dd>
-								<dt>Faction</dt><dd>{pickedFaction ? `${pickedFaction.name} (${pickedFaction.id}): ${pickedFaction.alliance} to the Alliance, ${pickedFaction.horde} to the Horde` : draft.faction}</dd>
-								<dt>Looks</dt><dd>display {draft.display}, size {draft.scale}{draft.items.some((i) => i) ? `, holding ${draft.items.filter((i) => i).join(', ')}` : ''}</dd>
-								<dt>Strength</dt><dd>{CLASSES.find(([v]) => v === draft.unitClass)?.[1]}, health ×{draft.healthMul}, damage ×{draft.damageMul}, armour ×{draft.armorMul}</dd>
+								<dt>Name</dt>
+								<dd>{draft.name}{draft.subname ? ` <${draft.subname}>` : ''}</dd>
+								<dt>Does</dt>
+								<dd>
+									{ROLES.filter(([b]) => draft.npcFlags & b)
+										.map(([, n]) => n)
+										.join(', ') || 'nothing for players'}
+								</dd>
+								<dt>Level</dt>
+								<dd>{levelText(draft.levelMin, Math.max(draft.levelMin, draft.levelMax))}, {RANKS[draft.rank]}, {CREATURE_TYPES[draft.type]}</dd>
+								<dt>Faction</dt>
+								<dd>{pickedFaction ? `${pickedFaction.name} (${pickedFaction.id}): ${pickedFaction.alliance} to the Alliance, ${pickedFaction.horde} to the Horde` : draft.faction}</dd>
+								<dt>Looks</dt>
+								<dd>display {draft.display}, size {draft.scale}{draft.items.some((i) => i) ? `, holding ${draft.items.filter((i) => i).join(', ')}` : ''}</dd>
+								<dt>Strength</dt>
+								<dd>{CLASSES.find(([v]) => v === draft.unitClass)?.[1]}, health ×{draft.healthMul}, damage ×{draft.damageMul}, armour ×{draft.armorMul}</dd>
 							</dl>
 						{/if}
 					{/if}

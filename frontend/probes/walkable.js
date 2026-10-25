@@ -17,10 +17,14 @@ const at = (dx, dz) => {
 	return v
 }
 const built = (what) =>
-	P.until(() => {
-		const c = nav.counts
-		return c.total > 0 && c.done === c.total && c.loading === 0 && !c.settling && c
-	}, 180_000, what)
+	P.until(
+		() => {
+			const c = nav.counts
+			return c.total > 0 && c.done === c.total && c.loading === 0 && !c.settling && c
+		},
+		180_000,
+		what,
+	)
 const triangles = () => nav.group.children.reduce((n, m) => n + (m.isMesh ? m.geometry.attributes.position.count / 3 : 0), 0)
 const path = (a, b) => {
 	nav.clearPath()

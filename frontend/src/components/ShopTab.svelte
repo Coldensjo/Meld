@@ -25,12 +25,7 @@
 		}
 	}
 
-	let {
-		entry,
-		npcFlags,
-		onvendorflag,
-		dirty = $bindable(false),
-	}: { entry: number; npcFlags: number; onvendorflag: () => void; dirty?: boolean } = $props()
+	let { entry, npcFlags, onvendorflag, dirty = $bindable(false) }: { entry: number; npcFlags: number; onvendorflag: () => void; dirty?: boolean } = $props()
 
 	let templateId = $state(0)
 	let template = $state<vmangos.VendorItem[]>([])
@@ -127,7 +122,9 @@
 			<tbody>
 				{#each rows.rows as it, i (it.item)}
 					<tr>
-						<td class="item" {...hoverItem(it.item, it.displayId)}><ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}</span></td>
+						<td class="item" {...hoverItem(it.item, it.displayId)}
+							><ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}</span></td
+						>
 						<td><input type="number" min="0" max="255" value={it.maxCount} oninput={(e) => (it.maxCount = num(e.currentTarget.value, 255))} /></td>
 						<td><input type="number" min="0" value={it.incrTime} disabled={it.maxCount === 0} oninput={(e) => (it.incrTime = num(e.currentTarget.value, 4294967295))} /></td>
 						<td class="row-actions">
@@ -163,7 +160,9 @@
 		<p class="dim">The template's shared list (npc_vendor_template); it is shared with other creatures, so it is shown, not edited, here.</p>
 		<ul class="shared">
 			{#each template as it (it.item)}
-				<li {...hoverItem(it.item, it.displayId)}><ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}{it.maxCount ? ` · stock ${it.maxCount}` : ''}</span></li>
+				<li {...hoverItem(it.item, it.displayId)}>
+					<ItemIcon displayId={it.displayId} /> <span style:color={QUALITY[it.quality] ?? QUALITY[1]}>{it.name || '(unknown item)'}</span> <span class="dim">{it.item}{it.maxCount ? ` · stock ${it.maxCount}` : ''}</span>
+				</li>
 			{/each}
 		</ul>
 	{/if}

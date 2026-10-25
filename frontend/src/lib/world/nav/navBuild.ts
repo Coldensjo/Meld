@@ -183,9 +183,15 @@ export interface TileInput {
 export function markAreas(input: TileInput, s: NavSettings, out: Uint8Array) {
 	const { pos, idx } = input
 	for (let t = 0; t < input.triCount; t++) {
-		const a = idx[t * 3] * 3, b = idx[t * 3 + 1] * 3, c = idx[t * 3 + 2] * 3
-		const ux = pos[b] - pos[a], uy = pos[b + 1] - pos[a + 1], uz = pos[b + 2] - pos[a + 2]
-		const vx = pos[c] - pos[a], vy = pos[c + 1] - pos[a + 1], vz = pos[c + 2] - pos[a + 2]
+		const a = idx[t * 3] * 3,
+			b = idx[t * 3 + 1] * 3,
+			c = idx[t * 3 + 2] * 3
+		const ux = pos[b] - pos[a],
+			uy = pos[b + 1] - pos[a + 1],
+			uz = pos[b + 2] - pos[a + 2]
+		const vx = pos[c] - pos[a],
+			vy = pos[c + 1] - pos[a + 1],
+			vz = pos[c + 2] - pos[a + 2]
 		const nx = uy * vz - uz * vy
 		const ny = uz * vx - ux * vz
 		const nz = ux * vy - uy * vx

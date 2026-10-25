@@ -41,7 +41,10 @@ await P.frames(2)
 e.startSpawnPick(spawnKey(leader), 'lead')
 await P.frames(1)
 const bar = document.querySelector('.pickbar')?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-const v = e.camera.position.clone().set(a.x, a.y + 1, a.z).project(e.camera)
+const v = e.camera.position
+	.clone()
+	.set(a.x, a.y + 1, a.z)
+	.project(e.camera)
 await P.click((v.x + 1) / 2, (1 - v.y) / 2, {}, 2)
 const clicked = a.leader === leader.guid
 if (!clicked) e.pickSpawn(a)

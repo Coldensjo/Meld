@@ -5,10 +5,14 @@ const { ui } = await P.state()
 e.newDocument(256, 'flat', 0, 'Probe')
 e.doc.meta.vmangos = { dir: 'ProbeMap', mapId: 36, info: { type: 1, name: '', areaId: 0, loadingScreen: 142, maxPlayers: 0, ghostMap: -1, ghostX: 0, ghostY: 0 } }
 ui.dialog = 'mapProps'
-const select = await P.until(() => {
-	const s = document.querySelector('#mi-screen')
-	return s && s.options.length > 30 ? s : null
-}, 30000, "the client's loading screens in the list")
+const select = await P.until(
+	() => {
+		const s = document.querySelector('#mi-screen')
+		return s && s.options.length > 30 ? s : null
+	},
+	30000,
+	"the client's loading screens in the list",
+)
 const preview = () => {
 	const c = document.querySelector('.screen canvas')
 	return c && !c.classList.contains('hidden') ? c : null

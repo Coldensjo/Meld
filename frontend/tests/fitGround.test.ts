@@ -55,7 +55,7 @@ test('with holes, ground above the floor is cut in whole blocks on the map grid,
 	for (let x = 0; x < cw; x++) if (r.holes[4 * cw + x]) cut.push(x)
 	assert.deepEqual(cut, [2, 3, 4, 5, 6, 7])
 	assert.equal(at(r.heights, 5, 5), 10, 'inside the hole the ground keeps its height')
-	assert.equal(at(r.heights, 2, 4), 10, 'and so does the hole\'s edge')
+	assert.equal(at(r.heights, 2, 4), 10, "and so does the hole's edge")
 })
 
 test('on a foundation over uneven ground, the ground is levelled to its base (#210)', () => {

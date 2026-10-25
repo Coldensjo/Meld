@@ -39,8 +39,7 @@ const d = P.diff(a, bare, undefined, below)
 // The mean colour below the horizon: the lava's orange.
 const { x0, x1, y0, y1 } = P.rect(a, below)
 const sum = [0, 0, 0]
-for (let yy = y0; yy < y1; yy++)
-	for (let xx = x0; xx < x1; xx++) for (let c = 0; c < 3; c++) sum[c] += a.px[(yy * a.w + xx) * 4 + c]
+for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) for (let c = 0; c < 3; c++) sum[c] += a.px[(yy * a.w + xx) * 4 + c]
 const n = (x1 - x0) * (y1 - y0)
 const rgb = sum.map((s) => Math.round(s / n))
 const out = {

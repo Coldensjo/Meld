@@ -16,18 +16,11 @@ const fmt = (v: number) => (Math.round(v * 100) / 100).toFixed(2)
  * leaves it out.
  */
 export function formatPortCoords(pos: { x: number; y: number; z: number }, mapId: number, area = ''): string {
-  const w = toServer(pos.x, pos.z)
-  const wowX = fmt(w.x)
-  const wowY = fmt(w.y)
-  const h = fmt(pos.y)
-  return [
-    `Map: ${area || 'Unknown area'} on ADT ${Math.floor(pos.x / TILE_SIZE)} ${Math.floor(pos.z / TILE_SIZE)}`,
-    'Trinity:',
-    teleportCommand(pos, mapId),
-    'ArcEmu:',
-    `.worldport ${mapId} ${wowX} ${wowY} ${h}`,
-    '',
-  ].join('\n')
+	const w = toServer(pos.x, pos.z)
+	const wowX = fmt(w.x)
+	const wowY = fmt(w.y)
+	const h = fmt(pos.y)
+	return [`Map: ${area || 'Unknown area'} on ADT ${Math.floor(pos.x / TILE_SIZE)} ${Math.floor(pos.z / TILE_SIZE)}`, 'Trinity:', teleportCommand(pos, mapId), 'ArcEmu:', `.worldport ${mapId} ${wowX} ${wowY} ${h}`, ''].join('\n')
 }
 
 /**
@@ -36,17 +29,17 @@ export function formatPortCoords(pos: { x: number; y: number; z: number }, mapId
  * north-west corner: a region's first tile, 0 for a map made with New World, whose tiles start at 0.
  */
 export function teleportCommand(pos: { x: number; y: number; z: number }, mapId: number, tileX = 0, tileY = 0): string {
-  const s = serverSpot(pos, mapId, tileX, tileY)
-  return `.go xyz ${fmt(s.x)} ${fmt(s.y)} ${fmt(s.z)} ${mapId}`
+	const s = serverSpot(pos, mapId, tileX, tileY)
+	return `.go xyz ${fmt(s.x)} ${fmt(s.y)} ${fmt(s.z)} ${mapId}`
 }
 
 /** A point on the server's map: its map ID, position and facing (vmangos.CharacterSpot). */
 export interface ServerSpot {
-  map: number
-  x: number
-  y: number
-  z: number
-  o: number
+	map: number
+	x: number
+	y: number
+	z: number
+	o: number
 }
 
 /**
@@ -55,15 +48,15 @@ export interface ServerSpot {
  * axis swap turns into (cos yaw, sin yaw) on the server, so the server's facing is the yaw itself.
  */
 export function serverSpot(pos: { x: number; y: number; z: number }, mapId: number, tileX = 0, tileY = 0, yaw = 0): ServerSpot {
-  const s = toServer(pos.x, pos.z, tileX, tileY)
-  const turn = 2 * Math.PI
-  return { map: mapId, x: s.x, y: s.y, z: pos.y, o: ((yaw % turn) + turn) % turn }
+	const s = toServer(pos.x, pos.z, tileX, tileY)
+	const turn = 2 * Math.PI
+	return { map: mapId, x: s.x, y: s.y, z: pos.y, o: ((yaw % turn) + turn) % turn }
 }
 
 /** The inverse of serverSpot's position: a point of the server's map in the editor's map of a block whose first tile is (tileX, tileY). */
 export function editorPoint(s: { x: number; y: number; z: number }, tileX = 0, tileY = 0): { x: number; y: number; z: number } {
-  const e = fromServer(s.x, s.y, tileX, tileY)
-  return { x: e.x, y: s.z, z: e.z }
+	const e = fromServer(s.x, s.y, tileX, tileY)
+	return { x: e.x, y: s.z, z: e.z }
 }
 
 /**

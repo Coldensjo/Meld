@@ -150,101 +150,114 @@
 </script>
 
 <div class="preview">
-  <div class="view" role="img" aria-label="Model preview" class:hidden={!item || item.kind === 'tex'} onpointerenter={enter} onpointerleave={() => (over = false)} onpointerdown={view.down} onpointermove={view.move} onpointerup={view.up} onpointercancel={view.up} oncontextmenu={view.contextmenu} onwheel={view.wheel}>
-    <canvas bind:this={canvas}></canvas>
-  </div>
-  {#if item?.kind === 'tex'}
-    <div class="tex">
-      {#if texUrl}<img src={texUrl} alt="" draggable="false" />{/if}
-    </div>
-  {/if}
-  {#if !item}
-    <p class="hint">Hover a tile to see it here. Drag to turn a model, right-drag to move up and down it, scroll to zoom.</p>
-  {:else}
-    {#if loading}<p class="hint">Loading…</p>{/if}
-    {#if failed}<p class="hint">Nothing to show (an effect-only model).</p>{/if}
-    <!-- Names off (#655) leaves only the picture: no name, kind, size or path under it. -->
-    {#if prefs.browserNames}<div class="details">
-      <div class="name" title={shownPath}>{item.name}</div>
-      <div class="dim">{item.kind === 'tex' ? 'Texture' : item.kind === 'm2' ? 'Doodad' : 'Building'} · {item.category} · {item.zone}</div>
-      {#if info}
-        <div class="dim">{yards(info.w)} × {yards(info.d)} yd, {yards(info.h)} yd tall · {info.tris.toLocaleString()} tris</div>
-      {/if}
-      <div class="path">{shownPath}</div>
-    </div>{/if}
-  {/if}
+	<div
+		class="view"
+		role="img"
+		aria-label="Model preview"
+		class:hidden={!item || item.kind === 'tex'}
+		onpointerenter={enter}
+		onpointerleave={() => (over = false)}
+		onpointerdown={view.down}
+		onpointermove={view.move}
+		onpointerup={view.up}
+		onpointercancel={view.up}
+		oncontextmenu={view.contextmenu}
+		onwheel={view.wheel}
+	>
+		<canvas bind:this={canvas}></canvas>
+	</div>
+	{#if item?.kind === 'tex'}
+		<div class="tex">
+			{#if texUrl}<img src={texUrl} alt="" draggable="false" />{/if}
+		</div>
+	{/if}
+	{#if !item}
+		<p class="hint">Hover a tile to see it here. Drag to turn a model, right-drag to move up and down it, scroll to zoom.</p>
+	{:else}
+		{#if loading}<p class="hint">Loading…</p>{/if}
+		{#if failed}<p class="hint">Nothing to show (an effect-only model).</p>{/if}
+		<!-- Names off (#655) leaves only the picture: no name, kind, size or path under it. -->
+		{#if prefs.browserNames}<div class="details">
+				<div class="name" title={shownPath}>{item.name}</div>
+				<div class="dim">{item.kind === 'tex' ? 'Texture' : item.kind === 'm2' ? 'Doodad' : 'Building'} · {item.category} · {item.zone}</div>
+				{#if info}
+					<div class="dim">{yards(info.w)} × {yards(info.d)} yd, {yards(info.h)} yd tall · {info.tris.toLocaleString()} tris</div>
+				{/if}
+				<div class="path">{shownPath}</div>
+			</div>{/if}
+	{/if}
 </div>
 
 <style>
-  .preview {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    height: 100%;
-    gap: 6px;
-  }
-  .view {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    border-radius: 4px;
-    background: radial-gradient(circle at 50% 40%, var(--preview-glow), var(--preview-edge) 80%);
-    overflow: hidden;
-    cursor: grab;
-  }
-  .view.hidden {
-    display: none;
-  }
-  .view:active {
-    cursor: grabbing;
-  }
-  /* Out of flow, so the canvas's own size never stops the panel from shrinking. */
-  canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-  .tex {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    place-items: center;
-    border-radius: 4px;
-    background: var(--bg);
-    overflow: hidden;
-  }
-  .tex img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    image-rendering: auto;
-  }
-  .hint,
-  .dim {
-    color: var(--text-dim);
-    font-size: 11px;
-    margin: 0;
-  }
-  .details {
-    flex: none;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 12px;
-  }
-  .name {
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .path {
-    font: 10px var(--mono);
-    color: var(--text-dim);
-    word-break: break-all;
-    max-height: 28px;
-    overflow: hidden;
-  }
+	.preview {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		height: 100%;
+		gap: 6px;
+	}
+	.view {
+		position: relative;
+		flex: 1;
+		min-height: 0;
+		border-radius: 4px;
+		background: radial-gradient(circle at 50% 40%, var(--preview-glow), var(--preview-edge) 80%);
+		overflow: hidden;
+		cursor: grab;
+	}
+	.view.hidden {
+		display: none;
+	}
+	.view:active {
+		cursor: grabbing;
+	}
+	/* Out of flow, so the canvas's own size never stops the panel from shrinking. */
+	canvas {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+	.tex {
+		flex: 1;
+		min-height: 0;
+		display: grid;
+		place-items: center;
+		border-radius: 4px;
+		background: var(--bg);
+		overflow: hidden;
+	}
+	.tex img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		image-rendering: auto;
+	}
+	.hint,
+	.dim {
+		color: var(--text-dim);
+		font-size: 11px;
+		margin: 0;
+	}
+	.details {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		font-size: 12px;
+	}
+	.name {
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.path {
+		font: 10px var(--mono);
+		color: var(--text-dim);
+		word-break: break-all;
+		max-height: 28px;
+		overflow: hidden;
+	}
 </style>

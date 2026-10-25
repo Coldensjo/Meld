@@ -1,0 +1,8 @@
+# Generated, installed or built: never formatted by hand.
+wailsjs/
+dist/
+node_modules/
+bun.lock
+# JSON and Markdown keep the two-space indent .editorconfig gives them.
+*.json
+*.md

@@ -37,7 +37,13 @@ const touching = (o, n) => {
 	if (o.parent !== undefined) return true
 	const box = new Box3().copy(getAsset(o.type).bbox).applyMatrix4(L.matrixOf(o, M))
 	let g = e.groundAt((box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2)
-	for (const [x, z] of [[box.min.x, box.min.z], [box.max.x, box.min.z], [box.min.x, box.max.z], [box.max.x, box.max.z]]) g = Math.max(g, e.groundAt(x, z))
+	for (const [x, z] of [
+		[box.min.x, box.min.z],
+		[box.max.x, box.min.z],
+		[box.min.x, box.max.z],
+		[box.max.x, box.max.z],
+	])
+		g = Math.max(g, e.groundAt(x, z))
 	if (box.min.y <= g + 0.25) return true
 	return n <= 16 && overlaps(o).length > 0
 }
@@ -77,7 +83,11 @@ for (const o of picked) {
 // One more of the first's model in its place, not selected, so the first surely overlaps something.
 const lead = picked[0]
 const twin = L.add({ type: lead.type, x: lead.x + 0.2, z: lead.z, yOff: lead.yOff, rotY: lead.rotY, scale: lead.scale })
-selectObjects(L, picked.map((o) => o.id), lead.id)
+selectObjects(
+	L,
+	picked.map((o) => o.id),
+	lead.id,
+)
 await P.frames(2)
 const many = check('16 selected')
 let pivot = e.selectionPivot()

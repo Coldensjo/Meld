@@ -4,22 +4,22 @@
 // so it can be tested on its own.
 
 export interface Point2 {
-  x: number
-  z: number
+	x: number
+	z: number
 }
 
 /** The pivot of a selection: the mean of the models' world positions (noggit3's "median" is the mean too). */
 export function meanPivot(points: ReadonlyArray<Point2>, out: Point2 = { x: 0, z: 0 }): Point2 {
-  let x = 0
-  let z = 0
-  for (const p of points) {
-    x += p.x
-    z += p.z
-  }
-  const n = Math.max(1, points.length)
-  out.x = x / n
-  out.z = z / n
-  return out
+	let x = 0
+	let z = 0
+	for (const p of points) {
+		x += p.x
+		z += p.z
+	}
+	const n = Math.max(1, points.length)
+	out.x = x / n
+	out.z = z / n
+	return out
 }
 
 /**
@@ -27,11 +27,11 @@ export function meanPivot(points: ReadonlyArray<Point2>, out: Point2 = { x: 0, z
  * (a rotation about the up axis, as three.js applies rotY), written into `out`.
  */
 export function turnAbout(x: number, z: number, px: number, pz: number, angle: number, out: Point2 = { x: 0, z: 0 }): Point2 {
-  const c = Math.cos(angle)
-  const s = Math.sin(angle)
-  const dx = x - px
-  const dz = z - pz
-  out.x = px + dx * c + dz * s
-  out.z = pz - dx * s + dz * c
-  return out
+	const c = Math.cos(angle)
+	const s = Math.sin(angle)
+	const dx = x - px
+	const dz = z - pz
+	out.x = px + dx * c + dz * s
+	out.z = pz - dx * s + dz * c
+	return out
 }

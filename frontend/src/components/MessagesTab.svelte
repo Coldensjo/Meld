@@ -25,11 +25,7 @@
 	/** A picker's text as a number (an emptied box is 0). */
 	const num = (v: string) => Number(v) || 0
 
-	let {
-		entry,
-		onsaved,
-		dirty = $bindable(false),
-	}: { entry: number; onsaved: (menuId: number) => void; dirty?: boolean } = $props()
+	let { entry, onsaved, dirty = $bindable(false) }: { entry: number; onsaved: (menuId: number) => void; dirty?: boolean } = $props()
 
 	let gossip = $state<vmangos.Gossip | null>(null)
 	let male = $state('')
@@ -260,7 +256,10 @@
 			<button onclick={addCond} title="Add a text shown instead of the greeting when a condition holds">Add text</button>
 		</div>
 		<p class="dim">
-			Each replaces the greeting when its condition (a row of the conditions table) holds; of those that hold, the highest-numbered condition wins. A saved text is a new text row, so other creatures showing the old one keep it{(gossip?.shared ?? 0) > 1 ? '; this shared menu is copied for this creature first' : ''}.
+			Each replaces the greeting when its condition (a row of the conditions table) holds; of those that hold, the highest-numbered condition wins. A saved text is a new text row, so other creatures showing the old one keep it{(gossip?.shared ??
+				0) > 1
+				? '; this shared menu is copied for this creature first'
+				: ''}.
 		</p>
 		{#each conds as c, i (c)}
 			<div class="option">
@@ -288,7 +287,10 @@
 			{#if !gossip?.menuId}
 				The lines a player can pick. Save a greeting first: that makes the creature's gossip menu.
 			{:else}
-				The lines a player can pick, in this order. Talk opens another gossip menu (−1 closes the window); the others open their window. An edited text is kept with the option, so other creatures using the same text keep theirs{(gossip.shared ?? 0) > 1 ? '; this shared menu is copied for this creature first' : ''}.
+				The lines a player can pick, in this order. Talk opens another gossip menu (−1 closes the window); the others open their window. An edited text is kept with the option, so other creatures using the same text keep theirs{(gossip.shared ??
+					0) > 1
+					? '; this shared menu is copied for this creature first'
+					: ''}.
 			{/if}
 		</p>
 		{#each options as o, i (o)}

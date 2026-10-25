@@ -16,80 +16,80 @@ import { engineRef } from '../state/engineRef'
 // no file to come back from.
 
 export interface SessionView {
-  target: [number, number, number]
-  yaw: number
-  pitch: number
-  distance: number
+	target: [number, number, number]
+	yaw: number
+	pitch: number
+	distance: number
 }
 
 export interface SessionTab {
-  map: { file: string } | { region: { mapName: string; x: number; y: number; size: number } } | { world: { mapName: string } }
-  view: SessionView
+	map: { file: string } | { region: { mapName: string; x: number; y: number; size: number } } | { world: { mapName: string } }
+	view: SessionView
 }
 
 export interface Session {
-  tabs: SessionTab[]
-  /** Index into `tabs` of the active one. */
-  active: number
+	tabs: SessionTab[]
+	/** Index into `tabs` of the active one. */
+	active: number
 }
 
 const round = (n: number) => Math.round(n * 1000) / 1000
 
 /** The open tabs worth coming back to, as the next start will open them. */
 export function sessionState(engine: Engine): Session {
-  const tabs: SessionTab[] = []
-  let active = 0
-  for (const d of engine.documents) {
-    const isActive = d === engine.activeDocument()
-    const file = isActive ? editor.filePath : d.meta.filePath
-    const region = d.meta.region
-    let map: SessionTab['map'] | null = null
-    if (file) map = { file }
-    else if (region) map = { region: { mapName: region.mapName, x: region.x, y: region.y, size: region.size } }
-    else if (d.world) map = { world: { mapName: d.world.mapName } }
-    if (!map) continue
-    let view: SessionView
-    if (isActive) {
-      const v = engine.sceneView()
-      view = { target: v.target.map(round) as SessionView['target'], yaw: round(v.yaw), pitch: round(v.pitch), distance: round(v.distance) }
-    } else if (d.camera) {
-      const c = d.camera
-      view = { target: [round(c.target.x), round(c.target.y), round(c.target.z)], yaw: round(c.yaw), pitch: round(c.pitch), distance: round(c.distance) }
-    } else continue
-    if (isActive) active = tabs.length
-    tabs.push({ map, view })
-  }
-  return { tabs, active }
+	const tabs: SessionTab[] = []
+	let active = 0
+	for (const d of engine.documents) {
+		const isActive = d === engine.activeDocument()
+		const file = isActive ? editor.filePath : d.meta.filePath
+		const region = d.meta.region
+		let map: SessionTab['map'] | null = null
+		if (file) map = { file }
+		else if (region) map = { region: { mapName: region.mapName, x: region.x, y: region.y, size: region.size } }
+		else if (d.world) map = { world: { mapName: d.world.mapName } }
+		if (!map) continue
+		let view: SessionView
+		if (isActive) {
+			const v = engine.sceneView()
+			view = { target: v.target.map(round) as SessionView['target'], yaw: round(v.yaw), pitch: round(v.pitch), distance: round(v.distance) }
+		} else if (d.camera) {
+			const c = d.camera
+			view = { target: [round(c.target.x), round(c.target.y), round(c.target.z)], yaw: round(c.yaw), pitch: round(c.pitch), distance: round(c.distance) }
+		} else continue
+		if (isActive) active = tabs.length
+		tabs.push({ map, view })
+	}
+	return { tabs, active }
 }
 
 let lastSaved = ''
 
 /** Writes the session into the preferences when it differs from what they hold. */
 export function saveSession(engine: Engine) {
-  if (!hasBackend()) return
-  const s = sessionState(engine)
-  const key = JSON.stringify(s)
-  if (key === lastSaved) return
-  lastSaved = key
-  prefs.session = s
-  void savePref('session')
+	if (!hasBackend()) return
+	const s = sessionState(engine)
+	const key = JSON.stringify(s)
+	if (key === lastSaved) return
+	lastSaved = key
+	prefs.session = s
+	void savePref('session')
 }
 
 /** Quits after writing the session and the preferences, so the next start opens the same tabs. */
 export async function quitNow() {
-  if (!hasBackend()) return
-  if (engineRef.current) saveSession(engineRef.current)
-  await flushPrefs()
-  await endAutosave()
-  // The author chose to quit: closing the window must not ask again (#188).
-  await SetUnsaved(false)
-  Quit()
+	if (!hasBackend()) return
+	if (engineRef.current) saveSession(engineRef.current)
+	await flushPrefs()
+	await endAutosave()
+	// The author chose to quit: closing the window must not ask again (#188).
+	await SetUnsaved(false)
+	Quit()
 }
 
 /** Keeps the session in the preferences while the app runs: every few seconds when it changed. Returns a stop function. */
 export function startSessionSaving(engine: Engine) {
-  const timer = setInterval(() => saveSession(engine), 3000)
-  return () => clearInterval(timer)
+	const timer = setInterval(() => saveSession(engine), 3000)
+	return () => clearInterval(timer)
 }
 
 /**
@@ -104,51 +104,51 @@ export const skipRestore = typeof location !== 'undefined' && /[?&]nosession(?:[
  * so they wait for it to load; without one they are skipped. The active tab ends up on top.
  */
 export async function restoreSession(engine: Engine): Promise<void> {
-  if (!hasBackend() || skipRestore) return
-  const s = prefs.session
-  try {
-    // The preferences check the session's shape on load; this keeps a bad one from stopping startup anyway.
-    if (!s.tabs.length) return
-    lastSaved = JSON.stringify(s)
-    if (s.tabs.some((t) => 'region' in t.map || 'world' in t.map)) await untilLoaded()
-  } catch (err) {
-    console.warn('could not read the last session', err)
-    return
-  }
-  let activeId: number | null = null
-  for (let i = 0; i < s.tabs.length; i++) {
-    const t = s.tabs[i]
-    try {
-      if ('region' in t.map) {
-        if (!wow.loaded) continue
-        const r = t.map.region
-        await openWowRegion(engine, r.mapName, r.x, r.y, r.size)
-        if (editor.regionMap !== r.mapName) continue
-      } else if ('world' in t.map) {
-        if (!wow.loaded) continue
-        engine.openWorld(t.map.world.mapName, { x: t.view.target[0], z: t.view.target[2] })
-      } else {
-        if (!engine.focusPath(t.map.file)) engine.openDocument(fromMapData(await LoadMap(t.map.file)), t.map.file)
-      }
-    } catch (err) {
-      console.warn('could not reopen', t.map, err)
-      continue
-    }
-    await tick()
-    engine.setSceneView({ ...t.view, hour: engine.sceneView().hour })
-    if (i === s.active) activeId = engine.activeDocumentId()
-  }
-  if (activeId !== null) engine.switchDocument(activeId)
-  if (activeId !== null) setStatus('Opened where you left off.', 4000)
+	if (!hasBackend() || skipRestore) return
+	const s = prefs.session
+	try {
+		// The preferences check the session's shape on load; this keeps a bad one from stopping startup anyway.
+		if (!s.tabs.length) return
+		lastSaved = JSON.stringify(s)
+		if (s.tabs.some((t) => 'region' in t.map || 'world' in t.map)) await untilLoaded()
+	} catch (err) {
+		console.warn('could not read the last session', err)
+		return
+	}
+	let activeId: number | null = null
+	for (let i = 0; i < s.tabs.length; i++) {
+		const t = s.tabs[i]
+		try {
+			if ('region' in t.map) {
+				if (!wow.loaded) continue
+				const r = t.map.region
+				await openWowRegion(engine, r.mapName, r.x, r.y, r.size)
+				if (editor.regionMap !== r.mapName) continue
+			} else if ('world' in t.map) {
+				if (!wow.loaded) continue
+				engine.openWorld(t.map.world.mapName, { x: t.view.target[0], z: t.view.target[2] })
+			} else {
+				if (!engine.focusPath(t.map.file)) engine.openDocument(fromMapData(await LoadMap(t.map.file)), t.map.file)
+			}
+		} catch (err) {
+			console.warn('could not reopen', t.map, err)
+			continue
+		}
+		await tick()
+		engine.setSceneView({ ...t.view, hour: engine.sceneView().hour })
+		if (i === s.active) activeId = engine.activeDocumentId()
+	}
+	if (activeId !== null) engine.switchDocument(activeId)
+	if (activeId !== null) setStatus('Opened where you left off.', 4000)
 }
 
 function untilLoaded(): Promise<void> {
-  return new Promise((resolve) => {
-    const poll = setInterval(() => {
-      if (!wow.loading) {
-        clearInterval(poll)
-        resolve()
-      }
-    }, 100)
-  })
+	return new Promise((resolve) => {
+		const poll = setInterval(() => {
+			if (!wow.loading) {
+				clearInterval(poll)
+				resolve()
+			}
+		}, 100)
+	})
 }

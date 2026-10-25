@@ -13,16 +13,16 @@ export const BLACK = 0.5 / 255
  * ground under them.
  */
 export function watermapCells(ratios: Float32Array, ground: Float32Array, cells: number, min: number, max: number): LiquidClipCell[] {
-  const verts = cells + 1
-  const surface = (i: number) => ground[i] + min + ratios[i] * (max - min)
-  const out: LiquidClipCell[] = []
-  for (let z = 0; z < cells; z++) {
-    for (let x = 0; x < cells; x++) {
-      const i = z * verts + x
-      const k = [i, i + 1, i + verts, i + verts + 1]
-      if (k.some((v) => ratios[v] <= BLACK)) continue
-      out.push({ x, z, id: LIQUID_WATER, heights: [surface(k[0]), surface(k[1]), surface(k[2]), surface(k[3])], depth: [1, 1, 1, 1] })
-    }
-  }
-  return out
+	const verts = cells + 1
+	const surface = (i: number) => ground[i] + min + ratios[i] * (max - min)
+	const out: LiquidClipCell[] = []
+	for (let z = 0; z < cells; z++) {
+		for (let x = 0; x < cells; x++) {
+			const i = z * verts + x
+			const k = [i, i + 1, i + verts, i + verts + 1]
+			if (k.some((v) => ratios[v] <= BLACK)) continue
+			out.push({ x, z, id: LIQUID_WATER, heights: [surface(k[0]), surface(k[1]), surface(k[2]), surface(k[3])], depth: [1, 1, 1, 1] })
+		}
+	}
+	return out
 }

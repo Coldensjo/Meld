@@ -43,7 +43,14 @@ test('a new mesh draws nothing and keeps its ids for picking', () => {
 })
 
 test('the rows in view are packed to the front with the items they draw', () => {
-	const { rows, ids, mesh } = setup(['a', 'behind', 'c'], [[0, 0, -10], [0, 0, 10], [3, 0, -20]])
+	const { rows, ids, mesh } = setup(
+		['a', 'behind', 'c'],
+		[
+			[0, 0, -10],
+			[0, 0, 10],
+			[3, 0, -20],
+		],
+	)
 	assert.equal(rows.cull(view()), true)
 	rows.pack(mesh, ids)
 	assert.deepEqual(ids, ['a', 'c'])
@@ -75,7 +82,14 @@ test('nothing in view hides the mesh', () => {
 })
 
 test('a moved row is written in place with a range of its own, or the whole buffer while a pack is pending', () => {
-	const { rows, ids, mesh } = setup(['a', 'b', 'c'], [[0, 0, -10], [1, 0, -10], [2, 0, -10]])
+	const { rows, ids, mesh } = setup(
+		['a', 'b', 'c'],
+		[
+			[0, 0, -10],
+			[1, 0, -10],
+			[2, 0, -10],
+		],
+	)
 	const attr = mesh.instanceMatrix
 	rows.cull(view())
 	rows.pack(mesh, ids)
@@ -95,7 +109,14 @@ test('a moved row is written in place with a range of its own, or the whole buff
 })
 
 test('a ray on a packed instance names its item', () => {
-	const { rows, ids, mesh } = setup(['a', 'behind', 'c'], [[0, 0, -10], [0, 0, 10], [3, 0, -20]])
+	const { rows, ids, mesh } = setup(
+		['a', 'behind', 'c'],
+		[
+			[0, 0, -10],
+			[0, 0, 10],
+			[3, 0, -20],
+		],
+	)
 	rows.cull(view())
 	rows.pack(mesh, ids)
 	const ray = new THREE.Raycaster(new THREE.Vector3(3, 50, -20), new THREE.Vector3(0, -1, 0))

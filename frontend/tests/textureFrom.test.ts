@@ -30,7 +30,15 @@ test('a DXT reply becomes a compressed texture with the BLP’s own mips', () =>
 	assert.equal(t.format, THREE.RGBA_S3TC_DXT5_Format)
 	assert.equal(t.generateMipmaps, false)
 	const mips = t.mipmaps as unknown as { data: Uint8Array; width: number; height: number }[]
-	assert.deepEqual(mips.map((m) => [m.width, m.height, m.data.length, m.data[0]]), [[8, 4, 32, 1], [4, 2, 16, 2], [2, 1, 16, 3], [1, 1, 16, 4]])
+	assert.deepEqual(
+		mips.map((m) => [m.width, m.height, m.data.length, m.data[0]]),
+		[
+			[8, 4, 32, 1],
+			[4, 2, 16, 2],
+			[2, 1, 16, 3],
+			[1, 1, 16, 4],
+		],
+	)
 	assert.equal(textureFrom(dxtReply(1, 4, 4, [new Array(8).fill(0), [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0]])).format, THREE.RGBA_S3TC_DXT1_Format)
 })
 

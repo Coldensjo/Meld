@@ -1,60 +1,63 @@
 <!doctype html>
 <html>
-  <head><meta charset="utf-8" /><title>tile import check</title></head>
-  <body>
-    <pre id="out"></pre>
-    <script type="module">
-      // Converts a tile read from the client into the editor's paint and checks the rules on it.
-      // The tile comes from a local JSON file (TileView) that the check's caller serves at TILE_URL.
-      // Game data isn't committed; see tests/browser/README.md.
-      import { Terrain } from '/src/lib/terrain/Terrain.ts'
-      import { tilePaint } from '/src/lib/io/tileImport.ts'
-      import { NO_TEXTURE, SLOTS } from '/src/lib/terrain/chunkPaint.ts'
+	<head>
+		<meta charset="utf-8" />
+		<title>tile import check</title>
+	</head>
+	<body>
+		<pre id="out"></pre>
+		<script type="module">
+			// Converts a tile read from the client into the editor's paint and checks the rules on it.
+			// The tile comes from a local JSON file (TileView) that the check's caller serves at TILE_URL.
+			// Game data isn't committed; see tests/browser/README.md.
+			import { Terrain } from '/src/lib/terrain/Terrain.ts'
+			import { tilePaint } from '/src/lib/io/tileImport.ts'
+			import { NO_TEXTURE, SLOTS } from '/src/lib/terrain/chunkPaint.ts'
 
-      const out = document.getElementById('out')
-      const log = (m) => (out.textContent += m + '\n')
-      const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
-      const url = new URLSearchParams(location.search).get('url') ?? 'http://127.0.0.1:5210/tile.json'
+			const out = document.getElementById('out')
+			const log = (m) => (out.textContent += m + '\n')
+			const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+			const url = new URLSearchParams(location.search).get('url') ?? 'http://127.0.0.1:5210/tile.json'
 
-      try {
-        const view = await (await fetch(url)).json()
-        const paint = tilePaint(
-          view.chunks.map((c) => ({
-            indexX: c.indexX,
-            indexY: c.indexY,
-            layers: (c.layers ?? []).map((l) => ({ texture: l.texture, alpha: l.alpha ? bytes(l.alpha) : undefined })),
-          })),
-          16,
-        )
-        const t = new Terrain(128)
-        let failures = 0
-        const fail = (m) => {
-          failures++
-          log('FAIL ' + m)
-        }
-        if (view.heights.length !== 129 * 129) fail(`heights ${view.heights.length}`)
-        t.heights.set(view.heights)
-        t.weights.set(paint.weights)
-        t.chunkSlots.set(paint.chunkSlots)
-        t.setPalette(paint.palette)
-        log(`CHUNKS ${view.chunks.length} PALETTE ${paint.palette.length} DROPPED ${paint.dropped}`)
-        log('SAMPLE ' + paint.palette.slice(0, 4).join(' | '))
+			try {
+				const view = await (await fetch(url)).json()
+				const paint = tilePaint(
+					view.chunks.map((c) => ({
+						indexX: c.indexX,
+						indexY: c.indexY,
+						layers: (c.layers ?? []).map((l) => ({ texture: l.texture, alpha: l.alpha ? bytes(l.alpha) : undefined })),
+					})),
+					16,
+				)
+				const t = new Terrain(128)
+				let failures = 0
+				const fail = (m) => {
+					failures++
+					log('FAIL ' + m)
+				}
+				if (view.heights.length !== 129 * 129) fail(`heights ${view.heights.length}`)
+				t.heights.set(view.heights)
+				t.weights.set(paint.weights)
+				t.chunkSlots.set(paint.chunkSlots)
+				t.setPalette(paint.palette)
+				log(`CHUNKS ${view.chunks.length} PALETTE ${paint.palette.length} DROPPED ${paint.dropped}`)
+				log('SAMPLE ' + paint.palette.slice(0, 4).join(' | '))
 
-        for (let c = 0; c < 256; c++) {
-          const used = [...t.chunkSlots.slice(c * SLOTS, c * SLOTS + SLOTS)].filter((v) => v !== NO_TEXTURE)
-          if (used.length > 4 || new Set(used).size !== used.length) fail(`chunk ${c} lists ${used.length}`)
-          if (used.some((v) => v >= paint.palette.length)) fail(`chunk ${c} names a missing texture`)
-        }
-        let badSum = 0
-        for (let p = 0; p < t.splatRes * t.splatRes; p++) {
-          const s = t.weights[p * 4] + t.weights[p * 4 + 1] + t.weights[p * 4 + 2] + t.weights[p * 4 + 3]
-          if (s !== 255) badSum++
-        }
-        if (badSum) fail(`${badSum} texels do not sum to 255`)
-        log(failures ? `FAILURES ${failures}` : 'ALL_PASSED')
-      } catch (e) {
-        log('FAIL exception ' + (e && e.stack ? e.stack : e))
-      }
-    </script>
-  </body>
+				for (let c = 0; c < 256; c++) {
+					const used = [...t.chunkSlots.slice(c * SLOTS, c * SLOTS + SLOTS)].filter((v) => v !== NO_TEXTURE)
+					if (used.length > 4 || new Set(used).size !== used.length) fail(`chunk ${c} lists ${used.length}`)
+					if (used.some((v) => v >= paint.palette.length)) fail(`chunk ${c} names a missing texture`)
+				}
+				let badSum = 0
+				for (let p = 0; p < t.splatRes * t.splatRes; p++) {
+					const s = t.weights[p * 4] + t.weights[p * 4 + 1] + t.weights[p * 4 + 2] + t.weights[p * 4 + 3]
+					if (s !== 255) badSum++
+				}
+				if (badSum) fail(`${badSum} texels do not sum to 255`)
+				log(failures ? `FAILURES ${failures}` : 'ALL_PASSED')
+			} catch (e) {
+				log('FAIL exception ' + (e && e.stack ? e.stack : e))
+			}
+		</script>
+	</body>
 </html>

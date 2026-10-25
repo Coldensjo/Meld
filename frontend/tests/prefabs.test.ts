@@ -35,7 +35,7 @@ test('a varied placement turns and scales roots, drops some, and keeps at least 
 	const p = camp()
 	assert.deepEqual(prefabClip(p, null).objects, p.objects)
 	let seed = 1
-	const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+	const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647
 	const v = prefabClip(p, { turn: 20, scale: 0.1, drop: 0 }, rand)
 	assert.equal(v.objects.length, 3)
 	for (const o of v.objects.filter((o) => o.cparent === undefined)) {
@@ -56,6 +56,9 @@ test('turning a model clip spins the roots about the anchor and leaves attached 
 	const crate = t.objects.find((o) => o.cid === 2)!
 	assert.ok(Math.abs(crate.x - 1.25) < 1e-9 && Math.abs(crate.z - 2.5) < 1e-9, `${crate.x}, ${crate.z}`)
 	assert.ok(Math.abs(crate.rotY - (0.7 - Math.PI / 2)) < 1e-9)
-	assert.deepEqual(t.objects.find((o) => o.cid === 3), p.objects[2])
+	assert.deepEqual(
+		t.objects.find((o) => o.cid === 3),
+		p.objects[2],
+	)
 	assert.notEqual(prefabHash('a'), prefabHash('b'))
 })

@@ -2,17 +2,25 @@
 // touches: frontend/src/lib/world/nav/*, internal/wow/wmoliquid.go, internal/wow/wmonav.go
 const e = P.e
 const { prefs } = await P.state()
-await P.scene('Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":33,"y":41,"size":1}},"view":{"target":[478,431,56],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}')
+await P.scene(
+	'Meld scene {"v":1,"map":{"region":{"mapName":"Azeroth","x":33,"y":41,"size":1}},"view":{"target":[478,431,56],"yaw":0.5,"pitch":0.6,"distance":60,"hour":13},"prefs":{},"tool":"select","selectedIds":[],"selected":null,"area":null,"viewport":[1000,600]}',
+)
 await P.settle()
 const nav = e.nav
 const c = e.controller.target.clone()
 const loaded = (what) =>
-	P.until(() => {
-		const k = nav.counts
-		return k.total > 0 && k.done === k.total && k.loading === 0 && !k.settling && k
-	}, 120_000, what)
+	P.until(
+		() => {
+			const k = nav.counts
+			return k.total > 0 && k.done === k.total && k.loading === 0 && !k.settling && k
+		},
+		120_000,
+		what,
+	)
 const v = c.clone()
-const a = c.clone(), b = c.clone(), d = c.clone()
+const a = c.clone(),
+	b = c.clone(),
+	d = c.clone()
 const measure = () => {
 	nav.group.updateMatrixWorld(true)
 	const out = { slime: 0, water: 0, magma: 0, near: 0 }
@@ -26,7 +34,9 @@ const measure = () => {
 			b.fromBufferAttribute(p, i + 1).applyMatrix4(m.matrixWorld)
 			d.fromBufferAttribute(p, i + 2).applyMatrix4(m.matrixWorld)
 			const area = b.sub(a).cross(d.sub(a)).length() / 2
-			const r = col.getX(i), g = col.getY(i), bl = col.getZ(i)
+			const r = col.getX(i),
+				g = col.getY(i),
+				bl = col.getZ(i)
 			out.near += area
 			if (r > 0.5 && g > 0.6 && bl < 0.2) out.slime += area
 			else if (bl > 0.7 && r < 0.3) out.water += area

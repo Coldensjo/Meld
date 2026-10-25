@@ -19,7 +19,10 @@ const at = e.controller.target.clone()
 await P.lookAt(at, { pitch: 1.1, back: 60 })
 const canvas = e.renderer.domElement
 const near = (a, b) => Math.abs(a - b) < 1e-3 * Math.max(1, b)
-for (const [kind, t] of [['object', objects[0]], ['creature', creatures[0]]]) {
+for (const [kind, t] of [
+	['object', objects[0]],
+	['creature', creatures[0]],
+]) {
 	ui.placeCreature = kind === 'creature' ? t : null
 	ui.placeObject = kind === 'object' ? t : null
 	editor.prefab = spawnType({ model: t.model, look: t.look })

@@ -16,7 +16,12 @@ const share = (x, y, z) => {
 }
 const close = (a, b, d = 0.05) => Math.abs(a - b) <= d
 
-for (const [x, z] of [[190, 256], [256, 290], [322, 256]]) await P.click(...share(x, h0, z))
+for (const [x, z] of [
+	[190, 256],
+	[256, 290],
+	[322, 256],
+])
+	await P.click(...share(x, h0, z))
 const drawn = editor.paths.length === 1 && editor.paths[0].points.length === 3
 const steps = e.history.steps().map((s) => s.label)
 
@@ -50,7 +55,10 @@ e.path((t2, c) => t2.apply(c))
 await P.frames(1)
 const humpAfter = t.heightAt(256, 290) - h0
 const lineAfter = t.heightAt(256, 256) - h0
-const labels = e.history.steps().map((s) => s.label).slice(-2)
+const labels = e.history
+	.steps()
+	.map((s) => s.label)
+	.slice(-2)
 e.history.undo()
 e.history.undo()
 await P.frames(1)

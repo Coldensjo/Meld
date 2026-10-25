@@ -84,9 +84,13 @@ const ok =
 	added.save === 'Save quests' &&
 	added.tabLabel === 'Quests (1)' &&
 	reverted &&
-	!afterEsc.questEditor && afterEsc.objectEditor &&
+	!afterEsc.questEditor &&
+	afterEsc.objectEditor &&
 	chest.warn.includes('not a Quest giver') &&
-	chest.newQuest === true && chest.search === true &&
+	chest.newQuest === true &&
+	chest.search === true &&
 	(chestQuests.starts ?? []).length === 0 &&
-	giverButtons.starts === true && giverButtons.ends === true && giverButtons.text.includes('cannot be added')
+	giverButtons.starts === true &&
+	giverButtons.ends === true &&
+	giverButtons.text.includes('cannot be added')
 return { ok, poster, added, reverted, afterEsc, chest, giverButtons }

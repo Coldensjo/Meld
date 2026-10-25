@@ -13,7 +13,15 @@ const d = e.activeDocument()
 const t = d.terrain
 // A real change through History, so the tab is dirty and its change count moves.
 const before = t.heights[1000]
-e.history.push({ label: 'probe', undo: () => { t.heights[1000] = before }, redo: () => { t.heights[1000] = before + 7 } })
+e.history.push({
+	label: 'probe',
+	undo: () => {
+		t.heights[1000] = before
+	},
+	redo: () => {
+		t.heights[1000] = before + 7
+	},
+})
 t.heights[1000] = before + 7
 
 // Catch what autosave hands the bindings, and the copies it writes.
@@ -37,7 +45,12 @@ App.SaveRecovery = async (...args) => {
 	saves.push({ docId: args[0], data: args[2], id: r.id })
 	return r
 }
-const turn = () => new Promise((done) => { const ch = new MessageChannel(); ch.port1.onmessage = () => done(); ch.port2.postMessage(0) })
+const turn = () =>
+	new Promise((done) => {
+		const ch = new MessageChannel()
+		ch.port1.onmessage = () => done()
+		ch.port2.postMessage(0)
+	})
 const oldMinutes = prefs.autosaveMinutes
 try {
 	prefs.autosaveMinutes = 0.0001
@@ -61,7 +74,15 @@ try {
 	sendAt = 0
 	partCallMs = 0
 	// A second change, which the measured copy must hold too.
-	e.history.push({ label: 'probe paint', undo: () => { t.weights[12345] = 0 }, redo: () => { t.weights[12345] = 200 } })
+	e.history.push({
+		label: 'probe paint',
+		undo: () => {
+			t.weights[12345] = 0
+		},
+		redo: () => {
+			t.weights[12345] = 200
+		},
+	})
 	t.weights[12345] = 200
 	await new Promise((r) => setTimeout(r, 50))
 
@@ -129,7 +150,16 @@ try {
 	if (partCallMs > oneGoMs / 3) throw new Error(`a SaveRecoveryPart call kept the page ${partCallMs.toFixed(1)} ms against ${oneGoMs.toFixed(1)} ms in one go`)
 	const mb = (s) => Math.round((s?.length ?? 0) / 1e5) / 10
 	const ms = (v) => Math.round(v * 10) / 10
-	return { size: t.size, parts: parts.length, base64MB: { heights: mb(got.heights), weights: mb(got.weights), chunkSlots: mb(got.chunkSlots) }, turns, longestBeforeSendMs: ms(longest), partCallMs: ms(partCallMs), oneGoFallbackMs: ms(oneGoMs), bindingCallMs: ms(sendMs) }
+	return {
+		size: t.size,
+		parts: parts.length,
+		base64MB: { heights: mb(got.heights), weights: mb(got.weights), chunkSlots: mb(got.chunkSlots) },
+		turns,
+		longestBeforeSendMs: ms(longest),
+		partCallMs: ms(partCallMs),
+		oneGoFallbackMs: ms(oneGoMs),
+		bindingCallMs: ms(sendMs),
+	}
 } finally {
 	App.SaveRecovery = save
 	App.SaveRecoveryPart = savePart

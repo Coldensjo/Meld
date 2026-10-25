@@ -33,7 +33,10 @@ test('an area copy carries its shadows, and a paste lays them at the new place',
 	pasteShadows(dst, clip, 2, 2, 10, 1, { reserve: (r) => seen.push([r.x0, r.z0, r.x1, r.z1]), touch: () => {} })
 	assert.deepEqual(seen, [[80, 8, 95, 23]])
 	assert.equal(dst.shadow![8 * side + 80], 255)
-	assert.equal(dst.shadow!.reduce((n, v) => n + (v ? 1 : 0), 0), 1)
+	assert.equal(
+		dst.shadow!.reduce((n, v) => n + (v ? 1 : 0), 0),
+		1,
+	)
 
 	// Off the map's edge: clipped, not wrapped.
 	pasteShadows(dst, clip, 2, 2, 15, 15, { reserve: () => {}, touch: () => {} })

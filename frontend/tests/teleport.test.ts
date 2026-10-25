@@ -7,7 +7,8 @@ import type { TriggerShape } from '../src/lib/world/areaTriggers.ts'
 import { blockAround, pickTrigger, rayTrigger, spotTile, triggerWins } from '../src/lib/world/teleport.ts'
 
 // The Deadmines entrance (trigger 78) sits near (-11208, 1675) on Azeroth, in block 28_53.
-const TX = 28, TY = 53
+const TX = 28,
+	TY = 53
 const sphere: TriggerShape = { id: 78, x: -11208, y: 1675, z: 30, radius: 5, boxX: 0, boxY: 0, boxZ: 0, boxYaw: 0 }
 const box: TriggerShape = { id: 79, x: -11208, y: 1675, z: 30, radius: 0, boxX: 20, boxY: 4, boxZ: 6, boxYaw: Math.PI / 2 }
 

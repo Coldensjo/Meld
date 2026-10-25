@@ -20,7 +20,10 @@ const clear = e.tools.clear
 const doodad = e.tools.doodad
 const xs = roots.map((o) => o.x)
 const zs = roots.map((o) => o.z)
-const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs)
+const minX = Math.min(...xs),
+	maxX = Math.max(...xs),
+	minZ = Math.min(...zs),
+	maxZ = Math.max(...zs)
 const K = 120
 const hit = new V3()
 const spot = (i) => hit.set(minX + ((maxX - minX) * ((i * 7919) % K)) / K, 0, minZ + ((maxZ - minZ) * ((i * 104729) % K)) / K)

@@ -64,7 +64,13 @@ export function moneyText(v: string): string {
 	const n = Number(v) || 0
 	if (!n) return ''
 	const a = Math.abs(n)
-	const parts = [[Math.floor(a / 10000), 'g'], [Math.floor(a / 100) % 100, 's'], [a % 100, 'c']].filter(([x]) => x).map(([x, u]) => `${x}${u}`)
+	const parts = [
+		[Math.floor(a / 10000), 'g'],
+		[Math.floor(a / 100) % 100, 's'],
+		[a % 100, 'c'],
+	]
+		.filter(([x]) => x)
+		.map(([x, u]) => `${x}${u}`)
 	return (n < 0 ? 'costs ' : '') + parts.join(' ')
 }
 
@@ -104,7 +110,15 @@ export const QUEST_TABS: QuestTab[] = [
 					{ col: 'ZoneOrSort', label: 'Quest log heading', ref: 'zone or sort', hint: 'A zone, or a sort such as Warlock or Seasonal (a negative number)' },
 					{ col: 'Type', label: 'Type', options: QUEST_TYPES },
 					{ col: 'SuggestedPlayers', label: 'Suggested players', hint: '0: none shown' },
-					{ col: 'Method', label: 'How it ends', options: [[2, 'Handed in to an ender'], [0, 'Completes by itself'], [1, 'Disabled']] },
+					{
+						col: 'Method',
+						label: 'How it ends',
+						options: [
+							[2, 'Handed in to an ender'],
+							[0, 'Completes by itself'],
+							[1, 'Disabled'],
+						],
+					},
 					{ col: 'LimitTime', label: 'Time limit (s)', note: timeText, hint: '0: no time limit' },
 					{ col: 'QuestFlags', label: 'Flags', flags: QUEST_FLAGS },
 					{ col: 'SpecialFlags', label: 'Server flags', flags: SPECIAL_FLAGS },
@@ -113,8 +127,8 @@ export const QUEST_TABS: QuestTab[] = [
 			{
 				title: 'What it says',
 				fields: [
-					{ col: 'Details', label: 'When offered (what the giver says)', long: true, hint: '$N is the player\'s name, $C the class, $R the race, $B a new line' },
-					{ col: 'Objectives', label: 'Objectives (the quest log\'s summary)', long: true },
+					{ col: 'Details', label: 'When offered (what the giver says)', long: true, hint: "$N is the player's name, $C the class, $R the race, $B a new line" },
+					{ col: 'Objectives', label: "Objectives (the quest log's summary)", long: true },
 					{ col: 'RequestItemsText', label: 'While in progress (asked at the ender)', long: true },
 					{ col: 'OfferRewardText', label: 'On turn-in (with the rewards)', long: true },
 					{ col: 'EndText', label: 'End text', long: true },
@@ -132,7 +146,7 @@ export const QUEST_TABS: QuestTab[] = [
 				fields: [
 					...pairs(4, 'ReqCreatureOrGOId', 'ReqCreatureOrGOCount', 'creature or object', 'Target', 'Count', 'A creature to kill (or talk to, with a script), or an object to use'),
 					...[1, 2, 3, 4].map((i) => ({ col: `ReqSpellCast${i}`, label: `Spell to cast on target ${i}`, ref: 'spell' as const, wide: true })),
-					...[1, 2, 3, 4].map((i) => ({ col: `ObjectiveText${i}`, label: `Objective text ${i}`, hint: 'Shown in the log instead of the target\'s name' })),
+					...[1, 2, 3, 4].map((i) => ({ col: `ObjectiveText${i}`, label: `Objective text ${i}`, hint: "Shown in the log instead of the target's name" })),
 				],
 			},
 			{ title: 'Items gathered along the way', fields: pairs(4, 'ReqSourceId', 'ReqSourceCount', 'item', 'Item', 'Count', 'Items the quest needs that are not handed in (such as a container)') },
@@ -271,7 +285,10 @@ export function questTabs(columns: string[]): QuestTab[] {
 	const have = new Set(columns)
 	const tabs = QUEST_TABS.map((t) => ({ ...t, groups: t.groups.map((g) => ({ ...g, fields: g.fields.filter((f) => have.has(f.col)) })).filter((g) => g.fields.length) }))
 	const known = new Set(QUEST_TABS.flatMap((t) => t.groups.flatMap((g) => g.fields.map((f) => f.col))))
-	const other = fieldGroups(columns.filter((c) => !known.has(c)), [])
+	const other = fieldGroups(
+		columns.filter((c) => !known.has(c)),
+		[],
+	)
 	if (other.length) tabs.push({ id: 'other', title: 'Other', groups: other })
 	return tabs.filter((t) => t.groups.length)
 }

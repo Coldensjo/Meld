@@ -3,8 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { blockGaps, fullBlock, tileKey } from '../src/lib/io/mapTiles.ts'
 
-const grid = (rows: string[], x0 = 30, y0 = 30) =>
-	rows.flatMap((r, j) => [...r].flatMap((c, i) => (c === '#' ? [{ X: x0 + i, Y: y0 + j }] : [])))
+const grid = (rows: string[], x0 = 30, y0 = 30) => rows.flatMap((r, j) => [...r].flatMap((c, i) => (c === '#' ? [{ X: x0 + i, Y: y0 + j }] : [])))
 
 test('blockGaps counts the tiles of a block with no ADT', () => {
 	const have = new Set(grid(['##', '#.']).map((t) => tileKey(t.X, t.Y)))

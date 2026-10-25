@@ -12,14 +12,7 @@
 	// object must be of the Quest giver type (2), which Meld never changes for the author (#293's
 	// decision): an object of another type gets no new quests, and says why.
 
-	let {
-		kind = 'creature',
-		entry,
-		name,
-		ready,
-		onquestflag,
-		dirty = $bindable(false),
-	}: { kind?: 'creature' | 'object'; entry: number; name: string; ready: boolean; onquestflag?: () => void; dirty?: boolean } = $props()
+	let { kind = 'creature', entry, name, ready, onquestflag, dirty = $bindable(false) }: { kind?: 'creature' | 'object'; entry: number; name: string; ready: boolean; onquestflag?: () => void; dirty?: boolean } = $props()
 
 	/** An object that is not a quest giver can't be given quests; a creature can, and is warned. */
 	const refused = $derived(kind === 'object' && !ready)
@@ -112,8 +105,8 @@
 	{#if lists.error}<p class="error">{lists.error}</p>{/if}
 	{#if refused}
 		<p class="warn">
-			This object is not a Quest giver (type 2), so it can't offer or take quests{quests.starts.length > 0 || quests.ends.length > 0 ? ': the server ignores the ones below' : ''}. To give it
-			quests, set its Type to Quest giver under Object and save the object, or use a quest giver object such as a wanted poster.
+			This object is not a Quest giver (type 2), so it can't offer or take quests{quests.starts.length > 0 || quests.ends.length > 0 ? ': the server ignores the ones below' : ''}. To give it quests, set its Type to Quest giver under
+			Object and save the object, or use a quest giver object such as a wanted poster.
 		</p>
 	{:else if kind === 'creature' && !ready && (quests.starts.length > 0 || quests.ends.length > 0)}
 		<p class="warn">

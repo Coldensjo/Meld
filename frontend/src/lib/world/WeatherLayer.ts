@@ -1,7 +1,27 @@
 import * as THREE from 'three'
 import { loadTexture } from '../wow/api'
 import { PROBE_ABOVE, roofChunk, WeatherRoof, type SplashGround } from './WeatherRoof'
-import { effectDensity, MAX_MIST, MAX_RAIN, MAX_SETTLED, MAX_SNOW, MAX_SPLASH, MIST_BOX, RAIN_BOX, SETTLE_FIELD, SETTLE_LIFE, settleRate, SNOW_BOX, SPLASH_FIELD, SPLASH_LIFE, splashRate, streakTilt, weatherCounts, WeatherWind, type WeatherKind } from '../wow/weather'
+import {
+	effectDensity,
+	MAX_MIST,
+	MAX_RAIN,
+	MAX_SETTLED,
+	MAX_SNOW,
+	MAX_SPLASH,
+	MIST_BOX,
+	RAIN_BOX,
+	SETTLE_FIELD,
+	SETTLE_LIFE,
+	settleRate,
+	SNOW_BOX,
+	SPLASH_FIELD,
+	SPLASH_LIFE,
+	splashRate,
+	streakTilt,
+	weatherCounts,
+	WeatherWind,
+	type WeatherKind,
+} from '../wow/weather'
 
 // Lighting › Weather Preview (#185): the client's rain, snow and sandstorms around the camera, so an
 // author sees how a zone with weather (its game_weather chances, the Zones dialog) looks in it. The

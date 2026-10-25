@@ -4,18 +4,18 @@ import assert from 'node:assert/strict'
 import { changedPrefs } from '../src/lib/state/prefsPatch.ts'
 
 test('a save carries only the preferences that changed since the baseline', () => {
-  const base = new Map([
-    ['fog', 'true'],
-    ['cameraSpeed', '2'],
-    ['doodadBrushes', '[{"name":"Bushes"}]'],
-  ])
-  const current = { fog: false, cameraSpeed: 2, doodadBrushes: [{ name: 'Bushes' }], clouds: true }
-  const patch = changedPrefs(current, base)!
-  assert.equal(patch.json, '{"fog":false,"clouds":true}', 'fog changed, clouds was never saved, the rest match')
-  assert.deepEqual([...patch.keys.keys()], ['fog', 'clouds'])
-  base.set('fog', 'false')
-  base.set('clouds', 'true')
-  assert.equal(changedPrefs(current, base), null, 'nothing left to send')
+	const base = new Map([
+		['fog', 'true'],
+		['cameraSpeed', '2'],
+		['doodadBrushes', '[{"name":"Bushes"}]'],
+	])
+	const current = { fog: false, cameraSpeed: 2, doodadBrushes: [{ name: 'Bushes' }], clouds: true }
+	const patch = changedPrefs(current, base)!
+	assert.equal(patch.json, '{"fog":false,"clouds":true}', 'fog changed, clouds was never saved, the rest match')
+	assert.deepEqual([...patch.keys.keys()], ['fog', 'clouds'])
+	base.set('fog', 'false')
+	base.set('clouds', 'true')
+	assert.equal(changedPrefs(current, base), null, 'nothing left to send')
 })
 
 import { prefShapeOk, prefValueOk } from '../src/lib/state/prefsPatch.ts'
@@ -35,7 +35,13 @@ test('a preference with the wrong nested shape is rejected', () => {
 
 test('a session without tabs or maps is rejected, a saved one passes', () => {
 	const view = { target: [1, 2, 3], yaw: 0, pitch: 0, distance: 10 }
-	const ok = { tabs: [{ map: { file: 'a.wmap' }, view }, { map: { region: { mapName: 'Azeroth', x: 1, y: 2, size: 3 } }, view }], active: 1 }
+	const ok = {
+		tabs: [
+			{ map: { file: 'a.wmap' }, view },
+			{ map: { region: { mapName: 'Azeroth', x: 1, y: 2, size: 3 } }, view },
+		],
+		active: 1,
+	}
 	assert.equal(prefShapeOk('session', ok), true)
 	assert.equal(prefShapeOk('session', { tabs: [{ view }], active: 0 }), false, 'a tab without map')
 	assert.equal(prefShapeOk('session', { tabs: [{ map: {}, view }], active: 0 }), false)

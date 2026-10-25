@@ -137,7 +137,12 @@ function world(): World {
 	}
 	fillHoles(t.holes, t.size, 30, 30, 32, 32, HOLE_CELL)
 	const objects = new ObjectLayer(t)
-	for (const [x, z] of [[60, 62], [66, 64], [72, 66]]) objects.add({ type: CUBE, x, z, yOff: 0, rotY: 0, scale: 1 })
+	for (const [x, z] of [
+		[60, 62],
+		[66, 64],
+		[72, 66],
+	])
+		objects.add({ type: CUBE, x, z, yOff: 0, rotY: 0, scale: 1 })
 	const liquids = new LiquidMap(t.size)
 	const pond = newLiquidBrush()
 	Object.assign(pond, { x: 64, y: 12, z: 64, radius: 10, id: 1, add: true })
@@ -181,9 +186,7 @@ function snapshot(w: World) {
 		const layers = w.liquids.layers(c)
 		if (layers.length) liquids.push([c, layers.map((l) => ({ id: l.id, heights: [...l.heights], depth: [...l.depth], cells: [...l.cells] }))])
 	}
-	const objects = [...w.objects.objects.values()]
-		.map((o) => ({ ...o }))
-		.sort((a, b) => a.id - b.id)
+	const objects = [...w.objects.objects.values()].map((o) => ({ ...o })).sort((a, b) => a.id - b.id)
 	return {
 		heights: t.heights.slice(),
 		holes: t.holes.slice(),
@@ -308,10 +311,24 @@ function selectTool(w: World): SelectTool {
 				const r = pasteObjects(w.terrain, w.objects, paste.objects, at.x, at.z, tool.pasteOnModel)
 				if (r) {
 					w.history.push(r.cmd)
-					selectObjects(w.objects, r.added.map((o) => o.id))
+					selectObjects(
+						w.objects,
+						r.added.map((o) => o.id),
+					)
 				}
 			} else if (paste.area && tool.pasteAt) {
-				const cmd = pasteRegion(w.terrain, w.objects, editor.palette, (t) => (editor.palette = t), paste.area, tool.pasteAt.x, tool.pasteAt.z, { ...editor.paste }, () => {}, w.liquids)
+				const cmd = pasteRegion(
+					w.terrain,
+					w.objects,
+					editor.palette,
+					(t) => (editor.palette = t),
+					paste.area,
+					tool.pasteAt.x,
+					tool.pasteAt.z,
+					{ ...editor.paste },
+					() => {},
+					w.liquids,
+				)
 				if (cmd) w.history.push(cmd)
 			}
 			ui.pasting = false
@@ -454,7 +471,10 @@ const rows: Row[] = [
 		tool: () => new PathTool(),
 		setup: () => {
 			const p = newPath([], 'road', editor.palette[1])
-			p.points = [{ x: 20, y: 10, z: 20 }, { x: 40, y: 10, z: 30 }]
+			p.points = [
+				{ x: 20, y: 10, z: 20 },
+				{ x: 40, y: 10, z: 30 },
+			]
 			editor.paths = [p]
 			editor.pathId = p.id
 			editor.pathPoint = 1
@@ -576,17 +596,20 @@ const rows: Row[] = [
 			tool.onUp?.(w.ctx, null, pointer({}, 0, 40))
 		},
 	},
-	...([[3, 'the + badge'], [4, 'the − badge']] as const).map(
-		([badge, name]): Row => ({
-			name: `Select, ${name} of a hole wall`,
-			tool: selectTool,
-			act: (w, tool) => {
-				hoverWall(w, tool, badge)
-				tool.onDown?.(w.ctx, null, pointer())
-				tool.onUp?.(w.ctx, null, pointer())
-			},
-		}),
-	),
+	...(
+		[
+			[3, 'the + badge'],
+			[4, 'the − badge'],
+		] as const
+	).map(([badge, name]): Row => ({
+		name: `Select, ${name} of a hole wall`,
+		tool: selectTool,
+		act: (w, tool) => {
+			hoverWall(w, tool, badge)
+			tool.onDown?.(w.ctx, null, pointer())
+			tool.onUp?.(w.ctx, null, pointer())
+		},
+	})),
 	{ name: 'Spawn brush', tool: spawnBrush, setup: spawnBrushSetup, from: [20, 100], to: [40, 110] },
 	{
 		name: 'Spawn brush, erase (Ctrl)',
@@ -628,9 +651,35 @@ for (const row of rows) {
 // A selection is no edit: an area drag, a lasso, the selection brush and a click on a model select
 // without a History step and leave the map as it was (Undo would otherwise skip back over nothing).
 const selections: Array<{ name: string; setup?: () => void; path: Array<[number, number]>; selected: (w: World) => boolean }> = [
-	{ name: 'a rectangle', path: [[50, 50], [70, 60], [80, 80]], selected: () => editor.selection !== null && editor.selectedIds.length > 0 },
-	{ name: 'a lasso', setup: () => (editor.selectShape = 'lasso'), path: [[50, 50], [80, 50], [80, 80], [50, 80]], selected: () => editor.selection !== null && editor.selectedIds.length > 0 },
-	{ name: 'the selection brush', setup: () => ((editor.selectBrush = true), (editor.brush.radius = 4)), path: [[56, 62], [76, 66]], selected: () => editor.selectedIds.length > 0 },
+	{
+		name: 'a rectangle',
+		path: [
+			[50, 50],
+			[70, 60],
+			[80, 80],
+		],
+		selected: () => editor.selection !== null && editor.selectedIds.length > 0,
+	},
+	{
+		name: 'a lasso',
+		setup: () => (editor.selectShape = 'lasso'),
+		path: [
+			[50, 50],
+			[80, 50],
+			[80, 80],
+			[50, 80],
+		],
+		selected: () => editor.selection !== null && editor.selectedIds.length > 0,
+	},
+	{
+		name: 'the selection brush',
+		setup: () => ((editor.selectBrush = true), (editor.brush.radius = 4)),
+		path: [
+			[56, 62],
+			[76, 66],
+		],
+		selected: () => editor.selectedIds.length > 0,
+	},
 	{ name: 'a click on a model', path: [[66, 64]], selected: () => editor.selectedIds.length === 1 },
 ]
 

@@ -22,7 +22,15 @@ try {
 	await P.until(() => ask.contains(document.activeElement), 20_000, 'focus in the confirm dialog')
 	r.text = ask.querySelector('.body p')?.textContent ?? ''
 	r.danger = ask.querySelector('[data-confirm="yes"]')?.classList.contains('danger') ?? false
-	r.onTop = document.elementFromPoint(...(() => { const b = ask.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2] })())?.closest('[role=dialog]') === ask
+	r.onTop =
+		document
+			.elementFromPoint(
+				...(() => {
+					const b = ask.getBoundingClientRect()
+					return [b.x + b.width / 2, b.y + b.height / 2]
+				})(),
+			)
+			?.closest('[role=dialog]') === ask
 	press('Escape')
 	await P.frames(2)
 	r.closedOnEsc = !P.dialog('Delete stack')

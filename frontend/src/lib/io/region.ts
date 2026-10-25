@@ -84,7 +84,7 @@ export function teleportTo(engine: Engine, dest: TriggerDestination, what: strin
 		if (open) engine.switchDocument(open.id)
 		else {
 			const res = await fetch(`/wow/tiles?map=${encodeURIComponent(map.Dir)}`)
-			const tiles = res.ok ? ((await res.json()) as Array<{ X: number; Y: number }> | null) ?? [] : []
+			const tiles = res.ok ? (((await res.json()) as Array<{ X: number; Y: number }> | null) ?? []) : []
 			if (!tiles.length) await openRegionView(engine, await LoadBuildingMap(map.Dir))
 			else {
 				const block = blockAround(tile, new Set(tiles.map((t) => tileKey(t.X, t.Y))), TELEPORT_BLOCK)

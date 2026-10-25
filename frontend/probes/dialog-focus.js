@@ -102,5 +102,21 @@ r.arrowRows = [...sc.querySelectorAll('tr, li, div')].filter((el) => el.children
 ui.dialog = null
 await P.frames(2)
 
-const ok = r.focusInside && r.labelledByHeading && r.controls > 0 && r.tabWraps && r.tabWrapPrevented && r.shiftTabWraps && r.shiftTabWrapPrevented && r.tabPullsBackIn && r.focusReturned && r.menuTitleRefocused && r.editorFocusInside && r.editorClosedFocus === 'BODY' && r.escInFieldBlurs && r.escClosesTopOnly && r.escThenClosesEditor && r.arrowRows === 2
+const ok =
+	r.focusInside &&
+	r.labelledByHeading &&
+	r.controls > 0 &&
+	r.tabWraps &&
+	r.tabWrapPrevented &&
+	r.shiftTabWraps &&
+	r.shiftTabWrapPrevented &&
+	r.tabPullsBackIn &&
+	r.focusReturned &&
+	r.menuTitleRefocused &&
+	r.editorFocusInside &&
+	r.editorClosedFocus === 'BODY' &&
+	r.escInFieldBlurs &&
+	r.escClosesTopOnly &&
+	r.escThenClosesEditor &&
+	r.arrowRows === 2
 return { ok, r }

@@ -62,8 +62,7 @@
 		.finally(() => (loading = false))
 
 	/** A display's category: the creature or object type of the templates using it, or Unused. */
-	const categoryOf = (d: vmangos.DisplayEntry) =>
-		objects ? (d.uses > 0 ? objectTypeName(d.type) : 'Unused') : d.type > 0 ? creatureTypeName(d.type) : d.uses > 0 ? 'Not specified' : 'Unused'
+	const categoryOf = (d: vmangos.DisplayEntry) => (objects ? (d.uses > 0 ? objectTypeName(d.type) : 'Unused') : d.type > 0 ? creatureTypeName(d.type) : d.uses > 0 ? 'Not specified' : 'Unused')
 	/** The model's file name without its folder or extension, such as Wolf or HumanMale. */
 	const fileOf = (d: vmangos.DisplayEntry) => d.model.slice(d.model.lastIndexOf('\\') + 1).replace(/\.(mdx|m2|wmo)$/i, '')
 	/**
@@ -169,11 +168,7 @@
 </script>
 
 <div class="picker">
-	<input
-		type="search"
-		placeholder={objects ? 'Search: an object (Copper Vein), a model (chest, mine) or a display ID' : 'Search: a creature (Hogger), a model (wolf, kobold) or a display ID'}
-		bind:value={query}
-	/>
+	<input type="search" placeholder={objects ? 'Search: an object (Copper Vein), a model (chest, mine) or a display ID' : 'Search: a creature (Hogger), a model (wolf, kobold) or a display ID'} bind:value={query} />
 	<div class="row">
 		<select value={category} onchange={pickCategory} aria-label={objects ? 'Object type' : 'Creature type'}>
 			<option value="">All types ({all.length})</option>

@@ -6,11 +6,19 @@ import { SpawnChanges } from '../src/lib/world/spawnChanges.ts'
 type S = { x: number }
 
 function setup() {
-	const spawns = new Map<string, S>([['a', { x: 1 }], ['b', { x: 2 }]])
+	const spawns = new Map<string, S>([
+		['a', { x: 1 }],
+		['b', { x: 2 }],
+	])
 	const originals = new Map<string, S>(Object.entries({ a: { x: 1 }, b: { x: 2 } }))
 	const created = new Set<string>()
 	const c = new SpawnChanges<S>()
-	const settle = () => c.settle((k) => spawns.get(k), (k) => originals.get(k), (k) => created.has(k))
+	const settle = () =>
+		c.settle(
+			(k) => spawns.get(k),
+			(k) => originals.get(k),
+			(k) => created.has(k),
+		)
 	return { spawns, originals, created, c, settle }
 }
 

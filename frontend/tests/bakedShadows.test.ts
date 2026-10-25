@@ -1,12 +1,7 @@
 // Run with: bun test tests/bakedShadows.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-	CHUNK_SHADOW_BYTES,
-	chunkShadowBits,
-	packShadowBits,
-	unpackShadowBits,
-} from '../src/lib/terrain/bakedShadows.ts'
+import { CHUNK_SHADOW_BYTES, chunkShadowBits, packShadowBits, unpackShadowBits } from '../src/lib/terrain/bakedShadows.ts'
 
 const setBits = (b: Uint8Array) => b.reduce((n, v) => n + v.toString(2).replaceAll('0', '').length, 0)
 
@@ -19,7 +14,10 @@ test('a shadow bit is the texel its byte and bit name, rows running on', () => {
 	assert.equal(px.length, 256)
 	assert.equal(px[3], 255)
 	assert.equal(px[16 + 15], 255)
-	assert.equal(px.reduce((n, v) => n + (v ? 1 : 0), 0), 2)
+	assert.equal(
+		px.reduce((n, v) => n + (v ? 1 : 0), 0),
+		2,
+	)
 })
 
 test('packShadowBits sets a bit from 128 up and unpackShadowBits reads it back', () => {
@@ -61,8 +59,8 @@ test('chunkShadowBits takes its chunk 64 texels a side, row r at byte r*8 + c>>3
 	for (const [c, r] of spots) px[(2 * 64 + r) * side + 1 * 64 + c] = 255
 	// Neighbours just outside the chunk, which must not leak in.
 	px[(2 * 64 - 1) * side + 64] = 255 // the row above, in chunk (1, 1)
-	px[(2 * 64) * side + 63] = 255 // the column left, in chunk (0, 2)
-	px[(2 * 64) * side + 128] = 255 // the column right, in chunk (2, 2)
+	px[2 * 64 * side + 63] = 255 // the column left, in chunk (0, 2)
+	px[2 * 64 * side + 128] = 255 // the column right, in chunk (2, 2)
 	const bits = chunkShadowBits(px, side, 1, 2)
 	assert.equal(bits.length, CHUNK_SHADOW_BYTES)
 	for (const [c, r] of spots) {

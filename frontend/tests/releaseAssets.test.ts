@@ -13,7 +13,15 @@ const api = await import('../src/lib/wow/api.ts')
 const released: string[] = []
 mock.module('../src/lib/wow/api.ts', () => ({
 	...api,
-	fetchMesh: (path: string) => Promise.resolve(mesh(path.replace(/\.m2$/, '').split('+').map((texture) => ({ texture })))),
+	fetchMesh: (path: string) =>
+		Promise.resolve(
+			mesh(
+				path
+					.replace(/\.m2$/, '')
+					.split('+')
+					.map((texture) => ({ texture })),
+			),
+		),
 	loadTexture: () => Promise.resolve(new THREE.Texture()),
 	releaseTexture: (path: string) => {
 		released.push(path)

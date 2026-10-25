@@ -25,7 +25,14 @@ let ok = true
 await P.scene(scene(0.32, 13, false))
 await P.settle()
 await P.until(() => P.e.skyless.docId === P.e.doc.id, 60_000, "Uldaman's sky known")
-for (const [pitch, hour, client] of [[0.32, 13, false], [0.08, 13, false], [-0.3, 13, false], [0.08, 0, false], [0.08, 13, true], [0.08, 0, true]]) {
+for (const [pitch, hour, client] of [
+	[0.32, 13, false],
+	[0.08, 13, false],
+	[-0.3, 13, false],
+	[0.08, 0, false],
+	[0.08, 13, true],
+	[0.08, 0, true],
+]) {
 	const e = P.e
 	e.prefs.clientLighting = client
 	e.setSceneView({ ...e.sceneView(), pitch, hour })

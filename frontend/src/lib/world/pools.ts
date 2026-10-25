@@ -113,10 +113,7 @@ function motherCount(spawns: readonly vmangos.WorldSpawn[], s: vmangos.WorldSpaw
 /** The changes that take `s`'s pool out of its mother pool: its spawns lose the mother, the mother's other pools count one fewer. */
 export function leaveMotherChanges(spawns: readonly vmangos.WorldSpawn[], s: vmangos.WorldSpawn): SpawnChange[] {
 	if (!s.pool || !s.motherPool) return []
-	return [
-		...poolMembers(spawns, s.pool, s).map((o) => ({ key: keyOf(o), vals: { motherPool: 0, motherLimit: 0, motherName: '', motherSize: 0 } })),
-		...motherCount(spawns, s, -1),
-	]
+	return [...poolMembers(spawns, s.pool, s).map((o) => ({ key: keyOf(o), vals: { motherPool: 0, motherLimit: 0, motherName: '', motherSize: 0 } })), ...motherCount(spawns, s, -1)]
 }
 
 /** The changes that give `s`'s mother pool a new limit: every spawn of its pools in the region carries it. */
@@ -171,7 +168,7 @@ export function poolLegend(spawns: readonly vmangos.WorldSpawn[]): PoolEntry[] {
 		const k = `${isObject(s) ? 'o' : 'c'}${top}`
 		let e = by.get(k)
 		if (!e) {
-			e = { pool: top, name: mother ? s.motherName : s.poolName, mother, limit: mother ? s.motherLimit : s.poolLimit, size: mother ? s.motherSize : (s.poolElsewhere || 0), spawns: 0, hue: poolHue(top) }
+			e = { pool: top, name: mother ? s.motherName : s.poolName, mother, limit: mother ? s.motherLimit : s.poolLimit, size: mother ? s.motherSize : s.poolElsewhere || 0, spawns: 0, hue: poolHue(top) }
 			by.set(k, e)
 		}
 		e.spawns++

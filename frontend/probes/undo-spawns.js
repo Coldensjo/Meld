@@ -18,7 +18,10 @@ for (let i = 0; i < 60; i++) cmds.push(se.spawnAdd(layer, se.newCreatureSpawn(t,
 // The same two closures the Spawn brush pushes (SpawnBrushTool.onUp).
 e.history.push({
 	label: 'brush',
-	undo: () => se.spawnsBatch(layer, () => { for (let i = cmds.length - 1; i >= 0; i--) cmds[i].undo() }),
+	undo: () =>
+		se.spawnsBatch(layer, () => {
+			for (let i = cmds.length - 1; i >= 0; i--) cmds[i].undo()
+		}),
 	redo: () => se.spawnsBatch(layer, () => cmds.forEach((c) => c.redo())),
 })
 await P.frames(2)

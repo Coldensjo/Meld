@@ -104,15 +104,22 @@ const ok =
 	title === 'Wolves Across the Border' &&
 	quest['Quest log heading'].startsWith('Northshire') &&
 	objectives['Item 1'] === 'Tough Wolf Meat' &&
-	rewards['Choice 1'] !== '' && !rewards['Choice 1'].startsWith('No ') && !rewards['Choice 2'].startsWith('No ') &&
+	rewards['Choice 1'] !== '' &&
+	!rewards['Choice 1'].startsWith('No ') &&
+	!rewards['Choice 2'].startsWith('No ') &&
 	rewards['Faction 1'] === 'Stormwind' &&
-	requirements['After quest'] !== '' && !requirements['After quest'].startsWith('No ') &&
+	requirements['After quest'] !== '' &&
+	!requirements['After quest'].startsWith('No ') &&
 	givers.every((g) => g.startsWith('Eagan Peltskinner')) &&
 	saveText === 'Save quest (1)' &&
-	codesShown && inserted && codeSave === 'Save quest (1)' &&
+	codesShown &&
+	inserted &&
+	codeSave === 'Save quest (1)' &&
 	missing === 'No item 16000000' &&
 	warned.includes('Unsaved changes') &&
 	reverted &&
-	stored.values.QuestLevel === '2' && stored.values.ReqItemId1 === '750' &&
-	!afterEsc.questEditor && afterEsc.creatureEditor
+	stored.values.QuestLevel === '2' &&
+	stored.values.ReqItemId1 === '750' &&
+	!afterEsc.questEditor &&
+	afterEsc.creatureEditor
 return { ok, codesShown, inserted, codeSave, afterEsc, title, quest, objectives, rewards, requirements, givers, saveText, missing, warned, reverted, stored: { level: stored.values.QuestLevel, item: stored.values.ReqItemId1 } }

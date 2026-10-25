@@ -90,13 +90,9 @@ export class SpawnLayer {
 	private where = new Map<vmangos.WorldSpawn, { batch: SpawnBatch; i: number; type: string }>()
 	private keys = new Map<string, vmangos.WorldSpawn>()
 	private readonly cone = new THREE.ConeGeometry(1.2, 4, 6).translate(0, 2, 0)
-	private readonly coneMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(
-		KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k] })]),
-	)
+	private readonly coneMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k] })]))
 	private readonly invisible = new THREE.OctahedronGeometry(0.8).translate(0, 1, 0)
-	private readonly invisibleMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(
-		KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k], wireframe: true })]),
-	)
+	private readonly invisibleMaterials = new Map<SpawnKind, THREE.MeshBasicMaterial>(KINDS.map((k) => [k, new THREE.MeshBasicMaterial({ color: SPAWN_COLORS[k], wireframe: true })]))
 	// A model that loads is noted, and the next cull redraws only the batches it changes (`regroup`):
 	// a map's models load in bursts, and each used to rebuild every batch (#329).
 	private readonly unsubscribe = onAssetLoaded((type) => {
@@ -407,7 +403,11 @@ export class SpawnLayer {
 
 	/** Compares the spawns touched since the last call with their originals, and only those. */
 	private settle() {
-		this.changes.settle((k) => this.keys.get(k), (k) => this.originals.get(k), (k) => this.created.has(k))
+		this.changes.settle(
+			(k) => this.keys.get(k),
+			(k) => this.originals.get(k),
+			(k) => this.created.has(k),
+		)
 	}
 
 	/** How many edits `edits()` would return, without building them. */

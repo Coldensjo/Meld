@@ -40,7 +40,11 @@ export function joinMoney(c: Coins): number {
 /** The amounts to show for a copper count: the coins from the largest one that isn't 0 down (0 shows 0c). */
 export function shownCoins(total: number): Array<[Coin, number]> {
 	const c = splitMoney(total)
-	const all: Array<[Coin, number]> = [['gold', c.gold], ['silver', c.silver], ['copper', c.copper]]
+	const all: Array<[Coin, number]> = [
+		['gold', c.gold],
+		['silver', c.silver],
+		['copper', c.copper],
+	]
 	const out = all.filter(([, v]) => v > 0)
 	return out.length ? out : [['copper', 0]]
 }

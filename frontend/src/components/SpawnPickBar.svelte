@@ -10,7 +10,17 @@
 	const mode = $derived(ui.spawnPick?.mode)
 	const count = $derived(!s ? 0 : mode === 'lead' ? followersOf(editor.spawns, s.guid).length : mode === 'pool' ? poolMates(editor.spawns, s).length + 1 : 0)
 	const title = $derived(
-		!s ? '' : mode === 'lead' ? `Formation of ${s.name}` : mode === 'follow' ? `${s.name} follows…` : mode === 'pool' ? `Pool ${s.pool} of ${s.name}` : mode === 'joinMother' ? `Pool ${s.pool} joins a master pool…` : `${s.name} joins a pool…`,
+		!s
+			? ''
+			: mode === 'lead'
+				? `Formation of ${s.name}`
+				: mode === 'follow'
+					? `${s.name} follows…`
+					: mode === 'pool'
+						? `Pool ${s.pool} of ${s.name}`
+						: mode === 'joinMother'
+							? `Pool ${s.pool} joins a master pool…`
+							: `${s.name} joins a pool…`,
 	)
 	const what = $derived(
 		mode === 'lead'

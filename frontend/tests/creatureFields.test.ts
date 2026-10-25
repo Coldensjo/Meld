@@ -8,7 +8,11 @@ const field = (col: string) => CREATURE_FIELD_GROUPS.flatMap((g) => g.fields).fi
 test('the creature editor gives its named columns a picker, select or tick list (#699)', () => {
 	assert.equal(field('faction')?.ref, 'faction template')
 	assert.ok(field('pet_family')?.options?.some(([v, n]) => v === 1 && n === 'Wolf'))
-	assert.deepEqual(field('trainer_race')?.options?.slice(0, 3), [[0, 'None'], [1, 'Human'], [2, 'Orc']])
+	assert.deepEqual(field('trainer_race')?.options?.slice(0, 3), [
+		[0, 'None'],
+		[1, 'Human'],
+		[2, 'Orc'],
+	])
 	assert.ok(field('ai_name')?.suggest?.includes('EventAI'))
 	for (const col of ['mechanic_immune_mask', 'school_immune_mask', 'immunity_flags', 'static_flags1', 'static_flags2', 'flags_extra']) assert.ok(field(col)?.flags?.length, col)
 })
@@ -42,10 +46,17 @@ test("a creature's own list is its entry, or its entry's tens for a spell list",
 test('the masks put each name on its bit', () => {
 	// Mechanic m is bit 1 << (m - 1): Charm (1) is 1, Stun (12) is 2048, Slow cast speed (31) is 1 << 30.
 	assert.deepEqual(MECHANIC_MASK[0], [1, 'Charm'])
-	assert.deepEqual(MECHANIC_MASK.find(([, n]) => n === 'Stun'), [2048, 'Stun'])
+	assert.deepEqual(
+		MECHANIC_MASK.find(([, n]) => n === 'Stun'),
+		[2048, 'Stun'],
+	)
 	assert.equal(MECHANIC_MASK.at(-1)?.[0], 2 ** 30)
 	// School s is bit 1 << s.
-	assert.deepEqual(SCHOOL_MASK.slice(0, 3), [[1, 'Physical'], [2, 'Holy'], [4, 'Fire']])
+	assert.deepEqual(SCHOOL_MASK.slice(0, 3), [
+		[1, 'Physical'],
+		[2, 'Holy'],
+		[4, 'Fire'],
+	])
 	// Race r is bit 1 << (r - 1).
 	assert.deepEqual(RACE_MASK.at(-1), [128, 'Troll'])
 })

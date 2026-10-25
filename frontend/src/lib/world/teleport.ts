@@ -29,9 +29,11 @@ export interface TriggerHit {
 export function rayTrigger(origin: Vec, dir: Vec, t: TriggerShape, tileX: number, tileY: number): { enter: number; exit: number } | null {
 	const c = editorPoint(t, tileX, tileY)
 	// Editor x, y, z are the server's -Y, Z, -X.
-	let ox = -(origin.z - c.z), oy = -(origin.x - c.x)
+	let ox = -(origin.z - c.z),
+		oy = -(origin.x - c.x)
 	const oz = origin.y - c.y
-	let dx = -dir.z, dy = -dir.x
+	let dx = -dir.z,
+		dy = -dir.x
 	const dz = dir.y
 	let enter: number, exit: number
 	if (t.radius > 0) {
@@ -43,18 +45,24 @@ export function rayTrigger(origin: Vec, dir: Vec, t: TriggerShape, tileX: number
 		enter = -b - s
 		exit = -b + s
 	} else {
-		const cos = Math.cos(t.boxYaw), sin = Math.sin(t.boxYaw)
+		const cos = Math.cos(t.boxYaw),
+			sin = Math.sin(t.boxYaw)
 		;[ox, oy] = [ox * cos + oy * sin, -ox * sin + oy * cos]
 		;[dx, dy] = [dx * cos + dy * sin, -dx * sin + dy * cos]
 		enter = -Infinity
 		exit = Infinity
-		const slabs: [number, number, number][] = [[ox, dx, t.boxX / 2], [oy, dy, t.boxY / 2], [oz, dz, t.boxZ / 2]]
+		const slabs: [number, number, number][] = [
+			[ox, dx, t.boxX / 2],
+			[oy, dy, t.boxY / 2],
+			[oz, dz, t.boxZ / 2],
+		]
 		for (const [o, d, h] of slabs) {
 			if (Math.abs(d) < 1e-9) {
 				if (o < -h || o > h) return null
 				continue
 			}
-			let a = (-h - o) / d, b = (h - o) / d
+			let a = (-h - o) / d,
+				b = (h - o) / d
 			if (a > b) [a, b] = [b, a]
 			enter = Math.max(enter, a)
 			exit = Math.min(exit, b)
@@ -114,7 +122,12 @@ export function blockAround(t: { x: number; y: number }, have: ReadonlySet<numbe
 			for (let x = t.x - size + 1; x <= t.x; x++) {
 				if (x < 0 || y < 0 || x + size > 64 || y + size > 64) continue
 				let full = true
-				for (let j = y; j < y + size && full; j++) for (let i = x; i < x + size; i++) if (!have.has(tileKey(i, j))) { full = false; break }
+				for (let j = y; j < y + size && full; j++)
+					for (let i = x; i < x + size; i++)
+						if (!have.has(tileKey(i, j))) {
+							full = false
+							break
+						}
 				if (!full) continue
 				const off = Math.abs(x + (size - 1) / 2 - t.x) + Math.abs(y + (size - 1) / 2 - t.y)
 				if (off < bestOff) {

@@ -40,15 +40,13 @@ const DIRECTIONAL_SHADOW_CALL = /getShadow\( directionalShadowMap\[ i \][^;]*vDi
 // unrolled loop only UNROLLED_LOOP_INDEX becomes the light's number.
 const LIGHTS_FRAGMENT_BEGIN = THREE.ShaderChunk.lights_fragment_begin.replace(DIRECTIONAL_SHADOW_CALL, 'cascadeShadow( UNROLLED_LOOP_INDEX )')
 if (LIGHTS_FRAGMENT_BEGIN === THREE.ShaderChunk.lights_fragment_begin) {
-  throw new Error('three changed lights_fragment_begin: the shadow cascade patch no longer applies')
+	throw new Error('three changed lights_fragment_begin: the shadow cascade patch no longer applies')
 }
 
 /** Makes a built-in lit material (Lambert) read the key light's shadow from the cascades. */
 export function patchCascadeShadows(m: THREE.Material) {
-  m.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <shadowmap_pars_fragment>', '#include <shadowmap_pars_fragment>\n' + CASCADE_SHADOW_GLSL)
-      .replace('#include <lights_fragment_begin>', LIGHTS_FRAGMENT_BEGIN)
-  }
-  m.customProgramCacheKey = () => 'cascades'
+	m.onBeforeCompile = (shader) => {
+		shader.fragmentShader = shader.fragmentShader.replace('#include <shadowmap_pars_fragment>', '#include <shadowmap_pars_fragment>\n' + CASCADE_SHADOW_GLSL).replace('#include <lights_fragment_begin>', LIGHTS_FRAGMENT_BEGIN)
+	}
+	m.customProgramCacheKey = () => 'cascades'
 }

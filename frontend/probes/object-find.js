@@ -31,7 +31,9 @@ const byEntry = rows()[0].querySelector('.name').textContent.trim()
 
 type(search(), 'Small Thorium')
 await P.until(() => rows().some((b) => b.title === 'Entry 324'), WAIT, 'the name search again')
-rows().find((b) => b.title === 'Entry 324').click()
+rows()
+	.find((b) => b.title === 'Entry 324')
+	.click()
 await P.until(() => title() === 'Small Thorium Vein' && root().querySelectorAll('.scroll h3').length > 1, WAIT, 'the object opened')
 await P.until(() => root().querySelector('header .dim')?.textContent.includes('entry 324'), WAIT, 'the header')
 const object = {
@@ -61,8 +63,13 @@ const ok =
 	byName.includes('Entry 324') &&
 	byEntry === 'Copper Vein' &&
 	object.tab === 'Object' &&
-	object.tabs[0] === 'Find object' && object.tabs.includes('Object') && object.tabs.includes('Contents') &&
+	object.tabs[0] === 'Find object' &&
+	object.tabs.includes('Object') &&
+	object.tabs.includes('Contents') &&
 	object.groups.length > 1 &&
-	back.tab === 'Find object' && back.query === 'Small Thorium' && back.active === 'Entry 324' &&
-	fresh.tab === 'New object' && fresh.form
+	back.tab === 'Find object' &&
+	back.query === 'Small Thorium' &&
+	back.active === 'Entry 324' &&
+	fresh.tab === 'New object' &&
+	fresh.form
 return { ok, opened, byName: byName.slice(0, 5), byEntry, object, back, fresh }

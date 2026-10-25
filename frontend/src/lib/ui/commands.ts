@@ -165,7 +165,13 @@ export function chordLabel(c: Chord): string {
 export function keysOf(id: ShortcutId): string {
 	const s = BY_ID.get(id)
 	if (!s) return ''
-	return s.keys ?? (s.chords ?? []).filter((c) => !c.hidden).map(chordLabel).join(' / ')
+	return (
+		s.keys ??
+		(s.chords ?? [])
+			.filter((c) => !c.hidden)
+			.map(chordLabel)
+			.join(' / ')
+	)
 }
 
 /** The parts of a key event a chord is matched against. */

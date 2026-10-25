@@ -74,8 +74,8 @@
 
 <div class="bonuses">
 	<p class="dim">
-		Healing, spell damage, crit, hit, dodge, attack power, mana per 5 and the like aren't stats in 1.12: an item gives them as an Equip effect, one of the client's
-		spells. Pick the bonus and its amount; it goes into a free effect slot (the Effects tab holds all five).
+		Healing, spell damage, crit, hit, dodge, attack power, mana per 5 and the like aren't stats in 1.12: an item gives them as an Equip effect, one of the client's spells. Pick the bonus and its amount; it goes into a free effect slot
+		(the Effects tab holds all five).
 	</p>
 	{#if error}<p class="error">{error}</p>{/if}
 	<ul aria-label="Equip effects">

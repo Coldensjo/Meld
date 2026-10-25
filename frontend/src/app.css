@@ -1,164 +1,167 @@
 :root {
-  /* Interface size (#372): lib/ui/uiScale.ts zooms the page by --ui-zoom, and zoom scales vw and vh
+	/* Interface size (#372): lib/ui/uiScale.ts zooms the page by --ui-zoom, and zoom scales vw and vh
      too, so a size meant as a share of the window uses var(--vw) and var(--vh) rather than vw and vh. */
-  --ui-zoom: 1;
-  --vw: calc(1vw / var(--ui-zoom));
-  --vh: calc(1vh / var(--ui-zoom));
-  /* Photoshop-like neutral greys with a blue accent */
-  --bg: #1e1e1e;
-  --panel: #2c2c2c;
-  --panel-2: #383838;
-  --panel-3: #454545;
-  --header: #252525;
-  --border: #1a1a1a;
-  --border-soft: #3d3d3d;
-  --text: #d8d8d8;
-  --text-dim: #b4b4b4;
-  /* Text on the active (panel-3) buttons. */
-  --text-strong: #ffffff;
-  --accent: #1a6fd1;
-  --accent-2: #4b9cf5;
-  /* Accent and danger as text: 4.5:1 on every panel (tests/contrast.test.ts). */
-  --accent-text: #7ab6ff;
-  --accent-ink: #ffffff;
-  --danger: #e34850;
-  --danger-text: #ff9aa0;
-  /* Status text (ok, warn, bad): 4.5:1 on every panel (tests/contrast.test.ts). */
-  --ok: #6fdc6f;
-  --warn: #ffd23f;
-  --bad: #ff9a9a;
-  /* The 3D previews stay dark in both themes. */
-  --preview-bg: #1a1d24;
-  --preview-glow: #5a6373;
-  --preview-edge: #2b3038;
-  --radius: 3px;
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
-  --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-  color-scheme: dark;
+	--ui-zoom: 1;
+	--vw: calc(1vw / var(--ui-zoom));
+	--vh: calc(1vh / var(--ui-zoom));
+	/* Photoshop-like neutral greys with a blue accent */
+	--bg: #1e1e1e;
+	--panel: #2c2c2c;
+	--panel-2: #383838;
+	--panel-3: #454545;
+	--header: #252525;
+	--border: #1a1a1a;
+	--border-soft: #3d3d3d;
+	--text: #d8d8d8;
+	--text-dim: #b4b4b4;
+	/* Text on the active (panel-3) buttons. */
+	--text-strong: #ffffff;
+	--accent: #1a6fd1;
+	--accent-2: #4b9cf5;
+	/* Accent and danger as text: 4.5:1 on every panel (tests/contrast.test.ts). */
+	--accent-text: #7ab6ff;
+	--accent-ink: #ffffff;
+	--danger: #e34850;
+	--danger-text: #ff9aa0;
+	/* Status text (ok, warn, bad): 4.5:1 on every panel (tests/contrast.test.ts). */
+	--ok: #6fdc6f;
+	--warn: #ffd23f;
+	--bad: #ff9a9a;
+	/* The 3D previews stay dark in both themes. */
+	--preview-bg: #1a1d24;
+	--preview-glow: #5a6373;
+	--preview-edge: #2b3038;
+	--radius: 3px;
+	--font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
+	--mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+	color-scheme: dark;
 }
 
 /* Preferences › Theme › Light (#49), or System on a light desktop: the same tokens, light. */
 :root[data-theme='light'] {
-  --bg: #f0f0f0;
-  --panel: #e3e3e3;
-  --panel-2: #d4d4d4;
-  --panel-3: #c2c2c2;
-  --header: #d9d9d9;
-  --border: #b4b4b4;
-  --border-soft: #c6c6c6;
-  --text: #1d1d1d;
-  --text-dim: #4a4a4a;
-  --text-strong: #000000;
-  --accent: #1a6fd1;
-  --accent-2: #2680eb;
-  --accent-text: #0a4a9c;
-  --accent-ink: #ffffff;
-  --danger: #c9252d;
-  --danger-text: #961a22;
-  --ok: #0a4f16;
-  --warn: #5c4100;
-  --bad: #8a0f18;
-  --preview-bg: #1a1d24;
-  --preview-glow: #5a6373;
-  --preview-edge: #2b3038;
-  color-scheme: light;
+	--bg: #f0f0f0;
+	--panel: #e3e3e3;
+	--panel-2: #d4d4d4;
+	--panel-3: #c2c2c2;
+	--header: #d9d9d9;
+	--border: #b4b4b4;
+	--border-soft: #c6c6c6;
+	--text: #1d1d1d;
+	--text-dim: #4a4a4a;
+	--text-strong: #000000;
+	--accent: #1a6fd1;
+	--accent-2: #2680eb;
+	--accent-text: #0a4a9c;
+	--accent-ink: #ffffff;
+	--danger: #c9252d;
+	--danger-text: #961a22;
+	--ok: #0a4f16;
+	--warn: #5c4100;
+	--bad: #8a0f18;
+	--preview-bg: #1a1d24;
+	--preview-glow: #5a6373;
+	--preview-edge: #2b3038;
+	color-scheme: light;
 }
 
 * {
-  box-sizing: border-box;
+	box-sizing: border-box;
 }
 
 /* Right-drag look on Windows hides the cursor (CameraController). */
 .mouse-look,
 .mouse-look * {
-  cursor: none !important;
+	cursor: none !important;
 }
 
 /* Alt held over the viewport where Alt+click picks something (Engine.updatePipetteCursor): an
    eyedropper whose tip (bottom left) is the hotspot. */
 canvas.pipette {
-  cursor:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M20.7 3.3a2.5 2.5 0 0 0-3.5 0l-2.6 2.6-1.1-1.1-1.4 1.4 1.1 1.1-8.3 8.3c-.3.3-.5.7-.6 1.1L3.5 20l.5.5 3.3-.8c.4-.1.8-.3 1.1-.6l8.3-8.3 1.1 1.1 1.4-1.4-1.1-1.1 2.6-2.6a2.5 2.5 0 0 0 0-3.5z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M6.2 17.8l8.3-8.3' stroke='black' stroke-width='1.2'/></svg>") 3 21,
-    crosshair !important;
+	cursor:
+		url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M20.7 3.3a2.5 2.5 0 0 0-3.5 0l-2.6 2.6-1.1-1.1-1.4 1.4 1.1 1.1-8.3 8.3c-.3.3-.5.7-.6 1.1L3.5 20l.5.5 3.3-.8c.4-.1.8-.3 1.1-.6l8.3-8.3 1.1 1.1 1.4-1.4-1.1-1.1 2.6-2.6a2.5 2.5 0 0 0 0-3.5z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M6.2 17.8l8.3-8.3' stroke='black' stroke-width='1.2'/></svg>")
+			3 21,
+		crosshair !important;
 }
 
 html,
 body,
 #app {
-  margin: 0;
-  height: 100%;
-  overflow: hidden;
-  background: var(--bg);
-  color: var(--text);
-  font: 12px/1.4 var(--font);
-  user-select: none;
-  -webkit-user-select: none;
+	margin: 0;
+	height: 100%;
+	overflow: hidden;
+	background: var(--bg);
+	color: var(--text);
+	font: 12px/1.4 var(--font);
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 button {
-  font: inherit;
-  color: inherit;
-  background: var(--panel-2);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+	font: inherit;
+	color: inherit;
+	background: var(--panel-2);
+	border: 1px solid var(--border-soft);
+	border-radius: var(--radius);
+	padding: 4px 10px;
+	cursor: pointer;
+	transition:
+		background 0.12s,
+		border-color 0.12s;
 }
 button:hover:not(:disabled) {
-  background: var(--panel-3);
+	background: var(--panel-3);
 }
 button:disabled {
-  opacity: 0.4;
-  cursor: default;
+	opacity: 0.4;
+	cursor: default;
 }
 button.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--accent-ink);
 }
 
 input[type='range'] {
-  accent-color: var(--accent);
-  width: 100%;
+	accent-color: var(--accent);
+	width: 100%;
 }
 input[type='checkbox'] {
-  accent-color: var(--accent);
+	accent-color: var(--accent);
 }
 input[type='number'],
 input[type='text'],
 select {
-  font: inherit;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  padding: 2px 6px;
+	font: inherit;
+	color: var(--text);
+	background: var(--bg);
+	border: 1px solid var(--border-soft);
+	border-radius: var(--radius);
+	padding: 2px 6px;
 }
 
 h3 {
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
+	margin: 0 0 8px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--text-dim);
 }
 
 kbd {
-  font: 10px var(--mono);
-  padding: 1px 4px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-dim);
+	font: 10px var(--mono);
+	padding: 1px 4px;
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	color: var(--text-dim);
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
+	width: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--panel-3);
-  border-radius: 4px;
+	background: var(--panel-3);
+	border-radius: 4px;
 }
 
 /* Keyboard focus (#374, #652): one visible ring for every control, only while navigating with Tab

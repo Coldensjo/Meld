@@ -20,7 +20,10 @@
 			<div class="lines">
 				{#each lines as l, i (i)}
 					<div class="line" class:title={l.title} class:extra={l.extra} style:color={l.color}>
-						<span>{l.left}{#if l.money !== undefined} <Money copper={l.money} size={11} />{/if}</span>
+						<span
+							>{l.left}{#if l.money !== undefined}
+								<Money copper={l.money} size={11} />{/if}</span
+						>
 						{#if l.right}<span class="right">{l.right}</span>{/if}
 					</div>
 				{/each}

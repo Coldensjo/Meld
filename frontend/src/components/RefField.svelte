@@ -4,7 +4,29 @@
 	import { ownListIds, type CreatureField } from '../lib/world/creatureFields'
 	import { areaName, loadAreas } from '../lib/wow/areas'
 	import { QUALITY_COLORS } from '../lib/wow/itemTooltip'
-	import { ITEM_TABLE_KINDS, NUMBER_ONLY_KINDS, OBJECT_TABLE_KINDS, emoteList, factionTemplateName, factionTemplates, iconFileName, itemTableList, itemTables, isWorldKind, lockName, objectTableList, objectTables, questTables, reactionText, refName, refTarget, rememberName, spellTables, type NameKind, type RefName } from '../lib/wow/refNames'
+	import {
+		ITEM_TABLE_KINDS,
+		NUMBER_ONLY_KINDS,
+		OBJECT_TABLE_KINDS,
+		emoteList,
+		factionTemplateName,
+		factionTemplates,
+		iconFileName,
+		itemTableList,
+		itemTables,
+		isWorldKind,
+		lockName,
+		objectTableList,
+		objectTables,
+		questTables,
+		reactionText,
+		refName,
+		refTarget,
+		rememberName,
+		spellTables,
+		type NameKind,
+		type RefName,
+	} from '../lib/wow/refNames'
 	import ItemIcon from './ItemIcon.svelte'
 	import { loadObjectTemplates } from './SpawnBrowser.svelte'
 	import SpellIcon from './SpellIcon.svelte'
@@ -111,7 +133,12 @@
 			case 'item':
 				return ((await SearchItems(q)) ?? []).map((r) => ({ kind: k, id: r.entry, name: r.name, sub: String(r.entry), quality: r.quality, displayId: r.displayId }))
 			case 'creature':
-				return ((await SearchCreatures(q)) ?? []).map((r) => ({ kind: k, id: r.entry, name: r.subname ? `${r.name} <${r.subname}>` : r.name, sub: `${r.entry} · level ${r.levelMin}${r.levelMax > r.levelMin ? `–${r.levelMax}` : ''}` }))
+				return ((await SearchCreatures(q)) ?? []).map((r) => ({
+					kind: k,
+					id: r.entry,
+					name: r.subname ? `${r.name} <${r.subname}>` : r.name,
+					sub: `${r.entry} · level ${r.levelMin}${r.levelMax > r.levelMin ? `–${r.levelMax}` : ''}`,
+				}))
 			case 'object':
 				return (await loadObjectTemplates())
 					.filter((o) => like(o.name, o.entry, q))
@@ -188,7 +215,15 @@
 		if (!open || k === 'spell' || k === 'spell visual') return
 		// The client's short lists show whole without a search; the zones, the objects and the
 		// database's templates need one.
-		const whole = k === 'faction' || k === 'faction template' || k === 'skill' || k === 'sort' || k === 'global category' || k === 'spell icon' || (OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k) || (ITEM_TABLE_KINDS as readonly NameKind[]).includes(k)
+		const whole =
+			k === 'faction' ||
+			k === 'faction template' ||
+			k === 'skill' ||
+			k === 'sort' ||
+			k === 'global category' ||
+			k === 'spell icon' ||
+			(OBJECT_TABLE_KINDS as readonly NameKind[]).includes(k) ||
+			(ITEM_TABLE_KINDS as readonly NameKind[]).includes(k)
 		const local = whole || k === 'zone' || k === 'object'
 		if (!q && !whole) {
 			hits = []
@@ -202,18 +237,21 @@
 			} else hits = starters
 			return
 		}
-		timer = window.setTimeout(async () => {
-			searching = true
-			error = ''
-			try {
-				const r = await search(k, q)
-				if (q === query.trim() && k === kind) hits = r
-			} catch (err) {
-				error = String(err)
-			} finally {
-				searching = false
-			}
-		}, local ? 0 : 250)
+		timer = window.setTimeout(
+			async () => {
+				searching = true
+				error = ''
+				try {
+					const r = await search(k, q)
+					if (q === query.trim() && k === kind) hits = r
+				} catch (err) {
+					error = String(err)
+				} finally {
+					searching = false
+				}
+			},
+			local ? 0 : 250,
+		)
 	})
 
 	/** A visual: the picked spell's, its name asked again (the spells that share it). */
@@ -235,9 +273,9 @@
 <div class="ref" class:changed class:wide={f.wide}>
 	{#if !bare}<span class="label" title={f.hint ? `${f.hint} (${f.col})` : f.col}>{f.label}</span>{/if}
 	{#if ref === 'emote'}
-		<select value={value} onchange={(e) => onset((e.currentTarget as HTMLSelectElement).value)} aria-label={f.label}>
+		<select {value} onchange={(e) => onset((e.currentTarget as HTMLSelectElement).value)} aria-label={f.label}>
 			<option value="0">None</option>
-			{#if value !== '0' && value !== '' && !emotes.some((e) => String(e.id) === value)}<option value={value}>{value}</option>{/if}
+			{#if value !== '0' && value !== '' && !emotes.some((e) => String(e.id) === value)}<option {value}>{value}</option>{/if}
 			{#each emotes as e (e.id)}{#if e.id > 0}<option value={String(e.id)}>{e.name} ({e.id})</option>{/if}{/each}
 		</select>
 	{:else}
@@ -264,7 +302,15 @@
 		</span>
 		{#if open && kind === 'spell'}
 			<div class="find">
-				<SpellPicker memoryKey="field" text={false} height={200} label="Find a spell" placeholder="Name or number" focus onpick={(s) => pick({ kind: 'spell', id: s.id, name: s.rank ? `${s.name} (${s.rank})` : s.name, sub: String(s.id), icon: s.icon })} />
+				<SpellPicker
+					memoryKey="field"
+					text={false}
+					height={200}
+					label="Find a spell"
+					placeholder="Name or number"
+					focus
+					onpick={(s) => pick({ kind: 'spell', id: s.id, name: s.rank ? `${s.name} (${s.rank})` : s.name, sub: String(s.id), icon: s.icon })}
+				/>
 			</div>
 		{:else if open && kind === 'spell visual'}
 			<div class="find">
@@ -291,7 +337,17 @@
 							</button>
 						</li>
 					{:else}
-						<li class="dim">{searching ? 'Searching…' : query.trim() ? 'Nothing matches.' : (NUMBER_ONLY_KINDS as readonly NameKind[]).includes(kind) ? 'Type a number.' : ownIds.length ? `It has no list of its own (${ownIds.length > 1 ? `${ownIds[0]}–${ownIds[ownIds.length - 1]}` : ownIds[0]}). Type a name or a number.` : 'Type a name or a number.'}</li>
+						<li class="dim">
+							{searching
+								? 'Searching…'
+								: query.trim()
+									? 'Nothing matches.'
+									: (NUMBER_ONLY_KINDS as readonly NameKind[]).includes(kind)
+										? 'Type a number.'
+										: ownIds.length
+											? `It has no list of its own (${ownIds.length > 1 ? `${ownIds[0]}–${ownIds[ownIds.length - 1]}` : ownIds[0]}). Type a name or a number.`
+											: 'Type a name or a number.'}
+						</li>
 					{/each}
 				</ul>
 			</div>

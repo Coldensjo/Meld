@@ -13,17 +13,7 @@ import { pastedHeight, type PasteHeightMode } from './pasteHeight'
 import { copyLiquidCells, pasteLiquidCells, type LiquidClip, type LiquidMap } from '../water/liquids'
 import { insideDistance } from '../terrain/areaShape'
 import { pasteLandings, type Landing } from './pasteLanding'
-import {
-	CHUNK_CELLS,
-	MAX_PALETTE,
-	NO_TEXTURE,
-	SLOTS,
-	SPLAT_PER_CELL,
-	acquireSlot,
-	chunkOf,
-	normalizeTexel,
-	paletteIndex,
-} from '../terrain/chunkPaint'
+import { CHUNK_CELLS, MAX_PALETTE, NO_TEXTURE, SLOTS, SPLAT_PER_CELL, acquireSlot, chunkOf, normalizeTexel, paletteIndex } from '../terrain/chunkPaint'
 
 /** A rectangular piece of a map, copied for pasting into any open map. */
 export interface MapClip {
@@ -264,7 +254,6 @@ export function copyRegion(terrain: Terrain, objects: ObjectLayer, r: Rect, pale
 	if (shadows) clip.shadows = shadows
 	return clip
 }
-
 
 /** Edge fade factor for a point `d` cells from the nearest pasted edge. */
 const fade = (d: number, blend: number) => (blend <= 0 ? 1 : Math.min(1, Math.max(0, d / blend)))

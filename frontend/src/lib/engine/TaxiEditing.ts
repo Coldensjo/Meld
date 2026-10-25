@@ -55,10 +55,7 @@ export class TaxiEditing {
 	/** The Flight Paths window's hooks while it draws its own (edited) stops and routes. */
 	private hooks: TaxiHooks | null = null
 	/** A press on a stop or a route point that may become a drag: what, and (for a point) the plane it moves on and the press's offset from it. */
-	private drag:
-		| { kind: 'stop'; id: number; moved: boolean }
-		| { kind: 'point'; route: number; index: number; height: boolean; plane: THREE.Plane; offset: THREE.Vector3; moved: boolean }
-		| null = null
+	private drag: { kind: 'stop'; id: number; moved: boolean } | { kind: 'point'; route: number; index: number; height: boolean; plane: THREE.Plane; offset: THREE.Vector3; moved: boolean } | null = null
 	/** A route's fly-along preview: its curve (editor points), segment lengths, start time, and the view and ground following to go back to. */
 	private flight: { pts: Vec3[]; lengths: number[]; start: number; view: CameraView; follow: boolean } | null = null
 	private at = { x: 0, y: 0, z: 0 }

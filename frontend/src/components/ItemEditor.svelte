@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { startSaving } from '../lib/state/saving'
-  import { dialogFocus } from '../lib/ui/dialogFocus'
+	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
@@ -54,7 +54,14 @@
 	/** The look's changes waiting for Save, made into a display then: a picked icon, a shot visual. */
 	const lookChanges = $derived((pendingIcon ? 1 : 0) + (pendingVisual >= 0 ? 1 : 0))
 	const unsaved = $derived(changeCount > 0 || lookChanges > 0)
-	const tabs = $derived(record ? itemTabs(record.columns.map((c) => c.name), Number(values.class) || 0) : [])
+	const tabs = $derived(
+		record
+			? itemTabs(
+					record.columns.map((c) => c.name),
+					Number(values.class) || 0,
+				)
+			: [],
+	)
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 	/** How many changes each tab holds, for its label. */
 	const tabChanges = $derived(new Map(tabs.map((t) => [t.id, t.groups.reduce((n, g) => n + g.fields.filter((f) => changes[f.col] !== undefined).length, 0)])))
@@ -261,7 +268,11 @@
 		})
 	}
 	$effect(() => {
-		if (isNew && !kinds.length) ListItemKinds().then((k) => (kinds = k ?? []), (err) => (error = String(err)))
+		if (isNew && !kinds.length)
+			ListItemKinds().then(
+				(k) => (kinds = k ?? []),
+				(err) => (error = String(err)),
+			)
 	})
 
 	async function create() {
@@ -370,7 +381,11 @@
 	// The client's looks, for what the item's own shoots like.
 	let displayList = $state<vmangos.ItemDisplayEntry[]>([])
 	$effect(() => {
-		if (subclass >= 0 && !displayList.length) void loadItemDisplays().then((d) => (displayList = d), () => {})
+		if (subclass >= 0 && !displayList.length)
+			void loadItemDisplays().then(
+				(d) => (displayList = d),
+				() => {},
+			)
 	})
 	const lookInfo = $derived(displayList.find((d) => d.id === display))
 	/** The look fires like another weapon than the item is, and no shot visual is waiting for Save. */
@@ -429,8 +444,7 @@
 		const raceName = RACES.find(([r]) => r === race)?.[1] ?? ''
 		if (look.shown && !alone) return `${HELD_TYPES.has(invType) ? 'Held' : 'Worn'} ${where}, on ${/^[AEIOU]/.test(raceName) ? 'an' : 'a'} ${raceName} ${sex ? 'woman' : 'man'}.`
 		if (look.item) return 'The model alone, as the game draws it held or worn.'
-		if (BODY_TYPES.has(invType))
-			return alone ? 'It has no model of its own: the game paints it onto the character, shown On a character.' : 'Its display has nothing the game would paint on this slot: only its icon and tooltip.'
+		if (BODY_TYPES.has(invType)) return alone ? 'It has no model of its own: the game paints it onto the character, shown On a character.' : 'Its display has nothing the game would paint on this slot: only its icon and tooltip.'
 		if (where) return 'Its display has no model the game would show.'
 		if (invType > 0) return "The game doesn't show it on a character: only its icon and tooltip."
 		return 'It has no model of its own: in the game it is only its icon.'
@@ -438,9 +452,7 @@
 
 	// The tooltip follows the unsaved values; the names it shows are read again when the numbers they come from change.
 	let names = $state<TooltipNames>({})
-	const namesKey = $derived(
-		[1, 2, 3, 4, 5].map((i) => values[`spellid_${i}`] ?? '').join(',') + `|${values.required_skill}|${values.required_spell}|${values.required_reputation_faction}`,
-	)
+	const namesKey = $derived([1, 2, 3, 4, 5].map((i) => values[`spellid_${i}`] ?? '').join(',') + `|${values.required_skill}|${values.required_spell}|${values.required_reputation_faction}`)
 	$effect(() => {
 		const key = namesKey
 		if (!record) return
@@ -742,7 +754,6 @@
 		</div>
 	</div>
 {/if}
-
 
 {#snippet modelView(big: boolean)}
 	<div class="model" class:big>

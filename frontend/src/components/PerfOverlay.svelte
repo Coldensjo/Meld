@@ -7,12 +7,22 @@
 
 	const r = $derived(stats.perf)
 	/** The CPU sections worth a line: those over 0.01 ms, biggest first. */
-	const cpu = $derived(r ? CPU_SECTIONS.map((name, i) => ({ name, ms: r.sections[i] })).filter((s) => s.ms >= 0.01).sort((a, b) => b.ms - a.ms) : [])
+	const cpu = $derived(
+		r
+			? CPU_SECTIONS.map((name, i) => ({ name, ms: r.sections[i] }))
+					.filter((s) => s.ms >= 0.01)
+					.sort((a, b) => b.ms - a.ms)
+			: [],
+	)
 	const gpuMs = $derived(r?.gpu ? r.gpu.reduce((a, b) => a + b, 0) : 0)
 	const fmt = (v: number) => v.toFixed(2)
 	const count = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(0)}k` : `${v}`)
 	/** A model's file name, without its folder or look query. */
-	const modelName = (type: string) => type.split('?')[0].split(/[\\/:]/).pop() ?? type
+	const modelName = (type: string) =>
+		type
+			.split('?')[0]
+			.split(/[\\/:]/)
+			.pop() ?? type
 </script>
 
 <div class="perf">

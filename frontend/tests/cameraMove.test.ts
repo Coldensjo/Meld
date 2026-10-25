@@ -62,8 +62,12 @@ function rules(nav: WmoNav, terrain = TERRAIN, over: Partial<CameraMoveRules> = 
 		collision: true,
 		ground: () => terrain,
 		collideWalls: (from, to) => {
-			sphereA[0] = from.x; sphereA[1] = -from.z; sphereA[2] = from.y
-			sphereB[0] = to.x; sphereB[1] = -to.z; sphereB[2] = to.y
+			sphereA[0] = from.x
+			sphereA[1] = -from.z
+			sphereA[2] = from.y
+			sphereB[0] = to.x
+			sphereB[1] = -to.z
+			sphereB[2] = to.y
 			if (collideSphere(nav, sphereA, sphereB, RADIUS)) to.set(sphereB[0], sphereB[2], -sphereB[1])
 		},
 		collisionFloor: (at, ground) => {

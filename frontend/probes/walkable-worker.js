@@ -31,10 +31,14 @@ nav.update = function (...args) {
 const built = async (what) => {
 	longest = total = most = 0
 	const t0 = performance.now()
-	const c = await P.until(() => {
-		const k = nav.counts
-		return k.total > 0 && k.done === k.total && k.loading === 0 && !k.settling && k
-	}, 400_000, what)
+	const c = await P.until(
+		() => {
+			const k = nav.counts
+			return k.total > 0 && k.done === k.total && k.loading === 0 && !k.settling && k
+		},
+		400_000,
+		what,
+	)
 	return { tiles: c.total, builds: c.builds, longestUpdateMs: +longest.toFixed(1), updateMs: Math.round(total), wallMs: Math.round(performance.now() - t0), mostJobsOut: most }
 }
 // The surface's vertices, summed with their positions, and a path round the abbey.

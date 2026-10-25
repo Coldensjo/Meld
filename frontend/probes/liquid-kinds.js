@@ -32,9 +32,15 @@ const raw = await roundTrip()
 if (raw.liquidKinds?.['30'] !== 'magma') bad.push(`the header's liquidKinds is ${JSON.stringify(raw.liquidKinds)}, not {"30":"magma"}`)
 const back = fromMapData(raw)
 if (back.liquidKinds?.[30] !== 'magma') bad.push(`read back as ${JSON.stringify(back.liquidKinds)}`)
-const reopened = P.e.activeDocument().liquids.layers(0).find((l) => l.id === 30)
+const reopened = P.e
+	.activeDocument()
+	.liquids.layers(0)
+	.find((l) => l.id === 30)
 if (!reopened) bad.push('the reopened map lost the row 30 layer')
-const exported = liquids.liquidsToAdt(P.e.activeDocument().liquids).filter((a) => a.indexX === 0 && a.indexY === 0).map((a) => a.type)
+const exported = liquids
+	.liquidsToAdt(P.e.activeDocument().liquids)
+	.filter((a) => a.indexX === 0 && a.indexY === 0)
+	.map((a) => a.type)
 if (!exported.includes(liquids.LIQUID_MAGMA)) bad.push(`chunk 0 exports types ${JSON.stringify(exported)}, not magma (3)`)
 
 for (const id of opened) P.e.closeDocument(id)

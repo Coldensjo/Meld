@@ -1,13 +1,18 @@
 // Loading Northshire (P.BENCH) logs no console warning or error and no HTTP 400+ besides known ones, and the terrain asks only for the sheen twins that exist (#336).
 // Known messages, each with its issue; drop an entry when its issue is fixed.
 // touches: frontend/src/lib/terrain/paletteArray.ts, frontend/src/lib/terrain/sheen.ts, frontend/src/lib/terrain/TerrainMaterial.ts, internal/wow/client.go
-const known = [
-]
+const known = []
 const seen = []
 const wrap = (level) => {
 	const orig = console[level]
 	console[level] = (...args) => {
-		seen.push({ level, text: args.map((a) => (a instanceof Error ? a.message : String(a))).join(' ').slice(0, 200) })
+		seen.push({
+			level,
+			text: args
+				.map((a) => (a instanceof Error ? a.message : String(a)))
+				.join(' ')
+				.slice(0, 200),
+		})
 		return orig.apply(console, args)
 	}
 	return () => (console[level] = orig)
@@ -49,18 +54,14 @@ const { hasSheenTwin } = await P.app('/src/lib/terrain/paletteArray.ts')
 const paths = P.e.terrain.palette.entries.filter((p) => p && !p.startsWith('#'))
 const twins = (await Promise.all(paths.map((p) => hasSheenTwin(p)))).filter(Boolean).length
 return {
-	ok:
-		failed.length === 0 &&
-		unexpected.length === 0 &&
-		twins > 0 &&
-		sheen.length >= twins &&
-		sheen.every((r) => r.responseStatus === 200) &&
-		!(await hasSheenTwin(noTwin)) &&
-		(await hasSheenTwin(withTwin)),
+	ok: failed.length === 0 && unexpected.length === 0 && twins > 0 && sheen.length >= twins && sheen.every((r) => r.responseStatus === 200) && !(await hasSheenTwin(noTwin)) && (await hasSheenTwin(withTwin)),
 	requests: res.length,
 	failed: failed.slice(0, 10),
 	unexpected: unexpected.slice(0, 10),
-	known: seen.filter((m) => knownOf(m.text)).map((m) => `${knownOf(m.text)}: ${m.text.slice(0, 80)}`).slice(0, 5),
+	known: seen
+		.filter((m) => knownOf(m.text))
+		.map((m) => `${knownOf(m.text)}: ${m.text.slice(0, 80)}`)
+		.slice(0, 5),
 	palette: paths.length,
 	twins,
 	sheenRequests: sheen.length,

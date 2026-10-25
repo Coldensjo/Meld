@@ -6,11 +6,7 @@
 export type Severity = 'error' | 'warning' | 'info'
 
 /** What a click on a finding selects. */
-export type FindingTarget =
-	| { kind: 'models'; ids: number[] }
-	| { kind: 'spawn'; key: string }
-	| { kind: 'chunk'; chunk: number }
-	| { kind: 'none' }
+export type FindingTarget = { kind: 'models'; ids: number[] } | { kind: 'spawn'; key: string } | { kind: 'chunk'; chunk: number } | { kind: 'none' }
 
 /** A safe fix the window offers: delete the models, put them on the ground, or crop the chunk's water. */
 export type FixKind = 'deleteModels' | 'groundModels' | 'cropWater'

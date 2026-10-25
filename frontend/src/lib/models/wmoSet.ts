@@ -6,18 +6,18 @@
 
 /** The type without its query: "m2:<path>" or "wmo:<path>". */
 export function baseType(type: string): string {
-  const q = type.indexOf('?')
-  return q < 0 ? type : type.slice(0, q)
+	const q = type.indexOf('?')
+	return q < 0 ? type : type.slice(0, q)
 }
 
 /** The doodad set a WMO type shows besides set 0; 0 for none, or for an M2. */
 export function doodadSetOf(type: string): number {
-  if (!type.startsWith('wmo:')) return 0
-  const m = /[?&]set=(\d+)/.exec(type)
-  return m ? Number(m[1]) : 0
+	if (!type.startsWith('wmo:')) return 0
+	const m = /[?&]set=(\d+)/.exec(type)
+	return m ? Number(m[1]) : 0
 }
 
 /** A WMO type showing doodad set `set`, written out even for 0 so the export sets it. */
 export function withDoodadSet(type: string, set: number): string {
-  return `${baseType(type)}?set=${set}`
+	return `${baseType(type)}?set=${set}`
 }

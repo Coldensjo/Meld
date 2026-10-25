@@ -14,5 +14,5 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast
  * it before the geometry is first drawn. Skinned models pick against their bind pose, as before.
  */
 export function buildBoundsTree(geometry: THREE.BufferGeometry) {
-  if (!geometry.boundsTree) geometry.computeBoundsTree()
+	if (!geometry.boundsTree) geometry.computeBoundsTree()
 }

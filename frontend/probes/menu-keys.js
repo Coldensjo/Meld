@@ -116,7 +116,14 @@ await P.frames(2)
 r.ctxEscapeCloses = ui.contextMenu === null
 r.ctxFocusBack = active() === opener
 // A pick with Enter (a click on the focused button) runs the item.
-ui.contextMenu = { x: 200, y: 200, items: [{ label: 'One', run: () => (ran = 'one') }, { label: 'Two', run: () => (ran = 'two') }] }
+ui.contextMenu = {
+	x: 200,
+	y: 200,
+	items: [
+		{ label: 'One', run: () => (ran = 'one') },
+		{ label: 'Two', run: () => (ran = 'two') },
+	],
+}
 await P.until(() => activeLabel() === 'One', 5000, 'focus on the second context menu')
 press('End')
 active().click()

@@ -6,11 +6,34 @@ import { disbandChanges, FORMATION_DEFAULT, joinChanges, leaveChanges, slotAt, s
 import { chanceProblem, joinMotherChanges, joinPoolChanges, leaveMotherChanges, motherLimitChanges, poolLegend, poolRule, poolSize } from '../src/lib/world/pools.ts'
 
 const spawn = (o: Partial<vmangos.WorldSpawn>): vmangos.WorldSpawn =>
-	({ kind: 'monster', guid: 1, name: 'x', x: 0, y: 0, z: 0, orientation: 0, scale: 1, leader: 0, followDist: 0, followAngle: 0, groupFlags: 0, pool: 0, poolLimit: 0, poolName: '', poolChance: 0, poolElsewhere: 0, motherPool: 0, motherLimit: 0, motherSize: 0, motherName: '', ...o }) as vmangos.WorldSpawn
+	({
+		kind: 'monster',
+		guid: 1,
+		name: 'x',
+		x: 0,
+		y: 0,
+		z: 0,
+		orientation: 0,
+		scale: 1,
+		leader: 0,
+		followDist: 0,
+		followAngle: 0,
+		groupFlags: 0,
+		pool: 0,
+		poolLimit: 0,
+		poolName: '',
+		poolChance: 0,
+		poolElsewhere: 0,
+		motherPool: 0,
+		motherLimit: 0,
+		motherSize: 0,
+		motherName: '',
+		...o,
+	}) as vmangos.WorldSpawn
 
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6, `${a} is not ${b}`)
 
-test('a slot ahead of a leader facing 0 lies towards the region\'s -Z, and 90° is on its left (-X)', () => {
+test("a slot ahead of a leader facing 0 lies towards the region's -Z, and 90° is on its left (-X)", () => {
 	const leader = spawn({ x: 10, z: 10, orientation: 0 })
 	const ahead = slotPosition(leader, 3, 0, { x: 0, z: 0 })
 	near(ahead.x, 10)
@@ -62,9 +85,18 @@ test('the last follower leaving ends the formation; disbanding takes every follo
 	const leader = spawn({ guid: 1, leader: 1 })
 	const a = spawn({ guid: 2, leader: 1 })
 	const b = spawn({ guid: 3, leader: 1 })
-	assert.deepEqual(leaveChanges([leader, a, b], a).map((c) => c.key), ['monster/2'])
-	assert.deepEqual(leaveChanges([leader, a], a).map((c) => c.key), ['monster/2', 'monster/1'])
-	assert.deepEqual(disbandChanges([leader, a, b], leader).map((c) => c.key), ['monster/1', 'monster/2', 'monster/3'])
+	assert.deepEqual(
+		leaveChanges([leader, a, b], a).map((c) => c.key),
+		['monster/2'],
+	)
+	assert.deepEqual(
+		leaveChanges([leader, a], a).map((c) => c.key),
+		['monster/2', 'monster/1'],
+	)
+	assert.deepEqual(
+		disbandChanges([leader, a, b], leader).map((c) => c.key),
+		['monster/1', 'monster/2', 'monster/3'],
+	)
 	assert.equal(leaveChanges([leader, a], a)[0].vals.leader, 0)
 })
 

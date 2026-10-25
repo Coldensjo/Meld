@@ -54,7 +54,10 @@ const P = {
 
 	/** An app module by path, through the URL the page loaded it from (a bare path gives a second copy). */
 	async app(path) {
-		const url = performance.getEntriesByType('resource').map((r) => r.name).find((n) => n.includes(path))
+		const url = performance
+			.getEntriesByType('resource')
+			.map((r) => r.name)
+			.find((n) => n.includes(path))
 		// A full resource buffer (250 entries by default; the runner raises it) drops the app's own URL.
 		if (!url && performance.getEntriesByType('resource').length >= 250) throw new Error(`P.app: ${path} is not among the page's resource entries, which may be truncated`)
 		return import(url ?? path)
@@ -636,9 +639,13 @@ ${fs.slice(0, end)}
 				ranges[name] = [Math.min(...v), Math.max(...v)]
 			}
 			return {
-				mean: round(mean(cpu)), min: round(Math.min(...cpu)), max: round(Math.max(...cpu)),
-				calls: Math.round(mean(rs.map((r) => r.calls))), triangles: Math.round(mean(rs.map((r) => r.triangles))),
-				sections, ranges: { cpu: [Math.min(...cpu), Math.max(...cpu)], ...ranges },
+				mean: round(mean(cpu)),
+				min: round(Math.min(...cpu)),
+				max: round(Math.max(...cpu)),
+				calls: Math.round(mean(rs.map((r) => r.calls))),
+				triangles: Math.round(mean(rs.map((r) => r.triangles))),
+				sections,
+				ranges: { cpu: [Math.min(...cpu), Math.max(...cpu)], ...ranges },
 			}
 		}
 		const off = stat(runs.off)

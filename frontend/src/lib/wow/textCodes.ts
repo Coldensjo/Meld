@@ -16,7 +16,7 @@ export const TEXT_CODES: TextCode[] = [
 	{ code: '$C', label: '$C', meaning: "the player's class ($c: in lower case)" },
 	{ code: '$R', label: '$R', meaning: "the player's race ($r: in lower case)" },
 	{ code: '$B', label: '$B', meaning: 'a line break' },
-	{ code: '$Gman:woman;', label: '$Gman:woman;', meaning: "the first word for a male player, the second for a female one ($gsir:madam; works the same)" },
+	{ code: '$Gman:woman;', label: '$Gman:woman;', meaning: 'the first word for a male player, the second for a female one ($gsir:madam; works the same)' },
 ]
 
 /** Puts a code into text in place of the selection; returns the new text and where the caret goes. */

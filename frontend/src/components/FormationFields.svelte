@@ -53,8 +53,9 @@
 {#if follows(s)}
 	<p class="dim">
 		Follows
-		{#if leader}<button class="link" title="Select spawn {leader.guid}" onclick={() => pick(leader)}>{leader.name}</button>{:else}creature {s.leader}, which is not in this region{/if},
-		in a slot {s.followDist.toFixed(1)} yd away at {degrees(s.followAngle)}° from its facing (90° is on its left).
+		{#if leader}<button class="link" title="Select spawn {leader.guid}" onclick={() => pick(leader)}>{leader.name}</button>{:else}creature {s.leader}, which is not in this region{/if}, in a slot {s.followDist.toFixed(1)} yd away at {degrees(
+			s.followAngle,
+		)}° from its facing (90° is on its left).
 	</p>
 	{#if leader}
 		<div class="fields">
@@ -96,8 +97,12 @@
 {:else}
 	<p class="dim">In no formation.</p>
 	<div class="row-buttons">
-		<button class:active={picking === 'lead'} title="Click creatures on the map to make them follow this one" onclick={() => (picking === 'lead' ? (ui.spawnPick = null) : engineRef.current?.startSpawnPick(spawnKey(s), 'lead'))}>{picking === 'lead' ? 'Done' : 'Lead a formation'}</button>
-		<button class:active={picking === 'follow'} title="Click a creature on the map for this one to follow" onclick={() => (picking === 'follow' ? (ui.spawnPick = null) : engineRef.current?.startSpawnPick(spawnKey(s), 'follow'))}>{picking === 'follow' ? 'Cancel' : 'Follow another'}</button>
+		<button class:active={picking === 'lead'} title="Click creatures on the map to make them follow this one" onclick={() => (picking === 'lead' ? (ui.spawnPick = null) : engineRef.current?.startSpawnPick(spawnKey(s), 'lead'))}
+			>{picking === 'lead' ? 'Done' : 'Lead a formation'}</button
+		>
+		<button class:active={picking === 'follow'} title="Click a creature on the map for this one to follow" onclick={() => (picking === 'follow' ? (ui.spawnPick = null) : engineRef.current?.startSpawnPick(spawnKey(s), 'follow'))}
+			>{picking === 'follow' ? 'Cancel' : 'Follow another'}</button
+		>
 	</div>
 {/if}
 

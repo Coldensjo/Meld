@@ -81,7 +81,10 @@
 		if (mode !== 'looks') return
 		loading = true
 		loadItemDisplays()
-			.then((d) => (list = d), (e) => (error = String(e)))
+			.then(
+				(d) => (list = d),
+				(e) => (error = String(e)),
+			)
 			.finally(() => (loading = false))
 	})
 
@@ -131,12 +134,7 @@
 {:else}
 	<div class="picker">
 		<div class="row">
-			<input
-				type="search"
-				placeholder="Search: an item (Battleworn Hammer), a model (sword, helm_plate), an icon or a display number"
-				bind:value={query}
-				aria-label="Search the looks"
-			/>
+			<input type="search" placeholder="Search: an item (Battleworn Hammer), a model (sword, helm_plate), an icon or a display number" bind:value={query} aria-label="Search the looks" />
 			<select bind:value={filter} aria-label="Which looks">
 				<option value="fits">Fits it: {kindName(kind)}</option>
 				<option value="">Every look</option>
@@ -177,14 +175,7 @@
 									onhover={(on) => on && onhover(d.id)}
 								/>
 							{:else}
-								<button
-									class="icon-tile"
-									class:on={same(d.id, selected)}
-									style:width="{TILE}px"
-									title={title(d)}
-									onclick={() => onpick(d.id)}
-									onpointerover={() => onhover(d.id)}
-								>
+								<button class="icon-tile" class:on={same(d.id, selected)} style:width="{TILE}px" title={title(d)} onclick={() => onpick(d.id)} onpointerover={() => onhover(d.id)}>
 									<span class="img" style:height="{TILE}px"><ItemIcon displayId={d.id} size={56} /></span>
 									<span class="name">{label(d)}</span>
 								</button>

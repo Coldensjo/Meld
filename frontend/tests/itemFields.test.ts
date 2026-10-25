@@ -3,7 +3,23 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { HONOR_RANKS, itemTabs } from '../src/lib/world/itemFields.ts'
 
-const COLS = ['entry', 'name', 'other_team_entry', 'set_id', 'lock_id', 'page_text', 'page_language', 'page_material', 'random_property', 'disenchant_id', 'map_bound', 'spellcategory_1', 'spellcategory_5', 'required_honor_rank', 'buy_price']
+const COLS = [
+	'entry',
+	'name',
+	'other_team_entry',
+	'set_id',
+	'lock_id',
+	'page_text',
+	'page_language',
+	'page_material',
+	'random_property',
+	'disenchant_id',
+	'map_bound',
+	'spellcategory_1',
+	'spellcategory_5',
+	'required_honor_rank',
+	'buy_price',
+]
 
 test('the item editor names its id columns with pickers (#701)', () => {
 	const fields = itemTabs(COLS, 2).flatMap((t) => t.groups.flatMap((g) => g.fields))

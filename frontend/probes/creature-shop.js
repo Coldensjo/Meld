@@ -42,7 +42,5 @@ await open()
 const reopened = JSON.stringify(items()) === JSON.stringify(read)
 ui.creatureEditor = null
 await P.frames(1)
-const ok =
-	savedBefore === 'Saved' && moved[0] === read[1] && moved[1] === read[0] && saveMoved === 'Save shop' && reverted &&
-	afterRemove === read.length - 1 && warned.includes('unsaved changes to the shop') && closed && reopened
+const ok = savedBefore === 'Saved' && moved[0] === read[1] && moved[1] === read[0] && saveMoved === 'Save shop' && reverted && afterRemove === read.length - 1 && warned.includes('unsaved changes to the shop') && closed && reopened
 return { ok, rows: read.length, first: read[0], savedBefore, saveMoved, reverted, afterRemove, warned, closed, reopened }

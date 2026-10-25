@@ -14,16 +14,20 @@ const layer = e.activeDocument().spawnLayer
 layer.set([chest])
 const key = spawnKey(chest)
 let up = null
-await P.until(() => {
-	layer.forEachModel((k, _type, m) => {
-		if (k !== key) return
-		// The model's up axis (its mesh's +Y) as drawn, scale taken out.
-		const el = m.elements
-		const len = Math.hypot(el[4], el[5], el[6])
-		up = [el[4] / len, el[5] / len, el[6] / len]
-	})
-	return up !== null
-}, 60_000, 'the chest model')
+await P.until(
+	() => {
+		layer.forEachModel((k, _type, m) => {
+			if (k !== key) return
+			// The model's up axis (its mesh's +Y) as drawn, scale taken out.
+			const el = m.elements
+			const len = Math.hypot(el[4], el[5], el[6])
+			up = [el[4] / len, el[5] / len, el[6] / len]
+		})
+		return up !== null
+	},
+	60_000,
+	'the chest model',
+)
 // The server's quaternion turns its up axis (0, 0, 1) to this, in the editor's axes (-y, z, -x).
 const [x, y, z, w] = [-0.118706, -0.071149, 0.899253, -0.414959]
 const n = Math.hypot(x, y, z, w)
@@ -36,12 +40,7 @@ P.e.history.push(se.spawnChange(layer, key, { x: chest.x + 2 }, 'Move spawn'))
 const sql = await window.go.main.App.SpawnEditSQL('Azeroth', 36, 49, 1, layer.edits())
 e.undo()
 return {
-	ok:
-		tilt.length === 4 &&
-		upError < 1e-3 &&
-		up[1] < 0.99 &&
-		sql.sql.includes('`rotation0` = -0.118706, `rotation1` = -0.071149, `rotation2` = 0.899253, `rotation3` = -0.414959,') &&
-		layer.edits().length === 0,
+	ok: tilt.length === 4 && upError < 1e-3 && up[1] < 0.99 && sql.sql.includes('`rotation0` = -0.118706, `rotation1` = -0.071149, `rotation2` = 0.899253, `rotation3` = -0.414959,') && layer.edits().length === 0,
 	tilt,
 	up,
 	want,

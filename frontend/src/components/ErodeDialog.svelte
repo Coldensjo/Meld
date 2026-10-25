@@ -27,7 +27,11 @@
 		cancelled = false
 		share = 0
 		try {
-			const done = await e.erodeArea({ density: o.density, passes: o.passes, talus: o.talus, seed: o.seed, mask: o.mask }, (f) => (share = f), () => cancelled)
+			const done = await e.erodeArea(
+				{ density: o.density, passes: o.passes, talus: o.talus, seed: o.seed, mask: o.mask },
+				(f) => (share = f),
+				() => cancelled,
+			)
 			if (done) onclose()
 		} finally {
 			running = false
@@ -42,7 +46,8 @@
 
 <Modal title={editor.selection ? 'Erode the selected area' : 'Erode the map'} width={420} onclose={close}>
 	<p class="dim">
-		Water drops run downhill over {editor.selection ? 'the selected area' : 'the whole map'}, carving gullies and leaving their load where they slow down; then loose ground slides off whatever is still steeper than the talus angle. Run it again for deeper gullies, as Gaea chains its erosion passes.
+		Water drops run downhill over {editor.selection ? 'the selected area' : 'the whole map'}, carving gullies and leaving their load where they slow down; then loose ground slides off whatever is still steeper than the talus angle. Run
+		it again for deeper gullies, as Gaea chains its erosion passes.
 	</p>
 	<div class="grid">
 		<label for="erode-density" title="Water drops for each cell of the ground (a cell is 4.17 yd); more carves deeper gullies">Water drops</label>

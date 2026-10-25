@@ -2,15 +2,7 @@
 // it opens, keeps Tab and Shift+Tab inside it while it is the topmost one, and puts the focus back on
 // what held it before (or the menu title a menu item opened it from) when it closes.
 
-const FOCUSABLE = [
-	'a[href]',
-	'button:not([disabled])',
-	'input:not([disabled]):not([type="hidden"])',
-	'select:not([disabled])',
-	'textarea:not([disabled])',
-	'[tabindex]:not([tabindex="-1"])',
-	'[contenteditable="true"]',
-].join(',')
+const FOCUSABLE = ['a[href]', 'button:not([disabled])', 'input:not([disabled]):not([type="hidden"])', 'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])', '[contenteditable="true"]'].join(',')
 
 /** The open dialogs, the newest last: only the newest one wraps Tab. */
 const stack: HTMLElement[] = []
@@ -27,9 +19,7 @@ export function topDialog(): HTMLElement | null {
 
 /** The controls in `node` that Tab reaches, in document order (hidden ones left out). */
 export function tabbables(node: HTMLElement): HTMLElement[] {
-	return Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-		(el) => el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.closest('[inert]'),
-	)
+	return Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.tabIndex >= 0 && el.getClientRects().length > 0 && !el.closest('[inert]'))
 }
 
 /** Where focus goes back to: the element itself, or for a menu item (removed once the menu closes) its menu's title. */

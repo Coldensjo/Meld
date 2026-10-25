@@ -33,12 +33,7 @@ function floor(x0: number, x1: number): Float32Array {
 function building(): WmoNav {
 	const door = (x: number) => [x, -2, 0, x, 2, 0, x, 2, 4, x, -2, 4]
 	return {
-		groups: [
-			group([-10, -10, 0], [0, 10, 10], 0, 1),
-			group([0, -10, 0], [10, 10, 10], 1, 2),
-			group([10, -10, 0], [20, 10, 10], 3, 1),
-			group([20, -10, 0], [30, 10, 20], 4, 0),
-		],
+		groups: [group([-10, -10, 0], [0, 10, 10], 0, 1), group([0, -10, 0], [10, 10, 10], 1, 2), group([10, -10, 0], [20, 10, 10], 3, 1), group([20, -10, 0], [30, 10, 20], 4, 0)],
 		portalVerts: [...door(0), ...door(10)],
 		portals: [
 			{ start: 0, count: 4, plane: [1, 0, 0, 0] },
@@ -177,23 +172,31 @@ const groupOf = (rooms: WmoRooms): number | null => rooms.current?.group ?? null
 /** A spawn's bounding sphere standing at world (x, 1, 50). */
 const spawnAt = (x: number) => new THREE.Sphere(new THREE.Vector3(x, 1, 50), 0.5)
 
-test('inside a room\'s box the camera is in that room, and the gate draws it and its neighbours through the doorways in view', async () => {
+test("inside a room's box the camera is in that room, and the gate draws it and its neighbours through the doorways in view", async () => {
 	const { rooms, layer } = await setup()
 	const eye = new THREE.Vector3(95, 2, 50)
 	rooms.update(layer, eye, noGround)
 	assert.equal(rooms.current?.id, ID)
 	assert.equal(groupOf(rooms), 0, 'room A')
 	assert.deepEqual(rooms.over, [])
-	assert.deepEqual(rooms.current?.eye.map((v) => v + 0), [-5, 0, 2], 'the eye in the WMO\'s model space')
+	assert.deepEqual(
+		rooms.current?.eye.map((v) => v + 0),
+		[-5, 0, 2],
+		"the eye in the WMO's model space",
+	)
 
 	// Looking down the hall, through both doorways.
 	const admit = gateFrame(rooms, layer, camera(eye, new THREE.Vector3(115, 2, 50)))
 	assert.ok(admit)
-	assert.equal(uniforms.roomCount.value, 1, 'one gate: the camera\'s building, not also flooded from outside')
-	assert.ok(uniforms.roomOrigins.value[0].equals(new THREE.Vector3(100, 0, 50)), 'the gate is keyed by the placement\'s origin')
-	assert.deepEqual([0, 1, 2, 3].map((g) => drawn(0, g)), [true, true, true, false], 'A, B and C through the doorways; sealed D hidden')
-	assert.equal(drawn(0, 4), true, 'a group past the building\'s is drawn')
-	assert.equal(admit.admits(spawnAt(95)), true, 'a spawn in the camera\'s room (#156)')
+	assert.equal(uniforms.roomCount.value, 1, "one gate: the camera's building, not also flooded from outside")
+	assert.ok(uniforms.roomOrigins.value[0].equals(new THREE.Vector3(100, 0, 50)), "the gate is keyed by the placement's origin")
+	assert.deepEqual(
+		[0, 1, 2, 3].map((g) => drawn(0, g)),
+		[true, true, true, false],
+		'A, B and C through the doorways; sealed D hidden',
+	)
+	assert.equal(drawn(0, 4), true, "a group past the building's is drawn")
+	assert.equal(admit.admits(spawnAt(95)), true, "a spawn in the camera's room (#156)")
 	assert.equal(admit.admits(spawnAt(105)), true, 'one in the room through the doorway')
 	assert.equal(admit.admits(spawnAt(125)), false, 'one in the sealed room')
 	assert.equal(admit.admits(spawnAt(60)), false, 'one outside the building')
@@ -201,8 +204,11 @@ test('inside a room\'s box the camera is in that room, and the gate draws it and
 	// Facing the back wall: no doorway in view, so only the camera's own room, with what stands in it.
 	const back = gateFrame(rooms, layer, camera(eye, new THREE.Vector3(85, 2, 50)))
 	assert.ok(back)
-	assert.deepEqual([0, 1, 2, 3].map((g) => drawn(0, g)), [true, false, false, false])
-	assert.equal(back.admits(spawnAt(95)), true, 'the camera\'s room\'s spawn is drawn with no doorway in view (#156)')
+	assert.deepEqual(
+		[0, 1, 2, 3].map((g) => drawn(0, g)),
+		[true, false, false, false],
+	)
+	assert.equal(back.admits(spawnAt(95)), true, "the camera's room's spawn is drawn with no doorway in view (#156)")
 	assert.equal(back.admits(spawnAt(105)), false, 'the room behind the camera is not')
 })
 
@@ -232,7 +238,7 @@ test('over the building, above the room found or above its top, the camera is in
 	assert.deepEqual(rooms.over, [])
 })
 
-test('beside the building it is flooded from outside, unless it is the map\'s one building', async () => {
+test("beside the building it is flooded from outside, unless it is the map's one building", async () => {
 	const { rooms, layer } = await setup()
 	const eye = new THREE.Vector3(60, 2, 50)
 	rooms.update(layer, eye, noGround)
@@ -240,10 +246,14 @@ test('beside the building it is flooded from outside, unless it is the map\'s on
 	const cam = camera(eye, new THREE.Vector3(100, 2, 50))
 	assert.equal(gateFrame(rooms, layer, cam), null)
 	assert.equal(uniforms.roomCount.value, 1, 'gated from outside')
-	assert.deepEqual([0, 1, 2, 3].map((g) => drawn(0, g)), [false, false, false, false], 'no doorway leads outside, so no room shows')
+	assert.deepEqual(
+		[0, 1, 2, 3].map((g) => drawn(0, g)),
+		[false, false, false, false],
+		'no doorway leads outside, so no room shows',
+	)
 	const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse))
 	assert.equal(rooms.outside(layer, frustum, eye, ROOM_MAX_GATED - 1).length, 1)
-	assert.equal(rooms.outside(layer, frustum, eye, ROOM_MAX_GATED - 1, ID).length, 0, 'a WMO-only map\'s building is drawn whole (#271)')
+	assert.equal(rooms.outside(layer, frustum, eye, ROOM_MAX_GATED - 1, ID).length, 0, "a WMO-only map's building is drawn whole (#271)")
 	// Looking away, it is out of view.
 	gateFrame(rooms, layer, camera(eye, new THREE.Vector3(20, 2, 50)))
 	assert.equal(uniforms.roomCount.value, 0)

@@ -51,7 +51,10 @@ const t = nav.walk[gi]
 const k = Math.floor(t.length / 18) * 9
 const m = e.camera.matrixWorld.clone()
 e.objects.matrixOf(sw, m)
-const p = e.camera.position.clone().set((t[k] + t[k + 3] + t[k + 6]) / 3, (t[k + 2] + t[k + 5] + t[k + 8]) / 3 + 2.5, -(t[k + 1] + t[k + 4] + t[k + 7]) / 3).applyMatrix4(m)
+const p = e.camera.position
+	.clone()
+	.set((t[k] + t[k + 3] + t[k + 6]) / 3, (t[k + 2] + t[k + 5] + t[k + 8]) / 3 + 2.5, -(t[k + 1] + t[k + 4] + t[k + 7]) / 3)
+	.applyMatrix4(m)
 const street = await look('street', { target: p.toArray(), yaw: 0, pitch: 0.1, distance: 0.5 })
 // #302: in a Trade District room (group 49), 2.5 yd over its floor and 6 yd from its doorways, looking
 // through them at the street: the flood draws what the gate-off view does. Keep the eye more than the
@@ -65,7 +68,16 @@ const wall = await look('wall', { target: p.set(-51, 3.78, -249.13).applyMatrix4
 wall.near = +e.persp.near.toFixed(3)
 const same = (v) => !v.room && v.over && v.lit > 0.5 && v.offWhole < v.noise + 1
 return {
-	ok: same(canal) && same(high) && street.room === `${gi} The Canals` && !street.over && trade.room === '49 Trade District' && trade.offWhole < trade.noise + 1 && wall.room === '49 Trade District' && wall.near < 0.5 && wall.offWhole < wall.noise + 1,
+	ok:
+		same(canal) &&
+		same(high) &&
+		street.room === `${gi} The Canals` &&
+		!street.over &&
+		trade.room === '49 Trade District' &&
+		trade.offWhole < trade.noise + 1 &&
+		wall.room === '49 Trade District' &&
+		wall.near < 0.5 &&
+		wall.offWhole < wall.noise + 1,
 	canal,
 	high,
 	street,

@@ -41,7 +41,12 @@ test('the Display box names its model', () => {
 	const d = fields(0, 'World\\Generic\\Chest01.mdx').find((f) => f.col === 'displayId')
 	assert.equal(d?.note?.('31'), 'Chest01')
 	assert.equal(d?.note?.('0'), '')
-	assert.equal(fields(0).find((f) => f.col === 'displayId')?.note?.('5'), 'no model')
+	assert.equal(
+		fields(0)
+			.find((f) => f.col === 'displayId')
+			?.note?.('5'),
+		'no model',
+	)
 	assert.equal(modelName('a/b/Door.m2'), 'Door')
 })
 
@@ -51,7 +56,30 @@ test('a lock is named by what opens it', () => {
 		{ id: 3, name: 'Mining' },
 	]
 	const lock = (parts: Array<{ type: number; index: number; skill: number }>) => ({ id: 9, parts })
-	assert.equal(lockText(lock([{ type: 2, index: 1, skill: 25 }, { type: 1, index: 5, skill: 0 }]), types, (id) => (id === 5 ? 'Tower Key' : null)), 'Pick Lock 25 or key Tower Key')
-	assert.equal(lockText(lock([{ type: 2, index: 3, skill: 0 }, { type: 1, index: 7, skill: 0 }]), types, () => null), 'Mining or key item 7')
-	assert.equal(lockText(lock([]), types, () => null), 'Nothing opens it')
+	assert.equal(
+		lockText(
+			lock([
+				{ type: 2, index: 1, skill: 25 },
+				{ type: 1, index: 5, skill: 0 },
+			]),
+			types,
+			(id) => (id === 5 ? 'Tower Key' : null),
+		),
+		'Pick Lock 25 or key Tower Key',
+	)
+	assert.equal(
+		lockText(
+			lock([
+				{ type: 2, index: 3, skill: 0 },
+				{ type: 1, index: 7, skill: 0 },
+			]),
+			types,
+			() => null,
+		),
+		'Mining or key item 7',
+	)
+	assert.equal(
+		lockText(lock([]), types, () => null),
+		'Nothing opens it',
+	)
 })

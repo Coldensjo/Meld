@@ -37,7 +37,7 @@ function host(docs: ReturnType<typeof tab>[]) {
 	}
 }
 
-test('a new guid is above every open tab\'s spawns of its kind and at least the floor', () => {
+test("a new guid is above every open tab's spawns of its kind and at least the floor", () => {
 	const docs = [tab([spawn('monster', 7), spawn('object', 40)]), tab([spawn('npc', 12), spawn('object', 3)])]
 	// Monsters and NPCs share creature guids; objects have their own.
 	assert.equal(nextFreeGuid(docs, 'creature', 0), 13)
@@ -47,7 +47,7 @@ test('a new guid is above every open tab\'s spawns of its kind and at least the 
 	assert.equal(nextFreeGuid([], 'object', 9), 9)
 })
 
-test('a new pool entry is above every pool an open tab\'s spawn is in, of either kind', () => {
+test("a new pool entry is above every pool an open tab's spawn is in, of either kind", () => {
 	const docs = [tab([spawn('monster', 1, 30), spawn('object', 2, 0)]), tab([spawn('object', 3, 45)])]
 	assert.equal(nextFreePoolEntry(docs, 10), 46)
 	assert.equal(nextFreePoolEntry(docs, 100), 100)
@@ -90,7 +90,7 @@ test('the spawn keys: Esc stops placing, Delete removes the selected spawn undoa
 	editor.selectedSpawn = null
 })
 
-test('a spawn\'s right-click menu selects it and lists its actions, Focus before Unselect', () => {
+test("a spawn's right-click menu selects it and lists its actions, Focus before Unselect", () => {
 	const t = tab([spawn('monster', 8), spawn('object', 9)])
 	const focused: number[][] = []
 	const actions = new SpawnActions({ ...host([t]), focus: (x, z, d) => focused.push([x, z, d]) })
@@ -99,7 +99,10 @@ test('a spawn\'s right-click menu selects it and lists its actions, Focus before
 	assert.equal(editor.tool, 'select')
 	assert.equal(editor.selectedSpawn?.guid, 8)
 	assert.equal(m.title, 'monster8 (creature 108, invisible in the game)')
-	assert.deepEqual(m.items.map((i) => ('label' in i ? i.label : '-')), ['Edit creature…', 'Give it a path', 'Focus', 'Unselect', '-', 'Delete spawn'])
+	assert.deepEqual(
+		m.items.map((i) => ('label' in i ? i.label : '-')),
+		['Edit creature…', 'Give it a path', 'Focus', 'Unselect', '-', 'Delete spawn'],
+	)
 	m.items.find((i) => 'label' in i && i.label === 'Focus')!.run!()
 	assert.deepEqual(focused, [[0, 0, 40]])
 	const o = actions.menu(t.spawnLayer.get('object/9')!)

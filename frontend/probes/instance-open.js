@@ -16,19 +16,31 @@ const pick = async (dir) => {
 	row.click()
 }
 await pick('DeadminesInstance')
-const deadmines = await P.until(() => {
-	const t = document.querySelector('.wrap .dim')?.textContent ?? ''
-	return /^\s*Tiles/.test(t) && !openButton().disabled ? t.trim().replace(/\s+/g, ' ') : null
-}, 30000, "the Deadmines' block picked and Open enabled")
-const img = await P.until(() => {
-	const i = document.querySelector('.wrap img')
-	return i && i.complete && i.naturalWidth ? i : null
-}, 60000, "the Deadmines' overview")
+const deadmines = await P.until(
+	() => {
+		const t = document.querySelector('.wrap .dim')?.textContent ?? ''
+		return /^\s*Tiles/.test(t) && !openButton().disabled ? t.trim().replace(/\s+/g, ' ') : null
+	},
+	30000,
+	"the Deadmines' block picked and Open enabled",
+)
+const img = await P.until(
+	() => {
+		const i = document.querySelector('.wrap img')
+		return i && i.complete && i.naturalWidth ? i : null
+	},
+	60000,
+	"the Deadmines' overview",
+)
 await pick('MoltenCore')
-const moltenNote = await P.until(() => {
-	const n = [...document.querySelectorAll('.wrap .note')].map((x) => x.textContent.trim()).find((t) => t.includes('no terrain tiles'))
-	return n ?? null
-}, 30000, "Molten Core's no-tiles note")
+const moltenNote = await P.until(
+	() => {
+		const n = [...document.querySelectorAll('.wrap .note')].map((x) => x.textContent.trim()).find((t) => t.includes('no terrain tiles'))
+		return n ?? null
+	},
+	30000,
+	"Molten Core's no-tiles note",
+)
 const moltenEnabled = !openButton().disabled
 await pick('DeadminesInstance')
 await P.until(() => !openButton().disabled || null, 30000, 'Open enabled again')
@@ -42,7 +54,8 @@ const { openWowRegion } = await P.app('/src/lib/io/region.ts')
 openWowRegion(P.e, 'DeadminesInstance', 32, 32, 2)
 await P.until(() => editor.regionMap === 'DeadminesInstance' || null, 60000, "the Deadmines' tab")
 const t = P.e.terrain
-let lo = Infinity, hi = -Infinity
+let lo = Infinity,
+	hi = -Infinity
 for (const h of t.heights) {
 	lo = Math.min(lo, h)
 	hi = Math.max(hi, h)

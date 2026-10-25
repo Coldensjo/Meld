@@ -57,7 +57,11 @@ editor.selection = null
 // A path point drag: editor.paths keeps the old point until the release, which records one step.
 editor.tool = 'path'
 await P.frames(1)
-for (const [x, z] of [[80, 128], [176, 128]]) await P.click(...share(x, h0, z))
+for (const [x, z] of [
+	[80, 128],
+	[176, 128],
+])
+	await P.click(...share(x, h0, z))
 const p0 = { ...editor.paths[0]?.points[1] }
 const pAt = share(p0.x, p0.y, p0.z)
 await P.click(...pAt)

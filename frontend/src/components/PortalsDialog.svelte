@@ -226,7 +226,7 @@
 		const v = Number((e.target as HTMLInputElement).value)
 		return Number.isFinite(v) ? v : 0
 	}
-	const deg = (rad: number) => Math.round((rad * 180) / Math.PI * 10) / 10
+	const deg = (rad: number) => Math.round(((rad * 180) / Math.PI) * 10) / 10
 	const rad = (d: number) => (d * Math.PI) / 180
 </script>
 
@@ -318,14 +318,12 @@
 		{/if}
 	</div>
 	<p class="dim">
-		A trigger is a volume the client reports when a player walks in; the server teleports them. The swirl of a dungeon portal is a model: place one there with the Place tool.
-		Save writes the client's AreaTrigger.dbc (Meld's patch, which the game reads when it starts) and the server's areatrigger_template and areatrigger_teleport.
+		A trigger is a volume the client reports when a player walks in; the server teleports them. The swirl of a dungeon portal is a model: place one there with the Place tool. Save writes the client's AreaTrigger.dbc (Meld's patch, which
+		the game reads when it starts) and the server's areatrigger_template and areatrigger_teleport.
 	</p>
 	{#snippet actions()}
 		<button onclick={close}>Close</button>
-		<button class="active" onclick={() => void save()} disabled={(!dirty.length && !removed.length) || saving}
-			>{saving ? 'Saving…' : `Save${dirty.length + removed.length ? ` (${dirty.length + removed.length})` : ''}`}</button
-		>
+		<button class="active" onclick={() => void save()} disabled={(!dirty.length && !removed.length) || saving}>{saving ? 'Saving…' : `Save${dirty.length + removed.length ? ` (${dirty.length + removed.length})` : ''}`}</button>
 	{/snippet}
 </Modal>
 

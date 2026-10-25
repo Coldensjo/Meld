@@ -58,7 +58,17 @@
 		<div class="row tight textures" title={tip}>
 			<span class="tlabel">{label}</span>
 			{#each list as path (path)}
-				<span class="chip" title={path}>{texName(path)}<button class="x" onclick={() => setTextures(which, list.filter((p) => p !== path))} aria-label="Remove texture">✕</button></span>
+				<span class="chip" title={path}
+					>{texName(path)}<button
+						class="x"
+						onclick={() =>
+							setTextures(
+								which,
+								list.filter((p) => p !== path),
+							)}
+						aria-label="Remove texture">✕</button
+					></span
+				>
 			{/each}
 			<select
 				value=""
@@ -91,7 +101,6 @@
 			<span>Avoid holes</span>
 		</label>
 	</div>
-
 </div>
 
 <style>

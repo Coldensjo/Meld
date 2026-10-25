@@ -71,10 +71,13 @@ class PathView {
 				// The width, draped over the ground as it is now.
 				const half = p.width / 2
 				for (const side of [-1, 1]) {
-					let px = 0, pz = 0
+					let px = 0,
+						pz = 0
 					for (let i = 0; i < sm.n; i++) {
-						const a = Math.max(0, i - 1), b = Math.min(sm.n - 1, i + 1)
-						const tx = sm.x[b] - sm.x[a], tz = sm.z[b] - sm.z[a]
+						const a = Math.max(0, i - 1),
+							b = Math.min(sm.n - 1, i + 1)
+						const tx = sm.x[b] - sm.x[a],
+							tz = sm.z[b] - sm.z[a]
 						const len = Math.hypot(tx, tz) || 1
 						const x = sm.x[i] - (tz / len) * half * side
 						const z = sm.z[i] + (tx / len) * half * side
@@ -108,7 +111,9 @@ class PathView {
 		let best: { id: number; index: number } | null = null
 		let bestScore = Infinity
 		for (const o of this.owners) {
-			const dx = o.x - ray.origin.x, dy = o.y - ray.origin.y, dz = o.z - ray.origin.z
+			const dx = o.x - ray.origin.x,
+				dy = o.y - ray.origin.y,
+				dz = o.z - ray.origin.z
 			const along = dx * ray.direction.x + dy * ray.direction.y + dz * ray.direction.z
 			if (along <= 0) continue
 			const off = Math.sqrt(Math.max(0, dx * dx + dy * dy + dz * dz - along * along)) / along
@@ -288,7 +293,7 @@ export class PathTool implements Tool {
 	deletePoint(ctx: ToolContext) {
 		const p = this.current()
 		if (!p || editor.pathPoint < 0 || editor.pathPoint >= p.points.length) {
-			setStatus('Click a path\'s point to pick it first.', 2500)
+			setStatus("Click a path's point to pick it first.", 2500)
 			return
 		}
 		const before = editor.paths
@@ -307,7 +312,7 @@ export class PathTool implements Tool {
 		const p = this.current()
 		if (!p) return
 		const before = editor.paths
-		editor.paths = (editor.paths.filter((x) => x.id !== p.id))
+		editor.paths = editor.paths.filter((x) => x.id !== p.id)
 		this.pick(-1)
 		this.version++
 		this.record(ctx, `Delete ${p.name}`, before)

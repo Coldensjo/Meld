@@ -33,7 +33,10 @@ test('an off meter books nothing', () => {
 	m.mark(SECTION.Tool, 10)
 	assert.equal(m.end(2000), false)
 	m.setOn(true)
-	assert.equal(m.take(0).sections.reduce((a, b) => a + b, 0), 0)
+	assert.equal(
+		m.take(0).sections.reduce((a, b) => a + b, 0),
+		0,
+	)
 })
 
 test('an instanced mesh draws its draw range times its instances, and nothing when hidden', () => {
@@ -63,8 +66,21 @@ test('the costliest models sum a type met twice and keep the top n', () => {
 
 test('the report names every section and says when the GPU is not timed', () => {
 	const r: PerfReport = {
-		frames: 60, fps: 60, frameMs: 16.7, worstMs: 20, cpuMs: 3, sections: CPU_SECTIONS.map(() => 0.1),
-		gpu: null, calls: 100, triangles: 5000, geometries: 10, textures: 20, programs: 5, instancedMeshes: 7, heapMB: null, models: [],
+		frames: 60,
+		fps: 60,
+		frameMs: 16.7,
+		worstMs: 20,
+		cpuMs: 3,
+		sections: CPU_SECTIONS.map(() => 0.1),
+		gpu: null,
+		calls: 100,
+		triangles: 5000,
+		geometries: 10,
+		textures: 20,
+		programs: 5,
+		instancedMeshes: 7,
+		heapMB: null,
+		models: [],
 	}
 	const text = formatReport(r)
 	for (const name of CPU_SECTIONS) assert.ok(text.includes(name), name)

@@ -27,7 +27,9 @@ for (const dockHidden of [true, false]) {
 // Hover the first Doodads tile so the preview has details, then turn Names off.
 ;[...root().querySelectorAll('.tab')].find((b) => b.textContent.trim() === 'Doodads').click()
 await P.until(() => root().querySelector('.grid .tile'), 30_000, 'a Doodads tile')
-root().querySelector('.grid .tile').dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
+root()
+	.querySelector('.grid .tile')
+	.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
 await P.frames(3)
 const detailsOn = !!root().querySelector('.side .details')
 prefs.browserNames = false

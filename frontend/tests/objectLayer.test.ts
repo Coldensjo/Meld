@@ -190,7 +190,10 @@ test('objects read without ids (a map saved before they had them, #534) are each
 	const L = new ObjectLayer(terrain)
 	const old = { type: TYPE, x: 0, z: 0, yOff: 0, rotY: 0, scale: 1, id: 0 }
 	const placed = [L.add({ ...old }), L.add({ ...old }), L.add({ ...old })]
-	assert.deepEqual(placed.map((o) => o.id), [1, 2, 3])
+	assert.deepEqual(
+		placed.map((o) => o.id),
+		[1, 2, 3],
+	)
 	assert.equal(L.objects.size, 3)
 	// The next object placed after them takes the id after theirs.
 	assert.equal(L.add({ ...old, id: undefined }).id, 4)

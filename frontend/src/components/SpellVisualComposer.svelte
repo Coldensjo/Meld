@@ -60,7 +60,10 @@
 	let effects = $state<vmangos.VisualEffect[]>([])
 	let error = $state('')
 	$effect(() => {
-		loadVisualEffects().then((l) => (effects = l), (err) => (error = String(err)))
+		loadVisualEffects().then(
+			(l) => (effects = l),
+			(err) => (error = String(err)),
+		)
 	})
 	const byId = $derived(new Map(effects.map((e) => [e.id, e])))
 	const effectName = (id: number) => byId.get(id)?.name ?? `effect ${id}`
@@ -192,7 +195,9 @@
 				{#snippet row(s: vmangos.SpellRef)}
 					<span class="hit">
 						<SpellIcon icon={s.icon} />
-						<span class="name">{s.name}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span>
+						<span class="name"
+							>{s.name}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span
+						>
 						<span class="dim">{s.id}</span>
 						<button disabled={!s.visual} onclick={() => take(s, false)} title={s.visual ? `Use its ${current.name.toLowerCase()} for this visual's` : 'It has no visual'}>Its {current.name.toLowerCase()}</button>
 						<button disabled={!s.visual} onclick={() => take(s, true)} title={s.visual ? 'Start again from its whole visual' : 'It has no visual'}>All</button>

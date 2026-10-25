@@ -83,12 +83,7 @@ export function groundMesh(g: TileGround, stride: GroundStride = 1): { positions
 	const n = cells + 1
 	// The four edges, each in the order its skirt runs (outward to the left of the run, see below):
 	// north west to east, east north to south, south east to west, west south to north.
-	const edges: Array<(k: number) => [number, number]> = [
-		(k) => [k * stride, 0],
-		(k) => [GROUND_CELLS, k * stride],
-		(k) => [GROUND_CELLS - k * stride, GROUND_CELLS],
-		(k) => [0, GROUND_CELLS - k * stride],
-	]
+	const edges: Array<(k: number) => [number, number]> = [(k) => [k * stride, 0], (k) => [GROUND_CELLS, k * stride], (k) => [GROUND_CELLS - k * stride, GROUND_CELLS], (k) => [0, GROUND_CELLS - k * stride]]
 	const depth = edges.map((at) => {
 		const line = new Float32Array(S)
 		for (let k = 0; k < S; k++) {

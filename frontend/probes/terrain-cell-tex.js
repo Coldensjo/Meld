@@ -20,7 +20,10 @@ c.yaw = 0
 await P.frames(4)
 /** The colour of the ground at shares (x, z) of the map, through the camera. */
 const at = (shot, x, z) => {
-	const v = c.target.clone().set(x * ws, 0, z * ws).project(e.camera)
+	const v = c.target
+		.clone()
+		.set(x * ws, 0, z * ws)
+		.project(e.camera)
 	const px = Math.floor(((v.x + 1) / 2) * shot.w)
 	const row = Math.floor(((v.y + 1) / 2) * shot.h)
 	const i = (row * shot.w + px) * 4
@@ -46,8 +49,7 @@ const overlay = spots(await P.shot())
 
 // An L-shaped area on the right half: its rect's top-right quarter is not in it.
 const cells = new Uint8Array(n * n)
-for (let z = Math.floor(n * 0.3); z < Math.floor(n * 0.7); z++)
-	for (let x = Math.floor(n * 0.55); x < Math.floor(n * 0.9); x++) if (!(x >= n * 0.72 && z < n * 0.5)) cells[z * n + x] = INSIDE
+for (let z = Math.floor(n * 0.3); z < Math.floor(n * 0.7); z++) for (let x = Math.floor(n * 0.55); x < Math.floor(n * 0.9); x++) if (!(x >= n * 0.72 && z < n * 0.5)) cells[z * n + x] = INSIDE
 setAreaCells(t, n, cells)
 await P.frames(2)
 const both = spots(await P.shot())

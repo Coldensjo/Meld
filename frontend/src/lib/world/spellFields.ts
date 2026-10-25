@@ -21,7 +21,14 @@ const named = (names: string[], from = 0): Array<[number, string]> => names.map(
 export const SPELL_SCHOOLS: Array<[number, string]> = named(['Physical', 'Holy', 'Fire', 'Nature', 'Frost', 'Shadow', 'Arcane'])
 
 /** spell_template.powerType: what casting costs (POWER_*; -2 is health). */
-export const POWER_TYPES: Array<[number, string]> = [[0, 'Mana'], [1, 'Rage'], [2, 'Focus'], [3, 'Energy'], [4, 'Happiness'], [-2, 'Health']]
+export const POWER_TYPES: Array<[number, string]> = [
+	[0, 'Mana'],
+	[1, 'Rage'],
+	[2, 'Focus'],
+	[3, 'Energy'],
+	[4, 'Happiness'],
+	[-2, 'Health'],
+]
 
 const DISPELS = named(['None', 'Magic', 'Curse', 'Disease', 'Poison', 'Stealth', 'Invisibility', 'All', 'NPC only', 'Enrage'])
 
@@ -318,7 +325,9 @@ export const FORMS: Array<[number, string]> = [
 export const FORM_MASK: Array<[number, string]> = FORMS.map(([f, n]) => [2 ** (f - 1), n] as [number, string])
 
 /** targetCreatureType and the "versus" auras' masks: creature type t is bit 1 << (t - 1). */
-export const CREATURE_TYPE_MASK: Array<[number, string]> = named(CREATURE_TYPES).filter(([t]) => t > 0).map(([t, n]) => [2 ** (t - 1), n] as [number, string])
+export const CREATURE_TYPE_MASK: Array<[number, string]> = named(CREATURE_TYPES)
+	.filter(([t]) => t > 0)
+	.map(([t, n]) => [2 ** (t - 1), n] as [number, string])
 
 /** casterAuraState and targetAuraState (AuraState in SpellDefines.h). */
 export const AURA_STATES: Array<[number, string]> = [

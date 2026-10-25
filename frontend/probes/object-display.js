@@ -49,7 +49,8 @@ await P.frames(1)
 
 const ok =
 	own.tab === 'Display' &&
-	own.category !== '' && own.category !== 'Unused' &&
+	own.category !== '' &&
+	own.category !== 'Unused' &&
 	own.inView &&
 	before > 0 &&
 	otherId !== before &&

@@ -4,7 +4,17 @@ const { ui, editor, prefs } = await P.state()
 const before = prefs.showAreaTriggers
 prefs.showAreaTriggers = true
 try {
-	await P.scene({ v: 1, map: { region: { mapName: 'Azeroth', x: 28, y: 53, size: 1 } }, view: { target: [0, 0, 0], yaw: 0, pitch: 0.3, distance: 30, hour: 13 }, prefs: { cameraFollowGround: false }, tool: 'select', selectedIds: [], selected: null, area: null, viewport: [1000, 600] })
+	await P.scene({
+		v: 1,
+		map: { region: { mapName: 'Azeroth', x: 28, y: 53, size: 1 } },
+		view: { target: [0, 0, 0], yaw: 0, pitch: 0.3, distance: 30, hour: 13 },
+		prefs: { cameraFollowGround: false },
+		tool: 'select',
+		selectedIds: [],
+		selected: null,
+		area: null,
+		viewport: [1000, 600],
+	})
 	const layer = P.e.triggerLayer
 	const t = await P.until(() => layer.triggers.find((x) => x.id === 78) ?? null, 60_000, 'trigger 78 read')
 	const { editorPoint } = await P.app('/src/lib/io/portCoords.ts')
@@ -23,7 +33,8 @@ try {
 	layer.select(null)
 	ui.pickedTrigger = null
 	ui.contextMenu = null
-	const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+	const cx = r.left + r.width / 2,
+		cy = r.top + r.height / 2
 	const cv = P.e.renderer.domElement
 	const clickAt = (x, y) => {
 		const o = { clientX: x, clientY: y, button: 0, pointerId: 1, bubbles: true }

@@ -10,15 +10,7 @@
 // tests/navmesh.test.ts checks the spans, so a Recast upgrade that moves them fails loudly.
 
 import type * as RecastModule from 'recast-navigation'
-import {
-	AREA_GROUND,
-	AREA_GROUND_MODEL,
-	AREA_STEEP,
-	AREA_STEEP_MODEL,
-	AREA_WATER,
-	AREA_WATER_TRANSITION,
-	type Recast,
-} from './navBuild'
+import { AREA_GROUND, AREA_GROUND_MODEL, AREA_STEEP, AREA_STEEP_MODEL, AREA_WATER, AREA_WATER_TRANSITION, type Recast } from './navBuild'
 
 const MAX_HEIGHT = 0xffff
 const SMASK = 0x1fff

@@ -29,7 +29,11 @@ test('joining rolls silver and copper over and keeps the sign', () => {
 })
 
 test('shown coins leave out the empty ones, and nothing shows 0 copper', () => {
-	assert.deepEqual(shownCoins(10203), [['gold', 1], ['silver', 2], ['copper', 3]])
+	assert.deepEqual(shownCoins(10203), [
+		['gold', 1],
+		['silver', 2],
+		['copper', 3],
+	])
 	assert.deepEqual(shownCoins(20000), [['gold', 2]])
 	assert.deepEqual(shownCoins(-500), [['silver', 5]])
 	assert.deepEqual(shownCoins(0), [['copper', 0]])

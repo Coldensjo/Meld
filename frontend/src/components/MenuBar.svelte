@@ -74,9 +74,7 @@
 	const regionEvents = $derived.by(() => {
 		const counts = new Map<number, number>()
 		for (const s of editor.spawns) for (const e of s.events ?? []) counts.set(Math.abs(e), (counts.get(Math.abs(e)) ?? 0) + 1)
-		return [...counts]
-			.map(([id, n]) => ({ id, n, name: eventNames.get(id) ?? `Event ${id}` }))
-			.sort((a, b) => a.name.localeCompare(b.name))
+		return [...counts].map(([id, n]) => ({ id, n, name: eventNames.get(id) ?? `Event ${id}` })).sort((a, b) => a.name.localeCompare(b.name))
 	})
 	function toggleEvent(id: number) {
 		prefs.shownEvents = prefs.shownEvents.includes(id) ? prefs.shownEvents.filter((e) => e !== id) : [...prefs.shownEvents, id]
@@ -118,8 +116,7 @@
 	const looking = $derived(!!editor.worldMap)
 	const editing = (items: Item[]): Item[] => (looking ? items.map((it) => (it.kind === 'action' ? { ...it, disabled: true } : it)) : items)
 
-	const radios = <T,>(options: Array<[string, T]>, get: () => T, set: (v: T) => void): Item[] =>
-		options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
+	const radios = <T,>(options: Array<[string, T]>, get: () => T, set: (v: T) => void): Item[] => options.map(([label, v]) => ({ kind: 'radio', label, checked: get() === v, select: () => set(v) }))
 
 	// Rebuilt reactively so checkmarks and enabled states stay current. Each menu is kept short enough
 	// to fit the screen (#122): the actions on the selected models, the terrain and the world's tables
@@ -130,12 +127,18 @@
 			items: [
 				{ kind: 'action', label: 'New World…', ...cmd('newMap') },
 				{ kind: 'action', label: 'Open…', disabled: ui.busy, ...cmd('open') },
-				{ kind: 'action', label: 'Open Part of Azeroth…', disabled: !hasBackend() || ui.busy, run: () => { ui.newMapMode = 'open'; ui.showNewDialog = true } },
+				{
+					kind: 'action',
+					label: 'Open Part of Azeroth…',
+					disabled: !hasBackend() || ui.busy,
+					run: () => {
+						ui.newMapMode = 'open'
+						ui.showNewDialog = true
+					},
+				},
 				// The world view (#15): the region's whole map streamed around the camera, and back to a block to edit.
 				{ kind: 'action', label: 'World View', disabled: !hasBackend() || ui.busy || !editor.regionBlock, run: withEngine((e) => openWorldView(e)) },
-				...(editor.worldMap
-					? [{ kind: 'action' as const, label: 'Edit Here (Open the Block Around the Camera)', disabled: !hasBackend() || ui.busy, run: withEngine((e: Engine) => editWorldHere(e)) }]
-					: []),
+				...(editor.worldMap ? [{ kind: 'action' as const, label: 'Edit Here (Open the Block Around the Camera)', disabled: !hasBackend() || ui.busy, run: withEngine((e: Engine) => editWorldHere(e)) }] : []),
 				{ kind: 'sep' },
 				// Projects (#48): a project folder and the client it edits, with the recent ones to switch to.
 				{ kind: 'action', label: ui.project ? `Project: ${ui.project.name}…` : 'Project…', disabled: !hasBackend(), run: () => (ui.dialog = 'project') },
@@ -235,7 +238,12 @@
 				{ kind: 'sep' },
 				{ kind: 'action', label: editor.selection ? 'Remove Empty Texture Layers in Selection' : 'Remove Empty Texture Layers', run: withEngine((e) => e.removeEmptyLayers()) },
 				// The client's own paint back, read without Meld's patch, for chunks an early compile left blocky (#645).
-				{ kind: 'action', label: editor.selection ? "Restore the Client's Paint in Selection" : "Restore the Client's Paint", disabled: !hasBackend() || ui.busy || !editor.regionBlock, run: withEngine((e) => restoreClientPaint(e)) },
+				{
+					kind: 'action',
+					label: editor.selection ? "Restore the Client's Paint in Selection" : "Restore the Client's Paint",
+					disabled: !hasBackend() || ui.busy || !editor.regionBlock,
+					run: withEngine((e) => restoreClientPaint(e)),
+				},
 				{ kind: 'action', label: 'Auto-paint Textures by Height and Slope', run: withEngine((e) => e.regenerateAutoPaint()) },
 				{ kind: 'action', label: 'Fill Mask with Paint Texture', disabled: !ui.maskActive, run: withEngine((e) => e.fillMask(editor.paintLayer)) },
 				{ kind: 'action', label: 'Fill Selection with Doodad Brush', disabled: !editor.selection, run: withEngine((e) => e.fillWithDoodadBrush(false)) },
@@ -331,7 +339,15 @@
 				{ kind: 'check', label: 'Minimap Tiles with All Models (trees too)', checked: prefs.minimapAllModels, toggle: () => (prefs.minimapAllModels = !prefs.minimapAllModels) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Import Doodad Brushes…', disabled: !hasBackend() || ui.busy, run: () => importDoodadBrushes() },
-				{ kind: 'action', label: 'Export Doodad Brush…', disabled: !hasBackend() || ui.busy || !activeDoodadBrush(), run: () => { const b = activeDoodadBrush(); if (b) exportDoodadBrush(b) } },
+				{
+					kind: 'action',
+					label: 'Export Doodad Brush…',
+					disabled: !hasBackend() || ui.busy || !activeDoodadBrush(),
+					run: () => {
+						const b = activeDoodadBrush()
+						if (b) exportDoodadBrush(b)
+					},
+				},
 			],
 		},
 		{
@@ -345,14 +361,37 @@
 				{ kind: 'check', label: 'Hover outline (what a click would select)', checked: prefs.hoverOutline, toggle: () => (prefs.hoverOutline = !prefs.hoverOutline) },
 				{ kind: 'check', label: 'Area triggers (portals)', checked: prefs.showAreaTriggers, toggle: () => (prefs.showAreaTriggers = !prefs.showAreaTriggers) },
 				{ kind: 'check', label: 'Flight paths (stops and routes)', checked: prefs.showFlightPaths, toggle: () => (prefs.showFlightPaths = !prefs.showFlightPaths) },
-				{ kind: 'check', label: 'Walkable ground (the server\'s navmesh)', checked: prefs.navView, toggle: () => (prefs.navView = !prefs.navView) },
-				{ kind: 'check', label: "Server's mmaps (its own navmesh, for a compiled region)", checked: prefs.navView && prefs.navServer, toggle: () => { prefs.navServer = !(prefs.navView && prefs.navServer); if (prefs.navServer) prefs.navView = true } },
-				{ kind: 'action', label: 'Test a Path (click two points)', run: withEngine((e) => { prefs.navView = true; e.startPathTest() }) },
+				{ kind: 'check', label: "Walkable ground (the server's navmesh)", checked: prefs.navView, toggle: () => (prefs.navView = !prefs.navView) },
+				{
+					kind: 'check',
+					label: "Server's mmaps (its own navmesh, for a compiled region)",
+					checked: prefs.navView && prefs.navServer,
+					toggle: () => {
+						prefs.navServer = !(prefs.navView && prefs.navServer)
+						if (prefs.navServer) prefs.navView = true
+					},
+				},
+				{
+					kind: 'action',
+					label: 'Test a Path (click two points)',
+					run: withEngine((e) => {
+						prefs.navView = true
+						e.startPathTest()
+					}),
+				},
 				{ kind: 'check', label: 'Detail info (the ground under the cursor)', checked: prefs.detailInfo, toggle: () => (prefs.detailInfo = !prefs.detailInfo) },
 				{ kind: 'check', label: 'Performance overlay (where the frame time goes)', checked: prefs.perfOverlay, ...toggle('perfOverlay') },
 				{ kind: 'check', label: 'Wireframe', checked: prefs.wireframe, toggle: () => (prefs.wireframe = !prefs.wireframe) },
 				{ kind: 'check', label: 'Hide panels', checked: ui.hidePanels, ...toggle('hidePanels') },
-				{ kind: 'check', label: 'Layers panel (the right dock)', checked: !prefs.dockHidden, toggle: () => { prefs.dockHidden = !prefs.dockHidden; if (prefs.dockHidden) ui.replaceSlot = null } },
+				{
+					kind: 'check',
+					label: 'Layers panel (the right dock)',
+					checked: !prefs.dockHidden,
+					toggle: () => {
+						prefs.dockHidden = !prefs.dockHidden
+						if (prefs.dockHidden) ui.replaceSlot = null
+					},
+				},
 				{ kind: 'header', label: 'Layers' },
 				{ kind: 'check', label: 'Terrain', checked: prefs.showTerrain, toggle: () => (prefs.showTerrain = !prefs.showTerrain) },
 				{ kind: 'check', label: 'Water', checked: prefs.showWater, toggle: () => (prefs.showWater = !prefs.showWater) },
@@ -362,7 +401,7 @@
 				{ kind: 'check', label: 'Ground effects (grass tufts)', checked: prefs.showGroundEffects, toggle: () => (prefs.showGroundEffects = !prefs.showGroundEffects) },
 				...radios<typeof prefs.groundEffectDensity>(
 					[
-						['Sparse tufts (the game\'s Low)', 'sparse'],
+						["Sparse tufts (the game's Low)", 'sparse'],
 						['Normal tufts (Medium)', 'normal'],
 						['Full tufts (High)', 'full'],
 					],
@@ -825,7 +864,6 @@
 		<button onclick={withEngine((e) => e.redo())} disabled={!ui.canRedo} title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
 	</div>
 	<div class="spacer"></div>
-
 </header>
 
 <style>
@@ -940,5 +978,4 @@
 	.spacer {
 		flex: 1;
 	}
-
 </style>

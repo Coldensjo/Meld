@@ -54,13 +54,7 @@ export function cellLift(g: NavGround, gx: number, gz: number): number {
 		const h = g.heights
 		const i = gz * g.verts + gx
 		const j = i + g.verts
-		if (
-			Math.abs(h[i] - base[i]) > SCULPTED_EPS ||
-			Math.abs(h[i + 1] - base[i + 1]) > SCULPTED_EPS ||
-			Math.abs(h[j] - base[j]) > SCULPTED_EPS ||
-			Math.abs(h[j + 1] - base[j + 1]) > SCULPTED_EPS
-		)
-			return 0
+		if (Math.abs(h[i] - base[i]) > SCULPTED_EPS || Math.abs(h[i + 1] - base[i + 1]) > SCULPTED_EPS || Math.abs(h[j] - base[j]) > SCULPTED_EPS || Math.abs(h[j + 1] - base[j + 1]) > SCULPTED_EPS) return 0
 	}
 	return lift[gz * g.size + gx]
 }
@@ -118,7 +112,9 @@ export function liquidTypeArea(t: number): number {
 /** Moves the points of `local` by the column-major matrix `m` into `out`, growing the box [min, max]. */
 function movePoints(local: Float32Array, m: ArrayLike<number>, out: Float32Array, min: number[], max: number[]) {
 	for (let i = 0; i < local.length; i += 3) {
-		const x = local[i], y = local[i + 1], z = local[i + 2]
+		const x = local[i],
+			y = local[i + 1],
+			z = local[i + 2]
 		const wx = m[0] * x + m[4] * y + m[8] * z + m[12]
 		const wy = m[1] * x + m[5] * y + m[9] * z + m[13]
 		const wz = m[2] * x + m[6] * y + m[10] * z + m[14]
@@ -177,21 +173,15 @@ export function placeFaces(local: Float32Array, m: ArrayLike<number>, groups?: U
  * server's. `deep` tells a cell of a deep chunk; `out` is [min, max], Infinity and -Infinity when
  * nothing is there.
  */
-export function adtHeightSpan(
-	ground: NavGround,
-	models: readonly PlacedCollision[],
-	ax: number,
-	az: number,
-	adtYards: number,
-	deep: ((gx: number, gz: number) => boolean) | null,
-	out: [number, number],
-): [number, number] {
+export function adtHeightSpan(ground: NavGround, models: readonly PlacedCollision[], ax: number, az: number, adtYards: number, deep: ((gx: number, gz: number) => boolean) | null, out: [number, number]): [number, number] {
 	let lo = Infinity
 	let hi = -Infinity
 	const per = Math.round(adtYards / ground.cellSize)
 	const side = Math.max(1, Math.round(ground.size / per))
-	const x0 = Math.max(0, ax * per - 1), x1 = Math.min(ground.size - 1, (ax + 1) * per)
-	const z0 = Math.max(0, az * per - 1), z1 = Math.min(ground.size - 1, (az + 1) * per)
+	const x0 = Math.max(0, ax * per - 1),
+		x1 = Math.min(ground.size - 1, (ax + 1) * per)
+	const z0 = Math.max(0, az * per - 1),
+		z1 = Math.min(ground.size - 1, (az + 1) * per)
 	const h = ground.heights
 	const v = ground.verts
 	const lifted = !!ground.innerLift
@@ -199,15 +189,20 @@ export function adtHeightSpan(
 		for (let gx = x0; gx <= x1; gx++) {
 			if (ground.holes[gz * ground.size + gx] === HOLE_CELL || deep?.(gx, gz)) continue
 			const i = gz * v + gx
-			const a = h[i], b = h[i + 1], c = h[i + v], d = h[i + v + 1]
+			const a = h[i],
+				b = h[i + 1],
+				c = h[i + v],
+				d = h[i + v + 1]
 			// The cell's middle counts too, as the inner sample does on the server.
 			const m = lifted ? (a + b + c + d) / 4 + cellLift(ground, gx, gz) : a
 			lo = Math.min(lo, a, b, c, d, m)
 			hi = Math.max(hi, a, b, c, d, m)
 		}
 	}
-	const bx0 = ax * adtYards, bx1 = bx0 + adtYards
-	const bz0 = az * adtYards, bz1 = bz0 + adtYards
+	const bx0 = ax * adtYards,
+		bx1 = bx0 + adtYards
+	const bz0 = az * adtYards,
+		bz1 = bz0 + adtYards
 	const tile = (p: number) => Math.max(0, Math.min(side - 1, Math.floor(p / adtYards)))
 	for (const m of models) {
 		const own = tile(m.origin[0]) === ax && tile(m.origin[1]) === az
@@ -249,16 +244,7 @@ export class TileGatherer {
 	 * the ground's height at a point, or null where there is none (a hole, off the map). `liquids`,
 	 * when given, adds the liquid surfaces and leaves out the deep chunks.
 	 */
-	gather(
-		ground: NavGround,
-		models: readonly PlacedCollision[],
-		x0: number,
-		z0: number,
-		x1: number,
-		z1: number,
-		groundAt: (x: number, z: number) => number | null,
-		liquids?: NavLiquids,
-	): TileInput {
+	gather(ground: NavGround, models: readonly PlacedCollision[], x0: number, z0: number, x1: number, z1: number, groundAt: (x: number, z: number) => number | null, liquids?: NavLiquids): TileInput {
 		this.vc = this.tc = this.lvc = this.ltc = this.nc = 0
 		this.minY = Infinity
 		this.maxY = -Infinity
@@ -433,7 +419,9 @@ export class TileGatherer {
 		const p = l.verts
 		const n = l.areas.length
 		for (let t = 0; t < n; t++) {
-			const a = l.idx[t * 3] * 3, b = l.idx[t * 3 + 1] * 3, c = l.idx[t * 3 + 2] * 3
+			const a = l.idx[t * 3] * 3,
+				b = l.idx[t * 3 + 1] * 3,
+				c = l.idx[t * 3 + 2] * 3
 			if (Math.max(p[a], p[b], p[c]) < x0 || Math.min(p[a], p[b], p[c]) > x1) continue
 			if (Math.max(p[a + 2], p[b + 2], p[c + 2]) < z0 || Math.min(p[a + 2], p[b + 2], p[c + 2]) > z1) continue
 			this.reserveLiquid(3, 1)
@@ -457,9 +445,15 @@ export class TileGatherer {
 	private addModel(t: Float32Array, x0: number, z0: number, x1: number, z1: number, groundAt: (x: number, z: number) => number | null) {
 		this.reserve(t.length / 3, t.length / 9)
 		for (let i = 0; i < t.length; i += 9) {
-			const ax = t[i], ay = t[i + 1], az = t[i + 2]
-			const bx = t[i + 3], by = t[i + 4], bz = t[i + 5]
-			const cx = t[i + 6], cy = t[i + 7], cz = t[i + 8]
+			const ax = t[i],
+				ay = t[i + 1],
+				az = t[i + 2]
+			const bx = t[i + 3],
+				by = t[i + 4],
+				bz = t[i + 5]
+			const cx = t[i + 6],
+				cy = t[i + 7],
+				cz = t[i + 8]
 			if (Math.max(ax, bx, cx) < x0 || Math.min(ax, bx, cx) > x1 || Math.max(az, bz, cz) < z0 || Math.min(az, bz, cz) > z1) continue
 			if (this.underMap(ax, ay, az, bx, by, bz, cx, cy, cz, groundAt) && this.underMap(bx, by, bz, cx, cy, cz, ax, ay, az, groundAt) && this.underMap(cx, cy, cz, ax, ay, az, bx, by, bz, groundAt)) continue
 			const o = this.tc * 3
@@ -475,12 +469,7 @@ export class TileGatherer {
 	 * lies under the map (TerrainBuilder::IsUnderMap): 0.2 yd or more below the ground, and under a
 	 * model, the nearest model face straight above it an upward one.
 	 */
-	private underMap(
-		ax: number, ay: number, az: number,
-		bx: number, by: number, bz: number,
-		cx: number, cy: number, cz: number,
-		groundAt: (x: number, z: number) => number | null,
-	): boolean {
+	private underMap(ax: number, ay: number, az: number, bx: number, by: number, bz: number, cx: number, cy: number, cz: number, groundAt: (x: number, z: number) => number | null): boolean {
 		const x = (5 * ax + bx + cx) / 7
 		const y = (5 * ay + by + cy) / 7 + UNDER_LIFT
 		const z = (5 * az + bz + cz) / 7
@@ -595,9 +584,13 @@ export class TileGatherer {
 		// A triangle wholly under a model (a yard or more, and somewhere 1.5 yd or more) goes.
 		let w = 0
 		for (let t = 0; t < this.tc; t++) {
-			const a = this.idx[t * 3], b = this.idx[t * 3 + 1], c = this.idx[t * 3 + 2]
+			const a = this.idx[t * 3],
+				b = this.idx[t * 3 + 1],
+				c = this.idx[t * 3 + 2]
 			if (t < groundTris) {
-				const da = dist(a), db = dist(b), dc = dist(c)
+				const da = dist(a),
+					db = dist(b),
+					dc = dist(c)
 				if (da >= 1 && db >= 1 && dc >= 1 && (da >= 1.5 || db >= 1.5 || dc >= 1.5)) continue
 			}
 			this.idx[w * 3] = a
@@ -642,11 +635,17 @@ export class TileGatherer {
 	 */
 	private segmentHit(a: number, b: number, modify: number): boolean {
 		const p = this.pos
-		const ax = p[a * 3], ay = p[a * 3 + 1], az = p[a * 3 + 2]
-		const dx = p[b * 3] - ax, dy = p[b * 3 + 1] - ay, dz = p[b * 3 + 2] - az
+		const ax = p[a * 3],
+			ay = p[a * 3 + 1],
+			az = p[a * 3 + 2]
+		const dx = p[b * 3] - ax,
+			dy = p[b * 3 + 1] - ay,
+			dz = p[b * 3 + 2] - az
 		const len = Math.hypot(dx, dy, dz)
 		if (len < 1e-10) return false
-		const ux = dx / len, uy = dy / len, uz = dz / len
+		const ux = dx / len,
+			uy = dy / len,
+			uz = dz / len
 		let best = len
 		let found = false
 		for (let k = 0; k < this.nc; k++) {
@@ -674,11 +673,7 @@ export class TileGatherer {
 	private lerpVertex(a: number, b: number, share: number): number {
 		this.reserve(1, 0)
 		const p = this.pos
-		return this.vertex(
-			p[a * 3] + (p[b * 3] - p[a * 3]) * share,
-			p[a * 3 + 1] + (p[b * 3 + 1] - p[a * 3 + 1]) * share,
-			p[a * 3 + 2] + (p[b * 3 + 2] - p[a * 3 + 2]) * share,
-		)
+		return this.vertex(p[a * 3] + (p[b * 3] - p[a * 3]) * share, p[a * 3 + 1] + (p[b * 3 + 1] - p[a * 3 + 1]) * share, p[a * 3 + 2] + (p[b * 3 + 2] - p[a * 3 + 2]) * share)
 	}
 }
 
@@ -692,7 +687,12 @@ const UNDER_LIFT = 0.2
  * An edge-on face is missed, as IntersectTriangle's determinant check misses it.
  */
 function rayUp(t: Float32Array, o: number, x: number, y: number, z: number): number {
-	const ax = t[o], az = t[o + 2], bx = t[o + 3], bz = t[o + 5], cx = t[o + 6], cz = t[o + 8]
+	const ax = t[o],
+		az = t[o + 2],
+		bx = t[o + 3],
+		bz = t[o + 5],
+		cx = t[o + 6],
+		cz = t[o + 8]
 	const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz)
 	if (Math.abs(d) < 1e-5) return -1
 	const l1 = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d
@@ -705,23 +705,35 @@ function rayUp(t: Float32Array, o: number, x: number, y: number, z: number): num
 
 /** Whether the triangle at `o` in `t` faces up by its winding (faces are wound outward). */
 function faceUp(t: Float32Array, o: number): boolean {
-	const ux = t[o + 3] - t[o], uz = t[o + 5] - t[o + 2]
-	const vx = t[o + 6] - t[o], vz = t[o + 8] - t[o + 2]
+	const ux = t[o + 3] - t[o],
+		uz = t[o + 5] - t[o + 2]
+	const vx = t[o + 6] - t[o],
+		vz = t[o + 8] - t[o + 2]
 	return uz * vx - ux * vz >= 0
 }
 
 /** How far along the unit ray from (ox, oy, oz) the triangle at `o` in `t` lies, either side, or -1 (Möller-Trumbore). */
 function rayTriangle(t: Float32Array, o: number, ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): number {
-	const e1x = t[o + 3] - t[o], e1y = t[o + 4] - t[o + 1], e1z = t[o + 5] - t[o + 2]
-	const e2x = t[o + 6] - t[o], e2y = t[o + 7] - t[o + 1], e2z = t[o + 8] - t[o + 2]
-	const px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x
+	const e1x = t[o + 3] - t[o],
+		e1y = t[o + 4] - t[o + 1],
+		e1z = t[o + 5] - t[o + 2]
+	const e2x = t[o + 6] - t[o],
+		e2y = t[o + 7] - t[o + 1],
+		e2z = t[o + 8] - t[o + 2]
+	const px = dy * e2z - dz * e2y,
+		py = dz * e2x - dx * e2z,
+		pz = dx * e2y - dy * e2x
 	const a = e1x * px + e1y * py + e1z * pz
 	if (Math.abs(a) < 1e-5) return -1
 	const f = 1 / a
-	const sx = ox - t[o], sy = oy - t[o + 1], sz = oz - t[o + 2]
+	const sx = ox - t[o],
+		sy = oy - t[o + 1],
+		sz = oz - t[o + 2]
 	const u = f * (sx * px + sy * py + sz * pz)
 	if (u < 0 || u > 1) return -1
-	const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x
+	const qx = sy * e1z - sz * e1y,
+		qy = sz * e1x - sx * e1z,
+		qz = sx * e1y - sy * e1x
 	const v = f * (dx * qx + dy * qy + dz * qz)
 	if (v < 0 || u + v > 1) return -1
 	const d = f * (e2x * qx + e2y * qy + e2z * qz)

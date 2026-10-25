@@ -50,7 +50,10 @@ test('model heights: floating without support, buried under the ground, attached
 			['Buried models', 3],
 		],
 	)
-	assert.deepEqual(found.map((f) => f.severity), ['warning', 'info', 'warning'])
+	assert.deepEqual(
+		found.map((f) => f.severity),
+		['warning', 'info', 'warning'],
+	)
 	// Over a hole everywhere, nothing is reported.
 	assert.equal(checkModelHeights([model(2, { box: box(30, 5, 30) })], () => -Infinity).length, 0)
 })
@@ -66,13 +69,19 @@ const probes = (over: Partial<SpawnProbes> = {}): SpawnProbes => ({
 
 test('spawns: under the ground, unless a floor is there; steep and deep water for creatures only', () => {
 	const s = (key: string, y: number, kind = 'monster') => ({ key, name: key, kind, x: 0, y, z: 0 })
-	assert.deepEqual(checkSpawns([s('a', -3), s('b', 0), s('c', -1.5)], probes(), 50, 2).map((f) => f.target), [{ kind: 'spawn', key: 'a' }])
+	assert.deepEqual(
+		checkSpawns([s('a', -3), s('b', 0), s('c', -1.5)], probes(), 50, 2).map((f) => f.target),
+		[{ kind: 'spawn', key: 'a' }],
+	)
 	assert.equal(checkSpawns([s('a', -3)], probes({ floorNear: () => true }), 50, 2).length, 0)
 	// On a 45° slope, half a cell (1 yd here) more is allowed: 2.5 under is fine, 3.5 isn't.
 	assert.equal(checkSpawns([s('a', -2.5)], probes({ slope: () => 45 }), 70, 2).length, 0)
 	assert.equal(checkSpawns([s('a', -3.5)], probes({ slope: () => 45 }), 50, 2)[0].check, 'Spawns under the ground')
 	const steep = checkSpawns([s('a', 0), s('o', 0, 'object')], probes({ slope: () => 60 }), 50, 2)
-	assert.deepEqual(steep.map((f) => f.check), ['Spawns on steep ground'])
+	assert.deepEqual(
+		steep.map((f) => f.check),
+		['Spawns on steep ground'],
+	)
 	const wet = checkSpawns([s('a', 0)], probes({ deepWater: () => true }), 50, 2)
 	assert.equal(wet[0].check, 'Spawns in deep water')
 	// Standing high on a building, the ground's slope and water don't matter.
@@ -109,7 +118,12 @@ test('palette: unused entries, and textures the client lacks at the first chunk 
 	const slots = new Uint8Array(4 * SLOTS).fill(NO_TEXTURE)
 	slots[0] = 0
 	slots[2 * SLOTS] = 2
-	const found = checkPalette(['Tileset\\A.blp', 'Tileset\\B.blp', 'Tileset\\Typo.blp', '#ff0000'], slots, (p) => !p.includes('Typo'), (c) => ({ x: c, z: 0 }))
+	const found = checkPalette(
+		['Tileset\\A.blp', 'Tileset\\B.blp', 'Tileset\\Typo.blp', '#ff0000'],
+		slots,
+		(p) => !p.includes('Typo'),
+		(c) => ({ x: c, z: 0 }),
+	)
 	assert.equal(found.length, 2)
 	assert.match(found[0].message, /2 palette textures are painted nowhere: B\.blp, #ff0000/)
 	assert.equal(found[1].severity, 'error')
@@ -154,13 +168,19 @@ test('a creature shut inside a solid model is found, an object is not', () => {
 test('a created spawn on a guid the database gave another entry would delete it', () => {
 	const s = (guid: number, entry: number, created: boolean, kind = 'monster'): IdSpawn => ({ key: `${kind}/${guid}`, name: `S${guid}`, kind, guid, entry, created, x: 0, z: 0 })
 	const found = checkSpawnIds([s(10, 299, true), s(11, 6, true), s(12, 6, false), s(13, 40, false), s(5, 77, true, 'object')], {
-		creatures: [{ guid: 10, entry: 1, map: 0 }, { guid: 11, entry: 6, map: 0 }],
+		creatures: [
+			{ guid: 10, entry: 1, map: 0 },
+			{ guid: 11, entry: 6, map: 0 },
+		],
 		objects: [{ guid: 5, entry: 9, map: 1 }],
 		missingCreatureEntries: [40],
 		missingObjectEntries: [],
 	})
 	const taken = found.filter((f) => f.check === 'Spawn guids taken')
-	assert.deepEqual(taken.map((f) => f.severity), ['error', 'info', 'error'])
+	assert.deepEqual(
+		taken.map((f) => f.severity),
+		['error', 'info', 'error'],
+	)
 	assert.ok(taken[0].message.includes('creature 1 on map 0'))
 	const missing = found.filter((f) => f.check === 'Spawns without a template')
 	assert.equal(missing.length, 1)

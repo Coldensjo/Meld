@@ -86,9 +86,7 @@ function regionPaint(engine: Engine, size: number) {
 	const tiles = mapToTiles(engine.exportInput()).tiles
 	const block = (t: { X: number; Y: number }, chunk: number) => (t.Y * TILE_CHUNKS + Math.floor(chunk / TILE_CHUNKS)) * perRow + t.X * TILE_CHUNKS + (chunk % TILE_CHUNKS)
 	return {
-		paint: tiles.flatMap((t) =>
-			t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, flags: p.Flags, noEffect: p.NoEffect ?? undefined })),
-		),
+		paint: tiles.flatMap((t) => t.Paint.map((p) => ({ chunk: block(t, p.Chunk), textures: p.Textures, weights: p.Weights, effects: p.Effects, flags: p.Flags, noEffect: p.NoEffect ?? undefined }))),
 		// The chunk headers, by block chunk; for a map saved before it kept chunk data, only holes and shadows (#644).
 		headers: tiles.flatMap((t) => (t.Headers ?? []).map((h) => ({ ...h, chunk: block(t, h.chunk) }))),
 	}
@@ -167,68 +165,71 @@ function spawnNote() {
  */
 export function compileRegion(engine: Engine, target: CompileTarget) {
 	const label = target === 'client' ? 'Compiling to the client' : target === 'server' ? 'Compiling to the server' : 'Compiling to the client and server'
-	return guarded('Compile region', () => withSaving(label, async () => {
-		const region = engine.activeRegion()
-		if (!region) {
-			setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
-			return
-		}
-		const name = regionName(region)
-		if (target === 'server') {
-			await compileServer(engine, region, name)
-			return
-		}
-		// Preferences › Check the Map before Compile (#195): errors stop the compile and open the list.
-		if (prefs.checkBeforeCompile) {
-			const errors = (await engine.checkMap()).findings.filter((f) => f.severity === 'error').length
-			if (errors) {
-				ui.checkMap = true
-				setStatus(`Compile stopped: the map check found ${errors} ${errors === 1 ? 'error' : 'errors'}. Fix them, or turn off Preferences › Check the Map before Compile.`, 10000)
+	return guarded('Compile region', () =>
+		withSaving(label, async () => {
+			const region = engine.activeRegion()
+			if (!region) {
+				setStatus('This map is not a part of a continent. Open one with File › Open Part of Azeroth…')
 				return
 			}
-		}
-		const d = engine.activeDocument()
-		const compiled = { key: engine.regionKey(), changes: d.history.changes }
-		const res = await SaveRegion(regionEdit(engine, region))
-		// The patch now holds what the map held when the compile started.
-		d.compiled = compiled
-		const server = await VmangosPath()
-		// The spawns need the server folder (it holds the database's settings); without one they wait.
-		const spawns = target === 'all' && server ? await compileSpawns(engine) : noSpawns
-		if (!res.patch) {
-			// Compile works on the open tab: another region with edits says where they are.
-			const others = engine.otherEditedRegions()
-			const elsewhere = others.length ? ` ${others.join(', ')} ${others.length === 1 ? 'was' : 'were'} edited since the last compile: Compile works on the open tab, so switch to it.` : ''
-			const rebuild = target === 'all' && server && res.mapId >= 0 ? " Compile to Server rebuilds the server's map data of the region anyway." : ''
-			setStatus(`Nothing changed in ${name} since the last compile, so the patch and the game were left alone.${elsewhere}${spawns.note}${restartNote(spawns)}${rebuild}`, 10000)
-			return
-		}
-		const unchanged = res.tiles - res.changed
-		// Tiles outside the block that list a model by its edge are written too (#647).
-		const outside = res.outside ? `, and ${res.outside} ${res.outside === 1 ? 'tile' : 'tiles'} beside it for the models by its edge` : ''
-		// A running game holds the patch: the files wait for it to close, since Meld never closes it (#661).
-		const verb = res.waiting ? 'Compiled' : 'Wrote'
-		const wrote = (res.building
-			? `${verb} ${region.mapName}'s building (its WDT) for ${res.patch}.`
-			: `${verb} ${res.changed} of ${res.tiles} tiles of ${name} for the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}${outside}.`) + applyNote(res)
-		// Only a continent of the client has map data to rebuild this way, and only when a tile changed.
-		const rebuildable = !!server && res.mapId >= 0 && !!res.changedTiles?.length
-		if (target === 'client') {
-			setStatus(rebuildable ? `${wrote} The server's map data still has the old ground: Compile to Server rebuilds it.` : wrote, 10000)
-			return
-		}
-		if (!server) {
-			setStatus(`${wrote} No VMaNGOS server folder is set (Game menu), so the server was left alone.${spawnNote()}`, 10000)
-			return
-		}
-		if (!rebuildable || spawns.failed) {
-			const hint = res.mapId < 0 && !spawns.failed ? ` Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.` : ''
-			setStatus(`${wrote}${spawns.note}${restartNote(spawns)}${hint}`, 12000)
-			return
-		}
-		// The tiles alone only when the server's data matched the patch before; else the whole map.
-		await rebuildServerMaps(res.mapId, res.tilesCurrent ? res.changedTiles : [], `${wrote}${spawns.note}`)
-	}))
+			const name = regionName(region)
+			if (target === 'server') {
+				await compileServer(engine, region, name)
+				return
+			}
+			// Preferences › Check the Map before Compile (#195): errors stop the compile and open the list.
+			if (prefs.checkBeforeCompile) {
+				const errors = (await engine.checkMap()).findings.filter((f) => f.severity === 'error').length
+				if (errors) {
+					ui.checkMap = true
+					setStatus(`Compile stopped: the map check found ${errors} ${errors === 1 ? 'error' : 'errors'}. Fix them, or turn off Preferences › Check the Map before Compile.`, 10000)
+					return
+				}
+			}
+			const d = engine.activeDocument()
+			const compiled = { key: engine.regionKey(), changes: d.history.changes }
+			const res = await SaveRegion(regionEdit(engine, region))
+			// The patch now holds what the map held when the compile started.
+			d.compiled = compiled
+			const server = await VmangosPath()
+			// The spawns need the server folder (it holds the database's settings); without one they wait.
+			const spawns = target === 'all' && server ? await compileSpawns(engine) : noSpawns
+			if (!res.patch) {
+				// Compile works on the open tab: another region with edits says where they are.
+				const others = engine.otherEditedRegions()
+				const elsewhere = others.length ? ` ${others.join(', ')} ${others.length === 1 ? 'was' : 'were'} edited since the last compile: Compile works on the open tab, so switch to it.` : ''
+				const rebuild = target === 'all' && server && res.mapId >= 0 ? " Compile to Server rebuilds the server's map data of the region anyway." : ''
+				setStatus(`Nothing changed in ${name} since the last compile, so the patch and the game were left alone.${elsewhere}${spawns.note}${restartNote(spawns)}${rebuild}`, 10000)
+				return
+			}
+			const unchanged = res.tiles - res.changed
+			// Tiles outside the block that list a model by its edge are written too (#647).
+			const outside = res.outside ? `, and ${res.outside} ${res.outside === 1 ? 'tile' : 'tiles'} beside it for the models by its edge` : ''
+			// A running game holds the patch: the files wait for it to close, since Meld never closes it (#661).
+			const verb = res.waiting ? 'Compiled' : 'Wrote'
+			const wrote =
+				(res.building
+					? `${verb} ${region.mapName}'s building (its WDT) for ${res.patch}.`
+					: `${verb} ${res.changed} of ${res.tiles} tiles of ${name} for the client (${res.patch})${unchanged ? `, ${unchanged} unchanged` : ''}${outside}.`) + applyNote(res)
+			// Only a continent of the client has map data to rebuild this way, and only when a tile changed.
+			const rebuildable = !!server && res.mapId >= 0 && !!res.changedTiles?.length
+			if (target === 'client') {
+				setStatus(rebuildable ? `${wrote} The server's map data still has the old ground: Compile to Server rebuilds it.` : wrote, 10000)
+				return
+			}
+			if (!server) {
+				setStatus(`${wrote} No VMaNGOS server folder is set (Game menu), so the server was left alone.${spawnNote()}`, 10000)
+				return
+			}
+			if (!rebuildable || spawns.failed) {
+				const hint = res.mapId < 0 && !spawns.failed ? ` Run update-maps.bat (in the scripts folder beside ${server}) to rebuild the server's map data.` : ''
+				setStatus(`${wrote}${spawns.note}${restartNote(spawns)}${hint}`, 12000)
+				return
+			}
+			// The tiles alone only when the server's data matched the patch before; else the whole map.
+			await rebuildServerMaps(res.mapId, res.tilesCurrent ? res.changedTiles : [], `${wrote}${spawns.note}`)
+		}),
+	)
 }
 
 /** Compile to Server: the region's tiles rebuilt from the client's patch, which must hold its edits. */

@@ -119,8 +119,25 @@ test('TaxiLayer.set redraws only what differs from the last call (#588)', () => 
 			{ id: 2, x: 400, y: 20, z: 5, hordeMount: 0, allianceMount: 1 },
 		],
 		routes: [
-			{ id: 7, from: 1, to: 2, points: [{ x: 10, y: 20, z: 40 }, { x: 200, y: 20, z: 40 }, { x: 400, y: 20, z: 40 }] },
-			{ id: 8, from: 2, to: 1, points: [{ x: 400, y: 20, z: 40 }, { x: 10, y: 20, z: 40 }] },
+			{
+				id: 7,
+				from: 1,
+				to: 2,
+				points: [
+					{ x: 10, y: 20, z: 40 },
+					{ x: 200, y: 20, z: 40 },
+					{ x: 400, y: 20, z: 40 },
+				],
+			},
+			{
+				id: 8,
+				from: 2,
+				to: 1,
+				points: [
+					{ x: 400, y: 20, z: 40 },
+					{ x: 10, y: 20, z: 40 },
+				],
+			},
 		],
 	})
 	const set = (pick: { stop: number | null; route: number | null; point: number }, edit?: (n: ReturnType<typeof net>) => void) => {
@@ -136,17 +153,35 @@ test('TaxiLayer.set redraws only what differs from the last call (#588)', () => 
 	assert.deepEqual(set({ stop: 1, route: 7, point: -1 }), ['drawStops'])
 	assert.deepEqual(set({ stop: 1, route: 7, point: 2 }), ['drawPicked'])
 	// A point of the picked route moved, or one added: only that route.
-	assert.deepEqual(set({ stop: 1, route: 7, point: 2 }, (n) => (n.routes[0].points[1].z = 60)), ['drawPicked'])
-	assert.deepEqual(set({ stop: 1, route: 7, point: 2 }, (n) => n.routes[0].points.push({ x: 500, y: 0, z: 40 })), ['drawPicked'])
+	assert.deepEqual(
+		set({ stop: 1, route: 7, point: 2 }, (n) => (n.routes[0].points[1].z = 60)),
+		['drawPicked'],
+	)
+	assert.deepEqual(
+		set({ stop: 1, route: 7, point: 2 }, (n) => n.routes[0].points.push({ x: 500, y: 0, z: 40 })),
+		['drawPicked'],
+	)
 	// Another route changed, a route picked, a stop moved or its mount changed, a stop removed.
-	assert.deepEqual(set({ stop: 1, route: 7, point: 2 }, (n) => (n.routes[1].points[0].x = 390)), ['drawRoutes'])
+	assert.deepEqual(
+		set({ stop: 1, route: 7, point: 2 }, (n) => (n.routes[1].points[0].x = 390)),
+		['drawRoutes'],
+	)
 	assert.deepEqual(set({ stop: 1, route: 8, point: -1 }), ['drawRoutes'])
-	assert.deepEqual(set({ stop: 1, route: 8, point: -1 }, (n) => (n.stops[1].x = 300)), ['drawStops'])
-	assert.deepEqual(set({ stop: 1, route: 8, point: -1 }, (n) => {
-		n.stops[1].x = 300
-		n.stops[1].allianceMount = 0
-	}), ['drawStops'])
-	assert.deepEqual(set({ stop: 1, route: 8, point: -1 }, (n) => n.stops.pop()), ['drawStops'])
+	assert.deepEqual(
+		set({ stop: 1, route: 8, point: -1 }, (n) => (n.stops[1].x = 300)),
+		['drawStops'],
+	)
+	assert.deepEqual(
+		set({ stop: 1, route: 8, point: -1 }, (n) => {
+			n.stops[1].x = 300
+			n.stops[1].allianceMount = 0
+		}),
+		['drawStops'],
+	)
+	assert.deepEqual(
+		set({ stop: 1, route: 8, point: -1 }, (n) => n.stops.pop()),
+		['drawStops'],
+	)
 	// A new block or ground draws everything again.
 	drawn.length = 0
 	L.set(L.stops, L.routes, 37, 49, L.pick, ground)

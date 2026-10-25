@@ -1,138 +1,158 @@
 <!doctype html>
 <html>
-  <head><meta charset="utf-8" /><title>paint rules check</title></head>
-  <body>
-    <pre id="out"></pre>
-    <script type="module">
-      // Runs the paint rules against the real Terrain and brush code in a browser, since the
-      // terrain needs WebGL to exist. Served by vite; open with headless Chrome.
-      import { Terrain } from '/src/lib/terrain/Terrain.ts'
-      import { paintPixel, TerrainStroke } from '/src/lib/tools/brush.ts'
-      import { NO_TEXTURE, SLOTS } from '/src/lib/terrain/chunkPaint.ts'
-      import { copyRegion, pasteRegion } from '/src/lib/world/clipboard.ts'
-      import { ObjectLayer } from '/src/lib/world/ObjectLayer.ts'
-      const out = document.getElementById('out')
-      const log = (m) => (out.textContent += m + '\n')
-      let failures = 0
-      const check = (name, ok, detail = '') => {
-        if (!ok) failures++
-        log(`${ok ? 'PASS' : 'FAIL'} ${name} ${ok ? '' : detail}`)
-      }
-      try {
+	<head>
+		<meta charset="utf-8" />
+		<title>paint rules check</title>
+	</head>
+	<body>
+		<pre id="out"></pre>
+		<script type="module">
+			// Runs the paint rules against the real Terrain and brush code in a browser, since the
+			// terrain needs WebGL to exist. Served by vite; open with headless Chrome.
+			import { Terrain } from '/src/lib/terrain/Terrain.ts'
+			import { paintPixel, TerrainStroke } from '/src/lib/tools/brush.ts'
+			import { NO_TEXTURE, SLOTS } from '/src/lib/terrain/chunkPaint.ts'
+			import { copyRegion, pasteRegion } from '/src/lib/world/clipboard.ts'
+			import { ObjectLayer } from '/src/lib/world/ObjectLayer.ts'
+			const out = document.getElementById('out')
+			const log = (m) => (out.textContent += m + '\n')
+			let failures = 0
+			const check = (name, ok, detail = '') => {
+				if (!ok) failures++
+				log(`${ok ? 'PASS' : 'FAIL'} ${name} ${ok ? '' : detail}`)
+			}
+			try {
+				const t = new Terrain(128)
+				const palette = ['#5d8a2f', '#3f6b25', '#7a5a3a', '#7d7a76', '#d2bb84', '#e8eef5', '#8b857c', '#a07a50']
+				t.setPalette(palette)
+				const fourRule = () => {
+					for (let c = 0; c < t.paintChunksPerSide ** 2; c++) {
+						const used = [...t.chunkSlots.slice(c * SLOTS, c * SLOTS + SLOTS)].filter((v) => v !== NO_TEXTURE)
+						if (used.length > 4 || new Set(used).size !== used.length) return `chunk ${c} has ${used.length} textures`
+					}
+					return ''
+				}
 
-        const t = new Terrain(128)
-        const palette = ['#5d8a2f', '#3f6b25', '#7a5a3a', '#7d7a76', '#d2bb84', '#e8eef5', '#8b857c', '#a07a50']
-        t.setPalette(palette)
-        const fourRule = () => {
-          for (let c = 0; c < t.paintChunksPerSide ** 2; c++) {
-            const used = [...t.chunkSlots.slice(c * SLOTS, c * SLOTS + SLOTS)].filter((v) => v !== NO_TEXTURE)
-            if (used.length > 4 || new Set(used).size !== used.length) return `chunk ${c} has ${used.length} textures`
-          }
-          return ''
-        }
+				// 1. Auto-paint keeps every chunk within four textures and every texel summing to 255.
+				t.generate('hills', 7)
+				t.autoPaint(0, true)
+				check('auto-paint: four textures per chunk', fourRule() === '', fourRule())
+				let bad = 0
+				for (let p = 0; p < t.splatRes * t.splatRes; p++) {
+					const s = t.weights[p * 4] + t.weights[p * 4 + 1] + t.weights[p * 4 + 2] + t.weights[p * 4 + 3]
+					if (s !== 255) bad++
+				}
+				check('auto-paint: texel weights sum to 255', bad === 0, `${bad} texels off`)
 
-        // 1. Auto-paint keeps every chunk within four textures and every texel summing to 255.
-        t.generate('hills', 7)
-        t.autoPaint(0, true)
-        check('auto-paint: four textures per chunk', fourRule() === '', fourRule())
-        let bad = 0
-        for (let p = 0; p < t.splatRes * t.splatRes; p++) {
-          const s = t.weights[p * 4] + t.weights[p * 4 + 1] + t.weights[p * 4 + 2] + t.weights[p * 4 + 3]
-          if (s !== 255) bad++
-        }
-        check('auto-paint: texel weights sum to 255', bad === 0, `${bad} texels off`)
+				// 2. A chunk starts with palette entry 0 in its first slot, so three more textures fit, and
+				// a fifth is refused. A texture the chunk already has still paints.
+				const fresh = new Terrain(128)
+				fresh.setPalette(palette)
+				const texel = 0
+				check('paint: first extra texture takes', paintPixel(fresh, texel, 1, 0.5))
+				check('paint: second extra texture takes', paintPixel(fresh, texel, 2, 0.5))
+				check('paint: third extra texture takes', paintPixel(fresh, texel, 3, 0.5))
+				check('paint: a fifth texture is refused', paintPixel(fresh, texel, 4, 0.5) === false)
+				check('paint: a texture the chunk has still paints', paintPixel(fresh, texel, 2, 0.1) === true)
+				let sum = 0
+				for (let k = 0; k < 4; k++) sum += fresh.weights[k]
+				check('paint: texel still sums to 255', sum === 255, `sum ${sum}`)
+				check('paint: the chunk lists its four', [...fresh.chunkSlots.slice(0, 4)].join(',') === '0,1,2,3', `${[...fresh.chunkSlots.slice(0, 4)]}`)
 
-        // 2. A chunk starts with palette entry 0 in its first slot, so three more textures fit, and
-        // a fifth is refused. A texture the chunk already has still paints.
-        const fresh = new Terrain(128)
-        fresh.setPalette(palette)
-        const texel = 0
-        check('paint: first extra texture takes', paintPixel(fresh, texel, 1, 0.5))
-        check('paint: second extra texture takes', paintPixel(fresh, texel, 2, 0.5))
-        check('paint: third extra texture takes', paintPixel(fresh, texel, 3, 0.5))
-        check('paint: a fifth texture is refused', paintPixel(fresh, texel, 4, 0.5) === false)
-        check('paint: a texture the chunk has still paints', paintPixel(fresh, texel, 2, 0.1) === true)
-        let sum = 0
-        for (let k = 0; k < 4; k++) sum += fresh.weights[k]
-        check('paint: texel still sums to 255', sum === 255, `sum ${sum}`)
-        check('paint: the chunk lists its four', [...fresh.chunkSlots.slice(0, 4)].join(',') === '0,1,2,3', `${[...fresh.chunkSlots.slice(0, 4)]}`)
+				// 3. Undo and redo restore weights and chunk slots. Chunk 1 has room, so the stroke changes it.
+				const chunk1Texel = 32 // splat texels per chunk side is 32
+				const before = { w: fresh.weights.slice(), s: fresh.chunkSlots.slice() }
+				const stroke = new TerrainStroke(fresh, 'test', { splat: true })
+				const rect = { x0: chunk1Texel, z0: 0, x1: chunk1Texel + 15, z1: 0 }
+				for (let p = chunk1Texel; p <= rect.x1; p++) paintPixel(fresh, p, 6, 1)
+				stroke.touchSplat(rect)
+				fresh.markSplatDirty()
+				const cmd = stroke.finish()
+				const after = { w: fresh.weights.slice(), s: fresh.chunkSlots.slice() }
+				check(
+					'undo: the stroke changed the map',
+					after.s.some((v, i) => v !== before.s[i]),
+				)
+				check('undo: stroke recorded', cmd !== null)
+				cmd.undo()
+				check(
+					'undo: weights restored',
+					fresh.weights.every((v, i) => v === before.w[i]),
+				)
+				check(
+					'undo: chunk slots restored',
+					fresh.chunkSlots.every((v, i) => v === before.s[i]),
+				)
+				cmd.redo()
+				check(
+					'redo: weights come back',
+					fresh.weights.every((v, i) => v === after.w[i]),
+				)
+				check(
+					'redo: chunk slots come back',
+					fresh.chunkSlots.every((v, i) => v === after.s[i]),
+				)
 
-        // 3. Undo and redo restore weights and chunk slots. Chunk 1 has room, so the stroke changes it.
-        const chunk1Texel = 32 // splat texels per chunk side is 32
-        const before = { w: fresh.weights.slice(), s: fresh.chunkSlots.slice() }
-        const stroke = new TerrainStroke(fresh, 'test', { splat: true })
-        const rect = { x0: chunk1Texel, z0: 0, x1: chunk1Texel + 15, z1: 0 }
-        for (let p = chunk1Texel; p <= rect.x1; p++) paintPixel(fresh, p, 6, 1)
-        stroke.touchSplat(rect)
-        fresh.markSplatDirty()
-        const cmd = stroke.finish()
-        const after = { w: fresh.weights.slice(), s: fresh.chunkSlots.slice() }
-        check('undo: the stroke changed the map', after.s.some((v, i) => v !== before.s[i]))
-        check('undo: stroke recorded', cmd !== null)
-        cmd.undo()
-        check('undo: weights restored', fresh.weights.every((v, i) => v === before.w[i]))
-        check('undo: chunk slots restored', fresh.chunkSlots.every((v, i) => v === before.s[i]))
-        cmd.redo()
-        check('redo: weights come back', fresh.weights.every((v, i) => v === after.w[i]))
-        check('redo: chunk slots come back', fresh.chunkSlots.every((v, i) => v === after.s[i]))
+				// 4. Copy from one map and paste into another with a different palette: textures merge, the
+				// target keeps the four-texture rule, and undo puts the palette back.
+				const src = new Terrain(128)
+				src.setPalette(['#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777', '#888888', '#999999'])
+				for (let p = 0; p < 64; p++) paintPixel(src, p, 8, 1) // the source's ninth texture, in one chunk
+				const srcObjects = new ObjectLayer(src)
+				const clip = copyRegion(src, srcObjects, { x0: 0, z0: 0, x1: 16, z1: 16 }, src.palette.entries)
+				check('copy: the clip carries its texture', clip.palette.includes('#999999'), clip.palette.join(' '))
 
-        // 4. Copy from one map and paste into another with a different palette: textures merge, the
-        // target keeps the four-texture rule, and undo puts the palette back.
-        const src = new Terrain(128)
-        src.setPalette(['#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777', '#888888', '#999999'])
-        for (let p = 0; p < 64; p++) paintPixel(src, p, 8, 1) // the source's ninth texture, in one chunk
-        const srcObjects = new ObjectLayer(src)
-        const clip = copyRegion(src, srcObjects, { x0: 0, z0: 0, x1: 16, z1: 16 }, src.palette.entries)
-        check('copy: the clip carries its texture', clip.palette.includes('#999999'), clip.palette.join(' '))
+				const dst = new Terrain(128)
+				let dstPalette = ['#5d8a2f', '#3f6b25', '#7a5a3a', '#7d7a76', '#d2bb84', '#e8eef5', '#8b857c', '#a07a50']
+				dst.setPalette(dstPalette)
+				for (let p = 0; p < dst.splatRes * dst.splatRes; p += 1) {
+					// Fill every chunk's free slots so the paste has to fit into full chunks.
+					paintPixel(dst, p, 1, 0.3)
+					paintPixel(dst, p, 2, 0.3)
+					paintPixel(dst, p, 3, 0.3)
+				}
+				const dstObjects = new ObjectLayer(dst)
+				const beforeSlots = dst.chunkSlots.slice()
+				const beforePalette = [...dstPalette]
+				const pasteCmd = pasteRegion(
+					dst,
+					dstObjects,
+					dstPalette,
+					(t) => (dstPalette = t),
+					clip,
+					4,
+					4,
+					{ terrain: false, textures: true, objects: false, blend: 0, heightOffset: 0 },
+					() => {},
+				)
+				check('paste: applied', pasteCmd !== null)
+				check('paste: palette gained the clip texture', dstPalette.includes('#999999'))
+				check('paste: four-texture rule still holds after pasting', fourRule() === '', fourRule())
+				pasteCmd.undo()
+				check('paste undo: palette restored', dstPalette.length === beforePalette.length && dstPalette.every((p, i) => p === beforePalette[i]))
+				check(
+					'paste undo: chunk slots restored',
+					dst.chunkSlots.every((v, i) => v === beforeSlots[i]),
+				)
 
-        const dst = new Terrain(128)
-        let dstPalette = ['#5d8a2f', '#3f6b25', '#7a5a3a', '#7d7a76', '#d2bb84', '#e8eef5', '#8b857c', '#a07a50']
-        dst.setPalette(dstPalette)
-        for (let p = 0; p < dst.splatRes * dst.splatRes; p += 1) {
-          // Fill every chunk's free slots so the paste has to fit into full chunks.
-          paintPixel(dst, p, 1, 0.3)
-          paintPixel(dst, p, 2, 0.3)
-          paintPixel(dst, p, 3, 0.3)
-        }
-        const dstObjects = new ObjectLayer(dst)
-        const beforeSlots = dst.chunkSlots.slice()
-        const beforePalette = [...dstPalette]
-        const pasteCmd = pasteRegion(
-          dst,
-          dstObjects,
-          dstPalette,
-          (t) => (dstPalette = t),
-          clip,
-          4,
-          4,
-          { terrain: false, textures: true, objects: false, blend: 0, heightOffset: 0 },
-          () => {},
-        )
-        check('paste: applied', pasteCmd !== null)
-        check('paste: palette gained the clip texture', dstPalette.includes('#999999'))
-        check('paste: four-texture rule still holds after pasting', fourRule() === '', fourRule())
-        pasteCmd.undo()
-        check('paste undo: palette restored', dstPalette.length === beforePalette.length && dstPalette.every((p, i) => p === beforePalette[i]))
-        check('paste undo: chunk slots restored', dst.chunkSlots.every((v, i) => v === beforeSlots[i]))
+				// 5. Auto-paint on the largest map keeps the rule and runs in reasonable time.
+				const big = new Terrain(512)
+				big.generate('mountains', 11)
+				const t0 = performance.now()
+				big.autoPaint(0, true)
+				const ms = Math.round(performance.now() - t0)
+				log('TIMING autoPaint 512 cells: ' + ms + ' ms')
+				let badBig = 0
+				for (let c = 0; c < big.paintChunksPerSide ** 2; c++) {
+					const used = [...big.chunkSlots.slice(c * SLOTS, c * SLOTS + SLOTS)].filter((v) => v !== NO_TEXTURE)
+					if (used.length > 4 || new Set(used).size !== used.length) badBig++
+				}
+				check('auto-paint 512: four textures per chunk', badBig === 0, `${badBig} chunks over the limit`)
 
-        // 5. Auto-paint on the largest map keeps the rule and runs in reasonable time.
-        const big = new Terrain(512)
-        big.generate('mountains', 11)
-        const t0 = performance.now()
-        big.autoPaint(0, true)
-        const ms = Math.round(performance.now() - t0)
-        log('TIMING autoPaint 512 cells: ' + ms + ' ms')
-        let badBig = 0
-        for (let c = 0; c < big.paintChunksPerSide ** 2; c++) {
-          const used = [...big.chunkSlots.slice(c * SLOTS, c * SLOTS + SLOTS)].filter((v) => v !== NO_TEXTURE)
-          if (used.length > 4 || new Set(used).size !== used.length) badBig++
-        }
-        check('auto-paint 512: four textures per chunk', badBig === 0, `${badBig} chunks over the limit`)
-
-        log(failures === 0 ? 'ALL_PASSED' : `FAILURES ${failures}`)
-      } catch (e) {
-        log('FAIL exception ' + (e && e.stack ? e.stack : e))
-      }
-    </script>
-  </body>
+				log(failures === 0 ? 'ALL_PASSED' : `FAILURES ${failures}`)
+			} catch (e) {
+				log('FAIL exception ' + (e && e.stack ? e.stack : e))
+			}
+		</script>
+	</body>
 </html>

@@ -48,9 +48,7 @@ function decode(data: Uint8Array, w: number, h: number, kind: 1 | 3): Uint8Array
 			const p0 = widen(c0)
 			const p1 = widen(c1)
 			const four = kind !== 1 || c0 > c1
-			const pal = four
-				? [p0, p1, p0.map((v, k) => Math.round((2 * v + p1[k]) / 3)), p0.map((v, k) => Math.round((v + 2 * p1[k]) / 3))]
-				: [p0, p1, p0.map((v, k) => Math.round((v + p1[k]) / 2)), [0, 0, 0]]
+			const pal = four ? [p0, p1, p0.map((v, k) => Math.round((2 * v + p1[k]) / 3)), p0.map((v, k) => Math.round((v + 2 * p1[k]) / 3))] : [p0, p1, p0.map((v, k) => Math.round((v + p1[k]) / 2)), [0, 0, 0]]
 			const idx = (data[cs + 4] | (data[cs + 5] << 8) | (data[cs + 6] << 16) | (data[cs + 7] << 24)) >>> 0
 			for (let t = 0; t < 16; t++) {
 				const x = bx * 4 + (t & 3)
@@ -198,10 +196,7 @@ test('a smaller or oblong tileset fills the larger levels from its first and the
 			// Below 4x4 a level is one block whose texels past the side are padding.
 			const got = decode(levelOf(out, k), Math.max(4, s), Math.max(4, s), 3)
 			const want = resample(decode(l.data, l.width, l.height, 1), l.width, l.height, s)
-			for (let y = 0; y < s; y++)
-				for (let x = 0; x < s; x++)
-					for (let c = 0; c < 3; c++)
-						assert.equal(got[(y * Math.max(4, s) + x) * 4 + c], want[(y * s + x) * 4 + c], `${w}x${h} level ${k} at ${x},${y}`)
+			for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) for (let c = 0; c < 3; c++) assert.equal(got[(y * Math.max(4, s) + x) * 4 + c], want[(y * s + x) * 4 + c], `${w}x${h} level ${k} at ${x},${y}`)
 		}
 	}
 })
@@ -292,8 +287,7 @@ test('the sheen comes from the _s twin’s explicit alpha, resampled exactly', (
 
 test('RGBA pixels encode closely, and a colour entry comes within one step of its colour', () => {
 	const px = new Uint8Array(RES * RES * 4)
-	for (let y = 0; y < RES; y++)
-		for (let x = 0; x < RES; x++) px.set([x, y, (x + y) >> 1, (x * 7) & 255], (y * RES + x) * 4)
+	for (let y = 0; y < RES; y++) for (let x = 0; x < RES; x++) px.set([x, y, (x + y) >> 1, (x * 7) & 255], (y * RES + x) * 4)
 	const out = new Uint8Array(L0)
 	encodeColour(out, px)
 	encodeAlpha(out, px)

@@ -250,7 +250,7 @@ function heavyPaint(d: MapDocument, palette: string[], rand: () => number, holeS
 	// Holes in clusters of a paint chunk's quarter, as caves and pits would cut them.
 	const cells = t.size
 	const quarter = CHUNK_CELLS / 2
-	const clusters = Math.round(((cells / quarter) * (cells / quarter)) * holeShare)
+	const clusters = Math.round((cells / quarter) * (cells / quarter) * holeShare)
 	for (let n = 0; n < clusters; n++) {
 		const x0 = Math.floor(rand() * (cells / quarter)) * quarter
 		const z0 = Math.floor(rand() * (cells / quarter)) * quarter

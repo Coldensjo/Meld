@@ -136,8 +136,8 @@
 		<span class="k">Size</span><span>{tiles}</span>
 		{#if editor.region}<span class="k">Region</span><span title={editor.region}>{editor.region}</span>{/if}
 		{#if unknown.length}
-			<span class="k">The client's</span><span
-				title="This map was saved before Meld kept its {unknown.join(' and ')}, so it holds only what was drawn since: Compile writes that and leaves the client's own as they are">{unknown.join('; ')}</span
+			<span class="k">The client's</span><span title="This map was saved before Meld kept its {unknown.join(' and ')}, so it holds only what was drawn since: Compile writes that and leaves the client's own as they are"
+				>{unknown.join('; ')}</span
 			>
 		{/if}
 		{#if editor.filePath}<span class="k">File</span><span title={editor.filePath}>{editor.filePath}</span>{/if}
@@ -168,7 +168,12 @@
 			<span class="k"></span>
 			<span class="screen">
 				<canvas bind:this={preview} width={160} height={120} class:hidden={!previewOk}></canvas>
-				<button disabled={writing || ui.busy || !hasBackend()} onclick={() => void importScreen()} title="Make a PNG of your own the map's loading screen: written into the client's patch at once ({LOADING_SCREEN_SIZE}x{LOADING_SCREEN_SIZE}, stretched to the screen as the game's own)">{writing ? 'Writing…' : 'Picture…'}</button>
+				<button
+					disabled={writing || ui.busy || !hasBackend()}
+					onclick={() => void importScreen()}
+					title="Make a PNG of your own the map's loading screen: written into the client's patch at once ({LOADING_SCREEN_SIZE}x{LOADING_SCREEN_SIZE}, stretched to the screen as the game's own)"
+					>{writing ? 'Writing…' : 'Picture…'}</button
+				>
 			</span>
 			{#if screenError}<span class="k"></span><span class="error">{screenError}</span>{/if}
 			<label class="k" for="mi-players">Player limit</label>
@@ -184,7 +189,9 @@
 				<input type="number" step="any" value={info.ghostY} onchange={(e) => setInfo({ ghostY: num(e) })} aria-label="Ghost entrance y" />
 			</span>
 		</div>
-		<p class="dim">Written on publish: the kind, name, zone and loading screen into the client's Map.dbc (Picture… writes its own loading screen at once), and the kind, zone, player limit and ghost entrance into the server's map_template.</p>
+		<p class="dim">
+			Written on publish: the kind, name, zone and loading screen into the client's Map.dbc (Picture… writes its own loading screen at once), and the kind, zone, player limit and ghost entrance into the server's map_template.
+		</p>
 	{/if}
 	<div class="section">World</div>
 	<label class="check" title="Ocean at the sea level wherever the ground lies below it. Lakes and rivers are painted with the Water tool."

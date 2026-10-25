@@ -10,16 +10,16 @@ export type PasteHeightMode = 'set' | 'max' | 'min' | 'add' | 'subtract'
 
 /** The height a pasted vertex gives the ground at `cur`, before the edge blend; `offset` raises the paste. */
 export function pastedHeight(mode: PasteHeightMode, cur: number, src: number, clipLow: number, offset: number): number {
-  switch (mode) {
-    case 'max':
-      return Math.max(cur, src + offset)
-    case 'min':
-      return Math.min(cur, src + offset)
-    case 'add':
-      return cur + (src - clipLow) + offset
-    case 'subtract':
-      return cur - (src - clipLow) + offset
-    default:
-      return src + offset
-  }
+	switch (mode) {
+		case 'max':
+			return Math.max(cur, src + offset)
+		case 'min':
+			return Math.min(cur, src + offset)
+		case 'add':
+			return cur + (src - clipLow) + offset
+		case 'subtract':
+			return cur - (src - clipLow) + offset
+		default:
+			return src + offset
+	}
 }

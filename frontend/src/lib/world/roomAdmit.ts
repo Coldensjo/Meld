@@ -41,10 +41,11 @@ export class RoomAdmit {
 
 	/** Whether the sphere's centre is in a room the flood reached. */
 	admits(s: THREE.Sphere): boolean {
-		const nav = this.nav, visible = this.visible
+		const nav = this.nav,
+			visible = this.visible
 		if (!nav || !visible) return false
 		const c = s.center
-		const key = Math.round(c.x * QUANT) * 73856093 ^ Math.round(c.y * QUANT) * 19349663 ^ Math.round(c.z * QUANT) * 83492791
+		const key = (Math.round(c.x * QUANT) * 73856093) ^ (Math.round(c.y * QUANT) * 19349663) ^ (Math.round(c.z * QUANT) * 83492791)
 		let room = this.rooms.get(key)
 		if (room === undefined) {
 			room = this.roomOf(nav, c)

@@ -15,15 +15,7 @@ export interface GroundSampler {
  * went below the surface through a hole stays under until it comes back above the ground, so it does
  * not hit the ground's underside where it leaves the hole's cells.
  */
-export function rayMarchGround(
-	g: GroundSampler,
-	box: THREE.Box3,
-	hit: THREE.Vector3,
-	ray: THREE.Ray,
-	out: THREE.Vector3,
-	maxDist: number,
-	solid: boolean,
-): boolean {
+export function rayMarchGround(g: GroundSampler, box: THREE.Box3, hit: THREE.Vector3, ray: THREE.Ray, out: THREE.Vector3, maxDist: number, solid: boolean): boolean {
 	const step = g.cellSize * 0.5
 	const o = ray.origin
 	const dir = ray.direction
@@ -55,7 +47,8 @@ export function rayMarchGround(
 		else if (overGround) under = false
 		if (!above && !under) {
 			// Binary refine between prevT and t.
-			let lo = prevT, hi = t
+			let lo = prevT,
+				hi = t
 			for (let i = 0; i < 12; i++) {
 				const mid = (lo + hi) * 0.5
 				const mx = o.x + dir.x * mid

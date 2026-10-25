@@ -29,7 +29,10 @@ export function blockGaps(block: TileBlock, have: ReadonlySet<number>): number {
 export function fullBlock(tiles: ReadonlyArray<{ X: number; Y: number }>, maxSize: number): TileBlock | null {
 	if (!tiles.length) return null
 	const have = new Set(tiles.map((t) => tileKey(t.X, t.Y)))
-	let x0 = SIDE, y0 = SIDE, x1 = 0, y1 = 0
+	let x0 = SIDE,
+		y0 = SIDE,
+		x1 = 0,
+		y1 = 0
 	for (const t of tiles) {
 		x0 = Math.min(x0, t.X)
 		y0 = Math.min(y0, t.Y)

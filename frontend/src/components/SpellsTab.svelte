@@ -17,11 +17,7 @@
 	/** The most spells a creature_spells row holds. */
 	const SLOTS = 8
 
-	let {
-		entry,
-		onsaved,
-		dirty = $bindable(false),
-	}: { entry: number; onsaved: (listId: number) => void; dirty?: boolean } = $props()
+	let { entry, onsaved, dirty = $bindable(false) }: { entry: number; onsaved: (listId: number) => void; dirty?: boolean } = $props()
 
 	let list = $state<vmangos.CreatureSpells | null>(null)
 	const rows = new RowList<vmangos.CreatureSpell[]>({
@@ -116,10 +112,7 @@
 		}
 		refs[r.id] = r
 		asked.add(r.id)
-		rows.rows = [
-			...rows.rows,
-			vmangos.CreatureSpell.createFrom({ spell: r.id, probability: 100, castTarget: 1, targetParam1: 0, targetParam2: 0, castFlags: 0, initialMin: 5, initialMax: 10, repeatMin: 10, repeatMax: 20, scriptId: 0 }),
-		]
+		rows.rows = [...rows.rows, vmangos.CreatureSpell.createFrom({ spell: r.id, probability: 100, castTarget: 1, targetParam1: 0, targetParam2: 0, castFlags: 0, initialMin: 5, initialMax: 10, repeatMin: 10, repeatMax: 20, scriptId: 0 })]
 	}
 </script>
 

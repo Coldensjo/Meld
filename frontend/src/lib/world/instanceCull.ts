@@ -7,48 +7,48 @@ import * as THREE from 'three'
 
 /** What is in view this frame, for culling. */
 export interface CullView {
-  /** An instance is drawn when any of these holds it: the camera's frustum and, with shadows, the shadow camera's. */
-  frustums: THREE.Frustum[]
-  /** The camera `frustums[0]` belongs to, which a WMO culled by group culls its groups for (#198). */
-  camera?: THREE.Camera
-  /**
-   * The near shadow cascade's camera and frustum (null without shadows), redrawn every frame, which a
-   * WMO culled by group also culls its groups for (#215).
-   */
-  shadowCamera?: THREE.Camera | null
-  shadowFrustum?: THREE.Frustum | null
-  /** An instance is also drawn when it touches one of these: the reach of the shadowed point lights. */
-  spheres?: THREE.Sphere[]
-  /** The camera's position. */
-  eye: THREE.Vector3
-  /** Pixels one world unit covers at a distance of one, for the small-model cutoff. */
-  pxPerUnit: number
-  /** Instances whose bounds would cover fewer pixels than this are left out; 0 keeps them all. */
-  cutoffPx: number
-  /** Instances whose bounds cover fewer pixels than this are drawn with their model's LOD; 0 never. */
-  lodPx?: number
+	/** An instance is drawn when any of these holds it: the camera's frustum and, with shadows, the shadow camera's. */
+	frustums: THREE.Frustum[]
+	/** The camera `frustums[0]` belongs to, which a WMO culled by group culls its groups for (#198). */
+	camera?: THREE.Camera
+	/**
+	 * The near shadow cascade's camera and frustum (null without shadows), redrawn every frame, which a
+	 * WMO culled by group also culls its groups for (#215).
+	 */
+	shadowCamera?: THREE.Camera | null
+	shadowFrustum?: THREE.Frustum | null
+	/** An instance is also drawn when it touches one of these: the reach of the shadowed point lights. */
+	spheres?: THREE.Sphere[]
+	/** The camera's position. */
+	eye: THREE.Vector3
+	/** Pixels one world unit covers at a distance of one, for the small-model cutoff. */
+	pxPerUnit: number
+	/** Instances whose bounds would cover fewer pixels than this are left out; 0 keeps them all. */
+	cutoffPx: number
+	/** Instances whose bounds cover fewer pixels than this are drawn with their model's LOD; 0 never. */
+	lodPx?: number
 	/**
 	 * Whether a batch culled as doodads (`cullSpheres`' `doodads`) leaves out the instances past the
 	 * client's draw distance for their size (`doodadReach`): the world view's, as the game draws them.
 	 */
 	doodadReach?: boolean
-  /**
-   * With the camera in a WMO room, the open world shows only through the room's doorways: an
-   * instance must also meet one of these frustums (none, in a sealed room). Null outside.
-   */
-  gate?: THREE.Frustum[] | null
-  /** The object the gate leaves alone: the building the camera is in, gated by its own groups. */
-  gateExempt?: number
-  /** With a gate, also lets through what stands in a room the flood reached (`world/roomAdmit.ts`). */
-  gateAdmits?: ((s: THREE.Sphere) => boolean) | null
+	/**
+	 * With the camera in a WMO room, the open world shows only through the room's doorways: an
+	 * instance must also meet one of these frustums (none, in a sealed room). Null outside.
+	 */
+	gate?: THREE.Frustum[] | null
+	/** The object the gate leaves alone: the building the camera is in, gated by its own groups. */
+	gateExempt?: number
+	/** With a gate, also lets through what stands in a room the flood reached (`world/roomAdmit.ts`). */
+	gateAdmits?: ((s: THREE.Sphere) => boolean) | null
 }
 
 /** Whether a sphere passes the view's room gate (always, with no gate). */
 export function throughGate(view: CullView, s: THREE.Sphere): boolean {
-  const gate = view.gate
-  if (!gate) return true
-  for (let k = 0; k < gate.length; k++) if (gate[k].intersectsSphere(s)) return true
-  return view.gateAdmits?.(s) ?? false
+	const gate = view.gate
+	if (!gate) return true
+	for (let k = 0; k < gate.length; k++) if (gate[k].intersectsSphere(s)) return true
+	return view.gateAdmits?.(s) ?? false
 }
 
 const sphere = new THREE.Sphere()
@@ -75,13 +75,13 @@ export function doodadReach(radius: number): number {
  * radius.
  */
 export function instanceSphere(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4, out: Float32Array, o: number) {
-  if (!geometry.boundingSphere) geometry.computeBoundingSphere()
-  const s = geometry.boundingSphere!
-  sphere.center.copy(s.center).applyMatrix4(matrix)
-  out[o] = sphere.center.x
-  out[o + 1] = sphere.center.y
-  out[o + 2] = sphere.center.z
-  out[o + 3] = s.radius * matrix.getMaxScaleOnAxis()
+	if (!geometry.boundingSphere) geometry.computeBoundingSphere()
+	const s = geometry.boundingSphere!
+	sphere.center.copy(s.center).applyMatrix4(matrix)
+	out[o] = sphere.center.x
+	out[o + 1] = sphere.center.y
+	out[o + 2] = sphere.center.z
+	out[o + 3] = s.radius * matrix.getMaxScaleOnAxis()
 }
 
 /**
@@ -91,38 +91,38 @@ export function instanceSphere(geometry: THREE.BufferGeometry, matrix: THREE.Mat
  * an instance further across the ground than its `doodadReach` past its radius is left out too.
  */
 export function cullSpheres(view: CullView, spheres: Float32Array, n: number, out: number[], scratch: number[], exempt = -1, doodads = false): boolean {
-  scratch.length = 0
-  const { frustums, eye, pxPerUnit, cutoffPx } = view
+	scratch.length = 0
+	const { frustums, eye, pxPerUnit, cutoffPx } = view
 	const reachCut = doodads && view.doodadReach === true
-  for (let i = 0; i < n; i++) {
-    const o = i * 4
-    const r = spheres[o + 3]
+	for (let i = 0; i < n; i++) {
+		const o = i * 4
+		const r = spheres[o + 3]
 		if (reachCut && r <= DOODAD_ALWAYS_RADIUS) {
 			const far = doodadReach(r) + r
 			const dx = spheres[o] - eye.x
 			const dz = spheres[o + 2] - eye.z
 			if (dx * dx + dz * dz > far * far) continue
 		}
-    sphere.center.set(spheres[o], spheres[o + 1], spheres[o + 2])
-    sphere.radius = r
-    if (cutoffPx > 0) {
-      const d = eye.distanceTo(sphere.center)
-      // Seen from outside, the model covers about its diameter over its distance.
-      if (d > r && (2 * r * pxPerUnit) / d < cutoffPx) continue
-    }
-    let seen = false
-    for (let k = 0; !seen && k < frustums.length; k++) seen = frustums[k].intersectsSphere(sphere)
-    const reach = view.spheres
-    for (let k = 0; !seen && reach && k < reach.length; k++) seen = reach[k].intersectsSphere(sphere)
-    if (seen && i !== exempt && !throughGate(view, sphere)) seen = false
-    if (seen) scratch.push(i)
-  }
-  let same = scratch.length === out.length
-  for (let k = 0; same && k < scratch.length; k++) if (scratch[k] !== out[k]) same = false
-  if (same) return false
-  out.length = scratch.length
-  for (let k = 0; k < scratch.length; k++) out[k] = scratch[k]
-  return true
+		sphere.center.set(spheres[o], spheres[o + 1], spheres[o + 2])
+		sphere.radius = r
+		if (cutoffPx > 0) {
+			const d = eye.distanceTo(sphere.center)
+			// Seen from outside, the model covers about its diameter over its distance.
+			if (d > r && (2 * r * pxPerUnit) / d < cutoffPx) continue
+		}
+		let seen = false
+		for (let k = 0; !seen && k < frustums.length; k++) seen = frustums[k].intersectsSphere(sphere)
+		const reach = view.spheres
+		for (let k = 0; !seen && reach && k < reach.length; k++) seen = reach[k].intersectsSphere(sphere)
+		if (seen && i !== exempt && !throughGate(view, sphere)) seen = false
+		if (seen) scratch.push(i)
+	}
+	let same = scratch.length === out.length
+	for (let k = 0; same && k < scratch.length; k++) if (scratch[k] !== out[k]) same = false
+	if (same) return false
+	out.length = scratch.length
+	for (let k = 0; k < scratch.length; k++) out[k] = scratch[k]
+	return true
 }
 
 /**
@@ -131,36 +131,38 @@ export function cullSpheres(view: CullView, spheres: Float32Array, n: number, ou
  * held exactly them, so the caller can skip re-packing.
  */
 export function splitLod(view: CullView, spheres: Float32Array, packed: number[], near: number[], far: number[], scratchNear: number[], scratchFar: number[]): boolean {
-  const { eye, pxPerUnit } = view
-  const lodPx = view.lodPx ?? 0
-  scratchNear.length = 0
-  scratchFar.length = 0
-  for (const i of packed) {
-    const o = i * 4
-    const r = spheres[o + 3]
-    const dx = spheres[o] - eye.x, dy = spheres[o + 1] - eye.y, dz = spheres[o + 2] - eye.z
-    const d = Math.sqrt(dx * dx + dy * dy + dz * dz)
-    if (lodPx > 0 && d > r && (2 * r * pxPerUnit) / d < lodPx) scratchFar.push(i)
-    else scratchNear.push(i)
-  }
-  const a = copyIfChanged(scratchNear, near)
-  const b = copyIfChanged(scratchFar, far)
-  return a || b
+	const { eye, pxPerUnit } = view
+	const lodPx = view.lodPx ?? 0
+	scratchNear.length = 0
+	scratchFar.length = 0
+	for (const i of packed) {
+		const o = i * 4
+		const r = spheres[o + 3]
+		const dx = spheres[o] - eye.x,
+			dy = spheres[o + 1] - eye.y,
+			dz = spheres[o + 2] - eye.z
+		const d = Math.sqrt(dx * dx + dy * dy + dz * dz)
+		if (lodPx > 0 && d > r && (2 * r * pxPerUnit) / d < lodPx) scratchFar.push(i)
+		else scratchNear.push(i)
+	}
+	const a = copyIfChanged(scratchNear, near)
+	const b = copyIfChanged(scratchFar, far)
+	return a || b
 }
 
 function copyIfChanged(from: number[], to: number[]): boolean {
-  let same = from.length === to.length
-  for (let k = 0; same && k < from.length; k++) if (from[k] !== to[k]) same = false
-  if (same) return false
-  to.length = from.length
-  for (let k = 0; k < from.length; k++) to[k] = from[k]
-  return true
+	let same = from.length === to.length
+	for (let k = 0; same && k < from.length; k++) if (from[k] !== to[k]) same = false
+	if (same) return false
+	to.length = from.length
+	for (let k = 0; k < from.length; k++) to[k] = from[k]
+	return true
 }
 
 /** Copies the matrices of the instances `packed` names (16 values each in `matrices`) to the front of `into`. */
 export function packMatrices(matrices: Float32Array, packed: number[], into: Float32Array) {
-  for (let k = 0; k < packed.length; k++) {
-    const s = packed[k] * 16
-    into.set(matrices.subarray(s, s + 16), k * 16)
-  }
+	for (let k = 0; k < packed.length; k++) {
+		const s = packed[k] * 16
+		into.set(matrices.subarray(s, s + 16), k * 16)
+	}
 }

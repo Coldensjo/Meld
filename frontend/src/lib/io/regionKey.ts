@@ -42,19 +42,7 @@ export function regionKey(input: RegionKeyInput): string {
 	const t = input.terrain
 	const s = input.settings
 	const settings = [s.palette, s.textureEffects, s.textureLooks, s.scopedEffects, s.chunkDataKnown, s.liquidsKnown, s.holesKnown]
-	return contentKey([
-		t.heights,
-		t.weights,
-		t.chunkSlots,
-		t.holes,
-		t.noEffect,
-		t.areaIds,
-		t.chunkFlags,
-		t.shadow,
-		JSON.stringify(settings),
-		JSON.stringify(input.objects),
-		JSON.stringify(liquidsToAdt(input.liquids)),
-	])
+	return contentKey([t.heights, t.weights, t.chunkSlots, t.holes, t.noEffect, t.areaIds, t.chunkFlags, t.shadow, JSON.stringify(settings), JSON.stringify(input.objects), JSON.stringify(liquidsToAdt(input.liquids))])
 }
 
 /** A part of the fingerprint: a typed array's bytes, a string, or nothing (an absent array). */

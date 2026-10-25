@@ -62,9 +62,7 @@
 <h4>Pool</h4>
 {#if s.pool}
 	<p class="dim">
-		Pool {s.pool}{s.poolName ? `, ${s.poolName}` : ''}: the server spawns {poolRule(s.poolLimit, size)}{s.poolElsewhere
-			? ` (${s.poolElsewhere} of them outside this region)`
-			: ''}.
+		Pool {s.pool}{s.poolName ? `, ${s.poolName}` : ''}: the server spawns {poolRule(s.poolLimit, size)}{s.poolElsewhere ? ` (${s.poolElsewhere} of them outside this region)` : ''}.
 	</p>
 	{#if s.motherPool}
 		<p class="dim">
@@ -112,8 +110,9 @@
 	</div>
 	<div class="row-buttons">
 		{#if s.motherPool}
-			<button title="Take pool {s.pool} out of master pool {s.motherPool}, so the server always fills it" onclick={() => engineRef.current?.changeSpawns(leaveMotherChanges(editor.spawns, s), `Leave master pool ${s.motherPool} (pool ${s.pool})`)}
-				>Leave the master pool</button
+			<button
+				title="Take pool {s.pool} out of master pool {s.motherPool}, so the server always fills it"
+				onclick={() => engineRef.current?.changeSpawns(leaveMotherChanges(editor.spawns, s), `Leave master pool ${s.motherPool} (pool ${s.pool})`)}>Leave the master pool</button
 			>
 		{:else}
 			<button

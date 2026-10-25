@@ -11,7 +11,11 @@ const type = (input, value) => {
 	input.value = value
 	input.dispatchEvent(new Event('input', { bubbles: true }))
 }
-const stageText = (name) => [...comp().querySelectorAll('[aria-label="Stages"] button')].find((b) => b.querySelector('strong').textContent === name)?.querySelector('.dim').textContent.trim()
+const stageText = (name) =>
+	[...comp().querySelectorAll('[aria-label="Stages"] button')]
+		.find((b) => b.querySelector('strong').textContent === name)
+		?.querySelector('.dim')
+		.textContent.trim()
 const caption = () => comp().querySelector('.caption')?.textContent.trim() ?? ''
 
 // Blizzard, Rank 1 (10).

@@ -129,10 +129,7 @@ export function fromMapData(m: mapfile.MapData): MapSnapshot {
 		liquidsKnown: version >= 4 && !m.liquidsUnknown,
 		liquidKinds: readLiquidKinds(m.liquidKinds),
 		// A format 4 map has no area IDs, chunk flags or no-effect cells.
-		chunkData:
-			version >= 5
-				? { areaIds: bytesU32(base64ToBytes(m.areaIds ?? '')), chunkFlags: base64ToBytes(m.chunkFlags ?? ''), noEffect: base64ToBytes(m.noEffect ?? '') }
-				: null,
+		chunkData: version >= 5 ? { areaIds: bytesU32(base64ToBytes(m.areaIds ?? '')), chunkFlags: base64ToBytes(m.chunkFlags ?? ''), noEffect: base64ToBytes(m.noEffect ?? '') } : null,
 		chunkDataKnown: version >= 5 && !m.chunkDataUnknown,
 		// Format 6 keeps the baked shadows; empty means the map holds none of its own.
 		shadows: m.shadows ? base64ToBytes(m.shadows) : null,

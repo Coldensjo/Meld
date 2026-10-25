@@ -11,10 +11,14 @@ const worldId = e.activeDocumentId()
 const worldDoc = e.doc
 // The camera looks at the block's middle (tile 32_49's) once that tile has loaded.
 const mid = { x: 32.5 * T, z: 49.5 * T }
-await P.until(() => {
-	const s = e.worldStats()
-	return s && s.loaded >= 9 && !s.loading && !s.queued ? s : null
-}, 120000, 'the tiles around the camera loaded')
+await P.until(
+	() => {
+		const s = e.worldStats()
+		return s && s.loaded >= 9 && !s.loading && !s.queued ? s : null
+	},
+	120000,
+	'the tiles around the camera loaded',
+)
 await P.frames(3)
 const c = e.controller
 const first = e.worldStats()
@@ -93,7 +97,9 @@ let unnamed = 0
 for (const t of worldDoc.world.tiles.values()) {
 	if (!t.ground) continue
 	const list = await (await fetch(`/wow/groundmodels?map=Azeroth&x=${t.x}&y=${t.y}`)).json()
-	for (const m of list) if (m.uid) uids.add(m.uid); else unnamed++
+	for (const m of list)
+		if (m.uid) uids.add(m.uid)
+		else unnamed++
 }
 const placedOnce = worldDoc.objects.objects.size === uids.size + unnamed && e.worldStats().models === worldDoc.objects.objects.size
 // A Sculpt click does nothing in a world view.
@@ -129,10 +135,14 @@ const scene = await window.__sceneText()
 const typesBefore = new Set(worldDoc.objects.batches.keys())
 c.setView(c.target.x + 4 * T, c.target.y, c.target.z, c.yaw, c.pitch, c.distance)
 const east = { x: c.target.x, z: c.target.z }
-await P.until(() => {
-	const s = e.worldStats()
-	return s && !s.loading && !s.queued && !Number.isNaN(e.doc.world.heightAt(east.x, east.z)) ? s : null
-}, 120000, 'the tiles four tiles east')
+await P.until(
+	() => {
+		const s = e.worldStats()
+		return s && !s.loading && !s.queued && !Number.isNaN(e.doc.world.heightAt(east.x, east.z)) ? s : null
+	},
+	120000,
+	'the tiles four tiles east',
+)
 const moved = e.worldStats()
 const westDropped = Number.isNaN(e.doc.world.heightAt(mid.x - 2 * T, mid.z))
 // What the dropped tiles alone used goes with them: no batch is left without objects, and the models

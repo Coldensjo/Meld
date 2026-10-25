@@ -47,7 +47,10 @@ export function importDoodadBrushes() {
 				problems.push(`${path}: ${errors[0] ?? 'no brush'}`)
 				continue
 			}
-			brush.name = uniqueName(brush.name, prefs.doodadBrushes.map((b) => b.name))
+			brush.name = uniqueName(
+				brush.name,
+				prefs.doodadBrushes.map((b) => b.name),
+			)
 			prefs.doodadBrushes = [...prefs.doodadBrushes, brush]
 			added.push(brush.name)
 			if (errors.length) problems.push(`${path}: ${errors[0]}`)
@@ -85,7 +88,10 @@ export function importModelSets() {
 				problems.push(`${path}: ${errors[0] ?? 'no set'}`)
 				continue
 			}
-			set.name = uniqueName(set.name, prefs.modelSets.map((s) => s.name))
+			set.name = uniqueName(
+				set.name,
+				prefs.modelSets.map((s) => s.name),
+			)
 			prefs.modelSets = [...prefs.modelSets, set]
 			added.push(set.name)
 			if (errors.length) problems.push(`${path}: ${errors[0]}`)

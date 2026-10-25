@@ -89,7 +89,7 @@ export class SpawnBrushTool implements Tool {
 		if (!hit) return
 		const brush = this.brush
 		if (!brush.entries.length) {
-			setStatus('The spawn brush has no creatures yet: pick some in the browser\'s Creatures tab below.', 6000)
+			setStatus("The spawn brush has no creatures yet: pick some in the browser's Creatures tab below.", 6000)
 			return
 		}
 		this.cmds = []
@@ -130,12 +130,14 @@ export class SpawnBrushTool implements Tool {
 		const label = this.erasing ? `Erase ${n} creature${n === 1 ? '' : 's'}` : `Spawn brush (${n} creature${n === 1 ? '' : 's'})`
 		ctx.history.push({
 			label,
-			undo: () => spawnsBatch(ctx.spawns, () => {
-				for (let i = cmds.length - 1; i >= 0; i--) cmds[i].undo()
-			}),
-			redo: () => spawnsBatch(ctx.spawns, () => {
-				for (const c of cmds) c.redo()
-			}),
+			undo: () =>
+				spawnsBatch(ctx.spawns, () => {
+					for (let i = cmds.length - 1; i >= 0; i--) cmds[i].undo()
+				}),
+			redo: () =>
+				spawnsBatch(ctx.spawns, () => {
+					for (const c of cmds) c.redo()
+				}),
 		})
 		setStatus(`${label}. Save them with File › Save Spawns.`, 4000)
 	}
@@ -174,7 +176,12 @@ export class SpawnBrushTool implements Tool {
 		const brush = this.brush
 		const radius = editor.brush.radius
 		const step = Math.max(1, radius * 0.25)
-		const key = this.planKey.begin().add(Math.round(hit.x / step)).add(Math.round(hit.z / step)).add(radius).add(ctx.spawns.changeStamp)
+		const key = this.planKey
+			.begin()
+			.add(Math.round(hit.x / step))
+			.add(Math.round(hit.z / step))
+			.add(radius)
+			.add(ctx.spawns.changeStamp)
 		key.add(brush.density).add(brush.spacing).add(brush.facing).add(brush.maxSlope).add(brush.avoidWater)
 		for (const e of brush.entries) key.add(e.entry).add(e.weight)
 		if (!key.changed()) return

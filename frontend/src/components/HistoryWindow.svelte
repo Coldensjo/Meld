@@ -50,11 +50,7 @@
 	<aside class="history" aria-label="History">
 		<header>
 			<span>History</span>
-			<span
-				class="count"
-				title="The most steps kept is {HISTORY_LIMIT}, holding at most {mb(HISTORY_BYTES)} of saved terrain together; past either the oldest go."
-				>{steps.length} / {HISTORY_LIMIT} · {mb(held.bytes)}</span
-			>
+			<span class="count" title="The most steps kept is {HISTORY_LIMIT}, holding at most {mb(HISTORY_BYTES)} of saved terrain together; past either the oldest go.">{steps.length} / {HISTORY_LIMIT} · {mb(held.bytes)}</span>
 			<button class="close" onclick={() => (ui.history = false)} title="Close" aria-label="Close the history">✕</button>
 		</header>
 		<ol bind:this={list}>

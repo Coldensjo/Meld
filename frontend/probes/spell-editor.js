@@ -14,9 +14,9 @@ const openTab = async (name) => {
 	button(root().querySelector('nav.tabs'), name).click()
 	await P.frames(1)
 }
-const field = (label) =>
-	[...root().querySelectorAll('.grid > label')].find((l) => (l.querySelector('span')?.textContent ?? l.firstChild?.textContent ?? '').split(' · ')[0].trim() === label)?.querySelector('input, select, textarea')
-const tooltip = () => [...root().querySelectorAll('.look .tip .line, .look .tip .tip-text')].map((l) => (l.querySelectorAll('span').length ? [...l.querySelectorAll('span')].map((s) => s.textContent.trim()).join(' | ') : l.textContent.trim()))
+const field = (label) => [...root().querySelectorAll('.grid > label')].find((l) => (l.querySelector('span')?.textContent ?? l.firstChild?.textContent ?? '').split(' · ')[0].trim() === label)?.querySelector('input, select, textarea')
+const tooltip = () =>
+	[...root().querySelectorAll('.look .tip .line, .look .tip .tip-text')].map((l) => (l.querySelectorAll('span').length ? [...l.querySelectorAll('span')].map((s) => s.textContent.trim()).join(' | ') : l.textContent.trim()))
 const effects = () => [...root().querySelectorAll('.effects li')].map((l) => l.textContent.trim())
 const actions = () => root().querySelector('header .actions')
 

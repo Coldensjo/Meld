@@ -145,10 +145,8 @@
 				{#if picked}
 					<div class="buttons">
 						<button onclick={() => copy(picked, 'the name')} title="Copy the icon's name, the file's name under Interface\Icons">Copy name</button>
-						<button
-							disabled={!spells?.spellIconId}
-							onclick={() => spells && copy(String(spells.spellIconId), 'the spell icon ID')}
-							title="Copy the SpellIcon.dbc ID that names this icon, the number a spell's SpellIconID holds">Copy spell icon ID{spells?.spellIconId ? ` (${spells.spellIconId})` : ''}</button
+						<button disabled={!spells?.spellIconId} onclick={() => spells && copy(String(spells.spellIconId), 'the spell icon ID')} title="Copy the SpellIcon.dbc ID that names this icon, the number a spell's SpellIconID holds"
+							>Copy spell icon ID{spells?.spellIconId ? ` (${spells.spellIconId})` : ''}</button
 						>
 						<button onclick={exportPicked} title="Save this icon as a PNG file in a folder">Export as PNG…</button>
 					</div>

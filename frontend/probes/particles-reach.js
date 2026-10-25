@@ -32,7 +32,11 @@ for (let v = 0; v < 4; v++) {
 	for (let tries = 0; tries < 5 && !got?.still; tries++) {
 		await P.frames(3)
 		got = {}
-		for (const [k, on] of [['off', false], ['on', true], ['off2', false]]) {
+		for (const [k, on] of [
+			['off', false],
+			['on', true],
+			['off2', false],
+		]) {
 			for (const [l, reach] of saved) l.reach = on ? reach : Infinity
 			pools = new Set()
 			await P.frames(1)

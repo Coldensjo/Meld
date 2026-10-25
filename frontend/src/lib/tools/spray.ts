@@ -12,7 +12,7 @@ export const MAX_DABS = 2048
  * alpha texels; ours is at least one splat texel (`texel`), so a dab always reaches a texel centre.
  */
 export function sprayDabRadius(size: number, texel: number): number {
-  return Math.max(texel, (size * ALPHA_TEXEL) / 2)
+	return Math.max(texel, (size * ALPHA_TEXEL) / 2)
 }
 
 /**
@@ -21,7 +21,7 @@ export function sprayDabRadius(size: number, texel: number): number {
  * while the dab count already scales with it.
  */
 export function sprayAmount(strength: number): number {
-  return 1 - Math.pow(1 - Math.min(1, Math.max(0, strength)), 10 / 60)
+	return 1 - Math.pow(1 - Math.min(1, Math.max(0, strength)), 10 / 60)
 }
 
 /**
@@ -33,26 +33,17 @@ export function sprayAmount(strength: number): number {
  * points instead, which spreads the same number of dabs without visiting every grid point. The chance is
  * scaled to a 60 Hz frame, so the spray rate doesn't depend on the frame rate.
  */
-export function sprayDabs(
-  cx: number,
-  cz: number,
-  radius: number,
-  dab: number,
-  pressure: number,
-  dt: number,
-  rand: () => number,
-  out: Float32Array,
-): number {
-  if (radius <= 0 || dab <= 0 || pressure <= 0) return 0
-  const step = dab / 4
-  const points = Math.PI * (radius / step) ** 2
-  const expected = points * (pressure / 1000) * dt * 60
-  const n = Math.min(Math.floor(expected + rand()), MAX_DABS, out.length >> 1)
-  for (let i = 0; i < n; i++) {
-    const r = radius * Math.sqrt(rand())
-    const a = 2 * Math.PI * rand()
-    out[i * 2] = cx + r * Math.cos(a)
-    out[i * 2 + 1] = cz + r * Math.sin(a)
-  }
-  return n
+export function sprayDabs(cx: number, cz: number, radius: number, dab: number, pressure: number, dt: number, rand: () => number, out: Float32Array): number {
+	if (radius <= 0 || dab <= 0 || pressure <= 0) return 0
+	const step = dab / 4
+	const points = Math.PI * (radius / step) ** 2
+	const expected = points * (pressure / 1000) * dt * 60
+	const n = Math.min(Math.floor(expected + rand()), MAX_DABS, out.length >> 1)
+	for (let i = 0; i < n; i++) {
+		const r = radius * Math.sqrt(rand())
+		const a = 2 * Math.PI * rand()
+		out[i * 2] = cx + r * Math.cos(a)
+		out[i * 2 + 1] = cz + r * Math.sin(a)
+	}
+	return n
 }

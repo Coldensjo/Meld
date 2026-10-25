@@ -60,5 +60,5 @@ test('the gate keeps what stands in a reached room even with no doorway in view'
 	const s = Float32Array.from([0, 1, -50, 0.5, 30, 1, -50, 0.5])
 	const out: number[] = []
 	cullSpheres(view, s, 2, out, [])
-	assert.deepEqual(out, [0], 'the one in the camera\'s room, not the one in the room beyond the wall')
+	assert.deepEqual(out, [0], "the one in the camera's room, not the one in the room beyond the wall")
 })

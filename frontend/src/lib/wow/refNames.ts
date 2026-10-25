@@ -30,23 +30,7 @@ export type ItemTableKind = 'item set' | 'spell category' | 'map'
  * named by WorldRefNames.
  */
 export type WorldKind =
-	| 'gossip'
-	| 'page'
-	| 'text'
-	| 'event'
-	| 'loot'
-	| 'enchantment'
-	| 'disenchant'
-	| 'vendor'
-	| 'trainer'
-	| 'equipment'
-	| 'creature loot'
-	| 'pickpocket loot'
-	| 'skinning loot'
-	| 'spell list'
-	| 'gossip script'
-	| 'map point'
-	| 'condition'
+	'gossip' | 'page' | 'text' | 'event' | 'loot' | 'enchantment' | 'disenchant' | 'vendor' | 'trainer' | 'equipment' | 'creature loot' | 'pickpocket loot' | 'skinning loot' | 'spell list' | 'gossip script' | 'map point' | 'condition'
 
 export const WORLD_KINDS: readonly WorldKind[] = [
 	'gossip',
@@ -255,10 +239,12 @@ export async function visualName(id: number): Promise<RefName> {
 export async function lockName(lock: vmangos.LockInfo, lockTypes: vmangos.NamedID[]): Promise<string> {
 	const keys = (lock.parts ?? []).filter((p) => p.type === 1).map((p) => p.index)
 	const names = new Map<number, string>()
-	await Promise.all(keys.map(async (id) => {
-		const r = await refName('item', id)
-		if (r) names.set(id, r.name)
-	}))
+	await Promise.all(
+		keys.map(async (id) => {
+			const r = await refName('item', id)
+			if (r) names.set(id, r.name)
+		}),
+	)
 	return lockText(lock, lockTypes, (id) => names.get(id) ?? null)
 }
 

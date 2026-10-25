@@ -12,7 +12,11 @@ const h0 = t.heightAt(256, 256)
 const at = (x, z) => new V3(x, t.heightAt(x, z), z)
 const tool = e.tools.path
 const ev = new PointerEvent('pointerdown')
-for (const [x, z] of [[200, 240], [256, 250], [310, 240]]) {
+for (const [x, z] of [
+	[200, 240],
+	[256, 250],
+	[310, 240],
+]) {
 	e.ctx.raycaster.ray.origin.set(x, h0 + 1000, z + 1000)
 	tool.onDown(e.ctx, at(x, z), ev)
 	tool.onUp(e.ctx)
@@ -27,8 +31,10 @@ const count = fence.length
 // Each model turned along the curve: its +X, (cos r, -sin r), points along the run from one to the next.
 let turned = true
 for (let i = 1; i < fence.length; i++) {
-	const a = fence[i - 1], b = fence[i]
-	const dx = b.x - a.x, dz = b.z - a.z
+	const a = fence[i - 1],
+		b = fence[i]
+	const dx = b.x - a.x,
+		dz = b.z - a.z
 	const len = Math.hypot(dx, dz)
 	const dot = (Math.cos(a.rotY) * dx - Math.sin(a.rotY) * dz) / len
 	const doz = (Math.cos(a.rotY + Math.PI / 2) * dx - Math.sin(a.rotY + Math.PI / 2) * dz) / len

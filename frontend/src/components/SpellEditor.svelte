@@ -50,13 +50,25 @@
 	// The client's cast times, durations, ranges and radii, read once.
 	let tables = $state<vmangos.SpellTables | null>(null)
 	$effect(() => {
-		if (target && !tables) spellTables().then((t) => (tables = t), (err) => (error = String(err)))
+		if (target && !tables)
+			spellTables().then(
+				(t) => (tables = t),
+				(err) => (error = String(err)),
+			)
 	})
 
 	const changes = $derived(changedValues(values, saved))
 	const changeCount = $derived(Object.keys(changes).length + (pendingIcon ? 1 : 0) + (pendingVisual ? 1 : 0))
 	const unsaved = $derived(changeCount > 0)
-	const tabs = $derived(record ? spellTabs(record.columns.map((c) => c.name), tables, values) : [])
+	const tabs = $derived(
+		record
+			? spellTabs(
+					record.columns.map((c) => c.name),
+					tables,
+					values,
+				)
+			: [],
+	)
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 	const tabChanges = $derived(new Map(tabs.map((t) => [t.id, t.groups.reduce((n, g) => n + g.fields.filter((f) => changes[f.col] !== undefined).length, 0)])))
 
@@ -149,7 +161,6 @@
 		forgetName('spell', entry)
 		searchVersion++
 	}
-
 
 	async function save() {
 		if (!record || !unsaved) return
@@ -437,7 +448,10 @@
 		<header>
 			<div class="title">
 				{#if target.entry > 0}
-					<h2><SpellIcon icon={iconShown} size={20} /> {values.name || saved.name || 'Spell'}{#if values.nameSubtext}<span class="rank">{values.nameSubtext}</span>{/if}</h2>
+					<h2>
+						<SpellIcon icon={iconShown} size={20} />
+						{values.name || saved.name || 'Spell'}{#if values.nameSubtext}<span class="rank">{values.nameSubtext}</span>{/if}
+					</h2>
 					<span class="dim">spell {target.entry}{record ? ` · build ${record.build}` : ''}</span>
 				{:else if target.entry === -1}
 					<h2>New spell</h2>
@@ -463,10 +477,7 @@
 				<div class="what">
 					<strong>Import {plan.plan.spells.length} spell {plan.plan.spells.length === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc?</strong>
 					<span>
-						{plan.plan.spells
-							.slice(0, 12)
-							.map(planRow)
-							.join('; ')}{plan.plan.spells.length > 12 ? `; and ${plan.plan.spells.length - 12} more` : ''}.
+						{plan.plan.spells.slice(0, 12).map(planRow).join('; ')}{plan.plan.spells.length > 12 ? `; and ${plan.plan.spells.length - 12} more` : ''}.
 					</span>
 					{#if plan.plan.skipped}<span>{plan.plan.skipped} other {plan.plan.skipped === 1 ? 'statement is' : 'statements are'} left out: only spell_template rows are imported.</span>{/if}
 					{#if plan.plan.unknown?.length}<span>Columns this server's spell_template lacks are left out: {plan.plan.unknown.join(', ')}.</span>{/if}
@@ -475,7 +486,9 @@
 							>The script carries the look of {movedLook
 								.slice(0, 6)
 								.map((s) => `${s.name || s.entry} (${[s.newIcon ? `icon ${s.newIcon}` : '', s.newVisual ? `visual ${s.newVisual}` : ''].filter(Boolean).join(', ')})`)
-								.join(', ')}{movedLook.length > 6 ? ` and ${movedLook.length - 6} more` : ''}: this client has it under another ID{plan.plan.adds?.length ? ` or gets it in ${plan.plan.adds.map((f) => f.replace(/^.*\\/, '')).join(', ')}` : ''}, and the import uses that.</span
+								.join(', ')}{movedLook.length > 6 ? ` and ${movedLook.length - 6} more` : ''}: this client has it under another ID{plan.plan.adds?.length
+								? ` or gets it in ${plan.plan.adds.map((f) => f.replace(/^.*\\/, '')).join(', ')}`
+								: ''}, and the import uses that.</span
 						>
 					{/if}
 					{#if missingLook.length}
@@ -509,7 +522,9 @@
 					{#snippet row(s: vmangos.SpellRef)}
 						<button class="hit" class:on={s.id === target.entry} onclick={() => open(s.id)} oncontextmenu={(e) => resultMenu(e, s)} title={`${s.text || s.name}\nRight-click for the commands that try it in the game`}>
 							<SpellIcon icon={s.icon} />
-							<span class="name">{s.name || '(no name)'}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span>
+							<span class="name"
+								>{s.name || '(no name)'}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span
+							>
 							<span class="dim">{s.id}</span>
 						</button>
 					{/snippet}
@@ -645,7 +660,9 @@
 							{#snippet row(s: vmangos.SpellRef)}
 								<button class="hit" disabled={!s.visual} onclick={() => takeVisual(s)} title={s.visual ? `Use visual ${s.visual}` : 'It has no visual'}>
 									<SpellIcon icon={s.icon} />
-									<span class="name">{s.name}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span>
+									<span class="name"
+										>{s.name}{#if s.rank}<span class="dim"> {s.rank}</span>{/if}</span
+									>
 									<span class="dim">{s.visual ? `visual ${s.visual}` : 'no visual'}</span>
 								</button>
 							{/snippet}

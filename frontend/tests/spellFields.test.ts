@@ -7,9 +7,19 @@ import { FORM_MASK, SPELL_ATTRIBUTES, SPELL_ATTRIBUTES_EX, SPELL_ATTRIBUTES_EX2,
 
 // The client's tables as SpellTables gives them: duration 9 is 4 sec, cast time 7 is 1.5 sec, range 4 is 30 yd, radius 13 is 10 yd.
 const tables = vmangos.SpellTables.createFrom({
-	castTimes: [{ id: 1, label: 'Instant', value: 0 }, { id: 7, label: '1.5 sec', value: 1500 }],
-	durations: [{ id: 9, label: '4 sec', value: 4000 }, { id: 21, label: 'until cancelled', value: -1 }],
-	ranges: [{ id: 1, label: '0 yd · Self Only', value: 0 }, { id: 2, label: '5 yd · Combat Range', value: 5 }, { id: 4, label: '30 yd', value: 30 }],
+	castTimes: [
+		{ id: 1, label: 'Instant', value: 0 },
+		{ id: 7, label: '1.5 sec', value: 1500 },
+	],
+	durations: [
+		{ id: 9, label: '4 sec', value: 4000 },
+		{ id: 21, label: 'until cancelled', value: -1 },
+	],
+	ranges: [
+		{ id: 1, label: '0 yd · Self Only', value: 0 },
+		{ id: 2, label: '5 yd · Combat Range', value: 5 },
+		{ id: 4, label: '30 yd', value: 30 },
+	],
 	radii: [{ id: 13, label: '10 yd', value: 10 }],
 })
 
@@ -62,7 +72,10 @@ test('an effect reads as one line', () => {
 
 test('every column shows, the unlisted ones on Other, the look ones beside the tooltip', () => {
 	const tabs = spellTabs(['name', 'effect1', 'spellIconId', 'spellVisual1', 'customFlags', 'stances', 'castUI'], tables)
-	assert.deepEqual(tabs.map((t) => t.id), ['spell', 'effect1', 'needs', 'flags', 'other'])
+	assert.deepEqual(
+		tabs.map((t) => t.id),
+		['spell', 'effect1', 'needs', 'flags', 'other'],
+	)
 	const other = tabs.find((t) => t.id === 'other')!.groups.flatMap((g) => g.fields.map((f) => f.col))
 	assert.deepEqual(other, ['castUI'])
 })
@@ -71,8 +84,14 @@ const field = (tabs: ReturnType<typeof spellTabs>, col: string) => tabs.flatMap(
 
 test('the masks are tick lists of every bit, the forms by 1 << (form - 1)', () => {
 	for (const list of [SPELL_ATTRIBUTES, SPELL_ATTRIBUTES_EX, SPELL_ATTRIBUTES_EX2, SPELL_ATTRIBUTES_EX3]) assert.equal(list.length, 32)
-	assert.deepEqual(FORM_MASK.find(([, n]) => n === 'Cat'), [1, 'Cat'])
-	assert.deepEqual(FORM_MASK.find(([, n]) => n === 'Battle stance'), [0x10000, 'Battle stance'])
+	assert.deepEqual(
+		FORM_MASK.find(([, n]) => n === 'Cat'),
+		[1, 'Cat'],
+	)
+	assert.deepEqual(
+		FORM_MASK.find(([, n]) => n === 'Battle stance'),
+		[0x10000, 'Battle stance'],
+	)
 	// Spirit of redemption (form 32) is the top bit, which ticks on and off as an unsigned column.
 	const top = FORM_MASK.find(([, n]) => n === 'Spirit of redemption')![0]
 	assert.equal(top, 0x80000000)
@@ -89,7 +108,10 @@ test('the subclasses follow the item class', () => {
 	const weapon = field(spellTabs(cols, tables, { equippedItemClass: '2' }), 'equippedItemSubClassMask')?.flags ?? []
 	assert.deepEqual(weapon, subclassMask(2))
 	assert.ok(weapon.length > 10 && weapon[0][0] === 1)
-	assert.ok(weapon.some(([b]) => b === 2 ** 15), 'daggers are subclass 15')
+	assert.ok(
+		weapon.some(([b]) => b === 2 ** 15),
+		'daggers are subclass 15',
+	)
 })
 
 test('a misc value gets the picker its effect or aura implies', () => {

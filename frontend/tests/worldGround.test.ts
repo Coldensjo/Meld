@@ -21,7 +21,10 @@ test('a ground reply reads back as its heights and holes, and a bad one is refus
 	const g = parseGround(reply((x, y) => x - 2 * y, [[5, 7]]))
 	assert.equal(g.heights[3 * GROUND_SIDE + 10], 10 - 6)
 	assert.equal(g.holes[7 * GROUND_CELLS + 5], 1)
-	assert.equal(g.holes.reduce((a, b) => a + b, 0), 1)
+	assert.equal(
+		g.holes.reduce((a, b) => a + b, 0),
+		1,
+	)
 	assert.throws(() => parseGround(new ArrayBuffer(12)))
 })
 
@@ -39,7 +42,17 @@ test("the ground's height runs between its samples, and on a slope its normals l
 
 test("a hole cell gets no triangles, and the ground's top faces up", () => {
 	const all = groundMesh(parseGround(reply(() => 0)))
-	const holed = groundMesh(parseGround(reply(() => 0, [[0, 0], [9, 3]])))
+	const holed = groundMesh(
+		parseGround(
+			reply(
+				() => 0,
+				[
+					[0, 0],
+					[9, 3],
+				],
+			),
+		),
+	)
 	assert.equal(all.index.length, GROUND_CELLS * GROUND_CELLS * 6 + 4 * GROUND_CELLS * 6)
 	// Cell 0_0's two triangles and its stretch of the north and west skirts; cell 9_3's two.
 	assert.equal(holed.index.length, all.index.length - 24)
@@ -63,8 +76,8 @@ test('a far tile is drawn at a coarser stride, a coarse cell a hole only when al
 		const n = GROUND_CELLS / stride + 1
 		assert.equal(m.positions.length, (n * n + 4 * n) * 3, 'a skirt on each edge')
 		assert.equal(m.index.length, (n - 1) * (n - 1) * 6 + 4 * (n - 1) * 6)
-		assert.equal(m.positions[(n * n) * 3 + 1], 5, 'flat ground hangs its skirts the margin deep')
-		assert.ok(Math.abs(m.positions[(n - 1) * 3] - TILE_YARDS) < 1e-3, "the east edge is still a tile off")
+		assert.equal(m.positions[n * n * 3 + 1], 5, 'flat ground hangs its skirts the margin deep')
+		assert.ok(Math.abs(m.positions[(n - 1) * 3] - TILE_YARDS) < 1e-3, 'the east edge is still a tile off')
 		assert.equal(m.positions[1], 7)
 	}
 	// Cells 0-3 x 0-1 are holes: at stride 2 coarse cells (0, 0) and (1, 0) are wholly holes; at
@@ -146,7 +159,10 @@ test('a model several tiles list is placed once, and taken away with the last of
 	assert.equal(placed.length, 3)
 	// Letting go of A takes its tree; the inn stays, B lists it.
 	share.drop(1, remove)
-	assert.deepEqual(removed.map((id) => ids.get(id)), ['tree'])
+	assert.deepEqual(
+		removed.map((id) => ids.get(id)),
+		['tree'],
+	)
 	assert.equal(share.count, 2)
 	share.drop(2, remove)
 	assert.deepEqual(removed.map((id) => ids.get(id)).sort(), ['inn', 'rock', 'tree'])

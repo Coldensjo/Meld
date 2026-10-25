@@ -288,16 +288,7 @@ export type RefHeightMode = 'set' | 'add'
  * transparent pixels keep their height. `heights` is `verts` a side, `cellSize` apart. Returns the new
  * heights and how many vertices it set.
  */
-export function heightsFromImage(
-	heights: Float32Array,
-	verts: number,
-	cellSize: number,
-	px: RefPixels,
-	p: ReferencePlace,
-	min: number,
-	max: number,
-	mode: RefHeightMode,
-): { next: Float32Array; count: number } {
+export function heightsFromImage(heights: Float32Array, verts: number, cellSize: number, px: RefPixels, p: ReferencePlace, min: number, max: number, mode: RefHeightMode): { next: Float32Array; count: number } {
 	const next = heights.slice()
 	const c = Math.cos(p.turn)
 	const s = Math.sin(p.turn)
@@ -346,15 +337,7 @@ const VOTES = 4
  * chunk takes the zone most of its VOTES x VOTES samples name, when at least one does; others keep
  * theirs. `areaIds` is `chunksSide` a side, chunks `chunkWorld` wide. Returns the chunks changed.
  */
-export function areasFromImage(
-	areaIds: Uint32Array,
-	chunksSide: number,
-	chunkWorld: number,
-	idx: Uint8Array,
-	px: RefPixels,
-	p: ReferencePlace,
-	areaOf: number[],
-): number {
+export function areasFromImage(areaIds: Uint32Array, chunksSide: number, chunkWorld: number, idx: Uint8Array, px: RefPixels, p: ReferencePlace, areaOf: number[]): number {
 	const c = Math.cos(p.turn)
 	const s = Math.sin(p.turn)
 	const votes = new Map<number, number>()
@@ -392,19 +375,14 @@ export function areasFromImage(
  * Adds the texels whose colour is `chosen` to the mask, fully. `mask` is `res` a side, each texel
  * `texelWorld` wide. Returns the texels set and their rect, or null when none were.
  */
-export function maskFromImage(
-	mask: Uint8Array,
-	res: number,
-	texelWorld: number,
-	idx: Uint8Array,
-	px: RefPixels,
-	p: ReferencePlace,
-	chosen: boolean[],
-): { count: number; rect: { x0: number; z0: number; x1: number; z1: number } | null } {
+export function maskFromImage(mask: Uint8Array, res: number, texelWorld: number, idx: Uint8Array, px: RefPixels, p: ReferencePlace, chosen: boolean[]): { count: number; rect: { x0: number; z0: number; x1: number; z1: number } | null } {
 	const c = Math.cos(p.turn)
 	const s = Math.sin(p.turn)
 	let count = 0
-	let x0 = res, z0 = res, x1 = -1, z1 = -1
+	let x0 = res,
+		z0 = res,
+		x1 = -1,
+		z1 = -1
 	for (let z = 0; z < res; z++) {
 		for (let x = 0; x < res; x++) {
 			const at = pixelAt(px, p, c, s, (x + 0.5) * texelWorld, (z + 0.5) * texelWorld)
@@ -446,7 +424,10 @@ export function texturesFromImage(
 	const target = new Int16Array(per * per)
 	let painted = 0
 	let refused = 0
-	let x0 = res, z0 = res, x1 = -1, z1 = -1
+	let x0 = res,
+		z0 = res,
+		x1 = -1,
+		z1 = -1
 	for (let cz = 0; cz < chunksSide; cz++) {
 		for (let cx = 0; cx < chunksSide; cx++) {
 			let any = false
@@ -495,16 +476,7 @@ export function texturesFromImage(
  * are kept too, which can refuse another; a few rounds settle it. Returns the chunk's new slots and
  * the refused textures.
  */
-function settleChunkSlots(
-	weights: Uint8Array,
-	slots: Uint8Array,
-	res: number,
-	ch: number,
-	tx0: number,
-	tz0: number,
-	per: number,
-	target: Int16Array,
-): { next: Uint8Array; refusedLayers: Set<number> } {
+function settleChunkSlots(weights: Uint8Array, slots: Uint8Array, res: number, ch: number, tx0: number, tz0: number, per: number, target: Int16Array): { next: Uint8Array; refusedLayers: Set<number> } {
 	const base = ch * SLOTS
 	const refusedLayers = new Set<number>()
 	let next = slots.slice(base, base + SLOTS)

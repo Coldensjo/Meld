@@ -16,9 +16,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
-const cacheDir = process.platform === 'win32'
-	? process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local')
-	: process.env.XDG_CACHE_HOME || join(homedir(), '.cache')
+const cacheDir = process.platform === 'win32' ? (process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local')) : process.env.XDG_CACHE_HOME || join(homedir(), '.cache')
 const LOCK = join(cacheDir, 'Meld', 'loop.lock')
 
 const args = process.argv.slice(2)
@@ -44,7 +42,9 @@ function processes() {
 				const close = stat.lastIndexOf(')')
 				const rest = stat.slice(close + 2).split(' ')
 				procs.set(Number(d), { ppid: Number(rest[1]), name: stat.slice(stat.indexOf('(') + 1, close), start: rest[19] })
-			} catch { /* gone */ }
+			} catch {
+				/* gone */
+			}
 		}
 	}
 	return procs
@@ -63,7 +63,7 @@ function holder(procs) {
 		if (/^claude(\.exe)?$/i.test(p.name)) return { pid, name: p.name, start: p.start }
 		pid = p.ppid
 	}
-	fail('found no claude process above this one; pass --pid <the coordinator\'s pid>')
+	fail("found no claude process above this one; pass --pid <the coordinator's pid>")
 }
 
 function fail(msg) {
@@ -73,7 +73,11 @@ function fail(msg) {
 
 const read = () => {
 	if (!existsSync(LOCK)) return null
-	try { return JSON.parse(readFileSync(LOCK, 'utf8')) } catch { return null }
+	try {
+		return JSON.parse(readFileSync(LOCK, 'utf8'))
+	} catch {
+		return null
+	}
 }
 const alive = (lock, procs) => procs.get(lock.pid)?.start === lock.start
 const describe = (l) => `pid ${l.pid} (${l.name}), running since ${l.startedAt}, in ${l.cwd}`

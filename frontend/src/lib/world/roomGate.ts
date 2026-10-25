@@ -25,12 +25,12 @@ mask.needsUpdate = true
 
 /** Shared by every patched material, so one write reaches them all. */
 const uniforms = {
-  roomCount: { value: 0 },
-  roomOrigins: { value: Array.from({ length: ROOM_MAX_GATED }, () => new THREE.Vector3()) },
-  roomMask: { value: mask },
-  roomFogColor: { value: new THREE.Color() },
-  roomFogNear: { value: 0 },
-  roomFogFar: { value: 1 },
+	roomCount: { value: 0 },
+	roomOrigins: { value: Array.from({ length: ROOM_MAX_GATED }, () => new THREE.Vector3()) },
+	roomMask: { value: mask },
+	roomFogColor: { value: new THREE.Color() },
+	roomFogNear: { value: 0 },
+	roomFogFar: { value: 1 },
 }
 
 const VERTEX_PARS = /* glsl */ `
@@ -89,19 +89,15 @@ const FOG_FRAGMENT = /* glsl */ `
 
 /** Adds the room gate to a WMO material, after any patch it already has. */
 export function patchRoomGate(m: THREE.Material) {
-  const prev = m.onBeforeCompile
-  const prevKey = m.customProgramCacheKey
-  m.onBeforeCompile = (shader, renderer) => {
-    prev.call(m, shader, renderer)
-    Object.assign(shader.uniforms, uniforms)
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\n' + VERTEX_PARS)
-      .replace('#include <fog_vertex>', '#include <fog_vertex>\n' + VERTEX)
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + FRAGMENT_PARS)
-      .replace('#include <fog_fragment>', FOG_FRAGMENT)
-  }
-  m.customProgramCacheKey = () => prevKey.call(m) + '|room'
+	const prev = m.onBeforeCompile
+	const prevKey = m.customProgramCacheKey
+	m.onBeforeCompile = (shader, renderer) => {
+		prev.call(m, shader, renderer)
+		Object.assign(shader.uniforms, uniforms)
+		shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n' + VERTEX_PARS).replace('#include <fog_vertex>', '#include <fog_vertex>\n' + VERTEX)
+		shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\n' + FRAGMENT_PARS).replace('#include <fog_fragment>', FOG_FRAGMENT)
+	}
+	m.customProgramCacheKey = () => prevKey.call(m) + '|room'
 }
 
 /** Rows written this frame, and whether any mask byte changed. */
@@ -110,8 +106,8 @@ let changed = false
 
 /** Starts a frame's gates: none until `addRoomGate` adds them. */
 export function beginRoomGates() {
-  rows = 0
-  changed = false
+	rows = 0
+	changed = false
 }
 
 /**
@@ -119,33 +115,33 @@ export function beginRoomGates() {
  * gives it the room fog. Reports false when every row is taken.
  */
 export function addRoomGate(origin: THREE.Vector3, visible: ArrayLike<number>, fog: ArrayLike<number>): boolean {
-  if (rows >= ROOM_MAX_GATED) return false
-  const row = rows++
-  uniforms.roomOrigins.value[row].copy(origin)
-  const n = Math.min(visible.length, ROOM_MAX_GROUPS)
-  const base = row * ROOM_MAX_GROUPS * 4
-  for (let g = 0; g < ROOM_MAX_GROUPS; g++) {
-    const o = base + g * 4
-    const r = g < n ? (visible[g] ? 255 : 0) : 255
-    const gr = g < n && fog[g] ? 255 : 0
-    if (maskData[o] !== r || maskData[o + 1] !== gr) {
-      maskData[o] = r
-      maskData[o + 1] = gr
-      changed = true
-    }
-  }
-  return true
+	if (rows >= ROOM_MAX_GATED) return false
+	const row = rows++
+	uniforms.roomOrigins.value[row].copy(origin)
+	const n = Math.min(visible.length, ROOM_MAX_GROUPS)
+	const base = row * ROOM_MAX_GROUPS * 4
+	for (let g = 0; g < ROOM_MAX_GROUPS; g++) {
+		const o = base + g * 4
+		const r = g < n ? (visible[g] ? 255 : 0) : 255
+		const gr = g < n && fog[g] ? 255 : 0
+		if (maskData[o] !== r || maskData[o + 1] !== gr) {
+			maskData[o] = r
+			maskData[o + 1] = gr
+			changed = true
+		}
+	}
+	return true
 }
 
 /** Ends a frame's gates: uploads the mask if it changed. */
 export function endRoomGates() {
-  uniforms.roomCount.value = rows
-  if (changed) mask.needsUpdate = true
+	uniforms.roomCount.value = rows
+	if (changed) mask.needsUpdate = true
 }
 
 /** The room fog's colour (sRGB, 0..1) and distances. */
 export function setRoomFog(color: ArrayLike<number>, near: number, far: number) {
-  uniforms.roomFogColor.value.setRGB(color[0], color[1], color[2], THREE.SRGBColorSpace)
-  uniforms.roomFogNear.value = near
-  uniforms.roomFogFar.value = Math.max(far, near + 0.001)
+	uniforms.roomFogColor.value.setRGB(color[0], color[1], color[2], THREE.SRGBColorSpace)
+	uniforms.roomFogNear.value = near
+	uniforms.roomFogFar.value = Math.max(far, near + 0.001)
 }

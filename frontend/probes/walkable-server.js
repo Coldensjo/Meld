@@ -14,10 +14,14 @@ const at = (dx, dz) => {
 	return v
 }
 const loaded = (what) =>
-	P.until(() => {
-		const c = nav.counts
-		return c.total > 0 && c.done === c.total && c.loading === 0 && !c.settling && c
-	}, 180_000, what)
+	P.until(
+		() => {
+			const c = nav.counts
+			return c.total > 0 && c.done === c.total && c.loading === 0 && !c.settling && c
+		},
+		180_000,
+		what,
+	)
 const path = (a, b) => {
 	nav.clearPath()
 	nav.pathPoint(a)
@@ -28,7 +32,12 @@ const from = at(-60, 60)
 const to = at(-20, 80)
 // Round and through the abbey, where the browser's build once walked the crawlspace under its floor
 // (#282): from the west door's steps out to the graveyard, south to north and west to east.
-const pairs = [[at(-40, 20), at(10, 45)], [at(0, -30), at(0, 30)], [at(-30, 0), at(30, 0)], [from, to]]
+const pairs = [
+	[at(-40, 20), at(10, 45)],
+	[at(0, -30), at(0, 30)],
+	[at(-30, 0), at(30, 0)],
+	[from, to],
+]
 const walks = () => pairs.map(([a, b]) => path(a, b))
 
 prefs.navView = true
@@ -71,16 +80,6 @@ prefs.navView = false
 await P.frames(3)
 const freed = nav.group.children.length === 0 && nav.counts.total === 0
 
-const ok =
-	serverMode &&
-	!error &&
-	server.missing === 0 &&
-	tris > 0 &&
-	near > 0 &&
-	best < 1.5 &&
-	walk.kind === 'path' &&
-	ownWalk.kind === 'path' &&
-	agree.every(Boolean) &&
-	freed
+const ok = serverMode && !error && server.missing === 0 && tris > 0 && near > 0 && best < 1.5 && walk.kind === 'path' && ownWalk.kind === 'path' && agree.every(Boolean) && freed
 const yards = (ws) => ws.map((w) => (w.kind === 'path' ? Math.round(w.yards * 10) / 10 : w.kind))
 return { ok, tiles: server.total, missing: server.missing, loadMs, error, tris, nearVerts: near, groundGap: Math.round(best * 100) / 100, serverYards: yards(serverWalks), ownTiles: own.total, ownYards: yards(ownWalks), agree, freed }

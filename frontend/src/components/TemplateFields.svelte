@@ -79,7 +79,12 @@
 			<fieldset class="wide" class:changed title={f.col}>
 				<legend>{f.label}</legend>
 				{#each f.flags as [bit, name] (bit)}
-					<label class="check"><input type="checkbox" checked={((Number(value(f)) || 0) & bit) !== 0} onchange={(e) => onset(f.col, withBit(value(f), bit, (e.currentTarget as HTMLInputElement).checked))} />{#if f.classes === 'mask'}<ClassIcon id={classOfBit(bit)} />{/if} {name}</label>
+					<label class="check"
+						><input type="checkbox" checked={((Number(value(f)) || 0) & bit) !== 0} onchange={(e) => onset(f.col, withBit(value(f), bit, (e.currentTarget as HTMLInputElement).checked))} />{#if f.classes === 'mask'}<ClassIcon
+								id={classOfBit(bit)}
+							/>{/if}
+						{name}</label
+					>
 				{/each}
 			</fieldset>
 		{:else if f.money}
@@ -88,7 +93,8 @@
 				<MoneyField value={Number(value(f)) || 0} signed={f.money === 'signed'} costsHint={f.hint} onset={(v) => onset(f.col, String(v))} /></label
 			>
 		{:else if f.bool}
-			<label class="check" class:changed title={tip(f)}><input type="checkbox" checked={value(f) !== '0' && value(f) !== ''} onchange={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).checked ? '1' : '0')} /> {f.label}</label>
+			<label class="check" class:changed title={tip(f)}><input type="checkbox" checked={value(f) !== '0' && value(f) !== ''} onchange={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).checked ? '1' : '0')} /> {f.label}</label
+			>
 		{:else if f.options}
 			<label class:changed title={tip(f)}
 				>{f.label}
@@ -104,7 +110,9 @@
 			>
 		{:else}
 			<label class:changed class:wide={f.wide || (c?.kind === 'text' && (c.maxLen === 0 || c.maxLen > 64))} title={tip(f)}
-				><span>{f.label}{#if f.note && f.note(value(f))}<span class="note">· {f.note(value(f))}</span>{/if}</span>
+				><span
+					>{f.label}{#if f.note && f.note(value(f))}<span class="note">· {f.note(value(f))}</span>{/if}</span
+				>
 				<input
 					type={c?.kind === 'text' ? 'text' : 'number'}
 					step={c?.kind === 'float' ? 'any' : '1'}
@@ -114,7 +122,9 @@
 					list={f.suggest ? `suggest-${f.col}` : undefined}
 					value={value(f)}
 					oninput={(e) => onset(f.col, (e.currentTarget as HTMLInputElement).value)}
-				/>{#if f.suggest}<datalist id="suggest-{f.col}">{#each f.suggest as v (v)}<option value={v}></option>{/each}</datalist>{/if}</label
+				/>{#if f.suggest}<datalist id="suggest-{f.col}"
+						>{#each f.suggest as v (v)}<option value={v}></option>{/each}</datalist
+					>{/if}</label
 			>
 		{/if}
 	{/each}

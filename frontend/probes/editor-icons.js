@@ -46,12 +46,5 @@ ui.creatureEditor = null
 await P.frames(1)
 
 const ok =
-	classes.length === 9 &&
-	classes.every((c) => c.icon) &&
-	classes[0].name === 'Warrior' &&
-	urls.size === 9 &&
-	refLabels.includes('Reagent 1') &&
-	refLabels.includes('Tool 1') &&
-	refLabels.includes('Next spell') &&
-	trainerText === 'Warrior'
+	classes.length === 9 && classes.every((c) => c.icon) && classes[0].name === 'Warrior' && urls.size === 9 && refLabels.includes('Reagent 1') && refLabels.includes('Tool 1') && refLabels.includes('Next spell') && trainerText === 'Warrior'
 return { ok, classes, urls: urls.size, refLabels, trainerText }

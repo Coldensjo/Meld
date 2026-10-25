@@ -5,10 +5,10 @@ import type { SpawnLayer } from './SpawnLayer'
 
 /** What a click is on: a spawn or a placed model, whichever the ray meets first; both null for neither. */
 export interface PointerPick {
-  spawn: vmangos.WorldSpawn | null
-  id: number | null
-  /** How far along the ray the picked one was met; Infinity for neither. */
-  distance: number
+	spawn: vmangos.WorldSpawn | null
+	id: number | null
+	/** How far along the ray the picked one was met; Infinity for neither. */
+	distance: number
 }
 
 /**
@@ -16,8 +16,8 @@ export interface PointerPick {
  * building's floor is picked over the building, and a wall in front of a creature over the creature.
  */
 export function pickNearest(objects: ObjectLayer, spawns: SpawnLayer, raycaster: THREE.Raycaster): PointerPick {
-  const s = spawns.pickHit(raycaster)
-  const o = objects.pickHit(raycaster)
-  if (s && (!o || s.distance <= o.distance)) return { spawn: s.spawn, id: null, distance: s.distance }
-  return { spawn: null, id: o ? o.id : null, distance: o ? o.distance : Infinity }
+	const s = spawns.pickHit(raycaster)
+	const o = objects.pickHit(raycaster)
+	if (s && (!o || s.distance <= o.distance)) return { spawn: s.spawn, id: null, distance: s.distance }
+	return { spawn: null, id: o ? o.id : null, distance: o ? o.distance : Infinity }
 }

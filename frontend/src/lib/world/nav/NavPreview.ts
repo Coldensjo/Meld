@@ -185,7 +185,7 @@ export class NavPreview {
 	private stamp = 0
 	/** The tile the focus was last in; in server mode the focus itself (yd from the map's corner). */
 	private focusTile = { x: NaN, z: NaN }
-	private m =new THREE.Matrix4()
+	private m = new THREE.Matrix4()
 	private material = new THREE.MeshBasicMaterial({
 		vertexColors: true,
 		transparent: true,
@@ -779,10 +779,7 @@ export class NavPreview {
 			const w = this.toNav(v)
 			return new THREE.Vector3(w.x, w.y + 0.3, w.z)
 		})
-		const line = new THREE.Line(
-			new THREE.BufferGeometry().setFromPoints(pts),
-			new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true }),
-		)
+		const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true }))
 		line.renderOrder = 6
 		this.pathLine = line
 		this.group.add(line)

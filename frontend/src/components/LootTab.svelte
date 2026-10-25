@@ -153,10 +153,7 @@
 			setStatus(`${r.name} is already in the contents.`, 4000)
 			return
 		}
-		rows.rows.items = [
-			...items,
-			vmangos.LootItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, chance: 100, group: 0, minCount: 1, maxCount: 1, condition: 0, patchMin: 0, patchMax: 10 }),
-		]
+		rows.rows.items = [...items, vmangos.LootItem.createFrom({ item: r.entry, name: r.name, quality: r.quality, displayId: r.displayId, chance: 100, group: 0, minCount: 1, maxCount: 1, condition: 0, patchMin: 0, patchMax: 10 })]
 	}
 
 	// The item under the pointer, for its tooltip.
@@ -243,7 +240,9 @@
 					{#each showAll ? shown : shown.slice(0, LIMIT) as it (it.item)}
 						<tr>
 							{#if it.minCount < 0}
-								<td class="item" title="A reference: the rows of reference_loot_template {-it.minCount}, rolled {it.maxCount} {it.maxCount === 1 ? 'time' : 'times'}">Reference list {-it.minCount} <span class="dim">×{it.maxCount}</span></td>
+								<td class="item" title="A reference: the rows of reference_loot_template {-it.minCount}, rolled {it.maxCount} {it.maxCount === 1 ? 'time' : 'times'}"
+									>Reference list {-it.minCount} <span class="dim">×{it.maxCount}</span></td
+								>
 							{:else}
 								<td class="item" {...hoverItem(it.item, it.displayId)}>
 									<ItemIcon displayId={it.displayId} />
@@ -304,9 +303,27 @@
 		{#if spawn}
 			<label class="inline">
 				This spawn respawns after
-				<input type="number" min="0" step="10" value={spawn.respawnSecs} onchange={(e) => { const v = secs(e); if (v !== null) respawn(v, Math.max(v, spawn.respawnMaxSecs)) }} />
+				<input
+					type="number"
+					min="0"
+					step="10"
+					value={spawn.respawnSecs}
+					onchange={(e) => {
+						const v = secs(e)
+						if (v !== null) respawn(v, Math.max(v, spawn.respawnMaxSecs))
+					}}
+				/>
 				to
-				<input type="number" min="0" step="10" value={spawn.respawnMaxSecs} onchange={(e) => { const v = secs(e); if (v !== null) respawn(spawn.respawnSecs, v) }} />
+				<input
+					type="number"
+					min="0"
+					step="10"
+					value={spawn.respawnMaxSecs}
+					onchange={(e) => {
+						const v = secs(e)
+						if (v !== null) respawn(spawn.respawnSecs, v)
+					}}
+				/>
 				s
 			</label>
 			<p class="dim">The respawn time is the spawn's own (gameobject.spawntimesecsmin/max): an undo step, saved with the region's spawns.</p>

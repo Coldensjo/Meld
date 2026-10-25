@@ -37,10 +37,9 @@ export class DocOverlay<D extends { readonly id: number }, T> {
 		const read = s.load(doc)
 		if (!read) return
 		this.loading = true
-		read
-			.then((data) => {
-				if (doc === s.current() && !this.edited) s.apply(doc, data)
-			})
+		read.then((data) => {
+			if (doc === s.current() && !this.edited) s.apply(doc, data)
+		})
 			.catch((err) => {
 				console.warn(`${s.what} not read`, err)
 				if (doc === s.current() && !this.edited) s.apply(doc, null)

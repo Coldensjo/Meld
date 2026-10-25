@@ -32,10 +32,23 @@ try {
 	rooms.navs.forget(key)
 	e.setSceneView({ target: spot.toArray(), yaw: 2, pitch: 0.1, distance: 0.5, hour: 13 })
 	await P.until(() => rooms.navs.failed > 0 || null, 60_000, 'the failure to be counted')
-	const log = appLog.lines.slice(logged).map((l) => l.text).find((t) => t.startsWith('Building rooms:')) ?? null
+	const log =
+		appLog.lines
+			.slice(logged)
+			.map((l) => l.text)
+			.find((t) => t.startsWith('Building rooms:')) ?? null
 	// Asked every frame as the camera moves, it is not fetched again before RETRY_MS.
 	for (let i = 0; i < 10; i++) {
-		e.setSceneView({ target: spot.clone().setX(spot.x + i * 0.01).toArray(), yaw: 2, pitch: 0.1, distance: 0.5, hour: 13 })
+		e.setSceneView({
+			target: spot
+				.clone()
+				.setX(spot.x + i * 0.01)
+				.toArray(),
+			yaw: 2,
+			pitch: 0.1,
+			distance: 0.5,
+			hour: 13,
+		})
 		await P.frames(1)
 	}
 	const askedWhileFailed = asked
@@ -45,7 +58,16 @@ try {
 	e.setSceneView({ target: spot.toArray(), yaw: 2, pitch: 0.1, distance: 0.5, hour: 13 })
 	await P.until(() => rooms.navs.get(key) || null, 60_000, "Stormwind's room data on the retry")
 	rooms.navs.now = realNow
-	e.setSceneView({ target: spot.clone().setX(spot.x + 0.02).toArray(), yaw: 2, pitch: 0.1, distance: 0.5, hour: 13 })
+	e.setSceneView({
+		target: spot
+			.clone()
+			.setX(spot.x + 0.02)
+			.toArray(),
+		yaw: 2,
+		pitch: 0.1,
+		distance: 0.5,
+		hour: 13,
+	})
 	await P.frames(3)
 	const room = rooms.current?.group ?? null
 	return {

@@ -20,7 +20,13 @@ const ray = new THREE.Raycaster()
 const down = new THREE.Vector3(0, -1, 0)
 const open = (x, z) => {
 	const h = e.terrain.heightAt(x, z)
-	for (const [dx, dz] of [[0, 0], [12, 0], [-12, 0], [0, 12], [0, -12]]) {
+	for (const [dx, dz] of [
+		[0, 0],
+		[12, 0],
+		[-12, 0],
+		[0, 12],
+		[0, -12],
+	]) {
 		ray.set(new THREE.Vector3(x + dx, h + 60, z + dz), down)
 		const hit = e.objects.raycastSurface(ray)
 		if (hit && hit.point.y > e.terrain.heightAt(x + dx, z + dz) + 0.3) return false
@@ -30,7 +36,8 @@ const open = (x, z) => {
 let spot = null
 for (let r = 0; r <= 200 && !spot; r += 20)
 	for (let a = 0; a < 16 && !spot; a++) {
-		const x = 182 + Math.cos((a / 16) * 2 * Math.PI) * r, z = 353 + Math.sin((a / 16) * 2 * Math.PI) * r
+		const x = 182 + Math.cos((a / 16) * 2 * Math.PI) * r,
+			z = 353 + Math.sin((a / 16) * 2 * Math.PI) * r
 		if (e.terrain.contains(x, z) && open(x, z)) spot = [x, z]
 	}
 if (!spot) throw new Error('no open ground near the bench view')
@@ -111,7 +118,18 @@ out.wind = { moving, still }
 // The rooms: the Trade District's street, then SI:7 facing its door and facing away.
 await P.until(() => e.rooms.navs.get(sw.type.slice(4).toLowerCase()) || null, 60_000, "Stormwind's room data")
 const nav = e.rooms.navs.get(sw.type.slice(4).toLowerCase())
-const at = (local, yaw) => e.setSceneView({ target: e.camera.position.clone().set(...local).applyMatrix4(m).toArray(), yaw, pitch: 0.05, distance: 0.5, hour: 13 })
+const at = (local, yaw) =>
+	e.setSceneView({
+		target: e.camera.position
+			.clone()
+			.set(...local)
+			.applyMatrix4(m)
+			.toArray(),
+		yaw,
+		pitch: 0.05,
+		distance: 0.5,
+		hour: 13,
+	})
 const state = async (name) => {
 	await P.frames(3)
 	const r = e.rooms.current

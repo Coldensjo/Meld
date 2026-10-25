@@ -15,7 +15,10 @@ const M = new e.camera.matrixWorld.constructor()
 /** The largest gap between a drawn row and its object's matrix, over every drawn instance. */
 const rowsErr = () => {
 	let err = 0
-	for (const [mesh, ids] of [[b.mesh, b.ids], [b.lod, b.lodIds]]) {
+	for (const [mesh, ids] of [
+		[b.mesh, b.ids],
+		[b.lod, b.lodIds],
+	]) {
 		if (!mesh) continue
 		const a = mesh.instanceMatrix.array
 		for (let k = 0; k < mesh.count; k++) {

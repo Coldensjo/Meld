@@ -8,7 +8,7 @@ import * as THREE from 'three'
 export type PathKind = 'road' | 'river' | 'fence'
 
 export const PATH_KINDS: ReadonlyArray<{ id: PathKind; name: string; tip: string }> = [
-	{ id: 'road', name: 'Road', tip: 'Level the ground across the width, at the curve\'s height and grade, and paint a texture along it' },
+	{ id: 'road', name: 'Road', tip: "Level the ground across the width, at the curve's height and grade, and paint a texture along it" },
 	{ id: 'river', name: 'River', tip: 'Carve a bed across the width and fill it with a liquid whose surface runs downhill along the curve' },
 	{ id: 'fence', name: 'Fence', tip: 'Stand a model end to end along the curve, each turned along it: fences, walls, palisades, lamp posts' },
 ]
@@ -147,7 +147,11 @@ export function samplePath(points: readonly PathPoint[], step: number): PathSamp
 		out.z[0] = points[0].z
 		return out
 	}
-	const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(p.x, p.y, p.z)), false, 'centripetal')
+	const curve = new THREE.CatmullRomCurve3(
+		points.map((p) => new THREE.Vector3(p.x, p.y, p.z)),
+		false,
+		'centripetal',
+	)
 	// The arc length table is what getSpacedPoints spaces by: a few divisions a yard keeps it even.
 	let rough = 0
 	for (let i = 1; i < points.length; i++) rough += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y, points[i].z - points[i - 1].z)
@@ -244,7 +248,10 @@ export interface PathField {
  */
 export function pathField(sm: PathSamples, spacing: number, offset: number, reach: number, last: number): PathField | null {
 	if (!sm.n) return null
-	let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity
+	let minX = Infinity,
+		minZ = Infinity,
+		maxX = -Infinity,
+		maxZ = -Infinity
 	for (let i = 0; i < sm.n; i++) {
 		minX = Math.min(minX, sm.x[i])
 		maxX = Math.max(maxX, sm.x[i])
@@ -253,7 +260,10 @@ export function pathField(sm: PathSamples, spacing: number, offset: number, reac
 	}
 	const lo = (v: number) => Math.max(0, Math.ceil((v - reach - offset) / spacing))
 	const hi = (v: number) => Math.min(last, Math.floor((v + reach - offset) / spacing))
-	const x0 = lo(minX), z0 = lo(minZ), x1 = hi(maxX), z1 = hi(maxZ)
+	const x0 = lo(minX),
+		z0 = lo(minZ),
+		x1 = hi(maxX),
+		z1 = hi(maxZ)
 	if (x1 < x0 || z1 < z0) return null
 	const w = x1 - x0 + 1
 	const h = z1 - z0 + 1
@@ -264,11 +274,17 @@ export function pathField(sm: PathSamples, spacing: number, offset: number, reac
 	const segs = Math.max(1, sm.n - 1)
 	for (let k = 0; k < segs; k++) {
 		const b = Math.min(k + 1, sm.n - 1)
-		const ax = sm.x[k], az = sm.z[k], bx = sm.x[b], bz = sm.z[b]
-		const dx = bx - ax, dz = bz - az
+		const ax = sm.x[k],
+			az = sm.z[k],
+			bx = sm.x[b],
+			bz = sm.z[b]
+		const dx = bx - ax,
+			dz = bz - az
 		const len2 = dx * dx + dz * dz
-		const sx0 = Math.max(x0, lo(Math.min(ax, bx))), sx1 = Math.min(x1, hi(Math.max(ax, bx)))
-		const sz0 = Math.max(z0, lo(Math.min(az, bz))), sz1 = Math.min(z1, hi(Math.max(az, bz)))
+		const sx0 = Math.max(x0, lo(Math.min(ax, bx))),
+			sx1 = Math.min(x1, hi(Math.max(ax, bx)))
+		const sz0 = Math.max(z0, lo(Math.min(az, bz))),
+			sz1 = Math.min(z1, hi(Math.max(az, bz)))
 		for (let j = sz0; j <= sz1; j++) {
 			const pz = j * spacing + offset
 			for (let i = sx0; i <= sx1; i++) {
@@ -333,8 +349,10 @@ export function fencePieces(sm: PathSamples, span: number, alongZ: boolean, turn
 export function nearestSegment(points: readonly PathPoint[], x: number, z: number): { index: number; dist: number } {
 	let best = { index: -1, dist: Infinity }
 	for (let i = 0; i + 1 < points.length; i++) {
-		const a = points[i], b = points[i + 1]
-		const dx = b.x - a.x, dz = b.z - a.z
+		const a = points[i],
+			b = points[i + 1]
+		const dx = b.x - a.x,
+			dz = b.z - a.z
 		const len2 = dx * dx + dz * dz
 		const t = len2 > 0 ? Math.min(1, Math.max(0, ((x - a.x) * dx + (z - a.z) * dz) / len2)) : 0
 		const d = Math.hypot(a.x + dx * t - x, a.z + dz * t - z)

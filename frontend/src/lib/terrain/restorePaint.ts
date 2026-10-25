@@ -25,15 +25,7 @@ export interface RestorePlan {
  * `base`, which tilePaint read with `basePalette`, as the same grid. Returns the textures the palette
  * has no room for instead, when restoring needs more than MAX_PALETTE.
  */
-export function planRestore(
-	target: PaintArrays,
-	palette: readonly string[],
-	base: PaintArrays,
-	basePalette: readonly string[],
-	chunks: readonly number[],
-	side: number,
-	res: number,
-): RestorePlan | { full: string[] } {
+export function planRestore(target: PaintArrays, palette: readonly string[], base: PaintArrays, basePalette: readonly string[], chunks: readonly number[], side: number, res: number): RestorePlan | { full: string[] } {
 	const remap = new Int16Array(basePalette.length).fill(-1)
 	const next = [...palette]
 	const full: string[] = []

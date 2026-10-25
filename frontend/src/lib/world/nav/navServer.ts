@@ -61,7 +61,12 @@ export function detourSurface(data: Uint8Array): { tris: Float32Array; areas: Ui
 	const v = new DataView(data.buffer, data.byteOffset, data.byteLength)
 	if (data.byteLength < 100 || v.getUint32(0, true) !== 0x444e4156) throw new Error('not a Detour tile')
 	const count = (i: number) => v.getInt32(24 + i * 4, true)
-	const polyCount = count(0), vertCount = count(1), linkCount = count(2), detailMeshCount = count(3), detailVertCount = count(4), detailTriCount = count(5)
+	const polyCount = count(0),
+		vertCount = count(1),
+		linkCount = count(2),
+		detailMeshCount = count(3),
+		detailVertCount = count(4),
+		detailTriCount = count(5)
 	const vertsAt = 100
 	const polysAt = vertsAt + align4(12 * vertCount)
 	const meshesAt = polysAt + align4(32 * polyCount) + align4(12 * linkCount)

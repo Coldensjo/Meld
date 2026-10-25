@@ -46,7 +46,10 @@ for (let i = 0; i < args.length; i++) {
 	else if (args[i] === '--touching') touching = args[++i] ?? fail('--touching needs a git range, e.g. HEAD~3..HEAD')
 	else names.push(args[i])
 }
-const all = readdirSync(here).filter((f) => f.endsWith('.js') && f !== 'lib.js').map((f) => f.slice(0, -3)).sort()
+const all = readdirSync(here)
+	.filter((f) => f.endsWith('.js') && f !== 'lib.js')
+	.map((f) => f.slice(0, -3))
+	.sort()
 
 /**
  * A probe's header (#397): its first comment line, and the globs of its `// touches:` line (repo-root paths, comma-separated,
@@ -61,7 +64,11 @@ const header = (name) => {
 		const m = /^\/\/\s*touches:\s*(.*)$/.exec(l)
 		const t = /^\/\/\s*tier:\s*(\S+)/.exec(l)
 		if (t) tier = t[1]
-		if (m) touches = m[1].split(',').map((g) => g.trim()).filter(Boolean)
+		if (m)
+			touches = m[1]
+				.split(',')
+				.map((g) => g.trim())
+				.filter(Boolean)
 	}
 	return { first: lines[0].replace(/^\/\/\s*/, ''), touches, tier }
 }
@@ -137,14 +144,7 @@ function fail(msg) {
 }
 
 function findChrome() {
-	const c = [
-		process.env.CHROME,
-		'C:/Program Files/Google/Chrome/Application/chrome.exe',
-		'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-		'/usr/bin/google-chrome',
-		'/usr/bin/chromium',
-		'/usr/bin/chromium-browser',
-	]
+	const c = [process.env.CHROME, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser']
 	return c.find((p) => p && existsSync(p)) ?? fail('no Chrome found; set CHROME to its path')
 }
 
@@ -162,7 +162,9 @@ function otherRuns() {
 				if (/meld-probe-|probes\/run\.mjs/.test(l) && !/^\s*\d+\s+(ps|sh|bash)\s/.test(l)) lines.push(l.trim().replace(/^(\d+)\s+(\S+).*/, '$1: $2'))
 			}
 		}
-	} catch { /* listing is best effort */ }
+	} catch {
+		/* listing is best effort */
+	}
 	return lines.map((l) => l.trim()).filter((l) => l && !l.startsWith(`${process.pid}:`))
 }
 
@@ -185,7 +187,7 @@ async function devDown() {
 async function devStarted() {
 	try {
 		const s = await fetch(new URL('/wow/status', PAGE), { signal: AbortSignal.timeout(5000) })
-		return s.ok ? (await s.json()).started ?? 0 : 0
+		return s.ok ? ((await s.json()).started ?? 0) : 0
 	} catch {
 		return 0
 	}
@@ -229,38 +231,74 @@ async function main() {
 		try {
 			if (process.platform === 'win32') spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' })
 			else process.kill(-pid, 'SIGKILL')
-		} catch { /* already gone */ }
-		try { chrome.kill() } catch { /* already gone */ }
+		} catch {
+			/* already gone */
+		}
+		try {
+			chrome.kill()
+		} catch {
+			/* already gone */
+		}
 	}
 	const cleanup = () => {
 		killChrome()
-		try { rmSync(profile, { recursive: true, force: true }) } catch { /* Chrome may still hold it */ }
+		try {
+			rmSync(profile, { recursive: true, force: true })
+		} catch {
+			/* Chrome may still hold it */
+		}
 		// A stop during the App.js refresh (below) would leave the app without it until Wails regenerates it.
-		try { if (existsSync(APP_JS + '.probe-refresh')) renameSync(APP_JS + '.probe-refresh', APP_JS) } catch { /* nothing to restore */ }
+		try {
+			if (existsSync(APP_JS + '.probe-refresh')) renameSync(APP_JS + '.probe-refresh', APP_JS)
+		} catch {
+			/* nothing to restore */
+		}
 	}
 	process.on('exit', cleanup)
 	// Node and Bun skip 'exit' handlers when a signal ends the process, so Ctrl-C, kill and a harness timeout left Chrome running (#601).
-	for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(s, () => { cleanup(); process.exit(130) })
+	for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP'])
+		process.on(s, () => {
+			cleanup()
+			process.exit(130)
+		})
 	// Profiles of runs that were killed before this (their pid is gone) pile up in the temp folder.
 	for (const d of readdirSync(tmpdir())) {
 		const m = /^meld-probe-(\d+)$/.exec(d)
 		if (!m || Number(m[1]) === process.pid) continue
-		try { process.kill(Number(m[1]), 0) } catch { try { rmSync(join(tmpdir(), d), { recursive: true, force: true }) } catch { /* in use */ } }
+		try {
+			process.kill(Number(m[1]), 0)
+		} catch {
+			try {
+				rmSync(join(tmpdir(), d), { recursive: true, force: true })
+			} catch {
+				/* in use */
+			}
+		}
 	}
 
 	/** A CDP command. Rejects when the page's socket closes or nothing answers in time, so a closed page never stalls the run (#388). */
-	const send = (method, params = {}, timeout = 60_000) => new Promise((resolve, reject) => {
-		if (!ws || ws.readyState !== WebSocket.OPEN) return reject(new Error(`the probe page is closed (${method})`))
-		const id = ++seq
-		const timer = setTimeout(() => { waiting.delete(id); reject(new Error(`${method} got no answer in ${timeout / 1000} s`)) }, timeout)
-		waiting.set(id, { resolve: (m) => { clearTimeout(timer); resolve(m) }, reject: (e) => { clearTimeout(timer); reject(e) } })
-		ws.send(JSON.stringify({ id, method, params }))
-	})
+	const send = (method, params = {}, timeout = 60_000) =>
+		new Promise((resolve, reject) => {
+			if (!ws || ws.readyState !== WebSocket.OPEN) return reject(new Error(`the probe page is closed (${method})`))
+			const id = ++seq
+			const timer = setTimeout(() => {
+				waiting.delete(id)
+				reject(new Error(`${method} got no answer in ${timeout / 1000} s`))
+			}, timeout)
+			waiting.set(id, {
+				resolve: (m) => {
+					clearTimeout(timer)
+					resolve(m)
+				},
+				reject: (e) => {
+					clearTimeout(timer)
+					reject(e)
+				},
+			})
+			ws.send(JSON.stringify({ id, method, params }))
+		})
 	const evaluate = async (expression, timeout = TIMEOUT) => {
-		const res = await Promise.race([
-			send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, timeout + 5000),
-			sleep(timeout).then(() => ({ timedOut: true })),
-		])
+		const res = await Promise.race([send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, timeout + 5000), sleep(timeout).then(() => ({ timedOut: true }))])
 		if (res.timedOut) throw new Error(`timed out after ${timeout / 1000} s`)
 		if (res.error) throw new Error(res.error.message)
 		const r = res.result
@@ -273,11 +311,21 @@ async function main() {
 
 	/** Starts a headless Chrome with a fresh profile and connects to its page. Used at the start and again after a probe leaves the page unusable (#388). */
 	const launch = async () => {
-		chrome = spawn(findChrome(), [
-			'--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
-			'--window-size=1400,900', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
-			'--no-first-run', '--no-default-browser-check', 'about:blank',
-		], { stdio: 'ignore', detached: process.platform !== 'win32' })
+		chrome = spawn(
+			findChrome(),
+			[
+				'--headless=new',
+				`--remote-debugging-port=${DEBUG_PORT}`,
+				`--user-data-dir=${profile}`,
+				'--window-size=1400,900',
+				'--use-angle=swiftshader',
+				'--enable-unsafe-swiftshader',
+				'--no-first-run',
+				'--no-default-browser-check',
+				'about:blank',
+			],
+			{ stdio: 'ignore', detached: process.platform !== 'win32' },
+		)
 		let target
 		let port = DEBUG_PORT !== '0' ? DEBUG_PORT : null
 		for (let i = 0; i < 100 && !target; i++) {
@@ -287,12 +335,17 @@ async function main() {
 				if (!port) continue
 				const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json()
 				target = list.find((t) => t.type === 'page')
-			} catch { /* not up yet */ }
+			} catch {
+				/* not up yet */
+			}
 		}
 		if (!target) fail('Chrome did not open its DevTools port')
 		const sock = new WebSocket(target.webSocketDebuggerUrl)
 		ws = sock
-		await new Promise((r, j) => { sock.onopen = r; sock.onerror = j })
+		await new Promise((r, j) => {
+			sock.onopen = r
+			sock.onerror = j
+		})
 		sock.onclose = () => {
 			for (const w of waiting.values()) w.reject(new Error('the probe page closed'))
 			waiting.clear()
@@ -307,7 +360,13 @@ async function main() {
 				// The message and its first frames, enough to find the code. Wails' runtime throws in
 				// /wails/ipc.js in a plain browser page (no desktop host); that is not the app's.
 				if (d.exception?.description?.includes('/wails/ipc.js')) return
-				pageErrors.push(d.exception?.description?.split('\n').slice(0, 3).map((l) => l.trim()).join(' ') ?? d.text)
+				pageErrors.push(
+					d.exception?.description
+						?.split('\n')
+						.slice(0, 3)
+						.map((l) => l.trim())
+						.join(' ') ?? d.text,
+				)
 			}
 		}
 		await send('Runtime.enable')
@@ -318,10 +377,18 @@ async function main() {
 	}
 	/** Throws Chrome away (the probe's own, found by its profile) and starts another, since a timed-out or closed page does not recover. */
 	const relaunch = async () => {
-		try { ws?.close() } catch { /* already closed */ }
+		try {
+			ws?.close()
+		} catch {
+			/* already closed */
+		}
 		killChrome()
 		await sleep(500)
-		try { rmSync(profile, { recursive: true, force: true }) } catch { /* Chrome may still hold it */ }
+		try {
+			rmSync(profile, { recursive: true, force: true })
+		} catch {
+			/* Chrome may still hold it */
+		}
 		await launch()
 	}
 	await launch()
@@ -347,7 +414,7 @@ async function main() {
 			const probeEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => k === 'PERF_WINDOWS' || k.startsWith('PROBE_')))
 			// bench-baseline.json (#429) reaches the page the same way, for `bench`'s guard.
 			const benchBaseline = readFileSync(join(here, 'bench-baseline.json'), 'utf8')
-			const prefix =`(async () => {\nwindow.__probeEnv = ${JSON.stringify(probeEnv)};\nwindow.__benchBaseline = ${benchBaseline};\n${lib}\n;return await (async () => {\n`
+			const prefix = `(async () => {\nwindow.__probeEnv = ${JSON.stringify(probeEnv)};\nwindow.__benchBaseline = ${benchBaseline};\n${lib}\n;return await (async () => {\n`
 			bodyStart = prefix.split('\n').length
 			try {
 				const value = await evaluate(`${prefix}${body}\n})()\n})()`)

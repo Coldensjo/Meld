@@ -55,7 +55,10 @@
 	$effect(() => {
 		loading = true
 		loadIcons()
-			.then((d) => (iconList = d), (e) => (error = String(e)))
+			.then(
+				(d) => (iconList = d),
+				(e) => (error = String(e)),
+			)
 			.finally(() => (loading = false))
 	})
 
@@ -141,8 +144,7 @@
 		<input type="search" placeholder="Search: an icon name, such as sword, INV_Axe or potion" bind:value={query} aria-label="Search the icons" />
 		<span class="dim">{count.toLocaleString()} icons</span>
 		<button disabled={busy} onclick={importIcons} title="Add PNG files to the client as icons, each named after its file (square; scaled to 64x64)">Import PNG…</button>
-		<button disabled={busy || !count} onclick={exportIcons} title="Save the icons shown (all of them, or the search's matches) as PNG files in a folder"
-			>Export {count === iconList.length ? 'all' : count.toLocaleString()} as PNG…</button
+		<button disabled={busy || !count} onclick={exportIcons} title="Save the icons shown (all of them, or the search's matches) as PNG files in a folder">Export {count === iconList.length ? 'all' : count.toLocaleString()} as PNG…</button
 		>
 	</div>
 	{#if error}<p class="error">{error}</p>{/if}
@@ -165,16 +167,7 @@
 		{:else}
 			<VirtualGrid items={iconMatches} {win} {cols} tile={TILE} gap={GAP} {rowH} key={(name) => name}>
 				{#snippet cell(name: string)}
-					<button
-						class="icon-btn"
-						class:on={same(name, selected)}
-						style:width="{TILE}px"
-						style:height="{TILE}px"
-						title={name}
-						onclick={() => onpick(name)}
-						ondblclick={() => onapply?.(name)}
-						onpointerover={() => onhover?.(name)}
-					>
+					<button class="icon-btn" class:on={same(name, selected)} style:width="{TILE}px" style:height="{TILE}px" title={name} onclick={() => onpick(name)} ondblclick={() => onapply?.(name)} onpointerover={() => onhover?.(name)}>
 						<ItemIcon icon={name} size={36} />
 					</button>
 				{/snippet}

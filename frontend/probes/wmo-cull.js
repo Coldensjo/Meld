@@ -29,10 +29,14 @@ const storm = async () => {
 	const r = await P.perf(1)
 	// The near map is kept while nothing changes, so it is asked for again until a frame redraws it alone.
 	shadow = -1
-	await P.until(() => {
-		key.shadow.needsUpdate = true
-		return shadow >= 0
-	}, 30_000, 'a redraw of the near shadow map alone')
+	await P.until(
+		() => {
+			key.shadow.needsUpdate = true
+			return shadow >= 0
+		},
+		30_000,
+		'a redraw of the near shadow map alone',
+	)
 	return { frame: r.triangles, shadow, stormwind: meshTriangles(batch[1].mesh) }
 }
 let on, off, cityOn, cityOff, look

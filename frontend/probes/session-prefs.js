@@ -5,7 +5,10 @@ const { prefs } = await P.state()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const orig = e.applyPrefs.bind(e)
 let calls = 0
-e.applyPrefs = (p) => { calls++; return orig(p) }
+e.applyPrefs = (p) => {
+	calls++
+	return orig(p)
+}
 const oldSession = prefs.session
 prefs.session = { tabs: [], active: 0 }
 await wait(300)

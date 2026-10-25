@@ -32,7 +32,10 @@ class HeightEdit {
 	rect(): { x0: number; z0: number; x1: number; z1: number } | null {
 		if (!this.index.length) return null
 		const V = this.t.verts
-		let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity
+		let x0 = Infinity,
+			z0 = Infinity,
+			x1 = -Infinity,
+			z1 = -Infinity
 		for (const i of this.index) {
 			const x = i % V
 			const z = (i - x) / V
@@ -114,7 +117,10 @@ class PaintEdit {
 		const per = this.per
 		const before = new Map(this.chunks)
 		const after = new Map<number, { weights: Uint8Array; slots: Uint8Array }>()
-		let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity
+		let x0 = Infinity,
+			z0 = Infinity,
+			x1 = -Infinity,
+			z1 = -Infinity
 		for (const c of before.keys()) {
 			// Frees the slots painting emptied, as a brush stroke's end does.
 			compactChunk(side, t.splatRes, t.chunkSlots, t.weights, c)

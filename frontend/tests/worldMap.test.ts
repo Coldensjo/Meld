@@ -1,7 +1,26 @@
 // Run with: bun test tests/worldMap.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { areasUnder, artName, boxRect, drawOverlays, explored, extentToRect, feather, fitAspect, intersect, mapLook, overlayName, paste, pixelBox, rectToExtent, WORLD_MAP_H, WORLD_MAP_W, zoneBounds, type OverlayPiece } from '../src/lib/io/worldMap.ts'
+import {
+	areasUnder,
+	artName,
+	boxRect,
+	drawOverlays,
+	explored,
+	extentToRect,
+	feather,
+	fitAspect,
+	intersect,
+	mapLook,
+	overlayName,
+	paste,
+	pixelBox,
+	rectToExtent,
+	WORLD_MAP_H,
+	WORLD_MAP_W,
+	zoneBounds,
+	type OverlayPiece,
+} from '../src/lib/io/worldMap.ts'
 
 const near = (a: number, b: number, eps = 0.01) => assert.ok(Math.abs(a - b) < eps, `${a} is not ${b}`)
 
@@ -36,7 +55,10 @@ test('a zone is the chunks of its areas, grown to the picture’s 3:2', () => {
 	ids[0] = 9
 	const b = zoneBounds(ids, 4, 10, (id) => id === 7 || id === 8)!
 	assert.deepEqual(b, { x0: 10, z0: 10, x1: 30, z1: 30 })
-	assert.equal(zoneBounds(ids, 4, 10, (id) => id === 99), null)
+	assert.equal(
+		zoneBounds(ids, 4, 10, (id) => id === 99),
+		null,
+	)
 	const f = fitAspect(b, 0)
 	near((f.x1 - f.x0) / (f.z1 - f.z0), WORLD_MAP_W / WORLD_MAP_H)
 	near((f.x0 + f.x1) / 2, 20)
@@ -151,8 +173,15 @@ test('an overlay redrawn in part keeps its art outside the box, and others are l
 	const at = (x: number, y: number) => Array.from(gold.pixels!.subarray(((y - gold.box.v0) * (gold.box.u1 - gold.box.u0) + x - gold.box.u0) * 4, ((y - gold.box.v0) * (gold.box.u1 - gold.box.u0) + x - gold.box.u0) * 4 + 4))
 	assert.deepEqual(at(3, 3), [200, 20, 20, 255], 'its old art outside the box is kept')
 	assert.deepEqual(at(17, 15), [40, 160, 40, 255], 'its chunk inside the box is the new drawing')
-	assert.deepEqual(overlays.find((o) => o.id === 140), other, 'an overlay of areas not painted is left as it is')
-	assert.ok(overlays.some((o) => o.id === 0 && o.areas[0] === 9), 'Northshire got a new overlay')
+	assert.deepEqual(
+		overlays.find((o) => o.id === 140),
+		other,
+		'an overlay of areas not painted is left as it is',
+	)
+	assert.ok(
+		overlays.some((o) => o.id === 0 && o.areas[0] === 9),
+		'Northshire got a new overlay',
+	)
 })
 
 test('an overlay whose subzone is no longer painted in the box is cleared there, dropped when nothing is left, and one that only spills over the edge left alone', () => {
@@ -176,8 +205,16 @@ test('an overlay whose subzone is no longer painted in the box is cleared there,
 	assert.ok(alpha(10, 3) > 0 && alpha(10, 3) < 255, 'it fades over the band at the box edge')
 	assert.ok(g.box.u1 <= 14, `cleared inside the box past the band: ${JSON.stringify(g.box)}`)
 	assert.ok(g.hit.right <= 14, `its hit rectangle shrank: ${JSON.stringify(g.hit)}`)
-	assert.equal(overlays.find((o) => o.id === 151), undefined, 'a piece left with nothing is dropped')
-	assert.deepEqual(overlays.find((o) => o.id === 152), spill, 'a piece that only spills over the band keeps the client art')
+	assert.equal(
+		overlays.find((o) => o.id === 151),
+		undefined,
+		'a piece left with nothing is dropped',
+	)
+	assert.deepEqual(
+		overlays.find((o) => o.id === 152),
+		spill,
+		'a piece that only spills over the band keeps the client art',
+	)
 })
 
 test('a subzone no overlay names is drawn into the overlay whose art covers it', () => {

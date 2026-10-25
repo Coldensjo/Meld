@@ -53,7 +53,10 @@ test('the worker build gives the same index, tree, LOD and group cull as the mai
 	assert.ok(cull, 'the cull was adopted with the model')
 	assert.equal(WmoGroupCull.of(built), cull)
 	assert.deepEqual(Array.from(cull.geometry.index!.array), Array.from(cullHere.geometry.index!.array))
-	assert.deepEqual(cull.boxes.map((b) => [...b.min.toArray(), ...b.max.toArray()]), cullHere.boxes.map((b) => [...b.min.toArray(), ...b.max.toArray()]))
+	assert.deepEqual(
+		cull.boxes.map((b) => [...b.min.toArray(), ...b.max.toArray()]),
+		cullHere.boxes.map((b) => [...b.min.toArray(), ...b.max.toArray()]),
+	)
 	assert.equal(cull.geometry.boundsTree, built.boundsTree, 'the twin picks through the model tree')
 
 	// A ray picks the same spot through either tree.

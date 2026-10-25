@@ -366,7 +366,10 @@
 							<label class="check"><input type="checkbox" bind:checked={copyThis} /> Copy {copySource.title} (quest {copySource.entry}): its texts, objectives and rewards, not its givers</label>
 						{/if}
 						{#if target.giver}
-							<label class="check"><input type="checkbox" bind:checked={giveIt} /> Started and ended by {target.giver.name} ({target.giver.kind} {target.giver.id}){target.giver.kind === 'creature' && !target.giver.ready ? ', which gets the Quest giver flag' : ''}</label>
+							<label class="check"
+								><input type="checkbox" bind:checked={giveIt} /> Started and ended by {target.giver.name} ({target.giver.kind}
+								{target.giver.id}){target.giver.kind === 'creature' && !target.giver.ready ? ', which gets the Quest giver flag' : ''}</label
+							>
 						{/if}
 						{#if !copySource}
 							<p class="dim">It starts as a level 1 quest anyone may take, with no objectives or rewards. To start from an existing quest, open that one and choose New quest there.</p>

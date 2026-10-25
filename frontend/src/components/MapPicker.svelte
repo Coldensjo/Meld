@@ -24,15 +24,7 @@
 		/** Out: the map's tile count once known, -1 before; 0 for a WMO-only instance. */
 		tileCount?: number
 	}
-	let {
-		map,
-		block = $bindable(),
-		maxSize = 8,
-		focus = null,
-		autoPick = false,
-		gaps = $bindable(0),
-		tileCount = $bindable(-1),
-	}: Props = $props()
+	let { map, block = $bindable(), maxSize = 8, focus = null, autoPick = false, gaps = $bindable(0), tileCount = $bindable(-1) }: Props = $props()
 
 	const TILES = 64
 	const VIEW = 560
@@ -154,7 +146,10 @@
 				tileCount = tiles.length
 				if (autoPick && !block) block = fullBlock(tiles, maxSize)
 				if (focus || !tiles.length) return
-				let x0 = TILES, y0 = TILES, x1 = 0, y1 = 0
+				let x0 = TILES,
+					y0 = TILES,
+					x1 = 0,
+					y1 = 0
 				for (const t of tiles) {
 					x0 = Math.min(x0, t.X)
 					y0 = Math.min(y0, t.Y)

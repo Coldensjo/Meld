@@ -205,12 +205,17 @@ export class WorldStream {
 		const tiles = this.tiles
 		const list = this.horizonTiles
 		let shown = 0
-		const n = packHorizon(this.horizonFull!, list.length, (k) => {
-			const t = list[k]
-			const on = !tiles?.get(t.key)?.mesh && tileDistance(this.eyeX, this.eyeZ, t.x, t.y) <= far
-			if (on) shown++
-			return on
-		}, index.array as Uint32Array)
+		const n = packHorizon(
+			this.horizonFull!,
+			list.length,
+			(k) => {
+				const t = list[k]
+				const on = !tiles?.get(t.key)?.mesh && tileDistance(this.eyeX, this.eyeZ, t.x, t.y) <= far
+				if (on) shown++
+				return on
+			},
+			index.array as Uint32Array,
+		)
 		this.horizonShown = shown
 		g.setDrawRange(0, n)
 		index.clearUpdateRanges()

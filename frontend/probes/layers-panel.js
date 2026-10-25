@@ -35,5 +35,11 @@ await settle()
 const back = rows()
 return {
 	ok: hint && hovered > 0 && selected && selRows > 0 && afterDelete < selRows && afterUndo === selRows && back === hovered,
-	hint, hovered, selected, selRows, afterDelete, afterUndo, back,
+	hint,
+	hovered,
+	selected,
+	selRows,
+	afterDelete,
+	afterUndo,
+	back,
 }

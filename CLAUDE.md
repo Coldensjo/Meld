@@ -110,7 +110,8 @@ make build-windows   # wails build -platform windows/amd64 → build/bin/Meld.ex
 make test            # go test ./internal/... ./cmd/... (and . when frontend/dist exists) + frontend unit tests (`bun test`)
 make check           # gofmt + go vet (same rule) + golangci-lint (skipped if missing) + bindings-check (wailsjs matches the bound methods) + notices-check + (cd frontend && bun run check)
 make verify          # check + test + the build for this OS: the gate before a commit
-make bindings        # regenerate frontend/wailsjs (wails generate module); make format = gofmt -w
+make bindings        # regenerate frontend/wailsjs (wails generate module)
+make format          # gofmt -w + Prettier over frontend (frontend/.prettierrc.json); make check fails on unformatted files
 make probe           # every live-app probe (frontend/probes) against the running `make dev`
 cd frontend && bun run probe <name...>   # chosen probes; --list names them (docs/TESTS.md, "Probes")
 cd frontend && bun run build   # frontend only
@@ -264,8 +265,9 @@ These are repeated from the docs above, since breaking one breaks things far fro
 
 ## Conventions
 
-- TypeScript strict, no `any` in committed code. Prettier-ish style: tabs (`.editorconfig`), single
-  quotes, no semicolons. Older files still indent with 2 spaces; new and edited files use tabs.
+- TypeScript strict, no `any` in committed code. Prettier formats the frontend (`frontend/.prettierrc.json`:
+  tabs, single quotes, no semicolons, 240 columns): run `make format` before committing, since `make check`
+  fails on a file Prettier would change.
 - Svelte 5 runes only (`$state`, `$derived`, `$props`, `onclick=`). No legacy `export let` or
   `on:click`.
 - UI styling: plain CSS with the tokens in `frontend/src/app.css` (dark editor theme). No UI

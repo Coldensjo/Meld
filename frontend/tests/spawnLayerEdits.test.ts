@@ -38,8 +38,7 @@ function loaded(rows: vmangos.WorldSpawn[]) {
 	return layer
 }
 
-const editsOf = (layer: InstanceType<typeof SpawnLayer>) =>
-	layer.edits().map((e) => ({ key: spawnKey(e.spawn), guid: e.spawn.guid, entry: e.spawn.entry, created: e.created, deleted: e.deleted }))
+const editsOf = (layer: InstanceType<typeof SpawnLayer>) => layer.edits().map((e) => ({ key: spawnKey(e.spawn), guid: e.spawn.guid, entry: e.spawn.entry, created: e.created, deleted: e.deleted }))
 
 test('moving a loaded spawn twice gives one update; setting it back gives none', () => {
 	const layer = loaded([spawn('monster', 10, 100, 1)])

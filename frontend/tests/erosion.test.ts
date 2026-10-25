@@ -96,13 +96,19 @@ test('an area changes only the vertices whose cells are all in it', () => {
 	const out = new Float32Array(25)
 	areaVertexWeights(cells, size, r, out)
 	// Cells (1,1) and (2,1) are in: no vertex has all four of its cells in.
-	assert.equal(out.reduce((a, b) => a + b, 0), 0)
+	assert.equal(
+		out.reduce((a, b) => a + b, 0),
+		0,
+	)
 	cells[2 * size + 1] = INSIDE
 	cells[2 * size + 2] = INSIDE
 	areaVertexWeights(cells, size, r, out)
 	// Now the 2x2 block of cells (1..2, 1..2) is in: the one vertex inside it, (2, 2).
 	assert.equal(out[2 * 5 + 2], 1)
-	assert.equal(out.reduce((a, b) => a + b, 0), 1)
+	assert.equal(
+		out.reduce((a, b) => a + b, 0),
+		1,
+	)
 	// The map's own edge counts as in.
 	cells.fill(INSIDE)
 	areaVertexWeights(cells, size, r, out)
@@ -117,25 +123,58 @@ test('the area pass reports its progress to the end, and a cancel stops it at on
 	const shares: number[] = []
 	const o = { density: 1, passes: 3, talus: 40, seed: 1 }
 	const turn = () => Promise.resolve()
-	assert.equal(await erodePatch(hs, n, n, null, o, (f) => shares.push(f), () => false, 0, turn), true)
+	assert.equal(
+		await erodePatch(
+			hs,
+			n,
+			n,
+			null,
+			o,
+			(f) => shares.push(f),
+			() => false,
+			0,
+			turn,
+		),
+		true,
+	)
 	assert.equal(shares.at(-1), 1)
 	for (let i = 1; i < shares.length; i++) assert.ok(shares[i] >= shares[i - 1])
 
 	const again = cone(n, 30, 28)
 	let turns = 0
-	const done = await erodePatch(again, n, n, null, o, () => {}, () => turns > 0, 0, () => {
-		turns++
-		return Promise.resolve()
-	})
+	const done = await erodePatch(
+		again,
+		n,
+		n,
+		null,
+		o,
+		() => {},
+		() => turns > 0,
+		0,
+		() => {
+			turns++
+			return Promise.resolve()
+		},
+	)
 	assert.equal(done, false)
 	assert.equal(turns, 1)
 })
 
-test('the settled mask is set at a cone\'s foot, empty on its peak, and only over the rect', async () => {
+test("the settled mask is set at a cone's foot, empty on its peak, and only over the rect", async () => {
 	const n = 64
 	const hs = cone(n, 30, 24)
 	const before = hs.slice()
-	await erodePatch(hs, n, n, null, { density: 1, passes: 3, talus: 40, seed: 1 }, () => {}, () => false, 1000, () => Promise.resolve())
+	await erodePatch(
+		hs,
+		n,
+		n,
+		null,
+		{ density: 1, passes: 3, talus: 40, seed: 1 },
+		() => {},
+		() => false,
+		1000,
+		() => Promise.resolve(),
+	)
 	const gain = new Float32Array(n * n)
 	for (let i = 0; i < gain.length; i++) gain[i] = hs[i] - before[i]
 	// The patch sits at vertex (10, 20) of a map 100 cells a side, 4 texels a cell.
@@ -144,7 +183,7 @@ test('the settled mask is set at a cone\'s foot, empty on its peak, and only ove
 	const mask = new Uint8Array(res * res).fill(7)
 	const set = settledMask(gain, n, n, 10, 20, per, SETTLED_FULL, mask, res)
 	assert.ok(set > 0)
-	const texel = (vx: number, vz: number) => mask[((20 + vz) * per) * res + (10 + vx) * per]
+	const texel = (vx: number, vz: number) => mask[(20 + vz) * per * res + (10 + vx) * per]
 	assert.equal(texel(n / 2, n / 2), 0)
 	// Somewhere on the ring past the cone's foot, ground settled.
 	let foot = 0

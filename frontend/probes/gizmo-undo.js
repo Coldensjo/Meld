@@ -8,7 +8,11 @@ editor.tool = 'select'
 await P.frames(1)
 const L = e.objects
 // A fresh ocean map's ground is at -12: the cubes stand above the water.
-const cubes = [[120, 120], [128, 124], [136, 120]].map(([x, z]) => L.add({ type: 'helper:cube:4', x, z, yOff: 14, rotY: 0, scale: 1 }))
+const cubes = [
+	[120, 120],
+	[128, 124],
+	[136, 120],
+].map(([x, z]) => L.add({ type: 'helper:cube:4', x, z, yOff: 14, rotY: 0, scale: 1 }))
 await P.lookAt({ x: 128, y: e.terrain.heightAt(128, 122) + 14, z: 122 }, { pitch: 0.7, back: 40 })
 const V3 = e.controller.target.constructor
 const g = e.gizmo
@@ -73,6 +77,9 @@ const drag = async (name) => {
 const results = []
 sel.selectObjects(L, [cubes[1].id])
 for (const name of ['ring', 'arrow', 'scale', 'moveX']) results.push(await drag(name))
-sel.selectObjects(L, cubes.map((c) => c.id))
+sel.selectObjects(
+	L,
+	cubes.map((c) => c.id),
+)
 for (const name of ['ring', 'arrow']) results.push({ ...(await drag(name)), group: true })
 return { ok: results.every((r) => r.ok), results }

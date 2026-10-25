@@ -103,7 +103,11 @@ async function encodeCopy(engine: Engine, d: MapDocument, changes: number): Prom
 	const snap = engine.snapshotOf(d)
 	let sent = false
 	try {
-		for (const [field, bytes] of [['heights', snap.heights], ['weights', snap.weights], ['chunkSlots', snap.chunkSlots]] as const) {
+		for (const [field, bytes] of [
+			['heights', snap.heights],
+			['weights', snap.weights],
+			['chunkSlots', snap.chunkSlots],
+		] as const) {
 			// At least one part a field, so part 0 replaces what a copy given up earlier left in Go.
 			for (let at = 0, i = 0; at === 0 || at < bytes.length; at += SLICE_BYTES, i++) {
 				await yieldTurn()
@@ -150,8 +154,7 @@ export async function recoveryCopies(): Promise<recovery.Info[]> {
 }
 
 const samePath = (a: string, b: string) => a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase()
-const sameRegion = (a: RegionRef | null, b: { mapName: string; x: number; y: number; size: number } | null) =>
-	!!a && !!b && a.mapName === b.mapName && a.x === b.x && a.y === b.y && a.size === b.size
+const sameRegion = (a: RegionRef | null, b: { mapName: string; x: number; y: number; size: number } | null) => !!a && !!b && a.mapName === b.mapName && a.x === b.x && a.y === b.y && a.size === b.size
 
 /**
  * Opens a copy as a map with unsaved changes. It takes the place of the tab of the same map (its file,
@@ -159,9 +162,7 @@ const sameRegion = (a: RegionRef | null, b: { mapName: string; x: number; y: num
  */
 export async function recover(engine: Engine, info: recovery.Info) {
 	const snap = fromMapData(await LoadRecovery(info.id))
-	const same = engine.documents.find(
-		(d) => !engine.isDirty(d.id) && (info.file ? samePath(pathOf(engine, d), info.file) : !pathOf(engine, d) && sameRegion(d.meta.region, snap.region)),
-	)
+	const same = engine.documents.find((d) => !engine.isDirty(d.id) && (info.file ? samePath(pathOf(engine, d), info.file) : !pathOf(engine, d) && sameRegion(d.meta.region, snap.region)))
 	engine.openDocument(snap, info.file, same?.id)
 	editor.dirty = true
 	engine.refreshTabs()

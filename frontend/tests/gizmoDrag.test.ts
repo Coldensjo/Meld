@@ -69,7 +69,11 @@ test('a group member turns and spreads about the pivot with Rotate around pivot 
 function world() {
 	const terrain = new Terrain(64, 2)
 	const objects = new ObjectLayer(terrain)
-	const cubes = [[56, 60], [64, 64], [72, 60]].map(([x, z]) => objects.add({ type: CUBE, x, z, yOff: 6, rotY: 0, scale: 1 }))
+	const cubes = [
+		[56, 60],
+		[64, 64],
+		[72, 60],
+	].map(([x, z]) => objects.add({ type: CUBE, x, z, yOff: 6, rotY: 0, scale: 1 }))
 	const spawnLayer = new SpawnLayer()
 	const history = new History({ dirty() {}, sync() {} })
 	const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000)
@@ -197,7 +201,10 @@ test('a group: the ring turns the three about their pivot, the arrow lifts them 
 	const w = world()
 	editor.tool = 'select'
 	editor.rotatePivot = true
-	selectObjects(w.objects, w.cubes.map((c) => c.id))
+	selectObjects(
+		w.objects,
+		w.cubes.map((c) => c.id),
+	)
 	const all = () => w.cubes.map((c) => w.objects.objects.get(c.id)!)
 	dragHandle(w, 'ring', cubeState(w))
 	expect(all().every((o) => o.rotY !== 0)).toBe(true)

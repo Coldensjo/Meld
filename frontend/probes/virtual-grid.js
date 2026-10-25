@@ -25,12 +25,17 @@ function measure() {
 		rowH: Math.round(rowH),
 		tiles: tiles.length,
 		// Rows rendered above the view's top and below its bottom: the window keeps one each side.
-		above: Math.round((view.top - g.top) / rowH * 10) / 10,
-		below: Math.round((g.bottom - view.bottom) / rowH * 10) / 10,
+		above: Math.round(((view.top - g.top) / rowH) * 10) / 10,
+		below: Math.round(((g.bottom - view.bottom) / rowH) * 10) / 10,
 		blockHeight: Math.round(virtual.getBoundingClientRect().height),
 	}
 	const viewRows = Math.ceil(view.height / rowH) + 3
-	r.ok = g.top <= Math.max(view.top, virtual.getBoundingClientRect().top) + 1 && (g.bottom >= view.bottom - 1 || virtual.getBoundingClientRect().bottom - g.bottom < rowH) && r.above <= 2.05 && r.tiles <= viewRows * cols && r.blockHeight > scroller.clientHeight
+	r.ok =
+		g.top <= Math.max(view.top, virtual.getBoundingClientRect().top) + 1 &&
+		(g.bottom >= view.bottom - 1 || virtual.getBoundingClientRect().bottom - g.bottom < rowH) &&
+		r.above <= 2.05 &&
+		r.tiles <= viewRows * cols &&
+		r.blockHeight > scroller.clientHeight
 	return r
 }
 

@@ -69,7 +69,14 @@
 			.catch(() => (templateModel = ''))
 	})
 
-	const groups = $derived(record ? fieldGroups(record.columns.map((c) => c.name), objectFieldGroups(Number(values.type) || 0, templateModel)) : [])
+	const groups = $derived(
+		record
+			? fieldGroups(
+					record.columns.map((c) => c.name),
+					objectFieldGroups(Number(values.type) || 0, templateModel),
+				)
+			: [],
+	)
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 
 	// Opening another object reads its template and picks the first tab.
@@ -147,20 +154,16 @@
 				: tab === 'display' && hoveredDisplay
 					? { model: hoveredDisplay.model, scale: Number(values.size) || 1, what: `display ${hoveredDisplay.id}` }
 					: target.entry === 0
-					? null
-					: usingSpawn && spawn
-					? { model: spawn.model, scale: spawn.scale, what: 'this spawn as placed' }
-					: record
-						? { model: templateModel, scale: Number(values.size) || 1, what: "the object template's display" }
-						: null,
+						? null
+						: usingSpawn && spawn
+							? { model: spawn.model, scale: spawn.scale, what: 'this spawn as placed' }
+							: record
+								? { model: templateModel, scale: Number(values.size) || 1, what: "the object template's display" }
+								: null,
 	)
 
 	const unsavedText = $derived(
-		[
-			changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object` : '',
-			lootDirty ? 'unsaved changes to the contents' : '',
-			questsDirty ? 'unsaved changes to the quests' : '',
-		]
+		[changeCount ? `${changeCount} unsaved ${changeCount === 1 ? 'change' : 'changes'} to the object` : '', lootDirty ? 'unsaved changes to the contents' : '', questsDirty ? 'unsaved changes to the quests' : '']
 			.filter(Boolean)
 			.join(', ') + '.',
 	)
@@ -429,7 +432,15 @@
 					<CreaturePreview type={spawnType({ model: preview.model })} scale={preview.scale} />
 				{:else}
 					<div class="empty dim">
-						{loading ? 'Loading…' : target.entry === 0 ? (tab === 'new' ? 'Name the new object on the right.' : 'Point at an object in the list to see it here.') : preview ? 'Its display has no model: it is invisible in the game.' : ''}
+						{loading
+							? 'Loading…'
+							: target.entry === 0
+								? tab === 'new'
+									? 'Name the new object on the right.'
+									: 'Point at an object in the list to see it here.'
+								: preview
+									? 'Its display has no model: it is invisible in the game.'
+									: ''}
 					</div>
 				{/if}
 				<div class="under">
@@ -546,14 +557,7 @@
 							/>
 						</div>
 						<div hidden={tab !== 'quests'}>
-							<QuestsTab
-								bind:this={questsTab}
-								bind:dirty={questsDirty}
-								kind="object"
-								entry={record.entry}
-								name={saved.name || values.name || ''}
-								ready={Number(saved.type) === QUEST_GIVER_TYPE}
-							/>
+							<QuestsTab bind:this={questsTab} bind:dirty={questsDirty} kind="object" entry={record.entry} name={saved.name || values.name || ''} ready={Number(saved.type) === QUEST_GIVER_TYPE} />
 						</div>
 					{/if}
 				</div>

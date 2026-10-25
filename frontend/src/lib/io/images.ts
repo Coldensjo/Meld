@@ -40,10 +40,7 @@ export function exportNormalMap(engine: Engine) {
  * map, or with `opts.scope` 'tile' over the client tile under the camera (Noggit Red's per-tile
  * import), where `opts.tiledEdges` leaves the vertices it shares with the next tiles alone (#44).
  */
-export function importHeightmap(
-	engine: Engine,
-	opts: { mode: HeightmapMode; min: number; max: number; scope?: 'map' | 'tile'; tiledEdges?: boolean } = { mode: 'set', min: IMAGE_MIN, max: IMAGE_MAX },
-) {
+export function importHeightmap(engine: Engine, opts: { mode: HeightmapMode; min: number; max: number; scope?: 'map' | 'tile'; tiledEdges?: boolean } = { mode: 'set', min: IMAGE_MIN, max: IMAGE_MAX }) {
 	return guarded('Import heightmap', async () => {
 		if (opts.scope === 'tile' && !engine.tileUnderCamera()) {
 			setStatus('The camera is not over the map, so there is no tile to import onto.', 4000)

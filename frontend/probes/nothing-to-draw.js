@@ -28,7 +28,7 @@ try {
 	const b = L.batches.get(type)
 	const g = b.mesh.geometry
 	g.computeBoundingBox()
-	const size = g.boundingBox.getSize(new (g.boundingBox.min.constructor)())
+	const size = g.boundingBox.getSize(new g.boundingBox.min.constructor())
 	const out = {
 		warnings: warnings.length,
 		fetches: fetches.length,

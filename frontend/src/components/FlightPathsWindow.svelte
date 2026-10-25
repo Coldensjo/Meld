@@ -366,7 +366,10 @@
 			removedStops = []
 			removedRoutes = []
 			const where = [res.patch ? 'the client' : '', res.server ? "the server's data" : ''].filter(Boolean).join(' and ')
-			setStatus(`Saved ${n} flight path change${n === 1 ? '' : 's'} to ${where || 'nowhere new (nothing differed)'}.${res.server ? '' : ' Set the VMaNGOS server folder: without the server, nobody can fly them.'}${applyNote(res)}`, 10000)
+			setStatus(
+				`Saved ${n} flight path change${n === 1 ? '' : 's'} to ${where || 'nowhere new (nothing differed)'}.${res.server ? '' : ' Set the VMaNGOS server folder: without the server, nobody can fly them.'}${applyNote(res)}`,
+				10000,
+			)
 		} catch (err) {
 			error = String(err)
 		} finally {
@@ -448,7 +451,16 @@
 							{#each ALLIANCE_MOUNTS as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
 							{#if stop.allianceMount && !ALLIANCE_MOUNTS.some((m) => m.id === stop.allianceMount)}<option value={stop.allianceMount}>Creature {stop.allianceMount}</option>{/if}
 						</select>
-						<input class="entry" type="number" min="0" max="65535" value={stop.allianceMount} oninput={(e) => editStop('allianceMount', Math.max(0, Math.round(num(e))))} aria-label="Alliance mount creature" title="The creature the flight is ridden on" />
+						<input
+							class="entry"
+							type="number"
+							min="0"
+							max="65535"
+							value={stop.allianceMount}
+							oninput={(e) => editStop('allianceMount', Math.max(0, Math.round(num(e))))}
+							aria-label="Alliance mount creature"
+							title="The creature the flight is ridden on"
+						/>
 					</span>
 					<label class="k" for="fp-horde">Horde</label>
 					<span class="row">
@@ -457,7 +469,16 @@
 							{#each HORDE_MOUNTS as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
 							{#if stop.hordeMount && !HORDE_MOUNTS.some((m) => m.id === stop.hordeMount)}<option value={stop.hordeMount}>Creature {stop.hordeMount}</option>{/if}
 						</select>
-						<input class="entry" type="number" min="0" max="65535" value={stop.hordeMount} oninput={(e) => editStop('hordeMount', Math.max(0, Math.round(num(e))))} aria-label="Horde mount creature" title="The creature the flight is ridden on" />
+						<input
+							class="entry"
+							type="number"
+							min="0"
+							max="65535"
+							value={stop.hordeMount}
+							oninput={(e) => editStop('hordeMount', Math.max(0, Math.round(num(e))))}
+							aria-label="Horde mount creature"
+							title="The creature the flight is ridden on"
+						/>
 					</span>
 					<span class="k">Routes</span>
 					<span class="row">
@@ -506,9 +527,7 @@
 				</div>
 			{/if}
 
-			<p class="dim help">
-				Drag a stop's marker over the ground. Pick a route, then drag its points (Shift+drag for height) or Draw points; the curve turns red where it runs under the ground. Each way is a route of its own.
-			</p>
+			<p class="dim help">Drag a stop's marker over the ground. Pick a route, then drag its points (Shift+drag for height) or Draw points; the curve turns red where it runs under the ground. Each way is a route of its own.</p>
 			<div class="row">
 				<span class="dim grow">{spawn ? `Flight master: ${spawn.name}` : 'Select a creature to make it the flight master.'}</span>
 				<button onclick={() => void makeFlightMaster()} disabled={!spawn} title="Give the creature's template the flight master flag (npc_flags 8) in the world database">Make flight master</button>

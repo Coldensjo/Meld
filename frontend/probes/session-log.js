@@ -10,7 +10,9 @@ flushLog()
 let text = ''
 for (let i = 0; i < 50 && !text.includes(mark + ' two'); i++) {
 	await new Promise((r) => setTimeout(r, 200))
-	const r = await SessionLog(); if (r == null) return { ok: false, why: "SessionLog gave " + r }; text = r
+	const r = await SessionLog()
+	if (r == null) return { ok: false, why: 'SessionLog gave ' + r }
+	text = r
 }
 const lines = text.split('\n').filter((l) => l.includes(mark))
 return { ok: lines.length === 2 && lines[0].endsWith(mark + ' one') && lines[1].endsWith(mark + ' two'), lines }

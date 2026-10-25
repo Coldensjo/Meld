@@ -48,7 +48,8 @@ export function triggerLines(t: TriggerShape, tileX: number, tileY: number, out:
 			for (let i = 0; i < CIRCLE_SEGMENTS; i++) {
 				for (const k of [i, i + 1]) {
 					const a = (k / CIRCLE_SEGMENTS) * Math.PI * 2
-					const u = Math.cos(a) * r, v = Math.sin(a) * r
+					const u = Math.cos(a) * r,
+						v = Math.sin(a) * r
 					push(axis === 0 ? { x: c.x + u, y: c.y + v, z: c.z } : axis === 1 ? { x: c.x, y: c.y + u, z: c.z + v } : { x: c.x + u, y: c.y, z: c.z + v })
 				}
 			}
@@ -56,10 +57,15 @@ export function triggerLines(t: TriggerShape, tileX: number, tileY: number, out:
 		return out
 	}
 	// The box's corners on the server, turned by its yaw about Z, then each taken to the editor.
-	const cos = Math.cos(t.boxYaw), sin = Math.sin(t.boxYaw)
-	const hx = t.boxX / 2, hy = t.boxY / 2, hz = t.boxZ / 2
+	const cos = Math.cos(t.boxYaw),
+		sin = Math.sin(t.boxYaw)
+	const hx = t.boxX / 2,
+		hy = t.boxY / 2,
+		hz = t.boxZ / 2
 	const corner = (i: number) => {
-		const lx = i & 1 ? hx : -hx, ly = i & 2 ? hy : -hy, lz = i & 4 ? hz : -hz
+		const lx = i & 1 ? hx : -hx,
+			ly = i & 2 ? hy : -hy,
+			lz = i & 4 ? hz : -hz
 		return editorPoint({ x: t.x + lx * cos - ly * sin, y: t.y + lx * sin + ly * cos, z: t.z + lz }, tileX, tileY)
 	}
 	for (let i = 0; i < 8; i++) {

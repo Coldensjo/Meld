@@ -151,9 +151,15 @@ export function checkSpawnIds(spawns: readonly IdSpawn[], report: IdReport): Fin
 		const at = { x: s.x, z: s.z, target: { kind: 'spawn' as const, key: s.key } }
 		const row = s.created ? (obj ? objects : creatures).get(s.guid) : undefined
 		if (row && row.entry !== s.entry)
-			taken.push({ check: 'Spawn guids taken', severity: 'error', message: `${label} has guid ${s.guid}, which the database gave to ${obj ? 'object' : 'creature'} ${row.entry} on map ${row.map} since: saving would delete that spawn. Place ${label} again for a new guid.`, ...at })
+			taken.push({
+				check: 'Spawn guids taken',
+				severity: 'error',
+				message: `${label} has guid ${s.guid}, which the database gave to ${obj ? 'object' : 'creature'} ${row.entry} on map ${row.map} since: saving would delete that spawn. Place ${label} again for a new guid.`,
+				...at,
+			})
 		else if (row) taken.push({ check: 'Spawn guids taken', severity: 'info', message: `${label} is in the database under its guid ${s.guid} already, likely from an earlier export; saving replaces it.`, ...at })
-		if ((obj ? missingO : missingC).has(s.entry)) entries.push({ check: 'Spawns without a template', severity: 'error', message: `${label}'s entry ${s.entry} has no ${obj ? 'gameobject' : 'creature'}_template row, so the server won't spawn it.`, ...at })
+		if ((obj ? missingO : missingC).has(s.entry))
+			entries.push({ check: 'Spawns without a template', severity: 'error', message: `${label}'s entry ${s.entry} has no ${obj ? 'gameobject' : 'creature'}_template row, so the server won't spawn it.`, ...at })
 	}
 	return [...capped('Spawn guids taken', taken), ...capped('Spawns without a template', entries)]
 }

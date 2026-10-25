@@ -11,7 +11,7 @@ endif
 WAILS ?= $(shell command -v wails 2>/dev/null || echo $(HOME)/go/bin/wails)
 LINUX_TAGS ?= webkit2_41
 
-.PHONY: dev build build-linux build-windows test test-full fuzz check lint notices notices-check bindings bindings-check format verify probe probe-smoke probe-perf docs clean
+.PHONY: dev build build-linux build-windows test test-full fuzz check lint notices notices-check bindings bindings-check format format-check verify probe probe-smoke probe-perf docs clean
 
 dev:
 	$(WAILS) dev -tags $(LINUX_TAGS)
@@ -49,9 +49,14 @@ bindings:
 bindings-check:
 	@grep -hoE '^func \(a \*App\) [A-Z][A-Za-z0-9]*' *.go | sed 's/.* //' | sort -u > .bindings-go.tmp; 	grep -oE '^export function [A-Za-z0-9]+' frontend/wailsjs/go/main/App.d.ts | sed 's/.* //' | sort -u > .bindings-ts.tmp; 	diff=$$(comm -3 .bindings-go.tmp .bindings-ts.tmp); rm -f .bindings-go.tmp .bindings-ts.tmp; 	test -z "$$diff" || { echo 'wailsjs/go/main/App.d.ts is out of step with the bound methods (go on the left, d.ts indented); run make bindings:'; echo "$$diff"; exit 1; }
 
-# Formats the Go sources (the frontend has no formatter configured).
+# Formats the Go sources (gofmt) and the frontend (Prettier with the Svelte plugin, frontend/.prettierrc.json).
 format:
 	gofmt -w internal cmd *.go
+	cd frontend && bun run format
+
+# Fails when a frontend file is not as Prettier writes it: run make format.
+format-check:
+	cd frontend && bun run format:check
 
 # The gate before a commit (CLAUDE.md, "Git workflow"): check, test, then the build for this OS.
 verify: check test
@@ -71,7 +76,7 @@ lint:
 	elif [ -f frontend/dist/index.html ]; then golangci-lint run ./internal/... ./cmd/... .; \
 	else echo 'linting ./internal/... only (frontend/dist is missing; build the frontend first)'; golangci-lint run ./internal/... ./cmd/...; fi
 
-check: bindings-check notices-check lint
+check: bindings-check notices-check format-check lint
 	@test -z "$$(gofmt -l internal cmd *.go)" || { echo 'gofmt: unformatted files (run gofmt -w):'; gofmt -l internal cmd *.go; exit 1; }
 	go vet ./internal/... ./cmd/...
 	@if [ -f frontend/dist/index.html ]; then go vet .; else echo 'skipping go vet . (frontend/dist is missing; build the frontend first)'; fi

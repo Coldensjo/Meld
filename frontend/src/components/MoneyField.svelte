@@ -56,9 +56,15 @@
 
 <span class="money">
 	{#if signed}<label class="costs" title={costsHint}><input type="checkbox" checked={raw.negative} onchange={(e) => setNegative((e.currentTarget as HTMLInputElement).checked)} /> Costs</label>{/if}
-	<span class="amt"><input {id} class="g" type="number" min="0" step="1" placeholder="0" aria-label="Gold" value={raw.gold} oninput={(e) => edit('gold', (e.currentTarget as HTMLInputElement).value)} onchange={normalise} /><Coin coin="gold" /></span>
-	<span class="amt"><input type="number" min="0" step="1" placeholder="0" aria-label="Silver" value={raw.silver} oninput={(e) => edit('silver', (e.currentTarget as HTMLInputElement).value)} onchange={normalise} /><Coin coin="silver" /></span>
-	<span class="amt"><input type="number" min="0" step="1" placeholder="0" aria-label="Copper" value={raw.copper} oninput={(e) => edit('copper', (e.currentTarget as HTMLInputElement).value)} onchange={normalise} /><Coin coin="copper" /></span>
+	<span class="amt"
+		><input {id} class="g" type="number" min="0" step="1" placeholder="0" aria-label="Gold" value={raw.gold} oninput={(e) => edit('gold', (e.currentTarget as HTMLInputElement).value)} onchange={normalise} /><Coin coin="gold" /></span
+	>
+	<span class="amt"
+		><input type="number" min="0" step="1" placeholder="0" aria-label="Silver" value={raw.silver} oninput={(e) => edit('silver', (e.currentTarget as HTMLInputElement).value)} onchange={normalise} /><Coin coin="silver" /></span
+	>
+	<span class="amt"
+		><input type="number" min="0" step="1" placeholder="0" aria-label="Copper" value={raw.copper} oninput={(e) => edit('copper', (e.currentTarget as HTMLInputElement).value)} onchange={normalise} /><Coin coin="copper" /></span
+	>
 </span>
 
 <style>

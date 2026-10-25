@@ -131,7 +131,10 @@ export async function playHere(engine: Engine | null) {
 		}
 		const moved = await PlayHere(vmangos.CharacterSpot.createFrom(spot))
 		const stale = await uncompiledName(engine)
-		setStatus(stale ? `Moved ${moved} to where the camera is. The game shows ${stale} without its latest edits: File › Compile to Client writes them (it restarts the game).` : `Moved ${moved} to where the camera is.`, stale ? 12000 : 4000)
+		setStatus(
+			stale ? `Moved ${moved} to where the camera is. The game shows ${stale} without its latest edits: File › Compile to Client writes them (it restarts the game).` : `Moved ${moved} to where the camera is.`,
+			stale ? 12000 : 4000,
+		)
 	} catch (e) {
 		setStatus(`Play here didn't move the character: ${e}. Game › Launch puts it there by restarting the game.`, 12000)
 	}

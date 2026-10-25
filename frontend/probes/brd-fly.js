@@ -41,7 +41,9 @@ let frames = 0
 for (let k = 1; k < pts.length && frames < 40; k++) {
 	const [x, y, z] = pts[k]
 	for (; frames < 40; frames++) {
-		const dx = x - c.target.x, dy = y - c.target.y, dz = z - c.target.z
+		const dx = x - c.target.x,
+			dy = y - c.target.y,
+			dz = z - c.target.z
 		const d = Math.hypot(dx, dy, dz)
 		if (d < 3) break
 		c.yaw = Math.atan2(-dx, -dz)

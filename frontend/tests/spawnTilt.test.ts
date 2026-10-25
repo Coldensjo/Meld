@@ -11,12 +11,7 @@ const modelToMesh = (v: THREE.Vector3) => new THREE.Vector3(v.x, v.z, -v.y)
 
 /** The Hamilton product a*b of quaternions [x, y, z, w]. */
 function mul(a: number[], b: number[]): number[] {
-	return [
-		a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
-		a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
-		a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
-		a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
-	]
+	return [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0], a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]]
 }
 const facing = (o: number) => [0, 0, Math.sin(o / 2), Math.cos(o / 2)]
 

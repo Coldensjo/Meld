@@ -1,20 +1,7 @@
 import * as THREE from 'three'
 import { compressedTexturesOn, fetchImage, fetchTextureDXT, listAssets, textureAnisotropy, type RawImage } from '../wow/api'
 import { applySheen, sheenPath } from './sheen'
-import {
-	LAYER_BYTES,
-	LEVEL_BYTES,
-	LEVEL_OFFSET,
-	LEVEL_SIDE,
-	RES,
-	blockResamplable,
-	chainAlpha,
-	chainColour,
-	dxtLevels,
-	encodeAlphaChain,
-	encodeColourChain,
-	solidLayer,
-} from './paletteBlocks'
+import { LAYER_BYTES, LEVEL_BYTES, LEVEL_OFFSET, LEVEL_SIDE, RES, blockResamplable, chainAlpha, chainColour, dxtLevels, encodeAlphaChain, encodeColourChain, solidLayer } from './paletteBlocks'
 
 // The map's texture palette as one array texture: layer i is palette entry i. Each entry is a WoW
 // tileset path, or a '#rrggbb' colour that stands in for a texture while none is set. WoW
@@ -240,14 +227,8 @@ export class PaletteArray {
 		if (this.loading.has(path)) return
 		this.loading.add(path)
 		const layerBytes = this.compressed
-			? Promise.all([
-					fetchTextureDXT(path),
-					hasSheenTwin(path).then((has) => (has ? fetchTextureDXT(sheenPath(path)).catch(() => null) : null)),
-				]).then(([base, sheen]) => blockLayer(path, base, sheen))
-			: Promise.all([
-					fetchImage(path),
-					hasSheenTwin(path).then((has) => (has ? fetchImage(sheenPath(path)).then(resampled, () => null) : null)),
-				]).then(([img, mask]) => {
+			? Promise.all([fetchTextureDXT(path), hasSheenTwin(path).then((has) => (has ? fetchTextureDXT(sheenPath(path)).catch(() => null) : null))]).then(([base, sheen]) => blockLayer(path, base, sheen))
+			: Promise.all([fetchImage(path), hasSheenTwin(path).then((has) => (has ? fetchImage(sheenPath(path)).then(resampled, () => null) : null))]).then(([img, mask]) => {
 					const px = resampled(img)
 					applySheen(px, mask)
 					return px

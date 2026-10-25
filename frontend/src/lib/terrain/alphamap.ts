@@ -5,28 +5,28 @@ import { NO_TEXTURE, SLOTS, acquireSlotCompacting, findSlot, normalizeTexel } fr
 
 /** The paint the alphamap reads and writes: chunk slots and four weights per texel. */
 export interface SplatPaint {
-  paintChunksPerSide: number
-  splatRes: number
-  chunkSlots: Uint8Array
-  weights: Uint8Array
+	paintChunksPerSide: number
+	splatRes: number
+	chunkSlots: Uint8Array
+	weights: Uint8Array
 }
 
 /** Texture `tex`'s weight at every texel (res*res, row-major), 0 to 1; 0 in chunks without it. */
 export function textureWeights(t: SplatPaint, tex: number): Float32Array {
-  const side = t.paintChunksPerSide
-  const res = t.splatRes
-  const per = res / side
-  const out = new Float32Array(res * res)
-  for (let c = 0; c < side * side; c++) {
-    const k = findSlot(t.chunkSlots, c, tex)
-    if (k < 0) continue
-    const x0 = (c % side) * per
-    const z0 = Math.floor(c / side) * per
-    for (let z = z0; z < z0 + per; z++) {
-      for (let x = x0; x < x0 + per; x++) out[z * res + x] = t.weights[(z * res + x) * SLOTS + k] / 255
-    }
-  }
-  return out
+	const side = t.paintChunksPerSide
+	const res = t.splatRes
+	const per = res / side
+	const out = new Float32Array(res * res)
+	for (let c = 0; c < side * side; c++) {
+		const k = findSlot(t.chunkSlots, c, tex)
+		if (k < 0) continue
+		const x0 = (c % side) * per
+		const z0 = Math.floor(c / side) * per
+		for (let z = z0; z < z0 + per; z++) {
+			for (let x = x0; x < x0 + per; x++) out[z * res + x] = t.weights[(z * res + x) * SLOTS + k] / 255
+		}
+	}
+	return out
 }
 
 /**
@@ -36,38 +36,38 @@ export function textureWeights(t: SplatPaint, tex: number): Float32Array {
  * wanted; a full one refuses. Returns whether the chunk was refused.
  */
 export function layAlphamapChunk(t: SplatPaint, c: number, tex: number, values: Float32Array): boolean {
-  const side = t.paintChunksPerSide
-  const res = t.splatRes
-  const per = res / side
-  const x0 = (c % side) * per
-  const z0 = Math.floor(c / side) * per
-  let k = findSlot(t.chunkSlots, c, tex)
-  if (k < 0) {
-    let wanted = false
-    for (let z = z0; z < z0 + per && !wanted; z++) for (let x = x0; x < x0 + per; x++) if (values[z * res + x] > 0.002) wanted = true
-    if (!wanted) return false
-    k = acquireSlotCompacting(side, res, t.chunkSlots, t.weights, c, tex)
-    if (k < 0) return true
-  }
-  const w = t.weights
-  for (let z = z0; z < z0 + per; z++) {
-    for (let x = x0; x < x0 + per; x++) {
-      const base = (z * res + x) * SLOTS
-      const want = Math.round(Math.min(1, Math.max(0, values[z * res + x])) * 255)
-      let others = 0
-      for (let j = 0; j < SLOTS; j++) if (j !== k && t.chunkSlots[c * SLOTS + j] !== NO_TEXTURE) others += w[base + j]
-      if (others === 0) {
-        // Nothing else to give the rest to: the texel stays all this texture.
-        for (let j = 0; j < SLOTS; j++) w[base + j] = j === k ? 255 : 0
-        continue
-      }
-      const rest = 255 - want
-      for (let j = 0; j < SLOTS; j++) {
-        if (j === k) w[base + j] = want
-        else w[base + j] = Math.round((w[base + j] * rest) / others)
-      }
-      normalizeTexel(w, base)
-    }
-  }
-  return false
+	const side = t.paintChunksPerSide
+	const res = t.splatRes
+	const per = res / side
+	const x0 = (c % side) * per
+	const z0 = Math.floor(c / side) * per
+	let k = findSlot(t.chunkSlots, c, tex)
+	if (k < 0) {
+		let wanted = false
+		for (let z = z0; z < z0 + per && !wanted; z++) for (let x = x0; x < x0 + per; x++) if (values[z * res + x] > 0.002) wanted = true
+		if (!wanted) return false
+		k = acquireSlotCompacting(side, res, t.chunkSlots, t.weights, c, tex)
+		if (k < 0) return true
+	}
+	const w = t.weights
+	for (let z = z0; z < z0 + per; z++) {
+		for (let x = x0; x < x0 + per; x++) {
+			const base = (z * res + x) * SLOTS
+			const want = Math.round(Math.min(1, Math.max(0, values[z * res + x])) * 255)
+			let others = 0
+			for (let j = 0; j < SLOTS; j++) if (j !== k && t.chunkSlots[c * SLOTS + j] !== NO_TEXTURE) others += w[base + j]
+			if (others === 0) {
+				// Nothing else to give the rest to: the texel stays all this texture.
+				for (let j = 0; j < SLOTS; j++) w[base + j] = j === k ? 255 : 0
+				continue
+			}
+			const rest = 255 - want
+			for (let j = 0; j < SLOTS; j++) {
+				if (j === k) w[base + j] = want
+				else w[base + j] = Math.round((w[base + j] * rest) / others)
+			}
+			normalizeTexel(w, base)
+		}
+	}
+	return false
 }

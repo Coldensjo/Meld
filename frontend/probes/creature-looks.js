@@ -38,4 +38,15 @@ const botPage = page.getBoundingClientRect()
 const inside = botShow.top >= botPage.top - 1 && botShow.bottom <= botPage.bottom + 1
 const contained = looks.bottom >= pick.bottom - 1
 const noOverlap = show.left >= pick.right - 1
-return { ok: contained && noOverlap && inside, contained, noOverlap, inside, looks: [looks.top, looks.bottom], pick: [pick.top, pick.bottom], show: [show.left, show.top, show.bottom], pickRight: pick.right, botShow: [botShow.top, botShow.bottom], page: [pr.top, pr.bottom] }
+return {
+	ok: contained && noOverlap && inside,
+	contained,
+	noOverlap,
+	inside,
+	looks: [looks.top, looks.bottom],
+	pick: [pick.top, pick.bottom],
+	show: [show.left, show.top, show.bottom],
+	pickRight: pick.right,
+	botShow: [botShow.top, botShow.bottom],
+	page: [pr.top, pr.bottom],
+}

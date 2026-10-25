@@ -83,9 +83,7 @@
 	const listedMaps = $derived.by(() => {
 		const q = mapQuery.trim().toLowerCase()
 		const rank = (m: vmangos.MapEntry) => (pinned.has(m.ID) ? 0 : continents.includes(m) ? 1 : 2)
-		return maps
-			.filter((m) => (mapType < 0 || m.Type === mapType) && (!q || m.Name.toLowerCase().includes(q) || m.Dir.toLowerCase().includes(q) || String(m.ID) === q))
-			.sort((a, b) => rank(a) - rank(b) || a.Type - b.Type || a.ID - b.ID)
+		return maps.filter((m) => (mapType < 0 || m.Type === mapType) && (!q || m.Name.toLowerCase().includes(q) || m.Dir.toLowerCase().includes(q) || String(m.ID) === q)).sort((a, b) => rank(a) - rank(b) || a.Type - b.Type || a.ID - b.ID)
 	})
 	function togglePin(id: number) {
 		prefs.pinnedMaps = pinned.has(id) ? prefs.pinnedMaps.filter((x) => x !== id) : [...prefs.pinnedMaps, id]
@@ -252,7 +250,11 @@
 					: 'The ground, textures and models of those tiles open in a new tab. Saving writes them back to the client.'}</span
 			>
 			<button onclick={close}>Cancel</button>
-			<button disabled={!continent || building || !block} onclick={() => continent && block && engineRef.current && openWorldView(engineRef.current, continent.Dir, block)} title="The whole map, its tiles loaded around the camera as it moves; File › Edit Here opens the block around the camera">World View</button>
+			<button
+				disabled={!continent || building || !block}
+				onclick={() => continent && block && engineRef.current && openWorldView(engineRef.current, continent.Dir, block)}
+				title="The whole map, its tiles loaded around the camera as it moves; File › Edit Here opens the block around the camera">World View</button
+			>
 			<button class="active" disabled={!canOpen || !ui.project} onclick={open}>Open</button>
 		{/if}
 	{/snippet}

@@ -26,7 +26,14 @@ try {
 	// A low afternoon sun, for long shadows that slide the most.
 	e.hour = 16
 	const focus = e.env.key.target.position
-	for (const [dx, dz] of [[-25, -25], [25, -25], [-25, 25], [25, 25], [0, 0]]) e.objects.add({ type: 'helper:cube:4', x: focus.x + dx, z: focus.z + dz, yOff: 0, rotY: 0, scale: 1 })
+	for (const [dx, dz] of [
+		[-25, -25],
+		[25, -25],
+		[-25, 25],
+		[25, 25],
+		[0, 0],
+	])
+		e.objects.add({ type: 'helper:cube:4', x: focus.x + dx, z: focus.z + dz, yOff: 0, rotY: 0, scale: 1 })
 	await P.settle()
 	await P.frames(10)
 	// Freeze everything but the hour: a shot is then only the sun's doing.

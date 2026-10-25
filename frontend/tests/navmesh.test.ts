@@ -44,7 +44,8 @@ function box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: num
 }
 
 const groundAt = (g: NavGround) => (x: number, z: number) => {
-	const cx = Math.floor(x / g.cellSize), cz = Math.floor(z / g.cellSize)
+	const cx = Math.floor(x / g.cellSize),
+		cz = Math.floor(z / g.cellSize)
 	return cx < 0 || cz < 0 || cx >= g.size || cz >= g.size ? null : g.heights[cz * g.verts + cx]
 }
 
@@ -84,7 +85,8 @@ test('the gatherer takes the ground under the box, leaves holes out, cuts the gr
 	// and gains the two triangles (both ways up) that close the cut: 8 more.
 	assert.equal(t.modelFrom, 40)
 	for (let i = 0; i < t.modelFrom; i++) {
-		let x = 0, z = 0
+		let x = 0,
+			z = 0
 		for (let k = 0; k < 3; k++) {
 			x += t.pos[t.idx[i * 3 + k] * 3] / 3
 			z += t.pos[t.idx[i * 3 + k] * 3 + 2] / 3
@@ -131,8 +133,21 @@ test("a sculpted cell's middle sits at its corners' mean, as the export writes i
 	assert.equal(cellLift(g, 5, 5), 2)
 	// Lower the corner shared by cells (4..5, 4..5): those four lose the client's lift, their neighbours keep it.
 	g.heights[5 * g.verts + 5] = 6
-	for (const [x, z] of [[4, 4], [5, 4], [4, 5], [5, 5]]) assert.equal(cellLift(g, x, z), 0)
-	for (const [x, z] of [[3, 5], [6, 5], [5, 3], [5, 6], [0, 0]]) assert.equal(cellLift(g, x, z), 2)
+	for (const [x, z] of [
+		[4, 4],
+		[5, 4],
+		[4, 5],
+		[5, 5],
+	])
+		assert.equal(cellLift(g, x, z), 0)
+	for (const [x, z] of [
+		[3, 5],
+		[6, 5],
+		[5, 3],
+		[5, 6],
+		[0, 0],
+	])
+		assert.equal(cellLift(g, x, z), 2)
 	// Float noise is not a sculpt.
 	g.heights[5 * g.verts + 5] = 10 + 1e-4
 	assert.equal(cellLift(g, 5, 5), 2)
@@ -155,7 +170,8 @@ test("a half-cell hole leaves out the same world triangle whatever the tile's fi
 			let inCell = true
 			for (let k = 0; k < 3; k++) {
 				const v = t.idx[i * 3 + k] * 3
-				const cx = Math.round(t.pos[v] / CELL), cz = Math.round(t.pos[v + 2] / CELL)
+				const cx = Math.round(t.pos[v] / CELL),
+					cz = Math.round(t.pos[v + 2] / CELL)
 				// A solid cell's triangles meet at its middle, off the grid.
 				if (Math.abs(t.pos[v] / CELL - cx) > 1e-3 || Math.abs(t.pos[v + 2] / CELL - cz) > 1e-3) inCell = false
 				if (cx < 4 || cx > 5 || cz < 3 || cz > 4) inCell = false
@@ -177,7 +193,9 @@ test('a mirrored placement winds the faces back outward', () => {
 	const local = new Float32Array([0, 0, 0, 0, 0, 1, 1, 0, 0]) // facing up
 	const m = new THREE.Matrix4().makeScale(-1, 1, 1)
 	const p = placeFaces(local, m.elements)
-	const a = new THREE.Vector3().fromArray(p.tris, 0), b = new THREE.Vector3().fromArray(p.tris, 3), c = new THREE.Vector3().fromArray(p.tris, 6)
+	const a = new THREE.Vector3().fromArray(p.tris, 0),
+		b = new THREE.Vector3().fromArray(p.tris, 3),
+		c = new THREE.Vector3().fromArray(p.tris, 6)
 	const n = b.sub(a).cross(c.sub(a))
 	assert.ok(n.y > 0, 'the mirrored face turned down')
 })
@@ -217,7 +235,10 @@ test('a navmesh over flat ground walks around a wall and not through a cliff-hig
 	assert.ok(path.success, `no path: ${path.error?.name}`)
 	const end = path.path[path.path.length - 1]
 	assert.ok(Math.hypot(end.x - to.x, end.z - to.z) < 0.5, 'the path stops short')
-	assert.ok(path.path.some((p) => p.z > 50), 'the path went through the wall')
+	assert.ok(
+		path.path.some((p) => p.z > 50),
+		'the path went through the wall',
+	)
 	// The wall's top (11 yd up) is ground of its own, but can't be reached from below.
 	const top = q.findNearestPoly({ x: 21, y: 16, z: 25 }, { halfExtents: { x: 1, y: 1, z: 1 } })
 	assert.ok(top.success && top.nearestRef !== 0, 'the wall top has no navmesh')
@@ -303,7 +324,10 @@ test('a fence 1.5 yd high is stepped over on the terrain but not as a model', as
 	const model = await buildNav(g, [fence])
 	const round = model.path(a, b, NAV_GROUND)
 	assert.ok(round.success && round.short < 0.5, 'no path round the fence')
-	assert.ok(round.path.some((p) => p.z > 60), 'the path stepped over the fence')
+	assert.ok(
+		round.path.some((p) => p.z > 60),
+		'the path stepped over the fence',
+	)
 	model.done()
 	// The same 1.5 yd step in the terrain itself: a raised strip of cells, which the 1.8 yd climb takes.
 	const t = flat(16)
@@ -311,7 +335,10 @@ test('a fence 1.5 yd high is stepped over on the terrain but not as a model', as
 	const ground = await buildNav(t, [])
 	const over = ground.path(a, b, NAV_GROUND)
 	assert.ok(over.success && over.short < 0.5, 'no path over the terrain step')
-	assert.ok(over.path.every((p) => p.z < 50), 'the path went round the terrain step')
+	assert.ok(
+		over.path.every((p) => p.z < 50),
+		'the path went round the terrain step',
+	)
 	ground.done()
 })
 
@@ -360,7 +387,7 @@ test('ground under deep water is swim area, under shallow water both walk and sw
 	out.done()
 })
 
-test("the sea is ocean over the cells whose ground lies below it, where no painted layer is", () => {
+test('the sea is ocean over the cells whose ground lies below it, where no painted layer is', () => {
 	const g = flat(16) // ground at 10
 	for (let z = 0; z <= 16; z++) for (let x = 8; x <= 16; x++) g.heights[z * g.verts + x] = 20
 	const map = new LiquidMap(16)

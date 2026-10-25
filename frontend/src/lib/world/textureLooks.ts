@@ -13,27 +13,27 @@ export const ANIM_ON = 0x40
 export const OVERBRIGHT = 0x80
 
 export interface Look {
-  /** Scrolls the texture. */
-  animate: boolean
-  /** The scroll's direction, in 45-degree steps (0 to 7). */
-  turn: number
-  /** The scroll's speed, 0 to 7. */
-  speed: number
-  /** Draws the texture brighter, as lava glows. */
-  overbright: boolean
+	/** Scrolls the texture. */
+	animate: boolean
+	/** The scroll's direction, in 45-degree steps (0 to 7). */
+	turn: number
+	/** The scroll's speed, 0 to 7. */
+	speed: number
+	/** Draws the texture brighter, as lava glows. */
+	overbright: boolean
 }
 
 /** A look as the layer flags the tile stores. */
 export function lookFlags(l: Look): number {
-  return (l.animate ? ANIM_ON : 0) | (l.turn & 7) | ((l.speed & 7) << 3) | (l.overbright ? OVERBRIGHT : 0)
+	return (l.animate ? ANIM_ON : 0) | (l.turn & 7) | ((l.speed & 7) << 3) | (l.overbright ? OVERBRIGHT : 0)
 }
 
 /** The look a tile's layer flags give. */
 export function lookOf(flags: number): Look {
-  return { animate: (flags & ANIM_ON) !== 0, turn: flags & ANIM_TURN, speed: (flags & ANIM_SPEED) >> 3, overbright: (flags & OVERBRIGHT) !== 0 }
+	return { animate: (flags & ANIM_ON) !== 0, turn: flags & ANIM_TURN, speed: (flags & ANIM_SPEED) >> 3, overbright: (flags & OVERBRIGHT) !== 0 }
 }
 
 /** The flags to send for each palette entry: its own look, or -1 to keep what the client's tile has. */
 export function looksByIndex(palette: readonly string[], own: TextureLooks): number[] {
-  return palette.map((p) => own[p] ?? -1)
+	return palette.map((p) => own[p] ?? -1)
 }

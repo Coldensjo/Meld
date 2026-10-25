@@ -289,7 +289,10 @@ test('a whole-mask step keeps only the changed corner, and undoes and redoes it'
 	assert.equal(cmd.bytes, 10 * 5 * 2, 'before and after of the 50 changed texels, not two copies of the mask')
 	const after = t.mask.slice()
 	cmd.undo()
-	assert.ok(t.mask.every((v) => v === 0), 'undo clears what the step set')
+	assert.ok(
+		t.mask.every((v) => v === 0),
+		'undo clears what the step set',
+	)
 	assert.deepEqual(t.maskDirty.at(-1), { x0: 100, z0: 10, x1: 104, z1: 19 }, 'undo uploads the changed rect')
 	cmd.redo()
 	assert.deepEqual(t.mask, after)

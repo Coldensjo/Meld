@@ -9,7 +9,10 @@ test('the targets and flags match VMaNGOS', () => {
 	assert.deepEqual(castTarget(17).params, ['Radius (yd)', 'Below health %']) // TARGET_T_FRIENDLY_INJURED
 	assert.equal(new Set(CAST_TARGETS.map((t) => t.id)).size, CAST_TARGETS.length)
 	// CF_TARGET_CASTING is the last of ALL_CAST_FLAGS.
-	assert.equal(CAST_FLAGS.reduce((m, f) => m | f.bit, 0), 0x1ff)
+	assert.equal(
+		CAST_FLAGS.reduce((m, f) => m | f.bit, 0),
+		0x1ff,
+	)
 })
 
 test('a target the list leaves out keeps both parameters', () => {

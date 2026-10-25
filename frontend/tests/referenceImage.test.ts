@@ -100,7 +100,16 @@ test('brightness becomes heights under the image, the rest keeps its own', () =>
 	const { next, count } = heightsFromImage(heights, 3, 1, px, { x: 0.5, z: 1, w: 1.2, h: 2.2, turn: 0 }, 0, 10, 'set')
 	assert.equal(count, 6)
 	assert.deepEqual([...next], [10, 10, 5, 10, 10, 5, 10, 10, 5])
-	const add = heightsFromImage(heights, 3, 1, image(1, 1, () => [0, 0, 0, 255]), { x: 1, z: 1, w: 4, h: 4, turn: 0 }, 2, 10, 'add')
+	const add = heightsFromImage(
+		heights,
+		3,
+		1,
+		image(1, 1, () => [0, 0, 0, 255]),
+		{ x: 1, z: 1, w: 4, h: 4, turn: 0 },
+		2,
+		10,
+		'add',
+	)
 	assert.ok(add.next.every((h) => h === 7))
 })
 
@@ -160,7 +169,10 @@ test('textures paint whole texels, keep the slots the rest still use, and refuse
 	const r2 = texturesFromImage(w2, s2, res, 1, 1, colourIndices(five, c5, 5), five, { x: 2, z: 2, w: 4, h: 4, turn: 0 }, [10, 11, 12, 13, 14])
 	assert.equal(r2.refused, 4)
 	assert.equal(r2.painted, 12)
-	assert.deepEqual([...s2].sort((a, b) => a - b), [9, 10, 11, 14])
+	assert.deepEqual(
+		[...s2].sort((a, b) => a - b),
+		[9, 10, 11, 14],
+	)
 })
 
 test('a map file record is read back, and a broken one is dropped', () => {

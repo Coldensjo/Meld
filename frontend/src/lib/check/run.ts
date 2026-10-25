@@ -47,7 +47,14 @@ export interface SpawnIdQuery {
 }
 
 /** The six ways the inside test looks from a creature's chest. */
-const AROUND: ReadonlyArray<[number, number, number]> = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]]
+const AROUND: ReadonlyArray<[number, number, number]> = [
+	[1, 0, 0],
+	[-1, 0, 0],
+	[0, 0, 1],
+	[0, 0, -1],
+	[0, 1, 0],
+	[0, -1, 0],
+]
 /** How many of them must meet the model from behind for the point to be inside it: a gap or two (a hollow log's ends) still counts. */
 const INSIDE_HITS = 5
 
@@ -188,8 +195,12 @@ export async function runMapChecks(input: CheckInput): Promise<{ findings: Findi
 			const of = (obj: boolean) => ids.filter((s) => (s.kind === 'object') === obj)
 			try {
 				const report = await input.spawnIds({
-					creatureGuids: of(false).filter((s) => s.created).map((s) => s.guid),
-					objectGuids: of(true).filter((s) => s.created).map((s) => s.guid),
+					creatureGuids: of(false)
+						.filter((s) => s.created)
+						.map((s) => s.guid),
+					objectGuids: of(true)
+						.filter((s) => s.created)
+						.map((s) => s.guid),
 					creatureEntries: of(false).map((s) => s.entry),
 					objectEntries: of(true).map((s) => s.entry),
 				})
@@ -211,7 +222,14 @@ export async function runMapChecks(input: CheckInput): Promise<{ findings: Findi
 	findings.push(...checkZones(t.areaIds, side, chunkWorld, input.knownArea))
 	findings.push(...checkPalette(input.palette, t.chunkSlots, input.knownTexture, (c) => ({ x: ((c % side) + 0.5) * chunkWorld, z: (Math.floor(c / side) + 0.5) * chunkWorld })))
 	const V = t.verts
-	findings.push(...checkHiddenWater(input.liquids.side, (c) => input.liquids.layers(c), (gx, gz) => t.heights[Math.min(V - 1, gz) * V + Math.min(V - 1, gx)], chunkWorld))
+	findings.push(
+		...checkHiddenWater(
+			input.liquids.side,
+			(c) => input.liquids.layers(c),
+			(gx, gz) => t.heights[Math.min(V - 1, gz) * V + Math.min(V - 1, gx)],
+			chunkWorld,
+		),
+	)
 
 	const rank = { error: 0, warning: 1, info: 2 }
 	findings.sort((a, b) => a.check.localeCompare(b.check) || rank[a.severity] - rank[b.severity])

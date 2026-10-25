@@ -34,15 +34,7 @@ export function brushCenter(x: number, z: number, radius: number, cellSize: numb
  * see brushImage.ts). Returns touched rect. A `stroke` that records
  * heights saves the rect's blocks first, so what `fn` writes can be undone.
  */
-export function forEachVertex(
-	terrain: Terrain,
-	cx: number,
-	cz: number,
-	radius: number,
-	falloff: number,
-	fn: (index: number, w: number, x: number, z: number) => void,
-	stroke?: TerrainStroke | null,
-): Rect | null {
+export function forEachVertex(terrain: Terrain, cx: number, cz: number, radius: number, falloff: number, fn: (index: number, w: number, x: number, z: number) => void, stroke?: TerrainStroke | null): Rect | null {
 	const cs = terrain.cellSize
 	const x0 = Math.max(0, Math.floor((cx - radius) / cs))
 	const z0 = Math.max(0, Math.floor((cz - radius) / cs))
@@ -67,15 +59,7 @@ export function forEachVertex(
  * Iterate splat texels under a circular brush. Returns touched texel rect. A `stroke` that records the
  * paint or the mask saves the rect's chunks first, so what `fn` writes can be undone.
  */
-export function forEachTexel(
-	terrain: Terrain,
-	cx: number,
-	cz: number,
-	radius: number,
-	falloff: number,
-	fn: (pixel: number, w: number) => void,
-	stroke?: TerrainStroke | null,
-): Rect | null {
+export function forEachTexel(terrain: Terrain, cx: number, cz: number, radius: number, falloff: number, fn: (pixel: number, w: number) => void, stroke?: TerrainStroke | null): Rect | null {
 	const R = terrain.splatRes
 	const ts = terrain.worldSize / R
 	const x0 = Math.max(0, Math.floor((cx - radius) / ts))

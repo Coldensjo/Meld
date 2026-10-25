@@ -238,7 +238,11 @@ export class GizmoDrag {
 		const h = this.host
 		const base: DragBase = { handle, centre: { x: centre.x, z: centre.z }, startAngle: 0, startY: 0, startDist: 1 }
 		if (handle === 'arrow') {
-			this.normal.copy(h.camera.position).sub(this.tmpV.set(centre.x, 0, centre.z)).setY(0).normalize()
+			this.normal
+				.copy(h.camera.position)
+				.sub(this.tmpV.set(centre.x, 0, centre.z))
+				.setY(0)
+				.normalize()
 			this.plane.setFromNormalAndCoplanarPoint(this.normal, this.tmpV)
 			if (!this.cursorOnPlane('arrow')) return null
 			base.startY = this.point.y

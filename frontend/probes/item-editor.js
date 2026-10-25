@@ -19,8 +19,7 @@ const openTab = async (name) => {
 	await P.frames(1)
 }
 /** A field's input or select, by its label. */
-const field = (label) =>
-	[...root().querySelectorAll('.grid > label')].find((l) => (l.querySelector('span')?.textContent ?? l.firstChild?.textContent ?? '').split(' · ')[0].trim() === label)?.querySelector('input, select')
+const field = (label) => [...root().querySelectorAll('.grid > label')].find((l) => (l.querySelector('span')?.textContent ?? l.firstChild?.textContent ?? '').split(' · ')[0].trim() === label)?.querySelector('input, select')
 const tooltip = () => [...root().querySelectorAll('.tooltip .line')].map((l) => [...l.querySelectorAll('span')].map((s) => s.textContent.trim()).join(' | '))
 const look = () => root().querySelector('.preview-text')?.textContent.trim() ?? ''
 
@@ -212,22 +211,27 @@ await P.frames(1)
 const ok =
 	/^Bow · Ranged \(bow\) \(\d+\)$/.test(kind.bow) &&
 	kind.text.startsWith("It gets what most of the world database's bow · ranged (bow) items have") &&
-	kind.start.length === 3 && kind.start[0] === 'A kind of item' && kind.start[2].startsWith('A copy of Worn Shortsword') &&
+	kind.start.length === 3 &&
+	kind.start[0] === 'A kind of item' &&
+	kind.start[2].startsWith('A copy of Worn Shortsword') &&
 	kind.disabledWithoutName &&
 	shot.warn.startsWith('This look shoots like a crossbow (its shot visual 743), so the game fires a bow on it like one.') &&
 	shot.pending.startsWith('Save makes the look shoot like a bow (shot visual 5)') &&
 	shot.save === 'Save item (4)' &&
 	shot.fits === 'Fits it: shoots like a bow' &&
-	shot.titles.length > 0 && shot.titles.every((t) => t.includes('Shoots like a bow')) &&
+	shot.titles.length > 0 &&
+	shot.titles.every((t) => t.includes('Shoots like a bow')) &&
 	shot.reverted &&
-	stats.row1 && stats.row2 &&
+	stats.row1 &&
+	stats.row2 &&
 	stats.tooltip === 'Equip: Increases healing done by spells and effects by up to 22.' &&
 	stats.listed.includes('Healing +22') &&
 	stats.save === 'Save item (2)' &&
 	stats.removed &&
 	menu.title === 'Worn Shortsword' &&
 	menu.items.join('|') === 'Open|Copy .additem 25 to the clipboard' &&
-	menu.shown && menu.closed &&
+	menu.shown &&
+	menu.closed &&
 	menu.note.startsWith('Copied .additem 25: paste it') &&
 	menu.clipboard === '.additem 25' &&
 	title === 'Worn Shortsword' &&
@@ -251,9 +255,12 @@ const ok =
 	taken.look.startsWith('Held in hand') &&
 	taken.tiles >= 1 &&
 	taken.tileTitle.includes('Battleworn Hammer') &&
-	taken.view.label === 'Change look' && taken.view.fieldsHidden && taken.view.bigModel &&
+	taken.view.label === 'Change look' &&
+	taken.view.fieldsHidden &&
+	taken.view.bigModel &&
 	taken.hoverKept === '1542' &&
-	taken.gapKept && taken.gridCleared &&
+	taken.gapKept &&
+	taken.gridCleared &&
 	taken.picked.includes('Picked display 8690') &&
 	taken.back &&
 	iconPick.pending.startsWith('Icon INV_Axe_01') &&
@@ -262,6 +269,7 @@ const ok =
 	setBlock.header === 'Defias Leather (0/5)' &&
 	setBlock.members === 5 &&
 	setBlock.bonuses.length >= 2 &&
-	setBlock.bonuses[0].startsWith('(2) Set: ') && !setBlock.bonuses.some((l) => l.includes('spell ')) &&
+	setBlock.bonuses[0].startsWith('(2) Set: ') &&
+	!setBlock.bonuses.some((l) => l.includes('spell ')) &&
 	setBlock.headerColor === 'rgb(255, 210, 0)'
 return { ok, setBlock, kind, shot, stats, menu, taken, iconPick, title, tip, held, canvas, alone, edited, nameColor, chest, robe, saveText, reverted, stored: { name: stored.values.name, level: stored.values.required_level } }

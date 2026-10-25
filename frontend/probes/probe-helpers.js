@@ -11,7 +11,10 @@ editor.brush.strength = 1
 const tool = e.tools.sculpt
 const Cls = tool.constructor
 const orig = Cls.prototype.tick
-const t = await P.time([[Cls, 'tick'], [Cls, 'onUp']])
+const t = await P.time([
+	[Cls, 'tick'],
+	[Cls, 'onUp'],
+])
 const before = Float32Array.from(e.terrain.heights)
 const s = await P.stroke(tool, { x: 100, z: 100 }, { x: 160, z: 100 }, 12)
 const snap = t.snap()
@@ -35,7 +38,22 @@ await P.frames(3)
 const pathCalls = byPath.snap()['Engine.frame'].calls
 byPath.restore()
 return {
-	ok: snap[key].calls === 12 && snap[key].ms > 0 && snap[Cls.name + '.onUp'].calls === 1 && snap.total.calls === 13 &&
-		zero.total.calls === 0 && restored && changed > 0 && Math.abs(turned - 0.2) < 1e-6 && Math.abs(still) < 1e-6 && pathCalls === 3,
-	snap, stroke: s, restored, changed, turned, still, pathCalls,
+	ok:
+		snap[key].calls === 12 &&
+		snap[key].ms > 0 &&
+		snap[Cls.name + '.onUp'].calls === 1 &&
+		snap.total.calls === 13 &&
+		zero.total.calls === 0 &&
+		restored &&
+		changed > 0 &&
+		Math.abs(turned - 0.2) < 1e-6 &&
+		Math.abs(still) < 1e-6 &&
+		pathCalls === 3,
+	snap,
+	stroke: s,
+	restored,
+	changed,
+	turned,
+	still,
+	pathCalls,
 }
