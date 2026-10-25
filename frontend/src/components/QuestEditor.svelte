@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { startSaving } from '../lib/state/saving'
-	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import { CreateQuest, DeleteQuest, PlanQuestDelete, ReadQuest, SaveQuest, SaveQuestGivers, SearchQuests } from '../../wailsjs/go/main/App'
 	import { vmangos } from '../../wailsjs/go/models'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
-	import { takeEscape } from '../lib/state/escape'
-	import { changedValues } from '../lib/world/creatureFields'
+	import { TemplateEditor, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { questTabs, tabOfColumn } from '../lib/world/questFields'
 	import { forgetName } from '../lib/wow/refNames'
+	import EditorFrame from './EditorFrame.svelte'
 	import QuestGiversTab from './QuestGiversTab.svelte'
 	import TemplateFields from './TemplateFields.svelte'
 
@@ -20,153 +18,80 @@
 	const target = $derived(ui.questEditor)
 
 	let tab = $state('quest')
-	let record = $state<vmangos.TemplateRecord | null>(null)
-	let values = $state<Record<string, string>>({})
-	let saved = $state<Record<string, string>>({})
-	let error = $state('')
-	let note = $state('')
-	let loading = $state(false)
-	let saving = $state(false)
-	let confirmClose = $state(false)
 	let giversDirty = $state(false)
 	let giversTab = $state<QuestGiversTab | null>(null)
 	/** What deleting the open quest removes, while its confirmation is up. */
 	let plan = $state<vmangos.QuestDeletePlan | null>(null)
 	let deleting = $state(false)
 
-	const changes = $derived(changedValues(values, saved))
-	const changeCount = $derived(Object.keys(changes).length)
-	const unsaved = $derived(changeCount > 0 || giversDirty)
+	const ed = new TemplateEditor<{ entry: number }, vmangos.TemplateRecord>({
+		id: (t) => String(t.entry),
+		entry: (t) => t.entry,
+		read: ReadQuest,
+		clear: () => (ui.questEditor = null),
+		dirty: () => giversDirty,
+		onopen: () => {
+			plan = null
+			giversDirty = false
+		},
+		onrevert: () => giversTab?.revert(),
+	})
+	ed.follow(() => target)
+	const record = $derived(ed.record)
+	const values = $derived(ed.values)
+	const saved = $derived(ed.saved)
+	const changes = $derived(ed.changes)
+	const changeCount = $derived(ed.changeCount)
+	const unsaved = $derived(ed.unsaved)
 	const tabs = $derived(record ? questTabs(record.columns.map((c) => c.name)) : [])
 	const columnKind = $derived(new Map((record?.columns ?? []).map((c) => [c.name, c])))
 	/** How many changes each tab holds, for its label. */
-	const tabChanges = $derived(new Map(tabs.map((t) => [t.id, t.groups.reduce((n, g) => n + g.fields.filter((f) => changes[f.col] !== undefined).length, 0)])))
-
-	// Opening another quest reads it.
-	let loadedFor = 0
-	$effect(() => {
-		const t = target
-		if (!t) {
-			// Closed from outside (a probe, a scene): the next opening reads its quest afresh.
-			loadedFor = 0
-			return
-		}
-		if (t.entry === loadedFor) return
-		loadedFor = t.entry
-		record = null
-		values = {}
-		saved = {}
-		error = ''
-		confirmClose = false
-		plan = null
-		giversDirty = false
-		if (t.entry > 0) void load(t.entry)
-	})
-
-	async function load(entry: number) {
-		loading = true
-		try {
-			const r = await ReadQuest(entry)
-			if (ui.questEditor?.entry !== entry) return
-			record = r
-			values = { ...r.values }
-			saved = { ...r.values }
-		} catch (err) {
-			error = String(err)
-		} finally {
-			loading = false
-		}
-	}
-
-	/** What to do once unsaved changes are discarded: close, unless something else asked first. */
-	let afterDiscard: (() => void) | null = null
-
-	/** Runs `go` now, or once the unsaved changes are kept or discarded. */
-	function leave(go: () => void) {
-		if (!unsaved) {
-			go()
-			return
-		}
-		afterDiscard = go
-		confirmClose = true
-	}
-
-	function close(force = false) {
-		if (unsaved && !force) {
-			afterDiscard = null
-			confirmClose = true
-			return
-		}
-		ui.questEditor = null
-		loadedFor = 0
-		note = ''
-	}
-
-	function discard() {
-		revert()
-		confirmClose = false
-		const then = afterDiscard
-		afterDiscard = null
-		if (then) then()
-		else close(true)
-	}
-
-	function revert() {
-		values = { ...saved }
-		giversTab?.revert()
-	}
+	const tabChanges = $derived(tabChangeCounts(tabs, changes))
 
 	function open(entry: number) {
 		if (target?.entry === entry) return
-		leave(() => {
-			note = ''
+		ed.leave(() => {
+			ed.note = ''
 			ui.questEditor = { entry }
 		})
 	}
 
 	// Save: the row first (refused whole if a value breaks a rule), then the givers.
-	async function save() {
-		if (!record || !unsaved) return
-		saving = true
-		const end = startSaving('Saving the quest')
-		error = ''
-		note = ''
-		try {
-			const done: string[] = []
-			const n = changeCount
-			if (n > 0) {
-				await SaveQuest(record.entry, record.patch, changes)
-				saved = { ...values }
-				forgetName('quest', record.entry)
-				done.push(`${n} ${n === 1 ? 'value' : 'values'}`)
-			}
-			const g = (await giversTab?.save()) ?? ''
-			if (g) done.push(g)
-			ui.questsVersion++
-			note = `Saved ${done.join(' and ')} of ${values.Title || 'the quest'} (quest ${record.entry}) to the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to use it.`
-			setStatus(note, 10000)
-		} catch (err) {
-			error = String(err)
+	function save() {
+		const r = record
+		if (!r || !unsaved) return
+		void ed.save(
+			'Saving the quest',
+			async () => {
+				const done: string[] = []
+				const n = changeCount
+				if (n > 0) {
+					await SaveQuest(r.entry, r.patch, changes)
+					ed.markSaved()
+					forgetName('quest', r.entry)
+					done.push(`${n} ${n === 1 ? 'value' : 'values'}`)
+				}
+				const g = (await giversTab?.save()) ?? ''
+				if (g) done.push(g)
+				ui.questsVersion++
+				ed.note = `Saved ${done.join(' and ')} of ${values.Title || 'the quest'} (quest ${r.entry}) to the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to use it.`
+				setStatus(ed.note, 10000)
+			},
 			// A refused value: show the tab it is on.
-			const col = error.replace(/^Error:\s*/, '').split(/\s/)[0]
-			const t = tabOfColumn(tabs, col)
-			if (t) tab = t
-		} finally {
-			saving = false
-			end()
-		}
+			(col) => (tab = tabOfColumn(tabs, col) ?? tab),
+		)
 	}
 
 	// Delete: read what goes (rows of each table, quests that name this one, characters that have
 	// it), ask, then remove it; nothing is written before the confirmation.
 	async function askDelete() {
 		if (!record) return
-		error = ''
-		note = ''
+		ed.error = ''
+		ed.note = ''
 		try {
 			plan = await PlanQuestDelete(record.entry)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		}
 	}
 
@@ -175,17 +100,17 @@
 		const entry = record.entry
 		const title = plan.title || `quest ${entry}`
 		deleting = true
-		error = ''
+		ed.error = ''
 		try {
 			await DeleteQuest(entry)
 			forgetName('quest', entry)
 			plan = null
 			ui.questsVersion++
 			ui.questEditor = { entry: 0 }
-			note = `Deleted quest ${entry}, ${title}, from the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to drop it.`
-			setStatus(note, 10000)
+			ed.note = `Deleted quest ${entry}, ${title}, from the world database. Restart the world server, or type .reload all_quest in the game as a GM, for the server to drop it.`
+			setStatus(ed.note, 10000)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		} finally {
 			deleting = false
 		}
@@ -210,7 +135,7 @@
 				const r = await SearchQuests(q)
 				if (q === query.trim()) found = r ?? []
 			} catch (err) {
-				error = String(err)
+				ed.error = String(err)
 			} finally {
 				searching = false
 			}
@@ -228,10 +153,10 @@
 
 	function startNew() {
 		if (isNew) return
-		leave(() => {
+		ed.leave(() => {
 			copySource = record ? { entry: record.entry, title: saved.Title ?? '' } : null
 			copyThis = false
-			note = ''
+			ed.note = ''
 			ui.questEditor = { entry: -1, giver: target?.giver }
 		})
 	}
@@ -240,7 +165,7 @@
 		const title = newTitle.trim()
 		if (!title) return
 		creating = true
-		error = ''
+		ed.error = ''
 		try {
 			const base = copyThis && copySource ? copySource.entry : 0
 			const entry = await CreateQuest(base, title)
@@ -255,89 +180,59 @@
 			ui.questsVersion++
 			ui.questEditor = { entry, giver: g }
 			tab = 'quest'
-			note = `Made quest ${entry}, ${title}${given}. Fill it in and save.`
-			setStatus(note, 8000)
+			ed.note = `Made quest ${entry}, ${title}${given}. Fill it in and save.`
+			setStatus(ed.note, 8000)
 		} catch (err) {
-			error = String(err)
+			ed.error = String(err)
 		} finally {
 			creating = false
 		}
 	}
-
-	let root = $state<HTMLElement>()
-
-	function onKey(e: KeyboardEvent) {
-		if (!target || e.key !== 'Escape') return
-		if (!takeEscape(e, root)) return
-		const el = e.target as HTMLElement | null
-		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
-			e.preventDefault()
-			el.blur()
-			return
-		}
-		e.preventDefault()
-		if (confirmClose && unsaved) confirmClose = false
-		else close()
-	}
 </script>
 
-<svelte:window onkeydown={onKey} />
-
 {#if target}
-	<div class="editor" role="dialog" aria-modal="true" aria-label="Quest editor" bind:this={root} use:dialogFocus>
-		<header>
-			<div class="title">
-				{#if target.entry > 0}
-					<h2>{values.Title || saved.Title || 'Quest'}</h2>
-					<span class="dim">quest {target.entry}{record ? ` · level ${values.QuestLevel} · patch ${record.patch}` : ''}</span>
-				{:else if target.entry === -1}
-					<h2>New quest</h2>
-				{:else}
-					<h2>Quests</h2>
-					<span class="dim">Find a quest to edit, or make a new one.</span>
-				{/if}
-			</div>
-			<div class="actions">
-				{#if record}
-					<button disabled={!unsaved || saving} onclick={revert}>Revert</button>
-					<button class="active" disabled={!unsaved || saving} onclick={save}>
-						{saving ? 'Saving…' : unsaved ? `Save quest (${changeCount + (giversDirty ? 1 : 0)})` : 'Saved'}
-					</button>
-				{/if}
-				{#if record}
-					<button class="danger" disabled={saving || deleting} onclick={askDelete} title="Remove this quest from the world database">Delete quest…</button>
-				{/if}
-				<button onclick={() => close()} title="Close (Esc)">Close</button>
-			</div>
-		</header>
-		{#if plan && record}
-			<div class="bar warn delete">
-				<div class="what">
-					<strong>Delete {plan.title || 'quest'} (quest {record.entry}) from the world database?</strong>
-					<span>Removes {plan.rows.map((r) => `${r.count} ${r.count === 1 ? 'row' : 'rows'} of ${r.table}`).join(', ')}.</span>
-					{#if plan.links.length}
-						<span>Quests that name it lose that link (set to 0): {plan.links.map((l) => `${l.title || 'quest'} (${l.quest}: ${l.columns.join(', ')})`).join('; ')}.</span>
-					{/if}
-					{#if plan.characters > 0}
-						<span>{plan.characters} {plan.characters === 1 ? 'character has' : 'characters have'} it in the log or done: the server drops it from the log at their next login. Their rows are not touched.</span>
-					{:else if plan.characters < 0}
-						<span>The characters database could not be read, so characters that have it are not counted.</span>
-					{/if}
-					<span>Unsaved changes to this quest are lost. This cannot be undone.</span>
+	<EditorFrame {ed} label="Quest editor" z={160} unsavedText={`Unsaved changes to ${[changeCount ? 'the quest' : '', giversDirty ? 'its givers' : ''].filter(Boolean).join(' and ')}.`}>
+		{#snippet title()}
+			{#if target.entry > 0}
+				<h2>{values.Title || saved.Title || 'Quest'}</h2>
+				<span class="dim">quest {target.entry}{record ? ` · level ${values.QuestLevel} · patch ${record.patch}` : ''}</span>
+			{:else if target.entry === -1}
+				<h2>New quest</h2>
+			{:else}
+				<h2>Quests</h2>
+				<span class="dim">Find a quest to edit, or make a new one.</span>
+			{/if}
+		{/snippet}
+		{#snippet actions()}
+			{#if record}
+				<button disabled={!unsaved || ed.saving} onclick={() => ed.revert()}>Revert</button>
+				<button class="active" disabled={!unsaved || ed.saving} onclick={save}>
+					{ed.saving ? 'Saving…' : unsaved ? `Save quest (${changeCount + (giversDirty ? 1 : 0)})` : 'Saved'}
+				</button>
+				<button class="danger" disabled={ed.saving || deleting} onclick={askDelete} title="Remove this quest from the world database">Delete quest…</button>
+			{/if}
+		{/snippet}
+		{#snippet bars()}
+			{#if plan && record}
+				<div class="bar warn delete">
+					<div class="what">
+						<strong>Delete {plan.title || 'quest'} (quest {record.entry}) from the world database?</strong>
+						<span>Removes {plan.rows.map((r) => `${r.count} ${r.count === 1 ? 'row' : 'rows'} of ${r.table}`).join(', ')}.</span>
+						{#if plan.links.length}
+							<span>Quests that name it lose that link (set to 0): {plan.links.map((l) => `${l.title || 'quest'} (${l.quest}: ${l.columns.join(', ')})`).join('; ')}.</span>
+						{/if}
+						{#if plan.characters > 0}
+							<span>{plan.characters} {plan.characters === 1 ? 'character has' : 'characters have'} it in the log or done: the server drops it from the log at their next login. Their rows are not touched.</span>
+						{:else if plan.characters < 0}
+							<span>The characters database could not be read, so characters that have it are not counted.</span>
+						{/if}
+						<span>Unsaved changes to this quest are lost. This cannot be undone.</span>
+					</div>
+					<button onclick={() => (plan = null)}>Keep it</button>
+					<button class="danger" disabled={deleting} onclick={confirmDelete}>{deleting ? 'Deleting…' : 'Delete quest'}</button>
 				</div>
-				<button onclick={() => (plan = null)}>Keep it</button>
-				<button class="danger" disabled={deleting} onclick={confirmDelete}>{deleting ? 'Deleting…' : 'Delete quest'}</button>
-			</div>
-		{/if}
-		{#if confirmClose && unsaved}
-			<div class="bar warn">
-				<span>Unsaved changes to {[changeCount ? 'the quest' : '', giversDirty ? 'its givers' : ''].filter(Boolean).join(' and ')}.</span>
-				<button onclick={() => (confirmClose = false)}>Keep editing</button>
-				<button class="danger" onclick={discard}>Discard them</button>
-			</div>
-		{/if}
-		{#if error}<div class="bar error">{error}</div>{/if}
-		{#if note && !error}<div class="bar ok">{note}</div>{/if}
+			{/if}
+		{/snippet}
 
 		<div class="body">
 			<aside>
@@ -387,7 +282,7 @@
 					</nav>
 					<div class="scroll">
 						{#if !record}
-							<p class="dim">{loading ? 'Loading the quest…' : ''}</p>
+							<p class="dim">{ed.loading ? 'Loading the quest…' : ''}</p>
 						{:else}
 							{#each tabs as t (t.id)}
 								{#if t.id === tab}
@@ -406,69 +301,15 @@
 				{/if}
 			</section>
 		</div>
-	</div>
+	</EditorFrame>
 {/if}
 
 <style>
-	.editor {
-		position: fixed;
-		inset: 0;
-		z-index: 160;
-		display: flex;
-		flex-direction: column;
-		background: var(--bg);
-		color: var(--text);
-	}
-	header {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 10px 16px;
-		border-bottom: 1px solid var(--border);
-		background: var(--panel);
-	}
-	.title {
-		flex: 1;
-		min-width: 0;
-	}
-	h2 {
-		margin: 0;
-		font-size: 18px;
-		font-weight: 600;
-	}
-	.actions {
-		display: flex;
-		gap: 8px;
-	}
-	.bar {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 16px;
-		font-size: 12px;
-		border-bottom: 1px solid var(--border);
-	}
-	.bar.warn span {
-		flex: 1;
-	}
 	.bar.delete .what {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-	}
-	.bar.error {
-		color: var(--danger-text);
-		overflow-wrap: anywhere;
-		white-space: pre-line;
-	}
-	.bar.ok {
-		color: var(--ok);
-	}
-	.body {
-		flex: 1;
-		min-height: 0;
-		display: flex;
 	}
 	aside {
 		width: 300px;
@@ -513,22 +354,6 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-	}
-	.tabs {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 2px;
-		padding: 8px 12px 0;
-		border-bottom: 1px solid var(--border);
-		background: var(--panel);
-	}
-	.tabs button {
-		border-radius: 4px 4px 0 0;
-		border-bottom: none;
-	}
-	.tabs button.on {
-		background: var(--accent);
-		color: var(--accent-ink);
 	}
 	.scroll {
 		flex: 1;

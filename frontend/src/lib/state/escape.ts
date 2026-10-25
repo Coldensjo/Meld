@@ -21,3 +21,15 @@ export function takeEscape(e: Event, root?: HTMLElement | null): boolean {
 	taken.add(e)
 	return true
 }
+
+/**
+ * Esc in a field (an input, a select, a text area) leaves the field rather than closing what it is
+ * in: blurs it and returns true. The editors call it after `takeEscape`, before acting on the key.
+ */
+export function leaveField(e: KeyboardEvent): boolean {
+	const el = e.target as HTMLElement | null
+	if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'SELECT' && el.tagName !== 'TEXTAREA')) return false
+	e.preventDefault()
+	el.blur()
+	return true
+}
