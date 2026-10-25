@@ -104,11 +104,20 @@ copies of `three.module.js` and `three.core.js`, a page builds the material, ren
   byte-identical, a recolour changes only that value's four bytes, new times keep the unused slots, and
   `LightFiles` names only the changed tables by their `DBFilesClient\` paths (a wrong path writes a file
   the client ignores, with no error).
+- The adt tests that read a whole tile (`TestTileIntegration`, `TestWriteHeightsIntegration`, `TestNormalsMatchFile` and the
+  `TestRewrite*` ones that took the client's tile) run through `eachTile` (`internal/adt/rewrite_test.go`, #497): a
+  `synthetic` subtest on `syntheticTile`, a 32_48 tile made by `BuildTile` with every piece a client tile carries (one to
+  four layers with alpha, two M2 and a WMO, river, magma and sea, shadows, holes, impassable chunks, area IDs, and MCSE
+  records spliced in raw), and a `client` subtest on Azeroth 32_48 that skips without a client. So they guard the tile
+  writer on CI and any machine; `TestSyntheticTileHasEveryPiece` checks the fixture still has every piece. Traps: a
+  piece Meld never writes (MCSE) is spliced in with MCIN moved by hand, not through `Rewrite`, or a writer that drops
+  it would hand the tests a fixture that already lost it; and the synthetic normals check is the writer against itself
+  (stored normals match `normalAt` after an edit), so the comparison with Blizzard's normals stays client-only.
 - `TestAddGroundEffectSynthetic` (no client needed, #403) is `TestClientAddGroundEffect`'s client-free
   twin: the new GroundEffectTexture row names its models by GroundEffectDoodad's internal IDs (field 1;
   0 is a model, an empty slot is 0xFFFFFFFF), the old rows and the string block stay byte-identical.
   `AddGroundEffect` writes only GroundEffectTexture; the doodad table is read, never written.
-- Normals (#492, #668): `TestNormalsMatchFile` (WOW_DIR) recomputes the normals of steep and gentle
+- Normals (#492, #668): `TestNormalsMatchFile`'s `client` subtest (WOW_DIR) recomputes the normals of steep and gentle
   chunks inside Azeroth_32_48 and Azeroth_31_49, which must match the file's to the byte, and the
   south, west and east borders of Azeroth_30_40 with the ring from its neighbours, which must stay
   within a twentieth of their bytes and beat both one-sided normals and a ring without the inner

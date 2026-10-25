@@ -371,8 +371,8 @@ texture coordinates there), so don't compare theirs.
 Checks: a region's client shadows become the map's, the Map data tool's Shadow mode paints them,
 Terrain › Bake Shadows and Clear Shadows work with undo, the map file keeps them (version 6) and the
 export sends each chunk's MCSH as the client has it.
-- Go: `TestRewriteShadowReadsBack` (a synthetic tile) and, with `WOW_DIR=C:/WoW/client`,
-  `TestRewriteClientShadowsUnchanged` (Northshire's 256 chunks sent their own maps back read back with
+- Go: `TestRewriteShadowReadsBack` (a synthetic tile) and `TestRewriteClientShadowsUnchanged` (on the synthetic
+  tile and, with the client, Northshire's 256 chunks sent their own maps back read back with
   the same bytes and flags), plus `TestReadsVersion5WithoutShadows` and `TestNoShadowsStayNone` in mapfile.
 - Dev page: open Northshire with `__loadScene('Meld scene ' + JSON.stringify({v:1, map:{region:{mapName:'Azeroth',x:32,y:48,size:1}}}))`
   (`v: 1` is required) and drive `__engine.frame()` until `__engine.terrain.shadow` is set: 512911 of
