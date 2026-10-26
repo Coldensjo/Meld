@@ -12,6 +12,7 @@ function setup() {
 	let current = docs[0]
 	const reads: { doc: Doc; resolve: (v: string) => void; reject: (e: unknown) => void }[] = []
 	const drawn: [number, string | null][] = []
+	const failures: unknown[] = []
 	const o = new DocOverlay<Doc, string>({
 		what: 'test data',
 		current: () => current,
@@ -22,8 +23,9 @@ function setup() {
 					})
 				: null,
 		apply: (doc, data) => drawn.push([doc.id, data]),
+		failed: (err) => failures.push(err),
 	})
-	return { o, docs, reads, drawn, use: (d: Doc) => (current = d), known: (k: boolean) => (mapKnown = k) }
+	return { o, docs, reads, drawn, failures, use: (d: Doc) => (current = d), known: (k: boolean) => (mapKnown = k) }
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 0))
@@ -64,8 +66,8 @@ test('a read that comes back for another tab, or while edited, draws nothing', a
 	assert.equal(reads.length, 2, 'no read while edited')
 })
 
-test('a failed read warns and draws nothing for the document, once', async () => {
-	const { o, reads, drawn } = setup()
+test('a failed read warns, tells the source and draws nothing for the document, once', async () => {
+	const { o, reads, drawn, failures } = setup()
 	const warn = console.warn
 	const warned: unknown[][] = []
 	console.warn = (...a: unknown[]) => void warned.push(a)
@@ -79,6 +81,8 @@ test('a failed read warns and draws nothing for the document, once', async () =>
 	assert.deepEqual(drawn, [[1, null]])
 	assert.equal(warned.length, 1)
 	assert.equal(warned[0][0], 'test data not read')
+	assert.equal(failures.length, 1, 'the source is told, for its status line')
+	assert.equal((failures[0] as Error).message, 'no client')
 	o.update(true)
 	assert.equal(reads.length, 1, 'not tried again every frame')
 })

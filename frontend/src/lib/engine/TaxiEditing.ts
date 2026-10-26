@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { ui } from '../state/editor.svelte'
+import { setStatus, ui } from '../state/editor.svelte'
 import type { MapDocument } from './MapDocument'
 import type { CameraController } from './CameraController'
 import { DocOverlay } from './docOverlay'
@@ -81,6 +81,7 @@ export class TaxiEditing {
 				const reg = doc.meta.region
 				this.layer.set(n?.nodes ?? [], n?.routes ?? [], reg?.x ?? 0, reg?.y ?? 0, NO_PICK, this.ground)
 			},
+			failed: (err) => setStatus(`View › Flight paths: the map's flight paths could not be read: ${err instanceof Error ? err.message : err}`, 8000),
 		})
 	}
 

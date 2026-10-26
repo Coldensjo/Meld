@@ -336,7 +336,7 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   with Save, not undo steps (as Zones and Portals, decision #83). It hands its stops and routes to
   `Engine.showTaxi` with `TaxiHooks`; `world/TaxiLayer.ts` draws them (also for View › Flight paths,
   `prefs.showFlightPaths`, read once per tab through `engine/docOverlay.ts` `DocOverlay`, as the area
-  triggers are) and picks markers, and `engine/TaxiEditing.ts` (the viewport's half of the window,
+  triggers are; a failed read warns in the console and says so in the status line, `failed`) and picks markers, and `engine/TaxiEditing.ts` (the viewport's half of the window,
   which Engine forwards `showTaxi`, `flyTaxi` and the pointer events to) `press` takes a left press before the
   tool: a stop's marker drags over the ground, the picked route's points drag level (Shift: up and
   down), and with Draw points a click adds a point after the picked one at its height

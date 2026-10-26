@@ -8,6 +8,8 @@ export interface OverlaySource<D extends { readonly id: number }, T> {
 	load(doc: D): Promise<T> | null
 	/** Draws what was read for `doc`, the active document; null after a failed read, which draws nothing. */
 	apply(doc: D, data: T | null): void
+	/** Tells the user a read failed (the status line), after the console's warning; the read is tried again only after `reset`. */
+	failed?(err: unknown): void
 }
 
 /**
@@ -42,6 +44,7 @@ export class DocOverlay<D extends { readonly id: number }, T> {
 		})
 			.catch((err) => {
 				console.warn(`${s.what} not read`, err)
+				s.failed?.(err)
 				if (doc === s.current() && !this.edited) s.apply(doc, null)
 			})
 			.finally(() => {

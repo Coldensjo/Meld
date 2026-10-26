@@ -844,7 +844,7 @@ export class Engine {
 		// The names take their colour from the faction's reaction (#134), once the client's tables are read.
 		Factions()
 			.then((list) => this.spawnLabels.setReactions(new Map((list ?? []).map((f) => [f.id, f]))))
-			.catch(() => {})
+			.catch((err) => console.warn('faction reactions not read', err))
 		this.resize()
 		this.newDocument(256, 'ocean', 0)
 	}
@@ -1982,6 +1982,7 @@ export class Engine {
 			const reg = doc.meta.region
 			this.triggerLayer.set(r?.triggers ?? [], reg?.x ?? 0, reg?.y ?? 0, null)
 		},
+		failed: (err) => setStatus(`View › Area triggers: the map's area triggers could not be read: ${err instanceof Error ? err.message : err}`, 8000),
 	})
 
 	/** Draws the Portals dialog's triggers, `selected` highlighted, until endTriggerEdit. */
@@ -2042,7 +2043,10 @@ export class Engine {
 				id,
 				lights: MapLights(id)
 					.then((l) => (l?.lights ?? []).map((x) => ({ id: x.id, x: x.x, z: x.z, inner: x.inner, outer: x.outer, global: x.global })))
-					.catch(() => []),
+					.catch((err) => {
+						console.warn('map lights not read', err)
+						return []
+					}),
 			}
 		}
 		const r = m.region
