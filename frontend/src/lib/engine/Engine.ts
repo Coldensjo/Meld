@@ -185,6 +185,7 @@ import { base64ToBytes } from '../io/base64'
 import { regionKey as regionKeyOf } from '../io/regionKey'
 import { clampUiScale } from '../ui/uiScale'
 import { copyItems, copyValue } from '../ui/copyId'
+import { firstKeyOf, keysOf } from '../ui/commands'
 import { yieldToFrame } from './yieldToFrame'
 
 /** A world view's side (#15): the whole map, 64 tiles. */
@@ -4125,7 +4126,7 @@ export class Engine {
 		const size = t.size
 		const cur = areaCells(t, size)
 		if (!cur) {
-			setStatus('Select an area first: drag on the ground with the Select tool (V).')
+			setStatus(`Select an area first: drag on the ground with the Select tool (${firstKeyOf('tool:select')}).`)
 			return
 		}
 		const next = cur.slice()
@@ -4180,7 +4181,7 @@ export class Engine {
 	setHoleInSelection(hole: boolean) {
 		const s = editor.selection
 		if (!s || s.x1 <= s.x0 || s.z1 <= s.z0) {
-			setStatus('Select an area first: drag on the ground with the Select tool (V).')
+			setStatus(`Select an area first: drag on the ground with the Select tool (${firstKeyOf('tool:select')}).`)
 			return
 		}
 		const t = this.terrain
@@ -4199,7 +4200,7 @@ export class Engine {
 		const cmd = stroke.finish()
 		if (cmd) this.history.push(cmd)
 		this.refreshSelectionArea()
-		setStatus(hole ? `Cut a hole of ${n} ${n === 1 ? 'cell' : 'cells'}. Fill hole puts the ground back; Ctrl+Z undoes.` : `Filled ${n} ${n === 1 ? 'cell' : 'cells'} of hole.`)
+		setStatus(hole ? `Cut a hole of ${n} ${n === 1 ? 'cell' : 'cells'}. Fill hole puts the ground back; ${keysOf('undo')} undoes.` : `Filled ${n} ${n === 1 ? 'cell' : 'cells'} of hole.`)
 	}
 
 	/**
@@ -4384,12 +4385,12 @@ export class Engine {
 			this.lastCopied = 'objects'
 			ui.hasClip = true
 			const n = this.objectClip.objects.length
-			setStatus(`Copied ${n} ${n === 1 ? 'model' : 'models'}. Ctrl+V pastes a copy under the cursor (in any map tab); Ctrl+Shift+D duplicates in place.`)
+			setStatus(`Copied ${n} ${n === 1 ? 'model' : 'models'}. ${keysOf('paste')} pastes a copy under the cursor (in any map tab); ${keysOf('duplicate')} duplicates in place.`)
 			return true
 		}
 		const s = editor.selection
 		if (!s || s.x1 <= s.x0 || s.z1 <= s.z0) {
-			setStatus('Nothing selected. Click a model, or drag on the ground with the Select tool (V) to select part of the map first.')
+			setStatus(`Nothing selected. Click a model, or drag on the ground with the Select tool (${firstKeyOf('tool:select')}) to select part of the map first.`)
 			return false
 		}
 		const shape = areaShape(this.terrain, this.terrain.size)
@@ -4397,7 +4398,7 @@ export class Engine {
 		this.lastCopied = 'area'
 		ui.hasClip = true
 		const liquid = this.clip.liquids?.cells.length ? `, ${this.clip.liquids.cells.length} liquid cells` : ''
-		setStatus(`Copied ${this.clip.w}×${this.clip.h} cells${liquid} and ${this.clip.objects.length} objects. Paste with Ctrl+V (works in other map tabs too).`)
+		setStatus(`Copied ${this.clip.w}×${this.clip.h} cells${liquid} and ${this.clip.objects.length} objects. Paste with ${keysOf('paste')} (works in other map tabs too).`)
 		return true
 	}
 
@@ -4433,7 +4434,7 @@ export class Engine {
 	startPaste() {
 		if (this.refuseInWorld()) return
 		if (!(this.lastCopied === 'objects' ? this.objectClip : this.clip)) {
-			setStatus('The clipboard is empty. Select models or an area with the Select tool and press Ctrl+C.')
+			setStatus(`The clipboard is empty. Select models or an area with the Select tool and press ${keysOf('copy')}.`)
 			return
 		}
 		editor.tool = 'select'
@@ -4558,7 +4559,7 @@ export class Engine {
 				r.added.map((o) => o.id),
 			)
 			ui.pasting = false
-			setStatus(`Pasted ${r.added.length} ${r.added.length === 1 ? 'model' : 'models'}. Ctrl+V pastes again; Ctrl+Z undoes.`)
+			setStatus(`Pasted ${r.added.length} ${r.added.length === 1 ? 'model' : 'models'}. ${keysOf('paste')} pastes again; ${keysOf('undo')} undoes.`)
 			return
 		}
 		const at = this.selectTool.pasteAt
@@ -4587,7 +4588,7 @@ export class Engine {
 			z1: Math.min(n, at.z + this.clip.h),
 		}
 		ui.pasting = false
-		setStatus('Pasted. Ctrl+Z to undo.')
+		setStatus(`Pasted. ${keysOf('undo')} to undo.`)
 	}
 
 	// ---------------------------------------------------------------- editing API
@@ -4612,7 +4613,7 @@ export class Engine {
 		const what = n === 1 ? 'Model' : `${n} models`
 		const kids = ids.size - n
 		const attached = kids ? ` with ${kids} attached` : ''
-		setStatus(hide ? `${what}${attached} hidden. Shift+H shows all hidden models again.` : `${what}${attached} shown.`, 3000)
+		setStatus(hide ? `${what}${attached} hidden. ${keysOf('unhideAll')} shows all hidden models again.` : `${what}${attached} shown.`, 3000)
 	}
 
 	/** Shows every hidden object of the active map again (Shift+H). */
@@ -6002,7 +6003,7 @@ export class Engine {
 			ids.map((id) => ({ id, from: this.objects.objects.get(id)!.group, to: g })),
 			`Group ${ids.length} models`,
 		)
-		setStatus(`Grouped ${ids.length} models: a click on one selects them all. Ctrl+Shift+G ungroups them.`, 5000)
+		setStatus(`Grouped ${ids.length} models: a click on one selects them all. ${keysOf('ungroup')} ungroups them.`, 5000)
 	}
 
 	/** Breaks up every selection group a selected model is in (Noggit Red's Ungroup). One undo step. */
@@ -6044,7 +6045,7 @@ export class Engine {
 	replaceSelectedWithCopied() {
 		const clip = this.lastCopied === 'objects' ? this.objectClip : null
 		if (!clip || clip.objects.length !== 1) {
-			setStatus('Copy one model first (select it, Ctrl+C), then select the models to replace with it.', 6000)
+			setStatus(`Copy one model first (select it, ${keysOf('copy')}), then select the models to replace with it.`, 6000)
 			return
 		}
 		const type = clip.objects[0].type
