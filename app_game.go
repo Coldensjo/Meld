@@ -206,6 +206,8 @@ func (a *App) PlayHere(spot vmangos.CharacterSpot) (string, error) {
 		return "", errors.New("Game Login has no character to move")
 	case sess.ServerRoot == "":
 		return "", errors.New("no VMaNGOS server folder is set")
+	case vmangos.Supported(sess.Run) != nil:
+		return "", vmangos.Supported(sess.Run)
 	case !sess.WorldRunning():
 		return "", errors.New("the world server isn't running")
 	}

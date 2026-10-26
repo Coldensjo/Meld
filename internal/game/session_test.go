@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -334,4 +335,14 @@ type loggedRunner struct {
 func (f *loggedRunner) StartLogged(dir, name, logPath string, env []string, args ...string) error {
 	f.log = logPath
 	return f.StartEnv(dir, name, env, args...)
+}
+
+func TestStopSaysTheServerNeedsWindows(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("on Windows this would ask the real task list about the real servers")
+	}
+	_, err := session(vmangos.OSRunner{}, t.TempDir()).stop(Closed{World: true, Auth: true})
+	if !errors.Is(err, vmangos.ErrNeedsWindows) {
+		t.Fatalf("stop off Windows: %v, want ErrNeedsWindows", err)
+	}
 }

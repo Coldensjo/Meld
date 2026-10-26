@@ -32,6 +32,11 @@ func ensureDatabase(db worldDB, serverRoot string) error {
 	if !cantConnect(err) {
 		return err
 	}
+	if hostOS != "windows" {
+		// The server folder's database is started as start-server.bat does, a Windows mariadbd with a
+		// console (#483); elsewhere the database is the system's own service.
+		return fmt.Errorf("the world database is not running: start it yourself (Meld starts it only on Windows): %w", err)
+	}
 	ini := filepath.Join(serverRoot, "database", "my.ini")
 	if _, statErr := os.Stat(ini); statErr != nil {
 		return fmt.Errorf("the world database is not running (%s has no database/my.ini to start it from): %w", serverRoot, err)

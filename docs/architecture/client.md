@@ -95,6 +95,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
     0x2000) gets an unlit `MeshBasicMaterial` lit by its baked MOCV vertex colours, as in the game,
     so the sun, sky and shadows never reach the inside of a cave or building.
 
+- **Server tooling is Windows-only** (#483): `vmangos.OSRunner` finds and stops the server's programs
+  with `tasklist` and `taskkill` and runs its Windows extractors. Off Windows its `Running` answers no
+  (logged once), and `vmangos.Supported(runner)` returns `ErrNeedsWindows`, which `UpdateServerMaps`,
+  `game.Session`'s server stop and `App.PlayHere` return instead of "not running"; `ensureDatabase`
+  starts the server folder's mariadbd only on Windows. A test's fake runner is always supported, and
+  tests set `hostOS` to check the guard on any machine.
 - **Spawn looks** (`internal/vmangos/looks.go`, `internal/wow/look.go`): a creature spawn's
   display is resolved in Go into a `wow.Look`: textures per replaceable M2 texture type (bake,
   hair, fur, creature skins), the character geosets shown (hair, facial hair, gear from

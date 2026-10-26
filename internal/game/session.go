@@ -122,8 +122,11 @@ func (s Session) stop(want Closed) (Closed, error) {
 			return c, err
 		}
 	}
-	if s.ServerRoot == "" {
+	if s.ServerRoot == "" || !want.World && !want.Auth {
 		return c, nil
+	}
+	if err := vmangos.Supported(s.Run); err != nil {
+		return c, err
 	}
 	if want.World && s.Run.Running(worldImage) {
 		if err := s.close(worldImage); err != nil {

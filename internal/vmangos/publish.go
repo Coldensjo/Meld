@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	stdlog "log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -27,8 +29,35 @@ type Runner interface {
 // OSRunner runs programs on this machine.
 type OSRunner struct{}
 
-// Running asks Windows' task list for the image name.
+// ErrNeedsWindows is what the server tooling returns off Windows (#483): it finds and stops the
+// server's programs with tasklist and taskkill and runs its Windows extractors, so elsewhere every
+// program would look stopped and every step would fail with a misleading error.
+var ErrNeedsWindows = errors.New("managing the VMaNGOS server needs Windows: Meld finds and stops its programs with tasklist and taskkill")
+
+// hostOS is runtime.GOOS; tests change it to check the guard on any machine.
+var hostOS = runtime.GOOS
+
+// offWindowsOnce logs the first time OSRunner is asked about a program off Windows.
+var offWindowsOnce sync.Once
+
+// Supported returns ErrNeedsWindows when r is this machine's runner (or nil, which means it) and this
+// machine isn't Windows, and nil otherwise; a test's fake runner is always supported.
+func Supported(r Runner) error {
+	if _, isOS := r.(OSRunner); (isOS || r == nil) && hostOS != "windows" {
+		return ErrNeedsWindows
+	}
+	return nil
+}
+
+// Running asks Windows' task list for the image name. Off Windows it reports nothing running, and logs
+// once that it can't tell.
 func (OSRunner) Running(image string) bool {
+	if hostOS != "windows" {
+		offWindowsOnce.Do(func() {
+			stdlog.Printf("vmangos: can't tell whether %s or any server program runs: %v", image, ErrNeedsWindows)
+		})
+		return false
+	}
 	cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq "+image, "/NH")
 	hideConsole(cmd)
 	out, err := cmd.Output()
@@ -253,6 +282,10 @@ const stagingDir = "meld-staging"
 func UpdateServerMaps(p PublishPlan, clientData string, mapID uint32, tiles []string, log func(string)) error {
 	if p.Run == nil {
 		p.Run = OSRunner{}
+	}
+	if err := Supported(p.Run); err != nil {
+		log(fmt.Sprintf("%v: the server keeps its old map data.", err))
+		return err
 	}
 	if p.Run.Running("mangosd.exe") {
 		log("Stop the world server: its map data is rebuilt as soon as it has stopped.")
