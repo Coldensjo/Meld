@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
-	import { takeEscape } from '../lib/state/escape'
+	import { leaveField, takeEscape } from '../lib/state/escape'
 
 	interface Props {
 		title: string
@@ -18,10 +18,10 @@
 	// In one of its text fields the first Esc leaves the field, as in the editors.
 	function onKey(e: KeyboardEvent) {
 		if (e.key !== 'Escape' || !root || !takeEscape(e, root)) return
-		e.preventDefault()
 		const el = e.target as HTMLElement | null
-		if (el && root.contains(el) && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) el.blur()
-		else onclose()
+		if (el && root.contains(el) && leaveField(e)) return
+		e.preventDefault()
+		onclose()
 	}
 </script>
 

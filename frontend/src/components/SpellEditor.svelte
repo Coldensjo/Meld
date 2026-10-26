@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { CreateSpell, ExportSpells, ImportSpells, OpenSpellsDialog, PlanSpellImport, ReadSpell, ReadSpellVisual, SaveSpell, SpellStarters, SpellsWithVisual } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
-	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
-	import { hasBackend } from '../lib/io/backend'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
+	import { askImport as planImport, copyCommand, exportRow, runImport } from '../lib/ui/templateIo'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { tabOfColumn } from '../lib/world/questFields'
 	import { effectSummary, spellTabs, spellTooltip } from '../lib/world/spellFields'
@@ -127,18 +126,8 @@
 	}
 
 	// Export and import: SQL scripts of spell_template rows; an import writes each spell into Spell.dbc too.
-	async function exportSpell() {
-		if (!record) return
-		ed.error = ''
-		try {
-			const file = (saved.name || `spell-${record.entry}`).replace(/[^\w\- ]+/g, '').trim() || `spell-${record.entry}`
-			const path = await ExportSpells([record.entry], file)
-			if (!path) return
-			ed.note = `Exported ${saved.name} (spell ${record.entry}) to ${path}${unsaved ? ', as saved: the unsaved changes are not in it' : ''}.`
-			setStatus(ed.note, 8000)
-		} catch (err) {
-			ed.error = String(err)
-		}
+	function exportSpell() {
+		if (record) void exportRow(ed, { kind: 'spell', entry: record.entry, name: saved.name, unsaved, write: ExportSpells })
 	}
 
 	/** An import being confirmed: the script's path and what it writes. */
@@ -146,17 +135,7 @@
 	let importing = $state(false)
 
 	function askImport() {
-		ed.leave(async () => {
-			ed.error = ''
-			ed.note = ''
-			try {
-				const path = await OpenSpellsDialog()
-				if (!path) return
-				plan = { path, plan: await PlanSpellImport(path) }
-			} catch (err) {
-				ed.error = String(err)
-			}
-		})
+		planImport(ed, { pick: OpenSpellsDialog, plan: PlanSpellImport, set: (p) => (plan = p) })
 	}
 
 	/** One spell row of an import plan, for its summary. */
@@ -169,28 +148,20 @@
 	// Spells whose icon or visual the script carries and this client holds under another ID, or lacks (#381).
 	const movedLook = $derived(plan ? plan.plan.spells.filter((s) => s.newIcon || s.newVisual) : [])
 
-	async function confirmImport() {
+	function confirmImport() {
 		if (!plan) return
-		importing = true
-		ed.error = ''
-		try {
-			const { path, plan: p } = plan
-			const n = p.spells.length
-			const entries = (await ImportSpells(path)) ?? []
-			plan = null
-			for (const e of entries) forget(e)
-			// The open spell is read again when the import wrote it.
-			if (target && entries.includes(target.entry)) {
-				ed.reopen()
-				ui.spellEditor = { entry: target.entry }
-			} else if (entries.length) ui.spellEditor = { entry: entries[0] }
-			ed.note = `Imported ${n} spell ${n === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc.`
-			setStatus(ed.note, 10000)
-		} catch (err) {
-			ed.error = String(err)
-		} finally {
-			importing = false
-		}
+		const { path, plan: p } = plan
+		const n = p.spells.length
+		void runImport(ed, {
+			run: () => ImportSpells(path),
+			clear: () => (plan = null),
+			forget: (entries) => entries.forEach(forget),
+			open: target?.entry,
+			openEntry: (entry) => (ui.spellEditor = { entry }),
+			note: () => `Imported ${n} spell ${n === 1 ? 'row' : 'rows'} into the world database and the client's Spell.dbc.`,
+			status: 10000,
+			busy: (b) => (importing = b),
+		})
 	}
 
 	// Find: the client's spells by category and school, narrowed by name or ID (SpellPicker, #367),
@@ -324,18 +295,6 @@
 	const effects = $derived(record ? [1, 2, 3].map((n) => effectSummary(values, n, tables)) : [])
 
 	// The GM commands that try a spell: .cast casts it on the target, .learn teaches it.
-	async function copyCommand(command: string, what: string) {
-		ed.error = ''
-		try {
-			if (hasBackend()) await ClipboardSetText(command)
-			else await navigator.clipboard.writeText(command)
-			ed.note = `Copied ${command}: paste it in the game's chat as a GM to ${what}.`
-			setStatus(`Copied ${command}.`, 6000)
-		} catch (err) {
-			ed.error = `Copying the command failed: ${err}`
-		}
-	}
-
 	function resultMenu(e: MouseEvent, s: vmangos.SpellRef) {
 		e.preventDefault()
 		ui.contextMenu = {
@@ -344,8 +303,8 @@
 			title: s.name || `Spell ${s.id}`,
 			items: [
 				{ label: 'Open', run: () => open(s.id) },
-				{ label: `Copy .cast ${s.id} to the clipboard`, run: () => void copyCommand(`.cast ${s.id}`, 'cast it on your target') },
-				{ label: `Copy .learn ${s.id} to the clipboard`, run: () => void copyCommand(`.learn ${s.id}`, 'learn it (or teach it to the player you have selected)') },
+				{ label: `Copy .cast ${s.id} to the clipboard`, run: () => void copyCommand(ed, `.cast ${s.id}`, "paste it in the game's chat as a GM to cast it on your target.") },
+				{ label: `Copy .learn ${s.id} to the clipboard`, run: () => void copyCommand(ed, `.learn ${s.id}`, "paste it in the game's chat as a GM to learn it (or teach it to the player you have selected).") },
 			],
 		}
 	}
@@ -578,8 +537,12 @@
 					<h3>In the game</h3>
 					{#if !record.inClient}<p class="warn-text">The client's Spell.dbc has no spell {record.entry} yet: Save writes it there.</p>{/if}
 					<div class="commands">
-						<button onclick={() => copyCommand(`.cast ${record?.entry}`, 'cast it on your target')} title="Copy the GM command that casts it on your target">Copy .cast {record.entry}</button>
-						<button onclick={() => copyCommand(`.learn ${record?.entry}`, 'learn it (or teach it to the player you have selected)')} title="Copy the GM command that teaches it">Copy .learn {record.entry}</button>
+						<button onclick={() => copyCommand(ed, `.cast ${record?.entry}`, "paste it in the game's chat as a GM to cast it on your target.")} title="Copy the GM command that casts it on your target"
+							>Copy .cast {record.entry}</button
+						>
+						<button onclick={() => copyCommand(ed, `.learn ${record?.entry}`, "paste it in the game's chat as a GM to learn it (or teach it to the player you have selected).")} title="Copy the GM command that teaches it"
+							>Copy .learn {record.entry}</button
+						>
 					</div>
 				</section>
 			{/if}

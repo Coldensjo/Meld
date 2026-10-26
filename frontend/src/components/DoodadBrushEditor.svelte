@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dialogFocus } from '../lib/ui/dialogFocus'
-	import { takeEscape } from '../lib/state/escape'
+	import { leaveField, takeEscape } from '../lib/state/escape'
 	import PaletteTile from './PaletteTile.svelte'
 	import VirtualGrid from './VirtualGrid.svelte'
 	import { gridCols, gridWindow } from '../lib/ui/virtualGrid'
@@ -161,11 +161,7 @@
 		if (!open) return
 		if (e.key === 'Escape') {
 			if (!takeEscape(e, root)) return
-			const el = e.target as HTMLElement | null
-			if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
-				el.blur()
-				return
-			}
+			if (leaveField(e)) return
 			e.preventDefault()
 			close()
 		} else if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {

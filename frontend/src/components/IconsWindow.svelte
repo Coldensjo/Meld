@@ -4,7 +4,7 @@
 	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/backend'
 	import { ui } from '../lib/state/editor.svelte'
-	import { takeEscape } from '../lib/state/escape'
+	import { leaveField, takeEscape } from '../lib/state/escape'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import IconGrid from './IconGrid.svelte'
 	import ItemIcon from './ItemIcon.svelte'
@@ -108,10 +108,9 @@
 	function onKey(e: KeyboardEvent) {
 		if (!target || e.key !== 'Escape' || ui.contextMenu) return
 		if (!takeEscape(e, root)) return
-		const el = e.target as HTMLElement | null
+		if (leaveField(e)) return
 		e.preventDefault()
-		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) el.blur()
-		else close()
+		close()
 	}
 
 	const more = (n: number, listed: number) => (n > listed ? ` and ${(n - listed).toLocaleString()} more` : '')

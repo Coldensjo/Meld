@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { CreateItem, CreateItemOfKind, ExportItems, ImportItems, ItemDisplayVariant, ItemModelLook, ListItemKinds, OpenItemsDialog, PlanItemImport, ReadItemTemplate, SaveItem, SearchItems } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
-	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
-	import { hasBackend } from '../lib/io/backend'
 	import { setStatus, ui } from '../lib/state/editor.svelte'
+	import { askImport as planImport, copyCommand as copyGmCommand, exportRow, runImport } from '../lib/ui/templateIo'
 	import { TemplateEditor, checkRefused, tabChangeCounts } from '../lib/ui/templateEditor.svelte'
 	import { HELD_TYPES, INVENTORY_TYPES, ITEM_CLASSES, itemTabs, SHOOTS_LIKE, slotKind, subclassOptions } from '../lib/world/itemFields'
 	import { tabOfColumn } from '../lib/world/questFields'
@@ -233,18 +232,8 @@
 	}
 
 	// Export and import: SQL scripts of item_template rows.
-	async function exportItem() {
-		if (!record) return
-		ed.error = ''
-		try {
-			const file = (saved.name || `item-${record.entry}`).replace(/[^\w\- ]+/g, '').trim() || `item-${record.entry}`
-			const path = await ExportItems([record.entry], file)
-			if (!path) return
-			ed.note = `Exported ${saved.name} (item ${record.entry}) to ${path}${unsaved ? ', as saved: the unsaved changes are not in it' : ''}.`
-			setStatus(ed.note, 8000)
-		} catch (err) {
-			ed.error = String(err)
-		}
+	function exportItem() {
+		if (record) void exportRow(ed, { kind: 'item', entry: record.entry, name: saved.name, unsaved, write: ExportItems })
 	}
 
 	/** An import being confirmed: the script's path and what it writes. */
@@ -252,40 +241,23 @@
 	let importing = $state(false)
 
 	function askImport() {
-		ed.leave(async () => {
-			ed.error = ''
-			ed.note = ''
-			try {
-				const path = await OpenItemsDialog()
-				if (!path) return
-				plan = { path, plan: await PlanItemImport(path) }
-			} catch (err) {
-				ed.error = String(err)
-			}
-		})
+		planImport(ed, { pick: OpenItemsDialog, plan: PlanItemImport, set: (p) => (plan = p) })
 	}
 
-	async function confirmImport() {
+	function confirmImport() {
 		if (!plan) return
-		importing = true
-		ed.error = ''
-		try {
-			const entries = (await ImportItems(plan.path)) ?? []
-			const n = plan.plan.items.length
-			plan = null
-			forgetItems(entries)
-			// The open item is read again when the import wrote it.
-			if (target && entries.includes(target.entry)) {
-				ed.reopen()
-				ui.itemEditor = { entry: target.entry }
-			} else if (entries.length) ui.itemEditor = { entry: entries[0] }
-			ed.note = `Imported ${n} item ${n === 1 ? 'row' : 'rows'} into the world database. ${RESTART}`
-			setStatus(ed.note, 10000)
-		} catch (err) {
-			ed.error = String(err)
-		} finally {
-			importing = false
-		}
+		const { path, plan: p } = plan
+		const n = p.items.length
+		void runImport(ed, {
+			run: () => ImportItems(path),
+			clear: () => (plan = null),
+			forget: forgetItems,
+			open: target?.entry,
+			openEntry: (entry) => (ui.itemEditor = { entry }),
+			note: () => `Imported ${n} item ${n === 1 ? 'row' : 'rows'} into the world database. ${RESTART}`,
+			status: 10000,
+			busy: (b) => (importing = b),
+		})
 	}
 
 	// The preview: the item on a character of the chosen race and sex, or alone.
@@ -440,17 +412,9 @@
 	/** The GM command that gives an item: `.additem` puts it in the bags of the player selected, or your own. */
 	const addItemCommand = (entry: number) => `.additem ${entry}`
 
-	async function copyCommand(i: vmangos.ItemRef) {
+	function copyItemCommand(i: vmangos.ItemRef) {
 		const command = addItemCommand(i.entry)
-		ed.error = ''
-		try {
-			if (hasBackend()) await ClipboardSetText(command)
-			else await navigator.clipboard.writeText(command)
-			ed.note = `Copied ${command}: paste it in the game's chat as a GM to get ${i.name || `item ${i.entry}`} (or give it to the player you have selected). A new or changed item needs the world server restarted first.`
-			setStatus(`Copied ${command}.`, 6000)
-		} catch (err) {
-			ed.error = `Copying the command failed: ${err}`
-		}
+		return copyGmCommand(ed, command, `paste it in the game's chat as a GM to get ${i.name || `item ${i.entry}`} (or give it to the player you have selected). A new or changed item needs the world server restarted first.`)
 	}
 
 	/** A search result's right-click menu: open it, or copy the command that gives it in the game. */
@@ -462,7 +426,7 @@
 			title: i.name || `Item ${i.entry}`,
 			items: [
 				{ label: 'Open', run: () => open(i.entry) },
-				{ label: `Copy ${addItemCommand(i.entry)} to the clipboard`, run: () => void copyCommand(i) },
+				{ label: `Copy ${addItemCommand(i.entry)} to the clipboard`, run: () => void copyItemCommand(i) },
 			],
 		}
 	}

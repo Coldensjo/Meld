@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { dialogFocus } from '../lib/ui/dialogFocus'
-	import { takeEscape } from '../lib/state/escape'
+	import { leaveField, takeEscape } from '../lib/state/escape'
 	import { ClassLevelStats, CreateCreature, EquipmentFor, Factions, ReadCreature, SaveCreature, SearchCreatures, SpawnLook } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
 	import { untrack } from 'svelte'
@@ -237,11 +237,7 @@
 
 	function onKey(e: KeyboardEvent) {
 		if (!ui.creatures || e.key !== 'Escape' || !takeEscape(e, root)) return
-		const el = e.target as HTMLElement | null
-		if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')) {
-			el.blur()
-			return
-		}
+		if (leaveField(e)) return
 		e.preventDefault()
 		void close()
 	}
