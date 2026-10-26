@@ -11,7 +11,7 @@ import { saveMinimapImage } from '../io/images'
 import { openMap } from '../io/mapio'
 import { saveOrPublish } from '../io/publish'
 import { requestClose } from '../../components/DocTabs.svelte'
-import type { CommandId } from './commands'
+import { keyHint, keysOf, type CommandId } from './commands'
 
 /** The day cycle's speeds, a day in so many minutes, slowest first; 0 is paused. */
 const CYCLE_MINUTES = [40, 20, 10, 5, 2, 1]
@@ -28,13 +28,13 @@ function stepDayCycle(engine: Engine, faster: boolean) {
 	if (step === 0) {
 		prefs.timeOfDay = Math.round(engine.currentHour() * 100) / 100
 		prefs.dayCycle = false
-		setStatus('Day cycle paused (N runs it again).', 3000)
+		setStatus(`Day cycle paused${keyHint('cycleFaster', 'runs it again')}.`, 3000)
 		return
 	}
 	if (!prefs.dayCycle) prefs.timeOfDay = Math.round(engine.currentHour() * 100) / 100
 	prefs.cycleMinutes = step
 	prefs.dayCycle = true
-	setStatus(`Day cycle: a day in ${step} min (N faster, Shift+N slower, J pauses).`, 3000)
+	setStatus(`Day cycle: a day in ${step} min (${keysOf('cycleFaster')} faster, ${keysOf('cycleSlower')} slower, ${keysOf('cyclePause')} pauses).`, 3000)
 }
 
 type Run = (engine: Engine) => unknown
@@ -80,17 +80,22 @@ const RUN: Record<Exclude<CommandId, `tool:${string}`>, Run> = {
 	cameraSlower: () => stepCameraSpeed(false),
 	followGround: () => {
 		prefs.cameraFollowGround = !prefs.cameraFollowGround
-		setStatus(prefs.cameraFollowGround ? 'Camera follows the ground (T to fly freely).' : 'Camera flies freely: W goes where you look, Space/X up and down (T to follow the ground).', 3000)
+		setStatus(
+			prefs.cameraFollowGround
+				? `Camera follows the ground${keyHint('followGround', 'to fly freely')}.`
+				: `Camera flies freely: ${keysOf('camForward')} goes where you look, ${keysOf('camUp')}/${keysOf('camDown')} up and down${keyHint('followGround', 'to follow the ground')}.`,
+			3000,
+		)
 	},
 	topDown: () => {
 		ui.topDown = !ui.topDown
-		setStatus(ui.topDown ? 'Top-down view: the wheel zooms, the turn keys (Q/E) or a right drag turn the map (U for the 3D view).' : '3D view.', 3000)
+		setStatus(ui.topDown ? `Top-down view: the wheel zooms, the turn keys or a right drag turn the map${keyHint('topDown', 'for the 3D view')}.` : '3D view.', 3000)
 	},
 	minimap: () => (ui.minimap = !ui.minimap),
 	focus: (e) => e.focusSelected(),
 	climbView: () => {
 		prefs.climbView = !prefs.climbView
-		setStatus(prefs.climbView ? `Climb view: ground steeper than ${prefs.climbAngle}° is tinted red (Shift+F2 to hide).` : 'Climb view off.', 3000)
+		setStatus(prefs.climbView ? `Climb view: ground steeper than ${prefs.climbAngle}° is tinted red${keyHint('climbView', 'to hide')}.` : 'Climb view off.', 3000)
 	},
 	cycleFaster: (e) => stepDayCycle(e, true),
 	cycleSlower: (e) => stepDayCycle(e, false),
@@ -98,7 +103,7 @@ const RUN: Record<Exclude<CommandId, `tool:${string}`>, Run> = {
 		const on = !prefs.dayCycle
 		if (!on) prefs.timeOfDay = Math.round(e.currentHour() * 100) / 100
 		prefs.dayCycle = on
-		setStatus(on ? `Day cycle running: a day in ${prefs.cycleMinutes} min (N faster, Shift+N slower).` : 'Day cycle paused (J runs it again).', 3000)
+		setStatus(on ? `Day cycle running: a day in ${prefs.cycleMinutes} min (${keysOf('cycleFaster')} faster, ${keysOf('cycleSlower')} slower).` : `Day cycle paused${keyHint('cyclePause', 'runs it again')}.`, 3000)
 	},
 	brushSmaller: (e) => e.stepBrush(-1),
 	brushLarger: (e) => e.stepBrush(1),

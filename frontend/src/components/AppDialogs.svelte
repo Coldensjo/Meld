@@ -51,7 +51,7 @@
 	import { quitNow } from '../lib/io/session'
 	import { answerConfirm } from '../lib/state/confirm'
 	import { APP_VERSION } from '../lib/version'
-	import { shortcutSections } from '../lib/ui/commands'
+	import { keysOf, shortcutSections } from '../lib/ui/commands'
 
 	const close = () => (ui.dialog = null)
 
@@ -85,13 +85,13 @@
 	const textureName = (p: string) => (p.startsWith('#') ? p : p.slice(p.lastIndexOf('\\') + 1).replace(/\.blp$/i, ''))
 
 	/** The help window's sections: a title and short paragraphs each (Help › Help…, F1). */
-	const HELP: Array<[string, string[]]> = [
+	const HELP: Array<[string, string[]]> = $derived([
 		[
 			'Getting started',
 			[
 				'Preferences › WoW client folder points Meld at your 1.12 client. Its doodads, buildings and tileset textures then fill the asset browser along the bottom; nothing is copied out of it.',
-				'File › New World (Ctrl+N) makes a world of a few tiles from a preset, and File › Open Part of Azeroth opens a square of tiles of a continent with its ground, textures, models and water.',
-				"Save (Ctrl+S) writes a .wmap file; for a map made for the client it also offers Publish, which writes the tiles into the client and builds the server's files. A part of Azeroth goes back into the game with File › Compile to Client (its tiles in the client's patch), Compile to Server (the server's map data, built from those tiles) or Compile All (both); Launch asks first when the open region has edits the client lacks.",
+				`File › New World (${keysOf('newMap')}) makes a world of a few tiles from a preset, and File › Open Part of Azeroth opens a square of tiles of a continent with its ground, textures, models and water.`,
+				`Save (${keysOf('save')}) writes a .wmap file; for a map made for the client it also offers Publish, which writes the tiles into the client and builds the server's files. A part of Azeroth goes back into the game with File › Compile to Client (its tiles in the client's patch), Compile to Server (the server's map data, built from those tiles) or Compile All (both); Launch asks first when the open region has edits the client lacks.`,
 			],
 		],
 		[
@@ -108,18 +108,18 @@
 		[
 			'Brushes and undo',
 			[
-				'[ and ] step the brush size, Shift+[ and Shift+] the falloff, and Alt+right-drag sizes the brush where it stands. Ctrl+scroll also steps the size.',
-				'Every edit is undoable with Ctrl+Z and Ctrl+Y, including strokes, placements, water and spawn changes.',
+				`${keysOf('brushSmaller')} and ${keysOf('brushLarger')} step the brush size, ${keysOf('falloffSofter')} and ${keysOf('falloffHarder')} the falloff, and Alt+right-drag sizes the brush where it stands. Ctrl+scroll also steps the size.`,
+				`Every edit is undoable with ${keysOf('undo')} and ${keysOf('redo')}, including strokes, placements, water and spawn changes.`,
 			],
 		],
 		[
 			'Camera and view',
 			[
-				'Right-drag looks around, W A S D fly, Space and X go up and down, the wheel sets the speed; T follows the ground, so the camera orbits a point on it. F focuses the selection.',
+				`Right-drag looks around, ${keysOf('camForward')} ${keysOf('camLeft')} ${keysOf('camBack')} ${keysOf('camRight')} fly, ${keysOf('camUp')} and ${keysOf('camDown')} go up and down, the wheel sets the speed; ${keysOf('followGround')} follows the ground, so the camera orbits a point on it. ${keysOf('focus')} focuses the selection.`,
 				'Lighting has the time of day, shadows and fog, and View the grid and chunk lines and the layers to show. Tab hides every panel but the menu bar. Hold F8 to name the part of the UI under the cursor for a bug report.',
 			],
 		],
-	]
+	])
 
 	/** Help › Keyboard Shortcuts' rows, from the shortcut table the key handler and the menus use (#583), with the Hotkey Manager's bindings (#396). */
 	const SHORTCUTS = $derived(shortcutSections())

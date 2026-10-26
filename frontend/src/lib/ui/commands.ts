@@ -347,6 +347,12 @@ export function keysOf(id: ShortcutId): string {
 		.join(' / ')
 }
 
+/** A key hint for a status message: ` (T to fly freely)` with shortcut `id`'s current keys, or '' when the row has none, so a message follows a rebind (#710). */
+export function keyHint(id: ShortcutId, what: string): string {
+	const k = keysOf(id)
+	return k ? ` (${k} ${what})` : ''
+}
+
 /** The first key of shortcut `id`, for the toolbar's buttons; '' when it has none. */
 export function firstKeyOf(id: ShortcutId): string {
 	const c = current()

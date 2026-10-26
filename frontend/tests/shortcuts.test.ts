@@ -21,6 +21,7 @@ import {
 	isBindable,
 	isEarly,
 	isRebound,
+	keyHint,
 	keysOf,
 	parseChord,
 	refusal,
@@ -283,5 +284,19 @@ describe('Q/E fly switch (#725)', () => {
 		expect(bindingsOf('camTurnLeft', on)).toEqual([])
 		expect(bindingsOf('camTurnRight', on)).toEqual([])
 		expect(setFlyOnQE(on, false)).toEqual({})
+	})
+
+	test('a status message names the key a command has now, and drops the clause when it has none (#710)', () => {
+		let km: Keymap = {}
+		bindKeymap(() => km)
+		try {
+			expect(keyHint('followGround', 'to fly freely')).toBe(' (T to fly freely)')
+			km = assignBinding(km, 'followGround', 'y', 0).keymap
+			expect(keyHint('followGround', 'to fly freely')).toBe(' (Y to fly freely)')
+			km = removeBinding(km, 'followGround', 0)
+			expect(keyHint('followGround', 'to fly freely')).toBe('')
+		} finally {
+			bindKeymap(() => undefined)
+		}
 	})
 })

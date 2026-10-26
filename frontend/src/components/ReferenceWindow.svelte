@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import { keysOf } from '../lib/ui/commands'
 	type Use = 'heights' | 'zones' | 'textures' | 'mask'
 	/** The conversion's choices, kept for the session. */
 	const last = $state({ use: 'heights' as Use, min: 0, max: 100, heightMode: 'set' as 'set' | 'add', tolerance: 40 })
@@ -91,7 +92,7 @@
 	function pinToGround() {
 		const p = engineRef.current?.referenceFromScreen()
 		if (!r || !p) {
-			setStatus('Turn on the top-down view (U) to lay the image where it shows.', 4000)
+			setStatus(`Turn on the top-down view${keysOf('topDown') ? ` (${keysOf('topDown')})` : ''} to lay the image where it shows.`, 4000)
 			return
 		}
 		commit({ ...r, ...p, mode: 'ground' }, 'Lay reference image on the ground')
