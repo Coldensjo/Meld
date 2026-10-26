@@ -154,8 +154,10 @@ function squaredDistance(f: Float64Array, side: number): Float64Array {
  * ragged coastline. Every island preset multiplies its land by this. With a `shape`, the edge is its
  * tiles' (CoastShape), so the coast follows them.
  */
-function coast(u: number, v: number, seed: number, shape?: CoastShape | null): number {
-	return 1 - smoothstep(0.6, 0.95, edge(u, v, seed, shape))
+function coast(u: number, v: number, seed: number, shape: CoastShape | null | undefined, land: number): number {
+	// The shore's start moves with `land`: 0.1 at 0 (a small island), 0.6 at 0.5 (the default), 1.35 at 1 (past the corners, so land reaches the edge).
+	const lo = land < 0.5 ? 0.1 + land : 0.6 + (land - 0.5) * 1.5
+	return 1 - smoothstep(lo, lo + 0.35, edge(u, v, seed, shape))
 }
 
 /**
@@ -192,17 +194,19 @@ const CANYON_BAND = 220
  * How a new world's ground is drawn beyond its preset (#744), the New world page's sliders. `relief`
  * scales the land's height above the sea, `roughness` the small detail laid over it (0 none), and
  * `erosion` (0 to 1) how much water and gravity carve it once made (`generateHeights`), and `seaDepth`
- * how deep the open sea's floor lies (1 about 60 yd down).
+ * how deep the open sea's floor lies (1 about 60 yd down), and `land` (0 to 1) how much of the map is
+ * land: a small island in open sea at 0, the preset's own coast at 0.5, land up to the edges at 1.
  */
 export interface ShapeOptions {
 	relief: number
 	roughness: number
 	erosion: number
 	seaDepth: number
+	land: number
 }
 
 /** The New world page's defaults. */
-export const DEFAULT_SHAPE: ShapeOptions = { relief: 1, roughness: 1, erosion: 0.5, seaDepth: 1 }
+export const DEFAULT_SHAPE: ShapeOptions = { relief: 1, roughness: 1, erosion: 0.5, seaDepth: 1, land: 0.5 }
 
 /** How a map is shaped by `presetHeight`, beyond its preset and seed. */
 export interface HeightOptions {
@@ -213,6 +217,8 @@ export interface HeightOptions {
 	relief?: number
 	roughness?: number
 	seaDepth?: number
+	/** How much of the map is land, 0 to 1 (`ShapeOptions.land`); a Canyon's walls and the ocean ignore it. */
+	land?: number
 	/** Leaves a Canyon's walls out, for `generateHeights` to lay them on after erosion (`canyonWall`). */
 	noWall?: boolean
 }
@@ -233,7 +239,8 @@ export function presetHeight(id: PresetId, u: number, v: number, seed: number, o
 	const y = warpY(p, q, seed)
 	const depth = o.seaDepth ?? 1
 	if (id === 'ocean') return seabed(x, y, seed, depth)
-	const c = coast(u, v, seed, o.shape)
+	const land = Math.min(1, Math.max(0, o.land ?? 0.5))
+	const c = coast(u, v, seed, o.shape, land)
 	let h: number
 	/** How far out into the open sea the point is (0 on and round the land, 1 out at sea), for the seabed. */
 	let open = 1 - c
@@ -248,7 +255,7 @@ export function presetHeight(id: PresetId, u: number, v: number, seed: number, o
 		}
 		case 'archipelago': {
 			// Broad noise over the map decides where islands rise; the sea between them is shallow.
-			const where = smoothstep(0.5, 0.64, fbm(u * 4, v * 4, 4, seed + 5))
+			const where = smoothstep(0.64 - 0.28 * land, 0.78 - 0.28 * land, fbm(u * 4, v * 4, 4, seed + 5))
 			const n = fbm(x * 3, y * 3, 5, seed)
 			h = c * where * (14 + n * 36) - 6
 			open = 1 - c * where

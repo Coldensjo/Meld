@@ -123,7 +123,7 @@ Checks: the New world page's presets and sliders. `presetHeight` (`terrain/prese
 `generateHeights` (`terrain/generate.ts`) have unit tests in `terrainGenerate.test.ts`: the presets'
 heights in yards (Rolling hills 35 to 110 yd, Mountains over 150), detail keeping its size on a 6x6
 map (the mean slope round the middle against a 1-tile map's), Height scaling only the land, Roughness
-0 dropping the detail, erosion seeded and changing the ground, the open sea's floor and Sea depth, and
+0 dropping the detail, Land growing the land's share (also on an L of tiles), erosion seeded and changing the ground, the open sea's floor and Sea depth, and
 a Canyon no one can walk out of: a flood fill from the middle over vertices whose gradient is under
 50 degrees (the server's `walkableSlopeAngle`) never reaches the map's edge, for 1 and 2 tiles, with
 and without erosion, at Height 0.4 and Roughness 2. In the live app, `bun run probe new-world-shape

@@ -1,4 +1,4 @@
-// A new world's ground (#744): in the Start dialog's New world, the Height, Roughness, Erosion and Sea depth sliders are there with their defaults, Height redraws the preset pictures, and Create world makes a Large (4×4) Mountains world whose peaks stand over 150 yd with the sea round it going down past 25 yd, eroded (its heights differ from the same seed made with Erosion at none, through `generateHeights`); a Large Rolling hills world tops out between 35 and 110 yd; a Large Canyon (Sea depth greyed out for it) has a low floor in the middle and walls over 250 yd at the corners. Saves a view over each with `--shot`. Nothing written.
+// A new world's ground (#744): in the Start dialog's New world, the Height, Roughness, Erosion, Land and Sea depth sliders are there with their defaults, Height redraws the preset pictures, and Create world makes a Large (4×4) Mountains world whose peaks stand over 150 yd with the sea round it going down past 25 yd, eroded (its heights differ from the same seed made with Erosion at none, through `generateHeights`); a Large Rolling hills world tops out between 35 and 110 yd; a Large Canyon (Sea depth greyed out for it) has a low floor in the middle and walls over 250 yd at the corners. Saves a view over each with `--shot`. Nothing written.
 // touches: frontend/src/components/NewMapDialog.svelte, frontend/src/lib/terrain/presets.ts, frontend/src/lib/terrain/generate.ts, frontend/src/lib/terrain/Terrain.ts
 const { ui } = await P.state()
 const r = {}
@@ -90,7 +90,7 @@ r.canyonCorner = Math.round(canyon.heightAt(2, 2))
 await view(canyon, 'canyon')
 
 const ok =
-	r.sliders.length === 4 &&
+	r.sliders.length === 5 &&
 	r.heightRedraws &&
 	r.reset.includes('1.0') &&
 	r.mountains[1] > 150 &&

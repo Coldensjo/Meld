@@ -40,6 +40,8 @@
 	let seed = $state(Math.floor(Math.random() * 100000))
 	/** Height, Roughness, Erosion and Sea depth (#744). */
 	let look = $state<ShapeOptions>({ ...DEFAULT_SHAPE })
+	/** Only the island presets have a coast for Land to move. */
+	const landApplies = $derived(presetById(preset).water && preset !== 'ocean')
 	const lookChanged = $derived((Object.keys(DEFAULT_SHAPE) as (keyof ShapeOptions)[]).some((k) => look[k] !== DEFAULT_SHAPE[k]))
 	let mapId = $state(1900)
 	let showId = $state(false)
@@ -64,7 +66,7 @@
 
 	/** Draws a preset's picture into its card; redrawn when the seed, the tiles, Height, Roughness or Sea depth change. */
 	function preview(canvas: HTMLCanvasElement, id: PresetId) {
-		$effect(() => drawPresetPreview(canvas, id, seed, 96, { tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth }))
+		$effect(() => drawPresetPreview(canvas, id, seed, 96, { tiles: square.size, shape, relief: look.relief, roughness: look.roughness, seaDepth: look.seaDepth, land: look.land }))
 	}
 
 	// --- the client's maps and zones, read once --------------------------------------------------
@@ -218,6 +220,10 @@
 				<label class="field slider" title="How much water and gravity carve the ground once it is made: valleys, gullies and scree. Not shown in the pictures; a large world takes a moment longer.">
 					<span>Erosion <b>{look.erosion ? `${Math.round(look.erosion * 100)}%` : 'none'}</b></span>
 					<input type="range" min="0" max="1" step="0.05" bind:value={look.erosion} />
+				</label>
+				<label class="field slider" title={landApplies ? 'How much of the map is land: a small island in open sea at the left, land up to the edges at the right' : 'This preset has no coast'}>
+					<span>Land <b>{Math.round(look.land * 100)}%</b></span>
+					<input type="range" min="0" max="1" step="0.05" bind:value={look.land} disabled={!landApplies} />
 				</label>
 				<label class="field slider" title={presetById(preset).water ? 'How deep the open sea goes, over a seabed of ridges, trenches and shoals' : 'This preset has no sea'}>
 					<span>Sea depth <b>{Math.round(14 + 46 * look.seaDepth)} yd</b></span>

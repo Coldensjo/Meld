@@ -1,7 +1,7 @@
 // Run with: bun test tests/terrainGenerate.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { presetHeight, snowLine, type PresetId } from '../src/lib/terrain/presets.ts'
+import { CoastShape, presetHeight, snowLine, type PresetId } from '../src/lib/terrain/presets.ts'
 import { generateHeights } from '../src/lib/terrain/generate.ts'
 
 const CELL = 1600 / 3 / 128
@@ -173,4 +173,27 @@ test('the open sea goes deep over a seabed with relief, deeper with Sea depth, a
 	// An island's open water goes down to the seabed, its lakes stay shallow and its land stays put.
 	assert.ok(presetHeight('island', 0.02, 0.02, 5, { tiles: 4 }) < -25)
 	assert.equal(presetHeight('island', 0.5, 0.5, 5, { tiles: 4, seaDepth: 3 }), presetHeight('island', 0.5, 0.5, 5, { tiles: 4 }))
+})
+
+test('Land moves the shore: a small island at 0, the default coast at 0.5, land to the edge at 1', () => {
+	const share = (id: PresetId, land?: number, shape?: CoastShape) => {
+		let n = 0
+		const N = 40
+		for (let k = 0; k < N * N; k++) if (presetHeight(id, (k % N) / (N - 1), Math.floor(k / N) / (N - 1), 5, { tiles: 4, land, shape }) > 0) n++
+		return n / (N * N)
+	}
+	for (const id of ['island', 'hills', 'mountains', 'archipelago'] as const) {
+		const s = [0, 0.25, 0.5, 0.75, 1].map((l) => share(id, l))
+		for (let i = 1; i < s.length; i++) assert.ok(s[i] >= s[i - 1], `${id} land share ${s}`)
+		assert.ok(s[4] > s[0] + 0.3, `${id} land share ${s}`)
+		assert.equal(share(id, 0.5), share(id), id)
+	}
+	assert.ok(share('hills', 0) < 0.25 && share('hills', 0) > 0.01)
+	assert.ok(share('hills', 1) > 0.85)
+	// An L of tiles goes through CoastShape.
+	const mask = new Uint8Array([1, 1, 1, 0])
+	const shape = new CoastShape(mask, 2)
+	assert.ok(share('hills', 1, shape) > share('hills', 0, shape) + 0.2)
+	// Canyon and the open sea ignore it.
+	assert.equal(presetHeight('canyon', 0.3, 0.4, 5, { tiles: 4, land: 0 }), presetHeight('canyon', 0.3, 0.4, 5, { tiles: 4, land: 1 }))
 })

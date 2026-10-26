@@ -21,7 +21,7 @@ export function generateHeights(out: Float32Array, size: number, cellSize: numbe
 	const erosion = Math.min(1, Math.max(0, o.erosion ?? 0))
 	// A Canyon's walls go on after the erosion: its gullies would cut ramps a player could climb out by.
 	const walls = kind === 'canyon' && erosion > 0
-	const h = { tiles: (size * cellSize) / TILE_YARDS, shape, relief: o.relief, roughness: o.roughness, seaDepth: o.seaDepth, noWall: walls }
+	const h = { tiles: (size * cellSize) / TILE_YARDS, shape, relief: o.relief, roughness: o.roughness, seaDepth: o.seaDepth, land: o.land, noWall: walls }
 	for (let z = 0; z < V; z++) for (let x = 0; x < V; x++) out[z * V + x] = presetHeight(kind, x / size, z / size, seed, h)
 	if (erosion > 0 && kind !== 'ocean' && kind !== 'flat') erode(out, V, cellSize, erosion, seed)
 	if (walls) for (let z = 0; z < V; z++) for (let x = 0; x < V; x++) out[z * V + x] += canyonWall(x / size, z / size, seed, h)
