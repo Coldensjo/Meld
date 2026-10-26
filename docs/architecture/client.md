@@ -361,8 +361,12 @@ Reading the client's assets, and the server's creatures and objects: looks, edit
   own `creature_movement` path, else its template's), and a game object's use scripts
   (`gameobject_scripts`, by guid) and event (`event_scripts` and `scripted_event_id`, the event id in
   the data field `GameObjectInfo::GetEventScriptId` reads: goober data2, chest data6, camera data2).
-  It reads the database as saved, not the spawn's unsaved edits; gossip and quest scripts are not
-  listed. A first step toward the node editor (#30) and Lua (#28).
+  It reads the database as saved, not the spawn's unsaved edits; the scripts of its gossip
+  options (`gossip_menu_option.action_script_id`, through the menus the options open), of the quests
+  it starts and ends (`StartScript`, `CompleteScript`) and of a creature's spell list
+  (`creature_spells.scriptId_1..8`) are listed too (#736). A row with a `table` opens to its commands
+  (the lazy `ScriptCommands` binding, a whitelist of the script tables; names in
+  `lib/world/scriptCommands.ts`, from `ScriptCommands.h`); EventAI events do not open. A first step toward the node editor (#30) and Lua (#28).
 - **Flight paths** (#180): `internal/vmangos/taxi.go` reads and writes the client's three taxi tables
   (`LoadTaxiTables`, `ReadTaxiNetwork`, `SetTaxi`; 1.12 layouts: TaxiNodes 16 fields with the Horde
   mount at 14 and the Alliance one at 15, TaxiPath 4, TaxiPathNode 9). VMaNGOS reads the stops from

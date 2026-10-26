@@ -113,6 +113,16 @@ func (a *App) SpawnScripts(kind string, entry, guid int) ([]vmangos.SpawnScript,
 	return vmangos.SpawnScripts(server, kind, entry, guid)
 }
 
+// ScriptCommands lists the commands of script id in one of the script tables SpawnScripts names
+// (#736).
+func (a *App) ScriptCommands(table string, id int) ([]vmangos.ScriptCommand, error) {
+	server, _, err := a.serverAndData()
+	if err != nil {
+		return nil, err
+	}
+	return vmangos.ScriptCommands(server, table, id)
+}
+
 // NextObjectGUID is the first free game object guid of the world database, for placed objects.
 func (a *App) NextObjectGUID() (int, error) {
 	server, _, err := a.serverAndData()

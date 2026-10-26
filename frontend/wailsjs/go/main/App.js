@@ -702,6 +702,10 @@ export function SaveVendor(arg1, arg2) {
   return window['go']['main']['App']['SaveVendor'](arg1, arg2);
 }
 
+export function ScriptCommands(arg1, arg2) {
+  return window['go']['main']['App']['ScriptCommands'](arg1, arg2);
+}
+
 export function SearchCreatures(arg1) {
   return window['go']['main']['App']['SearchCreatures'](arg1);
 }

@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { SpawnScripts } from '../../wailsjs/go/main/App'
+	import { ScriptCommands, SpawnScripts } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
+	import { scriptCommandName } from '../lib/world/scriptCommands'
 
 	// The scripts the world database attaches to a spawn (#137), read-only: its template's C++ script
-	// and AI, a game object's use and event scripts, a creature's EventAI events and path scripts. A
-	// first step toward the node editor (#30) and Lua (#28).
+	// and AI, a game object's use and event scripts, a creature's EventAI events and path scripts, and
+	// the scripts of its gossip options, quests and spell list (#736). A script with a table opens to
+	// its commands, read when it is opened. A first step toward the node editor (#30) and Lua (#28).
 
 	interface Props {
 		s: vmangos.WorldSpawn
@@ -37,6 +39,32 @@
 			})
 	})
 
+	/** The commands of the scripts opened, by `table:id`; `null` while being read. */
+	let open = $state<Record<string, vmangos.ScriptCommand[] | string | null>>({})
+	const scriptKey = (x: vmangos.SpawnScript) => `${x.table}:${x.id}`
+	function toggle(x: vmangos.SpawnScript) {
+		const k = scriptKey(x)
+		if (k in open) {
+			delete open[k]
+			return
+		}
+		open[k] = null
+		ScriptCommands(x.table, x.id)
+			.then((list) => {
+				if (k in open) open[k] = list ?? []
+			})
+			.catch((e) => {
+				if (k in open) open[k] = String(e)
+			})
+	}
+
+	/** One command as a line: its delay, name, the data it uses and the spot. */
+	function commandLine(c: vmangos.ScriptCommand): string {
+		const data = c.data.filter((d) => d !== 0).join(', ')
+		const spot = c.x || c.y || c.z ? `(${c.x.toFixed(1)}, ${c.y.toFixed(1)}, ${c.z.toFixed(1)})` : ''
+		return [c.delay ? `+${c.delay} s` : '', scriptCommandName(c.command), data, spot].filter(Boolean).join('  ')
+	}
+
 	const commands = (n: number) => `${n} ${n === 1 ? 'command' : 'commands'}`
 
 	/** What attaches a script, as the list shows it. */
@@ -54,6 +82,14 @@
 				return `AI event ${x.id}`
 			case 'path':
 				return `Path ${x.name.includes(',') ? 'points' : 'point'} ${x.name}`
+			case 'gossip':
+				return 'Gossip'
+			case 'queststart':
+				return 'Quest start'
+			case 'questend':
+				return 'Quest end'
+			case 'spell':
+				return 'Spell list'
 		}
 		return x.kind
 	}
@@ -68,6 +104,11 @@
 				return [x.name ? `C++ ${x.name}` : '', x.commands || !x.name ? commands(x.commands) : ''].filter(Boolean).join(', ')
 			case 'path':
 				return `script ${x.id}, ${commands(x.commands)}`
+			case 'gossip':
+			case 'queststart':
+			case 'questend':
+			case 'spell':
+				return `${x.name}, script ${x.id}, ${commands(x.commands)}`
 		}
 		return commands(x.commands)
 	}
@@ -84,10 +125,31 @@
 	{:else}
 		<ul class="scripts">
 			{#each scripts as x (`${x.kind}:${x.id}:${x.name}`)}
+				{@const key = scriptKey(x)}
 				<li title={x.comment || undefined}>
-					<span class="what">{label(x)}</span>
+					{#if x.table && x.commands}
+						<button class="what open" aria-expanded={key in open} onclick={() => toggle(x)}>{key in open ? '▾' : '▸'} {label(x)}</button>
+					{:else}
+						<span class="what">{label(x)}</span>
+					{/if}
 					<span class="detail">{detail(x)}</span>
 					{#if x.comment}<span class="comment">{x.comment}</span>{/if}
+					{#if key in open}
+						{@const cmds = open[key]}
+						{#if cmds === null}
+							<span class="comment">Reading…</span>
+						{:else if typeof cmds === 'string'}
+							<span class="comment">Couldn't read the commands: {cmds}</span>
+						{:else}
+							<ol class="cmds" data-testid="script-commands">
+								{#each cmds as c, i (i)}
+									<li title={c.comments || undefined}>
+										{commandLine(c)}{#if c.comments}<span class="note"> {c.comments}</span>{/if}
+									</li>
+								{/each}
+							</ol>
+						{/if}
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -129,6 +191,30 @@
 	}
 	.what {
 		font-weight: 600;
+	}
+	.open {
+		background: none;
+		border: 0;
+		padding: 0;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+	.cmds {
+		grid-column: 1 / -1;
+		margin: 2px 0 0;
+		padding: 0 0 0 20px;
+		font-size: 11px;
+		color: var(--text-dim);
+	}
+	.scripts .cmds li {
+		display: list-item;
+		padding: 0;
+		border: 0;
+	}
+	.note {
+		opacity: 0.7;
 	}
 	.detail {
 		color: var(--text-dim);

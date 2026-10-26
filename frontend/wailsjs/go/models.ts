@@ -3039,6 +3039,32 @@ export namespace vmangos {
 	        this.skipped = source["skipped"];
 	    }
 	}
+	export class ScriptCommand {
+	    delay: number;
+	    command: number;
+	    data: number[];
+	    x: number;
+	    y: number;
+	    z: number;
+	    o: number;
+	    comments: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScriptCommand(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.delay = source["delay"];
+	        this.command = source["command"];
+	        this.data = source["data"];
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.z = source["z"];
+	        this.o = source["o"];
+	        this.comments = source["comments"];
+	    }
+	}
 	export class SoundOption {
 	    id: number;
 	    name: string;
@@ -3297,6 +3323,7 @@ export namespace vmangos {
 	    name: string;
 	    commands: number;
 	    comment: string;
+	    table: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SpawnScript(source);
@@ -3309,6 +3336,7 @@ export namespace vmangos {
 	        this.name = source["name"];
 	        this.commands = source["commands"];
 	        this.comment = source["comment"];
+	        this.table = source["table"];
 	    }
 	}
 	export class SpawnTeleport {

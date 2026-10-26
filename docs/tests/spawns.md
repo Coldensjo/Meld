@@ -268,7 +268,7 @@ Tides (2576) event 364, creature 6175 at guid 108 scripts at path points 1, 4, 7
 Go side alone: `go test ./internal/vmangos/ -run SpawnScriptsReal -v` (skipped under `-short`, so
 `make test-full` runs it; `-v` logs the rows). Other spawns with scripts:
 `select g.guid, g.id from gameobject_scripts s join gameobject g on g.guid = s.id`, a creature with
-`ai_name = 'EventAI'` (2240, Syndicate Footpad). Trap: the list comes from a new binding, so the
+`ai_name = 'EventAI'` (2240, Syndicate Footpad). The list also has the scripts reached through other tables (#736): gossip options (creature 295, script 342), quests started and ended (197, script 54; 234, script 166) and a spell list's slots (4064, script 3019). A row with commands opens on click to list them (`ScriptCommands`, a lazy binding by table and id); the probe opens 197's Quest start and reads three. EventAI events do not open (an event runs up to three scripts). Trap: the list comes from a new binding, so the
 running `make dev` must have rebuilt its Go side (`/wow/status`'s `started` changes); before that the
 page logs `SpawnScripts is not a function`.
 

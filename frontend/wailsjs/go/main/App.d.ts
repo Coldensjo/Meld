@@ -358,6 +358,8 @@ export function SaveThumbnail(arg1:string,arg2:string):Promise<void>;
 
 export function SaveVendor(arg1:number,arg2:Array<vmangos.VendorItem>):Promise<string>;
 
+export function ScriptCommands(arg1:string,arg2:number):Promise<Array<vmangos.ScriptCommand>>;
+
 export function SearchCreatures(arg1:string):Promise<Array<vmangos.CreatureTemplate>>;
 
 export function SearchItems(arg1:string):Promise<Array<vmangos.ItemRef>>;
