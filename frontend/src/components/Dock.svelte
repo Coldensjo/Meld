@@ -1,8 +1,11 @@
 <script lang="ts">
 	import DockPanel from './DockPanel.svelte'
 	import LayersPanel from './LayersPanel.svelte'
+	import MinimapView from './MinimapView.svelte'
 	import { prefs, ui } from '../lib/state/editor.svelte'
 	import { toCss } from '../lib/ui/uiScale'
+	import { keysOf } from '../lib/ui/commands'
+	import { detachMinimap } from '../lib/ui/minimap'
 
 	// Hide the dock (#653); View › Layers panel shows it again. A Replace waiting for a texture is dropped, since its Cancel is in the hidden panel.
 	function hide() {
@@ -30,6 +33,18 @@
 
 <div class="dock" style:width="{prefs.dockWidth}px">
 	<div class="resizer" role="separator" aria-orientation="vertical" onpointerdown={startResize}></div>
+	{#if ui.minimap && prefs.minimapDocked}
+		<!-- The minimap attached above Layers (#749); its ⇱ detaches it into the floating MinimapWindow. -->
+		<DockPanel id="minimap" tabs={[{ id: 'minimap', label: 'Minimap' }]} onclose={() => (ui.minimap = false)} closeTitle="Close the minimap ({keysOf('minimap')})" closeLabel="Close the minimap">
+			{#snippet actions()}
+				<label class="opt" title="The map's Light.dbc light zones: full inside the solid ring, fading out to the dashed one"><input type="checkbox" bind:checked={prefs.minimapLights} /> Light zones</label>
+				<button class="detach" onclick={detachMinimap} title="Detach into a floating window" aria-label="Detach the minimap">⇱</button>
+			{/snippet}
+			<div class="minimap" role="region" aria-label="Minimap">
+				<MinimapView />
+			</div>
+		</DockPanel>
+	{/if}
 	<DockPanel id="layers" grow onclose={hide} tabs={[{ id: 'layers', label: 'Layers' }]}>
 		<LayersPanel />
 	</DockPanel>
@@ -61,6 +76,29 @@
 	.dock :global(.panel:not(.grow) .body) {
 		max-height: calc(40 * var(--vh));
 		overflow-y: auto;
+	}
+	/* The minimap stays square at the dock's width, and no taller than the dock's other panels may grow. */
+	.minimap {
+		width: min(100%, calc(40 * var(--vh)));
+		margin: 0 auto;
+	}
+	.opt {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		font-size: 11px;
+		color: var(--text-dim);
+		white-space: nowrap;
+	}
+	.detach {
+		border: none;
+		background: transparent;
+		color: var(--text-dim);
+		padding: 0 6px 0 8px;
+		font-size: 11px;
+	}
+	.detach:hover {
+		color: var(--text);
 	}
 	.dock :global(.panel.grow .body) {
 		overflow-y: auto;

@@ -70,6 +70,7 @@ const allowed = new Set([
 	'DebugOverlay.svelte',
 	'MapPicker.svelte',
 	'MinimapWindow.svelte',
+	'MinimapView.svelte',
 	'ItemTooltipBox.svelte',
 	'FlightPathsWindow.svelte',
 	'EquipBonuses.svelte',

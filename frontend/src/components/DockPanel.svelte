@@ -12,9 +12,14 @@
 		grow?: boolean
 		/** Shows a close button on the header (the dock's, #653). */
 		onclose?: () => void
+		/** The close button's tooltip and label. */
+		closeTitle?: string
+		closeLabel?: string
+		/** More controls on the header, before the collapse button (the minimap's, #749). */
+		actions?: Snippet
 		children: Snippet
 	}
-	let { id, tabs, active = tabs[0]?.id, onselect, grow = false, onclose, children }: Props = $props()
+	let { id, tabs, active = tabs[0]?.id, onselect, grow = false, onclose, closeTitle = 'Hide the panel (View › Layers panel shows it again)', closeLabel = 'Hide panel', actions, children }: Props = $props()
 
 	const collapsed = $derived(prefs.collapsedPanels.includes(id))
 	function toggle() {
@@ -36,11 +41,12 @@
 				>
 			{/each}
 		</div>
+		{#if actions}<div class="actions">{@render actions()}</div>{/if}
 		<button class="chev" onclick={toggle} title={collapsed ? 'Expand' : 'Collapse'} aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}>
 			{collapsed ? '▸' : '▾'}
 		</button>
 		{#if onclose}
-			<button class="chev" onclick={onclose} title="Hide the panel (View › Layers panel shows it again)" aria-label="Hide panel">✕</button>
+			<button class="chev" onclick={onclose} title={closeTitle} aria-label={closeLabel}>✕</button>
 		{/if}
 	</header>
 	{#if !collapsed}
@@ -88,6 +94,11 @@
 	.tab.active {
 		background: var(--panel);
 		color: var(--text);
+	}
+	.actions {
+		display: flex;
+		align-items: center;
+		flex: none;
 	}
 	.chev {
 		border: none;

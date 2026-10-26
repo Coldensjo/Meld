@@ -118,7 +118,7 @@ The window layout, the asset browser and the dock panels and floating windows.
     renderer, which shares GPU textures. They are cached as PNG via the `SaveThumbnail` binding.
   - **Never send request bodies (POST) to the Wails asset server.** WebKitGTK segfaults reading
     them. Use bindings for uploads.
-- **Dock panels** (`components/Dock.svelte`): only Layers is shown, at the owner's request
+- **Dock panels** (`components/Dock.svelte`): Layers, and the Minimap above it while attached (#749); only Layers otherwise, at the owner's request
   (2026-10-15). What the dropped panels did lives elsewhere now: `PropertiesPanel` is shown by the
   floating **Inspector** (`components/Inspector.svelte`, `ui.inspector`, the I key, Esc closes it);
   growing a region and saving or exporting spawns are File menu actions (shown for a region), with
@@ -129,6 +129,13 @@ The window layout, the asset browser and the dock panels and floating windows.
   `.centre` keeps its pinned grid column, so the viewport takes the dock's width. Hiding drops a
   pending Replace (`ui.replaceSlot`), whose Cancel is in the hidden panel. Tab's hide-panels works on
   top of it.
+  - **Minimap** (#749): `MinimapView.svelte` is the map (canvas, overview, tile borders, light zones,
+    the camera's marker, click to jump), shown in one place at a time: as a dock panel above Layers
+    while `prefs.minimapDocked` (the default), or in the floating `MinimapWindow.svelte`. `ui.minimap`
+    (M, Camera › Minimap) shows it in either; `lib/ui/minimap.ts` holds the toggle, attach (⇥) and
+    detach (⇱), and shows a hidden dock when the minimap is attached. `DockPanel`'s `actions` snippet
+    puts the Light zones box and ⇱ on its header. The dock panel stays square at the dock's width, at
+    most 40 % of the window's height.
   - **History** (`components/HistoryWindow.svelte`, `ui.history`, Edit › History) is a floating window
     like the Inspector, not a dock panel: the active map's undo stack (`History.steps`), where a click
     calls `Engine.goToHistory` (undo or redo to that step). It re-reads the stack when

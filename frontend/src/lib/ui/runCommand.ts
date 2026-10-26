@@ -12,6 +12,7 @@ import { openMap } from '../io/mapio'
 import { saveOrPublish } from '../io/publish'
 import { requestClose } from '../../components/DocTabs.svelte'
 import { keyHint, keysOf, type CommandId } from './commands'
+import { toggleMinimap } from './minimap'
 
 /** The day cycle's speeds, a day in so many minutes, slowest first; 0 is paused. */
 const CYCLE_MINUTES = [40, 20, 10, 5, 2, 1]
@@ -91,7 +92,7 @@ const RUN: Record<Exclude<CommandId, `tool:${string}`>, Run> = {
 		ui.topDown = !ui.topDown
 		setStatus(ui.topDown ? `Top-down view: the wheel zooms, the turn keys or a right drag turn the map${keyHint('topDown', 'for the 3D view')}.` : '3D view.', 3000)
 	},
-	minimap: () => (ui.minimap = !ui.minimap),
+	minimap: () => toggleMinimap(),
 	focus: (e) => e.focusSelected(),
 	climbView: () => {
 		prefs.climbView = !prefs.climbView

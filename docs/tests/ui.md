@@ -379,13 +379,21 @@ It is the first thing to read for a bug report, as the Log window is gone once M
 
 ## Minimap window (M)
 
-Checks: M (or Camera › Minimap Window) opens a floating map at the top left: the heights drawn grey
-by height and blue under the sea (redrawn when `terrain.heightsVersion` changes, checked at 2 Hz
-through `stats.view`), the client's overview behind it for a part of Azeroth (cropped to the open
+Checks: M (or Camera › Minimap) shows the map (`MinimapView.svelte`) attached to the dock above
+Layers (`prefs.minimapDocked`, the default, #749; M shows a hidden dock too), or, detached with the
+panel's ⇱, as a floating window at the top left (its ⇥ attaches it again): the heights drawn grey
+by height and blue under the sea (redrawn when the terrain object, its `heightsVersion` or the sea
+changes, checked at 2 Hz through `stats.view`; `MinimapDrawn` in `lib/io/minimapImage.ts`), the client's overview behind it for a part of Azeroth (cropped to the open
 block), amber tile borders on a map bigger than a tile, and a white dot with a line for the camera's
 target and facing. A click moves the camera there (`controller.focus`). In the dev page:
 `ed.ui.minimap = true`, then `ed.stats.view` fills within half a second and
-`document.querySelector('[aria-label="Minimap"] canvas').width` is the map's size in cells.
+`document.querySelector('[aria-label="Minimap"] canvas').width` is the map's size in cells (the
+selector finds it in the dock and in the window).
+- Probe: `bun run probe minimap-dock`: attached above Layers and square at the dock's width, M shows
+  a hidden dock, detach and attach, M hides it in either place, and a new Small Mountains world
+  (the start map's size) drawn with its ground. Trap (#749): a new map's `Terrain` starts its own
+  `heightsVersion`, so two maps of one size both stand at 1 after the first upload; a cache key of
+  size and version kept the old map's picture (all water) over the new world.
 - The marker moves on the click itself (#129), not at the next 2 Hz refresh: dispatch a `click` with
   `clientX`/`clientY` on `.minimap .map`, wait one frame, and `.minimap circle`'s `cx`/`cy` have moved.
 - A jump's cost (#129): wrap `__engine.frame` to time each call, `controller.focus(x, z)` across a

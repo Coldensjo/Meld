@@ -132,7 +132,7 @@ Also included:
   - The ☀/☾ button next to the menus switches between day and night.
   - **Prop lights & flames**: torches, braziers, campfires, lamps and candles get animated flames
     and flickering light (up to 8 nearest lights).
-- **Camera**: follow the ground, collision, top-down view, minimap window, speed, bookmarks.
+- **Camera**: follow the ground, collision, top-down view, minimap (in the dock above Layers, or detached into a floating window), speed, bookmarks.
 - **Game**: launch the 1.12 client or Benilla, Game Login.
 - **Preferences**: WoW client folder, VMaNGOS and Benilla folders, game client and window, thumbnail
   cache, camera speed, mouse sensitivity, interface size, toolbar icon size and side, invert camera Y,

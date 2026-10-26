@@ -1,7 +1,7 @@
 // Run with: bun test tests/minimapImage.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { minimapScale, shadeHeights } from '../src/lib/io/minimapImage.ts'
+import { MinimapDrawn, minimapScale, shadeHeights } from '../src/lib/io/minimapImage.ts'
 
 test('ground is grey from low to high and water is blue', () => {
 	const size = 2
@@ -23,4 +23,20 @@ test('a small map saves at least 512 pixels across', () => {
 	assert.equal(minimapScale(128), 4)
 	assert.equal(minimapScale(512), 1)
 	assert.equal(minimapScale(2048), 1)
+})
+
+test('the minimap redraws for another map at the same size and heights version (#749)', () => {
+	const drawn = new MinimapDrawn()
+	const a = {}
+	const b = {}
+	assert.equal(drawn.stale(a, 1, 0), true)
+	assert.equal(drawn.stale(a, 1, 0), false)
+	// A new world of the same size: its own terrain, also at version 1.
+	assert.equal(drawn.stale(b, 1, 0), true)
+	assert.equal(drawn.stale(b, 2, 0), true)
+	assert.equal(drawn.stale(b, 2, 5), true)
+	assert.equal(drawn.stale(b, 2, -Infinity), true)
+	assert.equal(drawn.stale(b, 2, -Infinity), false)
+	// Back to the first tab.
+	assert.equal(drawn.stale(a, 1, 0), true)
 })

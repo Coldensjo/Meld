@@ -482,6 +482,8 @@ export const prefs = $state({
 	showContours: false,
 	/** The minimap window's Light zones (#26): the map's Light.dbc spheres, the radius each is full at and fades out by. */
 	minimapLights: false,
+	/** The minimap attached to the dock above Layers (#749), the default; off, it is a floating window. `ui.minimap` (M) shows it in either place. */
+	minimapDocked: true,
 	contourStep: 4,
 	/** The climb view's steepest walkable slope, in degrees (Noggit Red's default is 49). */
 	climbAngle: 49,

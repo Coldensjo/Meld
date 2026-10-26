@@ -584,7 +584,7 @@
 						setStatus(ui.walkCamera ? 'Walking: W A S D move at a run (Shift faster), the mouse looks around. Camera › Walk again returns to your camera.' : 'Back to your camera.', 4000)
 					},
 				},
-				{ kind: 'check', label: 'Minimap Window', checked: ui.minimap, ...toggle('minimap') },
+				{ kind: 'check', label: 'Minimap', checked: ui.minimap, ...toggle('minimap') },
 				{ kind: 'check', label: 'Locked Cursor (a brush stays put while the camera moves)', checked: prefs.lockedCursor, toggle: () => (prefs.lockedCursor = !prefs.lockedCursor) },
 				{ kind: 'sep' },
 				{ kind: 'action', label: 'Faster', ...cmd('cameraFaster') },
