@@ -6,6 +6,7 @@
 	import { baseType, doodadSetOf } from '../lib/models/wmoSet'
 	import { WMODoodadSets } from '../../wailsjs/go/main/App'
 	import { hasBackend } from '../lib/io/backend'
+	import { copyToClipboard } from '../lib/ui/clipboard'
 	import type { WorldObject } from '../lib/world/ObjectLayer'
 	import { spawnKey } from '../lib/world/SpawnLayer'
 	import FormationFields from './FormationFields.svelte'
@@ -90,7 +91,7 @@
 
 	async function copyPath() {
 		try {
-			await navigator.clipboard.writeText(modelPath)
+			await copyToClipboard(modelPath)
 		} catch {
 			/* no clipboard in this context */
 		}

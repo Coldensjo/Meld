@@ -1,5 +1,5 @@
 import { setStatus, ui, type ContextItem } from '../state/editor.svelte'
-import { copyToClipboard } from './templateIo'
+import { copyToClipboard } from './clipboard'
 
 // Copy id (#681): a right-click on anything that has an id (a spawn, a region model, a list row or
 // picker hit in the editors) offers to copy it, and its name where it has one, as plain text: the

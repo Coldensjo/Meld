@@ -1,6 +1,5 @@
-import { ClipboardSetText } from '../../../wailsjs/runtime/runtime'
-import { hasBackend } from '../io/backend'
 import { setStatus } from '../state/editor.svelte'
+import { copyToClipboard } from './clipboard'
 
 // What the item and spell editors share beyond TemplateEditor (#722): copying a GM command, and the
 // SQL export and import of template rows. Each editor keeps its own plan bar text.
@@ -11,12 +10,6 @@ interface Flow {
 	note: string
 	leave(run: () => void | Promise<void>): void
 	reopen(): void
-}
-
-/** Writes `text` to the clipboard (the app's, or the browser's on the dev page). */
-export async function copyToClipboard(text: string) {
-	if (hasBackend()) await ClipboardSetText(text)
-	else await navigator.clipboard.writeText(text)
 }
 
 /** Copies a GM command and says so in the editor's note and the status line; `note` is the note's text after "Copied <command>: ". */

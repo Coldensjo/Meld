@@ -4,12 +4,13 @@ import { formatReport } from '../engine/perfMeter'
 import { editor, prefs, setStatus, ui } from '../state/editor.svelte'
 import { engineRef } from '../state/engineRef'
 import { selectObjects } from '../state/selection'
+import { copyToClipboard } from '../ui/clipboard'
 import { parseScene, PREFIX, VIEW_PREFS, type Scene, type ViewPrefs } from './sceneParse'
 import { hasBackend } from './backend'
 import { fromMapData, toMapData } from './mapData'
 import { openWowRegion } from './region'
 import { LoadMap, SaveSceneMap } from '../../../wailsjs/go/main/App'
-import { ClipboardGetText, ClipboardSetText } from '../../../wailsjs/runtime/runtime'
+import { ClipboardGetText } from '../../../wailsjs/runtime/runtime'
 
 // A scene is the editor's state as one line of text (Help > Copy Scene), so a view can be handed to
 // someone else on this machine (or to Claude, through `window.__loadScene`) and opened again exactly:
@@ -52,8 +53,7 @@ export async function copyTeleport(engine: Engine) {
 	const r = await engine.teleportAtCursor()
 	if ('error' in r) return setStatus(r.error, 6000)
 	try {
-		if (hasBackend()) await ClipboardSetText(r.command)
-		else await navigator.clipboard.writeText(r.command)
+		await copyToClipboard(r.command)
 		setStatus(`Copied ${r.command}: paste it in the game's chat as a GM.`, 6000)
 	} catch (err) {
 		setStatus(`Copying the position failed: ${err}`, 8000)
@@ -65,7 +65,7 @@ export async function copyScene(engine: Engine) {
 	if (!hasBackend()) return setStatus('Copying a scene needs the desktop app (run via `wails dev`).')
 	try {
 		const text = await sceneText(engine)
-		await ClipboardSetText(text)
+		await copyToClipboard(text)
 		setStatus(`Copied the scene${text.includes('"copy":true') ? ' (the unsaved map went to a copy in the cache)' : ''}. Paste it to share this exact view.`, 8000)
 	} catch (err) {
 		console.error(err)
@@ -84,8 +84,7 @@ export async function copyPerfReport(engine: Engine) {
 		let scene = ''
 		if (hasBackend()) scene = await sceneText(engine).catch(() => '')
 		const text = scene ? `${report}\n\n${scene}` : report
-		if (hasBackend()) await ClipboardSetText(text)
-		else await navigator.clipboard.writeText(text)
+		await copyToClipboard(text)
 		setStatus('Copied the performance report' + (scene ? ' and the scene.' : '.'), 6000)
 	} catch (err) {
 		setStatus(`Copying the performance report failed: ${err}`, 8000)

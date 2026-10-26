@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { ExportIcons, ExportIconsDialog, SpellsWithIcon } from '../../wailsjs/go/main/App'
 	import type { vmangos } from '../../wailsjs/go/models'
-	import { ClipboardSetText } from '../../wailsjs/runtime/runtime'
 	import { hasBackend } from '../lib/io/backend'
 	import { ui } from '../lib/state/editor.svelte'
 	import { leaveField, takeEscape } from '../lib/state/escape'
+	import { copyToClipboard } from '../lib/ui/clipboard'
 	import { dialogFocus } from '../lib/ui/dialogFocus'
 	import IconGrid from './IconGrid.svelte'
 	import ItemIcon from './ItemIcon.svelte'
@@ -76,8 +76,7 @@
 
 	async function copy(text: string, what: string) {
 		try {
-			if (hasBackend()) await ClipboardSetText(text)
-			else await navigator.clipboard.writeText(text)
+			await copyToClipboard(text)
 			note = `Copied ${what} ${text}.`
 			error = ''
 		} catch (e) {
